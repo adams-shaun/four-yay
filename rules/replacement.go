@@ -2636,9 +2636,12 @@ func (e *Engine) emitTokenPlan(ev events.Event, plan []tokenPlanMint) {
 // and the MoveZone rides the ordinary entry machinery a real copy gets).
 func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) events.Event {
 	var last events.Event
-	for _, mint := range plan {
+	for i, mint := range plan {
 		if mint.copyOf != 0 {
 			last = e.emitChosenCopyToken(ev, mint.copyOf, tokenMintPlayer(mint, ev))
+			if e.suspendTokenPlanTail(ev, plan, i) {
+				return last
+			}
 			continue
 		}
 		mintEv := events.Event{Kind: events.TokenCreate, Player: tokenMintPlayer(mint, ev), Text: mint.script}
@@ -2650,6 +2653,9 @@ func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) event
 		e.applyingReplacement = true
 		stored := e.emit(mintEv)
 		e.applyingReplacement = savedApplying
+		if e.suspendTokenPlanTail(ev, plan, i) {
+			return last
+		}
 		if e.tokenMintSink != nil && e.G.Obj(want) != nil {
 			*e.tokenMintSink = append(*e.tokenMintSink, want)
 		}
@@ -2658,6 +2664,24 @@ func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) event
 		last = stored
 	}
 	return last
+}
+
+// suspendTokenPlanTail parks the mints still owed when the just-emitted
+// plan[at] mint staged behind an entry-counter order ask. Without it the
+// loop would emit the next mint into the outstanding stage, whose
+// sameEntryMove guard reads any same-kind TokenCreate as the staged mint's
+// re-drive and drops it. Returns whether it suspended. The stage's
+// completion re-drive continues the tail (resumeEntryCounterOrder).
+func (e *Engine) suspendTokenPlanTail(ev events.Event, plan []tokenPlanMint, at int) bool {
+	if at+1 >= len(plan) {
+		return false
+	}
+	st := e.outstandingEntryStage()
+	if st == nil {
+		return false
+	}
+	st.tokenPlan = &tokenPlanResume{ev: ev, plan: append([]tokenPlanMint(nil), plan[at+1:]...)}
+	return true
 }
 
 // emitChosenCopyToken mints one copy of a battlefield creature: the CopyToken

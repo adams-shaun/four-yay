@@ -849,6 +849,23 @@ func (e *Engine) Clone() *Engine {
 				resume := *rc.untap
 				rc.untap = &resume
 			}
+			if rc.stage != nil {
+				// The stage is mutable while its ask is outstanding: the
+				// completed re-drive consumes its token-plan tail and the
+				// resume appends placements. Copy the value and re-allocate
+				// the tail so a clone answered on either side cannot alias
+				// the original's continuation.
+				st := *rc.stage
+				if st.tokenPlan != nil {
+					tp := *st.tokenPlan
+					tp.plan = append([]tokenPlanMint(nil), st.tokenPlan.plan...)
+					st.tokenPlan = &tp
+				}
+				st.applied = append([]replMatch(nil), st.applied...)
+				st.placed = append([]events.EntryCounterGrant(nil), st.placed...)
+				st.bodyIDs = append([]string(nil), st.bodyIDs...)
+				rc.stage = &st
+			}
 			c.replChoices[i] = rc
 		}
 	}

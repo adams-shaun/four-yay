@@ -52,6 +52,38 @@ type entryCounterStage struct {
 	// fold returns them so the Updated dispatch skips running those bodies;
 	// their counters are already in the move's Pairs payload.
 	bodyIDs []string
+	// tokenPlan carries the mints a finalized token plan still owes after the
+	// mint currently staged behind this entry's order ask. The stage's
+	// completed re-drive continues the plan, so a plan whose FIRST mint parks
+	// does not lose the mints after it (a second same-script mint would
+	// otherwise be swallowed by the outstanding-stage re-drive guard, since
+	// TokenCreate events carry no identity of their own). nil for a non-plan
+	// entry. Clone-copied with the rest of the stage (rules/clone.go).
+	tokenPlan *tokenPlanResume
+}
+
+// tokenPlanResume is the tail of a finalized token plan that must wait for
+// the staged mint's entry-counter order answer: the plan's original event
+// (the mint context) and the mints still owed. It lives on the parked stage
+// so the completion re-drive owns the continuation.
+type tokenPlanResume struct {
+	ev   events.Event
+	plan []tokenPlanMint
+}
+
+// outstandingEntryStage returns the first entry-counter stage still awaiting
+// its order answer, or nil. A parked mint leaves its stage on the
+// replacement-choice queue until the answer lands; emitTokenPlanMints uses
+// this to suspend the rest of a multi-mint plan instead of emitting into an
+// outstanding stage (which sameEntryMove would treat as a re-drive).
+func (e *Engine) outstandingEntryStage() *entryCounterStage {
+	for i := range e.replChoices {
+		rc := &e.replChoices[i]
+		if rc.kind == replChoiceEntryOrder && rc.stage != nil && !rc.stage.complete {
+			return rc.stage
+		}
+	}
+	return nil
 }
 
 // entryGrant is one planned entry counter: the kind and amount a grant will
@@ -547,6 +579,8 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 		// next resume continues this entry rather than starting over.
 		fresh := e.replChoices[len(e.replChoices)-1].stage
 		fresh.placed, fresh.bodyIDs = st.placed, st.bodyIDs
+		fresh.tokenPlan = st.tokenPlan
+		st.tokenPlan = nil
 		return
 	}
 	st.complete = true
@@ -557,6 +591,17 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 	}
 	e.emit(st.move)
 	e.applyingReplacement = priorApplying
+	// A staged TOKEN mint may be only the first of a finalized plan. The
+	// plan's remaining mints were suspended by emitTokenPlanMints so they
+	// would not be mistaken for this stage's re-drive; continue them now that
+	// this mint has folded. Consume the tail first: the continuation may park
+	// on its own later mint and set a fresh stage's tail.
+	if cont := st.tokenPlan; cont != nil {
+		st.tokenPlan = nil
+		if len(cont.plan) > 0 {
+			e.emitTokenPlanMints(cont.ev, cont.plan)
+		}
+	}
 }
 
 // foldEntryMove is shared by the ordinary emit tail and the Updated
