@@ -2428,8 +2428,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// and the re-drive after the answer runs the ordinary emit exactly once.
 	// A completed stage returns false and falls through: the fold below
 	// consumes it (rules/entry_counters.go).
-	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield ||
-		ev.Kind == events.TokenCreate || ev.Kind == events.CardToken) &&
+	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield &&
 		e.entryCounterOrderParks(ev) {
 		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 			Text: "entry awaiting counter-replacement-order choice"}
@@ -2452,6 +2451,15 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			return replaced
 		}
 		ev = replaced
+	}
+	// Token replacement effects must settle before entry staging: they may
+	// remove the mint or rewrite its script. Final token plans re-enter here
+	// under applyingReplacement, so they skip rematching but still stage each
+	// finalized mint before its TokenCreate/CardToken fold.
+	if (ev.Kind == events.TokenCreate || ev.Kind == events.CardToken) &&
+		e.entryCounterOrderParks(ev) {
+		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
+			Text: "entry awaiting counter-replacement-order choice"}
 	}
 	// CountersRemain is a departure property of the battlefield object. Tag the
 	// final, replacement-adjusted MoveZone so events.Apply and replay preserve

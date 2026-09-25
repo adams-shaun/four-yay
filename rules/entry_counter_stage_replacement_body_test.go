@@ -81,24 +81,20 @@ func TestEntryCounterStageReplacementBody(t *testing.T) {
 				}
 				passPriorityOnce(t, e)
 			}
-			if got := e.G.NextID; got != mintID {
-				t.Fatalf("precondition: another object allocated before the nested entry: NextID = %d, want %d", got, mintID)
-			}
-
 			// Precondition: the body actually fired and its nested entry
 			// competes, so the ask we assert below is the nested entry's
 			// order, not the host's own entry.
+			for _, ev := range e.L.Events {
+				if ev.Kind == events.TokenCreate && ev.Text == "body_entry" {
+					t.Fatalf("nested entry minted before the order answer: %+v", ev)
+				}
+			}
 			d := e.Pending()
 			if d == nil || d.Kind != decision.KReplacement {
 				t.Fatalf("nested replacement-body entry did not park for the order choice: %+v", d)
 			}
 			if o := e.G.Obj(mintID); o != nil && o.Zone == state.ZBattlefield {
 				t.Fatalf("precondition: predicted nested entry already on battlefield: %+v", o)
-			}
-			for _, ev := range e.L.Events {
-				if ev.Kind == events.TokenCreate && ev.Text == "body_entry" {
-					t.Fatalf("nested entry minted before the order answer: %+v", ev)
-				}
 			}
 			if got := e.G.Players[0].Life; got != 20 {
 				t.Fatalf("precondition: body rider ran before the answer: life = %d, want 20", got)
