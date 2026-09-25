@@ -3032,282 +3032,302 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 	// deleted it again on the main merge (one offer path, one activation
 	// path), so do not resurrect one.
 	for _, z := range []state.Zone{state.ZBattlefield, state.ZGraveyard, state.ZHand, state.ZExile} {
-		for _, id := range e.G.Zone(z, p) {
-			o := e.G.Obj(id)
-			if z == state.ZBattlefield && !existsOnBattlefield(o) {
-				// CR 702.25b: a phased-out permanent is treated as though it
-				// does not exist, so none of its printed activated abilities is
-				// offered or activatable.
-				continue
+		zonePlayers := []state.PlayerID{p}
+		if z == state.ZBattlefield {
+			zonePlayers = make([]state.PlayerID, len(e.G.Players))
+			for seat := range zonePlayers {
+				zonePlayers[seat] = state.PlayerID(seat)
 			}
-			f := o.Face()
-			if f == nil {
-				continue
-			}
-			if z == state.ZExile && (o.FaceDown || !faceHasActivationZone(f, "Exile")) {
-				// The exile walk exists only for an ability whose
-				// ActivationZone$ names exile; skip every other exiled card
-				// before the per-ability gates (the zone can be large).
-				continue
-			}
-			if e.faceDownPrintedHides(o) {
-				// CR 708.8: a face-down permanent's printed activated abilities
-				// and mana abilities do not exist while it is face down, and
-				// turn-face-up (CR 708.6) is not implemented -- nothing on a
-				// face-down permanent is offered at all.
-				continue
-			}
-			// CR 702.140d: a mutated permanent has the top card's abilities
-			// PLUS all abilities of the cards beneath it. Walk the FLAT pile
-			// list (top face first, then each under-card): the flat index is
-			// the identity AbilityPush records and the activation-limit
-			// census counts, and a top-face ability keeps exactly its old
-			// index. abFace is the face that carries the ability -- an
-			// under-card's label and SVar table must be its own, never the
-			// pile top's.
-			for i, pn := 0, o.PileAbilityCount(); i < pn; i++ {
-				pa, okAb := o.PileAbilityAt(i)
-				if !okAb {
+		}
+		for _, zonePlayer := range zonePlayers {
+			for _, id := range e.G.Zone(z, zonePlayer) {
+				o := e.G.Obj(id)
+				if z == state.ZBattlefield && !existsOnBattlefield(o) {
+					// CR 702.25b: a phased-out permanent is treated as though it
+					// does not exist, so none of its printed activated abilities is
+					// offered or activatable.
 					continue
 				}
-				ab := pa.SA
-				abFace := o.PileFaceFor(pa.Merged)
-				if abFace == nil {
+				f := o.Face()
+				if f == nil {
 					continue
 				}
-				if ab.Kind != "AB" {
+				if z == state.ZExile && (o.FaceDown || !faceHasActivationZone(f, "Exile")) {
+					// The exile walk exists only for an ability whose
+					// ActivationZone$ names exile; skip every other exiled card
+					// before the per-ability gates (the zone can be large).
 					continue
 				}
-				// CR 605.1b: a mana ability is never a loyalty ability, so a
-				// loyalty-marked AB$ Mana (Koth's [+1], Ugin, Eye of the
-				// Storms' [0]: Add {C}{C}{C}) is NOT exempted here: it is a
-				// loyalty ability, offered through this loop under the CR 606.3
-				// gates below -- sorcery timing, once per permanent per turn --
-				// exactly like every other [+N]/[-N]. The mana-ability path
-				// (availableManaAbilitiesUsing) excludes it symmetrically; the
-				// exclusion there is what closed the ulalek-eldrazi seed-1019
-				// livelock (an un-tapping, gate-free, zero-cost repeatable
-				// +3 colourless activation re-offered every priority window).
-				if isManaAbilityAPI(ab.API) && !e.isLoyaltyAbility(ab) {
+				if e.faceDownPrintedHides(o) {
+					// CR 708.8: a face-down permanent's printed activated abilities
+					// and mana abilities do not exist while it is face down, and
+					// turn-face-up (CR 708.6) is not implemented -- nothing on a
+					// face-down permanent is offered at all.
 					continue
 				}
-				if !abilityZoneOK(ab, z) {
-					continue
-				}
-				if ab.Params["SorcerySpeed"] == "True" && !sorcery {
-					continue
-				}
-				// PlayerTurn$ True (Wishclaw Talisman's "Activate only during
-				// your turn"): the ability is offered only while its
-				// controller is the active player. CR 602.1b would otherwise
-				// offer it on any player's priority. ActivationPhases$ and the
-				// other window riders (OpponentTurn$, ActivationFirstCombat$,
-				// ActivationAfterBlockers$) ride the same shared
-				// offer-time gate, so one helper covers the cast and ability
-				// halves alike.
-				if !e.activationPhasesOK(p, ab) {
-					continue
-				}
-				// ActivationGameTypes$ (activationGameTypesOK, above): a comma
-				// list of the formats the ability exists in. In a Constructed
-				// game every token list fails closed and the ability is
-				// withheld -- one gate here covers both the real-pool offer and
-				// the hypothetical walk (offerCastable's hyp variants share
-				// this loop body).
-				if raw, ok := ab.Params["ActivationGameTypes"]; ok && !activationGameTypesOK(e.format, raw) {
-					continue
-				}
-				// CR 606.3: a planeswalker's loyalty ability may be activated
-				// only at the time a sorcery could be played -- during the
-				// controller's own main phase with an empty stack -- and a
-				// player may not activate a loyalty ability of a PERMANENT if
-				// any loyalty ability OF THAT PERMANENT has already been
-				// activated this turn. The gate is per permanent, not per
-				// ability index: after [+2] the [0] draw-three is just as
-				// withheld as a second [+2]. sorcerySpeed already folds the
-				// own-turn and main-phase halves; the once-per-turn half is
-				// the loyaltyActivationsThisTurn scan below (the event-log
-				// scan the ActivationLimit$ gate uses, keyed to the object
-				// and bounded by its current battlefield stint, CR 400.7),
-				// because no corpus loyalty ability carries ActivationLimit$
-				// and the gate must exist anyway (before this gate the
-				// [+2]/[0] abilities were offered, payable and repeatable
-				// without bound -- the live Jace draw-three exploit).
-				if e.isLoyaltyAbility(ab) {
-					if !sorcery {
+				// CR 702.140d: a mutated permanent has the top card's abilities
+				// PLUS all abilities of the cards beneath it. Walk the FLAT pile
+				// list (top face first, then each under-card): the flat index is
+				// the identity AbilityPush records and the activation-limit
+				// census counts, and a top-face ability keeps exactly its old
+				// index. abFace is the face that carries the ability -- an
+				// under-card's label and SVar table must be its own, never the
+				// pile top's.
+				for i, pn := 0, o.PileAbilityCount(); i < pn; i++ {
+					pa, okAb := o.PileAbilityAt(i)
+					if !okAb {
 						continue
 					}
-					if e.loyaltyActivationsThisTurn(id) >= e.loyaltyAbilityLimit(id) {
+					ab := pa.SA
+					abFace := o.PileFaceFor(pa.Merged)
+					if abFace == nil {
 						continue
 					}
+					if ab.Kind != "AB" {
+						continue
+					}
+					// CR 605.1b: a mana ability is never a loyalty ability, so a
+					// loyalty-marked AB$ Mana (Koth's [+1], Ugin, Eye of the
+					// Storms' [0]: Add {C}{C}{C}) is NOT exempted here: it is a
+					// loyalty ability, offered through this loop under the CR 606.3
+					// gates below -- sorcery timing, once per permanent per turn --
+					// exactly like every other [+N]/[-N]. The mana-ability path
+					// (availableManaAbilitiesUsing) excludes it symmetrically; the
+					// exclusion there is what closed the ulalek-eldrazi seed-1019
+					// livelock (an un-tapping, gate-free, zero-cost repeatable
+					// +3 colourless activation re-offered every priority window).
+					if isManaAbilityAPI(ab.API) && !e.isLoyaltyAbility(ab) {
+						continue
+					}
+					if !abilityZoneOK(ab, z) {
+						continue
+					}
+					if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+						continue
+					}
+					// Activator$ constrains who may activate the ability, not who
+					// controls its source. Resolve You/Opponent relative to the
+					// source's current controller and bind source-dependent selectors
+					// to the ability's permanent. Unsupported selectors fail closed.
+					spec := strings.TrimSpace(ab.Params["Activator"])
+					if z == state.ZBattlefield && spec == "" && e.controllerOf(id) != p {
+						continue
+					}
+					if spec != "" && !effects.MatchesPlayerSpecFrom(e.G, spec, p, e.controllerOf(id), id) {
+						continue
+					}
+					// PlayerTurn$ True (Wishclaw Talisman's "Activate only during
+					// your turn"): the ability is offered only while its
+					// controller is the active player. CR 602.1b would otherwise
+					// offer it on any player's priority. ActivationPhases$ and the
+					// other window riders (OpponentTurn$, ActivationFirstCombat$,
+					// ActivationAfterBlockers$) ride the same shared
+					// offer-time gate, so one helper covers the cast and ability
+					// halves alike.
+					if !e.activationPhasesOK(p, ab) {
+						continue
+					}
+					// ActivationGameTypes$ (activationGameTypesOK, above): a comma
+					// list of the formats the ability exists in. In a Constructed
+					// game every token list fails closed and the ability is
+					// withheld -- one gate here covers both the real-pool offer and
+					// the hypothetical walk (offerCastable's hyp variants share
+					// this loop body).
+					if raw, ok := ab.Params["ActivationGameTypes"]; ok && !activationGameTypesOK(e.format, raw) {
+						continue
+					}
+					// CR 606.3: a planeswalker's loyalty ability may be activated
+					// only at the time a sorcery could be played -- during the
+					// controller's own main phase with an empty stack -- and a
+					// player may not activate a loyalty ability of a PERMANENT if
+					// any loyalty ability OF THAT PERMANENT has already been
+					// activated this turn. The gate is per permanent, not per
+					// ability index: after [+2] the [0] draw-three is just as
+					// withheld as a second [+2]. sorcerySpeed already folds the
+					// own-turn and main-phase halves; the once-per-turn half is
+					// the loyaltyActivationsThisTurn scan below (the event-log
+					// scan the ActivationLimit$ gate uses, keyed to the object
+					// and bounded by its current battlefield stint, CR 400.7),
+					// because no corpus loyalty ability carries ActivationLimit$
+					// and the gate must exist anyway (before this gate the
+					// [+2]/[0] abilities were offered, payable and repeatable
+					// without bound -- the live Jace draw-three exploit).
+					if e.isLoyaltyAbility(ab) {
+						if !sorcery {
+							continue
+						}
+						if e.loyaltyActivationsThisTurn(id) >= e.loyaltyAbilityLimit(id) {
+							continue
+						}
+					}
+					if abilityRestricted(p, id, ab) {
+						continue
+					}
+					// Activation$ (Sea Gate Wreckage's "Activate only if you have
+					// no cards in hand"): the keyword activation condition at offer
+					// time, the same funnel the CheckSVar$ gate below applies --
+					// a gate you can read must not leave a paid no-op reachable.
+					if !e.activationConditionOK(p, ab) {
+						continue
+					}
+					// F05-2 (CR 733.2): a card whose activation aborted with no
+					// progress twice in this window is held out here too, exactly
+					// like the cast options above -- the suppression is per CARD
+					// (abortCast keys it on pc.card, which for an activation is the
+					// source), and the abort sites cover "cast/activation" alike.
+					// Without this check an activation the payer cannot complete
+					// (a mis-answered phyrexian pip, a pool that moved) re-offered
+					// forever inside one priority window: measured, the commander
+					// bench spun 20000 intents on Solphim's {1}{R/P}{R/P} ability
+					// (seed 1295, 2026-09-15) because the ability-offer path never
+					// read the map the abort wrote.
+					if e.castSuppressed(p, id) {
+						continue
+					}
+					if e.activationLimitBlocked(p, id, ab, i, "", pa.Merged) {
+						continue
+					}
+					// kw:Boast (CR 702.142): a Boast ability (Forge's `Boast$ True`
+					// parameter on the AB, not a K: keyword line) may be activated
+					// only if the source creature attacked this turn, and only once
+					// each turn. The once-per-turn half folds into the same
+					// activation-event scan the ActivationLimit$ gate uses.
+					if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, i, "") {
+						continue
+					}
+					cost := e.parseCost(ab.Params["Cost"])
+					// The ability's own ReduceCost$ (Otawara's Channel): the CR
+					// 601.2f composition the offer gate and beginActivation's
+					// charge share, so an offered cost and the paid one agree.
+					// ownReduceCostOffer resolves a target-dependent body against
+					// the best legal root target, because the chosen target does
+					// not exist at offer time (belt_of_giant_strength).
+					if n := e.ownReduceCostOffer(p, id, ab, pa.Merged); n > 0 && cost.Generic >= n {
+						cost.Generic -= n
+					} else if n > 0 {
+						cost.Generic = 0
+					}
+					if cost.Tap && (o.Tapped || (z == state.ZBattlefield && o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+						continue
+					}
+					// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
+					// cards/kw_equip.go) whose rider carries AlternateCost$ -- the
+					// fourth colon field -- is an alternative cost the activator may
+					// pay INSTEAD of the printed one. Offer it as its own "ability"
+					// option, exactly the way the cast walk offers an AlternativeCost
+					// static's cost as its own "cast" option (AltCostIndex = 1 marks
+					// "the alternate cost", 0 the printed one --
+					// decision.Option.AltCostIndex). The rider is evaluated
+					// INDEPENDENTLY of the printed cost: an equip whose printed cost
+					// is unpayable but whose alternate is payable must still be
+					// offered (that is the whole point of "pay {B} instead" for
+					// Transmogrant's Crown). abilityAlternateCost scopes itself to
+					// the minted attach-cost SAs (isAttachCostSA) -- an AB$ line's
+					// own AlternateCost$ parameter stays unread here -- and fails
+					// closed on an unpriceable rider, so no unpayable option is ever
+					// offered, and the ability is withheld only when NEITHER cost is
+					// payable.
+					altCost, hasAlt := e.abilityAlternateCost(ab)
+					printedOK := offerCastable(p, id, cost, abilityScope(ab), true)
+					altOK := hasAlt && offerCastable(p, id, altCost, abilityScope(ab), true)
+					if !printedOK && !altOK {
+						continue
+					}
+					if !e.abilityTargetsAvailable(p, id, ab) {
+						continue
+					}
+					// CR 603.2's intervening-if at activation: an ability whose
+					// CheckSVar$ fails is not offered (Bloodsoaked Champion's Raid —
+					// "Activate only if you attacked this turn"). Offer time, not
+					// resolve time: the resolution runs the effect's own
+					// Condition* gate (conditionMet) where the SA carries one; an
+					// offered-but-gated activation that resolves into nothing would
+					// be a paid no-op the offer loop could have withheld.
+					if !e.sVarGateOK(p, id, ab, pa.Merged) {
+						continue
+					}
+					// IsPresent$/PresentCompare$ (Mistveil Plains' "Activate only if
+					// you control two or more white permanents"): the same offer-time
+					// gate funnel as the CheckSVar$ read above.
+					if !e.abilityPresentHolds(p, id, ab) {
+						continue
+					}
+					// Adapt$ (CR 702.35a): "Activate only if this creature has no
+					// +1/+1 counters on it" -- the offer-time twin of the effect's own
+					// if-condition effects/counters.go enforces at resolution.
+					if !e.adaptGateOK(id, ab) {
+						continue
+					}
+					// Monstrosity$ (CR 701.31b): "Activate only if this creature
+					// isn't monstrous" -- the once-only monstrosity gate, the same
+					// offer-time funnel the Adapt$ gate above sits in.
+					if !e.monstrosityGateOK(id, ab) {
+						continue
+					}
+					// kw:Reconfigure (CR 702.150): the expansion's unattach half
+					// carries Unattach$ True and is offered only while the source is
+					// attached -- "unattach from a creature" has no legal action for
+					// an unattached permanent, and a payable no-op the deterministic
+					// bot can answer identically forever is the livelock shape the
+					// offer gates exist to withhold.
+					if strings.EqualFold(strings.TrimSpace(ab.Params["Unattach"]), "True") && o.AttachedTo == 0 {
+						continue
+					}
+					if printedOK {
+						out = append(out, decision.Option{Index: len(out), Kind: "ability",
+							Label: abFace.Name + ": " + ab.Params["SpellDescription"], Obj: id, Ability: i,
+							Cost:  e.abilityOfferCost(p, id, ab),
+							Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach"})
+					}
+					if altOK {
+						out = append(out, decision.Option{Index: len(out), Kind: "ability",
+							Label: abFace.Name + ": " + ab.Params["SpellDescription"] + " (alternate cost)",
+							Obj:   id, Ability: i, AltCostIndex: 1, Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach"})
+					}
 				}
-				if abilityRestricted(p, id, ab) {
-					continue
-				}
-				// Activation$ (Sea Gate Wreckage's "Activate only if you have
-				// no cards in hand"): the keyword activation condition at offer
-				// time, the same funnel the CheckSVar$ gate below applies --
-				// a gate you can read must not leave a paid no-op reachable.
-				if !e.activationConditionOK(p, ab) {
-					continue
-				}
-				// F05-2 (CR 733.2): a card whose activation aborted with no
-				// progress twice in this window is held out here too, exactly
-				// like the cast options above -- the suppression is per CARD
-				// (abortCast keys it on pc.card, which for an activation is the
-				// source), and the abort sites cover "cast/activation" alike.
-				// Without this check an activation the payer cannot complete
-				// (a mis-answered phyrexian pip, a pool that moved) re-offered
-				// forever inside one priority window: measured, the commander
-				// bench spun 20000 intents on Solphim's {1}{R/P}{R/P} ability
-				// (seed 1295, 2026-09-15) because the ability-offer path never
-				// read the map the abort wrote.
-				if e.castSuppressed(p, id) {
-					continue
-				}
-				if e.activationLimitBlocked(p, id, ab, i, "", pa.Merged) {
-					continue
-				}
-				// kw:Boast (CR 702.142): a Boast ability (Forge's `Boast$ True`
-				// parameter on the AB, not a K: keyword line) may be activated
-				// only if the source creature attacked this turn, and only once
-				// each turn. The once-per-turn half folds into the same
-				// activation-event scan the ActivationLimit$ gate uses.
-				if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, i, "") {
-					continue
-				}
-				cost := e.parseCost(ab.Params["Cost"])
-				// The ability's own ReduceCost$ (Otawara's Channel): the CR
-				// 601.2f composition the offer gate and beginActivation's
-				// charge share, so an offered cost and the paid one agree.
-				// ownReduceCostOffer resolves a target-dependent body against
-				// the best legal root target, because the chosen target does
-				// not exist at offer time (belt_of_giant_strength).
-				if n := e.ownReduceCostOffer(p, id, ab, pa.Merged); n > 0 && cost.Generic >= n {
-					cost.Generic -= n
-				} else if n > 0 {
-					cost.Generic = 0
-				}
-				if cost.Tap && (o.Tapped || (z == state.ZBattlefield && o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
-					continue
-				}
-				// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
-				// cards/kw_equip.go) whose rider carries AlternateCost$ -- the
-				// fourth colon field -- is an alternative cost the activator may
-				// pay INSTEAD of the printed one. Offer it as its own "ability"
-				// option, exactly the way the cast walk offers an AlternativeCost
-				// static's cost as its own "cast" option (AltCostIndex = 1 marks
-				// "the alternate cost", 0 the printed one --
-				// decision.Option.AltCostIndex). The rider is evaluated
-				// INDEPENDENTLY of the printed cost: an equip whose printed cost
-				// is unpayable but whose alternate is payable must still be
-				// offered (that is the whole point of "pay {B} instead" for
-				// Transmogrant's Crown). abilityAlternateCost scopes itself to
-				// the minted attach-cost SAs (isAttachCostSA) -- an AB$ line's
-				// own AlternateCost$ parameter stays unread here -- and fails
-				// closed on an unpriceable rider, so no unpayable option is ever
-				// offered, and the ability is withheld only when NEITHER cost is
-				// payable.
-				altCost, hasAlt := e.abilityAlternateCost(ab)
-				printedOK := offerCastable(p, id, cost, abilityScope(ab), true)
-				altOK := hasAlt && offerCastable(p, id, altCost, abilityScope(ab), true)
-				if !printedOK && !altOK {
-					continue
-				}
-				if !e.abilityTargetsAvailable(p, id, ab) {
-					continue
-				}
-				// CR 603.2's intervening-if at activation: an ability whose
-				// CheckSVar$ fails is not offered (Bloodsoaked Champion's Raid —
-				// "Activate only if you attacked this turn"). Offer time, not
-				// resolve time: the resolution runs the effect's own
-				// Condition* gate (conditionMet) where the SA carries one; an
-				// offered-but-gated activation that resolves into nothing would
-				// be a paid no-op the offer loop could have withheld.
-				if !e.sVarGateOK(p, id, ab, pa.Merged) {
-					continue
-				}
-				// IsPresent$/PresentCompare$ (Mistveil Plains' "Activate only if
-				// you control two or more white permanents"): the same offer-time
-				// gate funnel as the CheckSVar$ read above.
-				if !e.abilityPresentHolds(p, id, ab) {
-					continue
-				}
-				// Adapt$ (CR 702.35a): "Activate only if this creature has no
-				// +1/+1 counters on it" -- the offer-time twin of the effect's own
-				// if-condition effects/counters.go enforces at resolution.
-				if !e.adaptGateOK(id, ab) {
-					continue
-				}
-				// Monstrosity$ (CR 701.31b): "Activate only if this creature
-				// isn't monstrous" -- the once-only monstrosity gate, the same
-				// offer-time funnel the Adapt$ gate above sits in.
-				if !e.monstrosityGateOK(id, ab) {
-					continue
-				}
-				// kw:Reconfigure (CR 702.150): the expansion's unattach half
-				// carries Unattach$ True and is offered only while the source is
-				// attached -- "unattach from a creature" has no legal action for
-				// an unattached permanent, and a payable no-op the deterministic
-				// bot can answer identically forever is the livelock shape the
-				// offer gates exist to withhold.
-				if strings.EqualFold(strings.TrimSpace(ab.Params["Unattach"]), "True") && o.AttachedTo == 0 {
-					continue
-				}
-				if printedOK {
+				// Keyword-granted cycling (CR 613.1f): a layer-6 AddKeyword$
+				// Cycling/TypeCycling grant (Tectonic Reformation, Rhet-Tomb Mystic,
+				// Jo Grant, Homing Sliver) gives a hand card a cycling ability NO
+				// printed face carries, so the pile walk above never offers it.
+				// Synthesize the same body the printed expansion builds
+				// (cards.GrantedCyclingAbility) and offer it through the same gates,
+				// anchored on the derived keyword line beginActivation resolves --
+				// exactly the SVar-anchor shape with the line standing in for the
+				// name. A line the printed face (or a pile under-card) already
+				// expands is skipped -- the printed offer exists -- and a shape the
+				// synthesizer cannot model is skipped whole (fail closed). The
+				// synthesized body carries no SorcerySpeed$/Tap/Loyalty/CheckSVar$
+				// rider and no ReduceCost$ (its Discard-only cost is the whole
+				// non-mana half), so the pile walk's rider gates have no twin here;
+				// the offer gate prices the discard's satisfiability exactly as the
+				// printed cycling offer does.
+				for _, line := range e.grantedCyclingLines(id) {
+					ab := cards.GrantedCyclingAbility(line)
+					if ab == nil || !abilityZoneOK(ab, z) {
+						continue
+					}
+					if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
+						continue
+					}
+					if e.activationLimitBlocked(p, id, ab, -1, line, 0) {
+						continue
+					}
+					cost := e.parseCost(ab.Params["Cost"])
+					if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
+						cost.Generic -= n
+					} else if n > 0 {
+						cost.Generic = 0
+					}
+					if !offerCastable(p, id, cost, abilityScope(ab), true) {
+						continue
+					}
+					if !e.abilityTargetsAvailable(p, id, ab) {
+						continue
+					}
 					out = append(out, decision.Option{Index: len(out), Kind: "ability",
-						Label: abFace.Name + ": " + ab.Params["SpellDescription"], Obj: id, Ability: i,
-						Cost:  e.abilityOfferCost(p, id, ab),
-						Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach"})
+						Label: f.Name + ": " + ab.Params["SpellDescription"], Obj: id,
+						Ability: -1, Keyword: line})
 				}
-				if altOK {
-					out = append(out, decision.Option{Index: len(out), Kind: "ability",
-						Label: abFace.Name + ": " + ab.Params["SpellDescription"] + " (alternate cost)",
-						Obj:   id, Ability: i, AltCostIndex: 1, Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach"})
-				}
-			}
-			// Keyword-granted cycling (CR 613.1f): a layer-6 AddKeyword$
-			// Cycling/TypeCycling grant (Tectonic Reformation, Rhet-Tomb Mystic,
-			// Jo Grant, Homing Sliver) gives a hand card a cycling ability NO
-			// printed face carries, so the pile walk above never offers it.
-			// Synthesize the same body the printed expansion builds
-			// (cards.GrantedCyclingAbility) and offer it through the same gates,
-			// anchored on the derived keyword line beginActivation resolves --
-			// exactly the SVar-anchor shape with the line standing in for the
-			// name. A line the printed face (or a pile under-card) already
-			// expands is skipped -- the printed offer exists -- and a shape the
-			// synthesizer cannot model is skipped whole (fail closed). The
-			// synthesized body carries no SorcerySpeed$/Tap/Loyalty/CheckSVar$
-			// rider and no ReduceCost$ (its Discard-only cost is the whole
-			// non-mana half), so the pile walk's rider gates have no twin here;
-			// the offer gate prices the discard's satisfiability exactly as the
-			// printed cycling offer does.
-			for _, line := range e.grantedCyclingLines(id) {
-				ab := cards.GrantedCyclingAbility(line)
-				if ab == nil || !abilityZoneOK(ab, z) {
-					continue
-				}
-				if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
-					continue
-				}
-				if e.activationLimitBlocked(p, id, ab, -1, line, 0) {
-					continue
-				}
-				cost := e.parseCost(ab.Params["Cost"])
-				if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
-					cost.Generic -= n
-				} else if n > 0 {
-					cost.Generic = 0
-				}
-				if !offerCastable(p, id, cost, abilityScope(ab), true) {
-					continue
-				}
-				if !e.abilityTargetsAvailable(p, id, ab) {
-					continue
-				}
-				out = append(out, decision.Option{Index: len(out), Kind: "ability",
-					Label: f.Name + ": " + ab.Params["SpellDescription"], Obj: id,
-					Ability: -1, Keyword: line})
 			}
 		}
 	}
@@ -3327,142 +3347,151 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 	// activation limits are checked here too, with the SVar-name identity
 	// (see the gate's own comment below): Touch of Vitae carries
 	// GameActivationLimit$ 1 on an Animate-delivered AddAbility$ body.
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		o := e.G.Obj(id)
-		if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) {
-			// A face-down permanent is not offered granted abilities: the
-			// offer label reads the printed face name, which CR 708.8 says
-			// does not exist while face down.
-			continue
-		}
-		if !existsOnBattlefield(o) {
-			// CR 702.25b: a phased-out permanent is treated as though it does
-			// not exist, so none of its granted or gained activated abilities
-			// is offered or activatable.
-			continue
-		}
-		for _, ga := range e.grantedAbilities(p, id) {
-			ab := ga.sa
-			// isManaAbilityAPI, not a bare "Mana" check: a granted
-			// ManaReflected flows through availableManaAbilities too (its
-			// IsPresent$ gate lives in manaReflectedPresentHolds, which knows
-			// the hasAbility Activated.otherAbility special form).
-			if isManaAbilityAPI(ab.API) {
+	for zonePlayer := range e.G.Players {
+		for _, id := range e.G.Zone(state.ZBattlefield, state.PlayerID(zonePlayer)) {
+			o := e.G.Obj(id)
+			if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) {
+				// A face-down permanent is not offered granted abilities: the
+				// offer label reads the printed face name, which CR 708.8 says
+				// does not exist while face down.
 				continue
 			}
-			if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+			if !existsOnBattlefield(o) {
+				// CR 702.25b: a phased-out permanent is treated as though it does
+				// not exist, so none of its granted or gained activated abilities
+				// is offered or activatable.
 				continue
 			}
-			// CR 606.3 for a GAINED or GRANTED loyalty ability: the same
-			// sorcery-timing and once-per-permanent gates the printed loop
-			// applies -- a gained (GainsAbilitiesOf$) or SVar-granted
-			// (AddAbility$: Rowan's Talent's "[+1]: Up to one target creature
-			// gets +2/+0 ...") loyalty ability is a loyalty ability of THIS
-			// permanent (the recipient), and loyaltyActivationsThisTurn counts
-			// its GainedAbilityPush / GrantAbilityPush activations beside the
-			// printed AbilityPush ones. The granted half was once exempt on the
-			// premise that an AddAbility$ body is never a loyalty ability;
-			// Rowan's Talent's body is one, and the exemption let a bot
-			// activate it without bound (cardfuzz batch1 line 18: 20000
-			// intents of "+1" on one Jaya Ballard in one main phase).
-			if e.isLoyaltyAbility(ab) {
-				if !sorcery {
+			for _, ga := range e.grantedAbilities(p, id) {
+				ab := ga.sa
+				// isManaAbilityAPI, not a bare "Mana" check: a granted
+				// ManaReflected flows through availableManaAbilities too (its
+				// IsPresent$ gate lives in manaReflectedPresentHolds, which knows
+				// the hasAbility Activated.otherAbility special form).
+				if isManaAbilityAPI(ab.API) {
 					continue
 				}
-				if e.loyaltyActivationsThisTurn(id) >= e.loyaltyAbilityLimit(id) {
+				if ab.Params["SorcerySpeed"] == "True" && !sorcery {
 					continue
 				}
-			}
-			// F05-2 (CR 733.2): the granted twin of the printed loop's
-			// no-progress hold-out. abortCast keys the suppression on the
-			// activation's source (pc.card), which for a granted or gained
-			// ability is this recipient -- without the check a granted
-			// activation whose transaction aborts (no legal target, an
-			// unpayable cost) was re-offered inside one priority window
-			// forever (cardfuzz batch5 line 1: Trazyn's gained Equip).
-			if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
-				continue
-			}
-			cost := e.parseCost(ab.Params["Cost"])
-			// The granted twin of the printed loop's own ReduceCost$ fold.
-			if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
-				cost.Generic -= n
-			} else if n > 0 {
-				cost.Generic = 0
-			}
-			if cost.Tap && (o.Tapped || (o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
-				continue
-			}
-			if !offerCastable(p, id, cost, abilityScope(ab), true) {
-				continue
-			}
-			if !e.abilityTargetsAvailable(p, id, ab) {
-				continue
-			}
-			// IsPresent$/PresentCompare$: the same offer-time gate the printed
-			// loop applies, so a granted ability and its printed twin share one
-			// eligibility set.
-			if !e.abilityPresentHolds(p, id, ab) {
-				continue
-			}
-			// Adapt$ (CR 702.35a): the granted twin of the printed loop's gate.
-			if !e.adaptGateOK(id, ab) {
-				continue
-			}
-			// A has-all-abilities-of gained ability (GainsAbilitiesOf$) is
-			// offered with its foreign-card anchor; every other granted
-			// ability keeps the SVar-name anchor (boastGateOK's and the
-			// activation-limit gate's identity).
-			if ga.gained {
-				if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, -1, "") {
+				spec := strings.TrimSpace(ab.Params["Activator"])
+				if spec == "" && e.controllerOf(id) != p {
 					continue
 				}
-				if e.activationLimitBlocked(p, id, ab, -1, "", 0) {
+				if spec != "" && !effects.MatchesPlayerSpecFrom(e.G, spec, p, e.controllerOf(id), id) {
+					continue
+				}
+				// CR 606.3 for a GAINED or GRANTED loyalty ability: the same
+				// sorcery-timing and once-per-permanent gates the printed loop
+				// applies -- a gained (GainsAbilitiesOf$) or SVar-granted
+				// (AddAbility$: Rowan's Talent's "[+1]: Up to one target creature
+				// gets +2/+0 ...") loyalty ability is a loyalty ability of THIS
+				// permanent (the recipient), and loyaltyActivationsThisTurn counts
+				// its GainedAbilityPush / GrantAbilityPush activations beside the
+				// printed AbilityPush ones. The granted half was once exempt on the
+				// premise that an AddAbility$ body is never a loyalty ability;
+				// Rowan's Talent's body is one, and the exemption let a bot
+				// activate it without bound (cardfuzz batch1 line 18: 20000
+				// intents of "+1" on one Jaya Ballard in one main phase).
+				if e.isLoyaltyAbility(ab) {
+					if !sorcery {
+						continue
+					}
+					if e.loyaltyActivationsThisTurn(id) >= e.loyaltyAbilityLimit(id) {
+						continue
+					}
+				}
+				// F05-2 (CR 733.2): the granted twin of the printed loop's
+				// no-progress hold-out. abortCast keys the suppression on the
+				// activation's source (pc.card), which for a granted or gained
+				// ability is this recipient -- without the check a granted
+				// activation whose transaction aborts (no legal target, an
+				// unpayable cost) was re-offered inside one priority window
+				// forever (cardfuzz batch5 line 1: Trazyn's gained Equip).
+				if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
+					continue
+				}
+				cost := e.parseCost(ab.Params["Cost"])
+				// The granted twin of the printed loop's own ReduceCost$ fold.
+				if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
+					cost.Generic -= n
+				} else if n > 0 {
+					cost.Generic = 0
+				}
+				if cost.Tap && (o.Tapped || (o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+					continue
+				}
+				if !offerCastable(p, id, cost, abilityScope(ab), true) {
+					continue
+				}
+				if !e.abilityTargetsAvailable(p, id, ab) {
+					continue
+				}
+				// IsPresent$/PresentCompare$: the same offer-time gate the printed
+				// loop applies, so a granted ability and its printed twin share one
+				// eligibility set.
+				if !e.abilityPresentHolds(p, id, ab) {
+					continue
+				}
+				// Adapt$ (CR 702.35a): the granted twin of the printed loop's gate.
+				if !e.adaptGateOK(id, ab) {
+					continue
+				}
+				// A has-all-abilities-of gained ability (GainsAbilitiesOf$) is
+				// offered with its foreign-card anchor; every other granted
+				// ability keeps the SVar-name anchor (boastGateOK's and the
+				// activation-limit gate's identity).
+				if ga.gained {
+					if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, -1, "") {
+						continue
+					}
+					if e.activationLimitBlocked(p, id, ab, -1, "", 0) {
+						continue
+					}
+					out = append(out, decision.Option{Index: len(out), Kind: "ability",
+						Label: o.Face().Name + ": " + ab.Params["SpellDescription"], Obj: id,
+						GainedSource: ga.gainedFrom, GainedIdx: ga.gainedIdx, Attach: ab.API == "Attach"})
+					continue
+				}
+				// kw:Boast (CR 702.142): the granted twin of the printed loop's
+				// Boast gate. The identity is the SVar name the grant anchored on,
+				// because beginGrantedActivation mints a DelayedPush rather than an
+				// AbilityPush (boastGateOK reads both).
+				if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, -1, ga.svar) {
+					continue
+				}
+				// The two activation limits, for a GRANTED ability: the same shared
+				// gate the printed loop above calls, with the SVar-name identity
+				// because the mint is a DelayedPush/GrantAbilityPush. The printed
+				// loop's old claim -- "no corpus granted ability carries a limit" --
+				// is FALSE: Touch of Vitae carries GameActivationLimit$ 1 on the
+				// AddAbility$ body it animates onto a target. (That specific grant
+				// does not resolve yet for an unrelated reason -- its SVar lives on
+				// the Instant's face, while Animate resolves granted names off the
+				// ANIMATED object's table; see the report's Issues.) The gate is kept
+				// so a granted ability with a limit is never re-offered once used,
+				// and self-animate grants -- where the SVar table IS the recipient's
+				// -- are pinned by TestGameActivationLimitGrantedAbilityWithheldAfterOneUse.
+				if e.activationLimitBlocked(p, id, ab, -1, ga.svar, 0) {
+					continue
+				}
+				// Offer only what the activation can resolve. The collector
+				// above reads the body off the emitting effect's captured SVar
+				// table (ce.SVars), while beginGrantedActivation -- and the
+				// GrantAbilityPush/DelayedPush mint a replay re-runs -- resolve
+				// the NAME against the grantor object's faces. When the two
+				// disagree (the grantor's face does not carry the table the
+				// effect captured) the option was a silent no-op: chosen, it
+				// emitted nothing and the identical board re-offered it forever
+				// (cardfuzz batch7 line 2: a gained-Animate grant on Manascape
+				// Refractor, 100x "Regenerate CARDNAME" in one main phase).
+				if e.grantedSAFrom(ga.source, id, ga.svar) == nil {
 					continue
 				}
 				out = append(out, decision.Option{Index: len(out), Kind: "ability",
-					Label: o.Face().Name + ": " + ab.Params["SpellDescription"], Obj: id,
-					GainedSource: ga.gainedFrom, GainedIdx: ga.gainedIdx, Attach: ab.API == "Attach"})
-				continue
+					Label: o.Face().Name + ": " + ab.Params["SpellDescription"], Obj: id, SVar: ga.svar,
+					GrantSource: ga.source, Attach: ab.API == "Attach"})
 			}
-			// kw:Boast (CR 702.142): the granted twin of the printed loop's
-			// Boast gate. The identity is the SVar name the grant anchored on,
-			// because beginGrantedActivation mints a DelayedPush rather than an
-			// AbilityPush (boastGateOK reads both).
-			if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, -1, ga.svar) {
-				continue
-			}
-			// The two activation limits, for a GRANTED ability: the same shared
-			// gate the printed loop above calls, with the SVar-name identity
-			// because the mint is a DelayedPush/GrantAbilityPush. The printed
-			// loop's old claim -- "no corpus granted ability carries a limit" --
-			// is FALSE: Touch of Vitae carries GameActivationLimit$ 1 on the
-			// AddAbility$ body it animates onto a target. (That specific grant
-			// does not resolve yet for an unrelated reason -- its SVar lives on
-			// the Instant's face, while Animate resolves granted names off the
-			// ANIMATED object's table; see the report's Issues.) The gate is kept
-			// so a granted ability with a limit is never re-offered once used,
-			// and self-animate grants -- where the SVar table IS the recipient's
-			// -- are pinned by TestGameActivationLimitGrantedAbilityWithheldAfterOneUse.
-			if e.activationLimitBlocked(p, id, ab, -1, ga.svar, 0) {
-				continue
-			}
-			// Offer only what the activation can resolve. The collector
-			// above reads the body off the emitting effect's captured SVar
-			// table (ce.SVars), while beginGrantedActivation -- and the
-			// GrantAbilityPush/DelayedPush mint a replay re-runs -- resolve
-			// the NAME against the grantor object's faces. When the two
-			// disagree (the grantor's face does not carry the table the
-			// effect captured) the option was a silent no-op: chosen, it
-			// emitted nothing and the identical board re-offered it forever
-			// (cardfuzz batch7 line 2: a gained-Animate grant on Manascape
-			// Refractor, 100x "Regenerate CARDNAME" in one main phase).
-			if e.grantedSAFrom(ga.source, id, ga.svar) == nil {
-				continue
-			}
-			out = append(out, decision.Option{Index: len(out), Kind: "ability",
-				Label: o.Face().Name + ": " + ab.Params["SpellDescription"], Obj: id, SVar: ga.svar,
-				GrantSource: ga.source, Attach: ab.API == "Attach"})
 		}
 	}
 
