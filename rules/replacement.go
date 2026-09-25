@@ -2629,11 +2629,11 @@ func (e *Engine) emitTokenPlan(ev events.Event, plan []tokenPlanMint) {
 }
 
 // emitTokenPlanMints logs the final plan: one TokenCreate per scripted mint
-// through the raw events.Emit tail (which BYPASSES applyReplacements, so no
-// doubler can loop on its own output), one CopyToken + genuine MoveZone per
-// copy mint (the DB$ CopyPermanent mint shape -- the entry stays a
-// ChangesZone-matchable event every "a creature enters" trigger observes,
-// and the MoveZone rides the ordinary entry machinery a real copy gets).
+// through Engine.emit under applyingReplacement (so no doubler can loop on its
+// own output), one CopyToken + genuine MoveZone per copy mint (the DB$
+// CopyPermanent mint shape -- the entry stays a ChangesZone-matchable event
+// every "a creature enters" trigger observes, and the MoveZone rides the
+// ordinary entry machinery a real copy gets).
 func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) events.Event {
 	var last events.Event
 	for i, mint := range plan {
@@ -2645,7 +2645,6 @@ func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) event
 			continue
 		}
 		mintEv := events.Event{Kind: events.TokenCreate, Player: tokenMintPlayer(mint, ev), Text: mint.script}
-		want := e.G.NextID
 		// This plan has already passed token-creation replacements. Keep that
 		// no-rematch boundary while routing the actual mint through the entry
 		// staging/fold path (which may park for entry-counter order).
@@ -2656,11 +2655,6 @@ func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) event
 		if e.suspendTokenPlanTail(ev, plan, i) {
 			return last
 		}
-		if e.tokenMintSink != nil && e.G.Obj(want) != nil {
-			*e.tokenMintSink = append(*e.tokenMintSink, want)
-		}
-		e.loop.observeFrom(stored, e.damaging)
-		e.checkTriggers(stored, nil, 0, 0, false)
 		last = stored
 	}
 	return last

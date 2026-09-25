@@ -21,6 +21,39 @@ import (
 // Both answers reorder the same non-commuting pair (Hardened Scales' +1 and
 // Branching Evolution's doubling), so the final counter count (1 -> 2 -> 4
 // against 1 -> 2 -> 3) is an observable function of the answer.
+func TestTokenPlanMintIsObservedOnce(t *testing.T) {
+	doubler := card(t, tokenSVarAmountReplSrc())
+	token := card(t, "Name:Observed Token\nTypes:Creature\nPT:1/1\nOracle:x\n")
+	watcher := card(t, watcherSrc)
+	e, cfg := tokenReplGame(t, 992, doubler, watcher)
+	cfg.Tokens = maps.Clone(cfg.Tokens)
+	cfg.Tokens["observed_token"] = token
+	e = New(cfg)
+	e.Advance()
+	doublerID := moveSeededCard(t, e, 0, doubler, state.ZBattlefield)
+	watcherID := moveSeededCard(t, e, 0, watcher, state.ZBattlefield)
+	if o := e.G.Obj(doublerID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: token doubler is not on battlefield: %+v", o)
+	}
+	if o := e.G.Obj(watcherID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: ETB watcher is not on battlefield: %+v", o)
+	}
+
+	ids := e.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: 0, Text: "observed_token"})
+	if len(ids) != 2 || ids[0] == ids[1] {
+		t.Fatalf("doubled token creation returned %d ids, want two distinct minted ids: %v", len(ids), ids)
+	}
+	for _, id := range ids {
+		if o := e.G.Obj(id); o == nil || !o.IsToken || o.Zone != state.ZBattlefield {
+			t.Fatalf("reported mint %d is not a battlefield token: %+v", id, o)
+		}
+	}
+	if got := len(e.pendingTriggers); got != 1 {
+		t.Fatalf("doubled token plan queued %d ETB triggers, want the single watcher trigger", got)
+	}
+	replayCheck(t, e, cfg)
+}
+
 func TestEntryCounterStageTokenMints(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -63,11 +96,14 @@ func TestEntryCounterStageTokenMints(t *testing.T) {
 					mint.Obj = source
 				}
 				before := e.G.NextID
+				var planMintIDs []state.ObjID
+				previousSink := e.tokenMintSink
 				if tc.plan {
 					plan := make([]tokenPlanMint, tc.mints)
 					for i := range plan {
 						plan[i] = tokenPlanMint{script: "staging_riot"}
 					}
+					e.tokenMintSink = &planMintIDs
 					e.emitTokenPlanMints(events.Event{Kind: events.TokenCreate, Player: 0}, plan)
 				} else {
 					e.emit(mint)
@@ -99,6 +135,17 @@ func TestEntryCounterStageTokenMints(t *testing.T) {
 				d := e.Pending()
 				if d != nil && d.Kind == decision.KReplacement {
 					t.Fatalf("unanswered staged ask after %d mints: %+v", tc.mints, d)
+				}
+				if tc.plan {
+					e.tokenMintSink = previousSink
+					if len(planMintIDs) != tc.mints {
+						t.Fatalf("token plan reported %d minted ids, want exactly %d: %v", len(planMintIDs), tc.mints, planMintIDs)
+					}
+					for i, id := range planMintIDs {
+						if id != before+state.ObjID(i) {
+							t.Fatalf("token plan minted ids = %v, want ordered unique ids beginning at %d", planMintIDs, before)
+						}
+					}
 				}
 
 				// Every minted token is on the battlefield with its finalized
