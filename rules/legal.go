@@ -482,10 +482,12 @@ func activationGameTypesOK(f Format, raw string) bool {
 
 // abilityZoneOK reports whether ability ab may be activated while the
 // source cardinal is in zone z (CR 602.1b): the printed ActivationZone$
-// when present, the battlefield by default. Battlefield, Hand, Graveyard and
-// Exile are enumerated by the legal-action walks (Exile since fuzz-cov3:
-// Greater Gargadon's suspended sacrifice outlet); Command and Stack are not
-// and therefore never offer an option.
+// when present, the battlefield by default. Battlefield, Hand, Graveyard,
+// Exile and Stack are enumerated by the legal-action walks (Exile since
+// fuzz-cov3: Greater Gargadon's suspended sacrifice outlet; Stack since the
+// Activator$ offer gate, for Lightning Storm's "Any player may activate this
+// ability but only if CARDNAME is on the stack"); Command is not and
+// therefore never offers an option.
 func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
 	az, ok := ab.Params["ActivationZone"]
 	if !ok {
@@ -500,8 +502,32 @@ func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
 		return z == state.ZHand
 	case "Exile":
 		return z == state.ZExile
+	case "Stack":
+		return z == state.ZStack
 	}
 	return false
+}
+
+// activatorAllows reports whether player p may activate ability ab, per the
+// ability's Activator$ parameter (Forge's PlayerProperty on an AB$/SP$ line,
+// e.g. Oft-Nabbed Goat's "Only your opponents may activate this ability" ->
+// Player.Opponent, Mana Cache's "Any player may activate this ability" ->
+// Player). An absent Activator$ means the source's controller and only them:
+// the CR 602.2a default. A present spec is resolved source-relative -- You is
+// the source's current controller, and source-dependent selectors
+// (Player.EnchantedController, Player.IsRemembered) bind their attachment and
+// choice state to the source permanent -- through effects.MatchesPlayerSpecFrom,
+// so every rule has one home and an unknown or unread selector (for example
+// Player.Owner, which no player-spec clause reads) fails closed rather than
+// admitting extra activators. Every offer path (the printed AB walk, the
+// granted/gained-ability walk and the mana-ability membership walk) routes
+// through this helper, so the paths cannot drift.
+func (e *Engine) activatorAllows(p state.PlayerID, id state.ObjID, ab *cards.SA) bool {
+	spec := strings.TrimSpace(ab.Params["Activator"])
+	if spec == "" {
+		return e.controllerOf(id) == p
+	}
+	return effects.MatchesPlayerSpecFrom(e.G, spec, p, e.controllerOf(id), id)
 }
 
 // abilityPresentHolds evaluates an activated ability's IsPresent$ /
@@ -2976,39 +3002,52 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 
 	// Mana abilities may explicitly function from the battlefield, hand or
 	// graveyard (Spirit Guides and Jack-o'-Lantern). availableManaAbilities
-	// applies each ability's ActivationZone and full cost gate.
+	// applies each ability's ActivationZone, Activator$ and full cost gate.
+	// The battlefield is walked for EVERY seat, not just p's, because an
+	// ability another player's Activator$ permits (Mana Cache's "Any player
+	// may activate this ability") reaches them through p's offer; every other
+	// object still fails the controller/selector gate in the choke point.
 	// The walk only inspects each object's mana-ability list, so one scratch
 	// buffer serves every object (taken from the Engine for the loop, so a
 	// re-entrant walk allocates its own).
 	masBuf := e.manaAbBuf
 	e.manaAbBuf = nil
 	for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
-		for _, id := range e.G.Zone(z, p) {
-			o := e.G.Obj(id)
-			if z == state.ZBattlefield && !existsOnBattlefield(o) {
-				// CR 702.25b: a phased-out permanent is treated as though it
-				// does not exist, so its mana abilities are not offered. The
-				// choke point appendAvailableManaAbilities is gated too, which
-				// covers the payment windows this offer walk does not reach.
-				continue
+		zonePlayers := []state.PlayerID{p}
+		if z == state.ZBattlefield {
+			zonePlayers = make([]state.PlayerID, len(e.G.Players))
+			for seat := range zonePlayers {
+				zonePlayers[seat] = state.PlayerID(seat)
 			}
-			f := o.Face()
-			if f == nil {
-				continue
+		}
+		for _, zonePlayer := range zonePlayers {
+			for _, id := range e.G.Zone(z, zonePlayer) {
+				o := e.G.Obj(id)
+				if z == state.ZBattlefield && !existsOnBattlefield(o) {
+					// CR 702.25b: a phased-out permanent is treated as though it
+					// does not exist, so its mana abilities are not offered. The
+					// choke point appendAvailableManaAbilities is gated too, which
+					// covers the payment windows this offer walk does not reach.
+					continue
+				}
+				f := o.Face()
+				if f == nil {
+					continue
+				}
+				mas := e.appendAvailableManaAbilities(masBuf[:0], &actionStatics, p, id)
+				masBuf = mas
+				if len(mas) == 0 {
+					continue
+				}
+				opt := decision.Option{Index: len(out), Kind: "activate", Label: e.manaActivateLabel(f.Name), Obj: id}
+				// fb-led1: a mana ability that costs more than a bare tap is the
+				// play the window exists for — carry its cost so the client's
+				// empty-priority-window floor stops instead of passing it away.
+				if marker := manaActivationCostMarker(mas); marker != "" {
+					opt.Cost = marker
+				}
+				out = append(out, opt)
 			}
-			mas := e.appendAvailableManaAbilities(masBuf[:0], &actionStatics, p, id)
-			masBuf = mas
-			if len(mas) == 0 {
-				continue
-			}
-			opt := decision.Option{Index: len(out), Kind: "activate", Label: e.manaActivateLabel(f.Name), Obj: id}
-			// fb-led1: a mana ability that costs more than a bare tap is the
-			// play the window exists for — carry its cost so the client's
-			// empty-priority-window floor stops instead of passing it away.
-			if marker := manaActivationCostMarker(mas); marker != "" {
-				opt.Cost = marker
-			}
-			out = append(out, opt)
 		}
 	}
 	clear(masBuf)
@@ -3031,9 +3070,15 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 	// not always true: Task 14 round 1 shipped a second, Equip-only loop and
 	// deleted it again on the main merge (one offer path, one activation
 	// path), so do not resurrect one.
-	for _, z := range []state.Zone{state.ZBattlefield, state.ZGraveyard, state.ZHand, state.ZExile} {
+	for _, z := range []state.Zone{state.ZBattlefield, state.ZStack, state.ZGraveyard, state.ZHand, state.ZExile} {
 		zonePlayers := []state.PlayerID{p}
-		if z == state.ZBattlefield {
+		if z != state.ZStack {
+			// Every seat's zone, so an ability another player's Activator$
+			// permits can reach that player's offer walk. The stack is the
+			// exception: Zone(ZStack, p) returns the WHOLE stack regardless of
+			// p, so it is walked once with the Activator$/controller
+			// selector doing the filtering -- iterating seats would append the
+			// same option once per seat.
 			zonePlayers = make([]state.PlayerID, len(e.G.Players))
 			for seat := range zonePlayers {
 				zonePlayers[seat] = state.PlayerID(seat)
@@ -3108,12 +3153,8 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 					// Activator$ constrains who may activate the ability, not who
 					// controls its source. Resolve You/Opponent relative to the
 					// source's current controller and bind source-dependent selectors
-					// to the ability's permanent. Unsupported selectors fail closed.
-					spec := strings.TrimSpace(ab.Params["Activator"])
-					if z == state.ZBattlefield && spec == "" && e.controllerOf(id) != p {
-						continue
-					}
-					if spec != "" && !effects.MatchesPlayerSpecFrom(e.G, spec, p, e.controllerOf(id), id) {
+					// to the ability's permanent; unknown selectors fail closed.
+					if !e.activatorAllows(p, id, ab) {
 						continue
 					}
 					// PlayerTurn$ True (Wishclaw Talisman's "Activate only during
@@ -3374,11 +3415,9 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 				if ab.Params["SorcerySpeed"] == "True" && !sorcery {
 					continue
 				}
-				spec := strings.TrimSpace(ab.Params["Activator"])
-				if spec == "" && e.controllerOf(id) != p {
-					continue
-				}
-				if spec != "" && !effects.MatchesPlayerSpecFrom(e.G, spec, p, e.controllerOf(id), id) {
+				// Activator$ applies to a granted/gained ability exactly as to a
+				// printed one (the source is the recipient permanent).
+				if !e.activatorAllows(p, id, ab) {
 					continue
 				}
 				// CR 606.3 for a GAINED or GRANTED loyalty ability: the same
