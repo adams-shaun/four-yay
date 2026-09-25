@@ -2428,7 +2428,8 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// and the re-drive after the answer runs the ordinary emit exactly once.
 	// A completed stage returns false and falls through: the fold below
 	// consumes it (rules/entry_counters.go).
-	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && !e.applyingReplacement &&
+	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield ||
+		ev.Kind == events.TokenCreate || ev.Kind == events.CardToken) &&
 		e.entryCounterOrderParks(ev) {
 		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 			Text: "entry awaiting counter-replacement-order choice"}

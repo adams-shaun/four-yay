@@ -2643,7 +2643,13 @@ func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) event
 		}
 		mintEv := events.Event{Kind: events.TokenCreate, Player: tokenMintPlayer(mint, ev), Text: mint.script}
 		want := e.G.NextID
-		stored := events.Emit(e.G, e.L, mintEv)
+		// This plan has already passed token-creation replacements. Keep that
+		// no-rematch boundary while routing the actual mint through the entry
+		// staging/fold path (which may park for entry-counter order).
+		savedApplying := e.applyingReplacement
+		e.applyingReplacement = true
+		stored := e.emit(mintEv)
+		e.applyingReplacement = savedApplying
 		if e.tokenMintSink != nil && e.G.Obj(want) != nil {
 			*e.tokenMintSink = append(*e.tokenMintSink, want)
 		}

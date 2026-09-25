@@ -44,6 +44,7 @@ type entryCounterStage struct {
 	applied  []replMatch                // bodies already applied, in answer order
 	player   state.PlayerID             // the asked player
 	inRes    bool                       // the pose's in-resolution provenance
+	inBody   bool                       // the entry was emitted by a replacement body; do not rematch it on re-drive
 	idx      int                        // index into grants of the parked grant
 	complete bool                       // every grant finalized; the fold may consume
 	// bodyIDs names every Updated PutCounter|ETB$ True replacement body whose
@@ -110,14 +111,29 @@ func (e *Engine) entryCounterGrants(ev events.Event) []events.EntryCounterGrant 
 // list. A battlefield->battlefield stay grants nothing (the same guard
 // entryCounterGrants keeps).
 func (e *Engine) entryBodyCandidates(ev events.Event) bool {
-	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
+	var entrant *state.Object
+	switch ev.Kind {
+	case events.MoveZone:
+		if ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
+			return false
+		}
+		entrant = e.G.Obj(ev.Obj)
+		if entrant == nil || entrant.Zone == state.ZBattlefield {
+			return false
+		}
+	case events.TokenCreate:
+		entrant = e.tokenSnapshot(ev)
+	case events.CardToken:
+		if src := e.G.Obj(ev.Obj); src != nil {
+			entrant = &state.Object{Card: src.Card, FaceIdx: src.FaceIdx}
+		}
+	default:
 		return false
 	}
-	o := e.G.Obj(ev.Obj)
-	if o == nil || o.Zone == state.ZBattlefield || o.Face() == nil {
+	if entrant == nil || entrant.Face() == nil {
 		return false
 	}
-	f := o.Face()
+	f := entrant.Face()
 	for i := range f.Repls {
 		r := &f.Repls[i]
 		if r.Event == "Moved" && r.With != nil && r.With.API == "PutCounter" &&
@@ -129,11 +145,13 @@ func (e *Engine) entryBodyCandidates(ev events.Event) bool {
 	// kw:Bloodthirst and kw:Sunburst are synthesised by the replacement
 	// dispatch rather than expanded onto the face (rules/replacement.go), so
 	// a granted or printed keyword carries no face Repl to scan.
-	if _, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst"); ok {
-		return true
-	}
-	if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); ok {
-		return true
+	if ev.Kind == events.MoveZone {
+		if _, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst"); ok {
+			return true
+		}
+		if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); ok {
+			return true
+		}
 	}
 	return false
 }
@@ -218,18 +236,22 @@ func saHasParam(sa *cards.SA, key string) bool {
 // absorbed -- its placement is nothing, and running it would only duplicate
 // the zero -- but contributes no grant.
 func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([]entryGrant, []string) {
-	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
+	if ev.Kind == events.MoveZone && (ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter)) {
 		return nil, nil
 	}
-	o := e.G.Obj(ev.Obj)
+	o := e.G.Obj(entrant)
 	if o == nil || o.Face() == nil {
 		return nil, nil
 	}
 	f := o.Face()
+	matchEv := ev
+	if ev.Kind != events.MoveZone {
+		matchEv = events.Event{Kind: events.MoveZone, Obj: entrant, From: state.ZLibrary, To: state.ZBattlefield}
+	}
 	var grants []entryGrant
 	var ids []string
 	absorb := func(m replMatch) {
-		if !e.replacementMatches(*m.repl, m.id, ev) || !entryBodyAbsorbable(m.repl.With) ||
+		if !e.replacementMatches(*m.repl, m.id, matchEv) || !entryBodyAbsorbable(m.repl.With) ||
 			!entryBodyKindEncodable(m.repl.With) {
 			return
 		}
@@ -245,7 +267,7 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 		if kind == "" {
 			kind = "P1P1"
 		}
-		grants = append(grants, entryGrant{kind: kind, amount: n, body: ev.Obj})
+		grants = append(grants, entryGrant{kind: kind, amount: n, body: entrant})
 	}
 	for i := range f.Repls {
 		r := &f.Repls[i]
@@ -253,12 +275,12 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 			!strings.EqualFold(strings.TrimSpace(r.With.Params["ETB"]), "True") {
 			continue
 		}
-		absorb(replMatch{id: ev.Obj, face: f, repl: r})
+		absorb(replMatch{id: entrant, face: f, repl: r})
 	}
-	if m := e.bloodthirstEntryMatch(ev); m != nil {
+	if m := e.bloodthirstEntryMatch(matchEv); m != nil {
 		absorb(*m)
 	}
-	if m := e.sunburstEntryMatch(ev); m != nil {
+	if m := e.sunburstEntryMatch(matchEv); m != nil {
 		absorb(*m)
 	}
 	return grants, ids
@@ -383,7 +405,7 @@ func (e *Engine) stageEntryCounterOrder(ev events.Event, preview *Engine, n0 int
 	st := &entryCounterStage{
 		move: ev, grants: grants, placed: placed,
 		counter: posed.ev, cands: posed.cands, player: posed.player,
-		inRes: inRes, idx: idx, bodyIDs: bodyIDs,
+		inRes: inRes, inBody: e.applyingReplacement, idx: idx, bodyIDs: bodyIDs,
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceEntryOrder,
 		ev: posed.ev, cands: posed.cands, player: posed.player,
@@ -529,7 +551,12 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 	}
 	st.complete = true
 	e.entryStageDone = st
+	priorApplying := e.applyingReplacement
+	if st.inBody {
+		e.applyingReplacement = true
+	}
 	e.emit(st.move)
+	e.applyingReplacement = priorApplying
 }
 
 // foldEntryMove is shared by the ordinary emit tail and the Updated
@@ -578,8 +605,11 @@ func (e *Engine) foldEntryWithPlaced(ev events.Event, placed []events.EntryCount
 	for _, g := range placed {
 		ev.Pairs = append(ev.Pairs, events.EntryCounterPairs(g)...)
 	}
-	stored := events.Emit(e.G, e.L, ev)
 	entrant := ev.Obj
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken {
+		entrant = e.G.NextID
+	}
+	stored := events.Emit(e.G, e.L, ev)
 	for _, g := range placed {
 		// Replacement has already settled; the marker only notifies observers.
 		// The entrant's controller is the adder of its entry counters, even
