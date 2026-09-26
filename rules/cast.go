@@ -1355,6 +1355,22 @@ func (e *Engine) chargeEnergyCost(p state.PlayerID, c Cost, x int32) {
 	}
 }
 
+// exileFromTopCards returns the aggregate top-of-library prefix paid by a set
+// of ExileFromTop parts. Parts do not each get to reuse the same prefix.
+func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool) {
+	var n int64
+	for _, part := range parts {
+		if part.N <= 0 {
+			return nil, false
+		}
+		n += int64(part.N)
+	}
+	if n > int64(len(lib)) {
+		return nil, false
+	}
+	return append([]state.ObjID(nil), lib[:int(n)]...), true
+}
+
 // nonManaCastable is castable's payment-independent tail. Cost-modifier
 // offer checks use it after their flexible-pip walk has established a payable
 // resolved mana face: applying Color$ before that walk would otherwise see a
@@ -1397,6 +1413,11 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 	// its own source. This also closes the same latent over-offer for an
 	// escape cast from the graveyard.
 	castObj := e.G.Obj(id)
+	// Top-of-library exile parts share one ordered prefix. Check their
+	// aggregate size, not each part against the same library prefix.
+	if _, ok := exileFromTopCards(e.G.Zone(state.ZLibrary, p), cost.ExileFromTop); !ok {
+		return false
+	}
 	for _, part := range cost.Exile {
 		zone := part.Zone
 		if zone == 0 {
@@ -2142,6 +2163,9 @@ func foldAdditionalCost(cost, extra Cost) Cost {
 	}
 	if len(extra.Exile) > 0 {
 		cost.Exile = append(append([]CostPart(nil), cost.Exile...), extra.Exile...)
+	}
+	if len(extra.ExileFromTop) > 0 {
+		cost.ExileFromTop = append(append([]CostPart(nil), cost.ExileFromTop...), extra.ExileFromTop...)
 	}
 	if len(extra.MoveToGrave) > 0 {
 		cost.MoveToGrave = append(append([]CostPart(nil), cost.MoveToGrave...), extra.MoveToGrave...)
@@ -3687,6 +3711,9 @@ func (e *Engine) blightCostAsk() bool {
 // sacAsk's CARDNAME singleton rule.
 func (e *Engine) exAsk() bool {
 	pc := e.cast
+	// ExileFromTop is settled after the mana window, immediately before payment:
+	// a mana ability may draw or reorder the library, so locking IDs here would
+	// pay a card that is no longer on top. There is no chooser for this cost.
 	for pc.exilePart < len(pc.cost.Exile) {
 		part := pc.cost.Exile[pc.exilePart]
 		zone := part.Zone
@@ -9402,6 +9429,18 @@ func (e *Engine) payCast() {
 	if e.manaWindowAsk() {
 		return
 	}
+	// Mana abilities can draw/reorder the library. Resolve the aggregate
+	// ExileFromTop prefix only now, before any cost is paid, so the IDs moved
+	// are still the actual top cards and insufficient cards abort without
+	// spending the spell/activation's mana.
+	if len(pc.cost.ExileFromTop) > 0 {
+		top, ok := exileFromTopCards(e.G.Zone(state.ZLibrary, pc.player), pc.cost.ExileFromTop)
+		if !ok {
+			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
+			return
+		}
+		pc.exiles = append(pc.exiles, top...)
+	}
 	// Snapshot the source before any non-mana cost can move it. DamageYou
 	// shares this LKI with resolution-time damage costs when its source has
 	// already left the battlefield; a live source still uses current layers.
@@ -10959,7 +10998,7 @@ func (e *Engine) castWindowSelfSacCost(p state.PlayerID, source state.ObjID, c C
 // refused, as is any token the parser did not understand.
 func castWindowOtherPartsAbsent(c Cost) bool {
 	return len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
-		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 &&
+		len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 &&
 		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 &&
 		len(c.Exert) == 0 && !c.Forage && !c.LifeHalfUp && len(c.Draw) == 0 &&
 		len(c.Energy) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&
