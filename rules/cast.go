@@ -776,30 +776,46 @@ func keywordAltCost(f *cards.Face, head string) (Cost, bool) {
 	return ParseCost(s), true
 }
 
-// blitzCost is the shared offer/charge reader for printed Blitz and layer-6
-// Blitz grants. Forge grants may carry a trailing Spell filter after the cost;
-// that filter is part of the grant, not mana-cost text.
-func (e *Engine) blitzCost(p state.PlayerID, id state.ObjID) (Cost, bool) {
+// blitzCosts is the shared offer/charge reader for every printed or granted
+// Blitz instance. Distinct modes preserve separate costs when a printed
+// keyword and a layer-6 grant coexist; grant filters and CardManaCost are
+// resolved against the proposed spell before it is offered.
+func (e *Engine) blitzCosts(p state.PlayerID, id state.ObjID) []struct {
+	mode string
+	cost Cost
+} {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
-		return Cost{}, false
+		return nil
 	}
-	if raw, ok := e.derivedKeywordParamAt(id, "Blitz", state.ZStack); ok {
+	var out []struct {
+		mode string
+		cost Cost
+	}
+	blitzIndex := 0
+	for _, keyword := range e.derivedWith(id, state.ZStack).Keywords {
+		if !strings.EqualFold(cardsKeywordHead(keyword), "Blitz") {
+			continue
+		}
+		blitzIndex++
+		raw := ""
+		if i := strings.IndexByte(keyword, ':'); i >= 0 {
+			raw = strings.TrimSpace(keyword[i+1:])
+		}
 		parts := strings.SplitN(raw, ":", 2)
-		costText := parts[0]
 		if len(parts) == 2 {
 			spec, admits := e.castProvenanceAdmitsWindow(parts[1], id, p, true)
 			if !admits {
-				return Cost{}, false
+				continue
 			}
 			sc := e.specCtx(0, p)
 			sc.AsStack = true
 			if !e.matchesSpec(spec, id, sc) {
-				return Cost{}, false
+				continue
 			}
 		}
 		var toks []string
-		for _, tok := range strings.Fields(costText) {
+		for _, tok := range strings.Fields(parts[0]) {
 			if strings.EqualFold(tok, "CardManaCost") {
 				toks = append(toks, strings.Fields(o.Face().ManaCost)...)
 			} else {
@@ -807,9 +823,28 @@ func (e *Engine) blitzCost(p state.PlayerID, id state.ObjID) (Cost, bool) {
 			}
 		}
 		c := ParseCost(strings.Join(toks, " "))
-		return c, len(c.Unknown) == 0
+		if len(c.Unknown) != 0 {
+			continue
+		}
+		mode := "blitzed"
+		if blitzIndex > 1 {
+			mode = fmt.Sprintf("blitzed_grant_%d", blitzIndex)
+		}
+		out = append(out, struct {
+			mode string
+			cost Cost
+		}{mode, c})
 	}
-	return keywordAltCost(o.Face(), "Blitz")
+	return out
+}
+
+// blitzCost retains the common single-cost read for existing consumers/tests.
+func (e *Engine) blitzCost(p state.PlayerID, id state.ObjID) (Cost, bool) {
+	costs := e.blitzCosts(p, id)
+	if len(costs) == 0 {
+		return Cost{}, false
+	}
+	return costs[0].cost, true
 }
 
 func (e *Engine) derivedKeywordParamAt(id state.ObjID, head string, zone state.Zone) (string, bool) {
@@ -2401,6 +2436,12 @@ func (e *Engine) beginCastWithPayment(p state.PlayerID, opt decision.Option, sel
 			announceAlt = &alts[opt.AltCostIndex-1]
 		}
 	}
+	selectedMode := opt.Mode
+	if strings.HasPrefix(selectedMode, "blitzed_grant_") {
+		// Keep a unique offer mode for each grant cost, but use canonical Blitz
+		// semantics for the rest of the cast pipeline.
+		opt.Mode = "blitzed"
+	}
 	switch opt.Mode {
 	case "kicked":
 		if kc, ok := kickerCost(f); ok {
@@ -2583,6 +2624,8 @@ func (e *Engine) beginCastWithPayment(p state.PlayerID, opt decision.Option, sel
 			cost = cost.Plus(jumpstartExtra())
 		}
 	case "evoked", "dashed", "overloaded", "warped", "madness", "bestowed", "blitzed":
+		// Grant instances use distinct modes so their cost remains selectable
+		// beside printed Blitz, but share Blitz's cast semantics.
 		// The alternative-cost keyword family (altcosts): each mode's cost is
 		// the printed keyword parameter in place of the mana cost, exactly the
 		// Miracle shape. Evoke and Madness casts come from hand and exile
@@ -2606,10 +2649,12 @@ func (e *Engine) beginCastWithPayment(p state.PlayerID, opt decision.Option, sel
 			break
 		}
 		if opt.Mode == "blitzed" {
-			if bc, ok := e.blitzCost(p, id); ok {
-				cost = bc
-			} else {
-				cost = Cost{}
+			cost = Cost{}
+			for _, bc := range e.blitzCosts(p, id) {
+				if bc.mode == selectedMode {
+					cost = bc.cost
+					break
+				}
 			}
 		} else if mc, ok := f.KeywordParam(head); ok {
 			cost = ParseCost(mc)

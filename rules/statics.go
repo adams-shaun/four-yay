@@ -2873,7 +2873,7 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 	case "Miracle":
 		return scope.mode == "miracle"
 	case "Blitz":
-		return scope.mode == "blitzed"
+		return scope.mode == "blitzed" || strings.HasPrefix(scope.mode, "blitzed_grant_")
 	case "Instant":
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()

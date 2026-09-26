@@ -2327,18 +2327,28 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 		// graveyard and -- after an end-step exile -- from exile, in the walks
 		// below.
 		for _, ka := range [...]struct{ mode, head string }{
-			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"}, {"warped", "Warp"}, {"blitzed", "Blitz"},
+			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"}, {"warped", "Warp"},
 		} {
 			alt, ok := keywordAltCost(f, ka.head)
-			if ka.mode == "blitzed" {
-				alt, ok = e.blitzCost(p, id)
-			}
 			if !ok || (ka.mode != "overloaded" && !targetsAvailable) ||
 				!offerCastable(p, id, alt, spellScope(ka.mode), false) {
 				continue
 			}
 			out = append(out, decision.Option{Index: len(out), Kind: "cast",
 				Label: "Cast " + f.Name + " (" + ka.mode + ")", Obj: id, Mode: ka.mode})
+		}
+		if targetsAvailable {
+			for _, blitz := range e.blitzCosts(p, id) {
+				if !offerCastable(p, id, blitz.cost, spellScope(blitz.mode), false) {
+					continue
+				}
+				label := "blitzed"
+				if blitz.mode != "blitzed" {
+					label += " (granted)"
+				}
+				out = append(out, decision.Option{Index: len(out), Kind: "cast",
+					Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: blitz.mode})
+			}
 		}
 		// Morph / Megamorph / Disguise (CR 702.37a/702.168a/702.169a), from
 		// the hand: each family becomes its own "cast" mode option paying

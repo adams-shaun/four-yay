@@ -35,6 +35,7 @@ const (
 	henzieFourSrc  = "Name:Blitz Four\nManaCost:3 G\nTypes:Creature\nPT:4/4\nOracle:x\n"
 	henzieThreeSrc = "Name:Blitz Three\nManaCost:2 G\nTypes:Creature\nPT:3/3\nOracle:x\n"
 	henzieFoeSrc   = "Name:Blitz Foe\nManaCost:4 G\nTypes:Creature\nPT:5/5\nOracle:x\n"
+	henziePlainSrc = "Name:Blitz Four Plain\nManaCost:3 G\nTypes:Creature\nPT:4/4\nOracle:x\n"
 	henzieName     = "Henzie \"Toolbox\" Torre"
 )
 
@@ -56,8 +57,8 @@ func henzieBlitzGame(t *testing.T, seed uint64, commander, withHenzie bool) (*En
 		}
 		hero = append(hero, h)
 	}
-	hero = append(hero, card(t, henzieFourSrc), card(t, henzieThreeSrc))
-	hero = append(hero, mountainDeck(t, 37)...)
+	hero = append(hero, card(t, henzieFourSrc), card(t, henzieThreeSrc), card(t, henziePlainSrc))
+	hero = append(hero, mountainDeck(t, 36)...)
 	foe := append([]*cards.Card{card(t, henzieFoeSrc)}, mountainDeck(t, 39)...)
 	cfg := Config{Seed: seed, Names: []string{"a", "b"}, Decks: [][]*cards.Card{hero, foe},
 		Tokens: reg.Tokens}
@@ -230,15 +231,18 @@ func TestHenzieGrantedBlitzDiscount(t *testing.T) {
 		// The reduction is on the GENERIC component, never the colored pip:
 		// with only {C}{C}{C} the pip-less shape {3} would be payable, so a
 		// (blitzed) option there would prove the discount ate the {G}.
-		addMana(t, e, 0, "CCC")
+		addMana(t, e, 0, "CC")
 		if hasModeOption(e, four, "blitzed") {
 			t.Fatal("blitz offered from a pool that cannot pay the {G} pip: the discount consumed a colored pip")
 		}
 		addMana(t, e, 0, "G")
 		if !hasModeOption(e, four, "blitzed") {
-			t.Fatal("no discounted (blitzed) option at {3}{G} minus one generic")
+			t.Fatal("no granted blitz option at exactly {2}{G}; the discount must reach the offer")
 		}
-		if hasModeOption(e, three, "blitzed") {
+		if hasModeOption(e, four, "") {
+			t.Fatal("plain {3}{G} cast offered with only the discounted {2}{G} funded")
+		}
+		if hasModeOption(e, three, "blitzed") || hasModeOption(e, three, "blitzed_grant_2") {
 			t.Fatal("mana-value-3 creature received Henzie's Blitz grant")
 		}
 		poolBefore := e.G.Players[0].Pool.Total()
@@ -248,11 +252,35 @@ func TestHenzieGrantedBlitzDiscount(t *testing.T) {
 				poolBefore-got, poolBefore)
 		}
 		resolveBlitzCasted(t, e, four)
+
+		// The count-one discount is scoped to Spell.Blitz: a second qualifying
+		// MV-4 creature's ordinary cast still needs its full {3}{G}, not {2}{G}.
+		plain := findCardObj(t, e, 0, "Blitz Four Plain", state.ZHand)
+		if got := e.G.Obj(plain).Face().ManaValue(); got != 4 || plain == four {
+			t.Fatalf("setup: plain-cast control id=%d MV=%d, want a distinct MV-4 card", plain, got)
+		}
+		addMana(t, e, 0, "GCC")
+		if hasModeOption(e, plain, "") {
+			t.Fatal("ordinary MV-4 cast incorrectly offered after funding only discounted {2}{G}")
+		}
+		addMana(t, e, 0, "C")
+		if !hasModeOption(e, plain, "") {
+			t.Fatal("ordinary MV-4 cast missing at its full {3}{G} cost")
+		}
+		poolBefore = e.G.Players[0].Pool.Total()
+		submitChoices(t, e, castModeOption(t, e, plain, ""))
+		if got := e.G.Players[0].Pool.Total(); poolBefore-got != 4 {
+			t.Fatalf("count-one ordinary cast charged %d; want full {3}{G} (4)", poolBefore-got)
+		}
+		passUntilStackEmpty(t, e, 40)
 		replayCheck(t, e, cfg)
 	})
 
 	t.Run("no Henzie no grant", func(t *testing.T) {
-		e, _, _, _, four := henzieBlitzGame(t, 9803, false, false)
+		e, _, _, four, _ := henzieBlitzGame(t, 9803, false, false)
+		if mv := e.G.Obj(four).Face().ManaValue(); mv != 4 {
+			t.Fatalf("setup: no-Henzie control mana value = %d, want 4", mv)
+		}
 		// Control precondition: the creature sits in hand and carries no
 		// derived Blitz keyword without Henzie anywhere in play.
 		if e.G.Obj(four).Zone != state.ZHand {
@@ -294,5 +322,41 @@ func TestHenzieGrantedBlitzDiscount(t *testing.T) {
 		if !hasModeOption(e, foe, "") {
 			t.Fatal("setup: the opponent's plain cast option is missing (vacuous control)")
 		}
+	})
+
+	t.Run("printed Sabin and Henzie's grant remain separately selectable", func(t *testing.T) {
+		e, cfg, _ := altCostEngine(t, 9805, []string{henzieName, "Sabin, Master Monk"}, nil, nil)
+		henzie := findCardObj(t, e, 0, henzieName, state.ZHand)
+		addMana(t, e, 0, "BRGCC")
+		submitChoices(t, e, castModeOption(t, e, henzie, ""))
+		passUntilStackEmpty(t, e, 40)
+		sabin := findCardObj(t, e, 0, "Sabin, Master Monk", state.ZHand)
+		if got := e.G.Obj(sabin).Face().ManaValue(); got < 4 {
+			t.Fatalf("setup: Sabin mana value = %d, want at least 4", got)
+		}
+		face := e.G.Obj(sabin).Face()
+		if raw, ok := face.KeywordParam("Blitz"); !ok || raw != "2 R R Discard<1/Card>" {
+			t.Fatalf("setup: Sabin printed Blitz cost = %q (%v), want its discard form", raw, ok)
+		}
+		findCardObj(t, e, 0, "Mountain", state.ZHand) // Blitz's printed cost needs discard fodder.
+		addMana(t, e, 0, "CCCCR")
+		if hasModeOption(e, sabin, "blitzed") {
+			t.Fatal("printed Sabin Blitz offered with only {4}{R}; its {2}{R}{R} and discard are not payable")
+		}
+		if !hasModeOption(e, sabin, "blitzed_grant_2") {
+			t.Fatalf("Henzie's separate CardManaCost Blitz was not offered: %+v", e.Pending().Options)
+		}
+		poolBefore := e.G.Players[0].Pool.Total()
+		submitChoices(t, e, castModeOption(t, e, sabin, "blitzed_grant_2"))
+		if got := e.G.Players[0].Pool.Total(); poolBefore-got != 5 {
+			t.Fatalf("Henzie's granted Sabin Blitz charged %d of %d mana; want exact {4}{R} (5)", poolBefore-got, poolBefore)
+		}
+		// The selected grant has the Blitz riders, while the printed cost's
+		// discard is not charged because that distinct alternative was not chosen.
+		passUntilStackEmpty(t, e, 40)
+		if o := e.G.Obj(sabin); o.Zone != state.ZBattlefield || o.CastFlags&state.FlagBlitzed == 0 || !e.HasKeyword(sabin, "Haste") {
+			t.Fatalf("Henzie-granted Sabin: zone=%s flags=%d haste=%v", o.Zone, o.CastFlags, e.HasKeyword(sabin, "Haste"))
+		}
+		replayCheck(t, e, cfg)
 	})
 }
