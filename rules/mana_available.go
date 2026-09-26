@@ -56,7 +56,7 @@ import (
 // pool event records only the selected colour.
 func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 	var out state.Mana
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped {
 			continue
@@ -80,6 +80,31 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 		}
 	}
 	return out
+}
+
+// battlefieldManaSourceIDs lists the payer's battlefield permanents first,
+// followed by other players' battlefield permanents in seat order. The latter
+// matter when an ability's Activator$ explicitly permits the payer; the shared
+// availableManaAbilities gate filters each source. Zone order within each
+// owner is retained for deterministic option ordering.
+func (e *Engine) battlefieldManaSourceIDs(p state.PlayerID) []state.ObjID {
+	ids := append([]state.ObjID(nil), e.G.Zone(state.ZBattlefield, p)...)
+	for _, owner := range e.G.AliveFrom(0) {
+		if owner != p {
+			ids = append(ids, e.G.Zone(state.ZBattlefield, owner)...)
+		}
+	}
+	return ids
+}
+
+// manaSourceIDs adds the payer's non-battlefield printed mana sources to the
+// public battlefield set. Hand and graveyard sources remain owner-scoped.
+func (e *Engine) manaSourceIDs(p state.PlayerID) []state.ObjID {
+	ids := e.battlefieldManaSourceIDs(p)
+	for _, z := range []state.Zone{state.ZHand, state.ZGraveyard} {
+		ids = append(ids, e.G.Zone(z, p)...)
+	}
+	return ids
 }
 
 // manaFreeCost reports whether a mana ability's activation cost is a bare
@@ -188,7 +213,7 @@ type windowManaUnit struct {
 // ability becomes one alt, since the permanent still taps for one of them.
 func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
 	var out []windowManaUnit
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue

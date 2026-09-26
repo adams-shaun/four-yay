@@ -1156,7 +1156,7 @@ func (e *Engine) attackManaSources(p state.PlayerID) []attackManaSource {
 // known literal Amount$ scales the units.
 func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 	var out []attackManaSource
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue

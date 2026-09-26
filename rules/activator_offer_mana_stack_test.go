@@ -84,6 +84,9 @@ Oracle:x
 	if !hasActivateOptionFor(e.legalActions(0), id) {
 		t.Fatalf("any-player mana ability was not offered to its controller: %+v", e.legalActions(0))
 	}
+	if !hasActivateOptionFor(e.legalActions(1), id) {
+		t.Fatalf("any-player mana ability was not offered to the opponent: %+v", e.legalActions(1))
+	}
 }
 
 // TestActivatorOfferStackAbility covers the Lightning Storm shape
