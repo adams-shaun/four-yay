@@ -67,8 +67,8 @@ func exileFromTopAbilityOption(t *testing.T, e *Engine, obj state.ObjID, want st
 }
 
 // TestExileFromTopCostParse is the grammar leaf: ExileFromTop<N/Card> prices
-// with no generic substitution and no Unknown entry, lands in Cost.Exile with
-// the library origin, round-trips through formatCost, and a spec other than
+// with no generic substitution and no Unknown entry, stays in its dedicated
+// top-library cost slice, round-trips through formatCost, and a spec other than
 // the measured "Card" is left unmodelled (never a deeper-card filter).
 func TestExileFromTopCostParse(t *testing.T) {
 	c := ParseCost("U ExileFromTop<1/Card>")
@@ -108,6 +108,25 @@ func TestExileFromTopCostParse(t *testing.T) {
 	}
 	if len(bad.Unknown) == 0 || bad.Unknown[0] != "ExileFromTop" {
 		t.Fatalf("non-Card spec Unknown = %v, want [ExileFromTop]", bad.Unknown)
+	}
+}
+
+func TestExileFromTopPartsUseOneCurrentPrefix(t *testing.T) {
+	parts := []CostPart{{N: 2, Spec: "Card"}, {N: 2, Spec: "Card"}}
+	old := []state.ObjID{6, 11, 8, 21}
+	got, ok := exileFromTopCards(old, parts)
+	if !ok || len(got) != 4 || got[0] != 6 || got[1] != 11 || got[2] != 8 || got[3] != 21 {
+		t.Fatalf("two top-two parts selected %v, ok=%v; want distinct aggregate prefix %v", got, ok, old)
+	}
+	if _, ok := exileFromTopCards(old[:2], parts); ok {
+		t.Fatal("two top-two parts were payable from only two cards")
+	}
+	// Payment resolves against the library's post-mana-window state, not IDs
+	// captured before a mana ability draws or reorders it.
+	current := []state.ObjID{31, 32, 33}
+	got, ok = exileFromTopCards(current, []CostPart{{N: 1, Spec: "Card"}})
+	if !ok || len(got) != 1 || got[0] != current[0] {
+		t.Fatalf("settled top after library change = %v, ok=%v; want current top %d", got, ok, current[0])
 	}
 }
 

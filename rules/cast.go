@@ -545,12 +545,8 @@ type pendingCast struct {
 	// encore's "exile this card from your graveyard") through the same ask
 	// stage / commit shape sacAsk and sacs use. Nothing moves until payCast,
 	// so an abort cannot leave a partially paid exile on the board.
-	// exileTopPart walks the separate top-of-library parts (ExileFromTop<N/Card>),
-	// whose cards land in the same exiles list but are taken in library order
-	// with no chooser.
-	exiles       []state.ObjID
-	exilePart    int
-	exileTopPart int
+	exiles    []state.ObjID
+	exilePart int
 
 	// returns / returnPart carry the Return cost parts (Return<N/Spec>
 	// tokens: a permanent matching Spec returned to its OWNER's hand) through
@@ -1359,6 +1355,22 @@ func (e *Engine) chargeEnergyCost(p state.PlayerID, c Cost, x int32) {
 	}
 }
 
+// exileFromTopCards returns the aggregate top-of-library prefix paid by a set
+// of ExileFromTop parts. Parts do not each get to reuse the same prefix.
+func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool) {
+	var n int64
+	for _, part := range parts {
+		if part.N <= 0 {
+			return nil, false
+		}
+		n += int64(part.N)
+	}
+	if n > int64(len(lib)) {
+		return nil, false
+	}
+	return append([]state.ObjID(nil), lib[:int(n)]...), true
+}
+
 // nonManaCastable is castable's payment-independent tail. Cost-modifier
 // offer checks use it after their flexible-pip walk has established a payable
 // resolved mana face: applying Color$ before that walk would otherwise see a
@@ -1401,14 +1413,10 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 	// its own source. This also closes the same latent over-offer for an
 	// escape cast from the graveyard.
 	castObj := e.G.Obj(id)
-	// A top-of-library exile cost (ExileFromTop<N/Card>) pays the ACTUAL top N
-	// cards in order: there is no chooser and no spec search, so the only
-	// offer-time condition is that the library holds that many. Checked here
-	// and again live in exAsk before anything moves.
-	for _, part := range cost.ExileFromTop {
-		if part.N <= 0 || int32(len(e.G.Zone(state.ZLibrary, p))) < part.N {
-			return false
-		}
+	// Top-of-library exile parts share one ordered prefix. Check their
+	// aggregate size, not each part against the same library prefix.
+	if _, ok := exileFromTopCards(e.G.Zone(state.ZLibrary, p), cost.ExileFromTop); !ok {
+		return false
 	}
 	for _, part := range cost.Exile {
 		zone := part.Zone
@@ -3703,24 +3711,9 @@ func (e *Engine) blightCostAsk() bool {
 // sacAsk's CARDNAME singleton rule.
 func (e *Engine) exAsk() bool {
 	pc := e.cast
-	// Top-of-library exile parts (ExileFromTop<N/Card>) have no chooser: they
-	// pay the ACTUAL top N cards in library order. Re-check the live library
-	// here (the offer walk's gate could be stale) and abort the whole cast
-	// rather than pay a short or wrong cost; the cards are recorded in order so
-	// payCast emits the moves in that order and the Exiled$ paid list preserves
-	// it. They feed the same pc.exiles list installPaidCostLists publishes.
-	for pc.exileTopPart < len(pc.cost.ExileFromTop) {
-		part := pc.cost.ExileFromTop[pc.exileTopPart]
-		lib := e.G.Zone(state.ZLibrary, pc.player)
-		if part.N <= 0 || int32(len(lib)) < part.N {
-			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
-			return true
-		}
-		for i := int32(0); i < part.N; i++ {
-			pc.exiles = append(pc.exiles, lib[i])
-		}
-		pc.exileTopPart++
-	}
+	// ExileFromTop is settled after the mana window, immediately before payment:
+	// a mana ability may draw or reorder the library, so locking IDs here would
+	// pay a card that is no longer on top. There is no chooser for this cost.
 	for pc.exilePart < len(pc.cost.Exile) {
 		part := pc.cost.Exile[pc.exilePart]
 		zone := part.Zone
@@ -9435,6 +9428,18 @@ func (e *Engine) payCast() {
 	// pay and an untapped mana source exists.
 	if e.manaWindowAsk() {
 		return
+	}
+	// Mana abilities can draw/reorder the library. Resolve the aggregate
+	// ExileFromTop prefix only now, before any cost is paid, so the IDs moved
+	// are still the actual top cards and insufficient cards abort without
+	// spending the spell/activation's mana.
+	if len(pc.cost.ExileFromTop) > 0 {
+		top, ok := exileFromTopCards(e.G.Zone(state.ZLibrary, pc.player), pc.cost.ExileFromTop)
+		if !ok {
+			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
+			return
+		}
+		pc.exiles = append(pc.exiles, top...)
 	}
 	// Snapshot the source before any non-mana cost can move it. DamageYou
 	// shares this LKI with resolution-time damage costs when its source has
