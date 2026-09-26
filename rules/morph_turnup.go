@@ -587,7 +587,15 @@ func (e *Engine) finishTurnUp(tp *turnUpPay) {
 	if mf, ok := morphFaceUpCost(e.G.Obj(tp.card)); ok {
 		megamorph = mf.megamorph
 	}
-	e.emit(events.Event{Kind: events.TurnFaceUp, Obj: tp.card})
+	// The TurnFaceUp event is also the CR 107.3m trigger binding point for
+	// an X paid as this permanent turns face up (Bane of the Living's
+	// Count$xPaid trigger). Amount is already part of the event encoding; the
+	// event kind disambiguates this payload from other Amount meanings.
+	turnUpX := int32(0)
+	if tp.cost.X > 0 {
+		turnUpX = tp.x
+	}
+	e.emit(events.Event{Kind: events.TurnFaceUp, Obj: tp.card, Amount: turnUpX})
 	if megamorph {
 		e.emit(events.Event{Kind: events.CounterChange, Obj: tp.card, Counter: "P1P1", Amount: 1})
 	}

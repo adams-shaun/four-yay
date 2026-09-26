@@ -285,6 +285,50 @@ func TestMorphTurnFaceUpPaysNonManaCosts(t *testing.T) {
 	})
 }
 
+// TestMorphTurnFaceUpTriggerUsesAnnouncedX proves CR 107.3m binds the
+// turn-up announcement to the carrier's TurnFaceUp trigger, not only to the
+// mana payment. Bane's printed trigger reads Count$xPaid; with X=2 its -2/-2
+// kills the real 2/2 Grizzly Bears, whereas an unbound X leaves it alive.
+func TestMorphTurnFaceUpTriggerUsesAnnouncedX(t *testing.T) {
+	reg := searchTestRegistry(t)
+	e, cfg := manifestEngine(t, reg, "Bane of the Living", "Grizzly Bears")
+	id := morphAndPool(t, e, "Bane of the Living", "morphed", "CCBB", 1, "BBCC")
+	bear := putCorpusPermanent(t, e, "Grizzly Bears")
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield || e.Derived(bear).Power != 2 || e.Derived(bear).Toughness != 2 {
+		t.Fatalf("precondition: Grizzly Bears=%+v derived=%+v, want battlefield 2/2", o, e.Derived(bear))
+	}
+	mark := len(e.L.Events)
+	submitChoices(t, e, turnFaceUpIndex(t, e, id))
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "x" {
+		t.Fatalf("X ask = %+v, want Bane's bounded X announcement", d)
+	}
+	pick := -1
+	for _, opt := range d.Options {
+		if opt.Amount == 2 {
+			pick = opt.Index
+		}
+	}
+	if pick < 0 {
+		t.Fatalf("X=2 not offered: %+v", d.Options)
+	}
+	submitChoices(t, e, pick)
+	foundX := false
+	for _, ev := range e.L.Events[mark:] {
+		if ev.Kind == events.TurnFaceUp && ev.Obj == id {
+			foundX = ev.Amount == 2
+		}
+	}
+	if !foundX {
+		t.Fatalf("TurnFaceUp event did not carry announced X=2: %+v", e.L.Events[mark:])
+	}
+	answerQuiet(t, e, 60)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("Bane's -X/-X trigger did not use announced X=2; Grizzly Bears=%+v", o)
+	}
+	replayCheck(t, e, cfg)
+}
+
 // TestMorphTurnFaceUpAnnouncesAndPaysX asserts an {X} turn-up cost poses an
 // explicit bounded X choice: X=0 is offered when the base mana is payable and
 // the announced value is charged exactly. Bane of the Living (Morph:X B B)
