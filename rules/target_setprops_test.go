@@ -67,6 +67,25 @@ func setPropOptionIndex(d *decision.Decision, id state.ObjID) int {
 	return -1
 }
 
+// setPropChoices maps object ids to their offered option indices, failing
+// loudly when an object was not offered. Using it in place of a bare
+// setPropOptionIndex keeps a wiring bug visible: an unoffered object would
+// otherwise feed -1 to Validate, which rejects it for the WRONG reason -- a
+// positive test would report a confusing rejection, and a negative test would
+// pass vacuously because -1 is rejected.
+func setPropChoices(t *testing.T, d *decision.Decision, ids ...state.ObjID) []int {
+	t.Helper()
+	out := make([]int, 0, len(ids))
+	for _, id := range ids {
+		i := setPropOptionIndex(d, id)
+		if i < 0 {
+			t.Fatalf("object %d was not offered as a target option", id)
+		}
+		out = append(out, i)
+	}
+	return out
+}
+
 // TestTargetSetSameCardType pins TargetsWithSameCardType$ at the offer: the
 // two permanents that share a printed card type are a legal pair, and the pair
 // that shares none is rejected by the SAME rule Validate enforces.
@@ -98,15 +117,15 @@ func TestTargetSetSameCardType(t *testing.T) {
 	if d.SetPropMode != decision.SetPropShared {
 		t.Fatalf("SetPropMode = %q, want shared", d.SetPropMode)
 	}
-	if got := d.Options[setPropOptionIndex(d, artifactCreature)].SetProps; len(got) == 0 {
+	if got := d.Options[setPropChoices(t, d, artifactCreature)[0]].SetProps; len(got) == 0 {
 		t.Fatalf("option %d carries no SetProps", artifactCreature)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, artifactCreature), setPropOptionIndex(d, artifact)}}); err != nil {
+		Choices: setPropChoices(t, d, artifactCreature, artifact)}); err != nil {
 		t.Fatalf("shared card type pair rejected: %v", err)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, artifact), setPropOptionIndex(d, creature)}}); err == nil {
+		Choices: setPropChoices(t, d, artifact, creature)}); err == nil {
 		t.Fatal("a non-sharing card-type pair was accepted")
 	}
 }
@@ -137,11 +156,11 @@ func TestTargetSetSameCreatureType(t *testing.T) {
 		t.Fatalf("pending = %+v, want a shared target decision", d)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, elf), setPropOptionIndex(d, elfWarrior)}}); err != nil {
+		Choices: setPropChoices(t, d, elf, elfWarrior)}); err != nil {
 		t.Fatalf("shared creature type pair rejected: %v", err)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, elf), setPropOptionIndex(d, goblin)}}); err == nil {
+		Choices: setPropChoices(t, d, elf, goblin)}); err == nil {
 		t.Fatal("a non-sharing creature-type pair was accepted")
 	}
 }
@@ -168,11 +187,11 @@ func TestTargetSetEqualToughness(t *testing.T) {
 		t.Fatalf("pending = %+v, want a shared target decision", d)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, three), setPropOptionIndex(d, threeB)}}); err != nil {
+		Choices: setPropChoices(t, d, three, threeB)}); err != nil {
 		t.Fatalf("equal-toughness pair rejected: %v", err)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, two), setPropOptionIndex(d, three)}}); err == nil {
+		Choices: setPropChoices(t, d, two, three)}); err == nil {
 		t.Fatal("a differing-toughness pair was accepted")
 	}
 }
@@ -202,11 +221,11 @@ func TestTargetSetDifferentCMC(t *testing.T) {
 		t.Fatalf("pending = %+v, want a distinct target decision", d)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, one), setPropOptionIndex(d, two)}}); err != nil {
+		Choices: setPropChoices(t, d, one, two)}); err != nil {
 		t.Fatalf("different-cmc pair rejected: %v", err)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, two), setPropOptionIndex(d, twoB)}}); err == nil {
+		Choices: setPropChoices(t, d, two, twoB)}); err == nil {
 		t.Fatal("a same-cmc pair was accepted")
 	}
 }
@@ -237,11 +256,11 @@ func TestTargetSetDifferentNames(t *testing.T) {
 		t.Fatalf("pending = %+v, want a distinct target decision", d)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, alpha), setPropOptionIndex(d, beta)}}); err != nil {
+		Choices: setPropChoices(t, d, alpha, beta)}); err != nil {
 		t.Fatalf("different-name pair rejected: %v", err)
 	}
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player,
-		Choices: []int{setPropOptionIndex(d, beta), setPropOptionIndex(d, betaB)}}); err == nil {
+		Choices: setPropChoices(t, d, beta, betaB)}); err == nil {
 		t.Fatal("a same-name pair was accepted")
 	}
 }
