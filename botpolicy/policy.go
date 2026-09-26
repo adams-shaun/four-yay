@@ -1273,6 +1273,7 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 		// byte-identical.
 		groups := make(map[string]int) // picked options per Group.
 		sum := 0                       // running MaxSum budget over the chosen set.
+		setAcc := d.SetPropsOf(in.Choices)
 		for _, c := range in.Choices {
 			have[c] = true
 			if c >= 0 && c < len(d.Options) {
@@ -1294,6 +1295,7 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 			}
 			have[o.Index] = true
 			sum += o.Value
+			setAcc = decision.SetPropMerge(d.SetPropMode, setAcc, o.SetProps)
 			in.Choices = append(in.Choices, o.Index)
 		}
 		for _, o := range d.Options {
@@ -1320,7 +1322,8 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 			if o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group) {
 				continue
 			}
-			if !fits(o) || (d.TargetsWithSameController && haveTargetController && o.Controller != targetController) {
+			if !fits(o) || (d.TargetsWithSameController && haveTargetController && o.Controller != targetController) ||
+				!decision.SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) {
 				continue
 			}
 			if o.Group != "" {

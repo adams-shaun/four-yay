@@ -8005,7 +8005,8 @@ func (e *Engine) targetAsk() bool {
 	// contribute a controller to it.
 	min, max, exclusive, distinct := e.oneEachTargetBounds(sa, candidates, min, max)
 	min, max, sameCapacity, sameController := e.sameControllerTargetBounds(sa, candidates, min, max)
-	if min > 0 && (len(candidates) < min || (exclusive && min > distinct) || (sameController && min > sameCapacity)) {
+	min, max, setCapacity, setMode, setKind := e.setPropTargetBounds(sa, candidates, min, max)
+	if min > 0 && (len(candidates) < min || (exclusive && min > distinct) || (sameController && min > sameCapacity) || (setMode != decision.SetPropNone && min > setCapacity)) {
 		// CR 601.2c: a proposal with fewer legal targets than its mandatory
 		// minimum -- or one whose per-controller constraint admits fewer
 		// distinct controllers than its mandatory minimum -- cannot be
@@ -8067,7 +8068,7 @@ func (e *Engine) targetAsk() bool {
 	d := &decision.Decision{Player: chooser, Kind: decision.KTarget, Min: min, Max: max,
 		Prompt: "Choose a target for " + e.targetName(pc.card),
 		Source: src, TargetEffect: e.describeTargetEffect(pc.player, pc.card, sa, pc.x),
-		TargetsWithSameController: sameController}
+		TargetsWithSameController: sameController, SetPropMode: setMode}
 	if !pc.isAbility() && pc.stackObj == pc.card {
 		lim := max
 		if lim < 0 || lim > len(candidates) {
@@ -8083,6 +8084,7 @@ func (e *Engine) targetAsk() bool {
 			Label: label, Obj: candidate.obj, Player: candidate.player}
 		o.Group = e.targetControllerGroup(sa, candidate)
 		o.Controller = e.candidateControllerSeat(candidate)
+		o.SetProps = e.setPropTokensFor(setKind, candidate)
 		// Option.Value is omitempty and read only under a budget
 		// (Decision.HasBudget), so a budget-less target ask keeps its wire
 		// payload byte-identical. Every present cap -- zero and negative
