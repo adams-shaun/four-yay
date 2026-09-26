@@ -545,8 +545,12 @@ type pendingCast struct {
 	// encore's "exile this card from your graveyard") through the same ask
 	// stage / commit shape sacAsk and sacs use. Nothing moves until payCast,
 	// so an abort cannot leave a partially paid exile on the board.
-	exiles    []state.ObjID
-	exilePart int
+	// exileTopPart walks the separate top-of-library parts (ExileFromTop<N/Card>),
+	// whose cards land in the same exiles list but are taken in library order
+	// with no chooser.
+	exiles       []state.ObjID
+	exilePart    int
+	exileTopPart int
 
 	// returns / returnPart carry the Return cost parts (Return<N/Spec>
 	// tokens: a permanent matching Spec returned to its OWNER's hand) through
@@ -1397,6 +1401,15 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 	// its own source. This also closes the same latent over-offer for an
 	// escape cast from the graveyard.
 	castObj := e.G.Obj(id)
+	// A top-of-library exile cost (ExileFromTop<N/Card>) pays the ACTUAL top N
+	// cards in order: there is no chooser and no spec search, so the only
+	// offer-time condition is that the library holds that many. Checked here
+	// and again live in exAsk before anything moves.
+	for _, part := range cost.ExileFromTop {
+		if part.N <= 0 || int32(len(e.G.Zone(state.ZLibrary, p))) < part.N {
+			return false
+		}
+	}
 	for _, part := range cost.Exile {
 		zone := part.Zone
 		if zone == 0 {
@@ -2142,6 +2155,9 @@ func foldAdditionalCost(cost, extra Cost) Cost {
 	}
 	if len(extra.Exile) > 0 {
 		cost.Exile = append(append([]CostPart(nil), cost.Exile...), extra.Exile...)
+	}
+	if len(extra.ExileFromTop) > 0 {
+		cost.ExileFromTop = append(append([]CostPart(nil), cost.ExileFromTop...), extra.ExileFromTop...)
 	}
 	if len(extra.MoveToGrave) > 0 {
 		cost.MoveToGrave = append(append([]CostPart(nil), cost.MoveToGrave...), extra.MoveToGrave...)
@@ -3687,6 +3703,24 @@ func (e *Engine) blightCostAsk() bool {
 // sacAsk's CARDNAME singleton rule.
 func (e *Engine) exAsk() bool {
 	pc := e.cast
+	// Top-of-library exile parts (ExileFromTop<N/Card>) have no chooser: they
+	// pay the ACTUAL top N cards in library order. Re-check the live library
+	// here (the offer walk's gate could be stale) and abort the whole cast
+	// rather than pay a short or wrong cost; the cards are recorded in order so
+	// payCast emits the moves in that order and the Exiled$ paid list preserves
+	// it. They feed the same pc.exiles list installPaidCostLists publishes.
+	for pc.exileTopPart < len(pc.cost.ExileFromTop) {
+		part := pc.cost.ExileFromTop[pc.exileTopPart]
+		lib := e.G.Zone(state.ZLibrary, pc.player)
+		if part.N <= 0 || int32(len(lib)) < part.N {
+			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
+			return true
+		}
+		for i := int32(0); i < part.N; i++ {
+			pc.exiles = append(pc.exiles, lib[i])
+		}
+		pc.exileTopPart++
+	}
 	for pc.exilePart < len(pc.cost.Exile) {
 		part := pc.cost.Exile[pc.exilePart]
 		zone := part.Zone
@@ -10959,7 +10993,7 @@ func (e *Engine) castWindowSelfSacCost(p state.PlayerID, source state.ObjID, c C
 // refused, as is any token the parser did not understand.
 func castWindowOtherPartsAbsent(c Cost) bool {
 	return len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
-		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 &&
+		len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 &&
 		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 &&
 		len(c.Exert) == 0 && !c.Forage && !c.LifeHalfUp && len(c.Draw) == 0 &&
 		len(c.Energy) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&

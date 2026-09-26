@@ -200,6 +200,7 @@ func freezeCost(c Cost) Cost {
 	c.SubCounter = c.SubCounter[:len(c.SubCounter):len(c.SubCounter)]
 	c.AddCounter = c.AddCounter[:len(c.AddCounter):len(c.AddCounter)]
 	c.Exile = c.Exile[:len(c.Exile):len(c.Exile)]
+	c.ExileFromTop = c.ExileFromTop[:len(c.ExileFromTop):len(c.ExileFromTop)]
 	c.Reveal = c.Reveal[:len(c.Reveal):len(c.Reveal)]
 	c.RevealOrChoose = c.RevealOrChoose[:len(c.RevealOrChoose):len(c.RevealOrChoose)]
 	c.Behold = c.Behold[:len(c.Behold):len(c.Behold)]
