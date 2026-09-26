@@ -903,17 +903,28 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	return ag
 }
 
-// animateHostScoped reports a Duration$ value whose grant lasts only while
-// the ANIMATING source remains on the battlefield (Duration$ UntilHostLeavesPlay
-// on the control-theft rider -- Opportunistic Dragon's "For as long as
-// CARDNAME remains on the battlefield, gain control of that permanent, it
-// loses all abilities"). The effect's Source is the ANIMATED object (Affects
-// Card.Self), so the host presence cannot come from the ordinary source-leaves
-// check; registerAnimateEffects anchors it through ContinuousEffect
-// .DurationSource, the Exchange of Words mechanism rules' continuousLive
-// already honours.
+// animateHostScoped reports a Duration$ value whose grant lasts only while a
+// HOST permanent remains on the battlefield, so the host presence cannot come
+// from the ordinary source-leaves check (the effect's Source is the ANIMATED
+// object, Affects Card.Self); registerAnimateEffects anchors it through
+// ContinuousEffect.DurationSource, the Exchange of Words mechanism rules'
+// continuousLive already honours. The host is the ANIMATING source for both
+// spellings:
+//
+//   - UntilHostLeavesPlay -- the host the card text names (Opportunistic
+//     Dragon's "For as long as CARDNAME remains on the battlefield, gain
+//     control of that permanent, it loses all abilities").
+//   - AsLongAsInPlay -- Skilled Animator's "for as long as CARDNAME remains on
+//     the battlefield": the animating PERMANENT is the host, not the animated
+//     target. Reading the target's own presence instead would leave the 5/5
+//     alive after the Animator is gone (the defect this predicate exists to
+//     prevent).
 func animateHostScoped(dur string) bool {
-	return strings.EqualFold(strings.TrimSpace(dur), "UntilHostLeavesPlay")
+	switch strings.ToLower(strings.TrimSpace(dur)) {
+	case "untilhostleavesplay", "aslongasinplay":
+		return true
+	}
+	return false
 }
 
 // animateUntilEOT is registerAnimateEffects' one UntilEOT decision, shared by
@@ -988,13 +999,16 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 	if ag.endOnLeave || strings.EqualFold(ag.leaveExile, "Exile") {
 		exileOn = "Battlefield"
 		remembered = []state.ObjID{id}
-	} else if ag.permanent {
-		// Duration$ Permanent without a rider: the grant still ends when the
-		// animated object leaves the zone it was granted in (CR 400.7 -- the
-		// returned object is a new one, so a bounced-and-re-entered land comes
-		// back a plain land, not a re-activated animation). The sweep zone is
-		// the object's CURRENT zone at grant time, not hardcoded battlefield:
-		// Forge's own Animate targets a graveyard card as often as a permanent.
+	} else if ag.permanent || animateHostScoped(ag.duration) {
+		// Duration$ Permanent without a rider, AND a host-scoped duration
+		// (AsLongAsInPlay, UntilHostLeavesPlay): either grant still ends when
+		// the animated object leaves the zone it was granted in (CR 400.7 --
+		// the returned object is a new one, so a bounced-and-re-entered land
+		// comes back a plain land, not a re-activated animation, and a
+		// host-scoped grant cannot be resurrected by the target's own return
+		// while its host never moved). The sweep zone is the object's CURRENT
+		// zone at grant time, not hardcoded battlefield: Forge's own Animate
+		// targets a graveyard card as often as a permanent.
 		if o := h.Game().Obj(id); o != nil {
 			if w := ZoneWord(o.Zone); w != "" {
 				exileOn = w
@@ -1040,7 +1054,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LText, SetName: ag.name,
-			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: !ag.permanent && !IsNextTurnDuration(ag.duration),
+			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1108,12 +1122,12 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 	// animation's own lifetime, one registration per animated object -- see
 	// effects/leavebattlefield.go for the shape each takes.
 	registerLeaveExile(h, c, id, ag.leaveExile, ag.duration, ag.permanent)
-	registerSVarGrants(h, c, id, ag.svars, ag.leaveExile, ag.duration, ag.permanent)
-	registerAnimateStaticAbilities(h, c, id, ag.staticAbilities, ag.duration, ag.permanent, exileOn, remembered)
+	registerSVarGrants(h, c, id, ag.svars, ag.leaveExile, ag.duration, ag.permanent, untilEOT, durSource)
+	registerAnimateStaticAbilities(h, c, id, ag.staticAbilities, ag.duration, ag.permanent, untilEOT, durSource, exileOn, remembered)
 	// The Replacements$ grant: one Effect-created replacement per named SVar
 	// body, riding the animation's own lifetime (ExileOnMoved$/Remembered),
 	// exactly like the LeaveBattlefield$ promise above.
-	registerAnimateReplacements(h, c, id, ag.replacements, ag.duration, ag.permanent, exileOn, remembered)
+	registerAnimateReplacements(h, c, id, ag.replacements, ag.duration, ag.permanent, untilEOT, durSource, exileOn, remembered)
 }
 
 // animateAllUnreadNote names, in ONE loud note, every parameter the SA carries
