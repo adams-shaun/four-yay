@@ -13,6 +13,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -255,30 +256,33 @@ func TestMorphTurnFaceUpPaysNonManaCosts(t *testing.T) {
 		}
 		replayCheck(t, e, cfg)
 	})
-}
 
-// TestMorphTurnFaceUpPaysLife asserts a PayLife<N> turn-up cost charges the
-// payer's life exactly once before the TurnFaceUp event.
-func TestMorphTurnFaceUpPaysLife(t *testing.T) {
-	reg := searchTestRegistry(t)
-	e, cfg := manifestEngine(t, reg, "Zombie Cutthroat")
-	id := morphAndPool(t, e, "Zombie Cutthroat", "morphed", "CCCCBB", 3, "")
-	mf, ok := morphFaceUpCost(e.G.Obj(id))
-	if !ok || mf.cost.Life != 5 {
-		t.Fatalf("precondition: parsed turn-up cost = %+v, want PayLife<5>", mf.cost)
-	}
-	before := e.G.Players[0].Life
-	mark := len(e.L.Events)
-	idx := turnFaceUpIndex(t, e, id)
-	submitChoices(t, e, idx)
-	assertTurnUpEventOnce(t, e, id, mark)
-	if e.G.Obj(id).FaceDown {
-		t.Fatalf("Zombie Cutthroat still face down")
-	}
-	if got, want := e.G.Players[0].Life, before-5; got != want {
-		t.Fatalf("life after turn-up = %d, want %d (PayLife<5>)", got, want)
-	}
-	replayCheck(t, e, cfg)
+	// PayLife is a non-mana cost too. The ORIGINAL mana/life-only turn-up
+	// implementation already charged Cost.Life through payMana, so this subtest
+	// is a REGRESSION GUARD for the pre-existing life charge rather than proof
+	// of this ticket's new hunk; it lives inside the test that IS proven to
+	// fail without the non-mana payment so the coverage is attached to a test
+	// that can fail (the standalone life test could not).
+	t.Run("PayLife", func(t *testing.T) {
+		reg := searchTestRegistry(t)
+		e, cfg := manifestEngine(t, reg, "Zombie Cutthroat")
+		id := morphAndPool(t, e, "Zombie Cutthroat", "morphed", "CCCCBB", 3, "")
+		mf, ok := morphFaceUpCost(e.G.Obj(id))
+		if !ok || mf.cost.Life != 5 {
+			t.Fatalf("precondition: parsed turn-up cost = %+v, want PayLife<5>", mf.cost)
+		}
+		before := e.G.Players[0].Life
+		mark := len(e.L.Events)
+		submitChoices(t, e, turnFaceUpIndex(t, e, id))
+		assertTurnUpEventOnce(t, e, id, mark)
+		if e.G.Obj(id).FaceDown {
+			t.Fatalf("Zombie Cutthroat still face down")
+		}
+		if got, want := e.G.Players[0].Life, before-5; got != want {
+			t.Fatalf("life after turn-up = %d, want %d (PayLife<5>)", got, want)
+		}
+		replayCheck(t, e, cfg)
+	})
 }
 
 // TestMorphTurnFaceUpAnnouncesAndPaysX asserts an {X} turn-up cost poses an
@@ -495,53 +499,220 @@ func TestMorphTurnFaceUpBotAnswerValidates(t *testing.T) {
 
 // TestMorphTurnUpCostFailsClosedOnUnmodelledShapes pins the two ways a
 // morph-family turn-up keyword parameter is refused rather than silently
-// waived: an unmodelled cost token (the Disguise cost-reduction rider
-// `R:X:...`, Fugitive Codebreaker's `Disguise:5 R:X:...`) leaves Cost.Unknown
-// non-empty, and a variable-count non-mana part (Sac<X/Spec>) carries an
-// announced count the turn-up flow cannot pose, so morphFaceUpCost refuses
-// the whole action instead of paying zero objects.
+// waived, END TO END through morphFaceUpCost and the offer:
+//
+//   - an unmodelled cost token (the Disguise cost-reduction rider
+//     `R:X:...`, Fugitive Codebreaker's real printed Disguise parameter)
+//     leaves Cost.Unknown non-empty, so the face-down permanent offers NO
+//     turn_face_up action at all;
+//   - a variable-count non-mana part (Sac<X/Spec>) carries an announced
+//     count the turn-up flow cannot pose, so morphFaceUpCost refuses the
+//     whole action instead of paying zero objects.
+//
+// Both assertions go through morphFaceUpCost, so removing either new guard
+// from that function turns this test red (a direct ParseCost or
+// morphTurnUpCountAnnounced assertion would not).
 func TestMorphTurnUpCostFailsClosedOnUnmodelledShapes(t *testing.T) {
-	// Fugitive Codebreaker's exact printed Disguise parameter (the one corpus
-	// carrier of a cost-reduction rider).
+	reg := searchTestRegistry(t)
+
+	// Part A: Fugitive Codebreaker's exact printed Disguise parameter (the
+	// one corpus carrier of a cost-reduction rider) is parsed to a cost with
+	// a non-empty Unknown, and the cast-then-turn-up flow offers no
+	// turn_face_up action for the face-down permanent.
 	raw := "5 R:X:This cost is reduced by {1} for each instant and sorcery card in your graveyard."
-	c := ParseCost(raw)
-	if len(c.Unknown) == 0 {
-		t.Fatalf("ParseCost(%q) reported no Unknown; morphFaceUpCost would silently waive the reduction rider", raw)
+	if c := ParseCost(raw); len(c.Unknown) == 0 {
+		t.Fatalf("precondition: ParseCost(%q) reported no Unknown", raw)
+	}
+	e, _ := manifestEngine(t, reg, "Fugitive Codebreaker")
+	id := morphDownCast(t, e, "Fugitive Codebreaker", "disguised", "CCCR", 1)
+	// PRECONDITION: the permanent really is a face-down Disguise carrier, so
+	// the withheld offer below is about the unmodelled cost and not about a
+	// missing family flag.
+	if o := e.G.Obj(id); !o.FaceDown || o.CastFlags&state.FlagDisguised == 0 {
+		t.Fatalf("precondition: Fugitive Codebreaker faceDown=%v flags=%d, want a face-down disguised carrier", o.FaceDown, o.CastFlags)
+	}
+	if _, ok := morphFaceUpCost(e.G.Obj(id)); ok {
+		t.Fatalf("morphFaceUpCost accepted the unmodelled Disguise cost %q; it must fail closed", raw)
+	}
+	if turnFaceUpOptionPresent(t, e, id) {
+		t.Fatalf("turn_face_up offered for a cost carrying an unmodelled token: the rider was silently waived")
 	}
 
-	// A Sac<X/Spec> part is Announced; the guard refuses it.
-	variable := Cost{Sac: []CostPart{{Spec: "Creature", Announced: true}}}
-	if !morphTurnUpCountAnnounced(variable) {
-		t.Fatalf("morphTurnUpCountAnnounced(%+v) = false, want true for an announced Sac count", variable.Sac)
+	// Part B: a Sac<X/Spec> part is the variable form. morphFaceUpCost reads
+	// the face's keyword parameter, so an inline face-down morph carrier with
+	// that exact parameter is the fixture. PRECONDITION: the same fixture with
+	// a FIXED count IS accepted, so the refusal below is specific to the
+	// announced form and not to any Sac cost at all.
+	fixed := onBoard(t, e, 0, "Name:Fixed-count morph\nTypes:Creature\nK:Morph:Sac<1/Creature>\nOracle:x\n")
+	e.G.Obj(fixed).FaceDown = true
+	e.G.Obj(fixed).CastFlags = state.FlagMorphed
+	if f, ok := morphFaceUpCost(e.G.Obj(fixed)); !ok || len(f.cost.Sac) != 1 || f.cost.Sac[0].Announced {
+		t.Fatalf("precondition: fixed-count fixture not accepted as a fixed Sac cost: %+v ok=%v", f.cost, ok)
 	}
-	// PRECONDITION: the same spec WITHOUT Announced is NOT refused, so the
-	// guard is specific to the variable form rather than to Sac parts at all.
-	fixed := Cost{Sac: []CostPart{{N: 1, Spec: "Creature"}}}
-	if morphTurnUpCountAnnounced(fixed) {
-		t.Fatalf("morphTurnUpCountAnnounced(%+v) = true, want false for a fixed-count Sac", fixed.Sac)
+	variable := onBoard(t, e, 0, "Name:Variable-count morph\nTypes:Creature\nK:Morph:Sac<X/Creature>\nOracle:x\n")
+	e.G.Obj(variable).FaceDown = true
+	e.G.Obj(variable).CastFlags = state.FlagMorphed
+	if _, ok := morphFaceUpCost(e.G.Obj(variable)); ok {
+		t.Fatalf("morphFaceUpCost accepted an announced-count Sac<X/Creature> turn-up cost; the flow would pay zero objects")
 	}
 }
 
-// TestMorphTurnUpCostParsesMultiXShape pins the two-X printed form. The
-// corpus prints `X X R` (Warbreak Trumpeter) as well as `X B B` and `X 3 W`,
-// and CR 601.2b makes every {X} symbol the SAME announced value, so the
-// payment is 2*X generic plus {R}. WithX folds exactly one generic per X
-// symbol; a parser that collapsed the repeated symbol would undercharge.
+// TestMorphTurnUpCostParsesMultiXShape drives the two-X printed form END TO
+// END: Warbreak Trumpeter's Morph parameter is `X X R`, and CR 601.2b makes
+// every {X} symbol the SAME announced value, so X=2 costs {2}{2}{R} -- four
+// generic plus one red. The turn-up must pose the explicit X ask, offer X=2,
+// charge exactly that, and flip the permanent. A payment that folded a single
+// generic per cost (or priced X as zero) fails the pool assertion; removing
+// the X ask from the turn-up flow fails the ask assertion.
 func TestMorphTurnUpCostParsesMultiXShape(t *testing.T) {
+	// The parse half is the precondition the end-to-end half depends on: the
+	// parameter really parses to X==2 plus {R}, and WithX folds two generics.
 	c := ParseCost("X X R")
 	if c.X != 2 {
-		t.Fatalf("ParseCost(\"X X R\").X = %d, want 2", c.X)
+		t.Fatalf("precondition: ParseCost(\"X X R\").X = %d, want 2", c.X)
 	}
 	if c.Colored[state.ManaIndex('R')] != 1 {
-		t.Fatalf("ParseCost(\"X X R\") red pips = %d, want 1", c.Colored[state.ManaIndex('R')])
+		t.Fatalf("precondition: ParseCost(\"X X R\") red pips = %d, want 1", c.Colored[state.ManaIndex('R')])
 	}
-	// PRECONDITION: the multi-X cost differs from the single-X one, so the
-	// X-count assertion above is not vacuous.
 	single := ParseCost("X R")
 	if single.X != 1 {
-		t.Fatalf("ParseCost(\"X R\").X = %d, want 1", single.X)
+		t.Fatalf("precondition: ParseCost(\"X R\").X = %d, want 1", single.X)
 	}
 	if got, want := c.WithX(2).Generic, single.WithX(2).Generic+2; got != want {
-		t.Fatalf("WithX(2) generic for \"X X R\" = %d, want %d (two X symbols)", got, want)
+		t.Fatalf("precondition: WithX(2) generic for \"X X R\" = %d, want %d (two X symbols)", got, want)
 	}
+
+	reg := searchTestRegistry(t)
+	// Warbreak Trumpeter prints {R}; the face-down cast is {3}, so fund {4}
+	// (three for the cast, one leftover {R}) and add {C}{C}{C}{R} for the
+	// turn-up. `morphDownCast` asserts exactly the {3} is spent.
+	e, cfg := manifestEngine(t, reg, "Warbreak Trumpeter")
+	id := morphAndPool(t, e, "Warbreak Trumpeter", "morphed", "CCCR", 1, "CCCCR")
+	mf, ok := morphFaceUpCost(e.G.Obj(id))
+	if !ok || mf.cost.X != 2 {
+		t.Fatalf("precondition: Warbreak Trumpeter turn-up cost = %+v, want X==2 (X X R)", mf.cost)
+	}
+	before := e.G.Players[0].Pool.Total()
+	mark := len(e.L.Events)
+	submitChoices(t, e, turnFaceUpIndex(t, e, id))
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "x" {
+		t.Fatalf("X ask = %+v, want a KChoose of \"x\" options (X X R must announce a value)", d)
+	}
+	// PRECONDITION: X=2 is actually offered and is not the lowest offer, so
+	// the pool assertion below is about the announced value and not about X=0.
+	if d.Options[0].Amount != 0 {
+		t.Fatalf("lowest offered X = %d, want 0 (base {R} payable)", d.Options[0].Amount)
+	}
+	pick := -1
+	for _, o := range d.Options {
+		if o.Amount == 2 {
+			pick = o.Index
+		}
+	}
+	if pick < 0 {
+		t.Fatalf("X=2 not offered for X X R: %+v", d.Options)
+	}
+	submitChoices(t, e, pick)
+	assertTurnUpEventOnce(t, e, id, mark)
+	if e.G.Obj(id).FaceDown {
+		t.Fatalf("Warbreak Trumpeter still face down")
+	}
+	// X X R at X=2 is {2}{2}{R}: four generic plus the red pip.
+	if got, want := e.G.Players[0].Pool.Total(), before-5; got != want {
+		t.Fatalf("pool after X=2 turn-up (X X R) = %d, want %d ({2}{2}{R})", got, want)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// TestMorphTurnUpCostInvalidatedChoiceAbortsThePayment proves the settlement
+// re-derives every saved cost object against the live board before anything
+// moves (turnUpChoicesValid). Skirk Volcanist's turn-up cost is Sac<2/Mountain>
+// and the ask carries three eligible Mountains (a real choice, not the forced
+// singleton shortcut); while that ask is pending, one offered Mountain dies.
+// The stale answer still names it, so the whole payment must abort with
+// NOTHING settled: the dead Mountain is not "sacrificed" a second time out of
+// its new zone, the surviving offered Mountain stays on the battlefield, the
+// face-down permanent never flips, and only the abort Note is recorded. A
+// settlement that trusted the saved IDs would half-pay the cost and still
+// emit the TurnFaceUp, which is exactly what this test pins shut.
+func TestMorphTurnUpCostInvalidatedChoiceAbortsThePayment(t *testing.T) {
+	reg := searchTestRegistry(t)
+	e, cfg := manifestEngine(t, reg, "Skirk Volcanist", "Mountain", "Mountain", "Mountain", "Mountain")
+	id := morphDownCast(t, e, "Skirk Volcanist", "morphed", "CCCCR", 2)
+	mf, ok := morphFaceUpCost(e.G.Obj(id))
+	if !ok || len(mf.cost.Sac) != 1 || mf.cost.Sac[0].N != 2 {
+		t.Fatalf("precondition: parsed turn-up cost = %+v, want Sac<2/Mountain>", mf.cost)
+	}
+	// Three Mountains so the sacrifice ask is a genuine choice; two would be
+	// auto-recorded without an ask and there would be no stale-answer window.
+	m1 := putCorpusPermanent(t, e, "Mountain")
+	m2 := putCorpusPermanent(t, e, "Mountain")
+	m3 := putCorpusPermanent(t, e, "Mountain")
+	if m1 == m2 || m2 == m3 || m1 == m3 {
+		t.Fatalf("precondition: three distinct Mountains required")
+	}
+	if got := len(e.G.Zone(state.ZBattlefield, 0)); got != 4 {
+		t.Fatalf("precondition: seat 0 battlefield holds %d permanents, want 4 (source + 3 Mountains)", got)
+	}
+	submitChoices(t, e, turnFaceUpIndex(t, e, id))
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose || d.Min != 2 || d.Max != 2 {
+		t.Fatalf("precondition: sacrifice ask = %+v, want an exact-2 KChoose", d)
+	}
+	idx := map[state.ObjID]int{}
+	for _, o := range d.Options {
+		if o.Kind == "sacrifice" {
+			idx[o.Obj] = o.Index
+		}
+	}
+	for _, m := range []state.ObjID{m1, m2, m3} {
+		if _, ok := idx[m]; !ok {
+			t.Fatalf("precondition: Mountain %d not offered by the sacrifice ask: %+v", m, d.Options)
+		}
+	}
+	// The invalidation window: while the ask is pending, m2 leaves the
+	// battlefield. The engine never drives this itself (a special action
+	// cannot be responded to) — a replacement or a death trigger on another
+	// part's payment event can — so the test drives the same board change
+	// through a logged event at the exact point the flow is mid-payment.
+	mark := len(e.L.Events)
+	e.emit(events.Sacrifice(m2))
+	if o := e.G.Obj(m2); o.Zone != state.ZGraveyard {
+		t.Fatalf("precondition: invalidated Mountain zone = %v, want graveyard", o.Zone)
+	}
+	// The stale answer still names the dead Mountain. The payment must abort
+	// as a whole: no sacrifice of m3, no TurnFaceUp, no mana moved. The
+	// assertion window starts AFTER the invalidation event, so only what the
+	// flow itself did is scanned.
+	mark = len(e.L.Events)
+	submitChoices(t, e, idx[m2], idx[m3])
+	if o := e.G.Obj(id); !o.FaceDown {
+		t.Fatalf("the face-down permanent was turned up by a cost it no longer owes in full")
+	}
+	if got := e.G.Obj(m3).Zone; got != state.ZBattlefield {
+		t.Fatalf("surviving offered Mountain settled anyway: zone = %v, want battlefield", got)
+	}
+	for _, ev := range e.L.Events[mark:] {
+		if ev.Kind == events.TurnFaceUp {
+			t.Fatalf("TurnFaceUp emitted after the cost object was invalidated: %+v", ev)
+		}
+		if ev.Kind == events.MoveZone && (ev.Obj == m2 || ev.Obj == m3) {
+			t.Fatalf("a zone change settled after the cost object was invalidated: %+v", ev)
+		}
+	}
+	aborted := false
+	for _, ev := range e.L.Events[mark:] {
+		if ev.Kind == events.Note && strings.Contains(ev.Text, "no longer payable") {
+			aborted = true
+		}
+	}
+	if !aborted {
+		t.Fatalf("no abort Note after the invalidated answer; the flow neither paid nor explained: %+v", e.L.Events[mark:])
+	}
+	// The flow is over and priority is back with seat 0.
+	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("after the abort, pending = %+v, want seat 0's priority back", d)
+	}
+	replayCheck(t, e, cfg)
 }

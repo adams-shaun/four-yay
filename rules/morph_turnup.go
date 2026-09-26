@@ -500,10 +500,12 @@ func (e *Engine) turnUpAnswer(d *decision.Decision, chosen []decision.Option) {
 }
 
 // settleTurnUp pays the whole turn-up cost exactly once and emits the
-// TurnFaceUp event. Every chosen object is verified still available before
-// anything moves (an abort leaves the board untouched); then the non-mana
-// parts settle, mana/life pays last, and only on success does the
-// TurnFaceUp event flip the permanent.
+// TurnFaceUp event. Every chosen object is re-verified against its cost part
+// (turnUpChoicesValid) before anything moves, so an object invalidated
+// between the ask that named it and this settle -- moved, destroyed,
+// re-controlled, or claimed by another part -- aborts the whole payment with
+// the board untouched. Only then do the non-mana parts settle, mana/life pay
+// last, and on success does the TurnFaceUp event flip the permanent.
 func (e *Engine) settleTurnUp(tp *turnUpPay) {
 	e.turnUp = nil
 	if e.choosing == chooseTurnUp {
@@ -522,8 +524,15 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 	if paidCost.X > 0 {
 		paidCost = paidCost.WithX(tp.x)
 	}
-	// The mana/life remainder must still be payable against the live board
-	// before ANY object moves, so a shortfall cannot half-pay.
+	// Revalidate EVERY saved cost object against its part against the live
+	// board, and prove the mana/life remainder still payable, before ANY event
+	// moves anything. An object the board no longer offers -- or a mana
+	// shortfall -- aborts the whole payment rather than settling a part that
+	// is no longer payable; no partial payment is ever emitted.
+	if !e.turnUpChoicesValid(tp) {
+		e.abortTurnUp(tp)
+		return
+	}
 	if !e.costPayable(tp.player, tp.card, false, paidCost) {
 		return
 	}
@@ -566,6 +575,161 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 	if megamorph {
 		e.emit(events.Event{Kind: events.CounterChange, Obj: tp.card, Counter: "P1P1", Amount: 1})
 	}
+}
+
+// turnUpChoicesValid re-derives every saved cost-object choice against the
+// SAME candidate helpers the offer and the asks used, immediately before
+// settlement. The saved IDs are held across several asks (the announced X
+// first, then each non-mana part), and a replacement or trigger in between
+// can move, destroy, bounce or re-control one of them -- or a part's earlier
+// payment can claim an object a later part also named. Settling a saved ID
+// blind would charge a cost the board no longer offers and still flip the
+// source; worse, a battlefield Return part would move an object from
+// whatever zone it drifted into. So each part's saved slice is re-checked
+// against that part's live candidates (same zone, same spec, same payer
+// control, source exclusion and reservation as the ask), every saved ID must
+// be distinct, and the saved count must equal the printed count. Any miss is
+// false and the caller aborts with nothing moved.
+func (e *Engine) turnUpChoicesValid(tp *turnUpPay) bool {
+	used := map[state.ObjID]bool{}
+	claim := func(ids []state.ObjID) bool {
+		for _, id := range ids {
+			if used[id] {
+				return false
+			}
+			used[id] = true
+		}
+		return true
+	}
+
+	// Sacrifice: a part's saved permanents must all still be battlefield
+	// permanents of the payer's that sacrificeCostCandidates returns for that
+	// exact part (which carries the source exclusion and CantSacrifice block).
+	sacOff := 0
+	for _, part := range tp.cost.Sac {
+		need := int(part.N)
+		if part.Announced {
+			need = 0
+		}
+		if sacOff+need > len(tp.sacs) {
+			return false
+		}
+		saved := tp.sacs[sacOff : sacOff+need]
+		sacOff += need
+		if !claim(saved) {
+			return false
+		}
+		cands := e.sacrificeCostCandidates(tp.player, tp.card, part, false)
+		for _, id := range saved {
+			if !turnUpContainsObj(cands, id) {
+				return false
+			}
+		}
+	}
+	if sacOff != len(tp.sacs) {
+		return false
+	}
+
+	// Discard: each saved card must still be a hand card of the payer's that
+	// discardCandidates returns for that part, excluding ids an earlier part
+	// (and the earlier saved ids of THIS walk) already claimed.
+	discOff := 0
+	reserved := map[state.ObjID]bool{}
+	for _, part := range tp.cost.Discard {
+		need := int(part.N)
+		if part.Announced {
+			need = 0
+		}
+		if discOff+need > len(tp.discs) {
+			return false
+		}
+		saved := tp.discs[discOff : discOff+need]
+		discOff += need
+		if !claim(saved) {
+			return false
+		}
+		cands := e.discardCandidates(tp.player, tp.card, part, true, reserved)
+		for _, id := range saved {
+			if !turnUpContainsObj(cands, id) {
+				return false
+			}
+			reserved[id] = true
+		}
+	}
+	if discOff != len(tp.discs) {
+		return false
+	}
+
+	// Reveal: each saved card must still be a hand card of the payer's that
+	// costCandidates returns for that part's hand scan.
+	revOff := 0
+	for _, part := range tp.cost.Reveal {
+		need := int(part.N)
+		if revOff+need > len(tp.reveal) {
+			return false
+		}
+		saved := tp.reveal[revOff : revOff+need]
+		revOff += need
+		if !claim(saved) {
+			return false
+		}
+		cands := e.costCandidates(tp.player, tp.card, state.ZHand, part.Spec, true, false)
+		for _, id := range saved {
+			if !turnUpContainsObj(cands, id) {
+				return false
+			}
+		}
+	}
+	if revOff != len(tp.reveal) {
+		return false
+	}
+
+	// Return: a CARDNAME part names the source (recorded without an ask); any
+	// other part walks the payer's battlefield. Either way the saved permanent
+	// must still be where the part reads it -- the source itself, or a live
+	// battlefield permanent costCandidates still returns.
+	retOff := 0
+	for _, part := range tp.cost.Return {
+		need := int(part.N)
+		if retOff+need > len(tp.returns) {
+			return false
+		}
+		saved := tp.returns[retOff : retOff+need]
+		retOff += need
+		if !claim(saved) {
+			return false
+		}
+		spec := sacrificeMatchSpec(part.Spec)
+		var cands []state.ObjID
+		if strings.EqualFold(spec, "CARDNAME") {
+			if o := e.G.Obj(tp.card); o != nil && o.Zone == state.ZBattlefield {
+				cands = append(cands, tp.card)
+			}
+		} else {
+			cands = e.costCandidates(tp.player, tp.card, state.ZBattlefield, spec, false, false)
+		}
+		for _, id := range saved {
+			if !turnUpContainsObj(cands, id) {
+				return false
+			}
+		}
+	}
+	if retOff != len(tp.returns) {
+		return false
+	}
+	return true
+}
+
+// turnUpContainsObj reports whether id is in ids; a small linear scan over the
+// candidate lists (battlefield/hand sized) keeps the revalidation free of a
+// per-call map allocation.
+func turnUpContainsObj(ids []state.ObjID, id state.ObjID) bool {
+	for _, oid := range ids {
+		if oid == id {
+			return true
+		}
+	}
+	return false
 }
 
 // abortTurnUp drops an unpayable mid-flow turn-up without moving anything.
