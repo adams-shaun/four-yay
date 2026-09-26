@@ -497,8 +497,23 @@ func (e *Engine) advanceUnlessPayment() {
 	for _, id := range u.sacs {
 		e.emit(events.Sacrifice(id))
 	}
+	// Bracket the settled Discard component's emissions as ONE discard action
+	// (CR 701.8), exactly as the cast flow's payDiscardCost and effDiscard's
+	// api:Discard do: a call to discard two cards is one discard action, so a
+	// Mode$ DiscardedAll observer queues ONE trigger whose TriggerCount$Amount
+	// is the number of cards, not one batch-of-one per event. Nothing here can
+	// suspend (all choices were collected above), so the close runs immediately
+	// after the last emitted discard, before the Return/Draw parts and
+	// finishUnlessPayment resume resolution. Guarded so a payment with no
+	// discard leaves no bracket open.
+	if len(u.discards) > 0 {
+		e.BeginDiscardBatch()
+	}
 	for _, id := range u.discards {
 		e.emit(events.Discard(id, u.payer))
+	}
+	if len(u.discards) > 0 {
+		e.EndDiscardBatch()
 	}
 	// Return parts: each chosen permanent moves to its OWNER's hand (Forge
 	// CostReturn.moveToHand), the same event shape the cast flow's settle
