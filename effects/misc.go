@@ -1751,8 +1751,9 @@ func GoadStaticGrantReadable(params map[string]string) bool {
 // Effect captured. "Targeted"/"ParentTarget" remember the chosen targets;
 // "Remembered" (and creature-flavoured spellings) remember the objects the
 // resolution already had, while "Imprinted" reads the source's persistent
-// imprint list; "You & Targeted" and the default degrade to the source plus
-// the chosen targets. Objects only: a player-only remember yields
+// imprint list. An ABSENT RememberObjects$ defaults to "Targeted" (the chosen
+// targets), NOT to the source; an UNRECOGNISED member contributes nothing.
+// Objects only: a player-only remember yields
 // an empty slice, which a restriction whose ValidCard$ is Card.IsRemembered
 // then applies to nothing. The player half of the same capture lives in
 // effectRememberedPlayers below.
@@ -1762,76 +1763,111 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 		ro = "Targeted"
 	}
 	var out []state.ObjID
-	for _, part := range strings.FieldsFunc(ro, func(r rune) bool {
-		return r == '&' || r == ',' || r == ' '
-	}) {
-		part = strings.TrimSpace(part)
-		switch part {
-		case "You", "Self", "Source":
-			out = append(out, c.Source)
-		case "Targeted", "ParentTarget":
-			targets := c.Targets
-			if part == "Targeted" && c.PickedTargets != nil {
-				targets = c.PickedTargets
+	for _, member := range strings.Split(ro, "&") {
+		member = strings.TrimSpace(member)
+		if member == "" {
+			continue
+		}
+		// A "Valid <filter>" member is a WHOLE member: its filter grammar uses
+		// the comma as OR (Kill Switch's "Valid Artifact.Other", the
+		// "Creature.blockedBySource,Creature.blockingSource" pair), so the
+		// comma split below must not cut it into unknown fragments. Route it
+		// through the same fail-closed resolver definedSpec uses.
+		if member == "Valid" || strings.HasPrefix(member, "Valid ") {
+			if ts, ok := knownDefinedTargets(h, c, member); ok {
+				out = appendEffectRememberedObjects(h, out, ts)
 			}
-			for _, t := range targets {
-				if !t.IsPlayer && h.Game().Obj(t.Obj) != nil {
-					out = append(out, t.Obj)
+			continue
+		}
+		for _, part := range strings.Split(member, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			switch part {
+			case "You", "Self", "Source":
+				out = append(out, c.Source)
+			case "Targeted", "ThisTargetedCard":
+				targets := c.Targets
+				if c.PickedTargets != nil {
+					targets = c.PickedTargets
 				}
-			}
-		case "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard":
-			for _, t := range c.Remembered {
-				if !t.IsPlayer && h.Game().Obj(t.Obj) != nil {
-					out = append(out, t.Obj)
-				}
-			}
-		case "Imprinted":
-			// Effect RememberObjects$ Imprinted captures the source's persistent
-			// Dig/ChangeZone imprint list (Synth Eradicator's may-play rider).
-			if o := h.Game().Obj(c.Source); o != nil {
-				for _, id := range o.Imprinted {
-					if h.Game().Obj(id) != nil {
-						out = append(out, id)
+				out = appendEffectRememberedObjects(h, out, targets)
+			case "ParentTarget":
+				out = appendEffectRememberedObjects(h, out, c.Targets)
+			case "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard":
+				out = appendEffectRememberedObjects(h, out, c.Remembered)
+			case "Imprinted":
+				// Effect RememberObjects$ Imprinted captures the source's persistent
+				// Dig/ChangeZone imprint list (Synth Eradicator's may-play rider).
+				if o := h.Game().Obj(c.Source); o != nil {
+					for _, id := range o.Imprinted {
+						if h.Game().Obj(id) != nil {
+							out = append(out, id)
+						}
 					}
 				}
-			}
-		case "ReplacedCard":
-			// The card the enclosing replacement acted on (Opposition Agent's
-			// RepExile → DBEffect: the found card the replacement just exiled
-			// is the one the may-play grant remembers). Outside a replacement
-			// (c.Replaced zero) or after the object ceased to exist, nothing.
-			if c.Replaced != 0 && h.Game().Obj(c.Replaced) != nil {
-				out = append(out, c.Replaced)
-			}
-		case "TriggeredCard", "TriggeredObject", "TriggeredObjectLKICopy":
-			// The card the firing trigger's event captured (Mistrise Village's
-			// Effect RememberObjects$ TriggeredCard: the spell the can't-be-
-			// countered promise covers). The SpellCast referent capture binds
-			// c.TriggerCard to the cast stack object; a stale id (the spell
-			// already resolved) remembers nothing, the same live-object
-			// discipline the cases above apply. TriggeredObject(LKICopy) is the
-			// same capture under the CounterPlayerAddedAll batch triggers'
-			// spelling (Rikku's RememberObjects$ TriggeredObjectLKICopy: the
-			// creature the counters landed on).
-			if c.TriggerCard != 0 && h.Game().Obj(c.TriggerCard) != nil {
-				out = append(out, c.TriggerCard)
-			}
-		case "ChosenCard":
-			// Dauthi Voidwalker and the wider ChooseCard -> Effect family do
-			// not set RememberChosen$: the chosen card lives in Ctx.Chosen, or
-			// on the event-backed source when a later ability reads it.
-			chosen := c.Chosen
-			if len(chosen) == 0 {
-				if o := h.Game().Obj(c.Source); o != nil {
-					chosen = o.Chosen
+			case "ReplacedCard":
+				// The card the enclosing replacement acted on (Opposition Agent's
+				// RepExile → DBEffect: the found card the replacement just exiled
+				// is the one the may-play grant remembers). Outside a replacement
+				// (c.Replaced zero) or after the object ceased to exist, nothing.
+				if c.Replaced != 0 && h.Game().Obj(c.Replaced) != nil {
+					out = append(out, c.Replaced)
 				}
-			}
-			for _, t := range chosen {
-				if !t.IsPlayer && h.Game().Obj(t.Obj) != nil {
-					out = append(out, t.Obj)
+			case "TriggeredCard", "TriggeredObject", "TriggeredObjectLKICopy":
+				// The card the firing trigger's event captured (Mistrise Village's
+				// Effect RememberObjects$ TriggeredCard: the spell the can't-be-
+				// countered promise covers). The SpellCast referent capture binds
+				// c.TriggerCard to the cast stack object; a stale id (the spell
+				// already resolved) remembers nothing, the same live-object
+				// discipline the cases above apply. TriggeredObject(LKICopy) is the
+				// same capture under the CounterPlayerAddedAll batch triggers'
+				// spelling (Rikku's RememberObjects$ TriggeredObjectLKICopy: the
+				// creature the counters landed on).
+				if c.TriggerCard != 0 && h.Game().Obj(c.TriggerCard) != nil {
+					out = append(out, c.TriggerCard)
+				}
+			case "ChosenCard":
+				// Dauthi Voidwalker and the wider ChooseCard -> Effect family do
+				// not set RememberChosen$: the chosen card lives in Ctx.Chosen, or
+				// on the event-backed source when a later ability reads it.
+				chosen := c.Chosen
+				if len(chosen) == 0 {
+					if o := h.Game().Obj(c.Source); o != nil {
+						chosen = o.Chosen
+					}
+				}
+				out = appendEffectRememberedObjects(h, out, chosen)
+			case "RememberedLKI", "TriggeredAttackerLKICopy", "TriggeredTargetLKICopy", "DelayTriggerRemembered":
+				// Object selectors this helper previously left unresolved. Each is
+				// a name definedSpec/knownDefinedTargets already resolves, so read
+				// the ONE shared resolver rather than re-deriving the referent
+				// here: RememberedLKI is the capture-excluding LKI group (never the
+				// raw Remembered slice), TriggeredTargetLKICopy prefers the Attached
+				// bearer role, TriggeredAttackerLKICopy is the trigger's captured
+				// attacker, and DelayTriggerRemembered is the delayed
+				// registration's own capture. knownDefinedTargets is fail-closed: an
+				// unrecognised spelling answers ok=false and contributes nothing.
+				if ts, ok := knownDefinedTargets(h, c, part); ok {
+					out = appendEffectRememberedObjects(h, out, ts)
 				}
 			}
 		}
+	}
+	return out
+}
+
+// appendEffectRememberedObjects appends the live object entries of ts to out,
+// dropping player targets, the zero id and any id no longer in the game.
+// effectRemembered records objects only, and a missing or stale referent must
+// contribute nothing rather than the source or a guessed id.
+func appendEffectRememberedObjects(h Host, out []state.ObjID, ts []state.Target) []state.ObjID {
+	for _, t := range ts {
+		if t.IsPlayer || t.Obj == 0 || h.Game().Obj(t.Obj) == nil {
+			continue
+		}
+		out = append(out, t.Obj)
 	}
 	return out
 }
