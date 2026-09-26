@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -88,7 +89,7 @@ func TestChooseColorAsksAndSuspendsMidResolution(t *testing.T) {
 		t.Fatalf("option list = %+v, want the five WUBRG colours", d.Options)
 	}
 	for i, want := range wantWUBRGOptions {
-		if d.Options[i] != want {
+		if !reflect.DeepEqual(d.Options[i], want) {
 			t.Fatalf("option %d = %+v, want %+v (fixed WUBRG order, full names)",
 				i, d.Options[i], want)
 		}

@@ -137,7 +137,8 @@ func (d *Decision) FitRequired(choices []int) []int {
 		(!d.HasBudget() || sum <= d.MaxSum) &&
 		(d.MinSum <= 0 || sum >= d.MinSum) &&
 		d.RequiredChosen(choices) >= d.RequiredQuota() &&
-		!d.groupCapExceeded(choices) {
+		!d.groupCapExceeded(choices) &&
+		d.setPropAnswerAdmits(choices) {
 		return choices
 	}
 
@@ -167,6 +168,10 @@ func (d *Decision) FitRequired(choices []int) []int {
 			requiredObj[d.Options[i].Obj] = true
 		}
 	}
+	// setAcc tracks the running target-set property accumulator (the same
+	// SetPropAdmits/SetPropMerge rule Validate enforces), so the fold can
+	// never append an option the set constraint refuses.
+	setAcc := d.setPropAccumulator(out)
 	fits := func(delta int) bool { return !d.HasBudget() || sum+delta <= d.MaxSum }
 	for _, c := range choices {
 		if c < 0 || c >= len(d.Options) || (have[c] && !d.Repeatable) {
@@ -201,10 +206,12 @@ func (d *Decision) FitRequired(choices []int) []int {
 		if d.Kind == KAttackers && objTaken[o.Obj] {
 			continue
 		}
-		if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value) {
+		if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value) ||
+			!SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) {
 			continue
 		}
 		sum += o.Value
+		setAcc = SetPropMerge(d.SetPropMode, setAcc, o.SetProps)
 		out = append(out, c)
 		have[c] = true
 		objTaken[o.Obj] = true

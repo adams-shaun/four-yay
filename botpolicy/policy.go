@@ -16,6 +16,7 @@ package botpolicy
 
 import (
 	"math/rand/v2"
+	"slices"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -1232,6 +1233,22 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 	if d.TargetsWithSameController {
 		in.Choices = sameControllerChoices(d, in.Choices)
 	}
+	// A shared target-set answer has the same anchor trap the same-controller
+	// repair above exists for, and SetPropShared is the one mode that cannot
+	// fix it by appending. The running intersection is seeded by the first
+	// pick: when that pick is alone in its shared class, every later option is
+	// refused by SetPropAdmits, so the append-only top-up below can only return
+	// an answer shorter than Min -- which Decision.Validate rejects and the
+	// deterministic bot re-derives forever. Re-anchor the whole decision on
+	// each represented shared class before the ordinary repair, exactly as
+	// sameControllerChoices re-anchors on each represented controller. Only
+	// SetPropShared needs this: SetPropDistinct's union accumulator always
+	// admits any single pick, so its top-up can never be anchored out.
+	if d.SetPropMode == decision.SetPropShared {
+		if choices := setPropSharedChoices(d, in.Choices); choices != nil {
+			in.Choices = choices
+		}
+	}
 	var targetController state.PlayerID
 	var haveTargetController bool
 	if d.TargetsWithSameController && len(in.Choices) > 0 {
@@ -1273,6 +1290,7 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 		// byte-identical.
 		groups := make(map[string]int) // picked options per Group.
 		sum := 0                       // running MaxSum budget over the chosen set.
+		setAcc := d.SetPropsOf(in.Choices)
 		for _, c := range in.Choices {
 			have[c] = true
 			if c >= 0 && c < len(d.Options) {
@@ -1294,6 +1312,7 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 			}
 			have[o.Index] = true
 			sum += o.Value
+			setAcc = decision.SetPropMerge(d.SetPropMode, setAcc, o.SetProps)
 			in.Choices = append(in.Choices, o.Index)
 		}
 		for _, o := range d.Options {
@@ -1320,7 +1339,8 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 			if o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group) {
 				continue
 			}
-			if !fits(o) || (d.TargetsWithSameController && haveTargetController && o.Controller != targetController) {
+			if !fits(o) || (d.TargetsWithSameController && haveTargetController && o.Controller != targetController) ||
+				!decision.SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) {
 				continue
 			}
 			if o.Group != "" {
@@ -1397,6 +1417,73 @@ func sameControllerChoices(d *decision.Decision, choices []int) []int {
 		index := make(map[int]int, len(d.Options))
 		for _, o := range d.Options {
 			if o.Controller != controller {
+				continue
+			}
+			index[o.Index] = len(local.Options)
+			original = append(original, o.Index)
+			o.Index = len(local.Options)
+			local.Options = append(local.Options, o)
+		}
+		localIn := decision.Intent{Seq: d.Seq, Player: d.Player}
+		for _, c := range choices {
+			if i, ok := index[c]; ok {
+				localIn.Choices = append(localIn.Choices, i)
+			}
+		}
+		localOut := Clamp(&local, localIn)
+		if local.Validate(localOut) != nil {
+			continue
+		}
+		out := make([]int, len(localOut.Choices))
+		for i, c := range localOut.Choices {
+			out[i] = original[c]
+		}
+		return out
+	}
+	return nil
+}
+
+// setPropSharedChoices tries each represented shared class in deterministic
+// input-then-option order. A shared-class answer is legal iff every pick
+// carries one common property token, so projecting the decision onto a single
+// token's class and clamping there makes the constraint vacuous (SetPropNone)
+// and lets the ordinary Max, Group, budget and Required repair find a full
+// answer. Each projected clamp is accepted only when it validates; the first
+// valid one wins, and nil says no class can satisfy the decision (in which
+// case the ordinary repair still runs and the caller keeps its fallback). The
+// projection prevents a class too small to meet Min from trapping repair when
+// a later class can. Input-order anchors first keep an already-valid answer on
+// its own class, so its clamp is byte-identical.
+func setPropSharedChoices(d *decision.Decision, choices []int) []int {
+	// Anchors are the distinct tokens carried by the input picks (in input
+	// order) then by every option (in offer order) -- determinism is the
+	// whole reason for that ordering.
+	var anchors []string
+	seen := make(map[string]bool, len(d.Options))
+	addAnchor := func(props []string) {
+		for _, t := range props {
+			if !seen[t] {
+				seen[t] = true
+				anchors = append(anchors, t)
+			}
+		}
+	}
+	for _, c := range choices {
+		if c >= 0 && c < len(d.Options) {
+			addAnchor(d.Options[c].SetProps)
+		}
+	}
+	for _, o := range d.Options {
+		addAnchor(o.SetProps)
+	}
+	for _, anchor := range anchors {
+		local := *d
+		local.SetPropMode = decision.SetPropNone
+		local.Options = nil
+		original := make([]int, 0, len(d.Options))
+		index := make(map[int]int, len(d.Options))
+		for _, o := range d.Options {
+			if !slices.Contains(o.SetProps, anchor) {
 				continue
 			}
 			index[o.Index] = len(local.Options)

@@ -5,6 +5,7 @@ package decision
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
@@ -237,6 +238,16 @@ type Option struct {
 	// one Group may be selected together, which Decision.Validate enforces as
 	// a general rule.
 	Group string `json:"group,omitempty"`
+	// SetProps is the server-side, sorted set of canonical property tokens
+	// this option contributes to a target-set constraint (Decision.SetPropMode).
+	// "shared" requires every chosen option's set to have at least one token
+	// in common with all the others; "distinct" requires the chosen options'
+	// sets to be pairwise disjoint. The tokens are derived by rules from the
+	// candidate's live characteristics (card types, creature types, mana
+	// value, name, toughness), so a client never learns any rules. It is
+	// never serialized and never read outside the set-constraint rule, so
+	// every existing option list serialises byte-identically.
+	SetProps []string `json:"-"`
 	// AltCostIndex says which cost a "cast" option pays: 0 is the card's own
 	// (RaiseCost/ReduceCost-adjusted) cost, i+1 is alternativeCosts(p, id)[i]
 	// -- an AlternativeCost static's cost instead -- so a client can show
@@ -568,6 +579,14 @@ type Decision struct {
 	// must all have one Controller. It is server-side metadata, so the wire
 	// payload remains unchanged while Validate and bot repair share the rule.
 	TargetsWithSameController bool `json:"-"`
+	// SetPropMode carries Forge's target-set property constraint -- the
+	// TargetsWithSameCardType$/SharedCardType-family (SetPropShared) and the
+	// TargetsWithDifferentCMC$/Names family (SetPropDistinct) -- over each
+	// option's SetProps. It is server-side metadata: the wire payload is
+	// unchanged, and Decision.Validate, decision.FitRequired and botpolicy's
+	// Clamp all derive the same rule from SetPropAdmits/SetPropMerge, so no
+	// repair arm can re-implement a weaker copy.
+	SetPropMode SetPropMode `json:"-"`
 	// TargetEffect is host-independent targeting context. It is absent on
 	// other decision kinds and on older servers; absent means unknown.
 	TargetEffect *TargetEffect `json:"target_effect,omitempty"`
@@ -763,6 +782,199 @@ func (d *Decision) GroupCapFor(group string) int {
 	return d.GroupCap()
 }
 
+// SetPropMode selects one of Forge's target-SET property constraints, read
+// over each option's SetProps. The zero value is no constraint, so every
+// existing decision is unaffected.
+type SetPropMode string
+
+const (
+	// SetPropNone is the zero value: no set-property constraint.
+	SetPropNone SetPropMode = ""
+	// SetPropShared requires every selected option to share at least one
+	// property token with every other selected option (Forge's
+	// TargetsWithSameCardType$ / TargetsWithSameCreatureType$ /
+	// TargetsWithEqualToughness$). With singleton token sets this is exact
+	// equality; with multi-token sets it is a non-empty common intersection,
+	// which is Forge's "share a card type" sense.
+	SetPropShared SetPropMode = "shared"
+	// SetPropDistinct requires the selected options' property sets to be
+	// pairwise disjoint (Forge's TargetsWithDifferentCMC$ /
+	// TargetsWithDifferentNames$: no two chosen cards share a value).
+	SetPropDistinct SetPropMode = "distinct"
+)
+
+// SetPropAdmits reports whether adding an option whose tokens are add keeps
+// the set constraint satisfied, given the running accumulator acc -- the
+// intersection of every already-chosen set for SetPropShared, the union for
+// SetPropDistinct. It is the ONE incremental rule Decision.Validate and
+// botpolicy's repair both call, so a repair can never accept a set the
+// validator rejects. An empty accumulator admits anything; an option with an
+// empty token set can never join a shared set (it shares nothing), and is
+// vacuously disjoint for a distinct one.
+func SetPropAdmits(mode SetPropMode, acc, add []string) bool {
+	switch mode {
+	case SetPropShared:
+		// nil acc means no option has been chosen yet: the first pick has no
+		// pair to violate, so even a token-less set (a creature with no
+		// creature type, Nameless Race) may stand alone. A non-nil empty acc
+		// means a pick was made and the running intersection is empty, so no
+		// further option can share with the picked set -- the nil/non-nil
+		// distinction is what keeps the rule pairwise and order-independent.
+		if acc == nil {
+			return true
+		}
+		if len(acc) == 0 {
+			return false
+		}
+		return setPropsIntersect(acc, add)
+	case SetPropDistinct:
+		if len(acc) == 0 {
+			return true
+		}
+		return !setPropsIntersect(acc, add)
+	default:
+		return true
+	}
+}
+
+// SetPropMerge folds a newly admitted option's tokens into the accumulator:
+// intersection for SetPropShared, union for SetPropDistinct. The intersection
+// form keeps the shared rule exact: an option joins only while the running
+// common intersection stays non-empty.
+func SetPropMerge(mode SetPropMode, acc, add []string) []string {
+	switch mode {
+	case SetPropShared:
+		if acc == nil {
+			if len(add) == 0 {
+				// Non-nil empty records that a pick was made and shares
+				// nothing with any later pick.
+				return []string{}
+			}
+			return append([]string(nil), add...)
+		}
+		out := acc[:0:0]
+		for _, t := range acc {
+			if slices.Contains(add, t) {
+				out = append(out, t)
+			}
+		}
+		return out
+	case SetPropDistinct:
+		out := append(acc[:0:0], acc...)
+		for _, t := range add {
+			if !slices.Contains(out, t) {
+				out = append(out, t)
+			}
+		}
+		return out
+	default:
+		return acc
+	}
+}
+
+// SetPropCapacity returns the largest number of options that can be selected
+// together under the constraint, so an ask whose mandatory Min exceeds it can
+// fizzle instead of posing an unsatisfiable decision (the same role
+// sameControllerTargetBounds plays for TargetsWithSameController$). For
+// SetPropShared it is the largest number of options sharing one token; for
+// SetPropDistinct it is a greedy maximum of pairwise-disjoint options, exact
+// whenever the token sets are singletons (every corpus DifferentCMC$/Names$
+// carrier) and a safe lower bound otherwise.
+func SetPropCapacity(mode SetPropMode, sets [][]string) int {
+	switch mode {
+	case SetPropShared:
+		counts := map[string]int{}
+		hasEmpty := false
+		for _, set := range sets {
+			if len(set) == 0 {
+				hasEmpty = true
+				continue
+			}
+			for _, t := range set {
+				counts[t]++
+			}
+		}
+		best := 0
+		for _, n := range counts {
+			if n > best {
+				best = n
+			}
+		}
+		// A token-less candidate can stand alone (one pick has no pair to
+		// violate), so it still admits a set of size 1 even when no token is
+		// shared by two candidates.
+		if best == 0 && hasEmpty {
+			return 1
+		}
+		return best
+	case SetPropDistinct:
+		var acc []string
+		picked := 0
+		for _, set := range sets {
+			if !SetPropAdmits(SetPropDistinct, acc, set) {
+				continue
+			}
+			acc = SetPropMerge(SetPropDistinct, acc, set)
+			picked++
+		}
+		return picked
+	default:
+		return len(sets)
+	}
+}
+
+// setPropsIntersect reports whether a and b share at least one token.
+func setPropsIntersect(a, b []string) bool {
+	for _, t := range a {
+		if slices.Contains(b, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// setPropAnswerAdmits reports whether the choices satisfy Decision.SetPropMode
+// -- FitRequired's fast path uses it so an already-valid answer is returned
+// unchanged only when it also satisfies the set constraint.
+func (d *Decision) setPropAnswerAdmits(choices []int) bool {
+	if d.SetPropMode == SetPropNone {
+		return true
+	}
+	var acc []string
+	for _, c := range choices {
+		if c < 0 || c >= len(d.Options) {
+			continue
+		}
+		add := d.Options[c].SetProps
+		if !SetPropAdmits(d.SetPropMode, acc, add) {
+			return false
+		}
+		acc = SetPropMerge(d.SetPropMode, acc, add)
+	}
+	return true
+}
+
+// setPropAccumulator folds the choices' SetProps into the running accumulator
+// (no admissibility test), for seeding a repair's running state.
+func (d *Decision) setPropAccumulator(choices []int) []string {
+	return d.SetPropsOf(choices)
+}
+
+// SetPropsOf is the exported seed for a repair's running SetProps accumulator:
+// the fold of the named choices' SetProps under Decision.SetPropMode. It is
+// the one reader botpolicy's Clamp uses to prime its top-up state, so the
+// repair starts from exactly the accumulator Validate would have built.
+func (d *Decision) SetPropsOf(choices []int) []string {
+	var acc []string
+	for _, c := range choices {
+		if c < 0 || c >= len(d.Options) {
+			continue
+		}
+		acc = SetPropMerge(d.SetPropMode, acc, d.Options[c].SetProps)
+	}
+	return acc
+}
+
 // groupCapExceeded reports whether choices select more than GroupCapFor(g)
 // options of any one Group -- the same per-Group rule Validate enforces, in
 // the cheapest form FitRequired's fast path needs. A repeated index counts
@@ -841,6 +1053,27 @@ func (d *Decision) Validate(in Intent) error {
 			} else if got != controller {
 				return fmt.Errorf("choices do not share one controller")
 			}
+		}
+	}
+	// The target-set property constraint (Decision.SetPropMode): the same
+	// incremental rule (SetPropAdmits/SetPropMerge) botpolicy's repair uses,
+	// so a repair can never return an answer Validate rejects. The accumulator
+	// is the running intersection (shared) or union (distinct) of the chosen
+	// options' SetProps.
+	if d.SetPropMode != SetPropNone {
+		var acc []string
+		for _, c := range in.Choices {
+			if c < 0 || c >= len(d.Options) {
+				continue
+			}
+			add := d.Options[c].SetProps
+			if !SetPropAdmits(d.SetPropMode, acc, add) {
+				if d.SetPropMode == SetPropShared {
+					return fmt.Errorf("choices do not all share a required property")
+				}
+				return fmt.Errorf("choices share a property the set requires to differ")
+			}
+			acc = SetPropMerge(d.SetPropMode, acc, add)
 		}
 	}
 	for _, c := range in.Choices {
