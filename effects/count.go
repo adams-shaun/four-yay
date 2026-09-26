@@ -1044,6 +1044,22 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// association would read zero for the real carriers. paidCostTargets
 		// is the shared home with definedSpec's own case.
 		return paidCostTargets(c, ref), true
+	case "ExiledCards":
+		// Forge's `ExiledCards` count referent (Corpseweft's
+		// `SVar:Y:ExiledCards$Amount/Twice` -- the only corpus carrier at this
+		// pin): the cards THIS cast or activation exiled as a cost, i.e. the
+		// SAME paid list the `Exiled` spelling immediately above reads. It is
+		// claimed here explicitly because the default fallback below cannot
+		// model it -- definedSpec carries no `ExiledCards` selector -- so the
+		// body would fail closed and Corpseweft's Zombie Horror would be minted
+		// at the dynamic side's zero and swept by state-based actions. It is
+		// deliberately NOT Object.ExiledCards (a ChangeZone zone association on
+		// the exiling object) nor Ctx.Remembered (the memory/captured trigger
+		// objects `TokenRemembered$ ExiledCards` reads): neither holds the paid
+		// list an ExileFromGrave cost fills. Paired with evalRefProperty's
+		// `Amount` property, this sizes the token; the corpus's `/Twice` op
+		// rides the ordinary applyCountOp suffix.
+		return paidCostTargets(c, "Exiled"), true
 	case "TargetedObjects", "TargetedObjectsDistinct":
 		// Forge's TargetedObjects referent (AbilityUtils.calcX's
 		// `calcX[0].startsWith("TargetedObjects")` arm): the UNION of every
