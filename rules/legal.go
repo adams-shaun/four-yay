@@ -517,10 +517,9 @@ func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
 // the source's current controller, and source-dependent selectors
 // (Player.EnchantedController, Player.IsRemembered) bind their attachment and
 // choice state to the source permanent -- through effects.MatchesPlayerSpecFrom,
-// so every rule has one home and an unknown or unread selector (for example
-// Player.Owner, which no player-spec clause reads) fails closed rather than
-// admitting extra activators. Every offer path (the printed AB walk, the
-// granted/gained-ability walk and the mana-ability membership walk) routes
+// so every rule has one home and an unknown or unread selector fails closed
+// rather than admitting extra activators. Every offer path (the printed AB walk,
+// the granted/gained-ability walk and the mana-ability membership walk) routes
 // through this helper, so the paths cannot drift.
 func (e *Engine) activatorAllows(p state.PlayerID, id state.ObjID, ab *cards.SA) bool {
 	spec := strings.TrimSpace(ab.Params["Activator"])
