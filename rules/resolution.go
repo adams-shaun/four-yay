@@ -144,6 +144,14 @@ type resumePoint struct {
 	// controller is someone else.
 	player state.PlayerID
 	name   string
+	// chosenDirection carries Ctx.ChosenDirection across a suspension. The
+	// answered ChooseDirection ask sets it through the "choosedirection"
+	// resume arm, and any LATER ask the chained GainControlVariant poses
+	// (Inniaz's / Order of Succession's per-recipient picks) rebuilds a fresh
+	// Ctx that would otherwise lose the direction its Sub still needs. Read
+	// from the live resolution Ctx at ask time, the same runtime-continuation
+	// class as name.
+	chosenDirection string
 	// direct identifies an effect invoked outside stack resolution (currently
 	// an enters-the-battlefield replacement such as Hideaway). It resumes its
 	// source directly rather than requiring a stack object.
@@ -567,6 +575,17 @@ func (e *Engine) StateChangedSince(mark int) bool {
 	return false
 }
 
+// chosenDirectionForResume reads the live resolution Ctx's chosen direction
+// for a resume point (empty when no chain is published, or none was chosen
+// yet). It is how a suspended mid-resolution ask keeps the ChooseDirection
+// answer its chained SubAbility reads after a freshly rebuilt Ctx.
+func (e *Engine) chosenDirectionForResume() string {
+	if e.resolutionCtx == nil {
+		return ""
+	}
+	return e.resolutionCtx.ChosenDirection
+}
+
 // buildAskResume builds the resume point of the mid-resolution ask d from
 // the engine's ambient resolution state at the moment the ask is posed (or
 // deferred). See Engine.Ask.
@@ -644,7 +663,8 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		replacementAmount: replacementAmount,
 		effectFrame:       e.currentEffectFrame,
 		before:            e.triggerBefore, target: d.ResumeTarget, player: d.Player,
-		direct: direct, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
+		chosenDirection: e.chosenDirectionForResume(),
+		direct:          direct, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
 		chosenValid: d.ResumeChosenValid, remembered: append([]state.Target(nil), d.ResumeRemembered...),
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
@@ -1767,7 +1787,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	} else if f := o.Face(); f != nil {
 		e.recheckCastSubTargets(rp.obj, f.SpellAbility(), o.Controller, rp.obj)
 	}
-	ctx := &effects.Ctx{Source: rp.obj, Controller: o.Controller, NameChoice: rp.name, Targets: o.Targets,
+	ctx := &effects.Ctx{Source: rp.obj, Controller: o.Controller, NameChoice: rp.name, ChosenDirection: rp.chosenDirection, Targets: o.Targets,
 		// Forge's Count$ResolvedThisTurn: a chain that suspended at a
 		// mid-resolution ask and so re-enters HERE instead of through
 		// resolveTop must keep the tally its first pass read. The Resolve event
@@ -2741,6 +2761,17 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			ctx.ClonePickDone = true
 			if len(chosen) > 0 {
 				ctx.ClonePick = chosen[0].Obj
+			}
+		case "choosedirection":
+			// A mid-resolution ChooseDirection ask (Aminatou's [-6], Order of
+			// Succession) was answered. The chosen option's Label is the
+			// direction word ("left"/"right"), so it is carried verbatim:
+			// the re-entered effChooseDirection consumes it and the shared
+			// Ctx then lets the chain's SubAbility$ (GainControl's
+			// NextPlayerInChosenDirection / ChooseNextPlayerInChosenDirection)
+			// read the same direction for the rest of the walk.
+			if len(chosen) > 0 {
+				ctx.ChosenDirection = chosen[0].Label
 			}
 		case "choice":
 			// ChooseCard, ChoosePlayer and ChangeTargets all use KChoose. Keep

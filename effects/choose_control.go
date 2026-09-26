@@ -1210,69 +1210,306 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
-// effGainControlVariant implements Forge's GainControlVariant: the
-// owner-directed batch control effect (Alicia Masters, Trostani Discordant,
-// Homeward Path, Brooding Saurian, ...). Unlike GainControl it takes no
-// target: it enumerates every battlefield permanent matching AllValid$ and
-// hands each to the player ChangeController$ names.
+// effGainControlVariant implements Forge's GainControlVariant: a batch
+// control effect that takes no target and enumerates every battlefield
+// permanent matching AllValid$, handing each to the player ChangeController$
+// names. The corpus values fall into three shapes:
 //
-// Only ChangeController$ CardOwner is implemented -- "each player gains
-// control of all permanents they own" (Alicia Masters). The other corpus
-// values (Random, ChooseFromPlayerToTheirRight, NextPlayerInChosenDirection,
-// ChooseNextPlayerInChosenDirection) each need a separate player-selection
-// mechanic the engine models nowhere; applying CardOwner for them would hand
-// every permanent to its owner, which is a different and WRONG result, so
-// they fail loudly with a Note and change nothing. This is the fail-closed
-// direction the ordinary effGainControl takes for an unbound NewController$.
+//   - CardOwner (Alicia Masters, Trostani Discordant, Homeward Path, ...):
+//     each player gains control of all permanents they own.
+//   - Random (Scrambleverse): a random LIVING player is chosen for each
+//     matching permanent, then each chosen player gains it.
+//   - a player-selection hand-off directed by ChooseDirection or by a fixed
+//     neighbour: ChooseFromPlayerToTheirRight (Inniaz, the Gale Force),
+//     NextPlayerInChosenDirection (Aminatou, the Fateshifter's [-6]) and
+//     ChooseNextPlayerInChosenDirection (Order of Succession).
+//
+// An unrecognised value is a loud Note and no transfer, the fail-closed
+// direction: applying CardOwner for an unmodelled value would hand every
+// permanent to its owner, a different and WRONG result.
 func effGainControlVariant(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	change := strings.TrimSpace(sa.Params["ChangeController"])
-	if !strings.EqualFold(change, "CardOwner") {
+	switch {
+	case strings.EqualFold(change, "CardOwner"):
+		gainControlVariantCardOwner(h, c, sa, g)
+	case strings.EqualFold(change, "Random"):
+		gainControlVariantRandom(h, c, sa, g)
+	case strings.EqualFold(change, "ChooseFromPlayerToTheirRight"):
+		gainControlVariantInniaz(h, c, sa, g)
+	case strings.EqualFold(change, "NextPlayerInChosenDirection"):
+		gainControlVariantAminatou(h, c, sa, g)
+	case strings.EqualFold(change, "ChooseNextPlayerInChosenDirection"):
+		gainControlVariantOrder(h, c, sa, g)
+	default:
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "GainControlVariant ChangeController$ " + change + " unimplemented"})
-		return
 	}
+}
+
+// gainControlVariantBase validates the AllValid$/LoseControl$ shape every
+// value shares and builds the grant template each object's transfer fills in.
+func gainControlVariantBase(h Host, c *Ctx, sa *cards.SA, g *state.Game) (string, ControlGrant, bool) {
 	spec := strings.TrimSpace(sa.Params["AllValid"])
 	if spec == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "GainControlVariant has no AllValid$ filter"})
-		return
+		return "", ControlGrant{}, false
 	}
 	dur, unknown := ParseControlDuration(sa.Params["LoseControl"])
 	if unknown != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControlVariant LoseControl$ " + unknown + " unimplemented"})
-		return
+		return "", ControlGrant{}, false
 	}
 	base := ControlGrant{You: c.Controller, Source: c.Source, Duration: dur, SVars: c.SVars,
 		AddKeywords: cards.SplitKeywordList(sa.Params["AddKWs"])}
 	if src := g.Obj(c.Source); src != nil && src.Zone == state.ZBattlefield {
 		base.SourceStamp = src.Timestamp
 	}
+	return spec, base, true
+}
+
+// gainControlVariantObjects lists the battlefield permanents matching spec in
+// deterministic arena order. When anyController is false only permanents
+// controlled by ctrl are returned.
+func gainControlVariantObjects(g *state.Game, c *Ctx, spec string, ctrl state.PlayerID, anyController bool) []state.ObjID {
+	sc := c.SpecContext(c.Controller)
+	var out []state.ObjID
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if o.Zone != state.ZBattlefield {
+			continue
+		}
+		if !anyController && o.Controller != ctrl {
+			continue
+		}
+		if MatchesObjectCtx(g, spec, o, sc) {
+			out = append(out, o.ID)
+		}
+	}
+	return out
+}
+
+// gainControlVariantApply is the ONE control-transfer site every variant
+// uses: it emits the ControlChange only on a visible move and registers the
+// grant. A permanent already under the new controller still gets the grant
+// record (CR 613.7: the newest control effect becomes the latest), the
+// CardOwner contract.
+func gainControlVariantApply(h Host, base ControlGrant, o *state.Object, to state.PlayerID) {
+	gr := base
+	gr.Obj, gr.ObjStamp, gr.Previous, gr.Controller = o.ID, o.Timestamp, o.Controller, to
+	if ControlGrantEnded(h, gr) {
+		return
+	}
+	if o.Controller != to {
+		h.Emit(events.Event{Kind: events.ControlChange, Obj: o.ID, Player: to})
+	}
+	h.RegisterControl(gr)
+}
+
+// gainControlVariantCardOwner implements ChangeController$ CardOwner.
+func gainControlVariantCardOwner(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
 	// The dense object arena is creation order, so the walk (and therefore
 	// the emitted ControlChange sequence and its ControlGrant records) is
 	// deterministic across a replay.
-	sc := c.SpecContext(c.Controller)
-	for i := range g.Objs {
-		o := &g.Objs[i]
-		if o.Zone != state.ZBattlefield || !MatchesObjectCtx(g, spec, o, sc) {
-			continue
-		}
-		gr := base
-		gr.Obj, gr.ObjStamp, gr.Previous, gr.Controller = o.ID, o.Timestamp, o.Controller, o.Owner
-		if ControlGrantEnded(h, gr) {
+	for _, id := range gainControlVariantObjects(g, c, spec, 0, true) {
+		o := g.Obj(id)
+		if o == nil || o.Zone != state.ZBattlefield {
 			continue
 		}
 		// The effect is applied to EVERY matching permanent, including one
-		// its owner already controls: it establishes a new (latest) control
-		// effect on it (CR 613.7), so a still-tracked older steal cannot
-		// retake the permanent when the older steal expires. Only a visible
-		// change of controller emits the ControlChange event; a permanent
-		// already under its owner's control gets the grant record silently.
-		if o.Controller != o.Owner {
-			h.Emit(events.Event{Kind: events.ControlChange, Obj: o.ID, Player: o.Owner})
-		}
-		h.RegisterControl(gr)
+		// its owner already controls (CR 613.7); only a visible change of
+		// controller emits the ControlChange event.
+		gainControlVariantApply(h, base, o, o.Owner)
 	}
+}
+
+// gainControlVariantRandom implements ChangeController$ Random
+// (Scrambleverse): one random LIVING player per matching permanent, drawn
+// from the seeded host generator BEFORE any transfer, so the resulting
+// ControlChange sequence replays identically.
+func gainControlVariantRandom(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	alive := g.AliveFrom(0)
+	if len(alive) == 0 {
+		return
+	}
+	objs := gainControlVariantObjects(g, c, spec, 0, true)
+	picks := make([]state.PlayerID, len(objs))
+	for i := range objs {
+		picks[i] = alive[h.Rand(len(alive))]
+	}
+	// Scrambleverse's SubAbility$ DBUntap runs after this returns, through
+	// Resolve's ordinary sa.Sub walk -- including a permanent whose random
+	// pick left its controller unchanged.
+	for i, id := range objs {
+		if o := g.Obj(id); o != nil && o.Zone == state.ZBattlefield {
+			gainControlVariantApply(h, base, o, picks[i])
+		}
+	}
+}
+
+// gainControlVariantInniaz implements ChangeController$
+// ChooseFromPlayerToTheirRight (Inniaz, the Gale Force): for EVERY player,
+// the effect's controller chooses one matching permanent controlled by the
+// player to that player's right, and that player gains it. The chooser is the
+// caster for every recipient -- the shape that distinguishes Inniaz from
+// Order of Succession below, where each recipient chooses for themself.
+func gainControlVariantInniaz(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	recipients := g.AliveFrom(c.Controller)
+	gainControlVariantAskLoop(h, c, sa, base, recipients,
+		func(state.PlayerID) state.PlayerID { return c.Controller },
+		func(R state.PlayerID) []state.ObjID {
+			right, ok := gainControlNeighbor(g, R, directionRight)
+			if !ok {
+				return nil
+			}
+			return gainControlVariantObjects(g, c, spec, right, false)
+		},
+		"Choose a nonland permanent controlled by the player to that player's right")
+}
+
+// gainControlVariantAminatou implements ChangeController$
+// NextPlayerInChosenDirection (Aminatou, the Fateshifter's [-6]): each player
+// gains control of all matching permanents controlled by the next player in
+// the chosen direction. Every recipient's pool is read from the PRE-transfer
+// controllers and the transfers are applied afterwards, so two recipients can
+// never be offered the same permanent once control has moved.
+func gainControlVariantAminatou(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	dir, ok := gainControlVariantDirection(h, c, sa)
+	if !ok {
+		return
+	}
+	type transfer struct {
+		id state.ObjID
+		to state.PlayerID
+	}
+	var gains []transfer
+	for _, R := range g.AliveFrom(0) {
+		next, ok := gainControlNeighbor(g, R, dir)
+		if !ok {
+			continue
+		}
+		for _, id := range gainControlVariantObjects(g, c, spec, next, false) {
+			gains = append(gains, transfer{id: id, to: R})
+		}
+	}
+	for _, tr := range gains {
+		if o := g.Obj(tr.id); o != nil && o.Zone == state.ZBattlefield {
+			gainControlVariantApply(h, base, o, tr.to)
+		}
+	}
+}
+
+// gainControlVariantOrder implements ChangeController$
+// ChooseNextPlayerInChosenDirection (Order of Succession): starting with the
+// caster and proceeding in the chosen direction, each player chooses one
+// matching permanent controlled by the next player in that direction, and
+// gains it. Each recipient is its OWN chooser.
+func gainControlVariantOrder(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	dir, ok := gainControlVariantDirection(h, c, sa)
+	if !ok {
+		return
+	}
+	recipients := gainControlDirectionRing(g, c.Controller, dir)
+	gainControlVariantAskLoop(h, c, sa, base, recipients,
+		func(R state.PlayerID) state.PlayerID { return R },
+		func(R state.PlayerID) []state.ObjID {
+			next, ok := gainControlNeighbor(g, R, dir)
+			if !ok {
+				return nil
+			}
+			return gainControlVariantObjects(g, c, spec, next, false)
+		},
+		"Choose a permanent controlled by the next player in the chosen direction")
+}
+
+// gainControlVariantAskLoop runs the ordered per-recipient choice loop the
+// Inniaz and Order shapes share. For each recipient with at least one
+// eligible permanent, chooserFor names who picks (the caster for Inniaz, the
+// recipient for Order) and poolFor lists that recipient's eligible
+// permanents. A recipient with no eligible permanent is skipped with a
+// positional empty pick so the cursor stays aligned with recipients.
+//
+// The picks are gathered across every ask BEFORE any transfer is applied, so
+// an earlier hand-off cannot change a later recipient's pool; a suspension
+// carries the cursor (Decision.ResumeTarget) and the picks so far
+// (Decision.ResumeChoices) across the answer.
+func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
+	recipients []state.PlayerID,
+	chooserFor func(state.PlayerID) state.PlayerID,
+	poolFor func(state.PlayerID) []state.ObjID,
+	prompt string) {
+	i := c.ChoiceTarget
+	var picks []state.Target
+	if c.ChoiceDone {
+		// The answered re-entry: the "choice" resume arm put the answered
+		// option in Ctx.Choice and the picks gathered before the ask in
+		// Ctx.Chosen (carried via ResumeChoices).
+		picks = append([]state.Target(nil), c.Chosen...)
+		if len(c.Choice) > 0 {
+			picks = append(picks, c.Choice[0])
+		} else {
+			picks = append(picks, state.Target{})
+		}
+		c.ChoiceDone, c.Choice = false, nil
+		i++
+	} else if i > 0 {
+		picks = append([]state.Target(nil), c.Chosen...)
+	}
+	for ; i < len(recipients); i++ {
+		pool := poolFor(recipients[i])
+		if len(pool) == 0 {
+			picks = append(picks, state.Target{})
+			continue
+		}
+		if len(pool) == 1 {
+			picks = append(picks, state.Target{Obj: pool[0]})
+			c.Chosen = picks
+			continue
+		}
+		chooser := chooserFor(recipients[i])
+		c.ChoiceTarget, c.Chosen = i, picks
+		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
+			Source: c.Source, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i,
+			ResumeChoices: append([]state.Target(nil), picks...), Prompt: prompt}
+		for j, id := range pool {
+			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: id, Player: chooser})
+		}
+		if Ask(h, d) == AskAsked {
+			return
+		}
+		picks = append(picks, state.Target{Obj: pool[0]})
+		c.Chosen = picks
+	}
+	for k, R := range recipients {
+		if k >= len(picks) || picks[k].Obj == 0 {
+			continue
+		}
+		if o := h.Game().Obj(picks[k].Obj); o != nil && o.Zone == state.ZBattlefield {
+			gainControlVariantApply(h, base, o, R)
+		}
+	}
+	c.ChoiceTarget = 0
 }
 
 func effControlSpell(h Host, c *Ctx, sa *cards.SA) {

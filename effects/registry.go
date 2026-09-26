@@ -943,6 +943,14 @@ type Ctx struct {
 	PromisedGiftOverride *bool
 	// NameChoice carries a mid-resolution NameCard answer across re-entry.
 	NameChoice string
+	// ChosenDirection carries a mid-resolution ChooseDirection answer across
+	// re-entry: the "left"/"right" pick (Aminatou's [-6], Order of
+	// Succession). It is resolution-scratch like NameChoice -- never
+	// event-encoded; a replay re-derives it from the recorded intent through
+	// rules' "choosedirection" resume arm. Empty on the first pass, and left
+	// set for the rest of the chain because the SubAbility$ that consumes it
+	// (DBControl / DBGainControl) runs in the same walk.
+	ChosenDirection string
 	// ResolvedThisTurn is how many times the resolving ability has resolved
 	// this turn, INCLUDING the current resolution. The effects layer cannot
 	// import rules, so the tally arrives here as bound data: rules reads it

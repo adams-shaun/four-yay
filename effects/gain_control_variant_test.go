@@ -122,16 +122,19 @@ func TestGainControlVariantAliciaMastersCorpusSA(t *testing.T) {
 
 // TestGainControlVariantRejectsUnsupportedChangeController proves the
 // fail-closed contract: a ChangeController$ value the engine does not model
-// (Random / the chosen-direction forms Scrambleverse and Order of Succession
-// carry) must emit a loud Note and change NOTHING -- never fall through to
-// the owner-directed behaviour and flip control to the wrong player.
+// must emit a loud Note and change NOTHING -- never fall through to the
+// owner-directed behaviour and flip control to the wrong player. The four
+// corpus player-selection values (Random, ChooseFromPlayerToTheirRight,
+// NextPlayerInChosenDirection, ChooseNextPlayerInChosenDirection) are
+// implemented and covered by gain_control_variant_players_test.go; this test
+// holds the UNKNOWN-value boundary those must not widen.
 //
 // Driven through Resolve rather than the handler directly, so reverting the
 // REGISTRATION (not just the hunk) also fails this test: an unregistered API
 // emits the generic "unimplemented API GainControlVariant" Note instead of
 // the fail-closed one asserted below.
 func TestGainControlVariantRejectsUnsupportedChangeController(t *testing.T) {
-	for _, value := range []string{"Random", "ChooseFromPlayerToTheirRight", "NextPlayerInChosenDirection", "ChooseNextPlayerInChosenDirection"} {
+	for _, value := range []string{"Bogus", "RandomX", "CardOwner2", "NextPlayer"} {
 		g, ids := gainControlVariantBoard(t)
 		h := &fakeHost{g: g}
 		variant := sa(t, "SP$ GainControlVariant | AllValid$ Creature | ChangeController$ "+value)
