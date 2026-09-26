@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -9,6 +8,13 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// sharedCardTypeCorpusSA resolves the SA that carries
+// TargetsWithSharedCardType$ on a real corpus card, but ONLY when that SA is
+// reachable from the printed face: through a printed ability's SubAbility$
+// chain, or through a printed trigger's Execute$ effect and its SubAbility$
+// chain. There is deliberately no global SVar sweep — an SVar no printed line
+// reaches must not satisfy the pin, because the pin exists to prove the
+// printed card actually links the parameter through the resolver.
 func sharedCardTypeCorpusSA(t *testing.T, cardName string) *cards.SA {
 	t.Helper()
 	reg := freshCorpusRegistry(t,
@@ -37,17 +43,12 @@ func sharedCardTypeCorpusSA(t *testing.T, cardName string) *cards.SA {
 			return sa
 		}
 	}
-	names := make([]string, 0, len(face.SVars))
-	for name := range face.SVars {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		if sa := find(cards.ResolveSVar(face.SVars, name)); sa != nil {
+	for _, trig := range face.Triggers {
+		if sa := find(trig.Effect); sa != nil {
 			return sa
 		}
 	}
-	t.Fatalf("precondition: %s has no resolved SA with TargetsWithSharedCardType$", cardName)
+	t.Fatalf("precondition: %s has no printed ability or trigger link to an SA with TargetsWithSharedCardType$", cardName)
 	return nil
 }
 
@@ -116,7 +117,9 @@ func TestSharedCardTypeRealSAPin(t *testing.T) {
 }
 
 // TestSharedCardTypeRealIRCarriers pins the remaining corpus carriers to the
-// parameter shapes resolved from their linked SVar sub-abilities.
+// parameter shapes on the SAs their printed lines actually link (Confusion
+// and Power Struggle through their triggers' Execute$ effects; Gauntlets
+// through its printed ability's SubAbility$ chain).
 func TestSharedCardTypeRealIRCarriers(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
