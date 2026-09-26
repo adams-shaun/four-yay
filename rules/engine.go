@@ -1129,6 +1129,12 @@ type Engine struct {
 	// cast holds the in-progress cast-flow state while choosing ==
 	// chooseCast (Task 9, rules/cast.go). Nil whenever no cast is mid-flow.
 	cast *pendingCast
+	// turnUp holds the CR 708.6 morph-family turn-face-up special action's
+	// payment flow while choosing == chooseTurnUp (rules/morph_turnup.go).
+	// Nil whenever no turn-up is mid-payment. A plain-value struct with no
+	// closures, so Clone copies it like cast/choosing and a replay
+	// re-derives it from the recorded intents.
+	turnUp *turnUpPay
 	// replayPaymentPlans permits replay to reconstruct a dormant payment offer
 	// only when it encounters its recorded selector.  Live decisions remain
 	// unpublished until host integration enables them.

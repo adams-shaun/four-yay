@@ -63,6 +63,11 @@ const (
 	// static. It is deliberately separate from the mana-source window: the
 	// player chooses whether to use the permission before targets and payment.
 	chooseManaConvert chooseFor = 42
+	// chooseTurnUp is the CR 708.6 morph-family turn-face-up special action's
+	// payment flow (rules/morph_turnup.go): the announced X and the non-mana
+	// cost components (sacrifice/discard/reveal/return) it must choose. 44 is
+	// the next free value after chooseTokenReplace (43).
+	chooseTurnUp chooseFor = 44
 )
 
 // pendingCast is the cast flow's own state, live only between beginCast and
