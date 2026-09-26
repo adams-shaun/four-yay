@@ -1,11 +1,13 @@
 package rules
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -23,6 +25,20 @@ import (
 // per-candidate controller-relative predicate (TargetsWithControllerProperty$)
 // is a plain legality filter, not a set constraint, and lives beside the
 // census it narrows (targetControllerPropertyAdmits, below).
+//
+// Two more keys in the same family constrain a candidate against a REFERENCE
+// object rather than against the other chosen targets, so they are plain
+// legality filters too:
+//
+//   - TargetsWithSharedCardType$ <reference>  (shares a card type with the
+//     reference -- ParentTarget, the parent ability's chosen target, or
+//     TriggeredCard, the card an event triggered on)
+//   - TargetsWithSharedTypes$ <list>          (narrows which card types count
+//     for the shared-card-type intersection to the listed ones)
+//
+// Both are enforced by filterTargetsWithSharedCardType at the census and by
+// sharedCardTypeAdmits at the resolution recheck, from the SAME predicate, so
+// offer and recheck cannot disagree.
 
 // targetSetPropMode reports which set-property constraint this targeting SA
 // carries, or SetPropNone. Forge writes at most one such key per SA; the
@@ -162,6 +178,117 @@ func (e *Engine) narrowSetProps(sa *cards.SA, targets []state.Target) []state.Ta
 		}
 		acc = decision.SetPropMerge(mode, acc, props)
 		out = append(out, t)
+	}
+	return out
+}
+
+// sharedCardTypeRef reports the reference object spec TargetsWithSharedCardType$
+// names (ParentTarget, TriggeredCard, ...), or "" when the key is absent/not
+// True-shaped. Forge writes a name here, never "True".
+func sharedCardTypeRef(sa *cards.SA) string {
+	if sa == nil {
+		return ""
+	}
+	return strings.TrimSpace(sa.Params["TargetsWithSharedCardType"])
+}
+
+// sharedTypesWhitelist parses TargetsWithSharedTypes$ ("Artifact,Creature,Land")
+// into lowercase card-type tokens, or nil when absent. An empty list is nil, so
+// the intersection falls back to the reference's own card types.
+func sharedTypesWhitelist(sa *cards.SA) []string {
+	if sa == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(sa.Params["TargetsWithSharedTypes"])
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	for _, p := range strings.Split(raw, ",") {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// sharedCardTypeReference resolves the reference object a
+// TargetsWithSharedCardType$ spec names. ParentTarget/ParentTargeted/
+// ThisTargetedCard/Targeted read the FIRST object target recorded on the
+// source stack object -- the parent ability's target, recorded before any
+// sub-ability target, which is exactly the object Forge's ParentTarget names
+// for a DB$ sub-ability (ExchangeControl's `Defined$ ParentTarget`).
+// TriggeredCard reads the trigger context's captured card. An unresolvable
+// reference returns 0 and the filter fails closed (drops every candidate),
+// the same direction every unread spec qualifier takes. The two forms are the
+// complete set the corpus carries
+// (`/usr/bin/grep -rl TargetsWithSharedCardType .cards/cardsfolder`: 5 files,
+// all ParentTarget or TriggeredCard); any other spelling fails closed rather
+// than guessing a referent the corpus never exercises.
+func (e *Engine) sharedCardTypeReference(ref string, source state.ObjID, sc effects.SpecContext) state.ObjID {
+	switch strings.TrimSpace(ref) {
+	case "ParentTarget", "ParentTargeted", "ThisTargetedCard", "Targeted":
+		if o := e.G.Obj(source); o != nil {
+			for _, t := range o.Targets {
+				if !t.IsPlayer && t.Obj != 0 && t.Obj != source {
+					return t.Obj
+				}
+			}
+		}
+		return 0
+	case "TriggeredCard", "TriggeredCardLKICopy":
+		return sc.TriggerCard
+	}
+	return 0
+}
+
+// sharedCardTypeAdmits reports whether obj shares at least one card type with
+// ref, restricted to the TargetsWithSharedTypes$ whitelist when present. It is
+// the ONE predicate the census and the resolution recheck both call. A zero
+// reference (unresolved) or an object with no card types fails closed.
+func (e *Engine) sharedCardTypeAdmits(obj, ref state.ObjID, whitelist []string) bool {
+	if obj == 0 || ref == 0 || obj == ref {
+		return false
+	}
+	tokens := e.setPropTokens("cardtype", obj)
+	if len(tokens) == 0 {
+		return false
+	}
+	refTokens := e.setPropTokens("cardtype", ref)
+	if len(refTokens) == 0 {
+		return false
+	}
+	for _, t := range tokens {
+		if len(whitelist) > 0 && !slices.Contains(whitelist, t) {
+			continue
+		}
+		if slices.Contains(refTokens, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// filterTargetsWithSharedCardType drops the candidates that do not share a
+// card type with the reference TargetsWithSharedCardType$ names. Like the
+// other census post-filters it can only REMOVE candidates, and the resolution
+// recheck applies the SAME predicate, so offer and recheck cannot disagree.
+func (e *Engine) filterTargetsWithSharedCardType(in []targetCandidate, sa *cards.SA, source state.ObjID, sc effects.SpecContext) []targetCandidate {
+	ref := sharedCardTypeRef(sa)
+	if ref == "" {
+		return in
+	}
+	refObj := e.sharedCardTypeReference(ref, source, sc)
+	whitelist := sharedTypesWhitelist(sa)
+	out := in[:0]
+	for _, c := range in {
+		if c.kind == "player" {
+			continue
+		}
+		if e.sharedCardTypeAdmits(c.obj, refObj, whitelist) {
+			out = append(out, c)
+		}
 	}
 	return out
 }

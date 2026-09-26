@@ -1681,7 +1681,8 @@ func (e *Engine) candidatesFor(p state.PlayerID, source, excludeSelf state.ObjID
 func (e *Engine) candidatesForLimit(p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) []targetCandidate {
 	if limit > 0 && (strings.TrimSpace(sa.Params["TargetsWithDefinedController"]) != "" ||
 		strings.TrimSpace(sa.Params["TargetValidTargeting"]) != "" ||
-		strings.TrimSpace(sa.Params["TargetsWithControllerProperty"]) != "") {
+		strings.TrimSpace(sa.Params["TargetsWithControllerProperty"]) != "" ||
+		sharedCardTypeRef(sa) != "") {
 		limit = 0
 	}
 	spec := sa.Params["ValidTgts"]
@@ -1841,6 +1842,7 @@ zoneLoop:
 	}
 	out = e.filterTargetsWithDefinedController(out, sa, sc)
 	out = e.filterTargetControllerProperty(out, sa)
+	out = e.filterTargetsWithSharedCardType(out, sa, source, sc)
 	return e.filterTargetValidTargeting(out, sa, sc)
 }
 
@@ -4349,6 +4351,20 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	if sa != nil {
 		controllerProp = strings.TrimSpace(sa.Params["TargetsWithControllerProperty"])
 	}
+	// TargetsWithSharedCardType$ is the reference-relative sibling of the
+	// controller predicate: the SAME sharedCardTypeAdmits the census post-filter
+	// (filterTargetsWithSharedCardType) applies is judged here, so a target the
+	// mid-resolution offer certified cannot fizzle the recheck and vice versa.
+	// The key present with an unresolved reference (sharedRef 0) fails every
+	// candidate closed; the key absent admits everything.
+	hasSharedRef := false
+	sharedRef := state.ObjID(0)
+	var sharedWhitelist []string
+	if ref := sharedCardTypeRef(sa); ref != "" {
+		hasSharedRef = true
+		sharedRef = e.sharedCardTypeReference(ref, source, sc)
+		sharedWhitelist = sharedTypesWhitelist(sa)
+	}
 	for _, t := range targets {
 		if t.IsPlayer {
 			// CR 702.18 / CR 702.11 / CR 702.16c for players: a target that
@@ -4404,6 +4420,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 			if ok && e.matchesSpec(tspec, t.Obj, sc) &&
 				e.mentorAdmits(sa, source, t.Obj) &&
 				(controllerProp == "" || e.targetControllerPropertyAdmits(controllerProp, t.Obj)) &&
+				(!hasSharedRef || e.sharedCardTypeAdmits(t.Obj, sharedRef, sharedWhitelist)) &&
 				!(o.Zone == state.ZBattlefield && e.restrictionBlocksTarget(t.Obj, you)) &&
 				!(o.Zone == state.ZBattlefield && e.shroudBlocksTarget(t.Obj)) &&
 				!(o.Zone == state.ZBattlefield && e.hexproofBlocksTarget(t.Obj, you, e.protectionSource(source))) &&
