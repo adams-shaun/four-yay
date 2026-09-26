@@ -1994,11 +1994,13 @@ func (e *Engine) effectMoveSweep(ev events.Event) {
 			}
 		}
 		forget, exile := ce.ForgetOnMoved, ce.ExileOnMoved
+		exileAlso := ce.ExileOnMovedAlso
 		if forget != "" && effects.ParseZone(forget) == ev.From && objIDIn(ce.Remembered, ev.Obj) {
 			ce.Remembered = objIDWithout(ce.Remembered, ev.Obj)
 			changed = true
 		}
-		if exile != "" && effects.ParseZone(exile) == ev.From && objIDIn(ce.Remembered, ev.Obj) {
+		if (exile != "" && effects.ParseZone(exile) == ev.From ||
+			exileAlso != "" && effects.ParseZone(exileAlso) == ev.From) && objIDIn(ce.Remembered, ev.Obj) {
 			changed = true
 			continue // the effect ends: not kept
 		}

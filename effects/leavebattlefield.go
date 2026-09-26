@@ -95,7 +95,7 @@ func registerLeaveExile(h Host, c *Ctx, id state.ObjID, value, dur string, perma
 // plain permanent again (CR 400.7) and the replacement cannot re-arm on the
 // departure it already redirected. dur/permanent are the animation's own
 // duration fields, so an UntilEOT animation's replacement ends at cleanup.
-func registerAnimateReplacements(h Host, c *Ctx, id state.ObjID, names []string, dur string, permanent bool, exileOn string, remembered []state.ObjID) {
+func registerAnimateReplacements(h Host, c *Ctx, id state.ObjID, names []string, dur string, permanent, untilEOT bool, durSource state.ObjID, exileOn, exileAlso string, remembered []state.ObjID) {
 	for _, name := range names {
 		event, params := parseReplacementLine(c.SVars, name)
 		if event == "" {
@@ -116,9 +116,9 @@ func registerAnimateReplacements(h Host, c *Ctx, id state.ObjID, names []string,
 		}
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
-			Duration: dur, Permanent: permanent, UntilEOT: !permanent,
-			Remembered:       remembered,
-			ExileOnMoved:     exileOn,
+			Duration: dur, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Remembered:   remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso,
 			ReplacementEvent: event, ReplacementParams: params, ReplacementBody: body,
 		})
 	}
@@ -130,7 +130,7 @@ func registerAnimateReplacements(h Host, c *Ctx, id state.ObjID, names []string,
 // StaticAbilities$ path. The restriction registration is deliberately
 // source-scoped to the affected object, so Card.Self (the common Forge
 // spelling) cannot accidentally apply to every matching permanent.
-func registerAnimateStaticAbilities(h Host, c *Ctx, id state.ObjID, names []string, dur string, permanent bool, exileOn string, remembered []state.ObjID) {
+func registerAnimateStaticAbilities(h Host, c *Ctx, id state.ObjID, names []string, dur string, permanent, untilEOT bool, durSource state.ObjID, exileOn, exileAlso string, remembered []state.ObjID) {
 	for _, name := range names {
 		mode, params := parseStaticLine(c.SVars, name)
 		if mode == "" {
@@ -164,11 +164,14 @@ func registerAnimateStaticAbilities(h Host, c *Ctx, id state.ObjID, names []stri
 		}
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Controller: c.Controller,
-			// Next-turn durations are resolved by AddContinuous's UntilTurn
-			// boundary; marking them UntilEOT would discard the restriction at
-			// the current cleanup before that boundary is reached.
-			UntilEOT: !permanent && !IsNextTurnDuration(dur), Duration: dur, Permanent: permanent,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			// The animation's own lifetime decision (registerAnimateEffects'
+			// hoisted untilEOT/durSource): a host-scoped Duration$ anchors the
+			// restriction to the ANIMATING source exactly as the characteristic
+			// halves are anchored, and a next-turn duration keeps its UntilTurn
+			// boundary, rather than recomputing a lifetime here that could
+			// disagree with the rest of the grant.
+			UntilEOT: untilEOT, DurationSource: durSource, Duration: dur, Permanent: permanent,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			Restriction: mode, RestrictParams: params,
 			// The granting face's SVar table: a delivered CantBlockUnless body's
 			// Cost$ may name an SVar on it (Whipgrass Entangler's
@@ -196,7 +199,7 @@ func registerAnimateStaticAbilities(h Host, c *Ctx, id state.ObjID, names []stri
 // the grant itself is real and event-backed, so any future reader resolves
 // it. A named SVar missing from the granting face's table emits one loud
 // Note and grants nothing.
-func registerSVarGrants(h Host, c *Ctx, id state.ObjID, names []string, leaveValue, dur string, permanent bool) {
+func registerSVarGrants(h Host, c *Ctx, id state.ObjID, names []string, dur string, permanent, untilEOT bool, durSource state.ObjID, exileOn, exileAlso string, remembered []state.ObjID) {
 	if len(names) == 0 {
 		return
 	}
@@ -219,19 +222,16 @@ func registerSVarGrants(h Host, c *Ctx, id state.ObjID, names []string, leaveVal
 	if h.Game().Obj(id) == nil {
 		return
 	}
-	// The move-driven lifetime (registerAnimateEffects' idiom), applied only
-	// when the granting body also declared `LeaveBattlefield$ Exile`: the
-	// grant ends when the animated object leaves the battlefield, so the
-	// granted marker is not carried by a plain permanent again. A body with
-	// no leave clause keeps the historic lifetime (the documented Permanent
-	// asymmetry), so this read changes no existing carrier's behaviour.
-	remembered, exileOn := leaveExileLifetime(id, leaveValue)
+	// The move-driven lifetime is shared with every other half of this
+	// animation. In particular, host-scoped grants expire on either the
+	// animated object's or host's departure, even without LeaveBattlefield$;
+	// otherwise an SVar could reactivate after either object returns.
 	h.AddContinuous(state.ContinuousEffect{
 		Source: id, Affects: "Card.Self", Controller: c.Controller,
-		Duration: dur, Permanent: permanent, UntilEOT: !permanent,
+		Duration: dur, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 		Remembered:   remembered,
-		ExileOnMoved: exileOn,
-		AddSVars:     added,
+		ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso,
+		AddSVars: added,
 	})
 }
 

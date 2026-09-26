@@ -535,6 +535,11 @@ type ContinuousEffect struct {
 	// means the effect never ends on a move. Engine-runtime only, like
 	// ForgetOnMoved.
 	ExileOnMoved string
+	// ExileOnMovedAlso is an additional move-from zone that ends the whole
+	// effect. Animate's host-scoped grants can target an object in a different
+	// zone from their host, so the target's zone and the host's battlefield
+	// departure must both be irreversible lifetime boundaries.
+	ExileOnMovedAlso string
 	// ImprintOnHost marks a DB$ Effect registration whose SA carried
 	// ImprintOnHost$ True: Forge's EffectEffect imprints the CREATED EFFECT
 	// TOKEN on the host card and moves the token to the Command zone -- the
