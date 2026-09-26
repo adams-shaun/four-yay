@@ -544,14 +544,14 @@ func TestMorphTurnUpCostFailsClosedOnUnmodelledShapes(t *testing.T) {
 	// a FIXED count IS accepted, so the refusal below is specific to the
 	// announced form and not to any Sac cost at all.
 	fixed := onBoard(t, e, 0, "Name:Fixed-count morph\nTypes:Creature\nK:Morph:Sac<1/Creature>\nOracle:x\n")
-	e.G.Obj(fixed).FaceDown = true
-	e.G.Obj(fixed).CastFlags = state.FlagMorphed
+	e.emit(events.Event{Kind: events.TurnFaceDown, Obj: fixed})
+	e.emit(events.Event{Kind: events.CastInfo, Obj: fixed, Counter: events.FlagsString(state.FlagMorphed)})
 	if f, ok := morphFaceUpCost(e.G.Obj(fixed)); !ok || len(f.cost.Sac) != 1 || f.cost.Sac[0].Announced {
 		t.Fatalf("precondition: fixed-count fixture not accepted as a fixed Sac cost: %+v ok=%v", f.cost, ok)
 	}
 	variable := onBoard(t, e, 0, "Name:Variable-count morph\nTypes:Creature\nK:Morph:Sac<X/Creature>\nOracle:x\n")
-	e.G.Obj(variable).FaceDown = true
-	e.G.Obj(variable).CastFlags = state.FlagMorphed
+	e.emit(events.Event{Kind: events.TurnFaceDown, Obj: variable})
+	e.emit(events.Event{Kind: events.CastInfo, Obj: variable, Counter: events.FlagsString(state.FlagMorphed)})
 	if _, ok := morphFaceUpCost(e.G.Obj(variable)); ok {
 		t.Fatalf("morphFaceUpCost accepted an announced-count Sac<X/Creature> turn-up cost; the flow would pay zero objects")
 	}

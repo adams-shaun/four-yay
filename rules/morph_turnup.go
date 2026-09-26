@@ -172,6 +172,8 @@ type turnUpPay struct {
 	discs   []state.ObjID
 	reveal  []state.ObjID
 	returns []state.ObjID
+	settled bool
+	sacNext int
 }
 
 // turnFaceUp is handlePriority's "turn_face_up" action. It creates the
@@ -507,7 +509,6 @@ func (e *Engine) turnUpAnswer(d *decision.Decision, chosen []decision.Option) {
 // the board untouched. Only then do the non-mana parts settle, mana/life pay
 // last, and on success does the TurnFaceUp event flip the permanent.
 func (e *Engine) settleTurnUp(tp *turnUpPay) {
-	e.turnUp = nil
 	if e.choosing == chooseTurnUp {
 		e.choosing = chooseNone
 	}
@@ -524,46 +525,61 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 	if paidCost.X > 0 {
 		paidCost = paidCost.WithX(tp.x)
 	}
-	// Revalidate EVERY saved cost object against its part against the live
-	// board, and prove the mana/life remainder still payable, before ANY event
-	// moves anything. An object the board no longer offers -- or a mana
-	// shortfall -- aborts the whole payment rather than settling a part that
-	// is no longer payable; no partial payment is ever emitted.
-	if !e.turnUpChoicesValid(tp) {
-		e.abortTurnUp(tp)
-		return
-	}
-	if !e.costPayable(tp.player, tp.card, false, paidCost) {
-		return
-	}
-	// Pay the mana and life part (payMana charges the fixed Life component).
-	if !e.payMana(tp.player, paidCost) {
-		return
-	}
-	// Non-mana settlement, one event per paid object. These run after the
-	// mana so a mana shortfall never moves an object; every candidate was
-	// verified by morphTurnUpPayable at offer time and the asks only ever
-	// offered live candidates.
-	if len(tp.discs) > 0 {
-		e.payDiscardCost(tp.discs, "")
-	}
-	for _, id := range tp.returns {
-		if o := e.G.Obj(id); o != nil {
-			e.emit(events.ReturnCost(id, o.Zone))
+	if !tp.settled {
+		// Revalidate EVERY saved cost object and the mana/life remainder before
+		// anything moves. Once a replacement answer suspends payment, the
+		// already-paid choices are intentionally not revalidated against the
+		// post-payment board.
+		if !e.turnUpChoicesValid(tp) {
+			e.abortTurnUp(tp)
+			return
 		}
+		if !e.costPayable(tp.player, tp.card, false, paidCost) {
+			return
+		}
+		// Pay mana/life and the non-sacrifice components once. A commander
+		// sacrifice may suspend at its CR 903.9 choice; the continuation below
+		// then resumes without charging any of these components again.
+		if !e.payMana(tp.player, paidCost) {
+			return
+		}
+		if len(tp.discs) > 0 {
+			e.payDiscardCost(tp.discs, "")
+		}
+		for _, id := range tp.returns {
+			if o := e.G.Obj(id); o != nil {
+				e.emit(events.ReturnCost(id, o.Zone))
+			}
+		}
+		if len(tp.reveal) > 0 {
+			names := make([]string, 0, len(tp.reveal))
+			for _, id := range tp.reveal {
+				names = append(names, e.targetName(id))
+			}
+			e.emit(events.Event{Kind: events.Note, Player: tp.player, Obj: tp.card,
+				IDs:  append([]state.ObjID(nil), tp.reveal...),
+				Text: "revealed " + strings.Join(names, ", ") + " as a cost"})
+		}
+		tp.settled = true
 	}
-	for _, id := range tp.sacs {
+	for tp.sacNext < len(tp.sacs) {
+		id := tp.sacs[tp.sacNext]
+		tp.sacNext++ // the event may suspend for a commander-zone answer
 		e.emit(events.Sacrifice(id))
-	}
-	if len(tp.reveal) > 0 {
-		names := make([]string, 0, len(tp.reveal))
-		for _, id := range tp.reveal {
-			names = append(names, e.targetName(id))
+		if e.pending != nil {
+			return
 		}
-		e.emit(events.Event{Kind: events.Note, Player: tp.player, Obj: tp.card,
-			IDs:  append([]state.ObjID(nil), tp.reveal...),
-			Text: "revealed " + strings.Join(names, ", ") + " as a cost"})
 	}
+	e.finishTurnUp(tp)
+}
+
+// finishTurnUp closes a paid special action only after every replacement
+// choice caused by its cost events has resolved.
+func (e *Engine) finishTurnUp(tp *turnUpPay) {
+	if e.turnUp != tp || e.pending != nil || len(e.cmdZone) != 0 {
+		return
+	}
+	e.turnUp = nil
 	// Read the megamorph rider BEFORE the TurnFaceUp event: its Apply leaves
 	// CastFlags untouched, but the read belongs to the cast provenance the
 	// action is priced from, so it is taken once here.
