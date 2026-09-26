@@ -139,7 +139,7 @@ func TestAnimateStaticAbilitiesRegistersCantSacrifice(t *testing.T) {
 	c := &Ctx{Controller: 0, Source: ids["myBear"], SVars: map[string]string{
 		"SCantSac": "Mode$ CantSacrifice | ValidCard$ Card.Self",
 	}}
-	registerAnimateStaticAbilities(h, c, ids["myBear"], []string{"SCantSac"}, "UntilEOT", false, true, 0, "", nil)
+	registerAnimateStaticAbilities(h, c, ids["myBear"], []string{"SCantSac"}, "UntilEOT", false, true, 0, "", "", nil)
 	if len(h.continuous) != 1 {
 		t.Fatalf("registered continuous effects = %d, want one", len(h.continuous))
 	}

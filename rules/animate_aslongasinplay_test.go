@@ -192,6 +192,16 @@ func TestSkilledAnimatorAsLongAsInPlayDuration(t *testing.T) {
 		if d := e2.Derived(ring2); d.Power == 5 && d.Toughness == 5 {
 			t.Fatalf("the P/T grant outlived Skilled Animator: %d/%d", d.Power, d.Toughness)
 		}
+		// CR 400.7: returning host is a new object and cannot resurrect the
+		// old grant even though the animated artifact never moved.
+		e2.emit(events.Event{Kind: events.MoveZone, Obj: anim2,
+			From: state.ZGraveyard, To: state.ZBattlefield})
+		if o := e2.G.Obj(anim2); o == nil || o.Zone != state.ZBattlefield {
+			t.Fatalf("precondition: Skilled Animator did not return: %+v", o)
+		}
+		if e2.IsCreature(ring2) || e2.Derived(ring2).Power == 5 && e2.Derived(ring2).Toughness == 5 {
+			t.Fatal("the old animation reactivated when Skilled Animator returned")
+		}
 		replayCheck(t, e2, cfg2)
 	})
 

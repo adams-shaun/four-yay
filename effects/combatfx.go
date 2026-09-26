@@ -994,26 +994,28 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 	// lifetime: its whole animation -- haste, everything -- is the rider
 	// sentence's own scope, so the animated object's departure ends every
 	// half of it too, and a re-entered card is a plain permanent again.
-	var exileOn string
+	var exileOn, exileAlso string
 	var remembered []state.ObjID
 	if ag.endOnLeave || strings.EqualFold(ag.leaveExile, "Exile") {
 		exileOn = "Battlefield"
 		remembered = []state.ObjID{id}
 	} else if ag.permanent || animateHostScoped(ag.duration) {
-		// Duration$ Permanent without a rider, AND a host-scoped duration
-		// (AsLongAsInPlay, UntilHostLeavesPlay): either grant still ends when
-		// the animated object leaves the zone it was granted in (CR 400.7 --
-		// the returned object is a new one, so a bounced-and-re-entered land
-		// comes back a plain land, not a re-activated animation, and a
-		// host-scoped grant cannot be resurrected by the target's own return
-		// while its host never moved). The sweep zone is the object's CURRENT
-		// zone at grant time, not hardcoded battlefield: Forge's own Animate
-		// targets a graveyard card as often as a permanent.
+		// Duration$ Permanent without a rider ends when its animated object
+		// leaves the zone it was granted in. A host-scoped grant ends on EITHER
+		// the target's departure (CR 400.7) or the host's departure, so neither
+		// object can return and reactivate the old grant. The sweep zone is the
+		// target's current zone: Animate can target cards outside the battlefield.
 		if o := h.Game().Obj(id); o != nil {
 			if w := ZoneWord(o.Zone); w != "" {
 				exileOn = w
 				remembered = []state.ObjID{id}
 			}
+		}
+	}
+	if animateHostScoped(ag.duration) && c.Source != id {
+		remembered = append(remembered, c.Source)
+		if exileOn != "Battlefield" {
+			exileAlso = "Battlefield"
 		}
 	}
 	if ag.hasPower || ag.hasTough {
@@ -1028,7 +1030,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			// strips them to an untransformed-basis 0/0 the CR 704.5f
 			// SBA destroys.
 			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
 	}
@@ -1039,7 +1041,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			RemoveCreatureTypes: ag.removeCreatureTypes, RemoveTypes: ag.removeTypes,
 			AddAllCreatureTypes: ag.allCreatureTypes, RemoveCardTypes: ag.removeCardTypes,
 			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
 	}
@@ -1055,7 +1057,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LText, SetName: ag.name,
 			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
 	}
@@ -1064,7 +1066,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LColor, AddColors: ag.colors, OverwriteColors: ag.overwriteColors,
 			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
 	}
@@ -1082,7 +1084,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Layer: state.LAbilities, RemoveAbilities: ag.removeAbilities,
 			AddKeywords: ag.kws, RemoveKeywords: ag.removeKeywords,
 			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
 	}
@@ -1092,7 +1094,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Layer: state.LAbilities, AddAbilities: ag.abilities,
 			SVars: c.SVars, AbilityGrantor: svarTableOwner(h, c),
 			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
 	}
@@ -1113,7 +1115,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			AddTrigger:     &t,
 			TriggerGrantor: ag.triggerGrantor,
 			Duration:       ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
-			ExileOnMoved: exileOn, Remembered: remembered,
+			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
 	}
@@ -1122,12 +1124,12 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 	// animation's own lifetime, one registration per animated object -- see
 	// effects/leavebattlefield.go for the shape each takes.
 	registerLeaveExile(h, c, id, ag.leaveExile, ag.duration, ag.permanent)
-	registerSVarGrants(h, c, id, ag.svars, ag.leaveExile, ag.duration, ag.permanent, untilEOT, durSource)
-	registerAnimateStaticAbilities(h, c, id, ag.staticAbilities, ag.duration, ag.permanent, untilEOT, durSource, exileOn, remembered)
+	registerSVarGrants(h, c, id, ag.svars, ag.duration, ag.permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
+	registerAnimateStaticAbilities(h, c, id, ag.staticAbilities, ag.duration, ag.permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
 	// The Replacements$ grant: one Effect-created replacement per named SVar
 	// body, riding the animation's own lifetime (ExileOnMoved$/Remembered),
 	// exactly like the LeaveBattlefield$ promise above.
-	registerAnimateReplacements(h, c, id, ag.replacements, ag.duration, ag.permanent, untilEOT, durSource, exileOn, remembered)
+	registerAnimateReplacements(h, c, id, ag.replacements, ag.duration, ag.permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
 }
 
 // animateAllUnreadNote names, in ONE loud note, every parameter the SA carries
