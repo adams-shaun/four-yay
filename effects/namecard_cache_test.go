@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"reflect"
 	"slices"
 	"sync"
 	"testing"
@@ -48,7 +49,7 @@ func TestNameChoicesCacheMatchesUncachedOnCorpus(t *testing.T) {
 				t.Fatalf("spec %q: %d options for %d names", spec, len(opts), len(got))
 			}
 			for i, o := range opts {
-				if o != (decision.Option{Index: i, Kind: "name", Label: got[i], Player: 1}) {
+				if !reflect.DeepEqual(o, decision.Option{Index: i, Kind: "name", Label: got[i], Player: 1}) {
 					t.Fatalf("spec %q option %d = %+v", spec, i, o)
 				}
 			}
