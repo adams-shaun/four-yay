@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -143,6 +144,44 @@ func TestTargetSetSharedCardTypeRecheck(t *testing.T) {
 	kept := e.legalTargets([]state.Target{{Obj: artifact}, {Obj: creature}}, sa, targetZones(sa), 0, parent, parent)
 	if len(kept) != 1 || kept[0].Obj != artifact {
 		t.Fatalf("recheck = %+v, want only the sharing Artifact %d", kept, artifact)
+	}
+}
+
+// TestTargetSetSharedCardTypeTriggered pins the TriggeredCard reference the
+// corpus also carries (confusion_in_the_ranks.txt: the sub-ability shares a
+// card type with the card its trigger fired on). It drives the resolution
+// recheck, which reads the stack object's trigger context -- the same
+// TriggerCard binding the census offer reads. A candidate sharing a card type
+// with the triggering card is kept; one sharing none is dropped.
+func TestTargetSetSharedCardTypeTriggered(t *testing.T) {
+	sa := setPropSA("Permanent", map[string]string{"TargetsWithSharedCardType": "TriggeredCard"})
+	if sharedCardTypeRef(sa) != "TriggeredCard" {
+		t.Fatal("precondition: fixture lost TargetsWithSharedCardType$ TriggeredCard")
+	}
+	e := newSeats(t, 2)
+	parent := putBattlefield(t, e, 0, "Name:Parent\nTypes:Enchantment\nOracle:x\n")
+	triggerCard := putBattlefield(t, e, 0, "Name:Triggering Artifact\nTypes:Artifact\nOracle:x\n")
+	sharing := putBattlefield(t, e, 1, "Name:Other Artifact\nTypes:Artifact\nOracle:x\n")
+	nonSharing := putBattlefield(t, e, 1, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	// The stack object carries the firing event's card as TriggeredCard.
+	e.triggerContexts = map[state.ObjID]effects.TriggerContext{
+		parent: {TriggerCard: triggerCard},
+	}
+	if e.G.Obj(parent).Face() == nil {
+		t.Fatal("precondition: parent must exist")
+	}
+	if e.sharedCardTypeReference("TriggeredCard", parent, e.targetSpecContext(parent, parent, 0)) != triggerCard {
+		t.Fatal("precondition: TriggeredCard did not resolve to the firing card")
+	}
+	if !e.sharedCardTypeAdmits(sharing, triggerCard, nil) {
+		t.Fatal("precondition: two Artifacts must share a card type")
+	}
+	if e.sharedCardTypeAdmits(nonSharing, triggerCard, nil) {
+		t.Fatal("precondition: Creature and Artifact must share no card type")
+	}
+	kept := e.legalTargets([]state.Target{{Obj: sharing}, {Obj: nonSharing}}, sa, targetZones(sa), 0, parent, parent)
+	if len(kept) != 1 || kept[0].Obj != sharing {
+		t.Fatalf("recheck = %+v, want only the sharing Artifact %d", kept, sharing)
 	}
 }
 

@@ -295,6 +295,57 @@ func TestTargetSetControllerProperty(t *testing.T) {
 	}
 }
 
+// TestTargetSetControllerPropertyPower pins the power-bearing sibling of the
+// cmc predicate (Neural Network's `powerLECardsInGraveyard`): the candidate's
+// own power must be <= the number of cards in ITS CONTROLLER's graveyard. Its
+// cmc is deliberately 0 so a cmc comparison could not stand in for the power
+// one -- the precondition rejects that substitution.
+func TestTargetSetControllerPropertyPower(t *testing.T) {
+	sa := setPropSA("Creature", map[string]string{"TargetsWithControllerProperty": "powerLECardsInGraveyard"})
+	if sa.Params["TargetsWithControllerProperty"] != "powerLECardsInGraveyard" {
+		t.Fatal("precondition: fixture lost TargetsWithControllerProperty$ power")
+	}
+	e := newSeats(t, 2)
+	putGraveyard(t, e, 0, "Name:Fodder A\nTypes:Instant\nOracle:x\n")
+	putGraveyard(t, e, 0, "Name:Fodder B\nTypes:Instant\nOracle:x\n")
+	small := putBattlefield(t, e, 0, "Name:Small\nTypes:Creature\nPT:2/2\nOracle:x\n")
+	big := putBattlefield(t, e, 0, "Name:Big\nTypes:Creature\nPT:3/3\nOracle:x\n")
+	if e.Power(small) != 2 || e.Power(big) != 3 {
+		t.Fatalf("precondition: power = %d/%d, want 2/3", e.Power(small), e.Power(big))
+	}
+	// The compared quantity is POWER, not mana value: both cards have cmc 0,
+	// so a cmc comparison would admit neither of these preconditions.
+	if e.G.Obj(small).Face() == nil || e.G.Obj(small).Face().Cmc() != 0 || e.G.Obj(big).Face().Cmc() != 0 {
+		t.Fatalf("precondition: cmc = %d/%d, want 0/0 so only power can distinguish them",
+			e.G.Obj(small).Face().Cmc(), e.G.Obj(big).Face().Cmc())
+	}
+	if len(e.G.Zone(state.ZGraveyard, 0)) != 2 {
+		t.Fatalf("precondition: seat 0 graveyard = %d cards, want 2", len(e.G.Zone(state.ZGraveyard, 0)))
+	}
+	if !e.targetControllerPropertyAdmits("powerLECardsInGraveyard", small) {
+		t.Fatal("precondition: the power-2 creature must be admitted by 2 graveyard cards")
+	}
+	if e.targetControllerPropertyAdmits("powerLECardsInGraveyard", big) {
+		t.Fatal("precondition: the power-3 creature must be refused by 2 graveyard cards")
+	}
+	e.pending = nil
+	e.askTarget(0, 0, sa)
+	d := e.Pending()
+	if d == nil {
+		t.Fatal("no target decision posed")
+	}
+	if setPropOptionIndex(d, big) != -1 {
+		t.Fatal("the power-3 creature was offered despite TargetsWithControllerProperty$")
+	}
+	if setPropOptionIndex(d, small) == -1 {
+		t.Fatal("the power-2 creature was not offered")
+	}
+	kept := e.legalTargets([]state.Target{{Obj: small}, {Obj: big}}, sa, targetZones(sa), 0, 0, 0)
+	if len(kept) != 1 || kept[0].Obj != small {
+		t.Fatalf("recheck = %+v, want only the power-2 creature %d", kept, small)
+	}
+}
+
 // TestTargetSetMandatorySharedCapacityFizzles pins that an unsatisfiable
 // mandatory shared constraint fizzles (CR 608.2b's counter/fizzle exit) rather
 // than posing a decision no answer can satisfy -- the same contract
