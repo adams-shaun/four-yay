@@ -2316,13 +2316,18 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 		// The alternative-cost keyword family (altcosts), from the hand: evoke
 		// (CR 702), dash, overload and warp each become their own "cast" mode
 		// option paying the printed keyword cost in place of the mana cost.
+		// Blitz rides the same walk but reads the ID-AWARE grant (e.blitzCost):
+		// a layer-6 AddKeyword$ Blitz grant (Henzie, Toolbox Torre) prices its
+		// cost from the candidate card -- CardManaCost placeholders and the
+		// grant's trailing spell filter -- where the printed-only
+		// keywordAltCost read cannot see it.
 		// Madness does NOT offer from the hand here (CR 702.35a: the madness
 		// cast window opens only on the discard, through the pending-trigger
 		// machinery, exactly like Miracle); warp additionally offers from the
 		// graveyard and -- after an end-step exile -- from exile, in the walks
 		// below.
 		for _, ka := range [...]struct{ mode, head string }{
-			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"}, {"warped", "Warp"}, {"blitzed", "Blitz"},
+			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"}, {"warped", "Warp"},
 		} {
 			alt, ok := keywordAltCost(f, ka.head)
 			if !ok || (ka.mode != "overloaded" && !targetsAvailable) ||
@@ -2331,6 +2336,19 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 			}
 			out = append(out, decision.Option{Index: len(out), Kind: "cast",
 				Label: "Cast " + f.Name + " (" + ka.mode + ")", Obj: id, Mode: ka.mode})
+		}
+		if targetsAvailable {
+			for _, blitz := range e.blitzCosts(p, id) {
+				if !offerCastable(p, id, blitz.cost, spellScope(blitz.mode), false) {
+					continue
+				}
+				label := "blitzed"
+				if blitz.mode != "blitzed" {
+					label += " (granted)"
+				}
+				out = append(out, decision.Option{Index: len(out), Kind: "cast",
+					Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: blitz.mode})
+			}
 		}
 		// Morph / Megamorph / Disguise (CR 702.37a/702.168a/702.169a), from
 		// the hand: each family becomes its own "cast" mode option paying
