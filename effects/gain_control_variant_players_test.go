@@ -344,3 +344,30 @@ func TestGainControlVariantAminatouHandsOffInBothDirections(t *testing.T) {
 		})
 	}
 }
+
+// TestGainControlNeighborSkipsEliminatedSeats pins the checked turn/seat
+// order the direction variants depend on: the "next player in the chosen
+// direction" is the next LIVING seat, so an eliminated seat between two
+// survivors is skipped consistently. Seat 1 (Lost) must not be named as
+// either neighbour.
+func TestGainControlNeighborSkipsEliminatedSeats(t *testing.T) {
+	h := newHost(t, 3)
+	if h.g.Players[1].Lost {
+		t.Fatal("precondition: seat 1 already eliminated")
+	}
+	h.g.Players[1].Lost = true
+	if h.g.AliveCount() != 2 {
+		t.Fatalf("precondition: alive count = %d, want 2", h.g.AliveCount())
+	}
+	if got, ok := gainControlNeighbor(h.g, 0, directionLeft); !ok || got != 2 {
+		t.Fatalf("left neighbour of seat 0 = %d/%v, want 2/true (seat 1 eliminated)", got, ok)
+	}
+	if got, ok := gainControlNeighbor(h.g, 0, directionRight); !ok || got != 2 {
+		t.Fatalf("right neighbour of seat 0 = %d/%v, want 2/true (seat 1 eliminated)", got, ok)
+	}
+	// The survivor's own direction ring visits both living seats once.
+	ring := gainControlDirectionRing(h.g, 0, directionLeft)
+	if len(ring) != 2 || ring[0] != 0 || ring[1] != 2 {
+		t.Fatalf("direction ring = %v, want [0 2]", ring)
+	}
+}
