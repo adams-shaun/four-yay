@@ -814,8 +814,17 @@ const (
 func SetPropAdmits(mode SetPropMode, acc, add []string) bool {
 	switch mode {
 	case SetPropShared:
-		if len(acc) == 0 {
+		// nil acc means no option has been chosen yet: the first pick has no
+		// pair to violate, so even a token-less set (a creature with no
+		// creature type, Nameless Race) may stand alone. A non-nil empty acc
+		// means a pick was made and the running intersection is empty, so no
+		// further option can share with the picked set -- the nil/non-nil
+		// distinction is what keeps the rule pairwise and order-independent.
+		if acc == nil {
 			return true
+		}
+		if len(acc) == 0 {
+			return false
 		}
 		return setPropsIntersect(acc, add)
 	case SetPropDistinct:
@@ -835,7 +844,12 @@ func SetPropAdmits(mode SetPropMode, acc, add []string) bool {
 func SetPropMerge(mode SetPropMode, acc, add []string) []string {
 	switch mode {
 	case SetPropShared:
-		if len(acc) == 0 {
+		if acc == nil {
+			if len(add) == 0 {
+				// Non-nil empty records that a pick was made and shares
+				// nothing with any later pick.
+				return []string{}
+			}
 			return append([]string(nil), add...)
 		}
 		out := acc[:0:0]
@@ -870,7 +884,12 @@ func SetPropCapacity(mode SetPropMode, sets [][]string) int {
 	switch mode {
 	case SetPropShared:
 		counts := map[string]int{}
+		hasEmpty := false
 		for _, set := range sets {
+			if len(set) == 0 {
+				hasEmpty = true
+				continue
+			}
 			for _, t := range set {
 				counts[t]++
 			}
@@ -880,6 +899,12 @@ func SetPropCapacity(mode SetPropMode, sets [][]string) int {
 			if n > best {
 				best = n
 			}
+		}
+		// A token-less candidate can stand alone (one pick has no pair to
+		// violate), so it still admits a set of size 1 even when no token is
+		// shared by two candidates.
+		if best == 0 && hasEmpty {
+			return 1
 		}
 		return best
 	case SetPropDistinct:

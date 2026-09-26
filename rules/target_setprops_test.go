@@ -346,6 +346,47 @@ func TestTargetSetControllerPropertyPower(t *testing.T) {
 	}
 }
 
+// TestTargetSetSharedCreatureTypeIsPairwise pins the pairwise reading of a
+// shared constraint when a candidate carries NO token for it: a creature with
+// no creature type (Nameless Race is the corpus's one such card) may stand
+// alone but cannot be paired with a typed creature, in EITHER pick order. The
+// empty-token option must not reset the running intersection, which would let
+// a typeless first pick re-admit a creature sharing nothing.
+func TestTargetSetSharedCreatureTypeIsPairwise(t *testing.T) {
+	mode := decision.SetPropShared
+	// A lone token-less pick is legal: one pick has no pair to violate.
+	if !decision.SetPropAdmits(mode, nil, nil) {
+		t.Fatal("precondition: a first token-less pick must be admissible")
+	}
+	// A token-less first pick poisons the accumulator: nothing may join it.
+	acc := decision.SetPropMerge(mode, nil, nil)
+	if acc == nil || len(acc) != 0 {
+		t.Fatalf("precondition: merge(shared, nil, nil) = %#v, want a non-nil empty set", acc)
+	}
+	if decision.SetPropAdmits(mode, acc, []string{"goblin"}) {
+		t.Fatal("a typed creature joined a token-less first pick")
+	}
+	// The reverse order: a typed first pick refuses the token-less one.
+	typed := decision.SetPropMerge(mode, nil, []string{"goblin"})
+	if len(typed) != 1 || typed[0] != "goblin" {
+		t.Fatalf("precondition: merge(shared, nil, [goblin]) = %#v", typed)
+	}
+	if decision.SetPropAdmits(mode, typed, nil) {
+		t.Fatal("a token-less creature joined a typed first pick")
+	}
+	// Two picks sharing a token remain legal, and capacity keeps the size-1
+	// exit available when only a token-less candidate exists.
+	if !decision.SetPropAdmits(mode, typed, []string{"goblin", "warrior"}) {
+		t.Fatal("precondition: Goblin must join a Goblin Warrior")
+	}
+	if got := decision.SetPropCapacity(mode, [][]string{nil, nil}); got != 1 {
+		t.Fatalf("capacity of two token-less candidates = %d, want 1 (a lone pick)", got)
+	}
+	if got := decision.SetPropCapacity(mode, [][]string{nil, {"goblin"}}); got != 1 {
+		t.Fatalf("capacity of a token-less and a Goblin = %d, want 1", got)
+	}
+}
+
 // TestTargetSetMandatorySharedCapacityFizzles pins that an unsatisfiable
 // mandatory shared constraint fizzles (CR 608.2b's counter/fizzle exit) rather
 // than posing a decision no answer can satisfy -- the same contract
