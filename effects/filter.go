@@ -4998,7 +4998,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			// false into admitting every seat -- and a source-anchored one
 			// fails closed with no source bound.
 			switch inner {
-			case "CardOwner", "IsRemembered", "EnchantedBy":
+			case "CardOwner", "Owner", "IsRemembered", "EnchantedBy":
 			default:
 				continue
 			}
@@ -5010,11 +5010,13 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			}
 			continue
 		}
-		if (base == "Player" || base == "Any") && qualified && qualifier == "CardOwner" {
-			// Player.CardOwner (Forge PlayerProperty): the OWNER of the
-			// filter's source object (Crown of Doom's "target player other
-			// than CARDNAME's owner" negates it). No source bound fails
-			// closed.
+		if (base == "Player" || base == "Any") && qualified && (qualifier == "CardOwner" || qualifier == "Owner") {
+			// Player.CardOwner and Player.Owner (Forge PlayerProperty): the
+			// OWNER of the filter's source object (Crown of Doom's "target
+			// player other than CARDNAME's owner" negates it). No source
+			// bound fails closed. Owner is Personal Incarnation's
+			// "Activator$ Player.Owner" -- "Only CARDNAME's owner may
+			// activate this ability".
 			if o := g.Obj(pc.Source); o != nil && o.Owner == p {
 				return true
 			}
