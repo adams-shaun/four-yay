@@ -2834,18 +2834,17 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 
 // spellConstraintMatches checks one ValidSpell$ Spell.* constraint against a
 // cast. The constraints the engine can evaluate: bare (any spell), the cast
-// variant modes the cast flow names (Flashback, Kicked, ...), the card
+// variant modes the cast flow names (Flashback, Kicked, Blitz, ...), the card
 // types Instant/Sorcery, and the target-conditional `IsTargeting <spec>` form
 // (Head of the Class's "the first spell you cast each turn that targets a
 // creature"), which rides effects' ONE `Spell.IsTargeting` grammar against
 // the same target list costTargetsMatch reads. Everything else — Bargain,
-// Buyback, the Blitz/Dash alternative casts, isCastFaceDown, MayPlaySource —
+// Buyback, the Dash alternative cast, isCastFaceDown, MayPlaySource —
 // is a casting option this function does not read, and denies.
-// (Blitz and Dash are real cast modes elsewhere -- legal.go offers them and
-// beginCast charges them -- but a cost static's ValidSpell$ constraint has no
-// case for their modes here; the one corpus carrier is Henzie, Toolbox
-// Torre's "Blitz costs you pay cost {1} less" ReduceCost, reported in the
-// ticket's Issues.)
+// (Blitz matches the blitzed cast mode: Henzie, Toolbox Torre's
+// "Blitz costs you pay cost {1} less" ReduceCost keys on ValidSpell$
+// Spell.Blitz, and its scope mode is exactly the mode legal.go offers and
+// beginCast charges. Dash is the remaining denied alternative cast.)
 func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.PlayerID, id state.ObjID, constraint string, targets []state.Target) bool {
 	c := strings.TrimSpace(constraint)
 	if strings.HasPrefix(c, "IsTargeting") {
@@ -2873,6 +2872,8 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		return scope.mode == "surged"
 	case "Miracle":
 		return scope.mode == "miracle"
+	case "Blitz":
+		return scope.mode == "blitzed"
 	case "Instant":
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()

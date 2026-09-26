@@ -776,6 +776,54 @@ func keywordAltCost(f *cards.Face, head string) (Cost, bool) {
 	return ParseCost(s), true
 }
 
+// blitzCost is the shared offer/charge reader for printed Blitz and layer-6
+// Blitz grants. Forge grants may carry a trailing Spell filter after the cost;
+// that filter is part of the grant, not mana-cost text.
+func (e *Engine) blitzCost(p state.PlayerID, id state.ObjID) (Cost, bool) {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return Cost{}, false
+	}
+	if raw, ok := e.derivedKeywordParamAt(id, "Blitz", state.ZStack); ok {
+		parts := strings.SplitN(raw, ":", 2)
+		costText := parts[0]
+		if len(parts) == 2 {
+			spec, admits := e.castProvenanceAdmitsWindow(parts[1], id, p, true)
+			if !admits {
+				return Cost{}, false
+			}
+			sc := e.specCtx(0, p)
+			sc.AsStack = true
+			if !e.matchesSpec(spec, id, sc) {
+				return Cost{}, false
+			}
+		}
+		var toks []string
+		for _, tok := range strings.Fields(costText) {
+			if strings.EqualFold(tok, "CardManaCost") {
+				toks = append(toks, strings.Fields(o.Face().ManaCost)...)
+			} else {
+				toks = append(toks, tok)
+			}
+		}
+		c := ParseCost(strings.Join(toks, " "))
+		return c, len(c.Unknown) == 0
+	}
+	return keywordAltCost(o.Face(), "Blitz")
+}
+
+func (e *Engine) derivedKeywordParamAt(id state.ObjID, head string, zone state.Zone) (string, bool) {
+	for _, k := range e.derivedWith(id, zone).Keywords {
+		if strings.EqualFold(cardsKeywordHead(k), head) {
+			if i := strings.IndexByte(k, ':'); i >= 0 {
+				return strings.TrimSpace(k[i+1:]), true
+			}
+			return "", true
+		}
+	}
+	return "", false
+}
+
 // morphDownFamily reports the face-down cast mode a printed face offers:
 // "morphed" for K:Morph, "megamorphed" for K:Megamorph and "disguised" for
 // K:Disguise (CR 702.37a/702.168a/702.169a), "" when the face carries none
@@ -2557,7 +2605,13 @@ func (e *Engine) beginCastWithPayment(p state.PlayerID, opt decision.Option, sel
 			}
 			break
 		}
-		if mc, ok := f.KeywordParam(head); ok {
+		if opt.Mode == "blitzed" {
+			if bc, ok := e.blitzCost(p, id); ok {
+				cost = bc
+			} else {
+				cost = Cost{}
+			}
+		} else if mc, ok := f.KeywordParam(head); ok {
 			cost = ParseCost(mc)
 		} else {
 			cost = Cost{}

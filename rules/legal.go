@@ -2316,6 +2316,11 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 		// The alternative-cost keyword family (altcosts), from the hand: evoke
 		// (CR 702), dash, overload and warp each become their own "cast" mode
 		// option paying the printed keyword cost in place of the mana cost.
+		// Blitz rides the same walk but reads the ID-AWARE grant (e.blitzCost):
+		// a layer-6 AddKeyword$ Blitz grant (Henzie, Toolbox Torre) prices its
+		// cost from the candidate card -- CardManaCost placeholders and the
+		// grant's trailing spell filter -- where the printed-only
+		// keywordAltCost read cannot see it.
 		// Madness does NOT offer from the hand here (CR 702.35a: the madness
 		// cast window opens only on the discard, through the pending-trigger
 		// machinery, exactly like Miracle); warp additionally offers from the
@@ -2325,6 +2330,9 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 			{"evoked", "Evoke"}, {"dashed", "Dash"}, {"overloaded", "Overload"}, {"warped", "Warp"}, {"blitzed", "Blitz"},
 		} {
 			alt, ok := keywordAltCost(f, ka.head)
+			if ka.mode == "blitzed" {
+				alt, ok = e.blitzCost(p, id)
+			}
 			if !ok || (ka.mode != "overloaded" && !targetsAvailable) ||
 				!offerCastable(p, id, alt, spellScope(ka.mode), false) {
 				continue
