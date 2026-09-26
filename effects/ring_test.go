@@ -18,28 +18,52 @@ func ringCreature(t *testing.T, h *fakeHost, p state.PlayerID, name string) stat
 	return o.ID
 }
 
-// TestRingTemptsYouCountsAndDesignatesFirstCreature is the primitive leaf:
-// one Resolve emits exactly one RingTemptsYou event, the seat's tempt count
-// rises to 1, and the first creature in the controller's battlefield zone
-// order is designated Ring-bearer (the deterministic R-9 stand-in for CR
-// 701.54a's player choice).
+// TestRingTemptsYouCountsAndDesignatesFirstCreature is the no-host fallback
+// leaf: with no engine host to ask (this effects double's Ask reports false)
+// two eligible creatures pose the R-9 stand-in, and one Resolve emits exactly
+// one RingTemptsYou event, the seat's tempt count rises to 1, and the first
+// creature in the controller's battlefield zone order is designated. The
+// hosted ask path (a real KChoose posed when two or more creatures are
+// eligible) is pinned in ring_bearer_choice_test.go.
 func TestRingTemptsYouCountsAndDesignatesFirstCreature(t *testing.T) {
 	h := newHost(t, 2)
 	bear := ringCreature(t, h, 0, "Bear")
 	gorilla := ringCreature(t, h, 0, "Gorilla")
 	Resolve(h, &Ctx{Controller: 0}, sa(t, "DB$ RingTemptsYou"))
-	if len(h.log) != 1 || h.log[0].Kind != events.RingTemptsYou || h.log[0].Player != 0 {
+	// Precondition: the ask path was actually reached (two eligible creatures),
+	// so the R-9 Note below is the fallback, not the single-creature silent path.
+	if h.askCount != 1 {
+		t.Fatalf("asks = %d, want 1 (two eligible creatures pose the choice)", h.askCount)
+	}
+	if h.askResult {
+		t.Fatal("precondition: the double must report no host (Ask false)")
+	}
+	if !ringLogHasNoHostNote(h.log) {
+		t.Fatalf("log = %+v, want the R-9 no-host Note", h.log)
+	}
+	if len(h.log) != 2 || h.log[1].Kind != events.RingTemptsYou || h.log[1].Player != 0 {
 		t.Fatalf("log = %+v", h.log)
 	}
-	if h.log[0].Obj != bear || h.log[0].Amount != 1 {
+	if h.log[1].Obj != bear || h.log[1].Amount != 1 {
 		t.Fatalf("bearer = %d (want first-in-zone-order %d), amount = %d (want 1)",
-			h.log[0].Obj, bear, h.log[0].Amount)
+			h.log[1].Obj, bear, h.log[1].Amount)
 	}
 	if h.g.Players[0].RingTempted != 1 || h.g.Players[0].RingBearer != bear {
 		t.Fatalf("fold: tempted %d bearer %d, want 1/%d",
 			h.g.Players[0].RingTempted, h.g.Players[0].RingBearer, bear)
 	}
 	_ = gorilla
+}
+
+// ringLogHasNoHostNote reports whether the log carries the R-9 no-host Note
+// effRingTemptsYou emits when it falls back to the default bearer.
+func ringLogHasNoHostNote(log []events.Event) bool {
+	for _, e := range log {
+		if e.Kind == events.Note && e.Text == "designates the default Ring-bearer (no engine host to ask)" {
+			return true
+		}
+	}
+	return false
 }
 
 // TestRingTemptsYouKeepsTheExistingBearer is the brief's second leaf: a
