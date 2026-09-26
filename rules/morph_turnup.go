@@ -84,7 +84,7 @@ func morphFaceUpCost(o *state.Object) (morphFaceUp, bool) {
 	// A cost token the parser could not model (an unknown symbol) is charged
 	// one phantom generic by ParseCost AND reported through Cost.Unknown; the
 	// turn-up must fail closed rather than silently waive it.
-	if len(c.Unknown) > 0 {
+	if len(c.Unknown) > 0 || !morphTurnUpCostSupported(c) {
 		return morphFaceUp{}, false
 	}
 	// A variable-count part (Sac<X/Spec>, Discard<X/...>, ...) announces its
@@ -100,6 +100,21 @@ func morphFaceUpCost(o *state.Object) (morphFaceUp, bool) {
 		family:    head,
 		megamorph: fam&state.FlagMegamorphed != 0,
 	}, true
+}
+
+// morphTurnUpCostSupported is a positive allowlist for the components this
+// special-action flow actually settles. ParseCost models substantially more
+// than this flow (for casts and activations); a parsed component is not proof
+// it is paid. Keep the turn-up boundary closed whenever a new Cost field is
+// introduced until its candidate, ask and event-backed settlement are added.
+func morphTurnUpCostSupported(c Cost) bool {
+	return !c.Tap && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
+		len(c.Exile) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 &&
+		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 &&
+		len(c.Exert) == 0 && !c.Forage && len(c.Draw) == 0 && len(c.Energy) == 0 &&
+		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 &&
+		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 &&
+		len(c.Evidence) == 0 && len(c.RollDice) == 0
 }
 
 // morphTurnUpCountAnnounced reports whether any non-mana count part of cost
