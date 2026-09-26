@@ -1872,6 +1872,16 @@ type Ctx struct {
 	ManifestDreadPick   state.ObjID
 	ManifestDreadPlayer state.PlayerID
 	ManifestDreadDone   bool
+	// RingBearerPick is the answered CR 701.54a Ring-bearer choice on a
+	// re-entered Ring tempts resolution: the creature the tempted player chose
+	// to become their Ring-bearer. RingBearerDone distinguishes "answered"
+	// from the first pass, so re-entry emits the single RingTemptsYou event
+	// exactly once instead of asking again or incrementing the count twice.
+	// The asking effect consumes and clears both at the top of its own walk
+	// (the fx42 scoping discipline), so a nested Ring tempts cannot inherit
+	// the outer answer.
+	RingBearerPick state.ObjID
+	RingBearerDone bool
 	// UnlessElected is the answered UnlessType$ election of a Discard carrying
 	// UnlessType$ (Thirst for Knowledge's "discard two cards unless you
 	// discard an artifact card"): "unless" means the player elected the

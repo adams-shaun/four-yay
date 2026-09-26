@@ -3368,6 +3368,20 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			}
 			ctx.ManifestDreadPlayer = rp.player
 			ctx.ManifestDreadDone = true
+		case "ring_bearer":
+			// A Ring tempts you Ring-bearer choice (CR 701.54a: the tempted
+			// player chooses a creature they control) was answered. The chosen
+			// option carries the object in Obj (the same shape the "sacrifice"
+			// and "blight" arms read). RingBearerDone distinguishes "answered"
+			// from the first pass, so the re-entered effRingTemptsYou skips the
+			// ask and emits the single RingTemptsYou event once -- a suspension
+			// can never increment the count twice. effRingTemptsYou consumes and
+			// clears both at the top of its own walk, so a nested Ring tempts
+			// cannot inherit the outer answer.
+			if len(chosen) > 0 {
+				ctx.RingBearerPick = chosen[0].Obj
+			}
+			ctx.RingBearerDone = true
 		case "blight":
 			// A Blight's per-player KChoose (CR 701.60: the blighting player
 			// chooses which of their own creatures takes the −1/−1 counters)
