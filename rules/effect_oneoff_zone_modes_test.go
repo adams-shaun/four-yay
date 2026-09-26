@@ -1,19 +1,8 @@
 package rules
 
-// One-shot consumption pin for the one supported delayed mode the other
-// OneOff files do not cover: ChangesZone (rules/effect_event_modes_test.go
-// pins only its RECURRING form). effectOneShotDelayedMode (effects/misc.go)
-// also names ChangesController, but that mode is NOT reachable from an Effect
-// Triggers$ body -- the default registration arm gates on the printed
-// trigMatchers registry (TriggerModeSupported), which has no ChangesController
-// matcher -- so the second test here pins that boundary: the body fails
-// closed LOUDLY (a named Note, nothing registered), never silently.
-// ChangesController delayed promises remain supported through the DB$
-// DelayedTrigger path (Ray of Command, Magus of the Unseen), which admits the
-// mode via effectOneShotDelayedMode directly.
+// One-shot delayed-event registration tests.
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/events"
@@ -86,52 +75,42 @@ func TestEffectOneOffChangesZoneConsumesOnFirstFiring(t *testing.T) {
 	}
 }
 
-// effectOneShotDelayedMode names ChangesController, but an Effect Triggers$
-// body of that mode never arms: the default registration arm's
-// TriggerModeSupported gate has no ChangesController matcher (it is not a
-// printed-trigger mode), so the body must fail closed LOUDLY -- exactly one
-// named Note, nothing registered, no inert |EF recurring form. The corpus
-// carrier is Ogre Geargrabber's "When you lose control of that Equipment,
-// unattach it" Effect. (Its delayed machinery side IS live: checkEventDelayed
-// Triggers' whitelist and delayedEventMatches both handle the mode -- the
-// gate is the registration path only.)
-func TestEffectOneOffChangesControllerFailsClosedLoud(t *testing.T) {
+// ChangesController is admitted as a delayed-event mode, not as a printed
+// trigger matcher. OneOff$ True must consume the registration after its first
+// qualifying control change.
+func TestEffectOneOffChangesControllerConsumesOnFirstFiring(t *testing.T) {
 	promise := card(t, "Name:OneOffControl\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigControl\n"+
-		"SVar:TrigControl:Mode$ ChangesController | ValidCard$ Creature | OneOff$ True | TriggerZones$ Command | Execute$ TrigPain\n"+
+		"SVar:TrigControl:Mode$ ChangesController | ValidCard$ Creature | ValidOriginalController$ You | OneOff$ True | TriggerZones$ Command | Execute$ TrigPain\n"+
 		"SVar:TrigPain:DB$ LoseLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")
 	e := handEngine(t, promise)
 	e.G.Players[0].Pool[state.MU] = 1
 	e.askPriority(0)
 	castFirst(t, e, "cast")
 	passUntilStackEmpty(t, e, 8)
-	if len(e.G.Delayed) != 0 {
-		t.Fatalf("a ChangesController Effect body must not arm a registration: %+v", e.G.Delayed)
+	if len(e.G.Delayed) != 1 || e.G.Delayed[0].EventMode != "ChangesController" || e.G.Delayed[0].EffectRepeat {
+		t.Fatalf("precondition: one-shot ChangesController was not armed: %+v", e.G.Delayed)
 	}
-	notes := 0
 	for _, ev := range e.L.Events {
-		if ev.Kind == events.Note && strings.Contains(ev.Text, "ChangesController") {
-			notes++
+		if ev.Kind == events.Note && ev.Text == "continuous effect trigger ChangesController unimplemented" {
+			t.Fatal("ChangesController registration still failed closed")
 		}
 	}
-	if notes != 1 {
-		t.Fatalf("want exactly one loud ChangesController Note, got %d", notes)
-	}
-	// The fail-closed body is inert, not one-shot: a real control transfer
-	// must fire nothing (and the transferred creature is where the rule
-	// would look).
 	borrowed := onBoard(t, e, 0, "Name:Borrowed\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	if obj := e.G.Obj(borrowed); obj.Zone != state.ZBattlefield || obj.Controller != 0 {
-		t.Fatalf("precondition: borrowed creature is not on seat 0's battlefield: %+v", obj)
+		t.Fatalf("precondition: creature starts in zone/controller %v/%d, want battlefield/0", obj.Zone, obj.Controller)
 	}
 	before := e.G.Players[0].Life
 	e.emit(events.Event{Kind: events.ControlChange, Obj: borrowed, Player: 1})
-	if e.G.Obj(borrowed).Controller != 1 {
-		t.Fatalf("precondition: the control transfer did not apply (controller %d)", e.G.Obj(borrowed).Controller)
+	if obj := e.G.Obj(borrowed); obj.Controller != 1 {
+		t.Fatalf("precondition: control change did not apply, controller = %d", obj.Controller)
 	}
 	e.putTriggersOnStack()
 	passUntilStackEmpty(t, e, 8)
-	if got := e.G.Players[0].Life; got != before {
-		t.Fatalf("a fail-closed ChangesController body fired: life %d, want %d", got, before)
+	if got := e.G.Players[0].Life; got != before-2 {
+		t.Fatalf("qualifying controller change life = %d, want %d", got, before-2)
+	}
+	if len(e.G.Delayed) != 0 {
+		t.Fatalf("one-shot registration survived firing: %+v", e.G.Delayed)
 	}
 }

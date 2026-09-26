@@ -650,7 +650,11 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			registered = true
 		default:
-			if !h.TriggerModeSupported(tr.Mode) {
+			// ChangesController is a delayed-event mode (including its
+			// remembered-object and original-controller filters), but is not
+			// a printed-trigger matcher. Admit only this explicitly handled
+			// delayed mode here; all other unknown modes remain fail-closed.
+			if tr.Mode != "ChangesController" && !h.TriggerModeSupported(tr.Mode) {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "continuous effect trigger " + tr.Mode + " unimplemented"})
 				registered = true
