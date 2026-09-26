@@ -131,7 +131,7 @@ func (e *Engine) attackUnlessCharge(sv staticView, attacker state.ObjID) (blockC
 // write) and deterministic (both walks are the fixed scans every static
 // consumer shares), so the offer list, the requirement solver, the validator
 // and the payer all re-derive the same charge.
-func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID) blockCharge {
+func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attacked state.ObjID) blockCharge {
 	total := blockCharge{}
 	for _, sv := range e.activeStatics("CantAttackUnless") {
 		if !cantAttackUnlessParamsReadable(sv.Params) {
@@ -149,7 +149,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID) block
 		if !e.matchesSpec(spec, id, e.specCtxSVars(sv.Source, sv.Controller, sv.SVars)) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil) {
+		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
 			continue
 		}
 		ch, ok := e.attackUnlessCharge(sv, id)
@@ -184,7 +184,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID) block
 		if !e.matchesSpec(spec, id, sc) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, ce.Controller, ce.Source, nil) {
+		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, ce.Controller, ce.Source, nil, attacked) {
 			continue
 		}
 		if ch, ok := e.attackUnlessCharge(sv, id); ok {
@@ -1390,10 +1390,10 @@ func (e *Engine) attackOffers() []attackOffer {
 			}
 		}
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
-			if !e.canAttackPair(id, d) || !e.goadMayAttack(id, d) || e.attackBlocked(id, d) {
+			if !e.canAttackPair(id, d) || !e.goadMayAttack(id, d) || e.attackBlocked(id, d, 0) {
 				continue
 			}
-			charge := e.attackPairCharge(id, d)
+			charge := e.attackPairCharge(id, d, 0)
 			if !charge.zero() && !e.combatChargeAffordable(p, charge, map[state.ObjID]bool{id: true}) {
 				continue
 			}
@@ -1404,7 +1404,14 @@ func (e *Engine) attackOffers() []attackOffer {
 			// planeswalkers). The walk happens in the planeswalker's
 			// controller's zone order, and d IS that controller here.
 			for _, wid := range walkerTargets {
-				out = append(out, attackOffer{id: id, def: d, battle: wid, charge: charge})
+				if e.attackBlocked(id, d, wid) {
+					continue
+				}
+				walkerCharge := e.attackPairCharge(id, d, wid)
+				if !walkerCharge.zero() && !e.combatChargeAffordable(p, walkerCharge, map[state.ObjID]bool{id: true}) {
+					continue
+				}
+				out = append(out, attackOffer{id: id, def: d, battle: wid, charge: walkerCharge})
 			}
 		}
 		// This protector's battles, immediately after the protector's own
@@ -1420,10 +1427,10 @@ func (e *Engine) attackOffers() []attackOffer {
 				if !e.goadMayAttack(id, d) {
 					continue
 				}
-				if e.attackBlocked(id, d) {
+				if e.attackBlocked(id, d, b.id) {
 					continue
 				}
-				charge := e.attackPairCharge(id, d)
+				charge := e.attackPairCharge(id, d, b.id)
 				if !charge.zero() && !e.combatChargeAffordable(p, charge, map[state.ObjID]bool{id: true}) {
 					continue
 				}
@@ -1511,7 +1518,7 @@ func (e *Engine) canAttackBattle(id state.ObjID, p state.PlayerID) bool {
 func (e *Engine) attackCharge(chosen []decision.Option) blockCharge {
 	total := blockCharge{}
 	for _, opt := range chosen {
-		total = total.plus(e.attackPairCharge(opt.Obj, opt.Player))
+		total = total.plus(e.attackPairCharge(opt.Obj, opt.Player, opt.Battle))
 	}
 	return total
 }

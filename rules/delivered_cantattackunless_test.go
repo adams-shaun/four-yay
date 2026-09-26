@@ -134,11 +134,11 @@ func TestSivitriDeliveredCantAttackUnlessChargesLife(t *testing.T) {
 	}
 
 	// The tax: 2 life against Sivitri's controller, and none against seat 2.
-	charged := e.attackPairCharge(bear, 0)
+	charged := e.attackPairCharge(bear, 0, 0)
 	if charged.life != 2 || charged.mana != 0 || len(charged.taps) != 0 || charged.unpriceable {
 		t.Fatalf("attackPairCharge(bear, Sivitri's controller) = %+v, want life-only 2", charged)
 	}
-	if free := e.attackPairCharge(bear, 2); !free.zero() || free.unpriceable {
+	if free := e.attackPairCharge(bear, 2, 0); !free.zero() || free.unpriceable {
 		t.Fatalf("attackPairCharge(bear, unrelated seat 2) = %+v, want zero (the Target$ names only Sivitri's controller and their walkers)", free)
 	}
 	// The two compared values really differ: the payer's life exceeds the tax.
@@ -200,7 +200,7 @@ func TestSivitriDeliveredCantAttackUnlessChargesLife(t *testing.T) {
 	if live := deliveredCantAttackEntries(e); live != 0 {
 		t.Fatalf("precondition: the restriction survived into seat 0's next turn (%d entries)", live)
 	}
-	if after := e.attackPairCharge(bear, 0); !after.zero() {
+	if after := e.attackPairCharge(bear, 0, 0); !after.zero() {
 		t.Fatalf("tax still charged after expiry: %+v", after)
 	}
 }
@@ -248,7 +248,7 @@ func TestWarTaxDeliveredCantAttackUnlessChargesChosenX(t *testing.T) {
 	}
 	// The zero/default price (0, an unbound Count$ChosenNumber read) and the
 	// frozen price (3) differ, so a missing binding fails here.
-	if got := e.attackPairCharge(bear, 0).mana; got != 3 {
+	if got := e.attackPairCharge(bear, 0, 0).mana; got != 3 {
 		t.Fatalf("XChosen priced %d, want the frozen X (3)", got)
 	}
 
@@ -309,7 +309,7 @@ func TestWhipgrassEntanglerDeliveredStaticChargesAttackPerCleric(t *testing.T) {
 		t.Fatalf("precondition: %d delivered CantAttackUnless registrations, want 1", n)
 	}
 	// The printed charge: one Cleric (Whipgrass itself) on the battlefield.
-	if got := e.attackPairCharge(bear, 0).mana; got != 1 {
+	if got := e.attackPairCharge(bear, 0, 0).mana; got != 1 {
 		t.Fatalf("delivered attack static priced %d, want 1 (one Cleric)", got)
 	}
 
@@ -349,7 +349,7 @@ func TestSivitriDeliveredInsufficientLifeIsNeverOffered(t *testing.T) {
 	if n := deliveredCantAttackEntries(e); n != 1 {
 		t.Fatalf("precondition: %d delivered CantAttackUnless registrations, want 1", n)
 	}
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if ch.life != 2 {
 		t.Fatalf("precondition: charge = %+v, want life 2", ch)
 	}

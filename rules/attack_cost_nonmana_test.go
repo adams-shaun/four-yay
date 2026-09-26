@@ -61,7 +61,7 @@ func TestExaltedDragonAttackSacrificesALand(t *testing.T) {
 	if l := e.G.Obj(land); l == nil || l.Zone != state.ZBattlefield || l.Controller != 0 {
 		t.Fatal("precondition: the sacrifice candidate is not seat 0's battlefield land")
 	}
-	ch := e.attackPairCharge(dragon, 1)
+	ch := e.attackPairCharge(dragon, 1, 0)
 	if len(ch.sacs) != 1 || ch.sacs[0].n != 1 || ch.mana != 0 || ch.life != 0 || len(ch.phyrexian) != 0 {
 		t.Fatalf("precondition: attackPairCharge = %+v, want one sacrifice of 1", ch)
 	}
@@ -112,7 +112,7 @@ func TestExaltedDragonWithoutALandIsNeverOffered(t *testing.T) {
 	e.G.Active = 0
 	e.G.Step = state.StepDeclareAttackers
 
-	ch := e.attackPairCharge(dragon, 1)
+	ch := e.attackPairCharge(dragon, 1, 0)
 	if len(ch.sacs) != 1 {
 		t.Fatalf("precondition: charge = %+v, want one sacrifice obligation", ch)
 	}
@@ -147,7 +147,7 @@ func TestFloodtideSerpentAttackReturnsAnEnchantment(t *testing.T) {
 	if a := e.G.Obj(aura); a == nil || a.Zone != state.ZBattlefield || a.Controller != 0 {
 		t.Fatal("precondition: the return candidate is not seat 0's battlefield enchantment")
 	}
-	ch := e.attackPairCharge(serpent, 1)
+	ch := e.attackPairCharge(serpent, 1, 0)
 	if len(ch.returns) != 1 || ch.returns[0].n != 1 || ch.mana != 0 || len(ch.sacs) != 0 {
 		t.Fatalf("precondition: attackPairCharge = %+v, want one return of 1", ch)
 	}
@@ -183,7 +183,7 @@ func TestHollowWarriorAttackTapsANonAttacker(t *testing.T) {
 	// PRECONDITION: the charge is a single tap obligation, the helper is
 	// untapped, and it is a legal candidate (the warrior itself is excluded
 	// because it is the declared attacker).
-	ch := e.attackPairCharge(warrior, 1)
+	ch := e.attackPairCharge(warrior, 1, 0)
 	if len(ch.taps) != 1 || ch.taps[0].n != 1 || ch.mana != 0 || ch.life != 0 {
 		t.Fatalf("precondition: attackPairCharge = %+v, want one tap of 1", ch)
 	}
@@ -226,7 +226,7 @@ func TestHollowWarriorAttackWithoutATapperIsNeverOffered(t *testing.T) {
 	e.G.Active = 0
 	e.G.Step = state.StepDeclareAttackers
 
-	ch := e.attackPairCharge(warrior, 1)
+	ch := e.attackPairCharge(warrior, 1, 0)
 	if len(ch.taps) != 1 {
 		t.Fatalf("precondition: charge = %+v, want one tap obligation", ch)
 	}
@@ -264,7 +264,7 @@ func TestAttackPayLifeChargesTwoLife(t *testing.T) {
 	if o := e.G.Zone(state.ZBattlefield, 0); len(o) == 0 {
 		t.Fatal("precondition: the PayLife static is not on seat 0's battlefield")
 	}
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if ch.life != 2 || ch.mana != 0 || len(ch.taps) != 0 {
 		t.Fatalf("precondition: attackPairCharge = %+v, want life-only 2", ch)
 	}
@@ -304,7 +304,7 @@ func TestAttackPayLifeInsufficientIsNeverOffered(t *testing.T) {
 	e.G.Step = state.StepDeclareAttackers
 	e.G.Players[1].Life = 1
 
-	if ch := e.attackPairCharge(bear, 0); ch.life != 2 {
+	if ch := e.attackPairCharge(bear, 0, 0); ch.life != 2 {
 		t.Fatalf("precondition: charge = %+v, want life 2", ch)
 	}
 	e.askAttackers()
@@ -324,7 +324,7 @@ func TestNornsAnnexPhyrexianPaidWithLife(t *testing.T) {
 
 	// PRECONDITION: the charge is one white Phyrexian pip and nothing else,
 	// the payer has no white source, and two life is affordable.
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if len(ch.phyrexian) != 1 || ch.phyrexian[0] != 'W' || ch.mana != 0 || ch.life != 0 {
 		t.Fatalf("precondition: attackPairCharge = %+v, want one W Phyrexian pip", ch)
 	}
@@ -364,13 +364,13 @@ func TestNornsAnnexPhyrexianColourVersusLifeChoice(t *testing.T) {
 
 	// PRECONDITION: the pip's colour branch is reachable from the Plains and
 	// the life branch is affordable, so BOTH are on offer.
-	if ch := e.attackPairCharge(bear, 0); len(ch.phyrexian) != 1 {
+	if ch := e.attackPairCharge(bear, 0, 0); len(ch.phyrexian) != 1 {
 		t.Fatalf("precondition: charge = %+v, want one Phyrexian pip", ch)
 	}
 	if n := len(e.windowManaUnits(1)); n != 1 {
 		t.Fatalf("precondition: windowManaUnits(1) = %d, want 1 (the Plains)", n)
 	}
-	both, canColour, canLife := e.combatPhyBothBranches(1, e.attackPairCharge(bear, 0))
+	both, canColour, canLife := e.combatPhyBothBranches(1, e.attackPairCharge(bear, 0, 0))
 	if !both || !canColour || !canLife {
 		t.Fatalf("precondition: colour branch %v, life branch %v, want both true", canColour, canLife)
 	}
@@ -588,8 +588,8 @@ func TestAttackChargeBotAnswerNeverRejected(t *testing.T) {
 
 	// PRECONDITIONS: both pairs price at 2 life, each individually affordable
 	// against 3 life, the sum (4) not.
-	c1 := e.attackPairCharge(a1, 0)
-	c2 := e.attackPairCharge(a2, 0)
+	c1 := e.attackPairCharge(a1, 0, 0)
+	c2 := e.attackPairCharge(a2, 0, 0)
 	if c1.life != 2 || c2.life != 2 {
 		t.Fatalf("precondition: charges %+v / %+v, want life 2 each", c1, c2)
 	}

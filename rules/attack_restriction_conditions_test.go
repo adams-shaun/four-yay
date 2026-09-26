@@ -48,14 +48,14 @@ func TestCantAttackUnlessDefenderControlsIsland(t *testing.T) {
 	if e.G.Obj(serpent).Zone != state.ZBattlefield {
 		t.Fatal("precondition: Kukemssa Serpent is not on the battlefield")
 	}
-	if !e.attackBlocked(serpent, 1) {
+	if !e.attackBlocked(serpent, 1, 0) {
 		t.Fatal("Kukemssa Serpent attacked although the defending player controlled no Island (UnlessDefender$ controlsIsland unread)")
 	}
 	island := onBoard(t, e, 1, "Name:Island\nTypes:Basic Land Island\nPT:0/0\nOracle:x\n")
 	if o := e.G.Obj(island); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
 		t.Fatalf("precondition: the defender's Island is not on seat 1's battlefield: %+v", e.G.Obj(island))
 	}
-	if e.attackBlocked(serpent, 1) {
+	if e.attackBlocked(serpent, 1, 0) {
 		t.Fatal("Kukemssa Serpent remained blocked although the defending player controlled an Island")
 	}
 }
@@ -81,7 +81,7 @@ func TestCantAttackUnlessDefenderHasFewerCreatures(t *testing.T) {
 	if n := len(e.G.Zone(state.ZBattlefield, 1)); n != 1 {
 		t.Fatalf("precondition: seat 1 controls %d creatures, want 1", n)
 	}
-	if e.attackBlocked(toady, 1) {
+	if e.attackBlocked(toady, 1, 0) {
 		t.Fatal("Mogg Toady was blocked although the defender controlled fewer creatures (UnlessDefender$ hasFewerCreaturesInPlayThanYou unread)")
 	}
 	// Parity: the defender no longer has fewer, so the restriction bites.
@@ -90,7 +90,7 @@ func TestCantAttackUnlessDefenderHasFewerCreatures(t *testing.T) {
 	if n := len(e.G.Zone(state.ZBattlefield, 1)); n != 3 {
 		t.Fatalf("precondition: seat 1 controls %d creatures, want 3", n)
 	}
-	if !e.attackBlocked(toady, 1) {
+	if !e.attackBlocked(toady, 1, 0) {
 		t.Fatal("Mogg Toady attacked at creature parity, where the defender does not have fewer")
 	}
 }
@@ -112,11 +112,11 @@ func TestCantAttackUnlessDefenderNegated(t *testing.T) {
 	if o := e.G.Obj(land); o == nil || o.Tapped {
 		t.Fatal("precondition: the defender's land must start untapped")
 	}
-	if !e.attackBlocked(brawlers, 1) {
+	if !e.attackBlocked(brawlers, 1, 0) {
 		t.Fatal("Veteran Brawlers attacked although the defender controlled an untapped land (!controlsLand.untapped unread)")
 	}
 	e.G.Obj(land).Tapped = true
-	if e.attackBlocked(brawlers, 1) {
+	if e.attackBlocked(brawlers, 1, 0) {
 		t.Fatal("Veteran Brawlers stayed blocked although the defender's only land is tapped")
 	}
 }
@@ -138,14 +138,14 @@ func TestCantAttackUnlessDefenderHasCardsInGraveyard(t *testing.T) {
 	if n := len(e.G.Zone(state.ZGraveyard, 1)); n != 6 {
 		t.Fatalf("precondition: defender graveyard holds %d cards, want 6", n)
 	}
-	if !e.attackBlocked(gargoyle, 1) {
+	if !e.attackBlocked(gargoyle, 1, 0) {
 		t.Fatal("Vantress Gargoyle attacked below seven defender graveyard cards (HasCardsInGraveyard_Card_GE7 unread)")
 	}
 	addToGraveyardType(t, e, 1, "Sorcery")
 	if n := len(e.G.Zone(state.ZGraveyard, 1)); n != 7 {
 		t.Fatalf("precondition: defender graveyard holds %d cards, want 7", n)
 	}
-	if e.attackBlocked(gargoyle, 1) {
+	if e.attackBlocked(gargoyle, 1, 0) {
 		t.Fatal("Vantress Gargoyle stayed blocked at seven defender graveyard cards")
 	}
 }
@@ -168,14 +168,14 @@ func TestCantAttackCheckSVarGate(t *testing.T) {
 	if n := len(e.G.Zone(state.ZGraveyard, 0)); n != 6 {
 		t.Fatalf("precondition: controller graveyard holds %d cards, want 6", n)
 	}
-	if !e.attackBlocked(terror, 1) {
+	if !e.attackBlocked(terror, 1, 0) {
 		t.Fatal("Deep-Sea Terror attacked with fewer than seven graveyard cards (CheckSVar$ X LT7 unread)")
 	}
 	addToGraveyardType(t, e, 0, "Sorcery")
 	if n := len(e.G.Zone(state.ZGraveyard, 0)); n != 7 {
 		t.Fatalf("precondition: controller graveyard holds %d cards, want 7", n)
 	}
-	if e.attackBlocked(terror, 1) {
+	if e.attackBlocked(terror, 1, 0) {
 		t.Fatal("Deep-Sea Terror stayed blocked at seven graveyard cards, where its CheckSVar$ gate fails")
 	}
 }
@@ -196,14 +196,14 @@ func TestCantAttackConditionGate(t *testing.T) {
 	if e.G.Active != 0 {
 		t.Fatalf("precondition: seat 0 must be the active player, got %d", e.G.Active)
 	}
-	if !e.attackBlocked(bear, 1) {
+	if !e.attackBlocked(bear, 1, 0) {
 		t.Fatal("the Condition$ PlayerTurn gate did not hold on the controller's own turn (Condition$ unread)")
 	}
 	e.emit(events.Event{Kind: events.TurnChange, Player: 1, Amount: 2})
 	if e.G.Active != 1 {
 		t.Fatalf("precondition: the TurnChange did not make seat 1 active, got %d", e.G.Active)
 	}
-	if e.attackBlocked(bear, 1) {
+	if e.attackBlocked(bear, 1, 0) {
 		t.Fatal("the CantAttack static stayed enforced although its Condition$ PlayerTurn gate no longer holds")
 	}
 }

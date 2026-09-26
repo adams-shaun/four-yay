@@ -41,7 +41,7 @@ func TestAtomicallyUnpayableGenericAndPipPairIsNeverOffered(t *testing.T) {
 	// PRECONDITION: the charge is generic 2 plus one W pip, the pool holds
 	// exactly two white (three units short of the colour branch), and life is
 	// one (two short of the pip's life branch).
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if ch.mana != 2 || len(ch.phyrexian) != 1 || ch.phyrexian[0] != 'W' || ch.life != 0 {
 		t.Fatalf("precondition: attackPairCharge = %+v, want 2 mana + one W pip", ch)
 	}
@@ -80,7 +80,7 @@ func TestAtomicChargePaysGenericAndPipFromOnePool(t *testing.T) {
 	e.G.Players[1].Life = 1 // the pip's life branch is NOT affordable
 	e.G.Players[1].Pool[state.MW], e.G.Players[1].Pool[state.MC] = 3, 0
 
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if ch.mana != 2 || len(ch.phyrexian) != 1 {
 		t.Fatalf("precondition: charge = %+v, want 2 mana + one pip", ch)
 	}
@@ -125,7 +125,7 @@ func TestAtomicChargeLifeBranchWhenGenericIsShort(t *testing.T) {
 	e.G.Players[1].Life = 20
 	e.G.Players[1].Pool[state.MW], e.G.Players[1].Pool[state.MC] = 2, 0
 
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if ch.mana != 2 || len(ch.phyrexian) != 1 {
 		t.Fatalf("precondition: charge = %+v, want 2 mana + one pip", ch)
 	}
@@ -166,7 +166,7 @@ func TestNornsAnnexFloatingColourStillOffersTheLifeChoice(t *testing.T) {
 	e.G.Players[1].Life = 20
 	e.G.Players[1].Pool[state.MW] = 1
 
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if len(ch.phyrexian) != 1 || ch.phyrexian[0] != 'W' || ch.mana != 0 {
 		t.Fatalf("precondition: charge = %+v, want one W pip", ch)
 	}
@@ -238,7 +238,7 @@ func TestUnpriceableAttackCostFailsClosed(t *testing.T) {
 	// pair would still be offered. It must fail closed as UNPRICEABLE.
 	onBoardReady(t, e, 1, "Name:Test Plains\nTypes:Basic Land Plains\nOracle:x\n")
 
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if !ch.unpriceable {
 		t.Fatalf("precondition: charge = %+v, want unpriceable for a plain coloured pip", ch)
 	}
@@ -319,7 +319,7 @@ func TestJointTapSacrificeAssignmentPaysWhenAGreedyPlanWouldFail(t *testing.T) {
 	if ai < 0 || pi < 0 || ai > pi {
 		t.Fatalf("precondition: artifact zone index %d must precede the plain creature's %d", ai, pi)
 	}
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if len(ch.taps) != 1 || len(ch.sacs) != 1 || ch.mana != 0 || ch.life != 0 {
 		t.Fatalf("precondition: charge = %+v, want one tap + one sacrifice", ch)
 	}
@@ -371,7 +371,7 @@ func TestTapObligationCannotAlsoPayTheMana(t *testing.T) {
 	// PRECONDITION: the creature-land is a legal tap candidate and the only
 	// mana source on the battlefield; with the plan's tap reservation
 	// withheld, no source remains for the generic one.
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if ch.mana != 1 || len(ch.taps) != 1 || len(ch.sacs) != 0 || len(ch.phyrexian) != 0 {
 		t.Fatalf("precondition: charge = %+v, want 1 mana + one tap", ch)
 	}
@@ -420,11 +420,11 @@ func TestAtomicTapChargedBotAnswerIsAccepted(t *testing.T) {
 	// PRECONDITIONS: the charged creature really carries a tap obligation
 	// while the free creature carries none, and at least one other untapped
 	// creature exists (so the charge is payable, not merely unpriceable).
-	ch := e.attackPairCharge(charged, 0)
+	ch := e.attackPairCharge(charged, 0, 0)
 	if len(ch.taps) != 1 || ch.mana != 0 || ch.life != 0 || ch.unpriceable {
 		t.Fatalf("precondition: charged pair charge = %+v, want one priceable tap", ch)
 	}
-	if fch := e.attackPairCharge(free, 0); !fch.zero() || fch.unpriceable {
+	if fch := e.attackPairCharge(free, 0, 0); !fch.zero() || fch.unpriceable {
 		t.Fatalf("precondition: free pair charge = %+v, want zero", fch)
 	}
 	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{charged: true}) {

@@ -72,10 +72,10 @@ func TestCantAttackPlayerCardOwner(t *testing.T) {
 	e.AddContinuous(ContinuousEffect{Source: id, Controller: 1, Restriction: "CantAttack",
 		RestrictParams: map[string]string{"ValidCard": "Card.Self", "Target": clause}})
 
-	if !e.attackBlocked(id, 0) {
+	if !e.attackBlocked(id, 0, 0) {
 		t.Fatal("Xantcha could attack its owner: Player.CardOwner clause not enforced")
 	}
-	if e.attackBlocked(id, 1) {
+	if e.attackBlocked(id, 1, 0) {
 		t.Fatal("Player.CardOwner clause also blocked Xantcha's controller")
 	}
 }

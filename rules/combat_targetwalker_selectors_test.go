@@ -64,17 +64,17 @@ func TestCantAttackWalkerControlledByCardOwner(t *testing.T) {
 	// half, to make the walker half independently observable through attackBlocked.
 	e.AddContinuous(ContinuousEffect{Source: id, Controller: 1, Restriction: "CantAttack",
 		RestrictParams: map[string]string{"ValidCard": "Card.Self", "Target": clause}})
-	if e.attackBlocked(id, 0) {
+	if e.attackBlocked(id, 0, 0) {
 		t.Fatal("no planeswalker: owner incorrectly blocked")
 	}
 	walker := onBoard(t, e, 0, targetWalkerFixture)
 	if o := e.G.Obj(walker); o == nil || o.Zone != state.ZBattlefield || o.Controller != 0 || !faceHasType(o, "Planeswalker") {
 		t.Fatalf("precondition: owner's walker not on battlefield: %+v", o)
 	}
-	if !e.attackBlocked(id, 0) {
+	if !e.attackBlocked(id, 0, walker) {
 		t.Fatal("Xantcha could attack the planeswalker controlled by its owner")
 	}
-	if e.attackBlocked(id, 1) {
+	if e.attackBlocked(id, 1, 0) {
 		t.Fatal("owner clause also blocked Xantcha's controller")
 	}
 }
@@ -112,17 +112,17 @@ func TestCantAttackWalkerRememberedSelectors(t *testing.T) {
 			}
 			e.AddContinuous(ContinuousEffect{Source: source, Controller: 0, Restriction: "CantAttack",
 				RestrictParams: map[string]string{"ValidCard": "Creature.YouCtrl", "Target": clause}, RememberedPlayers: []state.PlayerID{1}})
-			if e.attackBlocked(attacker, 1) {
+			if e.attackBlocked(attacker, 1, 0) {
 				t.Fatal("no walker: remembered defender incorrectly blocked")
 			}
 			walker := onBoard(t, e, 1, targetWalkerFixture)
 			if o := e.G.Obj(walker); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 || !faceHasType(o, "Planeswalker") {
 				t.Fatalf("precondition: remembered player's walker absent: %+v", o)
 			}
-			if !e.attackBlocked(attacker, 1) {
+			if !e.attackBlocked(attacker, 1, walker) {
 				t.Fatal("attacker could attack remembered player's planeswalker")
 			}
-			if e.attackBlocked(attacker, 0) {
+			if e.attackBlocked(attacker, 0, 0) {
 				t.Fatal("remembered clause blocked a different defender")
 			}
 		})

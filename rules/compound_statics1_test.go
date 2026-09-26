@@ -85,13 +85,13 @@ func TestBastCompoundModeStaticGates(t *testing.T) {
 
 	// Two creatures: BOTH halves bind on Bast; the plain bear is unrestricted
 	// in both directions (Card.Self scoping precondition).
-	if !e.attackBlocked(bastID, 2) {
+	if !e.attackBlocked(bastID, 2, 0) {
 		t.Fatal("Bast NOT attack-restricted with 2 creatures: the CantAttack half's IsPresent gate never bound")
 	}
 	if !e.blockRestricted(bastID, otherID) {
 		t.Fatal("Bast NOT block-restricted with 2 creatures")
 	}
-	if e.attackBlocked(bearBoard, 2) || e.blockRestricted(bearBoard, otherID) {
+	if e.attackBlocked(bearBoard, 2, 0) || e.blockRestricted(bearBoard, otherID) {
 		t.Fatal("the plain bear (precondition) is restricted — the fixture does not isolate Bast")
 	}
 
@@ -103,13 +103,13 @@ func TestBastCompoundModeStaticGates(t *testing.T) {
 	}
 
 	// Three creatures: both halves release.
-	if e.attackBlocked(bastID, 2) {
+	if e.attackBlocked(bastID, 2, 0) {
 		t.Fatal("Bast still attack-restricted with 3 creatures: PresentCompare LE2 did not release")
 	}
 	if e.blockRestricted(bastID, otherID) {
 		t.Fatal("Bast still block-restricted with 3 creatures: PresentCompare LE2 did not release")
 	}
-	if e.attackBlocked(bearBoard, 2) || e.blockRestricted(bearBoard, otherID) {
+	if e.attackBlocked(bearBoard, 2, 0) || e.blockRestricted(bearBoard, otherID) {
 		t.Fatal("the plain bear (Card.Self control) became restricted after the third creature arrived")
 	}
 	replayCheck(t, e, cfg)

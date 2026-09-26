@@ -70,14 +70,14 @@ func TestPacifismCommaModeStaticSuppressesAttackAndBlock(t *testing.T) {
 	// Direct reads: BOTH halves suppress on the enchanted bear, and the
 	// control bear (precondition that the two really differ) suppresses
 	// neither.
-	if !e.attackBlocked(victim, 0) || !e.attackBlocked(victim, 2) {
+	if !e.attackBlocked(victim, 0, 0) || !e.attackBlocked(victim, 2, 0) {
 		t.Fatalf("pacified bear attack pairs not blocked: (→0)=%v (→2)=%v",
-			e.attackBlocked(victim, 0), e.attackBlocked(victim, 2))
+			e.attackBlocked(victim, 0, 0), e.attackBlocked(victim, 2, 0))
 	}
 	if !e.blockRestricted(victim, bear2) {
 		t.Fatal("pacified bear not restricted from blocking: the CantBlock half never reached blockRestricted")
 	}
-	if e.attackBlocked(bear1, 0) || e.blockRestricted(bear1, bear2) {
+	if e.attackBlocked(bear1, 0, 0) || e.blockRestricted(bear1, bear2) {
 		t.Fatal("control bear (precondition) is restricted — the fixture does not isolate the enchanted one")
 	}
 
