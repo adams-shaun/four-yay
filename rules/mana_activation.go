@@ -455,7 +455,14 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// artifacts"): the same keyword-condition gate the printed-ability
 		// offer loop in rules/legal.go applies, so the priority action, the
 		// payment window and the chosen activation share one member set.
-		if e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
+		// Activator$ (Mana Cache's "Any player may activate this ability but
+		// only during their turn before the end step") is the same shared
+		// selector every non-mana offer path applies: a mana ability is a
+		// mana ability's own eligibility home, so without this read the source
+		// controller could activate an ability whose Activator$ excluded them
+		// and a permitted opponent could not.
+		if e.activatorAllows(p, id, ma) &&
+			e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
 			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) {
 			// ActivationLimit$ / GameActivationLimit$ (Vivi Ornitier's "only once
 			// each turn", Stalking Leonin's "Activate only once"): the non-mana

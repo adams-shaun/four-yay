@@ -9085,11 +9085,9 @@ func (e *Engine) manaWindowAsk() bool {
 		return false
 	}
 	var sources []state.ObjID
-	for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
-		for _, id := range e.G.Zone(z, pc.player) {
-			if !e.convokeCommitted(pc, id) && e.untappedManaSource(pc.player, id) {
-				sources = append(sources, id)
-			}
+	for _, id := range e.manaSourceIDs(pc.player) {
+		if !e.convokeCommitted(pc, id) && e.untappedManaSource(pc.player, id) {
+			sources = append(sources, id)
 		}
 	}
 	if len(sources) == 0 {
@@ -9163,11 +9161,9 @@ func (e *Engine) untappedManaSource(p state.PlayerID, id state.ObjID) bool {
 // with a usable mana ability -- the condition under which the 601.2g window
 // could supply the mana a pool alone cannot.
 func (e *Engine) hasUntappedManaSource(p state.PlayerID) bool {
-	for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
-		for _, id := range e.G.Zone(z, p) {
-			if e.untappedManaSource(p, id) {
-				return true
-			}
+	for _, id := range e.manaSourceIDs(p) {
+		if e.untappedManaSource(p, id) {
+			return true
 		}
 	}
 	return false
@@ -10808,7 +10804,7 @@ func (e *Engine) castWindowUnits(pc *pendingCast) []windowManaUnit {
 func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaUnit) []windowManaUnit {
 	p := pc.player
 	pl := e.G.Players[p]
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
