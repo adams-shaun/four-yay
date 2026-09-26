@@ -1967,7 +1967,10 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 				// R-9: no host to ask -- play "may" as "do" deterministically,
 				// the same fallback moveDefinedLibraryObjects applies.
 			} else if i == confirmTarget && !confirmYes {
-				continue // declined: keep the remembered set
+				confirmDone = false // this owner's decline is consumed; later owners still confirm
+				continue            // declined: keep the remembered set
+			} else if i == confirmTarget {
+				confirmDone = false // this owner's acceptance is consumed
 			}
 		}
 		if len(eligible) == 0 || n == 0 {
