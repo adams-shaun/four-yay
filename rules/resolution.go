@@ -3439,6 +3439,19 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// re-entered walk skips owners before the cursor and continues with
 			// the owners after it (the same continuation DigTarget carries).
 			ctx.HandMoveTarget = rp.target
+		case "hand_move_confirm":
+			// An Optional$ confirmation on a hidden-hand ChangeZone was
+			// answered (Forge's confirmAction gate, which runs before the card
+			// pick): option zero accepts the fetch, every other answer declines
+			// it. effChangeZone...handMoveOwnersWalk consumes and clears these
+			// at the top of its walk (fx42 scoping), so a nested hand move
+			// poses its own confirmation.
+			ctx.HandMoveConfirmDone = true
+			ctx.HandMoveConfirmTarget = rp.target
+			ctx.HandMoveConfirm = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.HandMoveConfirm = "yes"
+			}
 		case "hidden_pick":
 			// A Hidden$ True public-origin pick was answered (hiddenpick1): the
 			// chooser picked which of the ChangeType$-eligible cards in the
