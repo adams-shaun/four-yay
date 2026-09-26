@@ -759,6 +759,7 @@ func (e *Engine) Clone() *Engine {
 		pc.cost.Discard = append([]CostPart(nil), e.cast.cost.Discard...)
 		pc.cost.SubCounter = append([]CostPart(nil), e.cast.cost.SubCounter...)
 		pc.cost.Exile = append([]CostPart(nil), e.cast.cost.Exile...)
+		pc.cost.ExileFromTop = append([]CostPart(nil), e.cast.cost.ExileFromTop...)
 		pc.cost.MoveToGrave = append([]CostPart(nil), e.cast.cost.MoveToGrave...)
 		pc.cost.Reveal = append([]CostPart(nil), e.cast.cost.Reveal...)
 		pc.cost.RevealOrChoose = append([]CostPart(nil), e.cast.cost.RevealOrChoose...)
