@@ -100,6 +100,9 @@ func (r *Registry) load() error {
 				// callOnMatchEnd.
 				r.callOnMatchEnd(cfg.ID, sc.Match, sc.info())
 			}
+			// The index keeps no name list; loadArchived re-reads it from
+			// N.json when it rebuilds the match (see archive).
+			sc.NameUniverseNames = nil
 			t.archived = append(t.archived, sc)
 			if sc.Match > t.k {
 				t.k = sc.Match

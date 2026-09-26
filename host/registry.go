@@ -343,10 +343,7 @@ func (r *Registry) run(t *table) {
 		r.mu.Unlock()
 		r.onMatchStart(t, m) // Tasks 10, 12
 		final := r.play(ctx, t, m)
-		t.mu.Lock()
-		t.cur = nil
-		t.history = append(t.history, m)
-		t.mu.Unlock()
+		r.retire(t, m)
 		switch final {
 		case protocol.MatchCrashed:
 			r.halt(t, k, fmt.Errorf("%s", m.reason))
@@ -371,6 +368,62 @@ func (r *Registry) run(t *table) {
 		default:
 		}
 	}
+}
+
+// retire takes a finished match off t.cur. In persistence mode the match
+// is dropped from memory entirely — archive() has already recorded its
+// sidecar in t.archived, so lookup serves it from disk — and the engine is
+// released once any in-flight reader lets go. In memory mode the engine is
+// the only copy, so the match joins t.history with its log trimmed to its
+// length (the live log was reserved at defaultExpectedEvents), and history
+// keeps only the last memoryHistoryLimit matches.
+func (r *Registry) retire(t *table, m *match) {
+	if r.opts.Dir == "" {
+		m.mu.Lock()
+		m.trimLog()
+		m.mu.Unlock()
+	}
+	t.mu.Lock()
+	t.cur = nil
+	if r.opts.Dir == "" {
+		t.history = append(t.history, m)
+		if n := len(t.history) - memoryHistoryLimit; n > 0 {
+			// Copy rather than reslice so the dropped matches do not stay
+			// reachable through the backing array.
+			t.history = append([]*match(nil), t.history[n:]...)
+		}
+	}
+	t.mu.Unlock()
+}
+
+// trimLog gives a finished match's log a backing array exactly its length,
+// releasing the spare capacity the live log was reserved with. Snapshots
+// cloned from the live log share its backing array (Log.Clone truncates the
+// capacity, not the array), so each one that does is re-pointed at the
+// same prefix of the new array — the same events by memory identity. The
+// snapshots are rebuilt, never mutated in place: a reader may be cloning a
+// snapshot engine it copied out from under the read lock (viewAt).
+// Called with m.mu held for writing, after the match's last event.
+func (m *match) trimLog() {
+	old := m.e.L.Events
+	if len(old) == 0 || cap(old) == len(old) {
+		return
+	}
+	evs := make([]events.Event, len(old)) // exact capacity; slices.Clone rounds up
+	copy(evs, old)
+	m.e.L.Events = evs
+	snaps := make([]snapshot, len(m.snaps))
+	for i, s := range m.snaps {
+		snaps[i] = s
+		se := s.e.L.Events
+		if len(se) == 0 || len(se) > len(evs) || &se[0] != &old[0] {
+			continue
+		}
+		ne := s.e.Clone()
+		ne.L.Events = evs[:len(se):len(se)]
+		snaps[i].e = ne
+	}
+	m.snaps = snaps
 }
 
 // halt is D15's second half for the table: it stops and stays stopped,
@@ -424,7 +477,8 @@ func (r *Registry) LobbyTables() []protocol.TableInfo {
 // Matches lists a table's matches in ascending order; the live one last.
 // Finished matches known only from disk (archived sidecars) come first,
 // then in-memory history entries whose match index is not already
-// archived, then the live match.
+// archived (memory mode only: persistence mode retains no history), then
+// the live match.
 func (r *Registry) Matches(id TableID) ([]protocol.MatchInfo, error) {
 	r.mu.RLock()
 	t, ok := r.tables[id]

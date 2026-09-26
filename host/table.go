@@ -264,6 +264,11 @@ func (c TableConfig) validated(load func(string) (Deck, error)) (TableConfig, er
 	return c, nil
 }
 
+// memoryHistoryLimit bounds t.history in memory mode: the last this many
+// finished matches keep their engines for ViewAt/Events; older ones are
+// dropped (memory mode has no disk copy to fall back on, so they are gone).
+const memoryHistoryLimit = 8
+
 // table is one registry entry and the goroutine that plays it. started is
 // guarded by Registry.mu — Start and Wait both read/write it while already
 // holding that lock (registry.go), not t.mu. mu guards every field from
@@ -280,9 +285,16 @@ type table struct {
 	// reason is the halt error's message, set by Registry.halt; empty
 	// unless state is TableHalted. Task 13 surfaces it on the wire
 	// (protocol.TableInfo has no field for it yet); kept internal for now.
-	reason  string
-	k       int    // index of the current or most recent match; 0 before any
-	cur     *match // the live match, or nil
+	reason string
+	k      int    // index of the current or most recent match; 0 before any
+	cur    *match // the live match, or nil
+	// history holds finished matches kept in memory with their engines.
+	// Only memory mode (Options.Dir == "") retains them — there the engine
+	// is the only copy ViewAt/Events can serve — and only the last
+	// memoryHistoryLimit of them. In persistence mode a finished match is
+	// never retained: it is served from disk through archived/loaded, so a
+	// long-running table costs one sidecar index entry per match, not an
+	// engine (a retained engine is ~9 MB; ~535 of them were a 6 GB heap).
 	history []*match
 	// archived holds finished matches known only from disk, ascending by
 	// match index (Task 12). They are served from their files, never kept

@@ -331,9 +331,15 @@ func (r *Registry) sendHalted(t *table, k int, reason string) {
 }
 
 // archive writes the final sidecar, closes the files, and drops the
-// engine and snapshots: a finished match is served from disk (spec:
-// snapshots dropped when the match finishes). In memory mode the engine is
-// kept so ViewAt still works.
+// snapshots: a finished match is served from disk (spec: snapshots dropped
+// when the match finishes). The engine itself is released by retire, which
+// does not keep a persistence-mode match once play returns (onMatchEnd still
+// reads it after archive). In memory mode the engine is kept so ViewAt
+// still works.
+//
+// The sidecar indexed in t.archived omits NameUniverseNames: the list is
+// ~24k labels per name-universe match, only a disk rebuild needs it, and
+// loadArchived reads it back from the match's own N.json.
 func (r *Registry) archive(t *table, m *match) {
 	if r.opts.Dir == "" {
 		return
@@ -349,6 +355,7 @@ func (r *Registry) archive(t *table, m *match) {
 		m.reason = "sidecar: " + err.Error()
 		m.mu.Unlock()
 	}
+	sc.NameUniverseNames = nil
 	t.mu.Lock()
 	t.archived = append(t.archived, sc)
 	t.mu.Unlock()
