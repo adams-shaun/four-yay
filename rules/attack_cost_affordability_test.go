@@ -73,7 +73,7 @@ func TestMyrPrototypeZeroCountersAttacksFree(t *testing.T) {
 	if o == nil || o.Zone != state.ZBattlefield || o.Controller != 0 || len(o.Counters) != 0 {
 		t.Fatalf("precondition: Myr Prototype = %+v, want a 0-counter creature controlled by seat 0", o)
 	}
-	ch := e.attackPairCharge(myr, 1)
+	ch := e.attackPairCharge(myr, 1, 0)
 	if ch.unpriceable || !ch.zero() {
 		t.Fatalf("precondition: Myr Prototype charge = %+v, want priceable/zero (the resolved-zero fix is not in force)", ch)
 	}
@@ -124,7 +124,7 @@ func TestMixedOnlyMultiPipChargeIsNeverOffered(t *testing.T) {
 	e.G.Active = 1
 	e.G.Step = state.StepDeclareAttackers
 
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if len(ch.phyrexian) != 2 || ch.phyrexian[0] != 'W' || ch.phyrexian[1] != 'U' || ch.mana != 0 {
 		t.Fatalf("precondition: charge = %+v, want two pips W then U", ch)
 	}
@@ -195,7 +195,7 @@ func TestPhyrexianColourBranchExcludesReservedTapSource(t *testing.T) {
 	e.G.Step = state.StepDeclareAttackers
 	e.G.Players[1].Life = 2
 
-	ch := e.attackPairCharge(bear, 0)
+	ch := e.attackPairCharge(bear, 0, 0)
 	if len(ch.taps) != 1 || len(ch.phyrexian) != 1 || ch.phyrexian[0] != 'W' {
 		t.Fatalf("precondition: charge = %+v, want one tap obligation + one W pip", ch)
 	}

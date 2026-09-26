@@ -56,14 +56,14 @@ func TestCantAttackPresentArtifactEQ0(t *testing.T) {
 	if n := e.countPresent("Artifact.YouCtrl", castaways, 0); n != 0 {
 		t.Fatalf("precondition: seat 0 controls %d artifacts, want 0", n)
 	}
-	if !e.attackBlocked(castaways, 1) {
+	if !e.attackBlocked(castaways, 1, 0) {
 		t.Fatal("Desperate Castaways attacked although its controller controlled no artifact (IsPresent$ Artifact.YouCtrl EQ0 unread)")
 	}
 	onBoard(t, e, 0, "Name:Bauble\nTypes:Artifact\nOracle:x\n")
 	if n := e.countPresent("Artifact.YouCtrl", castaways, 0); n != 1 {
 		t.Fatalf("precondition: seat 0 controls %d artifacts, want 1", n)
 	}
-	if e.attackBlocked(castaways, 1) {
+	if e.attackBlocked(castaways, 1, 0) {
 		t.Fatal("Desperate Castaways stayed blocked although its controller controlled an artifact")
 	}
 }
@@ -87,14 +87,14 @@ func TestCantAttackBarePresentEnchantment(t *testing.T) {
 	if n := e.countPresent("Enchantment", wirecat, 0); n != 0 {
 		t.Fatalf("precondition: %d enchantments on the battlefield, want 0", n)
 	}
-	if e.attackBlocked(wirecat, 1) {
+	if e.attackBlocked(wirecat, 1, 0) {
 		t.Fatal("Wirecat was blocked with no enchantment on the battlefield (bare IsPresent$ must not read as always-enforced)")
 	}
 	onBoard(t, e, 0, "Name:Aura-ish\nTypes:Enchantment\nOracle:x\n")
 	if n := e.countPresent("Enchantment", wirecat, 0); n != 1 {
 		t.Fatalf("precondition: %d enchantments on the battlefield, want 1", n)
 	}
-	if !e.attackBlocked(wirecat, 1) {
+	if !e.attackBlocked(wirecat, 1, 0) {
 		t.Fatal("Wirecat attacked although an enchantment was on the battlefield (bare IsPresent$ Enchantment unread)")
 	}
 }
@@ -117,14 +117,14 @@ func TestCantAttackPresentCreatureGT1(t *testing.T) {
 	if n := e.countPresent("Creature", shauku, 0); n != 1 {
 		t.Fatalf("precondition: %d creatures on the battlefield, want 1 (Shauku alone)", n)
 	}
-	if e.attackBlocked(shauku, 1) {
+	if e.attackBlocked(shauku, 1, 0) {
 		t.Fatal("Shauku was blocked while it was the only creature (PresentCompare$ GT1 must need a SECOND creature)")
 	}
 	onBoard(t, e, 1, "Name:Other\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	if n := e.countPresent("Creature", shauku, 0); n != 2 {
 		t.Fatalf("precondition: %d creatures on the battlefield, want 2", n)
 	}
-	if !e.attackBlocked(shauku, 1) {
+	if !e.attackBlocked(shauku, 1, 0) {
 		t.Fatal("Shauku attacked although another creature was on the battlefield (IsPresent$ Creature GT1 unread)")
 	}
 }
@@ -155,14 +155,14 @@ func TestCantAttackPresentHandLE6(t *testing.T) {
 	if n := len(e.G.Zone(state.ZHand, 0)); n != 6 {
 		t.Fatalf("precondition: seat 0's hand holds %d cards, want 6", n)
 	}
-	if !e.attackBlocked(kefnet, 1) {
+	if !e.attackBlocked(kefnet, 1, 0) {
 		t.Fatal("Kefnet attacked with six cards in hand (PresentZone$ Hand LE6 unread -- the count read 0)")
 	}
 	inZoneCard(t, e, 0, state.ZHand, "Name:Filler\nTypes:Sorcery\nOracle:x\n")
 	if n := len(e.G.Zone(state.ZHand, 0)); n != 7 {
 		t.Fatalf("precondition: seat 0's hand holds %d cards, want 7", n)
 	}
-	if e.attackBlocked(kefnet, 1) {
+	if e.attackBlocked(kefnet, 1, 0) {
 		t.Fatal("Kefnet stayed blocked with seven cards in hand, where its LE6 gate fails")
 	}
 }
@@ -198,7 +198,7 @@ func TestCantAttackPresentExileLT7(t *testing.T) {
 	if n := len(e.G.Zone(state.ZExile, 0)); n != 6 {
 		t.Fatalf("precondition: seat 0's exile holds %d cards, want 6", n)
 	}
-	if !e.attackBlocked(ketramose, 1) {
+	if !e.attackBlocked(ketramose, 1, 0) {
 		t.Fatal("Ketramose attacked with six cards in exile (PresentZone$ Exile LT7 unread -- the count read 0)")
 	}
 	if !e.blockRestricted(ketramose, attacker) {
@@ -208,7 +208,7 @@ func TestCantAttackPresentExileLT7(t *testing.T) {
 	if n := len(e.G.Zone(state.ZExile, 0)); n != 7 {
 		t.Fatalf("precondition: seat 0's exile holds %d cards, want 7", n)
 	}
-	if e.attackBlocked(ketramose, 1) {
+	if e.attackBlocked(ketramose, 1, 0) {
 		t.Fatal("Ketramose stayed blocked at seven cards in exile, where its LT7 gate fails")
 	}
 	if e.blockRestricted(ketramose, attacker) {

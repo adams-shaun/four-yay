@@ -1055,7 +1055,7 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 		if seen[o.Obj] {
 			return fmt.Errorf("attacker %d declared against more than one defender", o.Obj)
 		}
-		if e.attackBlocked(o.Obj, o.Player) {
+		if e.attackBlocked(o.Obj, o.Player, o.Battle) {
 			return fmt.Errorf("attacker %d cannot attack player %d", o.Obj, o.Player)
 		}
 		// A required creature's named duty is enforced by the offered-pair set

@@ -227,8 +227,8 @@ func TestFealtyToTheRealmCantAttackScoping(t *testing.T) {
 	if e.G.Obj(vowID).AttachedTo != bear1 {
 		t.Fatalf("vow AttachedTo = %d, want the bear %d", e.G.Obj(vowID).AttachedTo, bear1)
 	}
-	if !e.attackBlocked(bear1, 0) || e.attackBlocked(bear1, 2) {
-		t.Fatalf("pair scoping wrong: blocked(1→0)=%v blocked(1→2)=%v", e.attackBlocked(bear1, 0), e.attackBlocked(bear1, 2))
+	if !e.attackBlocked(bear1, 0, 0) || e.attackBlocked(bear1, 2, 0) {
+		t.Fatalf("pair scoping wrong: blocked(1→0)=%v blocked(1→2)=%v", e.attackBlocked(bear1, 0, 0), e.attackBlocked(bear1, 2, 0))
 	}
 	// Seat 1's declare attackers: the bear is offered seat 2 and never seat 0.
 	driveToStep(t, e, 3, 1, state.StepDeclareAttackers)
@@ -396,8 +396,8 @@ func TestCallForAidCantAttackRememberedPlayer(t *testing.T) {
 	if got := e.G.Obj(stolen).Controller; got != 0 {
 		t.Fatalf("stolen bear controller = %d, want 0", got)
 	}
-	if !e.attackBlocked(stolen, 1) || e.attackBlocked(stolen, 2) {
-		t.Fatalf("scoping wrong: blocked(→1)=%v blocked(→2)=%v", e.attackBlocked(stolen, 1), e.attackBlocked(stolen, 2))
+	if !e.attackBlocked(stolen, 1, 0) || e.attackBlocked(stolen, 2, 0) {
+		t.Fatalf("scoping wrong: blocked(→1)=%v blocked(→2)=%v", e.attackBlocked(stolen, 1, 0), e.attackBlocked(stolen, 2, 0))
 	}
 	driveToStep(t, e, e.G.Turn, e.G.Active, state.StepDeclareAttackers)
 	opts := attackerOptionsFor(e, stolen)
@@ -416,7 +416,7 @@ func TestCallForAidCantAttackRememberedPlayer(t *testing.T) {
 			t.Fatalf("restriction %s outlived its UntilEOT turn: %+v", ce.Restriction, ce)
 		}
 	}
-	if e.attackBlocked(stolen, 0) {
+	if e.attackBlocked(stolen, 0, 0) {
 		t.Fatal("CantAttack restriction still biting after cleanup")
 	}
 	replayCheck(t, e, cfg)
@@ -450,7 +450,7 @@ func TestMustAttackIfAbleCantAttackBlocksRequirement(t *testing.T) {
 	castFromPriority(t, e, callID)
 	targetPlayer(t, e, 1)
 	passUntilStackEmpty(t, e, 60)
-	if !e.attackBlocked(dasherID, 1) {
+	if !e.attackBlocked(dasherID, 1, 0) {
 		t.Fatal("the dasher's only pair is not blocked — fixture wrong")
 	}
 	if e.mustAttackRequired(dasherID) {

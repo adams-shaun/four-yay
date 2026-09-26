@@ -554,10 +554,10 @@ func TestMustAttackNamedDefenderBlockedLeavesAlternateOptional(t *testing.T) {
 		RestrictParams:    map[string]string{"Mode": "CantAttack", "ValidCard": "Card.Self", "Target": "Player.IsRemembered"},
 		RememberedPlayers: []state.PlayerID{1},
 	})
-	if !e.attackBlocked(hk, 1) {
+	if !e.attackBlocked(hk, 1, 0) {
 		t.Fatal("precondition: the named defender's pair is not blocked")
 	}
-	if e.attackBlocked(hk, 2) {
+	if e.attackBlocked(hk, 2, 0) {
 		t.Fatal("precondition: the alternate defender's pair must stay legal")
 	}
 	if rs := e.attackRequirements(hk); rs.satisfiedBy(1) != 1 || rs.satisfiedBy(2) != 0 || rs.broad || rs.goad {
