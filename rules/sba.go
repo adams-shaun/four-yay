@@ -373,8 +373,8 @@ type legendBatch struct {
 // exempt permanents form no duplicate set and a set that loses members to an
 // exemption can fall below the two-member threshold and drop entirely.
 // The scan is deterministic (AliveFrom(0) seat order, each battlefield zone a
-// slice, seen keyed on the printed name), so the event stream is reproducible
-// run to run; membership maps are never iterated.
+// slice, seen keyed on the current derived name), so the event stream is
+// reproducible run to run; membership maps are never iterated.
 func (e *Engine) legendGroups() []legendGroup {
 	// The exemption statics are collected once, in activeStatics' canonical
 	// deterministic order, and reused for every candidate; each candidate is
@@ -401,7 +401,7 @@ func (e *Engine) legendGroups() []legendGroup {
 			if e.legendRuleExempt(exempt, id) {
 				continue
 			}
-			name := o.Face().Name
+			name := e.Name(id)
 			if gi, ok := seen[name]; ok {
 				all[gi].ids = append(all[gi].ids, id)
 				continue
