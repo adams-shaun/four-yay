@@ -521,3 +521,27 @@ func TestMorphTurnUpCostFailsClosedOnUnmodelledShapes(t *testing.T) {
 		t.Fatalf("morphTurnUpCountAnnounced(%+v) = true, want false for a fixed-count Sac", fixed.Sac)
 	}
 }
+
+// TestMorphTurnUpCostParsesMultiXShape pins the two-X printed form. The
+// corpus prints `X X R` (Warbreak Trumpeter) as well as `X B B` and `X 3 W`,
+// and CR 601.2b makes every {X} symbol the SAME announced value, so the
+// payment is 2*X generic plus {R}. WithX folds exactly one generic per X
+// symbol; a parser that collapsed the repeated symbol would undercharge.
+func TestMorphTurnUpCostParsesMultiXShape(t *testing.T) {
+	c := ParseCost("X X R")
+	if c.X != 2 {
+		t.Fatalf("ParseCost(\"X X R\").X = %d, want 2", c.X)
+	}
+	if c.Colored[state.ManaIndex('R')] != 1 {
+		t.Fatalf("ParseCost(\"X X R\") red pips = %d, want 1", c.Colored[state.ManaIndex('R')])
+	}
+	// PRECONDITION: the multi-X cost differs from the single-X one, so the
+	// X-count assertion above is not vacuous.
+	single := ParseCost("X R")
+	if single.X != 1 {
+		t.Fatalf("ParseCost(\"X R\").X = %d, want 1", single.X)
+	}
+	if got, want := c.WithX(2).Generic, single.WithX(2).Generic+2; got != want {
+		t.Fatalf("WithX(2) generic for \"X X R\" = %d, want %d (two X symbols)", got, want)
+	}
+}
