@@ -881,16 +881,22 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerSource}}, true
 		}
 		return objectsOf(c.Remembered), true
-	case "TriggeredSourceController", "TriggeredTargetController":
+	case "TriggeredSourceSAController", "TriggeredSourceController", "TriggeredTargetController":
 		// The controller of the source/target the causing event recorded:
 		// Flameblade Angel's and Harsh Justice's "deals 1 damage to that
 		// source's controller", Greatbow Doyen's "to that creature's
-		// controller". The role is preferred when the trigger captured one
-		// (a DamageDone trigger's Remembered is the DAMAGED object, whose
-		// controller is exactly wrong for the source form); the fallback --
-		// Remembered[0]'s controller -- is deciderFromSpec's convention for
-		// the same two spellings on OptionalDecider$ lines, so both reads of
-		// one spelling agree wherever the role is absent.
+		// controller". TriggeredSourceSAController is the same role for a
+		// BecomesTarget/BecomesTargetOnce trigger's CAUSING spell or ability
+		// (Leyline of Combustion's 2 damage and Ashenmoor Liege's 4 life are
+		// paid to the targeting spell's controller, never the Leyline's or
+		// the Liege's); the trigger captures that source in TriggerSource,
+		// so it resolves through the identical read. The role is preferred
+		// when the trigger captured one (a DamageDone trigger's Remembered
+		// is the DAMAGED object, whose controller is exactly wrong for the
+		// source form); the fallback -- Remembered[0]'s controller -- is
+		// deciderFromSpec's convention for the same spellings on
+		// OptionalDecider$ lines, so both reads of one spelling agree
+		// wherever the role is absent.
 		ref := c.TriggerSource
 		if spec == "TriggeredTargetController" {
 			if c.TriggerTarget.Obj != 0 || c.TriggerTarget.IsPlayer {
