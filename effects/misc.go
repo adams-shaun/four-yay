@@ -701,6 +701,18 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		// collects Effect-created matches through the same replMatch shape and
 		// re-checks each body's ValidToken$ per plan mint, so a registered
 		// ReplaceToken body is fully resolved there and no replaced mint is lost.
+		// Event$ AddCounter with a ReplaceCounter body is the fourth live class
+		// (Brad Boimler, Eager Ensign's tap trigger, the corpus's sole
+		// CounterReplace Effect carrier): the body is a DB$ ReplaceCounter, the
+		// same body API printed R: AddCounter lines resolve through
+		// rules/replacement.go's applyAddCounterReplacements, which collects
+		// Effect-created matches through the same replMatch shape and prices the
+		// body's Amount$ itself (ReplaceCount$CounterNum/Plus.1 -> placed+1).
+		// Nothing is discarded by the registration -- the replacement only
+		// rewrites the CounterChange amount -- so unlike the Moved class the
+		// replaced result cannot lose an object, and a body this build cannot
+		// price is skipped by the dispatcher, never read as zero. Every OTHER
+		// AddCounter body keeps its loud Note.
 		// Every OTHER Moved body (the
 		// destination-changing ChangeZone/Tap/Clone family, 44 measured
 		// files) and every Draw/ProduceMana body keeps its loud
@@ -715,7 +727,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		if body != "" && (event == "DamageDone" ||
 			(event == "Moved" && replacementBodyAPI(body) == "PutCounter") ||
 			(event == "Moved" && replacementRedirectsToExile(params, body, c.SVars)) ||
-			(event == "CreateToken" && replacementBodyAPI(body) == "ReplaceToken")) {
+			(event == "CreateToken" && replacementBodyAPI(body) == "ReplaceToken") ||
+			(event == "AddCounter" && replacementBodyAPI(body) == "ReplaceCounter")) {
 			effectContinuous(h, state.ContinuousEffect{
 				Source: c.Source, Controller: c.Controller,
 				UntilEOT: effectUntilEOT(h, c.Source, rawDur), Duration: dur,
