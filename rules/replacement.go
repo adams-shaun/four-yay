@@ -7560,10 +7560,4 @@ func (e *Engine) handleCmdZone(d *decision.Decision, in decision.Intent) {
 			e.askCommandZone(o.Owner)
 		}
 	}
-	// A special-action sacrifice can park its own move here. Resume that
-	// payment only after this choice (and any queued commander choices) has
-	// actually emitted the replacement move.
-	if e.turnUp != nil && e.pending == nil && len(e.cmdZone) == 0 {
-		e.settleTurnUp(e.turnUp)
-	}
 }

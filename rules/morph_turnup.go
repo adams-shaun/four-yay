@@ -514,11 +514,15 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 	}
 	o := e.G.Obj(tp.card)
 	if o == nil || o.Zone != state.ZBattlefield || !o.FaceDown {
+		// The source is gone (or already face up): there is nothing left to
+		// turn up. Drop the flow so no later resume re-enters it.
+		e.dropTurnUp(tp)
 		return
 	}
 	// A cost carrying {X} must have been announced; a missing announcement
 	// (only reachable from a hand-built decision) fails closed.
 	if tp.cost.X > 0 && !tp.xDone {
+		e.dropTurnUp(tp)
 		return
 	}
 	paidCost := tp.cost
@@ -535,12 +539,16 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 			return
 		}
 		if !e.costPayable(tp.player, tp.card, false, paidCost) {
+			e.abortTurnUp(tp)
 			return
 		}
-		// Pay mana/life and the non-sacrifice components once. A commander
-		// sacrifice may suspend at its CR 903.9 choice; the continuation below
-		// then resumes without charging any of these components again.
+		// Pay mana/life and the non-sacrifice components once. Any cost event
+		// below may park on a decision (a CR 903.9 commander-zone choice, a
+		// CR 616.1 replacement order choice, a madness choice); the
+		// continuation then resumes from resumeTurnUpAfterCost without
+		// charging any of these components again.
 		if !e.payMana(tp.player, paidCost) {
+			e.abortTurnUp(tp)
 			return
 		}
 		if len(tp.discs) > 0 {
@@ -561,22 +569,60 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 				Text: "revealed " + strings.Join(names, ", ") + " as a cost"})
 		}
 		tp.settled = true
+		if !e.turnUpCostIdle() {
+			// A discard or return parked its move on a decision: wait for it
+			// before the sacrifices, so the cost events settle in cost order.
+			return
+		}
 	}
 	for tp.sacNext < len(tp.sacs) {
 		id := tp.sacs[tp.sacNext]
-		tp.sacNext++ // the event may suspend for a commander-zone answer
+		tp.sacNext++ // counted before the emit: the event may park on a decision
 		e.emit(events.Sacrifice(id))
-		if e.pending != nil {
+		if !e.turnUpCostIdle() {
 			return
 		}
 	}
 	e.finishTurnUp(tp)
 }
 
-// finishTurnUp closes a paid special action only after every replacement
-// choice caused by its cost events has resolved.
+// turnUpCostIdle reports whether no decision a turn-up cost event can park
+// on is outstanding or queued: nothing pending, no parked CR 903.9
+// commander-zone move, no queued CR 616.1 replacement order choice or madness
+// choice, no ask deferred behind one of those, and no replacement body
+// suspended mid-resolution. It is the ONE predicate the settle loop, the
+// finish and the Submit-time resume share, so a new parking decision class
+// is covered by adding it here rather than by a per-handler resume call.
+func (e *Engine) turnUpCostIdle() bool {
+	return e.pending == nil && len(e.cmdZone) == 0 && len(e.replChoices) == 0 &&
+		len(e.madnessChoices) == 0 && len(e.deferredAsks) == 0 && !e.Suspended()
+}
+
+// resumeTurnUpAfterCost is the single continuation point of a turn-up whose
+// cost events parked on a decision. Submit calls it after every answered
+// decision, once its own drains (deferred asks, queued replacement choices)
+// have run, so the payment resumes whatever kind of decision the cost event
+// parked on -- a commander-zone choice, a replacement order choice, a
+// madness choice, or an ask posed from inside a replacement body -- and only
+// once all of them have landed. Before the cost is settled the flow is
+// driven by its own KChoose asks (turnUpAnswer), never from here.
+func (e *Engine) resumeTurnUpAfterCost() {
+	if tp := e.turnUp; tp != nil && tp.settled && e.turnUpCostIdle() {
+		e.settleTurnUp(tp)
+	}
+}
+
+// dropTurnUp silently clears a turn-up flow that has nothing left to do.
+func (e *Engine) dropTurnUp(tp *turnUpPay) {
+	if e.turnUp == tp {
+		e.turnUp = nil
+	}
+}
+
+// finishTurnUp closes a paid special action only after every decision
+// caused by its cost events has resolved.
 func (e *Engine) finishTurnUp(tp *turnUpPay) {
-	if e.turnUp != tp || e.pending != nil || len(e.cmdZone) != 0 {
+	if e.turnUp != tp || !e.turnUpCostIdle() {
 		return
 	}
 	e.turnUp = nil

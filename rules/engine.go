@@ -3523,6 +3523,11 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if e.pending == nil && !e.Suspended() {
 		e.askNextReplacementChoice()
 	}
+	// A CR 708.6 turn-face-up special action whose cost events parked on a
+	// decision (any kind: commander zone, replacement order, madness, an ask
+	// inside a replacement body) finishes paying and turns face up once every
+	// such decision has landed (rules/morph_turnup.go).
+	e.resumeTurnUpAfterCost()
 	// An opening-hand round parked behind a decision its own effect posed
 	// (an "as this enters" choice of a card beginning the game on the
 	// battlefield) steps on now that the engine is idle again.
