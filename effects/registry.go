@@ -1984,6 +1984,20 @@ type Ctx struct {
 	// continuation effDig's DigTarget carries. Consumed and cleared at the
 	// top of the walk with HandMove/HandMoveDone (fx42 scoping).
 	HandMoveTarget int
+	// HandMoveConfirm is the answered Optional$ confirmation for a hidden-hand
+	// ChangeZone whose script carries an Optional$ marker -- Forge's
+	// confirmAction gate in ChangeZoneEffect.changeHiddenOriginResolve, which
+	// runs BEFORE any card is picked. "yes" accepts the fetch and every other
+	// answer declines it; HandMoveConfirmDone distinguishes "answered" from the
+	// first pass, and HandMoveConfirmTarget is the index of the hand owner whose
+	// confirmation was answered (the same per-owner cursor HandMoveTarget
+	// carries). A declined confirmation leaves the remembered set untouched; an
+	// accepted one lets the walk clear it exactly once before the pick, even
+	// when the pick ends up empty. Consumed and cleared at the top of the walk
+	// with HandMove/HandMoveDone (fx42 scoping).
+	HandMoveConfirm       string
+	HandMoveConfirmDone   bool
+	HandMoveConfirmTarget int
 	// HiddenPick is the answered Hidden$ True public-origin pick (hiddenpick1):
 	// the chooser picked which of the ChangeType$-eligible cards in the
 	// origin zone(s) move to Destination$. HiddenPickDone distinguishes
