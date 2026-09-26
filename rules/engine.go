@@ -824,6 +824,14 @@ type Engine struct {
 	// sink, so the outer effect's rider loop sees only its own mints. Nil on
 	// every ordinary Emit, so no other emit pays for the collection.
 	tokenMintSink *[]state.ObjID
+	// mintParkFrom is EmitTokenCreate's report to SuspendTokenRest (rules/
+	// token_rest.go): 1 + the replacement-choice queue length before an emit
+	// that parked the resolution behind a replacement-order ask, else 0.
+	// mintSinks are the collectors those parked mints' answers mint into,
+	// keyed by an id from mintSinkSeq and consumed by the "token_rest" frame.
+	mintParkFrom int
+	mintSinks    []mintSink
+	mintSinkSeq  uint64
 	// stackCopyMintSink, when non-nil, collects the object the StackCopy
 	// event currently being emitted actually minted (EmitStackCopy). Same
 	// stack discipline as tokenMintSink: a nested stack copy saves and

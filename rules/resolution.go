@@ -208,6 +208,10 @@ type resumePoint struct {
 	// re-enters with (the remaining flips a per-flip sub-ability's nested ask
 	// left unrun).
 	flipCursor effects.FlipRest
+	// tokenRest is the DB$ Token continuation a kind "token_rest" frame
+	// re-enters with (SuspendTokenRest): the frozen job, the cursor of the
+	// parked mint and the collector id its answer mints into.
+	tokenRest effects.TokenRest
 	// flipMemory is the resolving chain's shared coin-flip memory at the ask
 	// (Engine.resolvingFlipMemory, published by effects.Resolve). The resume
 	// rebuilds a fresh Ctx, so it must re-attach this same pointer or a chained
@@ -464,6 +468,13 @@ type contFrame struct {
 	// so sa.Sub would resume the wrong chain.
 	flipRest   bool
 	flipCursor effects.FlipRest
+	// tokenRest marks a frame that re-enters a DB$ Token's own SA (not
+	// sa.Sub) once its parked mint's replacement-order answer has minted
+	// (SuspendTokenRest); unlessResolved is that SA's already-resolved
+	// UnlessCost$ outcome, seeded into the re-entry so the gate is not
+	// re-posed (SuspendUnless).
+	tokenRest      *effects.TokenRest
+	unlessResolved string
 }
 
 // Ask implements effects.Host.Ask (rules' side of the interface, and the
@@ -847,6 +858,11 @@ func (e *Engine) SuspendUnless(sa *cards.SA, paid bool) {
 	}
 	if target.sa == sa {
 		target.unlessResolved = marker
+	}
+	// A Token whose mint parked re-enters ITSELF through its own
+	// continuation frame (SuspendTokenRest), which must carry the outcome.
+	if n := len(e.contChain); n > 0 && e.contChain[n-1].tokenRest != nil && e.contChain[n-1].sa == sa {
+		e.contChain[n-1].unlessResolved = marker
 	}
 }
 
@@ -3718,6 +3734,15 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			ctx.Modes = nil
 			ctx.GenericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 			ctx.GenericChooserIndex = rp.genericChooserIndex
+		case "token_rest":
+			// A DB$ Token's mint parked behind a replacement-order ask and
+			// the answer has minted it: re-enter the Token with its frozen
+			// job, the parked mint's objects (the collector the answer
+			// minted into) and the cursor of the mints still owed.
+			ctx.Modes = nil
+			rest := rp.tokenRest.Clone()
+			rest.Parked = e.takeMintSink(rest.SinkID)
+			ctx.TokenRest = &rest
 		case "flip_rest":
 			// A DB$ FlipCoin loop's per-flip sub-ability suspended on its own
 			// mid-resolution ask (Mirror March's copy choice, say) and that
@@ -4170,6 +4195,13 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			// resume) with the flip cursor restored.
 			f.kind, f.sa = "flip_rest", sa
 			f.flipCursor = cf.flipCursor
+		} else if cf.tokenRest != nil {
+			// The Token re-enters ITSELF (rp.sa = the Token SA): the parked
+			// mint's riders, the mints after it and the post-loop work run
+			// there, and the re-entry's own walk then continues at sa.Sub.
+			f.kind, f.sa = "token_rest", sa
+			f.tokenRest = cf.tokenRest.Clone()
+			f.unlessResolved = cf.unlessResolved
 		} else if cf.repeat != nil {
 			f.kind, f.sa, f.repeat = "repeat", sa, cf.repeat
 			if cf.repeat.optional {

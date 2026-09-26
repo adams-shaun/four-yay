@@ -2281,6 +2281,13 @@ type Ctx struct {
 	// walk (the fx42 scoping discipline), so a nested FlipCoin poses its own
 	// loop. Nil on every ordinary first pass.
 	FlipRest *FlipRest
+	// TokenRest is the resume cursor of a DB$ Token whose mint parked behind
+	// a CR 616.1 order ask (effects/token.go). rules' resumeResolution sets it
+	// from the continuation frame -- with Parked filled from the objects the
+	// answer actually minted -- before re-running the Token SA; effToken
+	// consumes and clears it at the top of its walk. Nil on every ordinary
+	// first pass.
+	TokenRest *TokenRest
 }
 
 // VoteCount is one ballot subject's tally (see Ctx.VoteCounts).
@@ -2804,7 +2811,11 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// when the loop began; its remaining iterations are part of that
 		// same resolution.
 		resumingLoop := c.Repeat != nil && c.Repeat.SA == sa
-		if !resumingLoop {
+		// A DB$ Token re-entered after its parked mint's answer (Ctx.TokenRest)
+		// is the rest of the body that already passed its gate on the first
+		// pass: the mints it made may have changed what the condition reads.
+		resumingTokens := c.TokenRest != nil && c.TokenRest.SA == sa
+		if !resumingLoop && !resumingTokens {
 			if met, supported := conditionMet(h, c, sa); supported && !met {
 				continue
 			}
@@ -2904,8 +2915,13 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		} else {
 			fn(h, c, sa)
 		}
-		imprint(h, c, sa)
-		if strings.EqualFold(sa.Params["ClearImprinted"], "True") && c.Source != 0 {
+		// The Imprint/ClearImprinted tail ran after the first pass of a
+		// Token re-entry already (every suspension runs it there); a second
+		// run would log the same imprint twice.
+		if !resumingTokens {
+			imprint(h, c, sa)
+		}
+		if !resumingTokens && strings.EqualFold(sa.Params["ClearImprinted"], "True") && c.Source != 0 {
 			// Only a real clear is an event (the ClearRemembered$
 			// discipline effCleanup documents): clearing lists that are
 			// already empty is a no-op, and logging it as a state change hid

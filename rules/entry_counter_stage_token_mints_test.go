@@ -10,17 +10,10 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// TestEntryCounterStageTokenMints is the brief's token-mint clause: a token
-// entry whose characteristic-counter grant competes under non-commuting
-// AddCounter replacements must stage its CR 616.1 order ask BEFORE the mint
-// folds, for a direct TokenCreate, a CardToken copy, AND a finalized token
-// plan. The plan case runs TWO same-script mints, because two TokenCreate
-// events carry no identity of their own: without a per-mint continuation the
-// second mint reads as the first mint's re-drive and vanishes.
-//
-// Both answers reorder the same non-commuting pair (Hardened Scales' +1 and
-// Branching Evolution's doubling), so the final counter count (1 -> 2 -> 4
-// against 1 -> 2 -> 3) is an observable function of the answer.
+// TestTokenPlanMintIsObservedOnce pins the finalized-plan mint path now that
+// it routes through Engine.emit: a doubled creation reports both minted ids
+// to EmitTokenCreate's sink, and the ETB watcher queues exactly one trigger
+// per plan (the plan's mints are observed once, not once per re-drive).
 func TestTokenPlanMintIsObservedOnce(t *testing.T) {
 	doubler := card(t, tokenSVarAmountReplSrc())
 	token := card(t, "Name:Observed Token\nTypes:Creature\nPT:1/1\nOracle:x\n")
@@ -54,6 +47,17 @@ func TestTokenPlanMintIsObservedOnce(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
+// TestEntryCounterStageTokenMints is the brief's token-mint clause: a token
+// entry whose characteristic-counter grant competes under non-commuting
+// AddCounter replacements must stage its CR 616.1 order ask BEFORE the mint
+// folds, for a direct TokenCreate, a CardToken copy, AND a finalized token
+// plan. The plan case runs TWO same-script mints, because two TokenCreate
+// events carry no identity of their own: without a per-mint continuation the
+// second mint reads as the first mint's re-drive and vanishes.
+//
+// Both answers reorder the same non-commuting pair (Hardened Scales' +1 and
+// Branching Evolution's doubling), so the final counter count (1 -> 2 -> 4
+// against 1 -> 2 -> 3) is an observable function of the answer.
 func TestEntryCounterStageTokenMints(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

@@ -15,7 +15,8 @@ import (
 // replacement is resolving (applyingReplacement), and that entry carries a
 // non-commuting entry-counter grant. The CR 616.1 order ask must park BEFORE
 // the nested entry folds -- no observer may see the un-replaced permanent --
-// and the body's own SubAbility$ rider must resume exactly once after the
+// and the body's own riders -- the DB$ Token's TokenTapped$ on the token
+// the answer mints, then its SubAbility$ -- must resume exactly once after the
 // answer. The host's entry is Updated (the corpus-dominant shape), so the
 // original action still happens; it must happen exactly once and never recur.
 //
@@ -37,7 +38,7 @@ func TestEntryCounterStageReplacementBody(t *testing.T) {
 			// entry, so the host really enters and the body runs on top of it.
 			spell := card(t, "Name:Body Entry Spell\nManaCost:0\nTypes:Creature\nPT:1/1\n"+
 				"R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ MakeToken | ReplacementResult$ Updated | Description$ make token\n"+
-				"SVar:MakeToken:DB$ Token | TokenScript$ body_entry | SubAbility$ Rider\n"+
+				"SVar:MakeToken:DB$ Token | TokenScript$ body_entry | TokenTapped$ True | SubAbility$ Rider\n"+
 				"SVar:Rider:DB$ GainLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")
 			token := card(t, "Name:Body Entry Token\nTypes:Creature\nPT:1/1\n"+
 				"R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ AddEntry | ReplacementResult$ Updated | Description$ entry counter\n"+
@@ -119,6 +120,10 @@ func TestEntryCounterStageReplacementBody(t *testing.T) {
 			minted := e.G.Obj(mintID)
 			if minted == nil || minted.Zone != state.ZBattlefield {
 				t.Fatalf("replacement-body token = %+v, want a battlefield permanent", minted)
+			}
+			if !minted.Tapped || countKind(e.L.Events, events.Tap, mintID) != 1 {
+				t.Fatalf("replacement-body token tapped=%v (%d Tap events): the body's DB$ Token rider must land exactly once on the token its answer minted",
+					minted.Tapped, countKind(e.L.Events, events.Tap, mintID))
 			}
 			if got := minted.Counter("P1P1"); got != tc.want {
 				t.Fatalf("replacement-body token counters = %d, want %d (the answer must decide 1->2->4 vs 1->2->3)", got, tc.want)

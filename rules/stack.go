@@ -4389,8 +4389,16 @@ func (e *Engine) EmitTokenCreate(ev events.Event) []state.ObjID {
 	var ids []state.ObjID
 	saved := e.tokenMintSink
 	e.tokenMintSink = &ids
+	queued, resumeBefore := len(e.replChoices), e.resume
+	e.mintParkFrom = 0
 	e.emit(ev)
 	e.tokenMintSink = saved
+	if e.resume != nil && e.resume != resumeBefore && len(e.replChoices) > queued {
+		// The mint (or a later mint of its plan) parked this resolution
+		// behind a replacement-order ask: report it so the caller can
+		// record its continuation (SuspendTokenRest).
+		e.mintParkFrom = queued + 1
+	}
 	return ids
 }
 

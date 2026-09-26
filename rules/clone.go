@@ -200,6 +200,15 @@ func (e *Engine) Clone() *Engine {
 		st := *e.entryStageDone
 		c.entryStageDone = &st
 	}
+	// Parked-mint collectors (rules/token_rest.go): value data keyed by id,
+	// re-allocated so a clone's answer never appends into the original's.
+	c.mintParkFrom, c.mintSinkSeq = e.mintParkFrom, e.mintSinkSeq
+	if e.mintSinks != nil {
+		c.mintSinks = make([]mintSink, len(e.mintSinks))
+		for i, ms := range e.mintSinks {
+			c.mintSinks[i] = mintSink{id: ms.id, ids: append([]state.ObjID(nil), ms.ids...)}
+		}
+	}
 	if e.untapResume != nil {
 		r := *e.untapResume
 		c.untapResume = &r
@@ -1047,6 +1056,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// The multi-player GenericChoice chooser cursor is likewise a sliced value
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
+	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat
 		cur.subjects = append([]state.Target(nil), rp.repeat.subjects...)

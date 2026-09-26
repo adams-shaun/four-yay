@@ -5877,6 +5877,11 @@ type replChoice struct {
 	// before (*triggerSnapshot) -- the stage is reached only through its
 	// own answer.
 	stage *entryCounterStage
+	// mintSink names the parked-mint collector (Engine.mintSinks) this
+	// competition's answer mints into, when it parked a DB$ Token's mint
+	// that a "token_rest" continuation is waiting on (rules/token_rest.go).
+	// 0 for every other competition.
+	mintSink uint64
 	// inResolution marks a competition posed while a stack resolution was in
 	// flight (e.resolvingObj != 0): the pose's Engine.Ask then parked that
 	// resolution on e.resume with the interrupted object still on the stack,
@@ -6527,7 +6532,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 				Text: "entry counter replacement-order answer out of range"})
 			return
 		}
-		e.resumeEntryCounterOrder(rc, chosen[0].Index)
+		e.withMintSink(rc, func() { e.resumeEntryCounterOrder(rc, chosen[0].Index) })
 	case replChoiceToken:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.applicable) {
 			e.triggerBefore = before
@@ -6537,25 +6542,27 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		}
 		m := rc.cands[rc.applicable[chosen[0].Index]]
 		rest := dropReplMatch(rc.cands, m)
-		var plan []tokenPlanMint
-		var parked bool
-		if body := m.repl.With; body != nil &&
-			(strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
-				strings.TrimSpace(body.Params["ValidChoices"]) != "") {
-			// A chosen-copy match: the election the scan-order drive poses for
-			// it (driveTokenReplacements' chosenShape arm), with the remaining
-			// matches and the plan as they stand. idx -1 makes the pose's resume
-			// cursor re-drive rest from 0 (m itself is already gone from rest).
-			plan, parked = e.poseChosenTokenReplacement(rc.ev, rest, rc.tokenPlan, -1, m)
-		} else {
-			plan = e.applyTokenReplacementToPlan(rc.ev, rc.tokenPlan, m)
-		}
-		if !parked {
-			plan, parked = e.driveTokenReplacements(rc.ev, rest, plan, 0)
-		}
-		if !parked {
-			e.emitTokenPlan(rc.ev, plan)
-		}
+		e.withMintSink(rc, func() {
+			var plan []tokenPlanMint
+			var parked bool
+			if body := m.repl.With; body != nil &&
+				(strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
+					strings.TrimSpace(body.Params["ValidChoices"]) != "") {
+				// A chosen-copy match: the election the scan-order drive poses for
+				// it (driveTokenReplacements' chosenShape arm), with the remaining
+				// matches and the plan as they stand. idx -1 makes the pose's resume
+				// cursor re-drive rest from 0 (m itself is already gone from rest).
+				plan, parked = e.poseChosenTokenReplacement(rc.ev, rest, rc.tokenPlan, -1, m)
+			} else {
+				plan = e.applyTokenReplacementToPlan(rc.ev, rc.tokenPlan, m)
+			}
+			if !parked {
+				plan, parked = e.driveTokenReplacements(rc.ev, rest, plan, 0)
+			}
+			if !parked {
+				e.emitTokenPlan(rc.ev, plan)
+			}
+		})
 	case replChoiceUpdated:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
 			e.triggerBefore = before
