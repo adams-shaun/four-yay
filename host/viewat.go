@@ -235,7 +235,18 @@ func (t *table) archivedMatch(k int) (sidecar, bool) {
 // on-disk entry to the read side; an embedder's persisted observer log
 // (Task M2c-3) takes the same matchForLog with the log already in hand,
 // so both sources are served through the exact same shape.
+//
+// sc is t.archived's index entry, which carries no NameUniverseNames (see
+// archive); a name-universe match's exact label list is read back from its
+// own sidecar file here.
 func (r *Registry) loadArchived(t *table, sc sidecar) (*match, error) {
+	if sc.NameUniverse && len(sc.NameUniverseNames) == 0 {
+		full, err := readSidecar(r.opts.Dir, t.cfg.ID, sc.Match)
+		if err != nil {
+			return nil, err
+		}
+		sc.NameUniverseNames = full.NameUniverseNames
+	}
 	l, err := readLog(r.opts.Dir, t.cfg.ID, sc.Match)
 	if err != nil {
 		return nil, err
@@ -306,7 +317,7 @@ func (r *Registry) matchForLog(t *table, sc sidecar, l *events.Log) (*match, err
 	}
 	return &match{table: t, k: sc.Match, seed: sc.Seed, cfg: cfg, seats: sc.Seats, decks: sc.Decks, e: e,
 		bounds: boundsOf(l.Events), turnStarts: turnStartsIn(l.Events, 0), state: sc.State, result: sc.Result,
-		winner: sc.Winner, head: sc.Head}, nil
+		winner: sc.Winner, head: sc.Head, reason: sc.Reason}, nil
 }
 
 // cutTailReplayed reports whether err — a *replay.Divergence that
