@@ -52,8 +52,17 @@ func TestSkilledAnimatorAsLongAsInPlayDuration(t *testing.T) {
 	if e.IsCreature(ring) {
 		t.Fatal("precondition: Sol Ring is already a creature")
 	}
-	if d := e.Derived(ring); d.Power == 5 && d.Toughness == 5 {
-		t.Fatalf("precondition: Sol Ring already reads 5/5: %d/%d", d.Power, d.Toughness)
+	initial := e.Derived(ring)
+	if initial.Power != 0 || initial.Toughness != 0 {
+		t.Fatalf("precondition: unanimated Sol Ring = %d/%d, want 0/0", initial.Power, initial.Toughness)
+	}
+	artifact, creature := false, false
+	for _, typ := range initial.Types {
+		artifact = artifact || typ == "Artifact"
+		creature = creature || typ == "Creature"
+	}
+	if !artifact || creature {
+		t.Fatalf("precondition: unanimated Sol Ring types = %v, want Artifact and not Creature", initial.Types)
 	}
 
 	// Skilled Animator enters: its ChangesZone ETB trigger fires and asks for
