@@ -3,6 +3,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -71,6 +72,36 @@ func TestBradBoimlerEffectCreatedAddCounterReplacement(t *testing.T) {
 // never an AddCounter event, so the Effect leaves it alone. The starting
 // counters are placed BEFORE the trigger resolves, so the removal is the only
 // event the Effect could see.
+func TestBradBoimlerEffectCreatedAddCounterKeepsTriggerController(t *testing.T) {
+	brad := tokenReplCorpusCard(t, "Brad Boimler, Eager Ensign")
+	seat0TargetCard := card(t, "Name:Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	seat1TargetCard := card(t, "Name:Opponent Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	e, cfg := tokenReplGameSeats(t, 97, []*cards.Card{brad, seat0TargetCard}, []*cards.Card{seat1TargetCard})
+	bradID := moveSeededCard(t, e, 0, brad, state.ZBattlefield)
+	seat0Target := moveSeededCard(t, e, 0, seat0TargetCard, state.ZBattlefield)
+	seat1Target := moveSeededCard(t, e, 1, seat1TargetCard, state.ZBattlefield)
+	if e.G.Obj(seat0Target).Controller != 0 || e.G.Obj(seat1Target).Controller != 1 {
+		t.Fatal("precondition: counter targets are not controlled by opposing seats")
+	}
+	resolveBradTrigger(t, e, bradID)
+	if hasNote(e, "continuous replacement unimplemented (CounterReplace)") {
+		t.Fatal("Brad's CounterReplace registration fell through to the unimplemented Note")
+	}
+	e.emit(events.Event{Kind: events.ControlChange, Obj: bradID, Player: 1})
+	if got := e.G.Obj(bradID).Controller; got != 1 {
+		t.Fatalf("precondition: Brad control transfer failed, controller=%d", got)
+	}
+	e.emit(events.Event{Kind: events.CounterChange, Obj: seat0Target, Counter: "P1P1", Amount: 1})
+	e.emit(events.Event{Kind: events.CounterChange, Obj: seat1Target, Counter: "P1P1", Amount: 1})
+	if got := e.G.Obj(seat0Target).Counter("P1P1"); got != 2 {
+		t.Fatalf("original trigger controller's permanent got %d counters, want 2", got)
+	}
+	if got := e.G.Obj(seat1Target).Counter("P1P1"); got != 1 {
+		t.Fatalf("new controller's permanent got %d counters, want 1", got)
+	}
+	replayCheck(t, e, cfg)
+}
+
 func TestBradBoimlerEffectCreatedAddCounterIgnoresRemoval(t *testing.T) {
 	e, cfg, bradID, targetID := bradBoard(t, 89)
 	e.emit(events.Event{Kind: events.CounterChange, Obj: targetID, Counter: "P1P1", Amount: 3})
