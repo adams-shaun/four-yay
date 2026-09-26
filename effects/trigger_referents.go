@@ -257,6 +257,11 @@ func controlReferent(p string) (op, ref string, ok bool) {
 		// like the bare case: the tail maps each remembered target by op
 		// (ControlledBy -> Controller, OwnedBy -> Owner).",
 		"RememberedController", "RememberedOwner",
+		// The controller of the CAUSING spell/ability's source a
+		// BecomesTarget/BecomesTargetOnce trigger captured (Leyline of
+		// Combustion's payout, Black Bolt's Lethal Voice destroy ask):
+		// resolved in controlReferentPlayers against TriggerSource.
+		"TriggeredSourceSAController",
 		// Barroom Brawl's "target creature the opponent to your left
 		// controls": the next living seat after You (not resolution-only).
 		"NextOpponentToYourLeft", "NextPlayerToYourLeft":
@@ -281,6 +286,27 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 	}
 	var targets []state.Target
 	switch ref {
+	case "TriggeredSourceSAController":
+		// The controller of the CAUSING spell/ability's source: the role a
+		// BecomesTarget/BecomesTargetOnce trigger captures in TriggerSource
+		// (Leyline of Combustion's payout, Ashenmoor Liege's life loss, Black
+		// Bolt's "destroy target nonland permanent that player controls"
+		// offer). Unlike the Targeted* arms this is not resolution-only --
+		// the role is bound at fire time and rides the trigger's stack
+		// context into both the offer and the CR 608.2b recheck. It names a
+		// SEAT (the referent says Controller), so it resolves directly to the
+		// captured source's controller instead of the object tail below,
+		// which would read the source's OWNER for the OwnedBy variant. No
+		// role, or a source object that is gone, stays unbound -- an absent
+		// binding must never admit the positive or the negated predicate.
+		if sc.TriggerSource == 0 {
+			return nil, false
+		}
+		o := g.Obj(sc.TriggerSource)
+		if o == nil {
+			return nil, false
+		}
+		return []state.PlayerID{o.Controller}, true
 	case "TriggeredTarget":
 		targets = []state.Target{sc.TriggerTarget}
 	case "TriggeredDefendingPlayer":

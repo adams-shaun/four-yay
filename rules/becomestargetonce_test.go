@@ -206,10 +206,10 @@ func TestProfessorHojoBecomesTargetOnceIgnoresASpell(t *testing.T) {
 // reading on the REAL corpus Leyline of Combustion: an opponent's activated
 // ability that names TWO of the Leyline controller's permanents in one target
 // answer fires the line exactly ONCE, not once per target. The trigger is
-// counted through its TriggerPush (Leyline's own body resolves
-// Defined$ TriggeredSourceSAController, which this build does not implement --
-// see the report's Issues), so this pins the matcher and the batch latch
-// without depending on that body; without the latch the count is 2.
+// counted through its TriggerPush, and the payout is asserted on the seats'
+// life totals: Leyline's own body resolves Defined$ TriggeredSourceSAController
+// (the targeting ability's controller), so the whole batch costs the OPPONENT
+// exactly 2 life, and Leyline's controller none.
 func TestLeylineOfCombustionBecomesTargetOnceIsOnePerAction(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	lcard := mustCorpusCard(t, reg, "Leyline of Combustion")
@@ -242,6 +242,12 @@ func TestLeylineOfCombustionBecomesTargetOnceIsOnePerAction(t *testing.T) {
 	}
 	if o := e.G.Obj(leyline); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatalf("precondition: Leyline of Combustion is not on the battlefield: %+v", o)
+	}
+	// Precondition for the payout assertions: both seats start at the same
+	// life, so the damage is attributable to the trigger's resolution alone.
+	life0, life1 := e.G.Players[0].Life, e.G.Players[1].Life
+	if life0 == life1-2 {
+		t.Fatalf("precondition: seat 0 life %d equals the expected post-damage seat 1 life", life0)
 	}
 
 	// Seat 1 activates the ability, naming BOTH of seat 0's lands in one
@@ -281,5 +287,16 @@ func TestLeylineOfCombustionBecomesTargetOnceIsOnePerAction(t *testing.T) {
 	}
 	if pushes != 1 {
 		t.Fatalf("Leyline of Combustion fired %d times for one two-target ability, want 1 (the batch itself)", pushes)
+	}
+
+	// And the body paid the RIGHT seat: Leyline's own TrigDmg resolves
+	// Defined$ TriggeredSourceSAController, so the ABILITY's controller (seat
+	// 1, who cast the two-target activation) takes exactly 2 damage for the
+	// whole batch -- not 4, and never Leyline's controller (seat 0).
+	if got := e.G.Players[1].Life; got != life1-2 {
+		t.Fatalf("seat 1 life = %d, want %d (the two-target batch deals 2 once)", got, life1-2)
+	}
+	if got := e.G.Players[0].Life; got != life0 {
+		t.Fatalf("seat 0 (Leyline's controller) life = %d, want unchanged %d", got, life0)
 	}
 }
