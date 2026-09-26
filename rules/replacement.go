@@ -305,11 +305,11 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		}
 		if with := replacementBodySA(ce.ReplacementBody); with != nil {
 			r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams, With: with}
-			if e.replacementMatchesEffectCreated(*r, ce.Source, ev, ce.Remembered, ce.RememberedPlayers) {
+			if e.replacementMatchesEffectCreatedBy(*r, ce.Source, ev, ce.Remembered, ce.RememberedPlayers, ce.Controller) {
 				matches = append(matches, replMatch{id: ce.Source, repl: r, remembered: ce.Remembered,
 					rememberedPlayers: ce.RememberedPlayers,
-					chosen:            ce.ChosenNumber,
-					key:               "effect:" + strconv.Itoa(int(ce.Source)) + ":" + strconv.Itoa(int(ce.Timestamp))})
+					chosen:            ce.ChosenNumber, controller: ce.Controller, frozenController: true,
+					key: "effect:" + strconv.Itoa(int(ce.Source)) + ":" + strconv.Itoa(int(ce.Timestamp))})
 			}
 		} else if ce.ReplacementBody == "" && (strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") ||
 			(event == "DamageDone" && strings.EqualFold(ce.ReplacementParams["Prevent"], "True"))) {
@@ -649,6 +649,10 @@ type replMatch struct {
 	// the body's Count$ChosenNumber head reads the frozen binding. Zero on
 	// every printed replacement (and on an Effect that bound nothing).
 	chosen int32
+	// Effect-created replacements retain the controller who resolved their
+	// granting ability; later source control changes cannot redefine You.
+	controller       state.PlayerID
+	frozenController bool
 }
 
 // rememberedSpecContext builds the match context a ValidCard$/ValidLKI$
@@ -1505,7 +1509,11 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		e.seedEffectReplCtx(ctx, m)
 		return ctx
 	}
-	ctx := &effects.Ctx{Source: m.id, Controller: o.Controller,
+	controller := o.Controller
+	if m.frozenController {
+		controller = m.controller
+	}
+	ctx := &effects.Ctx{Source: m.id, Controller: controller,
 		ReplacementTarget: target, ReplacementSource: e.protectionSource(e.damaging),
 		ReplacementAmount: drawMatchAmount(ev),
 		// X is the {X} paid for the moving object, so an ETB replacement that
@@ -4288,6 +4296,15 @@ func (e *Engine) replacementMatchesEffectCreated(r cards.Repl, source state.ObjI
 	return e.replacementMatchesRememberedUngated(r, source, ev, remembered, rememberedPlayers, nil)
 }
 
+// replacementMatchesEffectCreatedBy evaluates the temporary replacement in
+// the controller frame captured when the granting Effect resolved. Its source
+// may subsequently change controllers, but that does not rewrite the Effect's
+// meaning of You.
+func (e *Engine) replacementMatchesEffectCreatedBy(r cards.Repl, source state.ObjID, ev events.Event,
+	remembered []state.ObjID, rememberedPlayers []state.PlayerID, controller state.PlayerID) bool {
+	return e.replacementMatchesRememberedUngatedBy(r, source, ev, remembered, rememberedPlayers, nil, controller)
+}
+
 // replacementMatchesToken / replacementMatchesEffectCreatedToken are the
 // mint-recheck entry points: tokenOverride overrides what the ValidToken$
 // matcher reads as the would-be token (a copy plan mint's snapshot, CR
@@ -4305,7 +4322,11 @@ func (e *Engine) replacementMatchesEffectCreatedToken(r cards.Repl, source state
 // predicate body without the ActiveZones$ gate; only the wrappers above
 // reach it.
 func (e *Engine) replacementMatchesRememberedUngated(r cards.Repl, source state.ObjID, ev events.Event, remembered []state.ObjID, rememberedPlayers []state.PlayerID, tokenOverride *state.Object) bool {
-	you := e.controllerOf(source)
+	return e.replacementMatchesRememberedUngatedBy(r, source, ev, remembered, rememberedPlayers, tokenOverride, e.controllerOf(source))
+}
+
+func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source state.ObjID, ev events.Event,
+	remembered []state.ObjID, rememberedPlayers []state.PlayerID, tokenOverride *state.Object, you state.PlayerID) bool {
 	switch r.Event {
 	case "Attached":
 		if ev.Kind != events.Attach || len(ev.IDs) == 0 {
