@@ -463,7 +463,13 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// and a permitted opponent could not.
 		if e.activatorAllows(p, id, ma) &&
 			e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
-			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) {
+			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) &&
+			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
+			// only if an opponent has three or more poison counters"): the same
+			// intervening-if gate sVarGateOK applies to every non-mana
+			// activation, so the priority offer, the payment windows and the V1
+			// planner withhold the ability with its condition false.
+			e.manaSVarGateOK(o, p, id, ma) {
 			// ActivationLimit$ / GameActivationLimit$ (Vivi Ornitier's "only once
 			// each turn", Stalking Leonin's "Activate only once"): the non-mana
 			// ability offer loops in legal.go gate on these parameters, but this
@@ -570,7 +576,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			continue
 		}
 		if ma.API == "Mana" && !e.isLoyaltyAbility(ma) && abilityZoneOK(ma, o.Zone) && !abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) &&
-			e.manaActivationGateHolds(p, id, ma) {
+			e.manaActivationGateHolds(p, id, ma) && e.manaSVarGateOK(o, p, id, ma) {
 			out = append(out, ma)
 		}
 	}
@@ -597,12 +603,34 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			continue
 		}
 		if !abilityZoneOK(ga.sa, o.Zone) || abilityRestricted(ga.sa) || !e.manaAbilityPayable(p, id, ga.sa) ||
-			!e.manaActivationGateHolds(p, id, ga.sa) {
+			!e.manaActivationGateHolds(p, id, ga.sa) || !e.manaSVarGateOK(o, p, id, ga.sa) {
 			continue
 		}
 		out = append(out, ga.sa)
 	}
 	return out
+}
+
+// manaSVarGateOK is the mana walks' CheckSVar$/SVarCompare$ activation gate:
+// the same shared evaluator sVarGateOK (rules/legal.go) applies to every
+// non-mana activation offer, so a gated ability (Glistening Sphere's
+// Corrupted "Activate only if an opponent has three or more poison
+// counters") reads one member set across the priority offer, the payment
+// windows and the V1 payment planner. Only the merged face is walk-specific:
+// pileAbilityRefOf resolves it for a printed SA (a mutated pile's under-card
+// face reads its own SVar table); a granted or static-granted body is not a
+// pile member and reads merged 0, the top face's table. sVarGateOK's
+// fail-OPEN on an unevaluable body is the mana contract too -- an unreadable
+// gate never silently removes a card's activation.
+func (e *Engine) manaSVarGateOK(o *state.Object, p state.PlayerID, id state.ObjID, ma *cards.SA) bool {
+	if _, ok := ma.Params["CheckSVar"]; !ok {
+		return true
+	}
+	merged := 0
+	if _, m, found := pileAbilityRefOf(o, ma); found {
+		merged = m
+	}
+	return e.sVarGateOK(p, id, ma, merged)
 }
 
 // manaActivationGateHolds evaluates a plain AB$ Mana ability's IsPresent$/
