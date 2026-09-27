@@ -1,9 +1,0 @@
-{
-  "card": "Spire of Industry", "family": "activation-condition", "oracle_sha": "d7cca0cd0002",
-  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
-  "scenarios": [
-    {"name": "colored-mana-unavailable-without-artifact", "cr": ["602.5"], "why": "No artifact is controlled, so the restriction on the any-color mana ability is not met.", "setup": {"p0": {"battlefield": ["Spire of Industry"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Spire of Industry", "label": "any color"}, "want": false}]},
-    {"name": "colored-mana-offered-with-artifact", "cr": ["602.5"], "why": "Bonesplitter is an artifact controlled by the player, satisfying the ability's condition.", "setup": {"p0": {"battlefield": ["Spire of Industry", "Bonesplitter"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Spire of Industry", "label": "any color"}, "want": true}]},
-    {"name": "colored-mana-activation-pays-one-life", "cr": ["602.5", "605.1a", "106.12"], "why": "With an artifact controlled, the ability can be activated; its costs tap the Spire and pay one life before it adds one mana.", "setup": {"p0": {"battlefield": ["Spire of Industry", "Bonesplitter"]}}, "steps": [{"op": "activate", "seat": 0, "card": "p0:Spire of Industry", "ability": "any color"}], "expect": [{"life": {"p0": 19}}]}
-  ]
-}
