@@ -4,6 +4,10 @@
   import type { LogSeatIdentity } from '../lib/logcolour';
   import { parseLogLine, type CardOwnerColour } from '../lib/logrender';
   import type { AutoPassLog } from '../lib/autolog';
+  import type { CardView } from '../protocol';
+  import { cardById } from '../lib/board';
+  import { CardHover } from '../lib/carddetail.svelte';
+  import CardDetail from './CardDetail.svelte';
   import ManaSymbols from './ManaSymbols.svelte';
 
   /**
@@ -44,8 +48,31 @@
    * `Jace, the Mind Sculptor` cannot split the name). It is optional, so a
    * caller with no cards (or a test) renders card names uncoloured by the
    * word-shape fallback.
+   *
+   * Card-name hover preview (fb-20260927T154603Z). `cards` is the SAME
+   * flattened view list `cardColour` is built over — every visible zone, via
+   * everyVisibleCard. A card-name span resolves its `#<id>` against it with
+   * cardById and, when an object is found, becomes a trigger for the shared
+   * detail panel: 250 ms pointer dwell (or keyboard focus) opens
+   * CardDetail, pointer leave / blur / Escape close it. One CardHover drives
+   * ALL the line triggers against ONE panel, exactly the surface CardHover's
+   * own doc names; the panel renders at this container level, never inside a
+   * row `<button>`.
+   *
+   * An id that resolves to no visible object (destroyed permanent, gone
+   * token, exiled card) or the redacted id 0 ("a card") opens nothing: the
+   * span keeps its `title` tooltip and degrades silently — never an invented
+   * card. The panel describes the object's CURRENT live-view state even when
+   * the DVR is scrubbed to an older line, because the client keeps no
+   * historical views and the object id is the only handle shared by a line
+   * and the view. Both are accepted approximations, recorded here rather
+   * than in AGENTS.md's frozen table.
+   *
+   * `hover` is injectable for the repo's SSR harness (no DOM, no pointer
+   * events), exactly as CardTile's is: production never passes it and the
+   * default is the one CardHover this component owns.
    */
-  let { dvr, onSeek, identities = [], cardColour = null, notes = [] }: {
+  let { dvr, onSeek, identities = [], cardColour = null, notes = [], cards = [], hover = new CardHover() }: {
     dvr: DvrState;
     onSeek: (seq: number) => void;
     identities?: LogSeatIdentity[];
@@ -57,12 +84,39 @@
      * the passes (settings.logAutoPasses). Empty for a spectator.
      */
     notes?: AutoPassLog[];
+    /** cards is the current view's flattened card list (everyVisibleCard). */
+    cards?: CardView[];
+    hover?: CardHover;
   } = $props();
 
   let container: HTMLDivElement | undefined;
   let revealAll = $state(false);
   let revealSteps = $state(false);
   const lines = $derived(visibleLog(dvr.events, revealAll, revealSteps));
+
+  // The panel's lifetime follows the objects the transcript currently shows:
+  // a card that leaves every visible zone must close a panel opened for it,
+  // even though no pointer event will fire (the span may be gone). This is
+  // the lifecycle half of CardHover's contract; the rendering half does not
+  // apply because a log line is keyed by event seq and never re-pointed at a
+  // different card.
+  $effect(() => {
+    hover.supervise(cards);
+  });
+
+  // Escape closes a pointer-opened panel even when focus never entered the
+  // card-name span: a pointer dwell does not move focus, so a keydown on the
+  // span alone would miss it. The listener exists only while the panel is
+  // open, so it cannot steal Escape from any other surface. (The span's own
+  // onkeydown still serves the keyboard-focus path.)
+  $effect(() => {
+    if (!hover.hover.show) return;
+    const onKey = (e: KeyboardEvent) => hover.keydown(e);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const resolveCard = (id: string): CardView | null => cardById(cards, id);
 
   $effect(() => {
     // The cursor is always a valid DVR target, but if it landed on a hidden
@@ -104,7 +158,24 @@
     >
       <span class="seq">{e.event.seq}</span>
       <span class="text">{#each parseLogLine(e.line, { identities, cardColour }) as p, i (i)}
-        {#if p.kind === 'text'}{p.text}{:else if p.kind === 'mana'}<ManaSymbols cost={p.token} />{:else if p.kind === 'seat'}<span class="who" style:color={p.colour}>{p.text}</span>{:else if p.kind === 'card'}<span class="obj card" style:color={p.colour ?? undefined} title="{p.name} #{p.id}">{p.name}</span>{:else if p.kind === 'ability'}<span class="obj ability" title="{p.name} #{p.id}">{p.name}</span>{/if}
+        {#if p.kind === 'text'}{p.text}{:else if p.kind === 'mana'}<ManaSymbols cost={p.token} />{:else if p.kind === 'seat'}<span class="who" style:color={p.colour}>{p.text}</span>{:else if p.kind === 'card'}
+          {@const c = resolveCard(p.id)}
+          {#if c}<span
+            class="obj card"
+            style:color={p.colour ?? undefined}
+            title="{p.name} #{p.id}"
+            role="button"
+            tabindex="0"
+            aria-describedby={hover.hover.show && hover.card?.id === c.id ? `card-detail-${c.id}` : undefined}
+            onpointerenter={(ev) => hover.arm(c, ev.currentTarget)}
+            onpointerleave={() => hover.leave(c)}
+            onpointerdown={(ev) => hover.pointerdown(c, ev.currentTarget)}
+            onpointerup={() => hover.pointerup(c)}
+            onfocus={(ev) => hover.open(c, ev.currentTarget)}
+            onblur={() => hover.blur(c)}
+            onkeydown={(ev) => hover.keydown(ev)}
+          >{p.name}</span>{:else}<span class="obj card" style:color={p.colour ?? undefined} title="{p.name} #{p.id}">{p.name}</span>{/if}
+        {:else if p.kind === 'ability'}<span class="obj ability" title="{p.name} #{p.id}">{p.name}</span>{/if}
       {/each}</span>
     </button>
   {/each}
@@ -115,6 +186,15 @@
         <span class="text">{n.text}</span>
       </div>
     {/each}
+  {/if}
+  <!-- ONE panel for the whole transcript, driven by the one CardHover every
+       card-name trigger arms. It lives at the container level, after the row
+       list, because each row is a <button> (the scrub/seek target) and a
+       <div> inside a <button> is invalid HTML. CardDetail portals to <body>
+       on mount, so the panel's own fixed coordinates resolve against the
+       viewport regardless of which row opened it. -->
+  {#if hover.hover.show && hover.card && hover.anchor}
+    <CardDetail card={hover.card} anchor={hover.anchor} />
   {/if}
 </div>
 
@@ -195,9 +275,21 @@
   }
   /* A card name (lc1/B3) is coloured by its owner's seat colour — the same
      colour that seat's name renders in — and the "#<id>" is off the visible
-     text and on the hover title instead. */
+     text and on the hover title instead. An id that resolves to a visible
+     object also opens the detail panel (fb-20260927T154603Z), so the span is
+     keyboard-focusable and says so on focus; the underline is the same
+     affordance the rest of the client uses for "there is more here". */
   .obj.card {
     font-weight: 600;
+  }
+  .obj.card[tabindex]:hover,
+  .obj.card[tabindex]:focus {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .obj.card[tabindex]:focus-visible {
+    outline: 1px solid var(--ink-dim);
+    outline-offset: 1px;
   }
   /* An ability reference (the source-named "<Source>'s ability #id" shape)
      gets its own treatment — italic, not the card weight — because on the

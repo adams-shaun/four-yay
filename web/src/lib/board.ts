@@ -40,6 +40,27 @@ export function everyVisibleCard(players: readonly PlayerView[] | null | undefin
   return out;
 }
 
+/**
+ * cardById resolves the object a log line's `#<id>` tag names against the
+ * current view's flattened cards (the same everyVisibleCard list the
+ * transcript's colour resolver is built over). It is the id -> CardView half
+ * of the card-name hover preview (fb-20260927T154603Z): the transcript's card
+ * branch opens the detail panel for the object under the pointer, and the
+ * only shared handle between a log line and the live view is the object id.
+ *
+ * It returns null — never an invented card — for an id that resolves to no
+ * visible object (a destroyed permanent, a gone token, an exiled card) and
+ * for the redacted id 0, which describe.go renders as "a card" and which is
+ * not any single object. A caller that gets null keeps today's title-only
+ * affordance; the honest direction is no panel rather than a made-up one.
+ */
+export function cardById(cards: readonly (CardView | null | undefined)[] | null | undefined, id: number | string): CardView | null {
+  const n = typeof id === 'number' ? id : Number(id);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  for (const c of cards ?? []) if (c && c.id === n) return c;
+  return null;
+}
+
 /** groupBattlefield sorts a seat's permanents into the three rows a quadrant shows. Type words come from the view; nothing here decides what a card does. Attachments are excluded — attachedTo places them under their host instead. */
 export function groupBattlefield(cards: CardView[]): Record<Group, CardView[]> {
   const out: Record<Group, CardView[]> = { lands: [], creatures: [], others: [] };
