@@ -797,8 +797,8 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 					Ctx: effects.Ctx{
 						Source:         id,
 						Controller:     o.Controller,
-						Remembered:     triggerRemembered(ev, id),
-						Captured:       triggerRemembered(ev, id),
+						Remembered:     triggerRememberedMode(t, ev, id),
+						Captured:       triggerRememberedMode(t, ev, id),
 						LKI:            objLKI,
 						LKIPower:       lkiPower,
 						LKIToughness:   lkiToughness,
@@ -880,7 +880,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			Ctx: effects.Ctx{
 				Source:         id,
 				Controller:     o.Controller,
-				Remembered:     triggerRemembered(ev, id),
+				Remembered:     triggerRememberedMode(t, ev, id),
 				LKI:            objLKI,
 				LKIPower:       lkiPower,
 				LKIToughness:   lkiToughness,
