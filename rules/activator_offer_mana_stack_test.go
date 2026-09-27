@@ -121,3 +121,50 @@ Oracle:x
 		t.Fatalf("stack ability was not offered to the opponent: %+v", e.legalActions(1))
 	}
 }
+
+// TestActivatorGatesGainedManaAbility pins the Activator$ gate on the GAINED
+// half of the mana walk (cardfuzz explore seed 11656500164625753431, planfb
+// source_changed): a Mirran Safehouse-shaped permanent has the activated
+// abilities of every land card in every graveyard, and
+// battlefieldManaSourceIDs walks every seat's battlefield, so without the
+// gate its gained "{T}: Add {R}" was a mana source for its controller's
+// OPPONENT -- offered at priority, in the CR 601.2g window and to the
+// payment planner. Only the controller may activate it (CR 602.2). The
+// printed and non-mana granted walks already read the gate.
+func TestActivatorGatesGainedManaAbility(t *testing.T) {
+	const src = `Name:Safehouse Probe
+ManaCost:3
+Types:Artifact
+S:Mode$ Continuous | Affected$ Card.Self | EffectZone$ Battlefield | GainsAbilitiesOf$ Land | GainsAbilitiesOfZones$ Graveyard | Description$ It has all activated abilities of all land cards in all graveyards.
+Oracle:x
+`
+	e, _, id := newFixtureDeck(t, 8613, src)
+	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
+	// A land card in the opponent's graveyard: its intrinsic {T}: Add {R}
+	// is what the Safehouse gains.
+	lib := e.G.Zone(state.ZLibrary, 1)
+	if len(lib) == 0 {
+		t.Fatal("fixture precondition: seat 1 has no library")
+	}
+	e.emit(events.Event{Kind: events.MoveZone, Obj: lib[0], From: state.ZLibrary, To: state.ZGraveyard})
+	driveToStep(t, e, 1, 0, state.StepMain1)
+	if o := e.G.Obj(id); e.controllerOf(id) != 0 || o.Zone != state.ZBattlefield || o.Tapped {
+		t.Fatalf("fixture precondition: controller=%d zone=%s tapped=%v", e.controllerOf(id), o.Zone, o.Tapped)
+	}
+	if len(e.availableManaAbilities(0, id)) == 0 {
+		t.Fatal("the controller is not offered the gained mana ability (the fixture proves nothing)")
+	}
+	if got := e.availableManaAbilities(1, id); len(got) != 0 {
+		t.Fatalf("the opponent may activate the controller's gained mana ability: %d abilities", len(got))
+	}
+	for _, u := range e.windowManaUnits(1) {
+		if u.id == id {
+			t.Fatal("the opponent's payment window counts the controller's gained mana source")
+		}
+	}
+	for _, u := range e.paymentPlanManaUnits(1) {
+		if u.id == id {
+			t.Fatal("the opponent's payment planner counts the controller's gained mana source")
+		}
+	}
+}

@@ -714,7 +714,10 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 
 func mirrorFailureRecord(report *paymirror.Report, seed uint64, decks []genDeck, explore bool, apc autoPay, ap []bool, turn int32) *failure {
 	status, key := report.Verdict()
-	if status == paymirror.Equivalent {
+	if status == paymirror.Equivalent || report.ExpectedUnmirrorable() {
+		// An expected unmirrorable cast (paymirror.RouteResult.Expected) is a
+		// known limit of the manual route, not a finding; it is still counted
+		// in the run's mirror_verdicts under its "expected:" key.
 		return nil
 	}
 	b, _ := json.Marshal(report)

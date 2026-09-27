@@ -3290,7 +3290,16 @@ func (e *Engine) EnsurePaymentActions() []decision.PaymentAction {
 		// them with the same legalActions walk, so the builder reuses them
 		// instead of walking again.
 		gen := e.derivedMemoGen
+		// The build is a pure read of the board ask's offer walk read a
+		// moment ago: when that walk's memo tail is still exact (no Submit,
+		// no other scope, only ask's DecisionAsk marker logged since --
+		// derivedmemo.go), RESUME its generation so the build's own walks
+		// are served the Derived results and walk caches ask already built
+		// instead of re-deriving the whole board. A dead tail opens a fresh
+		// generation exactly as the build's own scope always did.
+		e.BeginDerivedReads()
 		actions := e.paymentActionsForPriority(d.Player, d.Seq, d.Options)
+		e.EndDerivedReads()
 		d.PaymentActions = (&decision.Decision{PaymentActions: actions}).Clone().PaymentActions
 		d.PaymentActionsBuilt = true
 		// A builder walk performs derived reads in its own memo generation.

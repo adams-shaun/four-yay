@@ -50,6 +50,16 @@
 //     DecisionMade, priority pass-count resets) and every event's Seq. The
 //     order is reported (EventOrderDiffers) but not required: the float
 //     route legitimately taps before the cast begins.
+//  4. Float route only: when a planned activation's cost MOVES its source
+//     (Lotus Petal, a Treasure, an Eldrazi Spawn: a sacrifice), the three
+//     state fields that record when that move happened relative to the
+//     spell's own move to the stack -- this turn's zone-entry list
+//     G.Entered, the spell's PreStackEnteredLen boundary into it, and the
+//     spell's damageSourceLKI snapshots of the planned sources -- are
+//     compared as order, not as game facts: the entry lists must be the
+//     same multiset, and only then are the other two masked (diff.go's
+//     floatReorder). Run A pays after the spell moved; the float route
+//     before it.
 //
 // Two games that both ended inside the transaction are equivalent when their
 // outcome (winner/draw and the set of losers) is equal.
@@ -58,8 +68,11 @@
 //
 //   - AInvariant: at the priority boundary no cast transaction is pending and
 //     no choose flow is armed (CR 601.2: no priority while casting).
-//   - AWitness: each planned source's first tap is followed by exactly its
-//     witness Produces (skipped when A fell back to the manual window).
+//   - AWitness: each planned source's activation (its first tap, or its
+//     first zone change when its cost moves it without a tap) is followed,
+//     after the rest of its own cost (its sacrifice, the payer's life), by
+//     exactly its witness Produces (skipped when A fell back to the manual
+//     window).
 //   - ASideEffects: damage a planned source dealt while producing mana.
 //
 // # Exclusions
@@ -97,6 +110,16 @@
 //	                                   route re-prices offers against a hypothetical floating
 //	                                   pool the control route never opens, so it counts the
 //	                                   route's work, not the game
+//	ManaAbilityHook, paymentStats      harness-only observers (rules/clone.go): Clone copies
+//	                                   neither, and cmd/cardfuzz installs the hook on its live
+//	                                   run A, so the control would read "<func> vs nil"
+//
+// A route is Unmirrorable when the manual route cannot be driven at all. It
+// is Expected (RouteResult.Expected) when the reason is a known limit of the
+// float route rather than evidence about run A -- floating put only the
+// float's own triggered abilities on the stack, which a sorcery-speed cast
+// cannot be made over -- and cmd/cardfuzz records no failure for a cast whose
+// only unmirrorable routes are expected (Report.ExpectedUnmirrorable).
 //
 // Not excluded, and therefore compared: everything else, including the log-
 // derived engine tallies rules reads later (manaExpended, tappedTurn,

@@ -124,24 +124,50 @@ func (e *Engine) paymentPlanCastCandidate(p state.PlayerID, id state.ObjID) bool
 // "cast" option with no Mode and no AltCostIndex -- exactly the option
 // paymentPlanCastCandidate has always matched -- so membership answers that
 // per-cast walk for every candidate of a build at the cost of one walk.
+//
+// priced marks a set whose every query names a plain cast the offer
+// builder's OWN priced walk (legalActionsPriced at PotentialMana) listed.
+// That walk and the huge-pool walk run the identical body; the one place
+// the pool enters a plain cast's admission is offerCastable's mana
+// feasibility, which only ever asks whether the pool COVERS a composed
+// cost, and the huge pool covers every cost the PotentialMana bound does.
+// (The two retry arms behind a failed first pass differ only for a
+// ValidTarget$ cost static or an announced Sac<X>, and planCastPaymentChecked
+// has already declined both shapes -- shape:target_dependent_cost,
+// shape:additional_cost -- before it asks.) So membership is certain and
+// the huge walk is skipped; pricedCandidatesVerify runs it anyway and
+// panics on a miss.
 type paymentCastCandidates struct {
-	e     *Engine
-	p     state.PlayerID
-	ids   []state.ObjID
-	ready bool
+	e      *Engine
+	p      state.PlayerID
+	ids    []state.ObjID
+	ready  bool
+	priced bool
 }
 
+// pricedCandidatesVerify: see derivedMemoVerify. Set by the rules test binary.
+var pricedCandidatesVerify = derivedMemoVerifyFlag != ""
+
 func (c *paymentCastCandidates) has(id state.ObjID) bool {
+	if c.priced && !pricedCandidatesVerify {
+		return true
+	}
 	if !c.ready {
 		hyp := state.Mana{1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28}
-		for _, opt := range c.e.legalActionsPriced(c.p, &hyp) {
+		// Only plain casts are read, so the walk skips the non-cast
+		// sections (legalActionsWalk's castsOnly).
+		for _, opt := range c.e.legalActionsWalk(c.p, &hyp, true) {
 			if opt.Kind == "cast" && opt.Mode == "" && opt.AltCostIndex == 0 {
 				c.ids = append(c.ids, opt.Obj)
 			}
 		}
 		c.ready = true
 	}
-	return slices.Contains(c.ids, id)
+	in := slices.Contains(c.ids, id)
+	if c.priced && !in {
+		panic(fmt.Sprintf("payment plan: priced-walk plain cast %d missing from the huge-pool walk", id))
+	}
+	return in
 }
 
 // paymentPlanCastShapeOK excludes plain casts whose announced cost or result
@@ -193,8 +219,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 			return "shape:optional_cost"
 		}
 	}
-	if faceReadsManaSpent(f) || faceWantsConverge(f) || faceWantsCastSpend(f) ||
-		e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.paymentPlanSunburstGrantOut() {
+	if faceReadsManaSpent(f) || faceWantsConverge(f) || faceWantsCastSpend(f) || e.paymentPlanBoardSpendReaderOut() {
 		return "shape:mana_spent_reader"
 	}
 	if e.paymentPlanHasTargetDependentModifierUsing(statics, p, id) {
@@ -348,13 +373,14 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 // own Options, which BaseOptionIndex indexes; nil derives them with one
 // legalActions walk, and only once some action needs them.
 //
-// Per build it runs at most two legal-action walks: the PotentialMana walk,
-// which discovers the candidates and their order and labels, and the
-// huge-pool walk behind paymentCastCandidates, which PlanCastPayment has
-// always required of each candidate. Both are kept: the PotentialMana walk
-// also withholds a cast its potential sources cannot afford, which the
-// huge-pool walk admits, so the planner only ever sees the candidates it saw
-// before. Cost statics are collected once and shared by every candidate.
+// Per build it runs ONE legal-action walk: the PotentialMana walk, which
+// discovers the candidates and their order and labels, casts only
+// (legalActionsWalk's castsOnly). The huge-pool walk PlanCastPayment
+// requires of each candidate is implied by it (paymentCastCandidates'
+// priced), and the PotentialMana walk also withholds a cast its potential
+// sources cannot afford, which the huge-pool walk admits, so the planner
+// only ever sees the candidates it saw before. Cost statics are collected
+// once and shared by every candidate.
 func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options []decision.Option) []decision.PaymentAction {
 	if e.G.Over {
 		return nil
@@ -379,9 +405,12 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 	// pool is only a superset gate; every admission below still has an exact
 	// source-exclusive witness.
 	hyp := e.PotentialMana(p)
-	candidates := e.legalActionsPriced(p, &hyp)
+	// Only plain casts are read below, so the walk skips the sections that
+	// append non-cast options (legalActionsWalk's castsOnly): the same cast
+	// options in the same order, without pricing every battlefield ability.
+	candidates := e.legalActionsWalk(p, &hyp, true)
 	statics := costStaticSource{e: e}
-	legal := paymentCastCandidates{e: e, p: p}
+	legal := paymentCastCandidates{e: e, p: p, priced: true}
 	var out []decision.PaymentAction
 	for _, opt := range candidates {
 		// A V1 PlannedCast records the ordinary printed-cost cast only.  An
@@ -429,6 +458,11 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 // then proves that exactly the submitted witness pays it.  It is deliberately
 // usable by the executor without trusting an offer cache or an ID.
 func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast, plan decision.PaymentPlan) error {
+	// A pure read: one Derived memo scope (derivedmemo.go) serves the
+	// candidate walk, the planner and the census below, and one query scope
+	// serves the planner's census to the rebuild.
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	defer e.paymentPlanQueryScope()()
 	got := e.PlanCastPayment(p, cast)
 	if got.Reason == "unsupported" {
@@ -445,7 +479,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	}
 	// Rebuild only the explicitly named alternatives.  This is independent of
 	// planner ranking: a valid non-preferred witness remains legal.
-	units := e.paymentPlanManaUnits(p)
+	units := e.paymentPlanQueryUnits(p)
 	pool := e.G.Players[p].Pool
 	produced := state.Mana{}
 	var pain int64
@@ -660,9 +694,20 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 // Count$UrzaLands.3.1. The shared census must keep withholding those too,
 // for the attack/unless windows, which can neither make a colour choice
 // concrete nor re-verify a changing amount at activation.
+//
+// The census is a pure read, so it runs in one Derived memo scope
+// (derivedmemo.go): outside a walk (the executor's per-step revalidation,
+// ValidateCastPayment) every source's availability check otherwise
+// re-derived the board. The two layers below ask each untapped source for
+// the same payment-window membership, which reads the board only, so the
+// first layer's list is kept (by zone position) for the second.
 func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	units := e.windowManaUnits(p)
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	zone := e.G.Zone(state.ZBattlefield, p)
+	windowMas := make([][]*cards.SA, len(zone))
+	for zi, id := range zone {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
@@ -674,7 +719,8 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 				break
 			}
 		}
-		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
+		windowMas[zi] = e.availableManaAbilitiesForWindow(p, id, false)
+		for _, ma := range windowMas[zi] {
 			raw := strings.TrimSpace(ma.Params["Produced"])
 			amt := availableAmount(ma)
 			if amt <= 0 {
@@ -731,12 +777,17 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 	// sources. The probe is built lazily: a board with no evaluated-amount
 	// source (the overwhelming majority) pays no clone at all.
 	var probe *Engine
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for zi, id := range zone {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
 		}
-		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
+		if walkCacheVerify {
+			if fresh := e.availableManaAbilitiesForWindow(p, id, false); !slices.EqualFunc(fresh, windowMas[zi], sameManaAbility) {
+				panic(fmt.Sprintf("payment plan census: window membership for %d moved inside the census", id))
+			}
+		}
+		for _, ma := range windowMas[zi] {
 			if availableAmount(ma) > 0 {
 				continue // windowManaUnits' static path already priced it.
 			}
