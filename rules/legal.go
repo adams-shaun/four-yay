@@ -3273,7 +3273,7 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 					} else if n > 0 {
 						cost.Generic = 0
 					}
-					if cost.Tap && (o.Tapped || (z == state.ZBattlefield && o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+					if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 						continue
 					}
 					// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
@@ -3482,7 +3482,7 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 				} else if n > 0 {
 					cost.Generic = 0
 				}
-				if cost.Tap && (o.Tapped || (o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+				if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 					continue
 				}
 				if !offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -3633,7 +3633,7 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 				continue
 			}
 			cost := e.parseCost(ab.Params["Cost"])
-			if cost.Tap && (o.Tapped || (o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+			if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 				continue
 			}
 			if !offerCastable(p, id, cost, abilityScope(ab), true) {

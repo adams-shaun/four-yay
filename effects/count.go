@@ -3265,7 +3265,8 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		specCtx := c.SpecContext(c.Controller)
 		f := zoneCountFold{h: h, g: g, spec: spec,
 			prop: prop, extreme: extreme, isLeast: isLeastProperty(prop),
-			hasBareHand: hasBareHand, seenTokenNames: seenTokenNames, seenCardTypes: seenCardTypes,
+			hasBareHand: hasBareHand, readsPT: SpecReadsPT(spec),
+			seenTokenNames: seenTokenNames, seenCardTypes: seenCardTypes,
 			seenCreatureTypes: seenCreatureTypes}
 		// The Different* distinct-set property family (task diffcount1):
 		// DifferentCardManaCost / DifferentCardPower / DifferentCardNames /
@@ -4459,13 +4460,22 @@ func countZone(head string) (state.Zone, bool) {
 // caller and passed to visit as a parameter, so the *Ctx the caller built
 // (the hot layer-walk Ctx) never escapes through this type.
 type zoneCountFold struct {
-	h              Host
-	g              *state.Game
-	spec           string
-	prop           string
-	extreme        bool
-	isLeast        bool
-	hasBareHand    bool
+	h           Host
+	g           *state.Game
+	spec        string
+	prop        string
+	extreme     bool
+	isLeast     bool
+	hasBareHand bool
+	// readsPT is computed ONCE per fold from SpecReadsPT(spec): the fold
+	// binds a battlefield candidate's layer-derived P/T into its SpecContext
+	// only when the spec actually reads one of the four P/T comparison
+	// fields. Without the gate every Count$Valid pays a full rules layer walk
+	// per candidate, and a P/T CDA that itself counts permanents (Master of
+	// Etherium) makes that walk recurse into the same count -- the
+	// in-progress frame guard stops the cycle but not the factorial fan-out
+	// (4 Masters 2.9 ms, 5 44 ms, 6 577 ms, 7 10.6 s for ONE Derived).
+	readsPT        bool
 	n, best        int32
 	seen           bool
 	seenTokenNames map[string]bool
@@ -4499,8 +4509,13 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 	// Count$Valid is an effects-side scan, but battlefield numeric filters
 	// still read rules' layer-derived characteristics. Bind the candidate's
 	// values through a small optional value interface; effects remains below
-	// rules and SpecContext carries no callable resolver.
-	if zone == state.ZBattlefield {
+	// rules and SpecContext carries no callable resolver. Skip the bind
+	// entirely unless the spec reads a P/T comparison field (readsPT): a
+	// spec that reads none cannot observe the values, and the bind runs a
+	// full rules layer walk per candidate -- which a P/T CDA that counts
+	// permanents turns into a factorial recursion (see readsPT's field
+	// comment).
+	if zone == state.ZBattlefield && f.readsPT {
 		if provider, ok := f.h.(interface {
 			FilterDerivedPT(state.ObjID) (power, toughness, basePower, baseToughness int32, ok bool)
 		}); ok {

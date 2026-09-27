@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -484,7 +485,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// and a permitted opponent could not.
 		if e.activatorAllows(p, id, ma) &&
 			e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
-			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) &&
+			!e.manaAbilityTapSick(id, ma) && !abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) &&
 			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
 			// only if an opponent has three or more poison counters"): the same
 			// intervening-if gate sVarGateOK applies to every non-mana
@@ -526,7 +527,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// caller appends it (a closure appending to out itself would move out's
 	// header to the heap on every call).
 	considerReflected := func(ma *cards.SA, ctx *effects.Ctx) bool {
-		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
+		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
 		return len(effects.ManaReflectedCandidates(e, ctx, ma)) > 0
@@ -1070,6 +1071,27 @@ func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *ca
 	return e.manaAbilityPayablePool(p, source, ma, nil)
 }
 
+// tapCostSick is CR 302.6's shared source-cost predicate for {T}/{Q}.
+// Tapping another permanent to pay a cost is intentionally not checked here.
+func (e *Engine) tapCostSick(source state.ObjID, cost Cost) bool {
+	o := e.G.Obj(source)
+	if o == nil || (!cost.Tap && !cost.Untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
+		return false
+	}
+	return slices.Contains(e.Derived(source).Types, "Creature") && !e.HasKeyword(source, "Haste")
+}
+
+func activationTapCostUnavailable(o *state.Object, cost Cost) bool {
+	return o == nil || (cost.Tap && o.Tapped) || (cost.Untap && !o.Tapped)
+}
+
+func (e *Engine) manaAbilityTapSick(source state.ObjID, ma *cards.SA) bool {
+	if ma == nil {
+		return false
+	}
+	return e.tapCostSick(source, e.parseCost(ma.Params["Cost"]))
+}
+
 // manaAbilityPayablePool is manaAbilityPayable with the mana part priced
 // against an optional explicit pool: hyp nil keeps the ordinary real-pool
 // gate (the restriction-adjusted manaAvailableFor the offer walk uses), hyp
@@ -1082,7 +1104,7 @@ func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *ca
 // satisfies a sacrifice or a tap.
 func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma *cards.SA, hyp *state.Mana) bool {
 	o := e.G.Obj(source)
-	if o == nil || o.Face() == nil {
+	if o == nil || o.Face() == nil || e.manaAbilityTapSick(source, ma) {
 		return false
 	}
 	cost := e.parseCost(ma.Params["Cost"])
@@ -1097,7 +1119,7 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 		typed = e.G.Players[p].ManaUnits()
 	}
 	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
-		len(cost.Blight) > 0 || cost.Forage || (cost.Tap && o.Tapped) || !e.costPayablePool(p, source, true, cost, pool, typed) {
+		len(cost.Blight) > 0 || cost.Forage || activationTapCostUnavailable(o, cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
 		return false
 	}
 	// The mana-activation path has no X ask and no mid-payment suspension, so
@@ -1593,6 +1615,9 @@ func (e *Engine) commitManaDiscard() {
 	var manaTriggers []pendingTrigger
 	if md.cost.Tap {
 		manaTriggers = e.emitManaTap(md.player, md.source, md.ability)
+	}
+	if md.cost.Untap {
+		e.emit(events.Event{Kind: events.Untap, Obj: md.source, Player: md.player, Text: "untapped as a cost"})
 	}
 	e.payManaSourceParts(md.player, md.source, md.cost)
 	for _, id := range md.sacs {
@@ -2204,6 +2229,9 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	var manaTriggers []pendingTrigger
 	if cost.Tap {
 		manaTriggers = e.emitManaTap(p, source, ma)
+	}
+	if cost.Untap {
+		e.emit(events.Event{Kind: events.Untap, Obj: source, Player: p, Text: "untapped as a cost"})
 	}
 	e.payManaSourceParts(p, source, cost)
 	for _, id := range sacs {

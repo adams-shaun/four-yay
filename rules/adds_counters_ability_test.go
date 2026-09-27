@@ -138,6 +138,11 @@ func untapRider(t *testing.T, e *Engine, obj state.ObjID) {
 func TestAddsCountersRiderTwoUnitsOneSource(t *testing.T) {
 	e, cfg := riderGame(t, 501, card(t, riderShamanSrc), card(t, riderDoubleSrc))
 	shaman := moveToBattlefieldByName(t, e, 0, "Rider Shaman")
+	// A raw SummonSick write would clear CR 302.6 sickness off the log the
+	// replayCheck below reads from; a real logged TurnChange for seat 0
+	// gives the shaman a legitimate "been under control since this turn
+	// began" instead, so the mana activation below stays replayable.
+	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 	goblin := moveSeededToHand(t, e, 0, "Double Red")
 
 	// Preconditions: the shaman is on the battlefield untapped, the cast card
