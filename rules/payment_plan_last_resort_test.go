@@ -677,3 +677,28 @@ func TestPaymentPlanLastResortSearchMatchesOracle(t *testing.T) {
 	}
 	t.Logf("phase-2 boards: %d planned (%d last-resort steps) and %d insufficient agree with the oracle", phase2, used, none)
 }
+
+// Combo halves (brief item 2): a Talisman's painful Combo half and a horizon
+// land's PayLife Combo expand one alternative per listed colour, each
+// disclosing its consequence, while the Talisman's painless {C} ability stays
+// normal and pays generic without any consequence.
+func TestPaymentPlanLastResortComboHalves(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 12021, lrSpell("B"))
+	talisman := lrCorpus(t, e, "Talisman of Dominance")
+	lrAssertPlan(t, e, e.PlanCastPayment(0, paymentCast(spell)), []lrStep{
+		{talisman, decision.ManaAmount{0, 0, 1, 0, 0, 0}, &decision.PaymentConsequence{Damage: 1}}})
+	generic := choiceHand(t, e, lrSpell("1"))
+	lrAssertPlan(t, e, e.PlanCastPayment(0, paymentCast(generic)), []lrStep{{talisman, lrC(1), nil}})
+	if got := e.PlanCastPayment(0, paymentCast(generic)); got.Plan.Activations[0].Ability.Index != 0 {
+		t.Fatalf("{1} plan uses Talisman ability %d, want its painless {C} ability 0", got.Plan.Activations[0].Ability.Index)
+	}
+
+	e2, _, spell2 := newFixtureDeck(t, 12022, lrSpell("W"))
+	canopy := lrCorpus(t, e2, "Horizon Canopy")
+	lrAssertPlan(t, e2, e2.PlanCastPayment(0, paymentCast(spell2)), []lrStep{{canopy, lrW, &decision.PaymentConsequence{Life: 1}}})
+	_, mark := lrSubmit(t, e2, spell2)
+	lrOnlyPriorityAsked(t, e2, mark)
+	if life := e2.G.Players[0].Life; life != 19 || e2.G.Obj(spell2).Zone != state.ZStack {
+		t.Fatalf("life = %d, spell zone = %s; want 19 and the stack", life, e2.G.Obj(spell2).Zone)
+	}
+}
