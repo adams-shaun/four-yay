@@ -1,0 +1,29 @@
+{
+  "card": "Amonkhet Raceway",
+  "family": "activation-condition",
+  "oracle_sha": "c39cda895ffa",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "max-speed-not-yet-reached",
+      "cr": ["207.2c", "602.5b", "702.179a"],
+      "why": "Controlling a start-your-engines permanent begins speed at one, below the maximum of four, so its conditional haste activation is not available.",
+      "setup": {"p0": {"battlefield": ["Amonkhet Raceway", "Grizzly Bears"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Amonkhet Raceway", "label": "Max speed"}, "want": false}]
+    },
+    {
+      "name": "max-speed-after-opponent-loses-life-on-three-turns",
+      "cr": ["207.2c", "602.5b", "702.179a"],
+      "why": "The player begins at speed one and can increase speed once on each of their turns when an opponent loses life; three such turn-specific increases reach speed four, enabling the haste activation.",
+      "setup": {"p0": {"battlefield": ["Amonkhet Raceway", "Grizzly Bears"]}},
+      "steps": [
+        {"op": "life", "seat": 1, "amount": -1},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"},
+        {"op": "life", "seat": 1, "amount": -1},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"},
+        {"op": "life", "seat": 1, "amount": -1}
+      ],
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Amonkhet Raceway", "label": "Target creature gains haste"}, "want": true}]
+    }
+  ]
+}
