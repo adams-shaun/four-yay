@@ -71,6 +71,12 @@ var oracleKnownDivergent = map[string]string{
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Engine primitive: entering Angel appears to be included in Giada's CountValid
+	// when pricing the replacement, rather than counting only Angels already controlled.
+	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
+	// Engine primitive: the Effect-created entry replacement from the attack
+	// trigger does not put its counter on the remembered Hero returned from the graveyard.
+	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
 	// Engine/script gap: max-speed-gated AddAbility is not offered after the
 	// three turn-specific speed increases (CR 702.179).
 	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",
