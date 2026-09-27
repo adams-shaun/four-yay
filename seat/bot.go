@@ -361,8 +361,14 @@ func BoardFromView(v view.View) botpolicy.Board {
 		// belong to another seat, so IsMain alone cannot say it). Same facts
 		// the game half derives from g.Step == state.StepMain1 and
 		// g.Active == me.
-		FirstMain:  v.Phase == "main1",
-		MyTurn:     v.Active == v.Viewer,
+		FirstMain: v.Phase == "main1",
+		MyTurn:    v.Active == v.Viewer,
+		// The exact engine step (the cast scorer's timing features): the
+		// projected View.Step is g.Step.String() (view/view.go), so parsing
+		// it back names the same state.Step the game half reads off g.Step
+		// directly. An unrecognised string (never produced by the projector)
+		// leaves the zero step, StepUntap, exactly the game half's zero.
+		Step:       parsedStep(v.Step),
 		Creatures:  make(map[state.ObjID]botpolicy.Creature, 32),
 		Life:       make(map[state.PlayerID]int32, len(v.Players)),
 		Cards:      make(map[state.ObjID]botpolicy.Card, 16),
@@ -599,4 +605,15 @@ func instantSpeedView(cv view.CardView) bool {
 		}
 	}
 	return false
+}
+
+// parsedStep maps a projected step string back to the engine's state.Step.
+// view.Project sets View.Step = g.Step.String(), so state.ParseStep is that
+// producer's own inverse; an unknown name yields the zero step (StepUntap),
+// the same value a Board the timing features never reach already carries.
+func parsedStep(name string) state.Step {
+	if s, ok := state.ParseStep(name); ok {
+		return s
+	}
+	return 0
 }

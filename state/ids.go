@@ -113,6 +113,21 @@ func (s Step) String() string {
 	return stepNames[s]
 }
 
+// ParseStep is String's inverse: it maps a step name back to its Step. It
+// is the one home of the reverse stepNames mapping, so a caller that only
+// has the projected step string (a view.View.Step a seat receives) reads
+// the exact engine step rather than re-spelling the table. ok is false for
+// an unknown name (or "unknown", String's total value for an out-of-range
+// step), matching String's total shape.
+func ParseStep(name string) (Step, bool) {
+	for i, n := range stepNames {
+		if n == name {
+			return Step(i), true
+		}
+	}
+	return 0, false
+}
+
 // IsMain reports whether sorcery-speed actions are legal in this step.
 func (s Step) IsMain() bool { return s == StepMain1 || s == StepMain2 }
 
