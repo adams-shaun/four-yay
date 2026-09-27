@@ -41,9 +41,13 @@ func TestSBAQuietKey(t *testing.T) {
 // provenance token passes unchanged, a token-carrying spec still evaluates.
 func TestProvenanceGate(t *testing.T) {
 	for _, spec := range []string{"Creature.YouCtrl", "Card.Other+nonLand", "Creature.wasCastByYou",
-		"Card.!wasCastFromYourHand", "Spell.wasCastFromExile", "Card.CastSa Spell.Mayhem", "Card.wasCast"} {
+		"Card.!wasCastFromYourHand", "Spell.wasCastFromExile", "Card.CastSa Spell.Mayhem", "Card.wasCast",
+		"Card.Colorless+YouCtrl+YouOwn+wasCastFromHand+cmcGE7"} {
 		g := specProvenanceGate(spec)
-		want := spec != "Creature.YouCtrl" && spec != "Card.Other+nonLand"
+		// wasCastFromHand is the effects-side predicate: it carries "Cast" but
+		// no rules-side stage fires on it.
+		want := spec != "Creature.YouCtrl" && spec != "Card.Other+nonLand" &&
+			spec != "Card.Colorless+YouCtrl+YouOwn+wasCastFromHand+cmcGE7"
 		if g.may != want {
 			t.Errorf("%q: may=%v, want %v", spec, g.may, want)
 		}

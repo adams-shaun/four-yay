@@ -60,6 +60,7 @@
 package rules
 
 import (
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"unsafe"
@@ -288,37 +289,93 @@ func (e *Engine) castProvenanceAdmits(spec string, objID state.ObjID, you state.
 // by castProvenanceAdmitsPending. The chain order is unchanged: ByYou before bare.
 func (e *Engine) castProvenanceAdmitsWindow(spec string, objID state.ObjID, you state.PlayerID, pendingCast bool) (string, bool) {
 	gate := specProvenanceGate(spec)
-	if !gate.may {
-		if provenanceGateVerify {
-			verifyProvenanceGate(spec)
+	if provenanceGateVerify {
+		if live := computeProvenanceGate(spec); live != gate {
+			panic(fmt.Sprintf("rules: cached provenance gate %+v differs from the live one %+v for spec %q", gate, live, spec))
 		}
-		return spec, true
+		s, ok := e.castProvenanceAdmitsMasked(spec, gate, objID, you, pendingCast)
+		ws, wok := e.castProvenanceAdmitsChain(spec, objID, you, pendingCast)
+		if s != ws || ok != wok {
+			panic(fmt.Sprintf("rules: masked provenance chain (%q, %v) differs from the full chain (%q, %v) for spec %q", s, ok, ws, wok, spec))
+		}
+		return s, ok
 	}
+	return e.castProvenanceAdmitsMasked(spec, gate, objID, you, pendingCast)
+}
+
+// castProvenanceAdmitsChain is the unmasked chain: every stage runs its own
+// live guard. Verify mode compares the masked chain against it.
+func (e *Engine) castProvenanceAdmitsChain(spec string, objID state.ObjID, you state.PlayerID, pendingCast bool) (string, bool) {
 	s, ok := e.castFromHandAdmitsWindow(spec, objID, you, pendingCast)
 	if !ok {
 		return "", false
 	}
-	s, ok = e.castAtAllAdmitsWindow(s, objID, you, pendingCast)
-	if !ok {
+	if s, ok = e.castAtAllAdmitsWindow(s, objID, you, pendingCast); !ok {
 		return "", false
 	}
-	s, ok = e.castAtAllBareAdmitsWindow(s, objID, pendingCast)
-	if !ok {
+	if s, ok = e.castAtAllBareAdmitsWindow(s, objID, pendingCast); !ok {
 		return "", false
 	}
-	s, ok = e.castFromHandAnyAdmitsWindow(s, objID, pendingCast)
-	if !ok {
+	if s, ok = e.castFromHandAnyAdmitsWindow(s, objID, pendingCast); !ok {
 		return "", false
+	}
+	if s, ok = e.castOriginAdmits(s, objID, you); !ok {
+		return "", false
+	}
+	return e.castSaAdmits(s, objID)
+}
+
+// castProvenanceAdmitsMasked is the chain with each stage gated by the
+// spec's cached guard bits (specProvenanceGate).
+func (e *Engine) castProvenanceAdmitsMasked(spec string, gate provGate, objID state.ObjID, you state.PlayerID, pendingCast bool) (string, bool) {
+	if !gate.may {
+		return spec, true
+	}
+	// Each stage below is skipped when the spec's cached guard bit says its
+	// own guard would return the input unchanged -- exact while no earlier
+	// stage has rewritten the string (changed stays false). Once a stage has
+	// fired, every later stage runs its live guard on the rewritten string,
+	// exactly the pre-mask chain. Measured: a commander game's
+	// "Card.Colorless+YouCtrl+YouOwn+wasCastFromHand+cmcGE7" carries "Cast"
+	// (the effects-side wasCastFromHand) but no rules-side token, and paid
+	// ~12 substring scans per layer-walk match before this mask.
+	s, ok := spec, true
+	changed := false
+	if changed || gate.stages&provHandByYou != 0 {
+		if s, ok = e.castFromHandAdmitsWindow(s, objID, you, pendingCast); !ok {
+			return "", false
+		}
+		changed = true
+	}
+	if changed || gate.stages&provAtAllByYou != 0 {
+		if s, ok = e.castAtAllAdmitsWindow(s, objID, you, pendingCast); !ok {
+			return "", false
+		}
+		changed = true
+	}
+	if changed || gate.stages&provBare != 0 {
+		if s, ok = e.castAtAllBareAdmitsWindow(s, objID, pendingCast); !ok {
+			return "", false
+		}
+		changed = true
+	}
+	if changed || gate.stages&provHandAny != 0 {
+		if s, ok = e.castFromHandAnyAdmitsWindow(s, objID, pendingCast); !ok {
+			return "", false
+		}
+		changed = true
 	}
 	if gate.origin {
 		s, ok = e.castOriginAdmits(s, objID, you)
 		if !ok {
 			return "", false
 		}
-	} else if provenanceGateVerify && specCarriesCastOrigin(s) {
-		panic("rules: provenance gate skipped an origin-zone token: " + spec)
+		changed = true
 	}
-	return e.castSaAdmits(s, objID)
+	if changed || gate.stages&provCastSa != 0 {
+		return e.castSaAdmits(s, objID)
+	}
+	return s, true
 }
 
 // The CastSa family (task castsa-provenance): Forge's "Card.CastSa Spell.<X>"
@@ -693,15 +750,55 @@ func specProvenanceGate(spec string) provGate {
 	if ent := slot.Load(); ent != nil && ent.spec == spec {
 		return ent.provGate
 	}
-	g := provGate{may: strings.Contains(spec, "Cast")}
-	g.origin = g.may && specCarriesCastOrigin(spec)
+	g := computeProvenanceGate(spec)
 	slot.Store(&provGateEntry{spec: spec, provGate: g})
 	return g
 }
 
+// computeProvenanceGate is specProvenanceGate's uncached body: every stage's
+// own guard, evaluated on the unrewritten spec.
+func computeProvenanceGate(spec string) provGate {
+	var g provGate
+	if !strings.Contains(spec, "Cast") {
+		return g
+	}
+	handByYou := strings.Contains(spec, "wasCastFromYourHandByYou")
+	if handByYou {
+		g.stages |= provHandByYou
+	}
+	if strings.Contains(spec, "wasCastByYou") {
+		g.stages |= provAtAllByYou
+	}
+	if specHasBareWasCast(spec) {
+		g.stages |= provBare
+	}
+	if !handByYou && strings.Contains(spec, "wasCastFromYourHand") {
+		g.stages |= provHandAny
+	}
+	if strings.Contains(spec, "CastSa") {
+		g.stages |= provCastSa
+	}
+	g.origin = specCarriesCastOrigin(spec)
+	g.may = g.stages != 0 || g.origin
+	return g
+}
+
+// provGate stage bits: each is set iff that stage's own guard fires on the
+// unrewritten spec.
+const (
+	provHandByYou uint8 = 1 << iota
+	provAtAllByYou
+	provBare
+	provHandAny
+	provCastSa
+)
+
 type provGate struct {
+	// may is false when no stage (nor the origin family) would fire: the
+	// chain's answer is the spec itself, ok.
 	may    bool
 	origin bool
+	stages uint8
 }
 
 type provGateEntry struct {
@@ -724,11 +821,3 @@ func provGateSlot(spec string) uint {
 
 // provenanceGateVerify: see derivedMemoVerify. Set by the rules test binary.
 var provenanceGateVerify = derivedMemoVerifyFlag != ""
-
-func verifyProvenanceGate(spec string) {
-	if strings.Contains(spec, "wasCastFromYourHandByYou") || strings.Contains(spec, "wasCastByYou") ||
-		specHasBareWasCast(spec) || strings.Contains(spec, "wasCastFromYourHand") ||
-		specCarriesCastOrigin(spec) || strings.Contains(spec, "CastSa") {
-		panic("rules: provenance gate skipped a spec carrying a provenance token: " + spec)
-	}
-}
