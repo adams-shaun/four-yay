@@ -11,6 +11,33 @@ import (
 
 func init() { Register("CopyPermanent", effCopyPermanent) }
 
+// dedupeTargets removes repeated entries from a resolved target list by
+// OBJECT identity (state.ObjID), preserving first-seen order. It is the
+// shared rule for the two lists effCopyPermanent builds that can carry the
+// same object twice: the mint list (targets/destinations) and the
+// TokenRemembered$ memory. A repeated entry is always the trigger capture +
+// RememberChanged$ re-remember duplication (Hofri Ghostforge's
+// [bearer, bearer]), never a copy instruction -- NumCopies$ is the spelling
+// for two copies of one permanent. Two DIFFERENT objects are both kept
+// (Myrkul's [self, reanimated]). Player entries (IsPlayer) are keyed by
+// player id and never collapse with an object entry. Nil/empty in, nil out,
+// so the common no-spec path allocates nothing.
+func dedupeTargets(ts []state.Target) []state.Target {
+	if len(ts) < 2 {
+		return ts
+	}
+	seen := make(map[state.Target]bool, len(ts))
+	out := make([]state.Target, 0, len(ts))
+	for _, t := range ts {
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	return out
+}
+
 // effCopyPermanent implements DB$ CopyPermanent (task copyp1): create a token
 // that is a copy of the object each resolved source names. The mint is one
 // events.CopyToken + one MoveZone per copy -- the MyriadCopy precedent, whose
@@ -459,6 +486,15 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	default:
 		return
 	}
+	// A repeated entry in the resolved target list is never intentional:
+	// NumCopies$ is the spelling for "two copies of one permanent" and rides
+	// the n loop below. The trigger's fire-time capture and a sub-ability's
+	// RememberChanged$ append can both land the same object in Ctx.Remembered,
+	// so a Defined$ TriggeredCardLKICopy selector yields [bearer, bearer] and
+	// the mint loop below would emit one CopyToken per duplicate. Dedupe by
+	// OBJECT identity, preserving first-seen order -- two DIFFERENT remembered
+	// objects (Myrkul's [self, reanimated]) must both survive.
+	targets = dedupeTargets(targets)
 
 	// Controller$ of the copy.
 	owner := c.Controller
@@ -520,7 +556,11 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	if attacking {
 		ids = []state.ObjID{state.ObjID(defender)}
 	}
-	tokenMemory := tokenRememberedTargets(h, c, sa)
+	// The same capture+re-remember duplication reaches TokenRemembered$
+	// Remembered (resolvedRemembered returns Ctx.Remembered raw when the
+	// source owns no persistent list), which would double each copy's
+	// memory entry. Dedupe it with the same rule the mint list uses.
+	tokenMemory := dedupeTargets(tokenRememberedTargets(h, c, sa))
 
 	// Resolve the named attachment endpoint before minting. The endpoint is
 	// intentionally a destination selector, not a bearer-choice feature. It
