@@ -280,6 +280,9 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 	if e.G.Over {
 		return nil
 	}
+	// One query scope (zone-entry index, source census) serves every
+	// candidate's planner query.
+	defer e.paymentPlanQueryScope()()
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
 	// source-exclusive witness.
@@ -328,6 +331,7 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 // then proves that exactly the submitted witness pays it.  It is deliberately
 // usable by the executor without trusting an offer cache or an ID.
 func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast, plan decision.PaymentPlan) error {
+	defer e.paymentPlanQueryScope()()
 	got := e.PlanCastPayment(p, cast)
 	if got.Reason == "unsupported" {
 		return fmt.Errorf("payment plan unsupported")
@@ -439,13 +443,14 @@ type plannedManaActivation struct {
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
-	units := e.paymentPlanManaUnits(p)
+	defer e.paymentPlanQueryScope()()
+	units := e.paymentPlanQueryUnits(p)
 	// V1 accepts only fixed production.  A permissive window unit is useful to
 	// manual payment, but not proof an automatic choice will remain exact.
 	choices := make([][]plannedManaActivation, len(units))
 	firstSourceDetail := ""
 	for i, u := range units {
-		choices[i] = e.paymentPlanUnitAlternatives(u)
+		choices[i] = e.paymentPlanQueryAlternatives(u)
 		if firstSourceDetail == "" {
 			for _, alt := range u.alts {
 				o := e.G.Obj(u.id)
@@ -461,49 +466,21 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 			}
 		}
 	}
-	pool := e.G.Players[p].Pool
-	rankCtx := newPaymentPlanRankContext(choices)
-	var best *decision.PaymentPlan
-	bestRank := paymentPlanRank{}
-	nodes, limited := 0, false
-	var walk func(int, state.Mana, []plannedManaActivation)
-	walk = func(at int, produced state.Mana, chosen []plannedManaActivation) {
-		if nodes >= decision.MaxPaymentPlanSearchNodes {
-			limited = true
-			return
-		}
-		nodes++
-		if paid, ok := cost.resolveManaWith(manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil); ok {
-			plan := paymentWitness(cost, pool, produced, chosen, paid.pool)
-			r := rankPaymentPlan(rankCtx, plan, chosen, paid.pool)
-			if best == nil || r.less(bestRank) {
-				best, bestRank = &plan, r
-			}
-			return
-		}
-		if at == len(choices) || len(chosen) == decision.MaxPaymentActivations {
-			return
-		}
-		// Skip/choose preserves battlefield order and therefore produces a
-		// canonical witness without enumerating activation permutations.
-		walk(at+1, produced, chosen)
-		for _, a := range choices[at] {
-			walk(at+1, manaAdd(produced, a.mana), append(chosen, a))
-		}
+	// Phase 1 (spec 5): normal sources only. Phase 2 -- normal plus last
+	// resort, run only when phase 1 proves no plan exists -- is wired by
+	// aph-last-resort-plans through the same search.
+	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
+	search := searchPaymentPlan(cost, e.G.Players[p].Pool, e.G.Players[p].Life, newPaymentPlanRankContext(choices),
+		phase1, e.paymentPlanQueryClasses(p, paymentTierNormal, phase1))
+	switch {
+	case search.best != nil && search.limited:
+		return PaymentPlanOutcome{Plan: search.best, Nodes: search.nodes, Reason: "search_limit"}
+	case search.best != nil:
+		return PaymentPlanOutcome{Plan: search.best, Nodes: search.nodes}
+	case search.limited:
+		return PaymentPlanOutcome{Reason: "search_limit", Nodes: search.nodes}
 	}
-	walk(0, state.Mana{}, nil)
-	if best != nil {
-		return PaymentPlanOutcome{Plan: best, Nodes: nodes, Reason: func() string {
-			if limited {
-				return "search_limit"
-			}
-			return ""
-		}()}
-	}
-	if limited {
-		return PaymentPlanOutcome{Reason: "search_limit", Nodes: nodes}
-	}
-	return PaymentPlanOutcome{Reason: "insufficient", Detail: firstSourceDetail, Nodes: nodes}
+	return PaymentPlanOutcome{Reason: "insufficient", Detail: firstSourceDetail, Nodes: search.nodes}
 }
 
 // paymentPlanManaUnits extends the shared fixed-production payment census
@@ -953,9 +930,27 @@ func (e *Engine) paymentAbility(id state.ObjID, ma *cards.SA) (decision.PaymentA
 
 // paymentSourceZoneSeq is the existing log sequence of this object's current
 // zone entry. Genesis objects have no entry event and use the contract's zero
-// sentinel. It deliberately scans backwards so a later incarnation cannot be
-// authorized by a witness made for an earlier visit to the battlefield.
+// sentinel. Inside a planner query it reads the query's zone-entry index
+// (paymentPlanQuery's paymentZoneSeqIndex, built by one backward pass);
+// otherwise, and for any object the index does not cover, it scans
+// (paymentSourceZoneSeqScan).
 func (e *Engine) paymentSourceZoneSeq(id state.ObjID) uint64 {
+	if q := e.paymentPlanQuery; q.valid(e) {
+		got := q.zoneSeqs.lookup(e, id)
+		if walkCacheVerify {
+			if want := e.paymentSourceZoneSeqScan(id); got != want {
+				panic(fmt.Sprintf("payment zone-entry index: object %d seq %d, log scan %d", id, got, want))
+			}
+		}
+		return got
+	}
+	return e.paymentSourceZoneSeqScan(id)
+}
+
+// paymentSourceZoneSeqScan is the reference answer: it deliberately scans
+// backwards so a later incarnation cannot be authorized by a witness made for
+// an earlier visit to the battlefield.
+func (e *Engine) paymentSourceZoneSeqScan(id state.ObjID) uint64 {
 	o := e.G.Obj(id)
 	if o == nil {
 		return decision.GenesisZoneSeq

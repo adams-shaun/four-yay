@@ -491,6 +491,11 @@ type Engine struct {
 	boardStaticsCache  boardStaticsCache
 	activeStaticsCache []activeStaticsEntry
 	mayPlaysCache      []mayPlaysEntry
+	// paymentPlanQuery is the payment planner's per-query scratch (the
+	// zone-entry index and source census, rules/payment_plan_search.go),
+	// installed for one query and validated against the log on every read.
+	// Pure per-query scratch: Clone copies none of it.
+	paymentPlanQuery *paymentPlanQuery
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7
