@@ -411,7 +411,10 @@ func trunc(s string, n int) string {
 }
 
 type gameResult struct {
-	idx      int
+	idx int
+	// stopped: the run was interrupted before this game was played; it is
+	// neither counted nor folded.
+	stopped  bool
 	fail     *failure
 	included []string
 	gc       *gameCov
@@ -1116,7 +1119,13 @@ func main() {
 			r := rand.New(rand.NewPCG(gs, gs^0xdeadbeefcafef00d))
 			jobs[i] = job{idx: i, seed: gs, decks: []genDeck{generate(r, p, c), generate(r, p, c)}}
 		}
-		results := make([]gameResult, n)
+		// Results are folded in game order as they arrive rather than held
+		// for the whole batch: a sweep runs one batch per run (-batch =
+		// -games), and holding every game's coverage maps and failure
+		// records until the end pinned them all for the life of the run.
+		// Only the out-of-order window (about -workers games) is buffered;
+		// the fold order, and so every output, is unchanged.
+		out := make(chan gameResult, *workers)
 		var wg sync.WaitGroup
 		ch := make(chan job)
 		for w := 0; w < *workers; w++ {
@@ -1125,7 +1134,7 @@ func main() {
 				defer wg.Done()
 				for j := range ch {
 					if stop.Load() {
-						results[j.idx] = gameResult{idx: -1}
+						out <- gameResult{idx: j.idx, stopped: true}
 						continue
 					}
 					if sk, ok := skip[j.seed]; ok {
@@ -1137,7 +1146,7 @@ func main() {
 						for _, d := range j.decks {
 							gr.included = append(gr.included, d.Cards...)
 						}
-						results[j.idx] = gr
+						out <- gr
 						continue
 					}
 					t0 := time.Now()
@@ -1156,70 +1165,83 @@ func main() {
 					for _, d := range j.decks {
 						gr.included = append(gr.included, d.Cards...)
 					}
-					results[j.idx] = gr
+					out <- gr
 				}
 			}()
 		}
-		for _, j := range jobs {
-			ch <- j
-		}
-		close(ch)
-		wg.Wait()
-		for _, gr := range results {
-			if gr.idx < 0 {
-				continue
+		go func(jobs []job) {
+			for _, j := range jobs {
+				ch <- j
 			}
-			c.Games++
-			played++
-			gameSecs += gr.secs
-			seen := map[string]bool{}
-			for _, nme := range gr.included {
-				if !seen[nme] {
-					seen[nme] = true
-					c.Included[nme]++
+			close(ch)
+			wg.Wait()
+			close(out)
+		}(jobs)
+		pending := map[int]gameResult{}
+		next := 0
+		for got := range out {
+			pending[got.idx] = got
+			for {
+				gr, ok := pending[next]
+				if !ok {
+					break
 				}
-			}
-			if gr.gc != nil {
-				runAP.add(gr.gc.ap)
-				if *mirror {
-					for verdict, count := range gr.gc.mirrorVerdicts {
-						runMirrorVerdicts[verdict] += count
+				delete(pending, next)
+				next++
+				if gr.stopped {
+					continue
+				}
+				c.Games++
+				played++
+				gameSecs += gr.secs
+				seen := map[string]bool{}
+				for _, nme := range gr.included {
+					if !seen[nme] {
+						seen[nme] = true
+						c.Included[nme]++
 					}
 				}
-				for nme := range gr.gc.cast {
-					c.Cast[nme]++
+				if gr.gc != nil {
+					runAP.add(gr.gc.ap)
+					if *mirror {
+						for verdict, count := range gr.gc.mirrorVerdicts {
+							runMirrorVerdicts[verdict] += count
+						}
+					}
+					for nme := range gr.gc.cast {
+						c.Cast[nme]++
+					}
+					for nme := range gr.gc.ability {
+						c.Ability[nme]++
+					}
+					addKeys(c.Used, gr.gc.used)
+					addKeys(c.Offered, gr.gc.offered)
 				}
-				for nme := range gr.gc.ability {
-					c.Ability[nme]++
+				failures := make([]*failure, 0, 1)
+				if gr.gc != nil {
+					failures = make([]*failure, 0, 1+len(gr.gc.mirrorFailures))
 				}
-				addKeys(c.Used, gr.gc.used)
-				addKeys(c.Offered, gr.gc.offered)
-			}
-			failures := make([]*failure, 0, 1)
-			if gr.gc != nil {
-				failures = make([]*failure, 0, 1+len(gr.gc.mirrorFailures))
-			}
-			if gr.fail != nil {
-				failures = append(failures, gr.fail)
-			}
-			if gr.gc != nil {
-				for i := range gr.gc.mirrorFailures {
-					failures = append(failures, &gr.gc.mirrorFailures[i])
+				if gr.fail != nil {
+					failures = append(failures, gr.fail)
 				}
-			}
-			for _, fail := range failures {
-				runFails[fail.Sig]++
-				runKinds[fail.Kind]++
-				for nme := range seen {
-					if !p.isBasic(nme) {
-						c.Fails[nme]++
+				if gr.gc != nil {
+					for i := range gr.gc.mirrorFailures {
+						failures = append(failures, &gr.gc.mirrorFailures[i])
 					}
 				}
-				b, _ := json.Marshal(fail)
-				fw.Write(b)
-				fw.WriteByte('\n')
+				for _, fail := range failures {
+					runFails[fail.Sig]++
+					runKinds[fail.Kind]++
+					for nme := range seen {
+						if !p.isBasic(nme) {
+							c.Fails[nme]++
+						}
+					}
+					b, _ := json.Marshal(fail)
+					fw.Write(b)
+					fw.WriteByte('\n')
+				}
 			}
-
 		}
 		fw.Flush()
 		if err := c.save(*statePath); err != nil {
