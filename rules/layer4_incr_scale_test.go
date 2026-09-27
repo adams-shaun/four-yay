@@ -10,6 +10,13 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// The whole-emit-path benchmark for the cardfuzz bigboard class is
+// BenchmarkEmitTokenCreateOnLargeBoard in emit_scale_test.go (added on main by
+// the trigger-walk ticket, seed 6181111140895991800). It is the emit-path
+// witness the brief asks for, so this file does not declare a second copy: the
+// two pins below cover the layer-4 refresh in isolation, which is the residual
+// linear term this ticket removed.
+
 // The layer-4 derived-type table's incremental rebuild (layer4types.go):
 // scaling pins and the emit-path benchmark. The table is refreshed after
 // every emitted non-inert event while a layer-4 type effect is live, so its
@@ -159,44 +166,5 @@ func TestLayer4TableRefreshTakesTheIncrementalPath(t *testing.T) {
 	}
 	if len(table) == 0 || table[0].ID != car {
 		t.Fatalf("fixture precondition failed after the emits: table %v lost the source's entry", table)
-	}
-}
-
-// BenchmarkEmitTokenCreateOnLargeBoard measures the whole emit path the
-// cardfuzz bigboard class pays (seed 6181111140895991800): each emitted token
-// mint beside a live self-only layer-4 effect refreshes the derived-type
-// table. The board grows by one token per iteration (each mint appends an
-// object and an event); the size runs start from different board sizes, so the
-// ns/op ratio across them is the scaling signal, not either number alone.
-// This remains linear because the trigger walk is O(board) and is a separate
-// ticket; see the report's split measurement.
-func BenchmarkEmitTokenCreateOnLargeBoard(b *testing.B) {
-	for _, n := range []int{500, 4000} {
-		b.Run(fmt.Sprint(n), func(b *testing.B) {
-			e, car, _ := incrBoard(b, n)
-			tok := card(b, "Name:Goblin\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
-			e.G.Tokens = map[string]*cards.Card{"gob": tok}
-			benchWithoutVerify(b)
-			// Precondition: the mint actually lands a battlefield object and
-			// the table refresh integrates it incrementally.
-			before := len(e.G.Zone(state.ZBattlefield, 0))
-			beforeIncr := engineIntField(b, e, "typesIncrBuilds")
-			e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "gob"})
-			if after := len(e.G.Zone(state.ZBattlefield, 0)); after != before+1 {
-				b.Fatalf("mint precondition: battlefield went %d -> %d objects, want +1", before, after)
-			}
-			if engineIntField(b, e, "typesIncrBuilds") != beforeIncr+1 {
-				b.Fatal("mint precondition: the emit's table refresh did not take the incremental path")
-			}
-			srcs, selfOnly := e.layer4SelfOnlySources(nil)
-			if !selfOnly || len(srcs) != 1 || srcs[0] != car {
-				b.Fatalf("mint precondition: layer4SelfOnlySources = %v, %v", srcs, selfOnly)
-			}
-			b.ReportAllocs()
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "gob"})
-			}
-		})
 	}
 }
