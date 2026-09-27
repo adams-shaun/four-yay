@@ -147,8 +147,13 @@ func (d *Decision) requiredCore() []int {
 	for _, group := range groups {
 		next := make(map[key]candidate, len(states)*(len(group)+1))
 		for k, c := range states {
-			// Skipping this Obj is always an available transition.
-			next[k] = c
+			// Skipping this Obj is always an available transition. Preserve
+			// the same minimum-Value/lexicographic dominance as option picks:
+			// map iteration can otherwise overwrite a cheaper candidate.
+			if old, exists := next[k]; !exists || c.value < old.value ||
+				(c.value == old.value && lessPicks(c.picks, old.picks)) {
+				next[k] = c
+			}
 			if k.count >= maxCount {
 				continue
 			}
