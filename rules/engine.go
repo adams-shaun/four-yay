@@ -1092,6 +1092,16 @@ type Engine struct {
 	// entry can outlive the ask it belongs to. Clone copies it.
 	oppPicksMid map[string]state.PlayerID
 
+	// tpCtlChooser (rules/stack.go) is the TargetingPlayerControls$ answered
+	// record (tpc1): the seat that answered a target ask whose SA carries
+	// `TargetingPlayerControls$ True`, keyed by the RESOLVING stack object
+	// (pc.stackObj for a cast/activation, the TriggerPush object for a
+	// placement ask) and carrying the asking SA's line. The entry lives from
+	// the ask's answer until the object leaves the stack, so the CR 608.2b
+	// recheck (legalTargets, which reads it via its self parameter) judges
+	// the restriction against exactly the seat that answered. Clone copies it.
+	tpCtlChooser map[state.ObjID]tpCtlAnswer
+
 	// resume is non-nil while a mid-resolution decision is pending: an effect
 	// (a nested effCharm pick, effCopySpellAbility's UnlessCost$ may-pay,
 	// effDiscard's mode choices — M2d-2) asked through effects.Host.Ask and
@@ -2864,6 +2874,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		delete(e.copyTargetStage, ev.Obj)
 		delete(e.copyAnswerTargets, ev.Obj)
 		delete(e.castSubTargets, ev.Obj)
+		delete(e.tpCtlChooser, ev.Obj)
 		delete(e.charmTargets, ev.Obj)
 		delete(e.sourceLifelinkLKI, ev.Obj)
 		delete(e.sourceControllerLKI, ev.Obj)

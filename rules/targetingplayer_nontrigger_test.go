@@ -31,7 +31,7 @@ func TestTargetingPlayerOpponentSpellAndActivation(t *testing.T) {
 			carrier := mustCorpusCard(t, reg, tc.name)
 			var sa *cards.SA
 			for _, candidate := range carrier.Faces[0].Abilities {
-				if candidate.Kind == tc.ability && candidate.Params["TargetingPlayer"] == "Player.Opponent" {
+				if candidate.Kind == tc.ability && candidate.Params["TargetingPlayer"] == "Player.Opponent" && strings.EqualFold(strings.TrimSpace(candidate.Params["TargetingPlayerControls"]), "True") {
 					sa = candidate
 					break
 				}
@@ -67,8 +67,8 @@ func TestTargetingPlayerOpponentSpellAndActivation(t *testing.T) {
 			if d.Player != 1 {
 				t.Fatalf("chooser = %d, want first living opponent seat 1", d.Player)
 			}
-			if !targetOptionContains(d.Options, own) || !targetOptionContains(d.Options, opponent) {
-				t.Fatalf("legal candidates unexpectedly changed with chooser: %+v", d.Options)
+			if targetOptionContains(d.Options, own) || !targetOptionContains(d.Options, opponent) {
+				t.Fatalf("TargetingPlayerControls$ True candidates = %+v, want only the answering opponent's creature", d.Options)
 			}
 			bad := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{len(d.Options) + 10}}
 			if err := d.Validate(bad); err == nil {
@@ -78,15 +78,15 @@ func TestTargetingPlayerOpponentSpellAndActivation(t *testing.T) {
 	}
 }
 
-// TestTargetingPlayerOpponentMultiSeatSelection verifies a controller
+// TestTargetingPlayerOpponentMultiSeatIsDeterministic verifies a controller
 // selection when two opponents live and direct routing when only one remains.
-func TestTargetingPlayerOpponentMultiSeatSelection(t *testing.T) {
+func TestTargetingPlayerOpponentMultiSeatIsDeterministic(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	evangelize := mustCorpusCard(t, reg, "Evangelize")
 	var sa *cards.SA
 	for _, f := range evangelize.Faces {
 		for _, cand := range f.Abilities {
-			if cand.Kind == "SP" && strings.TrimSpace(cand.Params["TargetingPlayer"]) == "Player.Opponent" {
+			if cand.Kind == "SP" && strings.TrimSpace(cand.Params["TargetingPlayer"]) == "Player.Opponent" && strings.EqualFold(strings.TrimSpace(cand.Params["TargetingPlayerControls"]), "True") {
 				sa = cand
 			}
 		}
@@ -169,8 +169,12 @@ func TestTargetingPlayerOpponentMultiSeatSelection(t *testing.T) {
 				if lostSeat && onOffer {
 					t.Fatalf("lost seat %d's creature %d still offered", c.owner, c.id)
 				}
-				if !lostSeat && !onOffer {
-					t.Fatalf("legal candidate %d missing from options %+v", c.id, d.Options)
+				selectedSeat := tc.want
+				if !lostSeat && c.owner == selectedSeat && !onOffer {
+					t.Fatalf("selected opponent's legal candidate %d missing from options %+v", c.id, d.Options)
+				}
+				if !lostSeat && c.owner != selectedSeat && onOffer {
+					t.Fatalf("non-answering seat %d's creature %d offered to chooser seat %d: %+v", c.owner, c.id, selectedSeat, d.Options)
 				}
 			}
 			bad := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{len(d.Options) + 10}}

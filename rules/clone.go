@@ -134,7 +134,13 @@ func (e *Engine) Clone() *Engine {
 		// oppPicksMid (rules/stack.go) is the effects-tier answered-selection
 		// store, keyed by SA line. Re-allocated (not shared) so the two
 		// engines' next reads cannot collide.
-		oppPicksMid:  cloneOppPicksMid(e.oppPicksMid),
+		oppPicksMid: cloneOppPicksMid(e.oppPicksMid),
+		// tpCtlChooser (rules/stack.go) is the TargetingPlayerControls$
+		// answered-ask record, keyed by the resolving stack object. Plain
+		// struct values, re-allocated like oppPicksMid so a clone taken
+		// between the answer and the CR 608.2b recheck still sees the seat
+		// that answered.
+		tpCtlChooser: cloneTpCtlChooser(e.tpCtlChooser),
 		mulligans:    e.mulligans,
 		startingLife: e.startingLife,
 		// E2 held-out cast suppression (cast.go): the set of card ids whose
@@ -955,6 +961,20 @@ func cloneOppPicksMid(m map[string]state.PlayerID) map[string]state.PlayerID {
 		return nil
 	}
 	out := make(map[string]state.PlayerID, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// cloneTpCtlChooser copies the TargetingPlayerControls$ answered-ask record
+// (tpCtlChooser, stack.go), preserving nil; values are plain structs, so a
+// memberwise copy is complete.
+func cloneTpCtlChooser(m map[state.ObjID]tpCtlAnswer) map[state.ObjID]tpCtlAnswer {
+	if m == nil {
+		return nil
+	}
+	out := make(map[state.ObjID]tpCtlAnswer, len(m))
 	for k, v := range m {
 		out[k] = v
 	}
