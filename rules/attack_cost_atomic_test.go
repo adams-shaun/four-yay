@@ -48,7 +48,7 @@ func TestAtomicallyUnpayableGenericAndPipPairIsNeverOffered(t *testing.T) {
 	if e.G.Players[1].Pool[state.MW] != 2 || e.G.Players[1].Life != 1 {
 		t.Fatalf("precondition: pool W=%d life=%d, want 2 and 1", e.G.Players[1].Pool[state.MW], e.G.Players[1].Life)
 	}
-	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("precondition: the charge reads AFFORDABLE; the atomicity fix is not in force")
 	}
 
@@ -84,7 +84,7 @@ func TestAtomicChargePaysGenericAndPipFromOnePool(t *testing.T) {
 	if ch.mana != 2 || len(ch.phyrexian) != 1 {
 		t.Fatalf("precondition: charge = %+v, want 2 mana + one pip", ch)
 	}
-	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("precondition: three white and one life must afford 2 generic + one W pip")
 	}
 	if both, _, _ := e.combatPhyBothBranches(1, ch); both {
@@ -129,7 +129,7 @@ func TestAtomicChargeLifeBranchWhenGenericIsShort(t *testing.T) {
 	if ch.mana != 2 || len(ch.phyrexian) != 1 {
 		t.Fatalf("precondition: charge = %+v, want 2 mana + one pip", ch)
 	}
-	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("precondition: two white plus twenty life must afford 2 generic + one W pip")
 	}
 
@@ -242,7 +242,7 @@ func TestUnpriceableAttackCostFailsClosed(t *testing.T) {
 	if !ch.unpriceable {
 		t.Fatalf("precondition: charge = %+v, want unpriceable for a plain coloured pip", ch)
 	}
-	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("an unpriceable charge must never read affordable")
 	}
 	e.askAttackers()
@@ -272,7 +272,7 @@ func TestUnpriceableBlockCostFailsClosed(t *testing.T) {
 	if !ch.unpriceable {
 		t.Fatalf("precondition: charge = %+v, want unpriceable", ch)
 	}
-	if e.blockChargeAffordable(0, ch, map[state.ObjID]bool{blocker: true}) {
+	if e.blockChargeAffordable(0, ch, map[state.ObjID]bool{blocker: true}, nil) {
 		t.Fatal("an unpriceable block charge must never read affordable")
 	}
 	d := askBlockersFresh(t, e)
@@ -323,7 +323,7 @@ func TestJointTapSacrificeAssignmentPaysWhenAGreedyPlanWouldFail(t *testing.T) {
 	if len(ch.taps) != 1 || len(ch.sacs) != 1 || ch.mana != 0 || ch.life != 0 {
 		t.Fatalf("precondition: charge = %+v, want one tap + one sacrifice", ch)
 	}
-	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("precondition: the charge IS payable (tap the plain creature, sacrifice the artifact)")
 	}
 
@@ -381,7 +381,7 @@ func TestTapObligationCannotAlsoPayTheMana(t *testing.T) {
 	if len(e.attackManaSources(1)) == 0 {
 		t.Fatal("precondition: the creature-land is not a mana source")
 	}
-	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("precondition: one permanent cannot pay both a {1} and its own tap; the charge must be unaffordable")
 	}
 
@@ -427,7 +427,7 @@ func TestAtomicTapChargedBotAnswerIsAccepted(t *testing.T) {
 	if fch := e.attackPairCharge(free, 0, 0); !fch.zero() || fch.unpriceable {
 		t.Fatalf("precondition: free pair charge = %+v, want zero", fch)
 	}
-	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{charged: true}) {
+	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{charged: true}, map[state.ObjID]bool{charged: true}) {
 		t.Fatal("precondition: the tap charge must be payable by the free creature")
 	}
 	e.askAttackers()
