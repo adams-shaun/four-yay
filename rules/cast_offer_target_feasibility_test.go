@@ -116,6 +116,86 @@ func TestIncriminateSameControllerPairIsOffered(t *testing.T) {
 	}
 }
 
+// TestIntoTheFloodMawGiftRequiresAFeasibleTarget pins the Gift-dependent
+// mandatory target branch with both own and opponent creatures present.
+func TestIntoTheFloodMawGiftRequiresAFeasibleTarget(t *testing.T) {
+	e, spell := corpusTargetFeasibleCard(t, 7205, "i/into_the_flood_maw.txt", "Creature.OppCtrl")
+	ownCreature := bearPermanent(t, e, 0)
+	opponentCreature := bearPermanent(t, e, 1)
+	if o := e.G.Obj(ownCreature); o == nil || o.Zone != state.ZBattlefield || o.Controller != 0 {
+		t.Fatalf("precondition: own creature is not a battlefield permanent: %+v", o)
+	}
+	if o := e.G.Obj(opponentCreature); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
+		t.Fatalf("precondition: opponent creature is not a battlefield permanent: %+v", o)
+	}
+	addMana(t, e, 0, "U")
+	if !castOffered(e, spell) {
+		t.Fatal("Into the Flood Maw was withheld despite an opponent creature target")
+	}
+	var cast *decision.Option
+	for _, opt := range castOptions(t, e) {
+		if opt.Obj == spell {
+			c := opt
+			cast = &c
+		}
+	}
+	if cast == nil {
+		t.Fatal("precondition: cast offer disappeared")
+	}
+	submitChoices(t, e, cast.Index)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose {
+		t.Fatalf("gift election pending = %+v, want KChoose", d)
+	}
+	answerGift(t, e, false)
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("after declining gift target decision = %+v", d)
+	}
+	if targetOptionIndex(d, ownCreature) >= 0 {
+		t.Fatal("own creature was offered as target for Into the Flood Maw")
+	}
+	idx := targetOptionIndex(d, opponentCreature)
+	if idx < 0 {
+		t.Fatalf("opponent creature missing from legal target options: %+v", d.Options)
+	}
+	submitChoices(t, e, idx)
+	if hasNote(e, "cast aborted: no legal target") {
+		t.Fatal("the cast reversed despite announcing its legal opponent creature")
+	}
+	if e.G.Obj(spell).Zone == state.ZHand {
+		t.Fatal("castable target selection did not advance the spell from hand")
+	}
+}
+
+// The flash permission is only satisfied by a target the grant covers. The
+// offered target list must already be restricted, so choosing an opponent's
+// otherwise-legal permanent cannot produce a CR 601.2e reversal.
+func TestFlashPhotographyAnnouncementUsesCoveredTarget(t *testing.T) {
+	e, spell := offTurnFlashEngine(t, "Flash Photography", 2, 2)
+	theirBear := battlePerm(t, e, 1, "Name:Their Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	myBear := battlePerm(t, e, 0, "Name:My Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	if !hasCastOption(e.legalActions(0), spell) {
+		t.Fatal("precondition: Flash Photography not offered despite a qualifying target")
+	}
+	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("target decision = %+v", d)
+	}
+	if istTargetOptionFor(d, theirBear) >= 0 {
+		t.Fatalf("permission-uncovered opponent target was offered: %+v", d.Options)
+	}
+	if idx := istTargetOptionFor(d, myBear); idx < 0 {
+		t.Fatalf("qualifying target missing from announcement: %+v", d.Options)
+	} else {
+		submitChoices(t, e, idx)
+	}
+	if hasNote(e, "flash permission's target requirement unmet") {
+		t.Fatal("cast was reversed despite announcing a permission-covered target")
+	}
+}
+
 // TestDisruptionAuraAttachAILogicDoesNotRestrictTargets pins the brief's aura
 // family: Disruption Aura (Enchant artifact) carries SVar:AttachAITgts and
 // SVar:AttachAILogic:Curse, which are Forge AI hints that must NOT restrict the
