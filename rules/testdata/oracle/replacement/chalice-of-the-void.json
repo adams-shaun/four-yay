@@ -1,0 +1,95 @@
+{
+  "card": "Chalice of the Void",
+  "family": "replacement",
+  "oracle_sha": "719bc7a29876",
+  "author": "cli-20260927T211250Z-05593657 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "x-one-enters-with-one",
+      "cr": [
+        "107.3b",
+        "614.1c"
+      ],
+      "why": "One for each X in the casting cost pays for X=1, leaving precisely one charge counter.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Chalice of the Void"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Chalice of the Void",
+          "mana": "CC",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "1"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Chalice of the Void",
+          "zone": "battlefield",
+          "counters": {
+            "charge": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "x-zero-enters-with-none",
+      "cr": [
+        "107.3b",
+        "614.1c"
+      ],
+      "why": "X=0 costs nothing and places no charge counter; the artifact survives.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Chalice of the Void"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Chalice of the Void",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "0"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Chalice of the Void",
+          "zone": "battlefield",
+          "counters": {
+            "charge": 0
+          }
+        }
+      ]
+    }
+  ]
+}

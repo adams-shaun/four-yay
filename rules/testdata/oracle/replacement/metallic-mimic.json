@@ -1,0 +1,123 @@
+{
+  "card": "Metallic Mimic",
+  "family": "replacement",
+  "oracle_sha": "67287562465a",
+  "author": "cli-20260927T211250Z-05593657 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-bear-enters-with-counter",
+      "cr": [
+        "614.1c",
+        "614.12"
+      ],
+      "why": "The Mimic names Bear as it enters; a subsequent Bear controlled by the same player enters 3/3 with one counter.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Metallic Mimic",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Metallic Mimic",
+          "mana": "CC",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Bear"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "GG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Metallic Mimic",
+          "zone": "battlefield",
+          "pt": "2/1"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "pt": "3/3",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "nonchosen-cat-does-not-get-counter",
+      "cr": [
+        "614.1c",
+        "614.12"
+      ],
+      "why": "Naming Bear does not modify a Cat entering under the Mimic controller.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Metallic Mimic",
+            "Savannah Lions"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Metallic Mimic",
+          "mana": "CC",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Bear"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Savannah Lions",
+          "zone": "battlefield",
+          "pt": "2/1",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}
