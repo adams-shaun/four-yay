@@ -2751,6 +2751,33 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// in the same Apply call that would otherwise mark damage, so replay
 	// derives it from the one logged Damage event and no separate
 	// CounterChange is ever emitted for it.
+	// CR 603.10a: a leaves-the-battlefield trigger's eligibility is read
+	// against the game state as it was immediately before the event. The SBA
+	// paths (rules/sba.go) park that board in triggerBefore around their
+	// batches; an effect destroy, a cost sacrifice or any other departure that
+	// funnels through THIS emit used to emit with triggerBefore nil, so the
+	// trigger's own grant gate was read only AFTER the departure had already
+	// switched it off (Relic Vial's IsPresent$-Cleric AddTrigger$ grant dying
+	// with the only Cleric it names). Park the pre-departure board around the
+	// fold here -- the same immutable snapshot the SBA discipline shares, the
+	// same split pass checkTriggers already consumes -- so every departure
+	// route looks back the same way. The guard keeps an outer batch's parked
+	// board winning: every departure inside an SBA batch or a parked
+	// replacement window still observes that ONE shared board, and the
+	// deferred restore keeps triggerBefore nil at intent boundaries (clone.go
+	// deliberately does not copy it). The snapshot is taken AFTER the
+	// replacement pass settled, so it is the board the folded move actually
+	// departs from; recursion inside this emit (the Role sweep above, a
+	// replacement body's own move) snapshots its own departure before this
+	// window opens or reuses this board like any batch member.
+	if ev.Kind == events.MoveZone && ev.From == state.ZBattlefield &&
+		ev.To != state.ZBattlefield && e.triggerBefore == nil {
+		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {
+			saved := e.triggerBefore
+			e.triggerBefore = e.snapshotTriggerBoard()
+			defer func() { e.triggerBefore = saved }()
+		}
+	}
 	// LKI (CR 603.10 "look back in time") is captured HERE, before
 	// events.Emit runs Apply and mutates the object -- a zone-change trigger
 	// needs the object exactly as it was a moment ago (its counters, tapped
