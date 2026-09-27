@@ -1,6 +1,8 @@
 package effects
 
 import (
+	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -81,10 +83,10 @@ func NameChoicesFromListCtx(g *state.Game, spec, description, chooseFromList str
 	// state, which the filter memo's key (a spec STRING) does not capture, so
 	// compute directly. A context with no resolution state answers exactly
 	// what the resolver-free walk would and may be memoised.
-	if sc.ResolutionStateBound() {
+	if !pureNameSpec(spec) {
 		return nameChoicesFiltered(g, spec, chooseFromList, strict, sc)
 	}
-	if !pureNameSpec(spec) {
+	if sc.ResolutionStateBound() && !pureNameSpecIgnoresContext(sc) {
 		return nameChoicesFiltered(g, spec, chooseFromList, strict, sc)
 	}
 	key := nameFilterKey{
@@ -104,9 +106,47 @@ func NameChoicesFromListCtx(g *state.Game, spec, description, chooseFromList str
 			return filterNameList(nameUniverseSnapshot(g.NameUniverse, g.NameUniverseNames), chooseFromList)
 		})
 	}
-	return cachedNameChoices(key, func() []string {
+	out := cachedNameChoices(key, func() []string {
 		return nameChoicesFiltered(g, spec, chooseFromList, strict, sc)
 	})
+	if nameChoicesMemoVerify && sc.ResolutionStateBound() {
+		if fresh := nameChoicesFiltered(g, spec, chooseFromList, strict, sc); !slices.Equal(fresh, out) {
+			panic(fmt.Sprintf("effects: name-choice memo for pure spec %q served %d names under a resolving context, recomputation gives %d", spec, len(out), len(fresh)))
+		}
+	}
+	return out
+}
+
+// nameChoicesMemoVerify is set by the effects test binary: every memo hit a
+// RESOLVING context takes (pureNameSpecIgnoresContext) is recomputed with
+// that context and a difference panics.
+var nameChoicesMemoVerify = false
+
+// pureNameSpecIgnoresContext reports whether a pure printed-type spec
+// (pureNameSpec) answers the same under sc as under no context at all, so a
+// resolving NameCard ask (Cabal Therapy's Card.nonLand, which always carries
+// Resolving) may share the process-wide filter memo. A pure spec reads only
+// type words; the context reaches a type word only through ExtraTypes (read
+// for every object) or an ID-keyed derived table, and every universe card is
+// matched as a scratch object with ID 0, which no live binding names.
+func pureNameSpecIgnoresContext(sc *SpecContext) bool {
+	if sc == nil {
+		return true
+	}
+	if sc.ExtraTypes != nil {
+		return false
+	}
+	for _, d := range sc.DerivedTypes {
+		if d.ID == 0 {
+			return false
+		}
+	}
+	for _, n := range sc.EffectiveNames {
+		if n.ID == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // nameChoicesFiltered is the uncached ValidCards$ filter walk. sc carries the

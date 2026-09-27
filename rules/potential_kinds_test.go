@@ -53,12 +53,14 @@ func legalActionsPricedKinds(t *testing.T) []string {
 	}
 	var body *ast.BlockStmt
 	for _, d := range f.Decls {
-		if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv != nil && fn.Name.Name == "legalActionsPriced" {
+		// legalActionsPriced delegates to legalActionsWalk, which holds
+		// the walk's body.
+		if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv != nil && fn.Name.Name == "legalActionsWalk" {
 			body = fn.Body
 		}
 	}
 	if body == nil {
-		t.Fatal("rules/legal.go has no (*Engine).legalActionsPriced")
+		t.Fatal("rules/legal.go has no (*Engine).legalActionsWalk")
 	}
 	seen := map[string]bool{}
 	lit := func(n ast.Expr, where string) {

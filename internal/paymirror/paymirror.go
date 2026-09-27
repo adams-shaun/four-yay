@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime/debug"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -111,6 +112,15 @@ type RouteResult struct {
 	Invariant string `json:"invariant,omitempty"`
 	// Panic is set when the mirror route crashed the engine.
 	Panic string `json:"panic,omitempty"`
+	// Expected marks an Unmirrorable route whose reason is a known limit of
+	// the manual route rather than evidence about run A: floating at
+	// priority put the float's own triggered abilities on the stack before
+	// the cast (City of Brass's "whenever this becomes tapped" damage), which
+	// a sorcery-speed spell cannot be cast over, while run A -- paying in
+	// the CR 601.2g window, where no player receives priority -- puts them on
+	// the stack only after the cast (CR 603.3b). A cast with only expected
+	// unmirrorable routes is not a harness failure (Report.ExpectedUnmirrorable).
+	Expected bool `json:"expected,omitempty"`
 	// Events is the mirror's full event stream since the fork (Options.Trace).
 	Events []string `json:"events,omitempty"`
 	// Resolved records the post-resolution horizon (Options.Resolve): "" when
@@ -183,6 +193,7 @@ func (r *Report) Verdict() (Status, string) {
 		return Mismatch, "a_witness:" + firstToken(r.AWitness)
 	}
 	var mismatch, unmirror string
+	expected := true
 	for _, rr := range r.Routes {
 		switch rr.Status {
 		case Equivalent:
@@ -195,7 +206,11 @@ func (r *Report) Verdict() (Status, string) {
 			if unmirror == "" {
 				unmirror = string(rr.Route) + ":" + rr.Reason
 			}
+			expected = expected && rr.Expected
 		}
+	}
+	if mismatch == "" && unmirror != "" && expected {
+		unmirror = "expected:" + unmirror
 	}
 	prefix := ""
 	if r.AFallback != "" {
@@ -205,6 +220,26 @@ func (r *Report) Verdict() (Status, string) {
 		return Mismatch, prefix + mismatch
 	}
 	return Unmirrorable, prefix + unmirror
+}
+
+// ExpectedUnmirrorable reports whether the cast's verdict is Unmirrorable
+// only through routes marked Expected (RouteResult.Expected): run A itself
+// passed its own contract checks and no manual route contradicted it; the
+// manual route simply cannot reproduce A's legal ordering.
+func (r *Report) ExpectedUnmirrorable() bool {
+	if st, _ := r.Verdict(); st != Unmirrorable || r.AError != "" {
+		return false
+	}
+	n := 0
+	for _, rr := range r.Routes {
+		if rr.Status == Unmirrorable {
+			if !rr.Expected {
+				return false
+			}
+			n++
+		}
+	}
+	return n > 0
 }
 
 func firstToken(s string) string {
@@ -283,7 +318,7 @@ func check(base, a *rules.Engine, in decision.Intent, answer Answerer, opt Optio
 	if rep.AFallback == "" {
 		// A plan that fell back to the manual window was abandoned by design;
 		// what it tapped afterwards is the answerer's choice, not the witness.
-		rep.AWitness = witnessViolation(a, fork, plan)
+		rep.AWitness = witnessViolation(a, fork, plan, rep.Player)
 		if rep.AWitness == "" && rep.AInvariant == "" && rep.AOutcome == "stack" {
 			// The witness also promises the pool left after payment.
 			var got decision.ManaAmount
@@ -306,7 +341,7 @@ func check(base, a *rules.Engine, in decision.Intent, answer Answerer, opt Optio
 			// compare clone with clone; a live-vs-clone difference is then
 			// reported only here, as Clone fidelity.
 			ref = ctrl
-			compareEngines(a, ctrl, fork, &cr)
+			compareEngines(a, ctrl, fork, &cr, nil)
 		}
 		cr.Signature = signature(&cr)
 		rep.Control = &cr
@@ -480,10 +515,10 @@ func runRoute(ref, b *rules.Engine, fork int, rep *Report, route Route, action *
 				setMismatch(&res, "game_outcome_differs", outcome(ref)+" vs "+outcome(b))
 			}
 		case res.Status == "":
-			compareEngines(ref, b, fork, &res)
+			compareEngines(ref, b, fork, &res, rep)
 		case res.Status == Mismatch:
 			// A decision-sequence mismatch still carries the state evidence.
-			collectDiffs(ref, b, fork, &res)
+			collectDiffs(ref, b, fork, &res, rep)
 		}
 	}
 	res.Signature = signature(&res)
@@ -494,6 +529,7 @@ func runRoute(ref, b *rules.Engine, fork int, rep *Report, route Route, action *
 // the witness's production, then cast through the ordinary option.
 func mirrorFloat(b *rules.Engine, rep *Report, res *RouteResult) {
 	p := rep.Player
+	stackBefore := append([]state.ObjID(nil), b.G.Stack...)
 	for i, act := range rep.Plan.Activations {
 		if b.G.Over || b.G.Players[p].Lost {
 			return // the game (or the caster) ended while floating; compare
@@ -551,6 +587,7 @@ func mirrorFloat(b *rules.Engine, rep *Report, res *RouteResult) {
 			// sorcery-speed spell cannot be cast over.
 			why = fmt.Sprintf("stack holds %d object(s) after floating; %s", n, why)
 			setUnmirrorable(res, "cast_blocked_by_float_trigger", why)
+			res.Expected = floatOwnTriggers(b, stackBefore)
 			return
 		}
 		setUnmirrorable(res, "cast_not_offered_after_float", why)
@@ -561,6 +598,24 @@ func mirrorFloat(b *rules.Engine, rep *Report, res *RouteResult) {
 		return
 	}
 	replayFollowUps(b, rep, nil, res)
+}
+
+// floatOwnTriggers reports whether every object on b's stack is an ability
+// the float itself put there -- none was on the stack before the route
+// began, and none is a spell. Only mana abilities were activated, and those
+// never use the stack, so each such object is a triggered ability the
+// floated activations triggered.
+func floatOwnTriggers(b *rules.Engine, before []state.ObjID) bool {
+	if len(b.G.Stack) == 0 {
+		return false
+	}
+	for _, id := range b.G.Stack {
+		o := b.G.Obj(id)
+		if o == nil || o.Ability == nil || slices.Contains(before, id) {
+			return false
+		}
+	}
+	return true
 }
 
 // mirrorBase is RouteBase: choose Options[BaseOptionIndex] and pay any
@@ -726,7 +781,7 @@ func resolveHorizon(ref, b *rules.Engine, fork int, rep *Report, res *RouteResul
 		res.Resolved = "skipped:" + why
 		return
 	}
-	var post RouteResult
+	post := RouteResult{Route: res.Route}
 	if ra.G.Over && rb.G.Over {
 		if outcome(ra) == outcome(rb) {
 			res.Resolved = string(Equivalent)
@@ -734,7 +789,7 @@ func resolveHorizon(ref, b *rules.Engine, fork int, rep *Report, res *RouteResul
 		}
 		post.Diffs = []Diff{{Path: "outcome", A: outcome(ra), B: outcome(rb)}}
 	} else {
-		collectDiffs(ra, rb, fork, &post)
+		collectDiffs(ra, rb, fork, &post, rep)
 	}
 	if len(post.Diffs) == 0 && len(post.EventsOnlyA) == 0 && len(post.EventsOnlyB) == 0 {
 		res.Resolved = string(Equivalent)
@@ -1214,12 +1269,12 @@ func containsInt(s []int, v int) bool {
 // the two engines (minus the documented exclusions), the pending decision
 // with its Seq-bound identities masked, and the route-independent events
 // both logged since the fork.
-func compareEngines(a, b *rules.Engine, fork int, res *RouteResult) {
+func compareEngines(a, b *rules.Engine, fork int, res *RouteResult, rep *Report) {
 	// Offer caches are lazy derived state. Build on both sides before
 	// comparing pending decisions so the mirror verdict is cache-independent.
 	a.EnsurePaymentActions()
 	b.EnsurePaymentActions()
-	collectDiffs(a, b, fork, res)
+	collectDiffs(a, b, fork, res, rep)
 	if len(res.Diffs) > 0 || len(res.EventsOnlyA) > 0 || len(res.EventsOnlyB) > 0 {
 		reason := "state_differs"
 		if len(res.Diffs) == 0 {
@@ -1232,8 +1287,18 @@ func compareEngines(a, b *rules.Engine, fork int, res *RouteResult) {
 }
 
 // collectDiffs fills res's state and event differences without judging them.
-func collectDiffs(a, b *rules.Engine, fork int, res *RouteResult) {
+// rep, when non-nil, names the planned cast a float route is compared on, so
+// that route's cost-move reorder allowance (floatReorder) applies; every
+// other route and the control compare exactly.
+func collectDiffs(a, b *rules.Engine, fork int, res *RouteResult, rep *Report) {
 	df := newDiffer()
+	if rep != nil && res.Route == RouteFloat {
+		sources := make([]state.ObjID, 0, len(rep.Plan.Activations))
+		for _, act := range rep.Plan.Activations {
+			sources = append(sources, act.Source)
+		}
+		df.relax = newFloatReorder(a, b, rep.Object, sources)
+	}
 	df.walk("", reflect.ValueOf(a).Elem(), reflect.ValueOf(b).Elem())
 	comparePending(df, a.Pending(), b.Pending())
 	res.Diffs = df.diffs
@@ -1330,30 +1395,25 @@ func sideEffects(a *rules.Engine, fork int, plan decision.PaymentPlan) []string 
 }
 
 // witnessViolation compares run A's actual production with the selected
-// witness: each planned source's first Tap after the fork must be followed by
-// ManaAdd events adding exactly its Produces.
-func witnessViolation(a *rules.Engine, fork int, plan decision.PaymentPlan) string {
+// witness: each planned source's activation after the fork must be followed
+// by ManaAdd events adding exactly its Produces.
+//
+// A source's activation starts at its first Tap, or -- for a source whose
+// cost moves it without tapping it (an Eldrazi Spawn's "Sacrifice this
+// creature: Add {C}") -- at its first zone change. The rest of that
+// activation's own cost may come between the start and the mana (CR 602.2b
+// pays the whole cost before the ability resolves): the source's own zone
+// change (Lotus Petal's and a Treasure's "{T}, Sacrifice"; a last-resort
+// step's disclosed sacrifice consequence) and the payer's life payment. Any
+// other event there still ends the production window.
+func witnessViolation(a *rules.Engine, fork int, plan decision.PaymentPlan, payer state.PlayerID) string {
 	evs := a.L.Events[fork:]
 	var bad []string
 	for i, act := range plan.Activations {
-		at := -1
-		for j, ev := range evs {
-			if ev.Kind == events.Tap && ev.Obj == act.Source {
-				at = j
-				break
-			}
-		}
-		if at < 0 {
+		got, ok := activationProduction(evs, act.Source, payer)
+		if !ok {
 			bad = append(bad, fmt.Sprintf("unexecuted#%d(src %d %q)", i, act.Source, objName(a, act.Source)))
 			continue
-		}
-		var got decision.ManaAmount
-		for _, ev := range evs[at+1:] {
-			if ev.Kind != events.ManaAdd || ev.Amount <= 0 || ev.Counter == "" {
-				break
-			}
-			sym := ev.Counter[len(ev.Counter)-1]
-			got[state.ManaIndex(sym)] += uint32(ev.Amount)
 		}
 		if got != act.Produces {
 			bad = append(bad, fmt.Sprintf("produced#%d(src %d %q planned %s got %s)", i, act.Source, objName(a, act.Source), manaString(act.Produces), manaString(got)))
@@ -1380,6 +1440,48 @@ func witnessViolation(a *rules.Engine, fork int, plan decision.PaymentPlan) stri
 		}
 	}
 	return kind + ": " + strings.Join(bad, "; ")
+}
+
+// activationProduction is the mana source's first activation in evs added
+// (see witnessViolation), and false when evs holds no activation of it.
+func activationProduction(evs []events.Event, source state.ObjID, payer state.PlayerID) (decision.ManaAmount, bool) {
+	var got decision.ManaAmount
+	at := -1
+	for j, ev := range evs {
+		if ev.Obj == source && (ev.Kind == events.Tap || ev.Kind == events.MoveZone) {
+			at = j
+			break
+		}
+	}
+	if at < 0 {
+		return got, false
+	}
+	started := false
+	for _, ev := range evs[at+1:] {
+		if !started && isActivationCost(ev, source, payer) {
+			continue
+		}
+		if ev.Kind != events.ManaAdd || ev.Amount <= 0 || ev.Counter == "" {
+			break
+		}
+		started = true
+		sym := ev.Counter[len(ev.Counter)-1]
+		got[state.ManaIndex(sym)] += uint32(ev.Amount)
+	}
+	return got, true
+}
+
+// isActivationCost reports whether ev is part of paying source's own
+// activation cost: its tap, its own zone change (a sacrifice), or the
+// payer's life payment.
+func isActivationCost(ev events.Event, source state.ObjID, payer state.PlayerID) bool {
+	switch ev.Kind {
+	case events.Tap, events.MoveZone:
+		return ev.Obj == source
+	case events.LifeChange:
+		return ev.Player == payer && ev.Amount < 0
+	}
+	return false
 }
 
 // castObject is the object the fork's first StackPush put on the stack (the

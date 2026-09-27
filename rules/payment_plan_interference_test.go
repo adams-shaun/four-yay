@@ -401,3 +401,49 @@ func TestPaymentPlanInterferenceRestrictingManaConvertIsGlobal(t *testing.T) {
 		t.Fatalf("seat 0's Celestial Dawn reaches seat 1: %q", detail)
 	}
 }
+
+// An effect-created Taps/TapsForMana registration -- a resolved Bubbling
+// Muck's "until end of turn, whenever a player taps a Swamp for mana, that
+// player adds an additional {B}", which lives as a state.Game.Delayed
+// EffectRepeat entry, not on any face or static -- defers exactly the sources
+// its matcher sees: the Swamp, not the Island. Before the delayed walk the
+// planner priced the Swamp at {B} while its tap added {B}{B} (round-5
+// cardfuzz mirror seed 14886721532440673633, wrong_production).
+func TestPaymentPlanInterferenceDelayedTapTriggerDefersItsSources(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9915, interferenceOneInstant)
+	swamp := onBoard(t, e, 0, interferenceSwamp)
+	island := onBoard(t, e, 0, interferenceIsland)
+	if tier, _, _ := interferenceTier(t, e, swamp); tier != paymentTierNormal {
+		t.Fatalf("control: the Swamp is tier %v before Bubbling Muck", tier)
+	}
+
+	muck := e.G.AddObject(corpusCard(t, "Bubbling Muck"), 0)
+	muck.Zone = state.ZHand
+	e.G.SetZone(state.ZHand, 0, append(e.G.Zone(state.ZHand, 0), muck.ID))
+	e.staticEpoch, e.activeEpoch = -1, -1
+	muckID := muck.ID
+	addMana(t, e, 0, "B")
+	submitChoices(t, e, castOptionFor(t, e, muckID).Index)
+	passUntilStackEmpty(t, e, 40)
+	registered := false
+	for _, dt := range e.G.Delayed {
+		if dt.EffectRepeat && dt.EventMode == "TapsForMana" {
+			registered = true
+		}
+	}
+	if !registered {
+		t.Fatalf("precondition: Bubbling Muck registered no TapsForMana effect trigger: %+v", e.G.Delayed)
+	}
+
+	tier, _, detail := interferenceTier(t, e, swamp)
+	if tier != paymentTierDeferred || detail != "source:interference:Bubbling Muck" {
+		t.Fatalf("Swamp under Bubbling Muck = tier %v %q, want deferred by Bubbling Muck", tier, detail)
+	}
+	if tier, _, detail := interferenceTier(t, e, island); tier != paymentTierNormal {
+		t.Fatalf("Island under Bubbling Muck = tier %v %q, want normal", tier, detail)
+	}
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if srcs := interferencePlanSources(got); len(srcs) != 1 || srcs[0] != island {
+		t.Fatalf("plan under Bubbling Muck = %+v (sources %v), want the Island %d only", got, srcs, island)
+	}
+}

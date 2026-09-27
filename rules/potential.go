@@ -1,7 +1,10 @@
 package rules
 
 import (
+	"fmt"
 	"math"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -77,9 +80,17 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	defer e.endDerivedMemo()
 	out := e.G.Players[p].Pool
 	added := map[state.ObjID]bool{}
+	// Each object's membership list (below) reads the board only, never the
+	// accumulated pool, and the fixpoint changes no state, so it is computed
+	// once per object on the first pass and reused by every later pass; only
+	// the pool-priced payability filter reruns. Indexed by zone position: the
+	// zone does not move while the fixpoint runs.
+	zone := e.G.Zone(state.ZBattlefield, p)
+	members := make([][]*cards.SA, len(zone))
+	walked := make([]bool, len(zone))
 	for {
 		progressed := false
-		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+		for zi, id := range zone {
 			if added[id] {
 				continue
 			}
@@ -91,7 +102,18 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			// payability gate: this fixpoint prices activation costs against the
 			// accumulated hypothetical pool below. That shared walk includes
 			// granted CR 305.6 intrinsics and all current eligibility gates.
-			ses := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true)
+			if !walked[zi] {
+				members[zi] = e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true)
+				walked[zi] = true
+			} else if potentialMembersVerify {
+				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, members[zi], sameManaAbility) {
+					panic(fmt.Sprintf("rules: PotentialMana membership for %d moved inside the fixpoint", id))
+				}
+			}
+			if len(members[zi]) == 0 {
+				continue
+			}
+			ses := slices.Clone(members[zi])
 			for i := 0; i < len(ses); {
 				if !e.manaAbilityPayablePool(p, id, ses[i], &out) {
 					ses = append(ses[:i], ses[i+1:]...)
@@ -114,6 +136,22 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	}
 	return out
 }
+
+// potentialMembersVerify makes PotentialMana recompute every reused
+// membership list and panic on a difference. Set by the rules test binary
+// (derivedmemo_verify_test.go), or at link time with derivedMemoVerifyFlag.
+var potentialMembersVerify = derivedMemoVerifyFlag != ""
+
+// sameManaAbility is potentialMembersVerify's comparison: the same ability,
+// or (for an ability a grant builds per call) an identical one.
+func sameManaAbility(a, b *cards.SA) bool {
+	return a == b || (a != nil && b != nil && reflect.DeepEqual(*a, *b))
+}
+
+// potentialProducedStrip strips the braces and spaces from a Produced$
+// value. A strings.Replacer is safe for concurrent use, so one serves every
+// call instead of building a replacer per folded ability.
+var potentialProducedStrip = strings.NewReplacer("{", "", "}", "", " ", "")
 
 // addPotentialMana folds one mana ability into the potential accumulator. The
 // amount and production parsing mirrors AvailableMana's addAvailable (the
@@ -138,7 +176,7 @@ func addPotentialMana(m *state.Mana, ma *cards.SA) {
 		}
 		return
 	}
-	s := strings.NewReplacer("{", "", "}", "", " ", "").Replace(raw)
+	s := potentialProducedStrip.Replace(raw)
 	for _, r := range s {
 		i := state.ManaIndex(byte(r))
 		m[i] = saturatingPotentialMana(m[i], amt)
@@ -170,7 +208,7 @@ func producedOpen(raw string) bool {
 	case "", "Any", "Combo Any", "Chosen":
 		return true
 	}
-	s := strings.NewReplacer("{", "", "}", "", " ", "").Replace(raw)
+	s := potentialProducedStrip.Replace(raw)
 	for _, r := range s {
 		switch r {
 		case 'W', 'U', 'B', 'R', 'G', 'C':

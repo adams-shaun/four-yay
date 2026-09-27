@@ -288,3 +288,51 @@ func TestLivelockWatcherCombatDamageFromManySourcesIsNotACycle(t *testing.T) {
 		w.observeFrom(events.Event{Seq: uint64(i + 1), Kind: events.Damage, Player: 1, Amount: 1}, 77, 0)
 	}
 }
+
+// TestLivelockDetectMatchesReference pins detect()'s candidate scan against
+// the plain every-period reference over wrapped and unwrapped rings of small
+// alphabets (so periods of every length actually occur).
+func TestLivelockDetectMatchesReference(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	for _, maxPeriod := range []int{1, 2, 3, 5, 8} {
+		for alpha := 1; alpha <= 3; alpha++ {
+			w := newLivelockWatcher(&LoopGuard{CycleEvents: maxInt, RunawayEvents: maxInt, MaxPeriod: maxPeriod})
+			x := uint32(maxPeriod*7 + alpha)
+			for i := 0; i < 400; i++ {
+				x = x*1664525 + 1013904223
+				w.observe(events.Event{Seq: uint64(i + 1), Kind: events.Note, Obj: state.ObjID(1 + (x>>16)%uint32(alpha))})
+				// Reference: the shortest p whose trailing halves agree.
+				n := len(w.sigs)
+				want := 0
+				lim := maxPeriod
+				if n/2 < lim {
+					lim = n / 2
+				}
+				for p := 1; p <= lim && want == 0; p++ {
+					ok := true
+					for j := n - 1; j >= n-p; j-- {
+						if w.sigAt(j) != w.sigAt(j-p) {
+							ok = false
+							break
+						}
+					}
+					if ok {
+						want = p
+					}
+				}
+				saved := w.runPeriod
+				w.runPeriod, w.runEvents = 0, 0
+				w.detect()
+				if w.runPeriod != want {
+					t.Fatalf("maxPeriod %d alpha %d event %d: detect period %d, reference %d", maxPeriod, alpha, i, w.runPeriod, want)
+				}
+				w.runPeriod = saved
+				if saved == 0 {
+					w.runEvents = 0
+				} else {
+					w.runEvents = 2 * saved
+				}
+			}
+		}
+	}
+}

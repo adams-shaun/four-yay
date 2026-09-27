@@ -1255,8 +1255,9 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 				// move happens to leave the battlefield. Only the explicit
 				// battlefield-origin shape looks back; destination triggers
 				// still use the post-event source/zone in the live walk.
-				looksBack := t.Mode == "ChangesZone" && t.Params["Origin"] == "Battlefield"
-				if split && looksBack != leaving {
+				// (split first: the Origin$ map read is only needed on a split
+				// leaves-the-battlefield walk.)
+				if split && (t.Mode == "ChangesZone" && t.Params["Origin"] == "Battlefield") != leaving {
 					continue
 				}
 				// CR 603.8 state trigger: its condition is checked against the
