@@ -1898,8 +1898,10 @@ func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, 
 // read -- so no existing ability silently loses its targets. The two roles
 // only an attack-declaration trigger binds (TriggeredAttackingPlayer,
 // TriggeredAttackedTarget: Karazikar, Firkraag, Seifer, Gornog, Whirlwind
-// Killer) fail closed when unbound instead, since offering every creature
-// would widen "target creature that player controls" to any player's.
+// Killer) and NonTriggeredCardController (Confusion in the Ranks: "target
+// permanent another player controls") fail closed when unbound instead, since
+// offering every creature would widen "target creature that player controls"
+// to any player's, or "another player's permanent" to your own.
 func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *cards.SA, sc effects.SpecContext) []targetCandidate {
 	ref := strings.TrimSpace(sa.Params["TargetsWithDefinedController"])
 	if ref == "" {
@@ -1908,7 +1910,11 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 	var player state.PlayerID
 	var ok bool
 	failClosed := false
+	nonTriggeredController := false
 	switch ref {
+	case "NonTriggeredCardController":
+		nonTriggeredController = true
+		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered)
 	case "TriggeredTarget":
 		if sc.TriggerTarget.IsPlayer {
 			player, ok = sc.TriggerTarget.Player, true
@@ -1937,7 +1943,7 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 		player, ok = effects.TriggeredCardController(e.G, sc.TriggerContext, nil)
 	}
 	if !ok {
-		if failClosed {
+		if failClosed || nonTriggeredController {
 			return nil
 		}
 		return in
@@ -1947,11 +1953,35 @@ func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *ca
 		if candidate.kind != "permanent" {
 			continue
 		}
-		if o := e.G.Obj(candidate.obj); o != nil && o.Controller == player {
+		o := e.G.Obj(candidate.obj)
+		if o == nil {
+			continue
+		}
+		if nonTriggeredController {
+			if nonTriggeredControllerAdmits(o, player, ok) {
+				out = append(out, candidate)
+			}
+			continue
+		}
+		if o.Controller == player {
 			out = append(out, candidate)
 		}
 	}
 	return out
+}
+
+// nonTriggeredControllerAdmits is the ONE definition of the
+// TargetsWithDefinedController$ NonTriggeredCardController predicate ("target
+// permanent another player controls", CR 109.5's complement of the triggering
+// card's controller). It is shared by the offer post-filter
+// (filterTargetsWithDefinedController) and the CR 608.2b resolution recheck
+// (legalTargets) so the two cannot drift: both sites admit a candidate only
+// when the triggering card's controller resolved (ok) and the candidate is a
+// battlefield permanent controlled by a different player. The same-controller
+// case is rejected, and an unresolvable controller fails closed, at both
+// sites.
+func nonTriggeredControllerAdmits(o *state.Object, controller state.PlayerID, ok bool) bool {
+	return ok && o != nil && o.Zone == state.ZBattlefield && o.Controller != controller
 }
 
 // charmTargetSlots returns the selected DISTINCT target-bearing mode bodies.
@@ -4578,8 +4608,15 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	sc.ResolutionTargets = targets
 	sc.Resolving = true
 	controllerProp := ""
+	nonTriggeredController := false
+	triggeredCardController := state.PlayerID(0)
+	triggeredCardControllerOK := false
 	if sa != nil {
 		controllerProp = strings.TrimSpace(sa.Params["TargetsWithControllerProperty"])
+		if strings.TrimSpace(sa.Params["TargetsWithDefinedController"]) == "NonTriggeredCardController" {
+			nonTriggeredController = true
+			triggeredCardController, triggeredCardControllerOK = effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered)
+		}
 	}
 	// TargetsWithSharedCardType$ is the reference-relative sibling of the
 	// controller predicate: the SAME sharedCardTypeAdmits the census post-filter
@@ -4638,6 +4675,15 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 		// left fizzles the whole spell/ability through the existing fizzle
 		// machinery upstream of this recheck.
 		if o := e.G.Obj(t.Obj); o != nil && zoneIn(o.Zone, zones) {
+			// The offer post-filter's own predicate, the SAME definition: a
+			// target that was offered under NonTriggeredCardController cannot
+			// be inconsistent with this CR 608.2b recheck, and one whose
+			// controller changed to the triggering controller (or that left
+			// the battlefield) is dropped here exactly as it was withheld at
+			// announcement.
+			if nonTriggeredController && !nonTriggeredControllerAdmits(o, triggeredCardController, triggeredCardControllerOK) {
+				continue
+			}
 			if o.Zone == state.ZStack && (sa == nil || !e.stackKindAdmits(
 				stackTargetKindTokens(sa.Params["TargetType"]), e.stackObjKind(o), o, o.Controller, you)) {
 				continue
