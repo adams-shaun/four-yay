@@ -976,6 +976,7 @@ func main() {
 	runFails := map[string]int{}
 	runKinds := map[string]int{}
 	var runAP apStats
+	runMirrorVerdicts := map[string]int{}
 	var gameSecs float64
 	played := 0
 	for played < *games && !stop.Load() {
@@ -1058,6 +1059,11 @@ func main() {
 			}
 			if gr.gc != nil {
 				runAP.add(gr.gc.ap)
+				if *mirror {
+					for verdict, count := range gr.gc.mirrorVerdicts {
+						runMirrorVerdicts[verdict] += count
+					}
+				}
 				for nme := range gr.gc.cast {
 					c.Cast[nme]++
 				}
@@ -1102,6 +1108,9 @@ func main() {
 			nf += v
 		}
 		fmt.Fprintf(os.Stderr, "cardfuzz: %d/%d games, %d failures (%d sigs), %.1f games/s\n", played, *games, nf, len(runFails), float64(played)/time.Since(start).Seconds())
+		if *mirror {
+			fmt.Fprintf(os.Stderr, "cardfuzz: autopay mirror verdicts: %s\n", formatMirrorVerdicts(runMirrorVerdicts))
+		}
 		if apc.on() {
 			fmt.Fprintf(os.Stderr, "cardfuzz: autopay %s (explore-autopay %v): %s\n", apc.mode, apc.explore, runAP.String())
 		} else if apc.measureManualSeatPlans {
@@ -1110,7 +1119,7 @@ func main() {
 		printReport(p, c, false)
 		if *statsPath != "" {
 			rs := runStats{AutoPay: apc.mode, ExploreAutoPay: apc.explore, Explore: *explore, Seed: *seed, Games: played,
-				Failures: nf, Kinds: runKinds, Sigs: runFails, Stats: runAP, Seconds: time.Since(start).Seconds(),
+				Failures: nf, Kinds: runKinds, Sigs: runFails, Stats: runAP, MirrorVerdicts: optionalMirrorVerdicts(*mirror, runMirrorVerdicts), Seconds: time.Since(start).Seconds(),
 				GameSeconds: gameSecs, Workers: *workers}
 			if err := rs.save(*statsPath); err != nil {
 				fmt.Fprintln(os.Stderr, "cardfuzz: stats:", err)

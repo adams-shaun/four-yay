@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -413,12 +414,33 @@ type runStats struct {
 	Kinds          map[string]int `json:"kinds"`
 	Sigs           map[string]int `json:"sigs"`
 	Stats          apStats        `json:"stats"`
+	MirrorVerdicts map[string]int `json:"mirror_verdicts,omitempty"`
 	Seconds        float64        `json:"seconds"`
 	// GameSeconds sums every finished game's harness wall-clock time (hung
 	// and skipped games excluded); with Workers it gives throughput free of
 	// the -hang budget a hung game adds to the run's wall time.
 	GameSeconds float64 `json:"game_seconds"`
 	Workers     int     `json:"workers"`
+}
+
+func optionalMirrorVerdicts(enabled bool, counts map[string]int) map[string]int {
+	if !enabled {
+		return nil
+	}
+	return counts
+}
+
+func formatMirrorVerdicts(counts map[string]int) string {
+	keys := make([]string, 0, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%d", key, counts[key]))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (r *runStats) save(path string) error {
