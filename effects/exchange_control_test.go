@@ -186,9 +186,11 @@ func TestExchangeControlGauntletsRememberedFollowUp(t *testing.T) {
 }
 
 func TestExchangeControlUnsupportedTargetingIsLoud(t *testing.T) {
-	// Power Struggle's DB body needs TargetsAtRandom$ (Confusion in the
-	// Ranks' needs TargetingPlayer$): the handler must refuse the exchange
-	// loudly rather than swap an arbitrary pair silently.
+	// Power Struggle's DB body needs TargetsAtRandom$: the handler must
+	// refuse the exchange loudly rather than swap an arbitrary pair silently.
+	// (Confusion in the Ranks' TargetingPlayer$ is a target-time chooser
+	// redirect the engine already resolves, so it is deliberately NOT in this
+	// unsupported set -- its exchange is exercised in rules/.)
 	_, ability := corpusSA(t, "Power Struggle", "DBExchangeControl")
 	if ability.Params["TargetsAtRandom"] != "True" {
 		t.Fatalf("Power Struggle fixture changed: %+v", ability)
