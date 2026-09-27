@@ -68,13 +68,18 @@ func TestAZFrontDoor(t *testing.T) {
 
 func TestAZCostReportNumbers(t *testing.T) {
 	saveAZ(t)
+	pri := azmcts.Stats{Searched: 1, Simulations: 10, Completed: 10, EnvSteps: 50, Expanded: 8, Terminal: 1, StepCapped: 1}
+	pri.KindSearched[azmcts.KindPriority] = 1
+	att := azmcts.Stats{Searched: 1, Simulations: 10, Completed: 9, Panics: 1, EnvSteps: 70, Expanded: 9}
+	att.KindSearched[azmcts.KindAttackers] = 1
+	tap := azmcts.Stats{Skipped: 1}
+	tap.KindSkipped[azmcts.KindPriority][azmcts.SkipFewCandidates] = 1
+	tap.PrioritySkipped[azmcts.BaseActivate][azmcts.SkipFewCandidates] = 1
 	azStats.mu.Lock()
 	azStats.diags = []azmcts.Diag{
-		{Turn: 3, Kind: "priority", Searched: true, Candidates: 3, Choice: 0, MS: 100,
-			Stats: azmcts.Stats{Searched: 1, Simulations: 10, Completed: 10, EnvSteps: 50, Expanded: 8, Terminal: 1, StepCapped: 1}},
-		{Turn: 8, Kind: "attackers", Searched: true, Candidates: 4, Choice: 2, MS: 300,
-			Stats: azmcts.Stats{Searched: 1, Simulations: 10, Completed: 9, Panics: 1, EnvSteps: 70, Expanded: 9}},
-		{Turn: 14, Kind: "priority", MS: 1, Stats: azmcts.Stats{Skipped: 1}},
+		{Turn: 3, Kind: "priority", Searched: true, Candidates: 3, Choice: 0, MS: 100, Stats: pri},
+		{Turn: 8, Kind: "attackers", Searched: true, Candidates: 4, Choice: 2, MS: 300, Stats: att},
+		{Turn: 14, Kind: "priority", MS: 1, Stats: tap},
 		{Stats: azmcts.Stats{FeedStopped: 1}},
 	}
 	azStats.mu.Unlock()
@@ -90,6 +95,13 @@ func TestAZCostReportNumbers(t *testing.T) {
 		"  t07-12: searched 1, ms mean 300.0 p95 300.0",
 		"  t13+: searched 0",
 		"counters: simulations 20, completed 19, chance-failures 0, panics 1, submit-errors 0, bad-worlds 0, no-world 0, all-failed 0, step-capped 1, terminal 1, expanded 17, unavailable 0, prior-fallbacks 0, skipped 1, feed-stopped 1",
+		"searched by kind: priority 1, attackers 1, blockers 0, target 0\n",
+		"  skipped priority: payment 0, few-candidates 1, translate-error 0\n",
+		"  skipped attackers: payment 0, few-candidates 0, translate-error 0\n",
+		"  skipped target: payment 0, few-candidates 0, translate-error 0\n",
+		"  skipped priority, bot answered cast: payment 0, few-candidates 0, translate-error 0\n",
+		"  skipped priority, bot answered activate: payment 0, few-candidates 1, translate-error 0\n",
+		"  skipped priority, bot answered other: payment 0, few-candidates 0, translate-error 0\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("report missing %q:\n%s", want, out)

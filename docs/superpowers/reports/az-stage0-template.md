@@ -62,6 +62,22 @@ Per pair, az100: paste the matrix table from az100.txt.
 | attackers | | |
 | blockers | | |
 | target | | |
+| skipped by kind, payment / few-candidates / translate-error: priority | | |
+| attackers | | |
+| blockers | | |
+| target | | |
+| skipped priority by the bot's answer (payment / few-candidates / translate-error): cast | | |
+| ability | | |
+| pass | | |
+| play_land | | |
+| activate (the manual bot's mana tap before a cast) | | |
+| payment | | |
+| other | | |
+
+Source: azNN.txt, the `searched by kind` and `  skipped ...` lines under
+`counters:`. Mana-tap share of priority decisions = skipped-activate ÷ kind
+priority asked: how often the search meets a cast only after the bot has
+already floated its mana.
 
 ## Kill criterion (spec §3)
 
@@ -75,7 +91,9 @@ win rate.
 Verdict: PASS | KILL (summary.txt prints the mechanical verdict line). <one sentence with the numbers>.
 
 If KILL, diagnose before tickets 3–5, in this order:
-1. Skipped share per kind: are candidates being built at all?
+1. Skipped share per kind and reason, and the skipped-priority rows by the
+   bot's answer: are candidates being built at all, and how much of priority
+   is mana taps (activate) the search never sees?
 2. Override share: does the search ever leave the bot's answer?
 3. Step-capped share of completed simulations: are leaves mostly capped mid-walk?
 4. -az-kinds subsets (attackers alone, priority alone) on one pair: which kind loses?

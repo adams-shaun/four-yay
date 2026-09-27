@@ -189,5 +189,29 @@ func azCostReport(totalGames int) string {
 	fmt.Fprintf(&b, "counters: simulations %d, completed %d, chance-failures %d, panics %d, submit-errors %d, bad-worlds %d, no-world %d, all-failed %d, step-capped %d, terminal %d, expanded %d, unavailable %d, prior-fallbacks %d, skipped %d, feed-stopped %d\n",
 		total.Simulations, total.Completed, total.ChanceFailures, total.Panics, total.SubmitErrors, total.BadWorlds, total.NoWorld,
 		total.AllFailed, total.StepCapped, total.Terminal, total.Expanded, total.Unavailable, total.PriorFallbacks, total.Skipped, total.FeedStopped)
+	b.WriteString("searched by kind:")
+	for k, name := range azmcts.KindNames {
+		sep := ","
+		if k == 0 {
+			sep = ""
+		}
+		fmt.Fprintf(&b, "%s %s %d", sep, name, total.KindSearched[k])
+	}
+	b.WriteString("\n")
+	for k, name := range azmcts.KindNames {
+		fmt.Fprintf(&b, "  skipped %s: %s\n", name, azReasons(total.KindSkipped[k]))
+	}
+	for bk, name := range azmcts.BaseKindNames {
+		fmt.Fprintf(&b, "  skipped priority, bot answered %s: %s\n", name, azReasons(total.PrioritySkipped[bk]))
+	}
 	return b.String()
+}
+
+// azReasons renders one row of skip counts in azmcts.SkipReasonNames order.
+func azReasons(row [azmcts.NumSkipReasons]int) string {
+	parts := make([]string, len(row))
+	for r, n := range row {
+		parts[r] = fmt.Sprintf("%s %d", azmcts.SkipReasonNames[r], n)
+	}
+	return strings.Join(parts, ", ")
 }

@@ -77,7 +77,7 @@ arm() {
 		"$OUT/botbench" -pairs "$PAIRS" -games "$games" -seed "$SEED" -workers 2 -dir "$REPO/.cards" "$@" \
 		> "$OUT/$name.txt"
 	echo "== $name: $(cat "$OUT/$name.time")"
-	/usr/bin/grep -E '^pooled .* win rate|^az cost report|^ms/searched|^counters' "$OUT/$name.txt" || true
+	/usr/bin/grep -E '^pooled .* win rate|^az cost report|^ms/searched|^counters|^searched by kind|^  skipped ' "$OUT/$name.txt" || true
 }
 
 # 4. Smoke: one game per pair at the cheaper setting, so a broken seat fails
