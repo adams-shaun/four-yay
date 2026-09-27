@@ -2771,6 +2771,76 @@ func SpecReadsKeywords(spec string) bool {
 	return false
 }
 
+// ptNumericField reports whether a predicate name is one of the four P/T
+// comparison spellings numericPred evaluates against the candidate's
+// layer-derived power/toughness (current and base, CR 613.4). It is exactly
+// the field vocabulary numericPred's comparison loop walks, so
+// SpecReadsPT's dependency test and the evaluator cannot disagree: a field
+// the evaluator reads derived P/T for is a field the dependency test
+// reports, and cmc (the one non-P/T field in the evaluator's loop, read off
+// the face) is deliberately excluded.
+func ptNumericField(name string) bool {
+	for _, field := range ptNumericFields {
+		if strings.HasPrefix(name, field) {
+			return true
+		}
+	}
+	return false
+}
+
+// ptNumericFields is the P/T half of numericPred's comparison-field
+// vocabulary, in the evaluator's own order. cmc is the evaluator's other
+// field and reads the printed mana cost, never a derived characteristic, so
+// it does not belong here.
+var ptNumericFields = [...]string{"power", "toughness", "basePower", "baseToughness"}
+
+// SpecReadsPT reports whether the spec consults the candidate's layer-derived
+// power/toughness when a caller binds SpecContext.DerivedPower /
+// DerivedToughness / BasePower / BaseToughness -- i.e. whether binding those
+// four values can change what the spec matches. The shapes are
+// numericPred's four comparison fields (power/toughness/basePower/
+// baseToughness, including the two-characteristic forms like
+// powerGTbasePower, matched by ptNumericField).
+//
+// effects cannot derive P/T itself (rules sits above it), so Count$Valid's
+// fold binds the values through rules' FilterDerivedPT bridge. That bridge
+// runs a FULL rules layer walk per battlefield candidate, and a
+// characteristic-defining ability that counts permanents (Master of
+// Etherium's X:Count$Valid Artifact.YouCtrl) makes every candidate's
+// derivation run the same count again: the in-progress frame guard stops the
+// cycle but not the factorial fan-out, so a spec that reads no P/T must not
+// pay for the bind at all. rules' layer walk keeps its unconditional bind
+// (there the candidate's P/T is already in hand); only this count-site fold
+// consults the dependency test.
+func SpecReadsPT(spec string) bool {
+	// Fast path: every P/T field begins with "power" or "toughness" (basePower
+	// and baseToughness carry the same lowercase tails), so a spec with
+	// neither substring can never read one -- one reject on the hot path.
+	if !strings.Contains(spec, "ower") && !strings.Contains(spec, "oughness") {
+		return false
+	}
+	for alt := range filterAlternatives(spec) {
+		alt = strings.TrimSpace(alt)
+		if alt == "" {
+			continue
+		}
+		_, rest, _ := strings.Cut(alt, ".")
+		for p := range strings.SplitSeq(rest, "+") {
+			if p == "" {
+				continue
+			}
+			// A leading ! negates the predicate; the P/T dependency still
+			// exists because binding the values can flip the predicate's
+			// result (and so the negated result).
+			p, _ = strings.CutPrefix(p, "!")
+			if ptNumericField(p) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // StripPredicateToken removes the EXACT predicate token from ONE filter
 // alternative's "+" chain, returning the stripped alternative and whether
 // the token was present. The token argument is the exact predicate text to
@@ -4088,6 +4158,9 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 		return false, false
 	}
 	for _, field := range [...]string{"power", "toughness", "cmc", "basePower", "baseToughness"} {
+		// The P/T half of this vocabulary is ptNumericFields, which
+		// SpecReadsPT's dependency test reads through ptNumericField; cmc is
+		// the evaluator's one non-P/T field and is matched here only.
 		if !strings.HasPrefix(name, field) {
 			continue
 		}
