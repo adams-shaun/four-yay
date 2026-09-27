@@ -10,7 +10,7 @@
       "why": "Seat 0 controls one legendary creature, reducing the generic channel cost by one; green mana pays the remaining colored component.",
       "setup": {"p0": {"hand": ["Boseiju, Who Endures"], "battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"battlefield": ["Bonesplitter"]}},
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Boseiju, Who Endures", "ability": "Channel", "mana": "G", "targets": ["p1:Bonesplitter"], "answers": [{"kind": "any", "pick": ["p0:Boseiju, Who Endures"]}], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "activate", "seat": 0, "card": "p0:Boseiju, Who Endures", "ability": "Destroy target artifact", "mana": "G", "targets": ["p1:Bonesplitter"], "answers": [{"kind": "any", "pick": ["p0:Boseiju, Who Endures"]}], "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p1:Bonesplitter", "zone": "graveyard"}, {"card": "p0:Boseiju, Who Endures", "zone": "graveyard"}]

@@ -7,15 +7,13 @@
     {
       "name": "colorless-eldrazi-spell-costs-two-less",
       "cr": ["601.2f", "118.7a"],
-      "why": "Not of This World is a colorless Eldrazi spell cast by Eye's controller; the generic cost falls from seven to five, which exactly five colorless mana pays.",
-      "setup": {"p0": {"hand": ["Not of This World"], "battlefield": ["Eye of Ugin", "Grizzly Bears"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "why": "Eldrazi Devastator is a colorless Eldrazi spell cast by Eye's controller; its eight generic mana cost falls to six, which exactly six colorless mana pays.",
+      "setup": {"p0": {"hand": ["Eldrazi Devastator"], "battlefield": ["Eye of Ugin"]}},
       "steps": [
-        {"op": "pass_to", "step": "main1", "active": "p1"},
-        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Grizzly Bears"]},
-        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "mana": "CCCCC", "targets": ["p1:Lightning Bolt"], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "cast", "seat": 0, "card": "p0:Eldrazi Devastator", "mana": "CCCCCC", "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p1:Lightning Bolt", "zone": "graveyard"}]
+      "expect": [{"card": "p0:Eldrazi Devastator", "zone": "battlefield"}]
     },
     {
       "name": "colored-spell-does-not-receive-colorless-eldrazi-reduction",

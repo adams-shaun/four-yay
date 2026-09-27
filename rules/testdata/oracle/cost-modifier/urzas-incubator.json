@@ -8,7 +8,7 @@
       "name": "chosen-type-reduction-also-applies-to-opponent",
       "cr": ["601.2f", "118.7a"],
       "why": "Incubator does not restrict the reducer to its controller's spells: seat 1's Bear spell costs only its green component, even though seat 0 controls the artifact.",
-      "setup": {"p0": {"battlefield": ["Urza's Incubator"]}, "p1": {"hand": ["Grizzly Bears"]}},
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Urza's Incubator"]}, "p1": {"hand": ["Grizzly Bears"]}},
       "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
       "steps": [
         {"op": "pass_to", "step": "main1", "active": "p1"},
@@ -20,11 +20,11 @@
     {
       "name": "nonmatching-creature-type-is-not-reduced",
       "cr": ["601.2f", "118.7a"],
-      "why": "Savannah Lions is a Cat, so choosing Bear does not remove its generic component; white mana alone is insufficient.",
-      "setup": {"p0": {"hand": ["Savannah Lions"], "battlefield": ["Urza's Incubator"]}},
+      "why": "Centaur Courser is not a Bear, so choosing Bear does not remove its generic component; green mana alone is insufficient.",
+      "setup": {"p0": {"hand": ["Grizzly Bears", "Centaur Courser"], "battlefield": ["Urza's Incubator"]}},
       "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
-      "steps": [{"op": "mana", "seat": 0, "mana": "W"}],
-      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Savannah Lions"}, "want": false}]
+      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Centaur Courser"}, "want": false}]
     }
   ]
 }

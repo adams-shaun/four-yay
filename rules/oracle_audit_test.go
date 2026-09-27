@@ -62,6 +62,9 @@ var oracleKnownDivergent = map[string]string{
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Script translation: Not of This World's conditional cost uses the
+	// TargetedByTarget$ count predicate, which is not registered in effects.
+	"Not of This World/high-power-creature-target-enables-cost-reduction": "spell remains unoffered for zero despite targeting a spell targeting a controlled 9/9; expected cost reduced from {7} to {0}",
 }
 
 type oracleFile struct {

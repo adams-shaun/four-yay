@@ -20,7 +20,7 @@
       "name": "nonmatching-creature-stays-full-price",
       "cr": ["601.2f", "118.7a"],
       "why": "Centaur Courser is a Centaur, not the chosen Bear type; its two generic mana remain, so green alone cannot cast it.",
-      "setup": {"p0": {"hand": ["Centaur Courser"], "battlefield": ["Herald's Horn"]}},
+      "setup": {"p0": {"hand": ["Grizzly Bears", "Centaur Courser"], "battlefield": ["Herald's Horn"]}},
       "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
       "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
       "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Centaur Courser"}, "want": false}]

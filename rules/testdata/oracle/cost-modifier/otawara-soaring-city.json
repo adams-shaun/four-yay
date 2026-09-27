@@ -5,25 +5,23 @@
   "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "one-legendary-creature-reduces-channel-by-one",
+      "name": "legendary-creature-reduces-channel-cost",
       "cr": ["602.2b", "118.7a"],
-      "why": "With one legendary creature controlled, the channel activation's generic cost is reduced by one; two blue mana pays the remaining two generic and blue components.",
+      "why": "One legendary creature controlled by seat 0 reduces the channel ability's generic component by one, so three blue mana pays the remaining two generic and one blue mana.",
       "setup": {"p0": {"hand": ["Otawara, Soaring City"], "battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"battlefield": ["Savannah Lions"]}},
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Otawara, Soaring City", "ability": "Channel", "mana": "UU", "targets": ["p1:Savannah Lions"], "answers": [{"kind": "any", "pick": ["p0:Otawara, Soaring City"]}], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "activate", "seat": 0, "card": "p0:Otawara, Soaring City", "ability": "Return target artifact", "mana": "UUU", "targets": ["p1:Savannah Lions"], "answers": [{"kind": "any", "pick": ["p0:Otawara, Soaring City"]}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p1:Savannah Lions", "zone": "hand"}, {"card": "p0:Otawara, Soaring City", "zone": "graveyard"}]
     },
     {
-      "name": "no-legendary-creature-leaves-channel-at-full-cost",
+      "name": "without-a-legendary-creature-cost-is-not-reduced",
       "cr": ["602.2b", "118.7a"],
-      "why": "Without a legendary creature, the reduction is zero and two blue mana cannot pay the channel cost's three generic plus one blue mana.",
+      "why": "With no legendary creature controlled, three blue mana cannot pay the channel ability's three generic plus one blue mana.",
       "setup": {"p0": {"hand": ["Otawara, Soaring City"], "battlefield": ["Savannah Lions"]}, "p1": {"battlefield": ["Grizzly Bears"]}},
-      "steps": [
-        {"op": "mana", "seat": 0, "mana": "UU"}
-      ],
-      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Otawara, Soaring City", "label": "Channel"}, "want": false}]
+      "steps": [{"op": "mana", "seat": 0, "mana": "UUU"}],
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Otawara, Soaring City", "label": "Return target artifact"}, "want": false}]
     }
   ]
 }

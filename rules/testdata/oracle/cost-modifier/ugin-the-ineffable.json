@@ -7,15 +7,13 @@
     {
       "name": "colorless-spell-costs-two-less",
       "cr": ["601.2f", "118.7a"],
-      "why": "Not of This World is colorless, and its generic cost is reduced by two; five colorless mana therefore pays the remaining cost.",
-      "setup": {"p0": {"hand": ["Not of This World"], "battlefield": ["Ugin, the Ineffable", "Grizzly Bears"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "why": "Eldrazi Devastator is colorless, and Ugin reduces its eight generic mana cost by two; six colorless mana pays the remainder.",
+      "setup": {"p0": {"hand": ["Eldrazi Devastator"], "battlefield": ["Ugin, the Ineffable"]}},
       "steps": [
-        {"op": "pass_to", "step": "main1", "active": "p1"},
-        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Grizzly Bears"]},
-        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "mana": "CCCCC", "targets": ["p1:Lightning Bolt"], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "cast", "seat": 0, "card": "p0:Eldrazi Devastator", "mana": "CCCCCC", "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p1:Lightning Bolt", "zone": "graveyard"}]
+      "expect": [{"card": "p0:Eldrazi Devastator", "zone": "battlefield"}]
     },
     {
       "name": "colored-spell-keeps-its-generic-component",
