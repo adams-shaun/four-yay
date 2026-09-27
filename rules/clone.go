@@ -219,6 +219,8 @@ func (e *Engine) Clone() *Engine {
 	// Parked-mint collectors (rules/token_rest.go): value data keyed by id,
 	// re-allocated so a clone's answer never appends into the original's.
 	c.mintParkFrom, c.mintSinkSeq = e.mintParkFrom, e.mintSinkSeq
+	c.mintParkElection = e.mintParkElection
+	c.tokenMintSinkID, c.pendingMintSink = e.tokenMintSinkID, e.pendingMintSink
 	c.copyMintsPending = append([]state.ObjID(nil), e.copyMintsPending...)
 	if e.mintSinks != nil {
 		c.mintSinks = make([]mintSink, len(e.mintSinks))

@@ -40,14 +40,17 @@ type mintSink struct {
 // SuspendTokenRest implements effects' optional tokenRestHost: the Token SA's
 // last EmitTokenCreate parked this resolution (mintParkFrom), so record the
 // frame that re-enters sa with rest once the answer has minted. Every
-// continuation the park posed -- the competitions it appended to the queue
-// and the CreateToken election it parked -- is tagged with a fresh
+// continuation the park posed -- the competitions it appended to the queue,
+// the CreateToken election it parked (tokenChoice) and the as-enters election
+// its entry parked on (an etbMove/riotMove/unleashMove/siegeMove ask; tagged
+// through e.pendingMintSink for the answer arms) -- is tagged with a fresh
 // collector. Setting repeatReported suppresses the enclosing Resolve loop's
 // own SuspendContinuation report of sa (the SuspendFlipRest convention: the
 // frame re-enters the primitive itself, and its walk continues at sa.Sub).
 func (e *Engine) SuspendTokenRest(sa *cards.SA, rest effects.TokenRest) bool {
 	from := e.mintParkFrom - 1
-	e.mintParkFrom = 0
+	election := e.mintParkElection
+	e.mintParkFrom, e.mintParkElection = 0, false
 	if from < 0 || e.resume == nil || from > len(e.replChoices) {
 		return false
 	}
@@ -59,7 +62,19 @@ func (e *Engine) SuspendTokenRest(sa *cards.SA, rest effects.TokenRest) bool {
 	if tc := e.tokenChoice; tc != nil && tc.mintSink == 0 && tc.parkedResume == e.resume {
 		choice = tc
 	}
-	if !e.tagMintContinuations(id, from, choice) {
+	tagged := e.tagMintContinuations(id, from, choice)
+	if election {
+		// The park was an as-enters election (etbMove/riotMove/unleashMove/
+		// siegeMove) posed from inside the mint's emit, not a queued
+		// competition: its answer re-emits the parked entry through the
+		// election arms' withMintSink, and publishTokenEntry must land the
+		// minted id in THIS collector. e.pendingMintSink is what the arms
+		// read; the pose itself recorded 0 (EmitTokenCreate's sink is a local
+		// buffer, never a named collector), so this overwrites it.
+		e.pendingMintSink = id
+		tagged = true
+	}
+	if !tagged {
 		return false
 	}
 	e.mintSinks = append(e.mintSinks, mintSink{id: id})
@@ -97,7 +112,8 @@ func mintContinuation(k replChoiceKind) bool {
 }
 
 // withMintSink runs the answer to one of a parked mint's continuations (an
-// order competition, a CreateToken election) with the TokenCreate sink
+// order competition, a CreateToken election, or the as-enters election the
+// mint's own entry parked on) with the TokenCreate sink
 // pointed at collector id, so every object the answer mints (the staged
 // token, a chosen copy, the rest of its plan) is recorded for the waiting
 // "token_rest" frame. Whatever the answer poses next for the same mint -- a
@@ -115,10 +131,12 @@ func (e *Engine) withMintSink(id uint64, f func()) {
 	}
 	ids := append([]state.ObjID(nil), e.mintSinks[i].ids...)
 	saved := e.tokenMintSink
+	savedID := e.tokenMintSinkID
 	e.tokenMintSink = &ids
+	e.tokenMintSinkID = id // names this collector to every ask the answer poses
 	queued, choiceBefore := len(e.replChoices), e.tokenChoice
 	f()
-	e.tokenMintSink = saved
+	e.tokenMintSink, e.tokenMintSinkID = saved, savedID
 	if i = e.mintSinkIndex(id); i >= 0 {
 		e.mintSinks[i].ids = ids
 	}
