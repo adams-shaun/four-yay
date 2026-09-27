@@ -44,6 +44,10 @@ func TestPaymentPlanTiers(t *testing.T) {
 		{"River of Tears", paymentTierDeferred, "source:conditional", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
 		{"Gemstone Caverns", paymentTierDeferred, "source:conditional", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
 		{"Pyromancer's Goggles", paymentTierDeferred, "source:special_production", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
+		// Chrome Mox's production is AB$ ManaReflected (a reflected-colour
+		// read of the imprinted card), not a plain Mana ability, so the
+		// classifier's closed-world API check defers it.
+		{"Chrome Mox", paymentTierDeferred, "source:special_production", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
 		{"Ashnod's Altar", paymentTierDeferred, "source:last_resort", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
 		{"Cavern of Souls", paymentTierDeferred, "source:special_production", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
 	}
@@ -55,8 +59,14 @@ func TestPaymentPlanTiers(t *testing.T) {
 			if o := e.G.Obj(id); o.Zone != state.ZBattlefield {
 				t.Fatalf("precondition: source is not on battlefield (zone %s)", o.Zone)
 			}
+			// The planner classifies both production APIs the mana window
+			// offers: plain Mana and ManaReflected (Chrome Mox).
+			abilities := append(e.G.Obj(id).Face().ManaAbilities(), e.G.Obj(id).Face().ManaReflectedAbilities()...)
+			if len(abilities) == 0 {
+				t.Fatalf("precondition: %s carries no mana ability", tc.name)
+			}
 			found := false
-			for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
+			for _, ma := range abilities {
 				tier, consequence, detail := e.paymentPlanAbilityTier(0, id, ma)
 				if tier == tc.tier && detail == tc.detail && tc.check(consequence) {
 					found = true
@@ -64,7 +74,7 @@ func TestPaymentPlanTiers(t *testing.T) {
 				}
 			}
 			if !found {
-				for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
+				for _, ma := range abilities {
 					tier, consequence, detail := e.paymentPlanAbilityTier(0, id, ma)
 					t.Logf("%s: tier=%d consequence=%+v detail=%q params=%v", ma.Line, tier, consequence, detail, ma.Params)
 				}
