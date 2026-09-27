@@ -44,6 +44,9 @@ func paymentPlanIntent(d *decision.Decision) (decision.Intent, bool) {
 func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint64) {
 	var human *HumanSeat
 	o := testOptions(t)
+	if len(decks) == 2 && decks[0] == "ur-delver" && decks[1] == "uw-control" {
+		o.LoadDeck = repoDeckLoader(t)
+	}
 	o.Seats = humanFirstSeat(&human)
 	r, err := New(o)
 	if err != nil {
@@ -64,6 +67,8 @@ func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint6
 	var last uint64 = ^uint64(0)
 	selected := 0
 	legacyAfterPlan := false
+	plannedCards := make([]state.ObjID, 0, 2)
+	checkedPlans := 0
 	for {
 		if time.Now().After(deadline) {
 			t.Fatalf("payment-plan host flow did not reach planned then legacy answers; selected=%d legacy=%t", selected, legacyAfterPlan)
@@ -90,6 +95,27 @@ func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint6
 			time.Sleep(time.Millisecond)
 			continue
 		}
+		if d.Kind == decision.KPriority && checkedPlans < len(plannedCards) {
+			r.mu.RLock()
+			tb := r.tables["t1"]
+			r.mu.RUnlock()
+			tb.mu.RLock()
+			fm := tb.cur
+			tb.mu.RUnlock()
+			if fm == nil {
+				t.Fatal("live payment-plan match disappeared before checking cast")
+			}
+			fm.mu.RLock()
+			for _, id := range plannedCards[checkedPlans:] {
+				obj := fm.e.G.Obj(id)
+				if obj == nil || obj.Zone == state.ZHand {
+					fm.mu.RUnlock()
+					t.Fatalf("planned card %d is back in hand when seat next holds priority: %#v", id, obj)
+				}
+			}
+			fm.mu.RUnlock()
+			checkedPlans = len(plannedCards)
+		}
 		in, planned := paymentPlanIntent(d)
 		if selected >= 2 && d.Kind == decision.KPriority {
 			in, planned = legalIntent(d), false
@@ -100,11 +126,18 @@ func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint6
 		}
 		if planned {
 			selected++
+			if len(d.PaymentActions) == 0 {
+				t.Fatal("planned intent had no published PaymentAction")
+			}
+			plannedCards = append(plannedCards, d.PaymentActions[0].Cast.Object)
 		}
 		last = d.Seq
 	}
 	if selected < 2 {
 		t.Fatalf("external human seat selected %d payment actions, want two", selected)
+	}
+	if checkedPlans != len(plannedCards) {
+		t.Fatalf("checked %d of %d planned casts before match completion", checkedPlans, len(plannedCards))
 	}
 	if got := human.caretakerCount(); got != 0 {
 		t.Fatalf("caretaker answered %d decisions", got)
@@ -141,6 +174,9 @@ func TestPaymentPlanHumanSeatSelectsAnOfferedPlanAndReplays(t *testing.T) {
 	})
 	t.Run("four_seats", func(t *testing.T) {
 		runPaymentPlanHumanSeat(t, 4, []string{"a", "b", "c", "d"}, 20260925)
+	})
+	t.Run("dual_land_two_seats", func(t *testing.T) {
+		runPaymentPlanHumanSeat(t, 2, []string{"ur-delver", "uw-control"}, 20260926)
 	})
 }
 
