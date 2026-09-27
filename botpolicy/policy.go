@@ -190,6 +190,9 @@ type Board struct {
 	// explore is set only by ExploreDecide (the value copy it receives), so
 	// no adapter fills it and every production policy reads false.
 	explore bool
+	// attackSim is set only by AttackSimDecide (attacksim.go, the opt-in
+	// combat-simulation attacker); nil in every production policy.
+	attackSim *AttackSimParams
 }
 
 // Commander is the Board's per-commander commander-format bookkeeping,
@@ -527,7 +530,11 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 		return Clamp(d, in)
 
 	case decision.KAttackers:
-		in.Choices = b.chooseAttackersMode(d, lethalPressure, combinedLethal)
+		if b.attackSim != nil {
+			in.Choices = b.chooseAttackersSim(d, b.attackSim)
+		} else {
+			in.Choices = b.chooseAttackersMode(d, lethalPressure, combinedLethal)
+		}
 		// The attack-cost non-mana charge (CostLife/CostTaps) is a
 		// whole-declaration constraint the per-pair option list cannot express,
 		// and the engine rejects an unpayable declaration; the combat
@@ -537,7 +544,10 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 		return Clamp(d, in)
 
 	case decision.KBlockers:
-		if blocksAssignment {
+		if b.attackSim != nil && b.attackSim.Blocks {
+			// The attack-sim arm's simulated blocks (blocksim.go).
+			in.Choices = b.chooseBlockersSim(d, b.attackSim)
+		} else if blocksAssignment {
 			// BLK: the opt-in whole-assignment policy (blocks.go, B0-B3).
 			in.Choices = b.chooseBlockAssignment(d)
 		} else {

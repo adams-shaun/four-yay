@@ -54,6 +54,9 @@ type Bot struct {
 	// the decisions are identical to NewBot's by the L1 equivalence table.
 	cast    botpolicy.CastWeights
 	castSet bool
+	// attackSim, when non-nil, answers KAttackers with the opt-in combat
+	// simulation (botpolicy.AttackSimDecide); set only by NewAttackSimBot.
+	attackSim *botpolicy.AttackSimParams
 }
 
 // M4: a compile-time assertion that Bot keeps satisfying Seat, since
@@ -133,6 +136,17 @@ func NewBlocksBot(seed uint64) *Bot {
 // (host.NormalizeBotPolicy), so it can never reach a live table.
 func NewExploreBot(seed uint64) *Bot {
 	return &Bot{r: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)), lethalPressure: true, explore: true}
+}
+
+// NewAttackSimBot returns the opt-in combat-simulation attacker
+// (botpolicy.AttackSimDecide): the default policy (AR7 lethal pressure
+// included) with KAttackers answered by a whole-attacking-set search scored
+// by a static evaluator. Same PCG derivation as NewBot, and the attacker
+// consumes no rng, so every other decision draws exactly the default bot's
+// stream. Constructed only by cmd/botbench -- absent from the hosted policy
+// vocabulary (host.NormalizeBotPolicy).
+func NewAttackSimBot(seed uint64, p botpolicy.AttackSimParams) *Bot {
+	return &Bot{r: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)), lethalPressure: true, attackSim: &p}
 }
 
 // NewCastProfileBot returns the cast-profile policy playing the named
@@ -335,6 +349,9 @@ func (b *Bot) wantsManual(brd botpolicy.Board, d *decision.Decision, payable map
 // decideWithoutAutoPay is the existing policy dispatch, factored so the
 // payment wrapper can ask it to rank a private candidate decision once.
 func (b *Bot) decideWithoutAutoPay(brd botpolicy.Board, d *decision.Decision) decision.Intent {
+	if b.attackSim != nil {
+		return botpolicy.AttackSimDecide(brd, d, b.r, *b.attackSim)
+	}
 	if b.explore {
 		return botpolicy.ExploreDecide(brd, d, b.r)
 	}
