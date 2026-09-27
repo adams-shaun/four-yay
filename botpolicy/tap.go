@@ -411,7 +411,9 @@ func (b Board) TapIntent(d *decision.Decision) (state.ObjID, bool) {
 //   - affordable: the seat can produce this turn (producibleMana) enough to
 //     pay the card's printed cost plus the CR 903.8 command-zone tax
 //     (castCost). A 7-drop on five lands is not a cast the window can make,
-//     whatever its timing.
+//     whatever its timing. An untapped source of Indeterminate amount (an
+//     Urza land) leaves the total unknown, so it cannot refute the cast
+//     (indeterminateSourceUntapped).
 //
 // It is a pure read of Board facts and consumes no rng, and it is the ONE
 // home of the predicate: the auto-pay adapter (seat/bot.go) does not
@@ -469,10 +471,33 @@ func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
 	if c.Counter && !b.ForeignSpell(player) {
 		return false
 	}
-	if b.castCost(id, c) > b.producibleMana() {
+	if b.castCost(id, c) > b.producibleMana() && !b.indeterminateSourceUntapped() {
 		return false
 	}
 	return true
+}
+
+// indeterminateSourceUntapped reports whether the seat controls an untapped
+// mana source whose amount the Board cannot price (Produces.Indeterminate:
+// an Amount$ that is an SVar, not a literal). producibleMana counts such a
+// source as ZERO -- the honest guaranteed floor -- but zero is a floor, not a
+// ceiling, so it cannot REFUTE a cast: castableNowCard's affordability test
+// may only say "not affordable" against a production total it actually
+// knows. Urza's Tower/Mine/Power Plant are the measured shape (Amount$
+// UrzaAmount, Count$UrzaLands.N.1): reading them as producing nothing made
+// the auto-pay adapter refuse every cast on a Tron board, Expedition Map on
+// two Urza lands included, and since the V1 planner withholds those sources
+// too, the no-plan window then never tapped at all (tron:uw-tempo 46.7% ->
+// 20.0% at bench seed 5500000). While such a source is untapped the gate
+// falls back to the pre-float-waste reading (timing and C8 only); a board of
+// known production keeps the affordability refusal.
+func (b Board) indeterminateSourceUntapped() bool {
+	for _, c := range b.Cards {
+		if c.OnBattlefield && !c.Tapped && c.Produces.Indeterminate {
+			return true
+		}
+	}
+	return false
 }
 
 // T3 -- the converter gate (cardfuzz batch1 lines 3/5/6/10/16/17). A mana

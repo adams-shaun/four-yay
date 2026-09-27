@@ -1831,6 +1831,11 @@ func aftermathAlternateFace(o *state.Object) *cards.Face {
 // It is a pure read: no event is emitted, no state field is written, and the
 // hypothetical pool lives only in local copies, so replay is untouched.
 func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decision.Option {
+	// Count the walk before anything can early-return. A test-visible
+	// diagnostic only: no event, no state mutation, no effect on replay or
+	// chain heads (legalActionWalks is not copied by Clone and never reaches
+	// a view, an option list or a log).
+	e.legalActionWalks++
 	// The walk is a pure read, so every Derived it makes is memoized for the
 	// walk's duration (rules/derivedmemo.go).
 	e.beginDerivedMemo()
