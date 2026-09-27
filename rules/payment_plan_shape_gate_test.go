@@ -3,6 +3,8 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -56,6 +58,38 @@ func TestPaymentPlanShapeGate(t *testing.T) {
 			}
 			if !legacy {
 				t.Fatalf("legacy cast option was removed for %s", tc.name)
+			}
+		})
+	}
+}
+
+// PP-08 keeps the cost-class exclusions that were already in place before
+// this ticket: an {X}, hybrid, Phyrexian or snow printed cost still receives
+// no plan, now with the machine-readable cost detail. This is the invariant
+// the gaps audit proved on main; it must not regress when the additional-cost
+// and contribution gates above were added.
+func TestPaymentPlanShapeGateCostClassesStillDecline(t *testing.T) {
+	for i, tc := range []struct {
+		name, manaCost, detail string
+	}{
+		{"x", "X R", "cost:x"},
+		{"hybrid", "R/G", "cost:hybrid"},
+		{"phyrexian", "R/P", "cost:phyrexian"},
+		{"snow", "S", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := "Name:Cost Class Spell\nManaCost:" + tc.manaCost + "\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:test\n"
+			e, _, spell := newFixtureDeck(t, uint64(9560+i), src)
+			onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:test\n")
+			onBoard(t, e, 0, "Name:Snow Mountain\nTypes:Basic Snow Land Mountain\nOracle:test\n")
+			onBoard(t, e, 0, "Name:Forest\nTypes:Basic Land Forest\nOracle:test\n")
+			got := e.PlanCastPayment(0, paymentCast(spell))
+			// A snow cost is refused even earlier (the candidate walk), so its
+			// Detail is empty; the contract here is only that no plan is
+			// offered. X/hybrid/Phyrexian reach the cost classifier and name
+			// their class.
+			if got.Plan != nil || got.Reason != "unsupported" || (tc.detail != "" && got.Detail != tc.detail) {
+				t.Fatalf("cost class %s outcome = %+v, want unsupported detail %q", tc.name, got, tc.detail)
 			}
 		})
 	}
@@ -135,4 +169,115 @@ func TestPaymentPlanShapeGateSpreeOffers(t *testing.T) {
 			t.Fatalf("ordinary Spree cast option was removed; options=%+v", e.Pending().Options)
 		})
 	}
+}
+
+// The executor half of the audit story (ticket autopay-exec-harden) is no
+// longer reachable through the planner offer for these shapes, because PP-08
+// withholds it. Build the witness directly, exactly as
+// TestPaymentPlanExecutesAfterCastTimeChoice does for sacrifice, and prove the
+// executor still pays the whole cost after the additional-cost choice: the
+// spell must not sit on the stack unpaid. This test owns the discard and delve
+// fixtures; sacrifice stays in the existing test.
+func TestPaymentPlanShapeGateAdditionalCostExecutorPays(t *testing.T) {
+	red := state.Mana{}
+	red[state.ManaIndex('R')] = 1
+
+	mountainWitness := func(e *Engine, cost decision.PaymentCost, sources ...state.ObjID) decision.PaymentPlan {
+		acts := make([]decision.PaymentActivation, 0, len(sources))
+		for _, id := range sources {
+			var m state.Mana
+			m[state.ManaIndex('R')] = 1
+			acts = append(acts, decision.PaymentActivation{
+				Source: id, SourceZoneSeq: e.paymentSourceZoneSeq(id),
+				Ability:  decision.PaymentAbility{Kind: decision.PaymentAbilityIntrinsic, Intrinsic: "basic_land"},
+				Produces: paymentManaAmount(m)})
+		}
+		return decision.PaymentPlan{Version: decision.PaymentPlanV1, Cost: cost, Activations: acts}
+	}
+
+	t.Run("discard", func(t *testing.T) {
+		e, _, spell := newFixtureDeck(t, 9570, "Name:Gate Thrill Shape\nManaCost:1 R\nTypes:Instant\nA:SP$ Draw | Cost$ 1 R Discard<1/Card> | NumCards$ 2\nOracle:x\n")
+		m1 := onBoard(t, e, 0, paymentPlanMountain)
+		m2 := onBoard(t, e, 0, paymentPlanMountain)
+		var discard state.ObjID
+		for _, id := range e.G.Zone(state.ZHand, 0) {
+			if id != spell {
+				discard = id
+				break
+			}
+		}
+		if discard == 0 || e.G.Obj(discard) == nil {
+			t.Fatal("fixture has no second card to discard")
+		}
+		redAmt := decision.ManaAmount{0, 0, 0, 1, 0, 0}
+		plan := mountainWitness(e, decision.PaymentCost{Generic: 1, Mana: redAmt}, m1, m2)
+		start := len(e.L.Events)
+		e.pending = nil
+		e.beginCastWithPayment(0, decision.Option{Kind: "cast", Obj: spell}, &decision.PaymentSelection{ActionID: "fixture", Plan: plan})
+		paymentPlanChooseObj(t, e, discard)
+		if fb := paymentPlanSettle(t, e, plan); fb != nil {
+			t.Fatalf("direct discard witness fell back: %#v", fb)
+		}
+		assertPlannedCastPaid(t, e, spell, start, 1, red)
+		if z := e.G.Obj(discard).Zone; z != state.ZGraveyard {
+			t.Errorf("discarded card zone = %s, want graveyard (additional cost unpaid)", z)
+		}
+	})
+
+	delve := func(t *testing.T, seed uint64) (*Engine, state.ObjID, []state.ObjID, []state.ObjID) {
+		e, _, spell := newFixtureDeck(t, seed, "Name:Gate Delve Shape\nManaCost:2 R\nTypes:Instant\nK:Delve\nA:SP$ Draw | NumCards$ 1\nOracle:x\n")
+		lands := []state.ObjID{onBoard(t, e, 0, paymentPlanMountain), onBoard(t, e, 0, paymentPlanMountain), onBoard(t, e, 0, paymentPlanMountain)}
+		var gy []state.ObjID
+		for _, id := range e.G.Zone(state.ZLibrary, 0)[:2] {
+			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZGraveyard})
+			gy = append(gy, id)
+		}
+		return e, spell, lands, gy
+	}
+
+	t.Run("delve nothing", func(t *testing.T) {
+		e, spell, lands, _ := delve(t, 9571)
+		redAmt := decision.ManaAmount{0, 0, 0, 1, 0, 0}
+		plan := mountainWitness(e, decision.PaymentCost{Generic: 2, Mana: redAmt}, lands...)
+		start := len(e.L.Events)
+		e.pending = nil
+		e.beginCastWithPayment(0, decision.Option{Kind: "cast", Obj: spell}, &decision.PaymentSelection{ActionID: "fixture", Plan: plan})
+		if dd := e.Pending(); dd == nil || dd.Kind != decision.KChoose || dd.Options[0].Kind != "exile" {
+			t.Fatalf("pending = %s, want the delve ask", paymentPlanPendingSummary(dd))
+		}
+		submitChoices(t, e)
+		if fb := paymentPlanSettle(t, e, plan); fb != nil {
+			t.Fatalf("direct delve witness fell back: %#v", fb)
+		}
+		assertPlannedCastPaid(t, e, spell, start, 2, red)
+		for _, id := range lands {
+			if !e.G.Obj(id).Tapped {
+				t.Errorf("planned source %d was not tapped", id)
+			}
+		}
+	})
+
+	t.Run("delve one card", func(t *testing.T) {
+		e, spell, lands, gy := delve(t, 9572)
+		redAmt := decision.ManaAmount{0, 0, 0, 1, 0, 0}
+		plan := mountainWitness(e, decision.PaymentCost{Generic: 2, Mana: redAmt}, lands...)
+		start := len(e.L.Events)
+		e.pending = nil
+		e.beginCastWithPayment(0, decision.Option{Kind: "cast", Obj: spell}, &decision.PaymentSelection{ActionID: "fixture", Plan: plan})
+		paymentPlanChooseObj(t, e, gy[0])
+		// The exiled card pays {1}: the plan's {2}{R} witness no longer
+		// describes the mana cost, so automation must stop before tapping.
+		pd := e.Pending()
+		if pd == nil || pd.PaymentFallback == nil || pd.PaymentFallback.Reason != paymentFallbackCostChanged {
+			t.Fatalf("pending = %s, want the manual window with a cost_changed fallback", paymentPlanPendingSummary(pd))
+		}
+		if n := len(producedManaSince(e, start)); n != 0 {
+			t.Fatalf("executor produced %d mana for a changed cost", n)
+		}
+		paymentPlanSettle(t, e, plan)
+		assertPlannedCastPaid(t, e, spell, start, 1, red)
+		if z := e.G.Obj(gy[0]).Zone; z != state.ZExile {
+			t.Errorf("delved card zone = %s, want exile (delve unpaid)", z)
+		}
+	})
 }
