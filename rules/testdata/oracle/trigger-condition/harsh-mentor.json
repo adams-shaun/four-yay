@@ -1,0 +1,107 @@
+{
+  "card": "Harsh Mentor",
+  "family": "trigger-condition",
+  "oracle_sha": "f97638b83dee",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-activates-creature-nonmana",
+      "cr": [
+        "603.2",
+        "603.4"
+      ],
+      "why": "An opposing creature on the battlefield activates a damage ability during its controller\u2019s upkeep; because this is not a mana ability the Mentor triggers and deals two to that player.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Harsh Mentor"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Hawkeye, Avenging Archer"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "activate",
+          "seat": 1,
+          "card": "p1:Hawkeye, Avenging Archer",
+          "ability": "damage",
+          "targets": [
+            "p0"
+          ],
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Harsh Mentor",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 19,
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "mana-activation-no-trigger",
+      "cr": [
+        "603.2",
+        "605.1a"
+      ],
+      "why": "An opponent activating a land mana ability is explicitly excluded: there is no Mentor trigger on the stack.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Harsh Mentor"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Mountain"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "activate",
+          "seat": 1,
+          "card": "p1:Mountain",
+          "ability": "mana",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Harsh Mentor",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 20
+          }
+        }
+      ]
+    }
+  ]
+}

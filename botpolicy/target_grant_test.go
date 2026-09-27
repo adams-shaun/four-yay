@@ -46,25 +46,35 @@ func TestTargetGrantAimsOwnNotOpponent(t *testing.T) {
 	}
 }
 
-// TestTargetGrantFallsBackToOpponentWithoutOwnOption is the totality half of
-// the grant-polarity rule: when the seat has NO own creature on offer, the
-// bot must still answer with one of the offered opponents rather than
-// returning nothing (R1's fallback shape, reversed). The mode is still a boon
-// but there is no own permanent to receive it.
-func TestTargetGrantFallsBackToOpponentWithoutOwnOption(t *testing.T) {
-	b := boardOf(def(1, 2, 2), def(2, 6, 6))
-	got, d := grantDecision(b, []tgt{opp(201), opp(202), face()}, []string{"CantBlockBy"})
+// TestTargetGrantTotalityPicksWeakestOpponent is the totality floor of the
+// grant-polarity rule (R1B, target.go): a posed KTarget decision MUST be
+// answered. The ability scorer's A1c decline (botpolicy/ability.go) refuses
+// the ordinary no-own-creature activation before any cost is paid, so the
+// only way a bot reaches a boon ask with no own option is an activation
+// whose COST consumed the seat's last own creature between the activation
+// and the ask. For that residue the branch hands the boon to the LEAST
+// threatening foreign option -- a boon's value to its receiver scales with
+// the creature's worth, so the weakest receiver loses the least -- never
+// the gift-maximising "opponent's best creature" the previous fallback
+// aimed at. The 6/6 is also the LOWEST index, so a positional top-up would
+// land on it too; only the harm-minimising pick lands on the 2/2.
+func TestTargetGrantTotalityPicksWeakestOpponent(t *testing.T) {
+	b := boardOf(def(2, 6, 6), def(1, 2, 2))
+	got, d := grantDecision(b, []tgt{opp(202), opp(201), face()}, []string{"CantBlockBy"})
 	if len(got) != 1 {
 		t.Fatalf("no-own grant target = %v, want exactly one choice", got)
 	}
-	// Precondition: the board offers no own creature, so the fallback is
-	// genuinely exercised.
+	// Precondition: the board offers no own creature, so the totality floor
+	// is genuinely exercised, and the two foreign threats really differ.
 	if _, ok := b.Creatures[101]; ok {
 		t.Fatal("precondition: board unexpectedly offers an own creature")
 	}
-	if d.Options[got[0]].Player != 1 {
-		t.Fatalf("no-own grant fallback = option %d (%+v), want an opponent target",
-			got[0], d.Options[got[0]])
+	if b.Creatures[201].threat() == b.Creatures[202].threat() {
+		t.Fatal("precondition: foreign threats are equal; the test cannot distinguish the rank")
+	}
+	if objAt(d, got[0]) != 201 {
+		t.Fatalf("totality grant target = obj %d (%+v), want the WEAKEST opponent creature (the 2/2, obj 201), not the 6/6 gift",
+			objAt(d, got[0]), d.Options[got[0]])
 	}
 }
 

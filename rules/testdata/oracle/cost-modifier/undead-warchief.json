@@ -1,0 +1,125 @@
+{
+  "card": "Undead Warchief",
+  "family": "cost-modifier",
+  "oracle_sha": "3dd9d491fb30",
+  "author": "cli-20260927T211250Z-9b48f4e3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "zombie-spell-reduced-and-pumped",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Walking Corpse is a Zombie spell; the generic unit is removed, and as a controlled Zombie creature it receives the separate power/toughness bonus.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Walking Corpse"
+          ],
+          "battlefield": [
+            "Undead Warchief"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Walking Corpse",
+          "mana": "B",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Walking Corpse",
+          "zone": "battlefield",
+          "pt": "4/3"
+        }
+      ]
+    },
+    {
+      "name": "nonzombie-cost-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A Bear spell is not a Zombie spell, so green mana without the generic unit is insufficient.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Undead Warchief"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-zombie-cost-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Only the Warchief controller casts discounted Zombie spells; the opponent must pay both parts of the cost.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Walking Corpse"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Undead Warchief"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "B"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Walking Corpse"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

@@ -2178,7 +2178,39 @@ export class SeatPanelState {
     this.submit();
   }
 
-  private async post(choices: number[], holdPriority = false, rest?: number[], hand = false, payment?: Intent['payment']) {
+  /** submitAnnounce posts the announce-then-pay selector for one offered,
+   * plan-payable cast (docs/superpowers/specs/2026-09-27-announce-then-pay.md
+   * §3): the engine begins the cast and poses the "select mana" window. Like
+   * submitPayment it re-resolves the action on the current decision, so a
+   * stale button is inert after a seq swap. */
+  submitAnnounce(action: PaymentAction, holdPriority = false) {
+    const d = this.pending;
+    if (d === null || d.seq === this.postedSeq || this.busy || d.kind !== 'priority') return;
+    const offered = d.payment_actions?.find((candidate) => candidate.id === action.id);
+    if (offered === undefined || offered !== action || offered.plans.length === 0) return;
+    this.handAnswer();
+    void this.post([], holdPriority, undefined, true, undefined, { action_id: offered.id });
+  }
+
+  /** castAction is the one CAST route for a plan-payable cast (a hand card's
+   * CAST shortcut, the panel's cast row): Auto-pay ON submits the suggested
+   * plan, as before; OFF posts the legacy cast when the pool already pays
+   * (base_option_index) and otherwise announces the cast so the player picks
+   * the mana (announce-then-pay spec §8). */
+  castAction(action: PaymentAction, holdPriority = false) {
+    if (this.autoPayMana) {
+      const plan = action.plans[0];
+      if (plan !== undefined) this.submitPayment(action, plan, holdPriority);
+      return;
+    }
+    if (action.base_option_index !== undefined && action.base_option_index !== null) {
+      this.click(action.base_option_index, { holdPriority });
+      return;
+    }
+    this.submitAnnounce(action, holdPriority);
+  }
+
+  private async post(choices: number[], holdPriority = false, rest?: number[], hand = false, payment?: Intent['payment'], announce?: Intent['announce']) {
     const d = this.pending;
     if (d === null || this.busy) return;
     this.busy = true;
@@ -2187,7 +2219,7 @@ export class SeatPanelState {
     const options = choices.map((index) => ({ index, kind: d.options.find((option) => option.index === index)?.kind ?? 'unknown' }));
     clientBreadcrumbs.record('intent_sent', { decision_kind: d.kind, seq: d.seq, choices: options });
     try {
-      await postIntent(this.table, this.match, { seq: d.seq, player: d.player, choices, ...(rest?.length ? { rest } : {}), ...(payment ? { payment } : {}) } satisfies Intent, this.ctx);
+      await postIntent(this.table, this.match, { seq: d.seq, player: d.player, choices, ...(rest?.length ? { rest } : {}), ...(payment ? { payment } : {}), ...(announce ? { announce } : {}) } satisfies Intent, this.ctx);
       // A rewind (or match boundary) landed while the post was in flight:
       // the response describes a seq space the client discarded. Touch
       // nothing — the restored decision, which can carry the SAME seq, must

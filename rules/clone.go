@@ -865,6 +865,7 @@ func (e *Engine) Clone() *Engine {
 			fallback := *e.cast.paymentFallback
 			pc.paymentFallback = &fallback
 		}
+		pc.windowTaps = cloneWindowTaps(e.cast.windowTaps)
 		if e.cast.mayPlayRemembered != nil {
 			m := make(map[state.ObjID][]state.ObjID, len(e.cast.mayPlayRemembered))
 			for k, v := range e.cast.mayPlayRemembered {
