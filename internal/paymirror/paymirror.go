@@ -135,6 +135,8 @@ type RouteResult struct {
 	// triggered abilities on the stack before its cast (floatAddedAbility);
 	// runRoute then reads a disagreement as floatTriggerPrecedesCast.
 	floatTriggered bool
+	// floatStack is the float route's stack before its first activation.
+	floatStack []state.ObjID
 }
 
 // Report is the result of one mirror check of one planned cast.
@@ -626,19 +628,27 @@ func mirrorFloat(b *rules.Engine, rep *Report, res *RouteResult, aEvents []event
 	})
 	if idx < 0 {
 		why := fmt.Sprintf("pool %v", b.G.Players[p].Pool)
-		if n := len(b.G.Stack); n > 0 {
+		if floatAddedAbility(b, stackBefore) {
 			// Floating at priority let a mana ability's trigger (or its
 			// consequence) reach the stack before the cast, which a
-			// sorcery-speed spell cannot be cast over.
-			why = fmt.Sprintf("stack holds %d object(s) after floating; %s", n, why)
+			// sorcery-speed spell cannot be cast over. A stack already
+			// non-empty at the fork is not the float's doing -- run A cast
+			// the spell over it -- so only an added ability names this.
+			why = fmt.Sprintf("stack holds %d object(s) after floating; %s", len(b.G.Stack), why)
 			setUnmirrorable(res, "cast_blocked_by_float_trigger", why)
 			res.Expected = floatOwnTriggers(b, stackBefore)
+			return
+		}
+		if t := floatRemovedEveryTarget(b, rep, 0); t != "" {
+			setUnmirrorable(res, "float_removed_every_target", "cast not offered: "+t)
+			res.Expected = true
 			return
 		}
 		setUnmirrorable(res, "cast_not_offered_after_float", why)
 		return
 	}
 	res.floatTriggered = floatAddedAbility(b, stackBefore)
+	res.floatStack = stackBefore
 	if err := submitChoices(b, d, []int{idx}); err != nil {
 		setUnmirrorable(res, "cast_rejected", err.Error())
 		return
@@ -788,10 +798,32 @@ func replayFollowUps(b *rules.Engine, rep *Report, window []decision.PaymentActi
 		r := rep.FollowUps[ri]
 		ri++
 		choices, rest, note, ok := mapAnswer(r, d)
+		if !ok && res.Route == RouteFloat && res.floatTriggered {
+			if c, trimmed := floatTrimmedTriggerOrder(b, r, d, res.floatStack); trimmed {
+				// Run A's CR 603.3b order batched the float's own triggers
+				// with the spell's cast triggers; the float route already
+				// put them on the stack below the spell. A's order over the
+				// rest is kept, and the end state must then pass
+				// floatTriggerOnly (runRoute) or the route stays a mismatch.
+				choices, rest, ok = c, nil, true
+				note += " [the float's own triggers are already on the stack: A's order kept over the rest]"
+			}
+		}
 		if note != "" && len(res.ShapeNotes) < 8 {
 			res.ShapeNotes = append(res.ShapeNotes, note)
 		}
 		if !ok {
+			if res.Route == RouteFloat && r.Kind == decision.KModes && len(r.Choices) == 1 {
+				if t := floatRemovedEveryTarget(b, rep, ri); t != "" {
+					// The one mode A chose targets only what the float
+					// spent before the cast (its target ask is the next
+					// one A answered): CR 700.2a withholds a mode with no
+					// legal target.
+					setUnmirrorable(res, "float_removed_every_target", "mode not offered: "+t)
+					res.Expected = true
+					return
+				}
+			}
 			if res.Route == RouteFloat && choosesFloatSpentSource(b, rep, r) {
 				// Run A announced a target (CR 601.2c) that its own payment
 				// then sacrificed for mana (CR 601.2g-h) -- legal, the spell
@@ -828,20 +860,157 @@ func choosesFloatSpentSource(b *rules.Engine, rep *Report, r Recorded) bool {
 		if c < 0 || c >= len(r.Options) || r.Options[c].Obj == 0 {
 			continue
 		}
-		id := r.Options[c].Obj
-		for _, act := range rep.Plan.Activations {
-			if act.Source != id || act.Consequence == nil || !act.Consequence.Sacrifice {
-				continue
-			}
-			if o := b.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
-				return true
-			}
+		if floatSpentSource(b, rep, r.Options[c].Obj) {
+			return true
 		}
 	}
 	return false
 }
 
-// passAnswer is the post-resolution horizon's deterministic answerer: pass
+// floatRemovedEveryTarget proves that the float route's activations left the
+// planned spell no legal target for the target ask run A answered, and names
+// the targets. It reads the first follow-up at or after index from that is the
+// caster's "Choose a target for <card>" ask: run A was offered those options
+// at CR 601.2c, before its payment (CR 601.2g-h) touched them; the float route
+// activated the same sources before the cast began. Each option must be gone
+// in b: an object that a planned activation's own cost sacrificed and that is
+// off the battlefield (Chain of Vapor's only target, the Lotus Petal paying
+// for it), or -- for the cast ask itself (from == 0), where the spell's own
+// SP$ ability is the target ask -- an object b's targeting census no longer
+// admits (Vintara Snapper gains shroud once the Forest paying for High Stride
+// is tapped). For the cast ask, the census over that ability must also be
+// empty: a spell with no legal target cannot be cast (CR 601.2c; the engine's
+// mandatory-target feasibility gate withholds it), so the route's missing
+// cast option is exactly that. A mode whose only targets are gone cannot be
+// chosen (CR 700.2a); the caller asks with from past the modes decision. It
+// returns "" when anything is unproven. Run A's cast is legal: it announced a
+// target that was legal then and its own payment changed it; the spell then
+// meets that target's illegality on resolution (CR 608.2b).
+func floatRemovedEveryTarget(b *rules.Engine, rep *Report, from int) string {
+	var r *Recorded
+	for i := from; i < len(rep.FollowUps); i++ {
+		f := &rep.FollowUps[i]
+		if f.Kind == decision.KTarget && f.Player == rep.Player && f.Prompt == "Choose a target for "+rep.Card {
+			r = f
+			break
+		}
+	}
+	if r == nil || len(r.Options) == 0 {
+		return ""
+	}
+	emptyCensus := false
+	if from == 0 {
+		spell := b.G.Obj(rep.Object)
+		if spell == nil || spell.Face() == nil {
+			return ""
+		}
+		sa := spell.Face().SpellAbility()
+		if sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+			return ""
+		}
+		if len(b.LegalTargets(rep.Player, rep.Object, sa)) > 0 {
+			return ""
+		}
+		emptyCensus = true
+	}
+	var gone []string
+	for _, o := range r.Options {
+		if o.Obj == 0 {
+			return ""
+		}
+		switch {
+		case floatSpentSource(b, rep, o.Obj):
+			gone = append(gone, fmt.Sprintf("%s#%d spent", o.Label, o.Obj))
+		case emptyCensus:
+			gone = append(gone, fmt.Sprintf("%s#%d no longer targetable", o.Label, o.Obj))
+		default:
+			return ""
+		}
+	}
+	return strings.Join(gone, ", ")
+}
+
+// floatSpentSource reports whether id is a planned source whose activation
+// cost sacrifices it and that is now off the battlefield in b.
+func floatSpentSource(b *rules.Engine, rep *Report, id state.ObjID) bool {
+	for _, act := range rep.Plan.Activations {
+		if act.Source != id || act.Consequence == nil || !act.Consequence.Sacrifice {
+			continue
+		}
+		if o := b.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
+			return true
+		}
+	}
+	return false
+}
+
+// floatTrimmedTriggerOrder maps run A's CR 603.3b trigger order r onto the
+// float route's d when the options only A was offered are exactly triggers
+// whose source is the source of an ability the float put on b's stack before
+// the cast (Butcher of Malakir's dies trigger from a sacrificed Eldrazi
+// Spawn): run A, paying in the 601.2g window, ordered it among the spell's
+// cast triggers; the float route already has it on the stack below the spell.
+// Every option the mirror offers must be one A was offered, each A-only
+// option must claim a distinct float-added ability, and A's order over the
+// remaining options is the answer. The route's end state is still compared
+// (runRoute reads the difference through floatTriggerOnly).
+func floatTrimmedTriggerOrder(b *rules.Engine, r Recorded, d *decision.Decision, before []state.ObjID) ([]int, bool) {
+	if r.Kind != decision.KTriggerOrder || d.Kind != decision.KTriggerOrder || r.Player != d.Player {
+		return nil, false
+	}
+	added := map[state.ObjID]int{}
+	for _, id := range b.G.Stack {
+		if o := b.G.Obj(id); o != nil && o.Ability != nil && !slices.Contains(before, id) {
+			added[o.Source]++
+		}
+	}
+	byID := make(map[string][]int, len(d.Options))
+	for _, o := range d.Options {
+		k := optionIdentity(o)
+		byID[k] = append(byID[k], o.Index)
+	}
+	used := map[string]int{}
+	onlyA := make([]bool, len(r.Options))
+	for i, o := range r.Options {
+		k := optionIdentity(o)
+		if used[k] < len(byID[k]) {
+			used[k]++
+			continue
+		}
+		if o.Kind != "trigger" || added[o.Obj] == 0 {
+			return nil, false
+		}
+		added[o.Obj]--
+		onlyA[i] = true
+	}
+	for k, idx := range byID {
+		if used[k] != len(idx) {
+			return nil, false // the mirror offered an option A was not
+		}
+	}
+	taken := map[string]int{}
+	var out []int
+	for _, c := range r.Choices {
+		if c < 0 || c >= len(r.Options) {
+			return nil, false
+		}
+		if onlyA[c] {
+			continue
+		}
+		k := optionIdentity(r.Options[c])
+		if taken[k] >= len(byID[k]) {
+			return nil, false
+		}
+		out = append(out, byID[k][taken[k]])
+		taken[k]++
+	}
+	if len(out) < d.Min || len(out) > d.Max {
+		return nil, false
+	}
+	return out, true
+}
+
+// passAnsweris the post-resolution horizon's deterministic answerer: pass
 // priority, otherwise the first Min options (the first option when a choice
 // is mandatory but Min is zero is never needed: Min 0 means "none" is legal).
 func passAnswer(d *decision.Decision) decision.Intent {
@@ -1232,6 +1401,9 @@ func answerManaAsks(b *rules.Engine, p state.PlayerID, act decision.PaymentActiv
 		}
 		cands := matchProductions(d, act.Produces, printedManaRank(b, act))
 		if len(cands) == 0 {
+			cands = verifiedVariableAmount(b, p, act, d)
+		}
+		if len(cands) == 0 {
 			return "no_matching_mana_option"
 		}
 		idx := cands[0]
@@ -1248,6 +1420,51 @@ func answerManaAsks(b *rules.Engine, p state.PlayerID, act decision.PaymentActiv
 		}
 	}
 	return "mana_ask_loop"
+}
+
+// verifiedVariableAmount is the wheel options whose label names one pip of
+// the witness's single colour while the witness produced several of it, and
+// whose activation, tried on a throwaway clone, produces exactly the witness.
+// The wheel spells a non-literal Amount$ (X, an SVar, Count$) as the bare pip
+// (rules' manaAmountPips: a wrong number on the wheel is worse than none), so
+// Urza's Workshop's metalcraft "Add {C} for each Urza's land you control"
+// reads "Add C" beside its plain {T}: Add {C} -- no label can match a CC
+// witness (round-7 commander4 seeds 4038/6130/6146: 25x
+// no_matching_mana_option). The planned printed ability's rank leads, and
+// only an option proven on the clone to produce the witness is accepted, so
+// a fallback can never pick the other "Add C". b is untouched.
+func verifiedVariableAmount(b *rules.Engine, p state.PlayerID, act decision.PaymentActivation, d *decision.Decision) []int {
+	col, single := singleColour(act.Produces)
+	if !single || act.Produces[col] < 2 {
+		return nil
+	}
+	var pip decision.ManaAmount
+	pip[col] = 1
+	prefer := printedManaRank(b, act)
+	var preferred, rest []int
+	for _, o := range d.Options {
+		amt, any, combo, ok := labelProduction(o.Label)
+		if !ok || any || combo != nil || amt != pip {
+			continue
+		}
+		if prefer >= 0 && o.Ability == prefer {
+			preferred = append(preferred, o.Index)
+		} else {
+			rest = append(rest, o.Index)
+		}
+	}
+	var out []int
+	for _, idx := range append(preferred, rest...) {
+		c := b.Clone()
+		before := c.G.Players[p].Pool
+		if submitChoices(c, d, []int{idx}) != nil || answerManaAsks(c, p, act, 0) != "" {
+			continue
+		}
+		if manaDelta(c.G.Players[p].Pool, before) == act.Produces {
+			out = append(out, idx)
+		}
+	}
+	return out
 }
 
 // activatesMember reports whether answering d with option idx (and the
