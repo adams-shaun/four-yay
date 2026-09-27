@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -136,5 +137,47 @@ func TestAutoPayFallbackKeepsPlanForUncastableIntent(t *testing.T) {
 	in := NewBot(19).EnableAutoPayMana().decide(brd, &d)
 	if in.Payment == nil || in.Payment.ActionID != "pay" {
 		t.Fatalf("intent = %+v, want the offered plan kept (an unaffordable tap intent must not divert to manual)", in)
+	}
+}
+
+// TestAutoPayFallbackTapsIndeterminateUrzaLands is the measured tron
+// regression (bench seed 5500000, tron:uw-tempo, 46.7% -> 20.0%): the
+// seat's own main phase 1, empty stack, two untapped Urza lands and
+// Expedition Map in hand. The V1 planner offers NO payment action (it
+// withholds a source whose Amount$ is an SVar, Count$UrzaLands), so this is
+// the no-plan window; the Urza lands project an Indeterminate production with
+// zero guaranteed counts, and reading that as "produces nothing" made the
+// castable-now gate refuse Map and answer pass, turn after turn. An unknown
+// amount must not refute affordability: the adapter takes the manual answer
+// and taps a land toward Map.
+func TestAutoPayFallbackTapsIndeterminateUrzaLands(t *testing.T) {
+	urza := func() botpolicy.Card {
+		var p cards.ManaProduction
+		p.Indeterminate = true
+		return botpolicy.Card{OnBattlefield: true, Produces: p}
+	}
+	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true,
+		Cards: map[state.ObjID]botpolicy.Card{
+			1: urza(), 2: urza(),
+			50: {CMC: 1, Castable: true, ManaCost: "1"},
+		}}
+	d := decision.Decision{Seq: 47, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
+		Options: []decision.Option{
+			{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "activate", Obj: 2},
+			{Index: 2, Kind: "pass"},
+		}}
+	// Precondition: the manual policy alone taps here (so a pass below is the
+	// adapter's doing, not the policy's), and no payment plan is offered.
+	if len(d.PaymentActions) != 0 {
+		t.Fatalf("precondition: the window must carry no payment action")
+	}
+	manual := NewBot(19).decide(brd, &d)
+	if len(manual.Choices) != 1 || d.Options[manual.Choices[0]].Kind != "activate" {
+		t.Fatalf("precondition: the manual bot answers %+v, want an activate", manual)
+	}
+
+	in := NewBot(19).EnableAutoPayMana().decide(brd, &d)
+	if in.Payment != nil || len(in.Choices) != 1 || d.Options[in.Choices[0]].Kind != "activate" {
+		t.Fatalf("intent = %+v, want an activate: two untapped Urza lands can pay Expedition Map", in)
 	}
 }
