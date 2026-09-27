@@ -125,7 +125,16 @@ func (e *Engine) Clone() *Engine {
 		// taken while the ask is outstanding re-poses the same decision for
 		// the same winner. host.viewAt clones a snapshot and re-Submits the
 		// intents, so the choice must survive like the mulligan round does.
-		tossChoice:   e.tossChoice,
+		tossChoice: e.tossChoice,
+		// oppSel (rules/stack.go) is the TargetingPlayer$ Opponent selection
+		// ask's flow record -- plain scalars like tossChoice, so it is copied
+		// the same way: a clone taken while the which-opponent ask is
+		// outstanding re-poses the same selection.
+		oppSel: e.oppSel,
+		// oppPicksMid (rules/stack.go) is the effects-tier answered-selection
+		// store, keyed by SA line. Re-allocated (not shared) so the two
+		// engines' next reads cannot collide.
+		oppPicksMid:  cloneOppPicksMid(e.oppPicksMid),
 		mulligans:    e.mulligans,
 		startingLife: e.startingLife,
 		// E2 held-out cast suppression (cast.go): the set of card ids whose
@@ -931,6 +940,21 @@ func cloneSuppressed(m map[state.ObjID]bool) map[state.ObjID]bool {
 		return nil
 	}
 	out := make(map[state.ObjID]bool, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// cloneOppPicksMid copies the TargetingPlayer$ Opponent mid-tier selection
+// store (oppPicksMid, stack.go), preserving nil; the lazily-allocated map
+// only ever carries the pin between the "opp_pick" resume arm and the
+// synchronous ChooserFor read, so a nil map reads as an empty store.
+func cloneOppPicksMid(m map[string]state.PlayerID) map[string]state.PlayerID {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]state.PlayerID, len(m))
 	for k, v := range m {
 		out[k] = v
 	}

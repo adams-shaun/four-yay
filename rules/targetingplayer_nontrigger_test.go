@@ -11,11 +11,8 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// Opponent specifications in non-triggered asks use the same deterministic
-// rule as trigger asks: the first living seat other than the controller in
-// AliveFrom(0) answers. Forge does not specify which of multiple opponents
-// gets to choose, so this engine-level fallback is explicit rather than
-// pretending the controller selected one.
+// Opponent specifications in non-triggered asks let the ability controller
+// select which living opponent answers when more than one is available.
 func TestTargetingPlayerOpponentSpellAndActivation(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
@@ -81,17 +78,9 @@ func TestTargetingPlayerOpponentSpellAndActivation(t *testing.T) {
 	}
 }
 
-// TestTargetingPlayerOpponentMultiSeatIsDeterministic pins the multi-opponent
-// selection semantics the non-triggered routing shares with the trigger
-// resolver: TargetingPlayer$ Player.Opponent names the FIRST living opponent
-// in AliveFrom(0) turn order. Forge's parameter does not say which of several
-// opponents picks, so the engine resolves it deterministically (documented in
-// docs/superpowers/specs/2026-09-22-engine-contracts.md) rather than posing a
-// chooser-selection decision. A dead first opponent fails over to the next.
-// The candidate census stays relative to the ability's controller in every
-// arm, and the answering seat still cannot submit a target outside the
-// offered set.
-func TestTargetingPlayerOpponentMultiSeatIsDeterministic(t *testing.T) {
+// TestTargetingPlayerOpponentMultiSeatSelection verifies a controller
+// selection when two opponents live and direct routing when only one remains.
+func TestTargetingPlayerOpponentMultiSeatSelection(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	evangelize := mustCorpusCard(t, reg, "Evangelize")
 	var sa *cards.SA
@@ -111,7 +100,7 @@ func TestTargetingPlayerOpponentMultiSeatIsDeterministic(t *testing.T) {
 		want       state.PlayerID // seat that must answer
 		aliveOrder []state.PlayerID
 	}{
-		{name: "first living opponent answers", want: 1, aliveOrder: []state.PlayerID{0, 1, 2}},
+		{name: "controller's first-option answer selects seat 1", want: 1, aliveOrder: []state.PlayerID{0, 1, 2}},
 		{name: "dead first opponent fails over", lost: 1, want: 2, aliveOrder: []state.PlayerID{0, 2}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -153,15 +142,24 @@ func TestTargetingPlayerOpponentMultiSeatIsDeterministic(t *testing.T) {
 
 			e.askTarget(0, src.ID, sa)
 			d := e.Pending()
-			if d == nil || d.Kind != decision.KTarget {
-				t.Fatalf("pending ask = %+v, want a target decision", d)
+			if tc.lost == 0 {
+				if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "opp_pick" || d.Player != 0 {
+					t.Fatalf("pending ask = %+v, want controller's opponent selection", d)
+				}
+				if len(d.Options) != 2 || d.Options[0].Player == d.Options[1].Player {
+					t.Fatalf("selection options = %+v, want two distinct opponents", d.Options)
+				}
+				if err := d.Validate(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{len(d.Options)}}); err == nil {
+					t.Fatal("selection accepted an option outside its offered set")
+				}
+				if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{0}}); err != nil {
+					t.Fatalf("submit opponent selection: %v", err)
+				}
+				d = e.Pending()
 			}
-			if d.Player != tc.want {
-				t.Fatalf("chooser = %d, want seat %d (first living opponent in AliveFrom(0))", d.Player, tc.want)
+			if d == nil || d.Kind != decision.KTarget || d.Player != tc.want {
+				t.Fatalf("target ask = %+v, want seat %d", d, tc.want)
 			}
-			// Legality stays relative to the ability's controller: one creature
-			// per LIVING seat is offered regardless of who answers, and the
-			// lost arm's seat-1 creature leaves the set with its controller.
 			for _, c := range []struct {
 				id    state.ObjID
 				owner state.PlayerID
@@ -169,16 +167,12 @@ func TestTargetingPlayerOpponentMultiSeatIsDeterministic(t *testing.T) {
 				onOffer := targetOptionContains(d.Options, c.id)
 				lostSeat := tc.lost > 0 && c.owner == tc.lost
 				if lostSeat && onOffer {
-					t.Fatalf("lost seat %d's creature %d still offered in options %+v", c.owner, c.id, d.Options)
+					t.Fatalf("lost seat %d's creature %d still offered", c.owner, c.id)
 				}
 				if !lostSeat && !onOffer {
 					t.Fatalf("legal candidate %d missing from options %+v", c.id, d.Options)
 				}
 			}
-			if len(d.Options) != len(tc.aliveOrder) {
-				t.Fatalf("options = %+v, want one creature per living seat %v", d.Options, tc.aliveOrder)
-			}
-			// The answering seat cannot choose a target outside the offered set.
 			bad := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{len(d.Options) + 10}}
 			if err := d.Validate(bad); err == nil {
 				t.Fatal("chooser submitted an out-of-set target and the decision accepted it")

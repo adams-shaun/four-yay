@@ -1078,6 +1078,20 @@ type Engine struct {
 	// miracle cases in their own files.
 	choosing chooseFor
 
+	// oppSel (rules/stack.go) is the TargetingPlayer$ Opponent
+	// controller-selection ask's flow record: set when poseOpponentPick
+	// posts the which-opponent ask at a rules-tier ask site, flipped to done
+	// by answerOppPick, consumed when the re-posed target ask reads it.
+	// Plain scalars, so Clone carries it like the blockerRound class.
+	oppSel oppSelectState
+
+	// oppPicksMid is the effects-tier answered-selection store, keyed by the
+	// asking SA's line: the "opp_pick" resume arm records the controller's
+	// chosen opponent there and the re-entered walk's ChooserFor consumes it.
+	// The entry only lives between the arm and the synchronous read, so no
+	// entry can outlive the ask it belongs to. Clone copies it.
+	oppPicksMid map[string]state.PlayerID
+
 	// resume is non-nil while a mid-resolution decision is pending: an effect
 	// (a nested effCharm pick, effCopySpellAbility's UnlessCost$ may-pay,
 	// effDiscard's mode choices — M2d-2) asked through effects.Host.Ask and

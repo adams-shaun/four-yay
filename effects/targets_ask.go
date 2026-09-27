@@ -135,6 +135,14 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 	// rules-tier target ask uses (Engine.ChooserFor -> targetChooserCore).
 	candidates := h.LegalTargets(c.Controller, c.Source, sa)
 	chooser := h.ChooserFor(c, sa)
+	if ch, posed := opponentPick(h, c, sa, chooser); posed {
+		// The controller's which-opponent selection ask was posted: the walk
+		// is suspended and re-enters this very SA, where the answered
+		// selection makes ChooserFor return the chosen seat.
+		return nil, true
+	} else if !posed {
+		chooser = ch
+	}
 	min := Num(h, c, sa, "TargetMin", 1)
 	max := Num(h, c, sa, "TargetMax", 1)
 	if strings.EqualFold(strings.TrimSpace(sa.Params["TargetsForEachPlayer"]), "True") {

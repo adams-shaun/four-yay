@@ -2835,6 +2835,20 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 					ctx.CipherPick = append(ctx.CipherPick, state.Target{Obj: o.Obj})
 				}
 			}
+		case "opp_pick":
+			// The TargetingPlayer$ Opponent controller-selection ask
+			// (agent-20260925T085158Z-c861188d): the chosen "player" option
+			// names the opponent who answers the re-entered ask. Recorded
+			// under the SA's line; the walk's chooser read (midChooserCore,
+			// reached through Engine.ChooserFor) consumes it. The arm sets
+			// no Ctx fields: the re-entry re-runs the ask construction and
+			// the pin redirects it to the chosen seat.
+			if len(chosen) > 0 && chosen[0].Kind == "player" && rp.sa != nil {
+				if e.oppPicksMid == nil {
+					e.oppPicksMid = make(map[string]state.PlayerID)
+				}
+				e.oppPicksMid[rp.sa.Line] = chosen[0].Player
+			}
 		case "tgts":
 			// The generic ValidTgts$ pre-ask (task mvts1) posed inside
 			// effects.Resolve's dispatch loop. Same KChoose answer shape as
