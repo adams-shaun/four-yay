@@ -570,14 +570,20 @@ func (e *Engine) EventMark() int { return len(e.L.Events) }
 // and the fold marks nothing for it (a DamageAll whose NumDmg$ counts an
 // empty Remembered set -- Kindle the Carnage repeated over an empty hand
 // logs one per creature per pass, and counting it as progress let a bot's
-// "Repeat" answer loop forever, cardfuzz batch8 line 1).
+// "Repeat" answer loop forever, cardfuzz batch8 line 1). A ZERO-amount
+// LifeChange likewise folds into nothing (events.Apply adds 0 to the life
+// total; CR 119.9's "gains 0 life" is no life-gain event, and a 0 loss the
+// same): Ad Nauseam repeated over an empty library loses life equal to the
+// mana value of no card, and a passer that always repeats looped it into
+// the livelock watcher (paymirror resolve horizon, seed 1014).
 func (e *Engine) StateChangedSince(mark int) bool {
 	if mark < 0 {
 		mark = 0
 	}
 	for i := mark; i < len(e.L.Events); i++ {
 		ev := e.L.Events[i]
-		if ev.Kind == events.Note || (ev.Kind == events.Damage && ev.Amount == 0) {
+		if ev.Kind == events.Note || (ev.Kind == events.Damage && ev.Amount == 0) ||
+			(ev.Kind == events.LifeChange && ev.Amount == 0) {
 			continue
 		}
 		return true
