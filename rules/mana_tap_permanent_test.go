@@ -167,3 +167,73 @@ func TestManaTapPermanentCostHeritageDruidElection(t *testing.T) {
 	}
 	replayCheck(t, e, cfg)
 }
+
+// TestManaTapPermanentCostFoodAndTokenSpecs proves the class covers the two
+// census shapes whose matching permanents the census board does not carry:
+// The Cabbage Merchant's tapXType<2/Food> and Baylen's
+// tapXType<2/Permanent.token/token>. The census' fixed board has artifacts,
+// enchantments and creatures but no Food and no token permanent, so those two
+// rows legitimately stay not_offered there; these boards supply the matching
+// permanents and assert the offer and the payment.
+func TestManaTapPermanentCostFoodAndTokenSpecs(t *testing.T) {
+	e, _, probe := newFixtureDeck(t, 9906, "Name:Tap Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	reg := testutil.CorpusRegistry(t)
+	cabbage, ok := reg.Lookup("The Cabbage Merchant")
+	if !ok {
+		t.Fatal("corpus fixture: The Cabbage Merchant missing")
+	}
+	baylen, ok := reg.Lookup("Baylen, the Haymaker")
+	if !ok {
+		t.Fatal("corpus fixture: Baylen, the Haymaker missing")
+	}
+	cm := onBoardCard(t, e, 0, cabbage)
+	by := onBoardCard(t, e, 0, baylen)
+	// Two Foods pay the Cabbage Merchant; two token permanents pay Baylen.
+	foods := []state.ObjID{
+		onBoard(t, e, 0, "Name:Food Alpha\nTypes:Artifact Food\nOracle:x\n"),
+		onBoard(t, e, 0, "Name:Food Beta\nTypes:Artifact Food\nOracle:x\n"),
+	}
+	tokens := []state.ObjID{
+		onBoard(t, e, 0, "Name:Token Alpha\nTypes:Creature Soldier\nPT:1/1\nOracle:x\n"),
+		onBoard(t, e, 0, "Name:Token Beta\nTypes:Creature Soldier\nPT:1/1\nOracle:x\n"),
+	}
+	for _, id := range tokens {
+		e.G.Obj(id).IsToken = true
+	}
+	// The eventless placements above stale the pending decision; re-derive the
+	// priority options from the new board.
+	e.pending = nil
+	e.priorityRound()
+	edrSeatZeroPriority(t, e)
+	// Baylen's other abilities (Draw/PutCounter) are not mana abilities; its
+	// mana ability must still be the offered one.
+	if !hasActivateOption(e, cm) {
+		t.Fatalf("The Cabbage Merchant not offered with two Foods: %+v", e.Pending().Options)
+	}
+	if !hasActivateOption(e, by) {
+		t.Fatalf("Baylen, the Haymaker not offered with two tokens: %+v", e.Pending().Options)
+	}
+	submitChoices(t, e, activateOption(t, e, cm))
+	// The two-Food part is exactly its candidate count (forced); the
+	// Produced$ Any colour ask follows.
+	answerManaChoose(t, e, "Add G")
+	for _, id := range foods {
+		if !e.G.Obj(id).Tapped {
+			t.Errorf("Cabbage Merchant left Food %d untapped", id)
+		}
+	}
+	if got := e.G.Players[0].Pool.Total(); got != 1 {
+		t.Fatalf("pool total after Cabbage Merchant = %d, want 1", got)
+	}
+	submitChoices(t, e, activateOption(t, e, by))
+	answerManaChoose(t, e, "Add G")
+	for _, id := range tokens {
+		if !e.G.Obj(id).Tapped {
+			t.Errorf("Baylen left token %d untapped", id)
+		}
+	}
+	if got := e.G.Players[0].Pool.Total(); got != 2 {
+		t.Fatalf("pool total after Baylen = %d, want 2", got)
+	}
+	_ = probe
+}

@@ -1013,9 +1013,10 @@ func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *ca
 // non-nil prices the activation against the potential-action walk's growing
 // hypothetical bound (rules/potential.go PotentialMana), which is what lets
 // a source's paid activation be reached after the seat floats mana from a
-// cheaper source first. Every non-mana read -- tap state, sacrifice,
-// discard and exile candidates, the announced-part refusals -- is real in
-// both modes: hypothetical mana never satisfies a sacrifice.
+// cheaper source first. Every non-mana read -- tap state and the literal
+// tapXType<N/Spec> candidates, sacrifice, discard and exile candidates, the
+// announced-part refusals -- is real in both modes: hypothetical mana never
+// satisfies a sacrifice or a tap.
 func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma *cards.SA, hyp *state.Mana) bool {
 	o := e.G.Obj(source)
 	if o == nil || o.Face() == nil {
@@ -1124,10 +1125,10 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 // cost's own {T} taps it, and each earlier tap part's picked permanents. A
 // dynamic part (Forge's tapXType<X/...>/tapXType<Any/...> heads) has no
 // settle on the off-stack mana path -- there is no X-announcement or
-// "any number" election beside a mana ability -- so it fails closed, the
-// ability is not offered rather than activated with the tap silently
-// unpaid. Every such mana ability in the corpus also carries Cost$ X or a
-// group predicate and is refused before this point.
+// "any number" election beside a mana ability -- so it fails closed HERE:
+// the ability is not offered rather than activated with the tap silently
+// unpaid. The corpus' only dynamic mana tapXType (an {X}-token producer) is
+// therefore still not offered; its own ticket owns the dynamic election.
 func (e *Engine) manaTapsPayable(p state.PlayerID, source state.ObjID, cost Cost, reserved map[state.ObjID]bool) bool {
 	claimed := make(map[state.ObjID]bool, len(reserved)+1)
 	for id := range reserved {
@@ -2688,15 +2689,17 @@ func chainGatesOnActivationCount(sa *cards.SA) bool {
 // ability is activated off the stack by resolveManaAbilityRefOriginal and
 // the manaDiscardActivation continuation, which settle exactly mana/life
 // (payManaConvFor), {T}, Mill, SubCounter on the source, PayEnergy<N>,
-// AddCounter on the source, Exert<1/CARDNAME>, Sac, Discard, Exile and the
-// self-Return. Every other part -- an unmodelled token (Cost.Unknown: Pili-Pala's
-// {Q}, Benthic Explorers' untapYType, both of which used to be priced as one
-// phantom generic), CollectEvidence (Cryptex), a Draw/DamageYou/PutToLib/
-// MoveToGrave/RollDice part, a dynamic PayEnergy<X> or a SubCounter
-// anchored to another permanent (Jetfire's RemoveAnyCounter) -- has no
-// settle here, so the ability is refused rather than activated with that
-// part silently free. The remaining refusals (X, Reveal, Behold, tapXType,
-// Blight, Forage, LifeX, an unsupported Return) live beside the call site.
+// AddCounter on the source, Exert<1/CARDNAME>, Sac, Discard, Exile, the
+// literal tapXType<N/Spec> tap (its election rides the same continuation)
+// and the self-Return. Every other part -- an unmodelled token (Cost.Unknown:
+// Pili-Pala's {Q}, Benthic Explorers' untapYType, both of which used to be
+// priced as one phantom generic), CollectEvidence (Cryptex), a
+// Draw/DamageYou/PutToLib/MoveToGrave/RollDice part, a dynamic PayEnergy<X>
+// or a SubCounter anchored to another permanent (Jetfire's
+// RemoveAnyCounter) -- has no settle here, so the ability is refused rather
+// than activated with that part silently free. The remaining refusals (X,
+// Reveal, Behold, a DYNAMIC tapXType<X/...>/<Any/...> part, Blight, Forage,
+// LifeX, an unsupported Return) live beside the call site.
 func manaCostPartsSettleable(cost Cost) bool {
 	if len(cost.Unknown) > 0 || len(cost.Evidence) > 0 || len(cost.Draw) > 0 ||
 		len(cost.DamageYou) > 0 || len(cost.PutToLib) > 0 || len(cost.MoveToGrave) > 0 ||
