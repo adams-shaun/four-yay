@@ -507,10 +507,9 @@ type contFrame struct {
 // (which owns the continuation of the SA it was re-entering) links it once
 // effects.Resolve returns. Always returns true: this engine can always ask.
 func (e *Engine) Ask(d *decision.Decision) bool {
-	// A colour choice posed from inside an off-stack mana resolution (a mana
-	// ability's SubAbility$ Mana | Produced$ Any) has no stack object to park
-	// on: it is carried by the rules-owned mana colour flow instead.
-	if e.askOffStackManaColor(d) {
+	// An ask posed inside an off-stack mana resolution has no stack object to
+	// park on: carry it through the mana activation's own continuation instead.
+	if e.askOffStackMana(d) {
 		return true
 	}
 	obj := state.ObjID(0)
@@ -1278,6 +1277,14 @@ func (e *Engine) seedAorAsk(obj state.ObjID, ctx *effects.Ctx) {
 // first two also cache the chosen SVar names on the stack object so resolution
 // executes the announcement without asking again.
 func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
+	if ma, rp := e.takeOffStackManaRider(); ma != nil {
+		e.resume = rp
+		template := *ma
+		template.nestedResume = nil
+		asked := e.withOffStackMana(template, func() { e.handleModes(d, in) })
+		e.finishOffStackManaRider(ma, asked)
+		return
+	}
 	// An activated mana ability resolves outside the stack. Its UnlessCost$
 	// answer is therefore owned by the mana activation flow rather than an
 	// effects resume point, but is still recorded like every KModes answer.
@@ -1628,6 +1635,18 @@ func unlessPayChoice(chosen []decision.Option) (decision.Option, bool) {
 // continuation it carries have all completed — the fully-resolved object
 // goes where resolveTop's own tail would have sent it.
 func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
+	// A card-name answer is carried on the frame itself: every NameCard
+	// resume reads ctx.NameChoice from rp.name, and binding it here is the
+	// ONE home for that interpretation. Routing the answer through any
+	// handler that consumes a resume point (handleChoose's general KChoose
+	// arm, the off-stack mana rider's answerManaColor, a trigger-optional
+	// re-entry) therefore all bind it identically; a path that skipped this
+	// re-posed the same NameCard ask forever (the off-stack mana NameCard
+	// livelock), because resumed NameCard reads an empty NameChoice and asks
+	// again.
+	if rp.kind == "name" && len(chosen) == 1 {
+		rp.name = chosen[0].Label
+	}
 	if rp.kind == "turn_face_up_event" {
 		prior := e.applyingReplacement
 		e.applyingReplacement = true
@@ -4091,22 +4110,33 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		e.replRedirect = savedRedirect
 		e.applyingReplacement = savedReplacement
 		e.damaging = 0
-		if rp.sa.API == "MoveCounter" && e.resume == nil {
+		// A resolution is still suspended when EITHER the ordinary
+		// mid-resolution ask (e.resume) or an off-stack mana rider ask is
+		// pending. The latter parks on the mana activation and sets
+		// e.choosing == chooseManaColor instead of e.resume
+		// (mana_activation.go's askOffStackMana), so the per-resolution answer
+		// caches below must test BOTH or the next re-entry of this same SA
+		// re-poses an already-answered ask -- a targeted rider that then asks
+		// another question (Witch-Engine-shaped DB$ NameCard | ValidTgts$
+		// Opponent) alternated tgts/name forever because the target record was
+		// dropped while the name ask was still pending.
+		parked := e.resume != nil || e.choosing == chooseManaColor
+		if rp.sa.API == "MoveCounter" && !parked {
 			// The MoveCounter resolution completed this round (nothing
 			// suspended): its pending state is spent.
 			delete(e.moveCounterAsk, rp.obj)
 		}
-		if rp.sa.API == "AddOrRemoveCounter" && e.resume == nil {
+		if rp.sa.API == "AddOrRemoveCounter" && !parked {
 			// The AddOrRemoveCounter resolution completed this round (nothing
 			// suspended): its pending state is spent -- delete it so a stale
 			// entry can never seed a later resolution of the same object (the
 			// moveCounterAsk discipline).
 			delete(e.aorAsk, rp.obj)
 		}
-		if rp.sa.API == "PutCounter" && e.resume == nil {
+		if rp.sa.API == "PutCounter" && !parked {
 			delete(e.counterTypeAsk, rp.obj)
 		}
-		if e.resume == nil {
+		if !parked {
 			// This SA's resolution completed this round (nothing suspended),
 			// so its recorded pre-ask answer is spent -- drop it so a later
 			// re-entry of the same body asks afresh.

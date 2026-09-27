@@ -166,6 +166,7 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 	}
 	opt := paymirror.DriverOptions{MaxIntents: maxIntents, MaxTurns: int32(maxTurns), Control: control, Trace: trace, Resolve: resolve,
 		MaxObjects: maxObjects}
+
 	var wg sync.WaitGroup
 	next := make(chan int)
 	if workers < 1 {

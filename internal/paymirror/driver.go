@@ -44,7 +44,10 @@ type DriverOptions struct {
 	MaxObjects int
 	// BudgetExceeded, when set, truncates a game between intents if the
 	// harness-owned budget has expired. It can end a game early (Err
-	// "truncated: budget"), never change a check's verdict.
+	// "truncated: budget"), never change a check's verdict. This package
+	// must not import time: the sweep CLIs keep every clock read in their
+	// exempt cmd boundary, so a caller that wants the per-game wall-time
+	// bound builds the predicate from its own clock.
 	BudgetExceeded func() bool
 	// OnReport, when set, receives every report as it is produced (the
 	// driver keeps only a compact copy of equivalent ones).
@@ -191,6 +194,7 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 		opt.MaxObjects = 2500
 	}
 	res.Spec = spec
+
 	e := rules.NewStartingPlayerChoice(cfg)
 	bots := make([]*seat.Bot, len(cfg.Names))
 	for i := range bots {

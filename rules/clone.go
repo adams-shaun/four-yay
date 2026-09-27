@@ -646,6 +646,10 @@ func (e *Engine) Clone() *Engine {
 		if pt := e.manaColorActivation.trigger; pt != nil {
 			ma.trigger = &clonePendingTriggers([]pendingTrigger{*pt})[0]
 		}
+		// A routed off-stack-mana rider ask parks its resume chain here; the
+		// clone must own its own chain (the engine's own e.resume does too),
+		// or resuming the clone would traverse the original's outer links.
+		ma.nestedResume = cloneResume(e.manaColorActivation.nestedResume)
 		c.manaColorActivation = &ma
 	}
 	if e.manaDiscardActivation != nil {

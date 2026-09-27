@@ -188,8 +188,8 @@ func firstSpellAskedPriority(t *testing.T, e *Engine) *decision.Decision {
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want priority", d)
 	}
-	// Payment offers are opt-in since aph-lazy-offers; opt in as an
-	// opted-in host does (host/match.go projectNext).
+	// Payment actions are published lazily (aph-lazy-offers): build them
+	// for this ask, as an opted-in consumer would.
 	e.EnsurePaymentActions()
 	return d
 }
