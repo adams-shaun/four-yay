@@ -67,7 +67,7 @@ func (e *Engine) attachmentSBAs() bool {
 				// cannot remain enchanted (CR 800.4), and an illegal
 				// attachment takes the same graveyard SBA as an object Aura.
 				p := o.AttachedPlayer
-				if !isAura(o) || int(p) >= len(e.G.Players) || e.G.Players[p].Lost ||
+				if !e.isAura(o) || int(p) >= len(e.G.Players) || e.G.Players[p].Lost ||
 					!e.playerAuraStillMatchesEnchant(o, p) || e.playerProtectedFrom(p, o.ID) {
 					e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 						From: state.ZBattlefield, To: state.ZGraveyard, Text: "illegal player attachment"})
@@ -77,7 +77,7 @@ func (e *Engine) attachmentSBAs() bool {
 			}
 			if o.AttachedTo == 0 {
 				// A detached Aura has nothing legal to do on the battlefield.
-				if isAura(o) {
+				if e.isAura(o) {
 					e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 						From: state.ZBattlefield, To: state.ZGraveyard, Text: "Aura attached to nothing"})
 					changed = true
@@ -123,10 +123,10 @@ func (e *Engine) attachmentSBAs() bool {
 				// words are zone-blind (spec `Creature` matches a graveyard
 				// bear too) and the exemption must never save an ordinary Aura
 				// whose bearer died.
-				if isAura(o) && bearer != nil && e.auraEnchantZoneAdmits(o, bearer) {
+				if e.isAura(o) && bearer != nil && e.auraEnchantZoneAdmits(o, bearer) {
 					continue
 				}
-				if isAura(o) {
+				if e.isAura(o) {
 					e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 						From: state.ZBattlefield, To: state.ZGraveyard, Text: "attached to an object that left the battlefield"})
 				} else {
@@ -137,14 +137,14 @@ func (e *Engine) attachmentSBAs() bool {
 				changed = true
 				continue
 			}
-			if isAura(o) && (!e.auraStillMatchesEnchant(o, bearer) || e.protectedFrom(bearer.ID, o.ID)) {
+			if e.isAura(o) && (!e.auraStillMatchesEnchant(o, bearer) || e.protectedFrom(bearer.ID, o.ID)) {
 				e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 					From: state.ZBattlefield, To: state.ZGraveyard,
 					Text: "attached to something it can no longer legally enchant"})
 				changed = true
 				continue
 			}
-			if isEquipment(o) && (bearer.ReconfiguredAttached() || !bearer.EffectiveIsCreature()) {
+			if e.isEquipment(o) && (bearer.ReconfiguredAttached() || !bearer.EffectiveIsCreature()) {
 				// CR 702.150c: an attached Reconfigure card is not a creature,
 				// so another Equipment riding it detaches like from any other
 				// non-creature bearer (CR 301.5c / 704.5n).
@@ -154,7 +154,7 @@ func (e *Engine) attachmentSBAs() bool {
 				changed = true
 				continue
 			}
-			if isFortification(o) && !e.IsLand(bearer.ID) {
+			if e.isFortification(o) && !e.IsLand(bearer.ID) {
 				// CR 704.5n's Fortification half (CR 702.67b): the bearer is no
 				// longer a land, so the Fortification detaches and stays on the
 				// battlefield. The read is the DERIVED type list -- a bearer that
@@ -242,13 +242,13 @@ func (e *Engine) playerAuraStillMatchesEnchant(o *state.Object, p state.PlayerID
 }
 
 // isAura reports whether a permanent has the Aura subtype.
-func isAura(o *state.Object) bool { return hasType(o, "Aura") }
+func (e *Engine) isAura(o *state.Object) bool { return e.hasType(o, "Aura") }
 
 // isEquipment reports whether a permanent has the Equipment subtype.
-func isEquipment(o *state.Object) bool { return hasType(o, "Equipment") }
+func (e *Engine) isEquipment(o *state.Object) bool { return e.hasType(o, "Equipment") }
 
 // isFortification reports whether a permanent has the Fortification subtype.
-func isFortification(o *state.Object) bool { return hasType(o, "Fortification") }
+func (e *Engine) isFortification(o *state.Object) bool { return e.hasType(o, "Fortification") }
 
 // isRole reports whether a permanent has the Role subtype. The nine
 // `.cards/tokenscripts/role_*.txt` scripts each print
@@ -256,12 +256,34 @@ func isFortification(o *state.Object) bool { return hasType(o, "Fortification") 
 // real printed Role cards do NOT (Forge omits the subtype there), which is
 // recorded as an open issue -- the exclusivity sweep below keys on this
 // predicate, so it only ever fires for minted Role tokens.
-func isRole(o *state.Object) bool { return hasType(o, "Role") }
+func (e *Engine) isRole(o *state.Object) bool { return e.hasType(o, "Role") }
 
-// hasType is the rules-package view of an object's printed types, mirroring
-// the effects-package hasType (effects/filter.go). Faced-less objects have no
-// types.
-func hasType(o *state.Object, t string) bool {
+// hasType is the rules-package subtype read, mirroring the effects-package
+// hasType (effects/filter.go) off the battlefield: it scans the printed face.
+// On the battlefield the read is typeCharacteristics -- the layer-4 walk's
+// BASE plus changes -- because a permanent's current characteristics, not its
+// printed face, are what CR 704.5m classifies. The measured case (CR 708.5
+// with CR 704.5m): a face-down Gift of Doom is a vanilla 2/2 Creature while
+// face down -- its printed Aura subtype does not exist -- so the unattached
+// arm above must NOT sweep it to the graveyard as "Aura attached to
+// nothing"; the printed read did exactly that, killing it at the next SBA
+// checkpoint before its Morph turn-up cost could ever be paid. The same walk
+// keeps every face-up read the printed face already answered (the fast path
+// returns the base list when no layer-4 effect is active) and correctly
+// follows a layer-4 type rewrite on a face-up permanent too. Faced-less
+// objects have no types.
+func (e *Engine) hasType(o *state.Object, t string) bool {
+	if o == nil {
+		return false
+	}
+	if o.Zone == state.ZBattlefield {
+		for _, x := range e.typeCharacteristics(o.ID, 0) {
+			if strings.EqualFold(x, t) {
+				return true
+			}
+		}
+		return false
+	}
 	f := o.Face()
 	if f == nil {
 		return false

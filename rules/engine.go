@@ -2423,7 +2423,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		return e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Text: "cannot attach: protected"})
 	}
 	if ev.Kind == events.Attach && ev.Obj != 0 && ev.Text == "attach to player" {
-		if attaching := e.G.Obj(ev.Obj); attaching != nil && isAura(attaching) &&
+		if attaching := e.G.Obj(ev.Obj); attaching != nil && e.isAura(attaching) &&
 			int(ev.Player) < len(e.G.Players) && e.playerProtectedFrom(ev.Player, ev.Obj) {
 			return e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 				Text: "cannot attach: protected"})
@@ -2446,12 +2446,12 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// normally; zone slices are copied before iteration because the MoveZone
 	// mutates the battlefield while we walk it (the attachmentSBAs discipline).
 	if ev.Kind == events.Attach && ev.Obj != 0 && len(ev.IDs) > 0 {
-		if attaching := e.G.Obj(ev.Obj); attaching != nil && isRole(attaching) {
+		if attaching := e.G.Obj(ev.Obj); attaching != nil && e.isRole(attaching) {
 			for _, p := range e.G.AliveFrom(0) {
 				zone := append([]state.ObjID(nil), e.G.Zone(state.ZBattlefield, p)...)
 				for _, id := range zone {
 					o := e.G.Obj(id)
-					if o == nil || id == ev.Obj || o.AttachedTo != ev.IDs[0] || !isRole(o) {
+					if o == nil || id == ev.Obj || o.AttachedTo != ev.IDs[0] || !e.isRole(o) {
 						continue
 					}
 					e.emit(events.Event{Kind: events.MoveZone, Obj: id,
