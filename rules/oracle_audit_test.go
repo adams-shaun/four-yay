@@ -71,6 +71,10 @@ var oracleKnownDivergent = map[string]string{
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Engine primitive gap: the death trigger's damage-source filter has no
+	// DamagedBy matcher (40 corpus scripts use that qualifier). The script
+	// accurately encodes Hawkeye's printed condition.
+	"Hawkeye, Avenging Archer/damaged-victim-dies-draw": "observed no draw (hand 0), expected one draw (hand 1) after Hawkeye damaged the victim",
 	// Engine primitive: entering Angel appears to be included in Giada's CountValid
 	// when pricing the replacement, rather than counting only Angels already controlled.
 	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
@@ -86,6 +90,7 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: Urza's Workshop's conditional Urza-land count is
 	// not reflected in its mana ability; the three-land board produces one C.
 	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
+
 }
 
 type oracleFile struct {
