@@ -1743,6 +1743,14 @@ type Engine struct {
 	// walk allocates its own rather than clobbering the outer one. Owned by
 	// this Engine alone: Clone leaves it nil, like foreachBuf.
 	legalOptBuf []decision.Option
+	// legalActionWalks counts every legalActionsPriced call (test-visible
+	// only; unexported, bumped unconditionally, no event and no effect on
+	// determinism or chain heads -- a plain monotonic read-only diagnostic
+	// counter). It lets a test count legal-action walks directly now that
+	// paymentActionsForPriority opens ONE derived-memo scope around the whole
+	// offer build, which pins derivedMemoGen's delta at 1 regardless of how
+	// many walks run inside. Clone leaves it zero, like the scratch fields.
+	legalActionWalks uint64
 	// manaAbBuf is the offer walk's per-object mana-ability scratch list
 	// (legal.go), and manaLabels its "Activate <name> for mana" label cache
 	// (manaActivateLabel; a pure function of the name, only ever looked up,

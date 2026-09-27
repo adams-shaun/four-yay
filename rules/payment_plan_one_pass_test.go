@@ -396,25 +396,39 @@ func TestPaymentPlanOnePassBenchBoardMatchesReference(t *testing.T) {
 // TestPaymentPlanOnePassWalkCount pins the walk budget: however many
 // candidates the board has, one build opens at most two legal-action walks
 // (the PotentialMana candidate walk and one huge-pool legality walk) and
-// never a legalActions walk for BaseOptionIndex. Every outermost walk opens
-// one derived-memo generation, so the generation delta counts walks.
+// never a legalActions walk for BaseOptionIndex. The count comes from
+// Engine.legalActionWalks, which legalActionsPriced bumps on every call --
+// the derived-memo generation delta CANNOT measure this since
+// paymentActionsForPriority (merge 39948fe8c) opens ONE beginDerivedMemo
+// scope around the whole build, so its generation advances by at most one
+// no matter how many walks run inside. The counter is direct: a regression
+// that runs `options = e.legalActions(p)` once per candidate cast (instead
+// of once for the whole build) makes the delta climb with the candidate
+// count, which this test then fails.
 func TestPaymentPlanOnePassWalkCount(t *testing.T) {
 	e := onePassBenchBoard(t)
-	gen := e.derivedMemoGen
+	walks := e.legalActionWalks
 	if n := len(e.EnsurePaymentActions()); n < 4 {
 		t.Fatalf("precondition: %d offers, want >= 4", n)
 	}
-	if walks := e.derivedMemoGen - gen; walks > 2 {
-		t.Fatalf("building offers opened %d legal-action walks, want at most 2", walks)
+	// Precondition: the counter must actually move on a build that offers
+	// actions -- a counter never bumped, or a builder that never walks,
+	// cannot pass this test silently.
+	got := e.legalActionWalks - walks
+	if got < 1 {
+		t.Fatalf("precondition: building offers counted %d legal-action walks, want >= 1", got)
+	}
+	if got > 2 {
+		t.Fatalf("building offers opened %d legal-action walks, want at most 2", got)
 	}
 	// A floating typed unit declines every plan before any walk runs.
 	e.G.Players[0].Snow[state.ManaIndex('R')] = 1
 	onePassReask(e, 0)
-	gen = e.derivedMemoGen
+	walks = e.legalActionWalks
 	if n := len(e.EnsurePaymentActions()); n != 0 {
 		t.Fatalf("offers with floating snow mana = %d, want 0", n)
 	}
-	if walks := e.derivedMemoGen - gen; walks != 0 {
-		t.Fatalf("a declined pool still opened %d walks", walks)
+	if got := e.legalActionWalks - walks; got != 0 {
+		t.Fatalf("a declined pool still opened %d walks", got)
 	}
 }
