@@ -1130,6 +1130,11 @@ type Engine struct {
 	trigZones     []trigZoneSummary
 	trigZonesEp   int
 	trigFaceZones map[*cards.Face]uint8
+	// replZones / replZonesEp are the replacement-source walk's per-seat
+	// zone summaries (rules/repl_zoneskip.go): pure scratch validated on
+	// every use, so Clone copies neither.
+	replZones   []replZoneSummary
+	replZonesEp int
 
 	// choosing says which flow is waiting on the current KChoose decision
 	// (Task 8). It is plain data, not a closure, so Engine.Clone (a sibling

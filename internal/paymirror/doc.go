@@ -86,6 +86,7 @@
 //	triggerEventMasks, triggerObject-  immutable-syntax lookup caches keyed by face pointer
 //	Masks, trigZones/Ep, trigFaceZones,
 //	phaseSpecs
+//	replZones/Ep                       replacement-walk zone summaries, validated on every use
 //	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
 //	Valid                              object-arena size and log length; Clone copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
