@@ -9186,6 +9186,8 @@ func (e *Engine) castPaymentMana(pc *pendingCast) Cost {
 // this window surfaces in that first activation's actual production or its
 // interruption, both of which the executor checks.
 func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
+	// A pure read: one zone-entry index serves every remaining step.
+	defer e.paymentPlanQueryScope()()
 	plan := pc.payment.plan
 	cost := e.castPaymentMana(pc)
 	if plan.Version != decision.PaymentPlanV1 || plan.Cost != paymentCost(cost) {
