@@ -129,6 +129,12 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "intentBuf"}:   true,
 	{"rules.Engine", "sbaIDBuf"}:    true,
 	{"rules.Engine", "foreachBuf"}:  true,
+	// The DiscardedAll matcher's FirstTime$ scratch (rules/engine.go): written
+	// by discardedAllMatches on every match and read by the trigger dispatcher
+	// immediately after, never before a write; Clone copies it as false, so a
+	// live engine still holding the last match's value read "true vs false"
+	// against its control clone (round-8 paymirror random4, seed 8529).
+	{"rules.Engine", "discardAllFirstTime"}: true,
 	// Intent-stream watchdogs and counters: the manual route answers more
 	// decisions by construction, so these count the route, not the game.
 	{"rules.Engine", "loop"}:     true,

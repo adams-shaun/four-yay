@@ -3196,6 +3196,19 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 	// later effect's Affected$ filter — and every layer-4 effect's own —
 	// sees the derived type list, not the printed face.
 	ty = append(ty[:0], e.typeCharacteristics(id, atStack)...)
+	// A faced object's keyword and type lists are always BOUND, even when
+	// empty, from here through the layer walk to the returned Derived: a nil
+	// ExtraKeywords/ExtraTypes is effects.SpecContext's "unbound, read the
+	// printed face". A nil here came only from a scratch buffer that had never
+	// grown (a fresh engine, a replay or a Clone before its first keyworded
+	// derive), so the same face-down 2/2 matched its printed face's keywords
+	// in one engine and not in another. []string{} does not allocate.
+	if kw == nil {
+		kw = []string{}
+	}
+	if ty == nil {
+		ty = []string{}
+	}
 	// Layer 5's base is the face's colour set (the mana cost, an explicit
 	// Colors: line, Devoid-applied). The letters compose in a fixed [5]bool so
 	// the layer walk below never touches a map.

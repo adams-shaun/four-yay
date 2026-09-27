@@ -59,6 +59,16 @@ import (
 // walk (Derived's documented contract). The arrays are reused across walks,
 // so the steady state stays allocation-free.
 //
+// The copy keeps the computed slice's nil-ness (memoOwned). An EMPTY derived
+// keyword list is an answer -- "no keywords after layer 6" -- while a nil one
+// is effects.SpecContext's "unbound" (matchesSpec binds d.Keywords as
+// ExtraKeywords, and a nil ExtraKeywords falls back to the printed face). A
+// plain append into an entry that never held a keyword collapsed a computed
+// empty list to nil, so Surge Engine, its printed Defender removed by its own
+// Animate, matched Card.Self+!withDefender only in an engine whose memo entry
+// had been filled while it still had Defender: a replay or a Clone offered a
+// different priority option list than the live game (round-8 fuzz).
+//
 // derivedMemoVerify (set by the rules test binary, or at link time through
 // derivedMemoVerifyFlag for a botbench run) recomputes every hit and panics
 // on any difference -- the empirical half of the argument above.
@@ -266,17 +276,32 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 	if e.activeBuildSeq != seq {
 		seq = 0 // active() rebuilt mid-derivation: never reuse across walks
 	}
-	m.kw = append(m.kw[:0], d.Keywords...)
-	m.ty = append(m.ty[:0], d.Types...)
-	d.Keywords, d.Types = m.kw, m.ty
+	d.Keywords = memoOwned(&m.kw, d.Keywords)
+	d.Types = memoOwned(&m.ty, d.Types)
 	m.d = d
 	m.gen, m.ep, m.ver, m.objs, m.seq = e.derivedMemoGen, ep, ver, objs, seq
 	return d
 }
 
+// memoOwned copies src into the entry's reusable backing array *buf and
+// returns the copy with src's nil-ness: nil only for a nil src, a non-nil
+// (possibly empty) slice otherwise. See "The copy keeps the computed slice's
+// nil-ness" above.
+func memoOwned(buf *[]string, src []string) []string {
+	*buf = append((*buf)[:0], src...)
+	if src == nil {
+		return nil
+	}
+	if *buf == nil {
+		return []string{}
+	}
+	return *buf
+}
+
 func (e *Engine) verifyDerivedMemo(id state.ObjID, atStack state.Zone, got Derived) {
 	want := e.derivedCompute(id, atStack)
-	if got.Power != want.Power || got.Toughness != want.Toughness ||
+	if (got.Keywords == nil) != (want.Keywords == nil) || (got.Types == nil) != (want.Types == nil) ||
+		got.Power != want.Power || got.Toughness != want.Toughness ||
 		got.BasePower != want.BasePower || got.BaseToughness != want.BaseToughness ||
 		got.Name != want.Name ||
 		got.Colors != want.Colors || !slices.Equal(got.Keywords, want.Keywords) || !slices.Equal(got.Types, want.Types) {

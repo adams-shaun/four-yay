@@ -120,7 +120,9 @@
 //	Valid                              object-arena size and log length; Clone copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf
-//	loop, askCount                     intent-stream watchdog and ask counter: they count the
+//	discardAllFirstTime                the DiscardedAll matcher's FirstTime$ scratch: written on
+//	                                   every match and read only right after it; Clone copies none
+//	loop, askCount                    intent-stream watchdog and ask counter: they count the
 //	                                   route's decisions, not the game
 //	legalActionWalks                   legalActionsPriced's diagnostic call counter: the float
 //	                                   route re-prices offers against a hypothetical floating
