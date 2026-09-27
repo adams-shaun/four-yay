@@ -458,6 +458,14 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 		if got.Plan == nil {
 			continue
 		}
+		// The candidate walk's target census ran with the card in hand; the
+		// planned cast asks for targets with it on the stack (CR 601.2a
+		// before 601.2c). A one-click plan whose mandatory targets vanish
+		// when the card leaves the hand would only reverse (CR 733.1), so
+		// it is not offered (castprobe.go).
+		if !e.castTargetsAvailableOnStack(p, opt.Obj) {
+			continue
+		}
 		plan := *got.Plan
 		pid, err := decision.PaymentPlanID(seq, p, cast, plan)
 		if err != nil {

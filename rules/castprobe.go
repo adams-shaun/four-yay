@@ -1,0 +1,84 @@
+package rules
+
+import (
+	"slices"
+
+	"github.com/adams-shaun/gorge/state"
+)
+
+// castprobe.go: judging a spell's CR 601.2c target census the way the cast
+// will, with the card already on the stack.
+//
+// CR 601.2a moves the card from its zone to the stack BEFORE CR 601.2c asks
+// for its targets, so a target whose legality reads the caster's hand is
+// judged with the hand one card smaller. The offer census (castTargetsAvailable)
+// runs with the card still in hand. Measured (round-9 cardfuzz explore seed
+// 9606575608234985872): Empyrial Armor ("+1/+1 for each card in your hand")
+// on an opponent's 1/3 made it a 4/6 with three cards in hand, so Guiding
+// Bolt ("destroy target creature with power 4 or greater") passed the census;
+// on the stack the hand held two and the creature was a 3/5, so the cast
+// aborted with no legal target. The payment-plan offer (paymentActionsForPriority)
+// offered that cast as a one-click plan, which then reversed (CR 733.1).
+//
+// offerAsSpellOnStack answers fn with id moved from its hand to the top of
+// the stack and puts it back before returning. Like offerAsFace
+// (faceprobe.go) it is a scoped READ: no event is emitted, the hand list is
+// restored to the identical slice (the probe writes only fresh copies), the
+// stack to its own slice, and the object's zone to its value -- so the log,
+// the hash chain and replay are untouched. The log-head-keyed layer caches
+// are brought up to date BEFORE the move, so they are hits throughout (none
+// of them holds a hand count: a Count$ValidHand amount is evaluated when the
+// characteristic is derived), the walk's Derived memo is bypassed for the
+// probe, and the cross-walk memo is retired at both edges, exactly as the
+// face probe does. The static-walk zone summaries are keyed on the live id
+// list (static_zoneskip.go), so the probed hand list can never be served a
+// summary of the other.
+func (e *Engine) offerAsSpellOnStack(id state.ObjID, fn func() bool) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Zone != state.ZHand {
+		return fn()
+	}
+	hand := e.G.Zone(state.ZHand, o.Owner)
+	i := slices.Index(hand, id)
+	if i < 0 {
+		return fn()
+	}
+	_ = e.active()
+	e.refreshDerivedTypes()
+	probeHand := make([]state.ObjID, 0, len(hand)-1)
+	probeHand = append(append(probeHand, hand[:i]...), hand[i+1:]...)
+	prevStack, prevZone := e.G.Stack, o.Zone
+	prevDepth, prevGen := e.derivedMemoDepth, e.derivedMemoGen
+	e.G.SetZone(state.ZHand, o.Owner, probeHand)
+	e.G.Stack = append(slices.Clip(prevStack), id)
+	o.Zone = state.ZStack
+	e.derivedMemoDepth = 0
+	e.retireCrossWalkMemo()
+	defer func() {
+		o.Zone = prevZone
+		e.G.Stack = prevStack
+		e.G.SetZone(state.ZHand, o.Owner, hand)
+		e.derivedMemoDepth = prevDepth
+		e.retireCrossWalkMemo()
+		if e.derivedMemoGen != prevGen {
+			e.derivedMemoGen++
+		}
+	}()
+	return fn()
+}
+
+// castTargetsAvailableOnStack is castTargetsAvailable judged by
+// offerAsSpellOnStack: the census the CR 601.2c target ask will run once the
+// card has moved to the stack. Only a spell with a ValidTgts$ census is
+// probed; every other spell is answered by the ordinary census unchanged.
+func (e *Engine) castTargetsAvailableOnStack(p state.PlayerID, id state.ObjID) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return true
+	}
+	sa := o.Face().SpellAbility()
+	if sa == nil || sa.Params["ValidTgts"] == "" && sa.API != "Charm" {
+		return true
+	}
+	return e.offerAsSpellOnStack(id, func() bool { return e.castTargetsAvailable(p, id, sa) })
+}
