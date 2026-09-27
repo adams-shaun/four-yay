@@ -715,19 +715,23 @@ func paymentPlanPendingSummary(d *decision.Decision) string {
 	return string(d.Kind) + " " + strconv.Quote(d.Prompt) + " fallback " + fb
 }
 
+// paymentPlanTappedContamination is Contamination's replacement gated on a
+// land already being tapped: before any planned tap it applies to nothing, so
+// the per-source interference check (paymentPlanSourceInterference, which
+// defers a land an unconditional Contamination matches before it is ever
+// tapped) cannot foresee it, and it changes the production only DURING the
+// first planned activation -- the post-activation check's own territory.
+const paymentPlanTappedContamination = "Name:Tapped Contamination\nTypes:Enchantment\nR:Event$ ProduceMana | ActiveZones$ Battlefield | ValidCard$ Land | IsPresent$ Land.tapped | ReplaceWith$ ProduceB | Description$ Fixture: once a land is tapped, a land tapped for mana produces B instead.\nSVar:ProduceB:DB$ ReplaceMana | ReplaceMana$ B\nOracle:x\n"
+
 // Spec §6: after each planned activation the executor compares the mana it
 // actually added with the witness step. A ProduceMana replacement arriving
-// after the offer (the corpus's Contamination: a land tapped for mana
-// produces {B} instead) makes the first planned Mountain produce B where its
-// step says R. Automation stops at once -- the second planned Mountain stays
-// untapped, nothing substitutes for it -- and the manual window names the
-// selected plan with production_changed.
+// after the offer that applies only once a land is tapped makes the first
+// planned Mountain produce B where its step says R. Automation stops at once
+// -- the second planned Mountain stays untapped, nothing substitutes for it
+// -- and the manual window names the selected plan with production_changed.
+// (The corpus's unconditional Contamination is now caught before the first
+// tap: TestPaymentPlanInterferenceArrivingAfterOfferStopsBeforeTapping.)
 func TestPaymentPlanProductionChangeStopsAutomation(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	cont, ok := reg.Lookup("Contamination")
-	if !ok {
-		t.Fatal("corpus card Contamination missing")
-	}
 	e, _, spell := newFixtureDeck(t, 9303, paymentPlanBlast)
 	m1 := onBoard(t, e, 0, paymentPlanMountain)
 	m2 := onBoard(t, e, 0, paymentPlanMountain)
@@ -740,8 +744,9 @@ func TestPaymentPlanProductionChangeStopsAutomation(t *testing.T) {
 	if td := e.Pending(); td == nil || td.Kind != decision.KTarget {
 		t.Fatalf("pending = %s, want the target ask", paymentPlanPendingSummary(td))
 	}
-	// The controlled post-offer change: a land mana replacement.
-	onBoardReadyCard(t, e, 1, cont)
+	// The controlled post-offer change: a land mana replacement that only
+	// applies once the first planned land is tapped.
+	onBoard(t, e, 1, paymentPlanTappedContamination)
 	start := len(e.L.Events)
 	submitChoices(t, e, 0)
 	produced := producedManaSince(e, start)
@@ -843,24 +848,21 @@ func TestPaymentPlanCostRaisedAfterOfferFallsBackBeforeTapping(t *testing.T) {
 	}
 }
 
-// A planned activation that unexpectedly poses a decision (Pulse of Llanowar
-// arriving after the offer turns the planned basic's mana into a colour
-// choice) cancels automation: the completed activation and its mana stay,
-// the second planned source is never tapped by itself, and once the choice
-// is answered the manual window reports choice_required.
+// A planned activation that unexpectedly poses a decision (a Pulse of
+// Llanowar replacement arriving after the offer, gated on a land already
+// being tapped so the per-source pre-tap check cannot foresee it, turns the
+// planned basic's mana into a colour choice) cancels automation: the
+// completed activation and its mana stay, the second planned source is never
+// tapped by itself, and once the choice is answered the manual window reports
+// choice_required.
 func TestPaymentPlanActivationInterruptionCancelsRemainingSteps(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	pulse, ok := reg.Lookup("Pulse of Llanowar")
-	if !ok {
-		t.Fatal("corpus card Pulse of Llanowar missing")
-	}
 	e, _, spell := newFixtureDeck(t, 9307, paymentPlanBlast)
 	m1 := onBoard(t, e, 0, paymentPlanMountain)
 	m2 := onBoard(t, e, 0, paymentPlanMountain)
 	d := paymentPlanReask(t, e)
 	a := paymentPlanActionFor(t, d, spell)
 	submitPaymentPlan(t, e, d, a)
-	onBoardReadyCard(t, e, 0, pulse)
+	onBoard(t, e, 0, "Name:Tapped Pulse\nTypes:Enchantment\nR:Event$ ProduceMana | ActiveZones$ Battlefield | ValidCard$ Land.Basic+YouCtrl | IsPresent$ Land.tapped+YouCtrl | ReplaceWith$ ProduceAny | Description$ Fixture: once a land you control is tapped, a basic land you control tapped for mana produces a colour of your choice.\nSVar:ProduceAny:DB$ ReplaceMana | ReplaceType$ Any\nOracle:x\n")
 	submitChoices(t, e, 0) // the target
 	rd := e.Pending()
 	if rd == nil || rd.Kind != decision.KReplacement {

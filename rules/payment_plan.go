@@ -81,8 +81,11 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 	if detail := paymentPlanCostDetail(cost); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
-	if !paymentPlanPoolOK(e.G.Players[p]) || e.paymentPlanManaInterference() {
+	if !paymentPlanPoolOK(e.G.Players[p]) {
 		return PaymentPlanOutcome{Reason: "unsupported"}
+	}
+	if global, detail := e.paymentPlanGlobalManaEffect(p, cast.Object); global {
+		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
 	return e.planPaymentCost(p, cast, cost)
 }
@@ -148,7 +151,7 @@ func (e *Engine) paymentPlanCastShapeDetail(p state.PlayerID, id state.ObjID) st
 		}
 	}
 	if faceReadsManaSpent(f) || faceWantsConverge(f) || faceWantsCastSpend(f) ||
-		e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.sunburstGrantOut() {
+		e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.paymentPlanSunburstGrantOut() {
 		return "shape:mana_spent_reader"
 	}
 	if e.paymentPlanHasTargetDependentModifier(p, id) {
@@ -242,9 +245,14 @@ func paymentPlanCostDetail(c Cost) string {
 // paymentPlanHasTargetDependentModifier finds a live cost static that would
 // apply to this ordinary spell except for ValidTarget$.  Its actual amount is
 // unknowable until CR 601.2c, after the plan has been selected, so V1 leaves
-// that cast to the normal target/payment flow.  Copying the parameter map is
+// that cast to the normal target/payment flow.  A spell that announces no
+// target cannot meet any ValidTarget$ clause, so it is never taxed and is not
+// declined (paymentPlanSpellTargets).  Copying the parameter map is
 // important: static views share compiled-card maps.
 func (e *Engine) paymentPlanHasTargetDependentModifier(p state.PlayerID, id state.ObjID) bool {
+	if o := e.G.Obj(id); o == nil || !paymentPlanSpellTargets(o.Face()) {
+		return false
+	}
 	statics := e.collectCostStatics()
 	for _, group := range []struct {
 		mode  string
@@ -575,8 +583,34 @@ func paymentPlanAltOK(a windowManaAlt) bool {
 
 // paymentPlanAbilityTier is the single source-shape authority for automatic
 // payment. It is intentionally closed-world: new Forge parameters require an
-// explicit review before the planner can rely on them.
+// explicit review before the planner can rely on them. It folds the ability's
+// own shape (paymentPlanAbilityShapeTier) with the triggers and replacements
+// that can act on this source's tap or mana (paymentPlanSourceInterference):
+// a deferring interference defers the source, and the source's own
+// fully determined consequence (City of Brass's damage, Mana Vault's
+// doesn't-untap) makes an otherwise normal source last resort.
 func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
+	tier, c, detail := e.paymentPlanAbilityShapeTier(p, id, ma)
+	if tier == paymentTierDeferred {
+		return tier, c, detail
+	}
+	switch it, ic, idetail := e.paymentPlanSourceInterference(id, ma); it {
+	case paymentTierDeferred:
+		return it, ic, idetail
+	case paymentTierLastResort:
+		c.sacrifice = c.sacrifice || ic.sacrifice
+		c.life += ic.life
+		c.damage += ic.damage
+		c.noUntap = c.noUntap || ic.noUntap
+		c.returnToHand = c.returnToHand || ic.returnToHand
+		return paymentTierLastResort, c, "source:last_resort"
+	}
+	return tier, c, detail
+}
+
+// paymentPlanAbilityShapeTier classifies the ability's own cost, production,
+// parameters and SubAbility$ chain.
+func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
 	deferred := func(detail string) (paymentAbilityTier, paymentConsequence, string) {
 		return paymentTierDeferred, paymentConsequence{}, detail
 	}
@@ -688,8 +722,12 @@ func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32,
 	if o == nil || o.Face() == nil {
 		return 0, false
 	}
-	name := strings.TrimSpace(mana.Params["SubAbility"])
-	rider := cards.ResolveSVar(o.Face().SVars, name)
+	return paymentPlanDamageBody(cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.Params["SubAbility"])))
+}
+
+// paymentPlanDamageBody reports N when rider is exactly `DealDamage |
+// Defined$ You | NumDmg$ <literal N>` with no further parameter or sub.
+func paymentPlanDamageBody(rider *cards.SA) (uint32, bool) {
 	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.Params["Defined"]) != "You" || strings.TrimSpace(rider.Params["SubAbility"]) != "" {
 		return 0, false
 	}
@@ -975,36 +1013,22 @@ func (e *Engine) paymentSourceZoneSeq(id state.ObjID) uint64 {
 	return decision.GenesisZoneSeq
 }
 
-// paymentPlanManaInterference declines the whole V1 plan when the battlefield
-// has an effect that can alter a selected tap or mana event.  The ordinary
-// source walk remains available for manual play; this deliberately conservative
-// gate prevents a nominally bare activation from becoming a false guarantee.
+// paymentPlanManaInterference is the zero-argument global gate the planned
+// executor re-runs before each later step: whether a mana effect whose scope
+// the planner cannot prove (paymentPlanGlobalManaEffect) reaches the acting
+// payer -- the cast in progress when there is one, else any alive player.
+// Everything the planner CAN scope -- a trigger or replacement that can match
+// one source's tap or production -- is a per-source tier question
+// (paymentPlanSourceInterference), which the executor re-reads through
+// paymentPlanUnitAlternatives.
 func (e *Engine) paymentPlanManaInterference() bool {
-	// Effect-created replacements are stored in the continuous registry, not
-	// on a face. They participate in the same ProduceMana matcher as printed
-	// lines, so a plan must decline them too rather than publishing a witness
-	// whose predicted output differs at execution/replay.
-	for _, ce := range e.active() {
-		if ce.ReplacementEvent == "ProduceMana" {
-			return true
-		}
+	if pc := e.cast; pc != nil {
+		global, _ := e.paymentPlanGlobalManaEffect(pc.player, pc.card)
+		return global
 	}
-	for _, p := range e.G.Players {
-		for _, id := range e.G.Zone(state.ZBattlefield, p.ID) {
-			o := e.G.Obj(id)
-			if o == nil || o.Face() == nil {
-				continue
-			}
-			for _, t := range o.Face().Triggers {
-				if t.Mode == "Taps" || t.Mode == "TapsForMana" {
-					return true
-				}
-			}
-			for _, r := range o.Face().Repls {
-				if strings.Contains(strings.ToLower(r.Event), "mana") || strings.Contains(strings.ToLower(r.Event), "tap") {
-					return true
-				}
-			}
+	for _, p := range e.G.AliveFrom(0) {
+		if global, _ := e.paymentPlanGlobalManaEffect(p, 0); global {
+			return true
 		}
 	}
 	return false
