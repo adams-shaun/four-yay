@@ -5421,7 +5421,7 @@ func (e *Engine) spellsCastThisTurnMatching(you state.PlayerID, spec string, exc
 			delete(castFlags, ev.Obj)
 		}
 		if (e.stackGrantCast != 0 && ev.Obj == e.stackGrantCast) ||
-			(e.costCompositionCast != 0 && ev.Obj == e.costCompositionCast) {
+			(e.costCompositionEvent != 0 && i+1 == e.costCompositionEvent) {
 			continue
 		}
 		if exclude != 0 && ev.Obj == exclude {

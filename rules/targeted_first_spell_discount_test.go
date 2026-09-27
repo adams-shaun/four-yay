@@ -112,6 +112,35 @@ func TestTargetedFirstSpellNotDiscountedAsSecond_SecondSpellStillGetsDiscount(t 
 	}
 }
 
+func TestCostCompositionExcludesOnlyCurrentPushForAnnouncedX(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9322, firstSpellTargetedProbe)
+	toMain1(t, e)
+	mouse := onBoardCard(t, e, 0, corpusCard(t, "Raging Battle Mouse"))
+	if e.G.Obj(mouse).Zone != state.ZBattlefield {
+		t.Fatal("precondition: Raging Battle Mouse must be on the battlefield")
+	}
+	e.cast = &pendingCast{card: spell, ability: -1}
+	defer func() { e.cast = nil }()
+	cost := Cost{Generic: 1, Colored: state.Mana{state.MR: 1}}
+	priceX := func() Cost {
+		t.Helper()
+		return e.costModifiersForTargetsX(0, spell, spellScope(""), nil, 1).apply(cost)
+	}
+
+	// The in-flight targeted cast is already in the log. Announced-X pricing
+	// must exclude this one push, or the first spell incorrectly costs only R.
+	e.L.Append(events.Event{Kind: events.PutOnStack, Player: 0, Obj: spell})
+	if got := priceX(); got.Generic != 1 || got.Colored[state.MR] != 1 {
+		t.Fatalf("first announced-X cast repriced to %+v, want {1}{R}", got)
+	}
+	// A prior cast of the same object remains part of the count: only the
+	// latest (in-flight) push is excluded, so this is the second spell.
+	e.L.Append(events.Event{Kind: events.PutOnStack, Player: 0, Obj: spell})
+	if got := priceX(); got.Generic != 0 || got.Colored[state.MR] != 1 {
+		t.Fatalf("second announced-X cast repriced to %+v, want {R}", got)
+	}
+}
+
 func TestSplitCardFirstSpellPaysFullCost(t *testing.T) {
 	coward := corpusCard(t, "Coward")
 	cfg := seatZeroStart(Config{Seed: 9330, Names: []string{"a", "b"},

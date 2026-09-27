@@ -1203,9 +1203,11 @@ type Engine struct {
 	// cast holds the in-progress cast-flow state while choosing ==
 	// chooseCast (Task 9, rules/cast.go). Nil whenever no cast is mid-flow.
 	cast *pendingCast
-	// costCompositionCast is excluded from cast-count statics while the
-	// current cast's cost modifiers are being composed after PutOnStack.
-	costCompositionCast state.ObjID
+	// costCompositionEvent is the one PutOnStack event excluded from
+	// cast-count statics while the current cast's cost modifiers are composed
+	// after PutOnStack. Stored as event index + 1 (zero means none), so an
+	// earlier cast of the same object remains visible.
+	costCompositionEvent int
 	// turnUp holds the CR 708.6 morph-family turn-face-up special action's
 	// payment flow while choosing == chooseTurnUp (rules/morph_turnup.go).
 	// Nil whenever no turn-up is mid-payment. A plain-value struct with no

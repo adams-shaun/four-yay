@@ -2333,12 +2333,27 @@ func (e *Engine) costModifiers(p state.PlayerID, id state.ObjID, scope costScope
 // ValidTarget$ static cannot yet apply; target choice re-enters this helper
 // before payment with the actual targets.
 func (e *Engine) costModifiersForTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) costMods {
-	previous := e.costCompositionCast
+	return e.withCostCompositionEvent(id, func() costMods {
+		return e.costModifiersWithTargets(p, id, scope, targets, false)
+	})
+}
+
+// withCostCompositionEvent excludes only the current cast's latest push while
+// its payment modifiers are recomputed. Object identity alone is insufficient:
+// a spell may have been cast, returned to hand, and cast again this turn.
+func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMods) costMods {
+	previous := e.costCompositionEvent
 	if e.cast != nil && e.cast.card == id && !e.cast.isAbility() {
-		e.costCompositionCast = id
+		for i := len(e.L.Events) - 1; i >= 0; i-- {
+			ev := e.L.Events[i]
+			if ev.Kind == events.PutOnStack && ev.Obj == id {
+				e.costCompositionEvent = i + 1
+				break
+			}
+		}
 	}
-	mods := e.costModifiersWithTargets(p, id, scope, targets, false)
-	e.costCompositionCast = previous
+	mods := compose()
+	e.costCompositionEvent = previous
 	return mods
 }
 
@@ -2361,7 +2376,9 @@ func (e *Engine) costModifiersForPotentialTargets(p state.PlayerID, id state.Obj
 // reduction reading Count$xPaid would otherwise never apply (Dargo's
 // "{2} less for each permanent sacrificed this way").
 func (e *Engine) costModifiersForTargetsX(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, x int32) costMods {
-	return e.costModifiersWithTargetsX(p, id, scope, targets, false, x)
+	return e.withCostCompositionEvent(id, func() costMods {
+		return e.costModifiersWithTargetsX(p, id, scope, targets, false, x)
+	})
 }
 
 func (e *Engine) costModifiersWithTargetsX(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
