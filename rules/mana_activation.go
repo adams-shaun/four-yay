@@ -162,7 +162,17 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	// posts must never be deferred onto the enclosing resolution's chain.
 	savedOwners := e.contChainOwners
 	e.contChainOwners = 0
+	// CR 605: a mana ability resolves immediately and is never a stack
+	// object, so inFlightCounterAdder's actionCause fallback cannot name it
+	// -- it would read whatever spell (if any) happens to sit on the stack.
+	// Publish the activating player as the counter adder for the whole
+	// off-stack resolution so a SubAbility$ PutCounter (or a triggered mana
+	// ability's own counter) is attributed to that ability's controller the
+	// same whether it resolves at priority, inside a CR 601.2g payment
+	// window, or in response to an unrelated spell.
+	prevAdder := e.SetCounterAdder(act.player)
 	run()
+	e.SetCounterAdder(prevAdder)
 	e.contChainOwners = savedOwners
 	e.offStackMana = saved
 	return f.asked
