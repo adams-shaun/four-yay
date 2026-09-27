@@ -328,6 +328,9 @@ func TestRestrictValidDotlessActivated(t *testing.T) {
 		card(t, dotlessClerk),
 		card(t, dotlessChargeC))
 	hawker := searchMoveByName(t, e, "Omen Hawker", state.ZBattlefield)
+	// A real logged TurnChange (not a raw SummonSick write) clears CR 302.6
+	// sickness on the log the replayCheck below reads from.
+	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 	tri := searchMoveByName(t, e, "Sunrise Clerk", state.ZBattlefield)
 	spell := searchMoveByName(t, e, "Plain Charge", state.ZHand)
 
@@ -389,6 +392,10 @@ func TestRestrictValidDotlessPaymentTerms(t *testing.T) {
 		e, cfg := dotlessEngine(t, reg, drone, drone, card(t, dotlessCBearer), card(t, dotlessCharge1W))
 		cult := searchMoveByName(t, e, "Cultivator Drone", state.ZBattlefield)
 		cult2 := searchMoveByName(t, e, "Cultivator Drone", state.ZBattlefield)
+		// A real logged TurnChange (not a raw SummonSick write) clears CR
+		// 302.6 sickness on the log replayCheck below reads from, for both
+		// drones at once.
+		e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 		bearer := searchMoveByName(t, e, "C Testbearer", state.ZBattlefield)
 		toll := searchMoveByName(t, e, "White Toll", state.ZHand)
 		if cult == cult2 {
@@ -444,6 +451,9 @@ func TestRestrictValidDotlessPaymentTerms(t *testing.T) {
 		e, cfg := dotlessEngine(t, reg, rosheen,
 			searchCorpusCard(t, reg, "Kaervek's Torch"), card(t, dotlessChargeC))
 		ros := searchMoveByName(t, e, "Rosheen Meanderer", state.ZBattlefield)
+		// A real logged TurnChange (not a raw SummonSick write) clears CR
+		// 302.6 sickness on the log replayCheck below reads from.
+		e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 		glare := searchMoveByName(t, e, "Kaervek's Torch", state.ZHand)
 		charge := searchMoveByName(t, e, "Plain Charge", state.ZHand)
 
@@ -520,6 +530,9 @@ func TestRestrictValidDotlessPaymentTerms(t *testing.T) {
 		e, cfg := dotlessEngine(t, reg, jeg, card(t, dotlessChargeWU), card(t, dotlessCharge1), card(t, dotlessTwobrid),
 			searchCorpusCard(t, reg, "Kaervek's Torch"))
 		src := searchMoveByName(t, e, "Jegantha, the Wellspring", state.ZBattlefield)
+		// A real logged TurnChange (not a raw SummonSick write) clears CR
+		// 302.6 sickness on the log replayCheck below reads from.
+		e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 		wu := searchMoveByName(t, e, "Duo Praise", state.ZHand)
 		toll := searchMoveByName(t, e, "One Toll", state.ZHand)
 		twobrid := searchMoveByName(t, e, "Twobrid Toll", state.ZHand)
@@ -641,6 +654,9 @@ func TestRestrictValidDotlessPaymentTerms(t *testing.T) {
 		creature := card(t, dotlessCreatureU)
 		e, cfg := dotlessEngine(t, reg, hh, hh, artifact, creature)
 		src := searchMoveByName(t, e, "Hydraulic Helper", state.ZBattlefield)
+		// A real logged TurnChange (not a raw SummonSick write) clears CR
+		// 302.6 sickness on the log replayCheck below reads from.
+		e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 		artID := searchMoveByName(t, e, "Clockwork Beetle", state.ZHand)
 		whelpID := searchMoveByName(t, e, "Blue Whelp", state.ZHand)
 		if !e.G.Obj(artID).Face().IsArtifact() || e.G.Obj(whelpID).Face().IsArtifact() {
@@ -692,6 +708,9 @@ func TestRestrictValidDotlessPaymentTerms(t *testing.T) {
 		vhal := searchCorpusCard(t, reg, "Vhal, Candlekeep Researcher")
 		e, cfg := dotlessEngine(t, reg, vhal, card(t, dotlessFlashback), card(t, dotlessCharge1))
 		src := searchMoveByName(t, e, "Vhal, Candlekeep Researcher", state.ZBattlefield)
+		// A real logged TurnChange (not a raw SummonSick write) clears CR
+		// 302.6 sickness on the log replayCheck below reads from.
+		e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 		rite := searchMoveByName(t, e, "Grave Rite", state.ZHand)
 		toll := searchMoveByName(t, e, "One Toll", state.ZHand)
 

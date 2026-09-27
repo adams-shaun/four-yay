@@ -16,6 +16,7 @@ func TestMillikinMillCostMovesTopLibraryCardBeforeMana(t *testing.T) {
 	e := handEngine(t, millikin)
 	source := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.Event{Kind: events.MoveZone, Obj: source, From: state.ZHand, To: state.ZBattlefield})
+	e.G.Obj(source).SummonSick = false
 	libCard := e.G.Zone(state.ZLibrary, 0)[0]
 	if e.G.Obj(libCard) == nil || e.G.Obj(libCard).Zone != state.ZLibrary {
 		t.Fatal("precondition: top library card is not in the library")

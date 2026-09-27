@@ -4,7 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/protocol"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/state"
@@ -35,6 +37,58 @@ func paymentPlanIntent(d *decision.Decision) (decision.Intent, bool) {
 	return legalIntent(d), false
 }
 
+// decksHas reports whether name appears anywhere in decks. Match 1 rotates
+// TableConfig.Decks by one (host/match.go's (i+k)%len), so seat 0 plays
+// decks[1]: the authored dual-land deck must be found in either position.
+func decksHas(decks []string, name string) bool {
+	for _, d := range decks {
+		if d == name {
+			return true
+		}
+	}
+	return false
+}
+
+// ppDualLandLoader serves "pp-dual", an authored mana base whose ONLY land is
+// a multi-intrinsic dual. Every planned payment for the deck's red or blue
+// spells must tap that Volcanic Island, so the hosted lane exercises the exact
+// alternative the witness names (spec §6): a dual land's {U} and {R}
+// abilities share the {intrinsic, basic_land} PaymentAbility identity, and the
+// executor must activate the one the step's Produces names, never the first
+// identity match. The repo-deck planner ranks basics ahead of duals, so no
+// real ur-delver/uw-control game ever plans a dual; without this deck the lane
+// passed even with the dual-land executor fix reverted.
+func ppDualLandLoader(t *testing.T) func(string) (Deck, error) {
+	t.Helper()
+	repo := repoDeckLoader(t)
+	reg := testutil.CorpusRegistry(t)
+	card := func(name string) *cards.Card {
+		c, ok := reg.Lookup(name)
+		if !ok {
+			t.Fatalf("corpus lacks %q for the dual-land PP-20 lane", name)
+		}
+		return c
+	}
+	var cs []*cards.Card
+	add := func(name string, n int) {
+		c := card(name)
+		for i := 0; i < n; i++ {
+			cs = append(cs, c)
+		}
+	}
+	add("Volcanic Island", 16)
+	add("Lightning Bolt", 8)
+	add("Ponder", 8)
+	add("Delver of Secrets", 8)
+	add("Monastery Swiftspear", 8)
+	return func(name string) (Deck, error) {
+		if name == "pp-dual" {
+			return Deck{Name: name, Cards: cs}, nil
+		}
+		return repo(name)
+	}
+}
+
 // runPaymentPlanHumanSeat is PP-20's external-seat lane. Seat zero sees only
 // the decision published by the host and submits two offered witnesses through
 // Registry.SubmitIntent; it then answers an ordinary priority decision with
@@ -44,6 +98,12 @@ func paymentPlanIntent(d *decision.Decision) (decision.Intent, bool) {
 func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint64) {
 	var human *HumanSeat
 	o := testOptions(t)
+	switch {
+	case decksHas(decks, "pp-dual"):
+		o.LoadDeck = ppDualLandLoader(t)
+	case len(decks) == 2 && decks[0] == "ur-delver" && decks[1] == "uw-control":
+		o.LoadDeck = repoDeckLoader(t)
+	}
 	o.Seats = humanFirstSeat(&human)
 	r, err := New(o)
 	if err != nil {
@@ -64,6 +124,9 @@ func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint6
 	var last uint64 = ^uint64(0)
 	selected := 0
 	legacyAfterPlan := false
+	plannedCards := make([]state.ObjID, 0, 2)
+	plannedIDs := make(map[string]bool, 2)
+	checkedPlans := 0
 	for {
 		if time.Now().After(deadline) {
 			t.Fatalf("payment-plan host flow did not reach planned then legacy answers; selected=%d legacy=%t", selected, legacyAfterPlan)
@@ -90,6 +153,36 @@ func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint6
 			time.Sleep(time.Millisecond)
 			continue
 		}
+		// A selected witness that returns to the ordinary manual flow did
+		// not succeed as planned: the engine only attaches PaymentFallback to
+		// a manual window after an accepted plan stops. The human submits each
+		// witness with no intervening board change, so any fallback naming a
+		// plan this lane selected is a real failed planned cast (the P0 class
+		// 5308ef397 fixed, and the class this lane exists to catch).
+		if d.PaymentFallback != nil && plannedIDs[d.PaymentFallback.PlanID] {
+			t.Fatalf("planned cast fell back to manual payment: seq=%d reason=%s plan=%s", d.Seq, d.PaymentFallback.Reason, d.PaymentFallback.PlanID)
+		}
+		if d.Kind == decision.KPriority && checkedPlans < len(plannedCards) {
+			r.mu.RLock()
+			tb := r.tables["t1"]
+			r.mu.RUnlock()
+			tb.mu.RLock()
+			fm := tb.cur
+			tb.mu.RUnlock()
+			if fm == nil {
+				t.Fatal("live payment-plan match disappeared before checking cast")
+			}
+			fm.mu.RLock()
+			for _, id := range plannedCards[checkedPlans:] {
+				obj := fm.e.G.Obj(id)
+				if obj == nil || obj.Zone == state.ZHand {
+					fm.mu.RUnlock()
+					t.Fatalf("planned card %d is back in hand when seat next holds priority: %#v", id, obj)
+				}
+			}
+			fm.mu.RUnlock()
+			checkedPlans = len(plannedCards)
+		}
 		in, planned := paymentPlanIntent(d)
 		if selected >= 2 && d.Kind == decision.KPriority {
 			in, planned = legalIntent(d), false
@@ -100,11 +193,19 @@ func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint6
 		}
 		if planned {
 			selected++
+			if len(d.PaymentActions) == 0 {
+				t.Fatal("planned intent had no published PaymentAction")
+			}
+			plannedCards = append(plannedCards, d.PaymentActions[0].Cast.Object)
+			plannedIDs[d.PaymentActions[0].Plans[0].ID] = true
 		}
 		last = d.Seq
 	}
 	if selected < 2 {
 		t.Fatalf("external human seat selected %d payment actions, want two", selected)
+	}
+	if checkedPlans != len(plannedCards) {
+		t.Fatalf("checked %d of %d planned casts before match completion", checkedPlans, len(plannedCards))
 	}
 	if got := human.caretakerCount(); got != 0 {
 		t.Fatalf("caretaker answered %d decisions", got)
@@ -141,6 +242,14 @@ func TestPaymentPlanHumanSeatSelectsAnOfferedPlanAndReplays(t *testing.T) {
 	})
 	t.Run("four_seats", func(t *testing.T) {
 		runPaymentPlanHumanSeat(t, 4, []string{"a", "b", "c", "d"}, 20260925)
+	})
+	t.Run("dual_land_two_seats", func(t *testing.T) {
+		runPaymentPlanHumanSeat(t, 2, []string{"ur-delver", "uw-control"}, 20260926)
+	})
+	t.Run("dual_only_two_seats", func(t *testing.T) {
+		// Match 1 rotates Decks, so seat 0 (the human) plays decks[1]: put the
+		// authored dual-only mana base there.
+		runPaymentPlanHumanSeat(t, 2, []string{"mono-red-goblins", "pp-dual"}, 20260927)
 	})
 }
 
@@ -226,9 +335,9 @@ func TestSubmitIntentPreflightsPaymentPlanBeforeAccepting(t *testing.T) {
 }
 
 // TestAutoManaDisabledKeepsHumanPriorityOnTheLegacyWire proves the table
-// capability is enforced at the host boundary. The engine may retain its
-// replay extension for bots, but a human client on an off table receives only
-// ordinary options and can continue through the pre-payment-plan path.
+// capability is enforced at the host boundary. Neither the human nor the
+// plain bot consumer builds the lazy extension on an off table, and the human
+// receives only ordinary options through the legacy pre-payment-plan path.
 func TestAutoManaDisabledKeepsHumanPriorityOnTheLegacyWire(t *testing.T) {
 	var human *HumanSeat
 	o := testOptions(t)
@@ -259,6 +368,14 @@ func TestAutoManaDisabledKeepsHumanPriorityOnTheLegacyWire(t *testing.T) {
 		}
 		if len(d.PaymentActions) != 0 {
 			t.Fatalf("disabled table published payment actions: %#v", d.PaymentActions)
+		}
+		m := liveMatch(t, r, "t1")
+		m.mu.RLock()
+		pending := m.e.Pending()
+		built := pending != nil && pending.Seq == d.Seq && pending.PaymentActionsBuilt
+		m.mu.RUnlock()
+		if built {
+			t.Fatalf("non-consumer seat %d built payment actions on AutoMana-off table", d.Player)
 		}
 		if err := r.SubmitIntent("t1", 1, 0, legalIntent(d)); err != nil {
 			t.Fatalf("SubmitIntent(seq %d): %v", d.Seq, err)

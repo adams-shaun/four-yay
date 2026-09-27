@@ -166,16 +166,7 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 	}
 	opt := paymirror.DriverOptions{MaxIntents: maxIntents, MaxTurns: int32(maxTurns), Control: control, Trace: trace, Resolve: resolve,
 		MaxObjects: maxObjects}
-	if budget > 0 {
-		// The wall-clock bound lives here, in the exempt CLI boundary: the
-		// paymirror library never imports time. The factory is called once
-		// per game, so the start is that game's own start, and each worker
-		// gets its own clock.
-		opt.Budget = func() func() bool {
-			start := time.Now()
-			return func() bool { return time.Since(start) > budget }
-		}
-	}
+
 	var wg sync.WaitGroup
 	next := make(chan int)
 	if workers < 1 {
@@ -187,7 +178,11 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 			defer wg.Done()
 			for i := range next {
 				t0 := time.Now()
-				g := paymirror.PlayGame(decks, specs[i], opt)
+				gameOpt := opt
+				if budget > 0 {
+					gameOpt.BudgetExceeded = func() bool { return time.Since(t0) > budget }
+				}
+				g := paymirror.PlayGame(decks, specs[i], gameOpt)
 				if progress {
 					fmt.Fprintf(os.Stderr, "game %d/%d seed=%d decks=%s turns=%d intents=%d planned=%d err=%q %.1fs\n",
 						i+1, len(specs), g.Spec.Seed, strings.Join(g.Spec.Decks, ","), g.Turns, g.Intents, len(g.Reports), g.Err, time.Since(t0).Seconds())

@@ -71,6 +71,58 @@ describe('Rail — public spectator (every seat\'s hand and pool are null)', () 
   });
 });
 
+describe('Rail — simultaneously visible hands', () => {
+  it('renders every exposed spectator hand, including empty, and never renders redacted identities', () => {
+    const v = baseView({
+      visibility: 'omniscient',
+      players: [
+        spectatorPlayer(0, 'Ari', { hand: [card({ id: 21, name: 'Ari Secret' })] }),
+        spectatorPlayer(1, 'Bo', { hand: [card({ id: 22, name: 'Bo Secret' })] }),
+      ],
+    });
+    const { html } = render(Rail, { props: { view: v, seats, decision: null } });
+    expect(v.viewer).toBe(255);
+    expect(v.visibility).toBe('omniscient');
+    expect(v.players.map((p) => p.hand?.[0]?.name)).toEqual(['Ari Secret', 'Bo Secret']);
+    expect(html).toContain('Ari\'s hand');
+    expect(html).toContain('Bo\'s hand');
+    expect(html).toContain('Ari Secret');
+    expect(html).toContain('Bo Secret');
+    expect(html.match(/data-obj="2[12]"/g)).toHaveLength(2);
+
+    const empty = render(Rail, { props: { view: baseView({
+      visibility: 'omniscient',
+      players: [spectatorPlayer(0, 'Ari', { hand: [] }), spectatorPlayer(1, 'Bo')],
+    }), seats, decision: null } }).html;
+    expect(empty).toContain('Ari\'s hand');
+    expect(empty).toContain('No cards');
+    expect(empty).not.toContain('Bo\'s hand');
+
+    const redacted = render(Rail, { props: { view: baseView({
+      visibility: 'omniscient',
+      players: [spectatorPlayer(0, 'Ari', { hand: null as unknown as CardView[] }), spectatorPlayer(1, 'Bo')],
+    }), seats, decision: null } }).html;
+    expect(redacted).not.toContain('Ari Secret');
+    expect(redacted).not.toContain('Ari\'s hand');
+
+    // A seated omniscient viewer still gets only their own fan; the rail is
+    // reserved for spectator hands, and the opponent remains server-redacted.
+    const seated = baseView({
+      viewer: 0, visibility: 'omniscient',
+      players: [
+        spectatorPlayer(0, 'Ari', { hand: [card({ id: 31, name: 'Own Card' })] }),
+        spectatorPlayer(1, 'Bo', { hand: null as unknown as CardView[] }),
+      ],
+    });
+    const seatedHtml = render(Rail, { props: { view: seated, seats, decision: null } }).html;
+    expect(seated.players[0].hand).toHaveLength(1);
+    expect(seated.players[1].hand).toBeNull();
+    expect(seatedHtml).not.toContain('data-visible-hands');
+    expect(seatedHtml).not.toContain('Own Card');
+    expect(seatedHtml).not.toContain('Bo\'s hand');
+  });
+});
+
 describe('Rail — the live decision line (ui15)', () => {  it('names the decision player from the view when seats is empty, not the Seat N placeholder', () => {
     const v = baseView({
       players: [spectatorPlayer(0, 'Ari'), spectatorPlayer(1, 'Bo'), spectatorPlayer(2, 'Player 3')],
@@ -149,6 +201,74 @@ describe('Rail — the resolved card is its own band BEFORE the Stack heading (f
     const stackSection = html.slice(html.indexOf('class="stack'), html.indexOf('class="pending'));
     expect(stackSection).not.toContain('data-resolved');
   });
+});
+
+describe('Rail — visible hands at bounded rail dimensions', () => {
+  let browser: Browser;
+  beforeAll(async () => { browser = await sharedBrowser(); });
+
+  it('shows distinct hands concurrently and keeps stack and pending reachable at the rail floor', async () => {
+    const page = await browser.newPage({ viewport: { width: 700, height: 500 } });
+    try {
+      await page.goto(`${browserURL}src/components/SeatTable.geometry.html?hands=1`);
+      await page.waitForSelector('#rail [data-visible-hands]');
+      const m = await page.evaluate(() => {
+        const rail = document.querySelector<HTMLElement>('#rail .rail-inner')!;
+        const hands = document.querySelector<HTMLElement>('#rail [data-visible-hands]')!;
+        const stack = document.querySelector<HTMLElement>('#rail section.stack')!;
+        const pending = document.querySelector<HTMLElement>('#rail section.pending')!;
+        return {
+          handText: hands.textContent, handScroll: hands.scrollHeight, handHeight: hands.clientHeight,
+          stack: stack.textContent, pending: pending.textContent,
+          pendingHeight: pending.getBoundingClientRect().height,
+          pendingBottom: pending.getBoundingClientRect().bottom,
+          railBottom: rail.getBoundingClientRect().bottom,
+        };
+      });
+      expect(m.handText).toContain('Ari Visible Card');
+      expect(m.handText).toContain('Bo Visible Card');
+      expect(m.handScroll).toBeGreaterThan(m.handHeight);
+      expect(m.stack).toContain('Slow but Absolutely Inevitable');
+      expect(m.pending).toContain('Longwinded Ambush');
+      expect(m.pendingHeight).toBeGreaterThanOrEqual(79);
+      expect(m.pendingBottom).toBeLessThanOrEqual(m.railBottom + 1);
+    } finally {
+      await page.close();
+    }
+  });
+});
+
+describe('Rail — live visible-hand updates', () => {
+  let browser: Browser;
+  beforeAll(async () => { browser = await sharedBrowser(); });
+
+  it('updates card identities and renders a newly empty visible hand without remounting', async () => {
+    const page = await browser.newPage({ viewport: { width: 700, height: 500 } });
+    try {
+      await page.goto(`${browserURL}src/components/SeatTable.geometry.html?hands=1`);
+      await page.waitForSelector('#rail [data-visible-hands]');
+      await page.waitForFunction(() => (window as Window & { fixtureRailReady?: boolean }).fixtureRailReady === true);
+      const initialHands = await page.locator('#rail [data-visible-hands]').textContent();
+      expect(initialHands).toContain('Ari Visible Card');
+      expect(initialHands).toContain('Bo Visible Card');
+      const updateResult = await page.evaluate(() => {
+        const w = window as Window & { updateFixtureHands?: () => void };
+        const exists = typeof w.updateFixtureHands === 'function';
+        w.updateFixtureHands?.();
+        return { exists, text: document.querySelector('#rail [data-visible-hands]')?.textContent };
+      });
+      expect(updateResult.exists).toBe(true);
+      await page.waitForFunction(() => document.querySelector('#rail [data-visible-hands]')?.textContent?.includes('Ari Updated Card'));
+      const hands = await page.locator('#rail [data-visible-hands]').textContent();
+      expect(hands).toContain('Ari Updated Card');
+      expect(hands).not.toContain('Ari Visible Card');
+      expect(hands).toContain("Bo's hand");
+      expect(hands).toContain('No cards');
+      expect(hands).not.toContain('Bo Visible Card');
+    } finally {
+      await page.close();
+    }
+  }, 15000);
 });
 
 describe('Rail — resolved history at short viewport heights (fb-20260923T015554Z)', () => {

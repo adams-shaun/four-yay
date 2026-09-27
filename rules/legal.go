@@ -3273,7 +3273,7 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 					} else if n > 0 {
 						cost.Generic = 0
 					}
-					if cost.Tap && (o.Tapped || (z == state.ZBattlefield && o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+					if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 						continue
 					}
 					// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
@@ -3482,7 +3482,7 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 				} else if n > 0 {
 					cost.Generic = 0
 				}
-				if cost.Tap && (o.Tapped || (o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+				if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 					continue
 				}
 				if !offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -3633,7 +3633,7 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 				continue
 			}
 			cost := e.parseCost(ab.Params["Cost"])
-			if cost.Tap && (o.Tapped || (o.SummonSick && slices.Contains(e.Derived(id).Types, "Creature") && !e.HasKeyword(id, "Haste"))) {
+			if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 				continue
 			}
 			if !offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -3678,7 +3678,11 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 		if !ok {
 			continue
 		}
-		if !e.morphTurnUpPayable(p, id, mf.cost) {
+		// morphTurnUpPayablePriced: hyp nil is the floating-pool gate the
+		// action itself re-reads; the potential walk prices the same cost
+		// against its hypothetical bound, so a float-gated turn-up is a
+		// potential play like every other mana-costed offer.
+		if !e.morphTurnUpPayablePriced(p, id, mf.cost, hyp) {
 			continue
 		}
 		if e.turnFaceUpCantHappen(id) {
@@ -3704,7 +3708,9 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 				continue
 			}
 			for i := 1; i < len(o.Card.Faces); i++ {
-				cost, ok := e.specializeLegal(p, id, i)
+				// hyp nil is specializeLegal exactly; the potential walk
+				// prices the printed cost against its hypothetical bound.
+				cost, ok := e.specializeLegalPriced(p, id, i, hyp)
 				if !ok {
 					continue
 				}

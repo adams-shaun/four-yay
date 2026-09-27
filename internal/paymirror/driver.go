@@ -29,15 +29,6 @@ type GameSpec struct {
 	Lists [][]string `json:"lists,omitempty"`
 }
 
-// BudgetClock is the harness's wall-clock seam: a factory PlayConfig calls
-// once at game start, whose returned checker is polled between intents. It
-// exists so this package never imports time itself -- the sweep CLIs keep
-// every clock read (the per-game bound here, and their progress lines) in
-// the exempt cmd boundary, while the library stays a pure function of its
-// seeds and the corpus for a completed game. A positive result truncates the
-// game early (Err "truncated: budget"); it cannot change a check's verdict.
-type BudgetClock func() (exceeded func() bool)
-
 // DriverOptions bounds and configures a driver game.
 type DriverOptions struct {
 	MaxIntents int // 0 = 20000
@@ -51,14 +42,13 @@ type DriverOptions struct {
 	// MaxObjects ends a game whose object arena passes this size (a runaway
 	// token board makes every clone and diff expensive); 0 = 2500.
 	MaxObjects int
-	// Budget is the harness's wall-clock seam. This package must not import
-	// time (the two-level sweep tools keep every clock read in their exempt
-	// cmd boundary), so a caller that wants a per-game wall-time bound
-	// supplies a factory: PlayConfig calls it once at game start and polls
-	// the returned checker between intents. A true result truncates the game
-	// (Err "truncated: budget"), a harness bound only -- it never changes a
-	// check's verdict. nil means no bound.
-	Budget BudgetClock
+	// BudgetExceeded, when set, truncates a game between intents if the
+	// harness-owned budget has expired. It can end a game early (Err
+	// "truncated: budget"), never change a check's verdict. This package
+	// must not import time: the sweep CLIs keep every clock read in their
+	// exempt cmd boundary, so a caller that wants the per-game wall-time
+	// bound builds the predicate from its own clock.
+	BudgetExceeded func() bool
 	// OnReport, when set, receives every report as it is produced (the
 	// driver keeps only a compact copy of equivalent ones).
 	OnReport func(spec GameSpec, rep *Report)
@@ -204,10 +194,7 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 		opt.MaxObjects = 2500
 	}
 	res.Spec = spec
-	var overBudget func() bool
-	if opt.Budget != nil {
-		overBudget = opt.Budget()
-	}
+
 	e := rules.NewStartingPlayerChoice(cfg)
 	bots := make([]*seat.Bot, len(cfg.Names))
 	for i := range bots {
@@ -234,11 +221,12 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 			res.Err = "truncated: bigboard"
 			return res
 		}
-		if overBudget != nil && overBudget() {
+		if opt.BudgetExceeded != nil && opt.BudgetExceeded() {
 			res.Err = "truncated: budget"
 			return res
 		}
 		dec := e.Pending()
+		e.EnsurePaymentActions()
 		if res.RestViolation == "" {
 			if v := atRestViolation(e); v != "" {
 				res.RestViolation = fmt.Sprintf("seq %d: %s after %v", dec.Seq, v, recentEvents(e, restContext))

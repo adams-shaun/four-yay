@@ -71,7 +71,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 				continue
 			}
 			o := e.G.Obj(id)
-			if o == nil || o.Tapped || o.Face() == nil {
+			if o == nil || o.Face() == nil {
 				continue
 			}
 			// Admit the source the first pass the accumulated pool covers at
@@ -189,13 +189,12 @@ func potentialAmount(ma *cards.SA) (int32, bool) {
 // could still make after floating every mana its untapped sources could
 // produce: the engine's own legal-offer walk (legalActionsPriced, the exact
 // code that builds a priority decision's options) priced against
-// PotentialMana. It carries only real plays -- "cast" (hand, command zone and
-// flashback), "ability" (activated abilities, Equip among them) and
-// "play_land" -- never the mana tap, pass or concede, which every priority
-// window offers and which are never a play. The walk's own gates (timing,
-// restrictions, targets, non-mana costs, live RaiseCost/ReduceCost, X at 0)
-// are the engine's, so the projection cannot disagree with the engine the way
-// a client-side re-derivation does.
+// PotentialMana. It carries every real play the walk can offer
+// (potentialPlayKind) and never the mana tap, pass or concede, which every
+// priority window offers and which are never a play. The walk's own gates
+// (timing, restrictions, targets, non-mana costs, live RaiseCost/ReduceCost,
+// X at 0) are the engine's, so the projection cannot disagree with the engine
+// the way a client-side re-derivation does.
 //
 // This is a pure read and never touches an event; callers project it ONLY for
 // the viewer's own seat (view/view.go gates it on p.ID == viewer), because
@@ -211,12 +210,39 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 	pool := e.PotentialMana(p)
 	var out []decision.PotentialAction
 	for _, o := range e.legalActionsPriced(p, &pool) {
-		switch o.Kind {
-		case "cast", "ability", "play_land":
+		if potentialPlayKind(o.Kind) {
 			out = append(out, decision.PotentialAction{
 				Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,
 			})
 		}
 	}
 	return out
+}
+
+// potentialPlayKind is the projection's kind filter: every real play kind
+// legalActionsPriced emits (measured from rules/legal.go and pinned by
+// TestPotentialActionsProjectsEveryPlayKind, so a new kind in the walk fails
+// until it is classified here or as never-a-play):
+//
+//   - "cast": hand, command zone, graveyard (flashback, escape, ...) and exile
+//     casts, plus the special actions that ride the cast kind (foretell,
+//     suspend), each with its Mode;
+//   - "ability": printed and keyword-granted activated abilities (Equip among
+//     them), and "granted": a max-speed static's AddAbility$ (rules/speed.go);
+//   - "unlock" (a Room's locked door, CR 309.5), "turn_face_up" (the morph
+//     family, CR 708.6) and "specialize" (Mode = the face index): the
+//     mana-costed special actions, projected on an empty pool once the
+//     hypothetical pool pays them (aph-web-manual-only-plays: before, they
+//     were neither offered nor projected there, so the web's auto-pay mode
+//     hid the manual taps they need);
+//   - "play_land" and "station": never mana-costed, so never float-gated,
+//     projected for completeness.
+//
+// The excluded kinds are "activate" (the mana tap), "pass" and "concede".
+func potentialPlayKind(kind string) bool {
+	switch kind {
+	case "cast", "ability", "play_land", "granted", "unlock", "turn_face_up", "specialize", "station":
+		return true
+	}
+	return false
 }

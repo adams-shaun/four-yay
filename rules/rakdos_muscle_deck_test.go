@@ -386,6 +386,7 @@ func TestMasterOfDarkRitesRestrictsSpend(t *testing.T) {
 	e := handEngine(t, cleric, plain)
 	rites := e.G.AddObject(choiceCorpusCard(t, "Master of Dark Rites"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: rites.ID, From: state.ZLibrary, To: state.ZBattlefield})
+	e.G.Obj(rites.ID).SummonSick = false
 	bear := battlefieldFixture(t, e, 0, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.Advance()
 	act := optionOf(t, e, "activate", rites.ID)

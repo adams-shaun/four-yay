@@ -311,6 +311,11 @@ func TestCloneStaysIndependentAndReplaysInLockstep(t *testing.T) {
 	if got := diffGames(e.G, c.G); got != "" {
 		t.Fatalf("clone differs from original at the boundary: %s", got)
 	}
+	// The seeded pendingCast is Clone coverage, not a reachable state (its
+	// card is a battlefield permanent): with its copy checked above, both
+	// sides drop it so the lockstep drive below plays a reachable game, where
+	// no priority is ever granted with a cast proposal open.
+	e.cast, c.cast = nil, nil
 
 	// Diverge the clone by 60 more decisions; the original must not move.
 	recorded := drive(t, c, bot, 60)
