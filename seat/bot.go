@@ -166,7 +166,14 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	}
 	payable := make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
 	for _, a := range d.PaymentActions {
-		if len(a.Plans) != 0 {
+		// A plan the policy would never take must not count as payable: C8
+		// refuses a counter with no foreign spell (CounterIsDead), so its
+		// plan is dead -- leaving it in `payable` would let the private
+		// candidate lose to pass and hide the manual path (an instant the
+		// bot wanted, castable only by hand) for the rest of the window.
+		// Drop it here so a window whose ONLY plan is a dead counter falls
+		// back to the manual policy, exactly as a window with no plans does.
+		if len(a.Plans) != 0 && !brd.CounterIsDead(d.Player, a.Cast.Object) {
 			payable[a.Cast.Object] = a
 		}
 	}

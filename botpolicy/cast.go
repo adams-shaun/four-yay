@@ -975,6 +975,17 @@ func (b Board) ForeignSpell(player state.PlayerID) bool {
 	return false
 }
 
+// CounterIsDead reports C8's verdict on a specific card for player: it is a
+// counter (Card.Counter) with no foreign spell on the stack, so chooseCast
+// refuses to cast it at all and spending mana on it can only self-counter.
+// It composes the census's one home, ForeignSpell, so every caller that needs
+// C8's refusal (chooseCast, castEntries, the auto-pay adapter's plan filter)
+// reads the same rule rather than re-deriving it. A non-counter is never
+// dead. The card must already be in b.Cards.
+func (b Board) CounterIsDead(player state.PlayerID, id state.ObjID) bool {
+	return b.Cards[id].Counter && !b.ForeignSpell(player)
+}
+
 // castEntries builds C11's candidate table: every cast option that survives
 // C8 (a counter with no foreign spell is never cast; foreignSpell is the same
 // census chooseCast computed), deduped by object id so a card offered under
