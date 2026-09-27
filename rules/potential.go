@@ -74,15 +74,17 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			if o == nil || o.Face() == nil {
 				continue
 			}
-			// Admit the source the first pass the accumulated pool covers at
-			// least one of its mana abilities' activation costs. Adding every
-			// currently-feasible face is the same single-source over-bound the
-			// real offer walk's multi-ability source produces.
-			var ses []*cards.SA
-			for _, ma := range o.Face().ManaAbilities() {
-				if !e.abilityRestricted(p, id, ma) && e.manaAbilityPayablePool(p, id, ma, &out) {
-					ses = append(ses, ma)
+			// Use the payment-window membership walk, but defer its live-pool
+			// payability gate: this fixpoint prices activation costs against the
+			// accumulated hypothetical pool below. That shared walk includes
+			// granted CR 305.6 intrinsics and all current eligibility gates.
+			ses := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true)
+			for i := 0; i < len(ses); {
+				if !e.manaAbilityPayablePool(p, id, ses[i], &out) {
+					ses = append(ses[:i], ses[i+1:]...)
+					continue
 				}
+				i++
 			}
 			if len(ses) == 0 {
 				continue

@@ -31,10 +31,36 @@ import (
 // longest prefix whose Values fit MaxSum (when > 0) and whose length fits Max.
 // Ascending-price greedy is optimal for the count: no other choice of one
 // option per Obj covers more Objs within the same budget.
+//
+// The core is also COMBINED-CHARGE-FEASIBLE: the greedy carries the same
+// cumulative LIFE bound (CostLife plus each Phyrexian pip at two life) that
+// ChargeOptionConstraints enforces, and prices each option through the same
+// chargeLifeCost reader, so the quota and the pre-filter cannot disagree about
+// what a declaration costs in life. Without this, a required creature carrying
+// an unpayable per-attacker tax was counted by RequiredQuota and restored by
+// FitRequired, so the bot re-declared a whole declaration the engine's
+// combined-charge check rejects -- the crash this rule exists to prevent. The
+// per-Obj pick prefers the lower-life option on a Value tie so the core is as
+// charge-cheap as the wire allows. A tapXType obligation is not priced here:
+// ChargeOptionConstraints drops such an option outright (the wire cannot
+// verify it), while the required set leaves it to the engine's board-aware
+// payment -- the pre-existing contract.
 func (d *Decision) requiredCore() []int {
 	type pick struct{ idx, pos int }
 	best := make(map[state.ObjID]*pick) // membership/lookup only -- never ranged.
 	var order []*pick
+	better := func(a, b int) bool {
+		// Lower Value first; on a tie the lower non-mana life charge, then
+		// the earlier option. Deterministic: no map iteration reaches the
+		// comparison.
+		oa, ob := &d.Options[a], &d.Options[b]
+		if oa.Value != ob.Value {
+			return oa.Value < ob.Value
+		}
+		ca := oa.chargeLifeCost()
+		cb := ob.chargeLifeCost()
+		return ca < cb
+	}
 	for i := range d.Options {
 		o := &d.Options[i]
 		if !o.Required {
@@ -47,7 +73,7 @@ func (d *Decision) requiredCore() []int {
 			order = append(order, p)
 			continue
 		}
-		if o.Value < d.Options[p.idx].Value {
+		if better(i, p.idx) {
 			p.idx = i
 		}
 	}
@@ -58,20 +84,108 @@ func (d *Decision) requiredCore() []int {
 		}
 		return order[a].pos < order[b].pos
 	})
-	var core []int
-	sum := 0
-	for _, p := range order {
-		if len(core) >= d.maxChoices() {
-			break
+	life := d.PayerLifeBound()
+	if life < 0 {
+		// No published charge bound: the ascending-Value prefix greedy is
+		// optimal for the count (the pre-charge contract) and byte-identical.
+		var core []int
+		sum := 0
+		for _, p := range order {
+			if len(core) >= d.maxChoices() {
+				break
+			}
+			v := d.Options[p.idx].Value
+			if d.HasBudget() && sum+v > d.MaxSum {
+				break // ascending: nothing later fits either
+			}
+			sum += v
+			core = append(core, p.idx)
 		}
-		v := d.Options[p.idx].Value
-		if d.HasBudget() && sum+v > d.MaxSum {
-			break // ascending: nothing later fits either
-		}
-		sum += v
-		core = append(core, p.idx)
+		return core
 	}
-	return core
+
+	// With a published life bound, this is a two-resource, multiple-choice
+	// knapsack: choose at most one Required option per Obj, maximize count,
+	// and respect life and (when present) Value budgets. Keep the cheapest
+	// Value for each exact (life,count) state; for equal costs, keep the
+	// lexicographically first option sequence. The sparse DP is
+	// pseudopolynomial in the bounded life capacity and polynomial in the
+	// number of objects/options, unlike exhaustive subset search.
+	type key struct {
+		life  int32
+		count int
+	}
+	type candidate struct {
+		value int
+		picks []int
+	}
+	states := map[key]candidate{{}: {}}
+	maxCount := d.maxChoices()
+	lessPicks := func(a, b []int) bool {
+		for i := 0; i < len(a) && i < len(b); i++ {
+			if a[i] != b[i] {
+				return a[i] < b[i]
+			}
+		}
+		return len(a) < len(b)
+	}
+	groups := make([][]int, 0, len(order))
+	gpos := make(map[state.ObjID]int, len(order))
+	for i := range d.Options {
+		o := &d.Options[i]
+		if !o.Required {
+			continue
+		}
+		g, ok := gpos[o.Obj]
+		if !ok {
+			g = len(groups)
+			gpos[o.Obj] = g
+			groups = append(groups, nil)
+		}
+		groups[g] = append(groups[g], i)
+	}
+	for _, group := range groups {
+		next := make(map[key]candidate, len(states)*(len(group)+1))
+		for k, c := range states {
+			// Skipping this Obj is always an available transition. Preserve
+			// the same minimum-Value/lexicographic dominance as option picks:
+			// map iteration can otherwise overwrite a cheaper candidate.
+			if old, exists := next[k]; !exists || c.value < old.value ||
+				(c.value == old.value && lessPicks(c.picks, old.picks)) {
+				next[k] = c
+			}
+			if k.count >= maxCount {
+				continue
+			}
+			for _, ci := range group {
+				o := &d.Options[ci]
+				cost := o.chargeLifeCost()
+				if cost > life-k.life || (d.HasBudget() && (o.Value > d.MaxSum-c.value)) {
+					continue
+				}
+				nk := key{life: k.life + cost, count: k.count + 1}
+				nc := candidate{value: c.value + o.Value, picks: append(append([]int(nil), c.picks...), ci)}
+				old, exists := next[nk]
+				if !exists || nc.value < old.value || (nc.value == old.value && lessPicks(nc.picks, old.picks)) {
+					next[nk] = nc
+				}
+			}
+		}
+		states = next
+	}
+
+	var bestKey key
+	var bestCandidate candidate
+	found := false
+	for k, c := range states {
+		if !found || k.count > bestKey.count ||
+			(k.count == bestKey.count && (k.life < bestKey.life ||
+				(k.life == bestKey.life && (c.value < bestCandidate.value ||
+					(c.value == bestCandidate.value && lessPicks(c.picks, bestCandidate.picks)))))) {
+			bestKey, bestCandidate, found = k, c, true
+		}
+	}
+	return bestCandidate.picks
 }
 
 // RequiredQuota is how many distinct Required Objs a valid answer must
@@ -124,10 +238,10 @@ func (d *Decision) RequiredChosen(choices []int) int {
 // keeps the quota.
 func (d *Decision) FitRequired(choices []int) []int {
 	if d.Kind == KBlockers && d.hasRequiredBlocks() {
-		core := d.blockRequiredCore()
+		core := d.blockRequiredCoreChargeFeasible()
 		// An already legal preferred declaration retains its damage-order
 		// choice. Otherwise the same legal team that sets the quota repairs it.
-		if d.blockAnswerLegal(choices) && d.RequiredChosen(choices) >= d.RequiredQuota() {
+		if d.blockAnswerLegal(choices) && d.RequiredChosen(choices) >= d.RequiredQuota() && d.ChargeOptionsFit(choices) {
 			return choices
 		}
 		return core
@@ -142,6 +256,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 		(!d.HasBudget() || sum <= d.MaxSum) &&
 		(d.MinSum <= 0 || sum >= d.MinSum) &&
 		d.RequiredChosen(choices) >= d.RequiredQuota() &&
+		d.ChargeOptionsFit(choices) &&
 		!d.groupCapExceeded(choices) &&
 		d.setPropAnswerAdmits(choices) {
 		return choices
@@ -149,6 +264,8 @@ func (d *Decision) FitRequired(choices []int) []int {
 
 	out := d.requiredCore()
 	sum = 0
+	life := d.PayerLifeBound()
+	spentLife := int32(0)
 	slotOf := make(map[state.ObjID]int, len(out)) // Obj -> position in out.
 	have := make(map[int]bool, len(out)+len(choices))
 	// groups counts the picked options per Group against GroupCapFor -- the
@@ -161,6 +278,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 	for i, c := range out {
 		objTaken[d.Options[c].Obj] = true
 		sum += d.Options[c].Value
+		spentLife += d.Options[c].chargeLifeCost()
 		slotOf[d.Options[c].Obj] = i
 		have[c] = true
 		if g := d.Options[c].Group; g != "" {
@@ -178,6 +296,19 @@ func (d *Decision) FitRequired(choices []int) []int {
 	// never append an option the set constraint refuses.
 	setAcc := d.setPropAccumulator(out)
 	fits := func(delta int) bool { return !d.HasBudget() || sum+delta <= d.MaxSum }
+	// chargeFits reports whether folding option `add` in while removing
+	// `remove` (an option already in out, or -1 for an append) keeps the
+	// combined non-mana charge within the published bound -- the same rule
+	// ChargeOptionConstraints and requiredCore apply, so a repair can never
+	// hand back a declaration the engine's combined-charge check rejects.
+	chargeFits := func(add, remove int) bool {
+		cost := d.Options[add].chargeLifeCost()
+		old := int32(0)
+		if remove >= 0 {
+			old = d.Options[remove].chargeLifeCost()
+		}
+		return life < 0 || spentLife-old+cost <= life
+	}
 	for _, c := range choices {
 		if c < 0 || c >= len(d.Options) || (have[c] && !d.Repeatable) {
 			continue
@@ -186,9 +317,13 @@ func (d *Decision) FitRequired(choices []int) []int {
 		if requiredObj[o.Obj] {
 			if slot, ok := slotOf[o.Obj]; ok {
 				old := &d.Options[out[slot]]
-				if (o.Group != "" && o.Group != old.Group && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value-old.Value) {
+				if (o.Group != "" && o.Group != old.Group && groups[o.Group] >= d.GroupCapFor(o.Group)) ||
+					!fits(o.Value-old.Value) || !chargeFits(c, out[slot]) {
 					continue
 				}
+				costNew := o.chargeLifeCost()
+				costOld := old.chargeLifeCost()
+				spentLife += costNew - costOld
 				sum += o.Value - old.Value
 				delete(have, out[slot])
 				if old.Group != "" {
@@ -212,8 +347,12 @@ func (d *Decision) FitRequired(choices []int) []int {
 			continue
 		}
 		if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value) ||
+			!chargeFits(c, -1) ||
 			!SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) {
 			continue
+		}
+		if cost := o.chargeLifeCost(); cost > 0 {
+			spentLife += cost
 		}
 		sum += o.Value
 		setAcc = SetPropMerge(d.SetPropMode, setAcc, o.SetProps)
@@ -251,8 +390,12 @@ func (d *Decision) FitRequired(choices []int) []int {
 				break
 			}
 			o := &d.Options[c]
-			if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || (d.Kind == KAttackers && objTaken[o.Obj]) {
+			if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || (d.Kind == KAttackers && objTaken[o.Obj]) ||
+				!chargeFits(c, -1) {
 				continue
+			}
+			if cost := o.chargeLifeCost(); cost > 0 {
+				spentLife += cost
 			}
 			sum += o.Value
 			out = append(out, c)
@@ -286,8 +429,12 @@ func (d *Decision) FitRequired(choices []int) []int {
 				break
 			}
 			o := &d.Options[c]
-			if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || (d.Kind == KAttackers && objTaken[o.Obj]) {
+			if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || (d.Kind == KAttackers && objTaken[o.Obj]) ||
+				!chargeFits(c, -1) {
 				continue
+			}
+			if cost := o.chargeLifeCost(); cost > 0 {
+				spentLife += cost
 			}
 			sum += o.Value
 			out = append(out, c)
@@ -296,6 +443,19 @@ func (d *Decision) FitRequired(choices []int) []int {
 			if o.Group != "" {
 				groups[o.Group]++
 			}
+		}
+	}
+	// Belt: every pick above was charge-checked, so out is payable by
+	// construction; re-derive through the shared pre-filter anyway so no
+	// future repair path can hand back a declaration the engine's
+	// combined-charge check rejects. The required core is charge-feasible by
+	// the same rule, so meeting the quota is preserved -- if pruning somehow
+	// dropped below it, fall back to the core, which is exactly the quota.
+	if !d.ChargeOptionsFit(out) {
+		if pruned := ChargeOptionConstraints(d, out, d.PayerLifeBound(), 0); d.RequiredChosen(pruned) >= d.RequiredQuota() {
+			out = pruned
+		} else {
+			out = d.requiredCore()
 		}
 	}
 	return out

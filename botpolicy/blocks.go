@@ -434,8 +434,10 @@ func legalBlockChoices(b Board, d *decision.Decision, choices []int) []int {
 	// mana budget was published (no mana-priced option was offered), so the
 	// mana term is skipped. The rule itself lives in the shared
 	// decision.ChargeOptionConstraints, so the attack and block arms cannot
-	// drift.
-	choices = decision.ChargeOptionConstraints(d, choices, b.Life[d.Player], d.MaxSum)
+	// drift. The life bound is the decision's published PayerLife when the
+	// engine set it (the field requiredCore/RequiredQuota/FitRequired derive
+	// the block quota from), else the adapter's board total.
+	choices = decision.ChargeOptionConstraints(d, choices, attackChargeLife(b, d), d.MaxSum)
 	if len(choices) == 0 {
 		return choices
 	}
@@ -519,7 +521,21 @@ func LegalAttackChoices(b Board, d *decision.Decision, choices []int) []int {
 func legalAttackChoices(b Board, d *decision.Decision, choices []int) []int {
 	// The shared published-field charge rule (decision.ChargeOptionConstraints):
 	// a tapXType obligation the wire cannot verify is dropped, and the
-	// cumulative CostLife is bounded by the acting player's life total. The
-	// mana budget is left to Clamp (maxSum 0).
-	return decision.ChargeOptionConstraints(d, choices, b.Life[d.Player], 0)
+	// cumulative CostLife/pip charge is bounded by the acting player's life
+	// total. The bound is the decision's published PayerLife when the engine
+	// set it -- the SAME field decision.requiredCore/RequiredQuota/FitRequired
+	// derive the required quota from, so the guard and the repair cannot
+	// disagree -- falling back to the adapter's board life for a hand-built
+	// decision. The mana budget is left to Clamp (maxSum 0).
+	return decision.ChargeOptionConstraints(d, choices, attackChargeLife(b, d), 0)
+}
+
+// attackChargeLife is the life bound the published-field charge rule reads:
+// the decision's own PayerLife when the engine published one, else the
+// adapter's board total. ONE reader, so the pre-filter and the repair agree.
+func attackChargeLife(b Board, d *decision.Decision) int32 {
+	if life := d.PayerLifeBound(); life >= 0 {
+		return life
+	}
+	return b.Life[d.Player]
 }

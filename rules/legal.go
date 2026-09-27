@@ -1227,10 +1227,14 @@ func targetBoundReadsPromisedGift(o *state.Object, sa *cards.SA) bool {
 	return false
 }
 
-// targetSAAvailable reports whether a target declaration has enough legal
-// candidates for its resolved mandatory minimum. It is intentionally a
-// feasibility census, not a full cast/payment check: target-dependent cost
-// modifiers and target announcements still belong to the post-push ask.
+// targetSAAvailable reports whether a target declaration admits at least one
+// legal announcement at offer time: enough legal candidates for its resolved
+// mandatory minimum AND the cross-target set constraints the post-push ask
+// enforces (per-controller exclusivity/OneEach, same-controller group capacity
+// and set-property capacity). It is still not a full cast/payment check:
+// target-dependent cost modifiers and the final target announcement belong to
+// the post-push ask. CR 601.2c is the reason the offer must not admit a
+// declaration the ask will reverse (CR 733.1) the instant it is submitted.
 func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, x int32, xPending bool) bool {
 	if sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
 		return true
@@ -1242,16 +1246,6 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	// Params key that is not a function parameter.
 	if xPending && (strings.EqualFold(strings.TrimSpace(sa.Params["TargetMin"]), "X") ||
 		strings.EqualFold(strings.TrimSpace(sa.Params["TargetMax"]), "X")) {
-		return true
-	}
-	// OneEach is one target per represented controller. Its minimum is at
-	// most the candidate count by definition; the ask computes the actual
-	// groups after announcement. Do not call oneEachTargetBounds here: its
-	// distinct-controller capacity and cap on Max are pairwise SET constraints,
-	// not count feasibility. In particular a literal Min 2 with two candidates
-	// under ONE controller must remain offered (Run Away Together) so the
-	// post-push target ask owns the CR 733.1 reversal.
-	if targetControllerExclusive(sa) && strings.EqualFold(strings.TrimSpace(sa.Params["TargetMin"]), "OneEach") {
 		return true
 	}
 	min, _ := e.resolvedTargetBounds(p, id, sa, x)
@@ -1269,19 +1263,52 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 			min = pmin
 		}
 	}
-	// The census is a pure read, so the two answers that never look at it
-	// return before it runs, and the count stops at min (candidatesForLimit).
+	// The census is a pure read; the two answers that never look at the
+	// population return before walking it.
 	if min <= 0 {
 		return true
 	}
 	if xPending && specNamesXBound(sa.Params["ValidTgts"]) {
 		return true
 	}
-	ok := len(e.candidatesForLimit(p, id, excludeSelf, sa, true, min)) >= min
-	if walkCacheVerify && ok != (len(e.legalTargetCandidates(p, id, excludeSelf, sa)) >= min) {
+	candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
+	if walkCacheVerify && (len(candidates) >= min) != (len(e.candidatesForLimit(p, id, excludeSelf, sa, true, min)) >= min) {
 		panic("rules: limited target census disagrees with the full census")
 	}
-	return ok
+	return e.targetChoiceFeasible(sa, candidates, min)
+}
+
+// targetChoiceFeasible is the ONE home for whether a target declaration with
+// the given candidate population admits at least one legal selection under
+// every cross-target constraint the ask enforces: the resolved mandatory
+// minimum (with TargetMin$/TargetMax$ OneEach respelled to the
+// distinct-controller count), TargetsForEachPlayer$/TargetsWithDifferentControllers$
+// exclusivity, TargetsWithSameController$ group capacity, and the
+// set-property capacity. Both the offer census (targetSAAvailable) and the
+// post-push cast ask (cast.go's targetAsk) call it against their OWN candidate
+// list, so an offered cast can always announce a legal target and the two sites
+// cannot drift. Cost-driven candidate pruning stays the ask's alone: only it
+// can re-price a target-dependent cost modifier.
+func (e *Engine) targetChoiceFeasible(sa *cards.SA, candidates []targetCandidate, min int) bool {
+	if min <= 0 {
+		return true
+	}
+	min, _, exclusive, distinct := e.oneEachTargetBounds(sa, candidates, min, 0)
+	min, _, sameCapacity, sameController := e.sameControllerTargetBounds(sa, candidates, min, 0)
+	min, _, setCapacity, setMode, _ := e.setPropTargetBounds(sa, candidates, min, 0)
+	if len(candidates) < min {
+		return false
+	}
+	if exclusive && min > distinct {
+		return false
+	}
+	if sameController && min > sameCapacity {
+		return false
+	}
+	if setMode != decision.SetPropNone && min > setCapacity {
+		return false
+	}
+	return true
 }
 
 // charmTargetsAvailable evaluates the possible CR 601.2b mode announcement
