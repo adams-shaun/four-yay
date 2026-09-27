@@ -765,6 +765,33 @@ type paymentPlanQuery struct {
 	units    map[state.PlayerID][]windowManaUnit
 	alts     map[state.ObjID][]plannedManaActivation
 	classes  map[paymentPlanClassesKey][]paymentPlanClass
+	// spendReaderOut caches paymentPlanBoardSpendReaderOut: 0 unread, 1
+	// false, 2 true.
+	spendReaderOut uint8
+}
+
+// paymentPlanBoardSpendReaderOut is the board half of the shape gate's
+// mana-spent-reader arm: a battlefield trigger reading a cast's converge
+// or total mana spent, or a permanent granting sunburst. It reads only the
+// board, never the cast, so one query scope (the offer build around every
+// candidate) scans the battlefield once instead of once per candidate.
+func (e *Engine) paymentPlanBoardSpendReaderOut() bool {
+	scan := func() bool {
+		return e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.paymentPlanSunburstGrantOut()
+	}
+	q := e.paymentPlanQuery
+	if !q.valid(e) {
+		return scan()
+	}
+	if q.spendReaderOut == 0 {
+		q.spendReaderOut = 1
+		if scan() {
+			q.spendReaderOut = 2
+		}
+	} else if walkCacheVerify && scan() != (q.spendReaderOut == 2) {
+		panic("payment plan query: cached board mana-spent reader verdict is stale")
+	}
+	return q.spendReaderOut == 2
 }
 
 type paymentPlanClassesKey struct {
@@ -880,6 +907,16 @@ func paymentPlanSameAlternative(a, b plannedManaActivation) bool {
 // alternative by alternative (the verify-mode check of the query cache).
 func paymentPlanSameUnits(a, b []windowManaUnit) bool {
 	return slices.EqualFunc(a, b, func(x, y windowManaUnit) bool {
-		return x.id == y.id && x.freeCount == y.freeCount && slices.Equal(x.alts, y.alts)
+		return x.id == y.id && x.freeCount == y.freeCount && slices.EqualFunc(x.alts, y.alts, sameWindowManaAlt)
 	})
+}
+
+// sameWindowManaAlt is alternative equality up to the identity of an
+// ability built per call (a CR 305.6 intrinsic, cards.IntrinsicManaAbility):
+// two censuses at one state list the same abilities, but such an ability is
+// a fresh pointer each time.
+func sameWindowManaAlt(x, y windowManaAlt) bool {
+	xa, ya := x, y
+	xa.ma, ya.ma = nil, nil
+	return xa == ya && sameManaAbility(x.ma, y.ma)
 }
