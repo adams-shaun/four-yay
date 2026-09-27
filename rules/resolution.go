@@ -2912,6 +2912,21 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			}
 			ctx.SearchDone = true
 			ctx.LibraryTarget = rp.target
+		case "search_confirm":
+			// An Optional$ confirmation on a hidden-library ChangeZone
+			// search was answered (Forge's confirmAction gate, which runs
+			// before the fetch list is consulted): option zero accepts this
+			// search player's fetch, every other answer declines it.
+			// effSearchLibrary consumes and clears these at the top of its
+			// walk (fx42 scoping), so a nested search poses its own
+			// confirmation. ResumeTarget is the per-library cursor, the same
+			// one LibraryTarget carries for the answered pick.
+			ctx.SearchConfirmDone = true
+			ctx.SearchConfirmTarget = rp.target
+			ctx.SearchConfirm = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.SearchConfirm = "yes"
+			}
 		case "search_mayshuffle":
 			// A ChangeZone search carrying ShuffleNonMandatory$ True (Path to
 			// Exile, Stoneforge Mystic, Boggart Harbinger) asked its searcher
