@@ -25,7 +25,15 @@
           "seat": 0,
           "card": "p0:Everflowing Chalice",
           "mana": "CC",
-          "kicked": true
+          "cast_mode": "multikicked",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Pay multikicker once"
+              ]
+            }
+          ]
         },
         {
           "op": "resolve"

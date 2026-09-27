@@ -10,34 +10,19 @@
         "614.1c",
         "614.12"
       ],
-      "why": "The Mimic names Bear as it enters; a subsequent Bear controlled by the same player enters 3/3 with one counter.",
+      "why": "The Mimic names Bear as it enters; a subsequent Bear controlled by the same player enters 3/3 with one counter. The setup Mimic names Bear on entry before turn one.",
       "setup": {
         "p0": {
           "hand": [
-            "Metallic Mimic",
             "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Metallic Mimic"
           ]
         },
         "p1": {}
       },
       "steps": [
-        {
-          "op": "cast",
-          "seat": 0,
-          "card": "p0:Metallic Mimic",
-          "mana": "CC",
-          "answers": [
-            {
-              "kind": "choose",
-              "pick": [
-                "Bear"
-              ]
-            }
-          ]
-        },
-        {
-          "op": "resolve"
-        },
         {
           "op": "cast",
           "seat": 0,
@@ -62,6 +47,14 @@
             "+1/+1": 1
           }
         }
+      ],
+      "setup_answers": [
+        {
+          "kind": "choose",
+          "pick": [
+            "Bear"
+          ]
+        }
       ]
     },
     {
@@ -70,34 +63,24 @@
         "614.1c",
         "614.12"
       ],
-      "why": "Naming Bear does not modify a Cat entering under the Mimic controller.",
+      "why": "Naming Bear does not modify a Cat entering under the Mimic controller. The setup Mimic names Bear on entry before turn one.",
       "setup": {
         "p0": {
           "hand": [
-            "Metallic Mimic",
-            "Savannah Lions"
+            "Savannah Lions",
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Metallic Mimic"
           ]
         },
-        "p1": {}
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
       },
       "steps": [
-        {
-          "op": "cast",
-          "seat": 0,
-          "card": "p0:Metallic Mimic",
-          "mana": "CC",
-          "answers": [
-            {
-              "kind": "choose",
-              "pick": [
-                "Bear"
-              ]
-            }
-          ]
-        },
-        {
-          "op": "resolve"
-        },
         {
           "op": "cast",
           "seat": 0,
@@ -116,6 +99,14 @@
           "counters": {
             "+1/+1": 0
           }
+        }
+      ],
+      "setup_answers": [
+        {
+          "kind": "choose",
+          "pick": [
+            "Bear"
+          ]
         }
       ]
     }
