@@ -1,0 +1,38 @@
+{
+  "card": "Baloth Prime",
+  "family": "replacement",
+  "oracle_sha": "8585420df52d",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tapped-with-six-stun-counters",
+      "cr": ["614.1c", "614.12"],
+      "why": "The creature's own enters-with replacement makes it enter tapped with exactly six stun counters.",
+      "setup": {"p0": {"hand": ["Baloth Prime"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Baloth Prime", "mana": "3G"},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Baloth Prime", "zone": "battlefield", "tapped": true, "counters": {"stun": 6}, "pt": "10/10"}]
+    },
+    {
+      "name": "sacrificing-land-creates-beast-and-life",
+      "cr": ["603.2", "614.1c"],
+      "why": "Activating its printed ability sacrifices a land. That gains two life, and the land sacrifice also triggers the Beast-creating ability; the entering Beast is tapped.",
+      "setup": {"p0": {"hand": ["Baloth Prime"], "battlefield": ["Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Baloth Prime", "mana": "3G"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "4"},
+        {"op": "activate", "seat": 0, "card": "p0:Baloth Prime", "ability": "gain 2 life"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 22}},
+        {"card": "p0:Forest", "zone": "graveyard"},
+        {"card": "p0:Baloth Prime", "counters": {"stun": 5}, "tapped": true},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Beast", "token": true}, "eq": 1}
+      ]
+    }
+  ]
+}

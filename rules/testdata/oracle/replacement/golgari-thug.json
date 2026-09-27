@@ -1,0 +1,32 @@
+{
+  "card": "Golgari Thug",
+  "family": "replacement",
+  "oracle_sha": "9f4fd0dbfbd6",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dredge-four-replaces-draw-at-boundary",
+      "cr": ["702.52a", "702.52b"],
+      "why": "With at least four cards in the library and Golgari Thug in the graveyard, its controller may mill exactly four and return the Thug to hand instead of drawing.",
+      "setup": {"p0": {"graveyard": ["Golgari Thug"], "library_top": ["Forest", "Island", "Swamp", "Mountain"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0", "answers": [{"kind": "any", "pick": ["yes"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Golgari Thug", "zone": "hand"},
+        {"hand_size": {"p0": 1}},
+        {"graveyard_size": {"p0": 4}}
+      ]
+    },
+    {
+      "name": "not-in-graveyard-does-not-replace-draw",
+      "cr": ["702.52a"],
+      "why": "Dredge works only from the graveyard. With Golgari Thug in hand, the draw happens normally and the Thug remains there.",
+      "setup": {"p0": {"hand": ["Golgari Thug"], "library_top": ["Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
+      "expect": [{"hand_size": {"p0": 2}}, {"card": "p0:Golgari Thug", "zone": "hand"}]
+    }
+  ]
+}

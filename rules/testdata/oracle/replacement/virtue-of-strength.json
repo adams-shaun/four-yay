@@ -1,0 +1,29 @@
+{
+  "card": "Virtue of Strength",
+  "family": "replacement",
+  "oracle_sha": "0fa990698960",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "basic-land-mana-tripled",
+      "cr": ["614.1a"],
+      "why": "While Virtue of Strength is on the battlefield, tapping a basic land for one green mana produces three green mana instead.",
+      "setup": {"p0": {"hand": ["Virtue of Strength"], "battlefield": ["Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "5GG"},
+        {"op": "cast", "seat": 0, "card": "p0:Virtue of Strength"},
+        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:Forest", "ability": "add"}
+      ],
+      "expect": [{"pool": {"p0": "GGG"}}]
+    },
+    {
+      "name": "basic-land-produces-one-without-virtue",
+      "cr": ["614.1a"],
+      "why": "Without Virtue of Strength's replacement effect, tapping the basic Forest produces its ordinary single green mana.",
+      "setup": {"p0": {"battlefield": ["Forest"]}, "p1": {}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Forest", "ability": "add"}],
+      "expect": [{"pool": {"p0": "G"}}]
+    }
+  ]
+}

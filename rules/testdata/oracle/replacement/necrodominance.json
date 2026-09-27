@@ -1,0 +1,35 @@
+{
+  "card": "Necrodominance",
+  "family": "replacement",
+  "oracle_sha": "23477e073850",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "draw-step-skipped",
+      "cr": ["614.1b"],
+      "why": "The static effect skips its controller's draw step. The setup enchantment is present before the game begins, and the first player's turn-two draw therefore does not add a card.",
+      "setup": {"p0": {"battlefield": ["Necrodominance"]}, "p1": {}},
+      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "expect": [{"hand_size": {"p0": 0}}]
+    },
+    {
+      "name": "card-going-to-graveyard-exiled-instead",
+      "cr": ["614.1a", "614.6"],
+      "why": "A card that would be put into its controller's graveyard from the stack is exiled instead, so the resolved Lightning Bolt is not in the graveyard.",
+      "setup": {"p0": {"battlefield": ["Necrodominance"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]
+    },
+    {
+      "name": "without-enchantment-draw-step-draws",
+      "cr": ["614.1b"],
+      "why": "Without the skip effect, the first player's turn-two draw step draws one card normally.",
+      "setup": {"p0": {}, "p1": {}},
+      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "expect": [{"hand_size": {"p0": 1}}]
+    }
+  ]
+}

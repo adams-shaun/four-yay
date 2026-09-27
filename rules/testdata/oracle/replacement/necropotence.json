@@ -1,0 +1,24 @@
+{
+  "card": "Necropotence",
+  "family": "replacement",
+  "oracle_sha": "a862c34144c3",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "draw-step-skipped",
+      "cr": ["614.1b"],
+      "why": "Necropotence replaces its controller's draw step with nothing. Since setup precedes the game, this also applies to the first player's turn-two draw step.",
+      "setup": {"p0": {"battlefield": ["Necropotence"]}, "p1": {}},
+      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "expect": [{"hand_size": {"p0": 0}}]
+    },
+    {
+      "name": "without-enchantment-draw-step-draws",
+      "cr": ["614.1b"],
+      "why": "In the absence of the skip effect, the normal draw step adds one card to the first player's hand on turn two.",
+      "setup": {"p0": {}, "p1": {}},
+      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "expect": [{"hand_size": {"p0": 1}}]
+    }
+  ]
+}
