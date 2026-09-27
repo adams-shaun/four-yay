@@ -223,23 +223,12 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 			return fmt.Errorf("payment source %d changed zone incarnation", pa.Source)
 		}
 		seen[pa.Source] = true
-		matched := false
-		for _, u := range units {
-			if u.id != pa.Source {
-				continue
-			}
-			for _, candidate := range e.paymentPlanUnitAlternatives(u) {
-				if candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces {
-					matched = true
-					pool = manaAdd(pool, candidate.mana)
-					produced = manaAdd(produced, candidate.mana)
-					break
-				}
-			}
-		}
-		if !matched {
+		step, ok := e.paymentPlanStepAlternative(units, pa)
+		if !ok {
 			return fmt.Errorf("payment activation is no longer eligible")
 		}
+		pool = manaAdd(pool, step.mana)
+		produced = manaAdd(produced, step.mana)
 	}
 	cost := e.offerCostFor(p, cast.Object, e.rawBaseCost(p, cast.Object), spellScope(""))
 	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
@@ -291,6 +280,14 @@ type plannedManaActivation struct {
 	mana       state.Mana
 	creature   bool
 	flex       int
+	// ma is the exact ability this alternative activates. It is not part of
+	// the witness: every intrinsic ability shares one PaymentAbility
+	// identity ({intrinsic, basic_land}), so on a source with several (a
+	// dual land's {U} and {R}) the identity alone names no single ability.
+	// A witness step's Ability AND Produces together select exactly one
+	// alternative (paymentPlanStepAlternative), and execution activates
+	// that alternative's own ability.
+	ma *cards.SA
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
@@ -425,7 +422,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			m := alt.mana()
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id)})
+				mana: m, creature: e.IsCreature(u.id), ma: alt.ma})
 			continue
 		}
 		if strings.TrimSpace(alt.ma.Params["Produced"]) != "Any" || !alt.any || alt.amt <= 0 {
@@ -436,7 +433,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			m[i] = alt.amt
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id)})
+				mana: m, creature: e.IsCreature(u.id), ma: alt.ma})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
@@ -446,6 +443,33 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 		out[i].flex = len(out)
 	}
 	return out
+}
+
+// paymentPlanStepAlternative resolves one witness step to the exact
+// alternative the planner offers for its source: the one whose ability
+// identity AND production both equal the step's. Identity alone is not
+// enough -- every intrinsic ability shares {intrinsic, basic_land}, so a
+// Volcanic Island's {U} and {R} abilities differ only in Produces. The pair
+// is: a printed identity names one ability by index (a Produced$ Any
+// ability's alternatives then differ by Produces), and a source's intrinsic
+// abilities are de-duplicated by production (cards.ApplyIntrinsics and the
+// granted basic-land-type walk). Validation (ValidateCastPayment,
+// validatePendingPaymentPlan) and execution (executePlannedManaActivation)
+// all resolve a step here, so the alternative validation priced is the one
+// execution activates; none of them may pair one alternative's identity with
+// another alternative's production.
+func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.PaymentActivation) (plannedManaActivation, bool) {
+	for _, u := range units {
+		if u.id != pa.Source {
+			continue
+		}
+		for _, candidate := range e.paymentPlanUnitAlternatives(u) {
+			if candidate.ma != nil && candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces {
+				return candidate, true
+			}
+		}
+	}
+	return plannedManaActivation{}, false
 }
 
 func (e *Engine) paymentAbility(id state.ObjID, ma *cards.SA) (decision.PaymentAbility, bool) {

@@ -285,6 +285,153 @@ func TestPaymentPlanExecutesFiniteProducedAnyChoice(t *testing.T) {
 	}
 }
 
+// paymentPlanReask re-poses seat 0's priority exactly as the live engine does
+// after an (eventless) fixture change, so ask() publishes PaymentActions.
+func paymentPlanReask(t *testing.T, e *Engine) *decision.Decision {
+	t.Helper()
+	e.pending = nil
+	e.askPriority(0)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("pending = %#v, want seat-0 priority", d)
+	}
+	return d
+}
+
+func paymentPlanActionFor(t *testing.T, d *decision.Decision, spell state.ObjID) decision.PaymentAction {
+	t.Helper()
+	for _, a := range d.PaymentActions {
+		if a.Cast.Object == spell && len(a.Plans) > 0 {
+			return a
+		}
+	}
+	t.Fatalf("no payment action for %d in %#v", spell, d.PaymentActions)
+	return decision.PaymentAction{}
+}
+
+func submitPaymentPlan(t *testing.T, e *Engine, d *decision.Decision, a decision.PaymentAction) {
+	t.Helper()
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player,
+		Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: a.Plans[0]}}); err != nil {
+		t.Fatalf("Submit planned cast: %v", err)
+	}
+}
+
+// producedManaSince lists the colour of every positive ManaAdd from event
+// index from onward, one entry per unit.
+func producedManaSince(e *Engine, from int) []string {
+	var out []string
+	for _, ev := range e.L.Events[from:] {
+		if ev.Kind == events.ManaAdd && ev.Amount > 0 {
+			for i := int32(0); i < ev.Amount; i++ {
+				out = append(out, ev.Counter)
+			}
+		}
+	}
+	return out
+}
+
+// Every intrinsic ability shares the PaymentAbility identity {intrinsic,
+// basic_land}, so a witness step names its ability by that identity AND its
+// Produces together. A Volcanic-Island-shaped dual (intrinsic abilities in
+// W,U,B,R,G order: U then R) asked for R must activate its R ability, not the
+// first intrinsic ability whose identity matches.
+func TestPaymentPlanDualLandExecutesWitnessedColour(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9301, "Name:Red Plan Spell\nManaCost:R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	dual := onBoard(t, e, 0, "Name:Volcanic Test\nTypes:Land Island Mountain\nOracle:x\n")
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	plan := a.Plans[0]
+	if len(plan.Activations) != 1 || plan.Activations[0].Source != dual || plan.Activations[0].Produces[state.ManaIndex('R')] != 1 {
+		t.Fatalf("witness = %#v, want the dual producing R", plan)
+	}
+	start := len(e.L.Events)
+	submitPaymentPlan(t, e, d, a)
+	if got := producedManaSince(e, start); !reflect.DeepEqual(got, []string{"R"}) {
+		t.Errorf("planned dual produced %v, want exactly [R] (the witnessed production)", got)
+	}
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Errorf("spell zone after planned payment = %s, want stack", z)
+	}
+	if nd := e.Pending(); nd == nil || nd.Kind != decision.KPriority {
+		t.Errorf("after planned payment pending = %#v, want the ordinary priority", nd)
+	}
+}
+
+// The same exact-alternative rule on a real two-colour cast: {U}{R} with an
+// Island and a dual is TestPaymentPlanBacktracksExclusiveSources' board, here
+// executed rather than only validated. The dual must supply the R its witness
+// step names.
+func TestPaymentPlanBacktrackedDualWitnessExecutes(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9302, "Name:Plan Spell\nManaCost:U R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
+	dual := onBoard(t, e, 0, "Name:Volcanic Test\nTypes:Land Island Mountain\nOracle:x\n")
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	start := len(e.L.Events)
+	submitPaymentPlan(t, e, d, a)
+	if !e.G.Obj(island).Tapped || !e.G.Obj(dual).Tapped {
+		t.Errorf("tapped island=%v dual=%v, want both", e.G.Obj(island).Tapped, e.G.Obj(dual).Tapped)
+	}
+	got := producedManaSince(e, start)
+	if len(got) != 2 || !(got[0] == "U" && got[1] == "R" || got[0] == "R" && got[1] == "U") {
+		t.Errorf("planned {U}{R} produced %v, want one U and one R", got)
+	}
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Errorf("spell zone after planned payment = %s, want stack", z)
+	}
+}
+
+// A basic land type granted in layer 4 (an Urborg-style "each land is a
+// Swamp") gives a Mountain an intrinsic {B} ability beside its own {R}
+// (CR 305.6), again under the one identity {intrinsic, basic_land}, and the
+// granted ability is rebuilt on every walk rather than stored on the face. A
+// step asking the Mountain for {B} must produce {B}. The ask-time offer does
+// not reach this cast yet (PotentialMana reads printed faces only), so the
+// planner's own witness is admitted onto the pending decision exactly as
+// PaymentActionsForPriority builds an action.
+func TestPaymentPlanGrantedLandTypeExecutesWitnessedColour(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9303, "Name:Black Plan Spell\nManaCost:B B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	// A live game derives this vocabulary from its NameUniverse; without it
+	// no granted basic land type adds its intrinsic ability.
+	e.landTypeWords = []string{"Forest", "Island", "Mountain", "Plains", "Swamp"}
+	onBoard(t, e, 0, "Name:Swamp Grant\nTypes:Land\nS:Mode$ Continuous | Affected$ Land | AddType$ Swamp\nOracle:x\n")
+	mountain := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
+	d := paymentPlanReask(t, e)
+	cast := paymentCast(spell)
+	got := e.PlanCastPayment(0, cast)
+	if got.Plan == nil {
+		t.Fatalf("plan = %#v, want the granted Swamp type to fund {B}{B}", got)
+	}
+	plan := *got.Plan
+	askedB := false
+	for _, act := range plan.Activations {
+		if act.Source == mountain && act.Produces == (decision.ManaAmount{0, 0, 1, 0, 0, 0}) {
+			askedB = true
+		}
+	}
+	if !askedB {
+		t.Fatalf("witness = %#v, want the Mountain producing B", plan.Activations)
+	}
+	var err error
+	if plan.ID, err = decision.PaymentPlanID(d.Seq, 0, cast, plan); err != nil {
+		t.Fatal(err)
+	}
+	a := decision.PaymentAction{Cast: cast, Label: "Cast Black Plan Spell", Plans: []decision.PaymentPlan{plan}}
+	if a.ID, err = decision.PaymentActionID(decision.PaymentPlanV1, d.Seq, 0, cast); err != nil {
+		t.Fatal(err)
+	}
+	d.PaymentActions = []decision.PaymentAction{a}
+	start := len(e.L.Events)
+	submitPaymentPlan(t, e, d, a)
+	if got := producedManaSince(e, start); !reflect.DeepEqual(got, []string{"B", "B"}) {
+		t.Errorf("planned {B}{B} produced %v, want [B B]", got)
+	}
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Errorf("spell zone after planned payment = %s, want stack", z)
+	}
+}
+
 func TestPaymentPlanDeclinesEffectCreatedProduceManaReplacement(t *testing.T) {
 	e, _, spell := newFixtureDeck(t, 9112, "Name:Plan Spell\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	source := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
