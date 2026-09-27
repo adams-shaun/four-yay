@@ -1143,6 +1143,11 @@ func paySourceForAnswer(sources []attackManaSource, opt decision.Option) (attack
 // overstate the payer's reach. A permanent whose only remaining abilities are
 // so excluded contributes nothing.
 func (e *Engine) attackManaSources(p state.PlayerID) []attackManaSource {
+	// A pure read: one Derived memo scope spans both membership walks, so the
+	// per-permanent window-ability walks share one Continuous-static board
+	// scan (rules/walkcache.go) instead of rescanning per permanent.
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	var out []attackManaSource
 	// windowManaUnits is the ONE membership the offer gate (attackBudget) and
 	// this tap list share, so the attack window can never be offered a charge
@@ -1430,6 +1435,13 @@ type attackOfferKey struct {
 // so both defenders stay offered and the controller picks; when they name the
 // same defender that defender is uniquely maximal.
 func (e *Engine) attackOffers() []attackOffer {
+	// A pure read (askAttackers and validateAttackers both re-derive it), so
+	// one Derived memo scope serves every per-creature requirement, goad and
+	// restriction static read from the walk cache (rules/walkcache.go): each
+	// is otherwise a whole-battlefield activeStatics scan, O(creatures^2) per
+	// offer build on a token board (cardfuzz seed 6181111140895991800).
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	p := e.G.Active
 	var out []attackOffer
 	var defenders []state.PlayerID
