@@ -4,7 +4,7 @@ import {
   announceActions, castableActions, manaAmountText, manaOptionAccessibleName, manaOptionPips, manaSourceRows,
   manaWindow, owesNothing, paymentCostText, windowAction,
 } from './announcepay';
-import { scenarioIconOf } from './cardoptions';
+import { optionsByObj, optionsByPlayer, postSingleAction, scenarioIconOf, singleTapOptionOf, tileOptions, tileOptionsMany, type CardOptions } from './cardoptions';
 import { SeatPanelState } from './seatpanel.svelte';
 
 const { postIntentMock, fetchPendingMock } = vi.hoisted(() => ({ postIntentMock: vi.fn(), fetchPendingMock: vi.fn() }));
@@ -93,6 +93,37 @@ describe('announce-then-pay helpers', () => {
 
   it('marks a window mana option as a tap on the board tile', () => {
     expect(scenarioIconOf('mana')).toBe('tap');
+  });
+
+  // The board half of the window (spec §4.2, §8): every option carrying an
+  // Obj marks its source, and a tile answers the window with its own wire
+  // index. A lone Swamp and a pile of interchangeable Swamps are one tap; a
+  // dual land's two colours keep the picker.
+  it('lets a battlefield tile answer the window by its wire index', () => {
+    const d: Decision = {
+      ...windowDecision(32),
+      options: [
+        { index: 0, player: 0, kind: 'mana', label: 'Add B', obj: 41 },
+        { index: 1, player: 0, kind: 'mana', label: 'Add B', obj: 45 },
+        { index: 2, player: 0, kind: 'mana', label: 'Add B', obj: 42, mana_symbol: 'B' },
+        { index: 3, player: 0, kind: 'mana', label: 'Add R', obj: 42, mana_symbol: 'R' },
+        { index: 4, player: 0, kind: 'autofill', label: 'Auto-fill: tap Swamp' },
+        { index: 5, player: 0, kind: 'cancel_cast', label: 'Cancel cast' },
+      ],
+    };
+    const post = vi.fn();
+    const bundle: CardOptions = { source: d.source, byObj: optionsByObj(d), byPlayer: optionsByPlayer(d), picked: [], tone: 'offered', post };
+    expect([...bundle.byObj.keys()]).toEqual([41, 45, 42]);
+    const swamp = tileOptions(bundle, 41)!;
+    postSingleAction(swamp);
+    expect(post).toHaveBeenLastCalledWith(0, false, false);
+    const pile = tileOptionsMany(bundle, [45, 41])!;
+    expect(singleTapOptionOf(pile)?.index).toBe(0);
+    const badlands = tileOptions(bundle, 42)!;
+    expect(singleTapOptionOf(badlands)).toBeNull();
+    post.mockClear();
+    postSingleAction(badlands);
+    expect(post).not.toHaveBeenCalled();
   });
 });
 
