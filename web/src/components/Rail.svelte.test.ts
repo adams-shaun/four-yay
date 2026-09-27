@@ -220,6 +220,7 @@ describe('Rail — visible hands at bounded rail dimensions', () => {
         return {
           handText: hands.textContent, handScroll: hands.scrollHeight, handHeight: hands.clientHeight,
           stack: stack.textContent, pending: pending.textContent,
+          pendingHeight: pending.getBoundingClientRect().height,
           pendingBottom: pending.getBoundingClientRect().bottom,
           railBottom: rail.getBoundingClientRect().bottom,
         };
@@ -229,11 +230,45 @@ describe('Rail — visible hands at bounded rail dimensions', () => {
       expect(m.handScroll).toBeGreaterThan(m.handHeight);
       expect(m.stack).toContain('Slow but Absolutely Inevitable');
       expect(m.pending).toContain('Longwinded Ambush');
+      expect(m.pendingHeight).toBeGreaterThanOrEqual(79);
       expect(m.pendingBottom).toBeLessThanOrEqual(m.railBottom + 1);
     } finally {
       await page.close();
     }
   });
+});
+
+describe('Rail — live visible-hand updates', () => {
+  let browser: Browser;
+  beforeAll(async () => { browser = await sharedBrowser(); });
+
+  it('updates card identities and renders a newly empty visible hand without remounting', async () => {
+    const page = await browser.newPage({ viewport: { width: 700, height: 500 } });
+    try {
+      await page.goto(`${browserURL}src/components/SeatTable.geometry.html?hands=1`);
+      await page.waitForSelector('#rail [data-visible-hands]');
+      await page.waitForFunction(() => (window as Window & { fixtureRailReady?: boolean }).fixtureRailReady === true);
+      const initialHands = await page.locator('#rail [data-visible-hands]').textContent();
+      expect(initialHands).toContain('Ari Visible Card');
+      expect(initialHands).toContain('Bo Visible Card');
+      const updateResult = await page.evaluate(() => {
+        const w = window as Window & { updateFixtureHands?: () => void };
+        const exists = typeof w.updateFixtureHands === 'function';
+        w.updateFixtureHands?.();
+        return { exists, text: document.querySelector('#rail [data-visible-hands]')?.textContent };
+      });
+      expect(updateResult.exists).toBe(true);
+      await page.waitForFunction(() => document.querySelector('#rail [data-visible-hands]')?.textContent?.includes('Ari Updated Card'));
+      const hands = await page.locator('#rail [data-visible-hands]').textContent();
+      expect(hands).toContain('Ari Updated Card');
+      expect(hands).not.toContain('Ari Visible Card');
+      expect(hands).toContain("Bo's hand");
+      expect(hands).toContain('No cards');
+      expect(hands).not.toContain('Bo Visible Card');
+    } finally {
+      await page.close();
+    }
+  }, 15000);
 });
 
 describe('Rail — resolved history at short viewport heights (fb-20260923T015554Z)', () => {

@@ -77,6 +77,14 @@ if (resolved) railPlayers[1].graveyard = [card(42, 'Resolved Thing')];
 const railEvents: { event: { kind: string; player: number; text?: string; obj?: number } }[] = lostSeat
   ? [{ event: { kind: 'player_lost', player: 1, text: 'commander damage (21 or more from one commander)' } }]
   : resolved ? [{ event: { kind: 'stack_resolve', player: 1, obj: 42 } }] : [];
+// Browser test hook: replace the projection after mount, including a visible
+// empty hand and a changed card identity, to exercise Rail's live derivation.
+(window as Window & { updateFixtureHands?: () => void }).updateFixtureHands = () => {
+  railPlayers[1].hand = [card(55, 'Ari Updated Card')];
+  railPlayers[2].hand = [];
+  window.dispatchEvent(new CustomEvent('fixture-view-update', { detail: { ...railView, players: [...railPlayers] } }));
+};
+
 // Rail is mounted through RailFixture so the fixture can render the REAL
 // concede control (ConcedeControl) as Rail's logbar snippet — the same seam
 // Table.svelte uses on the live route — when the page URL asks for it

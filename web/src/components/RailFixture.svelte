@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { View, SeatInfo, DecisionBody } from '../protocol';
   import Rail from './Rail.svelte';
   import ConcedeControl from './ConcedeControl.svelte';
@@ -40,12 +41,31 @@
     concede?: 'none' | 'idle' | 'confirm';
     events?: { event: { kind: string; player: number; text?: string; obj?: number } }[];
   } = $props();
+  // Plain $state, not $state.raw: a raw assignment from this fixture's own
+  // window event handler does not invalidate the $derived below in Svelte
+  // 5.57 (measured: the listener fires, the new View is in hand, and the
+  // mounted Rail never re-renders), so the live-update geometry test would
+  // silently measure the initial projection. The fixture is test-only and
+  // the projection is small, so the deep proxy is free.
+  let updatedView = $state<View | null>(null);
+  const currentView = $derived(updatedView ?? view);
+
+  // The browser geometry test can deliver a replacement projection to this
+  // mounted fixture, matching the live table's view-prop updates.
+  onMount(() => {
+    const update = (event: Event) => {
+      updatedView = (event as CustomEvent<View>).detail;
+    };
+    window.addEventListener('fixture-view-update', update);
+    (window as Window & { fixtureRailReady?: boolean }).fixtureRailReady = true;
+    return () => window.removeEventListener('fixture-view-update', update);
+  });
 </script>
 
 {#if concede === 'none'}
-  <Rail {view} {seats} {events} {decision} {emphasizeTop} {showLog} {onToggleLog} />
+  <Rail view={currentView} {seats} {events} {decision} {emphasizeTop} {showLog} {onToggleLog} />
 {:else}
-  <Rail {view} {seats} {events} {decision} {emphasizeTop} {showLog} {onToggleLog}>
+  <Rail view={currentView} {seats} {events} {decision} {emphasizeTop} {showLog} {onToggleLog}>
     {#snippet logbar()}
       <ConcedeControl confirming={concede === 'confirm'} onArm={() => {}} onConfirm={() => {}} />
     {/snippet}
