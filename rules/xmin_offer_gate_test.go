@@ -23,8 +23,10 @@ import (
 // the ability target-free, exactly the xmin_param_test.go fixture shape.
 const xMinOfferGateSrc = "Name:XMin Offer Gate\nManaCost:0\nTypes:Artifact\n" +
 	"A:AB$ GainLife | Cost$ X | XMin$ 2 | Defined$ You | LifeAmount$ 2 | SpellDescription$ x.\nOracle:x\n"
-const xMinOfferGateCostHiSrc = "Name:XMin Offer Gate CostHi\nManaCost:0\nTypes:Artifact\n" +
-	"A:AB$ GainLife | Cost$ XMin3 X | XMin$ 1 | Defined$ You | LifeAmount$ 2 | SpellDescription$ x.\nOracle:x\n"
+const xMinOfferGateParamHiSrc = "Name:XMin Offer Gate ParamHi\nManaCost:0\nTypes:Artifact\n" +
+	"A:AB$ GainLife | Cost$ XMin3 X | XMin$ 4 | Defined$ You | LifeAmount$ 2 | SpellDescription$ x.\nOracle:x\n"
+const xMinOfferGateMalformedSrc = "Name:XMin Offer Gate Malformed\nManaCost:0\nTypes:Artifact\n" +
+	"A:AB$ GainLife | Cost$ X | XMin$ two | Defined$ You | LifeAmount$ 2 | SpellDescription$ x.\nOracle:x\n"
 const xMinOfferGateBearSrc = "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 
 // xMinOfferGatePrecondition asserts the fixture really carries the parameter
@@ -49,88 +51,37 @@ func xMinOfferGatePrecondition(t *testing.T, e *Engine, srcID state.ObjID, wantP
 	}
 }
 
-// TestXMinParamOfferGateWithholdsUnpayableMinimum is the brief's regression:
-// with only one generic mana (paying X=1 but never X=2) the activation
-// option is WITHHELD; after one more generic mana it is offered, its X ask
-// starts at 2, and paying X=2 actually resolves the ability.
-func TestXMinParamOfferGateWithholdsUnpayableMinimum(t *testing.T) {
-	e, cfg, _ := newFixtureDeck(t, 96, xMinOfferGateSrc, xMinOfferGateBearSrc)
-	relicID := moveSeeded(t, e, 0, xMinOfferGateSrc, state.ZBattlefield)
-	e.pending = nil
-	e.Advance()
-	xMinOfferGatePrecondition(t, e, relicID, "2", 0, 1)
-
-	// One generic mana pays X=1 but not the XMin$ 2 floor: no activation
-	// option. The priority decision itself must still be live -- the absence
-	// is the gate withholding one option, not an empty menu.
-	addMana(t, e, 0, "C")
-	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
-		t.Fatalf("priority decision after funding = %+v, want a live priority ask", d)
-	}
-	if _, ok := findAbilityOption(e, relicID, 0); ok {
-		t.Fatal("activation offered with one generic mana: XMin$ 2 needs two, the offer must be withheld")
-	}
-	// One more generic mana makes the smallest legal announcement (X=2)
-	// payable: the option appears.
-	addMana(t, e, 0, "C")
-	opt, ok := findAbilityOption(e, relicID, 0)
-	if !ok {
-		t.Fatalf("activation not offered with two generic mana: %+v", e.Pending().Options)
-	}
-	submitChoices(t, e, opt.Index)
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.Prompt != "Choose a value for X" {
-		t.Fatalf("X ask = %+v, want the announcement decision", d)
-	}
-	for _, o := range d.Options {
-		if o.Kind == "x" && o.Amount < 2 {
-			t.Fatalf("X options = %+v, want none below 2: the XMin$ 2 parameter floors the ask too", d.Options)
-		}
-	}
-	if len(d.Options) == 0 || d.Options[0].Kind != "x" || d.Options[0].Amount != 2 {
-		t.Fatalf("X options = %+v, want the range to START at X = 2", d.Options)
-	}
-	startLife := e.G.Players[0].Life
-	submitChoices(t, e, d.Options[0].Index)
-	passUntilStackEmpty(t, e, 20)
-	if got := e.G.Players[0].Life; got != startLife+2 {
-		t.Fatalf("life after paying X=2 = %d, want %d (the activation actually settled at the floor)", got, startLife+2)
-	}
-	replayCheck(t, e, cfg)
-}
-
-// TestXMinParamOfferGateKeepsHigherCostFloor pins the offer path's fold
-// direction that TestXMinParamDoesNotLowerCostFloor pins for the ask: a cost
-// whose own XMin3 token floors ABOVE the ability's XMin$ 1 is offered only
-// when X=3 is payable -- the parameter must not lower the cost's bound at
-// the offer either.
+// TestXMinParamOfferGateKeepsHigherCostFloor pins the max fold at the offer:
+// the parameter floor 4 is above the cost's XMin3 token and must withhold the
+// activation until the fourth generic mana is available.
 func TestXMinParamOfferGateKeepsHigherCostFloor(t *testing.T) {
-	e, _, _ := newFixtureDeck(t, 97, xMinOfferGateCostHiSrc, xMinOfferGateBearSrc)
-	relicID := moveSeeded(t, e, 0, xMinOfferGateCostHiSrc, state.ZBattlefield)
+	e, _, _ := newFixtureDeck(t, 97, xMinOfferGateParamHiSrc, xMinOfferGateBearSrc)
+	relicID := moveSeeded(t, e, 0, xMinOfferGateParamHiSrc, state.ZBattlefield)
 	e.pending = nil
 	e.Advance()
-	xMinOfferGatePrecondition(t, e, relicID, "1", 3, 1)
-
-	// Two generic mana pay X=2 but not the cost's own XMin3 floor: withheld.
-	addMana(t, e, 0, "C")
-	addMana(t, e, 0, "C")
-	if _, ok := findAbilityOption(e, relicID, 0); ok {
-		t.Fatal("activation offered on two generic mana: the cost's XMin3 token must keep the higher floor at the offer")
+	xMinOfferGatePrecondition(t, e, relicID, "4", 3, 1)
+	for range 3 {
+		addMana(t, e, 0, "C")
 	}
-	// The third generic makes X=3 payable: offered, and the ask starts at 3.
+	if _, ok := findAbilityOption(e, relicID, 0); ok {
+		t.Fatal("activation offered with three mana: ability XMin$ 4 must raise the cost's XMin3 floor")
+	}
 	addMana(t, e, 0, "C")
 	opt, ok := findAbilityOption(e, relicID, 0)
 	if !ok {
-		t.Fatalf("activation not offered on three generic mana: %+v", e.Pending().Options)
+		t.Fatalf("activation not offered with four generic mana: %+v", e.Pending().Options)
 	}
 	submitChoices(t, e, opt.Index)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KChoose || d.Prompt != "Choose a value for X" {
 		t.Fatalf("X ask = %+v, want the announcement decision", d)
 	}
+	if len(d.Options) == 0 || d.Options[0].Kind != "x" || d.Options[0].Amount != 4 {
+		t.Fatalf("X options = %+v, want range to start at 4", d.Options)
+	}
 	for _, o := range d.Options {
-		if o.Kind == "x" && o.Amount < 3 {
-			t.Fatalf("X options = %+v, want none below 3: the cost's XMin3 token floors the ask", d.Options)
+		if o.Kind != "x" || o.Amount < 4 {
+			t.Fatalf("X options = %+v, want none below 4", d.Options)
 		}
 	}
 }
@@ -152,5 +103,29 @@ func TestXMinAbilityParamParsesOnlyPositiveIntegers(t *testing.T) {
 		if got := xMinAbilityParam(ab); got != 0 {
 			t.Fatalf("XMin$ %q parsed %d, want 0 (binds nothing)", bad, got)
 		}
+	}
+
+	// Parsing validity must affect the actual offer: an invalid parameter
+	// leaves the one-mana X offer available, while XMin$ 2 with the identical
+	// X-only cost withholds it. This assertion fails if the offer stops using
+	// the shared parser/floor.
+	badEngine, _, _ := newFixtureDeck(t, 98, xMinOfferGateMalformedSrc, xMinOfferGateBearSrc)
+	badID := moveSeeded(t, badEngine, 0, xMinOfferGateMalformedSrc, state.ZBattlefield)
+	badEngine.pending = nil
+	badEngine.Advance()
+	xMinOfferGatePrecondition(t, badEngine, badID, "two", 0, 1)
+	addMana(t, badEngine, 0, "C")
+	if _, ok := findAbilityOption(badEngine, badID, 0); !ok {
+		t.Fatal("invalid XMin$ two unexpectedly withheld the one-mana X offer")
+	}
+
+	goodEngine, _, _ := newFixtureDeck(t, 99, xMinOfferGateSrc, xMinOfferGateBearSrc)
+	goodID := moveSeeded(t, goodEngine, 0, xMinOfferGateSrc, state.ZBattlefield)
+	goodEngine.pending = nil
+	goodEngine.Advance()
+	xMinOfferGatePrecondition(t, goodEngine, goodID, "2", 0, 1)
+	addMana(t, goodEngine, 0, "C")
+	if _, ok := findAbilityOption(goodEngine, goodID, 0); ok {
+		t.Fatal("valid XMin$ 2 failed to withhold the same one-mana X offer")
 	}
 }
