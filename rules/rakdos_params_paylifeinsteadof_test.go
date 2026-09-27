@@ -137,3 +137,162 @@ func TestKrrikGrantDoesNotCoverOtherColours(t *testing.T) {
 		}
 	}
 }
+
+// krrikWindowEngine is the krrik-window regression's setup: K'rrik on the
+// battlefield, a {B}-only targeted instant in hand, an untapped Swamp on the
+// battlefield and a Bear to aim at, with a deliberately EMPTY pool. Only the
+// K'rrik life grant makes the {B} cast offered, and only the Swamp makes its
+// pip payable with mana rather than life.
+func krrikWindowEngine(t *testing.T) (*Engine, state.ObjID, state.ObjID, state.ObjID) {
+	t.Helper()
+	e := handEngine(t, corpusAlternativeCard(t, "K'rrik, Son of Yawgmoth"))
+	for _, o := range e.G.Zone(state.ZHand, 0) {
+		if e.G.Obj(o).Face().Name == "K'rrik, Son of Yawgmoth" {
+			e.emit(events.Event{Kind: events.MoveZone, Obj: o, From: state.ZHand, To: state.ZBattlefield})
+			break
+		}
+	}
+	bear := e.G.AddObject(card(t, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"), 0)
+	e.emit(events.Event{Kind: events.MoveZone, Obj: bear.ID, From: state.ZLibrary, To: state.ZBattlefield})
+	swamp := e.G.AddObject(card(t, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n"), 0)
+	e.emit(events.Event{Kind: events.MoveZone, Obj: swamp.ID, From: state.ZLibrary, To: state.ZBattlefield})
+	bolt := e.G.AddObject(card(t, "Name:Doom Bolt\nManaCost:B\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\nOracle:x\n"), 0)
+	e.G.SetZone(state.ZHand, 0, append(e.G.Zone(state.ZHand, 0), bolt.ID))
+	// No addMana: the pool stays empty so the window's question is real.
+	toMain1(t, e)
+	e.priorityRound()
+	return e, bolt.ID, bear.ID, swamp.ID
+}
+
+// TestKrrikGrantPosesManaWindowWhenSourceCanPay is the krrik-paylife ticket's
+// regression. Before the fix, manaWindowAsk's "the pool already pays" gate
+// read the SAME resolveMana the payment does, so K'rrik's PayLifeInsteadOf:B
+// grant made a {B} pip count as paid: with an empty pool and an untapped
+// Swamp the CR 601.2g window was skipped and the cast silently spent 2 life
+// with the Swamp still untapped. The window's gate now suspends the grant, so
+// the payer is offered the Swamp and may choose the mana; "done" still spends
+// the life through the ordinary payment.
+func TestKrrikGrantPosesManaWindowWhenSourceCanPay(t *testing.T) {
+	e, bolt, bear, swamp := krrikWindowEngine(t)
+	e.G.Players[0].Life = 20
+	// Precondition: no mana is floating -- otherwise the pool could pay the pip
+	// by itself and the window would be (correctly) skipped.
+	if pool := e.G.Players[0].Pool; pool.Total() != 0 {
+		t.Fatalf("precondition: pool must be empty, got %+v", pool)
+	}
+	if o := e.G.Obj(swamp); o == nil || o.Tapped {
+		t.Fatalf("precondition: the Swamp must be untapped on the battlefield")
+	}
+	d := e.Pending()
+	if d == nil {
+		t.Fatalf("precondition: a priority decision is pending")
+	}
+	castOpt := -1
+	for _, o := range d.Options {
+		if o.Kind == "cast" && o.Obj == bolt {
+			castOpt = o.Index
+		}
+	}
+	if castOpt < 0 {
+		t.Fatalf("precondition: the {B} cast must be offered via the life grant: %+v", d.Options)
+	}
+	submitChoices(t, e, castOpt)
+
+	dt := e.Pending()
+	if dt == nil || dt.Kind != decision.KTarget {
+		t.Fatalf("precondition: the target ask, got %+v", dt)
+	}
+	tgt := -1
+	for _, o := range dt.Options {
+		if o.Obj == bear {
+			tgt = o.Index
+		}
+	}
+	if tgt < 0 {
+		t.Fatalf("precondition: the Bear is a legal target: %+v", dt.Options)
+	}
+	submitChoices(t, e, tgt)
+
+	// The CR 601.2g mana window: the pool alone cannot pay the {B} pip and the
+	// untapped Swamp can, so the window must be posed (this is the assertion
+	// that fails without the fix -- payCast pays silently instead).
+	w := e.Pending()
+	if w == nil || w.Kind != decision.KChoose {
+		t.Fatalf("the mana window must be posed for a {B} pip an untapped source can pay, got %+v", w)
+	}
+	swampOpt := -1
+	for _, o := range w.Options {
+		if o.Kind == "activate" && o.Obj == swamp {
+			swampOpt = o.Index
+		}
+	}
+	if swampOpt < 0 {
+		t.Fatalf("the untapped Swamp must be offered in the window: %+v", w.Options)
+	}
+	submitChoices(t, e, swampOpt)
+	passUntilStackEmpty(t, e, 20)
+
+	if life := e.G.Players[0].Life; life != 20 {
+		t.Fatalf("life=%d, want 20 (the pip must be paid with the tapped Swamp's mana, not 2 life)", life)
+	}
+	if !e.G.Obj(swamp).Tapped {
+		t.Fatalf("the Swamp must be tapped to pay the pip")
+	}
+	if e.G.Obj(bear).Zone != state.ZGraveyard {
+		t.Fatalf("bear zone=%s, want graveyard (the spell resolved)", e.G.Obj(bear).Zone)
+	}
+}
+
+// TestKrrikGrantPaysLifeFromWindowWhenNoSourceCan answers the posed window
+// with "done": the {B} pip then spends the granted 2 life through the
+// ordinary payment, proving the window did not remove the life route.
+func TestKrrikGrantPaysLifeFromWindowWhenNoSourceCan(t *testing.T) {
+	e, bolt, bear, swamp := krrikWindowEngine(t)
+	e.G.Players[0].Life = 20
+	d := e.Pending()
+	castOpt := -1
+	for _, o := range d.Options {
+		if o.Kind == "cast" && o.Obj == bolt {
+			castOpt = o.Index
+		}
+	}
+	if castOpt < 0 {
+		t.Fatalf("precondition: the {B} cast must be offered via the life grant: %+v", d.Options)
+	}
+	submitChoices(t, e, castOpt)
+	dt := e.Pending()
+	if dt == nil || dt.Kind != decision.KTarget {
+		t.Fatalf("precondition: the target ask, got %+v", dt)
+	}
+	tgt := -1
+	for _, o := range dt.Options {
+		if o.Obj == bear {
+			tgt = o.Index
+		}
+	}
+	if tgt < 0 {
+		t.Fatalf("precondition: the Bear is a legal target: %+v", dt.Options)
+	}
+	submitChoices(t, e, tgt)
+	w := e.Pending()
+	if w == nil || w.Kind != decision.KChoose {
+		t.Fatalf("the mana window must be posed, got %+v", w)
+	}
+	doneOpt := -1
+	for _, o := range w.Options {
+		if o.Kind == "done" {
+			doneOpt = o.Index
+		}
+	}
+	if doneOpt < 0 {
+		t.Fatalf("the window must offer \"done\": %+v", w.Options)
+	}
+	submitChoices(t, e, doneOpt)
+	passUntilStackEmpty(t, e, 20)
+	if life := e.G.Players[0].Life; life != 18 {
+		t.Fatalf("life=%d, want 18 (\"done\" spends the {B} pip's 2 granted life)", life)
+	}
+	if e.G.Obj(swamp).Tapped {
+		t.Fatalf("the Swamp must stay untapped when the payer answers \"done\"")
+	}
+}

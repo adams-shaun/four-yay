@@ -9336,7 +9336,12 @@ func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
 // option -- only when the pool alone cannot pay the resolved total cost and
 // at least one such source is untapped; a caster who already has the mana, or
 // has no untapped source, has nothing a window could enable, so payCast
-// proceeds straight to payment. Answering routes through castAnswer
+// proceeds straight to payment. "The pool alone" is literal here: a {B} pip
+// the payer's PayLifeInsteadOf:B grant could settle with 2 life is not
+// counted as paid, so the window opens and the mana-or-life choice is the
+// payer's (the grant is suspended only for this gate; the payment still
+// spends the life when the payer answers "done"). Answering routes
+// through castAnswer
 // (chooseCast): "activate" taps the source and resolves its mana abilities
 // (a tap consumes it, so it is not re-offered) and continueCast re-enters
 // payCast to re-price the window; "done" sets windowDone so payCast pays.
@@ -9365,8 +9370,14 @@ func (e *Engine) manaWindowAsk() bool {
 	// A pool that already pays the total cost needs no window (nothing to
 	// gain by activating more mana abilities here). The descriptor carries
 	// the announced-X marker so a CostContainsX batch sees the X payment.
-	if e.costPayableClass(pc.player, paymentForCast(pc, mana),
-		pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, mana) {
+	// The check deliberately suspends the payer's PayLifeInsteadOf:B grant
+	// (costPayableClassLife's lifeGrant false): a {B} pip K'rrik could settle
+	// with 2 life is NOT "already paid" by the pool, so the window must open
+	// and let the payer choose an untapped source over the life. Answering
+	// "done" still spends the life through the ordinary payment, which keeps
+	// the grant.
+	if e.costPayableClassLife(pc.player, paymentForCast(pc, mana),
+		pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, mana, false) {
 		return false
 	}
 	var sources []state.ObjID
