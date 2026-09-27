@@ -346,6 +346,16 @@ type Engine struct {
 	// layer-inert events (layercache.go) additionally requires both unchanged.
 	staticVersion int
 	staticObjs    int
+	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
+	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
+	// staticControlWants (control_static.go) calls refreshStaticContinuous
+	// directly -- so the sorted activeBuf can be left describing an older
+	// static list at the same log head and continuousVersion. activeStaticSeq
+	// records the value active() built its buffer with, and both of active()'s
+	// hit paths require the pair to match, exactly as the Derived memo keys on
+	// activeBuildSeq. Never cloned: a clone's zero value rebuilds both.
+	staticBuildSeq  uint64
+	activeStaticSeq uint64
 
 	// sbaQuiet is the state-based-action quiet key (rules/sbaquiet.go): the
 	// board at which the last checkStateBased pass loop applied nothing.

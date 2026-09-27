@@ -2249,15 +2249,19 @@ func (e *Engine) active() []ContinuousEffect {
 	// Cached hit: derived only reads the returned slice, never mutates it, so
 	// every Derived call of a board build shares this one sorted list. The
 	// key is the log head plus the continuous-mutation version; a mismatch
-	// means something the list depends on changed and the cache is stale.
-	if e.activeEpoch == len(e.L.Events) && e.activeVersion == e.continuousVersion {
+	// means something the list depends on changed and the cache is stale. The
+	// static memo's build is part of the key too: staticControlWants refreshes
+	// staticContinuous outside active(), so an unmoved log head and
+	// continuousVersion do not imply an unmoved static list.
+	if e.activeEpoch == len(e.L.Events) && e.activeVersion == e.continuousVersion && e.activeStaticSeq == e.staticBuildSeq {
 		return e.activeBuf
 	}
 	// Layer-inert reuse (layercache.go): the log moved only by events whose
 	// Apply writes nothing active() reads, and neither e.continuous nor the
 	// object table moved, so the cached list is still the answer. Only a
-	// depth-1 call adopts it (a re-entrant build never owns activeBuf).
-	if e.activeDepth == 1 && e.activeVersion == e.continuousVersion && e.activeObjs == len(e.G.Objs) && e.layerInertSince(e.activeEpoch) {
+	// depth-1 call adopts it (a re-entrant build never owns activeBuf). The
+	// static memo's build must still match for the same reason as above.
+	if e.activeDepth == 1 && e.activeVersion == e.continuousVersion && e.activeObjs == len(e.G.Objs) && e.activeStaticSeq == e.staticBuildSeq && e.layerInertSince(e.activeEpoch) {
 		if layerInertVerify {
 			e.verifyInertActive()
 		}
@@ -2297,6 +2301,10 @@ func (e *Engine) active() []ContinuousEffect {
 	// set, and therefore the static memo, untouched — so the two are checked
 	// independently exactly as before.
 	e.refreshStaticContinuous()
+	// Record the static memo build this buffer is built from, after the
+	// refresh: the hit paths above require it, so an out-of-band refresh
+	// (staticControlWants) invalidates this buffer on the next active() call.
+	e.activeStaticSeq = e.staticBuildSeq
 	buf = append(buf, e.staticContinuous...)
 	slices.SortStableFunc(buf, func(a, b ContinuousEffect) int {
 		if a.Layer != b.Layer {
