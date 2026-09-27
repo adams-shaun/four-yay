@@ -8,9 +8,9 @@ import (
 )
 
 // TestBotAttackDeclarationFitsCombinedPhyrexianTax (general; cardfuzz sig
-// "error: seed #, intent #: declaration's attack cost (# life, # taps, #
-// sacrifices, # returns, # Phyrexian) is not payable", off and auto-pay
-// lanes alike): with Norn's Annex out, each attacking creature costs {W/P}.
+// "error: seed #, intent #: declaration's attack cost (# mana, # life, # taps,
+// # sacrifices, # returns, # Phyrexian, unpriceable=#) is not payable", off and
+// auto-pay lanes alike): with Norn's Annex out, each attacking creature costs {W/P}.
 // The offer walk prices every (attacker, defender) pair on its own, so at 4
 // life with no white source each of three attackers is offered (one pip = 2
 // life). The production policy used to declare all three (3 x 2 life = 6 > 4)
