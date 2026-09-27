@@ -943,6 +943,18 @@ func manaAsk(d *decision.Decision, source state.ObjID) bool {
 	return true
 }
 
+// labeledAnyAmount recognises the literal amount wording emitted by the rules
+// mana wheel without coupling to a particular amount or output variant.
+func labeledAnyAmount(tail string) bool {
+	for _, suffix := range []string{" mana of any one color", " mana in any combination of colors"} {
+		word, ok := strings.CutSuffix(tail, suffix)
+		if ok && strings.Contains(" one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty ", " "+word+" ") {
+			return true
+		}
+	}
+	return false
+}
+
 // labelProduction parses the "Add ..." tail of a mana option label.
 func labelProduction(label string) (amt decision.ManaAmount, any bool, combo []int, ok bool) {
 	i := strings.LastIndex(label, "Add ")
@@ -950,7 +962,7 @@ func labelProduction(label string) (amt decision.ManaAmount, any bool, combo []i
 		return amt, false, nil, false
 	}
 	tail := strings.TrimSpace(label[i+len("Add "):])
-	if tail == "any color" {
+	if tail == "any color" || labeledAnyAmount(tail) {
 		return amt, true, nil, true
 	}
 	if strings.Contains(tail, " or ") {
