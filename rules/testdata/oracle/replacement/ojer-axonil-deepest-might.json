@@ -13,6 +13,14 @@
       "expect": [{"life": {"p0": 20, "p1": 16}}]
     },
     {
+      "name": "exact-power-noncombat-damage-is-unchanged",
+      "cr": ["614.1a", "614.6", "120.3a"],
+      "why": "The red source deals exactly four noncombat damage to each player; the replacement applies only when damage to an opponent is less than Ojer's four power, so neither player's four damage changes.",
+      "setup": {"p0": {"battlefield": ["Ojer Axonil, Deepest Might"], "hand": ["Flame Rift"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Flame Rift", "mana": "1R"}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 16, "p1": 16}}]
+    },
+    {
       "name": "exact-power-combat-damage-is-unchanged",
       "cr": ["614.1a", "120.3a"],
       "why": "Ojer's replacement is limited to noncombat damage; its own four combat damage is unchanged, at the exact value of its power.",
