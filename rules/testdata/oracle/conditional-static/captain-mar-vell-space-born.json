@@ -1,0 +1,38 @@
+{
+  "card": "Captain Mar-Vell, Space-Born",
+  "family": "conditional-static",
+  "oracle_sha": "3ff323651411",
+  "author": "cli-20260927T211250Z-95557374 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-cast-this-turn-grants-flash",
+      "cr": ["611.3a", "601.2"],
+      "why": "An opponent has cast a spell this turn, so the permission is active and seat 0 can cast its sorcery during the opponent's turn.",
+      "setup": {
+        "p0": {"hand": ["Lava Spike"], "battlefield": ["Captain Mar-Vell, Space-Born"]},
+        "p1": {"hand": ["Lightning Bolt"]}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "R", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Lava Spike"}, "want": true}]}
+      ],
+      "expect": []
+    },
+    {
+      "name": "no-opponent-cast-this-turn-no-flash",
+      "cr": ["611.3a", "601.2"],
+      "why": "No opponent has cast a spell this turn, so the conditional permission is inactive and the sorcery is not available during seat 1's turn.",
+      "setup": {
+        "p0": {"hand": ["Lava Spike"], "battlefield": ["Captain Mar-Vell, Space-Born"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "mana", "seat": 0, "mana": "R", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Lava Spike"}, "want": false}]}
+      ],
+      "expect": []
+    }
+  ]
+}
