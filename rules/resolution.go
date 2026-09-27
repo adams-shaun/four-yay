@@ -507,10 +507,9 @@ type contFrame struct {
 // (which owns the continuation of the SA it was re-entering) links it once
 // effects.Resolve returns. Always returns true: this engine can always ask.
 func (e *Engine) Ask(d *decision.Decision) bool {
-	// A colour choice posed from inside an off-stack mana resolution (a mana
-	// ability's SubAbility$ Mana | Produced$ Any) has no stack object to park
-	// on: it is carried by the rules-owned mana colour flow instead.
-	if e.askOffStackManaColor(d) {
+	// An ask posed inside an off-stack mana resolution has no stack object to
+	// park on: carry it through the mana activation's own continuation instead.
+	if e.askOffStackMana(d) {
 		return true
 	}
 	obj := state.ObjID(0)

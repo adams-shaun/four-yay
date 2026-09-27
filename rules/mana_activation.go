@@ -95,14 +95,12 @@ type manaColorActivation struct {
 	gained     gainedManaRef
 	sacs       []state.ObjID
 	allocation bool
-	// nested is set when the colour choice was posed by effects.Ask from a
-	// SubAbility$ Mana effect inside an off-stack mana resolution (Gemstone
-	// Caverns' luck-counter DB$ Mana | Produced$ Any): Engine.Ask routed it
-	// here (offStackMana) instead of parking a stack resume point, and the
-	// answer re-enters effects.Resolve at nested with the chosen colour, then
-	// runs the same continuation (triggered mana batch, payment window) the
-	// unsuspended resolution would have run.
+	// nested is set when a colour choice was posed by effects.Ask from a
+	// SubAbility$ Mana effect inside an off-stack mana resolution.
 	nested *cards.SA
+	// nestedResume carries any other ask from that off-stack chain. Its resume
+	// object is the mana source (direct), never the unrelated stack top.
+	nestedResume *resumePoint
 }
 
 // offStackManaFrame is the transient (never stored across a Submit, so never
@@ -110,9 +108,9 @@ type manaColorActivation struct {
 // ability's effect chain, or a CR 605.3b triggered mana ability, resolving
 // synchronously without a stack object. Two things read it:
 //
-//   - Engine.Ask routes a mana_color ask posed inside it into the rules-owned
-//     chooseManaColor flow (act is the continuation template), because a
-//     stack-oriented resume point would re-enter whatever object happens to
+//   - Engine.Ask routes any ask posed inside it into the rules-owned
+//     mana-activation continuation (act is the continuation template), because
+//     a stack-oriented resume point would re-enter whatever object happens to
 //     be on top of the stack (the resolving cumulative-upkeep trigger, or an
 //     unrelated spell) and orphan the mana activation's own continuation --
 //     the payment window then re-asked over it (the ask-overwrote panic).
@@ -132,7 +130,7 @@ type offStackManaFrame struct {
 }
 
 // withOffStackMana runs one synchronous off-stack mana resolution under an
-// offStackManaFrame and reports whether a routed colour ask suspended it.
+// offStackManaFrame and reports whether a routed ask suspended it.
 func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	saved := e.offStackMana
 	f := &offStackManaFrame{act: act, baseResume: e.resume, baseUnless: e.unlessPayment != nil,
@@ -148,16 +146,29 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	return f.asked
 }
 
-// askOffStackManaColor is Engine.Ask's route for a mana_color ask posed from
-// inside an off-stack mana resolution. It reports whether it took the ask.
-func (e *Engine) askOffStackManaColor(d *decision.Decision) bool {
+// askOffStackMana routes every resumable ask from an off-stack mana chain
+// through its own continuation. The synthetic resume point is anchored to the
+// mana source as a direct resolution, not the current stack top.
+func (e *Engine) askOffStackMana(d *decision.Decision) bool {
 	f := e.offStackMana
-	if f == nil || d.ResumeKind != "mana_color" || d.ResumeSA == nil {
+	if f == nil {
 		return false
 	}
 	act := f.act
-	act.nested = d.ResumeSA
-	act.allocation = d.Max > 1
+	act.nested = nil
+	act.nestedResume = nil
+	act.allocation = false
+	if d.ResumeKind == "mana_color" && d.ResumeSA != nil {
+		act.nested = d.ResumeSA
+		act.allocation = d.Max > 1
+	} else {
+		obj := act.source
+		kind := d.ResumeKind
+		if kind == "" {
+			kind = "modes"
+		}
+		act.nestedResume = e.buildAskResume(d, obj, true, kind)
+	}
 	act.triggers = append([]pendingTrigger(nil), f.act.triggers...)
 	e.manaColorActivation = &act
 	f.asked = true
@@ -2318,7 +2329,28 @@ func (e *Engine) answerManaColor(chosen []decision.Option) bool {
 	ma := e.manaColorActivation
 	e.manaColorActivation = nil
 	e.choosing = chooseNone
-	if ma == nil || len(chosen) == 0 || (!ma.allocation && len(chosen) != 1) {
+	if ma == nil {
+		return false
+	}
+	if ma.nestedResume != nil {
+		// Keep the mana frame active during re-entry too: the resumed rider
+		// may itself ask again, and each such ask belongs to this activation,
+		// not to whichever unrelated object is still atop the stack.
+		template := *ma
+		template.nestedResume = nil
+		asked := e.withOffStackMana(template, func() {
+			e.resumeResolution(ma.nestedResume, chosen)
+		})
+		if asked {
+			return ma.cast
+		}
+		if e.pending == nil && e.resume == nil {
+			e.resolveTriggeredManaAbilities(ma.triggers, ma.cast, ma.cumulative)
+			e.continueManaPaymentWindow(ma.cumulative)
+		}
+		return ma.cast
+	}
+	if len(chosen) == 0 || (!ma.allocation && len(chosen) != 1) {
 		return false
 	}
 	var symbols strings.Builder
