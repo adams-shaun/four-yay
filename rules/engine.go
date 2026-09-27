@@ -1645,6 +1645,16 @@ type Engine struct {
 	// resolving. They are synchronous context rather than ManaAdd fields.
 	manaFromTap  bool
 	manaProducer state.ObjID
+	// paymentPlanCarriers memoises the objects whose faces carry a
+	// Taps/TapsForMana trigger or a ProduceMana replacement -- the only
+	// printed text the payment-plan source-interference check must run its
+	// matchers over (rules/payment_plan_interference.go). The key is the
+	// object-arena size plus the log head: a face or zone only changes through
+	// an event or a new object. A pure derived memo, never copied by Clone.
+	paymentPlanCarriers       []state.ObjID
+	paymentPlanCarriersObjs   int
+	paymentPlanCarriersEvents int
+	paymentPlanCarriersValid  bool
 	// stepLeaving is the step transition currently offered to BeginPhase
 	// replacements; parked choices own a value copy.
 	stepLeaving *state.Step
@@ -3256,13 +3266,21 @@ func (e *Engine) EnsurePaymentActions() []decision.PaymentAction {
 		return nil
 	}
 	if !d.PaymentActionsBuilt {
-		actions := e.PaymentActionsForPriority(d.Player, d.Seq)
+		// The pending Options are the list BaseOptionIndex indexes: ask built
+		// them with the same legalActions walk, so the builder reuses them
+		// instead of walking again.
+		gen := e.derivedMemoGen
+		actions := e.paymentActionsForPriority(d.Player, d.Seq, d.Options)
 		d.PaymentActions = (&decision.Decision{PaymentActions: actions}).Clone().PaymentActions
 		d.PaymentActionsBuilt = true
-		// The builder performs derived reads in its own memo generation. Make
-		// that completed read the resumable tail so a later BoardSeat build
-		// can still use BeginDerivedReads without reopening the walk.
-		e.recordDerivedMemoTail(d)
+		// A builder walk performs derived reads in its own memo generation.
+		// Make that completed read the resumable tail so a later BoardSeat
+		// build can still use BeginDerivedReads without reopening the walk.
+		// A build that opened no walk (a declined pool) leaves ask's own
+		// tail, which is still exact, in place.
+		if e.derivedMemoGen != gen {
+			e.recordDerivedMemoTail(d)
+		}
 	}
 	return d.PaymentActions
 }

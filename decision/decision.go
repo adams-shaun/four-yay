@@ -295,6 +295,20 @@ type Option struct {
 	// against the acting player's life total, exactly as it prices CostLife.
 	// omitempty as CostLife.
 	CostPhyrexian int `json:"cost_phyrexian,omitempty"`
+	// TapPoolCost is the declaration-dependent half of a tapXType obligation:
+	// how many of the decision's published tap-candidate pool
+	// (Decision.ChargeTapPool) this option's permanent would occupy if chosen.
+	// A selected attacker that matches the obligation's spec is excluded from
+	// the pool the engine plans the obligation against (Hollow Warrior's
+	// tapXType<1/Creature.!attacking>), so a declaration can consume the very
+	// candidates its own tap obligation needs. The per-option CostTaps alone
+	// cannot express this -- the excluded candidate is the SELECTED creature,
+	// not the charging one -- so the option publishes its own pool cost and
+	// the shared rule (ChargeTapPoolFit) compares the pool the declaration
+	// leaves with the obligations it owes. 0 (omitted) means this option does
+	// not consume a published pool candidate, so every ordinary option list
+	// serialises byte-identically.
+	TapPoolCost int `json:"tap_pool_cost,omitempty"`
 	// Mode distinguishes a "cast" option's payment kind: "" the card's own
 	// cost, "kicked", "surged", "flashback", "miracle" -- what the engine
 	// reads in beginCast's switch. A client renders a kicked/surged/
@@ -400,6 +414,17 @@ type Option struct {
 	// printed and SVar-granted ability). A human client never sees them.
 	GainedSource state.ObjID `json:"-"`
 	GainedIdx    int         `json:"-"`
+	// PlanBacked is server-side only (json:"-") and marks a "cast" option
+	// the seat's auto-pay adapter built as a plan-backed candidate: selecting
+	// it submits a decision.PaymentSelection whose V1 plan performs the mana
+	// activations atomically, so the engine -- not the seat -- decides which
+	// sources tap. The engine never reads it; it exists only so the cast
+	// scorer can price policy features that ask what mana is LEFT after the
+	// cast against producible mana (the offered untapped sources) rather
+	// than the current pool, which a plan decision leaves empty. A human
+	// client never sees it, and every option the ordinary (manual) policy is
+	// offered leaves it false, so the manual arithmetic is byte-identical.
+	PlanBacked bool `json:"-"`
 	// Value is the option's price under a decision carrying a cumulative
 	// budget (Decision.MaxSum): a Dig's WithTotalCMC$ cap sums the mana values
 	// of the picked cards, so each offered card names its own mana value here
@@ -538,6 +563,18 @@ type Decision struct {
 	// cannot be asked, in the same way MaxSum 0 means "no budget" -- so
 	// every decision without a combat charge serialises byte-identically.
 	PayerLife int32 `json:"payer_life,omitempty"`
+	// ChargeTapPool is the number of permanents eligible to pay the
+	// declaration's tapXType obligation(s), measured BEFORE any attacker is
+	// declared -- the pool the obligation draws from. The engine plans the
+	// obligation with the declared attackers set aside, so a declaration that
+	// commits every candidate leaves the obligation unpayable; publishing the
+	// pool (with each option's Option.TapPoolCost) lets a rules-ignorant client
+	// see that in advance and lets ChargeTapPoolFit reject or repair such a
+	// declaration. It is published only when some offered pair carries a
+	// tapXType obligation whose candidates are a single readable shape, so
+	// every ordinary, tap-free declaration serialises byte-identically (0 =
+	// omitted = not published).
+	ChargeTapPool int `json:"charge_tap_pool,omitempty"`
 	// MinSum is the mirror of MaxSum: a cumulative FLOOR over the chosen
 	// options' Value fields -- the sum must REACH it, not stay under it. The
 	// engine's first user is the tap-cost election of a withTotalPowerGE<N>
@@ -1182,6 +1219,17 @@ func (d *Decision) Validate(in Intent) error {
 		if sum < d.MinSum {
 			return fmt.Errorf("choices total %d is below the required sum %d", sum, d.MinSum)
 		}
+	}
+	// The declaration-dependent tap rule (Decision.ChargeTapPool): a
+	// declaration must leave the tapXType obligation a payable pool after the
+	// attackers it commits are set aside. This is a general wire contract, not
+	// a combat rule -- the field says nothing about creatures or attacking,
+	// only that the picked set draws on one shared pool (ChargeTapPool) and
+	// each pick occupies Option.TapPoolCost of it -- so a rules-ignorant client
+	// can enforce it from the published fields alone. ChargeTapPoolFit is the
+	// one home; the engine's board-aware validateAttackers reads it too.
+	if !d.ChargeTapPoolFit(in.Choices) {
+		return fmt.Errorf("choices %v exhaust the tap obligation's candidate pool (%d)", in.Choices, d.ChargeTapPool)
 	}
 	if len(in.Rest) > 0 {
 		if d.Kind != KArrange {

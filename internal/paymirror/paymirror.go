@@ -3,6 +3,7 @@ package paymirror
 import (
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -115,6 +116,11 @@ type RouteResult struct {
 	// Resolved records the post-resolution horizon (Options.Resolve): "" when
 	// not run, "equivalent", "mismatch", or "skipped:<why>".
 	Resolved string `json:"resolved,omitempty"`
+	// HorizonPanic keeps what Resolved's "skipped:panic" class drops: the
+	// side(s) that panicked while the horizon was driven ("A", "mirror" or
+	// "both"), the panic value and a trimmed stack. A panic is never a benign
+	// skip; the summary counts it by HorizonPanicSignature.
+	HorizonPanic string `json:"horizon_panic,omitempty"`
 }
 
 // Report is the result of one mirror check of one planned cast.
@@ -683,10 +689,12 @@ func resolveHorizon(ref, b *rules.Engine, fork int, rep *Report, res *RouteResul
 		return
 	}
 	ra, rb := ref.Clone(), b.Clone()
-	drive := func(e *rules.Engine) (reason string) {
+	var panics [2]string
+	drive := func(e *rules.Engine, side int) (reason string) {
 		defer func() {
 			if r := recover(); r != nil {
 				reason = fmt.Sprintf("panic:%v", r)
+				panics[side] = fmt.Sprintf("%v\n%s", r, trimPanicStack(debug.Stack()))
 			}
 		}()
 		for i := 0; i < 400; i++ {
@@ -706,8 +714,9 @@ func resolveHorizon(ref, b *rules.Engine, fork int, rep *Report, res *RouteResul
 		}
 		return "unbounded"
 	}
-	why := failureClass(drive(ra))
-	whyB := failureClass(drive(rb))
+	why := failureClass(drive(ra, 0))
+	whyB := failureClass(drive(rb, 1))
+	res.HorizonPanic = horizonPanic(panics)
 	if why != "" || whyB != "" {
 		if why != whyB {
 			res.Resolved = "mismatch"
@@ -734,6 +743,109 @@ func resolveHorizon(ref, b *rules.Engine, fork int, rep *Report, res *RouteResul
 	res.Resolved = "mismatch"
 	res.Diffs, res.EventsOnlyA, res.EventsOnlyB = post.Diffs, post.EventsOnlyA, post.EventsOnlyB
 	setPostResolution(res, "")
+}
+
+// horizonPanic names which side of a resolve horizon panicked and keeps its
+// value and trimmed stack ("" when neither did).
+func horizonPanic(p [2]string) string {
+	switch {
+	case p[0] != "" && HorizonPanicSignature(p[0]) == HorizonPanicSignature(p[1]):
+		return "both: " + p[0]
+	case p[0] != "" && p[1] != "":
+		return "A: " + p[0] + "\nmirror: " + p[1]
+	case p[0] != "":
+		return "A: " + p[0]
+	case p[1] != "":
+		return "mirror: " + p[1]
+	}
+	return ""
+}
+
+// HorizonPanicSignature groups a RouteResult.HorizonPanic: its side, the
+// panic value's first line with every digit run folded to "N" (a livelock
+// diagnostic's event sequence numbers differ between otherwise identical
+// panics, and between A and the mirror) and the innermost non-runtime
+// frame's function.
+func HorizonPanicSignature(hp string) string {
+	if hp == "" {
+		return ""
+	}
+	lines := strings.Split(hp, "\n")
+	sig := foldDigits(lines[0])
+	if len(sig) > 160 {
+		sig = sig[:160]
+	}
+	for _, l := range lines[1:] {
+		if strings.HasPrefix(l, "  at ") {
+			f := strings.TrimPrefix(l, "  at ")
+			if i := strings.IndexByte(f, ' '); i >= 0 {
+				f = f[:i]
+			}
+			return sig + " @ " + f
+		}
+	}
+	return sig
+}
+
+// foldDigits replaces every run of ASCII digits in s with "N".
+func foldDigits(s string) string {
+	var b strings.Builder
+	digits := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= '0' && c <= '9' {
+			if !digits {
+				b.WriteByte('N')
+			}
+			digits = true
+			continue
+		}
+		digits = false
+		b.WriteByte(c)
+	}
+	return b.String()
+}
+
+// maxPanicFrames bounds a trimmed panic stack.
+const maxPanicFrames = 14
+
+// trimPanicStack reduces a debug.Stack dump to the frames below the panic
+// call, one "  at <func> <file>:<line>" line per frame, with the runtime's
+// own frames and the goroutine header dropped and paths cut to the module.
+func trimPanicStack(stack []byte) string {
+	lines := strings.Split(strings.TrimRight(string(stack), "\n"), "\n")
+	start := 0
+	for i, l := range lines {
+		if strings.HasPrefix(l, "panic(") {
+			start = i + 2 // the innermost panic: the dump runs innermost-first
+			break
+		}
+	}
+	var out []string
+	for i := start; i+1 < len(lines) && len(out) < maxPanicFrames; i += 2 {
+		fn := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(fn, "runtime.") || strings.HasPrefix(fn, "goroutine ") {
+			continue
+		}
+		if j := strings.LastIndexByte(fn, '('); j > 0 {
+			fn = fn[:j]
+		}
+		fn = strings.TrimPrefix(fn, "github.com/adams-shaun/gorge/")
+		loc := strings.TrimSpace(lines[i+1])
+		if j := strings.Index(loc, " +0x"); j >= 0 {
+			loc = loc[:j]
+		}
+		if k := strings.Index(loc, "/.worktrees/"); k >= 0 {
+			rest := loc[k+len("/.worktrees/"):]
+			if j := strings.IndexByte(rest, '/'); j >= 0 {
+				loc = rest[j+1:]
+			}
+		} else if j := strings.Index(loc, "/gorge/"); j >= 0 {
+			loc = loc[j+len("/gorge/"):]
+		}
+		out = append(out, "  at "+fn+" "+loc)
+	}
+	return strings.Join(out, "\n")
 }
 
 // failureClass strips a horizon failure to its class ("panic:livelock
@@ -810,6 +922,14 @@ func mapAnswer(r Recorded, d *decision.Decision) (choices, rest []int, note stri
 		}
 		k := optionIdentity(r.Options[i])
 		cands := byID[k]
+		if len(cands) == 0 {
+			return 0, false
+		}
+		if d.Kind == decision.KModes {
+			// CanRepeatModes allows a mode option to be selected more than once;
+			// map each repeated choice to the same mirror option.
+			return cands[0], true
+		}
 		if used[k] >= len(cands) {
 			return 0, false
 		}

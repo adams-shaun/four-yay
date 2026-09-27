@@ -694,6 +694,22 @@ export interface Option {
    */
   cost_phyrexian?: number;
   /**
+   * TapPoolCost is the declaration-dependent half of a tapXType obligation:
+   * how many of the decision's published tap-candidate pool
+   * (Decision.ChargeTapPool) this option's permanent would occupy if chosen.
+   * A selected attacker that matches the obligation's spec is excluded from
+   * the pool the engine plans the obligation against (Hollow Warrior's
+   * tapXType<1/Creature.!attacking>), so a declaration can consume the very
+   * candidates its own tap obligation needs. The per-option CostTaps alone
+   * cannot express this -- the excluded candidate is the SELECTED creature,
+   * not the charging one -- so the option publishes its own pool cost and
+   * the shared rule (ChargeTapPoolFit) compares the pool the declaration
+   * leaves with the obligations it owes. 0 (omitted) means this option does
+   * not consume a published pool candidate, so every ordinary option list
+   * serialises byte-identically.
+   */
+  tap_pool_cost?: number;
+  /**
    * Mode distinguishes a "cast" option's payment kind: "" the card's own
    * cost, "kicked", "surged", "flashback", "miracle" -- what the engine
    * reads in beginCast's switch. A client renders a kicked/surged/
@@ -975,6 +991,20 @@ export interface Decision {
    * every decision without a combat charge serialises byte-identically.
    */
   payer_life?: number;
+  /**
+   * ChargeTapPool is the number of permanents eligible to pay the
+   * declaration's tapXType obligation(s), measured BEFORE any attacker is
+   * declared -- the pool the obligation draws from. The engine plans the
+   * obligation with the declared attackers set aside, so a declaration that
+   * commits every candidate leaves the obligation unpayable; publishing the
+   * pool (with each option's Option.TapPoolCost) lets a rules-ignorant client
+   * see that in advance and lets ChargeTapPoolFit reject or repair such a
+   * declaration. It is published only when some offered pair carries a
+   * tapXType obligation whose candidates are a single readable shape, so
+   * every ordinary, tap-free declaration serialises byte-identically (0 =
+   * omitted = not published).
+   */
+  charge_tap_pool?: number;
   /**
    * MinSum is the mirror of MaxSum: a cumulative FLOOR over the chosen
    * options' Value fields -- the sum must REACH it, not stay under it. The

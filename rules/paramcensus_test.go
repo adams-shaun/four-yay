@@ -1575,6 +1575,14 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.paymentPlanManaUnits":        {"Mana"},
 	"Engine.paymentPlanUnitAlternatives": {"Mana"},
 	"Engine.paymentPlanChoiceColours":    {"Mana"},
+	// The payment-plan source-interference check (ticket
+	// aph-interference-scope, rules/payment_plan_interference.go) is reached
+	// only from paymentPlanAbilityTier, i.e. for an AB$ Mana candidate: it
+	// reads that ability's Cost$ (does it tap?) and Produced$ (the concrete
+	// productions its hypothetical tap proposes to the trigger and
+	// replacement matchers), never another API's.
+	"Engine.paymentPlanSourceInterference": {"Mana"},
+	"Engine.paymentPlanProductions":        {"Mana"},
 	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk),
 	// the per-mode target declaration (modalTargetSA), the resume-side mode
 	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
@@ -1769,6 +1777,12 @@ var handRoots = struct {
 		"ReduceCost":   {"Engine.costModifiersWithTargets", "Engine.costModifiersWithTargetsX", "Engine.paymentPlanHasTargetDependentModifier"},
 		"SetCost":      {"Engine.paymentPlanHasTargetDependentModifier"},
 		"OptionalCost": {"Engine.optionalCostViews"},
+		// paymentPlanManaConvertName (payment_plan_interference.go) names the
+		// restricting ManaConvert static behind a global auto-pay decline: it
+		// walks manaConvPrintedSources and the active ManaConvert statics
+		// directly, reading ValidPlayer$ and ManaConversion$ like
+		// manaConversionParts does.
+		"ManaConvert": {"Engine.manaConversionParts", "Engine.paymentPlanManaConvertName"},
 		// staticEffects filters on st.Mode != "Continuous" before reading.
 		// activeStatics (the battlefield-only restriction collector) and
 		// collectActionStatics (the AddAbility$ mana-grant membership walk)

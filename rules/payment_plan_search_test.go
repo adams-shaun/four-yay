@@ -2,8 +2,10 @@ package rules
 
 import (
 	"fmt"
+	"math/bits"
 	"math/rand/v2"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -59,11 +61,12 @@ func srchSpell(cost string) string {
 //   - a prefix whose pool plus everything the rest of the board could add is
 //     below the cost's total, or below one colour's requirement, cannot pay.
 func paymentPlanSearchOracle(e *Engine, p state.PlayerID, cost Cost) (*decision.PaymentPlan, int) {
-	units := e.paymentPlanManaUnits(p)
-	choices := make([][]plannedManaActivation, len(units))
-	for i, u := range units {
-		choices[i] = e.paymentPlanUnitAlternatives(u)
-	}
+	return paymentPlanSearchOracleOver(e, p, cost, e.paymentPlanQueryChoices(p))
+}
+
+// paymentPlanSearchOracleOver is the oracle over an explicit alternative
+// table (one entry per unit, in unit order).
+func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices [][]plannedManaActivation) (*decision.PaymentPlan, int) {
 	ctx := newPaymentPlanRankContext(choices)
 	pool := e.G.Players[p].Pool
 	life := e.G.Players[p].Life
@@ -572,4 +575,124 @@ func TestPaymentPlanSearchMatchesOracleOnRandomBoards(t *testing.T) {
 		}
 	}
 	t.Logf("random boards: %d planned and %d insufficient costs agree with the oracle", planned, none)
+}
+
+// srchPhaseTwoChoices is the alternative table a phase-2 search sees (spec 5:
+// normal plus last-resort alternatives), in paymentPlanUnitAlternatives'
+// exact shape but keeping each last-resort alternative with the consequence
+// the real classifier (paymentPlanAbilityTier, interference included)
+// reports. aph-last-resort-plans wires phase 2; this only lets the search's
+// irreversible-cost level be checked against the oracle with real tiers.
+func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]plannedManaActivation {
+	t.Helper()
+	units := e.paymentPlanManaUnits(p)
+	choices := make([][]plannedManaActivation, len(units))
+	for i, u := range units {
+		var out []plannedManaActivation
+		for _, alt := range u.alts {
+			tier, consequence, _ := e.paymentPlanAbilityTier(p, u.id, alt.ma)
+			if tier == paymentTierDeferred || !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
+				continue
+			}
+			ab, ok := e.paymentAbility(u.id, alt.ma)
+			if !ok {
+				continue
+			}
+			base := plannedManaActivation{activation: decision.PaymentActivation{Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab},
+				creature: e.IsCreature(u.id), ma: alt.ma, exec: alt.ma, tier: tier, consequence: consequence}
+			if paymentPlanAltOK(alt) {
+				base.mana = alt.mana()
+				base.activation.Produces = paymentManaAmount(base.mana)
+				out = append(out, base)
+				continue
+			}
+			if !alt.any || alt.amt <= 0 {
+				continue
+			}
+			for _, col := range e.paymentPlanChoiceColours(u.id, alt.ma) {
+				a := base
+				a.mana = state.Mana{}
+				a.mana[strings.IndexByte("WUBRG", col[0])] = alt.amt
+				a.activation.Produces = paymentManaAmount(a.mana)
+				a.exec = withProduced(alt.ma, alt.ma, col)
+				out = append(out, a)
+			}
+		}
+		var types uint8
+		for _, a := range out {
+			for k, n := range a.mana {
+				if n > 0 {
+					types |= 1 << k
+				}
+			}
+		}
+		for k := range out {
+			out[k].flex = bits.OnesCount8(types)
+			out[k].colours = types &^ (1 << state.MC)
+		}
+		choices[i] = out
+	}
+	return choices
+}
+
+// The search's irreversible-cost level against the oracle with real
+// interference tiers: City of Brass (last resort, damage:1 from its own Taps
+// trigger) and Mana Vault (last resort, no_untap from its own Untap
+// replacement), classified by the merged classifier, next to normal lands.
+// Phase 1 excludes both (TestPaymentPlanInterferenceOwnCityAndVaultAreLastResort);
+// a phase-2 table keeps them, and the search must pick exactly the oracle's
+// plan, including when a last-resort source is needed and when two Cities
+// (3+3) must be preferred to one Vault (25).
+func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
+	e, _, _ := newFixtureDeck(t, 9996, srchSpell("U"))
+	onBoard(t, e, 0, srchIsland)
+	onBoardCard(t, e, 0, corpusCard(t, "City of Brass"))
+	onBoard(t, e, 0, srchMountain)
+	vault := onBoardCard(t, e, 0, corpusCard(t, "Mana Vault"))
+	e.G.Obj(vault).SummonSick = false
+	onBoardCard(t, e, 0, corpusCard(t, "City of Brass"))
+	onBoard(t, e, 0, srchVolcanic)
+	choices := srchPhaseTwoChoices(t, e, 0)
+	var consequences []paymentConsequence
+	for _, alts := range choices {
+		for _, a := range alts {
+			if a.tier == paymentTierLastResort && !slices.Contains(consequences, a.consequence) {
+				consequences = append(consequences, a.consequence)
+			}
+		}
+	}
+	if !slices.Contains(consequences, paymentConsequence{damage: 1}) || !slices.Contains(consequences, paymentConsequence{noUntap: true}) {
+		t.Fatalf("phase-2 table consequences = %+v, want damage:1 (City of Brass) and no_untap (Mana Vault)", consequences)
+	}
+	pool, life := e.G.Players[0].Pool, e.G.Players[0].Life
+	lastResort, vaultUsed := 0, 0
+	for _, s := range []string{"U", "W", "W B", "3", "4", "5", "6", "7", "U R", "1 W", "2 G", "W U B", "3 U", "C C", "8", "W W W"} {
+		cost := srchCost(t, s)
+		want, _ := paymentPlanSearchOracleOver(e, 0, cost, choices)
+		got := searchPaymentPlan(cost, pool, life, newPaymentPlanRankContext(choices), choices, paymentPlanClasses(choices))
+		if got.limited {
+			t.Fatalf("{%s}: search hit the node budget", s)
+		}
+		if want == nil {
+			if got.best != nil {
+				t.Fatalf("{%s}: search found %+v, oracle none", s, got.best)
+			}
+			continue
+		}
+		if got.best == nil || !reflect.DeepEqual(*got.best, *want) {
+			t.Fatalf("{%s}: search differs from the oracle (%d nodes)\nsearch: %+v\noracle: %+v", s, got.nodes, got.best, want)
+		}
+		if got.bestRank.cost > 0 {
+			lastResort++
+		}
+		for _, a := range got.best.Activations {
+			if a.Source == vault {
+				vaultUsed++
+			}
+		}
+		t.Logf("{%s}: %d steps, irreversible cost %d, nodes %d", s, len(got.best.Activations), got.bestRank.cost, got.nodes)
+	}
+	if lastResort == 0 || vaultUsed == 0 {
+		t.Fatalf("%d plans used a last-resort source, %d used the Vault: the cost level was not exercised", lastResort, vaultUsed)
+	}
 }

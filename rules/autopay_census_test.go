@@ -1142,7 +1142,7 @@ func (cz *autopayCensus) evalActivated(row *censusRow) {
 	row.v1Structural = yn(structural == "ok" && !intf && zone == state.ZBattlefield && !e.instantSpeedOnly(ma))
 	switch {
 	case member && intf:
-		row.v1Eligible, row.v1Reason = "N", "paymentPlanManaInterference (the source itself carries a tap/mana trigger or replacement)"
+		row.v1Eligible, row.v1Reason = "N", "paymentPlanManaInterference (a global mana effect reaches the payer)"
 	case member:
 		row.v1Eligible = "Y"
 		if structural != "ok" {
@@ -1887,10 +1887,19 @@ func (cz *autopayCensus) writeSummary(path string, rows []censusRow) {
 	}
 }
 
-// censusInterferenceReasons mirrors paymentPlanManaInterference's printed-face
-// scan for one face: every trigger mode and replacement event that trips it.
+// censusInterferenceReasons names one face's tap/mana text: every
+// Taps/TapsForMana trigger mode and every replacement event naming mana or a
+// tap (the pre-aph-interference-scope whole-board scan, kept so a killswitch
+// row still says which line a decline would come from), plus a ManaConvert
+// static -- the one printed shape paymentPlanGlobalManaEffect treats as
+// global.
 func censusInterferenceReasons(f *cards.Face) []string {
 	var out []string
+	for _, st := range f.Statics {
+		if st.Mode == "ManaConvert" {
+			out = append(out, "static:ManaConvert")
+		}
+	}
 	for _, t := range f.Triggers {
 		if t.Mode == "Taps" || t.Mode == "TapsForMana" {
 			out = append(out, "trigger:"+t.Mode)
@@ -1958,8 +1967,8 @@ func (cz *autopayCensus) writeKillSwitches(csvPath, mdPath string) {
 				switch {
 				case e.paymentPlanManaInterference():
 					reason = "mana-interference"
-				case e.sunburstGrantOut():
-					reason = "cast-shape gate: Sunburst mention (sunburstGrantOut)"
+				case e.paymentPlanSunburstGrantOut():
+					reason = "cast-shape gate: Sunburst grant (paymentPlanSunburstGrantOut)"
 				case e.triggeredConvergeReaderOut():
 					reason = "cast-shape gate: converge reader (triggeredConvergeReaderOut)"
 				case e.triggeredCastSpendReaderOut():

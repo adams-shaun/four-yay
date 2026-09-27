@@ -191,6 +191,11 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 	// IsMain itself.
 	b.FirstMain = g.Step == state.StepMain1
 	b.MyTurn = g.Active == me
+	// The exact engine step (the cast scorer's timing features): the game
+	// half reads g.Step directly; the view half parses the projected
+	// View.Step string (view/view.go sets it to g.Step.String()) back
+	// through state.ParseStep, so both halves name the same step.
+	b.Step = g.Step
 	b.Pool = g.Players[me].Pool
 	b.PoolRestricted = RestrictedPool(g.Players[me].RestrictedMana)
 	b.LibrarySize = int32(len(g.Zone(state.ZLibrary, me)))

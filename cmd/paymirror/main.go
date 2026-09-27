@@ -26,6 +26,30 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
+func writeReportFinding(enc *json.Encoder, spec paymirror.GameSpec, report *paymirror.Report) error {
+	return enc.Encode(map[string]any{"spec": spec, "report": report})
+}
+
+func hasRouteMismatch(r *paymirror.Report) bool {
+	for _, route := range r.Routes {
+		if route.Status == paymirror.Mismatch {
+			return true
+		}
+	}
+	return false
+}
+
+// hasHorizonPanic reports a route whose resolve horizon panicked: its
+// verdict can still be equivalent, but the panic is a finding.
+func hasHorizonPanic(r *paymirror.Report) bool {
+	for _, route := range r.Routes {
+		if route.HorizonPanic != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	dir := flag.String("dir", ".cards", "corpus directory (holds ir.gob.gz / cardsfolder)")
 	games := flag.Int("games", 10, "games per (format, seat count) configuration")
@@ -152,10 +176,15 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 			for _, r := range g.Reports {
 				st, _ := r.Verdict()
 				controlBad := r.Control != nil && r.Control.Status != paymirror.Equivalent
-				if st == paymirror.Equivalent && !controlBad && !trace {
+				if st == paymirror.Equivalent && !controlBad && !hasRouteMismatch(r) && !hasHorizonPanic(r) && !trace {
 					continue
 				}
-				_ = enc.Encode(map[string]any{"spec": g.Spec, "report": r})
+				_ = writeReportFinding(enc, g.Spec, r)
+				for _, rr := range r.Routes {
+					if rr.Status == paymirror.Mismatch {
+						sum.AddRouteMismatchExample(rr.Route, fmt.Sprintf("seed=%d seq=%d card=%q signature=%q", g.Spec.Seed, r.Seq, r.Card, rr.Signature))
+					}
+				}
 			}
 			if findings != nil {
 				_ = findings.Flush()
@@ -202,6 +231,7 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 
 	flush()
 	sum.Write(stdout)
+	sum.WriteRouteMismatchExamples(stdout)
 	if out != "" {
 		f, err := os.Create(filepath.Join(out, "summary.txt"))
 		if err != nil {
@@ -209,6 +239,7 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 		}
 		defer f.Close()
 		sum.Write(f)
+		sum.WriteRouteMismatchExamples(f)
 	}
 	return nil
 }
