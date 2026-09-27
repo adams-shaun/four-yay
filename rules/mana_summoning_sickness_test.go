@@ -10,8 +10,21 @@ import (
 func TestAutopayFPSummoningSickRealFlow(t *testing.T) {
 	elfSrc := "Name:Real Elf\nManaCost:G\nTypes:Creature Elf Druid\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ Add {G}.\nOracle:x\n"
 	e, _, elf := newFixtureDeck(t, 9821, elfSrc)
+	forest := onBoard(t, e, 0, "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n")
 	toMain1(t, e)
-	e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "G", Amount: 1})
+	e.pending = nil
+	e.askPriority(0)
+	forestIdx := -1
+	for _, o := range e.Pending().Options {
+		if o.Kind == "activate" && o.Obj == forest {
+			forestIdx = o.Index
+			break
+		}
+	}
+	if forestIdx < 0 {
+		t.Fatalf("Forest mana ability not offered: %+v", e.Pending().Options)
+	}
+	submitChoices(t, e, forestIdx)
 	e.pending = nil
 	e.askPriority(0)
 	idx := -1
@@ -31,7 +44,11 @@ func TestAutopayFPSummoningSickRealFlow(t *testing.T) {
 	probe := e.G.AddObject(card(t, "Name:Green Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n"), 0)
 	probe.Zone = state.ZHand
 	e.G.SetZone(state.ZHand, 0, append(e.G.Zone(state.ZHand, 0), probe.ID))
-	if a, ok := fpPlanUses(e.PlanCastPayment(0, paymentCast(probe.ID)), elf); ok {
+	plan := e.PlanCastPayment(0, paymentCast(probe.ID))
+	if plan.Plan != nil || plan.Reason != "insufficient" {
+		t.Errorf("V1 plan = %#v, want insufficient without the sick elf", plan)
+	}
+	if a, ok := fpPlanUses(plan, elf); ok {
 		t.Errorf("V1 plan taps the elf cast this turn: %+v", a)
 	}
 	e.pending = nil
@@ -80,6 +97,12 @@ func TestManaAbilitySummoningSickness(t *testing.T) {
 			if got := len(e.availableManaAbilitiesForWindow(0, id, true)) != 0; got != tc.wantSource {
 				t.Fatalf("priority mana membership = %v, want %v", got, tc.wantSource)
 			}
+			// The CR 601.2g cast-payment window is the same membership set with
+			// the InstantSpeed$-restricted abilities withheld; a sick creature
+			// must be absent there too, not only in the priority offer.
+			if got := len(e.availableManaAbilitiesForWindow(0, id, false)) != 0; got != tc.wantSource {
+				t.Fatalf("cast-payment-window mana membership = %v, want %v", got, tc.wantSource)
+			}
 			mana := e.AvailableMana(0)
 			if (mana.Total() > 0) != tc.wantSource {
 				t.Fatalf("AvailableMana = %v, want source present=%v", mana, tc.wantSource)
@@ -99,6 +122,33 @@ func TestManaAbilitySummoningSickness(t *testing.T) {
 	}
 
 	e := layerEngine(t)
+	qElf := onBoard(t, e, 0, "Name:Q Elf\nTypes:Creature Elf\nA:AB$ Mana | Cost$ Q | Produced$ G\nOracle:x\n")
+	e.emit(events.Event{Kind: events.Tap, Obj: qElf, Player: 0})
+	if got := e.availableManaAbilitiesForWindow(0, qElf, true); len(got) != 0 {
+		t.Fatalf("summoning-sick tapped creature's {Q} mana ability is available: %+v", got)
+	}
+	if cost := e.parseCost("Q"); !cost.Untap || cost.Generic != 0 {
+		t.Fatalf("{Q} parsed as %#v, want an untap cost without generic mana", cost)
+	}
+	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})
+	e.pending = nil
+	e.askPriority(0)
+	qIndex := -1
+	for _, option := range e.Pending().Options {
+		if option.Kind == "activate" && option.Obj == qElf {
+			qIndex = option.Index
+			break
+		}
+	}
+	if qIndex < 0 {
+		t.Fatalf("non-sick tapped creature's {Q} ability was not offered: %+v", e.Pending().Options)
+	}
+	submitChoices(t, e, qIndex)
+	if e.G.Obj(qElf).Tapped || e.G.Players[0].Pool.Total() != 1 {
+		t.Fatalf("{Q} payment left tapped=%v mana=%v, want untapped and {G}", e.G.Obj(qElf).Tapped, e.G.Players[0].Pool)
+	}
+
+	e = layerEngine(t)
 	elf := onBoard(t, e, 0, "Name:Turn Elf\nTypes:Creature Elf\nA:AB$ Mana | Cost$ T | Produced$ G\nOracle:x\n")
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})
 	if e.G.Obj(elf).SummonSick {

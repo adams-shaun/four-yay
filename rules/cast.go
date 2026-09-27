@@ -1788,7 +1788,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 				return false
 			}
 		}
-		if cost.Tap && o.Tapped {
+		if activationTapCostUnavailable(o, cost) {
 			return false
 		}
 	} else if len(cost.SubCounter) > 0 || cost.Tap {
@@ -9694,6 +9694,9 @@ func (e *Engine) payCast() {
 			}
 		}
 		e.emitChoiceCosts(pc)
+		if pc.cost.Untap {
+			e.emit(events.Event{Kind: events.Untap, Obj: pc.card, Player: pc.player, Text: "untapped as a cost"})
+		}
 		if pc.cost.Tap {
 			// The {T} cost's payer taps the permanent (Forge CostTap). This
 			// MUST come before settlePutToLibCost: a self-placement cost that

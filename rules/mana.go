@@ -142,6 +142,7 @@ type Cost struct {
 	HybridPhyrexian []HybridPhyrexian
 	Snow            int32
 	Tap             bool
+	Untap           bool
 	Sac             []CostPart
 	Discard         []CostPart
 	SubCounter      []CostPart
@@ -613,6 +614,8 @@ func ParseCost(s string) Cost {
 		switch {
 		case sym == "T":
 			c.Tap = true
+		case sym == "Q":
+			c.Untap = true
 		case sym == "X":
 			c.X++
 		case sym == "S":
@@ -1378,6 +1381,7 @@ func (c Cost) Plus(d Cost) Cost {
 		c.XMin = d.XMin
 	}
 	c.Tap = c.Tap || d.Tap
+	c.Untap = c.Untap || d.Untap
 	if len(d.Hybrid) > 0 {
 		c.Hybrid = append(append([]ManaPair(nil), c.Hybrid...), d.Hybrid...)
 	}
@@ -1963,6 +1967,9 @@ func formatCost(c Cost) string {
 	if c.Tap {
 		parts = append(parts, "T")
 	}
+	if c.Untap {
+		parts = append(parts, "Q")
+	}
 	for _, part := range c.Energy {
 		if part.Spec == "X" {
 			parts = append(parts, "PayEnergy<X>")
@@ -2084,6 +2091,9 @@ func costPhrase(c Cost) string {
 	}
 	if c.Tap {
 		clauses = append(clauses, "tap this permanent")
+	}
+	if c.Untap {
+		clauses = append(clauses, "untap this permanent")
 	}
 	if c.Life > 0 {
 		clauses = append(clauses, "pay "+strconv.FormatInt(int64(c.Life), 10)+" life")
@@ -2352,6 +2362,7 @@ func capitaliseFirst(s string) string {
 // windows the client's empty-priority-window floor may pass away unseen.
 func manaCostBeyondTap(c Cost) bool {
 	c.Tap = false
+	c.Untap = false
 	if c.Generic > 0 || c.X > 0 || c.Snow > 0 || c.Colored != (state.Mana{}) {
 		return true
 	}
@@ -2467,7 +2478,7 @@ func costAnnouncesCastX(c Cost) bool {
 // even though it takes no payment), so a caller using this to skip the
 // cast-flow stages is told the truth.
 func (c Cost) HasNonMana() bool {
-	return c.Life > 0 || c.Tap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
+	return c.Life > 0 || c.Tap || c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
 }
 
 // Priceable reports whether payMana can actually charge every part of this
@@ -2485,7 +2496,7 @@ func (c Cost) HasNonMana() bool {
 // payMana with a payer" question the mid-resolution unless-pay answer asks
 // before trusting the pool and life total.
 func (c Cost) Priceable() bool {
-	return c.X == 0 && !c.Tap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 &&
+	return c.X == 0 && !c.Tap && !c.Untap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 &&
 		len(c.Draw) == 0 && len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
 		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
 		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
