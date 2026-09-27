@@ -16,7 +16,7 @@ import (
 // only Option.Value/MaxSum, never the wire's CostPhyrexian -- so the
 // production policy's charge guard trimmed the declaration to two and
 // FitRequired restored the third, and Submit rejected the whole declaration
-// ("... 3 Phyrexian) is not payable"). host.runMatch turns that rejection into
+// ("... 3 Phyrexian, unpriceable=false) is not payable"). host.runMatch turns that rejection into
 // a crashed table. The quota and FitRequired now derive from the same
 // charge-feasible required core, so the policy's declaration is accepted.
 //
