@@ -2501,9 +2501,17 @@ func (e *Engine) typeCharacteristicsActive(act []ContinuousEffect, id state.ObjI
 			ty = kept
 		}
 		if len(ce.RemoveTypes) > 0 {
+			currentTypes := append([]string(nil), ty...)
 			kept := ty[:0]
 			for _, t := range ty {
-				if !slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool { return strings.EqualFold(t, remove) }) {
+				remove := false
+				for _, removedType := range ce.RemoveTypes {
+					if strings.EqualFold(t, removedType) || removedSubtype(t, removedType, currentTypes, e.G.NameUniverse) {
+						remove = true
+						break
+					}
+				}
+				if !remove {
 					kept = append(kept, t)
 				}
 			}
@@ -2581,6 +2589,96 @@ func corpusLandTypeWords(universe []*cards.Card) []string {
 	}
 	landTypeWordsCache.m[k] = out
 	return out
+}
+
+// removedSubtypeCache memoises subtype ownership in the compiled corpus. The
+// derived type list is flat, so this relation lets RemoveType$ remove subtypes
+// of a removed card type without deleting a subtype shared by another type.
+var removedSubtypeCache struct {
+	mu sync.Mutex
+	m  map[landTypeWordsKey]map[string]map[string]struct{}
+}
+
+func removedSubtype(word, removedType string, current []string, universe []*cards.Card) bool {
+	knownCreatureSubtype := strings.EqualFold(removedType, "Creature") && effects.CreatureTypeWords(word)
+	if isCardType(word) || isSupertype(word) {
+		return false
+	}
+	if len(universe) == 0 {
+		return knownCreatureSubtype || noOtherCardType(current, removedType)
+	}
+	key := landTypeWordsKey{first: &universe[0], n: len(universe)}
+	removedSubtypeCache.mu.Lock()
+	byType := removedSubtypeCache.m[key]
+	removedSubtypeCache.mu.Unlock()
+	if byType == nil {
+		byType = buildRemovedSubtypeMap(universe)
+		removedSubtypeCache.mu.Lock()
+		if removedSubtypeCache.m == nil {
+			removedSubtypeCache.m = make(map[landTypeWordsKey]map[string]map[string]struct{})
+		}
+		if cached := removedSubtypeCache.m[key]; cached != nil {
+			byType = cached
+		} else {
+			if len(removedSubtypeCache.m) >= 64 {
+				removedSubtypeCache.m = nil
+			}
+			removedSubtypeCache.m[key] = byType
+		}
+		removedSubtypeCache.mu.Unlock()
+	}
+	_, knownSubtype := byType[strings.ToLower(removedType)][strings.ToLower(word)]
+	knownSubtype = knownSubtype || knownCreatureSubtype
+	for _, typ := range current {
+		if isCardType(typ) && !strings.EqualFold(typ, removedType) {
+			if _, shared := byType[strings.ToLower(typ)][strings.ToLower(word)]; shared {
+				return false
+			}
+		}
+	}
+	// A subtype introduced by a synthetic/test card may be absent from the
+	// pinned corpus vocabulary. With no other card type remaining, it still
+	// belongs to the removed type and must leave with it.
+	return knownSubtype || noOtherCardType(current, removedType)
+}
+
+func noOtherCardType(types []string, removedType string) bool {
+	for _, typ := range types {
+		if isCardType(typ) && !strings.EqualFold(typ, removedType) {
+			return false
+		}
+	}
+	return true
+}
+
+func buildRemovedSubtypeMap(universe []*cards.Card) map[string]map[string]struct{} {
+	byType := make(map[string]map[string]struct{})
+	for _, card := range universe {
+		if card == nil {
+			continue
+		}
+		for _, face := range card.Faces {
+			if face == nil {
+				continue
+			}
+			for _, typ := range face.Types {
+				if !isCardType(typ) {
+					continue
+				}
+				set := byType[strings.ToLower(typ)]
+				if set == nil {
+					set = make(map[string]struct{})
+					byType[strings.ToLower(typ)] = set
+				}
+				for _, word := range face.Types {
+					if !isCardType(word) && !isSupertype(word) {
+						set[strings.ToLower(word)] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	return byType
 }
 
 func buildCorpusLandTypeWords(universe []*cards.Card) []string {
