@@ -103,7 +103,11 @@ func (e *Engine) paymentPlanCastShapeDetail(p state.PlayerID, id state.ObjID) st
 	// Cost$ on the spell ability and the supported cost-static extra are both
 	// additional costs; neither is represented by a mana-only plan witness.
 	mods := e.costModifiersWithTargets(p, id, spellScope(""), nil, false)
-	if paymentPlanCostDetail(withSpellAbilityExtras(f, Cost{})) != "" || len(mods.extra.Blight) != 0 {
+	spellCost := Cost{}
+	if sa := f.SpellAbility(); sa != nil {
+		spellCost = e.parseCost(sa.Params["Cost"])
+	}
+	if paymentPlanCostDetail(spellCost) != "" || paymentPlanCostDetail(withSpellAbilityExtras(f, Cost{})) != "" || len(mods.extra.Blight) != 0 {
 		return "shape:additional_cost"
 	}
 	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || f.HasKeyword("Delve") {
