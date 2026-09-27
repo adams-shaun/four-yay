@@ -67,6 +67,11 @@
 // Where several priority-wheel options produce the witness's mana (a source
 // that gained the same "Add {R}" from two cards), the float route picks the
 // member run A activated (its ManaActivate marker), trying each on a clone.
+// Where no label can name the witness -- the wheel spells a non-literal
+// Amount$ as the bare pip, so Urza's Workshop's metalcraft ability and
+// Itlimoc's "Add {G} for each creature you control" both read "Add C"/"Add
+// G" beside their plain ability -- the float accepts a single-pip option only
+// once a clone proves it produces exactly the witness.
 //
 // Two games that both ended inside the transaction are equivalent when their
 // outcome (winner/draw and the set of losers) is equal.
@@ -146,6 +151,20 @@
 //	follow_up_names_float_spent_source  run A targeted (CR 601.2c) a source its own
 //	                                    payment then sacrificed (CR 601.2g-h); the float
 //	                                    spent it before the cast, so it is no target
+//	float_removed_every_target          every target run A was offered for the spell
+//	                                    (or for the mode it chose) is a source the float
+//	                                    sacrificed, or -- for the spell's own target --
+//	                                    no longer targetable with the spell's census
+//	                                    empty (Vintara Snapper's shroud once its
+//	                                    controller's last land is tapped): the cast
+//	                                    (CR 601.2c) or the mode (CR 700.2a) is not
+//	                                    offered; A's target became illegal only after
+//	                                    it was chosen (CR 608.2b at resolution)
+//
+// A CR 603.3b trigger-order ask whose extra options in run A are exactly
+// triggers the float already put on the stack is answered with A's order over
+// the remaining options; the route's end state must then pass
+// floatTriggerOnly (float_trigger_precedes_cast) or it stays a mismatch.
 //
 // Not excluded, and therefore compared: everything else, including the log-
 // derived engine tallies rules reads later (manaExpended, tappedTurn,
