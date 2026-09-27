@@ -90,6 +90,46 @@
           "zone": "battlefield"
         }
       ]
+    },
+    {
+      "name": "uncast-entry-no-conditional-trigger",
+      "cr": [
+        "603.4",
+        "702.33a"
+      ],
+      "why": "Entering without having been cast with kicker cannot produce a sacrifice trigger; the opposing creature remains.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gatekeeper of Malakir"
+          ],
+          "battlefield": []
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Gatekeeper of Malakir",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Gatekeeper of Malakir",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "battlefield"
+        }
+      ]
     }
   ]
 }

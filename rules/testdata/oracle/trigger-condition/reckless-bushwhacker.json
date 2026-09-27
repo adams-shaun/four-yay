@@ -38,7 +38,7 @@
           "seat": 0,
           "card": "p0:Reckless Bushwhacker",
           "mana": "RR",
-          "cast_mode": "surge"
+          "cast_mode": "surged"
         },
         {
           "op": "resolve"
@@ -81,6 +81,47 @@
         },
         {
           "op": "resolve",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Reckless Bushwhacker",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "2/2",
+          "no_keywords": [
+            "Haste"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "uncast-entry-no-conditional-trigger",
+      "cr": [
+        "603.4",
+        "702.117a"
+      ],
+      "why": "An entry without a surge payment cannot grant the other creature a temporary power bonus or haste.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Reckless Bushwhacker"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Reckless Bushwhacker",
+          "to": "battlefield",
           "expect": [
             {
               "trigger_on_stack": "p0:Reckless Bushwhacker",
