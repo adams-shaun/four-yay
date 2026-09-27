@@ -148,18 +148,32 @@ func (b *Bot) decide(brd botpolicy.Board, d *decision.Decision) decision.Intent 
 
 // paymentIntent lets the ordinary casting policy rank offered payment-plan
 // casts without ever manually floating mana. It constructs a private priority
-// decision in which mana activations are absent and each payable cast missing
-// from legacy Options is represented as a normal cast candidate. Thus the
-// existing policy still takes a land drop first, keeps all non-payment
-// decisions unchanged, and selects the same preferred card among payable
-// spells. The submitted witness is copied from the exact offered plan.
+// decision in which mana activations are absent, every legacy option is kept
+// at its own candidate index, and each payable object whose ordinary cast is
+// not already offered as a legacy option gains an additional plan-only cast
+// candidate. Thus the existing policy still takes a land drop first, keeps
+// all non-payment decisions unchanged, and selects the same preferred card
+// among payable spells. The pick is mapped back by candidate option
+// identity: a legacy option (an evoke, pitch, dash, surge or other
+// alternative mode the policy deliberately chose) is submitted as itself, so
+// the chosen mode -- not an ordinary plan -- reaches the engine; only a pick
+// of the plan-only entry, or of a legacy ordinary cast (Mode == "" &&
+// AltCostIndex == 0), pays the plan. The submitted witness is copied from the
+// exact offered plan.
 func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision.Intent, bool) {
 	if d == nil || d.Kind != decision.KPriority || len(d.PaymentActions) == 0 || (brd.MyTurn && !brd.IsMain) {
 		return decision.Intent{}, false
 	}
 	payable := make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
 	for _, a := range d.PaymentActions {
-		if len(a.Plans) != 0 {
+		// A plan the policy would never take must not count as payable: C8
+		// refuses a counter with no foreign spell (CounterIsDead), so its
+		// plan is dead -- leaving it in `payable` would let the private
+		// candidate lose to pass and hide the manual path (an instant the
+		// bot wanted, castable only by hand) for the rest of the window.
+		// Drop it here so a window whose ONLY plan is a dead counter falls
+		// back to the manual policy, exactly as a window with no plans does.
+		if len(a.Plans) != 0 && !brd.CounterIsDead(d.Player, a.Cast.Object) {
 			payable[a.Cast.Object] = a
 		}
 	}
@@ -179,7 +193,7 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	candidate := d.Clone()
 	candidate.Options = make([]decision.Option, 0, len(d.Options)+len(payable))
 	candidateToOriginal := make(map[int]int, len(d.Options))
-	legacyCast := make(map[state.ObjID]bool, len(d.Options))
+	legacyOrdinary := make(map[state.ObjID]bool, len(d.Options))
 	for _, o := range d.Options {
 		// These are precisely legalActions' mana abilities. A payment plan
 		// performs the required activations atomically, so exposing one here
@@ -190,17 +204,26 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		originalIndex := o.Index
 		o.Index = len(candidate.Options)
 		candidateToOriginal[o.Index] = originalIndex
-		candidate.Options = append(candidate.Options, o)
-		if o.Kind == "cast" {
-			legacyCast[o.Obj] = true
+		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
+			legacyOrdinary[o.Obj] = true
+			// An ordinary legacy cast whose object has a plan is a
+			// plan-backed candidate: choosing it submits the plan, so the
+			// cast scorer prices it against producible mana (C7). A
+			// non-ordinary mode (an evoke, pitch, dash, surge) pays its
+			// own cost by hand and stays false.
+			if _, ok := payable[o.Obj]; ok {
+				o.PlanBacked = true
+			}
 		}
+		candidate.Options = append(candidate.Options, o)
 	}
 	for _, a := range d.PaymentActions {
-		if len(a.Plans) == 0 || legacyCast[a.Cast.Object] {
+		if len(a.Plans) == 0 || legacyOrdinary[a.Cast.Object] {
 			continue
 		}
 		candidate.Options = append(candidate.Options, decision.Option{
 			Index: len(candidate.Options), Kind: "cast", Obj: a.Cast.Object, Label: a.Label,
+			PlanBacked: true,
 		})
 	}
 
@@ -212,20 +235,28 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		return decision.Intent{}, false
 	}
 	for _, o := range candidate.Options {
-		if o.Index != in.Choices[0] || o.Kind != "cast" {
+		if o.Index != in.Choices[0] {
 			continue
 		}
-		a, ok := payable[o.Obj]
-		if ok {
-			return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
-				ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
-			}}, true
+		// Only an ordinary-shaped cast pick pays the plan -- the plan-only
+		// entry, or a legacy ordinary cast whose object has a plan. A legacy
+		// non-ordinary pick (an evoke, pitch, dash, surge or other
+		// alternative mode the policy deliberately chose) reaches the engine
+		// as itself: substituting the ordinary plan would silently replace
+		// the chosen mode.
+		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
+			if a, ok := payable[o.Obj]; ok {
+				return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
+					ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
+				}}, true
+			}
 		}
 		break
 	}
-	// The private policy may have preferred a land drop, ability, or pass.
-	// Translate that choice back to the original option index so removing mana
-	// activations never changes the decision's public index contract.
+	// The private policy may have preferred a land drop, an ability, a
+	// legacy cast mode, or pass. Translate that choice back to the original
+	// option index so removing mana activations never changes the decision's
+	// public index contract.
 	if original, ok := candidateToOriginal[in.Choices[0]]; ok {
 		return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{original}}, true
 	}

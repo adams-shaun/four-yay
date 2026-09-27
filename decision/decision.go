@@ -400,6 +400,17 @@ type Option struct {
 	// printed and SVar-granted ability). A human client never sees them.
 	GainedSource state.ObjID `json:"-"`
 	GainedIdx    int         `json:"-"`
+	// PlanBacked is server-side only (json:"-") and marks a "cast" option
+	// the seat's auto-pay adapter built as a plan-backed candidate: selecting
+	// it submits a decision.PaymentSelection whose V1 plan performs the mana
+	// activations atomically, so the engine -- not the seat -- decides which
+	// sources tap. The engine never reads it; it exists only so the cast
+	// scorer can price policy features that ask what mana is LEFT after the
+	// cast against producible mana (the offered untapped sources) rather
+	// than the current pool, which a plan decision leaves empty. A human
+	// client never sees it, and every option the ordinary (manual) policy is
+	// offered leaves it false, so the manual arithmetic is byte-identical.
+	PlanBacked bool `json:"-"`
 	// Value is the option's price under a decision carrying a cumulative
 	// budget (Decision.MaxSum): a Dig's WithTotalCMC$ cap sums the mana values
 	// of the picked cards, so each offered card names its own mana value here

@@ -1,304 +1,399 @@
 package rules
 
-// aph-interference-scope: the V1 planner scopes mana/tap interference to the
-// sources it can affect (spec 3.2 as amended 2026-09-26). A trigger or
-// replacement on one source affects only that source's tier; an opponent's
-// Mana Vault / City of Brass / Claustrophobia / Manabarbs / cost static never
-// suppresses another player's plan; only an unprovable global effect declines
-// with `global_mana_effect`.
+// Ticket aph-interference-scope (spec §3.2 as amended 2026-09-26): a trigger
+// or replacement on source S affects only S's tier, a trigger/replacement on
+// another object defers exactly the sources its filter can match, and only an
+// unprovable global effect declines every plan of the affected player.
+// Fixtures are authored IR or corpus cards read by name at test time; no
+// Forge script text lives here.
 
 import (
 	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
-// ppiCorpus reads a corpus card by name, failing loudly when absent (a
-// skipped corpus test is not a pass).
-func ppiCorpus(t *testing.T, name string) *cards.Card {
-	t.Helper()
-	c, ok := testutil.CorpusRegistry(t).Lookup(name)
-	if !ok {
-		t.Fatalf("corpus card %q missing", name)
+const (
+	interferenceBlueInstant = "Name:Blue Probe\nManaCost:U\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:x\n"
+	interferenceOneInstant  = "Name:Generic Probe\nManaCost:1\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:x\n"
+	interferenceIsland      = "Name:Island\nTypes:Basic Land Island\nOracle:x\n"
+	interferenceSwamp       = "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n"
+)
+
+// interferencePlanSources lists the planned sources of an outcome's witness.
+func interferencePlanSources(got PaymentPlanOutcome) []state.ObjID {
+	if got.Plan == nil {
+		return nil
 	}
-	return c
+	return paymentPlanSources(*got.Plan)
 }
 
-// ppiPlanUses reports whether a witness names id, returning the activation.
-func ppiPlanUses(got PaymentPlanOutcome, id state.ObjID) (decision.PaymentActivation, bool) {
-	if got.Plan == nil {
-		return decision.PaymentActivation{}, false
-	}
-	for _, a := range got.Plan.Activations {
-		if a.Source == id {
-			return a, true
+// interferenceTier classifies every mana ability src's face prints and
+// returns the first classification, failing when the face prints none.
+func interferenceTier(t *testing.T, e *Engine, src state.ObjID) (paymentAbilityTier, paymentConsequence, string) {
+	t.Helper()
+	o := e.G.Obj(src)
+	abilities := o.Face().ManaAbilities()
+	if len(abilities) == 0 {
+		// Basic lands carry their intrinsic ability only through the window.
+		for _, u := range e.paymentPlanManaUnits(o.Controller) {
+			if u.id == src {
+				for _, alt := range u.alts {
+					abilities = append(abilities, alt.ma)
+				}
+			}
 		}
 	}
-	return decision.PaymentActivation{}, false
-}
-
-// ppiManaAbility is the payment-window mana ability on id the classifier
-// reads. The PRECONDITION matters: a nil ability would make every assertion
-// below vacuous.
-func ppiManaAbility(t *testing.T, e *Engine, id state.ObjID) *cards.SA {
-	t.Helper()
-	alts := e.availableManaAbilitiesForWindow(0, id, false)
-	if len(alts) == 0 {
-		t.Fatalf("fixture: no payment-window mana ability on %d", id)
+	if len(abilities) == 0 {
+		t.Fatalf("precondition: %s has no mana ability", o.Face().Name)
 	}
-	return alts[0]
+	return e.paymentPlanAbilityTier(o.Controller, src, abilities[0])
 }
 
-// ppiTier classifies id's first mana ability through the source-shape
-// authority the planner uses.
-func ppiTier(t *testing.T, e *Engine, id state.ObjID) (paymentAbilityTier, paymentConsequence, string) {
-	t.Helper()
-	ma := ppiManaAbility(t, e, id)
-	return e.paymentPlanAbilityTier(e.paymentPlanController(id), id, ma)
-}
-
-// ppiUntargetedSpell is the untargeted {U} probe used across the opponent
-// cases.
-const ppiUntargetedSpell = "Name:Blue Probe\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n"
-
-// TestPaymentPlanInterferenceOpponentCardsLeaveTheIslandPlan is the
-// done-means core: each corpus card placed on the OPPONENT's battlefield
-// whose effect does not reach seat 0's Island leaves seat 0's Island plan
-// byte-identical to the plan without it.  Manabarbs is deliberately NOT here:
-// its `TapsForMana | ValidCard$ Land` trigger DOES match the Island, so spec
-// 3.2/PP-09 defers the Island (it is not an effect printed on the opponent's
-// own permanent); TestPaymentPlanInterferenceOpponentTapTriggerDefers covers
-// it.  See the report's Deviations: the attached brief's done-means lists
-// Manabarbs among the identical-plan cards, which contradicts its own item 1
-// ("... Manabarbs" as a deferring trigger), spec PP-09 and the existing
-// pp-matrix test.
-func TestPaymentPlanInterferenceOpponentCardsLeaveTheIslandPlan(t *testing.T) {
-	for _, name := range []string{
-		"Mana Vault", "Grim Monolith", "Basalt Monolith", "City of Brass",
-		"Claustrophobia", "Engineered Explosives",
-		"Syr Elenora, the Discerning", "Icefall Regent",
-	} {
+// An opponent's permanent whose tap/mana/untap text can only reach its own
+// sources -- Mana Vault's doesn't-untap, City of Brass's self-tap damage,
+// Claustrophobia's enchanted-creature doesn't-untap -- and an opponent's face
+// that neither grants sunburst (Engineered Explosives prints its own) nor
+// taxes an untargeted spell (Syr Elenora's ValidTarget$ RaiseCost) leaves
+// seat 0's Island plan for an untargeted {U} instant exactly as it was.
+func TestPaymentPlanInterferenceOpponentPermanentsLeaveIslandPlan(t *testing.T) {
+	for _, name := range []string{"Mana Vault", "City of Brass", "Claustrophobia", "Engineered Explosives", "Syr Elenora, the Discerning", "Grim Monolith"} {
 		t.Run(name, func(t *testing.T) {
-			e, _, spell := newFixtureDeck(t, 9901, ppiUntargetedSpell)
-			island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
+			e, _, spell := newFixtureDeck(t, 9901, interferenceBlueInstant)
+			island := onBoard(t, e, 0, interferenceIsland)
 			before := e.PlanCastPayment(0, paymentCast(spell))
 			if before.Plan == nil {
-				t.Fatalf("fixture: no baseline plan: %+v", before)
+				t.Fatalf("control: no Island plan without %s: %+v", name, before)
 			}
-			// PRECONDITION: the baseline plan actually uses the Island.
-			if _, ok := ppiPlanUses(before, island); !ok {
-				t.Fatalf("fixture: baseline plan does not use the Island: %+v", before.Plan)
-			}
-			opp := onBoardCard(t, e, 1, ppiCorpus(t, name))
-			if e.G.Obj(opp) == nil || e.G.Obj(opp).Zone != state.ZBattlefield {
-				t.Fatalf("fixture: opponent card %q not on the battlefield", name)
-			}
+			onBoardCard(t, e, 1, corpusCard(t, name))
 			after := e.PlanCastPayment(0, paymentCast(spell))
 			if after.Plan == nil {
-				t.Fatalf("opponent's %s disabled the Island plan: %+v", name, after)
+				t.Fatalf("opponent's %s disables the Island plan: %+v", name, after)
 			}
-			if !reflect.DeepEqual(before.Plan, after.Plan) {
-				t.Fatalf("opponent's %s changed the plan:\n before %+v\n after  %+v", name, before.Plan, after.Plan)
+			if !reflect.DeepEqual(*before.Plan, *after.Plan) {
+				t.Fatalf("opponent's %s changed the plan:\n before %+v\n after  %+v", name, *before.Plan, *after.Plan)
+			}
+			if got := interferencePlanSources(after); len(got) != 1 || got[0] != island {
+				t.Fatalf("plan sources = %v, want [Island %d]", got, island)
+			}
+			if e.paymentPlanManaInterference() {
+				t.Fatalf("opponent's %s reads as a global mana effect", name)
 			}
 		})
 	}
 }
 
-// TestPaymentPlanInterferenceOwnWildGrowthPicksTheCleanIsland: seat 0's own
-// Wild Growth on Island A defers A; an untouched Island B funds the {U} plan.
-func TestPaymentPlanInterferenceOwnWildGrowthPicksTheCleanIsland(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9902, ppiUntargetedSpell)
-	wild := onBoardCard(t, e, 0, ppiCorpus(t, "Wild Growth"))
-	islandA := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	islandB := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	// PRECONDITION: Wild Growth is attached to A (its ValidCard$ is
-	// Card.AttachedBy), and both Islands are distinct untapped sources.
-	e.G.Obj(wild).AttachedTo = islandA
+// Manabarbs' TapsForMana trigger (ValidCard$ Land, no Activator$) matches a
+// tap of ANY player's land, so it defers every land -- seat 0's included --
+// by name, while a non-land source of seat 0 still funds the plan: the
+// trigger's filter, not its presence, decides.
+func TestPaymentPlanInterferenceManabarbsDefersOnlyWhatItMatches(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9902, interferenceBlueInstant)
+	island := onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 1, corpusCard(t, "Manabarbs"))
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Reason != "insufficient" || !strings.Contains(got.Detail, "Manabarbs") {
+		t.Fatalf("Island under Manabarbs = %+v, want insufficient naming Manabarbs", got)
+	}
+	if tier, _, detail := interferenceTier(t, e, island); tier != paymentTierDeferred || !strings.Contains(detail, "Manabarbs") {
+		t.Fatalf("Island tier = %d %q, want deferred naming Manabarbs", tier, detail)
+	}
+	rock := onBoard(t, e, 0, "Name:Blue Rock\nManaCost:2\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ U | SpellDescription$ Add {U}.\nOracle:x\n")
+	got = e.PlanCastPayment(0, paymentCast(spell))
+	if srcs := interferencePlanSources(got); len(srcs) != 1 || srcs[0] != rock {
+		t.Fatalf("plan under Manabarbs = %+v (sources %v), want the artifact %d only", got, srcs, rock)
+	}
+	if e.paymentPlanManaInterference() {
+		t.Fatal("Manabarbs reads as a global mana effect")
+	}
+}
+
+// Seat 0's own Wild Growth on Island A: its TapsForMana ValidCard$
+// Card.AttachedBy matches only A, so A is deferred and the {U} plan uses the
+// untouched Island B.
+func TestPaymentPlanInterferenceWildGrowthDefersOnlyEnchantedLand(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9903, interferenceBlueInstant)
+	islandA := onBoard(t, e, 0, interferenceIsland)
+	islandB := onBoard(t, e, 0, interferenceIsland)
+	growth := onBoardCard(t, e, 0, corpusCard(t, "Wild Growth"))
+	e.G.Obj(growth).AttachedTo = islandA
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if srcs := interferencePlanSources(got); len(srcs) != 1 || srcs[0] != islandB {
+		t.Fatalf("plan = %+v (sources %v), want Island B %d only", got, srcs, islandB)
+	}
+	if tier, _, detail := interferenceTier(t, e, islandA); tier != paymentTierDeferred || !strings.Contains(detail, "Wild Growth") {
+		t.Fatalf("enchanted Island tier = %d %q, want deferred naming Wild Growth", tier, detail)
+	}
+	if tier, _, _ := interferenceTier(t, e, islandB); tier != paymentTierNormal {
+		t.Fatalf("untouched Island tier = %d, want normal", tier)
+	}
+	// With B tapped, A is the only source: no plan, and the reason names the
+	// aura rather than declining every plan globally.
+	e.G.Obj(islandB).Tapped = true
+	got = e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Reason != "insufficient" || !strings.Contains(got.Detail, "Wild Growth") {
+		t.Fatalf("only the enchanted Island left = %+v, want insufficient naming Wild Growth", got)
+	}
+}
+
+// Crypt Ghast's TapsForMana is ValidCard$ Swamp | Activator$ You: seat 0's
+// Swamps are deferred, seat 0's Island still pays, and an opponent's Crypt
+// Ghast leaves seat 0's Swamp alone.
+func TestPaymentPlanInterferenceCryptGhastScopesByActivator(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9904, interferenceOneInstant)
+	swamp := onBoard(t, e, 0, interferenceSwamp)
+	island := onBoard(t, e, 0, interferenceIsland)
+	ghast := onBoardCard(t, e, 0, corpusCard(t, "Crypt Ghast"))
+	if tier, _, detail := interferenceTier(t, e, swamp); tier != paymentTierDeferred || !strings.Contains(detail, "Crypt Ghast") {
+		t.Fatalf("own Swamp under own Crypt Ghast tier = %d %q, want deferred", tier, detail)
+	}
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if srcs := interferencePlanSources(got); len(srcs) != 1 || srcs[0] != island {
+		t.Fatalf("plan = %+v (sources %v), want the Island %d", got, srcs, island)
+	}
+	// Hand the Ghast to the opponent: "you" is now seat 1.
+	e.G.Obj(ghast).Controller = 1
+	e.G.SetZone(state.ZBattlefield, 0, interferenceRemoveID(e.G.Zone(state.ZBattlefield, 0), ghast))
+	e.G.SetZone(state.ZBattlefield, 1, append(e.G.Zone(state.ZBattlefield, 1), ghast))
 	e.staticEpoch, e.activeEpoch = -1, -1
-	if e.G.Obj(islandA).Tapped || e.G.Obj(islandB).Tapped {
-		t.Fatal("fixture: Islands must start untapped")
-	}
-	if islandA == islandB {
-		t.Fatal("fixture: the two Islands must be distinct objects")
-	}
-	// A itself is deferred (Wild Growth's TapsForMana can match it).
-	if tier, _, detail := ppiTier(t, e, islandA); tier != paymentTierDeferred {
-		t.Fatalf("Wild Growth's land tier = %v detail=%q, want deferred", tier, detail)
-	}
-	got := e.PlanCastPayment(0, paymentCast(spell))
-	if got.Plan == nil {
-		t.Fatalf("no plan with a clean Island B available: %+v", got)
-	}
-	if _, ok := ppiPlanUses(got, islandA); ok {
-		t.Fatalf("plan used the Wild Growth Island A: %+v", got.Plan.Activations)
-	}
-	if _, ok := ppiPlanUses(got, islandB); !ok {
-		t.Fatalf("plan did not use the clean Island B: %+v", got.Plan.Activations)
+	if tier, _, detail := interferenceTier(t, e, swamp); tier != paymentTierNormal {
+		t.Fatalf("own Swamp under opponent's Crypt Ghast tier = %d %q, want normal", tier, detail)
 	}
 }
 
-// TestPaymentPlanInterferenceOwnConsequencesAreLastResort: seat 0's own City
-// of Brass is `damage:1` last resort and Mana Vault is `no_untap` last
-// resort; neither appears in a plan, yet another clean source still funds it.
-func TestPaymentPlanInterferenceOwnConsequencesAreLastResort(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9903, ppiUntargetedSpell)
-	brass := onBoardCard(t, e, 0, ppiCorpus(t, "City of Brass"))
-	vault := onBoardCard(t, e, 0, ppiCorpus(t, "Mana Vault"))
-	island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
+func interferenceRemoveID(ids []state.ObjID, id state.ObjID) []state.ObjID {
+	out := make([]state.ObjID, 0, len(ids))
+	for _, x := range ids {
+		if x != id {
+			out = append(out, x)
+		}
+	}
+	return out
+}
 
-	for _, tc := range []struct {
-		name string
-		id   state.ObjID
-		want paymentConsequence
-	}{
-		{"City of Brass", brass, paymentConsequence{damage: 1}},
-		{"Mana Vault", vault, paymentConsequence{noUntap: true}},
-	} {
-		tier, consequence, detail := ppiTier(t, e, tc.id)
-		if tier != paymentTierLastResort {
-			t.Fatalf("%s tier = %v detail=%q, want last resort", tc.name, tier, detail)
-		}
-		if consequence != tc.want {
-			t.Fatalf("%s consequence = %+v, want %+v", tc.name, consequence, tc.want)
-		}
+// Seat 0's own City of Brass and Mana Vault are last resort -- damage:1 and
+// no_untap, through the classifier -- so they never appear in a plan while
+// another seat-0 source still funds one.
+func TestPaymentPlanInterferenceOwnCityAndVaultAreLastResort(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9905, interferenceOneInstant)
+	city := onBoardCard(t, e, 0, corpusCard(t, "City of Brass"))
+	vault := onBoardCard(t, e, 0, corpusCard(t, "Mana Vault"))
+	e.G.Obj(vault).SummonSick = false
+	tier, c, detail := interferenceTier(t, e, city)
+	if tier != paymentTierLastResort || c != (paymentConsequence{damage: 1}) || detail != "source:last_resort" {
+		t.Fatalf("City of Brass = tier %d %+v %q, want last resort damage:1", tier, c, detail)
 	}
+	tier, c, detail = interferenceTier(t, e, vault)
+	if tier != paymentTierLastResort || c != (paymentConsequence{noUntap: true}) || detail != "source:last_resort" {
+		t.Fatalf("Mana Vault = tier %d %+v %q, want last resort no_untap", tier, c, detail)
+	}
+	if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan != nil {
+		t.Fatalf("plan from last-resort sources only = %+v, want none", got.Plan)
+	}
+	island := onBoard(t, e, 0, interferenceIsland)
 	got := e.PlanCastPayment(0, paymentCast(spell))
-	if got.Plan == nil {
-		t.Fatalf("no plan with a clean Island available: %+v", got)
+	if srcs := interferencePlanSources(got); len(srcs) != 1 || srcs[0] != island {
+		t.Fatalf("plan = %+v (sources %v), want the Island %d only", got, srcs, island)
 	}
-	for _, id := range []state.ObjID{brass, vault} {
-		if _, ok := ppiPlanUses(got, id); ok {
-			t.Fatalf("plan used a last-resort source %d: %+v", id, got.Plan.Activations)
-		}
-	}
-	if _, ok := ppiPlanUses(got, island); !ok {
-		t.Fatalf("plan did not use the clean Island: %+v", got.Plan.Activations)
+	if e.paymentPlanManaInterference() {
+		t.Fatal("own City of Brass / Mana Vault read as a global mana effect")
 	}
 }
 
-// TestPaymentPlanInterferenceManaReflectionDefersOnlyItsControllersSources:
-// seat 0's Mana Reflection defers every seat-0 source with a detail naming
-// it; seat 1 plans normally.
-func TestPaymentPlanInterferenceManaReflectionDefersOnlyItsControllersSources(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9904, ppiUntargetedSpell)
-	reflection := onBoardCard(t, e, 0, ppiCorpus(t, "Mana Reflection"))
-	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	// PRECONDITION: the reflection is on seat 0's battlefield.
-	if e.G.Obj(reflection) == nil || e.G.Obj(reflection).Controller != 0 {
-		t.Fatal("fixture: Mana Reflection must be controlled by seat 0")
-	}
+// Mana Reflection (ProduceMana | ValidActivator$ You | ValidCard$ Permanent)
+// defers every source its controller could tap -- seat 0 has no plan, and the
+// diagnostic names it -- while seat 1's sources are outside its filter.
+func TestPaymentPlanInterferenceManaReflectionDefersControllerSources(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9906, interferenceBlueInstant)
+	island := onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 0, corpusCard(t, "Mana Reflection"))
 	got := e.PlanCastPayment(0, paymentCast(spell))
-	if got.Plan != nil {
-		t.Fatalf("seat 0 has a plan under its own Mana Reflection: %+v", got.Plan)
+	if got.Plan != nil || got.Reason != "insufficient" || !strings.Contains(got.Detail, "Mana Reflection") {
+		t.Fatalf("seat 0 under own Mana Reflection = %+v, want insufficient naming Mana Reflection", got)
 	}
-	if got.Reason != "insufficient" || !strings.Contains(got.Detail, "Mana Reflection") {
-		t.Fatalf("seat 0 outcome = %+v, want insufficient and a detail naming Mana Reflection", got)
+	if tier, _, detail := interferenceTier(t, e, island); tier != paymentTierDeferred || !strings.Contains(detail, "Mana Reflection") {
+		t.Fatalf("seat 0 Island tier = %d %q, want deferred naming Mana Reflection", tier, detail)
 	}
-
-	// Seat 1 is unaffected: give it an Island and a {U} spell in hand.
-	seat1Island := onBoard(t, e, 1, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	seat1Spell := e.G.AddObject(card(t, ppiUntargetedSpell), 1)
-	seat1Spell.Zone = state.ZHand
-	e.G.SetZone(state.ZHand, 1, append(e.G.Zone(state.ZHand, 1), seat1Spell.ID))
-	e.staticEpoch, e.activeEpoch = -1, -1
-	// PRECONDITION: seat 1 holds the spell and controls the Island.
-	if o := e.G.Obj(seat1Spell.ID); o == nil || o.Zone != state.ZHand || o.Owner != 1 {
-		t.Fatal("fixture: seat 1 spell not in seat 1's hand")
+	oppIsland := onBoard(t, e, 1, interferenceIsland)
+	oppSpell := onHand(t, e, 1, interferenceBlueInstant)
+	opp := e.PlanCastPayment(1, paymentCast(oppSpell))
+	if srcs := interferencePlanSources(opp); len(srcs) != 1 || srcs[0] != oppIsland {
+		t.Fatalf("seat 1 plan under seat 0's Mana Reflection = %+v (sources %v), want its Island %d", opp, srcs, oppIsland)
 	}
-	if o := e.G.Obj(seat1Island); o == nil || o.Controller != 1 {
-		t.Fatal("fixture: seat 1 Island not controlled by seat 1")
-	}
-	got1 := e.PlanCastPayment(1, paymentCast(seat1Spell.ID))
-	if got1.Plan == nil {
-		t.Fatalf("seat 1 has no plan under seat 0's Mana Reflection: %+v", got1)
-	}
-	if _, ok := ppiPlanUses(got1, seat1Island); !ok {
-		t.Fatalf("seat 1's plan did not use its Island: %+v", got1.Plan.Activations)
+	if e.paymentPlanManaInterference() {
+		t.Fatal("a printed, scoped ProduceMana replacement reads as a global mana effect")
 	}
 }
 
-// TestPaymentPlanInterferenceCelestialDawnIsGlobal: a ManaConvert static
-// reaching the payer declines every plan with a global_mana_effect detail.
+// A ManaConvert static reaching the payer (the authored Celestial Dawn
+// shape) is the one printed global effect: the ordinary solver does not
+// apply the conversion, so no plan is offered and the reason names it.
 func TestPaymentPlanInterferenceCelestialDawnIsGlobal(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9905, "Name:Green Instant Test\nManaCost:G\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:x\n")
+	e, _, spell := newFixtureDeck(t, 9907, "Name:Green Instant Test\nManaCost:G\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Dawn Test\nTypes:Enchantment\nS:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ White->AnyColor nonWhite<-C | Description$ Fixture: white as any colour, other mana only as colorless.\nOracle:x\n")
 	elf := onBoard(t, e, 0, "Name:Elf Test\nTypes:Creature Elf\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ Add G.\nOracle:x\n")
 	e.G.Obj(elf).SummonSick = false
-	// PRECONDITION: the elf is a legal, untapped source on seat 0's board.
-	if ma := e.availableManaAbilitiesForWindow(0, elf, false); len(ma) == 0 {
-		t.Fatal("fixture: elf has no payment-window mana ability")
-	}
 	got := e.PlanCastPayment(0, paymentCast(spell))
-	if got.Plan != nil {
-		t.Fatalf("plan under Celestial Dawn: %+v", got.Plan)
+	if got.Plan != nil || got.Reason != "unsupported" || !strings.HasPrefix(got.Detail, "global_mana_effect") {
+		t.Fatalf("plan under a payer-reaching ManaConvert = %+v, want unsupported global_mana_effect", got)
 	}
-	if !strings.HasPrefix(got.Detail, "global_mana_effect") {
-		t.Fatalf("Celestial Dawn detail = %q, want a global_mana_effect prefix", got.Detail)
+	if got.Detail != "global_mana_effect:Dawn Test" {
+		t.Fatalf("detail = %q, want it to name Dawn Test", got.Detail)
+	}
+	if ok, detail := e.paymentPlanGlobalManaEffect(0, spell); !ok || detail != got.Detail {
+		t.Fatalf("paymentPlanGlobalManaEffect(0) = %v %q", ok, detail)
+	}
+	// ValidPlayer$ You: the opponent's payments are untouched.
+	if ok, _ := e.paymentPlanGlobalManaEffect(1, 0); ok {
+		t.Fatal("seat 0's ManaConvert reaches seat 1's payments")
 	}
 }
 
-// TestPaymentPlanInterferenceTargetedSpellStillDeclines: an opponent's
-// ValidTarget$-only cost static declines a spell that ACTUALLY targets.
-func TestPaymentPlanInterferenceTargetedSpellStillDeclines(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9906,
-		"Name:Targeted Probe\nManaCost:U\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | TgtPrompt$ Select target creature | NumAtt$ +1\nOracle:x\n")
-	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	target := onBoard(t, e, 0, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
-	// PRECONDITION: the spell declares a target and a legal target exists.
-	if !e.paymentPlanSpellTargets(spell) {
-		t.Fatal("fixture: the probe must declare a target")
+// An effect-created ProduceMana replacement WITH a matchable filter is scoped
+// by the real matcher: ValidCard$ Card.Self on Island A defers A only, and a
+// ValidActivator$ You effect of seat 1 leaves seat 0 alone. (The unscoped
+// form is TestPaymentPlanDeclinesEffectCreatedProduceManaReplacement's global
+// decline.)
+func TestPaymentPlanInterferenceScopedEffectCreatedReplacementDefersItsCard(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9908, interferenceBlueInstant)
+	islandA := onBoard(t, e, 0, interferenceIsland)
+	islandB := onBoard(t, e, 0, interferenceIsland)
+	e.AddContinuous(state.ContinuousEffect{Source: islandA, Controller: 0,
+		ReplacementEvent: "ProduceMana", ReplacementBody: "DB$ ReplaceMana | ReplaceAmount$ 2",
+		ReplacementParams: map[string]string{"ValidCard": "Card.Self"}})
+	e.AddContinuous(state.ContinuousEffect{Source: islandB, Controller: 1,
+		ReplacementEvent: "ProduceMana", ReplacementBody: "DB$ ReplaceMana | ReplaceAmount$ 2",
+		ReplacementParams: map[string]string{"ValidActivator": "You"}})
+	if ok, detail := e.paymentPlanGlobalManaEffect(0, spell); ok {
+		t.Fatalf("a scoped effect-created replacement is global: %q", detail)
 	}
-	if e.G.Obj(target) == nil || e.G.Obj(target).Zone != state.ZBattlefield {
-		t.Fatal("fixture: target creature must be on the battlefield")
-	}
-	onBoardCard(t, e, 1, ppiCorpus(t, "Syr Elenora, the Discerning"))
 	got := e.PlanCastPayment(0, paymentCast(spell))
-	if got.Plan != nil {
-		t.Fatalf("targeted spell got a plan under an opponent's ValidTarget cost static: %+v", got.Plan)
-	}
-	if got.Detail != "shape:target_dependent_cost" {
-		t.Fatalf("detail = %q, want shape:target_dependent_cost", got.Detail)
+	if srcs := interferencePlanSources(got); len(srcs) != 1 || srcs[0] != islandB {
+		t.Fatalf("plan = %+v (sources %v), want Island B %d only", got, srcs, islandB)
 	}
 }
 
-// TestPaymentPlanInterferenceOpponentTapTriggerDefers: an opponent's
-// Manabarbs (`TapsForMana | ValidCard$ Land`) matches the Island, so the
-// Island is deferred and no plan funds the probe.  A deferral is
-// `insufficient`, not the old whole-offer `unsupported`, which is exactly
-// what the census kill-switch's "opponent-side trigger rows report 0"
-// measures.
-func TestPaymentPlanInterferenceOpponentTapTriggerDefers(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9908, ppiUntargetedSpell)
-	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	barbs := onBoardCard(t, e, 1, ppiCorpus(t, "Manabarbs"))
-	// PRECONDITION: the opponent's Manabarbs is on the battlefield and its
-	// trigger really does match a hypothetical tap of seat 0's land.
-	if e.G.Obj(barbs) == nil || e.G.Obj(barbs).Zone != state.ZBattlefield {
-		t.Fatal("fixture: Manabarbs must be on the opponent's battlefield")
-	}
-	if global, _ := e.paymentPlanGlobalManaEffectFor(0, spell); global {
-		t.Fatal("fixture: Manabarbs must be per-source, not a global mana effect")
-	}
+// The unscoped effect-created replacement still declines every plan, now
+// with the global diagnostic.
+func TestPaymentPlanInterferenceUnscopedEffectCreatedReplacementIsGlobal(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9909, interferenceBlueInstant)
+	source := onBoard(t, e, 0, interferenceIsland)
+	e.AddContinuous(state.ContinuousEffect{Source: source, Controller: 0,
+		ReplacementEvent: "ProduceMana", ReplacementBody: "DB$ ReplaceMana | ReplaceAmount$ 2"})
 	got := e.PlanCastPayment(0, paymentCast(spell))
-	if got.Plan != nil {
-		t.Fatalf("opponent's Manabarbs left a plan: %+v", got.Plan)
+	if got.Plan != nil || got.Reason != "unsupported" || got.Detail != "global_mana_effect:Island" {
+		t.Fatalf("plan under an unscoped effect-created replacement = %+v, want unsupported global_mana_effect:Island", got)
 	}
-	if got.Reason == "unsupported" {
-		t.Fatalf("Manabarbs declined the whole offer (%+v), want a per-source deferral", got)
+	if !e.paymentPlanManaInterference() {
+		t.Fatal("zero-argument wrapper misses the unscoped effect-created replacement")
 	}
 }
 
-// TestPaymentPlanInterferenceUntargetedSpellIsNotTargeted: guard
-// paymentPlanSpellTargets against a regression that would make every spell
-// look targeted.
-func TestPaymentPlanInterferenceUntargetedSpellIsNotTargeted(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9907, ppiUntargetedSpell)
-	if e.paymentPlanSpellTargets(spell) {
-		t.Fatal("an untargeted instant was reported as targeting")
+// A targeted spell under an opponent's Syr Elenora still declines: its cost
+// depends on the target chosen at CR 601.2c. An untargeted one does not
+// (TestPaymentPlanInterferenceOpponentPermanentsLeaveIslandPlan).
+func TestPaymentPlanInterferenceTargetedSpellUnderSyrElenoraDeclines(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9910, "Name:Blue Pump\nManaCost:U\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | SpellDescription$ x\nOracle:x\n")
+	onBoard(t, e, 0, interferenceIsland)
+	onBoard(t, e, 0, interferenceIsland)
+	onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 1, corpusCard(t, "Syr Elenora, the Discerning"))
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Reason != "unsupported" || got.Detail != "shape:target_dependent_cost" {
+		t.Fatalf("targeted spell under Syr Elenora = %+v, want unsupported shape:target_dependent_cost", got)
+	}
+}
+
+// A face that GRANTS sunburst to a spell (Solar Array's Animate Keywords$
+// Sunburst) still withholds the plan; merely printing Sunburst does not
+// (Engineered Explosives, above).
+func TestPaymentPlanInterferenceSunburstGrantStillDeclines(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9911, interferenceBlueInstant)
+	onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 0, corpusCard(t, "Solar Array"))
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Detail != "shape:mana_spent_reader" {
+		t.Fatalf("plan beside a sunburst grant = %+v, want shape:mana_spent_reader", got)
+	}
+	if !faceGrantsSunburstForPlan(corpusCard(t, "Solar Array").Faces[0]) {
+		t.Fatal("Solar Array is not recognised as a sunburst grant")
+	}
+	if faceGrantsSunburstForPlan(corpusCard(t, "Engineered Explosives").Faces[0]) {
+		t.Fatal("Engineered Explosives' own K:Sunburst read as a grant")
+	}
+}
+
+// The executor re-reads every remaining step's source through the same
+// classifier (paymentPlanStepReady -> paymentPlanUnitAlternatives), so the
+// corpus's unconditional Contamination arriving between the offer and the
+// payment window defers the planned Mountains before any is tapped: nothing
+// is activated and the manual window names the plan with source_changed (no
+// V1 ability is left under the step's identity).
+func TestPaymentPlanInterferenceArrivingAfterOfferStopsBeforeTapping(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9912, paymentPlanBlast)
+	m1 := onBoard(t, e, 0, paymentPlanMountain)
+	m2 := onBoard(t, e, 0, paymentPlanMountain)
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	submitPaymentPlan(t, e, d, a)
+	onBoardReadyCard(t, e, 1, corpusCard(t, "Contamination"))
+	start := len(e.L.Events)
+	submitChoices(t, e, 0) // the target
+	if n := paymentPlanTapsSince(e, start, m1) + paymentPlanTapsSince(e, start, m2); n != 0 {
+		t.Fatalf("executor tapped %d planned sources a live Contamination defers", n)
+	}
+	nd := e.Pending()
+	if nd == nil || nd.PaymentFallback == nil || nd.PaymentFallback.Reason != paymentFallbackSourceChanged || nd.PaymentFallback.PlanID != a.Plans[0].ID {
+		t.Fatalf("pending = %s, want the manual window with source_changed for plan %s", paymentPlanPendingSummary(nd), a.Plans[0].ID)
+	}
+}
+
+// A purely WIDENING ManaConvert static (Mycosynth Lattice: "players may spend
+// mana as though it were mana of any color") cannot make a plan the ordinary
+// solver priced unpayable, so it is not a global plan-blocker: the Island
+// plan is offered, submits, and settles with no fallback. A RESTRICTING one
+// (the corpus Celestial Dawn: other mana only as colorless) stays global, and
+// with both on the battlefield the diagnostic names the restricting one.
+func TestPaymentPlanInterferenceWideningManaConvertIsNotGlobal(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9913, interferenceBlueInstant)
+	island := onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 1, corpusCard(t, "Mycosynth Lattice"))
+	if e.paymentConv(0, spell, false) == nil {
+		t.Fatal("precondition: Mycosynth Lattice does not reach seat 0's payment")
+	}
+	if ok, detail := e.paymentPlanGlobalManaEffect(0, spell); ok {
+		t.Fatalf("Mycosynth Lattice is a global mana effect: %q", detail)
+	}
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	if srcs := paymentPlanSources(a.Plans[0]); len(srcs) != 1 || srcs[0] != island {
+		t.Fatalf("plan under Mycosynth Lattice = %+v, want the Island %d", a.Plans[0], island)
+	}
+	submitPaymentPlan(t, e, d, a)
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Fatalf("spell zone after the planned cast = %s, want stack (pending %s)", z, paymentPlanPendingSummary(e.Pending()))
+	}
+	if !e.G.Obj(island).Tapped || e.G.Players[0].Pool.Total() != 0 {
+		t.Fatalf("Island tapped=%v pool=%v, want the Island to have paid exactly", e.G.Obj(island).Tapped, e.G.Players[0].Pool)
+	}
+	if nd := e.Pending(); nd != nil && nd.PaymentFallback != nil {
+		t.Fatalf("planned cast under Mycosynth Lattice fell back: %s", paymentPlanPendingSummary(nd))
+	}
+}
+
+func TestPaymentPlanInterferenceRestrictingManaConvertIsGlobal(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9914, interferenceBlueInstant)
+	onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 0, corpusCard(t, "Mycosynth Lattice"))
+	onBoardCard(t, e, 0, corpusCard(t, "Celestial Dawn"))
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Reason != "unsupported" || got.Detail != "global_mana_effect:Celestial Dawn" {
+		t.Fatalf("plan under Celestial Dawn + Mycosynth Lattice = %+v, want unsupported global_mana_effect:Celestial Dawn", got)
+	}
+	// Celestial Dawn's ValidPlayer$ You: seat 1 sees only the Lattice.
+	if ok, detail := e.paymentPlanGlobalManaEffect(1, 0); ok {
+		t.Fatalf("seat 0's Celestial Dawn reaches seat 1: %q", detail)
 	}
 }

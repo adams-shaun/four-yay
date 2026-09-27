@@ -1640,6 +1640,16 @@ type Engine struct {
 	// resolving. They are synchronous context rather than ManaAdd fields.
 	manaFromTap  bool
 	manaProducer state.ObjID
+	// paymentPlanCarriers memoises the objects whose faces carry a
+	// Taps/TapsForMana trigger or a ProduceMana replacement -- the only
+	// printed text the payment-plan source-interference check must run its
+	// matchers over (rules/payment_plan_interference.go). The key is the
+	// object-arena size plus the log head: a face or zone only changes through
+	// an event or a new object. A pure derived memo, never copied by Clone.
+	paymentPlanCarriers       []state.ObjID
+	paymentPlanCarriersObjs   int
+	paymentPlanCarriersEvents int
+	paymentPlanCarriersValid  bool
 	// stepLeaving is the step transition currently offered to BeginPhase
 	// replacements; parked choices own a value copy.
 	stepLeaving *state.Step

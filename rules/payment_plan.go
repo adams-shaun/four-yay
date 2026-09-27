@@ -4,15 +4,16 @@ package rules
 // offer-time witness: execution is owned by the following ticket.
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
+	"math/bits"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -83,7 +84,7 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 	if !paymentPlanPoolOK(e.G.Players[p]) {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
-	if global, detail := e.paymentPlanGlobalManaEffectFor(p, cast.Object); global {
+	if global, detail := e.paymentPlanGlobalManaEffect(p, cast.Object); global {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
 	return e.planPaymentCost(p, cast, cost)
@@ -174,122 +175,6 @@ func faceReadsManaSpent(f *cards.Face) bool {
 	return false
 }
 
-// paymentPlanSunburstGrantOut is the planner-local sunburst check.  The shared
-// capture gate (cast.go's sunburstGrantOut) deliberately reacts to any mention
-// of Sunburst, which also catches a card's own printed K:Sunburst (Engineered
-// Explosives) -- that card neither grants nor reads a mana-spent count for
-// another spell, so it must not suppress a plan.  A plan is withheld only when
-// a battlefield face's body actually GRANTS sunburst (`Keywords$ Sunburst` or
-// `AddKeyword$ Sunburst` in an Animate/Pump/Continuous/Effect body).
-func (e *Engine) paymentPlanSunburstGrantOut() bool {
-	for _, p := range e.G.AliveFrom(0) {
-		for _, id := range e.G.Zone(state.ZBattlefield, p) {
-			o := e.G.Obj(id)
-			if o == nil || o.Face() == nil {
-				continue
-			}
-			if paymentPlanFaceGrantsSunburst(o.Face()) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// paymentPlanFaceGrantsSunburst reports whether any body reachable on the
-// face grants the Sunburst keyword: an SVar body, a trigger's resolved Execute
-// body, a replacement's With body, or an activated ability.  The grant APIs
-// are the ones a keyword grant rides; a printed K:Sunburst expansion never
-// produces one of these bodies.
-func paymentPlanFaceGrantsSunburst(f *cards.Face) bool {
-	grant := func(sa *cards.SA) bool {
-		if sa == nil {
-			return false
-		}
-		switch sa.API {
-		case "Animate", "Pump", "Continuous", "Effect":
-		default:
-			return false
-		}
-		for _, key := range []string{"Keywords", "AddKeyword", "AddKeywords"} {
-			if paymentPlanKeywordListContains(sa.Params[key], "Sunburst") {
-				return true
-			}
-		}
-		return false
-	}
-	for _, name := range slices.Sorted(maps.Keys(f.SVars)) {
-		if grant(cards.ResolveSVar(f.SVars, name)) {
-			return true
-		}
-	}
-	for i := range f.Triggers {
-		if grant(f.Triggers[i].Effect) {
-			return true
-		}
-	}
-	for i := range f.Repls {
-		if grant(f.Repls[i].With) {
-			return true
-		}
-	}
-	for _, ab := range f.Abilities {
-		if grant(ab) {
-			return true
-		}
-	}
-	return false
-}
-
-// paymentPlanKeywordListContains reports whether a comma/space list names kw.
-func paymentPlanKeywordListContains(list, kw string) bool {
-	for _, tok := range strings.FieldsFunc(list, func(r rune) bool { return r == ',' || r == ' ' }) {
-		if strings.EqualFold(tok, kw) {
-			return true
-		}
-	}
-	return false
-}
-
-// paymentPlanSpellTargets reports whether the cast face's spell ability, or a
-// sub-ability in its chain, declares a target.  A cost static gated only by
-// ValidTarget$ reprices a cast that targets; it must not decline an untargeted
-// instant (spec 3.2; brief aph-interference-scope item 3).
-func (e *Engine) paymentPlanSpellTargets(id state.ObjID) bool {
-	o := e.G.Obj(id)
-	if o == nil || o.Face() == nil {
-		return false
-	}
-	root := o.Face().SpellAbility()
-	if root == nil {
-		return false
-	}
-	if paymentPlanSADeclaresTarget(root) {
-		return true
-	}
-	for sa := root.Sub; sa != nil; sa = sa.Sub {
-		if paymentPlanSADeclaresTarget(sa) {
-			return true
-		}
-	}
-	// A modal Charm carries its target in the mode SVars, not the root or the
-	// Sub chain; every mode body is checked when the root is a Charm.
-	if root.API == "Charm" {
-		for _, name := range strings.Fields(root.Params["Choices"]) {
-			if paymentPlanSADeclaresTarget(cards.ResolveSVar(o.Face().SVars, name)) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// paymentPlanSADeclaresTarget is a spell ability's own target declaration.  A
-// Choices$ head is a modal container, not a target, and is excluded.
-func paymentPlanSADeclaresTarget(sa *cards.SA) bool {
-	return sa != nil && strings.TrimSpace(sa.Params["ValidTgts"]) != "" && strings.TrimSpace(sa.Params["Choices"]) == ""
-}
-
 func paymentPlanCostDetail(c Cost) string {
 	switch {
 	case c.X != 0 || c.XMin != 0:
@@ -360,13 +245,12 @@ func paymentPlanCostDetail(c Cost) string {
 // paymentPlanHasTargetDependentModifier finds a live cost static that would
 // apply to this ordinary spell except for ValidTarget$.  Its actual amount is
 // unknowable until CR 601.2c, after the plan has been selected, so V1 leaves
-// that cast to the normal target/payment flow.  The reprice only binds a cast
-// that ACTUALLY targets: an untargeted instant is not taxed by an opponent's
-// Syr Elenora or Icefall Regent, so a ValidTarget$-only static must not enter
-// this gate for it.  Copying the parameter map is important: static views
-// share compiled-card maps.
+// that cast to the normal target/payment flow.  A spell that announces no
+// target cannot meet any ValidTarget$ clause, so it is never taxed and is not
+// declined (paymentPlanSpellTargets).  Copying the parameter map is
+// important: static views share compiled-card maps.
 func (e *Engine) paymentPlanHasTargetDependentModifier(p state.PlayerID, id state.ObjID) bool {
-	if !e.paymentPlanSpellTargets(id) {
+	if o := e.G.Obj(id); o == nil || !paymentPlanSpellTargets(o.Face()) {
 		return false
 	}
 	statics := e.collectCostStatics()
@@ -535,7 +419,13 @@ type plannedManaActivation struct {
 	activation decision.PaymentActivation
 	mana       state.Mana
 	creature   bool
-	flex       int
+	// flex and colours describe the SOURCE, not this alternative: over every
+	// eligible alternative of the source, flex is the number of distinct mana
+	// types (W/U/B/R/G/C) it can produce and colours is the WUBRG bitmask
+	// (bit i = state.MW+i) of the colours it can produce. They feed rank keys
+	// 5 (flexibility consumed) and 7 (remainder diversity).
+	flex    int
+	colours uint8
 	// ma is the exact ability this alternative activates. It is not part of
 	// the witness: every intrinsic ability shares one PaymentAbility
 	// identity ({intrinsic, basic_land}), so on a source with several (a
@@ -580,6 +470,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 		}
 	}
 	pool := e.G.Players[p].Pool
+	rankCtx := newPaymentPlanRankContext(choices)
 	var best *decision.PaymentPlan
 	bestRank := paymentPlanRank{}
 	nodes, limited := 0, false
@@ -592,7 +483,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 		nodes++
 		if paid, ok := cost.resolveManaWith(manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil); ok {
 			plan := paymentWitness(cost, pool, produced, chosen, paid.pool)
-			r := rankPaymentPlan(plan, chosen, produced, paid.pool)
+			r := rankPaymentPlan(rankCtx, plan, chosen, paid.pool)
 			if best == nil || r.less(bestRank) {
 				best, bestRank = &plan, r
 			}
@@ -692,18 +583,34 @@ func paymentPlanAltOK(a windowManaAlt) bool {
 
 // paymentPlanAbilityTier is the single source-shape authority for automatic
 // payment. It is intentionally closed-world: new Forge parameters require an
-// explicit review before the planner can rely on them.
+// explicit review before the planner can rely on them. It folds the ability's
+// own shape (paymentPlanAbilityShapeTier) with the triggers and replacements
+// that can act on this source's tap or mana (paymentPlanSourceInterference):
+// a deferring interference defers the source, and the source's own
+// fully determined consequence (City of Brass's damage, Mana Vault's
+// doesn't-untap) makes an otherwise normal source last resort.
 func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
-	return e.paymentPlanAbilityTierFor(p, id, ma, true)
+	tier, c, detail := e.paymentPlanAbilityShapeTier(p, id, ma)
+	if tier == paymentTierDeferred {
+		return tier, c, detail
+	}
+	switch it, ic, idetail := e.paymentPlanSourceInterference(id, ma); it {
+	case paymentTierDeferred:
+		return it, ic, idetail
+	case paymentTierLastResort:
+		c.sacrifice = c.sacrifice || ic.sacrifice
+		c.life += ic.life
+		c.damage += ic.damage
+		c.noUntap = c.noUntap || ic.noUntap
+		c.returnToHand = c.returnToHand || ic.returnToHand
+		return paymentTierLastResort, c, "source:last_resort"
+	}
+	return tier, c, detail
 }
 
-// paymentPlanAbilityTierFor is paymentPlanAbilityTier with the other-object
-// interference scan selectable.  The OFFER uses true (a source another
-// object can match is deferred); execution-time step resolution uses false so
-// a source that became matched AFTER the offer still activates through the
-// ordinary mana path and the executor observes its actual production (spec
-// 6), exactly as the pre-scoping executor did.
-func (e *Engine) paymentPlanAbilityTierFor(p state.PlayerID, id state.ObjID, ma *cards.SA, checkInterference bool) (paymentAbilityTier, paymentConsequence, string) {
+// paymentPlanAbilityShapeTier classifies the ability's own cost, production,
+// parameters and SubAbility$ chain.
+func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
 	deferred := func(detail string) (paymentAbilityTier, paymentConsequence, string) {
 		return paymentTierDeferred, paymentConsequence{}, detail
 	}
@@ -771,14 +678,6 @@ func (e *Engine) paymentPlanAbilityTierFor(p state.PlayerID, id state.ObjID, ma 
 	if !paymentPlanTapOnlyCost(cost) {
 		return deferred("source:last_resort")
 	}
-	// The ability's own shape is normal. Interference from the source's own
-	// triggers/replacements and from any other object whose filter can match
-	// this source's tap or production is scoped to this source alone
-	// (spec 3.2): a matching own effect is last resort, another object's is
-	// deferred.
-	if tier, consequence, detail := e.paymentPlanSourceInterference(id, ma, p, checkInterference); tier != paymentTierNormal {
-		return tier, consequence, detail
-	}
 	return paymentTierNormal, paymentConsequence{}, ""
 }
 
@@ -823,8 +722,12 @@ func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32,
 	if o == nil || o.Face() == nil {
 		return 0, false
 	}
-	name := strings.TrimSpace(mana.Params["SubAbility"])
-	rider := cards.ResolveSVar(o.Face().SVars, name)
+	return paymentPlanDamageBody(cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.Params["SubAbility"])))
+}
+
+// paymentPlanDamageBody reports N when rider is exactly `DealDamage |
+// Defined$ You | NumDmg$ <literal N>` with no further parameter or sub.
+func paymentPlanDamageBody(rider *cards.SA) (uint32, bool) {
 	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.Params["Defined"]) != "You" || strings.TrimSpace(rider.Params["SubAbility"]) != "" {
 		return 0, false
 	}
@@ -887,17 +790,13 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 // manual because they need a shape or source-state read the witness cannot
 // represent.
 func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActivation {
-	return e.paymentPlanUnitAlternativesFor(u, true)
-}
-
-func (e *Engine) paymentPlanUnitAlternativesFor(u windowManaUnit, checkInterference bool) []plannedManaActivation {
 	var out []plannedManaActivation
 	for _, alt := range u.alts {
 		payer := state.PlayerID(0)
 		if source := e.G.Obj(u.id); source != nil {
 			payer = source.Controller
 		}
-		tier, consequence, _ := e.paymentPlanAbilityTierFor(payer, u.id, alt.ma, checkInterference)
+		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
 		if tier != paymentTierNormal {
 			continue
 		}
@@ -932,9 +831,22 @@ func (e *Engine) paymentPlanUnitAlternativesFor(u windowManaUnit, checkInterfere
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
 	// outcome it could have supplied, rather than by only the outcome the
-	// search happened to choose.
+	// search happened to choose. Flexibility is the number of DISTINCT mana
+	// types those outcomes produce (spec 5 key 5), so a Produced$ Any source
+	// counts 5, a typed dual 2, and two abilities that both add {U} count 1.
+	var types uint8 // bit i = mana index i (W/U/B/R/G/C)
+	for _, a := range out {
+		for i, n := range a.mana {
+			if n > 0 {
+				types |= 1 << i
+			}
+		}
+	}
+	flex := bits.OnesCount8(types)
+	colours := types &^ (1 << state.MC)
 	for i := range out {
-		out[i].flex = len(out)
+		out[i].flex = flex
+		out[i].colours = colours
 	}
 	return out
 }
@@ -1052,7 +964,7 @@ func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.
 		if u.id != pa.Source {
 			continue
 		}
-		for _, candidate := range e.paymentPlanUnitAlternativesFor(u, false) {
+		for _, candidate := range e.paymentPlanUnitAlternatives(u) {
 			if candidate.ma != nil && candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces {
 				return candidate, true
 			}
@@ -1101,273 +1013,114 @@ func (e *Engine) paymentSourceZoneSeq(id state.ObjID) uint64 {
 	return decision.GenesisZoneSeq
 }
 
-// paymentPlanManaInterference is the planner's global-mana gate.  Under the
-// amended spec (3.2) a trigger or replacement on one source affects only that
-// source's tier, so this returns true ONLY for an effect whose scope the
-// planner cannot prove: an unscoped effect-created ProduceMana replacement,
-// or a ManaConvert static that reaches a player.  The executor calls it
-// between later planned steps with no payer in hand, so the thin wrapper
-// declines when ANY alive player is affected; PlanCastPayment prices the
-// payer's own scan through paymentPlanGlobalManaEffectFor.
+// paymentPlanManaInterference is the zero-argument global gate the planned
+// executor re-runs before each later step: whether a mana effect whose scope
+// the planner cannot prove (paymentPlanGlobalManaEffect) reaches the acting
+// payer -- the cast in progress when there is one, else any alive player.
+// Everything the planner CAN scope -- a trigger or replacement that can match
+// one source's tap or production -- is a per-source tier question
+// (paymentPlanSourceInterference), which the executor re-reads through
+// paymentPlanUnitAlternatives.
 func (e *Engine) paymentPlanManaInterference() bool {
+	if pc := e.cast; pc != nil {
+		global, _ := e.paymentPlanGlobalManaEffect(pc.player, pc.card)
+		return global
+	}
 	for _, p := range e.G.AliveFrom(0) {
-		if global, _ := e.paymentPlanGlobalManaEffectFor(p, 0); global {
+		if global, _ := e.paymentPlanGlobalManaEffect(p, 0); global {
 			return true
 		}
 	}
 	return false
 }
 
-// paymentPlanGlobalManaEffect reports the payer-scoped global remainder.  The
-// zero-arg wrapper above delegates here; PlanCastPayment calls
-// paymentPlanGlobalManaEffectFor with the cast object so a ValidCard$-scoped
-// ManaConvert is priced the way the payment path prices it.
-func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID) (bool, string) {
-	return e.paymentPlanGlobalManaEffectFor(p, 0)
+// Irreversible-cost weights (spec 5 key 1, as amended 2026-09-26). They are
+// Arena-calibrated: two self-sacrificed Treasures (20) are cheaper than one
+// Mana Vault that does not untap (25), which is cheaper than three Treasures
+// (30); a point of damage or life (3) is cheaper than any sacrifice. The key
+// is summed per activated ability, so a source's painless ability always
+// beats its painful one for the same need.
+const (
+	paymentPlanCostSacrificeSelf         = 10 // sacrifice-self, non-creature source
+	paymentPlanCostSacrificeSelfCreature = 20 // sacrifice-self, creature source
+	paymentPlanCostNoUntap               = 25 // the source does not untap next untap step
+	paymentPlanCostPerLifeOrDamage       = 3  // per point of life paid or damage taken
+	paymentPlanCostReturnToHand          = 8  // the source returns to its owner's hand
+)
+
+// paymentPlanConsequenceCost is one activation's irreversible cost under the
+// weights above.
+func paymentPlanConsequenceCost(c paymentConsequence, creature bool) int64 {
+	var n int64
+	if c.sacrifice {
+		if creature {
+			n += paymentPlanCostSacrificeSelfCreature
+		} else {
+			n += paymentPlanCostSacrificeSelf
+		}
+	}
+	if c.noUntap {
+		n += paymentPlanCostNoUntap
+	}
+	n += paymentPlanCostPerLifeOrDamage * (int64(c.life) + int64(c.damage))
+	if c.returnToHand {
+		n += paymentPlanCostReturnToHand
+	}
+	return n
 }
 
-func (e *Engine) paymentPlanGlobalManaEffectFor(p state.PlayerID, castID state.ObjID) (bool, string) {
-	// An Effect-created ProduceMana replacement with no matchable object or
-	// player filter changes every production of every source; the planner
-	// cannot publish a witness for any of them.
-	for _, ce := range e.active() {
-		if ce.ReplacementEvent != "ProduceMana" {
-			continue
-		}
-		if paymentPlanEffectReplScoped(ce.ReplacementParams) {
-			continue
-		}
-		return true, "global_mana_effect:" + e.paymentPlanObjectName(ce.Source)
-	}
-	// A ManaConvert static reaching the payer is the spec's other global
-	// shape: the ordinary solver does not apply the conversion, so no witness
-	// it prices is guaranteed spendable.  The gate is the payment path's own
-	// paymentConv read; the name is best-effort detail.
-	if e.paymentConv(p, castID, false) != nil {
-		if name := e.paymentPlanManaConvertName(p); name != "" {
-			return true, "global_mana_effect:" + name
-		}
-		return true, "global_mana_effect"
-	}
-	return false, ""
+// paymentPlanRankContext is the per-query input the rank needs beyond one
+// plan: for each colour (WUBRG), how many untapped sources with an eligible
+// normal alternative can produce it. It is computed once from the query's
+// alternative table, so a plan's remainder is this census minus the plan's
+// own chosen sources.
+type paymentPlanRankContext struct {
+	colourSources [5]int
 }
 
-// paymentPlanEffectReplScoped reports whether an Effect-created replacement's
-// parameters carry a filter the per-source matcher can evaluate against a
-// hypothetical activation.  An unfiltered registration matches every source
-// and is the global remainder; a scoped one is handled per source.
-func paymentPlanEffectReplScoped(params map[string]string) bool {
-	for _, key := range []string{"ValidCard", "ValidActivator", "ValidPlayer", "Activator", "TriggerZones", "ActiveZones", "ValidToken"} {
-		if strings.TrimSpace(params[key]) != "" {
-			return true
-		}
-	}
-	return false
-}
-
-// paymentPlanManaConvertName names one ManaConvert static that reaches p, or
-// "" when none does.  It mirrors the source scan manaConversionParts uses
-// but only reads enough to produce the diagnostic; the gate above is the
-// authoritative paymentConv read.
-func (e *Engine) paymentPlanManaConvertName(p state.PlayerID) string {
-	for _, src := range e.manaConvPrintedSources() {
-		if strings.TrimSpace(src.sv.Params["ManaConversion"]) == "" {
+func newPaymentPlanRankContext(choices [][]plannedManaActivation) paymentPlanRankContext {
+	var ctx paymentPlanRankContext
+	for _, alts := range choices {
+		if len(alts) == 0 {
 			continue
 		}
-		if vp, ok := src.sv.Params["ValidPlayer"]; ok && !effects.MatchesPlayerSpec(e.G, vp, p, src.sv.Controller) {
-			continue
-		}
-		return e.paymentPlanObjectName(src.sv.Source)
-	}
-	for _, ce := range e.active() {
-		if ce.CostStaticMode != "ManaConvert" || strings.TrimSpace(ce.CostStaticParams["ManaConversion"]) == "" {
-			continue
-		}
-		if vp, ok := ce.CostStaticParams["ValidPlayer"]; ok && !effects.MatchesPlayerSpec(e.G, vp, p, ce.Controller) {
-			continue
-		}
-		return e.paymentPlanObjectName(ce.Source)
-	}
-	return ""
-}
-
-// paymentPlanObjectName is the printable name of a source object, or "" for
-// a departed one.
-func (e *Engine) paymentPlanObjectName(id state.ObjID) string {
-	if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		return o.Face().Name
-	}
-	return ""
-}
-
-// paymentPlanSourceInterference classifies the triggers and replacements that
-// act on a hypothetical activation of id, using the live matchers rather than
-// a second filter grammar (spec 3.2).  The source's OWN matching effect is
-// last resort when it is one of the two fully-determined consequences (a
-// becomes-tapped self-damage trigger, a doesn't-untap replacement) and
-// deferred otherwise; any OTHER object whose filter matches this activation
-// defers this source.  Untap and LoseMana replacements on other objects alter
-// neither a tap nor a production and are ignored.
-func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA, p state.PlayerID, checkOther bool) (paymentAbilityTier, paymentConsequence, string) {
-	source := e.G.Obj(id)
-	if source == nil || source.Face() == nil {
-		return paymentTierDeferred, paymentConsequence{}, "source:missing"
-	}
-	cost := e.parseCost(ma.Params["Cost"])
-	amt := int32(availableAmount(ma))
-	counter := "W"
-	if cols := e.paymentPlanChoiceColours(id, ma); len(cols) > 0 {
-		counter = cols[0]
-	} else if raw := strings.TrimSpace(ma.Params["Produced"]); len(raw) == 1 {
-		counter = raw
-	}
-	tapEv := events.Event{Kind: events.Tap, Obj: id}
-	manaEv := events.Event{Kind: events.ManaAdd, Player: p, Amount: amt, Counter: counter}
-
-	savedObj, savedPlayer, savedEntering := e.tapObj, e.tapPlayer, e.tapEntering
-	savedForMana, savedProduced := e.tappingForMana, e.tappingManaProduced
-	savedFromTap, savedProducer := e.manaFromTap, e.manaProducer
-	defer func() {
-		e.tapObj, e.tapPlayer, e.tapEntering = savedObj, savedPlayer, savedEntering
-		e.tappingForMana, e.tappingManaProduced = savedForMana, savedProduced
-		e.manaFromTap, e.manaProducer = savedFromTap, savedProducer
-	}()
-	e.tapObj, e.tapPlayer, e.tapEntering = id, p, false
-	e.tappingForMana, e.tappingManaProduced = id, strings.TrimSpace(ma.Params["Produced"])
-	e.manaFromTap, e.manaProducer = cost.Tap, id
-
-	// Own Untap "doesn't untap" replacement.  It cannot match a Tap or a
-	// ManaAdd event, so it is read structurally: the spec names the exact
-	// `R:Event$ Untap | ValidCard$ Card.Self | Layer$ CantHappen` shape.  A
-	// naive event match would gate on ValidStepTurnToController$, which
-	// depends on whose turn it is and would let a future-turn consequence
-	// slip through.
-	for i := range source.Face().Repls {
-		r := &source.Face().Repls[i]
-		if r.Event != "Untap" {
-			continue
-		}
-		vc := strings.TrimSpace(r.Params["ValidCard"])
-		if vc == "" || !e.matchesSpecFrom(vc, id, p, id) {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(r.Params["Layer"]), "CantHappen") {
-			return paymentTierLastResort, paymentConsequence{noUntap: true}, "source:last_resort"
-		}
-		return paymentTierDeferred, paymentConsequence{}, "source:own_untap:" + e.paymentPlanObjectName(id)
-	}
-
-	// Every battlefield face's tap triggers and ProduceMana replacements are
-	// evaluated against the hypothetical activation through the live
-	// matchers, so ValidCard$/ValidActivator$/Activator$/TriggerZones$ cannot
-	// drift from the real ones.  Any object whose filter matches this
-	// activation defers the source, regardless of which player controls the
-	// interfering permanent: spec PP-09 scopes the effect to the SOURCE, and
-	// the spec's "an opponent's Mana Vault, City of Brass or Claustrophobia
-	// never suppresses another player's plan" is about effects printed on the
-	// opponent's OWN permanents, not about filters that reach ours.
-	for _, owner := range e.G.AliveFrom(0) {
-		if !checkOther {
-			break
-		}
-		for _, oid := range e.G.Zone(state.ZBattlefield, owner) {
-			o := e.G.Obj(oid)
-			if o == nil || o.Face() == nil {
-				continue
-			}
-			for i := range o.Face().Triggers {
-				t := o.Face().Triggers[i]
-				forMana := false
-				switch t.Mode {
-				case "Taps":
-				case "TapsForMana":
-					forMana = true
-				default:
-					continue
-				}
-				if !e.tapsMatches(t, oid, tapEv, forMana) {
-					continue
-				}
-				if oid == id {
-					if n, ok := paymentPlanSelfTapDamage(t); ok {
-						return paymentTierLastResort, paymentConsequence{damage: n}, "source:last_resort"
-					}
-					return paymentTierDeferred, paymentConsequence{}, "source:own_trigger:" + e.paymentPlanObjectName(oid)
-				}
-				return paymentTierDeferred, paymentConsequence{}, "source:interfered:" + e.paymentPlanObjectName(oid)
-			}
-			for i := range o.Face().Repls {
-				r := &o.Face().Repls[i]
-				if r.Event != "ProduceMana" || !e.replacementMatches(*r, oid, manaEv) {
-					continue
-				}
-				if oid == id {
-					return paymentTierDeferred, paymentConsequence{}, "source:own_replacement:" + e.paymentPlanObjectName(oid)
-				}
-				return paymentTierDeferred, paymentConsequence{}, "source:interfered:" + e.paymentPlanObjectName(oid)
+		for c := range ctx.colourSources {
+			if alts[0].colours&(1<<c) != 0 {
+				ctx.colourSources[c]++
 			}
 		}
 	}
-
-	// Effect-created ProduceMana replacements participate in the same matcher.
-	// A SCOPED one acts per source; the unscoped global remainder is handled by
-	// paymentPlanGlobalManaEffectFor before any source is priced.
-	for _, ce := range e.active() {
-		if !checkOther {
-			break
-		}
-		if ce.ReplacementEvent != "ProduceMana" || !paymentPlanEffectReplScoped(ce.ReplacementParams) {
-			continue
-		}
-		with := replacementBodySA(ce.ReplacementBody)
-		r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams, With: with}
-		if !e.replacementMatchesEffectCreatedBy(*r, ce.Source, manaEv, ce.Remembered, ce.RememberedPlayers, ce.Controller) {
-			continue
-		}
-		if ce.Source == id {
-			return paymentTierDeferred, paymentConsequence{}, "source:own_replacement:" + e.paymentPlanObjectName(ce.Source)
-		}
-		return paymentTierDeferred, paymentConsequence{}, "source:interfered:" + e.paymentPlanObjectName(ce.Source)
-	}
-	return paymentTierNormal, paymentConsequence{}, ""
+	return ctx
 }
 
-// paymentPlanSelfTapDamage reads a source's own `T:Mode$ Taps | ValidCard$
-// Card.Self` trigger whose effect is exactly `DealDamage | Defined$ You |
-// NumDmg$ <literal>` (City of Brass).  Any other parameter makes the shape
-// unrecognised and the caller defers it.
-func paymentPlanSelfTapDamage(t cards.Trigger) (uint32, bool) {
-	if t.Effect == nil || t.Effect.API != "DealDamage" {
-		return 0, false
-	}
-	if strings.TrimSpace(t.Effect.Params["Defined"]) != "You" || strings.TrimSpace(t.Effect.Params["SubAbility"]) != "" {
-		return 0, false
-	}
-	n, err := strconv.ParseUint(strings.TrimSpace(t.Effect.Params["NumDmg"]), 10, 32)
-	if err != nil || n == 0 {
-		return 0, false
-	}
-	for _, k := range slices.Sorted(maps.Keys(t.Effect.Params)) {
-		if k != "API" && k != "Defined" && k != "NumDmg" && k != "SpellDescription" && k != "StackDescription" {
-			return 0, false
-		}
-	}
-	return uint32(n), true
+// paymentPlanRankStep is one witness step as the final tie-break compares it.
+type paymentPlanRankStep struct {
+	act         decision.PaymentActivation
+	consequence paymentConsequence
 }
 
+// paymentPlanRank is spec 5's lexicographic rank tuple (amended 2026-09-26);
+// less orders it, lower first, key by key in field order.
 type paymentPlanRank struct {
-	sources, creatures int
-	surplus            int32
-	flex               int
-	text               string
+	cost        int64 // 1. irreversible cost (0 for every normal-tier plan)
+	creatures   int   // 2. creature sources activated
+	sources     int   // 3. newly activated sources
+	surplus     int32 // 4. surplus mana left in the pool after paying
+	flex        int   // 5. distinct mana types the chosen sources could have made
+	handReserve int   // 6. placeholder, always 0: aph-hand-reserve defines it
+	remainder   int   // 7. distinct colours the unused sources still make (MORE first)
+	steps       []paymentPlanRankStep
 }
 
 func (r paymentPlanRank) less(o paymentPlanRank) bool {
-	if r.sources != o.sources {
-		return r.sources < o.sources
+	if r.cost != o.cost {
+		return r.cost < o.cost
 	}
 	if r.creatures != o.creatures {
 		return r.creatures < o.creatures
+	}
+	if r.sources != o.sources {
+		return r.sources < o.sources
 	}
 	if r.surplus != o.surplus {
 		return r.surplus < o.surplus
@@ -1375,17 +1128,100 @@ func (r paymentPlanRank) less(o paymentPlanRank) bool {
 	if r.flex != o.flex {
 		return r.flex < o.flex
 	}
-	return r.text < o.text
+	if r.handReserve != o.handReserve {
+		return r.handReserve < o.handReserve
+	}
+	if r.remainder != o.remainder {
+		return r.remainder > o.remainder
+	}
+	return comparePaymentPlanSteps(r.steps, o.steps) < 0
 }
-func rankPaymentPlan(p decision.PaymentPlan, as []plannedManaActivation, produced, after state.Mana) paymentPlanRank {
-	r := paymentPlanRank{sources: len(as), text: fmt.Sprint(p.Activations)}
+
+// comparePaymentPlanSteps is key 8: the typed witness, compared numerically
+// step by step (source object ID, ability kind, face, index, intrinsic name,
+// produced vector, consequence), then by length. It replaces a fmt.Sprint
+// string compare that sorted object 10 before object 9.
+func comparePaymentPlanSteps(a, b []paymentPlanRankStep) int {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		x, y := a[i], b[i]
+		if c := cmp.Compare(x.act.Source, y.act.Source); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Kind, y.act.Ability.Kind); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Face, y.act.Ability.Face); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Index, y.act.Ability.Index); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Intrinsic, y.act.Ability.Intrinsic); c != 0 {
+			return c
+		}
+		for k := range x.act.Produces {
+			if c := cmp.Compare(x.act.Produces[k], y.act.Produces[k]); c != 0 {
+				return c
+			}
+		}
+		if c := comparePaymentConsequence(x.consequence, y.consequence); c != 0 {
+			return c
+		}
+	}
+	return cmp.Compare(len(a), len(b))
+}
+
+func comparePaymentConsequence(a, b paymentConsequence) int {
+	flag := func(v bool) int {
+		if v {
+			return 1
+		}
+		return 0
+	}
+	if c := cmp.Compare(flag(a.sacrifice), flag(b.sacrifice)); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.life, b.life); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.damage, b.damage); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(flag(a.noUntap), flag(b.noUntap)); c != 0 {
+		return c
+	}
+	return cmp.Compare(flag(a.returnToHand), flag(b.returnToHand))
+}
+
+// rankPaymentPlan computes plan p's rank. as is the plan's chosen
+// alternatives (one per source, in witness order), after the pool left once
+// the cost is paid, and ctx the query's source census.
+func rankPaymentPlan(ctx paymentPlanRankContext, p decision.PaymentPlan, as []plannedManaActivation, after state.Mana) paymentPlanRank {
+	r := paymentPlanRank{sources: len(as), surplus: after.Total(), steps: make([]paymentPlanRankStep, len(p.Activations))}
+	remaining := ctx.colourSources
 	for _, a := range as {
+		r.cost += paymentPlanConsequenceCost(a.consequence, a.creature)
 		if a.creature {
 			r.creatures++
 		}
 		r.flex += a.flex
+		for c := range remaining {
+			if a.colours&(1<<c) != 0 {
+				remaining[c]--
+			}
+		}
 	}
-	r.surplus = after.Total()
+	for _, n := range remaining {
+		if n > 0 {
+			r.remainder++
+		}
+	}
+	for i := range p.Activations {
+		r.steps[i].act = p.Activations[i]
+		if i < len(as) {
+			r.steps[i].consequence = as[i].consequence
+		}
+	}
 	return r
 }
 func paymentWitness(c Cost, initial, produced state.Mana, as []plannedManaActivation, after state.Mana) decision.PaymentPlan {
