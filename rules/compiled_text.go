@@ -67,9 +67,21 @@ type compiledTextCacheEntry struct {
 	text   *compiledText
 }
 
+// compiledTextCacheLimit bounds the shared sidecar memo. Each entry holds
+// every configured deck card's AND every token script's compiled text, so an
+// embedder that starts many games from distinct decks (cardfuzz: fresh random
+// decks every game) grew it without bound -- measured 2026-09-27 at 3-4 GB per
+// fuzz run before the process hit its memory cap. A server's tables reuse a
+// handful of deck configurations, and a game's replay reuses its own, so a
+// small bound keeps every real hit. Dropped wholesale on overflow, like
+// landTypeWordsCache: an eviction only costs a recompile, and the text is
+// immutable, so it can never reach an event.
+const compiledTextCacheLimit = 64
+
 var compiledTextCache = struct {
 	sync.Mutex
 	entries map[*cards.Card][]compiledTextCacheEntry
+	n       int
 }{entries: make(map[*cards.Card][]compiledTextCacheEntry)}
 
 func newCompiledText(cfg Config) *compiledText {
@@ -83,10 +95,15 @@ func newCompiledText(cfg Config) *compiledText {
 	}
 	config := snapshotCompiledTextConfig(cfg)
 	text := buildCompiledText(cfg)
+	if compiledTextCache.n >= compiledTextCacheLimit {
+		compiledTextCache.entries = make(map[*cards.Card][]compiledTextCacheEntry)
+		compiledTextCache.n = 0
+	}
 	compiledTextCache.entries[key] = append(compiledTextCache.entries[key], compiledTextCacheEntry{
 		config: config,
 		text:   text,
 	})
+	compiledTextCache.n++
 	return text
 }
 

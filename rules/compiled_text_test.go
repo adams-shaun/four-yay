@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -48,6 +49,32 @@ func TestEngineCompiledTextCacheSeparatesCardLayouts(t *testing.T) {
 	otherToken := New(Config{Decks: [][]*cards.Card{{deckA}}, Tokens: map[string]*cards.Card{"T": tokenB}})
 	if otherToken.compiledText == base.compiledText {
 		t.Fatal("different token card reused immutable compiled text")
+	}
+}
+
+// A fuzzer starts every game from fresh decks, so every configuration is a
+// miss: the memo must stay bounded instead of pinning each game's compiled
+// text (and every token script's) for the life of the process.
+func TestEngineCompiledTextCacheStaysBounded(t *testing.T) {
+	for i := 0; i < 3*compiledTextCacheLimit; i++ {
+		c := card(t, fmt.Sprintf("Name:Bound %d\nTypes:Creature Test\nPT:1/1\nOracle:x\n", i))
+		New(Config{Decks: [][]*cards.Card{{c}}})
+		compiledTextCache.Lock()
+		n, total := compiledTextCache.n, 0
+		for _, entries := range compiledTextCache.entries {
+			total += len(entries)
+		}
+		compiledTextCache.Unlock()
+		if n > compiledTextCacheLimit || total != n {
+			t.Fatalf("after %d distinct configurations: count %d, entries %d (limit %d)", i+1, n, total, compiledTextCacheLimit)
+		}
+	}
+	// A repeated configuration still hits after the wholesale drop.
+	c := card(t, "Name:Bound Again\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
+	a := New(Config{Decks: [][]*cards.Card{{c}}})
+	b := New(Config{Decks: [][]*cards.Card{{c}}})
+	if a.compiledText != b.compiledText {
+		t.Fatal("a repeated configuration rebuilt its compiled text")
 	}
 }
 
