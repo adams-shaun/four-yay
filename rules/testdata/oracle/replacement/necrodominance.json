@@ -32,6 +32,7 @@
       "why": "The replacement changes cards that would go into this enchantment controller's graveyard, not an opponent's; the opponent's resolved Lightning Bolt goes to its owner's graveyard.",
       "setup": {"p0": {"battlefield": ["Necrodominance"]}, "p1": {"hand": ["Lightning Bolt"]}},
       "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
         {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]},
         {"op": "resolve"}
       ],
