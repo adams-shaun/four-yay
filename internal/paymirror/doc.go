@@ -92,6 +92,10 @@
 //	intentBuf, sbaIDBuf, foreachBuf
 //	loop, askCount                     intent-stream watchdog and ask counter: they count the
 //	                                   route's decisions, not the game
+//	legalActionWalks                   legalActionsPriced's diagnostic call counter: the float
+//	                                   route re-prices offers against a hypothetical floating
+//	                                   pool the control route never opens, so it counts the
+//	                                   route's work, not the game
 //
 // Not excluded, and therefore compared: everything else, including the log-
 // derived engine tallies rules reads later (manaExpended, tappedTurn,
