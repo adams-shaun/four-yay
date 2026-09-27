@@ -46,6 +46,9 @@ import (
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
 var oracleKnownDivergent = map[string]string{
+	// Script translation: effects/play.go validSAOK rejects the Hero subtype
+	// when filtering a free cast, leaving no offered Hero despite X = 5.
+	"West Coast Expansion/x-five-may-cast-hero": "observed Hero stays in hand (6 cards after drawing five), expected free cast to battlefield (5 cards in hand)",
 	// Gray Merchant's drain resolves but its subsequent life-gain amount is
 	// zero: the life-loss total is not propagated to the gain (effects/life.go,
 	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
