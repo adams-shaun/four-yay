@@ -256,6 +256,30 @@ func TestPaymentPlanProducerAndPoolExclusions(t *testing.T) {
 			t.Fatal("restricted producer funded a plan")
 		}
 	})
+	// PP-09 / spec §3.2: a source another object's tap/mana trigger can match
+	// is deferred (not scheduled), so it may never appear in a witness. The
+	// engine's V1 gate is stricter than per-source deferral -- it declines the
+	// whole offer while any TapsForMana trigger is live -- but the deferred
+	// source is never scheduled either way, which is the property asserted
+	// here. The over-conservative global shape is named in the report.
+	t.Run("source matched by a taps-for-mana trigger is deferred", func(t *testing.T) {
+		e, _, spell := newFixtureDeck(t, 9353, redSpell)
+		mtn := onBoard(t, e, 0, ppMountain)
+		onBoard(t, e, 1, "Name:Flare Test\nTypes:Enchantment\nT:Mode$ TapsForMana | ValidCard$ Land | Execute$ TrigMana | TriggerZones$ Battlefield | Static$ True | TriggerDescription$ x\nSVar:TrigMana:DB$ ManaReflected | ColorOrType$ Type | ReflectProperty$ Produced | Defined$ TriggeredActivator\nOracle:x\n")
+		d := ppAsk(t, e)
+		for _, a := range d.PaymentActions {
+			for _, p := range a.Plans {
+				for _, act := range p.Activations {
+					if act.Source == mtn {
+						t.Fatalf("matched source scheduled despite the deferral: %#v", p.Activations)
+					}
+				}
+			}
+		}
+		if ppHasAction(d, spell) {
+			t.Fatalf("a plan funded the spell from a source a TapsForMana trigger can match: %#v", d.PaymentActions)
+		}
+	})
 	t.Run("restricted floating pool declines", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9354, redSpell)
 		onBoard(t, e, 0, ppMountain)
