@@ -53,9 +53,8 @@ func istTargetOptionFor(d *decision.Decision, id state.ObjID) int {
 // TestIsTargetingFlashPhotography pins the real-corpus Flash Photography
 // script: `ValidSA$ Spell.IsTargeting Valid Permanent.YouCtrl`. The sorcery
 // must be offered only off-turn and only when a permanent its controller
-// controls is a legal target; a cast announced on a non-qualifying (or
-// absent) target is reversed by CR 601.2e, and a cast on a qualifying target
-// completes.
+// controls is a legal target; the announcement offers only targets covered by
+// the permission, so a cast on a qualifying target completes.
 func TestIsTargetingFlashPhotography(t *testing.T) {
 	// No permanent you control: no qualifying target, no flash offer.
 	e, spell := offTurnFlashEngine(t, "Flash Photography", 2, 2)
@@ -73,31 +72,10 @@ func TestIsTargetingFlashPhotography(t *testing.T) {
 		t.Fatal("Flash Photography was not offered off-turn with a permanent its controller controls")
 	}
 
-	// A cast on the opponent's permanent (a legal target that does NOT meet
-	// the flash restriction) is reversed before payment.
+	// The opponent's otherwise-legal permanent is not offered: it does not
+	// satisfy the permission that granted off-turn timing.
 	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KTarget {
-		t.Fatalf("Flash Photography target decision = %+v", d)
-	}
-	if istTargetOptionFor(d, theirBear) < 0 {
-		t.Fatalf("precondition: the non-qualifying permanent must be a legal target: %+v", d.Options)
-	}
-	before := len(e.L.Events)
-	submitChoices(t, e, istTargetOptionFor(d, theirBear))
-	if e.G.Obj(spell).Zone != state.ZHand {
-		t.Fatalf("a non-qualifying target left the spell in %s, want the reversal back to hand", e.G.Obj(spell).Zone)
-	}
-	if len(e.G.Stack) != 0 {
-		t.Fatalf("stack after the reversal = %v, want empty", e.G.Stack)
-	}
-	if len(e.L.Events) <= before {
-		t.Fatal("no events were logged through the reversed cast")
-	}
-
-	// A cast on the qualifying permanent completes.
-	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
-	d = e.Pending()
 	if d == nil || d.Kind != decision.KTarget {
 		t.Fatalf("second target decision = %+v", d)
 	}
@@ -145,25 +123,17 @@ func TestIsTargetingTimelyWard(t *testing.T) {
 		t.Fatal("Timely Ward was not offered off-turn with a commander available")
 	}
 
-	// Announcing it on the non-commander is reversed (CR 601.2e).
+	// The announcement offers only the grant-covered target: the plain
+	// creature is a legal target of the Aura's Enchant restriction but does
+	// not satisfy the permission that granted off-turn timing (CR 601.2e),
+	// so it is not on the menu; the commander completes the cast.
 	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KTarget {
 		t.Fatalf("Timely Ward target decision = %+v", d)
 	}
-	if istTargetOptionFor(d, plain) < 0 {
-		t.Fatalf("precondition: the non-commander must be a legal target: %+v", d.Options)
-	}
-	submitChoices(t, e, istTargetOptionFor(d, plain))
-	if e.G.Obj(spell).Zone != state.ZHand {
-		t.Fatalf("a non-commander target left Timely Ward in %s, want hand", e.G.Obj(spell).Zone)
-	}
-
-	// Announcing it on the commander completes.
-	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
-	d = e.Pending()
-	if d == nil || d.Kind != decision.KTarget {
-		t.Fatalf("second Timely Ward target decision = %+v", d)
+	if idx := istTargetOptionFor(d, plain); idx >= 0 {
+		t.Fatalf("the non-commander was offered although the flash permission does not cover it: %+v", d.Options)
 	}
 	idx := istTargetOptionFor(d, cmdr)
 	if idx < 0 {

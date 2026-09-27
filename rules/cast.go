@@ -7983,6 +7983,30 @@ func modeFlags(mode string) string {
 	return ""
 }
 
+// flashPermittedCandidates narrows a cast's target pool to the candidates
+// that the face's target-conditional CastWithFlash grant covers. It is the
+// ask-side twin of the offer's castWithFlash existential and the CR 601.2e
+// recheck: an off-sorcery cast whose timing rests on
+// `ValidSA$ Spell.IsTargeting Valid <spec>` may only announce a target matching
+// <spec>, so handing the player a target the grant does not cover would
+// guarantee the post-push reversal. Callers gate the call on
+// flashGrantCoversTargets(pc.player, pc.card, f, nil), which is false exactly
+// for the shape where the grant IS the timing basis -- an instant, a printed
+// Flash or a MayFlashSac rider keeps its full pool unchanged.
+func (e *Engine) flashPermittedCandidates(pc *pendingCast, f *cards.Face, candidates []targetCandidate) []targetCandidate {
+	out := make([]targetCandidate, 0, len(candidates))
+	for _, c := range candidates {
+		t := state.Target{Obj: c.obj}
+		if c.kind == "player" {
+			t = state.Target{Player: c.player, IsPlayer: true}
+		}
+		if e.flashGrantCoversTargets(pc.player, pc.card, f, []state.Target{t}) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // targetAsk is the last stage of continueCast before commitCast: it asks the
 // spell or activated ability's target selection (CR 601.2c / 602.2b) while the
 // proposal is still provisional -- BEFORE any cost is paid, any sacrificial
@@ -8081,6 +8105,34 @@ func (e *Engine) targetAsk() bool {
 		excludeSelf = pc.card
 	}
 	candidates := e.legalTargetCandidates(pc.player, pc.card, excludeSelf, sa)
+	// CR 601.2e: a cast whose off-sorcery timing rests on a target-conditional
+	// CastWithFlash grant may only announce a target the grant covers. The
+	// offer admitted the cast because SOME qualifying target exists
+	// (castWithFlash's potential-target census); without this the ask would
+	// still offer every legal target and an uncovered pick would be reversed
+	// after the push. Filter to the grant-covered pool so offer and
+	// announcement judge the same set. The fuse cast judges each half against
+	// its own stage targets in recheckIllegal, so it is left unfiltered here.
+	//
+	// The permission is EXISTENTIAL over the announced set
+	// (spellMatchesValidSA judges the whole target list), so the per-candidate
+	// narrowing is exact only for a single-target ask. A multi-target ask
+	// whose pool has a proper subset of covered candidates keeps the FULL
+	// pool: a legal completion may mix covered and uncovered targets, and
+	// pruning the uncovered side would hide legal choices and -- under a
+	// mandatory minimum above the covered count -- abort a castable spell
+	// (offer census admitted it, the ask could not announce it). The completed
+	// selection is judged by recheckIllegal (CR 601.2e) over the same grant,
+	// before any cost is paid. With no covered candidate at all the pool
+	// empties and the mandatory-minimum census below aborts the proposal (or,
+	// at Min 0, the CR 601.2e recheck reverses an untargeted announcement).
+	if !pc.isAbility() && pc.offSorcery && f != nil && pc.mode != "fuse" &&
+		!e.flashGrantCoversTargets(pc.player, pc.card, f, nil) {
+		covered := e.flashPermittedCandidates(pc, f, candidates)
+		if len(covered) == len(candidates) || len(covered) == 0 || (min <= 1 && max <= 1) {
+			candidates = covered
+		}
+	}
 	// Overload changes the word "target" to "each". It makes no selection at
 	// announcement time: the current matching set is derived at resolution,
 	// so permanents entering or changing controller in response are handled.
@@ -8154,10 +8206,16 @@ func (e *Engine) targetAsk() bool {
 	// Read AFTER affordability and the power-cap prune so `distinct` is the
 	// real selectable capacity: an unaffordable or over-cap candidate cannot
 	// contribute a controller to it.
-	min, max, exclusive, distinct := e.oneEachTargetBounds(sa, candidates, min, max)
-	min, max, sameCapacity, sameController := e.sameControllerTargetBounds(sa, candidates, min, max)
-	min, max, setCapacity, setMode, setKind := e.setPropTargetBounds(sa, candidates, min, max)
-	if min > 0 && (len(candidates) < min || (exclusive && min > distinct) || (sameController && min > sameCapacity) || (setMode != decision.SetPropNone && min > setCapacity)) {
+	min, max, _, _ = e.oneEachTargetBounds(sa, candidates, min, max)
+	min, max, _, sameController := e.sameControllerTargetBounds(sa, candidates, min, max)
+	min, max, _, setMode, setKind := e.setPropTargetBounds(sa, candidates, min, max)
+	// The ONE feasibility rule (rules/legal.go's targetChoiceFeasible) is the
+	// same predicate the cast offer census ran (targetSAAvailable), so an
+	// offered cast can always announce a legal target: the count, the
+	// per-controller exclusivity/OneEach capacity, the same-controller group
+	// capacity and the set-property capacity are judged identically at offer
+	// and at the ask.
+	if min > 0 && !e.targetChoiceFeasible(sa, candidates, min) {
 		// CR 601.2c: a proposal with fewer legal targets than its mandatory
 		// minimum -- or one whose per-controller constraint admits fewer
 		// distinct controllers than its mandatory minimum -- cannot be
