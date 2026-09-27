@@ -299,9 +299,11 @@ func (e *Engine) runFusedHalves(o *state.Object, halves []*cards.Face, sas []*ca
 				tail = rest
 			}
 			cont := e.buildContinuationChain(e.contChain, o.ID, tail)
+			e.contChain = e.contChain[:0]
 			e.fusedResolving, e.fusedResolvingSet, e.fusedResolvingSVars = savedFused, savedFusedSet, savedSVars
 			return cont, true
 		}
+		e.contChain = e.contChain[:0]
 		e.fusedResolving, e.fusedResolvingSet, e.fusedResolvingSVars = savedFused, savedFusedSet, savedSVars
 	}
 	return nil, false

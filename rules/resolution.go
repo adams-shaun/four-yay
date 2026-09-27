@@ -4164,8 +4164,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				e.bindLoopFrames(ctx.Remembered, ctx.VoteCounts)
 			}
 			e.resume.outer = e.buildContinuationChain(e.contChain, rp.obj, rp.outer)
+			// The continuation chain now owns the reported frames. Keep this
+			// per-pass scratch empty at the suspension boundary.
+			e.contChain = e.contChain[:0]
 			return
 		}
+		e.contChain = e.contChain[:0]
 	} else if !parkedDraws && rp.kind != "replacement" && rp.kind != "etb" && rp.fuseAlt == nil {
 		// A resume with no sub-ability recorded: normally reachable only from
 		// a hand-built Ask (every real asking primitive sets ResumeSA). Three

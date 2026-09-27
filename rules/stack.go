@@ -4418,6 +4418,7 @@ func (e *Engine) resolveTop() {
 			// this initial pass. Preserve every enclosing continuation exactly as
 			// resumeResolution does for a nested ask reached on re-entry.
 			e.resume.outer = e.buildContinuationChain(e.contChain, id, nil)
+			e.contChain = e.contChain[:0]
 			// A mid-resolution ask (M2d-2): the effect that asked has set a
 			// decision pending and recorded a resume point. The object stays
 			// on the stack waiting for the answer -- entering the exile exit
@@ -4426,6 +4427,7 @@ func (e *Engine) resolveTop() {
 			// (rules/resolution.go), which runs the rest of this same tail.
 			return
 		}
+		e.contChain = e.contChain[:0]
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZStack, To: state.ZExile})
 		e.ensureLeftTheStack(id, state.ZExile, "a replacement fully discarded this resolved "+
 			"ability's own move off the stack without relocating it anywhere; sent to exile "+
@@ -4651,12 +4653,14 @@ func (e *Engine) resolveTop() {
 			// This is an initial resolution pass rather than a resume re-entry,
 			// but its enclosing SubAbility continuations have the same lifetime.
 			e.resume.outer = e.buildContinuationChain(e.contChain, id, nil)
+			e.contChain = e.contChain[:0]
 			// A mid-resolution ask (M2d-2): same as the ability branch above
 			// — the resolution is suspended with the object still on the
 			// stack, and the answered decision re-enters it through
 			// resumeResolution instead of this tail.
 			return
 		}
+		e.contChain = e.contChain[:0]
 	}
 	e.moveResolvedOffStack(o)
 }
