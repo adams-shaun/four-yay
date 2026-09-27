@@ -154,7 +154,7 @@ func (b *Bot) decide(brd botpolicy.Board, d *decision.Decision) decision.Intent 
 // decisions unchanged, and selects the same preferred card among payable
 // spells. The submitted witness is copied from the exact offered plan.
 func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision.Intent, bool) {
-	if d == nil || d.Kind != decision.KPriority || len(d.PaymentActions) == 0 {
+	if d == nil || d.Kind != decision.KPriority || len(d.PaymentActions) == 0 || (brd.MyTurn && !brd.IsMain) {
 		return decision.Intent{}, false
 	}
 	payable := make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
