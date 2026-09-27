@@ -592,6 +592,14 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 // Any with a fixed amount.  The shared census must keep withholding it for
 // attack/unless windows, which cannot answer a colour choice; this planner
 // records its selected W/U/B/R/G output and executes that exact rewrite.
+//
+// It additionally prices a source the shared census withholds because its
+// Amount$ is not statically literal, when the engine's own evaluator resolves
+// it to a value provably invariant to the payment's own activations
+// (paymentPlanStableAmount): an Urza land's SVar-indirected
+// Count$UrzaLands.3.1. The shared census must keep withholding those too,
+// for the attack/unless windows, which can neither make a colour choice
+// concrete nor re-verify a changing amount at activation.
 func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 	units := e.windowManaUnits(p)
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
@@ -634,7 +642,113 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 			units[idx].alts = append(units[idx].alts, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
 		}
 	}
+	// Evaluated-amount layer: an ability windowManaUnits skipped because
+	// availableAmount could not statically price its Amount$ is offered here
+	// whenever paymentPlanStableAmount resolves it with the engine's own
+	// evaluator AND proves the value cannot move when the payment taps its
+	// sources. The probe is built lazily: a board with no evaluated-amount
+	// source (the overwhelming majority) pays no clone at all.
+	var probe *Engine
+	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+		o := e.G.Obj(id)
+		if o == nil || o.Tapped || o.Face() == nil {
+			continue
+		}
+		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
+			if availableAmount(ma) > 0 {
+				continue // windowManaUnits' static path already priced it.
+			}
+			// Only a V1 source contract (a bare tap) can be executed from a
+			// witness, so never build the probe for an ability the plan could
+			// not activate anyway.
+			if !paymentPlanTapOnlyCost(e.parseCost(ma.Params["Cost"])) {
+				continue
+			}
+			if probe == nil {
+				probe = e.paymentPlanTappedProbe(p)
+			}
+			amt, ok := e.paymentPlanStableAmount(probe, p, id, o, ma)
+			if !ok {
+				continue
+			}
+			counts, any := cards.ProducedCounts(ma.Params["Produced"])
+			if any {
+				units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
+				continue
+			}
+			total := int32(0)
+			for _, n := range counts {
+				total += n
+			}
+			if total <= 0 {
+				continue
+			}
+			units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt})
+		}
+	}
 	return units
+}
+
+// appendPaymentPlanUnitAlt appends one alternative to the unit that already
+// names id, creating the unit if the shared census and the choice-shape layer
+// both left it out. It keeps the evaluated-amount layer from duplicating the
+// unit-lookup bookkeeping the choice-shape loop spells out inline.
+func appendPaymentPlanUnitAlt(units []windowManaUnit, id state.ObjID, alt windowManaAlt) []windowManaUnit {
+	for i := range units {
+		if units[i].id == id {
+			units[i].alts = append(units[i].alts, alt)
+			return units
+		}
+	}
+	return append(units, windowManaUnit{id: id, freeCount: 1, alts: []windowManaAlt{alt}})
+}
+
+// paymentPlanTappedProbe clones the engine and taps every battlefield
+// permanent p controls. The clone is e.Clone(), whose zeroed layer caches
+// (staticEpoch/activeEpoch/continuousVersion) force any Derived read to
+// rebuild against the cloned, all-tapped board rather than serving the live
+// engine's cache. It is a pure throwaway: the clone never emits and is
+// discarded after the two evaluations in paymentPlanStableAmount.
+func (e *Engine) paymentPlanTappedProbe(p state.PlayerID) *Engine {
+	probe := e.Clone()
+	for _, id := range probe.G.Zone(state.ZBattlefield, p) {
+		if o := probe.G.Obj(id); o != nil {
+			o.Tapped = true
+		}
+	}
+	return probe
+}
+
+// paymentPlanStableAmount prices a mana ability's Amount$ with the engine's
+// own evaluator (castWindowAmount: the source face's SVar table and
+// effects.Num's grammar) and admits the value only when it is provably
+// invariant to the state a V1 payment changes for its sources.
+//
+// A V1 plan admits only normal-tier, tap-only alternatives
+// (paymentPlanAbilityShapeTier / paymentPlanTapOnlyCost): activating one taps
+// its source, adds mana, and changes nothing else -- no sacrifice, no return,
+// no life. So the only per-object field an amount could read that the payment
+// moves is the tapped bit. This proves invariance constructively, not by
+// enumerating count heads: it re-evaluates the same expression on a clone
+// whose battlefield permanents are all tapped, and requires the two values to
+// agree. A count of untapped permanents therefore refuses the plan, while the
+// Urza lands' presence/subtype count is unchanged.
+//
+// The check can only be too strict, never too lax, and even then it is not the
+// last word: the executor re-derives this alternative at every activation and
+// compares the mana actually added with the witness
+// (paymentPlanStepReady / paymentPlanProducedExactly), so a value that moved
+// between the plan and the activation is a plan failure, never a silent
+// overpay.
+func (e *Engine) paymentPlanStableAmount(probe *Engine, p state.PlayerID, source state.ObjID, o *state.Object, ma *cards.SA) (int32, bool) {
+	amt, ok := e.castWindowAmount(p, source, o, ma)
+	if !ok || amt <= 0 {
+		return 0, false
+	}
+	if probeAmt, ok := probe.castWindowAmount(p, source, o, ma); !ok || probeAmt != amt {
+		return 0, false
+	}
+	return amt, true
 }
 
 // paymentPlanTapOnlyCost is the V1 source contract.  A payment witness can
