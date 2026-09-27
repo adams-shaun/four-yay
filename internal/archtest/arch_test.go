@@ -88,20 +88,27 @@ func set(s string) map[string]bool {
 // cmd/hindsight (the pn20 branch-mining tool) reads it only to report run and
 // per-decision wall seconds; every sample, rollout and record is a pure
 // function of its seeds.
+// cmd/paymirror and its internal/paymirror driver read it only to bound a
+// single game's wall-time budget between intents (a truncation-only harness
+// bound, never a verdict input) and to print the one-per-game progress line's
+// elapsed seconds; every plan, mirror comparison and report record is a pure
+// function of its seed and spec, exactly as cmd/cardfuzz's watchdog is.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 	allowed := map[string]bool{
-		module + "/host":              true,
-		module + "/host/httpapi":      true,
-		module + "/cmd/gorged":        true,
-		module + "/cmd/testtime":      true,
-		module + "/cmd/botbench":      true,
-		module + "/cmd/ledger":        true,
-		module + "/cmd/searchprobe":   true,
-		module + "/cmd/searchteacher": true,
-		module + "/cmd/cardfuzz":      true,
-		module + "/cmd/exitloop":      true,
-		module + "/cmd/traindash":     true,
-		module + "/cmd/hindsight":     true,
+		module + "/host":               true,
+		module + "/host/httpapi":       true,
+		module + "/cmd/gorged":         true,
+		module + "/cmd/testtime":       true,
+		module + "/cmd/botbench":       true,
+		module + "/cmd/ledger":         true,
+		module + "/cmd/searchprobe":    true,
+		module + "/cmd/searchteacher":  true,
+		module + "/cmd/cardfuzz":       true,
+		module + "/cmd/exitloop":       true,
+		module + "/cmd/traindash":      true,
+		module + "/cmd/hindsight":      true,
+		module + "/cmd/paymirror":      true,
+		module + "/internal/paymirror": true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {
