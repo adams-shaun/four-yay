@@ -399,17 +399,18 @@ func TestTapObligationCannotAlsoPayTheMana(t *testing.T) {
 }
 
 // combatBotTapFixture is a creature carrying a SELF-scoped tapXType charge,
-// so only that creature's attacks are taxed an obligation the wire cannot
-// verify.
+// so only that creature's attacks are taxed a tap obligation.
 const combatBotTapFixture = "Name:Charged Warden\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\n" +
 	"S:Mode$ CantAttackUnless | ValidCard$ Card.Self | Cost$ tapXType<1/Creature.!attacking> | Description$x\n" +
 	"Oracle:x\n"
 
 // TestAtomicTapChargedBotAnswerIsAccepted engages the engine's KAttackers
 // validator with the shipped bot policy where a tap obligation binds: the
-// bot's own answer must be accepted (no livelock), and because the published
-// CostTaps cannot be verified on the wire the guard drops the tap-costed
-// pair, so the declaration the engine sees is the free remainder.
+// bot's own answer must be accepted (no livelock). Since the declaration-
+// dependent tap pool is published (Decision.ChargeTapPool and each option's
+// TapPoolCost), the guard can VERIFY the obligation -- it keeps the tap-costed
+// pair while a candidate remains and drops whatever would exhaust the pool --
+// so the answer it hands the engine is exactly one validateAttackers accepts.
 func TestAtomicTapChargedBotAnswerIsAccepted(t *testing.T) {
 	e := threeSeatEngine(t)
 	charged := onBoardReady(t, e, 1, combatBotTapFixture)
@@ -435,15 +436,18 @@ func TestAtomicTapChargedBotAnswerIsAccepted(t *testing.T) {
 	if d == nil || d.Kind != decision.KAttackers {
 		t.Fatalf("no attackers decision: %+v", d)
 	}
-	if opt := findAttackOption(d, charged, 0); opt == nil || opt.CostTaps == 0 {
-		t.Fatalf("precondition: charged pair not offered with CostTaps published: %+v", d.Options)
+	if opt := findAttackOption(d, charged, 0); opt == nil || opt.CostTaps == 0 || opt.TapPoolCost != 1 {
+		t.Fatalf("precondition: charged pair not offered with its pool share published: %+v", d.Options)
+	}
+	if d.ChargeTapPool != 2 {
+		t.Fatalf("precondition: published ChargeTapPool = %d, want 2 (the two untapped creatures)", d.ChargeTapPool)
 	}
 	bot := newTestBot(99)
 	in := bot.answer(e, d)
-	for _, ci := range in.Choices {
-		if ci >= 0 && ci < len(d.Options) && d.Options[ci].Obj == charged {
-			t.Fatalf("the bot guard kept the unverifiable tap-costed pair: choices %v", in.Choices)
-		}
+	// The guard's own answer must be one the wire validator accepts; that is
+	// the livelock contract, now that the tap obligation is verifiable.
+	if err := d.Validate(in); err != nil {
+		t.Fatalf("the bot guard's answer failed Decision.Validate: %v (choices %v)", err, in.Choices)
 	}
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: in.Choices}); err != nil {
 		t.Fatalf("the bot's own answer was rejected by validateAttackers: %v (choices %v)", err, in.Choices)

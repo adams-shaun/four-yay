@@ -655,6 +655,17 @@ func (e *Engine) askAttackers() {
 	// attackSourceUnits / attackTaxed in rules/attack_cost.go.
 	selfUnits := e.attackSourceUnits(p)
 	taxed := e.attackTaxed(offers)
+	// The declaration-dependent tap-candidate pool (attackTapPool): published
+	// only when a tapXType obligation is offered and every such obligation
+	// shares one readable shape, so each option can carry the pool share it
+	// would consume (Option.TapPoolCost) and Decision.Validate can reject a
+	// declaration that leaves the obligation unpayable. Unpublished (0, nil)
+	// for every ordinary declaration, keeping its wire payload byte-identical.
+	tapPool := 0
+	var tapCosts map[state.ObjID]int
+	if pool, costs, ok := e.attackTapPool(p, offers); ok {
+		tapPool, tapCosts = pool, costs
+	}
 	var opts []decision.Option
 	// groupLimits carries a raised per-defender attacker cap to the wire
 	// (Decision.GroupLimits): a scoped AttackRestrict ceiling above one
@@ -717,6 +728,10 @@ func (e *Engine) askAttackers() {
 		for _, t := range of.charge.taps {
 			opt.CostTaps += int(t.n)
 		}
+		// The pool share this attacker would consume if declared, published
+		// with Decision.ChargeTapPool. Zero (omitted) unless the engine
+		// published a pool, so an ordinary option is byte-identical.
+		opt.TapPoolCost = tapCosts[of.id]
 		opts = append(opts, opt)
 	}
 	// A MaxAttackers$ ceiling (CR 508.1j, Silent Arbiter's shape) bounds the
@@ -780,7 +795,13 @@ func (e *Engine) askAttackers() {
 		// ordinary declaration's wire payload is byte-identical.
 		GroupLimits: groupLimits,
 		// The combined non-mana charge bound (see payerLife above).
-		PayerLife: payerLife})
+		PayerLife: payerLife,
+		// The tap-candidate pool (see tapPool above): the pool size the
+		// declaration's tapXType obligation draws from, published with each
+		// option's TapPoolCost so a rules-ignorant client can see whether a
+		// declaration still leaves it payable. 0 (omitted) when no pool is
+		// readable, so every ordinary declaration is byte-identical.
+		ChargeTapPool: tapPool})
 }
 
 // handleAttackers records the chosen attackers (CR 508.1c: this is what
@@ -1064,6 +1085,15 @@ func (e *Engine) exertAnswer(d *decision.Decision, in decision.Intent) {
 // a declaration that does not maximise must-attack requirements subject to
 // attack restrictions (e.g. Silent Arbiter's MaxAttackers).
 func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) error {
+	// The published declaration-dependent tap rule (decision.ChargeTapPoolFit),
+	// shared with the wire validator and the bot's repair: a declaration that
+	// consumes the last candidate its own tapXType obligation draws from is
+	// rejected here by the SAME arithmetic Decision.Validate applies, so a
+	// rules-ignorant client (and the bot) never submits one the engine refuses.
+	// Inert (returns true) unless askAttackers published a pool.
+	if !d.ChargeTapPoolFit(in.Choices) {
+		return fmt.Errorf("declaration's attack cost exhausts the tap obligation's candidate pool (%d)", d.ChargeTapPool)
+	}
 	seen := make(map[state.ObjID]bool, len(in.Choices))
 	// The offered-pair set (rules/attack_cost.go): every chosen option must
 	// be a pair the offer list admitted -- the CantAttack scoping and the

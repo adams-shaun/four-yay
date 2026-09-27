@@ -25,9 +25,13 @@ func (o *Option) chargeLifeCost() int32 {
 // ChargeOptionConstraints. It is the predicate form requiredCore, RequiredQuota
 // and FitRequired's fast path read, so "can this declaration's life charge be
 // paid" has exactly one home. An unpublished bound (PayerLife 0) leaves the life
-// dimension inert, as ChargeOptionConstraints does. A tap obligation is not
-// priced here.
+// dimension inert, as ChargeOptionConstraints does. The declaration's
+// tapXType pool (ChargeTapPoolFit) is part of the same predicate: a set that
+// exhausts a published tap pool is not fit, so the repair never restores one.
 func (d *Decision) ChargeOptionsFit(choices []int) bool {
+	if !d.ChargeTapPoolFit(choices) {
+		return false
+	}
 	life := d.PayerLifeBound()
 	spent := int32(0)
 	for _, c := range choices {
@@ -42,15 +46,49 @@ func (d *Decision) ChargeOptionsFit(choices []int) bool {
 	return true
 }
 
+// ChargeTapPoolFit reports whether the chosen option set leaves the
+// declaration's tapXType obligation a payable pool under the published
+// ChargeTapPool. It is the ONE home for the declaration-dependent tap rule:
+// Decision.Validate rejects an answer it refuses, ChargeOptionConstraints
+// drops a pick that would violate it, ChargeOptionsFit folds it into the
+// repair predicate, and the engine's board-aware validateAttackers calls it
+// before its own combatChargeAffordable read. An unpublished pool
+// (ChargeTapPool 0) leaves the rule inert, so every tap-free declaration is
+// byte-identically unaffected.
+//
+// The arithmetic is exact for the shape the engine publishes: every offered
+// tap obligation shares one candidate spec (the engine refuses to publish a
+// pool otherwise), so the candidates the declaration consumes are exactly the
+// selected permanents that are pool members (Option.TapPoolCost, 0 or 1) and
+// the obligations it owes are the chosen options' CostTaps. A declaration
+// leaves a payable pool when pool - consumed >= owed.
+func (d *Decision) ChargeTapPoolFit(choices []int) bool {
+	if d.ChargeTapPool <= 0 {
+		return true
+	}
+	consumed, owed := 0, 0
+	for _, c := range choices {
+		if c < 0 || c >= len(d.Options) {
+			continue
+		}
+		consumed += d.Options[c].TapPoolCost
+		owed += d.Options[c].CostTaps
+	}
+	return d.ChargeTapPool-consumed >= owed
+}
+
 // ChargeOptionConstraints applies the published-field half of the non-mana
 // combat-charge answer rule shared by the KAttackers and KBlockers arms. It
 // is the ONE home for the rule so the bot's policy and any other answer
 // builder cannot drift from it:
 //
-//   - a positive Option.CostTaps is dropped: the engine's deterministic
-//     tapXType obligation plan is not visible on the wire, so an answer
-//     cannot prove it can meet the obligation, and the engine's board-aware
-//     affordability read would reject a declaration it cannot pay;
+//   - a positive Option.CostTaps is dropped unless the decision published
+//     the tap-candidate pool it draws from (Decision.ChargeTapPool) and the
+//     running declaration still leaves it payable after this option's own
+//     Option.TapPoolCost is consumed; the shared ChargeTapPoolFit states
+//     the same rule, so the filter and Decision.Validate cannot disagree.
+//     With no published pool the pick is dropped outright, the historical
+//     conservative direction (the wire cannot prove the obligation);
 //   - the cumulative Option.CostLife of the kept options is bounded by the
 //     acting player's life total (a negative life means the total is not
 //     published, so only the tap rule applies), earliest kept;
@@ -81,13 +119,25 @@ func ChargeOptionConstraints(d *Decision, choices []int, life int32, maxSum int)
 	}
 	out := make([]int, 0, len(choices))
 	spentMana, spentLife := 0, int32(0)
+	spentPool, spentTaps := 0, 0
 	for _, ci := range choices {
 		if ci < 0 || ci >= len(d.Options) {
 			out = append(out, ci)
 			continue
 		}
 		o := &d.Options[ci]
-		if o.CostTaps > 0 {
+		// The declaration-dependent tap rule. With a published pool, keep the
+		// pick only while the pool the declaration leaves still covers the
+		// obligations it owes (the shared ChargeTapPoolFit arithmetic, read
+		// incrementally here). Without a published pool, any tap participation
+		// is unverifiable and dropped -- the same conservative direction the
+		// old blanket rule took, kept for a hand-built decision that publishes
+		// no pool.
+		if d.ChargeTapPool <= 0 {
+			if o.CostTaps > 0 || o.TapPoolCost > 0 {
+				continue
+			}
+		} else if d.ChargeTapPool-(spentPool+o.TapPoolCost) < spentTaps+o.CostTaps {
 			continue
 		}
 		if maxSum > 0 && spentMana+o.Value > maxSum {
@@ -100,6 +150,8 @@ func ChargeOptionConstraints(d *Decision, choices []int, life int32, maxSum int)
 			spentLife += cost
 		}
 		spentMana += o.Value
+		spentPool += o.TapPoolCost
+		spentTaps += o.CostTaps
 		out = append(out, ci)
 	}
 	return out
