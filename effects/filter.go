@@ -2694,8 +2694,11 @@ func recognisedPredicate(p string) bool {
 // spec's own ',' is the OR delimiter -- `namedCalim; Djinn Emperor` names
 // "Calim, Djinn Emperor"), and '_' stands for a space (`namedAether_Burst`).
 func nameArg(p string) string {
-	return strings.NewReplacer(";", ",", "_", " ").Replace(p)
+	return nameArgNormalizer.Replace(p)
 }
+
+// nameArgNormalizer is built once: a Replacer is safe for concurrent use.
+var nameArgNormalizer = strings.NewReplacer(";", ",", "_", " ")
 
 // filterAlternatives splits the OR grammar without tearing a raw comma out of
 // a named<Name>/notnamed<Name> argument. Forge normally spells a name comma
