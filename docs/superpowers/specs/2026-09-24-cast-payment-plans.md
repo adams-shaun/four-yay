@@ -673,12 +673,24 @@ off), is unavailable to spectators, and toggling it never posts an intent.
   whose `BaseOptionIndex` names a payment action submits that plan when clicked
   (`SeatPanelState.click`). Plan-only casts (no legacy option) are shown the
   same way.
-* Manual `Activate … for mana` options are hidden from the option list, the
-  board badges and the hot strip, unless the decision also offers a non-cast
-  action that may need mana. To pay a cast by hand the player switches the
-  preference off. There is no `Pay manually` button (the dead branch that
-  renders it only when the preference is off inside an on-only block is
-  removed).
+* Manual mana taps are hidden under auto-pay only when every play the window
+  can reach is reachable without them (amended by
+  `aph-web-manual-only-plays`; one shared rule, `web/src/lib/manualmana.ts`,
+  for the option list, the board badges and the hot strip, on a priority
+  decision only). A play is reachable without them when it is a visible
+  option or a cast its own offered plan pays. So the plain `Activate … for
+  mana` taps stay visible while the window can reach any play the engine
+  offers only once mana floats: a potential play the decision does not offer
+  and no plan pays -- a mana-costed ability, max-speed granted ability, Room
+  unlock, morph turn-face-up or specialize, and every cast the planner does
+  not plan (X, flashback, kicker/optional and alternative costs) -- an
+  offered non-cast action whose cost may carry mana, or a payment action
+  with no plan. A mana activation that costs more than a bare tap (the
+  `Option.Cost` marker: Lion's Eye Diamond, a Treasure, Mana Confluence) is a
+  play of its own and is never hidden. To pay a planned cast by hand in a
+  window whose taps are hidden, the player switches the preference off. There
+  is no `Pay manually` button (the dead branch that renders it only when the
+  preference is off inside an on-only block is removed).
 * A cast whose plan is unavailable shows "Suggested payment is unavailable;
   use the manual mana controls". A `PaymentFallback` on the manual window is
   displayed with its reason.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { castableAfterTap, castablesAfterTap, respondableAfterTap } from './castable';
-import type { PlayerView, PotentialAction, View } from '../protocol';
+import { castableAfterTap, castablesAfterTap, offersPotential, respondableAfterTap } from './castable';
+import type { Option, PlayerView, PotentialAction, View } from '../protocol';
 
 /**
  * castable.test.ts pins the projection question the auto-pass logic asks
@@ -103,6 +103,62 @@ describe('castableAfterTap — reading the server projection', () => {
     // ...and one projected entry stops, even with a dead-looking pool.
     const p2 = player({ potential_actions: [pot('ability', 20)] });
     expect(castableAfterTap(view(p2), 0)).toBe(true);
+  });
+});
+
+describe('the widened projection (aph-web-manual-only-plays): every real play kind the offer walk emits', () => {
+  // rules.PotentialActions now projects every play kind legalActionsPriced
+  // emits (rules TestPotentialActionsProjectsEveryPlayKind): a float-gated
+  // Room unlock, morph turn-face-up, specialize or max-speed granted ability
+  // is a real play the seat reaches by floating mana, exactly like an Equip.
+  const widened: PotentialAction[] = [
+    { kind: 'unlock', obj: 93, label: 'Unlock Prop Room' },
+    { kind: 'turn_face_up', obj: 94, label: 'Turn face up ({G})' },
+    { kind: 'specialize', obj: 95, mode: '1', label: 'Specialize as White Form ({1})' },
+    { kind: 'granted', obj: 96, label: 'Probe Engine: Draw a card.' },
+  ];
+
+  it('each new kind makes a mana-only window stop, and is named in the stop note', () => {
+    for (const a of widened) {
+      expect(castableAfterTap(view(player({ potential_actions: [a] })), 0), a.kind).toBe(true);
+      expect(castablesAfterTap(view(player({ potential_actions: [a] })), 0)).toEqual([`${a.label} (after tapping)`]);
+    }
+  });
+
+  it('a station (never mana-costed, so always offered when it is potential) is a play too', () => {
+    expect(castableAfterTap(view(player({ potential_actions: [{ kind: 'station', obj: 98, label: 'Station Probe Ship' }] })), 0)).toBe(true);
+  });
+
+  it('an unknown kind is still never a play (the whitelist holds)', () => {
+    expect(castableAfterTap(view(player({ potential_actions: [{ kind: 'mystery', obj: 1, label: 'Mystery' }] })), 0)).toBe(false);
+  });
+
+  it('the instant-speed new kinds (granted, turn face up) answer a stack object; the sorcery-speed ones do not', () => {
+    const [unlock, turnUp, specialize, granted] = widened;
+    expect(respondableAfterTap(view(player({ potential_actions: [granted] })), 0)).toBe(true);
+    expect(respondableAfterTap(view(player({ potential_actions: [turnUp] })), 0)).toBe(true);
+    expect(respondableAfterTap(view(player({ potential_actions: [unlock] })), 0)).toBe(false);
+    expect(respondableAfterTap(view(player({ potential_actions: [specialize] })), 0)).toBe(false);
+  });
+});
+
+describe('offersPotential — "the decision already offers this projected play"', () => {
+  const o = (over: Partial<Option>): Option => ({ index: 0, kind: 'cast', label: 'Cast Opt', player: 0, obj: 22, ...over });
+
+  it('matches kind, object, ability anchor, mode and label', () => {
+    expect(offersPotential([o({})], { kind: 'cast', obj: 22, label: 'Cast Opt' })).toBe(true);
+    expect(offersPotential([o({ kind: 'ability', ability: 1, label: 'Blade: Equip 1' })], { kind: 'ability', obj: 22, ability: 1, label: 'Blade: Equip 1' })).toBe(true);
+    expect(offersPotential([o({ kind: 'specialize', mode: '2', label: 'Specialize as B' })], { kind: 'specialize', obj: 22, mode: '2', label: 'Specialize as B' })).toBe(true);
+  });
+
+  it('a different route of the same card is not the offered one', () => {
+    // An alternative cost shares Mode "" with the ordinary cast (it is told
+    // apart by AltCostIndex, which the projection does not carry): the label
+    // is what separates them.
+    expect(offersPotential([o({})], { kind: 'cast', obj: 22, label: 'Cast Opt (alternative cost)' })).toBe(false);
+    expect(offersPotential([o({})], { kind: 'cast', obj: 22, mode: 'flashback', label: 'Cast Opt' })).toBe(false);
+    expect(offersPotential([o({ kind: 'ability', ability: 0, label: 'Blade: Equip 1' })], { kind: 'ability', obj: 22, ability: 1, label: 'Blade: Equip 1' })).toBe(false);
+    expect(offersPotential([o({ obj: 23 })], { kind: 'cast', obj: 22, label: 'Cast Opt' })).toBe(false);
   });
 });
 

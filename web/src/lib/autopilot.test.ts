@@ -275,6 +275,20 @@ describe('decide', () => {
     expect(respondableFor(projectionless, 0, d)).toBe(false);
   });
 
+  it('a max-speed granted ability or a morph turn-face-up answers a stack object; a land drop, station, unlock or specialize does not', () => {
+    // aph-web-manual-only-plays: respondable() and the projection half share
+    // one kind test (castable.isResponseKind), so an offered response and a
+    // float-gated one agree about what a response is.
+    for (const kind of ['granted', 'turn_face_up']) {
+      expect(respondable(priority([opt('pass', 0), opt(kind, 1), opt('concede', 2)])), kind).toBe(true);
+      const floatGated = withHand(view(0, 'draw'), 0, { potential_actions: [pot(kind)] });
+      expect(respondableFor(floatGated, 0, priority(ONLY_MANA)), kind).toBe(true);
+    }
+    for (const kind of ['play_land', 'station', 'unlock', 'specialize']) {
+      expect(respondable(priority([opt('pass', 0), opt(kind, 1), opt('concede', 2)])), kind).toBe(false);
+    }
+  });
+
   it('casual: an opponent ability on top with a cast available stops (if-respondable)', () => {
     const d = priority(RESPONDABLE);
     expect(run(d, view(0, 'draw', [stackEntry(9, 1, 'ability')]))).toEqual({ act: 'stop', reason: 'opponent-object' });
