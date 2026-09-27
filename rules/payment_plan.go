@@ -367,6 +367,11 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 		return nil
 	}
 	e.paymentStats.recordBuild(false)
+	// The build is a pure read: one memo scope makes every nested walk
+	// (PotentialMana, the candidate walk, each candidate's window-unit and
+	// legality reads) share one generation and one board-static scan.
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
 	// source-exclusive witness.
