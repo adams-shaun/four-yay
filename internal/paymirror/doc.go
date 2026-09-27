@@ -106,6 +106,10 @@
 //	Epoch/Version/Depth/Objs/         their snapshots are local cache keys (Clone rebuilds)
 //	BuildSeq/StaticSeq, renames/*,
 //	layer4Types/types*, sbaQuiet/Unquiet
+//	typesIncrReady/SelfOnly/Srcs/      layer-4 table incremental state and statics-probe
+//	MayDiffer/Touch/Act/Visited/       cache keyed by log length, continuousVersion and object
+//	IncrBuilds, typesProbe/True/       count; Clone copies none (zero = whole-board rebuild);
+//	Epoch/Version/Objs                 Visited/IncrBuilds count rebuild work, not the game
 //	ascend, storied                    incremental arena scans ("a pure cache, zero = rescan")
 //	turnsTaken/Epoch, turnStartTurns/  TurnChange census caches keyed by log length
 //	Epoch

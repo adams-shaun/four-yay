@@ -87,8 +87,26 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "typesVersion"}:     true,
 	{"rules.Engine", "typesObjs"}:        true,
 	{"rules.Engine", "typesBuilding"}:    true,
-	{"rules.Engine", "sbaQuiet"}:         true,
-	{"rules.Engine", "sbaUnquiet"}:       true,
+	// The layer-4 table's incremental state and statics-probe cache
+	// (layer4types.go), keyed by log length / continuousVersion / object
+	// count; Clone copies none, so a cloned route rebuilds them from its own
+	// fork point. typesVisited/typesIncrBuilds count rebuild work, not the
+	// game.
+	{"rules.Engine", "typesIncrReady"}:    true,
+	{"rules.Engine", "typesSelfOnly"}:     true,
+	{"rules.Engine", "typesSrcs"}:         true,
+	{"rules.Engine", "typesMayDiffer"}:    true,
+	{"rules.Engine", "typesTouch"}:        true,
+	{"rules.Engine", "typesAct"}:          true,
+	{"rules.Engine", "typesVisited"}:      true,
+	{"rules.Engine", "typesProbe"}:        true,
+	{"rules.Engine", "typesProbeTrue"}:    true,
+	{"rules.Engine", "typesProbeEpoch"}:   true,
+	{"rules.Engine", "typesProbeVersion"}: true,
+	{"rules.Engine", "typesProbeObjs"}:    true,
+	{"rules.Engine", "typesIncrBuilds"}:   true,
+	{"rules.Engine", "sbaQuiet"}:          true,
+	{"rules.Engine", "sbaUnquiet"}:        true,
 	// Incremental scans and census caches keyed by the log length or a
 	// continuous-registry version (the registry itself, e.continuous, is
 	// compared; the version only invalidates caches built over it).

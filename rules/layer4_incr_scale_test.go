@@ -18,7 +18,7 @@ import (
 // linear term this ticket removed.
 
 // The layer-4 derived-type table's incremental rebuild (layer4types.go):
-// scaling pins and the emit-path benchmark. The table is refreshed after
+// scaling pins. The table is refreshed after
 // every emitted non-inert event while a layer-4 type effect is live, so its
 // per-event cost -- before the incremental rebuild, two whole-board passes
 // (the staticsMayChangeTypes face probe and the walk's candidate scan) -- is
