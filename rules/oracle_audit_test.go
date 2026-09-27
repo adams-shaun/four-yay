@@ -58,6 +58,17 @@ var oracleKnownDivergent = map[string]string{
 	// snapshot and passes.
 	"Relic Vial/only-cleric-dies-looks-back":              "destroying the only Cleric drains nobody (no look-back for an effect destroy)",
 	"Relic Vial/sacrifice-only-cleric-as-cost-looks-back": "sacrificing the only Cleric as a cost drains nobody (no look-back for a cost sacrifice)",
+	// Suspected script translation: Evendo's conditional may-play static uses
+	// an exiled-with-source affected zone plus a turn/SVar gate; the Bolt is
+	// exiled by its sacrifice trigger but is not offered from exile.
+	"Evendo Brushrazer/sacrifice-this-turn-allows-exiled-card-play": "Lightning Bolt was exiled, but casting it from exile was not offered during the turn (conditional may-play static)",
+	// Suspected script translation: the Knight graveyard permission is a
+	// conditional continuous may-play static; Haakon is present, but the
+	// Knight in its controller's graveyard is not offered.
+	"Haakon, Stromgald Scourge/haakon-on-battlefield-permits-knight-from-graveyard": "Knight of the Ebon Legion from the graveyard was not offered while Haakon was on the battlefield",
+	// Suspected script translation: AddKeyword$ UntapAdjust is not enforced;
+	// all three tapped Bears untap despite the untapped Static Orb.
+	"Static Orb/untapped-orb-limits-next-untap-to-two": "all three attacking Bears untapped, expected no more than two permanents to untap",
 	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.

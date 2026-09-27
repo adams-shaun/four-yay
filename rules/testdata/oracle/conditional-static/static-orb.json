@@ -14,7 +14,7 @@
       },
       "steps": [
         {"op": "attack", "seat": 0, "defender": "p1", "attackers": ["p0:Grizzly Bears", "p0:Grizzly Bears#2", "p0:Grizzly Bears#3"]},
-        {"op": "pass_to", "step": "untap", "active": "p0"}
+        {"op": "pass_to", "step": "upkeep", "active": "p0"}
       ],
       "expect": [{"card": "p0:Grizzly Bears", "tapped": false}, {"card": "p0:Grizzly Bears#2", "tapped": false}, {"card": "p0:Grizzly Bears#3", "tapped": true}]
     },
@@ -29,7 +29,7 @@
       "steps": [
         {"op": "attack", "seat": 0, "defender": "p1", "attackers": ["p0:Grizzly Bears", "p0:Grizzly Bears#2", "p0:Grizzly Bears#3"]},
         {"op": "move", "seat": 0, "card": "p0:Static Orb", "to": "graveyard"},
-        {"op": "pass_to", "step": "untap", "active": "p0"}
+        {"op": "pass_to", "step": "upkeep", "active": "p0"}
       ],
       "expect": [{"card": "p0:Grizzly Bears", "tapped": false}, {"card": "p0:Grizzly Bears#2", "tapped": false}, {"card": "p0:Grizzly Bears#3", "tapped": false}]
     }

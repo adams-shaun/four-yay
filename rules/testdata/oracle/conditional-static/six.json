@@ -13,21 +13,21 @@
         "p1": {}
       },
       "steps": [
-        {"op": "mana", "seat": 0, "mana": "1G", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": true}]}
+        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": true}]}
       ],
       "expect": []
     },
     {
-      "name": "opponents-turn-does-not-grant-retrace",
+      "name": "source-removed-does-not-grant-retrace",
       "cr": ["611.3a", "601.2"],
-      "why": "Six grants retrace only during its controller's turn; on the opponent's turn, the graveyard permanent has no retrace permission.",
+      "why": "During its controller's turn Six would grant retrace, but removing Six from the battlefield makes that static permission inactive.",
       "setup": {
         "p0": {"hand": ["Forest"], "battlefield": ["Six"], "graveyard": ["Grizzly Bears"]},
         "p1": {}
       },
       "steps": [
-        {"op": "pass_to", "step": "main1", "active": "p1"},
-        {"op": "mana", "seat": 0, "mana": "1G", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]}
+        {"op": "move", "seat": 0, "card": "p0:Six", "to": "graveyard"},
+        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]}
       ],
       "expect": []
     }

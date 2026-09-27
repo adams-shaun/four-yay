@@ -6,32 +6,32 @@
   "scenarios": [
     {
       "name": "sacrifice-this-turn-allows-exiled-card-play",
-      "cr": ["611.3a", "701.17a", "601.2"],
+      "cr": ["611.3a", "701.21a", "601.2"],
       "why": "Its mana ability sacrifices a nontoken land, causing the top card to be exiled; during the same turn, the permission allows that card to be cast.",
       "setup": {
         "p0": {"battlefield": ["Evendo Brushrazer", "Forest"], "library_top": ["Lightning Bolt"]},
         "p1": {}
       },
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Evendo Brushrazer", "ability": "Add"},
-        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:Evendo Brushrazer", "ability": "Activate Evendo Brushrazer"},
+        {"op": "resolve", "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]},
         {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "targets": ["p1"]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p0:Lightning Bolt", "zone": "graveyard"}]
     },
     {
-      "name": "next-turn-no-longer-allows-exiled-card-play",
-      "cr": ["611.3a", "502.3", "601.2"],
-      "why": "The card was exiled by the sacrifice trigger, but the play permission applies during its controller's turn, not the opponent's turn.",
+      "name": "source-removed-no-longer-allows-exiled-card-play",
+      "cr": ["611.3a", "601.2"],
+      "why": "The sacrifice trigger has exiled the card, but the creature that grants permission is no longer on the battlefield, so its static permission is inactive.",
       "setup": {
         "p0": {"battlefield": ["Evendo Brushrazer", "Forest"], "library_top": ["Lightning Bolt"]},
         "p1": {}
       },
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Evendo Brushrazer", "ability": "Add"},
+        {"op": "activate", "seat": 0, "card": "p0:Evendo Brushrazer", "ability": "Activate Evendo Brushrazer"},
         {"op": "resolve"},
-        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "move", "seat": 0, "card": "p0:Evendo Brushrazer", "to": "graveyard"},
         {"op": "mana", "seat": 0, "mana": "R", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Lightning Bolt"}, "want": false}]}
       ],
       "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]

@@ -7,19 +7,17 @@
     {
       "name": "haakon-on-battlefield-permits-knight-from-graveyard",
       "cr": ["611.3a", "601.2", "113.6"],
-      "why": "Haakon has resolved onto the battlefield, so its permission to cast Knight spells from the graveyard is active.",
+      "why": "Haakon is on the battlefield, so its permission to cast Knight spells from the graveyard is active.",
       "setup": {
-        "p0": {"graveyard": ["Haakon, Stromgald Scourge", "Knight of the Ebon Legion"]},
+        "p0": {"battlefield": ["Haakon, Stromgald Scourge"], "graveyard": ["Knight of the Ebon Legion"]},
         "p1": {}
       },
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Haakon, Stromgald Scourge", "mana": "1BB"},
-        {"op": "resolve"},
         {"op": "mana", "seat": 0, "mana": "B", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Knight of the Ebon Legion"}, "want": true}]},
         {"op": "cast", "seat": 0, "card": "p0:Knight of the Ebon Legion"},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p0:Haakon, Stromgald Scourge", "zone": "battlefield"}, {"card": "p0:Knight of the Ebon Legion", "zone": "battlefield"}]
+      "expect": [{"card": "p0:Knight of the Ebon Legion", "zone": "battlefield"}]
     },
     {
       "name": "haakon-in-graveyard-does-not-permit-other-knights",

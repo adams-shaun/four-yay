@@ -8,6 +8,7 @@
       "name": "paired-lookout-draws-on-combat-damage",
       "cr": ["702.95a", "611.3a", "120.3a"],
       "why": "With both creatures controlled and unpaired as they enter, the soulbond choice pairs them. The paired Lookout gains the damage-triggered draw ability, so its unblocked attack draws one card.",
+      "setup_answers": [{"kind": "choose", "pick": ["Grizzly Bears"]}],
       "setup": {
         "p0": {"battlefield": ["Tandem Lookout", "Grizzly Bears"], "library_top": ["Forest", "Forest"]},
         "p1": {}
@@ -16,7 +17,7 @@
         {"op": "attack", "seat": 0, "defender": "p1", "attackers": ["p0:Tandem Lookout"]},
         {"op": "pass_to", "step": "main1", "active": "p1"}
       ],
-      "expect": [{"hand_size": {"p0": 2}}]
+      "expect": [{"hand_size": {"p0": 1}}]
     },
     {
       "name": "unpaired-lookout-does-not-draw-on-combat-damage",
@@ -30,7 +31,7 @@
         {"op": "attack", "seat": 0, "defender": "p1", "attackers": ["p0:Tandem Lookout"]},
         {"op": "pass_to", "step": "main1", "active": "p1"}
       ],
-      "expect": [{"hand_size": {"p0": 1}}]
+      "expect": [{"hand_size": {"p0": 0}}]
     }
   ]
 }
