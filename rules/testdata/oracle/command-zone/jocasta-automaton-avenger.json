@@ -1,0 +1,143 @@
+{
+  "card": "Jocasta, Automaton Avenger",
+  "family": "command-zone",
+  "oracle_sha": "402e95ee9667",
+  "author": "cli-20260927T211250Z-1c17051b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "commander-attacks-reanimates-jocasta",
+      "cr": [
+        "903.3",
+        "603.2"
+      ],
+      "why": "The designated commander attacking from the battlefield qualifies; Jocasta in the graveyard returns tapped and attacking.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "graveyard": [
+            "Jocasta, Automaton Avenger"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Isamaru, Hound of Konda"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Jocasta, Automaton Avenger",
+          "zone": "battlefield",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "noncommander-attack-does-not-reanimate",
+      "cr": [
+        "903.3",
+        "603.2"
+      ],
+      "why": "A legendary attacker not designated commander cannot satisfy Jocasta\u2019s graveyard attack trigger.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "graveyard": [
+            "Jocasta, Automaton Avenger"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grizzly Bears"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Jocasta, Automaton Avenger",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "commander-damage-gives-one-counter",
+      "cr": [
+        "903.3",
+        "603.2",
+        "510.2"
+      ],
+      "why": "When the unblocked commander deals combat damage to the opponent, Jocasta receives one +1/+1 counter.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Jocasta, Automaton Avenger"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Isamaru, Hound of Konda"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "postcombat_main"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Jocasta, Automaton Avenger",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    }
+  ]
+}

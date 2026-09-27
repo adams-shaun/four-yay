@@ -1,0 +1,95 @@
+{
+  "card": "Loyal Apprentice",
+  "family": "command-zone",
+  "oracle_sha": "597e094d09f2",
+  "author": "cli-20260927T211250Z-1c17051b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "commander-controlled-start-combat-token",
+      "cr": [
+        "903.3",
+        "603.4"
+      ],
+      "why": "At the beginning of our combat, controlling our designated commander makes the lieutenant condition true and creates one flying haste Thopter.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Loyal Apprentice"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "pass_to",
+          "step": "declare_attackers"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Thopter",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "commander-in-command-other-legend-no-token",
+      "cr": [
+        "903.3",
+        "603.4"
+      ],
+      "why": "The commander is still in the command zone, and another legendary creature on the battlefield is not a substitute; no lieutenant trigger creates a token.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Loyal Apprentice",
+            "Jocasta, Automaton Avenger"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "declare_attackers"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Loyal Apprentice",
+          "zone": "battlefield"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Thopter",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}
