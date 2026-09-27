@@ -71,7 +71,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 				continue
 			}
 			o := e.G.Obj(id)
-			if o == nil || o.Tapped || o.Face() == nil {
+			if o == nil || o.Face() == nil {
 				continue
 			}
 			// Admit the source the first pass the accumulated pool covers at

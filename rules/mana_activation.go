@@ -1377,6 +1377,9 @@ func (e *Engine) commitManaDiscard() {
 	if md.cost.Tap {
 		manaTriggers = e.emitManaTap(md.player, md.source, md.ability)
 	}
+	if md.cost.Untap {
+		e.emit(events.Event{Kind: events.Untap, Obj: md.source, Player: md.player, Text: "untapped as a cost"})
+	}
 	e.payManaSourceParts(md.player, md.source, md.cost)
 	for _, id := range md.sacs {
 		e.emit(events.Sacrifice(id))

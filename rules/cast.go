@@ -10914,12 +10914,12 @@ func (e *Engine) castWindowUnits(pc *pendingCast) []windowManaUnit {
 // self-sacrifice, or a choice-shaped production behind any of them). The
 // conservatism of windowManaUnits is load-bearing for the attack-cost and
 // unless-cost windows, which cannot pose a sub-ask while tapping; the CR
-// 601.2g cast window CAN: manaWindowAsk offers any untapped non-InstantSpeed
-// mana source and the activation runs through resolveManaAbilityRef, which
-// pays the full activation cost and evaluates the Amount$ body. Every source
-// added here comes from the same availableManaAbilitiesForWindow walk
-// manaWindowAsk's untappedManaSource uses, so the probe can never promise a
-// tap the window will not offer.
+// 601.2g cast window CAN: manaWindowAsk offers any currently payable
+// non-InstantSpeed mana source, including a tapped source with a {Q} ability,
+// and activation runs through resolveManaAbilityRef, which pays the full
+// activation cost and evaluates the Amount$ body. Every source added here
+// comes from the same availableManaAbilitiesForWindow walk manaWindowAsk uses,
+// so the probe can never promise an activation the window will not offer.
 //
 // A literal generic <N> activation cost is carried on the alt as costGeneric
 // rather than netted into the production: the cast-only eligibility search
@@ -10948,7 +10948,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 	pl := e.G.Players[p]
 	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
-		if o == nil || o.Tapped || o.Face() == nil {
+		if o == nil || o.Face() == nil {
 			continue
 		}
 		for _, ma := range e.castWindowProbeAbilities(p, id) {
@@ -10956,6 +10956,9 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				continue
 			}
 			cost := e.parseCost(ma.Params["Cost"])
+			if activationTapCostUnavailable(o, cost) {
+				continue
+			}
 			lifeCost := int32(0)
 			genericCost := int32(0)
 			free := manaFreeCost(cost)
