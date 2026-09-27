@@ -3,6 +3,7 @@ package rules
 import (
 	"slices"
 
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -81,4 +82,48 @@ func (e *Engine) castTargetsAvailableOnStack(p state.PlayerID, id state.ObjID) b
 		return true
 	}
 	return e.offerAsSpellOnStack(id, func() bool { return e.castTargetsAvailable(p, id, sa) })
+}
+
+// paymentPlanHoldsOnStack reports whether every activation of plan still
+// resolves to its exact witnessed alternative (paymentPlanStepAlternative:
+// the same ability identity, production and consequence) with id on the
+// stack -- the board the plan executes on. The executor revalidates the plan
+// in the spell's CR 601.2g mana-ability window, which opens only after CR
+// 601.2a has moved the card from the hand to the stack, so a mana ability
+// whose activation restriction or amount reads the caster's hand must be
+// judged with the hand one card smaller. Measured (round-10 paymirror random2
+// seed 11828 seq 4243): Fanatic of Rhonas's "{T}: Add {G}{G}{G}{G}. Activate
+// only if you control a creature with power 4 or greater" held only through
+// Syr Elenora (power = cards in hand) at 4 power while Vorinclex was in hand;
+// in the window she was a 3/4, the step fell back source_changed and the cast
+// reversed with seven of its eight mana.
+//
+// Only a plan with a printed (non-intrinsic) step is probed: an intrinsic
+// basic-land ability carries no activation restriction and a literal
+// production, and the plans that tap only basic land types are the common
+// case the offer builds on every priority decision. The census runs outside
+// the offer's query scope, whose cached units describe the in-hand board.
+func (e *Engine) paymentPlanHoldsOnStack(p state.PlayerID, id state.ObjID, plan decision.PaymentPlan) bool {
+	probe := false
+	for _, pa := range plan.Activations {
+		if pa.Ability.Kind != decision.PaymentAbilityIntrinsic {
+			probe = true
+			break
+		}
+	}
+	if !probe {
+		return true
+	}
+	return e.offerAsSpellOnStack(id, func() bool {
+		prevQuery := e.paymentPlanQuery
+		e.paymentPlanQuery = nil
+		defer func() { e.paymentPlanQuery = prevQuery }()
+		units := e.paymentPlanManaUnits(p)
+		for _, pa := range plan.Activations {
+			if _, ok := e.paymentPlanStepAlternative(units, pa); !ok {
+				return false
+			}
+		}
+		return true
+	})
 }

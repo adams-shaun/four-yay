@@ -119,7 +119,7 @@ type RouteResult struct {
 	// the cast (City of Brass's "whenever this becomes tapped" damage), which
 	// a sorcery-speed spell cannot be cast over, while run A -- paying in
 	// the CR 601.2g window, where no player receives priority -- puts them on
-	// the stack only after the cast (CR 603.3b). A cast with only expected
+	// the stack only after the cast (CR 603.3, 117.5). A cast with only expected
 	// unmirrorable routes is not a harness failure (Report.ExpectedUnmirrorable).
 	Expected bool `json:"expected,omitempty"`
 	// Events is the mirror's full event stream since the fork (Options.Trace).
@@ -553,7 +553,7 @@ func runRoute(ref, b *rules.Engine, fork int, rep *Report, route Route, action *
 // before the cast (RouteResult.floatTriggered). Run A activates the same
 // sources inside the cast's CR 601.2g payment window, where no player
 // receives priority, so what they trigger waits until the spell is cast and
-// is put on the stack above it (CR 603.3b), batched with the spell's own cast
+// is put on the stack above it (CR 603.3, 117.5), batched with the spell's own cast
 // triggers under one CR 603.3b order choice. Floating at priority puts them
 // on the stack first, below the spell, as separate objects created in a
 // different order: the stack order, the ability objects' identities and the
@@ -651,6 +651,11 @@ func mirrorFloat(b *rules.Engine, rep *Report, res *RouteResult, aEvents []event
 			res.Expected = true
 			return
 		}
+		if c := floatRaisedCost(b, rep); c != "" {
+			setUnmirrorable(res, "float_raised_cost", "cast not offered: "+c+"; "+why)
+			res.Expected = true
+			return
+		}
 		setUnmirrorable(res, "cast_not_offered_after_float", why)
 		return
 	}
@@ -680,7 +685,7 @@ func floatAddedAbility(b *rules.Engine, before []state.ObjID) bool {
 // that activation triggered: a target/mode/optional ask for an ability the
 // float just put on the stack, or a simultaneous-trigger order, AND run A
 // posed the very same ask (kind, player, prompt) among its follow-ups -- it
-// placed the same trigger after the cast (CR 603.3b).
+// placed the same trigger after the cast (CR 603.3, 117.5).
 func floatTriggerPlacement(b *rules.Engine, d *decision.Decision, rep *Report, stackBefore []state.ObjID) bool {
 	if d == nil {
 		return false
@@ -886,6 +891,61 @@ func choosesFloatSpentSource(b *rules.Engine, rep *Report, r Recorded) bool {
 		}
 	}
 	return false
+}
+
+// floatRaisedCost proves the float route's missing cast option is the price
+// its own sacrifice raised. Run A determines the spell's total cost and locks
+// it in (CR 601.2f) BEFORE its CR 601.2g window activates the planned
+// sources, so a planned source that is sacrificed for its mana (a Treasure,
+// Gold, an Eldrazi Spawn) still counted toward a cost reduction that reads
+// the board -- affinity for artifacts and the other "costs {1} less for
+// each ..." statics. Floating at priority sacrifices it first, and the cast
+// is then priced without it: exactly the witnessed mana no longer pays.
+// Measured (round-10 cardfuzz mirror-r9 seed 12931427917867112207, Panther
+// Robot, affinity for artifacts): the plan's artifact source was sacrificed
+// for {G} on the float, the cost rose from {8} to {9}, and 8 mana floated.
+//
+// Proof, all required: the cast's current price on b is greater (in total)
+// than the witnessed Plan.Cost, no smaller in any component; the floating
+// pool covers the witnessed total but not the current one; and a planned
+// step whose disclosed consequence sacrifices its source left the
+// battlefield on b. It returns "" when anything is unproven.
+func floatRaisedCost(b *rules.Engine, rep *Report) string {
+	now, ok := b.CastPaymentCost(rep.Player, rep.Object)
+	if !ok || now == rep.Plan.Cost {
+		return ""
+	}
+	total := func(c decision.PaymentCost) int64 {
+		n := int64(c.Generic)
+		for i, m := range c.Mana {
+			n += int64(m)
+			if m < rep.Plan.Cost.Mana[i] {
+				return -1 // a coloured requirement fell: not a pure raise.
+			}
+		}
+		return n
+	}
+	was, is := total(rep.Plan.Cost), total(now)
+	if is < 0 || now.Generic < rep.Plan.Cost.Generic || is <= was {
+		return ""
+	}
+	pool := int64(b.G.Players[rep.Player].Pool.Total())
+	if pool < was || pool >= is {
+		return ""
+	}
+	var gone []string
+	for _, act := range rep.Plan.Activations {
+		if act.Consequence == nil || !act.Consequence.Sacrifice {
+			continue
+		}
+		if o := b.G.Obj(act.Source); o == nil || o.Zone != state.ZBattlefield {
+			gone = append(gone, fmt.Sprintf("%d %q", act.Source, objName(b, act.Source)))
+		}
+	}
+	if len(gone) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("cost locked in by run A %v (CR 601.2f) is %v after the float sacrificed %s", rep.Plan.Cost, now, strings.Join(gone, ", "))
 }
 
 // floatRemovedEveryTarget proves that the float route's activations left the
@@ -1978,7 +2038,7 @@ func witnessViolation(a *rules.Engine, fork int, plan decision.PaymentPlan, paye
 	var bad []string
 	for i, act := range plan.Activations {
 		got, ok := activationProduction(evs, act.Source, payer)
-		if !ok && lifeStarts[i] >= 0 {
+		if lifeStarts[i] >= 0 && (!ok || got == (decision.ManaAmount{})) {
 			got, ok = manaRunAfter(evs, lifeStarts[i]), true
 		}
 		if !ok {
@@ -2014,18 +2074,52 @@ func witnessViolation(a *rules.Engine, fork int, plan decision.PaymentPlan, paye
 
 // activationProduction is the mana source's first activation in evs added
 // (see witnessViolation), and false when evs holds no activation of it.
+//
+// A zone change of the source that no mana follows is not its activation:
+// the source left for another reason after it was activated. Measured
+// (round-10 paymirror commander4-r9 seed 10877 seq 2873, Infernal Plunge:
+// "As an additional cost to cast this spell, sacrifice a creature"): the
+// plan's Treasonous Ogre paid 3 life for {R} in the CR 601.2g window, then
+// was the creature sacrificed for the spell's additional cost in CR 601.2h,
+// and the witness read that sacrifice as an activation producing nothing.
+// Such a zone change is passed over for the source's next Tap or zone
+// change; if none produces, the first start still reports what it made
+// (nothing), and a Tap followed by no mana always does.
 func activationProduction(evs []events.Event, source state.ObjID, payer state.PlayerID) (decision.ManaAmount, bool) {
-	var got decision.ManaAmount
-	at := -1
+	first := -1
 	for j, ev := range evs {
-		if ev.Obj == source && (ev.Kind == events.Tap || ev.Kind == events.MoveZone) {
-			at = j
-			break
+		if ev.Obj != source || (ev.Kind != events.Tap && ev.Kind != events.MoveZone) {
+			continue
+		}
+		if first < 0 {
+			first = j
+		}
+		got := productionAfter(evs, j, source, payer)
+		if ev.Kind == events.Tap || got != (decision.ManaAmount{}) {
+			return got, true
 		}
 	}
-	if at < 0 {
-		return got, false
+	if first < 0 {
+		return decision.ManaAmount{}, false
 	}
+	return productionAfter(evs, first, source, payer), true
+}
+
+// sourceTapped reports whether evs taps source: a tapped source's activation
+// is its Tap, never a life payment elsewhere in the stream.
+func sourceTapped(evs []events.Event, source state.ObjID) bool {
+	for _, ev := range evs {
+		if ev.Kind == events.Tap && ev.Obj == source {
+			return true
+		}
+	}
+	return false
+}
+
+// productionAfter sums the mana one activation starting at evs[at] added:
+// the positive ManaAdd run after the rest of its own cost (isActivationCost).
+func productionAfter(evs []events.Event, at int, source state.ObjID, payer state.PlayerID) decision.ManaAmount {
+	var got decision.ManaAmount
 	started := false
 	for _, ev := range evs[at+1:] {
 		if !started && isActivationCost(ev, source, payer) {
@@ -2038,7 +2132,7 @@ func activationProduction(evs []events.Event, source state.ObjID, payer state.Pl
 		sym := ev.Counter[len(ev.Counter)-1]
 		got[state.ManaIndex(sym)] += uint32(ev.Amount)
 	}
-	return got, true
+	return got
 }
 
 // lifeOnlyStarts is, per planned activation, the event index where a
@@ -2046,8 +2140,9 @@ func activationProduction(evs []events.Event, source state.ObjID, payer state.Pl
 // no Tap or zone change of its own source in evs and a disclosed life cost
 // (Consequence.Life) is considered; its start is the first unclaimed
 // LifeChange of the payer for exactly -Life that is immediately followed by
-// a positive ManaAdd. Activations claim in plan order, so two such sources
-// paying the same amount claim two distinct payments.
+// a positive ManaAdd (past the payment's inline consequences,
+// lifePaymentConsequences). Activations claim in plan order, so two such
+// sources paying the same amount claim two distinct payments.
 func lifeOnlyStarts(evs []events.Event, plan decision.PaymentPlan, payer state.PlayerID) []int {
 	out := make([]int, len(plan.Activations))
 	for i, act := range plan.Activations {
@@ -2055,14 +2150,22 @@ func lifeOnlyStarts(evs []events.Event, plan decision.PaymentPlan, payer state.P
 		if act.Consequence == nil || act.Consequence.Life == 0 {
 			continue
 		}
-		if _, moved := activationProduction(evs, act.Source, payer); moved {
+		// A source whose Tap or zone change produced mana was activated
+		// through it; one that only left (sacrificed for the spell's own
+		// cost after paying life) still reads its life payment.
+		if got, moved := activationProduction(evs, act.Source, payer); moved && (got != (decision.ManaAmount{}) || sourceTapped(evs, act.Source)) {
 			continue
 		}
 		for j := 0; j+1 < len(evs); j++ {
-			ev, next := evs[j], evs[j+1]
+			ev := evs[j]
 			if slices.Contains(out, j) {
 				continue
 			}
+			k := lifePaymentConsequences(evs, j)
+			if k >= len(evs) {
+				continue
+			}
+			next := evs[k]
 			if ev.Kind == events.LifeChange && ev.Player == payer && ev.Amount == -int32(act.Consequence.Life) &&
 				next.Kind == events.ManaAdd && next.Amount > 0 && next.Counter != "" {
 				out[i] = j
@@ -2073,10 +2176,29 @@ func lifeOnlyStarts(evs []events.Event, plan decision.PaymentPlan, payer state.P
 	return out
 }
 
-// manaRunAfter sums the positive ManaAdd run that immediately follows evs[j].
+// lifePaymentConsequences is the index of the first event after evs[j] that
+// is not an inline consequence of that event: the SpeedChange gains the
+// engine emits straight after a life loss folds (rules/speed.go
+// checkSpeedGain: an opponent with speed gains one on the loss, inside the
+// same emit, before the activation's mana is added). Measured (round-10
+// paymirror commander4 seed 12603 seq 2300, Mana Vault): Treasonous Ogre's
+// "Pay 3 life: Add {R}" logged life -3, speed_change for an opponent, then
+// mana R, and the witness read the payment as no activation at all. Only
+// SpeedChange is skipped; any other event between the payment and the mana
+// still breaks the start.
+func lifePaymentConsequences(evs []events.Event, j int) int {
+	k := j + 1
+	for k < len(evs) && evs[k].Kind == events.SpeedChange {
+		k++
+	}
+	return k
+}
+
+// manaRunAfter sums the positive ManaAdd run that follows evs[j] once its
+// inline consequences (lifePaymentConsequences) are passed.
 func manaRunAfter(evs []events.Event, j int) decision.ManaAmount {
 	var got decision.ManaAmount
-	for _, ev := range evs[j+1:] {
+	for _, ev := range evs[lifePaymentConsequences(evs, j):] {
 		if ev.Kind != events.ManaAdd || ev.Amount <= 0 || ev.Counter == "" {
 			break
 		}

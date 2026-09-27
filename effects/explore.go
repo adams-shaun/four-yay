@@ -65,18 +65,27 @@ func effExplore(h Host, c *Ctx, sa *cards.SA) {
 		if c.ExploreObj != 0 && t.Obj != c.ExploreObj {
 			continue
 		}
-		for i := int32(0); i < n; i++ {
+		// The resumed explorer continues its Num$ count at the explore whose
+		// election was answered (Ctx.ExploreCount, carried on the ask): the
+		// re-entry replays the loop from its head, and a count restarted at
+		// zero posed a fresh election after every applied one, so an
+		// "explores X times" never finished while its reveals were nonland.
+		i := int32(0)
+		if c.ExploreDone && c.ExploreObj == t.Obj {
+			i = c.ExploreCount
+		}
+		for ; i < n; i++ {
 			if c.ExploreDone && c.ExploreCard != 0 && c.ExploreObj == t.Obj {
 				// The resumed destination election for THIS explorer. Consumed
 				// and cleared at the point of application (fx42 scoping), so
 				// this explorer's remaining explores and every later target
 				// pose their own fresh path.
 				card, toGrave := c.ExploreCard, c.ExploreChoice != "top"
-				c.ExploreObj, c.ExploreCard, c.ExploreChoice, c.ExploreDone = 0, 0, "", false
+				c.ExploreObj, c.ExploreCard, c.ExploreChoice, c.ExploreDone, c.ExploreCount = 0, 0, "", false, 0
 				applyNonlandExplore(h, t.Obj, card, toGrave)
 				continue
 			}
-			if exploreOnce(h, c, sa, t.Obj) {
+			if exploreOnce(h, c, sa, t.Obj, i) {
 				// The election was posted; the resolution is suspended. Nothing
 				// after the ask may run on this pass — the answer re-enters
 				// through rules' "explore" resume arm (the effDig discipline).
@@ -86,7 +95,7 @@ func effExplore(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// Leftover pending state that no target consumed (the pending explorer
 	// left play, a malformed resume): consumed and cleared, never inherited.
-	c.ExploreObj, c.ExploreCard, c.ExploreChoice, c.ExploreDone = 0, 0, "", false
+	c.ExploreObj, c.ExploreCard, c.ExploreChoice, c.ExploreDone, c.ExploreCount = 0, 0, "", false, 0
 }
 
 // exploreOnce runs one explore process for explorer and reports whether the
@@ -95,7 +104,11 @@ func effExplore(h Host, c *Ctx, sa *cards.SA) {
 // left the battlefield, an already-replaced explore or an empty library
 // explores nothing (an empty library cannot reveal a card, so the process has
 // nothing to record — no events.Explore marker, so no trigger fires).
-func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID) bool {
+//
+// done is how many of this explorer's Num$ explores are already complete;
+// the election carries it (Decision.ResumeExploreDone) so the resume
+// continues the count.
+func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32) bool {
 	g := h.Game()
 	o := g.Obj(explorer)
 	if o == nil || o.Zone != state.ZBattlefield {
@@ -135,8 +148,8 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID) bool {
 	// stream; the recorded election precedes it).
 	d := &decision.Decision{Player: ctrl, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "explore", ResumeSA: sa,
-		ResumeTarget: int(explorer),
-		Prompt:       "Put the revealed card back on top of your library or into your graveyard?"}
+		ResumeTarget: int(explorer), ResumeExploreDone: done,
+		Prompt: "Put the revealed card back on top of your library or into your graveyard?"}
 	d.Options = []decision.Option{
 		{Index: 0, Kind: "graveyard", Label: "Put it into your graveyard", Obj: top, Player: ctrl},
 		{Index: 1, Kind: "top", Label: "Put it back on top of your library", Obj: top, Player: ctrl},

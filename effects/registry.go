@@ -2275,6 +2275,14 @@ type Ctx struct {
 	ExploreCard   state.ObjID
 	ExploreChoice string
 	ExploreDone   bool
+	// ExploreCount is how many of the pending explorer's Num$ explores were
+	// complete before the one whose election is answered (the ask's
+	// Decision.ResumeExploreDone, restored by the same resume arm). The
+	// resumed effExplore continues its count there: restarting it at zero
+	// made every resume apply the pending explore and pose a fresh one, so
+	// an "explores X times" never stopped on nonland reveals (round-10
+	// cardfuzz livelock, Jadelight Spelunker). Cleared with the others.
+	ExploreCount int32
 	// ConniveObj/ConniveDiscard/ConniveDone carry one pending connive
 	// discard (api:Connive, task connive1): ConniveDone marks an ANSWERED
 	// discard for the conniver parked in ConniveObj, ConniveDiscard the

@@ -68,6 +68,21 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 	return e.planCastPaymentChecked(p, cast, &statics, &candidates)
 }
 
+// CastPaymentCost is the mana cost a plain cast of the hand card id by p
+// would lock in now (CR 601.2f): the printed cost with its spell-ability
+// extras, re-priced by every live cost static exactly as the planner prices
+// it (planCastPaymentChecked). ok is false for an object that is not a card
+// in p's hand. A pure read, for diagnostics (internal/paymirror) that need
+// to show a cast's price moved since a plan was witnessed.
+func (e *Engine) CastPaymentCost(p state.PlayerID, id state.ObjID) (cost decision.PaymentCost, ok bool) {
+	o := e.G.Obj(id)
+	if o == nil || o.Zone != state.ZHand || o.Owner != p || o.Face() == nil {
+		return decision.PaymentCost{}, false
+	}
+	base := withSpellAbilityExtras(o.Face(), e.rawBaseCost(p, id))
+	return paymentCost(e.offerCostFor(p, id, base, spellScope(""))), true
+}
+
 // planCastPaymentChecked is PlanCastPayment over caller-owned per-build
 // inputs: statics is the build's one lazy cost-static collection and
 // candidates its one lazy hypothetical candidate walk. Both are pure reads of
@@ -464,6 +479,13 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 		// when the card leaves the hand would only reverse (CR 733.1), so
 		// it is not offered (castprobe.go).
 		if !e.castTargetsAvailableOnStack(p, opt.Obj) {
+			continue
+		}
+		// Likewise the plan executes in the CR 601.2g window, after the card
+		// left the hand: a planned source whose activation restriction or
+		// amount reads the hand must still hold there, or the step falls
+		// back source_changed and the cast reverses (castprobe.go).
+		if !e.paymentPlanHoldsOnStack(p, opt.Obj, *got.Plan) {
 			continue
 		}
 		plan := *got.Plan

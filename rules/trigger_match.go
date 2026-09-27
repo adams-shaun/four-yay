@@ -2229,6 +2229,32 @@ func (e *Engine) resolvingRemembered(o *state.Object) []state.Target {
 	return append([]state.Target(nil), src.Remembered...)
 }
 
+// stateTriggerRemembered is a CR 603.8 state trigger's (Mode$ Always)
+// Remembered: its source alone, the capture triggerRemembered falls back to
+// for an event naming no object. A state trigger has no triggering event --
+// it triggers when the game state matches its condition -- and the engine
+// checks that condition on whatever event happens to be emitted when the
+// state first matches, so the event's object is incidental. Capturing it made
+// the ability's Remembered (and its TriggerPush IDs) depend on which event
+// ran the check: measured (round-10 paymirror random4 seed 12468 seq 7211),
+// Veiled Crocodile's "when a player has no cards in hand" remembered the
+// Island its controller tapped inside a spell's CR 601.2g payment window, but
+// itself when the same Island was tapped at priority before the cast.
+func stateTriggerRemembered(source state.ObjID) []state.Target {
+	return []state.Target{{Obj: source}}
+}
+
+// triggerRememberedMode is triggerRemembered for a trigger line of any mode:
+// a state trigger takes stateTriggerRemembered, every other mode the event's
+// capture. The gained/granted static trigger walks (trigger_granted.go) use
+// it; the face walk's triggerRememberedFor applies the same override.
+func triggerRememberedMode(t cards.Trigger, ev events.Event, source state.ObjID) []state.Target {
+	if t.Mode == "Always" {
+		return stateTriggerRemembered(source)
+	}
+	return triggerRemembered(ev, source)
+}
+
 // triggerRememberedFor is triggerRemembered with the one mode-aware override a
 // BATCH trig:AttackersDeclared line needs: because the declaration is one
 // turn-based action (CR 508.1) whose events are grouped per defender, a batch
@@ -2240,6 +2266,9 @@ func (e *Engine) resolvingRemembered(o *state.Object) []state.Target {
 // shapes. Every other mode, and every per-defender attack trigger, is
 // unchanged.
 func (e *Engine) triggerRememberedFor(t cards.Trigger, ev events.Event, source state.ObjID) []state.Target {
+	if t.Mode == "Always" {
+		return stateTriggerRemembered(source)
+	}
 	if ev.Kind == events.DeclareAttackers && t.Params["Keyword"] == "Melee" {
 		return e.meleeRemembered(ev)
 	}

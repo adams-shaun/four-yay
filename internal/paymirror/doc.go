@@ -150,7 +150,7 @@
 // the float route activating at priority what run A activates inside the
 // CR 601.2g payment window, where no player receives priority, so what the
 // activations trigger waits until the spell is cast and goes on the stack
-// above it (CR 603.3b):
+// above it (CR 603.3, 117.5):
 //
 //	cast_blocked_by_float_trigger       floating put only the float's own triggered
 //	                                    abilities on the stack, which a sorcery-speed
@@ -174,6 +174,12 @@
 //	                                    (CR 601.2c) or the mode (CR 700.2a) is not
 //	                                    offered; A's target became illegal only after
 //	                                    it was chosen (CR 608.2b at resolution)
+//	float_raised_cost                   the cast is not offered because the float's own
+//	                                    sacrifice of a planned source raised its price
+//	                                    (affinity for artifacts); run A's total cost was
+//	                                    locked in (CR 601.2f) before its CR 601.2g
+//	                                    window sacrificed the same source
+//	                                    (floatRaisedCost's proof)
 //
 // A CR 603.3b trigger-order ask whose extra options in run A are exactly
 // triggers the float already put on the stack is answered with A's order over
