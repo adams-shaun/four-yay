@@ -87,28 +87,24 @@ func set(s string) map[string]bool {
 // the engine, so no game, event, view or replay depends on its clock.
 // cmd/hindsight (the pn20 branch-mining tool) reads it only to report run and
 // per-decision wall seconds; every sample, rollout and record is a pure
-// function of its seeds.
-// cmd/paymirror and its internal/paymirror driver read it only to bound a
-// single game's wall-time budget between intents (a truncation-only harness
-// bound, never a verdict input) and to print the one-per-game progress line's
-// elapsed seconds; every plan, mirror comparison and report record is a pure
-// function of its seed and spec, exactly as cmd/cardfuzz's watchdog is.
+// function of its seeds. cmd/paymirror reads the clock only at the diagnostic
+// command boundary to enforce its harness budget and report per-game elapsed
+// time; elapsed time cannot affect engine choices, events, replays or verdicts.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 	allowed := map[string]bool{
-		module + "/host":               true,
-		module + "/host/httpapi":       true,
-		module + "/cmd/gorged":         true,
-		module + "/cmd/testtime":       true,
-		module + "/cmd/botbench":       true,
-		module + "/cmd/ledger":         true,
-		module + "/cmd/searchprobe":    true,
-		module + "/cmd/searchteacher":  true,
-		module + "/cmd/cardfuzz":       true,
-		module + "/cmd/exitloop":       true,
-		module + "/cmd/traindash":      true,
-		module + "/cmd/hindsight":      true,
-		module + "/cmd/paymirror":      true,
-		module + "/internal/paymirror": true,
+		module + "/host":              true,
+		module + "/host/httpapi":      true,
+		module + "/cmd/gorged":        true,
+		module + "/cmd/testtime":      true,
+		module + "/cmd/botbench":      true,
+		module + "/cmd/ledger":        true,
+		module + "/cmd/searchprobe":   true,
+		module + "/cmd/searchteacher": true,
+		module + "/cmd/cardfuzz":      true,
+		module + "/cmd/exitloop":      true,
+		module + "/cmd/traindash":     true,
+		module + "/cmd/hindsight":     true,
+		module + "/cmd/paymirror":     true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {
