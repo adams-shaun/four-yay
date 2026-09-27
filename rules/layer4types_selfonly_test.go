@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -72,13 +73,51 @@ func TestLayer4SelfOnlyTableVisitsOnlyItsSources(t *testing.T) {
 func BenchmarkLayer4TableSelfOnly(b *testing.B) {
 	for _, n := range []int{1000, 8000} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
-			e, _ := selfOnlyBoard(b, n)
+			e, car := selfOnlyBoard(b, n)
 			benchWithoutVerify(b)
-			buf := e.buildDerivedTypes(nil)
-			b.ReportAllocs()
-			b.ResetTimer()
-			for range b.N {
-				buf = e.buildDerivedTypes(buf[:0])
+			// Seed the incremental state with a whole-board build, then
+			// measure the two build paths side by side. "full" is the
+			// pre-incremental reference (the whole-board self-only walk;
+			// still O(board) by design, it is the conservative fallback);
+			// "incremental" is what the per-event refresh now uses and must
+			// not grow with the board.
+			e.refreshDerivedTypes()
+			buf := e.buildDerivedTypesIncremental()
+			full := e.buildDerivedTypes(nil)
+			b.Run("full", func(b *testing.B) {
+				b.ReportAllocs()
+				for range b.N {
+					full = e.buildDerivedTypes(full[:0])
+				}
+			})
+			b.Run("incremental", func(b *testing.B) {
+				b.ReportAllocs()
+				for range b.N {
+					buf = e.buildDerivedTypesIncremental()
+				}
+			})
+			// "refresh" is the per-event path emit actually pays: one
+			// non-inert event pending since the last build, so
+			// refreshDerivedTypes runs the candidate catch-up, the
+			// statics-probe catch-up (its own epoch rewound too) and the
+			// incremental build. It must be flat in n as well.
+			e.emit(events.Event{Kind: events.Tap, Obj: car})
+			head := len(e.L.Events)
+			b.Run("refresh", func(b *testing.B) {
+				b.ReportAllocs()
+				before := e.typesIncrBuilds
+				for range b.N {
+					e.typesEpoch, e.typesProbeEpoch = head-1, head-1
+					e.refreshDerivedTypes()
+				}
+				if got := e.typesIncrBuilds - before; got != b.N {
+					b.Fatalf("refresh took the incremental path %d of %d times", got, b.N)
+				}
+			})
+			buf = e.EffectiveTypes()
+			full = e.buildDerivedTypes(nil)
+			if len(buf) != len(full) || !reflect.DeepEqual(buf, full) {
+				b.Fatalf("incremental table %v != full walk %v", buf, full)
 			}
 		})
 	}

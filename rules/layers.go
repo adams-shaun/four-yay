@@ -2374,6 +2374,18 @@ func (e *Engine) faceDownPrintedHides(o *state.Object) bool {
 // derivedWith's zone override for AffectedZone$ Stack grants; the zero value
 // reads the object's live zone.
 func (e *Engine) typeCharacteristics(id state.ObjID, atStack state.Zone) []string {
+	return e.typeCharacteristicsActive(e.active(), id, atStack)
+}
+
+// typeCharacteristicsActive is typeCharacteristics with the layer walk's own
+// active()-list supplied by the caller. The list IS what active() returns --
+// the live registered effects plus the memoized static scan, layer/sub/
+// timestamp sorted -- so a caller that has already proven no static can change
+// a type (layer4types.go's staticsMayChangeTypes precheck) may pass just the
+// live registered LType effects and skip rebuilding the static memo; the
+// result is identical by that proof, and layer4PrecheckVerify compares every
+// such fast build against the typeCharacteristics full walk.
+func (e *Engine) typeCharacteristicsActive(act []ContinuousEffect, id state.ObjID, atStack state.Zone) []string {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
 		return nil
@@ -2418,9 +2430,8 @@ func (e *Engine) typeCharacteristics(id state.ObjID, atStack state.Zone) []strin
 	// HasKeyword's Derived read, and the cost/action-statics hotspot pins
 	// measure that pass.
 	anyLType := false
-	active := e.active()
-	for i := range active {
-		if active[i].Layer == LType {
+	for i := range act {
+		if act[i].Layer == LType {
 			anyLType = true
 			break
 		}
@@ -2434,8 +2445,8 @@ func (e *Engine) typeCharacteristics(id state.ObjID, atStack state.Zone) []strin
 	// and the appends -- runs on the owned copy, never on the face's array.
 	ty := base
 	owned := false
-	for i := range active {
-		ce := &active[i]
+	for i := range act {
+		ce := &act[i]
 		if ce.Layer != LType || !e.matchesWithTypes(ce, id, ty, atStack) {
 			continue
 		}

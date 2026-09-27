@@ -83,6 +83,47 @@ func poolHasLayer4Static(cfg Config) bool {
 // continuous effects moved since the last build. The key is active()'s own --
 // the log head plus the continuous-effect version -- because the derived type
 // set is a pure function of exactly those two inputs.
+//
+// Between whole-board rebuilds the refresh is INCREMENTAL (the cardfuzz
+// bigboard class, seed 6181111140895991800: with a layer-4 type effect live,
+// every emitted event -- a Krenko token flood beside a crewed Clown Car --
+// paid two whole-board passes, the staticsMayChangeTypes face probe and the
+// walk's candidate scan). The incremental rebuild never scans e.G.Objs:
+//
+//   - the staticsMayChangeTypes precheck is served from a per-object probe
+//     cache (staticsProbeCatchUp), maintained from the same event referents
+//     the trigger-walk skip reads;
+//   - the candidate set is the self-only source list plus typesMayDiffer, a
+//     sorted slice of the battlefield objects whose layer-4 BASE can differ
+//     from the printed face, maintained the same way (typesCatchUp);
+//   - the build re-walks exactly that (small) candidate set and sorts the
+//     few entries back into e.G.Objs order (a dense arena: Objs[i].ID ==
+//     i+1), so the table is byte-identical to the whole-board walk's.
+//
+// The argument that the catch-up sees every relevant change is the
+// trigger-walk skip's (trigger_zoneskip.go): every field the candidacy test
+// and the probe read -- Zone, Card, FaceIdx, CopyFace, Unlocked, MergedCards,
+// FaceDown, CopyNonLegendary, AttachedTo -- is written only inside
+// events.Apply and keyed to that event's Obj/IDs/Pairs (the one exception,
+// offerAsFace's scoped FaceIdx flip in faceprobe.go, brackets a pure read
+// that emits no event and refreshes before flipping, so no refresh with a
+// moved key ever runs inside it). Objects APPENDED while events advance
+// the log are integrated unconditionally, even if a test helper appended
+// one before the event. An eventless AddObject with no intervening event
+// forces a full rebuild instead, and
+// the source list is re-derived fresh from e.continuous every refresh, so a
+// liveness flip (a source leaving the battlefield, a DurationSource moving,
+// an UntilEndOfCombat/UntilTurn boundary) either changes the source list
+// against its stamp -- full rebuild -- or changes nothing the table reads.
+// Every uncertainty falls back to the whole-board rebuild: a
+// continuousVersion bump, a negative or rewound epoch (onBoard's eventless
+// staleness, a fresh engine), or the source stamp moving. The fallback is
+// the pre-incremental behaviour, so the fast path can only ever get MORE
+// conservative, never less.
+//
+// layer4PrecheckVerify re-derives the whole board on every incremental build
+// and panics on any disagreement, so the whole rules suite doubles as the
+// empirical check of the argument above.
 func (e *Engine) refreshDerivedTypes() {
 	if e.typesBuilding {
 		// Re-entry: a Derived/typeCharacteristics call below reached something
@@ -90,25 +131,268 @@ func (e *Engine) refreshDerivedTypes() {
 		// outer call finishes it.
 		return
 	}
+	n := len(e.L.Events)
 	// The key also carries len(e.G.Objs): a test helper (or any caller) may
 	// place a permanent with a direct AddObject -- no event, so the log head
 	// would not move -- and the table must not stay a stale cache hit. An
 	// emitted move changes neither the object count nor the derived list of
 	// any other object, so this adds no work on the ordinary path.
-	if e.typesEpoch == len(e.L.Events) && e.typesVersion == e.continuousVersion && e.typesObjs == len(e.G.Objs) {
+	if e.typesEpoch == n && e.typesVersion == e.continuousVersion && e.typesObjs == len(e.G.Objs) {
 		return
 	}
 	// Layer-inert reuse (layercache.go): only priority bookkeeping moved the
-	// log since the table was built, so the table is still exact.
+	// log since the table was built, so the table is still exact. Those
+	// events write no object field and append no object, so the incremental
+	// state (mayDiffer, probe cache) is untouched too; the probe cache keeps
+	// its own epoch and catches up on its next read.
 	if e.typesVersion == e.continuousVersion && e.typesObjs == len(e.G.Objs) && e.layerInertSince(e.typesEpoch) {
-		e.typesEpoch = len(e.L.Events)
+		e.typesEpoch = n
 		if layerInertVerify {
 			e.verifyInertDerivedTypes()
 		}
 		return
 	}
-	e.typesEpoch, e.typesVersion, e.typesObjs = len(e.L.Events), e.continuousVersion, len(e.G.Objs)
+	// A direct test-helper AddObject with no logged event invalidates the
+	// object-count guard. Rebuild the entire board rather than treating an
+	// eventless arena change as an ordinary emitted change. When an event
+	// DOES advance the key, typesCatchUp also integrates every appended
+	// object, including one added directly before that event.
+	if e.typesObjs != len(e.G.Objs) && n == e.typesEpoch {
+		e.refreshDerivedTypesFull(n)
+		return
+	}
+	// The incremental rebuild. Everything it cannot prove locally falls
+	// through to the whole-board rebuild below.
+	if e.typesIncrReady && e.typesVersion == e.continuousVersion && e.typesEpoch >= 0 && n >= e.typesEpoch &&
+		e.refreshDerivedTypesIncremental(n) {
+		return
+	}
+	e.refreshDerivedTypesFull(n)
+}
+
+// refreshDerivedTypesFull is the whole-board rebuild (the pre-incremental
+// behaviour), plus the incremental state it repopulates: the mayDiffer
+// candidate slice and the stamps the next incremental attempt needs.
+func (e *Engine) refreshDerivedTypesFull(n int) {
+	var arr [layer4MaxSelfSources]state.ObjID
+	srcs, selfOnly := e.layer4SelfOnlySources(arr[:0])
+	e.stampTypes(n, srcs, selfOnly)
 	e.layer4Types = e.buildDerivedTypes(e.layer4Types[:0])
+	e.typesVisited = len(e.G.Objs)
+	e.typesMayDifferScan()
+	e.typesIncrReady = true
+}
+
+// stampTypes records the key and the self-only source stamp under which the
+// table (or the incremental state) was built. The stamp is what lets the
+// next refresh decide whether the source list moved: layer4SelfOnlySources
+// is re-derived fresh every refresh, so ANY liveness change among the live
+// layer-4 effects -- a source zone move, a DurationSource move, an
+// UntilEndOfCombat or UntilTurn boundary flipping continuousLive, the
+// statics precheck's answer -- changes the re-derived (srcs, selfOnly) pair
+// against this stamp and forces the whole-board rebuild.
+func (e *Engine) stampTypes(n int, srcs []state.ObjID, selfOnly bool) {
+	e.typesEpoch, e.typesVersion, e.typesObjs = n, e.continuousVersion, len(e.G.Objs)
+	e.typesSelfOnly = selfOnly
+	e.typesSrcs = append(e.typesSrcs[:0], srcs...)
+}
+
+// refreshDerivedTypesIncremental rebuilds the table from the incremental
+// state without scanning e.G.Objs. It returns false when the incremental
+// argument does not cover this refresh; the caller then does the whole-board
+// rebuild (the conservative direction). The catch-up runs first: the
+// mayDiffer slice must reflect the events logged since the last build
+// before the build reads it.
+func (e *Engine) refreshDerivedTypesIncremental(n int) bool {
+	e.typesCatchUp(n)
+	var arr [layer4MaxSelfSources]state.ObjID
+	srcs, selfOnly := e.layer4SelfOnlySources(arr[:0])
+	if !selfOnly || !slices.Equal(srcs, e.typesSrcs) {
+		// A non-self-shaped live layer-4 effect, or the source list moved:
+		// only the whole-board walk can say which objects the effects reach.
+		return false
+	}
+	e.stampTypes(n, srcs, selfOnly)
+	e.typesIncrBuilds++
+	if len(srcs) == 0 {
+		// No live registered layer-4 effect and the statics precheck found
+		// none: anyLayer4Active is false and buildDerivedTypes answers an
+		// empty table regardless of what the candidates' bases look like.
+		e.layer4Types = e.layer4Types[:0]
+		if layer4PrecheckVerify {
+			if fresh := e.buildDerivedTypes(nil); len(fresh) != 0 {
+				panic(fmt.Sprintf("rules: incremental layer-4 table (no live effect) at log %d is empty but a rebuild holds %d entries", n, len(fresh)))
+			}
+		}
+		return true
+	}
+	e.layer4Types = e.buildDerivedTypesIncremental()
+	if layer4PrecheckVerify {
+		e.verifySelfOnlyDerivedTypes(e.layer4Types)
+	}
+	return true
+}
+
+// typesCatchUp folds the events logged since the table was last built into
+// the incremental state: every object an event references (ev.Obj, ev.IDs,
+// ev.Pairs -- exactly the referent set trigZonesCatchUp reads) plus every
+// object appended since the last build, re-tested for layer4BaseMayDiffer
+// membership. Returns the touched id list (the engine's reusable buffer).
+func (e *Engine) typesCatchUp(n int) []state.ObjID {
+	touch := e.typesTouch[:0]
+	for i := e.typesEpoch; i < n; i++ {
+		ev := &e.L.Events[i]
+		if ev.Obj != 0 {
+			touch = append(touch, ev.Obj)
+		}
+		for _, id := range ev.IDs {
+			if id != 0 {
+				touch = append(touch, id)
+			}
+		}
+		for _, pr := range ev.Pairs {
+			if pr[0] != 0 {
+				touch = append(touch, pr[0])
+			}
+			if pr[1] != 0 {
+				touch = append(touch, pr[1])
+			}
+		}
+	}
+	for i := e.typesObjs; i < len(e.G.Objs); i++ {
+		touch = append(touch, e.G.Objs[i].ID)
+	}
+	e.typesTouch = touch
+	for _, id := range touch {
+		e.typesMayDifferSet(id, layer4MayDifferNow(e.G.Obj(id)))
+	}
+	return touch
+}
+
+// typesMayDifferSet inserts or removes id from the sorted candidate slice
+// to match member. Idempotent, so a duplicated touch costs a binary search.
+func (e *Engine) typesMayDifferSet(id state.ObjID, member bool) {
+	i, found := slices.BinarySearch(e.typesMayDiffer, id)
+	if found == member {
+		return
+	}
+	if member {
+		e.typesMayDiffer = slices.Insert(e.typesMayDiffer, i, id)
+	} else {
+		e.typesMayDiffer = slices.Delete(e.typesMayDiffer, i, i+1)
+	}
+}
+
+// typesMayDifferScan rebuilds the candidate slice from the whole board (the
+// whole-board rebuild's own repopulation, and what every fallback resets it
+// to). Objs order is id order, so the append is already sorted.
+func (e *Engine) typesMayDifferScan() {
+	list := e.typesMayDiffer[:0]
+	for i := range e.G.Objs {
+		if layer4MayDifferNow(&e.G.Objs[i]) {
+			list = append(list, e.G.Objs[i].ID)
+		}
+	}
+	e.typesMayDiffer = list
+}
+
+// buildDerivedTypesIncremental is the incremental build: the candidate set
+// (the maintained mayDiffer slice plus the fresh self-only source list)
+// re-walked and sorted back into e.G.Objs order. It walks only the few
+// candidates -- never the board -- and produces exactly the whole-board
+// self-only walk's table: same candidates, same per-candidate
+// typeCharacteristics, and a dense arena's id order equals its Objs order.
+func (e *Engine) buildDerivedTypesIncremental() []effects.ObjectTypes {
+	buf := e.layer4Types[:0]
+	e.typesBuilding = true
+	defer func() { e.typesBuilding = false }()
+	// Apply only the live registered LType effects: layer4SelfOnlySources has
+	// already proved staticsMayChangeTypes() false, so no static-derived
+	// effect can change a type and the memoized static scan cannot contribute
+	// an LType effect. Passing the filtered list to typeCharacteristicsActive
+	// skips active()'s whole-board static rescan (the cardfuzz bigboard's
+	// residual linear term) while producing the identical table; the verify
+	// path compares every such build against the typeCharacteristics full
+	// walk.
+	act := e.liveLTypeEffects(e.typesAct[:0])
+	e.typesAct = act
+	e.typesVisited = len(e.typesMayDiffer) + len(e.typesSrcs)
+	for _, id := range e.typesMayDiffer {
+		buf = e.appendDerivedEntry(buf, act, id)
+	}
+	for _, id := range e.typesSrcs {
+		buf = e.appendDerivedEntry(buf, act, id)
+	}
+	slices.SortFunc(buf, func(a, b effects.ObjectTypes) int {
+		if a.ID < b.ID {
+			return -1
+		}
+		if a.ID > b.ID {
+			return 1
+		}
+		return 0
+	})
+	// A source that is also a mayDiffer member was walked twice; the sorted
+	// run of equal ids collapses to one entry.
+	out := buf[:0]
+	for i := range buf {
+		if i > 0 && buf[i].ID == buf[i-1].ID {
+			continue
+		}
+		out = append(out, buf[i])
+	}
+	return out
+}
+
+// appendDerivedEntry walks one candidate and appends its table entry, if
+// its derived types differ from its printed face (the same test the whole
+// walk applies, in the same order: zone and face first). act is the live
+// LType effect list typeCharacteristicsActive applies.
+func (e *Engine) appendDerivedEntry(buf []effects.ObjectTypes, act []ContinuousEffect, id state.ObjID) []effects.ObjectTypes {
+	o := e.G.Obj(id)
+	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
+		return buf
+	}
+	ty := e.typeCharacteristicsActive(act, id, 0)
+	if sameTypeWordSet(ty, o.Face().Types) {
+		return buf
+	}
+	// The list may alias a scratch buffer or the face's own slice, so copy
+	// it into the table (only for the few changed objects).
+	return append(buf, effects.ObjectTypes{ID: id, Types: append([]string(nil), ty...)})
+}
+
+// liveLTypeEffects returns the live registered layer-4 effects, in the same
+// relative order active() gives them: active() stable-sorts the live
+// registered effects plus the static memo by (Layer, Sub, Timestamp) with a
+// layer-6 removal-before-grant tie-break, so within one layer the order is
+// (Sub, Timestamp) stable. The layer-6 tie-break cannot apply at LType. A
+// caller that has proved no static can change a type may apply this list
+// instead of active() and skip the static memo rescan.
+func (e *Engine) liveLTypeEffects(dst []ContinuousEffect) []ContinuousEffect {
+	dst = dst[:0]
+	for i := range e.continuous {
+		ce := &e.continuous[i]
+		if ce.Layer == LType && e.continuousLive(ce) {
+			dst = append(dst, *ce)
+		}
+	}
+	slices.SortStableFunc(dst, func(a, b ContinuousEffect) int {
+		if a.Sub != b.Sub {
+			if a.Sub < b.Sub {
+				return -1
+			}
+			return 1
+		}
+		if a.Timestamp != b.Timestamp {
+			if a.Timestamp < b.Timestamp {
+				return -1
+			}
+			return 1
+		}
+		return 0
+	})
+	return dst
 }
 
 // buildDerivedTypes builds the derived-type table for the current board into
@@ -200,6 +484,13 @@ func (e *Engine) layer4SelfOnlySources(buf []state.ObjID) ([]state.ObjID, bool) 
 // sends every such object through the real walk.
 func layer4BaseMayDiffer(o *state.Object) bool {
 	return o.FaceDown || o.CopyNonLegendary || o.AttachedTo != 0
+}
+
+// layer4MayDifferNow is layer4BaseMayDiffer under the battlefield/face gates
+// the walk itself applies to every candidate. It is the maintained
+// membership test of the incremental build's candidate slice.
+func layer4MayDifferNow(o *state.Object) bool {
+	return o != nil && o.Zone == state.ZBattlefield && o.Face() != nil && layer4BaseMayDiffer(o)
 }
 
 // buildDerivedTypesWalk is the table walk. With selfOnly set it visits only
@@ -314,8 +605,9 @@ var layer4PrecheckVerify = layer4PrecheckVerifyFlag != ""
 // AddStaticAbility$ grant on one, and only for a static whose zone gate
 // admits the source's zone. The faces that scan walks are o.Face() for an
 // object in a static-source zone of an alive seat, plus, on the battlefield,
-// an unlocked Room's other face and a mutated pile's merged faces. This walk
-// visits the same zone lists for every seat (a superset of the alive ones):
+// an unlocked Room's other face and a mutated pile's merged faces. The
+// reference walk (staticsMayChangeTypesWalk) visits the same zone lists for
+// every seat (a superset of the alive ones):
 // the battlefield, the stack and the command zone in full, and the
 // static-hot subsequence of each library, hand, graveyard and exile
 // (static_zoneskip.go) -- a static-cold object answers false to
@@ -328,7 +620,92 @@ var layer4PrecheckVerify = layer4PrecheckVerifyFlag != ""
 // type-changer is seen. cards.Face.StaticsMayChangeTypes is itself
 // conservative (a face whose probe is not bound to its current Statics
 // answers true).
+//
+// The answer is served from a per-object probe cache (staticsProbeCatchUp)
+// over every non-ceased object in e.G.Objs -- a superset of the walk's zone
+// lists, so the cached answer is never "no" where the walk says "yes". Under
+// layer4PrecheckVerify every read is held to the walk.
 func (e *Engine) staticsMayChangeTypes() bool {
+	n := len(e.L.Events)
+	if e.typesProbeEpoch != n || e.typesProbeVersion != e.continuousVersion || e.typesProbeObjs != len(e.G.Objs) {
+		e.staticsProbeCatchUp(n)
+	}
+	got := e.typesProbeTrue > 0
+	if layer4PrecheckVerify && !got && e.staticsMayChangeTypesWalk() {
+		panic(fmt.Sprintf("rules: cached staticsMayChangeTypes at log %d answered false but the zone walk says true", n))
+	}
+	return got
+}
+
+// staticsProbeCatchUp brings the per-object probe cache up to the current
+// log head. A nil cache (fresh engine, clone), a negative or rewound epoch,
+// or a continuousVersion bump re-probes the whole board; otherwise it
+// re-probes exactly the objects the events since the last probe reference
+// (every field the probe reads -- Zone, Card, FaceIdx, CopyFace, Unlocked,
+// MergedCards -- is written only inside events.Apply and keyed to the
+// event's Obj/IDs/Pairs, the same argument as the trigger-walk skip; the one
+// in-place face mutation, the AddStaticAbility$ grant, swaps in a FRESH face
+// under the same event key, and a face's own StaticsMayChangeTypes probe
+// self-invalidates when its Statics list grows) plus every object appended
+// since, and re-stamps.
+func (e *Engine) staticsProbeCatchUp(n int) {
+	if e.typesProbe == nil || e.typesProbeEpoch < 0 || n < e.typesProbeEpoch || e.typesProbeVersion != e.continuousVersion {
+		e.staticsProbeFull()
+		return
+	}
+	for i := e.typesProbeEpoch; i < n; i++ {
+		ev := &e.L.Events[i]
+		e.staticsProbeTouch(ev.Obj)
+		for _, id := range ev.IDs {
+			e.staticsProbeTouch(id)
+		}
+		for _, pr := range ev.Pairs {
+			e.staticsProbeTouch(pr[0])
+			e.staticsProbeTouch(pr[1])
+		}
+	}
+	for i := e.typesProbeObjs; i < len(e.G.Objs); i++ {
+		e.staticsProbeStore(e.G.Objs[i].ID)
+	}
+	e.typesProbeEpoch, e.typesProbeVersion, e.typesProbeObjs = n, e.continuousVersion, len(e.G.Objs)
+}
+
+// staticsProbeTouch re-probes one object; ids that resolve to nothing (zero,
+// a PlayerRef sentinel, out of range) have no probe and cannot flip.
+func (e *Engine) staticsProbeTouch(id state.ObjID) {
+	if id == 0 || e.G.Obj(id) == nil {
+		// A zero or PlayerRef/out-of-range id has no probe and cannot flip.
+		return
+	}
+	e.staticsProbeStore(id)
+}
+
+// staticsProbeStore recomputes one object's probe answer and keeps the count
+// of true answers in step. Objects absent from the map (never probed) count
+// from zero.
+func (e *Engine) staticsProbeStore(id state.ObjID) {
+	now := e.objectStaticsMayChangeTypes(e.G.Obj(id))
+	if old, ok := e.typesProbe[id]; ok {
+		if old == now {
+			return
+		}
+		if now {
+			e.typesProbeTrue++
+		} else {
+			e.typesProbeTrue--
+		}
+	} else if now {
+		e.typesProbeTrue++
+	}
+	e.typesProbe[id] = now
+}
+
+// staticsMayChangeTypesWalk is the uncached zone-list walk the probe cache
+// replaces: layer4PrecheckVerify holds the cached answer to it (a "yes" here
+// the cache misses panics; the cache answering "yes" where the walk says
+// "no" is only ever conservative -- it probes every non-ceased object, a
+// superset of these zone lists).
+func (e *Engine) staticsMayChangeTypesWalk() bool {
 	for p := range e.G.Players {
 		pid := state.PlayerID(p)
 		for _, z := range staticSourceZones {
@@ -345,9 +722,13 @@ func (e *Engine) staticsMayChangeTypes() bool {
 	return false
 }
 
-// objectStaticsMayChangeTypes is staticsMayChangeTypes' per-object test.
+// objectStaticsMayChangeTypes is staticsMayChangeTypes' per-object test, the
+// one the probe cache stores per object.
 func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 	if o == nil || o.Zone == state.ZCeased {
+		// Never walked: Game.Zone(ZCeased) lists nothing, and the zone is
+		// not a static-source zone. Late in a game most of e.G.Objs is
+		// resolved ability objects and ceased copies parked here.
 		return false
 	}
 	onBF := o.Zone == state.ZBattlefield
@@ -368,6 +749,25 @@ func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 		}
 	}
 	return false
+}
+
+// staticsProbeFull re-probes the whole board (the pre-incremental walk,
+// once, populating the cache).
+func (e *Engine) staticsProbeFull() {
+	m := make(map[state.ObjID]bool, len(e.G.Objs))
+	count := 0
+	for i := range e.G.Objs {
+		ans := e.objectStaticsMayChangeTypes(&e.G.Objs[i])
+		m[e.G.Objs[i].ID] = ans
+		if ans {
+			count++
+		}
+	}
+	e.typesProbe = m
+	e.typesProbeTrue = count
+	e.typesProbeEpoch = len(e.L.Events)
+	e.typesProbeVersion = e.continuousVersion
+	e.typesProbeObjs = len(e.G.Objs)
 }
 
 // verifyLayer4Active is the verify-mode check behind layer4PrecheckVerify:
