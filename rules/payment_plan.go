@@ -94,7 +94,7 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	base := e.rawBaseCost(p, cast.Object)
 	base = withSpellAbilityExtras(o.Face(), base)
 	cost := e.offerCostForUsing(statics.get(), p, cast.Object, base, spellScope(""))
-	if detail := paymentPlanCostDetail(cost); detail != "" {
+	if detail := paymentPlanNonManaAdmissible(cost); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
 	if !paymentPlanPoolOK(e.G.Players[p]) {
@@ -200,7 +200,18 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	if sa := f.SpellAbility(); sa != nil {
 		spellCost = e.parseCost(sa.Params["Cost"])
 	}
-	if paymentPlanCostDetail(spellCost) != "" || paymentPlanCostDetail(withSpellAbilityExtras(f, Cost{})) != "" || paymentPlanCostDetail(mods.extra) != "" {
+	// A cost static's own non-mana extra (Soul Immolation's Blight<X>) stays
+	// withheld entirely: the mana-only witness cannot describe it.
+	if paymentPlanCostDetail(mods.extra) != "" {
+		return "shape:additional_cost"
+	}
+	// The spell ability's own Cost$ admits exactly one non-mana shape: a
+	// fixed-count mandatory sacrifice. The mana half of that same cost still
+	// has to be V1-clean, which paymentPlanNonManaAdmissible checks after
+	// removing the Sac parts. Every other non-mana part (Discard, PayLife,
+	// Exile, tapXType, RevealOrChoose, Exert, ...) and every variable-count
+	// Sac<X/...>/Sac<All/...> still declines.
+	if paymentPlanNonManaAdmissible(spellCost) != "" || paymentPlanNonManaAdmissible(withSpellAbilityExtras(f, Cost{})) != "" {
 		return "shape:additional_cost"
 	}
 	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.HasKeyword(id, "Delve") {
@@ -241,6 +252,27 @@ func faceReadsManaSpent(f *cards.Face) bool {
 		}
 	}
 	return false
+}
+
+// paymentPlanNonManaAdmissible reports whether c is a cost a mana-only V1
+// witness can describe: its mana half must classify cleanly and its only
+// permitted non-mana part is a fixed-count mandatory Sac<N/Spec>. A
+// variable-count Sac<X/Spec> (CostPart.Announced, the announced count binds
+// the cast's X) and Sac<All/...> (which never reaches Cost.Sac -- it parses as
+// Unknown) are not admissible, and every other non-mana field declines. The
+// mana half is checked by removing the Sac parts and running the same
+// classifier the gate has always used, so X/hybrid/Phyrexian/snow and the
+// other mana-class shapes still decline here. Returns the decline detail, or
+// "" when the cost is admissible.
+func paymentPlanNonManaAdmissible(c Cost) string {
+	for _, part := range c.Sac {
+		if part.Announced || part.N <= 0 {
+			return "cost:sacrifice"
+		}
+	}
+	rest := c
+	rest.Sac = nil
+	return paymentPlanCostDetail(rest)
 }
 
 func paymentPlanCostDetail(c Cost) string {
@@ -465,6 +497,19 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	defer e.endDerivedMemo()
 	defer e.paymentPlanQueryScope()()
 	got := e.PlanCastPayment(p, cast)
+	// PP-14: a Sac-bearing additional cost is answered by the ordinary in-flow
+	// ask AFTER this validation, so the distinct-candidate assignment must
+	// still hold at submit time. Re-run the offer gate's own sacrifice
+	// feasibility check (nonManaCastable) on the composed cost and reject with
+	// a clear error when a candidate left the battlefield between offer and
+	// submit; the seat then falls back to the manual window instead of
+	// committing a cast whose additional cost can no longer be paid.
+	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil {
+		composed := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(o.Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
+		if len(composed.Sac) != 0 && !e.nonManaCastable(p, cast.Object, composed, false) {
+			return fmt.Errorf("payment plan sacrifice cost no longer payable")
+		}
+	}
 	if got.Reason == "unsupported" {
 		return fmt.Errorf("payment plan unsupported")
 	}

@@ -603,10 +603,15 @@ func TestPaymentPlanAdditionalCostCastGetsNoPlan(t *testing.T) {
 		if e.G.Obj(spell).Zone != state.ZHand {
 			t.Fatal("fixture spell is not in hand")
 		}
-		if e.paymentPlanCastShapeDetail(0, spell) != "shape:additional_cost" {
-			t.Fatalf("sacrifice cast detail = %q, want shape:additional_cost", e.paymentPlanCastShapeDetail(0, spell))
+		// PP-08 now admits exactly the fixed-count mandatory sacrifice shape:
+		// the planner offers a mana-only witness and the sacrifice is answered
+		// through the ordinary in-flow ask (TestPaymentPlanSeeksSacrificeOffer).
+		if detail := e.paymentPlanCastShapeDetail(0, spell); detail != "" {
+			t.Fatalf("sacrifice cast detail = %q, want the shape admitted", detail)
 		}
-		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 2})
+		if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan == nil {
+			t.Fatalf("sacrifice cast outcome = %+v, want a mana-only plan", got)
+		}
 	})
 
 	t.Run("discard", func(t *testing.T) {
@@ -662,7 +667,15 @@ func TestPaymentPlanAdditionalCostCastGetsNoPlan(t *testing.T) {
 		onBoard(t, e, 0, forest)
 		onBoard(t, e, 0, paymentPlanMountain)
 		spell := putInHand(t, e, 0, corpusCard(t, "Harrow"))
-		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('G'): 3})
+		// Harrow's `Cost$ Sac<1/Land>` is the fixed-count mandatory sacrifice
+		// shape PP-08 now admits, so its plan is offered; the land sacrifice
+		// is answered through the ordinary in-flow ask.
+		if detail := e.paymentPlanCastShapeDetail(0, spell); detail != "" {
+			t.Fatalf("Harrow shape detail = %q, want the fixed-count sacrifice shape admitted", detail)
+		}
+		if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan == nil {
+			t.Fatalf("Harrow outcome = %+v, want a mana-only plan", got)
+		}
 	})
 
 	t.Run("corpus Thrill of Possibility", func(t *testing.T) {

@@ -73,6 +73,11 @@ func SplitKeywordList(list string) []string {
 
 func (f *Face) HasKeyword(k string) bool {
 	if f.compiledCatalog != nil && f.compiledID != 0 && int(f.compiledID) <= len(f.compiledCatalog.Faces) {
+		// No keyword lines and no compiled keyword bits: both paths below
+		// answer false, so skip the head's mask lookup.
+		if len(f.Keywords) == 0 && f.compiledCatalog.Faces[f.compiledID-1].KeywordMask == 0 {
+			return false
+		}
 		if mask := keywordMaskFor(k); mask != 0 {
 			return f.compiledCatalog.Faces[f.compiledID-1].KeywordMask&mask != 0
 		}
@@ -89,6 +94,12 @@ func (f *Face) HasKeyword(k string) bool {
 // ("Kicker:B" -> "B"; "Equip:2" -> "2") and reports whether the keyword is
 // printed at all ("Flash" -> "", true; absent -> "", false).
 func (f *Face) KeywordParam(head string) (string, bool) {
+	// A face with no keyword lines answers "absent" on both paths below (the
+	// compiled mask gate and the line scan); deciding it first skips the
+	// head's mask lookup, which most calls (every land, most spells) paid.
+	if len(f.Keywords) == 0 {
+		return "", false
+	}
 	if mask := keywordMaskFor(head); mask != 0 && f.compiledCatalog != nil && f.compiledID != 0 && int(f.compiledID) <= len(f.compiledCatalog.Faces) && f.compiledCatalog.Faces[f.compiledID-1].KeywordMask&mask == 0 {
 		return "", false
 	}
