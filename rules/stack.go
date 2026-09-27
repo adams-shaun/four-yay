@@ -1682,6 +1682,10 @@ func (e *Engine) candidatesForLimit(p state.PlayerID, source, excludeSelf state.
 	if limit > 0 && (strings.TrimSpace(sa.Params["TargetsWithDefinedController"]) != "" ||
 		strings.TrimSpace(sa.Params["TargetValidTargeting"]) != "" ||
 		strings.TrimSpace(sa.Params["TargetsWithControllerProperty"]) != "" ||
+		// tpc1: TargetingPlayerControls$ True is also a DROPPING post-filter,
+		// so the census must not stop at limit before the whole search space
+		// (battlefield included) has been walked and filtered.
+		strings.TrimSpace(sa.Params["TargetingPlayerControls"]) != "" ||
 		sharedCardTypeRef(sa) != "") {
 		limit = 0
 	}
@@ -1843,7 +1847,14 @@ zoneLoop:
 	out = e.filterTargetsWithDefinedController(out, sa, sc)
 	out = e.filterTargetControllerProperty(out, sa)
 	out = e.filterTargetsWithSharedCardType(out, sa, source, sc)
-	return e.filterTargetValidTargeting(out, sa, sc)
+	out = e.filterTargetValidTargeting(out, sa, sc)
+	if targeting {
+		// tpc1: TargetingPlayerControls$ True -- the answering seat's
+		// battlefield permanents only. Applied to the targeting census only;
+		// the Overload affected sweep keeps its non-target semantics.
+		out = e.filterTargetingPlayerControls(out, sa, p, source)
+	}
+	return out
 }
 
 // filterTargetValidTargeting implements TargetValidTargeting$ (Not of This
@@ -3049,6 +3060,181 @@ func (e *Engine) livingOpponents(controller state.PlayerID) []state.PlayerID {
 	return out
 }
 
+// tpControlState is the TargetingPlayerControls$ restriction's resolution
+// state (tpc1): Forge's `TargetingPlayerControls$ True` makes every target
+// OBJECT of the SA a battlefield permanent controlled by the answering
+// TargetingPlayer$ seat (Evangelize: "target creature of an opponent's
+// choice they control"), without touching ValidTgts$'s own
+// controller-relative reading (YouCtrl, hexproof, protection stay judged
+// from the ability controller).
+type tpControlState int
+
+const (
+	// tpNone: the SA carries no TargetingPlayerControls$ True -- candidates
+	// and targets are judged exactly as before.
+	tpNone tpControlState = iota
+	// tpResolved: the answering seat is known -- the answered ask's record,
+	// either tier's answered selection pin, a sole living opponent, a bound
+	// trigger-relative referent, or the fail-closed controller.
+	tpResolved
+	// tpPending: the multi-opponent Opponent form's which-opponent selection
+	// is still owed, so the answering seat is not known yet. The offer
+	// census admits the union over the seats the selection may name (the
+	// same set the selection ask offers), so the offer never lies about
+	// feasibility; the eventual selection re-poses the ask with the exact
+	// seat (the pin reads above) and an empty exact set falls to the
+	// ordinary CR 608.2b/733.1 reversal machinery.
+	tpPending
+)
+
+// tpCtlAnswer is one TargetingPlayerControls$ answered-ask record: the SA
+// line whose ask was answered and the seat that answered it. Plain scalars,
+// so Clone carries the store like the oppSel class.
+type tpCtlAnswer struct {
+	line   string
+	player state.PlayerID
+}
+
+// targetControlsChooser resolves the TargetingPlayerControls$ restriction
+// for a target census (candidatesForLimit's post-filter) or a CR 608.2b
+// recheck (legalTargets). It shares the chooser derivation targetChooserCore
+// owns -- the answered selection pins of both tiers, the sole-opponent and
+// fail-closed shapes, the trigger-relative referent grammar -- plus the
+// answered-ask record (tpCtlChooser), so the offer and the recheck cannot
+// disagree about who "they" is (Critical C2's one-definition rule).
+// p stays the ability CONTROLLER: target legality is judged from it exactly
+// as the ValidTgts$ filter judges it; only the restriction's controller
+// binding moves to the answering seat. The pending state is returned only
+// for the Opponent form: every other TargetingPlayer$ referent resolves
+// deterministically or fails closed.
+func (e *Engine) targetControlsChooser(p state.PlayerID, source state.ObjID, sa *cards.SA) (state.PlayerID, tpControlState) {
+	if sa == nil || !strings.EqualFold(strings.TrimSpace(sa.Params["TargetingPlayerControls"]), "True") {
+		return 0, tpNone
+	}
+	// The answered ask's record first: once a target decision for this
+	// (object, line) was answered, the answering seat is what every later
+	// census and recheck reads -- the selection pins are consumed between
+	// the ask and the recheck (the rules-tier one by the re-posed ask's own
+	// targetChooserCore, the mid-tier one by OpponentPickAsk), so a pin
+	// read must not be able to change the answer afterwards.
+	if rec, ok := e.tpCtlChooser[source]; ok && (sa.Line == "" || rec.line == "" || rec.line == sa.Line) {
+		return rec.player, tpResolved
+	}
+	spec := strings.TrimSpace(sa.Params["TargetingPlayer"])
+	if spec == "Opponent" || spec == "Player.Opponent" {
+		// The mid-tier answered selection (oppPicksMid, keyed by the SA's
+		// line): present between the "opp_pick" resume arm and the
+		// synchronous re-entry that poses the target ask -- exactly the
+		// window this census runs in (chosenTargetsFor builds its candidates
+		// before ChooserFor/OpponentPickAsk consume the entry).
+		if sa.Line != "" {
+			if who, ok := e.oppPicksMid[sa.Line]; ok {
+				return who, tpResolved
+			}
+		}
+		// The rules-tier selection pin, read WITHOUT consuming it:
+		// targetChooserCore owns the consume, at the same re-posed ask this
+		// census has just filtered for (candidates are built before
+		// targetAskChooser runs, so the pin is still set here).
+		if s := e.oppSel; s.done && s.line == sa.Line && s.source == source {
+			return s.player, tpResolved
+		}
+		opponents := e.livingOpponents(p)
+		switch len(opponents) {
+		case 0:
+			// targetChooserCore's fail-closed shape: no living opponent keeps
+			// the ask with the controller, so "they" is the controller.
+			return p, tpResolved
+		case 1:
+			return opponents[0], tpResolved
+		}
+		return 0, tpPending
+	}
+	// Trigger-relative referents (TriggeredTarget, TriggeredPlayer, ...):
+	// the same referent grammar targetChooserCore resolves through, against
+	// the trigger context stored for the asking object. An unknown, unbound
+	// or dead referent fails closed to the controller, the same shape
+	// targetChooserCore keeps the ask with the controller for.
+	tc := effects.TriggerContext{}
+	if ctx, ok := e.triggerContexts[source]; ok {
+		tc = ctx
+	}
+	who, ok := e.targetChooserFromSpec(spec, p, nil, tc)
+	if !ok {
+		return p, tpResolved
+	}
+	return who, tpResolved
+}
+
+// tpControlsAdmits judges one OBJECT target against the restriction state.
+// The object must be a battlefield permanent (control exists nowhere else)
+// and, once the answering seat is resolved, controlled by that seat. While
+// the multi-opponent selection is still owed the census admits a permanent
+// of any seat the selection may name -- the union over the controller's
+// living opponents, the same set the selection ask offers. A non-battlefield
+// object (a stack spell, a graveyard card) is never a legal target of a
+// TargetingPlayerControls$ ask.
+func (e *Engine) tpControlsAdmits(o *state.Object, p, chooser state.PlayerID, st tpControlState) bool {
+	if st == tpNone {
+		return true
+	}
+	if o == nil || o.Zone != state.ZBattlefield {
+		return false
+	}
+	if st == tpResolved {
+		return o.Controller == chooser
+	}
+	for _, q := range e.livingOpponents(p) {
+		if o.Controller == q {
+			return true
+		}
+	}
+	return false
+}
+
+// filterTargetingPlayerControls applies TargetingPlayerControls$ True to a
+// target census (tpc1): every OBJECT candidate must be a battlefield
+// permanent controlled by the answering TargetingPlayer$ seat. Player
+// candidates are out of the parameter's scope and stay. It runs last in
+// candidatesForLimit's post-filter chain and only on the targeting census
+// (the Overload affected sweep keeps its non-target semantics).
+func (e *Engine) filterTargetingPlayerControls(out []targetCandidate, sa *cards.SA, p state.PlayerID, source state.ObjID) []targetCandidate {
+	if len(out) == 0 {
+		return out
+	}
+	chooser, st := e.targetControlsChooser(p, source, sa)
+	if st == tpNone {
+		return out
+	}
+	filtered := out[:0]
+	for _, c := range out {
+		if c.kind == "player" || e.tpControlsAdmits(e.G.Obj(c.obj), p, chooser, st) {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+// recordTpControlsChooser pins the seat that ANSWERED a target ask whose SA
+// carries TargetingPlayerControls$ True (tpc1), keyed by the RESOLVING
+// stack object -- the spell object for a cast (pc.stackObj), the
+// AbilityPush-minted object for an activation, the TriggerPush object for a
+// placement ask. The CR 608.2b recheck (legalTargets) reads the same key
+// through its self parameter, so the restriction is judged against exactly
+// the seat the ask was answered by, never re-derived past the selection
+// pins' short lifetimes. The entry lives from the answer to the object
+// leaving the stack (the zone-change clear), so the next targeting cycle on
+// a fresh object never sees a stale seat.
+func (e *Engine) recordTpControlsChooser(obj state.ObjID, sa *cards.SA, chooser state.PlayerID) {
+	if sa == nil || obj == 0 || !strings.EqualFold(strings.TrimSpace(sa.Params["TargetingPlayerControls"]), "True") {
+		return
+	}
+	if e.tpCtlChooser == nil {
+		e.tpCtlChooser = make(map[state.ObjID]tpCtlAnswer)
+	}
+	e.tpCtlChooser[obj] = tpCtlAnswer{line: sa.Line, player: chooser}
+}
+
 // targetAskChooser resolves who answers a target ask declared by sa at a
 // rules-tier ask site. Forge's TargetingPlayer$ names another player as the
 // chooser; the trigger-relative grammar in targetChooserFromSpec resolves
@@ -3495,8 +3681,18 @@ func (e *Engine) handleTarget(d *decision.Decision, in decision.Intent) {
 			return
 		}
 		e.finishTargetedCast(pc, pc.player)
+		// tpc1: pin the answering seat against the resolving object. For a
+		// spell pc.stackObj is already the pushed object; for an activation
+		// payCast's AbilityPush has just minted it. The CR 608.2b recheck
+		// (legalTargets) reads this record off the resolving object.
+		if po := e.G.Obj(pc.card); po != nil {
+			if tsa := e.castStageSA(pc, po, po.Face()); tsa != nil {
+				e.recordTpControlsChooser(pc.stackObj, tsa, in.Player)
+			}
+		}
 		return
 	}
+	e.recordTpControlsChooser(d.Source, d.ResumeSA, in.Player)
 	e.recordChosenTargets(d.Source, chosen, false)
 	// A target decision asked by a trigger drain (putTriggersOnStack's
 	// pushTrigger, immediately after the trigger's TriggerPush -- Task 20's
@@ -4607,6 +4803,22 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	sc := e.targetSpecContext(source, self, you)
 	sc.ResolutionTargets = targets
 	sc.Resolving = true
+	// TargetingPlayerControls$ (tpc1): the restriction's answering seat is
+	// resolved through the same derivation the offer census used, with the
+	// answered-ask record taking precedence -- it is keyed by self, the
+	// RESOLVING stack object the answer was recorded on, so a selection pin
+	// consumed since the ask cannot change the answer here. An SA whose
+	// record is missing (a recheck that never had its own ask -- a copy's
+	// inherited targets, a modal group) falls back to the derivation; with
+	// the multi-opponent selection unrecoverable that is the union over the
+	// controller's living opponents, the same shape the offer census used
+	// while the selection was owed.
+	tpChooser, tpState := e.targetControlsChooser(you, source, sa)
+	if tpState != tpNone {
+		if rec, ok := e.tpCtlChooser[self]; ok && (sa == nil || sa.Line == "" || rec.line == "" || rec.line == sa.Line) {
+			tpChooser, tpState = rec.player, tpResolved
+		}
+	}
 	controllerProp := ""
 	nonTriggeredController := false
 	triggeredCardController := state.PlayerID(0)
@@ -4697,6 +4909,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 				e.mentorAdmits(sa, source, t.Obj) &&
 				(controllerProp == "" || e.targetControllerPropertyAdmits(controllerProp, t.Obj)) &&
 				(!hasSharedRef || e.sharedCardTypeAdmits(t.Obj, sharedRef, sharedWhitelist)) &&
+				(tpState == tpNone || e.tpControlsAdmits(o, you, tpChooser, tpState)) &&
 				!(o.Zone == state.ZBattlefield && e.restrictionBlocksTarget(t.Obj, you)) &&
 				!(o.Zone == state.ZBattlefield && e.shroudBlocksTarget(t.Obj)) &&
 				!(o.Zone == state.ZBattlefield && e.hexproofBlocksTarget(t.Obj, you, e.protectionSource(source))) &&

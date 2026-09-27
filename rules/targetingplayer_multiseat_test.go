@@ -22,8 +22,11 @@ import (
 //
 // When multiple opponents are alive, the controller chooses which one
 // answers; with one opponent the target ask goes directly to that seat.
-// Target LEGALITY stays the ability controller's: the option list is computed
-// from pc.player exactly as before, and only the answering seat moves.
+// Target LEGALITY stays the ability controller's -- the option list is
+// computed from pc.player exactly as before, and only the answering seat
+// moves -- except for an SA carrying TargetingPlayerControls$ True, whose
+// object candidates are restricted to the answering seat's permanents
+// (tpc1; see rules/targetingplayer_controls_test.go).
 
 // targetingChooserBoard seats `seats` players at Main 1 of seat 0's first
 // turn. Seat 0's deck opens with the named corpus carrier plus one Grizzly
@@ -153,9 +156,12 @@ func TestTargetingPlayerOpponentActivatedAbilityIsAnsweredByOpponent(t *testing.
 	if d.Player != 1 {
 		t.Fatalf("target ask posed to seat %d, want opponent seat 1", d.Player)
 	}
-	// Legality is unchanged -- still computed from seat 0, so BOTH seats'
-	// bears are offered.
-	targetOptionForObj(t, d, own)
+	// Preacher's AB$ carries TargetingPlayerControls$ True, so the offered
+	// set is the answering opponent's permanents only: the activator's own
+	// bear is NOT a legal target of "a creature they control".
+	if targetOptionContains(d.Options, own) {
+		t.Fatalf("activator's own creature offered to the answering opponent: %+v", d.Options)
+	}
 	targetOptionForObj(t, d, opp)
 	// The answering seat cannot name an option that was never offered.
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{len(d.Options)}}); err == nil {
@@ -164,14 +170,14 @@ func TestTargetingPlayerOpponentActivatedAbilityIsAnsweredByOpponent(t *testing.
 
 	// A legal answer from the opponent completes the activation and hands
 	// priority back to the ACTIVATOR, never to the answering opponent.
-	submitChoices(t, e, targetOptionForObj(t, d, own).Index)
+	submitChoices(t, e, targetOptionForObj(t, d, opp).Index)
 	if o := e.G.Obj(preacher); o == nil || !o.Tapped {
 		t.Fatalf("Preacher was not tapped by the activation: %+v", o)
 	}
 	passUntilStackEmpty(t, e, 20)
-	// Seat 0 gained control of its own bear (the legal answer), so the
-	// activation really resolved.
-	if got := e.G.Obj(own).Controller; got != 0 {
+	// Seat 0 gained control of the opponent's bear (the only legal answer),
+	// so the activation really resolved.
+	if got := e.G.Obj(opp).Controller; got != 0 {
 		t.Fatalf("chosen bear controller = %d, want seat 0", got)
 	}
 	replayCheck(t, e, cfg)
