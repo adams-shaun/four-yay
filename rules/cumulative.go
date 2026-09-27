@@ -464,7 +464,17 @@ func (e *Engine) paymentManaAsk(player state.PlayerID, source state.ObjID, amoun
 
 func (e *Engine) paymentManaAskClass(player state.PlayerID, source state.ObjID, amount Cost, windowDone bool, prompt string, flow chooseFor, class paymentClass) bool {
 	rider := pipRider{anyColor: e.payerGrantsIgnoreColor(player, source), anyType: e.payerGrantsIgnoreType(player, source)}
-	if windowDone || !amount.Priceable() || e.costPayableClass(player, paymentDescriptor{id: source, class: class, cost: &amount}, rider, amount) {
+	// A pool that already pays the announced amount needs no window. The
+	// check deliberately suspends the payer's PayLifeInsteadOf:B grant
+	// (costPayableClassLife's lifeGrant false, the same suspension the CR
+	// 601.2g cast window makes in manaWindowAsk): a {B} pip K'rrik could
+	// settle with 2 life is NOT "already paid" by the pool, so the window
+	// must open and let the payer choose an untapped source over the life.
+	// The subsequent payment keeps the grant: answering "done" still spends
+	// the life through the ordinary payment, and the offer gate that follows
+	// (cumulativePaymentAsk / echoElectionAsk) still prices the grant so a
+	// cost only life can pay stays offered and charged as such.
+	if windowDone || !amount.Priceable() || e.costPayableClassLife(player, paymentDescriptor{id: source, class: class, cost: &amount}, rider, amount, false) {
 		return false
 	}
 	var sources []state.ObjID
