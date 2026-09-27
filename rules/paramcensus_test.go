@@ -1172,7 +1172,12 @@ var stringMapParams = map[string]string{
 	// effects/misc.go parseStaticLine: svars is the face's SVars table (a
 	// cards.SA's SVar: bodies), read by NAME to fetch a static line -- not a
 	// card Params map.
-	"effects:parseStaticLine:svars":          "SVars table lookup by static-line name, not a card Params map",
+	"effects:parseStaticLine:svars": "SVars table lookup by static-line name, not a card Params map",
+	// rules/stack.go staticModesFromSVars: svars is the face's SVar table
+	// (ctx.SVars / abFace.SVars), read by NAME -- the StaticAbilities$ list
+	// from the SA's own Params -- to fetch each granted static line's Mode$
+	// value; not a card Params map.
+	"rules:staticModesFromSVars:svars":       "SVars table lookup by StaticAbilities$ name, not a card Params map",
 	"effects:CloneStaticGrantReadable:svars": "SVars table lookup by named Clone static, not a card Params map",
 	// Goad-static helpers inspect map arguments copied from parsed SVar
 	// statics, not card SA Params; their callers classify the actual source.

@@ -1,0 +1,101 @@
+{
+  "card": "Kozilek, the Great Distortion",
+  "family": "trigger-condition",
+  "oracle_sha": "017834441c06",
+  "author": "cli-20260927T211250Z-75464868 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "six-after-cast-refills-to-seven",
+      "cr": [
+        "603.4",
+        "601.2i"
+      ],
+      "why": "Casting from a seven-card hand leaves six cards when the cast event occurs, so the conditional cast trigger draws one.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Kozilek, the Great Distortion",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Kozilek, the Great Distortion",
+          "mana": "CCCCCCCCCC",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Kozilek, the Great Distortion",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 7
+          }
+        }
+      ]
+    },
+    {
+      "name": "seven-after-cast-no-trigger",
+      "cr": [
+        "603.4",
+        "601.2i"
+      ],
+      "why": "Casting from eight cards leaves seven; at exactly seven the draw trigger never goes onto the stack.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Kozilek, the Great Distortion",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Kozilek, the Great Distortion",
+          "mana": "CCCCCCCCCC",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Kozilek, the Great Distortion",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 7
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "card": "Walking Ballista",
+  "family": "replacement",
+  "oracle_sha": "4a2b183ecd24",
+  "author": "cli-20260927T211250Z-05593657 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "x-two-enters-with-two",
+      "cr": [
+        "107.3b",
+        "107.3m",
+        "614.1c",
+        "614.12"
+      ],
+      "why": "Choosing X=2 when casting makes the entering creature 2/2 through two counters; the two generic X symbols on the Construct spells are both paid.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Walking Ballista"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Walking Ballista",
+          "mana": "CCCC",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Walking Ballista",
+          "zone": "battlefield",
+          "pt": "2/2",
+          "counters": {
+            "+1/+1": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "x-zero-does-not-gain-counters",
+      "cr": [
+        "107.3b",
+        "614.1c",
+        "704.5f"
+      ],
+      "why": "X=0 gives no entering counters; a zero-toughness creature goes to its graveyard as a state-based action.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Walking Ballista"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Walking Ballista",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "0"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Walking Ballista",
+          "zone": "graveyard",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}

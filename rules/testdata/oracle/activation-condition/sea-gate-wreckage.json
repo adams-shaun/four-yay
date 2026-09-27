@@ -1,0 +1,23 @@
+{
+  "card": "Sea Gate Wreckage",
+  "family": "activation-condition",
+  "oracle_sha": "42f023c549bb",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "draw-ability-unavailable-with-card-in-hand",
+      "cr": ["602.5b"],
+      "why": "The activating player has a card in hand, so the condition on the draw ability is false and it cannot be activated.",
+      "setup": {"p0": {"hand": ["Forest"], "battlefield": ["Sea Gate Wreckage"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Sea Gate Wreckage", "label": "Draw"}, "want": false}]
+    },
+    {
+      "name": "empty-hand-enables-draw",
+      "cr": ["602.5b"],
+      "why": "With an exactly empty hand, the restriction is met; paying the activation cost and tapping the land draws one card.",
+      "setup": {"p0": {"battlefield": ["Sea Gate Wreckage"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Sea Gate Wreckage", "ability": "Draw", "mana": "WUC"}, {"op": "resolve", "seat": 0}],
+      "expect": [{"hand_size": {"p0": 1}, "card": "p0:Sea Gate Wreckage", "tapped": true}]
+    }
+  ]
+}

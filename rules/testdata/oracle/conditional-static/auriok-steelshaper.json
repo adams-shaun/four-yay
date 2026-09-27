@@ -1,0 +1,132 @@
+{
+  "card": "Auriok Steelshaper",
+  "family": "conditional-static",
+  "oracle_sha": "9a87e0757bc6",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "not-equipped-no-team-bonus",
+      "cr": [
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "Merely controlling equipment does not equip the Steelshaper; its Soldier body is still 1/1.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Auriok Steelshaper",
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Auriok Steelshaper",
+          "pt": "1/1"
+        }
+      ]
+    },
+    {
+      "name": "equipped-bonus-switches-on-and-off",
+      "cr": [
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "Once equipped, this Soldier receives its own +1/+1 along with the equipment bonus; removal of the equipment ends both bonuses.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Auriok Steelshaper",
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "ability": "Equip",
+          "targets": [
+            "p0:Auriok Steelshaper"
+          ]
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "card": "p0:Auriok Steelshaper",
+              "pt": "4/2"
+            }
+          ]
+        },
+        {
+          "op": "move",
+          "card": "p0:Bonesplitter",
+          "to": "graveyard",
+          "expect": [
+            {
+              "card": "p0:Auriok Steelshaper",
+              "pt": "1/1"
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Auriok Steelshaper",
+          "pt": "1/1"
+        }
+      ]
+    },
+    {
+      "name": "only-own-soldiers-and-knights",
+      "cr": [
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "With the Steelshaper equipped, an allied Knight receives +1/+1 but an opposing Knight does not.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Auriok Steelshaper",
+            "Bonesplitter",
+            "Sentinel Sarah Lyons"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Sentinel Sarah Lyons"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "ability": "Equip",
+          "targets": [
+            "p0:Auriok Steelshaper"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Sentinel Sarah Lyons",
+          "pt": "5/5"
+        },
+        {
+          "card": "p1:Sentinel Sarah Lyons",
+          "pt": "4/4"
+        }
+      ]
+    }
+  ]
+}

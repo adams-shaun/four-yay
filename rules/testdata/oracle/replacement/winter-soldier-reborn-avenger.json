@@ -1,0 +1,131 @@
+{
+  "card": "Winter Soldier, Reborn Avenger",
+  "family": "replacement",
+  "oracle_sha": "2903c0621bf6",
+  "author": "cli-20260927T211250Z-05593657 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "eligible-hero-returns-with-counter",
+      "cr": [
+        "603.2",
+        "614.1d",
+        "614.12"
+      ],
+      "why": "The attacking Soldier has power three; a Hero creature card of mana value three returns with one additional counter.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Winter Soldier, Reborn Avenger"
+          ],
+          "graveyard": [
+            "Captain America, Living Legend"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Winter Soldier, Reborn Avenger"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Captain America, Living Legend",
+          "zone": "battlefield",
+          "pt": "4/5",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "eligible-nonhero-returns-without-counter",
+      "cr": [
+        "603.2",
+        "614.1d"
+      ],
+      "why": "The attacking Soldier can return a Bear of mana value two but only a Hero receives the additional counter.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Winter Soldier, Reborn Avenger"
+          ],
+          "graveyard": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Winter Soldier, Reborn Avenger"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "pt": "2/2",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "power-three-cannot-return-mana-value-five",
+      "cr": [
+        "603.2",
+        "601.2c"
+      ],
+      "why": "A creature card of mana value five is outside the attacking Soldier power-three target limit and remains in the graveyard.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Winter Soldier, Reborn Avenger"
+          ],
+          "graveyard": [
+            "Serra Angel"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Winter Soldier, Reborn Avenger"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Serra Angel",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

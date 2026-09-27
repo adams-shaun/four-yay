@@ -1,0 +1,133 @@
+{
+  "card": "Aspect of Hydra",
+  "family": "conditional-static",
+  "oracle_sha": "1d5f6a3872a1",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "zero-devotion-zero-bonus",
+      "cr": [
+        "700.5",
+        "611.2",
+        "613.1g"
+      ],
+      "why": "Seat 0 has no green mana symbols among its permanents, so its target receives +0/+0.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Savannah Lions"
+          ],
+          "hand": [
+            "Aspect of Hydra"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Aspect of Hydra",
+          "mana": "G",
+          "targets": [
+            "p0:Savannah Lions"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Savannah Lions",
+          "pt": "2/1"
+        }
+      ]
+    },
+    {
+      "name": "one-green-symbol-one-bonus",
+      "cr": [
+        "700.5",
+        "611.2",
+        "613.1g"
+      ],
+      "why": "The single green symbol on the targeted Bear counts toward its controller\u2019s devotion: it becomes 3/3.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Aspect of Hydra"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Aspect of Hydra",
+          "mana": "G",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "3/3"
+        }
+      ]
+    },
+    {
+      "name": "two-green-symbols-two-bonus",
+      "cr": [
+        "700.5",
+        "611.2",
+        "613.1g"
+      ],
+      "why": "Two Bears each contribute one green symbol, giving the targeted Bear +2/+2 until turn end.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears",
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Aspect of Hydra"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Aspect of Hydra",
+          "mana": "G",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "4/4"
+        },
+        {
+          "card": "p0:Grizzly Bears#2",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}

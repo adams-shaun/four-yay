@@ -22,14 +22,16 @@ import (
 //     effect is a pure idempotent keyword grant that the granting permanent
 //     already has, or an identical grant already pending from the same
 //     source, is declined — grantNoOp, read off the engine-supplied
-//     decision.Option.Grant). Additive abilities (+1/+1 pumps, counters,
-//     damage, draw) are never a no-op under grantNoOp and stay freely
-//     repeatable; a pure keyword grant is the one activation this policy can
-//     prove gains nothing the second time. Where the policy cannot prove a
-//     no-op it may still activate — this rule is exactly the set of changes
-//     it can prove are nil, not a guess. A1 scoring as not-worth-taking is
-//     what lets the priority policy fall through to its explicit pass and
-//     end a turn it would otherwise loop on.
+//     decision.Option.Grant). A third shape (A1c, boonHasNoOwnTarget)
+//     declines a one-way BOON grant whose seat controls no creature to
+//     receive it, before any cost is paid. Additive abilities (+1/+1 pumps,
+//     counters, damage, draw) are never a no-op under grantNoOp and stay
+//     freely repeatable; a pure keyword grant is the one activation this
+//     policy can prove gains nothing the second time. Where the policy
+//     cannot prove a no-op it may still activate — this rule is exactly the
+//     set of changes it can prove are nil, not a guess. A1 scoring as
+//     not-worth-taking is what lets the priority policy fall through to its
+//     explicit pass and end a turn it would otherwise loop on.
 //   - A2 (free before costly): among abilities worth activating, the cheaper
 //     one ranks higher. A free ability forgoes nothing, so it is always at
 //     least as good a trial as one that spends mana. The cost is read from
@@ -82,12 +84,55 @@ func (b Board) abilityScore(o decision.Option, me state.PlayerID) (score int32, 
 	if b.grantNoOp(o) {
 		return 0, false // A1: a redundant keyword grant is never activated.
 	}
+	if b.boonHasNoOwnTarget(o, me) {
+		return 0, false // A1c: a one-way boon with no sensible own creature to receive it.
+	}
 	if b.Cards[o.Obj].Activated >= maxActivationsPerTurn {
 		return 0, false // A5: the repeatability budget is spent.
 	}
 	// A2: cheaper ranks higher (only among worth-taking abilities; A1 above
 	// already returned for the no-op case).
 	return 1000 - abilityCost(o.Label), true
+}
+
+// boonHasNoOwnTarget is A1c's pre-activation decline, the fb-20260927T153930Z
+// fix's activation-side half: an ability option whose whole activation is an
+// Effect granting only one-way BOON statics to a target (decision.Option's
+// GrantStatics, the offer-time twin of TargetEffect.Statics) is never
+// activated when the seat controls no sensible own creature to receive it --
+// the grant could then only land on an opponent's creature, the exact bug the
+// report captured (the bot spent two artifacts to make an opponent's creature
+// unblockable). The polarity classification is the shared helper
+// (boonStaticsOnly, target.go), so this decline and the follow-up target
+// ask's aim branch can never disagree about what counts as a boon.
+//
+// The census EXCLUDES the activation's own source permanent (o.Obj): an
+// evasion grant is a this-turn effect, so a "can't be blocked" grant on the
+// source itself is an attack plan this scorer cannot prove at offer time --
+// with the source included, Whirler Rogue (itself a 2/2 creature) would
+// always count as its own sensible target and the gate would never fire on
+// the reported board (Whirler Rogue, two artifacts, no other own creature).
+// With the source excluded, one Thopter from its ETB trigger is enough to
+// make the activation worth taking again; the follow-up target ask then
+// leads with the own board (target.go's R1B branch) and the grant lands
+// there. The decline is bot-quality advice, never an engine gate: the offer
+// loop still offers the ability (a human seat may want to aim a boon at an
+// opponent's creature, and CR 605.1a's unlimited activations are untouched).
+// An activation whose cost could sacrifice the seat's last own creature
+// before the target ask is the one residue the decline cannot see at offer
+// time; target.go's totality floor answers that ask harm-minimally instead.
+func (b Board) boonHasNoOwnTarget(o decision.Option, me state.PlayerID) bool {
+	if !boonStaticsOnly(o.GrantStatics) {
+		return false
+	}
+	// Existential fold: order-independent, so no map iteration order can
+	// reach a choice.
+	for id, c := range b.Creatures {
+		if id != o.Obj && c.Controller == me {
+			return false
+		}
+	}
+	return true
 }
 
 // equipNoOp is A1's provable no-op: does activating the "ability" option o

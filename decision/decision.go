@@ -414,6 +414,21 @@ type Option struct {
 	// printed and SVar-granted ability). A human client never sees them.
 	GainedSource state.ObjID `json:"-"`
 	GainedIdx    int         `json:"-"`
+	// GrantStatics is server-side only (json:"-") and carries, on an
+	// "ability" option whose whole activation is an Effect granting
+	// continuous statics to its target, the resolved Mode$ values of those
+	// statics -- the same list the follow-up target decision publishes on
+	// TargetEffect.Statics (describeTargetEffect). It is the OFFER-TIME
+	// twin: the ability scorer reads it BEFORE the activation's costs are
+	// paid, so a bot can decline a one-way boon grant (Whirler Rogue's
+	// "target creature can't be blocked") when it has no own creature to
+	// receive it -- the offer loop itself cannot withhold the ability (a
+	// human seat may still want to aim a boon at an opponent's creature),
+	// so the polarity is bot-quality advice, never an engine gate. Filled
+	// by rules/legal.go from the ability's own face's SVar table, the same
+	// resolution staticModesFromSVars performs for the target ask; a human
+	// client never sees it.
+	GrantStatics []string `json:"-"`
 	// PlanBacked is server-side only (json:"-") and marks a "cast" option
 	// the seat's auto-pay adapter built as a plan-backed candidate: selecting
 	// it submits a decision.PaymentSelection whose V1 plan performs the mana

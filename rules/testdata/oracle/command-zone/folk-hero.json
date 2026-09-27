@@ -1,0 +1,96 @@
+{
+  "card": "Folk Hero",
+  "family": "command-zone",
+  "oracle_sha": "a158679c6e64",
+  "author": "cli-20260927T211250Z-1c17051b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "commander-shared-knight-draws",
+      "cr": [
+        "903.3",
+        "603.2"
+      ],
+      "why": "The designated commander is a Knight on the battlefield; a Knight spell shares that creature type and its granted ability draws a card.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Sidar Jabari of Zhalfir"
+          ],
+          "battlefield": [
+            "Folk Hero"
+          ],
+          "hand": [
+            "Knight of the White Orchid"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Sidar Jabari of Zhalfir",
+          "to": "battlefield"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Knight of the White Orchid",
+          "mana": "WW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "commander-away-other-legend-not-granted",
+      "cr": [
+        "903.3",
+        "603.2"
+      ],
+      "why": "The commander is not on the battlefield; an unrelated legendary creature is not designated commander and gains no draw ability from the Background.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Sidar Jabari of Zhalfir"
+          ],
+          "battlefield": [
+            "Folk Hero",
+            "Jocasta, Automaton Avenger"
+          ],
+          "hand": [
+            "Knight of the White Orchid"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Knight of the White Orchid",
+          "mana": "WW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 0
+          }
+        }
+      ]
+    }
+  ]
+}

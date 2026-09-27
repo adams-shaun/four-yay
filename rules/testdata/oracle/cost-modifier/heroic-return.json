@@ -1,0 +1,152 @@
+{
+  "card": "Heroic Return",
+  "family": "cost-modifier",
+  "oracle_sha": "1b741530b813",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "not-being-attacked",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Without a creature attacking seat 0 right now, four mana cannot pay the six-mana instant.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Heroic Return"
+          ],
+          "graveyard": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "WWWW"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Heroic Return"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "one-attacker-reanimates",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "One creature attacking seat 0 reduces the generic part by two; the instant returns the targeted creature from the graveyard.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Heroic Return"
+          ],
+          "graveyard": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "attack",
+          "seat": 1,
+          "attackers": [
+            "p1:Savannah Lions"
+          ],
+          "defender": "p0"
+        },
+        {
+          "op": "pass_to",
+          "step": "declare-attackers",
+          "active": "p1"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Heroic Return",
+          "mana": "WWWW",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ],
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "opponent-creature-not-attacking-does-not-count",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Merely controlling a creature on the opposing side does not make it an attacker; four mana cannot cast the six-mana instant on seat 0's main phase.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Heroic Return"
+          ],
+          "graveyard": [
+            "Centaur Courser"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "WWWW"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Heroic Return"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}
