@@ -1,0 +1,168 @@
+{
+  "card": "Avenge",
+  "family": "cost-modifier",
+  "oracle_sha": "43e8fd7de549",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-attack-last-turn",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The reduction requires an attack on this player on the previous turn; on turn one there was no previous attacking turn.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Avenge"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "WWWW"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Avenge"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "attacked-last-turn",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "An opposing creature attacked seat 0 on the immediately previous turn; Avenge costs four mana including two white, not six.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Avenge"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "attack",
+          "seat": 1,
+          "attackers": [
+            "p1:Savannah Lions"
+          ],
+          "defender": "p0"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Avenge",
+          "mana": "WWWW",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Savannah Lions",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "attacked-two-turns-ago-not-enough",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "An attack two turns ago is not an attack on the opponent\u2019s last turn: the intervening opponent turn had no attackers.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Avenge"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "attack",
+          "seat": 1,
+          "attackers": [
+            "p1:Savannah Lions"
+          ],
+          "defender": "p0"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "WWWW"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Avenge"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

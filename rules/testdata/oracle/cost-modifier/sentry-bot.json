@@ -1,0 +1,157 @@
+{
+  "card": "Sentry Bot",
+  "family": "cost-modifier",
+  "oracle_sha": "e72ec0b33e0f",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-attack-full-cost",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "No creature attacks seat 0 on its main phase; four generic and one white remain due.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sentry Bot"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "WWWW"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Sentry Bot"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "one-attacker-one-off",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "One attacking creature reduces the generic cost from four to three.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sentry Bot"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "attack",
+          "seat": 1,
+          "attackers": [
+            "p1:Savannah Lions"
+          ],
+          "defender": "p0"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sentry Bot",
+          "mana": "WWWW",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Sentry Bot",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "two-attackers-two-off",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Two attacking creatures reduce the generic cost to two while the white remains payable.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sentry Bot"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Savannah Lions",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "attack",
+          "seat": 1,
+          "attackers": [
+            "p1:Savannah Lions",
+            "p1:Grizzly Bears"
+          ],
+          "defender": "p0"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sentry Bot",
+          "mana": "WWW",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Sentry Bot",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}
