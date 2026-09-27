@@ -58,10 +58,6 @@ var oracleKnownDivergent = map[string]string{
 	// snapshot and passes.
 	"Relic Vial/only-cleric-dies-looks-back":              "destroying the only Cleric drains nobody (no look-back for an effect destroy)",
 	"Relic Vial/sacrifice-only-cleric-as-cost-looks-back": "sacrificing the only Cleric as a cost drains nobody (no look-back for a cost sacrifice)",
-	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
-	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
-	// so an Eminence trigger never fires from the command zone.
-	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
 	// Engine/script gap: max-speed-gated AddAbility is not offered after the
 	// three turn-specific speed increases (CR 702.179).
 	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",
