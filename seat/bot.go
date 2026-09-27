@@ -37,6 +37,12 @@ type Bot struct {
 	// manually activating mana abilities. It is configured once by the hosted
 	// table and does not add state or RNG to the match.
 	autoPayMana bool
+	// skipLifePlans withholds every offered payment plan with a step that
+	// pays life (spec §6: a caretaker standing in for a human never
+	// auto-selects a life-paying plan -- a human confirms life payments in
+	// the client). Set only for a hosted human seat's timeout caretaker; a
+	// hosted bot or tool seat that submits such a plan has consented.
+	skipLifePlans bool
 	// cast/castSet are the cast-profile policy's weights: when castSet is
 	// true every decision's Board gets brd.Cast = cast before the policy
 	// runs, so the cast scorer (cardWorth/castScore/chooseCast) dots its
@@ -74,6 +80,24 @@ func NewBot(seed uint64) *Bot {
 func (b *Bot) EnableAutoPayMana() *Bot {
 	b.autoPayMana = true
 	return b
+}
+
+// SkipLifePlans makes the bot treat an offered payment action whose plan pays
+// life as having no plan, so its policy sees the ordinary options for that
+// cast. Only the host's caretaker for a human seat sets it. It returns b.
+func (b *Bot) SkipLifePlans() *Bot {
+	b.skipLifePlans = true
+	return b
+}
+
+// paymentPlanPaysLife reports whether any step of plan pays life.
+func paymentPlanPaysLife(plan decision.PaymentPlan) bool {
+	for _, a := range plan.Activations {
+		if a.Consequence != nil && a.Consequence.Life > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // WantsPaymentActions reports the bot's explicit opt-in to planned payment.
@@ -174,7 +198,11 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		// Drop it here so a window whose ONLY plan is a dead counter is
 		// treated as a no-plan window (payable empty) and the manual path is
 		// reconsidered.
-		if len(a.Plans) != 0 && !brd.CounterIsDead(d.Player, a.Cast.Object) {
+		//
+		// A caretaker never auto-selects a life-paying plan (SkipLifePlans):
+		// such an action is treated as having no plan.
+		if len(a.Plans) != 0 && !brd.CounterIsDead(d.Player, a.Cast.Object) &&
+			!(b.skipLifePlans && paymentPlanPaysLife(a.Plans[0])) {
 			payable[a.Cast.Object] = a
 		}
 	}
