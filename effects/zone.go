@@ -2153,29 +2153,42 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	endForgetOtherSnapshot(c)
 }
 
-// handMoveConfirms reports whether the script carries Forge's Optional$
-// confirmation marker for a hidden-hand ChangeZone (the confirmAction gate in
+// optionalConfirmMarker is the ONE reader of Forge's explicit Optional$
+// confirmation marker (the confirmAction gate in
 // ChangeZoneEffect.changeHiddenOriginResolve, which runs before any card is
-// picked and whose decline does not clear the source's remembered cards). Only
-// a positive marker asks the decider: Optional$ True, or the older Optional$
-// You spelling Cauldron Dance carries. An explicit Optional$ False and an
-// absent marker pose no confirmation. The markerless may-shapes
+// picked and whose decline does not clear the source's remembered cards).
+// Only a positive marker asks the decider: Optional$ True, or the older
+// Optional$ You spelling Cauldron Dance carries. An explicit Optional$ False
+// and an absent marker pose no confirmation. The markerless may-shapes
 // handTakeOptional recognises from card text stay confirmation-free -- Forge
 // expresses their may as a null pick, not as a confirmation -- so an empty
-// answer there is an accepted fetch that clears.
-//
-// The confirmation is posed only when the fetch also carries
-// ForgetOtherRemembered$ True: for such a fetch the decline-vs-accept split is
-// observable (a decline must not clear the source's remembered cards), whereas
-// for an ordinary Optional$ hand move both outcomes move nothing and change
-// nothing, so gating here keeps every non-ForgetOther move's ask shape and
-// events byte-identical.
-func handMoveConfirms(sa *cards.SA) bool {
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") {
-		return false
-	}
+// answer there is an accepted fetch that clears. ChoiceOptional$ is
+// deliberately NOT this marker: it names the pick's own cardinality (the
+// Min-0 may-pick default), not a yes/no gate.
+func optionalConfirmMarker(sa *cards.SA) bool {
 	o := strings.TrimSpace(sa.Params["Optional"])
 	return strings.EqualFold(o, "True") || strings.EqualFold(o, "You")
+}
+
+// handMoveConfirms reports whether a hidden-hand ChangeZone poses Forge's
+// Optional$ confirmation before its card pick. The ordinary (non-ForgetOther)
+// Optional$ fetch confirms exactly like the ForgetOtherRemembered$ one: the
+// decline-vs-accept split is observable in the ask sequence itself (a decline
+// poses no card pick at all, where an accepted Min-0 pick would), which is
+// Forge's confirm-before-pick order in changeHiddenOriginResolve.
+func handMoveConfirms(sa *cards.SA) bool {
+	return optionalConfirmMarker(sa)
+}
+
+// hiddenPickConfirms reports whether a Hidden$ True public-origin ChangeZone
+// pick poses Forge's Optional$ confirmation before its pick: the same
+// optionalConfirmMarker the hidden-hand walk reads, for the same
+// confirmAction gate. effHiddenPick poses it per fetch player, including when
+// that player's eligible pool turns out empty -- a decline skips the player
+// with the remembered set intact, and only an accepted confirmation reaches
+// the pick or the empty-pool continuation that clears.
+func hiddenPickConfirms(sa *cards.SA) bool {
+	return optionalConfirmMarker(sa)
 }
 
 // handTakeOptional reads Forge's optional-vs-mandatory markers for a
@@ -3682,6 +3695,13 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	done := c.HiddenPickDone
 	cursor := c.HiddenPickTarget
 	c.HiddenPick, c.HiddenPickDone, c.HiddenPickTarget = nil, false, 0
+	// fx42 scoping for the Optional$ confirmation answer: consumed and cleared
+	// before anything else so a nested pick poses its own confirmation (the
+	// same discipline the hand walk's HandMoveConfirm answer follows).
+	confirmDone := c.HiddenPickConfirmDone
+	confirmYes := strings.EqualFold(c.HiddenPickConfirm, "yes")
+	confirmTarget := c.HiddenPickConfirmTarget
+	c.HiddenPickConfirm, c.HiddenPickConfirmDone, c.HiddenPickConfirmTarget = "", false, 0
 	if !originValid {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "ChangeZone Origin$ " + from + " includes a zone this engine does not model (no outside-the-game cards exist); nothing is offered from it"})
@@ -3921,19 +3941,69 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			apply(owner, ans)
 			continue
 		}
+		chooser := hiddenPickChooser(h, c, sa, owner)
+		// Forge's Optional$ confirmation (the same confirmAction gate the
+		// hidden-hand walk poses, which runs BEFORE the card pick): a script
+		// that carries the marker asks the decider whether to proceed, even
+		// when this player's eligible pool turns out empty -- a decline skips
+		// this player with the remembered set intact, and only an accepted
+		// confirmation reaches the pick or the empty-pool continuation below
+		// (which clears). The markerless may-shapes stay confirmation-free:
+		// ChoiceOptional$ names the pick's cardinality, not a yes/no gate. An
+		// UNRESOLVED ChooseFromDefined$ failed closed above, so its
+		// nothing-to-offer continuation never becomes a confirmation.
+		if hiddenPickConfirms(sa) && !(hasChooseFromDefined && !chooseFromDefinedResolved) {
+			if confirmDone && i < confirmTarget {
+				// This fetch player's confirmation was already answered on an
+				// earlier pass (declined, or accepted with its pick completed);
+				// do not ask again and do not clear for it.
+				continue
+			}
+			if !confirmDone {
+				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				if prompt == "" {
+					prompt = "Proceed with moving a card?"
+				}
+				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+					Min: 1, Max: 1, Source: c.Source,
+					ResumeKind: "hidden_pick_confirm", ResumeSA: sa, ResumeTarget: i,
+					ResumeRemembered:          copyTargets(c.Remembered),
+					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+					ResumeForgetOtherReady:    c.ForgetOtherReady,
+					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+					Prompt:                    prompt,
+					Options: []decision.Option{
+						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+						{Index: 1, Kind: "no", Label: "No", Player: chooser},
+					}}
+				if Ask(h, cd) == AskAsked {
+					return
+				}
+				// R-9: no host to ask -- play "may" as "do" deterministically,
+				// the same fallback the hand walk's confirmation applies.
+			} else if i == confirmTarget && !confirmYes {
+				confirmDone = false // this player's decline is consumed; later players still confirm
+				continue            // declined: keep the remembered set
+			} else if i == confirmTarget {
+				confirmDone = false // this player's acceptance is consumed
+			}
+		}
 		if len(budgetEligible) == 0 || m == 0 {
-			// No eligible card, or an empty-only ChangeNum$ 0 pick: both
-			// complete silently before optionality can matter, and a public
-			// origin has no shuffle to fail to perform. A resolved selector
-			// with an empty pool still entered the fetch, so it clears the
-			// remembered set; an UNRESOLVED ChooseFromDefined$ failed closed
-			// above and must not be mistaken for a fetch that happened.
+			// No eligible card, or an empty-only ChangeNum$ 0 pick: with no
+			// Optional$ marker both completed silently before optionality could
+			// matter; an ACCEPTED Optional$ confirmation reaches this branch
+			// entered (the same AskEmpty contract the hand walk keeps for its
+			// ordinary empty move). A resolved selector with an empty pool still
+			// entered the fetch, so it clears the remembered set; an UNRESOLVED
+			// ChooseFromDefined$ failed closed above and must not be mistaken
+			// for a fetch that happened. A public origin has no shuffle to fail
+			// to perform.
 			if !(hasChooseFromDefined && !chooseFromDefinedResolved) {
 				forgetOtherRemembered(h, c, sa)
 			}
 			continue
 		}
-		chooser := hiddenPickChooser(h, c, sa, owner)
 		prompt := strings.TrimSpace(sa.Params["SelectPrompt"])
 		// OptionalPrompt$ is the script's own wording for the optional pick
 		// (Cass's "Select any number of Aura cards that were attached to

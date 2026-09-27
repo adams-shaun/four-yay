@@ -477,23 +477,32 @@ func TestHandMoveChangeZoneLibraryPositionMinusOneIsBottom(t *testing.T) {
 }
 
 // TestHandMoveChangeZoneOptionalTakeAsksWithMinZero is the explicit
-// Optional$ leaf: it lowers the ask's Min to 0, and an empty answer moves
-// nothing. Markerless scripts are classified from their real card text below;
-// they are never assumed optional.
+// Optional$ leaf: the marker poses Forge's confirm-before-pick gate first
+// (confirmAction), and the ACCEPTED confirmation's pick lowers its Min to 0
+// -- an empty answer there moves nothing. Markerless scripts are classified
+// from their real card text below; they are never assumed optional and never
+// confirm.
 func TestHandMoveChangeZoneOptionalTakeAsksWithMinZero(t *testing.T) {
 	for _, saLine := range []string{
 		"DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | Optional$ You",
 	} {
 		h, _ := handAskFixture(t)
 		Resolve(h, &Ctx{Controller: 0}, sa(t, saLine))
-		if h.asked == nil {
-			t.Fatalf("%s: no decision posed", saLine)
+		confirm := h.asked
+		if confirm == nil || confirm.ResumeKind != "hand_move_confirm" || confirm.Min != 1 || confirm.Max != 1 ||
+			len(confirm.Options) != 2 || confirm.Options[0].Kind != "yes" || confirm.Options[1].Kind != "no" {
+			t.Fatalf("%s: first ask = %+v, want the hand_move_confirm yes/no gate", saLine, confirm)
 		}
-		if h.asked.Min != 0 || h.asked.Max != 1 {
-			t.Fatalf("%s: Min/Max = %d/%d, want 0/1 (the optional take)", saLine, h.asked.Min, h.asked.Max)
+		// The accepted confirmation's pick lowers the take's Min to 0.
+		Resolve(h, &Ctx{Controller: 0, HandMoveConfirmDone: true, HandMoveConfirm: "yes",
+			HandMoveConfirmTarget: 0}, sa(t, saLine))
+		if h.asked == nil || h.asked.ResumeKind != "hand_move" || h.asked.Min != 0 || h.asked.Max != 1 {
+			t.Fatalf("%s: accepted-confirmation pick = %+v, want a Min 0 / Max 1 hand_move", saLine, h.asked)
 		}
 	}
-	// The empty answer is legal: HandMoveDone with no ids moves nothing.
+	// The empty pick answer is legal: HandMoveDone with no ids moves nothing
+	// (the confirm was consumed on the earlier pass, so the re-entry applies
+	// the pick directly).
 	h, ids := handAskFixture(t)
 	Resolve(h, &Ctx{Controller: 0, HandMove: nil, HandMoveDone: true}, sa(t,
 		"DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | Optional$ You"))
@@ -502,12 +511,18 @@ func TestHandMoveChangeZoneOptionalTakeAsksWithMinZero(t *testing.T) {
 			t.Fatalf("an empty optional answer moved ids[%d] to %s", id, o.Zone)
 		}
 	}
-	// Mandatory$ True keeps the take required: Min ChangeNum.
+	// Mandatory$ True keeps the take required: after the accepted confirmation
+	// the pick's Min is ChangeNum, not 0.
+	const mandatoryLine = "DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | Optional$ You | Mandatory$ True"
 	h2, _ := handAskFixture(t)
-	Resolve(h2, &Ctx{Controller: 0}, sa(t,
-		"DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | Optional$ You | Mandatory$ True"))
+	Resolve(h2, &Ctx{Controller: 0}, sa(t, mandatoryLine))
+	if h2.asked == nil || h2.asked.ResumeKind != "hand_move_confirm" {
+		t.Fatalf("Mandatory$ True first ask = %+v, want the confirmation gate", h2.asked)
+	}
+	Resolve(h2, &Ctx{Controller: 0, HandMoveConfirmDone: true, HandMoveConfirm: "yes",
+		HandMoveConfirmTarget: 0}, sa(t, mandatoryLine))
 	if h2.asked == nil || h2.asked.Min != 1 {
-		t.Fatalf("Mandatory$ True Min = %d, want 1 (the take is required)", h2.asked.Min)
+		t.Fatalf("Mandatory$ True accepted pick = %+v, want Min 1 (the take is required)", h2.asked)
 	}
 }
 
@@ -952,41 +967,51 @@ func ownersFixture(t *testing.T) (*askHost, []state.ObjID, []state.ObjID) {
 
 // TestHandMoveOwnersChainsOneAskPerPlayer is the finding's core leaf, on the
 // Kynaios and Tiro shape (DefinedPlayer$ Player, ChangeNum$ 1, ChangeType$
-// Land): the first ask belongs to owner 0 (the chooser defaults to the hand's
-// owner), and after that answer is consumed the walk continues -- the SECOND
-// ask belongs to owner 1, bound by ResumeTarget, and consumes its own
-// answer. Neither ask ever names the other owner's cards.
+// Land): the explicit Optional$ marker poses the confirmation gate FIRST
+// (Forge's confirmAction), for owner 0; the accepted confirmation's card pick
+// follows, and after that answer is consumed the walk continues -- owner 1's
+// OWN confirmation and pick chain behind it, bound by ResumeTarget. Neither
+// ask ever names the other owner's cards.
 func TestHandMoveOwnersChainsOneAskPerPlayer(t *testing.T) {
 	const kynaios = "DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | DefinedPlayer$ Player | ChangeNum$ 1 | RememberChanged$ True | Optional$ True"
 	h, hand0, hand1 := ownersFixture(t)
 	Resolve(h, &Ctx{Controller: 0}, sa(t, kynaios))
 	d := h.asked
-	if d == nil {
-		t.Fatal("no decision was posed for owner 0")
+	if d == nil || d.ResumeKind != "hand_move_confirm" || d.Player != 0 || d.ResumeTarget != 0 ||
+		len(d.Options) != 2 || d.Options[0].Kind != "yes" || d.Options[1].Kind != "no" {
+		t.Fatalf("first ask = %+v, want owner 0's hand_move_confirm yes/no gate", d)
 	}
-	if d.Player != 0 || d.Min != 0 || d.Max != 1 || d.ResumeTarget != 0 {
-		t.Fatalf("first ask = Player %d Min/Max %d/%d target %d, want 0, 0/1, 0 (owner 0 answers its own optional take)", d.Player, d.Min, d.Max, d.ResumeTarget)
+	// Accept: the owner 0 pick follows, Min 0 / Max 1 over its own two Isles.
+	Resolve(h, &Ctx{Controller: 0, HandMoveConfirmDone: true, HandMoveConfirm: "yes",
+		HandMoveConfirmTarget: 0}, sa(t, kynaios))
+	d = h.asked
+	if d == nil || d.ResumeKind != "hand_move" || d.Player != 0 || d.Min != 0 || d.Max != 1 || d.ResumeTarget != 0 {
+		t.Fatalf("owner 0 pick = %+v, want Player 0 Min/Max 0/1 target 0 (owner 0 answers its own optional take)", d)
 	}
 	for _, o := range d.Options {
 		if o.Player != 0 || o.Obj != hand0[1] && o.Obj != hand0[2] {
-			t.Fatalf("first ask option %+v is not one of owner 0's Isles", o)
+			t.Fatalf("owner 0 pick option %+v is not one of owner 0's Isles", o)
 		}
 	}
 	if len(d.Options) != 2 {
-		t.Fatalf("first ask options = %d, want owner 0's two Isles", len(d.Options))
+		t.Fatalf("owner 0 pick options = %d, want owner 0's two Isles", len(d.Options))
 	}
-	// Re-entry (the engine's contract): owner 0's answer, cursor 0.
+	// Re-entry (the engine's contract): owner 0's pick answer, cursor 0.
 	Resolve(h, &Ctx{Controller: 0, HandMove: []state.ObjID{hand0[2]}, HandMoveDone: true,
 		HandMoveTarget: 0, Remembered: []state.Target{{Obj: hand0[2]}}}, sa(t, kynaios))
 	d2 := h.asked
-	if d2 == nil {
-		t.Fatal("no second decision was posed for owner 1 (the continuation did not chain)")
+	if d2 == nil || d2.ResumeKind != "hand_move_confirm" || d2.Player != 1 || d2.ResumeTarget != 1 {
+		t.Fatalf("second ask = %+v, want owner 1's hand_move_confirm (Player 1 target 1)", d2)
 	}
-	if d2.Player != 1 || d2.ResumeTarget != 1 {
-		t.Fatalf("second ask = Player %d target %d, want 1, 1 (owner 1 asks its own hand)", d2.Player, d2.ResumeTarget)
+	// Accept owner 1's confirmation: its own pick follows, over its two Isles.
+	Resolve(h, &Ctx{Controller: 0, HandMoveConfirmDone: true, HandMoveConfirm: "yes",
+		HandMoveConfirmTarget: 1, Remembered: []state.Target{{Obj: hand0[2]}}}, sa(t, kynaios))
+	d3 := h.asked
+	if d3 == nil || d3.ResumeKind != "hand_move" || d3.Player != 1 || d3.ResumeTarget != 1 {
+		t.Fatalf("owner 1 pick = %+v, want Player 1 target 1 (owner 1 asks its own hand)", d3)
 	}
-	if len(d2.Options) != 2 || d2.Options[0].Obj != hand1[0] || d2.Options[1].Obj != hand1[2] {
-		t.Fatalf("second ask options = %+v, want owner 1's two Isles in hand order", d2.Options)
+	if len(d3.Options) != 2 || d3.Options[0].Obj != hand1[0] || d3.Options[1].Obj != hand1[2] {
+		t.Fatalf("owner 1 pick options = %+v, want owner 1's two Isles in hand order", d3.Options)
 	}
 	if o := h.g.Obj(hand0[2]); o.Zone != state.ZBattlefield {
 		t.Fatalf("owner 0's answered land on %s, want battlefield", o.Zone)
@@ -1008,9 +1033,11 @@ func TestHandMoveOwnersChainsOneAskPerPlayer(t *testing.T) {
 
 // TestHandMoveOwnersOptionalSingleEligibleCanDecline pins the Kynaios-shaped
 // owner-selected optional move where an owner has exactly one eligible land.
-// Taking it is the only nonempty answer, but declining remains a different
-// legal answer, so it must pose a Min 0 / Max 1 ask rather than force the
-// land onto the battlefield.
+// The confirmation gate runs BEFORE the pick: declining owner 0's
+// confirmation poses no pick at all, and owner 1 -- whose pool is empty --
+// still receives its OWN confirmation, because Forge's gate runs before the
+// fetch list is consulted. Accepting owner 1's confirmation reaches the
+// entered-fetch empty continuation: no pick, nothing moved.
 func TestHandMoveOwnersOptionalSingleEligibleCanDecline(t *testing.T) {
 	const kynaios = "DB$ ChangeZone | Origin$ Hand | Destination$ Battlefield | ChangeType$ Land | DefinedPlayer$ Player | ChangeNum$ 1 | Optional$ True"
 	h, hand0, hand1 := ownersFixture(t)
@@ -1019,16 +1046,26 @@ func TestHandMoveOwnersOptionalSingleEligibleCanDecline(t *testing.T) {
 
 	Resolve(h, &Ctx{Controller: 0}, sa(t, kynaios))
 	d := h.asked
-	if d == nil || d.Player != 0 || d.Min != 0 || d.Max != 1 || len(d.Options) != 1 || d.Options[0].Obj != hand0[1] {
-		t.Fatalf("single-eligible optional ask = %+v, want owner 0 Min/Max 0/1 over its one Isle", d)
+	if d == nil || d.ResumeKind != "hand_move_confirm" || d.Player != 0 || d.ResumeTarget != 0 {
+		t.Fatalf("first ask = %+v, want owner 0's confirmation gate", d)
 	}
 
-	// Re-enter with the legal empty answer. Owner 1 has no eligible land, so
-	// the whole walk completes without another ask or movement.
+	// Decline owner 0's confirmation: no pick is posed, and owner 1's own
+	// confirmation follows despite its empty pool.
 	h.asked = nil
-	Resolve(h, &Ctx{Controller: 0, HandMoveDone: true, HandMoveTarget: 0}, sa(t, kynaios))
+	Resolve(h, &Ctx{Controller: 0, HandMoveConfirmDone: true, HandMoveConfirm: "no",
+		HandMoveConfirmTarget: 0}, sa(t, kynaios))
+	d = h.asked
+	if d == nil || d.ResumeKind != "hand_move_confirm" || d.Player != 1 || d.ResumeTarget != 1 {
+		t.Fatalf("owner 1 confirmation = %+v, want Player 1 target 1 despite the empty pool", d)
+	}
+	// Accept owner 1's (empty-pool) confirmation: the entered fetch completes
+	// without a pick ask, and nothing moved anywhere.
+	h.asked = nil
+	Resolve(h, &Ctx{Controller: 0, HandMoveConfirmDone: true, HandMoveConfirm: "yes",
+		HandMoveConfirmTarget: 1}, sa(t, kynaios))
 	if h.asked != nil {
-		t.Fatalf("a no-eligible later owner posed an ask: %+v", h.asked)
+		t.Fatalf("an accepted empty-pool fetch posed a pick: %+v", h.asked)
 	}
 	if o := h.g.Obj(hand0[1]); o.Zone != state.ZHand {
 		t.Fatalf("declined owner land is on %s, want hand", o.Zone)
@@ -1044,8 +1081,10 @@ func TestHandMoveOwnersSkipAnsweredOwnersOnReentry(t *testing.T) {
 	Resolve(h, &Ctx{Controller: 0, HandMove: []state.ObjID{hand0[1]}, HandMoveDone: true,
 		HandMoveTarget: 0}, sa(t, kynaios))
 	d := h.asked
-	if d == nil || d.ResumeTarget != 1 {
-		t.Fatalf("re-entry did not continue to owner 1: %+v", d)
+	// Owner 1 is unconfirmed, so its confirmation gate -- not its pick -- is
+	// the next ask.
+	if d == nil || d.ResumeKind != "hand_move_confirm" || d.ResumeTarget != 1 {
+		t.Fatalf("re-entry did not continue to owner 1's confirmation: %+v", d)
 	}
 	if o := h.g.Obj(hand0[1]); o.Zone != state.ZBattlefield {
 		t.Fatalf("owner 0's land on %s, want battlefield (moved exactly once)", o.Zone)

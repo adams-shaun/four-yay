@@ -2012,6 +2012,21 @@ type Ctx struct {
 	// before the cursor are skipped on re-entry, owners after it continue
 	// the chain. Consumed and cleared with the pair above.
 	HiddenPickTarget int
+	// HiddenPickConfirm is the answered Optional$ confirmation for a Hidden$
+	// True public-origin ChangeZone pick -- Forge's confirmAction gate in
+	// ChangeZoneEffect.changeHiddenOriginResolve, which runs BEFORE the card
+	// pick (the same gate the hidden-hand walk's HandMoveConfirm carries).
+	// "yes" accepts the fetch and every other answer declines it;
+	// HiddenPickConfirmDone distinguishes "answered" from the first pass, and
+	// HiddenPickConfirmTarget is the index of the fetch player whose
+	// confirmation was answered (the same per-owner cursor HiddenPickTarget
+	// carries). A declined confirmation skips the fetch player without a pick
+	// ask and clears nothing; an accepted one enters the fetch, whose answered
+	// pick (or empty pool) clears exactly as before. Consumed and cleared at
+	// the top of effHiddenPick with HiddenPick/HiddenPickDone (fx42 scoping).
+	HiddenPickConfirm       string
+	HiddenPickConfirmDone   bool
+	HiddenPickConfirmTarget int
 	// DefinedLibraryMove is the answered Optional$ True choice for an
 	// object-valued Defined$ fetch list from Origin$ Library. "yes" moves the
 	// list; "no" leaves it in place. It is consumed by
