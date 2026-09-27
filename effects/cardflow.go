@@ -917,8 +917,9 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: p, Kind: decision.KModes,
 				Min: askMin, Max: askMax, Source: c.Source,
 				ResumeKind: "discard", ResumeSA: sa, ResumeTarget: targetIndex,
-				Prompt:  "Choose " + strconv.Itoa(askMin) + ".." + strconv.Itoa(askMax) + " card(s) to discard",
-				Options: opts}
+				ResumeRemembered: copyTargets(c.Remembered),
+				Prompt:           "Choose " + strconv.Itoa(askMin) + ".." + strconv.Itoa(askMax) + " card(s) to discard",
+				Options:          opts}
 			if Ask(h, d) == AskAsked {
 				suspended = true
 				return // resolution suspended; the answer re-enters with Ctx.Discard set.
