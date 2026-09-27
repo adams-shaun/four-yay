@@ -289,8 +289,8 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		// unrelated effects.
 		switch strings.TrimSpace(sa.Params["Defined"]) {
 		case "TriggeredActivator":
-			if c.TriggerPlayer.IsPlayer {
-				recipient = c.TriggerPlayer.Player
+			if c.TriggerActivator.IsPlayer {
+				recipient = c.TriggerActivator.Player
 			}
 		case "TriggeredCardController":
 			if o := h.Game().Obj(c.TriggerCard); o != nil {
