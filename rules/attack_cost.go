@@ -1143,6 +1143,11 @@ func paySourceForAnswer(sources []attackManaSource, opt decision.Option) (attack
 // overstate the payer's reach. A permanent whose only remaining abilities are
 // so excluded contributes nothing.
 func (e *Engine) attackManaSources(p state.PlayerID) []attackManaSource {
+	// A pure read: one Derived memo scope spans both membership walks, so the
+	// per-permanent window-ability walks share one Continuous-static board
+	// scan (rules/walkcache.go) instead of rescanning per permanent.
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	var out []attackManaSource
 	// windowManaUnits is the ONE membership the offer gate (attackBudget) and
 	// this tap list share, so the attack window can never be offered a charge

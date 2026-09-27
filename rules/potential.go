@@ -61,7 +61,20 @@ const potentialUnbounded int32 = math.MaxInt32
 //
 // Determinism: the walk is over zone order, never a map range (the added set
 // is only indexed, never ranged), so the aggregate is byte-stable run to run.
+//
+// Cost: the fixpoint asks EVERY battlefield object for its mana abilities on
+// every pass, and that walk reads the board's Continuous statics (its
+// AddAbility$ grant scan). Being a pure read, the whole fixpoint runs in one
+// Derived memo scope (rules/derivedmemo.go), so activeStatics and the other
+// board-only walk caches (rules/walkcache.go) scan the battlefield once per
+// call instead of once per object -- outside a scope each object's walk
+// rescanned the whole board, O(permanents^2) per call, which is what ran a
+// Krenko token board (8k-16k goblins, cardfuzz seed 6181111140895991800)
+// past the fuzzer's 90s hang budget. A caller already inside a walk shares
+// that walk's generation.
 func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	out := e.G.Players[p].Pool
 	added := map[state.ObjID]bool{}
 	for {
