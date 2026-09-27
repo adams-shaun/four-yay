@@ -1999,7 +1999,7 @@ func (e *Engine) composeUpdatedReplacements(ev events.Event, matches []replMatch
 		e.replChoices = append(e.replChoices, replChoice{kind: replChoiceUpdated,
 			ev: ev, cands: cands, before: e.triggerBefore,
 			damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
-			inResolution: e.resolvingObj != 0})
+			inResolution: e.resolvingObj != 0 || e.answerInResolution})
 		if e.pending == nil {
 			e.askReplacementChoice(p)
 		}
@@ -2410,7 +2410,7 @@ func (e *Engine) driveTokenReplacements(ev events.Event, matches []replMatch, pl
 				}
 				e.replChoices = append(e.replChoices, replChoice{kind: replChoiceToken,
 					ev: ev, cands: matches[i:], applicable: applicable, before: e.triggerBefore,
-					tokenPlan: plan, tokenNext: i, player: p, inResolution: e.resolvingObj != 0})
+					tokenPlan: plan, tokenNext: i, player: p, inResolution: e.resolvingObj != 0 || e.answerInResolution})
 				if e.pending == nil {
 					e.askReplacementChoice(p)
 				}
@@ -2864,7 +2864,7 @@ func (e *Engine) poseAddCounterOrderChoice(ev events.Event, cands []replMatch, p
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceAddCounter,
 		ev: ev, cands: cands, before: e.triggerBefore, player: p,
 		damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
-		inResolution: e.resolvingObj != 0, counterAdderPlusOne: adderPlusOne})
+		inResolution: e.resolvingObj != 0 || e.answerInResolution, counterAdderPlusOne: adderPlusOne})
 	if e.pending == nil {
 		e.askReplacementChoice(p)
 	}
@@ -6050,7 +6050,7 @@ func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 		return
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceMove,
-		ev: ev, cands: matches, before: e.triggerBefore, inResolution: e.resolvingObj != 0})
+		ev: ev, cands: matches, before: e.triggerBefore, inResolution: e.resolvingObj != 0 || e.answerInResolution})
 	if e.pending == nil {
 		e.askReplacementChoice(p)
 	}
@@ -7066,7 +7066,7 @@ func (e *Engine) poseLifeReplacementChoice(ev events.Event, cands, applied []rep
 	rc := replChoice{ev: ev, cands: cands, before: e.triggerBefore, life: true,
 		exchange:     e.lifeExchange,
 		appliedRepls: applied, damaging: e.damaging, combatDamaging: e.combatDamaging,
-		dmgSrcOverride: e.dmgSrcOverride, inResolution: e.resolvingObj != 0}
+		dmgSrcOverride: e.dmgSrcOverride, inResolution: e.resolvingObj != 0 || e.answerInResolution}
 	if e.pending == nil {
 		// The front of the queue is the competition being asked. A life choice
 		// is asked immediately (pending is nil), so it goes first.
