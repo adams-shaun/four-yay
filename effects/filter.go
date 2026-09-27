@@ -3861,12 +3861,18 @@ func chosenCtrlMatches(g *state.Game, o *state.Object, src state.ObjID) bool {
 // strings.Fields: this is the filter hot path and must not allocate
 // (TestSimpleFilterMatchingDoesNotAllocate).
 func hasTypePredicateCtx(o *state.Object, t string, sc SpecContext) bool {
+	return hasTypePredicateCtxPtr(o, t, &sc)
+}
+
+// hasTypePredicateCtxPtr is hasTypePredicateCtx through a pointer (see
+// hasTypeCtxPtr).
+func hasTypePredicateCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
 	if t == "" {
 		return false
 	}
 	for {
 		word, rest, more := strings.Cut(t, " ")
-		if word != "" && !hasTypeCtx(o, word, sc) {
+		if word != "" && !hasTypeCtxPtr(o, word, sc) {
 			return false
 		}
 		if !more {
@@ -3877,6 +3883,13 @@ func hasTypePredicateCtx(o *state.Object, t string, sc SpecContext) bool {
 }
 
 func hasTypeCtx(o *state.Object, t string, sc SpecContext) bool {
+	return hasTypeCtxPtr(o, t, &sc)
+}
+
+// hasTypeCtxPtr is hasTypeCtx reading the context through a pointer, so the
+// compiled predicate paths that already hold a *SpecContext do not copy the
+// whole context per type test (see hasEffectiveNamePtr).
+func hasTypeCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
 	// ExtraTypes is the layer walk's accumulating type list for the ONE
 	// object being matched: a plain value slice, deliberately not a callable
 	// resolver. Any call made through a SpecContext field makes escape
@@ -3907,7 +3920,7 @@ func hasTypeCtx(o *state.Object, t string, sc SpecContext) bool {
 	// found exactly as the layer walk finds it. Only the intrinsic CDAs the
 	// list deliberately does not materialise (Changeling's keyword, Mistform
 	// Ultimus's AddAllCreatureTypes$ CDA) are added back on this path.
-	if types, ok := derivedTypesFor(o, sc); ok {
+	if types, ok := derivedTypesForPtr(o, sc); ok {
 		for _, x := range types {
 			if strings.EqualFold(x, t) {
 				return true
@@ -4582,6 +4595,13 @@ type ObjectTypes struct {
 // Resolve closure over it) to the heap on every hot-path construction --
 // exactly what TestEvalCountValidZoneScanIsAllocationFree pins against.
 func hasEffectiveName(o *state.Object, sc SpecContext) bool {
+	return hasEffectiveNamePtr(o, &sc)
+}
+
+// hasEffectiveNamePtr is hasEffectiveName reading the context through a
+// pointer: the hot filter paths (matchesObjectPtr) hold a *SpecContext, and
+// dereferencing it into the by-value form copied the whole context per call.
+func hasEffectiveNamePtr(o *state.Object, sc *SpecContext) bool {
 	if o == nil {
 		return false
 	}
@@ -4613,7 +4633,14 @@ func matchesEffectiveName(o *state.Object, name string, sc SpecContext) bool {
 // list, so escape analysis does not summarise the whole context as leaking
 // (the EffectiveNames contract above).
 func hasDerivedTypeEntry(o *state.Object, sc SpecContext) bool {
-	_, ok := derivedTypesFor(o, sc)
+	_, ok := derivedTypesForPtr(o, &sc)
+	return ok
+}
+
+// hasDerivedTypeEntryPtr is hasDerivedTypeEntry through a pointer (see
+// hasEffectiveNamePtr).
+func hasDerivedTypeEntryPtr(o *state.Object, sc *SpecContext) bool {
+	_, ok := derivedTypesForPtr(o, sc)
 	return ok
 }
 
@@ -4624,6 +4651,12 @@ func hasDerivedTypeEntry(o *state.Object, sc SpecContext) bool {
 // reaches rules, so an effects call answered here depends on the event fold
 // alone.
 func derivedTypesFor(o *state.Object, sc SpecContext) ([]string, bool) {
+	return derivedTypesForPtr(o, &sc)
+}
+
+// derivedTypesForPtr is derivedTypesFor through a pointer (see
+// hasEffectiveNamePtr).
+func derivedTypesForPtr(o *state.Object, sc *SpecContext) ([]string, bool) {
 	if o == nil {
 		return nil, false
 	}
@@ -4699,7 +4732,7 @@ func matchesObjectPtr(g *state.Game, spec string, o *state.Object, sc *SpecConte
 	// Goblin type test would silently miss the derived characteristic. The same
 	// discipline the layer walk keeps for ExtraTypes (rules/layers.go), scoped
 	// here to the one object that actually carries a change.
-	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveName(o, *sc) && !hasDerivedTypeEntry(o, *sc) {
+	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveNamePtr(o, sc) && !hasDerivedTypeEntryPtr(o, sc) {
 		switch ps.evaluate(spec, g, o, sc) {
 		case PredicateYes:
 			return true

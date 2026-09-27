@@ -484,8 +484,25 @@ const (
 // Object is any game object: a card in a zone, a permanent, or a spell on the
 // stack. One struct keeps identity stable across zone changes.
 type Object struct {
-	ID         ObjID
-	Card       *cards.Card
+	// Field order: the fields every object walk reads (Face()'s Card/
+	// CopyFace/FaceIdx, zone, controller, the tapped/face-down/phased-out/
+	// token status) are declared first so they share the object's first
+	// cache line; the Object is ~1KB and walks touch hundreds per pass.
+	ID   ObjID
+	Card *cards.Card
+	// CopyFace is the CR 613.1a copy-effect basis for a permanent that became a
+	// copy of another (DB$ Clone): while non-nil, Face() returns THIS face
+	// instead of the object's own card face, so every read site -- name,
+	// abilities, keywords, types, colours, P/T, mana production -- sees the
+	// copied characteristics with no per-caller plumbing. It is set and cleared
+	// ONLY inside events.Apply (the ClonePermanent fold and Move's
+	// leaves-the-battlefield reset), so a live game and a replay derive it
+	// identically. The clone's modifier parameters (AddTypes$/SetColor$/
+	// AddKeywords$/SetPower$/SetToughness$) are separate layer-4/5/6/7
+	// continuous effects registered by the primitive, so this face stays the
+	// source's PRINTED face and the layer walk applies the exceptions in CR 613
+	// order on top. nil on every object that is not a copy.
+	CopyFace   *cards.Face
 	FaceIdx    uint8
 	Owner      PlayerID
 	Controller PlayerID
@@ -493,8 +510,37 @@ type Object struct {
 
 	Tapped     bool
 	SummonSick bool
-	Damage     int32
-	Counters   []Counter
+	// FaceDown records a face-down exile (CR 702.75 Hideaway). It is state,
+	// rather than merely a Secret event flag, so later projections know not to
+	// reveal the card to another player.
+	FaceDown bool
+	// PhasedOut is CR 702.25's phased-out status (api:Phases): the
+	// permanent is on the battlefield but is treated as though it does not
+	// exist. It is NOT a zone change -- the object keeps its Zone and its
+	// Zone() membership -- so no Move fires and no leaves/enters trigger
+	// sees it; the status is folded by events.PhaseOut and cleared by
+	// events.Apply's Move when the permanent actually leaves the
+	// battlefield (CR 400.7: a later entry is a new object, CR 702.25e).
+	// Phase-in happens at its controller's untap step (CR 702.25d, rules
+	// finishUntapStep). Every reader that treats a permanent as existing
+	// gates on it: targeting (rules/stack.go candidatesFor), the layer
+	// static/level walk (rules/layers.go staticEffects/activeStatics),
+	// combat (rules/combat.go canAttack), the SBA sweep (rules/sba.go)
+	// and the view projection (view). A plain value copy in CloneDeep
+	// carries it.
+	PhasedOut bool
+	Damage    int32
+	// IsToken and IsCopy mark an object that only ever exists on the stack
+	// or the battlefield (CR 111.7 tokens, CR 707.10 copies). A token copy
+	// minted by Myriad (CR 702.109) or a "create a token copy" effect
+	// (CR 706.2, DB$ CopyPermanent) carries BOTH and legitimately lives on
+	// the battlefield. See Ephemeral.
+	IsToken  bool
+	IsCopy   bool
+	Counters []Counter
+	// MergedCards holds the cards stacked BENEATH a mutated permanent's top
+	// card; see TimesMutated below for the full contract.
+	MergedCards []MergedCard
 
 	// Zone-entry and damage history are derived exclusively in events.Apply
 	// from MoveZone/Draw/PutOnStack and Damage. They persist until the next
@@ -669,21 +715,6 @@ type Object struct {
 	// only by an events.AlterAttribute fold.
 	Renowned bool
 
-	// PhasedOut is CR 702.25's phased-out status (api:Phases): the
-	// permanent is on the battlefield but is treated as though it does not
-	// exist. It is NOT a zone change -- the object keeps its Zone and its
-	// Zone() membership -- so no Move fires and no leaves/enters trigger
-	// sees it; the status is folded by events.PhaseOut and cleared by
-	// events.Apply's Move when the permanent actually leaves the
-	// battlefield (CR 400.7: a later entry is a new object, CR 702.25e).
-	// Phase-in happens at its controller's untap step (CR 702.25d, rules
-	// finishUntapStep). Every reader that treats a permanent as existing
-	// gates on it: targeting (rules/stack.go candidatesFor), the layer
-	// static/level walk (rules/layers.go staticEffects/activeStatics),
-	// combat (rules/combat.go canAttack), the SBA sweep (rules/sba.go)
-	// and the view projection (view). A plain value copy in CloneDeep
-	// carries it.
-	PhasedOut bool
 	// WontPhaseInNormal is the CR 702.25d exception carried by a Phases
 	// effect; its phase-in must come from that effect's return instruction.
 	WontPhaseInNormal bool
@@ -1052,7 +1083,8 @@ type Object struct {
 	// graveyard" -- and the same move for every other zone. TimesMutated is
 	// CR 702.140f's count of how many times this permanent has mutated, read by
 	// Count$TimesMutated.
-	MergedCards  []MergedCard
+	// (MergedCards is declared beside Counters at the struct head: every
+	// pile walk reads it.)
 	TimesMutated int32
 
 	// AttachedTo is the permanent this Aura or Equipment is attached to; 0
@@ -1085,10 +1117,6 @@ type Object struct {
 	// carrier), so Card.ExiledWithSource filters replay without ambient
 	// state. Zero means no tracked exile provenance.
 	ExiledWith ObjID
-	// FaceDown records a face-down exile (CR 702.75 Hideaway). It is state,
-	// rather than merely a Secret event flag, so later projections know not to
-	// reveal the card to another player.
-	FaceDown bool
 	// MayLookPlayer is the player a Dig's or ChangeZone's WithMayLook$ True
 	// authorises to look at this face-down exiled card (Forge's Card.mayLook),
 	// with HasMayLook distinguishing seat 0 from "nobody". It is state, not
@@ -1127,13 +1155,6 @@ type Object struct {
 	// Reset whenever the object leaves the battlefield (events.Move).
 	Paired ObjID
 
-	// IsToken and IsCopy mark an object that only ever exists on the stack
-	// or the battlefield (CR 111.7 tokens, CR 707.10 copies). A token copy
-	// minted by Myriad (CR 702.109) or a "create a token copy" effect
-	// (CR 706.2, DB$ CopyPermanent) carries BOTH and legitimately lives on
-	// the battlefield. See Ephemeral.
-	IsToken  bool
-	IsCopy   bool
 	IsMyriad bool
 
 	// CopyMayChooseTarget is CR 707.10c's new-target permission for ONE copy
@@ -1174,19 +1195,6 @@ type Object struct {
 	CopyLoyalty    int32
 	CopyLoyaltySet bool
 
-	// CopyFace is the CR 613.1a copy-effect basis for a permanent that became a
-	// copy of another (DB$ Clone): while non-nil, Face() returns THIS face
-	// instead of the object's own card face, so every read site -- name,
-	// abilities, keywords, types, colours, P/T, mana production -- sees the
-	// copied characteristics with no per-caller plumbing. It is set and cleared
-	// ONLY inside events.Apply (the ClonePermanent fold and Move's
-	// leaves-the-battlefield reset), so a live game and a replay derive it
-	// identically. The clone's modifier parameters (AddTypes$/SetColor$/
-	// AddKeywords$/SetPower$/SetToughness$) are separate layer-4/5/6/7
-	// continuous effects registered by the primitive, so this face stays the
-	// source's PRINTED face and the layer walk applies the exceptions in CR 613
-	// order on top. nil on every object that is not a copy.
-	CopyFace *cards.Face
 	// CopyGainThisAbility records the clone's GainThisAbility$ True rider: the
 	// synthetic CopyFace already carries the ORIGINAL object's abilities (and
 	// SVar table) so the ability that produced the copy survives the copy.
@@ -1222,6 +1230,12 @@ type Object struct {
 	// halves' rules text is live (rules-side scans consult this field). Only
 	// events.Apply writes it, so a replay rebuilds it.
 	Unlocked bool
+
+	// _ pads the Object to 960 bytes, a whole number of 64-byte cache
+	// lines, so in the page-aligned Objs arena every object's hot head (the
+	// fields declared first) starts on a line of its own. Purely layout: it
+	// is never read or written.
+	_ [8]byte
 }
 
 // MergedCard is one card stacked beneath a mutated permanent's top card
