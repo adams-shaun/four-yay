@@ -220,11 +220,9 @@ type paymentPlanSearch struct {
 //     bound on every completion's rank is already lexicographically worse
 //     than the best complete plan: a componentwise lower bound on the
 //     monotone prefix (irreversible cost, creatures, sources, surplus,
-//     flexibility; keys 1-5), then key 6 (the hand-reserve placeholder,
-//     always 0 -- a real key 6 needs its own bound before key 7 may prune,
-//     and the verify-mode rank check in complete trips if it lands
-//     without one), then key 7's upper bound (remainder diversity only
-//     falls as units are added).
+//     flexibility; keys 1-5), then keys 6 and 7 (hand-reserve coverage and
+//     remainder diversity), whose current values bound every completion's
+//     from above because both only fall as units are added (see reserve).
 //
 // Branches that tie the bound are explored, and each complete count vector
 // is materialised as its key-8-least witness, so ties on keys 1-7 resolve
@@ -470,16 +468,32 @@ func (s *paymentPlanSearch) promising(level int, short state.Mana, total int32) 
 		sources:   s.sources + int(need),
 		surplus:   max(surplus, 0),
 		flex:      s.flex + int(need)*rest.flex,
-		// Key 7 only falls as units are added, so the current remainder
-		// bounds every completion's from above (more is better).
-		remainder: s.remainder(),
 	}
+	// Keys 6 and 7 (hand-reserve coverage and remainder diversity, both
+	// MORE first) are read from the current counts: every completion only
+	// consumes further sources, so neither can rise, and the current values
+	// bound every completion's from above.
+	lb.handReserve, lb.remainder = s.reserve()
 	return comparePaymentPlanRankKeys(lb, s.bestRank) <= 0
 }
 
-// remainder is rank key 7 for the current counts: the colours some unused
-// source can still produce.
-func (s *paymentPlanSearch) remainder() int {
+// reserve is rank keys 6 and 7 for the current counts, exactly as
+// rankPaymentPlan computes them from a witness: remaining[c] is the census
+// of normal sources able to make colour c minus the chosen units able to
+// (a class shares its colours, so the counts decide it); key 7 counts the
+// colours still made, key 6 packs min(remaining[c], handDemand[c]) in the
+// demand order.
+//
+// Why the current value bounds every completion from above: adding units
+// only decrements remaining[c], so each coverage digit
+// min(remaining[c], handDemand[c]) is non-increasing. Every digit lies in
+// [0, handDemand[c]] and reserveBase is max demand + 1, so the packing is a
+// positional base-reserveBase number whose order is the lexicographic order
+// of its digits; digitwise non-increase therefore makes the packed key
+// non-increasing, and so is the count of colours with remaining[c] > 0.
+// Both keys prefer MORE, so a completion can never beat the current value
+// on either, and it is a valid optimistic bound for pruning.
+func (s *paymentPlanSearch) reserve() (handReserve, remainder int) {
 	remaining := s.ctx.colourSources
 	for k := range s.classes {
 		if s.used[k] == 0 {
@@ -492,13 +506,17 @@ func (s *paymentPlanSearch) remainder() int {
 			}
 		}
 	}
-	n := 0
 	for _, left := range remaining {
 		if left > 0 {
-			n++
+			remainder++
 		}
 	}
-	return n
+	if s.ctx.reserveBase > 0 {
+		for _, c := range s.ctx.demandOrder {
+			handReserve = handReserve*s.ctx.reserveBase + min(remaining[c], s.ctx.handDemand[c])
+		}
+	}
+	return handReserve, remainder
 }
 
 // comparePaymentPlanRankPrefix compares keys 1-5, the monotone prefix.
@@ -510,14 +528,16 @@ func comparePaymentPlanRankPrefix(a, b paymentPlanRank) int {
 // countRank is keys 1-7 of the current complete count vector, read from the
 // counts alone (every unit of a class shares them).
 func (s *paymentPlanSearch) countRank() paymentPlanRank {
-	return paymentPlanRank{cost: s.irr, creatures: s.creatures, sources: s.sources, flex: s.flex,
-		surplus:   s.pool.Total() + s.produced.Total() - s.cost.Generic - s.cost.Colored.Total(),
-		remainder: s.remainder()}
+	r := paymentPlanRank{cost: s.irr, creatures: s.creatures, sources: s.sources, flex: s.flex,
+		surplus: s.pool.Total() + s.produced.Total() - s.cost.Generic - s.cost.Colored.Total()}
+	r.handReserve, r.remainder = s.reserve()
+	return r
 }
 
-// comparePaymentPlanRankKeys compares keys 1-7.
+// comparePaymentPlanRankKeys compares keys 1-7 in paymentPlanRank.less's
+// directions (keys 6 and 7 MORE first).
 func comparePaymentPlanRankKeys(a, b paymentPlanRank) int {
-	return cmp.Or(comparePaymentPlanRankPrefix(a, b), cmp.Compare(a.handReserve, b.handReserve), cmp.Compare(b.remainder, a.remainder))
+	return cmp.Or(comparePaymentPlanRankPrefix(a, b), cmp.Compare(b.handReserve, a.handReserve), cmp.Compare(b.remainder, a.remainder))
 }
 
 // complete records the current count vector as a candidate when it can beat

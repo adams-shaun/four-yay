@@ -60,14 +60,16 @@ func srchSpell(cost string) string {
 //     the rest still pays;
 //   - a prefix whose pool plus everything the rest of the board could add is
 //     below the cost's total, or below one colour's requirement, cannot pay.
-func paymentPlanSearchOracle(e *Engine, p state.PlayerID, cost Cost) (*decision.PaymentPlan, int) {
-	return paymentPlanSearchOracleOver(e, p, cost, e.paymentPlanQueryChoices(p))
+func paymentPlanSearchOracle(e *Engine, p state.PlayerID, cast state.ObjID, cost Cost) (*decision.PaymentPlan, int) {
+	return paymentPlanSearchOracleOver(e, p, cost, e.paymentPlanQueryChoices(p), e.paymentPlanHandDemand(p, cast))
 }
 
 // paymentPlanSearchOracleOver is the oracle over an explicit alternative
-// table (one entry per unit, in unit order).
-func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices [][]plannedManaActivation) (*decision.PaymentPlan, int) {
-	ctx := newPaymentPlanRankContext(choices)
+// table (one entry per unit, in unit order) and hand demand (rank key 6;
+// the planner's is paymentPlanHandDemand of the acting player without the
+// cast card).
+func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices [][]plannedManaActivation, demand [5]int) (*decision.PaymentPlan, int) {
+	ctx := newPaymentPlanRankContext(choices, demand)
 	pool := e.G.Players[p].Pool
 	life := e.G.Players[p].Life
 	need := cost.Generic + cost.Colored.Total()
@@ -273,7 +275,7 @@ func TestPaymentPlanSearchMatchesOracleOnMixedBoard(t *testing.T) {
 	agreePlans, agreeNone := 0, 0
 	for _, s := range srchOracleCosts {
 		cost := srchCost(t, s)
-		want, visited := paymentPlanSearchOracle(e, 0, cost)
+		want, visited := paymentPlanSearchOracle(e, 0, cast.Object, cost)
 		got := e.planPaymentCost(0, cast, cost)
 		if got.Reason == "search_limit" {
 			t.Fatalf("{%s}: search_limit after %d nodes", s, got.Nodes)
@@ -342,7 +344,7 @@ func TestPaymentPlanSearchMatchesOracleOnClassBoards(t *testing.T) {
 		}
 		for _, s := range b.costs {
 			cost := srchCost(t, s)
-			want, _ := paymentPlanSearchOracle(e, 0, cost)
+			want, _ := paymentPlanSearchOracle(e, 0, spell, cost)
 			got := e.planPaymentCost(0, paymentCast(spell), cost)
 			if want == nil {
 				if got.Plan != nil || got.Reason != "insufficient" {
@@ -559,7 +561,7 @@ func TestPaymentPlanSearchMatchesOracleOnRandomBoards(t *testing.T) {
 			for n := rng.IntN(4); n > 0; n-- {
 				c.Colored[state.ManaIndex(symbols[rng.IntN(len(symbols))])]++
 			}
-			want, _ := paymentPlanSearchOracle(e, 0, c)
+			want, _ := paymentPlanSearchOracle(e, 0, spell, c)
 			got := e.planPaymentCost(0, paymentCast(spell), c)
 			if want == nil {
 				if got.Plan != nil || got.Reason != "insufficient" {
@@ -668,8 +670,9 @@ func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
 	lastResort, vaultUsed := 0, 0
 	for _, s := range []string{"U", "W", "W B", "3", "4", "5", "6", "7", "U R", "1 W", "2 G", "W U B", "3 U", "C C", "8", "W W W"} {
 		cost := srchCost(t, s)
-		want, _ := paymentPlanSearchOracleOver(e, 0, cost, choices)
-		got := searchPaymentPlan(cost, pool, life, newPaymentPlanRankContext(choices), choices, paymentPlanClasses(choices))
+		demand := e.paymentPlanHandDemand(0, 0)
+		want, _ := paymentPlanSearchOracleOver(e, 0, cost, choices, demand)
+		got := searchPaymentPlan(cost, pool, life, newPaymentPlanRankContext(choices, demand), choices, paymentPlanClasses(choices))
 		if got.limited {
 			t.Fatalf("{%s}: search hit the node budget", s)
 		}
@@ -695,4 +698,119 @@ func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
 	if lastResort == 0 || vaultUsed == 0 {
 		t.Fatalf("%d plans used a last-resort source, %d used the Vault: the cost level was not exercised", lastResort, vaultUsed)
 	}
+}
+
+// srchCheckAgainstOracle asserts planPaymentCost's outcome for spell at cost
+// equals the oracle's (same hand demand), and reports whether the oracle's
+// best would differ without the hand demand -- i.e. whether key 6 decided
+// the plan.
+func srchCheckAgainstOracle(t *testing.T, e *Engine, spell state.ObjID, cost Cost, what string) (planned, keySixDecided bool) {
+	t.Helper()
+	want, _ := paymentPlanSearchOracle(e, 0, spell, cost)
+	got := e.planPaymentCost(0, paymentCast(spell), cost)
+	if want == nil {
+		if got.Plan != nil || got.Reason != "insufficient" {
+			t.Fatalf("%s: search = %+v, oracle found no plan", what, got)
+		}
+		return false, false
+	}
+	if got.Reason != "" || got.Plan == nil || !reflect.DeepEqual(*got.Plan, *want) {
+		t.Fatalf("%s: search (%q, %d nodes) differs from the oracle\nsearch: %+v\noracle: %+v", what, got.Reason, got.Nodes, got.Plan, want)
+	}
+	blind, _ := paymentPlanSearchOracleOver(e, 0, cost, e.paymentPlanQueryChoices(0), [5]int{})
+	return true, !reflect.DeepEqual(*blind, *want)
+}
+
+// Key 6 decides on a class board: {3}{W} over three Forests, three Islands
+// and two Plains, with a {G}{G}{G} card in hand. Every 4-source plan ties on
+// keys 1-5; key 6 must keep all three Forests (coverage G=3) although that
+// spends every Island and so loses a colour on key 7, while without the
+// hand the rank keeps every colour and taps a Forest. The search's key-6
+// bound (reserve) must not cut the winning branch.
+func TestPaymentPlanSearchHandReserveDecidesOnClassBoard(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9997, srchSpell("3 W"))
+	var forests []state.ObjID
+	for _, src := range []string{srchForest, srchIsland, srchPlains, srchForest, srchIsland, srchForest, srchIsland, srchPlains} {
+		id := onBoard(t, e, 0, src)
+		if src == srchForest {
+			forests = append(forests, id)
+		}
+	}
+	choiceHand(t, e, "Name:Green Three\nManaCost:G G G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	if d := e.paymentPlanHandDemand(0, spell); d != [5]int{0, 0, 0, 0, 3} {
+		t.Fatalf("hand demand = %v, want G=3", d)
+	}
+	planned, decided := srchCheckAgainstOracle(t, e, spell, srchCost(t, "3 W"), "{3}{W}")
+	if !planned || !decided {
+		t.Fatalf("planned=%v key6-decided=%v, want a plan that the hand demand changed", planned, decided)
+	}
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	for _, a := range got.Plan.Activations {
+		if slices.Contains(forests, a.Source) {
+			t.Fatalf("plan %+v taps a Forest the {G}{G}{G} card needs", got.Plan.Activations)
+		}
+	}
+	// The hand-aware shape itself: {1}{W} over Forest, Island, Plains with a
+	// {G} card in hand (TestPaymentPlanHandAwareKeepsHandGreenCastable).
+	e2, _, spell2 := newFixtureDeck(t, 9998, srchSpell("1 W"))
+	onBoard(t, e2, 0, srchForest)
+	onBoard(t, e2, 0, srchIsland)
+	onBoard(t, e2, 0, srchPlains)
+	choiceHand(t, e2, "Name:Green One\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	if planned, decided := srchCheckAgainstOracle(t, e2, spell2, srchCost(t, "1 W"), "{1}{W}"); !planned || !decided {
+		t.Fatalf("planned=%v key6-decided=%v on the P5 board", planned, decided)
+	}
+}
+
+// Randomised boards with a random hand (fixed seed): every search answer
+// equals the oracle's under the same nonzero hand demand, and key 6 decides
+// a share of them.
+func TestPaymentPlanSearchMatchesOracleWithHandDemand(t *testing.T) {
+	palette := []string{srchIsland, srchMountain, srchForest, srchPlains, srchSwamp, srchVolcanic, srchSavannah,
+		srchBadlands, srchCombo, srchDork, srchAnyRock, srchWastes, srchTwoRock}
+	rng := rand.New(rand.NewPCG(20260927, 6))
+	symbols := "WUBRG"
+	planned, none, decided := 0, 0, 0
+	for board := 0; board < 60; board++ {
+		e, _, spell := newFixtureDeck(t, 10100+uint64(board), srchSpell("U"))
+		for n := 4 + rng.IntN(9); n > 0; n-- {
+			src := palette[rng.IntN(len(palette))]
+			if src == srchDork {
+				onBoardReady(t, e, 0, src)
+				continue
+			}
+			onBoard(t, e, 0, src)
+		}
+		for n := 1 + rng.IntN(3); n > 0; n-- {
+			var pips []string
+			for k := 1 + rng.IntN(3); k > 0; k-- {
+				pips = append(pips, string(symbols[rng.IntN(len(symbols))]))
+			}
+			choiceHand(t, e, "Name:Hand Card\nManaCost:"+strings.Join(pips, " ")+"\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+		}
+		if e.paymentPlanHandDemand(0, spell) == ([5]int{}) {
+			t.Fatalf("board %d: hand demand is zero", board)
+		}
+		for k := 0; k < 5; k++ {
+			var c Cost
+			c.Generic = int32(rng.IntN(5))
+			for n := rng.IntN(3); n > 0; n-- {
+				c.Colored[state.ManaIndex("WUBRGC"[rng.IntN(6)])]++
+			}
+			ok, sixth := srchCheckAgainstOracle(t, e, spell, c, fmt.Sprintf("board %d cost %+v", board, c))
+			switch {
+			case !ok:
+				none++
+			case sixth:
+				planned++
+				decided++
+			default:
+				planned++
+			}
+		}
+	}
+	if decided == 0 {
+		t.Fatal("no random board had key 6 decide the plan")
+	}
+	t.Logf("hand-demand boards: %d planned (%d decided by key 6) and %d insufficient costs agree with the oracle", planned, decided, none)
 }
