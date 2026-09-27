@@ -326,7 +326,7 @@ func TestPaymentPlanRankKeyOrder(t *testing.T) {
 		t.Fatal("two sources with surplus must beat three sources without (sources before surplus)")
 	}
 	if r := rankOf(ctx, state.Mana{}); r.handReserve != 0 {
-		t.Fatalf("hand-reserve placeholder = %d, want 0", r.handReserve)
+		t.Fatalf("zero-demand hand reserve (a zero context has reserveBase 0) = %d, want 0", r.handReserve)
 	}
 }
 
