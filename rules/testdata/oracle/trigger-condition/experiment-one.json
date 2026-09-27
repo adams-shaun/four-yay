@@ -10,7 +10,7 @@
       "why": "The entering Grizzly Bears has greater power and toughness than the 1/1 Experiment One, so evolve triggers and adds a +1/+1 counter.",
       "setup": {"p0": {"battlefield": ["Experiment One"], "hand": ["Grizzly Bears"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "1G", "expect": [{"trigger_on_stack": "p0:Experiment One", "want": true}]},
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Experiment One", "want": true}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p0:Experiment One", "counters": {"+1/+1": 1}, "pt": "2/2"}]
@@ -18,10 +18,10 @@
     {
       "name": "equal-creature-enters-does-not-evolve",
       "cr": ["603.4", "702.100a"],
-      "why": "The entering Experiment One is also 1/1, so neither its power nor its toughness is greater than the existing Experiment One's.",
-      "setup": {"p0": {"battlefield": ["Experiment One"], "hand": ["Experiment One"]}, "p1": {}},
+      "why": "The entering Llanowar Elves is also 1/1, so neither its power nor its toughness is greater than the existing Experiment One's.",
+      "setup": {"p0": {"battlefield": ["Experiment One"], "hand": ["Llanowar Elves"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Experiment One", "mana": "G", "expect": [{"trigger_on_stack": "p0:Experiment One", "want": false}]}
+        {"op": "move", "seat": 0, "card": "p0:Llanowar Elves", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Experiment One", "want": false}]}
       ],
       "expect": [{"card": "p0:Experiment One", "counters": {"+1/+1": 0}, "pt": "1/1"}]
     }

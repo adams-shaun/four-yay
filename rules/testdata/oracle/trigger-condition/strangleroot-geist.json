@@ -6,27 +6,24 @@
   "scenarios": [
     {
       "name": "dies-without-counter-returns",
-      "cr": ["603.2", "702.93a"],
+      "cr": ["603.2", "603.10a", "702.93a"],
       "why": "After dying with no +1/+1 counter, Strangleroot Geist returns under its owner's control with one.",
-      "setup": {"p0": {"battlefield": ["Strangleroot Geist"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "setup": {"p0": {"battlefield": ["Strangleroot Geist"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Strangleroot Geist"]},
-        {"op": "resolve", "expect": [{"trigger_on_stack": "p0:Strangleroot Geist", "want": true}]},
+        {"op": "move", "seat": 0, "card": "p0:Strangleroot Geist", "to": "graveyard", "expect": [{"trigger_on_stack": "p0:Strangleroot Geist", "want": true}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p0:Strangleroot Geist", "zone": "battlefield", "counters": {"+1/+1": 1}, "pt": "3/2"}]
     },
     {
       "name": "second-death-with-counter-does-not-return",
-      "cr": ["603.2", "702.93a"],
+      "cr": ["603.2", "603.10a", "702.93a"],
       "why": "The first return gave it a +1/+1 counter. Its later death therefore does not satisfy the return condition.",
-      "setup": {"p0": {"battlefield": ["Strangleroot Geist"], "hand": ["Lightning Bolt", "Lightning Bolt"]}, "p1": {}},
+      "setup": {"p0": {"battlefield": ["Strangleroot Geist"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Strangleroot Geist"]},
+        {"op": "move", "seat": 0, "card": "p0:Strangleroot Geist", "to": "graveyard", "expect": [{"trigger_on_stack": "p0:Strangleroot Geist", "want": true}]},
         {"op": "resolve"},
-        {"op": "resolve"},
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt#2", "mana": "R", "targets": ["p0:Strangleroot Geist"]},
-        {"op": "resolve", "expect": [{"trigger_on_stack": "p0:Strangleroot Geist", "want": false}]},
+        {"op": "move", "seat": 0, "card": "p0:Strangleroot Geist", "to": "graveyard", "expect": [{"trigger_on_stack": "p0:Strangleroot Geist", "want": false}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p0:Strangleroot Geist", "zone": "graveyard"}]

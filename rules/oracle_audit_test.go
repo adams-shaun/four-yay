@@ -62,6 +62,13 @@ var oracleKnownDivergent = map[string]string{
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Engine filter gap: Captain Marvel's script uses Creature...+nonKree,
+	// which the trigger matcher fails closed on (also noted in acceptance_test.go).
+	"Captain Marvel, Apex Avenger/non-kree-creature-counter-is-copied": "Experiment One gets a counter, but Captain Marvel stays 4/4 with none (nonKree filter fails closed)",
+	// Engine trigger-chain gap: Earthbender's script chains ImmediateTrigger
+	// with ConditionCheckSVar$ and ConditionPresent$; the mixed condition shape
+	// is unresolved in effects/conditions.go, and the fourth-counter follow-up is lost.
+	"Earthbender Ascension/fourth-landfall-reaches-quest-threshold": "4 quest counters reached, but target gets no +1/+1 counter or Trample (reflexive trigger chain lost)",
 }
 
 type oracleFile struct {

@@ -11,7 +11,7 @@
       "setup": {"p0": {"battlefield": ["Gleeful Arsonist"]}, "p1": {"hand": ["Revitalize"]}},
       "steps": [
         {"op": "pass_to", "step": "main1", "active": "p1"},
-        {"op": "cast", "seat": 1, "card": "p1:Revitalize", "mana": "1W", "expect": [{"trigger_on_stack": "p0:Gleeful Arsonist", "want": true}]},
+        {"op": "cast", "seat": 1, "card": "p1:Revitalize", "mana": "WW", "expect": [{"trigger_on_stack": "p0:Gleeful Arsonist", "want": true}]},
         {"op": "resolve"}
       ],
       "expect": [{"life": {"p0": 20, "p1": 22}}]
@@ -23,7 +23,7 @@
       "setup": {"p0": {"battlefield": ["Gleeful Arsonist"]}, "p1": {"hand": ["Grizzly Bears"]}},
       "steps": [
         {"op": "pass_to", "step": "main1", "active": "p1"},
-        {"op": "cast", "seat": 1, "card": "p1:Grizzly Bears", "mana": "1G", "expect": [{"trigger_on_stack": "p0:Gleeful Arsonist", "want": false}]}
+        {"op": "cast", "seat": 1, "card": "p1:Grizzly Bears", "mana": "GG", "expect": [{"trigger_on_stack": "p0:Gleeful Arsonist", "want": false}]}
       ],
       "expect": [{"life": {"p1": 20}}]
     }

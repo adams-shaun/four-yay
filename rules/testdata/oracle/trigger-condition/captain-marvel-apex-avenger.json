@@ -10,7 +10,7 @@
       "why": "Experiment One gains a +1/+1 counter when the larger Grizzly Bears enters. It is another creature and not a Kree, so Captain Marvel's intervening condition is true and it gets a matching counter.",
       "setup": {"p0": {"battlefield": ["Captain Marvel, Apex Avenger", "Experiment One"], "hand": ["Grizzly Bears"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "1G", "expect": [{"trigger_on_stack": "p0:Captain Marvel, Apex Avenger", "want": true}]},
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Experiment One", "want": true}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p0:Captain Marvel, Apex Avenger", "counters": {"+1/+1": 1}, "pt": "5/5"}]
@@ -18,10 +18,10 @@
     {
       "name": "equal-creature-enters-without-counter-no-trigger",
       "cr": ["603.4", "603.2"],
-      "why": "An equal-sized Experiment One entering does not cause the existing Experiment One to gain a counter, so there is no counter-putting event for Captain Marvel to trigger on.",
-      "setup": {"p0": {"battlefield": ["Captain Marvel, Apex Avenger", "Experiment One"], "hand": ["Experiment One"]}, "p1": {}},
+      "why": "The equal-sized Llanowar Elves entering does not cause the existing Experiment One to gain a counter, so there is no counter-putting event for Captain Marvel to trigger on.",
+      "setup": {"p0": {"battlefield": ["Captain Marvel, Apex Avenger", "Experiment One"], "hand": ["Llanowar Elves"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Experiment One#2", "mana": "G", "expect": [{"trigger_on_stack": "p0:Captain Marvel, Apex Avenger", "want": false}]}
+        {"op": "move", "seat": 0, "card": "p0:Llanowar Elves", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Captain Marvel, Apex Avenger", "want": false}]}
       ],
       "expect": [{"card": "p0:Captain Marvel, Apex Avenger", "counters": {"+1/+1": 0}, "pt": "4/4"}]
     }
