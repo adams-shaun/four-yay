@@ -2588,7 +2588,10 @@ func (e *Engine) tokenReplAnswer(chosen []decision.Option) *resumePoint {
 	// answer mints (and hands the collector to any election or order ask the
 	// answer poses next) before its continuation resumes.
 	var rp *resumePoint
+	saved := e.answerInResolution
+	e.answerInResolution = saved || st.parkedResume != nil
 	e.withMintSink(st.mintSink, func() { rp = e.settleTokenAnswer(st, chosen) })
+	e.answerInResolution = saved
 	return rp
 }
 
@@ -2701,9 +2704,10 @@ func (e *Engine) emitChosenCopyToken(ev events.Event, src state.ObjID, player st
 	if e.G.Obj(want) == nil {
 		return stored
 	}
-	if e.tokenMintSink != nil {
-		*e.tokenMintSink = append(*e.tokenMintSink, want)
-	}
+	// The copy is published to the mint sink by the emit tail when this
+	// MoveZone's entry actually completes (publishTokenEntry) -- never here:
+	// the move may park behind an entry-counter order or an as-enters
+	// election, and the id must not reach a rider before it has entered.
 	return e.emit(events.Event{Kind: events.MoveZone, Obj: want,
 		From: state.ZLibrary, To: state.ZBattlefield})
 }
@@ -6264,6 +6268,9 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	rc := e.replChoices[0]
 	e.replChoices = e.replChoices[1:]
 	rp := e.resume
+	savedAnswerInRes := e.answerInResolution
+	e.answerInResolution = savedAnswerInRes || rc.inResolution
+	defer func() { e.answerInResolution = savedAnswerInRes }()
 	if rp == nil && rc.inResolution && rc.resumeAtPose != nil {
 		// The competition was posed while a stack resolution was suspended,
 		// but the suspension's frame is no longer on e.resume: an earlier

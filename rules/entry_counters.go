@@ -533,7 +533,7 @@ func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 	if park < 0 {
 		return false
 	}
-	return e.stageEntryCounterOrder(ev, preview, n0, grants, placed, park, e.resolvingObj != 0, bodyIDs)
+	return e.stageEntryCounterOrder(ev, preview, n0, grants, placed, park, e.resolvingObj != 0 || e.answerInResolution, bodyIDs)
 }
 
 // resumeEntryCounterOrder answers one staged competition: the chosen body

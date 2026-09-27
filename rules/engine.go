@@ -833,6 +833,22 @@ type Engine struct {
 	mintParkFrom int
 	mintSinks    []mintSink
 	mintSinkSeq  uint64
+	// copyMintsPending are the CopyToken mints (a chosen-copy token plan's,
+	// a DB$ CopyPermanent's) whose battlefield MoveZone has not completed
+	// yet: the object exists in the library but has not entered. The emit
+	// tail (publishTokenEntry) publishes such an id to tokenMintSink only
+	// when its entry actually folds onto the battlefield -- directly, or on
+	// the re-drive after a parked entry-counter order or as-enters election
+	// is answered -- and drops it when the move lands anywhere else.
+	copyMintsPending []state.ObjID
+	// answerInResolution is set for the synchronous extent of an answer to a
+	// competition or CreateToken election that suspended a stack resolution
+	// (handleReplacement for an inResolution competition, tokenReplAnswer for
+	// an election carrying a parkedResume). resolvingObj is 0 there, yet an
+	// entry the answer stages still belongs to that resolution: its order
+	// competition must resume the suspended frame when answered, not drop it
+	// as a cast-window pose's bookkeeping. Never set between calls.
+	answerInResolution bool
 	// stackCopyMintSink, when non-nil, collects the object the StackCopy
 	// event currently being emitted actually minted (EmitStackCopy). Same
 	// stack discipline as tokenMintSink: a nested stack copy saves and
@@ -2576,7 +2592,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		}
 	}
 	var tokenMintWant state.ObjID
-	if (ev.Kind == events.TokenCreate || ev.Kind == events.CardToken) && e.tokenMintSink != nil {
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken || ev.Kind == events.CopyToken {
 		tokenMintWant = e.G.NextID
 	}
 	var stackCopyMintWant state.ObjID
@@ -2601,9 +2617,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	if stored.Kind == events.PlayerLost {
 		e.rechooseDepartedBattleProtector(stored.Player)
 	}
-	if tokenMintWant != 0 && e.G.Obj(tokenMintWant) != nil {
-		*e.tokenMintSink = append(*e.tokenMintSink, tokenMintWant)
-	}
+	e.publishTokenEntry(stored, tokenMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
 		*e.stackCopyMintSink = append(*e.stackCopyMintSink, stackCopyMintWant)
 	}
