@@ -1895,10 +1895,15 @@ func censusInterferenceReasons(f *cards.Face) []string {
 	return out
 }
 
-// writeKillSwitches lists every corpus card and token whose presence on ANY
-// battlefield makes the planner decline every plan, verified end to end with
-// the card on the OPPONENT's battlefield, an Island on seat 0's and the {1}
-// probe instant in seat 0's hand.
+// writeKillSwitches lists every corpus card and token whose presence on the
+// OPPONENT's battlefield makes the planner decline a plan it otherwise makes
+// (seat 0: an Island and the {1} probe instant), by running PlanCastPayment
+// end to end for every face in the corpus. A decline is attributed to the
+// mana-interference scan (paymentPlanManaInterference's printed-face mirror),
+// to the cast-shape gate (paymentPlanCastShapeOK: sunburst/converge/cast-spend
+// readers, target-dependent cost statics), or to neither. A face that makes
+// the probe uncastable, or raises its cost past one Island ("insufficient"),
+// is a legitimate answer and not listed.
 func (cz *autopayCensus) writeKillSwitches(csvPath, mdPath string) {
 	ctl := cz.base.Clone()
 	censusPlace(ctl, cz.support["island"], 0, state.ZBattlefield, 0)
@@ -1911,49 +1916,84 @@ func (cz *autopayCensus) writeKillSwitches(csvPath, mdPath string) {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	_ = w.Write([]string{"kind", "card", "face", "reasons", "verified_declines_from_opponent_side", "repo_decks"})
+	_ = w.Write([]string{"kind", "card", "face", "reasons", "mirror_predicts", "planner_reason", "repo_decks"})
 	type agg struct {
 		cards, decked int
 		ex            []string
 	}
 	byReason := map[string]*agg{}
-	var total, decked, verified int
+	var total, decked, mirrored, faces int
 	var deckedNames []string
 	visit := func(kind, key string, c *cards.Card) {
 		for fi, face := range c.Faces {
 			if face == nil {
 				continue
 			}
-			reasons := censusInterferenceReasons(face)
-			if len(reasons) == 0 {
+			faces++
+			var reason string
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						reason = "panic"
+					}
+				}()
+				e := cz.board(c)
+				censusPlace(e, cz.support["island"], 0, state.ZBattlefield, 0)
+				id := censusPlace(e, c, 1, state.ZBattlefield, fi)
+				e.G.Obj(id).IsToken = kind == "token"
+				got := e.PlanCastPayment(0, decision.PlannedCast{Object: cz.probe, Face: 0, Origin: "hand"})
+				if got.Plan != nil || got.Reason != "unsupported" || !e.paymentPlanCastCandidate(0, cz.probe) {
+					return
+				}
+				switch {
+				case e.paymentPlanManaInterference():
+					reason = "mana-interference"
+				case e.sunburstGrantOut():
+					reason = "cast-shape gate: Sunburst mention (sunburstGrantOut)"
+				case e.triggeredConvergeReaderOut():
+					reason = "cast-shape gate: converge reader (triggeredConvergeReaderOut)"
+				case e.triggeredCastSpendReaderOut():
+					reason = "cast-shape gate: cast-spend reader (triggeredCastSpendReaderOut)"
+				case e.paymentPlanHasTargetDependentModifier(0, cz.probe):
+					reason = "cast-shape gate: ValidTarget cost static (paymentPlanHasTargetDependentModifier)"
+				case !e.paymentPlanCastShapeOK(0, cz.probe):
+					reason = "cast-shape gate: other"
+				default:
+					reason = "other"
+				}
+			}()
+			if reason == "" {
 				continue
 			}
-			e := cz.board(c)
-			censusPlace(e, cz.support["island"], 0, state.ZBattlefield, 0)
-			id := censusPlace(e, c, 1, state.ZBattlefield, fi)
-			e.G.Obj(id).IsToken = kind == "token"
-			got := e.PlanCastPayment(0, decision.PlannedCast{Object: cz.probe, Face: 0, Origin: "hand"})
-			ver := yn(got.Plan == nil && got.Reason == "unsupported")
-			decks := cz.decks[c]
-			_ = w.Write([]string{kind, key, strconv.Itoa(fi), strings.Join(reasons, " "), ver, strings.Join(decks, ";")})
-			total++
-			if ver == "Y" {
-				verified++
+			mirror := censusInterferenceReasons(face)
+			detail := reason
+			if reason == "mana-interference" && len(mirror) > 0 {
+				mirrored++
+				detail = strings.Join(mirror, " ")
 			}
+			decks := cz.decks[c]
+			_ = w.Write([]string{kind, key, strconv.Itoa(fi), detail, yn(len(mirror) > 0), reason, strings.Join(decks, ";")})
+			total++
 			if len(decks) > 0 {
 				decked++
 				deckedNames = append(deckedNames, key)
 			}
-			seen := map[string]bool{}
-			for _, r := range reasons {
-				if seen[r] {
-					continue
+			keys := []string{reason}
+			if reason == "mana-interference" && len(mirror) > 0 {
+				keys = nil
+				seen := map[string]bool{}
+				for _, m := range mirror {
+					if !seen[m] {
+						seen[m] = true
+						keys = append(keys, m)
+					}
 				}
-				seen[r] = true
-				a := byReason[r]
+			}
+			for _, k := range keys {
+				a := byReason[k]
 				if a == nil {
 					a = &agg{}
-					byReason[r] = a
+					byReason[k] = a
 				}
 				a.cards++
 				if len(decks) > 0 {
@@ -1981,14 +2021,19 @@ func (cz *autopayCensus) writeKillSwitches(csvPath, mdPath string) {
 	}
 	w.Flush()
 	var b strings.Builder
-	fmt.Fprintf(&b, "kill-switch cards/tokens (presence on any battlefield declines every V1 plan): %d; verified from the opponent's side: %d; in repo decks: %d (%s)\n\n",
-		total, verified, decked, strings.Join(deckedNames, "; "))
-	b.WriteString("| reason | cards | in repo decks | examples |\n|---|---|---|---|\n")
+	fmt.Fprintf(&b, "faces probed end to end: %d. Kill switches (on the OPPONENT's battlefield, the probe stays castable but every plan is declined): %d; of which predicted by the printed-face interference mirror: %d; in repo decks: %d (%s)\n\n",
+		faces, total, mirrored, decked, strings.Join(deckedNames, "; "))
+	b.WriteString("| reason | cards/tokens | in repo decks | examples |\n|---|---|---|---|\n")
 	keys := make([]string, 0, len(byReason))
 	for k := range byReason {
 		keys = append(keys, k)
 	}
-	sort.Slice(keys, func(i, j int) bool { return byReason[keys[i]].cards > byReason[keys[j]].cards })
+	sort.Slice(keys, func(i, j int) bool {
+		if byReason[keys[i]].cards != byReason[keys[j]].cards {
+			return byReason[keys[i]].cards > byReason[keys[j]].cards
+		}
+		return keys[i] < keys[j]
+	})
 	for _, k := range keys {
 		a := byReason[k]
 		fmt.Fprintf(&b, "| %s | %d | %d | %s |\n", k, a.cards, a.decked, strings.Join(a.ex, "; "))
