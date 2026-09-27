@@ -400,6 +400,19 @@ func TestAutoPayGameSubmitsPlans(t *testing.T) {
 	if gcOff.ap.Planned != 0 || gcOff.ap.Priority != 0 || gcOff.ap.ManualSeatPriorityPlan != 0 {
 		t.Fatalf("off seats must build no plans and submit none: %s", gcOff.ap)
 	}
+	// The explicit diagnostic opt-in restores the eager measurement on the
+	// off path: the same game, same seats, same intents, but the planner is
+	// forced at every priority so manual_seat_priority_with_plan counts the
+	// plans offered to the (manual) seats. TestOffModeManualSeatPlanMeasurement
+	// pins this fully; here it guards the flag plumbing in the same fixture.
+	_, gcOffMeasure := playGame(reg, decks, 9, 14, 20000, 0, false, false, autoPay{mode: "off", measureManualSeatPlans: true})
+	t.Logf("off+measure: %s", gcOffMeasure.ap)
+	if gcOffMeasure.ap.ManualSeatPriorityPlan == 0 {
+		t.Fatalf("opting into off-mode measurement must build manual-seat plans: %s", gcOffMeasure.ap)
+	}
+	if gcOffMeasure.ap.Planned != 0 {
+		t.Fatalf("measurement must not submit plans on the off path: %s", gcOffMeasure.ap)
+	}
 	// The 100-object cap forces a (bigboard) failure record.
 	f, _ = playGame(reg, decks, 11, 3, 20000, 100, false, false, all)
 	if f == nil || f.AutoPay != "all" || fmt.Sprint(f.AutoPaySeats) != "[0 1]" {

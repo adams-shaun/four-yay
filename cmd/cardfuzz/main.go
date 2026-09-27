@@ -26,6 +26,13 @@
 // mode, and the run summary (and -stats) counts planned casts, reversed
 // planned casts, PaymentFallback windows, priority decisions with a plan and
 // the casts an auto-pay seat still paid by hand. See autopay.go.
+//
+// -measure-manual-seat-plans is a diagnostic-only opt-in for -autopay off: an
+// off run has no payment-plan consumer, so no seat's extension is built and
+// the manual_seat_priority_with_plan counter stays zero. Setting the flag
+// forces the planner at every priority window to restore that counter at the
+// cost of runtime; it changes no game, intent, replay signature or failure
+// record. See autoPay.measureManualSeatPlans.
 package main
 
 import (
@@ -557,8 +564,11 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 			// to seats that ignore the extension. So an auto-pay run (any
 			// mode but off) must build every seat's extension to keep those
 			// counters, exactly as the eager publisher did; off runs build
-			// none and stay cheap. A consumer seat always opts in.
-			if apc.on() {
+			// none and stay cheap. A consumer seat always opts in. The
+			// off-mode diagnostic opt-in (-measure-manual-seat-plans) also
+			// builds every seat's extension, restoring the manual-seat
+			// counters at the cost of the planner on every priority window.
+			if apc.measurePlans() {
 				e.EnsurePaymentActions()
 			} else if consumer, ok := seats[d.Player].(seat.PaymentPlanConsumer); ok && consumer.WantsPaymentActions() {
 				e.EnsurePaymentActions()
@@ -875,6 +885,7 @@ func main() {
 	mirror := flag.Bool("autopay-mirror", false, "mirror each auto-pay planned cast against float-then-cast (opt-in)")
 	exploreAutoPay := flag.Bool("explore-autopay", false, "the -explore seat auto-pays too wherever -autopay would select its seat (off by default: the wrapper hides priority mana activations, cutting explore coverage)")
 	statsPath := flag.String("stats", "", "write the run's failure counts and auto-pay counters here as JSON")
+	measureManualSeatPlans := flag.Bool("measure-manual-seat-plans", false, "diagnostic: in -autopay off mode, force the payment planner on every priority window so manual_seat_priority_with_plan (the plans the eager publisher would have offered to manual seats) is populated. Rebuilds every seat's payment extension, so it costs runtime; it never changes game outcomes, intents, replay signatures or failure records, and it is ignored in all|mixed (which already measure)")
 	journalPath := flag.String("journal", "", "append 'start <goroutine> <seed>' / 'end <seed>' around every game: a fatal runtime error (a stack overflow) kills the whole process past any recover, and the journal names the game the crashing goroutine was playing")
 	skipPath := flag.String("skip", "", "JSONL of games not to play ({seed, sig, diag} per line, from a -journal crash): each is recorded as a 'fatal' failure instead")
 	flag.Uint64Var(&dumpAt, "dump-at", 0, "with -repro: print the first pending decision whose Seq is at least this log index (options, payment actions, pool, battlefield)")
@@ -888,6 +899,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "cardfuzz:", err)
 		os.Exit(1)
 	}
+	// Measurement-only opt-in: threaded into the guard, never stamped on a
+	// failure record nor rebuilt by autoPayOf, so -repro and replay are
+	// unaffected.
+	apc.measureManualSeatPlans = *measureManualSeatPlans
 
 	reg, err := cards.OpenCorpus(*dir)
 	if err != nil {
@@ -1089,6 +1104,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "cardfuzz: %d/%d games, %d failures (%d sigs), %.1f games/s\n", played, *games, nf, len(runFails), float64(played)/time.Since(start).Seconds())
 		if apc.on() {
 			fmt.Fprintf(os.Stderr, "cardfuzz: autopay %s (explore-autopay %v): %s\n", apc.mode, apc.explore, runAP.String())
+		} else if apc.measureManualSeatPlans {
+			fmt.Fprintf(os.Stderr, "cardfuzz: autopay off (measure-manual-seat-plans: planner forced on every priority): %s\n", runAP.String())
 		}
 		printReport(p, c, false)
 		if *statsPath != "" {
