@@ -537,23 +537,8 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	// V1 accepts only fixed production.  A permissive window unit is useful to
 	// manual payment, but not proof an automatic choice will remain exact.
 	choices := make([][]plannedManaActivation, len(units))
-	firstSourceDetail := ""
 	for i, u := range units {
 		choices[i] = e.paymentPlanQueryAlternatives(u)
-		if firstSourceDetail == "" {
-			for _, alt := range u.alts {
-				o := e.G.Obj(u.id)
-				p := state.PlayerID(0)
-				if o != nil {
-					p = o.Controller
-				}
-				_, _, detail := e.paymentPlanAbilityTier(p, u.id, alt.ma)
-				if detail != "" {
-					firstSourceDetail = detail
-					break
-				}
-			}
-		}
 	}
 	// Phase 1 (spec 5): normal sources only. Phase 2 -- normal plus last
 	// resort, run only when phase 1 proves no plan exists -- is wired by
@@ -568,6 +553,26 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 		return PaymentPlanOutcome{Plan: search.best, Nodes: search.nodes}
 	case search.limited:
 		return PaymentPlanOutcome{Reason: "search_limit", Nodes: search.nodes}
+	}
+	// The first source diagnostic is read only for the outcome that
+	// reports it.
+	firstSourceDetail := ""
+	for _, u := range units {
+		if firstSourceDetail != "" {
+			break
+		}
+		for _, alt := range u.alts {
+			o := e.G.Obj(u.id)
+			p := state.PlayerID(0)
+			if o != nil {
+				p = o.Controller
+			}
+			_, _, detail := e.paymentPlanAbilityTier(p, u.id, alt.ma)
+			if detail != "" {
+				firstSourceDetail = detail
+				break
+			}
+		}
 	}
 	return PaymentPlanOutcome{Reason: "insufficient", Detail: firstSourceDetail, Nodes: search.nodes}
 }
