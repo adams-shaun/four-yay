@@ -71,9 +71,20 @@ func TestYunasDecisionPilgrimageEachCreatureAndLand(t *testing.T) {
 			ctx := &Ctx{Source: src.ID, Controller: 0}
 			effChangeZone(sh, ctx, ability)
 			d := sh.asked
+			// The ability's explicit Optional$ True marker poses Forge's
+			// confirm-before-pick gate first -- even over an empty hand (Forge
+			// asks before the fetch list is consulted).
+			if d == nil || d.ResumeKind != "hand_move_confirm" {
+				t.Fatalf("first ask = %+v, want the hand_move_confirm gate (Optional$ True asks before the pick)", d)
+			}
+			sh.suspended = false // the double's suspension flag: the resume is a fresh pass
+			sh.asked = nil
+			effChangeZone(sh, &Ctx{Source: src.ID, Controller: 0,
+				HandMoveConfirmDone: true, HandMoveConfirm: "yes", HandMoveConfirmTarget: 0}, ability)
+			d = sh.asked
 			if tc.wantOptions == 0 {
 				if d != nil {
-					t.Fatalf("empty eligible set posed a decision: %+v", d)
+					t.Fatalf("empty eligible set posed a decision after its accepted confirmation: %+v", d)
 				}
 				for _, ev := range sh.log {
 					if ev.Kind == events.Note && ev.Text == "unimplemented API ChangeZone" {

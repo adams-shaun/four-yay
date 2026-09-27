@@ -3473,6 +3473,19 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			}
 			ctx.HiddenPickDone = true
 			ctx.HiddenPickTarget = rp.target
+		case "hidden_pick_confirm":
+			// An Optional$ confirmation on a Hidden$ True public-origin
+			// ChangeZone pick was answered (the same confirmAction gate the
+			// "hand_move_confirm" arm decodes): option zero accepts the fetch,
+			// every other answer declines it. effHiddenPick consumes and clears
+			// these at the top of its walk (fx42 scoping), so a nested pick
+			// poses its own confirmation.
+			ctx.HiddenPickConfirmDone = true
+			ctx.HiddenPickConfirmTarget = rp.target
+			ctx.HiddenPickConfirm = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.HiddenPickConfirm = "yes"
+			}
 		case "scry_replacement":
 			ctx.ScryReplacement = true
 			ctx.ScryCount, ctx.ScryProceed = rp.scryCount, rp.scryProceed

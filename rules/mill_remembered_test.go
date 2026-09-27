@@ -133,6 +133,14 @@ func TestMillRememberMilledPicksUpARememberedLand(t *testing.T) {
 	// The attack trigger mills three, then the pickup suspends on a
 	// hidden_pick ask over the milled lands.
 	d := passUntilNonPriority(t, e, 40)
+	// The explicit Optional$ marker poses Forge's confirm-before-pick gate
+	// first (optional_confirm1): accept it, then the hidden_pick over the
+	// milled lands follows.
+	if d == nil || d.ResumeKind != "hidden_pick_confirm" {
+		t.Fatalf("pending = %+v, want the hidden_pick_confirm gate (Optional$ True asks before the pick)", d)
+	}
+	submitChoices(t, e, d.Options[0].Index)
+	d = e.Pending()
 	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "hidden_pick" {
 		t.Fatalf("pending = %+v, want a hidden_pick KChoose over the milled lands", d)
 	}
