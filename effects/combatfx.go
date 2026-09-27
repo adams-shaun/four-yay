@@ -487,6 +487,10 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 				}
 				for _, id := range g.Zone(z, p) {
 					if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+						if strings.EqualFold(strings.TrimSpace(sa.Params["RememberPumped"]), "True") {
+							c.Remembered = append(c.Remembered, state.Target{Obj: id})
+							eventRemember(h, c, id)
+						}
 						registerPumpEffects(h, c, id, att, def, sa, zone, nil)
 						ateotIDs = append(ateotIDs, id)
 					}
@@ -496,6 +500,10 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		for _, id := range g.Zone(state.ZBattlefield, p) {
 			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+				if strings.EqualFold(strings.TrimSpace(sa.Params["RememberPumped"]), "True") {
+					c.Remembered = append(c.Remembered, state.Target{Obj: id})
+					eventRemember(h, c, id)
+				}
 				registerPumpEffects(h, c, id, att, def, sa, "", nil)
 				ateotIDs = append(ateotIDs, id)
 			}
