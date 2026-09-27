@@ -164,6 +164,28 @@ func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost)
 	return false
 }
 
+// morphTurnUpPayablePriced is morphTurnUpPayable for the offer walk's two
+// pricing modes (legalActionsPriced): hyp nil is exactly morphTurnUpPayable
+// (the floating pool, the offer the priority decision carries); hyp non-nil
+// prices the mana/life remainder against the potential-action walk's
+// hypothetical bound (PotentialMana) while the non-mana components are still
+// checked against the REAL state, the same split castablePriced makes. An X
+// cost is priced at its smallest legal announcement: each extra X only adds
+// generic, so no larger X is payable when the smallest is not, and the
+// hypothetical bound may be unbounded (no finite loop ceiling exists there).
+func (e *Engine) morphTurnUpPayablePriced(p state.PlayerID, id state.ObjID, cost Cost, hyp *state.Mana) bool {
+	if hyp == nil {
+		return e.morphTurnUpPayable(p, id, cost)
+	}
+	if !e.nonManaCastable(p, id, cost, false) {
+		return false
+	}
+	if cost.X != 0 {
+		cost = cost.WithX(max(cost.XMin, 0))
+	}
+	return e.costPayablePool(p, id, false, cost, *hyp, e.G.Players[p].ManaUnits())
+}
+
 // turnUpPay carries the CR 708.6 turn-face-up special action's payment
 // state. It is a SELF-CONTAINED flow: turning face up neither casts a spell
 // nor activates an ability, so it mints no stack object and never enters

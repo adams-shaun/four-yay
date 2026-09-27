@@ -809,9 +809,13 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 // was the one label site that leaked the raw Produced string. Combo
 // <colours> reads "Add B or R" (three or more: comma-separated, the last
 // joined with "or"); Any/Combo Any read "Add any color" (the oracle's own
-// wording, CR 107.4); Produced$ Chosen reads "Add chosen color"; anything
-// else -- a plain single colour or C (the shape the wheel tints), a doubled
-// "RR", a Special expression -- keeps the bare "Add <value>" shape.
+// wording, CR 107.4) unless they carry a literal Amount$ above one, which is
+// then named ("Add three mana of any one color" for Any, "... in any
+// combination of colors" for Combo Any) so a source whose abilities differ
+// only in amount offers distinguishable wheel options (task
+// mana-wheel-amount-labels); Produced$ Chosen reads "Add chosen color";
+// anything else -- a plain single colour or C (the shape the wheel tints), a
+// doubled "RR", a Special expression -- keeps the bare "Add <value>" shape.
 // manaAbilityComboColours reports whether the ability's own Produced$ is an
 // explicit MULTI-colour combo ("Combo B R") and returns the colour list in
 // the ability's own token order -- the same order askManaColor offers, so the
@@ -859,6 +863,19 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 	produced := substituteChosenProduced(strings.TrimSpace(ma.Params["Produced"]), chosen)
 	switch produced {
 	case "Any", "Combo Any":
+		// A literal amount above one is named so a source whose abilities
+		// differ only in amount -- Sceptre of Eternal Glory's one-mana and
+		// three-mana "any color" abilities -- offers two distinguishable
+		// wheel options. Without it both read "Add any color", and a manual
+		// payer could not choose the larger ability on purpose (task
+		// mana-wheel-amount-labels). The two shapes keep the distinct
+		// wording their stage-2 prompt uses (manaColourPrompt).
+		if n, ok := literalManaAmount(ma.Params["Amount"]); ok && n > 1 {
+			if produced == "Combo Any" {
+				return "Add " + manaNumberWord(n) + " mana in any combination of colors"
+			}
+			return "Add " + manaNumberWord(n) + " mana of any one color"
+		}
 		return "Add any color"
 	case "Chosen":
 		return "Add chosen color"
@@ -879,7 +896,9 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 // SVar, Count$) or non-positive Amount$ keeps the single pip, because a
 // wrong number on the wheel is worse than none -- and only a one-letter
 // WUBRGC pip is repeated, so a "RR" token or a Special expression is left as
-// written.
+// written. An amount above manaPipRepeatLimit keeps the bare pip too: the
+// repeated spelling is the only one that expands, so its length is bounded
+// here rather than in the shared literal rule.
 func manaAmountPips(ma *cards.SA, pip string) string {
 	if len(pip) != 1 || !strings.Contains("WUBRGC", pip) {
 		return pip
@@ -888,11 +907,55 @@ func manaAmountPips(ma *cards.SA, pip string) string {
 	if !ok {
 		return pip
 	}
-	n, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil || n <= 1 || n > 20 {
+	n, ok := literalManaAmount(raw)
+	if !ok || n <= 1 {
+		return pip
+	}
+	if n > manaPipRepeatLimit {
+		// A single-pip production repeated by an absurd Amount$ would make an
+		// unreadable label (and a needlessly long string). The label spelling
+		// is the only consumer that expands, so the safety limit lives here;
+		// the any-colour wording below never repeats and has no such bound.
 		return pip
 	}
 	return strings.Repeat(pip, n)
+}
+
+// manaPipRepeatLimit bounds how many times manaAmountPips expands a single
+// pip. It is a label-size safety valve, not a correctness gate: a literal
+// amount above it is a corpus oddity, and the bare pip is the fail-safe
+// spelling. (The any-colour wording names an amount once, so it is not
+// bounded here.)
+const manaPipRepeatLimit = 20
+
+// literalManaAmount parses a mana ability's Amount$ parameter as a positive
+// integer literal, shared by manaAmountPips (which repeats a single pip) and
+// the any-colour label (which names the amount). Only an absent, non-literal
+// (X, an SVar, Count$) or non-positive amount fails: the rule is exactly the
+// manaColourPrompt rule, which also accepts every positive literal -- a wheel
+// label for "Add 21 mana of any one color" must be as faithful as its
+// stage-2 prompt, not silently fall back to "Add any color". A wrong number
+// on the wheel is worse than none, but a refused large number is worse still.
+func literalManaAmount(raw string) (int, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+// manaNumberWord is a literal mana amount in words, for the any-colour
+// stage-1 label ("Add three mana of any one color"). Amounts past twenty
+// fall back to digits ("Add 21 mana of any one color"): the wording stays
+// faithful rather than inventing a bound the stage-2 prompt does not apply.
+func manaNumberWord(n int) string {
+	words := [...]string{"zero", "one", "two", "three", "four", "five", "six",
+		"seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+		"fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"}
+	if n >= 0 && n < len(words) {
+		return words[n]
+	}
+	return strconv.Itoa(n)
 }
 
 // manaAbilityCostPrefix names a mana ability's activation cost BEYOND the

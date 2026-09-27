@@ -121,6 +121,62 @@ describe('OptionPicker with later abilities', () => {
   });
 });
 
+// aph-web-manual-only-plays: rules.PotentialActions now also projects the
+// float-gated special actions and max-speed granted abilities. Avishkar
+// Raceway is the Mount Doom shape again: its live option is the mana tap, and
+// its max-speed "{3}, {T}, Discard a card: Draw a card." (kind "granted") is
+// offered only once {3} floats -- a direct tap would spend the {T} it needs.
+describe('laterByObj with the widened projection kinds', () => {
+  const RACEWAY = 61;
+  const racewayMana = opt({ index: 4, kind: 'activate', label: 'Activate Avishkar Raceway for mana', obj: RACEWAY });
+  const racewayDraw: PotentialAction = { kind: 'granted', obj: RACEWAY, label: 'Avishkar Raceway: Draw a card.' };
+
+  it('a float-gated granted ability is a later row on the tile whose live option is its tap', () => {
+    const b = bundle(priority([racewayMana]), [racewayDraw]);
+    const tile = tileOptions(b, RACEWAY)!;
+    expect(tile.later).toEqual([racewayDraw]);
+    expect(singleTapOptionOf(tile)).toBeNull();
+  });
+
+  it('a granted ability the decision already offers live is not repeated', () => {
+    const live = opt({ index: 5, kind: 'granted', label: racewayDraw.label!, obj: RACEWAY, svar: 'ABDraw' } as Partial<Option>);
+    expect(laterByObj(priority([racewayMana, live]), [racewayDraw])).toBeUndefined();
+  });
+
+  it('unlock, turn face up and specialize are later rows too, but only on a tile the decision already offers something', () => {
+    const others: PotentialAction[] = [
+      { kind: 'unlock', obj: RACEWAY, label: 'Unlock Prop Room' },
+      { kind: 'turn_face_up', obj: RACEWAY, label: 'Turn face up ({G})' },
+      { kind: 'specialize', obj: RACEWAY, mode: '1', label: 'Specialize as White Form ({1})' },
+    ];
+    expect(laterByObj(priority([racewayMana]), others)?.get(RACEWAY)).toEqual(others);
+    // On an object with no live option (a face-down morph, a locked Room)
+    // nothing is indexed: no new badge appears on a tile that had none.
+    const elsewhere = others.map((a) => ({ ...a, obj: 62 }));
+    expect(laterByObj(priority([racewayMana]), elsewhere)).toBeUndefined();
+  });
+
+  it('a cast, a land drop and a station never become later rows', () => {
+    const m = laterByObj(priority([racewayMana]), [
+      { kind: 'cast', obj: RACEWAY, label: 'Cast Raceway' },
+      { kind: 'play_land', obj: RACEWAY, label: 'Play Raceway' },
+      { kind: 'station', obj: RACEWAY, label: 'Station Raceway' },
+    ]);
+    expect(m).toBeUndefined();
+  });
+
+  it('OptionPicker renders the granted later row with its reason, and the tile is a count badge', () => {
+    const tile = tileOptions(bundle(priority([racewayMana]), [racewayDraw]), RACEWAY)!;
+    const closed = render(OptionPicker, { props: { tileOptions: tile, subject: 'for Avishkar Raceway', collapseTapActions: true } }).body;
+    expect(closed).not.toContain('data-single-action');
+    expect(closed).toContain('aria-label="2 actions for Avishkar Raceway"');
+    const open = render(OptionPicker, { props: { tileOptions: tile, subject: 'for Avishkar Raceway', open0: true, collapseTapActions: true } }).body;
+    expect(open).toContain('aria-disabled="true"');
+    expect(open).toContain('Avishkar Raceway: Draw a card. (tap other mana first)');
+    expect(open).not.toContain('undefined');
+  });
+});
+
 // fb-20260924T180813Z-bbe4fd8f: Phyrexian Tower's stage-1 wheel is now
 // labelled "Add C" / "Sacrifice 1 creature: Add BB" by the engine; the
 // generic first-word face read "Add" on both buttons.

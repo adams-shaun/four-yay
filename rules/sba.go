@@ -1315,6 +1315,38 @@ func (e *Engine) checkGameOver() {
 	e.pending = nil
 }
 
+// dropDepartedFlow ends the flow that was waiting on d, the released decision
+// of a player who has left the game. That player makes no further choices
+// (CR 800.4a) and every stack object they controlled has ceased
+// (ceaseDepartedObjects), so a cast they were proposing cannot continue, and
+// a KChoose's routing marker -- with the mana-ability continuation it guarded
+// -- belongs to nobody now. Left in place, both survive into the next seat's
+// priority: the proposal as a cast "in flight", the marker read by the next
+// KChoose answer's dispatch and by the legend-rule SBA gate.
+func (e *Engine) dropDepartedFlow(d *decision.Decision) {
+	if e.cast != nil && e.cast.player == d.Player {
+		e.cast = nil
+		e.deferredPush, e.deferredPushLKI = nil, nil
+		if e.choosing == chooseCast {
+			e.choosing = chooseNone // the dropped cast's own marker
+		}
+	}
+	if d.Kind != decision.KChoose {
+		return
+	}
+	switch e.choosing {
+	case chooseMana:
+		e.manaActivation = nil
+	case chooseManaColor:
+		e.manaColorActivation = nil
+	case chooseManaDiscard, chooseManaExile, chooseManaSacrifice:
+		e.manaDiscardActivation = nil
+	case chooseManaUnless:
+		e.manaUnlessActivation = nil
+	}
+	e.choosing = chooseNone
+}
+
 // releasePendingDecisionOfDepartedPlayer keeps a decision asked of a player
 // who has since left the game from stranding the match. Only that player may
 // answer it, Advance does nothing at all while e.pending is set, and with
@@ -1363,6 +1395,7 @@ func (e *Engine) releasePendingDecisionOfDepartedPlayer() {
 		return
 	}
 	e.pending = nil
+	e.dropDepartedFlow(d)
 	if e.resume != nil {
 		// CR 800.4f: the departed player does not make the outstanding
 		// choice. Resume with an empty answer so the asking instruction gets
