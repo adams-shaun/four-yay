@@ -315,40 +315,56 @@ var layer4PrecheckVerify = layer4PrecheckVerifyFlag != ""
 // admits the source's zone. The faces that scan walks are o.Face() for an
 // object in a static-source zone of an alive seat, plus, on the battlefield,
 // an unlocked Room's other face and a mutated pile's merged faces. This walk
-// covers every object in e.G.Objs (a superset of every zone list: Game.Obj
-// resolves ids into that slice), checks o.Face() under its zone class, and on
-// the battlefield checks both faces of any unlocked two-faced card (a
-// superset of the Room condition) and every merged face. It ignores
-// face-down hiding and every IsPresent$/CheckSVar$ gate, each of which only
-// removes emissions. o.Face() already routes a layer-1 copy (CopyFace), so a
-// clone of a type-changer is seen. cards.Face.StaticsMayChangeTypes is itself
+// visits the same zone lists for every seat (a superset of the alive ones):
+// the battlefield, the stack and the command zone in full, and the
+// static-hot subsequence of each library, hand, graveyard and exile
+// (static_zoneskip.go) -- a static-cold object answers false to
+// StaticsMayChangeTypes(false) on every face it could resolve to, so leaving
+// it out loses no "yes". It checks o.Face() under its zone class, and on the
+// battlefield both faces of any unlocked two-faced card (a superset of the
+// Room condition) and every merged face. It ignores face-down hiding and
+// every IsPresent$/CheckSVar$ gate, each of which only removes emissions.
+// o.Face() already routes a layer-1 copy (CopyFace), so a clone of a
+// type-changer is seen. cards.Face.StaticsMayChangeTypes is itself
 // conservative (a face whose probe is not bound to its current Statics
 // answers true).
 func (e *Engine) staticsMayChangeTypes() bool {
-	for i := range e.G.Objs {
-		o := &e.G.Objs[i]
-		if o.Zone == state.ZCeased {
-			// Never walked: Game.Zone(ZCeased) lists nothing, and the zone is
-			// not a static-source zone. Late in a game most of e.G.Objs is
-			// resolved ability objects and ceased copies parked here.
-			continue
+	for p := range e.G.Players {
+		pid := state.PlayerID(p)
+		for _, z := range staticSourceZones {
+			if z == state.ZStack && p > 0 {
+				continue
+			}
+			for _, id := range e.staticSourceIDs(pid, z) {
+				if e.objectStaticsMayChangeTypes(e.G.Obj(id)) {
+					return true
+				}
+			}
 		}
-		onBF := o.Zone == state.ZBattlefield
-		if o.Face().StaticsMayChangeTypes(onBF) {
+	}
+	return false
+}
+
+// objectStaticsMayChangeTypes is staticsMayChangeTypes' per-object test.
+func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
+	if o == nil || o.Zone == state.ZCeased {
+		return false
+	}
+	onBF := o.Zone == state.ZBattlefield
+	if o.Face().StaticsMayChangeTypes(onBF) {
+		return true
+	}
+	if !onBF {
+		return false
+	}
+	if o.Unlocked && o.Card != nil && len(o.Card.Faces) == 2 {
+		if o.Card.Faces[0].StaticsMayChangeTypes(true) || o.Card.Faces[1].StaticsMayChangeTypes(true) {
 			return true
 		}
-		if !onBF {
-			continue
-		}
-		if o.Unlocked && o.Card != nil && len(o.Card.Faces) == 2 {
-			if o.Card.Faces[0].StaticsMayChangeTypes(true) || o.Card.Faces[1].StaticsMayChangeTypes(true) {
-				return true
-			}
-		}
-		for j := range o.MergedCards {
-			if o.MergedFaceAt(j).StaticsMayChangeTypes(true) {
-				return true
-			}
+	}
+	for j := range o.MergedCards {
+		if o.MergedFaceAt(j).StaticsMayChangeTypes(true) {
+			return true
 		}
 	}
 	return false

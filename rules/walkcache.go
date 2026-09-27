@@ -183,7 +183,7 @@ func (e *Engine) scanBoardStatics() boardStatics {
 			if z == state.ZStack && pi > 0 {
 				continue
 			}
-			for _, id := range e.G.Zone(z, p) {
+			for _, id := range e.staticSourceIDs(p, z) {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) {
 					continue
@@ -289,7 +289,7 @@ func (e *Engine) scanManaConvSources(out []manaConvSource) []manaConvSource {
 			if z == state.ZStack && pi > 0 {
 				continue
 			}
-			for _, oid := range e.G.Zone(z, p) {
+			for _, oid := range e.staticSourceIDs(p, z) {
 				o := e.G.Obj(oid)
 				if o == nil || o.Face() == nil || (z == state.ZBattlefield && e.faceDownPrintedHides(o)) ||
 					offBattlefieldStaticsInert(z, o) {

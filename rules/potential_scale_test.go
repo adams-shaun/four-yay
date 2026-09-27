@@ -115,8 +115,11 @@ func BenchmarkPotentialManaLargeBoard(b *testing.B) {
 // cleanup. Benchmarks run sequentially, never beside a Parallel test.
 func benchWithoutVerify(b *testing.B) {
 	prevMemo, prevWalk, prevL4, prevInert, prevSkip := derivedMemoVerify, walkCacheVerify, layer4PrecheckVerify, layerInertVerify, trigZoneSkipVerify
+	prevStatic := staticZoneSkipVerify
 	derivedMemoVerify, walkCacheVerify, layer4PrecheckVerify, layerInertVerify, trigZoneSkipVerify = false, false, false, false, false
+	staticZoneSkipVerify = false
 	b.Cleanup(func() {
 		derivedMemoVerify, walkCacheVerify, layer4PrecheckVerify, layerInertVerify, trigZoneSkipVerify = prevMemo, prevWalk, prevL4, prevInert, prevSkip
+		staticZoneSkipVerify = prevStatic
 	})
 }
