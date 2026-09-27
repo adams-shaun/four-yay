@@ -16,6 +16,8 @@ import "testing"
 func init() {
 	derivedMemoVerify = true
 	sacrificeCardnameVerify = true
+	pricedCandidatesVerify = true
+	castsOnlyWalkVerify = true
 	walkCacheVerify = true
 	trigZoneSkipVerify = true
 }
