@@ -521,6 +521,20 @@ type Decision struct {
 	// the one reader; false (the zero) omits the field, so every existing
 	// decision serialises byte-identically.
 	Budgeted bool `json:"budgeted,omitempty"`
+	// PayerLife is the acting player's life total, published as the bound on
+	// a combat option's combined non-mana LIFE charge: the sum of the chosen
+	// options' CostLife plus each CostPhyrexian pip (priced at two life,
+	// CR 107.4f). It is the same kind of published rule input as MaxSum, and
+	// it exists because the combined charge is a WHOLE-declaration property
+	// the per-option list cannot express: a per-attacker state-based tax
+	// (Norn's Annex) offers every (attacker, defender) pair payable on its
+	// own, and only the sum overruns. Decision.requiredCore, RequiredQuota
+	// and FitRequired derive the charge-feasible required set from this one
+	// field, so the engine's declaration check and every client repair agree.
+	// 0 (omitted) means "not published" -- a player at 0 life has lost and
+	// cannot be asked, in the same way MaxSum 0 means "no budget" -- so
+	// every decision without a combat charge serialises byte-identically.
+	PayerLife int32 `json:"payer_life,omitempty"`
 	// MinSum is the mirror of MaxSum: a cumulative FLOOR over the chosen
 	// options' Value fields -- the sum must REACH it, not stay under it. The
 	// engine's first user is the tap-cost election of a withTotalPowerGE<N>
@@ -778,6 +792,18 @@ func New(player state.PlayerID, kind Kind, prompt string, min, max int, options 
 // predicate, so what the engine enforces and what a client assembles cannot
 // disagree about whether a budget exists.
 func (d *Decision) HasBudget() bool { return d.MaxSum > 0 || d.Budgeted }
+
+// PayerLifeBound reports the decision's published non-mana charge bound: the
+// acting player's life total when a combat charge is on the wire, or -1 when
+// the decision published none (the bound is then inert, exactly as
+// ChargeOptionConstraints treats an unpublished life). It is the ONE reader
+// of PayerLife, so the required-core/quota rule and the repair cannot drift.
+func (d *Decision) PayerLifeBound() int32 {
+	if d.PayerLife > 0 {
+		return d.PayerLife
+	}
+	return -1
+}
 
 // GroupCap is the effective per-Group selection cap the wire enforces:
 // GroupLimit when it raises one, else the ordinary at-most-one-per-Group

@@ -203,7 +203,24 @@ func (d *Decision) blockRequirementsSatisfied(choices []int) int {
 }
 
 func (d *Decision) blockRequiredQuota() int {
-	return d.blockRequirementsSatisfied(d.blockRequiredCore())
+	return d.blockRequirementsSatisfied(d.blockRequiredCoreChargeFeasible())
+}
+
+// blockRequiredCoreChargeFeasible is blockRequiredCore filtered through the
+// SAME combined non-mana charge rule the attack path uses
+// (ChargeOptionConstraints over the decision's published PayerLife): a legal
+// team that leaves the whole declaration unpayable is not a team the engine's
+// combined-charge check accepts, so it must not be counted by the quota nor
+// rebuilt by FitRequired. The unfiltered core is returned unchanged whenever
+// it is already payable, so every charge-free block decision is
+// byte-identical. ONE derivation, so the quota and the repair cannot
+// disagree.
+func (d *Decision) blockRequiredCoreChargeFeasible() []int {
+	core := d.blockRequiredCore()
+	if d.ChargeOptionsFit(core) {
+		return core
+	}
+	return ChargeOptionConstraints(d, core, d.PayerLifeBound(), 0)
 }
 
 func (d *Decision) blockAnswerLegal(choices []int) bool {
@@ -226,7 +243,7 @@ func (d *Decision) blockAnswerLegal(choices []int) bool {
 // BlockRequiredTeam is the legal maximum team over all MustBlock candidates.
 // Rules uses it when constructing the offer to highlight one feasible team.
 func (d *Decision) BlockRequiredTeam() []int {
-	return d.blockRequiredCore()
+	return d.blockRequiredCoreChargeFeasible()
 }
 
 // blockCountLegal checks published per-attacker team minima and maxima on an
