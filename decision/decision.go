@@ -975,8 +975,14 @@ func SetPropCapacity(mode SetPropMode, sets [][]string) int {
 				hasEmpty = true
 				continue
 			}
-			for _, t := range set {
-				counts[t]++
+			// Count OPTIONS per token, not token occurrences: a set may
+			// repeat a token (an amassed Sliver Army token derives "Sliver"
+			// from its script and again from amass's "it's also a Sliver"
+			// grant), and one option must never count as two that share it.
+			for i, t := range set {
+				if !slices.Contains(set[:i], t) {
+					counts[t]++
+				}
 			}
 		}
 		best := 0
