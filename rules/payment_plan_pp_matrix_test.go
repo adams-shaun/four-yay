@@ -25,6 +25,9 @@ func ppAsk(t *testing.T, e *Engine) *decision.Decision {
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want seat-0 priority", d)
 	}
+	// Payment actions are published lazily (aph-lazy-offers): build them
+	// for this ask, as an opted-in consumer would.
+	e.EnsurePaymentActions()
 	return d
 }
 func ppAction(t *testing.T, d *decision.Decision, spell state.ObjID) decision.PaymentAction {
