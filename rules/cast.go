@@ -1018,9 +1018,8 @@ func (e *Engine) hasCastConvoke(id state.ObjID) bool {
 
 // hasCastImprovise reports whether the spell being cast carries Improvise
 // (CR 702.66), read the same way hasCastConvoke reads Convoke: the printed
-// keyword or a layer-6 grant reaching the cast spell. No corpus card grants
-// Improvise (measured), so the grant path is inert groundwork kept for
-// symmetry with the sibling reads.
+// keyword or a layer-6 grant reaching the cast spell. Inspiring Statuary
+// grants Improvise to nonartifact spells, so the grant path is live.
 func (e *Engine) hasCastImprovise(id state.ObjID) bool {
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Improvise") {
