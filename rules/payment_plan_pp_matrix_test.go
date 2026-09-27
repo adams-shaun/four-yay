@@ -245,11 +245,12 @@ func TestPaymentPlanProducerAndPoolExclusions(t *testing.T) {
 			t.Fatalf("witness %#v, want the Mountain", a.Plans[0])
 		}
 	})
-	t.Run("costly producer never funds", func(t *testing.T) {
+	t.Run("costly producer funds only as a disclosed last resort", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9351, redSpell)
 		onBoard(t, e, 0, "Name:Pain Rock\nTypes:Artifact\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ R\nOracle:x\n")
-		if ppHasAction(ppAsk(t, e), spell) {
-			t.Fatal("life-cost producer funded a plan")
+		a := ppAction(t, ppAsk(t, e), spell)
+		if acts := a.Plans[0].Activations; len(acts) != 1 || acts[0].Consequence == nil || *acts[0].Consequence != (decision.PaymentConsequence{Life: 1}) {
+			t.Fatalf("life-cost producer witness = %#v, want one step disclosing life:1", a.Plans[0])
 		}
 	})
 	t.Run("restricted producer never funds", func(t *testing.T) {

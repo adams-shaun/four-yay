@@ -490,11 +490,14 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// deterministic caretaker bot — the one defaultSeats would have built
 	// for that slot (seed ^ slot+1), so a timed-out human decision is
 	// answered by exactly the intent a pure-bot game would have logged for
-	// that seat, keeping the replay byte-identical (D3). Done here, once, on
-	// the match goroutine before the loop, so it never races a Decide.
+	// that seat, keeping the replay byte-identical (D3). The one exception is
+	// a payment plan that pays life: a caretaker never auto-selects it (spec
+	// §6; newCaretakerSeat), since a human confirms life payments in the
+	// client. Done here, once, on the match goroutine before the loop, so it
+	// never races a Decide.
 	for i, s := range seats {
 		if hs, ok := s.(*HumanSeat); ok {
-			caretaker, err := NewBotPolicySeatWithAutoPayMana(t.cfg.BotPolicy, m.seed^uint64(i+1), autoPayMana)
+			caretaker, err := newCaretakerSeat(t.cfg.BotPolicy, m.seed^uint64(i+1), autoPayMana)
 			if err != nil {
 				return r.crash(t, m, err)
 			}

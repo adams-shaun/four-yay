@@ -1,7 +1,7 @@
 package rules
 
 // This file deliberately contains no call to emit.  Payment plans are an
-// offer-time witness: execution is owned by the following ticket.
+// offer-time witness; the planned executor lives in cast.go.
 
 import (
 	"cmp"
@@ -448,6 +448,8 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	units := e.paymentPlanManaUnits(p)
 	pool := e.G.Players[p].Pool
 	produced := state.Mana{}
+	var pain int64
+	lastResort := false
 	seen := make(map[state.ObjID]bool, len(plan.Activations))
 	for _, pa := range plan.Activations {
 		if seen[pa.Source] {
@@ -461,8 +463,19 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 		if !ok {
 			return fmt.Errorf("payment activation is no longer eligible")
 		}
+		pain += paymentPlanConsequencePain(step.consequence)
+		lastResort = lastResort || step.tier == paymentTierLastResort
 		pool = manaAdd(pool, step.mana)
 		produced = manaAdd(produced, step.mana)
+	}
+	// The lethal guard and the phase rule (spec 5): a witness never kills its
+	// caster, and it uses a last-resort source only when no plan from normal
+	// sources exists -- exactly when the planner's own best plan uses one.
+	if pain > 0 && pain >= int64(e.G.Players[p].Life) {
+		return fmt.Errorf("payment plan life and damage would be lethal")
+	}
+	if lastResort && !paymentPlanUsesLastResort(*got.Plan) {
+		return fmt.Errorf("payment plan uses a last-resort source while a normal plan exists")
 	}
 	cost := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
@@ -471,6 +484,29 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 		return fmt.Errorf("payment witness does not settle")
 	}
 	return nil
+}
+
+// paymentPlanUsesLastResort reports whether any step of plan discloses a
+// consequence (exactly the last-resort steps).
+func paymentPlanUsesLastResort(plan decision.PaymentPlan) bool {
+	for _, a := range plan.Activations {
+		if a.Consequence != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// paymentPlanRemainingPain sums the disclosed life + damage of plan's steps
+// from index from on (the executor's lethal revalidation).
+func paymentPlanRemainingPain(plan decision.PaymentPlan, from int) int64 {
+	var pain int64
+	for i := from; i < len(plan.Activations); i++ {
+		if c := plan.Activations[i].Consequence; c != nil {
+			pain += int64(c.Life) + int64(c.Damage)
+		}
+	}
+	return pain
 }
 
 func paymentPlanCostOK(c Cost) bool {
@@ -518,7 +554,14 @@ type plannedManaActivation struct {
 	// types (W/U/B/R/G/C) it can produce and colours is the WUBRG bitmask
 	// (bit i = state.MW+i) of the colours it can produce. They feed rank keys
 	// 5 (flexibility consumed) and 7 (remainder diversity).
+	//
+	// Both are computed over the source's NORMAL alternatives (the phase-1
+	// view, and the "untapped normal remainder" keys 6 and 7 read); a source
+	// with only last-resort alternatives has colours 0. flexAll is the same
+	// count over every eligible alternative, normal and last resort, which
+	// is what key 5 reads in phase 2 (paymentPlanLastResortChoices).
 	flex    int
+	flexAll int
 	colours uint8
 	// ma is the exact ability this alternative activates. It is not part of
 	// the witness: every intrinsic ability shares one PaymentAbility
@@ -549,20 +592,33 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	for i, u := range units {
 		choices[i] = e.paymentPlanQueryAlternatives(u)
 	}
-	// Phase 1 (spec 5): normal sources only. Phase 2 -- normal plus last
-	// resort, run only when phase 1 proves no plan exists -- is wired by
-	// aph-last-resort-plans through the same search.
+	// Phase 1 (spec 5): normal sources only. If it finds a complete plan,
+	// that is the offer and last-resort sources are never considered.
+	life := e.G.Players[p].Life
 	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
 	rankCtx := newPaymentPlanRankContext(choices, e.paymentPlanHandDemand(p, cast.Object))
-	search := searchPaymentPlan(cost, e.G.Players[p].Pool, e.G.Players[p].Life, rankCtx,
+	search := searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
 		phase1, e.paymentPlanQueryClasses(p, paymentTierNormal, phase1))
+	nodes := search.nodes
+	// Phase 2 runs only when phase 1 PROVES no plan exists (insufficient,
+	// not search_limit): normal plus last-resort alternatives, ranked by the
+	// irreversible-cost key, never a plan whose summed life + damage would
+	// reduce the caster to 0 or less. The rank context is phase 1's: keys 6
+	// and 7 read the untapped normal remainder in both phases.
+	if search.best == nil && !search.limited {
+		if phase2 := paymentPlanLastResortChoices(choices, life); phase2 != nil {
+			search = searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
+				phase2, e.paymentPlanQueryClasses(p, paymentTierLastResort, phase2))
+			nodes += search.nodes
+		}
+	}
 	switch {
 	case search.best != nil && search.limited:
-		return PaymentPlanOutcome{Plan: search.best, Nodes: search.nodes, Reason: "search_limit"}
+		return PaymentPlanOutcome{Plan: search.best, Nodes: nodes, Reason: "search_limit"}
 	case search.best != nil:
-		return PaymentPlanOutcome{Plan: search.best, Nodes: search.nodes}
+		return PaymentPlanOutcome{Plan: search.best, Nodes: nodes}
 	case search.limited:
-		return PaymentPlanOutcome{Reason: "search_limit", Nodes: search.nodes}
+		return PaymentPlanOutcome{Reason: "search_limit", Nodes: nodes}
 	}
 	// The first source diagnostic is read only for the outcome that
 	// reports it.
@@ -584,14 +640,18 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 			}
 		}
 	}
-	return PaymentPlanOutcome{Reason: "insufficient", Detail: firstSourceDetail, Nodes: search.nodes}
+	return PaymentPlanOutcome{Reason: "insufficient", Detail: firstSourceDetail, Nodes: nodes}
 }
 
 // paymentPlanManaUnits extends the shared fixed-production payment census
-// with only the one choice shape a V1 witness can make concrete: Produced$
-// Any with a fixed amount.  The shared census must keep withholding it for
-// attack/unless windows, which cannot answer a colour choice; this planner
-// records its selected W/U/B/R/G output and executes that exact rewrite.
+// with the choice shapes a V1 witness can make concrete (Produced$ Any with a
+// fixed amount, an amount-1 Combo/Chosen/ColorIdentity) and with the
+// fixed-production abilities whose cost is not a bare tap (the census lists
+// free-cost abilities only), so the tier gate sees every last-resort
+// candidate (spec §3.2). The shared census must keep withholding the choice
+// shapes for attack/unless windows, which cannot answer a colour choice; this
+// planner records its selected W/U/B/R/G output and executes that exact
+// rewrite.
 //
 // It additionally prices a source the shared census withholds because its
 // Amount$ is not statically literal, when the engine's own evaluator resolves
@@ -622,6 +682,28 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 			}
 			counts, any := cards.ProducedCounts(ma.Params["Produced"])
 			if !any {
+				// Fixed production whose cost is not a bare tap (Eldrazi
+				// Spawn's Sac<1/CARDNAME>: Add {C}) is outside the shared
+				// census, which lists free-cost abilities only. Such an
+				// ability is never normal (paymentPlanTapOnlyCost); the tier
+				// gate in paymentPlanUnitAlternatives keeps it only when it is
+				// a last-resort shape.
+				cost := e.parseCost(ma.Params["Cost"])
+				if manaFreeCost(cost) || strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+					continue
+				}
+				total := int32(0)
+				for _, n := range counts {
+					total += n
+				}
+				if total <= 0 {
+					continue
+				}
+				if idx < 0 {
+					units = append(units, windowManaUnit{id: id})
+					idx = len(units) - 1
+				}
+				units[idx].alts = append(units[idx].alts, windowManaAlt{ma: ma, counts: counts, amt: amt})
 				continue
 			}
 			// The shared census keeps only deterministic production; extend it
@@ -781,6 +863,12 @@ func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *ca
 	if tier == paymentTierDeferred {
 		return tier, c, detail
 	}
+	// A last-resort step always discloses a consequence (spec §4: a present
+	// consequence sets at least one field); a shape that classified last
+	// resort without one is not a shape the witness can describe.
+	if tier == paymentTierLastResort && c == (paymentConsequence{}) {
+		return paymentTierDeferred, paymentConsequence{}, "source:last_resort"
+	}
 	switch it, ic, idetail := e.paymentPlanSourceInterference(id, ma); it {
 	case paymentTierDeferred:
 		return it, ic, idetail
@@ -846,6 +934,11 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 		return deferred("source:rider")
 	}
 	if cost.Sac != nil || cost.Life != 0 || cost.Return != nil {
+		// Every other cost part must be absent: the witness discloses only
+		// the tap, the self-sacrifice, the life and the self-return.
+		if !paymentPlanLastResortCostOK(cost) {
+			return deferred("source:last_resort")
+		}
 		c := paymentConsequence{}
 		if len(cost.Sac) > 0 && len(cost.Sac) == 1 && paymentPlanSelfCost(cost.Sac[0], id) {
 			c.sacrifice = true
@@ -866,6 +959,17 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 		return deferred("source:last_resort")
 	}
 	return paymentTierNormal, paymentConsequence{}, ""
+}
+
+// paymentPlanLastResortCostOK reports whether a last-resort activation cost
+// is exactly {T} (optional), Sac<1/...>, PayLife<N> and Return<1/...>: every
+// other part -- mana, X, counters, discard, exile, mill, reveal, energy, a tap
+// of another permanent, an unparsed token -- is outside what a witness step
+// can disclose, so the ability stays deferred.
+func paymentPlanLastResortCostOK(c Cost) bool {
+	rest := c
+	rest.Tap, rest.Sac, rest.Life, rest.Return = false, nil, 0, nil
+	return rest.Generic == 0 && rest.Colored == (state.Mana{}) && len(rest.ExileFromTop) == 0 && paymentPlanCostOK(rest)
 }
 
 // paymentPlanHasSpecialProductionParam reports whether the ability's own head
@@ -984,10 +1088,16 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			payer = source.Controller
 		}
 		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
-		if tier != paymentTierNormal {
-			continue
-		}
-		if !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
+		switch tier {
+		case paymentTierNormal:
+			if !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
+				continue
+			}
+		case paymentTierLastResort:
+			// The classifier vetted the whole cost and chain: {T} plus the
+			// disclosed self-sacrifice/life/self-return parts, or a tap-only
+			// cost with a disclosed rider, trigger or replacement.
+		default:
 			continue
 		}
 		ab, ok := e.paymentAbility(u.id, alt.ma)
@@ -1021,21 +1131,81 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 	// search happened to choose. Flexibility is the number of DISTINCT mana
 	// types those outcomes produce (spec 5 key 5), so a Produced$ Any source
 	// counts 5, a typed dual 2, and two abilities that both add {U} count 1.
-	var types uint8 // bit i = mana index i (W/U/B/R/G/C)
+	var types, all uint8 // bit i = mana index i (W/U/B/R/G/C)
 	for _, a := range out {
 		for i, n := range a.mana {
 			if n > 0 {
-				types |= 1 << i
+				all |= 1 << i
+				if a.tier == paymentTierNormal {
+					types |= 1 << i
+				}
 			}
 		}
 	}
-	flex := bits.OnesCount8(types)
+	flex, flexAll := bits.OnesCount8(types), bits.OnesCount8(all)
 	colours := types &^ (1 << state.MC)
 	for i := range out {
 		out[i].flex = flex
+		out[i].flexAll = flexAll
 		out[i].colours = colours
 	}
 	return out
+}
+
+// paymentPlanLastResortChoices is phase 2's alternative table (spec 5): every
+// unit's normal AND last-resort alternatives, each carrying the source's
+// phase-2 flexibility (flexAll, key 5 over every eligible alternative), minus
+// any alternative whose own life + damage would by itself be lethal at the
+// caster's current life (the lethal guard, applied to one step here and to
+// the whole plan by the search). Unit positions are preserved. It returns
+// nil when no unit has a last-resort alternative left, so phase 2 cannot
+// differ from phase 1 and is skipped.
+func paymentPlanLastResortChoices(choices [][]plannedManaActivation, life int32) [][]plannedManaActivation {
+	out := make([][]plannedManaActivation, len(choices))
+	any := false
+	for i, alts := range choices {
+		for _, a := range alts {
+			if a.tier < paymentTierLastResort {
+				continue
+			}
+			if pain := paymentPlanConsequencePain(a.consequence); pain > 0 && pain >= int64(life) {
+				continue
+			}
+			if a.tier == paymentTierLastResort {
+				any = true
+			}
+			a.flex = a.flexAll
+			out[i] = append(out[i], a)
+		}
+	}
+	if !any {
+		return nil
+	}
+	return out
+}
+
+// paymentPlanConsequencePain is the life a step costs its caster: life paid
+// plus damage dealt to its controller (the lethal guard's measure).
+func paymentPlanConsequencePain(c paymentConsequence) int64 {
+	return int64(c.life) + int64(c.damage)
+}
+
+// wire is the consequence as the witness discloses it: nil for a normal step.
+func (c paymentConsequence) wire() *decision.PaymentConsequence {
+	if c == (paymentConsequence{}) {
+		return nil
+	}
+	return &decision.PaymentConsequence{Sacrifice: c.sacrifice, Life: c.life, Damage: c.damage, NoUntap: c.noUntap, ReturnToHand: c.returnToHand}
+}
+
+// paymentConsequenceEqual reports whether a witness step's disclosed
+// consequence is exactly c.
+func paymentConsequenceEqual(c paymentConsequence, w *decision.PaymentConsequence) bool {
+	got := c.wire()
+	if got == nil || w == nil {
+		return got == nil && w == nil
+	}
+	return *got == *w
 }
 
 // paymentPlanChoiceShape reports whether a Produced$ value is one of the
@@ -1137,7 +1307,9 @@ func (e *Engine) paymentPlanController(id state.ObjID) state.PlayerID {
 // alternative the planner offers for its source: the one whose ability
 // identity AND production both equal the step's. Identity alone is not
 // enough -- every intrinsic ability shares {intrinsic, basic_land}, so a
-// Volcanic Island's {U} and {R} abilities differ only in Produces. The pair
+// Volcanic Island's {U} and {R} abilities differ only in Produces. The
+// disclosed consequence must also be exactly the one the source would incur
+// now (spec §6: a changed consequence is production_changed). The pair
 // is: a printed identity names one ability by index (a Produced$ Any
 // ability's alternatives then differ by Produces), and a source's intrinsic
 // abilities are de-duplicated by production (cards.ApplyIntrinsics and the
@@ -1152,7 +1324,8 @@ func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.
 			continue
 		}
 		for _, candidate := range e.paymentPlanUnitAlternatives(u) {
-			if candidate.ma != nil && candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces {
+			if candidate.ma != nil && candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces &&
+				paymentConsequenceEqual(candidate.consequence, pa.Consequence) {
 				return candidate, true
 			}
 		}
@@ -1532,6 +1705,7 @@ func paymentWitness(c Cost, initial, produced state.Mana, as []plannedManaActiva
 	acts := make([]decision.PaymentActivation, len(as))
 	for i := range as {
 		acts[i] = as[i].activation
+		acts[i].Consequence = as[i].consequence.wire()
 	}
 	spend := decision.ManaAmount{}
 	for i := range initial {

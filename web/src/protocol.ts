@@ -829,13 +829,45 @@ export interface PaymentAbility {
 }
 
   /**
+   * PaymentConsequence is a last-resort step's disclosed consequence. A present
+   * consequence sets at least one field, so "absent" and "nothing" have exactly
+   * one spelling (nil). Clients derive "needs confirmation" from Life > 0.
+   */
+export interface PaymentConsequence {
+  /**
+   * Sacrifice: the source itself is sacrificed as part of the cost.
+   */
+  sacrifice?: boolean;
+  /**
+   * Life is life paid as a cost (PayLife<N>).
+   */
+  life?: number;
+  /**
+   * Damage is damage the source deals to its controller.
+   */
+  damage?: number;
+  /**
+   * NoUntap: the source doesn't untap during its controller's untap step.
+   */
+  no_untap?: boolean;
+  /**
+   * ReturnToHand: the source returns to its owner's hand.
+   */
+  return_to_hand?: boolean;
+}
+
+  /**
    * PaymentActivation is one source activation authorized by a plan.
+   * Consequence is present exactly on a last-resort step (spec §3.2, §4): it
+   * discloses what the activation costs beyond the tap, and it is part of the
+   * witness, so validation compares it and the plan identity binds it.
    */
 export interface PaymentActivation {
   source: number;
   source_zone_seq: number;
   ability: PaymentAbility;
   produces: [number, number, number, number, number, number];
+  consequence?: PaymentConsequence | null;
 }
 
   /**

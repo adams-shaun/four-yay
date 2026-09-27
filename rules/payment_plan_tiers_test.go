@@ -127,8 +127,11 @@ func TestPaymentPlanDoesNotUseLastResortSources(t *testing.T) {
 		}
 		out := e.PlanCastPayment(0, paymentCast(spell))
 		if basics == 0 {
-			if out.Plan != nil || out.Reason != "insufficient" {
-				t.Fatalf("Tomb-only plan = %+v, want insufficient", out)
+			// No normal plan exists, so the Tomb funds a last-resort plan that
+			// discloses its damage (aph-last-resort-plans).
+			if out.Plan == nil || len(out.Plan.Activations) != 1 || out.Plan.Activations[0].Source != tomb ||
+				out.Plan.Activations[0].Consequence == nil || *out.Plan.Activations[0].Consequence != (decision.PaymentConsequence{Damage: 2}) {
+				t.Fatalf("Tomb-only plan = %+v, want the Tomb disclosing damage:2", out)
 			}
 			continue
 		}
@@ -216,24 +219,22 @@ func tierFillGraveyard(t *testing.T, e *Engine, n int) {
 
 // TestPaymentPlanTiersFPAncientTomb (FP-2). The {2} plan the fewest-sources
 // rank used to build from Ancient Tomb moved life 20 -> 18 on execution with
-// nothing announced in the witness. Now: tomb only means no plan at all
-// (Reason insufficient, Detail names the rider), and with two Swamps the plan
-// uses the Swamps and execution leaves life untouched.
+// nothing announced in the witness. Now: tomb only is a last-resort plan
+// whose witness DISCLOSES the 2 damage (aph-last-resort-plans), and with two
+// Swamps the plan uses the Swamps and execution leaves life untouched.
 func TestPaymentPlanTiersFPAncientTomb(t *testing.T) {
-	// Tomb only: no plan.
+	// Tomb only: the damage is announced in the witness.
 	e, _, spell := newFixtureDeck(t, 9840, "Name:Two Probe\nManaCost:2\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
-	if tomb := onBoardCard(t, e, 0, corpusTierFixture(t, "Ancient Tomb")); tomb == 0 {
+	tomb := onBoardCard(t, e, 0, corpusTierFixture(t, "Ancient Tomb"))
+	if tomb == 0 {
 		t.Fatal("precondition: Ancient Tomb not on the battlefield")
 	}
 	out := e.PlanCastPayment(0, paymentCast(spell))
-	if out.Plan != nil {
-		t.Fatalf("tomb-only board produced a plan that uses the self-damaging source: %+v", out.Plan.Activations)
+	if a, ok := tierPlanUses(out, tomb); !ok || a.Consequence == nil || *a.Consequence != (decision.PaymentConsequence{Damage: 2}) {
+		t.Fatalf("tomb-only plan = %+v, want the Tomb with its 2 damage disclosed", out)
 	}
-	if out.Reason != "insufficient" {
-		t.Fatalf("reason = %q, want insufficient", out.Reason)
-	}
-	if out.Detail != "source:last_resort" {
-		t.Fatalf("detail = %q, want the rider diagnostic", out.Detail)
+	if out.Reason != "" {
+		t.Fatalf("reason = %q, want a clean last-resort plan", out.Reason)
 	}
 
 	// Tomb + two Swamps: the Swamps fund the plan, life unchanged on execution.
@@ -276,8 +277,11 @@ func TestPaymentPlanTiersFPAncientTomb(t *testing.T) {
 }
 
 // TestPaymentPlanTiersFPHarmfulRiderFamily (FP-2b). Every harmful rider shape
-// the census found admitted is now withheld from plans: damage/life loss,
-// poison, control change, return to hand and the targeted rider.
+// the census found admitted silently is now either withheld from plans
+// (deferred: life loss to each player, poison, control change, the targeted
+// rider) or, when it is a fully determined last-resort consequence (damage to
+// you, return to hand), planned only with that consequence disclosed in the
+// witness step (aph-last-resort-plans).
 func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 	for _, name := range []string{"Tarnished Citadel", "Cryptolith Fragment", "Elves of Deep Shadow", "Mox Poison",
 		"Rainbow Vale", "Undiscovered Paradise", "Witch Engine", "Cabal Pit"} {
@@ -288,15 +292,17 @@ func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 			tierFillGraveyard(t, e, 7)
 			// Precondition: the card carries at least one non-normal mana ability
 			// (the rider/consequence this test is about), and collect its indices.
-			harmful := map[uint32]bool{}
+			harmful := map[uint32]paymentAbilityTier{}
+			disclosed := map[uint32]paymentConsequence{}
 			for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
-				if tier, _, detail := e.paymentPlanAbilityTier(0, id, ma); tier != paymentTierNormal {
+				if tier, c, detail := e.paymentPlanAbilityTier(0, id, ma); tier != paymentTierNormal {
 					for i, a := range e.G.Obj(id).Face().Abilities {
 						if a == ma {
-							harmful[uint32(i)] = true
+							harmful[uint32(i)] = tier
+							disclosed[uint32(i)] = c
 						}
 					}
-					t.Logf("%s: withheld mana ability (%s)", name, detail)
+					t.Logf("%s: non-normal mana ability (tier %d, %s)", name, tier, detail)
 				}
 			}
 			if len(harmful) == 0 {
@@ -307,8 +313,16 @@ func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 				return
 			}
 			for _, a := range out.Plan.Activations {
-				if harmful[a.Ability.Index] {
-					t.Errorf("plan admits %s ability %d whose resolution carries a harmful rider/consequence", name, a.Ability.Index)
+				tier, ok := harmful[a.Ability.Index]
+				if !ok {
+					continue
+				}
+				if tier != paymentTierLastResort {
+					t.Errorf("plan admits %s deferred ability %d", name, a.Ability.Index)
+					continue
+				}
+				if !paymentConsequenceEqual(disclosed[a.Ability.Index], a.Consequence) {
+					t.Errorf("plan admits %s ability %d without disclosing its consequence %+v (step says %+v)", name, a.Ability.Index, disclosed[a.Ability.Index], a.Consequence)
 				}
 			}
 		})

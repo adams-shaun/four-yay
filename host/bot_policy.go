@@ -42,6 +42,22 @@ func NewBotPolicySeat(name string, seed uint64) (seat.Seat, error) {
 	return NewBotPolicySeatWithAutoPayMana(name, seed, false)
 }
 
+// newCaretakerSeat builds the timeout caretaker for a human seat: the hosted
+// policy's bot for that slot, except that with auto-pay it never selects a
+// payment plan that pays life (spec §6: submitting a selector is consent, and
+// a caretaker cannot consent for the human it stands in for). Every hosted
+// policy constructor returns a *seat.Bot; anything else is returned as is.
+func newCaretakerSeat(name string, seed uint64, autoPayMana bool) (seat.Seat, error) {
+	s, err := NewBotPolicySeatWithAutoPayMana(name, seed, autoPayMana)
+	if err != nil {
+		return nil, err
+	}
+	if b, ok := s.(*seat.Bot); ok && autoPayMana {
+		b.SkipLifePlans()
+	}
+	return s, nil
+}
+
 // NewBotPolicySeatWithAutoPayMana builds a named hosted bot. When autoPayMana
 // is set, the bot selects offered payment-plan witnesses instead of manually
 // tapping mana sources; normal decision policy remains unchanged.

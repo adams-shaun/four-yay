@@ -48,9 +48,10 @@ func srchSpell(cost string) string {
 // planner's own source units x every alternative of each chosen unit, in
 // battlefield (unit) order, each complete candidate settled by the ordinary
 // solver and ranked by rankPaymentPlan, the best kept by paymentPlanRank.less.
-// It has no node budget and no rank-based pruning. It skips only sets that
-// provably cannot pay or provably cannot win, by facts that hold for every
-// rank key order:
+// It has no node budget and no rank-based pruning. It never keeps a set
+// whose summed life + damage would kill the caster (the lethal guard). It
+// skips only sets that provably cannot pay or provably cannot win, by facts
+// that hold for every rank key order:
 //
 //   - a set that already pays is not extended: any superset has strictly more
 //     sources and no smaller irreversible cost or creature count, so it ranks
@@ -94,6 +95,15 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 	var walk func(int, state.Mana, []plannedManaActivation)
 	walk = func(at int, produced state.Mana, chosen []plannedManaActivation) {
 		visited++
+		// The lethal guard (spec 5): a set whose summed life + damage is at
+		// least the caster's life is never a plan, nor is any superset.
+		var pain int64
+		for _, a := range chosen {
+			pain += paymentPlanConsequencePain(a.consequence)
+		}
+		if pain > 0 && pain >= int64(life) {
+			return
+		}
 		if paid, ok := cost.resolveManaWith(manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
 			plan := paymentWitness(cost, pool, produced, chosen, paid.pool)
 			r := rankPaymentPlan(ctx, plan, chosen, paid.pool)

@@ -14,8 +14,13 @@ import (
 
 const maxPaymentQuantity = uint32(^uint32(0) >> 1)
 
-// PaymentPlanV1 is the only payment witness version this build understands.
-// V1's encoding is frozen: a changed witness format must use a new version.
+// PaymentPlanV1 is the only payment witness version this build understands,
+// and the newest planner is always V1 (spec amendment 2026-09-26, item 1).
+// The codec changes only additively -- the last-resort consequence trailer is
+// such a change, present only when a step carries a consequence, so every
+// earlier plan identity is byte-identical -- and each change is pinned by the
+// identity golden (TestPaymentPlanIdentityIsIndependentOfPresentation,
+// TestPaymentPlanConsequenceIdentityPinned) and rules' DecisionMade golden.
 const PaymentPlanV1 uint32 = 1
 
 // MaxPaymentActivations bounds one V1 witness before it is hashed or searched.
@@ -112,11 +117,68 @@ type PaymentAbility struct {
 }
 
 // PaymentActivation is one source activation authorized by a plan.
+// Consequence is present exactly on a last-resort step (spec §3.2, §4): it
+// discloses what the activation costs beyond the tap, and it is part of the
+// witness, so validation compares it and the plan identity binds it.
 type PaymentActivation struct {
-	Source        state.ObjID    `json:"source"`
-	SourceZoneSeq uint64         `json:"source_zone_seq"`
-	Ability       PaymentAbility `json:"ability"`
-	Produces      ManaAmount     `json:"produces"`
+	Source        state.ObjID         `json:"source"`
+	SourceZoneSeq uint64              `json:"source_zone_seq"`
+	Ability       PaymentAbility      `json:"ability"`
+	Produces      ManaAmount          `json:"produces"`
+	Consequence   *PaymentConsequence `json:"consequence,omitempty"`
+}
+
+// PaymentConsequence is a last-resort step's disclosed consequence. A present
+// consequence sets at least one field, so "absent" and "nothing" have exactly
+// one spelling (nil). Clients derive "needs confirmation" from Life > 0.
+type PaymentConsequence struct {
+	// Sacrifice: the source itself is sacrificed as part of the cost.
+	Sacrifice bool `json:"sacrifice,omitempty"`
+	// Life is life paid as a cost (PayLife<N>).
+	Life uint32 `json:"life,omitempty"`
+	// Damage is damage the source deals to its controller.
+	Damage uint32 `json:"damage,omitempty"`
+	// NoUntap: the source doesn't untap during its controller's untap step.
+	NoUntap bool `json:"no_untap,omitempty"`
+	// ReturnToHand: the source returns to its owner's hand.
+	ReturnToHand bool `json:"return_to_hand,omitempty"`
+}
+
+// IsZero reports whether c sets no consequence at all.
+func (c PaymentConsequence) IsZero() bool { return c == PaymentConsequence{} }
+
+// consequence trailer flag bits (codec note, payment-plan-v1-codec.md).
+const (
+	paymentConsequenceSacrifice    uint32 = 1 << 0
+	paymentConsequenceNoUntap      uint32 = 1 << 1
+	paymentConsequenceReturnToHand uint32 = 1 << 2
+)
+
+func (c PaymentConsequence) flags() uint32 {
+	var f uint32
+	if c.Sacrifice {
+		f |= paymentConsequenceSacrifice
+	}
+	if c.NoUntap {
+		f |= paymentConsequenceNoUntap
+	}
+	if c.ReturnToHand {
+		f |= paymentConsequenceReturnToHand
+	}
+	return f
+}
+
+func (c PaymentConsequence) validate() error {
+	if c.IsZero() {
+		return fmt.Errorf("present consequence sets no field")
+	}
+	if c.Life > maxPaymentQuantity {
+		return fmt.Errorf("consequence life overflows engine amount")
+	}
+	if c.Damage > maxPaymentQuantity {
+		return fmt.Errorf("consequence damage overflows engine amount")
+	}
+	return nil
 }
 
 // PaymentPlan is a complete V1 execution witness. PoolSpend records which
@@ -174,6 +236,12 @@ func ClonePaymentPlan(p PaymentPlan) PaymentPlan {
 		activations := p.Activations
 		p.Activations = make([]PaymentActivation, len(activations))
 		copy(p.Activations, activations)
+		for i := range p.Activations {
+			if c := p.Activations[i].Consequence; c != nil {
+				cc := *c
+				p.Activations[i].Consequence = &cc
+			}
+		}
 	}
 	return p
 }
@@ -306,6 +374,11 @@ func (p PaymentPlan) validateShape() error {
 		if err := a.Produces.validate(); err != nil {
 			return fmt.Errorf("payment activation %d production: %w", i, err)
 		}
+		if a.Consequence != nil {
+			if err := a.Consequence.validate(); err != nil {
+				return fmt.Errorf("payment activation %d: %w", i, err)
+			}
+		}
 	}
 	return nil
 }
@@ -371,7 +444,32 @@ func appendPaymentPlanCanonical(b []byte, p PaymentPlan) []byte {
 		b = appendMana(b, a.Produces)
 	}
 	b = appendMana(b, p.PoolSpend)
-	return appendMana(b, p.PoolAfter)
+	b = appendMana(b, p.PoolAfter)
+	// The consequence trailer (spec §4 amended) is appended only when some
+	// step carries a consequence, so every plan without one keeps its exact
+	// pre-trailer identity. The base encoding's length is fixed by its
+	// activation count, so the trailer's presence is unambiguous.
+	has := false
+	for _, a := range p.Activations {
+		if a.Consequence != nil {
+			has = true
+			break
+		}
+	}
+	if !has {
+		return b
+	}
+	b = appendString(b, "consequences")
+	for _, a := range p.Activations {
+		var c PaymentConsequence
+		if a.Consequence != nil {
+			c = *a.Consequence
+		}
+		b = appendU32(b, c.flags())
+		b = appendU32(b, c.Life)
+		b = appendU32(b, c.Damage)
+	}
+	return b
 }
 
 func appendMana(b []byte, m ManaAmount) []byte {

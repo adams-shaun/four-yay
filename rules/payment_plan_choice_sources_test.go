@@ -227,22 +227,44 @@ func TestPaymentPlanChoiceSources(t *testing.T) {
 		}
 	})
 
-	t.Run("last-resort coloured half is not planned but its colourless is", func(t *testing.T) {
+	t.Run("last-resort coloured half is planned only as a last resort, its colourless normally", func(t *testing.T) {
 		e, _, _ := newFixtureDeck(t, 9409, "Name:White Probe\nManaCost:W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		wastes := onBoardCard(t, e, 0, choiceCard(t, "Adarkar Wastes"))
-		cols := choiceColours(choiceAlts(t, e, wastes))
-		if !reflect.DeepEqual(cols, []string{"C"}) {
-			t.Fatalf("Adarkar Wastes alternatives = %v, want the {C} ability only (the pain half is last resort)", cols)
+		// The {C} ability is the only normal alternative; the coloured pain
+		// half is last resort with damage:1 (aph-last-resort-plans).
+		var normal []state.Mana
+		for _, u := range e.paymentPlanManaUnits(0) {
+			if u.id != wastes {
+				continue
+			}
+			for _, a := range e.paymentPlanUnitAlternatives(u) {
+				switch a.tier {
+				case paymentTierNormal:
+					normal = append(normal, a.mana)
+				case paymentTierLastResort:
+					if a.consequence != (paymentConsequence{damage: 1}) {
+						t.Fatalf("pain half consequence = %+v, want damage:1", a.consequence)
+					}
+				}
+			}
 		}
-		// A {W} instant with only the Wastes cannot use its coloured half.
+		if cols := choiceColours(normal); !reflect.DeepEqual(cols, []string{"C"}) {
+			t.Fatalf("Adarkar Wastes normal alternatives = %v, want the {C} ability only (the pain half is last resort)", cols)
+		}
+		if cols := choiceColours(choiceAlts(t, e, wastes)); !reflect.DeepEqual(cols, []string{"C", "W", "U"}) {
+			t.Fatalf("Adarkar Wastes alternatives = %v, want C then the last-resort W and U", cols)
+		}
+		// A {W} instant with only the Wastes uses its coloured half as a last
+		// resort, disclosing the damage.
 		w := choiceHand(t, e, "Name:W Probe\nManaCost:W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
-		if got := e.PlanCastPayment(0, paymentCast(w)); got.Plan != nil || got.Reason != "insufficient" {
-			t.Fatalf("{W} with only a painland = %+v reason=%q, want insufficient", got.Plan, got.Reason)
+		if got := e.PlanCastPayment(0, paymentCast(w)); got.Plan == nil || len(got.Plan.Activations) != 1 ||
+			got.Plan.Activations[0].Consequence == nil || *got.Plan.Activations[0].Consequence != (decision.PaymentConsequence{Damage: 1}) {
+			t.Fatalf("{W} with only a painland = %+v reason=%q, want the pain half disclosing damage:1", got.Plan, got.Reason)
 		}
 		// And its {C} ability is a normal plan for a colourless cost.
 		c := choiceHand(t, e, "Name:C Probe\nManaCost:C\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		got := e.PlanCastPayment(0, paymentCast(c))
-		if a, ok := choicePlanUses2(got, wastes); !ok || a.Produces[state.ManaIndex('C')] != 1 {
+		if a, ok := choicePlanUses2(got, wastes); !ok || a.Produces[state.ManaIndex('C')] != 1 || a.Consequence != nil {
 			t.Fatalf("{C} plan = %+v reason=%s, want the Wastes' colourless ability", got.Plan, got.Reason)
 		}
 	})
