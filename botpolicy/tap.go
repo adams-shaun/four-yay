@@ -377,6 +377,89 @@ func (b Board) TapIntent(d *decision.Decision) (state.ObjID, bool) {
 	return id, ok
 }
 
+// CastableNow reports whether the card the KPriority tap gate is tapping
+// toward (TapIntent) is one the deciding seat could actually cast in THIS
+// window. It is the auto-pay adapter's "plausibly castable intent"
+// predicate: the tap gate itself keeps tapping toward ANY unpayable
+// castable card regardless of timing, targets or total affordability
+// (tapWants is zone membership plus a cost gap), which under manual tapping
+// was the price of casting at all, but under auto-pay floats mana a planned
+// spell would otherwise keep untapped. The adapter reads this to decide
+// whether to take the manual answer (the intent is a real cast) or to run
+// the plan path without activations (the intent is not castable, so the tap
+// is pure waste).
+//
+// A true answer requires all three, each a fact the Board carries:
+//
+//   - timing: the card is instant speed (InstantSpeed), or it is the seat's
+//     own main phase (MyTurn && IsMain) with an empty stack (len(Stack)==0)
+//     -- the manual bot's own casting window. A sorcery-speed card in
+//     another seat's main phase, or over a non-empty stack, is not a cast
+//     the manual policy would make now;
+//   - not C8-dead: a counter (Counter) with no foreign spell on the stack
+//     (ForeignSpell) self-counters, so it is never worth the mana. This is
+//     the same C8 census chooseCast and the plan filter read;
+//   - affordable: the seat can produce this turn (producibleMana) enough to
+//     pay the card's printed cost plus the CR 903.8 command-zone tax
+//     (castCost). A 7-drop on five lands is not a cast the window can make,
+//     whatever its timing.
+//
+// It is a pure read of Board facts and consumes no rng, and it is the ONE
+// home of the predicate: the auto-pay adapter (seat/bot.go) does not
+// re-derive any of the three tests.
+func (b Board) CastableNow(player state.PlayerID, d *decision.Decision) (state.ObjID, bool) {
+	id, ok := b.TapIntent(d)
+	if !ok {
+		return 0, false
+	}
+	return id, b.castableNowCard(player, id)
+}
+
+// AnyCastableNow reports whether ANY unpayable castable card on the board is
+// one the seat could actually cast in THIS window (castableNowCard). It is
+// the broader reading of the same predicate, for a window with NO plan: the
+// tap gate's single best intent (CastableNow) can be an uncostable or
+// C8-dead card while a different card in the same hand IS a real cast the
+// manual policy could pay, and suppressing the manual answer there would
+// drop that cast. The plan-bearing window keeps the narrower CastableNow so
+// a plan the policy will take is not diverted for a lesser unplanned card.
+//
+// The result is a boolean OR over the castable set, so the map iteration
+// order cannot reach it. It consumes no rng.
+func (b Board) AnyCastableNow(player state.PlayerID) bool {
+	for id, c := range b.Cards {
+		if !c.Castable || c.CMC <= 0 {
+			continue
+		}
+		if b.poolPays(id, c) {
+			continue // already payable: no tap is needed, so no cast is stranded
+		}
+		if b.castableNowCard(player, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// castableNowCard is the per-card half of CastableNow: timing window, C8's
+// dead-counter test and total affordability, all over the card the tap gate
+// intended. It is the single implementation both CastableNow and
+// AnyCastableNow read, so the two can never disagree about what "castable
+// now" means.
+func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
+	c := b.Cards[id]
+	if !c.InstantSpeed && !(b.MyTurn && b.IsMain && len(b.Stack) == 0) {
+		return false
+	}
+	if c.Counter && !b.ForeignSpell(player) {
+		return false
+	}
+	if b.castCost(id, c) > b.producibleMana() {
+		return false
+	}
+	return true
+}
+
 // T3 -- the converter gate (cardfuzz batch1 lines 3/5/6/10/16/17). A mana
 // ability whose cost spends POOL mana and does not tap its source (Farrelite
 // Priest's and Bog Initiate's "{1}: Add {W}/{B}", Initiates of the Ebon

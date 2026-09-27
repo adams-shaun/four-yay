@@ -161,7 +161,7 @@ func (b *Bot) decide(brd botpolicy.Board, d *decision.Decision) decision.Intent 
 // AltCostIndex == 0), pays the plan. The submitted witness is copied from the
 // exact offered plan.
 func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision.Intent, bool) {
-	if d == nil || d.Kind != decision.KPriority || len(d.PaymentActions) == 0 || (brd.MyTurn && !brd.IsMain) {
+	if d == nil || d.Kind != decision.KPriority || (brd.MyTurn && !brd.IsMain) {
 		return decision.Intent{}, false
 	}
 	payable := make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
@@ -177,16 +177,20 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 			payable[a.Cast.Object] = a
 		}
 	}
-	if len(payable) == 0 {
-		return decision.Intent{}, false
-	}
-	if b.unplannedTapIntent(brd, d, payable) {
-		// The tap gate's intended card has no plan and is payable by hand:
-		// take the full manual policy, whose same tap gate aims the window's
-		// mana at that card, instead of spending it on a lesser planned
-		// spell. Once the manual taps float mana the engine withholds plans
-		// for the rest of the window (paymentPlanPoolOK), so the turn cannot
-		// oscillate back onto the plan path mid-sequence.
+	if b.wantsManual(brd, d, payable) {
+		// The tap gate has a real cast to make now and the plan path will
+		// strand it: take the full manual policy, whose same tap gate aims the
+		// window's mana at that card, instead of spending it on a lesser
+		// planned spell. Once the manual taps float mana the engine withholds
+		// plans for the rest of the window (paymentPlanPoolOK), so the turn
+		// cannot oscillate back onto the plan path mid-sequence.
+		//
+		// This is the single gate for BOTH the plan-bearing window and the
+		// no-plan window (len(payable)==0): when no cast is plausibly castable
+		// now, neither takes the manual answer. The candidate policy below
+		// then answers with land drop / ability / legacy cast / pass and no
+		// activations, so the window never floats mana toward a card it cannot
+		// cast.
 		return decision.Intent{}, false
 	}
 
@@ -263,37 +267,37 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	return decision.Intent{}, false
 }
 
-// unplannedTapIntent reports whether the tap gate's intended card -- the
-// spell chooseTap would spend this window's mana tapping toward, exposed as
-// Board.TapIntent -- is a cast the plan path will strand: it has NO offered
-// plan, is plausibly castable in this window, and is not already dead (C8's
-// foreign-spell census). A spell V1 cannot plan (a command-zone commander, an
-// X/hybrid/Phyrexian/snow or kicker/alternative cost, a graveyard/exile cast,
-// or one whose mana must come from a non-V1 source) is then paid by hand
-// rather than skipped over for a cheaper planned cast.
+// wantsManual reports whether the auto-pay adapter should answer this
+// priority window with the full manual policy (tap gate and all) rather than
+// the plan path. The manual answer is only worth taking when the trap-gate
+// intent is a cast the manual policy could actually make now; otherwise the
+// window's mana would float toward a card it cannot cast and empty at step
+// end, exactly the waste the auto-pay adapter exists to avoid.
 //
-// The window is the manual bot's own casting window: its own main phase with
-// an empty stack, OR any instant-speed card (which the policy may cast on the
-// opponent's turn or over a non-empty stack). A card tapped toward outside
-// those windows is not a cast the manual policy would make now, so the plan
-// path stays. This is scoped to the one intended card: it can only move a
-// payment decision that would otherwise pay a DIFFERENT spell.
-func (b *Bot) unplannedTapIntent(brd botpolicy.Board, d *decision.Decision, payable map[state.ObjID]decision.PaymentAction) bool {
-	id, ok := brd.TapIntent(d)
+// The test is branch-dependent because the two windows have different things
+// to protect:
+//
+//   - no plan (len(payable)==0): there is no planned cast to defer to, so
+//     ANY unpayable card that is castable now justifies the manual answer
+//     (Board.AnyCastableNow). This is the class reading the dead-counter
+//     shape needs: the tap gate's one best intent can be an uncostable or
+//     C8-dead card while a DIFFERENT card in the hand is a real cast, and
+//     looking only at the intent would drop that cast;
+//   - plan-bearing (len(payable)>0): a planned cast is at stake, so only the
+//     tap gate's own best intent justifies diverting to manual, and only
+//     when it has NO plan (Board.CastableNow plus the planned filter). This
+//     keeps the plan the policy will take from being abandoned for a lesser
+//     unplanned card -- the same one-intent scoping the unplanned-bot intent
+//     fallback always had.
+func (b *Bot) wantsManual(brd botpolicy.Board, d *decision.Decision, payable map[state.ObjID]decision.PaymentAction) bool {
+	if len(payable) == 0 {
+		return brd.AnyCastableNow(d.Player)
+	}
+	id, ok := brd.CastableNow(d.Player, d)
 	if !ok {
 		return false
 	}
 	if _, planned := payable[id]; planned {
-		return false
-	}
-	c := brd.Cards[id]
-	if !c.InstantSpeed && !(brd.MyTurn && brd.IsMain && len(brd.Stack) == 0) {
-		return false
-	}
-	// C8: a counter with no foreign spell to counter is never worth the
-	// mana (chooseCast refuses it outright), so falling back would spend the
-	// window on nothing. C8's census has one home, Board.ForeignSpell.
-	if c.Counter && !brd.ForeignSpell(d.Player) {
 		return false
 	}
 	return true
