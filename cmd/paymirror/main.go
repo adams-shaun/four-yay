@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/adams-shaun/gorge/internal/paymirror"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -40,19 +41,20 @@ func main() {
 	specFile := flag.String("spec", "", "play exactly one game from a GameSpec JSON file (a findings.jsonl record's \"spec\", random-deck lists included)")
 	decksFlag := flag.String("decks", "", "play exactly one game with these comma-separated repo decks at -seed (overrides -games/-seats/-formats deck picking; -formats names the one format)")
 	trace := flag.Bool("trace", false, "record full event streams in every report (use with -decks for one game)")
-	progress := flag.Bool("progress", false, "print one stderr line per finished game (results are never affected)")
+	progress := flag.Bool("progress", false, "print one stderr line per finished game (wall time is diagnostic only; never part of the results)")
 	maxObjects := flag.Int("max-objects", 2500, "end a game whose object arena passes this size (runaway boards make clones and diffs expensive)")
+	budget := flag.Duration("budget", 0, "wall-time budget per game, checked between intents; 0 = none. A harness bound only: it can truncate a game, never change a verdict")
 	resolve := flag.Bool("resolve", true, "also drive both sides of every equivalent route (deterministic passer) until the planned spell leaves the stack, and compare again")
 	flag.Parse()
 
-	if err := run(*dir, *games, *seed, *seatsFlag, *formats, *policy, *workers, *control, *maxTurns, *maxIntents, *out, *decksFlag, *specFile, *trace, *resolve, *progress, *maxObjects, os.Stdout); err != nil {
+	if err := run(*dir, *games, *seed, *seatsFlag, *formats, *policy, *workers, *control, *maxTurns, *maxIntents, *out, *decksFlag, *specFile, *trace, *resolve, *progress, *maxObjects, *budget, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "paymirror:", err)
 		os.Exit(1)
 	}
 }
 
 func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, workers int, control bool,
-	maxTurns, maxIntents int, out, decksFlag, specFile string, trace, resolve, progress bool, maxObjects int, stdout io.Writer) error {
+	maxTurns, maxIntents int, out, decksFlag, specFile string, trace, resolve, progress bool, maxObjects int, budget time.Duration, stdout io.Writer) error {
 	reg, err := testutil.OpenCorpusRegistry(dir)
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w", dir, err)
@@ -164,6 +166,7 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 	}
 	opt := paymirror.DriverOptions{MaxIntents: maxIntents, MaxTurns: int32(maxTurns), Control: control, Trace: trace, Resolve: resolve,
 		MaxObjects: maxObjects}
+
 	var wg sync.WaitGroup
 	next := make(chan int)
 	if workers < 1 {
@@ -174,10 +177,15 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 		go func() {
 			defer wg.Done()
 			for i := range next {
-				g := paymirror.PlayGame(decks, specs[i], opt)
+				t0 := time.Now()
+				gameOpt := opt
+				if budget > 0 {
+					gameOpt.BudgetExceeded = func() bool { return time.Since(t0) > budget }
+				}
+				g := paymirror.PlayGame(decks, specs[i], gameOpt)
 				if progress {
-					fmt.Fprintf(os.Stderr, "game %d/%d seed=%d decks=%s turns=%d intents=%d planned=%d err=%q\n",
-						i+1, len(specs), g.Spec.Seed, strings.Join(g.Spec.Decks, ","), g.Turns, g.Intents, len(g.Reports), g.Err)
+					fmt.Fprintf(os.Stderr, "game %d/%d seed=%d decks=%s turns=%d intents=%d planned=%d err=%q %.1fs\n",
+						i+1, len(specs), g.Spec.Seed, strings.Join(g.Spec.Decks, ","), g.Turns, g.Intents, len(g.Reports), g.Err, time.Since(t0).Seconds())
 				}
 				mu.Lock()
 				results[i], done[i] = g, true

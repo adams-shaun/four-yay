@@ -45,13 +45,12 @@ func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn 
 // start to answer "view at seq N" with at most one turn of replay.
 func (e *Engine) Clone() *Engine {
 	c := &Engine{
-		G:                  e.G.Clone(),
-		L:                  e.L.Clone(),
-		compiledText:       e.compiledText,
-		replayPaymentPlans: e.replayPaymentPlans,
-		landTypeWords:      e.landTypeWords,
-		turnsTaken:         append([]int32(nil), e.turnsTaken...),
-		turnsTakenEpoch:    e.turnsTakenEpoch,
+		G:               e.G.Clone(),
+		L:               e.L.Clone(),
+		compiledText:    e.compiledText,
+		landTypeWords:   e.landTypeWords,
+		turnsTaken:      append([]int32(nil), e.turnsTaken...),
+		turnsTakenEpoch: e.turnsTakenEpoch,
 		// turnStartTurns (the next-turn boundary cache) is copied like
 		// turnsTaken so a clone never shares the backing slice.
 		turnStartTurns: cloneTurnStartTurns(e.turnStartTurns),
@@ -647,6 +646,10 @@ func (e *Engine) Clone() *Engine {
 		if pt := e.manaColorActivation.trigger; pt != nil {
 			ma.trigger = &clonePendingTriggers([]pendingTrigger{*pt})[0]
 		}
+		// A routed off-stack-mana rider ask parks its resume chain here; the
+		// clone must own its own chain (the engine's own e.resume does too),
+		// or resuming the clone would traverse the original's outer links.
+		ma.nestedResume = cloneResume(e.manaColorActivation.nestedResume)
 		c.manaColorActivation = &ma
 	}
 	if e.manaDiscardActivation != nil {

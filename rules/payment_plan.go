@@ -19,6 +19,7 @@ import (
 type PaymentPlanOutcome struct {
 	Plan   *decision.PaymentPlan
 	Reason string // "", "unsupported", "insufficient", or "search_limit"
+	Detail string
 	Nodes  int
 }
 
@@ -44,14 +45,22 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 	if o == nil || o.Zone != state.ZHand || o.Owner != p || o.Face() == nil || int(o.FaceIdx) != cast.Face {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
-	if !e.paymentPlanCastCandidate(p, cast.Object) || !e.paymentPlanCastShapeOK(p, cast.Object) {
+	if detail := e.paymentPlanCastShapeDetail(p, cast.Object); detail != "" {
+		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
+	}
+	if !e.paymentPlanCastCandidate(p, cast.Object) {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	// V1 has no way to carry a target-dependent reprice or a choice made at
-	// announcement.  Candidate discovery below owns timing, targets and
+	// announcement. Candidate discovery below owns timing, targets and
 	// prohibitions; this method owns the exact cost/witness subset.
-	cost := e.offerCostFor(p, cast.Object, e.rawBaseCost(p, cast.Object), spellScope(""))
-	if !paymentPlanCostOK(cost) || !paymentPlanPoolOK(e.G.Players[p]) || e.paymentPlanManaInterference() {
+	base := e.rawBaseCost(p, cast.Object)
+	base = withSpellAbilityExtras(o.Face(), base)
+	cost := e.offerCostFor(p, cast.Object, base, spellScope(""))
+	if detail := paymentPlanCostDetail(cost); detail != "" {
+		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
+	}
+	if !paymentPlanPoolOK(e.G.Players[p]) || e.paymentPlanManaInterference() {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	return e.planPaymentCost(p, cast, cost)
@@ -79,32 +88,134 @@ func (e *Engine) paymentPlanCastCandidate(p state.PlayerID, id state.ObjID) bool
 // depends on a choice V1 cannot bind into its witness.  The ordinary priority
 // option remains available; this only withholds the additive automatic offer.
 func (e *Engine) paymentPlanCastShapeOK(p state.PlayerID, id state.ObjID) bool {
+	return e.paymentPlanCastShapeDetail(p, id) == ""
+}
+
+func (e *Engine) paymentPlanCastShapeDetail(p state.PlayerID, id state.ObjID) string {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
-		return false
+		return "shape:additional_cost"
 	}
 	f := o.Face()
-	// AlternateAdditionalCost is a mandatory election on an otherwise plain
-	// cast; optional-cost statics add a second plain-looking cast route.  A
-	// plan identifies neither choice, so it must not select either by accident.
 	if len(altAddCostParts(f)) != 0 || len(e.optionalCostViews(e.collectCostStatics(), p, id)) != 0 {
-		return false
+		return "shape:optional_cost"
 	}
-	// These keywords alter the final cost after announcement.  They are not
-	// payment-plan fields, even though their ordinary base option has Mode "".
+	// Cost$ on the spell ability and the supported cost-static extra are both
+	// additional costs; neither is represented by a mana-only plan witness.
+	mods := e.costModifiersWithTargets(p, id, spellScope(""), nil, false)
+	spellCost := Cost{}
+	if sa := f.SpellAbility(); sa != nil {
+		spellCost = e.parseCost(sa.Params["Cost"])
+	}
+	if paymentPlanCostDetail(spellCost) != "" || paymentPlanCostDetail(withSpellAbilityExtras(f, Cost{})) != "" || paymentPlanCostDetail(mods.extra) != "" {
+		return "shape:additional_cost"
+	}
+	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.HasKeyword(id, "Delve") {
+		return "shape:contribution"
+	}
+	if f.HasKeyword("Gift") {
+		return "shape:gift"
+	}
+	for name := range f.SVars {
+		if _, present, _ := modeCost(f, name); present || modeCostUnparseable(f, name) {
+			return "shape:modal_cost"
+		}
+	}
+	for _, key := range []string{"Replicate", "Multikicker", "Squad"} {
+		if _, ok := f.KeywordParam(key); ok {
+			return "shape:optional_cost"
+		}
+	}
+	if faceReadsManaSpent(f) || faceWantsConverge(f) || faceWantsCastSpend(f) ||
+		e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.sunburstGrantOut() {
+		return "shape:mana_spent_reader"
+	}
+	if e.paymentPlanHasTargetDependentModifier(p, id) {
+		return "shape:target_dependent_cost"
+	}
 	if _, ok := f.KeywordParam("Escalate"); ok {
-		return false
+		return "shape:optional_cost"
 	}
 	if _, ok := f.KeywordParam("Strive"); ok {
-		return false
+		return "shape:optional_cost"
 	}
-	// The plan's exact colour spending is deliberate.  Do not offer it where
-	// that spending is itself observed by the spell or a live reader.
-	if faceWantsConverge(f) || faceWantsCastSpend(f) || e.triggeredConvergeReaderOut() ||
-		e.triggeredCastSpendReaderOut() || e.sunburstGrantOut() {
-		return false
+	return ""
+}
+
+func faceReadsManaSpent(f *cards.Face) bool {
+	for _, needle := range []string{"ConditionManaSpent$", "Count$Adamant", "Count$EachSpentToCast", "Count$TotalManaSpent", "ManaSpentBy"} {
+		if f.Mentions(needle) {
+			return true
+		}
 	}
-	return !e.paymentPlanHasTargetDependentModifier(p, id)
+	return false
+}
+
+func paymentPlanCostDetail(c Cost) string {
+	switch {
+	case c.X != 0 || c.XMin != 0:
+		return "cost:x"
+	case c.Snow != 0:
+		return "cost:snow"
+	case len(c.Hybrid) != 0:
+		return "cost:hybrid"
+	case len(c.Phyrexian) != 0:
+		return "cost:phyrexian"
+	case len(c.Twobrid) != 0:
+		return "cost:twobrid"
+	case len(c.HybridPhyrexian) != 0:
+		return "cost:hybrid_phyrexian"
+	case c.Life != 0 || len(c.LifeX) != 0 || c.LifeHalfUp:
+		return "cost:life"
+	case c.Tap:
+		return "cost:tap"
+	case len(c.Sac) != 0:
+		return "cost:sacrifice"
+	case len(c.Discard) != 0:
+		return "cost:discard"
+	case len(c.SubCounter) != 0:
+		return "cost:sub_counter"
+	case len(c.AddCounter) != 0:
+		return "cost:add_counter"
+	case len(c.Exile) != 0 || len(c.ExileFromTop) != 0:
+		return "cost:exile"
+	case len(c.Reveal) != 0 || len(c.RevealOrChoose) != 0 || len(c.RevealChosen) != 0:
+		return "cost:reveal"
+	case len(c.Behold) != 0:
+		return "cost:behold"
+	case len(c.TapPermanent) != 0:
+		return "cost:tap_permanent"
+	case len(c.Blight) != 0:
+		return "cost:blight"
+	case c.Forage:
+		return "cost:forage"
+	case len(c.Draw) != 0:
+		return "cost:draw"
+	case len(c.Energy) != 0:
+		return "cost:energy"
+	case len(c.DamageYou) != 0:
+		return "cost:damage"
+	case len(c.Return) != 0:
+		return "cost:return"
+	case len(c.PutToLib) != 0:
+		return "cost:put_to_library"
+	case len(c.MoveToGrave) != 0:
+		return "cost:move_to_grave"
+	case len(c.Mill) != 0:
+		return "cost:mill"
+	case len(c.Evidence) != 0:
+		return "cost:evidence"
+	case len(c.RollDice) != 0:
+		return "cost:roll_dice"
+	case len(c.Exert) != 0:
+		return "cost:exert"
+	case len(c.Unknown) != 0:
+		return "cost:unknown"
+	case !paymentPlanCostOK(c):
+		return "cost:other"
+	default:
+		return ""
+	}
 }
 
 // paymentPlanHasTargetDependentModifier finds a live cost static that would
@@ -230,7 +341,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 		pool = manaAdd(pool, step.mana)
 		produced = manaAdd(produced, step.mana)
 	}
-	cost := e.offerCostFor(p, cast.Object, e.rawBaseCost(p, cast.Object), spellScope(""))
+	cost := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
 	expected := paymentWitness(cost, e.G.Players[p].Pool, produced, nil, payment.pool)
 	if !ok || paymentManaAmount(payment.pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
@@ -243,10 +354,10 @@ func paymentPlanCostOK(c Cost) bool {
 	return c.X == 0 && c.XMin == 0 && c.Snow == 0 && c.Life == 0 &&
 		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
 		!c.Tap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
-		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
+		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
 		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage && len(c.Draw) == 0 && len(c.Energy) == 0 &&
 		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 && len(c.Return) == 0 &&
-		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 && len(c.Unknown) == 0
+		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 && len(c.Unknown) == 0 && len(c.Exert) == 0
 }
 
 func paymentPlanPoolOK(p state.Player) bool {

@@ -3,7 +3,10 @@
   import type { View, SeatInfo, DecisionBody } from '../protocol';
   import type { CardOptions } from '../lib/cardoptions';
   import { focusSeat } from '../lib/seattable';
+  import { visibleHand } from '../lib/board';
+  import { seatColour } from '../lib/colours';
   import SeatTable from './SeatTable.svelte';
+  import HandList from './HandList.svelte';
   import ManaPool from './ManaPool.svelte';
   import StackTile from './StackTile.svelte';
   import PendingTray from './PendingTray.svelte';
@@ -101,6 +104,14 @@
   let picked = $state<number | null>(null);
   const focus = $derived(focusSeat(picked, view));
   const focused = $derived(view.players.find((p) => p.seat === focus) ?? null);
+  // Spectators have no felt hand fan. Render every hand the projected view
+  // actually exposes, while keeping seated players' own hand in its existing
+  // fan and never inferring visibility from hand_size or table configuration.
+  const spectatorHands = $derived(
+    view.viewer === 255
+      ? view.players.filter((player) => visibleHand(player) !== null)
+      : [],
+  );
 
   // view.stack lists bottom of the stack first (push order); the rail shows
   // what resolves next at the top, so it is reversed for display only.
@@ -139,6 +150,14 @@
     {#if logbar}<span class="logbar__extra">{@render logbar()}</span>{/if}
   </div>
   <SeatTable {view} {seats} {focus} {events} {options} onFocus={(s) => (picked = picked === s ? null : s)} />
+
+  {#if spectatorHands.length > 0}
+    <section class="revealed-hands" aria-label="Visible hands" data-visible-hands>
+      {#each spectatorHands as player (player.seat)}
+        <HandList {player} deck={seats[player.seat]?.deck} colour={seatColour(player.seat, seats)} />
+      {/each}
+    </section>
+  {/if}
 
   <section class="focus" data-focus-pane data-focus-seat={focused?.seat}>
     {#if focused}
@@ -277,6 +296,12 @@
      so a bare `.focus` loses to it and the whole column silently reverts to
      flex: none — which is exactly how the first cut of this still overflowed
      by 250px. */
+  section.revealed-hands {
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: 8rem;
+    overflow-y: auto;
+  }
   section.focus {
     flex: 0 1 auto;
     min-height: 2.25rem;
@@ -301,7 +326,9 @@
     display: none;
   }
   section.pending {
-    flex: 0 1 auto;
+    /* Pending is an always-readable control surface, not part of the rail's
+       shrink budget. Hands and history scroll instead of compressing it. */
+    flex: 0 0 auto;
     min-height: 2.25rem;
     max-height: 5rem;
     overflow-y: auto;

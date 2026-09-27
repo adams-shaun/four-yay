@@ -82,10 +82,12 @@ func capturePlannedPending(t *testing.T, autoMana bool) (FeedbackSnapshot, *Regi
 		m := liveMatch(t, r, "t1")
 		m.mu.RLock()
 		ep := m.e.Pending()
-		planned := ep != nil && ep.Kind == decision.KPriority && ep.Seq == d.Seq &&
-			len(ep.PaymentActions) > 0 && len(ep.PaymentActions[0].Plans) > 0
+		priority := ep != nil && ep.Kind == decision.KPriority && ep.Seq == d.Seq
+		planned := priority && len(ep.PaymentActions) > 0 && len(ep.PaymentActions[0].Plans) > 0
 		m.mu.RUnlock()
-		if planned {
+		// AutoMana-off deliberately never builds the extension; its first
+		// parked priority is enough to verify the legacy wire stays empty.
+		if planned || (!autoMana && priority) {
 			seat := state.PlayerID(0)
 			snap, err := r.SnapshotForFeedback("t1", &seat)
 			if err != nil {

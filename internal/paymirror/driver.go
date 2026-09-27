@@ -42,6 +42,13 @@ type DriverOptions struct {
 	// MaxObjects ends a game whose object arena passes this size (a runaway
 	// token board makes every clone and diff expensive); 0 = 2500.
 	MaxObjects int
+	// BudgetExceeded, when set, truncates a game between intents if the
+	// harness-owned budget has expired. It can end a game early (Err
+	// "truncated: budget"), never change a check's verdict. This package
+	// must not import time: the sweep CLIs keep every clock read in their
+	// exempt cmd boundary, so a caller that wants the per-game wall-time
+	// bound builds the predicate from its own clock.
+	BudgetExceeded func() bool
 	// OnReport, when set, receives every report as it is produced (the
 	// driver keeps only a compact copy of equivalent ones).
 	OnReport func(spec GameSpec, rep *Report)
@@ -187,6 +194,7 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 		opt.MaxObjects = 2500
 	}
 	res.Spec = spec
+
 	e := rules.NewStartingPlayerChoice(cfg)
 	bots := make([]*seat.Bot, len(cfg.Names))
 	for i := range bots {
@@ -213,7 +221,12 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 			res.Err = "truncated: bigboard"
 			return res
 		}
+		if opt.BudgetExceeded != nil && opt.BudgetExceeded() {
+			res.Err = "truncated: budget"
+			return res
+		}
 		dec := e.Pending()
+		e.EnsurePaymentActions()
 		if res.RestViolation == "" {
 			if v := atRestViolation(e); v != "" {
 				res.RestViolation = fmt.Sprintf("seq %d: %s after %v", dec.Seq, v, recentEvents(e, restContext))

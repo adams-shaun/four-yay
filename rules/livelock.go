@@ -225,8 +225,14 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID)
 	if w.guard.Disabled {
 		return
 	}
+	// A CR 800.4a departure sweep is a finite arena walk: each matching
+	// MoveZone consumes one owned object, so its events are progress even
+	// though they do not yield to a decision or advance the turn structure.
+	// Keep them visible to the period detector, but do not charge them to
+	// the runaway-resolution budget.
+	eliminationSweep := ev.Kind == events.MoveZone && ev.To == state.ZCeased && ev.Text == "player left the game"
 	// Runaway backstop: count the events since the last progress event.
-	if progressKinds[ev.Kind] {
+	if progressKinds[ev.Kind] || eliminationSweep {
 		w.quiet = 0
 	} else {
 		if w.quiet == 0 {

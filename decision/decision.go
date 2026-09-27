@@ -492,6 +492,9 @@ type Decision struct {
 	// choice index. It remains empty until payplan-04 publishes executable
 	// offers.
 	PaymentActions []PaymentAction `json:"payment_actions,omitempty"`
+	// PaymentActionsBuilt distinguishes an unrequested extension from a built
+	// empty extension. It is engine cache state, never part of the wire.
+	PaymentActionsBuilt bool `json:"-"`
 	// PaymentFallback is populated only if execution falls back to the normal
 	// manual payment window.
 	PaymentFallback *PaymentFallback `json:"payment_fallback,omitempty"`
@@ -1240,8 +1243,11 @@ func (d *Decision) ChosenRest(in Intent) []Option {
 // a promise the engine WOULD offer it once the mana floated.
 type PotentialAction struct {
 	// Kind is the action kind, the same vocabulary decision.Option uses but
-	// restricted to real plays: "cast", "ability" and "play_land". The mana
-	// tap ("activate"), pass and concede are deliberately absent -- they are
+	// restricted to real plays: "cast", "ability", "granted" (a max-speed
+	// granted ability), "unlock" (a Room door), "turn_face_up" (the morph
+	// family), "specialize", "play_land" and "station" -- every play kind the
+	// priority offer walk emits (rules.potentialPlayKind). The mana tap
+	// ("activate"), pass and concede are deliberately absent -- they are
 	// offered at every priority window and are never a play.
 	Kind string `json:"kind"`
 	// Obj is the card or permanent the action names (the spell to cast from
@@ -1253,8 +1259,9 @@ type PotentialAction struct {
 	// Option.Ability does. omitempty: casts and land drops carry no field.
 	Ability int `json:"ability,omitempty"`
 	// Mode distinguishes a "cast" potential action's payment kind ("",
-	// "kicked", "surged", "flashback", "miracle"), exactly as Option.Mode
-	// does. omitempty: an ordinary cast carries no field.
+	// "kicked", "surged", "flashback", "miracle"), and a "specialize" one's
+	// target face index, exactly as Option.Mode does. omitempty: an ordinary
+	// cast carries no field.
 	Mode string `json:"mode,omitempty"`
 	// Label is the offer label ("Cast X", "Name: ability text") -- the same
 	// string the corresponding Option would carry, so a client can surface
