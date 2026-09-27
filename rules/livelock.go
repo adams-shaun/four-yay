@@ -81,10 +81,24 @@ var progressKinds = map[events.Kind]bool{
 // MaxDecisionsPerTurn = 0 propagates it -- the host stall-guard opt-out
 // and the engine watcher are the same protection at two levels, and opting
 // out of one opts out of both). It is never set by any default path.
+//
+// MaxObjs arms the watcher with a mid-resolution OBJECT-COUNT cap (the
+// board-size budget cmd/cardfuzz derives from -max-objects). Zero means
+// off -- unlike the three thresholds above there is no default, so a nil
+// or zero Config arms nothing and every existing game is unchanged. When
+// set, the watcher aborts the moment the game's object arena exceeds the
+// cap: a harness cannot run a check between the decisions of one
+// resolution (a token-doubling storm mints thousands of objects inside a
+// single Submit with no decision to yield on), so the cap is checked on
+// the watcher's own per-event path, where it is one O(1) comparison. The
+// arena length bounds the live count from above (it also counts ceased
+// objects), so the abort may fire a little before the live count itself
+// crosses the cap; the caller re-classifies and renders the record.
 type LoopGuard struct {
 	CycleEvents   int
 	MaxPeriod     int
 	RunawayEvents int
+	MaxObjs       int
 	Disabled      bool
 }
 
@@ -92,6 +106,7 @@ func (g *LoopGuard) filled() LoopGuard {
 	out := LoopGuard{CycleEvents: defaultCycleEvents, MaxPeriod: defaultMaxPeriod, RunawayEvents: defaultRunawayEvents}
 	if g != nil {
 		out.Disabled = g.Disabled
+		out.MaxObjs = g.MaxObjs
 		if g.CycleEvents > 0 {
 			out.CycleEvents = g.CycleEvents
 		}
@@ -132,6 +147,10 @@ type LivelockError struct {
 	// Cycle renders one period of the repeating events (nil for a runaway),
 	// earliest first.
 	Cycle []string
+	// Count and Cap are the object-arena population and the cap that tripped
+	// the "object cap" abort (zeros for the other reasons).
+	Count int
+	Cap   int
 }
 
 func (e *LivelockError) Error() string {
@@ -140,6 +159,8 @@ func (e *LivelockError) Error() string {
 	switch e.Reason {
 	case "repeating cycle":
 		fmt.Fprintf(&b, "cycle of %d event(s) repeated %d time(s), events %d-%d", e.CycleLen, e.Repeats, e.FirstSeq, e.LastSeq)
+	case "object cap":
+		fmt.Fprintf(&b, "the object arena holds %d object(s), cap %d", e.Count, e.Cap)
 	default:
 		fmt.Fprintf(&b, "%d event(s) with no decision, step or turn change, events %d-%d", e.QuietEvents, e.FirstSeq, e.LastSeq)
 	}
@@ -206,24 +227,43 @@ func newLivelockWatcherFromGuard(g LoopGuard) livelockWatcher {
 }
 
 // observe feeds one just-logged event to the watcher. It panics with a
-// *LivelockError when either trigger fires; every other return leaves the
+// *LivelockError when a trigger fires; every other return leaves the
 // game byte-identical to an un-watched one. A Disabled guard observes
 // nothing at all -- an explicitly opted-out game is supervised by whoever
 // set the flag, exactly as the host stall-guard opt-out intends.
-func (w *livelockWatcher) observe(ev events.Event) { w.observeFrom(ev, 0) }
+func (w *livelockWatcher) observe(ev events.Event) { w.observeFrom(ev, 0, 0) }
 
 // observeFrom is observe with the engine's current damage source (the
-// e.damaging scratch the emit ran under). A Damage event's payload names
-// only its RECIPIENT -- a player hit carries no object at all -- so the
-// combat damage step of a wide board (1790 Goblin tokens from Krenko, Mob
-// Boss, each dealing 1 to the same player: cardfuzz batch8 lines 2-3) logs
-// hundreds of byte-identical Damage events that are each a DIFFERENT
-// creature's damage. Folding the source into a Damage event's signature
-// keeps those distinct, while a real loop -- one source damaging the same
-// recipient again and again -- still repeats its signature exactly.
-func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID) {
+// e.damaging scratch the emit ran under) and the engine's current object
+// arena population. A Damage event's payload names only its RECIPIENT -- a
+// player hit carries no object at all -- so the combat damage step of a wide
+// board (1790 Goblin tokens from Krenko, Mob Boss, each dealing 1 to the
+// same player: cardfuzz batch8 lines 2-3) logs hundreds of byte-identical
+// Damage events that are each a DIFFERENT creature's damage. Folding the
+// source into a Damage event's signature keeps those distinct, while a real
+// loop -- one source damaging the same recipient again and again -- still
+// repeats its signature exactly.
+func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID, nObjs int) {
 	if w.guard.Disabled {
 		return
+	}
+	// The armed object cap (LoopGuard.MaxObjs) is a harness-side board-size
+	// budget checked on the engine's own per-event path: between two
+	// decisions a single resolution can mint thousands of objects (one
+	// Krenko, Mob Boss activation), and no decision-boundary check the
+	// harness runs can see inside it. The arena length is one O(1) read at
+	// the emit site and bounds the live count from above, so the cap fires
+	// within one event of the crossing -- well before any wall-clock budget
+	// the caller runs under -- instead of at the next decision, which may be
+	// hundreds of thousands of expensive events later.
+	if w.guard.MaxObjs > 0 && nObjs > w.guard.MaxObjs {
+		panic(&LivelockError{
+			Reason: "object cap",
+			Kind:   ev.Kind,
+			Object: ev.Obj,
+			Count:  nObjs,
+			Cap:    w.guard.MaxObjs,
+		})
 	}
 	// A CR 800.4a departure sweep is a finite arena walk: each matching
 	// MoveZone consumes one owned object, so its events are progress even

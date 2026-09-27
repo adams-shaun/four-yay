@@ -545,7 +545,12 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 		names[i] = fmt.Sprintf("%s-%d", decks[i].Colour, i)
 		seats[i] = botSeat(seed^(0x9e3779b97f4a7c15*uint64(i+1)), i == exploreIdx, ap[i])
 	}
-	cfg := rules.Config{Names: names, Decks: dk, Tokens: reg.Tokens, Seed: seed, NameUniverse: reg.Cards}
+	// The aborting game's own cfg arms the mid-resolution object cap (below).
+	// Only a COMPLETED game reaches the replay verification (every stall kind
+	// returns early), and a completed game never crossed the cap, so the cap
+	// is inert on the replay; a cap-aborted game is never verified.
+	cfg := rules.Config{Names: names, Decks: dk, Tokens: reg.Tokens, Seed: seed, NameUniverse: reg.Cards,
+		LoopGuard: objectCapGuard(maxObjects)}
 	var o gbench.Outcome
 	var e *rules.Engine
 	var err error
@@ -589,9 +594,18 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 		probe.install(e)
 		app.install(e)
 	}
+	var capAbort *rules.LivelockError
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
+				if l, ok := r.(*rules.LivelockError); ok && l.Reason == objectCapReason {
+					// The mid-resolution object cap fired outside the drive
+					// loop (a genesis burst that already overflows the
+					// budget). gbench's own recover never ran, so the abort
+					// arrives here as the raw panic value; e/o are untouched.
+					capAbort = l
+					return
+				}
 				err = fmt.Errorf("panic outside drive loop: %v", r)
 			}
 		}()
@@ -622,6 +636,12 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 			},
 		})
 	}()
+	if capAbort != nil {
+		// The engine never returned from gbench (e is nil here), so the record
+		// carries the abort's own counts and no battlefield census.
+		return mk("bigboard", objectCapDiag(nil, maxObjects, capAbort.Count, capAbort.Error()), o),
+			&gameCov{ap: app.finish(), mirrorFailures: mirrorFailures, mirrorVerdicts: mirrorVerdicts}
+	}
 	if err != nil {
 		return mk("error", err.Error(), o), &gameCov{ap: app.finish(), mirrorFailures: mirrorFailures, mirrorVerdicts: mirrorVerdicts}
 	}
@@ -638,6 +658,14 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 		return f
 	}
 	switch {
+	case o.StallOn == "livelock" && strings.HasPrefix(o.Livelock, objectCapAbortPrefix):
+		// The engine's own per-event watchdog fired the mid-resolution object
+		// cap: the object arena crossed -max-objects during a resolution. The
+		// game is a bigboard record, not an engine-bug livelock, and it keeps
+		// the boundary record's kind and diagnostic vocabulary so triage
+		// reads one kind either way; the tail context survives, because the
+		// resolution the abort fired inside is what a triager wants to see.
+		return withCtx("bigboard", objectCapDiag(e, maxObjects, boardCount(e), o.Livelock)), gc
 	case gbench.IsAbort(o.StallOn):
 		return withCtx(o.StallOn, o.Livelock), gc
 	case o.StallOn == "intents":
@@ -698,10 +726,12 @@ func mirrorFailureRecord(report *paymirror.Report, seed uint64, decks []genDeck,
 // planFailures is -plan-failures: record plan-contract violations.
 var planFailures = true
 
-// boardGuard is the harness-side board-size watchdog: once the live
-// (non-ceased) object count exceeds max, the game ends as a "bigboard"
-// stall. The arena length bounds the live count from above, so a game that
-// never grows past max never pays the scan. max <= 0 disables it.
+// boardGuard is the harness-side board-size watchdog at decision
+// boundaries: once the live (non-ceased) object count exceeds max, the game
+// ends as a "bigboard" stall. The arena length bounds the live count from
+// above, so a game that never grows past max never pays the scan.
+// max <= 0 disables it -- and then no mid-resolution cap is armed either
+// (objectCapGuard), so "0 disables" means the whole budget is off.
 func boardGuard(max int) func(*rules.Engine) (string, string) {
 	if max <= 0 {
 		return nil
@@ -710,44 +740,133 @@ func boardGuard(max int) func(*rules.Engine) (string, string) {
 		if len(e.G.Objs) <= max {
 			return "", ""
 		}
-		live := 0
-		counts := map[string]int{}
-		for i := range e.G.Objs {
-			o := &e.G.Objs[i]
-			if o.Zone == state.ZCeased {
-				continue
-			}
-			live++
-			if o.Zone == state.ZBattlefield && o.Card != nil {
-				counts[cardName(o.Card)]++
-			}
-		}
+		live := boardCount(e)
 		if live <= max {
 			return "", ""
 		}
-		type nc struct {
-			n string
-			c int
-		}
-		var top []nc
-		for n, c := range counts {
-			top = append(top, nc{n, c})
-		}
-		sort.Slice(top, func(a, b int) bool { return top[a].c > top[b].c || (top[a].c == top[b].c && top[a].n < top[b].n) })
-		var b strings.Builder
-		fmt.Fprintf(&b, "live object count %d exceeds -max-objects %d at turn %d", live, max, e.G.Turn)
-		if len(top) > 0 {
-			fmt.Fprintf(&b, " (most on battlefield: %s)", top[0].n)
-		}
-		b.WriteString("\n-- battlefield --\n")
-		for i, t := range top {
-			if i == 10 {
-				break
-			}
-			fmt.Fprintf(&b, "%6d %s\n", t.c, t.n)
-		}
-		return "bigboard", b.String()
+		return "bigboard", bigboardDiag(e, max, fmt.Sprintf("live object count %d", live))
 	}
+}
+
+// objectCapReason is rules.LivelockError's Reason for the mid-resolution
+// object-cap abort (rules/livelock.go). It is the string both the abort's
+// own rendering and the re-classification below key on, so the two cannot
+// drift apart silently: rules/livelock_objectcap_test.go pins the rendering
+// and cmd/cardfuzz's boardcap test pins the classification.
+const objectCapReason = "object cap"
+
+// objectCapAbortPrefix is the head of the rendered abort diagnostic for the
+// mid-resolution object cap. It is what survives into an Outcome (the
+// LivelockError itself is recovered inside internal/bench), so it is all the
+// re-classification can key on there.
+const objectCapAbortPrefix = "livelock detected (object cap"
+
+// objectCapGuard arms the engine's own per-event watchdog (rules/livelock.go)
+// with the mid-resolution object cap. Between two decisions one resolution
+// can mint thousands of objects -- one Krenko, Mob Boss activation doubles
+// the Goblin count -- and a decision-boundary check cannot see inside it, so
+// a storm that crosses the budget mid-resolution used to run unchecked until
+// the next decision, burning the whole wall-clock budget and getting the
+// game recorded as a hang. The watcher's per-event path reads the arena
+// length with one O(1) comparison, so the abort fires within one event of
+// the crossing. The game is then classified as its own "bigboard" stall --
+// never as an engine-bug livelock -- by the prefix check in playGame.
+// max <= 0 arms nothing (the zero value is "off", never a default).
+func objectCapGuard(max int) *rules.LoopGuard {
+	if max <= 0 {
+		return nil
+	}
+	return &rules.LoopGuard{MaxObjs: max}
+}
+
+// boardCount is the live (non-ceased) object count, the O(n) scan the
+// boundary guard pays only when the arena length says the budget could be
+// crossed.
+func boardCount(e *rules.Engine) int {
+	live := 0
+	for i := range e.G.Objs {
+		if e.G.Objs[i].Zone != state.ZCeased {
+			live++
+		}
+	}
+	return live
+}
+
+// bigboardDiag renders a bigboard record's diagnostic: a header naming the
+// cap crossing and the turn, then the battlefield census. label names the
+// count that crossed ("live object count 120"); boundary records keep their
+// existing header, the mid-resolution record says which population crossed.
+func bigboardDiag(e *rules.Engine, max int, label string) string {
+	most, table := battlefieldCensus(e)
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s exceeds -max-objects %d at turn %d", label, max, e.G.Turn)
+	if most != "" {
+		fmt.Fprintf(&b, " (most on battlefield: %s)", most)
+	}
+	b.WriteString(table)
+	return b.String()
+}
+
+// objectCapDiag renders the bigboard diagnostic for the mid-resolution
+// object-cap abort. count is the arena population the watcher aborted on; e
+// is nil when the abort fired before the drive loop ever ran (a genesis
+// burst that already overflows the budget, recovered in playGame's own
+// recover), in which case there is no engine to census.
+func objectCapDiag(e *rules.Engine, max, count int, abort string) string {
+	var b strings.Builder
+	turn := int32(0)
+	if e != nil {
+		turn = e.G.Turn
+	}
+	fmt.Fprintf(&b, "arena object count %d exceeds -max-objects %d at turn %d", count, max, turn)
+	if e != nil {
+		fmt.Fprintf(&b, " (live %d)", boardCount(e))
+		b.WriteString(battlefieldCensusTable(e))
+	}
+	fmt.Fprintf(&b, "\n-- mid-resolution object cap --\n%s", abort)
+	return b.String()
+}
+
+// battlefieldCensus renders the sorted battlefield census trailing a
+// bigboard diagnostic. The string is the card with the most battlefield
+// copies (the usual token engine, "" for an empty battlefield); the second
+// return is the "-- battlefield --" table block, top ten rows.
+func battlefieldCensus(e *rules.Engine) (string, string) {
+	counts := map[string]int{}
+	for i := range e.G.Objs {
+		o := &e.G.Objs[i]
+		if o.Zone == state.ZBattlefield && o.Card != nil {
+			counts[cardName(o.Card)]++
+		}
+	}
+	type nc struct {
+		n string
+		c int
+	}
+	var top []nc
+	for n, c := range counts {
+		top = append(top, nc{n, c})
+	}
+	sort.Slice(top, func(a, b int) bool { return top[a].c > top[b].c || (top[a].c == top[b].c && top[a].n < top[b].n) })
+	most := ""
+	if len(top) > 0 {
+		most = top[0].n
+	}
+	var b strings.Builder
+	b.WriteString("\n-- battlefield --\n")
+	for i, t := range top {
+		if i == 10 {
+			break
+		}
+		fmt.Fprintf(&b, "%6d %s\n", t.c, t.n)
+	}
+	return most, b.String()
+}
+
+// battlefieldCensusTable renders only the table block of the census.
+func battlefieldCensusTable(e *rules.Engine) string {
+	_, table := battlefieldCensus(e)
+	return table
 }
 
 // tailContext renders the last n log events with object names, and returns
