@@ -193,6 +193,9 @@ func TestBiophagusAddsCountersPaysCreatureNotArtifact(t *testing.T) {
 	e, cfg := riderGame(t, 601,
 		card(t, acrBiophagusSrc), card(t, acrMonoCreatureSrc), card(t, acrArtifactSrc))
 	bio := moveToBattlefieldByName(t, e, 0, "Biophagus Test")
+	// A real logged TurnChange (not a raw SummonSick write) clears CR 302.6
+	// sickness on the log the replayCheck below reads from.
+	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 	beast := moveSeededToHand(t, e, 0, "Mono Beast")
 	relic := moveSeededToHand(t, e, 0, "Plain Relic")
 
@@ -247,6 +250,9 @@ func TestAnimalAttendantAddsCountersPaysNonHumanNotHuman(t *testing.T) {
 	e, cfg := riderGame(t, 602,
 		card(t, acrAttendantSrc), card(t, acrMonoCreatureSrc), card(t, acrHumanCreatureSrc))
 	att := moveToBattlefieldByName(t, e, 0, "Animal Attendant Test")
+	// A real logged TurnChange (not a raw SummonSick write) clears CR 302.6
+	// sickness on the log the replayCheck below reads from.
+	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 	beast := moveSeededToHand(t, e, 0, "Mono Beast")
 	human := moveSeededToHand(t, e, 0, "Human Soldier")
 

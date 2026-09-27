@@ -134,3 +134,33 @@ func TestBotAutoPayPolicyIsBenchable(t *testing.T) {
 		t.Fatalf("intent = %+v, want offered auto-payment witness", in)
 	}
 }
+
+// TestCastProfileAutoPayPolicyIsBenchable pins the gate arm for a profile
+// fitted under auto-pay: cast-profile weights with the hosted auto-pay
+// adapter, answering an offered payment plan with its witness.
+func TestCastProfileAutoPayPolicyIsBenchable(t *testing.T) {
+	newSeat, ok := policies["cast-profile-auto-pay"]
+	if !ok {
+		t.Fatal(`policies["cast-profile-auto-pay"] is not registered`)
+	}
+	b, ok := newSeat(19).(*seat.Bot)
+	if !ok {
+		t.Fatalf("policies[\"cast-profile-auto-pay\"] built %T, want *seat.Bot", newSeat(19))
+	}
+	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
+		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
+		PaymentActions: []decision.PaymentAction{{ID: "action", Cast: decision.PlannedCast{Object: 9, Origin: "hand"}, Plans: []decision.PaymentPlan{{ID: "plan", Version: decision.PaymentPlanV1}}}},
+	}
+	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+		9: {Creature: true, Power: 3, CMC: 3, Castable: true},
+	}}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in.Payment == nil || in.Payment.ActionID != "action" || in.Payment.Plan.ID != "plan" {
+		t.Fatalf("intent = %+v, want offered auto-payment witness", in)
+	}
+	if _, err := host.NormalizeBotPolicy("cast-profile-auto-pay"); err == nil {
+		t.Fatal("host.NormalizeBotPolicy accepted \"cast-profile-auto-pay\"; hosted auto-pay is a table flag, not a policy name")
+	}
+}

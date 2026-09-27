@@ -20,6 +20,12 @@ type Seat interface {
 	Decide(ctx context.Context, v view.View, d decision.Decision) (decision.Intent, error)
 }
 
+// PaymentPlanConsumer opts into the lazy payment-action extension. Hosts and
+// tools ensure offers only for seats that explicitly request them.
+type PaymentPlanConsumer interface {
+	WantsPaymentActions() bool
+}
+
 // BoardSeat is a seat that can answer from a botpolicy.Board and needs no
 // projected View. host builds the Board under the engine lock and skips
 // view.Project entirely for such a seat. Implementing it is an opt-in: a

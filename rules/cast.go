@@ -95,7 +95,6 @@ type pendingCast struct {
 	// the established mana activation and payment paths.
 	payment         *plannedCastPayment
 	paymentNext     int
-	paymentChecked  bool
 	paymentFallback *decision.PaymentFallback
 
 	// grantSource / grantSVar (task grantcost1) anchor a GRANTED activation
@@ -1019,9 +1018,8 @@ func (e *Engine) hasCastConvoke(id state.ObjID) bool {
 
 // hasCastImprovise reports whether the spell being cast carries Improvise
 // (CR 702.66), read the same way hasCastConvoke reads Convoke: the printed
-// keyword or a layer-6 grant reaching the cast spell. No corpus card grants
-// Improvise (measured), so the grant path is inert groundwork kept for
-// symmetry with the sibling reads.
+// keyword or a layer-6 grant reaching the cast spell. Inspiring Statuary
+// grants Improvise to nonartifact spells, so the grant path is live.
 func (e *Engine) hasCastImprovise(id state.ObjID) bool {
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Improvise") {
@@ -1788,7 +1786,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 				return false
 			}
 		}
-		if cost.Tap && o.Tapped {
+		if activationTapCostUnavailable(o, cost) {
 			return false
 		}
 	} else if len(cost.SubCounter) > 0 || cost.Tap {
@@ -6404,7 +6402,14 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		if !e.nonManaCastable(pc.player, pc.card, cost, pc.isAbility()) {
 			continue
 		}
-		if cost.Life > pl.Life {
+		// A life cost with a POSITIVE component needs that much life (CR
+		// 119.4: paying N>0 life requires life >= N). A cost with NO life
+		// component pays 0 life, which is always legal whatever the life
+		// total -- a payer dropped below 0 mid-cast (Ancient Tomb's rider)
+		// may still select targets and finish paying (CR 704.3: state-based
+		// actions wait for a player to receive priority). The same gate
+		// lives in resolveManaWith, which payCast charges through.
+		if cost.Life > 0 && cost.Life > pl.Life {
 			continue
 		}
 		// resolvedMana carries no live pip, so manaFeasible (the shared
@@ -8040,13 +8045,7 @@ func (e *Engine) targetAsk() bool {
 	// and then the window. Resolved means X is fixed, the CR 601.2f modifiers
 	// are applied and Delve credit is subtracted, all settled by the stages
 	// above.
-	mana := e.paymentMana(pc)
-	if !pc.isAbility() {
-		mana.Generic -= int32(len(pc.delve))
-		if mana.Generic < 0 {
-			mana.Generic = 0
-		}
-	}
+	mana := e.castPaymentMana(pc)
 	// resolvedMana carries no live pip at this stage (the pip announcements
 	// are already settled, manaAsk runs before targetAsk), so the composed
 	// payable check here is the same composition manaToPay charges;
@@ -9064,17 +9063,6 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 	return false
 }
 
-// manaWindowAsk implements CR 601.2g: if the total cost includes a mana
-// payment, the player gets a chance to activate mana abilities before paying
-// (601.2h). The engine poses a mid-cast KChoose window -- one "activate"
-// option per untapped mana-ability source the player controls, then a "done"
-// option -- only when the pool alone cannot pay the resolved total cost and
-// at least one such source is untapped; a caster who already has the mana, or
-// has no untapped source, has nothing a window could enable, so payCast
-// proceeds straight to payment. Answering routes through castAnswer
-// (chooseCast): "activate" taps the source and resolves its mana abilities
-// (a tap consumes it, so it is not re-offered) and continueCast re-enters
-// payCast to re-price the window; "done" sets windowDone so payCast pays.
 // plannedCastPayment is deliberately private continuation state rather than
 // an alternate payment engine.  Its plan is deep-copied at Submit and Clone.
 type plannedCastPayment struct {
@@ -9082,78 +9070,169 @@ type plannedCastPayment struct {
 	plan     decision.PaymentPlan
 }
 
+// The spec §6 PaymentFallback vocabulary. It is closed: a plan that stops
+// names exactly one of these on the manual window the cast returns to.
+const (
+	paymentFallbackCostChanged       = "cost_changed"
+	paymentFallbackSourceChanged     = "source_changed"
+	paymentFallbackProductionChanged = "production_changed"
+	paymentFallbackChoiceRequired    = "choice_required"
+)
+
+// paymentPlanFallback stops automation for the rest of the cast: the witness
+// is dropped so no later re-entry can resume it, the reason is recorded for
+// the ordinary manual window, and completed activations (and the mana they
+// floated) stay exactly as they are -- no rollback, no substitute source.
 func (e *Engine) paymentPlanFallback(pc *pendingCast, reason string) {
 	if pc == nil || pc.payment == nil {
 		return
 	}
 	pc.paymentFallback = &decision.PaymentFallback{PlanID: pc.payment.plan.ID, Reason: reason}
 	pc.payment = nil
-	pc.paymentChecked = false
 	pc.paymentNext = 0
 }
 
-// validatePendingPaymentPlan checks the witness against the post-target,
-// pre-payment cast state.  ValidateCastPayment is intentionally used at Submit
-// while the card is in hand; this version reads the pending cast after it has
-// moved to the stack, without re-running hand-only candidate discovery.
-func (e *Engine) validatePendingPaymentPlan(pc *pendingCast) error {
-	if pc == nil || pc.payment == nil {
-		return fmt.Errorf("no payment plan")
-	}
-	plan := pc.payment.plan
-	if plan.Version != decision.PaymentPlanV1 || plan.Cost != paymentCost(e.paymentMana(pc)) {
-		return fmt.Errorf("cost_changed")
-	}
-	units := e.paymentPlanManaUnits(pc.player)
-	seen := make(map[state.ObjID]bool, len(plan.Activations))
-	pool := e.G.Players[pc.player].Pool
-	produced := state.Mana{}
-	for _, pa := range plan.Activations {
-		if seen[pa.Source] || pa.SourceZoneSeq != e.paymentSourceZoneSeq(pa.Source) {
-			return fmt.Errorf("source_changed")
+// castPaymentMana is the mana a pending cast's CR 601.2h payment charges: the
+// composed total less announced creature contributions (paymentMana), less a
+// spell's Delve credit. The mana window prices it, payCast pays it, and a
+// payment plan still describes the payment only while its witnessed Cost
+// equals it.
+func (e *Engine) castPaymentMana(pc *pendingCast) Cost {
+	mana := e.paymentMana(pc)
+	if !pc.isAbility() {
+		mana.Generic -= int32(len(pc.delve))
+		if mana.Generic < 0 {
+			mana.Generic = 0
 		}
-		seen[pa.Source] = true
-		step, ok := e.paymentPlanStepAlternative(units, pa)
-		if !ok {
-			return fmt.Errorf("production_changed")
-		}
-		pool = manaAdd(pool, step.mana)
-		produced = manaAdd(produced, step.mana)
 	}
-	cost := e.paymentMana(pc)
-	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
-	if !ok || paymentManaAmount(payment.pool) != plan.PoolAfter {
-		return fmt.Errorf("cost_changed")
-	}
-	_ = produced // retained above to make the exact production calculation explicit.
-	return nil
+	return mana
 }
 
-// executePlannedManaActivation resolves exactly one admitted ability through
-// the ordinary mana machinery.  V1 units are fixed production, so this path
-// cannot pose a colour wheel.  If an unexpected decision nevertheless arises,
-// the continuation resumes normally and the remaining automation is cancelled
-// rather than guessing an answer.
-func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
-	if pc == nil || pc.payment == nil || pc.paymentNext >= len(pc.payment.plan.Activations) {
-		return false
+// paymentPlanCheck revalidates the selected witness against the pending cast
+// before each planned activation and once more after the last (spec §6): the
+// resolved mana cost, the global gates, every remaining step's source and
+// exact alternative, and that the floating pool plus the remaining production
+// still settles exactly as witnessed. ValidateCastPayment checked the same
+// witness at Submit while the card was in hand; this reads the cast after its
+// announcements (targets, sacrifices, discards, delve), so a delve exile or a
+// convoked creature that changed the mana to pay is a cost change. It is a
+// pure read and returns the fallback reason, or "" while the rest of the plan
+// is exactly executable.
+//
+// The global gates are the offer's. The pool gate reads the floating pool the
+// plan starts from, so it applies before the first activation only: after
+// that the plan's own production (a snow land's, a rock's typed mana)
+// legitimately floats. The interference gate applies before every later
+// activation. Submit ran it for the first, and a change between Submit and
+// this window surfaces in that first activation's actual production or its
+// interruption, both of which the executor checks.
+func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
+	plan := pc.payment.plan
+	cost := e.castPaymentMana(pc)
+	if plan.Version != decision.PaymentPlanV1 || plan.Cost != paymentCost(cost) {
+		return paymentFallbackCostChanged
 	}
+	next := pc.paymentNext
+	if next == 0 && !paymentPlanPoolOK(e.G.Players[pc.player]) {
+		return paymentFallbackProductionChanged
+	}
+	if next > 0 && next < len(plan.Activations) && e.paymentPlanManaInterference() {
+		return paymentFallbackProductionChanged
+	}
+	units := e.paymentPlanManaUnits(pc.player)
+	pool := e.G.Players[pc.player].Pool
+	seen := make(map[state.ObjID]bool, len(plan.Activations))
+	for i, pa := range plan.Activations {
+		if seen[pa.Source] {
+			return paymentFallbackSourceChanged
+		}
+		seen[pa.Source] = true
+		if i < next {
+			continue // completed: its checked production already floats.
+		}
+		step, reason := e.paymentPlanStepReady(pc.player, units, pa)
+		if reason != "" {
+			return reason
+		}
+		pool = manaAdd(pool, step.mana)
+	}
+	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
+	if !ok || paymentManaAmount(payment.pool) != plan.PoolAfter {
+		return paymentFallbackProductionChanged
+	}
+	return ""
+}
+
+// paymentPlanStepReady resolves one remaining witness step to the exact
+// alternative it names (paymentPlanStepAlternative), or says why it no longer
+// can. The source itself changed -- gone, another incarnation, tapped, phased
+// out, another controller, or no V1 mana ability left under the step's
+// identity -- is source_changed; the same untapped source still offering the
+// step's ability identity, but not the witnessed production, is
+// production_changed. It never names a substitute.
+func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, pa decision.PaymentActivation) (plannedManaActivation, string) {
+	o := e.G.Obj(pa.Source)
+	if o == nil || o.Zone != state.ZBattlefield || o.Tapped || o.PhasedOut || o.Controller != p ||
+		pa.SourceZoneSeq != e.paymentSourceZoneSeq(pa.Source) {
+		return plannedManaActivation{}, paymentFallbackSourceChanged
+	}
+	if step, ok := e.paymentPlanStepAlternative(units, pa); ok {
+		return step, ""
+	}
+	for _, u := range units {
+		if u.id != pa.Source {
+			continue
+		}
+		for _, alt := range e.paymentPlanUnitAlternatives(u) {
+			if alt.activation.Ability == pa.Ability {
+				return plannedManaActivation{}, paymentFallbackProductionChanged
+			}
+		}
+	}
+	return plannedManaActivation{}, paymentFallbackSourceChanged
+}
+
+// paymentPlanProducedExactly reports whether the mana p's pool gained from
+// event index from onward is exactly want, with nothing taken out: one
+// planned activation's actual production against its witness step. Every
+// ManaAdd counter form (plain, snow, typed) is read into its pool slot.
+func (e *Engine) paymentPlanProducedExactly(p state.PlayerID, from int, want decision.ManaAmount) bool {
+	var added state.Mana
+	for _, ev := range e.L.Events[from:] {
+		if ev.Kind != events.ManaAdd || ev.Player != p {
+			continue
+		}
+		if ev.Amount < 0 {
+			return false
+		}
+		added[state.ManaSlot(ev.Counter)] += ev.Amount
+	}
+	return paymentManaAmount(added) == want
+}
+
+// executePlannedManaActivation runs the witness's next step through the
+// ordinary mana ability path, then checks what actually happened (spec §6:
+// "after each activation, check actual production and outstanding
+// continuation; do not continue blindly"). It reports true when the cast has
+// moved on without the caller: the activation suspended on a real decision,
+// or the continuation it resumed posed the next ask, settled the cast or
+// reversed it. It reports false only when nothing was activated because the
+// step no longer holds; the fallback is recorded and the caller continues
+// into the ordinary manual window. It never substitutes a source.
+func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
 	pa := pc.payment.plan.Activations[pc.paymentNext]
 	// Activate the exact alternative the step names -- the one whose ability
 	// identity AND production equal the witness -- never the first ability
 	// sharing the identity: a dual land's intrinsic {U} and {R} abilities are
 	// both {intrinsic, basic_land}, and a step asking it for {R} must not
 	// activate its {U} ability.
-	step, ok := e.paymentPlanStepAlternative(e.paymentPlanManaUnits(pc.player), pa)
-	if !ok {
-		e.paymentPlanFallback(pc, "source_changed")
+	step, reason := e.paymentPlanStepReady(pc.player, e.paymentPlanManaUnits(pc.player), pa)
+	if reason != "" {
+		e.paymentPlanFallback(pc, reason)
 		return false
 	}
 	ma := step.ma
 	pc.paymentNext++ // a synchronous continuation may re-enter payCast.
-	// This is a spell's CR 601.2g payment window, not the distinct
-	// cumulative/triggered-cost payment window.  The planned sequence owns
-	// its continuation below, rather than reopening any other payment ask.
 	// A fixed Produced$ Any plan records the selected colour in Produces.
 	// Resolve the ordinary ability with only that field rewritten, retaining
 	// the compiled pointer as original for activation limits and replay.
@@ -9168,51 +9247,68 @@ func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
 			break
 		}
 	}
+	mark := len(e.L.Events)
+	// This is a spell's CR 601.2g payment window: the call the manual
+	// "activate" answer makes (activateManaPayment), never the distinct
+	// cumulative/triggered-cost window, which is not open during a cast.
 	e.resolveManaAbilityRefOriginal(pc.player, pa.Source, exec, ma,
-		e.gainedManaRefFor(pc.player, pa.Source, ma), true, true, true)
-	if e.pending != nil || e.choosing != chooseNone {
-		// A V1 activation should not suspend, but preserve what completed and
-		// let the regular answer path carry on manually.
-		e.paymentPlanFallback(pc, "choice_required")
+		e.gainedManaRefFor(pc.player, pa.Source, ma), true, false, true)
+	if e.pending != nil {
+		// The activation posed a real decision (a replacement's colour
+		// choice, say). Keep what completed, cancel the remaining steps, and
+		// let that decision's answer resume the cast manually. Only a pending
+		// decision is an interruption: e.choosing can still name the
+		// cast-time ask answered before this window (a sacrifice, discard or
+		// delve pick) and says nothing about this activation.
+		e.paymentPlanFallback(pc, paymentFallbackChoiceRequired)
 		return true
+	}
+	if e.cast != pc {
+		return true // the activation itself settled or reversed the cast.
+	}
+	if !e.paymentPlanProducedExactly(pc.player, mark, pa.Produces) {
+		// The source produced something other than its step: stop before
+		// any further planned source; the manual window names the reason.
+		e.paymentPlanFallback(pc, paymentFallbackProductionChanged)
 	}
 	// Ordinary manually selected mana is resumed by the answer handler.  A
 	// payment-plan activation is selected internally, so resume the cast here
-	// to execute the next admitted source (or settle the fully funded cost).
-	if e.cast == pc {
-		e.continueCast()
-	}
+	// to re-validate and run the next step, settle the funded cost, or pose
+	// the manual window after a fallback.
+	e.continueCast()
 	return true
 }
 
+// manaWindowAsk implements CR 601.2g: if the total cost includes a mana
+// payment, the player gets a chance to activate mana abilities before paying
+// (601.2h). The engine poses a mid-cast KChoose window -- one "activate"
+// option per untapped mana-ability source the player controls, then a "done"
+// option -- only when the pool alone cannot pay the resolved total cost and
+// at least one such source is untapped; a caster who already has the mana, or
+// has no untapped source, has nothing a window could enable, so payCast
+// proceeds straight to payment. Answering routes through castAnswer
+// (chooseCast): "activate" taps the source and resolves its mana abilities
+// (a tap consumes it, so it is not re-offered) and continueCast re-enters
+// payCast to re-price the window; "done" sets windowDone so payCast pays.
+//
+// A selected payment plan runs here first, one step per re-entry, each step
+// revalidated before it runs (paymentPlanCheck). It returns true only when a
+// decision is pending or the cast has settled or reversed; a plan that stops
+// falls through to this ordinary window, which then carries its
+// PaymentFallback.
 func (e *Engine) manaWindowAsk() bool {
 	pc := e.cast
 	if pc == nil || pc.windowDone {
 		return false
 	}
 	if pc.payment != nil {
-		if !pc.paymentChecked {
-			if err := e.validatePendingPaymentPlan(pc); err != nil {
-				reason := err.Error()
-				if reason != "cost_changed" && reason != "source_changed" && reason != "production_changed" {
-					reason = "choice_required"
-				}
-				e.paymentPlanFallback(pc, reason)
-			} else {
-				pc.paymentChecked = true
-			}
-		}
-		if pc.payment != nil && pc.paymentNext < len(pc.payment.plan.Activations) {
-			return e.executePlannedManaActivation(pc)
+		if reason := e.paymentPlanCheck(pc); reason != "" {
+			e.paymentPlanFallback(pc, reason)
+		} else if pc.paymentNext < len(pc.payment.plan.Activations) && e.executePlannedManaActivation(pc) {
+			return true
 		}
 	}
-	mana := e.paymentMana(pc)
-	if !pc.isAbility() {
-		mana.Generic -= int32(len(pc.delve))
-		if mana.Generic < 0 {
-			mana.Generic = 0
-		}
-	}
+	mana := e.castPaymentMana(pc)
 	if !mana.hasManaPayment() {
 		return false
 	}
@@ -9231,6 +9327,15 @@ func (e *Engine) manaWindowAsk() bool {
 	}
 	if len(sources) == 0 {
 		return false
+	}
+	if pc.payment != nil {
+		// Every step ran and checked, yet the pool cannot pay: the manual
+		// window never appears during a planned cast without saying why.
+		reason := e.paymentPlanCheck(pc)
+		if reason == "" {
+			reason = paymentFallbackProductionChanged
+		}
+		e.paymentPlanFallback(pc, reason)
 	}
 	name := e.G.Obj(pc.card).Face().Name
 	d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: 1, Max: 1,
@@ -9694,6 +9799,9 @@ func (e *Engine) payCast() {
 			}
 		}
 		e.emitChoiceCosts(pc)
+		if pc.cost.Untap {
+			e.emit(events.Event{Kind: events.Untap, Obj: pc.card, Player: pc.player, Text: "untapped as a cost"})
+		}
 		if pc.cost.Tap {
 			// The {T} cost's payer taps the permanent (Forge CostTap). This
 			// MUST come before settlePutToLibCost: a self-placement cost that
@@ -9854,11 +9962,7 @@ func (e *Engine) payCast() {
 		e.cast, e.choosing = nil, chooseNone
 		return
 	}
-	mana := e.paymentMana(pc)
-	mana.Generic -= int32(len(pc.delve))
-	if mana.Generic < 0 {
-		mana.Generic = 0
-	}
+	mana := e.castPaymentMana(pc)
 	paid, spentMana, spentSnow, spentTyped := e.payManaCastSpent(pc, mana)
 	if !paid {
 		// E2 (round 2) / F05-2. This is the reachable no-progress arm: a Delve
@@ -10911,12 +11015,12 @@ func (e *Engine) castWindowUnits(pc *pendingCast) []windowManaUnit {
 // self-sacrifice, or a choice-shaped production behind any of them). The
 // conservatism of windowManaUnits is load-bearing for the attack-cost and
 // unless-cost windows, which cannot pose a sub-ask while tapping; the CR
-// 601.2g cast window CAN: manaWindowAsk offers any untapped non-InstantSpeed
-// mana source and the activation runs through resolveManaAbilityRef, which
-// pays the full activation cost and evaluates the Amount$ body. Every source
-// added here comes from the same availableManaAbilitiesForWindow walk
-// manaWindowAsk's untappedManaSource uses, so the probe can never promise a
-// tap the window will not offer.
+// 601.2g cast window CAN: manaWindowAsk offers any currently payable
+// non-InstantSpeed mana source, including a tapped source with a {Q} ability,
+// and activation runs through resolveManaAbilityRef, which pays the full
+// activation cost and evaluates the Amount$ body. Every source added here
+// comes from the same availableManaAbilitiesForWindow walk manaWindowAsk uses,
+// so the probe can never promise an activation the window will not offer.
 //
 // A literal generic <N> activation cost is carried on the alt as costGeneric
 // rather than netted into the production: the cast-only eligibility search
@@ -10945,7 +11049,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 	pl := e.G.Players[p]
 	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
-		if o == nil || o.Tapped || o.Face() == nil {
+		if o == nil || o.Face() == nil {
 			continue
 		}
 		for _, ma := range e.castWindowProbeAbilities(p, id) {
@@ -10953,6 +11057,9 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				continue
 			}
 			cost := e.parseCost(ma.Params["Cost"])
+			if activationTapCostUnavailable(o, cost) {
+				continue
+			}
 			lifeCost := int32(0)
 			genericCost := int32(0)
 			free := manaFreeCost(cost)

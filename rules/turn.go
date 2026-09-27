@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -735,9 +736,23 @@ func (e *Engine) grantPriority() {
 	if e.G.Players[holder].Lost {
 		holder = e.G.NextAlive(holder)
 	}
+	if priorityFlowVerify && (e.cast != nil || e.choosing != chooseNone) {
+		panic(fmt.Sprintf("rules: priority granted to seat %d mid-flow (cast pending=%v, choosing=%d)", holder, e.cast != nil, e.choosing))
+	}
 	e.emit(events.Event{Kind: events.Priority, Player: holder, Amount: e.G.Passes})
 	e.askPriority(holder)
 }
+
+// priorityFlowVerify (set by the rules test binary) makes every priority grant
+// assert the at-rest state a priority window requires: no cast or activation
+// proposal in flight -- nobody receives priority while a spell is being cast
+// (CR 601.2), so a proposal still open here is a spell on the stack whose
+// costs were never paid -- and no choose-flow marker surviving the decision it
+// routed (a stale marker is read by the next KChoose answer's dispatch and by
+// the legend-rule SBA gate). A violation panics, so the whole suite
+// (repo-deck games, replay goldens, the acceptance ratchet) doubles as the
+// check.
+var priorityFlowVerify bool
 
 // repeatCleanup runs the cleanup procedure from its top: the CR 514.1
 // discard and the CR 514.2 "until end of turn" body (cleanupStep), then the
@@ -1245,9 +1260,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	// the effect).
 	if e.resume != nil {
 		rp := e.resume
-		if rp.kind == "name" && len(chosen) == 1 {
-			rp.name = chosen[0].Label
-		}
+		// The name-answer binding lives in resumeResolution, the one home
+		// every resume-point consumer shares.
 		e.resume = nil
 		e.resumeResolution(rp, chosen)
 		return
@@ -1442,6 +1456,10 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// plan's remaining replacement matches before the mints are emitted.
 		e.settleTokenElection(e.tokenReplAnswer(chosen))
 	case chooseOpening:
+		// The marker routed exactly this answer. The round re-arms it for
+		// its next ask (stepOpening, resumeOpening); left armed after the
+		// last one it would survive into turn 1's first priority.
+		e.choosing = chooseNone
 		e.handleOpening(d, in)
 	case chooseSuspendCast:
 		// CR 702.62a: the may-cast offer on a suspended card's last TIME

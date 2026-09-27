@@ -1503,6 +1503,14 @@ const (
 	wordDefenderCtrl
 	wordNotDefinedTargeted
 	wordOpponentCtrl
+	// wordEnchantedControllerCtrl is Forge's EnchantedControllerCtrl -- the
+	// candidate is controlled by the controller of the permanent the SOURCE
+	// Aura/Equipment is attached to. It is the object-side twin of the player
+	// grammar's `Player.EnchantedController` clause (both resolve through
+	// playerEnchantedController), closing the census for the three corpus
+	// carriers (Snowblind's Land.Snow+EnchantedControllerCtrl, and
+	// Disturbing Conversion's / So Tiny's Card.EnchantedControllerCtrl).
+	wordEnchantedControllerCtrl
 	wordChosenColor
 	// wordHasNonBasicLandType is Forge's Card.hasANonBasicLandType: the object
 	// is a LAND that has at least one land type outside CR 205.3i's five
@@ -1708,6 +1716,8 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordImprinted, ""
 	case "DefenderCtrl":
 		return wordDefenderCtrl, ""
+	case "EnchantedControllerCtrl":
+		return wordEnchantedControllerCtrl, ""
 	case "NotDefinedTargeted":
 		return wordNotDefinedTargeted, ""
 	case "Opponent":
@@ -2200,6 +2210,16 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// files); recognizing the bare word closes the census without
 		// widening any existing spelling.
 		return o.Controller != sc.You
+	case wordEnchantedControllerCtrl:
+		// Forge's EnchantedControllerCtrl: the candidate is controlled by the
+		// controller of the permanent this Aura/Equipment source is attached
+		// to. playerEnchantedController is the same resolver the player-side
+		// Player.EnchantedController clause uses, so the two spellings cannot
+		// drift. An absent link fails closed.
+		if ctrl, ok := playerEnchantedController(g, sc.Source); ok && ctrl == o.Controller {
+			return true
+		}
+		return false
 	case wordHasNonBasicLandType:
 		// Forge's hasANonBasicLandType: a land with at least one land type
 		// outside CR 205.3i's five basic land types, read through hasTypeCtx so
@@ -2355,6 +2375,17 @@ func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecCont
 		return sc.Resolving
 	case wordDefenderCtrl:
 		return sc.DefendingPlayer.IsPlayer
+	case wordEnchantedControllerCtrl:
+		// The body resolves the bearer of the SOURCE attachment, exactly as
+		// the player grammar's Player.EnchantedController clause does. With no
+		// source, or a source that is not attached, there is no controller to
+		// name: refuse the token beneath '!' too rather than invert an absent
+		// link into a match.
+		if sc.Source == 0 {
+			return false
+		}
+		o := g.Obj(sc.Source)
+		return o != nil && o.AttachedTo != 0 && g.Obj(o.AttachedTo) != nil
 	case wordImprinted, wordChosenColor:
 		return sc.Source != 0
 	case wordDealtDamageByThisGame:
@@ -2733,6 +2764,76 @@ func SpecReadsKeywords(spec string) bool {
 			// change the result of that predicate.
 			p, _ = strings.CutPrefix(p, "!")
 			if _, ok := keywordPredicateFor(p); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ptNumericField reports whether a predicate name is one of the four P/T
+// comparison spellings numericPred evaluates against the candidate's
+// layer-derived power/toughness (current and base, CR 613.4). It is exactly
+// the field vocabulary numericPred's comparison loop walks, so
+// SpecReadsPT's dependency test and the evaluator cannot disagree: a field
+// the evaluator reads derived P/T for is a field the dependency test
+// reports, and cmc (the one non-P/T field in the evaluator's loop, read off
+// the face) is deliberately excluded.
+func ptNumericField(name string) bool {
+	for _, field := range ptNumericFields {
+		if strings.HasPrefix(name, field) {
+			return true
+		}
+	}
+	return false
+}
+
+// ptNumericFields is the P/T half of numericPred's comparison-field
+// vocabulary, in the evaluator's own order. cmc is the evaluator's other
+// field and reads the printed mana cost, never a derived characteristic, so
+// it does not belong here.
+var ptNumericFields = [...]string{"power", "toughness", "basePower", "baseToughness"}
+
+// SpecReadsPT reports whether the spec consults the candidate's layer-derived
+// power/toughness when a caller binds SpecContext.DerivedPower /
+// DerivedToughness / BasePower / BaseToughness -- i.e. whether binding those
+// four values can change what the spec matches. The shapes are
+// numericPred's four comparison fields (power/toughness/basePower/
+// baseToughness, including the two-characteristic forms like
+// powerGTbasePower, matched by ptNumericField).
+//
+// effects cannot derive P/T itself (rules sits above it), so Count$Valid's
+// fold binds the values through rules' FilterDerivedPT bridge. That bridge
+// runs a FULL rules layer walk per battlefield candidate, and a
+// characteristic-defining ability that counts permanents (Master of
+// Etherium's X:Count$Valid Artifact.YouCtrl) makes every candidate's
+// derivation run the same count again: the in-progress frame guard stops the
+// cycle but not the factorial fan-out, so a spec that reads no P/T must not
+// pay for the bind at all. rules' layer walk keeps its unconditional bind
+// (there the candidate's P/T is already in hand); only this count-site fold
+// consults the dependency test.
+func SpecReadsPT(spec string) bool {
+	// Fast path: every P/T field begins with "power" or "toughness" (basePower
+	// and baseToughness carry the same lowercase tails), so a spec with
+	// neither substring can never read one -- one reject on the hot path.
+	if !strings.Contains(spec, "ower") && !strings.Contains(spec, "oughness") {
+		return false
+	}
+	for alt := range filterAlternatives(spec) {
+		alt = strings.TrimSpace(alt)
+		if alt == "" {
+			continue
+		}
+		_, rest, _ := strings.Cut(alt, ".")
+		for p := range strings.SplitSeq(rest, "+") {
+			if p == "" {
+				continue
+			}
+			// A leading ! negates the predicate; the P/T dependency still
+			// exists because binding the values can flip the predicate's
+			// result (and so the negated result).
+			p, _ = strings.CutPrefix(p, "!")
+			if ptNumericField(p) {
 				return true
 			}
 		}
@@ -4057,6 +4158,9 @@ func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (r
 		return false, false
 	}
 	for _, field := range [...]string{"power", "toughness", "cmc", "basePower", "baseToughness"} {
+		// The P/T half of this vocabulary is ptNumericFields, which
+		// SpecReadsPT's dependency test reads through ptNumericField; cmc is
+		// the evaluator's one non-P/T field and is matched here only.
 		if !strings.HasPrefix(name, field) {
 			continue
 		}

@@ -1229,7 +1229,8 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	6: "3ea72bbb6e715b03",
+	// CR 302.6: sick creature {T}/{Q} mana abilities are no longer offered; 6-seat head measured at 16182bb0d97a61c8.
+	6: "16182bb0d97a61c8",
 	// 8 seats moved to cc022f9ba9f2bf39 with task mana2 (fix(rules): pay mana
 	// ability costs and choose colors): mana abilities that spend a Sac cost
 	// are now gated on a payable, deterministic sacrifice candidate existing,
@@ -1432,7 +1433,8 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	8: "15be7dadc85b47df",
+	// CR 302.6: sick creature {T}/{Q} mana abilities are no longer offered; 8-seat head measured at 5a7a1a2a41b48fa8.
+	8: "5a7a1a2a41b48fa8",
 }
 
 func TestHeads(t *testing.T) {

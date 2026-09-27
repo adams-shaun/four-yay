@@ -943,6 +943,31 @@ func manaAsk(d *decision.Decision, source state.ObjID) bool {
 	return true
 }
 
+// labeledAnyAmount recognises the literal amount wording emitted by the rules
+// mana wheel without coupling to a particular amount or output variant. The
+// rules side spells 1..20 in words and larger literals in digits, so the
+// amount prefix is matched structurally (a positive number, word or digit)
+// rather than against a fixed word list that would silently reject an
+// amount above twenty.
+func labeledAnyAmount(tail string) bool {
+	for _, suffix := range []string{" mana of any one color", " mana in any combination of colors"} {
+		amount, ok := strings.CutSuffix(tail, suffix)
+		if !ok || amount == "" {
+			continue
+		}
+		if strings.IndexFunc(amount, func(r rune) bool { return r != ' ' }) < 0 {
+			continue
+		}
+		if _, err := strconv.Atoi(strings.TrimSpace(amount)); err == nil {
+			return true
+		}
+		if strings.Contains(" one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty ", " "+strings.TrimSpace(amount)+" ") {
+			return true
+		}
+	}
+	return false
+}
+
 // labelProduction parses the "Add ..." tail of a mana option label.
 func labelProduction(label string) (amt decision.ManaAmount, any bool, combo []int, ok bool) {
 	i := strings.LastIndex(label, "Add ")
@@ -950,7 +975,7 @@ func labelProduction(label string) (amt decision.ManaAmount, any bool, combo []i
 		return amt, false, nil, false
 	}
 	tail := strings.TrimSpace(label[i+len("Add "):])
-	if tail == "any color" {
+	if tail == "any color" || labeledAnyAmount(tail) {
 		return amt, true, nil, true
 	}
 	if strings.Contains(tail, " or ") {
@@ -1070,6 +1095,10 @@ func containsInt(s []int, v int) bool {
 // with its Seq-bound identities masked, and the route-independent events
 // both logged since the fork.
 func compareEngines(a, b *rules.Engine, fork int, res *RouteResult) {
+	// Offer caches are lazy derived state. Build on both sides before
+	// comparing pending decisions so the mirror verdict is cache-independent.
+	a.EnsurePaymentActions()
+	b.EnsurePaymentActions()
 	collectDiffs(a, b, fork, res)
 	if len(res.Diffs) > 0 || len(res.EventsOnlyA) > 0 || len(res.EventsOnlyB) > 0 {
 		reason := "state_differs"

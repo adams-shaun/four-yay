@@ -178,6 +178,18 @@ var policies = map[string]func(seed uint64) seat.Seat{
 		}
 		return seat.NewCastProfileBotWithWeights(seed, w)
 	},
+	// cast-profile-auto-pay is cast-profile under the hosted auto-pay
+	// adapter (seat.Bot.EnableAutoPayMana), the shape gorged hosts by
+	// default. It is the arm a profile fitted with `policytune -auto-pay`
+	// is gated with, against bot-auto-pay (the auto-pay default it would
+	// replace); -profile swaps its weights exactly as for cast-profile.
+	"cast-profile-auto-pay": func(seed uint64) seat.Seat {
+		w, err := castProfileWeightsForRun()
+		if err != nil {
+			panic(err) // the embedded default profile is pinned valid by botpolicy's tests.
+		}
+		return seat.NewCastProfileBotWithWeights(seed, w).EnableAutoPayMana()
+	},
 	// legacy is the benchmark's historical heuristic, with blocker legality
 	// facts supplied by the shared view adapter. It is not a production
 	// policy -- nothing but the bench drives it.
