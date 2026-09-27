@@ -4,8 +4,10 @@ package rules
 // offer-time witness: execution is owned by the following ticket.
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
+	"math/bits"
 	"slices"
 	"strconv"
 	"strings"
@@ -409,7 +411,13 @@ type plannedManaActivation struct {
 	activation decision.PaymentActivation
 	mana       state.Mana
 	creature   bool
-	flex       int
+	// flex and colours describe the SOURCE, not this alternative: over every
+	// eligible alternative of the source, flex is the number of distinct mana
+	// types (W/U/B/R/G/C) it can produce and colours is the WUBRG bitmask
+	// (bit i = state.MW+i) of the colours it can produce. They feed rank keys
+	// 5 (flexibility consumed) and 7 (remainder diversity).
+	flex    int
+	colours uint8
 	// ma is the exact ability this alternative activates. It is not part of
 	// the witness: every intrinsic ability shares one PaymentAbility
 	// identity ({intrinsic, basic_land}), so on a source with several (a
@@ -454,6 +462,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 		}
 	}
 	pool := e.G.Players[p].Pool
+	rankCtx := newPaymentPlanRankContext(choices)
 	var best *decision.PaymentPlan
 	bestRank := paymentPlanRank{}
 	nodes, limited := 0, false
@@ -466,7 +475,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 		nodes++
 		if paid, ok := cost.resolveManaWith(manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil); ok {
 			plan := paymentWitness(cost, pool, produced, chosen, paid.pool)
-			r := rankPaymentPlan(plan, chosen, produced, paid.pool)
+			r := rankPaymentPlan(rankCtx, plan, chosen, paid.pool)
 			if best == nil || r.less(bestRank) {
 				best, bestRank = &plan, r
 			}
@@ -784,9 +793,22 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
 	// outcome it could have supplied, rather than by only the outcome the
-	// search happened to choose.
+	// search happened to choose. Flexibility is the number of DISTINCT mana
+	// types those outcomes produce (spec 5 key 5), so a Produced$ Any source
+	// counts 5, a typed dual 2, and two abilities that both add {U} count 1.
+	var types uint8 // bit i = mana index i (W/U/B/R/G/C)
+	for _, a := range out {
+		for i, n := range a.mana {
+			if n > 0 {
+				types |= 1 << i
+			}
+		}
+	}
+	flex := bits.OnesCount8(types)
+	colours := types &^ (1 << state.MC)
 	for i := range out {
-		out[i].flex = len(out)
+		out[i].flex = flex
+		out[i].colours = colours
 	}
 	return out
 }
@@ -988,19 +1010,93 @@ func (e *Engine) paymentPlanManaInterference() bool {
 	return false
 }
 
+// Irreversible-cost weights (spec 5 key 1, as amended 2026-09-26). They are
+// Arena-calibrated: two self-sacrificed Treasures (20) are cheaper than one
+// Mana Vault that does not untap (25), which is cheaper than three Treasures
+// (30); a point of damage or life (3) is cheaper than any sacrifice. The key
+// is summed per activated ability, so a source's painless ability always
+// beats its painful one for the same need.
+const (
+	paymentPlanCostSacrificeSelf         = 10 // sacrifice-self, non-creature source
+	paymentPlanCostSacrificeSelfCreature = 20 // sacrifice-self, creature source
+	paymentPlanCostNoUntap               = 25 // the source does not untap next untap step
+	paymentPlanCostPerLifeOrDamage       = 3  // per point of life paid or damage taken
+	paymentPlanCostReturnToHand          = 8  // the source returns to its owner's hand
+)
+
+// paymentPlanConsequenceCost is one activation's irreversible cost under the
+// weights above.
+func paymentPlanConsequenceCost(c paymentConsequence, creature bool) int64 {
+	var n int64
+	if c.sacrifice {
+		if creature {
+			n += paymentPlanCostSacrificeSelfCreature
+		} else {
+			n += paymentPlanCostSacrificeSelf
+		}
+	}
+	if c.noUntap {
+		n += paymentPlanCostNoUntap
+	}
+	n += paymentPlanCostPerLifeOrDamage * (int64(c.life) + int64(c.damage))
+	if c.returnToHand {
+		n += paymentPlanCostReturnToHand
+	}
+	return n
+}
+
+// paymentPlanRankContext is the per-query input the rank needs beyond one
+// plan: for each colour (WUBRG), how many untapped sources with an eligible
+// normal alternative can produce it. It is computed once from the query's
+// alternative table, so a plan's remainder is this census minus the plan's
+// own chosen sources.
+type paymentPlanRankContext struct {
+	colourSources [5]int
+}
+
+func newPaymentPlanRankContext(choices [][]plannedManaActivation) paymentPlanRankContext {
+	var ctx paymentPlanRankContext
+	for _, alts := range choices {
+		if len(alts) == 0 {
+			continue
+		}
+		for c := range ctx.colourSources {
+			if alts[0].colours&(1<<c) != 0 {
+				ctx.colourSources[c]++
+			}
+		}
+	}
+	return ctx
+}
+
+// paymentPlanRankStep is one witness step as the final tie-break compares it.
+type paymentPlanRankStep struct {
+	act         decision.PaymentActivation
+	consequence paymentConsequence
+}
+
+// paymentPlanRank is spec 5's lexicographic rank tuple (amended 2026-09-26);
+// less orders it, lower first, key by key in field order.
 type paymentPlanRank struct {
-	sources, creatures int
-	surplus            int32
-	flex               int
-	text               string
+	cost        int64 // 1. irreversible cost (0 for every normal-tier plan)
+	creatures   int   // 2. creature sources activated
+	sources     int   // 3. newly activated sources
+	surplus     int32 // 4. surplus mana left in the pool after paying
+	flex        int   // 5. distinct mana types the chosen sources could have made
+	handReserve int   // 6. placeholder, always 0: aph-hand-reserve defines it
+	remainder   int   // 7. distinct colours the unused sources still make (MORE first)
+	steps       []paymentPlanRankStep
 }
 
 func (r paymentPlanRank) less(o paymentPlanRank) bool {
-	if r.sources != o.sources {
-		return r.sources < o.sources
+	if r.cost != o.cost {
+		return r.cost < o.cost
 	}
 	if r.creatures != o.creatures {
 		return r.creatures < o.creatures
+	}
+	if r.sources != o.sources {
+		return r.sources < o.sources
 	}
 	if r.surplus != o.surplus {
 		return r.surplus < o.surplus
@@ -1008,17 +1104,100 @@ func (r paymentPlanRank) less(o paymentPlanRank) bool {
 	if r.flex != o.flex {
 		return r.flex < o.flex
 	}
-	return r.text < o.text
+	if r.handReserve != o.handReserve {
+		return r.handReserve < o.handReserve
+	}
+	if r.remainder != o.remainder {
+		return r.remainder > o.remainder
+	}
+	return comparePaymentPlanSteps(r.steps, o.steps) < 0
 }
-func rankPaymentPlan(p decision.PaymentPlan, as []plannedManaActivation, produced, after state.Mana) paymentPlanRank {
-	r := paymentPlanRank{sources: len(as), text: fmt.Sprint(p.Activations)}
+
+// comparePaymentPlanSteps is key 8: the typed witness, compared numerically
+// step by step (source object ID, ability kind, face, index, intrinsic name,
+// produced vector, consequence), then by length. It replaces a fmt.Sprint
+// string compare that sorted object 10 before object 9.
+func comparePaymentPlanSteps(a, b []paymentPlanRankStep) int {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		x, y := a[i], b[i]
+		if c := cmp.Compare(x.act.Source, y.act.Source); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Kind, y.act.Ability.Kind); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Face, y.act.Ability.Face); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Index, y.act.Ability.Index); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(x.act.Ability.Intrinsic, y.act.Ability.Intrinsic); c != 0 {
+			return c
+		}
+		for k := range x.act.Produces {
+			if c := cmp.Compare(x.act.Produces[k], y.act.Produces[k]); c != 0 {
+				return c
+			}
+		}
+		if c := comparePaymentConsequence(x.consequence, y.consequence); c != 0 {
+			return c
+		}
+	}
+	return cmp.Compare(len(a), len(b))
+}
+
+func comparePaymentConsequence(a, b paymentConsequence) int {
+	flag := func(v bool) int {
+		if v {
+			return 1
+		}
+		return 0
+	}
+	if c := cmp.Compare(flag(a.sacrifice), flag(b.sacrifice)); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.life, b.life); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.damage, b.damage); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(flag(a.noUntap), flag(b.noUntap)); c != 0 {
+		return c
+	}
+	return cmp.Compare(flag(a.returnToHand), flag(b.returnToHand))
+}
+
+// rankPaymentPlan computes plan p's rank. as is the plan's chosen
+// alternatives (one per source, in witness order), after the pool left once
+// the cost is paid, and ctx the query's source census.
+func rankPaymentPlan(ctx paymentPlanRankContext, p decision.PaymentPlan, as []plannedManaActivation, after state.Mana) paymentPlanRank {
+	r := paymentPlanRank{sources: len(as), surplus: after.Total(), steps: make([]paymentPlanRankStep, len(p.Activations))}
+	remaining := ctx.colourSources
 	for _, a := range as {
+		r.cost += paymentPlanConsequenceCost(a.consequence, a.creature)
 		if a.creature {
 			r.creatures++
 		}
 		r.flex += a.flex
+		for c := range remaining {
+			if a.colours&(1<<c) != 0 {
+				remaining[c]--
+			}
+		}
 	}
-	r.surplus = after.Total()
+	for _, n := range remaining {
+		if n > 0 {
+			r.remainder++
+		}
+	}
+	for i := range p.Activations {
+		r.steps[i].act = p.Activations[i]
+		if i < len(as) {
+			r.steps[i].consequence = as[i].consequence
+		}
+	}
 	return r
 }
 func paymentWitness(c Cost, initial, produced state.Mana, as []plannedManaActivation, after state.Mana) decision.PaymentPlan {
