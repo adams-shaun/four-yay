@@ -30,6 +30,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -49,14 +50,17 @@ import (
 	"time"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/host"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
+	"github.com/adams-shaun/gorge/internal/paymirror"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/view"
 )
 
 var colourNames = []string{"W", "U", "B", "R", "G"}
@@ -416,8 +420,14 @@ type gameCov struct {
 	cast, ability map[string]bool
 	used, offered map[string]map[string]bool
 	// ap is the game's auto-pay counters (collected in every mode).
-	ap *apStats
+	ap             *apStats
+	mirrorFailures []failure
+	mirrorVerdicts map[string]int
 }
+
+// autopayMirror is set once from the opt-in CLI flag before worker games start.
+var autopayMirror bool
+var autopayMirrorOptions = paymirror.Options{Control: true}
 
 // botSeat is the production hosted bot, or with explore the opt-in
 // coverage-exploration policy (seat.NewExploreBot, botpolicy.ExploreDecide);
@@ -534,6 +544,8 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 	var err error
 	probe := &useProbe{}
 	app := &apProbe{ap: ap}
+	var mirrorFailures []failure
+	mirrorVerdicts := map[string]int{}
 	offerSeen := map[probeRef]bool{}
 	board := boardGuard(maxObjects)
 	dumped := false
@@ -573,13 +585,40 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 				err = fmt.Errorf("panic outside drive loop: %v", r)
 			}
 		}()
-		o, e, err = gbench.PlayGame(cfg, seats, maxTurns, maxIntents, gbench.Hooks{Guard: guard, Setup: setup, Decision: app.decision})
+		o, e, err = gbench.PlayGame(cfg, seats, maxTurns, maxIntents, gbench.Hooks{
+			Guard: guard, Setup: setup, Decision: app.decision,
+			Submit: func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (bool, error) {
+				if !autopayMirror || seatIdx < 0 || seatIdx >= len(ap) || !ap[seatIdx] || in.Payment == nil {
+					return false, nil
+				}
+				answer := func(engine *rules.Engine, follow *decision.Decision) (decision.Intent, error) {
+					v := view.Project(engine.G, engine, follow.Player, follow)
+					return seats[follow.Player].Decide(context.Background(), v, *follow)
+				}
+				report := paymirror.CheckLive(e, in, answer, autopayMirrorOptions)
+				status, key := report.Verdict()
+				verdict := string(status)
+				if key != "" {
+					verdict += " " + key
+				}
+				mirrorVerdicts[verdict]++
+				if f := mirrorFailureRecord(report, seed, decks, explore, apc, ap, e.G.Turn); f != nil {
+					mirrorFailures = append(mirrorFailures, *f)
+				}
+				if report.AError != "" {
+					return true, fmt.Errorf("paymirror run A: %s", report.AError)
+				}
+				return true, nil
+			},
+		})
 	}()
 	if err != nil {
-		return mk("error", err.Error(), o), nil
+		return mk("error", err.Error(), o), &gameCov{ap: app.finish(), mirrorFailures: mirrorFailures, mirrorVerdicts: mirrorVerdicts}
 	}
 	gc = played(e, dk, probe)
 	gc.ap = app.finish()
+	gc.mirrorFailures = mirrorFailures
+	gc.mirrorVerdicts = mirrorVerdicts
 	withCtx := func(kind, diag string) *failure {
 		ctx, involved := tailContext(e, 24)
 		f := mk(kind, diag+"\n-- last events --\n"+ctx, o)
@@ -633,6 +672,17 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 		}
 	}
 	return nil, gc
+}
+
+func mirrorFailureRecord(report *paymirror.Report, seed uint64, decks []genDeck, explore bool, apc autoPay, ap []bool, turn int32) *failure {
+	status, key := report.Verdict()
+	if status == paymirror.Equivalent {
+		return nil
+	}
+	b, _ := json.Marshal(report)
+	return &failure{Kind: "mirror", Seed: seed, Decks: decks, Explore: explore,
+		AutoPay: apc.mode, ExploreAutoPay: apc.explore, AutoPaySeats: seatList(ap),
+		Turns: turn, Diag: string(b), Sig: "mirror: " + key}
 }
 
 // planFailures is -plan-failures: record plan-contract violations.
@@ -822,6 +872,7 @@ func main() {
 	maxHangs := flag.Int("max-hangs", 6, "stop the run once this many hung games are leaked (each burns a core)")
 	cpuProfile := flag.String("cpuprofile", "", "with -repro: write a CPU profile of the replay here")
 	autoPayMode := flag.String("autopay", "off", "off|all|mixed: which production-bot seats cast through offered payment plans (seat.Bot.EnableAutoPayMana); mixed picks per game and seat from the seed")
+	mirror := flag.Bool("autopay-mirror", false, "mirror each auto-pay planned cast against float-then-cast (opt-in)")
 	exploreAutoPay := flag.Bool("explore-autopay", false, "the -explore seat auto-pays too wherever -autopay would select its seat (off by default: the wrapper hides priority mana activations, cutting explore coverage)")
 	statsPath := flag.String("stats", "", "write the run's failure counts and auto-pay counters here as JSON")
 	journalPath := flag.String("journal", "", "append 'start <goroutine> <seed>' / 'end <seed>' around every game: a fatal runtime error (a stack overflow) kills the whole process past any recover, and the journal names the game the crashing goroutine was playing")
@@ -831,6 +882,7 @@ func main() {
 	maxStack := flag.Int("max-stack", 256<<20, "per-goroutine stack limit in bytes (runtime/debug.SetMaxStack): an unbounded recursion dies here instead of at Go's 1 GB default")
 	flag.Parse()
 	debug.SetMaxStack(*maxStack)
+	autopayMirror = *mirror
 	apc, err := parseAutoPay(*autoPayMode, *exploreAutoPay)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "cardfuzz:", err)
@@ -1000,18 +1052,31 @@ func main() {
 				addKeys(c.Used, gr.gc.used)
 				addKeys(c.Offered, gr.gc.offered)
 			}
+			failures := make([]*failure, 0, 1)
+			if gr.gc != nil {
+				failures = make([]*failure, 0, 1+len(gr.gc.mirrorFailures))
+			}
 			if gr.fail != nil {
-				runFails[gr.fail.Sig]++
-				runKinds[gr.fail.Kind]++
+				failures = append(failures, gr.fail)
+			}
+			if gr.gc != nil {
+				for i := range gr.gc.mirrorFailures {
+					failures = append(failures, &gr.gc.mirrorFailures[i])
+				}
+			}
+			for _, fail := range failures {
+				runFails[fail.Sig]++
+				runKinds[fail.Kind]++
 				for nme := range seen {
 					if !p.isBasic(nme) {
 						c.Fails[nme]++
 					}
 				}
-				b, _ := json.Marshal(gr.fail)
+				b, _ := json.Marshal(fail)
 				fw.Write(b)
 				fw.WriteByte('\n')
 			}
+
 		}
 		fw.Flush()
 		if err := c.save(*statePath); err != nil {
@@ -1183,9 +1248,22 @@ func runRepro(reg *cards.Registry, path string, line, maxTurns, maxIntents, maxO
 			fmt.Fprintf(os.Stderr, "cardfuzz: record's autopay_seats %v disagree with the seats -autopay %s derives (%v)\n", rec.AutoPaySeats, apc.mode, got)
 			return 1
 		}
+		previousMirror := autopayMirror
+		if rec.Kind == "mirror" {
+			autopayMirror = true
+		}
 		fl, gc := playGame(reg, rec.Decks, rec.Seed, maxTurns, maxIntents, maxObjects, true, rec.Explore, apc)
+		autopayMirror = previousMirror
 		if gc != nil && gc.ap != nil && apc.on() {
 			fmt.Printf("REPRO autopay %s seats %v: %s\n", apc.mode, rec.AutoPaySeats, gc.ap.String())
+		}
+		if gc != nil {
+			for _, mf := range gc.mirrorFailures {
+				if rec.Kind == "mirror" && mf.Sig == rec.Sig {
+					fmt.Printf("REPRO mirror seed=%d sig=%s\n%s\n", mf.Seed, mf.Sig, mf.Diag)
+					return 2
+				}
+			}
 		}
 		if fl == nil {
 			fmt.Println("REPRO: game completed cleanly (not reproduced)")

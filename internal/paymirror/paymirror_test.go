@@ -158,7 +158,7 @@ func TestPayMirrorDetectsPerturbation(t *testing.T) {
 			continue
 		}
 		tapped := false
-		opt := Options{afterRoute: func(b *rules.Engine) {
+		opt := Options{AfterRoute: func(b *rules.Engine) {
 			bd := b.Pending()
 			if bd == nil || bd.Kind != decision.KPriority {
 				return

@@ -53,9 +53,9 @@ type Options struct {
 	// Trace records every event (decision events included) each side logged
 	// since the fork, for a debugging run on one game.
 	Trace bool
-	// afterRoute is a test hook run on each mirror engine after its route
-	// completes and before the comparison (the sensitivity test perturbs B).
-	afterRoute func(b *rules.Engine)
+	// AfterRoute runs on each mirror engine after its route completes and
+	// before comparison. It is intended for diagnostic perturbation tests.
+	AfterRoute func(b *rules.Engine)
 	// Resolve extends every route that is equivalent at the cast boundary:
 	// clones of both engines are driven with one deterministic passer (pass
 	// priority, first-Min answers) until the planned spell has left the
@@ -305,9 +305,9 @@ func check(base, a *rules.Engine, in decision.Intent, answer Answerer, opt Optio
 		cr.Signature = signature(&cr)
 		rep.Control = &cr
 	}
-	rep.Routes = append(rep.Routes, runRoute(ref, bFloat, fork, rep, RouteFloat, action, opt.afterRoute))
+	rep.Routes = append(rep.Routes, runRoute(ref, bFloat, fork, rep, RouteFloat, action, opt.AfterRoute))
 	if bBase != nil {
-		rep.Routes = append(rep.Routes, runRoute(ref, bBase, fork, rep, RouteBase, action, opt.afterRoute))
+		rep.Routes = append(rep.Routes, runRoute(ref, bBase, fork, rep, RouteBase, action, opt.AfterRoute))
 	}
 	if opt.Resolve {
 		for i, eng := range []*rules.Engine{bFloat, bBase} {
