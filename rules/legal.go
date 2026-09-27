@@ -1299,11 +1299,34 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	if xPending && specNamesXBound(sa.Params["ValidTgts"]) {
 		return true
 	}
-	candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
-	if walkCacheVerify && (len(candidates) >= min) != (len(e.candidatesForLimit(p, id, excludeSelf, sa, true, min)) >= min) {
-		panic("rules: limited target census disagrees with the full census")
+	if !targetCrossConstrained(sa) {
+		// No cross-target constraint: targetChoiceFeasible reduces to
+		// len(candidates) >= min, which the limited census answers exactly
+		// (candidatesForLimit stops at min only when no post-filter can drop
+		// a candidate) without matching the rest of the population -- an
+		// any-target spell stops at the player seats.
+		ok := len(e.candidatesForLimit(p, id, excludeSelf, sa, true, min)) >= min
+		if walkCacheVerify && ok != e.targetChoiceFeasible(sa, e.legalTargetCandidates(p, id, excludeSelf, sa), min) {
+			panic("rules: limited target census disagrees with the full census")
+		}
+		return ok
 	}
+	candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
 	return e.targetChoiceFeasible(sa, candidates, min)
+}
+
+// targetCrossConstrained reports whether sa carries a cross-target
+// constraint targetChoiceFeasible reads beyond the candidate count: per-
+// controller exclusivity (oneEachTargetBounds), same-controller grouping
+// (sameControllerTargetBounds) or a set-property constraint
+// (setPropTargetBounds). Each of those helpers is the identity on min when
+// its predicate here is false.
+func targetCrossConstrained(sa *cards.SA) bool {
+	if targetControllerExclusive(sa) || strings.EqualFold(sa.Params["TargetsWithSameController"], "True") {
+		return true
+	}
+	mode, _ := targetSetPropMode(sa)
+	return mode != decision.SetPropNone
 }
 
 // targetChoiceFeasible is the ONE home for whether a target declaration with
