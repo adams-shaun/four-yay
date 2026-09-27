@@ -1,0 +1,105 @@
+{
+  "card": "Knights of the Black Rose",
+  "family": "trigger-condition",
+  "oracle_sha": "02d462cf898c",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "monarch-at-turn-start-opponent-takes-crown",
+      "cr": [
+        "603.4",
+        "725.3"
+      ],
+      "why": "Seat 0 starts the turn as monarch after its Knight entered before the turn. An outside effect moves the opposing Knight onto the battlefield; its enters ability gives seat 1 the crown. Because seat 0 held the crown as the turn began, seat 0\u2019s Knight triggers and drains two.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Knights of the Black Rose"
+          ]
+        },
+        "p1": {
+          "graveyard": [
+            "Knights of the Black Rose"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p1:Knights of the Black Rose",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Knights of the Black Rose",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 22,
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "crowned-midturn-opponent-takes-crown",
+      "cr": [
+        "603.4",
+        "725.3"
+      ],
+      "why": "Seat 0 starts without the crown, then its cast Knight gives it the crown during the turn. An outside effect returns an opposing Knight and transfers the crown to seat 1. Seat 0 was not monarch when the turn began: its conditional ability never goes on the stack.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Knights of the Black Rose"
+          ]
+        },
+        "p1": {
+          "graveyard": [
+            "Knights of the Black Rose"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Knights of the Black Rose",
+          "mana": "WWBBB"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "move",
+          "card": "p1:Knights of the Black Rose",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Knights of the Black Rose",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 20,
+            "p1": 20
+          }
+        }
+      ]
+    }
+  ]
+}
