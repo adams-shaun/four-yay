@@ -36,14 +36,11 @@ import (
 // pins the engine belt that re-derives the same overflow: the two reads cannot
 // disagree about what the declaration can pay.
 //
-// The engine's whole-declaration diagnostic ("... is not payable") is still the
-// authoritative read and still the message this ticket fixed, so
-// TestWholeDeclarationDiagnosticNamesMana reaches it through Submit by using a
-// charge component the folded wire does NOT budget: a tap obligation. The
-// offer gate meets it from the non-attacker creatures, but a declaration that
-// commits those creatures as attackers leaves too few tap candidates, so the
-// folded Values fit the budget while combatChargeAffordable refuses the whole
-// declaration. Its message must name the mana and the fail-closed flag.
+// The declaration-dependent tap-pool wire rule rejects an answer before the
+// engine's broader combatChargeAffordable diagnostic: the offer gate meets the
+// tap obligation from non-attacker creatures, but the declaration commits too
+// many of those creatures. This regression keeps that fail-closed behavior
+// explicit for the older synthetic tap-tax fixture as well as Hollow Warrior.
 //
 // blockCharge.unpriceable is TRUE only when a matching CantAttackUnless static
 // has a Cost$ shape this build cannot price, and attackOffers drops every such
@@ -285,13 +282,8 @@ func TestWholeDeclarationDiagnosticNamesMana(t *testing.T) {
 	if err == nil {
 		t.Fatal("the unpayable tap-obligation declaration was accepted; fail-closed behaviour regressed")
 	}
-	if !strings.Contains(err.Error(), "is not payable") {
-		t.Fatalf("rejection = %q, want the declaration-payability diagnostic", err.Error())
-	}
-	// The diagnostic must name the mana component and the fail-closed flag.
-	// Before the fix it printed only the non-mana parts, hiding the real {1}.
-	if !strings.Contains(err.Error(), "1 mana") || !strings.Contains(err.Error(), "1 taps") || !strings.Contains(err.Error(), "unpriceable=false") {
-		t.Fatalf("rejection %q does not name the mana, the tap obligation and the fail-closed flag", err.Error())
+	if !strings.Contains(err.Error(), "tap obligation's candidate pool") {
+		t.Fatalf("rejection = %q, want the declaration-dependent tap-pool diagnostic", err.Error())
 	}
 	if o := e.G.Obj(golem); o == nil || o.IsAttacking {
 		t.Fatal("the rejected declaration still committed the taxed attacker")
