@@ -1,0 +1,47 @@
+{
+  "card": "Bloodchief Ascension",
+  "family": "trigger-condition",
+  "oracle_sha": "c5714dc6c6cc",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "third-quest-counter-enables-graveyard-trigger",
+      "cr": ["603.2", "603.4", "513.1"],
+      "why": "The opponent loses at least two life in each of three turns, so the end-step ability adds three quest counters; afterward a card entering that opponent's graveyard meets the three-counter condition and may drain two life.",
+      "setup": {"p0": {"battlefield": ["Bloodchief Ascension"]}, "p1": {"battlefield": ["Savannah Lions"]}},
+      "steps": [
+        {"op": "life", "seat": 1, "amount": -2},
+        {"op": "pass_to", "step": "end"},
+        {"op": "resolve", "answers": [{"kind": "trigger_optional", "pick": ["yes"]}]},
+        {"op": "pass_to", "step": "main1", "active": "p0"},
+        {"op": "life", "seat": 1, "amount": -2},
+        {"op": "pass_to", "step": "end"},
+        {"op": "resolve", "answers": [{"kind": "trigger_optional", "pick": ["yes"]}]},
+        {"op": "pass_to", "step": "main1", "active": "p0"},
+        {"op": "life", "seat": 1, "amount": -2},
+        {"op": "pass_to", "step": "end"},
+        {"op": "resolve", "answers": [{"kind": "trigger_optional", "pick": ["yes"]}]},
+        {"op": "pass_to", "step": "main1", "active": "p0"},
+        {"op": "move", "seat": 0, "card": "p1:Savannah Lions", "to": "graveyard",
+         "expect": [{"trigger_on_stack": "p0:Bloodchief Ascension", "want": true}]},
+        {"op": "resolve", "answers": [{"kind": "trigger_optional", "pick": ["yes"]} ]}
+      ],
+      "expect": [{"life": {"p0": 22, "p1": 12}}]
+    },
+    {
+      "name": "below-three-counters-no-graveyard-trigger",
+      "cr": ["603.4", "513.1"],
+      "why": "One opponent life-loss event qualifies for only one quest counter. With fewer than three counters, a card subsequently put into that opponent's graveyard does not trigger the life-loss ability.",
+      "setup": {"p0": {"battlefield": ["Bloodchief Ascension"]}, "p1": {"battlefield": ["Savannah Lions"]}},
+      "steps": [
+        {"op": "life", "seat": 1, "amount": -2},
+        {"op": "pass_to", "step": "end"},
+        {"op": "resolve", "answers": [{"kind": "trigger_optional", "pick": ["yes"]}]},
+        {"op": "pass_to", "step": "main1", "active": "p0"},
+        {"op": "move", "seat": 0, "card": "p1:Savannah Lions", "to": "graveyard",
+         "expect": [{"trigger_on_stack": "p0:Bloodchief Ascension", "want": false}]}
+      ],
+      "expect": [{"life": {"p0": 20, "p1": 18}}]
+    }
+  ]
+}

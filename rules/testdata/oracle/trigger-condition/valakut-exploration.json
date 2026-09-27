@@ -1,0 +1,31 @@
+{
+  "card": "Valakut Exploration",
+  "family": "trigger-condition",
+  "oracle_sha": "525a16e91107",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "exiled-card-deals-damage-at-end-step",
+      "cr": ["603.2", "603.4", "513.1"],
+      "why": "A land entering under the controller's control exiles a card, so there is a card exiled with Valakut Exploration at end step; that card is put into its owner's graveyard and each opponent is dealt one damage.",
+      "setup": {"p0": {"hand": ["Forest"], "battlefield": ["Valakut Exploration"], "library_top": ["Wastes", "Grizzly Bears"]}, "p1": {}},
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve"},
+        {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Valakut Exploration", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p1": 19}, "count": {"seat": 0, "zone": "graveyard", "name": "Grizzly Bears"}, "eq": 1}]
+    },
+    {
+      "name": "no-exiled-cards-no-end-step-trigger",
+      "cr": ["603.4", "513.1"],
+      "why": "No card has been exiled with Valakut Exploration, so its end-step condition is false and its damage ability does not trigger.",
+      "setup": {"p0": {"battlefield": ["Valakut Exploration"], "library_top": ["Wastes"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Valakut Exploration", "want": false}]}
+      ],
+      "expect": [{"life": {"p1": 20}}]
+    }
+  ]
+}
