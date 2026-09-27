@@ -1,0 +1,81 @@
+{
+  "card": "Bastion Protector",
+  "family": "command-zone",
+  "oracle_sha": "2dd1ff167cd2",
+  "author": "cli-20260927T211249Z-7acc6934 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "designated-commander-on-battlefield-buffed",
+      "cr": [
+        "903.3",
+        "903.3d",
+        "613.1"
+      ],
+      "why": "After the designated Dog commander enters the battlefield under its owner\u2019s control, Protector gives it two additional power and toughness and indestructible.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Bastion Protector"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Isamaru, Hound of Konda",
+          "zone": "battlefield",
+          "pt": "4/4",
+          "keywords": [
+            "indestructible"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "noncommander-legendary-unbuffed",
+      "cr": [
+        "903.3",
+        "903.3d"
+      ],
+      "why": "A legendary creature that was never designated commander does not qualify, and a commander still in the command zone is not a creature controlled on the battlefield.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Bastion Protector",
+            "Sram, Senior Edificer"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Sram, Senior Edificer",
+          "pt": "2/2",
+          "no_keywords": [
+            "indestructible"
+          ]
+        },
+        {
+          "card": "p0:Isamaru, Hound of Konda",
+          "zone": "command"
+        }
+      ]
+    }
+  ]
+}

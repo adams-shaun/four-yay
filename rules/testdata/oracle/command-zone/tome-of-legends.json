@@ -1,0 +1,141 @@
+{
+  "card": "Tome of Legends",
+  "family": "command-zone",
+  "oracle_sha": "383c66c5ca00",
+  "author": "cli-20260927T211249Z-7acc6934 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "commander-enters-adds-second-page",
+      "cr": [
+        "903.3",
+        "603.2",
+        "122.6"
+      ],
+      "why": "The Tome already has its entering page counter. When the designated commander enters under this player\u2019s control, the Tome adds one more.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Tome of Legends"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Tome of Legends",
+          "counters": {
+            "page": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "other-legendary-enters-no-extra-page",
+      "cr": [
+        "903.3",
+        "603.2"
+      ],
+      "why": "A different legendary creature arriving is not the designated commander; Tome keeps only its initial page counter.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Tome of Legends"
+          ],
+          "hand": [
+            "Sram, Senior Edificer"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sram, Senior Edificer",
+          "mana": "CW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Sram, Senior Edificer",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Tome of Legends",
+          "counters": {
+            "page": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "spend-page-to-draw",
+      "cr": [
+        "602.2",
+        "121.2"
+      ],
+      "why": "A page can be removed as part of paying the Tome\u2019s activation cost to draw one card; the commander need not be on the battlefield.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Tome of Legends"
+          ],
+          "library_top": [
+            "Plains"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Tome of Legends",
+          "ability": "Draw",
+          "mana": "C"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Tome of Legends",
+          "counters": {
+            "page": 0
+          }
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}
