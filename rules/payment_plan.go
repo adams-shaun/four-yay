@@ -57,8 +57,24 @@ func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, 
 }
 
 // PlanCastPayment builds one V1 witness for an ordinary cast from hand.  It
-// does not change the game, log, pending decision, or RNG.
+// does not change the game, log, pending decision, or RNG.  It runs its own
+// candidate walk for this one cast (ValidateCastPayment, the audit tools and
+// tests call it for a single cast); the offer builder, which plans every
+// candidate of one decision, shares one walk and one cost-static collection
+// across them through planCastPaymentChecked.
 func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) PaymentPlanOutcome {
+	statics := costStaticSource{e: e}
+	candidates := paymentCastCandidates{e: e, p: p}
+	return e.planCastPaymentChecked(p, cast, &statics, &candidates)
+}
+
+// planCastPaymentChecked is PlanCastPayment over caller-owned per-build
+// inputs: statics is the build's one lazy cost-static collection and
+// candidates its one lazy hypothetical candidate walk. Both are pure reads of
+// the unchanged state, so sharing them across the candidates of one build
+// answers every check exactly as a fresh collection and walk would. The
+// check order, and therefore every Reason and Detail, is PlanCastPayment's.
+func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedCast, statics *costStaticSource, candidates *paymentCastCandidates) PaymentPlanOutcome {
 	if cast.Origin != "hand" || cast.Face != 0 {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
@@ -66,10 +82,10 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 	if o == nil || o.Zone != state.ZHand || o.Owner != p || o.Face() == nil || int(o.FaceIdx) != cast.Face {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
-	if detail := e.paymentPlanCastShapeDetail(p, cast.Object); detail != "" {
+	if detail := e.paymentPlanCastShapeDetailUsing(statics.get(), p, cast.Object); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
-	if !e.paymentPlanCastCandidate(p, cast.Object) {
+	if !candidates.has(cast.Object) {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	// V1 has no way to carry a target-dependent reprice or a choice made at
@@ -77,7 +93,7 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 	// prohibitions; this method owns the exact cost/witness subset.
 	base := e.rawBaseCost(p, cast.Object)
 	base = withSpellAbilityExtras(o.Face(), base)
-	cost := e.offerCostFor(p, cast.Object, base, spellScope(""))
+	cost := e.offerCostForUsing(statics.get(), p, cast.Object, base, spellScope(""))
 	if detail := paymentPlanCostDetail(cost); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
@@ -95,17 +111,37 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 // hypothetical aggregate only discovers candidates; exact admission still
 // happens through the source-exclusive plan below.
 func (e *Engine) paymentPlanCastCandidate(p state.PlayerID, id state.ObjID) bool {
-	// Candidate legality is intentionally independent of present mana.  A
-	// large local pool lets the shared walk retain a cast which this planner
-	// will later classify as insufficient, while its non-mana gates remain
-	// authoritative and live.
-	hyp := state.Mana{1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28}
-	for _, opt := range e.legalActionsPriced(p, &hyp) {
-		if opt.Kind == "cast" && opt.Obj == id && opt.Mode == "" && opt.AltCostIndex == 0 {
-			return true
+	c := paymentCastCandidates{e: e, p: p}
+	return c.has(id)
+}
+
+// paymentCastCandidates is one player's plain-cast candidate set from ONE
+// hypothetical legal-action walk, run on the first membership query.
+// Candidate legality is intentionally independent of present mana: a large
+// local pool lets the shared walk retain a cast which the planner will later
+// classify as insufficient, while its non-mana gates (timing, mandatory
+// targets, CantBeCast) remain authoritative and live. A member is a
+// "cast" option with no Mode and no AltCostIndex -- exactly the option
+// paymentPlanCastCandidate has always matched -- so membership answers that
+// per-cast walk for every candidate of a build at the cost of one walk.
+type paymentCastCandidates struct {
+	e     *Engine
+	p     state.PlayerID
+	ids   []state.ObjID
+	ready bool
+}
+
+func (c *paymentCastCandidates) has(id state.ObjID) bool {
+	if !c.ready {
+		hyp := state.Mana{1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28}
+		for _, opt := range c.e.legalActionsPriced(c.p, &hyp) {
+			if opt.Kind == "cast" && opt.Mode == "" && opt.AltCostIndex == 0 {
+				c.ids = append(c.ids, opt.Obj)
+			}
 		}
+		c.ready = true
 	}
-	return false
+	return slices.Contains(c.ids, id)
 }
 
 // paymentPlanCastShapeOK excludes plain casts whose announced cost or result
@@ -116,17 +152,24 @@ func (e *Engine) paymentPlanCastShapeOK(p state.PlayerID, id state.ObjID) bool {
 }
 
 func (e *Engine) paymentPlanCastShapeDetail(p state.PlayerID, id state.ObjID) string {
+	return e.paymentPlanCastShapeDetailUsing(e.collectCostStatics(), p, id)
+}
+
+// paymentPlanCastShapeDetailUsing is paymentPlanCastShapeDetail over one
+// already-collected cost-static set (the offer builder's, shared by every
+// candidate of one decision).
+func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p state.PlayerID, id state.ObjID) string {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
 		return "shape:additional_cost"
 	}
 	f := o.Face()
-	if len(altAddCostParts(f)) != 0 || len(e.optionalCostViews(e.collectCostStatics(), p, id)) != 0 {
+	if len(altAddCostParts(f)) != 0 || len(e.optionalCostViews(statics, p, id)) != 0 {
 		return "shape:optional_cost"
 	}
 	// Cost$ on the spell ability and the supported cost-static extra are both
 	// additional costs; neither is represented by a mana-only plan witness.
-	mods := e.costModifiersWithTargets(p, id, spellScope(""), nil, false)
+	mods := e.costModifiersWithTargetsUsing(statics, p, id, spellScope(""), nil, false)
 	spellCost := Cost{}
 	if sa := f.SpellAbility(); sa != nil {
 		spellCost = e.parseCost(sa.Params["Cost"])
@@ -154,7 +197,7 @@ func (e *Engine) paymentPlanCastShapeDetail(p state.PlayerID, id state.ObjID) st
 		e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.paymentPlanSunburstGrantOut() {
 		return "shape:mana_spent_reader"
 	}
-	if e.paymentPlanHasTargetDependentModifier(p, id) {
+	if e.paymentPlanHasTargetDependentModifierUsing(statics, p, id) {
 		return "shape:target_dependent_cost"
 	}
 	if _, ok := f.KeywordParam("Escalate"); ok {
@@ -253,7 +296,16 @@ func (e *Engine) paymentPlanHasTargetDependentModifier(p state.PlayerID, id stat
 	if o := e.G.Obj(id); o == nil || !paymentPlanSpellTargets(o.Face()) {
 		return false
 	}
-	statics := e.collectCostStatics()
+	return e.paymentPlanHasTargetDependentModifierUsing(e.collectCostStatics(), p, id)
+}
+
+// paymentPlanHasTargetDependentModifierUsing is
+// paymentPlanHasTargetDependentModifier over one already-collected
+// cost-static set.
+func (e *Engine) paymentPlanHasTargetDependentModifierUsing(statics costStaticViews, p state.PlayerID, id state.ObjID) bool {
+	if o := e.G.Obj(id); o == nil || !paymentPlanSpellTargets(o.Face()) {
+		return false
+	}
 	for _, group := range []struct {
 		mode  string
 		views []staticView
@@ -284,16 +336,44 @@ func (e *Engine) paymentPlanHasTargetDependentModifier(p state.PlayerID, id stat
 // PaymentActionsForPriority builds the additive extension for one concrete
 // priority decision. ask publishes its result after fixing the decision Seq;
 // callers may also inspect this pure builder without changing an ask.
+// Without the decision in hand it derives BaseOptionIndex from a fresh
+// legalActions walk; EnsurePaymentActions passes the pending Options instead.
 func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decision.PaymentAction {
+	return e.paymentActionsForPriority(p, seq, nil)
+}
+
+// paymentActionsForPriority is the one-pass offer builder (spec 5 as amended:
+// the pending decision's Options and one hypothetical candidate walk, not a
+// full legal-action walk per candidate). options is the priority decision's
+// own Options, which BaseOptionIndex indexes; nil derives them with one
+// legalActions walk, and only once some action needs them.
+//
+// Per build it runs at most two legal-action walks: the PotentialMana walk,
+// which discovers the candidates and their order and labels, and the
+// huge-pool walk behind paymentCastCandidates, which PlanCastPayment has
+// always required of each candidate. Both are kept: the PotentialMana walk
+// also withholds a cast its potential sources cannot afford, which the
+// huge-pool walk admits, so the planner only ever sees the candidates it saw
+// before. Cost statics are collected once and shared by every candidate.
+func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options []decision.Option) []decision.PaymentAction {
 	if e.G.Over {
 		return nil
 	}
+	// Every candidate's plan is declined on a pool the planner cannot
+	// account for (planCastPaymentChecked), and that verdict reads only the
+	// player, so no walk can change the empty result.
+	if !paymentPlanPoolOK(e.G.Players[p]) {
+		e.paymentStats.recordBuild(true)
+		return nil
+	}
+	e.paymentStats.recordBuild(false)
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
 	// source-exclusive witness.
 	hyp := e.PotentialMana(p)
 	candidates := e.legalActionsPriced(p, &hyp)
-	legacy := e.legalActions(p)
+	statics := costStaticSource{e: e}
+	legal := paymentCastCandidates{e: e, p: p}
 	var out []decision.PaymentAction
 	for _, opt := range candidates {
 		// A V1 PlannedCast records the ordinary printed-cost cast only.  An
@@ -305,7 +385,8 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 			continue
 		}
 		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: "hand"}
-		got := e.PlanCastPayment(p, cast)
+		got := e.planCastPaymentChecked(p, cast, &statics, &legal)
+		e.paymentStats.recordOutcome(got)
 		if got.Plan == nil {
 			continue
 		}
@@ -320,14 +401,18 @@ func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decis
 			continue
 		}
 		a := decision.PaymentAction{ID: aid, Cast: cast, Label: opt.Label, Plans: []decision.PaymentPlan{plan}}
-		for i := range legacy {
-			if legacy[i].Kind == "cast" && legacy[i].Obj == opt.Obj && legacy[i].Mode == "" && legacy[i].AltCostIndex == 0 {
-				idx := legacy[i].Index
+		if options == nil {
+			options = e.legalActions(p)
+		}
+		for i := range options {
+			if options[i].Kind == "cast" && options[i].Obj == opt.Obj && options[i].Mode == "" && options[i].AltCostIndex == 0 {
+				idx := options[i].Index
 				a.BaseOptionIndex = &idx
 				break
 			}
 		}
 		out = append(out, a)
+		e.paymentStats.recordOffered(len(a.Plans))
 	}
 	return out
 }

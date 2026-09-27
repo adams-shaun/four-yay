@@ -1542,6 +1542,59 @@ func (e *Engine) attackOffers() []attackOffer {
 	return keep
 }
 
+// attackTapPool publishes the decision-wide tap-candidate pool for the
+// declaration's tapXType obligation(s) and the per-attacker share of it that a
+// declaration would consume. It is the engine half of the wire rule
+// decision.ChargeTapPoolFit: askAttackers puts the pool on
+// Decision.ChargeTapPool and each offer's consumption on Option.TapPoolCost,
+// and validateAttackers reads the same published rule, so a client that cannot
+// see the board can still avoid a declaration that leaves the obligation
+// unpayable -- the Hollow Warrior case, where the obligation is
+// tapXType<1/Creature.!attacking> and committing every other creature removes
+// the pool the obligation would draw from.
+//
+// It returns ok=true only when every tap obligation across every offered pair
+// shares one (spec, source) shape: then a single candidate pool is exact and
+// pool - consumed >= owed is the whole rule. Any other shape returns ok=false
+// and publishes nothing, so the caller falls back to the conservative
+// drop-the-pick behaviour rather than publish a pool that does not describe
+// the obligations. The candidate list comes from the same blockTapCandidates
+// walk the payment plan uses (no exclusions here: the pool is measured before
+// the declaration), so the published count and the engine's plan cannot
+// disagree about who may pay. Deterministic: a battlefield-order walk and
+// lookup-only maps.
+func (e *Engine) attackTapPool(p state.PlayerID, offers []attackOffer) (pool int, costs map[state.ObjID]int, ok bool) {
+	var shape *blockTapReq
+	for i := range offers {
+		for j := range offers[i].charge.taps {
+			t := offers[i].charge.taps[j]
+			if shape == nil {
+				r := t
+				shape = &r
+				continue
+			}
+			if t.spec != shape.spec || t.source != shape.source {
+				return 0, nil, false
+			}
+		}
+	}
+	if shape == nil {
+		return 0, nil, false
+	}
+	cands := e.blockTapCandidates(p, *shape, nil)
+	member := make(map[state.ObjID]bool, len(cands))
+	for _, id := range cands {
+		member[id] = true
+	}
+	costs = make(map[state.ObjID]int, len(offers))
+	for i := range offers {
+		if member[offers[i].id] {
+			costs[offers[i].id] = 1
+		}
+	}
+	return len(cands), costs, true
+}
+
 // battleTarget is one attackable battle and the player who protects it.
 type battleTarget struct {
 	id        state.ObjID
