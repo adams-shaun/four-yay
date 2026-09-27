@@ -72,11 +72,12 @@ func (d *Decision) blockRequiredCore() []int {
 	}
 	counts := make(map[state.ObjID]int)
 	satAtk := make(map[state.ObjID]bool)
+	lifeBound := d.PayerLifeBound()
 	var chosen, best []int
 	bestRequired := -1
 	bestLength := int(^uint(0) >> 1)
-	var search func(int, int, int)
-	search = func(at, satisfied, spent int) {
+	var search func(int, int, int, int32)
+	search = func(at, satisfied, spent int, spentLife int32) {
 		if bestRequired == requiredCount+len(atkReq) {
 			return
 		}
@@ -113,6 +114,16 @@ func (d *Decision) blockRequiredCore() []int {
 			if len(chosen) >= d.maxChoices() || (d.HasBudget() && spent+o.Value > d.MaxSum) {
 				return
 			}
+			// The combined non-mana LIFE charge bound is enforced INSIDE the
+			// team search, not by pruning a finished team afterwards: a team
+			// member dropped after the fact can break a Min$ team minimum (the
+			// remaining members no longer form a legal declaration). One
+			// option priced through the shared chargeLifeCost reader, so this
+			// bound and the attack path's quota price a pip identically.
+			cost := o.chargeLifeCost()
+			if lifeBound >= 0 && spentLife+cost > lifeBound {
+				return
+			}
 			if o.MaxBlockers > 0 && counts[o.Attacker] >= o.MaxBlockers {
 				return
 			}
@@ -132,7 +143,7 @@ func (d *Decision) blockRequiredCore() []int {
 				satAtk[o.Attacker] = true
 				add++
 			}
-			search(at+1, satisfied+add, spent+o.Value)
+			search(at+1, satisfied+add, spent+o.Value, spentLife+cost)
 			if setAtk {
 				delete(satAtk, o.Attacker)
 			}
@@ -153,15 +164,15 @@ func (d *Decision) blockRequiredCore() []int {
 					try(ci)
 				}
 			}
-			search(at+1, satisfied, spent)
+			search(at+1, satisfied, spent, spentLife)
 		} else {
-			search(at+1, satisfied, spent)
+			search(at+1, satisfied, spent, spentLife)
 			for _, ci := range b.opts {
 				try(ci)
 			}
 		}
 	}
-	search(0, 0, 0)
+	search(0, 0, 0, 0)
 	return best
 }
 
@@ -206,21 +217,20 @@ func (d *Decision) blockRequiredQuota() int {
 	return d.blockRequirementsSatisfied(d.blockRequiredCoreChargeFeasible())
 }
 
-// blockRequiredCoreChargeFeasible is blockRequiredCore filtered through the
-// SAME combined non-mana charge rule the attack path uses
-// (ChargeOptionConstraints over the decision's published PayerLife): a legal
-// team that leaves the whole declaration unpayable is not a team the engine's
-// combined-charge check accepts, so it must not be counted by the quota nor
-// rebuilt by FitRequired. The unfiltered core is returned unchanged whenever
-// it is already payable, so every charge-free block decision is
-// byte-identical. ONE derivation, so the quota and the repair cannot
-// disagree.
+// blockRequiredCoreChargeFeasible is the legal maximum team over all MustBlock
+// candidates, with the combined non-mana LIFE charge (CostLife plus each
+// Phyrexian pip at two life, the shared chargeLifeCost price) bounded INSIDE
+// the team search. The charge bound is a whole-declaration property the
+// per-pair option list cannot express, and it is solved WITH the team minima
+// rather than by pruning a finished team: filtering a complete team pair by
+// pair can drop a member a Min$ attacker needed and return a set that is not
+// a legal declaration at all, which Submit rejects. blockRequiredCore already
+// enforces the bound (and the mana budget) on every candidate, so its result
+// is charge-feasible by construction; a charge-free decision (no published
+// PayerLife) skips the check and is byte-identical. ONE derivation, so the
+// quota and the repair cannot disagree.
 func (d *Decision) blockRequiredCoreChargeFeasible() []int {
-	core := d.blockRequiredCore()
-	if d.ChargeOptionsFit(core) {
-		return core
-	}
-	return ChargeOptionConstraints(d, core, d.PayerLifeBound(), 0)
+	return d.blockRequiredCore()
 }
 
 func (d *Decision) blockAnswerLegal(choices []int) bool {

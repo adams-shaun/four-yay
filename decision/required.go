@@ -85,28 +85,144 @@ func (d *Decision) requiredCore() []int {
 		return order[a].pos < order[b].pos
 	})
 	life := d.PayerLifeBound()
-	var core []int
-	sum := 0
-	spentLife := int32(0)
-	for _, p := range order {
-		if len(core) >= d.maxChoices() {
-			break
+	if life < 0 {
+		// No published charge bound: the ascending-Value prefix greedy is
+		// optimal for the count (the pre-charge contract) and byte-identical.
+		var core []int
+		sum := 0
+		for _, p := range order {
+			if len(core) >= d.maxChoices() {
+				break
+			}
+			v := d.Options[p.idx].Value
+			if d.HasBudget() && sum+v > d.MaxSum {
+				break // ascending: nothing later fits either
+			}
+			sum += v
+			core = append(core, p.idx)
 		}
-		v := d.Options[p.idx].Value
-		if d.HasBudget() && sum+v > d.MaxSum {
-			break // ascending: nothing later fits either
-		}
-		cost := d.Options[p.idx].chargeLifeCost()
-		if life >= 0 && spentLife+cost > life {
-			// Not ascending in charge, so SKIP rather than break: a later Obj's
-			// cheaper-life option may still fit the same bound.
+		return core
+	}
+	// A published charge bound turns the count into a selection over TWO
+	// resources at once (cumulative Value against MaxSum, cumulative life
+	// against the bound), where the prefix greedy under-counts: one Obj that
+	// is cheap in Value but expensive in life can block two later Objs that
+	// would fit together. Search the exact maximum-cardinality set (one
+	// option per required Obj) instead, with deterministic ties: most Objs
+	// first, then lowest total life, then lowest total Value, then the
+	// lexicographically smaller option-index sequence. The greedy result
+	// seeds the search as a lower bound so the remaining/count prune fires
+	// early, and the search stops as soon as it reaches the ceiling
+	// (min(required Objs, Max)), so a charge-free but bound-published list
+	// stays linear.
+	maxCount := d.maxChoices()
+	// groups is one entry per distinct required Obj, in first-seen order; each
+	// carries every Required option of that Obj (a Value/life trade-off makes
+	// the per-Obj cheapest pick alone insufficient for the maximum).
+	var groups [][]int
+	gpos := make(map[state.ObjID]int)
+	for i := range d.Options {
+		o := &d.Options[i]
+		if !o.Required {
 			continue
 		}
-		sum += v
-		spentLife += cost
-		core = append(core, p.idx)
+		g, ok := gpos[o.Obj]
+		if !ok {
+			g = len(groups)
+			gpos[o.Obj] = g
+			groups = append(groups, nil)
+		}
+		groups[g] = append(groups[g], i)
 	}
-	return core
+	maxPossible := len(groups)
+	if maxPossible > maxCount {
+		maxPossible = maxCount
+	}
+	var picked []int
+	pickedLife := int32(0)
+	pickedValue := 0
+	// Seed with the ascending-Value greedy prefix (including the life skip),
+	// the historical result and a tight lower bound for the prune.
+	{
+		sum := 0
+		spentLife := int32(0)
+		for _, p := range order {
+			if len(picked) >= maxCount {
+				break
+			}
+			v := d.Options[p.idx].Value
+			if d.HasBudget() && sum+v > d.MaxSum {
+				break
+			}
+			cost := d.Options[p.idx].chargeLifeCost()
+			if spentLife+cost > life {
+				continue
+			}
+			sum += v
+			spentLife += cost
+			picked = append(picked, p.idx)
+		}
+		pickedLife = spentLife
+		pickedValue = sum
+	}
+	lexLess := func(a, b []int) bool {
+		for i := 0; i < len(a) && i < len(b); i++ {
+			if a[i] != b[i] {
+				return a[i] < b[i]
+			}
+		}
+		return len(a) < len(b)
+	}
+	prefer := func(count int, lifeUsed int32, valueUsed int, sel []int) bool {
+		if count != len(picked) {
+			return count > len(picked)
+		}
+		if lifeUsed != pickedLife {
+			return lifeUsed < pickedLife
+		}
+		if valueUsed != pickedValue {
+			return valueUsed < pickedValue
+		}
+		return lexLess(sel, picked)
+	}
+	var sel []int
+	var dfs func(gi, count int, lifeUsed int32, valueUsed int)
+	dfs = func(gi, count int, lifeUsed int32, valueUsed int) {
+		if len(picked) >= maxPossible {
+			return
+		}
+		if gi == len(groups) {
+			if prefer(count, lifeUsed, valueUsed, sel) {
+				picked = append(picked[:0], sel...)
+				pickedLife = lifeUsed
+				pickedValue = valueUsed
+			}
+			return
+		}
+		// Every remaining Obj can add at most one, so a strict deficit cannot
+		// be caught up; a tie is still explored for a better tie-break.
+		if count+(len(groups)-gi) < len(picked) {
+			return
+		}
+		if count < maxCount {
+			for _, ci := range groups[gi] {
+				o := &d.Options[ci]
+				if d.HasBudget() && valueUsed+o.Value > d.MaxSum {
+					continue
+				}
+				cost := o.chargeLifeCost()
+				if lifeUsed+cost > life {
+					continue
+				}
+				sel = append(sel, ci)
+				dfs(gi+1, count+1, lifeUsed+cost, valueUsed+o.Value)
+				sel = sel[:len(sel)-1]
+			}
+		}
+		dfs(gi+1, count, lifeUsed, valueUsed)
+	}
+	dfs(0, 0, 0, 0)
+	return picked
 }
 
 // RequiredQuota is how many distinct Required Objs a valid answer must
