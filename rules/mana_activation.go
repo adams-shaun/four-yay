@@ -1483,6 +1483,15 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 	e.tappingForMana, e.tappingManaProduced = source, produced
 	e.emitTap(source, p, false)
 	e.tappingForMana, e.tappingManaProduced = 0, ""
+	// The mana the activation is about to produce does not exist yet -- the
+	// Tap event (and so this trigger match) precedes the mana effect -- so
+	// record where the activation's ManaAdd batch will land. The batch is
+	// read back in resolveTriggeredManaAbilities and bound onto each matched
+	// trigger's context as TriggerMana (Mana Flare's ReflectProperty$
+	// Produced). Scanning the log rather than reading sa.Params["Produced"]
+	// makes the read the mana ACTUALLY produced, so a Produced$ Any colour
+	// choice and a ProduceMana replacement are both reflected faithfully.
+	e.manaTapMark = len(e.L.Events)
 
 	// CR 605.3b: a triggered mana ability resolves immediately after the mana
 	// ability that caused it, without using the stack. Separate only newly
@@ -1536,6 +1545,7 @@ func (e *Engine) isTriggeredManaAbility(pt pendingTrigger) bool {
 // colour and continues the batch (answerManaColor). cast is the payment
 // window flag the parked activation carries back to the caller.
 func (e *Engine) resolveTriggeredManaAbilities(triggers []pendingTrigger, cast, cumulative bool) {
+	e.stampTriggeredManaProduced(triggers)
 	for i := range triggers {
 		pt := triggers[i]
 		if int(pt.Controller) >= len(e.G.Players) || e.G.Players[pt.Controller].Lost {
@@ -1572,6 +1582,67 @@ func (e *Engine) resolveTriggeredManaAbilities(triggers []pendingTrigger, cast, 
 			return
 		}
 	}
+}
+
+// stampTriggeredManaProduced binds the produced-type set an activated mana
+// ability's Tap actually made to each trigger of that activation's CR 605.3b
+// batch. It runs once per batch, at the first resolveTriggeredManaAbilities
+// entry: the batch's triggers were matched and queued in emitManaTap, before
+// the mana effect ran, so their context's TriggerMana is still empty. The
+// batch is the activated activation's own, and every call site of
+// resolveTriggeredManaAbilities threads a slice emitManaTap returned, so the
+// scan window is exactly that activation -- the triggered abilities
+// themselves resolve after this stamp, and the mana a triggered ability adds
+// only reaches those later abilities' own reflect reads, never this batch's
+// set.
+//
+// The mark is cleared whether or not the window carried ManaAdd, so a
+// productionless mana ability (a fail-closed Produced$ the effect refused)
+// cannot leave a stale window for a later batch.
+func (e *Engine) stampTriggeredManaProduced(triggers []pendingTrigger) {
+	if e.manaTapMark <= 0 {
+		return
+	}
+	produced := e.manaProducedSince(e.manaTapMark)
+	e.manaTapMark = 0
+	if produced == "" {
+		return
+	}
+	for i := range triggers {
+		triggers[i].Ctx.TriggerMana = produced
+	}
+}
+
+// manaProducedSince returns the fixed-order WUBRGC set of mana types carried
+// by the positive-amount ManaAdd events at or after log index mark, in the
+// same order effects/trigger_referents.go documents for TriggerMana. A
+// counter's trailing rune is its type: state.TypedManaTags and the snow "S"
+// prefix a producer tag, never the type. Amount <= 0 is a spend or a zeroed
+// unit, not production. Returns "" when the window produced nothing.
+func (e *Engine) manaProducedSince(mark int) string {
+	if mark < 0 || mark > len(e.L.Events) {
+		return ""
+	}
+	var set uint8
+	for _, ev := range e.L.Events[mark:] {
+		if ev.Kind != events.ManaAdd || ev.Amount <= 0 || ev.Counter == "" {
+			continue
+		}
+		r := ev.Counter[len(ev.Counter)-1]
+		if i := strings.IndexByte("WUBRGC", r); i >= 0 {
+			set |= 1 << uint(i)
+		}
+	}
+	if set == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i := range "WUBRGC" {
+		if set&(1<<uint(i)) != 0 {
+			b.WriteByte("WUBRGC"[i])
+		}
+	}
+	return b.String()
 }
 
 // resolveTriggeredManaOffStack resolves one triggered mana ability's chain
