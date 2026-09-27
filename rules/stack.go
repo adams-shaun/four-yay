@@ -3042,9 +3042,9 @@ func (e *Engine) targetAskChooser(controller state.PlayerID, source state.ObjID,
 }
 
 // chooseOppPick is the chooseFor for the TargetingPlayer$ Opponent
-// controller-selection ask (poseOpponentPick). The value is arbitrary --
-// nothing outside this package compares chooseFor values.
-const chooseOppPick chooseFor = 46
+// controller-selection ask (poseOpponentPick). Keep its value distinct from
+// every other chooseFor flow; handleChoose dispatches on these values.
+const chooseOppPick chooseFor = 47
 
 // oppPickStage names which rules-tier flow posed a TargetingPlayer$
 // Opponent selection ask, so answerOppPick re-poses the right target ask.
