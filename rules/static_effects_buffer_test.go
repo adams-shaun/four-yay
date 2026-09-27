@@ -148,6 +148,11 @@ var staticEffectsBufferSink []ContinuousEffect
 // Compare against the same sorted-list rebuild without a static rescan so
 // sort.SliceStable's allocation cost is not mistaken for static storage.
 func TestStaticEffectsWarmRebuildAllocationBudget(t *testing.T) {
+	// The static zone skip's verify mode re-runs the unskipped scan into
+	// fresh storage, which is not the production path this budget measures.
+	prevStatic := staticZoneSkipVerify
+	staticZoneSkipVerify = false
+	defer func() { staticZoneSkipVerify = prevStatic }()
 	e := layerEngine(t)
 	for range 8 {
 		onBoardGrant(t, e, 0, "Name:Numeric buffer grant\nTypes:Enchantment\n"+

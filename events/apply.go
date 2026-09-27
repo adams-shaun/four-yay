@@ -4345,6 +4345,12 @@ func expireTurnGoads(in []state.GoadEffect, p state.PlayerID) []state.GoadEffect
 func pruneGoads(g *state.Game) {
 	for i := range g.Objs {
 		o := &g.Objs[i]
+		if o.Goads == nil {
+			// Nothing to prune, and the rewrite below would store nil over
+			// nil: skip the per-object write (a pointer store with its GC
+			// write barrier, on every object of the arena, on every move).
+			continue
+		}
 		out := o.Goads[:0]
 		for _, ge := range o.Goads {
 			active := o.Zone == state.ZBattlefield

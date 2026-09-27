@@ -138,7 +138,7 @@ func (e *Engine) scanActionStatics() actionStaticViews {
 			if z == state.ZStack && pi > 0 {
 				continue
 			}
-			for _, id := range e.G.Zone(z, p) {
+			for _, id := range e.staticSourceIDs(p, z) {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) {
 					continue
@@ -2130,7 +2130,7 @@ func (e *Engine) scanCostStatics() costStaticViews {
 			if z == state.ZStack && pi > 0 {
 				continue
 			}
-			for _, id := range e.G.Zone(z, p) {
+			for _, id := range e.staticSourceIDs(p, z) {
 				if o := e.G.Obj(id); o != nil && (o.Face() == nil || !offBattlefieldStaticsInert(z, o)) {
 					add(o, id)
 				}

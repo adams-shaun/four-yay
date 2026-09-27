@@ -3,6 +3,7 @@ package rules
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/adams-shaun/gorge/events"
@@ -197,7 +198,22 @@ type livelockWatcher struct {
 	// one's signature folds in its ordinal, so a batch of identical mints is
 	// never read as a stuck period (see mintingKinds).
 	mints uint64
+	// cand is a counting filter over the MaxPeriod signatures immediately
+	// preceding the newest one -- every position detect's candidate scan can
+	// test -- indexed by the signature's low bits. A zero count for the
+	// newest signature's slot proves no candidate period exists, so detect
+	// returns without scanning (the verdict the scan would reach). A plain
+	// array, so the watcher stays a value; unused when MaxPeriod exceeds the
+	// counter range (candUsable).
+	cand [livelockCandSlots]uint16
 }
+
+// livelockCandSlots is the size of the watcher's candidate filter.
+const livelockCandSlots = 1024
+
+// livelockCandVerify (the rules test binary) re-runs the candidate scan
+// whenever the filter skips it and panics if the scan would have found one.
+var livelockCandVerify = derivedMemoVerifyFlag != ""
 
 // mintingKinds are the events that create a NEW object whose id their own
 // payload does not name (TokenCreate carries only the script name, and
@@ -317,6 +333,18 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 		sigBytes(&sig, u8[:])
 	}
 	sigCap := 2 * w.guard.MaxPeriod
+	if w.candUsable() {
+		// Slide the candidate window (see cand) to the MaxPeriod signatures
+		// preceding the one being appended: the previous newest joins it and
+		// the one MaxPeriod+1 back leaves. Both are read before the ring
+		// overwrites its oldest entry (a strictly older position).
+		if n0 := len(w.sigs); n0 > 0 {
+			w.cand[w.sigAt(n0-1)%livelockCandSlots]++
+			if out := n0 - 1 - w.guard.MaxPeriod; out >= 0 {
+				w.cand[w.sigAt(out)%livelockCandSlots]--
+			}
+		}
+	}
 	if len(w.sigs) < sigCap {
 		w.sigs = append(w.sigs, sig)
 	} else {
@@ -346,6 +374,10 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 	}
 	w.detect()
 }
+
+// candUsable reports whether the candidate filter's counters cannot
+// overflow: the window holds at most MaxPeriod signatures.
+func (w *livelockWatcher) candUsable() bool { return w.guard.MaxPeriod <= math.MaxUint16 }
 
 func (w *livelockWatcher) sigAt(i int) uint64 {
 	i += w.sigHead
@@ -380,6 +412,18 @@ func (w *livelockWatcher) detect() {
 	// candidate pays the full two-halves comparison. Same p order, same
 	// verdict as testing every p in turn.
 	last := w.sigAt(n - 1)
+	if w.candUsable() && w.cand[last%livelockCandSlots] == 0 {
+		// No signature among the MaxPeriod preceding the newest shares its
+		// filter slot, so none equals it: no period candidate exists.
+		if livelockCandVerify {
+			for j := n - 2; j >= n-1-maxP; j-- {
+				if w.sigAt(j) == last {
+					panic(fmt.Sprintf("rules: livelock candidate filter skipped a match at logical %d of %d", j, n))
+				}
+			}
+		}
+		return
+	}
 	phys := w.sigHead + n - 2 // physical index of logical n-2
 	if phys >= n {
 		phys -= n

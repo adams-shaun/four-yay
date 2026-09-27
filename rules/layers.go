@@ -10,6 +10,7 @@ package rules
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -60,6 +61,21 @@ var emptySVars = map[string]string{}
 // keyword/type slice is freshly parsed and remains read-only after active()
 // copies the effect values. Only the outer slots are overwritten here.
 func (e *Engine) staticEffects(dst []ContinuousEffect) []ContinuousEffect {
+	out := e.staticEffectsWalk(dst, true)
+	if staticZoneSkipVerify {
+		full := e.staticEffectsWalk(nil, false)
+		if len(full) != len(out) || (len(out) > 0 && !reflect.DeepEqual(full, out)) {
+			panic(fmt.Sprintf("rules: static zone skip changed staticEffects at log %d (%d vs %d effects)", len(e.L.Events), len(out), len(full)))
+		}
+	}
+	return out
+}
+
+// staticEffectsWalk is staticEffects' scan; skip visits only the static-hot
+// subsequence of each summarized off-battlefield zone (static_zoneskip.go),
+// which every object it leaves out would have been skipped at the
+// ContinuousStaticsMayFunctionOffBattlefield gate below anyway.
+func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []ContinuousEffect {
 	out := dst[:0]
 	for pi, p := range e.G.AliveFrom(0) {
 		// staticSourceZones (below) walks the battlefield FIRST so every
@@ -72,7 +88,11 @@ func (e *Engine) staticEffects(dst []ContinuousEffect) []ContinuousEffect {
 			if z == state.ZStack && pi > 0 {
 				continue
 			}
-			for _, id := range e.G.Zone(z, p) {
+			ids := e.G.Zone(z, p)
+			if skip {
+				ids = e.staticSourceIDs(p, z)
+			}
+			for _, id := range ids {
 				o := e.G.Obj(id)
 				if o == nil {
 					continue

@@ -1146,6 +1146,11 @@ type Engine struct {
 	// every use, so Clone copies neither.
 	replZones   []replZoneSummary
 	replZonesEp int
+	// staticZones / staticZonesEp are the off-battlefield static-source
+	// walks' per-seat zone summaries (rules/static_zoneskip.go): pure scratch
+	// validated on every use, so Clone copies neither.
+	staticZones   []staticZoneSummary
+	staticZonesEp int
 
 	// choosing says which flow is waiting on the current KChoose decision
 	// (Task 8). It is plain data, not a closure, so Engine.Clone (a sibling
