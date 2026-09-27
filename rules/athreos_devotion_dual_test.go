@@ -10,9 +10,12 @@ package rules
 // effects/count_devotion_threshold_test.go's TestDevotionDualSumsBothColours;
 // this file pins that Athreos's REAL compiled script shape keeps reaching it,
 // through the public engine surface (rules.Engine implements effects.Host via
-// Game()). It exercises ONLY the SVar count -- Athreos's RemoveType$ static is
-// still independently unread (rules/paramcensus_test.go's knownUnsupportedParams
-// holds the sibling RemoveType entries) and is deliberately not asserted here.
+// Game()). It exercises ONLY the SVar count: the RemoveType$ static that
+// rides the same CheckSVar$/SVarCompare$ gate is now genuinely read by
+// rules/layers.go's type-static emission (ticket cli-20260927T174750Z -- the
+// paramcensus RemoveType entries are retired with it), and that grant's
+// behaviour side is pinned end to end on Purphoros in
+// rules/remove_type_static_test.go.
 
 import (
 	"testing"
