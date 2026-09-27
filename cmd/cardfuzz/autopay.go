@@ -42,6 +42,16 @@ import (
 type autoPay struct {
 	mode    string
 	explore bool
+	// measureManualSeatPlans is a MEASUREMENT-ONLY diagnostic
+	// (-measure-manual-seat-plans, default false): in off mode there is no
+	// payment-plan consumer, so the drive loop builds no seat's extension and
+	// manual_seat_priority_with_plan stays zero. Setting this makes the guard
+	// build every seat's extension exactly as the pre-lazy eager publisher
+	// did, restoring the counter at the cost of the full planner on every
+	// priority window. It never changes seats, intents, replay or a failure
+	// record: it is deliberately absent from autoPayOf, and autoPayFor stamps
+	// only when a.on().
+	measureManualSeatPlans bool
 }
 
 var autoPayModes = []string{"off", "all", "mixed"}
@@ -67,6 +77,13 @@ func autoPayOf(f failure) (autoPay, error) {
 
 // on reports whether this configuration can put any auto-pay seat in a game.
 func (a autoPay) on() bool { return a.mode != "" && a.mode != "off" }
+
+// measurePlans reports whether the drive loop must build every seat's payment
+// extension even when no seat consumes it, so the manual-seat plan counters
+// are populated. It is true for any auto-pay mode (the guard covers every
+// seat there unconditionally) and otherwise only under the explicit off-mode
+// diagnostic opt-in.
+func (a autoPay) measurePlans() bool { return a.on() || a.measureManualSeatPlans }
 
 // seats reports, per seat index, whether that seat auto-pays in the game
 // played at seed. exploreIdx is the explore seat's index, or -1 for none.
