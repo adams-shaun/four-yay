@@ -548,17 +548,45 @@ func assertPlannedCastPaid(t *testing.T, e *Engine, spell state.ObjID, from int,
 	}
 }
 
-// A plan is offered for a plain cast whose spell ability also carries a
-// sacrifice, discard or delve choice (Harrow, Thrill of Possibility, Gurmag
-// Angler). Those choices are posed before the CR 601.2g window and answered
-// through the ordinary cast answer path, which leaves the cast-choice marker
-// set while the window re-enters. The executor must not read that marker as
-// an interruption: the plan either keeps running and pays the whole cost, or
-// stops on the manual window with a vocabulary fallback. The spell must never
-// sit on the stack with its mana or its additional cost unpaid.
-func TestPaymentPlanAdditionalCostChoiceStillPays(t *testing.T) {
+// PP-08 (spec §3.1 as amended): a plain cast whose spell ability also carries
+// a non-mana `Cost$` part -- Harrow's land sacrifice, Thrill of Possibility's
+// discard, Gurmag Angler's delve -- receives NO V1 payment plan, because the
+// witness cannot bind the additional cost. The ordinary cast option is
+// unchanged and still offered once the mana is floated. The executor path for
+// a plan that does name such a cast is exercised directly (not through the
+// planner offer) by TestPaymentPlanExecutesAfterCastTimeChoice and
+// TestPaymentPlanShapeGateAdditionalCostExecutorPays in
+// payment_plan_shape_gate_test.go. This test is the planner half of the audit
+// story aph-cast-shape-gate owns; autopay-exec-harden owns the executor half.
+func TestPaymentPlanAdditionalCostCastGetsNoPlan(t *testing.T) {
 	red := state.Mana{}
 	red[state.ManaIndex('R')] = 1
+	_ = red
+
+	// assertWithheld proves the planner offers neither an action nor a plan
+	// for spell, and that the ordinary cast option survives after floating.
+	assertWithheld := func(t *testing.T, e *Engine, spell state.ObjID, pool map[int]int32) {
+		t.Helper()
+		if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan != nil || got.Reason != "unsupported" {
+			t.Fatalf("additional-cost cast %d outcome = %+v, want unsupported with no plan", spell, got)
+		}
+		for _, a := range e.PaymentActionsForPriority(0, 77) {
+			if a.Cast.Object == spell {
+				t.Fatalf("additional-cost cast %d received a payment action %+v", spell, a)
+			}
+		}
+		for slot, n := range pool {
+			e.G.Players[0].Pool[slot] = n
+		}
+		e.pending = nil
+		e.askPriority(0)
+		for _, opt := range e.Pending().Options {
+			if opt.Kind == "cast" && opt.Obj == spell {
+				return
+			}
+		}
+		t.Fatalf("ordinary cast option for %d was removed; options=%+v", spell, e.Pending().Options)
+	}
 
 	sacrificeSetup := func(t *testing.T, seed uint64) (*Engine, state.ObjID, []state.ObjID) {
 		e, _, spell := newFixtureDeck(t, seed, "Name:Planned Harrow Shape\nManaCost:1 R\nTypes:Instant\nA:SP$ Draw | Cost$ 1 R Sac<1/Land> | NumCards$ 1\nOracle:x\n")
@@ -569,89 +597,25 @@ func TestPaymentPlanAdditionalCostChoiceStillPays(t *testing.T) {
 		return e, spell, lands
 	}
 
-	t.Run("sacrifice an unplanned land", func(t *testing.T) {
-		e, spell, lands := sacrificeSetup(t, 9401)
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		planned := paymentPlanSources(a.Plans[0])
-		if len(planned) != 2 {
-			t.Fatalf("witness = %#v, want two Mountains for {1}{R}", a.Plans[0])
+	t.Run("sacrifice", func(t *testing.T) {
+		e, spell, _ := sacrificeSetup(t, 9401)
+		if e.G.Obj(spell).Zone != state.ZHand {
+			t.Fatal("fixture spell is not in hand")
 		}
-		spare := state.ObjID(0)
-		for _, id := range lands {
-			if id != planned[0] && id != planned[1] {
-				spare = id
-			}
+		if e.paymentPlanCastShapeDetail(0, spell) != "shape:additional_cost" {
+			t.Fatalf("sacrifice cast detail = %q, want shape:additional_cost", e.paymentPlanCastShapeDetail(0, spell))
 		}
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		paymentPlanChooseObj(t, e, spare)
-		if fb := paymentPlanSettle(t, e, a.Plans[0]); fb != nil {
-			t.Fatalf("an unchanged plan fell back: %#v", fb)
-		}
-		assertPlannedCastPaid(t, e, spell, start, 1, red)
-		for _, id := range planned {
-			if !e.G.Obj(id).Tapped {
-				t.Errorf("planned source %d was not tapped", id)
-			}
-		}
-		if z := e.G.Obj(spare).Zone; z != state.ZGraveyard {
-			t.Errorf("sacrificed land zone = %s, want graveyard (additional cost unpaid)", z)
-		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 2})
 	})
 
-	t.Run("sacrifice a planned land", func(t *testing.T) {
-		e, spell, lands := sacrificeSetup(t, 9402)
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		planned := paymentPlanSources(a.Plans[0])
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		// CR 601.2g/h: the land chosen for the sacrifice may still be tapped
-		// for mana before the costs are paid.
-		paymentPlanChooseObj(t, e, planned[0])
-		if fb := paymentPlanSettle(t, e, a.Plans[0]); fb != nil {
-			t.Fatalf("an unchanged plan fell back: %#v", fb)
-		}
-		assertPlannedCastPaid(t, e, spell, start, 1, red)
-		if z := e.G.Obj(planned[0]).Zone; z != state.ZGraveyard {
-			t.Errorf("sacrificed land zone = %s, want graveyard (additional cost unpaid)", z)
-		}
-		for _, id := range lands {
-			if id != planned[0] && id != planned[1] && e.G.Obj(id).Tapped {
-				t.Errorf("unplanned land %d was tapped", id)
-			}
-		}
-	})
-
-	t.Run("discard a card", func(t *testing.T) {
+	t.Run("discard", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9403, "Name:Planned Thrill Shape\nManaCost:1 R\nTypes:Instant\nA:SP$ Draw | Cost$ 1 R Discard<1/Card> | NumCards$ 2\nOracle:x\n")
 		onBoard(t, e, 0, paymentPlanMountain)
 		onBoard(t, e, 0, paymentPlanMountain)
-		var discard state.ObjID
-		for _, id := range e.G.Zone(state.ZHand, 0) {
-			if id != spell {
-				discard = id
-				break
-			}
+		if e.paymentPlanCastShapeDetail(0, spell) != "shape:additional_cost" {
+			t.Fatalf("discard cast detail = %q, want shape:additional_cost", e.paymentPlanCastShapeDetail(0, spell))
 		}
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		paymentPlanChooseObj(t, e, discard)
-		if fb := paymentPlanSettle(t, e, a.Plans[0]); fb != nil {
-			t.Fatalf("an unchanged plan fell back: %#v", fb)
-		}
-		assertPlannedCastPaid(t, e, spell, start, 1, red)
-		for _, id := range paymentPlanSources(a.Plans[0]) {
-			if !e.G.Obj(id).Tapped {
-				t.Errorf("planned source %d was not tapped", id)
-			}
-		}
-		if z := e.G.Obj(discard).Zone; z != state.ZGraveyard {
-			t.Errorf("discarded card zone = %s, want graveyard (additional cost unpaid)", z)
-		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 2})
 	})
 
 	delveSetup := func(t *testing.T, seed uint64) (*Engine, state.ObjID, []state.ObjID) {
@@ -667,48 +631,12 @@ func TestPaymentPlanAdditionalCostChoiceStillPays(t *testing.T) {
 		return e, spell, gy
 	}
 
-	t.Run("delve nothing", func(t *testing.T) {
+	t.Run("delve", func(t *testing.T) {
 		e, spell, _ := delveSetup(t, 9404)
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		if dd := e.Pending(); dd == nil || dd.Kind != decision.KChoose || dd.Options[0].Kind != "exile" {
-			t.Fatalf("pending = %s, want the delve ask", paymentPlanPendingSummary(dd))
+		if e.paymentPlanCastShapeDetail(0, spell) != "shape:contribution" {
+			t.Fatalf("delve cast detail = %q, want shape:contribution", e.paymentPlanCastShapeDetail(0, spell))
 		}
-		submitChoices(t, e)
-		if fb := paymentPlanSettle(t, e, a.Plans[0]); fb != nil {
-			t.Fatalf("an unchanged plan fell back: %#v", fb)
-		}
-		assertPlannedCastPaid(t, e, spell, start, 2, red)
-		for _, id := range paymentPlanSources(a.Plans[0]) {
-			if !e.G.Obj(id).Tapped {
-				t.Errorf("planned source %d was not tapped", id)
-			}
-		}
-	})
-
-	t.Run("delve one card", func(t *testing.T) {
-		e, spell, gy := delveSetup(t, 9405)
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		paymentPlanChooseObj(t, e, gy[0])
-		// The exiled card pays {1}: the plan's {2}{R} witness no longer
-		// describes the mana cost, so automation must stop before tapping.
-		pd := e.Pending()
-		if pd == nil || pd.PaymentFallback == nil || pd.PaymentFallback.Reason != paymentFallbackCostChanged {
-			t.Fatalf("pending = %s, want the manual window with a cost_changed fallback", paymentPlanPendingSummary(pd))
-		}
-		if n := len(producedManaSince(e, start)); n != 0 {
-			t.Fatalf("executor produced %d mana for a changed cost", n)
-		}
-		paymentPlanSettle(t, e, a.Plans[0])
-		assertPlannedCastPaid(t, e, spell, start, 1, red)
-		if z := e.G.Obj(gy[0]).Zone; z != state.ZExile {
-			t.Errorf("delved card zone = %s, want exile (delve unpaid)", z)
-		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 3})
 	})
 
 	// The census's own cards, from the corpus by name: Harrow (sacrifice a
@@ -728,51 +656,20 @@ func TestPaymentPlanAdditionalCostChoiceStillPays(t *testing.T) {
 
 	t.Run("corpus Harrow", func(t *testing.T) {
 		e, _, _ := newFixtureDeck(t, 9406, paymentPlanShock)
-		lands := []state.ObjID{onBoard(t, e, 0, forest), onBoard(t, e, 0, forest), onBoard(t, e, 0, forest), onBoard(t, e, 0, paymentPlanMountain)}
+		onBoard(t, e, 0, forest)
+		onBoard(t, e, 0, forest)
+		onBoard(t, e, 0, forest)
+		onBoard(t, e, 0, paymentPlanMountain)
 		spell := putInHand(t, e, 0, corpusCard(t, "Harrow"))
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		planned := map[state.ObjID]bool{}
-		for _, id := range paymentPlanSources(a.Plans[0]) {
-			planned[id] = true
-		}
-		spare := state.ObjID(0)
-		for _, id := range lands {
-			if !planned[id] {
-				spare = id
-			}
-		}
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		paymentPlanChooseObj(t, e, spare)
-		if fb := paymentPlanSettle(t, e, a.Plans[0]); fb != nil {
-			t.Fatalf("an unchanged plan fell back: %#v", fb)
-		}
-		green := state.Mana{}
-		green[state.ManaIndex('G')] = 1
-		assertPlannedCastPaid(t, e, spell, start, 2, green)
-		if z := e.G.Obj(spare).Zone; z != state.ZGraveyard {
-			t.Errorf("sacrificed land zone = %s, want graveyard (additional cost unpaid)", z)
-		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('G'): 3})
 	})
 
 	t.Run("corpus Thrill of Possibility", func(t *testing.T) {
-		e, _, fixture := newFixtureDeck(t, 9407, paymentPlanShock)
+		e, _, _ := newFixtureDeck(t, 9407, paymentPlanShock)
 		onBoard(t, e, 0, paymentPlanMountain)
 		onBoard(t, e, 0, paymentPlanMountain)
 		spell := putInHand(t, e, 0, corpusCard(t, "Thrill of Possibility"))
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		paymentPlanChooseObj(t, e, fixture)
-		if fb := paymentPlanSettle(t, e, a.Plans[0]); fb != nil {
-			t.Fatalf("an unchanged plan fell back: %#v", fb)
-		}
-		assertPlannedCastPaid(t, e, spell, start, 1, red)
-		if z := e.G.Obj(fixture).Zone; z != state.ZGraveyard {
-			t.Errorf("discarded card zone = %s, want graveyard (additional cost unpaid)", z)
-		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 2})
 	})
 
 	t.Run("corpus Gurmag Angler", func(t *testing.T) {
@@ -785,20 +682,7 @@ func TestPaymentPlanAdditionalCostChoiceStillPays(t *testing.T) {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZGraveyard})
 		}
 		spell := putInHand(t, e, 0, corpusCard(t, "Gurmag Angler"))
-		d := paymentPlanReask(t, e)
-		a := paymentPlanActionFor(t, d, spell)
-		start := len(e.L.Events)
-		submitPaymentPlan(t, e, d, a)
-		if dd := e.Pending(); dd == nil || dd.Kind != decision.KChoose || dd.Options[0].Kind != "exile" {
-			t.Fatalf("pending = %s, want the delve ask", paymentPlanPendingSummary(dd))
-		}
-		submitChoices(t, e) // delve nothing: the witnessed {6}{B} still stands
-		if fb := paymentPlanSettle(t, e, a.Plans[0]); fb != nil {
-			t.Fatalf("an unchanged plan fell back: %#v", fb)
-		}
-		black := state.Mana{}
-		black[state.ManaIndex('B')] = 1
-		assertPlannedCastPaid(t, e, spell, start, 6, black)
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('B'): 7})
 	})
 }
 
