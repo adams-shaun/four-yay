@@ -95,7 +95,8 @@
             {
               "kind": "modes",
               "pick": [
-                "both"
+                "Add {R}",
+                "Exile the top three"
               ]
             }
           ]

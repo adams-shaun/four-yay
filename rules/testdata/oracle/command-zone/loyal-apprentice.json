@@ -31,7 +31,7 @@
         },
         {
           "op": "pass_to",
-          "step": "declare_attackers"
+          "step": "declare-attackers"
         },
         {
           "op": "resolve"
@@ -72,7 +72,7 @@
       "steps": [
         {
           "op": "pass_to",
-          "step": "declare_attackers"
+          "step": "declare-attackers"
         }
       ],
       "expect": [
