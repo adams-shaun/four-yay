@@ -8,6 +8,7 @@
 package rules
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"strconv"
@@ -2691,6 +2692,41 @@ func (e *Engine) matchesWithCharsPT(ce ContinuousEffect, id state.ObjID, types, 
 	if o := e.G.Obj(id); o != nil && o.PhasedOut {
 		return false
 	}
+	// A spec whose Affects is exactly Card.Self names only the effect's own
+	// source (effects' "Self" predicate is o.ID == src), so a different id can
+	// never match it -- no later gate can rescue the match. Rejecting here,
+	// before the cast-provenance gate and specCtx/MatchesSpecCtx, keeps a
+	// board with several self-only type effects from paying the full match
+	// per candidate: Clown Car's four crewed self type effects against tens
+	// of thousands of goblin tokens was the measured case (seed
+	// 6181111140895991800). This is a pure early-out -- identical result -- and
+	// it lives on the one seam every layer's match shares, so a layer-6/7
+	// self-only effect is covered too.
+	if ce.Affects == "Card.Self" && id != ce.Source {
+		if layer4PrecheckVerify {
+			selfRejectVerify++
+			// Recompute through the full match and confirm the early-out
+			// agreed: a non-source Card.Self must never match. This is the
+			// empirical proof the shortcut is result-preserving.
+			if e.matchesWithCharsPTSlow(ce, id, types, keywords, atStack, power, toughness, basePower, baseToughness, hasPT) {
+				panic(fmt.Sprintf("rules: Card.Self early reject for id %d != source %d but the full match admitted it", id, ce.Source))
+			}
+		}
+		return false
+	}
+	return e.matchesWithCharsPTSlow(ce, id, types, keywords, atStack, power, toughness, basePower, baseToughness, hasPT)
+}
+
+// selfRejectVerify counts the Card.Self early rejections the shortcut made
+// under verify mode; a test asserts it advances so the shortcut cannot be
+// silently removed. It is written only under the layer4PrecheckVerify branch,
+// so production pays one predictable branch and no store.
+var selfRejectVerify int
+
+// matchesWithCharsPTSlow is matchesWithCharsPT with the Card.Self early
+// rejection removed. Verify mode calls it to prove the shortcut agrees with
+// the full match; production never does.
+func (e *Engine) matchesWithCharsPTSlow(ce ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone, power, toughness, basePower, baseToughness int32, hasPT bool) bool {
 	// The cast-provenance qualifiers (castprov1/2/3 — the_twelfth_doctor's
 	// `Affected$ Card.YouCtrl+!wasCastFromYourHand`, quandrix_the_proof's
 	// `Instant.wasCastByYou+wasCastFromYourHand`) are split out before the
