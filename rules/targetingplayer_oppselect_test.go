@@ -265,9 +265,15 @@ func TestThreeSeatOpponentSelectionEvangelize(t *testing.T) {
 	if d.Player != 2 {
 		t.Fatalf("target ask posed to seat %d, want the SELECTED opponent seat 2", d.Player)
 	}
-	for _, id := range []state.ObjID{own, bear1, bear2} {
-		if !targetOptionContains(d.Options, id) {
-			t.Fatalf("candidate %d missing from options %+v", id, d.Options)
+	// Evangelize's SP carries TargetingPlayerControls$ True, so after seat 2
+	// is selected only seat 2's creature is a legal target: the caster's own
+	// bear and the other opponent's bear are not "a creature they control".
+	if !targetOptionContains(d.Options, bear2) {
+		t.Fatalf("selected opponent's creature %d missing from options %+v", bear2, d.Options)
+	}
+	for _, id := range []state.ObjID{own, bear1} {
+		if targetOptionContains(d.Options, id) {
+			t.Fatalf("non-answering seat's creature %d offered to selected opponent seat 2: %+v", id, d.Options)
 		}
 	}
 	idx2 := -1
