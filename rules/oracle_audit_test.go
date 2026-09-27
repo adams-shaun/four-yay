@@ -46,6 +46,15 @@ import (
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
 var oracleKnownDivergent = map[string]string{
+	// Gray Merchant's drain resolves but its subsequent life-gain amount is
+	// zero: the life-loss total is not propagated to the gain (effects/life.go,
+	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
+	"Gray Merchant of Asphodel/self-devotion-two-life-gain": "observed p0 life 20, expected 22 after two life lost by p1",
+	// Mogis's creature-removal instruction is not interpreted by the
+	// continuous-effect type layer (rules/layers.go); the gate at seven
+	// devotion is therefore stuck on the printed creature type.
+	"Mogis, God of Slaughter/devotion-two-not-creature":  "observed Creature at devotion two, expected no Creature type",
+	"Mogis, God of Slaughter/devotion-falls-below-seven": "observed Creature after devotion fell to six, expected no Creature type",
 	// Engine gap: stat:Continuous RemoveType$ is never read (layers.go reads
 	// only AddType$/RemoveCardTypes$/RemoveCreatureTypes$); paramcensus
 	// already lists it for Purphoros and Mogis. 29 corpus scripts carry it,
@@ -64,6 +73,15 @@ var oracleKnownDivergent = map[string]string{
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
 	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
 	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Courser damage 0; expected p0 life 20 and Courser damage 3",
+	// Engine/script gap: max-speed-gated AddAbility is not offered after the
+	// three turn-specific speed increases (CR 702.179).
+	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",
+	// Script translation: Brotherhood Scribe's CounterAddedOnce trigger does
+	// not produce the printed team-wide +1/+1 bonus after its energy ability.
+	"Brotherhood Scribe/metalcraft-three-artifacts-gives-energy": "observed Scribe 1/3 and Lions 2/1, expected 2/4 and 3/2 after energy",
+	// Script translation: Urza's Workshop's conditional Urza-land count is
+	// not reflected in its mana ability; the three-land board produces one C.
+	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
 }
 
 type oracleFile struct {

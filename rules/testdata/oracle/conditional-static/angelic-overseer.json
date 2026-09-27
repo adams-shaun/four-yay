@@ -1,0 +1,148 @@
+{
+  "card": "Angelic Overseer",
+  "family": "conditional-static",
+  "oracle_sha": "67abd7d264a2",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-human-no-protection",
+      "cr": [
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "An Angel without a Human controlled by its controller retains flying but gains neither protection ability.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Angelic Overseer"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Auriok Steelshaper"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Angelic Overseer",
+          "keywords": [
+            "Flying"
+          ],
+          "no_keywords": [
+            "Hexproof",
+            "Indestructible"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "human-present-then-leaves",
+      "cr": [
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "A Human controlled by seat 0 turns both abilities on immediately; when that Human departs, both cease applying.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Angelic Overseer",
+            "Auriok Steelshaper"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Auriok Steelshaper",
+          "to": "graveyard",
+          "expect": [
+            {
+              "card": "p0:Angelic Overseer",
+              "no_keywords": [
+                "Hexproof",
+                "Indestructible"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Angelic Overseer",
+          "keywords": [
+            "Flying"
+          ],
+          "no_keywords": [
+            "Hexproof",
+            "Indestructible"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "human-arrives-midturn",
+      "cr": [
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "The protection is absent before seat 0 gains a Human and present as soon as one enters.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Angelic Overseer"
+          ],
+          "hand": [
+            "Auriok Steelshaper"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "WW",
+          "expect": [
+            {
+              "card": "p0:Angelic Overseer",
+              "no_keywords": [
+                "Hexproof",
+                "Indestructible"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Auriok Steelshaper"
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "card": "p0:Angelic Overseer",
+              "keywords": [
+                "Hexproof",
+                "Indestructible"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Angelic Overseer",
+          "keywords": [
+            "Flying",
+            "Hexproof",
+            "Indestructible"
+          ]
+        }
+      ]
+    }
+  ]
+}

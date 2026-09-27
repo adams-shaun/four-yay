@@ -1,0 +1,124 @@
+{
+  "card": "Goreclaw, Terror of Qal Sisma",
+  "family": "cost-modifier",
+  "oracle_sha": "600439d7fd32",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "power-four-boundary",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A 4-power creature meets the threshold; its two generic mana are removed and both green remain.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Goreclaw, Terror of Qal Sisma"
+          ],
+          "hand": [
+            "Rumbling Baloth"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Rumbling Baloth",
+          "mana": "GG",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Rumbling Baloth",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "power-three-not-reduced",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Three power is below four, so two mana cannot cast the 2G Courser.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Goreclaw, Terror of Qal Sisma"
+          ],
+          "hand": [
+            "Centaur Courser"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "GG"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Centaur Courser"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-power-four-no-discount",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "An opponent\u2019s Goreclaw cannot discount seat 0\u2019s four-power creature spell.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Rumbling Baloth"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Goreclaw, Terror of Qal Sisma"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "GG"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Rumbling Baloth"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

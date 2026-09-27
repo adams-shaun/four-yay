@@ -1,0 +1,24 @@
+{
+  "card": "Urza's Tower",
+  "family": "spell-conditional",
+  "oracle_sha": "fb8dce24f965",
+  "author": "cli-20260927T211250Z-4337fce8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "mine-and-plant-add-three",
+      "cr": ["608.2c"],
+      "why": "With a Mine and a Power-Plant under my control, the Tower's tap ability produces three colorless mana.",
+      "setup": {"p0": {"battlefield": ["Urza's Mine", "Urza's Power Plant", "Urza's Tower"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Tower", "ability": "Activate Urza's Tower for mana"}],
+      "expect": [{"pool": {"p0": "CCC"}}]
+    },
+    {
+      "name": "missing-plant-adds-one",
+      "cr": ["608.2c"],
+      "why": "Without a Power-Plant under my control, the extra-mana condition is false and the Tower produces only one colorless mana.",
+      "setup": {"p0": {"battlefield": ["Urza's Mine", "Urza's Tower"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Tower", "ability": "Activate Urza's Tower for mana"}],
+      "expect": [{"pool": {"p0": "C"}}]
+    }
+  ]
+}
