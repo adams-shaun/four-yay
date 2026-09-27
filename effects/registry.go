@@ -70,7 +70,11 @@ type Host interface {
 	// belong to EVERY mint, not just the first. effects/token.go calls this
 	// instead of Emit so its rider loop runs once per mint. The ordinary,
 	// unreplaced event returns the single token it minted (empty when nothing
-	// was created).
+	// was created). Only tokens whose battlefield entry has COMPLETED are
+	// returned: a mint parked behind an entry-counter order ask returns
+	// nothing (its answer publishes it to the parked-mint continuation), and
+	// a CopyToken mint's battlefield MoveZone may be emitted through this
+	// call too -- it returns the copy only once that entry has folded.
 	EmitTokenCreate(events.Event) []state.ObjID
 	// EmitStackCopy emits a StackCopy event and returns the object it actually
 	// minted, if any. The copy object is created inside events.Apply's
@@ -2399,6 +2403,18 @@ type Ctx struct {
 	// walk (the fx42 scoping discipline), so a nested FlipCoin poses its own
 	// loop. Nil on every ordinary first pass.
 	FlipRest *FlipRest
+	// TokenRest is the resume cursor of a DB$ Token whose mint parked behind
+	// a CR 616.1 order ask (effects/token.go). rules' resumeResolution sets it
+	// from the continuation frame -- with Parked filled from the objects the
+	// answer actually minted -- before re-running the Token SA; effToken
+	// consumes and clears it at the top of its walk. Nil on every ordinary
+	// first pass.
+	TokenRest *TokenRest
+	// tokensSuspended is set by effToken when a mint parked and it handed its
+	// continuation to the host (TokenRest): Resolve then defers the SA's
+	// ImprintCards$/ClearImprinted$ tail to the re-entry that finishes the
+	// mints, so it sees (and clears after) the tokens. Consumed by Resolve.
+	tokensSuspended bool
 	// ClashWon records the resolving controller's CR 701.31 clash outcome:
 	// true when their revealed card had the strictly higher mana value, false
 	// on a loss and on a tie (no winner). effClash sets it from the reveal
@@ -2969,7 +2985,11 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// when the loop began; its remaining iterations are part of that
 		// same resolution.
 		resumingLoop := c.Repeat != nil && c.Repeat.SA == sa
-		if !resumingLoop {
+		// A DB$ Token re-entered after its parked mint's answer (Ctx.TokenRest)
+		// is the rest of the body that already passed its gate on the first
+		// pass: the mints it made may have changed what the condition reads.
+		resumingTokens := c.TokenRest != nil && c.TokenRest.SA == sa
+		if !resumingLoop && !resumingTokens {
 			if met, supported := conditionMet(h, c, sa); supported && !met {
 				continue
 			}
@@ -3069,8 +3089,16 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		} else {
 			fn(h, c, sa)
 		}
-		imprint(h, c, sa)
-		if strings.EqualFold(sa.Params["ClearImprinted"], "True") && c.Source != 0 {
+		// A DB$ Token whose mint parked has not finished: its Imprint/
+		// ClearImprinted tail belongs after the mints, so it runs on the
+		// TokenRest re-entry that completes them (which may itself park again
+		// and defer once more). Every other body keeps the tail here.
+		tokensSuspended := c.tokensSuspended
+		c.tokensSuspended = false
+		if !tokensSuspended {
+			imprint(h, c, sa)
+		}
+		if !tokensSuspended && strings.EqualFold(sa.Params["ClearImprinted"], "True") && c.Source != 0 {
 			// Only a real clear is an event (the ClearRemembered$
 			// discipline effCleanup documents): clearing lists that are
 			// already empty is a no-op, and logging it as a state change hid

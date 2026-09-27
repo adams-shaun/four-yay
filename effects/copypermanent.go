@@ -56,6 +56,19 @@ func init() { Register("CopyPermanent", effCopyPermanent) }
 func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 
+	// A re-entry after one copy's battlefield entry parked behind an
+	// entry-counter order ask and was answered (TokenRest, the continuation
+	// effToken uses): the parked copy is owed only its post-entry riders and
+	// the copies after it are still owed. The source selection, copy count
+	// and controllers are the first pass's (frozen in the rest), and the
+	// first pass's one-per-call Notes are not repeated.
+	rest := resumingMint(c, sa)
+	emitNote := func(ev events.Event) {
+		if rest == nil {
+			h.Emit(ev)
+		}
+	}
+
 	// One loud Note per call naming every skipped family (never per mint --
 	// a NumCopies$ 2 copy must not say it twice). Literally keyed reads only:
 	// the param census rejects a dynamic Params key it cannot attribute.
@@ -134,7 +147,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		blocked = true
 	}
 	if len(skipped) > 0 {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "CopyPermanent does not implement " + strings.Join(skipped, ", ") +
 				"; the copy keeps the original's printed characteristics"})
 	}
@@ -148,7 +161,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// mislaid expiry).
 	atEOT := strings.TrimSpace(sa.Params["AtEOT"])
 	if atEOT != "" && atEOT != "Exile" && atEOT != "Sacrifice" && atEOT != "ExileCombat" {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "AtEOT$ " + atEOT + " is not implemented; the copy stays on the battlefield"})
 	}
 
@@ -168,7 +181,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		// Fractal" is TWO types, not one garbage word.
 		addTypes = copyTypeList(raw)
 		if len(addTypes) == 0 {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "AddTypes$ " + strings.TrimSpace(raw) + " resolved to no type; no type added"})
 		}
 	}
@@ -180,7 +193,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			setColor = true
 			addColors = cols
 		} else {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "SetColor$ " + strings.TrimSpace(raw) + " is not a colour; the copy keeps its printed colours"})
 		}
 	}
@@ -190,7 +203,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		if v, resolved := NumResolved(h, c, sa, "SetPower", 0); resolved {
 			setPow, hasSetPow = v, true
 		} else {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "SetPower$ " + strings.TrimSpace(raw) + " is not resolvable; the copy keeps its printed power"})
 		}
 	}
@@ -198,7 +211,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		if v, resolved := NumResolved(h, c, sa, "SetToughness", 0); resolved {
 			setTgh, hasSetTgh = v, true
 		} else {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "SetToughness$ " + strings.TrimSpace(raw) + " is not resolvable; the copy keeps its printed toughness"})
 		}
 	}
@@ -214,7 +227,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	if raw, ok := sa.Params["SetCreatureTypes"]; ok {
 		setCreatureTypes = copyTypeList(raw)
 		if len(setCreatureTypes) == 0 {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "SetCreatureTypes$ " + strings.TrimSpace(raw) + " resolved to no type; no creature type set"})
 		}
 	}
@@ -231,7 +244,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		if strings.EqualFold(strings.TrimSpace(raw), "True") {
 			return true
 		}
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: label + " " + strings.TrimSpace(raw) + " is not implemented; the copy keeps its printed types"})
 		return false
 	}
@@ -262,7 +275,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	pumpKeywords := cards.SplitKeywordList(sa.Params["PumpKeywords"])
 	removeKeywords := cards.SplitKeywordList(sa.Params["RemoveKeywords"])
 	if _, ok := sa.Params["AddKeywords"]; ok && len(addKeywords) == 0 {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "AddKeywords$ " + strings.TrimSpace(sa.Params["AddKeywords"]) + " resolved to no keyword; none added"})
 	}
 	// PumpDuration$ governs the PumpKeywords$ lifetime: absent means "for as
@@ -282,7 +295,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			strings.EqualFold(pumpDuration, "UntilEndOfTurn"):
 			pumpUntilEOT = true
 		default:
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "PumpDuration$ " + pumpDuration + " is not implemented; the copy keeps the keyword"})
 			pumpPermanent = true
 		}
@@ -309,7 +322,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			if v, ok := NumResolved(h, c, sa, "WithCountersAmount", 1); ok {
 				withAmt, withOK = v, true
 			} else {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 					Text: "WithCountersAmount$ " + strings.TrimSpace(sa.Params["WithCountersAmount"]) +
 						" is not implemented; the copy enters with no " + withKind + " counters"})
 			}
@@ -324,7 +337,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		if strings.EqualFold(v, "True") {
 			tapped = true
 		} else {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "TokenTapped$ " + v + " is not implemented; the copy enters untapped"})
 		}
 	}
@@ -341,9 +354,12 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		if v, resolved := NumResolved(h, c, sa, "NumCopies", 1); resolved {
 			n = v
 		} else {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "NumCopies$ " + strings.TrimSpace(raw) + " is not implemented; one copy"})
 		}
+	}
+	if rest != nil {
+		n = rest.Amount
 	}
 	if n <= 0 {
 		return
@@ -355,12 +371,16 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	populate := strings.EqualFold(strings.TrimSpace(sa.Params["Populate"]), "True")
 	var targets []state.Target
 	switch {
+	case rest != nil:
+		for _, id := range rest.Objs {
+			targets = append(targets, state.Target{Obj: id})
+		}
 	case populate && spec == "" && !hasTgts:
 		sub := *sa
 		sub.Params = map[string]string{"Defined": "Valid Creature.token+YouCtrl"}
 		cands := Defined(h, c, &sub)
 		if len(cands) > 1 {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "Populate$ with several eligible creature tokens copies the first (no engine host to ask)"})
 		}
 		if len(cands) == 0 {
@@ -408,7 +428,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		if outcome == AskNoHost {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 				Text: "CopyPermanent Choices$ has no engine host; copying the first eligible creature"})
 		}
 		targets = []state.Target{{Obj: d.Options[0].Obj}}
@@ -429,7 +449,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	case spec != "":
 		ts, ok := knownDefinedTargets(h, c, spec)
 		if !ok {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "CopyPermanent source " + spec + " is not resolvable; no copy"})
 			return
 		}
@@ -474,13 +494,16 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	default:
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "Controller$ " + strings.TrimSpace(sa.Params["Controller"]) +
 				" is not implemented; the copy is controlled by the resolving controller"})
 	}
 
 	if !multiOwner {
 		owners = []state.PlayerID{owner}
+	}
+	if rest != nil {
+		owners = append([]state.PlayerID(nil), rest.Players...)
 	}
 	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberTokens"]), "True")
 	var amount int32
@@ -522,7 +545,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			break
 		}
 		if attachTo == 0 {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "AttachedTo$ " + raw + " resolved to no legal battlefield permanent; the copy enters unattached"})
 		}
 	}
@@ -589,7 +612,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	if len(lostGrants) > 0 {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "CopyPermanent grant " + strings.Join(lostGrants, ", ") +
 				" does not resolve; the copy does not gain it"})
 	}
@@ -604,16 +627,137 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			destinations = append(destinations, copyDestination{owner: owner, target: target})
 		}
 	}
+	// postEntry is one copy's post-entry work: every rider that reads the
+	// copy as a permanent. It runs only once the copy's battlefield entry has
+	// completed -- on the first pass for an uncontested entry, or on the
+	// TokenRest re-entry after a parked entry-counter order is answered.
 	var minted []state.ObjID
-	for _, destination := range destinations {
+	if rest != nil {
+		minted = append(minted, rest.Minted...)
+	}
+	postEntry := func(owner state.PlayerID, want state.ObjID) {
+		minted = append(minted, want)
+		if attachTo != 0 {
+			// The shared Attach emission: it publishes Unattached first
+			// when the copy was already attached to a different bearer,
+			// so a re-attach cannot drop the Mode$ Unattached family.
+			target := g.Obj(attachTo)
+			if target != nil && target.Zone == state.ZBattlefield && Attachable(g, want, attachTo) {
+				emitAttach(h, want, attachTo)
+			}
+		}
+		if withOK {
+			h.Emit(events.Event{Kind: events.CounterChange, Obj: want, Counter: withKind, Amount: withAmt})
+		}
+		// Characteristic modifications, scoped to the copy itself
+		// (Affects Card.Self, Source the token). Permanent so the effect
+		// outlives its one-shot resolution and lasts as long as the token;
+		// the layer system re-derives them from the same calls on replay.
+		// One LType effect carries every type modification so the
+		// strip-before-add order is guaranteed within the effect: the
+		// printed creature subtypes leave BEFORE SetCreatureTypes$/AddTypes$
+		// land, and RemoveCardTypes$/RemoveLegendary strip the base first.
+		allTypes := append(append([]string(nil), addTypes...), setCreatureTypes...)
+		if len(allTypes) > 0 || removeCardTypes || removeCreatureTypes || removeLegendary {
+			h.AddContinuous(state.ContinuousEffect{
+				Source: want, Controller: owner, Affects: "Card.Self",
+				Layer: state.LType, AddTypes: allTypes,
+				RemoveCardTypes: removeCardTypes, RemoveCreatureTypes: removeCreatureTypes,
+				RemoveLegendary: removeLegendary, Permanent: true,
+			})
+		}
+		if setColor {
+			h.AddContinuous(state.ContinuousEffect{
+				Source: want, Controller: owner, Affects: "Card.Self",
+				Layer: state.LColor, AddColors: addColors, OverwriteColors: true, Permanent: true,
+			})
+		}
+		if hasSetPow || hasSetTgh {
+			pow, tgh := int32(0), int32(0)
+			if f := g.Obj(want).Face(); f != nil {
+				pow, tgh = int32(f.Power()), int32(f.Toughness())
+			}
+			if hasSetPow {
+				pow = setPow
+			}
+			if hasSetTgh {
+				tgh = setTgh
+			}
+			h.AddContinuous(state.ContinuousEffect{
+				Source: want, Controller: owner, Affects: "Card.Self",
+				Layer: state.LPT, Sub: state.SubSet,
+				SetPower: pow, SetToughness: tgh, HasSet: true, Permanent: true,
+			})
+		}
+		// Keywords: RemoveKeywords$ applies BEFORE AddKeywords$ within
+		// this one effect (CR 613.1f), so Mirage Phalanx's copy loses
+		// Soulbond and gains Haste. PumpKeywords$ is the temporary body:
+		// its own effect carries the PumpDuration$ lifetime.
+		kwGrant := addKeywords
+		if len(kwGrant) > 0 || len(removeKeywords) > 0 {
+			h.AddContinuous(state.ContinuousEffect{
+				Source: want, Controller: owner, Affects: "Card.Self",
+				Layer: state.LAbilities, AddKeywords: kwGrant,
+				RemoveKeywords: removeKeywords, Permanent: true,
+			})
+		}
+		if len(pumpKeywords) > 0 {
+			h.AddContinuous(state.ContinuousEffect{
+				Source: want, Controller: owner, Affects: "Card.Self",
+				Layer: state.LAbilities, AddKeywords: pumpKeywords,
+				Duration: pumpDuration, Permanent: pumpPermanent, UntilEOT: pumpUntilEOT,
+			})
+		}
+		if remember {
+			c.Remembered = append(c.Remembered, state.Target{Obj: want})
+			eventRemember(h, c, want)
+		}
+		switch atEOT {
+		case "Exile":
+			// The registration's source IS the token, so the builtin
+			// body's Defined$ Self resolves to it -- the dash/warp
+			// precedent. TrackSource rides the __kwWarp prefix, so a copy
+			// that left the battlefield and returned as a new incarnation
+			// is not exiled by a stale promise (the same one-shot consume
+			// warp's end-step exile already had).
+			h.Emit(events.Event{Kind: events.DelayedRegister, Obj: want,
+				Player: owner, Step: state.StepEnd, Counter: "__kwWarpExile"})
+		case "Sacrifice":
+			// __kwEncoreSacrifice is exactly the body this needs
+			// ("DB$ Sacrifice | Defined$ Self"); the token is its own
+			// registration source. Untracked: a sacrificed-then-returned
+			// copy keeps the promise, the same semantics encore's group
+			// registration holds.
+			h.Emit(events.Event{Kind: events.DelayedRegister, Obj: want,
+				Player: owner, Step: state.StepEnd, Counter: "__kwEncoreSacrifice"})
+		}
+	}
+	targetObjs := make([]state.ObjID, 0, len(targets))
+	for _, t := range targets {
+		if !t.IsPlayer {
+			targetObjs = append(targetObjs, t.Obj)
+		}
+	}
+	for d, destination := range destinations {
 		owner, t := destination.owner, destination.target
-		if t.IsPlayer {
-			continue
-		}
-		if g.Obj(t.Obj) == nil {
-			continue
-		}
 		for i := int32(0); i < n; i++ {
+			// unit is this copy's position in the call's deterministic
+			// destination x NumCopies order: the TokenRest cursor.
+			unit := d*int(n) + int(i)
+			if rest != nil && unit < rest.Next {
+				continue
+			}
+			if rest != nil && unit == rest.Next {
+				for _, id := range rest.Parked {
+					if g.Obj(id) != nil {
+						postEntry(owner, id)
+					}
+				}
+				continue
+			}
+			if t.IsPlayer || g.Obj(t.Obj) == nil {
+				continue
+			}
 			// want is the ID the mint will get if Apply's CopyToken case
 			// actually mints one (state.Game.AddObject assigns NextID then
 			// increments it) -- the effToken/effMyriad prediction pattern.
@@ -656,103 +800,20 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 						SVars: sourceSVars})
 				}
 			}
-			h.Emit(events.Event{Kind: events.MoveZone, Obj: want,
+			// The entry goes through EmitTokenCreate: the emit tail publishes
+			// the copy only once this MoveZone has actually folded onto the
+			// battlefield (rules' publishTokenEntry), and reports a park when
+			// the entry staged behind an entry-counter order ask.
+			wasSuspended := h.Suspended()
+			entered := h.EmitTokenCreate(events.Event{Kind: events.MoveZone, Obj: want,
 				From: state.ZLibrary, To: state.ZBattlefield})
-			minted = append(minted, want)
-			if attachTo != 0 {
-				// The shared Attach emission: it publishes Unattached first
-				// when the copy was already attached to a different bearer,
-				// so a re-attach cannot drop the Mode$ Unattached family.
-				target := g.Obj(attachTo)
-				if target != nil && target.Zone == state.ZBattlefield && Attachable(g, want, attachTo) {
-					emitAttach(h, want, attachTo)
+			if !wasSuspended && h.Suspended() && len(entered) == 0 {
+				if suspendMint(h, c, TokenRest{SA: sa, Next: unit, Minted: minted,
+					Players: owners, Objs: targetObjs, Amount: n}) {
+					return
 				}
 			}
-			if withOK {
-				h.Emit(events.Event{Kind: events.CounterChange, Obj: want, Counter: withKind, Amount: withAmt})
-			}
-			// Characteristic modifications, scoped to the copy itself
-			// (Affects Card.Self, Source the token). Permanent so the effect
-			// outlives its one-shot resolution and lasts as long as the token;
-			// the layer system re-derives them from the same calls on replay.
-			// One LType effect carries every type modification so the
-			// strip-before-add order is guaranteed within the effect: the
-			// printed creature subtypes leave BEFORE SetCreatureTypes$/AddTypes$
-			// land, and RemoveCardTypes$/RemoveLegendary strip the base first.
-			allTypes := append(append([]string(nil), addTypes...), setCreatureTypes...)
-			if len(allTypes) > 0 || removeCardTypes || removeCreatureTypes || removeLegendary {
-				h.AddContinuous(state.ContinuousEffect{
-					Source: want, Controller: owner, Affects: "Card.Self",
-					Layer: state.LType, AddTypes: allTypes,
-					RemoveCardTypes: removeCardTypes, RemoveCreatureTypes: removeCreatureTypes,
-					RemoveLegendary: removeLegendary, Permanent: true,
-				})
-			}
-			if setColor {
-				h.AddContinuous(state.ContinuousEffect{
-					Source: want, Controller: owner, Affects: "Card.Self",
-					Layer: state.LColor, AddColors: addColors, OverwriteColors: true, Permanent: true,
-				})
-			}
-			if hasSetPow || hasSetTgh {
-				pow, tgh := int32(0), int32(0)
-				if f := g.Obj(want).Face(); f != nil {
-					pow, tgh = int32(f.Power()), int32(f.Toughness())
-				}
-				if hasSetPow {
-					pow = setPow
-				}
-				if hasSetTgh {
-					tgh = setTgh
-				}
-				h.AddContinuous(state.ContinuousEffect{
-					Source: want, Controller: owner, Affects: "Card.Self",
-					Layer: state.LPT, Sub: state.SubSet,
-					SetPower: pow, SetToughness: tgh, HasSet: true, Permanent: true,
-				})
-			}
-			// Keywords: RemoveKeywords$ applies BEFORE AddKeywords$ within
-			// this one effect (CR 613.1f), so Mirage Phalanx's copy loses
-			// Soulbond and gains Haste. PumpKeywords$ is the temporary body:
-			// its own effect carries the PumpDuration$ lifetime.
-			kwGrant := addKeywords
-			if len(kwGrant) > 0 || len(removeKeywords) > 0 {
-				h.AddContinuous(state.ContinuousEffect{
-					Source: want, Controller: owner, Affects: "Card.Self",
-					Layer: state.LAbilities, AddKeywords: kwGrant,
-					RemoveKeywords: removeKeywords, Permanent: true,
-				})
-			}
-			if len(pumpKeywords) > 0 {
-				h.AddContinuous(state.ContinuousEffect{
-					Source: want, Controller: owner, Affects: "Card.Self",
-					Layer: state.LAbilities, AddKeywords: pumpKeywords,
-					Duration: pumpDuration, Permanent: pumpPermanent, UntilEOT: pumpUntilEOT,
-				})
-			}
-			if remember {
-				c.Remembered = append(c.Remembered, state.Target{Obj: want})
-				eventRemember(h, c, want)
-			}
-			switch atEOT {
-			case "Exile":
-				// The registration's source IS the token, so the builtin
-				// body's Defined$ Self resolves to it -- the dash/warp
-				// precedent. TrackSource rides the __kwWarp prefix, so a copy
-				// that left the battlefield and returned as a new incarnation
-				// is not exiled by a stale promise (the same one-shot consume
-				// warp's end-step exile already had).
-				h.Emit(events.Event{Kind: events.DelayedRegister, Obj: want,
-					Player: owner, Step: state.StepEnd, Counter: "__kwWarpExile"})
-			case "Sacrifice":
-				// __kwEncoreSacrifice is exactly the body this needs
-				// ("DB$ Sacrifice | Defined$ Self"); the token is its own
-				// registration source. Untracked: a sacrificed-then-returned
-				// copy keeps the promise, the same semantics encore's group
-				// registration holds.
-				h.Emit(events.Event{Kind: events.DelayedRegister, Obj: want,
-					Player: owner, Step: state.StepEnd, Counter: "__kwEncoreSacrifice"})
-			}
+			postEntry(owner, want)
 		}
 	}
 	// ImprintTokens$ True records the created tokens on the SOURCE, the same

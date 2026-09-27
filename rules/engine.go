@@ -836,12 +836,37 @@ type Engine struct {
 	// counterReplacementFold marks the already-rewritten event's final emit;
 	// new counter events from a replacement body still take their own pass.
 	counterReplacementFold bool
-	// tokenMintSink, when non-nil, collects every object the TokenCreate event
-	// currently being emitted actually created (EmitTokenCreate). It is a
+	// tokenMintSink, when non-nil, collects every object the TokenCreate or
+	// CardToken event currently being emitted actually created
+	// (EmitTokenCreate, and a parked mint's answer through withMintSink). It is a
 	// stack discipline: a nested token creation saves and restores the outer
 	// sink, so the outer effect's rider loop sees only its own mints. Nil on
 	// every ordinary Emit, so no other emit pays for the collection.
 	tokenMintSink *[]state.ObjID
+	// mintParkFrom is EmitTokenCreate's report to SuspendTokenRest (rules/
+	// token_rest.go): 1 + the replacement-choice queue length before an emit
+	// that parked the resolution behind a replacement-order ask, else 0.
+	// mintSinks are the collectors those parked mints' answers mint into,
+	// keyed by an id from mintSinkSeq and consumed by the "token_rest" frame.
+	mintParkFrom int
+	mintSinks    []mintSink
+	mintSinkSeq  uint64
+	// copyMintsPending are the CopyToken mints (a chosen-copy token plan's,
+	// a DB$ CopyPermanent's) whose battlefield MoveZone has not completed
+	// yet: the object exists in the library but has not entered. The emit
+	// tail (publishTokenEntry) publishes such an id to tokenMintSink only
+	// when its entry actually folds onto the battlefield -- directly, or on
+	// the re-drive after a parked entry-counter order or as-enters election
+	// is answered -- and drops it when the move lands anywhere else.
+	copyMintsPending []state.ObjID
+	// answerInResolution is set for the synchronous extent of an answer to a
+	// competition or CreateToken election that suspended a stack resolution
+	// (handleReplacement for an inResolution competition, tokenReplAnswer for
+	// an election carrying a parkedResume). resolvingObj is 0 there, yet an
+	// entry the answer stages still belongs to that resolution: its order
+	// competition must resume the suspended frame when answered, not drop it
+	// as a cast-window pose's bookkeeping. Never set between calls.
+	answerInResolution bool
 	// stackCopyMintSink, when non-nil, collects the object the StackCopy
 	// event currently being emitted actually minted (EmitStackCopy). Same
 	// stack discipline as tokenMintSink: a nested stack copy saves and
@@ -2522,7 +2547,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// and the re-drive after the answer runs the ordinary emit exactly once.
 	// A completed stage returns false and falls through: the fold below
 	// consumes it (rules/entry_counters.go).
-	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && !e.applyingReplacement &&
+	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield &&
 		e.entryCounterOrderParks(ev) {
 		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 			Text: "entry awaiting counter-replacement-order choice"}
@@ -2545,6 +2570,15 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			return replaced
 		}
 		ev = replaced
+	}
+	// Token replacement effects must settle before entry staging: they may
+	// remove the mint or rewrite its script. Final token plans re-enter here
+	// under applyingReplacement, so they skip rematching but still stage each
+	// finalized mint before its TokenCreate/CardToken fold.
+	if (ev.Kind == events.TokenCreate || ev.Kind == events.CardToken) &&
+		e.entryCounterOrderParks(ev) {
+		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
+			Text: "entry awaiting counter-replacement-order choice"}
 	}
 	// CountersRemain is a departure property of the battlefield object. Tag the
 	// final, replacement-adjusted MoveZone so events.Apply and replay preserve
@@ -2652,7 +2686,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		}
 	}
 	var tokenMintWant state.ObjID
-	if ev.Kind == events.TokenCreate && e.tokenMintSink != nil {
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken || ev.Kind == events.CopyToken {
 		tokenMintWant = e.G.NextID
 	}
 	var stackCopyMintWant state.ObjID
@@ -2677,9 +2711,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	if stored.Kind == events.PlayerLost {
 		e.rechooseDepartedBattleProtector(stored.Player)
 	}
-	if tokenMintWant != 0 && e.G.Obj(tokenMintWant) != nil {
-		*e.tokenMintSink = append(*e.tokenMintSink, tokenMintWant)
-	}
+	e.publishTokenEntry(stored, tokenMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
 		*e.stackCopyMintSink = append(*e.stackCopyMintSink, stackCopyMintWant)
 	}

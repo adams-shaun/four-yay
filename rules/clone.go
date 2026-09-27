@@ -216,6 +216,16 @@ func (e *Engine) Clone() *Engine {
 		st := *e.entryStageDone
 		c.entryStageDone = &st
 	}
+	// Parked-mint collectors (rules/token_rest.go): value data keyed by id,
+	// re-allocated so a clone's answer never appends into the original's.
+	c.mintParkFrom, c.mintSinkSeq = e.mintParkFrom, e.mintSinkSeq
+	c.copyMintsPending = append([]state.ObjID(nil), e.copyMintsPending...)
+	if e.mintSinks != nil {
+		c.mintSinks = make([]mintSink, len(e.mintSinks))
+		for i, ms := range e.mintSinks {
+			c.mintSinks[i] = mintSink{id: ms.id, ids: append([]state.ObjID(nil), ms.ids...)}
+		}
+	}
 	if e.untapResume != nil {
 		r := *e.untapResume
 		c.untapResume = &r
@@ -906,6 +916,23 @@ func (e *Engine) Clone() *Engine {
 				resume := *rc.untap
 				rc.untap = &resume
 			}
+			if rc.stage != nil {
+				// The stage is mutable while its ask is outstanding: the
+				// completed re-drive consumes its token-plan tail and the
+				// resume appends placements. Copy the value and re-allocate
+				// the tail so a clone answered on either side cannot alias
+				// the original's continuation.
+				st := *rc.stage
+				if st.tokenPlan != nil {
+					tp := *st.tokenPlan
+					tp.plan = append([]tokenPlanMint(nil), st.tokenPlan.plan...)
+					st.tokenPlan = &tp
+				}
+				st.applied = append([]replMatch(nil), st.applied...)
+				st.placed = append([]events.EntryCounterGrant(nil), st.placed...)
+				st.bodyIDs = append([]string(nil), st.bodyIDs...)
+				rc.stage = &st
+			}
 			c.replChoices[i] = rc
 		}
 	}
@@ -1117,6 +1144,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// The multi-player GenericChoice chooser cursor is likewise a sliced value
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
+	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat
 		cur.subjects = append([]state.Target(nil), rp.repeat.subjects...)

@@ -37,21 +37,55 @@ import (
 // through the ordinary emit -- whose fold consumes the completed stage via
 // entryStageDone.
 type entryCounterStage struct {
-	move     events.Event               // the staged entry as the pose received it
-	grants   []entryGrant               // the origin-zone snapshot plus body-defined grants
-	placed   []events.EntryCounterGrant // grants finalized so far, in grant order
-	counter  events.Event               // the parked grant's counter event
-	cands    []replMatch                // its competition
-	applied  []replMatch                // bodies already applied, in answer order
-	player   state.PlayerID             // the asked player
-	inRes    bool                       // the pose's in-resolution provenance
-	idx      int                        // index into grants of the parked grant
-	complete bool                       // every grant finalized; the fold may consume
+	move      events.Event               // the staged entry as the pose received it
+	grants    []entryGrant               // the origin-zone snapshot plus body-defined grants
+	placed    []events.EntryCounterGrant // grants finalized so far, in grant order
+	counter   events.Event               // the parked grant's counter event
+	cands     []replMatch                // its competition
+	applied   []replMatch                // bodies already applied, in answer order
+	player    state.PlayerID             // the asked player
+	inRes     bool                       // the pose's in-resolution provenance
+	inBody    bool                       // the entry was emitted by a replacement body; do not rematch it on re-drive
+	idx       int                        // index into grants of the parked grant
+	complete  bool                       // every grant finalized; the fold may consume
+	redriving bool                       // the completed stage's own re-emit is in flight (mint identity)
 	// bodyIDs names every Updated PutCounter|ETB$ True replacement body whose
 	// placement this stage's grant set folded (replIdentity). The completed
 	// fold returns them so the Updated dispatch skips running those bodies;
 	// their counters are already in the move's Pairs payload.
 	bodyIDs []string
+	// tokenPlan carries the mints a finalized token plan still owes after the
+	// mint currently staged behind this entry's order ask. The stage's
+	// completed re-drive continues the plan, so a plan whose FIRST mint parks
+	// does not lose the mints after it (a second same-script mint would
+	// otherwise be swallowed by the outstanding-stage re-drive guard, since
+	// TokenCreate events carry no identity of their own). nil for a non-plan
+	// entry. Clone-copied with the rest of the stage (rules/clone.go).
+	tokenPlan *tokenPlanResume
+}
+
+// tokenPlanResume is the tail of a finalized token plan that must wait for
+// the staged mint's entry-counter order answer: the plan's original event
+// (the mint context) and the mints still owed. It lives on the parked stage
+// so the completion re-drive owns the continuation.
+type tokenPlanResume struct {
+	ev   events.Event
+	plan []tokenPlanMint
+}
+
+// outstandingEntryStage returns the first entry-counter stage still awaiting
+// its order answer, or nil. A parked mint leaves its stage on the
+// replacement-choice queue until the answer lands; emitTokenPlanMints uses
+// this to suspend the rest of a multi-mint plan instead of emitting into an
+// outstanding stage (which sameEntryMove would treat as a re-drive).
+func (e *Engine) outstandingEntryStage() *entryCounterStage {
+	for i := range e.replChoices {
+		rc := &e.replChoices[i]
+		if rc.kind == replChoiceEntryOrder && rc.stage != nil && !rc.stage.complete {
+			return rc.stage
+		}
+	}
+	return nil
 }
 
 // entryGrant is one planned entry counter: the kind and amount a grant will
@@ -66,12 +100,36 @@ type entryGrant struct {
 	body   state.ObjID
 }
 
-// sameEntryMove reports whether ev is (a re-drive of) the staged move. The
-// identifying fields are the ones a re-driven entry keeps: a re-emit may
-// recompute markers, never origin, destination or object.
+// restage is the continuation of st behind the next grant's newly posed
+// competition (posed, the stage stageEntryCounterOrder just built): every
+// field carries over from st except the pose's own competition -- the parked
+// counter event, its candidates, the asked player, the grant index -- and the
+// per-competition answer state (applied, complete), which restart.
+func (st *entryCounterStage) restage(posed *entryCounterStage) entryCounterStage {
+	next := *st
+	next.counter, next.cands, next.player, next.idx = posed.counter, posed.cands, posed.player, posed.idx
+	next.applied, next.complete = nil, false
+	return next
+}
+
+// sameEntryMove reports whether ev is (a re-drive of) the staged move. For a
+// MoveZone the identifying fields are the ones a re-driven entry keeps: a
+// re-emit may recompute markers, never origin, destination or object.
+//
+// A TokenCreate/CardToken mint has no such identity -- two mints of one
+// script, or two copies of one source (Encore's copy per opponent), are
+// field-for-field equal -- so a mint is its stage's move only while that
+// stage's own completed re-drive is being emitted (redriving, set by
+// resumeEntryCounterOrder around exactly that emit). Any other mint, however
+// equal, is a NEW mint and stages (or folds) on its own.
 func (st *entryCounterStage) sameEntryMove(ev events.Event) bool {
-	return st.move.Kind == ev.Kind && st.move.Obj == ev.Obj &&
-		st.move.From == ev.From && st.move.To == ev.To
+	if st.move.Kind != ev.Kind {
+		return false
+	}
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken {
+		return st.redriving
+	}
+	return st.move.Obj == ev.Obj && st.move.From == ev.From && st.move.To == ev.To
 }
 
 // entryCounterGrants snapshots the intrinsic counters of a battlefield
@@ -111,14 +169,29 @@ func (e *Engine) entryCounterGrants(ev events.Event) []events.EntryCounterGrant 
 // list. A battlefield->battlefield stay grants nothing (the same guard
 // entryCounterGrants keeps).
 func (e *Engine) entryBodyCandidates(ev events.Event) bool {
-	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
+	var entrant *state.Object
+	switch ev.Kind {
+	case events.MoveZone:
+		if ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
+			return false
+		}
+		entrant = e.G.Obj(ev.Obj)
+		if entrant == nil || entrant.Zone == state.ZBattlefield {
+			return false
+		}
+	case events.TokenCreate:
+		entrant = e.tokenSnapshot(ev)
+	case events.CardToken:
+		if src := e.G.Obj(ev.Obj); src != nil {
+			entrant = &state.Object{Card: src.Card, FaceIdx: src.FaceIdx}
+		}
+	default:
 		return false
 	}
-	o := e.G.Obj(ev.Obj)
-	if o == nil || o.Zone == state.ZBattlefield || o.Face() == nil {
+	if entrant == nil || entrant.Face() == nil {
 		return false
 	}
-	f := o.Face()
+	f := entrant.Face()
 	for i := range f.Repls {
 		r := &f.Repls[i]
 		if r.Event == "Moved" && r.With != nil && r.With.API == "PutCounter" &&
@@ -130,11 +203,13 @@ func (e *Engine) entryBodyCandidates(ev events.Event) bool {
 	// kw:Bloodthirst and kw:Sunburst are synthesised by the replacement
 	// dispatch rather than expanded onto the face (rules/replacement.go), so
 	// a granted or printed keyword carries no face Repl to scan.
-	if _, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst"); ok {
-		return true
-	}
-	if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); ok {
-		return true
+	if ev.Kind == events.MoveZone {
+		if _, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst"); ok {
+			return true
+		}
+		if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); ok {
+			return true
+		}
 	}
 	return false
 }
@@ -219,18 +294,22 @@ func saHasParam(sa *cards.SA, key string) bool {
 // absorbed -- its placement is nothing, and running it would only duplicate
 // the zero -- but contributes no grant.
 func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([]entryGrant, []string) {
-	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
+	if ev.Kind == events.MoveZone && (ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter)) {
 		return nil, nil
 	}
-	o := e.G.Obj(ev.Obj)
+	o := e.G.Obj(entrant)
 	if o == nil || o.Face() == nil {
 		return nil, nil
 	}
 	f := o.Face()
+	matchEv := ev
+	if ev.Kind != events.MoveZone {
+		matchEv = events.Event{Kind: events.MoveZone, Obj: entrant, From: state.ZLibrary, To: state.ZBattlefield}
+	}
 	var grants []entryGrant
 	var ids []string
 	absorb := func(m replMatch) {
-		if !e.replacementMatches(*m.repl, m.id, ev) || !entryBodyAbsorbable(m.repl.With) ||
+		if !e.replacementMatches(*m.repl, m.id, matchEv) || !entryBodyAbsorbable(m.repl.With) ||
 			!entryBodyKindEncodable(m.repl.With) {
 			return
 		}
@@ -246,7 +325,7 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 		if kind == "" {
 			kind = "P1P1"
 		}
-		grants = append(grants, entryGrant{kind: kind, amount: n, body: ev.Obj})
+		grants = append(grants, entryGrant{kind: kind, amount: n, body: entrant})
 	}
 	for i := range f.Repls {
 		r := &f.Repls[i]
@@ -254,12 +333,12 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 			!strings.EqualFold(strings.TrimSpace(r.With.Params["ETB"]), "True") {
 			continue
 		}
-		absorb(replMatch{id: ev.Obj, face: f, repl: r})
+		absorb(replMatch{id: entrant, face: f, repl: r})
 	}
-	if m := e.bloodthirstEntryMatch(ev); m != nil {
+	if m := e.bloodthirstEntryMatch(matchEv); m != nil {
 		absorb(*m)
 	}
-	if m := e.sunburstEntryMatch(ev); m != nil {
+	if m := e.sunburstEntryMatch(matchEv); m != nil {
 		absorb(*m)
 	}
 	return grants, ids
@@ -479,7 +558,7 @@ func (e *Engine) stageEntryCounterOrder(ev events.Event, preview *Engine, n0 int
 	st := &entryCounterStage{
 		move: ev, grants: grants, placed: placed,
 		counter: posed.ev, cands: posed.cands, player: posed.player,
-		inRes: inRes, idx: idx, bodyIDs: bodyIDs,
+		inRes: inRes, inBody: e.applyingReplacement, idx: idx, bodyIDs: bodyIDs,
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceEntryOrder,
 		ev: posed.ev, cands: posed.cands, player: posed.player,
@@ -550,7 +629,7 @@ func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 	if park < 0 {
 		return false
 	}
-	return e.stageEntryCounterOrder(ev, preview, n0, grants, placed, park, e.resolvingObj != 0, bodyIDs)
+	return e.stageEntryCounterOrder(ev, preview, n0, grants, placed, park, e.resolvingObj != 0 || e.answerInResolution, bodyIDs)
 }
 
 // resumeEntryCounterOrder answers one staged competition: the chosen body
@@ -616,16 +695,44 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 		if !e.stageEntryCounterOrder(st.move, preview, n0, st.grants, st.placed, j+park, st.inRes, st.bodyIDs) {
 			continue
 		}
-		// stageEntryCounterOrder built a fresh stage for the new park; graft
-		// the accumulated placement AND the absorbed-body set onto it so the
-		// next resume continues this entry rather than starting over.
+		// stageEntryCounterOrder built a fresh stage for the new park. It
+		// CONTINUES this entry: start from a copy of the whole stage, so every
+		// continuation field -- the accumulated placement, the absorbed-body
+		// set, the token-plan tail, and the in-body / in-resolution provenance
+		// the pose cannot re-derive here (applyingReplacement is false while
+		// an answer runs) -- carries over, and take only the new pose's own
+		// competition from the fresh stage.
 		fresh := e.replChoices[len(e.replChoices)-1].stage
-		fresh.placed, fresh.bodyIDs = st.placed, st.bodyIDs
+		*fresh = st.restage(fresh)
+		st.tokenPlan = nil
 		return
 	}
 	st.complete = true
 	e.entryStageDone = st
+	priorApplying := e.applyingReplacement
+	if st.inBody {
+		e.applyingReplacement = true
+	}
+	st.redriving = true
 	e.emit(st.move)
+	st.redriving = false
+	if e.entryStageDone == st {
+		// The re-drive never reached its fold (replaced away): the stage
+		// is spent either way and must not be consumed by a later entry.
+		e.entryStageDone = nil
+	}
+	e.applyingReplacement = priorApplying
+	// A staged TOKEN mint may be only the first of a finalized plan. The
+	// plan's remaining mints were suspended by emitTokenPlanMints so they
+	// would not be mistaken for this stage's re-drive; continue them now that
+	// this mint has folded. Consume the tail first: the continuation may park
+	// on its own later mint and set a fresh stage's tail.
+	if cont := st.tokenPlan; cont != nil {
+		st.tokenPlan = nil
+		if len(cont.plan) > 0 {
+			e.emitTokenPlanMints(cont.ev, cont.plan)
+		}
+	}
 }
 
 // foldEntryMove is shared by the ordinary emit tail and the Updated
@@ -674,8 +781,11 @@ func (e *Engine) foldEntryWithPlaced(ev events.Event, placed []events.EntryCount
 	for _, g := range placed {
 		ev.Pairs = append(ev.Pairs, events.EntryCounterPairs(g)...)
 	}
-	stored := events.Emit(e.G, e.L, ev)
 	entrant := ev.Obj
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken {
+		entrant = e.G.NextID
+	}
+	stored := events.Emit(e.G, e.L, ev)
 	for _, g := range placed {
 		// Replacement has already settled; the marker only notifies observers.
 		// The entrant's controller is the adder of its entry counters, even

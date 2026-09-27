@@ -324,6 +324,14 @@ func tokenRememberedTargets(h Host, c *Ctx, sa *cards.SA) []state.Target {
 
 // effToken creates the requested token scripts and applies their token riders.
 func effToken(h Host, c *Ctx, sa *cards.SA) {
+	if rest := resumingMint(c, sa); rest != nil {
+		// A re-entry after a parked mint's answer (rules' "token_rest"
+		// frame): everything before the loop already ran on the first pass
+		// and its values are frozen in the job, so only the owed units run.
+		job := rest.Job
+		runTokenMints(h, c, sa, &job, rest.Next, rest.Parked, rest.Minted)
+		return
+	}
 	g := h.Game()
 	n := Num(h, c, sa, "TokenAmount", 1)
 	// owners is the per-mint owner list: one entry for every shape the
@@ -614,24 +622,160 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// the call (and, for an out-of-scope value, its one loud Note) is per
 	// resolution, never per mint -- a multi-token body with an out-of-scope
 	// value must not emit one Note per token.
-	var minted []state.ObjID
 	attackCtx := false
 	var attackDefender state.PlayerID
 	if attack := strings.TrimSpace(sa.Params["TokenAttacking"]); attack != "" {
 		attackCtx, attackDefender = tokenAttackingRider(h, c, attack, "token")
 	}
 
+	job := TokenJob{
+		N: n, Owners: owners, Remember: remember, AttachTo: attachTo,
+		SetPow: setPow, SetTgh: setTgh, HasPow: hasPow, HasTgh: hasTgh,
+		WithKind: withKind, WithAmt: withAmt, WithOK: withOK,
+		PumpKeywords: pumpKeywords, PumpDuration: pumpDuration,
+		PumpPermanent: pumpPermanent, PumpUntilEOT: pumpUntilEOT,
+		Tapped: tapped, TokenMemory: tokenMemory,
+		AttackCtx: attackCtx, AttackDefender: attackDefender,
+	}
+	runTokenMints(h, c, sa, &job, -1, nil, nil)
+}
+
+// TokenJob is one DB$ Token resolution's per-mint work, resolved ONCE before
+// the mint loop: the owners and amount, and every value the per-mint riders
+// read. Freezing it is what lets a mint that parks behind a CR 616.1 order ask
+// resume its riders with exactly the values the first pass resolved -- a
+// TokenAmount$ Count$ or a Defined$ selector re-read after the earlier mints
+// landed would name a different set. Plain data (Clone copies the slices).
+type TokenJob struct {
+	N              int32
+	Owners         []state.PlayerID
+	Remember       bool
+	AttachTo       state.ObjID
+	SetPow, SetTgh int32
+	HasPow, HasTgh bool
+	WithKind       string
+	WithAmt        int32
+	WithOK         bool
+	PumpKeywords   []string
+	PumpDuration   string
+	PumpPermanent  bool
+	PumpUntilEOT   bool
+	Tapped         bool
+	TokenMemory    []state.Target
+	AttackCtx      bool
+	AttackDefender state.PlayerID
+}
+
+// TokenRest is a DB$ Token's continuation once one of its mints parked
+// behind a CR 616.1 replacement-order ask (an entry-counter order, a token
+// replacement order): the ask suspends the resolution INSIDE the mint, so the
+// minted objects exist only after the answer. The host re-enters the Token SA
+// with this cursor once the answer has minted: Parked (host-filled) are the
+// objects the parked mint produced, which take the riders; the loop then
+// continues at the mint after Next. SinkID is the host's handle on the
+// collector the answer mints into; effects never reads it. Plain data, so the
+// host carries it on its own continuation frame and replay re-derives it.
+//
+// The same continuation serves every token-minting primitive whose post-mint
+// work reads the minted ids (effToken's riders, Encore's haste and sacrifice
+// group, Incubate's counters, Amass's Army): Next is the primitive's own loop
+// cursor, and Players/Objs/Script/Amount/Count are the frozen values a
+// primitive other than effToken re-enters with (effToken freezes Job
+// instead; CopyPermanent freezes its controllers, copy sources and count).
+type TokenRest struct {
+	SA     *cards.SA
+	SinkID uint64
+	Next   int
+	Parked []state.ObjID
+	Minted []state.ObjID
+	Job    TokenJob
+
+	Players []state.PlayerID
+	Objs    []state.ObjID
+	Script  string
+	Amount  int32
+	Count   int32
+}
+
+// resumingMint consumes and returns c's TokenRest when this pass re-enters sa
+// after a parked mint's answer, else nil.
+func resumingMint(c *Ctx, sa *cards.SA) *TokenRest {
+	rest := c.TokenRest
+	if rest == nil || rest.SA != sa {
+		return nil
+	}
+	c.TokenRest = nil
+	return rest
+}
+
+// suspendMint hands a parked mint's continuation to the host (the caller's
+// last EmitTokenCreate parked the resolution). It reports whether the host
+// recorded it; the caller then stops, and Resolve defers the SA's
+// Imprint/ClearImprinted tail to the re-entry.
+func suspendMint(h Host, c *Ctx, rest TokenRest) bool {
+	th, ok := h.(tokenRestHost)
+	if !ok || !th.SuspendTokenRest(rest.SA, rest) {
+		return false
+	}
+	c.tokensSuspended = true
+	return true
+}
+
+// Clone returns a copy that shares no slice with r.
+func (r TokenRest) Clone() TokenRest {
+	r.Parked = append([]state.ObjID(nil), r.Parked...)
+	r.Minted = append([]state.ObjID(nil), r.Minted...)
+	r.Job.Owners = append([]state.PlayerID(nil), r.Job.Owners...)
+	r.Job.PumpKeywords = append([]string(nil), r.Job.PumpKeywords...)
+	r.Job.TokenMemory = append([]state.Target(nil), r.Job.TokenMemory...)
+	r.Players = append([]state.PlayerID(nil), r.Players...)
+	r.Objs = append([]state.ObjID(nil), r.Objs...)
+	return r
+}
+
+// tokenRestHost is implemented by the rules engine: SuspendTokenRest records
+// the continuation of a Token SA whose last EmitTokenCreate parked the
+// resolution behind a replacement-order ask. It reports false when that emit
+// did not park (or nothing is suspended to continue), and the caller keeps
+// its synchronous behaviour.
+type tokenRestHost interface {
+	SuspendTokenRest(sa *cards.SA, rest TokenRest) bool
+}
+
+// runTokenMints is effToken's mint loop. resumeAt < 0 is a first pass; a
+// TokenRest re-entry passes the parked mint's unit index, the objects the
+// answer minted for it and the mints already made. A unit is one mint or one
+// unknown-script Note, in the loop's own order, so a re-entry skips exactly
+// the units the first pass already performed.
+func runTokenMints(h Host, c *Ctx, sa *cards.SA, job *TokenJob, resumeAt int, parked, minted []state.ObjID) {
+	g := h.Game()
+	unit := -1
 	for key := range strings.SplitSeq(sa.Params["TokenScript"], ",") {
 		key = strings.TrimSpace(key)
 		if key == "" {
 			continue
 		}
 		if _, ok := g.Tokens[key]; !ok {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unknown token script " + key})
+			unit++
+			if unit > resumeAt {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "unknown token script " + key})
+			}
 			continue
 		}
-		for _, owner := range owners {
-			for i := int32(0); i < n; i++ {
+		for _, owner := range job.Owners {
+			for i := int32(0); i < job.N; i++ {
+				unit++
+				if unit < resumeAt {
+					continue
+				}
+				if unit == resumeAt {
+					// The parked mint: the answer minted it (or its whole
+					// rewritten plan); only its riders are owed.
+					for _, want := range parked {
+						minted = applyTokenMintRiders(h, c, job, owner, want, minted)
+					}
+					continue
+				}
 				// want is the ID the new object gets if TokenCreate's own Apply
 				// case actually mints one (state.Game.AddObject assigns NextID,
 				// then increments it) -- a direct, positive identity check,
@@ -643,7 +787,28 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 				// original-plus-one), so each rider below lands on every mint the
 				// resolution actually produced -- not just the first.
 				want := g.NextID
+				wasSuspended := h.Suspended()
 				mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
+				if !wasSuspended && h.Suspended() {
+					// The mint parked the resolution behind a replacement-order
+					// ask: what landed so far takes its riders now, and the rest
+					// of this resolution -- the parked mint's riders, the mints
+					// after it, and the post-loop work -- resumes with the
+					// answer instead of running against objects that do not
+					// exist yet (and instead of emitting the next mint into the
+					// outstanding ask, which would swallow it).
+					if _, ok := h.(tokenRestHost); ok {
+						landed := minted
+						for _, id := range mints {
+							landed = applyTokenMintRiders(h, c, job, owner, id, landed)
+						}
+						if suspendMint(h, c, TokenRest{SA: sa, Next: unit, Minted: landed, Job: *job}) {
+							return
+						}
+						minted = landed
+						continue
+					}
+				}
 				if len(mints) == 0 {
 					// Nothing landed (an unknown key or a plan rounded down to
 					// zero): keep the single predicted id so the g.Obj guards
@@ -651,83 +816,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 					mints = []state.ObjID{want}
 				}
 				for _, want := range mints {
-					if g.Obj(want) == nil {
-						continue
-					}
-					// A CreateToken replacement may have put this mint under a
-					// controller other than the original creator (Crafty Cutpurse);
-					// the Tap/TokenAttacks provenance reads the object's real
-					// controller, which for the ordinary path is owner.
-					mintOwner := owner
-					if o := g.Obj(want); o != nil {
-						mintOwner = o.Controller
-					}
-					if len(tokenMemory) > 0 {
-						ids := make([]state.ObjID, 0, len(tokenMemory))
-						for _, t := range tokenMemory {
-							if t.IsPlayer {
-								ids = append(ids, state.PlayerRef(t.Player))
-							} else if t.Obj != 0 {
-								ids = append(ids, t.Obj)
-							}
-						}
-						if len(ids) > 0 {
-							h.Emit(events.Event{Kind: events.Choose, Obj: want, Counter: "remembered", IDs: ids})
-						}
-					}
-					if remember {
-						c.Remembered = append(c.Remembered, state.Target{Obj: want})
-						eventRemember(h, c, want)
-					}
-					if withOK {
-						h.Emit(events.Event{Kind: events.CounterChange, Obj: want, Counter: withKind, Amount: withAmt})
-					}
-					if len(pumpKeywords) > 0 {
-						h.AddContinuous(state.ContinuousEffect{
-							Source: want, Controller: mintOwner, Affects: "Card.Self",
-							Layer: state.LAbilities, AddKeywords: pumpKeywords,
-							Duration: pumpDuration, Permanent: pumpPermanent, UntilEOT: pumpUntilEOT,
-						})
-					}
-					if tapped {
-						h.Emit(events.Event{Kind: events.Tap, Obj: want, Player: mintOwner, Text: "entered tapped"})
-					}
-					if attackCtx {
-						h.Emit(events.Event{Kind: events.TokenAttacks, Obj: want, Player: mintOwner,
-							IDs: []state.ObjID{state.ObjID(attackDefender)}, Text: "entered attacking"})
-					}
-					if (hasPow || hasTgh) && g.Obj(want).Face() != nil {
-						// The absent side keeps the token script's printed value. Every
-						// corpus script a dynamic side rides (u_x_x_illusion, ...) is a
-						// characteristic-defining */* whose printed read is 0, so both
-						// sides are effectively always named together.
-						pow, tgh := int32(g.Obj(want).Face().Power()), int32(g.Obj(want).Face().Toughness())
-						if hasPow {
-							pow = setPow
-						}
-						if hasTgh {
-							tgh = setTgh
-						}
-						h.AddContinuous(state.ContinuousEffect{
-							Source:       want,
-							Controller:   mintOwner,
-							Affects:      "Card.Self",
-							Layer:        state.LPT,
-							Sub:          state.SubSet,
-							SetPower:     pow,
-							SetToughness: tgh,
-							HasSet:       true,
-							Permanent:    true,
-						})
-					}
-					if attachTo != 0 && g.Obj(attachTo) != nil {
-						emitAttach(h, want, attachTo)
-					}
-					// AtEOT$ (Valduk, Zektar Shrine Expedition: "exile those tokens at
-					// the beginning of the next end step"): remember the predicted mint
-					// id (the CopyPermanent pattern); the shared reader schedules the
-					// whole minted set in one call after the loop.
-					minted = append(minted, want)
+					minted = applyTokenMintRiders(h, c, job, owner, want, minted)
 				}
 			}
 		}
@@ -750,4 +839,89 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	scheduleAtEOT(h, c, sa, minted)
+}
+
+// applyTokenMintRiders applies one minted token's riders and returns minted
+// with the token appended (the AtEOT$/ImprintTokens$ set). A want that did
+// not become an object takes nothing.
+func applyTokenMintRiders(h Host, c *Ctx, job *TokenJob, owner state.PlayerID, want state.ObjID, minted []state.ObjID) []state.ObjID {
+	g := h.Game()
+	if g.Obj(want) == nil {
+		return minted
+	}
+	// A CreateToken replacement may have put this mint under a
+	// controller other than the original creator (Crafty Cutpurse);
+	// the Tap/TokenAttacks provenance reads the object's real
+	// controller, which for the ordinary path is owner.
+	mintOwner := owner
+	if o := g.Obj(want); o != nil {
+		mintOwner = o.Controller
+	}
+	if len(job.TokenMemory) > 0 {
+		ids := make([]state.ObjID, 0, len(job.TokenMemory))
+		for _, t := range job.TokenMemory {
+			if t.IsPlayer {
+				ids = append(ids, state.PlayerRef(t.Player))
+			} else if t.Obj != 0 {
+				ids = append(ids, t.Obj)
+			}
+		}
+		if len(ids) > 0 {
+			h.Emit(events.Event{Kind: events.Choose, Obj: want, Counter: "remembered", IDs: ids})
+		}
+	}
+	if job.Remember {
+		c.Remembered = append(c.Remembered, state.Target{Obj: want})
+		eventRemember(h, c, want)
+	}
+	if job.WithOK {
+		h.Emit(events.Event{Kind: events.CounterChange, Obj: want, Counter: job.WithKind, Amount: job.WithAmt})
+	}
+	if len(job.PumpKeywords) > 0 {
+		h.AddContinuous(state.ContinuousEffect{
+			Source: want, Controller: mintOwner, Affects: "Card.Self",
+			Layer: state.LAbilities, AddKeywords: job.PumpKeywords,
+			Duration: job.PumpDuration, Permanent: job.PumpPermanent, UntilEOT: job.PumpUntilEOT,
+		})
+	}
+	if job.Tapped {
+		h.Emit(events.Event{Kind: events.Tap, Obj: want, Player: mintOwner, Text: "entered tapped"})
+	}
+	if job.AttackCtx {
+		h.Emit(events.Event{Kind: events.TokenAttacks, Obj: want, Player: mintOwner,
+			IDs: []state.ObjID{state.ObjID(job.AttackDefender)}, Text: "entered attacking"})
+	}
+	if (job.HasPow || job.HasTgh) && g.Obj(want).Face() != nil {
+		// The absent side keeps the token script's printed value. Every
+		// corpus script a dynamic side rides (u_x_x_illusion, ...) is a
+		// characteristic-defining */* whose printed read is 0, so both
+		// sides are effectively always named together.
+		pow, tgh := int32(g.Obj(want).Face().Power()), int32(g.Obj(want).Face().Toughness())
+		if job.HasPow {
+			pow = job.SetPow
+		}
+		if job.HasTgh {
+			tgh = job.SetTgh
+		}
+		h.AddContinuous(state.ContinuousEffect{
+			Source:       want,
+			Controller:   mintOwner,
+			Affects:      "Card.Self",
+			Layer:        state.LPT,
+			Sub:          state.SubSet,
+			SetPower:     pow,
+			SetToughness: tgh,
+			HasSet:       true,
+			Permanent:    true,
+		})
+	}
+	if job.AttachTo != 0 && g.Obj(job.AttachTo) != nil {
+		emitAttach(h, want, job.AttachTo)
+	}
+	// AtEOT$ (Valduk, Zektar Shrine Expedition: "exile those tokens at
+	// the beginning of the next end step"): remember the predicted mint
+	// id (the CopyPermanent pattern); the shared reader schedules the
+	// whole minted set in one call after the loop.
+	minted = append(minted, want)
+	return minted
 }

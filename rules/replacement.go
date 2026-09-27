@@ -2359,6 +2359,10 @@ type tokenChoiceState struct {
 	// apply/decline, and option declineIdx declines it while any other answer
 	// applies the match.
 	plainOptional bool
+	// mintSink names the parked-mint collector (rules/token_rest.go) the
+	// election's answer mints into when a resolving DB$ Token is waiting on
+	// this creation; 0 otherwise.
+	mintSink uint64
 }
 
 // driveTokenReplacements applies matches[from:] to the plan, in the
@@ -2599,6 +2603,20 @@ func (e *Engine) tokenReplAnswer(chosen []decision.Option) *resumePoint {
 		e.emit(events.Event{Kind: events.Note, Text: "token copy choice answered with no replacement pending"})
 		return nil
 	}
+	// A resolving DB$ Token waiting on this creation collects what the
+	// answer mints (and hands the collector to any election or order ask the
+	// answer poses next) before its continuation resumes.
+	var rp *resumePoint
+	saved := e.answerInResolution
+	e.answerInResolution = saved || st.parkedResume != nil
+	e.withMintSink(st.mintSink, func() { rp = e.settleTokenAnswer(st, chosen) })
+	e.answerInResolution = saved
+	return rp
+}
+
+// settleTokenAnswer is tokenReplAnswer's body: apply the answered election to
+// the parked plan, drive the remaining matches and emit the settled plan.
+func (e *Engine) settleTokenAnswer(st *tokenChoiceState, chosen []decision.Option) *resumePoint {
 	if st.plainOptional {
 		// A bare Optional$ election: any non-decline answer applies the
 		// match itself; the decline skips it and the remaining matches run.
@@ -2648,29 +2666,52 @@ func (e *Engine) emitTokenPlan(ev events.Event, plan []tokenPlanMint) {
 }
 
 // emitTokenPlanMints logs the final plan: one TokenCreate per scripted mint
-// through the raw events.Emit tail (which BYPASSES applyReplacements, so no
-// doubler can loop on its own output), one CopyToken + genuine MoveZone per
-// copy mint (the DB$ CopyPermanent mint shape -- the entry stays a
-// ChangesZone-matchable event every "a creature enters" trigger observes,
-// and the MoveZone rides the ordinary entry machinery a real copy gets).
+// through Engine.emit under applyingReplacement (so no doubler can loop on its
+// own output), one CopyToken + genuine MoveZone per copy mint (the DB$
+// CopyPermanent mint shape -- the entry stays a ChangesZone-matchable event
+// every "a creature enters" trigger observes, and the MoveZone rides the
+// ordinary entry machinery a real copy gets).
 func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) events.Event {
 	var last events.Event
-	for _, mint := range plan {
+	for i, mint := range plan {
 		if mint.copyOf != 0 {
 			last = e.emitChosenCopyToken(ev, mint.copyOf, tokenMintPlayer(mint, ev))
+			if e.suspendTokenPlanTail(ev, plan, i) {
+				return last
+			}
 			continue
 		}
 		mintEv := events.Event{Kind: events.TokenCreate, Player: tokenMintPlayer(mint, ev), Text: mint.script}
-		want := e.G.NextID
-		stored := events.Emit(e.G, e.L, mintEv)
-		if e.tokenMintSink != nil && e.G.Obj(want) != nil {
-			*e.tokenMintSink = append(*e.tokenMintSink, want)
+		// This plan has already passed token-creation replacements. Keep that
+		// no-rematch boundary while routing the actual mint through the entry
+		// staging/fold path (which may park for entry-counter order).
+		savedApplying := e.applyingReplacement
+		e.applyingReplacement = true
+		stored := e.emit(mintEv)
+		e.applyingReplacement = savedApplying
+		if e.suspendTokenPlanTail(ev, plan, i) {
+			return last
 		}
-		e.loop.observeFrom(stored, e.damaging)
-		e.checkTriggers(stored, nil, 0, 0, false)
 		last = stored
 	}
 	return last
+}
+
+// suspendTokenPlanTail parks the mints still owed when the just-emitted
+// plan[at] mint staged behind an entry-counter order ask, so the plan's
+// mints land in plan order after the answer rather than the later ones
+// overtaking the staged one. Returns whether it suspended. The stage's
+// completion re-drive continues the tail (resumeEntryCounterOrder).
+func (e *Engine) suspendTokenPlanTail(ev events.Event, plan []tokenPlanMint, at int) bool {
+	if at+1 >= len(plan) {
+		return false
+	}
+	st := e.outstandingEntryStage()
+	if st == nil {
+		return false
+	}
+	st.tokenPlan = &tokenPlanResume{ev: ev, plan: append([]tokenPlanMint(nil), plan[at+1:]...)}
+	return true
 }
 
 // emitChosenCopyToken mints one copy of a battlefield creature: the CopyToken
@@ -2682,9 +2723,10 @@ func (e *Engine) emitChosenCopyToken(ev events.Event, src state.ObjID, player st
 	if e.G.Obj(want) == nil {
 		return stored
 	}
-	if e.tokenMintSink != nil {
-		*e.tokenMintSink = append(*e.tokenMintSink, want)
-	}
+	// The copy is published to the mint sink by the emit tail when this
+	// MoveZone's entry actually completes (publishTokenEntry) -- never here:
+	// the move may park behind an entry-counter order or an as-enters
+	// election, and the id must not reach a rider before it has entered.
 	return e.emit(events.Event{Kind: events.MoveZone, Obj: want,
 		From: state.ZLibrary, To: state.ZBattlefield})
 }
@@ -5903,6 +5945,11 @@ type replChoice struct {
 	// before (*triggerSnapshot) -- the stage is reached only through its
 	// own answer.
 	stage *entryCounterStage
+	// mintSink names the parked-mint collector (Engine.mintSinks) this
+	// competition's answer mints into, when it parked a DB$ Token's mint
+	// that a "token_rest" continuation is waiting on (rules/token_rest.go).
+	// 0 for every other competition.
+	mintSink uint64
 	// inResolution marks a competition posed while a stack resolution was in
 	// flight (e.resolvingObj != 0): the pose's Engine.Ask then parked that
 	// resolution on e.resume with the interrupted object still on the stack,
@@ -6271,6 +6318,9 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 	rc := e.replChoices[0]
 	e.replChoices = e.replChoices[1:]
 	rp := e.resume
+	savedAnswerInRes := e.answerInResolution
+	e.answerInResolution = savedAnswerInRes || rc.inResolution
+	defer func() { e.answerInResolution = savedAnswerInRes }()
 	if rp == nil && rc.inResolution && rc.resumeAtPose != nil {
 		// The competition was posed while a stack resolution was suspended,
 		// but the suspension's frame is no longer on e.resume: an earlier
@@ -6555,7 +6605,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 				Text: "entry counter replacement-order answer out of range"})
 			return
 		}
-		e.resumeEntryCounterOrder(rc, chosen[0].Index)
+		e.withMintSink(rc.mintSink, func() { e.resumeEntryCounterOrder(rc, chosen[0].Index) })
 	case replChoiceToken:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.applicable) {
 			e.triggerBefore = before
@@ -6565,25 +6615,27 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		}
 		m := rc.cands[rc.applicable[chosen[0].Index]]
 		rest := dropReplMatch(rc.cands, m)
-		var plan []tokenPlanMint
-		var parked bool
-		if body := m.repl.With; body != nil &&
-			(strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
-				strings.TrimSpace(body.Params["ValidChoices"]) != "") {
-			// A chosen-copy match: the election the scan-order drive poses for
-			// it (driveTokenReplacements' chosenShape arm), with the remaining
-			// matches and the plan as they stand. idx -1 makes the pose's resume
-			// cursor re-drive rest from 0 (m itself is already gone from rest).
-			plan, parked = e.poseChosenTokenReplacement(rc.ev, rest, rc.tokenPlan, -1, m)
-		} else {
-			plan = e.applyTokenReplacementToPlan(rc.ev, rc.tokenPlan, m)
-		}
-		if !parked {
-			plan, parked = e.driveTokenReplacements(rc.ev, rest, plan, 0)
-		}
-		if !parked {
-			e.emitTokenPlan(rc.ev, plan)
-		}
+		e.withMintSink(rc.mintSink, func() {
+			var plan []tokenPlanMint
+			var parked bool
+			if body := m.repl.With; body != nil &&
+				(strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
+					strings.TrimSpace(body.Params["ValidChoices"]) != "") {
+				// A chosen-copy match: the election the scan-order drive poses for
+				// it (driveTokenReplacements' chosenShape arm), with the remaining
+				// matches and the plan as they stand. idx -1 makes the pose's resume
+				// cursor re-drive rest from 0 (m itself is already gone from rest).
+				plan, parked = e.poseChosenTokenReplacement(rc.ev, rest, rc.tokenPlan, -1, m)
+			} else {
+				plan = e.applyTokenReplacementToPlan(rc.ev, rc.tokenPlan, m)
+			}
+			if !parked {
+				plan, parked = e.driveTokenReplacements(rc.ev, rest, plan, 0)
+			}
+			if !parked {
+				e.emitTokenPlan(rc.ev, plan)
+			}
+		})
 	case replChoiceUpdated:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.cands) {
 			e.triggerBefore = before
