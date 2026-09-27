@@ -1775,8 +1775,12 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 	}
 	// The live walk skips a hidden zone none of whose objects can act on
 	// any event (rules/trigger_zoneskip.go); the look-back observer and any
-	// event a static-granted trigger observes walk everything.
-	skip := observer == e && len(grantedStatics) == 0
+	// event a static-granted trigger observes walk everything. A StepChange
+	// also walks everything: a cumulative-upkeep keyword granted by a
+	// ContinuousEffect has no face trigger for the hot test to see
+	// (checkGrantedCumulativeUpkeepTriggers), so a cold battlefield summary
+	// must never prune it.
+	skip := observer == e && len(grantedStatics) == 0 && ev.Kind != events.StepChange
 	var verify func(state.ObjID)
 	if skip && trigZoneSkipVerify {
 		verify = e.trigSkipVerifier(ev, visit, func() int { return len(phaseNotes) })

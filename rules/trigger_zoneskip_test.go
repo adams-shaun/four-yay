@@ -11,24 +11,26 @@ import (
 // TestFaceTriggerZonesIsZoneGatesSpec pins the per-face zone mask to
 // zoneGate's own spec resolution for a non-referent source: TriggerZones$,
 // then ActiveZones$, then the Battlefield default; an unresolvable Phase$
-// marks every zone (its diagnostic is zone-independent).
+// marks every zone (its diagnostic is zone-independent). The battlefield is
+// itself a summarized zone (trigger_zoneskip.go) so a battlefield-default
+// trigger sets its bit rather than reading cold everywhere.
 func TestFaceTriggerZonesIsZoneGatesSpec(t *testing.T) {
 	e := layerEngine(t)
-	const lib, hand, gy, ex = 1 << 0, 1 << 1, 1 << 2, 1 << 3
+	const lib, hand, bf, gy, ex = 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4
 	for _, tc := range []struct {
 		trig string
 		want uint8
 	}{
-		{"Mode$ Phase | Phase$ Upkeep | Execute$ X", 0},
+		{"Mode$ Phase | Phase$ Upkeep | Execute$ X", bf},
 		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Graveyard | Execute$ X", gy},
 		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Library,Exile | Execute$ X", lib | ex},
 		{"Mode$ Phase | Phase$ Upkeep | ActiveZones$ Hand | Execute$ X", hand},
-		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield, | Execute$ X", gy}, // phantom empty part parses to the graveyard, as in zoneGate
-		{"Mode$ Phase | Phase$ NoSuchStep | Execute$ X", lib | hand | gy | ex},
+		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield, | Execute$ X", bf | gy}, // the literal Battlefield plus a phantom empty part that parses to the graveyard, as in zoneGate
+		{"Mode$ Phase | Phase$ NoSuchStep | Execute$ X", lib | hand | bf | gy | ex},
 	} {
 		c := card(t, "Name:Probe\nManaCost:B\nTypes:Creature\nPT:1/1\nT:"+tc.trig+"\nSVar:X:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
 		if got := e.faceTriggerZones(c.Faces[0]); got != tc.want {
-			t.Errorf("%q: zones = %04b, want %04b", tc.trig, got, tc.want)
+			t.Errorf("%q: zones = %05b, want %05b", tc.trig, got, tc.want)
 		}
 	}
 }

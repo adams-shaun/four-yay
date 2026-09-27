@@ -67,31 +67,43 @@ import (
 
 var trigZoneSkipVerify = derivedMemoVerifyFlag != ""
 
-// trigZoneSlots is how many zones per player carry a summary.
-const trigZoneSlots = 4
+// trigZoneSlots is how many zones per player carry a summary. The
+// battlefield joined the four hidden-ish zones so a battlefield holding
+// thousands of vanilla tokens beside one trigger source walks only the
+// sources (see objectTriggerHotIn): vanilla tokens are cold there too.
+const trigZoneSlots = 5
 
 // trigZoneSlot maps a zone to its summary slot, or -1 for a zone that is
-// always walked in full (battlefield, stack, command, ...).
+// always walked in full (stack, command, ...).
 func trigZoneSlot(z state.Zone) int {
 	switch z {
 	case state.ZLibrary:
 		return 0
 	case state.ZHand:
 		return 1
-	case state.ZGraveyard:
+	case state.ZBattlefield:
 		return 2
-	case state.ZExile:
+	case state.ZGraveyard:
 		return 3
+	case state.ZExile:
+		return 4
 	}
 	return -1
 }
 
-var trigZoneSlotZones = [trigZoneSlots]state.Zone{state.ZLibrary, state.ZHand, state.ZGraveyard, state.ZExile}
+var trigZoneSlotZones = [trigZoneSlots]state.Zone{state.ZLibrary, state.ZHand, state.ZBattlefield, state.ZGraveyard, state.ZExile}
 
 type trigZoneSummary struct {
-	ids   []state.ObjID
-	hot   bool
-	valid bool
+	ids []state.ObjID
+	// hotIDs is the subset of ids whose objects can act on some event from
+	// this zone, in ids order (see objectTriggerHotIn). The live walk visits
+	// only these when the zone is hot and no event referent sits in it, so a
+	// battlefield holding thousands of vanilla tokens beside one trigger
+	// source costs the sources, not the tokens. nil while the zone is cold or
+	// unclassified.
+	hotIDs []state.ObjID
+	hot    bool
+	valid  bool
 }
 
 // faceTriggerZones is the bit set (by trigZoneSlot) of the summarized zones
@@ -138,17 +150,28 @@ func (e *Engine) faceTriggerZones(f *cards.Face) uint8 {
 // (other than as an event referent) where it sits now. Conservative: true
 // for any object outside a summarized zone.
 func (e *Engine) objectTriggerHot(o *state.Object) bool {
+	return e.objectTriggerHotIn(o, trigZoneSlot(o.Zone))
+}
+
+// objectTriggerHotIn is objectTriggerHot for a KNOWN summary slot: hot when
+// the object can act from the zone that slot names. slot < 0 (a zone with no
+// summary, or an unknown zone) is always hot, the conservative direction.
+//
+// The zone-specific bit is load-bearing once the battlefield carries a
+// summary: a card whose only trigger functions from the battlefield is cold
+// in a library (its zoneGate would reject it there), so the library stays
+// skippable, while it is hot on the battlefield and the live walk visits it.
+func (e *Engine) objectTriggerHotIn(o *state.Object, slot int) bool {
 	if o == nil || o.Face() == nil {
 		return false
 	}
 	if o.Unlocked || len(o.MergedCards) > 0 {
 		return true
 	}
-	s := trigZoneSlot(o.Zone)
-	if s < 0 {
+	if slot < 0 {
 		return true
 	}
-	bit := uint8(1) << s
+	bit := uint8(1) << slot
 	if o.CopyFace != nil && e.faceTriggerZones(o.CopyFace)&bit != 0 {
 		return true
 	}
@@ -216,6 +239,24 @@ func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) boo
 	if s.valid && slices.Equal(s.ids, cur) {
 		return !s.hot
 	}
+	// Append-only fast path: the live list is the recorded one with ids
+	// appended at the end. This is the mass-token-creation shape -- the token
+	// is appended to the battlefield list and no recorded index moves -- and
+	// the prefix compare is a cheap integer scan, far below re-testing every
+	// object's face. A removal anywhere breaks the prefix and falls through to
+	// the general rebuild below, so a stale or shifted list is never trusted.
+	if s.valid && len(cur) > len(s.ids) && len(s.ids) > 0 && slices.Equal(s.ids, cur[:len(s.ids)]) {
+		// The recorded prefix (and therefore its hot subset) is unchanged;
+		// classify only the appended tail.
+		for _, id := range cur[len(s.ids):] {
+			if e.objectTriggerHotIn(e.G.Obj(id), slot) {
+				s.hot = true
+				s.hotIDs = append(s.hotIDs, id)
+			}
+		}
+		s.ids = append(s.ids[:0], cur...)
+		return !s.hot
+	}
 	from := 0
 	if s.valid && !s.hot {
 		// cur[:k] a subsequence of the recorded cold list (removals
@@ -233,16 +274,31 @@ func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) boo
 		}
 		from = k
 	}
+	// A cold recorded list has no hot ids, so the prefix contributes none and
+	// the hot subset is the tail's. A previously-hot list must be rebuilt
+	// whole (from == 0).
+	hotIDs := s.hotIDs[:0]
 	hot := false
 	for _, id := range cur[from:] {
-		if e.objectTriggerHot(e.G.Obj(id)) {
+		if e.objectTriggerHotIn(e.G.Obj(id), slot) {
 			hot = true
-			break
+			hotIDs = append(hotIDs, id)
 		}
 	}
 	s.ids = append(s.ids[:0], cur...)
-	s.hot, s.valid = hot, true
+	s.hotIDs, s.hot, s.valid = hotIDs, hot, true
 	return !hot
+}
+
+// trigZoneHotIDs returns the classified hot subset of zone (p, slot)'s list.
+// It must be called after trigZoneCold has classified the zone; a cold zone
+// (or one outside the summary range) has none.
+func (e *Engine) trigZoneHotIDs(p state.PlayerID, slot int) []state.ObjID {
+	i := int(p)*trigZoneSlots + slot
+	if i < 0 || i >= len(e.trigZones) {
+		return nil
+	}
+	return e.trigZones[i].hotIDs
 }
 
 // trigMustVisit reports whether id is one of the event's referents (Obj, IDs,
@@ -326,6 +382,31 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip bool, fn func(id sta
 						buf = append(buf, id)
 					}
 				}
+			} else if slot := trigZoneSlot(z); slot >= 0 && refSlots&(1<<slot) == 0 {
+				// Hot summarized zone with no event referent in it. Only the
+				// classified hot objects can act, so visit those and skip the
+				// rest; order is ids order because hotIDs is a subsequence of
+				// the live list. In verify mode the skipped (cold) objects are
+				// run through the verifier instead, so the hot-subset skip is
+				// held to the same empirical contract the cold-zone skip is. A
+				// referent would have to be walked in place, so its slot falls
+				// through to the full list below.
+				hotIDs := e.trigZoneHotIDs(p, slot)
+				if verify == nil {
+					for _, id := range hotIDs {
+						fn(id)
+					}
+					continue
+				}
+				buf = append(buf[:0], cur...)
+				for _, id := range buf {
+					if trigMustVisit(ev, id) || slices.Contains(hotIDs, id) {
+						fn(id)
+					} else {
+						verify(id)
+					}
+				}
+				continue
 			} else {
 				buf = append(buf[:0], cur...)
 			}
