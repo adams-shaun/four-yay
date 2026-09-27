@@ -1,0 +1,124 @@
+{
+  "card": "Dragonlord's Servant",
+  "family": "cost-modifier",
+  "oracle_sha": "d6a2ee457360",
+  "author": "cli-20260927T211250Z-9b48f4e3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dragon-spell-reduced",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Dragon Hatchling is a Dragon spell with one generic mana; the Servant removes that unit and leaves the red payment.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Dragon Hatchling"
+          ],
+          "battlefield": [
+            "Dragonlord's Servant"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Dragon Hatchling",
+          "mana": "R",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Dragon Hatchling",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "nondragon-still-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A Bear spell is not a Dragon; paying only its green symbol is insufficient.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Dragonlord's Servant"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-dragon-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The Servant reduces only spells its controller casts; the opponent must pay the Dragon spell’s generic unit.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Dragon Hatchling"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Dragonlord's Servant"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "R"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Dragon Hatchling"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}
