@@ -1251,13 +1251,38 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 // manaTapsPayable reports whether a mana ability's literal tapXType<N/Spec>
 // parts have enough untapped matching permanents, reserving the given set
 // (the sacrifice/discard/exile picks already claimed), the source when the
-// cost's own {T} taps it, and each earlier tap part's picked permanents. A
-// dynamic part (Forge's tapXType<X/...>/tapXType<Any/...> heads) has no
-// settle on the off-stack mana path -- there is no X-announcement or
-// "any number" election beside a mana ability -- so it fails closed HERE:
-// the ability is not offered rather than activated with the tap silently
-// unpaid. The corpus' only dynamic mana tapXType (an {X}-token producer) is
-// therefore still not offered; its own ticket owns the dynamic election.
+// cost's own {T} taps it, and each earlier tap part's picked permanents. The
+// X form (Forge's tapXType<X/Spec> head) is settled by the payment election in
+// continueManaDiscard -- the count announced there is the ability's X -- so an X
+// part with no eligible permanent is affordable at X=0 (the cast path's
+// tapPermanentCostAsk does the same), while a non-X dynamic head still fails
+// closed HERE: no "any number" election exists beside a mana ability yet.
+func costHasDynamicXTap(cost Cost) bool {
+	for _, part := range cost.TapPermanent {
+		if part.Dyn == "X" {
+			return true
+		}
+	}
+	return false
+}
+
+// manaAbilityWithPaidX binds the dynamic tap election to this activation's
+// production amount. The compiled SA is immutable, and an explicit literal
+// Amount$ survives the mana-colour continuation without inheriting another
+// object's X: Hazel's `Amount$ X`/`SVar:X:Count$xPaid` is the elected tap
+// count, which has no home on the off-stack mana path's Ctx (xPaid resolves
+// the CAST's paid X, so reading it here would leak an enclosing spell's X).
+// Copy-on-write keeps every other activation of the same card untouched.
+func manaAbilityWithPaidX(ma *cards.SA, x int32) *cards.SA {
+	cp := *ma
+	cp.Params = make(map[string]string, len(ma.Params))
+	for k, v := range ma.Params {
+		cp.Params[k] = v
+	}
+	cp.Params["Amount"] = fmt.Sprint(x)
+	return &cp
+}
+
 func (e *Engine) manaTapsPayable(p state.PlayerID, source state.ObjID, cost Cost, reserved map[state.ObjID]bool) bool {
 	claimed := make(map[state.ObjID]bool, len(reserved)+1)
 	for id := range reserved {
@@ -1267,10 +1292,17 @@ func (e *Engine) manaTapsPayable(p state.PlayerID, source state.ObjID, cost Cost
 		claimed[source] = true
 	}
 	for _, part := range cost.TapPermanent {
-		if part.Dyn != "" {
+		if part.Dyn != "" && part.Dyn != "X" {
 			return false
 		}
 		cands := e.manaTapCandidates(p, source, part.Spec, claimed)
+		if part.Dyn == "X" {
+			// The dynamic election itself announces X (0..len(cands)), and the
+			// payment election in continueManaDiscard claims each elected
+			// candidate, so the offer gate reserves nothing here: an X part is
+			// affordable at X=0 whatever the candidate count.
+			continue
+		}
 		if int32(len(cands)) < part.N {
 			return false
 		}
@@ -1312,6 +1344,13 @@ func (e *Engine) manaTapsPicked(p state.PlayerID, source state.ObjID, cost Cost,
 	}
 	var taps []state.ObjID
 	for _, part := range cost.TapPermanent {
+		if part.Dyn != "" {
+			// A caller without a choice surface must not silently announce X=0
+			// for an ability whose output depends on the dynamic tap count; the
+			// whole non-interactive activation already fails closed in
+			// resolveManaAbilityRefOriginal, so this is belt-and-braces.
+			return nil
+		}
 		cands := e.manaTapCandidates(p, source, part.Spec, claimed)
 		n := int(part.N)
 		if n > len(cands) {
@@ -1435,8 +1474,8 @@ func (e *Engine) continueManaDiscard() {
 	// The tapXType<N/Spec> election runs first: the tap stage claims its
 	// permanents before the sacrifice stage's reserved map includes them, and
 	// the tap candidates reserve the sacrifice picks the offer walk already
-	// made (a permanent cannot pay two parts of one cost). A Dyn part never
-	// reaches here -- manaTapsPayable refused the whole ability.
+	// made (a permanent cannot pay two parts of one cost). A non-X Dyn part
+	// never reaches here -- manaTapsPayable refused the whole ability.
 	for md.tapPart < len(md.cost.TapPermanent) {
 		part := md.cost.TapPermanent[md.tapPart]
 		claimed := make(map[state.ObjID]bool, len(md.taps)+len(md.sacs)+1)
@@ -1450,6 +1489,21 @@ func (e *Engine) continueManaDiscard() {
 			claimed[md.source] = true
 		}
 		candidates := e.manaTapCandidates(md.player, md.source, part.Spec, claimed)
+		if part.Dyn == "X" {
+			if len(candidates) == 0 {
+				md.ability = manaAbilityWithPaidX(md.ability, 0)
+				md.tapPart++ // X=0 needs no empty decision.
+				continue
+			}
+			d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: 0, Max: len(candidates),
+				Prompt: "Choose any number of tokens to tap for the mana ability", Source: md.source}
+			for _, id := range candidates {
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)})
+			}
+			e.choosing = chooseManaTap
+			e.ask(d)
+			return
+		}
 		// The offer gate agreed, so a shortfall is a board that changed under
 		// the offer: drop the payment rather than ask an election no answer
 		// can satisfy.
@@ -1784,8 +1838,15 @@ func (e *Engine) answerManaTap(chosen []decision.Option) bool {
 	if md == nil {
 		return false
 	}
+	part := md.cost.TapPermanent[md.tapPart]
 	for _, opt := range chosen {
 		md.taps = append(md.taps, opt.Obj)
+	}
+	if part.Dyn == "X" {
+		// Hazel's Amount$ X is the elected count. Rewrite only this activation
+		// copy so it survives the later colour decision without reading an
+		// enclosing spell's X or mutating the compiled card ability.
+		md.ability = manaAbilityWithPaidX(md.ability, int32(len(chosen)))
 	}
 	md.tapPart++
 	cast := md.cast
@@ -2212,6 +2273,9 @@ func (e *Engine) resolveManaAbilityRef(p state.PlayerID, source state.ObjID, ma 
 // on an immutable copy, but the limit census is keyed to the compiled ability
 // in the source pile, not that copy.
 func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.ObjID, ma, original *cards.SA, gained gainedManaRef, cast, payment, interactive bool) {
+	if !interactive && costHasDynamicXTap(e.parseCost(ma.Params["Cost"])) {
+		return
+	}
 	if !e.manaAbilityPayable(p, source, ma) {
 		return
 	}
@@ -2361,6 +2425,12 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 		default:
 			e.askManaColor(p, source, ma, cast, cumulative, triggers, cols, gained, 1, sacs)
 		}
+		return
+	}
+	if costHasDynamicXTap(e.parseCost(ma.Params["Cost"])) && strings.TrimSpace(ma.Params["Amount"]) == "0" {
+		// X=0 produces no mana and therefore has no meaningful colour
+		// allocation decision.
+		e.finishManaEffect(p, source, ma, produced, gained, sacs, cast, cumulative, triggers)
 		return
 	}
 	if produced == "Any" || produced == "Combo Any" {
