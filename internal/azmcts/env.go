@@ -82,7 +82,17 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 
 func (e *engineEnv) Root() *Point { return e.cfg.root }
 
-func (e *engineEnv) Play(k Key) (*Point, error) {
+// Play recovers a panic anywhere on its path -- the bot's answers
+// (botpolicy.BoardFromGameInto, botpolicy.Decide), enumerate and priors at the
+// next point (view.Project inside the prior), not only the engine's own
+// Submit -- into ErrPanic, so one bad world discards one simulation instead
+// of failing the game.
+func (e *engineEnv) Play(k Key) (pt *Point, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			pt, err = nil, fmt.Errorf("%w: %v", ErrPanic, p)
+		}
+	}()
 	if e.cur == nil {
 		return nil, fmt.Errorf("%w: play after the walk ended", ErrSubmit)
 	}
@@ -103,7 +113,13 @@ func (e *engineEnv) Play(k Key) (*Point, error) {
 }
 
 // advance answers decisions with the bot until the searching seat's next
-// searched decision (a point), game over, or the step cap (nil).
+// searched decision (a point), game over, or the step cap (nil). The cap
+// bounds the bot's submits only: a searched decision reached with the cap
+// exactly spent is still a point, so it expands rather than being evaluated
+// as capped.
+//
+// Counters written here (EnvSteps, PriorFallbacks) are written as the walk
+// goes, so a simulation discarded later still contributes them.
 func (e *engineEnv) advance() (*Point, error) {
 	for {
 		g := e.e.G
@@ -114,11 +130,6 @@ func (e *engineEnv) advance() (*Point, error) {
 		pd := e.e.Pending()
 		if pd == nil {
 			return nil, fmt.Errorf("%w: no pending decision and the game is not over", ErrSubmit)
-		}
-		if e.steps >= e.cfg.maxSteps {
-			e.capped = true
-			e.cur, e.cands = nil, nil
-			return nil, nil
 		}
 		b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, &e.board)
 		in := botpolicy.Decide(b, pd, e.rngs[pd.Player])
@@ -135,6 +146,11 @@ func (e *engineEnv) advance() (*Point, error) {
 				}
 				return &Point{Keys: keys, Prior: prior}, nil
 			}
+		}
+		if e.steps >= e.cfg.maxSteps {
+			e.capped = true
+			e.cur, e.cands = nil, nil
+			return nil, nil
 		}
 		if err := e.submit(pd, in); err != nil {
 			return nil, err
@@ -171,8 +187,14 @@ func (e *engineEnv) submit(d *decision.Decision, in decision.Intent) (err error)
 }
 
 // Leaf is 1/0/0.5 at game over, else the leaf evaluator on the searching
-// seat's redacted view.
-func (e *engineEnv) Leaf() Leaf {
+// seat's redacted view. A panic in the evaluator (view.Project, the network)
+// is recovered into Leaf.Err wrapping ErrPanic.
+func (e *engineEnv) Leaf() (l Leaf) {
+	defer func() {
+		if p := recover(); p != nil {
+			l = Leaf{Err: fmt.Errorf("%w: leaf: %v", ErrPanic, p)}
+		}
+	}()
 	g := e.e.G
 	if g.Over {
 		v := 0.0

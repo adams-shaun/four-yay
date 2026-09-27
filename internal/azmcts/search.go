@@ -91,11 +91,15 @@ func Search(root Root, src WorldSource, net *policynet.Model, opts Options) (Res
 	if root.Engine == nil || root.Decision == nil || root.Observer == nil {
 		return res, errors.New("azmcts: Search needs the root engine, decision and observer")
 	}
-	cands, kind, ok := enumerate(root.Observer, root.Engine, root.Decision, root.Bot, opts.Kinds, opts.Limit)
+	cands, kind, why, ok := enumerateWhy(root.Observer, root.Engine, root.Decision, root.Bot, opts.Kinds, opts.Limit)
 	res.Kind = kind
 	if !ok {
-		if kind != "" {
+		if k := kindIndex(kind); k >= 0 {
 			res.Stats.Skipped = 1
+			res.Stats.KindSkipped[k][why]++
+			if k == KindPriority {
+				res.Stats.PrioritySkipped[priorityBase(root.Decision, root.Bot)][why]++
+			}
 		}
 		return res, nil
 	}
@@ -116,6 +120,7 @@ func Search(root Root, src WorldSource, net *policynet.Model, opts Options) (Res
 		return res, errors.New("azmcts: Search needs a world source")
 	}
 	res.Stats.Searched = 1
+	res.Stats.KindSearched[kindIndex(kind)]++
 	rng := rand.New(rand.NewPCG(opts.Seed, opts.Seed^0x9e3779b97f4a7c15))
 	treePrior := prior
 	if opts.Noise {

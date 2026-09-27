@@ -47,6 +47,10 @@ type Leaf struct {
 	V        float64
 	Terminal bool // the game is over (V is 1, 0 or 0.5)
 	Capped   bool // the env step cap stopped the walk (V is the leaf evaluator's)
+	// Err, when set, means the position could not be evaluated (the engine
+	// env wraps a recovered panic in ErrPanic): the simulation is discarded
+	// and counted by Err's class, and V is meaningless.
+	Err error
 }
 
 // Env is one simulation's private world -- the fake-env seam spec §4 asks
@@ -202,9 +206,18 @@ func RunTree(root *Point, src EnvSource, opts Options, st *Stats) (TreeResult, e
 
 // simulate is one simulation. Availability marks, visits and values are
 // committed only when it succeeds.
+//
+// One exception: the root's own evaluation is committed by the first
+// simulation that produces it, before that simulation's walk is known to
+// succeed. A walk that then fails keeps the root's value (it read the root
+// world, which was positioned correctly), so RootValue and first-play urgency
+// can rest on a simulation that Completed does not count.
 func simulate(top *node, env Env, opts Options, st *Stats) error {
 	if top.n == 0 {
 		l := env.Leaf()
+		if l.Err != nil {
+			return l.Err
+		}
 		top.n, top.w = 1, l.V
 	}
 	var (
@@ -240,6 +253,9 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		}
 		if next == nil {
 			l := env.Leaf()
+			if l.Err != nil {
+				return l.Err
+			}
 			if l.Terminal {
 				st.Terminal++
 			}
@@ -252,6 +268,9 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		}
 		if sel.next == nil {
 			l := env.Leaf()
+			if l.Err != nil {
+				return l.Err
+			}
 			sel.next = newNode(next)
 			sel.next.n, sel.next.w = 1, l.V
 			st.Expanded++

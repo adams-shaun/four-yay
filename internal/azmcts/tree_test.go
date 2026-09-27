@@ -411,19 +411,48 @@ func TestParseKinds(t *testing.T) {
 	}
 }
 
+// setInts sets every int leaf of v (fields, array elements) to n.
+func setInts(v reflect.Value, n int64) {
+	switch v.Kind() {
+	case reflect.Int:
+		v.SetInt(n)
+	case reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			setInts(v.Index(i), n)
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			setInts(v.Field(i), n)
+		}
+	}
+}
+
+// checkInts reports every int leaf of v that is not want.
+func checkInts(t *testing.T, path string, v reflect.Value, want int64) {
+	t.Helper()
+	switch v.Kind() {
+	case reflect.Int:
+		if got := v.Int(); got != want {
+			t.Errorf("Stats%s = %d after adding 1 twice (Add misses the field)", path, got)
+		}
+	case reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			checkInts(t, fmt.Sprintf("%s[%d]", path, i), v.Index(i), want)
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			checkInts(t, path+"."+v.Type().Field(i).Name, v.Field(i), want)
+		}
+	default:
+		t.Errorf("Stats%s has kind %s, which Add cannot sum", path, v.Kind())
+	}
+}
+
 func TestStatsAddSumsEveryCounter(t *testing.T) {
 	var one Stats
-	v := reflect.ValueOf(&one).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		v.Field(i).SetInt(1)
-	}
+	setInts(reflect.ValueOf(&one).Elem(), 1)
 	var sum Stats
 	sum.Add(one)
 	sum.Add(one)
-	s := reflect.ValueOf(sum)
-	for i := 0; i < s.NumField(); i++ {
-		if got := s.Field(i).Int(); got != 2 {
-			t.Errorf("Stats.%s = %d after adding 1 twice (Add misses the field)", s.Type().Field(i).Name, got)
-		}
-	}
+	checkInts(t, "", reflect.ValueOf(sum), 2)
 }

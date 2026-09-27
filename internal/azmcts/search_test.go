@@ -97,6 +97,11 @@ func checkResult(t *testing.T, d *decision.Decision, bot decision.Intent, res Re
 	if st.Searched != 1 || st.Simulations != sims || st.Completed != sims {
 		t.Fatalf("stats %+v, want %d completed simulations", st, sims)
 	}
+	var byKind Stats
+	byKind.KindSearched[kindIndex(res.Kind)] = 1
+	if st.KindSearched != byKind.KindSearched || st.KindSkipped != byKind.KindSkipped || st.PrioritySkipped != byKind.PrioritySkipped {
+		t.Fatalf("breakdown %v / %v / %v, want one %s search and no skip", st.KindSearched, st.KindSkipped, st.PrioritySkipped, res.Kind)
+	}
 	sum := 0
 	for _, v := range res.Visits {
 		sum += v
@@ -307,6 +312,11 @@ func TestSearchSkipsWhenTheBotPlaysALand(t *testing.T) {
 			}
 			if res.Kind != "priority" || res.Stats.Skipped != 1 || res.Stats.Searched != 0 {
 				t.Fatalf("result %+v, want a skipped priority", res)
+			}
+			// A land play is outside the candidate vocabulary: too few
+			// candidates, filed under the bot's play_land answer.
+			if res.Stats.KindSkipped[KindPriority][SkipFewCandidates] != 1 || res.Stats.PrioritySkipped[BasePlayLand][SkipFewCandidates] != 1 {
+				t.Fatalf("breakdown %v / %v, want one few-candidates skip under play_land", res.Stats.KindSkipped, res.Stats.PrioritySkipped)
 			}
 			if !reflect.DeepEqual(res.Intent, in) || src.calls != 0 {
 				t.Fatalf("played %+v with %d world calls, want the bot's land and none", res.Intent, src.calls)

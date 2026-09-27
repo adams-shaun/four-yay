@@ -95,10 +95,82 @@ type Stats struct {
 	Terminal       int // walks that reached game over
 	Expanded       int // new tree nodes
 	Unavailable    int // known children a world did not offer, summed over node visits
-	EnvSteps       int // environment submits (the searched intents excluded)
-	PriorFallbacks int // decisions whose network prior fell back to uniform
+	EnvSteps       int // environment submits (the searched intents excluded), a discarded simulation's included
+	PriorFallbacks int // network priors that fell back to uniform, at the root and at in-walk points (a discarded simulation's included)
 	FeedStopped    int // decisions the driver routed around the search (its observation feed stopped): the bot's answer was played
+
+	// KindSearched splits Searched by kind (KindNames order).
+	KindSearched [NumKinds]int
+	// KindSkipped splits Skipped by kind and reason: every skip is counted
+	// in exactly one cell.
+	KindSkipped [NumKinds][NumSkipReasons]int
+	// PrioritySkipped splits the skipped priority decisions (the
+	// KindSkipped[KindPriority] row) by the bot's own answer. The manual
+	// bot taps mana ("activate") one source at a time before it casts, and
+	// those decisions are never searched, so this row is where stage 0 sees
+	// how often the search meets a cast only after mana has floated.
+	PrioritySkipped [NumBaseKinds][NumSkipReasons]int
 }
+
+// The searched kinds, indexing Stats' per-kind breakdowns.
+const (
+	KindPriority = iota
+	KindAttackers
+	KindBlockers
+	KindTarget
+	NumKinds
+)
+
+// KindNames are the searched kinds' names in index order (the Result.Kind
+// and Diag.Kind strings).
+var KindNames = [NumKinds]string{"priority", "attackers", "blockers", "target"}
+
+// kindIndex is kind's index in KindNames, or -1.
+func kindIndex(kind string) int {
+	for i, n := range KindNames {
+		if n == kind {
+			return i
+		}
+	}
+	return -1
+}
+
+// SkipReason is why a decision of a searched kind was not searched.
+type SkipReason int
+
+const (
+	// SkipPayment: the bot answered with an auto-pay Payment intent, which
+	// has no semantic-action form (no Payment support yet).
+	SkipPayment SkipReason = iota
+	// SkipFewCandidates: fewer than two candidates -- a pass-only priority,
+	// no legal attacker, or a bot answer outside the candidate vocabulary
+	// (a land play or mana activation at priority).
+	SkipFewCandidates
+	// SkipTranslate: ObserveDecision, Actions or Match failed on the
+	// decision or a candidate.
+	SkipTranslate
+	NumSkipReasons
+)
+
+// SkipReasonNames are the skip reasons' report names in index order.
+var SkipReasonNames = [NumSkipReasons]string{"payment", "few-candidates", "translate-error"}
+
+// BaseKind is the kind of the bot's own answer at a priority decision.
+type BaseKind int
+
+const (
+	BaseCast BaseKind = iota
+	BaseAbility
+	BasePass
+	BasePlayLand
+	BaseActivate // a mana ability: the manual bot's tap before a cast
+	BasePayment  // an auto-pay payment witness (Intent.Payment)
+	BaseOther    // any other option kind, or not exactly one choice
+	NumBaseKinds
+)
+
+// BaseKindNames are the base kinds' report names in index order.
+var BaseKindNames = [NumBaseKinds]string{"cast", "ability", "pass", "play_land", "activate", "payment", "other"}
 
 // Add sums o into s.
 func (s *Stats) Add(o Stats) {
@@ -119,6 +191,17 @@ func (s *Stats) Add(o Stats) {
 	s.EnvSteps += o.EnvSteps
 	s.PriorFallbacks += o.PriorFallbacks
 	s.FeedStopped += o.FeedStopped
+	for k := range s.KindSearched {
+		s.KindSearched[k] += o.KindSearched[k]
+		for r := range s.KindSkipped[k] {
+			s.KindSkipped[k][r] += o.KindSkipped[k][r]
+		}
+	}
+	for b := range s.PrioritySkipped {
+		for r := range s.PrioritySkipped[b] {
+			s.PrioritySkipped[b][r] += o.PrioritySkipped[b][r]
+		}
+	}
 }
 
 // The error classes a world reports; RunTree counts a discarded simulation

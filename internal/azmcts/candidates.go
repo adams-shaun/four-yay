@@ -47,10 +47,17 @@ type cand struct {
 // translated). obs must be a collector for d.Player; ObserveDecision runs on
 // it first. e is read only by the blockers arm.
 func enumerate(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int) ([]cand, string, bool) {
+	cands, kind, _, ok := enumerateWhy(obs, e, d, bot, kinds, limit)
+	return cands, kind, ok
+}
+
+// enumerateWhy is enumerate plus the reason a searched kind was skipped
+// (meaningful only when ok is false and kind is not "").
+func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int) ([]cand, string, SkipReason, bool) {
 	var kind string
 	switch {
 	case d == nil:
-		return nil, "", false
+		return nil, "", 0, false
 	case d.Kind == decision.KAttackers && kinds.Attackers:
 		kind = "attackers"
 	case d.Kind == decision.KBlockers && kinds.Blockers:
@@ -60,14 +67,14 @@ func enumerate(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision
 	case d.Kind == decision.KPriority && kinds.Priority:
 		kind = "priority"
 	default:
-		return nil, "", false
+		return nil, "", 0, false
 	}
 	if bot.Payment != nil {
-		return nil, kind, false
+		return nil, kind, SkipPayment, false
 	}
 	od, err := obs.ObserveDecision(e, d)
 	if err != nil {
-		return nil, kind, false
+		return nil, kind, SkipTranslate, false
 	}
 	var ins []decision.Intent
 	switch kind {
@@ -82,28 +89,52 @@ func enumerate(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision
 	case "priority":
 		base, err := obs.Actions(d, bot)
 		if err != nil || len(base) != 1 {
-			return nil, kind, false
+			return nil, kind, SkipTranslate, false
 		}
 		for _, a := range searchprobe.Candidates(od, base[0], limit) {
 			in, err := obs.Match(d, []searchprobe.Action{a})
 			if err != nil {
-				return nil, kind, false
+				return nil, kind, SkipTranslate, false
 			}
 			ins = append(ins, in)
 		}
 	}
 	if len(ins) < 2 {
-		return nil, kind, false
+		return nil, kind, SkipFewCandidates, false
 	}
 	out := make([]cand, 0, len(ins))
 	for _, in := range ins {
 		acts, err := obs.Actions(d, in)
 		if err != nil {
-			return nil, kind, false
+			return nil, kind, SkipTranslate, false
 		}
 		out = append(out, cand{acts: acts, key: actionsKey(acts), in: in})
 	}
-	return out, kind, true
+	return out, kind, 0, true
+}
+
+// priorityBase classifies the bot's answer at a priority decision by the
+// option kind it picks.
+func priorityBase(d *decision.Decision, bot decision.Intent) BaseKind {
+	if bot.Payment != nil {
+		return BasePayment
+	}
+	if d == nil || len(bot.Choices) != 1 || bot.Choices[0] < 0 || bot.Choices[0] >= len(d.Options) {
+		return BaseOther
+	}
+	switch d.Options[bot.Choices[0]].Kind {
+	case "cast":
+		return BaseCast
+	case "ability":
+		return BaseAbility
+	case "pass":
+		return BasePass
+	case "play_land":
+		return BasePlayLand
+	case "activate":
+		return BaseActivate
+	}
+	return BaseOther
 }
 
 // actionsKey is the canonical key of a semantic action list: its JSON
