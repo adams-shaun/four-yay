@@ -219,8 +219,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 			return "shape:optional_cost"
 		}
 	}
-	if faceReadsManaSpent(f) || faceWantsConverge(f) || faceWantsCastSpend(f) ||
-		e.triggeredConvergeReaderOut() || e.triggeredCastSpendReaderOut() || e.paymentPlanSunburstGrantOut() {
+	if faceReadsManaSpent(f) || faceWantsConverge(f) || faceWantsCastSpend(f) || e.paymentPlanBoardSpendReaderOut() {
 		return "shape:mana_spent_reader"
 	}
 	if e.paymentPlanHasTargetDependentModifierUsing(statics, p, id) {
