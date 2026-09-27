@@ -45,6 +45,24 @@ func colorlessFixture(produced string) string {
 		"A:AB$ Mana | Cost$ T | Produced$ " + produced + "\nOracle:x\n"
 }
 
+// tapForManaAfterTurnClears places name onto seat 0's battlefield like
+// tapForMana (commander_colour_identity_test.go), but the source here is a
+// CREATURE mana ability: CR 302.6 blocks a same-turn {T} activation, and a
+// raw SummonSick field write would clear it OFF the log a replayCheck below
+// would then miss. A real logged TurnChange for seat 0 gives it a legitimate
+// "been under control since this [new] turn began" the same way the repo's
+// existing driveToStep-based fixtures do (e.g. the CumulativeUpkeep corpus
+// pin in restrict_valid_dotless_test.go), so the activation this drives
+// stays byte-for-byte replayable.
+func tapForManaAfterTurnClears(t *testing.T, e *Engine, name string) state.ObjID {
+	t.Helper()
+	id := moveToBattlefieldByName(t, e, 0, name)
+	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
+	e.priorityRound()
+	activateMana(t, e, id)
+	return id
+}
+
 // eachColorGame builds a two-seat game whose seat 0 is seeded with cards
 // plus mountains, at the shape newFixtureDeck uses (no commanders, the CR
 // 103.1 toss advanced until seat 0 starts).
@@ -105,7 +123,7 @@ func TestFaeburrowElderEachColorAmong(t *testing.T) {
 	elder := corpusCommander(t, reg, "Faeburrow Elder")
 
 	e, cfg := eachColorGame(t, 91, []*cards.Card{elder})
-	tapForMana(t, e, "Faeburrow Elder")
+	tapForManaAfterTurnClears(t, e, "Faeburrow Elder")
 	poolIs(t, e, [state.MC + 1]int32{state.MW: 1, state.MG: 1})
 	replayCheck(t, e, cfg)
 
@@ -115,7 +133,7 @@ func TestFaeburrowElderEachColorAmong(t *testing.T) {
 		card(t, monoFixtureSrc("U"))})
 	toMain1(t, e2)
 	moveToBattlefieldByName(t, e2, 0, "MonoU Testee")
-	tapForMana(t, e2, "Faeburrow Elder")
+	tapForManaAfterTurnClears(t, e2, "Faeburrow Elder")
 	poolIs(t, e2, [state.MC + 1]int32{state.MW: 1, state.MU: 1, state.MG: 1})
 	replayCheck(t, e2, cfg2)
 
@@ -126,7 +144,7 @@ func TestFaeburrowElderEachColorAmong(t *testing.T) {
 		card(t, monoFixtureSrc("G"))})
 	toMain1(t, e3)
 	moveToBattlefieldByName(t, e3, 0, "MonoG Testee")
-	tapForMana(t, e3, "Faeburrow Elder")
+	tapForManaAfterTurnClears(t, e3, "Faeburrow Elder")
 	poolIs(t, e3, [state.MC + 1]int32{state.MW: 1, state.MG: 1})
 	replayCheck(t, e3, cfg3)
 }
@@ -277,7 +295,7 @@ func TestMonoColorWidensRealCorpusSpecs(t *testing.T) {
 // failure (the ChangeNum$ 0 Dig convention).
 func TestEachColorAmongEmptySetIsSilentNoOp(t *testing.T) {
 	e, cfg := eachColorGame(t, 94, []*cards.Card{card(t, colorlessFixture("Special EachColorAmong_Valid Permanent.YouCtrl"))})
-	id := tapForMana(t, e, "Colorless Sifter")
+	id := tapForManaAfterTurnClears(t, e, "Colorless Sifter")
 	poolIs(t, e, [state.MC + 1]int32{})
 	if noteContaining(t, e, "unhandled Produced$") {
 		t.Fatalf("empty colour set emitted a loud Note: %v", notes(t, e))
@@ -291,7 +309,7 @@ func TestEachColorAmongEmptySetIsSilentNoOp(t *testing.T) {
 // sunbird_effigy shape) keeps the loud Note and adds no mana.
 func TestEachColorAmongUnknownSelectorStaysLoud(t *testing.T) {
 	e, _ := eachColorGame(t, 95, []*cards.Card{card(t, colorlessFixture("Special EachColorAmong_ExiledWith"))})
-	tapForMana(t, e, "Colorless Sifter")
+	tapForManaAfterTurnClears(t, e, "Colorless Sifter")
 	if !noteContaining(t, e, "unhandled Produced$") {
 		t.Fatalf("unknown Special selector did not emit the loud Note: %v", notes(t, e))
 	}

@@ -403,6 +403,7 @@ func TestFellwarStoneAndChromeMoxReflectedShapes(t *testing.T) {
 func TestIncubationDruidReflectedManaAmount(t *testing.T) {
 	e := handEngine(t)
 	druid := onBoard(t, e, 0, incubationDruidScript)
+	e.G.Obj(druid).SummonSick = false
 	_ = onBoard(t, e, 0, mountainScript())
 	e.emit(events.Event{Kind: events.CounterChange, Obj: druid, Counter: "P1P1", Amount: 1})
 	e.priorityRound()
@@ -433,6 +434,7 @@ func TestTazriReflectedManaGateAndRestriction(t *testing.T) {
 	// activating it from the affected creature. The vanilla creature is not
 	// offered; Mana Adept is, and its sole blue candidate needs no colour ask.
 	creature := onBoard(t, e, 0, "Name:Mana Adept\nManaCost:U\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ U | NumCards$ 1\nOracle:x\n")
+	e.G.Obj(creature).SummonSick = false
 	e.priorityRound()
 	d := e.Pending()
 	adeptOption := -1

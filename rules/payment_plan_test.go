@@ -58,6 +58,7 @@ func TestPaymentPlanDoesNotDoubleCountDualAndKeepsColorlessDistinct(t *testing.T
 func TestPaymentPlanExcludesManaAbilityWithMillCost(t *testing.T) {
 	e, _, spell := newFixtureDeck(t, 9110, "Name:Colorless Plan Spell\nManaCost:C\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	source := onBoard(t, e, 0, "Name:Millikin Shape\nTypes:Artifact Creature Construct\nA:AB$ Mana | Cost$ T Mill<1> | Produced$ C\nOracle:x\n")
+	e.G.Obj(source).SummonSick = false
 	ma := e.G.Obj(source).Face().Abilities[0]
 	if got := e.parseCost(ma.Params["Cost"]); !got.Tap || len(got.Mill) != 1 {
 		t.Fatalf("mana cost = %+v, want tap plus Mill<1>", got)
