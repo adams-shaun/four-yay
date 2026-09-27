@@ -77,7 +77,7 @@ func TestMyrPrototypeZeroCountersAttacksFree(t *testing.T) {
 	if ch.unpriceable || !ch.zero() {
 		t.Fatalf("precondition: Myr Prototype charge = %+v, want priceable/zero (the resolved-zero fix is not in force)", ch)
 	}
-	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{myr: true}) {
+	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{myr: true}, map[state.ObjID]bool{myr: true}) {
 		t.Fatal("precondition: the resolved-zero charge reads unaffordable")
 	}
 
@@ -140,7 +140,7 @@ func TestMixedOnlyMultiPipChargeIsNeverOffered(t *testing.T) {
 		e.attackWindowUnits(1, nil)) {
 		t.Fatal("precondition: the MIXED branch is payable, but the joint read says no (test is vacuous)")
 	}
-	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("precondition: the mixed-only charge reads affordable; the anti-strand narrowing is not in force")
 	}
 	e.askAttackers()
@@ -153,7 +153,7 @@ func TestMixedOnlyMultiPipChargeIsNeverOffered(t *testing.T) {
 
 	// ALL-LIFE control: four life covers both pips, so the pair IS offered.
 	e.G.Players[1].Life = 4
-	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}) {
+	if !e.combatChargeAffordable(1, ch, map[state.ObjID]bool{bear: true}, map[state.ObjID]bool{bear: true}) {
 		t.Fatal("precondition: an all-life multi-pip charge must read affordable with 4 life")
 	}
 	e.askAttackers()
@@ -224,10 +224,10 @@ func TestPhyrexianColourBranchExcludesReservedTapSource(t *testing.T) {
 	if _, colour, life := e.combatPhyBothBranches(1, ch); !colour || !life {
 		t.Fatalf("precondition: unexcluded colour=%v life=%v, want both reachable", colour, life)
 	}
-	if !e.combatChargeAffordable(1, ch, committed) {
+	if !e.combatChargeAffordable(1, ch, committed, committed) {
 		t.Fatal("precondition: the charge must still be affordable through the life branch")
 	}
-	plan, ok := e.openCombatPayPlan(1, ch, committed)
+	plan, ok := e.openCombatPayPlan(1, ch, committed, committed)
 	if !ok {
 		t.Fatal("precondition: the plan must open for the life branch")
 	}

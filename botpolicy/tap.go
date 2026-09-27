@@ -280,29 +280,7 @@ func (b Board) chooseTap(d *decision.Decision) int {
 	if !b.tapWants() {
 		return -1
 	}
-	// The union of what THIS window's offered sources demonstrably produce:
-	// the satisfiability filter bestUnpayable reads (see its doc).
-	var offered [5]bool
-	for _, o := range d.Options {
-		if o.Kind != "activate" {
-			continue
-		}
-		card, known := b.Cards[o.Obj]
-		if !known {
-			// Fail closed: an option the Board carries no facts for claims
-			// no colour (see bestUnpayable's doc for why the earlier
-			// fail-open read was wrong). The pick loop below already prices
-			// such an option as a tier-2 last resort, so the two reads
-			// agree.
-			continue
-		}
-		for i := 0; i < 5; i++ {
-			if card.Produces.Colour[i] > 0 || card.Produces.Reflected || card.Produces.Any {
-				offered[i] = true
-			}
-		}
-	}
-	_, c, ok := b.bestUnpayable(offered)
+	_, c, ok := b.bestUnpayable(b.offeredColours(d))
 	if !ok {
 		return -1
 	}
@@ -355,6 +333,48 @@ func (b Board) chooseTap(d *decision.Decision) int {
 		}
 	}
 	return best
+}
+
+// offeredColours is the union of what THIS window's offered "activate"
+// sources demonstrably produce: the satisfiability filter bestUnpayable
+// reads (see its doc).
+func (b Board) offeredColours(d *decision.Decision) [5]bool {
+	var offered [5]bool
+	for _, o := range d.Options {
+		if o.Kind != "activate" {
+			continue
+		}
+		card, known := b.Cards[o.Obj]
+		if !known {
+			// Fail closed: an option the Board carries no facts for claims
+			// no colour (see bestUnpayable's doc for why the earlier
+			// fail-open read was wrong). chooseTap's pick loop already
+			// prices such an option as a tier-2 last resort, so the two
+			// reads agree.
+			continue
+		}
+		for i := 0; i < 5; i++ {
+			if card.Produces.Colour[i] > 0 || card.Produces.Reflected || card.Produces.Any {
+				offered[i] = true
+			}
+		}
+	}
+	return offered
+}
+
+// TapIntent names the card the KPriority tap gate (chooseTap) is tapping
+// toward -- its "intended spell", bestUnpayable over this window's offered
+// sources -- or ok=false when the gate would not tap at all. It is a pure
+// read of the same facts chooseTap reads and consumes no rng. The auto-pay
+// adapter (seat/bot.go) reads it to notice when the gate's intended card is
+// a cast the V1 planner can offer no plan for, and answers with the manual
+// policy instead so the card can still be paid.
+func (b Board) TapIntent(d *decision.Decision) (state.ObjID, bool) {
+	if !b.tapWants() {
+		return 0, false
+	}
+	id, _, ok := b.bestUnpayable(b.offeredColours(d))
+	return id, ok
 }
 
 // T3 -- the converter gate (cardfuzz batch1 lines 3/5/6/10/16/17). A mana

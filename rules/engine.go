@@ -3646,7 +3646,21 @@ func (e *Engine) Submit(in decision.Intent) error {
 	// the resolution finishes. The answer that finishes it clears resume, so
 	// this same boundary performs the deferred check before Advance can grant
 	// priority.
-	if !e.Suspended() {
+	//
+	// CR 704.3: state-based actions are checked only when a player would
+	// receive priority, and CR 601.2 explicitly withholds priority for the
+	// whole cast: a mana window (CR 601.2g) re-enters payCast for each mana
+	// ability activated, so an activation that drops the payer to 0 or less
+	// (Ancient Tomb, a pain land, a pay-life source) leaves e.cast set with
+	// the cast still mid-payment. The loss must wait for the priority
+	// boundary the completed cast reaches, never fire between payment steps --
+	// otherwise a manual window that taps the costly source first is
+	// unpayable at 1 life although the same window in reverse order
+	// (TestManaPaymentContinuesBelowZeroLife) settles. A pending activation's
+	// cost payment reuses this same pendingCast flow, so e.cast != nil covers
+	// both. The settled cast clears e.cast (payCast's tail) and the abort
+	// path clears it too, so the check runs at the boundary either way.
+	if !e.Suspended() && e.cast == nil {
 		e.checkStateBased()
 	}
 	e.Advance()

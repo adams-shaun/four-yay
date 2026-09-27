@@ -148,11 +148,18 @@ func (b *Bot) decide(brd botpolicy.Board, d *decision.Decision) decision.Intent 
 
 // paymentIntent lets the ordinary casting policy rank offered payment-plan
 // casts without ever manually floating mana. It constructs a private priority
-// decision in which mana activations are absent and each payable cast missing
-// from legacy Options is represented as a normal cast candidate. Thus the
-// existing policy still takes a land drop first, keeps all non-payment
-// decisions unchanged, and selects the same preferred card among payable
-// spells. The submitted witness is copied from the exact offered plan.
+// decision in which mana activations are absent, every legacy option is kept
+// at its own candidate index, and each payable object whose ordinary cast is
+// not already offered as a legacy option gains an additional plan-only cast
+// candidate. Thus the existing policy still takes a land drop first, keeps
+// all non-payment decisions unchanged, and selects the same preferred card
+// among payable spells. The pick is mapped back by candidate option
+// identity: a legacy option (an evoke, pitch, dash, surge or other
+// alternative mode the policy deliberately chose) is submitted as itself, so
+// the chosen mode -- not an ordinary plan -- reaches the engine; only a pick
+// of the plan-only entry, or of a legacy ordinary cast (Mode == "" &&
+// AltCostIndex == 0), pays the plan. The submitted witness is copied from the
+// exact offered plan.
 func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision.Intent, bool) {
 	if d == nil || d.Kind != decision.KPriority || len(d.PaymentActions) == 0 || (brd.MyTurn && !brd.IsMain) {
 		return decision.Intent{}, false
@@ -166,11 +173,20 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	if len(payable) == 0 {
 		return decision.Intent{}, false
 	}
+	if b.unplannedTapIntent(brd, d, payable) {
+		// The tap gate's intended card has no plan and is payable by hand:
+		// take the full manual policy, whose same tap gate aims the window's
+		// mana at that card, instead of spending it on a lesser planned
+		// spell. Once the manual taps float mana the engine withholds plans
+		// for the rest of the window (paymentPlanPoolOK), so the turn cannot
+		// oscillate back onto the plan path mid-sequence.
+		return decision.Intent{}, false
+	}
 
 	candidate := d.Clone()
 	candidate.Options = make([]decision.Option, 0, len(d.Options)+len(payable))
 	candidateToOriginal := make(map[int]int, len(d.Options))
-	legacyCast := make(map[state.ObjID]bool, len(d.Options))
+	legacyOrdinary := make(map[state.ObjID]bool, len(d.Options))
 	for _, o := range d.Options {
 		// These are precisely legalActions' mana abilities. A payment plan
 		// performs the required activations atomically, so exposing one here
@@ -182,12 +198,12 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		o.Index = len(candidate.Options)
 		candidateToOriginal[o.Index] = originalIndex
 		candidate.Options = append(candidate.Options, o)
-		if o.Kind == "cast" {
-			legacyCast[o.Obj] = true
+		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
+			legacyOrdinary[o.Obj] = true
 		}
 	}
 	for _, a := range d.PaymentActions {
-		if len(a.Plans) == 0 || legacyCast[a.Cast.Object] {
+		if len(a.Plans) == 0 || legacyOrdinary[a.Cast.Object] {
 			continue
 		}
 		candidate.Options = append(candidate.Options, decision.Option{
@@ -203,24 +219,68 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		return decision.Intent{}, false
 	}
 	for _, o := range candidate.Options {
-		if o.Index != in.Choices[0] || o.Kind != "cast" {
+		if o.Index != in.Choices[0] {
 			continue
 		}
-		a, ok := payable[o.Obj]
-		if ok {
-			return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
-				ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
-			}}, true
+		// Only an ordinary-shaped cast pick pays the plan -- the plan-only
+		// entry, or a legacy ordinary cast whose object has a plan. A legacy
+		// non-ordinary pick (an evoke, pitch, dash, surge or other
+		// alternative mode the policy deliberately chose) reaches the engine
+		// as itself: substituting the ordinary plan would silently replace
+		// the chosen mode.
+		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
+			if a, ok := payable[o.Obj]; ok {
+				return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
+					ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
+				}}, true
+			}
 		}
 		break
 	}
-	// The private policy may have preferred a land drop, ability, or pass.
-	// Translate that choice back to the original option index so removing mana
-	// activations never changes the decision's public index contract.
+	// The private policy may have preferred a land drop, an ability, a
+	// legacy cast mode, or pass. Translate that choice back to the original
+	// option index so removing mana activations never changes the decision's
+	// public index contract.
 	if original, ok := candidateToOriginal[in.Choices[0]]; ok {
 		return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{original}}, true
 	}
 	return decision.Intent{}, false
+}
+
+// unplannedTapIntent reports whether the tap gate's intended card -- the
+// spell chooseTap would spend this window's mana tapping toward, exposed as
+// Board.TapIntent -- is a cast the plan path will strand: it has NO offered
+// plan, is plausibly castable in this window, and is not already dead (C8's
+// foreign-spell census). A spell V1 cannot plan (a command-zone commander, an
+// X/hybrid/Phyrexian/snow or kicker/alternative cost, a graveyard/exile cast,
+// or one whose mana must come from a non-V1 source) is then paid by hand
+// rather than skipped over for a cheaper planned cast.
+//
+// The window is the manual bot's own casting window: its own main phase with
+// an empty stack, OR any instant-speed card (which the policy may cast on the
+// opponent's turn or over a non-empty stack). A card tapped toward outside
+// those windows is not a cast the manual policy would make now, so the plan
+// path stays. This is scoped to the one intended card: it can only move a
+// payment decision that would otherwise pay a DIFFERENT spell.
+func (b *Bot) unplannedTapIntent(brd botpolicy.Board, d *decision.Decision, payable map[state.ObjID]decision.PaymentAction) bool {
+	id, ok := brd.TapIntent(d)
+	if !ok {
+		return false
+	}
+	if _, planned := payable[id]; planned {
+		return false
+	}
+	c := brd.Cards[id]
+	if !c.InstantSpeed && !(brd.MyTurn && brd.IsMain && len(brd.Stack) == 0) {
+		return false
+	}
+	// C8: a counter with no foreign spell to counter is never worth the
+	// mana (chooseCast refuses it outright), so falling back would spend the
+	// window on nothing. C8's census has one home, Board.ForeignSpell.
+	if c.Counter && !brd.ForeignSpell(d.Player) {
+		return false
+	}
+	return true
 }
 
 // decideWithoutAutoPay is the existing policy dispatch, factored so the

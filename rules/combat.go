@@ -826,7 +826,7 @@ func (e *Engine) handleAttackers(d *decision.Decision, in decision.Intent) {
 	// so the window's coverage guard cannot fail here; the Note path is the
 	// loud defensive fallback.
 	if charge := e.attackCharge(chosen); !charge.zero() {
-		plan, ok := e.openCombatPayPlan(d.Player, charge, chosenAttackers(chosen))
+		plan, ok := e.openCombatPayPlan(d.Player, charge, chosenAttackers(chosen), chosenAttackers(chosen))
 		if !ok {
 			e.emit(events.Event{Kind: events.Note, Player: d.Player,
 				Text: "could not pay the attack cost"})
@@ -1127,12 +1127,21 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 		declaredCharge = declaredCharge.plus(charge)
 		seen[o.Obj] = true
 	}
-	// The non-mana components of the whole declaration, priced together (a
-	// static's per-creature charge sums over the declared attackers).
+	// The whole declaration's composite charge, priced together (a static's
+	// per-creature charge sums over the declared attackers), against the same
+	// board-aware combatChargeAffordable read the offer gate used. The message
+	// names EVERY component including the mana: the priced components can all
+	// be zero while the charge is still unpayable, because the declaration's
+	// own attackers are withheld from the payment window's mana sources
+	// (CR 508.1f taps them), so a flat {N} attack tax an offer admitted against
+	// the whole window can shrink below {N} once the other chosen attackers
+	// leave it. The old text printed only the non-mana parts and read as an
+	// unpriceable FREE charge. Naming the mana and the fail-closed flag keeps
+	// the diagnostic from hiding the real component again.
 	if !declaredCharge.zero() &&
-		!e.combatChargeAffordable(d.Player, declaredCharge, chosenAttackers(d.Chosen(in))) {
-		return fmt.Errorf("declaration's attack cost (%d life, %d taps, %d sacrifices, %d returns, %d Phyrexian) is not payable",
-			declaredCharge.life, len(declaredCharge.taps), len(declaredCharge.sacs), len(declaredCharge.returns), len(declaredCharge.phyrexian))
+		!e.combatChargeAffordable(d.Player, declaredCharge, chosenAttackers(d.Chosen(in)), chosenAttackers(d.Chosen(in))) {
+		return fmt.Errorf("declaration's attack cost (%d mana, %d life, %d taps, %d sacrifices, %d returns, %d Phyrexian, unpriceable=%t) is not payable",
+			declaredCharge.mana, declaredCharge.life, len(declaredCharge.taps), len(declaredCharge.sacs), len(declaredCharge.returns), len(declaredCharge.phyrexian), declaredCharge.unpriceable)
 	}
 	return e.validateAttackDeclaration(d, in)
 }
@@ -1549,7 +1558,7 @@ func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) erro
 	// obligation payable by distinct permanents once the declaration's own
 	// committed blockers are set aside.
 	charge := e.blockChargeOf(chosen)
-	if !charge.zero() && !e.blockChargeAffordable(d.Player, charge, chosenBlockers(chosen)) {
+	if !charge.zero() && !e.blockChargeAffordable(d.Player, charge, chosenBlockers(chosen), nil) {
 		need := int32(0)
 		for _, t := range charge.taps {
 			need += t.n
@@ -1665,7 +1674,7 @@ func (e *Engine) admissiblePair(scope *blockPairScope, defender state.PlayerID, 
 		return false
 	}
 	charge := e.blockPairCharge(blocker, attacker)
-	if !charge.zero() && !e.blockChargeAffordable(defender, charge, map[state.ObjID]bool{blocker: true}) {
+	if !charge.zero() && !e.blockChargeAffordable(defender, charge, map[state.ObjID]bool{blocker: true}, nil) {
 		return false
 	}
 	return true
@@ -1861,7 +1870,7 @@ func (e *Engine) askBlockers() {
 				// commits it to blocking). The same read validates the whole
 				// declaration and gates the payment, so the three cannot
 				// disagree about what is payable.
-				if !charge.zero() && !e.blockChargeAffordable(defender, charge, map[state.ObjID]bool{bid: true}) {
+				if !charge.zero() && !e.blockChargeAffordable(defender, charge, map[state.ObjID]bool{bid: true}, nil) {
 					continue
 				}
 				// Group is the exclusivity marker on the wire: every option
@@ -1998,7 +2007,7 @@ func (e *Engine) handleBlockers(d *decision.Decision, in decision.Intent) {
 	chosen := d.Chosen(in)
 	charge := e.blockChargeOf(chosen)
 	if !charge.zero() {
-		plan, ok := e.openCombatPayPlan(d.Player, charge, chosenBlockers(chosen))
+		plan, ok := e.openCombatPayPlan(d.Player, charge, chosenBlockers(chosen), nil)
 		if !ok {
 			// An obligation cannot be met: decline rather than committing an
 			// unpaid declaration.

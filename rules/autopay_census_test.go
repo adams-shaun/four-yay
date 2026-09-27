@@ -1050,8 +1050,15 @@ func (cz *autopayCensus) v1Structural(e *Engine, id state.ObjID, ma *cards.SA) s
 	}
 	viaWindow := (any && total == 1 && counts[5] == 1) || (!any && total > 0)
 	viaAny := produced == "Any" && any
-	if !viaWindow && !viaAny {
-		return "ProducedCounts (open production: only fixed or Produced$ Any)"
+	// aph-combo-chosen-identity: the finite choice shapes are planned too --
+	// an amount-1 Combo/Chosen/ColorIdentity (one alternative per resolvable
+	// colour) alongside Produced$ Any. Combo Any and an allocation (amount >
+	// 1) stay deferred. The mirror is the SHAPE gate only; whether the choice
+	// resolves to a colour on a given board (recorded Chosen, commander
+	// identity) is the planner's board-dependent answer, not this column's.
+	viaChoice := any && produced != "Any" && paymentPlanChoiceShape(produced) && amt == 1
+	if !viaWindow && !viaAny && !viaChoice {
+		return "ProducedCounts (open production: only fixed or a finite choice)"
 	}
 	if !paymentPlanTapOnlyCost(cost) {
 		return "paymentPlanTapOnlyCost (no {T} or extra part)"
@@ -1060,7 +1067,7 @@ func (cz *autopayCensus) v1Structural(e *Engine, id state.ObjID, ma *cards.SA) s
 		return "paymentAbility (granted/merged/foreign)"
 	}
 	altOK := !any && ma.API == "Mana" && total > 0
-	if !altOK && !viaAny {
+	if !altOK && !viaAny && !viaChoice {
 		if ma.API != "Mana" {
 			return "paymentPlanAltOK (API " + ma.API + ")"
 		}
