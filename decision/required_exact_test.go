@@ -2,6 +2,7 @@ package decision
 
 import (
 	"testing"
+	"time"
 
 	"github.com/adams-shaun/gorge/state"
 )
@@ -48,5 +49,32 @@ func TestRequiredQuotaIsExactPastSearchBudget(t *testing.T) {
 	}
 	if got := d.RequiredQuota(); got != 16 {
 		t.Fatalf("RequiredQuota = %d, want exact maximum 16", got)
+	}
+}
+
+// A normal token-sized declaration must stay quick even when every distinct
+// required attacker has an individual life-priced obligation. The exact quota
+// is half the board because each attack costs two life.
+func TestRequiredQuotaChargedManyAttackersIsBounded(t *testing.T) {
+	const attackers = 32
+	options := make([]Option, attackers)
+	for i := range options {
+		options[i] = Option{
+			Index: i, Kind: "attacker", Obj: state.ObjID(100 + i),
+			Required: true, CostPhyrexian: 1,
+		}
+	}
+	d := &Decision{Kind: KAttackers, Max: attackers, PayerLife: attackers, Options: options}
+	if len(d.Options) != attackers || d.PayerLifeBound() != attackers {
+		t.Fatalf("precondition: got %d options and life bound %d, want %d each", len(d.Options), d.PayerLifeBound(), attackers)
+	}
+	start := time.Now()
+	got := d.RequiredQuota()
+	elapsed := time.Since(start)
+	if got != attackers/2 {
+		t.Fatalf("RequiredQuota = %d, want %d of %d charged attackers", got, attackers/2, attackers)
+	}
+	if elapsed > 2*time.Second {
+		t.Fatalf("RequiredQuota took %s for %d single-option charged attackers; want under 2s", elapsed, attackers)
 	}
 }

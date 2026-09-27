@@ -103,24 +103,34 @@ func (d *Decision) requiredCore() []int {
 		}
 		return core
 	}
-	// A published charge bound turns the count into a selection over TWO
-	// resources at once (cumulative Value against MaxSum, cumulative life
-	// against the bound), where the prefix greedy under-counts: one Obj that
-	// is cheap in Value but expensive in life can block two later Objs that
-	// would fit together. Search the exact maximum-cardinality set (one
-	// option per required Obj) instead, with deterministic ties: most Objs
-	// first, then lowest total life, then lowest total Value, then the
-	// lexicographically smaller option-index sequence. The greedy result
-	// seeds the search as a lower bound so the remaining/count prune fires
-	// early, and the search stops as soon as it reaches the ceiling
-	// (min(required Objs, Max)), so a charge-free but bound-published list
-	// stays linear.
+
+	// With a published life bound, this is a two-resource, multiple-choice
+	// knapsack: choose at most one Required option per Obj, maximize count,
+	// and respect life and (when present) Value budgets. Keep the cheapest
+	// Value for each exact (life,count) state; for equal costs, keep the
+	// lexicographically first option sequence. The sparse DP is
+	// pseudopolynomial in the bounded life capacity and polynomial in the
+	// number of objects/options, unlike exhaustive subset search.
+	type key struct {
+		life  int32
+		count int
+	}
+	type candidate struct {
+		value int
+		picks []int
+	}
+	states := map[key]candidate{{}: {}}
 	maxCount := d.maxChoices()
-	// groups is one entry per distinct required Obj, in first-seen order; each
-	// carries every Required option of that Obj (a Value/life trade-off makes
-	// the per-Obj cheapest pick alone insufficient for the maximum).
-	var groups [][]int
-	gpos := make(map[state.ObjID]int)
+	lessPicks := func(a, b []int) bool {
+		for i := 0; i < len(a) && i < len(b); i++ {
+			if a[i] != b[i] {
+				return a[i] < b[i]
+			}
+		}
+		return len(a) < len(b)
+	}
+	groups := make([][]int, 0, len(order))
+	gpos := make(map[state.ObjID]int, len(order))
 	for i := range d.Options {
 		o := &d.Options[i]
 		if !o.Required {
@@ -134,99 +144,43 @@ func (d *Decision) requiredCore() []int {
 		}
 		groups[g] = append(groups[g], i)
 	}
-	maxPossible := len(groups)
-	if maxPossible > maxCount {
-		maxPossible = maxCount
-	}
-	var picked []int
-	pickedLife := int32(0)
-	pickedValue := 0
-	// Seed with the ascending-Value greedy prefix (including the life skip),
-	// the historical result and a tight lower bound for the prune.
-	{
-		sum := 0
-		spentLife := int32(0)
-		for _, p := range order {
-			if len(picked) >= maxCount {
-				break
-			}
-			v := d.Options[p.idx].Value
-			if d.HasBudget() && sum+v > d.MaxSum {
-				break
-			}
-			cost := d.Options[p.idx].chargeLifeCost()
-			if spentLife+cost > life {
+	for _, group := range groups {
+		next := make(map[key]candidate, len(states)*(len(group)+1))
+		for k, c := range states {
+			// Skipping this Obj is always an available transition.
+			next[k] = c
+			if k.count >= maxCount {
 				continue
 			}
-			sum += v
-			spentLife += cost
-			picked = append(picked, p.idx)
-		}
-		pickedLife = spentLife
-		pickedValue = sum
-	}
-	lexLess := func(a, b []int) bool {
-		for i := 0; i < len(a) && i < len(b); i++ {
-			if a[i] != b[i] {
-				return a[i] < b[i]
-			}
-		}
-		return len(a) < len(b)
-	}
-	prefer := func(count int, lifeUsed int32, valueUsed int, sel []int) bool {
-		if count != len(picked) {
-			return count > len(picked)
-		}
-		if lifeUsed != pickedLife {
-			return lifeUsed < pickedLife
-		}
-		if valueUsed != pickedValue {
-			return valueUsed < pickedValue
-		}
-		return lexLess(sel, picked)
-	}
-	var sel []int
-	// This is an exact search: silently returning a partial best-so-far quota
-	// would make CR 508.1d under-enforce a required attack. Prune any branch
-	// whose remaining objects cannot exceed the best cardinality already found.
-	var dfs func(gi, count int, lifeUsed int32, valueUsed int)
-	dfs = func(gi, count int, lifeUsed int32, valueUsed int) {
-		if len(picked) >= maxPossible {
-			return
-		}
-		if gi == len(groups) {
-			if prefer(count, lifeUsed, valueUsed, sel) {
-				picked = append(picked[:0], sel...)
-				pickedLife = lifeUsed
-				pickedValue = valueUsed
-			}
-			return
-		}
-		// Every remaining Obj can add at most one. If this branch can only
-		// tie the best cardinality, it cannot improve RequiredQuota; retain the
-		// first deterministic optimum rather than exploring equivalent sets.
-		if count+(len(groups)-gi) <= len(picked) {
-			return
-		}
-		if count < maxCount {
-			for _, ci := range groups[gi] {
+			for _, ci := range group {
 				o := &d.Options[ci]
-				if d.HasBudget() && valueUsed+o.Value > d.MaxSum {
-					continue
-				}
 				cost := o.chargeLifeCost()
-				if lifeUsed+cost > life {
+				if cost > life-k.life || (d.HasBudget() && (o.Value > d.MaxSum-c.value)) {
 					continue
 				}
-				sel = append(sel, ci)
-				dfs(gi+1, count+1, lifeUsed+cost, valueUsed+o.Value)
-				sel = sel[:len(sel)-1]
+				nk := key{life: k.life + cost, count: k.count + 1}
+				nc := candidate{value: c.value + o.Value, picks: append(append([]int(nil), c.picks...), ci)}
+				old, exists := next[nk]
+				if !exists || nc.value < old.value || (nc.value == old.value && lessPicks(nc.picks, old.picks)) {
+					next[nk] = nc
+				}
 			}
 		}
-		dfs(gi+1, count, lifeUsed, valueUsed)
+		states = next
 	}
-	dfs(0, 0, 0, 0)
-	return picked
+
+	var bestKey key
+	var bestCandidate candidate
+	found := false
+	for k, c := range states {
+		if !found || k.count > bestKey.count ||
+			(k.count == bestKey.count && (k.life < bestKey.life ||
+				(k.life == bestKey.life && (c.value < bestCandidate.value ||
+					(c.value == bestCandidate.value && lessPicks(c.picks, bestCandidate.picks)))))) {
+			bestKey, bestCandidate, found = k, c, true
+		}
+	}
+	return bestCandidate.picks
 }
 
 // RequiredQuota is how many distinct Required Objs a valid answer must
