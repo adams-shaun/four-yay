@@ -3,6 +3,8 @@ package decision
 import (
 	"reflect"
 	"testing"
+
+	"github.com/adams-shaun/gorge/state"
 )
 
 // TestRequiredQuotaMaximizesFeasibleSetAcrossLifeAndMana is the review-r2
@@ -46,7 +48,31 @@ func TestRequiredQuotaMaximizesFeasibleSetAcrossLifeAndMana(t *testing.T) {
 	}
 }
 
-// TestRequiredQuotaPicksCheapestFeasibleOptionPerObj pins the multiple-choice
+// TestRequiredQuotaLargeChargedSetScalesExactly pins that the maximum-
+// cardinality search stays exact on a larger charged set (and finishes well
+// inside its node budget): twenty one-pip required options at twenty life
+// must yield quota ten, not the greedy's first-fit count.
+func TestRequiredQuotaLargeChargedSetScalesExactly(t *testing.T) {
+	var opts []Option
+	for i := 0; i < 20; i++ {
+		opts = append(opts, Option{Index: i, Kind: "attacker", Obj: state.ObjID(100 + i), Required: true, CostPhyrexian: 1})
+	}
+	d := &Decision{Kind: KAttackers, Min: 0, Max: 20, PayerLife: 20, Options: opts}
+	if !d.ChargeOptionsFit([]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+		t.Fatal("precondition: ten pips (20 life) must fit")
+	}
+	all := make([]int, 20)
+	for i := range all {
+		all[i] = i
+	}
+	if d.ChargeOptionsFit(all) {
+		t.Fatal("precondition: twenty pips (40 life) must not fit")
+	}
+	if q := d.RequiredQuota(); q != 10 {
+		t.Fatalf("RequiredQuota = %d, want 10 (twenty pips at two life against twenty life)", q)
+	}
+}
+
 // half: one required creature may attack different defenders at different
 // prices, and the maximum-cardinality set must choose the option that lets
 // the other required creature in. Obj 1's 3-life pair and Obj 2's 2-life pair

@@ -186,9 +186,18 @@ func (d *Decision) requiredCore() []int {
 		return lexLess(sel, picked)
 	}
 	var sel []int
+	// nodeBudget bounds the exact search so a pathological required set (many
+	// mutually independent charged duties) cannot turn a per-decision read
+	// into an exponential loop. It is far above any real declaration's search
+	// space; on the unlucky input that exhausts it the best set found so far
+	// is returned, which can only UNDER-count the quota -- the same value the
+	// engine's declaration check reads, so it stays consistent and safe.
+	const nodeBudget = 1 << 17
+	nodes := 0
 	var dfs func(gi, count int, lifeUsed int32, valueUsed int)
 	dfs = func(gi, count int, lifeUsed int32, valueUsed int) {
-		if len(picked) >= maxPossible {
+		nodes++
+		if nodes > nodeBudget || len(picked) >= maxPossible {
 			return
 		}
 		if gi == len(groups) {
