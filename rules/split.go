@@ -35,7 +35,13 @@ func (e *Engine) fusedTimingOK(p state.PlayerID, id state.ObjID, front, alt *car
 		return true
 	}
 	instant := func(f *cards.Face) bool {
-		return f != nil && (f.IsInstant() || e.HasKeyword(id, "Flash") || e.castWithFlash(p, id))
+		// Face-scoped (castWithFlashAsFace): each half's target-conditional
+		// grant is judged against that half's own potential targets and
+		// face-local statics -- the front face's grant is not permission for
+		// the alternate half, and vice versa. The CR 601.2e recheck runs the
+		// same per-half read (flashGrantCoversTargets) against each stage's
+		// announced targets, so offer and enforcement agree.
+		return f != nil && (f.IsInstant() || e.HasKeyword(id, "Flash") || e.castWithFlashAsFace(p, id, f))
 	}
 	return instant(front) && instant(alt)
 }
