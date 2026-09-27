@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // Diff is one field-level difference between the two engines a mirror check
@@ -120,6 +124,14 @@ var excluded = map[excludedField]bool{
 	// game (ticket cli-20260927T103840Z-0fb8a354: the field was read by this
 	// differ in round 1 and every route pair mismatched on it).
 	{"rules.Engine", "legalActionWalks"}: true,
+	// Harness-only observers (rules/clone.go: Clone deliberately copies
+	// neither). cmd/cardfuzz installs ManaAbilityHook on its LIVE engine, so
+	// CheckLive's control -- the live run A against a clone replaying it --
+	// read "ManaAbilityHook <func> vs nil" on every planned cast (round-5
+	// cardfuzz mirror diags); botbench's stats sink is the same shape. Both
+	// emit nothing and mutate nothing, so they are not game state.
+	{"rules.Engine", "ManaAbilityHook"}: true,
+	{"rules.Engine", "paymentStats"}:    true,
 }
 
 // differ walks two values of the same type in lockstep and records every
@@ -133,10 +145,185 @@ type differ struct {
 	// can prove the exclusion table is not stale (a renamed field would
 	// silently stop being excluded and start being compared).
 	excludedHits map[excludedField]int
+	// relax, when non-nil, is the float route's cost-move reorder allowance
+	// (floatReorder); nil compares every field exactly.
+	relax *floatReorder
 }
 
 func newDiffer() *differ {
 	return &differ{visited: make(map[[2]uintptr]bool), excludedHits: make(map[excludedField]int)}
+}
+
+// floatReorder is the float route's allowance for a planned activation whose
+// COST moves its source (Lotus Petal's and a Treasure's "{T}, Sacrifice",
+// an Eldrazi Spawn's "Sacrifice"). Run A pays inside the cast's CR 601.2g
+// window, after the spell moved to the stack; the float route activates at
+// priority, before the cast begins -- the same reason the event ORDER is
+// reported but not required (doc.go, Equivalence 3.). Three state fields
+// record that order rather than a game fact, and nothing else:
+//
+//   - G.Entered, this turn's zone-entry list: the same entries in a
+//     different order (the sacrifice before vs after the spell's own entry);
+//   - the planned spell's PreStackEnteredLen, the CR 733.1 reverse boundary
+//     into that list, which counts the entries made before the spell moved --
+//     on the spell itself and on any snapshot of it (a trigger's LKI copy of
+//     the permanent it became);
+//   - damageSourceLKI[spell][source]: a departure snapshot every waiting
+//     stack object takes of a departing object, so a source sacrificed while
+//     the spell waits on the stack is snapshotted for it and one sacrificed
+//     before the cast is not.
+//
+// The allowance holds only when the two entry lists are the same multiset
+// (enteredReordered); any other difference in them is still reported, and the
+// spell's boundary and snapshots are masked only then.
+type floatReorder struct {
+	enteredReordered bool
+	cast             state.ObjID     // the planned spell
+	castKey          string          // the spell's rendered damageSourceLKI key
+	sourceKeys       map[string]bool // the planned sources' rendered keys
+}
+
+// newFloatReorder builds the allowance for comparing run A (a) with the float
+// route (b) on the planned cast of cast paid by sources.
+func newFloatReorder(a, b *rules.Engine, cast state.ObjID, sources []state.ObjID) *floatReorder {
+	r := &floatReorder{
+		cast:       cast,
+		castKey:    render(reflect.ValueOf(cast), 4),
+		sourceKeys: make(map[string]bool, len(sources)),
+	}
+	for _, s := range sources {
+		r.sourceKeys[render(reflect.ValueOf(s), 4)] = true
+	}
+	// Only a genuine reorder earns the allowance: identical lists leave the
+	// spell's boundary and snapshots compared exactly.
+	r.enteredReordered = !slices.Equal(a.G.Entered, b.G.Entered) && sameEntryMultiset(a.G.Entered, b.G.Entered)
+	return r
+}
+
+// sameEntryMultiset reports whether two zone-entry lists hold the same
+// entries, in any order.
+func sameEntryMultiset(a, b []state.ZoneEntry) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	n := make(map[state.ZoneEntry]int, len(a))
+	for _, z := range a {
+		n[z]++
+	}
+	for _, z := range b {
+		if n[z] == 0 {
+			return false
+		}
+		n[z]--
+	}
+	return true
+}
+
+// skip reports whether field f of struct value a (at path) is one the
+// allowance masks: the entry list itself, or the PreStackEnteredLen of any
+// state.Object value that is the planned spell or a snapshot of it.
+func (r *floatReorder) skip(path string, a reflect.Value, f reflect.StructField) bool {
+	if r == nil || !r.enteredReordered {
+		return false
+	}
+	if path == "G.Entered" {
+		return true
+	}
+	return f.Name == "PreStackEnteredLen" && a.Type() == reflect.TypeOf(state.Object{}) &&
+		state.ObjID(a.FieldByName("ID").Uint()) == r.cast
+}
+
+// masksLKI reports whether damageSourceLKI is compared through walkDamageLKI.
+func (r *floatReorder) masksLKI(path string) bool {
+	return r != nil && r.enteredReordered && path == "damageSourceLKI"
+}
+
+// walkDamageLKI is walkMap over damageSourceLKI with the planned spell's
+// snapshots of the planned sources left out (floatReorder); every other
+// stack object's snapshots, and the spell's snapshots of any other object,
+// are compared exactly.
+func (d *differ) walkDamageLKI(path string, a, b reflect.Value) {
+	outer := func(m reflect.Value) map[string]reflect.Value {
+		if m.IsNil() {
+			return map[string]reflect.Value{}
+		}
+		return mapByKey(m)
+	}
+	ka, kb := outer(a), outer(b)
+	keys := make([]string, 0, len(ka)+len(kb))
+	for k := range ka {
+		keys = append(keys, k)
+	}
+	for k := range kb {
+		if _, ok := ka[k]; !ok {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		va, oka := ka[k]
+		vb, okb := kb[k]
+		sub := path + "{" + k + "}"
+		if k == d.relax.castKey {
+			d.walkInnerSkipping(sub, va, oka, vb, okb, d.relax.sourceKeys)
+			continue
+		}
+		switch {
+		case oka && okb:
+			d.walk(sub, va, vb)
+		case oka:
+			d.add(sub, va, reflect.Value{})
+		default:
+			d.add(sub, reflect.Value{}, vb)
+		}
+		if d.full() {
+			return
+		}
+	}
+}
+
+// walkInnerSkipping compares two (possibly absent) maps entry by entry,
+// leaving out the keys in skip; an absent map reads as an empty one.
+func (d *differ) walkInnerSkipping(path string, a reflect.Value, oka bool, b reflect.Value, okb bool, skip map[string]bool) {
+	entries := func(m reflect.Value, ok bool) map[string]reflect.Value {
+		out := map[string]reflect.Value{}
+		if !ok || m.IsNil() {
+			return out
+		}
+		for k, v := range mapByKey(m) {
+			if !skip[k] {
+				out[k] = v
+			}
+		}
+		return out
+	}
+	ka, kb := entries(a, oka), entries(b, okb)
+	keys := make([]string, 0, len(ka)+len(kb))
+	for k := range ka {
+		keys = append(keys, k)
+	}
+	for k := range kb {
+		if _, ok := ka[k]; !ok {
+			keys = append(keys, k)
+		}
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		va, inA := ka[k]
+		vb, inB := kb[k]
+		sub := path + "{" + k + "}"
+		switch {
+		case inA && inB:
+			d.walk(sub, va, vb)
+		case inA:
+			d.add(sub, va, reflect.Value{})
+		default:
+			d.add(sub, reflect.Value{}, vb)
+		}
+		if d.full() {
+			return
+		}
+	}
 }
 
 func (d *differ) add(path string, a, b reflect.Value) {
@@ -252,6 +439,13 @@ func (d *differ) walk(path string, a, b reflect.Value) {
 			sub := f.Name
 			if path != "" {
 				sub = path + "." + f.Name
+			}
+			if d.relax.skip(sub, a, f) {
+				continue
+			}
+			if d.relax.masksLKI(sub) {
+				d.walkDamageLKI(sub, a.Field(i), b.Field(i))
+				continue
 			}
 			d.walk(sub, a.Field(i), b.Field(i))
 		}
