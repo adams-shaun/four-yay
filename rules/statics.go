@@ -2377,11 +2377,22 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 	// costCompositionEvent hides the pending cast from Count$ThisTurnCast, a
 	// layer-7 input (CheckSVar$ statics) the cross-walk Derived memo cannot
 	// see: retire its entries on entry and exit so none built under the
-	// exclusion is served outside it, nor a live one inside it.
+	// exclusion is served outside it, nor a live one inside it. active()'s
+	// two log-head-keyed lists evaluate the same CheckSVar$ gates at build,
+	// so they are invalidated on both edges too (the cascade.go
+	// stackGrantCast pattern). Without it a list built at the same log head
+	// OUTSIDE the exclusion was served inside it: Leapfrog ("flying as long
+	// as you've cast an instant or sorcery this turn") kept the flying Gust
+	// of Wind's own push gave it, so Gust's "costs {2} less if you control a
+	// creature with flying" was charged {1}{U} where the planner -- and CR
+	// 601.2i, the spell is not yet cast -- price {3}{U} (round-8 cardfuzz
+	// mirror seed 12687133153333408407, a_witness pool_after).
 	e.retireCrossWalkMemo()
+	e.activeEpoch, e.staticEpoch = -1, -1
 	mods := compose()
 	e.costCompositionEvent = previous
 	e.retireCrossWalkMemo()
+	e.activeEpoch, e.staticEpoch = -1, -1
 	return mods
 }
 
