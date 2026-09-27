@@ -186,18 +186,12 @@ func (d *Decision) requiredCore() []int {
 		return lexLess(sel, picked)
 	}
 	var sel []int
-	// nodeBudget bounds the exact search so a pathological required set (many
-	// mutually independent charged duties) cannot turn a per-decision read
-	// into an exponential loop. It is far above any real declaration's search
-	// space; on the unlucky input that exhausts it the best set found so far
-	// is returned, which can only UNDER-count the quota -- the same value the
-	// engine's declaration check reads, so it stays consistent and safe.
-	const nodeBudget = 1 << 17
-	nodes := 0
+	// This is an exact search: silently returning a partial best-so-far quota
+	// would make CR 508.1d under-enforce a required attack. Prune any branch
+	// whose remaining objects cannot exceed the best cardinality already found.
 	var dfs func(gi, count int, lifeUsed int32, valueUsed int)
 	dfs = func(gi, count int, lifeUsed int32, valueUsed int) {
-		nodes++
-		if nodes > nodeBudget || len(picked) >= maxPossible {
+		if len(picked) >= maxPossible {
 			return
 		}
 		if gi == len(groups) {
@@ -208,9 +202,10 @@ func (d *Decision) requiredCore() []int {
 			}
 			return
 		}
-		// Every remaining Obj can add at most one, so a strict deficit cannot
-		// be caught up; a tie is still explored for a better tie-break.
-		if count+(len(groups)-gi) < len(picked) {
+		// Every remaining Obj can add at most one. If this branch can only
+		// tie the best cardinality, it cannot improve RequiredQuota; retain the
+		// first deterministic optimum rather than exploring equivalent sets.
+		if count+(len(groups)-gi) <= len(picked) {
 			return
 		}
 		if count < maxCount {
