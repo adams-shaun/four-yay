@@ -1277,6 +1277,14 @@ func (e *Engine) seedAorAsk(obj state.ObjID, ctx *effects.Ctx) {
 // first two also cache the chosen SVar names on the stack object so resolution
 // executes the announcement without asking again.
 func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
+	if ma, rp := e.takeOffStackManaRider(); ma != nil {
+		e.resume = rp
+		template := *ma
+		template.nestedResume = nil
+		asked := e.withOffStackMana(template, func() { e.handleModes(d, in) })
+		e.finishOffStackManaRider(ma, asked)
+		return
+	}
 	// An activated mana ability resolves outside the stack. Its UnlessCost$
 	// answer is therefore owned by the mana activation flow rather than an
 	// effects resume point, but is still recorded like every KModes answer.

@@ -177,6 +177,29 @@ func (e *Engine) askOffStackMana(d *decision.Decision) bool {
 	return true
 }
 
+// takeOffStackManaRider detaches the mana activation and its parked resume
+// point. The decision-specific resolution handler installs that point itself:
+// e.resume is owned by the resolution machinery, not this activation helper.
+func (e *Engine) takeOffStackManaRider() (*manaColorActivation, *resumePoint) {
+	ma := e.manaColorActivation
+	if ma == nil || ma.nestedResume == nil {
+		return nil, nil
+	}
+	e.manaColorActivation = nil
+	e.choosing = chooseNone
+	ma.nestedResume = cloneResume(ma.nestedResume)
+	return ma, ma.nestedResume
+}
+
+// finishOffStackManaRider drains the remainder of a mana activation after its
+// ordinary decision handler has re-entered the parked rider.
+func (e *Engine) finishOffStackManaRider(ma *manaColorActivation, asked bool) {
+	if !asked && e.pending == nil && e.resume == nil {
+		e.resolveTriggeredManaAbilities(ma.triggers, ma.cast, ma.cumulative)
+		e.continueManaPaymentWindow(ma.cumulative)
+	}
+}
+
 // offStackSuspended is Suspended() inside an offStackManaFrame.
 func (f *offStackManaFrame) suspended(e *Engine) bool {
 	return f.asked || (e.resume != nil && e.resume != f.baseResume) ||
