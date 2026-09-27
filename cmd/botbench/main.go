@@ -152,6 +152,19 @@ var policies = map[string]func(seed uint64) seat.Seat{
 		return seat.NewBot(seed).EnableAutoPayMana()
 	},
 	"lethal-pressure": hostedPolicy(host.LethalPressurePolicy),
+	// attack-sim / attack-sim-auto-pay are the opt-in combat-simulation
+	// attacker (botpolicy.AttackSimDecide): the default policy with
+	// KAttackers answered by a whole-attacking-set search -- predicted
+	// blocks, the opponent's crack-back, a static evaluator -- instead of
+	// the per-attacker rules. The -auto-pay arm is the hosted auto-pay
+	// adapter over it, gated against bot-auto-pay. Knobs: -attack-sim-*.
+	// Bench-only: host.NormalizeBotPolicy does not know the names.
+	"attack-sim": func(seed uint64) seat.Seat {
+		return seat.NewAttackSimBot(seed, attackSimParams)
+	},
+	"attack-sim-auto-pay": func(seed uint64) seat.Seat {
+		return seat.NewAttackSimBot(seed, attackSimParams).EnableAutoPayMana()
+	},
 	// ar8 is the combined-attacker lethal-pressure experiment (AR7's
 	// per-attacker test plus the attacking-SET subset search). It is
 	// deliberately NOT a hosted policy -- host.NormalizeBotPolicy does not
@@ -262,6 +275,11 @@ func hostedPolicy(name string) func(seed uint64) seat.Seat {
 // weights argument through run/runMatrix/playMatch; it is write-once
 // before any game starts and read-only afterwards.
 var castProfileOverride *botpolicy.CastWeights
+
+// attackSimParams are the attack-sim arms' knobs, set once from the
+// -attack-sim-* flags before any game starts and read-only afterwards (the
+// castProfileOverride pattern).
+var attackSimParams = botpolicy.DefaultAttackSimParams()
 
 // policynetModel is the trained model -checkpoint names, loaded once by
 // mainExit before any game starts (nil = no checkpoint given). Same
@@ -446,7 +464,7 @@ func writePaymentStats(w io.Writer) error {
 }
 
 func isAutoPayPolicy(name string) bool {
-	return name == "bot-auto-pay" || name == "cast-profile-auto-pay"
+	return name == "bot-auto-pay" || name == "cast-profile-auto-pay" || name == "attack-sim-auto-pay"
 }
 
 // aPlaysSeat reports whether policy A (the -a side) holds seat s in game i.
@@ -2210,6 +2228,18 @@ func main() {
 	searchMana := flag.Bool("search-mana", false, "PN22: compare alternative bare mana-source taps when the bot taps at priority (opt-in)")
 	searchRedeal := flag.Bool("search-redeal", false, "use the known-card-preserving redeal fallback when search's history sampler starves (opt-in)")
 	flag.StringVar(&searchOracleCheckpoint, "search-oracle-checkpoint", "", "search policy, ticket pn17-a1: score non-terminal rollout leaves with this ORACLE value checkpoint (a mz-opphand model with a value head) read from the omniscient projection of each sampled world; needs -search-horizon > 0 and a search side. Empty (default) = the heuristic leaf, byte for byte")
+	flag.Int64Var(&attackSimParams.LifeUnit, "attack-sim-life", attackSimParams.LifeUnit, "attack-sim arms: value of one life point (10-20 life) in creature-value units")
+	flag.BoolVar(&attackSimParams.CrackBack, "attack-sim-crackback", attackSimParams.CrackBack, "attack-sim arms: simulate the opponent's next attack before scoring")
+	flag.BoolVar(&attackSimParams.NextTurn, "attack-sim-next", attackSimParams.NextTurn, "attack-sim arms: with -attack-sim-crackback, also simulate our following attack before scoring")
+	flag.BoolVar(&attackSimParams.Blocks, "attack-sim-blocks", attackSimParams.Blocks, "attack-sim arms: also answer blockers decisions by simulation")
+	flag.BoolVar(&attackSimParams.BlockGreedy, "attack-sim-block-greedy", attackSimParams.BlockGreedy, "attack-sim arms: the block search's counter-attack ply is the greedy one-ply attacker")
+	flag.BoolVar(&decisionCostEnabled, "decision-cost", false, "append per-policy, per-decision-kind wall-clock decision cost (mean/p50/p95/p99/max ms) for *seat.Bot policies; stderr under -out json; results are unchanged")
+	flag.IntVar(&attackSimParams.BlockPlies, "attack-sim-block-plies", attackSimParams.BlockPlies, "attack-sim arms: later combats the block search simulates before scoring (0, 1 or 2)")
+	flag.BoolVar(&attackSimParams.Targets, "attack-sim-targets", attackSimParams.Targets, "attack-sim arms: also answer single-target removal by simulation")
+	flag.BoolVar(&attackSimParams.TieAggro, "attack-sim-tie-aggro", attackSimParams.TieAggro, "attack-sim arms: break exact score ties toward more attackers")
+	flag.BoolVar(&attackSimParams.NextGreedy, "attack-sim-next-greedy", attackSimParams.NextGreedy, "attack-sim arms: make the -attack-sim-next attack a greedy one-ply improvement over the default attacker")
+	flag.IntVar(&attackSimParams.MaxEnum, "attack-sim-enum", attackSimParams.MaxEnum, "attack-sim arms: enumerate every subset up to this many free attackers (hill-climb beyond)")
+	flag.Int64Var(&attackSimParams.Margin, "attack-sim-margin", attackSimParams.Margin, "attack-sim arms: score margin a set must beat the default answer by")
 	cpuprofile := flag.String("cpuprofile", "", "write a CPU profile to this pprof file over the whole run (empty = off)")
 	memprofile := flag.String("memprofile", "", "write a heap profile to this pprof file after the last game finishes (pprof reads both alloc_space and inuse_space from it; empty = off)")
 	flag.Parse()
@@ -2252,6 +2282,16 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	fail := func(err error) int {
 		fmt.Fprintln(os.Stderr, "botbench:", err)
 		return 1
+	}
+	if decisionCostEnabled {
+		wrapDecisionCost(aName, bName)
+		defer func() {
+			w := io.Writer(os.Stdout)
+			if out == "json" {
+				w = os.Stderr
+			}
+			writeDecisionCost(w)
+		}()
 	}
 	if paymentStatsEnabled {
 		// Deferred like the mirror verdicts, so the report follows the run's
