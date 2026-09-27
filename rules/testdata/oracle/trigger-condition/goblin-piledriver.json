@@ -1,0 +1,56 @@
+{
+  "card": "Goblin Piledriver",
+  "family": "trigger-condition",
+  "oracle_sha": "60f756b87c8a",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "two-other-attacking-goblins-plus-four",
+      "cr": ["508.1m", "603.2", "608.2h"],
+      "why": "Attacking alongside two other Goblins (Goblin Guide, Mogg Fanatic), its attack trigger gives +2/+0 for each: 1/2 becomes 5/2 until end of turn.",
+      "setup": {
+        "p0": {"battlefield": ["Goblin Piledriver", "Goblin Guide", "Mogg Fanatic"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Goblin Piledriver", "p0:Goblin Guide", "p0:Mogg Fanatic"], "defender": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Goblin Piledriver", "pt": "5/2"}
+      ]
+    },
+    {
+      "name": "non-goblin-attacker-does-not-count",
+      "cr": ["603.2", "608.2h"],
+      "why": "Only other attacking GOBLINS count: with Goblin Guide and Savannah Lions attacking beside it, the bonus is +2/+0 (3/2).",
+      "setup": {
+        "p0": {"battlefield": ["Goblin Piledriver", "Goblin Guide", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Goblin Piledriver", "p0:Goblin Guide", "p0:Savannah Lions"], "defender": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Goblin Piledriver", "pt": "3/2"}
+      ]
+    },
+    {
+      "name": "non-attacking-goblin-does-not-count",
+      "cr": ["603.2"],
+      "why": "A Goblin that stays home is not an 'other attacking Goblin': attacking alone with Mogg Fanatic back, it stays 1/2.",
+      "setup": {
+        "p0": {"battlefield": ["Goblin Piledriver", "Mogg Fanatic"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Goblin Piledriver"], "defender": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Goblin Piledriver", "pt": "1/2"}
+      ]
+    }
+  ]
+}

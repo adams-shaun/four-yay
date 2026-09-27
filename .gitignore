@@ -3,6 +3,10 @@ bin/
 # scripts are GPL-3.0 and mtgcore is Apache-2.0.
 .cards/
 
+# Oracle-audit author packets (cmd/oraclepacket output): corpus-derived
+# printed card text handed to a scenario-writing seat. Never committed.
+.oracle-packets/
+
 # Exact token script text that cmd/repro -emit-test and the fixture
 # generator strip out of committed match.json files. GPL-3.0; gorge is
 # Apache-2.0. Keyed by fixture id; written under cmd/repro/testdata/.tokens

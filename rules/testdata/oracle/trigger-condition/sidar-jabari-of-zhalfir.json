@@ -1,0 +1,42 @@
+{
+  "card": "Sidar Jabari of Zhalfir",
+  "family": "trigger-condition",
+  "oracle_sha": "15ca35ce3883",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "eminence-from-command-zone-knight-attacks",
+      "cr": ["207.2c", "603.4", "903.6"],
+      "why": "Eminence works while Sidar Jabari is in the command zone: attacking with a Knight triggers it (draw a card, then discard a card).",
+      "format": "commander",
+      "setup": {
+        "p0": {"command": ["Sidar Jabari of Zhalfir"], "battlefield": ["Knight of the White Orchid"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Knight of the White Orchid"], "defender": "p1",
+         "expect": [{"trigger_on_stack": "p0:Sidar Jabari of Zhalfir", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"hand_size": {"p0": 0}},
+        {"graveyard_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "eminence-non-knight-attack-no-trigger",
+      "cr": ["603.2"],
+      "why": "Attacking only with a non-Knight (Savannah Lions) does not meet the trigger condition.",
+      "format": "commander",
+      "setup": {
+        "p0": {"command": ["Sidar Jabari of Zhalfir"], "battlefield": ["Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Savannah Lions"], "defender": "p1",
+         "expect": [{"trigger_on_stack": "p0:Sidar Jabari of Zhalfir", "want": false}]}
+      ],
+      "expect": []
+    }
+  ]
+}

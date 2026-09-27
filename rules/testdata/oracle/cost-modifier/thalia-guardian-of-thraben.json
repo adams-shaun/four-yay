@@ -1,0 +1,56 @@
+{
+  "card": "Thalia, Guardian of Thraben",
+  "family": "cost-modifier",
+  "oracle_sha": "60ceca4e6d3f",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-noncreature-spell-needs-one-more",
+      "cr": ["601.2f"],
+      "why": "Thalia taxes every noncreature spell, including the opponent's: Lightning Bolt costs {1}{R}, so {R} alone cannot cast it.",
+      "setup": {
+        "p0": {"hand": ["Lightning Bolt"]},
+        "p1": {"battlefield": ["Thalia, Guardian of Thraben"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "R"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Lightning Bolt"}, "want": false}
+      ]
+    },
+    {
+      "name": "taxed-spell-castable-with-two",
+      "cr": ["601.2f", "601.2g"],
+      "why": "With {R}{R} the taxed Bolt is castable, the whole pool pays for it, and it deals 3 to the opponent.",
+      "setup": {
+        "p0": {"hand": ["Lightning Bolt"]},
+        "p1": {"battlefield": ["Thalia, Guardian of Thraben"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "RR", "targets": ["p1"],
+         "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}}
+      ]
+    },
+    {
+      "name": "creature-spell-untaxed",
+      "cr": ["601.2f"],
+      "why": "Creature spells are not taxed: Goblin Guide still costs {R}.",
+      "setup": {
+        "p0": {"hand": ["Goblin Guide"]},
+        "p1": {"battlefield": ["Thalia, Guardian of Thraben"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Guide", "mana": "R"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Goblin Guide", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

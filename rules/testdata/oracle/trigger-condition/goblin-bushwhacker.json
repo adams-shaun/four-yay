@@ -1,0 +1,42 @@
+{
+  "card": "Goblin Bushwhacker",
+  "family": "trigger-condition",
+  "oracle_sha": "97c56ee3ecda",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "kicked-pumps-and-hastes-team",
+      "cr": ["702.33d", "603.4", "611.2c"],
+      "why": "Cast with kicker ({R}{R} total): the enters trigger fires and creatures seat 0 controls get +1/+0 and haste until end of turn, including the Bushwhacker.",
+      "setup": {
+        "p0": {"hand": ["Goblin Bushwhacker"], "battlefield": ["Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Bushwhacker", "mana": "RR", "kicked": true},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "pt": "3/1", "keywords": ["Haste"]},
+        {"card": "p0:Goblin Bushwhacker", "pt": "2/1", "keywords": ["Haste"]}
+      ]
+    },
+    {
+      "name": "unkicked-does-nothing",
+      "cr": ["603.4"],
+      "why": "Not kicked: the intervening-if fails, no pump and no haste.",
+      "setup": {
+        "p0": {"hand": ["Goblin Bushwhacker"], "battlefield": ["Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Bushwhacker", "mana": "R"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "pt": "2/1", "no_keywords": ["Haste"]},
+        {"card": "p0:Goblin Bushwhacker", "pt": "1/1", "no_keywords": ["Haste"]}
+      ]
+    }
+  ]
+}

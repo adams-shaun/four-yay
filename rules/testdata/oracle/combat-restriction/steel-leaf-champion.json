@@ -1,0 +1,25 @@
+{
+  "card": "Steel Leaf Champion",
+  "family": "combat-restriction",
+  "oracle_sha": "e7bd1d508d74",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "power-two-cannot-block-power-three-can",
+      "cr": ["509.1b"],
+      "why": "Creatures with power 2 or less cannot block it: Grizzly Bears (2) is not a legal blocker, Centaur Courser (3) is.",
+      "setup": {
+        "p0": {"battlefield": ["Steel Leaf Champion"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Steel Leaf Champion"], "defender": "p1"},
+        {"op": "pass_to", "decision": "blockers"}
+      ],
+      "expect": [
+        {"can_block": {"blocker": "p1:Grizzly Bears", "attacker": "p0:Steel Leaf Champion"}, "want": false},
+        {"can_block": {"blocker": "p1:Centaur Courser", "attacker": "p0:Steel Leaf Champion"}, "want": true}
+      ]
+    }
+  ]
+}

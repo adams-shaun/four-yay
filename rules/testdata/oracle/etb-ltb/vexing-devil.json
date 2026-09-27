@@ -1,0 +1,42 @@
+{
+  "card": "Vexing Devil",
+  "family": "etb-ltb",
+  "oracle_sha": "6f762697f48a",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-takes-four-devil-sacrificed",
+      "cr": ["603.6a", "101.4"],
+      "why": "The opponent chooses to have it deal 4 damage to them: they go to 16 and seat 0 sacrifices the Devil.",
+      "setup": {
+        "p0": {"hand": ["Vexing Devil"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Vexing Devil", "mana": "R"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]}
+      ],
+      "expect": [
+        {"life": {"p1": 16}},
+        {"card": "p0:Vexing Devil", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "opponent-declines-devil-stays",
+      "cr": ["603.6a"],
+      "why": "The opponent declines: no damage, and the 4/3 Devil stays on the battlefield.",
+      "setup": {
+        "p0": {"hand": ["Vexing Devil"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Vexing Devil", "mana": "R"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"life": {"p1": 20}},
+        {"card": "p0:Vexing Devil", "zone": "battlefield", "pt": "4/3"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "card": "Geralf's Messenger",
+  "family": "etb-ltb",
+  "oracle_sha": "c0963282f383",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tapped-and-drains-two",
+      "cr": ["614.1c", "603.6a"],
+      "why": "It enters tapped, and its enters trigger makes the target opponent lose 2 life.",
+      "setup": {
+        "p0": {"hand": ["Geralf's Messenger"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Geralf's Messenger", "mana": "BBB"},
+        {"op": "resolve", "targets": ["p1"]}
+      ],
+      "expect": [
+        {"card": "p0:Geralf's Messenger", "zone": "battlefield", "tapped": true},
+        {"life": {"p1": 18}}
+      ]
+    },
+    {
+      "name": "undying-returns-with-counter-and-drains-again",
+      "cr": ["702.93a", "603.6a"],
+      "why": "Dying with no +1/+1 counter, undying returns it with a +1/+1 counter (4/3, tapped again) and its enters trigger drains 2 more.",
+      "setup": {
+        "p0": {"hand": ["Geralf's Messenger", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Geralf's Messenger", "mana": "BBB"},
+        {"op": "resolve", "targets": ["p1"]},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Geralf's Messenger"]},
+        {"op": "resolve", "targets": ["p1"]}
+      ],
+      "expect": [
+        {"card": "p0:Geralf's Messenger", "zone": "battlefield", "tapped": true, "counters": {"+1/+1": 1}, "pt": "4/3"},
+        {"life": {"p1": 16}}
+      ]
+    }
+  ]
+}

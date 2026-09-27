@@ -1,0 +1,50 @@
+{
+  "card": "Purphoros, God of the Forge",
+  "family": "conditional-static",
+  "oracle_sha": "7d3e1045e21f",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "low-devotion-not-a-creature",
+      "cr": ["700.5", "611.3a", "613.1d"],
+      "why": "Devotion to red counts red mana symbols among seat 0's permanents: Purphoros alone is 1, below five, so it is not a creature.",
+      "setup": {
+        "p0": {"battlefield": ["Purphoros, God of the Forge"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Purphoros, God of the Forge", "no_types": ["Creature"], "types": ["Enchantment"]}
+      ]
+    },
+    {
+      "name": "devotion-five-is-a-6-5-creature",
+      "cr": ["700.5", "611.3a"],
+      "why": "Purphoros ({R}) plus four one-{R} permanents is devotion 5: the condition is false, so it is a 6/5 creature.",
+      "setup": {
+        "p0": {"battlefield": ["Purphoros, God of the Forge", "Goblin Guide", "Monastery Swiftspear", "Mogg Fanatic", "Jackal Pup"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Purphoros, God of the Forge", "types": ["Creature"], "pt": "6/5"}
+      ]
+    },
+    {
+      "name": "another-creature-enters-deals-two",
+      "cr": ["603.2", "603.6a"],
+      "why": "The trigger works whether or not Purphoros is a creature: another creature entering under seat 0's control deals 2 damage to each opponent.",
+      "setup": {
+        "p0": {"hand": ["Savannah Lions"], "battlefield": ["Purphoros, God of the Forge"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Savannah Lions", "mana": "W"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 18}}
+      ]
+    }
+  ]
+}

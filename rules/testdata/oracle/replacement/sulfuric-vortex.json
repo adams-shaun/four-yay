@@ -1,0 +1,41 @@
+{
+  "card": "Sulfuric Vortex",
+  "family": "replacement",
+  "oracle_sha": "68f5b828d951",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "life-gain-replaced-with-nothing",
+      "cr": ["614.1a", "503.1a"],
+      "why": "Any player who would gain life gains none instead. Setup permanents are in play for turn 1's upkeep, so the Vortex has already dealt seat 0 2 (20 -> 18); Revitalize then leaves seat 0 at 18 but still draws the card.",
+      "setup": {
+        "p0": {"hand": ["Revitalize"]},
+        "p1": {"battlefield": ["Sulfuric Vortex"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Revitalize", "mana": "WW", "expect": [{"life": {"p0": 18}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 18}},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "each-upkeep-deals-two-to-active-player",
+      "cr": ["503.1a", "603.2"],
+      "why": "At the beginning of EACH player's upkeep it deals 2 damage to that player: seat 0 takes 2 in its own turn-1 upkeep (setup precedes turn 1), then seat 1 takes 2 in its turn-2 upkeep.",
+      "setup": {
+        "p0": {"battlefield": ["Sulfuric Vortex"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "upkeep", "active": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 18, "p1": 18}}
+      ]
+    }
+  ]
+}

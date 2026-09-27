@@ -1,0 +1,47 @@
+{
+  "card": "Resplendent Angel",
+  "family": "trigger-condition",
+  "oracle_sha": "6595b6686f58",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "gained-six-makes-angel-at-end-step",
+      "cr": ["603.4", "513.1"],
+      "why": "Seat 0 gained 6 life this turn (two Revitalize), so at the beginning of the end step it creates a 4/4 white Angel token with flying and vigilance.",
+      "setup": {
+        "p0": {"hand": ["Revitalize", "Revitalize"], "battlefield": ["Resplendent Angel"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Revitalize", "mana": "WW"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Revitalize#2", "mana": "WW"},
+        {"op": "resolve", "expect": [{"life": {"p0": 26}}]},
+        {"op": "pass_to", "step": "end"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Angel", "token": true}, "eq": 1},
+        {"card": "p0:token:Angel", "pt": "4/4", "keywords": ["Flying", "Vigilance"]}
+      ]
+    },
+    {
+      "name": "gained-three-no-angel",
+      "cr": ["603.4"],
+      "why": "Only 3 life gained this turn: the intervening-if is false, no token.",
+      "setup": {
+        "p0": {"hand": ["Revitalize"], "battlefield": ["Resplendent Angel"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Revitalize", "mana": "WW"},
+        {"op": "resolve"},
+        {"op": "pass_to", "step": "end"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Angel", "token": true}, "eq": 0}
+      ]
+    }
+  ]
+}

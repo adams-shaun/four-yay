@@ -1,0 +1,38 @@
+{
+  "card": "Cabal Ritual",
+  "family": "spell-conditional",
+  "oracle_sha": "98000f065f82",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "threshold-adds-five",
+      "cr": ["608.2c", "106.4"],
+      "why": "Seven cards in the graveyard while it resolves: add {B}{B}{B}{B}{B} instead of {B}{B}{B}. The {1}{B} cost was paid from the pool first, so exactly five black remain.",
+      "setup": {
+        "p0": {"hand": ["Cabal Ritual"], "graveyard": ["Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Cabal Ritual", "mana": "BB"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"pool": {"p0": "BBBBB"}}
+      ]
+    },
+    {
+      "name": "six-in-graveyard-adds-three",
+      "cr": ["608.2c", "608.2n"],
+      "why": "Cabal Ritual is on the stack, not in the graveyard, while it resolves; six other cards is below threshold, so it adds exactly {B}{B}{B}.",
+      "setup": {
+        "p0": {"hand": ["Cabal Ritual"], "graveyard": ["Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Cabal Ritual", "mana": "BB"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"pool": {"p0": "BBB"}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "card": "Dauthi Voidwalker",
+  "family": "replacement",
+  "oracle_sha": "5d2ea498093d",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-creature-exiled-with-void-counter",
+      "cr": ["614.1a", "614.6"],
+      "why": "An opponent's card that would go to their graveyard is exiled with a void counter instead.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push"], "battlefield": ["Dauthi Voidwalker"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "exile", "counters": {"void": 1}}
+      ]
+    },
+    {
+      "name": "own-cards-go-to-graveyard-normally",
+      "cr": ["614.1a"],
+      "why": "The replacement only covers an OPPONENT's graveyard: seat 0's own dying creature and its resolved Fatal Push go to seat 0's graveyard.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push"], "battlefield": ["Dauthi Voidwalker", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "zone": "graveyard"},
+        {"card": "p0:Fatal Push", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

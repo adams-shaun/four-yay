@@ -1,0 +1,54 @@
+{
+  "card": "Ruby Medallion",
+  "family": "cost-modifier",
+  "oracle_sha": "7af2ea6b3982",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "red-spell-one-less",
+      "cr": ["601.2f"],
+      "why": "Goblin Piledriver ({1}{R}) is a red spell seat 0 casts, so it costs {R}; one {R} casts it and the pool is empty afterward.",
+      "setup": {
+        "p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Ruby Medallion"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Piledriver", "mana": "R", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Goblin Piledriver", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "nonred-spell-full-price",
+      "cr": ["601.2f"],
+      "why": "Grizzly Bears is green: no reduction, so {G} alone cannot cast it.",
+      "setup": {
+        "p0": {"hand": ["Grizzly Bears"], "battlefield": ["Ruby Medallion"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "G"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}
+      ]
+    },
+    {
+      "name": "opponent-red-spell-full-price",
+      "cr": ["601.2f"],
+      "why": "\"Red spells YOU cast\": the Medallion's controller is seat 1, so seat 0's Goblin Piledriver still costs {1}{R}.",
+      "setup": {
+        "p0": {"hand": ["Goblin Piledriver"]},
+        "p1": {"battlefield": ["Ruby Medallion"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "R"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Goblin Piledriver"}, "want": false}
+      ]
+    }
+  ]
+}

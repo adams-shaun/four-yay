@@ -1,0 +1,37 @@
+{
+  "card": "Sunspear Shikari",
+  "family": "conditional-static",
+  "oracle_sha": "16cf0cf1aa43",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "unequipped-no-keywords",
+      "cr": ["611.3a"],
+      "why": "Not equipped: neither first strike nor lifelink.",
+      "setup": {
+        "p0": {"battlefield": ["Sunspear Shikari", "Bonesplitter"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Sunspear Shikari", "pt": "2/2", "no_keywords": ["First Strike", "Lifelink"]}
+      ]
+    },
+    {
+      "name": "equipped-first-strike-lifelink",
+      "cr": ["611.3a", "702.6a"],
+      "why": "Equipped with Bonesplitter: 4/2 with first strike and lifelink.",
+      "setup": {
+        "p0": {"battlefield": ["Sunspear Shikari", "Bonesplitter"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Bonesplitter", "ability": "Equip", "mana": "C", "targets": ["p0:Sunspear Shikari"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Sunspear Shikari", "pt": "4/2", "keywords": ["First Strike", "Lifelink"]}
+      ]
+    }
+  ]
+}

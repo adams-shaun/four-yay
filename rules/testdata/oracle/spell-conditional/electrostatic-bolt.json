@@ -1,0 +1,41 @@
+{
+  "card": "Electrostatic Bolt",
+  "family": "spell-conditional",
+  "oracle_sha": "46fbce424f46",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "artifact-creature-takes-four",
+      "cr": ["608.2c", "704.5g"],
+      "why": "The target is an artifact creature, so it is dealt 4 damage instead of 2; a 4/4 is destroyed.",
+      "setup": {
+        "p0": {"hand": ["Electrostatic Bolt"]},
+        "p1": {"battlefield": ["Myr Enforcer"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Electrostatic Bolt", "mana": "R", "targets": ["p1:Myr Enforcer"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Myr Enforcer", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "nonartifact-creature-takes-two",
+      "cr": ["608.2c", "120.3e"],
+      "why": "A non-artifact creature is dealt only 2 damage; a 3/3 survives with 2 damage marked.",
+      "setup": {
+        "p0": {"hand": ["Electrostatic Bolt"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Electrostatic Bolt", "mana": "R", "targets": ["p1:Centaur Courser"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "battlefield"},
+        {"card": "p1:Centaur Courser", "damage": 2}
+      ]
+    }
+  ]
+}
