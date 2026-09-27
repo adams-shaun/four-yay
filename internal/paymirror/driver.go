@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sort"
-	"time"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
@@ -43,10 +42,6 @@ type DriverOptions struct {
 	// MaxObjects ends a game whose object arena passes this size (a runaway
 	// token board makes every clone and diff expensive); 0 = 2500.
 	MaxObjects int
-	// Budget, when positive, truncates a game after this much wall time,
-	// checked between intents. It is a harness bound only: it can end a game
-	// early (Err "truncated: budget"), never change a check's verdict.
-	Budget time.Duration
 	// OnReport, when set, receives every report as it is produced (the
 	// driver keeps only a compact copy of equivalent ones).
 	OnReport func(spec GameSpec, rep *Report)
@@ -192,7 +187,6 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 		opt.MaxObjects = 2500
 	}
 	res.Spec = spec
-	start := time.Now()
 	e := rules.NewStartingPlayerChoice(cfg)
 	bots := make([]*seat.Bot, len(cfg.Names))
 	for i := range bots {
@@ -217,10 +211,6 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 	for !e.G.Over && e.Pending() != nil && res.Intents < opt.MaxIntents && e.G.Turn <= opt.MaxTurns {
 		if len(e.G.Objs) > opt.MaxObjects {
 			res.Err = "truncated: bigboard"
-			return res
-		}
-		if opt.Budget > 0 && time.Since(start) > opt.Budget {
-			res.Err = "truncated: budget"
 			return res
 		}
 		dec := e.Pending()

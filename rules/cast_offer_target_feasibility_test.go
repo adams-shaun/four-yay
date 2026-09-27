@@ -239,16 +239,26 @@ func TestDisruptionAuraAttachAILogicDoesNotRestrictTargets(t *testing.T) {
 	if d == nil || d.Kind != decision.KTarget {
 		t.Fatalf("pending = %+v, want the aura's target ask", d)
 	}
-	found := false
+	idx := -1
 	for _, opt := range d.Options {
 		if opt.Obj == gizmo {
-			found = true
+			idx = opt.Index
 		}
 	}
-	if !found {
+	if idx < 0 {
 		t.Fatalf("the caster's own artifact is not among the aura's target options: %+v", d.Options)
 	}
+	// The offer/ask agreement must be a COMPLETING cast, not merely an
+	// askable one: submit the artifact and assert the spell left the hand
+	// without the CR 733.1 reversal (r2 review MINOR).
+	submitChoices(t, e, idx)
 	if hasNote(e, "cast aborted: no legal target") {
 		t.Fatal("the aura's cast aborted with a legal artifact target available")
+	}
+	// The spell is pushed before the target ask (CR 601.2c before payment),
+	// so a completing announcement leaves the card ON THE STACK, not back in
+	// hand (the reversal zone) and not gone.
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Fatalf("the aura's announcement left the spell in %s, want stack (a completing cast)", z)
 	}
 }

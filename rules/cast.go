@@ -8114,9 +8114,25 @@ func (e *Engine) targetAsk() bool {
 	// after the push. Filter to the grant-covered pool so offer and
 	// announcement judge the same set. The fuse cast judges each half against
 	// its own stage targets in recheckIllegal, so it is left unfiltered here.
+	//
+	// The permission is EXISTENTIAL over the announced set
+	// (spellMatchesValidSA judges the whole target list), so the per-candidate
+	// narrowing is exact only for a single-target ask. A multi-target ask
+	// whose pool has a proper subset of covered candidates keeps the FULL
+	// pool: a legal completion may mix covered and uncovered targets, and
+	// pruning the uncovered side would hide legal choices and -- under a
+	// mandatory minimum above the covered count -- abort a castable spell
+	// (offer census admitted it, the ask could not announce it). The completed
+	// selection is judged by recheckIllegal (CR 601.2e) over the same grant,
+	// before any cost is paid. With no covered candidate at all the pool
+	// empties and the mandatory-minimum census below aborts the proposal (or,
+	// at Min 0, the CR 601.2e recheck reverses an untargeted announcement).
 	if !pc.isAbility() && pc.offSorcery && f != nil && pc.mode != "fuse" &&
 		!e.flashGrantCoversTargets(pc.player, pc.card, f, nil) {
-		candidates = e.flashPermittedCandidates(pc, f, candidates)
+		covered := e.flashPermittedCandidates(pc, f, candidates)
+		if len(covered) == len(candidates) || len(covered) == 0 || (min <= 1 && max <= 1) {
+			candidates = covered
+		}
 	}
 	// Overload changes the word "target" to "each". It makes no selection at
 	// announcement time: the current matching set is derived at resolution,

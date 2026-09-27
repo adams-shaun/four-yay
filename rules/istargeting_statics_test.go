@@ -123,25 +123,17 @@ func TestIsTargetingTimelyWard(t *testing.T) {
 		t.Fatal("Timely Ward was not offered off-turn with a commander available")
 	}
 
-	// Announcing it on the non-commander is reversed (CR 601.2e).
+	// The announcement offers only the grant-covered target: the plain
+	// creature is a legal target of the Aura's Enchant restriction but does
+	// not satisfy the permission that granted off-turn timing (CR 601.2e),
+	// so it is not on the menu; the commander completes the cast.
 	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KTarget {
 		t.Fatalf("Timely Ward target decision = %+v", d)
 	}
-	if istTargetOptionFor(d, plain) < 0 {
-		t.Fatalf("precondition: the non-commander must be a legal target: %+v", d.Options)
-	}
-	submitChoices(t, e, istTargetOptionFor(d, plain))
-	if e.G.Obj(spell).Zone != state.ZHand {
-		t.Fatalf("a non-commander target left Timely Ward in %s, want hand", e.G.Obj(spell).Zone)
-	}
-
-	// Announcing it on the commander completes.
-	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
-	d = e.Pending()
-	if d == nil || d.Kind != decision.KTarget {
-		t.Fatalf("second Timely Ward target decision = %+v", d)
+	if idx := istTargetOptionFor(d, plain); idx >= 0 {
+		t.Fatalf("the non-commander was offered although the flash permission does not cover it: %+v", d.Options)
 	}
 	idx := istTargetOptionFor(d, cmdr)
 	if idx < 0 {
