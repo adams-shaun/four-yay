@@ -97,6 +97,13 @@ func TestCollectorCaptureReusesRedactionStorageWithoutAliasingFrames(t *testing.
 	// in the Collector's redaction scratch, so this ceiling was temporarily
 	// raised to 51. fc7d924ad added Decision.CloneValue() and
 	// view.copyDecision copies by value again, restoring the 50 steady state.
+	// Note (2026-09-25, go1.26.3): the compiler now inlines
+	// decision.(*Decision).Clone into copyDecision and stack-elides its
+	// pointee, so the historical `*d.Clone()` expression measures the identical
+	// allocation count as CloneValue (9=9 on a payment-extension fixture) and
+	// this ceiling passes uncached with it restored -- it regresses-guards
+	// future growth of the whole projection, not that expression. view's
+	// TestCopyDecisionRejectsDerefedClone pins the source shape instead.
 	if allocs > 50 {
 		t.Fatalf("Capture allocations = %.0f, want <= 50 after scratch reuse", allocs)
 	}
