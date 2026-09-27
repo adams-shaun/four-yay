@@ -28,17 +28,17 @@ import (
 // (Engine.staticBuildSeq / activeStaticSeq).
 //
 // This runs the recorded failure through cardfuzz's own playGame, so the
-// decks, seed and seats are identical to the report. It must be built with
-// verify mode on:
+// decks, seed and seats are identical to the report. Run with verify mode:
 //
-//	go test -ldflags '-X github.com/adams-shaun/gorge/rules.derivedMemoVerifyFlag=1 -X github.com/adams-shaun/gorge/rules.layerInertVerifyFlag=1' \
-//	    -run TestStaticMemoRefreshAtUnmovedLogHeadIsNotServedStale ./cmd/cardfuzz/
+// go test -ldflags '-X github.com/adams-shaun/gorge/rules.derivedMemoVerifyFlag=1 -X github.com/adams-shaun/gorge/rules.layerInertVerifyFlag=1' -run '^TestStaticMemoRefreshAtUnmovedLogHeadIsNotServedStale$' ./cmd/cardfuzz/
 //
-// Without the flags the game runs (a stale layer list does not change this
-// game's outcome), so the flags are the test's proof of the invariant.
+// Verify mode is essential: without it the stale list can leave this game
+// seemingly successful. The other derived-memo verifiers are set up from the
+// link-time flag too; flipping only the layer verifier at runtime would not
+// reproduce the failure.
 func TestStaticMemoRefreshAtUnmovedLogHeadIsNotServedStale(t *testing.T) {
 	if !rules.CacheVerificationEnabled() {
-		t.Fatal("verify mode is off: run this test with the -ldflags that set derivedMemoVerifyFlag/layerInertVerifyFlag (see the doc above)")
+		t.Skip("requires layer and derived memo verify-mode ldflags (see above)")
 	}
 	reg := testutil.CorpusRegistry(t)
 	decks := []genDeck{
@@ -69,8 +69,15 @@ func TestStaticMemoRefreshAtUnmovedLogHeadIsNotServedStale(t *testing.T) {
 		}},
 	}
 	const seed = uint64(9870940514099297810)
-	fail, _ := playGame(reg, decks, seed, 100, 20000, 0, true, true, autoPay{mode: "mixed"})
+	apc := autoPay{mode: "mixed"}
+	if seats := seatList(apc.seats(seed, len(decks), exploreIndex(seed, true))); len(seats) != 1 || seats[0] != 1 {
+		t.Fatalf("repro no longer has auto-pay seat 1: %v", seats)
+	}
+	fail, gc := playGame(reg, decks, seed, 100, 20000, 0, true, true, apc)
 	if fail != nil {
 		t.Fatalf("game at seed %d aborted: %s\n%s", seed, fail.Sig, fail.Diag)
+	}
+	if gc == nil || gc.ap == nil || gc.ap.Planned == 0 {
+		t.Fatalf("repro never exercised auto-pay: coverage %+v", gc)
 	}
 }
