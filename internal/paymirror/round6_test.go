@@ -161,6 +161,9 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5788, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: true, Policy: "bot"})
+		if len(reports) == 0 {
+			t.Errorf("seed %d: no planned-cast reports; clean-game assertions would be vacuous", tc.seed)
+		}
 		found := false
 		for _, r := range reports {
 			st, key := r.Verdict()

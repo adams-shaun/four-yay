@@ -92,6 +92,9 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)
+		if len(reports) == 0 {
+			t.Errorf("seed %d: no planned-cast reports; clean-game assertions would be vacuous", spec.Seed)
+		}
 		seen := map[uint64]bool{}
 		for _, r := range reports {
 			st, key := r.Verdict()

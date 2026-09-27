@@ -107,6 +107,19 @@ func TestPaymentPlanCommandZoneTaxInPlan(t *testing.T) {
 func TestPaymentPlanPriorityOffersCommanderPlan(t *testing.T) {
 	e, _, cmd := commanderTaxGame(t, 13)
 
+	// Add a zero-cost ordinary hand spell so this mixed-origin priority pins
+	// that admitting command-zone casts leaves the existing hand offer intact.
+	handSpell := e.G.AddObject(card(t, `Name:Hand Plan Probe
+ManaCost:0
+Types:Creature Wizard
+PT:1/1
+Oracle:x
+`), 0)
+	handSpell.Zone = state.ZHand
+	e.G.SetZone(state.ZHand, 0, append(e.G.Zone(state.ZHand, 0), handSpell.ID))
+	e.pending = nil
+	e.Advance()
+
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("precondition: pending decision = %+v, want seat 0 priority", d)
@@ -120,15 +133,34 @@ func TestPaymentPlanPriorityOffersCommanderPlan(t *testing.T) {
 	}
 
 	actions := e.EnsurePaymentActions()
-	if len(actions) != 1 {
-		t.Fatalf("EnsurePaymentActions = %d actions (%+v), want exactly one for the commander", len(actions), actions)
+	if len(actions) != 2 {
+		t.Fatalf("EnsurePaymentActions = %d actions (%+v), want the commander and existing hand spell", len(actions), actions)
 	}
-	a := actions[0]
-	if a.Cast.Object != cmd || a.Cast.Origin != "command_zone" || a.Cast.Face != 0 {
-		t.Fatalf("action cast = %+v, want the commander with origin command_zone", a.Cast)
+	var commanderAction, handAction *decision.PaymentAction
+	for i := range actions {
+		switch actions[i].Cast.Object {
+		case cmd:
+			commanderAction = &actions[i]
+		case handSpell.ID:
+			handAction = &actions[i]
+		}
+	}
+	a := commanderAction
+	if a == nil || a.Cast.Origin != "command_zone" || a.Cast.Face != 0 {
+		t.Fatalf("commander action = %+v, want origin command_zone", a)
+	}
+	if handAction == nil || handAction.Cast.Origin != "hand" {
+		t.Fatalf("hand action = %+v, want the unchanged hand-origin action", handAction)
+	}
+	handPlan := e.PlanCastPayment(0, decision.PlannedCast{Object: handSpell.ID, Face: 0, Origin: "hand"})
+	if handPlan.Plan == nil || len(handAction.Plans) != 1 || handAction.Plans[0].Cost != handPlan.Plan.Cost || handAction.Plans[0].PoolSpend != handPlan.Plan.PoolSpend || handAction.Plans[0].PoolAfter != handPlan.Plan.PoolAfter || len(handAction.Plans[0].Activations) != len(handPlan.Plan.Activations) {
+		t.Fatalf("hand action plan = %+v, direct hand plan = %+v; existing hand-cast offer changed", handAction, handPlan.Plan)
+	}
+	if handAction.BaseOptionIndex == nil || d.Options[*handAction.BaseOptionIndex].Obj != handSpell.ID {
+		t.Fatalf("hand action BaseOptionIndex = %v, want the plain hand spell option", handAction.BaseOptionIndex)
 	}
 	if a.BaseOptionIndex == nil {
-		t.Fatal("action has no BaseOptionIndex")
+		t.Fatal("commander action has no BaseOptionIndex")
 	}
 	base := d.Options[*a.BaseOptionIndex]
 	if base.Kind != "cast" || base.Obj != cmd || base.Mode != "" || base.AltCostIndex != 0 {
