@@ -2962,15 +2962,36 @@ func (e *Engine) Derived(id state.ObjID) Derived {
 	return e.derivedWith(id, 0)
 }
 
+// inProgressDerivedPT returns only an active layer-7 frame; unlike
+// FilterDerivedPT it never starts a fresh derivation when no frame exists.
+func (e *Engine) inProgressDerivedPT(id state.ObjID) (derivedPTSnapshot, bool) {
+	for i := len(e.derivedPTFrames) - 1; i >= 0; i-- {
+		if frame := e.derivedPTFrames[i]; frame.id == id && id != 0 {
+			return frame, true
+		}
+	}
+	return derivedPTSnapshot{}, false
+}
+
+// InProgressDerivedPT exposes the current layer-7 value to effects-side P/T
+// references. A reference made by the static currently deriving this object
+// must observe the value before that effect, rather than recursively deriving
+// the same object. It intentionally has no fallback derivation.
+func (e *Engine) InProgressDerivedPT(id state.ObjID) (power, toughness int32, ok bool) {
+	frame, ok := e.inProgressDerivedPT(id)
+	if !ok {
+		return 0, 0, false
+	}
+	return frame.power, frame.toughness, true
+}
+
 // FilterDerivedPT exposes a value snapshot for effects-side zone counts. The
 // effects package cannot depend on rules, so its Count$Valid fold discovers
 // this bridge through an optional interface and binds the values into the
 // candidate's SpecContext.
 func (e *Engine) FilterDerivedPT(id state.ObjID) (power, toughness, basePower, baseToughness int32, ok bool) {
-	for i := len(e.derivedPTFrames) - 1; i >= 0; i-- {
-		if frame := e.derivedPTFrames[i]; frame.id == id && id != 0 {
-			return frame.power, frame.toughness, frame.basePower, frame.baseToughness, true
-		}
+	if frame, found := e.inProgressDerivedPT(id); found {
+		return frame.power, frame.toughness, frame.basePower, frame.baseToughness, true
 	}
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
