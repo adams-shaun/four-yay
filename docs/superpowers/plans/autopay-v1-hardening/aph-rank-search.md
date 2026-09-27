@@ -146,4 +146,3 @@ walks the whole log, and returns `GenesisZoneSeq` for every token.
   `go test ./rules ./decision ./seat ./host ./host/httpapi ./cmd/repro -run 'PaymentPlan|AutoPayMana|AutoMana' -count=1`;
   `go test ./rules -run 'TestHeads|TestEveryRepoDeck|TestRepoDeckGamesReplayExactly' -count=1`;
   plus the sweep your brief names.
-

@@ -133,4 +133,3 @@ while on, `CAST` hand shortcut, legacy-click-submits-plan).
 - Line numbers in this brief are at main `6c711fece`; navigate by symbol.
 - Gates before you hand back: the brief's vitest files, the full web suite,
   and `npx svelte-check --tsconfig ./tsconfig.json` with 0 errors.
-
