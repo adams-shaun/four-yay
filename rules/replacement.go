@@ -1392,7 +1392,7 @@ func (e *Engine) continueManaReplacements(ev events.Event, candidates []replMatc
 				return ev, false
 			}
 			stored := events.Emit(e.G, e.L, ev)
-			e.loop.observeFrom(stored, e.damaging)
+			e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
 			e.checkTriggers(stored, nil, 0, 0, false)
 			return stored, true
 		}
@@ -1784,7 +1784,7 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 		// still on the stack is a no-op to effTap).
 		departing, link, controller := e.captureSourceLifelinkLKI(ev)
 		stored, absorbed := e.foldEntryMove(ev)
-		e.loop.observeFrom(stored, e.damaging)
+		e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
 		// The move-driven Effect lifetimes (the ExileOnMoved$/ForgetOnMoved$
 		// sweep) run on Engine.emit's own MoveZone path right here in the
 		// ordering; the raw events.Emit above bypasses that path, so the sweep
@@ -2008,7 +2008,7 @@ func (e *Engine) composeUpdatedReplacements(ev events.Event, matches []replMatch
 	}
 	departing, link, controller := e.captureSourceLifelinkLKI(ev)
 	stored, absorbed := e.foldEntryMove(ev)
-	e.loop.observeFrom(stored, e.damaging)
+	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
 	// The move-driven Effect lifetimes, replayed inline exactly as the
 	// single-match Updated branch does (the raw events.Emit above bypasses
 	// Engine.emit's own sweep point).
@@ -2144,7 +2144,7 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 		// the just-answered competition cannot re-pose).
 		stored, absorbed := e.foldEntryMove(rc.ev)
 		rc.absorbed = absorbed
-		e.loop.observeFrom(stored, e.damaging)
+		e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
 		// The move-driven Effect lifetimes, replayed inline exactly as the
 		// synchronous composition does (see applyReplacement's Updated arm).
 		e.effectMoveSweep(rc.ev)
