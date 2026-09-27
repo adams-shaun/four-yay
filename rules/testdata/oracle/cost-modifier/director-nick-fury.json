@@ -1,0 +1,124 @@
+{
+  "card": "Director Nick Fury",
+  "family": "cost-modifier",
+  "oracle_sha": "28dc132ef9f2",
+  "author": "cli-20260927T211250Z-9b48f4e3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "hero-spell-reduced",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Photon is a Hero with three generic units and a red unit; Fury removes one generic unit, so three red mana pays the remaining total.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Photon, Mighty Marvel"
+          ],
+          "battlefield": [
+            "Director Nick Fury"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Photon, Mighty Marvel",
+          "mana": "RRR",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Photon, Mighty Marvel",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "nonhero-stays-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Grizzly Bears is not a Hero; green mana by itself leaves its generic unit unpaid.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Director Nick Fury"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-hero-stays-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Only the Fury controller casts Hero spells at a discount; two red mana cannot pay the opponent’s three-generic-plus-red Hero.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Photon, Mighty Marvel"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Director Nick Fury"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "RR"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Photon, Mighty Marvel"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}
