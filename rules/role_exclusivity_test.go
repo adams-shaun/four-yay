@@ -90,7 +90,7 @@ func TestRoleExclusivityOldRoleGoesToGraveyard(t *testing.T) {
 	count := 0
 	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
 		o := e.G.Obj(id)
-		if o != nil && o.IsToken && o.AttachedTo == bear && isRole(o) {
+		if o != nil && o.IsToken && o.AttachedTo == bear && e.isRole(o) {
 			count++
 		}
 	}
@@ -180,7 +180,7 @@ func TestRoleExclusivityDifferentKindSweepsOldRole(t *testing.T) {
 	count := 0
 	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
 		o := e.G.Obj(id)
-		if o != nil && o.IsToken && o.AttachedTo == bear && isRole(o) {
+		if o != nil && o.IsToken && o.AttachedTo == bear && e.isRole(o) {
 			count++
 		}
 	}
