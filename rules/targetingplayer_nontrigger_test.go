@@ -100,7 +100,7 @@ func TestTargetingPlayerOpponentMultiSeatSelection(t *testing.T) {
 		want       state.PlayerID // seat that must answer
 		aliveOrder []state.PlayerID
 	}{
-		{name: "first living opponent answers", want: 1, aliveOrder: []state.PlayerID{0, 1, 2}},
+		{name: "controller's first-option answer selects seat 1", want: 1, aliveOrder: []state.PlayerID{0, 1, 2}},
 		{name: "dead first opponent fails over", lost: 1, want: 2, aliveOrder: []state.PlayerID{0, 2}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

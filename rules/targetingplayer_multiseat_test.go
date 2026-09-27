@@ -20,13 +20,10 @@ import (
 // this never read TargetingPlayer$ at all, so the spell silently asked its
 // caster.
 //
-// The opponent is chosen by the explicit engine contract shared with the
-// trigger resolver (rules/stack.go targetAskChooser -> targetChooserFromSpec):
-// the first living seat in AliveFrom(0) other than the controller. Forge's
-// "an opponent's choice" does not name which opponent when several are alive,
-// so this deterministic pick is stated rather than improvised. Target
-// LEGALITY stays the ability controller's: the option list is computed from
-// pc.player exactly as before, and only the answering seat moves.
+// When multiple opponents are alive, the controller chooses which one
+// answers; with one opponent the target ask goes directly to that seat.
+// Target LEGALITY stays the ability controller's: the option list is computed
+// from pc.player exactly as before, and only the answering seat moves.
 
 // targetingChooserBoard seats `seats` players at Main 1 of seat 0's first
 // turn. Seat 0's deck opens with the named corpus carrier plus one Grizzly
