@@ -220,17 +220,16 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	if f.HasKeyword("Gift") {
 		return "shape:gift"
 	}
-	for name := range f.SVars {
-		if _, present, _ := modeCost(f, name); present || modeCostUnparseable(f, name) {
-			return "shape:modal_cost"
-		}
+	// faceHasModeCost, memoised per face (face_scan_memo.go).
+	if e.faceScanHas(f, faceScanModalCost) {
+		return "shape:modal_cost"
 	}
 	for _, key := range []string{"Replicate", "Multikicker", "Squad"} {
 		if _, ok := f.KeywordParam(key); ok {
 			return "shape:optional_cost"
 		}
 	}
-	if faceReadsManaSpent(f) || faceWantsConverge(f) || faceWantsCastSpend(f) || e.paymentPlanBoardSpendReaderOut() {
+	if e.faceScanHas(f, faceScanReadsManaSpent) || faceWantsConverge(f) || faceWantsCastSpend(f) || e.paymentPlanBoardSpendReaderOut() {
 		return "shape:mana_spent_reader"
 	}
 	if e.paymentPlanHasTargetDependentModifierUsing(statics, p, id) {
@@ -992,17 +991,26 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 	// the prefix checks below; slices.Sorted(maps.Keys) keeps it a plain
 	// string-slice walk rather than a range the param census would have to
 	// classify.
-	keys := slices.Sorted(maps.Keys(ma.Params))
-	for _, key := range keys {
+	//
+	// The verdict is the one the sorted walk reaches first: the smallest key
+	// failing any of the three checks decides it. Taking that minimum over
+	// the unsorted keys is order-independent (so deterministic) and spares
+	// the sorted copy.
+	failing, found := "", false
+	for key := range maps.Keys(ma.Params) {
+		if (!found || key < failing) && paymentPlanShapeKeyFails(key) {
+			failing, found = key, true
+		}
+	}
+	if found {
+		key := failing
 		if strings.HasPrefix(key, "Condition") {
 			return deferred("source:conditional")
 		}
-		if strings.Contains(strings.ToLower(key), "target") || key == "ValidTgts" || key == "ValidTarget" {
+		if containsTargetFold(key) || key == "ValidTgts" || key == "ValidTarget" {
 			return deferred("source:target")
 		}
-		if !paymentPlanKnownManaParam(key) {
-			return deferred("source:param:" + key)
-		}
+		return deferred("source:param:" + key)
 	}
 	if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
 		return deferred("source:special_production")
@@ -1074,10 +1082,48 @@ func paymentPlanLastResortCostOK(c Cost) bool {
 // UnlessCost$, Defined$). Such production does something beyond adding plain
 // mana to the pool, so the ability is deferred.
 func paymentPlanHasSpecialProductionParam(ma *cards.SA) bool {
-	for _, key := range slices.Sorted(maps.Keys(ma.Params)) {
+	// An any-key test: key order cannot change the answer, so the keys are
+	// walked unsorted.
+	for key := range maps.Keys(ma.Params) {
 		if key == "TriggersWhenSpent" || key == "AddsCounters" || key == "AddsNoCounter" ||
 			key == "PersistentMana" || key == "UnlessCost" || key == "Defined" ||
 			strings.HasPrefix(key, "AddsKeywords") {
+			return true
+		}
+	}
+	return false
+}
+
+// paymentPlanShapeKeyFails reports whether key alone defers the ability in
+// paymentPlanAbilityShapeTier's key walk (a Condition key, a target key or
+// an unreviewed parameter).
+func paymentPlanShapeKeyFails(key string) bool {
+	return strings.HasPrefix(key, "Condition") || containsTargetFold(key) || key == "ValidTgts" || key == "ValidTarget" ||
+		!paymentPlanKnownManaParam(key)
+}
+
+// containsTargetFold is strings.Contains(strings.ToLower(key), "target")
+// without the lowered copy for an ASCII key (a non-ASCII key takes the
+// original expression, so the answer is identical for every input).
+func containsTargetFold(key string) bool {
+	for i := 0; i < len(key); i++ {
+		if key[i] >= 0x80 {
+			return strings.Contains(strings.ToLower(key), "target")
+		}
+	}
+	const w = "target"
+	for i := 0; i+len(w) <= len(key); i++ {
+		j := 0
+		for ; j < len(w); j++ {
+			c := key[i+j]
+			if 'A' <= c && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			if c != w[j] {
+				break
+			}
+		}
+		if j == len(w) {
 			return true
 		}
 	}

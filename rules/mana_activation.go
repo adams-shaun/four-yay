@@ -469,20 +469,23 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// CR 305.6: basic land types granted in layer 4 carry their intrinsic
 	// mana abilities too. Printed faces already contain their own intrinsics;
 	// append only productions they do not already provide.
-	if !faceDown && len(e.landTypeWords) > 0 {
-		for _, ce := range e.active() {
-			if ce.Layer == LType {
-				produced := make(map[string]bool, len(manaAbilities))
-				for _, ma := range manaAbilities {
-					produced[manaAbilityProduced(ma)] = true
-				}
-				for _, typ := range e.Derived(id).Types {
-					if ma, ok := cards.IntrinsicManaAbility(typ); ok && !produced[manaAbilityProduced(ma)] {
-						manaAbilities = append(manaAbilities, ma)
-						produced[manaAbilityProduced(ma)] = true
-					}
-				}
-				break
+	// Whether any layer-4 effect is active is one board-wide fact per
+	// active() build (activeSummaryOf), not a per-object list scan; the
+	// ability is built only for a colour no listed ability already produces
+	// (IntrinsicManaColor), so a basic land's own printed intrinsic costs no
+	// allocation. A granted intrinsic (no ActivationZone$, no Activator$)
+	// passes the loop's zone and Activator$ gates only on the battlefield and
+	// only for its controller, so for any other object the block would add
+	// nothing the loop keeps: it is skipped, with its layer read.
+	if !faceDown && len(e.landTypeWords) > 0 && o.Zone == state.ZBattlefield && e.controllerOf(id) == p &&
+		e.activeSummaryOf(e.active()).hasLType {
+		for _, typ := range e.Derived(id).Types {
+			color, ok := cards.IntrinsicManaColor(typ)
+			if !ok || manaAbilitiesProduce(manaAbilities, color) {
+				continue
+			}
+			if ma, ok := cards.IntrinsicManaAbility(typ); ok {
+				manaAbilities = append(manaAbilities, ma)
 			}
 		}
 	}
@@ -514,7 +517,17 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// CR 606.3 gates (sorcery timing, once per permanent per turn).
 		// (The zone gate runs first: it is the cheapest of these pure reads
 		// and the one a hand/graveyard card's printed ability fails.)
-		if !abilityZoneOK(ma, o.Zone) || e.isLoyaltyAbility(ma) {
+		//
+		// mf carries the configured ability's own-text verdicts
+		// (mana_safacts.go): a gate its text leaves empty is answered from
+		// it, every other gate runs its ordinary evaluator. A runtime-built
+		// ability (mf nil) takes every gate the ordinary way.
+		mf := e.manaFactsOf(ma)
+		if mf != nil {
+			if !mf.zoneOKFact(ma, o.Zone) || mf.loyalty {
+				continue
+			}
+		} else if !abilityZoneOK(ma, o.Zone) || e.isLoyaltyAbility(ma) {
 			continue
 		}
 		// Activation$ (Mox Opal's "Activate only if you control three or more
@@ -527,15 +540,46 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// mana ability's own eligibility home, so without this read the source
 		// controller could activate an ability whose Activator$ excluded them
 		// and a permitted opponent could not.
-		if e.activatorAllows(p, id, ma) &&
-			e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
-			!e.manaAbilityTapSick(id, ma) && !abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) &&
+		var cc *compiledCost
+		if mf != nil {
+			if mf.defaultActivator {
+				// activatorAllows' blank-Activator$ arm.
+				if e.controllerOf(id) != p {
+					continue
+				}
+			} else if !e.activatorAllows(p, id, ma) {
+				continue
+			}
+			if !mf.noActivation && !e.activationConditionOK(p, ma) {
+				continue
+			}
+			if mf.noIsPresent {
+				// manaActivationGateHolds without an IsPresent$ gate is its
+				// activationPhasesOK read alone.
+				if !mf.noPhaseGate && !e.activationPhasesOK(p, ma) {
+					continue
+				}
+			} else if !e.manaActivationGateHolds(p, id, ma) {
+				continue
+			}
+			cc = mf.cost
+		} else {
+			if !e.activatorAllows(p, id, ma) ||
+				!e.activationConditionOK(p, ma) || !e.manaActivationGateHolds(p, id, ma) {
+				continue
+			}
+			cc = e.compiledCostOf(ma.Params["Cost"])
+		}
+		// The cost is looked up once for the CR 302.6 tap-sick gate and the
+		// payability gate (manaAbilityPayable's own tap-sick re-check is the
+		// same pure read, so it is not repeated).
+		if !e.tapFlagsSick(id, cc.Tap, cc.Untap) && !abilityRestricted(ma) && (ignorePayable || e.manaCostPayable(p, o, id, cc, nil)) &&
 			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
 			// only if an opponent has three or more poison counters"): the same
 			// intervening-if gate sVarGateOK applies to every non-mana
 			// activation, so the priority offer, the payment windows and the V1
 			// planner withhold the ability with its condition false.
-			e.manaSVarGateOK(o, p, id, ma) {
+			((mf != nil && mf.noCheckSVar) || e.manaSVarGateOK(o, p, id, ma)) {
 			// ActivationLimit$ / GameActivationLimit$ (Vivi Ornitier's "only once
 			// each turn", Stalking Leonin's "Activate only once"): the non-mana
 			// ability offer loops in legal.go gate on these parameters, but this
@@ -546,7 +590,9 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			// looped on it forever (a zero-production source whose use never
 			// advances any cast). Both limits are checked through the one shared
 			// gate, with the printed identity (flat pile index, no SVar).
-			if _, limited := ma.Params["ActivationLimit"]; limited || ma.Params["GameActivationLimit"] != "" {
+			if mf != nil && mf.noLimit {
+				// Neither limit parameter: nothing to check.
+			} else if _, limited := ma.Params["ActivationLimit"]; limited || ma.Params["GameActivationLimit"] != "" {
 				idx, merged, found := pileAbilityRefOf(o, ma)
 				if found && e.activationLimitBlocked(p, id, ma, idx, "", merged) {
 					continue
@@ -570,11 +616,14 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// considerReflected reports whether a ManaReflected ability is live; the
 	// caller appends it (a closure appending to out itself would move out's
 	// header to the heap on every call).
-	considerReflected := func(ma *cards.SA, ctx *effects.Ctx) bool {
+	// ctx is called only once every other gate has passed, so an ability
+	// that fails one (an opponent's Exotic Orchard, a tapped source) never
+	// mints its Ctx.
+	considerReflected := func(ma *cards.SA, ctx func() *effects.Ctx) bool {
 		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
-		return len(effects.ManaReflectedCandidates(e, ctx, ma)) > 0
+		return len(effects.ManaReflectedCandidates(e, ctx(), ma)) > 0
 	}
 	// A ManaReflected ability may sit on the top face or any under-card; each
 	// resolves its own face's table.
@@ -583,18 +632,24 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		if !ok {
 			continue
 		}
-		// The per-face Ctx is minted only when the face actually prints a
-		// ManaReflected ability (measured: no repo-deck card does), so an
-		// ordinary permanent's offer pass allocates nothing here.
+		// The per-face Ctx is minted only when one of the face's ManaReflected
+		// abilities passes every other gate, and then shared by the face's
+		// remaining ones, so an ordinary permanent's offer pass allocates
+		// nothing here.
 		var faceCtx *effects.Ctx
+		var faceSVars map[string]string
+		faceCtxFn := func() *effects.Ctx {
+			if faceCtx == nil {
+				faceCtx = &effects.Ctx{Source: id, Controller: p, SVars: faceSVars}
+			}
+			return faceCtx
+		}
 		for _, ma := range pf.Face.Abilities {
 			if ma.API != "ManaReflected" {
 				continue
 			}
-			if faceCtx == nil {
-				faceCtx = &effects.Ctx{Source: id, Controller: p, SVars: pf.Face.SVars}
-			}
-			if considerReflected(ma, faceCtx) {
+			faceSVars = pf.Face.SVars
+			if considerReflected(ma, faceCtxFn) {
 				out = append(out, ma)
 			}
 		}
@@ -636,7 +691,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		}
 		printed[ma.Line] = true
 		if ma.API == "ManaReflected" {
-			if considerReflected(ma, recipient()) {
+			if considerReflected(ma, recipient) {
 				out = append(out, ma)
 			}
 			continue
@@ -666,7 +721,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			continue
 		}
 		if ga.sa.API == "ManaReflected" {
-			if considerReflected(ga.sa, recipient()) {
+			if considerReflected(ga.sa, recipient) {
 				out = append(out, ga.sa)
 			}
 			continue
@@ -899,6 +954,17 @@ func manaAbilityProduced(ma *cards.SA) string {
 	return ma.Params["Produced"]
 }
 
+// manaAbilitiesProduce reports whether some ability of mas has Produced$
+// exactly color (the granted-intrinsic dedup key).
+func manaAbilitiesProduce(mas []*cards.SA, color string) bool {
+	for _, ma := range mas {
+		if manaAbilityProduced(ma) == color {
+			return true
+		}
+	}
+	return false
+}
+
 // Two riders make a paid ability recognisable on the wheel (fb-877b8f8f,
 // fb-bbe4fd8f: Phyrexian Tower's "{T}, Sacrifice a creature: Add {B}{B}"
 // read "Add B", so the player saw no way to sacrifice): a cost beyond the
@@ -1124,8 +1190,15 @@ func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *ca
 // tapCostSick is CR 302.6's shared source-cost predicate for {T}/{Q}.
 // Tapping another permanent to pay a cost is intentionally not checked here.
 func (e *Engine) tapCostSick(source state.ObjID, cost Cost) bool {
+	return e.tapFlagsSick(source, cost.Tap, cost.Untap)
+}
+
+// tapFlagsSick is tapCostSick reading only the cost's {T}/{Q} flags, so a
+// caller holding a shared compiled cost (costRef) passes two bools rather
+// than copying the whole Cost.
+func (e *Engine) tapFlagsSick(source state.ObjID, tap, untap bool) bool {
 	o := e.G.Obj(source)
-	if o == nil || (!cost.Tap && !cost.Untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
+	if o == nil || (!tap && !untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
 		return false
 	}
 	return slices.Contains(e.Derived(source).Types, "Creature") && !e.HasKeyword(source, "Haste")
@@ -1139,7 +1212,8 @@ func (e *Engine) manaAbilityTapSick(source state.ObjID, ma *cards.SA) bool {
 	if ma == nil {
 		return false
 	}
-	return e.tapCostSick(source, e.parseCost(ma.Params["Cost"]))
+	c := e.costRef(ma.Params["Cost"])
+	return e.tapFlagsSick(source, c.Tap, c.Untap)
 }
 
 // manaAbilityPayablePool is manaAbilityPayable with the mana part priced
@@ -1154,10 +1228,52 @@ func (e *Engine) manaAbilityTapSick(source state.ObjID, ma *cards.SA) bool {
 // satisfies a sacrifice or a tap.
 func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma *cards.SA, hyp *state.Mana) bool {
 	o := e.G.Obj(source)
-	if o == nil || o.Face() == nil || e.manaAbilityTapSick(source, ma) {
+	if o == nil || o.Face() == nil {
 		return false
 	}
-	cost := e.parseCost(ma.Params["Cost"])
+	cc := e.compiledCostOf(ma.Params["Cost"])
+	if e.tapFlagsSick(source, cc.Tap, cc.Untap) {
+		return false
+	}
+	return e.manaCostPayable(p, o, source, cc, hyp)
+}
+
+// manaPayFastVerify makes manaCostPayable price every bare-{T} cost through
+// the full walk too and panic on a disagreement. Set by the rules test
+// binary.
+var manaPayFastVerify = derivedMemoVerifyFlag != ""
+
+// manaCostPayable is manaAbilityPayablePool after its source and CR 302.6
+// gates: o is source's live object (non-nil, with a face) and the tap-sick
+// check has already passed. A bare {T} cost -- no mana, no other component
+// -- is payable exactly when the source is untapped and the priced pool's
+// total is not negative (the empty requirement's only mana read:
+// resolveManaWith's closing total check); every other read of the full walk
+// (the life total, the sacrifice/discard/exile/tap candidate walks, the
+// energy counter, which never goes below zero) is priced against an empty
+// requirement. A restricted batch in the payer's pool reshapes the priced
+// pool through manaAvailableFor's per-batch filter, so that case keeps the
+// full walk. The test binary proves the equivalence on every call
+// (manaPayFastVerify).
+func (e *Engine) manaCostPayable(p state.PlayerID, o *state.Object, source state.ObjID, cc *compiledCost, hyp *state.Mana) bool {
+	if cc.bareTap && (hyp != nil || len(e.G.Players[p].RestrictedMana) == 0) {
+		pool := e.G.Players[p].Pool
+		if hyp != nil {
+			pool = *hyp
+		}
+		fast := !o.Tapped && pool.Total() >= 0
+		if manaPayFastVerify {
+			if slow := e.manaCostPayableFull(p, o, source, cc.Cost, hyp); slow != fast {
+				panic(fmt.Sprintf("rules: bare-{T} mana payability fast path %v disagrees with the full walk %v (source %d)", fast, slow, source))
+			}
+		}
+		return fast
+	}
+	return e.manaCostPayableFull(p, o, source, cc.Cost, hyp)
+}
+
+// manaCostPayableFull is the full cost walk of manaCostPayable.
+func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source state.ObjID, cost Cost, hyp *state.Mana) bool {
 	av := e.manaAvailableFor(p, paymentFor(source, true, cost))
 	pool := av.pool
 	typed := av.typed

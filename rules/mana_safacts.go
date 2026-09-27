@@ -1,0 +1,115 @@
+package rules
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// manaSAFacts is the configured-text half of the mana walk's per-ability
+// gates (appendAvailableManaAbilitiesGate's printed loop), computed once per
+// configured AB$ ability when the compiledText is built. Every field is a
+// pure function of the ability's own Params (and its compiled cost), so a
+// fact that says "this gate has nothing to read" lets the walk skip a
+// dozen small-map lookups per ability per object per offer; a gate the
+// ability does carry still runs through its ordinary evaluator. An ability
+// outside the configured set (a runtime-built SA) has no entry and takes
+// every gate the ordinary way. In the rules test binary manaSAFactsVerify
+// recomputes the facts on every hit and panics on a difference (the
+// "configured text is immutable" argument, checked).
+type manaSAFacts struct {
+	// zoneOK is abilityZoneOK(ab, z) for every z < 32 (bit z).
+	zoneOK uint32
+	// loyalty is isLoyaltyAbility(ab).
+	loyalty bool
+	// defaultActivator: Activator$ is blank, so activatorAllows is the
+	// controller test alone.
+	defaultActivator bool
+	// noActivation: Activation$ is absent or blank (activationConditionOK
+	// is true).
+	noActivation bool
+	// noPhaseGate: none of the parameters activationPhasesOK reads is
+	// present (it is true).
+	noPhaseGate bool
+	// noIsPresent: IsPresent$ is absent or blank, so manaActivationGateHolds
+	// reduces to activationPhasesOK.
+	noIsPresent bool
+	// noCheckSVar: CheckSVar$ is absent (manaSVarGateOK is true).
+	noCheckSVar bool
+	// noLimit: neither ActivationLimit$ nor a non-empty GameActivationLimit$
+	// is present (the walk's limit block is skipped).
+	noLimit bool
+	// cost is the ability's compiled Cost$.
+	cost *compiledCost
+}
+
+// manaSAFactsVerify: see derivedMemoVerify. Set by the rules test binary.
+var manaSAFactsVerify = derivedMemoVerifyFlag != ""
+
+func buildManaSAFacts(ab *cards.SA, costOf func(string) *compiledCost) *manaSAFacts {
+	f := &manaSAFacts{cost: costOf(ab.Params["Cost"])}
+	for z := 0; z < 32; z++ {
+		if abilityZoneOK(ab, state.Zone(z)) {
+			f.zoneOK |= 1 << z
+		}
+	}
+	raw := ab.Params["Cost"]
+	if containsLoyaltyFold(raw) {
+		f.loyalty = isLoyaltyAbilityRef(ab, &f.cost.Cost)
+	} else {
+		f.loyalty = isLoyaltyAbilityRef(ab, &freeCost.Cost)
+	}
+	f.defaultActivator = strings.TrimSpace(ab.Params["Activator"]) == ""
+	if raw, ok := ab.Params["Activation"]; !ok || strings.TrimSpace(raw) == "" {
+		f.noActivation = true
+	}
+	// The five keys activationPhasesOK reads, spelled out so the param
+	// census sees static keys.
+	_, phases := ab.Params["ActivationPhases"]
+	_, firstCombat := ab.Params["ActivationFirstCombat"]
+	_, afterBlockers := ab.Params["ActivationAfterBlockers"]
+	_, playerTurn := ab.Params["PlayerTurn"]
+	_, opponentTurn := ab.Params["OpponentTurn"]
+	f.noPhaseGate = !phases && !firstCombat && !afterBlockers && !playerTurn && !opponentTurn
+	if spec, ok := ab.Params["IsPresent"]; !ok || strings.TrimSpace(spec) == "" {
+		f.noIsPresent = true
+	}
+	_, check := ab.Params["CheckSVar"]
+	f.noCheckSVar = !check
+	_, limited := ab.Params["ActivationLimit"]
+	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
+	return f
+}
+
+// manaFactsOf returns ab's configured facts, or nil for an ability outside
+// the configured set.
+func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
+	if e == nil || e.compiledText == nil {
+		return nil
+	}
+	f := e.compiledText.saFacts[ab]
+	if f != nil && manaSAFactsVerify {
+		fresh := buildManaSAFacts(ab, e.compiledCostOf)
+		if fresh.cost != f.cost || !sameFactsIgnoringCost(*fresh, *f) {
+			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, *fresh))
+		}
+	}
+	return f
+}
+
+// sameFactsIgnoringCost compares two fact sets except the cost pointer
+// (compared by identity: a configured text has exactly one compiled cost).
+func sameFactsIgnoringCost(a, b manaSAFacts) bool {
+	a.cost, b.cost = nil, nil
+	return a == b
+}
+
+// zoneOKFact is abilityZoneOK through the facts' mask.
+func (f *manaSAFacts) zoneOKFact(ab *cards.SA, z state.Zone) bool {
+	if z < 32 {
+		return f.zoneOK&(1<<z) != 0
+	}
+	return abilityZoneOK(ab, z)
+}

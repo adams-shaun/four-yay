@@ -1788,6 +1788,12 @@ type Engine struct {
 	// never ranged). Both are Engine-owned scratch: Clone leaves them nil.
 	manaAbBuf  []*cards.SA
 	manaLabels map[string]string
+	// activeSum is active()'s per-build digest for the mana walk and
+	// grantedAbilities (active_summary.go). Clone leaves it zero.
+	activeSum activeSummary
+	// faceScans memoises per-face text-scan verdicts (face_scan_memo.go).
+	// Clone leaves it nil.
+	faceScans map[*cards.Face]faceScan
 	// intentBuf is a recycled intent array from Config.Spare, installed as
 	// the log's Intents on the first Submit (see there). Not cloned.
 	intentBuf []decision.Intent

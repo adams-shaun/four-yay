@@ -417,7 +417,7 @@ func (e *Engine) askWardMana(rp *resumePoint, wm *wardManaPayment) {
 				// carries (legal.go's priority window, cast.go's payment
 				// window), so an answerer can tell a non-tapping pool
 				// converter from a tap source here too.
-				opt.Cost = manaActivationCostMarker(e.availableManaAbilities(wm.payer, id))
+				opt.Cost = e.manaActivationCostMarker(e.availableManaAbilities(wm.payer, id))
 				d.Options = append(d.Options, opt)
 			}
 		}

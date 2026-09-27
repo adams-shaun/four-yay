@@ -104,6 +104,10 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "trigZonesEp"}:        true,
 	{"rules.Engine", "trigFaceZones"}:      true,
 	{"rules.Engine", "phaseSpecs"}:         true,
+	// The per-face text-scan memo (face_scan_memo.go) and active()'s
+	// per-build digest (active_summary.go): pure caches, Clone copies none.
+	{"rules.Engine", "faceScans"}: true,
+	{"rules.Engine", "activeSum"}: true,
 	// The replacement-source walk's zone summaries (repl_zoneskip.go), the
 	// trigZones shape: scratch validated on every use; Clone copies none.
 	{"rules.Engine", "replZones"}:   true,

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"reflect"
 	"sort"
 	"sync"
 
@@ -14,7 +15,43 @@ import (
 // share with engine clones.
 type compiledText struct {
 	predicates *effects.PredicatePrograms
-	costs      map[string]Cost
+	// costs holds each configured cost text's frozen parse. Stored by
+	// pointer so a lookup is a faststr map read and a read-only caller
+	// (costRef) takes no copy of the ~750-byte Cost; parseCost still hands
+	// out a value copy for callers that modify their cost.
+	costs map[string]*compiledCost
+	// saFacts holds every configured AB$ ability's mana-walk gate facts
+	// (mana_safacts.go), keyed by the ability's pointer.
+	saFacts map[*cards.SA]*manaSAFacts
+}
+
+// compiledCost is one configured cost text's frozen parse plus the facts
+// the hot read-only callers ask of it.
+type compiledCost struct {
+	Cost
+	// bareTap: the text is exactly {T} -- Tap set and every other component
+	// zero -- the cost of nearly every mana ability. manaAbilityCostPayable
+	// prices it without the generic payability walk.
+	bareTap bool
+	// beyondTap caches manaCostBeyondTap(Cost) (the fb-led1 marker test).
+	beyondTap bool
+}
+
+func newCompiledCost(text string) *compiledCost {
+	c := freezeCost(ParseCost(text))
+	return &compiledCost{Cost: c, bareTap: costIsBareTap(&c), beyondTap: manaCostBeyondTap(c)}
+}
+
+// costIsBareTap reports whether c is exactly {T}. Any component it cannot
+// prove zero (a non-nil empty slice included) answers false, the direction
+// that only ever keeps the full walk.
+func costIsBareTap(c *Cost) bool {
+	if !c.Tap {
+		return false
+	}
+	rest := *c
+	rest.Tap = false
+	return reflect.DeepEqual(rest, Cost{})
 }
 
 // compiledTextConfig snapshots exactly the card pointers whose text feeds a
@@ -183,11 +220,28 @@ func buildCompiledText(cfg Config) *compiledText {
 		costTextList = append(costTextList, text)
 	}
 	sort.Strings(costTextList)
-	costs := make(map[string]Cost, len(costTextList))
+	costs := make(map[string]*compiledCost, len(costTextList))
 	for _, text := range costTextList {
-		costs[text] = freezeCost(ParseCost(text))
+		costs[text] = newCompiledCost(text)
 	}
-	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs}
+	costOf := func(raw string) *compiledCost {
+		if c, ok := costs[raw]; ok {
+			return c
+		}
+		if raw == "" {
+			return &freeCost
+		}
+		return newCompiledCost(raw)
+	}
+	// Built from the seen set (a map range): each entry depends only on its
+	// own ability, so the order the map is filled in cannot matter.
+	saFacts := make(map[*cards.SA]*manaSAFacts)
+	for sa := range seen {
+		if sa.Kind == "AB" {
+			saFacts[sa] = buildManaSAFacts(sa, costOf)
+		}
+	}
+	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts}
 }
 
 func freezeCost(c Cost) Cost {
@@ -220,10 +274,37 @@ func freezeCost(c Cost) Cost {
 func (e *Engine) parseCost(raw string) Cost {
 	if e != nil && e.compiledText != nil {
 		if c, ok := e.compiledText.costs[raw]; ok {
-			return c
+			return c.Cost
 		}
 	}
 	return ParseCost(raw)
+}
+
+// freeCost is the parse of an empty cost text, shared read-only by costRef.
+var freeCost compiledCost
+
+// costRef is parseCost for a READ-ONLY caller: it returns the configured
+// text's shared frozen parse without copying it. The result MUST NOT be
+// written (not a field, not an element of one of its slices) -- it is the
+// same Cost every engine sharing this compiledText reads. A text outside the
+// configured set (a runtime-built cost string) is parsed fresh, exactly as
+// parseCost does.
+func (e *Engine) costRef(raw string) *Cost {
+	return &e.compiledCostOf(raw).Cost
+}
+
+// compiledCostOf is costRef with the compiled facts; the same read-only
+// contract applies to the whole result.
+func (e *Engine) compiledCostOf(raw string) *compiledCost {
+	if e != nil && e.compiledText != nil {
+		if c, ok := e.compiledText.costs[raw]; ok {
+			return c
+		}
+	}
+	if raw == "" {
+		return &freeCost
+	}
+	return newCompiledCost(raw)
 }
 
 // matchesSpecFrom is the engine-owned form of effects.MatchesSpecFrom. It

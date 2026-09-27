@@ -493,7 +493,7 @@ func (e *Engine) paymentManaAskClass(player state.PlayerID, source state.ObjID, 
 		// non-tapping pool converter from a tap source.
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "activate", Obj: id,
 			Label: "Tap " + e.G.Obj(id).Face().Name + " for mana",
-			Cost:  manaActivationCostMarker(e.availableManaAbilities(player, id))})
+			Cost:  e.manaActivationCostMarker(e.availableManaAbilities(player, id))})
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
 	e.choosing = flow

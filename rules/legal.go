@@ -772,7 +772,7 @@ func (e *Engine) isLoyaltyAbility(ab *cards.SA) bool {
 		// its whole answer for a cost with no counter parts).
 		return isLoyaltyMarked(ab)
 	}
-	return isLoyaltyAbilityCost(ab, e.parseCost(raw))
+	return isLoyaltyAbilityRef(ab, e.costRef(raw))
 }
 
 // containsLoyaltyFold reports whether s contains "loyalty" in any ASCII case.
@@ -796,6 +796,12 @@ func containsLoyaltyFold(s string) bool {
 }
 
 func isLoyaltyAbilityCost(ab *cards.SA, c Cost) bool {
+	return isLoyaltyAbilityRef(ab, &c)
+}
+
+// isLoyaltyAbilityRef is isLoyaltyAbilityCost over a read-only cost pointer
+// (a shared compiled cost from costRef is never copied or written).
+func isLoyaltyAbilityRef(ab *cards.SA, c *Cost) bool {
 	if isLoyaltyMarked(ab) {
 		return true
 	}
@@ -1574,7 +1580,15 @@ type grantedAbility struct {
 // stable layer/timestamp sort, names in the grant's own order.
 func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbility {
 	var out []grantedAbility
-	for _, ce := range e.active() {
+	ces := e.active()
+	// No grant anywhere in the list is one board-wide fact per active()
+	// build (active_summary.go): skip the per-object scan outright. The scan
+	// itself reads each entry in place rather than copying it.
+	if !e.activeSummaryOf(ces).hasGrants {
+		return nil
+	}
+	for i := range ces {
+		ce := &ces[i]
 		if len(ce.AddAbilities) == 0 && len(ce.GainedFaces) == 0 {
 			continue
 		}
@@ -3202,7 +3216,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 					// fb-led1: a mana ability that costs more than a bare tap is the
 					// play the window exists for — carry its cost so the client's
 					// empty-priority-window floor stops instead of passing it away.
-					if marker := manaActivationCostMarker(mas); marker != "" {
+					if marker := e.manaActivationCostMarker(mas); marker != "" {
 						opt.Cost = marker
 					}
 					out = append(out, opt)
