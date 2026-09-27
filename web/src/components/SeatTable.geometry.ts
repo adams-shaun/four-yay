@@ -44,6 +44,11 @@ const railPlayers = [
   player(2, 'Bo'),
   player(3, 'Cy'),
 ];
+const showHands = new URLSearchParams(window.location.search).get('hands') === '1';
+if (showHands) {
+  railPlayers[1].hand = [card(51, 'Ari Visible Card'), card(52, 'Ari Second Card')];
+  railPlayers[2].hand = [card(53, 'Bo Visible Card'), card(54, 'Bo Second Card')];
+}
 railPlayers[0].pool = { W: 3, U: 2, B: 1, R: 4, G: 0, C: 2 };
 railPlayers[1].hand_size = 9;
 railPlayers[1].library_size = 41;
@@ -51,7 +56,7 @@ railPlayers[1].graveyard_size = 12;
 railPlayers[1].exile = [card(11), card(12)];
 const railSeats: SeatInfo[] = railPlayers.map((p, i) => ({ name: p.name, deck: 'WURGc Control Mirror — long deck label ' + i, colour: '#e5484d' }));
 const railView: View = {
-  viewer: 255, visibility: 'public', turn: 4, round: 2, step: 'main1', phase: 'main1', active: 1, priority: 1,
+  viewer: 255, visibility: showHands ? 'omniscient' : 'public', turn: 4, round: 2, step: 'main1', phase: 'main1', active: 1, priority: 1,
   over: false, draw: false, winner: null,
   stack: [{
     id: 900, kind: 'spell', name: 'Slow but Absolutely Inevitable Zooming Doomwhisper', controller: 1,
