@@ -97,6 +97,12 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "trigZonesEp"}:        true,
 	{"rules.Engine", "trigFaceZones"}:      true,
 	{"rules.Engine", "phaseSpecs"}:         true,
+	// The payment-plan interference carrier memo (payment_plan_interference.go),
+	// keyed by object-arena size and log length; Clone copies none.
+	{"rules.Engine", "paymentPlanCarriers"}:       true,
+	{"rules.Engine", "paymentPlanCarriersObjs"}:   true,
+	{"rules.Engine", "paymentPlanCarriersEvents"}: true,
+	{"rules.Engine", "paymentPlanCarriersValid"}:  true,
 	// Scratch buffers reused across calls (contents after use are garbage).
 	{"rules.Engine", "legalOptBuf"}: true,
 	{"rules.Engine", "manaAbBuf"}:   true,

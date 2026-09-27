@@ -86,6 +86,8 @@
 //	triggerEventMasks, triggerObject-  immutable-syntax lookup caches keyed by face pointer
 //	Masks, trigZones/Ep, trigFaceZones,
 //	phaseSpecs
+//	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
+//	Valid                              object-arena size and log length; Clone copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf
 //	loop, askCount                     intent-stream watchdog and ask counter: they count the
