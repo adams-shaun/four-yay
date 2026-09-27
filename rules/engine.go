@@ -3261,13 +3261,21 @@ func (e *Engine) EnsurePaymentActions() []decision.PaymentAction {
 		return nil
 	}
 	if !d.PaymentActionsBuilt {
-		actions := e.PaymentActionsForPriority(d.Player, d.Seq)
+		// The pending Options are the list BaseOptionIndex indexes: ask built
+		// them with the same legalActions walk, so the builder reuses them
+		// instead of walking again.
+		gen := e.derivedMemoGen
+		actions := e.paymentActionsForPriority(d.Player, d.Seq, d.Options)
 		d.PaymentActions = (&decision.Decision{PaymentActions: actions}).Clone().PaymentActions
 		d.PaymentActionsBuilt = true
-		// The builder performs derived reads in its own memo generation. Make
-		// that completed read the resumable tail so a later BoardSeat build
-		// can still use BeginDerivedReads without reopening the walk.
-		e.recordDerivedMemoTail(d)
+		// A builder walk performs derived reads in its own memo generation.
+		// Make that completed read the resumable tail so a later BoardSeat
+		// build can still use BeginDerivedReads without reopening the walk.
+		// A build that opened no walk (a declined pool) leaves ask's own
+		// tail, which is still exact, in place.
+		if e.derivedMemoGen != gen {
+			e.recordDerivedMemoTail(d)
+		}
 	}
 	return d.PaymentActions
 }
