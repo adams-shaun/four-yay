@@ -711,7 +711,7 @@ func normalizePath(p string) string {
 
 // floatTriggerOnly reports whether every difference between run A (a) and the
 // float route (b) is the one floating's own triggered abilities make by
-// reaching the stack before the cast instead of after it (CR 603.3b; see
+// reaching the stack before the cast instead of after it (CR 603.3, 117.5; see
 // floatTriggerPrecedesCast), and nothing else:
 //
 //   - the same objects exist (the arena sizes are equal) and the objects
