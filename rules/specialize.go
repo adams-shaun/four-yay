@@ -90,10 +90,28 @@ func specializeCost(o *state.Object) (Cost, bool) {
 // SPECIALIZE: boundary, the readable gate riders hold, and the printed cost
 // is payable by the same payment payMana will run.
 func (e *Engine) specializeLegal(p state.PlayerID, id state.ObjID, faceIdx int) (Cost, bool) {
+	return e.specializeLegalPriced(p, id, faceIdx, nil)
+}
+
+// specializeLegalPriced is specializeLegal for the offer walk's two pricing
+// modes (legalActionsPriced): hyp nil is exactly specializeLegal (the
+// floating pool); hyp non-nil prices the printed cost against the
+// potential-action walk's hypothetical bound (PotentialMana), every other
+// gate unchanged. The bound is a pure mana over-bound, as castablePriced's
+// is: it may admit mana a context-free payment would refuse, the safe
+// direction for a projection that must never lose a play.
+func (e *Engine) specializeLegalPriced(p state.PlayerID, id state.ObjID, faceIdx int, hyp *state.Mana) (Cost, bool) {
 	o := e.G.Obj(id)
 	cost, ok := specializeCost(o)
 	if !ok || o.Controller != p || faceIdx < 1 || faceIdx >= len(o.Card.Faces) ||
-		o.Card.Faces[faceIdx].SpecializeColor == "" || !e.costPayableOther(p, id, cost) {
+		o.Card.Faces[faceIdx].SpecializeColor == "" {
+		return Cost{}, false
+	}
+	if hyp == nil {
+		if !e.costPayableOther(p, id, cost) {
+			return Cost{}, false
+		}
+	} else if !e.costPayablePool(p, id, false, cost, *hyp, e.G.Players[p].ManaUnits()) {
 		return Cost{}, false
 	}
 	for _, kw := range o.Face().Keywords {

@@ -1503,6 +1503,14 @@ const (
 	wordDefenderCtrl
 	wordNotDefinedTargeted
 	wordOpponentCtrl
+	// wordEnchantedControllerCtrl is Forge's EnchantedControllerCtrl -- the
+	// candidate is controlled by the controller of the permanent the SOURCE
+	// Aura/Equipment is attached to. It is the object-side twin of the player
+	// grammar's `Player.EnchantedController` clause (both resolve through
+	// playerEnchantedController), closing the census for the three corpus
+	// carriers (Snowblind's Land.Snow+EnchantedControllerCtrl, and
+	// Disturbing Conversion's / So Tiny's Card.EnchantedControllerCtrl).
+	wordEnchantedControllerCtrl
 	wordChosenColor
 	// wordHasNonBasicLandType is Forge's Card.hasANonBasicLandType: the object
 	// is a LAND that has at least one land type outside CR 205.3i's five
@@ -1708,6 +1716,8 @@ func wordPredicate(p string) (wordKind, string) {
 		return wordImprinted, ""
 	case "DefenderCtrl":
 		return wordDefenderCtrl, ""
+	case "EnchantedControllerCtrl":
+		return wordEnchantedControllerCtrl, ""
 	case "NotDefinedTargeted":
 		return wordNotDefinedTargeted, ""
 	case "Opponent":
@@ -2200,6 +2210,16 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// files); recognizing the bare word closes the census without
 		// widening any existing spelling.
 		return o.Controller != sc.You
+	case wordEnchantedControllerCtrl:
+		// Forge's EnchantedControllerCtrl: the candidate is controlled by the
+		// controller of the permanent this Aura/Equipment source is attached
+		// to. playerEnchantedController is the same resolver the player-side
+		// Player.EnchantedController clause uses, so the two spellings cannot
+		// drift. An absent link fails closed.
+		if ctrl, ok := playerEnchantedController(g, sc.Source); ok && ctrl == o.Controller {
+			return true
+		}
+		return false
 	case wordHasNonBasicLandType:
 		// Forge's hasANonBasicLandType: a land with at least one land type
 		// outside CR 205.3i's five basic land types, read through hasTypeCtx so
@@ -2355,6 +2375,17 @@ func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecCont
 		return sc.Resolving
 	case wordDefenderCtrl:
 		return sc.DefendingPlayer.IsPlayer
+	case wordEnchantedControllerCtrl:
+		// The body resolves the bearer of the SOURCE attachment, exactly as
+		// the player grammar's Player.EnchantedController clause does. With no
+		// source, or a source that is not attached, there is no controller to
+		// name: refuse the token beneath '!' too rather than invert an absent
+		// link into a match.
+		if sc.Source == 0 {
+			return false
+		}
+		o := g.Obj(sc.Source)
+		return o != nil && o.AttachedTo != 0 && g.Obj(o.AttachedTo) != nil
 	case wordImprinted, wordChosenColor:
 		return sc.Source != 0
 	case wordDealtDamageByThisGame:

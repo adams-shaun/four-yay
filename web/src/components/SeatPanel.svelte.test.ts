@@ -124,7 +124,7 @@ describe('SeatPanel — payment plans', () => {
     pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0],
   });
 
-  it('groups a legacy cast with its ordered plan list and leaves planned-only casts manual-aware', () => {
+  it('groups a legacy cast with its ordered plan list and shows a plan-only cast the same way', () => {
     const d: Decision = {
       ...priority,
       payment_actions: [
@@ -141,8 +141,11 @@ describe('SeatPanel — payment plans', () => {
     expect(html.match(/Cast Grizzly Bears/g)).toHaveLength(1);
     expect(html).toContain('data-payment-plan="first"');
     expect(html).toContain('data-payment-plan="second"');
-    expect(html).not.toContain('data-payment-manual="a"');
-    expect(html).toContain('data-payment-manual-needed');
+    // The plan-only cast (no legacy option) is its own payment action with
+    // its plan button (spec §8: "Plan-only casts ... are shown the same way").
+    expect(html).toContain('data-payment-action="b"');
+    expect(html).toContain('data-payment-plan="third"');
+    expect(html).toContain('Cast Future Spell');
     expect(html).toContain('data-payment-fallback');
   });
 
@@ -155,6 +158,93 @@ describe('SeatPanel — payment plans', () => {
     expect(html).not.toContain('data-payment-plan');
     expect(html).toContain('data-option="0"');
     expect(html).toContain('Cast Grizzly Bears');
+  });
+
+  it('with the table capability on but the seat preference off, the list is the legacy one and a plan-only cast is not shown', () => {
+    const d: Decision = {
+      ...priority,
+      payment_actions: [
+        { id: 'a', cast: { object: 101, face: 0, origin: 'hand' }, base_option_index: 0, label: 'Cast Grizzly Bears', plans: [plan('first')] },
+        { id: 'b', cast: { object: 102, face: 0, origin: 'hand' }, label: 'Cast Future Spell', plans: [plan('third')] },
+      ],
+    };
+    const state = new SeatPanelState('t1', 1, ctx, null, null);
+    state.setAutoManaAvailable(true);
+    state.adoptView(d);
+    const html = render(SeatPanel, { props: { ...props(view(d)), state } }).html;
+    expect(html).toContain('data-auto-pay-toggle');
+    expect(html).not.toContain('data-payment-actions');
+    expect(html).not.toContain('Cast Future Spell');
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Cast Grizzly Bears');
+  });
+});
+
+// Spec §8: with auto-pay on, manual "Activate … for mana" options are hidden
+// "unless the decision also offers a non-cast action that may need mana". The
+// option list reads the shared predicate (lib/manualmana.ts manualManaHidden),
+// not a rule of its own. Measured: a mana-costed non-cast action is offered
+// float-first, so on an empty pool the Equip is only a potential action.
+describe('SeatPanel — manual mana under auto-pay reads the shared predicate', () => {
+  const tapWindow: Decision = {
+    seq: 43, player: 1, kind: 'priority', prompt: 'You have priority.', min: 1, max: 1,
+    options: [
+      opt(0, 'activate', 'Activate Plains for mana', 81),
+      opt(1, 'activate', 'Activate Mountain for mana', 82),
+      opt(8, 'pass', 'Pass priority'),
+      opt(9, 'concede', 'Concede'),
+    ],
+  };
+  const autoPaying = (d: Decision): SeatPanelState => {
+    const state = new SeatPanelState('t1', 1, ctx, null, null);
+    state.setAutoManaAvailable(true);
+    state.setAutoPayMana(true);
+    state.adoptView(d);
+    return state;
+  };
+  /** withPotential puts potential_actions on the VIEWER's own row (seat 1), where view/view.go projects them. */
+  const withPotential = (v: View, potential: NonNullable<PlayerView['potential_actions']>): View =>
+    ({ ...v, players: v.players.map((p) => (p.seat === ctx.seat ? { ...p, potential_actions: potential } : p)) });
+
+  it('keeps the manual taps listed while an Equip is reachable only by floating mana first', () => {
+    const v = withPotential(view(tapWindow), [{ kind: 'ability', obj: 84, label: 'Probe Blade: Equip 1' }]);
+    const html = render(SeatPanel, { props: { ...props(v), state: autoPaying(tapWindow) } }).html;
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Activate Plains for mana');
+    expect(html).toContain('data-option="1"');
+  });
+
+  it('hides them when nothing but casts could use the mana', () => {
+    const html = render(SeatPanel, { props: { ...props(view(tapWindow)), state: autoPaying(tapWindow) } }).html;
+    expect(html).not.toContain('data-option="0"');
+    expect(html).not.toContain('Activate Plains for mana');
+  });
+
+  it('keeps the manual taps listed while a cast no plan pays (a flashback) is reachable only by floating mana', () => {
+    const v = withPotential(view(tapWindow), [{ kind: 'cast', obj: 30, mode: 'flashback', label: 'Cast Think Twice (flashback)' }]);
+    const html = render(SeatPanel, { props: { ...props(v), state: autoPaying(tapWindow) } }).html;
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Activate Plains for mana');
+  });
+
+  it('never hides a costly mana activation: Lion\u2019s Eye Diamond stays listed while the plain taps are hidden', () => {
+    const d: Decision = { ...tapWindow, options: [...tapWindow.options.slice(0, 2), { ...opt(2, 'activate', 'Activate Lion\'s Eye Diamond for mana', 83), cost: 'T Sac<1/CARDNAME> Discard<1/Hand>' }, ...tapWindow.options.slice(2)] };
+    const html = render(SeatPanel, { props: { ...props(view(d)), state: autoPaying(d) } }).html;
+    expect(html).toContain('data-option="2"');
+    expect(html).toContain('Eye Diamond for mana');
+    expect(html).not.toContain('Activate Plains for mana');
+  });
+
+  it('never hides the taps of a manual payment window (the fallback’s CR 601.2g window)', () => {
+    const castWindow: Decision = {
+      seq: 50, player: 1, kind: 'choose', prompt: 'Activate mana abilities to pay for Opt', min: 1, max: 1, source: 22,
+      options: [opt(0, 'activate', 'Activate Island for mana', 41), opt(1, 'done', 'Done')],
+      payment_fallback: { plan_id: 'plan-a', reason: 'source_changed' },
+    };
+    const html = render(SeatPanel, { props: { ...props(view(castWindow)), state: autoPaying(castWindow) } }).html;
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Activate Island for mana');
+    expect(html).toContain('data-payment-fallback');
   });
 });
 

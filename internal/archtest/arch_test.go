@@ -87,7 +87,9 @@ func set(s string) map[string]bool {
 // the engine, so no game, event, view or replay depends on its clock.
 // cmd/hindsight (the pn20 branch-mining tool) reads it only to report run and
 // per-decision wall seconds; every sample, rollout and record is a pure
-// function of its seeds.
+// function of its seeds. cmd/paymirror reads the clock only at the diagnostic
+// command boundary to enforce its harness budget and report per-game elapsed
+// time; elapsed time cannot affect engine choices, events, replays or verdicts.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 	allowed := map[string]bool{
 		module + "/host":              true,
@@ -102,6 +104,7 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/exitloop":      true,
 		module + "/cmd/traindash":     true,
 		module + "/cmd/hindsight":     true,
+		module + "/cmd/paymirror":     true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {

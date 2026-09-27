@@ -29,6 +29,25 @@ const (
 // chooseUntap; the numbers matter only inside this package's switch table.
 const chooseManaSacrifice chooseFor = 31
 
+// chooseManaTap is the mana ability's tapXType<N/Spec> tap pick, the tap
+// analogue of chooseManaSacrifice. 48 is the next free value after the
+// highest taken literal (47 is chooseOppPick, rules/stack.go).
+const chooseManaTap chooseFor = 48
+
+// manaCostChoicePending reports whether the engine is parked on one of the
+// mana ability's own cost sub-elections -- a discard, exile, sacrifice or
+// tap pick -- or its Produced$ colour choice. Every caller that must not
+// resolve an outer flow past an outstanding mana cost election reads this
+// one helper, so a newly added sub-election (chooseManaTap is the most
+// recent) cannot be forgotten at one guard and livelock a bot game.
+func (e *Engine) manaCostChoicePending() bool {
+	switch e.choosing {
+	case chooseManaColor, chooseManaDiscard, chooseManaExile, chooseManaSacrifice, chooseManaTap:
+		return true
+	}
+	return false
+}
+
 const (
 	chooseManaUnless chooseFor = iota + 17
 	chooseUnlessCost
@@ -254,9 +273,11 @@ type manaDiscardActivation struct {
 	sacPaid    int
 	discards   []state.ObjID
 	exiles     []state.ObjID
+	taps       []state.ObjID
 	sacPart    int
 	part       int
 	exilePart  int
+	tapPart    int
 	cast       bool
 	cumulative bool
 	gained     gainedManaRef
@@ -789,9 +810,13 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 // was the one label site that leaked the raw Produced string. Combo
 // <colours> reads "Add B or R" (three or more: comma-separated, the last
 // joined with "or"); Any/Combo Any read "Add any color" (the oracle's own
-// wording, CR 107.4); Produced$ Chosen reads "Add chosen color"; anything
-// else -- a plain single colour or C (the shape the wheel tints), a doubled
-// "RR", a Special expression -- keeps the bare "Add <value>" shape.
+// wording, CR 107.4) unless they carry a literal Amount$ above one, which is
+// then named ("Add three mana of any one color" for Any, "... in any
+// combination of colors" for Combo Any) so a source whose abilities differ
+// only in amount offers distinguishable wheel options (task
+// mana-wheel-amount-labels); Produced$ Chosen reads "Add chosen color";
+// anything else -- a plain single colour or C (the shape the wheel tints), a
+// doubled "RR", a Special expression -- keeps the bare "Add <value>" shape.
 // manaAbilityComboColours reports whether the ability's own Produced$ is an
 // explicit MULTI-colour combo ("Combo B R") and returns the colour list in
 // the ability's own token order -- the same order askManaColor offers, so the
@@ -839,6 +864,19 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 	produced := substituteChosenProduced(strings.TrimSpace(ma.Params["Produced"]), chosen)
 	switch produced {
 	case "Any", "Combo Any":
+		// A literal amount above one is named so a source whose abilities
+		// differ only in amount -- Sceptre of Eternal Glory's one-mana and
+		// three-mana "any color" abilities -- offers two distinguishable
+		// wheel options. Without it both read "Add any color", and a manual
+		// payer could not choose the larger ability on purpose (task
+		// mana-wheel-amount-labels). The two shapes keep the distinct
+		// wording their stage-2 prompt uses (manaColourPrompt).
+		if n, ok := literalManaAmount(ma.Params["Amount"]); ok && n > 1 {
+			if produced == "Combo Any" {
+				return "Add " + manaNumberWord(n) + " mana in any combination of colors"
+			}
+			return "Add " + manaNumberWord(n) + " mana of any one color"
+		}
 		return "Add any color"
 	case "Chosen":
 		return "Add chosen color"
@@ -859,7 +897,9 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 // SVar, Count$) or non-positive Amount$ keeps the single pip, because a
 // wrong number on the wheel is worse than none -- and only a one-letter
 // WUBRGC pip is repeated, so a "RR" token or a Special expression is left as
-// written.
+// written. An amount above manaPipRepeatLimit keeps the bare pip too: the
+// repeated spelling is the only one that expands, so its length is bounded
+// here rather than in the shared literal rule.
 func manaAmountPips(ma *cards.SA, pip string) string {
 	if len(pip) != 1 || !strings.Contains("WUBRGC", pip) {
 		return pip
@@ -868,11 +908,55 @@ func manaAmountPips(ma *cards.SA, pip string) string {
 	if !ok {
 		return pip
 	}
-	n, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil || n <= 1 || n > 20 {
+	n, ok := literalManaAmount(raw)
+	if !ok || n <= 1 {
+		return pip
+	}
+	if n > manaPipRepeatLimit {
+		// A single-pip production repeated by an absurd Amount$ would make an
+		// unreadable label (and a needlessly long string). The label spelling
+		// is the only consumer that expands, so the safety limit lives here;
+		// the any-colour wording below never repeats and has no such bound.
 		return pip
 	}
 	return strings.Repeat(pip, n)
+}
+
+// manaPipRepeatLimit bounds how many times manaAmountPips expands a single
+// pip. It is a label-size safety valve, not a correctness gate: a literal
+// amount above it is a corpus oddity, and the bare pip is the fail-safe
+// spelling. (The any-colour wording names an amount once, so it is not
+// bounded here.)
+const manaPipRepeatLimit = 20
+
+// literalManaAmount parses a mana ability's Amount$ parameter as a positive
+// integer literal, shared by manaAmountPips (which repeats a single pip) and
+// the any-colour label (which names the amount). Only an absent, non-literal
+// (X, an SVar, Count$) or non-positive amount fails: the rule is exactly the
+// manaColourPrompt rule, which also accepts every positive literal -- a wheel
+// label for "Add 21 mana of any one color" must be as faithful as its
+// stage-2 prompt, not silently fall back to "Add any color". A wrong number
+// on the wheel is worse than none, but a refused large number is worse still.
+func literalManaAmount(raw string) (int, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+// manaNumberWord is a literal mana amount in words, for the any-colour
+// stage-1 label ("Add three mana of any one color"). Amounts past twenty
+// fall back to digits ("Add 21 mana of any one color"): the wording stays
+// faithful rather than inventing a bound the stage-2 prompt does not apply.
+func manaNumberWord(n int) string {
+	words := [...]string{"zero", "one", "two", "three", "four", "five", "six",
+		"seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+		"fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"}
+	if n >= 0 && n < len(words) {
+		return words[n]
+	}
+	return strconv.Itoa(n)
 }
 
 // manaAbilityCostPrefix names a mana ability's activation cost BEYOND the
@@ -1014,9 +1098,10 @@ func (e *Engine) manaAbilityTapSick(source state.ObjID, ma *cards.SA) bool {
 // non-nil prices the activation against the potential-action walk's growing
 // hypothetical bound (rules/potential.go PotentialMana), which is what lets
 // a source's paid activation be reached after the seat floats mana from a
-// cheaper source first. Every non-mana read -- tap state, sacrifice,
-// discard and exile candidates, the announced-part refusals -- is real in
-// both modes: hypothetical mana never satisfies a sacrifice.
+// cheaper source first. Every non-mana read -- tap state and the literal
+// tapXType<N/Spec> candidates, sacrifice, discard and exile candidates, the
+// announced-part refusals -- is real in both modes: hypothetical mana never
+// satisfies a sacrifice or a tap.
 func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma *cards.SA, hyp *state.Mana) bool {
 	o := e.G.Obj(source)
 	if o == nil || o.Face() == nil || e.manaAbilityTapSick(source, ma) {
@@ -1033,7 +1118,7 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 		// typed counts never affect payability anyway).
 		typed = e.G.Players[p].ManaUnits()
 	}
-	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 || len(cost.TapPermanent) > 0 ||
+	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
 		len(cost.Blight) > 0 || cost.Forage || activationTapCostUnavailable(o, cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
 		return false
 	}
@@ -1084,17 +1169,116 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 			return false
 		}
 	}
-	if _, ok := e.manaSacrifices(p, source, cost); !ok {
-		return false
-	}
-	if _, ok := e.manaDiscards(p, source, cost); !ok {
-		return false
-	}
-	_, ok := e.manaExiles(p, source, cost)
+	sacs, ok := e.manaSacrifices(p, source, cost)
 	if !ok {
 		return false
 	}
+	discards, ok := e.manaDiscards(p, source, cost)
+	if !ok {
+		return false
+	}
+	exiles, ok := e.manaExiles(p, source, cost)
+	if !ok {
+		return false
+	}
+	// tapXType<N/Spec> parts (Springleaf Drum, Heritage Druid): the payer must
+	// have enough untapped matching permanents, reserving the source when the
+	// same cost also taps it and the sacrifice/discard/exile picks above (one
+	// permanent cannot pay two parts of one cost). The candidates here are the
+	// same battlefield-order walk the payment election uses, so the count that
+	// offered the activation and the objects the payer may tap cannot
+	// disagree.
+	reserved := make(map[state.ObjID]bool, len(sacs)+len(discards)+len(exiles))
+	for _, id := range sacs {
+		reserved[id] = true
+	}
+	for _, id := range discards {
+		reserved[id] = true
+	}
+	for _, id := range exiles {
+		reserved[id] = true
+	}
+	if !e.manaTapsPayable(p, source, cost, reserved) {
+		return false
+	}
 	return true
+}
+
+// manaTapsPayable reports whether a mana ability's literal tapXType<N/Spec>
+// parts have enough untapped matching permanents, reserving the given set
+// (the sacrifice/discard/exile picks already claimed), the source when the
+// cost's own {T} taps it, and each earlier tap part's picked permanents. A
+// dynamic part (Forge's tapXType<X/...>/tapXType<Any/...> heads) has no
+// settle on the off-stack mana path -- there is no X-announcement or
+// "any number" election beside a mana ability -- so it fails closed HERE:
+// the ability is not offered rather than activated with the tap silently
+// unpaid. The corpus' only dynamic mana tapXType (an {X}-token producer) is
+// therefore still not offered; its own ticket owns the dynamic election.
+func (e *Engine) manaTapsPayable(p state.PlayerID, source state.ObjID, cost Cost, reserved map[state.ObjID]bool) bool {
+	claimed := make(map[state.ObjID]bool, len(reserved)+1)
+	for id := range reserved {
+		claimed[id] = true
+	}
+	if cost.Tap {
+		claimed[source] = true
+	}
+	for _, part := range cost.TapPermanent {
+		if part.Dyn != "" {
+			return false
+		}
+		cands := e.manaTapCandidates(p, source, part.Spec, claimed)
+		if int32(len(cands)) < part.N {
+			return false
+		}
+		for i := int32(0); i < part.N; i++ {
+			claimed[cands[i]] = true
+		}
+	}
+	return true
+}
+
+// manaTapCandidates returns, in battlefield order, the untapped permanents
+// that can pay one literal tapXType<N/Spec> part and are not already claimed.
+// It is the one candidate walk shared by the offer gate (manaTapsPayable)
+// and the payment election (continueManaDiscard), so the count the offer is
+// priced on and the objects the payer may tap cannot diverge.
+func (e *Engine) manaTapCandidates(p state.PlayerID, source state.ObjID, spec string, claimed map[state.ObjID]bool) []state.ObjID {
+	var out []state.ObjID
+	for _, id := range e.costCandidates(p, source, state.ZBattlefield, spec, false, true) {
+		if !claimed[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// manaTapsPicked is manaTapsPayable's deterministic first-eligible pick set:
+// the R-9 no-ask stand-in for a caller that cannot pose the tap election
+// (interactive == false). It walks the same manaTapCandidates order the
+// election offers, claiming each part's first N, so a non-interactive
+// activation taps exactly what the silent build did and a replay rebuilds
+// the identical Tap events.
+func (e *Engine) manaTapsPicked(p state.PlayerID, source state.ObjID, cost Cost, sacs []state.ObjID) []state.ObjID {
+	claimed := make(map[state.ObjID]bool, len(sacs)+1)
+	for _, id := range sacs {
+		claimed[id] = true
+	}
+	if cost.Tap {
+		claimed[source] = true
+	}
+	var taps []state.ObjID
+	for _, part := range cost.TapPermanent {
+		cands := e.manaTapCandidates(p, source, part.Spec, claimed)
+		n := int(part.N)
+		if n > len(cands) {
+			n = len(cands)
+		}
+		for i := 0; i < n; i++ {
+			claimed[cands[i]] = true
+			taps = append(taps, cands[i])
+		}
+	}
+	return taps
 }
 
 // manaSacrifices finds enough candidates for each sacrifice cost part. The
@@ -1204,10 +1388,57 @@ func (e *Engine) continueManaDiscard() {
 	if md == nil {
 		return
 	}
+	// The tapXType<N/Spec> election runs first: the tap stage claims its
+	// permanents before the sacrifice stage's reserved map includes them, and
+	// the tap candidates reserve the sacrifice picks the offer walk already
+	// made (a permanent cannot pay two parts of one cost). A Dyn part never
+	// reaches here -- manaTapsPayable refused the whole ability.
+	for md.tapPart < len(md.cost.TapPermanent) {
+		part := md.cost.TapPermanent[md.tapPart]
+		claimed := make(map[state.ObjID]bool, len(md.taps)+len(md.sacs)+1)
+		for _, id := range md.taps {
+			claimed[id] = true
+		}
+		for _, id := range md.sacs {
+			claimed[id] = true
+		}
+		if md.cost.Tap {
+			claimed[md.source] = true
+		}
+		candidates := e.manaTapCandidates(md.player, md.source, part.Spec, claimed)
+		// The offer gate agreed, so a shortfall is a board that changed under
+		// the offer: drop the payment rather than ask an election no answer
+		// can satisfy.
+		if int32(len(candidates)) < part.N {
+			e.manaDiscardActivation = nil
+			e.choosing = chooseNone
+			return
+		}
+		if int32(len(candidates)) == part.N {
+			// Exactly N candidates makes the tap forced. Record them without a
+			// zero-information ask, matching tapPermanentCostAsk.
+			md.taps = append(md.taps, candidates[:int(part.N)]...)
+			md.tapPart++
+			continue
+		}
+		d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
+			Prompt: "Choose permanents to tap for the mana ability", Source: md.source}
+		for _, id := range candidates {
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)})
+		}
+		e.choosing = chooseManaTap
+		e.ask(d)
+		return
+	}
 	for md.sacPart < len(md.cost.Sac) {
 		part := md.cost.Sac[md.sacPart]
-		reserved := make(map[state.ObjID]bool, len(md.sacs))
+		reserved := make(map[state.ObjID]bool, len(md.sacs)+len(md.taps))
 		for _, id := range md.sacs {
+			reserved[id] = true
+		}
+		// A permanent elected to tap cannot also be sacrificed (one permanent
+		// cannot pay two parts of one cost).
+		for _, id := range md.taps {
 			reserved[id] = true
 		}
 		var candidates []state.ObjID
@@ -1373,6 +1604,14 @@ func (e *Engine) commitManaDiscard() {
 		}
 	}
 	e.payMillCost(md.player, md.cost.Mill)
+	// The elected tapXType permanents are tapped as part of the cost, before
+	// the source's own {T} (the cast path's emitChoiceCosts/payCast order), so
+	// a TapsForMana trigger on one of them matches the same way in both
+	// paths. The Tap events carry the same "tapped as a cost" text the cast
+	// path uses, so a replay rebuilds the identical chain.
+	for _, id := range md.taps {
+		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
+	}
 	var manaTriggers []pendingTrigger
 	if md.cost.Tap {
 		manaTriggers = e.emitManaTap(md.player, md.source, md.ability)
@@ -1430,8 +1669,7 @@ func (e *Engine) resumeManaAfterCost() {
 	if r.cumulative && e.choosing == chooseNone {
 		e.paymentWindowAsk()
 	}
-	if e.pending != nil || e.choosing == chooseManaColor || e.choosing == chooseManaDiscard ||
-		e.choosing == chooseManaExile || e.choosing == chooseManaSacrifice {
+	if e.pending != nil || e.manaCostChoicePending() {
 		return
 	}
 	if e.wardMana != nil {
@@ -1487,6 +1725,25 @@ func (e *Engine) answerManaExile(chosen []decision.Option) bool {
 		md.exiles = append(md.exiles, opt.Obj)
 	}
 	md.exilePart++
+	cast := md.cast
+	e.continueManaDiscard()
+	return cast
+}
+
+// answerManaTap records one literal tapXType<N/Spec> election's picks and
+// continues the payment. It mirrors answerManaSacrifice: the chosen objects
+// are recorded on the activation and the same continuation resumes, so the
+// tap stage's "answer then ask the next part" loop is identical to the
+// sacrifice stage's.
+func (e *Engine) answerManaTap(chosen []decision.Option) bool {
+	md := e.manaDiscardActivation
+	if md == nil {
+		return false
+	}
+	for _, opt := range chosen {
+		md.taps = append(md.taps, opt.Obj)
+	}
+	md.tapPart++
 	cast := md.cast
 	e.continueManaDiscard()
 	return cast
@@ -1948,15 +2205,18 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	// The continuation owns EVERY non-mana cost part, so it must be entered
 	// whenever one exists -- a caller that cannot ask (interactive == false:
 	// the attack-cost tap window and the direct-resolve tests) still has to
-	// pay the discard and exile parts. Only the sacrifice ASK is gated: such
-	// a caller keeps the R-9 deterministic first-eligible set manaSacrifices
-	// picked and skips straight past the sacrifice parts.
-	if len(cost.Sac) > 0 || len(cost.Discard) > 0 || len(cost.Exile) > 0 {
+	// pay the discard and exile parts. Only the sacrifice and tap ASKS are
+	// gated: such a caller keeps the R-9 deterministic first-eligible set
+	// manaSacrifices/manaTapsPicked picked and skips straight past those
+	// parts.
+	if len(cost.Sac) > 0 || len(cost.Discard) > 0 || len(cost.Exile) > 0 || len(cost.TapPermanent) > 0 {
 		md := &manaDiscardActivation{player: p, source: source,
 			ability: ma, cost: cost, cast: cast, cumulative: payment, gained: gained}
 		if !interactive {
 			md.sacs = sacs
 			md.sacPart = len(cost.Sac)
+			md.taps = e.manaTapsPicked(p, source, cost, sacs)
+			md.tapPart = len(cost.TapPermanent)
 		}
 		e.manaDiscardActivation = md
 		e.continueManaDiscard()
@@ -2520,15 +2780,17 @@ func chainGatesOnActivationCount(sa *cards.SA) bool {
 // ability is activated off the stack by resolveManaAbilityRefOriginal and
 // the manaDiscardActivation continuation, which settle exactly mana/life
 // (payManaConvFor), {T}, Mill, SubCounter on the source, PayEnergy<N>,
-// AddCounter on the source, Exert<1/CARDNAME>, Sac, Discard, Exile and the
-// self-Return. Every other part -- an unmodelled token (Cost.Unknown: Pili-Pala's
-// {Q}, Benthic Explorers' untapYType, both of which used to be priced as one
-// phantom generic), CollectEvidence (Cryptex), a Draw/DamageYou/PutToLib/
-// MoveToGrave/RollDice part, a dynamic PayEnergy<X> or a SubCounter
-// anchored to another permanent (Jetfire's RemoveAnyCounter) -- has no
-// settle here, so the ability is refused rather than activated with that
-// part silently free. The remaining refusals (X, Reveal, Behold, tapXType,
-// Blight, Forage, LifeX, an unsupported Return) live beside the call site.
+// AddCounter on the source, Exert<1/CARDNAME>, Sac, Discard, Exile, the
+// literal tapXType<N/Spec> tap (its election rides the same continuation)
+// and the self-Return. Every other part -- an unmodelled token (Cost.Unknown:
+// Pili-Pala's {Q}, Benthic Explorers' untapYType, both of which used to be
+// priced as one phantom generic), CollectEvidence (Cryptex), a
+// Draw/DamageYou/PutToLib/MoveToGrave/RollDice part, a dynamic PayEnergy<X>
+// or a SubCounter anchored to another permanent (Jetfire's
+// RemoveAnyCounter) -- has no settle here, so the ability is refused rather
+// than activated with that part silently free. The remaining refusals (X,
+// Reveal, Behold, a DYNAMIC tapXType<X/...>/<Any/...> part, Blight, Forage,
+// LifeX, an unsupported Return) live beside the call site.
 func manaCostPartsSettleable(cost Cost) bool {
 	if len(cost.Unknown) > 0 || len(cost.Evidence) > 0 || len(cost.Draw) > 0 ||
 		len(cost.DamageYou) > 0 || len(cost.PutToLib) > 0 || len(cost.MoveToGrave) > 0 ||

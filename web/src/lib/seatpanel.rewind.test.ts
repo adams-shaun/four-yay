@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Decision, Option, View } from '../protocol';
+import { ApiError } from './api';
 import { rememberKey } from './remembered';
 import { SeatPanelState, autoNoteText } from './seatpanel.svelte';
 import { clientBreadcrumbs } from './breadcrumbs';
@@ -469,5 +470,50 @@ describe('the undo pause', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // The /pending half of the 2026-09-26 undo wedge (demo g3): a poll issued
+  // in the pre-rewind seq space describes that space. Landing after rewind()
+  // -- which opened a new space and dropped the seqHigh fence -- it
+  // re-adopted the discarded ask (1526) over the restored one (1519), and the
+  // fence then refused 1519 for good: every answer carried 1526 and the
+  // server 409'd it. Either order of the stale read and the restored view
+  // wedged.
+  for (const lands of ['before', 'after'] as const) {
+    it(`a /pending read in flight across the rewind cannot re-adopt the discarded ask (it lands ${lands} the restored view)`, async () => {
+      const p = armedSeat();
+      p.adoptView(choose(1526));
+      let answer!: (d: Decision) => void;
+      fetchPendingMock.mockReturnValueOnce(new Promise<Decision>((resolve) => { answer = resolve; }));
+      const poll = p.refreshPending(); // read against the pre-undo server
+
+      p.rewind();
+      if (lands === 'after') p.adoptView(live(1519)); // the restored seat view
+      answer(choose(1526));
+      await poll;
+      if (lands === 'before') p.adoptView(live(1519));
+
+      expect(p.pending).toMatchObject({ seq: 1519, kind: 'priority' });
+      p.click(1); // pass, by hand
+      await settle(() => postIntentMock.mock.calls.length === 1);
+      expect(seqs()).toEqual([1519]);
+    });
+  }
+
+  it('a /pending 409 from the pre-rewind space does not clear the restored ask', async () => {
+    const p = armedSeat();
+    p.adoptView(choose(1526));
+    let refuse!: (e: unknown) => void;
+    fetchPendingMock.mockReturnValueOnce(new Promise<Decision>((_, reject) => { refuse = reject; }));
+    const poll = p.refreshPending();
+
+    p.rewind();
+    p.adoptView(live(1519));
+    refuse(new ApiError(409, 'conflict', 'host: no decision pending for seat 0'));
+    await poll;
+
+    expect(p.pending?.seq).toBe(1519);
+    expect(p.active?.seq).toBe(1519);
+    expect(p.error).toBeNull();
   });
 });

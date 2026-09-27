@@ -293,3 +293,55 @@ func TestChancellorOfTheAnnexOpeningRevealDrivesTheCounter(t *testing.T) {
 	}
 	t.Fatal("could not construct a seat-0 Chancellor opening hand")
 }
+
+// The opening-hand round's choose-flow marker (chooseOpening) must end with
+// the round: the first priority of turn 1 is posed with no choose flow
+// armed. A stale marker is read by the next KChoose answer's dispatch and by
+// the legend-rule SBA gate, and was measured by the A/B payment-plan mirror
+// at the first priority of games that took an opening-hand effect.
+func TestOpeningHandRoundClearsItsChooseFlow(t *testing.T) {
+	leyline := card(t, "Name:Leyline Test\nManaCost:2 G G\nTypes:Enchantment\nK:MayEffectFromOpeningHand:FromHand\nSVar:FromHand:DB$ ChangeZone | Defined$ Self | Origin$ Hand | Destination$ Battlefield | SpellDescription$ Begin the game with it on the battlefield.\nOracle:x\n")
+	deck := func() []*cards.Card {
+		out := mountainDeck(t, 20)
+		for i := 0; i < 20; i++ {
+			out = append(out, leyline)
+		}
+		return out
+	}
+	e := New(seatZeroStart(Config{Seed: 7, Names: []string{"a", "b"}, Decks: [][]*cards.Card{deck(), deck()}}))
+	e.Advance()
+	for i := 0; i < 20; i++ {
+		d := e.Pending()
+		if d == nil || e.G.Over {
+			t.Fatal("no decision")
+		}
+		if d.Kind == decision.KPriority {
+			break
+		}
+		choices := []int{}
+		for k := 0; k < d.Min || (k == 0 && d.Max > 0 && d.Kind == decision.KChoose); k++ {
+			choices = append(choices, d.Options[k].Index)
+		}
+		if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}); err != nil {
+			t.Fatalf("answer %s %q: %v", d.Kind, d.Prompt, err)
+		}
+	}
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("pending = %#v, want the first priority decision", d)
+	}
+	placed := 0
+	for _, p := range []state.PlayerID{0, 1} {
+		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			if e.G.Obj(id).Face().Name == "Leyline Test" {
+				placed++
+			}
+		}
+	}
+	if placed == 0 {
+		t.Fatal("no opening-hand effect was taken; the fixture did not exercise the round")
+	}
+	if e.choosing != chooseNone {
+		t.Errorf("first priority decision posed with choosing=%d (chooseOpening=%d still armed)", e.choosing, chooseOpening)
+	}
+}
