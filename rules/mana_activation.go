@@ -2681,7 +2681,7 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 	if o == nil || o.Face() == nil {
 		return 0
 	}
-	ctx := &effects.Ctx{Source: source, Controller: p}
+	ctx := e.manaAmountCtx(p, source)
 	for _, id := range sacs {
 		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
 	}
@@ -2691,6 +2691,18 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 		return 0
 	}
 	return amount
+}
+
+// manaAmountCtx is the Ctx a mana ability's Amount$ is priced in outside its
+// own resolution (the payment planner's castWindowAmount, a Combo
+// allocation's manaEffectAmount). It binds the same layer-3 name and layer-4
+// type tables effects.Resolve binds at the top of the ability's actual walk,
+// so a count over a type or name (Cloudpost's Count$Valid Locus reading
+// Planar Nexus's "every nonbasic land type") prices exactly what effMana will
+// add.
+func (e *Engine) manaAmountCtx(p state.PlayerID, source state.ObjID) *effects.Ctx {
+	return &effects.Ctx{Source: source, Controller: p,
+		EffectiveNames: e.EffectiveNames(), EffectiveTypes: e.EffectiveTypes()}
 }
 
 func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma *cards.SA, produced string, gained gainedManaRef, sacs []state.ObjID) {
