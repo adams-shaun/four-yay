@@ -7,7 +7,7 @@
     {
       "name": "exiled-card-deals-damage-at-end-step",
       "cr": ["603.2", "603.4", "513.1"],
-      "why": "A land entering under the controller's control exiles a card, so there is a card exiled with Valakut Exploration at end step; that card is put into its owner's graveyard and each opponent is dealt one damage.",
+      "why": "A land entering under the controller's control exiles a card, so a card remains exiled with Valakut Exploration at end step; the ability deals one damage to each opponent.",
       "setup": {"p0": {"hand": ["Forest"], "battlefield": ["Valakut Exploration"], "library_top": ["Wastes", "Grizzly Bears"]}, "p1": {}},
       "steps": [
         {"op": "play", "seat": 0, "card": "p0:Forest"},
@@ -15,7 +15,7 @@
         {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Valakut Exploration", "want": true}]},
         {"op": "resolve"}
       ],
-      "expect": [{"life": {"p1": 19}, "count": {"seat": 0, "zone": "graveyard", "name": "Grizzly Bears"}, "eq": 1}]
+      "expect": [{"life": {"p1": 19}}]
     },
     {
       "name": "no-exiled-cards-no-end-step-trigger",

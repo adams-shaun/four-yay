@@ -11,7 +11,7 @@
       "setup": {"p0": {"battlefield": ["Mana Vault"]}, "p1": {}},
       "setup_answers": [{"kind": "trigger_optional", "pick": ["no"]}],
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Mana Vault", "ability": "add"},
+        {"op": "activate", "seat": 0, "card": "p0:Mana Vault", "ability": "mana"},
         {"op": "pass_to", "step": "draw", "active": "p0", "answers": [{"kind": "trigger_optional", "pick": ["no"]}], "expect": [{"trigger_on_stack": "p0:Mana Vault", "want": true}]},
         {"op": "resolve"}
       ],
@@ -22,6 +22,7 @@
       "cr": ["603.4", "504.1"],
       "why": "Mana Vault remains untapped, so the condition on its draw-step ability is false and no trigger is put on the stack.",
       "setup": {"p0": {"battlefield": ["Mana Vault"]}, "p1": {}},
+      "setup_answers": [{"kind": "trigger_optional", "pick": ["no"]}],
       "steps": [
         {"op": "pass_to", "step": "draw", "active": "p0", "answers": [{"kind": "trigger_optional", "pick": ["no"]}], "expect": [{"trigger_on_stack": "p0:Mana Vault", "want": false}]}
       ],
