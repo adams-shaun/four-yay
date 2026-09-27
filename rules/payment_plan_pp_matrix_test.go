@@ -25,6 +25,11 @@ func ppAsk(t *testing.T, e *Engine) *decision.Decision {
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want seat-0 priority", d)
 	}
+	// Payment offers are opt-in since aph-lazy-offers: the ask no longer
+	// builds the extension eagerly. These tests exercise the payment-plan
+	// builder itself, so opt in exactly as an opted-in host does
+	// (host/match.go projectNext).
+	e.EnsurePaymentActions()
 	return d
 }
 func ppAction(t *testing.T, d *decision.Decision, spell state.ObjID) decision.PaymentAction {
