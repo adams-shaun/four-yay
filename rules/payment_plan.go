@@ -560,7 +560,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 		}
 	}
 	pool := e.G.Players[p].Pool
-	rankCtx := newPaymentPlanRankContext(choices)
+	rankCtx := newPaymentPlanRankContext(choices, e.paymentPlanHandDemand(p, cast.Object))
 	var best *decision.PaymentPlan
 	bestRank := paymentPlanRank{}
 	nodes, limited := 0, false
@@ -1161,14 +1161,24 @@ func paymentPlanConsequenceCost(c paymentConsequence, creature bool) int64 {
 
 // paymentPlanRankContext is the per-query input the rank needs beyond one
 // plan: for each colour (WUBRG), how many untapped sources with an eligible
-// normal alternative can produce it. It is computed once from the query's
-// alternative table, so a plan's remainder is this census minus the plan's
-// own chosen sources.
+// normal alternative can produce it, and the acting player's own hand's
+// colour demand. Both are computed once from the query, so a plan's
+// remainder is the census minus the plan's own chosen sources.
 type paymentPlanRankContext struct {
 	colourSources [5]int
+	// Key 6 inputs (spec 5 amended): handDemand[c] is the largest number of
+	// colour c's pips on any single nonland card in the acting player's own
+	// hand other than the cast card; demandOrder lists the colour indices by
+	// descending demand (WUBRG ties); reserveBase is max demand + 1, the
+	// digit base of the packed coverage. A zero reserveBase (a directly
+	// constructed context, or no demanded colour) leaves key 6 at 0 for
+	// every plan, the tie value the placeholder pinned.
+	handDemand  [5]int
+	demandOrder [5]int
+	reserveBase int
 }
 
-func newPaymentPlanRankContext(choices [][]plannedManaActivation) paymentPlanRankContext {
+func newPaymentPlanRankContext(choices [][]plannedManaActivation, demand [5]int) paymentPlanRankContext {
 	var ctx paymentPlanRankContext
 	for _, alts := range choices {
 		if len(alts) == 0 {
@@ -1180,7 +1190,79 @@ func newPaymentPlanRankContext(choices [][]plannedManaActivation) paymentPlanRan
 			}
 		}
 	}
+	ctx.handDemand = demand
+	max := 0
+	for _, n := range demand {
+		if n > max {
+			max = n
+		}
+	}
+	ctx.reserveBase = max + 1
+	ctx.demandOrder = [5]int{0, 1, 2, 3, 4}
+	// Stable over the WUBRG seed order, so equal demands keep WUBRG order.
+	slices.SortStableFunc(ctx.demandOrder[:], func(a, b int) int {
+		return cmp.Compare(demand[b], demand[a])
+	})
 	return ctx
+}
+
+// paymentPlanHandDemand measures the acting player's OWN hand's colour
+// demand (spec 5 key 6): for each WUBRG colour, the largest number of that
+// colour's pips on any single nonland card in hand other than the card being
+// cast. It reads only the acting player's own hand and the printed mana
+// costs, so an opponent's hand and every other zone stay out of the rank.
+func (e *Engine) paymentPlanHandDemand(p state.PlayerID, exclude state.ObjID) [5]int {
+	var demand [5]int
+	for _, id := range e.G.Zone(state.ZHand, p) {
+		if id == exclude {
+			continue
+		}
+		o := e.G.Obj(id)
+		if o == nil || o.Face() == nil || o.Face().IsLand() {
+			continue
+		}
+		pips := costPips(e.rawBaseCost(p, id))
+		for c := range demand {
+			if pips[c] > demand[c] {
+				demand[c] = pips[c]
+			}
+		}
+	}
+	return demand
+}
+
+// costPips counts a parsed printed cost's coloured pips per WUBRG colour:
+// each plain pip for its colour, each hybrid pip for both its colours, a
+// Phyrexian pip for its colour, a twobrid for its coloured face (its generic
+// face is not a pip) and a hybrid-Phyrexian pip for both its colours.
+// Generic, {X} and {C} pips count for no colour.
+func costPips(c Cost) [5]int {
+	var d [5]int
+	for i, n := range c.Colored {
+		if i < len(d) {
+			d[i] += int(n)
+		}
+	}
+	add := func(sym byte) {
+		if i := state.ManaIndex(sym); i < len(d) {
+			d[i]++
+		}
+	}
+	for _, h := range c.Hybrid {
+		add(h.A)
+		add(h.B)
+	}
+	for _, p := range c.Phyrexian {
+		add(p)
+	}
+	for _, t := range c.Twobrid {
+		add(t.Col)
+	}
+	for _, h := range c.HybridPhyrexian {
+		add(h.A)
+		add(h.B)
+	}
+	return d
 }
 
 // paymentPlanRankStep is one witness step as the final tie-break compares it.
@@ -1197,7 +1279,7 @@ type paymentPlanRank struct {
 	sources     int   // 3. newly activated sources
 	surplus     int32 // 4. surplus mana left in the pool after paying
 	flex        int   // 5. distinct mana types the chosen sources could have made
-	handReserve int   // 6. placeholder, always 0: aph-hand-reserve defines it
+	handReserve int   // 6. packed hand-reserve coverage, MORE first (spec 5 amended; was a zero placeholder)
 	remainder   int   // 7. distinct colours the unused sources still make (MORE first)
 	steps       []paymentPlanRankStep
 }
@@ -1218,8 +1300,9 @@ func (r paymentPlanRank) less(o paymentPlanRank) bool {
 	if r.flex != o.flex {
 		return r.flex < o.flex
 	}
+	// Key 6 (hand reserve) is MORE coverage first, like key 7's remainder.
 	if r.handReserve != o.handReserve {
-		return r.handReserve < o.handReserve
+		return r.handReserve > o.handReserve
 	}
 	if r.remainder != o.remainder {
 		return r.remainder > o.remainder
@@ -1305,6 +1388,22 @@ func rankPaymentPlan(ctx paymentPlanRankContext, p decision.PaymentPlan, as []pl
 		if n > 0 {
 			r.remainder++
 		}
+	}
+	// Key 6: the packed hand-reserve coverage. Each digit is the plan's
+	// coverage min(untapped normal remainder, demand) for one colour, most
+	// significant digit first in the demand order, so the packed integer
+	// compares lexicographically in that order (less reads it larger first).
+	// Zero demand packs to 0 for every plan.
+	if ctx.reserveBase > 0 {
+		cov := 0
+		for _, c := range ctx.demandOrder {
+			n := remaining[c]
+			if d := ctx.handDemand[c]; n > d {
+				n = d
+			}
+			cov = cov*ctx.reserveBase + n
+		}
+		r.handReserve = cov
 	}
 	for i := range p.Activations {
 		r.steps[i].act = p.Activations[i]
