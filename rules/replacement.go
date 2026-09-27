@@ -949,23 +949,6 @@ func replacementBodySA(body string) *cards.SA {
 	return sa
 }
 
-// forEachReplacementSource extends the ordinary battlefield/game-zone scan
-// with the command zone, where Plane/Vanguard replacement text explicitly
-// declares ActiveZones$ Command. Trigger discovery deliberately keeps using
-// forEachObject, so this cannot make unrelated command-zone triggers live.
-// Command-zone objects are visited once per living seat, after all ordinary
-// zones, in their zone order; replacementMatches requires an explicit Command
-// ActiveZones declaration there, preventing ordinary card text from becoming
-// active merely because its object happens to be parked in that zone.
-func (e *Engine) forEachReplacementSource(fn func(id state.ObjID)) {
-	e.forEachObject(fn)
-	for _, p := range e.G.AliveFrom(0) {
-		for _, id := range e.G.Zone(state.ZCommand, p) {
-			fn(id)
-		}
-	}
-}
-
 // replacementEventNameMatches compares a printed R:Event$ name with the
 // event name an engine event maps to. "DrawCards" is Forge's spelling of
 // the draw replacement event (Quantum Riddler's "you draw that many cards

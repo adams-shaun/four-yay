@@ -101,6 +101,10 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "trigZonesEp"}:        true,
 	{"rules.Engine", "trigFaceZones"}:      true,
 	{"rules.Engine", "phaseSpecs"}:         true,
+	// The replacement-source walk's zone summaries (repl_zoneskip.go), the
+	// trigZones shape: scratch validated on every use; Clone copies none.
+	{"rules.Engine", "replZones"}:   true,
+	{"rules.Engine", "replZonesEp"}: true,
 	// The payment-plan interference carrier memo (payment_plan_interference.go),
 	// keyed by object-arena size and log length; Clone copies none.
 	{"rules.Engine", "paymentPlanCarriers"}:       true,

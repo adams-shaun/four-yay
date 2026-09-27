@@ -371,22 +371,45 @@ func (w *livelockWatcher) detect() {
 	if lim := n / 2; lim < maxP {
 		maxP = lim
 	}
-	for p := 1; p <= maxP; p++ {
-		ok := true
-		for j := n - 1; j >= n-p; j-- {
-			if w.sigAt(j) != w.sigAt(j-p) {
-				ok = false
-				break
+	if maxP < 1 {
+		return
+	}
+	// A period p needs sig(n-1) == sig(n-1-p) before anything else, so the
+	// candidate scan walks the logical entries n-2, n-3, ... as contiguous
+	// physical runs of the ring (newest first, wrapping once) and only a
+	// candidate pays the full two-halves comparison. Same p order, same
+	// verdict as testing every p in turn.
+	last := w.sigAt(n - 1)
+	phys := w.sigHead + n - 2 // physical index of logical n-2
+	if phys >= n {
+		phys -= n
+	}
+	p := 1
+	for p <= maxP {
+		seg := w.sigs[:phys+1]
+		for k := len(seg) - 1; k >= 0 && p <= maxP; k-- {
+			if seg[k] == last && w.periodHolds(n, p) {
+				w.runPeriod, w.runEvents = p, 2*p
+				if w.runEvents >= w.guard.CycleEvents {
+					w.abort()
+				}
+				return
 			}
+			p++
 		}
-		if ok {
-			w.runPeriod, w.runEvents = p, 2*p
-			if w.runEvents >= w.guard.CycleEvents {
-				w.abort()
-			}
-			return
+		phys = n - 1
+	}
+}
+
+// periodHolds reports whether the trailing 2p signatures of an n-entry
+// window are two identical halves.
+func (w *livelockWatcher) periodHolds(n, p int) bool {
+	for j := n - 1; j >= n-p; j-- {
+		if w.sigAt(j) != w.sigAt(j-p) {
+			return false
 		}
 	}
+	return true
 }
 
 // abort panics with the diagnostic for the active run. The rendered cycle
