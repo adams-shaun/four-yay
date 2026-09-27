@@ -247,11 +247,18 @@ func (r *Registry) SnapshotForFeedback(id TableID, seat *state.PlayerID) (Feedba
 	// The pending decision, copied the way ViewAtSeat copies it: the view
 	// carries the decision only when the projection lands exactly at the
 	// live head and the engine is parked on one — a historical prefix never
-	// misrepresents what was pending.
+	// misrepresents what was pending. The copy is Decision.Clone (spec §7
+	// ownership boundary): the payment-plan extension — PaymentActions and
+	// the pending PaymentFallback — is deep-copied with it, never aliased
+	// against the engine's live pending, and gated exactly as the live seat
+	// view gates it (a table without AutoMana publishes no payment actions,
+	// so the feedback view must not carry them either).
 	var d *decision.Decision
 	if p := m.e.Pending(); p != nil {
-		cp := *p
-		cp.Options = append([]decision.Option(nil), p.Options...)
+		cp := *p.Clone()
+		if !m.table.cfg.AutoMana {
+			cp.PaymentActions = nil
+		}
 		d = &cp
 	}
 	snaps := append([]snapshot(nil), m.snaps...)

@@ -1646,11 +1646,22 @@ type Engine struct {
 	// Tapping and damage provenance are likewise synchronous event context.
 	tappingForMana      state.ObjID
 	tappingManaProduced string
-	tapObj              state.ObjID
-	tapPlayer           state.PlayerID
-	tapEntering         bool
-	tappedTurn          map[state.ObjID]int32
-	triggerTurnFires    map[triggerKey]turnFires
+	// manaTapMark is the event-log length just after the most recent
+	// activated mana ability's Tap (rules/mana_activation.go's emitManaTap).
+	// resolveTriggeredManaAbilities scans e.L.Events from here for the
+	// ManaAdd batch the activation produced, to bind each CR 605.3b
+	// triggered mana ability's produced-type set (effects.TriggerContext.
+	// TriggerMana, the ReflectProperty$ Produced read). It is set before the
+	// mana effect resolves -- the actual ManaAdd events do not exist yet at
+	// trigger-match time -- and consumed by the first batch resolution.
+	// Transient engine scratch, zero at every intent boundary (Clone builds a
+	// fresh Engine and never copies it). Zero means no pending activated tap.
+	manaTapMark      int
+	tapObj           state.ObjID
+	tapPlayer        state.PlayerID
+	tapEntering      bool
+	tappedTurn       map[state.ObjID]int32
+	triggerTurnFires map[triggerKey]turnFires
 	// triggerGameFires is the lifetime queue count for GameActivationLimit$.
 	// Unlike triggerTurnFires it is never reset at TurnChange.
 	triggerGameFires map[triggerKey]int32
