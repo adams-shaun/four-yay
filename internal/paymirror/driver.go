@@ -269,10 +269,16 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 	return res
 }
 
-// compact drops the bulky parts of an equivalent report.
+// compact drops the bulky parts of an equivalent report. A report whose
+// resolve horizon panicked is kept whole: the panic is a finding.
 func compact(r *Report) *Report {
 	if s, _ := r.Verdict(); s != Equivalent {
 		return r
+	}
+	for _, rr := range r.Routes {
+		if rr.HorizonPanic != "" {
+			return r
+		}
 	}
 	c := *r
 	c.FollowUps = nil

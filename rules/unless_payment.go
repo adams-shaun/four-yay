@@ -394,11 +394,17 @@ func (e *Engine) advanceUnlessPayment() {
 	// ordinary path below pays it. The window is only opened while a source
 	// remains that the budget counted.
 	d := paymentDescriptor{id: u.stackObj, class: paymentOther, cost: &u.cost}
+	// Open the window only when the POOL ALONE cannot pay (lifeGrant false:
+	// a {B} pip K'rrik's grant could settle with 2 life must not close it)
+	// AND a window source remains. The ordinary grant-bearing check below is
+	// retained: when no source can help (or the payer answers Done with the
+	// pool already covering the charge) the granted life still pays it.
+	if !e.costPayableClassLife(u.payer, d, pipRider{}, u.cost, false) &&
+		u.cost.hasManaPayment() && len(e.windowManaUnits(u.payer)) > 0 {
+		e.askUnlessMana()
+		return
+	}
 	if !e.costPayableClass(u.payer, d, pipRider{}, u.cost) {
-		if u.cost.hasManaPayment() && len(e.windowManaUnits(u.payer)) > 0 {
-			e.askUnlessMana()
-			return
-		}
 		e.finishUnlessPayment(false)
 		return
 	}

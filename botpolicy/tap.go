@@ -205,15 +205,7 @@ func (b Board) bestUnpayable(offered [5]bool) (state.ObjID, Card, bool) {
 		// The satisfiability filter: an unmet coloured pip the offered
 		// sources cannot produce excludes the card -- tapping toward it can
 		// never make it payable.
-		pips := colourPips(c.ManaCost)
-		closable := true
-		for i := 0; i < 5; i++ {
-			if pips[i] > b.Pool[i] && !offered[i] {
-				closable = false
-				break
-			}
-		}
-		if !closable {
+		if !b.offeredClosesPips(c, offered) {
 			continue
 		}
 		s := b.cardScore(c)
@@ -222,6 +214,23 @@ func (b Board) bestUnpayable(offered [5]bool) (state.ObjID, Card, bool) {
 		}
 	}
 	return bestID, best, found
+}
+
+// offeredClosesPips is the satisfiability filter bestUnpayable and
+// AnyCastableNow share: every unmet coloured pip of c's printed cost must be
+// producible by some offered source, or tapping can never close the gap (an
+// unmet pip no offered source can produce). An already-covered pip (Pool
+// holds it) is not a need, so it never excludes. One home, so the
+// tap gate's intended-card pick and the auto-pay fallback's any-card scan
+// cannot disagree about which cards are worth tapping toward.
+func (b Board) offeredClosesPips(c Card, offered [5]bool) bool {
+	pips := colourPips(c.ManaCost)
+	for i := 0; i < 5; i++ {
+		if pips[i] > b.Pool[i] && !offered[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // neededColours is the set of coloured pips the pool cannot yet cover for one
@@ -375,6 +384,95 @@ func (b Board) TapIntent(d *decision.Decision) (state.ObjID, bool) {
 	}
 	id, _, ok := b.bestUnpayable(b.offeredColours(d))
 	return id, ok
+}
+
+// CastableNow reports whether the card the KPriority tap gate is tapping
+// toward (TapIntent) is one the deciding seat could actually cast in THIS
+// window. It is the auto-pay adapter's "plausibly castable intent"
+// predicate: the tap gate itself keeps tapping toward ANY unpayable
+// castable card regardless of timing, targets or total affordability
+// (tapWants is zone membership plus a cost gap), which under manual tapping
+// was the price of casting at all, but under auto-pay floats mana a planned
+// spell would otherwise keep untapped. The adapter reads this to decide
+// whether to take the manual answer (the intent is a real cast) or to run
+// the plan path without activations (the intent is not castable, so the tap
+// is pure waste).
+//
+// A true answer requires all three, each a fact the Board carries:
+//
+//   - timing: the card is instant speed (InstantSpeed), or it is the seat's
+//     own main phase (MyTurn && IsMain) with an empty stack (len(Stack)==0)
+//     -- the manual bot's own casting window. A sorcery-speed card in
+//     another seat's main phase, or over a non-empty stack, is not a cast
+//     the manual policy would make now;
+//   - not C8-dead: a counter (Counter) with no foreign spell on the stack
+//     (ForeignSpell) self-counters, so it is never worth the mana. This is
+//     the same C8 census chooseCast and the plan filter read;
+//   - affordable: the seat can produce this turn (producibleMana) enough to
+//     pay the card's printed cost plus the CR 903.8 command-zone tax
+//     (castCost). A 7-drop on five lands is not a cast the window can make,
+//     whatever its timing.
+//
+// It is a pure read of Board facts and consumes no rng, and it is the ONE
+// home of the predicate: the auto-pay adapter (seat/bot.go) does not
+// re-derive any of the three tests.
+func (b Board) CastableNow(player state.PlayerID, d *decision.Decision) (state.ObjID, bool) {
+	id, ok := b.TapIntent(d)
+	if !ok {
+		return 0, false
+	}
+	return id, b.castableNowCard(player, id)
+}
+
+// AnyCastableNow reports whether ANY unpayable castable card on the board is
+// one the seat could actually cast in THIS window (castableNowCard) and whose
+// gap the offered sources can close (offeredClosesPips, the same
+// satisfiability filter the tap gate's intent uses). It is the broader
+// reading of the same predicate, for a window with NO plan: the tap gate's
+// single best intent (CastableNow) can be an uncostable or C8-dead card while
+// a different card in the same hand IS a real cast the manual policy could
+// pay, and suppressing the manual answer there would drop that cast. The
+// plan-bearing window keeps the narrower CastableNow so a plan the policy
+// will take is not diverted for a lesser unplanned card.
+//
+// The result is a boolean OR over the castable set, so the map iteration
+// order cannot reach it. It consumes no rng.
+func (b Board) AnyCastableNow(player state.PlayerID, d *decision.Decision) bool {
+	offered := b.offeredColours(d)
+	for id, c := range b.Cards {
+		if !c.Castable || c.CMC <= 0 {
+			continue
+		}
+		if b.poolPays(id, c) {
+			continue // already payable: no tap is needed, so no cast is stranded
+		}
+		if !b.offeredClosesPips(c, offered) {
+			continue // tapping cannot close this gap
+		}
+		if b.castableNowCard(player, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// castableNowCard is the per-card half of CastableNow: timing window, C8's
+// dead-counter test and total affordability, all over the card the tap gate
+// intended. It is the single implementation both CastableNow and
+// AnyCastableNow read, so the two can never disagree about what "castable
+// now" means.
+func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
+	c := b.Cards[id]
+	if !c.InstantSpeed && !(b.MyTurn && b.IsMain && len(b.Stack) == 0) {
+		return false
+	}
+	if c.Counter && !b.ForeignSpell(player) {
+		return false
+	}
+	if b.castCost(id, c) > b.producibleMana() {
+		return false
+	}
+	return true
 }
 
 // T3 -- the converter gate (cardfuzz batch1 lines 3/5/6/10/16/17). A mana

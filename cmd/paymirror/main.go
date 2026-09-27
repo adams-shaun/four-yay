@@ -39,6 +39,17 @@ func hasRouteMismatch(r *paymirror.Report) bool {
 	return false
 }
 
+// hasHorizonPanic reports a route whose resolve horizon panicked: its
+// verdict can still be equivalent, but the panic is a finding.
+func hasHorizonPanic(r *paymirror.Report) bool {
+	for _, route := range r.Routes {
+		if route.HorizonPanic != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
 	dir := flag.String("dir", ".cards", "corpus directory (holds ir.gob.gz / cardsfolder)")
 	games := flag.Int("games", 10, "games per (format, seat count) configuration")
@@ -165,7 +176,7 @@ func run(dir string, games int, seed uint64, seatsFlag, formats, policy string, 
 			for _, r := range g.Reports {
 				st, _ := r.Verdict()
 				controlBad := r.Control != nil && r.Control.Status != paymirror.Equivalent
-				if st == paymirror.Equivalent && !controlBad && !hasRouteMismatch(r) && !trace {
+				if st == paymirror.Equivalent && !controlBad && !hasRouteMismatch(r) && !hasHorizonPanic(r) && !trace {
 					continue
 				}
 				_ = writeReportFinding(enc, g.Spec, r)

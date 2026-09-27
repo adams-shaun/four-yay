@@ -160,6 +160,20 @@ type Board struct {
 	// the view half and g.Active on the game half, the same field both
 	// halves already agree is public.
 	MyTurn bool
+	// Step is the exact engine step (CR 500.1's turn structure) the
+	// deciding seat is currently in: the window facts the cast scorer's
+	// timing features read (InstantOwnPreMain, InstantOwnCombat,
+	// InstantOppTurn, InstantOppEnd). The game half lifts it straight off
+	// g.Step; the view half parses the projected View.Step string back
+	// through state.ParseStep, which is view.View.Step's own producer
+	// (view/view.go sets Step = g.Step.String()), so both halves name the
+	// same engine step. A step is public information (the projected View
+	// already carries it for every seat), so carrying it in the Board is
+	// no information leak (Ruling C0). The zero value is StepUntap; the
+	// new timing features are all weight 0 in the default profile, so a
+	// Board that never sets it -- every pre-timing test and adapter path --
+	// plays identically.
+	Step state.Step
 	// LibrarySize and HandSize are the deciding seat's own library and hand
 	// card counts -- public counts (view.PlayerView's library_size and
 	// hand_size), so carrying them is no information leak (Ruling C0). The

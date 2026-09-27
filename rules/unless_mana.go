@@ -21,7 +21,12 @@ func (e *Engine) unlessManaWindowNeeded(p state.PlayerID, cost Cost, obj state.O
 		return false
 	}
 	d := paymentDescriptor{id: obj, class: paymentOther, cost: &cost}
-	if e.costPayableClass(p, d, pipRider{}, cost) {
+	// Ask whether the POOL ALONE pays (lifeGrant false): a {B} pip K'rrik's
+	// PayLifeInsteadOf:B grant could settle with 2 life is not yet covered by
+	// the pool, so the window must still open to offer the untapped source.
+	// The grant-bearing payment paths (payUnlessCost, advanceUnlessPayment's
+	// charge) keep the grant, so answering Done still spends the life.
+	if e.costPayableClassLife(p, d, pipRider{}, cost, false) {
 		return false
 	}
 	return e.hasUntappedManaSource(p)
