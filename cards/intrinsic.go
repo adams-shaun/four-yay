@@ -27,6 +27,18 @@ func IntrinsicManaAbility(subtype string) (ab *SA, ok bool) {
 	return nil, false
 }
 
+// IntrinsicManaColor reports the colour IntrinsicManaAbility(subtype)'s
+// ability produces (its Produced$), without building the ability. ok is
+// false for a non-basic subtype, exactly when IntrinsicManaAbility's is.
+func IntrinsicManaColor(subtype string) (color string, ok bool) {
+	for _, b := range basicLandMana {
+		if b.Subtype == subtype {
+			return b.Color, true
+		}
+	}
+	return "", false
+}
+
 // ApplyIntrinsics adds abilities the engine grants rather than the script.
 // It is idempotent: calling it twice adds nothing the second time.
 func (f *Face) ApplyIntrinsics() {

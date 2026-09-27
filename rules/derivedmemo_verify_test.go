@@ -13,6 +13,9 @@ import "testing"
 //
 // The walk-scoped caches (walkcache.go) run in verify mode too: every hit is
 // recomputed and a difference panics.
+//
+// So do the mana walk's bare-{T} payability fast path (manaCostPayable) and
+// the per-build active() digest (active_summary.go).
 func init() {
 	derivedMemoVerify = true
 	sacrificeCardnameVerify = true
@@ -21,6 +24,8 @@ func init() {
 	potentialMembersVerify = true
 	walkCacheVerify = true
 	trigZoneSkipVerify = true
+	manaPayFastVerify = true
+	activeSummaryVerify = true
 }
 
 // allocsWithoutWalkCacheVerify runs testing.AllocsPerRun with the walk

@@ -768,9 +768,9 @@ func (e *Engine) isLoyaltyAbility(ab *cards.SA) bool {
 		// part's Spec is a substring of the raw text, and no non-ASCII rune
 		// case-folds onto l/o/y/a/t), so only the Planeswalker$ marker can
 		// classify it: skip the parsed-cost lookup and its large Cost copy.
-		return isLoyaltyAbilityCost(ab, Cost{})
+		return isLoyaltyAbilityRef(ab, &freeCost.Cost)
 	}
-	return isLoyaltyAbilityCost(ab, e.parseCost(raw))
+	return isLoyaltyAbilityRef(ab, e.costRef(raw))
 }
 
 // containsLoyaltyFold reports whether s contains "loyalty" in any ASCII case.
@@ -794,6 +794,12 @@ func containsLoyaltyFold(s string) bool {
 }
 
 func isLoyaltyAbilityCost(ab *cards.SA, c Cost) bool {
+	return isLoyaltyAbilityRef(ab, &c)
+}
+
+// isLoyaltyAbilityRef is isLoyaltyAbilityCost over a read-only cost pointer
+// (a shared compiled cost from costRef is never copied or written).
+func isLoyaltyAbilityRef(ab *cards.SA, c *Cost) bool {
 	if v, ok := ab.Params["Planeswalker"]; ok && strings.EqualFold(strings.TrimSpace(v), "True") {
 		return true
 	}
@@ -1561,7 +1567,15 @@ type grantedAbility struct {
 // stable layer/timestamp sort, names in the grant's own order.
 func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbility {
 	var out []grantedAbility
-	for _, ce := range e.active() {
+	ces := e.active()
+	// No grant anywhere in the list is one board-wide fact per active()
+	// build (active_summary.go): skip the per-object scan outright. The scan
+	// itself reads each entry in place rather than copying it.
+	if !e.activeSummaryOf(ces).hasGrants {
+		return nil
+	}
+	for i := range ces {
+		ce := &ces[i]
 		if len(ce.AddAbilities) == 0 && len(ce.GainedFaces) == 0 {
 			continue
 		}
