@@ -5365,7 +5365,6 @@ func (e *Engine) spellsCastThisTurnMatching(you state.PlayerID, spec string, exc
 	// the count is inclusive (Vengevine's "the second creature spell" EQ2
 	// gate is evaluated with the triggering cast in the log and must count
 	// it).
-	skipObj := e.stackGrantCast
 	var buckets [8]castSpendFacts
 	useAcc := len(saTokens) > 0
 	var out []state.ObjID
@@ -5421,7 +5420,8 @@ func (e *Engine) spellsCastThisTurnMatching(you state.PlayerID, spec string, exc
 			evFlags = castFlags[ev.Obj]
 			delete(castFlags, ev.Obj)
 		}
-		if skipObj != 0 && ev.Obj == skipObj {
+		if (e.stackGrantCast != 0 && ev.Obj == e.stackGrantCast) ||
+			(e.costCompositionCast != 0 && ev.Obj == e.costCompositionCast) {
 			continue
 		}
 		if exclude != 0 && ev.Obj == exclude {

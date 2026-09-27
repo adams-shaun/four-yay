@@ -2333,7 +2333,13 @@ func (e *Engine) costModifiers(p state.PlayerID, id state.ObjID, scope costScope
 // ValidTarget$ static cannot yet apply; target choice re-enters this helper
 // before payment with the actual targets.
 func (e *Engine) costModifiersForTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) costMods {
-	return e.costModifiersWithTargets(p, id, scope, targets, false)
+	previous := e.costCompositionCast
+	if e.cast != nil && e.cast.card == id && !e.cast.isAbility() {
+		e.costCompositionCast = id
+	}
+	mods := e.costModifiersWithTargets(p, id, scope, targets, false)
+	e.costCompositionCast = previous
+	return mods
 }
 
 // costModifiersForPotentialTargets is the offer-side counterpart for a
