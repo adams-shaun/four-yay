@@ -6403,7 +6403,14 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		if !e.nonManaCastable(pc.player, pc.card, cost, pc.isAbility()) {
 			continue
 		}
-		if cost.Life > pl.Life {
+		// A life cost with a POSITIVE component needs that much life (CR
+		// 119.4: paying N>0 life requires life >= N). A cost with NO life
+		// component pays 0 life, which is always legal whatever the life
+		// total -- a payer dropped below 0 mid-cast (Ancient Tomb's rider)
+		// may still select targets and finish paying (CR 704.3: state-based
+		// actions wait for a player to receive priority). The same gate
+		// lives in resolveManaWith, which payCast charges through.
+		if cost.Life > 0 && cost.Life > pl.Life {
 			continue
 		}
 		// resolvedMana carries no live pip, so manaFeasible (the shared
