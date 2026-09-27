@@ -659,6 +659,7 @@ func runTokenMints(h Host, c *Ctx, sa *cards.SA, job *TokenJob, resumeAt int, pa
 							landed = applyTokenMintRiders(h, c, job, owner, id, landed)
 						}
 						if th.SuspendTokenRest(sa, TokenRest{SA: sa, Next: unit, Minted: landed, Job: *job}) {
+							c.tokensSuspended = true
 							return
 						}
 						minted = landed

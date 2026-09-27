@@ -2,6 +2,7 @@ package rules
 
 import (
 	"maps"
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -261,6 +262,190 @@ func TestTokenRewriteSettlesBeforeEntryStaging(t *testing.T) {
 	}
 	if got := o.Counter("P1P1"); got != 0 {
 		t.Fatalf("Angel entered with %d +1/+1 counters, want 0 (the replaced script's grant must not stage)", got)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// TestTokenElectionKeepsTokenEffectRiders follows a resolving DB$ Token's
+// parked mint through a NESTED ask: Esix, Fractal Bloom's chosen-copy
+// replacement poses a KChoose election -- alone as the first park, or inside
+// the answer to its CR 616.1 order against Doubling Season. The copies the
+// election's answer mints must still take Fallaji Excavation's
+// TokenTapped$, and the later Powerstone mints and the GainLife sub must run
+// once, after them.
+func TestTokenElectionKeepsTokenEffectRiders(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		doubling   bool
+		esixFirst  bool
+		wantCopies int
+		wantStones int
+	}{
+		{"esix-alone", false, false, 1, 2},
+		{"esix-first", true, true, 2, 4},
+		{"doubling-first", true, false, 2, 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ds := tokenReplCorpusCard(t, "Doubling Season")
+			esix := tokenReplCorpusCard(t, "Esix, Fractal Bloom")
+			excavation := tokenReplCorpusCard(t, "Fallaji Excavation")
+			bear := card(t, "Name:Election Test Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+			seat := []*cards.Card{esix, excavation, bear}
+			if tc.doubling {
+				seat = append(seat, ds)
+			}
+			e, cfg := tokenReplGame(t, 1001, seat...)
+			var dsID state.ObjID
+			if tc.doubling {
+				dsID = moveSeededCard(t, e, 0, ds, state.ZBattlefield)
+			}
+			esixID := moveSeededCard(t, e, 0, esix, state.ZBattlefield)
+			bearID := moveSeededCard(t, e, 0, bear, state.ZBattlefield)
+			for _, id := range []state.ObjID{esixID, bearID} {
+				if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
+					t.Fatalf("precondition: %d is not on the battlefield: %+v", id, o)
+				}
+			}
+			spellID := moveSeededCard(t, e, 0, excavation, state.ZHand)
+			addMana(t, e, 0, "GGGGG")
+			castSpellOption(t, e, "Fallaji Excavation")
+			life := e.G.Players[0].Life
+			first := e.G.NextID
+			orders, elections := 0, 0
+			for i := 0; i < 40; i++ {
+				d := e.Pending()
+				if d == nil {
+					t.Fatal("no decision while resolving")
+				}
+				var pick int
+				switch d.Kind {
+				case decision.KPriority:
+					if len(e.G.Stack) == 0 {
+						i = 40
+						continue
+					}
+					passPriorityOnce(t, e)
+					continue
+				case decision.KReplacement:
+					orders++
+					pick = optionForObj(d, dsID)
+					if tc.esixFirst {
+						pick = optionForObj(d, esixID)
+					}
+				case decision.KChoose:
+					elections++
+					if o := e.G.Obj(spellID); o == nil || o.Zone != state.ZStack {
+						t.Fatalf("the resolving spell left the stack before the election: %+v", o)
+					}
+					if got := e.G.Players[0].Life; got != life {
+						t.Fatalf("GainLife ran before the election's mint: life %d, want %d", got, life)
+					}
+					pick = optionForObj(d, bearID)
+				default:
+					t.Fatalf("unexpected decision %+v", d)
+				}
+				if pick < 0 {
+					t.Fatalf("decision does not offer the expected option: %+v", d.Options)
+				}
+				if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{pick}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if elections != 1 || (tc.doubling && orders != 1) || (!tc.doubling && orders != 0) {
+				t.Fatalf("asked %d order and %d election decisions, want %v order and 1 election", orders, elections, tc.doubling)
+			}
+			copies, stones := 0, 0
+			for id := first; id < e.G.NextID; id++ {
+				o := e.G.Obj(id)
+				if o == nil || !o.IsToken || o.Zone != state.ZBattlefield {
+					continue
+				}
+				switch {
+				case o.IsCopy && o.Face().Name == "Election Test Bear":
+					copies++
+				case o.Face().Name == "Powerstone Token":
+					stones++
+				default:
+					t.Fatalf("unexpected minted token %d %s", id, o.Face().Name)
+				}
+				if !o.Tapped || countKind(e.L.Events, events.Tap, id) != 1 {
+					t.Fatalf("token %d (%s) tapped=%v with %d Tap events: TokenTapped$ must land exactly once across the election",
+						id, o.Face().Name, o.Tapped, countKind(e.L.Events, events.Tap, id))
+				}
+			}
+			if copies != tc.wantCopies || stones != tc.wantStones {
+				t.Fatalf("minted %d Bear copies and %d Powerstones, want %d and %d", copies, stones, tc.wantCopies, tc.wantStones)
+			}
+			if got := e.G.Players[0].Life; got != life+3 {
+				t.Fatalf("GainLife life = %d, want %d exactly once", got, life+3)
+			}
+			if o := e.G.Obj(spellID); o == nil || o.Zone != state.ZGraveyard {
+				t.Fatalf("resolved spell = %+v, want it in the graveyard", o)
+			}
+			replayCheck(t, e, cfg)
+		})
+	}
+}
+
+// TestParkedTokenImprintsItsMints pins the DB$ Token's ImprintCards$ tail
+// across a staged order ask: `RememberTokens$ True | ImprintCards$
+// Remembered` must imprint the source with the token the answer minted, so
+// the tail runs after the mints, not on the pre-mint first pass.
+func TestParkedTokenImprintsItsMints(t *testing.T) {
+	scales := tokenReplCorpusCard(t, "Hardened Scales")
+	evolution := tokenReplCorpusCard(t, "Branching Evolution")
+	forge := card(t, "Name:Imprinting Forge\nTypes:Artifact\n"+
+		"A:AB$ Token | Cost$ T | TokenScript$ imprint_staged | RememberTokens$ True | ImprintCards$ Remembered | SpellDescription$ Create a token and imprint it.\nOracle:x\n")
+	token := card(t, "Name:Imprinted Staged Token\nTypes:Creature Construct\nPT:1/1\n"+
+		"R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ AddEntry | ReplacementResult$ Updated | Description$ entry counter\n"+
+		"SVar:AddEntry:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True\nOracle:x\n")
+	e, cfg := tokenReplGame(t, 1003, scales, evolution, forge)
+	cfg.Tokens = maps.Clone(cfg.Tokens)
+	cfg.Tokens["imprint_staged"] = token
+	e = New(cfg)
+	e.Advance()
+	for _, c := range []*cards.Card{scales, evolution} {
+		if o := e.G.Obj(moveSeededCard(t, e, 0, c, state.ZBattlefield)); o == nil || o.Zone != state.ZBattlefield {
+			t.Fatal("precondition: counter modifier absent")
+		}
+	}
+	e.SetCounterAdder(0)
+	forgeID := moveSeededCard(t, e, 0, forge, state.ZBattlefield)
+	addMana(t, e, 0, "")
+	submitChoices(t, e, abilityOption(t, e, forgeID, 0).Index)
+	mintID := e.G.NextID
+	asked := false
+	for i := 0; i < 20; i++ {
+		d := e.Pending()
+		if d == nil {
+			t.Fatal("no decision while resolving")
+		}
+		if d.Kind == decision.KReplacement {
+			asked = true
+			if o := e.G.Obj(forgeID); len(o.Imprinted) != 0 {
+				t.Fatalf("source imprinted %v before the token was minted", o.Imprinted)
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		if d.Kind != decision.KPriority {
+			t.Fatalf("unexpected decision %+v", d)
+		}
+		if len(e.G.Stack) == 0 {
+			break
+		}
+		passPriorityOnce(t, e)
+	}
+	if !asked {
+		t.Fatal("precondition: the mint did not stage behind an order ask")
+	}
+	if o := e.G.Obj(mintID); o == nil || o.Zone != state.ZBattlefield || o.Counter("P1P1") != 4 {
+		t.Fatalf("minted %+v, want the staged token with 4 counters", o)
+	}
+	if o := e.G.Obj(forgeID); !slices.Contains(o.Imprinted, mintID) {
+		t.Fatalf("source imprinted %v, want the minted token %d (ImprintCards$ Remembered must run after the mint)", o.Imprinted, mintID)
 	}
 	replayCheck(t, e, cfg)
 }

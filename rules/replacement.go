@@ -2340,6 +2340,10 @@ type tokenChoiceState struct {
 	// apply/decline, and option declineIdx declines it while any other answer
 	// applies the match.
 	plainOptional bool
+	// mintSink names the parked-mint collector (rules/token_rest.go) the
+	// election's answer mints into when a resolving DB$ Token is waiting on
+	// this creation; 0 otherwise.
+	mintSink uint64
 }
 
 // driveTokenReplacements applies matches[from:] to the plan, in the
@@ -2580,6 +2584,17 @@ func (e *Engine) tokenReplAnswer(chosen []decision.Option) *resumePoint {
 		e.emit(events.Event{Kind: events.Note, Text: "token copy choice answered with no replacement pending"})
 		return nil
 	}
+	// A resolving DB$ Token waiting on this creation collects what the
+	// answer mints (and hands the collector to any election or order ask the
+	// answer poses next) before its continuation resumes.
+	var rp *resumePoint
+	e.withMintSink(st.mintSink, func() { rp = e.settleTokenAnswer(st, chosen) })
+	return rp
+}
+
+// settleTokenAnswer is tokenReplAnswer's body: apply the answered election to
+// the parked plan, drive the remaining matches and emit the settled plan.
+func (e *Engine) settleTokenAnswer(st *tokenChoiceState, chosen []decision.Option) *resumePoint {
 	if st.plainOptional {
 		// A bare Optional$ election: any non-decline answer applies the
 		// match itself; the decline skips it and the remaining matches run.
@@ -6532,7 +6547,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 				Text: "entry counter replacement-order answer out of range"})
 			return
 		}
-		e.withMintSink(rc, func() { e.resumeEntryCounterOrder(rc, chosen[0].Index) })
+		e.withMintSink(rc.mintSink, func() { e.resumeEntryCounterOrder(rc, chosen[0].Index) })
 	case replChoiceToken:
 		if chosen[0].Index < 0 || chosen[0].Index >= len(rc.applicable) {
 			e.triggerBefore = before
@@ -6542,7 +6557,7 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		}
 		m := rc.cands[rc.applicable[chosen[0].Index]]
 		rest := dropReplMatch(rc.cands, m)
-		e.withMintSink(rc, func() {
+		e.withMintSink(rc.mintSink, func() {
 			var plan []tokenPlanMint
 			var parked bool
 			if body := m.repl.With; body != nil &&

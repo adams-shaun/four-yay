@@ -2288,6 +2288,11 @@ type Ctx struct {
 	// consumes and clears it at the top of its walk. Nil on every ordinary
 	// first pass.
 	TokenRest *TokenRest
+	// tokensSuspended is set by effToken when a mint parked and it handed its
+	// continuation to the host (TokenRest): Resolve then defers the SA's
+	// ImprintCards$/ClearImprinted$ tail to the re-entry that finishes the
+	// mints, so it sees (and clears after) the tokens. Consumed by Resolve.
+	tokensSuspended bool
 }
 
 // VoteCount is one ballot subject's tally (see Ctx.VoteCounts).
@@ -2915,13 +2920,16 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		} else {
 			fn(h, c, sa)
 		}
-		// The Imprint/ClearImprinted tail ran after the first pass of a
-		// Token re-entry already (every suspension runs it there); a second
-		// run would log the same imprint twice.
-		if !resumingTokens {
+		// A DB$ Token whose mint parked has not finished: its Imprint/
+		// ClearImprinted tail belongs after the mints, so it runs on the
+		// TokenRest re-entry that completes them (which may itself park again
+		// and defer once more). Every other body keeps the tail here.
+		tokensSuspended := c.tokensSuspended
+		c.tokensSuspended = false
+		if !tokensSuspended {
 			imprint(h, c, sa)
 		}
-		if !resumingTokens && strings.EqualFold(sa.Params["ClearImprinted"], "True") && c.Source != 0 {
+		if !tokensSuspended && strings.EqualFold(sa.Params["ClearImprinted"], "True") && c.Source != 0 {
 			// Only a real clear is an event (the ClearRemembered$
 			// discipline effCleanup documents): clearing lists that are
 			// already empty is a no-op, and logging it as a state change hid
