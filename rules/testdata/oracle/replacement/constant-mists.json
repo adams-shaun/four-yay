@@ -10,7 +10,7 @@
       "why": "Once Constant Mists resolves, combat damage for the turn is prevented, so the attacker does not reduce the defending player's life.",
       "setup": {"p0": {"hand": ["Constant Mists"], "battlefield": ["Grizzly Bears"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Constant Mists", "mana": "1G"},
+        {"op": "cast", "seat": 0, "card": "p0:Constant Mists", "mana": "GG"},
         {"op": "resolve"},
         {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
         {"op": "resolve"}
@@ -23,7 +23,7 @@
       "why": "The effect is limited to combat damage; a subsequent noncombat Lightning Bolt still deals three damage.",
       "setup": {"p0": {"hand": ["Constant Mists", "Lightning Bolt"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Constant Mists", "mana": "1G"},
+        {"op": "cast", "seat": 0, "card": "p0:Constant Mists", "mana": "GG"},
         {"op": "resolve"},
         {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
         {"op": "resolve"}

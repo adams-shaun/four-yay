@@ -10,7 +10,8 @@
       "why": "With at least two cards in the library and Dakmor Salvage in the graveyard, its controller may mill exactly two and return the Salvage to hand instead of drawing.",
       "setup": {"p0": {"graveyard": ["Dakmor Salvage"], "library_top": ["Forest", "Island"]}, "p1": {}},
       "steps": [
-        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0", "answers": [{"kind": "any", "pick": ["yes"]}]}
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0", "answers": [{"kind": "any", "pick": ["dredge"]}]}
       ],
       "expect": [
         {"card": "p0:Dakmor Salvage", "zone": "hand"},
@@ -21,9 +22,10 @@
     {
       "name": "not-in-graveyard-does-not-replace-draw",
       "cr": ["702.52a"],
-      "why": "Dredge functions only while the card is in its owner's graveyard. A copy in hand cannot replace the draw, so the draw occurs and both cards remain in hand.",
+      "why": "Dredge functions only while the card is in its owner's graveyard. A copy in hand cannot replace the draw, so the turn-three draw occurs and both cards remain in hand.",
       "setup": {"p0": {"hand": ["Dakmor Salvage"], "library_top": ["Forest"]}, "p1": {}},
       "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
         {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
       ],
       "expect": [{"hand_size": {"p0": 2}}, {"card": "p0:Dakmor Salvage", "zone": "hand"}]

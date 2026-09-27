@@ -7,17 +7,23 @@
     {
       "name": "draw-step-skipped",
       "cr": ["614.1b"],
-      "why": "Necropotence replaces its controller's draw step with nothing. Since setup precedes the game, this also applies to the first player's turn-two draw step.",
+      "why": "Necropotence replaces its controller's draw step with nothing; this applies to the first player's turn-three draw as well.",
       "setup": {"p0": {"battlefield": ["Necropotence"]}, "p1": {}},
-      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
       "expect": [{"hand_size": {"p0": 0}}]
     },
     {
       "name": "without-enchantment-draw-step-draws",
       "cr": ["614.1b"],
-      "why": "In the absence of the skip effect, the normal draw step adds one card to the first player's hand on turn two.",
+      "why": "In the absence of the skip effect, the normal turn-three draw step adds one card to the first player's hand.",
       "setup": {"p0": {}, "p1": {}},
-      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
       "expect": [{"hand_size": {"p0": 1}}]
     }
   ]

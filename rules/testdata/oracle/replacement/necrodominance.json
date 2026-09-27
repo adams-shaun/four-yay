@@ -7,9 +7,12 @@
     {
       "name": "draw-step-skipped",
       "cr": ["614.1b"],
-      "why": "The static effect skips its controller's draw step. The setup enchantment is present before the game begins, and the first player's turn-two draw therefore does not add a card.",
+      "why": "The static effect skips its controller's draw step. The setup enchantment is present before the game begins, so the first player's turn-three draw does not add a card.",
       "setup": {"p0": {"battlefield": ["Necrodominance"]}, "p1": {}},
-      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
       "expect": [{"hand_size": {"p0": 0}}]
     },
     {
@@ -24,11 +27,28 @@
       "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]
     },
     {
+      "name": "opponents-spell-goes-to-their-graveyard",
+      "cr": ["614.1a", "614.6"],
+      "why": "The replacement changes cards that would go into this enchantment controller's graveyard, not an opponent's; the opponent's resolved Lightning Bolt goes to its owner's graveyard.",
+      "setup": {"p0": {"battlefield": ["Necrodominance"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Lightning Bolt", "zone": "graveyard"},
+        {"life": {"p0": 17}}
+      ]
+    },
+    {
       "name": "without-enchantment-draw-step-draws",
       "cr": ["614.1b"],
-      "why": "Without the skip effect, the first player's turn-two draw step draws one card normally.",
+      "why": "Without the skip effect, the first player's turn-three draw step draws one card normally.",
       "setup": {"p0": {}, "p1": {}},
-      "steps": [{"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}],
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
       "expect": [{"hand_size": {"p0": 1}}]
     }
   ]

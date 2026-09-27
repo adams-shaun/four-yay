@@ -1,0 +1,42 @@
+{
+  "card": "Remand",
+  "family": "replacement",
+  "oracle_sha": "f5a9b592b84e",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "countered-opponents-spell-returns-to-owner-hand",
+      "cr": ["614.1a", "614.6"],
+      "why": "When Remand counters the opponent's spell, that spell goes to its owner's hand instead of the graveyard, and Remand's controller draws a card.",
+      "setup": {"p0": {"hand": ["Remand"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "cast", "seat": 0, "card": "p0:Remand", "mana": "1U", "targets": ["p1:Lightning Bolt"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Lightning Bolt", "zone": "hand"},
+        {"card": "p0:Remand", "zone": "graveyard"},
+        {"hand_size": {"p0": 1, "p1": 1}}
+      ]
+    },
+    {
+      "name": "remand-countered-by-other-spell-does-not-return-itself",
+      "cr": ["614.1a", "614.6"],
+      "why": "Remand itself is countered by a different spell, not by its own effect, so it goes to its owner's graveyard and its draw instruction never happens; the original Bolt then resolves.",
+      "setup": {"p0": {"hand": ["Remand"]}, "p1": {"hand": ["Lightning Bolt", "Counterspell"]}},
+      "steps": [
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "cast", "seat": 0, "card": "p0:Remand", "mana": "1U", "targets": ["p1:Lightning Bolt"]},
+        {"op": "cast", "seat": 1, "card": "p1:Counterspell", "mana": "UU", "targets": ["p0:Remand"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Remand", "zone": "graveyard"},
+        {"card": "p1:Lightning Bolt", "zone": "graveyard"},
+        {"life": {"p0": 17}},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}
