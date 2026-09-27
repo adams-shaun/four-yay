@@ -956,10 +956,13 @@ func (e *Engine) cdaSetPT(o *state.Object) (p, t int32, hasP, hasT bool) {
 	if f == nil {
 		return 0, 0, false, false
 	}
-	ctx := &effects.Ctx{Source: o.ID, Controller: o.Controller, SVars: f.SVars}
+	var ctx *effects.Ctx // built only for a face that has a CDA static
 	for _, st := range f.Statics {
 		if st.Mode != "Continuous" || strings.TrimSpace(st.Params["CharacteristicDefining"]) == "" {
 			continue
+		}
+		if ctx == nil {
+			ctx = &effects.Ctx{Source: o.ID, Controller: o.Controller, SVars: f.SVars}
 		}
 		if pp, tt, hp, ht := e.cdaPTStatic(st, ctx); hp || ht {
 			return pp, tt, hp, ht
@@ -2387,8 +2390,9 @@ func (e *Engine) typeCharacteristics(id state.ObjID, atStack state.Zone) []strin
 	// HasKeyword's Derived read, and the cost/action-statics hotspot pins
 	// measure that pass.
 	anyLType := false
-	for _, ce := range e.active() {
-		if ce.Layer == LType {
+	active := e.active()
+	for i := range active {
+		if active[i].Layer == LType {
 			anyLType = true
 			break
 		}
@@ -2402,7 +2406,8 @@ func (e *Engine) typeCharacteristics(id state.ObjID, atStack state.Zone) []strin
 	// and the appends -- runs on the owned copy, never on the face's array.
 	ty := base
 	owned := false
-	for _, ce := range e.active() {
+	for i := range active {
+		ce := &active[i]
 		if ce.Layer != LType || !e.matchesWithTypes(ce, id, ty, atStack) {
 			continue
 		}
@@ -2652,7 +2657,7 @@ func reconfigureTypeSwitch(o *state.Object, types []string) []string {
 	return out
 }
 
-func (e *Engine) matchesWithTypes(ce ContinuousEffect, id state.ObjID, types []string, atStack state.Zone) bool {
+func (e *Engine) matchesWithTypes(ce *ContinuousEffect, id state.ObjID, types []string, atStack state.Zone) bool {
 	return e.matchesWithChars(ce, id, types, nil, atStack)
 }
 
@@ -2677,14 +2682,14 @@ func (e *Engine) matchesWithTypes(ce ContinuousEffect, id state.ObjID, types []s
 // is what a layer-7 applicability gate reads): Windstorm Drake's
 // `Creature.withFlying+Other+YouCtrl` +1/+0 over a creature an earlier
 // layer-6 effect granted flying is the measured case.
-func (e *Engine) matchesWithChars(ce ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone) bool {
+func (e *Engine) matchesWithChars(ce *ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone) bool {
 	return e.matchesWithCharsPT(ce, id, types, keywords, atStack, 0, 0, 0, 0, false)
 }
 
 // matchesWithCharsPT binds the layer-7 walk's in-progress P/T values when an
 // Affected$ predicate is evaluated during that walk. Calling Derived here
 // would recurse through the same active layer scan.
-func (e *Engine) matchesWithCharsPT(ce ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone, power, toughness, basePower, baseToughness int32, hasPT bool) bool {
+func (e *Engine) matchesWithCharsPT(ce *ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone, power, toughness, basePower, baseToughness int32, hasPT bool) bool {
 	// CR 702.25b: a phased-out permanent is treated as though it does not
 	// exist, so NO continuous effect applies to it -- a lord's pump, a
 	// keyword grant, a type change. This is the one applicability gate every
@@ -2728,7 +2733,7 @@ var selfRejectVerify int
 // matchesWithCharsPTSlow is matchesWithCharsPT with the Card.Self early
 // rejection removed. Verify mode calls it to prove the shortcut agrees with
 // the full match; production never does.
-func (e *Engine) matchesWithCharsPTSlow(ce ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone, power, toughness, basePower, baseToughness int32, hasPT bool) bool {
+func (e *Engine) matchesWithCharsPTSlow(ce *ContinuousEffect, id state.ObjID, types, keywords []string, atStack state.Zone, power, toughness, basePower, baseToughness int32, hasPT bool) bool {
 	// The cast-provenance qualifiers (castprov1/2/3 — the_twelfth_doctor's
 	// `Affected$ Card.YouCtrl+!wasCastFromYourHand`, quandrix_the_proof's
 	// `Instant.wasCastByYou+wasCastFromYourHand`) are split out before the
@@ -2908,7 +2913,8 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 	// active list comes in as a parameter (230574a2's plumbing) because
 	// active() is a cached, idempotent read — same slice, no recomputation.
 	types := e.typeCharacteristics(id, 0)
-	for _, ce := range active {
+	for i := range active {
+		ce := &active[i]
 		if ce.Layer != LPT {
 			continue
 		}
@@ -2931,13 +2937,13 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 					if ce.SetPowerPresent {
 						power = ce.SetPower
 						if ce.SetPowerExpr != "" {
-							power = e.staticAmount(ce, ce.SetPowerExpr)
+							power = e.staticAmount(*ce, ce.SetPowerExpr)
 						}
 					}
 					if ce.SetToughnessPresent {
 						toughness = ce.SetToughness
 						if ce.SetToughnessExpr != "" {
-							toughness = e.staticAmount(ce, ce.SetToughnessExpr)
+							toughness = e.staticAmount(*ce, ce.SetToughnessExpr)
 						}
 					}
 				} else {
@@ -2964,14 +2970,14 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 				if ce.AddPowerAffected {
 					anchor = id
 				}
-				addPower = e.staticAmountOn(ce, ce.AddPowerExpr, anchor)
+				addPower = e.staticAmountOn(*ce, ce.AddPowerExpr, anchor)
 			}
 			if ce.AddToughnessExpr != "" {
 				anchor := ce.Source
 				if ce.AddToughnessAffected {
 					anchor = id
 				}
-				addToughness = e.staticAmountOn(ce, ce.AddToughnessExpr, anchor)
+				addToughness = e.staticAmountOn(*ce, ce.AddToughnessExpr, anchor)
 			}
 			power = addPT(power, addPower)
 			toughness = addPT(toughness, addToughness)
@@ -3194,7 +3200,8 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 	// layer 4 settled above.
 	seq := e.abilityDependencyOrder(active, id, ty, kw, atStack)
 	var cantHaveKeywords [][]string
-	for _, ce := range seq {
+	for i := range seq {
+		ce := &seq[i]
 		// kw is the walk's keywords-so-far list for THIS object (printed
 		// keywords, IntrinsicKeywords, marker-counter grants and every
 		// layer-6 grant applied so far), bound exactly as ty is: an
@@ -3336,7 +3343,7 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 // the walk's keyword list -- the same three steps the main walk's LAbilities
 // arm performs, in the same order -- so the dependency simulation can test a
 // match against the list as the effect would leave it.
-func abilityKWAfter(ce ContinuousEffect, kw []string) []string {
+func abilityKWAfter(ce *ContinuousEffect, kw []string) []string {
 	out := append([]string(nil), kw...)
 	if ce.RemoveAbilities {
 		out = out[:0]
@@ -3426,13 +3433,13 @@ func (e *Engine) abilityDependencyOrder(active []ContinuousEffect, id state.ObjI
 	dep := make([][]int, len(group))
 	edges := 0
 	for _, gj := range gated {
-		b := group[gj]
+		b := &group[gj]
 		base := e.matchesWithChars(b, id, ty, kw, atStack)
 		for _, gm := range mods {
 			if gm == gj {
 				continue
 			}
-			after := e.matchesWithChars(b, id, ty, abilityKWAfter(group[gm], kw), atStack)
+			after := e.matchesWithChars(b, id, ty, abilityKWAfter(&group[gm], kw), atStack)
 			if after != base {
 				dep[gj] = append(dep[gj], gm)
 				edges++

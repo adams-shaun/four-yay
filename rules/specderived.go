@@ -3,6 +3,8 @@ package rules
 import (
 	"strings"
 	"sync/atomic"
+
+	"github.com/adams-shaun/gorge/effects"
 )
 
 // specReadsDerived reports whether a filter spec can read any of the
@@ -53,3 +55,10 @@ var specDerivedFront [1 << specDerivedBits]atomic.Pointer[specDerivedEntry]
 
 // specDerivedVerify: see derivedMemoVerify. Set by the rules test binary.
 var specDerivedVerify = derivedMemoVerifyFlag != ""
+
+// A derivedMemoVerifyFlag build also verifies the effects-side spec fronts.
+func init() {
+	if derivedMemoVerifyFlag != "" {
+		effects.VerifySpecCaches = true
+	}
+}

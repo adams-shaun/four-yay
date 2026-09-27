@@ -90,7 +90,7 @@ func TestCastSaManaFromArtifactAllSites(t *testing.T) {
 	}
 	// 3. The layer Affected$ match, on the real corpus spec.
 	ce := ContinuousEffect{Source: shadowID, Controller: 0, Affects: affected}
-	if !e.matchesWithTypes(ce, spell, nil, state.ZStack) {
+	if !e.matchesWithTypes(&ce, spell, nil, state.ZStack) {
 		t.Fatal("matchesWithTypes rejected the artifact-paid cast for Shadow's real Affected$ spec")
 	}
 	// 4. Count$ThisTurnCast_.
@@ -128,7 +128,7 @@ func TestCastSaManaFromArtifactAllSites(t *testing.T) {
 	if _, ok := e.castProvenanceAdmits("Card.CastSa Spell.ManaFromArtifact", o2.ID, 0); ok {
 		t.Fatal("castProvenanceAdmits admitted a plain-paid cast")
 	}
-	if e.matchesWithTypes(ce, o2.ID, nil, state.ZStack) {
+	if e.matchesWithTypes(&ce, o2.ID, nil, state.ZStack) {
 		t.Fatal("matchesWithTypes admitted a plain-paid cast")
 	}
 	if got := e.spellsCastThisTurnMatching(0, "Card.CastSa Spell.ManaFromArtifact", 0); len(got) != 1 {
