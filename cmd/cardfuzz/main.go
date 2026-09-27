@@ -539,6 +539,11 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 	dumped := false
 	guard := func(e *rules.Engine) (string, string) {
 		probe.observe(e, offerSeen)
+		if d := e.Pending(); d != nil {
+			if consumer, ok := seats[d.Player].(seat.PaymentPlanConsumer); ok && consumer.WantsPaymentActions() {
+				e.EnsurePaymentActions()
+			}
+		}
 		if dumpAt > 0 && !dumped {
 			if d := e.Pending(); d != nil && d.Seq >= dumpAt {
 				dumped = true

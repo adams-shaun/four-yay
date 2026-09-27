@@ -92,32 +92,14 @@ func TestPaymentPlanQueryIsPure(t *testing.T) {
 	}
 }
 
-func TestPaymentPlanPriorityAskPublishesAdditively(t *testing.T) {
-	e, _, spell := newFixtureDeck(t, 9108, "Name:Published Plan\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
-	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	// The fixture's initial priority was asked before its eventless board
-	// setup. Re-ask as the live engine does after a state change.
-	e.pending = nil
-	e.askPriority(0)
+func TestPaymentPlanPriorityAskLeavesExtensionLazy(t *testing.T) {
+	e, _, _ := newFixtureDeck(t, 9108, "Name:Published Plan\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want priority", d)
 	}
-	if len(d.PaymentActions) != 1 || d.PaymentActions[0].Cast.Object != spell {
-		t.Fatalf("payment actions = %#v, want one action for spell %d", d.PaymentActions, spell)
-	}
-	if d.PaymentActions[0].BaseOptionIndex != nil {
-		t.Fatalf("unfunded plan base option = %v, want nil", *d.PaymentActions[0].BaseOptionIndex)
-	}
-	legacy := append([]decision.Option(nil), d.Options...)
-	if got := e.legalActions(0); !reflect.DeepEqual(legacy, got) {
-		t.Fatalf("priority options changed by payment publication:\n got %#v\nwant %#v", d.Options, got)
-	}
-	// A caller cannot mutate the pending offer by retaining a copied decision.
-	cp := d.Clone()
-	cp.PaymentActions[0].Plans[0].Activations[0].Produces[state.ManaIndex('U')] = 9
-	if d.PaymentActions[0].Plans[0].Activations[0].Produces[state.ManaIndex('U')] != 1 {
-		t.Fatal("payment action clone aliases pending witness")
+	if d.PaymentActionsBuilt || len(d.PaymentActions) != 0 {
+		t.Fatalf("priority ask eagerly built payment extension: built=%v actions=%#v", d.PaymentActionsBuilt, d.PaymentActions)
 	}
 }
 
@@ -285,8 +267,8 @@ func TestPaymentPlanExecutesFiniteProducedAnyChoice(t *testing.T) {
 	}
 }
 
-// paymentPlanReask re-poses seat 0's priority exactly as the live engine does
-// after an (eventless) fixture change, so ask() publishes PaymentActions.
+// paymentPlanReask re-poses seat 0's priority after an (eventless) fixture
+// change and opts into the lazy payment extension.
 func paymentPlanReask(t *testing.T, e *Engine) *decision.Decision {
 	t.Helper()
 	e.pending = nil
@@ -295,6 +277,7 @@ func paymentPlanReask(t *testing.T, e *Engine) *decision.Decision {
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want seat-0 priority", d)
 	}
+	e.EnsurePaymentActions()
 	return d
 }
 
@@ -422,6 +405,7 @@ func TestPaymentPlanGrantedLandTypeExecutesWitnessedColour(t *testing.T) {
 		t.Fatal(err)
 	}
 	d.PaymentActions = []decision.PaymentAction{a}
+	d.PaymentActionsBuilt = true
 	start := len(e.L.Events)
 	submitPaymentPlan(t, e, d, a)
 	if got := producedManaSince(e, start); !reflect.DeepEqual(got, []string{"B", "B"}) {

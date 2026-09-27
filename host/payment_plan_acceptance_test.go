@@ -226,9 +226,9 @@ func TestSubmitIntentPreflightsPaymentPlanBeforeAccepting(t *testing.T) {
 }
 
 // TestAutoManaDisabledKeepsHumanPriorityOnTheLegacyWire proves the table
-// capability is enforced at the host boundary. The engine may retain its
-// replay extension for bots, but a human client on an off table receives only
-// ordinary options and can continue through the pre-payment-plan path.
+// capability is enforced at the host boundary. Neither the human nor the
+// plain bot consumer builds the lazy extension on an off table, and the human
+// receives only ordinary options through the legacy pre-payment-plan path.
 func TestAutoManaDisabledKeepsHumanPriorityOnTheLegacyWire(t *testing.T) {
 	var human *HumanSeat
 	o := testOptions(t)
@@ -259,6 +259,14 @@ func TestAutoManaDisabledKeepsHumanPriorityOnTheLegacyWire(t *testing.T) {
 		}
 		if len(d.PaymentActions) != 0 {
 			t.Fatalf("disabled table published payment actions: %#v", d.PaymentActions)
+		}
+		m := liveMatch(t, r, "t1")
+		m.mu.RLock()
+		pending := m.e.Pending()
+		built := pending != nil && pending.Seq == d.Seq && pending.PaymentActionsBuilt
+		m.mu.RUnlock()
+		if built {
+			t.Fatalf("non-consumer seat %d built payment actions on AutoMana-off table", d.Player)
 		}
 		if err := r.SubmitIntent("t1", 1, 0, legalIntent(d)); err != nil {
 			t.Fatalf("SubmitIntent(seq %d): %v", d.Seq, err)

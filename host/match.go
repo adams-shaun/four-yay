@@ -368,12 +368,19 @@ func projectNext(m *match, seats []seat.Seat, brd *botpolicy.Board) *parkedData 
 	if d == nil {
 		return nil
 	}
+	_, isHuman := seats[d.Player].(*HumanSeat)
+	wantsPlans := isHuman && m.table.cfg.AutoMana
+	if consumer, ok := seats[d.Player].(seat.PaymentPlanConsumer); ok && consumer.WantsPaymentActions() {
+		wantsPlans = true
+	}
+	if wantsPlans {
+		m.e.EnsurePaymentActions()
+	}
 	dc := *d.Clone()
 	// Payment plans are an opt-in human interface. Keep the engine's pending
 	// decision intact for replay and independently configured bots, but never
 	// publish the extension to a human seat when this table has it disabled.
 	// Options are untouched, so this is precisely the legacy manual path.
-	_, isHuman := seats[d.Player].(*HumanSeat)
 	if isHuman && !m.table.cfg.AutoMana {
 		dc.PaymentActions = nil
 	}

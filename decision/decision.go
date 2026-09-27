@@ -492,6 +492,9 @@ type Decision struct {
 	// choice index. It remains empty until payplan-04 publishes executable
 	// offers.
 	PaymentActions []PaymentAction `json:"payment_actions,omitempty"`
+	// PaymentActionsBuilt distinguishes an unrequested extension from a built
+	// empty extension. It is engine cache state, never part of the wire.
+	PaymentActionsBuilt bool `json:"-"`
 	// PaymentFallback is populated only if execution falls back to the normal
 	// manual payment window.
 	PaymentFallback *PaymentFallback `json:"payment_fallback,omitempty"`

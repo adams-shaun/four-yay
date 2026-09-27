@@ -137,6 +137,9 @@ func TestPayMirrorDetectsPerturbation(t *testing.T) {
 	e := rules.NewStartingPlayerChoice(cfg)
 	bots := []*seat.Bot{seat.NewBot(1).EnableAutoPayMana(), seat.NewBot(2).EnableAutoPayMana()}
 	answer := func(e *rules.Engine, d *decision.Decision) (decision.Intent, error) {
+		if bots[d.Player].WantsPaymentActions() {
+			e.EnsurePaymentActions()
+		}
 		return bots[d.Player].DecideBoard(context.Background(), botpolicy.BoardFromGame(e.G, e, d.Player), *d)
 	}
 	e.AskStartingPlayer()

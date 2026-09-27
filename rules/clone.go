@@ -45,13 +45,12 @@ func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn 
 // start to answer "view at seq N" with at most one turn of replay.
 func (e *Engine) Clone() *Engine {
 	c := &Engine{
-		G:                  e.G.Clone(),
-		L:                  e.L.Clone(),
-		compiledText:       e.compiledText,
-		replayPaymentPlans: e.replayPaymentPlans,
-		landTypeWords:      e.landTypeWords,
-		turnsTaken:         append([]int32(nil), e.turnsTaken...),
-		turnsTakenEpoch:    e.turnsTakenEpoch,
+		G:               e.G.Clone(),
+		L:               e.L.Clone(),
+		compiledText:    e.compiledText,
+		landTypeWords:   e.landTypeWords,
+		turnsTaken:      append([]int32(nil), e.turnsTaken...),
+		turnsTakenEpoch: e.turnsTakenEpoch,
 		// turnStartTurns (the next-turn boundary cache) is copied like
 		// turnsTaken so a clone never shares the backing slice.
 		turnStartTurns: cloneTurnStartTurns(e.turnStartTurns),

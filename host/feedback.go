@@ -198,10 +198,10 @@ func (r *Registry) SnapshotForFeedback(id TableID, seat *state.PlayerID) (Feedba
 		return FeedbackSnapshot{}, fmt.Errorf("host: table %s has no match", id)
 	}
 
-	m.mu.RLock()
+	m.mu.Lock()
 	l := m.e.L.Clone()
 	// reconcileLog's trim is for crash-cut FILES, and this clone is not one:
-	// under the read lock no Submit is in flight (the match loop holds the
+	// under the match lock no Submit is in flight (the match loop holds the
 	// write lock across Submit and its bookkeeping), so every event in the
 	// cloned log — including the tail past the last DecisionAsk a burst's
 	// own post-ask continuation emitted (fb-20260915T094418Z) — belongs to
@@ -241,7 +241,7 @@ func (r *Registry) SnapshotForFeedback(id TableID, seat *state.PlayerID) (Feedba
 	turn, step, prio, active := m.e.G.Turn, m.e.G.Step.String(), m.e.G.Priority, m.e.G.Active
 	if seat != nil && int(*seat) >= len(sc.Seats) {
 		n := len(sc.Seats)
-		m.mu.RUnlock()
+		m.mu.Unlock()
 		return FeedbackSnapshot{}, fmt.Errorf("host: table %s: seat %d out of range (%d seats)", id, *seat, n)
 	}
 	// The pending decision, copied the way ViewAtSeat copies it: the view
@@ -255,6 +255,11 @@ func (r *Registry) SnapshotForFeedback(id TableID, seat *state.PlayerID) (Feedba
 	// so the feedback view must not carry them either).
 	var d *decision.Decision
 	if p := m.e.Pending(); p != nil {
+		if seat != nil && m.table.cfg.AutoMana && p.Player == *seat && int(p.Player) < len(m.slots) {
+			if _, isHuman := m.slots[p.Player].(*HumanSeat); isHuman {
+				m.e.EnsurePaymentActions()
+			}
+		}
 		cp := *p.Clone()
 		if !m.table.cfg.AutoMana {
 			cp.PaymentActions = nil
@@ -273,7 +278,7 @@ func (r *Registry) SnapshotForFeedback(id TableID, seat *state.PlayerID) (Feedba
 	if n := uint64(len(l.Events)); n > 0 && headSeq >= n {
 		headSeq = n - 1
 	}
-	m.mu.RUnlock()
+	m.mu.Unlock()
 
 	// The token scripts are read back outside the lock: cfg.Tokens is the
 	// registry-owned, never-mutated map the match was built with (the same
