@@ -810,6 +810,14 @@ func mapAnswer(r Recorded, d *decision.Decision) (choices, rest []int, note stri
 		}
 		k := optionIdentity(r.Options[i])
 		cands := byID[k]
+		if len(cands) == 0 {
+			return 0, false
+		}
+		if d.Kind == decision.KModes {
+			// CanRepeatModes allows a mode option to be selected more than once;
+			// map each repeated choice to the same mirror option.
+			return cands[0], true
+		}
 		if used[k] >= len(cands) {
 			return 0, false
 		}
