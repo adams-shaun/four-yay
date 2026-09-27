@@ -1,0 +1,52 @@
+{
+  "card": "Blooming Marsh",
+  "family": "etb-ltb",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "two-other-lands-enters-untapped",
+      "cr": ["614.1c", "305.2"],
+      "why": "Seat 0 controls exactly two other lands, so Blooming Marsh enters untapped.",
+      "setup": {
+        "p0": {"hand": ["Blooming Marsh"], "battlefield": ["Swamp", "Swamp"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Blooming Marsh"}
+      ],
+      "expect": [
+        {"card": "p0:Blooming Marsh", "zone": "battlefield", "tapped": false}
+      ]
+    },
+    {
+      "name": "three-other-lands-enters-tapped",
+      "cr": ["614.1c"],
+      "why": "Three other lands: the 'unless' fails, so it enters tapped.",
+      "setup": {
+        "p0": {"hand": ["Blooming Marsh"], "battlefield": ["Swamp", "Swamp", "Swamp"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Blooming Marsh"}
+      ],
+      "expect": [
+        {"card": "p0:Blooming Marsh", "zone": "battlefield", "tapped": true}
+      ]
+    },
+    {
+      "name": "opponent-lands-do-not-count",
+      "cr": ["614.1c"],
+      "why": "Only lands YOU control count: seat 1's three lands do not make seat 0's Marsh (with one other land) enter tapped.",
+      "setup": {
+        "p0": {"hand": ["Blooming Marsh"], "battlefield": ["Swamp"]},
+        "p1": {"battlefield": ["Swamp", "Swamp", "Swamp"]}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Blooming Marsh"}
+      ],
+      "expect": [
+        {"card": "p0:Blooming Marsh", "zone": "battlefield", "tapped": false}
+      ]
+    }
+  ]
+}
