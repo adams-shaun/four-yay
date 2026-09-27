@@ -1,0 +1,36 @@
+{
+  "card": "Kitesail Apprentice",
+  "family": "conditional-static",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "unequipped-is-plain-1-1",
+      "cr": ["611.3a"],
+      "why": "Not equipped: printed 1/1 and no flying.",
+      "setup": {
+        "p0": {"battlefield": ["Kitesail Apprentice", "Bonesplitter"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Kitesail Apprentice", "pt": "1/1", "no_keywords": ["Flying"]}
+      ]
+    },
+    {
+      "name": "equipped-gets-bonus-and-flying",
+      "cr": ["611.3a", "702.6a", "613.4c"],
+      "why": "Equip Bonesplitter ({1}) to it: +2/+0 from the Equipment and +1/+1 and flying from its own static, so 4/2 with flying.",
+      "setup": {
+        "p0": {"battlefield": ["Kitesail Apprentice", "Bonesplitter"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Bonesplitter", "ability": "Equip", "mana": "C", "targets": ["p0:Kitesail Apprentice"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Kitesail Apprentice", "pt": "4/2", "keywords": ["Flying"]}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "card": "Gravecrawler",
+  "family": "conditional-static",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "with-zombie-castable-from-graveyard",
+      "cr": ["601.3", "113.6f"],
+      "why": "Seat 0 controls a Zombie (Walking Corpse), so it may cast Gravecrawler from its graveyard for {B}; it resolves onto the battlefield.",
+      "setup": {
+        "p0": {"graveyard": ["Gravecrawler"], "battlefield": ["Walking Corpse"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "B", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Gravecrawler"}, "want": true}]},
+        {"op": "cast", "seat": 0, "card": "p0:Gravecrawler"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Gravecrawler", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "without-zombie-not-castable-from-graveyard",
+      "cr": ["601.3"],
+      "why": "No Zombie: the permission does not apply, so casting from the graveyard is not offered.",
+      "setup": {
+        "p0": {"graveyard": ["Gravecrawler"], "battlefield": ["Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "B"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Gravecrawler"}, "want": false}
+      ]
+    }
+  ]
+}

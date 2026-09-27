@@ -1,0 +1,40 @@
+{
+  "card": "Dispatch",
+  "family": "spell-conditional",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "metalcraft-exiles",
+      "cr": ["608.2c", "207.2c"],
+      "why": "With three artifacts the metalcraft sentence applies on resolution: the creature is tapped, then exiled.",
+      "setup": {
+        "p0": {"hand": ["Dispatch"], "battlefield": ["Ornithopter", "Ornithopter", "Ornithopter"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Dispatch", "mana": "W", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "exile"}
+      ]
+    },
+    {
+      "name": "no-metalcraft-only-taps",
+      "cr": ["608.2c"],
+      "why": "With two artifacts only the first sentence applies: the creature is tapped and stays on the battlefield.",
+      "setup": {
+        "p0": {"hand": ["Dispatch"], "battlefield": ["Ornithopter", "Ornithopter"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Dispatch", "mana": "W", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p1:Grizzly Bears", "tapped": true}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "card": "Knight of the White Orchid",
+  "family": "trigger-condition",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-more-lands-fetches-plains",
+      "cr": ["603.4", "701.23a"],
+      "why": "An opponent controls more lands (2 vs 1), so the enters trigger fires; accepting puts a Plains from the library onto the battlefield.",
+      "setup": {
+        "p0": {"hand": ["Knight of the White Orchid"], "battlefield": ["Plains"], "library": ["Plains"]},
+        "p1": {"battlefield": ["Plains", "Plains"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Knight of the White Orchid", "mana": "WW"},
+        {"op": "resolve", "answers": [{"kind": "trigger_optional", "pick": ["yes"]}, {"kind": "choose", "pick": ["Plains"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Knight of the White Orchid", "zone": "battlefield"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Plains"}, "eq": 2}
+      ]
+    },
+    {
+      "name": "equal-lands-no-trigger",
+      "cr": ["603.4"],
+      "why": "Lands are equal (1 vs 1): the intervening-if is false, the ability does not trigger and nothing is fetched.",
+      "setup": {
+        "p0": {"hand": ["Knight of the White Orchid"], "battlefield": ["Plains"], "library": ["Plains"]},
+        "p1": {"battlefield": ["Plains"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Knight of the White Orchid", "mana": "WW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Knight of the White Orchid", "zone": "battlefield"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Plains"}, "eq": 1}
+      ]
+    }
+  ]
+}

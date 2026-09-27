@@ -1,0 +1,76 @@
+{
+  "card": "Relic Vial",
+  "family": "conditional-static",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "with-cleric-creature-dies-drains",
+      "cr": ["611.3a", "603.2"],
+      "why": "Seat 0 controls a Cleric, so Relic Vial has the granted trigger; a creature seat 0 controls dying makes the opponent lose 1 and seat 0 gain 1.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push"], "battlefield": ["Relic Vial", "Harsh Mentor", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "zone": "graveyard"},
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "without-cleric-no-drain",
+      "cr": ["611.3a"],
+      "why": "No Cleric: Relic Vial has no triggered ability, so a creature dying changes no life total.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push"], "battlefield": ["Relic Vial", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "zone": "graveyard"},
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    },
+    {
+      "name": "cleric-cast-this-turn-grant-is-live-at-once",
+      "cr": ["611.3a"],
+      "why": "The grant is not locked in: the moment a Cleric (Harsh Mentor, cast this turn) is on the battlefield, the next creature death drains.",
+      "setup": {
+        "p0": {"hand": ["Harsh Mentor", "Fatal Push"], "battlefield": ["Relic Vial", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Harsh Mentor", "mana": "RR"},
+        {"op": "resolve", "expect": [{"card": "p0:Harsh Mentor", "zone": "battlefield"}]},
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "only-cleric-dies-looks-back",
+      "cr": ["603.10a", "611.3a"],
+      "why": "\"Whenever a creature you control dies\" is a leaves-the-battlefield trigger and looks back in time: when the only Cleric itself dies, Relic Vial had the ability immediately before the event, so it triggers.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push"], "battlefield": ["Relic Vial", "Harsh Mentor"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p0:Harsh Mentor"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Harsh Mentor", "zone": "graveyard"},
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    }
+  ]
+}

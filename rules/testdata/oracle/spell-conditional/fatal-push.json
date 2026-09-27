@@ -1,0 +1,76 @@
+{
+  "card": "Fatal Push",
+  "family": "spell-conditional",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-revolt-mana-value-3-survives",
+      "cr": ["608.2c"],
+      "why": "Without revolt the destroy applies only to mana value 2 or less; a mana value 3 creature is untouched and the spell still resolves to the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p1:Centaur Courser"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "battlefield"},
+        {"card": "p0:Fatal Push", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "no-revolt-mana-value-2-destroyed",
+      "cr": ["608.2c", "701.8a"],
+      "why": "A mana value 2 creature is destroyed with or without revolt.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "revolt-mana-value-3-destroyed",
+      "cr": ["608.2c", "207.2c"],
+      "why": "Revolt: a permanent seat 0 controlled left the battlefield this turn (its own Savannah Lions, destroyed by the first Fatal Push), so the second Fatal Push destroys a mana value 3 creature.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push", "Fatal Push"], "battlefield": ["Savannah Lions"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve", "expect": [{"card": "p0:Savannah Lions", "zone": "graveyard"}]},
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push#2", "mana": "B", "targets": ["p1:Centaur Courser"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "revolt-mana-value-5-survives",
+      "cr": ["608.2c"],
+      "why": "Even with revolt the ceiling is mana value 4; Serra Angel (mana value 5) survives.",
+      "setup": {
+        "p0": {"hand": ["Fatal Push", "Fatal Push"], "battlefield": ["Savannah Lions"]},
+        "p1": {"battlefield": ["Serra Angel"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push#2", "mana": "B", "targets": ["p1:Serra Angel"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Serra Angel", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

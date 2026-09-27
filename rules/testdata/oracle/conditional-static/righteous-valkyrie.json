@@ -1,0 +1,84 @@
+{
+  "card": "Righteous Valkyrie",
+  "family": "conditional-static",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "seven-over-starting-life-anthem-on",
+      "cr": ["611.3a", "613.4c"],
+      "why": "Starting life is 20; at 27 life seat 0 has at least 7 more, so its creatures get +2/+2.",
+      "setup": {
+        "p0": {"battlefield": ["Righteous Valkyrie", "Savannah Lions"], "life": 27},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Righteous Valkyrie", "pt": "4/6"},
+        {"card": "p0:Savannah Lions", "pt": "4/3"}
+      ]
+    },
+    {
+      "name": "six-over-starting-life-anthem-off",
+      "cr": ["611.3a"],
+      "why": "At 26 life seat 0 is only 6 over its starting total; no bonus.",
+      "setup": {
+        "p0": {"battlefield": ["Righteous Valkyrie", "Savannah Lions"], "life": 26},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Righteous Valkyrie", "pt": "2/4"},
+        {"card": "p0:Savannah Lions", "pt": "2/1"}
+      ]
+    },
+    {
+      "name": "anthem-turns-on-mid-turn",
+      "cr": ["611.3a"],
+      "why": "The condition is checked continuously: going from 26 to 29 life (Revitalize) turns the +2/+2 on immediately.",
+      "setup": {
+        "p0": {"hand": ["Revitalize"], "battlefield": ["Righteous Valkyrie", "Savannah Lions"], "life": 26},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Revitalize", "mana": "WW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 29}},
+        {"card": "p0:Savannah Lions", "pt": "4/3"}
+      ]
+    },
+    {
+      "name": "cleric-enters-gain-its-toughness",
+      "cr": ["603.2", "603.6a"],
+      "why": "Another Cleric (Harsh Mentor, toughness 2) entering under seat 0's control triggers: gain 2 life.",
+      "setup": {
+        "p0": {"hand": ["Harsh Mentor"], "battlefield": ["Righteous Valkyrie"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Harsh Mentor", "mana": "RR"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 22}}
+      ]
+    },
+    {
+      "name": "non-angel-non-cleric-enters-no-gain",
+      "cr": ["603.2"],
+      "why": "Savannah Lions is a Cat, neither Angel nor Cleric: no trigger, no life gained.",
+      "setup": {
+        "p0": {"hand": ["Savannah Lions"], "battlefield": ["Righteous Valkyrie"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Savannah Lions", "mana": "W"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20}}
+      ]
+    }
+  ]
+}

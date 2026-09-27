@@ -1,0 +1,40 @@
+{
+  "card": "Sulfuric Vortex",
+  "family": "replacement",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "life-gain-replaced-with-nothing",
+      "cr": ["614.1a"],
+      "why": "Any player who would gain life gains none instead: Revitalize leaves seat 0 at 20 but still draws the card.",
+      "setup": {
+        "p0": {"hand": ["Revitalize"]},
+        "p1": {"battlefield": ["Sulfuric Vortex"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Revitalize", "mana": "WW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20}},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "each-upkeep-deals-two-to-active-player",
+      "cr": ["503.1a", "603.2"],
+      "why": "At the beginning of each player's upkeep it deals 2 damage to that player: on seat 1's next turn, seat 1 goes to 18 and seat 0 is untouched.",
+      "setup": {
+        "p0": {"battlefield": ["Sulfuric Vortex"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "upkeep", "active": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 18}}
+      ]
+    }
+  ]
+}

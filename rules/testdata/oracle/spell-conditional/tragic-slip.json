@@ -1,0 +1,42 @@
+{
+  "card": "Tragic Slip",
+  "family": "spell-conditional",
+  "author": "pilot/opus (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-morbid-minus-one",
+      "cr": ["608.2c", "611.2a"],
+      "why": "No creature died this turn, so the target gets only -1/-1 until end of turn: a 3/3 becomes 2/2 and survives.",
+      "setup": {
+        "p0": {"hand": ["Tragic Slip"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Tragic Slip", "mana": "B", "targets": ["p1:Centaur Courser"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "battlefield"},
+        {"card": "p1:Centaur Courser", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "morbid-minus-thirteen",
+      "cr": ["608.2c", "704.5f"],
+      "why": "A creature died earlier this turn (Grizzly Bears, destroyed by Fatal Push), so morbid gives -13/-13 and a 4/4 dies to state-based actions.",
+      "setup": {
+        "p0": {"hand": ["Tragic Slip", "Fatal Push"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Serra Angel"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fatal Push", "mana": "B", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve", "expect": [{"card": "p1:Grizzly Bears", "zone": "graveyard"}]},
+        {"op": "cast", "seat": 0, "card": "p0:Tragic Slip", "mana": "B", "targets": ["p1:Serra Angel"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Serra Angel", "zone": "graveyard"}
+      ]
+    }
+  ]
+}
