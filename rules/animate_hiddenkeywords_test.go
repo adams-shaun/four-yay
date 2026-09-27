@@ -396,41 +396,68 @@ func TestMustBeBlockedBotAnswerNeverLivelocks(t *testing.T) {
 	}
 }
 
-// TestMustBeBlockedReleasesWhenImpossible pins the "if able" half: when no
-// legal pair exists for the required attacker (a ground blocker against a
-// flier), no option carries the requirement and the empty declaration is
-// legal -- the requirement does not outrun what the board can satisfy.
+// TestMustBeBlockedReleasesWhenImpossible pins the "if able" half. It pairs a
+// POSITIVE control (a ground must-be-blocked attacker with a legal ground
+// blocker, which must carry the requirement) with the impossible case (a
+// must-be-blocked FLIER the ground blocker cannot reach, which must not), so
+// the impossible half cannot pass vacuously if the wiring is reverted -- the
+// positive half fails in the same function.
 func TestMustBeBlockedReleasesWhenImpossible(t *testing.T) {
+	// Positive control: legal pair binds.
 	e := threeSeatEngine(t)
-	req := onBoardCard(t, e, 1, card(t, strings.Replace(printedMustBeBlockedSrc,
-		"Types:Creature Elemental\n", "Types:Creature Elemental\nK:Flying\n", 1)))
+	reqGround := onBoardCard(t, e, 1, card(t, printedMustBeBlockedSrc))
 	blocker := onBoardCard(t, e, 0, card(t, "Name:Test Ground Only\nManaCost:1\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"))
-	attackSeat0(t, e, req)
+	attackSeat0(t, e, reqGround)
+	if !e.hasMustBeBlockedKeyword(reqGround) || !e.canBlock(blocker, reqGround) {
+		t.Fatalf("precondition: positive control wrong (kw=%v canBlock=%v)",
+			e.hasMustBeBlockedKeyword(reqGround), e.canBlock(blocker, reqGround))
+	}
+	dPos := askBlockersFresh(t, e)
+	pos := findBlockOption(dPos, blocker, reqGround)
+	if pos == nil || !pos.AttackMust {
+		t.Fatalf("positive control: legal must-be-blocked pair not flagged: %+v", dPos.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: dPos.Seq, Player: dPos.Player, Choices: []int{}}); err == nil {
+		t.Fatal("positive control: empty declaration satisfied the requirement")
+	}
+
+	// Impossible pair: the required attacker is a flier the ground blocker
+	// cannot reach, so no offered pair carries the requirement and the empty
+	// declaration is legal.
+	e2 := threeSeatEngine(t)
+	reqFlier := onBoardCard(t, e2, 1, card(t, strings.Replace(printedMustBeBlockedSrc,
+		"Types:Creature Elemental\n", "Types:Creature Elemental\nK:Flying\n", 1)))
+	blocker2 := onBoardCard(t, e2, 0, card(t, "Name:Test Ground Only\nManaCost:1\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"))
+	attackSeat0(t, e2, reqFlier)
 
 	// Preconditions: the required attacker has the keyword and Flying, the
 	// blocker is ground and cannot reach it -- so the sole pair is illegal.
-	if !e.hasMustBeBlockedKeyword(req) {
+	if !e2.hasMustBeBlockedKeyword(reqFlier) {
 		t.Fatal("precondition: fixture did not grant the must-be-blocked keyword")
 	}
-	if e.HasKeyword(req, "Flying") == false {
+	if !e2.HasKeyword(reqFlier, "Flying") {
 		t.Fatal("precondition: fixture attacker is not a flier")
 	}
-	if e.canBlock(blocker, req) {
+	if e2.canBlock(blocker2, reqFlier) {
 		t.Fatal("precondition: the ground blocker can reach the flier; the case under test needs it illegal")
 	}
 
 	// No legal pair -> no option -> no requirement. A decision may still be
-	// posed for other reasons, but it must not demand a required block.
-	d := askBlockersFresh(t, e)
+	// posed for other reasons, but it must not demand a required block and the
+	// forced empty declaration must be legal.
+	d := askBlockersFresh(t, e2)
 	if d != nil {
 		for _, o := range d.Options {
 			if o.AttackMust {
 				t.Fatalf("requirement marked on an illegal pair: %+v", o)
 			}
 		}
-		if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{}}); err != nil {
+		if err := e2.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{}}); err != nil {
 			t.Fatalf("empty declaration rejected although blocking was impossible: %v", err)
 		}
+	}
+	if len(e2.G.Obj(reqFlier).BlockedBy) != 0 {
+		t.Fatalf("an impossible block was somehow committed: %v", e2.G.Obj(reqFlier).BlockedBy)
 	}
 }
 
