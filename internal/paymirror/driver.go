@@ -222,6 +222,7 @@ func PlayConfig(cfg rules.Config, spec GameSpec, opt DriverOptions) (res GameRes
 			return res
 		}
 		dec := e.Pending()
+		e.EnsurePaymentActions()
 		if res.RestViolation == "" {
 			if v := atRestViolation(e); v != "" {
 				res.RestViolation = fmt.Sprintf("seq %d: %s after %v", dec.Seq, v, recentEvents(e, restContext))

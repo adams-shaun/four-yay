@@ -1214,10 +1214,6 @@ type Engine struct {
 	// closures, so Clone copies it like cast/choosing and a replay
 	// re-derives it from the recorded intents.
 	turnUp *turnUpPay
-	// replayPaymentPlans permits replay to reconstruct a dormant payment offer
-	// only when it encounters its recorded selector.  Live decisions remain
-	// unpublished until host integration enables them.
-	replayPaymentPlans bool
 	// etbMove parks a battlefield entry while its as-enters choice is answered
 	// through the mid-resolution decision path. etbNext is the ordinal of the
 	// next choice on that entry; both are plain data so a clone at the decision
@@ -3246,6 +3242,26 @@ func cloneDamageSourceLKI(in map[state.ObjID]effects.DamageSourceLKI) map[state.
 
 func (e *Engine) Pending() *decision.Decision { return e.pending }
 
+// EnsurePaymentActions lazily builds the payment extension for the current
+// priority decision. It is a pure derived read: it emits no event and does
+// not advance sequence or RNG. The built marker also caches an empty result.
+func (e *Engine) EnsurePaymentActions() []decision.PaymentAction {
+	d := e.pending
+	if d == nil || d.Kind != decision.KPriority {
+		return nil
+	}
+	if !d.PaymentActionsBuilt {
+		actions := e.PaymentActionsForPriority(d.Player, d.Seq)
+		d.PaymentActions = (&decision.Decision{PaymentActions: actions}).Clone().PaymentActions
+		d.PaymentActionsBuilt = true
+		// The builder performs derived reads in its own memo generation. Make
+		// that completed read the resumable tail so a later BoardSeat build
+		// can still use BeginDerivedReads without reopening the walk.
+		e.recordDerivedMemoTail(d)
+	}
+	return d.PaymentActions
+}
+
 // seatFacingName is the seat-facing identity for client-facing prompt and
 // option-label text (the priority prompt, the keep/mulligan prompt, the
 // attacker, cumulative-upkeep and target option labels). PlayerName is
@@ -3413,19 +3429,9 @@ func (e *Engine) ask(d *decision.Decision) {
 		}
 	}
 	d.Seq = uint64(len(e.L.Events))
-	// Payment actions are an additive extension of a real priority ask. Build
-	// them only after Seq is fixed: both action and plan identities bind that
-	// Seq. This leaves Options (and therefore every legacy index) untouched.
-	// The planner is a pure read, so publication neither adds an event nor
-	// changes the state a normal priority ask observes.
-	if d.Kind == decision.KPriority && len(d.PaymentActions) == 0 {
-		d.PaymentActions = e.PaymentActionsForPriority(d.Player, d.Seq)
-	}
-	// PaymentActionsForPriority is an additive, pure legal-actions walk.  It
-	// may open its own Derived scope after askPriority recorded the ordinary
-	// offer walk's tail, so record the actual last priority-read generation
-	// only after the extension is built.  That keeps BeginDerivedReads able to
-	// resume the exact board read which immediately precedes this ask.
+	// Cache the ordinary offer-walk tail before any opt-in consumer requests
+	// the separate payment extension. EnsurePaymentActions may run later, after
+	// this ask has returned.
 	if d.Kind == decision.KPriority {
 		e.recordDerivedMemoTail(d)
 	}
@@ -3516,11 +3522,8 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if d == nil {
 		return fmt.Errorf("no decision pending")
 	}
-	if in.Payment != nil && e.replayPaymentPlans && len(d.PaymentActions) == 0 && d.Kind == decision.KPriority {
-		// PaymentActions are intentionally not emitted with DecisionAsk.  A
-		// replay rebuilds the same deterministic, Seq-bound offer from the
-		// recorded selector rather than trusting a prior process's cache.
-		d.PaymentActions = (&decision.Decision{PaymentActions: e.PaymentActionsForPriority(d.Player, d.Seq)}).Clone().PaymentActions
+	if in.Payment != nil && d.Kind == decision.KPriority {
+		e.EnsurePaymentActions()
 	}
 	if err := d.Validate(in); err != nil {
 		return err
@@ -3649,11 +3652,6 @@ func (e *Engine) Submit(in decision.Intent) error {
 	e.Advance()
 	return nil
 }
-
-// EnablePaymentPlanReplay remains a compatibility hook for logs recorded
-// before payment actions were published at ask time. Current replay rebuilds
-// the same extension through ask like a live engine does.
-func (e *Engine) EnablePaymentPlanReplay() { e.replayPaymentPlans = true }
 
 // drawCard draws for the turn structure, sharing effects.DrawFor with the
 // Draw primitive so the draw step and a card that says "draw a card" can

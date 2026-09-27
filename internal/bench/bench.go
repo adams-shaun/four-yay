@@ -198,6 +198,9 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 				}
 			}
 			d := e.Pending()
+			if consumer, ok := seats[d.Player].(seat.PaymentPlanConsumer); ok && consumer.WantsPaymentActions() {
+				e.EnsurePaymentActions()
+			}
 			var in decision.Intent
 			var err error
 			var decisionBoard *botpolicy.Board

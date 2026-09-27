@@ -539,6 +539,19 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 	dumped := false
 	guard := func(e *rules.Engine) (string, string) {
 		probe.observe(e, offerSeen)
+		if d := e.Pending(); d != nil {
+			// apProbe reads d.PaymentActions for EVERY deciding seat -- its
+			// manual_seat_priority_with_plan counter measures plans offered
+			// to seats that ignore the extension. So an auto-pay run (any
+			// mode but off) must build every seat's extension to keep those
+			// counters, exactly as the eager publisher did; off runs build
+			// none and stay cheap. A consumer seat always opts in.
+			if apc.on() {
+				e.EnsurePaymentActions()
+			} else if consumer, ok := seats[d.Player].(seat.PaymentPlanConsumer); ok && consumer.WantsPaymentActions() {
+				e.EnsurePaymentActions()
+			}
+		}
 		if dumpAt > 0 && !dumped {
 			if d := e.Pending(); d != nil && d.Seq >= dumpAt {
 				dumped = true

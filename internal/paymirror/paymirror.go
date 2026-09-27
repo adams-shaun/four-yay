@@ -1095,6 +1095,10 @@ func containsInt(s []int, v int) bool {
 // with its Seq-bound identities masked, and the route-independent events
 // both logged since the fork.
 func compareEngines(a, b *rules.Engine, fork int, res *RouteResult) {
+	// Offer caches are lazy derived state. Build on both sides before
+	// comparing pending decisions so the mirror verdict is cache-independent.
+	a.EnsurePaymentActions()
+	b.EnsurePaymentActions()
 	collectDiffs(a, b, fork, res)
 	if len(res.Diffs) > 0 || len(res.EventsOnlyA) > 0 || len(res.EventsOnlyB) > 0 {
 		reason := "state_differs"

@@ -122,6 +122,9 @@ func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("precondition: pending = %+v, want priority", d)
 	}
+	// Payment actions are published lazily (aph-lazy-offers): build them
+	// for this ask, as an opted-in consumer would, before reading them.
+	e.EnsurePaymentActions()
 	a := paymentPlanActionFor(t, d, watchID)
 	if len(a.Plans) == 0 {
 		t.Fatal("precondition: the cast was offered with no payment witness")

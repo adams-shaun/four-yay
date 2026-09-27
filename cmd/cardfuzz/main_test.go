@@ -393,8 +393,12 @@ func TestAutoPayGameSubmitsPlans(t *testing.T) {
 	t.Logf("all: %s", gc.ap)
 	_, gcOff := playGame(reg, decks, 9, 14, 20000, 0, false, false, autoPay{mode: "off"})
 	t.Logf("off: %s", gcOff.ap)
-	if gcOff.ap.Planned != 0 || gcOff.ap.Priority != 0 || gcOff.ap.ManualSeatPriorityPlan == 0 {
-		t.Fatalf("off seats must see plans offered and submit none: %s", gcOff.ap)
+	// Lazy publication builds the payment extension only for a consumer. An
+	// off run has no auto-pay seat, so no seat's extension is built and the
+	// manual-seat counters are legitimately zero -- the off run is the cheap
+	// path. (Before lazy publication every priority built one eagerly.)
+	if gcOff.ap.Planned != 0 || gcOff.ap.Priority != 0 || gcOff.ap.ManualSeatPriorityPlan != 0 {
+		t.Fatalf("off seats must build no plans and submit none: %s", gcOff.ap)
 	}
 	// The 100-object cap forces a (bigboard) failure record.
 	f, _ = playGame(reg, decks, 11, 3, 20000, 100, false, false, all)

@@ -59,7 +59,7 @@ func (r *Registry) ViewAt(id TableID, k int, seq uint64) (view.View, error) {
 // (viewer, vis, decision) triple they hand it, i.e. only in how the common
 // replay calls view.ProjectFor.
 //
-// Same lock discipline as ViewAt: read the shared fields under the read
+// Same lock discipline as ViewAt: read the shared fields under the match
 // lock — the log, the snapshots, the config, and a COPY of the pending
 // decision (never the engine's own pointer, which play replaces between
 // bursts) — then project outside it.
@@ -68,7 +68,7 @@ func (r *Registry) ViewAtSeat(id TableID, k int, seq uint64, player state.Player
 	if err != nil {
 		return view.View{}, err
 	}
-	m.mu.RLock()
+	m.mu.Lock()
 	l := m.e.L.Clone()
 	snaps := append([]snapshot(nil), m.snaps...)
 	cfg := m.cfg
@@ -81,6 +81,11 @@ func (r *Registry) ViewAtSeat(id TableID, k int, seq uint64, player state.Player
 	var d *decision.Decision
 	if seq == head(m) {
 		if p := m.e.Pending(); p != nil {
+			if t.cfg.AutoMana && p.Player == player && int(p.Player) < len(m.slots) {
+				if _, isHuman := m.slots[p.Player].(*HumanSeat); isHuman {
+					m.e.EnsurePaymentActions()
+				}
+			}
 			cp := *p.Clone()
 			if !t.cfg.AutoMana {
 				cp.PaymentActions = nil
@@ -88,7 +93,7 @@ func (r *Registry) ViewAtSeat(id TableID, k int, seq uint64, player state.Player
 			d = &cp
 		}
 	}
-	m.mu.RUnlock()
+	m.mu.Unlock()
 	return viewAt(cfg, l, snaps, seq, player, view.Seat, d)
 }
 
