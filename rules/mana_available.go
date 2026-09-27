@@ -11,8 +11,10 @@ import (
 // AvailableMana is the engine's answer to the view's "what could this seat
 // tap for right now" question (view.Chars). It is the mana the seat could
 // produce this very moment by activating the free-to-tap mana abilities of
-// untapped permanents it controls -- the "free mana one gains by tapping
-// lands or other effects" the seat-box line 3 advertises, as distinct from
+// permanents it controls. Tapped sources count only when an available ability
+// pays {Q}; an unavailable {T} ability on a tapped source is not counted. This
+// is the "free mana one gains by tapping lands or other effects" the seat-box
+// line 3 advertises, as distinct from
 // the floating Pool (poolView), which is a between-decisions snapshot that
 // CR 500.4 empties at every step's end.
 //
@@ -22,8 +24,8 @@ import (
 // omniscient).
 //
 // The eligibility gate mirrors the engine's own tap-for-mana offer
-// (rules/legal.go legalActions): an untapped permanent with at least one
-// unrestrictable mana ability. Beyond that gate this is deliberately
+// (rules/legal.go legalActions): a permanent with at least one unrestrictable,
+// presently payable mana ability. Beyond that gate this is deliberately
 // narrower, in three honest ways the projection must not paper over:
 //
 //   - Only a mana ability whose activation cost is a bare tap (or free) is
@@ -44,10 +46,6 @@ import (
 //     (mirrors cards.ManaiProduction, which resolves it to zero rather than
 //     claiming a count the pool is never promised.)
 //
-// A summoning-sick creature is not separately excluded: the engine's own
-// tap-for-mana offer gate does not exclude one either (it checks only
-// Tapped), and AvailableMana is intentionally consistent with the offer set
-// the seat actually acts through rather than silently diverging from it.
 // Like `Cards`' production, a Produced$ of "Any"/"Combo Any" reports all
 // five possible colours and no colourless unit. AvailableMana is an aggregate
 // capability vector, not a claim that one tap supplies all five units: the
@@ -58,7 +56,7 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 	var out state.Mana
 	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
-		if o == nil || o.Tapped {
+		if o == nil {
 			continue
 		}
 		f := o.Face()
@@ -67,7 +65,8 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 		}
 		var free []*cards.SA
 		for _, ma := range e.availableManaAbilities(p, id) {
-			if manaFreeCost(e.parseCost(ma.Params["Cost"])) {
+			cost := e.parseCost(ma.Params["Cost"])
+			if manaFreeCost(cost) && !activationTapCostUnavailable(o, cost) {
 				free = append(free, ma)
 			}
 		}
@@ -123,7 +122,7 @@ func manaFreeCost(c Cost) bool {
 }
 
 // windowManaAlt is one deterministic production alternative of a single
-// untapped permanent: the exact ability resolveManaAbility will resolve (so
+// permanent: the exact ability resolveManaAbility will resolve (so
 // the activation poses no chooseMana sub-ask), its Produced$ colour counts,
 // and its literal amount. A permanent that can tap for one of several
 // colours (a Volcanic Island's intrinsic {U} and {R} abilities) carries one
@@ -170,7 +169,7 @@ func (a windowManaAlt) mana() state.Mana {
 	return m
 }
 
-// windowManaUnit is one untapped permanent as a PAYMENT WINDOW sees it: its
+// windowManaUnit is one permanent as a PAYMENT WINDOW sees it: its
 // single tap's production ALTERNATIVES. freeCount is the number of
 // free-cost, window-usable abilities the permanent has BEFORE the
 // per-ability priceability filter, so a consumer that must tap exactly one
@@ -188,7 +187,7 @@ type windowManaUnit struct {
 }
 
 // windowManaUnits walks p's battlefield in zone order and returns every
-// untapped permanent whose PAYMENT-WINDOW mana abilities include at least one
+// permanent whose PAYMENT-WINDOW mana abilities include at least one
 // free-cost ability whose production this build can price deterministically.
 // It is deliberately narrower than untappedManaSource in three honest ways a
 // payment-window affordability bound must honour:
@@ -215,7 +214,7 @@ func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
 	var out []windowManaUnit
 	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
-		if o == nil || o.Tapped || o.Face() == nil {
+		if o == nil || o.Face() == nil {
 			continue
 		}
 		var free []*cards.SA
@@ -223,7 +222,8 @@ func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
 			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
 				continue
 			}
-			if manaFreeCost(e.parseCost(ma.Params["Cost"])) {
+			cost := e.parseCost(ma.Params["Cost"])
+			if manaFreeCost(cost) && !activationTapCostUnavailable(o, cost) {
 				free = append(free, ma)
 			}
 		}

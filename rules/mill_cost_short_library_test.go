@@ -19,6 +19,7 @@ func TestMillikinMillCostIsPayableWithEmptyLibrary(t *testing.T) {
 	e := handEngine(t, millikin)
 	source := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.Event{Kind: events.MoveZone, Obj: source, From: state.ZHand, To: state.ZBattlefield})
+	e.G.Obj(source).SummonSick = false
 	e.G.SetZone(state.ZLibrary, 0, nil)
 	if e.G.Obj(source) == nil || e.G.Obj(source).Zone != state.ZBattlefield {
 		t.Fatal("precondition: Millikin is not on the battlefield")

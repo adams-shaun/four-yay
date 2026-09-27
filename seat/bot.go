@@ -76,6 +76,9 @@ func (b *Bot) EnableAutoPayMana() *Bot {
 	return b
 }
 
+// WantsPaymentActions reports the bot's explicit opt-in to planned payment.
+func (b *Bot) WantsPaymentActions() bool { return b.autoPayMana }
+
 // NewLethalPressureBot returns the measured opt-in AR7 policy. Both Seat
 // adapters use the same variant, preserving the Board/View parity contract.
 func NewLethalPressureBot(seed uint64) *Bot {

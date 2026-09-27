@@ -77,6 +77,33 @@ type devSuite struct {
 	// seat.NewCastProfileBotWithWeights; a test overrides it to observe which
 	// weights reach which side.
 	ctor func(seed uint64, w Weights) seat.Seat
+	// autoPay (the -auto-pay flag) fits and benches under the hosted
+	// auto-pay adapter: both fitted sides AND the BenchVsBot baseline pay
+	// mana through offered payment plans (seat.Bot.EnableAutoPayMana), the
+	// shape gorged hosts by default (-auto-mana and -bot-auto-mana both
+	// default true). Off keeps the historical manual-tapping fit.
+	autoPay bool
+}
+
+// setAutoPay switches both fitted sides and the bench baseline to the
+// auto-pay adapter. It replaces ctor, so call it before any test override.
+func (d *devSuite) setAutoPay(on bool) {
+	d.autoPay = on
+	if on {
+		d.ctor = func(seed uint64, w Weights) seat.Seat {
+			return seat.NewCastProfileBotWithWeights(seed, w).EnableAutoPayMana()
+		}
+	}
+}
+
+// baselineCtor is the production bot BenchVsBot measures against: seat.NewBot,
+// with the auto-pay adapter when the fit runs under -auto-pay, so a fitted
+// auto-pay profile is measured against the auto-pay default it would replace.
+func (d *devSuite) baselineCtor() func(seed uint64) seat.Seat {
+	if d.autoPay {
+		return func(seed uint64) seat.Seat { return seat.NewBot(seed).EnableAutoPayMana() }
+	}
+	return func(seed uint64) seat.Seat { return seat.NewBot(seed) }
 }
 
 // openDevSuite resolves the corpus and every deck the pairs name once.
@@ -162,11 +189,12 @@ func (d *devSuite) Eval(plus, minus Weights, baseSeed uint64) (EvalResult, error
 }
 
 // BenchVsBot benches w (side A) against the production bot (side B) on the
-// same dev suite. The bot is seat.NewBot, exactly the production policy, so a
-// fitted profile is measured against the thing L4 will gate it against.
+// same dev suite. The bot is seat.NewBot, exactly the production policy (with
+// the auto-pay adapter under -auto-pay, see baselineCtor), so a fitted
+// profile is measured against the thing L4 will gate it against.
 func (d *devSuite) BenchVsBot(w Weights, baseSeed uint64) (float64, error) {
 	aCtor := func(seed uint64) seat.Seat { return d.ctor(seed, w) }
-	bCtor := func(seed uint64) seat.Seat { return seat.NewBot(seed) }
+	bCtor := d.baselineCtor()
 	results, err := bench.RunPairs(baseSeed, d.gamesPerPair, d.pairs, aCtor, bCtor, d.player(), d.workers, nil)
 	if err != nil {
 		return 0, err
@@ -326,6 +354,7 @@ func mainExit(args []string, stdout, stderr io.Writer) int {
 	maxTurns := fs.Int("max-turns", 200, "maximum turns per game before it ends as a stall (excluded from rates); 0 = no cap")
 	maxIntents := fs.Int("max-intents", 20000, "maximum intents per game before it ends as a stall; 0 = no cap")
 	quiet := fs.Bool("quiet", false, "suppress the per-iteration log lines")
+	autoPay := fs.Bool("auto-pay", false, "fit under the hosted auto-pay adapter: both sides and the -bench-every baseline cast through offered payment plans (seat.Bot.EnableAutoPayMana)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -372,6 +401,7 @@ func mainExit(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "policytune: %v\n", err)
 		return 1
 	}
+	suite.setAutoPay(*autoPay)
 
 	// The trace names the fields BEFORE the fit resolves them, so both use
 	// the same list: resolve here, pass to RunSPSA via Config.Fit.

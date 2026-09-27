@@ -2,11 +2,14 @@ package rules
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -55,6 +58,7 @@ func TestPaymentPlanDoesNotDoubleCountDualAndKeepsColorlessDistinct(t *testing.T
 func TestPaymentPlanExcludesManaAbilityWithMillCost(t *testing.T) {
 	e, _, spell := newFixtureDeck(t, 9110, "Name:Colorless Plan Spell\nManaCost:C\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	source := onBoard(t, e, 0, "Name:Millikin Shape\nTypes:Artifact Creature Construct\nA:AB$ Mana | Cost$ T Mill<1> | Produced$ C\nOracle:x\n")
+	e.G.Obj(source).SummonSick = false
 	ma := e.G.Obj(source).Face().Abilities[0]
 	if got := e.parseCost(ma.Params["Cost"]); !got.Tap || len(got.Mill) != 1 {
 		t.Fatalf("mana cost = %+v, want tap plus Mill<1>", got)
@@ -92,28 +96,27 @@ func TestPaymentPlanQueryIsPure(t *testing.T) {
 	}
 }
 
-func TestPaymentPlanPriorityAskPublishesAdditively(t *testing.T) {
+func TestPaymentPlanPriorityAskLeavesExtensionLazy(t *testing.T) {
 	e, _, spell := newFixtureDeck(t, 9108, "Name:Published Plan\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
-	// The fixture's initial priority was asked before its eventless board
-	// setup. Re-ask as the live engine does after a state change.
+	// Re-ask as the live engine does after an eventless fixture change.
 	e.pending = nil
 	e.askPriority(0)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want priority", d)
 	}
-	if len(d.PaymentActions) != 1 || d.PaymentActions[0].Cast.Object != spell {
-		t.Fatalf("payment actions = %#v, want one action for spell %d", d.PaymentActions, spell)
-	}
-	if d.PaymentActions[0].BaseOptionIndex != nil {
-		t.Fatalf("unfunded plan base option = %v, want nil", *d.PaymentActions[0].BaseOptionIndex)
+	if d.PaymentActionsBuilt || len(d.PaymentActions) != 0 {
+		t.Fatalf("priority ask eagerly built payment extension: built=%v actions=%#v", d.PaymentActionsBuilt, d.PaymentActions)
 	}
 	legacy := append([]decision.Option(nil), d.Options...)
-	if got := e.legalActions(0); !reflect.DeepEqual(legacy, got) {
-		t.Fatalf("priority options changed by payment publication:\n got %#v\nwant %#v", d.Options, got)
+	actions := e.EnsurePaymentActions()
+	if len(actions) != 1 || actions[0].Cast.Object != spell || actions[0].BaseOptionIndex != nil {
+		t.Fatalf("payment actions = %#v, want one planned-only action for spell %d", actions, spell)
 	}
-	// A caller cannot mutate the pending offer by retaining a copied decision.
+	if got := e.legalActions(0); !reflect.DeepEqual(legacy, got) {
+		t.Fatalf("legacy options changed by lazy publication:\n got %#v\nwant %#v", got, legacy)
+	}
 	cp := d.Clone()
 	cp.PaymentActions[0].Plans[0].Activations[0].Produces[state.ManaIndex('U')] = 9
 	if d.PaymentActions[0].Plans[0].Activations[0].Produces[state.ManaIndex('U')] != 1 {
@@ -285,8 +288,8 @@ func TestPaymentPlanExecutesFiniteProducedAnyChoice(t *testing.T) {
 	}
 }
 
-// paymentPlanReask re-poses seat 0's priority exactly as the live engine does
-// after an (eventless) fixture change, so ask() publishes PaymentActions.
+// paymentPlanReask re-poses seat 0's priority after an (eventless) fixture
+// change and opts into the lazy payment extension.
 func paymentPlanReask(t *testing.T, e *Engine) *decision.Decision {
 	t.Helper()
 	e.pending = nil
@@ -295,6 +298,7 @@ func paymentPlanReask(t *testing.T, e *Engine) *decision.Decision {
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want seat-0 priority", d)
 	}
+	e.EnsurePaymentActions()
 	return d
 }
 
@@ -422,6 +426,7 @@ func TestPaymentPlanGrantedLandTypeExecutesWitnessedColour(t *testing.T) {
 		t.Fatal(err)
 	}
 	d.PaymentActions = []decision.PaymentAction{a}
+	d.PaymentActionsBuilt = true
 	start := len(e.L.Events)
 	submitPaymentPlan(t, e, d, a)
 	if got := producedManaSince(e, start); !reflect.DeepEqual(got, []string{"B", "B"}) {
@@ -439,5 +444,507 @@ func TestPaymentPlanDeclinesEffectCreatedProduceManaReplacement(t *testing.T) {
 		ReplacementEvent: "ProduceMana", ReplacementBody: "DB$ ReplaceMana | ReplaceAmount$ 2"})
 	if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan != nil || got.Reason != "unsupported" {
 		t.Fatalf("plan under effect-created mana replacement = %#v, want unsupported", got)
+	}
+}
+
+const paymentPlanMountain = "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n"
+
+// paymentPlanFallbackReasons is the closed spec §6 fallback vocabulary.
+var paymentPlanFallbackReasons = map[string]bool{
+	paymentFallbackCostChanged: true, paymentFallbackSourceChanged: true,
+	paymentFallbackProductionChanged: true, paymentFallbackChoiceRequired: true,
+}
+
+// paymentPlanSpentSince sums the mana payments took from p's pool (the
+// negative ManaAdd events) from event index from onward, by pool slot.
+func paymentPlanSpentSince(e *Engine, p state.PlayerID, from int) state.Mana {
+	var out state.Mana
+	for _, ev := range e.L.Events[from:] {
+		if ev.Kind == events.ManaAdd && ev.Player == p && ev.Amount < 0 {
+			out[state.ManaSlot(ev.Counter)] -= ev.Amount
+		}
+	}
+	return out
+}
+
+// paymentPlanSources lists a witness's planned sources in step order.
+func paymentPlanSources(plan decision.PaymentPlan) []state.ObjID {
+	out := make([]state.ObjID, 0, len(plan.Activations))
+	for _, act := range plan.Activations {
+		out = append(out, act.Source)
+	}
+	return out
+}
+
+// paymentPlanChooseObj answers the pending KChoose with the option naming obj.
+func paymentPlanChooseObj(t *testing.T, e *Engine, obj state.ObjID) {
+	t.Helper()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose {
+		t.Fatalf("pending = %s, want a cost choice", paymentPlanPendingSummary(d))
+	}
+	for _, o := range d.Options {
+		if o.Obj == obj {
+			submitChoices(t, e, o.Index)
+			return
+		}
+	}
+	t.Fatalf("cost choice %q offers no option for %d: %#v", d.Prompt, obj, d.Options)
+}
+
+// paymentPlanSettle is the spec §6 contract for a planned cast whose cost
+// choices have been answered: either the plan kept running and the cast
+// settled, or automation stopped on the ordinary manual window with a
+// vocabulary PaymentFallback naming the selected plan -- which the caller's
+// manual answers must then be able to finish. It returns the fallback seen.
+func paymentPlanSettle(t *testing.T, e *Engine, plan decision.PaymentPlan) *decision.PaymentFallback {
+	t.Helper()
+	var fb *decision.PaymentFallback
+	for i := 0; i < 16; i++ {
+		d := e.Pending()
+		if d == nil {
+			t.Fatal("planned cast left no decision pending")
+		}
+		if d.PaymentFallback != nil && fb == nil {
+			f := *d.PaymentFallback
+			fb = &f
+			if !paymentPlanFallbackReasons[f.Reason] || f.PlanID != plan.ID {
+				t.Fatalf("fallback = %#v, want a vocabulary reason for plan %s", f, plan.ID)
+			}
+		}
+		if d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "activate" {
+			return fb
+		}
+		if d.PaymentFallback == nil {
+			t.Fatalf("manual mana window %q posed during a planned cast without a PaymentFallback", d.Prompt)
+		}
+		submitChoices(t, e, d.Options[0].Index)
+	}
+	t.Fatal("manual payment window did not close")
+	return nil
+}
+
+// assertPlannedCastPaid fails unless spell sits on the stack with its whole
+// cast settled: the cast continuation closed, the ordinary priority posed,
+// and the mana spent since from covering generic plus every coloured pip.
+func assertPlannedCastPaid(t *testing.T, e *Engine, spell state.ObjID, from int, generic int32, colored state.Mana) {
+	t.Helper()
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Fatalf("spell zone = %s, want stack", z)
+	}
+	if e.cast != nil {
+		t.Fatalf("spell is on the stack but its cast never settled (payment continuation still open, pending %s)", paymentPlanPendingSummary(e.Pending()))
+	}
+	spent := paymentPlanSpentSince(e, 0, from)
+	for i, n := range colored {
+		if spent[i] < n {
+			t.Fatalf("spent %v does not cover the coloured cost %v", spent, colored)
+		}
+	}
+	if spent.Total() < generic+colored.Total() {
+		t.Fatalf("spent %v (total %d) does not cover {%d} plus %v", spent, spent.Total(), generic, colored)
+	}
+	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("after the settled cast pending = %s, want the ordinary priority", paymentPlanPendingSummary(d))
+	}
+}
+
+// PP-08 (spec §3.1 as amended): a plain cast whose spell ability also carries
+// a non-mana `Cost$` part -- Harrow's land sacrifice, Thrill of Possibility's
+// discard, Gurmag Angler's delve -- receives NO V1 payment plan, because the
+// witness cannot bind the additional cost. The ordinary cast option is
+// unchanged and still offered once the mana is floated. The executor path for
+// a plan that does name such a cast is exercised directly (not through the
+// planner offer) by TestPaymentPlanExecutesAfterCastTimeChoice and
+// TestPaymentPlanShapeGateAdditionalCostExecutorPays in
+// payment_plan_shape_gate_test.go. This test is the planner half of the audit
+// story aph-cast-shape-gate owns; autopay-exec-harden owns the executor half.
+func TestPaymentPlanAdditionalCostCastGetsNoPlan(t *testing.T) {
+	red := state.Mana{}
+	red[state.ManaIndex('R')] = 1
+	_ = red
+
+	// assertWithheld proves the planner offers neither an action nor a plan
+	// for spell, and that the ordinary cast option survives after floating.
+	assertWithheld := func(t *testing.T, e *Engine, spell state.ObjID, pool map[int]int32) {
+		t.Helper()
+		if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan != nil || got.Reason != "unsupported" {
+			t.Fatalf("additional-cost cast %d outcome = %+v, want unsupported with no plan", spell, got)
+		}
+		for _, a := range e.PaymentActionsForPriority(0, 77) {
+			if a.Cast.Object == spell {
+				t.Fatalf("additional-cost cast %d received a payment action %+v", spell, a)
+			}
+		}
+		for slot, n := range pool {
+			e.G.Players[0].Pool[slot] = n
+		}
+		e.pending = nil
+		e.askPriority(0)
+		for _, opt := range e.Pending().Options {
+			if opt.Kind == "cast" && opt.Obj == spell {
+				return
+			}
+		}
+		t.Fatalf("ordinary cast option for %d was removed; options=%+v", spell, e.Pending().Options)
+	}
+
+	sacrificeSetup := func(t *testing.T, seed uint64) (*Engine, state.ObjID, []state.ObjID) {
+		e, _, spell := newFixtureDeck(t, seed, "Name:Planned Harrow Shape\nManaCost:1 R\nTypes:Instant\nA:SP$ Draw | Cost$ 1 R Sac<1/Land> | NumCards$ 1\nOracle:x\n")
+		lands := []state.ObjID{onBoard(t, e, 0, paymentPlanMountain), onBoard(t, e, 0, paymentPlanMountain), onBoard(t, e, 0, paymentPlanMountain)}
+		for _, id := range lands {
+			e.G.Obj(id).SummonSick = false
+		}
+		return e, spell, lands
+	}
+
+	t.Run("sacrifice", func(t *testing.T) {
+		e, spell, _ := sacrificeSetup(t, 9401)
+		if e.G.Obj(spell).Zone != state.ZHand {
+			t.Fatal("fixture spell is not in hand")
+		}
+		if e.paymentPlanCastShapeDetail(0, spell) != "shape:additional_cost" {
+			t.Fatalf("sacrifice cast detail = %q, want shape:additional_cost", e.paymentPlanCastShapeDetail(0, spell))
+		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 2})
+	})
+
+	t.Run("discard", func(t *testing.T) {
+		e, _, spell := newFixtureDeck(t, 9403, "Name:Planned Thrill Shape\nManaCost:1 R\nTypes:Instant\nA:SP$ Draw | Cost$ 1 R Discard<1/Card> | NumCards$ 2\nOracle:x\n")
+		onBoard(t, e, 0, paymentPlanMountain)
+		onBoard(t, e, 0, paymentPlanMountain)
+		if e.paymentPlanCastShapeDetail(0, spell) != "shape:additional_cost" {
+			t.Fatalf("discard cast detail = %q, want shape:additional_cost", e.paymentPlanCastShapeDetail(0, spell))
+		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 2})
+	})
+
+	delveSetup := func(t *testing.T, seed uint64) (*Engine, state.ObjID, []state.ObjID) {
+		e, _, spell := newFixtureDeck(t, seed, "Name:Planned Delve Shape\nManaCost:2 R\nTypes:Instant\nK:Delve\nA:SP$ Draw | NumCards$ 1\nOracle:x\n")
+		for i := 0; i < 3; i++ {
+			onBoard(t, e, 0, paymentPlanMountain)
+		}
+		var gy []state.ObjID
+		for _, id := range e.G.Zone(state.ZLibrary, 0)[:2] {
+			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZGraveyard})
+			gy = append(gy, id)
+		}
+		return e, spell, gy
+	}
+
+	t.Run("delve", func(t *testing.T) {
+		e, spell, _ := delveSetup(t, 9404)
+		if e.paymentPlanCastShapeDetail(0, spell) != "shape:contribution" {
+			t.Fatalf("delve cast detail = %q, want shape:contribution", e.paymentPlanCastShapeDetail(0, spell))
+		}
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 3})
+	})
+
+	// The census's own cards, from the corpus by name: Harrow (sacrifice a
+	// land), Thrill of Possibility (discard a card), Gurmag Angler (delve).
+	reg := testutil.CorpusRegistry(t)
+	corpusCard := func(t *testing.T, name string) *cards.Card {
+		c, ok := reg.Lookup(name)
+		if !ok {
+			t.Fatalf("corpus card %s missing", name)
+		}
+		return c
+	}
+	const (
+		forest = "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n"
+		swamp  = "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n"
+	)
+
+	t.Run("corpus Harrow", func(t *testing.T) {
+		e, _, _ := newFixtureDeck(t, 9406, paymentPlanShock)
+		onBoard(t, e, 0, forest)
+		onBoard(t, e, 0, forest)
+		onBoard(t, e, 0, forest)
+		onBoard(t, e, 0, paymentPlanMountain)
+		spell := putInHand(t, e, 0, corpusCard(t, "Harrow"))
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('G'): 3})
+	})
+
+	t.Run("corpus Thrill of Possibility", func(t *testing.T) {
+		e, _, _ := newFixtureDeck(t, 9407, paymentPlanShock)
+		onBoard(t, e, 0, paymentPlanMountain)
+		onBoard(t, e, 0, paymentPlanMountain)
+		spell := putInHand(t, e, 0, corpusCard(t, "Thrill of Possibility"))
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('R'): 2})
+	})
+
+	t.Run("corpus Gurmag Angler", func(t *testing.T) {
+		e, _, _ := newFixtureDeck(t, 9408, paymentPlanShock)
+		toMain1(t, e)
+		for i := 0; i < 7; i++ {
+			onBoard(t, e, 0, swamp)
+		}
+		for _, id := range e.G.Zone(state.ZLibrary, 0)[:2] {
+			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZLibrary, To: state.ZGraveyard})
+		}
+		spell := putInHand(t, e, 0, corpusCard(t, "Gurmag Angler"))
+		assertWithheld(t, e, spell, map[int]int32{state.ManaIndex('B'): 7})
+	})
+}
+
+const (
+	paymentPlanShock = "Name:Planned Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
+	paymentPlanBlast = "Name:Planned Blast\nManaCost:R R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\nOracle:x\n"
+)
+
+// paymentPlanTapsSince counts the Tap events naming id from event index from.
+func paymentPlanTapsSince(e *Engine, from int, id state.ObjID) int {
+	n := 0
+	for _, ev := range e.L.Events[from:] {
+		if ev.Kind == events.Tap && ev.Obj == id {
+			n++
+		}
+	}
+	return n
+}
+
+// paymentPlanPendingSummary names a pending decision briefly for a failure.
+func paymentPlanPendingSummary(d *decision.Decision) string {
+	if d == nil {
+		return "<nothing pending>"
+	}
+	fb := "<no fallback>"
+	if d.PaymentFallback != nil {
+		fb = d.PaymentFallback.PlanID + ":" + d.PaymentFallback.Reason
+	}
+	return string(d.Kind) + " " + strconv.Quote(d.Prompt) + " fallback " + fb
+}
+
+// Spec §6: after each planned activation the executor compares the mana it
+// actually added with the witness step. A ProduceMana replacement arriving
+// after the offer (the corpus's Contamination: a land tapped for mana
+// produces {B} instead) makes the first planned Mountain produce B where its
+// step says R. Automation stops at once -- the second planned Mountain stays
+// untapped, nothing substitutes for it -- and the manual window names the
+// selected plan with production_changed.
+func TestPaymentPlanProductionChangeStopsAutomation(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	cont, ok := reg.Lookup("Contamination")
+	if !ok {
+		t.Fatal("corpus card Contamination missing")
+	}
+	e, _, spell := newFixtureDeck(t, 9303, paymentPlanBlast)
+	m1 := onBoard(t, e, 0, paymentPlanMountain)
+	m2 := onBoard(t, e, 0, paymentPlanMountain)
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	if len(a.Plans[0].Activations) != 2 {
+		t.Fatalf("witness = %#v, want both Mountains", a.Plans[0])
+	}
+	submitPaymentPlan(t, e, d, a)
+	if td := e.Pending(); td == nil || td.Kind != decision.KTarget {
+		t.Fatalf("pending = %s, want the target ask", paymentPlanPendingSummary(td))
+	}
+	// The controlled post-offer change: a land mana replacement.
+	onBoardReadyCard(t, e, 1, cont)
+	start := len(e.L.Events)
+	submitChoices(t, e, 0)
+	produced := producedManaSince(e, start)
+	tapped := 0
+	for _, id := range []state.ObjID{m1, m2} {
+		if e.G.Obj(id).Tapped {
+			tapped++
+		}
+	}
+	if tapped != 1 {
+		t.Errorf("after a mismatched production the executor tapped %d planned sources (produced %v), want it to stop after the first", tapped, produced)
+	}
+	nd := e.Pending()
+	if nd == nil || nd.Kind != decision.KChoose || nd.PaymentFallback == nil ||
+		nd.PaymentFallback.Reason != paymentFallbackProductionChanged || nd.PaymentFallback.PlanID != a.Plans[0].ID {
+		t.Errorf("pending = %s, want the manual window with production_changed for plan %s", paymentPlanPendingSummary(nd), a.Plans[0].ID)
+	}
+}
+
+// A planned source tapped after the offer is a changed source: automation
+// stops before activating anything, never substitutes the other Mountain,
+// and the manual window names the selected plan with source_changed.
+func TestPaymentPlanTappedSourceFallsBackWithoutSubstitution(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9304, paymentPlanShock)
+	m1 := onBoard(t, e, 0, paymentPlanMountain)
+	m2 := onBoard(t, e, 0, paymentPlanMountain)
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	planned := a.Plans[0].Activations[0].Source
+	other := m1
+	if planned == m1 {
+		other = m2
+	}
+	submitPaymentPlan(t, e, d, a)
+	e.emit(events.Event{Kind: events.Tap, Obj: planned}) // the post-offer change
+	submitChoices(t, e, 0)
+	nd := e.Pending()
+	if nd == nil || nd.Kind != decision.KChoose || nd.PaymentFallback == nil {
+		t.Fatalf("pending = %s, want the manual mana window with a fallback", paymentPlanPendingSummary(nd))
+	}
+	if e.G.Obj(other).Tapped {
+		t.Fatal("executor substituted an unplanned source")
+	}
+	if nd.PaymentFallback.PlanID != a.Plans[0].ID {
+		t.Fatalf("fallback plan = %q, want %q", nd.PaymentFallback.PlanID, a.Plans[0].ID)
+	}
+	if nd.PaymentFallback.Reason != paymentFallbackSourceChanged {
+		t.Errorf("fallback reason for a tapped planned source = %q, want source_changed", nd.PaymentFallback.Reason)
+	}
+}
+
+// A planned source that left and re-entered the battlefield after the offer
+// is a new object (CR 400.7): its incarnation no longer matches the witness,
+// so the stale step never taps it and the manual window reports
+// source_changed.
+func TestPaymentPlanBlinkedSourceFallsBack(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9305, paymentPlanShock)
+	onBoard(t, e, 0, paymentPlanMountain)
+	onBoard(t, e, 0, paymentPlanMountain)
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	planned := a.Plans[0].Activations[0].Source
+	submitPaymentPlan(t, e, d, a)
+	e.emit(events.Event{Kind: events.MoveZone, Obj: planned, From: state.ZBattlefield, To: state.ZExile})
+	e.emit(events.Event{Kind: events.MoveZone, Obj: planned, From: state.ZExile, To: state.ZBattlefield})
+	if e.G.Obj(planned).Zone != state.ZBattlefield || e.G.Obj(planned).Tapped {
+		t.Fatalf("blinked source zone=%s tapped=%v", e.G.Obj(planned).Zone, e.G.Obj(planned).Tapped)
+	}
+	start := len(e.L.Events)
+	submitChoices(t, e, 0)
+	if n := paymentPlanTapsSince(e, start, planned); n != 0 {
+		t.Fatalf("blinked source was tapped %d times by the stale witness", n)
+	}
+	nd := e.Pending()
+	if nd == nil || nd.PaymentFallback == nil || nd.PaymentFallback.Reason != paymentFallbackSourceChanged {
+		t.Fatalf("pending = %s, want a source_changed fallback", paymentPlanPendingSummary(nd))
+	}
+}
+
+// A cost raise arriving after the offer (a taxing permanent) is checked
+// before the first activation: nothing is tapped and the manual window
+// reports cost_changed.
+func TestPaymentPlanCostRaisedAfterOfferFallsBackBeforeTapping(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9306, paymentPlanShock)
+	m1 := onBoard(t, e, 0, paymentPlanMountain)
+	m2 := onBoard(t, e, 0, paymentPlanMountain)
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	submitPaymentPlan(t, e, d, a)
+	onBoard(t, e, 1, "Name:Tax Relic\nTypes:Artifact\nS:Mode$ RaiseCost | ValidCard$ Card | Type$ Spell | Amount$ 1 | Description$ Spells cost {1} more.\nOracle:x\n")
+	start := len(e.L.Events)
+	submitChoices(t, e, 0)
+	if n := paymentPlanTapsSince(e, start, m1) + paymentPlanTapsSince(e, start, m2); n != 0 {
+		t.Fatalf("executor tapped %d sources before noticing the raised cost", n)
+	}
+	nd := e.Pending()
+	if nd == nil || nd.PaymentFallback == nil || nd.PaymentFallback.Reason != paymentFallbackCostChanged {
+		t.Fatalf("pending = %s, want a cost_changed fallback on the manual window", paymentPlanPendingSummary(nd))
+	}
+}
+
+// A planned activation that unexpectedly poses a decision (Pulse of Llanowar
+// arriving after the offer turns the planned basic's mana into a colour
+// choice) cancels automation: the completed activation and its mana stay,
+// the second planned source is never tapped by itself, and once the choice
+// is answered the manual window reports choice_required.
+func TestPaymentPlanActivationInterruptionCancelsRemainingSteps(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	pulse, ok := reg.Lookup("Pulse of Llanowar")
+	if !ok {
+		t.Fatal("corpus card Pulse of Llanowar missing")
+	}
+	e, _, spell := newFixtureDeck(t, 9307, paymentPlanBlast)
+	m1 := onBoard(t, e, 0, paymentPlanMountain)
+	m2 := onBoard(t, e, 0, paymentPlanMountain)
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	submitPaymentPlan(t, e, d, a)
+	onBoardReadyCard(t, e, 0, pulse)
+	submitChoices(t, e, 0) // the target
+	rd := e.Pending()
+	if rd == nil || rd.Kind != decision.KReplacement {
+		t.Fatalf("pending = %s, want the Pulse colour replacement ask", paymentPlanPendingSummary(rd))
+	}
+	red := -1
+	for _, o := range rd.Options {
+		if o.ManaSymbol == "R" || o.Label == "Add R" {
+			red = o.Index
+		}
+	}
+	if red < 0 {
+		red = 3
+	}
+	submitChoices(t, e, red)
+	tapped := 0
+	for _, id := range []state.ObjID{m1, m2} {
+		if e.G.Obj(id).Tapped {
+			tapped++
+		}
+	}
+	if tapped != 1 {
+		t.Fatalf("after the interruption %d planned sources are tapped, want exactly the completed one", tapped)
+	}
+	nd := e.Pending()
+	if nd == nil || nd.Kind != decision.KChoose || nd.PaymentFallback == nil || nd.PaymentFallback.Reason != paymentFallbackChoiceRequired {
+		t.Fatalf("pending = %s, want the manual window carrying choice_required", paymentPlanPendingSummary(nd))
+	}
+	if e.G.Players[0].Pool[state.ManaIndex('R')] != 1 {
+		t.Fatalf("completed activation's mana = %v, want R floating", e.G.Players[0].Pool)
+	}
+}
+
+// The A/B mirror audit's shape of the same defect, with the witness injected
+// directly so it stays valid whatever the planner offers: a Sac<1/Creature>
+// additional cost is answered through the ordinary cast answer path before
+// the planned Swamp runs. The cast must settle completely -- Swamp tapped,
+// creature sacrificed, spell on the stack, pool empty, no cast proposal or
+// choose flow left open -- before the caster receives priority.
+func TestPaymentPlanExecutesAfterCastTimeChoice(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9302, "Name:Rite Test\nManaCost:B\nTypes:Instant\nA:SP$ Draw | Cost$ B Sac<1/Creature> | NumCards$ 2\nOracle:x\n")
+	swamp := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
+	victim := onBoard(t, e, 0, "Name:Victim Test\nManaCost:1\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
+	e.pending = nil
+	e.askPriority(0)
+	b := decision.ManaAmount{0, 0, 1, 0, 0, 0}
+	plan := decision.PaymentPlan{Version: decision.PaymentPlanV1, Cost: decision.PaymentCost{Mana: b},
+		Activations: []decision.PaymentActivation{{Source: swamp, SourceZoneSeq: e.paymentSourceZoneSeq(swamp),
+			Ability:  decision.PaymentAbility{Kind: decision.PaymentAbilityIntrinsic, Intrinsic: "basic_land"},
+			Produces: b}}}
+	e.pending = nil
+	e.beginCastWithPayment(0, decision.Option{Kind: "cast", Obj: spell}, &decision.PaymentSelection{ActionID: "fixture", Plan: plan})
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose {
+		t.Fatalf("pending = %s, want the sacrifice choice", paymentPlanPendingSummary(d))
+	}
+	pick := -1
+	for _, o := range d.Options {
+		if o.Obj == victim {
+			pick = o.Index
+		}
+	}
+	if pick < 0 {
+		t.Fatalf("sacrifice options %#v lack the fixture creature", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{pick}}); err != nil {
+		t.Fatalf("answer sacrifice: %v", err)
+	}
+	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("pending = %s, want the caster's priority after the cast", paymentPlanPendingSummary(d))
+	}
+	if e.cast != nil || e.choosing != chooseNone {
+		t.Errorf("priority posed mid-cast: cast pending=%v choosing=%d", e.cast != nil, e.choosing)
+	}
+	if !e.G.Obj(swamp).Tapped {
+		t.Error("the witness's Swamp was not tapped")
+	}
+	if z := e.G.Obj(victim).Zone; z != state.ZGraveyard {
+		t.Errorf("sacrificed creature zone = %s, want graveyard (the additional cost was not paid)", z)
+	}
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Errorf("spell zone = %s, want stack", z)
+	}
+	if got := e.G.Players[0].Pool.Total(); got != 0 {
+		t.Errorf("pool after payment = %d, want 0 (the produced B must pay the cost)", got)
 	}
 }

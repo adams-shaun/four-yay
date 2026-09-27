@@ -648,6 +648,9 @@ func TestGilanraCallerOfWirewoodSpentManaDraws(t *testing.T) {
 		e, cfg := whenspentGame(t, reg, 4201, "Yisan, the Wanderer Bard", "Gilanra, Caller of Wirewood", "Shivan Dragon")
 		toMain1(t, e)
 		gilanra := moveToBattlefieldByName(t, e, 0, "Gilanra, Caller of Wirewood")
+		// A real logged TurnChange (not a raw SummonSick write) clears CR
+		// 302.6 sickness on the log commanderReplayCheck below reads from.
+		e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 		e.priorityRound()
 		activateMana(t, e, gilanra)
 		recs := e.G.Players[0].RestrictedMana
@@ -681,6 +684,9 @@ func TestGilanraCallerOfWirewoodSpentManaDraws(t *testing.T) {
 		e, cfg := whenspentGame(t, reg, 4202, "Yisan, the Wanderer Bard", "Gilanra, Caller of Wirewood", "Grizzly Bears")
 		toMain1(t, e)
 		gilanra := moveToBattlefieldByName(t, e, 0, "Gilanra, Caller of Wirewood")
+		// A real logged TurnChange (not a raw SummonSick write) clears CR
+		// 302.6 sickness on the log commanderReplayCheck below reads from.
+		e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
 		e.priorityRound()
 		activateMana(t, e, gilanra)
 		addMana(t, e, 0, "G")

@@ -1700,8 +1700,21 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 // object is a battlefield permanent. A referred-to object that already left
 // keeps the LKI-compatible printed-plus-counters fallback: no live layer
 // applies in a graveyard, and asking Host for it would read a different state.
+// inProgressDerivedPTHost is implemented by rules.Engine so a Count$ read made
+// during layer 7 can consume the current walk's value instead of recursively
+// asking the host to derive the same object again. It is optional to preserve
+// the small effects.Host contract and its test doubles.
+type inProgressDerivedPTHost interface {
+	InProgressDerivedPT(id state.ObjID) (power, toughness int32, ok bool)
+}
+
 func refPower(h Host, o *state.Object, snapshot bool) int32 {
 	if !snapshot && o.Zone == state.ZBattlefield {
+		if provider, ok := h.(inProgressDerivedPTHost); ok {
+			if power, _, found := provider.InProgressDerivedPT(o.ID); found {
+				return power
+			}
+		}
 		return h.Power(o.ID)
 	}
 	return int32(o.Face().Power()) + o.Counter("P1P1") - o.Counter("M1M1")
@@ -1709,6 +1722,11 @@ func refPower(h Host, o *state.Object, snapshot bool) int32 {
 
 func refToughness(h Host, o *state.Object, snapshot bool) int32 {
 	if !snapshot && o.Zone == state.ZBattlefield {
+		if provider, ok := h.(inProgressDerivedPTHost); ok {
+			if _, toughness, found := provider.InProgressDerivedPT(o.ID); found {
+				return toughness
+			}
+		}
 		return h.Toughness(o.ID)
 	}
 	return int32(o.Face().Toughness()) + o.Counter("P1P1") - o.Counter("M1M1")
@@ -3247,7 +3265,8 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		specCtx := c.SpecContext(c.Controller)
 		f := zoneCountFold{h: h, g: g, spec: spec,
 			prop: prop, extreme: extreme, isLeast: isLeastProperty(prop),
-			hasBareHand: hasBareHand, seenTokenNames: seenTokenNames, seenCardTypes: seenCardTypes,
+			hasBareHand: hasBareHand, readsPT: SpecReadsPT(spec),
+			seenTokenNames: seenTokenNames, seenCardTypes: seenCardTypes,
 			seenCreatureTypes: seenCreatureTypes}
 		// The Different* distinct-set property family (task diffcount1):
 		// DifferentCardManaCost / DifferentCardPower / DifferentCardNames /
@@ -4441,13 +4460,22 @@ func countZone(head string) (state.Zone, bool) {
 // caller and passed to visit as a parameter, so the *Ctx the caller built
 // (the hot layer-walk Ctx) never escapes through this type.
 type zoneCountFold struct {
-	h              Host
-	g              *state.Game
-	spec           string
-	prop           string
-	extreme        bool
-	isLeast        bool
-	hasBareHand    bool
+	h           Host
+	g           *state.Game
+	spec        string
+	prop        string
+	extreme     bool
+	isLeast     bool
+	hasBareHand bool
+	// readsPT is computed ONCE per fold from SpecReadsPT(spec): the fold
+	// binds a battlefield candidate's layer-derived P/T into its SpecContext
+	// only when the spec actually reads one of the four P/T comparison
+	// fields. Without the gate every Count$Valid pays a full rules layer walk
+	// per candidate, and a P/T CDA that itself counts permanents (Master of
+	// Etherium) makes that walk recurse into the same count -- the
+	// in-progress frame guard stops the cycle but not the factorial fan-out
+	// (4 Masters 2.9 ms, 5 44 ms, 6 577 ms, 7 10.6 s for ONE Derived).
+	readsPT        bool
 	n, best        int32
 	seen           bool
 	seenTokenNames map[string]bool
@@ -4481,8 +4509,13 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 	// Count$Valid is an effects-side scan, but battlefield numeric filters
 	// still read rules' layer-derived characteristics. Bind the candidate's
 	// values through a small optional value interface; effects remains below
-	// rules and SpecContext carries no callable resolver.
-	if zone == state.ZBattlefield {
+	// rules and SpecContext carries no callable resolver. Skip the bind
+	// entirely unless the spec reads a P/T comparison field (readsPT): a
+	// spec that reads none cannot observe the values, and the bind runs a
+	// full rules layer walk per candidate -- which a P/T CDA that counts
+	// permanents turns into a factorial recursion (see readsPT's field
+	// comment).
+	if zone == state.ZBattlefield && f.readsPT {
 		if provider, ok := f.h.(interface {
 			FilterDerivedPT(state.ObjID) (power, toughness, basePower, baseToughness int32, ok bool)
 		}); ok {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { actionable, actionables, decide, emptyPriorityWindow, respondable, respondableFor, STEPS, STOPPABLE_STEPS, turnSide } from './autopilot';
 import { applyPreset, defaultSettings, type PlaySettings, type StoppableStep, type StepStop } from './playsettings';
-import type { CardView, Decision, Option, PlayerView, PotentialAction, View } from '../protocol';
+import type { CardView, Decision, Option, PaymentAction, PaymentPlan, PlayerView, PotentialAction, SeatInfo, View } from '../protocol';
 
 /** view builds a View with only the fields decide reads: active (whose turn), step, stack, and the battlefield data the targets-me lookup reads. */
 const view = (
@@ -71,6 +71,22 @@ const withHand = (v: View, seat: number, over: Partial<PlayerView>): View => {
 
 const RESPONDABLE = [opt('pass', 0), opt('cast', 1), opt('concede', 2)];
 const ONLY_MANA = [opt('activate', 0), opt('pass', 1), opt('concede', 2)];
+
+/** plan builds one offered PaymentPlan witness: a basic Island tapped for {U}. */
+const plan = (id: string): PaymentPlan => ({
+  version: 1, id, cost: { generic: 0, mana: [0, 1, 0, 0, 0, 0] },
+  activations: [{ source: 11, source_zone_seq: 3, ability: { kind: 'intrinsic', intrinsic: 'basic_land' }, produces: [0, 1, 0, 0, 0, 0] }],
+  pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0],
+});
+
+/**
+ * plannedAction builds a PLAN-ONLY cast's payment action: no base_option_index,
+ * because the engine offers the legacy cast option only once floating mana
+ * can pay it (spec §8: plan-only casts are shown while the preference is on).
+ */
+const plannedAction = (plans: PaymentPlan[] = [plan('p1')]): PaymentAction =>
+  ({ id: 'act', cast: { object: 102, face: 0, origin: 'hand' }, label: 'Cast Opt', plans });
+const PLANNED_ACTION = plannedAction();
 
 const run = (decision: Decision, v: View, settings: PlaySettings = defaultSettings()) =>
   decide({ decision, view: v, seat: 0, settings });
@@ -259,6 +275,20 @@ describe('decide', () => {
     expect(respondableFor(projectionless, 0, d)).toBe(false);
   });
 
+  it('a max-speed granted ability or a morph turn-face-up answers a stack object; a land drop, station, unlock or specialize does not', () => {
+    // aph-web-manual-only-plays: respondable() and the projection half share
+    // one kind test (castable.isResponseKind), so an offered response and a
+    // float-gated one agree about what a response is.
+    for (const kind of ['granted', 'turn_face_up']) {
+      expect(respondable(priority([opt('pass', 0), opt(kind, 1), opt('concede', 2)])), kind).toBe(true);
+      const floatGated = withHand(view(0, 'draw'), 0, { potential_actions: [pot(kind)] });
+      expect(respondableFor(floatGated, 0, priority(ONLY_MANA)), kind).toBe(true);
+    }
+    for (const kind of ['play_land', 'station', 'unlock', 'specialize']) {
+      expect(respondable(priority([opt('pass', 0), opt(kind, 1), opt('concede', 2)])), kind).toBe(false);
+    }
+  });
+
   it('casual: an opponent ability on top with a cast available stops (if-respondable)', () => {
     const d = priority(RESPONDABLE);
     expect(run(d, view(0, 'draw', [stackEntry(9, 1, 'ability')]))).toEqual({ act: 'stop', reason: 'opponent-object' });
@@ -363,16 +393,26 @@ describe('decide', () => {
   });
 
   // --- stack rules: own objects ---
+  //
+  // Own-spell auto-resolution is keyed on the SEAT's auto-pay preference
+  // (decide()'s autoPayMana), never on the table's auto_mana capability (spec
+  // §8, aph-web-autopass): decide() is not even told the capability, so "the
+  // table offers auto-pay but this player never turned it on" is exactly the
+  // preference-off call below. The panel-level wiring (capability on,
+  // preference off) is pinned in seatpanel.payment.test.ts.
 
-  it('auto_mana: my own spell on top resolves through the Main 1 smart stop (ownObjects never)', () => {
+  it('auto-pay preference on: my own spell on top resolves through the Main 1 smart stop (ownObjects never)', () => {
     const d = priority(RESPONDABLE);
-    expect(decide({ decision: d, view: view(0, 'main1', [stackEntry(9, 0, 'spell')]), seat: 0, settings: defaultSettings(), autoManaAvailable: true }))
+    expect(decide({ decision: d, view: view(0, 'main1', [stackEntry(9, 0, 'spell')]), seat: 0, settings: defaultSettings(), autoPayMana: true }))
       .toEqual({ act: 'pass', index: 0 });
   });
 
-  it('without auto_mana, an own spell keeps the baseline smart-step stop', () => {
+  it('auto-pay preference off: an own spell keeps the capability-less smart-step stop', () => {
     const d = priority(RESPONDABLE);
-    expect(run(d, view(0, 'main1', [stackEntry(9, 0, 'spell')]))).toEqual({ act: 'stop', reason: 'stop-set' });
+    const v = view(0, 'main1', [stackEntry(9, 0, 'spell')]);
+    expect(run(d, v)).toEqual({ act: 'stop', reason: 'stop-set' });
+    expect(decide({ decision: d, view: v, seat: 0, settings: defaultSettings(), autoPayMana: false }))
+      .toEqual({ act: 'stop', reason: 'stop-set' });
   });
 
   it('full-control: my own spell on top + respondable stops (ownObjects if-respondable)', () => {
@@ -385,15 +425,20 @@ describe('decide', () => {
     expect(run(d, view(0, 'draw', [stackEntry(9, 0, 'spell')]), s)).toEqual({ act: 'stop', reason: 'own-object' });
   });
 
-  it('own object on top with nothing to respond with passes even through a forced step (ownObjects if-respondable)', () => {
+  it('auto-pay preference on: own object on top with nothing to respond with passes even through a forced step (ownObjects if-respondable)', () => {
     const d = priority(ONLY_MANA);
-    // The own-object setting decides the whole window.  With no response,
-    // "Stop if I can respond" passes; a forced step must not turn it into an
-    // unexpected second own-object stop.
+    // With the preference on, the own-object setting decides the whole
+    // window. With no response, "Stop if I can respond" passes; a forced step
+    // must not turn it into an unexpected second own-object stop.
     const s = withSteps('yours', { draw: 'forced' });
     s.ownObjects = 'if-respondable';
-    expect(decide({ decision: d, view: view(0, 'draw', [stackEntry(9, 0, 'ability')]), seat: 0, settings: s, autoManaAvailable: true }))
+    const v = view(0, 'draw', [stackEntry(9, 0, 'ability')]);
+    expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: true }))
       .toEqual({ act: 'pass', index: 1 });
+    // Preference off: the capability-less policy, where the forced step rule
+    // still owns the window.
+    expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: false }))
+      .toEqual({ act: 'stop', reason: 'stop-set' });
   });
 
   // --- step rules ---
@@ -587,15 +632,20 @@ describe('decide', () => {
               // Both modes must hold the structural invariant: a pass verdict
               // always points at a pass option. On the ffwd path the stack
               // rules are skipped, so the stack branch is reachable as a pass.
+              // The auto-pay preference adds the own-object pass branch and
+              // the planned-cast arm (the decision carries a plan when the
+              // preference is on), so it is a dimension of the property too.
               for (const ffwd of [false, true]) {
-                const d = priority(list);
-                const out = ffwd
-                  ? decide({ decision: d, view: v, seat: 0, settings, ffwd })
-                  : decide({ decision: d, view: v, seat: 0, settings });
-                if (out.act !== 'pass') continue;
-                const o = d.options[out.index];
-                expect(o, `pass index ${out.index} on ${JSON.stringify(list.map((x) => x.kind))} must be a pass option`).toBeDefined();
-                expect(o.kind, `kind of option at pass index ${out.index} on ${JSON.stringify(list.map((x) => x.kind))}`).toBe('pass');
+                for (const autoPayMana of [false, true]) {
+                  const d = autoPayMana ? { ...priority(list), payment_actions: [PLANNED_ACTION] } : priority(list);
+                  const out = ffwd
+                    ? decide({ decision: d, view: v, seat: 0, settings, ffwd, autoPayMana })
+                    : decide({ decision: d, view: v, seat: 0, settings, autoPayMana });
+                  if (out.act !== 'pass') continue;
+                  const o = d.options[out.index];
+                  expect(o, `pass index ${out.index} on ${JSON.stringify(list.map((x) => x.kind))} must be a pass option`).toBeDefined();
+                  expect(o.kind, `kind of option at pass index ${out.index} on ${JSON.stringify(list.map((x) => x.kind))}`).toBe('pass');
+                }
               }
             }
           }
@@ -895,5 +945,143 @@ describe('actionables — the labels behind actionable() (fb-20260916T225211Z)',
     const sacrifice = withHand(view(0, 'main1'), 0, { potential_actions: [] });
     expect(actionables(sacrifice, 0, d)).toEqual([]);
     expect(actionable(d, sacrifice, 0)).toBe(false);
+  });
+});
+
+// aph-web-autopass (spec §8 as amended 2026-09-26): with the seat's auto-pay
+// preference ON, a payment action carrying a plan is a real play -- the panel,
+// the hand fan and the hot strip all offer it as a one-click cast -- so the
+// empty-window floor and decide()'s actionable tests (the 'smart' step rule
+// and the own-turn main-phase floor, one shared actionables() scan) must not
+// read a plan-only cast window as "nothing to do", whether or not
+// potential_actions also lists the card. With the preference OFF every one of
+// them is exactly the capability-less policy. This is the actionable test
+// only: 7022042e6 removed a blanket derivePass guard that held EVERY window
+// carrying a plan, and it stays removed.
+describe('auto-pay: a plan-bearing payment action is a real play only while the preference is on', () => {
+  /** plannedWindow is a priority window whose legacy options are a bare Island tap, the pass and the concede, plus one plan-only payment action. */
+  const plannedWindow = (action: PaymentAction = PLANNED_ACTION): Decision => ({
+    ...priority([
+      { index: 0, kind: 'activate', label: 'Activate Island for mana', player: 0, obj: 11 },
+      opt('pass', 1),
+      opt('concede', 2),
+    ]),
+    payment_actions: [action],
+  });
+  // No seat projection anywhere in this view, so castablesAfterTap's arm is
+  // empty: the offered plan is the only evidence of the play.
+  const ownMain = view(0, 'main1');
+
+  it('preference on: the window is not empty, and actionables() names the planned cast', () => {
+    const d = plannedWindow();
+    expect(emptyPriorityWindow(d, ownMain, 0, true)).toBeNull();
+    expect(actionable(d, ownMain, 0, true)).toBe(true);
+    expect(actionables(ownMain, 0, d, true)).toEqual(['Cast Opt (with suggested mana)']);
+  });
+
+  it('preference off (or not given): the same window is empty and the floor returns the pass index, as before', () => {
+    const d = plannedWindow();
+    expect(emptyPriorityWindow(d, ownMain, 0, false)).toBe(1);
+    expect(emptyPriorityWindow(d, ownMain, 0)).toBe(1);
+    expect(actionable(d, ownMain, 0, false)).toBe(false);
+    expect(actionables(ownMain, 0, d, false)).toEqual([]);
+  });
+
+  it("decide(), step rule 'smart': preference on stops (stop-set), preference off passes", () => {
+    const d = plannedWindow();
+    const s = withSteps('yours', { main1: 'smart' });
+    expect(decide({ decision: d, view: ownMain, seat: 0, settings: s, autoPayMana: true })).toEqual({ act: 'stop', reason: 'stop-set' });
+    expect(decide({ decision: d, view: ownMain, seat: 0, settings: s, autoPayMana: false })).toEqual({ act: 'pass', index: 1 });
+    expect(run(d, ownMain, s)).toEqual({ act: 'pass', index: 1 });
+  });
+
+  it('decide(), own-turn main-phase floor (step rule off): preference on stops, preference off passes', () => {
+    const d = plannedWindow();
+    const s = withSteps('yours', { main1: 'off', main2: 'off' });
+    for (const step of ['main1', 'main2']) {
+      const v = view(0, step);
+      expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: true })).toEqual({ act: 'stop', reason: 'stop-set' });
+      expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: false })).toEqual({ act: 'pass', index: 1 });
+    }
+    // A one-shot run's consent still bypasses the floor, plan or no plan.
+    expect(decide({ decision: d, view: ownMain, seat: 0, settings: s, autoPayMana: true, skipOwnTurnFloor: true }))
+      .toEqual({ act: 'pass', index: 1 });
+  });
+
+  it('a payment action with no plan is not a play (the panel offers nothing to click for it)', () => {
+    const d = plannedWindow(plannedAction([]));
+    expect(emptyPriorityWindow(d, ownMain, 0, true)).toBe(1);
+    expect(actionables(ownMain, 0, d, true)).toEqual([]);
+    expect(decide({ decision: d, view: ownMain, seat: 0, settings: withSteps('yours', { main1: 'smart' }), autoPayMana: true }))
+      .toEqual({ act: 'pass', index: 1 });
+  });
+
+  it('the planned arm reads priority decisions only', () => {
+    const d = { ...plannedWindow(), kind: 'choose' };
+    expect(actionable(d, ownMain, 0, true)).toBe(false);
+  });
+
+  it('the plan counts whether or not potential_actions also lists the card; an option-kind play is still named first', () => {
+    const d = plannedWindow();
+    const projected = withHand(ownMain, 0, { potential_actions: [pot('cast', 102)] });
+    // Preference on: the one-click planned cast is named, not the
+    // after-tapping projection of the same card.
+    expect(actionables(projected, 0, d, true)).toEqual(['Cast Opt (with suggested mana)']);
+    // Preference off: exactly the capability-less projection arm.
+    expect(actionables(projected, 0, d, false)).toEqual(['Cast Card (after tapping)']);
+    // A legacy action option is still the first arm.
+    const withLand: Decision = { ...d, options: [...d.options, { index: 3, kind: 'play_land', label: 'Play Island', player: 0 }] };
+    expect(actionables(ownMain, 0, withLand, true)).toEqual(['Play Island']);
+  });
+});
+
+// Ported from the auto-pay gaps audit (`git show 124ed89fb:web/src/lib/payment.audit.test.ts`),
+// its third probe -- the one the spec §8 amendment keeps; the first two probed
+// UI text the amendment withdraws (a one-cast action while off, Pay manually
+// while on). The fixture is the audit's own: seat 1's main phase, Opt in hand,
+// a window whose legacy options are a bare Island tap, the pass and the
+// concede, and a plan-only payment action. The View carries NO
+// potential_actions for the card (the Urborg-granted intrinsic shape the
+// engine's projection misses today). On main 6c711fece the probe failed:
+// expected null, got 1. The seat preference is now an explicit argument.
+describe('gaps audit probe 3: a playable plan-only cast prevents an empty-window auto-pass (spec §8)', () => {
+  const seats: SeatInfo[] = [
+    { name: 'alice', deck: 'burn', colour: '#e5484d' },
+    { name: 'bob', deck: 'stompy', colour: '#30a46c' },
+  ];
+  const card = (id: number, name: string): CardView => ({
+    id, name, types: 'Instant', printing: { name }, token: `#${id}`,
+    tapped: false, power: 0, toughness: 0, damage: 0, attacking: false,
+    controller: 1, owner: 1, summon_sick: false,
+  });
+  const player = (seat: number, hand: CardView[]): PlayerView => ({
+    seat, name: seats[seat].name, life: 20, lost: false, library_size: 53,
+    hand_size: hand.length, graveyard_size: 0, hand, battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
+  });
+  const auditView = (decision: Decision | null, hand: CardView[] = []): View => ({
+    viewer: 1, visibility: 'seat', turn: 3, round: 3, step: 'main1', phase: 'precombat main',
+    active: 1, priority: 1, over: false, draw: false, winner: null,
+    players: [player(0, []), player(1, hand)],
+    stack: [], pending: [], decision,
+  });
+  // A planned-only cast: the window's legacy options are a bare tap and pass.
+  const plannedOnly: Decision = {
+    seq: 9, player: 1, kind: 'priority', prompt: 'You have priority.', min: 1, max: 1,
+    options: [
+      { index: 0, kind: 'activate', label: 'Activate Island for mana', obj: 11, player: 1 },
+      { index: 1, kind: 'pass', label: 'Pass priority', player: 1 },
+      { index: 2, kind: 'concede', label: 'Concede', player: 1 },
+    ],
+    payment_actions: [{ id: 'act', cast: { object: 102, face: 0, origin: 'hand' }, label: 'Cast Opt', plans: [plan('p1')] }],
+  };
+
+  it('§8: with the seat auto-pay preference on, the floor reads payment_actions, not only potential_actions', () => {
+    // The View carries no potential_actions for the card: the floor must still
+    // see the offered plan when plan use is enabled.
+    expect(emptyPriorityWindow(plannedOnly, auditView(plannedOnly, [card(102, 'Opt')]), 1, true)).toBeNull();
+  });
+
+  it('§8: with the preference off the floor is the capability-less one and passes the same window', () => {
+    expect(emptyPriorityWindow(plannedOnly, auditView(plannedOnly, [card(102, 'Opt')]), 1, false)).toBe(1);
   });
 });

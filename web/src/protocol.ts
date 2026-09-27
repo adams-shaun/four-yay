@@ -327,8 +327,11 @@ export interface PoolRestrictionView {
 export interface PotentialAction {
   /**
    * Kind is the action kind, the same vocabulary decision.Option uses but
-   * restricted to real plays: "cast", "ability" and "play_land". The mana
-   * tap ("activate"), pass and concede are deliberately absent -- they are
+   * restricted to real plays: "cast", "ability", "granted" (a max-speed
+   * granted ability), "unlock" (a Room door), "turn_face_up" (the morph
+   * family), "specialize", "play_land" and "station" -- every play kind the
+   * priority offer walk emits (rules.potentialPlayKind). The mana tap
+   * ("activate"), pass and concede are deliberately absent -- they are
    * offered at every priority window and are never a play.
    */
   kind: string;
@@ -346,8 +349,9 @@ export interface PotentialAction {
   ability?: number;
   /**
    * Mode distinguishes a "cast" potential action's payment kind ("",
-   * "kicked", "surged", "flashback", "miracle"), exactly as Option.Mode
-   * does. omitempty: an ordinary cast carries no field.
+   * "kicked", "surged", "flashback", "miracle"), and a "specialize" one's
+   * target face index, exactly as Option.Mode does. omitempty: an ordinary
+   * cast carries no field.
    */
   mode?: string;
   /**
