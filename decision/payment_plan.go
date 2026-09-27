@@ -1,9 +1,11 @@
 package decision
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -39,6 +41,44 @@ const (
 // Values are uint32 so a negative JSON number and quantities outside the
 // engine's int32 capacity are rejected at decode/validation boundaries.
 type ManaAmount [6]uint32
+
+// ManaAmountLen is the exact number of quantities a wire mana vector carries.
+const ManaAmountLen = 6
+
+// UnmarshalJSON decodes a mana vector from exactly ManaAmountLen non-negative
+// integers. encoding/json silently discards surplus array elements when it
+// decodes into a Go array, so a 7-element vector would otherwise decode clean
+// and quietly drop a quantity the client sent; a payload outside the declared
+// contract must be rejected instead. A JSON null keeps the stdlib's no-op
+// semantics (the zero vector), matching an absent field.
+func (m *ManaAmount) UnmarshalJSON(data []byte) error {
+	if string(bytes.TrimSpace(data)) == "null" {
+		return nil
+	}
+	var raw []json.Number
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("mana vector: %w", err)
+	}
+	if len(raw) != ManaAmountLen {
+		return fmt.Errorf("mana vector has %d quantities, want exactly %d", len(raw), ManaAmountLen)
+	}
+	var out ManaAmount
+	for i, n := range raw {
+		v, err := n.Int64()
+		if err != nil {
+			return fmt.Errorf("mana quantity %d: %w", i, err)
+		}
+		if v < 0 {
+			return fmt.Errorf("mana quantity %d is negative", i)
+		}
+		if v > int64(maxPaymentQuantity) {
+			return fmt.Errorf("mana quantity %d overflows engine amount", i)
+		}
+		out[i] = uint32(v)
+	}
+	*m = out
+	return nil
+}
 
 // PaymentCost is the resolved mana requirement. Generic is deliberately
 // separate from true colourless (Mana[5]).
