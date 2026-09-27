@@ -88,20 +88,28 @@ func set(s string) map[string]bool {
 // cmd/hindsight (the pn20 branch-mining tool) reads it only to report run and
 // per-decision wall seconds; every sample, rollout and record is a pure
 // function of its seeds.
+// The paymirror A/B harness (cmd/paymirror + its internal/paymirror library)
+// is exempt on the same terms as the other sweep tools: driver.go reads the
+// clock only to enforce an optional per-run Budget, and the CLI only to print
+// per-spec elapsed seconds on its progress line. Every spec, game, report and
+// trace byte is a pure function of the seeds and the corpus; no game, event,
+// view or replay depends on either read.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 	allowed := map[string]bool{
-		module + "/host":              true,
-		module + "/host/httpapi":      true,
-		module + "/cmd/gorged":        true,
-		module + "/cmd/testtime":      true,
-		module + "/cmd/botbench":      true,
-		module + "/cmd/ledger":        true,
-		module + "/cmd/searchprobe":   true,
-		module + "/cmd/searchteacher": true,
-		module + "/cmd/cardfuzz":      true,
-		module + "/cmd/exitloop":      true,
-		module + "/cmd/traindash":     true,
-		module + "/cmd/hindsight":     true,
+		module + "/host":               true,
+		module + "/host/httpapi":       true,
+		module + "/cmd/gorged":         true,
+		module + "/cmd/testtime":       true,
+		module + "/cmd/botbench":       true,
+		module + "/cmd/ledger":         true,
+		module + "/cmd/searchprobe":    true,
+		module + "/cmd/searchteacher":  true,
+		module + "/cmd/cardfuzz":       true,
+		module + "/cmd/exitloop":       true,
+		module + "/cmd/traindash":      true,
+		module + "/cmd/hindsight":      true,
+		module + "/internal/paymirror": true,
+		module + "/cmd/paymirror":      true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {
