@@ -123,6 +123,7 @@ import (
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/host"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
+	"github.com/adams-shaun/gorge/internal/paymirror"
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -400,6 +401,26 @@ var decisionStatsEnabled bool
 // appended, so the normal report is byte-identical to a pre-flag build.
 var actionCoverageEnabled bool
 
+var autopayMirrorEnabled bool
+var autopayMirrorCounts = struct {
+	sync.Mutex
+	counts map[string]int
+}{counts: map[string]int{}}
+
+func recordAutoPayMirror(status paymirror.Status, key string) {
+	label := string(status)
+	if key != "" {
+		label += " " + key
+	}
+	autopayMirrorCounts.Lock()
+	autopayMirrorCounts.counts[label]++
+	autopayMirrorCounts.Unlock()
+}
+
+func isAutoPayPolicy(name string) bool {
+	return name == "bot-auto-pay" || name == "cast-profile-auto-pay"
+}
+
 // aPlaysSeat reports whether policy A (the -a side) holds seat s in game i.
 // A holds a seat when (game+seat) is even: with two seats the assignment
 // flips every game, and for any seat count a seat sees A in exactly half
@@ -613,6 +634,24 @@ func playMatchOnce(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns,
 // is no second copy of the watchdog/livelock loop to keep in step.
 func playMatchOnceTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns, maxIntents int, collect *decisionStats, cov *actionCoverage, trace *gameTrace, meta traceDecisionMeta) (gameOutcome, *rules.Engine, error) {
 	hooks := gbench.Hooks{NeedBoard: trace != nil}
+	if autopayMirrorEnabled {
+		hooks.Submit = func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (bool, error) {
+			if in.Payment == nil || seatIdx < 0 || seatIdx >= len(pols) || !isAutoPayPolicy(pols[seatIdx]) {
+				return false, nil
+			}
+			answer := func(engine *rules.Engine, follow *decision.Decision) (decision.Intent, error) {
+				v := view.Project(engine.G, engine, follow.Player, follow)
+				return seats[follow.Player].Decide(context.Background(), v, *follow)
+			}
+			report := paymirror.CheckLive(e, in, answer, paymirror.Options{})
+			status, key := report.Verdict()
+			recordAutoPayMirror(status, key)
+			if report.AError != "" {
+				return true, fmt.Errorf("paymirror run A: %s", report.AError)
+			}
+			return true, nil
+		}
+	}
 	if collect != nil || cov != nil || trace != nil {
 		// game() already ran in playMatchTraced (this function's only
 		// collector-carrying caller) before the loop started, so the hook
@@ -2117,6 +2156,7 @@ func main() {
 	flag.StringVar(&onpolicyCorpusPath, "onpolicy-corpus", "", "write every decision a policynet seat SCORED (encoded state and options, the scores, its answer and the bot's, the game outcome for that seat) as the on-policy PPO corpus JSONL to this new file (matrix mode only; parent must exist, destination must not). Observational: the bench result is unchanged")
 	decisionStats := flag.Bool("decision-stats", false, "append a per-decision-kind histogram (count, mean per game, mean option count, singleton share, first-option share) at the end of a run; default off so the normal report is unchanged")
 	actionCoverage := flag.Bool("action-coverage", false, "append the action-coverage completeness report (decision kinds / option rows never asked, offered-but-never-chosen shapes, cast shapes, cards and ability slots never fired, primitives never exercised) at the end of a run; default off so the normal report is unchanged")
+	autopayMirror := flag.Bool("autopay-mirror", false, "mirror each auto-pay planned cast against float-then-cast and print verdict counts")
 	decisionTrace := flag.String("decision-trace", "", "write an opt-in atomic JSONL decision trace to a new file (matrix mode only; parent must exist and destination must not)")
 	analyzeTrace := flag.String("analyze-trace", "", "read a decision trace and write deterministic diagnostic-proxy JSON; no games are played")
 	grind := flag.String("grind", "", "grind mode: pin one repo deck to one goroutine and play it against itself as many games as the budget allows; a deck name, or \"all\" for every deck in the format's pool (one goroutine each); mutually exclusive with -pairs; -workers is ignored (the one-goroutine-per-deck shape IS the mode)")
@@ -2146,6 +2186,10 @@ func main() {
 	})
 	decisionStatsEnabled = *decisionStats
 	actionCoverageEnabled = *actionCoverage
+	autopayMirrorEnabled = *autopayMirror
+	autopayMirrorCounts.Lock()
+	autopayMirrorCounts.counts = map[string]int{}
+	autopayMirrorCounts.Unlock()
 	searchKnobs = searchseat.Options{
 		Kinds:        map[string]bool{"attackers": true, "cast": true, "mana": *searchMana},
 		Worlds:       *searchWorlds,
@@ -2173,6 +2217,21 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	fail := func(err error) int {
 		fmt.Fprintln(os.Stderr, "botbench:", err)
 		return 1
+	}
+	if autopayMirrorEnabled {
+		defer func() {
+			autopayMirrorCounts.Lock()
+			defer autopayMirrorCounts.Unlock()
+			keys := make([]string, 0, len(autopayMirrorCounts.counts))
+			for key := range autopayMirrorCounts.counts {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			fmt.Fprintln(os.Stdout, "auto-pay mirror verdicts:")
+			for _, key := range keys {
+				fmt.Fprintf(os.Stdout, "  %d %s\n", autopayMirrorCounts.counts[key], key)
+			}
+		}()
 	}
 	// The -profile file is parsed before any game starts so a bad candidate
 	// fails the run at the front door instead of mid-game: it applies to any

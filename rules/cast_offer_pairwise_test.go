@@ -3,56 +3,58 @@ package rules
 import (
 	"testing"
 
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
 
-// The real corpus card must pass the offer-time COUNT check even though its
-// distinct-controller capacity cannot satisfy the post-push pairwise ask.
-func TestCastOfferCensusRunAwayTogetherDefersControllerCapacity(t *testing.T) {
+// The cast-offer census and the post-push target ask share ONE feasibility
+// rule: rules/legal.go's targetChoiceFeasible. A mandatory target declaration
+// that cannot admit any legal selection under a cross-target set constraint is
+// WITHHELD at offer time, never offered and then reversed with the CR 733.1
+// "cast aborted: no legal target" note. CR 601.2c is the reason: a spell the
+// engine offers must be one whose target declaration can actually be
+// announced.
+//
+// This file pins the CROSS-CONTROLLER half of that contract. Before the shared
+// rule the offer census was count-only (legal candidates >= the mandatory
+// minimum), so a pairwise shape the ask would reverse was still offered; the
+// resolution-path ask still owns its own fizzle (stack.go askTarget,
+// TestBarrinsSpiteSameControllerCapacity).
+
+// TestCastOfferCensusWithholdsRunAwayTogetherSingleController pins the real
+// corpus card: Run Away Together's mandatory two-target
+// TargetsWithDifferentControllers$ ask with exactly two legal creatures under
+// ONE controller has no legal answer, so the offer must not present it at all.
+func TestCastOfferCensusWithholdsRunAwayTogetherSingleController(t *testing.T) {
 	e, spell, bears := runAwayTogetherEngine(t, []state.PlayerID{1, 1})
 	o := e.G.Obj(spell)
 	if o == nil || o.Zone != state.ZHand || o.Face() == nil || len(bears) != 2 {
 		t.Fatalf("precondition: Run Away Together must be in hand with two bears: spell %+v, bears %v", o, bears)
 	}
 	sa := o.Face().SpellAbility()
-	if sa == nil || sa.Params["TargetMin"] != "2" || sa.Params["TargetsWithDifferentControllers"] != "True" {
-		t.Fatalf("precondition: Run Away Together lost mandatory pairwise targets: %+v", sa)
+	if sa == nil || sa.Params["TargetMin"] != "2" || sa.Params["TargetMax"] != "2" ||
+		sa.Params["TargetsWithDifferentControllers"] != "True" {
+		t.Fatalf("precondition: Run Away Together lost its mandatory pairwise targets: %+v", sa)
 	}
 	candidates := e.legalTargetCandidates(0, spell, spell, sa)
 	_, _, _, distinct := e.oneEachTargetBounds(sa, candidates, 2, 2)
 	if len(candidates) != 2 || distinct != 1 || candidates[0].obj == candidates[1].obj {
 		t.Fatalf("precondition: need two different candidates but only one controller: candidates %+v, distinct %d", candidates, distinct)
 	}
-	var cast *decision.Option
-	for _, opt := range castOptions(t, e) {
-		if opt.Obj == spell {
-			choice := opt
-			cast = &choice
-		}
-	}
-	if cast == nil {
-		t.Fatal("Run Away Together withheld: candidate count meets Min 2; controller capacity belongs to the post-push ask")
-	}
-	submitChoices(t, e, cast.Index)
-	if !hasNote(e, "cast aborted: no legal target") || e.G.Obj(spell).Zone != state.ZHand {
-		t.Fatalf("expected CR 733.1 reversal: zone %v, abort note present %v", e.G.Obj(spell).Zone, hasNote(e, "cast aborted: no legal target"))
+	if castOffered(e, spell) {
+		t.Fatal("Run Away Together offered with two same-controller creatures: the offer census must enforce the same different-controller capacity the ask does (CR 601.2c)")
 	}
 }
 
 // pairwiseCensusSrc is a mandatory TargetMin$ 2 | TargetMax$ 2
 // TargetsWithSameController$ spell. Its two legal candidates below are split
 // across controllers, so the candidate COUNT reaches the minimum while the
-// pairwise set constraint is unsatisfiable: the cast-offer census (pure count
-// feasibility) must still OFFER it, and the post-push targetAsk abort (CR
-// 601.2c via CR 733.1, Note "cast aborted: no legal target") is the failure
-// mode -- the same contract TestRunAwayTogetherMandatoryTwoSameControllerAbortsCast
-// pins for the TargetsWithDifferentControllers$ shape.
+// same-controller capacity does not: the shared feasibility rule must WITHHOLD
+// the cast at offer time instead of offering it and reversing at the ask.
 const pairwiseCensusSrc = "Name:Pairwise Census\nManaCost:1 W\nTypes:Instant\n" +
 	"A:SP$ Draw | Defined$ You | ValidTgts$ Creature.Other | TargetMin$ 2 | " +
 	"TargetMax$ 2 | TargetsWithSameController$ True | Oracle:x\n"
 
-func TestCastOfferCensusOffersPairwiseConstrainedCast(t *testing.T) {
+func TestCastOfferCensusWithholdsPairwiseConstrainedCast(t *testing.T) {
 	e, _, id := newFixtureDeck(t, 6015, pairwiseCensusSrc)
 	bearA := bearPermanent(t, e, 0)
 	bearB := bearPermanent(t, e, 1)
@@ -74,34 +76,12 @@ func TestCastOfferCensusOffersPairwiseConstrainedCast(t *testing.T) {
 		t.Fatalf("precondition: target census found %d legal candidates, want the two bears", len(candidates))
 	}
 	// The boundary's precondition: the count reaches the minimum but the
-	// same-controller capacity does not -- exactly the shape the pairwise
-	// census clause used to withhold pre-offer.
+	// same-controller capacity does not.
 	_, _, capacity, constrained := e.sameControllerTargetBounds(sa, candidates, 2, 2)
 	if !constrained || capacity != 1 {
 		t.Fatalf("precondition: same-controller bound = (capacity %d, constrained %v), want constrained capacity 1", capacity, constrained)
 	}
-	if !castOffered(e, id) {
-		t.Fatal("pairwise-constrained cast with a satisfiable candidate count was withheld -- the offer census must stay count-only so the ask's CR 733.1 abort is the failure mode")
-	}
-	var cast *decision.Option
-	for _, opt := range e.Pending().Options {
-		if opt.Kind == "cast" && opt.Obj == id {
-			c := opt
-			cast = &c
-		}
-	}
-	if cast == nil {
-		t.Fatal("precondition: the cast option disappeared from the priority window before submission")
-	}
-	submitChoices(t, e, cast.Index)
-	if !hasNote(e, "cast aborted: no legal target") {
-		t.Fatal("the pairwise-unsatisfiable cast did not abort at the ask")
-	}
-	if z := e.G.Obj(id).Zone; z != state.ZHand {
-		t.Fatalf("spell zone = %v, want hand (the CR 733.1 reversal)", z)
-	}
-	e.Advance()
-	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
-		t.Fatalf("priority did not resume after the abort: %+v", d)
+	if castOffered(e, id) {
+		t.Fatal("pairwise-constrained cast offered with creatures split across controllers: the offer census must enforce the same-controller capacity the ask does (CR 601.2c)")
 	}
 }

@@ -195,29 +195,18 @@ func TestSplitAltTargetConditionalFlash(t *testing.T) {
 	}
 	e.G.Active = 1
 
-	// Announcing the NON-qualifying legal target reverses the cast (CR 601.2e).
+	// The announcement offers only the grant-covered target (CR 601.2e): the
+	// non-qualifying artifact is a legal target of the alternate half but is
+	// not covered by the permission that granted the off-turn timing, so it is
+	// not on the menu; the qualifying artifact completes the cast.
 	opt := splitFlashOption(e, spell, "split_alt")
 	e.beginCast(0, *opt)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KTarget {
 		t.Fatalf("split_alt target decision = %+v", d)
 	}
-	if istTargetOptionFor(d, theirGizmo) < 0 {
-		t.Fatalf("precondition: the non-qualifying artifact must be a legal target: %+v", d.Options)
-	}
-	submitChoices(t, e, istTargetOptionFor(d, theirGizmo))
-	if z := e.G.Obj(spell).Zone; z != state.ZHand {
-		t.Fatalf("a non-qualifying target left the spell in %s, want the reversal back to hand", z)
-	}
-	if len(e.G.Stack) != 0 {
-		t.Fatalf("stack after the reversal = %v, want empty", e.G.Stack)
-	}
-
-	// Announcing the qualifying target completes.
-	e.beginCast(0, *splitFlashOption(e, spell, "split_alt"))
-	d = e.Pending()
-	if d == nil || d.Kind != decision.KTarget {
-		t.Fatalf("second target decision = %+v", d)
+	if idx := istTargetOptionFor(d, theirGizmo); idx >= 0 {
+		t.Fatalf("the non-qualifying artifact was offered although the flash permission does not cover it: %+v", d.Options)
 	}
 	idx := istTargetOptionFor(d, qualifying)
 	if idx < 0 {

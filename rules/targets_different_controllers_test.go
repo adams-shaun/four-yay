@@ -226,19 +226,17 @@ func runAwayTogetherEngine(t *testing.T, controllers []state.PlayerID) (e *Engin
 	return e, spell, bears
 }
 
-// TestRunAwayTogetherMandatoryTwoSameControllerAbortsCast pins the review's
-// MAJOR on the real corpus card: with a mandatory two-target
-// different-controllers SA and exactly two legal creatures controlled by ONE
-// player, there is no legal answer, so CR 601.2c forbids announcing the
-// spell. Before the fix the cast ask emitted a Min 2 / Max 2 decision whose
-// only two options shared one Option.Group, so Decision.Validate rejected
-// every possible answer and no intent could satisfy Min -- an unsatisfiable
-// decision. Now the cast aborts ("no legal target") and the card stays in
-// hand.
-func TestRunAwayTogetherMandatoryTwoSameControllerAbortsCast(t *testing.T) {
+// TestRunAwayTogetherMandatoryTwoSameControllerIsWithheld pins the real corpus
+// card: with a mandatory two-target different-controllers SA and exactly two
+// legal creatures controlled by ONE player, there is no legal answer, so
+// CR 601.2c forbids announcing the spell. The offer census and the ask share
+// ONE feasibility rule (rules/legal.go targetChoiceFeasible), so the cast is
+// withheld at offer time rather than offered and then reversed with the
+// CR 733.1 abort.
+func TestRunAwayTogetherMandatoryTwoSameControllerIsWithheld(t *testing.T) {
 	e, spell, bears := runAwayTogetherEngine(t, []state.PlayerID{1, 1})
 	// Precondition: exactly two legal creature targets, both controlled by
-	// seat 1 -- the shape that used to produce the unsatisfiable ask.
+	// seat 1 -- the shape that cannot satisfy the different-controller ask.
 	if len(bears) != 2 {
 		t.Fatalf("fixture bears = %d, want 2", len(bears))
 	}
@@ -247,26 +245,14 @@ func TestRunAwayTogetherMandatoryTwoSameControllerAbortsCast(t *testing.T) {
 			t.Fatalf("fixture bear %d controller = %d, want 1", id, c)
 		}
 	}
-	var cast *decision.Option
-	for _, o := range castOptions(t, e) {
-		if o.Obj == spell {
-			c := o
-			cast = &c
-		}
+	if castOffered(e, spell) {
+		t.Fatal("Run Away Together offered with two same-controller creatures: the offer census must enforce the different-controller capacity the ask does (CR 601.2c)")
 	}
-	if cast == nil {
-		t.Fatal("Run Away Together was not offered even though its two same-controller targets make it uncastable -- the offer must survive so CR 733.1 abort is the failure mode")
-	}
-	submitChoices(t, e, cast.Index)
-	if !hasNote(e, "cast aborted: no legal target") {
-		t.Fatal("no abort Note: the two same-controller creatures still produced a target ask")
+	if hasNote(e, "cast aborted: no legal target") {
+		t.Fatal("withheld cast still reached the target ask and aborted")
 	}
 	if z := e.G.Obj(spell).Zone; z != state.ZHand {
-		t.Fatalf("spell zone = %v, want hand (the proposal reverses, CR 733.1)", z)
-	}
-	e.Advance()
-	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
-		t.Fatalf("priority did not resume after the abort: %+v", d)
+		t.Fatalf("spell zone = %v, want hand", z)
 	}
 }
 

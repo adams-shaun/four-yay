@@ -697,6 +697,7 @@ func (e *Engine) askAttackers() {
 		// The non-mana components ride the same fields a block option uses,
 		// so a rules-ignorant client can reason about the whole charge.
 		opt.CostLife = int(of.charge.life)
+		opt.CostPhyrexian = len(of.charge.phyrexian)
 		for _, t := range of.charge.taps {
 			opt.CostTaps += int(t.n)
 		}
@@ -716,6 +717,22 @@ func (e *Engine) askAttackers() {
 	for _, o := range opts {
 		if o.Value > 0 {
 			maxSum = int(budget)
+			break
+		}
+	}
+	// Publish the payer's life as the bound on the declaration's combined
+	// non-mana LIFE charge (CostLife plus each Phyrexian pip at two life), the
+	// same way MaxSum publishes the mana bound. The combined charge is a
+	// whole-declaration property the per-(attacker,defender) option list cannot
+	// express -- a per-attacker tax (Norn's Annex) offers every pair payable on
+	// its own -- so decision.RequiredQuota and FitRequired read this one field
+	// to keep the required set and the declaration charge-feasible. Published
+	// only when some offered pair carries a non-mana charge, so every
+	// ordinary, charge-free declaration serialises byte-identically.
+	payerLife := int32(0)
+	for _, o := range opts {
+		if o.CostLife > 0 || o.CostPhyrexian > 0 {
+			payerLife = e.G.Players[p].Life
 			break
 		}
 	}
@@ -743,7 +760,9 @@ func (e *Engine) askAttackers() {
 		// A raised per-defender attacker cap (AttackRestrict scoped by
 		// ValidDefender$). Nil when no scoped ceiling exceeds one, so every
 		// ordinary declaration's wire payload is byte-identical.
-		GroupLimits: groupLimits})
+		GroupLimits: groupLimits,
+		// The combined non-mana charge bound (see payerLife above).
+		PayerLife: payerLife})
 }
 
 // handleAttackers records the chosen attackers (CR 508.1c: this is what
@@ -1846,6 +1865,7 @@ func (e *Engine) askBlockers() {
 				}
 				opt.Value = int(charge.mana)
 				opt.CostLife = int(charge.life)
+				opt.CostPhyrexian = len(charge.phyrexian)
 				for _, t := range charge.taps {
 					opt.CostTaps += int(t.n)
 				}
@@ -1871,8 +1891,19 @@ func (e *Engine) askBlockers() {
 				break
 			}
 		}
+		// The combined non-mana LIFE charge bound, as askAttackers publishes
+		// it: requiredCore/RequiredQuota/FitRequired read it to keep a block
+		// team whose per-pair charges sum past the payer's life out of the
+		// required quota. 0 (omitted) when no offered pair carries one.
+		payerLife := int32(0)
+		for _, opt := range opts {
+			if opt.CostLife > 0 || opt.CostPhyrexian > 0 {
+				payerLife = e.G.Players[defender].Life
+				break
+			}
+		}
 		d := &decision.Decision{Player: defender, Kind: decision.KBlockers, Min: 0, Max: len(opts),
-			Prompt: fmt.Sprintf("turn %d — declare blockers", e.G.Turn), Options: opts, MaxSum: maxSum}
+			Prompt: fmt.Sprintf("turn %d — declare blockers", e.G.Turn), Options: opts, MaxSum: maxSum, PayerLife: payerLife}
 		// First find the maximum legal declaration with every candidate
 		// duty flagged. Publish only the required pairs in that team; the
 		// other members remain optional helpers needed to meet a Min$ bound.
