@@ -273,7 +273,7 @@ func TestSplitAltTargetConditionalFlash(t *testing.T) {
 		t.Fatalf("instant-half target decision = %+v", d3)
 	}
 	submitChoices(t, e3, istTargetOptionFor(d3, theirGizmo3))
-	if z := e.G.Obj(spell3).Zone; z != state.ZStack {
+	if z := e3.G.Obj(spell3).Zone; z != state.ZStack {
 		t.Fatalf("an instant half cast on a non-qualifying target ended in %s, want the stack (no CR 601.2e reversal)", z)
 	}
 }
