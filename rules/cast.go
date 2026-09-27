@@ -9028,16 +9028,35 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 	// announced targets, keeps offer and recheck on ONE interpretation.
 	//
 	// The mode exclusion covers the two offers that grant their own timing
-	// WITHOUT spellTimingOK (MayFlashCost's paid flash and the defeat cast) and
-	// split_alt, whose instant-speed check reads castWithFlash against the
-	// FRONT face while the cast flips to the alternate half: none can be a
-	// target-conditional-CastWithFlash card in the corpus, and policing a cast
-	// whose timing came from elsewhere would be a false reversal.
-	if pc.offSorcery && pc.mode != "mayflash" && pc.mode != "defeat_cast" && pc.mode != "split_alt" {
-		f := o.Face()
-		if f != nil && !f.IsInstant() && !e.HasKeyword(pc.card, "Flash") && !mayFlashSacFace(f) &&
-			e.hasTargetConditionalFlash(pc.player, pc.card) &&
-			!e.castWithFlashTargets(pc.player, pc.card, pc.targets) {
+	// WITHOUT spellTimingOK (MayFlashCost's paid flash and the defeat cast).
+	// Every other mode polices the face its timing rested on:
+	// flashGrantCoversTargets answers false only when the face's off-sorcery
+	// timing could have rested on an IsTargeting-conditional CastWithFlash
+	// grant AND the announced targets do not satisfy it, so an unconditional
+	// Flash/instant permission is never rejected for a non-qualifying target.
+	// split_alt reads the LIVE face: beginCast already flipped to the cast
+	// half, so o.Face() IS the half whose grant was judged at the offer
+	// (through castWithFlashAsFace) and whose announced targets must satisfy
+	// it now. A fuse cast stays at its front face and carries BOTH halves:
+	// each non-instant half is judged against its OWN stage's targets through
+	// the same face-scoped read (flashGrantCoversTargets scopes the alternate
+	// half), never against the other half's grant or the flat target list.
+	if pc.offSorcery && pc.mode != "mayflash" && pc.mode != "defeat_cast" {
+		if pc.mode == "fuse" {
+			if ff, fa := fusedSplitFaces(o); ff != nil {
+				for i, half := range []*cards.Face{ff, fa} {
+					var ts []state.Target
+					if i < len(pc.stageTargets) {
+						ts = pc.stageTargets[i]
+					}
+					if e.flashGrantCoversTargets(pc.player, pc.card, half, ts) {
+						continue
+					}
+					e.abortCast(pc, "cast aborted: flash permission's target requirement unmet (CR 601.2e)", true)
+					return true
+				}
+			}
+		} else if f := o.Face(); !e.flashGrantCoversTargets(pc.player, pc.card, f, pc.targets) {
 			e.abortCast(pc, "cast aborted: flash permission's target requirement unmet (CR 601.2e)", true)
 			return true
 		}

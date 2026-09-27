@@ -1991,7 +1991,15 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 		// rules/alternate_face_restriction_test.go). castSuppressed above
 		// stays shared: casting a half is casting the card.
 		if sf := splitAlternateCastFace(o); sf != nil {
-			instant := sf.IsInstant() || e.HasKeyword(id, "Flash") || e.castWithFlash(p, id)
+			// The target-conditional read is FACE-SCOPED (castWithFlashAsFace):
+			// a grant on one half is judged against THAT half's own potential
+			// targets and face-local statics, so the front half's grant cannot
+			// offer the alternate half, and a qualifying alternate-half target
+			// cannot be withheld because the front face is not a target. The
+			// CR 601.2e recheck (recheckIllegal) re-runs the same face-scoped
+			// read against the ANNOUNCED targets, so offer and enforcement
+			// agree on one interpretation.
+			instant := sf.IsInstant() || e.HasKeyword(id, "Flash") || e.castWithFlashAsFace(p, id, sf)
 			if (instant || sorcery) && e.splitCastTargetsAvailable(p, id, sf) &&
 				!castRestrictedAsFace(p, id, sf) {
 				if offerCastableAsFace(p, id, sf, withSpellAbilityExtras(sf, e.parseCost(sf.ManaCost)), spellScope("")) {

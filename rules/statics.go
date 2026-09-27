@@ -784,6 +784,19 @@ func (e *Engine) castWithFlashTargets(p state.PlayerID, id state.ObjID, targets 
 	return false
 }
 
+// castWithFlashAsFace is castWithFlash priced AS face f of id: the
+// potential-target census and the self statics read f, not the face the
+// object currently displays. The split_alt offer uses it so a target-
+// conditional grant is judged against the half actually being cast (CR
+// 709.4: each half is cast as its own spell, with its own targets and
+// face-local statics), and the fuse offer's per-half timing reads it for
+// each half -- so neither half borrows the other's permission. f must be one
+// of the object's own faces; offerAsFace prices the live face unchanged
+// otherwise, and is a no-op when f IS the live face.
+func (e *Engine) castWithFlashAsFace(p state.PlayerID, id state.ObjID, f *cards.Face) bool {
+	return e.offerAsFace(id, f, func() bool { return e.castWithFlash(p, id) })
+}
+
 // withSelfStatics appends the named statics the card carries on its OWN face
 // to a collected list: activeStatics never sees a self-carried static while
 // the card is still in hand (the same second source alternativeCosts reads
@@ -830,6 +843,26 @@ func (e *Engine) hasTargetConditionalFlash(p state.PlayerID, id state.ObjID) boo
 		}
 	}
 	return false
+}
+
+// flashGrantCoversTargets is the CR 601.2e enforcement half of a target-
+// conditional CastWithFlash grant, read for ONE face of a split card: it
+// answers false only when face f's off-sorcery timing could have rested on
+// an IsTargeting-conditional grant AND the announced targets do not satisfy
+// that grant. A face with its own unconditional timing (instant, Flash,
+// MayFlashSac's rider) never rested on the grant; a grant without an
+// IsTargeting alternative imposes no target requirement. The reads are
+// face-scoped (offerAsFace), so a fused cast's alternate half is judged
+// against ITS face and ITS stage's targets -- the same read the offer ran
+// through castWithFlashAsFace, keeping offer and enforcement on one
+// interpretation.
+func (e *Engine) flashGrantCoversTargets(p state.PlayerID, id state.ObjID, f *cards.Face, targets []state.Target) bool {
+	if f == nil || f.IsInstant() || e.HasKeyword(id, "Flash") || mayFlashSacFace(f) {
+		return true
+	}
+	return e.offerAsFace(id, f, func() bool {
+		return !e.hasTargetConditionalFlash(p, id) || e.castWithFlashTargets(p, id, targets)
+	})
 }
 
 // validSpellHasTargeting reports whether a ValidSA$/ValidSpell$ OR-list
