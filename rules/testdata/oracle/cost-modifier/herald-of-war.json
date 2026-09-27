@@ -5,19 +5,19 @@
   "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "no-counters-human-full-price",
+      "name": "no-counters-angel-full-price",
       "cr": [
         "601.2f",
         "118.7a"
       ],
-      "why": "A counterless Herald does not reduce a Human spell costing one white.",
+      "why": "A counterless Herald does not reduce an Angel spell: two generic and two white cannot pay for a spell requiring three generic and two white.",
       "setup": {
         "p0": {
           "battlefield": [
             "Herald of War"
           ],
           "hand": [
-            "Elite Vanguard"
+            "Serra Angel"
           ]
         },
         "p1": {}
@@ -26,7 +26,7 @@
         {
           "op": "mana",
           "seat": 0,
-          "mana": "W"
+          "mana": "WWWW"
         }
       ],
       "expect": [
@@ -34,9 +34,9 @@
           "offered": {
             "seat": 0,
             "kind": "cast",
-            "card": "p0:Elite Vanguard"
+            "card": "p0:Serra Angel"
           },
-          "want": true
+          "want": false
         }
       ]
     },

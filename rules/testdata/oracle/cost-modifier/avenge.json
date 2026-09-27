@@ -96,6 +96,9 @@
         {
           "card": "p1:Savannah Lions",
           "zone": "graveyard"
+        },
+        {
+          "life": {"p0": 19}
         }
       ]
     },

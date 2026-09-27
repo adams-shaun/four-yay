@@ -71,6 +71,11 @@
           "defender": "p0"
         },
         {
+          "op": "pass_to",
+          "step": "declare-attackers",
+          "active": "p1"
+        },
+        {
           "op": "cast",
           "seat": 0,
           "card": "p0:Sentry Bot",
@@ -128,6 +133,11 @@
             "p1:Grizzly Bears"
           ],
           "defender": "p0"
+        },
+        {
+          "op": "pass_to",
+          "step": "declare-attackers",
+          "active": "p1"
         },
         {
           "op": "cast",

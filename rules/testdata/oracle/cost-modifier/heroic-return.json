@@ -77,6 +77,11 @@
           "defender": "p0"
         },
         {
+          "op": "pass_to",
+          "step": "declare-attackers",
+          "active": "p1"
+        },
+        {
           "op": "cast",
           "seat": 0,
           "card": "p0:Heroic Return",
@@ -104,12 +109,12 @@
       ]
     },
     {
-      "name": "opponents-attack-elsewhere-does-not-count",
+      "name": "opponent-creature-not-attacking-does-not-count",
       "cr": [
         "601.2f",
         "118.7a"
       ],
-      "why": "On seat 0\u2019s own main phase no creature is attacking seat 0, even with an opposing creature present.",
+      "why": "Merely controlling a creature on the opposing side does not make it an attacker; four mana cannot cast the six-mana instant on seat 0's main phase.",
       "setup": {
         "p0": {
           "hand": [
