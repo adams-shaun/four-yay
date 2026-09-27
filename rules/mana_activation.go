@@ -463,7 +463,13 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// and a permitted opponent could not.
 		if e.activatorAllows(p, id, ma) &&
 			e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
-			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) {
+			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) &&
+			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
+			// only if an opponent has three or more poison counters"): the same
+			// intervening-if gate sVarGateOK applies to every non-mana
+			// activation, so the priority offer, the payment windows and the V1
+			// planner withhold the ability with its condition false.
+			e.manaSVarGateOK(o, p, id, ma) {
 			// ActivationLimit$ / GameActivationLimit$ (Vivi Ornitier's "only once
 			// each turn", Stalking Leonin's "Activate only once"): the non-mana
 			// ability offer loops in legal.go gate on these parameters, but this
@@ -570,7 +576,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			continue
 		}
 		if ma.API == "Mana" && !e.isLoyaltyAbility(ma) && abilityZoneOK(ma, o.Zone) && !abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) &&
-			e.manaActivationGateHolds(p, id, ma) {
+			e.manaActivationGateHolds(p, id, ma) && e.manaSVarGateOK(o, p, id, ma) {
 			out = append(out, ma)
 		}
 	}
@@ -597,12 +603,34 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			continue
 		}
 		if !abilityZoneOK(ga.sa, o.Zone) || abilityRestricted(ga.sa) || !e.manaAbilityPayable(p, id, ga.sa) ||
-			!e.manaActivationGateHolds(p, id, ga.sa) {
+			!e.manaActivationGateHolds(p, id, ga.sa) || !e.manaSVarGateOK(o, p, id, ga.sa) {
 			continue
 		}
 		out = append(out, ga.sa)
 	}
 	return out
+}
+
+// manaSVarGateOK is the mana walks' CheckSVar$/SVarCompare$ activation gate:
+// the same shared evaluator sVarGateOK (rules/legal.go) applies to every
+// non-mana activation offer, so a gated ability (Glistening Sphere's
+// Corrupted "Activate only if an opponent has three or more poison
+// counters") reads one member set across the priority offer, the payment
+// windows and the V1 payment planner. Only the merged face is walk-specific:
+// pileAbilityRefOf resolves it for a printed SA (a mutated pile's under-card
+// face reads its own SVar table); a granted or static-granted body is not a
+// pile member and reads merged 0, the top face's table. sVarGateOK's
+// fail-OPEN on an unevaluable body is the mana contract too -- an unreadable
+// gate never silently removes a card's activation.
+func (e *Engine) manaSVarGateOK(o *state.Object, p state.PlayerID, id state.ObjID, ma *cards.SA) bool {
+	if _, ok := ma.Params["CheckSVar"]; !ok {
+		return true
+	}
+	merged := 0
+	if _, m, found := pileAbilityRefOf(o, ma); found {
+		merged = m
+	}
+	return e.sVarGateOK(p, id, ma, merged)
 }
 
 // manaActivationGateHolds evaluates a plain AB$ Mana ability's IsPresent$/
@@ -1455,6 +1483,15 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 	e.tappingForMana, e.tappingManaProduced = source, produced
 	e.emitTap(source, p, false)
 	e.tappingForMana, e.tappingManaProduced = 0, ""
+	// The mana the activation is about to produce does not exist yet -- the
+	// Tap event (and so this trigger match) precedes the mana effect -- so
+	// record where the activation's ManaAdd batch will land. The batch is
+	// read back in resolveTriggeredManaAbilities and bound onto each matched
+	// trigger's context as TriggerMana (Mana Flare's ReflectProperty$
+	// Produced). Scanning the log rather than reading sa.Params["Produced"]
+	// makes the read the mana ACTUALLY produced, so a Produced$ Any colour
+	// choice and a ProduceMana replacement are both reflected faithfully.
+	e.manaTapMark = len(e.L.Events)
 
 	// CR 605.3b: a triggered mana ability resolves immediately after the mana
 	// ability that caused it, without using the stack. Separate only newly
@@ -1508,6 +1545,7 @@ func (e *Engine) isTriggeredManaAbility(pt pendingTrigger) bool {
 // colour and continues the batch (answerManaColor). cast is the payment
 // window flag the parked activation carries back to the caller.
 func (e *Engine) resolveTriggeredManaAbilities(triggers []pendingTrigger, cast, cumulative bool) {
+	e.stampTriggeredManaProduced(triggers)
 	for i := range triggers {
 		pt := triggers[i]
 		if int(pt.Controller) >= len(e.G.Players) || e.G.Players[pt.Controller].Lost {
@@ -1544,6 +1582,67 @@ func (e *Engine) resolveTriggeredManaAbilities(triggers []pendingTrigger, cast, 
 			return
 		}
 	}
+}
+
+// stampTriggeredManaProduced binds the produced-type set an activated mana
+// ability's Tap actually made to each trigger of that activation's CR 605.3b
+// batch. It runs once per batch, at the first resolveTriggeredManaAbilities
+// entry: the batch's triggers were matched and queued in emitManaTap, before
+// the mana effect ran, so their context's TriggerMana is still empty. The
+// batch is the activated activation's own, and every call site of
+// resolveTriggeredManaAbilities threads a slice emitManaTap returned, so the
+// scan window is exactly that activation -- the triggered abilities
+// themselves resolve after this stamp, and the mana a triggered ability adds
+// only reaches those later abilities' own reflect reads, never this batch's
+// set.
+//
+// The mark is cleared whether or not the window carried ManaAdd, so a
+// productionless mana ability (a fail-closed Produced$ the effect refused)
+// cannot leave a stale window for a later batch.
+func (e *Engine) stampTriggeredManaProduced(triggers []pendingTrigger) {
+	if e.manaTapMark <= 0 {
+		return
+	}
+	produced := e.manaProducedSince(e.manaTapMark)
+	e.manaTapMark = 0
+	if produced == "" {
+		return
+	}
+	for i := range triggers {
+		triggers[i].Ctx.TriggerMana = produced
+	}
+}
+
+// manaProducedSince returns the fixed-order WUBRGC set of mana types carried
+// by the positive-amount ManaAdd events at or after log index mark, in the
+// same order effects/trigger_referents.go documents for TriggerMana. A
+// counter's trailing rune is its type: state.TypedManaTags and the snow "S"
+// prefix a producer tag, never the type. Amount <= 0 is a spend or a zeroed
+// unit, not production. Returns "" when the window produced nothing.
+func (e *Engine) manaProducedSince(mark int) string {
+	if mark < 0 || mark > len(e.L.Events) {
+		return ""
+	}
+	var set uint8
+	for _, ev := range e.L.Events[mark:] {
+		if ev.Kind != events.ManaAdd || ev.Amount <= 0 || ev.Counter == "" {
+			continue
+		}
+		r := ev.Counter[len(ev.Counter)-1]
+		if i := strings.IndexByte("WUBRGC", r); i >= 0 {
+			set |= 1 << uint(i)
+		}
+	}
+	if set == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i := range "WUBRGC" {
+		if set&(1<<uint(i)) != 0 {
+			b.WriteByte("WUBRGC"[i])
+		}
+	}
+	return b.String()
 }
 
 // resolveTriggeredManaOffStack resolves one triggered mana ability's chain

@@ -327,7 +327,15 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// produced type and amount without overloading Remembered. This mode's
 		// matcher remains a separate primitive; retaining all four roles here
 		// makes ReflectProperty$ Produced exact once that trigger is queued.
+		//
+		// TriggeredActivator is the player who tapped the permanent for mana --
+		// the role Mana Flare's "that player adds ..." reads. The Tap payload
+		// carries no Player (emitTap emits the object only), so the actor comes
+		// from emitTap's synchronous provenance through tapActor, exactly as
+		// the Taps case above binds it; a Tap emitted outside emitTap falls
+		// back to the permanent's controller.
 		c.TriggerPlayer = player(ev.Player)
+		c.TriggerActivator = player(e.tapActor(ev))
 		c.TriggerCard = ev.Obj
 		c.TriggerSource = ev.Obj
 		c.TriggerMana = ev.Counter
