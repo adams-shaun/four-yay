@@ -98,6 +98,18 @@ type entryGrant struct {
 	body   state.ObjID
 }
 
+// restage is the continuation of st behind the next grant's newly posed
+// competition (posed, the stage stageEntryCounterOrder just built): every
+// field carries over from st except the pose's own competition -- the parked
+// counter event, its candidates, the asked player, the grant index -- and the
+// per-competition answer state (applied, complete), which restart.
+func (st *entryCounterStage) restage(posed *entryCounterStage) entryCounterStage {
+	next := *st
+	next.counter, next.cands, next.player, next.idx = posed.counter, posed.cands, posed.player, posed.idx
+	next.applied, next.complete = nil, false
+	return next
+}
+
 // sameEntryMove reports whether ev is (a re-drive of) the staged move. The
 // identifying fields are the ones a re-driven entry keeps: a re-emit may
 // recompute markers, never origin, destination or object.
@@ -574,12 +586,15 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 		if !e.stageEntryCounterOrder(st.move, preview, n0, st.grants, st.placed, j+park, st.inRes, st.bodyIDs) {
 			continue
 		}
-		// stageEntryCounterOrder built a fresh stage for the new park; graft
-		// the accumulated placement AND the absorbed-body set onto it so the
-		// next resume continues this entry rather than starting over.
+		// stageEntryCounterOrder built a fresh stage for the new park. It
+		// CONTINUES this entry: start from a copy of the whole stage, so every
+		// continuation field -- the accumulated placement, the absorbed-body
+		// set, the token-plan tail, and the in-body / in-resolution provenance
+		// the pose cannot re-derive here (applyingReplacement is false while
+		// an answer runs) -- carries over, and take only the new pose's own
+		// competition from the fresh stage.
 		fresh := e.replChoices[len(e.replChoices)-1].stage
-		fresh.placed, fresh.bodyIDs = st.placed, st.bodyIDs
-		fresh.tokenPlan = st.tokenPlan
+		*fresh = st.restage(fresh)
 		st.tokenPlan = nil
 		return
 	}
