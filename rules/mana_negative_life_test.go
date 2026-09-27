@@ -81,18 +81,34 @@ func nlPutOnStack(e *Engine, id state.ObjID) bool {
 }
 
 // TestManaPaymentContinuesBelowZeroLife is the brief's repro: at 1 life the
-// caster pays a {2}{U} instant with Ancient Tomb ({C}{C} plus its own 2
-// damage) and then an Island, both inside the CR 601.2g payment window. The
-// damage lands mid-payment, the payer drops to -1, and the Island's bare {T}
-// must still pay: the spell ends on the stack fully paid, and the loss
-// arrives from the state-based action at the priority boundary -- never
-// during the payment.
+// caster pays a {2}{U} instant with an Island and Ancient Tomb ({C}{C} plus
+// its own 2 damage), both inside the CR 601.2g payment window. The tomb's
+// damage lands mid-payment and drops the payer to -1; the payment must still
+// settle against that negative life total (a cost with no life component
+// pays 0 life, CR 119.4): the spell ends on the stack fully paid, and the
+// loss arrives from the state-based action at the priority boundary --
+// never during the payment.
 //
-// The offered witness is exactly Ancient Tomb then Island, so the engine's
-// planned-payment executor is the real repro (it re-enters the window between
-// steps). The log is walked to pin the ordering the ticket names: the tomb's
-// production and its damage precede the Island's tap, and no PlayerLost
-// appears before the spell reaches the stack.
+// The payment is driven MANUALLY. Ancient Tomb is a last-resort source (spec
+// §3.2, aph-producer-tiers): the planner never funds a plan with it, so the
+// auto-pay offer carries no witness for this cast and the planned-payment
+// executor cannot reach the shape. The test asserts that first, then begins
+// the cast directly (the pool-only offer gate never offers a cast the empty
+// pool cannot pay, exactly as priority_suspension_test does) and answers the
+// window by hand.
+//
+// The Island is tapped FIRST and the tomb LAST, so the tomb's damage is the
+// final activation of the window and the payment settles inside that same
+// answer. Pre-fix, resolveManaWith refused the {2}{U} at life -1 and the cast
+// reversed "cost no longer payable". The reverse order (tomb, then Island)
+// crosses a Submit boundary at life -1, where Submit's closing
+// checkStateBased runs while the cast is still mid-window, so the payer
+// loses before the Island can be tapped -- a separate CR 704.3 deviation of
+// the manual window that this test deliberately does not pin.
+//
+// The log is walked to pin the ordering the ticket names: the tomb's
+// production and damage precede the pool deduction, and no PlayerLost
+// appears before the spell is paid for.
 func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
 	e, tombID, islandID, watchID := nlCastEngine(t, 421, 1, "")
 	// Preconditions: the caster really is at 1 life with the spell in hand,
@@ -114,10 +130,8 @@ func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
 		t.Fatalf("precondition: Keep Watch mana cost = %q, want %q", c, "2 U")
 	}
 
-	// The offering gate priced the cast, so its witness must be exactly the
-	// two sources in the order Ancient Tomb then Island (the cost's {2} takes
-	// the tomb's {C}{C} and the {U} takes the island). A different witness
-	// would not exercise the ticket's shape -- assert it rather than trust it.
+	// The tier gate: Ancient Tomb is last resort, so no plan is offered for
+	// the cast and the planner names the last-resort source as the reason.
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("precondition: pending = %+v, want priority", d)
@@ -125,27 +139,54 @@ func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
 	// Payment actions are published lazily (aph-lazy-offers): build them
 	// for this ask, as an opted-in consumer would, before reading them.
 	e.EnsurePaymentActions()
-	a := paymentPlanActionFor(t, d, watchID)
-	if len(a.Plans) == 0 {
-		t.Fatal("precondition: the cast was offered with no payment witness")
+	for _, a := range d.PaymentActions {
+		if a.Cast.Object == watchID && len(a.Plans) > 0 {
+			t.Fatalf("auto-pay offered a plan for Keep Watch funded by a last-resort source: %#v", a.Plans)
+		}
 	}
-	plan := a.Plans[0]
-	if len(plan.Activations) != 2 || plan.Activations[0].Source != tombID || plan.Activations[1].Source != islandID {
-		t.Fatalf("precondition: witness = %#v, want Ancient Tomb then Island", plan.Activations)
+	got := e.PlanCastPayment(0, decision.PlannedCast{Object: watchID, Face: 0, Origin: "hand"})
+	if got.Plan != nil || got.Reason != "insufficient" || got.Detail != "source:last_resort" {
+		t.Fatalf("PlanCastPayment = plan %v reason %q detail %q, want no plan, insufficient, source:last_resort",
+			got.Plan, got.Reason, got.Detail)
+	}
+	if castOffered(e, watchID) {
+		t.Fatal("precondition: the empty pool cannot pay {2}{U}, yet the pool-only gate offered the cast")
 	}
 
-	submitPaymentPlan(t, e, d, a)
+	// Begin the cast directly and answer the CR 601.2g window by hand.
+	start := len(e.L.Events)
+	e.pending = nil
+	e.beginCast(0, decision.Option{Kind: "cast", Obj: watchID})
+	e.Advance()
+	if w := e.Pending(); w == nil || w.Kind != decision.KChoose {
+		t.Fatalf("after beginning the cast = %+v, want the CR 601.2g mana window", w)
+	}
+	if !cwActivateInWindow(t, e, islandID) {
+		t.Fatalf("the window did not offer the Island: %+v", e.Pending())
+	}
+	// The pool holds only {U}: the window re-poses with the tomb still
+	// offered, and the payer is still at 1 life.
+	if w := e.Pending(); w == nil || w.Kind != decision.KChoose {
+		t.Fatalf("after the Island = %+v, want the window re-posed", w)
+	}
+	if got := e.G.Players[0].Life; got != 1 || e.G.Players[0].Lost {
+		t.Fatalf("after the Island: life %d lost %t, want 1 and alive", got, e.G.Players[0].Lost)
+	}
+	if !cwActivateInWindow(t, e, tombID) {
+		t.Fatalf("the window did not offer Ancient Tomb: %+v", e.Pending())
+	}
 
-	// The whole plan runs inside the one Submit. Walk the log once and pin
-	// every event the ticket names by index, then assert the ordering.
+	// Walk the log once and pin every event the ticket names by index, then
+	// assert the ordering.
 	//
 	// CR ordering: the spell is put on the stack when announced (601.2a),
-	// THEN durations/costs are paid (601.2h), so PutOnStack precedes both
-	// taps; the tomb's production and its 2 damage precede the island's tap;
-	// the pool is deducted only after both taps; and the payer's loss is
-	// recorded only after the payment settles -- never during it.
-	stack, tombTap, tombMana, dmg, islandTap, islandMana, paidC, paidU, lost := -1, -1, -1, -1, -1, -1, -1, -1, -1
-	for i, ev := range e.L.Events {
+	// THEN costs are paid (601.2h), so PutOnStack precedes both taps; the
+	// tomb's production and its 2 damage (life 1 -> -1) precede the pool
+	// deduction; and the payer's loss is recorded only after the payment
+	// settles -- never during it.
+	stack, islandTap, islandMana, tombTap, tombMana, dmg, paidC, paidU, lost := -1, -1, -1, -1, -1, -1, -1, -1, -1
+	for i := start; i < len(e.L.Events); i++ {
+		ev := e.L.Events[i]
 		switch {
 		case ev.Kind == events.PutOnStack && ev.Obj == watchID && ev.To == state.ZStack && stack < 0:
 			stack = i
@@ -171,21 +212,21 @@ func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
 		"ancient tomb damage": dmg, "island tap": islandTap, "island mana": islandMana,
 		"generic paid": paidC, "blue paid": paidU, "player lost": lost} {
 		if idx < 0 {
-			t.Fatalf("log: no %s event; events=%v", name, e.L.Events)
+			t.Fatalf("log: no %s event; events=%v", name, e.L.Events[start:])
 		}
 	}
-	if !(stack < tombTap && tombTap < tombMana && tombMana < dmg && dmg < islandTap &&
-		islandTap < islandMana && islandMana < paidU && islandMana < paidC &&
+	if !(stack < islandTap && islandTap < islandMana && islandMana < tombTap &&
+		tombTap < tombMana && tombMana < dmg && dmg < paidU && dmg < paidC &&
 		paidU < lost && paidC < lost) {
-		t.Fatalf("log ordering: stack=%d tombTap=%d tombMana=%d damage=%d islandTap=%d "+
-			"islandMana=%d paidU=%d paidC=%d lost=%d, want stack<tombTap<tombMana<damage<"+
-			"islandTap<islandMana and both payments between islandMana and lost",
-			stack, tombTap, tombMana, dmg, islandTap, islandMana, paidU, paidC, lost)
+		t.Fatalf("log ordering: stack=%d islandTap=%d islandMana=%d tombTap=%d tombMana=%d "+
+			"damage=%d paidU=%d paidC=%d lost=%d, want stack<islandTap<islandMana<tombTap<"+
+			"tombMana<damage and both payments between damage and lost",
+			stack, islandTap, islandMana, tombTap, tombMana, dmg, paidU, paidC, lost)
 	}
 
-	// The spell was never reversed after payment (a reversal would move the
-	// card off the stack before the loss) and it is fully paid: the pool is
-	// empty in the final state and the spell is (or was) on the stack.
+	// The spell was never reversed (a reversal would move the card off the
+	// stack before the loss) and it is fully paid: it reached the stack and
+	// the payment deducted exactly the {2}{U}.
 	for i, ev := range e.L.Events[stack+1 : lost] {
 		if ev.Kind == events.MoveZone && ev.Obj == watchID && ev.From == state.ZStack {
 			t.Fatalf("event %d moved the spell off the stack before the loss: %+v", stack+1+i, ev)
@@ -195,7 +236,10 @@ func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
 		t.Fatal("Keep Watch never reached the stack; the payment did not complete")
 	}
 	// The state-based action applies at the priority boundary: the payer is
-	// dead, and the loss names the life total.
+	// dead at -1, and the loss names the life total.
+	if got := e.G.Players[0].Life; got != -1 {
+		t.Fatalf("caster life after the tomb = %d, want -1", got)
+	}
 	if !e.G.Players[0].Lost {
 		t.Fatal("the caster was not lost at the priority boundary after the payment")
 	}

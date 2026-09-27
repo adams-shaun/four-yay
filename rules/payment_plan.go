@@ -5,6 +5,9 @@ package rules
 
 import (
 	"fmt"
+	"maps"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -19,8 +22,24 @@ import (
 type PaymentPlanOutcome struct {
 	Plan   *decision.PaymentPlan
 	Reason string // "", "unsupported", "insufficient", or "search_limit"
-	Detail string
+	Detail string // deterministic unsupported/source diagnostic
 	Nodes  int
+}
+
+type paymentAbilityTier uint8
+
+const (
+	paymentTierDeferred paymentAbilityTier = iota
+	paymentTierLastResort
+	paymentTierNormal
+)
+
+type paymentConsequence struct {
+	sacrifice    bool
+	life         uint32
+	damage       uint32
+	noUntap      bool
+	returnToHand bool
 }
 
 func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, bool) {
@@ -398,7 +417,9 @@ type plannedManaActivation struct {
 	// A witness step's Ability AND Produces together select exactly one
 	// alternative (paymentPlanStepAlternative), and execution activates
 	// that alternative's own ability.
-	ma *cards.SA
+	ma          *cards.SA
+	tier        paymentAbilityTier
+	consequence paymentConsequence
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
@@ -406,8 +427,23 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	// V1 accepts only fixed production.  A permissive window unit is useful to
 	// manual payment, but not proof an automatic choice will remain exact.
 	choices := make([][]plannedManaActivation, len(units))
+	firstSourceDetail := ""
 	for i, u := range units {
 		choices[i] = e.paymentPlanUnitAlternatives(u)
+		if firstSourceDetail == "" {
+			for _, alt := range u.alts {
+				o := e.G.Obj(u.id)
+				p := state.PlayerID(0)
+				if o != nil {
+					p = o.Controller
+				}
+				_, _, detail := e.paymentPlanAbilityTier(p, u.id, alt.ma)
+				if detail != "" {
+					firstSourceDetail = detail
+					break
+				}
+			}
+		}
 	}
 	pool := e.G.Players[p].Pool
 	var best *decision.PaymentPlan
@@ -450,7 +486,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	if limited {
 		return PaymentPlanOutcome{Reason: "search_limit", Nodes: nodes}
 	}
-	return PaymentPlanOutcome{Reason: "insufficient", Nodes: nodes}
+	return PaymentPlanOutcome{Reason: "insufficient", Detail: firstSourceDetail, Nodes: nodes}
 }
 
 // paymentPlanManaUnits extends the shared fixed-production payment census
@@ -473,9 +509,7 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 			}
 		}
 		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
-			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" ||
-				strings.TrimSpace(ma.Params["Produced"]) != "Any" ||
-				!manaFreeCost(e.parseCost(ma.Params["Cost"])) {
+			if strings.TrimSpace(ma.Params["Produced"]) != "Any" {
 				continue
 			}
 			amt := availableAmount(ma)
@@ -513,6 +547,173 @@ func paymentPlanAltOK(a windowManaAlt) bool {
 	return a.mana().Total() > 0
 }
 
+// paymentPlanAbilityTier is the single source-shape authority for automatic
+// payment. It is intentionally closed-world: new Forge parameters require an
+// explicit review before the planner can rely on them.
+func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
+	deferred := func(detail string) (paymentAbilityTier, paymentConsequence, string) {
+		return paymentTierDeferred, paymentConsequence{}, detail
+	}
+	if ma == nil || ma.API != "Mana" {
+		return deferred("source:special_production")
+	}
+	// The key loop carries the key NAMES only (never a Params value) into
+	// the prefix checks below; slices.Sorted(maps.Keys) keeps it a plain
+	// string-slice walk rather than a range the param census would have to
+	// classify.
+	keys := slices.Sorted(maps.Keys(ma.Params))
+	for _, key := range keys {
+		if strings.HasPrefix(key, "Condition") {
+			return deferred("source:conditional")
+		}
+		if strings.Contains(strings.ToLower(key), "target") || key == "ValidTgts" || key == "ValidTarget" {
+			return deferred("source:target")
+		}
+		if !paymentPlanKnownManaParam(key) {
+			return deferred("source:param:" + key)
+		}
+	}
+	if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+		return deferred("source:special_production")
+	}
+	if paymentPlanHasSpecialProductionParam(ma) {
+		return deferred("source:special_production")
+	}
+	cost := e.parseCost(ma.Params["Cost"])
+	if cost.XMin != 0 || cost.X != 0 || cost.Generic != 0 || cost.Colored.Total() != 0 || len(cost.Discard)+len(cost.SubCounter)+len(cost.Exile)+len(cost.ExileFromTop)+len(cost.TapPermanent)+len(cost.Energy)+len(cost.LifeX) != 0 {
+		return deferred("source:last_resort")
+	}
+	if strings.TrimSpace(ma.Params["SubAbility"]) != "" {
+		if e.paymentPlanRiderHasTarget(id, ma) {
+			return deferred("source:target")
+		}
+		if !paymentPlanTapOnlyCost(cost) {
+			return deferred("source:last_resort")
+		}
+		if d, ok := e.paymentPlanDamageRider(id, ma); ok {
+			return paymentTierLastResort, paymentConsequence{damage: d}, "source:last_resort"
+		}
+		if e.paymentPlanParadiseRider(id, ma) {
+			return paymentTierLastResort, paymentConsequence{returnToHand: true}, "source:last_resort"
+		}
+		return deferred("source:rider")
+	}
+	if cost.Sac != nil || cost.Life != 0 || cost.Return != nil {
+		c := paymentConsequence{}
+		if len(cost.Sac) > 0 && len(cost.Sac) == 1 && paymentPlanSelfCost(cost.Sac[0], id) {
+			c.sacrifice = true
+		} else if len(cost.Sac) > 0 {
+			return deferred("source:last_resort")
+		}
+		if cost.Life > 0 {
+			c.life = uint32(cost.Life)
+		}
+		if len(cost.Return) > 0 && len(cost.Return) == 1 && paymentPlanSelfCost(cost.Return[0], id) {
+			c.returnToHand = true
+		} else if len(cost.Return) > 0 {
+			return deferred("source:last_resort")
+		}
+		return paymentTierLastResort, c, "source:last_resort"
+	}
+	if !paymentPlanTapOnlyCost(cost) {
+		return deferred("source:last_resort")
+	}
+	return paymentTierNormal, paymentConsequence{}, ""
+}
+
+// paymentPlanHasSpecialProductionParam reports whether the ability's own head
+// carries a production special-effect parameter (spec 3.2: TriggersWhenSpent$,
+// AddsCounters$, the AddsKeywords* family, AddsNoCounter$, PersistentMana$,
+// UnlessCost$, Defined$). Such production does something beyond adding plain
+// mana to the pool, so the ability is deferred.
+func paymentPlanHasSpecialProductionParam(ma *cards.SA) bool {
+	for _, key := range slices.Sorted(maps.Keys(ma.Params)) {
+		if key == "TriggersWhenSpent" || key == "AddsCounters" || key == "AddsNoCounter" ||
+			key == "PersistentMana" || key == "UnlessCost" || key == "Defined" ||
+			strings.HasPrefix(key, "AddsKeywords") {
+			return true
+		}
+	}
+	return false
+}
+
+func paymentPlanKnownManaParam(key string) bool {
+	if strings.HasPrefix(key, "AddsKeywords") {
+		return true
+	}
+	switch key {
+	case "API", "Cost", "Produced", "Amount", "SubAbility", "SpellDescription", "StackDescription", "AILogic", "PrecostDesc",
+		"Activation", "Activator", "ActivationPhases", "PlayerTurn", "OpponentTurn", "ActivationFirstCombat", "ActivationAfterBlockers",
+		"IsPresent", "PresentCompare", "CheckSVar", "SVarCompare", "ActivationLimit", "GameActivationLimit", "InstantSpeed",
+		"RestrictValid", "TriggersWhenSpent", "AddsCounters", "AddsKeywords", "AddsKeywordsAll", "AddsNoCounter", "PersistentMana", "UnlessCost", "Defined":
+		return true
+	default:
+		return false
+	}
+}
+
+func paymentPlanSelfCost(part CostPart, id state.ObjID) bool {
+	s := strings.ToLower(strings.TrimSpace(part.Spec))
+	return part.N == 1 && (s == "cardname" || s == "this token" || s == "cardname/self" || s == "self")
+}
+
+func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32, bool) {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return 0, false
+	}
+	name := strings.TrimSpace(mana.Params["SubAbility"])
+	rider := cards.ResolveSVar(o.Face().SVars, name)
+	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.Params["Defined"]) != "You" || strings.TrimSpace(rider.Params["SubAbility"]) != "" {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(strings.TrimSpace(rider.Params["NumDmg"]), 10, 32)
+	if err != nil || n == 0 {
+		return 0, false
+	}
+	for _, k := range slices.Sorted(maps.Keys(rider.Params)) {
+		if k != "API" && k != "Defined" && k != "NumDmg" && k != "SpellDescription" && k != "StackDescription" {
+			return 0, false
+		}
+	}
+	return uint32(n), true
+}
+
+func (e *Engine) paymentPlanRiderHasTarget(id state.ObjID, mana *cards.SA) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return true
+	}
+	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.Params["SubAbility"]))
+	if rider == nil {
+		return false
+	}
+	for _, key := range slices.Sorted(maps.Keys(rider.Params)) {
+		if strings.Contains(strings.ToLower(key), "target") || key == "ValidTgts" || key == "ValidTarget" {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return false
+	}
+	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.Params["SubAbility"]))
+	if rider == nil || rider.API != "Pump" || rider.Params["Defined"] != "Self" {
+		return false
+	}
+	for _, key := range slices.Sorted(maps.Keys(rider.Params)) {
+		if key != "API" && key != "Defined" && key != "KW" && key != "Duration" && key != "SpellDescription" && key != "StackDescription" {
+			return false
+		}
+	}
+	text := strings.ToLower(strings.Join([]string{rider.Params["KW"], rider.Params["SpellDescription"], rider.Params["StackDescription"]}, " "))
+	return strings.Contains(text, "hidden") && strings.Contains(text, "return")
+}
+
 // paymentPlanUnitAlternatives expands one physical source into the exact
 // one-tap outcomes V1 can execute.  A fixed Produced$ Any amount is finite:
 // choose one of WUBRG now, record it in Produces, then run the ordinary mana
@@ -522,6 +723,14 @@ func paymentPlanAltOK(a windowManaAlt) bool {
 func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActivation {
 	var out []plannedManaActivation
 	for _, alt := range u.alts {
+		payer := state.PlayerID(0)
+		if source := e.G.Obj(u.id); source != nil {
+			payer = source.Controller
+		}
+		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
+		if tier != paymentTierNormal {
+			continue
+		}
 		if !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
 			continue
 		}
@@ -533,7 +742,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			m := alt.mana()
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id), ma: alt.ma})
+				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, tier: tier, consequence: consequence})
 			continue
 		}
 		if strings.TrimSpace(alt.ma.Params["Produced"]) != "Any" || !alt.any || alt.amt <= 0 {
@@ -544,7 +753,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			m[i] = alt.amt
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id), ma: alt.ma})
+				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, tier: tier, consequence: consequence})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible

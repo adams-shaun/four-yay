@@ -181,6 +181,14 @@ var baseBuckets = map[string]bucket{
 	// mana ability whose Cost$ (its T part) answerNestedManaColor re-binds
 	// as manaFromTap when a routed SubAbility$ colour answer re-enters.
 	"ma.ability": bSA,
+	// rider is payment_plan.go's resolved SubAbility$ rider (the
+	// paymentPlanDamageRider / paymentPlanRiderHasTarget /
+	// paymentPlanParadiseRider classifier helpers of ticket
+	// aph-producer-tiers resolve it with cards.ResolveSVar and inspect its
+	// shape): a *cards.SA like the ma it was reached from, read for the
+	// DealDamage$ You / Pump$ Self rider shapes the tier classifier
+	// recognises and for the ValidTgts$/target keys that defer the source.
+	"rider": bSA,
 	// selector bases: r.With and m.repl.With are cards.Repl's resolved
 	// With *cards.SA (the ReplaceWith$ body: a real SA parameter map, read
 	// as generic machinery), rp.sa the resume plan's SA, o.Ability the
