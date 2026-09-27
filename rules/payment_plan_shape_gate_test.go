@@ -42,8 +42,6 @@ func TestPaymentPlanShapeGate(t *testing.T) {
 			if tc.name == "sacrifice" || tc.name == "tapXType" || tc.name == "revealOrChoose" {
 				onBoard(t, e, 0, "Name:Victim\nManaCost:1\nTypes:Creature Test\nPT:1/1\nOracle:test\n")
 			}
-			f := e.G.Obj(spell).Face()
-			t.Logf("debug face=%p sa=%+v cost=%+v extra=%+v shape=%q keywords=%v", f, f.SpellAbility(), withSpellAbilityExtras(f, Cost{}), e.costModifiersWithTargets(0, spell, spellScope(""), nil, false).extra, e.paymentPlanCastShapeDetail(0, spell), f.Keywords)
 			got := e.PlanCastPayment(0, paymentCast(spell))
 			if got.Plan != nil || got.Reason != "unsupported" || got.Detail != tc.detail {
 				t.Fatalf("plan outcome = %+v, want unsupported detail %q", got, tc.detail)
