@@ -871,6 +871,18 @@ func TestKastralMixedHandOriginOffersBothZones(t *testing.T) {
 		t.Fatal("hand and graveyard candidates must differ")
 	}
 	Resolve(h, &Ctx{Source: source.ID, Controller: 0}, db)
+	// Kastral's ChangeZone carries Optional$ You, so Forge's confirmAction
+	// gate runs before the fetch list: the confirmation is the first ask, and
+	// the mixed-origin search is the second.
+	if h.asked == nil || h.asked.ResumeKind != "search_confirm" {
+		t.Fatalf("mixed-origin search confirmation = %+v, want the Optional$ You gate", h.asked)
+	}
+	if len(h.asked.Options) != 2 || h.asked.Options[0].Kind != "yes" || h.asked.Options[1].Kind != "no" {
+		t.Fatalf("mixed-origin confirmation is not a yes/no gate: %+v", h.asked.Options)
+	}
+	h.asked = nil
+	Resolve(h, &Ctx{Source: source.ID, Controller: 0, SearchConfirmDone: true, SearchConfirm: "yes",
+		SearchConfirmTarget: 0}, db)
 	if h.asked == nil || h.asked.ResumeKind != "search" {
 		t.Fatalf("mixed-origin search = %+v", h.asked)
 	}

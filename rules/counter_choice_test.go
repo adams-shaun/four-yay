@@ -347,11 +347,17 @@ func amyPondGame(t *testing.T, seed uint64, nSuspended int, time int32) (*Engine
 		t.Fatalf("Partner-with target ask offers no player-0 option: %+v", d.Options)
 	}
 	submitChoices(t, e, p0)
-	// The search election itself never asks here: Rory Williams is in
-	// neither deck, so the chosen player's Optional$ ChangeZone fails to
-	// find the stated name and the trigger resolves without a decision (the
-	// CR 701.23b fail-to-find split). Stop on the resumed priority — the
-	// fixture must not pass further and advance the turn.
+	// Forge's confirmAction gate for the Optional$ ChangeZone asks before the
+	// fetch list even when the named card is absent (the CR 701.23b
+	// fail-to-find split still confirms first), so decline -- Rory Williams is
+	// in neither deck, and accepting would reach the same empty answer anyway.
+	// Stop on the resumed priority; the fixture must not pass further and
+	// advance the turn.
+	c := passUntilNonPriority(t, e, 30)
+	if c.Kind != decision.KChoose || c.ResumeKind != "search_confirm" {
+		t.Fatalf("Amy Pond's Partner-with search confirmation = %+v, want the Optional$ gate", c)
+	}
+	submitChoices(t, e, c.Options[1].Index) // no
 	return e, cfg, amyID, suspended
 }
 
@@ -374,6 +380,14 @@ func amyPondAttack(t *testing.T, e *Engine, amyID state.ObjID) *decision.Decisio
 		}
 		if d.Kind == decision.KChoose && d.ResumeKind == "counter_pick" {
 			return d
+		}
+		if d.Kind == decision.KChoose && d.ResumeKind == "search_confirm" {
+			// Amy Pond's own Partner-with Rory Williams is a pending
+			// Optional$ library search: Forge's confirmAction gate now poses
+			// before the fetch. Accept it so the drive reaches Amy's
+			// counter_pick, exactly the pre-confirmation flow.
+			submitChoices(t, e, d.Options[0].Index)
+			continue
 		}
 		if d.Kind != decision.KPriority {
 			t.Fatalf("unexpected non-priority decision while driving Amy's trigger: %+v", d)

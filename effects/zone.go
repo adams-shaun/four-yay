@@ -2545,9 +2545,19 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 	shuffleMoved := append([]state.ObjID(nil), c.SearchShuffleMoved...)
 	c.Search, c.SearchDone = nil, false
 	c.SearchShuffle, c.SearchShuffleMoved = "", nil
+	// fx42 scoping for the Optional$ confirmation answer: consumed and
+	// cleared before anything else so a nested search poses its own
+	// confirmation.
+	searchConfirmDone := c.SearchConfirmDone
+	searchConfirmYes := strings.EqualFold(c.SearchConfirm, "yes")
+	searchConfirmTarget := c.SearchConfirmTarget
+	c.SearchConfirm, c.SearchConfirmDone, c.SearchConfirmTarget = "", false, 0
 	start := 0
 	if searchDone || shufflePending {
 		start = searchTarget
+	}
+	if searchConfirmDone {
+		start = searchConfirmTarget
 	}
 	g := h.Game()
 	// ChooseFromDefined$ narrows the offered pool to the objects a defined
@@ -2574,6 +2584,62 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			continue
 		}
 		c.LibraryTarget = targetIndex
+		// Forge's explicit Optional$ confirmation (ChangeZoneEffect's
+		// confirmAction gate, which runs BEFORE the fetch list is consulted):
+		// a hidden-origin search whose script carries the marker asks this
+		// search player whether to proceed. The marker is read through the
+		// ONE shared optionalConfirmMarker the hand and hidden-pick walks use
+		// -- never a second parser. A decline skips this player's search, card
+		// pick and search-specific shuffle/tail with the remembered set
+		// intact; an accepted confirmation enters the fetch, whose Min-0 or
+		// mandatory pick (and its shuffle) runs unchanged even when the
+		// eligible pool is empty. The object-valued Defined$ fetch list keeps
+		// its own election in moveDefinedLibraryObjects and never reaches this
+		// walk, so it cannot double-confirm. ChoiceOptional$ is the pick's own
+		// cardinality marker, never a yes/no gate, and a markerless text-may
+		// search stays confirmation-free.
+		if optionalConfirmMarker(sa) {
+			// A search or may-shuffle ANSWER resume must not re-ask: this
+			// player's confirmation was already consumed on the pass that
+			// entered the fetch.
+			resumingAnswer := (searchDone && targetIndex == searchTarget) ||
+				(shufflePending && targetIndex == shuffleTarget)
+			if searchConfirmDone && targetIndex < searchConfirmTarget {
+				// Answered on an earlier pass; skip without re-asking.
+				continue
+			}
+			if !searchConfirmDone && !resumingAnswer {
+				chooser := searchChooser(h, c, sa)
+				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				if prompt == "" {
+					prompt = "Proceed with searching a library?"
+				}
+				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+					Min: 1, Max: 1, Source: c.Source,
+					ResumeKind: "search_confirm", ResumeSA: sa, ResumeTarget: targetIndex,
+					ResumeRemembered:          copyTargets(c.Remembered),
+					ResumeSearchKnown:         copyTargets(c.SearchKnown),
+					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+					ResumeForgetOtherReady:    c.ForgetOtherReady,
+					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+					Prompt:                    prompt,
+					Options: []decision.Option{
+						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+						{Index: 1, Kind: "no", Label: "No", Player: chooser},
+					}}
+				if Ask(h, cd) == AskAsked {
+					return
+				}
+				// R-9: no host to ask -- play "may" as "do" deterministically,
+				// then let the search path apply its own no-host pick policy.
+			} else if searchConfirmDone && targetIndex == searchConfirmTarget && !searchConfirmYes {
+				searchConfirmDone = false // this player's decline is consumed; later players still confirm
+				continue                  // declined: keep the remembered set, skip the search/tail
+			} else if searchConfirmDone && targetIndex == searchConfirmTarget {
+				searchConfirmDone = false // this player's acceptance is consumed
+			}
+		}
 		lib := zoneOf(g, state.ZLibrary, owner)
 		if !zoneIn(zones, state.ZLibrary) {
 			lib = nil

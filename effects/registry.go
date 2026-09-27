@@ -1527,6 +1527,24 @@ type Ctx struct {
 	// Resolution-scratch like Remembered -- never event-encoded; a replay
 	// re-derives the same set by replaying the same resolution.
 	SearchKnown []state.Target
+	// SearchConfirm is the answered Optional$ confirmation for a
+	// hidden-library ChangeZone search whose script carries an explicit
+	// marker -- Forge's confirmAction gate in
+	// ChangeZoneEffect.changeHiddenOriginResolve, which runs BEFORE the fetch
+	// list is consulted (so an empty eligible pool still confirms). "yes"
+	// accepts this search player's fetch and every other answer declines it;
+	// SearchConfirmDone distinguishes "answered" from the first pass, and
+	// SearchConfirmTarget is the index in the deterministic per-library
+	// target list whose confirmation was answered (the same cursor
+	// LibraryTarget carries for the answered pick). A decline skips this
+	// player's search, pick and search-specific shuffle/tail with the
+	// remembered set untouched. Consumed and cleared at the top of
+	// effSearchLibrary (fx42 scoping), so a nested search poses its own
+	// confirmation. The marker is read through the ONE shared
+	// optionalConfirmMarker the hand and hidden-pick walks use.
+	SearchConfirm       string
+	SearchConfirmDone   bool
+	SearchConfirmTarget int
 	// AttachOpt is the answered Optional$ True attach election ("yes"/"no")
 	// on a re-entered Attach resolution (Ajani's Chosen's "you may attach it
 	// to the token", Cori-Steel Cutter's "you may attach this Equipment to
