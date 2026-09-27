@@ -33,6 +33,8 @@ type paymentPlanClass struct {
 	pick []int
 	// irr is each alternative's irreversible cost (rank key 1).
 	irr []int64
+	// pain is each alternative's life + damage (the lethal guard's measure).
+	pain []int64
 }
 
 // paymentPlanSameClass reports whether two units' alternative lists are
@@ -54,11 +56,12 @@ func paymentPlanSameClass(a, b []plannedManaActivation) bool {
 	return true
 }
 
-// paymentPlanPhaseChoices keeps, per unit, the alternatives one search phase
-// may use (spec 5): phase 1 passes paymentTierNormal and sees normal sources
-// only; phase 2 (wired by aph-last-resort-plans) passes paymentTierLastResort
-// and sees normal and last-resort alternatives together. Unit positions are
-// preserved, so a unit with nothing left is simply absent from every class.
+// paymentPlanPhaseChoices keeps, per unit, the alternatives of at least
+// minTier (spec 5): phase 1 passes paymentTierNormal and sees normal sources
+// only. Phase 2's table (normal and last-resort alternatives together, with
+// the phase-2 flexibility and the one-step lethal filter) is
+// paymentPlanLastResortChoices. Unit positions are preserved, so a unit with
+// nothing left is simply absent from every class.
 func paymentPlanPhaseChoices(choices [][]plannedManaActivation, minTier paymentAbilityTier) [][]plannedManaActivation {
 	out := make([][]plannedManaActivation, len(choices))
 	for i, alts := range choices {
@@ -95,9 +98,11 @@ func paymentPlanClasses(choices [][]plannedManaActivation) []paymentPlanClass {
 		c := &out[k]
 		c.pick = make([]int, len(c.alts))
 		c.irr = make([]int64, len(c.alts))
+		c.pain = make([]int64, len(c.alts))
 		for a := range c.alts {
 			c.pick[a] = a
 			c.irr[a] = paymentPlanConsequenceCost(c.alts[a].consequence, c.alts[a].creature)
+			c.pain[a] = paymentPlanConsequencePain(c.alts[a].consequence)
 		}
 		slices.SortStableFunc(c.pick, func(x, y int) int {
 			sx := paymentPlanRankStep{act: c.alts[x].activation, consequence: c.alts[x].consequence}
@@ -191,6 +196,7 @@ type paymentPlanSearch struct {
 	creatures  int
 	flex       int
 	irr        int64
+	pain       int64 // summed life + damage of the chosen units
 
 	nodes    int
 	limited  bool
@@ -205,6 +211,11 @@ type paymentPlanSearch struct {
 // exhaustive walk over every subset and alternative would return -- unless
 // the node budget runs out first, when it is the best complete plan found
 // (Reason "search_limit"), or none.
+//
+// A count vector whose summed life + damage is at least life is never a plan
+// (the lethal guard, spec 5): pain only grows as units are added, so such a
+// branch is cut outright, and no count is taken past the pain the caster can
+// still afford.
 //
 // Exactness rests on three rank-free or rank-monotone facts:
 //
@@ -365,6 +376,9 @@ func (s *paymentPlanSearch) walk(level int) {
 		return
 	}
 	s.nodes++
+	if s.pain > 0 && s.pain >= int64(s.life) {
+		return // lethal, and every extension is too
+	}
 	short, total := s.deficit()
 	if total == 0 && short == (state.Mana{}) && s.complete() {
 		return
@@ -389,6 +403,10 @@ func (s *paymentPlanSearch) walk(level int) {
 		}
 	}
 	hi := min(int32(len(c.members))-s.used[lv.class], int32(decision.MaxPaymentActivations-s.sources), useful)
+	if pain := c.pain[lv.alt]; pain > 0 {
+		// Only counts that keep the summed pain below life can be a plan.
+		hi = min(hi, int32(max(0, (int64(s.life)-1-s.pain)/pain)))
+	}
 	for n := hi; n >= 0; n-- {
 		s.take(lv, n)
 		s.walk(level + 1)
@@ -416,6 +434,7 @@ func (s *paymentPlanSearch) take(lv paymentPlanLevel, n int32) {
 	}
 	s.flex += int(n) * a.flex
 	s.irr += int64(n) * s.classes[lv.class].irr[lv.alt]
+	s.pain += int64(n) * s.classes[lv.class].pain[lv.alt]
 }
 
 // promising reports whether some completion from level can still pay and

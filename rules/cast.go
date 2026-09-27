@@ -9169,9 +9169,10 @@ func (e *Engine) castPaymentMana(pc *pendingCast) Cost {
 
 // paymentPlanCheck revalidates the selected witness against the pending cast
 // before each planned activation and once more after the last (spec §6): the
-// resolved mana cost, the global gates, every remaining step's source and
-// exact alternative, and that the floating pool plus the remaining production
-// still settles exactly as witnessed. ValidateCastPayment checked the same
+// resolved mana cost, the remaining steps' life + damage against the caster's
+// life, the global gates, every remaining step's source and exact alternative
+// (consequence included), and that the floating pool plus the remaining
+// production still settles exactly as witnessed. ValidateCastPayment checked the same
 // witness at Submit while the card was in hand; this reads the cast after its
 // announcements (targets, sacrifices, discards, delve), so a delve exile or a
 // convoked creature that changed the mana to pay is a cost change. It is a
@@ -9194,6 +9195,15 @@ func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
 		return paymentFallbackCostChanged
 	}
 	next := pc.paymentNext
+	// The lethal guard, re-read before every step (spec §6): the remaining
+	// steps' disclosed life + damage must still leave the caster alive. A
+	// life total lowered since the offer (or by an earlier step's replaced
+	// damage) stops the plan before the next activation. Each remaining
+	// step's consequence itself is re-derived with its alternative below
+	// (paymentPlanStepReady): a changed one is production_changed.
+	if pain := paymentPlanRemainingPain(plan, next); pain > 0 && pain >= int64(e.G.Players[pc.player].Life) {
+		return paymentFallbackCostChanged
+	}
 	if next == 0 && !paymentPlanPoolOK(e.G.Players[pc.player]) {
 		return paymentFallbackProductionChanged
 	}

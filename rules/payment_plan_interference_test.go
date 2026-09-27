@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -175,7 +176,8 @@ func interferenceRemoveID(ids []state.ObjID, id state.ObjID) []state.ObjID {
 
 // Seat 0's own City of Brass and Mana Vault are last resort -- damage:1 and
 // no_untap, through the classifier -- so they never appear in a plan while
-// another seat-0 source still funds one.
+// another seat-0 source still funds one, and alone they fund a plan that
+// discloses the cheaper consequence (City's damage 1 = 3 < Vault's 25).
 func TestPaymentPlanInterferenceOwnCityAndVaultAreLastResort(t *testing.T) {
 	e, _, spell := newFixtureDeck(t, 9905, interferenceOneInstant)
 	city := onBoardCard(t, e, 0, corpusCard(t, "City of Brass"))
@@ -189,8 +191,10 @@ func TestPaymentPlanInterferenceOwnCityAndVaultAreLastResort(t *testing.T) {
 	if tier != paymentTierLastResort || c != (paymentConsequence{noUntap: true}) || detail != "source:last_resort" {
 		t.Fatalf("Mana Vault = tier %d %+v %q, want last resort no_untap", tier, c, detail)
 	}
-	if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan != nil {
-		t.Fatalf("plan from last-resort sources only = %+v, want none", got.Plan)
+	if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan == nil || len(got.Plan.Activations) != 1 ||
+		got.Plan.Activations[0].Source != city || got.Plan.Activations[0].Consequence == nil ||
+		*got.Plan.Activations[0].Consequence != (decision.PaymentConsequence{Damage: 1}) {
+		t.Fatalf("plan from last-resort sources only = %+v, want City of Brass disclosing damage:1", got.Plan)
 	}
 	island := onBoard(t, e, 0, interferenceIsland)
 	got := e.PlanCastPayment(0, paymentCast(spell))
