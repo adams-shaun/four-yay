@@ -205,15 +205,7 @@ func (b Board) bestUnpayable(offered [5]bool) (state.ObjID, Card, bool) {
 		// The satisfiability filter: an unmet coloured pip the offered
 		// sources cannot produce excludes the card -- tapping toward it can
 		// never make it payable.
-		pips := colourPips(c.ManaCost)
-		closable := true
-		for i := 0; i < 5; i++ {
-			if pips[i] > b.Pool[i] && !offered[i] {
-				closable = false
-				break
-			}
-		}
-		if !closable {
+		if !b.offeredClosesPips(c, offered) {
 			continue
 		}
 		s := b.cardScore(c)
@@ -222,6 +214,23 @@ func (b Board) bestUnpayable(offered [5]bool) (state.ObjID, Card, bool) {
 		}
 	}
 	return bestID, best, found
+}
+
+// offeredClosesPips is the satisfiability filter bestUnpayable and
+// AnyCastableNow share: every unmet coloured pip of c's printed cost must be
+// producible by some offered source, or tapping can never close the gap (an
+// unmet pip no offered source can produce). An already-covered pip (Pool
+// holds it) is not a need, so it never excludes. One home, so the
+// tap gate's intended-card pick and the auto-pay fallback's any-card scan
+// cannot disagree about which cards are worth tapping toward.
+func (b Board) offeredClosesPips(c Card, offered [5]bool) bool {
+	pips := colourPips(c.ManaCost)
+	for i := 0; i < 5; i++ {
+		if pips[i] > b.Pool[i] && !offered[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // neededColours is the set of coloured pips the pool cannot yet cover for one
@@ -416,23 +425,29 @@ func (b Board) CastableNow(player state.PlayerID, d *decision.Decision) (state.O
 }
 
 // AnyCastableNow reports whether ANY unpayable castable card on the board is
-// one the seat could actually cast in THIS window (castableNowCard). It is
-// the broader reading of the same predicate, for a window with NO plan: the
-// tap gate's single best intent (CastableNow) can be an uncostable or
-// C8-dead card while a different card in the same hand IS a real cast the
-// manual policy could pay, and suppressing the manual answer there would
-// drop that cast. The plan-bearing window keeps the narrower CastableNow so
-// a plan the policy will take is not diverted for a lesser unplanned card.
+// one the seat could actually cast in THIS window (castableNowCard) and whose
+// gap the offered sources can close (offeredClosesPips, the same
+// satisfiability filter the tap gate's intent uses). It is the broader
+// reading of the same predicate, for a window with NO plan: the tap gate's
+// single best intent (CastableNow) can be an uncostable or C8-dead card while
+// a different card in the same hand IS a real cast the manual policy could
+// pay, and suppressing the manual answer there would drop that cast. The
+// plan-bearing window keeps the narrower CastableNow so a plan the policy
+// will take is not diverted for a lesser unplanned card.
 //
 // The result is a boolean OR over the castable set, so the map iteration
 // order cannot reach it. It consumes no rng.
-func (b Board) AnyCastableNow(player state.PlayerID) bool {
+func (b Board) AnyCastableNow(player state.PlayerID, d *decision.Decision) bool {
+	offered := b.offeredColours(d)
 	for id, c := range b.Cards {
 		if !c.Castable || c.CMC <= 0 {
 			continue
 		}
 		if b.poolPays(id, c) {
 			continue // already payable: no tap is needed, so no cast is stranded
+		}
+		if !b.offeredClosesPips(c, offered) {
+			continue // tapping cannot close this gap
 		}
 		if b.castableNowCard(player, id) {
 			return true

@@ -171,8 +171,9 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		// plan is dead -- leaving it in `payable` would let the private
 		// candidate lose to pass and hide the manual path (an instant the
 		// bot wanted, castable only by hand) for the rest of the window.
-		// Drop it here so a window whose ONLY plan is a dead counter falls
-		// back to the manual policy, exactly as a window with no plans does.
+		// Drop it here so a window whose ONLY plan is a dead counter is
+		// treated as a no-plan window (payable empty) and the manual path is
+		// reconsidered.
 		if len(a.Plans) != 0 && !brd.CounterIsDead(d.Player, a.Cast.Object) {
 			payable[a.Cast.Object] = a
 		}
@@ -291,7 +292,7 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 //     fallback always had.
 func (b *Bot) wantsManual(brd botpolicy.Board, d *decision.Decision, payable map[state.ObjID]decision.PaymentAction) bool {
 	if len(payable) == 0 {
-		return brd.AnyCastableNow(d.Player)
+		return brd.AnyCastableNow(d.Player, d)
 	}
 	id, ok := brd.CastableNow(d.Player, d)
 	if !ok {

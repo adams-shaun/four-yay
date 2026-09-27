@@ -95,7 +95,40 @@ func TestCastableNowAnyBroadReading(t *testing.T) {
 	if _, ok := brd.CastableNow(d.Player, d); ok {
 		t.Fatalf("CastableNow = true, want false: the best intent is a C8-dead counter")
 	}
-	if !brd.AnyCastableNow(d.Player) {
+	if !brd.AnyCastableNow(d.Player, d) {
 		t.Fatalf("AnyCastableNow = false, want true: instant 60 is a live cast in this window")
+	}
+}
+
+// TestAnyCastableNowSkipsUnproducibleColour pins that the broad scan keeps the
+// tap gate's satisfiability filter: a green card whose pip no offered source
+// can produce is not a card this window's taps can enable, so it must not
+// justify the manual fallback (that would float an island toward a colour it
+// cannot supply).
+func TestAnyCastableNowSkipsUnproducibleColour(t *testing.T) {
+	brd := Board{IsMain: true, FirstMain: true, MyTurn: true,
+		Cards: map[state.ObjID]Card{
+			1: nowIsland(), 2: nowIsland(),
+			50: {Creature: true, Power: 2, Toughness: 2, CMC: 2, Castable: true, ManaCost: "1 G"},
+		},
+	}
+	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority,
+		Options: []decision.Option{{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "activate", Obj: 2}, {Index: 2, Kind: "pass"}}}
+
+	// Precondition: the card really is unpayable, and the offered sources
+	// really can supply no green (only islands).
+	if brd.poolPays(50, brd.Cards[50]) {
+		t.Fatalf("precondition: card 50 must be unpayable")
+	}
+	offered := brd.offeredColours(d)
+	if offered[state.MG] {
+		t.Fatalf("precondition: no offered source produces green")
+	}
+	if !offered[state.MU] {
+		t.Fatalf("precondition: the islands must produce blue")
+	}
+
+	if brd.AnyCastableNow(d.Player, d) {
+		t.Fatalf("AnyCastableNow = true for a green card no offered source can pay")
 	}
 }
