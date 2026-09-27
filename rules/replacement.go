@@ -3494,10 +3494,14 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 		}
 		return out
 	case "AddToken":
-		// "... instead create those tokens plus N <script>" — the original
-		// mint stands and N extra mints of the named script join it.
+		// Corpus convention: Amount$ present is a fixed add for the whole
+		// creation event; absent Amount$ means "that many" (one per matched
+		// mint), as on Chatterfang. Append fixed extras at plan end so their
+		// replay-visible mint order is deterministic. (cli-20260927T005250Z-c5ac2e83)
+		raw := strings.TrimSpace(body.Params["Amount"])
+		fixed := raw != ""
 		n := int32(1)
-		if raw := strings.TrimSpace(body.Params["Amount"]); raw != "" {
+		if fixed {
 			v, ok := e.tokenReplacementAmount(m, ev, raw, 1)
 			if !ok || v < 0 {
 				e.emit(events.Event{Kind: events.Note, Obj: m.id, Player: ev.Player,
@@ -3511,13 +3515,27 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 			return plan
 		}
 		out := make([]tokenPlanMint, 0, len(plan)+int(n)*len(extra))
+		var fixedController tokenPlanMint
+		matched := false
 		for _, mint := range plan {
 			out = append(out, mint)
 			if e.tokenReplacementMatchesMint(ev, m, mint) {
+				if fixed {
+					fixedController = mint
+					matched = true
+					continue
+				}
 				for i := int32(0); i < n; i++ {
 					for _, s := range extra {
 						out = append(out, tokenPlanMint{script: s, controller: mint.controller, hasController: mint.hasController})
 					}
+				}
+			}
+		}
+		if fixed && matched {
+			for i := int32(0); i < n; i++ {
+				for _, s := range extra {
+					out = append(out, tokenPlanMint{script: s, controller: fixedController.controller, hasController: fixedController.hasController})
 				}
 			}
 		}
