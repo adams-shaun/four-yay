@@ -413,6 +413,45 @@ func (b Board) pendingSpellCost(src state.ObjID) string {
 	return ""
 }
 
+// beneficialGrantModes names the Effect-granted static Mode$ values that are
+// a one-way BOON to whatever the effect targets, so a target ask carrying one
+// must be aimed at the deciding seat's OWN board -- never at an opponent's
+// permanent while an own option exists. This is the target's POLARITY, which
+// the plain ranker cannot see: an unreadable Effect is treated as hostile
+// value (R1/R3 above), which is right for a removal and exactly backwards for
+// a boon. The set is deliberately small and explicit; a mode is listed only
+// when the card text makes the target strictly better off:
+//
+//   - CantBlockBy: "target creature can't be blocked this turn" (Whirler
+//     Rogue, Rogue's Passage). 105 corpus activated Effect grants.
+//   - CanAttackDefender: "target creature ... can attack this turn as though
+//     it didn't have defender" (Assault Formation). 10 corpus files.
+//
+// Every other measured mode is either harmful (CantRegenerate, MustBlock) or
+// shape-ambiguous (Continuous, MustAttack, ReduceCost) -- the same Mode$ can
+// be a pump or a shrink, so it is left on the plain path rather than guessed.
+var beneficialGrantModes = map[string]bool{
+	"CantBlockBy":       true,
+	"CanAttackDefender": true,
+}
+
+// beneficialGrant reports whether a KTarget decision's effect is a readable
+// Effect that grants only boon statics to its target. An absent/empty Statics
+// (the unknown-is-no rule), or ANY mode outside the set, reports false and
+// stays on today's ranking -- an unknown is never treated as friendly, just
+// as it is never treated as lethal elsewhere in this file.
+func beneficialGrant(te *decision.TargetEffect) bool {
+	if te == nil || len(te.Statics) == 0 {
+		return false
+	}
+	for _, mode := range te.Statics {
+		if !beneficialGrantModes[mode] {
+			return false
+		}
+	}
+	return true
+}
+
 func (b Board) removalRanker(me state.PlayerID, effect *decision.TargetEffect) func(decision.Option) targetRank {
 	return func(o decision.Option) targetRank {
 		r := b.rankOption(o, me)
@@ -645,10 +684,19 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 	// null/absent amount all take the plain path -- the unknown-is-no rule
 	// collapses into one branch, never assumed lethal per call site.
 	var rank func(decision.Option) targetRank
+	leadOwn := false
 	if dmg, ok := b.effectDamage(d); ok {
 		rank = b.effectRankerAfter(me, dmg, b.pendingSpellCost(d.Source))
 	} else if d.TargetEffect != nil && (d.TargetEffect.API == "Counter" || d.TargetEffect.Removal != nil) {
 		rank = b.removalRanker(me, d.TargetEffect)
+	} else if beneficialGrant(d.TargetEffect) {
+		// A one-way boon (Whirler Rogue's "can't be blocked"): the target
+		// is the seat's OWN board, ranked by what the boon is worth to
+		// each own permanent. The lead-order flip below points the grant at
+		// the seat's most threatening creature instead of handing the
+		// opponent's best creature a benevolent ability for free.
+		rank = func(o decision.Option) targetRank { return b.rankOption(o, me) }
+		leadOwn = true
 	} else {
 		rank = func(o decision.Option) targetRank { return b.rankOption(o, me) }
 	}
@@ -673,7 +721,10 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 
 	// R1: lead with the opposing options; only top up with our own when a
 	// decision is all-ours or does not offer enough of theirs to meet Min
-	// (totality is preserved either way).
+	// (totality is preserved either way). R1B (the grant-polarity branch
+	// above) INVERTS the lead order: a beneficial one-way grant leads with
+	// our own board, and only falls back to an opponent's option when no own
+	// option was offered -- R1's totality shape is preserved, just reversed.
 	//
 	// Group discipline (Decision.Validate's mutual-exclusion rule): two
 	// options sharing one non-empty Group are mutually exclusive -- the
@@ -696,24 +747,10 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 		return o.Group == "" || !chosen[o.Group]
 	}
 	choices := make([]int, 0, pick)
-	byScore(foreign)
-	for i := 0; i < len(foreign) && len(choices) < pick; i++ {
-		o := d.Options[foreign[i].idx]
-		if !fits(o) {
-			continue
-		}
-		if d.TargetsWithSameController && !haveTargetController {
-			targetController, haveTargetController = o.Controller, true
-		}
-		if o.Group != "" {
-			chosen[o.Group] = true
-		}
-		choices = append(choices, foreign[i].idx)
-	}
-	if len(choices) < pick {
-		byScore(own)
-		for i := 0; i < len(own) && len(choices) < pick; i++ {
-			o := d.Options[own[i].idx]
+	pickFrom := func(s []targetRank) {
+		byScore(s)
+		for i := 0; i < len(s) && len(choices) < pick; i++ {
+			o := d.Options[s[i].idx]
 			if !fits(o) {
 				continue
 			}
@@ -723,7 +760,18 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 			if o.Group != "" {
 				chosen[o.Group] = true
 			}
-			choices = append(choices, own[i].idx)
+			choices = append(choices, s[i].idx)
+		}
+	}
+	if leadOwn {
+		pickFrom(own)
+		if len(choices) < pick {
+			pickFrom(foreign)
+		}
+	} else {
+		pickFrom(foreign)
+		if len(choices) < pick {
+			pickFrom(own)
 		}
 	}
 	return choices
