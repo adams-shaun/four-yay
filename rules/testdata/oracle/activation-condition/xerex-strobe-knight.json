@@ -1,0 +1,30 @@
+{
+  "card": "Xerex Strobe-Knight",
+  "family": "activation-condition",
+  "oracle_sha": "2528e8d40c61",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "two-spells-not-yet-cast-this-turn",
+      "cr": ["602.5b"],
+      "why": "No spells have been cast this turn, so the activation's requirement of at least two spells is unmet.",
+      "setup": {"p0": {"battlefield": ["Xerex Strobe-Knight"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Xerex Strobe-Knight", "label": "Create"}, "want": false}]
+    },
+    {
+      "name": "two-spells-cast-this-turn-enables-token",
+      "cr": ["602.5b", "601.2"],
+      "why": "After two instants have been cast during this turn, the Knight's activation condition is met and its ability creates a Knight token.",
+      "setup": {"p0": {"hand": ["Lightning Bolt", "Lightning Bolt"], "battlefield": ["Xerex Strobe-Knight"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt#2", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:Xerex Strobe-Knight", "ability": "Create"},
+        {"op": "resolve", "seat": 0}
+      ],
+      "expect": [{"count": {"seat": 0, "zone": "battlefield", "name": "Knight", "token": true}, "eq": 1}]
+    }
+  ]
+}

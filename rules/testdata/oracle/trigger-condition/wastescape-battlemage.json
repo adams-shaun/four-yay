@@ -1,0 +1,94 @@
+{
+  "card": "Wastescape Battlemage",
+  "family": "trigger-condition",
+  "oracle_sha": "e01543b2141f",
+  "author": "cli-20260927T211250Z-75464868 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "green-kicker-exiles-opposing-artifact",
+      "cr": [
+        "702.33a",
+        "702.33b",
+        "603.4"
+      ],
+      "why": "Paying the green kicker makes the cast trigger exile an artifact controlled by the opponent.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Wastescape Battlemage"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Bonesplitter"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Wastescape Battlemage",
+          "mana": "CCG",
+          "targets": [
+            "p1:Bonesplitter"
+          ],
+          "cast_mode": "kicked1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Bonesplitter",
+          "zone": "exile"
+        }
+      ]
+    },
+    {
+      "name": "no-kicker-no-exile",
+      "cr": [
+        "702.33a",
+        "702.33b",
+        "603.4"
+      ],
+      "why": "Casting without either kicker yields neither conditional cast trigger; the opposing artifact stays.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Wastescape Battlemage"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Bonesplitter"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Wastescape Battlemage",
+          "mana": "CC",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Wastescape Battlemage",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Bonesplitter",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

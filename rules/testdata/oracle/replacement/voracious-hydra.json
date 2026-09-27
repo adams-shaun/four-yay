@@ -1,0 +1,116 @@
+{
+  "card": "Voracious Hydra",
+  "family": "replacement",
+  "oracle_sha": "18450b8d9e9b",
+  "author": "cli-20260927T211250Z-05593657 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "x-two-double-after-entry",
+      "cr": [
+        "107.3m",
+        "614.1c",
+        "603.6a"
+      ],
+      "why": "Choosing X=2 gives two counters as the creature enters; choosing the doubling mode on its subsequent enter trigger raises that number to four, making it 4/5.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Voracious Hydra"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Voracious Hydra",
+          "mana": "GGCC",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "double"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Voracious Hydra",
+          "zone": "battlefield",
+          "pt": "4/5",
+          "counters": {
+            "+1/+1": 4
+          }
+        }
+      ]
+    },
+    {
+      "name": "x-zero-double-remains-zero",
+      "cr": [
+        "107.3m",
+        "614.1c",
+        "603.6a"
+      ],
+      "why": "With X=0 the 0/1 enters with no counters; doubling zero still gives zero.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Voracious Hydra"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Voracious Hydra",
+          "mana": "GG",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "0"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "double"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Voracious Hydra",
+          "zone": "battlefield",
+          "pt": "0/1",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}

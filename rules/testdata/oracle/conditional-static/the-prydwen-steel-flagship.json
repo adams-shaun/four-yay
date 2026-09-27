@@ -1,0 +1,134 @@
+{
+  "card": "The Prydwen, Steel Flagship",
+  "family": "conditional-static",
+  "oracle_sha": "0ef5d14f9838",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-second-artifact-no-knight",
+      "cr": [
+        "603.2"
+      ],
+      "why": "With only the flagship present, its another-artifact trigger has not created a Knight.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "The Prydwen, Steel Flagship"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Knight",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "name": "new-artifact-creates-buffed-knight",
+      "cr": [
+        "603.2",
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "Another nontoken artifact entering under seat 0 creates a Knight; the same entry turns its own +2/+2 condition on, making a 4/4.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "The Prydwen, Steel Flagship"
+          ],
+          "hand": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "mana": "C"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Knight",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "card": "p0:token:Knight",
+          "pt": "4/4"
+        }
+      ]
+    },
+    {
+      "name": "token-bonus-expires-next-turn",
+      "cr": [
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "A Knight produced after a nontoken artifact entry is 4/4 this turn and returns to its printed 2/2 when that turn ends.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "The Prydwen, Steel Flagship"
+          ],
+          "hand": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "mana": "C"
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "card": "p0:token:Knight",
+              "pt": "4/4"
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1",
+          "expect": [
+            {
+              "card": "p0:token:Knight",
+              "pt": "2/2"
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:token:Knight",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}

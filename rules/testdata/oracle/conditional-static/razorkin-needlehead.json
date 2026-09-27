@@ -1,0 +1,110 @@
+{
+  "card": "Razorkin Needlehead",
+  "family": "conditional-static",
+  "oracle_sha": "22c1a7360fd7",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "own-turn-first-strike",
+      "cr": [
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "Seat 0 controls the Needlehead and is the active player on turn one, so it has first strike.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Razorkin Needlehead"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Razorkin Needlehead",
+          "keywords": [
+            "First strike"
+          ],
+          "pt": "2/2"
+        }
+      ]
+    },
+    {
+      "name": "opponent-turn-loses-first-strike",
+      "cr": [
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "During the opponent\u2019s turn, the same creature no longer has first strike.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Razorkin Needlehead"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Razorkin Needlehead",
+          "no_keywords": [
+            "First strike"
+          ],
+          "pt": "2/2"
+        }
+      ]
+    },
+    {
+      "name": "switches-back-on-next-own-turn",
+      "cr": [
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "First strike switches off on the opposing turn and back on when its controller becomes active again.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Razorkin Needlehead"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1",
+          "expect": [
+            {
+              "card": "p0:Razorkin Needlehead",
+              "no_keywords": [
+                "First strike"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Razorkin Needlehead",
+          "keywords": [
+            "First strike"
+          ]
+        }
+      ]
+    }
+  ]
+}

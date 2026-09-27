@@ -1,0 +1,160 @@
+{
+  "card": "It That Heralds the End",
+  "family": "cost-modifier",
+  "oracle_sha": "680e78cafcda",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "seven-mana-boundary",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A colorless spell with mana value exactly seven qualifies; one generic mana is removed.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "It That Heralds the End"
+          ],
+          "hand": [
+            "Meteor Golem"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Meteor Golem",
+          "mana": "CCCCCC",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Meteor Golem",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "six-mana-does-not-qualify",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A colorless six-mana creature is below the seven-mana threshold; five mana is insufficient.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "It That Heralds the End"
+          ],
+          "hand": [
+            "Kozilek's Pathfinder"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCCCC"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Kozilek's Pathfinder"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "colored-six-mana-does-not-qualify",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A green creature below the threshold cannot use the discount even if its cost contains generic mana.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "It That Heralds the End"
+          ],
+          "hand": [
+            "Colossal Dreadmaw"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "GGCCC"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Colossal Dreadmaw"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-source-not-yours",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The source belongs to the other player, so seat 0\u2019s seven-mana colorless spell is not reduced.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Meteor Golem"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "It That Heralds the End"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCCCCC"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Meteor Golem"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}
