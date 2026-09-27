@@ -112,7 +112,8 @@
 //	                                   compared); clones restart it at zero
 //	triggerEventMasks, triggerObject-  immutable-syntax lookup caches keyed by face pointer
 //	Masks, trigZones/Ep, trigFaceZones,
-//	phaseSpecs
+//	phaseSpecs, faceScans
+//	activeSum                          active()'s per-build digest keyed by activeBuildSeq
 //	replZones/Ep                       replacement-walk zone summaries, validated on every use
 //	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
 //	Valid                              object-arena size and log length; Clone copies none

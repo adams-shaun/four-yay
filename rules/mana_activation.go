@@ -473,8 +473,12 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// active() build (activeSummaryOf), not a per-object list scan; the
 	// ability is built only for a colour no listed ability already produces
 	// (IntrinsicManaColor), so a basic land's own printed intrinsic costs no
-	// allocation.
-	if !faceDown && len(e.landTypeWords) > 0 && e.activeSummaryOf(e.active()).hasLType {
+	// allocation. A granted intrinsic (no ActivationZone$, no Activator$)
+	// passes the loop's zone and Activator$ gates only on the battlefield and
+	// only for its controller, so for any other object the block would add
+	// nothing the loop keeps: it is skipped, with its layer read.
+	if !faceDown && len(e.landTypeWords) > 0 && o.Zone == state.ZBattlefield && e.controllerOf(id) == p &&
+		e.activeSummaryOf(e.active()).hasLType {
 		for _, typ := range e.Derived(id).Types {
 			color, ok := cards.IntrinsicManaColor(typ)
 			if !ok || manaAbilitiesProduce(manaAbilities, color) {
@@ -513,7 +517,17 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// CR 606.3 gates (sorcery timing, once per permanent per turn).
 		// (The zone gate runs first: it is the cheapest of these pure reads
 		// and the one a hand/graveyard card's printed ability fails.)
-		if !abilityZoneOK(ma, o.Zone) || e.isLoyaltyAbility(ma) {
+		//
+		// mf carries the configured ability's own-text verdicts
+		// (mana_safacts.go): a gate its text leaves empty is answered from
+		// it, every other gate runs its ordinary evaluator. A runtime-built
+		// ability (mf nil) takes every gate the ordinary way.
+		mf := e.manaFactsOf(ma)
+		if mf != nil {
+			if !mf.zoneOKFact(ma, o.Zone) || mf.loyalty {
+				continue
+			}
+		} else if !abilityZoneOK(ma, o.Zone) || e.isLoyaltyAbility(ma) {
 			continue
 		}
 		// Activation$ (Mox Opal's "Activate only if you control three or more
@@ -526,21 +540,46 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// mana ability's own eligibility home, so without this read the source
 		// controller could activate an ability whose Activator$ excluded them
 		// and a permitted opponent could not.
-		if !e.activatorAllows(p, id, ma) ||
-			!e.activationConditionOK(p, ma) || !e.manaActivationGateHolds(p, id, ma) {
-			continue
+		var cc *compiledCost
+		if mf != nil {
+			if mf.defaultActivator {
+				// activatorAllows' blank-Activator$ arm.
+				if e.controllerOf(id) != p {
+					continue
+				}
+			} else if !e.activatorAllows(p, id, ma) {
+				continue
+			}
+			if !mf.noActivation && !e.activationConditionOK(p, ma) {
+				continue
+			}
+			if mf.noIsPresent {
+				// manaActivationGateHolds without an IsPresent$ gate is its
+				// activationPhasesOK read alone.
+				if !mf.noPhaseGate && !e.activationPhasesOK(p, ma) {
+					continue
+				}
+			} else if !e.manaActivationGateHolds(p, id, ma) {
+				continue
+			}
+			cc = mf.cost
+		} else {
+			if !e.activatorAllows(p, id, ma) ||
+				!e.activationConditionOK(p, ma) || !e.manaActivationGateHolds(p, id, ma) {
+				continue
+			}
+			cc = e.compiledCostOf(ma.Params["Cost"])
 		}
 		// The cost is looked up once for the CR 302.6 tap-sick gate and the
 		// payability gate (manaAbilityPayable's own tap-sick re-check is the
 		// same pure read, so it is not repeated).
-		cc := e.compiledCostOf(ma.Params["Cost"])
 		if !e.tapFlagsSick(id, cc.Tap, cc.Untap) && !abilityRestricted(ma) && (ignorePayable || e.manaCostPayable(p, o, id, cc, nil)) &&
 			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
 			// only if an opponent has three or more poison counters"): the same
 			// intervening-if gate sVarGateOK applies to every non-mana
 			// activation, so the priority offer, the payment windows and the V1
 			// planner withhold the ability with its condition false.
-			e.manaSVarGateOK(o, p, id, ma) {
+			((mf != nil && mf.noCheckSVar) || e.manaSVarGateOK(o, p, id, ma)) {
 			// ActivationLimit$ / GameActivationLimit$ (Vivi Ornitier's "only once
 			// each turn", Stalking Leonin's "Activate only once"): the non-mana
 			// ability offer loops in legal.go gate on these parameters, but this
@@ -551,7 +590,9 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			// looped on it forever (a zero-production source whose use never
 			// advances any cast). Both limits are checked through the one shared
 			// gate, with the printed identity (flat pile index, no SVar).
-			if _, limited := ma.Params["ActivationLimit"]; limited || ma.Params["GameActivationLimit"] != "" {
+			if mf != nil && mf.noLimit {
+				// Neither limit parameter: nothing to check.
+			} else if _, limited := ma.Params["ActivationLimit"]; limited || ma.Params["GameActivationLimit"] != "" {
 				idx, merged, found := pileAbilityRefOf(o, ma)
 				if found && e.activationLimitBlocked(p, id, ma, idx, "", merged) {
 					continue

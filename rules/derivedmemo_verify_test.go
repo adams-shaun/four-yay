@@ -15,7 +15,9 @@ import "testing"
 // recomputed and a difference panics.
 //
 // So do the mana walk's bare-{T} payability fast path (manaCostPayable) and
-// the per-build active() digest (active_summary.go).
+// the per-build active() digest (active_summary.go) and the configured
+// mana-ability gate facts (mana_safacts.go), and the per-face text-scan memo
+// (face_scan_memo.go).
 func init() {
 	derivedMemoVerify = true
 	sacrificeCardnameVerify = true
@@ -26,6 +28,8 @@ func init() {
 	trigZoneSkipVerify = true
 	manaPayFastVerify = true
 	activeSummaryVerify = true
+	manaSAFactsVerify = true
+	faceScanVerify = true
 }
 
 // allocsWithoutWalkCacheVerify runs testing.AllocsPerRun with the walk

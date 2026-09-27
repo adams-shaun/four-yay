@@ -6673,7 +6673,7 @@ func (e *Engine) triggeredCastSpendReaderOut() bool {
 	g := e.G
 	for _, p := range g.AliveFrom(0) {
 		for _, id := range g.Zone(state.ZBattlefield, p) {
-			if o := g.Obj(id); o != nil && objectReadsTriggeredCastSpend(o) {
+			if o := g.Obj(id); o != nil && e.objectReadsTriggeredCastSpend(o) {
 				return true
 			}
 		}
@@ -6690,7 +6690,7 @@ func (e *Engine) triggeredCastSpendReaderOut() bool {
 // new arm. Face.Mentions scans every string the face owns (SVars, keywords,
 // ability params), so an inline parameter spelling is covered too, not just
 // the SVar-table form the corpus uses today.
-func objectReadsTriggeredCastSpend(o *state.Object) bool {
+func (e *Engine) objectReadsTriggeredCastSpend(o *state.Object) bool {
 	f := o.Face()
 	if f == nil {
 		return false
@@ -6701,7 +6701,8 @@ func objectReadsTriggeredCastSpend(o *state.Object) bool {
 		walk = triggerFacesWithMerged(o, walk)
 	}
 	for _, fc := range walk {
-		if fc.face != nil && fc.face.Mentions("TriggeredCard$CastTotalManaSpent") {
+		// The per-face Mentions scan, memoised (face_scan_memo.go).
+		if e.faceScanHas(fc.face, faceScanCastSpendReader) {
 			return true
 		}
 	}
@@ -6843,14 +6844,9 @@ func (e *Engine) triggeredConvergeReaderOut() bool {
 			if o == nil {
 				continue
 			}
-			f := o.Face()
-			if f == nil {
-				continue
-			}
-			for _, v := range f.SVars {
-				if strings.Contains(strings.ToLower(v), "triggeredcard$converge") {
-					return true
-				}
+			// faceConvergeSVarReader per face, memoised (face_scan_memo.go).
+			if e.faceScanHas(o.Face(), faceScanConvergeReader) {
+				return true
 			}
 		}
 	}
@@ -6875,7 +6871,8 @@ func (e *Engine) sunburstGrantOut() bool {
 			if o == nil || o.Face() == nil {
 				continue
 			}
-			if o.Face().Mentions("Sunburst") {
+			// Mentions("Sunburst"), memoised (face_scan_memo.go).
+			if e.faceScanHas(o.Face(), faceScanMentionsSunburst) {
 				return true
 			}
 		}

@@ -20,6 +20,9 @@ type compiledText struct {
 	// (costRef) takes no copy of the ~750-byte Cost; parseCost still hands
 	// out a value copy for callers that modify their cost.
 	costs map[string]*compiledCost
+	// saFacts holds every configured AB$ ability's mana-walk gate facts
+	// (mana_safacts.go), keyed by the ability's pointer.
+	saFacts map[*cards.SA]*manaSAFacts
 }
 
 // compiledCost is one configured cost text's frozen parse plus the facts
@@ -221,7 +224,24 @@ func buildCompiledText(cfg Config) *compiledText {
 	for _, text := range costTextList {
 		costs[text] = newCompiledCost(text)
 	}
-	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs}
+	costOf := func(raw string) *compiledCost {
+		if c, ok := costs[raw]; ok {
+			return c
+		}
+		if raw == "" {
+			return &freeCost
+		}
+		return newCompiledCost(raw)
+	}
+	// Built from the seen set (a map range): each entry depends only on its
+	// own ability, so the order the map is filled in cannot matter.
+	saFacts := make(map[*cards.SA]*manaSAFacts)
+	for sa := range seen {
+		if sa.Kind == "AB" {
+			saFacts[sa] = buildManaSAFacts(sa, costOf)
+		}
+	}
+	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts}
 }
 
 func freezeCost(c Cost) Cost {
