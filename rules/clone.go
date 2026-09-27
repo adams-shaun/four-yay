@@ -197,6 +197,15 @@ func (e *Engine) Clone() *Engine {
 		typesVersion: e.typesVersion,
 		typesObjs:    e.typesObjs,
 		layer4InPool: e.layer4InPool,
+		// layer4types.go's INCREMENTAL state (typesIncrReady/typesSelfOnly/
+		// typesSrcs/typesMayDiffer/typesTouch/typesAct/typesVisited and the
+		// staticsProbe* cache) is deliberately NOT copied, with the
+		// activeEpoch precedent: all of it is zero in the fresh struct, so
+		// the clone's first real rebuild takes the whole-board path and
+		// repopulates the incremental state from the clone's own board, and
+		// the probe cache re-probes it. The carried table + key above stays
+		// valid for the key hits in between (the clone's board is identical
+		// at the boundary).
 	}
 	if e.etbMove != nil {
 		ev := *e.etbMove

@@ -74,11 +74,29 @@ func BenchmarkLayer4TableSelfOnly(b *testing.B) {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			e, _ := selfOnlyBoard(b, n)
 			benchWithoutVerify(b)
-			buf := e.buildDerivedTypes(nil)
-			b.ReportAllocs()
-			b.ResetTimer()
-			for range b.N {
-				buf = e.buildDerivedTypes(buf[:0])
+			// Seed the incremental state with a whole-board build, then
+			// measure the two build paths side by side. "full" is the
+			// pre-incremental reference (the whole-board self-only walk;
+			// still O(board) by design, it is the conservative fallback);
+			// "incremental" is what the per-event refresh now uses and must
+			// not grow with the board.
+			e.refreshDerivedTypes()
+			buf := e.buildDerivedTypesIncremental()
+			full := e.buildDerivedTypes(nil)
+			b.Run("full", func(b *testing.B) {
+				b.ReportAllocs()
+				for range b.N {
+					full = e.buildDerivedTypes(full[:0])
+				}
+			})
+			b.Run("incremental", func(b *testing.B) {
+				b.ReportAllocs()
+				for range b.N {
+					buf = e.buildDerivedTypesIncremental()
+				}
+			})
+			if len(buf) != len(full) || !reflect.DeepEqual(buf, full) {
+				b.Fatalf("incremental table %v != full walk %v", buf, full)
 			}
 		})
 	}

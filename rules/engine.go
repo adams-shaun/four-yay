@@ -441,6 +441,41 @@ type Engine struct {
 	typesVersion  int
 	typesObjs     int
 	typesBuilding bool
+	// The incremental layer-4 state (layer4types.go). typesIncrReady is set
+	// once a whole-board build has repopulated it; every refresh then first
+	// tries refreshDerivedTypesIncremental, which folds the events logged
+	// since the last build into typesMayDiffer (the candidate slice) and
+	// re-derives only the self-only source list -- never a whole-board scan
+	// (the staticsMayChangeTypes precheck has its own probe cache below).
+	// Every fallback is toward the whole-board rebuild, never away from it.
+	// Clone deliberately copies none of these: the clone's board is
+	// identical at the boundary, so the carried table + key above stays
+	// valid for key hits, and the clone's first real rebuild repopulates
+	// the incremental state from scratch (the activeEpoch precedent).
+	typesIncrReady bool
+	typesSelfOnly  bool
+	typesSrcs      []state.ObjID
+	typesMayDiffer []state.ObjID
+	typesTouch     []state.ObjID
+	// typesAct is the reusable live-LType-effect buffer the incremental build
+	// passes to typeCharacteristicsActive; typesVisited counts the objects the
+	// last build examined (the whole board on a full rebuild, the candidate
+	// set on an incremental one). The scaling pin reads typesVisited; the
+	// engine never does.
+	typesAct     []ContinuousEffect
+	typesVisited int
+	// The staticsMayChangeTypes probe cache: per-object probe answers with
+	// the count of true ones, maintained by the same event-referent catch-up
+	// (see layer4types.go).
+	typesProbe        map[state.ObjID]bool
+	typesProbeTrue    int
+	typesProbeEpoch   int
+	typesProbeVersion int
+	typesProbeObjs    int
+	// typesIncrBuilds counts successful incremental rebuilds; the scaling
+	// tests read it to prove the incremental path (not the whole-board
+	// fallback) served a refresh. Never read by the engine itself.
+	typesIncrBuilds int
 	// setNameInPool is a genesis-time fact: does any card this match can put
 	// on the battlefield print a SetName$ static? False for almost every
 	// match, which reduces the per-event refresh to one predictable branch.
