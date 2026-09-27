@@ -442,6 +442,35 @@ type CastWeights struct {
 	// above the threshold and is still made.
 	InstantSpeedOffTurnHold int32
 
+	// The four window features below give a learned profile the timing
+	// facts auto-pay made reachable (Board.Step, Board.MyTurn): under the
+	// auto-pay adapter a planned instant-speed cast is offered at EVERY
+	// priority window, so the scorer decides WHEN an instant is cast, and
+	// these weights are the hold/cast boundaries per window (paired with
+	// C9's CastThreshold, exactly as InstantSpeedOffTurnHold is). Each
+	// scores 1 for an INSTANT-SPEED card in its window — the card's own
+	// class, so a creature or sorcery is never reached — and all are
+	// weight 0 in the default profile, so the default bot is byte-identical.
+
+	// InstantOwnPreMain scores 1 for an instant-speed cast on the seat's
+	// OWN turn before main 1: the upkeep, draw and untap steps
+	// (Board.MyTurn && Board.Step in {untap, upkeep, draw}).
+	InstantOwnPreMain int32
+	// InstantOwnCombat scores 1 for an instant-speed cast in one of the
+	// seat's OWN combat steps (begin-combat, declare-attackers,
+	// declare-blockers, combat-damage, end-combat) — the "pump after
+	// blocks" window.
+	InstantOwnCombat int32
+	// InstantOppTurn scores 1 for an instant-speed cast in ANY step of
+	// another seat's turn (Board.MyTurn false).
+	InstantOppTurn int32
+	// InstantOppEnd scores 1 for an instant-speed cast in ANOTHER seat's
+	// end step (Board.MyTurn false && Board.Step == end) — the classic
+	// "use the mana at end of turn" window. It is a subset of
+	// InstantOppTurn, so a profile can read the two together or price the
+	// end step apart from the rest of the opponent's turn.
+	InstantOppEnd int32
+
 	// SetValue is the L1c within-turn mana-efficiency feature (C11): it
 	// prices the FOLLOW-UP a cast leaves behind. For each offered cast
 	// option o the scorer computes the best total castScore obtainable this
@@ -751,6 +780,26 @@ func (b Board) chooseCast(d *decision.Decision) int {
 		}
 		if b.MyTurn && b.IsMain && b.Cards[o.Obj].InstantSpeed {
 			s += w.InstantOnOwnTurn // instant-speed card in the seat's own main phase
+		}
+		// The window features (fixed evaluation order): each is the
+		// instant-speed class conjuncted with the step and turn the cast
+		// is being offered in. A weight 0 on every one skips all four, so
+		// the default arithmetic is unchanged (pinned by cast_weights_test.go).
+		if b.Cards[o.Obj].InstantSpeed {
+			if b.MyTurn {
+				switch b.Step {
+				case state.StepUntap, state.StepUpkeep, state.StepDraw:
+					s += w.InstantOwnPreMain
+				case state.StepBeginCombat, state.StepDeclareAttackers, state.StepDeclareBlockers,
+					state.StepCombatDamage, state.StepEndCombat:
+					s += w.InstantOwnCombat
+				}
+			} else {
+				s += w.InstantOppTurn
+				if b.Step == state.StepEnd {
+					s += w.InstantOppEnd
+				}
+			}
 		}
 		if ctx.producible == cost {
 			s += w.CurveFit // CurveFit feature: cost exactly matches producible mana

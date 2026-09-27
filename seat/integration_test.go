@@ -113,12 +113,18 @@ func TestBotAdaptersAgreePerStep(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, s := range allSteps {
-				boardView := BoardFromView(view.View{Phase: view.PhaseOf(s)})
-				boardGame := botpolicy.Board{IsMain: s.IsMain()} // the rules host's expression
+				boardView := BoardFromView(view.View{Phase: view.PhaseOf(s), Step: s.String()})
+				boardGame := botpolicy.Board{IsMain: s.IsMain(), Step: s} // the rules host's expression
 				if boardView.IsMain != boardGame.IsMain {
 					t.Errorf("step %s: view-shaped IsMain %v, game-shaped IsMain %v", s, boardView.IsMain, boardGame.IsMain)
 				}
-				inView, err := tc.new(1).Decide(context.Background(), view.View{Phase: view.PhaseOf(s)}, prio)
+				// The step fact itself (the cast scorer's timing features): the
+				// view half parses the projected View.Step string, so it must
+				// name exactly the engine step the game half carries.
+				if boardView.Step != boardGame.Step {
+					t.Errorf("step %s: view-shaped Step %v, game-shaped Step %v", s, boardView.Step, boardGame.Step)
+				}
+				inView, err := tc.new(1).Decide(context.Background(), view.View{Phase: view.PhaseOf(s), Step: s.String()}, prio)
 				if err != nil {
 					t.Fatalf("step %s: view-shaped Decide: %v", s, err)
 				}
@@ -173,6 +179,7 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 	cmdPinned := 0
 	poolN := 0
 	stackN := 0
+	stepN := 0
 	n := 0
 	for !eView.G.Over && !eGame.G.Over && eView.Pending() != nil && eGame.Pending() != nil && n < 200000 {
 		d := eView.Pending()
@@ -190,6 +197,13 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 		boardView := BoardFromView(v)
 		if !maps.Equal(boardView.Cards, boardGame.Cards) {
 			t.Fatalf("intent %d: casting Card census diverged (step %s)", n, eGame.G.Step)
+		}
+		// The exact step fact, the commander twin of the whole-game pin.
+		if boardView.Step != boardGame.Step {
+			t.Fatalf("intent %d: step diverged: view %v vs game %v", n, boardView.Step, boardGame.Step)
+		}
+		if !boardGame.Step.IsMain() {
+			stepN++
 		}
 		// The commander facts: identical maps on both halves, pinned on
 		// every decision (not only when a ranking flips a choice).
@@ -247,6 +261,9 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 	}
 	if stackN == 0 {
 		t.Fatal("no decision ever carried a non-empty stack census -- the stack fact was never exercised over the commander game")
+	}
+	if stepN == 0 {
+		t.Fatal("no decision ever landed outside a main phase -- the step fact was never exercised over the commander game")
 	}
 	if h1, h2 := eView.L.Head(), eGame.L.Head(); h1 != h2 {
 		t.Fatalf("chains diverged: view %s, game %s", h1, h2)
@@ -395,6 +412,7 @@ func equippingDeck(t testing.TB) ([]string, [][]*cards.Card) {
 func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uint64, wantAttached, wantCounter bool, newBot func(uint64) *Bot) {
 	t.Helper()
 	stackN, counterN, foreignSpellN := 0, 0, 0
+	stepN := 0
 	cfg := rules.Config{Seed: seed, Names: names, Decks: decks}
 	eView := rules.New(cfg)
 	eGame := rules.New(cfg)
@@ -442,6 +460,18 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 		}
 		if !maps.Equal(boardView.Cards, boardGame.Cards) {
 			t.Fatalf("intent %d: casting Card census diverged: view %v vs game %v (step %s)", n, boardView.Cards, boardGame.Cards, eGame.G.Step)
+		}
+		// The exact step fact (the cast scorer's timing features): the view
+		// half parses the projected View.Step string, the game half reads
+		// eGame.G.Step directly, so a divergence here is the two adapters
+		// naming different windows. stepN counts the steps a whole game runs
+		// OUTSIDE a main phase, so the pin is not vacuous on a game whose
+		// decisions all land in main1/main2.
+		if boardView.Step != boardGame.Step {
+			t.Fatalf("intent %d: step diverged: view %v vs game %v", n, boardView.Step, boardGame.Step)
+		}
+		if !boardGame.Step.IsMain() {
+			stepN++
 		}
 		// op6 (the tap gate's pool): the deciding seat's own mana pool must
 		// be the same numbers on both halves -- the projected poolView map
@@ -530,6 +560,9 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 	}
 	if wantCounter && foreignSpellN == 0 {
 		t.Fatal("no decision ever saw a foreign spell on the stack -- the C8 census was never exercised over the whole game")
+	}
+	if stepN == 0 {
+		t.Fatal("no decision ever landed outside a main phase -- the step fact was never exercised over the whole game")
 	}
 	if h1, h2 := eView.L.Head(), eGame.L.Head(); h1 != h2 {
 		t.Fatalf("chains diverged: view %s, game %s", h1, h2)
