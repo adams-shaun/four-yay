@@ -1,4 +1,4 @@
-import type { Decision, Intent, Option, PaymentAction, PaymentPlan, View } from '../protocol';
+import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelection, View } from '../protocol';
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
 import type { SeatCtx } from './seat';
@@ -54,6 +54,7 @@ import {
  * this comment claimed to mirror `actionable`'s kind test while inlining a
  * test that did not — now both call the one shared predicate.
  * (Moved here from actpass.ts, which prio3 deleted with the per-table keys.)
+ * A planned cast posts no choices at all; its arming twin is actedPayment.
  */
 export function actedOption(d: Decision, choices: number[]): boolean {
   if (d.kind !== 'priority') return false;
@@ -61,6 +62,24 @@ export function actedOption(d: Decision, choices: number[]): boolean {
     const o = d.options.find((opt) => opt.index === i);
     return o !== undefined && isActionKind(o.kind);
   });
+}
+
+/**
+ * actedPayment is actedOption's twin for the payment selector (spec §8:
+ * "Auto-pay changes which witness an explicit cast uses; it does not
+ * otherwise change Auto/Manual policy"). A planned cast posts `choices: []`
+ * plus a payment selection, so actedOption alone never saw it and a cast paid
+ * by its plan never armed pass-after-acting while the same cast clicked
+ * through its legacy option did. The selection counts as an action exactly
+ * when it resolves, by identity, to a payment action offered on this
+ * priority decision and to one of that action's offered plans — the same
+ * resolution submitPayment makes before it posts. Every payment action is a
+ * cast, which isActionKind always counts, so no kind test is needed here.
+ */
+export function actedPayment(d: Decision, payment: PaymentSelection | null | undefined): boolean {
+  if (d.kind !== 'priority' || !payment) return false;
+  const action = d.payment_actions?.find((candidate) => candidate.id === payment.action_id);
+  return action !== undefined && action.plans.some((plan) => plan.id === payment.plan.id);
 }
 
 /**
@@ -2194,8 +2213,9 @@ export class SeatPanelState {
         this.onFollowUpArm?.(this.followUpExpected);
       }
       // The hand answers that can carry a real action are click()'s post-on-click
-      // (min == max == 1) and submit()'s multi-pick commit; both funnel through
-      // here, so the pass-after-arming test lives on the ACCEPTED post — a
+      // (min == max == 1), submit()'s multi-pick commit and submitPayment()'s
+      // planned cast; all funnel through here, so the pass-after-arming test
+      // lives on the ACCEPTED post — a
       // rejected intent never arms, and the gates are the preference itself
       // and the hold-priority modifier: with actPass off nothing is ever
       // armed, and a Ctrl-held action (hold priority) skips the arming for
@@ -2209,7 +2229,13 @@ export class SeatPanelState {
       // Concede never reaches here as an action: click() returns before
       // posting it once and confirmConcede posts a concede kind, which the
       // test rejects.
-      if (this.actPass && !holdPriority && actedOption(d, choices)) this.actPassArmed = true;
+      // A planned cast (submitPayment: the seat-panel/hot-strip plan button,
+      // the hand CAST shortcut, and click()'s auto-pay branch for a legacy
+      // cast) posts no choices, only its payment selection; actedPayment
+      // counts it exactly as actedOption counts the same cast's legacy
+      // option, under the same gates: accepted posts only, the preference on,
+      // and Ctrl (holdPriority) exempt (spec §8).
+      if (this.actPass && !holdPriority && (actedOption(d, choices) || actedPayment(d, payment))) this.actPassArmed = true;
       // If a new decision was adopted while the intent was in flight (a
       // rapid successive ask), keep it; only drop the decision we answered.
       if (this.pending?.seq === d.seq) this.pending = null;

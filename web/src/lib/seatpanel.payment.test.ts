@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Decision, PaymentAction, PaymentPlan, View } from '../protocol';
 import { ApiError } from './api';
-import { SeatPanelState, autoNoteText } from './seatpanel.svelte';
+import { SeatPanelState, actedPayment, autoNoteText } from './seatpanel.svelte';
 
 const { postIntentMock, fetchPendingMock } = vi.hoisted(() => ({ postIntentMock: vi.fn(), fetchPendingMock: vi.fn() }));
 vi.mock('./api', async (importOriginal) => ({
@@ -321,5 +321,147 @@ describe('in-flight and stale payment submissions (PP-18, PP-19)', () => {
     expect(postIntentMock.mock.calls[1][2]).toEqual({
       seq: 82, player: 0, choices: [], payment: { action_id: 'action-82', plan: next.payment_actions![0].plans[0] },
     });
+  });
+});
+
+// Spec §8: "Auto-pay changes which witness an explicit cast uses; it does not
+// otherwise change Auto/Manual policy." A planned cast posts choices=[] plus a
+// payment selection, so pass-after-acting must arm on the selection exactly as
+// it arms on the same cast's legacy option: on the ACCEPTED post, skipped with
+// Ctrl (holdPriority), and never on a rejected one. The entry points below are
+// the exact calls the UI makes: SeatPanel.svelte's plan button (the seat-panel
+// list and the hot strip's nested list) calls submitPayment with the plan it
+// lists, Table.svelte's HandFan CAST shortcut calls submitPayment with the
+// first plan, and a legacy cast click on a base option goes through click().
+describe('pass after acting arms on a planned cast exactly as on its legacy cast (spec §8)', () => {
+  beforeEach(() => {
+    postIntentMock.mockReset();
+    fetchPendingMock.mockReset();
+    postIntentMock.mockResolvedValue(undefined);
+  });
+
+  /** acting is a Manual seat (auto off, no stops, zero pacing) with pass-after-acting ON, on an auto-pay table. */
+  function acting(autoPay: boolean): SeatPanelState {
+    const p = new SeatPanelState('table', 1, ctx, null, null);
+    p.stops = { yours: new Set(), opponents: new Set() };
+    p.setAuto(false);
+    p.setActPass(true);
+    p.settings = { ...p.settings, pacing: { stepMs: 0, resolveMs: 0 } };
+    p.setAutoManaAvailable(true);
+    p.setAutoPayMana(autoPay);
+    return p;
+  }
+  /** drawView is the seat's own draw step with an empty stack: no stop rule applies, so an armed token passes. */
+  const drawView = { active: 0, step: 'draw', turn: 2, stack: [] } as unknown as View;
+
+  type Entry = readonly [
+    name: string,
+    autoPay: boolean,
+    base: number | null,
+    submit: (p: SeatPanelState, d: Decision, holdPriority: boolean) => void,
+    posted: (d: Decision) => unknown,
+  ];
+  const planned = (planAt: number) => (d: Decision) =>
+    ({ seq: d.seq, player: 0, choices: [], payment: { action_id: d.payment_actions![0].id, plan: d.payment_actions![0].plans[planAt] } });
+  const entries: readonly Entry[] = [
+    ['the seat-panel / hot-strip plan button (submitPayment, the listed plan)', true, 7,
+      (p, d, hold) => p.submitPayment(d.payment_actions![0], d.payment_actions![0].plans[1], hold), planned(1)],
+    ['the hand CAST shortcut (Table onCastPayment: submitPayment with the first plan)', true, 7,
+      (p, d, hold) => p.submitPayment(d.payment_actions![0], d.payment_actions![0].plans[0], hold), planned(0)],
+    ['the legacy cast click (click() on the base option submits its first plan)', true, 7,
+      (p, _d, hold) => p.click(7, { holdPriority: hold }), planned(0)],
+    ['a plan-only cast (no legacy option) from its plan button', true, null,
+      (p, d, hold) => p.submitPayment(d.payment_actions![0], d.payment_actions![0].plans[0], hold), planned(0)],
+    // The control: the same cast through its legacy option with auto-pay off.
+    ['the legacy cast with auto-pay off (the control)', false, 7,
+      (p, _d, hold) => p.click(7, { holdPriority: hold }), (d: Decision) => ({ seq: d.seq, player: 0, choices: [7] })],
+  ];
+
+  it.each(entries)('%s arms: the next priority window is machine-passed exactly once', async (_, autoPay, base, submit, posted) => {
+    const p = acting(autoPay);
+    const d = offer(17, base);
+    p.adoptView(d);
+    submit(p, d, false);
+    await settle(() => p.postedSeq === 17);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+    expect(postIntentMock.mock.calls[0][2]).toEqual(posted(d));
+
+    p.adoptView(offer(18));
+    p.considerAuto(drawView);
+    await settle(() => p.postedSeq === 18);
+    expect(postIntentMock).toHaveBeenCalledTimes(2);
+    expect(postIntentMock.mock.calls[1][2]).toEqual({ seq: 18, player: 0, choices: [1] }); // the PASS option's wire index
+    expect(p.actPassed).toBe(1);
+    expect(autoNoteText(p.note)).toBe('Passed 1 priority window after your action.');
+
+    // One shot: the window after that is the player's again.
+    p.adoptView(offer(19));
+    p.considerAuto(drawView);
+    await settle(() => !p.busy);
+    expect(postIntentMock).toHaveBeenCalledTimes(2);
+    expect(p.active?.seq).toBe(19);
+  });
+
+  it.each(entries)('%s with Ctrl held (holdPriority) posts but does not arm', async (_, autoPay, base, submit, posted) => {
+    const p = acting(autoPay);
+    const d = offer(17, base);
+    p.adoptView(d);
+    submit(p, d, true);
+    await settle(() => p.postedSeq === 17);
+    expect(postIntentMock.mock.calls[0][2]).toEqual(posted(d));
+
+    p.adoptView(offer(18));
+    p.considerAuto(drawView);
+    await settle(() => !p.busy);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+    expect(p.actPassed).toBe(0);
+    expect(p.active?.seq).toBe(18);
+  });
+
+  it.each(entries)('%s rejected: nothing arms, the error surfaces and the current decision is re-read', async (_, autoPay, base, submit) => {
+    const p = acting(autoPay);
+    postIntentMock.mockRejectedValueOnce(new ApiError(409, 'conflict', 'intent seq 17 is stale'));
+    fetchPendingMock.mockResolvedValue(offer(17, base)); // the recovery read: the same ask is still pending
+    const d = offer(17, base);
+    p.adoptView(d);
+    submit(p, d, false);
+    await settle(() => !p.busy && fetchPendingMock.mock.calls.length === 1);
+    await Promise.resolve();
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+    expect(p.error).toBe('intent seq 17 is stale');
+    expect(p.postedSeq).toBeNull();
+    expect(p.picked).toEqual([]);
+    expect(p.active?.seq).toBe(17);
+
+    // The same window is still the player's: nothing was armed to pass it...
+    p.considerAuto(drawView);
+    await settle(() => !p.busy);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+    // ...and neither is the next one.
+    p.adoptView(offer(18));
+    p.considerAuto(drawView);
+    await settle(() => !p.busy);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+    expect(p.actPassed).toBe(0);
+    expect(p.active?.seq).toBe(18);
+  });
+});
+
+describe('actedPayment — the arming test for a payment selection', () => {
+  const d = offer(90);
+  const sel = (action_id: string, planID: string) => ({ action_id, plan: { ...d.payment_actions![0].plans[0], id: planID } });
+
+  it('is true exactly when the selection names a payment action and one of its plans offered on this priority decision', () => {
+    expect(actedPayment(d, sel('action-90', 'plan-90-a'))).toBe(true);
+    expect(actedPayment(d, sel('action-90', 'plan-90-b'))).toBe(true);
+  });
+
+  it('is false for no selection, an unknown action or plan, or a non-priority decision', () => {
+    expect(actedPayment(d, undefined)).toBe(false);
+    expect(actedPayment(d, null)).toBe(false);
+    expect(actedPayment(d, sel('action-89', 'plan-90-a'))).toBe(false);
+    expect(actedPayment(d, sel('action-90', 'plan-89-a'))).toBe(false);
+    expect(actedPayment({ ...d, kind: 'target' }, sel('action-90', 'plan-90-a'))).toBe(false);
+    expect(actedPayment({ ...d, payment_actions: undefined }, sel('action-90', 'plan-90-a'))).toBe(false);
   });
 });
