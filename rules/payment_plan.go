@@ -179,7 +179,7 @@ func paymentPlanCostDetail(c Cost) string {
 		return "cost:add_counter"
 	case len(c.Exile) != 0 || len(c.ExileFromTop) != 0:
 		return "cost:exile"
-	case len(c.Reveal) != 0 || len(c.RevealChosen) != 0:
+	case len(c.Reveal) != 0 || len(c.RevealOrChoose) != 0 || len(c.RevealChosen) != 0:
 		return "cost:reveal"
 	case len(c.Behold) != 0:
 		return "cost:behold"
@@ -207,6 +207,8 @@ func paymentPlanCostDetail(c Cost) string {
 		return "cost:evidence"
 	case len(c.RollDice) != 0:
 		return "cost:roll_dice"
+	case len(c.Exert) != 0:
+		return "cost:exert"
 	case len(c.Unknown) != 0:
 		return "cost:unknown"
 	case !paymentPlanCostOK(c):
@@ -352,10 +354,10 @@ func paymentPlanCostOK(c Cost) bool {
 	return c.X == 0 && c.XMin == 0 && c.Snow == 0 && c.Life == 0 &&
 		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
 		!c.Tap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
-		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
+		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
 		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage && len(c.Draw) == 0 && len(c.Energy) == 0 &&
 		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 && len(c.Return) == 0 &&
-		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 && len(c.Unknown) == 0
+		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 && len(c.Unknown) == 0 && len(c.Exert) == 0
 }
 
 func paymentPlanPoolOK(p state.Player) bool {
