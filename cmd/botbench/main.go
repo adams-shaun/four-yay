@@ -122,6 +122,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/host"
+	"github.com/adams-shaun/gorge/internal/azmcts"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/paymirror"
 	"github.com/adams-shaun/gorge/internal/policynet"
@@ -258,6 +259,23 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"search": func(seed uint64) seat.Seat {
 		return searchseat.NewSearchBot(seed, searchKnobs)
 	},
+	// az is the AlphaZero-style MCTS seat (internal/azmcts, spec
+	// 2026-09-27): a PUCT tree over the seat's own searched decisions whose
+	// leaf is the -checkpoint value head (no checkpoint = generation 0: a
+	// uniform prior and the frozen heuristic leaf). Like search, it answers
+	// from the driver's engine feed (internal/bench.PlayGame's
+	// searchseat.SearchSeat branch). -az-world clairvoyant searches clones
+	// of the REAL engine, so it is bench and training only: azFrontDoor is
+	// the only azmcts.AllowClairvoyant caller, host.NormalizeBotPolicy does
+	// not know the name, and internal/archtest forbids host, host/httpapi
+	// and cmd/gorged from linking azmcts at all.
+	"az": func(seed uint64) seat.Seat {
+		s, err := azmcts.NewSeat(seed, azNet, azCfg)
+		if err != nil {
+			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
+		}
+		return s
+	},
 }
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
@@ -330,7 +348,7 @@ func parseOppMix(spec string) ([]oppMixEntry, error) {
 		if err != nil || f <= 0 || f > 1 {
 			return nil, fmt.Errorf("-opp-mix entry %q: fraction must be in (0,1]", part)
 		}
-		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" {
+		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" || name == "az" {
 			return nil, fmt.Errorf("-opp-mix entry %q: %q is not a mixable built-in policy", part, name)
 		}
 		total += f
@@ -2243,10 +2261,14 @@ func main() {
 	flag.Int64Var(&attackSimParams.Margin, "attack-sim-margin", attackSimParams.Margin, "attack-sim arms: score margin a set must beat the default answer by")
 	cpuprofile := flag.String("cpuprofile", "", "write a CPU profile to this pprof file over the whole run (empty = off)")
 	memprofile := flag.String("memprofile", "", "write a heap profile to this pprof file after the last game finishes (pprof reads both alloc_space and inuse_space from it; empty = off)")
+	registerAZFlags(flag.CommandLine)
 	flag.Parse()
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "policynet-kinds" {
 			policynetKindsGiven = true
+		}
+		if strings.HasPrefix(f.Name, "az-") {
+			azFlagsGiven = true
 		}
 	})
 	decisionStatsEnabled = *decisionStats
@@ -2364,8 +2386,21 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	if policynetSide && checkpoint == "" {
 		return fail(fmt.Errorf("policy policynet requires -checkpoint <path> (there is no embedded checkpoint)"))
 	}
-	if !policynetSide && checkpoint != "" {
-		return fail(fmt.Errorf("-checkpoint was given but neither side is policynet"))
+	// -checkpoint also feeds an az side: its value head is the search's leaf
+	// and its policy head the prior (azFrontDoor refuses a checkpoint with
+	// no value head). A package-level policynetModel left by an earlier
+	// in-process run must never reach az, so only this run's checkpoint is
+	// passed on.
+	azSide := aName == "az" || bName == "az"
+	if !policynetSide && !azSide && checkpoint != "" {
+		return fail(fmt.Errorf("-checkpoint was given but neither side is policynet or az"))
+	}
+	var ckModel *policynet.Model
+	if checkpoint != "" {
+		ckModel = policynetModel
+	}
+	if err := azFrontDoor(aName, bName, ckModel); err != nil {
+		return fail(err)
 	}
 	oracleKnobs, err := withSearchOracle(searchOracleCheckpoint, aName, bName, searchKnobs)
 	if err != nil {
@@ -2433,6 +2468,9 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	searchSide := aName == "search" || bName == "search"
 	if searchSide {
 		installSearchCostStats()
+	}
+	if azSide {
+		installAZCostStats()
 	}
 
 	prof := &profiler{cpuPath: cpuprofile, memPath: memprofile}
@@ -2526,6 +2564,9 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 		if searchSide {
 			fmt.Fprint(os.Stdout, searchCostReport(games*len(ps)))
 		}
+		if azSide {
+			fmt.Fprint(os.Stdout, azCostReport(games*len(ps)))
+		}
 		return 0
 	}
 	if decisionTrace != "" {
@@ -2536,6 +2577,9 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	}
 	if searchSide {
 		fmt.Fprint(os.Stdout, searchCostReport(games))
+	}
+	if azSide {
+		fmt.Fprint(os.Stdout, azCostReport(games))
 	}
 	return 0
 }
