@@ -1,9 +1,11 @@
 package decision
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -39,6 +41,57 @@ const (
 // Values are uint32 so a negative JSON number and quantities outside the
 // engine's int32 capacity are rejected at decode/validation boundaries.
 type ManaAmount [6]uint32
+
+// ManaAmountLen is the exact number of quantities a wire mana vector carries.
+const ManaAmountLen = 6
+
+// UnmarshalJSON decodes a mana vector from exactly ManaAmountLen non-negative
+// integers bounded by the engine's int32 amount. encoding/json silently
+// discards surplus array elements when it decodes into a Go array, so a
+// 7-element vector would otherwise decode clean and quietly drop a quantity
+// the client sent; a payload outside the declared contract must be rejected.
+//
+// Each element is decoded through the standard library's own uint32 token
+// decoder, so the accepted token set is exactly main's (an unquoted JSON
+// number; a quoted string, fraction or negative is rejected). Decoding into
+// json.Number here instead would WIDEN the contract, because json.Number
+// accepts a quoted numeric string; the per-element uint32 decode does not.
+// The engine's int32 bound is applied on top. A JSON null keeps the standard
+// library's no-op semantics: a null vector (or a null element) leaves the
+// destination unchanged, matching main's array decode.
+func (m *ManaAmount) UnmarshalJSON(data []byte) error {
+	if string(bytes.TrimSpace(data)) == "null" {
+		return nil
+	}
+	var raw []json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("mana vector: %w", err)
+	}
+	if len(raw) != ManaAmountLen {
+		return fmt.Errorf("mana vector has %d quantities, want exactly %d", len(raw), ManaAmountLen)
+	}
+	// Seed the result from the receiver: a null element must leave that slot
+	// unchanged (standard library semantics), not zero it.
+	out := *m
+	for i, elem := range raw {
+		// A JSON null leaves the destination unchanged (standard library
+		// semantics); skip it rather than writing a zero into a slot the
+		// caller may have pre-populated.
+		if string(bytes.TrimSpace(elem)) == "null" {
+			continue
+		}
+		var v uint32
+		if err := json.Unmarshal(elem, &v); err != nil {
+			return fmt.Errorf("mana quantity %d: %w", i, err)
+		}
+		if v > maxPaymentQuantity {
+			return fmt.Errorf("mana quantity %d overflows engine amount", i)
+		}
+		out[i] = v
+	}
+	*m = out
+	return nil
+}
 
 // PaymentCost is the resolved mana requirement. Generic is deliberately
 // separate from true colourless (Mana[5]).
