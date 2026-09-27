@@ -361,7 +361,17 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip bool, fn func(id sta
 				continue
 			}
 			cur := e.G.Zone(z, p)
-			if slot := trigZoneSlot(z); slot >= 0 && e.trigZoneCold(p, slot, cur) {
+			slot := trigZoneSlot(z)
+			// A StepChange forces the battlefield to the full walk below:
+			// checkGrantedCumulativeUpkeepTriggers synthesizes a battlefield
+			// trigger from a DERIVED keyword the face hot test cannot see, so
+			// neither the cold summary nor the hot subset may prune it. Every
+			// other granted trigger the battlefield summary could hide is
+			// gated on the object being an event referent. Hidden-ish zones
+			// keep their skip -- cumulative upkeep functions only from the
+			// battlefield, so no grant can reach them.
+			stepFull := slot == trigZoneSlot(state.ZBattlefield) && ev.Kind == events.StepChange
+			if slot >= 0 && !stepFull && e.trigZoneCold(p, slot, cur) {
 				if verify != nil {
 					buf = append(buf[:0], cur...)
 					for _, id := range buf {
@@ -382,7 +392,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip bool, fn func(id sta
 						buf = append(buf, id)
 					}
 				}
-			} else if slot := trigZoneSlot(z); slot >= 0 && refSlots&(1<<slot) == 0 {
+			} else if slot >= 0 && !stepFull && refSlots&(1<<slot) == 0 {
 				// Hot summarized zone with no event referent in it. Only the
 				// classified hot objects can act, so visit those and skip the
 				// rest; order is ids order because hotIDs is a subsequence of

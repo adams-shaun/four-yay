@@ -1773,14 +1773,16 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 		// Conspire, Exploit, Offspring and Training follow.
 		e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, ev, objLKI)
 	}
-	// The live walk skips a hidden zone none of whose objects can act on
-	// any event (rules/trigger_zoneskip.go); the look-back observer and any
-	// event a static-granted trigger observes walk everything. A StepChange
-	// also walks everything: a cumulative-upkeep keyword granted by a
+	// The live walk skips a zone none of whose objects can act on any event
+	// (rules/trigger_zoneskip.go); the look-back observer and any event a
+	// static-granted trigger observes walk everything. A StepChange still
+	// walks the whole battlefield: a cumulative-upkeep keyword granted by a
 	// ContinuousEffect has no face trigger for the hot test to see
-	// (checkGrantedCumulativeUpkeepTriggers), so a cold battlefield summary
-	// must never prune it.
-	skip := observer == e && len(grantedStatics) == 0 && ev.Kind != events.StepChange
+	// (checkGrantedCumulativeUpkeepTriggers), so the battlefield summary must
+	// never prune it on a step change. The hidden-ish zones carry no such
+	// grant (cumulative upkeep functions only from the battlefield), so they
+	// keep their skip.
+	skip := observer == e && len(grantedStatics) == 0
 	var verify func(state.ObjID)
 	if skip && trigZoneSkipVerify {
 		verify = e.trigSkipVerifier(ev, visit, func() int { return len(phaseNotes) })

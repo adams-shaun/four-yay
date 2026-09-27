@@ -79,3 +79,55 @@ func TestTriggerWalkHotSubsetStillFiresTheWatcher(t *testing.T) {
 		t.Fatalf("queued trigger source = %d, want the watcher %d", e.pendingTriggers[0].Source, watcher)
 	}
 }
+
+// TestTriggerWalkStepChangeStillFiresGrantedCumulativeUpkeep is the
+// counterweight to the battlefield hot-subset skip: checkGrantedCumulative
+// UpkeepTriggers synthesizes a battlefield Phase trigger from a DERIVED
+// keyword the face hot test cannot see, so a StepChange must walk the whole
+// battlefield and still queue it even when the granted-CU creature sits
+// among thousands of cold vanilla tokens. Without the StepChange full-walk,
+// the hot-subset skip prunes the granted creature and drops its upkeep.
+func TestTriggerWalkStepChangeStillFiresGrantedCumulativeUpkeep(t *testing.T) {
+	e := layerEngine(t)
+	// A self-granting layer-6 static: the source grants ITSELF the derived
+	// keyword, so the filler tokens stay cold.
+	const selfGrant = "Name:Cumulus Relic\nManaCost:0\nTypes:Enchantment\n" +
+		"S:Mode$ Continuous | Affected$ Card.Self | AddKeyword$ Cumulative upkeep:2 | Description$ CARDNAME has cumulative upkeep {2}.\nOracle:x\n"
+	// n cold vanilla tokens beside the self-granting permanent.
+	for i := 0; i < 400; i++ {
+		onBoard(t, e, 0, fmt.Sprintf("Name:Filler %d\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n", i))
+	}
+	bear := onBoard(t, e, 0, selfGrant)
+	// Preconditions: the keyword is DERIVED (not printed, so the face hot
+	// test cannot see it), the self-grant is live, and the permanent is
+	// classified COLD by the face test -- i.e. the hot-subset skip would drop
+	// it if the StepChange did not force the full battlefield walk.
+	bearObj := e.G.Obj(bear)
+	if bearObj == nil || bearObj.Zone != state.ZBattlefield {
+		t.Fatal("precondition: the CU-granted permanent is not on the battlefield")
+	}
+	if bearObj.Face().HasKeyword("Cumulative upkeep") {
+		t.Fatal("precondition: the permanent prints cumulative upkeep; it must only be granted")
+	}
+	if !e.HasKeyword(bear, "Cumulative upkeep") {
+		t.Fatal("precondition: the granted cumulative upkeep is not in the derived keyword list")
+	}
+	if e.objectTriggerHotIn(bearObj, trigZoneSlot(state.ZBattlefield)) {
+		t.Fatal("precondition: the granted-CU permanent is classified hot by the face test; the test proves nothing")
+	}
+	e.G.Active, e.G.Priority = 0, 0
+	e.pendingTriggers = e.pendingTriggers[:0]
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepUpkeep})
+	var cu int
+	for _, pt := range e.pendingTriggers {
+		if pt.Cumulative != "" {
+			cu++
+			if pt.Source != bear {
+				t.Fatalf("cumulative-upkeep trigger source = %d, want the granted permanent %d", pt.Source, bear)
+			}
+		}
+	}
+	if cu != 1 {
+		t.Fatalf("StepChange queued %d granted cumulative-upkeep triggers, want exactly 1", cu)
+	}
+}
