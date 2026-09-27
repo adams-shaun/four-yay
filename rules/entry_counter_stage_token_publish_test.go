@@ -1,12 +1,15 @@
 package rules
 
 import (
+	"maps"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -210,4 +213,319 @@ func chosenCopyStagedRiders(t *testing.T, useEsix bool, mandatory *cards.Card, w
 		t.Fatalf("resolved spell = %+v, want it in the graveyard", s)
 	}
 	replayCheck(t, e, cfg)
+}
+
+// stagedProducer is one token-entry producer driven through a parked
+// entry-counter stage by TestNoTokenRiderPrecedesItsStagedEntry.
+type stagedProducer struct {
+	name string
+	// setup builds the game (the counter modifiers already in play, the
+	// producer ready) and returns the engine, its replay config, the id of a
+	// creature an election should pick (0 for none), and the act that starts
+	// the resolution.
+	setup func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine))
+	// entered counts the producer's tokens (ids >= first) that have entered.
+	entered func(e *Engine, first state.ObjID) int
+	// riders counts the post-entry riders, markers and continuations the
+	// producer has applied so far; each entered token owes perToken of them.
+	riders   func(e *Engine, first state.ObjID) int
+	perToken int
+	tokens   int
+}
+
+// countTokensOnBattlefield counts tokens with id >= first named name on the
+// battlefield.
+func countTokensOnBattlefield(e *Engine, first state.ObjID, name string) int {
+	n := 0
+	for id := first; id < e.G.NextID; id++ {
+		if o := e.G.Obj(id); o != nil && o.IsToken && o.Zone == state.ZBattlefield && o.Face() != nil && o.Face().Name == name {
+			n++
+		}
+	}
+	return n
+}
+
+// countEventsFrom counts log events of kind k whose Obj is >= first (the
+// objects this resolution minted) and that pass keep.
+func countEventsFrom(e *Engine, first state.ObjID, k events.Kind, keep func(events.Event) bool) int {
+	n := 0
+	for _, ev := range e.L.Events {
+		if ev.Kind == k && ev.Obj >= first && (keep == nil || keep(ev)) {
+			n++
+		}
+	}
+	return n
+}
+
+// withStagedModifiers seats Hardened Scales and Branching Evolution (real)
+// on seat 0 and makes seat 0 the counter adder: every staged-grant entry
+// after this call competes non-commutatively.
+func withStagedModifiers(t *testing.T, e *Engine, scales, evolution *cards.Card) {
+	t.Helper()
+	for _, c := range []*cards.Card{scales, evolution} {
+		if o := e.G.Obj(moveSeededCard(t, e, 0, c, state.ZBattlefield)); o == nil || o.Zone != state.ZBattlefield {
+			t.Fatal("precondition: counter modifier absent")
+		}
+	}
+	e.SetCounterAdder(0)
+}
+
+// TestNoTokenRiderPrecedesItsStagedEntry drives every producer of a token
+// battlefield entry through a parked entry-counter stage (the entering
+// token's original test-only entry grant under Hardened Scales and Branching
+// Evolution) and asserts the one-publication-point rule at every ask: no
+// rider, marker or continuation of a token precedes that token's completed
+// entry (riders <= perToken x entered), and after the resolution every token
+// has entered and taken exactly its riders. Both answer orders, replay.
+//
+// Producers: DB$ Token's direct mint, its finalized CreateToken plan
+// (Parallel Lives), a chosen-copy plan (CopyToken + MoveZone), Encore's
+// CardToken copies, Incubate, Amass, Investigate and DB$ CopyPermanent.
+func TestNoTokenRiderPrecedesItsStagedEntry(t *testing.T) {
+	const grantName = "Staged Grant Token"
+	tapped := func(e *Engine, first state.ObjID) int { return countEventsFrom(e, first, events.Tap, nil) }
+	positiveCounters := func(e *Engine, first state.ObjID) int {
+		// The entry's own notification-only notice is part of the entry, not
+		// a rider.
+		return countEventsFrom(e, first, events.CounterChange, func(ev events.Event) bool {
+			return ev.Amount > 0 && ev.Text != events.EntryCounterNotice
+		})
+	}
+	named := func(name string) func(*Engine, state.ObjID) int {
+		return func(e *Engine, first state.ObjID) int { return countTokensOnBattlefield(e, first, name) }
+	}
+	tokenSpell := func(t *testing.T, name, amount string) *cards.Card {
+		return card(t, "Name:"+name+"\nManaCost:0\nTypes:Sorcery\n"+
+			"A:SP$ Token | TokenAmount$ "+amount+" | TokenScript$ staged_grant | TokenTapped$ True | SubAbility$ Rider | SpellDescription$ x\n"+
+			"SVar:Rider:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
+	}
+	// spellGame seats the given cards, overrides the named token scripts with
+	// the staged-grant creature, puts the counter modifiers into play after
+	// the pre-seeded battlefield cards, and casts spell.
+	spellGame := func(t *testing.T, seed uint64, spell *cards.Card, mana string, overrides []string, battlefield, graveyard []*cards.Card, pickName string) (*Engine, Config, state.ObjID, func(*Engine)) {
+		scales := tokenReplCorpusCard(t, "Hardened Scales")
+		evolution := tokenReplCorpusCard(t, "Branching Evolution")
+		seat := append([]*cards.Card{scales, evolution, spell}, battlefield...)
+		seat = append(seat, graveyard...)
+		e, cfg := tokenReplGame(t, seed, seat...)
+		if len(overrides) > 0 {
+			cfg.Tokens = maps.Clone(cfg.Tokens)
+			for _, key := range overrides {
+				cfg.Tokens[key] = stagedGrantCreature(t, grantName, "Artifact Creature Construct Army Incubator Clue")
+			}
+			e = New(cfg)
+			e.Advance()
+		}
+		var pick state.ObjID
+		for _, c := range battlefield {
+			id := moveSeededCard(t, e, 0, c, state.ZBattlefield)
+			if c.Faces[0].Name == pickName {
+				pick = id
+			}
+		}
+		for _, c := range graveyard {
+			moveSeededCard(t, e, 0, c, state.ZGraveyard)
+		}
+		withStagedModifiers(t, e, scales, evolution)
+		moveSeededCard(t, e, 0, spell, state.ZHand)
+		return e, cfg, pick, func(e *Engine) {
+			addMana(t, e, 0, mana)
+			castSpellOption(t, e, spell.Faces[0].Name)
+		}
+	}
+	producers := []stagedProducer{
+		{
+			name: "token-direct",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				return spellGame(t, 1031, tokenSpell(t, "Staged Direct Tokens", "2"), "", []string{"staged_grant"}, nil, nil, "")
+			},
+			entered: named(grantName), riders: tapped, perToken: 1, tokens: 2,
+		},
+		{
+			name: "token-plan",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				pl := tokenReplCorpusCard(t, "Parallel Lives")
+				return spellGame(t, 1033, tokenSpell(t, "Staged Plan Tokens", "1"), "", []string{"staged_grant"},
+					[]*cards.Card{pl}, nil, "")
+			},
+			entered: named(grantName), riders: tapped, perToken: 1, tokens: 2,
+		},
+		{
+			name: "chosen-copy",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				copier := card(t, "Name:Mandatory Copier\nTypes:Enchantment\n"+
+					"R:Event$ CreateToken | ActiveZones$ Battlefield | ValidPlayer$ You | Layer$ Copy | ReplaceWith$ DBCopy | Description$ Create copies of the other creature instead.\n"+
+					"SVar:DBCopy:DB$ ReplaceToken | Type$ ReplaceToken | ValidChoices$ Creature.Other | TokenScript$ Chosen\nOracle:x\n")
+				bear := stagedGrantCreature(t, "Staged Copy Bear", "Creature Bear")
+				spell := card(t, "Name:Staged Copied Token\nManaCost:0\nTypes:Sorcery\n"+
+					"A:SP$ Token | TokenAmount$ 1 | TokenScript$ c_a_powerstone | TokenTapped$ True | SubAbility$ Rider | SpellDescription$ x\n"+
+					"SVar:Rider:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
+				return spellGame(t, 1035, spell, "", nil, []*cards.Card{copier, bear}, nil, "Staged Copy Bear")
+			},
+			entered: named("Staged Copy Bear"), riders: tapped, perToken: 1, tokens: 1,
+		},
+		{
+			name: "copy-permanent",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				bear := stagedGrantCreature(t, "Staged Copy Bear", "Creature Bear")
+				spell := card(t, "Name:Staged Permanent Copies\nManaCost:0\nTypes:Sorcery\n"+
+					"A:SP$ CopyPermanent | Defined$ Valid Creature.YouCtrl | NumCopies$ 2 | RememberTokens$ True | SubAbility$ Rider | SpellDescription$ x\n"+
+					"SVar:Rider:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
+				return spellGame(t, 1037, spell, "", nil, []*cards.Card{bear}, nil, "")
+			},
+			entered: named("Staged Copy Bear"),
+			riders: func(e *Engine, first state.ObjID) int {
+				n := 0
+				for id := first; id < e.G.NextID; id++ {
+					n += rememberedChooses(e.L.Events, id)
+				}
+				return n
+			},
+			perToken: 1, tokens: 2,
+		},
+		{
+			name: "incubate",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				return spellGame(t, 1039, tokenReplCorpusCard(t, "Eyes of Gitaxias"), "UUU",
+					[]string{"incubator_c_0_0_a_phyrexian"}, nil, nil, "")
+			},
+			entered: named(grantName), riders: positiveCounters, perToken: 1, tokens: 1,
+		},
+		{
+			name: "amass",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				fodder := card(t, "Name:Graveyard Sorcery\nManaCost:0\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 1 | SpellDescription$ x\nOracle:x\n")
+				return spellGame(t, 1041, tokenReplCorpusCard(t, "Invade the City"), "UUR",
+					[]string{"b_0_0_zombie_army", "b_0_0_army"}, nil, []*cards.Card{fodder}, "")
+			},
+			entered: named(grantName), riders: positiveCounters, perToken: 1, tokens: 1,
+		},
+		{
+			name: "investigate",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				spell := card(t, "Name:Twice Investigate\nManaCost:0\nTypes:Sorcery\n"+
+					"A:SP$ Investigate | Num$ 2 | SubAbility$ Rider | SpellDescription$ Investigate twice.\n"+
+					"SVar:Rider:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
+				return spellGame(t, 1043, spell, "", []string{"c_a_clue_draw"}, nil, nil, "")
+			},
+			entered: named(grantName),
+			riders: func(e *Engine, first state.ObjID) int {
+				n := 0
+				for _, ev := range e.L.Events {
+					if ev.Kind == events.Investigate {
+						n++
+					}
+				}
+				return n
+			},
+			perToken: 1, tokens: 2,
+		},
+		{
+			name: "encore",
+			setup: func(t *testing.T) (*Engine, Config, state.ObjID, func(*Engine)) {
+				scales := tokenReplCorpusCard(t, "Hardened Scales")
+				evolution := tokenReplCorpusCard(t, "Branching Evolution")
+				grace := card(t, "Name:Encore Grace\nManaCost:1\nTypes:Creature Elf\nPT:1/1\nK:Encore:1\n"+
+					"R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ AddEntry | ReplacementResult$ Updated | Description$ entry counter\n"+
+					"SVar:AddEntry:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True\nOracle:x\n")
+				reg := testutil.CorpusRegistry(t).Tokens
+				cfg := seatZeroStart(Config{Seed: 1045, Names: []string{"a", "b", "c"},
+					Decks: [][]*cards.Card{
+						append([]*cards.Card{scales, evolution, grace}, mountainDeck(t, 37)...),
+						mountainDeck(t, 40), mountainDeck(t, 40),
+					},
+					Tokens: reg})
+				e := New(cfg)
+				e.Advance()
+				withStagedModifiers(t, e, scales, evolution)
+				graceID := moveSeededCard(t, e, 0, grace, state.ZGraveyard)
+				return e, cfg, 0, func(e *Engine) {
+					addMana(t, e, 0, "C")
+					submitChoices(t, e, abilityOption(t, e, graceID, 0).Index)
+				}
+			},
+			entered: named("Encore Grace"),
+			riders: func(e *Engine, first state.ObjID) int {
+				n := 0
+				for id := first; id < e.G.NextID; id++ {
+					if o := e.G.Obj(id); o != nil && o.IsToken && e.HasKeyword(id, "Haste") {
+						n++
+					}
+				}
+				for _, d := range e.G.Delayed {
+					for _, id := range targetObjIDs(d.Remembered) {
+						if id >= first {
+							n++
+						}
+					}
+				}
+				return n
+			},
+			perToken: 2, tokens: 2,
+		},
+	}
+	for _, p := range producers {
+		for _, order := range []struct {
+			name string
+			pick int
+		}{{"scales-first", 0}, {"evolution-first", 1}} {
+			t.Run(p.name+"/"+order.name, func(t *testing.T) {
+				e, cfg, electFor, start := p.setup(t)
+				first := e.G.NextID
+				start(e)
+				staged := 0
+				for i := 0; i < 80; i++ {
+					d := e.Pending()
+					if d == nil {
+						t.Fatal("no decision while resolving")
+					}
+					pick := 0
+					switch d.Kind {
+					case decision.KPriority:
+						if len(e.G.Stack) == 0 {
+							i = 80
+							continue
+						}
+						passPriorityOnce(t, e)
+						continue
+					case decision.KChoose:
+						if electFor != 0 {
+							if k := optionForObj(d, electFor); k >= 0 {
+								pick = k
+							}
+						}
+					case decision.KReplacement:
+						if strings.Contains(d.Prompt, "enters with") {
+							staged++
+						}
+						entered, riders := p.entered(e, first), p.riders(e, first)
+						if riders > p.perToken*entered {
+							t.Fatalf("ask %q: %d riders applied with only %d tokens entered (%d each): a rider preceded its token's entry",
+								d.Prompt, riders, entered, p.perToken)
+						}
+						if order.pick < len(d.Options) {
+							pick = order.pick
+						}
+					default:
+						t.Fatalf("unexpected decision %+v", d)
+					}
+					if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{pick}}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if staged == 0 {
+					t.Fatal("precondition: no token entry staged behind an entry-counter order ask")
+				}
+				if len(e.G.Stack) != 0 {
+					t.Fatalf("resolution did not finish: stack %v", e.G.Stack)
+				}
+				entered, riders := p.entered(e, first), p.riders(e, first)
+				if entered != p.tokens || riders != p.perToken*p.tokens {
+					t.Fatalf("after resolution: %d tokens entered with %d riders, want %d tokens with %d riders",
+						entered, riders, p.tokens, p.perToken*p.tokens)
+				}
+				replayCheck(t, e, cfg)
+			})
+		}
+	}
 }

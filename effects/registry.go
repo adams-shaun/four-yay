@@ -60,7 +60,11 @@ type Host interface {
 	// belong to EVERY mint, not just the first. effects/token.go calls this
 	// instead of Emit so its rider loop runs once per mint. The ordinary,
 	// unreplaced event returns the single token it minted (empty when nothing
-	// was created).
+	// was created). Only tokens whose battlefield entry has COMPLETED are
+	// returned: a mint parked behind an entry-counter order ask returns
+	// nothing (its answer publishes it to the parked-mint continuation), and
+	// a CopyToken mint's battlefield MoveZone may be emitted through this
+	// call too -- it returns the copy only once that entry has folded.
 	EmitTokenCreate(events.Event) []state.ObjID
 	// EmitStackCopy emits a StackCopy event and returns the object it actually
 	// minted, if any. The copy object is created inside events.Apply's

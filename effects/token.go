@@ -573,8 +573,9 @@ type TokenJob struct {
 // The same continuation serves every token-minting primitive whose post-mint
 // work reads the minted ids (effToken's riders, Encore's haste and sacrifice
 // group, Incubate's counters, Amass's Army): Next is the primitive's own loop
-// cursor, and Players/Script/Amount/Count are the frozen values a primitive
-// other than effToken re-enters with (effToken freezes Job instead).
+// cursor, and Players/Objs/Script/Amount/Count are the frozen values a
+// primitive other than effToken re-enters with (effToken freezes Job
+// instead; CopyPermanent freezes its controllers, copy sources and count).
 type TokenRest struct {
 	SA     *cards.SA
 	SinkID uint64
@@ -584,6 +585,7 @@ type TokenRest struct {
 	Job    TokenJob
 
 	Players []state.PlayerID
+	Objs    []state.ObjID
 	Script  string
 	Amount  int32
 	Count   int32
@@ -621,6 +623,7 @@ func (r TokenRest) Clone() TokenRest {
 	r.Job.PumpKeywords = append([]string(nil), r.Job.PumpKeywords...)
 	r.Job.TokenMemory = append([]state.Target(nil), r.Job.TokenMemory...)
 	r.Players = append([]state.PlayerID(nil), r.Players...)
+	r.Objs = append([]state.ObjID(nil), r.Objs...)
 	return r
 }
 

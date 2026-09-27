@@ -4378,8 +4378,11 @@ func (e *Engine) CastProhibited(p state.PlayerID, id state.ObjID) bool {
 // replacement pass.
 func (e *Engine) EmitScryRecord(ev events.Event) { e.emitScryRecord(ev) }
 
-// EmitTokenCreate emits a token-creation event (TokenCreate, or Encore's
-// CardToken copy) and returns every object it actually created. A CreateToken replacement may rewrite one would-be token
+// EmitTokenCreate emits a token-creation event (TokenCreate, Encore's
+// CardToken copy, or the battlefield MoveZone of a CopyToken mint) and
+// returns every token whose battlefield entry the emit actually completed --
+// the ids publishTokenEntry (rules/token_rest.go) published, never a mint
+// still parked behind an entry-counter order. A CreateToken replacement may rewrite one would-be token
 // into several mints (Divine Visitation, Doubling Season, Xorn);
 // effects/token.go consults this return so its per-token riders land on
 // EVERY mint, not just the first. The sink is a stack: a nested token
