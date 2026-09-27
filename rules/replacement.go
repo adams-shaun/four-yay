@@ -2676,10 +2676,9 @@ func (e *Engine) emitTokenPlanMints(ev events.Event, plan []tokenPlanMint) event
 }
 
 // suspendTokenPlanTail parks the mints still owed when the just-emitted
-// plan[at] mint staged behind an entry-counter order ask. Without it the
-// loop would emit the next mint into the outstanding stage, whose
-// sameEntryMove guard reads any same-kind TokenCreate as the staged mint's
-// re-drive and drops it. Returns whether it suspended. The stage's
+// plan[at] mint staged behind an entry-counter order ask, so the plan's
+// mints land in plan order after the answer rather than the later ones
+// overtaking the staged one. Returns whether it suspended. The stage's
 // completion re-drive continues the tail (resumeEntryCounterOrder).
 func (e *Engine) suspendTokenPlanTail(ev events.Event, plan []tokenPlanMint, at int) bool {
 	if at+1 >= len(plan) {

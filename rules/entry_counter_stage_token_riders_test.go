@@ -675,3 +675,115 @@ func TestIncubateAndAmassResumeOntoParkedMints(t *testing.T) {
 		})
 	}
 }
+
+// TestInvestigateMarkerFollowsItsParkedClue: each Investigate marker (what
+// trig:Investigated matches) is logged only after ITS Clue has entered. The
+// Clue definition here carries an entry grant that competes under Hardened
+// Scales and Branching Evolution, so every Clue stages behind an order ask;
+// the marker, the later Clues and the rest of the resolution resume with
+// the answer. Real Follow the Bodies (one investigate) and an original
+// Num$ 2 sorcery, both answer orders.
+func TestInvestigateMarkerFollowsItsParkedClue(t *testing.T) {
+	double := card(t, "Name:Twice Investigate\nManaCost:0\nTypes:Sorcery\n"+
+		"A:SP$ Investigate | Num$ 2 | SubAbility$ Rider | SpellDescription$ Investigate twice.\n"+
+		"SVar:Rider:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
+	for _, sp := range []struct {
+		name, spell, mana string
+		n                 int
+		c                 *cards.Card
+	}{
+		{"single", "Follow the Bodies", "UUU", 1, nil},
+		{"twice", "Twice Investigate", "", 2, double},
+	} {
+		for _, tc := range []struct {
+			name string
+			pick int
+			want int32
+		}{{"scales-first", 0, 4}, {"evolution-first", 1, 3}} {
+			t.Run(sp.name+"/"+tc.name, func(t *testing.T) {
+				scales := tokenReplCorpusCard(t, "Hardened Scales")
+				evolution := tokenReplCorpusCard(t, "Branching Evolution")
+				spell := sp.c
+				if spell == nil {
+					spell = tokenReplCorpusCard(t, sp.spell)
+				}
+				clue := card(t, "Name:Graced Clue\nTypes:Artifact Creature Clue\nPT:0/1\n"+
+					"R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ AddEntry | ReplacementResult$ Updated | Description$ entry counter\n"+
+					"SVar:AddEntry:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True\nOracle:x\n")
+				e, cfg := tokenReplGame(t, 1013, scales, evolution, spell)
+				cfg.Tokens = maps.Clone(cfg.Tokens)
+				cfg.Tokens["c_a_clue_draw"] = clue
+				e = New(cfg)
+				e.Advance()
+				for _, c := range []*cards.Card{scales, evolution} {
+					if o := e.G.Obj(moveSeededCard(t, e, 0, c, state.ZBattlefield)); o == nil || o.Zone != state.ZBattlefield {
+						t.Fatal("precondition: counter modifier absent")
+					}
+				}
+				e.SetCounterAdder(0)
+				spellID := moveSeededCard(t, e, 0, spell, state.ZHand)
+				addMana(t, e, 0, sp.mana)
+				castSpellOption(t, e, sp.spell)
+				mark := len(e.L.Events)
+				first := e.G.NextID
+				asks := 0
+				for i := 0; i < 40; i++ {
+					d := e.Pending()
+					if d == nil {
+						t.Fatal("no decision while resolving")
+					}
+					if d.Kind == decision.KReplacement {
+						asks++
+						markers := 0
+						for _, ev := range e.L.Events[mark:] {
+							if ev.Kind == events.Investigate {
+								markers++
+							}
+						}
+						if markers != asks-1 {
+							t.Fatalf("ask %d: %d Investigate markers logged, want %d (a marker precedes its Clue)", asks, markers, asks-1)
+						}
+						if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{tc.pick}}); err != nil {
+							t.Fatal(err)
+						}
+						continue
+					}
+					if d.Kind != decision.KPriority {
+						t.Fatalf("unexpected decision %+v", d)
+					}
+					if len(e.G.Stack) == 0 {
+						break
+					}
+					passPriorityOnce(t, e)
+				}
+				if asks != sp.n {
+					t.Fatalf("answered %d order asks, want %d", asks, sp.n)
+				}
+				// Log order: Clue k's entry, then marker k, alternating.
+				var seq []events.Kind
+				for _, ev := range e.L.Events[mark:] {
+					if (ev.Kind == events.TokenCreate && ev.Text == "c_a_clue_draw") || ev.Kind == events.Investigate {
+						seq = append(seq, ev.Kind)
+					}
+				}
+				if len(seq) != 2*sp.n {
+					t.Fatalf("logged %v, want %d Clue entries each followed by its marker", seq, sp.n)
+				}
+				for k := 0; k < sp.n; k++ {
+					if seq[2*k] != events.TokenCreate || seq[2*k+1] != events.Investigate {
+						t.Fatalf("logged %v, want Clue %d's entry before marker %d", seq, k, k)
+					}
+				}
+				for id := first; id < first+state.ObjID(sp.n); id++ {
+					if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield || o.Counter("P1P1") != tc.want {
+						t.Fatalf("Clue %d = %+v, want a battlefield token with %d counters", id, o, tc.want)
+					}
+				}
+				if s := e.G.Obj(spellID); s == nil || s.Zone != state.ZGraveyard {
+					t.Fatalf("resolved spell = %+v, want it in the graveyard", s)
+				}
+				replayCheck(t, e, cfg)
+			})
+		}
+	}
+}
