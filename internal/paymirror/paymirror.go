@@ -944,11 +944,24 @@ func manaAsk(d *decision.Decision, source state.ObjID) bool {
 }
 
 // labeledAnyAmount recognises the literal amount wording emitted by the rules
-// mana wheel without coupling to a particular amount or output variant.
+// mana wheel without coupling to a particular amount or output variant. The
+// rules side spells 1..20 in words and larger literals in digits, so the
+// amount prefix is matched structurally (a positive number, word or digit)
+// rather than against a fixed word list that would silently reject an
+// amount above twenty.
 func labeledAnyAmount(tail string) bool {
 	for _, suffix := range []string{" mana of any one color", " mana in any combination of colors"} {
-		word, ok := strings.CutSuffix(tail, suffix)
-		if ok && strings.Contains(" one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty ", " "+word+" ") {
+		amount, ok := strings.CutSuffix(tail, suffix)
+		if !ok || amount == "" {
+			continue
+		}
+		if strings.IndexFunc(amount, func(r rune) bool { return r != ' ' }) < 0 {
+			continue
+		}
+		if _, err := strconv.Atoi(strings.TrimSpace(amount)); err == nil {
+			return true
+		}
+		if strings.Contains(" one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty ", " "+strings.TrimSpace(amount)+" ") {
 			return true
 		}
 	}

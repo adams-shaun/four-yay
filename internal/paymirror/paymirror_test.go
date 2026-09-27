@@ -225,6 +225,8 @@ func TestLabelProductionParsesManaOptions(t *testing.T) {
 		{"Add any color", decision.ManaAmount{}, true, 0},
 		{"Add three mana of any one color", decision.ManaAmount{}, true, 0},
 		{"Add three mana in any combination of colors", decision.ManaAmount{}, true, 0},
+		{"Add 21 mana of any one color", decision.ManaAmount{}, true, 0},
+		{"Add 22 mana in any combination of colors", decision.ManaAmount{}, true, 0},
 		{"Add W, U or B", decision.ManaAmount{}, false, 3},
 	} {
 		amt, any, combo, ok := labelProduction(tc.label)

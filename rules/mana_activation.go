@@ -896,7 +896,9 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 // SVar, Count$) or non-positive Amount$ keeps the single pip, because a
 // wrong number on the wheel is worse than none -- and only a one-letter
 // WUBRGC pip is repeated, so a "RR" token or a Special expression is left as
-// written.
+// written. An amount above manaPipRepeatLimit keeps the bare pip too: the
+// repeated spelling is the only one that expands, so its length is bounded
+// here rather than in the shared literal rule.
 func manaAmountPips(ma *cards.SA, pip string) string {
 	if len(pip) != 1 || !strings.Contains("WUBRGC", pip) {
 		return pip
@@ -909,27 +911,43 @@ func manaAmountPips(ma *cards.SA, pip string) string {
 	if !ok || n <= 1 {
 		return pip
 	}
+	if n > manaPipRepeatLimit {
+		// A single-pip production repeated by an absurd Amount$ would make an
+		// unreadable label (and a needlessly long string). The label spelling
+		// is the only consumer that expands, so the safety limit lives here;
+		// the any-colour wording below never repeats and has no such bound.
+		return pip
+	}
 	return strings.Repeat(pip, n)
 }
 
+// manaPipRepeatLimit bounds how many times manaAmountPips expands a single
+// pip. It is a label-size safety valve, not a correctness gate: a literal
+// amount above it is a corpus oddity, and the bare pip is the fail-safe
+// spelling. (The any-colour wording names an amount once, so it is not
+// bounded here.)
+const manaPipRepeatLimit = 20
+
 // literalManaAmount parses a mana ability's Amount$ parameter as a positive
-// integer literal in the range the wheel can name (1..20), shared by
-// manaAmountPips (which repeats a single pip) and the any-colour label (which
-// names the amount in words). An absent, non-literal (X, an SVar, Count$) or
-// out-of-range amount is not a number the wheel can trust -- the
-// manaColourPrompt rule, a wrong number on the wheel being worse than none.
+// integer literal, shared by manaAmountPips (which repeats a single pip) and
+// the any-colour label (which names the amount). Only an absent, non-literal
+// (X, an SVar, Count$) or non-positive amount fails: the rule is exactly the
+// manaColourPrompt rule, which also accepts every positive literal -- a wheel
+// label for "Add 21 mana of any one color" must be as faithful as its
+// stage-2 prompt, not silently fall back to "Add any color". A wrong number
+// on the wheel is worse than none, but a refused large number is worse still.
 func literalManaAmount(raw string) (int, bool) {
 	n, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil || n <= 0 || n > 20 {
+	if err != nil || n <= 0 {
 		return 0, false
 	}
 	return n, true
 }
 
-// manaNumberWord is a literal mana amount 1..20 in words, for the any-colour
-// stage-1 label ("Add three mana of any one color"). Callers guard the range
-// with literalManaAmount; the digit fallback keeps an out-of-range amount a
-// legible string rather than an empty one.
+// manaNumberWord is a literal mana amount in words, for the any-colour
+// stage-1 label ("Add three mana of any one color"). Amounts past twenty
+// fall back to digits ("Add 21 mana of any one color"): the wording stays
+// faithful rather than inventing a bound the stage-2 prompt does not apply.
 func manaNumberWord(n int) string {
 	words := [...]string{"zero", "one", "two", "three", "four", "five", "six",
 		"seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",

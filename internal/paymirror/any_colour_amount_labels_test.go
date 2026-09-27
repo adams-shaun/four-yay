@@ -23,4 +23,16 @@ func TestMatchProductionPrefersAnyColourAmountOption(t *testing.T) {
 	if !ok || !any {
 		t.Fatalf("Combo Any amount label parsed as any=%v ok=%v, want true/true", any, ok)
 	}
+
+	// An amount above twenty is spelled in digits by the rules formatter; the
+	// parser must accept it just as it accepts the words, or a wheel label the
+	// engine can produce is rejected as unknown on the mirror side.
+	_, any, _, ok = labelProduction("Add 21 mana of any one color")
+	if !ok || !any {
+		t.Fatalf("digit Any amount label parsed as any=%v ok=%v, want true/true", any, ok)
+	}
+	_, any, _, ok = labelProduction("Add 22 mana in any combination of colors")
+	if !ok || !any {
+		t.Fatalf("digit Combo Any amount label parsed as any=%v ok=%v, want true/true", any, ok)
+	}
 }

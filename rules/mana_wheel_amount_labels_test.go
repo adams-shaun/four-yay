@@ -3,6 +3,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -76,5 +77,86 @@ func TestManaWheelLabelsDistinguishAnyColourAmounts(t *testing.T) {
 	submitChoices(t, e, manaOption(t, d, "G"))
 	if got := e.G.Players[0].Pool[state.MG]; got != 3 {
 		t.Fatalf("pool after choosing the Amount$ 3 ability = %d green, want 3", got)
+	}
+}
+
+// TestManaWheelLabelsNameAnyColourAmountsAboveTwenty is the regression for the
+// arbitrary 20-amount cap the first cut of the Any-colour wording carried:
+// literalManaAmount refused amounts above 20, so two abilities of one source
+// reading "Add 21 mana of any one color" and "Add 22 mana of any one color"
+// both collapsed back to "Add any color" even though their stage-2 prompts
+// named 21 and 22. The literal rule is now exactly manaColourPrompt's -- any
+// positive literal -- and the wording falls back to digits past twenty.
+func TestManaWheelLabelsNameAnyColourAmountsAboveTwenty(t *testing.T) {
+	any := func(amount string) string {
+		ma := &cards.SA{Kind: "AB", API: "Mana",
+			Params: map[string]string{"Cost": "T", "Produced": "Any", "Amount": amount}}
+		return manaAbilityLabel(ma, "")
+	}
+	// Precondition: the two amounts the finding probed are distinct literals
+	// and the stage-2 prompt names both -- the comparison below is not two
+	// spellings of one number.
+	if any("21") == any("22") {
+		t.Fatalf("the two probes render one label %q; the fixture is not exercising distinct amounts", any("21"))
+	}
+	if got, want := any("21"), "Add 21 mana of any one color"; got != want {
+		t.Errorf("Amount$ 21 Any label = %q, want %q", got, want)
+	}
+	if got, want := any("22"), "Add 22 mana of any one color"; got != want {
+		t.Errorf("Amount$ 22 Any label = %q, want %q", got, want)
+	}
+	// A Combo Any amount above twenty stays faithful too.
+	combo := &cards.SA{Kind: "AB", API: "Mana",
+		Params: map[string]string{"Cost": "T", "Produced": "Combo Any", "Amount": "21"}}
+	if got, want := manaAbilityLabel(combo, ""), "Add 21 mana in any combination of colors"; got != want {
+		t.Errorf("Amount$ 21 Combo Any label = %q, want %q", got, want)
+	}
+}
+
+// TestManaWheelOptionsNameAnyColourAmountsAboveTwenty walks the real stage-1
+// wheel for a source whose two Any abilities differ only by the literals 21
+// and 22, so the "above twenty" fix is proved at the wheel, not just at the
+// label formatter (the finding asked for a wheel regression).
+func TestManaWheelOptionsNameAnyColourAmountsAboveTwenty(t *testing.T) {
+	e := newSeats(t, 2)
+	toMain1(t, e)
+	src := onBoard(t, e, 0, "Name:Big Sceptre Test\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Any | Amount$ 21 | SpellDescription$ Add 21.\nA:AB$ Mana | Cost$ T | Produced$ Any | Amount$ 22 | SpellDescription$ Add 22.\nOracle:x\n")
+	if o := e.G.Obj(src); o == nil || o.Zone != state.ZBattlefield || o.Controller != 0 {
+		t.Fatalf("precondition: fixture on seat 0's battlefield: %+v", o)
+	}
+	e.pending = nil
+	e.askPriority(0)
+	d := e.Pending()
+	pick := -1
+	for _, o := range d.Options {
+		if o.Kind == "activate" && o.Obj == src {
+			pick = o.Index
+		}
+	}
+	if pick < 0 {
+		t.Fatalf("no activate option for the fixture in %#v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{pick}}); err != nil {
+		t.Fatal(err)
+	}
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KChoose || len(d.Options) != 2 {
+		t.Fatalf("pending = %#v, want the two-option mana ability wheel", d)
+	}
+	labels := map[int]string{}
+	for _, o := range d.Options {
+		if o.Kind != "mana" || o.Obj != src {
+			t.Fatalf("wheel option %+v is not a mana ability of the fixture %d", o, src)
+		}
+		labels[o.Ability] = o.Label
+	}
+	if got, want := labels[0], "Add 21 mana of any one color"; got != want {
+		t.Errorf("Amount$ 21 wheel option label = %q, want %q", got, want)
+	}
+	if got, want := labels[1], "Add 22 mana of any one color"; got != want {
+		t.Errorf("Amount$ 22 wheel option label = %q, want %q", got, want)
+	}
+	if labels[0] == labels[1] {
+		t.Errorf("wheel offers two indistinguishable options %q for amounts 21 and 22", labels[0])
 	}
 }
