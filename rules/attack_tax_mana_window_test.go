@@ -128,7 +128,7 @@ func TestManaSourceAttackersShrinkWindowWireBudget(t *testing.T) {
 	}
 	// The offer gate admits the pair: with only the taxed creature excluded the
 	// window can reach the charge.
-	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{golem: true}) {
+	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{golem: true}, map[state.ObjID]bool{golem: true}) {
 		t.Fatal("precondition: the golem's {9} charge is unaffordable even excluding only the golem")
 	}
 	// The declaration is not: with all four creatures excluded only the eight
@@ -140,7 +140,7 @@ func TestManaSourceAttackersShrinkWindowWireBudget(t *testing.T) {
 	if units := len(e.attackWindowUnits(0, all)); units != 8 {
 		t.Fatalf("precondition: the declaration window (all four attackers excluded) has %d units, want 8", units)
 	}
-	if e.combatChargeAffordable(0, ch, all) {
+	if e.combatChargeAffordable(0, ch, all, all) {
 		t.Fatal("precondition: the {9} charge is affordable with every attacker excluded, so the fixture cannot produce the divergence")
 	}
 
@@ -251,13 +251,13 @@ func TestWholeDeclarationDiagnosticNamesMana(t *testing.T) {
 	}
 	// The offer gate admits the pair: excluding only the golem it can tap both
 	// dorks and still reach the {1} from the Forest.
-	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{golem: true}) {
+	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{golem: true}, map[state.ObjID]bool{golem: true}) {
 		t.Fatal("precondition: the {1} + tap-two charge is unaffordable even excluding only the golem")
 	}
 	// Declaring one dork removes it from the tap candidates, leaving one for a
 	// two-creature obligation. The two reads really differ.
 	declared := map[state.ObjID]bool{golem: true, d1: true}
-	if e.combatChargeAffordable(0, ch, declared) {
+	if e.combatChargeAffordable(0, ch, declared, declared) {
 		t.Fatal("precondition: the charge is affordable with a tap candidate declared, so the fixture cannot produce the divergence")
 	}
 
@@ -319,7 +319,7 @@ func TestFlatAttackTaxSingleAttackerIsPayable(t *testing.T) {
 	if ch.unpriceable || ch.mana != 9 {
 		t.Fatalf("precondition: golem charge = %+v, want priceable mana 9", ch)
 	}
-	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{golem: true}) {
+	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{golem: true}, map[state.ObjID]bool{golem: true}) {
 		t.Fatal("precondition: the single-attacker {9} charge reads unaffordable")
 	}
 
