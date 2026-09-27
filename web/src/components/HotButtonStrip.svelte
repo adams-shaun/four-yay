@@ -9,6 +9,7 @@
   import { turnSide } from '../lib/autopilot';
   import { autoNoteText, isConcede, toneOf, type SeatPanelState } from '../lib/seatpanel.svelte';
   import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
+  import { announceActions } from '../lib/announcepay';
   import SeatPanel from './SeatPanel.svelte';
 
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
@@ -69,7 +70,8 @@
       option.kind !== 'pass' && !isConcede(option)
       && (!logic.autoPayMana || !paymentBaseIndexes.has(option.index))
       && !(hideManualMana && isPlainManualTap(option)),
-    ).length ?? 0) + visiblePaymentActions.length,
+    ).length ?? 0) + visiblePaymentActions.length
+      + announceActions(decision, logic.autoManaAvailable, logic.autoPayMana).length,
   );
   const passAvailable = $derived(logic.passOption !== null && !logic.busy);
   // Undo is a whole-table rollback and has no consent flow. The server is
