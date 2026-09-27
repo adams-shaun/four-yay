@@ -842,6 +842,18 @@ func (e *Engine) Clone() *Engine {
 		}
 		c.deferredPushLKI = e.deferredPushLKI
 	}
+	if e.turnUp != nil {
+		// The CR 708.6 turn-up payment flow (rules/morph_turnup.go): a plain
+		// value struct with four object slices, cloned like cast so a clone
+		// taken while one of its KChoose asks is outstanding re-answers it
+		// faithfully (host.viewAt clones and re-Submits the intents).
+		tp := *e.turnUp
+		tp.sacs = append([]state.ObjID(nil), e.turnUp.sacs...)
+		tp.discs = append([]state.ObjID(nil), e.turnUp.discs...)
+		tp.reveal = append([]state.ObjID(nil), e.turnUp.reveal...)
+		tp.returns = append([]state.ObjID(nil), e.turnUp.returns...)
+		c.turnUp = &tp
+	}
 	if e.cmdZone != nil {
 		// The parked commander zone changes (CR 903.9, Task m32): a clone
 		// taken while a KCommanderZone decision is outstanding must carry the

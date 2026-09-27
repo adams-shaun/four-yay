@@ -1,14 +1,12 @@
 // deadly_disguise_deck_test.go — the Deadly Disguise (MKC) Commander precon
-// import. The deck is a face-down/morph-family list, and the family's one
-// remaining shape is unimplemented: a non-mana turn-face-up cost
-// (Reveal/Sac/{X}) is parsed but never paid. The printed-LAND face-down cast
-// (Zoetic Cavern, Branch of Vitu-Ghazi) IS implemented and covered by
-// rules/morph_land_test.go; the heads stay unregistered for the remaining
-// turn-up shape. So kw:Morph / kw:Megamorph /
-// kw:Disguise stay OUT of effects.Supported() and the deck's 24 carriers are
-// named in knownUnsupported as measured gaps (see rules/morph_turnup.go's
-// file comment). These tests pin that honest state: the deck is seated by the
-// ratchet and every carrier measures against its exact table entry.
+// import. The deck is a face-down/morph-family list; both family shapes are
+// now implemented: the printed-LAND face-down cast (Zoetic Cavern, Branch of
+// Vitu-Ghazi; rules/morph_land_test.go) and the full non-mana/announced-X
+// turn-face-up cost (rules/morph_turnup.go, rules/morph_turnup_cost_test.go).
+// So kw:Morph / kw:Megamorph / kw:Disguise are IN effects.Supported() and the
+// deck's 24 carriers are fully supported, none named in knownUnsupported.
+// These tests pin that honest state: the deck is seated by the ratchet and
+// every carrier measures clean.
 package rules
 
 import (
@@ -72,23 +70,22 @@ func TestDeadlyDisguiseDeckIsSeatedByTheRatchet(t *testing.T) {
 	}
 }
 
-// TestDeadlyDisguiseMorphCarriersAreMeasuredGaps pins the honest measurement
-// the registration revert restores: none of the three heads is in
-// effects.Supported() while the land face-down cast and the non-mana turn-up
-// cost are unimplemented, and every morph-family carrier in the deck measures
-// exactly the head its face prints, matching its knownUnsupported entry.
+// TestDeadlyDisguiseMorphCarriersAreFullySupported pins the honest
+// measurement the turn-face-up cost work makes true: all three heads ARE in
+// effects.Supported() now that the printed-LAND face-down cast and the full
+// non-mana/announced-X turn-up cost are implemented, and every morph-family
+// carrier in the deck (the 24 that were the measured gap) is fully supported
+// -- none is named in knownUnsupported.
 //
 // The count is asserted non-zero first so the per-card loop cannot pass
-// vacuously over an empty set. If the heads later become fully supported the
-// ratchet itself fails the stale entries; this test fails too, at the
-// Supported() assertion, which is the reminder to delete both.
-func TestDeadlyDisguiseMorphCarriersAreMeasuredGaps(t *testing.T) {
+// vacuously over an empty set.
+func TestDeadlyDisguiseMorphCarriersAreFullySupported(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 
 	for _, head := range morphHeads {
-		if supported[head] {
-			t.Fatalf("effects.Supported() claims %q while a land face-down cast and a non-mana turn-up cost are unimplemented", head)
+		if !supported[head] {
+			t.Fatalf("effects.Supported() does not claim %q; the cast and turn-up shapes are implemented", head)
 		}
 	}
 
@@ -101,14 +98,11 @@ func TestDeadlyDisguiseMorphCarriersAreMeasuredGaps(t *testing.T) {
 			continue
 		}
 		carriers++
-		got := reg.Unsupported(c, supported)
-		want, ok := knownUnsupported[c.Faces[0].Name]
-		if !ok {
-			t.Errorf("%s needs %v, not in knownUnsupported — the deck's gap must be in the ratchet table", c.Faces[0].Name, got)
-			continue
+		if got := reg.Unsupported(c, supported); len(got) > 0 {
+			t.Errorf("%s carries %s but still measures unsupported primitives %v", c.Faces[0].Name, head, got)
 		}
-		if !sameSet(want, got) {
-			t.Errorf("%s: measured %v, knownUnsupported says %v", c.Faces[0].Name, got, want)
+		if want, ok := knownUnsupported[c.Faces[0].Name]; ok {
+			t.Errorf("%s is fully supported now -- delete it from knownUnsupported (was %v)", c.Faces[0].Name, want)
 		}
 	}
 	if carriers == 0 {

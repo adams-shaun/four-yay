@@ -383,6 +383,12 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			c.TriggerManaTyped[i] = card.TypedManaSpentByTag(i)
 		}
 	}
+	// CR 107.3m: the X paid to turn a permanent face up is carried by the
+	// TurnFaceUp event, because the permanent itself was not cast with that X
+	// and its live Object.X remains the cast-time value (normally zero).
+	if ev.Kind == events.TurnFaceUp {
+		c.TriggerPaidX = ev.Amount
+	}
 	return c
 }
 

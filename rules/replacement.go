@@ -7555,11 +7555,7 @@ func (e *Engine) handleCmdZone(d *decision.Decision, in decision.Intent) {
 	e.applyingReplacement, e.triggerBefore = saved, before
 	if len(e.cmdZone) > 0 && e.pending == nil {
 		// More commanders were parked in the same burst (a board wipe, a
-		// multiple-SBA pass): hand the front of the queue to its owner the
-		// same way handleTriggerOptional resumes its own drain. The queue is
-		// empty exactly when the previous answer WAS the front, so popping
-		// above and asking here keeps every decision aligned with the move
-		// it resolves.
+		// multiple-SBA pass): hand the front of the queue to its owner.
 		if o := e.G.Obj(e.cmdZone[0].obj); o != nil && int(o.Owner) < len(e.G.Players) {
 			e.askCommandZone(o.Owner)
 		}

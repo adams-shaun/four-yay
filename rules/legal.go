@@ -3670,7 +3670,7 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 		if !ok {
 			continue
 		}
-		if !e.costPayable(p, id, false, mf.cost) {
+		if !e.morphTurnUpPayable(p, id, mf.cost) {
 			continue
 		}
 		if e.turnFaceUpCantHappen(id) {

@@ -1235,6 +1235,14 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		e.resumeResolution(rp, chosen)
 		return
 	}
+	if e.choosing == chooseTurnUp {
+		// The CR 708.6 morph-family turn-face-up special action's payment
+		// flow (rules/morph_turnup.go): record the answer and re-drive the
+		// remaining asks (or settle). A separate flow from chooseCast -- the
+		// turn-up never enters pendingCast's push/pay machinery.
+		e.turnUpAnswer(d, chosen)
+		return
+	}
 	switch e.choosing {
 	case chooseCast:
 		e.castAnswer(d, chosen)
