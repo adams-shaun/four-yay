@@ -79,24 +79,20 @@ shield, clear damage, tap, remove from combat. Shields expire at cleanup.
 honoured. `effects/regeneration.go`, `effects/zone.go`, `rules/sba.go`,
 `rules/combat.go`.
 
-## TargetingPlayer$ Opponent in a multi-opponent game
+## TargetingPlayer$ Opponent selection
 
-A target ask whose `TargetingPlayer$` names `Opponent` (or
-`Player.Opponent`) is answered by the first living opponent in `AliveFrom(0)`
-turn order — the same deterministic rule the trigger-time resolver
-(`rules/trigger_queue.go`'s `targetChooserFromSpec`) has always used. This
-covers every ask site: the CR 601.2c cast/activation ask (`rules/cast.go`),
-the trigger placement and resolution-sub asks (`rules/stack.go`), and the
-mid-resolution `ValidTgts$` asks posed below the rules tier
-(`effects.chosenTargetsFor`'s "tgts" ask and `effects.changeZoneChosenTargets`'s
-"choice" ask, which reach the same resolver through `effects.Host.ChooserFor`).
-Forge's
-parameter does not say which of several opponents picks, so the engine does
-not pose a chooser-selection decision; it names the first living opponent and
-fails over to the next when that seat has left the game. Target legality and
-the decision's `TargetEffect` stay relative to the ability's controller; only
-the answering seat moves. Trigger-relative `TargetingPlayer$` referents keep
-failing closed to the controller when their binding is absent.
+When `TargetingPlayer$` names `Opponent` or `Player.Opponent` and at least two
+opponents are alive, the ability's controller first chooses which living
+opponent answers the target ask. The selected opponent then receives the
+original ask; target legality and `TargetEffect` remain relative to the
+ability's controller. A sole living opponent receives the ask directly, with
+no redundant selection, and no living opponent fails closed to the controller
+rather than leaving an unanswered decision. This rule covers cast and
+activation announcement, trigger placement and resolution-sub asks, and
+mid-resolution `ValidTgts$` asks (`chosenTargetsFor` and
+`changeZoneChosenTargets`). The selection is transient engine flow state, not
+a logged event. Trigger-relative `TargetingPlayer$` referents continue to
+fail closed to the controller when their binding is absent.
 
 ## The board clock's round number is exact
 

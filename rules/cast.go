@@ -8214,7 +8214,10 @@ func (e *Engine) targetAsk() bool {
 	// and the trigger/resolution flow route identically; target legality keeps
 	// pc.player as the controller reference below.
 	chooser := pc.player
-	if who, ok := e.targetAskChooser(pc.player, pc.card, sa); ok {
+	pickOwed := false
+	if who, ok, pick := e.targetAskChooser(pc.player, pc.card, sa); pick {
+		pickOwed = true
+	} else if ok {
 		chooser = who
 	}
 	d := &decision.Decision{Player: chooser, Kind: decision.KTarget, Min: min, Max: max,
@@ -8254,6 +8257,15 @@ func (e *Engine) targetAsk() bool {
 	}
 	if powerCapped {
 		d.MaxSum, d.Budgeted = powerCap, true
+	}
+	if pickOwed {
+		// The multi-opponent Opponent form (agent-20260925T085158Z-c861188d):
+		// the controller first names WHICH opponent answers. The selection
+		// ask is posed here, at the cast flow's suspension boundary, and
+		// the answer re-enters continueCast, whose targetAsk re-run reads
+		// the pin and poses the target ask to the chosen seat.
+		e.poseOpponentPick(pc.player, pc.card, sa, oppPickCastRoot)
+		return true
 	}
 	e.ask(d)
 	return true
@@ -8535,7 +8547,10 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		d := &decision.Decision{Player: pc.player, Kind: decision.KTarget, Min: min, Max: max,
 			Prompt: "Choose a target for " + e.targetName(pc.card) + "'s chained ability",
 			Source: excludeSelf, ResumeKind: "cast_sub"}
-		if who, ok := e.targetAskChooser(pc.player, pc.card, sub); ok {
+		pickOwed := false
+		if who, ok, pick := e.targetAskChooser(pc.player, pc.card, sub); pick {
+			pickOwed = true
+		} else if ok {
 			d.Player = who
 		}
 		for _, candidate := range candidates {
@@ -8545,6 +8560,12 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 			o.Group = e.targetControllerGroup(sub, candidate)
 			o.Controller = e.candidateControllerSeat(candidate)
 			d.Options = append(d.Options, o)
+		}
+		if pickOwed {
+			// The multi-opponent Opponent form: the controller names WHICH
+			// opponent answers, then the sub's target ask is re-posed.
+			e.poseOpponentPick(pc.player, pc.card, sub, oppPickCastSub)
+			return true
 		}
 		e.ask(d)
 		return true

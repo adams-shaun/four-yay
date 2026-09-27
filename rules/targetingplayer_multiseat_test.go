@@ -180,12 +180,9 @@ func TestTargetingPlayerOpponentActivatedAbilityIsAnsweredByOpponent(t *testing.
 	replayCheck(t, e, cfg)
 }
 
-// TestTargetingPlayerOpponentPicksFirstLivingOpponent pins the multi-opponent
-// contract on a three-seat table: with seats 1 and 2 both alive the first
-// living opponent (seat 1) answers; with seat 1 already lost the next living
-// seat (seat 2) answers. The fixture precondition asserts two distinct living
-// opponents exist, so the test cannot pass on a two-seat board.
-func TestTargetingPlayerOpponentPicksFirstLivingOpponent(t *testing.T) {
+// TestTargetingPlayerOpponentSelectionAskIsControllerFacing asserts that the
+// controller, not a hard-coded first opponent, chooses the answering seat.
+func TestTargetingPlayerOpponentSelectionAskIsControllerFacing(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	e, _ := targetingChooserBoard(t, reg, 3, "Preacher")
 	preacher := searchMoveByNameSeat(t, e, 0, "Preacher", state.ZBattlefield)
@@ -204,18 +201,16 @@ func TestTargetingPlayerOpponentPicksFirstLivingOpponent(t *testing.T) {
 
 	submitChoices(t, e, abilityOptionFor(t, e, preacher).Index)
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KTarget {
-		t.Fatalf("ask = %+v, want a target ask", d)
+	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "opp_pick" {
+		t.Fatalf("ask = %+v, want the controller's opponent-selection ask", d)
 	}
-	if d.Player != 1 {
-		t.Fatalf("three-seat chooser = %d, want the first living opponent seat 1", d.Player)
+	if d.Player != 0 || len(d.Options) != 2 || d.Options[0].Player == d.Options[1].Player {
+		t.Fatalf("selection options = %+v, want distinct opponents offered to controller 0", d)
 	}
 }
 
-// TestTargetingPlayerOpponentSkipsDeadFirstOpponent is the lost-seat half of
-// the contract: seat 1 has left, so seat 2 answers. It drives the real
-// activation flow after marking seat 1 lost, so it also proves the chooser
-// read consults liveness rather than the seat index.
+// TestTargetingPlayerOpponentSkipsDeadFirstOpponent is the sole-opponent
+// contract: seat 1 has left, so seat 2 answers directly without an extra ask.
 func TestTargetingPlayerOpponentSkipsDeadFirstOpponent(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	e, _ := targetingChooserBoard(t, reg, 3, "Preacher")

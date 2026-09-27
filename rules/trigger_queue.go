@@ -1463,7 +1463,11 @@ func (e *Engine) deciderFromSpec(spec string, controller state.PlayerID, remembe
 }
 
 // targetChooserFromSpec resolves a trigger-relative target chooser. Unknown or
-// absent referents fail closed to the caller's controller.
+// absent referents fail closed to the caller's controller. The Opponent /
+// Player.Opponent form is NOT resolved here: it is the multi-opponent
+// selection shape (targetChooserCore / opponentChooser in rules/stack.go),
+// which consults the controller's which-opponent selection pin and counts
+// living opponents before a target ask is re-posed.
 func (e *Engine) targetChooserFromSpec(spec string, controller state.PlayerID, remembered []state.Target, tc effects.TriggerContext) (state.PlayerID, bool) {
 	var target state.Target
 	switch strings.TrimSpace(spec) {
@@ -1480,13 +1484,10 @@ func (e *Engine) targetChooserFromSpec(spec string, controller state.PlayerID, r
 			return p, e.targetChooserAlive(p)
 		}
 		return controller, false
-	case "Opponent", "Player.Opponent":
-		for _, p := range e.G.AliveFrom(0) {
-			if p != controller {
-				return p, true
-			}
-		}
-		return controller, false
+	// The Opponent / Player.Opponent form is handled by targetChooserCore,
+	// the one home for that shape: this resolver only resolves
+	// trigger-relative referents. (The Opponent branch was here until the
+	// controller-selection ask was added -- agent-20260925T085158Z-c861188d.)
 	default:
 		return controller, false
 	}

@@ -5896,6 +5896,14 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 	// resolver every rules-tier target ask uses).
 	candidates := h.LegalTargets(c.Controller, c.Source, sa)
 	chooser := h.ChooserFor(c, sa)
+	if ch, posed := opponentPick(h, c, sa, chooser); posed {
+		// The controller's which-opponent selection ask was posted: the walk
+		// is suspended and re-enters this very SA, where the answered
+		// selection makes ChooserFor return the chosen seat.
+		return nil, true
+	} else if !posed {
+		chooser = ch
+	}
 	min := Num(h, c, sa, "TargetMin", 1)
 	max := Num(h, c, sa, "TargetMax", 1)
 	if max > int32(len(candidates)) {

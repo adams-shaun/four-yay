@@ -2684,6 +2684,38 @@ type resolutionCtxHost interface {
 	SetResolutionCtx(*Ctx) *Ctx
 }
 
+// opponentPickHost is the optional Host seam for the TargetingPlayer$
+// Opponent controller-selection at a mid-resolution ask site. The two
+// mid-resolution ask sites (chosenTargetsFor's "tgts" ask and
+// changeZoneChosenTargets' "choice" ask) call it before posing the target
+// ask: with two or more living opponents and no answered selection it poses
+// the CONTROLLER's which-opponent ask (posing a decision and suspending the
+// walk) and reports posed=true, so the caller must return a handled-nil set
+// and let the answer re-enter the walk. Every other shape reports posed=false
+// with the seat that answers the target ask: the pinned or sole living
+// opponent, or c.Controller when the resolver fails closed. A host that does
+// not implement this interface (the effects test double) never poses the
+// selection: the caller keeps plain ChooserFor, which for the test double is
+// the controller (no resolver to consult).
+type opponentPickHost interface {
+	OpponentPickAsk(c *Ctx, sa *cards.SA) (state.PlayerID, bool)
+}
+
+// opponentPick calls the optional seam when the host implements it.
+// ok=false means the caller keeps the plain chooser returned by
+// Host.ChooserFor; ok=true with posed=false means ch is authoritative (the
+// pinned or sole-opponent seat, or the controller fallback).
+func opponentPick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) (state.PlayerID, bool) {
+	if ph, ok := h.(opponentPickHost); ok {
+		ch, posed := ph.OpponentPickAsk(c, sa)
+		if posed {
+			return 0, true
+		}
+		return ch, false
+	}
+	return chooser, false
+}
+
 // flipMemoryHost is implemented by the rules engine to publish the resolving
 // chain's shared coin-flip memory (Ctx.FlipMemory) for the whole of the walk,
 // so an ask posed from inside the chain (Host.Ask) can capture the pointer

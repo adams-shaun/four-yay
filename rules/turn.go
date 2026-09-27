@@ -1212,6 +1212,17 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		e.continueAfterETBEntry(rp)
 		return
 	}
+	if e.choosing == chooseOppPick {
+		// The TargetingPlayer$ Opponent controller-selection ask
+		// (rules/stack.go poseOpponentPick). The answer must NOT fall
+		// through to the resume dispatch: a cast begun inside a suspended
+		// resolution (a Miracle cast in the trigger drain) parks the
+		// resolution's own resume point, and routing the selection answer
+		// through resumeResolution would consume it as the resolution's ask
+		// answer.
+		e.answerOppPick(d, chosen)
+		return
+	}
 	// Every KChoose carrying a resume point is a mid-resolution effect ask,
 	// regardless of its ResumeKind (search, dig, imprint, untap selection,
 	// reveal-optional, defined-library-optional, ward windows, hand_move,

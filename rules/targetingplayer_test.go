@@ -147,12 +147,14 @@ func TestTargetChooserFromSpecFailsClosed(t *testing.T) {
 	if who, ok := e.targetChooserFromSpec("TriggeredPlayer", controller, nil, tp); !ok || who != 1 {
 		t.Fatalf("TriggeredPlayer = (%d, %v), want (1, true)", who, ok)
 	}
-	// Opponent: the first other living seat, deterministically.
-	if who, ok := e.targetChooserFromSpec("Opponent", controller, nil, tc); !ok || who != 1 {
-		t.Fatalf("Opponent = (%d, %v), want (1, true)", who, ok)
+	// Opponent is resolved by targetChooserCore, which can pose the
+	// controller's selection ask; the trigger-relative resolver must not
+	// silently pick the first seat.
+	if who, ok := e.targetChooserFromSpec("Opponent", controller, nil, tc); ok || who != controller {
+		t.Fatalf("Opponent = (%d, %v), want fail-closed (%d, false)", who, ok, controller)
 	}
-	if who, ok := e.targetChooserFromSpec("Player.Opponent", controller, nil, tc); !ok || who != 1 {
-		t.Fatalf("Player.Opponent = (%d, %v), want (1, true)", who, ok)
+	if who, ok := e.targetChooserFromSpec("Player.Opponent", controller, nil, tc); ok || who != controller {
+		t.Fatalf("Player.Opponent = (%d, %v), want fail-closed (%d, false)", who, ok, controller)
 	}
 
 	// Unknown spelling fails closed to the controller.
