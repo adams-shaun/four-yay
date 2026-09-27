@@ -201,7 +201,7 @@ func (s *Summary) Write(w io.Writer) {
 		}
 	}
 	if len(s.SideEffects) > 0 {
-		fmt.Fprintf(w, "planned sources that dealt damage while producing mana:\n")
+		fmt.Fprintf(w, "side effects of planned activations (damage/life/counters/draws between a planned tap and the payment):\n")
 		for _, k := range sortedKeys(s.SideEffects) {
 			t := s.SideEffects[k]
 			fmt.Fprintf(w, "  %6d  %s  e.g. %s\n", t.N, k, t.Example)

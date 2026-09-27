@@ -678,6 +678,10 @@ func passAnswer(d *decision.Decision) decision.Intent {
 // resolveHorizon continues clones of ref and b with passAnswer until the
 // planned spell is no longer on the stack (or the game ends), then compares.
 func resolveHorizon(ref, b *rules.Engine, fork int, rep *Report, res *RouteResult) {
+	if ref.G.Players[rep.Player].Lost && b.G.Players[rep.Player].Lost {
+		res.Resolved = "skipped:caster_lost"
+		return
+	}
 	ra, rb := ref.Clone(), b.Clone()
 	drive := func(e *rules.Engine) (reason string) {
 		defer func() {
@@ -1142,24 +1146,34 @@ func sideEffects(a *rules.Engine, fork int, plan decision.PaymentPlan) []string 
 	var out []string
 	var cur state.ObjID
 	for _, ev := range a.L.Events[fork:] {
-		switch {
-		case ev.Kind == events.Tap && src[ev.Obj]:
+		if ev.Kind == events.Tap && src[ev.Obj] {
 			cur = ev.Obj
 			continue
-		case ev.Kind == events.ManaAdd && ev.Amount < 0, ev.Kind == events.DecisionAsk, ev.Kind == events.Priority:
-			cur = 0
-			continue
-		case cur == 0, ev.Kind == events.ManaAdd, ev.Kind == events.DamageProvenance:
+		}
+		if cur == 0 {
 			continue
 		}
-		what := ev.Kind.String()
+		var what string
 		switch ev.Kind {
+		case events.ManaAdd, events.DamageProvenance:
+			if ev.Amount >= 0 || ev.Kind == events.DamageProvenance {
+				continue
+			}
+			cur = 0 // the payment's first spend closes the activation window
+			continue
 		case events.Damage:
 			what = fmt.Sprintf("damage %d", ev.Amount)
 		case events.LifeChange:
 			what = fmt.Sprintf("life %+d", ev.Amount)
 		case events.CounterChange:
 			what = fmt.Sprintf("counter %+d %s", ev.Amount, ev.Counter)
+		case events.Draw:
+			what = "draw"
+		default:
+			// Anything else (a decision, priority, the cast's reversal, a
+			// player leaving) is not part of the activation.
+			cur = 0
+			continue
 		}
 		out = append(out, fmt.Sprintf("%s from %q", what, objName(a, cur)))
 	}
