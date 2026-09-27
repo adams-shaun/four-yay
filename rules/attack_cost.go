@@ -615,9 +615,12 @@ type combatPayPlan struct {
 // life up front, so the inline/coverage read and the payment window both see
 // the same mana requirement. A charge with BOTH branches affordable sets
 // phyElection and leaves phyToLife 0, so the window poses the real choice.
-// excluded holds the declaration's own committed creatures. Returns nil,
+// excluded holds the declaration's own committed creatures for the OBLIGATION
+// half; manaExcluded holds the mana-half withholdings beyond the plan's own
+// tap reservations (the attack direction's declared attackers; nil on the
+// block side, where a committed blocker is still a mana source). Returns nil,
 // false when an obligation cannot be met (the caller declines).
-func (e *Engine) openCombatPayPlan(p state.PlayerID, c blockCharge, excluded map[state.ObjID]bool) (*combatPayPlan, bool) {
+func (e *Engine) openCombatPayPlan(p state.PlayerID, c blockCharge, excluded, manaExcluded map[state.ObjID]bool) (*combatPayPlan, bool) {
 	if !c.payable() {
 		return nil, false
 	}
@@ -627,7 +630,7 @@ func (e *Engine) openCombatPayPlan(p state.PlayerID, c blockCharge, excluded map
 	}
 	plan := &combatPayPlan{player: p, charge: c, taps: taps, sacs: sacs, returns: returns}
 	if len(c.phyrexian) > 0 {
-		both, canColour, canLife := e.combatPhyBothBranches(p, c, plan.tapExclude(), excluded)
+		both, canColour, canLife := e.combatPhyBothBranches(p, c, plan.tapExclude(), manaExcluded)
 		plan.phyElection = both
 		if !both && !canColour && canLife {
 			plan.phyToLife = int32(len(c.phyrexian))
@@ -698,14 +701,21 @@ func (e *Engine) manaSatisfied(pl *combatPayPlan) bool {
 // branch, because the two white must also cover the two generic, and the
 // round-1 read checked the pips and the generic independently against the
 // same sources (the review's atomicity defect).
-func (e *Engine) combatPhyBothBranches(p state.PlayerID, c blockCharge, excluded ...map[state.ObjID]bool) (both bool, canColour, canLife bool) {
+//
+// manaExcluded holds only permanents withheld from the MANA HALF -- the
+// plan's own tap reservations, plus (attack direction only) the declared
+// attackers, which CR 508.1f genuinely taps. A committed BLOCKER is not
+// withheld here: declaring a block never taps it (CR 509.1), so it is a
+// legitimate mana source for its own pair's tax. The obligation half is a
+// separate exclusion owned by chargeObjPlan.
+func (e *Engine) combatPhyBothBranches(p state.PlayerID, c blockCharge, manaExcluded ...map[state.ObjID]bool) (both bool, canColour, canLife bool) {
 	if len(c.phyrexian) == 0 {
 		return false, false, false
 	}
 	player := e.G.Players[p]
 	conv := e.paymentConv(p, 0, false)
 	exclude := make(map[state.ObjID]bool)
-	for _, set := range excluded {
+	for _, set := range manaExcluded {
 		for id := range set {
 			exclude[id] = true
 		}
@@ -736,6 +746,20 @@ func (e *Engine) combatPhyBothBranches(p state.PlayerID, c blockCharge, excluded
 // fixed life, and enough distinct permanents for every tap/sac/return
 // obligation. excluded holds any permanent the declaration already commits.
 //
+// The two exclusions have DIFFERENT roles and are passed separately. excluded
+// governs the OBLIGATION half only (chargeObjPlan's tap/sac/return candidate
+// pool): a permanent the declaration commits cannot also pay an obligation.
+// manaExcluded governs the MANA half only, and holds exactly the permanents
+// that the declaration genuinely withholds from being tapped for mana -- the
+// plan's own tap reservations plus, in the attack direction, the declared
+// attackers (CR 508.1f taps them at declaration). A committed BLOCKER is not
+// in manaExcluded: declaring a block never taps it (CR 509.1), so its mana is
+// real and the payment window offers it. Overloading one map for both roles
+// was the block-tax defect: validation withheld every committed blocker from
+// the mana half, so a blocker that was its own pair's only mana source was
+// rejected while the window (taps-only) and the published MaxSum both said
+// payable, and the bot's own answer crashed the table.
+//
 // This is the ONE affordability read: the offer gate, the whole-declaration
 // validator and the payment all re-derive from it, so they cannot disagree
 // about what is payable. A charge with an unpriceable component is never
@@ -748,7 +772,7 @@ func (e *Engine) combatPhyBothBranches(p state.PlayerID, c blockCharge, excluded
 // pay (the review's atomicity defect). The plan's own tap obligations are
 // excluded from the mana sources, so a permanent reserved to pay a tapXType
 // cost cannot also be counted as a mana source (the double-tap defect).
-func (e *Engine) combatChargeAffordable(p state.PlayerID, c blockCharge, excluded map[state.ObjID]bool) bool {
+func (e *Engine) combatChargeAffordable(p state.PlayerID, c blockCharge, excluded, manaExcluded map[state.ObjID]bool) bool {
 	if !c.payable() {
 		return false
 	}
@@ -768,8 +792,8 @@ func (e *Engine) combatChargeAffordable(p state.PlayerID, c blockCharge, exclude
 	if mc.Generic == 0 && len(mc.Phyrexian) == 0 {
 		return true
 	}
-	exclude := make(map[state.ObjID]bool, len(excluded)+len(taps))
-	for id := range excluded {
+	exclude := make(map[state.ObjID]bool, len(manaExcluded)+len(taps))
+	for id := range manaExcluded {
 		exclude[id] = true
 	}
 	for _, id := range taps {
@@ -790,9 +814,13 @@ func (e *Engine) combatChargeAffordable(p state.PlayerID, c blockCharge, exclude
 // blockChargeAffordable is the block-direction alias of the shared
 // combatChargeAffordable read. Block payment settles from the defending
 // player, whose budget is the same attackBudget attackBudget computes, so the
-// two directions share one affordability rule.
-func (e *Engine) blockChargeAffordable(p state.PlayerID, c blockCharge, excluded map[state.ObjID]bool) bool {
-	return e.combatChargeAffordable(p, c, excluded)
+// two directions share one affordability rule. excluded holds the committed
+// blockers for the OBLIGATION half; manaExcluded holds only permanent sets
+// the declaration genuinely withholds from mana, which on the block side is
+// nothing beyond the plan's own tap reservations (so every block caller
+// passes nil).
+func (e *Engine) blockChargeAffordable(p state.PlayerID, c blockCharge, excluded, manaExcluded map[state.ObjID]bool) bool {
+	return e.combatChargeAffordable(p, c, excluded, manaExcluded)
 }
 
 // payCombatExtras settles a completed charge's non-mana components in a fixed
@@ -1440,7 +1468,7 @@ func (e *Engine) attackOffers() []attackOffer {
 				continue
 			}
 			charge := e.attackPairCharge(id, d, 0)
-			if !charge.zero() && !e.combatChargeAffordable(p, charge, map[state.ObjID]bool{id: true}) {
+			if !charge.zero() && !e.combatChargeAffordable(p, charge, map[state.ObjID]bool{id: true}, map[state.ObjID]bool{id: true}) {
 				continue
 			}
 			out = append(out, attackOffer{id: id, def: d, charge: charge})
@@ -1454,7 +1482,7 @@ func (e *Engine) attackOffers() []attackOffer {
 					continue
 				}
 				walkerCharge := e.attackPairCharge(id, d, wid)
-				if !walkerCharge.zero() && !e.combatChargeAffordable(p, walkerCharge, map[state.ObjID]bool{id: true}) {
+				if !walkerCharge.zero() && !e.combatChargeAffordable(p, walkerCharge, map[state.ObjID]bool{id: true}, map[state.ObjID]bool{id: true}) {
 					continue
 				}
 				out = append(out, attackOffer{id: id, def: d, battle: wid, charge: walkerCharge})
@@ -1477,7 +1505,7 @@ func (e *Engine) attackOffers() []attackOffer {
 					continue
 				}
 				charge := e.attackPairCharge(id, d, b.id)
-				if !charge.zero() && !e.combatChargeAffordable(p, charge, map[state.ObjID]bool{id: true}) {
+				if !charge.zero() && !e.combatChargeAffordable(p, charge, map[state.ObjID]bool{id: true}, map[state.ObjID]bool{id: true}) {
 					continue
 				}
 				out = append(out, attackOffer{id: id, def: d, charge: charge, battle: b.id})

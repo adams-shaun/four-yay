@@ -65,7 +65,7 @@ func TestExaltedDragonAttackSacrificesALand(t *testing.T) {
 	if len(ch.sacs) != 1 || ch.sacs[0].n != 1 || ch.mana != 0 || ch.life != 0 || len(ch.phyrexian) != 0 {
 		t.Fatalf("precondition: attackPairCharge = %+v, want one sacrifice of 1", ch)
 	}
-	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{dragon: true}) {
+	if !e.combatChargeAffordable(0, ch, map[state.ObjID]bool{dragon: true}, map[state.ObjID]bool{dragon: true}) {
 		t.Fatal("precondition: the sacrifice charge is marketed unaffordable with a land available")
 	}
 
@@ -116,7 +116,7 @@ func TestExaltedDragonWithoutALandIsNeverOffered(t *testing.T) {
 	if len(ch.sacs) != 1 {
 		t.Fatalf("precondition: charge = %+v, want one sacrifice obligation", ch)
 	}
-	if e.combatChargeAffordable(0, ch, map[state.ObjID]bool{dragon: true}) {
+	if e.combatChargeAffordable(0, ch, map[state.ObjID]bool{dragon: true}, map[state.ObjID]bool{dragon: true}) {
 		t.Fatal("precondition: the charge reads affordable with no land on the battlefield")
 	}
 	e.askAttackers()
@@ -593,8 +593,8 @@ func TestAttackChargeBotAnswerNeverRejected(t *testing.T) {
 	if c1.life != 2 || c2.life != 2 {
 		t.Fatalf("precondition: charges %+v / %+v, want life 2 each", c1, c2)
 	}
-	if !e.combatChargeAffordable(1, c1, map[state.ObjID]bool{a1: true}) ||
-		!e.combatChargeAffordable(1, c2, map[state.ObjID]bool{a2: true}) {
+	if !e.combatChargeAffordable(1, c1, map[state.ObjID]bool{a1: true}, map[state.ObjID]bool{a1: true}) ||
+		!e.combatChargeAffordable(1, c2, map[state.ObjID]bool{a2: true}, map[state.ObjID]bool{a2: true}) {
 		t.Fatal("precondition: each pair must be individually affordable on 3 life")
 	}
 	e.askAttackers()
