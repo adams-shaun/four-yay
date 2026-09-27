@@ -417,7 +417,15 @@ type plannedManaActivation struct {
 	// A witness step's Ability AND Produces together select exactly one
 	// alternative (paymentPlanStepAlternative), and execution activates
 	// that alternative's own ability.
-	ma          *cards.SA
+	ma *cards.SA
+	// exec is the exact ability to activate to realise this alternative: the
+	// ORIGINAL for fixed production, and a withProduced copy of it for a
+	// choice-shaped production (Any/Combo/Chosen/ColorIdentity) whose selected
+	// colour is recorded in the witness's Produces. The executor resolves
+	// step.exec and hands step.ma to the ordinary mana path as the original
+	// (for activation limits and replay identity), so no colour prompt is ever
+	// posed at execution.
+	exec        *cards.SA
 	tier        paymentAbilityTier
 	consequence paymentConsequence
 }
@@ -509,15 +517,24 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 			}
 		}
 		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
-			if strings.TrimSpace(ma.Params["Produced"]) != "Any" {
-				continue
-			}
+			raw := strings.TrimSpace(ma.Params["Produced"])
 			amt := availableAmount(ma)
 			if amt <= 0 {
 				continue
 			}
 			counts, any := cards.ProducedCounts(ma.Params["Produced"])
 			if !any {
+				continue
+			}
+			// The shared census keeps only deterministic production; extend it
+			// with the finite choice shapes V1 can make concrete: Produced$ Any
+			// (one alternative per colour, any literal amount) and an amount-1
+			// Combo/Chosen/ColorIdentity (one alternative per producible
+			// colour). Combo Any and every allocation (amount > 1) stay deferred.
+			if raw != "Any" && !paymentPlanChoiceShape(raw) {
+				continue
+			}
+			if raw != "Any" && amt != 1 {
 				continue
 			}
 			if idx < 0 {
@@ -715,11 +732,16 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 }
 
 // paymentPlanUnitAlternatives expands one physical source into the exact
-// one-tap outcomes V1 can execute.  A fixed Produced$ Any amount is finite:
-// choose one of WUBRG now, record it in Produces, then run the ordinary mana
-// ability with Produced rewritten to that selected colour.  Combo/Chosen and
-// every other open production remain manual because they need an allocation
-// or a source-state read not represented by the witness.
+// one-tap outcomes V1 can execute.  A fixed production is one alternative.
+// A finite choice -- Produced$ Any (choose one of WUBRG, any literal
+// amount), an amount-1 Combo (one alternative per listed/resolved colour),
+// a recorded Chosen, or the commander colour identity -- is one alternative
+// per producible colour: the planner records the selected colour in
+// Produces AND carries a withProduced copy of the ability as exec, so
+// execution runs the ordinary mana path with no colour prompt.  An
+// allocation (amount > 1), Combo Any, and every open production remain
+// manual because they need a shape or source-state read the witness cannot
+// represent.
 func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActivation {
 	var out []plannedManaActivation
 	for _, alt := range u.alts {
@@ -742,18 +764,22 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			m := alt.mana()
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, tier: tier, consequence: consequence})
+				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, exec: alt.ma, tier: tier, consequence: consequence})
 			continue
 		}
-		if strings.TrimSpace(alt.ma.Params["Produced"]) != "Any" || !alt.any || alt.amt <= 0 {
+		if !alt.any || alt.amt <= 0 {
 			continue
 		}
-		for i := 0; i < 5; i++ {
+		for _, col := range e.paymentPlanChoiceColours(u.id, alt.ma) {
+			i := strings.IndexByte("WUBRG", col[0])
+			if i < 0 {
+				continue
+			}
 			var m state.Mana
 			m[i] = alt.amt
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, tier: tier, consequence: consequence})
+				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, exec: withProduced(alt.ma, alt.ma, col), tier: tier, consequence: consequence})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
@@ -763,6 +789,101 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 		out[i].flex = len(out)
 	}
 	return out
+}
+
+// paymentPlanChoiceShape reports whether a Produced$ value is one of the
+// finite choice shapes V1 can plan: the literal Any, a bare Chosen/
+// ChosenColor, or a Combo list. It is deliberately about the SHAPE only;
+// whether the choice resolves to any colour (an unrecorded Chosen, a Combo
+// naming no plain colour, an empty commander identity) is
+// paymentPlanChoiceColours' fail-closed answer, not this predicate's.
+func paymentPlanChoiceShape(raw string) bool {
+	switch raw {
+	case "Chosen", "ChosenColor", "ComboChosen":
+		return true
+	}
+	return strings.HasPrefix(raw, "Combo ")
+}
+
+// paymentPlanChoiceColours returns the concrete colours a choice-shaped
+// Produced$ resolves to for source id, or nil when the production is fixed
+// or cannot be resolved. The order is deterministic: WUBRG for Produced$ Any
+// and a commander identity is already WUBRG (commanderIdentityColours), and
+// the ability's own token order for a Combo -- the same order
+// manaAbilityComboColours and askManaColor use. A bare Chosen/ChosenColor
+// with nothing recorded, a Combo whose tokens name no plain colour, and an
+// empty commander identity all yield nil: V1 fails closed rather than
+// inventing a colour.
+func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string {
+	raw := strings.TrimSpace(ma.Params["Produced"])
+	switch raw {
+	case "Any":
+		return []string{"W", "U", "B", "R", "G"}
+	case "Chosen", "ChosenColor", "ComboChosen":
+		if col := e.chosenProducedColour(id); col != "" {
+			return []string{col}
+		}
+		return nil
+	case "ColorIdentity":
+		return e.commanderIdentityColours(e.paymentPlanController(id))
+	}
+	// Reuse the manual wheel's own flattener: it substitutes a recorded
+	// Chosen tail and dedups a recorded colour equal to a fixed token, so the
+	// plan and the wheel cannot disagree about a Combo that resolves cleanly.
+	if cols, ok := manaAbilityComboColours(ma, e.chosenProducedColour(id)); ok {
+		return cols
+	}
+	if !strings.HasPrefix(raw, "Combo ") {
+		return nil
+	}
+	// A Combo still naming a token manaAbilityComboColours cannot flatten (a
+	// Chosen with nothing recorded, a ColorIdentity) has no single colour
+	// list; walk its tokens so a fixed token ("Combo U Chosen" with nothing
+	// recorded) still yields its own colour, and fail closed on any token this
+	// engine cannot resolve ("Combo Any", "Special ...").
+	var cols []string
+	for _, tok := range strings.Fields(raw) {
+		switch {
+		case tok == "Combo":
+		case tok == "Chosen" || tok == "ChosenColor":
+			if col := e.chosenProducedColour(id); col != "" {
+				cols = appendColourOnce(cols, col)
+			}
+		case tok == "ColorIdentity":
+			for _, col := range e.commanderIdentityColours(e.paymentPlanController(id)) {
+				cols = appendColourOnce(cols, col)
+			}
+		case len(tok) == 1 && strings.ContainsRune("WUBRG", rune(tok[0])):
+			cols = appendColourOnce(cols, tok)
+		default:
+			return nil
+		}
+	}
+	if len(cols) == 0 {
+		return nil
+	}
+	return cols
+}
+
+// appendColourOnce appends col unless it is already present, preserving the
+// first-seen order so an alternative list stays deterministic.
+func appendColourOnce(cols []string, col string) []string {
+	for _, c := range cols {
+		if c == col {
+			return cols
+		}
+	}
+	return append(cols, col)
+}
+
+// paymentPlanController is the controller of source id, or seat 0 for a
+// source that is no longer on the battlefield (the helper is only reached
+// with a live battlefield source, but a nil read must never panic).
+func (e *Engine) paymentPlanController(id state.ObjID) state.PlayerID {
+	if o := e.G.Obj(id); o != nil {
+		return o.Controller
+	}
+	return 0
 }
 
 // paymentPlanStepAlternative resolves one witness step to the exact

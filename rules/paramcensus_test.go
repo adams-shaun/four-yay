@@ -1572,9 +1572,9 @@ var apiSpecificRulesSA = map[string][]string{
 	// reads Produced$/RestrictValid$/Cost$ (and the Amount$ helper) to build a
 	// replayable tap witness.  These reads cannot make those parameters appear
 	// implemented on unrelated resolving APIs such as Sacrifice or DealDamage.
-	"Engine.paymentPlanManaUnits":         {"Mana"},
-	"Engine.paymentPlanUnitAlternatives":  {"Mana"},
-	"Engine.executePlannedManaActivation": {"Mana"},
+	"Engine.paymentPlanManaUnits":        {"Mana"},
+	"Engine.paymentPlanUnitAlternatives": {"Mana"},
+	"Engine.paymentPlanChoiceColours":    {"Mana"},
 	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk),
 	// the per-mode target declaration (modalTargetSA), the resume-side mode
 	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
