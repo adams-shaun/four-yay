@@ -89,7 +89,41 @@ type boardStatics struct {
 
 type boardStaticsCache struct {
 	key walkKey
+	// seq is activeBuildSeq when v was scanned (0: not eligible for
+	// cross-walk reuse); see walkCrossHit.
+	seq uint64
 	v   boardStatics
+}
+
+// walkCrossHit reports whether an entry an EARLIER scope built at key k and
+// activeBuildSeq seq is still exact now -- the Derived memo's cross-walk
+// argument (derivedmemo.go) applied to a board-only walk cache. active()
+// rebuilds (moving activeBuildSeq) on every event that is not layer-inert
+// (DecisionAsk, DecisionMade and Priority write nothing but the priority
+// bookkeeping), on a continuousVersion move, on an object-count move and on
+// the explicit no-event invalidations (retireCrossWalkMemo: the face probe's
+// flip, the cost-composition exclusion), so an unchanged count after bringing
+// active() up to date means every object's zone, controller, face, face-down
+// status and pile, and the continuous registry, are what they were at the
+// build. Only a top-level read qualifies (never inside an active() build),
+// and verify mode recomputes every such hit.
+func (e *Engine) walkCrossHit(k walkKey, seq uint64, now walkKey) bool {
+	if k.gen == 0 || seq == 0 || k.gen == now.gen || k.ver != now.ver || k.objs != now.objs || e.activeDepth != 0 {
+		return false
+	}
+	e.active()
+	return seq == e.activeBuildSeq
+}
+
+// walkBuildSeq brings active() up to date and returns the activeBuildSeq a
+// cache entry built now should record, or 0 inside an active() build (such an
+// entry is never reused across scopes).
+func (e *Engine) walkBuildSeq() uint64 {
+	if e.activeDepth != 0 {
+		return 0
+	}
+	e.active()
+	return e.activeBuildSeq
 }
 
 // boardStaticsWalk returns the walk's fused static membership, or ok=false
@@ -101,13 +135,27 @@ func (e *Engine) boardStaticsWalk() (boardStatics, bool) {
 		return boardStatics{}, false
 	}
 	c := &e.boardStaticsCache
-	if c.key.gen == 0 || !e.walkKeyHit(c.key, now) {
+	switch {
+	case c.key.gen != 0 && e.walkKeyHit(c.key, now):
+		if walkCacheVerify {
+			e.verifyBoardStatics(c.v)
+		}
+	case e.walkCrossHit(c.key, c.seq, now):
+		// An earlier walk's scan at an unchanged board (walkCrossHit):
+		// re-stamp it into this scope.
+		if walkCacheVerify {
+			e.verifyBoardStatics(c.v)
+		}
+		c.key = now
+	default:
 		// Fresh backing on every rebuild, so no slice a caller may still be
 		// ranging is ever rewritten.
+		seq := e.walkBuildSeq()
 		c.v = e.scanBoardStatics()
-		c.key = now
-	} else if walkCacheVerify {
-		e.verifyBoardStatics(c.v)
+		if e.activeBuildSeq != seq {
+			seq = 0 // active() rebuilt mid-scan: never reuse across walks
+		}
+		c.key, c.seq = now, seq
 	}
 	return clipBoardStatics(c.v), true
 }
