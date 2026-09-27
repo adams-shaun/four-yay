@@ -1449,12 +1449,6 @@ func (e *Engine) describeTargetEffect(p state.PlayerID, source state.ObjID, sa *
 // silently skipped -- the payload publishes only what it can prove, exactly
 // the way an unknown API stays uninterpreted.
 func (e *Engine) grantedStaticModes(p state.PlayerID, source state.ObjID, sa *cards.SA) []string {
-	names := strings.FieldsFunc(sa.Params["StaticAbilities"], func(r rune) bool {
-		return r == ',' || r == ' ' || r == '\t' || r == '\n'
-	})
-	if len(names) == 0 {
-		return nil
-	}
 	// The SVar table is whichever face targetBoundCtx binds -- the source
 	// permanent for an ability object (Whirler Rogue's activation), the
 	// spell itself for a spell. It is the same anchor the dynamic numeric
@@ -1463,9 +1457,32 @@ func (e *Engine) grantedStaticModes(p state.PlayerID, source state.ObjID, sa *ca
 	if !ok || ctx.SVars == nil {
 		return nil
 	}
+	return staticModesFromSVars(sa, ctx.SVars)
+}
+
+// staticModesFromSVars is the one resolver an Effect SA's StaticAbilities$
+// names go through: it splits the name list, resolves each against the
+// supplied SVar table (the target ask binds targetBoundCtx's; the ability
+// OFFER binds the ability's own face's table, which for an ability object
+// is the same face) and returns each body's Mode$ value in the order the
+// names were written. It carries its own API guard so the offer site in
+// legal.go cannot publish statics for a non-Effect activation by forgetting
+// the check, and it skips a name that does not resolve or a body with no
+// readable Mode$ -- the payload publishes only what it can prove, exactly
+// the way an unknown API stays uninterpreted.
+func staticModesFromSVars(sa *cards.SA, svars map[string]string) []string {
+	if sa == nil || sa.API != "Effect" || svars == nil {
+		return nil
+	}
+	names := strings.FieldsFunc(sa.Params["StaticAbilities"], func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n'
+	})
+	if len(names) == 0 {
+		return nil
+	}
 	out := make([]string, 0, len(names))
 	for _, name := range names {
-		body := strings.TrimSpace(ctx.SVars[name])
+		body := strings.TrimSpace(svars[name])
 		if body == "" {
 			continue
 		}
