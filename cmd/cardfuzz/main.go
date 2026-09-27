@@ -18,6 +18,14 @@
 // from an engine "hang" or "livelock". Every failure is appended to
 // -failures as one JSON line carrying both full deck lists, the game seed
 // and the diagnostic, and `cardfuzz -repro <file> -line N` replays it.
+//
+// -autopay off|all|mixed arms production-bot seats with the hosted bot's
+// payment-plan wrapper (seat.Bot.EnableAutoPayMana), so they cast through the
+// engine's offered PaymentActions instead of floating mana by hand; off is
+// byte-identical to the fuzzer before the flag. The failure record carries the
+// mode, and the run summary (and -stats) counts planned casts, reversed
+// planned casts, PaymentFallback windows, priority decisions with a plan and
+// the casts an auto-pay seat still paid by hand. See autopay.go.
 package main
 
 import (
@@ -31,6 +39,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"sort"
 	"strings"
@@ -314,11 +323,26 @@ type failure struct {
 	Decks []genDeck `json:"decks"`
 	// Explore records that seat exploreSeat(Seed) played the exploration
 	// policy, so -repro rebuilds the same seats.
-	Explore bool   `json:"explore,omitempty"`
-	Turns   int32  `json:"turns"`
-	Intents int    `json:"intents"`
-	Diag    string `json:"diag"`
-	Sig     string `json:"sig"`
+	Explore bool `json:"explore,omitempty"`
+	// AutoPay is the run's -autopay mode ("" for off, so an off record is
+	// byte-identical to one written before the flag), ExploreAutoPay its
+	// -explore-autopay, and AutoPaySeats the seats that auto-paid (derived
+	// from Seed; informational -- -repro rebuilds them from the mode).
+	AutoPay        string `json:"autopay,omitempty"`
+	ExploreAutoPay bool   `json:"explore_autopay,omitempty"`
+	AutoPaySeats   []int  `json:"autopay_seats,omitempty"`
+	Turns          int32  `json:"turns"`
+	Intents        int    `json:"intents"`
+	Diag           string `json:"diag"`
+	Sig            string `json:"sig"`
+}
+
+// stamp records the run's auto-pay configuration on a failure record.
+func (f *failure) stamp(a autoPay, ap []bool) *failure {
+	if f != nil && a.on() {
+		f.AutoPay, f.ExploreAutoPay, f.AutoPaySeats = a.mode, a.explore, seatList(ap)
+	}
+	return f
 }
 
 // signature reduces a diagnostic to a dedupe key: for a panic, the panic
@@ -380,6 +404,9 @@ type gameResult struct {
 	fail     *failure
 	included []string
 	gc       *gameCov
+	// secs is the game's harness wall-clock time (0 for a hang or a
+	// -skip record): -stats sums it so throughput excludes hang budgets.
+	secs float64
 }
 
 // gameCov is one game's coverage: cards cast/played, cards with any ability
@@ -388,15 +415,24 @@ type gameResult struct {
 type gameCov struct {
 	cast, ability map[string]bool
 	used, offered map[string]map[string]bool
+	// ap is the game's auto-pay counters (collected in every mode).
+	ap *apStats
 }
 
 // botSeat is the production hosted bot, or with explore the opt-in
-// coverage-exploration policy (seat.NewExploreBot, botpolicy.ExploreDecide).
-func botSeat(seed uint64, explore bool) seat.Seat {
+// coverage-exploration policy (seat.NewExploreBot, botpolicy.ExploreDecide);
+// autoPay arms either with the payment-plan wrapper (seat.Bot.
+// EnableAutoPayMana), exactly as host.NewBotPolicySeatWithAutoPayMana arms a
+// hosted bot. With autoPay false both are the pre-flag seats.
+func botSeat(seed uint64, explore, autoPay bool) seat.Seat {
 	if explore {
-		return seat.NewExploreBot(seed)
+		b := seat.NewExploreBot(seed)
+		if autoPay {
+			b.EnableAutoPayMana()
+		}
+		return b
 	}
-	s, err := host.NewBotPolicySeat(host.BotPolicy, seed)
+	s, err := host.NewBotPolicySeatWithAutoPayMana(host.BotPolicy, seed, autoPay)
 	if err != nil {
 		panic(err)
 	}
@@ -458,9 +494,25 @@ func playedLand(evs []events.Event, i int) state.ObjID {
 // is piloted by each policy about half the time.
 func exploreSeat(seed uint64) int { return int(seed & 1) }
 
+// playOne plays one game with every seat paying mana by hand (-autopay off).
 func playOne(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIntents, maxObjects int, verify, explore bool) (fail *failure, gc *gameCov) {
+	return playGame(reg, decks, seed, maxTurns, maxIntents, maxObjects, verify, explore, autoPay{mode: "off"})
+}
+
+// exploreIndex is the game's explore seat, or -1 when explore is off.
+func exploreIndex(seed uint64, explore bool) int {
+	if !explore {
+		return -1
+	}
+	return exploreSeat(seed)
+}
+
+// playGame is playOne under an auto-pay configuration (-autopay).
+func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIntents, maxObjects int, verify, explore bool, apc autoPay) (fail *failure, gc *gameCov) {
+	exploreIdx := exploreIndex(seed, explore)
+	ap := apc.seats(seed, len(decks), exploreIdx)
 	mk := func(kind, diag string, o gbench.Outcome) *failure {
-		return &failure{Kind: kind, Seed: seed, Decks: decks, Explore: explore, Turns: o.Turns, Intents: o.Intents, Diag: diag, Sig: signature(kind, diag)}
+		return (&failure{Kind: kind, Seed: seed, Decks: decks, Explore: explore, Turns: o.Turns, Intents: o.Intents, Diag: diag, Sig: signature(kind, diag)}).stamp(apc, ap)
 	}
 	var dk [][]*cards.Card
 	for _, d := range decks {
@@ -474,21 +526,33 @@ func playOne(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxInt
 	seats := make([]seat.Seat, len(decks))
 	for i := range decks {
 		names[i] = fmt.Sprintf("%s-%d", decks[i].Colour, i)
-		seats[i] = botSeat(seed^(0x9e3779b97f4a7c15*uint64(i+1)), explore && i == exploreSeat(seed))
+		seats[i] = botSeat(seed^(0x9e3779b97f4a7c15*uint64(i+1)), i == exploreIdx, ap[i])
 	}
 	cfg := rules.Config{Names: names, Decks: dk, Tokens: reg.Tokens, Seed: seed, NameUniverse: reg.Cards}
 	var o gbench.Outcome
 	var e *rules.Engine
 	var err error
 	probe := &useProbe{}
+	app := &apProbe{ap: ap}
 	offerSeen := map[probeRef]bool{}
 	board := boardGuard(maxObjects)
+	dumped := false
 	guard := func(e *rules.Engine) (string, string) {
 		probe.observe(e, offerSeen)
+		if dumpAt > 0 && !dumped {
+			if d := e.Pending(); d != nil && d.Seq >= dumpAt {
+				dumped = true
+				dumpDecision(e, d)
+			}
+		}
 		if board == nil {
 			return "", ""
 		}
 		return board(e)
+	}
+	setup := func(e *rules.Engine) {
+		probe.install(e)
+		app.install(e)
 	}
 	func() {
 		defer func() {
@@ -496,12 +560,13 @@ func playOne(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxInt
 				err = fmt.Errorf("panic outside drive loop: %v", r)
 			}
 		}()
-		o, e, err = gbench.PlayGame(cfg, seats, maxTurns, maxIntents, gbench.Hooks{Guard: guard, Setup: probe.install})
+		o, e, err = gbench.PlayGame(cfg, seats, maxTurns, maxIntents, gbench.Hooks{Guard: guard, Setup: setup, Decision: app.decision})
 	}()
 	if err != nil {
 		return mk("error", err.Error(), o), nil
 	}
 	gc = played(e, dk, probe)
+	gc.ap = app.finish()
 	withCtx := func(kind, diag string) *failure {
 		ctx, involved := tailContext(e, 24)
 		f := mk(kind, diag+"\n-- last events --\n"+ctx, o)
@@ -544,8 +609,21 @@ func playOne(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxInt
 			return mk("replay", rerr.Error(), o), gc
 		}
 	}
+	// A plan-contract violation (a reversed planned cast, a fallback window)
+	// is recorded only for an otherwise clean game, so it never masks an
+	// engine failure; -plan-failures=false keeps counting without recording.
+	if planFailures {
+		if kind, diag, sig, ok := app.contractFailure(); ok {
+			f := mk(kind, diag, o)
+			f.Sig = sig
+			return f, gc
+		}
+	}
 	return nil, gc
 }
+
+// planFailures is -plan-failures: record plan-contract violations.
+var planFailures = true
 
 // boardGuard is the harness-side board-size watchdog: once the live
 // (non-ceased) object count exceeds max, the game ends as a "bigboard"
@@ -657,7 +735,7 @@ var hang *time.Duration
 // The budget is harness-only (the engine never sees the clock): a game that
 // overruns is recorded as a "hang" carrying its goroutine's stack, and the
 // goroutine is abandoned since Go cannot kill it.
-func playWatched(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIntents, maxObjects int, verify, explore bool, budget time.Duration) (*failure, *gameCov, bool) {
+func playWatched(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIntents, maxObjects int, verify, explore bool, apc autoPay, budget time.Duration) (*failure, *gameCov, bool) {
 	type res struct {
 		f  *failure
 		gc *gameCov
@@ -668,12 +746,14 @@ func playWatched(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, ma
 		buf := make([]byte, 64)
 		buf = buf[:runtime.Stack(buf, false)]
 		fields := strings.Fields(string(buf))
+		id := ""
 		if len(fields) > 1 {
-			gid <- fields[1]
-		} else {
-			gid <- ""
+			id = fields[1]
 		}
-		f, gc := playOne(reg, decks, seed, maxTurns, maxIntents, maxObjects, verify, explore)
+		gid <- id
+		crashLog.start(id, seed)
+		f, gc := playGame(reg, decks, seed, maxTurns, maxIntents, maxObjects, verify, explore, apc)
+		crashLog.end(seed)
 		done <- res{f, gc}
 	}()
 	id := <-gid
@@ -704,7 +784,8 @@ func playWatched(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, ma
 			break
 		}
 	}
-	return &failure{Kind: "hang", Seed: seed, Decks: decks, Explore: explore, Diag: fmt.Sprintf("game exceeded %s wall clock\n%s", budget, stack), Sig: sig}, nil, true
+	f := &failure{Kind: "hang", Seed: seed, Decks: decks, Explore: explore, Diag: fmt.Sprintf("game exceeded %s wall clock\n%s", budget, stack), Sig: sig}
+	return f.stamp(apc, apc.seats(seed, len(decks), exploreIndex(seed, explore))), nil, true
 }
 
 func main() {
@@ -727,7 +808,21 @@ func main() {
 	hang = flag.Duration("hang", 90*time.Second, "wall-clock budget per game before it is recorded as a 'hang' (its goroutine is abandoned)")
 	maxHangs := flag.Int("max-hangs", 6, "stop the run once this many hung games are leaked (each burns a core)")
 	cpuProfile := flag.String("cpuprofile", "", "with -repro: write a CPU profile of the replay here")
+	autoPayMode := flag.String("autopay", "off", "off|all|mixed: which production-bot seats cast through offered payment plans (seat.Bot.EnableAutoPayMana); mixed picks per game and seat from the seed")
+	exploreAutoPay := flag.Bool("explore-autopay", false, "the -explore seat auto-pays too wherever -autopay would select its seat (off by default: the wrapper hides priority mana activations, cutting explore coverage)")
+	statsPath := flag.String("stats", "", "write the run's failure counts and auto-pay counters here as JSON")
+	journalPath := flag.String("journal", "", "append 'start <goroutine> <seed>' / 'end <seed>' around every game: a fatal runtime error (a stack overflow) kills the whole process past any recover, and the journal names the game the crashing goroutine was playing")
+	skipPath := flag.String("skip", "", "JSONL of games not to play ({seed, sig, diag} per line, from a -journal crash): each is recorded as a 'fatal' failure instead")
+	flag.Uint64Var(&dumpAt, "dump-at", 0, "with -repro: print the first pending decision whose Seq is at least this log index (options, payment actions, pool, battlefield)")
+	flag.BoolVar(&planFailures, "plan-failures", true, "record a game whose planned cast was reversed (kind planrev) or fell back to the manual window (planfb) as a failure")
+	maxStack := flag.Int("max-stack", 256<<20, "per-goroutine stack limit in bytes (runtime/debug.SetMaxStack): an unbounded recursion dies here instead of at Go's 1 GB default")
 	flag.Parse()
+	debug.SetMaxStack(*maxStack)
+	apc, err := parseAutoPay(*autoPayMode, *exploreAutoPay)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "cardfuzz:", err)
+		os.Exit(1)
+	}
 
 	reg, err := cards.OpenCorpus(*dir)
 	if err != nil {
@@ -769,6 +864,20 @@ func main() {
 		}
 		return
 	}
+	skip, err := loadSkip(*skipPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "cardfuzz:", err)
+		os.Exit(1)
+	}
+	if *journalPath != "" {
+		jf, err := os.OpenFile(*journalPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "cardfuzz:", err)
+			os.Exit(1)
+		}
+		defer jf.Close()
+		crashLog = &journal{f: jf}
+	}
 	ff, err := os.OpenFile(*failPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "cardfuzz:", err)
@@ -785,6 +894,9 @@ func main() {
 
 	start := time.Now()
 	runFails := map[string]int{}
+	runKinds := map[string]int{}
+	var runAP apStats
+	var gameSecs float64
 	played := 0
 	for played < *games && !stop.Load() {
 		n := min(*batch, *games-played)
@@ -813,14 +925,31 @@ func main() {
 						results[j.idx] = gameResult{idx: -1}
 						continue
 					}
-					f, gc, hung := playWatched(reg, j.decks, j.seed, *maxTurns, *maxIntents, *maxObjects, *verify, *explore, *hang)
+					if sk, ok := skip[j.seed]; ok {
+						// A game that killed an earlier process: record it,
+						// never replay it here.
+						f := (&failure{Kind: "fatal", Seed: j.seed, Decks: j.decks, Explore: *explore, Diag: sk.Diag, Sig: sk.Sig}).
+							stamp(apc, apc.seats(j.seed, len(j.decks), exploreIndex(j.seed, *explore)))
+						gr := gameResult{idx: j.idx, fail: f}
+						for _, d := range j.decks {
+							gr.included = append(gr.included, d.Cards...)
+						}
+						results[j.idx] = gr
+						continue
+					}
+					t0 := time.Now()
+					f, gc, hung := playWatched(reg, j.decks, j.seed, *maxTurns, *maxIntents, *maxObjects, *verify, *explore, apc, *hang)
+					secs := time.Since(t0).Seconds()
+					if hung {
+						secs = 0
+					}
 					if hung {
 						if hangs.Add(1) > int64(*maxHangs) {
 							fmt.Fprintln(os.Stderr, "cardfuzz: too many leaked hung games; stopping")
 							stop.Store(true)
 						}
 					}
-					gr := gameResult{idx: j.idx, fail: f, gc: gc}
+					gr := gameResult{idx: j.idx, fail: f, gc: gc, secs: secs}
 					for _, d := range j.decks {
 						gr.included = append(gr.included, d.Cards...)
 					}
@@ -839,6 +968,7 @@ func main() {
 			}
 			c.Games++
 			played++
+			gameSecs += gr.secs
 			seen := map[string]bool{}
 			for _, nme := range gr.included {
 				if !seen[nme] {
@@ -847,6 +977,7 @@ func main() {
 				}
 			}
 			if gr.gc != nil {
+				runAP.add(gr.gc.ap)
 				for nme := range gr.gc.cast {
 					c.Cast[nme]++
 				}
@@ -858,6 +989,7 @@ func main() {
 			}
 			if gr.fail != nil {
 				runFails[gr.fail.Sig]++
+				runKinds[gr.fail.Kind]++
 				for nme := range seen {
 					if !p.isBasic(nme) {
 						c.Fails[nme]++
@@ -877,7 +1009,18 @@ func main() {
 			nf += v
 		}
 		fmt.Fprintf(os.Stderr, "cardfuzz: %d/%d games, %d failures (%d sigs), %.1f games/s\n", played, *games, nf, len(runFails), float64(played)/time.Since(start).Seconds())
+		if apc.on() {
+			fmt.Fprintf(os.Stderr, "cardfuzz: autopay %s (explore-autopay %v): %s\n", apc.mode, apc.explore, runAP.String())
+		}
 		printReport(p, c, false)
+		if *statsPath != "" {
+			rs := runStats{AutoPay: apc.mode, ExploreAutoPay: apc.explore, Explore: *explore, Seed: *seed, Games: played,
+				Failures: nf, Kinds: runKinds, Sigs: runFails, Stats: runAP, Seconds: time.Since(start).Seconds(),
+				GameSeconds: gameSecs, Workers: *workers}
+			if err := rs.save(*statsPath); err != nil {
+				fmt.Fprintln(os.Stderr, "cardfuzz: stats:", err)
+			}
+		}
 	}
 	fmt.Println("== failure signatures this run ==")
 	keys := make([]string, 0, len(runFails))
@@ -1018,7 +1161,19 @@ func runRepro(reg *cards.Registry, path string, line, maxTurns, maxIntents, maxO
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		fl, _ := playOne(reg, rec.Decks, rec.Seed, maxTurns, maxIntents, maxObjects, true, rec.Explore)
+		apc, err := autoPayOf(rec)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		if got := seatList(apc.seats(rec.Seed, len(rec.Decks), exploreIndex(rec.Seed, rec.Explore))); fmt.Sprint(got) != fmt.Sprint(rec.AutoPaySeats) {
+			fmt.Fprintf(os.Stderr, "cardfuzz: record's autopay_seats %v disagree with the seats -autopay %s derives (%v)\n", rec.AutoPaySeats, apc.mode, got)
+			return 1
+		}
+		fl, gc := playGame(reg, rec.Decks, rec.Seed, maxTurns, maxIntents, maxObjects, true, rec.Explore, apc)
+		if gc != nil && gc.ap != nil && apc.on() {
+			fmt.Printf("REPRO autopay %s seats %v: %s\n", apc.mode, rec.AutoPaySeats, gc.ap.String())
+		}
 		if fl == nil {
 			fmt.Println("REPRO: game completed cleanly (not reproduced)")
 			return 0

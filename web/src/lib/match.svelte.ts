@@ -91,6 +91,7 @@ export class MatchState {
           this.seatSince = 0;
           this.dispatch({ type: 'rewind', match: `${this.table}/${this.match}`, head: s.head, turnStarts: s.turn_starts });
           if (this.seat) {
+            this.withdrawPaintedDecision();
             void this.refreshLive();
             void this.backfillEvents(0);
           } else {
@@ -137,6 +138,7 @@ export class MatchState {
         this.seatSince = 0;
         this.dispatch({ type: 'rewind', match: `${this.table}/${this.match}`, head: s.head, turnStarts: s.turn_starts });
         if (this.seat) {
+          this.withdrawPaintedDecision();
           void this.refreshLive();
           void this.backfillEvents(0);
         } else {
@@ -187,6 +189,25 @@ export class MatchState {
     this.view = view;
     this.renderedSeq = seq;
     clientBreadcrumbs.setView(seq, view?.decision?.seq ?? null);
+  }
+
+  /**
+   * withdrawPaintedDecision is the seated half of a rewind's rule that old
+   * pending decisions never reappear. The seated path keeps painting the
+   * PRE-rewind seat view until refreshLive fetches the seat's projection at
+   * the new head (the pushed rewind body is the spectator's), and that view
+   * embeds the seat's decision from the discarded seq space. SeatPanel adopts
+   * view.decision whenever its adopt effect re-runs -- and the panel's own
+   * rewind() writes re-run it -- so the discarded ask was re-adopted into the
+   * fresh seq space the rewind had just opened, where it became the seqHigh
+   * fence and the restored, lower-seq decision was refused for good: the
+   * 2026-09-26 demo g3 undo, where every answer carried seq 1526 against the
+   * restored 1519. The board stays on screen; only its ask is withdrawn.
+   */
+  private withdrawPaintedDecision() {
+    const v = this.view;
+    if (v?.decision === undefined || v.decision === null) return;
+    this.setRenderedView({ ...v, decision: null }, this.renderedSeq);
   }
 
   dispatch(a: DvrAction) {

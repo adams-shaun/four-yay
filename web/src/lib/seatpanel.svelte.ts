@@ -2226,10 +2226,18 @@ export class SeatPanelState {
 
   /** refreshPending re-reads the current decision from /pending: the recovery path after a rejection, and the not-yet-viewed case at mount. A 409 conflict IS the normal "nothing pending" answer (the wait is on someone else), not an error. */
   async refreshPending() {
+    // A read issued before a rewind (or match boundary) describes the seq
+    // space begin() discarded, exactly like an in-flight post (seqEpoch). Its
+    // decision must not be adopted into the fresh space, where the seqHigh
+    // fence has been reset and would then refuse the restored, lower-seq ask
+    // for good; nor may its 409 clear that restored ask.
+    const epoch = this.seqEpoch;
     try {
       const d = await fetchPending(this.table, this.match, this.ctx);
+      if (epoch !== this.seqEpoch) return;
       this.adopt(d);
     } catch (e) {
+      if (epoch !== this.seqEpoch) return;
       if (e instanceof ApiError && e.status === 409) {
         this.adopt(null);
         return;

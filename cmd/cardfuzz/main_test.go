@@ -1,13 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 )
 
 func TestSignatureCollapsesSeedNumbers(t *testing.T) {
@@ -304,5 +308,146 @@ func TestCovUsedBackwardCompatible(t *testing.T) {
 	}
 	if w2 := c.weight(poolCard{name: "X", keys: keys}); w != 4*w2 {
 		t.Fatalf("weight with a missing ability %v, want 4x the full weight %v", w, w2)
+	}
+}
+
+// TestAutoPaySeatsModes pins the -autopay seat selection: off arms no seat,
+// all arms every production seat (the explore seat only with
+// -explore-autopay), and mixed is a pure per-seat function of the game seed
+// that yields both answers across seeds.
+func TestAutoPaySeatsModes(t *testing.T) {
+	if _, err := parseAutoPay("bogus", false); err == nil {
+		t.Fatalf("an unknown -autopay mode must be rejected")
+	}
+	off, _ := parseAutoPay("off", true)
+	all, _ := parseAutoPay("all", false)
+	allExp, _ := parseAutoPay("all", true)
+	mixed, _ := parseAutoPay("mixed", false)
+	for seed := uint64(0); seed < 16; seed++ {
+		if got := seatList(off.seats(seed, 2, exploreSeat(seed))); got != nil {
+			t.Fatalf("off armed seats %v", got)
+		}
+	}
+	if got := fmt.Sprint(all.seats(5, 2, 1)); got != "[true false]" {
+		t.Fatalf("all with explore seat 1 = %s, want the production seat only", got)
+	}
+	if got := fmt.Sprint(allExp.seats(5, 2, 1)); got != "[true true]" {
+		t.Fatalf("all with -explore-autopay = %s, want both seats", got)
+	}
+	if got := fmt.Sprint(all.seats(5, 2, -1)); got != "[true true]" {
+		t.Fatalf("all without an explore seat = %s, want both seats", got)
+	}
+	seen := map[bool]bool{}
+	for seed := uint64(0); seed < 64; seed++ {
+		a := mixed.seats(seed, 2, 1)
+		if fmt.Sprint(a) != fmt.Sprint(mixed.seats(seed, 2, 1)) {
+			t.Fatalf("mixed is not deterministic at seed %d", seed)
+		}
+		if a[1] {
+			t.Fatalf("mixed armed the explore seat without -explore-autopay (seed %d)", seed)
+		}
+		seen[a[0]] = true
+	}
+	if !seen[true] || !seen[false] {
+		t.Fatalf("mixed never varied seat 0 across 64 seeds: %v", seen)
+	}
+}
+
+// TestAutoPayGameSubmitsPlans plays a real game whose casts are all V1-plan
+// shapes (Forests, Llanowar Elves, Grizzly Bears, Hill Giant): with -autopay
+// all both seats cast through submitted plans, none is reversed, and the game
+// replays (verify); off seats see the same plans offered and submit none. A
+// forced failure record carries the mode and seats, and -repro's rebuild of
+// them (autoPayOf) round-trips, while an off record stays free of the fields.
+func TestAutoPayGameSubmitsPlans(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	var d genDeck
+	d.Colour = "G"
+	for i := 0; i < 60; i++ {
+		switch {
+		case i < 24:
+			d.Cards = append(d.Cards, "Forest")
+		case i < 36:
+			d.Cards = append(d.Cards, "Llanowar Elves")
+		case i < 50:
+			d.Cards = append(d.Cards, "Grizzly Bears")
+		default:
+			d.Cards = append(d.Cards, "Hill Giant")
+		}
+	}
+	decks := []genDeck{d, d}
+	all, _ := parseAutoPay("all", false)
+	f, gc := playGame(reg, decks, 9, 14, 20000, 0, true, false, all)
+	if f != nil {
+		t.Fatalf("auto-pay game failed: %s %s", f.Kind, f.Diag)
+	}
+	if gc.ap.Planned == 0 || gc.ap.PriorityPlan == 0 {
+		t.Fatalf("auto-pay seats submitted no plan: %s", gc.ap)
+	}
+	if gc.ap.PlannedReversed != 0 || gc.ap.ManualCastPlan != 0 {
+		t.Fatalf("a planned cast was reversed or a planned object cast by hand: %s", gc.ap)
+	}
+	if !gc.cast["Grizzly Bears"] {
+		t.Fatalf("setup: Grizzly Bears never cast: %v", gc.cast)
+	}
+	t.Logf("all: %s", gc.ap)
+	_, gcOff := playGame(reg, decks, 9, 14, 20000, 0, false, false, autoPay{mode: "off"})
+	t.Logf("off: %s", gcOff.ap)
+	if gcOff.ap.Planned != 0 || gcOff.ap.Priority != 0 || gcOff.ap.ManualSeatPriorityPlan == 0 {
+		t.Fatalf("off seats must see plans offered and submit none: %s", gcOff.ap)
+	}
+	// The 100-object cap forces a (bigboard) failure record.
+	f, _ = playGame(reg, decks, 11, 3, 20000, 100, false, false, all)
+	if f == nil || f.AutoPay != "all" || fmt.Sprint(f.AutoPaySeats) != "[0 1]" {
+		t.Fatalf("failure record %+v does not carry the auto-pay configuration", f)
+	}
+	if got, err := autoPayOf(*f); err != nil || got != all {
+		t.Fatalf("autoPayOf(%q) = %+v, %v; want %+v", f.AutoPay, got, err, all)
+	}
+	f, _ = playOne(reg, decks, 11, 3, 20000, 100, false, false)
+	b, _ := json.Marshal(f)
+	if strings.Contains(string(b), "autopay") {
+		t.Fatalf("an off record must stay byte-compatible with pre-flag records: %s", b)
+	}
+}
+
+// TestPlanContractFailureKinds pins the plan-contract records: a reversed
+// planned cast (planrev) outranks a fallback window (planfb), each signature
+// names the reason and the card, and a probe with neither records nothing.
+func TestPlanContractFailureKinds(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	var d genDeck
+	d.Colour = "G"
+	for i := 0; i < 60; i++ {
+		if i < 24 {
+			d.Cards = append(d.Cards, "Forest")
+		} else {
+			d.Cards = append(d.Cards, "Grizzly Bears")
+		}
+	}
+	dk, err := resolveDeck(reg, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := rules.New(rules.Config{Names: []string{"a", "b"}, Decks: [][]*cards.Card{dk, dk}, Tokens: reg.Tokens, Seed: 3})
+	e.Advance()
+	var bear state.ObjID
+	for _, id := range e.G.Zone(state.ZLibrary, 0) {
+		if cardName(e.G.Obj(id).Card) == "Grizzly Bears" {
+			bear = id
+			break
+		}
+	}
+	p := &apProbe{e: e}
+	if _, _, _, ok := p.contractFailure(); ok {
+		t.Fatalf("a probe with no violation recorded one")
+	}
+	p.firstFB = &fallbackSeen{card: bear, reason: "cost_changed", planID: "x"}
+	if kind, _, sig, ok := p.contractFailure(); !ok || kind != "planfb" || sig != "planfb: cost_changed {Grizzly Bears}" {
+		t.Fatalf("fallback record = %v %q %q", ok, kind, sig)
+	}
+	p.firstRev = &reversal{pc: plannedCast{obj: bear}, note: "cast aborted: cost no longer payable 2"}
+	if kind, diag, sig, ok := p.contractFailure(); !ok || kind != "planrev" || sig != "planrev: cast aborted: cost no longer payable # (plan-only) {Grizzly Bears}" || !strings.Contains(diag, "reversed") {
+		t.Fatalf("reversal record = %v %q %q", ok, kind, sig)
 	}
 }

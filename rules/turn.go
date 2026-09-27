@@ -1280,7 +1280,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		e.castAnswer(d, chosen)
 		// A mana ability selection or Produced$ Any colour choice installed
 		// its own decision; only a fully resolved singleton may continue.
-		if e.pending != nil || e.choosing == chooseMana || e.choosing == chooseManaColor || e.choosing == chooseManaDiscard || e.choosing == chooseManaExile || e.choosing == chooseManaSacrifice {
+		if e.pending != nil || e.choosing == chooseMana || e.manaCostChoicePending() {
 			return
 		}
 		e.continueCast()
@@ -1552,7 +1552,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// mid-resolution payment window reopens instead. An ordinary
 		// activation falls through to Advance's priority round.
 		cast := e.answerManaActivation(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if cast {
@@ -1561,7 +1561,21 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		}
 	case chooseManaSacrifice:
 		cast := e.answerManaSacrifice(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if e.unlessPayment != nil {
+				e.advanceUnlessPayment()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	case chooseManaTap:
+		// The tapXType<N/Spec> election beside sacrifice/discard/exile: the
+		// picks are recorded and the same continuation resumes, then the same
+		// tail (Ward window, unless cost, or the cast) runs.
+		cast := e.answerManaTap(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if e.unlessPayment != nil {
@@ -1572,7 +1586,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		}
 	case chooseManaDiscard:
 		cast := e.answerManaDiscard(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if e.unlessPayment != nil {
@@ -1583,7 +1597,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		}
 	case chooseManaExile:
 		cast := e.answerManaExile(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if e.unlessPayment != nil {
