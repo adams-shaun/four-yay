@@ -760,7 +760,35 @@ func isLoyaltyAbility(ab *cards.SA) bool {
 // isLoyaltyAbility is the engine-owned form of the loyalty classifier. Its
 // card-script cost is configured text, so use the immutable parser sidecar.
 func (e *Engine) isLoyaltyAbility(ab *cards.SA) bool {
-	return isLoyaltyAbilityCost(ab, e.parseCost(ab.Params["Cost"]))
+	raw := ab.Params["Cost"]
+	if !containsLoyaltyFold(raw) {
+		// No AddCounter/SubCounter part of raw can carry a LOYALTY spec (each
+		// part's Spec is a substring of the raw text, and no non-ASCII rune
+		// case-folds onto l/o/y/a/t), so only the Planeswalker$ marker can
+		// classify it: skip the parsed-cost lookup and its large Cost copy.
+		return isLoyaltyAbilityCost(ab, Cost{})
+	}
+	return isLoyaltyAbilityCost(ab, e.parseCost(raw))
+}
+
+// containsLoyaltyFold reports whether s contains "loyalty" in any ASCII case.
+func containsLoyaltyFold(s string) bool {
+	const w = "loyalty"
+	for i := 0; i+len(w) <= len(s); i++ {
+		if s[i]|0x20 != 'l' {
+			continue
+		}
+		j := 1
+		for ; j < len(w); j++ {
+			if s[i+j]|0x20 != w[j] {
+				break
+			}
+		}
+		if j == len(w) {
+			return true
+		}
+	}
+	return false
 }
 
 func isLoyaltyAbilityCost(ab *cards.SA, c Cost) bool {
