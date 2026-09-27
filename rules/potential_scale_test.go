@@ -99,6 +99,7 @@ func BenchmarkPotentialManaLargeBoard(b *testing.B) {
 	for _, n := range []int{500, 2000} {
 		b.Run(fmt.Sprint(n), func(b *testing.B) {
 			e := potentialScaleBoard(b, n)
+			benchWithoutVerify(b)
 			b.ReportAllocs()
 			b.ResetTimer()
 			for range b.N {
@@ -106,4 +107,16 @@ func BenchmarkPotentialManaLargeBoard(b *testing.B) {
 			}
 		})
 	}
+}
+
+// benchWithoutVerify turns the rules test binary's verify modes off for the
+// rest of a benchmark (they recompute every cache hit and fast path, which is
+// exactly the work the benchmarks measure the removal of), restoring them at
+// cleanup. Benchmarks run sequentially, never beside a Parallel test.
+func benchWithoutVerify(b *testing.B) {
+	prevMemo, prevWalk, prevL4, prevInert := derivedMemoVerify, walkCacheVerify, layer4PrecheckVerify, layerInertVerify
+	derivedMemoVerify, walkCacheVerify, layer4PrecheckVerify, layerInertVerify = false, false, false, false
+	b.Cleanup(func() {
+		derivedMemoVerify, walkCacheVerify, layer4PrecheckVerify, layerInertVerify = prevMemo, prevWalk, prevL4, prevInert
+	})
 }
