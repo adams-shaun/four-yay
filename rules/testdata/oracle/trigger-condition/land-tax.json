@@ -7,7 +7,7 @@
     {
       "name": "opponent-more-lands-searches-basic",
       "cr": ["603.4", "503.1"],
-      "why": "The opponent has two lands while Land Tax's controller has one, so the upkeep condition is true; one available basic land is searched into hand.",
+      "why": "The opponent has two lands while Land Tax's controller has one, so the upkeep condition is true; the player chooses to search out one Forest.",
       "setup": {
         "p0": {"battlefield": ["Land Tax", "Plains"], "library": ["Forest"]},
         "p1": {"battlefield": ["Forest", "Wastes"]}
@@ -26,6 +26,22 @@
       "setup": {"p0": {"battlefield": ["Land Tax", "Plains"]}, "p1": {"battlefield": ["Forest"]}},
       "steps": [
         {"op": "pass_to", "step": "upkeep", "active": "p0", "expect": [{"trigger_on_stack": "p0:Land Tax", "want": false}]}
+      ],
+      "expect": [{"hand_size": {"p0": 0}}]
+    },
+    {
+      "name": "condition-false-at-resolution-searches-nothing",
+      "cr": ["603.4", "503.1"],
+      "why": "At upkeep the opponent controls two lands to the controller's one, so the intervening-if holds at trigger time and the ability goes on the stack. The runner then removes an opposing land before resolution, so the opponent no longer controls more lands; per CR 603.4 the condition is checked again on resolution, the ability does nothing and no land is searched.",
+      "setup": {
+        "p0": {"battlefield": ["Land Tax", "Plains"], "library": ["Forest"]},
+        "p1": {"battlefield": ["Forest"], "graveyard": ["Wastes"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p1:Wastes", "to": "battlefield"},
+        {"op": "pass_to", "step": "upkeep", "active": "p0", "expect": [{"trigger_on_stack": "p0:Land Tax", "want": true}]},
+        {"op": "move", "seat": 0, "card": "p1:Wastes", "to": "graveyard"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Forest"]}]}
       ],
       "expect": [{"hand_size": {"p0": 0}}]
     }

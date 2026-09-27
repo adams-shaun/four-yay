@@ -29,6 +29,17 @@
       "expect": [{"life": {"p0": 22, "p1": 12}}]
     },
     {
+      "name": "one-life-lost-no-end-step-trigger",
+      "cr": ["603.2", "603.4", "513.1"],
+      "why": "Only one life was lost this turn, one short of the two-or-more condition. The end-step ability does not trigger and no quest counter is put on Bloodchief Ascension.",
+      "setup": {"p0": {"battlefield": ["Bloodchief Ascension"]}, "p1": {"battlefield": ["Savannah Lions"]}},
+      "steps": [
+        {"op": "life", "seat": 1, "amount": -1},
+        {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Bloodchief Ascension", "want": false}]}
+      ],
+      "expect": [{"card": "p0:Bloodchief Ascension", "counters": {"quest": 0}}, {"life": {"p0": 20, "p1": 19}}]
+    },
+    {
       "name": "below-three-counters-no-graveyard-trigger",
       "cr": ["603.4", "513.1"],
       "why": "One opponent life-loss event qualifies for only one quest counter. With fewer than three counters, a card subsequently put into that opponent's graveyard does not trigger the life-loss ability.",
