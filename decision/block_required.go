@@ -7,6 +7,13 @@ import "github.com/adams-shaun/gorge/state"
 // only when the rest of the team can join it. The same result supplies the
 // engine's quota and the bot's repair; no separate board-side feasibility
 // estimate can disagree with it. Called only on decisions with MustBlock.
+//
+// A requirement is either BLOCKER-oriented (Option.BlockMust/Required: a
+// particular creature must block) or ATTACKER-oriented (Option.AttackMust: a
+// particular attacker must receive at least one blocker, "CARDNAME must be
+// blocked if able"). The team maximizes the TOTAL number of satisfied
+// requirements, so a declaration that satisfies one of each always beats one
+// that satisfies only the other; ties take the shortest team.
 func (d *Decision) blockRequiredCore() []int {
 	type blocker struct {
 		id       state.ObjID
@@ -16,8 +23,14 @@ func (d *Decision) blockRequiredCore() []int {
 	var blocks []blocker
 	pos := make(map[state.ObjID]int)
 	minAttackers := make(map[state.ObjID]bool)
+	// atkReq is the set of attackers carrying an attacker-oriented
+	// requirement. Each is satisfied once by ANY chosen option naming it.
+	atkReq := make(map[state.ObjID]bool)
 	for _, o := range d.Options {
-		if (o.BlockMust || o.Required) && o.MinBlockers > 1 {
+		if o.AttackMust {
+			atkReq[o.Attacker] = true
+		}
+		if (o.BlockMust || o.Required || o.AttackMust) && o.MinBlockers > 1 {
 			minAttackers[o.Attacker] = true
 		}
 	}
@@ -32,7 +45,8 @@ func (d *Decision) blockRequiredCore() []int {
 		blocks[p].opts = append(blocks[p].opts, i)
 	}
 	// Required creatures first; ordinary blockers need only be considered
-	// as helpers for a required block with a multi-blocker minimum.
+	// as helpers for a required block with a multi-blocker minimum, or as a
+	// satisfier of an attacker requirement.
 	var candidates []blocker
 	for _, b := range blocks {
 		if b.required {
@@ -40,9 +54,6 @@ func (d *Decision) blockRequiredCore() []int {
 		}
 	}
 	requiredCount := len(candidates)
-	if requiredCount == 0 {
-		return nil
-	}
 	for _, b := range blocks {
 		if b.required {
 			continue
@@ -50,7 +61,8 @@ func (d *Decision) blockRequiredCore() []int {
 		var helper blocker
 		helper.id = b.id
 		for _, i := range b.opts {
-			if minAttackers[d.Options[i].Attacker] {
+			o := d.Options[i]
+			if minAttackers[o.Attacker] || atkReq[o.Attacker] {
 				helper.opts = append(helper.opts, i)
 			}
 		}
@@ -59,17 +71,25 @@ func (d *Decision) blockRequiredCore() []int {
 		}
 	}
 	counts := make(map[state.ObjID]int)
+	satAtk := make(map[state.ObjID]bool)
 	var chosen, best []int
 	bestRequired := -1
 	bestLength := int(^uint(0) >> 1)
 	var search func(int, int, int)
 	search = func(at, satisfied, spent int) {
-		if bestRequired == requiredCount {
+		if bestRequired == requiredCount+len(atkReq) {
 			return
 		}
 		remaining := requiredCount - at
 		if remaining < 0 {
 			remaining = 0
+		}
+		// Over-estimate the satisfaction still reachable from here: every
+		// unsatisfied attacker requirement may still be satisfied ahead. An
+		// over-estimate only costs search, never prunes a branch that could
+		// beat the best team.
+		if unsat := len(atkReq) - len(satAtk); unsat > 0 {
+			remaining += unsat
 		}
 		if satisfied+remaining < bestRequired {
 			return
@@ -102,7 +122,20 @@ func (d *Decision) blockRequiredCore() []int {
 			if b.required {
 				add = 1
 			}
+			// An attacker-oriented requirement is satisfied by the FIRST
+			// chosen option naming that attacker; later blockers of the same
+			// attacker add nothing. Only the option that SET the flag clears
+			// it on backtrack -- a second blocker of the same attacker must
+			// not delete the first one's satisfaction.
+			setAtk := o.AttackMust && !satAtk[o.Attacker]
+			if setAtk {
+				satAtk[o.Attacker] = true
+				add++
+			}
 			search(at+1, satisfied+add, spent+o.Value)
+			if setAtk {
+				delete(satAtk, o.Attacker)
+			}
 			chosen = chosen[:len(chosen)-1]
 			counts[o.Attacker]--
 		}
@@ -134,24 +167,43 @@ func (d *Decision) blockRequiredCore() []int {
 
 func (d *Decision) hasRequiredBlocks() bool {
 	for _, o := range d.Options {
-		if o.BlockMust || o.Required {
+		if o.BlockMust || o.Required || o.AttackMust {
 			return true
 		}
 	}
 	return false
 }
 
-func (d *Decision) blockRequiredQuota() int {
+// blockRequirementsSatisfied counts the CR 509.1c requirement units the
+// chosen options satisfy: one per required BLOCKER chosen (BlockMust/Required)
+// plus one per required ATTACKER that at least one chosen option blocks
+// (AttackMust). This is the ONE counter blockRequiredQuota reads on the
+// solver's team and RequiredChosen reads on a submitted answer, so the engine's
+// declaration check and the client's repair can never disagree about what
+// "the maximum" means. Out-of-range indices are ignored.
+func (d *Decision) blockRequirementsSatisfied(choices []int) int {
+	seenBlocker := make(map[state.ObjID]bool)
+	seenAttacker := make(map[state.ObjID]bool)
 	n := 0
-	seen := make(map[state.ObjID]bool)
-	for _, ci := range d.blockRequiredCore() {
-		o := d.Options[ci]
-		if (o.BlockMust || o.Required) && !seen[o.Obj] {
-			seen[o.Obj] = true
+	for _, c := range choices {
+		if c < 0 || c >= len(d.Options) {
+			continue
+		}
+		o := d.Options[c]
+		if (o.BlockMust || o.Required) && !seenBlocker[o.Obj] {
+			seenBlocker[o.Obj] = true
+			n++
+		}
+		if o.AttackMust && !seenAttacker[o.Attacker] {
+			seenAttacker[o.Attacker] = true
 			n++
 		}
 	}
 	return n
+}
+
+func (d *Decision) blockRequiredQuota() int {
+	return d.blockRequirementsSatisfied(d.blockRequiredCore())
 }
 
 func (d *Decision) blockAnswerLegal(choices []int) bool {

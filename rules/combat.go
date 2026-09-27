@@ -1787,6 +1787,20 @@ func (e *Engine) askBlockers() {
 		scope := e.blockPairScopeFor(defender)
 		var opts []decision.Option
 		requiredBlockers := e.mustBlockCandidates(defender)
+		// The attacker-oriented CR 509.1c requirements: every attacker the
+		// defender is being asked about that carries "CARDNAME must be blocked
+		// if able.". The requirement is satisfied by ANY one legal blocker
+		// pair, so the flag is per option and the whole-declaration solver
+		// (decision.blockRequiredCore) counts it once per attacker; an attacker
+		// with no offered pair (no legal blocker, no affordable pair) has no
+		// option carrying the flag, so it contributes no requirement -- the
+		// "if able" half is decided by the offer, never asserted here.
+		mustBeBlocked := make(map[state.ObjID]bool, len(scope.attackers))
+		for _, aid := range scope.attackers {
+			if e.hasMustBeBlockedKeyword(aid) {
+				mustBeBlocked[aid] = true
+			}
+		}
 		for _, bid := range e.G.Zone(state.ZBattlefield, defender) {
 			for _, aid := range scope.attackers {
 				if !e.admissiblePair(&scope, defender, bid, aid) {
@@ -1812,7 +1826,8 @@ func (e *Engine) askBlockers() {
 				opt := decision.Option{Index: len(opts), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
-					Group: fmt.Sprintf("blocker:%d", bid), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid]}
+					Group: fmt.Sprintf("blocker:%d", bid), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
+					AttackMust: mustBeBlocked[aid]}
 				if b, ok := scope.bounds[aid]; ok {
 					opt.MinBlockers, opt.MaxBlockers = b[0], b[1]
 				}
@@ -1835,9 +1850,11 @@ func (e *Engine) askBlockers() {
 					opt.CostTaps += int(t.n)
 				}
 				// Menace is another whole-team minimum. Publish it for a
-				// required block so the shared solver cannot count a lone
-				// required blocker whose declaration would be rejected.
-				if opt.Required && e.HasKeyword(aid, "Menace") && opt.MinBlockers < 2 {
+				// required block -- and for an attacker the CR 509.1c
+				// requirement forces a block -- so the shared solver cannot
+				// count a lone required blocker whose declaration would be
+				// rejected.
+				if (opt.Required || opt.AttackMust) && e.HasKeyword(aid, "Menace") && opt.MinBlockers < 2 {
 					opt.MinBlockers = 2
 				}
 				opts = append(opts, opt)

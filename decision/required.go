@@ -85,14 +85,19 @@ func (d *Decision) RequiredQuota() int {
 	return len(d.requiredCore())
 }
 
-// RequiredChosen counts the distinct required Objs chosen. KBlockers also
-// counts alternate MustBlock candidate pairs, not just the one highlighted
-// Required on the wire. Out-of-range indices are ignored.
+// RequiredChosen counts the distinct required Objs chosen. KBlockers uses the
+// whole-declaration requirement counter instead (blockRequirementsSatisfied),
+// because a blocking answer can satisfy an ATTACKER-oriented requirement with
+// any one of several blocker pairs, and counts required BLOCKERS and required
+// ATTACKERS alike. Out-of-range indices are ignored.
 func (d *Decision) RequiredChosen(choices []int) int {
+	if d.Kind == KBlockers {
+		return d.blockRequirementsSatisfied(choices)
+	}
 	seen := make(map[state.ObjID]bool, len(choices)) // membership only.
 	n := 0
 	for _, c := range choices {
-		if c < 0 || c >= len(d.Options) || (!d.Options[c].Required && (d.Kind != KBlockers || !d.Options[c].BlockMust)) {
+		if c < 0 || c >= len(d.Options) || !d.Options[c].Required {
 			continue
 		}
 		if obj := d.Options[c].Obj; !seen[obj] {

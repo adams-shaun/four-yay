@@ -1369,27 +1369,98 @@ func (e *Engine) onlyFirstSpellUsed(sv staticView, p state.PlayerID, id state.Ob
 	return false
 }
 
-// hasCantBlockKeyword reports whether the object's CURRENT derived keyword
-// list carries Forge's textual can't-block grant ("CARDNAME can't block."),
-// with or without the HIDDEN marker Forge prepends. Unlike HasKeyword, which
-// compares heads exactly, this normalises the optional "HIDDEN " prefix away
-// first, because the corpus spells the SAME restriction both ways: 115 files
-// carry `KW$ HIDDEN CARDNAME can't block.` (Pump/PumpAll templates,
-// Concussive Bolt) and Incite Hysteria, Unearthly Blizzard and Siegebreaker
-// Giant carry the bare `KW$ CARDNAME can't block.`. Both are one derived
-// layer-6 grant and must reach the block oracle alike; a hardcoded pair of
-// literals would miss the next spelling. The grant is a rules-side casting/
-// blocking option, so it is read from the derived list (printed plus
-// layer-granted), never the printed face.
-func (e *Engine) hasCantBlockKeyword(id state.ObjID) bool {
-	for _, k := range e.Derived(id).Keywords {
-		head := cardsKeywordHead(k)
-		head = strings.TrimSpace(strings.TrimPrefix(head, "HIDDEN "))
-		if strings.EqualFold(head, "CARDNAME can't block.") {
-			return true
-		}
+// hiddenKeywordFlags is the parsed meaning of one derived keyword line that
+// carries an English combat-restriction/requirement sentence. Forge delivers
+// these three the same way -- as keyword TEXT, sometimes under a
+// HiddenKeywords$ Animate parameter, sometimes under a Pump/PumpAll KW$ -- so
+// ONE reader every rules consumer calls is what keeps the spellings from
+// drifting apart (a new equivalent spelling is then one switch arm).
+type hiddenKeywordFlags struct {
+	cantAttack bool
+	cantBlock  bool
+	mustBlock  bool
+}
+
+// parseHiddenKeyword reads one derived keyword line (already the head, via
+// cardsKeywordHead) into its combat meaning, normalising Forge's optional
+// "HIDDEN " marker away first because the corpus spells the SAME restriction
+// both ways. Only the three measured phrase shapes are recognised; any other
+// sentence contributes nothing (the deliberate fail-closed direction for a
+// per-keyword switch). The comparison is case-insensitive and the phrase is
+// matched whole -- a longer sentence that merely contains one of these (a
+// conditional rider) is a different grant and must not borrow the
+// unconditional meaning.
+func parseHiddenKeyword(k string) hiddenKeywordFlags {
+	head := strings.TrimSpace(strings.TrimPrefix(cardsKeywordHead(k), "HIDDEN "))
+	switch {
+	case strings.EqualFold(head, "CARDNAME can't attack or block."):
+		// The compound spelling imparts BOTH restrictions (Opportunistic
+		// Dragon, Extraction Specialist); it must satisfy the cant-block
+		// reader as well as the cant-attack one, so it is matched before
+		// either simple spelling.
+		return hiddenKeywordFlags{cantAttack: true, cantBlock: true}
+	case strings.EqualFold(head, "CARDNAME can't attack."):
+		return hiddenKeywordFlags{cantAttack: true}
+	case strings.EqualFold(head, "CARDNAME can't block."):
+		return hiddenKeywordFlags{cantBlock: true}
+	case strings.EqualFold(head, "CARDNAME must be blocked if able."):
+		return hiddenKeywordFlags{mustBlock: true}
 	}
-	return false
+	return hiddenKeywordFlags{}
+}
+
+// derivedHiddenFlags folds parseHiddenKeyword over the object's CURRENT
+// derived keyword list (printed plus layer-granted), so both an Animate
+// HiddenKeywords$ grant and a Pump/PumpAll KW$ grant reach the combat oracle
+// alike.
+func (e *Engine) derivedHiddenFlags(id state.ObjID) hiddenKeywordFlags {
+	var f hiddenKeywordFlags
+	for _, k := range e.Derived(id).Keywords {
+		g := parseHiddenKeyword(k)
+		f.cantAttack = f.cantAttack || g.cantAttack
+		f.cantBlock = f.cantBlock || g.cantBlock
+		f.mustBlock = f.mustBlock || g.mustBlock
+	}
+	return f
+}
+
+// hasCantBlockKeyword reports whether the object's CURRENT derived keyword
+// list carries Forge's textual can't-block grant ("CARDNAME can't block." or
+// the compound "CARDNAME can't attack or block."), with or without the
+// HIDDEN marker Forge prepends. Unlike HasKeyword, which compares heads
+// exactly, parseHiddenKeyword normalises the optional "HIDDEN " prefix away
+// first, because the corpus spells the SAME restriction both ways: many files
+// carry `KW$ HIDDEN CARDNAME can't block.` (Pump/PumpAll templates, Concussive
+// Bolt) and Incite Hysteria, Unearthly Blizzard and Siegebreaker Giant carry
+// the bare `KW$ CARDNAME can't block.`. Both are one derived layer-6 grant and
+// must reach the block oracle alike; a hardcoded pair of literals would miss
+// the next spelling. The grant is a rules-side casting/blocking option, so it
+// is read from the derived list (printed plus layer-granted), never the
+// printed face.
+func (e *Engine) hasCantBlockKeyword(id state.ObjID) bool {
+	return e.derivedHiddenFlags(id).cantBlock
+}
+
+// hasCantAttackKeyword is hasCantBlockKeyword's attacker-side counterpart:
+// the derived keyword grant "CARDNAME can't attack." or the compound
+// "CARDNAME can't attack or block." (Opportunistic Dragon, Extraction
+// Specialist). Read by attackBlocked, which feeds both the attacker offer
+// list and validateAttackers, so a rules-ignorant client can never declare
+// the attack and the validator recomputes it with the same oracle.
+func (e *Engine) hasCantAttackKeyword(id state.ObjID) bool {
+	return e.derivedHiddenFlags(id).cantAttack
+}
+
+// hasMustBeBlockedKeyword reports whether the object's derived keyword list
+// carries the attacker-oriented requirement "CARDNAME must be blocked if
+// able." (Elemental Uprising, Vengeant Earth, Disturbed Slumber, and the
+// Pump/PumpAll KW$ carriers). This is the ATTACKER's CR 509.1c requirement to
+// receive at least one legal blocker -- not the blocker-oriented Mode$
+// MustBlock (mustBlockCandidates), which requires a particular BLOCKER to
+// block. The requirement's feasibility is decided by askBlockers over the
+// offered pairs, never here.
+func (e *Engine) hasMustBeBlockedKeyword(id state.ObjID) bool {
+	return e.derivedHiddenFlags(id).mustBlock
 }
 
 // blockRestricted reports whether blocker is forbidden from blocking

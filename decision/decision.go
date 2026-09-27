@@ -210,6 +210,17 @@ type Option struct {
 	// the same maximum with a different blocker or attacker; the quota must
 	// count that alternative too. Server-side only.
 	BlockMust bool `json:"-"`
+	// AttackMust marks a block option whose ATTACKER carries a CR 509.1c
+	// requirement to be blocked if able ("CARDNAME must be blocked if
+	// able."): at least one legal blocker must be declared against that
+	// attacker when one exists. Unlike BlockMust -- which requires a
+	// particular BLOCKER to block -- the requirement is satisfied by ANY one
+	// of the options naming the attacker, so the whole-declaration solver
+	// (decision.blockRequiredCore) counts it per attacker, not per option.
+	// Server-side only, like BlockMust: a rules-ignorant client never needs
+	// to enforce it, because the engine's validator rejects an answer that
+	// fails the quota and Clamp/FitRequired repairs one that does.
+	AttackMust bool `json:"-"`
 	// MinBlockers/MaxBlockers are the CR 509.1a MinMaxBlocker bounds on the
 	// ATTACKER this block option names (Min$ N: the attacker can be blocked
 	// only by 0 or at least N creatures; Max$ N: by at most N; both set)

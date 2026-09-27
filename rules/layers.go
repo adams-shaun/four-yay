@@ -4102,6 +4102,19 @@ func counterKindMatches(restriction, kind string) bool {
 // permissive direction, so a gate this build cannot evaluate never becomes an
 // unconditional restriction.
 func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID, attacked state.ObjID) bool {
+	// CR 508.1a: a derived keyword grant (Animate HiddenKeywords$ or a
+	// Pump/PumpAll KW$) can forbid the attack outright -- "CARDNAME can't
+	// attack." or the compound "CARDNAME can't attack or block."
+	// (Opportunistic Dragon's stolen permanent, Extraction Specialist's
+	// returned creature). The restriction is defender-independent, so it is
+	// checked once here, where attackOffers' pair filter and validateAttackers
+	// both read it: the offer list drops every pair and the validator
+	// recomputes the same answer. hasCantAttackKeyword reads the DERIVED list
+	// (printed plus layer-granted), so a face static or an Animate grant is
+	// honoured alike; the registered/static CantAttack walk below is unchanged.
+	if e.hasCantAttackKeyword(id) {
+		return true
+	}
 	for _, ce := range e.active() {
 		if ce.Restriction != "CantAttack" {
 			continue
