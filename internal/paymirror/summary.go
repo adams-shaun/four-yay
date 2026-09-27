@@ -39,12 +39,13 @@ type Summary struct {
 	ActivationHistogram       map[int]int
 	SideEffects               map[string]*tally
 	MismatchCount, UnmirCount int
+	RouteMismatchExamples     map[Route]string
 }
 
 func NewSummary() *Summary {
 	return &Summary{Mismatched: map[string]*tally{}, Unmirrorable: map[string]*tally{}, RouteStatus: map[string]int{},
 		Control: map[string]*tally{}, GameErrorClasses: map[string]*tally{}, AFallbacks: map[string]*tally{},
-		ActivationHistogram: map[int]int{}, SideEffects: map[string]*tally{}, RestViolations: map[string]*tally{}}
+		ActivationHistogram: map[int]int{}, SideEffects: map[string]*tally{}, RestViolations: map[string]*tally{}, RouteMismatchExamples: map[Route]string{}}
 }
 
 func bump(m map[string]*tally, k string, ex Example) {
@@ -124,6 +125,29 @@ func (s *Summary) Add(g GameResult) {
 			s.UnmirCount++
 			bump(s.Unmirrorable, key, ex)
 		}
+	}
+}
+
+// AddRouteMismatchExample retains the first deterministic example for a route.
+func (s *Summary) AddRouteMismatchExample(route Route, example string) {
+	if _, exists := s.RouteMismatchExamples[route]; !exists {
+		s.RouteMismatchExamples[route] = example
+	}
+}
+
+// WriteRouteMismatchExamples appends one example for each mismatching route.
+func (s *Summary) WriteRouteMismatchExamples(w io.Writer) {
+	if len(s.RouteMismatchExamples) == 0 {
+		return
+	}
+	routes := make([]string, 0, len(s.RouteMismatchExamples))
+	for route := range s.RouteMismatchExamples {
+		routes = append(routes, string(route))
+	}
+	sort.Strings(routes)
+	fmt.Fprintln(w, "route-level mismatch examples:")
+	for _, route := range routes {
+		fmt.Fprintf(w, "  %s: %s\n", route, s.RouteMismatchExamples[Route(route)])
 	}
 }
 
