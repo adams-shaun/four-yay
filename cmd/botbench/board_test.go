@@ -164,3 +164,43 @@ func TestCastProfileAutoPayPolicyIsBenchable(t *testing.T) {
 		t.Fatal("host.NormalizeBotPolicy accepted \"cast-profile-auto-pay\"; hosted auto-pay is a table flag, not a policy name")
 	}
 }
+
+// TestAttackSimPoliciesAreBenchOnly pins the combat-simulation arms: both
+// build a *seat.Bot, the -auto-pay arm answers an offered payment plan with
+// its witness (the hosted auto-pay adapter is on), and neither name is in
+// the hosted policy vocabulary.
+func TestAttackSimPoliciesAreBenchOnly(t *testing.T) {
+	for _, name := range []string{"attack-sim", "attack-sim-auto-pay"} {
+		newSeat, ok := policies[name]
+		if !ok {
+			t.Fatalf("policies[%q] is not registered", name)
+		}
+		b, ok := newSeat(19).(*seat.Bot)
+		if !ok {
+			t.Fatalf("policies[%q] built %T, want *seat.Bot", name, newSeat(19))
+		}
+		if got, want := b.WantsPaymentActions(), name == "attack-sim-auto-pay"; got != want {
+			t.Fatalf("%s: WantsPaymentActions = %v, want %v", name, got, want)
+		}
+		if got := isAutoPayPolicy(name); got != (name == "attack-sim-auto-pay") {
+			t.Fatalf("isAutoPayPolicy(%q) = %v", name, got)
+		}
+		if _, err := host.NormalizeBotPolicy(name); err == nil {
+			t.Fatalf("host.NormalizeBotPolicy accepted %q; the attack-sim arms are bench-only", name)
+		}
+	}
+	b := policies["attack-sim-auto-pay"](19).(*seat.Bot)
+	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
+		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
+		PaymentActions: []decision.PaymentAction{{ID: "action", Cast: decision.PlannedCast{Object: 9, Origin: "hand"}, Plans: []decision.PaymentPlan{{ID: "plan", Version: decision.PaymentPlanV1}}}},
+	}
+	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+		9: {Creature: true, Power: 3, CMC: 3, Castable: true},
+	}}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in.Payment == nil || in.Payment.ActionID != "action" || in.Payment.Plan.ID != "plan" {
+		t.Fatalf("intent = %+v, want offered auto-payment witness", in)
+	}
+}
