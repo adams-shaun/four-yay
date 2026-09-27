@@ -25,6 +25,13 @@ FORMATS=${FORMATS:-commander,commander,constructed,constructed}
 # Deterministic across deploys: the same seed deals the same opening tables,
 # so a UI change is the only thing that differs between two screenshots.
 SEED=${SEED:-1}
+# GOMEMLIMIT for the gorged processes only. The Makefile exports a
+# test-oriented `GOMEMLIMIT ?= 5GiB` sized for `go test` package binaries;
+# inherited by the server it drove the GC to run continuously with a live
+# heap near that ceiling (~84% of the box in gcDrain, measured 2026-09-26).
+# A distinct variable name here means the Makefile's export can never
+# silently reach the server; a long-running demo wants a higher ceiling.
+DEMO_GOMEMLIMIT=${DEMO_GOMEMLIMIT:-8GiB}
 
 PUB_PORT=${PUB_PORT:-8080}
 OMNI_PORT=${OMNI_PORT:-8081}
@@ -177,7 +184,7 @@ start_one() {
 	# processes it is trying to replace. That is a deadlock the flock was
 	# meant to prevent: observed as a merge whose deploy sat waiting behind
 	# its own predecessor's servers. Harmless when fd 9 is not open.
-	setsid nohup "$BIN" \
+	setsid nohup env GOMEMLIMIT="$DEMO_GOMEMLIMIT" "$BIN" \
 		-addr "127.0.0.1:$port" \
 		-spectator "$spectator" \
 		-dir "$dir" \
