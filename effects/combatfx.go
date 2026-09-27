@@ -699,10 +699,19 @@ type animateGrant struct {
 	overwriteColors bool
 	colorsGrant     bool
 	kws             []string
-	abilities       []string
-	duration        string
-	permanent       bool
-	zone            string
+	// hiddenKws is the HiddenKeywords$ read: Forge's "derived keyword text"
+	// grant (Opportunistic Dragon's `CARDNAME can't attack or block.`,
+	// Elemental Uprising's `CARDNAME must be blocked if able.`). Forge keeps
+	// the value out of the card's displayed keyword line, but it is a real
+	// layer-6 keyword grant, so it joins ag.kws in the SAME AddKeywords list
+	// and the SAME ContinuousEffect as Keywords$/RemoveAllAbilities$ (see
+	// registerAnimateEffects). Kept as its own field so AnimateAll can leave
+	// it unread, exactly as the two layer-6 siblings above.
+	hiddenKws []string
+	abilities []string
+	duration  string
+	permanent bool
+	zone      string
 	// endOnLeave ends the grant the moment the animated object leaves the
 	// battlefield, regardless of Duration$. registerAnimateEffects expresses
 	// it through the existing move-driven lifetime (ExileOnMoved$ + the
@@ -813,6 +822,12 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// Keywords$ is a "&"-separated keyword list (Celestial Colonnade's
 	// "Flying & Vigilance"), the same grammar Pump's KW$ uses.
 	ag.kws = cards.SplitKeywordList(sa.Params["Keywords"])
+	// HiddenKeywords$ is the SAME derived-keyword grammar (see
+	// animateGrant.hiddenKws): a HiddenKeywords$ value is one keyword line
+	// Forge simply does not print on the card, and rules' derived-keyword
+	// readers (hasCantBlockKeyword/hasCantAttackKeyword/
+	// hasMustBeBlockedKeyword) consult the derived list alike.
+	ag.hiddenKws = cards.SplitKeywordList(sa.Params["HiddenKeywords"])
 	// RemoveKeywords$ (see animateGrant.removeKeywords): split with the same
 	// grammar, applied at layer 6 BEFORE this effect's own AddKeywords
 	// (rules' LAbilities walk), so one DB$ Animate both strips the old
@@ -1078,7 +1093,17 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			AffectedZone: ag.zone,
 		})
 	}
-	if ag.removeAbilities || len(ag.kws) > 0 || len(ag.removeKeywords) > 0 {
+	// Keywords$ and HiddenKeywords$ are ONE keyword grant: both are layer-6
+	// derived keywords, and the brief's "do not let ability removal erase its
+	// own simultaneous grant" needs HiddenKeywords$ to ride the SAME
+	// AddKeywords list as Keywords$, AFTER RemoveAbilities clears. Concatenate
+	// only when HiddenKeywords$ is present so an ordinary animation's list is
+	// the parser's own slice, byte-identical to before.
+	kws := ag.kws
+	if len(ag.hiddenKws) > 0 {
+		kws = append(append([]string(nil), ag.kws...), ag.hiddenKws...)
+	}
+	if ag.removeAbilities || len(kws) > 0 || len(ag.removeKeywords) > 0 {
 		// CR 613.1f: RemoveAllAbilities$, RemoveKeywords$ and the keyword grant
 		// of ONE animation are a single simultaneous layer-6 modification, so
 		// they register as ONE LAbilities effect. The layer walk's in-effect
@@ -1090,7 +1115,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LAbilities, RemoveAbilities: ag.removeAbilities,
-			AddKeywords: ag.kws, RemoveKeywords: ag.removeKeywords,
+			AddKeywords: kws, RemoveKeywords: ag.removeKeywords,
 			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
@@ -1150,6 +1175,7 @@ func animateAllUnreadNote(h Host, c *Ctx, sa *cards.SA) {
 	for _, key := range []struct{ name, val string }{
 		{"RemoveKeywords$", sa.Params["RemoveKeywords"]},
 		{"RemoveAllAbilities$", sa.Params["RemoveAllAbilities"]},
+		{"HiddenKeywords$", sa.Params["HiddenKeywords"]},
 		{"Replacements$", sa.Params["Replacements"]},
 		{"CantHaveKeyword$", sa.Params["CantHaveKeyword"]},
 		{"RemoveLandTypes$", sa.Params["RemoveLandTypes"]},
@@ -1183,6 +1209,11 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 	ag.removeKeywords = nil
 	ag.removeAbilities = false
 	ag.replacements = nil
+	// AnimateAll's HiddenKeywords$ stays unread too (the corpus carries no
+	// AnimateAll HiddenKeywords$ line, and this ticket scopes the derived
+	// restriction to Animate): clear what the shared parser read so the
+	// sweep below cannot apply it behind animateAllUnreadNote's note.
+	ag.hiddenKws = nil
 	// AnimateAll's Name$ stays unread too: the rename is Animate-scoped, so
 	// clear what the shared parser read, exactly as the two parameters above.
 	ag.name = ""
