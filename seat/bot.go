@@ -204,10 +204,18 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		originalIndex := o.Index
 		o.Index = len(candidate.Options)
 		candidateToOriginal[o.Index] = originalIndex
-		candidate.Options = append(candidate.Options, o)
 		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
 			legacyOrdinary[o.Obj] = true
+			// An ordinary legacy cast whose object has a plan is a
+			// plan-backed candidate: choosing it submits the plan, so the
+			// cast scorer prices it against producible mana (C7). A
+			// non-ordinary mode (an evoke, pitch, dash, surge) pays its
+			// own cost by hand and stays false.
+			if _, ok := payable[o.Obj]; ok {
+				o.PlanBacked = true
+			}
 		}
+		candidate.Options = append(candidate.Options, o)
 	}
 	for _, a := range d.PaymentActions {
 		if len(a.Plans) == 0 || legacyOrdinary[a.Cast.Object] {
@@ -215,6 +223,7 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		}
 		candidate.Options = append(candidate.Options, decision.Option{
 			Index: len(candidate.Options), Kind: "cast", Obj: a.Cast.Object, Label: a.Label,
+			PlanBacked: true,
 		})
 	}
 
