@@ -697,6 +697,7 @@ func (e *Engine) askAttackers() {
 		// The non-mana components ride the same fields a block option uses,
 		// so a rules-ignorant client can reason about the whole charge.
 		opt.CostLife = int(of.charge.life)
+		opt.CostPhyrexian = len(of.charge.phyrexian)
 		for _, t := range of.charge.taps {
 			opt.CostTaps += int(t.n)
 		}
@@ -1846,6 +1847,7 @@ func (e *Engine) askBlockers() {
 				}
 				opt.Value = int(charge.mana)
 				opt.CostLife = int(charge.life)
+				opt.CostPhyrexian = len(charge.phyrexian)
 				for _, t := range charge.taps {
 					opt.CostTaps += int(t.n)
 				}

@@ -582,8 +582,10 @@ func (e *Engine) chargeObjPlan(p state.PlayerID, c blockCharge, excluded map[sta
 }
 
 // combatPhyLife is the life a Phyrexian pip charges when paid with life
-// (CR 107.4f: two life per pip).
-const combatPhyLife = 2
+// (CR 107.4f: two life per pip). It aliases decision.PhyrexianLife, the one
+// home the wire-side charge pre-filter also prices a pip through, so the
+// bot's bound and this affordability read cannot disagree.
+const combatPhyLife = decision.PhyrexianLife
 
 // combatPayPlan is the frozen payment plan for one combat charge, shared by
 // the attack and block payment windows. The obligation plans are computed

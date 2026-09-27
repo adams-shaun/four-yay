@@ -680,6 +680,16 @@ export interface Option {
    */
   cost_taps?: number;
   /**
+   * CostPhyrexian is the number of Phyrexian pips a combat option's charge
+   * carries ({W/P} and friends, CR 107.4f): each pip is payable with one
+   * mana of its colour OR two life. The wire publishes the pip COUNT, not
+   * the colour below it -- a rules-ignorant client cannot see whether the
+   * colour branch is reachable, so it prices the life branch (two per pip)
+   * against the acting player's life total, exactly as it prices CostLife.
+   * omitempty as CostLife.
+   */
+  cost_phyrexian?: number;
+  /**
    * Mode distinguishes a "cast" option's payment kind: "" the card's own
    * cost, "kicked", "surged", "flashback", "miracle" -- what the engine
    * reads in beginCast's switch. A client renders a kicked/surged/
