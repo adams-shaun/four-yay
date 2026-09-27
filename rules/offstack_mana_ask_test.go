@@ -311,3 +311,102 @@ func TestOffStackManaArrangeAskResumesManaRider(t *testing.T) {
 		}
 	}
 }
+
+// TestOffStackManaTargetThenNameAskCommitsOnce pins the COMBINED targeted
+// rider: a SubAbility$ that asks a target and THEN asks another question
+// (DB$ NameCard | ValidTgts$ Opponent) must keep the answered target while
+// the second question is pending. The prior round bound the NameCard name
+// answer but dropped the recorded target when the name ask parked: the
+// per-resolution cleanup at the end of resumeResolution tested only
+// e.resume, while an off-stack mana ask parks on the mana activation
+// (e.choosing == chooseManaColor), so the target record was forgotten and
+// the re-entry re-posed the target -- the two asks alternated
+// tgts/name/tgts/... forever with no completion.
+//
+// Each assertion's precondition is asserted first: the mana source is on the
+// battlefield, the bear reaches the stack, the target ask offers exactly the
+// one opponent, and the name ask offers real names. Without those a vacuous
+// setup would pass.
+func TestOffStackManaTargetThenNameAskCommitsOnce(t *testing.T) {
+	e, _, bear := newFixtureDeck(t, 9345, "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	engine := onBoard(t, e, 0, "Name:Engine Namer\nTypes:Artifact\n"+
+		"A:AB$ Mana | Cost$ T | Produced$ B | Amount$ 4 | SubAbility$ DBName | SpellDescription$ Engine fixture.\n"+
+		"SVar:DBName:DB$ NameCard | ValidTgts$ Opponent\nOracle:x\n")
+	if e.G.Obj(engine).Zone != state.ZBattlefield {
+		t.Fatal("mana source is not on the battlefield")
+	}
+	toMain1(t, e)
+	e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "G", Amount: 1})
+	e.pending = nil
+	e.askPriority(0)
+	d := e.Pending()
+	cast := -1
+	for _, o := range d.Options {
+		if o.Kind == "cast" && o.Obj == bear {
+			cast = o.Index
+		}
+	}
+	if cast < 0 {
+		t.Fatalf("no cast option for the bear in %#v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{cast}}); err != nil {
+		t.Fatal(err)
+	}
+	if z := e.G.Obj(bear).Zone; z != state.ZStack {
+		t.Fatalf("bear zone = %s, want stack after casting", z)
+	}
+	d = e.Pending()
+	act := -1
+	for _, o := range d.Options {
+		if o.Kind == "activate" && o.Obj == engine {
+			act = o.Index
+		}
+	}
+	if act < 0 {
+		t.Fatalf("no activate option for the engine in %#v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{act}}); err != nil {
+		t.Fatal(err)
+	}
+	// Ask 1: the rider's target; it must offer the single opponent.
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
+		t.Fatalf("first rider ask = %#v, want the target decision", d)
+	}
+	if len(d.Options) != 1 || d.Options[0].Player != 1 {
+		t.Fatalf("target options = %#v, want exactly the opponent", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{d.Options[0].Index}}); err != nil {
+		t.Fatal(err)
+	}
+	// Ask 2: the name. Answering it must not re-pose the target.
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "name" {
+		t.Fatalf("second rider ask = %#v, want the NameCard decision after the target", d)
+	}
+	if len(d.Options) == 0 {
+		t.Fatal("NameCard decision offered no names")
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{d.Options[0].Index}}); err != nil {
+		t.Fatal(err)
+	}
+	if next := e.Pending(); next != nil && next.Kind == decision.KChoose &&
+		(next.ResumeKind == "tgts" || next.ResumeKind == "name") {
+		t.Fatalf("rider re-asked after a valid answer: %#v", next)
+	}
+	namesChosen := 0
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.Choose && ev.Counter == "name" {
+			namesChosen++
+		}
+	}
+	if namesChosen != 1 {
+		t.Errorf("name Choose events = %d, want exactly 1", namesChosen)
+	}
+	if z := e.G.Obj(bear).Zone; z != state.ZStack {
+		t.Errorf("bear zone = %s after the rider answered, want stack", z)
+	}
+	if got := e.G.Players[0].Pool[state.ManaIndex('B')]; got != 4 {
+		t.Errorf("black mana in pool = %d, want 4", got)
+	}
+}

@@ -4110,22 +4110,33 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		e.replRedirect = savedRedirect
 		e.applyingReplacement = savedReplacement
 		e.damaging = 0
-		if rp.sa.API == "MoveCounter" && e.resume == nil {
+		// A resolution is still suspended when EITHER the ordinary
+		// mid-resolution ask (e.resume) or an off-stack mana rider ask is
+		// pending. The latter parks on the mana activation and sets
+		// e.choosing == chooseManaColor instead of e.resume
+		// (mana_activation.go's askOffStackMana), so the per-resolution answer
+		// caches below must test BOTH or the next re-entry of this same SA
+		// re-poses an already-answered ask -- a targeted rider that then asks
+		// another question (Witch-Engine-shaped DB$ NameCard | ValidTgts$
+		// Opponent) alternated tgts/name forever because the target record was
+		// dropped while the name ask was still pending.
+		parked := e.resume != nil || e.choosing == chooseManaColor
+		if rp.sa.API == "MoveCounter" && !parked {
 			// The MoveCounter resolution completed this round (nothing
 			// suspended): its pending state is spent.
 			delete(e.moveCounterAsk, rp.obj)
 		}
-		if rp.sa.API == "AddOrRemoveCounter" && e.resume == nil {
+		if rp.sa.API == "AddOrRemoveCounter" && !parked {
 			// The AddOrRemoveCounter resolution completed this round (nothing
 			// suspended): its pending state is spent -- delete it so a stale
 			// entry can never seed a later resolution of the same object (the
 			// moveCounterAsk discipline).
 			delete(e.aorAsk, rp.obj)
 		}
-		if rp.sa.API == "PutCounter" && e.resume == nil {
+		if rp.sa.API == "PutCounter" && !parked {
 			delete(e.counterTypeAsk, rp.obj)
 		}
-		if e.resume == nil {
+		if !parked {
 			// This SA's resolution completed this round (nothing suspended),
 			// so its recorded pre-ask answer is spent -- drop it so a later
 			// re-entry of the same body asks afresh.
