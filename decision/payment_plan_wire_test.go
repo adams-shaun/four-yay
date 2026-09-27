@@ -22,7 +22,8 @@ func TestPaymentPlanAuditOverlongQuantityVectorRejected(t *testing.T) {
 
 // TestManaAmountRequiresExactlySixNonNegativeIntegers pins the whole decode
 // rule so a sibling field cannot regress it: exactly six is accepted, and the
-// 5- and 7-element and negative shapes are all rejected.
+// 5- and 7-element and off-contract token shapes (quoted number, negative,
+// fraction, object) are all rejected.
 func TestManaAmountRequiresExactlySixNonNegativeIntegers(t *testing.T) {
 	// Precondition: the pristine zero value, so a silent partial write is
 	// distinguishable from the accepted vector below.
@@ -38,17 +39,57 @@ func TestManaAmountRequiresExactlySixNonNegativeIntegers(t *testing.T) {
 		t.Fatalf("decoded %v, want %v", got, want)
 	}
 
-	for name, in := range map[string]string{
-		"five":     `[1,2,3,4,5]`,
-		"seven":    `[1,2,3,4,5,6,7]`,
-		"negative": `[1,2,3,4,5,-1]`,
-		"fraction": `[1,2,3,4,5,1.5]`,
-		"object":   `{"0":1,"1":2,"2":3,"3":4,"4":5,"5":6}`,
-	} {
-		t.Run(name, func(t *testing.T) {
+	// A sorted slice, not a map: nothing here reaches an event, but a
+	// deterministic report order costs nothing and keeps the repo's rule.
+	cases := []struct {
+		name string
+		in   string
+	}{
+		// only "five" and "seven" are new behavior -- main's stdlib array
+		// decode accepted five (padded with zero) and seven (truncated); the
+		// rest are pinned so a rewrite cannot widen the token contract.
+		{"five", `[1,2,3,4,5]`},
+		{"seven", `[1,2,3,4,5,6,7]`},
+		// encoding/json would decode a JSON string into json.Number; a quoted
+		// quantity is not an integer token and must be rejected.
+		{"quoted", `["1",2,3,4,5,6]`},
+		{"negative", `[1,2,3,4,5,-1]`},
+		{"fraction", `[1,2,3,4,5,1.5]`},
+		{"overflow", `[1,2,3,4,5,2147483648]`},
+		{"object", `{"0":1,"1":2,"2":3,"3":4,"4":5,"5":6}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Precondition: the value under test starts at the zero vector, so
+			// an accept-and-write cannot hide behind a stale non-zero result.
 			var got ManaAmount
-			if err := json.Unmarshal([]byte(in), &got); err == nil {
-				t.Fatalf("%s vector decoded without error: %v", name, got)
+			if err := json.Unmarshal([]byte(tc.in), &got); err == nil {
+				t.Fatalf("%s vector decoded without error: %v", tc.name, got)
+			}
+		})
+	}
+}
+
+// TestManaAmountNullIsANoOp pins the one shape the decode rule deliberately
+// leaves alone: JSON null (whole vector or one element) leaves the destination
+// unchanged, which is exactly main's standard-library array-decode semantics.
+func TestManaAmountNullIsANoOp(t *testing.T) {
+	pre := ManaAmount{9, 9, 9, 9, 9, 9}
+	for _, tc := range []struct {
+		name string
+		in   string
+		want ManaAmount
+	}{
+		{"null", `null`, pre},
+		{"element null", `[null,8,null,null,null,null]`, ManaAmount{9, 8, 9, 9, 9, 9}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := pre
+			if err := json.Unmarshal([]byte(tc.in), &m); err != nil {
+				t.Fatalf("%s rejected: %v", tc.name, err)
+			}
+			if m != tc.want {
+				t.Fatalf("%s = %v, want %v", tc.name, m, tc.want)
 			}
 		})
 	}
