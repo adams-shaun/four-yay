@@ -45,11 +45,11 @@ func (e *Engine) PlanCastPayment(p state.PlayerID, cast decision.PlannedCast) Pa
 	if o == nil || o.Zone != state.ZHand || o.Owner != p || o.Face() == nil || int(o.FaceIdx) != cast.Face {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
-	if !e.paymentPlanCastCandidate(p, cast.Object) {
-		return PaymentPlanOutcome{Reason: "unsupported"}
-	}
 	if detail := e.paymentPlanCastShapeDetail(p, cast.Object); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
+	}
+	if !e.paymentPlanCastCandidate(p, cast.Object) {
+		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	// V1 has no way to carry a target-dependent reprice or a choice made at
 	// announcement. Candidate discovery below owns timing, targets and
@@ -107,10 +107,10 @@ func (e *Engine) paymentPlanCastShapeDetail(p state.PlayerID, id state.ObjID) st
 	if sa := f.SpellAbility(); sa != nil {
 		spellCost = e.parseCost(sa.Params["Cost"])
 	}
-	if paymentPlanCostDetail(spellCost) != "" || paymentPlanCostDetail(withSpellAbilityExtras(f, Cost{})) != "" || len(mods.extra.Blight) != 0 {
+	if paymentPlanCostDetail(spellCost) != "" || paymentPlanCostDetail(withSpellAbilityExtras(f, Cost{})) != "" || paymentPlanCostDetail(mods.extra) != "" {
 		return "shape:additional_cost"
 	}
-	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || f.HasKeyword("Delve") {
+	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.HasKeyword(id, "Delve") {
 		return "shape:contribution"
 	}
 	if f.HasKeyword("Gift") {

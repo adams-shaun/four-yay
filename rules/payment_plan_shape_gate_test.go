@@ -42,6 +42,8 @@ func TestPaymentPlanShapeGate(t *testing.T) {
 			if tc.name == "sacrifice" || tc.name == "tapXType" || tc.name == "revealOrChoose" {
 				onBoard(t, e, 0, "Name:Victim\nManaCost:1\nTypes:Creature Test\nPT:1/1\nOracle:test\n")
 			}
+			f := e.G.Obj(spell).Face()
+			t.Logf("debug face=%p sa=%+v cost=%+v extra=%+v shape=%q keywords=%v", f, f.SpellAbility(), withSpellAbilityExtras(f, Cost{}), e.costModifiersWithTargets(0, spell, spellScope(""), nil, false).extra, e.paymentPlanCastShapeDetail(0, spell), f.Keywords)
 			got := e.PlanCastPayment(0, paymentCast(spell))
 			if got.Plan != nil || got.Reason != "unsupported" || got.Detail != tc.detail {
 				t.Fatalf("plan outcome = %+v, want unsupported detail %q", got, tc.detail)
@@ -92,6 +94,23 @@ func TestPaymentPlanShapeGateCostClassesStillDecline(t *testing.T) {
 				t.Fatalf("cost class %s outcome = %+v, want unsupported detail %q", tc.name, got, tc.detail)
 			}
 		})
+	}
+}
+
+func TestPaymentPlanShapeGateCostStaticAdditionalCost(t *testing.T) {
+	reg := searchTestRegistry(t)
+	e, _ := blightEngine(t, reg, 2, "Soul Immolation")
+	spell := blightMove(t, e, 0, "Soul Immolation", state.ZHand)
+	if o := e.G.Obj(spell); o == nil || o.Zone != state.ZHand || o.Face().Name != "Soul Immolation" {
+		t.Fatalf("precondition: got spell object %+v, want Soul Immolation in hand", o)
+	}
+	mods := e.costModifiersWithTargets(0, spell, spellScope(""), nil, false)
+	if len(mods.extra.Blight) == 0 {
+		t.Fatalf("Soul Immolation did not produce its Blight<X> cost-static extra: %+v", mods.extra)
+	}
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Reason != "unsupported" || got.Detail != "shape:additional_cost" {
+		t.Fatalf("cost-static plan outcome = %+v, want additional-cost decline", got)
 	}
 }
 
@@ -176,7 +195,9 @@ func TestPaymentPlanShapeGateSpreeOffers(t *testing.T) {
 // withholds it. Build the witness directly, exactly as
 // TestPaymentPlanExecutesAfterCastTimeChoice does for sacrifice, and prove the
 // executor still pays the whole cost after the additional-cost choice: the
-// spell must not sit on the stack unpaid. This test owns the discard and delve
+// spell must not sit on the stack unpaid. This is executor coverage only; it
+// does not exercise or prove the planner's shape-gate decline. This test owns
+// the discard and delve
 // fixtures; sacrifice stays in the existing test.
 func TestPaymentPlanShapeGateAdditionalCostExecutorPays(t *testing.T) {
 	red := state.Mana{}
