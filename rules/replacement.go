@@ -6713,6 +6713,22 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 // frame and a later resolving ability re-resolved unbounded).
 func (e *Engine) settleReplacementQueue(rc replChoice, rp *resumePoint) {
 	if !rc.inResolution {
+		// A ReplaceWith$ body resolved OUTSIDE any resolution pass
+		// (resolveReplacementBody's non-resolution arm) that posed this ask
+		// linked its own continuation chain -- the body's SubAbility$ work
+		// reported into e.contChain -- onto the ask frame's outer. e.resume is
+		// then not the flow's own bookkeeping but a real continuation: run it
+		// instead of dropping the frame. Without this, a body whose nested
+		// mint parked on a CR 616.1 entry-counter order lost its rider (the
+		// token entered with the answered counters, the controller never
+		// gained the life). A frame with no outer continuation keeps the
+		// historical synchronous drop.
+		if rp != nil && e.resume == rp && rp.outer != nil &&
+			e.pending == nil && len(e.replChoices) == 0 {
+			e.resume = nil
+			e.resumeResolution(rp, nil)
+			return
+		}
 		if rc.resumeAtPose != nil && e.resume == rc.resumeAtPose &&
 			e.pending == nil && len(e.replChoices) == 0 {
 			e.resume = nil
