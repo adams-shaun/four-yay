@@ -1,0 +1,29 @@
+{
+  "card": "Eye of Ugin",
+  "family": "cost-modifier",
+  "oracle_sha": "81078472dda6",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "colorless-eldrazi-spell-costs-two-less",
+      "cr": ["601.2f", "118.7a"],
+      "why": "Not of This World is a colorless Eldrazi spell cast by Eye's controller; the generic cost falls from seven to five, which exactly five colorless mana pays.",
+      "setup": {"p0": {"hand": ["Not of This World"], "battlefield": ["Eye of Ugin", "Grizzly Bears"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Grizzly Bears"]},
+        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "mana": "CCCCC", "targets": ["p1:Lightning Bolt"], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p1:Lightning Bolt", "zone": "graveyard"}]
+    },
+    {
+      "name": "colored-spell-does-not-receive-colorless-eldrazi-reduction",
+      "cr": ["601.2f", "118.7a"],
+      "why": "Grizzly Bears is green rather than a colorless Eldrazi spell, so the Eye's reduction does not apply and green alone cannot pay its generic component.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Eye of Ugin"]}},
+      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+    }
+  ]
+}

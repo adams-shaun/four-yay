@@ -1,0 +1,29 @@
+{
+  "card": "Herald's Horn",
+  "family": "cost-modifier",
+  "oracle_sha": "ecd334224883",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-bear-spell-costs-one-less",
+      "cr": ["601.2f", "118.7a"],
+      "why": "The chosen creature type matches Grizzly Bears, so its generic component is reduced by one and green mana alone pays the remaining colored component.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Herald's Horn"]}},
+      "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "G", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Grizzly Bears", "zone": "battlefield"}]
+    },
+    {
+      "name": "nonmatching-creature-stays-full-price",
+      "cr": ["601.2f", "118.7a"],
+      "why": "Centaur Courser is a Centaur, not the chosen Bear type; its two generic mana remain, so green alone cannot cast it.",
+      "setup": {"p0": {"hand": ["Centaur Courser"], "battlefield": ["Herald's Horn"]}},
+      "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
+      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Centaur Courser"}, "want": false}]
+    }
+  ]
+}

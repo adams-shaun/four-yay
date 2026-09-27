@@ -1,0 +1,29 @@
+{
+  "card": "Ugin, the Ineffable",
+  "family": "cost-modifier",
+  "oracle_sha": "1ef0baaafb84",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "colorless-spell-costs-two-less",
+      "cr": ["601.2f", "118.7a"],
+      "why": "Not of This World is colorless, and its generic cost is reduced by two; five colorless mana therefore pays the remaining cost.",
+      "setup": {"p0": {"hand": ["Not of This World"], "battlefield": ["Ugin, the Ineffable", "Grizzly Bears"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Grizzly Bears"]},
+        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "mana": "CCCCC", "targets": ["p1:Lightning Bolt"], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p1:Lightning Bolt", "zone": "graveyard"}]
+    },
+    {
+      "name": "colored-spell-keeps-its-generic-component",
+      "cr": ["601.2f", "118.7a"],
+      "why": "Grizzly Bears is green, not colorless, so Ugin's reduction does not apply; its generic component still requires mana in addition to green.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Ugin, the Ineffable"]}},
+      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+    }
+  ]
+}

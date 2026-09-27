@@ -1,0 +1,33 @@
+{
+  "card": "Not of This World",
+  "family": "cost-modifier",
+  "oracle_sha": "a680966976e7",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "targeted-nine-power-creature-makes-it-free",
+      "cr": ["601.2b", "601.2f", "118.9"],
+      "why": "The opposing spell targets a creature controlled by seat 0 with power at least seven, so this alternative reduction removes all seven generic mana and the colorless spell can be cast for zero.",
+      "setup": {"p0": {"hand": ["Not of This World"], "battlefield": ["Colossus of Sardia"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Colossus of Sardia"]},
+        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "mana": "", "targets": ["p1:Lightning Bolt"]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p1:Lightning Bolt", "zone": "graveyard"}, {"card": "p0:Colossus of Sardia", "zone": "battlefield", "damage": 0}]
+    },
+    {
+      "name": "small-creature-does-not-enable-reduction",
+      "cr": ["601.2f", "118.9"],
+      "why": "A spell targeting a two-power creature does not meet the stated threshold. Six generic mana remains insufficient for this seven-mana spell.",
+      "setup": {"p0": {"hand": ["Not of This World"], "battlefield": ["Grizzly Bears"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0:Grizzly Bears"]},
+        {"op": "mana", "seat": 0, "mana": "CCCCCC"}
+      ],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Not of This World"}, "want": false}]
+    }
+  ]
+}
