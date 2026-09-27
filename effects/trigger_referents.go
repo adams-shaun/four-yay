@@ -249,7 +249,7 @@ func controlReferent(p string) (op, ref string, ok bool) {
 		// Player.IsRemembered", Gluntch's "ControlledBy ChosenPlayer"):
 		// resolution-only, resolved in controlReferentPlayers against the
 		// same remembered/chosen player entries the bare referents read.
-		"Player.IsRemembered", "ChosenPlayer", "Player.Chosen",
+		"Player.IsRemembered", "ChosenPlayer", "Player.Chosen", "Player.EnchantedBy",
 		// definedrem3: the two remembered-object control referents. A remembered
 		// CARD contributes its controller/owner here -- exactly the semantics
 		// `Defined$ RememberedController`/`RememberedOwner` carry -- while the
@@ -387,6 +387,15 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 		for _, t := range sc.Chosen {
 			if t.IsPlayer {
 				targets = append(targets, t)
+			}
+		}
+	case "Player.EnchantedBy":
+		// EnchantedBy is a global player property: the Aura's own controller
+		// is irrelevant. Resolve it through the shared player-spec evaluator
+		// so attachment state and the property grammar have one home.
+		for p := range g.Players {
+			if MatchesPlayerSpecCtx(g, ref, state.PlayerID(p), sc.You, PlayerSpecCtx{}) {
+				targets = append(targets, state.Target{IsPlayer: true, Player: state.PlayerID(p)})
 			}
 		}
 	default:
