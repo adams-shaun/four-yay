@@ -136,6 +136,13 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/cmd/gorged", module + "/internal/testutil"},
 		{module + "/cards", module + "/state"},
 		{module + "/deck", module + "/rules"},
+		// The az search seat's clairvoyant world clones the REAL engine,
+		// hidden zones and future chance included (spec 2026-09-27 §1): it
+		// is bench and training only, so nothing that seats a non-bench
+		// opponent may link it.
+		{module + "/host", module + "/internal/azmcts"},
+		{module + "/host/httpapi", module + "/internal/azmcts"},
+		{module + "/cmd/gorged", module + "/internal/azmcts"},
 	}
 	for _, f := range forbidden {
 		p, ok := pkgs[f.from]
