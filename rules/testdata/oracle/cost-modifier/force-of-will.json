@@ -27,10 +27,10 @@
     },
     {
       "name": "alt-cost-needs-a-blue-card",
-      "cr": ["118.9", "601.2b"],
+      "cr": ["118.9", "601.2b", "601.2c"],
       "why": "Only Force of Will itself is blue and it is the spell being cast, not a card in hand: with no other blue card to exile and no mana in the pool, neither the alternative nor the mana cost is payable, so the cast is not offered.",
       "setup": {
-        "p0": {"hand": ["Force of Will"]},
+        "p0": {"hand": ["Force of Will", "Lightning Bolt"]},
         "p1": {}
       },
       "steps": [
@@ -42,10 +42,10 @@
     },
     {
       "name": "mana-cost-path-counters-without-paying-life",
-      "cr": ["118.9", "601.2f"],
+      "cr": ["118.9", "601.2c", "601.2f"],
       "why": "The mana cost {3}{U}{U} can be paid instead of the alternative: with two blue and three generic in the pool, Force of Will counters the Bolt without exiling a card or paying life.",
       "setup": {
-        "p0": {"hand": ["Force of Will"]},
+        "p0": {"hand": ["Force of Will", "Lightning Bolt"]},
         "p1": {}
       },
       "steps": [

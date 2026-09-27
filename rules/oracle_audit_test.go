@@ -62,6 +62,9 @@ var oracleKnownDivergent = map[string]string{
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Script translation: the once-per-turn permission is tracked per
+	// affected spell, so Darksteel Monolith's free-cast grant is available again.
+	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
 }
 
 type oracleFile struct {
