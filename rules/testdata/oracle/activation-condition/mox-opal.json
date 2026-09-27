@@ -1,0 +1,23 @@
+{
+  "card": "Mox Opal",
+  "family": "activation-condition",
+  "oracle_sha": "4e70e2fa1095",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "metalcraft-two-artifacts-is-short",
+      "cr": ["207.2c", "602.5b", "605.1a"],
+      "why": "Mox Opal plus one other artifact is only two artifacts, so its restricted mana ability cannot be activated.",
+      "setup": {"p0": {"battlefield": ["Mox Opal", "Bonesplitter"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Mox Opal", "label": "Metalcraft"}, "want": false}]
+    },
+    {
+      "name": "metalcraft-three-artifacts-mox-produces-mana",
+      "cr": ["207.2c", "602.5b", "605.1a", "106.12"],
+      "why": "With Mox Opal and two other artifacts, the metalcraft restriction is met and tapping it for its mana ability adds one chosen color of mana.",
+      "setup": {"p0": {"battlefield": ["Mox Opal", "Bonesplitter", "Bonesplitter#2"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Mox Opal", "ability": "Metalcraft", "answers": [{"kind": "any", "pick": ["G"]}]}],
+      "expect": [{"pool": {"p0": "G"}}]
+    }
+  ]
+}

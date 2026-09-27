@@ -1,0 +1,23 @@
+{
+  "card": "Shifting Woodland",
+  "family": "activation-condition",
+  "oracle_sha": "0716c032e432",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "delirium-three-graveyard-card-types-is-short",
+      "cr": ["207.2c", "602.5b"],
+      "why": "The graveyard holds a creature, an artifact, and an instant, which are only three distinct card types; a land must also be present to reach four.",
+      "setup": {"p0": {"battlefield": ["Shifting Woodland", "Forest"], "graveyard": ["Savannah Lions", "Bonesplitter", "Lightning Bolt"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Shifting Woodland", "label": "Delirium"}, "want": false}]
+    },
+    {
+      "name": "delirium-four-graveyard-card-types-copy-creature",
+      "cr": ["207.2c", "602.5b"],
+      "why": "Creature, artifact, instant, and land cards in the graveyard supply four different card types; the activation can copy the creature card there until end of turn.",
+      "setup": {"p0": {"battlefield": ["Shifting Woodland", "Forest"], "graveyard": ["Savannah Lions", "Bonesplitter", "Lightning Bolt", "Plains"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Shifting Woodland", "ability": "Delirium", "mana": "2GG", "targets": ["p0:Savannah Lions"]}],
+      "expect": [{"card": "p0:Shifting Woodland", "pt": "2/1", "types": ["Creature"]}]
+    }
+  ]
+}

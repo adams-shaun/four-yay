@@ -1,0 +1,23 @@
+{
+  "card": "Urza's Workshop",
+  "family": "activation-condition",
+  "oracle_sha": "0b12b8d673c7",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "metalcraft-two-artifacts-is-short",
+      "cr": ["207.2c", "602.5b", "605.1a"],
+      "why": "Urza's Workshop and one Equipment are two artifacts, so the metalcraft-restricted ability is unavailable.",
+      "setup": {"p0": {"battlefield": ["Urza's Workshop", "Bonesplitter", "Urza's Tower", "Urza's Mine", "Urza's Power Plant"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Urza's Workshop", "label": "Metalcraft"}, "want": false}]
+    },
+    {
+      "name": "metalcraft-three-artifacts-three-urza-lands",
+      "cr": ["207.2c", "602.5b", "605.1a", "106.12"],
+      "why": "Three artifacts satisfy the restriction, and the three distinct Urza's lands make the conditional mana ability add three colorless mana when Workshop is tapped.",
+      "setup": {"p0": {"battlefield": ["Urza's Workshop", "Bonesplitter", "Bonesplitter#2", "Urza's Tower", "Urza's Mine", "Urza's Power Plant"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Workshop", "ability": "Metalcraft"}],
+      "expect": [{"pool": {"p0": "CCC"}}]
+    }
+  ]
+}

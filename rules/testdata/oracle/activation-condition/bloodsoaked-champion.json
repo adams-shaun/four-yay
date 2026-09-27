@@ -1,0 +1,27 @@
+{
+  "card": "Bloodsoaked Champion",
+  "family": "activation-condition",
+  "oracle_sha": "ab674c58d7fb",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "raid-not-met-without-attack",
+      "cr": ["207.2c", "602.5b"],
+      "why": "The ability word itself has no rules effect; the activation restriction requires that its controller attacked this turn, which has not happened.",
+      "setup": {"p0": {"graveyard": ["Bloodsoaked Champion"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Bloodsoaked Champion", "label": "Raid"}, "want": false}]
+    },
+    {
+      "name": "raid-met-after-attacking",
+      "cr": ["207.2c", "602.5b"],
+      "why": "After this Champion attacked this turn and is in its owner's graveyard, the turn-specific activation restriction is satisfied and it can return to the battlefield.",
+      "setup": {"p0": {"battlefield": ["Bloodsoaked Champion"]}},
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Bloodsoaked Champion"], "defender": "p1"},
+        {"op": "move", "seat": 0, "card": "p0:Bloodsoaked Champion", "to": "graveyard"},
+        {"op": "activate", "seat": 0, "card": "p0:Bloodsoaked Champion", "ability": "Raid", "mana": "1B"}
+      ],
+      "expect": [{"card": "p0:Bloodsoaked Champion", "zone": "battlefield"}]
+    }
+  ]
+}

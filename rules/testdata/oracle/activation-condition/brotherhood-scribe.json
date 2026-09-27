@@ -1,0 +1,26 @@
+{
+  "card": "Brotherhood Scribe",
+  "family": "activation-condition",
+  "oracle_sha": "af4b71438183",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "metalcraft-two-artifacts-is-short",
+      "cr": ["207.2c", "602.5b"],
+      "why": "The Scribe and Bonesplitter are the only two artifacts, one short of the stated three-artifact threshold, so its tap ability is unavailable.",
+      "setup": {"p0": {"battlefield": ["Brotherhood Scribe", "Bonesplitter"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Brotherhood Scribe", "label": "Metalcraft"}, "want": false}]
+    },
+    {
+      "name": "metalcraft-three-artifacts-gives-energy",
+      "cr": ["207.2c", "602.5b"],
+      "why": "The Scribe and two Equipment permanents meet the three-artifact threshold; gaining energy during its controller's turn triggers its team-wide bonus.",
+      "setup": {"p0": {"battlefield": ["Brotherhood Scribe", "Bonesplitter", "Bonesplitter#2", "Savannah Lions"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Brotherhood Scribe", "ability": "Metalcraft"}],
+      "expect": [
+        {"card": "p0:Brotherhood Scribe", "pt": "2/4"},
+        {"card": "p0:Savannah Lions", "pt": "3/2"}
+      ]
+    }
+  ]
+}
