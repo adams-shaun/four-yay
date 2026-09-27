@@ -15,8 +15,8 @@
       "name": "metalcraft-three-artifacts-mox-produces-mana",
       "cr": ["207.2c", "602.5b", "605.1a", "106.12"],
       "why": "With Mox Opal and two other artifacts, the metalcraft restriction is met and tapping it for its mana ability adds one chosen color of mana.",
-      "setup": {"p0": {"battlefield": ["Mox Opal", "Bonesplitter", "Bonesplitter#2"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Mox Opal", "ability": "Metalcraft", "answers": [{"kind": "any", "pick": ["G"]}]}],
+      "setup": {"p0": {"battlefield": ["Mox Opal", "Bonesplitter", "Bonesplitter"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Mox Opal", "ability": "for mana", "answers": [{"kind": "any", "pick": ["G"]}]}],
       "expect": [{"pool": {"p0": "G"}}]
     }
   ]

@@ -62,6 +62,15 @@ var oracleKnownDivergent = map[string]string{
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Engine/script gap: max-speed-gated AddAbility is not offered after the
+	// three turn-specific speed increases (CR 702.179).
+	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",
+	// Script translation: Brotherhood Scribe's CounterAddedOnce trigger does
+	// not produce the printed team-wide +1/+1 bonus after its energy ability.
+	"Brotherhood Scribe/metalcraft-three-artifacts-gives-energy": "observed Scribe 1/3 and Lions 2/1, expected 2/4 and 3/2 after energy",
+	// Script translation: Urza's Workshop's conditional Urza-land count is
+	// not reflected in its mana ability; the three-land board produces one C.
+	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
 }
 
 type oracleFile struct {

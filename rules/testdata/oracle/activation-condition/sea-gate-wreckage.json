@@ -16,7 +16,7 @@
       "cr": ["602.5b"],
       "why": "With an exactly empty hand, the restriction is met; paying the activation cost and tapping the land draws one card.",
       "setup": {"p0": {"battlefield": ["Sea Gate Wreckage"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Sea Gate Wreckage", "ability": "Draw", "mana": "2CC"}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Sea Gate Wreckage", "ability": "Draw", "mana": "WUC"}, {"op": "resolve", "seat": 0}],
       "expect": [{"hand_size": {"p0": 1}, "card": "p0:Sea Gate Wreckage", "tapped": true}]
     }
   ]

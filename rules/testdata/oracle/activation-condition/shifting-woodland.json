@@ -16,7 +16,7 @@
       "cr": ["207.2c", "602.5b"],
       "why": "Creature, artifact, instant, and land cards in the graveyard supply four different card types; the activation can copy the creature card there until end of turn.",
       "setup": {"p0": {"battlefield": ["Shifting Woodland", "Forest"], "graveyard": ["Savannah Lions", "Bonesplitter", "Lightning Bolt", "Plains"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Shifting Woodland", "ability": "Delirium", "mana": "2GG", "targets": ["p0:Savannah Lions"]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Shifting Woodland", "ability": "becomes a copy", "mana": "WUGG", "targets": ["p0:Savannah Lions"]}, {"op": "resolve", "seat": 0}],
       "expect": [{"card": "p0:Shifting Woodland", "pt": "2/1", "types": ["Creature"]}]
     }
   ]

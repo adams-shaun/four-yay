@@ -19,7 +19,8 @@
       "steps": [
         {"op": "attack", "seat": 0, "attackers": ["p0:Bloodsoaked Champion"], "defender": "p1"},
         {"op": "move", "seat": 0, "card": "p0:Bloodsoaked Champion", "to": "graveyard"},
-        {"op": "activate", "seat": 0, "card": "p0:Bloodsoaked Champion", "ability": "Raid", "mana": "1B"}
+        {"op": "activate", "seat": 0, "card": "p0:Bloodsoaked Champion", "ability": "Return CARDNAME", "mana": "WB"},
+        {"op": "resolve", "seat": 0}
       ],
       "expect": [{"card": "p0:Bloodsoaked Champion", "zone": "battlefield"}]
     }

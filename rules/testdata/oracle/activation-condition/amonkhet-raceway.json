@@ -18,13 +18,12 @@
       "setup": {"p0": {"battlefield": ["Amonkhet Raceway", "Grizzly Bears"]}},
       "steps": [
         {"op": "life", "seat": 1, "amount": -1},
-        {"op": "pass_to", "seat": 0, "step": "first_main", "active": "p0"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"},
         {"op": "life", "seat": 1, "amount": -1},
-        {"op": "pass_to", "seat": 0, "step": "first_main", "active": "p0"},
-        {"op": "life", "seat": 1, "amount": -1},
-        {"op": "activate", "seat": 0, "card": "p0:Amonkhet Raceway", "ability": "Max speed", "targets": ["p0:Grizzly Bears"]}
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"},
+        {"op": "life", "seat": 1, "amount": -1}
       ],
-      "expect": [{"card": "p0:Grizzly Bears", "keywords": ["Haste"]}]
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Amonkhet Raceway", "label": "Target creature gains haste"}, "want": true}]
     }
   ]
 }
