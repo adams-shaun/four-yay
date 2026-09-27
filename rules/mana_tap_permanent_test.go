@@ -176,7 +176,7 @@ func TestManaTapPermanentCostHeritageDruidElection(t *testing.T) {
 // rows legitimately stay not_offered there; these boards supply the matching
 // permanents and assert the offer and the payment.
 func TestManaTapPermanentCostFoodAndTokenSpecs(t *testing.T) {
-	e, _, probe := newFixtureDeck(t, 9906, "Name:Tap Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	e, _, _ := newFixtureDeck(t, 9906, "Name:Tap Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	reg := testutil.CorpusRegistry(t)
 	cabbage, ok := reg.Lookup("The Cabbage Merchant")
 	if !ok {
@@ -235,5 +235,4 @@ func TestManaTapPermanentCostFoodAndTokenSpecs(t *testing.T) {
 	if got := e.G.Players[0].Pool.Total(); got != 2 {
 		t.Fatalf("pool total after Baylen = %d, want 2", got)
 	}
-	_ = probe
 }
