@@ -93,13 +93,30 @@ func TestPaymentPlanQueryIsPure(t *testing.T) {
 }
 
 func TestPaymentPlanPriorityAskLeavesExtensionLazy(t *testing.T) {
-	e, _, _ := newFixtureDeck(t, 9108, "Name:Published Plan\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	e, _, spell := newFixtureDeck(t, 9108, "Name:Published Plan\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
+	// Re-ask as the live engine does after an eventless fixture change.
+	e.pending = nil
+	e.askPriority(0)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority {
 		t.Fatalf("pending = %#v, want priority", d)
 	}
 	if d.PaymentActionsBuilt || len(d.PaymentActions) != 0 {
 		t.Fatalf("priority ask eagerly built payment extension: built=%v actions=%#v", d.PaymentActionsBuilt, d.PaymentActions)
+	}
+	legacy := append([]decision.Option(nil), d.Options...)
+	actions := e.EnsurePaymentActions()
+	if len(actions) != 1 || actions[0].Cast.Object != spell || actions[0].BaseOptionIndex != nil {
+		t.Fatalf("payment actions = %#v, want one planned-only action for spell %d", actions, spell)
+	}
+	if got := e.legalActions(0); !reflect.DeepEqual(legacy, got) {
+		t.Fatalf("legacy options changed by lazy publication:\n got %#v\nwant %#v", got, legacy)
+	}
+	cp := d.Clone()
+	cp.PaymentActions[0].Plans[0].Activations[0].Produces[state.ManaIndex('U')] = 9
+	if d.PaymentActions[0].Plans[0].Activations[0].Produces[state.ManaIndex('U')] != 1 {
+		t.Fatal("payment action clone aliases pending witness")
 	}
 }
 
