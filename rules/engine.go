@@ -147,6 +147,13 @@ type Engine struct {
 	// leaves the event stream and every chain head byte-identical.
 	ManaAbilityHook func(p state.PlayerID, source state.ObjID, sa *cards.SA)
 
+	// paymentStats is the optional auto-pay diagnostics sink
+	// (SetPaymentPlanStats, rules/payment_plan_stats.go). Like
+	// ManaAbilityHook it is a harness-only observer: nil by default, it emits
+	// nothing, never changes an offer, and Clone deliberately does not copy
+	// it (spec §7: no pointer is shared across engines).
+	paymentStats *PaymentPlanStats
+
 	// ascend is checkBlessingGrants' incremental "could anything carry
 	// Ascend" arena scan (rules/ascend.go); a pure cache, zero = rescan.
 	ascend ascendScan
@@ -3625,6 +3632,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 		Text: decisionMadePaymentText(d.Kind, in.Choices, in.Payment)})
 	e.pending = nil
 	if in.Payment != nil {
+		e.paymentStats.recordPlannedSubmission()
 		action, _ := paymentActionFor(d, in.Payment.ActionID)
 		// Match the ordinary cast priority action exactly, then enter the same
 		// cast transaction.  The plan is only an immutable payment continuation;

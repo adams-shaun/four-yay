@@ -9146,6 +9146,7 @@ func (e *Engine) paymentPlanFallback(pc *pendingCast, reason string) {
 		return
 	}
 	pc.paymentFallback = &decision.PaymentFallback{PlanID: pc.payment.plan.ID, Reason: reason}
+	e.paymentStats.recordFallback(reason)
 	pc.payment = nil
 	pc.paymentNext = 0
 }
