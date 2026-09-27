@@ -105,7 +105,7 @@ func TestCastSaWarpAndMayhemProvenanceAllSites(t *testing.T) {
 			// Site 2: the layer Affected$ match.
 			ce := ContinuousEffect{Source: spell.ID, Controller: 0,
 				Affects: "Card.Self+" + c.token}
-			if !e.matchesWithTypes(ce, spell.ID, nil, state.ZStack) {
+			if !e.matchesWithTypes(&ce, spell.ID, nil, state.ZStack) {
 				t.Fatalf("Affected$ layer match rejected the paid %s cast", c.token)
 			}
 			// The same gate must reject a cast without the bit (negative
@@ -116,7 +116,7 @@ func TestCastSaWarpAndMayhemProvenanceAllSites(t *testing.T) {
 			if noFlag.ID == spell.ID {
 				t.Fatal("precondition: negative-case object must differ from the paid one")
 			}
-			if e.matchesWithTypes(ce, noFlag.ID, nil, state.ZStack) {
+			if e.matchesWithTypes(&ce, noFlag.ID, nil, state.ZStack) {
 				t.Fatalf("Affected$ layer match admitted an un-paid %s cast", c.token)
 			}
 

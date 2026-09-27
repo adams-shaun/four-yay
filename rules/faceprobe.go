@@ -66,9 +66,15 @@ func (e *Engine) offerAsFace(id state.ObjID, face *cards.Face, fn func() bool) b
 	prevFace, prevDepth, prevGen := o.FaceIdx, e.derivedMemoDepth, e.derivedMemoGen
 	o.FaceIdx = uint8(idx)
 	e.derivedMemoDepth = 0
+	// The flip is a no-event write the cross-walk memo cannot see (it keys on
+	// activeBuildSeq, which a face flip does not move): retire every entry at
+	// both edges so a live-face entry is never served inside the probe and a
+	// probed-face entry never outlives it.
+	e.retireCrossWalkMemo()
 	defer func() {
 		o.FaceIdx = prevFace
 		e.derivedMemoDepth = prevDepth
+		e.retireCrossWalkMemo()
 		if e.derivedMemoGen != prevGen {
 			e.derivedMemoGen++
 		}

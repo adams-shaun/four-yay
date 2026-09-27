@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -2741,7 +2742,40 @@ func FilterAlternatives(spec string) iter.Seq[string] { return filterAlternative
 // dependencies among layer-6 effects without paying for a full spec match
 // per candidate pair; a spec that reads no keyword can never gain or lose
 // its match to a keyword grant, so it always keeps timestamp order.
+//
+// The answer is a pure function of the spec, cached in a direct-mapped front
+// keyed by the string's data pointer and length (specFront's pattern): the
+// layer walk asks it for every layer-6/7 effect of every derivation.
 func SpecReadsKeywords(spec string) bool {
+	slot := &readsKeywordsFront[specFrontSlot(spec)&(1<<readsKeywordsBits-1)]
+	if ent := slot.Load(); ent != nil && ent.spec == spec {
+		if VerifySpecCaches && specReadsKeywords(spec) != ent.reads {
+			panic("effects: SpecReadsKeywords front entry disagrees with a recompute: " + spec)
+		}
+		return ent.reads
+	}
+	reads := specReadsKeywords(spec)
+	slot.Store(&specBoolEntry{spec: spec, reads: reads})
+	return reads
+}
+
+// VerifySpecCaches makes every hit of the per-spec fronts added for the
+// derived walk recompute and panic on a difference. The rules and effects
+// test binaries set it.
+var VerifySpecCaches bool
+
+// specBoolEntry is one immutable front entry for a boolean spec property.
+type specBoolEntry struct {
+	spec  string
+	reads bool
+}
+
+const readsKeywordsBits = 12
+
+var readsKeywordsFront [1 << readsKeywordsBits]atomic.Pointer[specBoolEntry]
+
+// specReadsKeywords is SpecReadsKeywords' uncached body.
+func specReadsKeywords(spec string) bool {
 	// Fast path: every keyword predicate spells out `with`, and the Affinity
 	// base carries `ffinity` (case-insensitive shapes are capitalised in
 	// practice, so the lowercase probe stays cheap); anything else is a

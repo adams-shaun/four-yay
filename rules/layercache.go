@@ -89,14 +89,19 @@ func (e *Engine) refreshStaticContinuous() {
 func (e *Engine) verifyInertActive() {
 	cached := append([]ContinuousEffect(nil), e.activeBuf...)
 	savedEpoch, savedBuf := e.activeEpoch, e.activeBuf
-	e.activeEpoch, e.activeBuf = -1, nil
+	savedHeads, savedSeq := e.activeKWHeads, e.activeBuildSeq
+	e.activeEpoch, e.activeBuf, e.activeKWHeads = -1, nil, nil
 	// A nested call would take the re-entrant private-buffer path; drop to
 	// depth 0 so the forced rebuild is an ordinary outermost build.
 	depth := e.activeDepth
 	e.activeDepth = 0
 	fresh := append([]ContinuousEffect(nil), e.active()...)
 	e.activeDepth = depth
+	// The forced rebuild is a check, not a rebuild of the served list: the
+	// build count and head set stay the served list's (derivedmemo.go's
+	// cross-walk reuse keys on the count).
 	e.activeEpoch, e.activeBuf = savedEpoch, savedBuf
+	e.activeKWHeads, e.activeBuildSeq = savedHeads, savedSeq
 	if len(cached) != len(fresh) || (len(cached) > 0 && !reflect.DeepEqual(cached, fresh)) {
 		panic(fmt.Sprintf("rules: layer-inert active() reuse at log %d disagrees with a rebuild (%d vs %d effects)", len(e.L.Events), len(cached), len(fresh)))
 	}

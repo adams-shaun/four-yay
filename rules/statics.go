@@ -382,7 +382,9 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 	// again would recurse through active(). The scan's own matchesWithChars
 	// supplies its keywords-so-far snapshot directly.
 	if e.activeDepth == 0 {
-		if o := e.G.Obj(id); o != nil {
+		// specReadsDerived: a spec that cannot read the bound keyword list or
+		// P/T skips the Derived walk the bind costs (specderived.go).
+		if o := e.G.Obj(id); o != nil && (specDerivedVerify || specReadsDerived(spec)) {
 			d := e.Derived(id)
 			sc.ExtraKeywords = d.Keywords
 			// The numeric power/basePower predicates read the same derived
@@ -410,8 +412,25 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 		if e.goadProbe == 0 && strings.Contains(spec, "IsGoaded") {
 			sc.StaticGoads = e.staticallyGoaded()
 		}
+		if specDerivedVerify && !specReadsDerived(spec) {
+			return e.verifySpecDerivedSkip(spec, id, sc)
+		}
 	}
 	return effects.MatchesSpecCtx(e.G, spec, id, sc)
+}
+
+// verifySpecDerivedSkip is matchesSpec's verify-mode tail for a spec
+// specReadsDerived clears: sc carries the Derived bind, and the match must
+// agree with the unbound one production takes.
+func (e *Engine) verifySpecDerivedSkip(spec string, id state.ObjID, sc effects.SpecContext) bool {
+	bound := effects.MatchesSpecCtx(e.G, spec, id, sc)
+	sc.ExtraKeywords = nil
+	sc.DerivedPower, sc.DerivedToughness, sc.HasDerivedPT = 0, 0, false
+	sc.BasePower, sc.BaseToughness, sc.HasBasePT = 0, 0, false
+	if unbound := effects.MatchesSpecCtx(e.G, spec, id, sc); unbound != bound {
+		panic(fmt.Sprintf("rules: specReadsDerived cleared %q but the derived bind changed obj %d's match (%v bound, %v unbound)", spec, id, bound, unbound))
+	}
+	return bound
 }
 
 // specCtxSVars is specCtx with an explicit SVar table: a static carried by a
@@ -2352,8 +2371,17 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 			}
 		}
 	}
+	if e.costCompositionEvent == previous {
+		return compose()
+	}
+	// costCompositionEvent hides the pending cast from Count$ThisTurnCast, a
+	// layer-7 input (CheckSVar$ statics) the cross-walk Derived memo cannot
+	// see: retire its entries on entry and exit so none built under the
+	// exclusion is served outside it, nor a live one inside it.
+	e.retireCrossWalkMemo()
 	mods := compose()
 	e.costCompositionEvent = previous
+	e.retireCrossWalkMemo()
 	return mods
 }
 

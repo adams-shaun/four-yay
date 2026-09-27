@@ -6,15 +6,17 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
 // TestDerivedMemoScopedToOneWalk pins derivedmemo.go's invalidation contract:
 // inside one scope a repeated Derived is served from the memo with owned
-// slices (a Derived of another object does not rewrite them), and a NEW scope
-// never serves an entry the previous walk built, even when the board changed
-// with no event at all (a direct counter write, as tests do).
+// slices (a Derived of another object does not rewrite them); a NEW scope
+// reuses an entry only while active() has not been rebuilt, so an
+// event-backed change (and not a layer-inert Priority marker) is seen by the
+// next walk.
 func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nK:Trample\nOracle:x\n")
@@ -39,13 +41,54 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 	}
 	e.endDerivedMemo()
 
-	// No event: a direct write. A new walk must still see it.
-	e.G.Obj(bear).AddCounter("P1P1", 1)
+	// An event-backed change rebuilds active(), so the next walk recomputes.
+	e.emit(events.Event{Kind: events.CounterChange, Obj: bear, Counter: "P1P1", Amount: 1})
 	e.beginDerivedMemo()
 	if p := e.Derived(bear).Power; p != 3 {
 		t.Fatalf("new walk served the previous walk's entry: power %d, want 3", p)
 	}
 	e.endDerivedMemo()
+	m := &e.derivedMemo[bear]
+	seq := m.seq
+	if seq == 0 || seq != e.activeBuildSeq {
+		t.Fatalf("entry not eligible for cross-walk reuse: seq %d, active %d", seq, e.activeBuildSeq)
+	}
+
+	// A layer-inert Priority marker keeps active(), so the next walk reuses
+	// the entry, re-stamped into its own scope.
+	e.emit(events.Event{Kind: events.Priority, Player: 0})
+	e.beginDerivedMemo()
+	if p := e.Derived(bear).Power; p != 3 {
+		t.Fatalf("reused entry power %d, want 3", p)
+	}
+	if m.gen != e.derivedMemoGen || m.seq != seq || e.activeBuildSeq != seq {
+		t.Fatalf("inert event did not keep the entry: gen %d/%d seq %d/%d active %d", m.gen, e.derivedMemoGen, m.seq, seq, e.activeBuildSeq)
+	}
+	e.endDerivedMemo()
+}
+
+// TestDerivedMemoCrossWalkVerifyCatchesDirectWrite documents the cross-walk
+// reuse's blind spot -- a direct e.G write with no event between two walks.
+// Game mutation goes through events.Apply; the engine's own no-event runtime
+// inputs (offerAsFace's face flip, the cost-composition exclusion) call
+// retireCrossWalkMemo. Tests may still write directly, and verify mode flags it.
+func TestDerivedMemoCrossWalkVerifyCatchesDirectWrite(t *testing.T) {
+	e := layerEngine(t)
+	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	e.beginDerivedMemo()
+	_ = e.Derived(bear)
+	e.endDerivedMemo()
+	e.G.Obj(bear).AddCounter("P1P1", 1)
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
+	defer func() {
+		r := recover()
+		if s, ok := r.(string); !ok || !strings.Contains(s, "derived memo stale") {
+			t.Fatalf("verify did not flag the stale cross-walk hit: %v", r)
+		}
+	}()
+	_ = e.Derived(bear)
+	t.Fatal("stale cross-walk hit served without a verify panic")
 }
 
 // TestDerivedMemoVerifyCatchesStaleness proves verify mode is live in the
@@ -209,4 +252,43 @@ func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
 		e.Advance()
 	}
 	t.Skip("no priority decision with a walk-derived creature reached")
+}
+
+// TestDerivedMemoFaceProbeDoesNotLeak pins offerAsFace's isolation under
+// cross-walk reuse: an entry a nested scope builds under the probed face is
+// never served after the probe, and a live-face entry from before the probe
+// is never served inside it.
+func TestDerivedMemoFaceProbeDoesNotLeak(t *testing.T) {
+	e, _, id := newFixtureDeck(t, 7413, taxedAdventureSrc, taxWardenSrc)
+	o := e.G.Obj(id)
+	if o == nil || len(o.Card.Faces) < 2 {
+		t.Fatalf("fixture card has no adventure face")
+	}
+	adv := o.Card.Faces[1]
+	live := func() bool { return slices.Contains(e.Derived(id).Types, "Creature") }
+
+	// Probed face must not leak out.
+	e.offerAsFace(id, adv, func() bool {
+		e.beginDerivedMemo()
+		defer e.endDerivedMemo()
+		if live() {
+			t.Fatalf("probe derived the live face")
+		}
+		return true
+	})
+	e.beginDerivedMemo()
+	if !live() {
+		t.Fatalf("after the probe Derived served the probed face")
+	}
+	e.endDerivedMemo()
+
+	// Live face must not leak in.
+	e.offerAsFace(id, adv, func() bool {
+		e.beginDerivedMemo()
+		defer e.endDerivedMemo()
+		if live() {
+			t.Fatalf("probe served the pre-probe live-face entry")
+		}
+		return true
+	})
 }

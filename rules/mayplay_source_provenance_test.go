@@ -53,7 +53,7 @@ func TestMayPlaySourceCastProvenance(t *testing.T) {
 	}
 	ce := ContinuousEffect{Source: spell.ID, Controller: 0,
 		Affects: "Card.Self+CastSa Spell.MayPlaySource"}
-	if !e.matchesWithTypes(ce, spell.ID, nil, state.ZStack) {
+	if !e.matchesWithTypes(&ce, spell.ID, nil, state.ZStack) {
 		t.Fatal("Affected$ layer match rejected the paid may-play cast")
 	}
 
