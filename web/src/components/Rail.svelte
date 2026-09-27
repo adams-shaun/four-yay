@@ -107,7 +107,11 @@
   // Spectators have no felt hand fan. Render every hand the projected view
   // actually exposes, while keeping seated players' own hand in its existing
   // fan and never inferring visibility from hand_size or table configuration.
-  const spectatorHands: typeof view.players = [];
+  const spectatorHands = $derived(
+    view.viewer === 255
+      ? view.players.filter((player) => visibleHand(player) !== null)
+      : [],
+  );
 
   // view.stack lists bottom of the stack first (push order); the rail shows
   // what resolves next at the top, so it is reversed for display only.
@@ -146,6 +150,14 @@
     {#if logbar}<span class="logbar__extra">{@render logbar()}</span>{/if}
   </div>
   <SeatTable {view} {seats} {focus} {events} {options} onFocus={(s) => (picked = picked === s ? null : s)} />
+
+  {#if spectatorHands.length > 0}
+    <section class="revealed-hands" aria-label="Visible hands" data-visible-hands>
+      {#each spectatorHands as player (player.seat)}
+        <HandList {player} deck={seats[player.seat]?.deck} colour={seatColour(player.seat, seats)} />
+      {/each}
+    </section>
+  {/if}
 
   <section class="focus" data-focus-pane data-focus-seat={focused?.seat}>
     {#if focused}
