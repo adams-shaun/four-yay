@@ -1,0 +1,9 @@
+{
+  "card": "Mistveil Plains", "family": "activation-condition", "oracle_sha": "8563256ccc29",
+  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
+  "scenarios": [
+    {"name": "graveyard-ability-unavailable-with-one-white-permanent", "cr": ["602.5"], "why": "One Savannah Lions is one white permanent, one short of the stated two-permanent threshold.", "setup": {"p0": {"battlefield": ["Mistveil Plains", "Savannah Lions"], "graveyard": ["Grizzly Bears"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Mistveil Plains", "label": "Put"}, "want": false}]},
+    {"name": "graveyard-ability-offered-with-two-white-permanents", "cr": ["602.5"], "why": "Two Savannah Lions are two white permanents, exactly meeting the minimum for the ability.", "setup": {"p0": {"battlefield": ["Mistveil Plains", "Savannah Lions", "Savannah Lions"], "graveyard": ["Grizzly Bears"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Mistveil Plains", "label": "Put"}, "want": true}]},
+    {"name": "graveyard-card-bottomed-at-two-white-permanents", "cr": ["602.5", "602.2"], "why": "At exactly two white permanents the restriction is met; paying white mana and tapping the land activates its targeted ability, moving the chosen graveyard card to the bottom of its owner's library.", "setup": {"p0": {"battlefield": ["Mistveil Plains", "Savannah Lions", "Savannah Lions"], "graveyard": ["Grizzly Bears"]}}, "steps": [{"op": "mana", "seat": 0, "mana": "W"}, {"op": "activate", "seat": 0, "card": "p0:Mistveil Plains", "ability": "Put", "targets": ["p0:Grizzly Bears"]}, {"op": "resolve"}], "expect": [{"card": "p0:Grizzly Bears", "zone": "library"}, {"pool": {"p0": ""}}]}
+  ]
+}
