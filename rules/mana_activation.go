@@ -571,7 +571,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// caller appends it (a closure appending to out itself would move out's
 	// header to the heap on every call).
 	considerReflected := func(ma *cards.SA, ctx *effects.Ctx) bool {
-		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
+		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
 		return len(effects.ManaReflectedCandidates(e, ctx, ma)) > 0
@@ -641,7 +641,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			}
 			continue
 		}
-		if ma.API == "Mana" && !e.isLoyaltyAbility(ma) && abilityZoneOK(ma, o.Zone) && !abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) &&
+		if ma.API == "Mana" && !e.isLoyaltyAbility(ma) && abilityZoneOK(ma, o.Zone) && e.activatorAllows(p, id, ma) && !abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) &&
 			e.manaActivationGateHolds(p, id, ma) && e.manaSVarGateOK(o, p, id, ma) {
 			out = append(out, ma)
 		}
@@ -654,7 +654,13 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// see exactly one member set. A member the printed scan above already
 	// produced is skipped (it anchors the same activation); a granted
 	// ManaReflected member goes through the same candidate/present gates as a
-	// printed one.
+	// printed one. Activator$ applies to every one of these members exactly
+	// as to a printed ability (legal.go's granted offer loop reads it too):
+	// battlefieldManaSourceIDs walks every seat's permanents, so without the
+	// gate an opponent's Mirran Safehouse -- which has the activated
+	// abilities of the land cards in all graveyards -- was a mana source for
+	// the non-controller's offer, payment window and planner (cardfuzz
+	// explore seed 11656500164625753431: planfb source_changed).
 	for _, ga := range e.grantedAbilities(p, id) {
 		if printed[ga.sa.Line] {
 			continue
@@ -668,7 +674,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		if ga.sa.API != "Mana" || e.isLoyaltyAbility(ga.sa) {
 			continue
 		}
-		if !abilityZoneOK(ga.sa, o.Zone) || abilityRestricted(ga.sa) || !e.manaAbilityPayable(p, id, ga.sa) ||
+		if !abilityZoneOK(ga.sa, o.Zone) || !e.activatorAllows(p, id, ga.sa) || abilityRestricted(ga.sa) || !e.manaAbilityPayable(p, id, ga.sa) ||
 			!e.manaActivationGateHolds(p, id, ga.sa) || !e.manaSVarGateOK(o, p, id, ga.sa) {
 			continue
 		}

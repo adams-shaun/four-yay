@@ -333,7 +333,58 @@ func (e *Engine) paymentPlanTapObservers(id state.ObjID, activator state.PlayerI
 			}
 		}
 	}
+	if by, seen := e.paymentPlanDelayedTapObserver(id, ev); seen {
+		return 0, by, false
+	}
 	return damage, 0, true
+}
+
+// paymentPlanDelayedTapObserver reports the source of the first live
+// effect-created Taps/TapsForMana registration (state.Game.Delayed with
+// EffectRepeat: Bubbling Muck's "until end of turn, whenever a player taps a
+// Swamp for mana, that player adds an additional {B}") that would see ev.
+// It reads the registration exactly as checkEventDelayedTriggers' EffectRepeat
+// arm does -- the stored body, the generic trigMatchers dispatch, matched as
+// the registration's owner under the effect-match scope -- and restores that
+// matcher scratch before returning. A non-repeating registration with a tap
+// mode is never fired by that scan, so it observes nothing. Without this walk
+// the planner priced a Swamp at {B} while the tap added {B}{B} (round-5
+// cardfuzz mirror seed 14886721532440673633: wrong_production and a
+// pool_after the witness did not promise).
+func (e *Engine) paymentPlanDelayedTapObserver(id state.ObjID, ev events.Event) (state.ObjID, bool) {
+	savedSrc, savedCtl := e.effectMatchSource, e.effectMatchController
+	savedRem, savedOverride := e.effectMatchRemembered, e.effectMatchOverride
+	defer func() {
+		e.effectMatchSource, e.effectMatchController = savedSrc, savedCtl
+		e.effectMatchRemembered, e.effectMatchOverride = savedRem, savedOverride
+	}()
+	for i := range e.G.Delayed {
+		dt := &e.G.Delayed[i]
+		if !dt.EffectRepeat || (dt.EventMode != "Taps" && dt.EventMode != "TapsForMana") || dt.Trigger == "" {
+			continue
+		}
+		if (dt.MaxTurn > 0 && e.G.Turn > dt.MaxTurn) || !e.delayedRegistrationLive(dt) {
+			continue
+		}
+		raw := dt.Trigger
+		if !strings.HasPrefix(raw, "Mode$") {
+			raw = events.SVarAcrossFaces(e.G.Obj(dt.Source), raw)
+		}
+		t, ok := cards.ParseTriggerLine(raw)
+		if !ok || t.Mode != dt.EventMode {
+			continue
+		}
+		fn := trigMatchers[t.Mode]
+		if fn == nil || !triggerModeEvents(t.Mode).allows(ev.Kind) {
+			continue
+		}
+		e.effectMatchSource, e.effectMatchController = dt.Source, dt.Controller
+		e.effectMatchRemembered, e.effectMatchOverride = dt.Remembered, true
+		if fn(e, t, dt.Source, ev, nil) {
+			return dt.Source, true
+		}
+	}
+	return 0, false
 }
 
 // paymentPlanProductionReplaced reports the first object whose ProduceMana
