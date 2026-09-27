@@ -4546,6 +4546,27 @@ func (e *Engine) casualtyAsk() bool {
 	return true
 }
 
+// xMinAbilityParam is the ONE parse of an ability's XMin$ parameter (task
+// cost:xmin-param): a positive integer is the SA's own announcement floor for
+// the shared X; anything else (absent, non-numeric, zero, negative) binds
+// nothing, exactly as the cost-embedded XMin<N> token fallback does not
+// invent a floor. Both floor readers go through it -- xAsk for the option
+// range of the ability actually being activated (pcAbility resolves the
+// printed, granted or gained SA) and the offer gate for the cheapest legal
+// announcement its feasibility composition prices (scope.ab, the same SA the
+// offer walk scoped) -- so the offer and the ask can never disagree about
+// what the parameter binds.
+func xMinAbilityParam(ab *cards.SA) int32 {
+	if ab == nil {
+		return 0
+	}
+	n, err := strconv.ParseInt(ab.Params["XMin"], 10, 32)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return int32(n)
+}
+
 // xAsk asks a value for {X} if pc.cost carries one, offering 0..max where
 // max is the largest value the mana pool (crediting the best possible
 // Delve) can still pay. Runs at most once (xDone).
@@ -4644,10 +4665,8 @@ func (e *Engine) xAsk() bool {
 	// ability actually being activated, not a face-wide parameter. A spell
 	// cast (pcAbility nil) reads nothing here; a malformed value binds
 	// nothing, exactly as the token fallback does not invent a floor.
-	if ab := e.pcAbility(pc); ab != nil {
-		if n, err := strconv.ParseInt(ab.Params["XMin"], 10, 32); err == nil && n > 0 && int32(n) > min {
-			min = int32(n)
-		}
+	if n := xMinAbilityParam(e.pcAbility(pc)); n > min {
+		min = n
 	}
 	pool := e.G.Players[pc.player].Pool
 	gy := int32(len(e.G.Zone(state.ZGraveyard, pc.player)))

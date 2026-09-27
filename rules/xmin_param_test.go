@@ -264,3 +264,48 @@ func TestCorpseweftXMinParamOffersNoZeroExileX(t *testing.T) {
 	}
 	replayCheck(t, e, cfg)
 }
+
+// TestXMinParamOfferGateWithholdsUnpayableMinimum is the offer regression:
+// one generic mana pays X=1 but not the ability's XMin$ 2 floor, so no
+// activation is offered. With two generic the offer appears, X starts at 2,
+// and payment resolves the ability at that value.
+func TestXMinParamOfferGateWithholdsUnpayableMinimum(t *testing.T) {
+	e, cfg, _ := newFixtureDeck(t, 96, xMinOfferGateSrc, xMinOfferGateBearSrc)
+	relicID := moveSeeded(t, e, 0, xMinOfferGateSrc, state.ZBattlefield)
+	e.pending = nil
+	e.Advance()
+	xMinOfferGatePrecondition(t, e, relicID, "2", 0, 1)
+
+	addMana(t, e, 0, "C")
+	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("priority decision after funding = %+v, want a live priority ask", d)
+	}
+	if _, ok := findAbilityOption(e, relicID, 0); ok {
+		t.Fatal("activation offered with one generic mana: XMin$ 2 needs two, the offer must be withheld")
+	}
+	addMana(t, e, 0, "C")
+	opt, ok := findAbilityOption(e, relicID, 0)
+	if !ok {
+		t.Fatalf("activation not offered with two generic mana: %+v", e.Pending().Options)
+	}
+	submitChoices(t, e, opt.Index)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose || d.Prompt != "Choose a value for X" {
+		t.Fatalf("X ask = %+v, want the announcement decision", d)
+	}
+	for _, o := range d.Options {
+		if o.Kind == "x" && o.Amount < 2 {
+			t.Fatalf("X options = %+v, want none below 2", d.Options)
+		}
+	}
+	if len(d.Options) == 0 || d.Options[0].Kind != "x" || d.Options[0].Amount != 2 {
+		t.Fatalf("X options = %+v, want range to start at 2", d.Options)
+	}
+	startLife := e.G.Players[0].Life
+	submitChoices(t, e, d.Options[0].Index)
+	passUntilStackEmpty(t, e, 20)
+	if got := e.G.Players[0].Life; got != startLife+2 {
+		t.Fatalf("life after paying X=2 = %d, want %d", got, startLife+2)
+	}
+	replayCheck(t, e, cfg)
+}

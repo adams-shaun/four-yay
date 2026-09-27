@@ -1723,6 +1723,20 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	if !ok {
 		return false
 	}
+	// The activated ability's own XMin$ parameter (task cost:xmin-param): the
+	// same announcement floor xAsk folds from the ability being activated,
+	// read here off scope.ab -- the exact printed or granted SA the offer walk
+	// scoped. The fold RAISES the cost's own XMin<N> bound by maximum and
+	// stops there: feasibleAny's bound pricing (WithX at the smallest legal
+	// announcement) composes the cheapest legal price from it, so the offer
+	// gate and xAsk share one floor answer and an unannounced cost still
+	// reports no charge. A cost that announces no X binds nothing: no {X} pip
+	// and no announced-X part means no announcement exists to floor.
+	if scope.ab != nil && costAnnouncesX(base) {
+		if n := xMinAbilityParam(scope.ab); n > base.XMin {
+			base.XMin = n
+		}
+	}
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
 	tax := int32(0)
 	if scope.kind != "Ability" && scope.kind != "Foretell" {
