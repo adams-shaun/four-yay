@@ -41,6 +41,12 @@ import (
 //     the plan's Ogre paid life for R and was then the creature sacrificed
 //     for the spell's additional cost (CR 601.2h); the witness read that
 //     sacrifice as its activation (harness gap, activationProduction).
+//
+// fb-20260927T163321Z-69285807 moved the commander seeds here (12468, 11828,
+// 12603, 10877) with the command-zone payment-plan fix: a commander in the
+// command zone now gets a plan, the auto-pay bots cast it through one, and
+// those games move. 10877 keeps the same Infernal Plunge pin at its new seq;
+// the other three already carry empty or unchanged pins.
 func TestRoundTenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -72,7 +78,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 		12468: {7211: ""},
 		11828: {},
 		12603: {2300: ""},
-		10877: {2873: ""},
+		10877: {2834: ""},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)

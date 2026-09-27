@@ -45,6 +45,17 @@ import (
 //     on "targets_chosen" naming the permuted trigger ObjID -- a mask gap in
 //     the harness, not an engine difference. It surfaced with 87586f456,
 //     which made Sacrifice (fixed-count mandatory sacrifice) plannable at all.
+//
+// fb-20260927T163321Z-69285807 moved the commander seeds here (10860, 11056,
+// 8175) with the command-zone payment-plan fix: a commander in the command
+// zone now gets a plan, the auto-pay bots cast it through one, and those games
+// move. 11056 keeps the same Artisan of Kozilek pin at its new seq. 8175's
+// Sacrifice cast no longer occurs, but the same float_trigger_precedes_cast
+// shape now surfaces on Songs of the Damned, so that seed keeps a pin.
+// 10860's Three Visits and Worldly Tutor casts no longer occur: the seed keeps
+// an empty pin (the round-10 convention, seed 11828) and asserts the whole
+// game is mismatch-free and control-equivalent; its Command Tower production
+// root cause stays pinned by TestMatchProductionsRespectsAnyColourAmount.
 func TestRoundNineFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -74,10 +85,10 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 	}
 	const precedes = "expected:float_then_cast:float_trigger_precedes_cast"
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		10860: {8057: "", 10012: ""},
-		11056: {6387: precedes},
+		10860: {}, // the pinned casts no longer occur; assert a clean, control-equivalent game
+		11056: {6379: precedes},
 		10056: {6108: ""},
-		8175:  {5587: precedes},
+		8175:  {3691: precedes},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)
