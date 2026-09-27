@@ -11,6 +11,7 @@ package rules
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -2064,6 +2065,38 @@ func sacrificeMatchSpec(spec string) string {
 func (e *Engine) sacrificeCostCandidates(p state.PlayerID, source state.ObjID, part CostPart, ability bool) []state.ObjID {
 	matchSpec := sacrificeMatchSpec(part.Spec)
 	cause := costCauseForAbility(ability)
+	var out []state.ObjID
+	if matchSpec == "CARDNAME" {
+		// A bare self-reference matches exactly the source (CR 201.5; the
+		// filter's CARDNAME base rejects every object whose ID is not
+		// sc.Source, and a zero source matches nothing), so the scan below
+		// can admit at most the source itself, at its battlefield position.
+		// Test it alone instead of matching the whole battlefield: a mass of
+		// Sac<1/CARDNAME> mana tokens (Eldrazi Spawn) otherwise makes every
+		// payability check O(board) and the priority walk O(board^2).
+		if source != 0 && slices.Contains(e.G.Zone(state.ZBattlefield, p), source) &&
+			existsOnBattlefield(e.G.Obj(source)) && !e.sacrificeBlockedForCost(source, cause) &&
+			e.matchesSpecFrom(matchSpec, source, p, source) {
+			out = append(out, source)
+		}
+		if sacrificeCardnameVerify {
+			if want := e.sacrificeCostScan(p, source, matchSpec, cause); !slices.Equal(out, want) {
+				panic(fmt.Sprintf("rules: CARDNAME sacrifice fast path %v, full scan %v (source %d)", out, want, source))
+			}
+		}
+		return out
+	}
+	return e.sacrificeCostScan(p, source, matchSpec, cause)
+}
+
+// sacrificeCardnameVerify makes the CARDNAME fast path above also run the
+// full battlefield scan and panic on any difference. Set by the rules test
+// binary (derivedmemo_verify_test.go), or at link time with
+// derivedMemoVerifyFlag.
+var sacrificeCardnameVerify = derivedMemoVerifyFlag != ""
+
+// sacrificeCostScan is sacrificeCostCandidates' full battlefield scan.
+func (e *Engine) sacrificeCostScan(p state.PlayerID, source state.ObjID, matchSpec string, cause costCause) []state.ObjID {
 	var out []state.ObjID
 	for _, oid := range e.G.Zone(state.ZBattlefield, p) {
 		if !existsOnBattlefield(e.G.Obj(oid)) || e.sacrificeBlockedForCost(oid, cause) {

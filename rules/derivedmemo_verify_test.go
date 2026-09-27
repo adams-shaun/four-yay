@@ -15,6 +15,7 @@ import "testing"
 // recomputed and a difference panics.
 func init() {
 	derivedMemoVerify = true
+	sacrificeCardnameVerify = true
 	walkCacheVerify = true
 	trigZoneSkipVerify = true
 }
