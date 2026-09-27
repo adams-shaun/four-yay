@@ -107,10 +107,10 @@ func poolHasLayer4Static(cfg Config) bool {
 // events.Apply and keyed to that event's Obj/IDs/Pairs (the one exception,
 // offerAsFace's scoped FaceIdx flip in faceprobe.go, brackets a pure read
 // that emits no event and refreshes before flipping, so no refresh with a
-// moved key ever runs inside it). Objects APPENDED since the last build are
-// integrated unconditionally (every AddObject in a live engine happens
-// inside events.Apply between the last refresh and now; a test helper's
-// eventless AddObject is indistinguishable and integrated the same way), and
+// moved key ever runs inside it). Objects APPENDED while events advance
+// the log are integrated unconditionally, even if a test helper appended
+// one before the event. An eventless AddObject with no intervening event
+// forces a full rebuild instead, and
 // the source list is re-derived fresh from e.continuous every refresh, so a
 // liveness flip (a source leaving the battlefield, a DurationSource moving,
 // an UntilEndOfCombat/UntilTurn boundary) either changes the source list
@@ -150,6 +150,15 @@ func (e *Engine) refreshDerivedTypes() {
 		if layerInertVerify {
 			e.verifyInertDerivedTypes()
 		}
+		return
+	}
+	// A direct test-helper AddObject with no logged event invalidates the
+	// object-count guard. Rebuild the entire board rather than treating an
+	// eventless arena change as an ordinary emitted change. When an event
+	// DOES advance the key, typesCatchUp also integrates every appended
+	// object, including one added directly before that event.
+	if e.typesObjs != len(e.G.Objs) && n == e.typesEpoch {
+		e.refreshDerivedTypesFull(n)
 		return
 	}
 	// The incremental rebuild. Everything it cannot prove locally falls
