@@ -1422,6 +1422,9 @@ func (e *Engine) describeTargetEffect(p state.PlayerID, source state.ObjID, sa *
 	if removal := targetRemoval(sa); removal != nil {
 		out.Removal = removal
 	}
+	if sa.API == "Effect" {
+		out.Statics = e.grantedStaticModes(p, source, sa)
+	}
 	switch sa.API {
 	case "DealDamage", "DamageAll":
 		out.Damage = &decision.DamageEffect{}
@@ -1432,6 +1435,52 @@ func (e *Engine) describeTargetEffect(p state.PlayerID, source state.ObjID, sa *
 			n := int(amount)
 			out.Damage.Amount = &n
 		}
+	}
+	return out
+}
+
+// grantedStaticModes resolves an Effect SA's StaticAbilities$ SVar names
+// against the source face's SVar table and returns each body's Mode$ value,
+// in the order the names were written. It is the target-ask half of the
+// Effect registration path (effects' effEffect walks the same names and
+// resolves the same bodies via parseStaticLine), so the decision payload and
+// the registered effect cannot disagree about what static an activation
+// grants. A name that does not resolve, or whose body carries no Mode$, is
+// silently skipped -- the payload publishes only what it can prove, exactly
+// the way an unknown API stays uninterpreted.
+func (e *Engine) grantedStaticModes(p state.PlayerID, source state.ObjID, sa *cards.SA) []string {
+	names := strings.FieldsFunc(sa.Params["StaticAbilities"], func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n'
+	})
+	if len(names) == 0 {
+		return nil
+	}
+	// The SVar table is whichever face targetBoundCtx binds -- the source
+	// permanent for an ability object (Whirler Rogue's activation), the
+	// spell itself for a spell. It is the same anchor the dynamic numeric
+	// grammar uses, so one read serves both.
+	ctx, ok := e.targetBoundCtx(p, source)
+	if !ok || ctx.SVars == nil {
+		return nil
+	}
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		body := strings.TrimSpace(ctx.SVars[name])
+		if body == "" {
+			continue
+		}
+		statics, ok := cards.ParseStaticLines(body)
+		if !ok {
+			continue
+		}
+		for _, st := range statics {
+			if st.Mode != "" {
+				out = append(out, st.Mode)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }

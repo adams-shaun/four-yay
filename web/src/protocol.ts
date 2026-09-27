@@ -960,6 +960,17 @@ export interface TargetEffect {
    * whose destination this vocabulary does not model.
    */
   removal?: RemovalEffect | null;
+  /**
+   * Statics names the resolved Mode$ values of the continuous statics an
+   * Effect SA grants (its StaticAbilities$ SVar bodies). It is populated
+   * only for API "Effect" whose granted bodies resolve to a readable
+   * Mode$. The modes describe the static's SHAPE (CantBlockBy, Continuous,
+   * MustAttack, ...), never a verdict: a consumer must classify polarity
+   * itself, because the same mode can be a boon (CantBlockBy on one's own
+   * creature) or a restriction (Continuous shrinking an opponent). Empty
+   * when nothing resolves.
+   */
+  statics?: string[];
 }
 
   /**
