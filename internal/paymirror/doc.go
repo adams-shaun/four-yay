@@ -59,7 +59,14 @@
 //     compared as order, not as game facts: the entry lists must be the
 //     same multiset, and only then are the other two masked (diff.go's
 //     floatReorder). Run A pays after the spell moved; the float route
-//     before it.
+//     before it. The damageSourceLKI mask covers the spell and every object
+//     created since the fork (its cast triggers, queued while A's window was
+//     open, and what they and the spell become), for the planned sources
+//     only.
+//
+// Where several priority-wheel options produce the witness's mana (a source
+// that gained the same "Add {R}" from two cards), the float route picks the
+// member run A activated (its ManaActivate marker), trying each on a clone.
 //
 // Two games that both ended inside the transaction are equivalent when their
 // outcome (winner/draw and the set of losers) is equal.
@@ -69,10 +76,12 @@
 //   - AInvariant: at the priority boundary no cast transaction is pending and
 //     no choose flow is armed (CR 601.2: no priority while casting).
 //   - AWitness: each planned source's activation (its first tap, or its
-//     first zone change when its cost moves it without a tap) is followed,
-//     after the rest of its own cost (its sacrifice, the payer's life), by
-//     exactly its witness Produces (skipped when A fell back to the manual
-//     window).
+//     first zone change when its cost moves it without a tap, or -- for a
+//     pay-life-only source such as Treasonous Ogre -- the payer's payment of
+//     exactly its disclosed Consequence.Life immediately followed by mana) is
+//     followed, after the rest of its own cost (its sacrifice, the payer's
+//     life), by exactly its witness Produces (skipped when A fell back to the
+//     manual window).
 //   - ASideEffects: damage a planned source dealt while producing mana.
 //
 // # Exclusions
@@ -115,10 +124,27 @@
 //
 // A route is Unmirrorable when the manual route cannot be driven at all. It
 // is Expected (RouteResult.Expected) when the reason is a known limit of the
-// float route rather than evidence about run A -- floating put only the
-// float's own triggered abilities on the stack, which a sorcery-speed cast
-// cannot be made over -- and cmd/cardfuzz records no failure for a cast whose
-// only unmirrorable routes are expected (Report.ExpectedUnmirrorable).
+// float route rather than evidence about run A, and cmd/cardfuzz records no
+// failure for a cast whose only unmirrorable routes are expected
+// (Report.ExpectedUnmirrorable). Every expected reason is a consequence of
+// the float route activating at priority what run A activates inside the
+// CR 601.2g payment window, where no player receives priority, so what the
+// activations trigger waits until the spell is cast and goes on the stack
+// above it (CR 603.3b):
+//
+//	cast_blocked_by_float_trigger       floating put only the float's own triggered
+//	                                    abilities on the stack, which a sorcery-speed
+//	                                    cast cannot be made over
+//	float_trigger_placement             an activation's trigger asked its placement
+//	                                    (target, order) at priority; run A posed the
+//	                                    same ask after the cast
+//	float_trigger_precedes_cast         floating put triggered abilities on the stack
+//	                                    before the cast and the route then disagreed
+//	                                    (stack order, trigger-order ask, ability object
+//	                                    identities); the disagreement is kept as detail
+//	follow_up_names_float_spent_source  run A targeted (CR 601.2c) a source its own
+//	                                    payment then sacrificed (CR 601.2g-h); the float
+//	                                    spent it before the cast, so it is no target
 //
 // Not excluded, and therefore compared: everything else, including the log-
 // derived engine tallies rules reads later (manaExpended, tappedTurn,
