@@ -49,11 +49,11 @@
         "700.5",
         "603.2"
       ],
-      "why": "Two black symbols on Mogis plus two on the Merchant make devotion four, so the opponent loses four and seat 0 gains four.",
+      "why": "Two black symbols on the Nighthawk plus two on the entering Merchant make devotion four, so the opponent loses four and seat 0 gains four.",
       "setup": {
         "p0": {
           "battlefield": [
-            "Mogis, God of Slaughter"
+            "Vampire Nighthawk"
           ],
           "hand": [
             "Gray Merchant of Asphodel"
@@ -87,7 +87,7 @@
         "700.5",
         "603.2"
       ],
-      "why": "An opponent\u2019s black symbols do not count toward seat 0\u2019s devotion; the Merchant itself contributes only two.",
+      "why": "An opponent\u2019s Nighthawk does not count toward seat 0\u2019s devotion; the entering Merchant itself contributes only two.",
       "setup": {
         "p0": {
           "hand": [
@@ -96,7 +96,7 @@
         },
         "p1": {
           "battlefield": [
-            "Mogis, God of Slaughter"
+            "Vampire Nighthawk"
           ]
         }
       },

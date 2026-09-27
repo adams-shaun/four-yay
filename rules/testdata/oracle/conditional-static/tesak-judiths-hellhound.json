@@ -10,7 +10,7 @@
         "611.3a",
         "613.1f"
       ],
-      "why": "Without a counter, Tesak does not grant itself haste.",
+      "why": "Declining the optional entrance counter during setup leaves Tesak without the counter-based haste grant.",
       "setup": {
         "p0": {
           "battlefield": [
@@ -26,6 +26,14 @@
           "pt": "3/3",
           "no_keywords": [
             "Haste"
+          ]
+        }
+      ],
+      "setup_answers": [
+        {
+          "kind": "choose",
+          "pick": [
+            "without a counter"
           ]
         }
       ]
@@ -98,18 +106,18 @@
           "op": "cast",
           "seat": 0,
           "card": "p0:Tesak, Judith's Hellhound",
-          "mana": "CCCR",
+          "mana": "CCCR"
+        },
+        {
+          "op": "resolve",
           "answers": [
             {
-              "kind": "any",
+              "kind": "choose",
               "pick": [
-                "no"
+                "without a counter"
               ]
             }
           ]
-        },
-        {
-          "op": "resolve"
         }
       ],
       "expect": [
