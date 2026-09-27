@@ -1,0 +1,124 @@
+{
+  "card": "Gray Merchant of Asphodel",
+  "family": "conditional-static",
+  "oracle_sha": "59023cf9f02b",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "self-devotion-two",
+      "cr": [
+        "700.5",
+        "603.2"
+      ],
+      "why": "When the Merchant enters, its two black symbols are on the battlefield and count: one opponent loses two and the controller gains two.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gray Merchant of Asphodel"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Gray Merchant of Asphodel",
+          "mana": "CCCBB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Gray Merchant of Asphodel",
+          "zone": "battlefield"
+        },
+        {
+          "life": {
+            "p0": 22,
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "additional-black-symbols",
+      "cr": [
+        "700.5",
+        "603.2"
+      ],
+      "why": "Two black symbols on Mogis plus two on the Merchant make devotion four, so the opponent loses four and seat 0 gains four.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mogis, God of Slaughter"
+          ],
+          "hand": [
+            "Gray Merchant of Asphodel"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Gray Merchant of Asphodel",
+          "mana": "CCCBB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 24,
+            "p1": 16
+          }
+        }
+      ]
+    },
+    {
+      "name": "opponents-symbols-do-not-count",
+      "cr": [
+        "700.5",
+        "603.2"
+      ],
+      "why": "An opponent\u2019s black symbols do not count toward seat 0\u2019s devotion; the Merchant itself contributes only two.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gray Merchant of Asphodel"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Mogis, God of Slaughter"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Gray Merchant of Asphodel",
+          "mana": "CCCBB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 22,
+            "p1": 18
+          }
+        }
+      ]
+    }
+  ]
+}

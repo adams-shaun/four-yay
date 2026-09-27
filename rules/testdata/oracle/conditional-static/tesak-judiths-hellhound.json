@@ -1,0 +1,129 @@
+{
+  "card": "Tesak, Judith's Hellhound",
+  "family": "conditional-static",
+  "oracle_sha": "068b072dfba8",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "without-counter-no-haste",
+      "cr": [
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "Without a counter, Tesak does not grant itself haste.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Tesak, Judith's Hellhound"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Tesak, Judith's Hellhound",
+          "pt": "3/3",
+          "no_keywords": [
+            "Haste"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unleashed-counter-grants-haste",
+      "cr": [
+        "702.98a",
+        "611.3a",
+        "613.1f"
+      ],
+      "why": "Choosing to enter unleashed puts a +1/+1 counter on Tesak; it is then a creature with a counter, so it has haste.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Tesak, Judith's Hellhound"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Tesak, Judith's Hellhound",
+          "mana": "CCCR",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Tesak, Judith's Hellhound",
+          "pt": "4/4",
+          "counters": {
+            "+1/+1": 1
+          },
+          "keywords": [
+            "Haste"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "decline-unleash-no-haste",
+      "cr": [
+        "702.98a",
+        "611.3a"
+      ],
+      "why": "Declining the optional counter keeps Tesak at its printed size and without the counter-based haste grant.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Tesak, Judith's Hellhound"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Tesak, Judith's Hellhound",
+          "mana": "CCCR",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "no"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Tesak, Judith's Hellhound",
+          "pt": "3/3",
+          "counters": {
+            "+1/+1": 0
+          },
+          "no_keywords": [
+            "Haste"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "card": "Sentinel Sarah Lyons",
+  "family": "conditional-static",
+  "oracle_sha": "671f8a29ed77",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-artifact-entered-this-turn",
+      "cr": [
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "An artifact already present before this turn does not establish that one entered during this turn; Sarah and another creature keep printed sizes.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Sentinel Sarah Lyons",
+            "Grizzly Bears",
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Sentinel Sarah Lyons",
+          "pt": "4/4"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "2/2"
+        }
+      ]
+    },
+    {
+      "name": "new-artifact-turns-on-team",
+      "cr": [
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "Casting an artifact from hand this turn grants +2/+2 to both Sarah and another controlled creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Sentinel Sarah Lyons",
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "C",
+          "expect": [
+            {
+              "card": "p0:Sentinel Sarah Lyons",
+              "pt": "4/4"
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter"
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "card": "p0:Sentinel Sarah Lyons",
+              "pt": "6/6"
+            },
+            {
+              "card": "p0:Grizzly Bears",
+              "pt": "4/4"
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Sentinel Sarah Lyons",
+          "pt": "6/6"
+        }
+      ]
+    },
+    {
+      "name": "opponent-artifact-not-ours",
+      "cr": [
+        "611.3a",
+        "613.1g"
+      ],
+      "why": "An artifact belonging to the other seat does not satisfy the condition for Sarah\u2019s team.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Sentinel Sarah Lyons"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Bonesplitter"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Sentinel Sarah Lyons",
+          "pt": "4/4"
+        }
+      ]
+    }
+  ]
+}
