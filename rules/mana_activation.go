@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -463,7 +464,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// and a permitted opponent could not.
 		if e.activatorAllows(p, id, ma) &&
 			e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
-			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) &&
+			!e.manaAbilityTapSick(id, ma) && !abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) &&
 			// CheckSVar$/SVarCompare$ (Glistening Sphere's Corrupted "Activate
 			// only if an opponent has three or more poison counters"): the same
 			// intervening-if gate sVarGateOK applies to every non-mana
@@ -505,7 +506,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// caller appends it (a closure appending to out itself would move out's
 	// header to the heap on every call).
 	considerReflected := func(ma *cards.SA, ctx *effects.Ctx) bool {
-		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
+		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
 		return len(effects.ManaReflectedCandidates(e, ctx, ma)) > 0
@@ -995,9 +996,17 @@ func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *ca
 // cheaper source first. Every non-mana read -- tap state, sacrifice,
 // discard and exile candidates, the announced-part refusals -- is real in
 // both modes: hypothetical mana never satisfies a sacrifice.
+func (e *Engine) manaAbilityTapSick(source state.ObjID, ma *cards.SA) bool {
+	o := e.G.Obj(source)
+	if o == nil || ma == nil || !e.parseCost(ma.Params["Cost"]).Tap || o.Zone != state.ZBattlefield || !o.SummonSick {
+		return false
+	}
+	return slices.Contains(e.Derived(source).Types, "Creature") && !e.HasKeyword(source, "Haste")
+}
+
 func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma *cards.SA, hyp *state.Mana) bool {
 	o := e.G.Obj(source)
-	if o == nil || o.Face() == nil {
+	if o == nil || o.Face() == nil || e.manaAbilityTapSick(source, ma) {
 		return false
 	}
 	cost := e.parseCost(ma.Params["Cost"])

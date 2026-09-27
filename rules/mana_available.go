@@ -44,10 +44,6 @@ import (
 //     (mirrors cards.ManaiProduction, which resolves it to zero rather than
 //     claiming a count the pool is never promised.)
 //
-// A summoning-sick creature is not separately excluded: the engine's own
-// tap-for-mana offer gate does not exclude one either (it checks only
-// Tapped), and AvailableMana is intentionally consistent with the offer set
-// the seat actually acts through rather than silently diverging from it.
 // Like `Cards`' production, a Produced$ of "Any"/"Combo Any" reports all
 // five possible colours and no colourless unit. AvailableMana is an aggregate
 // capability vector, not a claim that one tap supplies all five units: the
