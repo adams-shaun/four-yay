@@ -3,6 +3,7 @@ package rules
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/effects"
@@ -112,10 +113,99 @@ func (e *Engine) refreshDerivedTypes() {
 
 // buildDerivedTypes builds the derived-type table for the current board into
 // buf (truncated) and returns it.
+//
+// The table is rebuilt after every emitted event while a layer-4 effect is
+// live, so its cost is paid per event. The full walk runs the layer-4 match
+// of every live type effect against every battlefield object; a board of
+// thousands of tokens beside one crewed Vehicle (cardfuzz seed
+// 6181111140895991800: Clown Car's crew effects plus a Krenko doubling) made
+// each token creation and each attacker's tap O(battlefield) in that match,
+// O(battlefield^2) per resolution. So when every live layer-4 effect is a
+// registered `Affected$ Card.Self` effect (layer4SelfOnlySources), only the
+// objects whose derived types CAN differ from their face are run through the
+// walk: those effects' sources, plus the objects whose type base is already
+// not the printed face (layer4BaseMayDiffer). Every other object has no
+// layer-4 effect applying to it and its printed base, so the full walk would
+// skip it by sameTypeWordSet anyway. The fast path's table is therefore the
+// full walk's exactly -- the rules test binary rebuilds it with the full walk
+// on every fast-path build (layer4PrecheckVerify) and panics on a difference.
 func (e *Engine) buildDerivedTypes(buf []effects.ObjectTypes) []effects.ObjectTypes {
 	if !e.anyLayer4Active() {
 		return buf[:0]
 	}
+	var arr [layer4MaxSelfSources]state.ObjID
+	srcs, selfOnly := e.layer4SelfOnlySources(arr[:0])
+	if !selfOnly {
+		return e.buildDerivedTypesWalk(buf, nil, false)
+	}
+	buf = e.buildDerivedTypesWalk(buf, srcs, true)
+	if layer4PrecheckVerify {
+		e.verifySelfOnlyDerivedTypes(buf)
+	}
+	return buf
+}
+
+// buildDerivedTypesFull is buildDerivedTypes without the self-only fast path
+// (every battlefield object through the layer-4 match): the reference the
+// fast path's tests compare against.
+func (e *Engine) buildDerivedTypesFull(buf []effects.ObjectTypes) []effects.ObjectTypes {
+	if !e.anyLayer4Active() {
+		return buf[:0]
+	}
+	return e.buildDerivedTypesWalk(buf, nil, false)
+}
+
+// layer4MaxSelfSources bounds the self-only fast path's source list: its
+// membership test is a linear scan, so past a handful of sources the full
+// walk runs instead.
+const layer4MaxSelfSources = 8
+
+// layer4SelfOnlySources reports whether every layer-4 effect active() can
+// hold is a registered, live `Affected$ Card.Self` effect, and if so returns
+// their distinct sources (appended to buf) in first-registration order.
+// active()'s layer-4 effects are the live registered ones plus whatever
+// staticEffects emits; staticsMayChangeTypes false proves the latter is none
+// (the conservative precheck anyLayer4Active already relies on). A Card.Self
+// spec matches exactly the object whose ID is the effect's Source (effects'
+// "Self" predicate), so no other object can be reached by these effects.
+func (e *Engine) layer4SelfOnlySources(buf []state.ObjID) ([]state.ObjID, bool) {
+	for i := range e.continuous {
+		ce := &e.continuous[i]
+		if ce.Layer != LType || !e.continuousLive(ce) {
+			continue
+		}
+		if ce.Source == 0 || ce.Affects != "Card.Self" {
+			return buf, false
+		}
+		if slices.Contains(buf, ce.Source) {
+			continue
+		}
+		if len(buf) == layer4MaxSelfSources {
+			return buf, false
+		}
+		buf = append(buf, ce.Source)
+	}
+	if e.staticsMayChangeTypes() {
+		return buf, false
+	}
+	return buf, true
+}
+
+// layer4BaseMayDiffer reports whether a battlefield object's layer-4 BASE
+// (typeCharacteristics before any effect applies) can differ from its
+// printed face types: a face-down permanent's CR 708.5 set, a
+// CopyNonLegendary copy's stripped list, and an attached Bestow or
+// Reconfigure card's creature-type switch (both key on AttachedTo). A
+// deliberately cheap superset -- field reads only -- so the self-only path
+// sends every such object through the real walk.
+func layer4BaseMayDiffer(o *state.Object) bool {
+	return o.FaceDown || o.CopyNonLegendary || o.AttachedTo != 0
+}
+
+// buildDerivedTypesWalk is the table walk. With selfOnly set it visits only
+// srcs and the layer4BaseMayDiffer objects (see buildDerivedTypes).
+func (e *Engine) buildDerivedTypesWalk(buf []effects.ObjectTypes, srcs []state.ObjID, selfOnly bool) []effects.ObjectTypes {
+	buf = buf[:0]
 	e.typesBuilding = true
 	defer func() { e.typesBuilding = false }()
 	// e.G.Objs is append-ordered, so this walk is deterministic; only the
@@ -123,6 +213,9 @@ func (e *Engine) buildDerivedTypes(buf []effects.ObjectTypes) []effects.ObjectTy
 	for i := range e.G.Objs {
 		o := &e.G.Objs[i]
 		if o.Zone != state.ZBattlefield || o.Face() == nil {
+			continue
+		}
+		if selfOnly && !layer4BaseMayDiffer(o) && !slices.Contains(srcs, o.ID) {
 			continue
 		}
 		ty := e.typeCharacteristics(o.ID, 0)
@@ -273,6 +366,16 @@ func (e *Engine) verifyLayer4Active(want bool) {
 	}
 	if got != want {
 		panic(fmt.Sprintf("rules: anyLayer4Active fast path answered %v but active() says %v", want, got))
+	}
+}
+
+// verifySelfOnlyDerivedTypes is buildDerivedTypes' self-only check under
+// layer4PrecheckVerify: it rebuilds the table with the full walk into fresh
+// storage and panics unless the fast path's table is identical.
+func (e *Engine) verifySelfOnlyDerivedTypes(got []effects.ObjectTypes) {
+	full := e.buildDerivedTypesWalk(nil, nil, false)
+	if len(got) != len(full) || (len(got) > 0 && !reflect.DeepEqual(got, full)) {
+		panic(fmt.Sprintf("rules: self-only layer-4 table at log %d disagrees with the full walk (%d vs %d entries)", len(e.L.Events), len(got), len(full)))
 	}
 }
 

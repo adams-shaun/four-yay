@@ -210,7 +210,16 @@ type windowManaUnit struct {
 //
 // A permanent with several free abilities is NOT dropped: each priceable
 // ability becomes one alt, since the permanent still taps for one of them.
+//
+// The walk is a pure read, so it runs in one Derived memo scope
+// (rules/derivedmemo.go): each permanent's window-ability walk reads the
+// board's Continuous statics, and inside the scope that battlefield scan is
+// served from the walk cache (rules/walkcache.go) rather than repeated per
+// permanent -- O(permanents^2) per call on a token board otherwise (cardfuzz
+// seed 6181111140895991800).
 func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	var out []windowManaUnit
 	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
