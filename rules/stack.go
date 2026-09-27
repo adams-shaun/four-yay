@@ -719,9 +719,24 @@ func (e *Engine) costPayableGrant(p state.PlayerID, id state.ObjID, ability bool
 }
 
 func (e *Engine) costPayableClass(p state.PlayerID, d paymentDescriptor, rider pipRider, cost Cost) bool {
+	return e.costPayableClassLife(p, d, rider, cost, e.payerGrantsPayLifeInsteadOfB(p))
+}
+
+// costPayableClassLife is costPayableClass with the payer's
+// PayLifeInsteadOf:B grant selected by the caller instead of always derived.
+// The CR 601.2g mana-window gate (manaWindowAsk) passes false: that gate asks
+// whether the POOL ALONE pays the cost, and a {B} pip the grant would settle
+// with 2 life must not answer that question yes -- otherwise the window never
+// opens, the payer never gets K'rrik's "may pay 2 life rather than pay that
+// mana" choice, and the life is spent silently. Every other caller keeps the
+// derived grant (passing true), because a cost only life can pay must still be
+// offered and charged as such; the payment itself
+// (payManaDescriptorForSpent) also keeps the grant, so a payer who declines
+// the window still spends the life.
+func (e *Engine) costPayableClassLife(p state.PlayerID, d paymentDescriptor, rider pipRider, cost Cost, lifeGrant bool) bool {
 	av := e.manaAvailableFor(p, d)
 	_, ok := cost.resolveManaWith(av.pool, e.G.Players[p].Snow, av.typed,
-		e.G.Players[p].Life, e.payerGrantsPayLifeInsteadOfB(p), rider, e.paymentConv(p, d.id, d.class == paymentActivated))
+		e.G.Players[p].Life, lifeGrant, rider, e.paymentConv(p, d.id, d.class == paymentActivated))
 	return ok
 }
 
