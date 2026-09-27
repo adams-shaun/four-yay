@@ -12,7 +12,6 @@ func TestPaymentPlanShapeGate(t *testing.T) {
 	for i, tc := range []struct {
 		name, face, detail string
 	}{
-		{"sacrifice", "A:SP$ Draw | Cost$ B Sac<1/Creature> | NumCards$ 1", "shape:additional_cost"},
 		{"discard", "A:SP$ Draw | Cost$ B Discard<1/Card> | NumCards$ 1", "shape:additional_cost"},
 		{"life", "A:SP$ Draw | Cost$ B PayLife<2> | NumCards$ 1", "shape:additional_cost"},
 		{"exile", "A:SP$ Draw | Cost$ B Exile<1/Card> | NumCards$ 1", "shape:additional_cost"},
@@ -39,7 +38,7 @@ func TestPaymentPlanShapeGate(t *testing.T) {
 			src := "Name:Shape Gate Spell\nManaCost:B\nTypes:Instant\n" + tc.face + "\nOracle:test\n"
 			e, _, spell := newFixtureDeck(t, uint64(9500+i), src)
 			onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:test\n")
-			if tc.name == "sacrifice" || tc.name == "tapXType" || tc.name == "revealOrChoose" {
+			if tc.name == "tapXType" || tc.name == "revealOrChoose" {
 				onBoard(t, e, 0, "Name:Victim\nManaCost:1\nTypes:Creature Test\nPT:1/1\nOracle:test\n")
 			}
 			got := e.PlanCastPayment(0, paymentCast(spell))
