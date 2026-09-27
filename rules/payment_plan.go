@@ -5,7 +5,8 @@ package rules
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -446,11 +447,11 @@ func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *ca
 	if ma == nil || ma.API != "Mana" {
 		return deferred("source:special_production")
 	}
-	keys := make([]string, 0, len(ma.Params))
-	for key := range ma.Params {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
+	// The key loop carries the key NAMES only (never a Params value) into
+	// the prefix checks below; slices.Sorted(maps.Keys) keeps it a plain
+	// string-slice walk rather than a range the param census would have to
+	// classify.
+	keys := slices.Sorted(maps.Keys(ma.Params))
 	for _, key := range keys {
 		if strings.HasPrefix(key, "Condition") {
 			return deferred("source:conditional")
@@ -516,7 +517,7 @@ func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *ca
 // UnlessCost$, Defined$). Such production does something beyond adding plain
 // mana to the pool, so the ability is deferred.
 func paymentPlanHasSpecialProductionParam(ma *cards.SA) bool {
-	for key := range ma.Params {
+	for _, key := range slices.Sorted(maps.Keys(ma.Params)) {
 		if key == "TriggersWhenSpent" || key == "AddsCounters" || key == "AddsNoCounter" ||
 			key == "PersistentMana" || key == "UnlessCost" || key == "Defined" ||
 			strings.HasPrefix(key, "AddsKeywords") {
@@ -560,7 +561,7 @@ func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32,
 	if err != nil || n == 0 {
 		return 0, false
 	}
-	for k := range rider.Params {
+	for _, k := range slices.Sorted(maps.Keys(rider.Params)) {
 		if k != "API" && k != "Defined" && k != "NumDmg" && k != "SpellDescription" && k != "StackDescription" {
 			return 0, false
 		}
@@ -577,7 +578,7 @@ func (e *Engine) paymentPlanRiderHasTarget(id state.ObjID, mana *cards.SA) bool 
 	if rider == nil {
 		return false
 	}
-	for key := range rider.Params {
+	for _, key := range slices.Sorted(maps.Keys(rider.Params)) {
 		if strings.Contains(strings.ToLower(key), "target") || key == "ValidTgts" || key == "ValidTarget" {
 			return true
 		}
@@ -594,7 +595,7 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 	if rider == nil || rider.API != "Pump" || rider.Params["Defined"] != "Self" {
 		return false
 	}
-	for key := range rider.Params {
+	for _, key := range slices.Sorted(maps.Keys(rider.Params)) {
 		if key != "API" && key != "Defined" && key != "KW" && key != "Duration" && key != "SpellDescription" && key != "StackDescription" {
 			return false
 		}
