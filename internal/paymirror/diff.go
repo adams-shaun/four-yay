@@ -69,6 +69,8 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "activeVersion"}:    true,
 	{"rules.Engine", "activeDepth"}:      true,
 	{"rules.Engine", "activeObjs"}:       true,
+	{"rules.Engine", "activeBuildSeq"}:   true,
+	{"rules.Engine", "activeKWHeads"}:    true,
 	{"rules.Engine", "renames"}:          true,
 	{"rules.Engine", "renameEpoch"}:      true,
 	{"rules.Engine", "renameVersion"}:    true,

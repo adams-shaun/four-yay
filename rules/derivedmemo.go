@@ -162,9 +162,12 @@ type derivedMemoEntry struct {
 	ep   int
 	ver  int
 	objs int
-	d    Derived
-	kw   []string
-	ty   []string
+	// seq is activeBuildSeq when the entry was computed (0: not eligible for
+	// cross-walk reuse); see derivedMemoizedAt.
+	seq uint64
+	d   Derived
+	kw  []string
+	ty  []string
 }
 
 // beginDerivedMemo opens a memo scope; endDerivedMemo closes it. Only the
@@ -225,18 +228,49 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 		}
 		return m.d
 	}
+	// Cross-walk reuse: an entry an EARLIER scope computed is still exact when
+	// active() has not been rebuilt since (activeBuildSeq unchanged after
+	// bringing active() up to date). active() rebuilds on every event that is
+	// not layer-inert (layercache.go: DecisionAsk, DecisionMade and Priority
+	// write nothing the layer path reads), on a continuousVersion move, on an
+	// object-count move and on the explicit scratch invalidations
+	// (cascade.go, trigger_queue.go), so an unchanged count means every
+	// event-backed input of this object's derivation -- its own fields, the
+	// board the effects read, the registry -- is what it was when the entry
+	// was built. The non-event runtime inputs (rename/type tables, observer
+	// bindings, goad probe, depth guards) are at rest at both reads:
+	// derivedMemoUsable gates every memo read and write. The entry is then
+	// re-stamped into this scope (gen/ep), so a same-scope key move still
+	// takes the fresh-arrays path below. Measured: the priority walk and the
+	// bot's board build re-derived the same objects across every priority
+	// pass of an unchanged board. Verify mode recomputes every such hit.
+	if m.seq != 0 && m.gen != e.derivedMemoGen && m.ver == ver && m.objs == objs {
+		e.active()
+		if m.seq == e.activeBuildSeq {
+			if derivedMemoVerify {
+				e.verifyDerivedMemo(id, atStack, m.d)
+			}
+			m.gen, m.ep = e.derivedMemoGen, ep
+			return m.d
+		}
+	}
 	if m.gen == e.derivedMemoGen {
 		// Same walk, moved key (unreachable today: the walk emits nothing).
 		// A caller of this walk may still be ranging the old arrays, so
 		// the rebuild gets fresh ones instead of rewriting them in place.
 		m.kw, m.ty = nil, nil
 	}
+	e.active()
+	seq := e.activeBuildSeq
 	d := e.derivedCompute(id, atStack)
+	if e.activeBuildSeq != seq {
+		seq = 0 // active() rebuilt mid-derivation: never reuse across walks
+	}
 	m.kw = append(m.kw[:0], d.Keywords...)
 	m.ty = append(m.ty[:0], d.Types...)
 	d.Keywords, d.Types = m.kw, m.ty
 	m.d = d
-	m.gen, m.ep, m.ver, m.objs = e.derivedMemoGen, ep, ver, objs
+	m.gen, m.ep, m.ver, m.objs, m.seq = e.derivedMemoGen, ep, ver, objs, seq
 	return d
 }
 

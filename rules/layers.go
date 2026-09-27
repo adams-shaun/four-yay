@@ -2244,6 +2244,7 @@ func (e *Engine) active() []ContinuousEffect {
 	e.activeEpoch = len(e.L.Events)
 	e.activeVersion = e.continuousVersion
 	e.activeObjs = len(e.G.Objs)
+	e.activeBuildSeq++
 	buf := e.activeBuf[:0]
 	if e.activeDepth > 1 {
 		// Re-entrant (a nested Derived mid-rebuild): own a private list rather
@@ -2314,6 +2315,7 @@ func (e *Engine) active() []ContinuousEffect {
 		// Keep the grown, sorted buffer on the Engine for the next build or
 		// cache hit; a re-entrant build's private buffer is discarded on return.
 		e.activeBuf = buf
+		e.activeKWHeads = appendKWHeads(e.activeKWHeads[:0], buf)
 	}
 	return buf
 }
@@ -3576,6 +3578,12 @@ func (e *Engine) Toughness(id state.ObjID) int32 {
 // case-insensitive comparison, so an exact-match Engine.HasKeyword would have
 // been a silent trap for the first caller with non-canonical-cased input.
 func (e *Engine) HasKeyword(id state.ObjID, kw string) bool {
+	if !e.mayHaveDerivedKeyword(id, kw) {
+		if derivedMemoVerify {
+			e.verifyKeywordPrecheck(id, kw)
+		}
+		return false
+	}
 	for _, k := range e.Derived(id).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), kw) {
 			return true
@@ -3589,6 +3597,12 @@ func (e *Engine) HasKeyword(id state.ObjID, kw string) bool {
 // effect delivered (Underworld Breach's AddKeyword$ Escape grant, Snapcaster
 // Mage's Flashback) is readable exactly where the printed one would be.
 func (e *Engine) derivedKeywordParam(id state.ObjID, head string) (string, bool) {
+	if !e.mayHaveDerivedKeyword(id, head) {
+		if derivedMemoVerify {
+			e.verifyKeywordPrecheck(id, head)
+		}
+		return "", false
+	}
 	for _, k := range e.Derived(id).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), head) {
 			if i := strings.IndexByte(k, ':'); i >= 0 {

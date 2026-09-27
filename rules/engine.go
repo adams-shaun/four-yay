@@ -380,10 +380,21 @@ type Engine struct {
 	// path, build a private list instead of clobbering the outer call's.
 	// Clone() copies none of these fields (see clone.go); a cloned engine
 	// starts with a zero key and rebuilds identically on its first Derived.
-	activeBuf     []ContinuousEffect
-	activeEpoch   int
-	activeVersion int
-	activeDepth   int
+	activeBuf []ContinuousEffect
+	// activeKWHeads is the deduplicated KeywordHead of every AddKeywords
+	// entry across activeBuf, rebuilt with it (layers.go's active()) and read
+	// by keywordmay.go's exact Derived-keyword precheck. Never cloned, like
+	// activeBuf: a clone's zero key rebuilds both together.
+	activeKWHeads []string
+	// activeBuildSeq counts active()'s REBUILDS (never its exact or
+	// layer-inert hits). derivedmemo.go's cross-walk reuse keys on it: an
+	// unchanged count means no non-inert event, continuous-registry write,
+	// object-count change or explicit invalidation has reached active() since.
+	// Never cloned: a clone starts at zero with an empty memo.
+	activeBuildSeq uint64
+	activeEpoch    int
+	activeVersion  int
+	activeDepth    int
 	// activeObjs is len(e.G.Objs) at the last active() build, read only by
 	// the layer-inert reuse (layercache.go).
 	activeObjs int

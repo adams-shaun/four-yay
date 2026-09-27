@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"regexp"
 	"slices"
 	"strconv"
@@ -1595,6 +1596,27 @@ func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbi
 // way two distinct printed K:Cycling lines would. Deterministic: Derived's
 // slice order, dedup by first occurrence -- no map range reaches the list.
 func (e *Engine) grantedCyclingLines(id state.ObjID) []string {
+	if !e.mayDeriveCyclingLine(id) {
+		if derivedMemoVerify {
+			if got := e.grantedCyclingLinesFull(id); len(got) != 0 {
+				panic(fmt.Sprintf("rules: cycling precheck skipped obj %d but the derived walk grants %q", id, got))
+			}
+		}
+		return nil
+	}
+	return e.grantedCyclingLinesFull(id)
+}
+
+// mayDeriveCyclingLine is grantedCyclingLines' exact precheck
+// (keywordmay.go): without a possible Cycling/TypeCycling head in the derived
+// list the answer is nil, and the offer walk skips the full layer walk it
+// otherwise paid for every card in every offered zone.
+func (e *Engine) mayDeriveCyclingLine(id state.ObjID) bool {
+	return e.mayHaveDerivedKeywordAny(id, "Cycling", "TypeCycling")
+}
+
+// grantedCyclingLinesFull is grantedCyclingLines without the precheck.
+func (e *Engine) grantedCyclingLinesFull(id state.ObjID) []string {
 	var out []string
 	for _, k := range e.Derived(id).Keywords {
 		switch cards.KeywordHead(k) {
