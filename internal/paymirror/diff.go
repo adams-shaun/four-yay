@@ -2,6 +2,7 @@ package paymirror
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"regexp"
 	"slices"
@@ -152,6 +153,10 @@ type differ struct {
 	// relax, when non-nil, is the float route's cost-move reorder allowance
 	// (floatReorder); nil compares every field exactly.
 	relax *floatReorder
+	// skipPath, when non-nil, leaves out every path it accepts (and all
+	// beneath it); floatTriggerOnly uses it after proving those paths hold
+	// the same content under another order or other object identities.
+	skipPath func(path string) bool
 }
 
 func newDiffer() *differ {
@@ -175,7 +180,10 @@ func newDiffer() *differ {
 //   - damageSourceLKI[spell][source]: a departure snapshot every waiting
 //     stack object takes of a departing object, so a source sacrificed while
 //     the spell waits on the stack is snapshotted for it and one sacrificed
-//     before the cast is not.
+//     before the cast is not. The same holds for every object created since
+//     the fork (the spell's cast triggers, queued while run A's window was
+//     open, and the stack objects and permanents they and the spell become):
+//     damageSourceLKI[new][source] records the same timing and nothing else.
 //
 // The allowance holds only when the two entry lists are the same multiset
 // (enteredReordered); any other difference in them is still reported, and the
@@ -185,15 +193,19 @@ type floatReorder struct {
 	cast             state.ObjID     // the planned spell
 	castKey          string          // the spell's rendered damageSourceLKI key
 	sourceKeys       map[string]bool // the planned sources' rendered keys
+	// forkObjs is the object-arena size at the fork: an ObjID above it is an
+	// object created since (ObjIDs are arena positions, never reused).
+	forkObjs int
 }
 
 // newFloatReorder builds the allowance for comparing run A (a) with the float
 // route (b) on the planned cast of cast paid by sources.
-func newFloatReorder(a, b *rules.Engine, cast state.ObjID, sources []state.ObjID) *floatReorder {
+func newFloatReorder(a, b *rules.Engine, cast state.ObjID, sources []state.ObjID, forkObjs int) *floatReorder {
 	r := &floatReorder{
 		cast:       cast,
 		castKey:    render(reflect.ValueOf(cast), 4),
 		sourceKeys: make(map[string]bool, len(sources)),
+		forkObjs:   forkObjs,
 	}
 	for _, s := range sources {
 		r.sourceKeys[render(reflect.ValueOf(s), 4)] = true
@@ -242,10 +254,10 @@ func (r *floatReorder) masksLKI(path string) bool {
 	return r != nil && r.enteredReordered && path == "damageSourceLKI"
 }
 
-// walkDamageLKI is walkMap over damageSourceLKI with the planned spell's
-// snapshots of the planned sources left out (floatReorder); every other
-// stack object's snapshots, and the spell's snapshots of any other object,
-// are compared exactly.
+// walkDamageLKI is walkMap over damageSourceLKI with the planned spell's --
+// and every since-the-fork object's -- snapshots of the planned sources left
+// out (floatReorder); every older object's snapshots, and any object's
+// snapshots of anything but a planned source, are compared exactly.
 func (d *differ) walkDamageLKI(path string, a, b reflect.Value) {
 	outer := func(m reflect.Value) map[string]reflect.Value {
 		if m.IsNil() {
@@ -268,7 +280,7 @@ func (d *differ) walkDamageLKI(path string, a, b reflect.Value) {
 		va, oka := ka[k]
 		vb, okb := kb[k]
 		sub := path + "{" + k + "}"
-		if k == d.relax.castKey {
+		if k == d.relax.castKey || d.relax.newObjectKey(k) {
 			d.walkInnerSkipping(sub, va, oka, vb, okb, d.relax.sourceKeys)
 			continue
 		}
@@ -284,6 +296,13 @@ func (d *differ) walkDamageLKI(path string, a, b reflect.Value) {
 			return
 		}
 	}
+}
+
+// newObjectKey reports whether a rendered damageSourceLKI key names an object
+// created after the fork.
+func (r *floatReorder) newObjectKey(k string) bool {
+	id, err := strconv.ParseUint(k, 10, 32)
+	return err == nil && r.forkObjs > 0 && id > uint64(r.forkObjs)
 }
 
 // walkInnerSkipping compares two (possibly absent) maps entry by entry,
@@ -334,6 +353,9 @@ func (d *differ) add(path string, a, b reflect.Value) {
 	if len(d.diffs) >= maxDiffs {
 		return
 	}
+	if d.skipPath != nil && d.skipPath(path) {
+		return // a one-sided map entry under a skipped path
+	}
 	d.diffs = append(d.diffs, Diff{Path: path, A: render(a, 3), B: render(b, 3)})
 }
 
@@ -350,6 +372,9 @@ func typeKey(t reflect.Type) string {
 
 func (d *differ) walk(path string, a, b reflect.Value) {
 	if d.full() {
+		return
+	}
+	if d.skipPath != nil && d.skipPath(path) {
 		return
 	}
 	if !a.IsValid() || !b.IsValid() {
@@ -646,4 +671,127 @@ var (
 func normalizePath(p string) string {
 	p = indexRE.ReplaceAllString(p, "[*]")
 	return keyRE.ReplaceAllString(p, "{*}")
+}
+
+// floatTriggerOnly reports whether every difference between run A (a) and the
+// float route (b) is the one floating's own triggered abilities make by
+// reaching the stack before the cast instead of after it (CR 603.3b; see
+// floatTriggerPrecedesCast), and nothing else:
+//
+//   - the same objects exist (the arena sizes are equal) and the objects
+//     created since the fork are the same multiset of abilities -- source,
+//     controller, owner, zone and ability line -- under permuted ObjIDs;
+//   - the stacks agree once the since-fork objects are removed (the spell and
+//     every older object keep their order), and hold the same since-fork
+//     objects in any order;
+//   - this turn's zone-entry lists are the same multiset once since-fork
+//     ObjIDs are masked, and only then is the spell's PreStackEnteredLen
+//     boundary into them left uncompared;
+//   - the event multisets are equal;
+//   - a full differ walk (with the cost-move floatReorder allowance) finds
+//     nothing outside those fields and the per-object bookkeeping maps keyed
+//     by a since-fork object (trigger contexts and LKI snapshots, whose
+//     content followed the objects' identities).
+//
+// It returns "" when all of that holds, or the first failed check.
+func floatTriggerOnly(a, b *rules.Engine, fork int, rep *Report) string {
+	if rep == nil || rep.forkObjs <= 0 || len(a.G.Objs) != len(b.G.Objs) {
+		return "object_count"
+	}
+	isNew := func(id state.ObjID) bool { return int(id) > rep.forkObjs }
+	old := func(stack []state.ObjID) []state.ObjID {
+		var out []state.ObjID
+		for _, id := range stack {
+			if !isNew(id) {
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	if !slices.Equal(old(a.G.Stack), old(b.G.Stack)) || len(a.G.Stack) != len(b.G.Stack) {
+		return "stack"
+	}
+	newKeys := func(e *rules.Engine) map[string]int {
+		out := map[string]int{}
+		for i := rep.forkObjs; i < len(e.G.Objs); i++ {
+			o := &e.G.Objs[i]
+			line, name := "", ""
+			if o.Ability != nil {
+				line = o.Ability.Line
+			}
+			if o.Face() != nil {
+				name = o.Face().Name
+			}
+			onStack := slices.Contains(e.G.Stack, o.ID)
+			out[fmt.Sprintf("%d|%d|%d|%d|%v|%q|%q", o.Source, o.Controller, o.Owner, o.Zone, onStack, line, name)]++
+		}
+		return out
+	}
+	if !maps.Equal(newKeys(a), newKeys(b)) {
+		return "new_objects"
+	}
+	masked := func(es []state.ZoneEntry) map[state.ZoneEntry]int {
+		out := map[state.ZoneEntry]int{}
+		for _, z := range es {
+			if isNew(z.Obj) {
+				z.Obj = 0
+			}
+			out[z]++
+		}
+		return out
+	}
+	if !maps.Equal(masked(a.G.Entered), masked(b.G.Entered)) {
+		return "entered"
+	}
+	if ev := compareEvents(a.L.Events[fork:], b.L.Events[fork:]); len(ev.OnlyA) > 0 || len(ev.OnlyB) > 0 {
+		return "events"
+	}
+	keyed := []string{"triggerContexts{", "triggerLKI{", "damageSourceLKI{", "sourceLifelinkLKI{", "sourceControllerLKI{"}
+	df := newDiffer()
+	sources := make([]state.ObjID, 0, len(rep.Plan.Activations))
+	for _, act := range rep.Plan.Activations {
+		sources = append(sources, act.Source)
+	}
+	df.relax = newFloatReorder(a, b, rep.Object, sources, rep.forkObjs)
+	// The entry lists were just proven the same multiset up to the
+	// since-fork objects' identities, which is the cost-move allowance's own
+	// premise (a planned source's sacrifice before vs after the spell moved).
+	df.relax.enteredReordered = true
+	df.skipPath = func(path string) bool {
+		switch path {
+		case "G.Stack", "G.Entered":
+			return true
+		}
+		if rest, ok := strings.CutPrefix(path, "G.Objs["); ok {
+			i := strings.IndexByte(rest, ']')
+			if i < 0 {
+				return false
+			}
+			k, err := strconv.Atoi(rest[:i])
+			if err != nil {
+				return false
+			}
+			if isNew(state.ObjID(k + 1)) {
+				return true
+			}
+			return state.ObjID(k+1) == rep.Object && rest[i+1:] == ".PreStackEnteredLen"
+		}
+		for _, p := range keyed {
+			if rest, ok := strings.CutPrefix(path, p); ok {
+				i := strings.IndexByte(rest, '}')
+				if i < 0 {
+					return false
+				}
+				id, err := strconv.ParseUint(rest[:i], 10, 32)
+				return err == nil && isNew(state.ObjID(id))
+			}
+		}
+		return false
+	}
+	df.walk("", reflect.ValueOf(a).Elem(), reflect.ValueOf(b).Elem())
+	comparePending(df, a.Pending(), b.Pending())
+	if len(df.diffs) > 0 {
+		return "state:" + df.diffs[0].Path
+	}
+	return ""
 }

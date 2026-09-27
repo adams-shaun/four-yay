@@ -1200,6 +1200,16 @@ type Engine struct {
 	// consumes; outside one the overwrite guard in Engine.ask still fires.
 	// Transient, zero between intents.
 	contChainOwners int
+	// answerParked is the resolution frame an ANSWER handler found parked on
+	// e.resume while it applies a ReplaceWith$ body outside any resolution
+	// pass (resolveReplacementBody): a CR 616.1 order choice posed mid-
+	// resolution parks the resolution that proposed the event, and the
+	// chosen body runs from handleReplacement with that frame still there.
+	// While it is the only suspension (e.resume == answerParked, nothing
+	// pending) Suspended reports false, so the body walks its own SubAbility$
+	// chain instead of stopping after its head as if it had asked.
+	// Transient, nil between intents.
+	answerParked *resumePoint
 	// askCount counts the mid-resolution asks Engine.Ask took, posed or
 	// deferred (effects' askCounter seam). Transient scratch, never logged.
 	askCount uint64

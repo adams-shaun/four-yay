@@ -907,7 +907,8 @@ func (e *Engine) Suspended() bool {
 	if f := e.offStackMana; f != nil {
 		return f.suspended(e)
 	}
-	return e.resume != nil || e.unlessPayment != nil || e.cumulative != nil || e.triggerCost != nil
+	resumed := e.resume != nil && !(e.resume == e.answerParked && e.pending == nil)
+	return resumed || e.unlessPayment != nil || e.cumulative != nil || e.triggerCost != nil
 }
 
 // SuspendContinuation implements effects.Host.SuspendContinuation: an

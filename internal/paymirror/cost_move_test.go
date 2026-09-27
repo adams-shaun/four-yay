@@ -99,7 +99,7 @@ func TestFloatReorderAllowsOnlyAReorder(t *testing.T) {
 	if d := diffsOf(a, b, nil); len(d) == 0 {
 		t.Fatal("the exact walk reports no difference for a reordered entry list (the fixture proves nothing)")
 	}
-	if d := diffsOf(a, b, newFloatReorder(a, b, cast, []state.ObjID{2})); len(d) != 0 {
+	if d := diffsOf(a, b, newFloatReorder(a, b, cast, []state.ObjID{2}, 0)); len(d) != 0 {
 		t.Fatalf("a float-route reorder of the same entries is reported: %v", d)
 	}
 
@@ -108,7 +108,7 @@ func TestFloatReorderAllowsOnlyAReorder(t *testing.T) {
 	other := treasure
 	other.Sacrificed = false
 	b.G.Entered[len(b.G.Entered)-2] = other
-	d := diffsOf(a, b, newFloatReorder(a, b, cast, []state.ObjID{2}))
+	d := diffsOf(a, b, newFloatReorder(a, b, cast, []state.ObjID{2}, 0))
 	seen := map[string]bool{}
 	for _, x := range d {
 		seen[x.Path] = true
@@ -119,7 +119,7 @@ func TestFloatReorderAllowsOnlyAReorder(t *testing.T) {
 
 	// Identical lists earn no allowance: the spell's boundary is compared.
 	b.G.Entered = append([]state.ZoneEntry(nil), a.G.Entered...)
-	d = diffsOf(a, b, newFloatReorder(a, b, cast, []state.ObjID{2}))
+	d = diffsOf(a, b, newFloatReorder(a, b, cast, []state.ObjID{2}, 0))
 	if len(d) != 1 || d[0].Path != "G.Objs[0].PreStackEnteredLen" {
 		t.Fatalf("identical entry lists must leave PreStackEnteredLen compared: %v", d)
 	}

@@ -1699,9 +1699,38 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 //     owner, so the rest of its SubAbility$ chain (the Lich's lose-the-game
 //     check and cleanup) is linked after the ask instead of reported into a
 //     contChain no pass drains.
+//
+// A third case arises only outside a pass: an ANSWER handler applying the
+// chosen body of a CR 616.1 order choice that was posed mid-resolution
+// (handleReplacement), with the proposing resolution still parked on
+// e.resume and nothing pending. That frame is not this body's suspension, so
+// it is recorded as e.answerParked for the body's duration and Suspended
+// ignores it: otherwise effects.Resolve read it as the body's own ask after
+// the head, skipped the body's SubAbility$ chain (a one-shot doubler's
+// ExileEffect) and reported a continuation into e.contChain that no pass
+// drains -- which then outlived the intent and differed from a Clone
+// (paymirror control, commander seed 4130: Solphim, Mayhem Dominus and Ojer
+// Axonil competing over a trigger's damage). An ask the body poses is
+// unaffected: a pending decision makes the resolution suspended again.
 func (e *Engine) resolveReplacementBody(ctx *effects.Ctx, with *cards.SA) {
-	if e.contChainOwners > 0 || with.API == "ReplaceEffect" {
+	if e.contChainOwners > 0 {
 		e.resolveReplacementWith(ctx, with)
+		return
+	}
+	savedParked := e.answerParked
+	if e.resume != nil && e.pending == nil {
+		e.answerParked = e.resume
+	}
+	defer func() { e.answerParked = savedParked }()
+	if with.API == "ReplaceEffect" {
+		// Rewrites the held event synchronously and never asks, so it runs in
+		// place. No pass owns e.contChain here: a report its walk makes on a
+		// suspension it did not cause (an earlier body's still-pending ask)
+		// belongs to no chain, so it must not survive in the per-pass scratch.
+		savedChain, savedReported := e.contChain, e.repeatReported
+		e.contChain, e.repeatReported = nil, nil
+		e.resolveReplacementWith(ctx, with)
+		e.contChain, e.repeatReported = savedChain, savedReported
 		return
 	}
 	if e.resume != nil && e.pending != nil {
