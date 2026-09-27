@@ -133,7 +133,7 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 		policy  string
 		autoPay bool
 	}
-	results := make(map[string]runResult, 4)
+	results := make(map[string]runResult, 8)
 	for _, tc := range []policyCase{
 		{name: "default", policy: ""},
 		{name: BotPolicy, policy: BotPolicy},
