@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -88,6 +89,25 @@ func TestNewBotPolicySeatWithAutoPayManaSelectsOfferedWitness(t *testing.T) {
 	}
 	if in.Payment == nil || in.Payment.ActionID != "action" || in.Payment.Plan.ID != "plan" {
 		t.Fatalf("intent = %+v, want offered auto-payment witness", in)
+	}
+}
+
+// TestHostedAutoPayBotPlaysCombatSim pins the 2026-09-27 promotion: the
+// default policy's auto-pay seat is the combat-simulation bot, its manual seat
+// is not (TestHeads' manual games keep their decisions).
+func TestHostedAutoPayBotPlaysCombatSim(t *testing.T) {
+	for _, auto := range []bool{true, false} {
+		s, err := NewBotPolicySeatWithAutoPayMana(BotPolicy, 19, auto)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, ok := s.(*seat.Bot)
+		if !ok {
+			t.Fatalf("auto-pay %v: seat %T, want *seat.Bot", auto, s)
+		}
+		if b.CombatSim() != auto {
+			t.Fatalf("auto-pay %v: CombatSim() = %v", auto, b.CombatSim())
+		}
 	}
 }
 

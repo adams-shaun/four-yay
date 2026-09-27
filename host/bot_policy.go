@@ -3,6 +3,7 @@ package host
 import (
 	"fmt"
 
+	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/seat"
 )
 
@@ -60,7 +61,9 @@ func newCaretakerSeat(name string, seed uint64, autoPayMana bool) (seat.Seat, er
 
 // NewBotPolicySeatWithAutoPayMana builds a named hosted bot. When autoPayMana
 // is set, the bot selects offered payment-plan witnesses instead of manually
-// tapping mana sources; normal decision policy remains unchanged.
+// tapping mana sources, and the default policy answers attacks and blocks with
+// the combat simulation (seat.NewAttackSimBot); the named experiment policies
+// keep their own decision rules.
 func NewBotPolicySeatWithAutoPayMana(name string, seed uint64, autoPayMana bool) (seat.Seat, error) {
 	name, err := NormalizeBotPolicy(name)
 	if err != nil {
@@ -83,9 +86,14 @@ func NewBotPolicySeatWithAutoPayMana(name string, seed uint64, autoPayMana bool)
 		}
 		return b, nil
 	}
-	b := seat.NewBot(seed)
 	if autoPayMana {
-		b.EnableAutoPayMana()
+		// The hosted auto-pay bot plays the combat-simulation attacker and
+		// blocker (botpolicy.AttackSimDecide): it passed the held-out gate
+		// against the plain auto-pay bot (+3.17pp constructed, +3.69pp
+		// commander, no deck below -3pp; 2026-09-27) and was promoted by the
+		// operator. The manual bot (autoPayMana false) is unchanged, so
+		// TestHeads and every manual golden keep their decisions.
+		return seat.NewAttackSimBot(seed, botpolicy.DefaultAttackSimParams()).EnableAutoPayMana(), nil
 	}
-	return b, nil
+	return seat.NewBot(seed), nil
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// Combat-simulation attacker (opt-in, bench arm "attack-sim"; never the
-// default Decide).
+// Combat-simulation attacker (bench arm "attack-sim"; never the default
+// Decide, but the hosted auto-pay bot builds it: host.NewBotPolicySeatWithAutoPayMana).
 //
 // The default attacker (chooseAttackersMode) judges every attacker ALONE:
 // AR3 vetoes a creature whenever some defender block kills it for less than

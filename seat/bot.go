@@ -143,11 +143,16 @@ func NewExploreBot(seed uint64) *Bot {
 // included) with KAttackers answered by a whole-attacking-set search scored
 // by a static evaluator. Same PCG derivation as NewBot, and the attacker
 // consumes no rng, so every other decision draws exactly the default bot's
-// stream. Constructed only by cmd/botbench -- absent from the hosted policy
-// vocabulary (host.NormalizeBotPolicy).
+// stream. With auto-pay enabled it is the hosted default auto-pay bot
+// (host.NewBotPolicySeatWithAutoPayMana); cmd/botbench also builds it
+// without auto-pay as the "attack-sim" arm.
 func NewAttackSimBot(seed uint64, p botpolicy.AttackSimParams) *Bot {
 	return &Bot{r: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)), lethalPressure: true, attackSim: &p}
 }
+
+// CombatSim reports whether the bot answers attacks with the combat
+// simulation (NewAttackSimBot).
+func (b *Bot) CombatSim() bool { return b.attackSim != nil }
 
 // NewCastProfileBot returns the cast-profile policy playing the named
 // embedded profile (today: the default one). The only error is an embedded

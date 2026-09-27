@@ -158,7 +158,9 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	// blocks, the opponent's crack-back, a static evaluator -- instead of
 	// the per-attacker rules. The -auto-pay arm is the hosted auto-pay
 	// adapter over it, gated against bot-auto-pay. Knobs: -attack-sim-*.
-	// Bench-only: host.NormalizeBotPolicy does not know the names.
+	// attack-sim-auto-pay is what the hosted default auto-pay bot plays
+	// (host.NewBotPolicySeatWithAutoPayMana); bot-auto-pay stays the plain
+	// auto-pay adapter it was gated against.
 	"attack-sim": func(seed uint64) seat.Seat {
 		return seat.NewAttackSimBot(seed, attackSimParams)
 	},
