@@ -6346,7 +6346,16 @@ func (e *Engine) pendingCastScope(pc *pendingCast) (costScope, bool) {
 // helper, idempotent fold); it is never negative because the offer's max
 // runs over the same candidate set costPotentialTargets derives from
 // legalTargetCandidates, and the clamp keeps that invariant load-bearing.
+//
+// The probe is a pure read (it emits nothing and writes no state; the
+// convoke fold and window census are probed, never charged), so it runs in
+// one Derived memo scope (derivedmemo.go): the per-candidate cost checks
+// re-derive the same objects -- nonManaCastable's discard census matches
+// every hand card once PER CANDIDATE -- and a mass of candidates otherwise
+// makes the ask O(candidates x hand) layer walks.
 func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []targetCandidate) []targetCandidate {
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	scope, ok := e.pendingCastScope(pc)
 	if !ok {
 		return nil
