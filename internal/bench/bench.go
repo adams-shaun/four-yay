@@ -113,8 +113,11 @@ func IsAbort(stallOn string) bool { return stallOn == "livelock" || stallOn == "
 // seat's board. It must only read the engine. Nil costs nothing.
 type Hooks struct {
 	Decision func(seatIdx int, d *decision.Decision, in decision.Intent, board *botpolicy.Board) error
-	Finish   func(o Outcome)
-	Guard    func(e *rules.Engine) (stallOn, diag string)
+	// Submit may consume an intent instead of the ordinary Engine.Submit. It
+	// is used by observational drivers whose check itself commits the intent.
+	Submit func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (consumed bool, err error)
+	Finish func(o Outcome)
+	Guard  func(e *rules.Engine) (stallOn, diag string)
 	// Setup, when non-nil, sees the engine once, right after rules.New and
 	// before the first Advance: the place a collector installs an engine-side
 	// observer (rules.Engine.ManaAbilityHook) that must be live from genesis.
@@ -267,8 +270,17 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 					return nil, nil, err
 				}
 			}
-			if err := e.Submit(in); err != nil {
-				return nil, nil, fmt.Errorf("seed %d, intent %d: %w", cfg.Seed, n, err)
+			consumed := false
+			if hooks.Submit != nil {
+				consumed, err = hooks.Submit(e, int(d.Player), d, in)
+				if err != nil {
+					return nil, nil, fmt.Errorf("seed %d, intent %d: %w", cfg.Seed, n, err)
+				}
+			}
+			if !consumed {
+				if err := e.Submit(in); err != nil {
+					return nil, nil, fmt.Errorf("seed %d, intent %d: %w", cfg.Seed, n, err)
+				}
 			}
 			n++
 		}
