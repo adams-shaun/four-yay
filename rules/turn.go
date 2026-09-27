@@ -1197,7 +1197,13 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// CR 704.5m SBA sweeps straight back into the graveyard).
 		rp := e.resume
 		e.resume = nil
-		e.resumeETBEntry(chosen)
+		// The election may have parked a resolving DB$ Token's mint entry
+		// (e.pendingMintSink names the collector SuspendTokenRest tagged it
+		// with): re-emitting the parked entry under withMintSink lets
+		// publishTokenEntry land the minted id in that collector, so the
+		// waiting "token_rest" frame re-enters with the copy and applies its
+		// per-mint riders. 0 (or a spent collector) runs unchanged.
+		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
 		if e.resume != nil {
 			// The re-emitted entry asked again (a second as-enters choice on
 			// the same object, or a replacement body of its own). Chain the
@@ -1329,7 +1335,9 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		move := *e.riotMove
 		e.riotMove = nil
 		e.choosing = chooseNone
-		e.emit(move)
+		// Same collector hand-off as the ETB arm above: the re-emitted entry is
+		// a parked DB$ Token mint's when e.pendingMintSink is live.
+		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
 	case chooseUnleash:
 		// kw:Unleash (CR 702.86, rules/unleash.go) is an as-enters replacement
 		// for every MoveZone path, the Riot arm's exact shape: record the
@@ -1349,7 +1357,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		move := *e.unleashMove
 		e.unleashMove = nil
 		e.choosing = chooseNone
-		e.emit(move)
+		// Same collector hand-off as the ETB arm above.
+		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
 	case chooseAttached:
 		if e.attachedChoice == nil || len(chosen) != 1 {
 			e.attachedChoice = nil
@@ -1414,7 +1423,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 			Counter: "protector", Player: chosen[0].Player})
 		e.siegeMove = nil
 		e.choosing = chooseNone
-		e.emit(move)
+		// Same collector hand-off as the ETB arm above.
+		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
 	case chooseLegend:
 		// The CR 704.5j legend-rule choice (rules/sba.go) was answered.
 		// legendAnswer records the kept permanent and applies the parked batch
