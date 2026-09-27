@@ -2782,8 +2782,18 @@ func (c Cost) resolveMana(pool, snow state.Mana, typed [7]state.Mana, life int32
 // never includes colourless. Both grants keep main search's deterministic
 // first-alternative preference; the expanded alternatives are tried in fixed
 // WUBRG order (see anyColorAlts).
+//
+// The life parameter is the payer's life total, which may already be 0 or
+// less mid-cast (Ancient Tomb's own 2 damage landing between two planned
+// activations): state-based actions are not checked until a player would
+// receive priority (CR 704.3), and the payer may still finish paying. The
+// gate therefore binds only the cost's FIXED life component (c.Life): paying
+// N>0 life requires life >= N (CR 119.4), while a cost with no life
+// component pays 0 life, which is always legal, whatever the life total. The
+// Phyrexian/life pip alternatives inside the search still require life >= 2
+// each, so a dead payer can never pay a pip with life.
 func (c Cost) resolveManaWith(pool, snow state.Mana, typed [7]state.Mana, life int32, bLifeOK bool, rider pipRider, conv *manaConv) (manaPayment, bool) {
-	if life < c.Life {
+	if c.Life > 0 && life < c.Life {
 		return manaPayment{}, false
 	}
 	pips := c.costPips(bLifeOK, rider)
