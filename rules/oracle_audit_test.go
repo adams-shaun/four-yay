@@ -46,6 +46,9 @@ import (
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
 var oracleKnownDivergent = map[string]string{
+	// Script translation: effects/play.go validSAOK rejects the Hero subtype
+	// when filtering a free cast, leaving no offered Hero despite X = 5.
+	"West Coast Expansion/x-five-may-cast-hero": "observed Hero stays in hand (6 cards after drawing five), expected free cast to battlefield (5 cards in hand)",
 	// Engine gap: stat:Continuous RemoveType$ is never read (layers.go reads
 	// only AddType$/RemoveCardTypes$/RemoveCreatureTypes$); paramcensus
 	// already lists it for Purphoros and Mogis. 29 corpus scripts carry it,

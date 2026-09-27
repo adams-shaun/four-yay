@@ -65,7 +65,7 @@
       "steps": [
         {
           "op": "pass_to",
-          "step": "begin_combat"
+          "step": "begin-combat"
         },
         {
           "op": "cast",

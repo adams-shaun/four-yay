@@ -46,6 +46,8 @@
             {
               "kind": "choose",
               "pick": [
+                "Plains",
+                "Plains",
                 "Plains"
               ]
             }

@@ -41,6 +41,14 @@
             {
               "kind": "choose",
               "pick": [
+                "Forest",
+                "Forest",
+                "Forest"
+              ]
+            },
+            {
+              "kind": "choose",
+              "pick": [
                 "Forest"
               ]
             }
@@ -107,6 +115,13 @@
         {
           "op": "resolve",
           "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Forest",
+                "Forest"
+              ]
+            },
             {
               "kind": "choose",
               "pick": [
