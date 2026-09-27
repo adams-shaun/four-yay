@@ -349,3 +349,40 @@ describe('HotButtonStrip — Auto Mana action availability', () => {
     expect(html).not.toContain('No action is offered by this decision.');
   });
 });
+
+// Spec §8: the hot strip hides manual mana under auto-pay by the SAME rule as
+// the option list and the board badges (lib/manualmana.ts manualManaHidden).
+// Measured float-first: on an empty pool an Equip {1} is not an option, only a
+// potential action, so the strip must keep counting (and its nested list keep
+// showing) the taps that float its mana.
+describe('HotButtonStrip — manual mana under auto-pay reads the shared predicate', () => {
+  const tapWindow: Decision = {
+    seq: 92, player: 0, kind: 'priority', prompt: 'Priority', min: 1, max: 1,
+    options: [option(0, 'activate', 'Activate Plains for mana'), option(42, 'pass', 'Pass priority')],
+  };
+  function autoPayStrip(potential?: NonNullable<PlayerView['potential_actions']>): string {
+    const state = new SeatPanelState('t1', 1, ctx, null);
+    state.skipEmpty = false;
+    state.setAutoManaAvailable(true);
+    state.setAutoPayMana(true);
+    state.adoptView(tapWindow);
+    const me: PlayerView = potential ? { ...player, potential_actions: potential } : player;
+    return render(HotButtonStrip, {
+      props: { view: { ...baseView, players: [me], decision: tapWindow }, seats, state, ctx, table: 't1', match: 1 },
+    }).html;
+  }
+
+  it('keeps ACTIONS live with the taps listed while an Equip needs mana floated first', () => {
+    const html = autoPayStrip([{ kind: 'ability', obj: 84, label: 'Probe Blade: Equip 1' }]);
+    expect(html).toMatch(/data-hot-tab="actions"[^>]*aria-disabled="false"/);
+    expect(html).not.toContain('No action is offered by this decision.');
+    expect(html).toContain('Activate Plains for mana');
+  });
+
+  it('hides the taps, and has no action to offer, when nothing but a cast could use the mana', () => {
+    const html = autoPayStrip();
+    expect(html).toMatch(/data-hot-tab="actions"[^>]*aria-disabled="true"/);
+    expect(html).toContain('No action is offered by this decision.');
+    expect(html).not.toContain('Activate Plains for mana');
+  });
+});

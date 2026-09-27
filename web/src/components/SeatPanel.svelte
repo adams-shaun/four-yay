@@ -8,6 +8,7 @@
   import { discardCard, isDiscardPick } from '../lib/discard';
   import { isSearchPick, searchCard, searchOptions } from '../lib/search';
   import { isNamePick, nameOptions, NAME_PICK_RENDER_LIMIT } from '../lib/name-pick';
+  import { isManualManaOption, manualManaHidden } from '../lib/manualmana';
   import { modalPickerOpen } from '../lib/modals';
   import ArrangeModal from './ArrangeModal.svelte';
   import DiscardModal from './DiscardModal.svelte';
@@ -193,14 +194,17 @@
   const paymentBases = $derived(new Set(paymentActions.flatMap((action) => action.base_option_index === undefined || action.base_option_index === null ? [] : [action.base_option_index])));
   // Auto Mana is a mode switch, not an extra choice beside manual mana. The
   // planner's cast button is the remaining route while it is on; turning the
-  // switch off deliberately restores every normal activation.
-  function isManualMana(opt: { kind: string; label: string }): boolean {
-    return opt.kind === 'activate' && / for mana$/i.test(opt.label);
-  }
+  // switch off deliberately restores every normal activation. WHEN the manual
+  // taps are hidden is the one shared rule (lib/manualmana.ts, spec §8): only
+  // on a priority decision, and never while a non-cast action may need the
+  // mana — including one the engine offers only after the mana floats.
+  const hideManualMana = $derived(manualManaHidden(decision, view, ctx.seat, logic.autoPayMana));
 
-  function castSuggested(action: PaymentAction, planID: string): void {
+  // holdPriority is the Ctrl modifier, exactly as on every other option
+  // button: a Ctrl-held planned cast skips the pass-after-acting arming.
+  function castSuggested(action: PaymentAction, planID: string, holdPriority = false): void {
     const plan = action.plans.find((candidate) => candidate.id === planID);
-    if (plan !== undefined) logic.submitPayment(action, plan);
+    if (plan !== undefined) logic.submitPayment(action, plan, holdPriority);
   }
 
   // The arrange family (brief Job 4): kind 'arrange' is the ordered-subset
@@ -709,7 +713,7 @@
                         type="button"
                         data-payment-plan={plan.id}
                         title={paymentPlanSummary(plan)}
-                        onclick={() => castSuggested(action, plan.id)}
+                        onclick={(e) => castSuggested(action, plan.id, e.ctrlKey)}
                         disabled={logic.busy}
                       >{i === 0 ? 'Cast with suggested mana' : 'Cast with this mana plan'}</button>
                     {/each}
@@ -757,7 +761,7 @@
             </div>
           {/if}
           <div class="list">
-            {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index && !paymentBases.has(opt.index) && (!logic.autoPayMana || !isManualMana(opt))) as opt (opt.index)}
+            {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index && !paymentBases.has(opt.index) && !(hideManualMana && isManualManaOption(opt))) as opt (opt.index)}
               {@const pickedAt = logic.picked.indexOf(opt.index)}
               {@const pickedCount = decision.repeatable ? logic.picked.filter((i) => i === opt.index).length : 0}
               <button

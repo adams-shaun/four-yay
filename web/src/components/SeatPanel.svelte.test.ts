@@ -180,6 +180,59 @@ describe('SeatPanel — payment plans', () => {
   });
 });
 
+// Spec §8: with auto-pay on, manual "Activate … for mana" options are hidden
+// "unless the decision also offers a non-cast action that may need mana". The
+// option list reads the shared predicate (lib/manualmana.ts manualManaHidden),
+// not a rule of its own. Measured: a mana-costed non-cast action is offered
+// float-first, so on an empty pool the Equip is only a potential action.
+describe('SeatPanel — manual mana under auto-pay reads the shared predicate', () => {
+  const tapWindow: Decision = {
+    seq: 43, player: 1, kind: 'priority', prompt: 'You have priority.', min: 1, max: 1,
+    options: [
+      opt(0, 'activate', 'Activate Plains for mana', 81),
+      opt(1, 'activate', 'Activate Mountain for mana', 82),
+      opt(8, 'pass', 'Pass priority'),
+      opt(9, 'concede', 'Concede'),
+    ],
+  };
+  const autoPaying = (d: Decision): SeatPanelState => {
+    const state = new SeatPanelState('t1', 1, ctx, null, null);
+    state.setAutoManaAvailable(true);
+    state.setAutoPayMana(true);
+    state.adoptView(d);
+    return state;
+  };
+  /** withPotential puts potential_actions on the VIEWER's own row (seat 1), where view/view.go projects them. */
+  const withPotential = (v: View, potential: NonNullable<PlayerView['potential_actions']>): View =>
+    ({ ...v, players: v.players.map((p) => (p.seat === ctx.seat ? { ...p, potential_actions: potential } : p)) });
+
+  it('keeps the manual taps listed while an Equip is reachable only by floating mana first', () => {
+    const v = withPotential(view(tapWindow), [{ kind: 'ability', obj: 84, label: 'Probe Blade: Equip 1' }]);
+    const html = render(SeatPanel, { props: { ...props(v), state: autoPaying(tapWindow) } }).html;
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Activate Plains for mana');
+    expect(html).toContain('data-option="1"');
+  });
+
+  it('hides them when nothing but casts could use the mana', () => {
+    const html = render(SeatPanel, { props: { ...props(view(tapWindow)), state: autoPaying(tapWindow) } }).html;
+    expect(html).not.toContain('data-option="0"');
+    expect(html).not.toContain('Activate Plains for mana');
+  });
+
+  it('never hides the taps of a manual payment window (the fallback’s CR 601.2g window)', () => {
+    const castWindow: Decision = {
+      seq: 50, player: 1, kind: 'choose', prompt: 'Activate mana abilities to pay for Opt', min: 1, max: 1, source: 22,
+      options: [opt(0, 'activate', 'Activate Island for mana', 41), opt(1, 'done', 'Done')],
+      payment_fallback: { plan_id: 'plan-a', reason: 'source_changed' },
+    };
+    const html = render(SeatPanel, { props: { ...props(view(castWindow)), state: autoPaying(castWindow) } }).html;
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Activate Island for mana');
+    expect(html).toContain('data-payment-fallback');
+  });
+});
+
 describe('SeatPanel — tone', () => {
   it('a priority window is cool: passing is a legal answer', () => {
     expect(render(SeatPanel, { props: props(view(priority)) }).html).toContain('data-tone="offered"');
