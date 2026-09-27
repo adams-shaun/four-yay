@@ -96,7 +96,7 @@
         "611.3a",
         "613.1g"
       ],
-      "why": "An artifact belonging to the other seat does not satisfy the condition for Sarah\u2019s team.",
+      "why": "Bonesplitter enters under the opponent's control this turn, which does not satisfy the condition for Sarah's team.",
       "setup": {
         "p0": {
           "battlefield": [
@@ -104,12 +104,43 @@
           ]
         },
         "p1": {
-          "battlefield": [
+          "hand": [
             "Bonesplitter"
           ]
         }
       },
-      "steps": [],
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1",
+          "expect": [
+            {
+              "card": "p0:Sentinel Sarah Lyons",
+              "pt": "4/4"
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Bonesplitter",
+          "mana": "C"
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "card": "p1:Bonesplitter",
+              "zone": "battlefield"
+            },
+            {
+              "card": "p0:Sentinel Sarah Lyons",
+              "pt": "4/4"
+            }
+          ]
+        }
+      ],
       "expect": [
         {
           "card": "p0:Sentinel Sarah Lyons",
