@@ -7,4 +7,5 @@ package rules
 func init() {
 	sbaQuietVerify = true
 	provenanceGateVerify = true
+	specDerivedVerify = true
 }
