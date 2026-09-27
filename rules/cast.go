@@ -9229,12 +9229,21 @@ func (e *Engine) castPaymentMana(pc *pendingCast) Cost {
 // this window surfaces in that first activation's actual production or its
 // interruption, both of which the executor checks.
 func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
+	reason, _ := e.paymentPlanCheckUnits(pc)
+	return reason
+}
+
+// paymentPlanCheckUnits is paymentPlanCheck also returning the source census
+// it validated against (nil on an early return, which never reads one), so
+// the executor's immediately following step resolution reuses it rather
+// than taking the identical census again at the unchanged state.
+func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUnit) {
 	// A pure read: one zone-entry index serves every remaining step.
 	defer e.paymentPlanQueryScope()()
 	plan := pc.payment.plan
 	cost := e.castPaymentMana(pc)
 	if plan.Version != decision.PaymentPlanV1 || plan.Cost != paymentCost(cost) {
-		return paymentFallbackCostChanged
+		return paymentFallbackCostChanged, nil
 	}
 	next := pc.paymentNext
 	// The lethal guard, re-read before every step (spec §6): the remaining
@@ -9244,20 +9253,20 @@ func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
 	// step's consequence itself is re-derived with its alternative below
 	// (paymentPlanStepReady): a changed one is production_changed.
 	if pain := paymentPlanRemainingPain(plan, next); pain > 0 && pain >= int64(e.G.Players[pc.player].Life) {
-		return paymentFallbackCostChanged
+		return paymentFallbackCostChanged, nil
 	}
 	if next == 0 && !paymentPlanPoolOK(e.G.Players[pc.player]) {
-		return paymentFallbackProductionChanged
+		return paymentFallbackProductionChanged, nil
 	}
 	if next > 0 && next < len(plan.Activations) && e.paymentPlanManaInterference() {
-		return paymentFallbackProductionChanged
+		return paymentFallbackProductionChanged, nil
 	}
 	units := e.paymentPlanManaUnits(pc.player)
 	pool := e.G.Players[pc.player].Pool
 	seen := make(map[state.ObjID]bool, len(plan.Activations))
 	for i, pa := range plan.Activations {
 		if seen[pa.Source] {
-			return paymentFallbackSourceChanged
+			return paymentFallbackSourceChanged, units
 		}
 		seen[pa.Source] = true
 		if i < next {
@@ -9265,15 +9274,15 @@ func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
 		}
 		step, reason := e.paymentPlanStepReady(pc.player, units, pa)
 		if reason != "" {
-			return reason
+			return reason, units
 		}
 		pool = manaAdd(pool, step.mana)
 	}
 	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
 	if !ok || paymentManaAmount(payment.pool) != plan.PoolAfter {
-		return paymentFallbackProductionChanged
+		return paymentFallbackProductionChanged, units
 	}
-	return ""
+	return "", units
 }
 
 // paymentPlanStepReady resolves one remaining witness step to the exact
@@ -9333,13 +9342,25 @@ func (e *Engine) paymentPlanProducedExactly(p state.PlayerID, from int, want dec
 // step no longer holds; the fallback is recorded and the caller continues
 // into the ordinary manual window. It never substitutes a source.
 func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
+	return e.executePlannedManaActivationUnits(pc, nil)
+}
+
+// executePlannedManaActivationUnits is executePlannedManaActivation over a
+// source census the caller took at this exact state (paymentPlanCheckUnits,
+// with nothing run in between); nil takes a fresh one.
+func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []windowManaUnit) bool {
 	pa := pc.payment.plan.Activations[pc.paymentNext]
 	// Activate the exact alternative the step names -- the one whose ability
 	// identity AND production equal the witness -- never the first ability
 	// sharing the identity: a dual land's intrinsic {U} and {R} abilities are
 	// both {intrinsic, basic_land}, and a step asking it for {R} must not
 	// activate its {U} ability.
-	step, reason := e.paymentPlanStepReady(pc.player, e.paymentPlanManaUnits(pc.player), pa)
+	if units == nil {
+		units = e.paymentPlanManaUnits(pc.player)
+	} else if walkCacheVerify && !paymentPlanSameUnits(units, e.paymentPlanManaUnits(pc.player)) {
+		panic("payment plan executor: the checked source census is stale")
+	}
+	step, reason := e.paymentPlanStepReady(pc.player, units, pa)
 	if reason != "" {
 		e.paymentPlanFallback(pc, reason)
 		return false
@@ -9412,9 +9433,9 @@ func (e *Engine) manaWindowAsk() bool {
 		return false
 	}
 	if pc.payment != nil {
-		if reason := e.paymentPlanCheck(pc); reason != "" {
+		if reason, units := e.paymentPlanCheckUnits(pc); reason != "" {
 			e.paymentPlanFallback(pc, reason)
-		} else if pc.paymentNext < len(pc.payment.plan.Activations) && e.executePlannedManaActivation(pc) {
+		} else if pc.paymentNext < len(pc.payment.plan.Activations) && e.executePlannedManaActivationUnits(pc, units) {
 			return true
 		}
 	}

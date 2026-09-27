@@ -880,6 +880,16 @@ func paymentPlanSameAlternative(a, b plannedManaActivation) bool {
 // alternative by alternative (the verify-mode check of the query cache).
 func paymentPlanSameUnits(a, b []windowManaUnit) bool {
 	return slices.EqualFunc(a, b, func(x, y windowManaUnit) bool {
-		return x.id == y.id && x.freeCount == y.freeCount && slices.Equal(x.alts, y.alts)
+		return x.id == y.id && x.freeCount == y.freeCount && slices.EqualFunc(x.alts, y.alts, sameWindowManaAlt)
 	})
+}
+
+// sameWindowManaAlt is alternative equality up to the identity of an
+// ability built per call (a CR 305.6 intrinsic, cards.IntrinsicManaAbility):
+// two censuses at one state list the same abilities, but such an ability is
+// a fresh pointer each time.
+func sameWindowManaAlt(x, y windowManaAlt) bool {
+	xa, ya := x, y
+	xa.ma, ya.ma = nil, nil
+	return xa == ya && sameManaAbility(x.ma, y.ma)
 }

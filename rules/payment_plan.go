@@ -459,6 +459,11 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 // then proves that exactly the submitted witness pays it.  It is deliberately
 // usable by the executor without trusting an offer cache or an ID.
 func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast, plan decision.PaymentPlan) error {
+	// A pure read: one Derived memo scope (derivedmemo.go) serves the
+	// candidate walk, the planner and the census below, and one query scope
+	// serves the planner's census to the rebuild.
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	defer e.paymentPlanQueryScope()()
 	got := e.PlanCastPayment(p, cast)
 	if got.Reason == "unsupported" {
@@ -475,7 +480,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	}
 	// Rebuild only the explicitly named alternatives.  This is independent of
 	// planner ranking: a valid non-preferred witness remains legal.
-	units := e.paymentPlanManaUnits(p)
+	units := e.paymentPlanQueryUnits(p)
 	pool := e.G.Players[p].Pool
 	produced := state.Mana{}
 	var pain int64
@@ -690,9 +695,20 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 // Count$UrzaLands.3.1. The shared census must keep withholding those too,
 // for the attack/unless windows, which can neither make a colour choice
 // concrete nor re-verify a changing amount at activation.
+//
+// The census is a pure read, so it runs in one Derived memo scope
+// (derivedmemo.go): outside a walk (the executor's per-step revalidation,
+// ValidateCastPayment) every source's availability check otherwise
+// re-derived the board. The two layers below ask each untapped source for
+// the same payment-window membership, which reads the board only, so the
+// first layer's list is kept (by zone position) for the second.
 func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
+	e.beginDerivedMemo()
+	defer e.endDerivedMemo()
 	units := e.windowManaUnits(p)
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	zone := e.G.Zone(state.ZBattlefield, p)
+	windowMas := make([][]*cards.SA, len(zone))
+	for zi, id := range zone {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
@@ -704,7 +720,8 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 				break
 			}
 		}
-		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
+		windowMas[zi] = e.availableManaAbilitiesForWindow(p, id, false)
+		for _, ma := range windowMas[zi] {
 			raw := strings.TrimSpace(ma.Params["Produced"])
 			amt := availableAmount(ma)
 			if amt <= 0 {
@@ -761,12 +778,17 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 	// sources. The probe is built lazily: a board with no evaluated-amount
 	// source (the overwhelming majority) pays no clone at all.
 	var probe *Engine
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for zi, id := range zone {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
 		}
-		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
+		if walkCacheVerify {
+			if fresh := e.availableManaAbilitiesForWindow(p, id, false); !slices.EqualFunc(fresh, windowMas[zi], sameManaAbility) {
+				panic(fmt.Sprintf("payment plan census: window membership for %d moved inside the census", id))
+			}
+		}
+		for _, ma := range windowMas[zi] {
 			if availableAmount(ma) > 0 {
 				continue // windowManaUnits' static path already priced it.
 			}

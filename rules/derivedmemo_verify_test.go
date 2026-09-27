@@ -18,6 +18,7 @@ func init() {
 	sacrificeCardnameVerify = true
 	pricedCandidatesVerify = true
 	castsOnlyWalkVerify = true
+	potentialMembersVerify = true
 	walkCacheVerify = true
 	trigZoneSkipVerify = true
 }
