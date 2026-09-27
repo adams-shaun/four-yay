@@ -132,3 +132,84 @@ func TestAnyCastableNowSkipsUnproducibleColour(t *testing.T) {
 		t.Fatalf("AnyCastableNow = true for a green card no offered source can pay")
 	}
 }
+
+// nowUrzaLand is an Urza's Tower/Mine/Power Plant as the adapters project it:
+// its mana ability's Amount$ is an SVar (Count$UrzaLands.N.1), so the face's
+// ManaProduction is Indeterminate with ZERO guaranteed colour counts -- the
+// true yield is 1 (or 2/3 with Tron assembled), but nothing on the Board says
+// so.
+func nowUrzaLand() Card {
+	var p cards.ManaProduction
+	p.Indeterminate = true
+	return Card{OnBattlefield: true, Produces: p}
+}
+
+// TestCastableNowIndeterminateSourceIsNotZero pins the Tron regression the
+// float-waste gate introduced: an untapped source whose amount is
+// Indeterminate contributes 0 to producibleMana, so the affordability half of
+// castableNowCard read every Urza-land board as "no mana at all" and refused
+// every cast -- Expedition Map with two Urza lands untapped included. With no
+// payment plan offered (the V1 planner withholds the Urza lands too) the
+// no-plan window then never tapped at all. An unknown amount is not an absent
+// amount: affordability may only REFUTE a cast against a known production
+// total, so an untapped Indeterminate source keeps the cast castable now.
+// The known-production control keeps float-waste's gain: the same 7-drop on
+// two basic Forests is still refused.
+func TestCastableNowIndeterminateSourceIsNotZero(t *testing.T) {
+	brd := Board{IsMain: true, FirstMain: true, MyTurn: true,
+		Cards: map[state.ObjID]Card{
+			1: nowUrzaLand(), 2: nowUrzaLand(),
+			// 50: Expedition Map, {1} artifact.
+			50: {CMC: 1, Castable: true, ManaCost: "1"},
+		},
+	}
+	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority,
+		Options: []decision.Option{
+			{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "activate", Obj: 2},
+			{Index: 2, Kind: "pass"},
+		}}
+
+	// Preconditions: the Urza lands really do project zero guaranteed mana
+	// (the shape the corpus scripts produce), and Map really is the intent.
+	if got := brd.producibleMana(); got != 0 {
+		t.Fatalf("precondition: producibleMana = %d, want 0 (Indeterminate sources claim nothing)", got)
+	}
+	if id, ok := brd.TapIntent(d); !ok || id != 50 {
+		t.Fatalf("precondition: TapIntent = (%d, %v), want Expedition Map 50", id, ok)
+	}
+
+	if id, ok := brd.CastableNow(d.Player, d); !ok || id != 50 {
+		t.Fatalf("CastableNow = (%d, %v), want Map castable now: two untapped Urza lands can pay {1}", id, ok)
+	}
+	if !brd.AnyCastableNow(d.Player, d) {
+		t.Fatalf("AnyCastableNow = false, want true: two untapped Urza lands can pay {1}")
+	}
+
+	// Control: with only known production (two Forests), a 7-drop is still
+	// refuted by the affordability read.
+	known := Board{IsMain: true, FirstMain: true, MyTurn: true,
+		Cards: map[state.ObjID]Card{
+			1: nowForest(), 2: nowForest(),
+			50: {Creature: true, Power: 7, Toughness: 7, CMC: 7, Castable: true, ManaCost: "6 G"},
+		},
+	}
+	if _, ok := known.CastableNow(d.Player, d); ok {
+		t.Fatalf("control: CastableNow = true for a 7-drop on two Forests")
+	}
+	if known.AnyCastableNow(d.Player, d) {
+		t.Fatalf("control: AnyCastableNow = true for a 7-drop on two Forests")
+	}
+
+	// A TAPPED Indeterminate source produces nothing this turn, so it cannot
+	// keep a cast open: the same Map with both Urza lands tapped is refused.
+	tapped := brd
+	tapped.Cards = map[state.ObjID]Card{50: brd.Cards[50]}
+	for _, id := range []state.ObjID{1, 2} {
+		c := brd.Cards[id]
+		c.Tapped = true
+		tapped.Cards[id] = c
+	}
+	if tapped.AnyCastableNow(d.Player, d) {
+		t.Fatalf("AnyCastableNow = true with every Indeterminate source tapped")
+	}
+}
