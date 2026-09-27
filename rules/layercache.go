@@ -43,6 +43,13 @@ var layerInertVerifyFlag string
 
 var layerInertVerify = layerInertVerifyFlag != ""
 
+// CacheVerificationEnabled reports whether this binary was linked with the
+// layer/Derived memo verify flags on (see layerInertVerify and
+// derivedMemoVerify). It exists so a test or bench driver built with
+// -ldflags can assert the invariant is actually being checked instead of
+// passing vacuously without it.
+func CacheVerificationEnabled() bool { return layerInertVerify || derivedMemoVerify }
+
 // layerInertSince reports whether every event appended to the log at or after
 // index epoch is layer-inert (see above). It scans only the new suffix and
 // stops at the first other kind, so its cost is bounded by the run of
@@ -82,6 +89,10 @@ func (e *Engine) refreshStaticContinuous() {
 	e.staticEpoch = n
 	e.staticVersion, e.staticObjs = e.continuousVersion, len(e.G.Objs)
 	e.staticContinuous = e.staticEffects(e.staticContinuous)
+	// A content change: any activeBuf built from the previous list is stale,
+	// even at an unmoved log head and continuousVersion (staticControlWants
+	// refreshes this memo outside active()).
+	e.staticBuildSeq++
 }
 
 // verifyInertActive is active()'s layer-inert reuse check: it rebuilds the
@@ -90,6 +101,7 @@ func (e *Engine) verifyInertActive() {
 	cached := append([]ContinuousEffect(nil), e.activeBuf...)
 	savedEpoch, savedBuf := e.activeEpoch, e.activeBuf
 	savedHeads, savedSeq := e.activeKWHeads, e.activeBuildSeq
+	savedStaticSeq := e.activeStaticSeq
 	e.activeEpoch, e.activeBuf, e.activeKWHeads = -1, nil, nil
 	// A nested call would take the re-entrant private-buffer path; drop to
 	// depth 0 so the forced rebuild is an ordinary outermost build.
@@ -102,6 +114,7 @@ func (e *Engine) verifyInertActive() {
 	// cross-walk reuse keys on the count).
 	e.activeEpoch, e.activeBuf = savedEpoch, savedBuf
 	e.activeKWHeads, e.activeBuildSeq = savedHeads, savedSeq
+	e.activeStaticSeq = savedStaticSeq
 	if len(cached) != len(fresh) || (len(cached) > 0 && !reflect.DeepEqual(cached, fresh)) {
 		panic(fmt.Sprintf("rules: layer-inert active() reuse at log %d disagrees with a rebuild (%d vs %d effects)", len(e.L.Events), len(cached), len(fresh)))
 	}

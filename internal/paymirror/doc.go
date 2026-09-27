@@ -102,8 +102,9 @@
 //	Depth/PTFrames, boardStaticsCache, that advances with every ask; Clone copies none
 //	activeStaticsCache, mayPlaysCache
 //	staticContinuous/Epoch/Version/    layer/static rebuild caches keyed by log length and
-//	Objs/QueueBuf, activeBuf/Epoch/    continuousVersion
-//	Version/Depth/Objs, renames/*,
+//	Objs/BuildSeq/QueueBuf, activeBuf/   continuousVersion; build sequence counters and
+//	Epoch/Version/Depth/Objs/         their snapshots are local cache keys (Clone rebuilds)
+//	BuildSeq/StaticSeq, renames/*,
 //	layer4Types/types*, sbaQuiet/Unquiet
 //	ascend, storied                    incremental arena scans ("a pure cache, zero = rescan")
 //	turnsTaken/Epoch, turnStartTurns/  TurnChange census caches keyed by log length
