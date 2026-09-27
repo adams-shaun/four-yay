@@ -170,7 +170,8 @@ included when the cost is independent of target choice; the player still
 chooses targets normally before mana activation.
 
 V1 does not suggest plans for X, hybrid, Phyrexian or snow costs; additional
-non-mana costs; kicker or other optional/alternative casting methods; alternate
+non-mana costs (except a spell ability's own fixed-count mandatory sacrifice,
+below); kicker or other optional/alternative casting methods; alternate
 faces; casts from graveyard/exile/command; target-dependent pricing; convoke,
 improvise, delve or similar contributions; or mana-spent-sensitive spell riders
 such as converge, sunburst, or a bonus tied to mana provenance. These remain
@@ -184,6 +185,23 @@ charges, not the printed `ManaCost` alone:
   `PayLife<>`, `Exile<>`, `tapXType<>` …), which the cast path folds with
   `withSpellAbilityExtras` (`rules/cast.go`), and a cost static's non-mana
   extra folded at `beginCast` (Soul Immolation's `Blight<X>` shape).
+
+  (Amended.) One non-mana shape IS admitted: a spell ability's own
+  **fixed-count mandatory sacrifice** (`Sac<N/Spec>` with a literal N, the
+  Bone Splinters / Village Rites / Vicious Betrayal shape). The V1 witness
+  describes the mana half only; the sacrifice is answered by the player
+  through the ordinary in-flow cost `choose` after the plan is submitted, so
+  the witness needs no element for it and the plan never picks the victim.
+  The shape check is `paymentPlanNonManaAdmissible`
+  (`rules/payment_plan.go`), which admits the cost only when its mana half is
+  V1-clean and its sole non-mana field is fixed-count Sac parts.
+  Variable-count `Sac<X/…>` (the announced count binds the cast's X) and
+  `Sac<All/…>` (which parses as an Unknown part) stay manual, as does a
+  sacrifice combined with any other non-mana part. At submit time
+  `ValidateCastPayment` re-runs the offer gate's own sacrifice-feasibility
+  check (`nonManaCastable`) and rejects a plan whose candidate has left the
+  battlefield, so the seat falls back to the manual window instead of
+  committing an unpayable cast.
 * Contributions announced at CR 601.2b: Convoke, Improvise and Delve, whether
   printed or granted to the spell on the stack (`hasCastConvoke` /
   `hasCastImprovise` read the stack-zone derivation; Inspiring Statuary grants
