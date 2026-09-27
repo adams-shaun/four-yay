@@ -1,0 +1,125 @@
+{
+  "card": "Giada, Font of Hope",
+  "family": "replacement",
+  "oracle_sha": "5748b90026c2",
+  "author": "cli-20260927T211250Z-05593657 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "another-angel-enters-with-one",
+      "cr": [
+        "614.1d",
+        "614.12"
+      ],
+      "why": "Giada is an Angel already controlled when Serra Angel enters; the other Angel receives one counter and becomes 5/5.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Giada, Font of Hope"
+          ],
+          "hand": [
+            "Serra Angel"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Serra Angel",
+          "mana": "WWWWW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Serra Angel",
+          "zone": "battlefield",
+          "pt": "5/5",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "non-angel-not-modified",
+      "cr": [
+        "614.1d",
+        "614.12"
+      ],
+      "why": "The other creature is a Bear, not an Angel, so Giada gives it no counter.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Giada, Font of Hope"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "GG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "pt": "2/2",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "giada-itself-not-other",
+      "cr": [
+        "614.1d",
+        "614.12"
+      ],
+      "why": "Giada entering is not another Angel already controlled by itself, so it receives no bonus.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Giada, Font of Hope"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Giada, Font of Hope",
+          "mana": "WW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Giada, Font of Hope",
+          "zone": "battlefield",
+          "pt": "2/2",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}

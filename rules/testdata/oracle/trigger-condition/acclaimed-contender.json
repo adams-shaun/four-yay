@@ -1,0 +1,95 @@
+{
+  "card": "Acclaimed Contender",
+  "family": "trigger-condition",
+  "oracle_sha": "ad31fc971fcc",
+  "author": "cli-20260927T211250Z-75464868 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "another-knight-finds-equipment",
+      "cr": [
+        "603.4"
+      ],
+      "why": "A separate Knight is present when the contender arrives, permitting its search; the revealed Equipment goes to hand.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Acclaimed Contender"
+          ],
+          "battlefield": [
+            "Josu Vess, Lich Knight"
+          ],
+          "library_top": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Acclaimed Contender",
+          "mana": "WWW"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Bonesplitter"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Acclaimed Contender",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "hand"
+        }
+      ]
+    },
+    {
+      "name": "only-self-is-not-another-knight",
+      "cr": [
+        "603.4"
+      ],
+      "why": "The entering Knight cannot count itself as another Knight, so no search ability is put on the stack.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Acclaimed Contender"
+          ],
+          "library_top": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Acclaimed Contender",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Acclaimed Contender",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "library"
+        }
+      ]
+    }
+  ]
+}
