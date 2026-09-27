@@ -8,6 +8,7 @@
   import { clientBreadcrumbs } from '../lib/breadcrumbs';
   import { turnSide } from '../lib/autopilot';
   import { autoNoteText, isConcede, toneOf, type SeatPanelState } from '../lib/seatpanel.svelte';
+  import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import SeatPanel from './SeatPanel.svelte';
 
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
@@ -59,13 +60,15 @@
   const paymentBaseIndexes = $derived(new Set(visiblePaymentActions.flatMap((action) =>
     action.base_option_index === undefined || action.base_option_index === null ? [] : [action.base_option_index],
   )));
-  function isManualMana(option: { kind: string; label: string }): boolean {
-    return option.kind === 'activate' && / for mana$/i.test(option.label);
-  }
+  // The strip counts exactly what its nested seat-panel list shows: the one
+  // shared manual-mana rule (lib/manualmana.ts, spec §8) decides whether the
+  // manual taps are hidden, never a rule of the strip's own.
+  const hideManualMana = $derived(manualManaHidden(decision, view, ctx.seat, logic.autoPayMana));
   const actionCount = $derived(
     (decision?.options.filter((option) =>
       option.kind !== 'pass' && !isConcede(option)
-      && (!logic.autoPayMana || (!paymentBaseIndexes.has(option.index) && !isManualMana(option))),
+      && (!logic.autoPayMana || !paymentBaseIndexes.has(option.index))
+      && !(hideManualMana && isPlainManualTap(option)),
     ).length ?? 0) + visiblePaymentActions.length,
   );
   const passAvailable = $derived(logic.passOption !== null && !logic.busy);

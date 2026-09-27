@@ -81,7 +81,14 @@ func TestManaAbilityLabelCostAndAmount(t *testing.T) {
 		{"T", "B", "X", "Add B"},   // non-literal amount keeps one pip
 		{"T", "B", "0", "Add B"},   // non-positive literal keeps one pip
 		{"T", "RR", "2", "Add RR"}, // a multi-pip token is left as written
-		{"T", "Any", "2", "Add any color"},
+		// An Any ability's literal amount is named so two abilities of one
+		// source that differ only in amount are distinguishable on the wheel
+		// (task mana-wheel-amount-labels). An absent, 1 or non-literal amount
+		// keeps the fail-safe "Add any color".
+		{"T", "Any", "2", "Add two mana of any one color"},
+		{"T", "Combo Any", "3", "Add three mana in any combination of colors"},
+		{"T", "Any", "1", "Add any color"},
+		{"T", "Any", "X", "Add any color"},
 	}
 	for _, c := range cases {
 		ma := &cards.SA{Kind: "AB", API: "Mana", Params: map[string]string{"Cost": c.cost, "Produced": c.produced}}

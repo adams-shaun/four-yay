@@ -1700,8 +1700,21 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 // object is a battlefield permanent. A referred-to object that already left
 // keeps the LKI-compatible printed-plus-counters fallback: no live layer
 // applies in a graveyard, and asking Host for it would read a different state.
+// inProgressDerivedPTHost is implemented by rules.Engine so a Count$ read made
+// during layer 7 can consume the current walk's value instead of recursively
+// asking the host to derive the same object again. It is optional to preserve
+// the small effects.Host contract and its test doubles.
+type inProgressDerivedPTHost interface {
+	InProgressDerivedPT(id state.ObjID) (power, toughness int32, ok bool)
+}
+
 func refPower(h Host, o *state.Object, snapshot bool) int32 {
 	if !snapshot && o.Zone == state.ZBattlefield {
+		if provider, ok := h.(inProgressDerivedPTHost); ok {
+			if power, _, found := provider.InProgressDerivedPT(o.ID); found {
+				return power
+			}
+		}
 		return h.Power(o.ID)
 	}
 	return int32(o.Face().Power()) + o.Counter("P1P1") - o.Counter("M1M1")
@@ -1709,6 +1722,11 @@ func refPower(h Host, o *state.Object, snapshot bool) int32 {
 
 func refToughness(h Host, o *state.Object, snapshot bool) int32 {
 	if !snapshot && o.Zone == state.ZBattlefield {
+		if provider, ok := h.(inProgressDerivedPTHost); ok {
+			if _, toughness, found := provider.InProgressDerivedPT(o.ID); found {
+				return toughness
+			}
+		}
 		return h.Toughness(o.ID)
 	}
 	return int32(o.Face().Toughness()) + o.Counter("P1P1") - o.Counter("M1M1")

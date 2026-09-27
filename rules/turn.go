@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -735,9 +736,23 @@ func (e *Engine) grantPriority() {
 	if e.G.Players[holder].Lost {
 		holder = e.G.NextAlive(holder)
 	}
+	if priorityFlowVerify && (e.cast != nil || e.choosing != chooseNone) {
+		panic(fmt.Sprintf("rules: priority granted to seat %d mid-flow (cast pending=%v, choosing=%d)", holder, e.cast != nil, e.choosing))
+	}
 	e.emit(events.Event{Kind: events.Priority, Player: holder, Amount: e.G.Passes})
 	e.askPriority(holder)
 }
+
+// priorityFlowVerify (set by the rules test binary) makes every priority grant
+// assert the at-rest state a priority window requires: no cast or activation
+// proposal in flight -- nobody receives priority while a spell is being cast
+// (CR 601.2), so a proposal still open here is a spell on the stack whose
+// costs were never paid -- and no choose-flow marker surviving the decision it
+// routed (a stale marker is read by the next KChoose answer's dispatch and by
+// the legend-rule SBA gate). A violation panics, so the whole suite
+// (repo-deck games, replay goldens, the acceptance ratchet) doubles as the
+// check.
+var priorityFlowVerify bool
 
 // repeatCleanup runs the cleanup procedure from its top: the CR 514.1
 // discard and the CR 514.2 "until end of turn" body (cleanupStep), then the
@@ -1197,7 +1212,13 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// CR 704.5m SBA sweeps straight back into the graveyard).
 		rp := e.resume
 		e.resume = nil
-		e.resumeETBEntry(chosen)
+		// The election may have parked a resolving DB$ Token's mint entry
+		// (e.pendingMintSink names the collector SuspendTokenRest tagged it
+		// with): re-emitting the parked entry under withMintSink lets
+		// publishTokenEntry land the minted id in that collector, so the
+		// waiting "token_rest" frame re-enters with the copy and applies its
+		// per-mint riders. 0 (or a spent collector) runs unchanged.
+		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
 		if e.resume != nil {
 			// The re-emitted entry asked again (a second as-enters choice on
 			// the same object, or a replacement body of its own). Chain the
@@ -1259,7 +1280,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		e.castAnswer(d, chosen)
 		// A mana ability selection or Produced$ Any colour choice installed
 		// its own decision; only a fully resolved singleton may continue.
-		if e.pending != nil || e.choosing == chooseMana || e.choosing == chooseManaColor || e.choosing == chooseManaDiscard || e.choosing == chooseManaExile || e.choosing == chooseManaSacrifice {
+		if e.pending != nil || e.choosing == chooseMana || e.manaCostChoicePending() {
 			return
 		}
 		e.continueCast()
@@ -1329,7 +1350,9 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		move := *e.riotMove
 		e.riotMove = nil
 		e.choosing = chooseNone
-		e.emit(move)
+		// Same collector hand-off as the ETB arm above: the re-emitted entry is
+		// a parked DB$ Token mint's when e.pendingMintSink is live.
+		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
 	case chooseUnleash:
 		// kw:Unleash (CR 702.86, rules/unleash.go) is an as-enters replacement
 		// for every MoveZone path, the Riot arm's exact shape: record the
@@ -1349,7 +1372,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		move := *e.unleashMove
 		e.unleashMove = nil
 		e.choosing = chooseNone
-		e.emit(move)
+		// Same collector hand-off as the ETB arm above.
+		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
 	case chooseAttached:
 		if e.attachedChoice == nil || len(chosen) != 1 {
 			e.attachedChoice = nil
@@ -1414,7 +1438,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 			Counter: "protector", Player: chosen[0].Player})
 		e.siegeMove = nil
 		e.choosing = chooseNone
-		e.emit(move)
+		// Same collector hand-off as the ETB arm above.
+		e.withMintSink(e.pendingMintSink, func() { e.emit(move) })
 	case chooseLegend:
 		// The CR 704.5j legend-rule choice (rules/sba.go) was answered.
 		// legendAnswer records the kept permanent and applies the parked batch
@@ -1432,6 +1457,10 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// plan's remaining replacement matches before the mints are emitted.
 		e.settleTokenElection(e.tokenReplAnswer(chosen))
 	case chooseOpening:
+		// The marker routed exactly this answer. The round re-arms it for
+		// its next ask (stepOpening, resumeOpening); left armed after the
+		// last one it would survive into turn 1's first priority.
+		e.choosing = chooseNone
 		e.handleOpening(d, in)
 	case chooseSuspendCast:
 		// CR 702.62a: the may-cast offer on a suspended card's last TIME
@@ -1523,7 +1552,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// mid-resolution payment window reopens instead. An ordinary
 		// activation falls through to Advance's priority round.
 		cast := e.answerManaActivation(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if cast {
@@ -1532,7 +1561,21 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		}
 	case chooseManaSacrifice:
 		cast := e.answerManaSacrifice(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if e.unlessPayment != nil {
+				e.advanceUnlessPayment()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	case chooseManaTap:
+		// The tapXType<N/Spec> election beside sacrifice/discard/exile: the
+		// picks are recorded and the same continuation resumes, then the same
+		// tail (Ward window, unless cost, or the cast) runs.
+		cast := e.answerManaTap(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if e.unlessPayment != nil {
@@ -1543,7 +1586,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		}
 	case chooseManaDiscard:
 		cast := e.answerManaDiscard(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if e.unlessPayment != nil {
@@ -1554,7 +1597,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		}
 	case chooseManaExile:
 		cast := e.answerManaExile(chosen)
-		if e.pending == nil && e.choosing != chooseManaColor && e.choosing != chooseManaDiscard && e.choosing != chooseManaExile && e.choosing != chooseManaSacrifice {
+		if e.pending == nil && !e.manaCostChoicePending() {
 			if e.wardMana != nil {
 				e.continueWardMana()
 			} else if e.unlessPayment != nil {

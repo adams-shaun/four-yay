@@ -22,6 +22,7 @@
     toneOf,
   } from '../lib/seatpanel.svelte';
   import { laterByObj, optionsByObj, optionsByPlayer, resolveCardFollowUp, type CardOptions } from '../lib/cardoptions';
+  import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { rematchDecks, startRematch } from '../lib/playvsbot';
   import { stuckDecision } from '../lib/prompt';
   import { loadLogShown, saveLogShown, type LogScope } from '../lib/logshown';
@@ -288,19 +289,17 @@
     // manual tap badge on a source: that made the setting look ineffective
     // and let a player spend the source outside the offered payment plan.
     // This is presentation-only filtering; the server remains authoritative.
-    if (panel.autoManaAvailable && panel.autoPayMana) {
-      // Plans only pay casts. A non-cast action can itself need a mana
-      // activation, so keep the ordinary mana route visible for that decision
-      // instead of hiding its prerequisite under an unrelated cast shortcut.
-      const hasNonCastAction = d.options.some((option) =>
-        option.kind !== 'pass' && option.kind !== 'concede' && option.kind !== 'activate' && option.kind !== 'cast',
-      );
-      if (!hasNonCastAction) {
-        for (const [obj, offered] of byObj) {
-          const visible = offered.filter((option) => !(option.kind === 'activate' && / for mana$/i.test(option.label)));
-          if (visible.length === 0) byObj.delete(obj);
-          else if (visible.length !== offered.length) byObj.set(obj, visible);
-        }
+    // The taps stay whenever a play the window can reach needs them -- a
+    // non-cast action or a cast no plan pays, including one offered only
+    // once the mana floats -- and a costly activation (Lion's Eye Diamond, a
+    // Treasure) is a play of its own, never hidden. WHEN and WHICH are the
+    // one shared rule the option list and the hot strip read too
+    // (lib/manualmana.ts, §8).
+    if (manualManaHidden(d, m.view, seatCtx?.seat, panel.autoPayMana)) {
+      for (const [obj, offered] of byObj) {
+        const visible = offered.filter((option) => !isPlainManualTap(option));
+        if (visible.length === 0) byObj.delete(obj);
+        else if (visible.length !== offered.length) byObj.set(obj, visible);
       }
     }
     return {

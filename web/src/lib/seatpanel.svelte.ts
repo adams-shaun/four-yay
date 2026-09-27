@@ -1,4 +1,4 @@
-import type { Decision, Intent, Option, PaymentAction, PaymentPlan, View } from '../protocol';
+import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelection, View } from '../protocol';
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
 import type { SeatCtx } from './seat';
@@ -54,6 +54,7 @@ import {
  * this comment claimed to mirror `actionable`'s kind test while inlining a
  * test that did not — now both call the one shared predicate.
  * (Moved here from actpass.ts, which prio3 deleted with the per-table keys.)
+ * A planned cast posts no choices at all; its arming twin is actedPayment.
  */
 export function actedOption(d: Decision, choices: number[]): boolean {
   if (d.kind !== 'priority') return false;
@@ -61,6 +62,24 @@ export function actedOption(d: Decision, choices: number[]): boolean {
     const o = d.options.find((opt) => opt.index === i);
     return o !== undefined && isActionKind(o.kind);
   });
+}
+
+/**
+ * actedPayment is actedOption's twin for the payment selector (spec §8:
+ * "Auto-pay changes which witness an explicit cast uses; it does not
+ * otherwise change Auto/Manual policy"). A planned cast posts `choices: []`
+ * plus a payment selection, so actedOption alone never saw it and a cast paid
+ * by its plan never armed pass-after-acting while the same cast clicked
+ * through its legacy option did. The selection counts as an action exactly
+ * when it resolves, by identity, to a payment action offered on this
+ * priority decision and to one of that action's offered plans — the same
+ * resolution submitPayment makes before it posts. Every payment action is a
+ * cast, which isActionKind always counts, so no kind test is needed here.
+ */
+export function actedPayment(d: Decision, payment: PaymentSelection | null | undefined): boolean {
+  if (d.kind !== 'priority' || !payment) return false;
+  const action = d.payment_actions?.find((candidate) => candidate.id === payment.action_id);
+  return action !== undefined && action.plans.some((plan) => plan.id === payment.plan.id);
 }
 
 /**
@@ -560,9 +579,15 @@ export class SeatPanelState {
   busy = $state(false);
   /** Auto-pay is intentionally local to this seat-panel instance.  Unlike
    * play settings it is not persisted, so a different seat or match starts
-   * manual and toggling cannot send an engine intent. */
+   * manual and toggling cannot send an engine intent.  It is also the ONE
+   * auto-pay input to the autopilot (derivePass/deriveActPass hand it to
+   * emptyPriorityWindow and decide(); spec §8): while it is on, a plan-bearing
+   * payment action is a real play and Auto resolves the seat's own spell.
+   * Toggling it never re-runs that classification by itself. */
   autoPayMana = $state(false);
-  /** Set from the table's explicit auto_mana capability. */
+  /** Set from the table's explicit auto_mana capability.  It only makes the
+   * auto-pay switch available; it never reaches the pass policy, so a player
+   * who leaves the switch off plays exactly as on a capability-less table. */
   autoManaAvailable = $state(false);
 
   setAutoManaAvailable(on: boolean) {
@@ -1320,8 +1345,10 @@ export class SeatPanelState {
         // a smart step stop fired because this window offered a real play —
         // say what the play is, so "why did it pause on my own priority" is
         // answered on the panel. A 'forced' stop with nothing to do, and every
-        // other reason, carry no detail and keep the base wording.
-        const labels = verdict.reason === 'stop-set' ? actionables(view, this.ctx.seat, d) : [];
+        // other reason, carry no detail and keep the base wording. The labels
+        // read the same auto-pay preference decide() was handed, so a stop a
+        // planned cast made is named as that cast.
+        const labels = verdict.reason === 'stop-set' ? actionables(view, this.ctx.seat, d, this.autoPayMana) : [];
         this.note = labels.length > 0
           ? { kind: 'waiting', reason: verdict.reason, detail: labels.join(', ') }
           : { kind: 'waiting', reason: verdict.reason };
@@ -1412,8 +1439,16 @@ export class SeatPanelState {
     | null {
     const d = this.pending;
     if (d === null) return null;
-    // Auto-pay changes the witness used for an explicit cast only. It must
-    // not alter Auto/Manual or empty-window pass policy.
+    // Auto-pay changes which witness an explicit cast uses; it is not a pass
+    // policy of its own, so there is deliberately no auto-pay guard here (the
+    // blanket one that held every window carrying a plan was removed by
+    // 4757be4e9, squashed into 7022042e6). It reaches this classification
+    // only as the seat PREFERENCE handed to the one shared actionable test
+    // (spec §8): while it is on, a plan-bearing payment action is a real play,
+    // so neither the floor nor decide() passes a window whose only play is a
+    // plan-only cast, and decide()'s own-object pass is keyed on it. The table
+    // capability (autoManaAvailable) never reaches here: with the preference
+    // off this is exactly the capability-less policy.
     // The undo pause owns the whole classification: while it holds, neither
     // auto, nor the empty-window floor, nor a one-shot run passes anything.
     // It must gate HERE, before the autoOn split below, not only on the
@@ -1427,7 +1462,7 @@ export class SeatPanelState {
     // seat is still not stopped at a window that asks nothing. With Auto on,
     // decide() owns the same shape and classifies it under Auto's counter.
     if (!autoOn && this.oneShot === 'none') {
-      const index = this.skipEmpty ? emptyPriorityWindow(d, view, this.ctx.seat) : null;
+      const index = this.skipEmpty ? emptyPriorityWindow(d, view, this.ctx.seat, this.autoPayMana) : null;
       return index === null ? null : { act: 'pass', index, kind: 'empty', reason: 'empty-window' };
     }
 
@@ -1448,7 +1483,8 @@ export class SeatPanelState {
       // main-phase floor. Persistent Auto keeps the default (the floor
       // applies); ffwd never reaches here.
       skipOwnTurnFloor: this.oneShot !== 'none',
-      autoManaAvailable: this.autoManaAvailable,
+      // The seat's auto-pay PREFERENCE, never the table capability (spec §8).
+      autoPayMana: this.autoPayMana,
     });
     if (verdict.act === 'stop') return verdict;
     const kind: Exclude<AutoPassKind, 'act'> = this.oneShot === 'end-turn'
@@ -1660,7 +1696,7 @@ export class SeatPanelState {
     const d = this.pending;
     const autoOn = this.auto && !this.machinePaused;
     if (d === null || !this.actPass || autoOn || this.oneShot !== 'none') return null;
-    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoManaAvailable: this.autoManaAvailable });
+    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoPayMana: this.autoPayMana });
     return verdict.act === 'pass' ? { ...verdict, kind: 'act', reason: 'no-stop-rule' } : null;
   }
 
@@ -2177,8 +2213,9 @@ export class SeatPanelState {
         this.onFollowUpArm?.(this.followUpExpected);
       }
       // The hand answers that can carry a real action are click()'s post-on-click
-      // (min == max == 1) and submit()'s multi-pick commit; both funnel through
-      // here, so the pass-after-arming test lives on the ACCEPTED post — a
+      // (min == max == 1), submit()'s multi-pick commit and submitPayment()'s
+      // planned cast; all funnel through here, so the pass-after-arming test
+      // lives on the ACCEPTED post — a
       // rejected intent never arms, and the gates are the preference itself
       // and the hold-priority modifier: with actPass off nothing is ever
       // armed, and a Ctrl-held action (hold priority) skips the arming for
@@ -2192,7 +2229,13 @@ export class SeatPanelState {
       // Concede never reaches here as an action: click() returns before
       // posting it once and confirmConcede posts a concede kind, which the
       // test rejects.
-      if (this.actPass && !holdPriority && actedOption(d, choices)) this.actPassArmed = true;
+      // A planned cast (submitPayment: the seat-panel/hot-strip plan button,
+      // the hand CAST shortcut, and click()'s auto-pay branch for a legacy
+      // cast) posts no choices, only its payment selection; actedPayment
+      // counts it exactly as actedOption counts the same cast's legacy
+      // option, under the same gates: accepted posts only, the preference on,
+      // and Ctrl (holdPriority) exempt (spec §8).
+      if (this.actPass && !holdPriority && (actedOption(d, choices) || actedPayment(d, payment))) this.actPassArmed = true;
       // If a new decision was adopted while the intent was in flight (a
       // rapid successive ask), keep it; only drop the decision we answered.
       if (this.pending?.seq === d.seq) this.pending = null;
@@ -2226,10 +2269,18 @@ export class SeatPanelState {
 
   /** refreshPending re-reads the current decision from /pending: the recovery path after a rejection, and the not-yet-viewed case at mount. A 409 conflict IS the normal "nothing pending" answer (the wait is on someone else), not an error. */
   async refreshPending() {
+    // A read issued before a rewind (or match boundary) describes the seq
+    // space begin() discarded, exactly like an in-flight post (seqEpoch). Its
+    // decision must not be adopted into the fresh space, where the seqHigh
+    // fence has been reset and would then refuse the restored, lower-seq ask
+    // for good; nor may its 409 clear that restored ask.
+    const epoch = this.seqEpoch;
     try {
       const d = await fetchPending(this.table, this.match, this.ctx);
+      if (epoch !== this.seqEpoch) return;
       this.adopt(d);
     } catch (e) {
+      if (epoch !== this.seqEpoch) return;
       if (e instanceof ApiError && e.status === 409) {
         this.adopt(null);
         return;
