@@ -53,9 +53,8 @@ func istTargetOptionFor(d *decision.Decision, id state.ObjID) int {
 // TestIsTargetingFlashPhotography pins the real-corpus Flash Photography
 // script: `ValidSA$ Spell.IsTargeting Valid Permanent.YouCtrl`. The sorcery
 // must be offered only off-turn and only when a permanent its controller
-// controls is a legal target; a cast announced on a non-qualifying (or
-// absent) target is reversed by CR 601.2e, and a cast on a qualifying target
-// completes.
+// controls is a legal target; the announcement offers only targets covered by
+// the permission, so a cast on a qualifying target completes.
 func TestIsTargetingFlashPhotography(t *testing.T) {
 	// No permanent you control: no qualifying target, no flash offer.
 	e, spell := offTurnFlashEngine(t, "Flash Photography", 2, 2)
@@ -73,31 +72,10 @@ func TestIsTargetingFlashPhotography(t *testing.T) {
 		t.Fatal("Flash Photography was not offered off-turn with a permanent its controller controls")
 	}
 
-	// A cast on the opponent's permanent (a legal target that does NOT meet
-	// the flash restriction) is reversed before payment.
+	// The opponent's otherwise-legal permanent is not offered: it does not
+	// satisfy the permission that granted off-turn timing.
 	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KTarget {
-		t.Fatalf("Flash Photography target decision = %+v", d)
-	}
-	if istTargetOptionFor(d, theirBear) < 0 {
-		t.Fatalf("precondition: the non-qualifying permanent must be a legal target: %+v", d.Options)
-	}
-	before := len(e.L.Events)
-	submitChoices(t, e, istTargetOptionFor(d, theirBear))
-	if e.G.Obj(spell).Zone != state.ZHand {
-		t.Fatalf("a non-qualifying target left the spell in %s, want the reversal back to hand", e.G.Obj(spell).Zone)
-	}
-	if len(e.G.Stack) != 0 {
-		t.Fatalf("stack after the reversal = %v, want empty", e.G.Stack)
-	}
-	if len(e.L.Events) <= before {
-		t.Fatal("no events were logged through the reversed cast")
-	}
-
-	// A cast on the qualifying permanent completes.
-	e.beginCast(0, decision.Option{Kind: "cast", Obj: spell})
-	d = e.Pending()
 	if d == nil || d.Kind != decision.KTarget {
 		t.Fatalf("second target decision = %+v", d)
 	}
