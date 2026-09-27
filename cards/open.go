@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // maxSiblingCaches bounds how many fingerprint-keyed IR caches one corpus
@@ -48,6 +49,43 @@ func CachePath(dir string) string { return cachePathFor(dir, CompilerFingerprint
 // read-only corpus) is ignored; the compiled registry is still returned.
 func OpenCorpus(dir string) (*Registry, error) {
 	return openCorpus(dir, CompilerFingerprint)
+}
+
+// SharedCorpus is OpenCorpus opened ONCE per directory per process: every
+// call for the same directory returns the same registry. A registry is
+// read-only after open, and the rules layer's universe- and card-keyed memos
+// (landTypeWordsCache, the name-universe memos, compiledTextCache) key on its
+// pointers, so every re-opened copy stayed live: a test binary that starts
+// servers, replays captures or drives a bench many times held one ~400 MB
+// registry per call (measured 2026-09-27: cmd/repro 4.9 GB, cmd/gorged
+// 3.0 GB, host 2.4 GB, botbench 4.9 GB peak). Use it wherever a process may
+// open the corpus more than once; OpenCorpus stays uncached for callers that
+// must see a recompiled cache (the corpus-cache tests). A failed open is not
+// cached.
+func SharedCorpus(dir string) (*Registry, error) {
+	key := dir
+	if abs, err := filepath.Abs(dir); err == nil {
+		key = abs
+	}
+	sharedCorpora.Lock()
+	defer sharedCorpora.Unlock()
+	if reg, ok := sharedCorpora.m[key]; ok {
+		return reg, nil
+	}
+	reg, err := OpenCorpus(dir)
+	if err != nil {
+		return nil, err
+	}
+	if sharedCorpora.m == nil {
+		sharedCorpora.m = map[string]*Registry{}
+	}
+	sharedCorpora.m[key] = reg
+	return reg, nil
+}
+
+var sharedCorpora struct {
+	sync.Mutex
+	m map[string]*Registry
 }
 
 // openCorpus is OpenCorpus with the fingerprint supplied explicitly, so tests

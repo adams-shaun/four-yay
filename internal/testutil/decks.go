@@ -162,11 +162,11 @@ func RepoDeckFile(t testing.TB, name string) deck.File {
 }
 
 // OpenCorpusRegistry opens dir's compiled corpus, compiling it fresh from
-// dir/cardsfolder when the cache is missing or stale. The logic now lives
-// in cards.OpenCorpus; this wrapper stays so CorpusRegistry below (and any
-// other existing caller) keeps working unchanged.
+// dir/cardsfolder when the cache is missing or stale. It is
+// cards.SharedCorpus: one registry per directory per process, since a
+// re-opened copy stays pinned by the rules layer's pointer-keyed memos.
 func OpenCorpusRegistry(dir string) (*cards.Registry, error) {
-	return cards.OpenCorpus(dir)
+	return cards.SharedCorpus(dir)
 }
 
 type corpusRegistryResult struct {

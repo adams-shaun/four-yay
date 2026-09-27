@@ -231,7 +231,7 @@ func run(args []string, stdout, progress io.Writer) error {
 		defer f.Close()
 		out = f
 	}
-	reg, err := cards.OpenCorpus(*corpus)
+	reg, err := cards.SharedCorpus(*corpus)
 	if err != nil {
 		return err
 	}

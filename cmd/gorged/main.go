@@ -209,7 +209,7 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 	if vis == view.Seat {
 		return fmt.Errorf("-spectator must be public or omniscient")
 	}
-	reg, err := cards.OpenCorpus(c.cards)
+	reg, err := cards.SharedCorpus(c.cards)
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run make fetch-cards compile-cards)", c.cards, err)
 	}

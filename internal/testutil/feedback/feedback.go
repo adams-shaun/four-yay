@@ -465,7 +465,7 @@ func openCorpus() (*cards.Registry, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, fmt.Errorf("feedback: no .cards/ corpus at %s — run `make fetch-cards compile-cards`", dir)
 	}
-	reg, err := cards.OpenCorpus(dir)
+	reg, err := cards.SharedCorpus(dir)
 	if err != nil {
 		return nil, fmt.Errorf("feedback: corpus at %s: %w", dir, err)
 	}
