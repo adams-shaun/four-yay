@@ -1,0 +1,112 @@
+{
+  "card": "Hawkeye, Avenging Archer",
+  "family": "trigger-condition",
+  "oracle_sha": "264836d1333c",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "damaged-victim-dies-draw",
+      "cr": [
+        "603.4",
+        "603.6c"
+      ],
+      "why": "Hawkeye pings the opposing Bear this turn, then the Bear dies to a second damage source: the earlier Hawkeye damage makes the intervening condition true and its controller draws. The draw is checked only after resolving the entire stack, not while its trigger has already resolved.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Hawkeye, Avenging Archer"
+          ],
+          "hand": [
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Hawkeye, Avenging Archer",
+          "ability": "damage",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "undamaged-victim-dies-no-trigger",
+      "cr": [
+        "603.4",
+        "603.6c"
+      ],
+      "why": "An opposing Bear moves from the battlefield to the graveyard without ever having taken Hawkeye damage this turn; no death trigger is placed on the stack.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Hawkeye, Avenging Archer"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p1:Grizzly Bears",
+          "to": "graveyard",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Hawkeye, Avenging Archer",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "hand_size": {
+            "p0": 0
+          }
+        }
+      ]
+    }
+  ]
+}

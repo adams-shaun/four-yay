@@ -1,0 +1,104 @@
+{
+  "card": "Captain America, Living Legend",
+  "family": "trigger-condition",
+  "oracle_sha": "1c47cd836c63",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "first-tap-untaps",
+      "cr": [
+        "603.4",
+        "508.1f"
+      ],
+      "why": "When a controlled attacker first taps this turn, Captain America triggers and untaps it.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Captain America, Living Legend",
+            "Hawkeye, Avenging Archer"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Hawkeye, Avenging Archer"
+          ],
+          "defender": "p1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Captain America, Living Legend",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Hawkeye, Avenging Archer",
+          "tapped": false
+        }
+      ]
+    },
+    {
+      "name": "second-tap-same-turn-no-trigger",
+      "cr": [
+        "603.4",
+        "508.1f"
+      ],
+      "why": "After the first attacking tap has been undone, tapping Hawkeye again to activate its ability is not its first tap this turn and does not trigger Captain America.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Captain America, Living Legend",
+            "Hawkeye, Avenging Archer"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Hawkeye, Avenging Archer"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Hawkeye, Avenging Archer",
+          "ability": "damage",
+          "targets": [
+            "p1"
+          ],
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Captain America, Living Legend",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Hawkeye, Avenging Archer",
+          "tapped": true
+        }
+      ]
+    }
+  ]
+}
