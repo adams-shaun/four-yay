@@ -344,10 +344,15 @@
   // public-spectator null hand) by id -> owner -> that seat's colour. An id
   // absent from the view (a card that has left every visible zone) resolves
   // null and renders uncoloured. Rebuilt each render.
+  //
+  // The SAME flattened list is handed to the transcript as `cards` so a
+  // card-name hover can resolve its id to a CardView for the detail panel
+  // (fb-20260927T154603Z) — one flatten, two consumers.
+  const logCards = $derived(m.view ? everyVisibleCard(m.view.players) : []);
   const logCardColour = $derived(
     m.view
       ? buildCardOwnerColour(
-          everyVisibleCard(m.view.players),
+          logCards,
           (owner) => m.seats[owner]?.colour || seatColour(owner, m.seats),
         )
       : null,
@@ -542,7 +547,7 @@
         {#if !seated}
           <DvrBar dvr={m.dvr} onAction={(a) => m.dispatch(a)} {finished} />
         {/if}
-        <div class="log"><Transcript dvr={m.dvr} identities={logIdentities} cardColour={logCardColour} notes={panel?.autoLog ?? []} onSeek={seated ? () => {} : (seq) => m.dispatch({ type: 'scrub', seq })} /></div>
+        <div class="log"><Transcript dvr={m.dvr} identities={logIdentities} cardColour={logCardColour} cards={logCards} notes={panel?.autoLog ?? []} onSeek={seated ? () => {} : (seq) => m.dispatch({ type: 'scrub', seq })} /></div>
       </footer>
       <!-- fb-20260914T121642Z: the one arrows overlay lives HERE, at the
            table root, not inside the felt subtree. section.board clips its
