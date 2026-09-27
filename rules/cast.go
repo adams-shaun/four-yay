@@ -9113,23 +9113,12 @@ func (e *Engine) validatePendingPaymentPlan(pc *pendingCast) error {
 			return fmt.Errorf("source_changed")
 		}
 		seen[pa.Source] = true
-		matched := false
-		for _, u := range units {
-			if u.id != pa.Source {
-				continue
-			}
-			for _, candidate := range e.paymentPlanUnitAlternatives(u) {
-				if candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces {
-					pool = manaAdd(pool, candidate.mana)
-					produced = manaAdd(produced, candidate.mana)
-					matched = true
-					break
-				}
-			}
-		}
-		if !matched {
+		step, ok := e.paymentPlanStepAlternative(units, pa)
+		if !ok {
 			return fmt.Errorf("production_changed")
 		}
+		pool = manaAdd(pool, step.mana)
+		produced = manaAdd(produced, step.mana)
 	}
 	cost := e.paymentMana(pc)
 	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
@@ -9150,32 +9139,17 @@ func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
 		return false
 	}
 	pa := pc.payment.plan.Activations[pc.paymentNext]
-	var ma *cards.SA
-	for _, u := range e.paymentPlanManaUnits(pc.player) {
-		if u.id != pa.Source {
-			continue
-		}
-		for _, alt := range u.alts {
-			ab, ok := e.paymentAbility(pa.Source, alt.ma)
-			if !ok || ab != pa.Ability {
-				continue
-			}
-			for _, candidate := range e.paymentPlanUnitAlternatives(u) {
-				if candidate.activation.Ability != pa.Ability || candidate.activation.Produces != pa.Produces {
-					continue
-				}
-				ma = alt.ma
-				break
-			}
-			if ma != nil {
-				break
-			}
-		}
-	}
-	if ma == nil {
+	// Activate the exact alternative the step names -- the one whose ability
+	// identity AND production equal the witness -- never the first ability
+	// sharing the identity: a dual land's intrinsic {U} and {R} abilities are
+	// both {intrinsic, basic_land}, and a step asking it for {R} must not
+	// activate its {U} ability.
+	step, ok := e.paymentPlanStepAlternative(e.paymentPlanManaUnits(pc.player), pa)
+	if !ok {
 		e.paymentPlanFallback(pc, "source_changed")
 		return false
 	}
+	ma := step.ma
 	pc.paymentNext++ // a synchronous continuation may re-enter payCast.
 	// This is a spell's CR 601.2g payment window, not the distinct
 	// cumulative/triggered-cost payment window.  The planned sequence owns
