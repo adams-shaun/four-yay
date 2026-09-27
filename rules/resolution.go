@@ -205,8 +205,12 @@ type resumePoint struct {
 	// restores Ctx.DrawUptoIdx/Count/Answered from them so effDraw's upto
 	// branch continues the batch. uptoIdx -1 (the default every non-upto
 	// ask leaves) means no upto is in flight.
-	uptoIdx           int
-	uptoCount         int32
+	uptoIdx   int
+	uptoCount int32
+	// exploreDone is Decision.ResumeExploreDone: the explores an api:Explore
+	// explorer completed before the one whose election suspended. The
+	// "explore" arm restores Ctx.ExploreCount from it.
+	exploreDone       int32
 	villainousVictims []state.Target
 	villainousIndex   int
 	villainousChoice  string
@@ -691,7 +695,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		digUntilMove: d.ResumeDigUntilMove, digUntilMoveDone: d.ResumeDigUntilMoveDone,
 		clonePick: d.ResumeClonePick, clonePickDone: d.ResumeClonePickDone,
 		moved:   append([]state.ObjID(nil), d.ResumeMoved...),
-		uptoIdx: d.ResumeUptoIdx, uptoCount: d.ResumeUptoCount,
+		uptoIdx: d.ResumeUptoIdx, uptoCount: d.ResumeUptoCount, exploreDone: d.ResumeExploreDone,
 		villainousVictims:       append([]state.Target(nil), d.ResumeVillainousVictims...),
 		villainousIndex:         d.ResumeVillainousIndex,
 		genericChoosers:         append([]state.Target(nil), d.ResumeGenericChoosers...),
@@ -2759,6 +2763,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// explores and every later target pose their own fresh path.
 			ctx.ExploreDone = true
 			ctx.ExploreObj = state.ObjID(rp.target)
+			ctx.ExploreCount = rp.exploreDone
 			if len(chosen) > 0 {
 				ctx.ExploreChoice = chosen[0].Kind
 				ctx.ExploreCard = chosen[0].Obj

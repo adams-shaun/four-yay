@@ -782,6 +782,13 @@ type Decision struct {
 	// client input, the same class as ResumeMoved.
 	ResumeUptoIdx   int   `json:"-"`
 	ResumeUptoCount int32 `json:"-"`
+	// ResumeExploreDone rides an api:Explore destination election: the
+	// number of explores the pending explorer had completed before the one
+	// that asked, so the resumed Num$ loop continues at that explore instead
+	// of restarting its count (effects.Ctx.ExploreCount). Runtime
+	// continuation state, never client input, the same class as
+	// ResumeUptoCount.
+	ResumeExploreDone int32 `json:"-"`
 	// ResumeVillainousVictims and ResumeVillainousIndex carry the ordered
 	// victim cursor for a multi-player VillainousChoice resolution.
 	ResumeVillainousVictims []state.Target `json:"-"`
