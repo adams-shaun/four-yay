@@ -20,7 +20,7 @@ import (
 // rejected even though its priced non-mana components are all zero.
 //
 // The recorded cardfuzz B-off/batch2.jsonl reproduction (seed
-// 11612884869535247757) hits exactly this: Myr Prototype has 9 +1/+1 counters
+// 11612869535247757) hits exactly this: Myr Prototype has 9 +1/+1 counters
 // ({9} tax), the board offers six attackers, and the bot declares all six. The
 // rejection message used to print only the non-mana components
 // "(0 life, 0 taps, ...)" -- all zero -- which reads as an unpriceable FREE
