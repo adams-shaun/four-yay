@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,11 +96,13 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 		info protocol.MatchInfo
 		log  *events.Log
 	}
-	run := func(policy string) runResult {
+	run := func(policy string, autoPay bool) runResult {
 		r, _ := New(testOptions(t))
 		defer r.Close()
 		tableCfg := fourSeatTable("t1", false)
 		tableCfg.BotPolicy = policy
+		tableCfg.AutoMana = autoPay
+		tableCfg.BotAutoPayMana = autoPay
 		if err := r.AddTable(tableCfg); err != nil {
 			t.Fatal(err)
 		}
@@ -126,18 +129,23 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 		return runResult{info: info, log: log}
 	}
 	type policyCase struct {
-		name   string
-		policy string
+		name    string
+		policy  string
+		autoPay bool
 	}
-	results := make(map[string]runResult, 4)
+	results := make(map[string]runResult, 8)
 	for _, tc := range []policyCase{
 		{name: "default", policy: ""},
 		{name: BotPolicy, policy: BotPolicy},
 		{name: LethalPressurePolicy, policy: LethalPressurePolicy},
 		{name: CastProfilePolicy, policy: CastProfilePolicy},
+		{name: "default-auto-pay", policy: "", autoPay: true},
+		{name: BotPolicy + "-auto-pay", policy: BotPolicy, autoPay: true},
+		{name: LethalPressurePolicy + "-auto-pay", policy: LethalPressurePolicy, autoPay: true},
+		{name: CastProfilePolicy + "-auto-pay", policy: CastProfilePolicy, autoPay: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a, b := run(tc.policy), run(tc.policy)
+			a, b := run(tc.policy, tc.autoPay), run(tc.policy, tc.autoPay)
 			for _, got := range []runResult{a, b} {
 				if got.info.State != protocol.MatchFinished || (got.info.Result != "win" && got.info.Result != "draw") || (got.info.Result == "win") != (got.info.Winner != nil) {
 					t.Fatalf("%q did not finish with a valid outcome: %+v", tc.name, got.info)
@@ -145,6 +153,18 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 			}
 			if !reflect.DeepEqual(a.log.Events, b.log.Events) || !reflect.DeepEqual(a.log.Intents, b.log.Intents) || a.info.Head != b.info.Head || a.info.Result != b.info.Result || !reflect.DeepEqual(a.info.Winner, b.info.Winner) {
 				t.Fatalf("two %q runs differ: %+v vs %+v", tc.name, a.info, b.info)
+			}
+			if tc.autoPay {
+				planned := false
+				for _, ev := range a.log.Events {
+					if ev.Kind == events.DecisionMade && strings.Contains(ev.Text, ";payment:") {
+						planned = true
+						break
+					}
+				}
+				if !planned {
+					t.Fatalf("%q auto-pay run has no planned DecisionMade event", tc.name)
+				}
 			}
 			results[tc.name] = a
 		})
