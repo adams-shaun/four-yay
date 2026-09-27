@@ -1,0 +1,110 @@
+{
+  "card": "Sowing Mycospawn",
+  "family": "trigger-condition",
+  "oracle_sha": "31042f0ddca3",
+  "author": "cli-20260927T211250Z-75464868 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "kicked-exiles-opposing-land",
+      "cr": [
+        "702.33a",
+        "603.4",
+        "603.2"
+      ],
+      "why": "The extra kicker payment makes the second cast trigger exile the targeted opposing land; the unconditional search still puts a land onto the battlefield.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sowing Mycospawn"
+          ],
+          "library": [
+            "Plains"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Swamp"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sowing Mycospawn",
+          "mana": "GGGGC",
+          "kicked": true,
+          "targets": [
+            "p1:Swamp"
+          ]
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p1:Swamp"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Swamp",
+          "zone": "exile"
+        },
+        {
+          "card": "p0:Plains",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "ordinary-cast-no-exile",
+      "cr": [
+        "702.33a",
+        "603.4"
+      ],
+      "why": "The land-search cast event still occurs, but without kicker the separate exile ability never goes on the stack.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sowing Mycospawn"
+          ],
+          "library": [
+            "Plains"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Swamp"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sowing Mycospawn",
+          "mana": "GGGG",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Sowing Mycospawn",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Swamp",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Plains",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}
