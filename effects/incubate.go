@@ -57,9 +57,13 @@ const incubatorTokenKey = "incubator_c_0_0_a_phyrexian"
 // degrade effToken uses for an unknown TokenScript$.
 //
 // The mint is the ordinary TokenCreate event (so token-replacement
-// machinery -- Doubling Season, Academy Manufactor -- sees it exactly as it
+// machinery -- Doubling Season, Anointed Procession -- sees it exactly as it
 // sees every other mint) and the counters are the ordinary CounterChange
-// event, the same two-event shape effAmass uses for its Army.
+// event. Because a CreateToken replacement can rewrite one would-be token
+// into several mints, the mint goes through h.EmitTokenCreate and the
+// counters land on EVERY mint the plan produced, not just the first: each
+// mint's CounterChange is its own event, so an AddCounter replacement
+// doubles that mint's counters independently (CR 614.5/616.1e).
 func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	n := Num(h, c, sa, "Amount", 1)
@@ -93,16 +97,24 @@ func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 		times = 1
 	}
 	for i := int32(0); i < times; i++ {
-		want := g.NextID
-		h.Emit(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
-		if o := g.Obj(want); o == nil {
+		// EmitTokenCreate returns EVERY object the emit created: an ordinary
+		// emit the single mint, a CreateToken replacement the whole rewritten
+		// plan (Doubling Season's pair, Anointed Procession's pair), so the
+		// counters below land on every mint the resolution actually produced.
+		mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
+		if len(mints) == 0 {
 			// The mint folded nowhere (an invalid owner): nothing to
 			// counter, and stopping the repeat keeps the loop total.
 			return
 		}
 		if n > 0 {
-			h.Emit(events.Event{Kind: events.CounterChange, Obj: want,
-				Counter: "P1P1", Amount: n})
+			for _, want := range mints {
+				if g.Obj(want) == nil {
+					continue
+				}
+				h.Emit(events.Event{Kind: events.CounterChange, Obj: want,
+					Counter: "P1P1", Amount: n})
+			}
 		}
 	}
 }
