@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -41,9 +42,12 @@ import (
 //   - an effect-created ProduceMana replacement carrying no ValidCard$ or
 //     ValidActivator$ filter (its scope is every production of every
 //     player; a filtered one is scoped per source by the real matcher);
-//   - a ManaConvert static that reaches the payer, found the way the payment
-//     path finds it (paymentConv): the planner prices with the ordinary
-//     solver, which does not apply the conversion.
+//   - a RESTRICTING ManaConvert static that reaches the payer, found the way
+//     the payment path finds it (paymentConv) and classified by
+//     paymentPlanConvRestricts: the planner prices with the ordinary solver,
+//     which does not apply the conversion. A purely widening conversion
+//     (Mycosynth Lattice) cannot make a priced plan unpayable and is not
+//     global.
 //
 // id may be 0 when no spell is known (the zero-argument wrapper outside a
 // cast); a ManaConvert static then reaches p only through its player scope.
@@ -56,34 +60,62 @@ func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (
 			return true, "global_mana_effect:" + e.paymentPlanObjName(ce.Source)
 		}
 	}
-	if e.paymentConv(p, id, false) != nil {
+	if conv := e.paymentConv(p, id, false); conv != nil && paymentPlanConvRestricts(conv) {
 		return true, "global_mana_effect:" + e.paymentPlanManaConvertName(p)
 	}
 	return false, ""
 }
 
-// paymentPlanManaConvertName names a ManaConvert static for the diagnostic:
-// the first (printed sources in board order, then active effects) controlled
-// by p, else the first at all. It is diagnostic only -- the decision is
-// paymentConv's -- so it deliberately reads no static parameter.
+// paymentPlanConvRestricts classifies a payer's effective conversion set
+// (paymentConv, the payment path's own parse of every ManaConvert static
+// reaching the payer) by whether it can make a planned payment INVALID.
+//
+//   - wild / wildC ("spend mana as though it were mana of any color/type":
+//     Mycosynth Lattice, Chromatic Orrery, the AnyType->AnyColor family) and
+//     to ("White->Red") only ever ADD pips a unit of mana may pay. A witness
+//     the ordinary solver proved payable without them stays payable with
+//     them, so they are not a global plan-blocker.
+//   - onlyC ("you may spend other mana only as though it were colorless
+//     mana": Celestial Dawn's nonWhite<-C) REMOVES pips a unit may pay, so a
+//     plan priced without it can be unpayable: global.
+//
+// Every manaConv field is classified here; a field added to manaConv later
+// must be classified too. A ManaConversion$ token the parser cannot read is
+// inert at payment as well (manaColourFrom/applyManaConversionTo), so it can
+// invalidate nothing the solver priced.
+func paymentPlanConvRestricts(c *manaConv) bool {
+	return slices.Contains(c.onlyC[:], true)
+}
+
+// paymentPlanManaConvertName names the ManaConvert static behind a global
+// decline, for the diagnostic only (the decision is paymentConv's, classified
+// by paymentPlanConvRestricts): the first static reaching p whose
+// ManaConversion$ carries a restricting "<-" token, printed sources in board
+// order before active effects; else the first static reaching p.
 func (e *Engine) paymentPlanManaConvertName(p state.PlayerID) string {
-	var ids []state.ObjID
-	var ctls []state.PlayerID
+	var views []staticView
 	for _, src := range e.manaConvPrintedSources() {
-		ids, ctls = append(ids, src.sv.Source), append(ctls, src.sv.Controller)
+		views = append(views, src.sv)
 	}
 	for _, ce := range e.active() {
 		if ce.CostStaticMode == "ManaConvert" {
-			ids, ctls = append(ids, ce.Source), append(ctls, ce.Controller)
+			views = append(views, staticView{Source: ce.Source, Controller: ce.Controller, Params: ce.CostStaticParams})
 		}
 	}
-	for i := range ids {
-		if ctls[i] == p {
-			return e.paymentPlanObjName(ids[i])
+	first := state.ObjID(0)
+	for _, sv := range views {
+		if vp, ok := sv.Params["ValidPlayer"]; ok && !effects.MatchesPlayerSpec(e.G, vp, p, sv.Controller) {
+			continue
+		}
+		if strings.Contains(sv.Params["ManaConversion"], "<-") {
+			return e.paymentPlanObjName(sv.Source)
+		}
+		if first == 0 {
+			first = sv.Source
 		}
 	}
-	if len(ids) > 0 {
-		return e.paymentPlanObjName(ids[0])
+	if first != 0 {
+		return e.paymentPlanObjName(first)
 	}
 	return "ManaConvert"
 }

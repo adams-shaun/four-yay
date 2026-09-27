@@ -1777,6 +1777,12 @@ var handRoots = struct {
 		"ReduceCost":   {"Engine.costModifiersWithTargets", "Engine.costModifiersWithTargetsX", "Engine.paymentPlanHasTargetDependentModifier"},
 		"SetCost":      {"Engine.paymentPlanHasTargetDependentModifier"},
 		"OptionalCost": {"Engine.optionalCostViews"},
+		// paymentPlanManaConvertName (payment_plan_interference.go) names the
+		// restricting ManaConvert static behind a global auto-pay decline: it
+		// walks manaConvPrintedSources and the active ManaConvert statics
+		// directly, reading ValidPlayer$ and ManaConversion$ like
+		// manaConversionParts does.
+		"ManaConvert": {"Engine.manaConversionParts", "Engine.paymentPlanManaConvertName"},
 		// staticEffects filters on st.Mode != "Continuous" before reading.
 		// activeStatics (the battlefield-only restriction collector) and
 		// collectActionStatics (the AddAbility$ mana-grant membership walk)

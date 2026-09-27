@@ -349,3 +349,51 @@ func TestPaymentPlanInterferenceArrivingAfterOfferStopsBeforeTapping(t *testing.
 		t.Fatalf("pending = %s, want the manual window with source_changed for plan %s", paymentPlanPendingSummary(nd), a.Plans[0].ID)
 	}
 }
+
+// A purely WIDENING ManaConvert static (Mycosynth Lattice: "players may spend
+// mana as though it were mana of any color") cannot make a plan the ordinary
+// solver priced unpayable, so it is not a global plan-blocker: the Island
+// plan is offered, submits, and settles with no fallback. A RESTRICTING one
+// (the corpus Celestial Dawn: other mana only as colorless) stays global, and
+// with both on the battlefield the diagnostic names the restricting one.
+func TestPaymentPlanInterferenceWideningManaConvertIsNotGlobal(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9913, interferenceBlueInstant)
+	island := onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 1, corpusCard(t, "Mycosynth Lattice"))
+	if e.paymentConv(0, spell, false) == nil {
+		t.Fatal("precondition: Mycosynth Lattice does not reach seat 0's payment")
+	}
+	if ok, detail := e.paymentPlanGlobalManaEffect(0, spell); ok {
+		t.Fatalf("Mycosynth Lattice is a global mana effect: %q", detail)
+	}
+	d := paymentPlanReask(t, e)
+	a := paymentPlanActionFor(t, d, spell)
+	if srcs := paymentPlanSources(a.Plans[0]); len(srcs) != 1 || srcs[0] != island {
+		t.Fatalf("plan under Mycosynth Lattice = %+v, want the Island %d", a.Plans[0], island)
+	}
+	submitPaymentPlan(t, e, d, a)
+	if z := e.G.Obj(spell).Zone; z != state.ZStack {
+		t.Fatalf("spell zone after the planned cast = %s, want stack (pending %s)", z, paymentPlanPendingSummary(e.Pending()))
+	}
+	if !e.G.Obj(island).Tapped || e.G.Players[0].Pool.Total() != 0 {
+		t.Fatalf("Island tapped=%v pool=%v, want the Island to have paid exactly", e.G.Obj(island).Tapped, e.G.Players[0].Pool)
+	}
+	if nd := e.Pending(); nd != nil && nd.PaymentFallback != nil {
+		t.Fatalf("planned cast under Mycosynth Lattice fell back: %s", paymentPlanPendingSummary(nd))
+	}
+}
+
+func TestPaymentPlanInterferenceRestrictingManaConvertIsGlobal(t *testing.T) {
+	e, _, spell := newFixtureDeck(t, 9914, interferenceBlueInstant)
+	onBoard(t, e, 0, interferenceIsland)
+	onBoardCard(t, e, 0, corpusCard(t, "Mycosynth Lattice"))
+	onBoardCard(t, e, 0, corpusCard(t, "Celestial Dawn"))
+	got := e.PlanCastPayment(0, paymentCast(spell))
+	if got.Plan != nil || got.Reason != "unsupported" || got.Detail != "global_mana_effect:Celestial Dawn" {
+		t.Fatalf("plan under Celestial Dawn + Mycosynth Lattice = %+v, want unsupported global_mana_effect:Celestial Dawn", got)
+	}
+	// Celestial Dawn's ValidPlayer$ You: seat 1 sees only the Lattice.
+	if ok, detail := e.paymentPlanGlobalManaEffect(1, 0); ok {
+		t.Fatalf("seat 0's Celestial Dawn reaches seat 1: %q", detail)
+	}
+}
