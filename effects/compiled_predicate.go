@@ -302,7 +302,7 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 	var matched bool
 	switch base.kind {
 	case predicateBaseAny:
-		matched = hasTypeCtx(o, "Creature", *sc) || hasTypeCtx(o, "Planeswalker", *sc) || hasTypeCtx(o, "Battle", *sc)
+		matched = hasTypeCtxPtr(o, "Creature", sc) || hasTypeCtxPtr(o, "Planeswalker", sc) || hasTypeCtxPtr(o, "Battle", sc)
 	case predicateBaseCard:
 		matched = true
 	case predicateBasePermanent:
@@ -322,7 +322,7 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 		// helper, so the compiled base cannot return a definite No for a
 		// derived type the text path grants (a manifested Forest under
 		// Maskwood Nexus, or an animated manland).
-		matched = hasTypeCtx(o, base.arg, *sc)
+		matched = hasTypeCtxPtr(o, base.arg, sc)
 	}
 	if base.negated {
 		return !matched
@@ -362,7 +362,7 @@ func matchesCompiledTerm(term predicateTerm, g *state.Game, o *state.Object, sc 
 	case predicateTermColor:
 		matched = strings.Contains(ColorsOf(o), term.arg)
 	case predicateTermType:
-		matched = hasTypePredicateCtx(o, term.arg, *sc)
+		matched = hasTypePredicateCtxPtr(o, term.arg, sc)
 	case predicateTermColorless:
 		matched = ColorsOf(o) == ""
 	case predicateTermAttachedBy:

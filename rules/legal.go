@@ -767,8 +767,10 @@ func (e *Engine) isLoyaltyAbility(ab *cards.SA) bool {
 		// No AddCounter/SubCounter part of raw can carry a LOYALTY spec (each
 		// part's Spec is a substring of the raw text, and no non-ASCII rune
 		// case-folds onto l/o/y/a/t), so only the Planeswalker$ marker can
-		// classify it: skip the parsed-cost lookup and its large Cost copy.
-		return isLoyaltyAbilityCost(ab, Cost{})
+		// classify it: skip the parsed-cost lookup and its large Cost copy
+		// (isLoyaltyMarked is isLoyaltyAbilityCost's marker half, which is
+		// its whole answer for a cost with no counter parts).
+		return isLoyaltyMarked(ab)
 	}
 	return isLoyaltyAbilityCost(ab, e.parseCost(raw))
 }
@@ -794,17 +796,9 @@ func containsLoyaltyFold(s string) bool {
 }
 
 func isLoyaltyAbilityCost(ab *cards.SA, c Cost) bool {
-	if v, ok := ab.Params["Planeswalker"]; ok && strings.EqualFold(strings.TrimSpace(v), "True") {
+	if isLoyaltyMarked(ab) {
 		return true
 	}
-	// Ultimate$ (Ugin, Eye of the Storms' [-X]: AB$ ChangeZone ... Ultimate$
-	// True) marks the planeswalker's ultimate for Forge's deck-tooling and
-	// the client's loyalty-UI presentation; the rules meaning -- a loyalty
-	// ability, once per permanent per turn (CR 606.3) -- is already covered
-	// by the Planeswalker$ marker this gate reads. The recognition keeps the
-	// parameter census honest; the presentation half is named in the deck
-	// import report's Issues.
-	_ = ab.Params["Ultimate"]
 	for _, part := range c.AddCounter {
 		if strings.EqualFold(part.Spec, "LOYALTY") {
 			return true
@@ -814,6 +808,25 @@ func isLoyaltyAbilityCost(ab *cards.SA, c Cost) bool {
 		if strings.EqualFold(part.Spec, "LOYALTY") {
 			return true
 		}
+	}
+	return false
+}
+
+// isLoyaltyMarked reports whether ab carries the Planeswalker$ True marker,
+// the half of isLoyaltyAbilityCost that reads no cost.
+func isLoyaltyMarked(ab *cards.SA) bool {
+	if v, ok := ab.Params["Planeswalker"]; ok && strings.EqualFold(strings.TrimSpace(v), "True") {
+		// Ultimate$ (Ugin, Eye of the Storms' [-X]: AB$ ChangeZone ...
+		// Ultimate$ True) marks the planeswalker's ultimate for Forge's
+		// deck-tooling and the client's loyalty-UI presentation; the rules
+		// meaning -- a loyalty ability, once per permanent per turn (CR
+		// 606.3) -- is already covered by the Planeswalker$ marker this gate
+		// reads. The recognition keeps the parameter census honest (its value
+		// is discarded, so it is read only on this branch rather than on every
+		// ability the offer walk classifies); the presentation half is named
+		// in the deck import report's Issues.
+		_ = ab.Params["Ultimate"]
+		return true
 	}
 	return false
 }
