@@ -296,6 +296,7 @@ func (d *Decision) CloneValue() Decision {
 		f := *d.PaymentFallback
 		c.PaymentFallback = &f
 	}
+	c.ManaPayment = CloneManaPaymentWindow(d.ManaPayment)
 	return c
 }
 
@@ -305,6 +306,7 @@ func CloneIntent(in Intent) Intent {
 	c.Choices = append([]int(nil), in.Choices...)
 	c.Rest = append([]int(nil), in.Rest...)
 	c.Payment = ClonePaymentSelection(in.Payment)
+	c.Announce = CloneAnnounceSelection(in.Announce)
 	return c
 }
 

@@ -3651,7 +3651,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if d == nil {
 		return fmt.Errorf("no decision pending")
 	}
-	if in.Payment != nil && d.Kind == decision.KPriority {
+	if (in.Payment != nil || in.Announce != nil) && d.Kind == decision.KPriority {
 		e.EnsurePaymentActions()
 	}
 	if err := d.Validate(in); err != nil {
@@ -3699,6 +3699,15 @@ func (e *Engine) Submit(in decision.Intent) error {
 		}
 	}
 	if d.Kind == decision.KPriority {
+		if in.Announce != nil {
+			action, ok := paymentActionFor(d, in.Announce.ActionID)
+			if !ok {
+				return fmt.Errorf("payment action is not offered") // defensive: Decision.Validate already checked.
+			}
+			if err := e.ValidateCastAnnounce(in.Player, action.Cast); err != nil {
+				return err
+			}
+		}
 		if in.Payment != nil {
 			action, ok := paymentActionFor(d, in.Payment.ActionID)
 			if !ok {
@@ -3711,7 +3720,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 		// A priority answer whose handler would no-op at its first guard is
 		// rejected before it is recorded (rules/priority_guard.go), so a
 		// stale or mis-offered option errors instead of spinning.
-		if in.Payment == nil {
+		if in.Payment == nil && in.Announce == nil {
 			if err := e.validatePriorityChoice(d, in); err != nil {
 				return err
 			}
@@ -3727,10 +3736,20 @@ func (e *Engine) Submit(in decision.Intent) error {
 	// replay history, so a client-side mutation after Submit cannot alter it.
 	in = decision.CloneIntent(in)
 	e.L.Intents = append(e.L.Intents, in)
-	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player,
-		Text: decisionMadePaymentText(d.Kind, in.Choices, in.Payment)})
+	made := decisionMadePaymentText(d.Kind, in.Choices, in.Payment)
+	if in.Announce != nil {
+		made = decisionMadeAnnounceText(d.Kind, in.Choices, in.Announce)
+	}
+	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player, Text: made})
 	e.pending = nil
-	if in.Payment != nil {
+	if in.Announce != nil {
+		action, _ := paymentActionFor(d, in.Announce.ActionID)
+		// The same Priority marker the planned route emits, then the ordinary
+		// cast transaction with no witness: the caster pays in the announced
+		// CR 601.2g window (announce_pay.go).
+		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
+		e.beginCastAnnounced(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object})
+	} else if in.Payment != nil {
 		e.paymentStats.recordPlannedSubmission()
 		action, _ := paymentActionFor(d, in.Payment.ActionID)
 		// Match the ordinary cast priority action exactly, then enter the same

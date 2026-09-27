@@ -531,6 +531,11 @@ type Decision struct {
 	// PaymentFallback is populated only if execution falls back to the normal
 	// manual payment window.
 	PaymentFallback *PaymentFallback `json:"payment_fallback,omitempty"`
+	// ManaPayment is present only on the announced CR 601.2g window (the
+	// "select mana" prompt, announce-then-pay spec §4.1): total cost, what is
+	// still owed, the pool and the Auto-fill sources. Absent everywhere else,
+	// so every other decision serialises byte-identically.
+	ManaPayment *ManaPaymentWindow `json:"mana_payment,omitempty"`
 	// MaxSum, when > 0, is a cumulative budget over the chosen options' Value
 	// fields: the sum of the picked options' Value must not exceed MaxSum.
 	// The engine's first user is a Dig's WithTotalCMC$ ("put any number of
@@ -1118,6 +1123,10 @@ type Intent struct {
 	// Payment selects an offered payment action and exact plan witness. It is
 	// exclusive with Choices and Rest.
 	Payment *PaymentSelection `json:"payment,omitempty"`
+	// Announce begins an offered payment action's cast without a witness, so
+	// the caster pays in the CR 601.2g window (announce-then-pay spec §3). It
+	// is exclusive with Choices, Rest and Payment.
+	Announce *AnnounceSelection `json:"announce,omitempty"`
 }
 
 // Validate rejects anything the engine did not offer. Everything a client can
@@ -1128,6 +1137,9 @@ func (d *Decision) Validate(in Intent) error {
 	}
 	if in.Player != d.Player {
 		return fmt.Errorf("intent from player %d, decision is for player %d", in.Player, d.Player)
+	}
+	if in.Announce != nil {
+		return d.validateAnnounce(in)
 	}
 	if in.Payment != nil {
 		return d.validatePayment(in)

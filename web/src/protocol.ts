@@ -907,6 +907,21 @@ export interface PaymentFallback {
 }
 
   /**
+   * ManaPaymentWindow is the announced CR 601.2g window's readout (spec §4.1):
+   * the spell being paid for, its total mana cost, what the floating pool does
+   * not yet cover, the pool itself, and the sources Auto-fill would activate.
+   * It is present only on that window, so every other decision serialises
+   * byte-identically.
+   */
+export interface ManaPaymentWindow {
+  card: number;
+  cost: PaymentCost;
+  owed: PaymentCost;
+  pool: [number, number, number, number, number, number];
+  autofill?: number[];
+}
+
+  /**
    * DamageEffect describes nominal scripted damage, NEVER guaranteed damage.
    * Prevention, replacement, conditions, division among targets and resolution
    * legality are not evaluated. Spell damage is not commander combat damage.
@@ -985,6 +1000,13 @@ export interface Decision {
    * manual payment window.
    */
   payment_fallback?: PaymentFallback | null;
+  /**
+   * ManaPayment is present only on the announced CR 601.2g window (the
+   * "select mana" prompt, announce-then-pay spec §4.1): total cost, what is
+   * still owed, the pool and the Auto-fill sources. Absent everywhere else,
+   * so every other decision serialises byte-identically.
+   */
+  mana_payment?: ManaPaymentWindow | null;
   /**
    * MaxSum, when > 0, is a cumulative budget over the chosen options' Value
    * fields: the sum of the picked options' Value must not exceed MaxSum.
@@ -1310,6 +1332,20 @@ export interface PaymentSelection {
 }
 
   /**
+   * AnnounceSelection is the announce-then-pay selector (spec
+   * docs/superpowers/specs/2026-09-27-announce-then-pay.md §3): it names an
+   * offered PaymentAction by ID and asks the engine to begin that ordinary cast
+   * WITHOUT a payment witness, so the caster pays in the CR 601.2g mana window
+   * ("select mana" prompt) instead. It is exclusive with Choices, Rest and
+   * Payment, valid only on a priority answer, and only for an action that
+   * carries at least one plan -- the planner's proof that the floating pool plus
+   * untapped sources can pay the cast.
+   */
+export interface AnnounceSelection {
+  action_id: string;
+}
+
+  /**
    * Intent is a client's answer.
    */
 export interface Intent {
@@ -1338,4 +1374,10 @@ export interface Intent {
    * exclusive with Choices and Rest.
    */
   payment?: PaymentSelection | null;
+  /**
+   * Announce begins an offered payment action's cast without a witness, so
+   * the caster pays in the CR 601.2g window (announce-then-pay spec §3). It
+   * is exclusive with Choices, Rest and Payment.
+   */
+  announce?: AnnounceSelection | null;
 }
