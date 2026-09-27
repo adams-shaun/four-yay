@@ -17,7 +17,7 @@
       "cr": ["614.1a", "120.3a"],
       "why": "Thor's own damage is excluded by the requirement that the source be another source; its unmodified four combat damage reduces the opponent to 16.",
       "setup": {"p0": {"battlefield": ["Thor, Asgard's Avenger"]}, "p1": {}},
-      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Thor, Asgard's Avenger"], "defender": "p1"}],
+      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Thor, Asgard's Avenger"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
       "expect": [{"life": {"p1": 16}}]
     }
   ]

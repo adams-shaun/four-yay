@@ -17,7 +17,7 @@
       "cr": ["614.1a", "120.3a"],
       "why": "Ojer's replacement is limited to noncombat damage; its own four combat damage is unchanged, at the exact value of its power.",
       "setup": {"p0": {"battlefield": ["Ojer Axonil, Deepest Might"]}, "p1": {}},
-      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Ojer Axonil, Deepest Might"], "defender": "p1"}],
+      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Ojer Axonil, Deepest Might"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
       "expect": [{"life": {"p1": 16}}]
     }
   ]

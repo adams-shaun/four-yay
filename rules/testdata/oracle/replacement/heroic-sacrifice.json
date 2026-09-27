@@ -9,7 +9,7 @@
       "cr": ["614.1a", "614.6", "120.3a"],
       "why": "Until end of turn, damage that would be dealt to the caster is dealt to the chosen creature instead; the three damage marks the 3/3 Courser while the caster's life total remains unchanged.",
       "setup": {"p0": {"battlefield": ["Centaur Courser"], "hand": ["Heroic Sacrifice", "Lightning Bolt"]}, "p1": {}},
-      "steps": [{"op": "cast", "seat": 0, "card": "p0:Heroic Sacrifice", "mana": "W", "targets": ["p0:Centaur Courser"]}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Heroic Sacrifice", "mana": "WW", "targets": ["p0:Centaur Courser"]}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
       "expect": [{"life": {"p0": 20, "p1": 20}}, {"card": "p0:Centaur Courser", "zone": "battlefield", "damage": 3}]
     },
     {
@@ -17,7 +17,7 @@
       "cr": ["614.1a", "120.3a"],
       "why": "Only damage to the caster and their creatures is redirected; Bolt aimed at the opponent still deals its normal three damage to that player.",
       "setup": {"p0": {"battlefield": ["Centaur Courser"], "hand": ["Heroic Sacrifice", "Lightning Bolt"]}, "p1": {}},
-      "steps": [{"op": "cast", "seat": 0, "card": "p0:Heroic Sacrifice", "mana": "W", "targets": ["p0:Centaur Courser"]}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Heroic Sacrifice", "mana": "WW", "targets": ["p0:Centaur Courser"]}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
       "expect": [{"life": {"p0": 20, "p1": 17}}, {"card": "p0:Centaur Courser", "zone": "battlefield", "damage": 0}]
     }
   ]

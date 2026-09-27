@@ -17,7 +17,7 @@
       "cr": ["614.1a", "120.3a"],
       "why": "Solphim changes only noncombat damage; the unmodified two-power Bear deals two combat damage to the opponent.",
       "setup": {"p0": {"battlefield": ["Solphim, Mayhem Dominus", "Grizzly Bears"]}, "p1": {}},
-      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"}],
+      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
       "expect": [{"life": {"p1": 18}}]
     }
   ]
