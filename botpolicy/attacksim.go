@@ -91,14 +91,11 @@ type AttackSimParams struct {
 	// players are too cautious" correction applied only where the evaluator
 	// is indifferent.
 	TieAggro bool
-	// Targets also answers single-target removal by simulation
-	// (chooseTargetsSim).
-	Targets bool
 }
 
 // DefaultAttackSimParams is the arm's measured configuration (dev seeds
 // 40,000,000-40,999,999): two-ply attacks (our combat, their crack-back),
-// simulated blocks with one greedy counter-attack ply, no target search.
+// simulated blocks with one greedy counter-attack ply.
 func DefaultAttackSimParams() AttackSimParams {
 	return AttackSimParams{LifeUnit: 30, CrackBack: true, MaxEnum: 7, Margin: 0, Blocks: true, BlockPlies: 1, BlockGreedy: true}
 }

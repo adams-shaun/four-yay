@@ -526,11 +526,7 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 		}
 
 	case decision.KTarget:
-		if b.attackSim != nil && b.attackSim.Targets {
-			in.Choices = b.chooseTargetsSim(d, b.attackSim)
-		} else {
-			in.Choices = b.chooseTargets(d)
-		}
+		in.Choices = b.chooseTargets(d)
 		return Clamp(d, in)
 
 	case decision.KAttackers:

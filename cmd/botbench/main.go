@@ -2235,7 +2235,6 @@ func main() {
 	flag.BoolVar(&attackSimParams.BlockGreedy, "attack-sim-block-greedy", attackSimParams.BlockGreedy, "attack-sim arms: the block search's counter-attack ply is the greedy one-ply attacker")
 	flag.BoolVar(&decisionCostEnabled, "decision-cost", false, "append per-policy, per-decision-kind wall-clock decision cost (mean/p50/p95/p99/max ms) for *seat.Bot policies; stderr under -out json; results are unchanged")
 	flag.IntVar(&attackSimParams.BlockPlies, "attack-sim-block-plies", attackSimParams.BlockPlies, "attack-sim arms: later combats the block search simulates before scoring (0, 1 or 2)")
-	flag.BoolVar(&attackSimParams.Targets, "attack-sim-targets", attackSimParams.Targets, "attack-sim arms: also answer single-target removal by simulation")
 	flag.BoolVar(&attackSimParams.TieAggro, "attack-sim-tie-aggro", attackSimParams.TieAggro, "attack-sim arms: break exact score ties toward more attackers")
 	flag.BoolVar(&attackSimParams.NextGreedy, "attack-sim-next-greedy", attackSimParams.NextGreedy, "attack-sim arms: make the -attack-sim-next attack a greedy one-ply improvement over the default attacker")
 	flag.IntVar(&attackSimParams.MaxEnum, "attack-sim-enum", attackSimParams.MaxEnum, "attack-sim arms: enumerate every subset up to this many free attackers (hill-climb beyond)")
