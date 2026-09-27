@@ -22,6 +22,7 @@ import (
 	"sort"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/cards/oracletext"
 	"github.com/adams-shaun/gorge/deck"
 )
 
@@ -79,7 +80,7 @@ func main() {
 		if re != nil {
 			hit := false
 			for _, f := range c.Faces {
-				hit = hit || re.MatchString(f.OracleText())
+				hit = hit || re.MatchString(oracletext.Text(f))
 			}
 			if !hit {
 				continue
@@ -89,6 +90,6 @@ func main() {
 			fmt.Println(c.Faces[0].Name)
 			continue
 		}
-		fmt.Println(cards.OraclePacket(c))
+		fmt.Println(oracletext.Packet(c))
 	}
 }

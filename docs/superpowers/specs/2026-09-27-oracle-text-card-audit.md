@@ -131,7 +131,7 @@ A mix, split by role:
 
 - `cmd/oraclepacket` prints what a player can read on the card (name, cost,
   type line, P/T, Oracle text) plus `oracle_sha`, and nothing else.
-  `cards/oracle_test.go` fails if the packet ever carries script syntax.
+  `cards/oracletext` (a subpackage, so `cards.CompilerFingerprint` and every IR cache are untouched) fails its test if the packet ever carries script syntax.
 - **The authoring worktree has no `.cards`.** The dispatcher generates the
   batch's packets into a gitignored in-repo path (the pi jail cannot see
   `/tmp`), for example `.oracle-packets/<batch>.txt`, and does not link the

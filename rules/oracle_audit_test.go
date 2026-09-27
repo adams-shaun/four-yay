@@ -33,6 +33,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/cards/oracletext"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -1230,8 +1231,8 @@ func TestOracleAudit(t *testing.T) {
 			t.Errorf("%s: %q not in the corpus", p, f.Card)
 			continue
 		}
-		if f.OracleSHA != "" && f.OracleSHA != cards.OracleDigest(c) {
-			t.Errorf("%s: Oracle text changed since the scenarios were written (oracle_sha %s, corpus %s): re-derive them", p, f.OracleSHA, cards.OracleDigest(c))
+		if f.OracleSHA != "" && f.OracleSHA != oracletext.Digest(c) {
+			t.Errorf("%s: Oracle text changed since the scenarios were written (oracle_sha %s, corpus %s): re-derive them", p, f.OracleSHA, oracletext.Digest(c))
 		}
 		for _, sc := range f.Scenarios {
 			key := f.Card + "/" + sc.Name
