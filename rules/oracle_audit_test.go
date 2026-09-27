@@ -68,8 +68,6 @@ var oracleKnownDivergent = map[string]string{
 	// that ends the grant's IsPresent$ condition loses its own trigger. The
 	// SBA path (only-cleric-dies-to-damage-looks-back) uses the pre-batch
 	// snapshot and passes.
-	"Relic Vial/only-cleric-dies-looks-back":              "destroying the only Cleric drains nobody (no look-back for an effect destroy)",
-	"Relic Vial/sacrifice-only-cleric-as-cost-looks-back": "sacrificing the only Cleric as a cost drains nobody (no look-back for a cost sacrifice)",
 	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
