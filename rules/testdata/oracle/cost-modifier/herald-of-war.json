@@ -1,0 +1,167 @@
+{
+  "card": "Herald of War",
+  "family": "cost-modifier",
+  "oracle_sha": "51dc0245cdb9",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-counters-angel-full-price",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A counterless Herald does not reduce an Angel spell: two generic and two white cannot pay for a spell requiring three generic and two white.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Herald of War"
+          ],
+          "hand": [
+            "Serra Angel"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "WWWW"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Serra Angel"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "one-attack-counter-reduces-angel",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "After Herald attacks, its +1/+1 counter reduces an Angel spell by one generic on the next main phase.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Herald of War"
+          ],
+          "hand": [
+            "Serra Angel"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Herald of War"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Serra Angel",
+          "mana": "WWWW",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Serra Angel",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Herald of War",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "one-counter-nonmatching-stays-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Herald\u2019s attack counter discounts only Angels and Humans, not a Bear.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Herald of War"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Herald of War"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        },
+        {
+          "card": "p0:Herald of War",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    }
+  ]
+}

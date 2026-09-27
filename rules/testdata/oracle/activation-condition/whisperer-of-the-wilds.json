@@ -1,0 +1,23 @@
+{
+  "card": "Whisperer of the Wilds",
+  "family": "activation-condition",
+  "oracle_sha": "a62cce808d29",
+  "author": "cli-20260927T211249Z-e3aac331 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "ferocious-no-creature-with-power-four",
+      "cr": ["207.2c", "602.5b"],
+      "why": "Whisperer itself has power zero and Grizzly Bears has power two, so no creature controlled meets the stated power threshold.",
+      "setup": {"p0": {"battlefield": ["Whisperer of the Wilds", "Centaur Courser"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Whisperer of the Wilds", "label": "Ferocious"}, "want": false}]
+    },
+    {
+      "name": "ferocious-power-six-creature-meets-threshold",
+      "cr": ["207.2c", "602.5b", "605.1a", "106.12"],
+      "why": "Loxodon Smiter has power four, exactly meeting the threshold; tapping Whisperer for its ferocious mana ability adds two green mana.",
+      "setup": {"p0": {"battlefield": ["Whisperer of the Wilds", "Loxodon Smiter"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Whisperer of the Wilds", "ability": "for mana", "answers": [{"kind": "any", "pick": ["Add GG"]}]}],
+      "expect": [{"pool": {"p0": "GG"}}]
+    }
+  ]
+}
