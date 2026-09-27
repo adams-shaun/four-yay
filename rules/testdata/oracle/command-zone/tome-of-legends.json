@@ -11,7 +11,7 @@
         "603.2",
         "122.6"
       ],
-      "why": "The Tome already has its entering page counter. When the designated commander enters under this player\u2019s control, the Tome adds one more.",
+      "why": "The Tome already has its entering page counter. When the designated commander enters under this player’s control, the Tome adds one more.",
       "format": "commander",
       "setup": {
         "p0": {
@@ -95,7 +95,7 @@
         "602.2",
         "121.2"
       ],
-      "why": "A page can be removed as part of paying the Tome\u2019s activation cost to draw one card; the commander need not be on the battlefield.",
+      "why": "A page can be removed as part of paying the Tome’s activation cost to draw one card; the commander need not be on the battlefield.",
       "format": "commander",
       "setup": {
         "p0": {

@@ -29,7 +29,7 @@
           "op": "activate",
           "seat": 0,
           "card": "p0:Arcane Signet",
-          "ability": "Add",
+          "ability": "for mana",
           "answers": [
             {
               "kind": "choose",
@@ -49,17 +49,18 @@
       ]
     },
     {
-      "name": "red-outside-identity",
+      "name": "red-identity-produces-red",
       "cr": [
+        "903.3",
         "903.4",
-        "903.4a"
+        "605.1a"
       ],
-      "why": "The commander has no red symbol. The mana ability must not offer red as a colour choice even though the source is on the battlefield.",
+      "why": "Replacing the designated commander with a red-only commander changes the available mana colour: this source produces red while the commander remains in the command zone.",
       "format": "commander",
       "setup": {
         "p0": {
           "command": [
-            "Isamaru, Hound of Konda"
+            "Norin the Wary"
           ],
           "battlefield": [
             "Arcane Signet"
@@ -67,16 +68,27 @@
         },
         "p1": {}
       },
-      "steps": [],
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Arcane Signet",
+          "ability": "for mana",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Red"
+              ]
+            }
+          ]
+        }
+      ],
       "expect": [
         {
-          "offered": {
-            "seat": 0,
-            "kind": "ability",
-            "card": "p0:Arcane Signet",
-            "label": "R"
-          },
-          "want": false
+          "pool": {
+            "p0": "R"
+          }
         }
       ]
     }

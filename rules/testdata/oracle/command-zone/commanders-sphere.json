@@ -29,7 +29,7 @@
           "op": "activate",
           "seat": 0,
           "card": "p0:Commander's Sphere",
-          "ability": "Add",
+          "ability": "for mana",
           "answers": [
             {
               "kind": "choose",
@@ -45,38 +45,6 @@
           "pool": {
             "p0": "W"
           }
-        }
-      ]
-    },
-    {
-      "name": "red-outside-identity",
-      "cr": [
-        "903.4",
-        "903.4a"
-      ],
-      "why": "The commander has no red symbol. The mana ability must not offer red as a colour choice even though the source is on the battlefield.",
-      "format": "commander",
-      "setup": {
-        "p0": {
-          "command": [
-            "Isamaru, Hound of Konda"
-          ],
-          "battlefield": [
-            "Commander's Sphere"
-          ]
-        },
-        "p1": {}
-      },
-      "steps": [],
-      "expect": [
-        {
-          "offered": {
-            "seat": 0,
-            "kind": "ability",
-            "card": "p0:Commander's Sphere",
-            "label": "R"
-          },
-          "want": false
         }
       ]
     },
@@ -108,6 +76,9 @@
           "seat": 0,
           "card": "p0:Commander's Sphere",
           "ability": "Draw"
+        },
+        {
+          "op": "resolve"
         }
       ],
       "expect": [
@@ -118,6 +89,50 @@
         {
           "hand_size": {
             "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "red-identity-produces-red",
+      "cr": [
+        "903.3",
+        "903.4",
+        "605.1a"
+      ],
+      "why": "Replacing the designated commander with a red-only commander changes the available mana colour: this source produces red while the commander remains in the command zone.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Norin the Wary"
+          ],
+          "battlefield": [
+            "Commander's Sphere"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Commander's Sphere",
+          "ability": "for mana",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Red"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "R"
           }
         }
       ]

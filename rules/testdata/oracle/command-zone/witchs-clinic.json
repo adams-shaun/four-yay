@@ -39,6 +39,9 @@
           "targets": [
             "p0:Isamaru, Hound of Konda"
           ]
+        },
+        {
+          "op": "resolve"
         }
       ],
       "expect": [
