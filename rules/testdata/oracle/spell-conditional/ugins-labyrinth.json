@@ -8,10 +8,10 @@
       "name": "imprinted-card-adds-two",
       "cr": ["608.2c", "608.2h"],
       "why": "The enters ability exiles a qualifying colorless card from hand; afterward the Labyrinth's first tap ability adds two colorless mana.",
-      "setup_answers": [{"kind": "any", "pick": ["yes"]}],
+      "setup_answers": [{"kind": "any", "pick": ["yes"]}, {"kind": "choose", "pick": ["Ulamog"]}],
       "setup": {"p0": {"battlefield": ["Ugin's Labyrinth"], "hand": ["Ulamog, the Ceaseless Hunger"]}},
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Ugin's Labyrinth", "ability": "Add"}
+        {"op": "activate", "seat": 0, "card": "p0:Ugin's Labyrinth", "ability": "Activate Ugin's Labyrinth for mana"}
       ],
       "expect": [
         {"card": "p0:Ulamog, the Ceaseless Hunger", "zone": "exile"},
@@ -24,7 +24,7 @@
       "why": "With no card exiled by this Labyrinth, its first tap ability adds only one colorless mana.",
       "setup": {"p0": {"battlefield": ["Ugin's Labyrinth"]}},
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Ugin's Labyrinth", "ability": "Add"}
+        {"op": "activate", "seat": 0, "card": "p0:Ugin's Labyrinth", "ability": "Activate Ugin's Labyrinth for mana"}
       ],
       "expect": [{"pool": {"p0": "C"}}]
     }

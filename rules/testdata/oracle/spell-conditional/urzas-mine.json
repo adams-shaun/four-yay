@@ -9,7 +9,7 @@
       "cr": ["608.2c"],
       "why": "With a Power-Plant and a Tower under my control, the Mine's tap ability produces two colorless mana.",
       "setup": {"p0": {"battlefield": ["Urza's Mine", "Urza's Power Plant", "Urza's Tower"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Mine", "ability": "Add"}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Mine", "ability": "Activate Urza's Mine for mana"}],
       "expect": [{"pool": {"p0": "CC"}}]
     },
     {
@@ -17,7 +17,7 @@
       "cr": ["608.2c"],
       "why": "Without a Tower under my control, the extra-mana condition is false and the Mine produces only one colorless mana.",
       "setup": {"p0": {"battlefield": ["Urza's Mine", "Urza's Power Plant"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Mine", "ability": "Add"}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Mine", "ability": "Activate Urza's Mine for mana"}],
       "expect": [{"pool": {"p0": "C"}}]
     }
   ]

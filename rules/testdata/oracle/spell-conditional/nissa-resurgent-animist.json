@@ -11,9 +11,9 @@
       "setup": {"p0": {"battlefield": ["Nissa, Resurgent Animist"], "hand": ["Wastes", "Wastes"], "library_top": ["Llanowar Elves"]}},
       "steps": [
         {"op": "move", "seat": 0, "card": "p0:Wastes", "to": "battlefield"},
-        {"op": "resolve"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Add G"]}]},
         {"op": "move", "seat": 0, "card": "p0:Wastes#2", "to": "battlefield"},
-        {"op": "resolve"}
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Add G"]}]}
       ],
       "expect": [
         {"pool": {"p0": "GG"}},
@@ -27,7 +27,7 @@
       "setup": {"p0": {"battlefield": ["Nissa, Resurgent Animist"], "hand": ["Wastes", "Wastes"], "library_top": ["Llanowar Elves"]}},
       "steps": [
         {"op": "move", "seat": 0, "card": "p0:Wastes", "to": "battlefield"},
-        {"op": "resolve"}
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Add G"]}]}
       ],
       "expect": [
         {"pool": {"p0": "G"}},
