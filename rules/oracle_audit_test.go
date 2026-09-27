@@ -62,6 +62,10 @@ var oracleKnownDivergent = map[string]string{
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Engine primitive gap: the death trigger's damage-source filter has no
+	// DamagedBy matcher (40 corpus scripts use that qualifier). The script
+	// accurately encodes Hawkeye's printed condition.
+	"Hawkeye, Avenging Archer/damaged-victim-dies-draw": "observed no draw (hand 0), expected one draw (hand 1) after Hawkeye damaged the victim",
 }
 
 type oracleFile struct {

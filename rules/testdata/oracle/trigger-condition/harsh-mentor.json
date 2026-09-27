@@ -86,7 +86,7 @@
           "op": "activate",
           "seat": 1,
           "card": "p1:Mountain",
-          "ability": "Add",
+          "ability": "mana",
           "expect": [
             {
               "trigger_on_stack": "p0:Harsh Mentor",

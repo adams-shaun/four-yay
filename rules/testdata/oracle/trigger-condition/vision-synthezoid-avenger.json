@@ -9,7 +9,7 @@
       "cr": [
         "603.4"
       ],
-      "why": "A spell cast during the other player\u2019s turn passes the condition; choosing the counter mode makes Vision 4/4.",
+      "why": "A spell cast during the other player\u2019s turn passes the condition; choosing the counter mode makes Vision 4/4. After reaching the upkeep, the active player passes priority once, allowing the nonactive player to cast.",
       "setup": {
         "p0": {
           "battlefield": [
@@ -22,6 +22,11 @@
         "p1": {}
       },
       "steps": [
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
         {
           "op": "pass_to",
           "step": "upkeep",

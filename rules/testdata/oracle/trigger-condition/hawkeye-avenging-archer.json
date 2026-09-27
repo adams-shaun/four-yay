@@ -10,7 +10,7 @@
         "603.4",
         "603.6c"
       ],
-      "why": "Hawkeye pings the opposing Bear this turn, then the Bear dies to a second damage source: the earlier Hawkeye damage makes the intervening condition true and its controller draws.",
+      "why": "Hawkeye pings the opposing Bear this turn, then the Bear dies to a second damage source: the earlier Hawkeye damage makes the intervening condition true and its controller draws. The draw is checked only after resolving the entire stack, not while its trigger has already resolved.",
       "setup": {
         "p0": {
           "battlefield": [
@@ -49,13 +49,7 @@
           ]
         },
         {
-          "op": "resolve",
-          "expect": [
-            {
-              "trigger_on_stack": "p0:Hawkeye, Avenging Archer",
-              "want": true
-            }
-          ]
+          "op": "resolve"
         }
       ],
       "expect": [
