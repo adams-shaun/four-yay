@@ -47,6 +47,12 @@ func linkBoard(t *testing.T, reg *cards.Registry, p0, p1 []string) (*Engine, Con
 	// seatZeroStart advances the seed until the CR 103.1 toss starts seat 0.
 	cfg = seatZeroStart(cfg)
 	e := New(cfg)
+	if e.choosing == chooseOpening {
+		// The fabricated board below replaces the pregame, abandoning the
+		// opening-hand round New posed (a Leyline in the opening hand); its
+		// flow marker goes with it, as it would once the round finished.
+		e.choosing = chooseNone
+	}
 	onBattlefield := func(seat state.PlayerID, named []*cards.Card) {
 		for i := range e.G.Objs {
 			o := &e.G.Objs[i]

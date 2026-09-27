@@ -234,6 +234,11 @@ func TestGrantedHexproofBlocksOpponentNotController(t *testing.T) {
 	if !foundShalai {
 		t.Fatalf("Shalai missing from the opponent's target options: %+v", d.Options)
 	}
+	// The opponent's Shock was only a probe of its target options: withdraw
+	// the proposal (the CR 733.1 reversal returns it to hand) before seat 0
+	// receives priority, rather than leaving a cast in flight under it.
+	e.abortCast(e.cast, "test: probe cast withdrawn", false)
+	e.pending = nil
 
 	// The controller (seat 0): its own Shock is offered and the
 	// granted-hexproof bear IS a legal target — the asymmetry.
