@@ -16,6 +16,7 @@ func init() {
 	Register("ChooseSource", effChooseSource)
 	Register("GainControl", effGainControl)
 	Register("GainControlVariant", effGainControlVariant)
+	Register("ExchangeControl", effExchangeControl)
 	Register("ControlSpell", effControlSpell)
 	Register("ChangeTargets", effChangeTargets)
 	Register("RepeatEach", effRepeatEach)
