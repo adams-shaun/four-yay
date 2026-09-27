@@ -23,7 +23,7 @@
       "steps": [
         {"op": "mana", "seat": 0, "mana": "G"}
       ],
-      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Boseiju, Who Endures", "label": "Channel"}, "want": false}]
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Boseiju, Who Endures", "label": "Destroy target artifact"}, "want": false}]
     }
   ]
 }
