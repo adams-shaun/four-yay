@@ -171,6 +171,16 @@ describe('HandFan options affordance (ui23)', () => {
     expect(html).not.toContain('tile-actions');
   });
 
+  it('puts a direct PLAY action on a land card instead of hiding it in ACTIONS', () => {
+    const land = player([card(16, 'Swamp')]);
+    const one = bundle();
+    one.byObj.set(16, [{ index: 7, kind: 'play_land', label: 'Play Swamp', obj: 16, player: 0 }]);
+    const { html } = render(HandFan, { props: { player: land, width: BOARD_W, options: one } });
+    expect(html).toContain('data-play-land="7"');
+    expect(html).toContain('>PLAY</button>');
+    expect(html).not.toContain('data-single-action');
+  });
+
   it('the mark wears the decision tone: initiative for a blocked decision, offered for an open window', () => {
     const initiative = render(HandFan, { props: { player: ballistaHand, width: BOARD_W, options: bundle({ tone: 'initiative' }) } });
     expect(initiative.html).toContain('data-tone="initiative"');
@@ -236,5 +246,24 @@ describe('HandFan — layout settings (fb-20260916T182801Z)', () => {
       layoutStore.reset();
       layoutStore.dispose();
     }
+  });
+});
+
+describe('HandFan — Auto Mana shortcut', () => {
+  it('replaces only its matching legacy cast badge and leaves other offers reachable', () => {
+    const two = bundle();
+    two.byObj.set(16, [
+      { index: 3, kind: 'cast', label: 'Cast Walking Ballista', obj: 16, player: 0 },
+      { index: 11, kind: 'ability', label: 'Walking Ballista: remove a counter', obj: 16, player: 0 },
+    ]);
+    const payment = {
+      id: 'pay-ballista', cast: { object: 16, face: 0, origin: 'hand' }, base_option_index: 3,
+      label: 'Cast Walking Ballista', plans: [{ id: 'plan', version: 1, cost: { generic: 0, mana: [0, 0, 0, 0, 0, 0] }, activations: [], pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0] }],
+    };
+    const { html } = render(HandFan, { props: { player: ballistaHand, width: BOARD_W, options: two, paymentActions: [payment as never] } });
+    expect(html).toContain('data-payment-card="pay-ballista"');
+    expect(html).toContain('Walking Ballista: remove a counter');
+    expect(html).not.toContain('2 actions for Walking Ballista');
+    expect(html).not.toContain('Cast Walking Ballista</button>');
   });
 });

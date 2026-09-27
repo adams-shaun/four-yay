@@ -54,9 +54,7 @@ func (r *Registry) Pending(id TableID, k int, player state.PlayerID) (*decision.
 	if hs.slot == nil {
 		return nil, fmt.Errorf("host: no decision pending for player %d", player)
 	}
-	dec := hs.slot.dec
-	dec.Options = append([]decision.Option(nil), hs.slot.dec.Options...)
-	return &dec, nil
+	return hs.slot.dec.Clone(), nil
 }
 
 // SubmitIntent answers the decision pending on the human seat for player on
@@ -72,5 +70,37 @@ func (r *Registry) SubmitIntent(id TableID, k int, player state.PlayerID, in dec
 	if err != nil {
 		return err
 	}
-	return hs.submit(in)
+	if in.Payment == nil {
+		return hs.submit(in)
+	}
+	_, m, err := r.lookup(id, k)
+	if err != nil {
+		return err
+	}
+	return hs.submitAdmitted(in, func(d decision.Decision, admitted decision.Intent) error {
+		// Decision.Validate above proves this selector names an offered action
+		// and verbatim offered witness.  It cannot prove the witness against
+		// the live rules state: it intentionally has no engine dependency.
+		// Do that proof here, before the channel send is allowed to acknowledge
+		// the intent to a parked match.
+		var action *decision.PaymentAction
+		for i := range d.PaymentActions {
+			if d.PaymentActions[i].ID == admitted.Payment.ActionID {
+				action = &d.PaymentActions[i]
+				break
+			}
+		}
+		if action == nil {
+			return fmt.Errorf("host: payment action is not offered")
+		}
+		return m.locked(func() error {
+			if m.state != protocol.MatchLive {
+				return fmt.Errorf("host: match %d is %s, nothing pending", k, m.state)
+			}
+			if err := m.e.ValidateCastPayment(player, action.Cast, admitted.Payment.Plan); err != nil {
+				return fmt.Errorf("host: payment plan rejected: %w", err)
+			}
+			return nil
+		})
+	})
 }

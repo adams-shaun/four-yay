@@ -14,7 +14,7 @@ import (
 )
 
 func (h *handler) tables(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, h.reg.Tables())
+	writeJSON(w, http.StatusOK, h.reg.LobbyTables())
 }
 
 // DeckInfo is one selectable deck loaded by the server. Format is the game

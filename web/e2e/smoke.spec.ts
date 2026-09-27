@@ -56,7 +56,9 @@ function right(r: Rect): number { return r.x + r.width; }
 
 /** seatedIdentity returns the identity bar rect for a given seat number. */
 async function identityRect(page: Page, seat: number): Promise<Rect | null> {
-  const el = page.locator(`.identity[data-seat="${seat}"]`);
+  // 7022042e6 replaced IdentityBar (`.identity[data-seat]`) with SeatPills;
+  // a seat's identity is now its `[data-player-pill]`.
+  const el = page.locator(`[data-player-pill="${seat}"]`);
   if ((await el.count()) === 0) return null;
   return await el.boundingBox();
 }
@@ -174,10 +176,17 @@ async function driveToCardOptionsWindow(
     if (d.kind === 'mulligan') {
       const keep = d.options.find((o) => o.kind === 'keep');
       if (keep) {
+        // The pending poll can lag the client: a keep already posted still
+        // reads as a pending mulligan for a moment, and its button is gone.
+        // Click only a button that shows up, wait for the answer to take the
+        // round down, and otherwise re-poll -- DRIVE_MS still bounds a keep
+        // button that never renders at all.
         const btn = page.locator(`.seat-panel [data-option="${keep.index}"]`);
-        await btn.waitFor({ state: 'visible', timeout: WAIT_MS });
-        await btn.click();
-        await page.waitForTimeout(600);
+        const shown = await btn.waitFor({ state: 'visible', timeout: WAIT_MS }).then(() => true, () => false);
+        if (shown) {
+          await btn.click();
+          await btn.waitFor({ state: 'detached', timeout: WAIT_MS }).catch(() => {});
+        }
       }
       continue;
     }
@@ -896,13 +905,19 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
         // own wire index exactly as a menu item does — and the assertion
         // below (this card, and only this card, crosses to the board) is what
         // actually discriminates a positional bug either way.
+        // Since 7022042e6 a land's play option renders as its own PLAY
+        // shortcut carrying the option's wire index (`[data-play-land]`),
+        // ahead of the generic single-action and badge affordances.
+        const playLand = cardLoc.locator(`[data-play-land="${pick.index}"]`);
         const single = cardLoc.locator('[data-single-action]');
         const badge = cardLoc.locator('button[aria-haspopup="menu"]');
-        if (await single.count() > 0) {
+        if (await playLand.count() > 0) {
+          await playLand.click({ timeout: WAIT_MS });
+        } else if (await single.count() > 0) {
           await single.waitFor({ state: 'visible', timeout: WAIT_MS });
           await single.click();
         } else {
-          await badge.click();
+          await badge.click({ timeout: WAIT_MS });
           const wheelItem = page.locator(`body > [data-radial-picker] button[data-wire-index="${pick.index}"]`);
           const listItem = page.locator('body > .menu-pop button[role="menuitem"]', { hasText: pick.label as string });
           const item = (await wheelItem.count()) > 0 ? wheelItem : listItem;
@@ -917,6 +932,26 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
         await page.waitForFunction((obj) => {
           return document.querySelector(`.quadrant [data-obj="${obj}"]`) !== null;
         }, pick.obj as number, { timeout: STALL_MS });
+
+        // The Options drop, now that the seat's controls are live. Two
+        // regressions shipped unseen because no gate clicked it: the opening
+        // click bubbled to the window as an "outside" click and closed it,
+        // and the popover opened upward past the top of the viewport.
+        const optionsButton = page.locator('[data-rail-options] button[aria-haspopup="dialog"]');
+        await optionsButton.click({ timeout: WAIT_MS });
+        const popover = page.locator('#play-options-popover');
+        await popover.waitFor({ state: 'visible', timeout: WAIT_MS });
+        await page.waitForTimeout(300);
+        expect(await optionsButton.getAttribute('aria-expanded'), `${label} Options stays open after its own click`).toBe('true');
+        const pop = await popover.boundingBox();
+        const vp = page.viewportSize();
+        expect(pop, `${label} Options popover has a box`).not.toBeNull();
+        if (pop && vp) {
+          expect(pop.y, `${label} Options popover top ${pop.y} must be on screen`).toBeGreaterThanOrEqual(0);
+          expect(pop.y + pop.height, `${label} Options popover bottom must be on screen`).toBeLessThanOrEqual(vp.height + 1);
+        }
+        await page.keyboard.press('Escape');
+        await popover.waitFor({ state: 'detached', timeout: WAIT_MS });
 
         expectClean(c, `${label} R-E4-1 card menu`);
         await page.close();

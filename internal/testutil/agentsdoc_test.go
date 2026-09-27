@@ -50,7 +50,11 @@ const (
 	// cli-20260922T225142Z-2f0df8e8 deletes one more row.
 	// mayplay-mfa deletes the ValidLKI may-play provenance row.
 	// cli-20260922T225140Z-c010b497 deletes the addcounter1/2 row.
-	knownApproximationRows = 9
+	// planar-verbs deletes the three-planechase-verbs row: the planar deck
+	// and zone now exist, api:Planeswalk rotates the deck (the PlanarWalk
+	// fold), api:ChaosEnsues erupts the current plane, and T:Mode$ ChaosEnsues
+	// fires on a chaos roll.
+	knownApproximationRows = 8
 
 	// standInCellLimit is the size cap, in bytes, on a row's Stand-in cell: what
 	// still deviates today, plus any decision a future implementer must honour.

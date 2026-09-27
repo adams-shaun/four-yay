@@ -147,7 +147,7 @@ func RedactEventFor(g *state.Game, e events.Event, viewer state.PlayerID, vis Vi
 	case Omniscient:
 		e.IDs = append([]state.ObjID(nil), e.IDs...)
 		e.Pairs = append([][2]state.ObjID(nil), e.Pairs...)
-		if e.Secret && (e.Kind == events.Shuffle || (e.Kind == events.Note && e.From != state.ZHand) || e.Kind == events.LibraryOrder ||
+		if e.Secret && (e.Kind == events.Shuffle || e.Kind == events.PlanarDeckShuffle || (e.Kind == events.Note && e.From != state.ZHand) || e.Kind == events.LibraryOrder ||
 			((e.Kind == events.MoveZone || e.Kind == events.Draw || e.Kind == events.PutOnStack) && e.To == state.ZLibrary)) {
 			return events.Event{
 				Seq: e.Seq, Kind: e.Kind, Player: e.Player,

@@ -298,6 +298,24 @@ func passUntilStackEmpty(t *testing.T, e *Engine, limit int) int {
 			}
 			continue
 		}
+		if d.Kind == decision.KChoose && d.ResumeKind == "search_confirm" {
+			// An explicit Optional$ hidden-origin search now poses Forge's
+			// confirmAction gate before the fetch list (task
+			// optional-library-confirm). These drains were written around the
+			// pre-confirmation engine, whose search proceeded straight to the
+			// pick -- or resolved silently on an empty pool -- so accept, the
+			// deterministic "do the may" answer, and keep exactly the board
+			// the assertions were written against. A test that wants to steer
+			// or decline the confirmation answers it itself before draining
+			// (optional_library_search_confirm_test.go).
+			if len(d.Options) == 0 {
+				t.Fatalf("search confirmation with no option to take: %+v", d)
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{d.Options[0].Index}}); err != nil {
+				t.Fatalf("submit search confirmation: %v", err)
+			}
+			continue
+		}
 		if d.Kind != decision.KPriority {
 			if d.Kind == decision.KTarget && d.ResumeKind == "copy_targets" {
 				// CR 707.10c: a copy with MayChooseTarget$ asks its

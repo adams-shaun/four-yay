@@ -231,6 +231,17 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		ev.To == state.ZGraveyard && e.finalityReplacementApplies(ev.Obj) {
 		ev.To = state.ZExile
 	}
+	// CR 702.84b (Unearth): "Exile it ... if it would leave the
+	// battlefield." A replacement effect, so it is matched at this common
+	// move boundary before the destination is logged -- any departure
+	// (graveyard, hand, library, exile, command zone) is redirected to
+	// exile while the unearth promise is live (rules/unearth.go). The read
+	// is game-state-derived from the live __kwUnearthExile registration, so
+	// a log-only replay redirects the same move.
+	if ev.Kind == events.MoveZone && ev.From == state.ZBattlefield &&
+		e.unearthReplacementApplies(ev.Obj) {
+		ev.To = state.ZExile
+	}
 	// Madness is an optional discard replacement and must park before either
 	// destination is logged. The guarded re-emit still permits ordinary card
 	// and format replacements to redirect the chosen destination.
@@ -294,11 +305,11 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 		}
 		if with := replacementBodySA(ce.ReplacementBody); with != nil {
 			r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams, With: with}
-			if e.replacementMatchesEffectCreated(*r, ce.Source, ev, ce.Remembered, ce.RememberedPlayers) {
+			if e.replacementMatchesEffectCreatedBy(*r, ce.Source, ev, ce.Remembered, ce.RememberedPlayers, ce.Controller) {
 				matches = append(matches, replMatch{id: ce.Source, repl: r, remembered: ce.Remembered,
 					rememberedPlayers: ce.RememberedPlayers,
-					chosen:            ce.ChosenNumber,
-					key:               "effect:" + strconv.Itoa(int(ce.Source)) + ":" + strconv.Itoa(int(ce.Timestamp))})
+					chosen:            ce.ChosenNumber, controller: ce.Controller, frozenController: true,
+					key: "effect:" + strconv.Itoa(int(ce.Source)) + ":" + strconv.Itoa(int(ce.Timestamp))})
 			}
 		} else if ce.ReplacementBody == "" && (strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") ||
 			(event == "DamageDone" && strings.EqualFold(ce.ReplacementParams["Prevent"], "True"))) {
@@ -638,6 +649,10 @@ type replMatch struct {
 	// the body's Count$ChosenNumber head reads the frozen binding. Zero on
 	// every printed replacement (and on an Effect that bound nothing).
 	chosen int32
+	// Effect-created replacements retain the controller who resolved their
+	// granting ability; later source control changes cannot redefine You.
+	controller       state.PlayerID
+	frozenController bool
 }
 
 // rememberedSpecContext builds the match context a ValidCard$/ValidLKI$
@@ -1494,7 +1509,11 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		e.seedEffectReplCtx(ctx, m)
 		return ctx
 	}
-	ctx := &effects.Ctx{Source: m.id, Controller: o.Controller,
+	controller := o.Controller
+	if m.frozenController {
+		controller = m.controller
+	}
+	ctx := &effects.Ctx{Source: m.id, Controller: controller,
 		ReplacementTarget: target, ReplacementSource: e.protectionSource(e.damaging),
 		ReplacementAmount: drawMatchAmount(ev),
 		// X is the {X} paid for the moving object, so an ETB replacement that
@@ -3517,10 +3536,14 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 		}
 		return out
 	case "AddToken":
-		// "... instead create those tokens plus N <script>" — the original
-		// mint stands and N extra mints of the named script join it.
+		// Corpus convention: Amount$ present is a fixed add for the whole
+		// creation event; absent Amount$ means "that many" (one per matched
+		// mint), as on Chatterfang. Append fixed extras at plan end so their
+		// replay-visible mint order is deterministic. (cli-20260927T005250Z-c5ac2e83)
+		raw := strings.TrimSpace(body.Params["Amount"])
+		fixed := raw != ""
 		n := int32(1)
-		if raw := strings.TrimSpace(body.Params["Amount"]); raw != "" {
+		if fixed {
 			v, ok := e.tokenReplacementAmount(m, ev, raw, 1)
 			if !ok || v < 0 {
 				e.emit(events.Event{Kind: events.Note, Obj: m.id, Player: ev.Player,
@@ -3534,13 +3557,27 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 			return plan
 		}
 		out := make([]tokenPlanMint, 0, len(plan)+int(n)*len(extra))
+		var fixedController tokenPlanMint
+		matched := false
 		for _, mint := range plan {
 			out = append(out, mint)
 			if e.tokenReplacementMatchesMint(ev, m, mint) {
+				if fixed {
+					fixedController = mint
+					matched = true
+					continue
+				}
 				for i := int32(0); i < n; i++ {
 					for _, s := range extra {
 						out = append(out, tokenPlanMint{script: s, controller: mint.controller, hasController: mint.hasController})
 					}
+				}
+			}
+		}
+		if fixed && matched {
+			for i := int32(0); i < n; i++ {
+				for _, s := range extra {
+					out = append(out, tokenPlanMint{script: s, controller: fixedController.controller, hasController: fixedController.hasController})
 				}
 			}
 		}
@@ -4319,6 +4356,15 @@ func (e *Engine) replacementMatchesEffectCreated(r cards.Repl, source state.ObjI
 	return e.replacementMatchesRememberedUngated(r, source, ev, remembered, rememberedPlayers, nil)
 }
 
+// replacementMatchesEffectCreatedBy evaluates the temporary replacement in
+// the controller frame captured when the granting Effect resolved. Its source
+// may subsequently change controllers, but that does not rewrite the Effect's
+// meaning of You.
+func (e *Engine) replacementMatchesEffectCreatedBy(r cards.Repl, source state.ObjID, ev events.Event,
+	remembered []state.ObjID, rememberedPlayers []state.PlayerID, controller state.PlayerID) bool {
+	return e.replacementMatchesRememberedUngatedBy(r, source, ev, remembered, rememberedPlayers, nil, controller)
+}
+
 // replacementMatchesToken / replacementMatchesEffectCreatedToken are the
 // mint-recheck entry points: tokenOverride overrides what the ValidToken$
 // matcher reads as the would-be token (a copy plan mint's snapshot, CR
@@ -4336,7 +4382,11 @@ func (e *Engine) replacementMatchesEffectCreatedToken(r cards.Repl, source state
 // predicate body without the ActiveZones$ gate; only the wrappers above
 // reach it.
 func (e *Engine) replacementMatchesRememberedUngated(r cards.Repl, source state.ObjID, ev events.Event, remembered []state.ObjID, rememberedPlayers []state.PlayerID, tokenOverride *state.Object) bool {
-	you := e.controllerOf(source)
+	return e.replacementMatchesRememberedUngatedBy(r, source, ev, remembered, rememberedPlayers, tokenOverride, e.controllerOf(source))
+}
+
+func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source state.ObjID, ev events.Event,
+	remembered []state.ObjID, rememberedPlayers []state.PlayerID, tokenOverride *state.Object, you state.PlayerID) bool {
 	switch r.Event {
 	case "Attached":
 		if ev.Kind != events.Attach || len(ev.IDs) == 0 {
@@ -6144,7 +6194,7 @@ func (e *Engine) askReplacementChoice(p state.PlayerID) {
 		d.Prompt = "Choose the colour of the replacement mana."
 		for i, color := range []string{"W", "U", "B", "R", "G"} {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mana", Obj: rc.cands[rc.selected].id,
-				Label: "Add " + color})
+				Label: "Add " + color, ManaSymbol: color})
 		}
 		e.ask(d)
 		return
@@ -6490,7 +6540,9 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		rc.applied[i] = true
 		e.continueManaReplacements(rc.ev, rc.cands, rc.applied, true, rc.manaTapped, rc.manaProducer)
 	case replChoiceManaColor:
-		color := strings.TrimPrefix(chosen[0].Label, "Add ")
+		// The chosen colour is structured data (Option.ManaSymbol); the
+		// label is presentation-only.
+		color := chosen[0].ManaSymbol
 		if len(color) != 1 || !strings.Contains("WUBRG", color) ||
 			rc.selected < 0 || rc.selected >= len(rc.cands) {
 			e.triggerBefore = before
@@ -7573,11 +7625,7 @@ func (e *Engine) handleCmdZone(d *decision.Decision, in decision.Intent) {
 	e.applyingReplacement, e.triggerBefore = saved, before
 	if len(e.cmdZone) > 0 && e.pending == nil {
 		// More commanders were parked in the same burst (a board wipe, a
-		// multiple-SBA pass): hand the front of the queue to its owner the
-		// same way handleTriggerOptional resumes its own drain. The queue is
-		// empty exactly when the previous answer WAS the front, so popping
-		// above and asking here keeps every decision aligned with the move
-		// it resolves.
+		// multiple-SBA pass): hand the front of the queue to its owner.
 		if o := e.G.Obj(e.cmdZone[0].obj); o != nil && int(o.Owner) < len(e.G.Players) {
 			e.askCommandZone(o.Owner)
 		}

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { session } from '../lib/session.svelte';
   import { tables } from '../lib/tables.svelte';
   import { MatchState } from '../lib/match.svelte';
   import BoardStage from '../components/BoardStage.svelte';
   import Arrows from '../components/Arrows.svelte';
   import Rail from '../components/Rail.svelte';
-  import IdentityBar from '../components/IdentityBar.svelte';
+  import SeatPills from '../components/SeatPills.svelte';
   import PileHost from '../components/PileHost.svelte';
   import Transcript from '../components/Transcript.svelte';
   import DvrBar from '../components/DvrBar.svelte';
@@ -15,6 +15,7 @@
   import RestartControl from '../components/RestartControl.svelte';
   import SeatPanel from '../components/SeatPanel.svelte';
   import HandFan from '../components/HandFan.svelte';
+  import PlaySettingsPanel from '../components/PlaySettingsPanel.svelte';
   import {
     SeatPanelState,
     mulliganPhase,
@@ -25,7 +26,7 @@
   import { stuckDecision } from '../lib/prompt';
   import { loadLogShown, saveLogShown, type LogScope } from '../lib/logshown';
   import { safeStorage } from '../lib/storage';
-  import { everyVisibleCard, quadrantFor } from '../lib/board';
+  import { everyVisibleCard } from '../lib/board';
   import { seatColour } from '../lib/colours';
   import { seatRows } from '../lib/seattable';
   import { buildCardOwnerColour } from '../lib/logrender';
@@ -105,22 +106,22 @@
     m.view && seatCtx ? (m.view.players.find((p) => p.seat === seatCtx.seat) ?? null) : null,
   );
 
-  // Generic decisions belong to the clock's ACTIONS tab. Mulligan alone
-  // keeps the board centre, where the opening hand is the whole task rather
-  // than a HUD. A REQUIRED prompt (brief Jobs 1–2) joins it: a decision with
-  // no pass option (toneOf 'initiative') is answered on the board, not in the
-  // ACTIONS drop — the mulligan round is the precedent, and the offered
-  // priority windows stay in the drop, which is the split the reporter asked
-  // for: prompts are not "available actions" and are never hidden behind one.
-  const promptPending = $derived(
-    panel !== null && panel.active !== null && toneOf(panel.active) === 'initiative',
-  );
-  const mulligan = $derived(panel ? mulliganPhase(panel.active) : null);
+  // The ACTIONS surface is the single in-game response anchor. Mulligan is
+  // intentionally separate because its opening hand needs the whole board.
+  // Read the wire view first: the opening hand must suppress the ACTIONS
+  // instrument in the very frame it arrives, before the shared panel state has
+  // adopted it. Falling back keeps the recovery-poll path equally correct.
+  const mulligan = $derived(mulliganPhase(m.view?.decision ?? panel?.active ?? null));
   const concede = $derived(panel?.concedeOption ?? null);
 
   // The table's own public config (format, bot_policy, mulligans), for the
   // restart control's POST. TableInfo always carries all three.
   const tableInfo = $derived(tables.list.find((t) => t.info.id === table)?.info ?? null);
+  // The table capability is authoritative: with it off this state remains the
+  // manual baseline even if a stale response carried a payment extension.
+  $effect(() => {
+    panel?.setAutoManaAvailable(tableInfo?.auto_mana === true);
+  });
 
   // Restart is offered only on the play-vs-bot shape createGame builds:
   // a live seated 2-seat table, exactly one of those seats a real person,
@@ -143,6 +144,39 @@
   let restartConfirming = $state(false);
   let restartBusy = $state(false);
   let restartError = $state<string | null>(null);
+
+  // Options stays with its control in the rail. The panel is deliberately a
+  // popover: its long editor scrolls inside a bounded surface instead of
+  // expanding the rail or the whole table.
+  let optionsOpen = $state(false);
+  let optionsPopover = $state<HTMLDivElement | null>(null);
+  // The outside-click test needs the WHOLE control (button + popover). It
+  // used to share optionsPopover's binding, which the popover's own
+  // bind:this took over the moment it mounted, so the opening click itself
+  // bubbled to the window as "outside" and closed it again.
+  let optionsRoot = $state<HTMLDivElement | null>(null);
+  let optionsButton = $state<HTMLButtonElement | null>(null);
+  function dismissOptions(): void {
+    if (!optionsOpen) return;
+    optionsOpen = false;
+    void tick().then(() => optionsButton?.focus());
+  }
+  function toggleOptions(): void {
+    if (optionsOpen) dismissOptions();
+    else optionsOpen = true;
+  }
+  function closeOptions(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      dismissOptions();
+    }
+  }
+  function closeOptionsOutside(event: MouseEvent): void {
+    if (optionsOpen && optionsRoot && !optionsRoot.contains(event.target as Node)) dismissOptions();
+  }
+  $effect(() => {
+    if (optionsOpen) void tick().then(() => optionsPopover?.focus());
+  });
 
   async function restart() {
     if (tableInfo === null) return;
@@ -182,6 +216,12 @@
   );
   const controlsLive = $derived(controls !== null && !finished && mulligan === null && !m.view?.over);
   const optionsReachable = $derived(controlsLive);
+
+  // A route can become non-interactive while the popover is open (game over,
+  // mulligan, or a seat change). Do not leave an orphaned floating panel.
+  $effect(() => {
+    if (!optionsReachable) optionsOpen = false;
+  });
   // The empty-answer safety net (the Squadron Hawk fail-to-find soft-lock):
   // a decision for THIS seat that carries no options is one no picker can
   // render, so the Pending tray names it — and, when the empty answer is
@@ -243,9 +283,29 @@
     if (!seated || panel === null) return null;
     const d = panel.active;
     if (d === null) return null;
+    const byObj = optionsByObj(d);
+    // Auto Mana owns mana activations while it is enabled.  Do not leave a
+    // manual tap badge on a source: that made the setting look ineffective
+    // and let a player spend the source outside the offered payment plan.
+    // This is presentation-only filtering; the server remains authoritative.
+    if (panel.autoManaAvailable && panel.autoPayMana) {
+      // Plans only pay casts. A non-cast action can itself need a mana
+      // activation, so keep the ordinary mana route visible for that decision
+      // instead of hiding its prerequisite under an unrelated cast shortcut.
+      const hasNonCastAction = d.options.some((option) =>
+        option.kind !== 'pass' && option.kind !== 'concede' && option.kind !== 'activate' && option.kind !== 'cast',
+      );
+      if (!hasNonCastAction) {
+        for (const [obj, offered] of byObj) {
+          const visible = offered.filter((option) => !(option.kind === 'activate' && / for mana$/i.test(option.label)));
+          if (visible.length === 0) byObj.delete(obj);
+          else if (visible.length !== offered.length) byObj.set(obj, visible);
+        }
+      }
+    }
     return {
       source: d.source,
-      byObj: optionsByObj(d),
+      byObj,
       byPlayer: optionsByPlayer(d),
       picked: [...panel.picked],
       tone: toneOf(d),
@@ -301,10 +361,11 @@
     }
     const off = session.stream.onFrame((f) => {
       // MatchState owns the board/DVR half of rewind; the panel owns pending
-      // posts and timers. Reset both before the frame's shorter seq space is
-      // exposed, so no paced pass from the discarded tail can fire into it.
-      if (f.t === 'rewind') panelCache?.state.rewind();
-      m.apply(f);
+      // posts and timers. A reconnect represents a rewind as a shorter
+      // snapshot, so use MatchState's classification rather than only the
+      // wire frame name. This all runs in one synchronous stream callback,
+      // before Svelte can expose the restored lower sequence to the panel.
+      if (m.apply(f)) panelCache?.state.rewind();
     });
     void session.focus(table);
     const t = tables.list.find((x) => x.info.id === table);
@@ -322,6 +383,8 @@
     if (saved !== null) showLog = saved;
   });
 </script>
+
+<svelte:window onkeydown={closeOptions} onclick={closeOptionsOutside} />
 
 {#if idle}
   <main class="matches-page">
@@ -348,18 +411,23 @@
           {controls}
           {controlsLive}
         />
-        {#each m.view.players as p (p.seat)}
-          <IdentityBar
-            player={p}
-            seat={m.seats[p.seat]}
-            colour={seatColour(p.seat, m.seats)}
-            active={m.view.active === p.seat}
-            priority={m.view.priority === p.seat}
-            corner={quadrantFor(p.seat, m.view.players.length, m.view.viewer)}
-            players={m.view.players}
-            options={boardOptions}
-          />
-        {/each}
+        {#if m.view.players.length <= 2}
+          <!-- A seated player's own pill docks in their own half (the hand
+               strip's identity bay) and the opponent's in theirs, so neither
+               lands on the viewer's hand. A spectator keeps the absolute
+               seat-0/seat-1 anchors. -->
+          {@const own = seatCtx?.seat ?? null}
+          <div class="seat-pill-dock" class:seat-zero={own === null} class:near={own === 0} class:far={own !== null && own !== 0} data-seat-pill-dock="seat-0">
+            <SeatPills view={m.view} seats={m.seats} options={boardOptions} seat={0} />
+          </div>
+          <div class="seat-pill-dock" class:seat-one={own === null} class:near={own === 1} class:far={own !== null && own !== 1} data-seat-pill-dock="seat-1">
+            <SeatPills view={m.view} seats={m.seats} options={boardOptions} seat={1} />
+          </div>
+        {:else}
+          <div class="seat-pill-dock seat-many" data-seat-pill-dock="all">
+            <SeatPills view={m.view} seats={m.seats} options={boardOptions} />
+          </div>
+        {/if}
         <!-- The last resolved card's artwork lives in the rail's stack
              section now (fb-20260916T225456Z): Rail renders ResolvedCard
              from the same m.dvr.events it already receives, and the old
@@ -374,7 +442,7 @@
              and the page looks hung while the live game waits elsewhere --
              which is exactly what happened the first time this was played.
              A seat acts only on the live table route. -->
-        {#if seated && seatCtx && m.match !== null && !finished && (mulligan !== null || m.view.over || promptPending)}
+        {#if seated && seatCtx && m.match !== null && !finished && (mulligan !== null || m.view.over)}
           {#key m.match}
             <SeatPanel view={m.view} seats={m.seats} ctx={seatCtx} table={table} match={m.match} state={panel} />
           {/key}
@@ -389,7 +457,7 @@
                marked and carries the same options menu (one mechanism, one
                index, one post path). boardOptions is null for a spectator /
                when nothing is pending, so no hand card is marked. -->
-          <HandFan player={ownPlayer} options={boardOptions} />
+          <HandFan player={ownPlayer} options={boardOptions} paymentActions={panel?.autoManaAvailable && panel.autoPayMana ? (panel.active?.payment_actions ?? []) : []} onCastPayment={(action, holdPriority) => panel?.submitPayment(action, action.plans[0], holdPriority)} />
         {/if}
       </section>
       <aside class="rail">
@@ -445,6 +513,28 @@
                 onArm={() => panel.click(concede.index)}
                 onConfirm={() => panel.confirmConcede()}
               />
+            {/if}
+            {#if panel && optionsReachable}
+              <div class="rail-options" bind:this={optionsRoot} data-rail-options>
+                <button
+                  type="button"
+                  class="rail-options__button"
+                  aria-haspopup="dialog"
+                  aria-expanded={optionsOpen}
+                  aria-controls="play-options-popover"
+                  bind:this={optionsButton}
+                  onclick={toggleOptions}
+                >
+                  Options
+                </button>
+                {#if optionsOpen}
+                  <div id="play-options-popover" class="rail-options__popover" role="dialog" aria-label="Play options" aria-modal="false" tabindex="-1" bind:this={optionsPopover}>
+                    <div class="rail-options__body">
+                      <PlaySettingsPanel state={panel} {showLog} onToggleLog={toggleLog} />
+                    </div>
+                  </div>
+                {/if}
+              </div>
             {/if}
           {/snippet}
         </Rail>
@@ -547,6 +637,48 @@
        identity bay is consumed by HandFan rather than overlaid on it. */
     --own-seat-w: 12rem;
   }
+
+  /* Player identity belongs to its seat, never to the centre instrument.
+     Seat 0 (red in the standard palette) is a quiet top-left pill. Seat 1
+     (blue) sits at the lower-right edge of the enemy half, immediately above
+     the reserved phase lane. These anchors leave the phase/action strip free
+     of overlays and pointer interception. */
+  .seat-pill-dock {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+  }
+  .seat-pill-dock.seat-zero {
+    top: var(--sp-3);
+    left: var(--sp-3);
+  }
+  .seat-pill-dock.seat-one {
+    top: calc(50% - var(--phase-lane-h) / 2 - 2rem);
+    right: var(--sp-3);
+    transform: translateY(-100%);
+  }
+  /* Seated 1v1: the viewer's pill is flush to the board's bottom-left, in
+     the --own-seat-w bay HandFan's track already leaves free (the retired
+     IdentityBar's own-seat corner); the opponent's sits top-left of the
+     enemy half, the Arena/MTGO convention. */
+  .seat-pill-dock.near {
+    bottom: 0;
+    left: 0;
+    width: var(--own-seat-w, 12rem);
+  }
+  .seat-pill-dock.far {
+    top: var(--sp-3);
+    left: var(--sp-3);
+  }
+  .seat-pill-dock.seat-many {
+    top: var(--sp-3);
+    right: var(--sp-3);
+    max-width: min(70%, 48rem);
+  }
+  @media (max-width: 70rem) {
+    .seat-pill-dock.seat-one { right: var(--sp-2); }
+  }
+
   .rail {
     position: relative;
     min-width: 0;
@@ -615,5 +747,54 @@
     margin-left: var(--sp-2);
     color: var(--danger);
     font-size: var(--t-12);
+  }
+
+  /* The Options control owns its panel. Keeping its containing block here
+     means the editor stays attached to the button if the rail changes size;
+     bottom: 100% makes it grow upward into the board instead of covering the
+     rail controls below it. */
+  .rail-options {
+    position: relative;
+    z-index: 31;
+  }
+  .rail-options__button {
+    border: 1px solid var(--edge-inst);
+    border-radius: var(--radius);
+    background: var(--instrument);
+    color: var(--ink-inst);
+    font-family: var(--font-ui);
+    font-size: var(--t-12);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .rail-options__button {
+    padding: var(--sp-1) var(--sp-3);
+  }
+  .rail-options__button:hover,
+  .rail-options__button[aria-expanded='true'] {
+    border-color: var(--ink-dim);
+    color: var(--ink);
+  }
+  /* The Options control sits at the TOP of the rail, so the popover drops
+     down from it; anchored with bottom it opened above the viewport. */
+  .rail-options__popover {
+    position: absolute;
+    right: 0;
+    top: calc(100% + var(--sp-2));
+    width: min(25rem, calc(100vw - var(--sp-4)));
+    max-height: min(38rem, calc(100vh - 5rem));
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--edge-inst);
+    border-radius: var(--radius);
+    background: var(--instrument);
+    box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 45%);
+    overflow: hidden;
+  }
+  .rail-options__body {
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 </style>

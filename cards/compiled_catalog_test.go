@@ -238,10 +238,15 @@ func textualManaAbilities(face *Face) []*SA {
 	return out
 }
 
+// TestCompiledFaceQueryParity compares the compiled metadata queries against
+// the textual fallback over the whole corpus. It loads the running compiler's
+// own fingerprint-keyed IR (cards.OpenCorpus), compiling from cardsfolder when
+// that cache is absent — so the parity check always exercises THIS build's
+// parser rather than skipping or reading another parser's IR.
 func TestCompiledFaceQueryParity(t *testing.T) {
-	r, err := LoadRegistry(filepath.Join("..", ".cards", "ir.gob.gz"))
+	r, err := OpenCorpus(filepath.Join("..", ".cards"))
 	if err != nil {
-		t.Skipf("load corpus cache: %v", err)
+		t.Skipf("compiled corpus unavailable: %v", err)
 	}
 	typeNames := []string{
 		"Artifact", "Battle", "Conspiracy", "Creature", "Dungeon", "Enchantment", "Instant",

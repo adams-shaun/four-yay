@@ -42,7 +42,9 @@ func TestSummarizeResultsSeparatesEligibleRootsAndNoRootGames(t *testing.T) {
 // written in a format go tool pprof cannot consume, or contaminating the JSON
 // report with profiler configuration instead of the ordinary run result.
 func TestRunWritesReadableProfiles(t *testing.T) {
-	if _, err := os.Stat("../../.cards/ir.gob.gz"); err != nil {
+	// The corpus need only be fetched; searchprobe loads this build's own
+	// fingerprint-keyed IR via cards.OpenCorpus (compiling if necessary).
+	if _, err := os.Stat("../../.cards/cardsfolder"); err != nil {
 		t.Skipf("compiled corpus unavailable: %v", err)
 	}
 	tmp := t.TempDir()

@@ -46,9 +46,13 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			c.TriggerResult = result
 			c.TriggerResultMax = maxResult
 		}
-	case "BecomesTarget":
+	case "BecomesTarget", "BecomesTargetOnce":
 		// This matcher fires only for its own source being targeted, even when
 		// the causing spell chose several targets. ev.Obj is that spell/ability.
+		// BecomesTargetOnce carries the same roles -- its batch latch is the
+		// queue-time gate, not this capture -- so the plural-mode body
+		// resolves TriggeredSourceSA/TriggeredSourceSAController exactly as
+		// the per-target mode does (Leyline of Combustion's payout).
 		c.TriggerTarget = state.Target{Obj: source}
 		c.TriggerSource = e.protectionSource(ev.Obj)
 		c.TriggerStack = ev.Obj
@@ -378,6 +382,12 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		for i := range state.TypedManaTags {
 			c.TriggerManaTyped[i] = card.TypedManaSpentByTag(i)
 		}
+	}
+	// CR 107.3m: the X paid to turn a permanent face up is carried by the
+	// TurnFaceUp event, because the permanent itself was not cast with that X
+	// and its live Object.X remains the cast-time value (normally zero).
+	if ev.Kind == events.TurnFaceUp {
+		c.TriggerPaidX = ev.Amount
 	}
 	return c
 }

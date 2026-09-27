@@ -229,7 +229,9 @@ var changeTextCarriers = []string{
 //
 // The one non-nil entry is unrelated to text modification. The operator's
 // 2026-09-25 ruling explicitly leaves this keyword out of scope here:
-//   - Spectral Shift: kw:Entwine (agent-20260925T000311Z-22c4c559).
+//   - Spectral Shift: now fully playable. Its former kw:Entwine gap closed
+//     when agent-20260925T000311Z-22c4c559 landed CR 702.42 Entwine (the
+//     optional additional cost whose payment forces all Charm modes).
 //
 // Trait Doctoring's former kw:Cipher gap closed when agent-20260919T181215Z-
 // 71ad9572 landed Cipher, so it is now fully playable and reads nil.
@@ -246,7 +248,7 @@ var changeTextCarrierGaps = map[string][]string{
 	"Whim of Volrath":        nil,
 	"Deadpool, Trading Card": nil,
 	"Exchange of Words":      nil,
-	"Spectral Shift":         {"kw:Entwine"},
+	"Spectral Shift":         nil,
 	"Trait Doctoring":        nil,
 }
 

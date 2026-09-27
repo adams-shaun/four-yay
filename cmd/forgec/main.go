@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -65,7 +64,11 @@ func usage() {
 	os.Exit(2)
 }
 
-func cachePath(dir string) string { return filepath.Join(dir, "ir.gob.gz") }
+// cachePath returns dir's fingerprint-keyed cache path for this binary's
+// compiler (cards.CachePath). forgec's compile command writes it and the
+// report command reads it, so a forgec built from one parser never touches the
+// file another parser's forgec uses.
+func cachePath(dir string) string { return cards.CachePath(dir) }
 
 func compile(dir string) error {
 	r, diags, err := cards.CompileDir(cards.CorpusDir(dir))
@@ -75,21 +78,23 @@ func compile(dir string) error {
 	for _, d := range diags {
 		fmt.Fprintf(os.Stderr, "%s: %s\n", d.Path, d.Msg)
 	}
-	if err := r.Save(cachePath(dir)); err != nil {
+	cache := cachePath(dir)
+	if err := r.Save(cache); err != nil {
 		return err
 	}
+	cards.PruneCaches(dir, cache)
 	fmt.Printf("compiled %d cards, %d tokens, %d diagnostics -> %s\n",
-		len(r.Cards), len(r.Tokens), len(diags), cachePath(dir))
+		len(r.Cards), len(r.Tokens), len(diags), cache)
 	return nil
 }
 
 // loadReportRegistry loads dir's IR cache for the report command. When the
 // cache is absent, unreadable or stale (e.g. a version bump in cards' cache
 // schema), it falls back to compiling dir/cardsfolder fresh in memory — the
-// same staleness rule cards.OpenCorpus applies everywhere else. The fallback
-// NEVER writes a cache back: in an agent worktree dir/ir.gob.gz may be a
-// symlink into a shared checkout, and compiling from one seat must not
-// mutate what every other seat reads.
+// same staleness rule cards.OpenCorpus applies everywhere else. The cache
+// name is fingerprint-keyed (cards.CachePath), so a forgec built from a
+// different parser never reads another build's IR; the fallback may write
+// this binary's own fingerprint file, which no other parser reads.
 func loadReportRegistry(dir string) (*cards.Registry, error) {
 	r, err := cards.LoadRegistry(cachePath(dir))
 	if err == nil {

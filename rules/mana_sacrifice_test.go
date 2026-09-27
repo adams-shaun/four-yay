@@ -79,13 +79,23 @@ func TestSkirkProspectorPaysAWardFromItsPaymentWindow(t *testing.T) {
 	e.priorityRound()
 
 	submitChoices(t, e, castOptionFor(t, e, moveByName(t, e, 0, "Gut Shot", state.ZHand)).Index)
-	// The {R/P} pip is payable from the empty pool by its Phyrexian life
-	// face, so the cast first asks how to pay the symbol.
+	// The {R/P} pip offers both its red and Phyrexian-life faces while the
+	// Mountain is untapped.  Pick life so the Mountain and Prospector remain
+	// available for the later ward payment window this test exercises.
 	pip := e.Pending()
-	if pip == nil || pip.Kind != decision.KChoose || len(pip.Options) != 1 || pip.Options[0].Kind != "pay_life" {
+	if pip == nil || pip.Kind != decision.KChoose {
 		t.Fatalf("after cast = %+v, want Gut Shot's pay-the-symbol ask", pip)
 	}
-	submitChoices(t, e, pip.Options[0].Index)
+	life := -1
+	for _, o := range pip.Options {
+		if o.Kind == "pay_life" {
+			life = o.Index
+		}
+	}
+	if life < 0 {
+		t.Fatalf("Gut Shot payment options = %+v, want a life face", pip.Options)
+	}
+	submitChoices(t, e, life)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KTarget {
 		t.Fatalf("after cast = %+v, want Gut Shot's target ask", d)

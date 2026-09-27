@@ -52,7 +52,7 @@ func TestManaReflectedStandaloneAsksForTheColour(t *testing.T) {
 	// Simulate the engine's resume: the arm sets Ctx.ManaReflectedColor, then
 	// the effect re-runs and emits the answered ManaAdd.
 	ah.asked = nil
-	c.ManaReflectedColor = "Add U"
+	c.ManaReflectedColor = "U"
 	effManaReflected(ah, c, s)
 
 	if got := poolCount(t, ah.log, "U"); got != 1 {

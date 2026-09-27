@@ -17,7 +17,7 @@ var (
 
 func benchmarkRegistryPath(b *testing.B) string {
 	b.Helper()
-	path := filepath.Join("..", ".cards", "ir.gob.gz")
+	path := CachePath(filepath.Join("..", ".cards"))
 	if _, err := os.Stat(path); err != nil {
 		b.Skipf("stat corpus cache: %v", err)
 	}

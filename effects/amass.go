@@ -27,8 +27,14 @@ func init() { Register("Amass", effAmass) }
 // scripts for the types real Amass lines name (b_0_0_zombie_army,
 // b_0_0_orc_army, b_0_0_goblin_army); the key tried first is
 // "b_0_0_<lowercased type>_army", falling back to the generic
-// "b_0_0_army". A created token is minted through the ordinary TokenCreate
-// event, exactly as effToken does, so replay derives the same object.
+// "b_0_0_army". A created token is minted through h.EmitTokenCreate, exactly
+// as effToken does, so replay derives the same object; because a CreateToken
+// replacement can rewrite one would-be token into several mints (Doubling
+// Season, Anointed Procession), every rider below -- the +1/+1 counters, the
+// type grant and RememberAmass$ -- lands on EVERY mint the plan produced, not
+// just the first. Each mint's CounterChange is its own event, so an
+// AddCounter replacement doubles that mint's counters independently
+// (CR 614.5/616.1e).
 //
 // The "it's also a <Type>" half is a permanent layer-4 type change on the
 // token (or the existing Army) -- registered as a Permanent continuous
@@ -42,11 +48,19 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	if rest := resumingMint(c, sa); rest != nil {
 		// The Army's mint parked behind a CR 616.1 order ask and the answer
-		// has minted it: amass onto it with the values the first pass
-		// resolved (an Army the answer did not create leaves nothing to
-		// amass onto, the same stop the unparked miss takes).
-		if len(rest.Parked) > 0 && g.Obj(rest.Parked[0]) != nil {
-			amassOnto(h, c, sa, rest.Parked[0], rest.Amount, rest.Script)
+		// has minted it: amass onto EVERY mint the answer produced (a
+		// CreateToken replacement can rewrite one Army into several) with
+		// the values the first pass resolved (a mint the answer did not
+		// create leaves nothing to amass onto, the same stop the unparked
+		// miss takes).
+		for _, want := range rest.Parked {
+			o := g.Obj(want)
+			if o == nil {
+				continue
+			}
+			if !amassRiders(h, c, sa, want, o.Controller, rest.Script, rest.Amount) {
+				return
+			}
 		}
 		return
 	}
@@ -86,41 +100,65 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 				Text: "Amass: no Army token script available (" + key + ")"})
 			return
 		}
-		want := g.NextID
 		wasSuspended := h.Suspended()
-		minted := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: c.Controller, Text: key})
-		if !wasSuspended && h.Suspended() && len(minted) == 0 &&
-			suspendMint(h, c, TokenRest{SA: sa, Amount: n, Script: typ}) {
+		mints := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: c.Controller, Text: key})
+		if !wasSuspended && h.Suspended() {
+			// The mint parked the resolution behind a replacement-order ask:
+			// every mint that landed takes its riders now, and the mints the
+			// answer produces take theirs on the TokenRest re-entry, instead
+			// of the riders running against objects that do not exist yet.
+			for _, id := range mints {
+				o := g.Obj(id)
+				if o == nil {
+					continue
+				}
+				if !amassRiders(h, c, sa, id, o.Controller, typ, n) {
+					return
+				}
+			}
 			// The Army parked behind an order ask: the counters, the type
-			// grant and the remember land on it when the answer mints it.
+			// grants and the remember land on every mint the answer
+			// produces once it is answered (a refused continuation still
+			// stops here -- the landed mints above already took theirs).
+			_ = suspendMint(h, c, TokenRest{SA: sa, Amount: n, Script: typ})
 			return
 		}
-		if o := g.Obj(want); o != nil {
-			army = want
+		for _, want := range mints {
+			o := g.Obj(want)
+			if o == nil {
+				continue
+			}
+			if !amassRiders(h, c, sa, want, o.Controller, typ, n) {
+				return
+			}
 		}
-	}
-	if army == 0 {
 		return
 	}
-	amassOnto(h, c, sa, army, n, typ)
+	// An existing Army was found: single-object path, exactly as before.
+	amassRiders(h, c, sa, army, g.Obj(army).Controller, typ, n)
 }
 
-// amassOnto puts n +1/+1 counters on army and makes it a typ (CR 701.55b),
-// remembering it for RememberAmass$.
-func amassOnto(h Host, c *Ctx, sa *cards.SA, army state.ObjID, n int32, typ string) {
+// amassRiders applies amass's per-object riders -- the +1/+1 counters, the
+// permanent "also a <Type>" grant and RememberAmass$ -- to one object. It
+// returns false when the object folded away, so the no-Army loop can stop.
+func amassRiders(h Host, c *Ctx, sa *cards.SA, obj state.ObjID, controller state.PlayerID, typ string, n int32) bool {
 	g := h.Game()
-	h.Emit(events.Event{Kind: events.CounterChange, Obj: army,
+	if g.Obj(obj) == nil {
+		return false
+	}
+	h.Emit(events.Event{Kind: events.CounterChange, Obj: obj,
 		Counter: "P1P1", Amount: n})
 	// "It's also a <Type>" (CR 701.55b): a permanent type grant.
 	h.AddContinuous(state.ContinuousEffect{
-		Source:     army,
-		Controller: g.Obj(army).Controller,
+		Source:     obj,
+		Controller: controller,
 		Affects:    "Card.Self",
 		Layer:      state.LType,
 		AddTypes:   []string{typ},
 		Permanent:  true,
 	})
 	if sa.Params["RememberAmass"] != "" {
-		c.Remembered = append(c.Remembered, state.Target{Obj: army})
+		c.Remembered = append(c.Remembered, state.Target{Obj: obj})
 	}
+	return true
 }

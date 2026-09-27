@@ -48,7 +48,7 @@ func TestOpenCorpusPrefersAFreshCacheAndRecompilesAStaleOne(t *testing.T) {
 	r := NewRegistry()
 	c, _ := ParseBytes("island.txt", []byte("Name:Island\nTypes:Basic Land Island\nOracle:\n"))
 	r.Add(c)
-	cache := filepath.Join(dir, "ir.gob.gz")
+	cache := CachePath(dir)
 	if err := r.Save(cache); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestOpenCorpusPrefersAFreshCacheAndRecompilesAStaleOne(t *testing.T) {
 func TestOpenCorpusWritesBackARecompiledCache(t *testing.T) {
 	dir := t.TempDir()
 	writeScript(t, dir, "mountain.txt", "Name:Mountain\nTypes:Basic Land Mountain\nOracle:\n")
-	cache := filepath.Join(dir, "ir.gob.gz")
+	cache := CachePath(dir)
 	// An unreadable (here: garbage) cache is rejected and recompiled; the
 	// recompile must replace it so the next open does not pay again.
 	if err := os.WriteFile(cache, []byte("not a gzip stream"), 0o644); err != nil {

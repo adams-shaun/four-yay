@@ -1370,6 +1370,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	players := definedPlayers(h, c, sa)
 	selection := *c // IsRemembered in ChangeValid reads the pre-clear set.
+	initForgetOtherSnapshot(h, c, sa, players, 2)
 	forgetOtherRemembered(h, c, sa)
 	// One classification for the whole Dig call, before the target walk: a
 	// degrading Attacking$ rider is one Note per dig, not one per taken card
@@ -1489,7 +1490,15 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				d := &decision.Decision{Player: p, Kind: decision.KArrange, Min: len(ids), Max: len(ids), Source: c.Source,
 					ResumeKind: "dig_arrange", ResumeSA: sa, ResumeTarget: targetIndex,
 					Prompt:           "Put the remaining cards on the bottom of your library in any order",
-					ResumeDigPrimary: append([]state.ObjID(nil), primaryMoved...)}
+					ResumeDigPrimary: append([]state.ObjID(nil), primaryMoved...),
+					// The ForgetOtherRemembered$ pre-clear snapshot rides every
+					// ask that can suspend this walk: a later window's
+					// eligibility and the answered window's own re-entry still
+					// match the pre-clear candidates after the clear.
+					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+					ResumeForgetOtherReady:    c.ForgetOtherReady,
+					ResumeForgetOtherCleared:  c.ForgetOtherCleared}
 				for i, id := range ids {
 					name := "a card"
 					if !noLooking || revealWin {
@@ -1570,7 +1579,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		}
 		eligible := make([]state.ObjID, 0, len(top))
 		for _, id := range top {
-			if MatchesSpecCtx(g, spec, id, selection.SpecContext(selection.Controller)) {
+			if MatchesSpecCtx(g, spec, id, forgetOtherPreClearContext(&selection, c)) {
 				eligible = append(eligible, id)
 			}
 		}
@@ -1652,9 +1661,23 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 			if !optional && !promptToSkipOptional && !anyNum {
 				verb = "put "
 			}
-			prompt := "Look at the " + lookWhere + " " + strconv.Itoa(int(n)) + " card(s) of your library: " + verb + strconv.Itoa(int(changeNum)) + " matching card(s) into " + digDestPhrase(dest)
+			look := "Look at the " + lookWhere + " " + strconv.Itoa(int(n)) + " card(s) of your library"
 			if noLooking && !revealWin {
-				prompt = "Choose from the " + lookWhere + " " + strconv.Itoa(int(n)) + " card(s) of your library: " + verb + strconv.Itoa(int(changeNum)) + " matching card(s) into " + digDestPhrase(dest)
+				look = "Choose from the " + lookWhere + " " + strconv.Itoa(int(n)) + " card(s) of your library"
+			}
+			// A self-contained library move (Jace, the Mind Sculptor's "you
+			// may put it on the bottom" shape) is represented by an optional
+			// KChoose.  "Choose" alone is ambiguous here: the selected card
+			// moves to the bottom, while an unselected card does not move.  Say
+			// both sides of that choice in the prompt and on each option.
+			bottomChoice := dest == state.ZLibrary && primaryPos == "-1" && skipReorder
+			prompt := look + ": " + verb + strconv.Itoa(int(changeNum)) + " matching card(s) into " + digDestPhrase(dest)
+			if bottomChoice {
+				selectVerb := "Select up to "
+				if !optional && !promptToSkipOptional && !anyNum {
+					selectVerb = "Select "
+				}
+				prompt = look + ": " + selectVerb + strconv.Itoa(int(changeNum)) + " matching card(s) to put on the bottom of your library. Leave unselected card(s) on top."
 			}
 			if hasBudget {
 				prompt += " (total mana value " + strconv.Itoa(int(budget)) + " or less)"
@@ -1667,7 +1690,14 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				ResumeKind:   "dig",
 				ResumeSA:     sa,
 				ResumeTarget: targetIndex,
-				Prompt:       prompt}
+				Prompt:       prompt,
+				// The ForgetOtherRemembered$ pre-clear snapshot rides the ask: the
+				// resumed walk's later windows (and any re-entry revalidation)
+				// still match the candidates the first pass offered under.
+				ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+				ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+				ResumeForgetOtherReady:    c.ForgetOtherReady,
+				ResumeForgetOtherCleared:  c.ForgetOtherCleared}
 			for _, id := range budgetEligible {
 				name := "a card"
 				if !noLooking || revealWin {
@@ -1675,8 +1705,12 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 						name = o.Face().Name
 					}
 				}
+				label := name
+				if bottomChoice {
+					label = "Put " + name + " on bottom"
+				}
 				opt := decision.Option{Index: len(d.Options),
-					Kind: "dig", Label: name, Obj: id, Player: p}
+					Kind: "dig", Label: label, Obj: id, Player: p}
 				// Only a budget Dig carries a Value: Option.Value is
 				// omitempty, and setting it on a budget-less Dig would put a
 				// "value" field on the wire for every offered card although
@@ -1749,6 +1783,9 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		}
 		placePrimary()
 	}
+	// The walk completed: release the ride (the same boundary the search and
+	// hidden walks end at), so a later ability in the chain cannot inherit it.
+	endForgetOtherSnapshot(c)
 }
 
 // moveRestToBottom moves the untaken Dig window cards to the BOTTOM of
@@ -2069,7 +2106,12 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	// rather than against either of the two destinations the walk picks
 	// between.
 	rider := classifyAttackingEntry(c, sa, state.ZBattlefield)
+	players := playerIDsFromTargets(h, c, sa.Params["Defined"], targets)
 	selection := *c // Valid$ Card.IsRemembered uses the pre-clear set.
+	// A DigUntil re-runs its scan filter on the answered re-entry too (the
+	// found-move election answers mid-walk), so the snapshot arms for any
+	// player count, a single library's re-scan included.
+	initForgetOtherSnapshot(h, c, sa, players, 1)
 	forgetOtherRemembered(h, c, sa)
 	// RememberFound$ replaces the resolution's Remembered set with found
 	// cards, or with all revealed cards when RememberRevealed$ is also set.
@@ -2077,7 +2119,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	// player walk so a later player's reveal does not erase earlier ones.
 	var digRemembered []state.Target
 	var imprintObjs []state.ObjID
-	for _, p := range playerIDsFromTargets(h, c, sa.Params["Defined"], targets) {
+	for _, p := range players {
 		lib := zoneOf(g, state.ZLibrary, p)
 		if len(lib) == 0 {
 			continue
@@ -2088,7 +2130,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 		if amount > 0 {
 			for _, id := range lib {
 				revealed = append(revealed, id)
-				if MatchesSpecCtx(g, spec, id, selection.SpecContext(selection.Controller)) {
+				if MatchesSpecCtx(g, spec, id, forgetOtherPreClearContext(&selection, c)) {
 					found = append(found, id)
 					if int32(len(found)) >= amount {
 						break
@@ -2107,7 +2149,14 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source:     c.Source,
 				ResumeKind: "diguntil_move", ResumeSA: sa,
-				Prompt: "Put the revealed matching card(s) onto " + verb + "?",
+				// The ForgetOtherRemembered$ pre-clear snapshot rides the ask:
+				// the answered re-entry re-runs the scan filter against the
+				// pre-clear candidates after the clear.
+				ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+				ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+				ResumeForgetOtherReady:    c.ForgetOtherReady,
+				ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+				Prompt:                    "Put the revealed matching card(s) onto " + verb + "?",
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes — put into " + verb, Player: p},
 					{Index: 1, Kind: "no", Label: "No", Player: p},
@@ -2180,7 +2229,11 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 							d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 								Source: c.Source, ResumeKind: "diguntil_aura", ResumeSA: sa,
 								ResumeDigUntilMove: moveAns, ResumeDigUntilMoveDone: moveDone,
-								Prompt: "Choose a permanent for the revealed Aura to enchant"}
+								ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+								ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+								ResumeForgetOtherReady:    c.ForgetOtherReady,
+								ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+								Prompt:                    "Choose a permanent for the revealed Aura to enchant"}
 							for i, candidate := range bearers {
 								d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: candidate, Player: p})
 							}
@@ -2330,6 +2383,9 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 			imprintObjs = append(imprintObjs, revealed...)
 		}
 	}
+	// The walk completed: release the ride (the same boundary the search and
+	// hidden walks end at), so a later ability in the chain cannot inherit it.
+	endForgetOtherSnapshot(c)
 	if len(imprintObjs) > 0 && c.Source != 0 {
 		// Forge's addImprintedLists links the found (or all revealed) cards to
 		// the resolving source. It rides the Seek "seek-found" list, not the
@@ -3529,6 +3585,7 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 	}
 	valid := sa.Params["ValidCards"]
 	chooseFromList := sa.Params["ChooseFromList"]
+	chooseFromDefined := sa.Params["ChooseFromDefinedCards"]
 	universeBacked := len(h.Game().NameUniverse) > 0
 	random := strings.EqualFold(sa.Params["AtRandom"], "True")
 	// The resolving context's numeric-RHS resolver (paid X, a published
@@ -3536,8 +3593,43 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 	// ValidCards$ such as `Creature.cmcEQX` restricts against the resolution
 	// value instead of failing every universe card closed.
 	sc := c.SpecContext(c.Controller)
-	names := NameChoicesFromListCtx(h.Game(), valid, sa.Params["ValidDescription"], chooseFromList, &sc, random)
-	if len(names) == 0 && (!universeBacked || chooseFromList == "") {
+	// ChooseFromDefinedCards asks the STRICT filter: the ordinary ValidCards
+	// totality fallback (a matched-nothing spec returning the WHOLE universe)
+	// would feed unrevealed names into the intersection below - a remembered
+	// Forest with ValidCards$ Card.nonLand over a land-only universe offered
+	// Forest. AtRandom already passes strict for the same reason.
+	names := NameChoicesFromListCtx(h.Game(), valid, sa.Params["ValidDescription"], chooseFromList, &sc, random || chooseFromDefined != "")
+	if chooseFromDefined != "" {
+		// This selector narrows the normal ValidCards name universe to the
+		// printed names of the Defined referents. Resolve through
+		// knownDefinedTargets, NOT Defined: an unrecognised selector must fail
+		// closed, while Defined's historical fallback acts on the SA source,
+		// whose printed name may never have been revealed. The recognised
+		// Remembered spelling keeps the same context-memory semantics
+		// (resolvedRemembered) Defined's arm uses. With no corpus universe (or
+		// no eligible referents), fail closed: a legacy fallback name could be
+		// neither validated nor guaranteed revealed.
+		defined, known := knownDefinedTargets(h, c, chooseFromDefined)
+		eligible := make(map[string]bool)
+		if known {
+			for _, target := range defined {
+				if target.IsPlayer || target.Obj == 0 {
+					continue
+				}
+				if obj := h.Game().Obj(target.Obj); obj != nil && obj.Face() != nil {
+					eligible[obj.Face().Name] = true
+				}
+			}
+		}
+		restricted := make([]string, 0, len(names))
+		for _, name := range names {
+			if eligible[name] {
+				restricted = append(restricted, name)
+			}
+		}
+		names = restricted
+	}
+	if chooseFromDefined == "" && len(names) == 0 && (!universeBacked || chooseFromList == "") {
 		// R-9: a host without a supplied corpus still completes
 		// deterministically, and reproduces the exact pre-feature NameCard
 		// behaviour (name the top of the caster's own library) so a log an

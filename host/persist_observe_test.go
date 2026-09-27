@@ -60,8 +60,24 @@ func TestObserverPersistedLogServesIdenticallyToTheLiveMatch(t *testing.T) {
 		bursts = append(bursts, burstObs{evs: append([]events.Event(nil), evs...), in: in})
 		return nil
 	}
-	o.OnMatchEnd = func(_ TableID, _ int, m protocol.MatchInfo) error {
+	// The finished match is captured here, while it is still the table's
+	// current match: in persistence mode a finished match is not retained
+	// in memory (it is served from disk), and half (b) needs the live
+	// engine itself as the reference.
+	var (
+		r    *Registry
+		live *match
+	)
+	o.OnMatchEnd = func(id TableID, _ int, m protocol.MatchInfo) error {
 		endInfo = m
+		if r != nil {
+			r.mu.RLock()
+			tb := r.tables[id]
+			r.mu.RUnlock()
+			tb.mu.RLock()
+			live = tb.cur
+			tb.mu.RUnlock()
+		}
 		return nil
 	}
 	r, err := New(o)
@@ -83,15 +99,19 @@ func TestObserverPersistedLogServesIdenticallyToTheLiveMatch(t *testing.T) {
 	r.mu.RLock()
 	tb := r.tables["t1"]
 	r.mu.RUnlock()
-	tb.mu.RLock()
-	m := tb.history[0]
+	tb.mu.Lock()
+	m := live
 	var sc sidecar
 	for _, a := range tb.archived {
 		if a.Match == 1 {
 			sc = a
 		}
 	}
-	tb.mu.RUnlock()
+	// Serve the live match through the real lookup path (the single-slot
+	// archived cache), so the "live" projections below come from the live
+	// engine rather than a disk rebuild.
+	tb.loaded = m
+	tb.mu.Unlock()
 	if m == nil || m.state != protocol.MatchFinished {
 		t.Fatalf("the human-driven match did not finish: %+v", m)
 	}

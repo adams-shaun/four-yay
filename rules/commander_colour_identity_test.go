@@ -82,84 +82,12 @@ func corpusCommander(t *testing.T, reg *cards.Registry, name string) *cards.Card
 	return c
 }
 
-// commanderReplayCheck rebuilds the game log-only (the replayCheck shape)
-// and diffs it against the live game. The one commander-genesis piece
-// replayFromLog cannot reconstruct is derived from Config, never logged:
-// starting life (NewGameLife), each seat's Commanders bookkeeping with its
-// CmdCasts, and the match-wide CmdDamage slot sizing. The command-zone
-// seating itself IS logged (New emits the Library→Command MoveZone), so the
-// bookkeeping slices can be read back off the reconstructed zones after the
-// log is applied, in Config order.
+// commanderReplayCheck is the commander-suite spelling of the standard
+// replay comparison. replayFromLog reconstructs genesis bookkeeping from the
+// same Config and folds cast counts from the same event stream for every caller.
 func commanderReplayCheck(t *testing.T, e *Engine, cfg Config) {
 	t.Helper()
-	g := state.NewGameLife(cfg.Names, cfg.StartingLife)
-	g.Tokens = cfg.Tokens
-	// The commanders in CONFIG order, captured off the AddObject ids as the
-	// replay deck is built -- the same deck-order read rules.New's genesis
-	// does. The previous reconstruction (the command zone's final contents)
-	// happened to coincide for a game whose commanders were still parked
-	// there at the end, but Commanders is genesis BOOKKEEPING, never a live
-	// zone read: a seat whose commander is elsewhere at the end (cast and on
-	// the battlefield, returned to the library) must still reconstruct the
-	// genesis list or the diff invents a divergence.
-	cmdIDs := make([][]state.ObjID, len(cfg.Decks))
-	for i, deck := range cfg.Decks {
-		p := state.PlayerID(i)
-		ids := make([]state.ObjID, 0, len(deck))
-		for j, c := range deck {
-			id := g.AddObject(c, p).ID
-			ids = append(ids, id)
-			for _, ci := range cfg.Commanders[i] {
-				if ci == j {
-					cmdIDs[i] = append(cmdIDs[i], id)
-				}
-			}
-		}
-		g.SetZone(state.ZLibrary, p, ids)
-	}
-	for _, ev := range e.L.Events {
-		events.Apply(g, ev)
-	}
-	totalCmd := 0
-	for _, cs := range cfg.Commanders {
-		totalCmd += len(cs)
-	}
-	for p := range cfg.Commanders {
-		pl := &g.Players[p]
-		// Only seats whose genesis Commanders list the live game actually
-		// seated (rules.New validates the cards: an out-of-range index or a
-		// rejected commander configuration seats nothing and leaves the live
-		// list nil) — the replay must reproduce the live bookkeeping, never
-		// invent one the genesis rejected.
-		if len(cmdIDs[p]) > 0 && len(cmdIDs[p]) == len(e.G.Players[p].Commanders) {
-			pl.Commanders = append([]state.ObjID(nil), cmdIDs[p]...)
-			pl.CmdCasts = make([]int32, len(pl.Commanders))
-			// CmdCasts is derived state whose source is the log: fold the
-			// PutOnStack events whose origin is the command zone back into
-			// the slice, the exact criteria rules/cast.go's recordCmdCast
-			// applies at cast time (commitCast's PutOnStack emit is the one
-			// site that can produce such an event, so the two reads can
-			// never disagree). Without this fold a game that DID cast a
-			// commander diffed live CmdCasts against a zeroed replay.
-			for _, ev := range e.L.Events {
-				if ev.Kind != events.PutOnStack || ev.Player != state.PlayerID(p) || ev.From != state.ZCommand {
-					continue
-				}
-				for k, cid := range pl.Commanders {
-					if cid == ev.Obj {
-						pl.CmdCasts[k]++
-						break
-					}
-				}
-			}
-		}
-		if totalCmd > 0 {
-			pl.CmdDamage = make([]int32, totalCmd)
-		}
-	}
-	if diff := diffGames(e.G, g); diff != "" {
-		t.Fatalf("log-only replay differs:\n%s", diff)
-	}
+	replayCheck(t, e, cfg)
 }
 
 // TestCommandTowerAsksCommanderIdentityColours is the user-reported defect:

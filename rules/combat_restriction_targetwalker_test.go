@@ -80,10 +80,10 @@ func TestCantAttackTargetPlaneswalkerController(t *testing.T) {
 	if e.G.Obj(bear1).Controller == walkerObj.Controller {
 		t.Fatal("precondition: attacker and planeswalker controller must differ")
 	}
-	if !restrictionPlayerTargetMatches(e.G, walkerTarget, 0, 0, 0, nil) {
+	if !restrictionPlayerTargetMatches(e.G, walkerTarget, 0, 0, 0, nil, walkerID) {
 		t.Fatal("Planeswalker.YouCtrl did not match the controller's battlefield planeswalker")
 	}
-	if restrictionPlayerTargetMatches(e.G, walkerTarget, 1, 0, 0, nil) {
+	if restrictionPlayerTargetMatches(e.G, walkerTarget, 1, 0, 0, nil, walkerID) {
 		t.Fatal("Planeswalker.YouCtrl matched a defender who controls no such planeswalker")
 	}
 
@@ -97,10 +97,10 @@ func TestCantAttackTargetPlaneswalkerController(t *testing.T) {
 	if e.G.Obj(vowID).AttachedTo != bear1 {
 		t.Fatalf("precondition: vow AttachedTo = %d, want the bear %d", e.G.Obj(vowID).AttachedTo, bear1)
 	}
-	if !e.attackBlocked(bear1, 0) {
+	if !e.attackBlocked(bear1, 0, 0) {
 		t.Fatal("with the vow live the enchanted bear is not blocked from attacking the vow controller, whose planeswalker the walker clause names")
 	}
-	if e.attackBlocked(bear1, 2) {
+	if e.attackBlocked(bear1, 2, 0) {
 		t.Fatal("the enchanted bear was blocked from attacking the uninvolved defender")
 	}
 	replayCheck(t, e, cfg)
@@ -135,17 +135,20 @@ func TestCantAttackWalkerOnlyTargetBindsThroughAttackBlocked(t *testing.T) {
 	if o := e.G.Obj(crowd); o == nil || o.Zone != state.ZBattlefield || faceHasType(o, "Planeswalker") {
 		t.Fatalf("precondition: the discriminator permanent is not a non-planeswalker: %+v", e.G.Obj(crowd))
 	}
-	if e.attackBlocked(bear1, 0) {
+	if e.attackBlocked(bear1, 0, 0) {
 		t.Fatal("seat 1's bear was blocked although the clause's controller controls no planeswalker")
 	}
 	walker := onBoard(t, e, 0, targetWalkerFixture)
 	if o := e.G.Obj(walker); o == nil || o.Zone != state.ZBattlefield || !faceHasType(o, "Planeswalker") || o.Controller != 0 {
 		t.Fatalf("precondition: Target Walker is not seat 0's battlefield planeswalker: %+v", e.G.Obj(walker))
 	}
-	if !e.attackBlocked(bear1, 0) {
-		t.Fatal("the walker clause did not reach attackBlocked: seat 1's bear attacked the planeswalker's controller")
+	if e.attackBlocked(bear1, 0, 0) {
+		t.Fatal("walker-only clause blocked a player attack")
 	}
-	if e.attackBlocked(bear1, 1) {
+	if !e.attackBlocked(bear1, 0, walker) {
+		t.Fatal("the walker clause did not block an attack at the planeswalker")
+	}
+	if e.attackBlocked(bear1, 1, 0) {
 		t.Fatal("seat 1's bear was blocked from the defender whose battlefield holds no clause-matching planeswalker")
 	}
 }
@@ -168,17 +171,17 @@ func TestCantAttackUnlessWalkerTargetPricesAttackCharge(t *testing.T) {
 	if o := e.G.Obj(bear1); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
 		t.Fatalf("precondition: the attacking bear is not seat 1's battlefield creature: %+v", e.G.Obj(bear1))
 	}
-	if got := e.attackPairCharge(bear1, 0); got != 0 {
+	if got := e.attackPairCharge(bear1, 0, 0).mana; got != 0 {
 		t.Fatalf("precondition: the pair was charged %d before the oathkeeper's controller controlled a planeswalker, want 0", got)
 	}
 	walker := onBoard(t, e, 0, targetWalkerFixture)
 	if o := e.G.Obj(walker); o == nil || o.Zone != state.ZBattlefield || !faceHasType(o, "Planeswalker") || o.Controller != 0 {
 		t.Fatalf("precondition: Target Walker is not seat 0's battlefield planeswalker: %+v", e.G.Obj(walker))
 	}
-	if got := e.attackPairCharge(bear1, 0); got != 1 {
-		t.Fatalf("attacking the oathkeeper's controller was charged %d, want the static's Cost$ 1 via its walker-only Target$", got)
+	if got := e.attackPairCharge(bear1, 0, walker).mana; got != 1 {
+		t.Fatalf("attacking the planeswalker was charged %d, want the static's Cost$ 1 via its walker-only Target$", got)
 	}
-	if got := e.attackPairCharge(bear1, 1); got != 0 {
+	if got := e.attackPairCharge(bear1, 1, 0).mana; got != 0 {
 		t.Fatalf("the defender whose battlefield holds no clause-matching planeswalker was charged %d, want 0", got)
 	}
 }

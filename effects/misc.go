@@ -650,7 +650,11 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			}
 			registered = true
 		default:
-			if !h.TriggerModeSupported(tr.Mode) {
+			// ChangesController is a delayed-event mode (including its
+			// remembered-object and original-controller filters), but is not
+			// a printed-trigger matcher. Admit only this explicitly handled
+			// delayed mode here; all other unknown modes remain fail-closed.
+			if tr.Mode != "ChangesController" && !h.TriggerModeSupported(tr.Mode) {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "continuous effect trigger " + tr.Mode + " unimplemented"})
 				registered = true
@@ -697,6 +701,18 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		// collects Effect-created matches through the same replMatch shape and
 		// re-checks each body's ValidToken$ per plan mint, so a registered
 		// ReplaceToken body is fully resolved there and no replaced mint is lost.
+		// Event$ AddCounter with a ReplaceCounter body is the fourth live class
+		// (Brad Boimler, Eager Ensign's tap trigger, the corpus's sole
+		// CounterReplace Effect carrier): the body is a DB$ ReplaceCounter, the
+		// same body API printed R: AddCounter lines resolve through
+		// rules/replacement.go's applyAddCounterReplacements, which collects
+		// Effect-created matches through the same replMatch shape and prices the
+		// body's Amount$ itself (ReplaceCount$CounterNum/Plus.1 -> placed+1).
+		// Nothing is discarded by the registration -- the replacement only
+		// rewrites the CounterChange amount -- so unlike the Moved class the
+		// replaced result cannot lose an object, and a body this build cannot
+		// price is skipped by the dispatcher, never read as zero. Every OTHER
+		// AddCounter body keeps its loud Note.
 		// Every OTHER Moved body (the
 		// destination-changing ChangeZone/Tap/Clone family, 44 measured
 		// files) and every Draw/ProduceMana body keeps its loud
@@ -711,7 +727,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		if body != "" && (event == "DamageDone" ||
 			(event == "Moved" && replacementBodyAPI(body) == "PutCounter") ||
 			(event == "Moved" && replacementRedirectsToExile(params, body, c.SVars)) ||
-			(event == "CreateToken" && replacementBodyAPI(body) == "ReplaceToken")) {
+			(event == "CreateToken" && replacementBodyAPI(body) == "ReplaceToken") ||
+			(event == "AddCounter" && replacementBodyAPI(body) == "ReplaceCounter")) {
 			effectContinuous(h, state.ContinuousEffect{
 				Source: c.Source, Controller: c.Controller,
 				UntilEOT: effectUntilEOT(h, c.Source, rawDur), Duration: dur,
@@ -992,7 +1009,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
 				registered = true
 			}
-		case "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCounter", "CantBlockBy", "CanAttackDefender", "UnspentMana", "CantBlockUnless", "MustBlock", "NumLoyaltyAct":
+		case "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCounter", "CantBlockBy", "CanAttackDefender", "UnspentMana", "CantBlockUnless", "CantAttackUnless", "MustBlock", "NumLoyaltyAct":
 			// A COMPOUND IsRemembered spec (Card.IsRemembered+Creature) resolves
 			// faithfully through the general filter now that it implements
 			// IsRemembered (rules/layers.go restrictionApplies consults the
@@ -1046,6 +1063,20 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				break
 			}
 			if mode == "CantBlockUnless" && !CantBlockUnlessRestrictionParamsReadable(params) {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
+				registered = true
+				break
+			}
+			if mode == "CantAttackUnless" && !CantAttackUnlessRestrictionParamsReadable(params) {
+				// The attack-prop sibling of CantBlockUnless: Sivitri, Dragon
+				// Master's +1, Forbidding Spirit, Summon: Yojimbo and War Tax
+				// deliver this body through an Effect's StaticAbilities$ entry.
+				// The delivered registration and rules' attackPairCharge
+				// consultation share this one whitelist, so the two paths cannot
+				// disagree about what is readable; a body carrying a scoping term
+				// this build does not evaluate reports unimplemented instead of
+				// registering a blanket tax.
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
 				registered = true
@@ -1736,8 +1767,10 @@ func GoadStaticGrantReadable(params map[string]string) bool {
 // effectRemembered resolves RememberObjects$ into the concrete object ids the
 // Effect captured. "Targeted"/"ParentTarget" remember the chosen targets;
 // "Remembered" (and creature-flavoured spellings) remember the objects the
-// resolution already had; "You & Targeted" and the default degrade to the
-// source plus the chosen targets. Objects only: a player-only remember yields
+// resolution already had, while "Imprinted" reads the source's persistent
+// imprint list. An ABSENT RememberObjects$ defaults to "Targeted" (the chosen
+// targets), NOT to the source; an UNRECOGNISED member contributes nothing.
+// Objects only: a player-only remember yields
 // an empty slice, which a restriction whose ValidCard$ is Card.IsRemembered
 // then applies to nothing. The player half of the same capture lives in
 // effectRememberedPlayers below.
@@ -1747,66 +1780,111 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 		ro = "Targeted"
 	}
 	var out []state.ObjID
-	for _, part := range strings.FieldsFunc(ro, func(r rune) bool {
-		return r == '&' || r == ',' || r == ' '
-	}) {
-		part = strings.TrimSpace(part)
-		switch part {
-		case "You", "Self", "Source":
-			out = append(out, c.Source)
-		case "Targeted", "ParentTarget":
-			targets := c.Targets
-			if part == "Targeted" && c.PickedTargets != nil {
-				targets = c.PickedTargets
+	for _, member := range strings.Split(ro, "&") {
+		member = strings.TrimSpace(member)
+		if member == "" {
+			continue
+		}
+		// A "Valid <filter>" member is a WHOLE member: its filter grammar uses
+		// the comma as OR (Kill Switch's "Valid Artifact.Other", the
+		// "Creature.blockedBySource,Creature.blockingSource" pair), so the
+		// comma split below must not cut it into unknown fragments. Route it
+		// through the same fail-closed resolver definedSpec uses.
+		if member == "Valid" || strings.HasPrefix(member, "Valid ") {
+			if ts, ok := knownDefinedTargets(h, c, member); ok {
+				out = appendEffectRememberedObjects(h, out, ts)
 			}
-			for _, t := range targets {
-				if !t.IsPlayer && h.Game().Obj(t.Obj) != nil {
-					out = append(out, t.Obj)
+			continue
+		}
+		for _, part := range strings.Split(member, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			switch part {
+			case "You", "Self", "Source":
+				out = append(out, c.Source)
+			case "Targeted", "ThisTargetedCard":
+				targets := c.Targets
+				if c.PickedTargets != nil {
+					targets = c.PickedTargets
 				}
-			}
-		case "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard":
-			for _, t := range c.Remembered {
-				if !t.IsPlayer && h.Game().Obj(t.Obj) != nil {
-					out = append(out, t.Obj)
-				}
-			}
-		case "ReplacedCard":
-			// The card the enclosing replacement acted on (Opposition Agent's
-			// RepExile → DBEffect: the found card the replacement just exiled
-			// is the one the may-play grant remembers). Outside a replacement
-			// (c.Replaced zero) or after the object ceased to exist, nothing.
-			if c.Replaced != 0 && h.Game().Obj(c.Replaced) != nil {
-				out = append(out, c.Replaced)
-			}
-		case "TriggeredCard", "TriggeredObject", "TriggeredObjectLKICopy":
-			// The card the firing trigger's event captured (Mistrise Village's
-			// Effect RememberObjects$ TriggeredCard: the spell the can't-be-
-			// countered promise covers). The SpellCast referent capture binds
-			// c.TriggerCard to the cast stack object; a stale id (the spell
-			// already resolved) remembers nothing, the same live-object
-			// discipline the cases above apply. TriggeredObject(LKICopy) is the
-			// same capture under the CounterPlayerAddedAll batch triggers'
-			// spelling (Rikku's RememberObjects$ TriggeredObjectLKICopy: the
-			// creature the counters landed on).
-			if c.TriggerCard != 0 && h.Game().Obj(c.TriggerCard) != nil {
-				out = append(out, c.TriggerCard)
-			}
-		case "ChosenCard":
-			// Dauthi Voidwalker and the wider ChooseCard -> Effect family do
-			// not set RememberChosen$: the chosen card lives in Ctx.Chosen, or
-			// on the event-backed source when a later ability reads it.
-			chosen := c.Chosen
-			if len(chosen) == 0 {
+				out = appendEffectRememberedObjects(h, out, targets)
+			case "ParentTarget":
+				out = appendEffectRememberedObjects(h, out, c.Targets)
+			case "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard":
+				out = appendEffectRememberedObjects(h, out, c.Remembered)
+			case "Imprinted":
+				// Effect RememberObjects$ Imprinted captures the source's persistent
+				// Dig/ChangeZone imprint list (Synth Eradicator's may-play rider).
 				if o := h.Game().Obj(c.Source); o != nil {
-					chosen = o.Chosen
+					for _, id := range o.Imprinted {
+						if h.Game().Obj(id) != nil {
+							out = append(out, id)
+						}
+					}
 				}
-			}
-			for _, t := range chosen {
-				if !t.IsPlayer && h.Game().Obj(t.Obj) != nil {
-					out = append(out, t.Obj)
+			case "ReplacedCard":
+				// The card the enclosing replacement acted on (Opposition Agent's
+				// RepExile → DBEffect: the found card the replacement just exiled
+				// is the one the may-play grant remembers). Outside a replacement
+				// (c.Replaced zero) or after the object ceased to exist, nothing.
+				if c.Replaced != 0 && h.Game().Obj(c.Replaced) != nil {
+					out = append(out, c.Replaced)
+				}
+			case "TriggeredCard", "TriggeredObject", "TriggeredObjectLKICopy":
+				// The card the firing trigger's event captured (Mistrise Village's
+				// Effect RememberObjects$ TriggeredCard: the spell the can't-be-
+				// countered promise covers). The SpellCast referent capture binds
+				// c.TriggerCard to the cast stack object; a stale id (the spell
+				// already resolved) remembers nothing, the same live-object
+				// discipline the cases above apply. TriggeredObject(LKICopy) is the
+				// same capture under the CounterPlayerAddedAll batch triggers'
+				// spelling (Rikku's RememberObjects$ TriggeredObjectLKICopy: the
+				// creature the counters landed on).
+				if c.TriggerCard != 0 && h.Game().Obj(c.TriggerCard) != nil {
+					out = append(out, c.TriggerCard)
+				}
+			case "ChosenCard":
+				// Dauthi Voidwalker and the wider ChooseCard -> Effect family do
+				// not set RememberChosen$: the chosen card lives in Ctx.Chosen, or
+				// on the event-backed source when a later ability reads it.
+				chosen := c.Chosen
+				if len(chosen) == 0 {
+					if o := h.Game().Obj(c.Source); o != nil {
+						chosen = o.Chosen
+					}
+				}
+				out = appendEffectRememberedObjects(h, out, chosen)
+			case "RememberedLKI", "TriggeredAttackerLKICopy", "TriggeredTargetLKICopy", "DelayTriggerRemembered":
+				// Object selectors this helper previously left unresolved. Each is
+				// a name definedSpec/knownDefinedTargets already resolves, so read
+				// the ONE shared resolver rather than re-deriving the referent
+				// here: RememberedLKI is the capture-excluding LKI group (never the
+				// raw Remembered slice), TriggeredTargetLKICopy prefers the Attached
+				// bearer role, TriggeredAttackerLKICopy is the trigger's captured
+				// attacker, and DelayTriggerRemembered is the delayed
+				// registration's own capture. knownDefinedTargets is fail-closed: an
+				// unrecognised spelling answers ok=false and contributes nothing.
+				if ts, ok := knownDefinedTargets(h, c, part); ok {
+					out = appendEffectRememberedObjects(h, out, ts)
 				}
 			}
 		}
+	}
+	return out
+}
+
+// appendEffectRememberedObjects appends the live object entries of ts to out,
+// dropping player targets, the zero id and any id no longer in the game.
+// effectRemembered records objects only, and a missing or stale referent must
+// contribute nothing rather than the source or a guessed id.
+func appendEffectRememberedObjects(h Host, out []state.ObjID, ts []state.Target) []state.ObjID {
+	for _, t := range ts {
+		if t.IsPlayer || t.Obj == 0 || h.Game().Obj(t.Obj) == nil {
+			continue
+		}
+		out = append(out, t.Obj)
 	}
 	return out
 }
@@ -1855,7 +1933,11 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 				}
 			}
 		case "TargetedOrController":
-			for _, t := range c.Targets {
+			targets := c.Targets
+			if c.PickedTargets != nil {
+				targets = c.PickedTargets
+			}
+			for _, t := range targets {
 				if t.IsPlayer {
 					add(t.Player)
 				} else if o := h.Game().Obj(t.Obj); o != nil {
@@ -2291,6 +2373,37 @@ func CantBlockUnlessRestrictionParamsReadable(params map[string]string) bool {
 		switch k {
 		case "Mode", "ValidCard", "Attacker", "Cost", "Description", "Secondary",
 			"IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition":
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// CantAttackUnlessRestrictionParamsReadable is the parameter whitelist a
+// CantAttackUnless static must pass before this build enforces it -- used by
+// BOTH delivery routes that can register one (effEffect's restriction case
+// and registerAnimateStaticAbilities' staticAbilities$ grant) AND by rules'
+// attackPairCharge pricing read, so the three cannot disagree about what is
+// readable. The readable parameters are the mode, the two combat specs the
+// attack-prop reader resolves (ValidCard$ against the attacking creature,
+// Target$ against the defending player/planeswalker -- the same list
+// restrictionPlayerTargetMatches reads), the Cost$ the reader prices
+// (rules' attackUnlessCharge), the gate parameters the shared
+// continuousGateHolds grammar evaluates, RememberingAttacker$ (which binds
+// the attacking creature into the pricing SVar context), and display text
+// (Description$ and the TriggerDescription$ an oracle-triggered DB$ Effect
+// body writes -- Sivitri's SVar carries TriggerDescription$, not
+// Description$). A static carrying any other parameter names a condition or
+// scoping this build does not evaluate -- enforcing it blanket would
+// OVER-restrict, the permissive direction for a restriction -- so it is
+// reported unimplemented instead.
+func CantAttackUnlessRestrictionParamsReadable(params map[string]string) bool {
+	for k := range params {
+		switch k {
+		case "Mode", "ValidCard", "Target", "Cost", "Description", "TriggerDescription", "Secondary", "Attacker",
+			"IsPresent", "IsPresent2", "CheckSVar", "SVarCompare", "Condition",
+			"RememberingAttacker":
 		default:
 			return false
 		}
@@ -3009,12 +3122,18 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 		if turnUp {
 			if o.Card != nil && o.Zone == state.ZBattlefield && o.FaceDown {
 				h.Emit(events.Event{Kind: events.TurnFaceUp, Obj: o.ID})
+				setstateRememberChanged(c, sa, o.ID)
 			}
 			continue
 		}
 		if turnDown {
 			if o.Zone == state.ZBattlefield && !o.FaceDown {
-				h.Emit(events.Event{Kind: events.TurnFaceDown, Obj: o.ID})
+				setType := strings.TrimSpace(sa.Params["FaceDownSetType"])
+				power, hasPower := NumResolved(h, c, sa, "FaceDownPower", 0)
+				toughness, hasToughness := NumResolved(h, c, sa, "FaceDownToughness", 0)
+				h.Emit(events.Event{Kind: events.TurnFaceDown, Obj: o.ID,
+					Counter: events.FaceDownEntryCounterFor(setType, power, toughness, hasPower || hasToughness)})
+				setstateRememberChanged(c, sa, o.ID)
 			}
 			continue
 		}
@@ -3031,6 +3150,7 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Note, Obj: o.ID,
 				Text: "flips to face 0 (Unspecialize)"})
 			h.Emit(events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: 0})
+			setstateRememberChanged(c, sa, o.ID)
 			continue
 		}
 		if o.Card == nil || len(o.Card.Faces) < 2 {
@@ -3040,6 +3160,24 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: o.ID,
 			Text: "flips to face " + strconv.Itoa(next) + " (" + mode + ")"})
 		h.Emit(events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: int32(next)})
+		setstateRememberChanged(c, sa, o.ID)
+	}
+}
+
+// setstateRememberChanged honours a SetState body's RememberChanged$ True: each
+// object the loop above actually emitted a face change for joins the
+// resolution's Remembered, where the chained SubAbility$ reads it -- Megatron,
+// Tyrant's DBMana (ConditionDefined$ Remembered), Soul Seizer's DB$ Attach, the
+// Enduring Angel lose-game gate, Lukamina's DBReturn. It is the Dig precedent,
+// digRemember (cardflow.go), and it is Ctx-only, never the persistent
+// eventRemember half: every measured consumer reads the list inside the same
+// chain and each of those chains ends in ClearRemembered$ True. Absent the
+// parameter (the corpus default) the walk adds nothing, so every pre-existing
+// game replays byte-identically. Decline and no-op paths never reach an emit,
+// so they remember nothing -- Forge remembers the objects whose state CHANGED.
+func setstateRememberChanged(c *Ctx, sa *cards.SA, id state.ObjID) {
+	if strings.EqualFold(strings.TrimSpace(sa.Params["RememberChanged"]), "True") {
+		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
 }
 
@@ -5309,7 +5447,7 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool)
 	for unit := 0; unit < max; unit++ {
 		for _, colour := range colours {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana",
-				Label: "Add " + colour, Obj: c.Source, Player: chooser})
+				Label: "Add " + colour, ManaSymbol: colour, Obj: c.Source, Player: chooser})
 		}
 	}
 	if Ask(h, d) == AskAsked {
@@ -5559,7 +5697,18 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// provenance, so spendability and the later trigger attribution compose.
 	// The spend path dispatches the named rider after the payment completes.
 	triggersWhenSpent := strings.TrimSpace(sa.Params["TriggersWhenSpent"])
-	provenanceOnly := triggersWhenSpent != "" && restriction == "" && noCounter == ""
+	// AddsCounters$ (Opal Palace's "If you spend this mana to cast your
+	// commander, it enters with ... counters", Biophagus, Animal Attendant,
+	// Guildmages' Forum: 4 corpus files) is retained the same way: rules'
+	// entry-counter plan re-reads the rider from the producing source's face
+	// at the cast spell's battlefield entry, and the source rides the
+	// batch's provenance text -- so a rider with no RestrictValid$ still
+	// needs a source-bearing batch, which the provenanceOnly gate emits.
+	// The rider string itself is not decoded here (the plan owns the
+	// grammar); an absent or empty value is not a rider and produces ordinary
+	// mana, the fail-closed direction.
+	addsCounters := strings.TrimSpace(sa.Params["AddsCounters"])
+	provenanceOnly := (triggersWhenSpent != "" || addsCounters != "") && restriction == "" && noCounter == ""
 	for _, p := range ManaRecipients(h, c, sa) {
 		var emitted [256]bool
 		for _, r := range runes {
@@ -5596,6 +5745,12 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 			} else if provenanceOnly {
 				ev.Text = events.ManaRestrictionText("", c.Source)
 			}
+			// AddsCounters$ rides the SAME provenance encoding as the restriction
+			// (the " ac=" segment ManaAddsCountersText appends), so a replay
+			// rebuilds the batch with the producing ABILITY's rider snapshot.
+			// Composes with a restriction and with AddsNoCounter$; empty for
+			// every non-rider ability, keeping those events byte-identical.
+			ev.Text = events.ManaAddsCountersText(ev.Text, addsCounters)
 			if persistent {
 				ev.Text = events.ManaPersistentText(ev.Text)
 			}

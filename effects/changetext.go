@@ -23,11 +23,15 @@ func init() {
 }
 
 // textChangeDuration resolves a ChangeText/ExchangeTextBox Duration$ into the
-// ContinuousEffect timing flags. ChangeText's Forge default is Permanent
-// ("This effect lasts indefinitely" on the corpus's reminders); an absent
-// ExchangeTextBox duration is instead source-scoped (the exchanged boxes are
-// the objects' own while both remain), which is the same lifetime
-// `Duration$ AsLongAsInPlay` names.
+// ContinuousEffect timing flags. Both primitives share Forge's default: an
+// absent Duration$ is a Permanent (indefinite) change, exactly as a
+// ChangeText with no duration is (CR 611.2a -- an effect with no stated
+// duration lasts until the end of the game). The corpus's Exchange of Words
+// spells its source-scoping OUT LOUD (`Duration$ AsLongAsInPlay`), which is
+// what `aslongasinplay` below resolves; treating the ABSENT parameter as
+// source-scoped would silently shorten a change the card did not bound. Both
+// halves of an exchange also end when the object carrying them leaves the
+// battlefield, through registerTextSet's ExileOnMoved/Remembered discipline.
 func textChangeDuration(dur string, absentPermanent bool) (permanent, untilEOT bool) {
 	switch strings.ToLower(strings.TrimSpace(dur)) {
 	case "":
@@ -282,31 +286,57 @@ func effExchangeTextBox(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	// CR 612.1: the boxes exchanged are the objects' text AS THEY EXIST at
-	// resolution, so each side's CURRENT derived text is captured (a prior
-	// ChangeText substitution on either object is carried across), not the
-	// printed Oracle. Reading both before registering either keeps the
-	// capture independent of this effect's own registrations.
+	// resolution, so each side's CURRENT derived text AND keywords are
+	// captured (a prior ChangeText substitution on either object is carried
+	// across), not the printed Oracle. Reading both before registering either
+	// keeps the capture independent of this effect's own registrations. A
+	// text box is text plus abilities (CR 612.1), so the keyword half of each
+	// box travels with its text half.
 	textA, textB := h.ObjectText(oa), h.ObjectText(ob)
-	registerTextSet(h, c, a, textB, sa.Params["Duration"])
-	registerTextSet(h, c, b, textA, sa.Params["Duration"])
+	kwA, kwB := h.ObjectKeywords(oa), h.ObjectKeywords(ob)
+	registerTextSet(h, c, a, textB, kwB, sa.Params["Duration"])
+	registerTextSet(h, c, b, textA, kwA, sa.Params["Duration"])
 }
 
-// registerTextSet registers one layer-3 TextSet (an outright text replacement)
-// on id, with the same lifetime discipline as registerTextSubstitution.
-func registerTextSet(h Host, c *Ctx, id state.ObjID, text, dur string) {
-	permanent, untilEOT := textChangeDuration(dur, false)
+// registerTextSet registers one exchanged text box on id: a layer-3 TextSet
+// (the outright text replacement) plus a layer-6 companion that wipes the
+// object's own keywords and grants the OTHER box's keywords. The two share
+// one lifetime so the text and ability halves of the box expire together.
+// keywordGrant is the partner's derived keyword list captured at resolution;
+// it is copied into the effect so a later re-derivation of the partner cannot
+// mutate this registration (state.ContinuousEffect is rebuilt by re-execution
+// on replay, never aliased from live scratch).
+func registerTextSet(h Host, c *Ctx, id state.ObjID, text string, keywordGrant []string, dur string) {
+	permanent, untilEOT := textChangeDuration(dur, true)
 	ce := state.ContinuousEffect{
-		Source: id, Affects: "Card.Self", Controller: c.Controller,
-		Layer: state.LText, TextSet: text,
+		Source: id, DurationSource: c.Source, Affects: "Card.Self", Controller: c.Controller,
+		Layer: state.LText, TextSet: text, TextSetSet: true,
 		Duration: dur, Permanent: permanent, UntilEOT: untilEOT,
+	}
+	// CR 612.1 / 613.1f: the swapped box's keyword half. RemoveAbilities
+	// clears the object's own printed keywords (and any earlier layer-6
+	// grant), then AddKeywords appends the partner's captured list, so
+	// Derived.Keywords -- and every e.HasKeyword read -- answers the OTHER
+	// box for the effect's lifetime. Layer 6 is strictly later than the
+	// layer-3 TextSet above, so the text and keyword halves never disagree.
+	// NOTE: this exchanges keywords, not ACTIVATED/TRIGGERED abilities, which
+	// the engine still enumerates off the printed face (the same limitation
+	// that keeps a Humility'd creature's triggered abilities firing); that
+	// remainder is documented in the ticket report, not silently claimed.
+	ceAbilities := state.ContinuousEffect{
+		Source: id, DurationSource: c.Source, Affects: "Card.Self", Controller: c.Controller,
+		Layer: state.LAbilities, RemoveAbilities: true,
+		AddKeywords: append([]string(nil), keywordGrant...),
+		Duration:    dur, Permanent: permanent, UntilEOT: untilEOT,
 	}
 	if permanent {
 		if o := h.Game().Obj(id); o != nil {
 			if w := ZoneWord(o.Zone); w != "" {
-				ce.ExileOnMoved = w
-				ce.Remembered = []state.ObjID{id}
+				ce.ExileOnMoved, ce.Remembered = w, []state.ObjID{id}
+				ceAbilities.ExileOnMoved, ceAbilities.Remembered = w, []state.ObjID{id}
 			}
 		}
 	}
 	h.AddContinuous(ce)
+	h.AddContinuous(ceAbilities)
 }

@@ -57,9 +57,13 @@ const incubatorTokenKey = "incubator_c_0_0_a_phyrexian"
 // degrade effToken uses for an unknown TokenScript$.
 //
 // The mint is the ordinary TokenCreate event (so token-replacement
-// machinery -- Doubling Season, Academy Manufactor -- sees it exactly as it
+// machinery -- Doubling Season, Anointed Procession -- sees it exactly as it
 // sees every other mint) and the counters are the ordinary CounterChange
-// event, the same two-event shape effAmass uses for its Army.
+// event. Because a CreateToken replacement can rewrite one would-be token
+// into several mints, the mint goes through h.EmitTokenCreate and the
+// counters land on EVERY mint the plan produced, not just the first: each
+// mint's CounterChange is its own event, so an AddCounter replacement
+// doubles that mint's counters independently (CR 614.5/616.1e).
 func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 	if rest := resumingMint(c, sa); rest != nil && len(rest.Players) == 1 {
 		// A repeat's mint parked behind a CR 616.1 order ask and the
@@ -110,56 +114,84 @@ func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 // parked (on a TokenRest re-entry) is what the answer minted for repeat
 // start, whose mint parked the resolution behind a CR 616.1 order ask; a
 // repeat whose mint parks hands the rest of the loop to the host the same
-// way. The counters land on the repeat's first minted object, as they
-// always have.
+// way. EmitTokenCreate returns EVERY object the emit created -- an ordinary
+// emit the single mint, a CreateToken replacement the whole rewritten plan
+// (Doubling Season's pair, Anointed Procession's pair) -- so the counters
+// land on every mint the resolution actually produced: before the park, and
+// on the re-entry alike.
 func incubateLoop(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, key string, n, times int32, start int32, parked []state.ObjID, countered bool) {
 	g := h.Game()
 	for i := start; i < times; i++ {
-		want := g.NextID
 		if parked != nil && i == start {
-			if countered {
-				// The repeat's first mint landed (and took its counters)
-				// before the rest of its plan parked; the answer only
-				// finished the plan.
-				continue
-			}
+			// The parked repeat: the answer minted it (or the rest of its
+			// rewritten plan), so its counters are owed. A repeat whose
+			// first mints landed and took their counters before the park
+			// (Minted, countered) owes only what the answer minted.
 			if len(parked) == 0 {
-				return
-			}
-			want = parked[0]
-		} else {
-			wasSuspended := h.Suspended()
-			minted := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
-			if !wasSuspended && h.Suspended() {
-				// The mint parked the resolution. A repeat whose first mint
-				// already landed counters it now; the rest of the loop
-				// resumes after the answer either way, so no later repeat
-				// is logged ahead of this one's parked mints.
-				var landed []state.ObjID
-				if len(minted) > 0 && g.Obj(want) != nil {
-					if n > 0 {
-						h.Emit(events.Event{Kind: events.CounterChange, Obj: want,
-							Counter: "P1P1", Amount: n})
-					}
-					landed = []state.ObjID{want}
-				}
-				if suspendMint(h, c, TokenRest{SA: sa, Next: int(i), Minted: landed, Players: []state.PlayerID{owner},
-					Script: key, Amount: n, Count: times}) {
-					return
-				}
-				if len(landed) > 0 {
+				if countered {
+					// The repeat's mints landed (and took their counters)
+					// before the rest of its plan parked, and the answer
+					// minted nothing more.
 					continue
 				}
+				// Nothing landed and the answer minted nothing: the plan
+				// rounded to zero; stopping the repeat keeps the loop
+				// total.
+				return
 			}
+			for _, want := range parked {
+				if g.Obj(want) == nil {
+					continue
+				}
+				if n > 0 {
+					h.Emit(events.Event{Kind: events.CounterChange, Obj: want,
+						Counter: "P1P1", Amount: n})
+				}
+			}
+			continue
 		}
-		if o := g.Obj(want); o == nil {
+		wasSuspended := h.Suspended()
+		minted := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
+		if !wasSuspended && h.Suspended() {
+			// The mint parked the resolution behind a replacement-order ask.
+			// Every mint that landed takes its counters now (each its own
+			// event, so an AddCounter replacement doubles it independently),
+			// and the rest of the loop -- this repeat's remaining mints and
+			// the repeats after it -- resumes with the answer, so no later
+			// repeat is logged ahead of this one's parked mints.
+			var landed []state.ObjID
+			for _, id := range minted {
+				if g.Obj(id) == nil {
+					continue
+				}
+				if n > 0 {
+					h.Emit(events.Event{Kind: events.CounterChange, Obj: id,
+						Counter: "P1P1", Amount: n})
+				}
+				landed = append(landed, id)
+			}
+			if suspendMint(h, c, TokenRest{SA: sa, Next: int(i), Minted: landed, Players: []state.PlayerID{owner},
+				Script: key, Amount: n, Count: times}) {
+				return
+			}
+			if len(landed) > 0 {
+				continue
+			}
+			return
+		}
+		if len(minted) == 0 {
 			// The mint folded nowhere (an invalid owner): nothing to
 			// counter, and stopping the repeat keeps the loop total.
 			return
 		}
-		if n > 0 {
-			h.Emit(events.Event{Kind: events.CounterChange, Obj: want,
-				Counter: "P1P1", Amount: n})
+		for _, want := range minted {
+			if g.Obj(want) == nil {
+				continue
+			}
+			if n > 0 {
+				h.Emit(events.Event{Kind: events.CounterChange, Obj: want,
+					Counter: "P1P1", Amount: n})
+			}
 		}
 	}
 }

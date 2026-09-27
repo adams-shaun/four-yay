@@ -21,41 +21,42 @@ beforeAll(async () => {
  * server.
  */
 describe('PromptSurface', () => {
-  it('a required prompt is visible and answerable with the ACTIONS dropdown closed', async () => {
+  it('attaches a required prompt below ACTIONS and answers it there', async () => {
     const page = await browser.newPage();
     await page.goto(`${url}src/components/PromptSurface.fixture.html`);
 
-    const prompt = page.locator('[data-answer-surface] [data-prompt]');
+    const tab = page.locator('[data-hot-tab="actions"]');
+    const panel = page.locator('#hot-panel-actions [data-answer-surface]');
+    const prompt = panel.locator('[data-prompt]');
+    expect(await tab.getAttribute('aria-expanded')).toBe('true');
+    expect(await panel.count()).toBe(1);
     expect(await prompt.isVisible()).toBe(true);
     expect(await prompt.textContent()).toContain('Choose a target');
-    // The prompt surface is NOT inside the (closed) ACTIONS drop: it is its
-    // own mount on the board. The drop's own panel — the strip's copy — is a
-    // different element, so this count is 0.
-    expect(await page.locator('#hot-panel-actions [data-answer-surface]').count()).toBe(0);
-    // And the board surface's option list is reachable right there: the seat
-    // can answer without ever opening the dropdown.
-    const option = page.locator('[data-answer-surface] [data-option="0"]');
+    const tabBox = await tab.boundingBox();
+    const panelBox = await panel.boundingBox();
+    expect(tabBox).not.toBeNull();
+    expect(panelBox).not.toBeNull();
+    expect(panelBox!.y).toBeGreaterThanOrEqual(tabBox!.y + tabBox!.height - 1);
+
+    const option = panel.locator('[data-option="0"]');
     expect(await option.isVisible()).toBe(true);
     await option.click();
-    // Answered: the surface drops the DECISION (it stays mounted for the
-    // waiting state), so nothing is left to answer on it. The post is async,
-    // so wait for the option list to drop rather than racing it.
-    await page.waitForFunction(() => document.querySelectorAll('[data-answer-surface] [data-option]').length === 0);
-
+    await page.waitForFunction(() => document.querySelectorAll('#hot-panel-actions [data-option]').length === 0);
     await page.close();
   });
 
-  it('an initiative decision keeps the ACTIONS drop free of the option list (the prompt/action split)', async () => {
+  it('keeps an initiative decision open until it is answered', async () => {
     const page = await browser.newPage();
     await page.goto(`${url}src/components/PromptSurface.fixture.html`);
 
-    // The drop's SeatPanel names the prompt as living on the board and offers
-    // no second posting route for it.
-    expect(await page.locator('[data-strip-pointer]').count()).toBe(1);
-    expect(await page.locator('#hot-panel-actions [data-option]').count()).toBe(0);
-    // The board surface carries the options.
-    expect(await page.locator('[data-answer-surface] [data-option]').count()).toBe(1);
-
+    const tab = page.locator('[data-hot-tab="actions"]');
+    const panel = page.locator('#hot-panel-actions [data-answer-surface]');
+    expect(await page.locator('[data-strip-pointer]').count()).toBe(0);
+    expect(await panel.locator('[data-option]').count()).toBe(1);
+    await tab.hover();
+    await page.mouse.move(10, 500);
+    await page.waitForTimeout(250);
+    expect(await tab.getAttribute('aria-expanded')).toBe('true');
     await page.close();
   });
 });
@@ -531,11 +532,10 @@ describe('the discard-pick card-face row (fb-20260914T120705Z)', () => {
     await detail.waitFor({ state: 'visible', timeout: 5_000 });
     expect(await detail.textContent()).toContain('Fabled Pass');
 
-    // The strip (the ACTIONS drop's copy) still bounces this initiative-tone
-    // ask to the board: the pointer text shows there and no second option
-    // surface duplicates the row.
-    expect(await page.locator('#hot-panel-actions [data-strip-pointer]').count()).toBe(1);
-    expect(await page.locator('#hot-panel-actions [data-option]').count()).toBe(0);
+    // The card row lives in the ACTIONS-anchored response surface. There is
+    // no second board overlay for this initiative decision.
+    expect(await page.locator('#hot-panel-actions [data-strip-pointer]').count()).toBe(0);
+    expect(await page.locator('#hot-panel-actions [data-option]').count()).toBe(4);
 
     // The posting path is unchanged: Min == Max == 1, so the click IS the
     // answer — the same [index] intent the text list posted.

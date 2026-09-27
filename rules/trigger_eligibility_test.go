@@ -142,6 +142,12 @@ func TestTriggerEventInterestMapping(t *testing.T) {
 			// matcher) and past the mask's reach, so the conservative
 			// catch-all is the honest mapping (the Investigate shape).
 			want = cards.TriggerInterestAny
+		case events.Specialize:
+			// agent-20260925T053724Z-5196df96: the specialize marker is
+			// trigger-relevant (Mode$ Specializes matches it through the full
+			// matcher) and past the mask's reach, so the conservative
+			// catch-all is the honest mapping (the TurnFaceUp shape).
+			want = cards.TriggerInterestAny
 		case events.SearchedLibrary:
 			// trig-searched-library: the completed-search marker is
 			// trigger-relevant (trig:SearchedLibrary matches it through the

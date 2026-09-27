@@ -34,4 +34,32 @@ type ManaRestriction struct {
 	// phantom. The pm Text suffix on the producing ManaAdd event is what
 	// sets it, so a replay derives it identically.
 	Persistent bool
+	// AddsCounters is the producing mana ability's AddsCounters$ rider value
+	// (Opal Palace, Biophagus, Animal Attendant, Guildmages' Forum) captured
+	// at PRODUCTION, when the ability is still the one that produced these
+	// units: "if you spend this mana to cast [a matching spell], it enters
+	// with additional counters". It is part of the batch provenance — the
+	// mana-restriction Text's " ac=" segment — precisely so that the rider a
+	// spent unit carries is the PRODUCING ABILITY's snapshot, never a
+	// re-read of the source permanent's current face (a copied, modified or
+	// text-changed permanent can gain or lose a rider between payment and
+	// the spell's entry). Empty for every batch whose ability has no rider
+	// and for every historical batch, so the encoding stays byte-identical.
+	AddsCounters string
+}
+
+// ManaAddsCounterGrant is one AddsCounters$ mana-spend rider grant a cast
+// earned: the resolved rider of the producing ABILITY -- Filter (a Forge
+// spec), Kind (the counter kind, e.g. "P1P1") and Amount (an integer literal
+// or the SVar BODY resolved to the producing source's table at the cast's
+// payment) -- plus Count, how many of that ability's mana units the payment
+// spent. rules' entry-counter plan evaluates Amount once per unit at the
+// spell's battlefield entry; the rider itself is never re-read from the
+// source's face, so a source that is copied, modified or loses the ability
+// before entry cannot change the grant.
+type ManaAddsCounterGrant struct {
+	Filter string
+	Kind   string
+	Amount string
+	Count  int32
 }

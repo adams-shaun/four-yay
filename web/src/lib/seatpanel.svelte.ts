@@ -1,4 +1,4 @@
-import type { Decision, Intent, Option, View } from '../protocol';
+import type { Decision, Intent, Option, PaymentAction, PaymentPlan, View } from '../protocol';
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
 import type { SeatCtx } from './seat';
@@ -151,6 +151,21 @@ export function primaryOf(d: Decision): Option | null {
 
 export function isConcede(o: Option): boolean {
   return o.kind === 'concede';
+}
+
+/** paymentActionForBase keeps the additive payment offer attached to its
+ * legacy cast.  It deliberately compares the wire index, never display text:
+ * labels are presentation and may change without changing the action. */
+export function paymentActionForBase(d: Decision, index: number): PaymentAction | undefined {
+  return d.payment_actions?.find((action) => action.base_option_index === index);
+}
+
+/** paymentPlanSummary is presentation only.  The offered witness remains the
+ * value sent to the server; this string never participates in selection. */
+export function paymentPlanSummary(plan: PaymentPlan): string {
+  if (plan.activations.length === 0) return 'Use floating mana';
+  const produced = plan.activations.flatMap((step) => step.produces.map((n, i) => n > 0 ? `${n > 1 ? n : ''}${['W', 'U', 'B', 'R', 'G', 'C'][i]}` : '').filter(Boolean));
+  return `Tap ${plan.activations.length} ${plan.activations.length === 1 ? 'source' : 'sources'} for ${produced.join(' + ') || 'mana'}`;
 }
 
 /** optionAt resolves a wire option by its own index, never by array position (R-E4-1). */
@@ -543,6 +558,21 @@ export class SeatPanelState {
   /** error surfaces a rejected intent — never swallowed (a stale seq must be seen and recovered from, not silently dropped). */
   error = $state<string | null>(null);
   busy = $state(false);
+  /** Auto-pay is intentionally local to this seat-panel instance.  Unlike
+   * play settings it is not persisted, so a different seat or match starts
+   * manual and toggling cannot send an engine intent. */
+  autoPayMana = $state(false);
+  /** Set from the table's explicit auto_mana capability. */
+  autoManaAvailable = $state(false);
+
+  setAutoManaAvailable(on: boolean) {
+    this.autoManaAvailable = on;
+    if (!on) this.autoPayMana = false;
+  }
+
+  setAutoPayMana(on: boolean) {
+    this.autoPayMana = this.autoManaAvailable && on;
+  }
 
   // ---- autopilot ------------------------------------------------------
   //
@@ -1382,6 +1412,8 @@ export class SeatPanelState {
     | null {
     const d = this.pending;
     if (d === null) return null;
+    // Auto-pay changes the witness used for an explicit cast only. It must
+    // not alter Auto/Manual or empty-window pass policy.
     // The undo pause owns the whole classification: while it holds, neither
     // auto, nor the empty-window floor, nor a one-shot run passes anything.
     // It must gate HERE, before the autoOn split below, not only on the
@@ -1416,6 +1448,7 @@ export class SeatPanelState {
       // main-phase floor. Persistent Auto keeps the default (the floor
       // applies); ffwd never reaches here.
       skipOwnTurnFloor: this.oneShot !== 'none',
+      autoManaAvailable: this.autoManaAvailable,
     });
     if (verdict.act === 'stop') return verdict;
     const kind: Exclude<AutoPassKind, 'act'> = this.oneShot === 'end-turn'
@@ -1627,7 +1660,7 @@ export class SeatPanelState {
     const d = this.pending;
     const autoOn = this.auto && !this.machinePaused;
     if (d === null || !this.actPass || autoOn || this.oneShot !== 'none') return null;
-    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields });
+    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoManaAvailable: this.autoManaAvailable });
     return verdict.act === 'pass' ? { ...verdict, kind: 'act', reason: 'no-stop-rule' } : null;
   }
 
@@ -1917,6 +1950,18 @@ export class SeatPanelState {
     if (d === null || d.seq === this.postedSeq || this.busy) return;
     const opt = optionAt(d, index);
     if (opt === undefined) return;
+    // Card/ordinary-option clicks share this path.  Auto-pay changes only
+    // this one submission; it never changes the pending decision or an
+    // already in-flight request.
+    if (this.autoPayMana && opt.kind === 'cast') {
+      const action = paymentActionForBase(d, index);
+      const plan = action?.plans[0];
+      if (action !== undefined && plan !== undefined) {
+        this.handAnswer();
+        this.submitPayment(action, plan, opts?.holdPriority ?? false);
+        return;
+      }
+    }
     if (isConcede(opt)) {
       // Concede is not an action: it never arms pass-after-acting, and an
       // ALREADY armed token must die here — the seat's next priority window
@@ -2065,6 +2110,22 @@ export class SeatPanelState {
     void this.post([...this.picked], holdPriority, undefined, true);
   }
 
+  /** submitPayment posts exactly one offered witness.  Looking it up again on
+   * the current pending decision makes stale buttons inert after a seq swap,
+   * and busy makes double-clicks inert while the request is in flight. */
+  submitPayment(action: PaymentAction, plan: PaymentPlan, holdPriority = false) {
+    const d = this.pending;
+    if (d === null || d.seq === this.postedSeq || this.busy || d.kind !== 'priority') return;
+    const offered = d.payment_actions?.find((candidate) => candidate.id === action.id);
+    const offeredPlan = offered?.plans.find((candidate) => candidate.id === plan.id);
+    // The button closes over the offered objects for one decision.  Refusing
+    // a previous decision's otherwise-identical IDs prevents a delayed click
+    // from attaching that witness to a new Seq.
+    if (offered === undefined || offered !== action || offeredPlan === undefined || offeredPlan !== plan) return;
+    this.handAnswer();
+    void this.post([], holdPriority, undefined, true, { action_id: offered.id, plan: offeredPlan });
+  }
+
   /**
    * continueEmpty is the Pending tray's empty-answer safety net (the Squadron
    * Hawk fail-to-find soft-lock; see lib/prompt stuckDecision): a pending
@@ -2081,7 +2142,7 @@ export class SeatPanelState {
     this.submit();
   }
 
-  private async post(choices: number[], holdPriority = false, rest?: number[], hand = false) {
+  private async post(choices: number[], holdPriority = false, rest?: number[], hand = false, payment?: Intent['payment']) {
     const d = this.pending;
     if (d === null || this.busy) return;
     this.busy = true;
@@ -2090,7 +2151,7 @@ export class SeatPanelState {
     const options = choices.map((index) => ({ index, kind: d.options.find((option) => option.index === index)?.kind ?? 'unknown' }));
     clientBreadcrumbs.record('intent_sent', { decision_kind: d.kind, seq: d.seq, choices: options });
     try {
-      await postIntent(this.table, this.match, { seq: d.seq, player: d.player, choices, ...(rest?.length ? { rest } : {}) } satisfies Intent, this.ctx);
+      await postIntent(this.table, this.match, { seq: d.seq, player: d.player, choices, ...(rest?.length ? { rest } : {}), ...(payment ? { payment } : {}) } satisfies Intent, this.ctx);
       // A rewind (or match boundary) landed while the post was in flight:
       // the response describes a seq space the client discarded. Touch
       // nothing — the restored decision, which can carry the SAME seq, must

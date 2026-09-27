@@ -117,6 +117,50 @@ func TestAFinishedMatchIsServedFromDiskAfterRestart(t *testing.T) {
 	}
 }
 
+// A play-vs-bot credential is process-local. Keeping its one-shot table in
+// tables.json after that process exits can neither resume the player nor
+// safely re-authorize them; it only makes the next lobby grow one card per
+// abandoned game. Normal hosted tables remain durable alongside it.
+func TestRestartDropsOnDemandVsBotTablesAndMigratesLegacyShape(t *testing.T) {
+	dir := t.TempDir()
+	r, err := New(diskOptions(t, dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.AddTable(fourSeatTable("t1", false)); err != nil {
+		t.Fatal(err)
+	}
+	for _, cfg := range []TableConfig{
+		{ID: "g1", Name: "Play vs bot (constructed)", Seats: 2, Decks: []string{"a", "b"}, Seed: 1,
+			PlayerNames: []string{"You", "Bot"}, Spectator: view.Omniscient, Humans: []int{0}}, // pre-marker deployment
+		{ID: "g2", Name: "Play vs bot (constructed)", Seats: 2, Decks: []string{"a", "b"}, Seed: 2,
+			PlayerNames: []string{"You", "Bot"}, Spectator: view.Omniscient, Humans: []int{0}, OnDemand: true},
+	} {
+		if err := r.AddTable(cfg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err = New(diskOptions(t, dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if got := r.Tables(); len(got) != 1 || got[0].ID != "t1" {
+		t.Fatalf("restored tables = %+v, want only durable t1", got)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "tables.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"g1"`) || strings.Contains(string(raw), `"g2"`) {
+		t.Fatalf("restart retained disposable game configs:\n%s", raw)
+	}
+}
+
 func TestBotPolicyPersistsItsNormalizedDefaultAndRejectsUnknownRestore(t *testing.T) {
 	dir := t.TempDir()
 	r, err := New(diskOptions(t, dir))
@@ -150,6 +194,78 @@ func TestBotPolicyPersistsItsNormalizedDefaultAndRejectsUnknownRestore(t *testin
 	}
 	if _, err := New(diskOptions(t, dir)); err == nil || !strings.Contains(err.Error(), `unknown bot policy "random"`) {
 		t.Fatalf("restoring unknown policy error = %v", err)
+	}
+}
+
+func TestLegacyBotAutoPayManaUsesRestoreDefaultButExplicitFalsePersists(t *testing.T) {
+	dir := t.TempDir()
+	o := diskOptions(t, dir)
+	r, err := New(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.AddTable(TableConfig{ID: "t1", Seats: 2, Decks: []string{"a", "b"}, Spectator: view.Public, BotAutoPayMana: false}); err != nil {
+		r.Close()
+		t.Fatal(err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(dir, "tables.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"bot_auto_pay_mana": false`) {
+		t.Fatalf("current false setting was omitted from tables.json:\n%s", raw)
+	}
+
+	// A current explicit false stays false even when a server's startup
+	// default is true.
+	restored := diskOptions(t, dir)
+	restored.DefaultBotAutoPayMana = true
+	r, err = New(restored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.mu.RLock()
+	explicit := r.tables["t1"].cfg.BotAutoPayMana
+	r.mu.RUnlock()
+	if explicit {
+		r.Close()
+		t.Fatal("explicit persisted bot auto mana false was replaced by restore default")
+	}
+	r.Close()
+
+	// Remove the key to model a tables.json written before payment plans.
+	var legacy struct {
+		Tables []struct {
+			Config map[string]json.RawMessage `json:"config"`
+			Match  int                        `json:"match"`
+		} `json:"tables"`
+	}
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	delete(legacy.Tables[0].Config, "bot_auto_pay_mana")
+	raw, err = json.MarshalIndent(legacy, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(raw, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, err = New(restored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	r.mu.RLock()
+	migrated := r.tables["t1"].cfg.BotAutoPayMana
+	r.mu.RUnlock()
+	if !migrated {
+		t.Fatal("legacy table did not adopt DefaultBotAutoPayMana on restore")
 	}
 }
 

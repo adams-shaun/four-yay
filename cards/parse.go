@@ -36,8 +36,11 @@ func ParseBytes(path string, src []byte) (*Card, []Diag) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if line == "ALTERNATE" {
+		if line == "ALTERNATE" || strings.HasPrefix(line, "SPECIALIZE:") {
 			cur = newFace()
+			if color, ok := strings.CutPrefix(line, "SPECIALIZE:"); ok {
+				cur.SpecializeColor = color
+			}
 			c.Faces = append(c.Faces, cur)
 			continue
 		}
@@ -81,6 +84,14 @@ func ParseBytes(path string, src []byte) (*Card, []Diag) {
 			cur.Oracle = val
 		case "K":
 			cur.Keywords = append(cur.Keywords, val)
+			if strings.HasPrefix(val, "Specialize:") &&
+				(strings.Contains(val, "AdditionalActivationZone$") || strings.Contains(val, "ReduceCost$")) {
+				rider := "AdditionalActivationZone$"
+				if strings.Contains(val, "ReduceCost$") {
+					rider = "ReduceCost$"
+				}
+				diags = append(diags, Diag{path, "unsupported K:Specialize rider " + rider})
+			}
 		case "A":
 			sa, d := parseSA(path, val)
 			diags = append(diags, d...)

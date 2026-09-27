@@ -49,6 +49,9 @@ type Config struct {
 	// configuration rather than an event, so replay receives the same cards
 	// without changing any existing event schema.
 	Sideboards [][]*cards.Card
+	// PlanarDecks carries each seat's optional Planechase deck. It is genesis
+	// configuration, like Sideboards, and a zero value emits no new events.
+	PlanarDecks [][]*cards.Card
 	// Format names the construction format. Zero means Constructed; the other
 	// tasks in the Commander milestone (the tax, CR 903.9, commander damage)
 	// read it. This task is plumbing: it reads Commanders and StartingLife
@@ -579,6 +582,21 @@ type Engine struct {
 	// builds effects.Ctx.Sacrificed; the entry is removed when the stack
 	// object leaves, mirroring triggerContexts.
 	sacrificedLKI map[state.ObjID][]state.SacrificedInfo
+	// castExiled / castRevealed map a stack object id to the cards its own
+	// cast/activation COST removed: the `ExileFromHand`/`ExileFromGrave`/
+	// `Exile` parts (Forge's CostExile, paid-list key "Exiled") and the
+	// `Reveal` parts (CostReveal, key "Revealed"), in stable cost order.
+	// Engine-only scratch in the sacrificedLKI discipline: a log-only
+	// reconstruction rebuilds it because payCast re-executes, cloned with the
+	// engine at intent boundaries, read by the spell's own resolution Ctx
+	// (effects.Ctx.Exiled/Revealed) so the `Exiled$<Property>` /
+	// `Revealed$<Property>` count refs and `Defined$ Exiled`/`Revealed` read
+	// the exact paid cards, and removed with the stack object. A stack COPY
+	// inherits neither map -- referenced here is the deliberate reason the
+	// StackCopy branch does not carry them, unlike fuseTargets: a copy was
+	// never cast and paid no cost (CR 707.10).
+	castExiled   map[state.ObjID][]state.ObjID
+	castRevealed map[state.ObjID][]state.ObjID
 	// fuseTargets maps a fused (FlagFused) stack object id to its two target
 	// stages' own chosen targets (index 0 the front half's, index 1 the
 	// alternate half's). Recorded by payCast at payment, read by resolveFused
@@ -1039,6 +1057,19 @@ type Engine struct {
 	// paramcensus_test.go) to mode DiscardedAll instead of attributing it to
 	// every trigger mode through the shared dispatcher.
 	discardAllFirstTime bool
+	// targetBatch brackets ONE targeting action's TargetsChosen events for the
+	// Mode$ BecomesTargetOnce "one or more" latch (Forge's
+	// TriggerBecomesTargetOnce fires once per spell/ability, after it has
+	// chosen its targets). recordChosenTargets (rules/stack.go) opens the
+	// bracket, emits one TargetsChosen per chosen target, and closes it;
+	// checkFaceTriggers records the trigger LINES already queued in the open
+	// batch in targetBatchFired, so a second matching target of the same
+	// action cannot queue a second instance. Both the open flag and the map
+	// are per-batch scratch, cleared on open and close, so no state survives
+	// a targeting action and none needs cloning or a turn reset (the bracket
+	// is entirely within one emit sequence, never across a drain).
+	targetBatchOpen  bool
+	targetBatchFired map[triggerKey]bool
 	// phaseUnknownNoted memoizes the Phase$ specs whose names this engine has
 	// already reported as unresolvable (rules.trigger_match.go's phaseMatches
 	// reporting), so one spec emits exactly one Note per game no matter how
@@ -1071,6 +1102,30 @@ type Engine struct {
 	// chooseCast in cast.go, and Tasks 12 and 18 add the "as this enters" and
 	// miracle cases in their own files.
 	choosing chooseFor
+
+	// oppSel (rules/stack.go) is the TargetingPlayer$ Opponent
+	// controller-selection ask's flow record: set when poseOpponentPick
+	// posts the which-opponent ask at a rules-tier ask site, flipped to done
+	// by answerOppPick, consumed when the re-posed target ask reads it.
+	// Plain scalars, so Clone carries it like the blockerRound class.
+	oppSel oppSelectState
+
+	// oppPicksMid is the effects-tier answered-selection store, keyed by the
+	// asking SA's line: the "opp_pick" resume arm records the controller's
+	// chosen opponent there and the re-entered walk's ChooserFor consumes it.
+	// The entry only lives between the arm and the synchronous read, so no
+	// entry can outlive the ask it belongs to. Clone copies it.
+	oppPicksMid map[string]state.PlayerID
+
+	// tpCtlChooser (rules/stack.go) is the TargetingPlayerControls$ answered
+	// record (tpc1): the seat that answered a target ask whose SA carries
+	// `TargetingPlayerControls$ True`, keyed by the RESOLVING stack object
+	// (pc.stackObj for a cast/activation, the TriggerPush object for a
+	// placement ask) and carrying the asking SA's line. The entry lives from
+	// the ask's answer until the object leaves the stack, so the CR 608.2b
+	// recheck (legalTargets, which reads it via its self parameter) judges
+	// the restriction against exactly the seat that answered. Clone copies it.
+	tpCtlChooser map[state.ObjID]tpCtlAnswer
 
 	// resume is non-nil while a mid-resolution decision is pending: an effect
 	// (a nested effCharm pick, effCopySpellAbility's UnlessCost$ may-pay,
@@ -1123,6 +1178,16 @@ type Engine struct {
 	// cast holds the in-progress cast-flow state while choosing ==
 	// chooseCast (Task 9, rules/cast.go). Nil whenever no cast is mid-flow.
 	cast *pendingCast
+	// turnUp holds the CR 708.6 morph-family turn-face-up special action's
+	// payment flow while choosing == chooseTurnUp (rules/morph_turnup.go).
+	// Nil whenever no turn-up is mid-payment. A plain-value struct with no
+	// closures, so Clone copies it like cast/choosing and a replay
+	// re-derives it from the recorded intents.
+	turnUp *turnUpPay
+	// replayPaymentPlans permits replay to reconstruct a dormant payment offer
+	// only when it encounters its recorded selector.  Live decisions remain
+	// unpublished until host integration enables them.
+	replayPaymentPlans bool
 	// etbMove parks a battlefield entry while its as-enters choice is answered
 	// through the mid-resolution decision path. etbNext is the ordinal of the
 	// next choice on that entry; both are plain data so a clone at the decision
@@ -1425,6 +1490,20 @@ type Engine struct {
 	// it (like noCounterSpend), so a replay re-derives the same list from the
 	// recorded ManaAdd events.
 	manaSpentSources []state.ObjID
+
+	// manaSpentAddsCounters is the transient capture of emitRestrictedManaSpend's
+	// SPELL/ACTIVATED arm for the AddsCounters$ rider: every consumed
+	// restriction batch that carries a rider (state.ManaRestriction.AddsCounters,
+	// the producing ability's snapshot) contributes its spent unit count as one
+	// grant record, in insertion order. Unlike manaSpentSources this is NOT
+	// deduplicated by source: two units from the same permanent's rider ability
+	// are two grants, and two different abilities of the same permanent keep
+	// their own rider snapshots. payCast reads it once, synchronously, right
+	// after the payment. Nothing can suspend between the capture and the read
+	// (it emits, never asks), and Clone copies nothing of it, so a replay
+	// re-derives the same grants from the recorded ManaAdd/ManaRestriction
+	// events.
+	manaSpentAddsCounters []state.ManaAddsCounterGrant
 
 	// stackGrantCast is the in-flight cast whose OWN stack-grant walk is
 	// running (queueCascadeTriggers' cascadeInstances read, the only
@@ -1965,6 +2044,9 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		if i < len(cfg.Sideboards) {
 			initialObjects += len(cfg.Sideboards[i])
 		}
+		if i < len(cfg.PlanarDecks) {
+			initialObjects += len(cfg.PlanarDecks[i])
+		}
 	}
 	// Headroom past the dealt cards for the objects a game mints as it plays
 	// (tokens, ability objects on the stack, copies): measured over the repo
@@ -2096,6 +2178,18 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 				sb = append(sb, o.ID)
 			}
 			e.G.SetZone(state.ZSideboard, p, sb)
+		}
+		if i < len(cfg.PlanarDecks) && len(cfg.PlanarDecks[i]) > 0 {
+			planes := make([]state.ObjID, 0, len(cfg.PlanarDecks[i]))
+			for _, c := range cfg.PlanarDecks[i] {
+				o := e.G.AddObject(c, p)
+				planes = append(planes, o.ID)
+			}
+			planes = e.shufflePlanarDeck(p, planes)
+			e.emit(events.Event{Kind: events.PlanarDeckShuffle, Player: p, IDs: planes, Secret: true})
+			if len(planes) > 0 {
+				e.emit(events.Event{Kind: events.PlanarReveal, Player: p, Obj: planes[0]})
+			}
 		}
 		// Commanders leave the library for the command zone here, BEFORE the
 		// shuffle and BEFORE the opening hand is dealt, so they are neither
@@ -2378,7 +2472,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		return e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Text: "cannot attach: protected"})
 	}
 	if ev.Kind == events.Attach && ev.Obj != 0 && ev.Text == "attach to player" {
-		if attaching := e.G.Obj(ev.Obj); attaching != nil && isAura(attaching) &&
+		if attaching := e.G.Obj(ev.Obj); attaching != nil && e.isAura(attaching) &&
 			int(ev.Player) < len(e.G.Players) && e.playerProtectedFrom(ev.Player, ev.Obj) {
 			return e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 				Text: "cannot attach: protected"})
@@ -2401,12 +2495,12 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// normally; zone slices are copied before iteration because the MoveZone
 	// mutates the battlefield while we walk it (the attachmentSBAs discipline).
 	if ev.Kind == events.Attach && ev.Obj != 0 && len(ev.IDs) > 0 {
-		if attaching := e.G.Obj(ev.Obj); attaching != nil && isRole(attaching) {
+		if attaching := e.G.Obj(ev.Obj); attaching != nil && e.isRole(attaching) {
 			for _, p := range e.G.AliveFrom(0) {
 				zone := append([]state.ObjID(nil), e.G.Zone(state.ZBattlefield, p)...)
 				for _, id := range zone {
 					o := e.G.Obj(id)
-					if o == nil || id == ev.Obj || o.AttachedTo != ev.IDs[0] || !isRole(o) {
+					if o == nil || id == ev.Obj || o.AttachedTo != ev.IDs[0] || !e.isRole(o) {
 						continue
 					}
 					e.emit(events.Event{Kind: events.MoveZone, Obj: id,
@@ -2806,10 +2900,13 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		delete(e.triggerLineSVars, ev.Obj)
 		delete(e.triggerLKI, ev.Obj)
 		delete(e.sacrificedLKI, ev.Obj)
+		delete(e.castExiled, ev.Obj)
+		delete(e.castRevealed, ev.Obj)
 		delete(e.fuseTargets, ev.Obj)
 		delete(e.copyTargetStage, ev.Obj)
 		delete(e.copyAnswerTargets, ev.Obj)
 		delete(e.castSubTargets, ev.Obj)
+		delete(e.tpCtlChooser, ev.Obj)
 		delete(e.charmTargets, ev.Obj)
 		delete(e.sourceLifelinkLKI, ev.Obj)
 		delete(e.sourceControllerLKI, ev.Obj)
@@ -2899,6 +2996,14 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	}
 	if onlyEventBatch {
 		e.closeDamageBatch()
+	}
+	if stored.Kind == events.PlanarRoll {
+		// CR 901.4 (task planar-verbs): a completed planar-dice roll's kept
+		// results have their consequences — the planeswalk face walks the
+		// roller to the next plane, the chaos face makes chaos ensue on the
+		// roller's current plane. The record above is logged, so the nested
+		// PlanarWalk/ChaosEnsues events follow it in the log deterministically.
+		e.planarRollConsequences(stored)
 	}
 	if ev.Kind == events.Tap && !e.tapIsEntryState(ev) {
 		// Recorded after the triggers above were matched, so a FirstTime$
@@ -3267,6 +3372,22 @@ func (e *Engine) ask(d *decision.Decision) {
 		}
 	}
 	d.Seq = uint64(len(e.L.Events))
+	// Payment actions are an additive extension of a real priority ask. Build
+	// them only after Seq is fixed: both action and plan identities bind that
+	// Seq. This leaves Options (and therefore every legacy index) untouched.
+	// The planner is a pure read, so publication neither adds an event nor
+	// changes the state a normal priority ask observes.
+	if d.Kind == decision.KPriority && len(d.PaymentActions) == 0 {
+		d.PaymentActions = e.PaymentActionsForPriority(d.Player, d.Seq)
+	}
+	// PaymentActionsForPriority is an additive, pure legal-actions walk.  It
+	// may open its own Derived scope after askPriority recorded the ordinary
+	// offer walk's tail, so record the actual last priority-read generation
+	// only after the extension is built.  That keeps BeginDerivedReads able to
+	// resume the exact board read which immediately precedes this ask.
+	if d.Kind == decision.KPriority {
+		e.recordDerivedMemoTail(d)
+	}
 	e.emit(events.Event{Kind: events.DecisionAsk, Player: d.Player, Text: string(d.Kind)})
 	e.pending = d
 }
@@ -3289,6 +3410,19 @@ func decisionMadeText(kind decision.Kind, choices []int) string {
 	}
 	sb.WriteByte(']')
 	return sb.String()
+}
+
+// decisionMadePaymentText is the planned-cast extension of decisionMadeText.
+// The legacy spelling is deliberately left entirely alone: these bytes are
+// chain-bound.  Action and plan are full canonical V1 digests, so this suffix
+// binds the submitted witness without making labels or planner order part of
+// replay history.
+func decisionMadePaymentText(kind decision.Kind, choices []int, payment *decision.PaymentSelection) string {
+	text := decisionMadeText(kind, choices)
+	if payment == nil {
+		return text
+	}
+	return text + ";payment:" + payment.ActionID + ":" + payment.Plan.ID
 }
 
 // drainDeferredAsks poses the front decision ask deferred behind a
@@ -3333,6 +3467,12 @@ func (e *Engine) Submit(in decision.Intent) error {
 	d := e.pending
 	if d == nil {
 		return fmt.Errorf("no decision pending")
+	}
+	if in.Payment != nil && e.replayPaymentPlans && len(d.PaymentActions) == 0 && d.Kind == decision.KPriority {
+		// PaymentActions are intentionally not emitted with DecisionAsk.  A
+		// replay rebuilds the same deterministic, Seq-bound offer from the
+		// recorded selector rather than trusting a prior process's cache.
+		d.PaymentActions = (&decision.Decision{PaymentActions: e.PaymentActionsForPriority(d.Player, d.Seq)}).Clone().PaymentActions
 	}
 	if err := d.Validate(in); err != nil {
 		return err
@@ -3379,11 +3519,22 @@ func (e *Engine) Submit(in decision.Intent) error {
 		}
 	}
 	if d.Kind == decision.KPriority {
+		if in.Payment != nil {
+			action, ok := paymentActionFor(d, in.Payment.ActionID)
+			if !ok {
+				return fmt.Errorf("payment action is not offered") // defensive: Decision.Validate already checked.
+			}
+			if err := e.ValidateCastPayment(in.Player, action.Cast, in.Payment.Plan); err != nil {
+				return err
+			}
+		}
 		// A priority answer whose handler would no-op at its first guard is
 		// rejected before it is recorded (rules/priority_guard.go), so a
 		// stale or mis-offered option errors instead of spinning.
-		if err := e.validatePriorityChoice(d, in); err != nil {
-			return err
+		if in.Payment == nil {
+			if err := e.validatePriorityChoice(d, in); err != nil {
+				return err
+			}
 		}
 	}
 	if e.L.Intents == nil && e.intentBuf != nil {
@@ -3392,11 +3543,23 @@ func (e *Engine) Submit(in decision.Intent) error {
 		// spare capacity.
 		e.L.Intents, e.intentBuf = e.intentBuf, nil
 	}
+	// The caller owns its intent. Keep a private witness before it becomes
+	// replay history, so a client-side mutation after Submit cannot alter it.
+	in = decision.CloneIntent(in)
 	e.L.Intents = append(e.L.Intents, in)
 	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player,
-		Text: decisionMadeText(d.Kind, in.Choices)})
+		Text: decisionMadePaymentText(d.Kind, in.Choices, in.Payment)})
 	e.pending = nil
-	e.handle(d, in)
+	if in.Payment != nil {
+		action, _ := paymentActionFor(d, in.Payment.ActionID)
+		// Match the ordinary cast priority action exactly, then enter the same
+		// cast transaction.  The plan is only an immutable payment continuation;
+		// it never represents a second casting implementation.
+		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
+		e.beginCastWithPayment(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object}, in.Payment)
+	} else {
+		e.handle(d, in)
+	}
 	// A decision posed while a commander-zone choice was outstanding waited
 	// behind it (ask's CR 903.9 arm); pose it now that the answer landed,
 	// before anything below can treat the engine as idle and advance.
@@ -3417,6 +3580,11 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if e.pending == nil && !e.Suspended() {
 		e.askNextReplacementChoice()
 	}
+	// A CR 708.6 turn-face-up special action whose cost events parked on a
+	// decision (any kind: commander zone, replacement order, madness, an ask
+	// inside a replacement body) finishes paying and turns face up once every
+	// such decision has landed (rules/morph_turnup.go).
+	e.resumeTurnUpAfterCost()
 	// An opening-hand round parked behind a decision its own effect posed
 	// (an "as this enters" choice of a card beginning the game on the
 	// battlefield) steps on now that the engine is idle again.
@@ -3433,6 +3601,11 @@ func (e *Engine) Submit(in decision.Intent) error {
 	e.Advance()
 	return nil
 }
+
+// EnablePaymentPlanReplay remains a compatibility hook for logs recorded
+// before payment actions were published at ask time. Current replay rebuilds
+// the same extension through ask like a live engine does.
+func (e *Engine) EnablePaymentPlanReplay() { e.replayPaymentPlans = true }
 
 // drawCard draws for the turn structure, sharing effects.DrawFor with the
 // Draw primitive so the draw step and a card that says "draw a card" can

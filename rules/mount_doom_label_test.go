@@ -28,10 +28,12 @@ func TestMountDoomColorOptionsNameTheLifePayment(t *testing.T) {
 	}
 	want := []string{"Pay 1 life: Add B", "Pay 1 life: Add R"}
 	for i, w := range want {
-		if o := d.Options[i]; o.Label != w || o.Kind != "mana" || o.Obj != doom {
-			t.Fatalf("Mount Doom option %d = %+v, want %q on the source", i, o, w)
+		if o := d.Options[i]; o.Label != w || o.Kind != "mana" || o.Obj != doom || o.ManaSymbol != []string{"B", "R"}[i] {
+			t.Fatalf("Mount Doom option %d = %+v, want %q and its symbol on the source", i, o, w)
 		}
 	}
+	// Rewriting display prose must not change the selected production.
+	d.Options[0].Label = "Unrelated presentation text"
 	// The label is display only: picking B still pays the 1 life and lands
 	// exactly one black mana.
 	submitChoices(t, e, 0)

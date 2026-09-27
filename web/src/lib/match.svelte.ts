@@ -37,7 +37,18 @@ export class MatchState {
 
   constructor(readonly table: string, readonly seat?: SeatCtx) {}
 
-  apply(f: Frame) {
+  /**
+   * apply consumes one stream frame. It reports whether the frame moved this
+   * same match backwards, so the route can also reset the seat's local
+   * decision/post state before it adopts the restored view.
+   *
+   * A reconnect normally begins with a `snapshot`, not a `rewind` frame. A
+   * successful Undo whose rewind frame was lost therefore arrives as a
+   * shorter same-match snapshot. Treating it as an ordinary snapshot left
+   * SeatPanelState in the discarded sequence space, where it rejected the
+   * restored lower-sequence decision forever.
+   */
+  apply(f: Frame): boolean {
     // An overflow frame is the server saying it DROPPED frames for this
     // session: Session.push never blocks, so a burst that outruns the SSE
     // writer discards frames, marks the session overflowed and closes it
@@ -49,9 +60,9 @@ export class MatchState {
     // guard below and refetches rather than trusting what we hold.
     if (f.t === 'overflow') {
       this.resync();
-      return;
+      return false;
     }
-    if (f.table !== this.table) return;
+    if (f.table !== this.table) return false;
     switch (f.t) {
       case 'match_start':
         this.liveEpoch++;
@@ -65,6 +76,28 @@ export class MatchState {
         break;
       case 'snapshot': {
         const s = f.body as Snapshot;
+        const rewound = this.match === (f.match ?? this.match) && s.head < this.dvr.head;
+        if (rewound) {
+          // This is the reconnect spelling of TRewind. Keep this block in
+          // lockstep with the explicit case below: both discard stale reads,
+          // decisions and transcript tails before fetching the restored seat
+          // projection.
+          this.liveEpoch++;
+          this.seeking++;
+          this.match = f.match ?? this.match;
+          this.decision = null;
+          this.halted = null;
+          this.seats = s.seats;
+          this.seatSince = 0;
+          this.dispatch({ type: 'rewind', match: `${this.table}/${this.match}`, head: s.head, turnStarts: s.turn_starts });
+          if (this.seat) {
+            void this.refreshLive();
+            void this.backfillEvents(0);
+          } else {
+            this.setRenderedView(s.view, s.head);
+          }
+          return true;
+        }
         this.match = f.match ?? this.match;
         // ui16: the snapshot carries the match's seat list, so a subscriber
         // gets it however it joined — cold load, refresh, or a mid-game focus
@@ -109,7 +142,7 @@ export class MatchState {
         } else {
           this.setRenderedView(s.view, s.head);
         }
-        break;
+        return true;
       }
       case 'event': {
         if (this.seat) {
@@ -142,6 +175,7 @@ export class MatchState {
         this.halted = (f.body as TableHaltedBody).reason;
         break;
     }
+    return false;
   }
 
   /**

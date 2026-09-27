@@ -54,10 +54,13 @@ const (
 	// ZSideboard is appended after all historical values so serialized zones
 	// and event hashes remain stable. Sideboards are private to their owner.
 	ZSideboard
-	numZones = int(ZSideboard) + 1
+	// ZPlanarDeck is the private, face-down planar deck. Its current plane is
+	// represented by the face-up first card in the ordered zone.
+	ZPlanarDeck
+	numZones = int(ZPlanarDeck) + 1
 )
 
-var zoneNames = [numZones]string{"library", "hand", "battlefield", "graveyard", "exile", "stack", "command", "ceased", "sideboard"}
+var zoneNames = [numZones]string{"library", "hand", "battlefield", "graveyard", "exile", "stack", "command", "ceased", "sideboard", "planar_deck"}
 
 func (z Zone) String() string { return zoneNames[z] }
 
@@ -70,7 +73,9 @@ func (z Zone) Valid() bool { return int(z) < numZones }
 
 // Hidden reports whether a zone's contents are private to its owner. View
 // projection and event redaction both key off this.
-func (z Zone) Hidden() bool { return z == ZLibrary || z == ZHand || z == ZSideboard }
+func (z Zone) Hidden() bool {
+	return z == ZLibrary || z == ZHand || z == ZSideboard || z == ZPlanarDeck
+}
 
 const (
 	StepUntap Step = iota

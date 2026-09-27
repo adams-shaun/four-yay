@@ -98,6 +98,18 @@ func Describe(g *state.Game, ev events.Event) string {
 	case events.TurnFaceUp:
 		// CR 708.6: Obj is the permanent that revealed its printed face.
 		return obj(g, ev.Obj) + " is turned face up"
+	case events.Specialize:
+		// A permanent specializes into one of its alternate faces: Obj is the
+		// specializing permanent, Amount the destination face index. Name the
+		// chosen face the way the board reads it.
+		if g != nil {
+			if o := g.Obj(ev.Obj); o != nil && o.Card != nil && int(ev.Amount) >= 0 && int(ev.Amount) < len(o.Card.Faces) {
+				if f := o.Card.Faces[ev.Amount]; f.Name != "" {
+					return obj(g, ev.Obj) + " specializes into " + f.Name
+				}
+			}
+		}
+		return obj(g, ev.Obj) + " specializes"
 	case events.PhaseOut:
 		// CR 702.25: Amount 1 is a permanent phasing out, -1 phasing in.
 		if ev.Amount >= 1 {
@@ -244,6 +256,21 @@ func Describe(g *state.Game, ev events.Event) string {
 			return text
 		}
 		return player(g, ev.Player) + " rolls the planar die"
+	case events.PlanarDeckShuffle:
+		return player(g, ev.Player) + " shuffles the planar deck"
+	case events.PlanarReveal:
+		return obj(g, ev.Obj) + " is revealed as the current plane"
+	case events.PlanarWalk:
+		return "Planeswalk to the next plane"
+	case events.ChaosEnsues:
+		// CR 901.9 (task planar-verbs): the chaos-ensues marker. Obj is the
+		// plane it erupts on when the emitter resolved one (the roll path and
+		// the DB$ ChaosEnsues verb both do; the Describe-coverage fuzz may
+		// carry a zero Obj, so the bare form stays grammatical).
+		if ev.Obj != 0 {
+			return obj(g, ev.Obj) + " erupts in chaos"
+		}
+		return "Chaos ensues"
 	case events.RollDice:
 		// The roll-action PROPOSAL (task rolldice-repl) is never logged -- the
 		// per-die Notes are the roll's transcript lines -- but the Describe-
@@ -358,6 +385,18 @@ func Describe(g *state.Game, ev events.Event) string {
 	case events.GiveGift:
 		// The completed gift marker follows the gift action's own events.
 		return player(g, ev.Player) + " gives a gift"
+	case events.Clash:
+		// The completed clash marker (CR 701.31, task clash1), one per
+		// clashing player: Player is the clashing seat, Amount 1 when that
+		// player WON the clash and 0 when they lost or tied (CR 701.31
+		// leaves a tie with no winner). The reveal and the top/bottom
+		// placements are their own preceding Note/LibraryOrder lines, so
+		// this line names only the seat and the outcome; Obj is the
+		// resolving source permanent and may be 0 for a source-less body.
+		if ev.Amount == 1 {
+			return player(g, ev.Player) + " wins the clash"
+		}
+		return player(g, ev.Player) + " loses the clash"
 	case events.Evolved:
 		// The completed evolve marker (CR 702.99b, task trig:Evolved) is a
 		// pure no-op like GiveGift/Investigate: the +1/+1 counter placement

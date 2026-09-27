@@ -292,6 +292,7 @@ func TestDashCommanderPaysTaxFromTheCommandZone(t *testing.T) {
 	if o := e.G.Obj(id); o.Zone != state.ZBattlefield || o.CastFlags&state.FlagDashed == 0 {
 		t.Fatalf("command-zone dash: zone=%s flags=%d", o.Zone, o.CastFlags)
 	}
+	replayCheck(t, e, cfg)
 }
 
 func TestDashCastsGainHasteAndReturnAtTheEndStep(t *testing.T) {

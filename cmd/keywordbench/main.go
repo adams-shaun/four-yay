@@ -41,16 +41,15 @@ func main() {
 	}
 }
 
-// loadRegistryForBench loads dir/ir.gob.gz for measurement. The default path
-// never recompiles: a benchmark must not silently substitute a freshly
-// compiled corpus for the cache it claims to measure. When recompile is set
-// and the cache load fails for ANY reason (missing, unreadable, version
+// loadRegistryForBench loads dir's fingerprint-keyed IR cache for measurement.
+// The default path never recompiles: a benchmark must not silently substitute a
+// freshly compiled corpus for the cache it claims to measure. When recompile is
+// set and the cache load fails for ANY reason (missing, unreadable, version
 // mismatch), it falls back to compiling cardsfolder in memory — exactly what
-// cards.OpenCorpus does — and NEVER writes dir/ir.gob.gz: in an agent
-// worktree dir/.cards may be a symlink into a shared checkout, and compiling
-// from one seat must not mutate what every other seat reads.
+// cards.OpenCorpus does — and NEVER writes the cache: a benchmark must not
+// mutate the corpus directory it measures.
 func loadRegistryForBench(dir string, recompile bool) (*cards.Registry, bool, error) {
-	path := filepath.Join(dir, "ir.gob.gz")
+	path := cards.CachePath(dir)
 	reg, err := cards.LoadRegistry(path)
 	if err == nil {
 		return reg, false, nil
@@ -70,19 +69,19 @@ func loadRegistryForBench(dir string, recompile bool) (*cards.Registry, bool, er
 	return r, true, nil
 }
 
-// printSharedCacheAdvice explains, for a *cards.CacheVersionError, why the
-// obvious `make compile-cards` fix is UNSAFE from a worktree (the .cards
-// symlink makes dir/ir.gob.gz the main checkout's shared cache that every
-// concurrent seat reads) and names the two safe remedies. Non-version errors
-// print nothing: their plain failure is self-explanatory.
+// printSharedCacheAdvice explains, for a *cards.CacheVersionError, that the
+// cache file is keyed to this binary's compiler fingerprint (cards.CachePath),
+// so `make compile-cards` run from a different build writes a DIFFERENT file
+// and will not repair this one. It names the two safe remedies. Non-version
+// errors print nothing: their plain failure is self-explanatory.
 func printSharedCacheAdvice(w io.Writer, err error, path string) {
 	var cve *cards.CacheVersionError
 	if !errors.As(err, &cve) {
 		return
 	}
 	fmt.Fprintf(w, "keywordbench: %v\n", err)
-	fmt.Fprintf(w, "  the cache at %s is SHARED (the worktree .cards symlink points into the main checkout) — `make compile-cards` must be run there only, by the controller.\n", path)
-	fmt.Fprintln(w, "  or rerun with -recompile to measure against an in-memory rebuild of cardsfolder (nothing is written).")
+	fmt.Fprintf(w, "  the cache at %s is keyed to THIS build's compiler fingerprint — `make compile-cards` from a different build writes a different file and will not repair it.\n", path)
+	fmt.Fprintln(w, "  run `make compile-cards` from this source tree, or rerun with -recompile to measure against an in-memory rebuild of cardsfolder (nothing is written).")
 }
 
 func keys[V any](m map[string]V) []string {

@@ -96,12 +96,12 @@ describe('Table.svelte seat gating (R-E4-4 / R-E4-5)', () => {
     expect(html).toContain('data-hot-tab="pass"');
     expect(html).toContain('data-hot-tab="end-turn"');
     expect(html).toContain('data-hot-tab="done"');
-    expect(html).toContain('data-hot-tab="options"');
-    // fb-20260917T231628Z: in ordinary seated play the log switch lives in
-    // the OPTIONS drop, and the rail renders no second LOGS toggle (the
-    // spectator path above pins the other direction).
-    expect(html).not.toContain('data-log-toggle');
-    expect(html).toContain('data-toggle="show-game-log"');
+    expect(html).not.toContain('data-hot-tab="options"');
+    // Options is a compact popover beside Feedback; the settings editor is
+    // mounted only after opening it, so it cannot expand the whole rail.
+    expect(html).toContain('data-rail-options');
+    expect(html).toContain('aria-controls="play-options-popover"');
+    expect(html).not.toContain('data-toggle="show-game-log"');
     expect(html).not.toContain('data-action-dock'); // ui26's rail dock moved here; it was not duplicated
     expect(html).toContain('data-concede-control');
     // Concede lives inside the rail's own box (position: relative), not
@@ -123,6 +123,27 @@ describe('Table.svelte seat gating (R-E4-4 / R-E4-5)', () => {
 
     // restore the no-seat baseline for any later test in this file
     initSeatContext('');
+  });
+});
+
+describe('Table.svelte compact seat pills', () => {
+  it('uses the two established docks for a two-seat game', () => {
+    initSeatContext('');
+    fakeMatch.shared.view = view();
+    fakeMatch.shared.seats = seats;
+    const { html } = render(Table, { props: { table: 't1' } });
+    expect(html).toContain('data-seat-pill-dock="seat-0"');
+    expect(html).toContain('data-seat-pill-dock="seat-1"');
+    expect(html).not.toContain('data-seat-pill-dock="all"');
+  });
+
+  it('keeps every player reachable in supported multi-seat games', () => {
+    initSeatContext('');
+    fakeMatch.shared.view = view({ players: [player(0), player(1), player(2), player(3)] });
+    fakeMatch.shared.seats = [...seats, { name: 'Cy', deck: 'c', colour: '#f59e0b' }, { name: 'Di', deck: 'd', colour: '#a855f7' }];
+    const { html } = render(Table, { props: { table: 't1' } });
+    expect(html).toContain('data-seat-pill-dock="all"');
+    for (const seat of [0, 1, 2, 3]) expect(html).toContain(`data-player-pill="${seat}"`);
   });
 });
 
@@ -158,13 +179,38 @@ describe('Table.svelte — the one arrows overlay mounts at the table root (fb-2
   });
 });
 
-describe('Table.svelte — the prompt/action split (fb prompts)', () => {
+describe('Table.svelte — opening hand owns the board', () => {
+  it('never duplicates a mulligan in the ACTIONS surface', () => {
+    initSeatContext('?seat=0&token=t');
+    fakeMatch.shared.view = view({
+      decision: {
+        seq: 20, player: 0, kind: 'mulligan', prompt: 'Keep this hand?', min: 1, max: 1,
+        options: [
+          { index: 0, kind: 'keep', label: 'keep', player: 0 },
+          { index: 1, kind: 'mulligan', label: 'mulligan', player: 0 },
+        ],
+      },
+    });
+    fakeMatch.shared.seats = seats;
+
+    const { html } = render(Table, { props: { table: 't1' } });
+
+    expect(html).not.toContain('data-hot-strip');
+    expect(html.match(/data-seat-panel/g)).toHaveLength(1);
+    expect(html).toMatch(/class="seat-panel[^"]*wide/);
+    expect(html).toContain('data-seat-pill-dock="seat-0"');
+    expect(html).toContain('data-seat-pill-dock="seat-1"');
+    initSeatContext('');
+  });
+});
+
+describe('Table.svelte — the ACTIONS-anchored prompt surface', () => {
   const initiative: Decision = {
     seq: 21, player: 0, kind: 'target', prompt: 'Choose a target', min: 1, max: 1, source: 9,
     options: [{ index: 0, kind: 'target', label: 'Target Bo', obj: 3, player: 0 }],
   };
 
-  it('a REQUIRED prompt mounts the board surface alongside the strip: answerable without the dropdown', () => {
+  it('a required prompt has one ACTIONS-anchored surface', () => {
     initSeatContext('?seat=0&token=t');
     fakeMatch.shared.view = view({ decision: initiative });
     fakeMatch.shared.seats = seats;
@@ -172,15 +218,13 @@ describe('Table.svelte — the prompt/action split (fb prompts)', () => {
 
     const { html } = render(Table, { props: { table: 't1' } });
 
-    // Two seat panels: the strip's copy inside the ACTIONS drop, and the
-    // board prompt surface — the one visible with the dropdown never opened.
-    expect(html.match(/data-seat-panel/g)).toHaveLength(2);
+    expect(html.match(/data-seat-panel/g)).toHaveLength(1);
     expect(html).toContain('data-answer-surface');
     expect(html).toContain('data-prompt');
     initSeatContext('');
   });
 
-  it('an OFFERED window keeps ONE surface: the ACTIONS drop only', () => {
+  it('an offered window keeps its one ACTIONS surface', () => {
     initSeatContext('?seat=0&token=t');
     fakeMatch.shared.view = view({
       decision: {
@@ -198,7 +242,7 @@ describe('Table.svelte — the prompt/action split (fb prompts)', () => {
     const { html } = render(Table, { props: { table: 't1' } });
 
     expect(html.match(/data-seat-panel/g)).toHaveLength(1);
-    expect(html).not.toContain('data-answer-surface');
+    expect(html).toContain('data-answer-surface');
     initSeatContext('');
   });
 });

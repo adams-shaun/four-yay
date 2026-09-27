@@ -3,6 +3,9 @@ package host
 import (
 	"fmt"
 	"math/rand/v2"
+	"os"
+	"strconv"
+	"strings"
 )
 
 // MatchSeed derives match k's engine seed from its table's seed with
@@ -35,19 +38,45 @@ func SeededShuffle(seed uint64, in []string) []string {
 	return out
 }
 
-// NextGameID returns the smallest free "g<N>" table id, scanning the
-// registry's tables so an on-demand game created before a restart never
-// collides with one loaded back from tables.json (R-E0: a table id is the
-// registry key, and AddTable rejects a duplicate). Exported for the game
-// creator (cmd/gorged), which allocates ids when a browser asks for a
-// fresh game.
+// NextGameID returns an unused "g<N>" table id. On-demand table records are
+// intentionally removed on restart because their credentials are process
+// scoped, but their replay logs stay under Dir/gN. Those directories are part
+// of a feedback/replay trail, so their IDs are reserved too: reusing g1 after
+// restart would overwrite match 1's events and sidecar. Exported for the game
+// creator (cmd/gorged), which allocates ids when a browser asks for a fresh
+// game.
 func NextGameID(reg *Registry) TableID {
 	max := 0
 	for _, t := range reg.Tables() {
-		var n int
-		if _, err := fmt.Sscanf(t.ID, "g%d", &n); err == nil && n > 0 && n > max {
+		if n := gameIDNumber(TableID(t.ID)); n > max {
 			max = n
 		}
 	}
+	// A current registry does not contain process-scoped tables dropped by
+	// load. Reserve their persisted directory names as a high-water mark.
+	// ReadDir failures intentionally leave the in-memory check intact: AddTable
+	// will still reject a live collision, and a broken persistence directory
+	// must not make ID allocation fail through this convenience helper.
+	if reg.opts.Dir != "" {
+		if entries, err := os.ReadDir(reg.opts.Dir); err == nil {
+			for _, entry := range entries {
+				if n := gameIDNumber(TableID(entry.Name())); n > max {
+					max = n
+				}
+			}
+		}
+	}
 	return TableID(fmt.Sprintf("g%d", max+1))
+}
+
+func gameIDNumber(id TableID) int {
+	s := string(id)
+	if len(s) < 2 || s[0] != 'g' {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimPrefix(s, "g"))
+	if err != nil || n < 1 {
+		return 0
+	}
+	return n
 }

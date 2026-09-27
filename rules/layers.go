@@ -1994,11 +1994,13 @@ func (e *Engine) effectMoveSweep(ev events.Event) {
 			}
 		}
 		forget, exile := ce.ForgetOnMoved, ce.ExileOnMoved
+		exileAlso := ce.ExileOnMovedAlso
 		if forget != "" && effects.ParseZone(forget) == ev.From && objIDIn(ce.Remembered, ev.Obj) {
 			ce.Remembered = objIDWithout(ce.Remembered, ev.Obj)
 			changed = true
 		}
-		if exile != "" && effects.ParseZone(exile) == ev.From && objIDIn(ce.Remembered, ev.Obj) {
+		if (exile != "" && effects.ParseZone(exile) == ev.From ||
+			exileAlso != "" && effects.ParseZone(exileAlso) == ev.From) && objIDIn(ce.Remembered, ev.Obj) {
 			changed = true
 			continue // the effect ends: not kept
 		}
@@ -2185,7 +2187,14 @@ func (e *Engine) continuousLive(ce *ContinuousEffect) bool {
 		return e.G.Turn <= ce.UntilTurn
 	}
 	o := e.G.Obj(ce.Source)
-	return o != nil && o.Zone == state.ZBattlefield
+	if o == nil || o.Zone != state.ZBattlefield {
+		return false
+	}
+	if ce.DurationSource != 0 {
+		durationSource := e.G.Obj(ce.DurationSource)
+		return durationSource != nil && durationSource.Zone == state.ZBattlefield
+	}
+	return true
 }
 
 // active returns the effects that still exist, sorted into CR 613 order:
@@ -3141,7 +3150,7 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 			// what the walk has so far; each TextFrom/TextTo then substitutes
 			// in timestamp order, so two chained ChangeText effects compose the
 			// way their timestamps order them.
-			if ce.TextSet != "" {
+			if ce.TextSetSet {
 				text = ce.TextSet
 			}
 			if ce.TextFrom != "" {
@@ -4092,7 +4101,20 @@ func counterKindMatches(restriction, kind string) bool {
 // CantAttackParamsReadableForRules and is skipped whole -- the deliberate
 // permissive direction, so a gate this build cannot evaluate never becomes an
 // unconditional restriction.
-func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID) bool {
+func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID, attacked state.ObjID) bool {
+	// CR 508.1a: a derived keyword grant (Animate HiddenKeywords$ or a
+	// Pump/PumpAll KW$) can forbid the attack outright -- "CARDNAME can't
+	// attack." or the compound "CARDNAME can't attack or block."
+	// (Opportunistic Dragon's stolen permanent, Extraction Specialist's
+	// returned creature). The restriction is defender-independent, so it is
+	// checked once here, where attackOffers' pair filter and validateAttackers
+	// both read it: the offer list drops every pair and the validator
+	// recomputes the same answer. hasCantAttackKeyword reads the DERIVED list
+	// (printed plus layer-granted), so a face static or an Animate grant is
+	// honoured alike; the registered/static CantAttack walk below is unchanged.
+	if e.hasCantAttackKeyword(id) {
+		return true
+	}
 	for _, ce := range e.active() {
 		if ce.Restriction != "CantAttack" {
 			continue
@@ -4100,7 +4122,7 @@ func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID) bool {
 		if !e.restrictionApplies(ce, id) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, ce.RestrictParams["Target"], defender, ce.Controller, ce.Source, ce.RememberedPlayers) {
+		if !restrictionPlayerTargetMatches(e.G, ce.RestrictParams["Target"], defender, ce.Controller, ce.Source, ce.RememberedPlayers, attacked) {
 			continue
 		}
 		return true
@@ -4117,7 +4139,7 @@ func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID) bool {
 		if spec == "" || !e.matchesSpec(spec, id, e.specCtx(sv.Source, sv.Controller)) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil) {
+		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
 			continue
 		}
 		return true
@@ -4129,7 +4151,7 @@ func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID) bool {
 // list against the defender. Player specs match the defending player; a
 // Planeswalker.<player-spec> clause matches a qualifying planeswalker that
 // defender controls. An absent Target$ applies to every defender.
-func restrictionPlayerTargetMatches(g *state.Game, spec string, defender, controller state.PlayerID, source state.ObjID, rememberedPlayers []state.PlayerID) bool {
+func restrictionPlayerTargetMatches(g *state.Game, spec string, defender, controller state.PlayerID, source state.ObjID, rememberedPlayers []state.PlayerID, attacked state.ObjID) bool {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
 		return true
@@ -4139,8 +4161,8 @@ func restrictionPlayerTargetMatches(g *state.Game, spec string, defender, contro
 		if part == "" {
 			continue
 		}
-		if restrictionPlayerSpecMatches(g, part, defender, controller, source, rememberedPlayers) ||
-			restrictionPlaneswalkerTargetMatches(g, part, defender, controller, source, rememberedPlayers) {
+		if (attacked == 0 && restrictionPlayerSpecMatches(g, part, defender, controller, source, rememberedPlayers)) ||
+			restrictionPlaneswalkerTargetMatches(g, part, defender, controller, source, rememberedPlayers, attacked) {
 			return true
 		}
 	}
@@ -4150,44 +4172,45 @@ func restrictionPlayerTargetMatches(g *state.Game, spec string, defender, contro
 // restrictionPlaneswalkerTargetMatches reads one Planeswalker.<player-spec>
 // entry in a restriction's Target$ list, scoped to a planeswalker controlled
 // by the defender.
-func restrictionPlaneswalkerTargetMatches(g *state.Game, spec string, defender, controller state.PlayerID, source state.ObjID, rememberedPlayers []state.PlayerID) bool {
+func restrictionPlaneswalkerTargetMatches(g *state.Game, spec string, defender, controller state.PlayerID, source state.ObjID, rememberedPlayers []state.PlayerID, attacked state.ObjID) bool {
 	parts := strings.SplitN(strings.TrimSpace(spec), ".", 2)
 	if len(parts) != 2 || !strings.EqualFold(strings.TrimSpace(parts[0]), "Planeswalker") {
 		return false
 	}
 	selector := strings.TrimSpace(parts[1])
-	for _, id := range g.Zone(state.ZBattlefield, defender) {
-		o := g.Obj(id)
-		if o == nil || o.Zone != state.ZBattlefield || !faceHasType(o, "Planeswalker") || o.Controller != defender {
-			continue
+	if attacked == 0 {
+		return false
+	}
+	o := g.Obj(attacked)
+	if o == nil || o.Zone != state.ZBattlefield || o.FaceDown || !faceHasType(o, "Planeswalker") || o.Controller != defender {
+		return false
+	}
+	// Forge's common Target$ form is Planeswalker.YouCtrl. Other
+	// controller selectors are evaluated against the restriction source.
+	matches := false
+	switch strings.ToLower(selector) {
+	case "youctrl":
+		matches = defender == controller
+	case "oppctrl":
+		matches = defender != controller
+	case "controlledby player.cardowner":
+		// Xantcha's owner, not its current controller (which may be an opponent).
+		if src := g.Obj(source); src != nil {
+			matches = defender == src.Owner
 		}
-		// Forge's common Target$ form is Planeswalker.YouCtrl. Other
-		// controller selectors are evaluated against the restriction source.
-		matches := false
-		switch strings.ToLower(selector) {
-		case "youctrl":
-			matches = defender == controller
-		case "oppctrl":
-			matches = defender != controller
-		case "controlledby player.cardowner":
-			// Xantcha's owner, not its current controller (which may be an opponent).
-			if src := g.Obj(source); src != nil {
-				matches = defender == src.Owner
+	case "rememberedplayerctrl", "controlledby remembered":
+		// Effect registrations capture the named players at resolution time.
+		for _, p := range rememberedPlayers {
+			if p == defender {
+				matches = true
+				break
 			}
-		case "rememberedplayerctrl", "controlledby remembered":
-			// Effect registrations capture the named players at resolution time.
-			for _, p := range rememberedPlayers {
-				if p == defender {
-					matches = true
-					break
-				}
-			}
-		default:
-			matches = restrictionPlayerSpecMatches(g, selector, defender, controller, source, rememberedPlayers)
 		}
-		if matches {
-			return true
-		}
+	default:
+		matches = restrictionPlayerSpecMatches(g, selector, defender, controller, source, rememberedPlayers)
+	}
+	if matches {
+		return true
 	}
 	return false
 }

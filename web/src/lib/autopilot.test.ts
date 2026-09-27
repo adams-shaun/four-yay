@@ -364,9 +364,15 @@ describe('decide', () => {
 
   // --- stack rules: own objects ---
 
-  it('casual: my own spell on top + respondable passes (ownObjects never)', () => {
+  it('auto_mana: my own spell on top resolves through the Main 1 smart stop (ownObjects never)', () => {
     const d = priority(RESPONDABLE);
-    expect(run(d, view(0, 'draw', [stackEntry(9, 0, 'spell')]))).toEqual({ act: 'pass', index: 0 });
+    expect(decide({ decision: d, view: view(0, 'main1', [stackEntry(9, 0, 'spell')]), seat: 0, settings: defaultSettings(), autoManaAvailable: true }))
+      .toEqual({ act: 'pass', index: 0 });
+  });
+
+  it('without auto_mana, an own spell keeps the baseline smart-step stop', () => {
+    const d = priority(RESPONDABLE);
+    expect(run(d, view(0, 'main1', [stackEntry(9, 0, 'spell')]))).toEqual({ act: 'stop', reason: 'stop-set' });
   });
 
   it('full-control: my own spell on top + respondable stops (ownObjects if-respondable)', () => {
@@ -379,14 +385,15 @@ describe('decide', () => {
     expect(run(d, view(0, 'draw', [stackEntry(9, 0, 'spell')]), s)).toEqual({ act: 'stop', reason: 'own-object' });
   });
 
-  it('own object on top with nothing to respond with passes (ownObjects if-respondable, not respondable)', () => {
+  it('own object on top with nothing to respond with passes even through a forced step (ownObjects if-respondable)', () => {
     const d = priority(ONLY_MANA);
-    // casual's rules with ownObjects turned on: the own-object rule needs a
-    // respondable window, and a mana-only one is not (draw is 'off' in
-    // casual, so no step rule interferes).
-    const s = applyPreset('casual');
+    // The own-object setting decides the whole window.  With no response,
+    // "Stop if I can respond" passes; a forced step must not turn it into an
+    // unexpected second own-object stop.
+    const s = withSteps('yours', { draw: 'forced' });
     s.ownObjects = 'if-respondable';
-    expect(run(d, view(0, 'draw', [stackEntry(9, 0, 'ability')]), s)).toEqual({ act: 'pass', index: 1 });
+    expect(decide({ decision: d, view: view(0, 'draw', [stackEntry(9, 0, 'ability')]), seat: 0, settings: s, autoManaAvailable: true }))
+      .toEqual({ act: 'pass', index: 1 });
   });
 
   // --- step rules ---

@@ -124,13 +124,14 @@ type parking struct {
 // undo can interrupt a parked human. The plain seat API (Decide) passes nil —
 // a nil channel never fires.
 func (s *HumanSeat) park(ctx context.Context, v view.View, d decision.Decision, undo <-chan state.PlayerID) *parking {
-	slot := &pendingSlot{dec: d, recv: make(chan decision.Intent, 1)}
+	owned := *d.Clone()
+	slot := &pendingSlot{dec: owned, recv: make(chan decision.Intent, 1)}
 	s.mu.Lock()
 	s.slot = slot
 	timeout := s.timeout
 	caretaker := s.caretaker
 	s.mu.Unlock()
-	return &parking{s: s, slot: slot, ctx: ctx, v: v, d: d, timeout: timeout, caretaker: caretaker, undo: undo}
+	return &parking{s: s, slot: slot, ctx: ctx, v: v, d: owned, timeout: timeout, caretaker: caretaker, undo: undo}
 }
 
 // Decide records d as the pending decision and blocks until a matching intent
@@ -249,7 +250,7 @@ func (s *HumanSeat) pending() (bool, *decision.Decision) {
 	if s.slot == nil {
 		return false, nil
 	}
-	return true, &s.slot.dec
+	return true, s.slot.dec.Clone()
 }
 
 // submit delivers an intent to a parked Decide, refusing anything that does not
@@ -261,6 +262,20 @@ func (s *HumanSeat) pending() (bool, *decision.Decision) {
 // so a send can never block a holder of s.mu (a leaked per-decision send would
 // otherwise deadlock pending() and the next Decide).
 func (s *HumanSeat) submit(in decision.Intent) error {
+	return s.submitAdmitted(in, nil)
+}
+
+// submitAdmitted is submit with an optional host admission check.  The check
+// runs while slot is still protected, after the wire-level decision validation
+// and before the intent is accepted into the slot's channel.  This lets the
+// host reject an offered-looking payment witness which the rules engine can no
+// longer execute, without waking the match goroutine into a crash.
+//
+// The channel send remains outside s.mu: a receiver may be delayed and must
+// never block Pending or another stale-answer rejection while holding the seat
+// mutex.  Clone before admission so the exact value admitted is the one sent.
+func (s *HumanSeat) submitAdmitted(in decision.Intent, admit func(decision.Decision, decision.Intent) error) error {
+	in = decision.CloneIntent(in)
 	s.mu.Lock()
 	if s.slot == nil {
 		s.mu.Unlock()
@@ -270,6 +285,12 @@ func (s *HumanSeat) submit(in decision.Intent) error {
 	if err := slot.dec.Validate(in); err != nil {
 		s.mu.Unlock()
 		return err
+	}
+	if admit != nil {
+		if err := admit(*slot.dec.Clone(), in); err != nil {
+			s.mu.Unlock()
+			return err
+		}
 	}
 	s.mu.Unlock()
 	slot.recv <- in

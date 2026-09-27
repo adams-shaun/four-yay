@@ -108,13 +108,12 @@ type cacheFile struct {
 // AlternateMode, which name-characteristic matching needs to distinguish a
 // split card from a transforming double-faced card away from the battlefield.
 // Version 5 carries Face.Aliases, the Universes-Within flavour names read out
-// of Variant: lines: a v4 cache stored no alias and the Variant: line is not
-// retained anywhere in the cache, so a stale cache cannot be repaired in
-// memory and must be recompiled.
-// Keyword expansions are also re-linked after decoding below, so a newly
-// added idempotent expansion does not force every worktree to rewrite its
-// corpus.
-const cacheVersion = 5
+// of Variant: lines. Version 6 carries Face.SpecializeColor: the SPECIALIZE:
+// boundary token is not retained elsewhere, so a stale cache cannot be repaired
+// in memory and must be recompiled. Keyword expansions are also re-linked after
+// decoding below, so a newly added idempotent expansion does not force every
+// worktree to rewrite its corpus.
+const cacheVersion = 6
 
 // CacheVersionError is returned by LoadRegistry when the cache file on disk
 // was written by a different cacheVersion than this build's. Callers detect

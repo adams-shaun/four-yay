@@ -57,7 +57,9 @@ var knownUnmodelledCountHeads = map[string][]string{
 	// to the SOURCE object's logged ChosenNumber (effects/choose.go's Choose
 	// fold), so the head resolves whenever a source exists; this ratchet's
 	// Ctx names none (Source 0), which keeps the verdict unresolvable here.
-	"Count$ChosenNumber": {"Nahiri's Lithoforming"},
+	// Vault 112: Sadistic Simulation (Science! / pip precon import, task
+	// agent-20260922T231317Z-842a3f1e) lands in the same unbound-context class.
+	"Count$ChosenNumber": {"Nahiri's Lithoforming", "Vault 112: Sadistic Simulation"},
 }
 
 // TestEveryRepoDeckCountHeadResolves is the ratchet: every repo-deck SVar

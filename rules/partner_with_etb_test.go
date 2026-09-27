@@ -91,6 +91,16 @@ func TestPartnerWithETBOffersNamedPartnerSearch(t *testing.T) {
 	start := len(e.L.Events)
 	submitChoices(t, e, playerOpt)
 
+	// Forge's confirmAction gate for the synthesized Optional$ True ChangeZone
+	// runs before the fetch list: the targeted player first answers the
+	// "perform this search?" confirmation, then the search resolves to a
+	// KChoose offering the named partner only.
+	confirmAsk := passUntilNonPriority(t, e, 30)
+	if confirmAsk.Kind != decision.KChoose || confirmAsk.ResumeKind != "search_confirm" || confirmAsk.Player != 0 {
+		t.Fatalf("Partner-with ETB did not pose its search confirmation: %+v", confirmAsk)
+	}
+	submitChoices(t, e, confirmAsk.Options[0].Index)
+
 	// The search resolves to a KChoose for the targeted player, offering the
 	// named partner only.
 	searchAsk := passUntilNonPriority(t, e, 30)
@@ -214,6 +224,15 @@ func TestPartnerWithTargetedOpponentAnswersTheSearch(t *testing.T) {
 	}
 	start := len(e.L.Events)
 	submitChoices(t, e, oppOpt)
+
+	// Forge's confirmAction gate for the synthesized Optional$ True ChangeZone
+	// runs before the fetch list, and it is the TARGETED seat that answers it,
+	// exactly as that seat answers the search below.
+	confirmAsk := passUntilNonPriority(t, e, 30)
+	if confirmAsk.Kind != decision.KChoose || confirmAsk.ResumeKind != "search_confirm" || confirmAsk.Player != 1 {
+		t.Fatalf("Partner-with ETB did not pose its seat-1 search confirmation: %+v", confirmAsk)
+	}
+	submitChoices(t, e, confirmAsk.Options[0].Index)
 
 	// The ask goes to the TARGETED seat (Player 1), and the offered card is
 	// Laurine OUT OF SEAT 1's library -- not seat 0 reading seat 1's cards.

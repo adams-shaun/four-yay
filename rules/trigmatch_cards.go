@@ -894,6 +894,40 @@ func (e *Engine) evolvedMatches(t cards.Trigger, source state.ObjID, ev events.E
 	return true
 }
 
+// clashMatches implements Mode$ Clashed (CR 701.31: "Whenever you win/lose a
+// clash ..."). The causing event is one events.Clash marker per clashing
+// player (effClash emits one per participant, matching Forge's
+// ClashEffect, which runs the Clashed trigger once per player): Obj is the
+// resolving source permanent, Player the clashing seat this record reports,
+// and Amount 1 when that player won and 0 when they lost or tied. The
+// corpus's four carriers (Marvo, Deep Operative; Entangling Trap; Rebellion
+// of the Flamekin; Sylvan Echoes -- 6 raw lines) all gate on
+// `ValidPlayer$ You` plus the `Won$ True`/`Won$ False` orientation, so the
+// two reads are the whole matcher: ValidPlayer$ is matched against ev.Player
+// through the ordinary player-spec grammar with the trigger source's
+// controller as You, and Won$ requires Amount's win bit to equal it.
+// Entangling Trap and Rebellion of the Flamekin carry a pair of lines (True
+// and its `Secondary$ True` False sibling), which Forge fires one of via the
+// Won$ split; this matcher keeps each line's gate independent, so exactly
+// the matching one fires.
+func (e *Engine) clashMatches(t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+	if ev.Kind != events.Clash {
+		return false
+	}
+	ctrl := e.controllerOf(source)
+	if v := t.Params["ValidPlayer"]; v != "" &&
+		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+		return false
+	}
+	if w := strings.TrimSpace(t.Params["Won"]); w != "" {
+		want := strings.EqualFold(w, "True")
+		if (ev.Amount != 0) != want {
+			return false
+		}
+	}
+	return true
+}
+
 func init() {
 	registerTrigMatcher((*Engine).cycledMatches, "Cycled")
 	registerTrigMatcher((*Engine).exploitedMatches, "Exploited")
@@ -902,6 +936,10 @@ func init() {
 	registerTrigMatcher((*Engine).investigatedMatches, "Investigated")
 	registerTrigMatcher((*Engine).giveGiftMatches, "GiveGift")
 	registerTrigMatcher((*Engine).evolvedMatches, "Evolved")
+	registerTrigMatcher((*Engine).clashMatches, "Clashed")
+	registerTrigMatcher((*Engine).chaosEnsuesMatches, "ChaosEnsues")
+	registerTrigMatcher((*Engine).planeswalkedToMatches, "PlaneswalkedTo")
+	registerTrigMatcher((*Engine).planeswalkedFromMatches, "PlaneswalkedFrom")
 	registerTrigMatcher((*Engine).searchedLibraryMatches, "SearchedLibrary")
 	registerTrigMatcher((*Engine).discoverMatches, "Discover")
 	registerTrigMatcher((*Engine).seekAllMatches, "SeekAll")

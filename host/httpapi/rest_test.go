@@ -147,6 +147,30 @@ func TestTablesAndMatches(t *testing.T) {
 	}
 }
 
+func TestTableListHidesOnDemandVsBotGames(t *testing.T) {
+	r, err := host.New(host.Options{LoadDeck: loader(t), Sleep: func(time.Duration, <-chan struct{}) {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { r.Close() })
+	if err := r.AddTable(host.TableConfig{ID: "t1", Name: "Hosted", Seats: 2, Decks: []string{"a", "b"}, Seed: 1, Spectator: view.Omniscient}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.AddTable(host.TableConfig{ID: "g1", Name: "Play vs bot (constructed)", Seats: 2, Decks: []string{"a", "b"}, Seed: 2,
+		PlayerNames: []string{"You", "Bot"}, Spectator: view.Omniscient, Humans: []int{0}, OnDemand: true}); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(NewHandler(r, Options{}))
+	t.Cleanup(srv.Close)
+	var tables []protocol.TableInfo
+	if code, _ := getJSON(t, srv.URL+"/api/tables", &tables); code != http.StatusOK || len(tables) != 1 || tables[0].ID != "t1" {
+		t.Fatalf("lobby tables: %d %+v", code, tables)
+	}
+	if got := r.Tables(); len(got) != 2 {
+		t.Fatalf("registry lost direct game route: %+v", got)
+	}
+}
+
 func TestViewAndEvents(t *testing.T) {
 	srv, r := finishedServer(t, Options{})
 	ms, _ := r.Matches("t1")

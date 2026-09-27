@@ -319,7 +319,9 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		// malformed/off-list answer to the first candidate rather than
 		// inventing a colour the candidates never named.
 		c.ManaReflectedColor = ""
-		col := strings.TrimPrefix(answered, "Add ")
+		// The answer is carried as the structured mana symbol, not the option
+		// label: labels are presentation-only (ManaSymbol on decision.Option).
+		col := answered
 		for _, cand := range cols {
 			if cand == col {
 				manaAdd(recipient, col)
@@ -342,7 +344,7 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 			ResumeKind: "manareflected", ResumeSA: sa,
 			Prompt: "Choose a colour of mana to reflect", Source: c.Source}
 		for i, col := range cols {
-			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mana", Obj: c.Source, Label: "Add " + col})
+			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mana", Obj: c.Source, Label: "Add " + col, ManaSymbol: col})
 		}
 		if Ask(h, d) == AskAsked {
 			return

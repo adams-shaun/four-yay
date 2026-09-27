@@ -24,7 +24,7 @@ func TestCantAttackNegatedUnknownUnlessDefenderStaysBlocked(t *testing.T) {
 	if !found {
 		t.Fatal("precondition: the face CantAttack static with the unsupported negated gate was not active")
 	}
-	if !e.attackBlocked(attacker, 1) {
+	if !e.attackBlocked(attacker, 1, 0) {
 		t.Fatal("attacker was allowed to attack because negation converted an unknown UnlessDefender$ predicate into permission")
 	}
 }

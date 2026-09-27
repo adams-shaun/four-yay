@@ -56,7 +56,7 @@ import (
 // pool event records only the selected colour.
 func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 	var out state.Mana
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped {
 			continue
@@ -82,6 +82,31 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 	return out
 }
 
+// battlefieldManaSourceIDs lists the payer's battlefield permanents first,
+// followed by other players' battlefield permanents in seat order. The latter
+// matter when an ability's Activator$ explicitly permits the payer; the shared
+// availableManaAbilities gate filters each source. Zone order within each
+// owner is retained for deterministic option ordering.
+func (e *Engine) battlefieldManaSourceIDs(p state.PlayerID) []state.ObjID {
+	ids := append([]state.ObjID(nil), e.G.Zone(state.ZBattlefield, p)...)
+	for _, owner := range e.G.AliveFrom(0) {
+		if owner != p {
+			ids = append(ids, e.G.Zone(state.ZBattlefield, owner)...)
+		}
+	}
+	return ids
+}
+
+// manaSourceIDs adds the payer's non-battlefield printed mana sources to the
+// public battlefield set. Hand and graveyard sources remain owner-scoped.
+func (e *Engine) manaSourceIDs(p state.PlayerID) []state.ObjID {
+	ids := e.battlefieldManaSourceIDs(p)
+	for _, z := range []state.Zone{state.ZHand, state.ZGraveyard} {
+		ids = append(ids, e.G.Zone(z, p)...)
+	}
+	return ids
+}
+
 // manaFreeCost reports whether a mana ability's activation cost is a bare
 // tap (or empty -- an ability that produces mana for nothing): Tap may be
 // true, but no Sac, no Discard, no SubCounter, no generic/coloured mana, no variable X.
@@ -90,6 +115,7 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 func manaFreeCost(c Cost) bool {
 	return len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 &&
 		len(c.AddCounter) == 0 && len(c.Exile) == 0 && len(c.Reveal) == 0 &&
+		len(c.RevealOrChoose) == 0 &&
 		len(c.RevealChosen) == 0 &&
 		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
 		c.Generic == 0 && c.Life == 0 && c.Colored == (state.Mana{}) && c.X == 0 &&
@@ -108,6 +134,10 @@ type windowManaAlt struct {
 	ma     *cards.SA
 	counts [6]int32
 	amt    int32
+	// any records ProducedCounts' open-choice result.  Consumers which need a
+	// concrete witness (payment plans) must decline it even where the ordinary
+	// payment window has a deterministic fallback.
+	any bool
 	// life is the life the activation pays (a PayLife<N> activation cost).
 	// Every alt the shared windowManaUnits builds carries 0; only the
 	// cast-payment probe's paid-cost layer sets it, so the affordability
@@ -115,6 +145,19 @@ type windowManaAlt struct {
 	// that spends life must not be promised as if the life were still
 	// available for the cost being priced.
 	life int32
+	// costGeneric is the literal generic mana the activation pays BEFORE the
+	// production is added (a "{N}, {T}: add ..." activation cost). Every alt
+	// the shared windowManaUnits builds carries 0 (a free tap), so the field
+	// is inert for the attack/unless payment windows. The cast-payment
+	// probe's paid-cost layer sets it and the cast-only ordered eligibility
+	// search (castWindowReachable) pays it from the pool this window has
+	// already accumulated, so a generic fee can be funded by an earlier
+	// same-window activation -- the exact sequence the live CR 601.2g window
+	// can perform, one source at a time. It is deliberately NOT netted into
+	// counts/amt: a multi-colour production cannot express "minus N" without
+	// choosing which colour the generic consumed, and the choice is the
+	// payer's at activation time.
+	costGeneric int32
 }
 
 // mana is the alt's production as a mana vector, the form the walk's
@@ -170,7 +213,7 @@ type windowManaUnit struct {
 // ability becomes one alt, since the permanent still taps for one of them.
 func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
 	var out []windowManaUnit
-	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+	for _, id := range e.battlefieldManaSourceIDs(p) {
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
@@ -203,7 +246,7 @@ func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
 			} else if total <= 0 {
 				continue
 			}
-			alts = append(alts, windowManaAlt{ma: ma, counts: counts, amt: amt})
+			alts = append(alts, windowManaAlt{ma: ma, counts: counts, amt: amt, any: any})
 		}
 		if len(alts) == 0 {
 			continue

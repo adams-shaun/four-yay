@@ -403,6 +403,14 @@ func TestAtEOTPurphorosHandMoveIsSacrificedAtEOT(t *testing.T) {
 	effects.Resolve(e, &effects.Ctx{Source: purph, Controller: 0,
 		SVars: card.Faces[0].SVars}, sa)
 	d := e.Pending()
+	// The explicit Optional$ You marker poses Forge's confirm-before-pick
+	// gate first (optional_confirm1): accept it, then the hand_move pick
+	// follows.
+	if d == nil || d.ResumeKind != "hand_move_confirm" {
+		t.Fatalf("pending %+v, want the hand_move_confirm gate (Optional$ You asks before the pick)", d)
+	}
+	submitChoices(t, e, d.Options[0].Index)
+	d = e.Pending()
 	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "hand_move" {
 		t.Fatalf("pending %+v, want the hand_move KChoose (Optional$ You keeps the ask alive)", d)
 	}

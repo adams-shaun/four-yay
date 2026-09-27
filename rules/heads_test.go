@@ -867,7 +867,11 @@ var acceptanceHeads = map[int]string{
 	// cli-20260924T034908Z-be6139b0 entry-counter fold leaves the 2-seat game
 	// at 9b4759db7fe10fdd -- measured on the merged tip with the entry-body
 	// absorption disabled, which reproduces 9b4759db7fe10fdd exactly.
-	2: "9b4759db7fe10fdd",
+	// 2 seats moved to a991478b3edb213c (autonomous orchestrator): resolving agent-20260926T222248Z-9c652605 (Hide the ordinary Optional$ ChangeZone confirmation behind ForgetOtherRemembered)
+	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
+	// the same proxy this repo has used by hand for every head move -- neither
+	// check is sensitive to bot-choice quality, only engine correctness.
+	2: "a991478b3edb213c",
 	// 4 seats moved to c232a4aca592e0f8 (autonomous orchestrator): resolving fb-20260914T033246Z-3f1cc033 (delver of secrets was played, but I was not prompted ... "you MAY reveal"... ...)
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
@@ -1070,7 +1074,11 @@ var acceptanceHeads = map[int]string{
 	// entry-fold is the only further cause. Provenance alone leaves the 2-seat
 	// head at 9b4759db7fe10fdd, unchanged by the entry-fold (the merged tip
 	// reads exactly that), matching main.
-	4: "3d6d44e9d27bb44a",
+	// 4 seats moved to d8a1ddfd311237dd (autonomous orchestrator): resolving agent-20260926T222248Z-9c652605 (Hide the ordinary Optional$ ChangeZone confirmation behind ForgetOtherRemembered)
+	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
+	// the same proxy this repo has used by hand for every head move -- neither
+	// check is sensitive to bot-choice quality, only engine correctness.
+	4: "d8a1ddfd311237dd",
 	// 6 seats moved to c8c36b87e598c090 (autonomous orchestrator): resolving fb-20260914T033246Z-3f1cc033 (delver of secrets was played, but I was not prompted ... "you MAY reveal"... ...)
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
@@ -1420,7 +1428,11 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	8: "13ba766ebeeb29e7",
+	// 8 seats moved to 15be7dadc85b47df (autonomous orchestrator): resolving agent-20260926T222248Z-9c652605 (Hide the ordinary Optional$ ChangeZone confirmation behind ForgetOtherRemembered)
+	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
+	// the same proxy this repo has used by hand for every head move -- neither
+	// check is sensitive to bot-choice quality, only engine correctness.
+	8: "15be7dadc85b47df",
 }
 
 func TestHeads(t *testing.T) {

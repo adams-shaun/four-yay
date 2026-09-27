@@ -357,8 +357,11 @@ export function decide(args: {
    * (fb-20260917T231311Z-e392fcc0).
    */
   skipOwnTurnFloor?: boolean;
+  /** Payment-plan tables may resolve an own spell under normal Auto. Tables
+   * without the capability retain their historical own-stack behavior. */
+  autoManaAvailable?: boolean;
 }): AutoVerdict {
-  const { decision, view, seat, settings, ffwd = false, yields = null, baselineStack = null, skipOwnTurnFloor = false } = args;
+  const { decision, view, seat, settings, ffwd = false, yields = null, baselineStack = null, skipOwnTurnFloor = false, autoManaAvailable = false } = args;
 
   // Safety first: auto NEVER answers anything but a plain single-pick
   // priority decision with exactly one pass option. Target, blockers,
@@ -395,11 +398,15 @@ export function decide(args: {
         }
         // 'never' (and a rule the arms above did not meet) falls through.
       }
-    } else if (baselineStack === null && settings.ownObjects === 'if-respondable' && respondableFor(view, seat, decision)) {
-      // Resolve All only stops for NEW opponent objects. An own trigger or
-      // ability pushed while it runs is part of resolving the stack, even
-      // under Full Control; persistent Auto still honours ownObjects.
-      return { act: 'stop', reason: 'own-object' };
+    } else if (baselineStack === null) {
+      // Payment-plan tables deliberately let normal Auto resolve an own spell
+      // unless the player opted to hold priority. The capability is part of
+      // that behavior: without auto_mana, preserve the old own-stack and step
+      // stop behavior exactly.
+      if (settings.ownObjects === 'if-respondable' && respondableFor(view, seat, decision)) {
+        return { act: 'stop', reason: 'own-object' };
+      }
+      if (autoManaAvailable) return { act: 'pass', index: pass.index };
     }
   }
 

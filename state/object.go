@@ -355,6 +355,27 @@ const (
 	// follows the flag, not the other way round.
 	// Appended per the enum's own append-only precedent.
 	FlagRebound
+	// FlagBlitzed marks a cast paid for with the card's Blitz cost (CR
+	// 702.152a): the spell was cast from hand (or, via a MayPlay$ Spell.Blitz
+	// static, from a graveyard) for the keyword's alternative cost. The
+	// permanent it becomes gains haste and "When this creature dies, draw a
+	// card", and is sacrificed at the beginning of the next end step -- all
+	// read by rules/altcast.go's entry hook (blitzEnter). It IS a
+	// CastProvenanceFlag: the whole rider package is conditioned on the spell
+	// having been CAST for its blitz cost ("If you cast this spell for its
+	// blitz cost"), so a stack copy -- put on the stack, never cast
+	// (CR 707.10) -- must not inherit it. Appended per the enum's own
+	// append-only precedent.
+	FlagBlitzed
+	// FlagAddsCounters marks a cast whose payment consumed mana produced by
+	// an ability carrying an AddsCounters$ rider (Opal Palace, Biophagus,
+	// Animal Attendant, Guildmages' Forum): "if this mana is spent to cast
+	// [a matching spell], it enters with additional counters". The grants
+	// ride the event's Text into Object.ManaAddsCounterGrants, and rules'
+	// entry-counter plan reads the snapshotted riders at battlefield entry.
+	// It IS a CastProvenanceFlag: a stack copy was never cast (CR 707.10).
+	// Appended after main's FlagBlitzed to preserve its bit.
+	FlagAddsCounters
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -388,7 +409,12 @@ const (
 // conditioned on the cast ("If you cast this spell from your hand, exile it
 // as it resolves"), so a stack copy -- never cast, its origin a stack mint
 // rather than a hand -- resolves without the exile-and-promise.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound
+// FlagAddsCounters joins the set: the mana-spend rider's grant is conditioned
+// on the mana having been spent to CAST this spell ("if you spend this mana to
+// cast your commander, it enters with ..."), so a copy -- put on the stack,
+// never cast -- must not inherit the grants. FlagBlitzed is likewise a
+// cast-cost-conditioned entry rider.
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it
@@ -791,6 +817,22 @@ type Object struct {
 	ManaTreasureSpent int32
 	ManaCaveSpent     int32
 	ManaDesertSpent   int32
+	// ManaAddsCounterGrants are the AddsCounters$ mana-spend rider grants this
+	// cast earned (Opal Palace's "if you spend this mana to cast your
+	// commander, it enters with ... counters", Biophagus, Animal Attendant,
+	// Guildmages' Forum). Each entry is one producing ABILITY's rider
+	// snapshotted at PRODUCTION (Filter, Kind, Amount -- a literal or the
+	// resolved SVar body) together with Count, how many of that ability's
+	// mana units the payment actually spent. It rides the pay-time CastInfo's
+	// FlagAddsCounters Text payload and is used verbatim by rules'
+	// entry-counter plan: the rider is never re-read from the source's
+	// current face at entry, so a copied/modified source or a second,
+	// rider-less ability of the same permanent cannot change the grant, and
+	// Count rider units yield Count grants. It rides the same provenance
+	// window as X/CastFlags and resets alongside them in events.Move; a stack
+	// copy was never cast and reads empty (the flag is stripped by
+	// CastProvenanceFlags and the field is cleared at the mint).
+	ManaAddsCounterGrants []ManaAddsCounterGrant
 	// ManaArtifactSpent is the ARTIFACT-sourced part of ManaSpent (task
 	// mayplay-mfa): how many of the mana units the cast's payment spent were
 	// produced by an Artifact permanent -- Sol Ring, Arcane Signet, the whole

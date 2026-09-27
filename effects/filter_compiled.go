@@ -75,6 +75,16 @@ type compiledAlt struct {
 	typSub bool
 	// contextualSameName is sameNameContextBase(base, rest).
 	contextualSameName bool
+	// spellTargeting marks Forge's base-qualified Spell.IsTargeting form (and
+	// the SpellAbility spelling), optionally '!'-negated: the alternative is
+	// ONE unit whose whole argument (not a '+' token) is the target spec.
+	// spellTargetingOK is false for an argument this grammar cannot answer
+	// whole, which fails the whole alternative closed (never a partial
+	// evaluation). spellTargetingSpec is the normalised target spec.
+	spellTargeting     bool
+	spellTargetingOK   bool
+	spellTargetingNeg  bool
+	spellTargetingSpec string
 	preds              []compiledPred
 }
 
@@ -134,6 +144,11 @@ func specialPositiveToken(p string) bool {
 		"IsRemembered", "IsTriggerRemembered":
 		return true
 	}
+	// Forge's base-qualified `Spell.IsTargeting <target-spec>` form is handled
+	// at the alternative level (compileSpec/compiledMatch), never as a bare
+	// predicate token: its whole argument is a target spec, so a token-level
+	// classifier could only see its truncated '+' head. A compiled predicate
+	// carrying that text therefore classifies as csUnknown and fails closed.
 	return strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") ||
 		strings.HasPrefix(p, "greatestPower") ||
 		strings.HasPrefix(p, "greatestCMC_") ||
@@ -303,11 +318,26 @@ func compileSpec(spec string) *compiledSpec {
 		default:
 			a.kind, a.typ, a.typSub = cbType, b, changelingType(b)
 		}
-		for p := range strings.SplitSeq(rest, "+") {
-			if p == "" {
-				continue
+		// Forge's base-qualified Spell.IsTargeting form (and the SpellAbility
+		// spelling) is ONE alternative: the whole rest after `IsTargeting `
+		// is the target spec, so it is never split into candidate predicates.
+		// An argument the shared grammar cannot answer whole fails the whole
+		// alternative closed (spellTargetingOK stays false), which is the
+		// compiled twin of matchesObjectText's early continue.
+		if _, stNeg, shape := spellIsTargetingShape(base, rest); shape {
+			a.spellTargeting = true
+			a.spellTargetingNeg = stNeg
+			if arg, _, ok := spellIsTargetingAlt(base, rest); ok && spellIsTargetingArgRecognised(arg) {
+				spec, _ := spellIsTargetingInner(arg)
+				a.spellTargetingSpec, a.spellTargetingOK = spec, true
 			}
-			a.preds = append(a.preds, compilePred(p))
+		} else {
+			for p := range strings.SplitSeq(rest, "+") {
+				if p == "" {
+					continue
+				}
+				a.preds = append(a.preds, compilePred(p))
+			}
 		}
 		cs.alts = append(cs.alts, a)
 	}
@@ -405,6 +435,18 @@ func compiledMatch(cs *compiledSpec, g *state.Game, o *state.Object, sc *SpecCon
 		} else if !compiledBaseMatch(a, o, sc, 0, false) {
 			continue
 		}
+		if a.spellTargeting {
+			if a.spellTargetingOK {
+				met := spellIsTargetingMatchesPtr(g, a.spellTargetingSpec, o, asc)
+				if a.spellTargetingNeg {
+					met = !met
+				}
+				if met {
+					return true
+				}
+			}
+			continue
+		}
 		all := true
 		for j := range a.preds {
 			p := &a.preds[j]
@@ -438,6 +480,18 @@ func compiledMatchZone(cs *compiledSpec, g *state.Game, o *state.Object, sc *Spe
 				continue
 			}
 		} else if !compiledBaseMatch(a, o, sc, zone, true) {
+			continue
+		}
+		if a.spellTargeting {
+			if a.spellTargetingOK {
+				met := spellIsTargetingMatchesPtr(g, a.spellTargetingSpec, o, sc)
+				if a.spellTargetingNeg {
+					met = !met
+				}
+				if met {
+					return true
+				}
+			}
 			continue
 		}
 		all := true

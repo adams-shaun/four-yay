@@ -33,6 +33,10 @@ type Bot struct {
 	combinedLethal bool
 	blocksAssign   bool
 	explore        bool
+	// autoPayMana makes priority use an offered payment plan instead of
+	// manually activating mana abilities. It is configured once by the hosted
+	// table and does not add state or RNG to the match.
+	autoPayMana bool
 	// cast/castSet are the cast-profile policy's weights: when castSet is
 	// true every decision's Board gets brd.Cast = cast before the policy
 	// runs, so the cast scorer (cardWorth/castScore/chooseCast) dots its
@@ -62,6 +66,14 @@ var _ BoardSeat = (*Bot)(nil)
 // (engine seed, bot seed), nothing else.
 func NewBot(seed uint64) *Bot {
 	return &Bot{r: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
+}
+
+// EnableAutoPayMana configures this bot to select payment-plan witnesses at
+// priority. It returns b so every hosted policy constructor can retain its
+// existing deterministic policy shape and seed derivation.
+func (b *Bot) EnableAutoPayMana() *Bot {
+	b.autoPayMana = true
+	return b
 }
 
 // NewLethalPressureBot returns the measured opt-in AR7 policy. Both Seat
@@ -123,6 +135,94 @@ func (b *Bot) decide(brd botpolicy.Board, d *decision.Decision) decision.Intent 
 	if b.castSet {
 		brd.Cast = b.cast
 	}
+	if b.autoPayMana {
+		if in, ok := b.paymentIntent(brd, d); ok {
+			return in
+		}
+	}
+	return b.decideWithoutAutoPay(brd, d)
+}
+
+// paymentIntent lets the ordinary casting policy rank offered payment-plan
+// casts without ever manually floating mana. It constructs a private priority
+// decision in which mana activations are absent and each payable cast missing
+// from legacy Options is represented as a normal cast candidate. Thus the
+// existing policy still takes a land drop first, keeps all non-payment
+// decisions unchanged, and selects the same preferred card among payable
+// spells. The submitted witness is copied from the exact offered plan.
+func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision.Intent, bool) {
+	if d == nil || d.Kind != decision.KPriority || len(d.PaymentActions) == 0 {
+		return decision.Intent{}, false
+	}
+	payable := make(map[state.ObjID]decision.PaymentAction, len(d.PaymentActions))
+	for _, a := range d.PaymentActions {
+		if len(a.Plans) != 0 {
+			payable[a.Cast.Object] = a
+		}
+	}
+	if len(payable) == 0 {
+		return decision.Intent{}, false
+	}
+
+	candidate := d.Clone()
+	candidate.Options = make([]decision.Option, 0, len(d.Options)+len(payable))
+	candidateToOriginal := make(map[int]int, len(d.Options))
+	legacyCast := make(map[state.ObjID]bool, len(d.Options))
+	for _, o := range d.Options {
+		// These are precisely legalActions' mana abilities. A payment plan
+		// performs the required activations atomically, so exposing one here
+		// would defeat auto-pay before cast ranking runs.
+		if o.Kind == "activate" {
+			continue
+		}
+		originalIndex := o.Index
+		o.Index = len(candidate.Options)
+		candidateToOriginal[o.Index] = originalIndex
+		candidate.Options = append(candidate.Options, o)
+		if o.Kind == "cast" {
+			legacyCast[o.Obj] = true
+		}
+	}
+	for _, a := range d.PaymentActions {
+		if len(a.Plans) == 0 || legacyCast[a.Cast.Object] {
+			continue
+		}
+		candidate.Options = append(candidate.Options, decision.Option{
+			Index: len(candidate.Options), Kind: "cast", Obj: a.Cast.Object, Label: a.Label,
+		})
+	}
+
+	// Use the exact policy variant (including a cast profile) on the private
+	// candidate list. Priority choices consume no RNG for hosted policies, so
+	// this neither changes subsequent choices nor asks the policy twice.
+	in := b.decideWithoutAutoPay(brd, candidate)
+	if len(in.Choices) != 1 {
+		return decision.Intent{}, false
+	}
+	for _, o := range candidate.Options {
+		if o.Index != in.Choices[0] || o.Kind != "cast" {
+			continue
+		}
+		a, ok := payable[o.Obj]
+		if ok {
+			return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
+				ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
+			}}, true
+		}
+		break
+	}
+	// The private policy may have preferred a land drop, ability, or pass.
+	// Translate that choice back to the original option index so removing mana
+	// activations never changes the decision's public index contract.
+	if original, ok := candidateToOriginal[in.Choices[0]]; ok {
+		return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{original}}, true
+	}
+	return decision.Intent{}, false
+}
+
+// decideWithoutAutoPay is the existing policy dispatch, factored so the
+// payment wrapper can ask it to rank a private candidate decision once.
+func (b *Bot) decideWithoutAutoPay(brd botpolicy.Board, d *decision.Decision) decision.Intent {
 	if b.explore {
 		return botpolicy.ExploreDecide(brd, d, b.r)
 	}

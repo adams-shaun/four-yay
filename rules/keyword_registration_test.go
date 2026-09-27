@@ -15,6 +15,7 @@ func TestRegisteredKeywordsAreHonoured(t *testing.T) {
 	sup := effects.Supported()
 	for kw, proof := range map[string]string{
 		"kw:Flash":          "TestFlashCreatureIsCastableOffTurn",
+		"kw:Foretell":       "TestForetellActionOfferedOnYourTurnAtTwoGeneric",
 		"kw:Indestructible": "TestIndestructibleSurvivesLethalDamageAndDestroy",
 		"kw:Devoid":         "TestDevoidCreatureIsColourless",
 		"kw:Undying":        "TestUndyingReturnsOnceWithACounter",
@@ -49,6 +50,7 @@ func TestRegisteredKeywordsAreHonoured(t *testing.T) {
 		"kw:Landwalk":       "TestLandwalkEvadesDefenderLands",
 		"kw:Protection":     "TestProtectionUsesAllLiveColourQualities",
 		"kw:Flanking":       "TestFlankingKnightOfTheHolyNimbusDebuffsBlockers",
+		"kw:Split second":   "TestVATSSplitSecondWithholdsCastsAndActivations",
 		"kw:Devour":         "TestGorgerWurmDevourAsksAndCountsTheSacrificed",
 		"kw:Gravestorm":     "TestOminousHarvestGravestormCopiesPerDeath",
 		"kw:Toxic":          "TestToxicIxhelAddsPoisonOnCombatDamage",

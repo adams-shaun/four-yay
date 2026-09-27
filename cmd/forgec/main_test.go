@@ -41,7 +41,7 @@ func TestLoadReportRegistryPrefersAFreshCache(t *testing.T) {
 	r := cards.NewRegistry()
 	c, _ := cards.ParseBytes("swamp.txt", []byte("Name:Swamp\nTypes:Basic Land Swamp\nOracle:\n"))
 	r.Add(c)
-	cache := filepath.Join(dir, "ir.gob.gz")
+	cache := cards.CachePath(dir)
 	if err := r.Save(cache); err != nil {
 		t.Fatal(err)
 	}

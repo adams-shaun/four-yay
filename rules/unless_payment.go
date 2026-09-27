@@ -76,9 +76,19 @@ func (c Cost) manaPipCount() int {
 // supplies) and by a hard node budget; beyond that it fails closed, which is
 // the conservative direction (never offer a Pay the window cannot complete).
 func (e *Engine) unlessManaReachable(p state.PlayerID, cost Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, conv *manaConv, units []windowManaUnit) bool {
+	return e.manaReachable(p, cost, pool, snow, typed, life, pipRider{}, conv, units)
+}
+
+// manaReachable reports whether cost can be paid from pool plus at most one
+// production alternative per mana source.  The cast announcement path uses a
+// non-empty rider here: a MayPlayIgnoreColor grant must widen the same
+// candidate face test as it widens the eventual payment.  The unless-payment
+// callers deliberately retain their ordinary no-rider semantics through the
+// wrapper above.
+func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, rider pipRider, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool state.Mana, lifeNow int32) bool {
 		_, ok := cost.resolveManaWith(pool, snow, typed, lifeNow,
-			e.payerGrantsPayLifeInsteadOfB(p), pipRider{}, conv)
+			e.payerGrantsPayLifeInsteadOfB(p), rider, conv)
 		return ok
 	}
 	if payable(pool, life) {
@@ -487,8 +497,23 @@ func (e *Engine) advanceUnlessPayment() {
 	for _, id := range u.sacs {
 		e.emit(events.Sacrifice(id))
 	}
+	// Bracket the settled Discard component's emissions as ONE discard action
+	// (CR 701.8), exactly as the cast flow's payDiscardCost and effDiscard's
+	// api:Discard do: a call to discard two cards is one discard action, so a
+	// Mode$ DiscardedAll observer queues ONE trigger whose TriggerCount$Amount
+	// is the number of cards, not one batch-of-one per event. Nothing here can
+	// suspend (all choices were collected above), so the close runs immediately
+	// after the last emitted discard, before the Return/Draw parts and
+	// finishUnlessPayment resume resolution. Guarded so a payment with no
+	// discard leaves no bracket open.
+	if len(u.discards) > 0 {
+		e.BeginDiscardBatch()
+	}
 	for _, id := range u.discards {
 		e.emit(events.Discard(id, u.payer))
+	}
+	if len(u.discards) > 0 {
+		e.EndDiscardBatch()
 	}
 	// Return parts: each chosen permanent moves to its OWNER's hand (Forge
 	// CostReturn.moveToHand), the same event shape the cast flow's settle

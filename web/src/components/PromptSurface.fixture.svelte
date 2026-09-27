@@ -2,16 +2,13 @@
   import type { Decision, PlayerView, SeatInfo, View } from '../protocol';
   import { SeatPanelState } from '../lib/seatpanel.svelte';
   import HotButtonStrip from './HotButtonStrip.svelte';
-  import SeatPanel from './SeatPanel.svelte';
 
   /**
    * PromptSurface fixture: the surfaces the prompt-surface tests drive in
    * a real browser. `case` picks the decision:
    *
-   *  - 'initiative' — a target decision (no pass option): the REQUIRED prompt.
-   *    The strip (with its ACTIONS drop) and the board prompt surface mount
-   *    exactly as Table mounts them for this tone, so the test can prove the
-   *    prompt is answerable with the dropdown never opened.
+   *  - 'initiative' — a target decision (no pass option): the required
+   *    prompt automatically opens directly below ACTIONS, exactly as Table.
    *  - 'arrange' — a KArrange PURE REORDER (Min == Max == 5): the full arrange
    *    flow on the shape that keeps every card (the popup opens with all five
    *    kept in offered order; only reordering moves them).
@@ -150,16 +147,14 @@
 
 <div class="boardlike">
   <HotButtonStrip {view} {seats} state={seatState} {ctx} table="t1" match={1} />
-  <SeatPanel {view} {seats} {ctx} table="t1" match={1} state={seatState} />
   {#if which === 'seqswap'}
     <button type="button" data-swap-decision onclick={() => (view.decision = swapTo)}>swap the ask</button>
   {/if}
 </div>
 
 <style>
-  /* The one thing the fixture needs from the board: enough room for the two
-     surfaces to coexist. The panel positions itself absolutely at the top
-     centre, as on the real board. */
+  /* The strip owns the only in-game answer surface. The felt merely gives
+     its anchored drop a real board-sized area to occupy. */
   .boardlike {
     position: relative;
     width: 900px;

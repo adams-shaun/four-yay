@@ -144,6 +144,7 @@ var modelledValueHeads = []string{
 	"TimesKicked",
 	"TimesMutated",
 	"TopOfLibraryCMC",
+	"CommanderCastFromCommandZone",
 	"TotalCommanderCastFromCommandZone",
 	"TotalOppPoisonCounters",
 	"TotalTurns",

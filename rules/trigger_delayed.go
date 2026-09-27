@@ -504,8 +504,23 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 		} else {
 			continue
 		}
-		if dt.EventMode != "BecomeMonarch" && !e.triggerConditionHoldsAs(t, dt.Source, dt.Controller) {
-			continue
+		if dt.EventMode != "BecomeMonarch" {
+			// The registration's OWN capture binds Card.IsTriggerRemembered
+			// inside the body's IsPresent$/IsPresent2$ clauses (Stolen
+			// Uniform's "if it's attached to a creature you control"): the
+			// unbound generic walk answers the capture-aware spec unknown
+			// and fails closed, so a qualifying control change would never
+			// fire. The binding rides the caller's TriggerContext, so every
+			// other condition clause keeps its single evaluation with
+			// unchanged semantics (Fight for the Throne's non-capture
+			// IsPresent$ Card.IsCommander+... is untouched). A failed
+			// condition does not spend the registration: the fire is simply
+			// not collected, so a later matching event, once the condition
+			// holds, may fire -- the same pending direction ValidPlayer$
+			// and the Phase arm's own present gate take.
+			if !e.triggerConditionHoldsAsWithDelayedRemembered(t, dt.Source, dt.Controller, dt.Remembered) {
+				continue
+			}
 		}
 		refs := e.triggerReferents(t, dt.Source, ev, referentsArg)
 		refs.DelayedObject = ev.Obj

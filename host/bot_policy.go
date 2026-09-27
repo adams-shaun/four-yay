@@ -39,19 +39,37 @@ func NormalizeBotPolicy(name string) (string, error) {
 // policy. The caller owns the per-seat seed derivation; the factory never
 // reaches ambient randomness or substitutes a policy on an unknown name.
 func NewBotPolicySeat(name string, seed uint64) (seat.Seat, error) {
+	return NewBotPolicySeatWithAutoPayMana(name, seed, false)
+}
+
+// NewBotPolicySeatWithAutoPayMana builds a named hosted bot. When autoPayMana
+// is set, the bot selects offered payment-plan witnesses instead of manually
+// tapping mana sources; normal decision policy remains unchanged.
+func NewBotPolicySeatWithAutoPayMana(name string, seed uint64, autoPayMana bool) (seat.Seat, error) {
 	name, err := NormalizeBotPolicy(name)
 	if err != nil {
 		return nil, err
 	}
 	if name == LethalPressurePolicy {
-		return seat.NewLethalPressureBot(seed), nil
+		b := seat.NewLethalPressureBot(seed)
+		if autoPayMana {
+			b.EnableAutoPayMana()
+		}
+		return b, nil
 	}
 	if name == CastProfilePolicy {
 		b, err := seat.NewCastProfileBot(seed)
 		if err != nil {
 			return nil, err
 		}
+		if autoPayMana {
+			b.EnableAutoPayMana()
+		}
 		return b, nil
 	}
-	return seat.NewBot(seed), nil
+	b := seat.NewBot(seed)
+	if autoPayMana {
+		b.EnableAutoPayMana()
+	}
+	return b, nil
 }

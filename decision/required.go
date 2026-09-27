@@ -85,14 +85,19 @@ func (d *Decision) RequiredQuota() int {
 	return len(d.requiredCore())
 }
 
-// RequiredChosen counts the distinct required Objs chosen. KBlockers also
-// counts alternate MustBlock candidate pairs, not just the one highlighted
-// Required on the wire. Out-of-range indices are ignored.
+// RequiredChosen counts the distinct required Objs chosen. KBlockers uses the
+// whole-declaration requirement counter instead (blockRequirementsSatisfied),
+// because a blocking answer can satisfy an ATTACKER-oriented requirement with
+// any one of several blocker pairs, and counts required BLOCKERS and required
+// ATTACKERS alike. Out-of-range indices are ignored.
 func (d *Decision) RequiredChosen(choices []int) int {
+	if d.Kind == KBlockers {
+		return d.blockRequirementsSatisfied(choices)
+	}
 	seen := make(map[state.ObjID]bool, len(choices)) // membership only.
 	n := 0
 	for _, c := range choices {
-		if c < 0 || c >= len(d.Options) || (!d.Options[c].Required && (d.Kind != KBlockers || !d.Options[c].BlockMust)) {
+		if c < 0 || c >= len(d.Options) || !d.Options[c].Required {
 			continue
 		}
 		if obj := d.Options[c].Obj; !seen[obj] {
@@ -137,7 +142,8 @@ func (d *Decision) FitRequired(choices []int) []int {
 		(!d.HasBudget() || sum <= d.MaxSum) &&
 		(d.MinSum <= 0 || sum >= d.MinSum) &&
 		d.RequiredChosen(choices) >= d.RequiredQuota() &&
-		!d.groupCapExceeded(choices) {
+		!d.groupCapExceeded(choices) &&
+		d.setPropAnswerAdmits(choices) {
 		return choices
 	}
 
@@ -167,6 +173,10 @@ func (d *Decision) FitRequired(choices []int) []int {
 			requiredObj[d.Options[i].Obj] = true
 		}
 	}
+	// setAcc tracks the running target-set property accumulator (the same
+	// SetPropAdmits/SetPropMerge rule Validate enforces), so the fold can
+	// never append an option the set constraint refuses.
+	setAcc := d.setPropAccumulator(out)
 	fits := func(delta int) bool { return !d.HasBudget() || sum+delta <= d.MaxSum }
 	for _, c := range choices {
 		if c < 0 || c >= len(d.Options) || (have[c] && !d.Repeatable) {
@@ -201,10 +211,12 @@ func (d *Decision) FitRequired(choices []int) []int {
 		if d.Kind == KAttackers && objTaken[o.Obj] {
 			continue
 		}
-		if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value) {
+		if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value) ||
+			!SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) {
 			continue
 		}
 		sum += o.Value
+		setAcc = SetPropMerge(d.SetPropMode, setAcc, o.SetProps)
 		out = append(out, c)
 		have[c] = true
 		objTaken[o.Obj] = true

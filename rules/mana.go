@@ -147,7 +147,28 @@ type Cost struct {
 	SubCounter      []CostPart
 	AddCounter      []CostPart
 	Exile           []CostPart
-	Reveal          []CostPart
+	// ExileFromTop carries Forge's ExileFromTop<N/Card> parts -- exiling the
+	// top N cards of the payer's OWN library as a cast/activation cost (Storm
+	// Elemental, Phyrexian Devourer, Arc-Slogger, Whirling Catapult). It is a
+	// DISTINCT slice from Exile on purpose: state.ZLibrary is the zero Zone,
+	// and CostPart.Zone's zero value means "the hand" to every hand/grave
+	// exile path, so a library part recorded in Exile would be read back as a
+	// hand exile. The library is ordered, so the payment takes the actual top
+	// N cards and never poses a chooser.
+	ExileFromTop []CostPart
+	Reveal       []CostPart
+	// RevealOrChoose carries Forge's either-or `RevealOrChoose<N/Spec>` cost
+	// (Monstrous Emergence, Dragon's Fire): reveal N hand cards matching Spec
+	// OR choose N permanents matching Spec you control. It is deliberately a
+	// DISTINCT slice from Reveal: the reveal arm is a real hand-card reveal
+	// (public Note, the card rides the Revealed paid list), while the choose
+	// arm elects a permanent already on the battlefield -- a different
+	// provenance that must not be read as a hand reveal. Both arms' elected
+	// objects land in the same paid list the `Revealed$<Property>` refs read
+	// (Forge's CostReveal owns both arms), but only the hand arm is announced
+	// as a reveal. Spec serves both arms (the card's own chooser reads one
+	// type for the hand card and the permanent).
+	RevealOrChoose []CostPart
 	// RevealChosen carries RevealChosen<Player> and RevealChosen<Type/...>
 	// components (Stalking Leonin, Guardian Archon, Emissary of Grudges, A
 	// Killer Among Us): the payer publicly reveals a designation that was
@@ -309,6 +330,21 @@ var sacXCost = regexp.MustCompile(`^Sac<X/([^/>]+)(?:/([^>]*))?>$`)
 // trigger-cost family are the corpus users.
 var exileCost = regexp.MustCompile(`^Exile(FromHand|FromGrave|AnyGrave)<(X|\d+)/([^/>]+)(?:/([^>]*))?>$`)
 
+// exileFromTopCost matches Forge's ExileFromTop<N/Card> token -- exiling the
+// top N cards of the payer's OWN library as a cast/activation cost (Storm
+// Elemental's "{U}, exile the top card of your library", Phyrexian
+// Devourer's "Exile the top card of your library", Arc-Slogger and Whirling
+// Catapult). The library is an ORDERED zone, so unlike the hand/graveyard
+// Exile heads there is no chooser: the payment takes the top cards in library
+// order and lands in the distinct Cost.ExileFromTop slice. The parsed Spec is
+// required to be the measured "Card" (all seven corpus carriers); any other
+// spec is left unmodelled (reported Unknown + one generic) rather than read as
+// a deeper-card filter, because the top-of-library position is the cost's
+// whole meaning. The same text is also the cumulative-upkeep action vocabulary
+// (parseCumulativeAction owns that reading); this head is the ordinary Cost$
+// spelling.
+var exileFromTopCost = regexp.MustCompile(`^ExileFromTop<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+
 // addCounterCost matches Forge's AddCounter<N/LOYALTY> token -- the
 // planeswalker loyalty cost, and deliberately ONLY it (CR 107.4: the [+N]
 // symbol): adding loyalty counters is not a payment at all, so an AddCounter
@@ -343,6 +379,16 @@ var exertCost = regexp.MustCompile(`^Exert<1/(?:CARDNAME|NICKNAME)(?:/([^>]*))?>
 var lifeCost = regexp.MustCompile(`^PayLife<(\d+)>$`)
 
 var choiceCost = regexp.MustCompile(`^(Reveal|Behold|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+
+// choiceCostRevealOrChoose additionally recognises Forge's either-or
+// `RevealOrChoose<N/Spec>` cost (Monstrous Emergence, Dragon's Fire): reveal a
+// card matching Spec from hand, OR choose a permanent matching Spec you
+// control. Both arms are modelled as the distinct Cost.RevealOrChoose slice
+// (see its doc): the reveal arm is announced and its card rides the Revealed
+// paid list, the choose arm elects an already-controlled permanent and is
+// announced as a choice, never a reveal. The former unrecognised-symbol
+// fallback charged one generic too much and dropped the cost entirely.
+var choiceCostRevealOrChoose = regexp.MustCompile(`^RevealOrChoose<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
 
 // revealChosenCost matches the designation-reveal cost heads. Forge has two
 // spellings: RevealChosen<Player> (reveal the player you secretly chose) and
@@ -657,6 +703,20 @@ func ParseCost(s string) Cost {
 				}
 				continue
 			}
+			if m := choiceCostRevealOrChoose.FindStringSubmatch(sym); m != nil {
+				// RevealOrChoose<N/Spec> is an either-or cost: reveal N hand cards
+				// matching Spec OR choose N permanents matching Spec you control.
+				// It lands in its OWN slice so both arms stay distinct (the choose
+				// arm must not be read as a hand reveal); see the slice's doc.
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n <= 0 || n > int64(math.MaxInt32) {
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				c.RevealOrChoose = append(c.RevealOrChoose, CostPart{N: int32(n), Spec: strings.ReplaceAll(m[2], ";", ","), Desc: m[3]})
+				continue
+			}
 			if m := revealChosenCost.FindStringSubmatch(sym); m != nil {
 				// A designation reveal is a real, modelled, FREE cost component:
 				// no generic substitution and no Unknown census entry. The
@@ -805,6 +865,23 @@ func ParseCost(s string) Cost {
 				// reportUnknown, the census's cost:Draw label) never runs.
 				spec := strings.ReplaceAll(m[2], ";", ",")
 				c.Draw = append(c.Draw, CostPart{Spec: spec, Dyn: m[1], Desc: m[3]})
+				continue
+			}
+			if m := exileFromTopCost.FindStringSubmatch(sym); m != nil {
+				if m[2] != "Card" {
+					// Not the measured shape: leave it unmodelled rather than
+					// letting an arbitrary spec select a deeper library card.
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n <= 0 || n > int64(math.MaxInt32) {
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				c.ExileFromTop = append(c.ExileFromTop, CostPart{N: int32(n), Spec: "Card", Desc: m[3]})
 				continue
 			}
 			if m := exileBattlefieldCost.FindStringSubmatch(sym); m != nil {
@@ -1329,6 +1406,9 @@ func (c Cost) Plus(d Cost) Cost {
 	if len(d.Exile) > 0 {
 		c.Exile = append(append([]CostPart(nil), c.Exile...), d.Exile...)
 	}
+	if len(d.ExileFromTop) > 0 {
+		c.ExileFromTop = append(append([]CostPart(nil), c.ExileFromTop...), d.ExileFromTop...)
+	}
 	if len(d.MoveToGrave) > 0 {
 		c.MoveToGrave = append(append([]CostPart(nil), c.MoveToGrave...), d.MoveToGrave...)
 	}
@@ -1340,6 +1420,9 @@ func (c Cost) Plus(d Cost) Cost {
 	}
 	if len(d.Reveal) > 0 {
 		c.Reveal = append(append([]CostPart(nil), c.Reveal...), d.Reveal...)
+	}
+	if len(d.RevealOrChoose) > 0 {
+		c.RevealOrChoose = append(append([]CostPart(nil), c.RevealOrChoose...), d.RevealOrChoose...)
 	}
 	if len(d.RevealChosen) > 0 {
 		c.RevealChosen = append(append([]CostPart(nil), c.RevealChosen...), d.RevealChosen...)
@@ -1640,6 +1723,20 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	if !ok {
 		return false
 	}
+	// The activated ability's own XMin$ parameter (task cost:xmin-param): the
+	// same announcement floor xAsk folds from the ability being activated,
+	// read here off scope.ab -- the exact printed or granted SA the offer walk
+	// scoped. The fold RAISES the cost's own XMin<N> bound by maximum and
+	// stops there: feasibleAny's bound pricing (WithX at the smallest legal
+	// announcement) composes the cheapest legal price from it, so the offer
+	// gate and xAsk share one floor answer and an unannounced cost still
+	// reports no charge. A cost that announces no X binds nothing: no {X} pip
+	// and no announced-X part means no announcement exists to floor.
+	if scope.ab != nil && costAnnouncesX(base) {
+		if n := xMinAbilityParam(scope.ab); n > base.XMin {
+			base.XMin = n
+		}
+	}
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
 	tax := int32(0)
 	if scope.kind != "Ability" && scope.kind != "Foretell" {
@@ -1903,7 +2000,22 @@ func formatCost(c Cost) string {
 		}
 		parts = append(parts, head+"<"+n+"/"+part.Spec+">")
 	}
+	for _, part := range c.ExileFromTop {
+		parts = append(parts, "ExileFromTop<"+strconv.FormatInt(int64(part.N), 10)+"/"+part.Spec+">")
+	}
 	appendCostParts("Reveal", c.Reveal)
+	// RevealOrChoose prints its own head so Compile/Decompile round-trips back
+	// into the distinct slice (appendCostParts' generic head would print the
+	// bare kind name and re-parse as the fallback). The optional trailing
+	// description field is preserved when present, matching the parser's
+	// three-field form.
+	for _, part := range c.RevealOrChoose {
+		head := "RevealOrChoose<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
+		if part.Desc != "" {
+			head += "/" + part.Desc
+		}
+		parts = append(parts, head+">")
+	}
 	for _, part := range c.RevealChosen {
 		// RevealChosen<Player> has no trailing field; RevealChosen<Type/...>
 		// prints its description. Both are re-parseable by revealChosenCost.
@@ -2019,6 +2131,11 @@ func costPhrase(c Cost) string {
 	for _, part := range c.Exile {
 		clauses = append(clauses, "exile "+objectPhrase(part, "card"))
 	}
+	for _, part := range c.ExileFromTop {
+		// Top-of-library payment: prose must not imply the payer picks any
+		// card from the library, only the top N in order.
+		clauses = append(clauses, "exile the top "+strconv.FormatInt(int64(part.N), 10)+" card"+pluralSuffix(part.N)+" of your library")
+	}
 	for _, part := range c.MoveToGrave {
 		clauses = append(clauses, "put "+objectPhrase(part, "card")+" from exile into its owner's graveyard")
 	}
@@ -2034,6 +2151,9 @@ func costPhrase(c Cost) string {
 	}
 	for _, part := range c.Reveal {
 		clauses = append(clauses, "reveal "+objectPhrase(part, "card"))
+	}
+	for _, part := range c.RevealOrChoose {
+		clauses = append(clauses, "reveal "+objectPhrase(part, "card")+" or choose "+objectPhrase(part, "permanent")+" you control")
 	}
 	for _, part := range c.RevealChosen {
 		if strings.EqualFold(part.Spec, "Player") {
@@ -2347,7 +2467,7 @@ func costAnnouncesCastX(c Cost) bool {
 // even though it takes no payment), so a caller using this to skip the
 // cast-flow stages is told the truth.
 func (c Cost) HasNonMana() bool {
-	return c.Life > 0 || c.Tap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
+	return c.Life > 0 || c.Tap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
 }
 
 // Priceable reports whether payMana can actually charge every part of this
@@ -2366,7 +2486,7 @@ func (c Cost) HasNonMana() bool {
 // before trusting the pool and life total.
 func (c Cost) Priceable() bool {
 	return c.X == 0 && !c.Tap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 &&
-		len(c.Draw) == 0 && len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
+		len(c.Draw) == 0 && len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
 		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
 		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
 		len(c.Energy) == 0 && len(c.Return) == 0 && len(c.PutToLib) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&

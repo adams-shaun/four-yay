@@ -53,7 +53,7 @@ function stripState(state: SeatPanelState, decision: Decision | null): string {
 const option = (index: number, kind: string, label: string) => ({ index, kind, label, player: 0 });
 
 describe('HotButtonStrip — server options regrouped into one instrument', () => {
-  it('renders six slots including UNDO, with PASS enabled only by a pass option', () => {
+  it('renders six fixed action slots including Resolve All and UNDO, with PASS enabled only by a pass option', () => {
     const priority: Decision = {
       seq: 1, player: 0, kind: 'priority', prompt: 'Priority', min: 1, max: 1,
       options: [option(7, 'cast', 'Cast spell'), option(42, 'pass', 'Pass priority')],
@@ -104,7 +104,7 @@ describe('HotButtonStrip — server options regrouped into one instrument', () =
     expect(html).toMatch(/data-hot-tab="undo"[^>]*aria-disabled="true"[^>]*disabled/);
   });
 
-  it('uses one contextual slot: choose says Done picking and attackers says Done selecting attackers', () => {
+  it('uses one contextual slot with a stable DONE label', () => {
     const choose: Decision = {
       seq: 2, player: 0, kind: 'choose', prompt: 'Choose', min: 0, max: 2,
       options: [option(7, 'choose', 'First'), option(19, 'choose', 'Second')],
@@ -112,7 +112,7 @@ describe('HotButtonStrip — server options regrouped into one instrument', () =
     const picking = strip(choose);
     expect([...picking.matchAll(/data-hot-tab="done"/g)]).toHaveLength(1);
     expect(picking).toContain('aria-label="Done picking"');
-    expect(picking).toContain('DONE_SELECT');
+    expect(picking).toContain('>DONE</span>');
 
     const attackers: Decision = {
       ...choose, seq: 3, kind: 'attackers', prompt: 'Declare attackers',
@@ -121,7 +121,7 @@ describe('HotButtonStrip — server options regrouped into one instrument', () =
     const attacking = strip(attackers);
     expect([...attacking.matchAll(/data-hot-tab="done"/g)]).toHaveLength(1);
     expect(attacking).toContain('aria-label="Done selecting attackers"');
-    expect(attacking).toContain('ATTACK');
+    expect(attacking).toContain('>DONE</span>');
   });
 
   it('does not expose a separate Done submit for a one-pick decision', () => {
@@ -134,46 +134,17 @@ describe('HotButtonStrip — server options regrouped into one instrument', () =
     expect(html).toMatch(/data-done-action[^>]*disabled/);
   });
 
-  it('the OPTIONS drop mounts the play-settings editor, which reflects pass-after-acting', () => {
+  it('keeps AUTO in a fixed status slot and leaves settings out of the action strip', () => {
     const priority: Decision = {
       seq: 1, player: 0, kind: 'priority', prompt: 'Priority', min: 1, max: 1,
       options: [option(7, 'cast', 'Cast spell'), option(42, 'pass', 'Pass priority')],
     };
-    // casual defaults: passAfterAct is ON, the editor is bound to the panel's
-    // settings object, and the old Auto/Skip-empty/stop-grid controls are gone.
-    const on = strip(priority);
-    expect(on).toContain('data-settings-panel');
-    expect(on).toContain('data-actpass-toggle');
-    expect(on).toMatch(/aria-checked="true"[^>]*data-actpass-toggle/);
-    expect(on).not.toContain('Skip empty windows');
-    expect(on).not.toContain('data-stop-grid');
-
-    // fb-20260917T231628Z: the drop carries the game log's show/hide switch,
-    // but only when a toggle is threaded in — the control lives in Table.svelte
-    // (logshown.ts persistence), so a strip mounted without it renders no dead
-    // switch, mirroring Rail's own {#if onToggleLog} contract.
-    expect(on).not.toContain('data-toggle="show-game-log"');
-    const state2 = new SeatPanelState('t1', 1, ctx, null);
-    state2.skipEmpty = false;
-    state2.adoptView(priority);
-    const withLog = render(HotButtonStrip, {
-      props: { view: { ...baseView, decision: priority }, seats, state: state2, ctx, table: 't1', match: 1, showLog: false, onToggleLog: () => {} },
-    }).html;
-    const sw = /<button[^>]*data-toggle="show-game-log"[^>]*>/.exec(withLog)?.[0] ?? '';
-    expect(sw).not.toBe('');
-    expect(sw).toContain('role="switch"');
-    expect(sw).toContain('aria-checked="false"');
-    expect(withLog).toContain('Show game log');
-    expect(withLog).toContain('>Hidden<');
-
-    const state = new SeatPanelState('t1', 1, ctx, null);
-    state.skipEmpty = false;
-    state.setActPass(false);
-    state.adoptView(priority);
-    const off = render(HotButtonStrip, {
-      props: { view: { ...baseView, decision: priority }, seats, state, ctx, table: 't1', match: 1 },
-    }).html;
-    expect(off).toMatch(/aria-checked="false"[^>]*data-actpass-toggle/);
+    const html = strip(priority);
+    expect(html).toContain('data-play-mode="casual"');
+    expect(html).toContain('title="Auto: Casual"');
+    expect(html).toContain('data-auto-status');
+    expect(html).not.toContain('data-hot-tab="options"');
+    expect(html).not.toContain('data-settings-panel');
   });
 });
 
@@ -227,9 +198,13 @@ describe('HotButtonStrip — the status chip', () => {
 
   it('shows the settings preset by default, machine-readably in data-play-mode', () => {
     const state = new SeatPanelState('t1', 1, ctx, null);
+    state.setAutoManaAvailable(true);
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="casual"/);
-    expect(html).toContain('Casual');
+    expect(html).toContain('title="Auto: Casual"');
+    expect(html).toContain('>AUTO</span>');
+    expect(html).toContain('data-auto-pay-toggle');
+    expect(html).toContain('AUTO MANA');
   });
 
   it('shows the undo pause and its resume control in the always-visible live-strip chip', () => {
@@ -243,7 +218,7 @@ describe('HotButtonStrip — the status chip', () => {
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="paused"/);
     expect(html).toContain('data-auto-note');
-    expect(html).toContain('Auto paused — press to resume');
+    expect(html).toContain('>AUTO</span>');
     expect(html).toContain('Press the Auto switch (or apply a preset)');
     expect(html).not.toMatch(/data-play-mode="casual"/);
   });
@@ -255,12 +230,12 @@ describe('HotButtonStrip — the status chip', () => {
     state.startEndTurn({ ...baseView, decision: priority } as unknown as View);
     const run = stripState(state, priority);
     expect(run).toMatch(/data-play-mode="end-turn"/);
-    expect(run).toContain('END TURN');
+    expect(run).toContain('title="Auto: END TURN"');
 
     state.startHardSkip({ ...baseView, decision: priority } as unknown as View);
     const skip = stripState(state, priority);
     expect(skip).toMatch(/data-play-mode="skip-turn"/);
-    expect(skip).toContain('Skipping turn — Esc to stop');
+    expect(skip).toContain('title="Auto: Skipping turn — Esc to stop"');
   });
 
   it('shows Custom once the settings no longer match a named preset', () => {
@@ -269,7 +244,7 @@ describe('HotButtonStrip — the status chip', () => {
     state.setAuto(false); // casual with autoPass off is no preset
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="custom"/);
-    expect(html).toContain('Custom');
+    expect(html).toContain('title="Auto: Custom"');
   });
 });
 
@@ -311,9 +286,8 @@ describe('HotButtonStrip — END TURN is gated to the seat\'s own turn', () => {
   });
 });
 
-// Prio6: the Resolve All transport control — visible only while the stack is
-// non-empty AND a priority decision is pending (the two facts that make
-// resolving through the stack possible), disabled without a pass option.
+// Prio6: Resolve All owns a fixed slot so stack changes cannot shift the
+// action strip. It is enabled only in a pending stack priority window.
 describe('HotButtonStrip — Resolve All (prio6)', () => {
   const option = (index: number, kind: string, label: string) => ({ index, kind, label, player: 0 });
   const priorityOnStack: Decision = {
@@ -335,14 +309,14 @@ describe('HotButtonStrip — Resolve All (prio6)', () => {
     expect(html).toMatch(/data-resolve-all[^>]*aria-disabled="false"/);
   });
 
-  it('is invisible on an empty stack, and on a non-priority decision even with a stack', () => {
+  it('keeps its fixed slot disabled on an empty stack or non-priority decision', () => {
     const state = new SeatPanelState('t1', 1, ctx, null);
     state.skipEmpty = false;
     state.adoptView(priorityOnStack);
     const emptyStack = render(HotButtonStrip, {
       props: { view: { ...baseView, decision: priorityOnStack, stack: [] }, seats, state, ctx, table: 't1', match: 1 },
     }).html;
-    expect(emptyStack).not.toContain('data-resolve-all');
+    expect(emptyStack).toMatch(/data-resolve-all[^>]*aria-disabled="true"/);
 
     const target: Decision = { seq: 2, player: 0, kind: 'target', prompt: 'T', min: 1, max: 1, options: [option(7, 'target', 'T Ari')] };
     state.adoptView(target);
@@ -352,6 +326,26 @@ describe('HotButtonStrip — Resolve All (prio6)', () => {
         seats, state, ctx, table: 't1', match: 1,
       },
     }).html;
-    expect(nonPriority).not.toContain('data-resolve-all');
+    expect(nonPriority).toMatch(/data-resolve-all[^>]*aria-disabled="true"/);
+  });
+});
+
+describe('HotButtonStrip — Auto Mana action availability', () => {
+  it('keeps ACTIONS available when a payment plan is the only visible action', () => {
+    const state = new SeatPanelState('t1', 1, ctx, null);
+    state.setAutoManaAvailable(true);
+    state.setAutoPayMana(true);
+    const priority: Decision = {
+      seq: 91, player: 0, kind: 'priority', prompt: 'Priority', min: 1, max: 1,
+      options: [option(7, 'cast', 'Cast Test Spell'), option(42, 'pass', 'Pass priority')],
+      payment_actions: [{
+        id: 'pay-test', cast: { object: 8, face: 0, origin: 'hand' }, base_option_index: 7,
+        label: 'Cast Test Spell', plans: [{ id: 'plan', version: 1, cost: { generic: 0, mana: [0, 1, 0, 0, 0, 0] }, activations: [], pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0] }],
+      }],
+    };
+    state.adoptView(priority);
+    const html = stripState(state, priority);
+    expect(html).toMatch(/data-hot-tab="actions"[^>]*aria-disabled="false"/);
+    expect(html).not.toContain('No action is offered by this decision.');
   });
 });

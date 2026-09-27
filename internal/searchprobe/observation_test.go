@@ -74,6 +74,12 @@ func TestCollectorCaptureReusesRedactionStorageWithoutAliasingFrames(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Precondition: the projected view must actually carry a pending decision
+	// to this seat, or the measured body never runs view.copyDecision and the
+	// allocation ceiling below guards nothing but the redaction scratch.
+	if first.Decision == nil {
+		t.Fatal("fixture projects no pending decision; the decision-copy path is not exercised")
+	}
 
 	allocs := testing.AllocsPerRun(100, func() {
 		if _, err := c.Capture(e, e.L.Events); err != nil {
@@ -85,7 +91,19 @@ func TestCollectorCaptureReusesRedactionStorageWithoutAliasingFrames(t *testing.
 	// in the Collector's own redaction scratch this test guards). 52 is the
 	// measured post-walk cost with scratch reuse intact. 50 after the offer
 	// walk moved its option list and mana-ability lists onto Engine scratch
-	// (perf-allocs).
+	// (perf-allocs). bf2668175 then made view.copyDecision use
+	// `cp := *d.Clone()`, which heap-allocates the whole decision.Decision
+	// (Clone returns a pointer) per projection -- one extra allocation, not
+	// in the Collector's redaction scratch, so this ceiling was temporarily
+	// raised to 51. fc7d924ad added Decision.CloneValue() and
+	// view.copyDecision copies by value again, restoring the 50 steady state.
+	// Note (2026-09-25, go1.26.3): the compiler now inlines
+	// decision.(*Decision).Clone into copyDecision and stack-elides its
+	// pointee, so the historical `*d.Clone()` expression measures the identical
+	// allocation count as CloneValue (9=9 on a payment-extension fixture) and
+	// this ceiling passes uncached with it restored -- it regresses-guards
+	// future growth of the whole projection, not that expression. view's
+	// TestCopyDecisionRejectsDerefedClone pins the source shape instead.
 	if allocs > 50 {
 		t.Fatalf("Capture allocations = %.0f, want <= 50 after scratch reuse", allocs)
 	}

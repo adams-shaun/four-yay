@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -108,6 +109,33 @@ func TestDigAsksWhenTheWindowHoldsMoreEligibleCardsThanChangeNum(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("the answered take's MoveZone is not a Secret move naming the library's owner")
+	}
+}
+
+// TestDigBottomChoiceExplainsBothOutcomes pins the one-card "may put it on
+// the bottom" shape used by cards such as Jace, the Mind Sculptor.  It is a
+// KChoose with an empty answer meaning keep, so the prompt and option must not
+// leave a player guessing which result clicking a card produces.
+func TestDigBottomChoiceExplainsBothOutcomes(t *testing.T) {
+	h, ids := digAskFixture(t)
+	effect := sa(t, "SP$ Dig | Defined$ You | DigNum$ 3 | ChangeNum$ 1 | Optional$ True | ChangeValid$ Land | DestinationZone$ Library | LibraryPosition$ -1 | SkipReorder$ True")
+	Resolve(h, &Ctx{Controller: 0}, effect)
+	if h.asked == nil {
+		t.Fatal("no decision was posed")
+	}
+	d := h.asked
+	if got, want := d.Prompt, "Look at the top 3 card(s) of your library: Select up to 1 matching card(s) to put on the bottom of your library. Leave unselected card(s) on top."; got != want {
+		t.Fatalf("prompt = %q, want %q", got, want)
+	}
+	if len(d.Options) != 2 || d.Options[0].Label != "Put Isle on bottom" || d.Options[1].Label != "Put Isle on bottom" {
+		t.Fatalf("options = %+v, want explicit bottom actions", d.Options)
+	}
+
+	// Selecting the second eligible card puts that card on the bottom.  The
+	// first eligible card remains in its original top-of-library position.
+	Resolve(h, &Ctx{Controller: 0, Dig: []state.ObjID{ids[2]}, DigDone: true}, effect)
+	if got, want := h.g.Zone(state.ZLibrary, 0), []state.ObjID{ids[0], ids[1], ids[3], ids[2]}; !slices.Equal(got, want) {
+		t.Fatalf("library = %v, want selected card on bottom and unselected card on top %v", got, want)
 	}
 }
 

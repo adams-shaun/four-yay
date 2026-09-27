@@ -677,12 +677,14 @@ func TestTokenAttackingWithoutDefenderDegradesLoud(t *testing.T) {
 	}
 }
 
-// TestTokenAttackingUnimplementedSelectorNotes: the corpus's other
-// TokenAttacking$ selector forms (Remembered, RememberedPlayer,
-// TriggeredAttackedTarget, TriggeredDefender) stay unimplemented -- the token
-// enters unmarked and one Note per call names the form, so the census-free
-// degrade is visible rather than silent.
-func TestTokenAttackingUnimplementedSelectorNotes(t *testing.T) {
+// TestTokenAttackingEmptyRememberedDegradesLoud: a `Remembered` selector
+// whose remembered set holds no PLAYER (an empty set, or cards only) has no
+// seat to attack, so the token enters unmarked under one Note per call. The
+// non-True selector forms themselves ARE resolved now (tokenAttackingPlayers,
+// pinned in token_attacking_selectors_test.go and end to end on Adeline,
+// Resplendent Cathar in rules/adeline_token_attacking_test.go); this is the
+// fail-closed empty-binding arm, not an unimplemented spelling.
+func TestTokenAttackingEmptyRememberedDegradesLoud(t *testing.T) {
 	h, c := fixtureHostWithTokens(t)
 	Resolve(h, c, &cards.SA{Kind: "DB", API: "Token",
 		Params: map[string]string{"TokenScript": "r_1_1_goblin", "TokenAttacking": "Remembered"}})

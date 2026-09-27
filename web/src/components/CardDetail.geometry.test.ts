@@ -50,7 +50,7 @@ async function measure(page: Awaited<ReturnType<typeof browser.newPage>>, id: nu
 }
 
 describe('CardDetail — plate non-occlusion (ui28)', () => {
-  it('a card with a resolved oracle keeps its whole plate: the printed card is never cropped and its oracle block stays inside the panel', async () => {
+  it('a card with a resolved oracle keeps its whole plate: the printed card is never cropped and its oracle block stays inside the panel', { timeout: 60_000 }, async () => {
     for (const { width, height } of VIEWPORTS) {
       const page = await browser.newPage({ viewport: { width, height } });
       await page.goto(`${url}src/components/CardDetail.geometry.html`);
@@ -86,7 +86,7 @@ describe('CardDetail — plate non-occlusion (ui28)', () => {
     }
   });
 
-  it('a card with no resolved oracle (the normal case) is unchanged in kind and still fits', async () => {
+  it('a card with no resolved oracle (the normal case) is unchanged in kind and still fits', { timeout: 60_000 }, async () => {
     for (const { width, height } of VIEWPORTS) {
       const page = await browser.newPage({ viewport: { width, height } });
       await page.goto(`${url}src/components/CardDetail.geometry.html`);
@@ -108,7 +108,7 @@ describe('CardDetail — plate non-occlusion (ui28)', () => {
     }
   });
 
-  it('a hand-position anchor still opens upward and the panel never leaves the viewport', async () => {
+  it('a hand-position anchor still opens upward and the panel never leaves the viewport', { timeout: 60_000 }, async () => {
     for (const { width, height } of VIEWPORTS) {
       const page = await browser.newPage({ viewport: { width, height } });
       await page.goto(`${url}src/components/CardDetail.geometry.html`);

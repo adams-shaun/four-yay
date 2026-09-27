@@ -127,6 +127,8 @@ type TableInfo struct {
 	// public table configuration, never private game state — a restart control
 	// reads it to recreate the same game.
 	Mulligans int `json:"mulligans"`
+	// AutoMana enables the human payment-plan UI for this table.
+	AutoMana bool `json:"auto_mana"`
 }
 
 // Widget is the overview cell: enough to draw a 2x2 life grid, a turn

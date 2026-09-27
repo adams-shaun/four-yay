@@ -216,11 +216,11 @@ func TestLayer6KeywordFilterRestrictsStatic(t *testing.T) {
 	if !e.HasKeyword(bear, "Flying") {
 		t.Fatal("layer-6 Flying grant is not derived")
 	}
-	if !e.attackBlocked(bear, 1) {
+	if !e.attackBlocked(bear, 1, 0) {
 		t.Fatal("CantAttack withFlying did not see derived Flying")
 	}
 	e.EndOfTurnCleanup()
-	if e.attackBlocked(bear, 1) {
+	if e.attackBlocked(bear, 1, 0) {
 		t.Fatal("expired Flying still satisfies withFlying")
 	}
 }

@@ -45,12 +45,13 @@ func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn 
 // start to answer "view at seq N" with at most one turn of replay.
 func (e *Engine) Clone() *Engine {
 	c := &Engine{
-		G:               e.G.Clone(),
-		L:               e.L.Clone(),
-		compiledText:    e.compiledText,
-		landTypeWords:   e.landTypeWords,
-		turnsTaken:      append([]int32(nil), e.turnsTaken...),
-		turnsTakenEpoch: e.turnsTakenEpoch,
+		G:                  e.G.Clone(),
+		L:                  e.L.Clone(),
+		compiledText:       e.compiledText,
+		replayPaymentPlans: e.replayPaymentPlans,
+		landTypeWords:      e.landTypeWords,
+		turnsTaken:         append([]int32(nil), e.turnsTaken...),
+		turnsTakenEpoch:    e.turnsTakenEpoch,
 		// turnStartTurns (the next-turn boundary cache) is copied like
 		// turnsTaken so a clone never shares the backing slice.
 		turnStartTurns: cloneTurnStartTurns(e.turnStartTurns),
@@ -124,7 +125,22 @@ func (e *Engine) Clone() *Engine {
 		// taken while the ask is outstanding re-poses the same decision for
 		// the same winner. host.viewAt clones a snapshot and re-Submits the
 		// intents, so the choice must survive like the mulligan round does.
-		tossChoice:   e.tossChoice,
+		tossChoice: e.tossChoice,
+		// oppSel (rules/stack.go) is the TargetingPlayer$ Opponent selection
+		// ask's flow record -- plain scalars like tossChoice, so it is copied
+		// the same way: a clone taken while the which-opponent ask is
+		// outstanding re-poses the same selection.
+		oppSel: e.oppSel,
+		// oppPicksMid (rules/stack.go) is the effects-tier answered-selection
+		// store, keyed by SA line. Re-allocated (not shared) so the two
+		// engines' next reads cannot collide.
+		oppPicksMid: cloneOppPicksMid(e.oppPicksMid),
+		// tpCtlChooser (rules/stack.go) is the TargetingPlayerControls$
+		// answered-ask record, keyed by the resolving stack object. Plain
+		// struct values, re-allocated like oppPicksMid so a clone taken
+		// between the answer and the CR 608.2b recheck still sees the seat
+		// that answered.
+		tpCtlChooser: cloneTpCtlChooser(e.tpCtlChooser),
 		mulligans:    e.mulligans,
 		startingLife: e.startingLife,
 		// E2 held-out cast suppression (cast.go): the set of card ids whose
@@ -366,6 +382,18 @@ func (e *Engine) Clone() *Engine {
 		c.sacrificedLKI = make(map[state.ObjID][]state.SacrificedInfo, len(e.sacrificedLKI))
 		for id, info := range e.sacrificedLKI {
 			c.sacrificedLKI[id] = append([]state.SacrificedInfo(nil), info...)
+		}
+	}
+	if e.castExiled != nil {
+		c.castExiled = make(map[state.ObjID][]state.ObjID, len(e.castExiled))
+		for id, ids := range e.castExiled {
+			c.castExiled[id] = append([]state.ObjID(nil), ids...)
+		}
+	}
+	if e.castRevealed != nil {
+		c.castRevealed = make(map[state.ObjID][]state.ObjID, len(e.castRevealed))
+		for id, ids := range e.castRevealed {
+			c.castRevealed[id] = append([]state.ObjID(nil), ids...)
 		}
 	}
 	if e.fuseTargets != nil {
@@ -626,6 +654,7 @@ func (e *Engine) Clone() *Engine {
 		ma.cost.SubCounter = append([]CostPart(nil), e.manaDiscardActivation.cost.SubCounter...)
 		ma.cost.Exile = append([]CostPart(nil), e.manaDiscardActivation.cost.Exile...)
 		ma.cost.Reveal = append([]CostPart(nil), e.manaDiscardActivation.cost.Reveal...)
+		ma.cost.RevealOrChoose = append([]CostPart(nil), e.manaDiscardActivation.cost.RevealOrChoose...)
 		ma.cost.RevealChosen = append([]CostPart(nil), e.manaDiscardActivation.cost.RevealChosen...)
 		ma.cost.Behold = append([]CostPart(nil), e.manaDiscardActivation.cost.Behold...)
 		ma.cost.TapPermanent = append([]CostPart(nil), e.manaDiscardActivation.cost.TapPermanent...)
@@ -654,6 +683,7 @@ func (e *Engine) Clone() *Engine {
 		u.cost.SubCounter = append([]CostPart(nil), e.unlessPayment.cost.SubCounter...)
 		u.cost.Draw = append([]CostPart(nil), e.unlessPayment.cost.Draw...)
 		u.cost.Reveal = append([]CostPart(nil), e.unlessPayment.cost.Reveal...)
+		u.cost.RevealOrChoose = append([]CostPart(nil), e.unlessPayment.cost.RevealOrChoose...)
 		u.cost.RevealChosen = append([]CostPart(nil), e.unlessPayment.cost.RevealChosen...)
 		u.sacs = append([]state.ObjID(nil), e.unlessPayment.sacs...)
 		u.discards = append([]state.ObjID(nil), e.unlessPayment.discards...)
@@ -670,6 +700,7 @@ func (e *Engine) Clone() *Engine {
 		cu.amount.AddCounter = append([]CostPart(nil), e.cumulative.amount.AddCounter...)
 		cu.amount.Exile = append([]CostPart(nil), e.cumulative.amount.Exile...)
 		cu.amount.Reveal = append([]CostPart(nil), e.cumulative.amount.Reveal...)
+		cu.amount.RevealOrChoose = append([]CostPart(nil), e.cumulative.amount.RevealOrChoose...)
 		cu.amount.RevealChosen = append([]CostPart(nil), e.cumulative.amount.RevealChosen...)
 		cu.amount.Behold = append([]CostPart(nil), e.cumulative.amount.Behold...)
 		cu.amount.TapPermanent = append([]CostPart(nil), e.cumulative.amount.TapPermanent...)
@@ -695,6 +726,7 @@ func (e *Engine) Clone() *Engine {
 		tc.amount.Exile = append([]CostPart(nil), e.triggerCost.amount.Exile...)
 		tc.amount.MoveToGrave = append([]CostPart(nil), e.triggerCost.amount.MoveToGrave...)
 		tc.amount.Reveal = append([]CostPart(nil), e.triggerCost.amount.Reveal...)
+		tc.amount.RevealOrChoose = append([]CostPart(nil), e.triggerCost.amount.RevealOrChoose...)
 		tc.amount.RevealChosen = append([]CostPart(nil), e.triggerCost.amount.RevealChosen...)
 		tc.amount.Behold = append([]CostPart(nil), e.triggerCost.amount.Behold...)
 		tc.amount.TapPermanent = append([]CostPart(nil), e.triggerCost.amount.TapPermanent...)
@@ -719,6 +751,7 @@ func (e *Engine) Clone() *Engine {
 		ef.amount.AddCounter = append([]CostPart(nil), e.echo.amount.AddCounter...)
 		ef.amount.Exile = append([]CostPart(nil), e.echo.amount.Exile...)
 		ef.amount.Reveal = append([]CostPart(nil), e.echo.amount.Reveal...)
+		ef.amount.RevealOrChoose = append([]CostPart(nil), e.echo.amount.RevealOrChoose...)
 		ef.amount.RevealChosen = append([]CostPart(nil), e.echo.amount.RevealChosen...)
 		ef.amount.Behold = append([]CostPart(nil), e.echo.amount.Behold...)
 		ef.amount.TapPermanent = append([]CostPart(nil), e.echo.amount.TapPermanent...)
@@ -751,8 +784,11 @@ func (e *Engine) Clone() *Engine {
 		pc.cost.Discard = append([]CostPart(nil), e.cast.cost.Discard...)
 		pc.cost.SubCounter = append([]CostPart(nil), e.cast.cost.SubCounter...)
 		pc.cost.Exile = append([]CostPart(nil), e.cast.cost.Exile...)
+		pc.cost.ExileFromTop = append([]CostPart(nil), e.cast.cost.ExileFromTop...)
 		pc.cost.MoveToGrave = append([]CostPart(nil), e.cast.cost.MoveToGrave...)
 		pc.cost.Reveal = append([]CostPart(nil), e.cast.cost.Reveal...)
+		pc.cost.RevealOrChoose = append([]CostPart(nil), e.cast.cost.RevealOrChoose...)
+		pc.revealHandArm = append([]bool(nil), e.cast.revealHandArm...)
 		pc.cost.RevealChosen = append([]CostPart(nil), e.cast.cost.RevealChosen...)
 		pc.cost.Behold = append([]CostPart(nil), e.cast.cost.Behold...)
 		pc.cost.TapPermanent = append([]CostPart(nil), e.cast.cost.TapPermanent...)
@@ -801,6 +837,15 @@ func (e *Engine) Clone() *Engine {
 		pc.preSuppress = cloneSuppressed(e.cast.preSuppress)
 		pc.preAborts = cloneAbortCounts(e.cast.preAborts)
 		pc.proposalTriggers = append([][2]int(nil), e.cast.proposalTriggers...)
+		if e.cast.payment != nil {
+			payment := *e.cast.payment
+			payment.plan = decision.ClonePaymentPlan(e.cast.payment.plan)
+			pc.payment = &payment
+		}
+		if e.cast.paymentFallback != nil {
+			fallback := *e.cast.paymentFallback
+			pc.paymentFallback = &fallback
+		}
 		if e.cast.mayPlayRemembered != nil {
 			m := make(map[state.ObjID][]state.ObjID, len(e.cast.mayPlayRemembered))
 			for k, v := range e.cast.mayPlayRemembered {
@@ -821,6 +866,18 @@ func (e *Engine) Clone() *Engine {
 			c.deferredPush = &ev
 		}
 		c.deferredPushLKI = e.deferredPushLKI
+	}
+	if e.turnUp != nil {
+		// The CR 708.6 turn-up payment flow (rules/morph_turnup.go): a plain
+		// value struct with four object slices, cloned like cast so a clone
+		// taken while one of its KChoose asks is outstanding re-answers it
+		// faithfully (host.viewAt clones and re-Submits the intents).
+		tp := *e.turnUp
+		tp.sacs = append([]state.ObjID(nil), e.turnUp.sacs...)
+		tp.discs = append([]state.ObjID(nil), e.turnUp.discs...)
+		tp.reveal = append([]state.ObjID(nil), e.turnUp.reveal...)
+		tp.returns = append([]state.ObjID(nil), e.turnUp.returns...)
+		c.turnUp = &tp
 	}
 	if e.cmdZone != nil {
 		// The parked commander zone changes (CR 903.9, Task m32): a clone
@@ -916,6 +973,35 @@ func cloneSuppressed(m map[state.ObjID]bool) map[state.ObjID]bool {
 		return nil
 	}
 	out := make(map[state.ObjID]bool, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// cloneOppPicksMid copies the TargetingPlayer$ Opponent mid-tier selection
+// store (oppPicksMid, stack.go), preserving nil; the lazily-allocated map
+// only ever carries the pin between the "opp_pick" resume arm and the
+// synchronous ChooserFor read, so a nil map reads as an empty store.
+func cloneOppPicksMid(m map[string]state.PlayerID) map[string]state.PlayerID {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]state.PlayerID, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+// cloneTpCtlChooser copies the TargetingPlayerControls$ answered-ask record
+// (tpCtlChooser, stack.go), preserving nil; values are plain structs, so a
+// memberwise copy is complete.
+func cloneTpCtlChooser(m map[state.ObjID]tpCtlAnswer) map[state.ObjID]tpCtlAnswer {
+	if m == nil {
+		return nil
+	}
+	out := make(map[state.ObjID]tpCtlAnswer, len(m))
 	for k, v := range m {
 		out[k] = v
 	}
@@ -1031,6 +1117,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 		return nil
 	}
 	cp := *rp
+	cp.clash = cloneClashResume(rp.clash)
 	cp.choices = append([]state.Target(nil), rp.choices...)
 	cp.chosenValid = rp.chosenValid
 	cp.remembered = append([]state.Target(nil), rp.remembered...)
@@ -1078,8 +1165,8 @@ func cloneResume(rp *resumePoint) *resumePoint {
 // cloneDecision deep-copies a posed (or deferred) decision's slices, so a
 // clone's answer path never writes through to the original's.
 func cloneDecision(p *decision.Decision) *decision.Decision {
-	d := *p
-	d.Options = append([]decision.Option(nil), p.Options...)
+	d := *p.Clone()
+	d.ResumeClash = cloneClashResume(p.ResumeClash)
 	d.ResumeModes = append([]string(nil), p.ResumeModes...)
 	d.ResumeChoices = append([]state.Target(nil), p.ResumeChoices...)
 	d.ResumeChosenValid = p.ResumeChosenValid

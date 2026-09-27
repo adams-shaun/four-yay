@@ -341,6 +341,26 @@ func exiledWithSet(g *state.Game, c *Ctx) []state.Target {
 	return out
 }
 
+// paidCostTargets is the ONE home for the cast-cost PAID lists the
+// `Exiled`/`Revealed` referent spellings read: the cards this cast's or
+// activation's own cost removed, in stable cost order. Shared by the count
+// ref resolver (effects/count.go's refTargets) and the Defined$ selector
+// (definedSpec below), so a count body and a Defined$ body can never disagree
+// about which cards the paid list holds. ref is "Exiled" (Forge's
+// CostExile row key, HashLKIListKey) or "Revealed" (CostReveal.doPayment);
+// an absent binding is an empty list -- a legitimate zero, never a fallback.
+func paidCostTargets(c *Ctx, ref string) []state.Target {
+	ids := c.Exiled
+	if ref == "Revealed" {
+		ids = c.Revealed
+	}
+	out := make([]state.Target, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, state.Target{Obj: id})
+	}
+	return out
+}
+
 func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	g := h.Game()
 	// The DOTTED `AttachedTo <referent>[.<quals>]` selector (a Defined-/
@@ -510,6 +530,26 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		return out, true
 	case "Remembered":
 		return resolvedRemembered(h, c), true
+	case "RememberedPlayer", "RememberedPlayers":
+		// Forge's RememberedPlayer names the resolution's remembered PLAYER
+		// entries only; a remembered CARD contributes no player (the plain
+		// Remembered family's getDefinedPlayers rule, the same one
+		// plainRememberedSelector and token.go's TokenAttacking reader encode).
+		// The Toymaker's Trap's `DB$ LoseLife | Defined$ RememberedPlayer`
+		// charges the opponent who guessed wrong -- before this case the
+		// selector was unknown and Defined's plain-Remembered drop left it
+		// charging NOBODY. An empty remembered-player pool is the known-empty
+		// set (ok=true), never a fallback to the source.
+		return playersOf(resolvedRemembered(h, c)), true
+	case "Exiled", "Revealed":
+		// Forge's cast-cost PAID lists: the cards this cast's/activation's own
+		// cost exiled or revealed (see paidCostTargets -- the one shared home
+		// with count.go's refTargets case). A `Defined$ Exiled`/`Revealed`
+		// reader acts on exactly the paid cards; an absent paid list is the
+		// known-empty pool (ok=true, nobody), never a fallback to the source or
+		// the chosen targets. This is NOT Object.ExiledWith: an ExileFromGrave
+		// cost emits a plain MoveZone with no ExiledWith marker.
+		return paidCostTargets(c, spec), true
 	case "ImprintedLKI":
 		// Forge's LKI spelling of the imprint pile, distinct from the bare
 		// "Imprinted" case below: the SOURCE's persistent imprint association,
@@ -734,8 +774,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// milled cards"); choose_control's definedCardPool resolves it
 		// through the identical read, so the two spellings of one referent
 		// cannot drift.
-		"TriggeredCards",
-		"RememberedLKI":
+		"TriggeredCards":
 		// M1 does not model LKI copies, new-object identity or the
 		// ability-vs-card distinction separately: every one of these forms
 		// names the same Remembered object entry a trigger captured.
@@ -757,6 +796,26 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// a Blocks trigger's Remembered carries the pair's ATTACKER, so the
 		// blocker role is the only exact referent -- see the case below.
 		return objectsOf(c.Remembered), true
+	case "RememberedLKI":
+		// The LKI spelling of the Remembered$ group names the SAME object set
+		// the RememberedLKI ref group (effects/count.go rememberedLKIGroup)
+		// resolves -- Forge's remembered list, which never contains the event
+		// object the trigger fired on. It was previously grouped with the
+		// Triggered* family above and read objectsOf(c.Remembered) raw, so a
+		// firing trigger's fire-time capture (the trigger's own source, for
+		// the ChangesZone self-trigger every `ConditionDefined$ RememberedLKI`
+		// gate reads) satisfied the gate even when nothing was remembered --
+		// Nurturing Pixie's ETB returned no permanent, yet its self-capture
+		// (itself, a permanent) made ConditionPresent$ Card.Permanent true and
+		// granted the +1/+1 counter. Route it through the one capture-excluding
+		// RememberedLKI resolver so this defined set and the count path cannot
+		// disagree: the seeded capture occurrence is dropped (an explicit
+		// later remember of the same object is kept) while genuine source
+		// memory -- RememberLKI$ True on the source itself, Cosima's self-return
+		// and Riders of the Mark's RememberChanged$ -- is retained. Only the
+		// object entries are named, matching the family above and the LKI
+		// spelling's object-only read.
+		return objectsOf(rememberedLKIGroup(h, c)), true
 	case "TriggeredBlocker", "TriggeredBlockerLKICopy":
 		// The pair's BLOCKER (trig:Blocks): prefer the fire-time TriggerBlocker
 		// role when the Blocks capture set it (Remembered names the attacker
@@ -833,16 +892,22 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{{Obj: c.TriggerSource}}, true
 		}
 		return objectsOf(c.Remembered), true
-	case "TriggeredSourceController", "TriggeredTargetController":
+	case "TriggeredSourceSAController", "TriggeredSourceController", "TriggeredTargetController":
 		// The controller of the source/target the causing event recorded:
 		// Flameblade Angel's and Harsh Justice's "deals 1 damage to that
 		// source's controller", Greatbow Doyen's "to that creature's
-		// controller". The role is preferred when the trigger captured one
-		// (a DamageDone trigger's Remembered is the DAMAGED object, whose
-		// controller is exactly wrong for the source form); the fallback --
-		// Remembered[0]'s controller -- is deciderFromSpec's convention for
-		// the same two spellings on OptionalDecider$ lines, so both reads of
-		// one spelling agree wherever the role is absent.
+		// controller". TriggeredSourceSAController is the same role for a
+		// BecomesTarget/BecomesTargetOnce trigger's CAUSING spell or ability
+		// (Leyline of Combustion's 2 damage and Ashenmoor Liege's 4 life are
+		// paid to the targeting spell's controller, never the Leyline's or
+		// the Liege's); the trigger captures that source in TriggerSource,
+		// so it resolves through the identical read. The role is preferred
+		// when the trigger captured one (a DamageDone trigger's Remembered
+		// is the DAMAGED object, whose controller is exactly wrong for the
+		// source form); the fallback -- Remembered[0]'s controller -- is
+		// deciderFromSpec's convention for the same spellings on
+		// OptionalDecider$ lines, so both reads of one spelling agree
+		// wherever the role is absent.
 		ref := c.TriggerSource
 		if spec == "TriggeredTargetController" {
 			if c.TriggerTarget.Obj != 0 || c.TriggerTarget.IsPlayer {
@@ -1223,26 +1288,35 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 }
 
 // rememberedWithSource returns the remembered group a Forge SVAR/condition
-// named plain "Remembered" reads: the SOURCE object's persistent event-backed
+// named plain "Remembered" reads. It is the SAME group the RememberedLKI ref
+// group reads -- one resolution rule, rememberedLKIGroup (effects/count.go),
+// shared by both spellings so the plain and LKI readers of "Remembered" can
+// never disagree. That group is the SOURCE object's persistent event-backed
 // Remembered list first (Forge's executing ability shares the HOST CARD's
 // remembered list, so a later trigger of the same card -- Skyclave
 // Apparition's leave trigger, whose X is the card the earlier ETB trigger
 // remembered -- reads what an earlier resolution of the same source
-// recorded), then every ctx entry that is neither already present nor the
-// source itself, deduplicated by object id. The ctx walk's list is the
-// CAPTURE-EXCLUDED remembered set (rememberedExcludingCapture, the one-home
-// helper): Forge's host remembered list never contains the event object the
-// trigger fired on, and rules seeds a firing trigger's ctx with Remembered ==
-// Captured == that event capture, so a raw ctx read would count the referent
-// as card-level remembered and inflate every plain-Remembered group and
-// count (the event-object case the source-skip below does NOT mask: a
-// Damage/ChangesZone trigger's capture is ev.Obj, not the source). The
-// ctx-except-self rule keeps
-// the walk's own remembers (some legs record only at ctx level) while
-// leaving out the trigger REFERENT capture when it happens to BE the source.
-// Players in ctx pass through after the objects. Deterministic (slices in
-// order, no map range reaches a caller's output) and allocation-only: it
-// writes no state and emits no event.
+// recorded), then every ctx entry that is not already present, deduplicated
+// by object id. The ctx walk's list is the CAPTURE-EXCLUDED remembered set
+// (rememberedExcludingCapture, the one-home helper): Forge's host remembered
+// list never contains the event object the trigger fired on, and rules seeds
+// a firing trigger's ctx with Remembered == Captured == that event capture, so
+// a raw ctx read would count the referent as card-level remembered and
+// inflate every plain-Remembered group and count (the event-object case a
+// source-skip would NOT mask: a Damage/ChangesZone trigger's capture is
+// ev.Obj, not the source).
+//
+// The exclusion is BY OCCURRENCE, not by source identity. An earlier build
+// dropped every ctx entry whose object IS the resolving source as a stand-in
+// for keeping the fire-time capture out; but that also deleted a REAL memory
+// of the source -- an ability that changes its own state and then remembers
+// itself (RememberChanged$ True on a Defined$ Self SetState; Lukamina, Moon
+// Druid's per-face Unspecialize body) is genuinely remembered, and Forge's
+// host list holds it. rememberedExcludingCapture already removes exactly the
+// seeded capture occurrence, so the blanket source drop is wrong. Players in
+// ctx pass through after the objects. Deterministic (slices in order, no map
+// range reaches a caller's output) and allocation-only: it writes no state
+// and emits no event.
 //
 // imprintPileTargets resolves the SOURCE's persistent imprint association
 // (state.Object.Imprinted + ImprintTokens): the exiled cards -- Imprint links
@@ -1345,27 +1419,7 @@ func imprintAssociationContainsInZone(source *state.Object, id state.ObjID, zone
 }
 
 func rememberedWithSource(h Host, c *Ctx) []state.Target {
-	out := make([]state.Target, 0, len(c.Remembered))
-	seen := make(map[state.ObjID]bool, len(c.Remembered))
-	if o := h.Game().Obj(c.Source); o != nil {
-		for _, t := range o.Remembered {
-			if !t.IsPlayer && !seen[t.Obj] {
-				seen[t.Obj] = true
-				out = append(out, t)
-			}
-		}
-	}
-	for _, t := range rememberedExcludingCapture(h, c) {
-		if t.IsPlayer {
-			out = append(out, t)
-			continue
-		}
-		if t.Obj != c.Source && !seen[t.Obj] {
-			seen[t.Obj] = true
-			out = append(out, t)
-		}
-	}
-	return out
+	return rememberedLKIGroup(h, c)
 }
 
 // lkiControllerFor returns the last-known controller ChangeZone's

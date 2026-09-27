@@ -90,12 +90,18 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.PlayerNoteCleared, events.CardNoted,
 		events.GainedAbilityPush, events.GainedTriggerPush,
 		events.StoreSVar, events.GiftPromise, events.GiveGift, events.PhaseOut, events.RollDice,
-		events.DelayedForget, events.Cascade:
+		events.DelayedForget, events.Cascade, events.Clash,
+		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
+		events.ChaosEnsues:
 		// Cascade is a never-emitted PROPOSAL (the cascade instruction's
 		// replacement boundary, events.Cascade): it is held out to the
 		// replacement matcher and logged nowhere, so no trigger mode can ever
 		// observe it and it carries no interest bits -- the zero mapping every
 		// other bookkeeping kind in this list has.
+		// Clash is matched by trig:Clashed through the full matcher
+		// (clashMatches) via the fail-open path, exactly like GiveGift;
+		// its ordinal sits past triggerMaskKindBits. Naming it here keeps
+		// the audit complete and out of the catch-all default.
 		// AlterAttribute (alterattr1) is the same shape past the bound as
 		// Enlist: the suspected designation (CR 702.157) is a status no
 		// trigger mode fires on -- the corpus reads it through filter
@@ -175,6 +181,23 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		// ordinal sits past triggerMaskKindBits, so both classifiers fail
 		// open before this map is consulted; naming it keeps the audit
 		// complete if the bound ever widens.
+		//
+		// PlanarDeckShuffle, PlanarReveal and PlanarWalk are the CR 901
+		// planar-deck lifecycle markers this foundation ticket adds. The
+		// deck shuffle is private bookkeeping and the reveal is the state
+		// move that turns the top plane face up; neither is matched by a
+		// Mode$ line. PlanarWalk IS matched now -- trig:PlaneswalkedTo and
+		// trig:PlaneswalkedFrom (rules/planar.go's planeswalkedToMatches /
+		// planeswalkedFromMatches) -- but through the per-event synthetic
+		// plane scan checkPlaneswalkTriggers, not the per-face prefilter
+		// this function feeds: a plane lives in the private ZPlanarDeck
+		// zone, which the per-face walk never visits, so this map's zero
+		// answer for PlanarWalk never gates a walk trigger. All three
+		// ordinals sit past triggerMaskKindBits, so both classifiers fail
+		// open before this map is consulted; naming them keeps the audit
+		// complete if the bound ever widens and keeps them out of the
+		// catch-all default that would otherwise claim the kinds
+		// trigger-relevant.
 		//
 		// DelayedForget (efftrig1) drops one remembered card from an Effect
 		// trigger registration (a ForgetOnMoved$/ForgetCounter$ trim). No
@@ -260,6 +283,10 @@ func triggerModeEvents(mode string) triggerEventMask {
 		return 1 << events.DeclareBlockers
 	case "Untaps":
 		return 1 << events.Untap
+	case "Specializes":
+		// The event Kind is beyond this mask's bit width; allow the matcher
+		// to inspect the full event and keep this mode's candidate set narrow.
+		return 0
 	case "PhaseOutAll":
 		// CR 702.25b: the batch-level "whenever one or more permanents phase
 		// out" trigger matches the events.PhaseOut marker the api:Phases
@@ -371,6 +398,25 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// than letting it fall to the allTriggerEvents default keeps an
 		// Exploited-only face's mask narrow for every other kind.
 		return 0
+	case "Clashed":
+		// The Clash marker's ordinal is past the 64-bit mask's reach, the
+		// Exploited/GiveGift shape: a mask bit is not encodable and allows()
+		// fails open for every kind at or past triggerMaskKindBits, so the
+		// mode is admitted through that fail-open path and gated by the full
+		// matcher (clashMatches). Naming the mode here rather than letting it
+		// fall to the allTriggerEvents default keeps a Clashed-only face's
+		// mask narrow for every other kind.
+		return 0
+	case "ChaosEnsues":
+		// The ChaosEnsues marker's ordinal is past the 64-bit mask's reach,
+		// the Clashed/GiveGift shape: a mask bit is not encodable and allows()
+		// fails open for every kind at or past triggerMaskKindBits, so the
+		// mode is admitted through that fail-open path and gated by the
+		// synthetic plane scan (checkChaosEnsuesTriggers) plus the full
+		// matcher (chaosEnsuesMatches). Naming the mode here rather than
+		// letting it fall to the allTriggerEvents default keeps a
+		// ChaosEnsues-only face's mask narrow for every other kind.
+		return 0
 	case "BecomeMonstrous":
 		// The AlterAttribute carrier's ordinal is past the 64-bit mask's
 		// reach, the Exploited/Investigated shape: a mask bit is not encodable
@@ -413,7 +459,7 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// rules' becomeMonarchMatches. MonarchChange is ordinal 43, inside the
 		// 64-bit mask's reach, so an exact bit is encodable.
 		return 1 << events.MonarchChange
-	case "CommitCrime", "BecomesTarget":
+	case "CommitCrime", "BecomesTarget", "BecomesTargetOnce":
 		return 1 << events.TargetsChosen
 	case "Attached":
 		return 1 << events.Attach

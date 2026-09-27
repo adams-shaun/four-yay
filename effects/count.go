@@ -1028,6 +1028,38 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			}
 		}
 		return out, true
+	case "Exiled", "Revealed":
+		// Forge's cast-cost PAID lists (AbilityUtils.getPaidCards ->
+		// SpellAbility.getPaidList): the cards this cast's own cost removed --
+		// CostExile's row is keyed "Exiled" (HashLKIListKey),
+		// CostReveal.doPayment's is "Revealed". The cards ride Ctx.Exiled /
+		// Ctx.Revealed, bound from the engine's per-stack-object capture at
+		// payment, so a body such as Draconic Intervention's
+		// `SVar:X:Exiled$CardManaCost` reads the card the ExileFromGrave cost
+		// actually exiled rather than the source or a remembered set. An
+		// absent binding is a legitimate EMPTY list (ok=true, zero), never a
+		// fallback -- exactly the ExiledWith association's empty case above.
+		// This is deliberately NOT Object.ExiledWith: an ExileFromGrave cost
+		// emits a plain MoveZone with no ExiledWith marker, so aliasing the
+		// association would read zero for the real carriers. paidCostTargets
+		// is the shared home with definedSpec's own case.
+		return paidCostTargets(c, ref), true
+	case "ExiledCards":
+		// Forge's `ExiledCards` count referent (Corpseweft's
+		// `SVar:Y:ExiledCards$Amount/Twice` -- the only corpus carrier at this
+		// pin): the cards THIS cast or activation exiled as a cost, i.e. the
+		// SAME paid list the `Exiled` spelling immediately above reads. It is
+		// claimed here explicitly because the default fallback below cannot
+		// model it -- definedSpec carries no `ExiledCards` selector -- so the
+		// body would fail closed and Corpseweft's Zombie Horror would be minted
+		// at the dynamic side's zero and swept by state-based actions. It is
+		// deliberately NOT Object.ExiledCards (a ChangeZone zone association on
+		// the exiling object) nor Ctx.Remembered (the memory/captured trigger
+		// objects `TokenRemembered$ ExiledCards` reads): neither holds the paid
+		// list an ExileFromGrave cost fills. Paired with evalRefProperty's
+		// `Amount` property, this sizes the token; the corpus's `/Twice` op
+		// rides the ordinary applyCountOp suffix.
+		return paidCostTargets(c, "Exiled"), true
 	case "TargetedObjects", "TargetedObjectsDistinct":
 		// Forge's TargetedObjects referent (AbilityUtils.calcX's
 		// `calcX[0].startsWith("TargetedObjects")` arm): the UNION of every
@@ -1272,10 +1304,7 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		case (ref == "TriggerObjectsCards" || ref == "TriggerRemembered") && prop == "CardTypes":
 			if f != nil {
 				for _, typ := range f.Types {
-					// Preserve TriggerObjectsCards' existing all-types count;
-					// only TriggerRemembered needs the CR 205.1 card types
-					// (not creature types such as Golem).
-					if ref == "TriggerObjectsCards" || cardTypeWords[typ] {
+					if cardTypeWords[typ] {
 						triggerObjectTypes[typ] = true
 					}
 				}
@@ -1616,7 +1645,7 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			n += h.DamageTakenThisTurn(p)
 		case prop == "CardsDiscardedThisTurn":
 			n += h.CardsDiscardedThisTurn(p)
-		case prop == "TotalCommanderCastFromCommandZone":
+		case prop == "TotalCommanderCastFromCommandZone" || prop == "CommanderCastFromCommandZone":
 			n += h.CommanderCastsFromCommandZone(p)
 		case prop == "Counters.Poison":
 			for _, pc := range g.Players[p].Counters {
@@ -1914,19 +1943,34 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	case "OptionalGenericCostPaid":
 		// OptionalCost's paid/unpaid branches are a boolean cast provenance.
 		// The CastSA indirection has already bound c.Source to the cast object.
+		// Each branch token is a numeric literal in the common case
+		// (Count$OptionalGenericCostPaid.4.2), but Forge also writes another
+		// SVar's value as the branch (Dragon's Fire's
+		// `SVar:Y:Count$OptionalGenericCostPaid.X.3`, where the paid branch is
+		// SVar X = Revealed$CardPower): a non-numeric token resolves as an
+		// SVar$ indirection through the SAME runtime -> printed -> publication
+		// precedence the SVar$ head uses, so the paired X/Y sizes from the
+		// chosen card rather than collapsing to an unresolved zero.
 		parts := strings.Split(strings.TrimSpace(arg), ".")
 		if len(parts) < 2 {
 			return 0, false
 		}
-		paid, ok1 := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 32)
-		unpaid, ok2 := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 32)
-		if ok1 != nil || ok2 != nil {
+		branch := func(tok string) (int32, bool) {
+			tok = strings.TrimSpace(tok)
+			if n, err := strconv.ParseInt(tok, 10, 32); err == nil {
+				return int32(n), true
+			}
+			return evalCountExprOK(h, c, "SVar$"+tok, depth+1)
+		}
+		paid, ok1 := branch(parts[0])
+		unpaid, ok2 := branch(parts[1])
+		if !ok1 || !ok2 {
 			return 0, false
 		}
 		if o := g.Obj(c.Source); o != nil && o.OptionalCostPaid {
-			return int32(paid), true
+			return paid, true
 		}
-		return int32(unpaid), true
+		return unpaid, true
 	case "OffspringPaid":
 		// CR 702.175a: whether the resolving spell's cast paid the optional
 		// Offspring additional cost ("You may pay an additional [cost] as you
@@ -2106,15 +2150,11 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		// classic idiom is Count$ThisTurnCast/Minus1 (storm copies the spell
 		// once per spell cast before it, i.e. everyone's casts minus itself).
 		return int32(h.CastThisTurn()), true
-	case "TotalCommanderCastFromCommandZone":
-		// Forge's "for each time you've cast your commander from the command
-		// zone this game" head (Thunderclap Drake's copy Amount$ X,
-		// Commanders Insignia's P/T, Henzie's blitz discount, The Swarmlord's
-		// /Twice entry counters; 17 corpus carriers). The resolving
-		// controller's own command-zone commander casts over the WHOLE game
-		// — log-derived through the Host like CastThisTurn, so a replay
-		// derives the same number, and the same provenance read the
-		// CR 903.8 commander tax already counts.
+	case "TotalCommanderCastFromCommandZone", "CommanderCastFromCommandZone":
+		// Both Forge spellings read the resolving controller's own
+		// command-zone commander casts over the whole game — log-derived
+		// through the Host like CastThisTurn, so replay derives the same
+		// number and the same provenance read the CR 903.8 commander tax.
 		return h.CommanderCastsFromCommandZone(c.Controller), true
 	case "RememberedNumber":
 		// Forge's Count$RememberedNumber is the executing ability's remembered
@@ -2696,7 +2736,9 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 			return 0, false
 		}
 		promised := false
-		if o := g.Obj(c.Source); o != nil {
+		if c.PromisedGiftOverride != nil {
+			promised = *c.PromisedGiftOverride
+		} else if o := g.Obj(c.Source); o != nil {
 			promised = o.CastFlags&state.FlagPromisedGift != 0
 		}
 		tok := no
@@ -3357,11 +3399,27 @@ func evalThisTurnEntered(g *state.Game, c *Ctx, rest string) (int32, bool) {
 // under THAT opponent's control") need exactly this — the counted member IS
 // the filter's You.
 func evalThisTurnEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, rest string) (int32, bool) {
+	// The optional trailing `$<Property>` sum form (Genesis of the Daleks'
+	// `Count$ThisTurnEntered_Graveyard_from_Battlefield_Dalek$CardPower` --
+	// "each of your opponents loses life equal to the total power of Daleks
+	// that died this turn"): a recognised sum property is split off the
+	// <Valid> tail and each matching entry contributes its value through the
+	// shared objectProperty reader, the same per-object read the
+	// `Count$Valid <spec>$CardPower` aggregate uses. An unrecognised property
+	// keeps the WHOLE token as <Valid> -- the fail-closed read the
+	// Count$Valid family also takes for a property it does not model, so a
+	// `token$DifferentCardNames`-style qualifier can never be mistaken for a
+	// sum. Only the count path splits here; parseThisTurnEnteredSpec stays
+	// the one grammar PlayerCount validation shares, unchanged.
+	prop := ""
+	if spec, tail, ok := strings.Cut(rest, "$"); ok && modeledProperty(tail) {
+		rest, prop = spec, strings.TrimSpace(tail)
+	}
 	dest, origin, valid, parsed := parseThisTurnEnteredSpec(rest)
 	if !parsed {
 		return 0, false
 	}
-	return countEnteredAs(g, c, you, dest, origin, valid)
+	return countEnteredAs(g, c, you, dest, origin, valid, prop)
 }
 
 // parseThisTurnEnteredSpec splits a ThisTurnEntered_<Dest>[_from_<Origin>]_<Valid>
@@ -3407,9 +3465,11 @@ func parseThisTurnEnteredSpec(rest string) (dest state.Zone, origin *state.Zone,
 }
 
 // countEntered folds the per-add entry list over one destination zone (and
-// optionally one origin zone), counting the entries whose object matches
-// valid from the resolving controller's perspective.
-func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, origin *state.Zone, valid string) (int32, bool) {
+// optionally one origin zone): the entries whose object matches valid from
+// the resolving controller's perspective are counted, or -- when prop names a
+// modelled sum property -- their values are summed through objectProperty
+// (the Genesis of the Daleks total-power form).
+func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, origin *state.Zone, valid, prop string) (int32, bool) {
 	if valid == "" {
 		return 0, false
 	}
@@ -3428,9 +3488,19 @@ func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, 
 		// reads a non-battlefield `Permanent` base as a permanent CARD
 		// (Forge's Card.isPermanent()), which is what Gravestorm's
 		// Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent needs.
-		if matchesZoneSpecCtx(g, valid, e.Obj, c.SpecContext(you), e.To) {
-			n++
+		if !matchesZoneSpecCtx(g, valid, e.Obj, c.SpecContext(you), e.To) {
+			continue
 		}
+		// The plain count form, and the $<Property> sum form's per-entry
+		// contribution (CardPower's printed face plus its +1/+1 counters, the
+		// objectProperty read the Count$Valid aggregate shares). A property
+		// the split did not recognise never reaches here -- it stayed in
+		// <Valid> and failed the match above.
+		if prop == "" {
+			n++
+			continue
+		}
+		n += objectProperty(g, e.Obj, prop)
 	}
 	return n, true
 }

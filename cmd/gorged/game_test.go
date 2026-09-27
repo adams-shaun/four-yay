@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -201,5 +202,38 @@ func TestCreateGameRejectsUnknownAndWrongFormatDecks(t *testing.T) {
 	}
 	if _, err := create(httpapi.CreateGameOptions{Format: host.FormatConstructed, BotDeck: "a"}); err == nil || !strings.Contains(err.Error(), `bot deck "a" belongs to commander`) {
 		t.Fatalf("wrong-format deck error = %v", err)
+	}
+}
+
+func TestCreateGameCarriesBotAutoManaToTheVsBotTable(t *testing.T) {
+	r, gate := freshGameLock(t)
+	create := (config{mulligans: 0, botAutoPayMana: true}).createGame(r, gate, []string{"a", "b"}, []string{"c", "d"}, view.Omniscient)
+	if _, err := create(httpapi.CreateGameOptions{Format: host.FormatConstructed}); err != nil {
+		t.Fatal(err)
+	}
+	// createGame is the only dynamic table constructor. Its config literal
+	// carries c.botAutoPayMana; a live game here proves that path is accepted
+	// alongside the human/bot seating configuration.
+	if len(r.Tables()) != 1 {
+		t.Fatalf("tables = %+v, want one created game", r.Tables())
+	}
+}
+
+// The on-demand constructor is separate from startup tableConfigs. Keep the
+// feature gate on this path too: -auto-mana=false must leave both the human
+// wire and its bot/caretaker on the legacy manual path.
+func TestCreateGameCarriesAutoManaFeatureGateToTheVsBotTable(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("enabled=%t", enabled), func(t *testing.T) {
+			r, gate := freshGameLock(t)
+			create := (config{mulligans: 0, botAutoPayMana: true, autoMana: enabled}).createGame(r, gate, []string{"a", "b"}, []string{"c", "d"}, view.Omniscient)
+			if _, err := create(httpapi.CreateGameOptions{Format: host.FormatConstructed}); err != nil {
+				t.Fatal(err)
+			}
+			tables := r.Tables()
+			if len(tables) != 1 || tables[0].AutoMana != enabled {
+				t.Fatalf("created tables = %+v, want AutoMana=%t", tables, enabled)
+			}
+		})
 	}
 }

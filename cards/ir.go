@@ -39,21 +39,22 @@ type Repl struct {
 // Face is one printed face. Most cards have exactly one; ALTERNATE starts
 // another.
 type Face struct {
-	Name      string
-	ManaCost  string
-	Types     []string
-	PT        string
-	Loyalty   string
-	Defense   string
-	Colors    string
-	Oracle    string
-	Keywords  []string
-	Aliases   []string // Universes-Within flavour names a decklist may use
-	Abilities []*SA
-	Triggers  []Trigger
-	Statics   []Static
-	Repls     []Repl
-	SVars     map[string]string
+	SpecializeColor string // color token from a SPECIALIZE:<COLOR> boundary, if any
+	Name            string
+	ManaCost        string
+	Types           []string
+	PT              string
+	Loyalty         string
+	Defense         string
+	Colors          string
+	Oracle          string
+	Keywords        []string
+	Aliases         []string // Universes-Within flavour names a decklist may use
+	Abilities       []*SA
+	Triggers        []Trigger
+	Statics         []Static
+	Repls           []Repl
+	SVars           map[string]string
 
 	// Derived values, computed once at load (Face.derive), never written
 	// into the gob cache: a stale cache decodes these as zero and derive
@@ -274,13 +275,23 @@ func (c *Card) ColourIdentity() uint8 {
 	return m
 }
 
-// SetsName reports whether any face prints a `S:Mode$ Continuous | SetName$`
-// static (CR 613.1d, layer 3). It is a card-data question the rules engine
-// asks ONCE, at genesis, over the match's card pool: a match whose pool has no
+// SetsName reports whether any face carries a layer-3 rename (CR 613.1d): a
+// `S:Mode$ Continuous | SetName$` static, or an api:Animate body with a
+// `Name$` rider (the Curse of Fenric family), which effects registers as the
+// same LText SetName effect. It is a card-data question the rules engine asks
+// ONCE, at genesis, over the match's card pool: a match whose pool has no
 // such carrier can never have a layer-3 rename, so the engine skips
 // maintaining its rename table entirely (rules/setname.go). It lives here,
 // with the IR it reads, rather than in rules -- it is a capability probe over
 // printed script text, not a parameter read on a resolving primitive's path.
+//
+// Like ChangesTypes it is a SUPERSET probe: it scans static params, ability
+// params (SP/AB/DB) and the raw SVar bodies, so an Animate reached only
+// through a SubAbility chain or an SVar body is still recognised. A false
+// positive costs only the rename refresh's own anySetNameActive
+// short-circuit; a false negative would leave a resolving effect's name
+// filter reading the printed name (the Curse of Fenric's own chapter III
+// `Creature.namedFenric` target is exactly that case).
 func (c *Card) SetsName() bool {
 	if c == nil {
 		return false
@@ -291,6 +302,42 @@ func (c *Card) SetsName() bool {
 		}
 		for _, st := range f.Statics {
 			if _, ok := st.Params["SetName"]; ok {
+				return true
+			}
+		}
+		for _, a := range f.Abilities {
+			if saSetsName(a) {
+				return true
+			}
+		}
+		for _, t := range f.Triggers {
+			if saSetsName(t.Effect) {
+				return true
+			}
+		}
+		for _, r := range f.Repls {
+			if saSetsName(r.With) {
+				return true
+			}
+		}
+		for _, body := range f.SVars {
+			if strings.Contains(body, "Animate") && strings.Contains(body, "Name$") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// saSetsName reports whether an ability (or any of its SubAbility chain) is an
+// api:Animate body carrying a Name$ rider. AnimateAll deliberately does NOT
+// count: its Name$ stays unread (effects clears the shared parser's field), so
+// a pool whose only carrier is an AnimateAll with Name$ correctly needs no
+// rename table.
+func saSetsName(a *SA) bool {
+	for ; a != nil; a = a.Sub {
+		if a.API == "Animate" {
+			if _, ok := a.Params["Name"]; ok {
 				return true
 			}
 		}

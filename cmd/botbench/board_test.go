@@ -13,6 +13,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -103,5 +104,33 @@ func TestAr8PolicyIsBenchedButNotHosted(t *testing.T) {
 	}
 	if _, err := host.NormalizeBotPolicy("ar8"); err == nil {
 		t.Fatal("host.NormalizeBotPolicy accepted \"ar8\"; the ar8 policy must NOT be hosted")
+	}
+}
+
+// TestBotAutoPayPolicyIsBenchable pins the comparison arm used after a
+// payment-planner change. The production host opts bots into this same Bot
+// wrapper through TableConfig.BotAutoPayMana; the bench name lets us compare
+// its resulting games against the unchanged manual-mana baseline.
+func TestBotAutoPayPolicyIsBenchable(t *testing.T) {
+	newSeat, ok := policies["bot-auto-pay"]
+	if !ok {
+		t.Fatal(`policies["bot-auto-pay"] is not registered`)
+	}
+	b, ok := newSeat(19).(*seat.Bot)
+	if !ok {
+		t.Fatalf("policies[\"bot-auto-pay\"] built %T, want *seat.Bot", newSeat(19))
+	}
+	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
+		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
+		PaymentActions: []decision.PaymentAction{{ID: "action", Cast: decision.PlannedCast{Object: 9, Origin: "hand"}, Plans: []decision.PaymentPlan{{ID: "plan", Version: decision.PaymentPlanV1}}}},
+	}
+	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+		9: {Creature: true, Power: 3, CMC: 3, Castable: true},
+	}}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in.Payment == nil || in.Payment.ActionID != "action" || in.Payment.Plan.ID != "plan" {
+		t.Fatalf("intent = %+v, want offered auto-payment witness", in)
 	}
 }

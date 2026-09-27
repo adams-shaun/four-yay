@@ -166,6 +166,7 @@ type PlayerView struct {
 	Lost          bool           `json:"lost"`
 	LibrarySize   int            `json:"library_size"`
 	HandSize      int            `json:"hand_size"`
+	PlanarDeck    []CardView     `json:"planar_deck,omitempty"`
 	GraveyardSize int            `json:"graveyard_size"`
 	// LibraryTop is the player's own library's top card, revealed only when
 	// a live Continuous MayLookAt grant covers it (Oracle of Mul Daya's
@@ -451,8 +452,7 @@ func copyDecision(d *decision.Decision) *decision.Decision {
 	if d == nil {
 		return nil
 	}
-	cp := *d
-	cp.Options = append([]decision.Option(nil), d.Options...)
+	cp := d.CloneValue()
 	for i := range cp.Options {
 		cp.Options[i].Label = optionLabelText(cp.Options[i].Label)
 	}
@@ -559,6 +559,7 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 			ID: p.ID, Name: displayName(p), Life: p.Life, Lost: p.Lost,
 			LibrarySize:    len(g.Zone(state.ZLibrary, p.ID)),
 			HandSize:       len(g.Zone(state.ZHand, p.ID)),
+			PlanarDeck:     cardViews(g, ch, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, viewer, false),
 			GraveyardSize:  len(g.Zone(state.ZGraveyard, p.ID)),
 			Battlefield:    cardViews(g, ch, g.Zone(state.ZBattlefield, p.ID), true, p.ID, viewer, false),
 			Graveyard:      cardViews(g, ch, g.Zone(state.ZGraveyard, p.ID), false, p.ID, viewer, false),
@@ -879,7 +880,9 @@ func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts b
 			if o.HasMayLook {
 				looker = o.MayLookPlayer
 			}
-			if !revealFaceDown && viewer != looker {
+			// A face-down planar-deck card is unknown to every seat, including
+			// its owner. Only the face-up current plane is public.
+			if o.Zone == state.ZPlanarDeck || (!revealFaceDown && viewer != looker) {
 				cv = CardView{ID: id, FaceDown: true, Token: "#" + strconv.FormatUint(uint64(id), 10),
 					Controller: o.Controller, Owner: o.Owner}
 			}

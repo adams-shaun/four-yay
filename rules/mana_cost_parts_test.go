@@ -55,11 +55,9 @@ func answerManaChoose(t *testing.T, e *Engine, want string) {
 	if len(want) == len("Add ")+1 && strings.HasPrefix(want, "Add ") {
 		colour := want[len("Add "):]
 		for _, o := range d.Options {
-			if o.Kind == "mana" {
-				if got, ok := manaLabelColour(o.Label); ok && got == colour {
-					submitChoices(t, e, o.Index)
-					return
-				}
+			if o.Kind == "mana" && o.ManaSymbol == colour {
+				submitChoices(t, e, o.Index)
+				return
 			}
 		}
 	}

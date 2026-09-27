@@ -61,7 +61,13 @@ import (
 // completion moves the object off the stack. Plain data, cloned by value
 // (the *cards.SA is shared immutable card data, the same class
 // Engine.Clone already shares everywhere).
-//
+func cloneClashResume(r *decision.ClashResume) *decision.ClashResume {
+	if r == nil {
+		return nil
+	}
+	return &decision.ClashResume{Players: append([]state.PlayerID(nil), r.Players...), Revealed: append([]state.ObjID(nil), r.Revealed...), Winner: r.Winner, Cursor: r.Cursor}
+}
+
 // `replacement` records whether the suspended resolution is running inside
 // a replacement effect's ReplaceWith$ body (fx44). applyReplacements sets
 // e.applyingReplacement while it resolves that body and resets it to false
@@ -138,6 +144,14 @@ type resumePoint struct {
 	// controller is someone else.
 	player state.PlayerID
 	name   string
+	// chosenDirection carries Ctx.ChosenDirection across a suspension. The
+	// answered ChooseDirection ask sets it through the "choosedirection"
+	// resume arm, and any LATER ask the chained GainControlVariant poses
+	// (Inniaz's / Order of Succession's per-recipient picks) rebuilds a fresh
+	// Ctx that would otherwise lose the direction its Sub still needs. Read
+	// from the live resolution Ctx at ask time, the same runtime-continuation
+	// class as name.
+	chosenDirection string
 	// direct identifies an effect invoked outside stack resolution (currently
 	// an enters-the-battlefield replacement such as Hideaway). It resumes its
 	// source directly rather than requiring a stack object.
@@ -349,6 +363,7 @@ type resumePoint struct {
 	// value data, cloned with the point; a replay re-derives the same rolls
 	// from the same seeded draws. Nil for every other ask.
 	rolls []int32
+	clash *decision.ClashResume
 	// replSource is the host of the replacement whose body asked (the
 	// ReplaceWith$ body's own Ctx.Source); zero outside a replacement.
 	replSource state.ObjID
@@ -406,6 +421,11 @@ type repeatCursor struct {
 	// RepeatOptionalForEachPlayer$ offer: next is the subject whose election
 	// was posed, and the answer rides Ctx.RepeatEachOptional on re-entry.
 	election bool
+	// chooseOrder marks a RepeatEach frame parked on a ChooseOrder$ loop's
+	// one-before-the-loop ordering ask: next is 0, and the answered order
+	// permutes subjects before the loop re-enters (rules' repeat_choose_order
+	// resume arm).
+	chooseOrder bool
 }
 
 // fusedRest is a fuse-rest continuation's captured remainder (CR 702.101b):
@@ -566,6 +586,17 @@ func (e *Engine) StateChangedSince(mark int) bool {
 	return false
 }
 
+// chosenDirectionForResume reads the live resolution Ctx's chosen direction
+// for a resume point (empty when no chain is published, or none was chosen
+// yet). It is how a suspended mid-resolution ask keeps the ChooseDirection
+// answer its chained SubAbility reads after a freshly rebuilt Ctx.
+func (e *Engine) chosenDirectionForResume() string {
+	if e.resolutionCtx == nil {
+		return ""
+	}
+	return e.resolutionCtx.ChosenDirection
+}
+
 // buildAskResume builds the resume point of the mid-resolution ask d from
 // the engine's ambient resolution state at the moment the ask is posed (or
 // deferred). See Engine.Ask.
@@ -643,7 +674,8 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		replacementAmount: replacementAmount,
 		effectFrame:       e.currentEffectFrame,
 		before:            e.triggerBefore, target: d.ResumeTarget, player: d.Player,
-		direct: direct, rolls: d.Rolls,
+		chosenDirection: e.chosenDirectionForResume(),
+		direct:          direct, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
 		chosenValid: d.ResumeChosenValid, remembered: append([]state.Target(nil), d.ResumeRemembered...),
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
@@ -952,7 +984,7 @@ func (e *Engine) SuspendRepeat(s effects.RepeatSuspension) {
 	}
 	e.contChain = append(e.contChain, contFrame{
 		sa:          s.SA,
-		repeat:      &repeatCursor{subjects: append([]state.Target(nil), s.Subjects...), next: s.Next, election: s.Election},
+		repeat:      &repeatCursor{subjects: append([]state.Target(nil), s.Subjects...), next: s.Next, election: s.Election, chooseOrder: s.ChooseOrder},
 		bound:       true,
 		remembered:  append([]state.Target(nil), s.Outer...),
 		voteCounts:  cloneVoteCounts(votes),
@@ -1771,7 +1803,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	} else if f := o.Face(); f != nil {
 		e.recheckCastSubTargets(rp.obj, f.SpellAbility(), o.Controller, rp.obj)
 	}
-	ctx := &effects.Ctx{Source: rp.obj, Controller: o.Controller, NameChoice: rp.name, Targets: o.Targets,
+	ctx := &effects.Ctx{Source: rp.obj, Controller: o.Controller, NameChoice: rp.name, ChosenDirection: rp.chosenDirection, Targets: o.Targets,
 		// Forge's Count$ResolvedThisTurn: a chain that suspended at a
 		// mid-resolution ask and so re-enters HERE instead of through
 		// resolveTop must keep the tally its first pass read. The Resolve event
@@ -1781,6 +1813,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// resumed pass). resolvedAbilityTally is the same read resolveTop's
 		// ability branch makes, in one home.
 		ResolvedThisTurn:    e.resolvedAbilityTally(o),
+		ClashContinuation:   cloneClashResume(rp.clash),
 		ActivationsThisTurn: e.activationsThisTurnFor(o.Source, o.Ability),
 		// alltargeted1: a re-entered walk keeps consuming the cast flow's
 		// pre-asked sub-ability target answers (kept until the stack object
@@ -1853,6 +1886,8 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	// Wanderer's Sacrificed$CardPower does not collapse to zero after the
 	// unless-pay answer suspends resolution.
 	ctx.Sacrificed = e.sacrificedLKI[rp.obj]
+	ctx.Exiled = e.castExiled[rp.obj]
+	ctx.Revealed = e.castRevealed[rp.obj]
 	// CR 107.3i: X is the value paid for the object's {X}, preserved on the
 	// stack object by CastInfo -- the same binding resolveTop's spell and
 	// ability branches now carry. A spell whose resolution suspends on a
@@ -2215,11 +2250,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		case "mana_color":
 			// A resolution-time Mana effect asked for one colour, or an
 			// allocation of Combo's produced units. The answer is carried in
-			// ordinary KChoose labels and consumed by effMana on re-entry; no
-			// event kind is needed because the resulting ManaAdd is the
-			// replayable state mutation.
+			// the chosen options' structured ManaSymbol and consumed by
+			// effMana on re-entry; no event kind is needed because the
+			// resulting ManaAdd is the replayable state mutation.
 			for _, option := range chosen {
-				colour := strings.TrimSpace(strings.TrimPrefix(option.Label, "Add "))
+				// The chosen colour is structured data (Option.ManaSymbol);
+				// labels are presentation-only.
+				colour := option.ManaSymbol
 				if len(colour) != 1 || !strings.Contains("WUBRG", colour) {
 					continue
 				}
@@ -2235,6 +2272,49 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if cur := rp.repeat; cur != nil {
 				ctx.Repeat = &effects.RepeatCursor{SA: rp.sa, Subjects: cur.subjects, Next: cur.next,
 					Last: cur.last, HasLast: cur.hasLast}
+			}
+		case "repeat_choose_order":
+			// A RepeatEach ChooseOrder$ loop's before-the-loop ordering ask was
+			// answered. Its loop frame is rp.outer (SuspendRepeat parked it with
+			// ChooseOrder set); consume it here so the loop is re-entered exactly
+			// once, with the subject order the answer named, rather than a
+			// second time through the outer recursion. Each option's Index is
+			// the subject's position in the offered (selector/scan) order, so
+			// the answer is applied by permuting the cursor's subject slice --
+			// the subjects are never re-derived after the ask, and every later
+			// mid-loop suspension copies the reordered slice. The loop's own
+			// accumulated bindings ride the frame exactly as the
+			// repeat_each_optional arm carries them.
+			if lf := rp.outer; lf != nil && lf.kind == "repeat" && lf.repeat != nil && lf.repeat.chooseOrder {
+				ordered := append([]state.Target(nil), lf.repeat.subjects...)
+				// A well-formed answer is a permutation (Min == Max == len); a
+				// malformed one (unreachable past Decision.Validate) keeps the
+				// offered order rather than dropping or duplicating a subject.
+				if len(chosen) == len(ordered) {
+					seen := make([]bool, len(ordered))
+					ok := true
+					for pos, o := range chosen {
+						if o.Index < 0 || o.Index >= len(ordered) || seen[o.Index] {
+							ok = false
+							break
+						}
+						seen[o.Index] = true
+						ordered[pos] = lf.repeat.subjects[o.Index]
+					}
+					if !ok {
+						ordered = append([]state.Target(nil), lf.repeat.subjects...)
+					}
+				}
+				ctx.Repeat = &effects.RepeatCursor{SA: rp.sa, Subjects: ordered,
+					Next: lf.repeat.next, Last: lf.repeat.last, HasLast: lf.repeat.hasLast}
+				if lf.loopBound {
+					rp.loopBound = true
+					rp.loopRemembered = append([]state.Target(nil), lf.loopRemembered...)
+				}
+				if lf.voteCounts != nil {
+					rp.voteCounts = cloneVoteCounts(lf.voteCounts)
+				}
+				rp.outer = lf.outer
 			}
 		case "repeat_each_optional":
 			// A RepeatEach RepeatOptionalForEachPlayer$ election was answered.
@@ -2608,14 +2688,17 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// A standalone AB$ ManaReflected colour ask (the mid-resolution
 			// choice effManaReflected poses when a DB$/SP$ body reflecting
 			// several colours resolves outside the mana-activation path) was
-			// answered. The option Label ("Add W") carries the picked colour;
-			// the re-entered effManaReflected consumes and clears it and emits
+			// answered. The chosen option's structured ManaSymbol carries the
+			// picked colour; the re-entered effManaReflected consumes and
+			// clears it and emits
 			// the answered ManaAdd, so a nested ManaReflected poses its own ask.
 			// An empty answer (malformed -- the ask is Min 1/Max 1 over a set of
 			// two or more) leaves the field empty, and the effect's re-entry
 			// degrades to its deterministic first candidate.
 			if len(chosen) > 0 {
-				ctx.ManaReflectedColor = chosen[0].Label
+				// The structured mana symbol travels with the chosen option;
+				// the option label is presentation-only.
+				ctx.ManaReflectedColor = chosen[0].ManaSymbol
 			}
 		case "taporuntap":
 			// A TapOrUntap's tap-vs-untap election (api:TapOrUntap, Merrow
@@ -2695,6 +2778,17 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if len(chosen) > 0 {
 				ctx.ClonePick = chosen[0].Obj
 			}
+		case "choosedirection":
+			// A mid-resolution ChooseDirection ask (Aminatou's [-6], Order of
+			// Succession) was answered. The chosen option's Label is the
+			// direction word ("left"/"right"), so it is carried verbatim:
+			// the re-entered effChooseDirection consumes it and the shared
+			// Ctx then lets the chain's SubAbility$ (GainControl's
+			// NextPlayerInChosenDirection / ChooseNextPlayerInChosenDirection)
+			// read the same direction for the rest of the walk.
+			if len(chosen) > 0 {
+				ctx.ChosenDirection = chosen[0].Label
+			}
 		case "choice":
 			// ChooseCard, ChoosePlayer and ChangeTargets all use KChoose. Keep
 			// the concrete target shape rather than just an ObjID because player
@@ -2756,6 +2850,20 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				if o.Obj != 0 {
 					ctx.CipherPick = append(ctx.CipherPick, state.Target{Obj: o.Obj})
 				}
+			}
+		case "opp_pick":
+			// The TargetingPlayer$ Opponent controller-selection ask
+			// (agent-20260925T085158Z-c861188d): the chosen "player" option
+			// names the opponent who answers the re-entered ask. Recorded
+			// under the SA's line; the walk's chooser read (midChooserCore,
+			// reached through Engine.ChooserFor) consumes it. The arm sets
+			// no Ctx fields: the re-entry re-runs the ask construction and
+			// the pin redirects it to the chosen seat.
+			if len(chosen) > 0 && chosen[0].Kind == "player" && rp.sa != nil {
+				if e.oppPicksMid == nil {
+					e.oppPicksMid = make(map[string]state.PlayerID)
+				}
+				e.oppPicksMid[rp.sa.Line] = chosen[0].Player
 			}
 		case "tgts":
 			// The generic ValidTgts$ pre-ask (task mvts1) posed inside
@@ -2820,6 +2928,21 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			}
 			ctx.SearchDone = true
 			ctx.LibraryTarget = rp.target
+		case "search_confirm":
+			// An Optional$ confirmation on a hidden-library ChangeZone
+			// search was answered (Forge's confirmAction gate, which runs
+			// before the fetch list is consulted): option zero accepts this
+			// search player's fetch, every other answer declines it.
+			// effSearchLibrary consumes and clears these at the top of its
+			// walk (fx42 scoping), so a nested search poses its own
+			// confirmation. ResumeTarget is the per-library cursor, the same
+			// one LibraryTarget carries for the answered pick.
+			ctx.SearchConfirmDone = true
+			ctx.SearchConfirmTarget = rp.target
+			ctx.SearchConfirm = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.SearchConfirm = "yes"
+			}
 		case "search_mayshuffle":
 			// A ChangeZone search carrying ShuffleNonMandatory$ True (Path to
 			// Exile, Stoneforge Mystic, Boggart Harbinger) asked its searcher
@@ -3034,6 +3157,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			}
 			ctx.DigDone = true
 			ctx.DigTarget = rp.target
+		case "clash_placement":
+			ctx.ClashContinuation = cloneClashResume(rp.clash)
+			ctx.ClashTop = len(chosen) > 0 && chosen[0].Kind == "top"
 		case "twopiles_split":
 			// A TwoPiles pile split was answered (task twopiles1, Fact or
 			// Fiction): the separator picked pile A out of the card set, in
@@ -3281,6 +3407,26 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if rp.sa != nil && rp.sa.API == "AddOrRemoveCounter" && ctx.AorKind != "" {
 				e.aorEntry(rp.obj)[ctx.AorKind] = true
 			}
+		case "manifest_dread":
+			if len(chosen) > 0 {
+				ctx.ManifestDreadPick = chosen[0].Obj
+			}
+			ctx.ManifestDreadPlayer = rp.player
+			ctx.ManifestDreadDone = true
+		case "ring_bearer":
+			// A Ring tempts you Ring-bearer choice (CR 701.54a: the tempted
+			// player chooses a creature they control) was answered. The chosen
+			// option carries the object in Obj (the same shape the "sacrifice"
+			// and "blight" arms read). RingBearerDone distinguishes "answered"
+			// from the first pass, so the re-entered effRingTemptsYou skips the
+			// ask and emits the single RingTemptsYou event once -- a suspension
+			// can never increment the count twice. effRingTemptsYou consumes and
+			// clears both at the top of its own walk, so a nested Ring tempts
+			// cannot inherit the outer answer.
+			if len(chosen) > 0 {
+				ctx.RingBearerPick = chosen[0].Obj
+			}
+			ctx.RingBearerDone = true
 		case "blight":
 			// A Blight's per-player KChoose (CR 701.60: the blighting player
 			// chooses which of their own creatures takes the −1/−1 counters)
@@ -3338,6 +3484,19 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// re-entered walk skips owners before the cursor and continues with
 			// the owners after it (the same continuation DigTarget carries).
 			ctx.HandMoveTarget = rp.target
+		case "hand_move_confirm":
+			// An Optional$ confirmation on a hidden-hand ChangeZone was
+			// answered (Forge's confirmAction gate, which runs before the card
+			// pick): option zero accepts the fetch, every other answer declines
+			// it. effChangeZone...handMoveOwnersWalk consumes and clears these
+			// at the top of its walk (fx42 scoping), so a nested hand move
+			// poses its own confirmation.
+			ctx.HandMoveConfirmDone = true
+			ctx.HandMoveConfirmTarget = rp.target
+			ctx.HandMoveConfirm = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.HandMoveConfirm = "yes"
+			}
 		case "hidden_pick":
 			// A Hidden$ True public-origin pick was answered (hiddenpick1): the
 			// chooser picked which of the ChangeType$-eligible cards in the
@@ -3359,6 +3518,19 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			}
 			ctx.HiddenPickDone = true
 			ctx.HiddenPickTarget = rp.target
+		case "hidden_pick_confirm":
+			// An Optional$ confirmation on a Hidden$ True public-origin
+			// ChangeZone pick was answered (the same confirmAction gate the
+			// "hand_move_confirm" arm decodes): option zero accepts the fetch,
+			// every other answer declines it. effHiddenPick consumes and clears
+			// these at the top of its walk (fx42 scoping), so a nested pick
+			// poses its own confirmation.
+			ctx.HiddenPickConfirmDone = true
+			ctx.HiddenPickConfirmTarget = rp.target
+			ctx.HiddenPickConfirm = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.HiddenPickConfirm = "yes"
+			}
 		case "scry_replacement":
 			ctx.ScryReplacement = true
 			ctx.ScryCount, ctx.ScryProceed = rp.scryCount, rp.scryProceed

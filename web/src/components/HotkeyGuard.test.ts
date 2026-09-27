@@ -61,9 +61,9 @@ describe('the hotkey guard against an open modal — mounted', () => {
     await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
 
     await page.evaluate(() => (window as unknown as { __state: { rewind: () => void } }).__state.rewind());
-    const chip = page.locator('#fixture [data-auto-note]');
+    const chip = page.locator('#fixture [data-auto-status]');
     await expect.poll(() => chip.getAttribute('data-play-mode')).toBe('paused');
-    expect(await chip.textContent()).toContain('Auto paused — press to resume');
+    expect(await chip.textContent()).toContain('AUTO');
     expect(await chip.getAttribute('aria-label')).toContain('Press the Auto switch (or apply a preset)');
 
     // This is a real click through HotButtonStrip's handler and the shared

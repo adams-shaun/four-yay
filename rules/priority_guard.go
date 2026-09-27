@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -123,6 +124,14 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 	case "unlock":
 		if _, ok := e.unlockRoomCost(o); !ok {
 			return "the Room has no locked half to unlock"
+		}
+	case "specialize":
+		i, err := strconv.Atoi(opt.Mode)
+		if err != nil {
+			return "the chosen specialization face is invalid"
+		}
+		if _, ok := e.specializeLegal(p, opt.Obj, i); !ok {
+			return "the permanent cannot be specialized to that face"
 		}
 	case "station":
 		if o == nil || o.Zone != state.ZBattlefield || !e.HasKeyword(opt.Obj, "Station") {

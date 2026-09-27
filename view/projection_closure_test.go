@@ -111,7 +111,10 @@ func TestViewMarshalsClosed(t *testing.T) {
 		"seat": true, "name": true, "life": true, "lost": true,
 		"library_size": true, "hand_size": true, "graveyard_size": true,
 		"hand": true, "battlefield": true, "graveyard": true, "exile": true,
-		"pool": true, "command": true, "commanders": true,
+		// planar_deck is a face-down hidden-zone projection; view.Project
+		// strips every face-down card's identity even from its owner.
+		"planar_deck": true,
+		"pool":        true, "command": true, "commanders": true,
 		"commander_casts": true, "cmd_damage": true,
 		// available (task mp1) is a public battlefield-derived quantity —
 		// what the seat could tap for right now — never a hidden-zone

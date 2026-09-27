@@ -853,7 +853,7 @@ func triggerInterestForMode(mode string) TriggerInterest {
 	case "Attacks", "AttackersDeclaredOneTarget", "AttackersDeclared", "AttackerBlocked",
 		"AttackerBlockedByCreature", "Blocks":
 		return TriggerInterestAttackDeclaration
-	case "CommitCrime", "BecomesTarget":
+	case "CommitCrime", "BecomesTarget", "BecomesTargetOnce":
 		return TriggerInterestTargetsChosen
 	case "Attached":
 		return TriggerInterestAttach

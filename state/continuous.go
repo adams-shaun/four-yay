@@ -55,13 +55,18 @@ const (
 // evaluation itself lives in rules.Engine.Derived, which is free to import
 // effects; this type only needs to be nameable from both packages.)
 type ContinuousEffect struct {
-	Source     ObjID
-	Timestamp  uint32
-	Layer      Layer
-	Sub        Sublayer
-	Affects    string
-	Controller PlayerID
-	UntilEOT   bool
+	Source ObjID
+	// DurationSource is the permanent whose continued presence controls a
+	// source-scoped one-shot effect. Source remains the object used by Affects
+	// and layer derivation; this separate anchor handles effects such as
+	// Exchange of Words that modify other objects while its enchantment stays.
+	DurationSource ObjID
+	Timestamp      uint32
+	Layer          Layer
+	Sub            Sublayer
+	Affects        string
+	Controller     PlayerID
+	UntilEOT       bool
 
 	// FromEffect marks a registration created by the api:Effect primitive (the
 	// Ctx-side stand-in for Forge's implicit Command-zone effect object). The
@@ -96,11 +101,14 @@ type ContinuousEffect struct {
 	// timestamp order by rules' layer walk. An empty TextFrom substitutes
 	// nothing (a substitution whose source word is empty is never
 	// meaningful), so a zero value leaves the printed text untouched.
-	// TextSet, when non-empty, REPLACES the printed text outright (the
-	// sibling api:ExchangeTextBox swaps two objects' text boxes): the walk
-	// starts from TextSet and then applies any TextFrom/TextTo substitutions.
+	// TextSet replaces the printed text outright (the sibling
+	// api:ExchangeTextBox swaps two objects' text boxes). TextSetSet
+	// distinguishes an intentionally empty text box from no TextSet effect;
+	// the walk starts from TextSet and then applies any TextFrom/TextTo
+	// substitutions.
 	TextFrom, TextTo string
 	TextSet          string
+	TextSetSet       bool
 
 	// AddPowerExpr preserves a static P/T parameter that must be evaluated
 	// against its source each time characteristics are derived (for example
@@ -527,6 +535,11 @@ type ContinuousEffect struct {
 	// means the effect never ends on a move. Engine-runtime only, like
 	// ForgetOnMoved.
 	ExileOnMoved string
+	// ExileOnMovedAlso is an additional move-from zone that ends the whole
+	// effect. Animate's host-scoped grants can target an object in a different
+	// zone from their host, so the target's zone and the host's battlefield
+	// departure must both be irreversible lifetime boundaries.
+	ExileOnMovedAlso string
 	// ImprintOnHost marks a DB$ Effect registration whose SA carried
 	// ImprintOnHost$ True: Forge's EffectEffect imprints the CREATED EFFECT
 	// TOKEN on the host card and moves the token to the Command zone -- the

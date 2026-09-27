@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { CardView, PlayerView } from '../protocol';
+  import type { CardView, PaymentAction, PlayerView } from '../protocol';
   import { visibleHand } from '../lib/board';
   import { handFanLayout, PLAY_CARD_WIDTH, type HandFanSpec } from '../lib/handfan';
   import type { CardOptions } from '../lib/cardoptions';
-  import { ACTION_GLYPHS, actionAccessibleLabel, postSingleAction, singleActionIcon, tileScenario, tileOptions } from '../lib/cardoptions';
+  import { ACTION_GLYPHS, actionAccessibleLabel, singleActionIcon, tileScenario, tileOptions } from '../lib/cardoptions';
   import CardImage from './CardImage.svelte';
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
@@ -72,6 +72,8 @@
      *  decision offers something to is marked and carries the same options
      *  menu as a board tile (R-E4-1: each item posts the option's own index). */
     options = null,
+    paymentActions = [],
+    onCastPayment = null,
     /** open0 seeds the fan's open menu (by card id), injectable for the repo's
      *  SSR test harness just as CardTile's `open0` is: this environment has no
      *  DOM and no pointer events, so a test cannot click a badge to open the
@@ -79,7 +81,7 @@
      *  it drives the detail panel. Production never passes it and the default
      *  is that no menu is open. */
     open0 = null,
-  }: { player: PlayerView; width?: number; options?: CardOptions | null; open0?: number | null } = $props();
+  }: { player: PlayerView; width?: number; options?: CardOptions | null; open0?: number | null; paymentActions?: PaymentAction[]; onCastPayment?: ((action: PaymentAction, holdPriority: boolean) => void) | null } = $props();
 
   const hand = $derived(visibleHand(player) ?? []);
 
@@ -192,6 +194,11 @@
            options badge + menu (each item posting its own index, R-E4-1),
            and the picked chip — adapted to the fan. -->
       {@const opt = options ? tileOptions(options, c.id) : null}
+      {@const payment = paymentActions.find((action) => action.cast.object === c.id && action.plans.length > 0)}
+      {@const landPlay = opt?.list.find((action) => action.kind === 'play_land')}
+      <!-- Auto Mana already supplies CAST for its matching base cast. Keep
+           unrelated offers visible, but remove that exact legacy duplicate. -->
+      {@const legacyActions = opt?.list.filter((action) => action.index !== payment?.base_option_index) ?? []}
       <div class="card" class:marked={!!opt} data-obj={c.id} style:left="{i * layout.step}px">
         <div
           class="face"
@@ -209,15 +216,15 @@
         >
           <CardImage card={c} />
         </div>
-        {#if opt}
+        {#if opt && legacyActions.length > 0 && !(legacyActions.length === 1 && landPlay)}
           <!-- The options affordance sits OUTSIDE the role="button" face so a
                real button is never nested inside one; it anchors to the card's
                TOP EDGE (a bare face has no corner meaning to preserve, and the
                icon/badge clears the card in front of it on the overlap fan). -->
           {@const scenario = tileScenario(opt)}
           <div class="tile-actions">
-            {#if opt.list.length === 1}
-              {@const action = opt.list[0]}
+            {#if legacyActions.length === 1}
+              {@const action = legacyActions[0]}
               {@const icon = singleActionIcon(action)}
               <button
                 class="action-icon badge--{opt.tone}"
@@ -227,7 +234,7 @@
                 data-action-icon={icon}
                 aria-label={actionAccessibleLabel(action)}
                 title={actionAccessibleLabel(action)}
-                onclick={(event) => postSingleAction(opt, false, event.ctrlKey)}
+                onclick={(event) => opt.post(action.index, false, event.ctrlKey)}
               >
                 <span aria-hidden="true">{ACTION_GLYPHS[icon]}</span>
               </button>
@@ -239,8 +246,8 @@
                 aria-haspopup="menu"
                 aria-expanded={openForCard(c.id)}
                 aria-label={scenario
-                  ? `${opt.list.length} ${scenario.noun} for ${c.name}`
-                  : `${opt.list.length} actions for ${c.name}`}
+                  ? `${legacyActions.length} ${scenario.noun} for ${c.name}`
+                  : `${legacyActions.length} actions for ${c.name}`}
                 title="Options for {c.name}"
                 data-action-icon={scenario?.icon}
                 onclick={() => toggleCard(c.id)}
@@ -248,7 +255,7 @@
                 {#if scenario}
                   <span class="badge__icon" aria-hidden="true">{ACTION_GLYPHS[scenario.icon]}</span>
                 {/if}
-                <span class="badge__n data">{opt.list.length}</span>
+                <span class="badge__n data">{legacyActions.length}</span>
               </button>
             {/if}
             {#if opt.pickedOrder.length > 0}
@@ -256,7 +263,7 @@
             {/if}
             {#if opt.list.length > 1 && openForCard(c.id)}
               <ul class="menu" role="menu" aria-label="Options for {c.name}">
-                {#each opt.list as o (o.index)}
+                {#each legacyActions as o (o.index)}
                   <li role="none">
                     <button class="menu__item" type="button" role="menuitem" onclick={(event) => opt.post(o.index, false, event.ctrlKey)}>
                       {o.label}
@@ -275,6 +282,11 @@
              same contract a board tile's CardDetail has. -->
         {#if hover.show && hovered?.id === c.id && anchor}
           <CardDetail card={c} anchor={anchor} />
+        {/if}
+        {#if payment}
+          <button class="payment-shortcut" type="button" data-payment-card={payment.id} aria-label="Cast {c.name} with suggested mana" title="Cast with suggested mana" onclick={(event) => onCastPayment?.(payment, event.ctrlKey)}>CAST</button>
+        {:else if landPlay && opt}
+          <button class="payment-shortcut" type="button" data-play-land={landPlay.index} aria-label={landPlay.label} title={landPlay.label} onclick={(event) => opt.post(landPlay.index, false, event.ctrlKey)}>PLAY</button>
         {/if}
       </div>
     {/each}
@@ -532,6 +544,28 @@
     border-color: var(--ink-dim);
     color: var(--ink);
   }
+  /* The payment shortcut is deliberately a word, not the generic star
+     glyph: it is the card's primary action and should stay legible in a
+     densely fanned hand.  Land plays use the same direct affordance so a
+     hand land never requires opening the ACTIONS panel. */
+  .payment-shortcut {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    z-index: 21;
+    min-width: 2.6rem;
+    height: 1.375rem;
+    padding: 0 0.25rem;
+    border: var(--edge-w) solid var(--offered);
+    border-radius: 3px;
+    background: var(--offered);
+    color: var(--felt-sunk);
+    font-family: var(--font-data);
+    font-size: var(--t-10);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .payment-shortcut:hover { border-color: var(--ink); color: var(--felt-sunk); }
   /* The menu opens UP, above the fan, so it is never clipped by the board's
      bottom edge (the fan's own row is at the bottom of the felt). */
   .menu {

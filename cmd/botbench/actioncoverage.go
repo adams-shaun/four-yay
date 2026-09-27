@@ -492,7 +492,7 @@ var kindRows = map[string][]string{
 	// this seed from a 1050-game -pairs all run over the full repo deck set;
 	// the guard test below covers every kind, so a new option kind a real
 	// run offers fails the test until it is seeded here.
-	string(decision.KPriority):        {"activate", "play_land", "cast", "ability", "pass", "concede", "station", "unlock", "turn_face_up"},
+	string(decision.KPriority):        {"activate", "play_land", "cast", "ability", "pass", "concede", "station", "unlock", "turn_face_up", "specialize"},
 	string(decision.KTarget):          {"player", "permanent", "spell", "ability", "trigger"},
 	string(decision.KAttackers):       {"attacker"},
 	string(decision.KBlockers):        {"block"},

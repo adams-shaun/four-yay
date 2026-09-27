@@ -99,13 +99,17 @@ func TestRememberedLKIGroupKeepsExplicitlyRememberedSource(t *testing.T) {
 		}
 	}
 
-	// The plain Remembered ref must NOT change: its property resolver
-	// (rememberedWithSource) keeps the blanket source exclusion, so the same
-	// ctx answers zero toughness there. Pinning both proves the fix is scoped
-	// to the RememberedLKI group. (The bare Remembered$Amount head reads a
-	// different helper, rememberedExcludingCapture, so it is not used here:
-	// it never carried the blanket source exclusion.)
-	if got := EvalCount(h, c, "Remembered$CardToughness"); got != 0 {
-		t.Errorf("Remembered$CardToughness = %d, want 0 (plain Remembered must keep its source exclusion)", got)
+	// The plain Remembered ref now reads the SAME group as the LKI spelling
+	// (one resolution rule): the capture-occurrence exclusion keeps the
+	// explicit source memory, so the same ctx answers the source's real
+	// toughness here too. This oracle previously pinned 0 -- the blanket
+	// `t.Obj != c.Source` guard rememberedWithSource used as a stand-in for
+	// the capture exclusion -- but that guard also deleted a real memory of
+	// the source, which is what made Lukamina's DBReturn return nothing. The
+	// capture-ONLY contrast (a ctx whose Remembered is just the seeded
+	// capture) still reads zero; that distinct-capture/no-capture coverage
+	// lives in remembered_capture_test.go and the direct gate test below.
+	if got := EvalCount(h, c, "Remembered$CardToughness"); got != toughness {
+		t.Errorf("Remembered$CardToughness = %d, want %d (explicitly-remembered source must be kept by the plain group too)", got, toughness)
 	}
 }

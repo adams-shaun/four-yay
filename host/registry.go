@@ -135,6 +135,19 @@ type Options struct {
 	// other). The player may reconnect and answer later decisions via
 	// SubmitIntent (D2).
 	ThinkTimeout time.Duration
+	// DefaultBotAutoPayMana is applied only while restoring a table written
+	// before TableConfig recorded bot_auto_pay_mana. New tables always carry
+	// their explicit setting, including false, so a restart preserves their
+	// configured behaviour. gorged supplies its -bot-auto-mana startup flag
+	// here to migrate an existing deployment when it first runs this build.
+	DefaultBotAutoPayMana bool
+	// MaxOnDemandTables bounds browser-created private tables retained by a
+	// running process. 0 keeps the historical unlimited behaviour. A limit
+	// refuses a new game instead of deleting a finished table: its private
+	// join URL, feedback capture and replay routes remain valid until the
+	// process restarts, when OnDemand's documented process-scoped cleanup
+	// removes its config.
+	MaxOnDemandTables int
 
 	// OnBurst, when non-nil, is invoked after every recorded burst of every
 	// match created by this registry, including the genesis burst, so an
@@ -200,6 +213,9 @@ func New(o Options) (*Registry, error) {
 	if o.Ring == 0 {
 		o.Ring = 256
 	}
+	if o.MaxOnDemandTables < 0 {
+		return nil, fmt.Errorf("host: MaxOnDemandTables %d, want >= 0", o.MaxOnDemandTables)
+	}
 	r := &Registry{opts: o, tables: map[TableID]*table{}, sessions: map[string]*Session{}, done: make(chan struct{})}
 	if o.Dir != "" {
 		if err := r.load(); err != nil { // Task 12
@@ -223,6 +239,17 @@ func (r *Registry) AddTable(c TableConfig) error {
 	}
 	if _, dup := r.tables[c.ID]; dup {
 		return fmt.Errorf("host: table %s already exists", c.ID)
+	}
+	if c.OnDemand && r.opts.MaxOnDemandTables > 0 {
+		n := 0
+		for _, t := range r.tables {
+			if t.cfg.OnDemand {
+				n++
+			}
+		}
+		if n >= r.opts.MaxOnDemandTables {
+			return fmt.Errorf("host: on-demand table limit %d reached", r.opts.MaxOnDemandTables)
+		}
 	}
 	r.tables[c.ID] = newTable(c)
 	return r.saveLocked() // Task 12; a no-op in memory mode
@@ -316,10 +343,7 @@ func (r *Registry) run(t *table) {
 		r.mu.Unlock()
 		r.onMatchStart(t, m) // Tasks 10, 12
 		final := r.play(ctx, t, m)
-		t.mu.Lock()
-		t.cur = nil
-		t.history = append(t.history, m)
-		t.mu.Unlock()
+		r.retire(t, m)
 		switch final {
 		case protocol.MatchCrashed:
 			r.halt(t, k, fmt.Errorf("%s", m.reason))
@@ -344,6 +368,62 @@ func (r *Registry) run(t *table) {
 		default:
 		}
 	}
+}
+
+// retire takes a finished match off t.cur. In persistence mode the match
+// is dropped from memory entirely — archive() has already recorded its
+// sidecar in t.archived, so lookup serves it from disk — and the engine is
+// released once any in-flight reader lets go. In memory mode the engine is
+// the only copy, so the match joins t.history with its log trimmed to its
+// length (the live log was reserved at defaultExpectedEvents), and history
+// keeps only the last memoryHistoryLimit matches.
+func (r *Registry) retire(t *table, m *match) {
+	if r.opts.Dir == "" {
+		m.mu.Lock()
+		m.trimLog()
+		m.mu.Unlock()
+	}
+	t.mu.Lock()
+	t.cur = nil
+	if r.opts.Dir == "" {
+		t.history = append(t.history, m)
+		if n := len(t.history) - memoryHistoryLimit; n > 0 {
+			// Copy rather than reslice so the dropped matches do not stay
+			// reachable through the backing array.
+			t.history = append([]*match(nil), t.history[n:]...)
+		}
+	}
+	t.mu.Unlock()
+}
+
+// trimLog gives a finished match's log a backing array exactly its length,
+// releasing the spare capacity the live log was reserved with. Snapshots
+// cloned from the live log share its backing array (Log.Clone truncates the
+// capacity, not the array), so each one that does is re-pointed at the
+// same prefix of the new array — the same events by memory identity. The
+// snapshots are rebuilt, never mutated in place: a reader may be cloning a
+// snapshot engine it copied out from under the read lock (viewAt).
+// Called with m.mu held for writing, after the match's last event.
+func (m *match) trimLog() {
+	old := m.e.L.Events
+	if len(old) == 0 || cap(old) == len(old) {
+		return
+	}
+	evs := make([]events.Event, len(old)) // exact capacity; slices.Clone rounds up
+	copy(evs, old)
+	m.e.L.Events = evs
+	snaps := make([]snapshot, len(m.snaps))
+	for i, s := range m.snaps {
+		snaps[i] = s
+		se := s.e.L.Events
+		if len(se) == 0 || len(se) > len(evs) || &se[0] != &old[0] {
+			continue
+		}
+		ne := s.e.Clone()
+		ne.L.Events = evs[:len(se):len(se)]
+		snaps[i].e = ne
+	}
+	m.snaps = snaps
 }
 
 // halt is D15's second half for the table: it stops and stays stopped,
@@ -372,10 +452,33 @@ func (r *Registry) Tables() []protocol.TableInfo {
 	return out
 }
 
+// LobbyTables lists the long-lived tables that belong in the public lobby.
+// A play-vs-bot table is entered only through the unguessable join URL
+// returned by POST /api/games; advertising it here would leak an abandoned
+// private game into every visitor's lobby (and used to render one card for
+// every game restored from old persistence). It remains addressable through
+// its table-scoped routes for the lifetime of this process.
+func (r *Registry) LobbyTables() []protocol.TableInfo {
+	out := make([]protocol.TableInfo, 0)
+	for _, id := range r.ids() {
+		r.mu.RLock()
+		t := r.tables[id]
+		r.mu.RUnlock()
+		t.mu.RLock()
+		onDemand := t.cfg.OnDemand
+		t.mu.RUnlock()
+		if !onDemand {
+			out = append(out, t.info())
+		}
+	}
+	return out
+}
+
 // Matches lists a table's matches in ascending order; the live one last.
 // Finished matches known only from disk (archived sidecars) come first,
 // then in-memory history entries whose match index is not already
-// archived, then the live match.
+// archived (memory mode only: persistence mode retains no history), then
+// the live match.
 func (r *Registry) Matches(id TableID) ([]protocol.MatchInfo, error) {
 	r.mu.RLock()
 	t, ok := r.tables[id]

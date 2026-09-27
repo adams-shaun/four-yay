@@ -21,50 +21,55 @@ const lrpBearsSrc = "Name:Test Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\
 const lrpZapSrc = "Name:Test Zap\nManaCost:U\nTypes:Instant\nOracle:x\n"
 
 // TestGiftLongRiversPullPromisedCountersAnySpell: with the gift promised,
-// X = 0 means the main ability requires no creature-spell target and
-// Y = 1 means the chained counter calls for any spell, so a copy-target
-// noncreature spell is a legal and taken target. The promised opponent draws.
+// the offer gate must accept the alternate X = 0 branch even with no creature
+// spell on the stack. The elected X = 0/Y = 1 branches then let the chain
+// counter the noncreature spell. The promised opponent draws.
 func TestGiftLongRiversPullPromisedCountersAnySpell(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	pull := mustCorpusCard(t, reg, "Long River's Pull")
-	bears := card(t, lrpBearsSrc)
 	zap := card(t, lrpZapSrc)
-	// Seat 1 holds the non-creature instant: this engine hands priority
-	// round to the opponent before a caster may act again, so the second
-	// spell on the stack has to be theirs.
-	e, cfg := tokenReplGameSeats(t, 17, []*cards.Card{pull, bears}, []*cards.Card{zap})
-	bearsID := moveSeededCard(t, e, 0, bears, state.ZHand)
+	// Seat 1 holds the non-creature instant; seat 0 passes so it can be cast,
+	// then responds with Long River's Pull.
+	e, cfg := tokenReplGameSeats(t, 17, []*cards.Card{pull}, []*cards.Card{zap})
 	pullID := moveSeededCard(t, e, 0, pull, state.ZHand)
 	zapID := moveSeededCard(t, e, 1, zap, state.ZHand)
 	// Fund seat 1 through a logged ManaAdd so replay derives the same pool.
 	e.emit(events.Event{Kind: events.ManaAdd, Player: 1, Counter: "U", Amount: 1})
 	addMana(t, e, 0, "UUUUG")
-	// Seat 0 casts a creature spell; the offer gate for the pull evaluates
-	// the UNPROMISED X = 1 bound, so a creature spell must be on the stack
-	// for the pull to be offered at all.
-	submitChoices(t, e, castCardOption(t, e, bearsID).Index)
+	mainSA := pull.Faces[0].SpellAbility()
+	unpromisedMin, _ := e.resolvedTargetBounds(0, pullID, mainSA, 0)
+	promised := true
+	promisedMin, _ := e.resolvedTargetBoundsWithGift(0, pullID, mainSA, 0, &promised)
+	if unpromisedMin != 1 || promisedMin != 0 || unpromisedMin == promisedMin {
+		t.Fatalf("precondition: Long River's Pull bounds = unpromised %d, promised %d; want distinct 1 and 0", unpromisedMin, promisedMin)
+	}
+	if got := len(e.legalTargetCandidates(0, pullID, pullID, mainSA)); got != 0 {
+		t.Fatalf("precondition: creature-spell candidate count = %d, want 0 before response", got)
+	}
 	passPriorityOnce(t, e)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority || d.Player != 1 {
 		t.Fatalf("expected seat 1 priority, got %+v", d)
 	}
 	submitChoices(t, e, castCardOption(t, e, zapID).Index)
-	// Priority round-trips; seat 0 may now respond with the pull.
+	// Seat 0 receives priority with only the noncreature spell on the stack.
+	if e.G.Obj(zapID).Zone != state.ZStack {
+		t.Fatalf("precondition: zap spell zone = %v, want stack", e.G.Obj(zapID).Zone)
+	}
+	if len(e.G.Stack) != 1 {
+		t.Fatalf("precondition: stack has %d objects, want only the noncreature spell", len(e.G.Stack))
+	}
 	submitChoices(t, e, passToCast(t, e, pullID))
-	if e.G.Obj(bearsID).Zone != state.ZStack || e.G.Obj(zapID).Zone != state.ZStack {
-		t.Fatalf("precondition: both spells must be on the stack (bears=%v zap=%v)",
-			e.G.Obj(bearsID).Zone, e.G.Obj(zapID).Zone)
+	if e.G.Obj(zapID).Zone != state.ZStack {
+		t.Fatalf("precondition: zap spell left stack before Gift response: %v", e.G.Obj(zapID).Zone)
 	}
 	answerGift(t, e, true)
 	// X = 0 skips the main creature-spell ask; the DBCounter sub (Y = 1)
-	// asks mid-resolution for any spell, so drain answering seat 1's
-	// NON-CREATURE instant -- the "any spell" half.
+	// asks mid-resolution for any spell, so the noncreature instant is the
+	// only target. Its presence proves the elected branch controls the ask.
 	drainGiftTargets(t, e, zapID, 20)
 	if z := e.G.Obj(zapID).Zone; z != state.ZGraveyard {
 		t.Fatalf("zap spell zone = %v, want graveyard (promised DBCounter counters any spell)", z)
-	}
-	if z := e.G.Obj(bearsID).Zone; z != state.ZBattlefield {
-		t.Fatalf("bears spell zone = %v, want battlefield (the untargeted creature spell resolved)", z)
 	}
 	replayCheck(t, e, cfg)
 }

@@ -79,6 +79,21 @@ shield, clear damage, tap, remove from combat. Shields expire at cleanup.
 honoured. `effects/regeneration.go`, `effects/zone.go`, `rules/sba.go`,
 `rules/combat.go`.
 
+## TargetingPlayer$ Opponent selection
+
+When `TargetingPlayer$` names `Opponent` or `Player.Opponent` and at least two
+opponents are alive, the ability's controller first chooses which living
+opponent answers the target ask. The selected opponent then receives the
+original ask; target legality and `TargetEffect` remain relative to the
+ability's controller. A sole living opponent receives the ask directly, with
+no redundant selection, and no living opponent fails closed to the controller
+rather than leaving an unanswered decision. This rule covers cast and
+activation announcement, trigger placement and resolution-sub asks, and
+mid-resolution `ValidTgts$` asks (`chosenTargetsFor` and
+`changeZoneChosenTargets`). The selection is transient engine flow state, not
+a logged event. Trigger-relative `TargetingPlayer$` referents continue to
+fail closed to the controller when their binding is absent.
+
 ## The board clock's round number is exact
 
 `view.RoundOf` folds the ordered event stream, anchored on the starting

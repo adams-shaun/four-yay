@@ -40,8 +40,20 @@ func TestMultiPlayerSearchStopsAtMayShuffleConfirm(t *testing.T) {
 	}
 
 	e.Advance()
-	// Optional$ on this ChangeZone is the no-host/empty-choice contract here;
-	// the real resolution reaches the library search directly.
+	// Veteran Explorer's TrigChange carries Optional$ True on its library
+	// ChangeZone, so Forge's confirmAction gate runs before the fetch list is
+	// consulted: the first non-priority decision is the search confirmation,
+	// not the card pick. Accept it, then the real resolution reaches the
+	// library search directly.
+	confirm := passUntilNonPriority(t, e, 40)
+	if confirm == nil || confirm.Kind != decision.KChoose || confirm.ResumeKind != "search_confirm" || confirm.Player != 0 {
+		t.Fatalf("first library ask = %+v, want seat 0 search confirmation", confirm)
+	}
+	if len(confirm.Options) != 2 || confirm.Options[0].Kind != "yes" || confirm.Options[1].Kind != "no" {
+		t.Fatalf("precondition: search confirmation is not a yes/no gate: %+v", confirm.Options)
+	}
+	submitChoices(t, e, confirm.Options[0].Index)
+
 	search := passUntilNonPriority(t, e, 40)
 	if search == nil || search.Kind != decision.KChoose || search.ResumeKind != "search" || search.Player != 0 {
 		t.Fatalf("first library search = %+v, want seat 0 search", search)

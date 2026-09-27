@@ -113,8 +113,8 @@ func TestPlayedLogIsReproducible(t *testing.T) {
 }
 
 // writeBenchCorpus lays down a one-card cardsfolder fixture (the minimum
-// CompileDir accepts) and optionally a deliberately-corrupt ir.gob.gz so the
-// cache load fails without needing a stale shared cache on disk.
+// CompileDir accepts) and optionally a deliberately-corrupt fingerprint-keyed
+// cache so the cache load fails without needing a stale shared cache on disk.
 func writeBenchCorpus(t *testing.T, withCache bool) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -126,7 +126,7 @@ func writeBenchCorpus(t *testing.T, withCache bool) string {
 		t.Fatal(err)
 	}
 	if withCache {
-		if err := os.WriteFile(filepath.Join(dir, "ir.gob.gz"), []byte("not a cache"), 0o644); err != nil {
+		if err := os.WriteFile(cards.CachePath(dir), []byte("not a cache"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -135,7 +135,7 @@ func writeBenchCorpus(t *testing.T, withCache bool) string {
 
 // TestLoadRegistryForBenchRecompilesInMemoryOnRequest covers the -recompile
 // path: any cache load failure (here: unreadable file) falls back to an
-// in-memory CompileDir over cardsfolder and NEVER writes dir/ir.gob.gz — the
+// in-memory CompileDir over cardsfolder and NEVER writes the cache — the
 // load's original error is reported, not the compile's.
 func TestLoadRegistryForBenchRecompilesInMemoryOnRequest(t *testing.T) {
 	dir := writeBenchCorpus(t, true)
@@ -149,7 +149,7 @@ func TestLoadRegistryForBenchRecompilesInMemoryOnRequest(t *testing.T) {
 	if _, ok := reg.Lookup("Test Card"); !ok {
 		t.Fatal("in-memory rebuild lost the fixture card")
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "ir.gob.gz"))
+	data, err := os.ReadFile(cards.CachePath(dir))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,19 +169,18 @@ func TestLoadRegistryForBenchDefaultFailsHard(t *testing.T) {
 	}
 }
 
-// TestPrintSharedCacheAdvice pins the shared-cache-aware hint: a
-// *cards.CacheVersionError gets the symlink/main-checkout advice plus the
+// TestPrintSharedCacheAdvice pins the fingerprint-aware hint: a
+// *cards.CacheVersionError gets the compiler-fingerprint explanation plus the
 // -recompile remedy; any other error prints nothing.
 func TestPrintSharedCacheAdvice(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "ir.gob.gz")
+	path := filepath.Join(t.TempDir(), "ir-abc.gob.gz")
 	var buf bytes.Buffer
 	printSharedCacheAdvice(&buf, &cards.CacheVersionError{Got: 3, Want: 4}, path)
 	out := buf.String()
 	for _, want := range []string{
 		"IR cache version 3, want 4",
 		path,
-		"SHARED",
-		"main checkout",
+		"compiler fingerprint",
 		"-recompile",
 	} {
 		if !strings.Contains(out, want) {

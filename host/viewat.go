@@ -64,7 +64,7 @@ func (r *Registry) ViewAt(id TableID, k int, seq uint64) (view.View, error) {
 // decision (never the engine's own pointer, which play replaces between
 // bursts) — then project outside it.
 func (r *Registry) ViewAtSeat(id TableID, k int, seq uint64, player state.PlayerID) (view.View, error) {
-	_, m, err := r.lookup(id, k)
+	t, m, err := r.lookup(id, k)
 	if err != nil {
 		return view.View{}, err
 	}
@@ -81,8 +81,10 @@ func (r *Registry) ViewAtSeat(id TableID, k int, seq uint64, player state.Player
 	var d *decision.Decision
 	if seq == head(m) {
 		if p := m.e.Pending(); p != nil {
-			cp := *p
-			cp.Options = append([]decision.Option(nil), p.Options...)
+			cp := *p.Clone()
+			if !t.cfg.AutoMana {
+				cp.PaymentActions = nil
+			}
 			d = &cp
 		}
 	}
@@ -233,7 +235,18 @@ func (t *table) archivedMatch(k int) (sidecar, bool) {
 // on-disk entry to the read side; an embedder's persisted observer log
 // (Task M2c-3) takes the same matchForLog with the log already in hand,
 // so both sources are served through the exact same shape.
+//
+// sc is t.archived's index entry, which carries no NameUniverseNames (see
+// archive); a name-universe match's exact label list is read back from its
+// own sidecar file here.
 func (r *Registry) loadArchived(t *table, sc sidecar) (*match, error) {
+	if sc.NameUniverse && len(sc.NameUniverseNames) == 0 {
+		full, err := readSidecar(r.opts.Dir, t.cfg.ID, sc.Match)
+		if err != nil {
+			return nil, err
+		}
+		sc.NameUniverseNames = full.NameUniverseNames
+	}
 	l, err := readLog(r.opts.Dir, t.cfg.ID, sc.Match)
 	if err != nil {
 		return nil, err
@@ -304,7 +317,7 @@ func (r *Registry) matchForLog(t *table, sc sidecar, l *events.Log) (*match, err
 	}
 	return &match{table: t, k: sc.Match, seed: sc.Seed, cfg: cfg, seats: sc.Seats, decks: sc.Decks, e: e,
 		bounds: boundsOf(l.Events), turnStarts: turnStartsIn(l.Events, 0), state: sc.State, result: sc.Result,
-		winner: sc.Winner, head: sc.Head}, nil
+		winner: sc.Winner, head: sc.Head, reason: sc.Reason}, nil
 }
 
 // cutTailReplayed reports whether err — a *replay.Divergence that

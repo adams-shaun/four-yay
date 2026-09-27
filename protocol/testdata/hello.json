@@ -18,7 +18,8 @@
         "perpetual": true,
         "format": "commander",
         "bot_policy": "bot",
-        "mulligans": 2
+        "mulligans": 2,
+        "auto_mana": false
       }
     ]
   }

@@ -665,20 +665,42 @@ func (e *Engine) askAttackers() {
 				}
 			}
 		}
-		if of.price > 0 {
-			label += fmt.Sprintf(" (pay {%d} per creature)", of.price)
+		if of.charge.mana > 0 {
+			label += fmt.Sprintf(" (pay {%d} per creature)", of.charge.mana)
+		}
+		if of.charge.life > 0 {
+			label += fmt.Sprintf(", pay %d life", of.charge.life)
+		}
+		for _, t := range of.charge.taps {
+			label += fmt.Sprintf(", tap %d", t.n)
+		}
+		for range of.charge.sacs {
+			label += ", sacrifice a permanent"
+		}
+		for range of.charge.returns {
+			label += ", return a permanent"
+		}
+		for range of.charge.phyrexian {
+			label += ", pay a Phyrexian symbol"
 		}
 		group, cap := e.attackRestrictGroup(of.def)
 		if group != "" && cap > 1 {
 			groupLimits[group] = cap
 		}
-		opts = append(opts, decision.Option{Index: len(opts), Kind: "attacker",
+		opt := decision.Option{Index: len(opts), Kind: "attacker",
 			Label: label, Obj: of.id, Player: of.def, Battle: of.battle, Required: mustAtt[of.id], Group: group,
 			// Value is the pair's mana price: the cumulative-budget contract
 			// MaxSum names. omitempty keeps a prop-free list byte-identical
 			// (price 0 omits), so the option enumeration order and the wire
 			// payload of every ordinary declaration are unchanged.
-			Value: int(of.price)})
+			Value: int(of.charge.mana)}
+		// The non-mana components ride the same fields a block option uses,
+		// so a rules-ignorant client can reason about the whole charge.
+		opt.CostLife = int(of.charge.life)
+		for _, t := range of.charge.taps {
+			opt.CostTaps += int(t.n)
+		}
+		opts = append(opts, opt)
 	}
 	// A MaxAttackers$ ceiling (CR 508.1j, Silent Arbiter's shape) bounds the
 	// WHOLE declaration, so the decision's Max is the honest ceiling, not the
@@ -766,24 +788,31 @@ func (e *Engine) handleAttackers(d *decision.Decision, in decision.Intent) {
 	// re-derived by validateAttackers moments ago from the same pure reads,
 	// so the window's coverage guard cannot fail here; the Note path is the
 	// loud defensive fallback.
-	if charge := e.attackCharge(chosen); charge > 0 {
-		if int32(e.G.Players[d.Player].Pool.Total()) >= charge {
-			e.payMana(d.Player, Cost{Generic: charge})
-		} else if !e.startAttackPay(chosen, d.Player, charge) {
-			// Unreachable through a submitted intent: the KAttackers decision
-			// carries Decision.MaxSum = the payer's budget, so Validate rejects
-			// an over-budget declaration before this handler runs. One loud
-			// Note (startAttackPay no longer emits its own) and then ABORT:
-			// the cost is a CR 508.1 declaration cost, so an unpaid charge may
-			// not silently commit -- the fallback emits the empty no-attack
-			// declaration (the same event the len(chosen)==0 branch emits) and
-			// advances the step. Per-missive by accident would be the opposite
-			// danger: committing an attack nobody paid for.
+	if charge := e.attackCharge(chosen); !charge.zero() {
+		plan, ok := e.openCombatPayPlan(d.Player, charge, chosenAttackers(chosen))
+		if !ok {
 			e.emit(events.Event{Kind: events.Note, Player: d.Player,
-				Text: fmt.Sprintf("could not pay the {%d} attack cost", charge)})
+				Text: "could not pay the attack cost"})
 			e.emit(events.Event{Kind: events.DeclareAttackers, Player: e.G.NextAlive(e.G.Active)})
 			return
+		}
+		if e.combatPlanSettlesInline(plan) {
+			// The floating pool already covers the whole charge (mana and any
+			// Phyrexian pips on the deterministic branch); settle inline through
+			// the same plan/pay path the window uses. When a CR 107.4f election
+			// is owed, combatPlanSettlesInline is false and the window opens to
+			// pose it even though the pool could pay the colour branch.
+			e.payCombatChargeInline(plan)
+		} else if e.startAttackPay(chosen, plan) {
+			return
 		} else {
+			// The window could not complete the charge; startAttackPay emitted
+			// the loud Note. ABORT: the cost is a CR 508.1 declaration cost, so
+			// an unpaid charge may not silently commit -- emit the empty
+			// no-attack declaration (the same event the len(chosen)==0 branch
+			// emits) and advance the step. Permissive by accident would be the
+			// opposite danger: committing an attack nobody paid for.
+			e.emit(events.Event{Kind: events.DeclareAttackers, Player: e.G.NextAlive(e.G.Active)})
 			return
 		}
 	}
@@ -1004,12 +1033,18 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// attack-prop budget serialization are properties of the OFFER LIST, and
 	// re-deriving it here (the same pure read askAttackers ran) keeps a
 	// hand-built intent from naming a pair the budget ran out on.
-	offered := make(map[attackOffer]int32, 8)
+	offered := make(map[attackOfferKey]blockCharge, 8)
 	for _, of := range e.attackOffers() {
-		offered[attackOffer{id: of.id, def: of.def, battle: of.battle}] = of.price
+		offered[attackOfferKey{id: of.id, def: of.def, battle: of.battle}] = of.charge
 	}
 	budget := e.attackBudget(d.Player)
 	total := int32(0)
+	// The whole declaration's composite charge, validated against the same
+	// combatChargeAffordable read the offer gate used: mana within the budget,
+	// life within the payer's total, Phyrexian pips reachable, and every
+	// tap/sac/return obligation met by distinct permanents with the
+	// declaration's own attackers set aside.
+	var declaredCharge blockCharge
 	for _, o := range d.Chosen(in) {
 		if !e.canAttackPair(o.Obj, o.Player) {
 			return fmt.Errorf("object %d cannot attack", o.Obj)
@@ -1020,7 +1055,7 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 		if seen[o.Obj] {
 			return fmt.Errorf("attacker %d declared against more than one defender", o.Obj)
 		}
-		if e.attackBlocked(o.Obj, o.Player) {
+		if e.attackBlocked(o.Obj, o.Player, o.Battle) {
 			return fmt.Errorf("attacker %d cannot attack player %d", o.Obj, o.Player)
 		}
 		// A required creature's named duty is enforced by the offered-pair set
@@ -1029,19 +1064,27 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 		// sub-maximal defender is NOT offered and fails the membership check
 		// below with its own message. The requirement that the creature attack
 		// AT ALL is enforced by validateAttackDeclaration's RequiredQuota.
-		price, ok := offered[attackOffer{id: o.Obj, def: o.Player, battle: o.Battle}]
+		charge, ok := offered[attackOfferKey{id: o.Obj, def: o.Player, battle: o.Battle}]
 		if !ok {
 			return fmt.Errorf("attacker %d cannot attack player %d (attack cost not affordable or pair not offered)", o.Obj, o.Player)
 		}
 		// Belt against a future membership gap: the serialized offer list
-		// already bounds every subset's total, so this can only fire if the
-		// two walks ever diverge. A free pair adds nothing and can never be
-		// what overruns the budget, so only a priced pair is checked.
-		total += price
-		if price > 0 && total > budget {
+		// already bounds every subset's mana total, so this can only fire if
+		// the two walks ever diverge. A free pair adds nothing and can never
+		// be what overruns the budget, so only a priced pair is checked.
+		total += charge.mana
+		if charge.mana > 0 && total > budget {
 			return fmt.Errorf("declaration's attack cost {%d} exceeds the affordable {%d}", total, budget)
 		}
+		declaredCharge = declaredCharge.plus(charge)
 		seen[o.Obj] = true
+	}
+	// The non-mana components of the whole declaration, priced together (a
+	// static's per-creature charge sums over the declared attackers).
+	if !declaredCharge.zero() &&
+		!e.combatChargeAffordable(d.Player, declaredCharge, chosenAttackers(d.Chosen(in))) {
+		return fmt.Errorf("declaration's attack cost (%d life, %d taps, %d sacrifices, %d returns, %d Phyrexian) is not payable",
+			declaredCharge.life, len(declaredCharge.taps), len(declaredCharge.sacs), len(declaredCharge.returns), len(declaredCharge.phyrexian))
 	}
 	return e.validateAttackDeclaration(d, in)
 }
@@ -1744,6 +1787,20 @@ func (e *Engine) askBlockers() {
 		scope := e.blockPairScopeFor(defender)
 		var opts []decision.Option
 		requiredBlockers := e.mustBlockCandidates(defender)
+		// The attacker-oriented CR 509.1c requirements: every attacker the
+		// defender is being asked about that carries "CARDNAME must be blocked
+		// if able.". The requirement is satisfied by ANY one legal blocker
+		// pair, so the flag is per option and the whole-declaration solver
+		// (decision.blockRequiredCore) counts it once per attacker; an attacker
+		// with no offered pair (no legal blocker, no affordable pair) has no
+		// option carrying the flag, so it contributes no requirement -- the
+		// "if able" half is decided by the offer, never asserted here.
+		mustBeBlocked := make(map[state.ObjID]bool, len(scope.attackers))
+		for _, aid := range scope.attackers {
+			if e.hasMustBeBlockedKeyword(aid) {
+				mustBeBlocked[aid] = true
+			}
+		}
 		for _, bid := range e.G.Zone(state.ZBattlefield, defender) {
 			for _, aid := range scope.attackers {
 				if !e.admissiblePair(&scope, defender, bid, aid) {
@@ -1769,7 +1826,8 @@ func (e *Engine) askBlockers() {
 				opt := decision.Option{Index: len(opts), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
-					Group: fmt.Sprintf("blocker:%d", bid), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid]}
+					Group: fmt.Sprintf("blocker:%d", bid), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
+					AttackMust: mustBeBlocked[aid]}
 				if b, ok := scope.bounds[aid]; ok {
 					opt.MinBlockers, opt.MaxBlockers = b[0], b[1]
 				}
@@ -1792,9 +1850,11 @@ func (e *Engine) askBlockers() {
 					opt.CostTaps += int(t.n)
 				}
 				// Menace is another whole-team minimum. Publish it for a
-				// required block so the shared solver cannot count a lone
-				// required blocker whose declaration would be rejected.
-				if opt.Required && e.HasKeyword(aid, "Menace") && opt.MinBlockers < 2 {
+				// required block -- and for an attacker the CR 509.1c
+				// requirement forces a block -- so the shared solver cannot
+				// count a lone required blocker whose declaration would be
+				// rejected.
+				if (opt.Required || opt.AttackMust) && e.HasKeyword(aid, "Menace") && opt.MinBlockers < 2 {
 					opt.MinBlockers = 2
 				}
 				opts = append(opts, opt)
@@ -1877,15 +1937,26 @@ func (e *Engine) blockAttackers(defender state.PlayerID) []state.ObjID {
 func (e *Engine) handleBlockers(d *decision.Decision, in decision.Intent) {
 	chosen := d.Chosen(in)
 	charge := e.blockChargeOf(chosen)
-	if charge.mana > e.G.Players[d.Player].Pool.Total() {
-		if e.startBlockPay(chosen, d.Player, charge) {
+	if !charge.zero() {
+		plan, ok := e.openCombatPayPlan(d.Player, charge, chosenBlockers(chosen))
+		if !ok {
+			// An obligation cannot be met: decline rather than committing an
+			// unpaid declaration.
+			e.declineBlockDeclaration(d.Player)
+			return
+		}
+		if e.combatPlanSettlesInline(plan) {
+			e.payCombatChargeInline(plan)
+		} else if e.startBlockPay(chosen, plan) {
+			return
+		} else {
+			// The payment window could not complete the charge: decline the
+			// declaration. Committing here would be the review's unpaid-block
+			// defect.
+			e.declineBlockDeclaration(d.Player)
 			return
 		}
 	}
-	if charge.mana > 0 {
-		e.payMana(d.Player, Cost{Generic: charge.mana})
-	}
-	e.payBlockExtras(d.Player, charge, e.blockTapPlan(d.Player, charge, chosenBlockers(chosen)))
 	pairs := make([][2]state.ObjID, 0, len(chosen))
 	for _, opt := range chosen {
 		pairs = append(pairs, [2]state.ObjID{opt.Attacker, opt.Obj})

@@ -172,42 +172,6 @@ var knownUnsupported = map[string][]string{
 	// was never fully supported, only counted so. Also held by
 	// count_head_ratchet_test.go's knownUnmodelledCountHeads.
 	"Ojer Axonil, Deepest Might": {"count:NonCombatDamageThisTurn"},
-	// The Deadly Disguise Commander precon import (2026-09-25,
-	// internal/testutil/decks/deadly-disguise.json). Its 24 morph-family
-	// carriers measure as gaps because the family's two remaining shapes are
-	// unimplemented: a LAND carrying the keyword cannot be cast face down
-	// (legal.go's playableFromHand walk handles f.IsLand() and continues
-	// before the offer), and a non-mana turn-face-up cost (Reveal/Sac/{X})
-	// is parsed but never paid (turnFaceUp calls only payMana). The heads
-	// therefore stay OUT of effects.Supported() -- see rules/morph_turnup.go's
-	// file comment. The ordinary shapes (a face-down {3} cast and a mana-only
-	// turn-up) ARE implemented and pinned end to end by rules/morph_test.go
-	// and rules/morph_turnup_test.go; registering the heads would over-claim
-	// the two broken shapes. Every entry here retires when both shapes land.
-	"Ainok Survivalist":     {"kw:Megamorph"},
-	"Akroma, Angel of Fury": {"kw:Morph"},
-	"Ashcloud Phoenix":      {"kw:Morph"},
-	"Boltbender":            {"kw:Disguise"},
-	"Branch of Vitu-Ghazi":  {"kw:Disguise"},
-	"Broodhatch Nantuko":    {"kw:Morph"},
-	"Deathmist Raptor":      {"kw:Megamorph"},
-	"Den Protector":         {"kw:Megamorph"},
-	"Exalted Angel":         {"kw:Morph"},
-	"Experiment Twelve":     {"kw:Disguise"},
-	"Hidden Dragonslayer":   {"kw:Megamorph"},
-	"Hooded Hydra":          {"kw:Morph"},
-	"Imperial Hellkite":     {"kw:Morph"},
-	"Krosan Cloudscraper":   {"kw:Morph"},
-	"Krosan Colossus":       {"kw:Morph"},
-	"Master of Pearls":      {"kw:Morph"},
-	"Nantuko Vigilante":     {"kw:Morph"},
-	"Nervous Gardener":      {"kw:Disguise"},
-	"Printlifter Ooze":      {"kw:Disguise"},
-	"Root Elemental":        {"kw:Morph"},
-	"Salt Road Ambushers":   {"kw:Megamorph"},
-	"Thelonite Hermit":      {"kw:Morph"},
-	"True Identity":         {"kw:Disguise"},
-	"Zoetic Cavern":         {"kw:Morph"},
 }
 
 // TestEveryRepoDeckIsFullySupported is the M1 coverage ratchet: every card

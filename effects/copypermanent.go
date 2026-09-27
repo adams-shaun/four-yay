@@ -344,17 +344,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	var attacking bool
 	var defender state.PlayerID
 	if attack := strings.TrimSpace(sa.Params["TokenAttacking"]); attack != "" {
-		switch {
-		case strings.EqualFold(attack, "True") && c.DefendingPlayer.IsPlayer:
-			attacking = true
-			defender = c.DefendingPlayer.Player
-		case strings.EqualFold(attack, "True"):
-			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "TokenAttacking$ with no defending player in context; the copy enters but does not attack"})
-		default:
-			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "TokenAttacking$ " + attack + " is not implemented; the copy enters but does not attack"})
-		}
+		attacking, defender = tokenAttackingRider(h, c, attack, "copy")
 	}
 
 	// Copy count: a literal or resolvable NumCopies$ is honoured; an

@@ -394,8 +394,24 @@ type combatFires struct {
 // modes, so no trigger of another mode that fired before stops firing or
 // fires less often.
 var actionTriggerModes = map[string]bool{
+	// Clashed joins them for the same reason: it is an event mode registered
+	// with its own marker Kind (events.Clash, task clash1), so the
+	// trigger-level parameters Forge scopes to every event mode --
+	// PlayerTurn$, ActivationLimit$, and an unevaluable CheckDefinedPlayer$
+	// predicate failing closed -- apply from day one. Its own ValidPlayer$ /
+	// Won$ gate is read by clashMatches, not by this map.
+	"Clashed":                    true,
 	"AttackersDeclaredOneTarget": true, "AttackersDeclared": true, "AttackerUnblocked": true, "Sacrificed": true, "Discarded": true,
 	"CommitCrime": true, "Taps": true, "TapsForMana": true, "Untaps": true,
+	// BecomesTargetOnce joins them for the same reason: it is an event mode
+	// registered from the start as an event-mode sibling of BecomesTarget
+	// (rules/trigmatch_misc.go's becomesTargetOnceMatches), so the trigger-
+	// level parameters Forge scopes to every event mode -- PlayerTurn$,
+	// ActivationLimit$ (Professor Hojo's "This ability triggers only once
+	// each turn"), and an unevaluable CheckDefinedPlayer$ predicate failing
+	// closed -- apply from day one. The mode's own once-per-targeting-ACTION
+	// cadence is the target-batch latch, not this set.
+	"BecomesTargetOnce": true,
 	// DamagePreventedOnce joins them for the same reason: it is an event mode
 	// registered from the start (rules/trigger_match.go's
 	// damagePreventedMatches), so the trigger-level parameters Forge scopes
@@ -925,6 +941,16 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	// renders here BEFORE any trigger check, so level 4 sees its own
 	// temptation) and queues one entry per firing seat.
 	e.checkRingEmblemTriggers(ev)
+	// A chaos-ensues marker (CR 901.9, task planar-verbs): the current
+	// plane's Mode$ ChaosEnsues ability. The plane lives in ZPlanarDeck,
+	// which the per-face walk above never visits, so this synthetic scan
+	// queues it -- the checkRingEmblemTriggers precedent.
+	e.checkChaosEnsuesTriggers(ev)
+	// A planeswalk (CR 901.8, task planar-verbs): the arrived-at plane's
+	// Mode$ PlaneswalkedTo and the left plane's Mode$ PlaneswalkedFrom. Both
+	// planes live in the private ZPlanarDeck zone, so this is the same
+	// synthetic-scan shape as the chaos marker above.
+	e.checkPlaneswalkTriggers(ev)
 }
 
 // The Ring emblem's four level gates (CR 701.54c). Level N is active iff the
@@ -1583,6 +1609,31 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 					// that failed to parse): the trigger matched, but there is
 					// nothing to run.
 					continue
+				}
+				// Mode$ BecomesTargetOnce (Forge TriggerBecomesTargetOnce): the
+				// "whenever one or more ... become the target" BATCH reading of
+				// BecomesTarget, so one targeting action fires the line once even
+				// when it names several matching targets. The target batch is
+				// open for exactly the TargetsChosen events recordChosenTargets
+				// emits; the first matching event queues, every later matching
+				// event of the same batch is absorbed. Outside an open batch (a
+				// hand-built fixture emit) every event is its own batch-of-one,
+				// the DamageAll/ChangesZoneAll reading of a missing bracket.
+				// Gated at the queue point, after every later-rejected gate, so
+				// a matched-but-unqueueable event does not consume the batch.
+				if t.Mode == "BecomesTargetOnce" && e.targetBatchOpen {
+					if e.targetBatchFired[key] {
+						// Already queued once for this targeting action. Note the
+						// triggerFireCount bump above has already run for this
+						// absorbed event; that counter is only the maxTriggerFires
+						// runaway guard, so an off-by-one per batch is harmless and
+						// must not be "fixed" into a behavioural change.
+						continue
+					}
+					if e.targetBatchFired == nil {
+						e.targetBatchFired = map[triggerKey]bool{}
+					}
+					e.targetBatchFired[key] = true
 				}
 				// GameActivationLimit$/ActivationLimit$ counts commit HERE, at the
 				// queue point, after every later-rejected gate (a nil Execute$ body,
@@ -2456,7 +2507,7 @@ func init() {
 		"trig:TokenCreated", "trig:TokenCreatedOnce",
 		"trig:DamageDone", "trig:DamageDealtOnce", "trig:DamageDoneOnce", "trig:DamageAll", "trig:Drawn", "trig:LifeLost", "trig:LifeLostAll",
 		"trig:LifeGained",
-		"trig:BecomesTarget", "trig:LandPlayed", "trig:Phase", "trig:Attached", "trig:Unattached", "trig:FlippedCoin",
+		"trig:BecomesTarget", "trig:BecomesTargetOnce", "trig:LandPlayed", "trig:Phase", "trig:Attached", "trig:Unattached", "trig:FlippedCoin",
 		"trig:Vote", "trig:RolledDie", "trig:RolledDieOnce",
 		"trig:Explores", "trig:Exerted", "trig:Investigated", "trig:SearchedLibrary",
 		"trig:Exploited",

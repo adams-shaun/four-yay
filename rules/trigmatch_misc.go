@@ -271,6 +271,121 @@ func (e *Engine) becomesTargetMatches(t cards.Trigger, source state.ObjID, ev ev
 	return targeted
 }
 
+// becomesTargetOnceMatches implements Mode$ BecomesTargetOnce (Forge's
+// TriggerBecomesTargetOnce): the BATCH reading of Mode$ BecomesTarget, "whenever
+// one or more creatures you control become the target ...". Forge fires it once
+// per targeting ACTION -- after the whole spell/ability has chosen its targets
+// -- carrying the target SET in AbilityKey.Targets and the causing card in
+// AbilityKey.Cause. This engine emits one TargetsChosen event per chosen target,
+// so the once-per-action cadence rides the target batch
+// (openTargetBatch/closeTargetBatch around recordChosenTargets, and the
+// queue-time gate in trigger_match.go's checkFaceTriggers); this matcher answers
+// only whether ONE event's own target/source/cause clause holds.
+//
+// ValidTarget$: any one of the action's targets -- a permanent (ev.IDs) or a
+// player (ev.Player, shapes 1/3) -- matching the spec (Professor Hojo's
+// Creature.YouCtrl+inZoneBattlefield, Leyline's You,Permanent.YouCtrl...).
+// ValidSource$: the targeting spell/ability; the corpus's `Activated` spelling
+// is Forge's activated-ability predicate and is answered directly, every other
+// spelling through the ordinary filter grammar (SpellAbility.OppCtrl). An
+// event with no targeting object fails closed. ValidCause$: the host card of
+// the targeting ability (Forge's sp.getHostCard()), which protectionSource
+// resolves for a spell (itself) and an ability (its source permanent);
+// Psychic Battle excludes itself by name that way.
+func (e *Engine) becomesTargetOnceMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+	if ev.Kind != events.TargetsChosen {
+		return false
+	}
+	you := e.controllerOf(source)
+	sc := e.specCtx(source, you)
+	if v, ok := t.Params["ValidSource"]; ok {
+		if !e.becomesTargetSourceMatches(v, ev.Obj, sc) {
+			return false
+		}
+	}
+	if v, ok := t.Params["ValidTarget"]; ok {
+		matched := false
+		for _, id := range ev.IDs {
+			if e.matchesSpec(v, id, sc) {
+				matched = true
+				break
+			}
+		}
+		if !matched && (ev.Amount == 1 || ev.Amount == 3) {
+			matched = effects.MatchesPlayerSpecCtx(e.G, v, ev.Player, you, e.playerSpecCtx(source))
+		}
+		if !matched {
+			return false
+		}
+	}
+	if v, ok := t.Params["ValidCause"]; ok {
+		cause := e.protectionSource(ev.Obj)
+		if cause == 0 || !e.matchesSpec(v, cause, sc) {
+			return false
+		}
+	}
+	return true
+}
+
+// becomesTargetSourceMatches answers a Mode$ BecomesTargetOnce ValidSource$
+// clause over the targeting stack object. Forge's `Activated` predicate is an
+// ability-shape test, not a card filter, so it is answered directly: an
+// activated ability's stack object carries an Ability and is not a stored
+// trigger (the same split counterValidSA makes for R:Event$ Counter). Every
+// other comma alternative -- SpellAbility.OppCtrl, Spell.OppCtrl, a plain
+// object spec -- goes through the ordinary object-filter grammar, the sibling
+// becomesTargetMatches' ValidSource$ read. An absent targeting object fails
+// closed.
+func (e *Engine) becomesTargetSourceMatches(spec string, stackObj state.ObjID, sc effects.SpecContext) bool {
+	if stackObj == 0 {
+		return false
+	}
+	o := e.G.Obj(stackObj)
+	if o == nil {
+		return false
+	}
+	for alt := range strings.SplitSeq(spec, ",") {
+		alt = strings.TrimSpace(alt)
+		if alt == "" {
+			continue
+		}
+		if alt == "Activated" {
+			if o.Ability != nil && !isTriggered(e.G, o) {
+				return true
+			}
+			continue
+		}
+		if e.matchesSpec(alt, stackObj, sc) {
+			return true
+		}
+	}
+	return false
+}
+
+// openTargetBatch/closeTargetBatch bracket ONE targeting action's TargetsChosen
+// events for the Mode$ BecomesTargetOnce latch. recordChosenTargets
+// (rules/stack.go) opens the bracket, emits one event per chosen target, and
+// closes it, so every target of one target answer is one batch. It is NOT the
+// only emitter of TargetsChosen: effects/choose_control.go's recordTargets (a
+// ChangeTargets redirect, CR 114.6) also emits, with NO bracket open, so each
+// such event is its own batch-of-one and a multi-target redirect fires a
+// BecomesTargetOnce watcher once per redirected target rather than once per
+// redirect action (Forge fires once per ability). No corpus carrier exercises
+// that path today (Psychic Battle, the only ValidCause$ card, excludes itself;
+// Leyline/Hojo never watch a redirect), so the divergence is latent. The latch
+// map is per-batch scratch (the damage/zone/mill/discard batches' shape) and
+// never survives the close. A hand-built emit outside any bracket is its own
+// batch-of-one.
+func (e *Engine) openTargetBatch() {
+	e.targetBatchOpen = true
+	e.targetBatchFired = nil
+}
+
+func (e *Engine) closeTargetBatch() {
+	e.targetBatchOpen = false
+	e.targetBatchFired = nil
+}
+
 // landPlayedMatches implements Mode$ LandPlayed. This fires on the MoveZone
 // hand->battlefield of a land specifically -- not on the separate LandPlayed
 // event legal.go's "play_land" case also emits, which carries only a Player
@@ -523,6 +638,9 @@ func init() {
 	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 		return e.becomesTargetMatches(t, source, ev)
 	}, "BecomesTarget")
+	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return e.becomesTargetOnceMatches(t, source, ev)
+	}, "BecomesTargetOnce")
 	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
 		return e.landPlayedMatches(t, source, ev)
 	}, "LandPlayed")

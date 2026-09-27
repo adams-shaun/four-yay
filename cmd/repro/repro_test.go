@@ -602,13 +602,12 @@ func TestReproEmitTestStripsTokenScriptsFromLiveCapture(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(syncDir) })
-	srcRaw, err := os.ReadFile(filepath.Join(src, "match.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(srcRaw), "tokens") {
-		t.Fatalf("live capture match.json carries no tokens field:\n%.200s", srcRaw)
-	}
+	// The live capture must carry readable token TEXT, not merely a
+	// `tokens_unread` list. The old substring check for `"tokens"` was
+	// satisfied by that unread list, so a capture whose token source paths
+	// pointed at a removed worktree passed here and only surfaced later.
+	// decodeLiveCaptureTokens asserts nonempty text and zero unread stems.
+	decodeLiveCaptureTokens(t, src)
 
 	var out bytes.Buffer
 	if code := run([]string{"-emit-test", "zzrepro-stripemittest", src}, &out, io.Discard); code != 0 {

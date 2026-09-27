@@ -397,26 +397,34 @@ func (r *Registry) pushRewind(t *table, m *match) {
 	}
 	focus, overview := hasMode(modes, protocol.ModeFocus), hasMode(modes, protocol.ModeOverview)
 
-	m.mu.RLock()
 	var rewind, decisionF *protocol.Frame
-	if focus {
-		f := frame(protocol.TRewind, t, m.k, head(m), r.snapshotBody(t, m))
-		rewind = &f
-		if d := m.e.Pending(); d != nil {
-			df := frame(protocol.TDecision, t, m.k, head(m), protocol.DecisionBody{Player: uint8(d.Player), Kind: string(d.Kind), Prompt: d.Prompt})
-			decisionF = &df
-		}
-	}
 	var widget protocol.Frame
-	if overview {
-		// The widget's Last is re-derived over the whole truncated log —
-		// the same full-log scan onMatchStart runs — so an undone line can
-		// never be carried into the rewound overview.
-		bodies := eventBodiesFor(view.NoSeat, t.cfg.Spectator, m.e.G, m.e.L.Events)
-		t.lastLine = lastLine(bodies, "")
-		widget = r.widgetFrame(t, m, t.lastLine)
+	// The rewind body is a live snapshot — the same projection a fresh focus
+	// subscription makes — so it runs exclusively (projectLive): a concurrent
+	// focused snapshot must not race this one through ProjectFor's engine
+	// mutation. The push loop below stays outside the exclusive section: the
+	// Subscribe path holds t.fanMu then takes m.mu, so m.mu must be dropped
+	// before t.fanMu is taken here.
+	if focus || overview {
+		r.projectLive(m, func() {
+			if focus {
+				f := frame(protocol.TRewind, t, m.k, head(m), r.snapshotBody(t, m))
+				rewind = &f
+				if d := m.e.Pending(); d != nil {
+					df := frame(protocol.TDecision, t, m.k, head(m), protocol.DecisionBody{Player: uint8(d.Player), Kind: string(d.Kind), Prompt: d.Prompt})
+					decisionF = &df
+				}
+			}
+			if overview {
+				// The widget's Last is re-derived over the whole truncated log —
+				// the same full-log scan onMatchStart runs — so an undone line can
+				// never be carried into the rewound overview.
+				bodies := eventBodiesFor(view.NoSeat, t.cfg.Spectator, m.e.G, m.e.L.Events)
+				t.lastLine = lastLine(bodies, "")
+				widget = r.widgetFrame(t, m, t.lastLine)
+			}
+		})
 	}
-	m.mu.RUnlock()
 
 	t.fanMu.Lock()
 	for i, s := range ss {

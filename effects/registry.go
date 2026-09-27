@@ -51,6 +51,16 @@ type Host interface {
 	// exchange the text boxes AS THEY EXIST at resolution, so a prior
 	// ChangeText substitution is carried across rather than discarded.
 	ObjectText(*state.Object) string
+	// ObjectKeywords returns the object's CURRENT derived keyword list (CR
+	// 613.1f), printed and granted alike, as an owned copy. api:ExchangeTextBox
+	// reads it alongside ObjectText so an exchanged text box swaps the
+	// keywords the other object's box carries (CR 612.1: a text box includes
+	// its abilities), the same AS-THEY-READ-at-resolution capture ObjectText
+	// takes; a layer-6 companion then wipes the object's own keywords and
+	// grants these. rules.Engine implements it as a copy of the Derived
+	// keyword stream (whose scratch buffer must not be aliased); the effects
+	// test double returns the printed face's keywords.
+	ObjectKeywords(*state.Object) []string
 	Emit(events.Event)
 	// EmitTokenCreate emits a token-creation event and returns every object
 	// it actually created, in mint order. A token-creation replacement may
@@ -149,6 +159,16 @@ type Host interface {
 	// Redirect effects use this shared census rather than duplicating target
 	// legality below rules (protection and continuous restrictions included).
 	LegalTargets(chooser state.PlayerID, source state.ObjID, sa *cards.SA) []state.Target
+	// ChooserFor resolves the seat that answers a target ask declared by sa,
+	// per Forge's TargetingPlayer$ ("an opponent chooses the target"). The
+	// mid-resolution ValidTgts$ asks (chosenTargetsFor, changeZoneChosenTargets)
+	// have no rules-tier ask site to consult, so this seam carries the same
+	// resolver cast/trigger asks use (rules.Engine.targetAskChooser /
+	// targetChooserFromSpec). It is read for the DECISION's Player only: the
+	// caller keeps c.Controller as the legality census reference. A host with
+	// no resolver (the effects test double) returns c.Controller, the same
+	// fail-closed default as an unknown spec.
+	ChooserFor(c *Ctx, sa *cards.SA) state.PlayerID
 	// RegenerationDisallowed reports whether an Effect-registered
 	// CantRegenerate restriction makes id unable to be regenerated (Incinerate's
 	// "can't be regenerated this turn"). Consulted by ReplaceDestruction before
@@ -779,6 +799,12 @@ type RepeatCursor struct {
 	// Ctx.RepeatEachOptional on re-entry (Accept false skips that subject's
 	// body and continues at Next+1).
 	Election bool
+	// ChooseOrder marks a cursor parked on a RepeatEach ChooseOrder$ loop's
+	// one-before-the-loop ordering ask rather than on a body or an election.
+	// Next is 0 (no iteration has run); the answer permutes Subjects before
+	// the first body, and the reordered slice then rides every later
+	// cursor, so the order a body suspension carries is the chosen one.
+	ChooseOrder bool
 }
 
 // RepeatSuspension is what effRepeatEach reports when an iteration asks.
@@ -911,10 +937,24 @@ type RepeatEachOptionalContinuation struct {
 
 type Ctx struct {
 	TriggerContext
-	Source     state.ObjID
-	Controller state.PlayerID
+	// ClashContinuation resumes CR 701.31's saved reveal/winner snapshot after an owner answers.
+	ClashContinuation *decision.ClashResume
+	ClashTop          bool
+	Source            state.ObjID
+	Controller        state.PlayerID
+	// PromisedGiftOverride is bound only by rules' pre-election target-feasibility
+	// census, which must consider either branch before the player elects Gift.
+	PromisedGiftOverride *bool
 	// NameChoice carries a mid-resolution NameCard answer across re-entry.
 	NameChoice string
+	// ChosenDirection carries a mid-resolution ChooseDirection answer across
+	// re-entry: the "left"/"right" pick (Aminatou's [-6], Order of
+	// Succession). It is resolution-scratch like NameChoice -- never
+	// event-encoded; a replay re-derives it from the recorded intent through
+	// rules' "choosedirection" resume arm. Empty on the first pass, and left
+	// set for the rest of the chain because the SubAbility$ that consumes it
+	// (DBControl / DBGainControl) runs in the same walk.
+	ChosenDirection string
 	// ResolvedThisTurn is how many times the resolving ability has resolved
 	// this turn, INCLUDING the current resolution. The effects layer cannot
 	// import rules, so the tally arrives here as bound data: rules reads it
@@ -1101,6 +1141,22 @@ type Ctx struct {
 	// directly so a SubAbility$ chained after it can read it. The
 	// Sacrificed$<Property> heads in count.go read it.
 	Sacrificed []state.SacrificedInfo
+	// Exiled / Revealed carry the cards PAID as part of this cast's or
+	// activation's cost: the `ExileFromHand`/`ExileFromGrave`/`Exile` parts
+	// (Forge's CostExile, paid list keyed "Exiled") and the `Reveal` parts
+	// (CostReveal, keyed "Revealed"). They are NOT the source's persistent
+	// exile association (`Object.ExiledWith`) nor `Remembered`: they name the
+	// exact cards this cast's cost removed, in stable cost order. Forge reads
+	// them through AbilityUtils.getPaidCards -> SpellAbility.getPaidList, and
+	// the `Exiled$<Property>` / `Revealed$<Property>` count refs and the bare
+	// `Defined$ Exiled`/`Revealed` selectors both resolve them here (the one
+	// shared binding). rules carries them onto the engine keyed by the stack
+	// object (engine.castPaid), rebuilt by replay because payCast re-executes;
+	// a copy of the spell was never cast and carries none. Empty means "no
+	// paid list" -- a legitimate zero, never a fallback to the source or the
+	// chosen targets.
+	Exiled   []state.ObjID
+	Revealed []state.ObjID
 	// ChangeZoneLKI is the resolution's last-known-information table for
 	// ChangeZoneRememberLKI$ moves: one entry per object the move captured,
 	// holding the controller/owner it had at that instant. events.Apply's Move
@@ -1475,6 +1531,24 @@ type Ctx struct {
 	// Resolution-scratch like Remembered -- never event-encoded; a replay
 	// re-derives the same set by replaying the same resolution.
 	SearchKnown []state.Target
+	// SearchConfirm is the answered Optional$ confirmation for a
+	// hidden-library ChangeZone search whose script carries an explicit
+	// marker -- Forge's confirmAction gate in
+	// ChangeZoneEffect.changeHiddenOriginResolve, which runs BEFORE the fetch
+	// list is consulted (so an empty eligible pool still confirms). "yes"
+	// accepts this search player's fetch and every other answer declines it;
+	// SearchConfirmDone distinguishes "answered" from the first pass, and
+	// SearchConfirmTarget is the index in the deterministic per-library
+	// target list whose confirmation was answered (the same cursor
+	// LibraryTarget carries for the answered pick). A decline skips this
+	// player's search, pick and search-specific shuffle/tail with the
+	// remembered set untouched. Consumed and cleared at the top of
+	// effSearchLibrary (fx42 scoping), so a nested search poses its own
+	// confirmation. The marker is read through the ONE shared
+	// optionalConfirmMarker the hand and hidden-pick walks use.
+	SearchConfirm       string
+	SearchConfirmDone   bool
+	SearchConfirmTarget int
 	// AttachOpt is the answered Optional$ True attach election ("yes"/"no")
 	// on a re-entered Attach resolution (Ajani's Chosen's "you may attach it
 	// to the token", Cori-Steel Cutter's "you may attach this Equipment to
@@ -1815,6 +1889,21 @@ type Ctx struct {
 	BlightPicks  []state.ObjID
 	BlightDone   bool
 	BlightTarget int
+	// ManifestDreadPick is the chosen library object on a resumed CR 701.61
+	// resolution; Done distinguishes an answer from the first pass.
+	ManifestDreadPick   state.ObjID
+	ManifestDreadPlayer state.PlayerID
+	ManifestDreadDone   bool
+	// RingBearerPick is the answered CR 701.54a Ring-bearer choice on a
+	// re-entered Ring tempts resolution: the creature the tempted player chose
+	// to become their Ring-bearer. RingBearerDone distinguishes "answered"
+	// from the first pass, so re-entry emits the single RingTemptsYou event
+	// exactly once instead of asking again or incrementing the count twice.
+	// The asking effect consumes and clears both at the top of its own walk
+	// (the fx42 scoping discipline), so a nested Ring tempts cannot inherit
+	// the outer answer.
+	RingBearerPick state.ObjID
+	RingBearerDone bool
 	// UnlessElected is the answered UnlessType$ election of a Discard carrying
 	// UnlessType$ (Thirst for Knowledge's "discard two cards unless you
 	// discard an artifact card"): "unless" means the player elected the
@@ -1917,6 +2006,20 @@ type Ctx struct {
 	// continuation effDig's DigTarget carries. Consumed and cleared at the
 	// top of the walk with HandMove/HandMoveDone (fx42 scoping).
 	HandMoveTarget int
+	// HandMoveConfirm is the answered Optional$ confirmation for a hidden-hand
+	// ChangeZone whose script carries an Optional$ marker -- Forge's
+	// confirmAction gate in ChangeZoneEffect.changeHiddenOriginResolve, which
+	// runs BEFORE any card is picked. "yes" accepts the fetch and every other
+	// answer declines it; HandMoveConfirmDone distinguishes "answered" from the
+	// first pass, and HandMoveConfirmTarget is the index of the hand owner whose
+	// confirmation was answered (the same per-owner cursor HandMoveTarget
+	// carries). A declined confirmation leaves the remembered set untouched; an
+	// accepted one lets the walk clear it exactly once before the pick, even
+	// when the pick ends up empty. Consumed and cleared at the top of the walk
+	// with HandMove/HandMoveDone (fx42 scoping).
+	HandMoveConfirm       string
+	HandMoveConfirmDone   bool
+	HandMoveConfirmTarget int
 	// HiddenPick is the answered Hidden$ True public-origin pick (hiddenpick1):
 	// the chooser picked which of the ChangeType$-eligible cards in the
 	// origin zone(s) move to Destination$. HiddenPickDone distinguishes
@@ -1931,6 +2034,21 @@ type Ctx struct {
 	// before the cursor are skipped on re-entry, owners after it continue
 	// the chain. Consumed and cleared with the pair above.
 	HiddenPickTarget int
+	// HiddenPickConfirm is the answered Optional$ confirmation for a Hidden$
+	// True public-origin ChangeZone pick -- Forge's confirmAction gate in
+	// ChangeZoneEffect.changeHiddenOriginResolve, which runs BEFORE the card
+	// pick (the same gate the hidden-hand walk's HandMoveConfirm carries).
+	// "yes" accepts the fetch and every other answer declines it;
+	// HiddenPickConfirmDone distinguishes "answered" from the first pass, and
+	// HiddenPickConfirmTarget is the index of the fetch player whose
+	// confirmation was answered (the same per-owner cursor HiddenPickTarget
+	// carries). A declined confirmation skips the fetch player without a pick
+	// ask and clears nothing; an accepted one enters the fetch, whose answered
+	// pick (or empty pool) clears exactly as before. Consumed and cleared at
+	// the top of effHiddenPick with HiddenPick/HiddenPickDone (fx42 scoping).
+	HiddenPickConfirm       string
+	HiddenPickConfirmDone   bool
+	HiddenPickConfirmTarget int
 	// DefinedLibraryMove is the answered Optional$ True choice for an
 	// object-valued Defined$ fetch list from Origin$ Library. "yes" moves the
 	// list; "no" leaves it in place. It is consumed by
@@ -2066,7 +2184,7 @@ type Ctx struct {
 	// deeper in the same chain poses its own fresh ask.
 	ETBNumberRecorded bool
 	// ManaReflectedColor is the answered mid-resolution AB$ ManaReflected
-	// colour pick: the option Label ("Add W") the chooser picked, set by
+	// colour pick: the chosen option's structured ManaSymbol ("W"), set by
 	// rules' "manareflected" resume arm before the suspended sub-ability is
 	// re-run. effManaReflected's re-entry consumes and clears it, accepts the
 	// colour only when the resolution still offers it, and emits the one
@@ -2297,6 +2415,21 @@ type Ctx struct {
 	// ImprintCards$/ClearImprinted$ tail to the re-entry that finishes the
 	// mints, so it sees (and clears after) the tokens. Consumed by Resolve.
 	tokensSuspended bool
+	// ClashWon records the resolving controller's CR 701.31 clash outcome:
+	// true when their revealed card had the strictly higher mana value, false
+	// on a loss and on a tie (no winner). effClash sets it from the reveal
+	// comparison and selects its Forge WinSubAbility$/OtherwiseSubAbility$
+	// branch through it, so the branch and the emitted events.Clash records
+	// cannot disagree about who won. It is resolution-scratch like
+	// Targets/SVars -- never event-encoded (the marker carries the same bit
+	// in Amount), a replay re-derives the same value.
+	ClashWon bool
+	// ClashWinner is the seat that won the clash, or the resolving controller
+	// on a tie (CR 701.31's no-winner case, where Forge reports"False" to
+	// both clashing players). effClash's branch read uses ClashWon; this field
+	// is kept so a chained SubAbility$ (or a future Defined$ referent) can
+	// name the winner without re-deriving it from the log.
+	ClashWinner state.PlayerID
 }
 
 // VoteCount is one ballot subject's tally (see Ctx.VoteCounts).
@@ -2583,6 +2716,38 @@ type effectFrameHost interface {
 // riders chose. It is optional so the effects test doubles stay small.
 type resolutionCtxHost interface {
 	SetResolutionCtx(*Ctx) *Ctx
+}
+
+// opponentPickHost is the optional Host seam for the TargetingPlayer$
+// Opponent controller-selection at a mid-resolution ask site. The two
+// mid-resolution ask sites (chosenTargetsFor's "tgts" ask and
+// changeZoneChosenTargets' "choice" ask) call it before posing the target
+// ask: with two or more living opponents and no answered selection it poses
+// the CONTROLLER's which-opponent ask (posing a decision and suspending the
+// walk) and reports posed=true, so the caller must return a handled-nil set
+// and let the answer re-enter the walk. Every other shape reports posed=false
+// with the seat that answers the target ask: the pinned or sole living
+// opponent, or c.Controller when the resolver fails closed. A host that does
+// not implement this interface (the effects test double) never poses the
+// selection: the caller keeps plain ChooserFor, which for the test double is
+// the controller (no resolver to consult).
+type opponentPickHost interface {
+	OpponentPickAsk(c *Ctx, sa *cards.SA) (state.PlayerID, bool)
+}
+
+// opponentPick calls the optional seam when the host implements it.
+// ok=false means the caller keeps the plain chooser returned by
+// Host.ChooserFor; ok=true with posed=false means ch is authoritative (the
+// pinned or sole-opponent seat, or the controller fallback).
+func opponentPick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) (state.PlayerID, bool) {
+	if ph, ok := h.(opponentPickHost); ok {
+		ch, posed := ph.OpponentPickAsk(c, sa)
+		if posed {
+			return 0, true
+		}
+		return ch, false
+	}
+	return chooser, false
 }
 
 // flipMemoryHost is implemented by the rules engine to publish the resolving

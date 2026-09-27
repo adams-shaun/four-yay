@@ -193,6 +193,119 @@ func tokenControlledCount(g *state.Game, c *Ctx, p state.PlayerID, specs ...stri
 	return n
 }
 
+// tokenAttackingPlayers resolves a TokenAttacking$ value's PLAYER half to the
+// defending seats the minted permanents attack. Forge writes the value as one
+// or more ` & `-joined selectors (Adeline, Resplendent Cathar's
+// `RememberedPlayer & Valid Planeswalker.ControlledBy Remembered`, the RepeatEach
+// loop's per-opponent token); each player selector is read through the SHARED
+// referent grammar (definedSpec, the same reader TokenOwner and UnlessPayer
+// use), so a TokenAttacking$ spelling and a TokenOwner$ spelling can never
+// disagree about what a seat means. `RememberedPlayer`/`RememberedPlayers` are
+// the plain Remembered family and read the resolution's remembered PLAYERS,
+// exactly the binding effects.effectRememberedPlayers documents for the
+// RepeatEach loop's current subject -- a remembered CARD contributes no seat
+// (effects.plainRememberedSelector's Forge getDefinedPlayers rule).
+//
+// objectArm reports an arm the grammar could not resolve to a seat: a `Valid
+// <filter>` object selector (the "or a planeswalker they control" half) is
+// unmodelled -- the engine's defenders are players only (the pw1 combat-damage
+// gap) -- so the caller says so loudly instead of guessing a planeswalker as a
+// player. seats[0] is the deterministic first resolved seat; the corpus's
+// carriers all resolve exactly one.
+func tokenAttackingPlayers(h Host, c *Ctx, raw string) (seats []state.PlayerID, objectArm bool) {
+	g := h.Game()
+	addSeat := func(p state.PlayerID) {
+		if int(p) < 0 || int(p) >= len(g.Players) {
+			return
+		}
+		for _, have := range seats {
+			if have == p {
+				return
+			}
+		}
+		seats = append(seats, p)
+	}
+	for _, part := range strings.Split(raw, " & ") {
+		p := strings.TrimSpace(part)
+		if p == "" {
+			continue
+		}
+		var ts []state.Target
+		switch p {
+		case "RememberedPlayer", "RememberedPlayers":
+			ts = resolvedRemembered(h, c)
+		default:
+			// A `Valid <filter>` arm is an OBJECT selector by construction --
+			// the "or a planeswalker they control" half -- and the engine's
+			// defenders are players only, so it is unmodelled regardless of
+			// whether any object currently matches. Reporting it from its
+			// resolved (possibly empty) population would hide the arm on an
+			// empty board, which is exactly Adeline's one-opponent case.
+			if p == "Valid" || strings.HasPrefix(p, "Valid ") {
+				objectArm = true
+				continue
+			}
+			resolved, ok := definedSpec(h, c, p)
+			if !ok {
+				objectArm = true
+				continue
+			}
+			ts = resolved
+		}
+		// The plain Remembered family reads remembered PLAYERS only: a
+		// remembered CARD contributes no seat (Forge's getDefinedPlayers
+		// rule, the same one effects.plainRememberedSelector encodes), so its
+		// object entries drop out silently. Any OTHER selector that resolves
+		// to an object names a planeswalker-like defender -- the
+		// "or a planeswalker they control" arm -- which the engine's
+		// player-only defenders cannot represent, so it is reported for a
+		// loud Note, never mapped to the object's controller as a guessed
+		// seat.
+		plain := plainRememberedSelector(p)
+		for _, t := range ts {
+			if !t.IsPlayer {
+				if !plain {
+					objectArm = true
+				}
+				continue
+			}
+			addSeat(t.Player)
+		}
+	}
+	return seats, objectArm
+}
+
+// tokenAttackingRider classifies a TokenAttacking$ body's attacking rider for
+// the TWO mint paths that carry it (api:Token's effToken and api:CopyPermanent's
+// effCopyPermanent): literal True attacks the firing Attacks trigger's captured
+// defender, a selector value resolves its player half through
+// tokenAttackingPlayers, and an unresolvable value degrades with ONE loud Note
+// naming the limitation -- never a guessed defender, never silence. noun is
+// the minted object's word ("token"/"copy") for the note text. The returned
+// bool is whether every mint should be marked attacking, and state.PlayerID the
+// defender it attacks.
+func tokenAttackingRider(h Host, c *Ctx, attack, noun string) (bool, state.PlayerID) {
+	switch {
+	case strings.EqualFold(attack, "True") && c.DefendingPlayer.IsPlayer:
+		return true, c.DefendingPlayer.Player
+	case strings.EqualFold(attack, "True"):
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "TokenAttacking$ with no defending player in context; the " + noun + " enters but does not attack"})
+		return false, 0
+	}
+	seats, objectArm := tokenAttackingPlayers(h, c, attack)
+	if len(seats) == 0 {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "TokenAttacking$ " + attack + " is not implemented; the " + noun + " enters but does not attack"})
+		return false, 0
+	}
+	if objectArm {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "TokenAttacking$ " + attack + ": the planeswalker arm is not implemented; the " + noun + " attacks the named player"})
+	}
+	return true, seats[0]
+}
+
 // tokenRememberedTargets resolves the set TokenRemembered$ attaches to each
 // minted token. It is shared by Token and CopyPermanent, whose two mint paths
 // must persist the same event-backed memory.
@@ -491,16 +604,19 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// DEFENDING player, read from the firing Attacks trigger's own referent
 	// capture (rules/trigger_referents.go binds c.DefendingPlayer from the
 	// DeclareAttackers event; the defending player is ev.Player there --
-	// the engine batches attackers per defender). Only the literal True
-	// form is implemented: the corpus's other selector values (Remembered
-	// x5, RememberedPlayer x3, TriggeredAttackedTarget x4, TriggeredDefender
-	// x1) keep the census-free degrade they had, now named by ONE loud Note
-	// per call instead of silence. A True with NO defender in context (an
-	// ACTIVATED AB$ Token rider like kavaron_harrier or militias_pride -- no
-	// trigger context exists) still enters (tapped, when TokenTapped$ says
-	// so) but NOT attacking, under one deterministic Note: never a guessed
-	// defender. The mark itself rides the appended events.TokenAttacks kind
-	// (events/apply.go), so replay rebuilds it.
+	// the engine batches attackers per defender). The corpus's OTHER selector
+	// values (Remembered x5, RememberedPlayer x3, TriggeredAttackedTarget x4,
+	// TriggeredDefender x1) resolve their PLAYER half through the shared
+	// referent grammar in tokenAttackingRider above -- Adeline, Resplendent
+	// Cathar's `RememberedPlayer & Valid Planeswalker.ControlledBy Remembered`
+	// now attacks the RepeatEach loop's current opponent instead of minting a
+	// sitting duck. A True with NO defender in context (an ACTIVATED AB$
+	// Token rider like kavaron_harrier or militias_pride -- no trigger
+	// context exists), or a selector whose player half resolves to nobody,
+	// still enters (tapped, when TokenTapped$ says so) but NOT attacking,
+	// under one deterministic Note: never a guessed defender. The mark itself
+	// rides the appended events.TokenAttacks kind (events/apply.go), so
+	// replay rebuilds it.
 	// The AtEOT$ rider's affected set is every mint the loop actually mints,
 	// collected here and scheduled by ONE scheduleAtEOT call after the loop:
 	// the call (and, for an out-of-scope value, its one loud Note) is per
@@ -509,17 +625,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	attackCtx := false
 	var attackDefender state.PlayerID
 	if attack := strings.TrimSpace(sa.Params["TokenAttacking"]); attack != "" {
-		switch {
-		case strings.EqualFold(attack, "True") && c.DefendingPlayer.IsPlayer:
-			attackCtx = true
-			attackDefender = c.DefendingPlayer.Player
-		case strings.EqualFold(attack, "True"):
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "TokenAttacking$ with no defending player in context; the token enters but does not attack"})
-		default:
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "TokenAttacking$ " + attack + " is not implemented; the token enters but does not attack"})
-		}
+		attackCtx, attackDefender = tokenAttackingRider(h, c, attack, "token")
 	}
 
 	job := TokenJob{

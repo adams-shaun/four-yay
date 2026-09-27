@@ -205,13 +205,7 @@ func TestCactusPreserveAnimatesAtGreatestCommanderManaValue(t *testing.T) {
 			if !e.HasKeyword(id, "Reach") {
 				t.Fatal("animated Cactus Preserve lacks reach")
 			}
-			// No replayCheck here: Players.Commanders is genesis bookkeeping
-			// rules.New writes directly (not an event fold), so the harness's
-			// log-only replayFromLog cannot rebuild it -- the same limitation
-			// every existing command-zone pin lives with (the command-zone dash
-			// test has no replayCheck either). The asserts above are all
-			// state reads; the replay contract is pinned on the Wildspeaker
-			// leaf and on the effects-level ValidAll test.
+			replayCheck(t, e, cfg)
 		})
 	}
 }

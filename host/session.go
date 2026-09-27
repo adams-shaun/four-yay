@@ -260,9 +260,8 @@ func (r *Registry) Subscribe(s *Session, id TableID, mode string) error {
 		m := t.cur
 		t.mu.RUnlock()
 		if m != nil {
-			m.mu.RLock()
-			f := r.snapshotFrame(t, m)
-			m.mu.RUnlock()
+			var f protocol.Frame
+			r.projectLive(m, func() { f = r.snapshotFrame(t, m) })
 			s.push(f)
 		}
 		t.fanMu.Unlock()

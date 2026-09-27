@@ -806,16 +806,34 @@ func TestAttacksTriggerRemembersTheDefendingPlayer(t *testing.T) {
 // fixture helper (newFixtureDeck's own doc comment already named the
 // general hazard: an object introduced any way other than via cfg.Decks is
 // invisible to this function) started relying on it for replay fidelity.
+// Starting life, commander identity/cast counters and the match-wide commander
+// damage-vector size are genesis bookkeeping rather than logged state, so they
+// are reconstructed from Config and the event stream just as New initializes
+// them. Commander seating uses legalCommandersFor, the same gate as New.
 func replayFromLog(t *testing.T, cfg Config, log []events.Event) *state.Game {
 	t.Helper()
-	g := state.NewGame(cfg.Names)
+	life := int32(20)
+	if cfg.StartingLife > 0 {
+		life = cfg.StartingLife
+	}
+	g := state.NewGameLife(cfg.Names, life)
 	g.Tokens = cfg.Tokens
-	for i, deck := range cfg.Decks {
+	cmdIDs := make([][]state.ObjID, len(cfg.Names))
+	totalCmd := 0
+	for i := range cfg.Names {
+		if i >= len(cfg.Decks) {
+			continue
+		}
+		deck := cfg.Decks[i]
 		p := state.PlayerID(i)
 		ids := make([]state.ObjID, 0, len(deck))
 		for _, c := range deck {
 			ids = append(ids, g.AddObject(c, p).ID)
 		}
+		for _, idx := range cfg.legalCommandersFor(i, len(deck), deck) {
+			cmdIDs[i] = append(cmdIDs[i], ids[idx])
+		}
+		totalCmd += len(cmdIDs[i])
 		g.SetZone(state.ZLibrary, p, ids)
 		if i < len(cfg.Sideboards) {
 			sb := make([]state.ObjID, 0, len(cfg.Sideboards[i]))
@@ -826,9 +844,34 @@ func replayFromLog(t *testing.T, cfg Config, log []events.Event) *state.Game {
 			}
 			g.SetZone(state.ZSideboard, p, sb)
 		}
+		if i < len(cfg.PlanarDecks) {
+			for _, c := range cfg.PlanarDecks[i] {
+				g.AddObject(c, p)
+			}
+		}
 	}
 	for _, ev := range log {
 		events.Apply(g, ev)
+	}
+	for p := range g.Players {
+		if len(cmdIDs[p]) > 0 {
+			g.Players[p].Commanders = append([]state.ObjID(nil), cmdIDs[p]...)
+			g.Players[p].CmdCasts = make([]int32, len(cmdIDs[p]))
+			for _, ev := range log {
+				if ev.Kind != events.PutOnStack || ev.Player != state.PlayerID(p) || ev.From != state.ZCommand {
+					continue
+				}
+				for k, id := range cmdIDs[p] {
+					if id == ev.Obj {
+						g.Players[p].CmdCasts[k]++
+						break
+					}
+				}
+			}
+		}
+		if totalCmd > 0 {
+			g.Players[p].CmdDamage = make([]int32, totalCmd)
+		}
 	}
 	return g
 }

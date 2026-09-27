@@ -61,6 +61,15 @@ type config struct {
 	// so the per-game seat token resolves, and a no-token seat request
 	// declines to 401 rather than 403.
 	vsbot bool
+	// botAutoPayMana is the -bot-auto-mana startup switch. It is copied into
+	// every startup and on-demand vs-bot table, including human caretakers.
+	botAutoPayMana bool
+	// autoMana enables payment-plan publication and controls for human seats.
+	autoMana bool
+	// maxOnDemandTables limits retained private vs-bot games in one process.
+	// A bounded refusal preserves each existing game's credentials, feedback
+	// capture and replay routes; it never evicts a game behind a live URL.
+	maxOnDemandTables int
 	// seatToken is the -seat-token flag: a fixed bearer token for the first
 	// human slot instead of a random per-slot one. Tests and local use only
 	// (R-E3-3) — production runs mint random tokens.
@@ -174,6 +183,9 @@ func serveFlags() (*flag.FlagSet, *config) {
 	fs.StringVar(&c.humansRaw, "humans", "", "comma-separated slots of table t1 that are real people (e.g. 0,2); t2..tN stay bot tables")
 	fs.StringVar(&c.seatToken, "seat-token", "", "fixed bearer token for the first human slot (tests and local use only; default mints a random token per slot)")
 	fs.BoolVar(&c.vsbot, "vsbot", false, "arm the on-demand play-vs-bot flow (landing page seats a human against a bot via POST /api/games)")
+	fs.BoolVar(&c.botAutoPayMana, "bot-auto-mana", true, "have hosted bots and human-seat caretakers cast through offered automatic mana payment plans")
+	fs.BoolVar(&c.autoMana, "auto-mana", true, "enable automatic mana payment plans and controls for human seats (disable with -auto-mana=false for the legacy manual path)")
+	fs.IntVar(&c.maxOnDemandTables, "max-on-demand-tables", 32, "maximum retained private play-vs-bot tables per process (0 = unlimited)")
 	// The prewarm default is TRUE, deliberately, and lives here — the flag
 	// registration — not in a statement main must run after Parse. The
 	// background goroutine fills the art cache for every deck card at startup
@@ -531,7 +543,7 @@ func (c config) tableConfigs(cmdPool, conPool []string, vis view.Visibility) []h
 		}
 		cfg := host.TableConfig{ID: host.TableID(fmt.Sprintf("t%d", i)), Name: fmt.Sprintf("Table %d", i), Seats: c.seats,
 			Decks: pool, Seed: c.seed + uint64(i-1), Pace: c.pace, Spectator: vis, Perpetual: c.perpetual,
-			Mulligans: c.mulligans, Format: format}
+			Mulligans: c.mulligans, Format: format, BotAutoPayMana: c.botAutoPayMana, AutoMana: c.autoMana}
 		if i == 1 && len(c.humans) > 0 {
 			cfg.Humans = c.humans
 			cfg.Perpetual = false
@@ -562,7 +574,8 @@ func (g config) hostOptions(reg *cards.Registry, load func(string) (host.Deck, e
 	// function of its seed on every machine and every replay, exactly like
 	// the engine and the bots themselves.
 	return host.Options{Dir: g.dir, LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.Cards, Sync: true, Cooldown: g.cooldown,
-		MaxDecisionsPerTurn: host.DefaultMaxDecisionsPerTurn}
+		MaxDecisionsPerTurn: host.DefaultMaxDecisionsPerTurn, DefaultBotAutoPayMana: g.botAutoPayMana,
+		MaxOnDemandTables: g.maxOnDemandTables}
 }
 
 // artCacheDir resolves where the card-art cache lives: -art-dir when set,

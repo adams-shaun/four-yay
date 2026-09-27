@@ -1,6 +1,10 @@
 package host
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestMatchSeedIsAPureFunctionOfTableSeedAndIndex(t *testing.T) {
 	t.Parallel()
@@ -21,6 +25,23 @@ func TestMatchSeedIsAPureFunctionOfTableSeedAndIndex(t *testing.T) {
 	// Pinned so a table's history cannot silently change under a refactor.
 	if got := MatchSeed(0, 1); got != 0xe220a8397b1dcdaf {
 		t.Fatalf("MatchSeed(0,1) = %#x; if the formula changed on purpose, update this pin and the sidecar goldens", got)
+	}
+}
+
+func TestNextGameIDReservesDroppedOnDemandLogDirectories(t *testing.T) {
+	dir := t.TempDir()
+	// g2 is not registered: it models an on-demand table dropped on restart.
+	// Its persisted match log must never be overwritten by a new g2/match 1.
+	if err := os.Mkdir(filepath.Join(dir, "g2"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r, err := New(Options{Dir: dir, LoadDeck: testOptions(t).LoadDeck})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = r.Close() })
+	if got := NextGameID(r); got != "g3" {
+		t.Fatalf("next id %q, want g3 after retained g2 log", got)
 	}
 }
 

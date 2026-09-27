@@ -9,25 +9,19 @@
   import { turnSide } from '../lib/autopilot';
   import { autoNoteText, isConcede, toneOf, type SeatPanelState } from '../lib/seatpanel.svelte';
   import SeatPanel from './SeatPanel.svelte';
-  import PlaySettingsPanel from './PlaySettingsPanel.svelte';
 
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
   const HOT_STRIP_CLOSE_DELAY_MS = 180;
 
-  let { view, seats, state: logic, ctx, table, match, showLog = false, onToggleLog = null }: {
+  let { view, seats, state: logic, ctx, table, match, showLog: _showLog = false, onToggleLog: _onToggleLog = null }: {
     view: View;
     seats: SeatInfo[];
     state: SeatPanelState;
     ctx: SeatCtx;
     table: string;
     match: number;
-    /** fb-20260917T231628Z: the log show/hide preference, forwarded to the
-     *  OPTIONS drop's switch (PlaySettingsPanel). Optional so every existing
-     *  caller/test renders exactly as before. */
+    /** Retained during the rail migration so existing callers stay compatible. */
     showLog?: boolean;
-    /** The switch's only write path — Table.svelte's toggleLog (the persisted
-     *  stops-contract state), never logic.editSettings. Absent/null renders no
-     *  switch, mirroring Rail's contract. */
     onToggleLog?: (() => void) | null;
   } = $props();
 
@@ -45,15 +39,45 @@
   // is null while the answer is posted/in flight, so the affordance drops
   // the moment the decision is answered.
   const awaiting = $derived(toneOf(decision));
-  const actions = $derived(
-    decision?.options.filter((o) => o.kind !== 'pass' && !isConcede(o)) ?? [],
+  // A required response is anchored to the ACTIONS control as soon as it
+  // arrives. It is not a floating board overlay, and it stays open until the
+  // answer changes the decision.
+  $effect(() => {
+    if (awaiting === 'initiative') {
+      clearClose();
+      open = 'actions';
+    }
+  });
+  // Suggested payment plans replace their ordinary cast affordance while
+  // Auto Mana is enabled. They are still real actionable choices: a priority
+  // window containing only a payable spell must not make ACTIONS look disabled.
+  const visiblePaymentActions = $derived(
+    logic.autoManaAvailable && logic.autoPayMana && decision?.kind === 'priority'
+      ? (decision.payment_actions ?? []).filter((action) => action.plans.length > 0)
+      : [],
+  );
+  const paymentBaseIndexes = $derived(new Set(visiblePaymentActions.flatMap((action) =>
+    action.base_option_index === undefined || action.base_option_index === null ? [] : [action.base_option_index],
+  )));
+  function isManualMana(option: { kind: string; label: string }): boolean {
+    return option.kind === 'activate' && / for mana$/i.test(option.label);
+  }
+  const actionCount = $derived(
+    (decision?.options.filter((option) =>
+      option.kind !== 'pass' && !isConcede(option)
+      && (!logic.autoPayMana || (!paymentBaseIndexes.has(option.index) && !isManualMana(option))),
+    ).length ?? 0) + visiblePaymentActions.length,
   );
   const passAvailable = $derived(logic.passOption !== null && !logic.busy);
   // Undo is a whole-table rollback and has no consent flow. The server is
   // authoritative, but the snapshot's human markers let the client disable
   // the control whenever this is not the sole human seat.
   const humanSeats = $derived(seats.flatMap((s, i) => s.human ? [i] : []));
-  const undoAllowed = $derived(humanSeats.length === 1 && humanSeats[0] === ctx.seat && !undoPosting);
+  // A just-clicked action has not necessarily reached the host log yet. An
+  // Undo in that interval was admitted as "nothing to undo", even though the
+  // action then landed a moment later. Wait for the shared post latch; the
+  // normal rewind frame will reset the panel and leave Undo usable again.
+  const undoAllowed = $derived(humanSeats.length === 1 && humanSeats[0] === ctx.seat && !undoPosting && !logic.busy);
   // Fast forward became End Turn (prio3): a one-shot to the end of the
   // CURRENT turn. It can only advance through a real pass option, and it
   // only makes sense on a turn the seat OWNS — arming it on the opponent's
@@ -70,11 +94,9 @@
   // an opponent turn, shift-CLICK on it is dead there (a disabled button
   // swallows clicks) — Shift+Enter still arms the skip.
   const hardSkipAvailable = $derived(passAvailable);
-  // Resolve All (prio6) is visible only while the stack is non-empty and a
-  // priority decision is pending — there is nothing to resolve through
-  // otherwise. It still needs a real pass option to post.
-  const resolveAllShown = $derived(decision !== null && decision.kind === 'priority' && view.stack.length > 0);
-  const resolveAllAvailable = $derived(resolveAllShown && passAvailable);
+  // Resolve All always owns its fixed slot. It is disabled outside a live
+  // stack priority window, so its availability never shifts the strip.
+  const resolveAllAvailable = $derived(decision !== null && decision.kind === 'priority' && view.stack.length > 0 && passAvailable);
   const runLive = $derived(logic.oneShot !== 'none');
   const doneAvailable = $derived(
     decision !== null && logic.showSubmit && logic.canSubmit && !logic.busy,
@@ -91,7 +113,6 @@
       default: return 'Done selecting';
     }
   });
-  const doneCompact = $derived(decision?.kind === 'attackers' ? 'ATTACK' : 'DONE_SELECT');
 
   function clearClose(): void {
     if (closeTimer !== null) clearTimeout(closeTimer);
@@ -102,6 +123,10 @@
     open = tab;
   }
   function scheduleClose(): void {
+    // A decision the game is waiting on must remain attached to ACTIONS.
+    // Hover is only a convenience for offered priority windows; it must never
+    // make a required answer disappear while the player moves to a choice.
+    if (awaiting === 'initiative') return;
     clearClose();
     closeTimer = setTimeout(() => {
       open = null;
@@ -109,7 +134,7 @@
     }, HOT_STRIP_CLOSE_DELAY_MS);
   }
   function escape(e: KeyboardEvent): void {
-    if (e.key !== 'Escape' || open === null) return;
+    if (e.key !== 'Escape' || open === null || awaiting === 'initiative') return;
     e.preventDefault();
     open = null;
     clearClose();
@@ -155,6 +180,7 @@
   };
   const playMode = $derived(logic.playMode);
   const playModeLabel = $derived(PLAY_MODE_LABEL[playMode] ?? 'Custom');
+  const autoStatus = $derived(logic.machinePaused ? autoNoteText(logic.note) : playModeLabel);
 
   onMount(() => {
     // The document-level hotkeys (prio3). The grammar lives in lib/hotkeys
@@ -209,23 +235,40 @@
       class="mode-chip paused"
       type="button"
       data-play-mode="paused"
+      data-auto-status
       data-auto-note
       aria-live="polite"
-      aria-label={autoNoteText(logic.note)}
-      title={autoNoteText(logic.note)}
+      aria-label={autoStatus}
+      title={autoStatus}
       onclick={() => logic.pressAuto()}
-    >Auto paused — press to resume</button>
+    ><span aria-hidden="true">AUTO</span></button>
   {:else}
     <span
       class="mode-chip"
       class:run={runLive}
       class:warning={logic.hardSkip}
       data-play-mode={playMode}
+      data-auto-status
       aria-live="polite"
-    >{playModeLabel}</span>
+      aria-label={`Auto: ${autoStatus}`}
+      title={`Auto: ${autoStatus}`}
+    ><span aria-hidden="true">AUTO</span></span>
+  {/if}
+  {#if logic.autoManaAvailable}
+  <button
+    class="mode-chip payment-toggle"
+    class:run={logic.autoPayMana}
+    type="button"
+    role="switch"
+    aria-checked={logic.autoPayMana}
+    aria-label="Auto-pay mana"
+    title="Use a suggested mana plan when casting"
+    data-auto-pay-toggle
+    onclick={() => logic.setAutoPayMana(!logic.autoPayMana)}
+  >AUTO MANA</button>
   {/if}
   <div class="hot-tab" role="presentation" onpointerenter={() => show('actions')} onpointerleave={scheduleClose} onfocusin={() => show('actions')} onfocusout={scheduleClose}>
-    <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actions.length === 0} onclick={() => show('actions')}>
+    <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actionCount === 0} onclick={() => show('actions')}>
       <span class="full">ACTIONS</span><span class="compact" aria-hidden="true">A</span>
     </button>
     <div class="drop actions" class:open={open === 'actions'} id="hot-panel-actions" data-hot-panel="actions" role="group" aria-label="Available actions">
@@ -233,7 +276,7 @@
            option list, so it stays mounted even when no action is offered.
            Hiding it in that case would also silently disable Skip Empty. -->
       <SeatPanel {view} {seats} {ctx} {table} {match} state={logic} placement="strip" />
-      {#if actions.length === 0}
+      {#if actionCount === 0}
         <p class="unavailable">No action is offered by this decision.</p>
       {/if}
     </div>
@@ -279,8 +322,7 @@
     </button>
   </div>
 
-  {#if resolveAllShown}
-    <div class="hot-tab direct" role="presentation">
+  <div class="hot-tab direct" role="presentation">
       <button
         class="tab"
         class:on={logic.resolveAll}
@@ -302,8 +344,7 @@
       >
         <span class="full">RESOLVE ALL</span><span class="compact" aria-hidden="true">RA</span>
       </button>
-    </div>
-  {/if}
+  </div>
 
   <div class="hot-tab direct" role="presentation">
     <button
@@ -336,29 +377,10 @@
       title={doneShown ? doneFull : 'This decision does not need a separate selection submit'}
       onclick={(e) => logic.submit(e.ctrlKey)}
     >
-      <span class="full">{doneFull.toUpperCase()}</span><span class="compact" aria-hidden="true">{doneCompact}</span>
+      <span>DONE</span>
     </button>
   </div>
 
-  <div class="hot-tab" role="presentation" onpointerenter={() => show('options')} onpointerleave={scheduleClose} onfocusin={() => show('options')} onfocusout={scheduleClose}>
-    <button class="tab" type="button" data-hot-tab="options" aria-label="Options" aria-haspopup="true" aria-expanded={open === 'options'} aria-controls="hot-panel-options" onclick={() => show('options')}>
-      <span class="full">OPTIONS</span><span class="compact" aria-hidden="true">OPTS</span>
-    </button>
-    <div class="drop game" class:open={open === 'options'} id="hot-panel-options" data-hot-panel="options" role="group" aria-label="Options">
-      <!-- The whole play-settings model, edited in place (prio4): preset
-           picker, auto pass, opponent-object rules, step-stop grid, pacing
-           and logs. Bound to the seat panel's settings object, so every
-           change lands in it (persisted, preset relabelled) through the
-           same write path decide() reads. -->
-      <!-- The log show/hide switch (fb-20260917T231628Z) rides the Layout
-           section: it is a display preference owned by Table.svelte
-           (logshown.ts persistence), NOT a PlaySettings field, so it is
-           threaded as props with its own write path and the drop renders it
-           only when a toggle is actually supplied. -->
-      <PlaySettingsPanel state={logic} {showLog} {onToggleLog} />
-      <p class="note">{autoNoteText(logic.note)}</p>
-    </div>
-  </div>
 </div>
 
 <style>
@@ -453,6 +475,9 @@
      The undo pause uses the offered colour and a pointer because this chip is
      also the always-visible resume control. */
   .mode-chip {
+    box-sizing: border-box;
+    justify-content: center;
+    width: 5.25rem;
     display: flex;
     align-items: center;
     padding: 0 var(--sp-2);
@@ -507,7 +532,6 @@
     visibility: visible;
     pointer-events: auto;
   }
-  .drop.game { width: min(34rem, calc(100vw - var(--sp-4))); }
   .actions :global(.seat-panel.strip) {
     width: 100%;
     min-width: 0;

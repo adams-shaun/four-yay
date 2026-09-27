@@ -42,13 +42,23 @@ func TestRevealChosenCostHeadsParse(t *testing.T) {
 			t.Fatalf("ParseCost(%q).RevealChosen = %+v, want one %q part", tc.src, c.RevealChosen, tc.spec)
 		}
 	}
-	// The near-miss heads stay on the reported fallback: they are separate
-	// machinery (an either-or election, and an exile-reveal referent), so a
-	// future parser must not quietly treat them as a designation reveal.
-	for _, src := range []string{"RevealOrChoose<1/Dragon>", "RevealFromExile<1/Creature.YouOwn>"} {
-		if c := ParseCost(src); len(c.RevealChosen) != 0 || c.Generic != 1 {
-			t.Fatalf("ParseCost(%q) = generic %d, revealChosen %v; want the reported one-generic fallback", src, c.Generic, c.RevealChosen)
-		}
+	// Neither near-miss head is a designation reveal: neither may produce a
+	// RevealChosen part. RevealOrChoose<1/Dragon> (Dragon's Fire) is now
+	// modelled -- as an ORDINARY reveal cost, the either-or cost's reveal
+	// branch, priced with no generic substitution and no Unknown census entry
+	// (agent-20260925T025423Z-461c879a, which re-pins this loop: the original
+	// one-generic-fallback pin here predated that grammar and contradicted
+	// Monstrous Emergence's brief-mandated reveal branch). The full pricing
+	// pin is TestMonstrousEmergenceRevealOrChooseParsesAsARevealCost; here the
+	// assertion is only that the designation-reveal machinery stays out.
+	if c := ParseCost("RevealOrChoose<1/Dragon>"); len(c.RevealChosen) != 0 || c.Generic != 0 || len(c.Unknown) != 0 {
+		t.Fatalf("ParseCost(RevealOrChoose<1/Dragon>) = generic %d, revealChosen %v, unknown %v; want the modelled reveal branch, not the fallback", c.Generic, c.RevealChosen, c.Unknown)
+	}
+	// RevealFromExile<1/Creature.YouOwn> is an exile-reveal referent, not a
+	// paid hand card, and no grammar reads it: it stays on the reported
+	// one-generic fallback.
+	if c := ParseCost("RevealFromExile<1/Creature.YouOwn>"); len(c.RevealChosen) != 0 || c.Generic != 1 {
+		t.Fatalf("ParseCost(RevealFromExile<1/Creature.YouOwn>) = generic %d, revealChosen %v; want the reported one-generic fallback", c.Generic, c.RevealChosen)
 	}
 }
 

@@ -1131,3 +1131,54 @@ func TestDeckLoaderSeatsEveryCommander(t *testing.T) {
 		t.Fatalf("deckLoader seated %v, want both partners [0 1]", d.Commanders)
 	}
 }
+
+func TestServeFlagBotAutoManaDefaultsOnAndReachesStartupTables(t *testing.T) {
+	fs, c := serveFlags()
+	if err := fs.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
+	if !c.botAutoPayMana {
+		t.Fatal("-bot-auto-mana defaults off: served bot tables would use manual taps")
+	}
+	c.tables, c.seats = 2, 2
+	cfgs := c.tableConfigs(nil, nil, view.Omniscient)
+	for _, cfg := range cfgs {
+		if !cfg.BotAutoPayMana {
+			t.Fatalf("startup table %s omitted bot auto mana: %+v", cfg.ID, cfg)
+		}
+	}
+	if err := fs.Parse([]string{"-bot-auto-mana=false"}); err != nil {
+		t.Fatal(err)
+	}
+	if c.botAutoPayMana {
+		t.Fatal("-bot-auto-mana=false was ignored")
+	}
+}
+
+func TestServeFlagAutoManaDefaultsOnAndFalseRestoresLegacyTables(t *testing.T) {
+	fs, c := serveFlags()
+	if err := fs.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
+	if !c.autoMana {
+		t.Fatal("-auto-mana defaults off: served tables would not publish the enabled payment-plan UI")
+	}
+	c.tables, c.seats = 2, 2
+	for _, cfg := range c.tableConfigs(nil, nil, view.Omniscient) {
+		if !cfg.AutoMana {
+			t.Fatalf("startup table %s omitted auto mana: %+v", cfg.ID, cfg)
+		}
+	}
+	fs, c = serveFlags()
+	if err := fs.Parse([]string{"-auto-mana=false"}); err != nil {
+		t.Fatal(err)
+	}
+	if c.autoMana {
+		t.Fatal("-auto-mana=false was ignored")
+	}
+	for _, cfg := range c.tableConfigs(nil, nil, view.Omniscient) {
+		if cfg.AutoMana {
+			t.Fatalf("startup table %s did not restore the legacy manual path: %+v", cfg.ID, cfg)
+		}
+	}
+}

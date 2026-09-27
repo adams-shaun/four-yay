@@ -68,6 +68,24 @@ var addedAfterTheSplit = []string{
 	// the K:Exploit expansion emits, which was appended for it, so the mode
 	// could not have been in the pre-split switch.
 	"Exploited",
+	// clash1: "Whenever you win/lose a clash ..." (CR 701.31: Marvo, Deep
+	// Operative; Entangling Trap; Rebellion of the Flamekin; Sylvan Echoes --
+	// 6 raw lines / 4 files at the pin). It matches the events.Clash marker
+	// Kind effClash emits (one per clashing player), appended for it, so it
+	// could not have been in the pre-split switch.
+	"Clashed",
+	// planar-verbs: "Whenever chaos ensues" (CR 901.9; 139 corpus files at
+	// the pin, every plane card's chaos ability). It matches the
+	// events.ChaosEnsues marker the planar-dice roll dispatch and the DB$
+	// ChaosEnsues verb emit, appended for it, so it could not have been in
+	// the pre-split switch.
+	"ChaosEnsues",
+	// planar-verbs: "When you planeswalk to CARDNAME" (CR 901.8; 46 corpus
+	// files) and "When you planeswalk away from CARDNAME" (6 corpus files).
+	// They match the events.PlanarWalk event's arriving/departing planes; no
+	// new event Kind was needed, but neither mode existed in the pre-split
+	// switch, so they could not have been dispatched there.
+	"PlaneswalkedTo", "PlaneswalkedFrom",
 	// manaexpend1: "Whenever you expend N ..." (the Bloomburrow Commander
 	// expend keyword: Teapot Slinger, Trailtracker Scout, Wandertale Mentor,
 	// Pyreswipe Hawk and 8 more corpus carriers). It matches rules/cast.go's
@@ -75,6 +93,10 @@ var addedAfterTheSplit = []string{
 	// on the caster's battlefield, so no new event Kind was needed -- but the
 	// mode is new to the table, so it lands here.
 	"ManaExpend",
+	// specialize-alternate-mode-layer-unparsed: Specializes matches the newly
+	// appended events.Specialize transition; the pre-split switch could not
+	// dispatch an event kind that did not exist.
+	"Specializes",
 	// kw-class: "When this Class becomes level N" (CR 702.118c; 13 corpus
 	// TriggerClassLevel SVar bodies). It matches the ordinary CounterChange
 	// event the level-up activator's PutCounter emits, so the event existed
@@ -207,6 +229,17 @@ var addedAfterTheSplit = []string{
 	// ordinary counter addition is not a proliferate action), so it could not
 	// have been in the pre-split switch.
 	"Proliferate",
+	// trig:BecomesTargetOnce (task agent-20260919T192459Z-2d5505d7):
+	// Forge's TriggerBecomesTargetOnce, the BATCH sibling of Mode$
+	// BecomesTarget ("whenever one or more creatures you control become the
+	// target of an activated ability", Professor Hojo; Leyline of Combustion;
+	// Psychic Battle). It matches the pre-existing events.TargetsChosen the
+	// per-target sibling already matches -- no new event Kind -- but the
+	// pre-split switch had only a BecomesTarget arm, so a Mode$
+	// BecomesTargetOnce line fell off its end and never fired; the batch
+	// cadence it needs (one instance per targeting ACTION) rides the
+	// queue-time target-batch latch (rules/trigger_match.go).
+	"BecomesTargetOnce",
 	// foretell-trig (task agent-20260923T032009Z-3b9d3432): "Whenever you
 	// foretell a card, ..." (CR 702.126b; Dream Devourer, the corpus's sole
 	// carrier at the pin -- measured

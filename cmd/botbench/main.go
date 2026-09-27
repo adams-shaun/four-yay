@@ -142,7 +142,14 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	// covariance: a func returning *Bot is not assignable to one returning
 	// seat.Seat, and the wrapper keeps a future policy free to return any
 	// Seat implementation.
-	"bot":             hostedPolicy(host.BotPolicy),
+	"bot": hostedPolicy(host.BotPolicy),
+	// bot-auto-pay is the hosted default policy with the payment-plan
+	// adapter enabled.  It is deliberately a separate bench name: comparing
+	// it with "bot" measures the distribution change from atomic mana
+	// payment without pretending the existing cast ranker was retrained.
+	"bot-auto-pay": func(seed uint64) seat.Seat {
+		return seat.NewBot(seed).EnableAutoPayMana()
+	},
 	"lethal-pressure": hostedPolicy(host.LethalPressurePolicy),
 	// ar8 is the combined-attacker lethal-pressure experiment (AR7's
 	// per-attacker test plus the attacking-SET subset search). It is

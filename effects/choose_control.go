@@ -15,6 +15,8 @@ func init() {
 	Register("ChoosePlayer", effChoosePlayer)
 	Register("ChooseSource", effChooseSource)
 	Register("GainControl", effGainControl)
+	Register("GainControlVariant", effGainControlVariant)
+	Register("ExchangeControl", effExchangeControl)
 	Register("ControlSpell", effControlSpell)
 	Register("ChangeTargets", effChangeTargets)
 	Register("RepeatEach", effRepeatEach)
@@ -485,7 +487,14 @@ func chooseEachPool(g *state.Game, c *Ctx, pool []state.Target, chooser state.Pl
 func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	choosers := chooseCardChoosers(h, c, sa)
 	selection := *c // candidate filters read the pre-clear remembered set
+	initForgetOtherSnapshot(h, c, sa, choosers, 2)
 	forgetOtherRemembered(h, c, sa)
+	if c.ForgetOtherReady {
+		// The snapshot is authoritative across the asks: a resumed chooser's
+		// pool must still match the pre-clear candidates (plus anything
+		// re-remembered since) after the first move cleared the live set.
+		selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.ForgetOtherSnapshot...)
+	}
 	// Reveal$ True (Planetary Annihilation's "each player chooses six lands
 	// they keep" is public knowledge — CR 701.x's open choice): each chooser's
 	// ANSWERED choice is revealed to every seat with the same ids-Note
@@ -602,6 +611,12 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.Params["ChoiceTitle"]}
+		// The ForgetOtherRemembered$ pre-clear snapshot rides the ask: a later
+		// chooser's pool (the cardChoices read above re-runs on every resumed
+		// pass) still matches the pre-clear candidates after the clear.
+		d.ResumeForgetOtherSnapshot = copyTargets(c.ForgetOtherSnapshot)
+		d.ResumeForgetOtherOwners = append([]state.PlayerID(nil), c.ForgetOtherOwners...)
+		d.ResumeForgetOtherReady, d.ResumeForgetOtherCleared = c.ForgetOtherReady, c.ForgetOtherCleared
 		if hasBudget {
 			d.MaxSum, d.Budgeted = int(budget), true
 		}
@@ -633,6 +648,9 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			emitChosenReveal(h, chooser, recorded)
 		}
 	}
+	// The walk completed: release the ride (the same boundary the search and
+	// hidden walks end at), so a later ability in the chain cannot inherit it.
+	endForgetOtherSnapshot(c)
 }
 
 // chooseCardPower is the offered card's current power -- the WithTotalPower$
@@ -1192,6 +1210,309 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 }
+
+// effGainControlVariant implements Forge's GainControlVariant: a batch
+// control effect that takes no target and enumerates every battlefield
+// permanent matching AllValid$, handing each to the player ChangeController$
+// names. The corpus values fall into three shapes:
+//
+//   - CardOwner (Alicia Masters, Trostani Discordant, Homeward Path, ...):
+//     each player gains control of all permanents they own.
+//   - Random (Scrambleverse): a random LIVING player is chosen for each
+//     matching permanent, then each chosen player gains it.
+//   - a player-selection hand-off directed by ChooseDirection or by a fixed
+//     neighbour: ChooseFromPlayerToTheirRight (Inniaz, the Gale Force),
+//     NextPlayerInChosenDirection (Aminatou, the Fateshifter's [-6]) and
+//     ChooseNextPlayerInChosenDirection (Order of Succession).
+//
+// An unrecognised value is a loud Note and no transfer, the fail-closed
+// direction: applying CardOwner for an unmodelled value would hand every
+// permanent to its owner, a different and WRONG result.
+func effGainControlVariant(h Host, c *Ctx, sa *cards.SA) {
+	g := h.Game()
+	change := strings.TrimSpace(sa.Params["ChangeController"])
+	switch {
+	case strings.EqualFold(change, "CardOwner"):
+		gainControlVariantCardOwner(h, c, sa, g)
+	case strings.EqualFold(change, "Random"):
+		gainControlVariantRandom(h, c, sa, g)
+	case strings.EqualFold(change, "ChooseFromPlayerToTheirRight"):
+		gainControlVariantInniaz(h, c, sa, g)
+	case strings.EqualFold(change, "NextPlayerInChosenDirection"):
+		gainControlVariantAminatou(h, c, sa, g)
+	case strings.EqualFold(change, "ChooseNextPlayerInChosenDirection"):
+		gainControlVariantOrder(h, c, sa, g)
+	default:
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "GainControlVariant ChangeController$ " + change + " unimplemented"})
+	}
+}
+
+// gainControlVariantBase validates the AllValid$/LoseControl$ shape every
+// value shares and builds the grant template each object's transfer fills in.
+func gainControlVariantBase(h Host, c *Ctx, sa *cards.SA, g *state.Game) (string, ControlGrant, bool) {
+	spec := strings.TrimSpace(sa.Params["AllValid"])
+	if spec == "" {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "GainControlVariant has no AllValid$ filter"})
+		return "", ControlGrant{}, false
+	}
+	dur, unknown := ParseControlDuration(sa.Params["LoseControl"])
+	if unknown != "" {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControlVariant LoseControl$ " + unknown + " unimplemented"})
+		return "", ControlGrant{}, false
+	}
+	base := ControlGrant{You: c.Controller, Source: c.Source, Duration: dur, SVars: c.SVars,
+		AddKeywords: cards.SplitKeywordList(sa.Params["AddKWs"])}
+	if src := g.Obj(c.Source); src != nil && src.Zone == state.ZBattlefield {
+		base.SourceStamp = src.Timestamp
+	}
+	return spec, base, true
+}
+
+// gainControlVariantObjects lists the battlefield permanents matching spec in
+// deterministic arena order. When anyController is false only permanents
+// controlled by ctrl are returned.
+func gainControlVariantObjects(g *state.Game, c *Ctx, spec string, ctrl state.PlayerID, anyController bool) []state.ObjID {
+	sc := c.SpecContext(c.Controller)
+	var out []state.ObjID
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if o.Zone != state.ZBattlefield {
+			continue
+		}
+		if !anyController && o.Controller != ctrl {
+			continue
+		}
+		if MatchesObjectCtx(g, spec, o, sc) {
+			out = append(out, o.ID)
+		}
+	}
+	return out
+}
+
+// gainControlVariantApply is the ONE control-transfer site every variant
+// uses: it emits the ControlChange only on a visible move and registers the
+// grant. A permanent already under the new controller still gets the grant
+// record (CR 613.7: the newest control effect becomes the latest), the
+// CardOwner contract.
+func gainControlVariantApply(h Host, base ControlGrant, o *state.Object, to state.PlayerID) {
+	gr := base
+	gr.Obj, gr.ObjStamp, gr.Previous, gr.Controller = o.ID, o.Timestamp, o.Controller, to
+	if ControlGrantEnded(h, gr) {
+		return
+	}
+	if o.Controller != to {
+		h.Emit(events.Event{Kind: events.ControlChange, Obj: o.ID, Player: to})
+	}
+	h.RegisterControl(gr)
+}
+
+// gainControlVariantCardOwner implements ChangeController$ CardOwner.
+func gainControlVariantCardOwner(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	// The dense object arena is creation order, so the walk (and therefore
+	// the emitted ControlChange sequence and its ControlGrant records) is
+	// deterministic across a replay.
+	for _, id := range gainControlVariantObjects(g, c, spec, 0, true) {
+		o := g.Obj(id)
+		if o == nil || o.Zone != state.ZBattlefield {
+			continue
+		}
+		// The effect is applied to EVERY matching permanent, including one
+		// its owner already controls (CR 613.7); only a visible change of
+		// controller emits the ControlChange event.
+		gainControlVariantApply(h, base, o, o.Owner)
+	}
+}
+
+// gainControlVariantRandom implements ChangeController$ Random
+// (Scrambleverse): one random LIVING player per matching permanent, drawn
+// from the seeded host generator BEFORE any transfer, so the resulting
+// ControlChange sequence replays identically.
+func gainControlVariantRandom(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	alive := g.AliveFrom(0)
+	if len(alive) == 0 {
+		return
+	}
+	objs := gainControlVariantObjects(g, c, spec, 0, true)
+	picks := make([]state.PlayerID, len(objs))
+	for i := range objs {
+		picks[i] = alive[h.Rand(len(alive))]
+	}
+	// Scrambleverse's SubAbility$ DBUntap runs after this returns, through
+	// Resolve's ordinary sa.Sub walk -- including a permanent whose random
+	// pick left its controller unchanged.
+	for i, id := range objs {
+		if o := g.Obj(id); o != nil && o.Zone == state.ZBattlefield {
+			gainControlVariantApply(h, base, o, picks[i])
+		}
+	}
+}
+
+// gainControlVariantInniaz implements ChangeController$
+// ChooseFromPlayerToTheirRight (Inniaz, the Gale Force): for EVERY player,
+// the effect's controller chooses one matching permanent controlled by the
+// player to that player's right, and that player gains it. The chooser is the
+// caster for every recipient -- the shape that distinguishes Inniaz from
+// Order of Succession below, where each recipient chooses for themself.
+func gainControlVariantInniaz(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	recipients := g.AliveFrom(c.Controller)
+	gainControlVariantAskLoop(h, c, sa, base, recipients,
+		func(state.PlayerID) state.PlayerID { return c.Controller },
+		func(R state.PlayerID) []state.ObjID {
+			right, ok := gainControlNeighbor(g, R, directionRight)
+			if !ok {
+				return nil
+			}
+			return gainControlVariantObjects(g, c, spec, right, false)
+		},
+		"Choose a nonland permanent controlled by the player to that player's right")
+}
+
+// gainControlVariantAminatou implements ChangeController$
+// NextPlayerInChosenDirection (Aminatou, the Fateshifter's [-6]): each player
+// gains control of all matching permanents controlled by the next player in
+// the chosen direction. Every recipient's pool is read from the PRE-transfer
+// controllers and the transfers are applied afterwards, so two recipients can
+// never be offered the same permanent once control has moved.
+func gainControlVariantAminatou(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	dir, ok := gainControlVariantDirection(h, c, sa)
+	if !ok {
+		return
+	}
+	type transfer struct {
+		id state.ObjID
+		to state.PlayerID
+	}
+	var gains []transfer
+	for _, R := range g.AliveFrom(0) {
+		next, ok := gainControlNeighbor(g, R, dir)
+		if !ok {
+			continue
+		}
+		for _, id := range gainControlVariantObjects(g, c, spec, next, false) {
+			gains = append(gains, transfer{id: id, to: R})
+		}
+	}
+	for _, tr := range gains {
+		if o := g.Obj(tr.id); o != nil && o.Zone == state.ZBattlefield {
+			gainControlVariantApply(h, base, o, tr.to)
+		}
+	}
+}
+
+// gainControlVariantOrder implements ChangeController$
+// ChooseNextPlayerInChosenDirection (Order of Succession): starting with the
+// caster and proceeding in the chosen direction, each player chooses one
+// matching permanent controlled by the next player in that direction, and
+// gains it. Each recipient is its OWN chooser.
+func gainControlVariantOrder(h Host, c *Ctx, sa *cards.SA, g *state.Game) {
+	spec, base, ok := gainControlVariantBase(h, c, sa, g)
+	if !ok {
+		return
+	}
+	dir, ok := gainControlVariantDirection(h, c, sa)
+	if !ok {
+		return
+	}
+	recipients := gainControlDirectionRing(g, c.Controller, dir)
+	gainControlVariantAskLoop(h, c, sa, base, recipients,
+		func(R state.PlayerID) state.PlayerID { return R },
+		func(R state.PlayerID) []state.ObjID {
+			next, ok := gainControlNeighbor(g, R, dir)
+			if !ok {
+				return nil
+			}
+			return gainControlVariantObjects(g, c, spec, next, false)
+		},
+		"Choose a permanent controlled by the next player in the chosen direction")
+}
+
+// gainControlVariantAskLoop runs the ordered per-recipient choice loop the
+// Inniaz and Order shapes share. For each recipient with at least one
+// eligible permanent, chooserFor names who picks (the caster for Inniaz, the
+// recipient for Order) and poolFor lists that recipient's eligible
+// permanents. A recipient with no eligible permanent is skipped with a
+// positional empty pick so the cursor stays aligned with recipients.
+//
+// The picks are gathered across every ask BEFORE any transfer is applied, so
+// an earlier hand-off cannot change a later recipient's pool; a suspension
+// carries the cursor (Decision.ResumeTarget) and the picks so far
+// (Decision.ResumeChoices) across the answer.
+func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
+	recipients []state.PlayerID,
+	chooserFor func(state.PlayerID) state.PlayerID,
+	poolFor func(state.PlayerID) []state.ObjID,
+	prompt string) {
+	i := c.ChoiceTarget
+	var picks []state.Target
+	if c.ChoiceDone {
+		// The answered re-entry: the "choice" resume arm put the answered
+		// option in Ctx.Choice and the picks gathered before the ask in
+		// Ctx.Chosen (carried via ResumeChoices).
+		picks = append([]state.Target(nil), c.Chosen...)
+		if len(c.Choice) > 0 {
+			picks = append(picks, c.Choice[0])
+		} else {
+			picks = append(picks, state.Target{})
+		}
+		c.ChoiceDone, c.Choice = false, nil
+		i++
+	} else if i > 0 {
+		picks = append([]state.Target(nil), c.Chosen...)
+	}
+	for ; i < len(recipients); i++ {
+		pool := poolFor(recipients[i])
+		if len(pool) == 0 {
+			picks = append(picks, state.Target{})
+			continue
+		}
+		if len(pool) == 1 {
+			picks = append(picks, state.Target{Obj: pool[0]})
+			c.Chosen = picks
+			continue
+		}
+		chooser := chooserFor(recipients[i])
+		c.ChoiceTarget, c.Chosen = i, picks
+		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
+			Source: c.Source, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i,
+			ResumeChoices: append([]state.Target(nil), picks...), Prompt: prompt}
+		for j, id := range pool {
+			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: id, Player: chooser})
+		}
+		if Ask(h, d) == AskAsked {
+			return
+		}
+		picks = append(picks, state.Target{Obj: pool[0]})
+		c.Chosen = picks
+	}
+	for k, R := range recipients {
+		if k >= len(picks) || picks[k].Obj == 0 {
+			continue
+		}
+		if o := h.Game().Obj(picks[k].Obj); o != nil && o.Zone == state.ZBattlefield {
+			gainControlVariantApply(h, base, o, R)
+		}
+	}
+	c.ChoiceTarget = 0
+}
+
 func effControlSpell(h Host, c *Ctx, sa *cards.SA) {
 	// Mode$ (Commandeer's "Gain"): what the control transfer targets. "Gain"
 	// — the corpus's only value — takes control of the target SPELL on the
@@ -1597,19 +1918,24 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	}); ok {
 		zoneBatcher = z
 	}
-	firstPass := true
 	if cur := c.Repeat; cur != nil && cur.SA == sa {
 		// Re-entry after an iteration suspended: continue with the subjects
 		// the loop started with, after the one that asked, and keep what the
 		// completed iteration remembered.
 		c.Repeat = nil
-		subjects, start, firstPass = cur.Subjects, cur.Next, false
+		subjects, start = cur.Subjects, cur.Next
 		if cur.HasLast && start > 0 && start <= len(subjects) {
 			prev := subjects[start-1]
 			c.Remembered = rememberIteration(c.Remembered, cur.Last, iterationBase(c, prev), prev)
 		}
 	} else {
 		var ok bool
+		// cardsSubjects is true only when the subjects came from Forge's
+		// repeatCards list (RepeatCards$/DefinedCards$): ChooseOrder$ orders
+		// that list and only that list. The RepeatPlayers$,
+		// RepeatSpellAbilities$ and RepeatTargeted$ loops are never ordered in
+		// Forge, so the ask is gated on this flag.
+		var cardsSubjects bool
 		switch {
 		case sa.Params["RepeatPlayers"] != "":
 			var ps []state.PlayerID
@@ -1623,40 +1949,94 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 			subjects, ok = copyTargets(c.Targets), true
 		default:
 			subjects, ok = repeatedCards(h, c, sa)
+			cardsSubjects = true
 		}
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "RepeatEach selector unimplemented"})
 			return
 		}
-	}
-	// ClearRememberedBeforeLoop$ applies after selecting the subjects but only
-	// on the first pass: a resumed iteration must retain what prior iterations
-	// remembered. Thus RepeatPlayers$ Remembered can form its subject set while
-	// the body starts without the temporary chooser bindings.
-	if firstPass && strings.EqualFold(strings.TrimSpace(sa.Params["ClearRememberedBeforeLoop"]), "True") {
-		c.Remembered = nil
-	}
-	if batched && firstPass && batcher != nil {
-		batcher.BeginDamageBatch()
-	}
-	if zoneTable && firstPass && zoneBatcher != nil {
-		zoneBatcher.BeginZoneBatch()
-	}
-	// ClearRememberedBeforeLoop$ True (Forge's RepeatEachEffect: "clear the
-	// host's remembered list before the loop"): drop the resolving spell or
-	// ability's accumulated Remembered before the FIRST iteration body runs,
-	// so a chain's earlier remembered players/cards do not leak into the
-	// loop's iterations. Corpus carriers: Seize the Spotlight (clear the
-	// GenericChoice's remembered choosers before walking the notated players),
-	// Master of Ceremonies, Enter the Dungeon, Shahrazad. It is applied ONCE,
-	// on the first pass only: a resume after a mid-loop suspension must keep
-	// what the completed iterations remembered. It is applied AFTER the
-	// subject selector resolves, so `RepeatPlayers$ Remembered` (a real
-	// selector in the corpus) still sees the remembered set it names -- the
-	// clear is a loop-hygiene bound on the iteration bodies, not on the
-	// loop's own subject derivation.
-	if firstPass && strings.EqualFold(strings.TrimSpace(sa.Params["ClearRememberedBeforeLoop"]), "True") {
-		c.Remembered = nil
+		// The loop's first-pass setup runs HERE, before the ChooseOrder$ ask
+		// below: the answered ask re-enters the SA with a Repeat cursor, so
+		// this else is never taken again and any first-pass-only step that
+		// stayed after the ask would never run for a hosted ordering loop.
+		// Measured otherwise-broken carrier: Ezuri's Predation carries BOTH
+		// ChooseOrder$ and ChangeZoneTable$ -- with the zone bracket opened
+		// after the ask, its ChangesZoneAll batching silently became
+		// per-move. The clear is likewise ordered before the ask so the ask's
+		// suspension (and thus the re-entered loop) binds the post-clear
+		// Remembered.
+		// ClearRememberedBeforeLoop$ True (Forge's RepeatEachEffect: "clear the
+		// host's remembered list before the loop"): drop the resolving spell or
+		// ability's accumulated Remembered before the FIRST iteration body runs,
+		// so a chain's earlier remembered players/cards do not leak into the
+		// loop's iterations. Corpus carriers: Seize the Spotlight (clear the
+		// GenericChoice's remembered choosers before walking the notated players),
+		// Master of Ceremonies, Enter the Dungeon, Shahrazad. It is applied ONCE,
+		// on the first pass only: a resume after a mid-loop suspension must keep
+		// what the completed iterations remembered. It is applied AFTER the
+		// subject selector resolves, so `RepeatPlayers$ Remembered` (a real
+		// selector in the corpus) still sees the remembered set it names -- the
+		// clear is a loop-hygiene bound on the iteration bodies, not on the
+		// loop's own subject derivation.
+		if strings.EqualFold(strings.TrimSpace(sa.Params["ClearRememberedBeforeLoop"]), "True") {
+			c.Remembered = nil
+		}
+		// The damage/zone brackets open around the WHOLE loop (see the
+		// DamageMap$/ChangeZoneTable$ comments above for the Forge semantics).
+		// Opened only here, on the first pass -- a mid-loop suspension (the
+		// ordering ask included) leaves the engine's open batch intact across
+		// the resume, and the re-entry pass closes it when the loop completes,
+		// so the bracket is balanced however many resumes interleave.
+		if batched && batcher != nil {
+			batcher.BeginDamageBatch()
+		}
+		if zoneTable && zoneBatcher != nil {
+			zoneBatcher.BeginZoneBatch()
+		}
+		// ChooseOrder$ (Forge RepeatEachEffect.resolve): when the repeatCards
+		// list has more than one entry, the chooser orders it BEFORE the loop
+		// runs, and the loop then processes that order. `True` means the
+		// resolving controller chooses; any other value names a defined player
+		// (Aetherspouts/Chaotic Transformation `ChooseOrder$ RememberedPlayer`).
+		// The ask is posed once, on the first pass, before any body: the
+		// answer permutes the loop cursor's subject slice, so every later
+		// iteration -- and every mid-loop suspension -- carries the chosen
+		// order and the subjects are never re-derived or re-sorted. Subjects
+		// are NOT silently sorted: the offered list is the selector/scan order
+		// and the answer names a permutation of it. A no-host host (R-9) keeps
+		// that scan order as its deterministic stand-in.
+		if cardsSubjects && len(subjects) > 1 && strings.TrimSpace(sa.Params["ChooseOrder"]) != "" {
+			chooser := c.Controller
+			if !strings.EqualFold(strings.TrimSpace(sa.Params["ChooseOrder"]), "True") {
+				if ps := definedPlayerIDs(h, c, strings.TrimSpace(sa.Params["ChooseOrder"])); len(ps) > 0 {
+					chooser = ps[0]
+				}
+			}
+			d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+				Min: len(subjects), Max: len(subjects), Source: c.Source,
+				ResumeKind: "repeat_choose_order", ResumeSA: sa,
+				Prompt: "Choose the order the repeated ability processes these in"}
+			for i, t := range subjects {
+				o := decision.Option{Index: i, Kind: "order", Player: PlayerOf(h, c, t)}
+				if t.IsPlayer {
+					o.Label = "player " + strconv.Itoa(int(t.Player))
+				} else if obj := h.Game().Obj(t.Obj); obj != nil && obj.Face() != nil {
+					o.Obj, o.Label = t.Obj, obj.Face().Name
+				}
+				d.Options = append(d.Options, o)
+			}
+			if Ask(h, d) == AskAsked {
+				h.SuspendRepeat(RepeatSuspension{
+					RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: 0, ChooseOrder: true},
+					Body:         copyTargets(c.Remembered),
+					Outer:        copyTargets(c.Remembered),
+					Chosen:       copyTargets(c.Chosen),
+					ChosenValid:  c.ChosenValid,
+					VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
+				})
+				return
+			}
+		}
 	}
 	// RepeatOptionalForEachPlayer$ True (Tempting Contract, the Tempt cycle,
 	// Zagorka): each subject of the loop is offered its own yes/no election

@@ -110,6 +110,18 @@ func compilePredicateProgram(spec string) predicateProgram {
 		base, rest, _ := strings.Cut(alt, ".")
 		compiledBase, ok := compilePredicateBase(base)
 		a := predicateAlternative{base: compiledBase, baseMaybe: !ok}
+		// Forge's base-qualified Spell.IsTargeting form is never lowered to
+		// sidecar terms: its whole argument is a target spec, so splitting it
+		// at '+' would evaluate the target-side conjunction against the
+		// candidate. baseMaybe forces a Maybe answer, which leaves the shared
+		// compiled/textual matcher (compiledMatch) authoritative for the
+		// alternative -- including an argument this grammar cannot answer,
+		// which that path fails closed.
+		if _, _, shape := spellIsTargetingShape(base, rest); shape {
+			a.baseMaybe = true
+			p.alternatives = append(p.alternatives, a)
+			continue
+		}
 		for term := range strings.SplitSeq(rest, "+") {
 			if term == "" {
 				continue

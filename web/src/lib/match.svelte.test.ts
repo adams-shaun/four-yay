@@ -442,6 +442,22 @@ describe('MatchState rewind', () => {
     await drain();
     expect(m.view).toEqual(view(5));
   });
+
+  it('recognises a shorter reconnect snapshot as a rewind', async () => {
+    fetchViewMock.mockReset();
+    fetchEventsMock.mockReset();
+    const m = new MatchState('t1');
+    m.apply({ v: 1, t: 'snapshot', table: 't1', match: 1, seq: 20, body: { view: view(20), turn_starts: [0, 10], head: 20, seats } });
+    m.apply({ v: 1, t: 'decision', table: 't1', match: 1, seq: 20, body: { player: 0, kind: 'priority', prompt: 'act' } });
+
+    // An SSE reconnect starts from a snapshot. If the rewind frame was lost,
+    // this is the only evidence the browser has that its old seq space died.
+    const rewound = m.apply({ v: 1, t: 'snapshot', table: 't1', match: 1, seq: 5, body: { view: view(5), turn_starts: [0], head: 5, seats } });
+    expect(rewound).toBe(true);
+    expect(m.decision).toBeNull();
+    expect(m.view).toEqual(view(5));
+    expect(m.dvr).toMatchObject({ head: 5, cursor: 5, live: true, events: [], turnStarts: [0] });
+  });
 });
 
 describe('overflow recovery', () => {

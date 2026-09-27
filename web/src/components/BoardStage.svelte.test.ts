@@ -124,6 +124,10 @@ describe('BoardStage — the phase band is a reserved lane', () => {
     const page = await browser.newPage({ viewport: { width: 1000, height: 900 } });
     await page.goto(`${url}src/components/PhaseLane.geometry.html?seats=2`);
     const tabs = page.locator('[data-hot-tab]');
+    // Six fixed tabs: ACTIONS, PASS, END TURN, RESOLVE ALL, UNDO and DONE.
+    // RESOLVE ALL owns its slot unconditionally since 7022042e6 (disabled
+    // outside a live-stack priority window), so it is counted here even
+    // though the fixture carries an empty stack.
     await expect.poll(() => tabs.count()).toBe(6);
     const count = await tabs.count();
     for (let i = 0; i < count; i++) await expect.soft(tabs.nth(i).getAttribute('aria-label')).resolves.toBeTruthy();
@@ -212,6 +216,19 @@ describe('BoardStage — the phase band is a reserved lane', () => {
       expect.soft(measured.escaping, `${width}x${height}: nothing drawn outside the slot`).toBe(0);
       await page.close();
     }
+  });
+
+  it('caps opening-hand cards at the shared gameplay scale', async () => {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(`${url}src/components/OpeningHand.geometry.html?cards=3`);
+    const widths = await page.locator('[data-opening-hand] .card-image').evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().width)),
+    );
+    // --play-card-w is 104px. A spacious opening hand must use that same
+    // gameplay scale instead of the old fixed 220px modal-card scale.
+    expect(widths).toHaveLength(3);
+    expect(Math.max(...widths)).toBeLessThanOrEqual(104);
+    await page.close();
   });
 
   it('PASS is unavailable without a pass option and posts a non-positional pass by its wire index', async () => {

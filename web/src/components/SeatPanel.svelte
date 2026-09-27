@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, onDestroy, untrack } from 'svelte';
-  import type { CardView, Option, SeatInfo, View } from '../protocol';
+  import type { CardView, Option, PaymentAction, SeatInfo, View } from '../protocol';
   import type { SeatCtx } from '../lib/seat';
-  import { SeatPanelState, autoNoteText, isConcede, mulliganPhase, toneOf } from '../lib/seatpanel.svelte';
+  import { SeatPanelState, autoNoteText, isConcede, mulliganPhase, paymentPlanSummary, toneOf } from '../lib/seatpanel.svelte';
   import { promptContext, promptContextText } from '../lib/prompt';
   import { arrangeCard } from '../lib/arrange';
   import { discardCard, isDiscardPick } from '../lib/discard';
@@ -20,7 +20,7 @@
   /**
    * SeatPanel is a human seat's decision surface: the status readout,
    * auto/manual controls, floating mana, prompt and options, with the primary
-   * button resolved by kind (R-E4-1). Generic decisions mount once under the
+   * button resolved by kind (R-E4-1). Every in-game decision mounts under the
    * clock's ACTIONS tab; mulligan alone mounts over the board. Concede is deliberately
    * absent from this normal-turn surface and rendered by Table at the page's
    * top right, though the same SeatPanelState owns its arm/confirm/post path.
@@ -38,7 +38,7 @@
    */
   let { view, seats, ctx, table, match, state = null, placement = 'board' }: {
     view: View; seats: SeatInfo[]; ctx: SeatCtx; table: string; match: number;
-    /** Generic decisions live under the ACTIONS tab; only mulligan keeps the centred board placement. */
+    /** In-game decisions live under ACTIONS; board is reserved for the opening-hand mulligan. */
     placement?: 'board' | 'flyout' | 'strip';
     /**
      * state lets the route hand in the seat's SeatPanelState so the phase
@@ -184,6 +184,24 @@
   const mull = $derived(mulliganPhase(decision));
   const handById = $derived(new Map((mine?.hand ?? []).map((c) => [c.id, c])));
   const bottomCount = $derived(decision?.min ?? 0);
+  // PaymentActions are an additive extension of priority.  Grouping happens
+  // here, at the one generic option surface, so a cast with a BaseOptionIndex
+  // cannot appear as two unrelated actions.
+  // Payment witnesses are an Auto Mana affordance.  With the toggle off the
+  // priority list is intentionally the untouched legacy/manual list.
+  const paymentActions = $derived(logic.autoManaAvailable && logic.autoPayMana && decision?.kind === 'priority' ? (decision.payment_actions ?? []) : []);
+  const paymentBases = $derived(new Set(paymentActions.flatMap((action) => action.base_option_index === undefined || action.base_option_index === null ? [] : [action.base_option_index])));
+  // Auto Mana is a mode switch, not an extra choice beside manual mana. The
+  // planner's cast button is the remaining route while it is on; turning the
+  // switch off deliberately restores every normal activation.
+  function isManualMana(opt: { kind: string; label: string }): boolean {
+    return opt.kind === 'activate' && / for mana$/i.test(opt.label);
+  }
+
+  function castSuggested(action: PaymentAction, planID: string): void {
+    const plan = action.plans.find((candidate) => candidate.id === planID);
+    if (plan !== undefined) logic.submitPayment(action, plan);
+  }
 
   // The arrange family (brief Job 4): kind 'arrange' is the ordered-subset
   // ask — a top-of-library reorder (Min == Max == N) or Scry/Surveil (Min 0).
@@ -336,7 +354,7 @@
     class:flyout={placement === 'flyout'}
     class:strip={placement === 'strip'}
     data-seat-panel
-    data-answer-surface={placement === 'board' ? 'true' : null}
+    data-answer-surface={placement === 'strip' || placement === 'board' ? 'true' : null}
     data-concede={logic.concedeOption?.index}
     data-tone={tone}
   >
@@ -354,7 +372,7 @@
       </div>
     {/if}
 
-    {#if mull === null && placement !== 'strip'}
+    {#if mull === null}
       <div class="autobar" data-autobar>
         <div class="autoline">
           <button
@@ -369,6 +387,22 @@
             <span class="dot" aria-hidden="true"></span>
             <span class="word">{logic.machinePaused ? 'Paused' : logic.auto ? 'Auto' : 'Manual'}</span>
           </button>
+          {#if logic.autoManaAvailable}
+          <button
+            class="skiptoggle"
+            class:on={logic.autoPayMana}
+            type="button"
+            role="switch"
+            aria-checked={logic.autoPayMana}
+            aria-label="Auto-pay mana"
+            title="Use a suggested mana plan when casting"
+            data-auto-pay-toggle
+            onclick={() => logic.setAutoPayMana(!logic.autoPayMana)}
+          >
+            <span class="dot" aria-hidden="true"></span>
+            <span class="word">Auto-pay mana</span>
+          </button>
+          {/if}
           <!-- The empty-window floor's own switch, beside auto's rather than
                buried in a menu: it changes whether the game stops for you, so
                it has to be visible where you would look to ask why it did
@@ -463,25 +497,6 @@
             Bottom {bottomCount} {bottomCount === 1 ? 'card' : 'cards'}
           </button>
         </div>
-      {:else if placement === 'strip' && tone === 'initiative'}
-        <!-- The split (brief Job 2): the ACTIONS surface serves OFFERED windows
-             — what this seat could do while it holds priority. A decision the
-             game is BLOCKED on (tone initiative: no pass option) is a prompt,
-             not an action, and it renders directly on the board (Table mounts
-             this panel there for exactly that tone); duplicating its option
-             list here would be a second posting surface for the same answer.
-             The panel itself stays mounted: it owns the polling/autopilot
-             lifecycle shared with the board surface.
-             fb-20260914T062319Z-88b4069a (part A): an optional trigger is
-             exactly such a blocked decision — the ANSWER must be given, but
-             the CHOICE is optional — and the generic "required prompt" wording
-             read to the player as a mandatory yes. The two wordings are pinned
-             by SeatPanel.svelte.test.ts. -->
-        {#if decision?.kind === 'trigger_optional'}
-          <p class="pointer" data-strip-pointer>This is an optional ability: choose whether it happens. The game cannot move until you answer.</p>
-        {:else}
-          <p class="pointer" data-strip-pointer>This is a required prompt, not an action — it is answered on the board. The game cannot move until it is.</p>
-        {/if}
       {:else if arrange !== null}
         <!-- The arrange ask (brief Job 4): card faces in OFFERED order, each
              click toggling it into/out of the keep pile (the picked array, in
@@ -518,7 +533,7 @@
           </div>
           <div class="choices">
             <button class="choice" type="button" data-arrange-open onclick={openArrange} disabled={logic.busy}>Open the card view</button>
-            {#if logic.showSubmit && placement !== 'strip'}
+            {#if logic.showSubmit}
               <button
                 class="choice keep"
                 type="button"
@@ -570,7 +585,7 @@
           </div>
           <div class="choices">
             <button class="choice" type="button" data-discard-open onclick={openDiscard} disabled={logic.busy}>Open the card view</button>
-            {#if logic.showSubmit && placement !== 'strip'}
+            {#if logic.showSubmit}
               <button
                 class="choice keep"
                 type="button"
@@ -597,8 +612,7 @@
              strip shows the required-prompt pointer above) and the input is
              therefore not cramped there. -->
         <div class="search" data-search>
-          {#if placement !== 'strip'}
-            <div class="search-bar">
+          <div class="search-bar">
               <input
                 class="search-filter"
                 type="search"
@@ -625,7 +639,6 @@
                 }}
               />
             </div>
-          {/if}
           <div class="search-grid" data-search-grid data-options data-card-count={searchOpts.length} aria-label="Cards the search offers, sorted and filtered">
             {#each searchOpts as opt (opt.index)}
               {@const card = searchCard(search, opt)}
@@ -656,7 +669,7 @@
               <p class="search-empty">No card matches “{logic.searchFilter}”.</p>
             {/if}
           </div>
-          {#if logic.showSubmit && placement !== 'strip'}
+          {#if logic.showSubmit}
             <div class="choices">
               <button
                 class="choice keep"
@@ -682,6 +695,36 @@
         </div>
       {:else}
         <div class="options" data-options>
+          {#if paymentActions.length > 0}
+            <div class="payment-actions" data-payment-actions>
+              {#each paymentActions as action (action.id)}
+                <div class="payment-action" data-payment-action={action.id}>
+                  <strong class="payment-title">{action.label}</strong>
+                  {#if action.plans.length > 0}
+                    {#each action.plans as plan, i (plan.id)}
+                      <p class="payment-summary">{paymentPlanSummary(plan)}</p>
+                      <button
+                        class="option payment-plan"
+                        class:primary={logic.autoPayMana && i === 0}
+                        type="button"
+                        data-payment-plan={plan.id}
+                        title={paymentPlanSummary(plan)}
+                        onclick={() => castSuggested(action, plan.id)}
+                        disabled={logic.busy}
+                      >{i === 0 ? 'Cast with suggested mana' : 'Cast with this mana plan'}</button>
+                    {/each}
+                  {:else}
+                    <p class="payment-summary">Suggested payment is unavailable; use the manual mana controls.</p>
+                  {/if}
+                  {#if !logic.autoPayMana && action.base_option_index !== undefined && action.base_option_index !== null}
+                    <button class="option" type="button" data-payment-manual={action.id} onclick={(e) => logic.click(action.base_option_index!, { holdPriority: e.ctrlKey })} disabled={logic.busy}>Pay manually</button>
+                  {:else}
+                    <p class="payment-summary" data-payment-manual-needed>Tap mana manually, then cast.</p>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          {/if}
           {#if primary && !((placement === 'flyout' || placement === 'strip') && primary.kind === 'pass')}
             <button class="primary" type="button" data-primary onclick={(e) => logic.primaryClick(e.ctrlKey)} disabled={logic.busy}>
               {primary.label}
@@ -719,7 +762,7 @@
             </div>
           {/if}
           <div class="list">
-            {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index) as opt (opt.index)}
+            {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index && !paymentBases.has(opt.index) && (!logic.autoPayMana || !isManualMana(opt))) as opt (opt.index)}
               {@const pickedAt = logic.picked.indexOf(opt.index)}
               {@const pickedCount = decision.repeatable ? logic.picked.filter((i) => i === opt.index).length : 0}
               <button
@@ -735,10 +778,13 @@
               </button>
             {/each}
           </div>
-          {#if logic.showSubmit && placement !== 'strip'}
+          {#if logic.showSubmit}
             <button class="submit" type="button" data-submit onclick={(e) => logic.submit(e.ctrlKey)} disabled={!logic.canSubmit || logic.busy}>
               {decision.min === 0 ? 'Confirm' : decision.min === decision.max ? `Choose ${decision.min}` : `Choose ${decision.min}–${decision.max}`}
             </button>
+          {/if}
+          {#if decision.payment_fallback}
+            <p class="payment-fallback" data-payment-fallback>Suggested mana could not be used ({decision.payment_fallback.reason}). Continue with the manual payment decision.</p>
           {/if}
         </div>
       {/if}
@@ -749,11 +795,11 @@
     {/if}
   </div>
 
-  {#if logic.arrangeOpen && arrange !== null && placement !== 'strip'}
+  {#if logic.arrangeOpen && arrange !== null}
     <ArrangeModal open={logic.arrangeOpen} decision={arrange} seed={logic.picked} onSubmit={submitArrange} onClose={() => (logic.arrangeOpen = false)} />
   {/if}
 
-  {#if logic.discardOpen && discard !== null && placement !== 'strip'}
+  {#if logic.discardOpen && discard !== null}
     <!-- The discard-pick modal (fb-20260918T201739Z): presentational only —
          picks go through logic.click (a Min==Max==1 ask posts straight
          through on the click, which also closes the ask and this modal),
@@ -961,6 +1007,27 @@
     color: var(--ink-faint);
   }
 
+  .payment-actions {
+    display: grid;
+    gap: var(--sp-2);
+    width: 100%;
+  }
+  .payment-action {
+    display: grid;
+    gap: var(--sp-1);
+    padding: var(--sp-2);
+    border: 1px solid var(--edge-inst);
+    border-radius: var(--radius);
+    background: var(--instrument-raised);
+  }
+  .payment-title { color: var(--ink); }
+  .payment-summary {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: var(--t-12);
+  }
+  .payment-plan { width: 100%; justify-content: center; }
+
   .prompt {
     margin: 0;
     padding: var(--sp-2) var(--sp-3);
@@ -988,18 +1055,6 @@
     padding: 0 var(--sp-3) var(--sp-2);
     font-size: var(--t-11);
     line-height: 1.35;
-    color: var(--ink-dim);
-    text-align: center;
-    width: 100%;
-  }
-
-  /* The strip's pointer (Job 2): what the drop says instead of a duplicated
-     option list when the decision is a required prompt living on the board. */
-  .pointer {
-    margin: 0;
-    padding: var(--sp-3);
-    font-size: var(--t-12);
-    line-height: 1.4;
     color: var(--ink-dim);
     text-align: center;
     width: 100%;
@@ -1236,20 +1291,22 @@
        row's inline size, which does not. */
     container-type: inline-size;
     --card-w: min(
-      var(--card-w-large, 220px),
+      var(--play-card-w),
       calc((100cqw - (var(--n) - 1) * var(--sp-2)) / var(--n))
     );
   }
   /* The row divides its own width by the number of cards and hands the answer
-     to CardTile as --card-w. That is the ONLY thing that changes size here.
+     to CardTile as --card-w. Its cap is the shared --play-card-w token, so
+     opening-hand cards use the same gameplay scale as the hand and board.
+     That is the ONLY thing that changes size here.
      Overriding the widths of .card-tile / .slot / .card-image instead was
      wrong and looked it: CardTile positions its art, its keyword chips and
      its P/T badge from --card-w, so a slot that changed width while --card-w
      stayed at its 90px default left a small card floating in a large slot at
      1440 and a card overflowing its slot at 650, with the badges detached
      from the card they belong to.
-     The cap is the normal large size: three cards should not become
-     billboards just because there is room. */
+     The shared gameplay cap keeps three cards from becoming billboards just
+     because the opening-hand panel has room. */
   .hand > :global(.tile-wrap),
   .hand > .pick {
     flex: none;

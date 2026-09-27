@@ -174,13 +174,13 @@ func TestPromiseOfLoyaltyAsksEachPlayerAndVowsACreature(t *testing.T) {
 	// The CantAttack scoping: "You" is the EFFECT's controller (the caster,
 	// seat 0) — seat 1's vowed creature cannot attack seat 0; nothing here
 	// blocks any other pair.
-	if !e.attackBlocked(vow1, 0) {
+	if !e.attackBlocked(vow1, 0, 0) {
 		t.Fatal("seat 1's vowed bear may still attack the vow's caster")
 	}
-	if e.attackBlocked(vow1, 1) {
+	if e.attackBlocked(vow1, 1, 0) {
 		t.Fatal("seat 1's vowed bear is blocked from a pair it was never restricted from")
 	}
-	if e.attackBlocked(vow0, 1) {
+	if e.attackBlocked(vow0, 1, 0) {
 		t.Fatal("the caster's own vowed bear is blocked from attacking another player — Target$ You only blocks pairs against the caster")
 	}
 	replayCheck(t, e, cfg)
@@ -242,8 +242,8 @@ func TestPromiseOfLoyaltyVowForgets(t *testing.T) {
 	if len(ce.Remembered) != 3 {
 		t.Fatalf("vow effect Remembered = %v, want all three vowed bears", ce.Remembered)
 	}
-	if !e.attackBlocked(v1, 0) || e.attackBlocked(v1, 2) {
-		t.Fatalf("scoping wrong: blocked(1→0)=%v blocked(1→2)=%v", e.attackBlocked(v1, 0), e.attackBlocked(v1, 2))
+	if !e.attackBlocked(v1, 0, 0) || e.attackBlocked(v1, 2, 0) {
+		t.Fatalf("scoping wrong: blocked(1→0)=%v blocked(1→2)=%v", e.attackBlocked(v1, 0, 0), e.attackBlocked(v1, 2, 0))
 	}
 
 	// Drop WITHOUT reaching zero keeps the card: a second VOW counter on and
@@ -251,7 +251,7 @@ func TestPromiseOfLoyaltyVowForgets(t *testing.T) {
 	e.emit(events.Event{Kind: events.CounterChange, Obj: v1, Counter: "VOW", Amount: 1})
 	e.emit(events.Event{Kind: events.CounterChange, Obj: v1, Counter: "VOW", Amount: -1})
 	ce = vowEffect(t, e)
-	if !e.attackBlocked(v1, 0) {
+	if !e.attackBlocked(v1, 0, 0) {
 		t.Fatal("a count dropping 2→1 forgot the card; only reaching zero must forget")
 	}
 	if len(ce.Remembered) != 3 {
@@ -261,7 +261,7 @@ func TestPromiseOfLoyaltyVowForgets(t *testing.T) {
 	// The count reaching zero forgets the card.
 	e.emit(events.Event{Kind: events.CounterChange, Obj: v1, Counter: "VOW", Amount: -1})
 	ce = vowEffect(t, e)
-	if e.attackBlocked(v1, 0) {
+	if e.attackBlocked(v1, 0, 0) {
 		t.Fatal("the un-vowed bear is still blocked after its last VOW counter left")
 	}
 	if len(ce.Remembered) != 2 {
@@ -270,7 +270,7 @@ func TestPromiseOfLoyaltyVowForgets(t *testing.T) {
 
 	// ForgetOnMoved$ Battlefield: the creature dying forgets it too.
 	e.emit(events.Sacrifice(v2))
-	if e.attackBlocked(v2, 0) {
+	if e.attackBlocked(v2, 0, 0) {
 		t.Fatal("a dead vowed bear still blocks attacks")
 	}
 	ce = vowEffect(t, e)

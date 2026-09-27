@@ -229,6 +229,10 @@ func run(l *events.Log, cfg rules.Config, n int) (*rules.Engine, error) {
 			return e, fmt.Errorf("replay: log recorded a starting_player ask but none is available")
 		}
 	}
+	// Recorded payment selectors are replay-only consumers of the dormant
+	// planner offers.  Normal engines continue to leave the extension empty
+	// until the host publication ticket lands.
+	e.EnablePaymentPlanReplay()
 	e.Advance()
 	checked, err := compare(e, l, 0)
 	if err != nil {

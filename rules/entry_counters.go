@@ -19,6 +19,7 @@ package rules
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -343,6 +344,97 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 	return grants, ids
 }
 
+// entryRiderCandidates reports whether an entry might carry an AddsCounters$
+// mana-spend rider grant: the entering object is a card moving onto the
+// battlefield (never a token mint, which was never cast) whose cast consumed
+// rider-bearing mana. It is the cheap gate the emit pre-pass and foldEntryMove
+// take BEFORE building the costly isolated preview, and it reads only the
+// persisted grant list.
+func (e *Engine) entryRiderCandidates(ev events.Event) bool {
+	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || events.IsFaceDownEntry(ev.Counter) {
+		return false
+	}
+	o := e.G.Obj(ev.Obj)
+	return o != nil && o.Zone != state.ZBattlefield && len(o.ManaAddsCounterGrants) > 0
+}
+
+// entryRiderGrants returns the AddsCounters$ mana-spend rider grants the
+// entering object's cast earned: for each grant the cast recorded
+// (Object.ManaAddsCounterGrants -- the producing ABILITY's rider snapshot and
+// the number of its mana units the payment spent), match the stored filter
+// against the entering permanent and evaluate the stored amount. Each of the
+// grant's spent units yields its own entryGrant, so two units spent from one
+// rider ability place the rider twice; the rider is never re-read from the
+// source's current face, so a copied, modified or added/removed ability
+// cannot change the grant. A filter miss or an unresolvable amount fails
+// closed (no grant), never a guessed one.
+func (e *Engine) entryRiderGrants(entrant state.ObjID) []entryGrant {
+	o := e.G.Obj(entrant)
+	if o == nil || len(o.ManaAddsCounterGrants) == 0 {
+		return nil
+	}
+	you := o.Controller
+	var grants []entryGrant
+	for _, g := range o.ManaAddsCounterGrants {
+		if g.Count <= 0 || !effects.MatchesSpec(e.G, g.Filter, entrant, you) {
+			continue
+		}
+		n, ok := e.riderCounterAmount(g.Amount, entrant, you)
+		if !ok || n <= 0 {
+			continue
+		}
+		for i := int32(0); i < g.Count; i++ {
+			grants = append(grants, entryGrant{kind: g.Kind, amount: n})
+		}
+	}
+	return grants
+}
+
+// parseAddsCounters splits a mana ability's AddsCounters$ value into its
+// filter, counter kind and count expression. Forge writes
+// "<filter>_<kind>_<amount>" -- Opal Palace's
+// "Card.YouOwn+IsCommander_P1P1_ManaAddsCounterNum", Biophagus's
+// "Card.Creature_P1P1_1", Animal Attendant's "Creature.nonHuman_P1P1_1" --
+// and the measured corpus carries exactly that three-part shape, so a value
+// with fewer than three parts fails closed rather than inventing a counter.
+// The split is from the RIGHT so a filter containing an underscore would still
+// parse; no measured carrier has one.
+func parseAddsCounters(v string) (filter, kind, amount string, ok bool) {
+	i := strings.LastIndexByte(v, '_')
+	if i < 0 {
+		return "", "", "", false
+	}
+	amount = strings.TrimSpace(v[i+1:])
+	rest := v[:i]
+	j := strings.LastIndexByte(rest, '_')
+	if j < 0 {
+		return "", "", "", false
+	}
+	kind = strings.TrimSpace(rest[j+1:])
+	filter = strings.TrimSpace(rest[:j])
+	if filter == "" || kind == "" || amount == "" {
+		return "", "", "", false
+	}
+	return filter, kind, amount, true
+}
+
+// riderCounterAmount resolves an AddsCounters$ amount already snapshotted at
+// the cast's payment: a signed integer literal is the count, and anything else
+// is an SVar BODY resolved against the producing source's table at capture
+// time, evaluated at entry with the entering permanent as the source and its
+// controller as "you" (Opal Palace's ManaAddsCounterNum ->
+// Count$CommanderCastFromCommandZone, read off the log for that player). The
+// verdict is false only when the body does not evaluate, so the caller can
+// fail closed rather than place a guessed zero. No source face is read here:
+// the cast-time snapshot is authoritative.
+func (e *Engine) riderCounterAmount(amount string, entrant state.ObjID, you state.PlayerID) (int32, bool) {
+	if n, err := strconv.Atoi(amount); err == nil {
+		return int32(n), true
+	}
+	ctx := &effects.Ctx{Source: entrant, Controller: you}
+	return effects.EvalCountOK(e, ctx, amount)
+}
+
 // entryGrantPlan is the entry's whole counter plan: its intrinsic grants
 // (events.EntryCounterGrants, read on the ORIGIN board) plus the body-defined
 // grants its Updated PutCounter|ETB$ True bodies would place (read on the
@@ -354,6 +446,10 @@ func (e *Engine) entryGrantPlan(ev events.Event, preview *Engine, entrant state.
 	for _, g := range e.entryCounterGrants(ev) {
 		grants = append(grants, entryGrant{kind: g.Kind, amount: g.Amount})
 	}
+	// AddsCounters$ mana-spend rider (task opalp): the cast's consuming sources,
+	// re-read at entry. Read on e (the origin-zone object carries the links),
+	// before the body grants so the placement order is deterministic.
+	grants = append(grants, e.entryRiderGrants(entrant)...)
 	if preview == nil {
 		return grants, nil
 	}
@@ -517,7 +613,7 @@ func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 	if e.entryETBChoiceOutstanding(ev) {
 		return false
 	}
-	if len(e.entryCounterGrants(ev)) == 0 && !e.entryBodyCandidates(ev) {
+	if len(e.entryCounterGrants(ev)) == 0 && !e.entryBodyCandidates(ev) && !e.entryRiderCandidates(ev) {
 		return false
 	}
 	preview, entrant := e.entryPreview(ev)
@@ -652,7 +748,7 @@ func (e *Engine) foldEntryMove(ev events.Event) (events.Event, []string) {
 		return e.foldEntryWithPlaced(ev, st.placed), st.bodyIDs
 	}
 	intrinsic := e.entryCounterGrants(ev)
-	if len(intrinsic) == 0 && !e.entryBodyCandidates(ev) {
+	if len(intrinsic) == 0 && !e.entryBodyCandidates(ev) && !e.entryRiderCandidates(ev) {
 		return events.Emit(e.G, e.L, ev), nil
 	}
 	preview, entrant := e.entryPreview(ev)

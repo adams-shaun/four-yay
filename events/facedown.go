@@ -93,6 +93,16 @@ func FaceDownEntryFields(counter string) (setType string, power, toughness int32
 // exactly rather than by prefix.
 const CloakEntryCounter = "entered_cloaked"
 
+// UnearthEntryCounter is the MoveZone Counter value that marks a card
+// entering the battlefield through its K:Unearth ability (CR 702.84a). It is
+// stamped by effects/zone.go's applyFaceDownMarker from the expansion's
+// Unearth$ True parameter and read once by rules' entry hook
+// (rules/unearth.go), which grants the creature haste and registers the
+// end-step exile promise. It is deliberately NOT a face-down marker:
+// IsFaceDownEntry returns false for it, and no corpus Unearth line combines
+// the keyword with FaceDown$/ExileFaceDown$.
+const UnearthEntryCounter = "entered_unearthed"
+
 // IsFaceDownEntry reports whether a MoveZone Counter value is EITHER of the
 // two battlefield face-down entry markers -- the manifest/FaceDown$ marker
 // FaceDownEntryFields parses (bare or payload-bearing) or the cloak marker.

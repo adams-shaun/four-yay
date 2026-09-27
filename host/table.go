@@ -117,6 +117,22 @@ type TableConfig struct {
 	// so tables written before named policy selection retain production bot
 	// behavior when restored.
 	BotPolicy string `json:"bot_policy,omitempty"`
+	// BotAutoPayMana makes every hosted bot and human-seat caretaker use
+	// offered payment plans rather than manually tapping mana. It is part of
+	// persisted table configuration so a restart preserves bot behaviour.
+	BotAutoPayMana bool `json:"bot_auto_pay_mana"`
+	// AutoMana enables payment-plan publication and the Auto Mana controls for
+	// human seats. Disabled is the legacy human path: plans are never sent to
+	// a human client and only ordinary casts/manual mana are available.
+	AutoMana bool `json:"auto_mana"`
+	// OnDemand marks a browser-created play-vs-bot table. These tables are
+	// deliberately process-scoped: their seat credentials live only in the
+	// gorged process, and a restart already aborts any game in progress. The
+	// registry therefore drops them while loading a new process rather than
+	// growing tables.json forever with abandoned one-shot games. Their match
+	// logs are not the feedback archive: a submitted feedback report captures
+	// its own replayable snapshot before this disposable table is removed.
+	OnDemand bool `json:"on_demand,omitempty"`
 	// PlayerNames names each seat, independently of its deck, for the wire's
 	// player box (view.PlayerView.Name). Seat i of match k uses
 	// PlayerNames[i]; a missing or short list falls back to the deterministic
@@ -164,6 +180,14 @@ type TableConfig struct {
 	// rules.Config and on its sidecar, so a replay rebuilds the life the
 	// match actually played with.
 	StartingLife int32 `json:"starting_life,omitempty"`
+}
+
+// autoPayManaEnabled is the effective hosted-bot setting. BotAutoPayMana is
+// retained verbatim for a future feature-enabled restart, while AutoMana is
+// the top-level rollout gate: false restores the pre-payment-plan table for
+// people, bots and human-seat caretakers alike.
+func (c TableConfig) autoPayManaEnabled() bool {
+	return c.AutoMana && c.BotAutoPayMana
 }
 
 var ErrNotFound = errors.New("host: not found")
@@ -240,6 +264,11 @@ func (c TableConfig) validated(load func(string) (Deck, error)) (TableConfig, er
 	return c, nil
 }
 
+// memoryHistoryLimit bounds t.history in memory mode: the last this many
+// finished matches keep their engines for ViewAt/Events; older ones are
+// dropped (memory mode has no disk copy to fall back on, so they are gone).
+const memoryHistoryLimit = 8
+
 // table is one registry entry and the goroutine that plays it. started is
 // guarded by Registry.mu — Start and Wait both read/write it while already
 // holding that lock (registry.go), not t.mu. mu guards every field from
@@ -256,9 +285,16 @@ type table struct {
 	// reason is the halt error's message, set by Registry.halt; empty
 	// unless state is TableHalted. Task 13 surfaces it on the wire
 	// (protocol.TableInfo has no field for it yet); kept internal for now.
-	reason  string
-	k       int    // index of the current or most recent match; 0 before any
-	cur     *match // the live match, or nil
+	reason string
+	k      int    // index of the current or most recent match; 0 before any
+	cur    *match // the live match, or nil
+	// history holds finished matches kept in memory with their engines.
+	// Only memory mode (Options.Dir == "") retains them — there the engine
+	// is the only copy ViewAt/Events can serve — and only the last
+	// memoryHistoryLimit of them. In persistence mode a finished match is
+	// never retained: it is served from disk through archived/loaded, so a
+	// long-running table costs one sidecar index entry per match, not an
+	// engine (a retained engine is ~9 MB; ~535 of them were a 6 GB heap).
 	history []*match
 	// archived holds finished matches known only from disk, ascending by
 	// match index (Task 12). They are served from their files, never kept
@@ -298,7 +334,7 @@ func (t *table) info() protocol.TableInfo {
 	defer t.mu.RUnlock()
 	info := protocol.TableInfo{ID: string(t.cfg.ID), Name: t.cfg.Name, Seats: t.cfg.Seats,
 		Spectator: t.cfg.Spectator.String(), State: t.state, Match: t.k, Perpetual: t.cfg.Perpetual,
-		Format: t.cfg.Format.String(), BotPolicy: t.cfg.BotPolicy, Mulligans: t.cfg.Mulligans}
+		Format: t.cfg.Format.String(), BotPolicy: t.cfg.BotPolicy, Mulligans: t.cfg.Mulligans, AutoMana: t.cfg.AutoMana}
 	// SeatNames come from the live match's own seat list — the same
 	// []protocol.SeatInfo that MatchStart carries — so the two can never
 	// drift. cur is guarded by t.mu, which we already hold; reading its

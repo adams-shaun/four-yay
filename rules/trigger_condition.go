@@ -103,6 +103,22 @@ func (e *Engine) triggerConditionHoldsCtx(t cards.Trigger, source state.ObjID, y
 	return e.triggerConditionHoldsWithSVars(t, source, you, tc, nil)
 }
 
+// triggerConditionHoldsAsWithDelayedRemembered is triggerConditionHoldsAs with
+// a delayed registration's OWN captured set (state.DelayedTrigger.Remembered)
+// bound as the IsTriggerRemembered referent. An event-matched delayed
+// registration whose inline trigger body carries an IsPresent$ clause named
+// after the capture (Stolen Uniform's "if it's attached to a creature you
+// control") must evaluate that clause against the REGISTRATION's remembered
+// objects, not against an unbound context: the generic walk otherwise fails
+// closed, because effects' Card.IsTriggerRemembered predicate needs
+// SpecContext.DelayedRemembered bound to answer at all. The binding rides the
+// caller's TriggerContext, so the clause keeps ONE evaluation site with
+// unchanged semantics for every other caller.
+func (e *Engine) triggerConditionHoldsAsWithDelayedRemembered(t cards.Trigger, source state.ObjID, you state.PlayerID, remembered []state.Target) bool {
+	tc := effects.TriggerContext{DelayedRemembered: remembered}
+	return e.triggerConditionHoldsWithSVars(t, source, you, &tc, nil)
+}
+
 // The resolution-time caller passes the recorded line owner's table; at
 // fire time a printed trigger's own face is the owner so ownedSVars stays nil,
 // while the granted-trigger paths pass the GRANTOR's table through
@@ -135,11 +151,11 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 	// (cardfuzz batch3 lines 4/21: 500+ continuous effects, every Derived
 	// walking all of them -- the "hang").
 	if _, ok := t.Params["IsPresent"]; ok &&
-		!e.presentClauseHolds(t, source, you, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone") {
+		!e.presentClauseHolds(t, source, you, tc, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone") {
 		return false
 	}
 	if _, ok := t.Params["IsPresent2"]; ok &&
-		!e.presentClauseHolds(t, source, you, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2") {
+		!e.presentClauseHolds(t, source, you, tc, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2") {
 		return false
 	}
 	if v, ok := t.Params["Metalcraft"]; ok {
@@ -352,20 +368,31 @@ func (e *Engine) lifeConditionHoldsAs(t cards.Trigger, you state.PlayerID, amoun
 //     in deterministic seat/zone order; an unknown zone word fails closed.
 //   - otherwise the battlefield is counted.
 //
+// The caller's TriggerContext, when it names a delayed registration's capture
+// through DelayedRemembered, is bound into the SpecContext the spec matches
+// resolve against, so a capture-aware present spec (Card.IsTriggerRemembered
+// +...) counts against the REGISTRATION's own remembered set -- the same
+// binding delayedPresentGateHolds gives the Phase arm. A nil tc binds
+// nothing, exactly the pre-existing read.
+//
 // A comparison this build cannot fold (PresentCompare$ EQX) fails closed.
-func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you state.PlayerID, isKey, cmpKey, definedKey, zoneKey string) bool {
+func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you state.PlayerID, tc *effects.TriggerContext, isKey, cmpKey, definedKey, zoneKey string) bool {
 	spec := strings.TrimSpace(t.Params[isKey])
 	cmp, hasCmp := t.Params[cmpKey]
 	if !hasCmp {
 		cmp = "GE1"
 	}
 	cmp = e.presentCompareFor(cmp, source, you)
+	sc := e.specCtx(source, you)
+	if tc != nil {
+		sc.DelayedRemembered = tc.DelayedRemembered
+	}
 	if pd := strings.TrimSpace(t.Params[definedKey]); pd != "" {
 		if pd != "Self" {
 			return false
 		}
 		if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield ||
-			!e.matchesSpec(spec, source, e.specCtx(source, you)) {
+			!e.matchesSpec(spec, source, sc) {
 			return comparePresent(0, cmp)
 		}
 		return comparePresent(1, cmp)
@@ -375,18 +402,25 @@ func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you sta
 		if !known {
 			return false
 		}
-		return comparePresent(e.presentZoneCount(zone, spec, source, you), cmp)
+		return comparePresent(e.presentZoneCountCtx(zone, spec, source, you, sc), cmp)
 	}
-	return comparePresent(e.countPresent(spec, source, you), cmp)
+	return comparePresent(e.countPresentCtx(spec, source, you, sc), cmp)
 }
 
 // presentZoneCount counts spec matches over one zone across every living
 // seat, the deterministic walk countPresent makes over the battlefield.
 func (e *Engine) presentZoneCount(zone state.Zone, spec string, source state.ObjID, you state.PlayerID) int {
+	return e.presentZoneCountCtx(zone, spec, source, you, e.specCtx(source, you))
+}
+
+// presentZoneCountCtx is presentZoneCount with the caller's own SpecContext,
+// so a capture-aware spec resolves against a binding the generic constructor
+// does not carry (see presentClauseHolds).
+func (e *Engine) presentZoneCountCtx(zone state.Zone, spec string, source state.ObjID, you state.PlayerID, sc effects.SpecContext) int {
 	n := 0
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(zone, p) {
-			if e.matchesSpec(spec, id, e.specCtx(source, you)) {
+			if e.matchesSpec(spec, id, sc) {
 				n++
 			}
 		}
@@ -398,13 +432,20 @@ func (e *Engine) presentZoneCount(zone state.Zone, spec string, source state.Obj
 // matching spec, excluding the source where the spec's own Other/StrictlyOther
 // predicate already handles it (Emperor Crocodile's Creature.Other+YouCtrl).
 func (e *Engine) countPresent(spec string, source state.ObjID, you state.PlayerID) int {
+	return e.countPresentCtx(spec, source, you, e.specCtx(source, you))
+}
+
+// countPresentCtx is countPresent with the caller's own SpecContext, so a
+// capture-aware spec resolves against a binding the generic constructor does
+// not carry (see presentClauseHolds).
+func (e *Engine) countPresentCtx(spec string, source state.ObjID, you state.PlayerID, sc effects.SpecContext) int {
 	n := 0
 	e.forEachObject(func(id state.ObjID) {
 		o := e.G.Obj(id)
 		if o == nil || o.Zone != state.ZBattlefield {
 			return
 		}
-		if e.matchesSpec(spec, id, e.specCtx(source, you)) {
+		if e.matchesSpec(spec, id, sc) {
 			n++
 		}
 	})

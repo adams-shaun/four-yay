@@ -32,7 +32,8 @@ import (
 //     future Secret emitter that starts carrying Pairs or Amount is
 //     covered automatically, which an enumerated strip list is not.
 //     - Player == viewer: pass through untouched -- it is their own
-//     secret.
+//     secret, EXCEPT PlanarDeckShuffle, whose ordered IDs must remain
+//     private even from the deck's owner.
 //  2. Not Secret, a zone-move kind (MoveZone, Draw, PutOnStack): its Obj is
 //     stripped when the move is entirely between hidden zones
 //     (From.Hidden() && To.Hidden()) and the moved object is not visible
@@ -117,7 +118,9 @@ func RedactEvent(g *state.Game, e events.Event, viewer state.PlayerID) events.Ev
 	e.IDs = append([]state.ObjID(nil), e.IDs...)
 	e.Pairs = append([][2]state.ObjID(nil), e.Pairs...)
 	if e.Secret {
-		if e.Player != viewer {
+		// Unlike a library shuffle, a planar-deck shuffle's order is hidden
+		// from every seat, including its owner (CR 901.5).
+		if e.Player != viewer || e.Kind == events.PlanarDeckShuffle {
 			return events.Event{
 				Seq: e.Seq, Kind: e.Kind, Player: e.Player,
 				From: e.From, To: e.To, Step: e.Step, Secret: e.Secret,
@@ -172,6 +175,9 @@ func visibleTo(g *state.Game, id state.ObjID, viewer state.PlayerID) bool {
 	o := g.Obj(id)
 	if o == nil {
 		return false
+	}
+	if o.Zone == state.ZPlanarDeck && !o.FaceDown {
+		return true
 	}
 	return !o.Zone.Hidden() || o.Owner == viewer
 }

@@ -155,6 +155,10 @@ var baseBuckets = map[string]bucket{
 	// every bSA entry covers.
 	"a": bSA, "targetSA": bSA, "SA": bSA, "Ability": bSA, "With": bSA,
 	"head": bSA, "ma": bSA, "mana": bSA, "original": bSA, "pt.SA": bSA,
+	// alt.ma is payment-plan's one concrete mana-ability alternative.  It is
+	// a *cards.SA just like ma; the qualified name makes that type explicit
+	// to the census rather than allowing this planner read to evade it.
+	"alt.ma": bSA,
 	// source.original is the attack window's choice-shaped mana source's
 	// compiled pile ability (attackManaSource.original, a *cards.SA like the
 	// bare "original" entry): the targeted-equip window probe (cast.go
@@ -1544,21 +1548,25 @@ var apiSpecificRulesSA = map[string][]string{
 	// api:Mana alone -- left in the generic union they mask every other API's
 	// unread Produced$ (measured: api:Sacrifice/api:DealDamage).
 	"Engine.attackChoiceManaSources": {"Mana"},
-	// castWindowUnits folds choice-shaped mana sources into the cast-payment
-	// window reachability probe (affordableTargetCandidates' targeted-equip
-	// gate, striveAffordableTargets' hint); its Produced$ read is over
-	// api:Mana sources only, not over the spell or ability being priced.
-	"Engine.castWindowUnits": {"Mana"},
-	// The cast-payment window's paid/dynamic layer: castWindowPaidUnits walks
-	// the same availableManaAbilitiesForWindow set as windowManaUnits and
-	// reads each api:Mana ability's Cost$/RestrictValid$/Produced$, while
+	// The cast-payment window's activation-cost layer: castWindowProbeUnits
+	// walks untapped api:Mana abilities (with the live-pool payability gate
+	// lifted, so a fee an earlier same-window activation funds is priced) and
+	// reads each ability's Cost$/RestrictValid$/Produced$, while
 	// castWindowAmount reads its Amount$ (and the SVar body behind it). Both
 	// are cast-window-only readers of api:Mana abilities, so their reads
 	// belong to api:Mana alone -- left in the generic union they mask every
 	// other API's unread Amount$/Produced$ (measured:
 	// api:ChangeZone/api:Sacrifice/api:DealDamage).
-	"Engine.castWindowPaidUnits": {"Mana"},
-	"Engine.castWindowAmount":    {"Mana"},
+	"Engine.castWindowProbeUnits": {"Mana"},
+	"Engine.castWindowAmount":     {"Mana"},
+	// The payment-plan offer is another mana-only source walk.  It obtains
+	// windowManaUnit alternatives exclusively from AB$ Mana abilities, then
+	// reads Produced$/RestrictValid$/Cost$ (and the Amount$ helper) to build a
+	// replayable tap witness.  These reads cannot make those parameters appear
+	// implemented on unrelated resolving APIs such as Sacrifice or DealDamage.
+	"Engine.paymentPlanManaUnits":         {"Mana"},
+	"Engine.paymentPlanUnitAlternatives":  {"Mana"},
+	"Engine.executePlannedManaActivation": {"Mana"},
 	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk),
 	// the per-mode target declaration (modalTargetSA), the resume-side mode
 	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
@@ -2902,6 +2910,17 @@ var knownUnsupportedParams = map[string][]string{
 	"Glacial Chasm":         {"param:api:Sacrifice.ChangeNum"},
 	"Green Sun's Zenith":    {"param:api:ChangeZone.AIXMax"},
 	"Natural Order":         {"param:api:ChangeZone.AISearchGoal"},
+	// The Science! (pip) Commander precon import (2026-09-26,
+	// internal/testutil/decks/science-pip.json). Its 90 distinct cards expose
+	// exactly two parameter gaps, both measured by the first ratchet run; the
+	// deck added no primitive gap (C.A.M.P.'s kw:Fortify was already
+	// implemented). Overencumbered's cost token Y is the {Y} Phyrexian-style
+	// generic payment ParseCost does not model; Expert-Level Safe's
+	// ChooseNumber Secretly/MatchedAbility/UnmatchedAbility shape is a
+	// face-down guessed-number ask this build never poses (the card is
+	// otherwise fully registered).
+	"Expert-Level Safe": {"param:api:ChooseNumber.MatchedAbility", "param:api:ChooseNumber.Secretly", "param:api:ChooseNumber.UnmatchedAbility"},
+	"Overencumbered":    {"cost:Y"},
 }
 
 // TestEveryRepoDeckParamsAreRead is the parameter ratchet: every card across

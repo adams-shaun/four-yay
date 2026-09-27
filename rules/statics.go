@@ -62,9 +62,11 @@ type costStaticViews struct {
 	reduce   []staticView
 	set      []staticView
 	optional []staticView
-	// validTarget: some raise/reduce/set member carries ValidTarget$, the
-	// one parameter through which a composition reads the chosen targets
-	// (see offerCastableUsing's potential-target retry).
+	// validTarget: some raise/reduce/set member's predicate reads the chosen
+	// targets -- either a ValidTarget$ or a target-conditional ValidSpell$
+	// (`Spell.IsTargeting <spec>`, Head of the Class) -- the one condition under
+	// which a composition must be retried with the potential targets (see
+	// offerCastableUsing's potential-target retry).
 	validTarget bool
 }
 
@@ -730,8 +732,35 @@ func (e *Engine) adjustedCost(p state.PlayerID, id state.ObjID) Cost {
 // permission to cast id at instant speed. It is intentionally shared by every
 // zone that can cast a spell; a Vedalken Orrery must not stop working when a
 // later alternative permits casting from another zone.
+//
+// The offer walk passes id's POTENTIAL legal targets: a target-conditional
+// grant such as Flash Photography's
+// `ValidSA$ Spell.IsTargeting Valid Permanent.YouCtrl` is permission only when
+// some legal target can satisfy the restriction. CR 601.2e's recheckIllegal
+// re-runs castWithFlashTargets with the ANNOUNCED targets, so a cast that took
+// the permission on a non-qualifying target is reversed rather than completed.
 func (e *Engine) castWithFlash(p state.PlayerID, id state.ObjID) bool {
-	for _, sv := range e.activeStatics("CastWithFlash") {
+	// Fast path: with no CastWithFlash static anywhere (the overwhelming
+	// majority of offers), do not pay for a potential-target census.
+	if len(e.withSelfStatics(e.activeStatics("CastWithFlash"), id, "CastWithFlash")) == 0 {
+		return false
+	}
+	return e.castWithFlashTargets(p, id, e.costPotentialTargets(p, id, spellScope("")))
+}
+
+// castWithFlashTargets is castWithFlash against an explicit target list. The
+// whole CastWithFlash collection is read through ONE home -- the battlefield
+// walk every static consumer uses plus the card's OWN face statics, which
+// activeStatics never sees while the card is still in hand (the same two
+// sources alternativeCosts reads for a self-carried AlternativeCost) -- so the
+// offer and the recheck cannot disagree about which statics grant the
+// permission.
+func (e *Engine) castWithFlashTargets(p state.PlayerID, id state.ObjID, targets []state.Target) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return false
+	}
+	for _, sv := range e.withSelfStatics(e.activeStatics("CastWithFlash"), id, "CastWithFlash") {
 		if !e.actorMatches(sv, "Caster", p) || !e.staticTimingGate(sv) {
 			continue
 		}
@@ -745,11 +774,106 @@ func (e *Engine) castWithFlash(p state.PlayerID, id state.ObjID) bool {
 				continue
 			}
 		}
-		o := e.G.Obj(id)
-		if o == nil || o.Face() == nil || !spellMatchesValidSA(o.Face(), sv.Params["ValidSA"], id, sv.Source) {
+		if !e.spellMatchesValidSA(o.Face(), sv.Params["ValidSA"], id, sv.Source, p, targets) {
 			continue
 		}
 		if e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+			return true
+		}
+	}
+	return false
+}
+
+// castWithFlashAsFace is castWithFlash priced AS face f of id: the
+// potential-target census and the self statics read f, not the face the
+// object currently displays. The split_alt offer uses it so a target-
+// conditional grant is judged against the half actually being cast (CR
+// 709.4: each half is cast as its own spell, with its own targets and
+// face-local statics), and the fuse offer's per-half timing reads it for
+// each half -- so neither half borrows the other's permission. f must be one
+// of the object's own faces; offerAsFace prices the live face unchanged
+// otherwise, and is a no-op when f IS the live face.
+func (e *Engine) castWithFlashAsFace(p state.PlayerID, id state.ObjID, f *cards.Face) bool {
+	return e.offerAsFace(id, f, func() bool { return e.castWithFlash(p, id) })
+}
+
+// withSelfStatics appends the named statics the card carries on its OWN face
+// to a collected list: activeStatics never sees a self-carried static while
+// the card is still in hand (the same second source alternativeCosts reads
+// for a self-carried AlternativeCost). A self static's source and controller
+// are the card itself, so its Caster$/You context resolves relative to the
+// caster's own card. base is copied before any append because activeStatics
+// returns a cached slice during a legal-actions walk and must never be
+// mutated.
+func (e *Engine) withSelfStatics(base []staticView, id state.ObjID, mode string) []staticView {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return base
+	}
+	var count int
+	for _, st := range o.Face().Statics {
+		if st.Mode == mode {
+			count++
+		}
+	}
+	if count == 0 {
+		return base
+	}
+	out := append([]staticView(nil), base...)
+	for _, st := range o.Face().Statics {
+		if st.Mode == mode {
+			out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params})
+		}
+	}
+	return out
+}
+
+// hasTargetConditionalFlash reports whether id carries or is granted a
+// CastWithFlash static whose ValidSA$ names an `IsTargeting` alternative. It
+// is the narrow predicate recheckIllegal uses to decide whether an off-sorcery
+// cast's timing rested on a target-conditional grant (a card with no such
+// static keeps its existing CR 601.2e behaviour).
+func (e *Engine) hasTargetConditionalFlash(p state.PlayerID, id state.ObjID) bool {
+	for _, sv := range e.withSelfStatics(e.activeStatics("CastWithFlash"), id, "CastWithFlash") {
+		if !e.actorMatches(sv, "Caster", p) {
+			continue
+		}
+		if validSpellHasTargeting(sv.Params["ValidSA"]) {
+			return true
+		}
+	}
+	return false
+}
+
+// flashGrantCoversTargets is the CR 601.2e enforcement half of a target-
+// conditional CastWithFlash grant, read for ONE face of a split card: it
+// answers false only when face f's off-sorcery timing could have rested on
+// an IsTargeting-conditional grant AND the announced targets do not satisfy
+// that grant. A face with its own unconditional timing (instant, Flash,
+// MayFlashSac's rider) never rested on the grant; a grant without an
+// IsTargeting alternative imposes no target requirement. The reads are
+// face-scoped (offerAsFace), so a fused cast's alternate half is judged
+// against ITS face and ITS stage's targets -- the same read the offer ran
+// through castWithFlashAsFace, keeping offer and enforcement on one
+// interpretation.
+func (e *Engine) flashGrantCoversTargets(p state.PlayerID, id state.ObjID, f *cards.Face, targets []state.Target) bool {
+	if f == nil || f.IsInstant() || e.HasKeyword(id, "Flash") || mayFlashSacFace(f) {
+		return true
+	}
+	return e.offerAsFace(id, f, func() bool {
+		return !e.hasTargetConditionalFlash(p, id) || e.castWithFlashTargets(p, id, targets)
+	})
+}
+
+// validSpellHasTargeting reports whether a ValidSA$/ValidSpell$ OR-list
+// carries an `IsTargeting` alternative under the Spell base. Both parameters
+// spell that shape identically (Flash Photography's
+// `ValidSA$ Spell.IsTargeting Valid Permanent.YouCtrl`, Head of the Class's
+// `ValidSpell$ Spell.IsTargeting Valid Creature`).
+func validSpellHasTargeting(raw string) bool {
+	for alt := range strings.SplitSeq(raw, ",") {
+		kind, constraint, _ := strings.Cut(strings.TrimSpace(alt), ".")
+		if kind == "Spell" && strings.HasPrefix(strings.TrimSpace(constraint), "IsTargeting") {
 			return true
 		}
 	}
@@ -889,17 +1013,25 @@ func presentZoneFromParam(zone string) (state.Zone, bool) {
 }
 
 // spellMatchesValidSA checks the spell-side subset of Forge's ValidSA grammar.
-// Activated-only or target/X-dependent constraints are not knowable before
-// announcing a spell and therefore do not accidentally grant flash timing.
-// id is the card the cast offers and staticSource the static's source: the
-// "Spell.Self" form (115 corpus lines, all on self-granting AlternativeCost
-// statics, Daze the most-played) means the affected card itself is the spell
-// -- true exactly when the cast card IS the static's source (the card's own
-// S: line, where alternativeCosts builds the view with source == id), false
-// for a grant from another permanent. Constraint values beyond Self
-// (XCostLE3, Teamwork, IsTargeting...) are unimplemented shapes and fail
+// Activated-only constraints are not knowable before announcing a spell and
+// therefore do not accidentally grant flash timing. id is the card the cast
+// offers and staticSource the static's source: the "Spell.Self" form (115
+// corpus lines, all on self-granting AlternativeCost statics, Daze the
+// most-played) means the affected card itself is the spell -- true exactly
+// when the cast card IS the static's source (the card's own S: line, where
+// alternativeCosts builds the view with source == id), false for a grant from
+// another permanent.
+//
+// The target-conditional form (`Spell.IsTargeting <spec>`, Flash Photography
+// and Timely Ward) is evaluated through effects' ONE `Spell.IsTargeting`
+// grammar against the targets argument: the offer passes the potential legal
+// targets and CR 601.2e's recheck passes the announced ones. A nil/empty
+// target list matches nothing, so an IsTargeting alternative never grants
+// unconditional timing. you is the caster the target spec's You clause binds
+// (never the granting static's controller). Constraint values beyond Self and
+// IsTargeting (XCostLE3, Teamwork, ...) remain unimplemented shapes and fail
 // closed.
-func spellMatchesValidSA(f *cards.Face, raw string, id, staticSource state.ObjID) bool {
+func (e *Engine) spellMatchesValidSA(f *cards.Face, raw string, id, staticSource state.ObjID, you state.PlayerID, targets []state.Target) bool {
 	if strings.TrimSpace(raw) == "" {
 		return true
 	}
@@ -912,6 +1044,14 @@ func spellMatchesValidSA(f *cards.Face, raw string, id, staticSource state.ObjID
 			}
 			if constraint == "Self" && id == staticSource {
 				return true
+			}
+			if strings.HasPrefix(constraint, "IsTargeting") {
+				sc := e.specCtx(staticSource, you)
+				sc.AsStack = true
+				sc.ProposedTargets = targets
+				if e.matchesSpec("Spell."+constraint, id, sc) {
+					return true
+				}
 			}
 		case "Instant":
 			if constraint == "" && f.IsInstant() {
@@ -1262,15 +1402,109 @@ func (e *Engine) onlyFirstSpellUsed(sv staticView, p state.PlayerID, id state.Ob
 	return false
 }
 
+// hiddenKeywordFlags is the parsed meaning of one derived keyword line that
+// carries an English combat-restriction/requirement sentence. Forge delivers
+// these three the same way -- as keyword TEXT, sometimes under a
+// HiddenKeywords$ Animate parameter, sometimes under a Pump/PumpAll KW$ -- so
+// ONE reader every rules consumer calls is what keeps the spellings from
+// drifting apart (a new equivalent spelling is then one switch arm).
+type hiddenKeywordFlags struct {
+	cantAttack bool
+	cantBlock  bool
+	mustBlock  bool
+}
+
+// parseHiddenKeyword reads one derived keyword line (already the head, via
+// cardsKeywordHead) into its combat meaning, normalising Forge's optional
+// "HIDDEN " marker away first because the corpus spells the SAME restriction
+// both ways. Only the three measured phrase shapes are recognised; any other
+// sentence contributes nothing (the deliberate fail-closed direction for a
+// per-keyword switch). The comparison is case-insensitive and the phrase is
+// matched whole -- a longer sentence that merely contains one of these (a
+// conditional rider) is a different grant and must not borrow the
+// unconditional meaning.
+func parseHiddenKeyword(k string) hiddenKeywordFlags {
+	head := strings.TrimSpace(strings.TrimPrefix(cardsKeywordHead(k), "HIDDEN "))
+	switch {
+	case strings.EqualFold(head, "CARDNAME can't attack or block."):
+		// The compound spelling imparts BOTH restrictions (Opportunistic
+		// Dragon, Extraction Specialist); it must satisfy the cant-block
+		// reader as well as the cant-attack one, so it is matched before
+		// either simple spelling.
+		return hiddenKeywordFlags{cantAttack: true, cantBlock: true}
+	case strings.EqualFold(head, "CARDNAME can't attack."):
+		return hiddenKeywordFlags{cantAttack: true}
+	case strings.EqualFold(head, "CARDNAME can't block."):
+		return hiddenKeywordFlags{cantBlock: true}
+	case strings.EqualFold(head, "CARDNAME must be blocked if able."):
+		return hiddenKeywordFlags{mustBlock: true}
+	}
+	return hiddenKeywordFlags{}
+}
+
+// derivedHiddenFlags folds parseHiddenKeyword over the object's CURRENT
+// derived keyword list (printed plus layer-granted), so both an Animate
+// HiddenKeywords$ grant and a Pump/PumpAll KW$ grant reach the combat oracle
+// alike.
+func (e *Engine) derivedHiddenFlags(id state.ObjID) hiddenKeywordFlags {
+	var f hiddenKeywordFlags
+	for _, k := range e.Derived(id).Keywords {
+		g := parseHiddenKeyword(k)
+		f.cantAttack = f.cantAttack || g.cantAttack
+		f.cantBlock = f.cantBlock || g.cantBlock
+		f.mustBlock = f.mustBlock || g.mustBlock
+	}
+	return f
+}
+
+// hasCantBlockKeyword reports whether the object's CURRENT derived keyword
+// list carries Forge's textual can't-block grant ("CARDNAME can't block." or
+// the compound "CARDNAME can't attack or block."), with or without the
+// HIDDEN marker Forge prepends. Unlike HasKeyword, which compares heads
+// exactly, parseHiddenKeyword normalises the optional "HIDDEN " prefix away
+// first, because the corpus spells the SAME restriction both ways: many files
+// carry `KW$ HIDDEN CARDNAME can't block.` (Pump/PumpAll templates, Concussive
+// Bolt) and Incite Hysteria, Unearthly Blizzard and Siegebreaker Giant carry
+// the bare `KW$ CARDNAME can't block.`. Both are one derived layer-6 grant and
+// must reach the block oracle alike; a hardcoded pair of literals would miss
+// the next spelling. The grant is a rules-side casting/blocking option, so it
+// is read from the derived list (printed plus layer-granted), never the
+// printed face.
+func (e *Engine) hasCantBlockKeyword(id state.ObjID) bool {
+	return e.derivedHiddenFlags(id).cantBlock
+}
+
+// hasCantAttackKeyword is hasCantBlockKeyword's attacker-side counterpart:
+// the derived keyword grant "CARDNAME can't attack." or the compound
+// "CARDNAME can't attack or block." (Opportunistic Dragon, Extraction
+// Specialist). Read by attackBlocked, which feeds both the attacker offer
+// list and validateAttackers, so a rules-ignorant client can never declare
+// the attack and the validator recomputes it with the same oracle.
+func (e *Engine) hasCantAttackKeyword(id state.ObjID) bool {
+	return e.derivedHiddenFlags(id).cantAttack
+}
+
+// hasMustBeBlockedKeyword reports whether the object's derived keyword list
+// carries the attacker-oriented requirement "CARDNAME must be blocked if
+// able." (Elemental Uprising, Vengeant Earth, Disturbed Slumber, and the
+// Pump/PumpAll KW$ carriers). This is the ATTACKER's CR 509.1c requirement to
+// receive at least one legal blocker -- not the blocker-oriented Mode$
+// MustBlock (mustBlockCandidates), which requires a particular BLOCKER to
+// block. The requirement's feasibility is decided by askBlockers over the
+// offered pairs, never here.
+func (e *Engine) hasMustBeBlockedKeyword(id state.ObjID) bool {
+	return e.derivedHiddenFlags(id).mustBlock
+}
+
 // blockRestricted reports whether blocker is forbidden from blocking
 // attacker (CantBlock, CantBlockBy, or a granted can't-block keyword).
 // Called from rules/combat.go's canBlock, which askBlockers and handleBlockers
 // both use for real declare-blockers option generation and validation.
 func (e *Engine) blockRestricted(blocker, attacker state.ObjID) bool {
-	// Forge's Pump/PumpAll KW$ HIDDEN CARDNAME can't block. is a derived
+	// Forge's Pump/PumpAll KW$ (HIDDEN) CARDNAME can't block. is a derived
 	// layer-6 grant, not a static. Read it here so the same restriction
 	// governs offered blocks and validation, including Concussive Bolt.
-	if e.HasKeyword(blocker, "HIDDEN CARDNAME can't block.") {
+	if e.hasCantBlockKeyword(blocker) {
 		return true
 	}
 	// The Effect-registered CantBlockBy grants walk FIRST, beside the
@@ -1906,6 +2140,14 @@ func markCostValidTarget(out *costStaticViews) {
 				out.validTarget = true
 				return
 			}
+			// A target-conditional ValidSpell$ (Head of the Class's
+			// `Spell.IsTargeting Valid Creature` reduction) reads the chosen
+			// targets exactly as ValidTarget$ does, so the offer gate's
+			// potential-target retry must run for it too.
+			if validSpellHasTargeting(sv.Params["ValidSpell"]) {
+				out.validTarget = true
+				return
+			}
 		}
 	}
 }
@@ -2009,6 +2251,7 @@ func raiseExtraFromCost(s string) (Cost, bool) {
 	if c.Colored.Total() != 0 || c.Generic != 0 || c.Life != 0 || c.X != 0 || c.XMin != 0 ||
 		c.Tap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 ||
 		len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.Reveal) > 0 ||
+		len(c.RevealOrChoose) > 0 ||
 		len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 ||
 		len(c.Energy) > 0 || len(c.Return) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 ||
 		len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Evidence) > 0 ||
@@ -2404,7 +2647,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		scope.kind == "Foretell" && e.firstForetellUsed(p) {
 		return false
 	}
-	if vs, ok := sv.Params["ValidSpell"]; ok && !e.validSpellMatches(scope, p, id, vs) {
+	if vs, ok := sv.Params["ValidSpell"]; ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
 		return false
 	}
 	if az, ok := sv.Params["AffectedZone"]; ok && scope.kind == "Ability" {
@@ -2648,7 +2891,14 @@ func affectedZoneOK(v string, z state.Zone) bool {
 // constraint this build cannot evaluate denies — a discount that wrongly
 // applies is a wrong cost, the same fail-closed direction the ValidSA$
 // grammar takes.
-func (e *Engine) validSpellMatches(scope costScope, p state.PlayerID, id state.ObjID, spec string) bool {
+//
+// sv is the owning static (its source and controller bind the constraint's
+// spec context), p the caster and targets the cast's target list: the
+// nil-target offer phase denies a target-conditional Spell.IsTargeting
+// constraint, the potential-target phase admits it on any matching
+// candidate, and the chosen-target re-price enforces the announced target —
+// the same three-phase discipline costTargetsMatch already applies.
+func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.PlayerID, id state.ObjID, spec string, targets []state.Target) bool {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
 		return true
@@ -2667,7 +2917,7 @@ func (e *Engine) validSpellMatches(scope costScope, p state.PlayerID, id state.O
 			if scope.kind != "Spell" {
 				continue
 			}
-			if e.spellConstraintMatches(scope, id, constraint) {
+			if e.spellConstraintMatches(sv, scope, p, id, constraint, targets) {
 				return true
 			}
 		case "Activated":
@@ -2688,12 +2938,27 @@ func (e *Engine) validSpellMatches(scope costScope, p state.PlayerID, id state.O
 
 // spellConstraintMatches checks one ValidSpell$ Spell.* constraint against a
 // cast. The constraints the engine can evaluate: bare (any spell), the cast
-// variant modes the cast flow names, and the card types Instant/Sorcery.
-// Everything else — Bargain, Buyback, Blitz, Dash, isCastFaceDown,
-// IsTargeting, MayPlaySource — is a casting option or target shape this
-// build does not model, and denies.
-func (e *Engine) spellConstraintMatches(scope costScope, id state.ObjID, constraint string) bool {
-	switch strings.TrimSpace(constraint) {
+// variant modes the cast flow names (Flashback, Kicked, Blitz, ...), the card
+// types Instant/Sorcery, and the target-conditional `IsTargeting <spec>` form
+// (Head of the Class's "the first spell you cast each turn that targets a
+// creature"), which rides effects' ONE `Spell.IsTargeting` grammar against
+// the same target list costTargetsMatch reads. Everything else — Bargain,
+// Buyback, the Dash alternative cast, isCastFaceDown, MayPlaySource —
+// is a casting option this function does not read, and denies.
+// (Blitz matches the blitzed cast mode: Henzie, Toolbox Torre's
+// "Blitz costs you pay cost {1} less" ReduceCost keys on ValidSpell$
+// Spell.Blitz, and its scope mode is exactly the mode legal.go offers and
+// beginCast charges. Dash is the remaining denied alternative cast.)
+func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.PlayerID, id state.ObjID, constraint string, targets []state.Target) bool {
+	c := strings.TrimSpace(constraint)
+	if strings.HasPrefix(c, "IsTargeting") {
+		sc := e.staticSpecCtx(sv)
+		sc.You = p
+		sc.AsStack = true
+		sc.ProposedTargets = targets
+		return e.matchesSpec("Spell."+c, id, sc)
+	}
+	switch c {
 	case "":
 		return true
 	case "Flashback":
@@ -2711,6 +2976,8 @@ func (e *Engine) spellConstraintMatches(scope costScope, id state.ObjID, constra
 		return scope.mode == "surged"
 	case "Miracle":
 		return scope.mode == "miracle"
+	case "Blitz":
+		return scope.mode == "blitzed" || strings.HasPrefix(scope.mode, "blitzed_grant_")
 	case "Instant":
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()
@@ -2815,16 +3082,21 @@ func init() {
 		"stat:OptionalAttackCost",
 		// attackprop1: the CR 508.1g attack-prop static (rules/attack_cost.go
 		// attackPairCharge, priced per (attacker, defender) pair and paid
-		// during the declaration through the attackPay window). Only the
-		// whitelisted mana-cost shapes are enforced
-		// (cantAttackUnlessParamsReadable); the non-mana costs (Sac<...>,
-		// Return<...>, tapXType<...>, {W/P}) and the per-attacker-variable
-		// price (Nils' RememberingAttacker$) stay unregistered
-		// behaviour-wise and are ledgered in AGENTS.md.
+		// during the declaration through the attackPay window). The
+		// whitelisted shapes are enforced (cantAttackUnlessParamsReadable,
+		// delegating to effects.CantAttackUnlessRestrictionParamsReadable),
+		// including the composite non-mana components Sac<...>/Return<...>/
+		// tapXType<...>/PayLife<...>/{W/P} (chargeFromCost); an unmodelled
+		// component still skips the static fail-closed, and the
+		// per-attacker-variable price (Nils' RememberingAttacker$) is priced
+		// through the SVar grammar. The Effect/Animate-delivered forms are
+		// charged through the e.active() walk attackPairCharge carries.
 		"stat:CantAttackUnless",
-		// blockprop1: the CR 509.1b block-prop static. Mana-priceable
-		// face statics are charged per (blocker, attacker); non-mana costs
-		// and Effect/Animate-delivered forms remain permissively skipped.
+		// blockprop1: the CR 509.1b block-prop static. Face statics are
+		// charged per (blocker, attacker) with the same composite grammar,
+		// including Sac<...>/Return<...>/PayLife<...>/tapXType<...>/{W/P};
+		// the Effect/Animate-delivered forms are charged through the
+		// e.active() walk blockPairCharge carries.
 		"stat:CantBlockUnless",
 		// canattackdefender1: the CR 702.3b permission static (the inverse of
 		// a restriction: it LIFTS the Defender wall per (attacker, defender)

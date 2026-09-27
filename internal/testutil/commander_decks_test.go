@@ -29,6 +29,7 @@ var repoCommanderDecks = []struct {
 	{"pro-shaper", "Hearthhull, the Worldseed"},
 	{"cavalry-charge", "Sidar Jabari of Zhalfir"},
 	{"deadly-disguise", "Kaust, Eyes of the Glade"},
+	{"science-pip", "Dr. Madison Li"},
 }
 
 // TestRepoCommanderDecksValidate is the m38 acceptance gate: every interim

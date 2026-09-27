@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
 import starterFixture from '../fixtures/mulligan-starter.json';
-import type { CardView, Decision, Option, PlayerView, SeatInfo, View } from '../protocol';
+import type { CardView, Decision, Option, PaymentPlan, PlayerView, SeatInfo, View } from '../protocol';
 import { SeatPanelState } from '../lib/seatpanel.svelte';
 import SeatPanel from './SeatPanel.svelte';
 
@@ -114,6 +114,47 @@ describe('SeatPanel — the test contract', () => {
     const primaryLabel = /data-primary[^>]*>\s*([^<]+?)\s*</.exec(html)?.[1];
     expect(primaryLabel).toBe('Pass priority');
     expect(primaryLabel).not.toBe('Concede');
+  });
+});
+
+describe('SeatPanel — payment plans', () => {
+  const plan = (id: string): PaymentPlan => ({
+    version: 1, id, cost: { generic: 0, mana: [0, 1, 0, 0, 0, 0] },
+    activations: [{ source: 11, source_zone_seq: 3, ability: { kind: 'intrinsic', intrinsic: 'basic_land' }, produces: [0, 1, 0, 0, 0, 0] }],
+    pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0],
+  });
+
+  it('groups a legacy cast with its ordered plan list and leaves planned-only casts manual-aware', () => {
+    const d: Decision = {
+      ...priority,
+      payment_actions: [
+        { id: 'a', cast: { object: 101, face: 0, origin: 'hand' }, base_option_index: 0, label: 'Cast Grizzly Bears', plans: [plan('first'), plan('second')] },
+        { id: 'b', cast: { object: 102, face: 0, origin: 'hand' }, label: 'Cast Future Spell', plans: [plan('third')] },
+      ],
+      payment_fallback: { plan_id: 'first', reason: 'source_changed' },
+    };
+    const state = new SeatPanelState('t1', 1, ctx, null, null);
+    state.setAutoManaAvailable(true);
+    state.setAutoPayMana(true);
+    state.adoptView(d);
+    const html = render(SeatPanel, { props: { ...props(view(d)), state } }).html;
+    expect(html.match(/Cast Grizzly Bears/g)).toHaveLength(1);
+    expect(html).toContain('data-payment-plan="first"');
+    expect(html).toContain('data-payment-plan="second"');
+    expect(html).not.toContain('data-payment-manual="a"');
+    expect(html).toContain('data-payment-manual-needed');
+    expect(html).toContain('data-payment-fallback');
+  });
+
+  it('removes suggested-payment actions when Auto Mana is off and restores the ordinary cast', () => {
+    const d: Decision = {
+      ...priority,
+      payment_actions: [{ id: 'a', cast: { object: 101, face: 0, origin: 'hand' }, base_option_index: 0, label: 'Cast Grizzly Bears', plans: [plan('first')] }],
+    };
+    const html = render(SeatPanel, { props: props(view(d)) }).html;
+    expect(html).not.toContain('data-payment-plan');
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Cast Grizzly Bears');
   });
 });
 
@@ -269,15 +310,15 @@ describe('SeatPanel — the prompt surface (fb prompts: never passed over, never
     expect(html).not.toContain('data-primary');
   });
 
-  it('the split (Job 2): in the strip, an initiative decision is a pointer to the board, never a second option list', () => {
+  it('renders every in-game decision inside the ACTIONS-anchored strip surface', () => {
     const strip = (v: View) => render(SeatPanel, { props: { ...props(v), placement: 'strip' as const } }).html;
     const initiative = strip(bolt(target));
-    expect(initiative).toContain('data-strip-pointer');
-    expect(initiative).not.toContain('data-option="');
-    // the offered window keeps its action list in the strip
+    expect(initiative).toContain('data-answer-surface');
+    expect(initiative).toContain('data-prompt');
+    expect(initiative).toContain('data-option="0"');
     const offered = strip(view(priority));
-    expect(offered).not.toContain('data-strip-pointer');
     expect(offered).toContain('data-option="0"');
+    expect(offered).not.toContain('data-auto-pay-toggle');
   });
 
   it('while the undo pause holds, the Auto/Manual toggle reads Paused and the note says how to resume (fb-20260914T063523Z)', () => {
@@ -295,18 +336,13 @@ describe('SeatPanel — the prompt surface (fb prompts: never passed over, never
     expect(html).toContain('Press the Auto switch');
   });
 
-  // fb-20260914T062319Z-88b4069a part A: an optional trigger is a blocked
-  // decision (no pass — the answer must be given) but the CHOICE is optional,
-  // and the generic "required prompt" pointer read to the player as a
-  // mandatory yes. Both wordings are pinned here.
-  it('the strip pointer says the ability is optional for a trigger_optional decision, and stays generic otherwise', () => {
+  it('keeps an optional-trigger choice explicit in the ACTIONS-anchored surface', () => {
     const strip = (v: View) => render(SeatPanel, { props: { ...props(v), placement: 'strip' as const } }).html;
-    const optionalPointer = strip(bolt(optionalAsk));
-    expect(optionalPointer).toContain('data-strip-pointer');
-    expect(optionalPointer).toContain('This is an optional ability: choose whether it happens. The game cannot move until you answer.');
-    expect(optionalPointer).not.toContain('required prompt');
-    const genericPointer = strip(bolt(target));
-    expect(genericPointer).toContain('This is a required prompt, not an action — it is answered on the board. The game cannot move until it is.');
+    const optional = strip(bolt(optionalAsk));
+    expect(optional).toContain('data-answer-surface');
+    expect(optional).toContain('data-remember-answer');
+    expect(optional).toContain('data-option="0"');
+    expect(optional).toContain('data-option="1"');
   });
 
   it('a trigger_optional prompt renders the remember checkbox above the options; other kinds do not (B4)', () => {

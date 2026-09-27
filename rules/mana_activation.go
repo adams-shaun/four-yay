@@ -215,8 +215,8 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 		}
 	}
 	for _, option := range chosen {
-		colour, ok := manaLabelColour(option.Label)
-		if !ok || !strings.Contains("WUBRG", colour) {
+		colour := option.ManaSymbol
+		if len(colour) != 1 || !strings.Contains("WUBRG", colour) {
 			continue
 		}
 		if len(chosen) == 1 {
@@ -339,6 +339,20 @@ func (e *Engine) availableManaAbilitiesUsing(statics *actionStaticSource, p stat
 // inspects the list can reuse one buffer across objects. With out nil it
 // returns exactly what availableManaAbilitiesUsing always returned.
 func (e *Engine) appendAvailableManaAbilities(out []*cards.SA, statics *actionStaticSource, p state.PlayerID, id state.ObjID) []*cards.SA {
+	return e.appendAvailableManaAbilitiesGate(out, statics, p, id, false)
+}
+
+// appendAvailableManaAbilitiesGate is appendAvailableManaAbilities with the
+// live-pool payability gate made optional. ignorePayable is true ONLY for the
+// cast-window probe's own walk (castWindowProbeUnits): a CR 601.2g window can
+// fund a paid activation from mana it produced earlier in the SAME window, so
+// the probe must see a source whose fee the CURRENT pool cannot yet cover and
+// let its ordered reachability search prove the funding. Every other caller
+// (the priority offer, the payment windows, the potential-action walk)
+// keeps the live gate. The non-mana gates (zone, loyalty, activation
+// condition, restriction, activation limit) are unchanged, so the probe's
+// membership is still a subset of what the window can eventually offer.
+func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *actionStaticSource, p state.PlayerID, id state.ObjID, ignorePayable bool) []*cards.SA {
 	o := e.G.Obj(id)
 	// CR 702.25b: a phased-out permanent is treated as though it does not
 	// exist, so its mana abilities do not exist. PhasedOut is only ever set on
@@ -441,8 +455,15 @@ func (e *Engine) appendAvailableManaAbilities(out []*cards.SA, statics *actionSt
 		// artifacts"): the same keyword-condition gate the printed-ability
 		// offer loop in rules/legal.go applies, so the priority action, the
 		// payment window and the chosen activation share one member set.
-		if e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
-			!abilityRestricted(ma) && e.manaAbilityPayable(p, id, ma) {
+		// Activator$ (Mana Cache's "Any player may activate this ability but
+		// only during their turn before the end step") is the same shared
+		// selector every non-mana offer path applies: a mana ability is a
+		// mana ability's own eligibility home, so without this read the source
+		// controller could activate an ability whose Activator$ excluded them
+		// and a permitted opponent could not.
+		if e.activatorAllows(p, id, ma) &&
+			e.activationConditionOK(p, ma) && e.manaActivationGateHolds(p, id, ma) &&
+			!abilityRestricted(ma) && (ignorePayable || e.manaAbilityPayable(p, id, ma)) {
 			// ActivationLimit$ / GameActivationLimit$ (Vivi Ornitier's "only once
 			// each turn", Stalking Leonin's "Activate only once"): the non-mana
 			// ability offer loops in legal.go gate on these parameters, but this
@@ -709,12 +730,13 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 		if cols, ok := manaAbilityComboColours(ma, chosen); ok {
 			for _, col := range cols {
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: source,
-					Ability: i, Label: manaAbilityCostPrefix(ma) + "Add " + manaAmountPips(ma, col)})
+					Ability: i, Label: manaAbilityCostPrefix(ma) + "Add " + manaAmountPips(ma, col), ManaSymbol: col})
 			}
 			continue
 		}
+		label := manaAbilityLabel(ma, chosen)
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: source,
-			Ability: i, Label: manaAbilityLabel(ma, chosen)})
+			Ability: i, Label: label})
 	}
 	gained := make([]gainedManaRef, len(abilities))
 	for i, ma := range abilities {
@@ -928,25 +950,6 @@ func manaAbilityCostPrefix(ma *cards.SA) string {
 	return strings.ToUpper(phrase[:1]) + phrase[1:] + ": "
 }
 
-// manaLabelColour recovers the single colour a decision option's label names,
-// for the answer paths that carry only the label. It reads the label's LAST
-// "Add <C>" segment: a paid activation prefixes the cost ("Pay 1 life: Add
-// B"), so trimming "Add " off the whole label would miss the prefixed form
-// and silently drop the mana the player chose. Reports ok=false for a label
-// whose last Add segment is not exactly one WUBRGC pip ("Add any color",
-// "Add B or R", a non-mana label).
-func manaLabelColour(label string) (string, bool) {
-	i := strings.LastIndex(label, "Add ")
-	if i < 0 {
-		return "", false
-	}
-	colour := strings.TrimSpace(label[i+len("Add "):])
-	if len(colour) != 1 || !strings.Contains("WUBRGC", colour) {
-		return "", false
-	}
-	return colour, true
-}
-
 // manaAbilityPayable is the mana-ability equivalent of the cast cost gate.
 // A source with a sacrifice cost is not offered unless this synchronous path
 // can pay it without a chooser. Discard costs have their own continuation:
@@ -980,7 +983,7 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 		// typed counts never affect payability anyway).
 		typed = e.G.Players[p].ManaUnits()
 	}
-	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 || len(cost.TapPermanent) > 0 ||
+	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 || len(cost.TapPermanent) > 0 ||
 		len(cost.Blight) > 0 || cost.Forage || (cost.Tap && o.Tapped) || !e.costPayablePool(p, source, true, cost, pool, typed) {
 		return false
 	}
@@ -1312,9 +1315,7 @@ func (e *Engine) commitManaDiscard() {
 	}
 	// Only a decision posed BY this payment defers the mana effect below.
 	posedBefore := e.pending != nil
-	for _, id := range md.discards {
-		e.emit(events.DiscardCost(id))
-	}
+	e.payDiscardCost(md.discards, "")
 	for _, id := range md.exiles {
 		if o := e.G.Obj(id); o != nil {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone,
@@ -1612,7 +1613,7 @@ func (e *Engine) askTriggeredManaColor(pt pendingTrigger, rest []pendingTrigger,
 		Prompt: manaColourPrompt(mana), Source: pt.Source}
 	for unit := 0; unit < max; unit++ {
 		for _, color := range colours {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: pt.Source, Label: "Add " + color})
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: pt.Source, Label: "Add " + color, ManaSymbol: color})
 		}
 	}
 	parked := pt
@@ -2110,7 +2111,7 @@ func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA
 	prefix := manaAbilityCostPrefix(ma)
 	for unit := 0; unit < max; unit++ {
 		for _, color := range colours {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: source, Label: prefix + "Add " + color})
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mana", Obj: source, Label: prefix + "Add " + color, ManaSymbol: color})
 		}
 	}
 	e.manaColorActivation = &manaColorActivation{player: p, source: source, ability: ma, cast: cast, cumulative: cumulative, triggers: triggers, gained: gained, sacs: append([]state.ObjID(nil), sacs...), allocation: allocation}
@@ -2223,8 +2224,8 @@ func (e *Engine) answerManaColor(chosen []decision.Option) bool {
 	}
 	var symbols strings.Builder
 	for _, option := range chosen {
-		color, ok := manaLabelColour(option.Label)
-		if !ok {
+		color := option.ManaSymbol
+		if len(color) != 1 || !strings.Contains("WUBRGC", color) {
 			return ma.cast
 		}
 		symbols.WriteString(color)
@@ -2286,8 +2287,10 @@ func (e *Engine) answerManaActivation(chosen []decision.Option) bool {
 			gained = ma.gained[idx]
 		}
 		if _, ok := manaAbilityComboColours(ab, e.chosenProducedColour(ma.source)); ok {
-			color, alive := manaLabelColour(chosen[0].Label)
-			if alive {
+			// WUBRGC matches the set the removed label parser accepted, so a
+			// combo colour is admitted exactly as it was before the field.
+			color := chosen[0].ManaSymbol
+			if len(color) == 1 && strings.Contains("WUBRGC", color) {
 				// abilities entries are chain heads (printed faces list
 				// top-level abilities; granted and static-granted ones
 				// come from ResolveSVar bodies), so head == target copies

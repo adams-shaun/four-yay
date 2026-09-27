@@ -97,7 +97,7 @@ func (c config) createGame(r *host.Registry, gate *seatGate, cmdPool, conPool []
 			ID: id, Name: fmt.Sprintf("Play vs bot (%s)", req.Format), Seats: 2, Decks: decks,
 			Seed: seed, PlayerNames: []string{"You", "Bot"}, Mulligans: mulligans,
 			Spectator: vis, Perpetual: false, Humans: []int{0}, Format: req.Format,
-			BotPolicy: policy,
+			BotPolicy: policy, BotAutoPayMana: c.botAutoPayMana, AutoMana: c.autoMana, OnDemand: true,
 		}
 		if err := r.AddTable(cfg); err != nil {
 			return httpapi.CreateGameResponse{}, err

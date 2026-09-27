@@ -124,6 +124,48 @@ func TestStaticRemoveKeywordSameTimestampRemovalFirst(t *testing.T) {
 	}
 }
 
+func TestStaticRemoveKeywordLandwalkVariant(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Mystic Decree"), lookup(t, reg, "Bog Wraith"), lookup(t, reg, "Serra Angel")}, nil)
+	wraith := moveByName(t, e, 0, "Bog Wraith", state.ZBattlefield)
+	flyer := moveByName(t, e, 0, "Serra Angel", state.ZBattlefield)
+	if wraith == 0 || flyer == 0 {
+		t.Fatal("fixture must have Bog Wraith and Serra Angel")
+	}
+	// Precondition: Bog Wraith carries a printed parameterised landwalk and
+	// Serra Angel printed Flying while the Decree is not yet in play, so the
+	// post-entry assertions below are not vacuous.
+	if !slices.Contains(e.Derived(wraith).Keywords, "Landwalk:Swamp") || !e.HasKeyword(wraith, "Landwalk") {
+		t.Fatalf("precondition: Bog Wraith must carry Landwalk:Swamp, got %v", e.Derived(wraith).Keywords)
+	}
+	if !e.HasKeyword(flyer, "Flying") {
+		t.Fatalf("precondition: Serra Angel must carry Flying, got %v", e.Derived(flyer).Keywords)
+	}
+	decreed := moveByName(t, e, 0, "Mystic Decree", state.ZBattlefield)
+	if decreed == 0 {
+		t.Fatal("fixture must have Mystic Decree")
+	}
+	// The Decree's single static line is RemoveKeyword$ Flying & Landwalk:Island
+	// -- two entries through the ` & ` grammar. The engine matches removal by
+	// keyword HEAD, so the printed Landwalk:Swamp print (a variant the line
+	// does not name) leaves too; asserting per-variant granularity is out of
+	// scope (recorded approximation).
+	if kw := e.Derived(wraith).Keywords; len(kw) > 0 {
+		for _, k := range kw {
+			if cards.KeywordHead(k) == "Landwalk" {
+				t.Fatalf("Decree entered but Bog Wraith kept a landwalk entry: %v", kw)
+			}
+		}
+	}
+	if e.HasKeyword(wraith, "Landwalk") {
+		t.Fatal("Decree entered but Bog Wraith kept its landwalk head")
+	}
+	if e.HasKeyword(flyer, "Flying") {
+		t.Fatalf("Decree entered but Serra Angel kept Flying: %v", e.Derived(flyer).Keywords)
+	}
+	replayCheck(t, e, cfg)
+}
+
 func TestStaticCantHaveKeywordCloneCopiesKeywordSlices(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grizzly Bears")}, nil)

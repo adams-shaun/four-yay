@@ -17,6 +17,7 @@ func init() {
 	Register("DestroyAll", effDestroyAll)
 	Register("Sacrifice", effSacrifice)
 	Register("Manifest", effManifest)
+	Register("ManifestDread", effManifestDread)
 	Register("Cloak", effCloak)
 	Register("Seek", effSeek)
 }
@@ -1020,11 +1021,23 @@ func changeZoneAttachedToPlayer(h Host, c *Ctx, sa *cards.SA, moved state.ObjID,
 // read composes with each without a second caller-side branch. The Dig
 // mover (effects/cardflow.go effDig) calls it too, so the same WithMayLook$
 // read serves both APIs from this one choke point.
+//
+// Unearth$ True (cards/kw_unearth.go's K:Unearth expansion) also lands on
+// the battlefield entry here: it stamps the "entered_unearthed" counter so
+// rules' entry hook (rules/unearth.go, reached from checkTriggers) can tell
+// an unearth return from every other battlefield entry and apply CR
+// 702.84a's haste grant and end-step exile promise. The counter is not a
+// face-down marker (IsFaceDownEntry returns false for it), so the two
+// encodings never collide; no corpus line combines Unearth with
+// FaceDown$/ExileFaceDown$.
 func applyFaceDownMarker(h Host, sa *cards.SA, c *Ctx, ev *events.Event, to state.Zone) {
 	faceDown := strings.EqualFold(strings.TrimSpace(sa.Params["FaceDown"]), "True")
 	exileFaceDown := strings.EqualFold(strings.TrimSpace(sa.Params["ExileFaceDown"]), "True")
 	withMayLook := strings.EqualFold(strings.TrimSpace(sa.Params["WithMayLook"]), "True")
 	foretold := strings.EqualFold(strings.TrimSpace(sa.Params["Foretold"]), "True")
+	if to == state.ZBattlefield && strings.EqualFold(strings.TrimSpace(sa.Params["Unearth"]), "True") {
+		ev.Counter = events.UnearthEntryCounter
+	}
 	switch {
 	case to == state.ZExile && exileFaceDown && withMayLook:
 		// The may-look layout: Amount carries the looker (the exiling
@@ -1465,12 +1478,17 @@ func forgetOtherRemembered(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
-// A multi-owner walk must match every owner's candidates against the memory
-// from BEFORE the first move. The actual remembered list is still cleared at
-// the first move and rebuilt by events; this snapshot is only a filter input.
-// It rides the owner cursor across asks, including the answered owner's recheck.
-func initForgetOtherSnapshot(h Host, c *Ctx, sa *cards.SA, owners []state.PlayerID) {
-	if len(owners) < 2 || c.ForgetOtherReady || !strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") {
+// A walk that re-runs its candidate filter across an ask must match every
+// owner's candidates against the memory from BEFORE the first move. The
+// actual remembered list is still cleared at the first move and rebuilt by
+// events; this snapshot is only a filter input. It rides the owner cursor
+// across asks, including the answered owner's recheck. minOwners is the
+// walk's own continuation shape: 2 for a walk whose filter is only read for
+// owners AFTER an answered ask, 1 for a walk whose answered owner's filter
+// re-runs on re-entry (effDigUntil's re-scan). A walk whose answered
+// revalidation instead reads the ask's ResumeRemembered ride never arms it.
+func initForgetOtherSnapshot(h Host, c *Ctx, sa *cards.SA, owners []state.PlayerID, minOwners int) {
+	if len(owners) < minOwners || c.ForgetOtherReady || !strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") {
 		return
 	}
 	c.ForgetOtherReady = true
@@ -1493,6 +1511,21 @@ func forgetOtherSpecContext(c *Ctx) SpecContext {
 		sc.Remembered = append(append([]state.Target(nil), sc.Remembered...), c.ForgetOtherSnapshot...)
 	}
 	return sc
+}
+
+// forgetOtherPreClearContext is the ONE spec-context read every
+// ForgetOtherRemembered$ walk's candidate filter goes through: before the
+// snapshot exists the walk's own pre-clear shallow copy is authoritative
+// (the set the first pass matched its options under), and once
+// initForgetOtherSnapshot has armed the Ctx the snapshot is authoritative,
+// riding every ask so a resumed walk re-matches the pre-clear candidates
+// against memory the first move cleared. One read for every affected
+// primitive so the two carriers cannot drift.
+func forgetOtherPreClearContext(sel, c *Ctx) SpecContext {
+	if c.ForgetOtherReady {
+		return forgetOtherSpecContext(c)
+	}
+	return sel.SpecContext(sel.Controller)
 }
 
 func effChangeZoneHand(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
@@ -1562,7 +1595,18 @@ func handMoveCountOf(h Host, c *Ctx, sa *cards.SA) (handMoveCount, bool) {
 // the hand owner). Every shape this function cannot model emits a Note and
 // moves nothing -- the finding's floor: never a silent no-op.
 func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
-	owners, ok := handMoveOwners(h, c, sa)
+	// On a resume of a multi-owner walk, the owner cursor's captured list is
+	// authoritative: the first move may have cleared the remembered set the
+	// owner selector reads (DefinedPlayer$ RememberedOwner with
+	// ForgetOtherRemembered$ and no RememberChanged$), so recomputing here
+	// would return no owners and the empty-owner guard below would return
+	// before handMoveOwnersWalk can restore the list -- dropping the later
+	// owner's already-answered move. handMoveOwnersWalk's own entry restores
+	// the same list; this restores it early enough to survive the guards.
+	owners, ok := c.ForgetOtherOwners, true
+	if !c.ForgetOtherReady {
+		owners, ok = handMoveOwners(h, c, sa)
+	}
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "cannot resolve the hand owner (DefinedPlayer$ " + strings.TrimSpace(sa.Params["DefinedPlayer"]) +
@@ -1746,6 +1790,9 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	// The per-type groups an EACH ChangeType asks for, computed once: the
 	// sub-specs are a property of the SA, not of the hand owner.
 	eachSubs, isEach := eachAlternatives(spec)
+	if c.ForgetOtherReady {
+		owners = c.ForgetOtherOwners
+	}
 	g := h.Game()
 	// fx42 scoping: capture and clear the answered pick (and the cursor that
 	// binds it to the owner that asked) BEFORE anything else, so a nested
@@ -1754,6 +1801,12 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	done := c.HandMoveDone
 	cursor := c.HandMoveTarget
 	c.HandMove, c.HandMoveDone, c.HandMoveTarget = nil, false, 0
+	// fx42 scoping for the Optional$ confirmation answer: consumed and cleared
+	// before anything else so a nested hand move poses its own confirmation.
+	confirmDone := c.HandMoveConfirmDone
+	confirmYes := strings.EqualFold(c.HandMoveConfirm, "yes")
+	confirmTarget := c.HandMoveConfirmTarget
+	c.HandMoveConfirm, c.HandMoveConfirmDone, c.HandMoveConfirmTarget = "", false, 0
 	withKind := sa.Params["WithCountersType"]
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
@@ -1769,12 +1822,19 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	// hand-origin mover, so concrete Defined$ objects and future hand-owner
 	// selectors cannot silently miss the tapped entry.
 	rider := classifyAttackingEntry(c, sa, to)
+	// The pre-clear remembered snapshot rides the walk's asks: owner B's
+	// candidates must still match the set the walk started with after
+	// owner A's settle cleared both halves of the remembered state. It is
+	// armed for a single owner too now that the walk clears BEFORE its first
+	// ask (an accepted Optional$ confirmation or a mandatory entry), so the
+	// answered re-entry's eligibility filter still sees the pre-clear set.
+	initForgetOtherSnapshot(h, c, sa, owners, 1)
 	// Snapshot eligibility before forgetting: an IsRemembered filter must
 	// still admit an answered card after the old set has been cleared.
 	eligibleByOwner := make([][]state.ObjID, len(owners))
 	for i, owner := range owners {
 		for _, id := range zoneOf(g, state.ZHand, owner) {
-			if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+			if MatchesSpecCtx(g, spec, id, forgetOtherSpecContext(c)) {
 				eligibleByOwner[i] = append(eligibleByOwner[i], id)
 			}
 		}
@@ -1803,7 +1863,14 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			// Re-entry: move exactly the answered cards that still sit in THIS
 			// owner's hand and still match the filter (a stray answer must not
 			// move an object that left the hand meanwhile), in the player's
-			// answer order.
+			// answer order. Reaching this branch at all means the fetch was
+			// ENTERED -- a mandatory move, or an accepted Optional$
+			// confirmation -- so the event-backed memory is cleared exactly
+			// once here, before the answered cards are settled, even when the
+			// answer picked nothing (Forge clears at
+			// ChangeZoneEffect.changeHiddenOriginResolve 1103 before the
+			// choose, so an accepted search that finds nothing still clears).
+			forgetOtherRemembered(h, c, sa)
 			var moved []state.ObjID
 			for _, id := range ans {
 				if !containsID(hand, id) {
@@ -1832,17 +1899,25 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 		if count.perOwner {
 			n = int32(len(eligible))
 		}
-		if len(eligible) == 0 || n == 0 {
-			// No eligible card, or an empty-only ChangeNum$ 0 choice: both
-			// complete silently before optionality can matter (AskEmpty's
-			// shared contract).
-			continue
-		}
 		var moved []state.ObjID
+		// The chooser is a property of the SA and the owner, not of the
+		// eligible pool, so it is resolved once here for both the Optional$
+		// confirmation and the card pick below.
+		chooser := owner
+		if chooserFor != nil {
+			chooser, _ = chooserFor(h, c, sa, owner)
+		}
 		if random {
 			// AtRandom$ True: the engine picks, not a player -- ChangeNum$
 			// random distinct eligible cards (corpus: always 1, mandatory),
-			// through the seeded generator, so the pick replays.
+			// through the seeded generator, so the pick replays. No player can
+			// decline an engine pick, so the fetch is entered unconditionally
+			// here and the event-backed memory is cleared even when no card can
+			// be drawn.
+			forgetOtherRemembered(h, c, sa)
+			if len(eligible) == 0 || n == 0 {
+				continue
+			}
 			pool := append([]state.ObjID(nil), eligible...)
 			for k := int32(0); k < n && len(pool) > 0; k++ {
 				j := h.Rand(len(pool))
@@ -1852,6 +1927,63 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			}
 			handLibraryTail(h, g, sa, c.Source, owner, moved, to)
 			scheduleAtEOT(h, c, sa, moved)
+			continue
+		}
+		// Forge's Optional$ confirmation (ChangeZoneEffect's confirmAction gate,
+		// which runs BEFORE the card pick): a script that carries the marker asks
+		// the decider whether to proceed. A decline skips this owner with the
+		// remembered set intact; only an accepted confirmation enters the fetch.
+		// The markerless may-shapes handTakeOptional recognises stay
+		// confirmation-free: Forge expresses their may as a null pick, not as a
+		// confirmation, so their empty answer is an accepted fetch that clears.
+		if handMoveConfirms(sa) {
+			if confirmDone && i < confirmTarget {
+				// This owner's confirmation was already answered on an earlier
+				// pass (declined, or accepted with its pick completed); do not
+				// ask again and do not clear for it.
+				continue
+			}
+			if !confirmDone {
+				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				if prompt == "" {
+					prompt = "Proceed with moving a card from hand?"
+				}
+				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+					Min: 1, Max: 1, Source: c.Source,
+					ResumeKind: "hand_move_confirm", ResumeSA: sa, ResumeTarget: i,
+					ResumeRemembered:          copyTargets(c.Remembered),
+					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+					ResumeForgetOtherReady:    c.ForgetOtherReady,
+					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+					Prompt:                    prompt,
+					Options: []decision.Option{
+						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+						{Index: 1, Kind: "no", Label: "No", Player: chooser},
+					}}
+				if Ask(h, cd) == AskAsked {
+					return
+				}
+				// R-9: no host to ask -- play "may" as "do" deterministically,
+				// the same fallback moveDefinedLibraryObjects applies.
+			} else if i == confirmTarget && !confirmYes {
+				confirmDone = false // this owner's decline is consumed; later owners still confirm
+				continue            // declined: keep the remembered set
+			} else if i == confirmTarget {
+				confirmDone = false // this owner's acceptance is consumed
+			}
+		}
+		if len(eligible) == 0 || n == 0 {
+			// No eligible card, or an empty-only ChangeNum$ 0 choice. An
+			// ordinary (non-ForgetOther) empty hand move completes silently
+			// before optionality is read -- AskEmpty's contract. A
+			// ForgetOtherRemembered$ fetch that is entered (mandatory, a
+			// markerless may-shape, or an accepted Optional$ confirmation)
+			// clears its remembered set: Forge clears before the choose and
+			// does not require a nonempty fetchList.
+			if strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") {
+				forgetOtherRemembered(h, c, sa)
+			}
 			continue
 		}
 		// NumInHand/HandSize means "all matching cards in that hand", an
@@ -1920,10 +2052,6 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			scheduleAtEOT(h, c, sa, moved)
 			continue
 		}
-		chooser := owner
-		if chooserFor != nil {
-			chooser, _ = chooserFor(h, c, sa, owner)
-		}
 		min := int(n)
 		if optional {
 			min = 0 // "you may put": none is a legal answer
@@ -1938,8 +2066,16 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			// every other mid-resolution ask boundary does (attach.go,
 			// counters.go, play.go): without it the rebuild loses the ctx-level
 			// Remembered and the revalidation re-eligible-matches nothing.
-			ResumeRemembered: copyTargets(c.Remembered),
-			Prompt:           handMovePromptFor(sa, to, int(n), chooser == owner)}
+			// The ForgetOtherRemembered$ pre-clear snapshot rides with it: a
+			// LATER owner's pool (and any answered revalidation after an
+			// earlier owner's settle cleared the live set) still reads the
+			// candidates the walk started with.
+			ResumeRemembered:          copyTargets(c.Remembered),
+			ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+			ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+			ResumeForgetOtherReady:    c.ForgetOtherReady,
+			ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+			Prompt:                    handMovePromptFor(sa, to, int(n), chooser == owner)}
 		for _, id := range eligible {
 			name := "a card"
 			if o := g.Obj(id); o != nil && o.Face() != nil {
@@ -1966,6 +2102,12 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			}
 			eachStructuredOptions(g, d, eachGroups, eachPerType, false, owner, "hand_move")
 		}
+		// The iteration is entered (a mandatory move, a markerless may-shape, or
+		// an accepted Optional$ confirmation): Forge clears the source's
+		// remembered cards here, before the choose, so this applies even when
+		// the answer picks nothing. The decision above already captured the
+		// pre-clear Remembered, so the resumed revalidation keeps matching.
+		forgetOtherRemembered(h, c, sa)
 		// The shared ask boundary (effects.Ask): a ChangeNum$ 0 pick over a
 		// nonempty eligible hand is Min == Max == 0 -- the empty-answer-only
 		// shape -- so it is never posted; AskEmpty resolves silently through
@@ -2005,6 +2147,48 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 		handLibraryTail(h, g, sa, c.Source, owner, moved, to)
 		scheduleAtEOT(h, c, sa, moved)
 	}
+	// The walk completed: release the ride. A later ability in the same
+	// chain must not inherit this walk's snapshot (the same boundary the
+	// search and hidden walks end at).
+	endForgetOtherSnapshot(c)
+}
+
+// optionalConfirmMarker is the ONE reader of Forge's explicit Optional$
+// confirmation marker (the confirmAction gate in
+// ChangeZoneEffect.changeHiddenOriginResolve, which runs before any card is
+// picked and whose decline does not clear the source's remembered cards).
+// Only a positive marker asks the decider: Optional$ True, or the older
+// Optional$ You spelling Cauldron Dance carries. An explicit Optional$ False
+// and an absent marker pose no confirmation. The markerless may-shapes
+// handTakeOptional recognises from card text stay confirmation-free -- Forge
+// expresses their may as a null pick, not as a confirmation -- so an empty
+// answer there is an accepted fetch that clears. ChoiceOptional$ is
+// deliberately NOT this marker: it names the pick's own cardinality (the
+// Min-0 may-pick default), not a yes/no gate.
+func optionalConfirmMarker(sa *cards.SA) bool {
+	o := strings.TrimSpace(sa.Params["Optional"])
+	return strings.EqualFold(o, "True") || strings.EqualFold(o, "You")
+}
+
+// handMoveConfirms reports whether a hidden-hand ChangeZone poses Forge's
+// Optional$ confirmation before its card pick. The ordinary (non-ForgetOther)
+// Optional$ fetch confirms exactly like the ForgetOtherRemembered$ one: the
+// decline-vs-accept split is observable in the ask sequence itself (a decline
+// poses no card pick at all, where an accepted Min-0 pick would), which is
+// Forge's confirm-before-pick order in changeHiddenOriginResolve.
+func handMoveConfirms(sa *cards.SA) bool {
+	return optionalConfirmMarker(sa)
+}
+
+// hiddenPickConfirms reports whether a Hidden$ True public-origin ChangeZone
+// pick poses Forge's Optional$ confirmation before its pick: the same
+// optionalConfirmMarker the hidden-hand walk reads, for the same
+// confirmAction gate. effHiddenPick poses it per fetch player, including when
+// that player's eligible pool turns out empty -- a decline skips the player
+// with the remembered set intact, and only an accepted confirmation reaches
+// the pick or the empty-pool continuation that clears.
+func hiddenPickConfirms(sa *cards.SA) bool {
+	return optionalConfirmMarker(sa)
 }
 
 // handTakeOptional reads Forge's optional-vs-mandatory markers for a
@@ -2351,7 +2535,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 	if len(players) == 0 {
 		return
 	}
-	initForgetOtherSnapshot(h, c, sa, players)
+	initForgetOtherSnapshot(h, c, sa, players, 2)
 	searchTarget := c.LibraryTarget
 	searchDone := c.SearchDone
 	chosen := append([]state.ObjID(nil), c.Search...)
@@ -2361,9 +2545,19 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 	shuffleMoved := append([]state.ObjID(nil), c.SearchShuffleMoved...)
 	c.Search, c.SearchDone = nil, false
 	c.SearchShuffle, c.SearchShuffleMoved = "", nil
+	// fx42 scoping for the Optional$ confirmation answer: consumed and
+	// cleared before anything else so a nested search poses its own
+	// confirmation.
+	searchConfirmDone := c.SearchConfirmDone
+	searchConfirmYes := strings.EqualFold(c.SearchConfirm, "yes")
+	searchConfirmTarget := c.SearchConfirmTarget
+	c.SearchConfirm, c.SearchConfirmDone, c.SearchConfirmTarget = "", false, 0
 	start := 0
 	if searchDone || shufflePending {
 		start = searchTarget
+	}
+	if searchConfirmDone {
+		start = searchConfirmTarget
 	}
 	g := h.Game()
 	// ChooseFromDefined$ narrows the offered pool to the objects a defined
@@ -2390,6 +2584,62 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			continue
 		}
 		c.LibraryTarget = targetIndex
+		// Forge's explicit Optional$ confirmation (ChangeZoneEffect's
+		// confirmAction gate, which runs BEFORE the fetch list is consulted):
+		// a hidden-origin search whose script carries the marker asks this
+		// search player whether to proceed. The marker is read through the
+		// ONE shared optionalConfirmMarker the hand and hidden-pick walks use
+		// -- never a second parser. A decline skips this player's search, card
+		// pick and search-specific shuffle/tail with the remembered set
+		// intact; an accepted confirmation enters the fetch, whose Min-0 or
+		// mandatory pick (and its shuffle) runs unchanged even when the
+		// eligible pool is empty. The object-valued Defined$ fetch list keeps
+		// its own election in moveDefinedLibraryObjects and never reaches this
+		// walk, so it cannot double-confirm. ChoiceOptional$ is the pick's own
+		// cardinality marker, never a yes/no gate, and a markerless text-may
+		// search stays confirmation-free.
+		if optionalConfirmMarker(sa) {
+			// A search or may-shuffle ANSWER resume must not re-ask: this
+			// player's confirmation was already consumed on the pass that
+			// entered the fetch.
+			resumingAnswer := (searchDone && targetIndex == searchTarget) ||
+				(shufflePending && targetIndex == shuffleTarget)
+			if searchConfirmDone && targetIndex < searchConfirmTarget {
+				// Answered on an earlier pass; skip without re-asking.
+				continue
+			}
+			if !searchConfirmDone && !resumingAnswer {
+				chooser := searchChooser(h, c, sa)
+				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				if prompt == "" {
+					prompt = "Proceed with searching a library?"
+				}
+				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+					Min: 1, Max: 1, Source: c.Source,
+					ResumeKind: "search_confirm", ResumeSA: sa, ResumeTarget: targetIndex,
+					ResumeRemembered:          copyTargets(c.Remembered),
+					ResumeSearchKnown:         copyTargets(c.SearchKnown),
+					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+					ResumeForgetOtherReady:    c.ForgetOtherReady,
+					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+					Prompt:                    prompt,
+					Options: []decision.Option{
+						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+						{Index: 1, Kind: "no", Label: "No", Player: chooser},
+					}}
+				if Ask(h, cd) == AskAsked {
+					return
+				}
+				// R-9: no host to ask -- play "may" as "do" deterministically,
+				// then let the search path apply its own no-host pick policy.
+			} else if searchConfirmDone && targetIndex == searchConfirmTarget && !searchConfirmYes {
+				searchConfirmDone = false // this player's decline is consumed; later players still confirm
+				continue                  // declined: keep the remembered set, skip the search/tail
+			} else if searchConfirmDone && targetIndex == searchConfirmTarget {
+				searchConfirmDone = false // this player's acceptance is consumed
+			}
+		}
 		lib := zoneOf(g, state.ZLibrary, owner)
 		if !zoneIn(zones, state.ZLibrary) {
 			lib = nil
@@ -2923,6 +3173,11 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 	if optional && answer == "no" {
 		return true
 	}
+	// The fetch is entered: Forge clears the source's remembered cards before
+	// the choose (ChangeZoneEffect.changeHiddenOriginResolve 1103), so an
+	// accepted optional fetch that moves nothing still clears. A declined
+	// Optional$ confirmation returned above without clearing.
+	forgetOtherRemembered(h, c, sa)
 
 	withKind := sa.Params["WithCountersType"]
 	var withAmt int32
@@ -2934,7 +3189,6 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 	// owner).
 	var ateotMoved []state.ObjID
 	rider := classifyAttackingEntry(c, sa, to)
-	forgot := false
 	for i := range fetches {
 		f := &fetches[i]
 		moved := make([]state.ObjID, 0, len(f.ids))
@@ -2944,10 +3198,6 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 			// target must not move an object from a new zone.
 			if o == nil || o.Zone != state.ZLibrary || o.Owner != f.owner {
 				continue
-			}
-			if !forgot {
-				forgetOtherRemembered(h, c, sa)
-				forgot = true
 			}
 			settleChangeZoneMove(h, c, sa, id, state.ZLibrary, to, withKind, withAmt, &rider)
 			if strings.EqualFold(sa.Params["RememberChanged"], "True") {
@@ -2998,9 +3248,8 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 // body (Y, or X outside a cast's own X-value) -- emits the SAME loud
 // "unimplemented API Manifest" note the unimplemented-API fallback emits
 // and moves nothing: fail loud, never silently move the wrong card.
-// ManifestDread is a DIFFERENT API (31 corpus files) and stays on that
-// fallback; turning a face-down permanent face up (CR 708.6) is not
-// implemented anywhere (AGENTS.md's manifest row).
+// Turning a face-down permanent face up (CR 708.6) is not implemented
+// anywhere (AGENTS.md's manifest row).
 func effManifest(h Host, c *Ctx, sa *cards.SA) {
 	if strings.TrimSpace(sa.Params["Defined"]) != "" ||
 		strings.TrimSpace(sa.Params["Choices"]) != "" ||
@@ -3047,6 +3296,106 @@ func effManifest(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.MoveZone, Obj: top, Player: p,
 				From: state.ZLibrary, To: state.ZBattlefield,
 				Counter: "entered_face_down", Secret: true})
+		}
+	}
+}
+
+// effManifestDread implements CR 701.61's two-card library operation. The
+// private look is recorded before the choice; the offered identities are
+// visible only to the library's player. If the host cannot ask, choose the
+// top card deterministically, matching the engine's R-9 fallback contract.
+//
+// Scope, measured over the corpus's 37 ManifestDread lines: the plain top-two
+// body (Zimone, Mystery Unraveler and 26 others) and `Amount$ 2` (identical
+// to the default). Every other parameter family -- `Amount$ 1` (a count this
+// build does not implement), `DefinedPlayer$` (only the resolving
+// controller's library is supported) and `RememberManifested$ True` (the
+// DBAttach/DBPutCounter rider family needs the manifested object remembered)
+// -- emits the SAME loud "unimplemented API ManifestDread" note the
+// unimplemented-API fallback emits and moves nothing: fail loud, never
+// silently look at the wrong count, the wrong player's library, or lose the
+// remembered card a rider needs.
+func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
+	if strings.TrimSpace(sa.Params["DefinedPlayer"]) != "" ||
+		strings.EqualFold(strings.TrimSpace(sa.Params["RememberManifested"]), "True") ||
+		sa.Params["Choices"] != "" {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "unimplemented API ManifestDread"})
+		return
+	}
+	if raw, present := sa.Params["Amount"]; present && strings.TrimSpace(raw) != "2" {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "unimplemented API ManifestDread"})
+		return
+	}
+	g := h.Game()
+	p := c.ManifestDreadPlayer
+	picked := c.ManifestDreadPick
+	done := c.ManifestDreadDone
+	c.ManifestDreadPick, c.ManifestDreadDone = 0, false
+	if int(p) >= len(g.Players) {
+		p = c.Controller
+	}
+	if done {
+		if o := g.Obj(picked); o != nil && o.Zone == state.ZLibrary && o.Owner == p {
+			window := []state.ObjID{picked}
+			for _, id := range g.Zone(state.ZLibrary, p) {
+				if id != picked && len(window) < 2 {
+					window = append(window, id)
+				}
+			}
+			manifestDreadMove(h, c, p, window, picked)
+		}
+		return
+	}
+	p = c.Controller
+	lib := g.Zone(state.ZLibrary, p)
+	if len(lib) == 0 {
+		return
+	}
+	window := append([]state.ObjID(nil), lib[:min(2, len(lib))]...)
+	emitLook(h, []state.PlayerID{p}, state.ZLibrary, window, "looks at the top two cards of the library")
+	if len(window) == 1 {
+		manifestDreadMove(h, c, p, window, window[0])
+		return
+	}
+	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
+		Source: c.Source, ResumeKind: "manifest_dread", ResumeSA: sa,
+		Prompt: "Choose a card to manifest dread"}
+	for _, id := range window {
+		label := "a card"
+		if o := g.Obj(id); o != nil && o.Face() != nil {
+			label = o.Face().Name
+		}
+		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "manifest_dread", Label: label, Obj: id, Player: p})
+	}
+	c.ManifestDreadPlayer = p
+	if Ask(h, d) == AskAsked {
+		return
+	}
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
+		Text: "manifests the top card (no engine host to ask)", Secret: true})
+	manifestDreadMove(h, c, p, window, window[0])
+}
+
+// manifestDreadMove applies CR 701.61's two destinations. The chosen card's
+// move onto the battlefield face down is Secret (the private look must not
+// leak which card was manifested); the unchosen card's move to the graveyard
+// is PUBLIC -- a graveyard is a public zone, so every seat and spectator
+// learns which card went there, exactly as applyNonlandExplore's
+// library-to-graveyard move does. Marking it Secret would strip Obj from
+// every non-owner projection, leaving the transcript a nameless move even
+// though the card's identity is public the moment it lands.
+func manifestDreadMove(h Host, c *Ctx, p state.PlayerID, window []state.ObjID, chosen state.ObjID) {
+	for _, id := range window {
+		if id == chosen {
+			h.Emit(events.Event{Kind: events.MoveZone, Obj: id, Player: p, From: state.ZLibrary,
+				To: state.ZBattlefield, Counter: "entered_face_down", Secret: true})
+		} else {
+			o := h.Game().Obj(id)
+			if o != nil {
+				h.Emit(events.Event{Kind: events.MoveZone, Obj: id, Player: o.Owner, From: state.ZLibrary, To: state.ZGraveyard})
+			}
 		}
 	}
 }
@@ -3412,6 +3761,13 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	done := c.HiddenPickDone
 	cursor := c.HiddenPickTarget
 	c.HiddenPick, c.HiddenPickDone, c.HiddenPickTarget = nil, false, 0
+	// fx42 scoping for the Optional$ confirmation answer: consumed and cleared
+	// before anything else so a nested pick poses its own confirmation (the
+	// same discipline the hand walk's HandMoveConfirm answer follows).
+	confirmDone := c.HiddenPickConfirmDone
+	confirmYes := strings.EqualFold(c.HiddenPickConfirm, "yes")
+	confirmTarget := c.HiddenPickConfirmTarget
+	c.HiddenPickConfirm, c.HiddenPickConfirmDone, c.HiddenPickConfirmTarget = "", false, 0
 	if !originValid {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "ChangeZone Origin$ " + from + " includes a zone this engine does not model (no outside-the-game cards exist); nothing is offered from it"})
@@ -3420,7 +3776,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	if c.ForgetOtherReady {
 		players = c.ForgetOtherOwners
 	}
-	initForgetOtherSnapshot(h, c, sa, players)
+	initForgetOtherSnapshot(h, c, sa, players, 2)
 	// Forge branches on the origin zones, not on the fetch player: game-wide
 	// only when the origin holds no hidden-info zone and no fetch player was
 	// named (Kor Skyfisher's ChangeType$ filter does the scoping).
@@ -3498,7 +3854,6 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "ChangeZone ChooseFromDefined$ " + strings.TrimSpace(sa.Params["ChooseFromDefined"]) + " is not resolvable; nothing is offered"})
 	}
-	forgot := false
 	apply := func(owner state.PlayerID, ids []state.ObjID) []state.ObjID {
 		g := h.Game()
 		// Revalidate all picks before the clear, including IsRemembered, and
@@ -3514,6 +3869,12 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 				valid = append(valid, id)
 			}
 		}
+		// The pick is entered: Forge clears the source's remembered cards
+		// before the choose (ChangeZoneEffect.changeHiddenOriginResolve 1103),
+		// so an answered pick that moves nothing still clears. The valid set
+		// above was rechecked against the pre-clear snapshot, so a formerly
+		// remembered card remains admitted here.
+		forgetOtherRemembered(h, c, sa)
 		moved := make([]state.ObjID, 0, len(valid))
 		for _, id := range valid {
 			o := g.Obj(id)
@@ -3521,10 +3882,6 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			// sit in an origin zone and match the filter, or it stays.
 			if o == nil || !zoneIn(originZones, o.Zone) {
 				continue
-			}
-			if !forgot {
-				forgetOtherRemembered(h, c, sa)
-				forgot = true
 			}
 			settleChangeZoneMoveAs(h, c, sa, id, o.Zone, to, withKind, withAmt, o.Owner, true, &rider)
 			// AttachedTo$ on a hidden public-origin pick (Cass, Hand of
@@ -3650,13 +4007,69 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			apply(owner, ans)
 			continue
 		}
+		chooser := hiddenPickChooser(h, c, sa, owner)
+		// Forge's Optional$ confirmation (the same confirmAction gate the
+		// hidden-hand walk poses, which runs BEFORE the card pick): a script
+		// that carries the marker asks the decider whether to proceed, even
+		// when this player's eligible pool turns out empty -- a decline skips
+		// this player with the remembered set intact, and only an accepted
+		// confirmation reaches the pick or the empty-pool continuation below
+		// (which clears). The markerless may-shapes stay confirmation-free:
+		// ChoiceOptional$ names the pick's cardinality, not a yes/no gate. An
+		// UNRESOLVED ChooseFromDefined$ failed closed above, so its
+		// nothing-to-offer continuation never becomes a confirmation.
+		if hiddenPickConfirms(sa) && !(hasChooseFromDefined && !chooseFromDefinedResolved) {
+			if confirmDone && i < confirmTarget {
+				// This fetch player's confirmation was already answered on an
+				// earlier pass (declined, or accepted with its pick completed);
+				// do not ask again and do not clear for it.
+				continue
+			}
+			if !confirmDone {
+				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				if prompt == "" {
+					prompt = "Proceed with moving a card?"
+				}
+				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+					Min: 1, Max: 1, Source: c.Source,
+					ResumeKind: "hidden_pick_confirm", ResumeSA: sa, ResumeTarget: i,
+					ResumeRemembered:          copyTargets(c.Remembered),
+					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
+					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
+					ResumeForgetOtherReady:    c.ForgetOtherReady,
+					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
+					Prompt:                    prompt,
+					Options: []decision.Option{
+						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+						{Index: 1, Kind: "no", Label: "No", Player: chooser},
+					}}
+				if Ask(h, cd) == AskAsked {
+					return
+				}
+				// R-9: no host to ask -- play "may" as "do" deterministically,
+				// the same fallback the hand walk's confirmation applies.
+			} else if i == confirmTarget && !confirmYes {
+				confirmDone = false // this player's decline is consumed; later players still confirm
+				continue            // declined: keep the remembered set
+			} else if i == confirmTarget {
+				confirmDone = false // this player's acceptance is consumed
+			}
+		}
 		if len(budgetEligible) == 0 || m == 0 {
-			// No eligible card, or an empty-only ChangeNum$ 0 pick: both
-			// complete silently before optionality can matter, and a public
-			// origin has no shuffle to fail to perform.
+			// No eligible card, or an empty-only ChangeNum$ 0 pick: with no
+			// Optional$ marker both completed silently before optionality could
+			// matter; an ACCEPTED Optional$ confirmation reaches this branch
+			// entered (the same AskEmpty contract the hand walk keeps for its
+			// ordinary empty move). A resolved selector with an empty pool still
+			// entered the fetch, so it clears the remembered set; an UNRESOLVED
+			// ChooseFromDefined$ failed closed above and must not be mistaken
+			// for a fetch that happened. A public origin has no shuffle to fail
+			// to perform.
+			if !(hasChooseFromDefined && !chooseFromDefinedResolved) {
+				forgetOtherRemembered(h, c, sa)
+			}
 			continue
 		}
-		chooser := hiddenPickChooser(h, c, sa, owner)
 		prompt := strings.TrimSpace(sa.Params["SelectPrompt"])
 		// OptionalPrompt$ is the script's own wording for the optional pick
 		// (Cass's "Select any number of Aura cards that were attached to
@@ -4050,15 +4463,16 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 			valid = append(valid, id)
 		}
 	}
-	forgot := false
+	// The search's fetch is entered: Forge clears the source's remembered
+	// cards before the choose (ChangeZoneEffect.changeHiddenOriginResolve
+	// 1103), so a search that yields no card still clears. The valid set above
+	// was rechecked against the pre-clear snapshot, so a formerly remembered
+	// card remains admitted here.
+	forgetOtherRemembered(h, c, sa)
 	for _, id := range valid {
 		o := g.Obj(id)
 		if o == nil || !zoneIn(zones, o.Zone) {
 			continue
-		}
-		if !forgot {
-			forgetOtherRemembered(h, c, sa)
-			forgot = true
 		}
 		// A chosen candidate from a PUBLIC origin zone (OriginAlternative$
 		// Graveyard/Hand/Exile) moves through the ordinary cross-zone settle:
@@ -5543,8 +5957,19 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 			return nil, false
 		}
 	}
-	chooser := c.Controller
-	candidates := h.LegalTargets(chooser, c.Source, sa)
+	// Legality stays referenced to the ability controller; only the
+	// decision's Player moves to the TargetingPlayer$ chooser (the same
+	// resolver every rules-tier target ask uses).
+	candidates := h.LegalTargets(c.Controller, c.Source, sa)
+	chooser := h.ChooserFor(c, sa)
+	if ch, posed := opponentPick(h, c, sa, chooser); posed {
+		// The controller's which-opponent selection ask was posted: the walk
+		// is suspended and re-enters this very SA, where the answered
+		// selection makes ChooserFor return the chosen seat.
+		return nil, true
+	} else if !posed {
+		chooser = ch
+	}
 	min := Num(h, c, sa, "TargetMin", 1)
 	max := Num(h, c, sa, "TargetMax", 1)
 	if max > int32(len(candidates)) {

@@ -85,6 +85,20 @@ func zallDie(t *testing.T, e *Engine, id state.ObjID) {
 func zallDrain(t *testing.T, e *Engine) {
 	t.Helper()
 	for i := 0; i < 50; i++ {
+		if d := e.Pending(); d != nil && d.Kind == decision.KChoose && d.ResumeKind == "search_confirm" {
+			// A pending Optional$ hidden-origin search now poses Forge's
+			// confirmAction gate before the fetch list (task
+			// optional-library-confirm); e.resolveTop below cannot answer it,
+			// so accept -- the deterministic "do the may" answer -- and keep
+			// the pre-confirmation drain behaviour.
+			if len(d.Options) == 0 {
+				t.Fatalf("search confirmation with no option to take: %+v", d)
+			}
+			if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{d.Options[0].Index}}); err != nil {
+				t.Fatalf("submit search confirmation: %v", err)
+			}
+			continue
+		}
 		if len(e.pendingTriggers) > 0 {
 			e.putTriggersOnStack()
 			continue

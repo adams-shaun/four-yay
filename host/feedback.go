@@ -178,7 +178,22 @@ func (r *Registry) SnapshotForFeedback(id TableID, seat *state.PlayerID) (Feedba
 	if m == nil && len(t.history) > 0 {
 		m = t.history[len(t.history)-1]
 	}
+	// Persistence mode retains no finished match in memory (see
+	// table.history): between matches the one that just finished is the
+	// last archived sidecar, rebuilt from disk through lookup's single-slot
+	// cache. t.archived is ascending by match index.
+	last := 0
+	if m == nil && len(t.archived) > 0 {
+		last = t.archived[len(t.archived)-1].Match
+	}
 	t.mu.RUnlock()
+	if m == nil && last > 0 {
+		_, lm, err := r.lookup(id, last)
+		if err != nil {
+			return FeedbackSnapshot{}, fmt.Errorf("host: table %s match %d: %w", id, last, err)
+		}
+		m = lm
+	}
 	if m == nil {
 		return FeedbackSnapshot{}, fmt.Errorf("host: table %s has no match", id)
 	}

@@ -229,8 +229,10 @@ func TestWhipgrassEntanglerDeliveredStaticChargesPerCleric(t *testing.T) {
 	passUntilStackEmpty(t, e, 20)
 
 	// Precondition: the CantBlockUnless body really registered (the feature's
-	// handler ran; exactly one -- the sibling CantAttackUnless half is the
-	// still-unimplemented attack-side prop and stays a Note).
+	// handler ran; exactly one block-side entry -- the CantAttackUnless
+	// sibling registers its own entry, asserted independently by
+	// TestWhipgrassEntanglerDeliveredStaticChargesAttackPerCleric, so this
+	// count deliberately names CantBlockUnless only).
 	if n := countRestrictionEntries(e); n != 1 {
 		t.Fatalf("precondition: %d delivered CantBlockUnless registrations, want 1", n)
 	}

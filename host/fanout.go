@@ -28,11 +28,44 @@ func head(m *match) uint64 {
 	return 0
 }
 
+// projectLive runs fn with m.mu held EXCLUSIVELY, and is the ONLY sanctioned
+// way to project the LIVE engine. view.ProjectFor mutates the engine while it
+// builds a View: rules.(*Engine).Derived appends to e.derivedPTFrames and
+// defers a slice truncation (rules/layers.go derivedScalarFrom), writes
+// e.derivedDepth/scratch (layerWalk), and reuses the e.active()/activeBuf
+// continuous-effect cache. Two concurrent projections therefore corrupt each
+// other's in-progress layer-7 P/T frames — the intermittent module-gate panic
+// in Derived/FilterDerivedPT that crashed a table mid-snapshot.
+//
+// A read lock is NOT enough for a live projection: the mutators above are
+// writes regardless of the fact that the projection's result is read-only.
+// Genuinely read-only frame assembly — eventBodiesFor's redaction/describe,
+// widgetFrame's state reads (fanout/onMatchEnd) — still uses m.mu.RLock; only
+// the ProjectFor callers must come through here. Every current caller is one
+// of the three live-snapshot sites (Subscribe, onMatchStart, pushRewind); the
+// historical replay path (host/viewat.go) projects a cloned engine and must
+// NOT be routed through this.
+//
+// Lock order: Subscribe holds t.fanMu and then calls projectLive, so the
+// order is t.fanMu -> m.mu. onMatchStart/pushRewind call projectLive and only
+// acquire t.fanMu AFTER projectLive returns (their pushes are outside the
+// closure), so they never invert it. Never call projectLive while holding
+// t.mu (mint/registry table selection) and never acquire t.fanMu from inside
+// fn.
+func (r *Registry) projectLive(m *match, fn func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	fn()
+}
+
 // snapshotBody is the whole board at head in the table's visibility plus
 // the turn starts — the body a snapshot frame carries. Split out of
 // snapshotFrame so the rewind frame (host/undo.go) can carry the exact
 // same body under its own envelope type: a client applies a rewind's
 // snapshot exactly like a fresh subscription's.
+//
+// It projects the live engine, so every caller must reach it through
+// projectLive (exclusive m.mu) — never directly under a read lock.
 func (r *Registry) snapshotBody(t *table, m *match) protocol.Snapshot {
 	v := view.ProjectFor(m.e.G, m.e, view.NoSeat, t.cfg.Spectator, nil)
 	// The board clock reads v.Round, so it must be the EXACT round-trip count
@@ -65,7 +98,10 @@ func (r *Registry) snapshotFrame(t *table, m *match) protocol.Frame {
 	return frame(protocol.TSnapshot, t, m.k, head(m), r.snapshotBody(t, m))
 }
 
-// widgetFrame is the overview cell. Called with m.mu held for reading.
+// widgetFrame is the overview cell. It only reads live state (turn, step,
+// life/lost) and never calls ProjectFor, so it is safe under either an
+// m.mu.RLock (fanout/onMatchEnd) or the exclusive m.mu projectLive takes
+// (onMatchStart/pushRewind build a widget inside its closure).
 func (r *Registry) widgetFrame(t *table, m *match, last string) protocol.Frame {
 	g := m.e.G
 	w := protocol.Widget{Turn: g.Turn, Step: g.Step.String(), Phase: view.PhaseOf(g.Step),
@@ -218,16 +254,26 @@ func (r *Registry) onMatchStart(t *table, m *match) {
 
 	m.mu.RLock()
 	start := frame(protocol.TMatchStart, t, m.k, 0, protocol.MatchStart{Seats: m.seats, Seed: m.seed, Spectator: t.cfg.Spectator.String(), BotPolicy: t.cfg.BotPolicy})
-	var snap, widget protocol.Frame
-	if focus {
-		snap = r.snapshotFrame(t, m)
-	}
-	if overview {
-		bodies := eventBodiesFor(view.NoSeat, t.cfg.Spectator, m.e.G, m.e.L.Events)
-		t.lastLine = lastLine(bodies, t.lastLine)
-		widget = r.widgetFrame(t, m, t.lastLine)
-	}
 	m.mu.RUnlock()
+	// The focus snapshot projects the LIVE engine, so it runs exclusively:
+	// ProjectFor mutates the engine's derived-P/T frames and caches, and a
+	// second projection racing it under a read lock corrupts them (see
+	// projectLive). The t.fanMu push loop below stays OUTSIDE this section —
+	// Subscribe holds t.fanMu then takes m.mu, so taking t.fanMu under m.mu
+	// here would invert the order and deadlock.
+	var snap, widget protocol.Frame
+	if focus || overview {
+		r.projectLive(m, func() {
+			if focus {
+				snap = r.snapshotFrame(t, m)
+			}
+			if overview {
+				bodies := eventBodiesFor(view.NoSeat, t.cfg.Spectator, m.e.G, m.e.L.Events)
+				t.lastLine = lastLine(bodies, t.lastLine)
+				widget = r.widgetFrame(t, m, t.lastLine)
+			}
+		})
+	}
 
 	t.fanMu.Lock()
 	for i, s := range ss {
@@ -285,9 +331,15 @@ func (r *Registry) sendHalted(t *table, k int, reason string) {
 }
 
 // archive writes the final sidecar, closes the files, and drops the
-// engine and snapshots: a finished match is served from disk (spec:
-// snapshots dropped when the match finishes). In memory mode the engine is
-// kept so ViewAt still works.
+// snapshots: a finished match is served from disk (spec: snapshots dropped
+// when the match finishes). The engine itself is released by retire, which
+// does not keep a persistence-mode match once play returns (onMatchEnd still
+// reads it after archive). In memory mode the engine is kept so ViewAt
+// still works.
+//
+// The sidecar indexed in t.archived omits NameUniverseNames: the list is
+// ~24k labels per name-universe match, only a disk rebuild needs it, and
+// loadArchived reads it back from the match's own N.json.
 func (r *Registry) archive(t *table, m *match) {
 	if r.opts.Dir == "" {
 		return
@@ -303,6 +355,7 @@ func (r *Registry) archive(t *table, m *match) {
 		m.reason = "sidecar: " + err.Error()
 		m.mu.Unlock()
 	}
+	sc.NameUniverseNames = nil
 	t.mu.Lock()
 	t.archived = append(t.archived, sc)
 	t.mu.Unlock()

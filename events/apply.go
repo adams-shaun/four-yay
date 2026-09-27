@@ -413,6 +413,62 @@ func Apply(g *state.Game, e Event) {
 			g.SetZone(state.ZLibrary, e.Player, append([]state.ObjID(nil), e.IDs...))
 		}
 
+	case PlanarDeckShuffle:
+		if validPlayer(g, e.Player) {
+			ids := append([]state.ObjID(nil), e.IDs...)
+			for _, id := range ids {
+				if o := g.Obj(id); o != nil {
+					o.Zone, o.FaceDown = state.ZPlanarDeck, true
+				}
+			}
+			g.SetZone(state.ZPlanarDeck, e.Player, ids)
+		}
+
+	case PlanarReveal:
+		if validPlayer(g, e.Player) {
+			ids := g.Zone(state.ZPlanarDeck, e.Player)
+			if len(ids) > 0 && ids[0] == e.Obj {
+				if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZPlanarDeck {
+					o.FaceDown = false
+				}
+			}
+		}
+
+	case PlanarWalk:
+		if validPlayer(g, e.Player) {
+			ids := g.Zone(state.ZPlanarDeck, e.Player)
+			if len(ids) > 0 {
+				if len(e.IDs) > 0 {
+					// A Defined$ planeswalk names its destination(s): move each
+					// named plane to the front (in the order named), keeping
+					// every other plane's relative order. The previously-current
+					// plane stays in the zone where it was, which is what
+					// DontPlaneswalkAway$'s "don't planeswalk away" leaves
+					// behind (Norn's Seedcore); the away trigger itself is
+					// suppressed separately by the event's Amount flag.
+					ids = planarWalkToOrder(ids, e.IDs)
+				} else if len(ids) > 1 {
+					ids = append(append([]state.ObjID(nil), ids[1:]...), ids[0])
+				}
+				for _, id := range ids {
+					if o := g.Obj(id); o != nil && o.Zone == state.ZPlanarDeck {
+						o.FaceDown = true
+					}
+				}
+				if o := g.Obj(ids[0]); o != nil && o.Zone == state.ZPlanarDeck {
+					o.FaceDown = false
+				}
+				g.SetZone(state.ZPlanarDeck, e.Player, ids)
+			}
+		}
+
+	case ChaosEnsues:
+		// The chaos-ensues marker (CR 901.9, task planar-verbs) is a pure
+		// marker, exactly like PlanarRoll: no state folds. The current plane's
+		// chaos ability is an ordinary triggered ability (Mode$ ChaosEnsues)
+		// that rules' trigger walk queues when this marker is checked, so the
+		// logged event is the record and replay re-derives the trigger queue.
+
 	case MonarchChange:
 		if validPlayer(g, e.Player) {
 			g.Monarch, g.HasMonarch = e.Player, true
@@ -1420,11 +1476,11 @@ func Apply(g *state.Game, e Event) {
 			// it here. Registering before the pool write would be equivalent
 			// for the ADD path; the consume path needs the batch list, which
 			// this block owns.
-			if valid, srcID, cond, restricted := ManaRestrictionFromText(rest); restricted {
+			if valid, srcID, cond, addsCounters, restricted := ManaRestrictionFromText(rest); restricted {
 				if e.Amount > 0 {
 					player.RestrictedMana = append(player.RestrictedMana, state.ManaRestriction{
 						Color: e.Counter, Amount: e.Amount, Valid: valid, Source: srcID,
-						NoCounter: cond, Persistent: persistent,
+						NoCounter: cond, Persistent: persistent, AddsCounters: addsCounters,
 					})
 				} else if e.Amount < 0 {
 					// A restricted spend event names exactly the restriction batch it
@@ -1687,7 +1743,7 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 
-	case FlipFace:
+	case FlipFace, Specialize:
 		if o := g.Obj(e.Obj); o != nil && o.Card != nil &&
 			e.Amount >= 0 && int(e.Amount) < len(o.Card.Faces) {
 			o.FaceIdx = uint8(e.Amount)
@@ -1695,10 +1751,11 @@ func Apply(g *state.Game, e Event) {
 
 	case TurnFaceDown:
 		if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZBattlefield && !o.FaceDown {
+			setType, power, toughness, hasPT, _ := FaceDownEntryFields(e.Counter)
 			o.FaceDown = true
-			o.FaceDownSetType = ""
-			o.FaceDownPower, o.FaceDownToughness = 0, 0
-			o.FaceDownHasPT = false
+			o.FaceDownSetType = setType
+			o.FaceDownPower, o.FaceDownToughness = power, toughness
+			o.FaceDownHasPT = hasPT
 		}
 
 	case TurnFaceUp:
@@ -1890,6 +1947,18 @@ func Apply(g *state.Game, e Event) {
 			if FlagsFrom(e.Counter)&state.FlagConvoked != 0 {
 				o.Convoked = append([]state.ObjID(nil), e.IDs...)
 			}
+			// AddsCounters$ (Opal Palace and siblings) is a structured-payload
+			// fold: the producing ABILITIES whose riders applied to this cast --
+			// snapshotted at production, with how many of each one's mana units
+			// the payment spent -- ride the pay-time CastInfo's Text payload into
+			// Object.ManaAddsCounterGrants, alongside the flag that records the
+			// spend. Folded OUTSIDE the exclusive switch below (the Convoked
+			// pattern) so the Amount stays for its own consume arm; the
+			// entry-counter plan uses the stored rider verbatim, never re-reading
+			// the source's face.
+			if FlagsFrom(e.Counter)&state.FlagAddsCounters != 0 {
+				o.ManaAddsCounterGrants = ManaAddsCounterGrantsFromText(e.Text)
+			}
 			switch {
 			// Conspire's Amount is a marker, never data: the bool was folded
 			// above, and the flag rides a LOCAL counter at the emission site
@@ -1907,6 +1976,9 @@ func Apply(g *state.Game, e Event) {
 				// bool folded above; the Amount is deliberately unused
 			case FlagsFrom(e.Counter)&state.FlagConvoked != 0:
 				// the convoked id list was folded above; the Amount is
+				// deliberately unused (the Conspired arm's consume shape)
+			case FlagsFrom(e.Counter)&state.FlagAddsCounters != 0:
+				// the rider-source id list was folded above; the Amount is
 				// deliberately unused (the Conspired arm's consume shape)
 			case FlagsFrom(e.Counter)&state.FlagCompleated != 0:
 				o.CompleatedLifePaid = e.Amount
@@ -1982,6 +2054,16 @@ func Apply(g *state.Game, e Event) {
 		// rules emitted during the keyword ability's resolution, and this
 		// record exists only so "whenever this creature evolves" fires on the
 		// evolve action rather than on any unrelated counter.
+
+	case Clash:
+		// One clashing player's win/lose outcome from a completed CR 701.31
+		// clash action, matched by trig:Clashed. Like GiveGift it is a pure
+		// Apply no-op marker: the reveal Note and the top/bottom placements
+		// are their own preceding events, and this record exists only so
+		// "whenever you win/lose a clash" fires on a clash rather than on any
+		// reveal. Amount carries the Won$ orientation (1 = won, 0 = lost or
+		// tied), already read off the live event by clashMatches, so Apply
+		// stores nothing.
 
 	case NoteNumber:
 		// A trigger's Execute$ body noted a number onto the CARD (DB$ Pump
@@ -2629,18 +2711,22 @@ func Apply(g *state.Game, e Event) {
 		o.Ability = sa
 		o.StackKind, o.StackKindKnown = state.StackKindTriggered, true
 		o.Source = e.Obj
-		// The incarnation stamp makes resolveTop's source-incarnation gate
-		// drop a keyword trigger whose effect names the SOURCE PERMANENT
-		// (Evoke's "sacrifice it") once that permanent leaves and returns as
-		// a new object (CR 400.7). A promised permanent's gift (CR 702.168c)
-		// is not such a trigger: its body acts on the promised player, and an
+		// The incarnation stamp arms resolveTop's source-incarnation gate,
+		// which drops a keyword trigger whose effect names the SOURCE
+		// PERMANENT (Evoke's "sacrifice it") once that permanent leaves and
+		// returns as a new object (CR 400.7). It is armed ONLY for a trigger
+		// that demonstrably acts on its source (keywordTriggerBindsSource): an
 		// ability resolves independently of its source (CR 112.7a), so the
-		// gift must still deliver when the permanent is removed in response
-		// to its own entry triggers -- the response window its own
-		// respondability creates. Leaving the stamp at its zero value makes
-		// that gate skip the gift, exactly as it does for an ordinary
-		// matched ETB trigger.
-		if !gift {
+		// default is NO stamp. A granted Ward or Afflict, for example, acts on
+		// the targeting spell / captured defender and must still resolve when
+		// the granting permanent is removed in response to its own trigger
+		// -- the response window that trigger's respondability creates. A
+		// promised permanent's gift (CR 702.168c) is likewise independent: its
+		// body acts on the promised player (snapshotted into Remembered), so
+		// it must still deliver after the source is removed. Leaving the stamp
+		// at its zero value makes the gate skip such a trigger exactly as it
+		// does for an ordinary matched ETB trigger pushed by TriggerPush.
+		if !gift && keywordTriggerBindsSource(e.Counter, sa) {
 			o.SourceIncarnation = incarnation
 		}
 		if conspire || casualty || demonstrate || flanking || melee || cipher || gift {
@@ -2738,6 +2824,11 @@ func Apply(g *state.Game, e Event) {
 		o.Remembered = remembered
 		o.ChosenModes = chosenModes
 		o.X, o.CastFlags, o.IsCopy = x, castFlags, true
+		// A copy was never cast (CR 707.10), so it carries no rider grants:
+		// the Spell.MayPlaySource/AddsCounters provenance is a statement about
+		// the original's cast, and FlagAddsCounters is stripped from castFlags
+		// by CastProvenanceFlags above.
+		o.ManaAddsCounterGrants = nil
 		if morphFlags != 0 {
 			o.FaceDown = true
 			o.Cloaked = morphFlags&state.FlagDisguised != 0
@@ -2884,6 +2975,7 @@ func Apply(g *state.Game, e Event) {
 		// if that card later changes zones and returns as a new incarnation.
 		track := strings.HasPrefix(e.Counter, "__kwDash") ||
 			strings.HasPrefix(e.Counter, "__kwWarp") ||
+			strings.HasPrefix(e.Counter, "__kwUnearth") ||
 			strings.HasPrefix(e.Counter, "__kwAtEOT") ||
 			strings.HasPrefix(e.Counter, "__kwMayFlashSac")
 		// Event-matched (non-phase) registrations encode
@@ -3911,6 +4003,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.TimesKicked = 0
 			o.Conspired = false
 			o.Convoked = nil
+			o.ManaAddsCounterGrants = nil
 			o.ManaSpent = 0
 			o.ManaSnowSpent = 0
 			o.ManaTreasureSpent = 0
@@ -3968,6 +4061,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.TimesKicked = 0
 			o.Conspired = false
 			o.Convoked = nil
+			o.ManaAddsCounterGrants = nil
 			o.ManaSpent = 0
 			o.ManaSnowSpent = 0
 			o.ManaTreasureSpent = 0
@@ -4018,6 +4112,34 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 //     it continuously since their most recent turn began. TurnChange clears it
 //     from the active player's list, i.e. at its new controller's next turn.
 //
+// planarWalkToOrder is the Defined$ planeswalk fold's destination move: each
+// named destination plane is moved to the front of ids in the order named,
+// and every plane not named keeps its relative order after them. A
+// destination not present in the zone is skipped (a stale remembered card),
+// and duplicates are placed once. The result is a permutation of the input,
+// so the fold can never lose or duplicate a plane.
+func planarWalkToOrder(ids, dests []state.ObjID) []state.ObjID {
+	inZone := make(map[state.ObjID]bool, len(ids))
+	for _, id := range ids {
+		inZone[id] = true
+	}
+	out := make([]state.ObjID, 0, len(ids))
+	placed := make(map[state.ObjID]bool, len(dests))
+	for _, d := range dests {
+		if !inZone[d] || placed[d] {
+			continue
+		}
+		placed[d] = true
+		out = append(out, d)
+	}
+	for _, id := range ids {
+		if !placed[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 // withoutObjID returns ids without id, retaining its order and avoiding an
 // allocation when no entry matches. ExiledCards is a short insertion-ordered
 // relation, so an ordered slice preserves deterministic selector results.
