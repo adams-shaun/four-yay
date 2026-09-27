@@ -166,6 +166,15 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 	if len(payable) == 0 {
 		return decision.Intent{}, false
 	}
+	if b.unplannedTapIntent(brd, d, payable) {
+		// The tap gate's intended card has no plan and is payable by hand:
+		// take the full manual policy, whose same tap gate aims the window's
+		// mana at that card, instead of spending it on a lesser planned
+		// spell. Once the manual taps float mana the engine withholds plans
+		// for the rest of the window (paymentPlanPoolOK), so the turn cannot
+		// oscillate back onto the plan path mid-sequence.
+		return decision.Intent{}, false
+	}
 
 	candidate := d.Clone()
 	candidate.Options = make([]decision.Option, 0, len(d.Options)+len(payable))
@@ -221,6 +230,42 @@ func (b *Bot) paymentIntent(brd botpolicy.Board, d *decision.Decision) (decision
 		return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{original}}, true
 	}
 	return decision.Intent{}, false
+}
+
+// unplannedTapIntent reports whether the tap gate's intended card -- the
+// spell chooseTap would spend this window's mana tapping toward, exposed as
+// Board.TapIntent -- is a cast the plan path will strand: it has NO offered
+// plan, is plausibly castable in this window, and is not already dead (C8's
+// foreign-spell census). A spell V1 cannot plan (a command-zone commander, an
+// X/hybrid/Phyrexian/snow or kicker/alternative cost, a graveyard/exile cast,
+// or one whose mana must come from a non-V1 source) is then paid by hand
+// rather than skipped over for a cheaper planned cast.
+//
+// The window is the manual bot's own casting window: its own main phase with
+// an empty stack, OR any instant-speed card (which the policy may cast on the
+// opponent's turn or over a non-empty stack). A card tapped toward outside
+// those windows is not a cast the manual policy would make now, so the plan
+// path stays. This is scoped to the one intended card: it can only move a
+// payment decision that would otherwise pay a DIFFERENT spell.
+func (b *Bot) unplannedTapIntent(brd botpolicy.Board, d *decision.Decision, payable map[state.ObjID]decision.PaymentAction) bool {
+	id, ok := brd.TapIntent(d)
+	if !ok {
+		return false
+	}
+	if _, planned := payable[id]; planned {
+		return false
+	}
+	c := brd.Cards[id]
+	if !c.InstantSpeed && !(brd.MyTurn && brd.IsMain && len(brd.Stack) == 0) {
+		return false
+	}
+	// C8: a counter with no foreign spell to counter is never worth the
+	// mana (chooseCast refuses it outright), so falling back would spend the
+	// window on nothing. C8's census has one home, Board.ForeignSpell.
+	if c.Counter && !brd.ForeignSpell(d.Player) {
+		return false
+	}
+	return true
 }
 
 // decideWithoutAutoPay is the existing policy dispatch, factored so the

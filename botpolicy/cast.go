@@ -681,14 +681,8 @@ func (b Board) chooseCast(d *decision.Decision) int {
 	// casting its good hands and sat passively on mana the phase threw away.
 	res := b.reserve()
 	// C8's census: is there a foreign spell on the stack for a counter to
-	// eat? Read in b.Stack's own order — deterministic by construction.
-	foreignSpell := false
-	for _, s := range b.Stack {
-		if s.IsSpell && s.Controller != d.Player {
-			foreignSpell = true
-			break
-		}
-	}
+	// eat? ForeignSpell is its one home, read in b.Stack's own order.
+	foreignSpell := b.ForeignSpell(d.Player)
 	ctx := b.castContextFor(d)
 	// C11's candidate table: every cast option that survives C8, deduped by
 	// object id (a card offered under several cast modes counts once, at
@@ -965,6 +959,21 @@ type castEntry struct {
 // candidate cards are searched over every subset (2^10 = 1024 masks); a larger
 // board falls back to the deterministic greedy-by-score pass.
 const setSubsetMaxCards = 10
+
+// ForeignSpell reports C8's census: whether the stack holds a spell
+// controlled by anyone other than player — the only stack a counter is worth
+// its mana at. It reads b.Stack in its own order, so it is deterministic by
+// construction, and it is the ONE home of the census: chooseCast and the
+// auto-pay adapter (seat/bot.go, deciding whether a preferred unplanned
+// counter is dead) both read it rather than re-deriving the rule.
+func (b Board) ForeignSpell(player state.PlayerID) bool {
+	for _, s := range b.Stack {
+		if s.IsSpell && s.Controller != player {
+			return true
+		}
+	}
+	return false
+}
 
 // castEntries builds C11's candidate table: every cast option that survives
 // C8 (a counter with no foreign spell is never cast; foreignSpell is the same
