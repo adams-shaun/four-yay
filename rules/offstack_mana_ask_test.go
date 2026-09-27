@@ -152,3 +152,162 @@ func TestOffStackManaModesAskResumesManaRider(t *testing.T) {
 		t.Error("modal rider answer did not emit ModeChosen")
 	}
 }
+
+// TestOffStackManaNameAskCommitsOnce pins the decision-specific name binding
+// on the off-stack mana continuation: a SubAbility$ NameCard answer must be
+// interpreted exactly as handleChoose interprets the same KChoose "name"
+// answer (option 0's label becomes the chosen name), not re-posed forever.
+// main 7fb66ee5f re-asked "name" immediately after a valid answer because
+// answerManaColor resumed the rider without that binding, and the resumed
+// NameCard saw an empty Ctx.NameChoice and asked again.
+func TestOffStackManaNameAskCommitsOnce(t *testing.T) {
+	e, _, bear := newFixtureDeck(t, 9343, "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	engine := onBoard(t, e, 0, "Name:Engine Namer\nTypes:Artifact\n"+
+		"A:AB$ Mana | Cost$ T | Produced$ B | Amount$ 4 | SubAbility$ DBName | SpellDescription$ Engine fixture.\n"+
+		"SVar:DBName:DB$ NameCard\nOracle:x\n")
+	if e.G.Obj(engine).Zone != state.ZBattlefield {
+		t.Fatal("mana source is not on the battlefield")
+	}
+	toMain1(t, e)
+	e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "G", Amount: 1})
+	e.pending = nil
+	e.askPriority(0)
+	d := e.Pending()
+	cast := -1
+	for _, o := range d.Options {
+		if o.Kind == "cast" && o.Obj == bear {
+			cast = o.Index
+		}
+	}
+	if cast < 0 {
+		t.Fatalf("no cast option for the bear in %#v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{cast}}); err != nil {
+		t.Fatal(err)
+	}
+	d = e.Pending()
+	act := -1
+	for _, o := range d.Options {
+		if o.Kind == "activate" && o.Obj == engine {
+			act = o.Index
+		}
+	}
+	if act < 0 {
+		t.Fatalf("no activate option for the engine in %#v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{act}}); err != nil {
+		t.Fatal(err)
+	}
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "name" {
+		t.Fatalf("mana rider ask = %#v, want the NameCard decision", d)
+	}
+	if len(d.Options) == 0 {
+		t.Fatalf("NameCard decision offered no names: %#v", d)
+	}
+	name := d.Options[0].Label
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{d.Options[0].Index}}); err != nil {
+		t.Fatal(err)
+	}
+	// The precondition of the assertion below: the answer must not re-pose
+	// the same NameCard ask. A second name decision here is the livelock.
+	if next := e.Pending(); next != nil && next.Kind == decision.KChoose && next.ResumeKind == "name" {
+		t.Fatalf("NameCard re-asked after a valid answer: %#v", next)
+	}
+	namesChosen := 0
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.Choose && ev.Counter == "name" {
+			namesChosen++
+			if ev.Text != name {
+				t.Errorf("chosen name = %q, want %q", ev.Text, name)
+			}
+		}
+	}
+	if namesChosen != 1 {
+		t.Errorf("name Choose events = %d, want exactly 1", namesChosen)
+	}
+	if z := e.G.Obj(bear).Zone; z != state.ZStack {
+		t.Errorf("bear zone = %s after the mana ability's name answer, want stack", z)
+	}
+	if got := e.G.Players[0].Pool[state.ManaIndex('B')]; got != 4 {
+		t.Errorf("black mana in pool = %d, want 4", got)
+	}
+}
+
+// TestOffStackManaArrangeAskResumesManaRider pins the KArrange half of the
+// off-stack mana continuation: a SubAbility$ Scry/RearrangeTopOfLibrary
+// rider's ordered answer must resume the mana ability's own chain, not be
+// dropped (handleArrange's no-suspended-resolution Note) and not re-enter
+// the unrelated spell on top of the stack. main 7fb66ee5f had no off-stack
+// KArrange routing at all, so the answer landed on the stack top; the fix
+// parks and re-enters the rider under the mana frame (rules/arrange.go).
+func TestOffStackManaArrangeAskResumesManaRider(t *testing.T) {
+	const bearSrc = "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
+	e, _, bear := newFixtureDeck(t, 9344, bearSrc)
+	engine := onBoard(t, e, 0, "Name:Engine Seer\nTypes:Artifact\n"+
+		"A:AB$ Mana | Cost$ T | Produced$ B | Amount$ 4 | SubAbility$ DBScry | SpellDescription$ Engine fixture.\n"+
+		"SVar:DBScry:DB$ Scry | ScryNum$ 3\nOracle:x\n")
+	if e.G.Obj(engine).Zone != state.ZBattlefield {
+		t.Fatal("mana source is not on the battlefield")
+	}
+	toMain1(t, e)
+	e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "G", Amount: 1})
+	e.pending = nil
+	e.askPriority(0)
+	d := e.Pending()
+	cast := -1
+	for _, o := range d.Options {
+		if o.Kind == "cast" && o.Obj == bear {
+			cast = o.Index
+		}
+	}
+	if cast < 0 {
+		t.Fatalf("no cast option for the bear in %#v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{cast}}); err != nil {
+		t.Fatal(err)
+	}
+	d = e.Pending()
+	act := -1
+	for _, o := range d.Options {
+		if o.Kind == "activate" && o.Obj == engine {
+			act = o.Index
+		}
+	}
+	if act < 0 {
+		t.Fatalf("no activate option for the engine in %#v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{act}}); err != nil {
+		t.Fatal(err)
+	}
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KArrange {
+		t.Fatalf("mana rider ask = %#v, want the arrange decision", d)
+	}
+	if len(d.Options) != 3 {
+		t.Fatalf("arrange options = %d, want the top 3", len(d.Options))
+	}
+	// A non-identity permutation: the reverse of the offered order.
+	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
+	choices := []int{d.Options[2].Index, d.Options[1].Index, d.Options[0].Index}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}); err != nil {
+		t.Fatal(err)
+	}
+	// Precondition: the answer must not re-pose the same arrange ask.
+	if next := e.Pending(); next != nil && next.Kind == decision.KArrange {
+		t.Fatalf("arrange re-asked after a valid answer: %#v", next)
+	}
+	if z := e.G.Obj(bear).Zone; z != state.ZStack {
+		t.Errorf("bear zone = %s after the mana ability's arrange answer, want stack", z)
+	}
+	if got := e.G.Players[0].Pool[state.ManaIndex('B')]; got != 4 {
+		t.Errorf("black mana in pool = %d, want 4", got)
+	}
+	libAfter := e.G.Zone(state.ZLibrary, 0)
+	want := []state.ObjID{top[2], top[1], top[0]}
+	for i := 0; i < 3; i++ {
+		if libAfter[i] != want[i] {
+			t.Fatalf("arrange answer not applied: library top[%d] = %v, want %v", i, libAfter[i], want[i])
+		}
+	}
+}

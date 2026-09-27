@@ -1635,6 +1635,18 @@ func unlessPayChoice(chosen []decision.Option) (decision.Option, bool) {
 // continuation it carries have all completed — the fully-resolved object
 // goes where resolveTop's own tail would have sent it.
 func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
+	// A card-name answer is carried on the frame itself: every NameCard
+	// resume reads ctx.NameChoice from rp.name, and binding it here is the
+	// ONE home for that interpretation. Routing the answer through any
+	// handler that consumes a resume point (handleChoose's general KChoose
+	// arm, the off-stack mana rider's answerManaColor, a trigger-optional
+	// re-entry) therefore all bind it identically; a path that skipped this
+	// re-posed the same NameCard ask forever (the off-stack mana NameCard
+	// livelock), because resumed NameCard reads an empty NameChoice and asks
+	// again.
+	if rp.kind == "name" && len(chosen) == 1 {
+		rp.name = chosen[0].Label
+	}
 	if rp.kind == "turn_face_up_event" {
 		prior := e.applyingReplacement
 		e.applyingReplacement = true
