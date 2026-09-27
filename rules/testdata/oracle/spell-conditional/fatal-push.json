@@ -1,6 +1,7 @@
 {
   "card": "Fatal Push",
   "family": "spell-conditional",
+  "oracle_sha": "294f3bc177dd",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

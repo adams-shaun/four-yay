@@ -1,6 +1,7 @@
 {
   "card": "Electrostatic Bolt",
   "family": "spell-conditional",
+  "oracle_sha": "46fbce424f46",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

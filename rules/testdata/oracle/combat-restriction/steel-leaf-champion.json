@@ -1,6 +1,7 @@
 {
   "card": "Steel Leaf Champion",
   "family": "combat-restriction",
+  "oracle_sha": "e7bd1d508d74",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

@@ -1,6 +1,7 @@
 {
   "card": "Goblin Bushwhacker",
   "family": "trigger-condition",
+  "oracle_sha": "97c56ee3ecda",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

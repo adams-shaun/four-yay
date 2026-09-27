@@ -1,6 +1,7 @@
 {
   "card": "Resplendent Angel",
   "family": "trigger-condition",
+  "oracle_sha": "6595b6686f58",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

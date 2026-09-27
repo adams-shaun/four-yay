@@ -1,6 +1,7 @@
 {
   "card": "Vexing Devil",
   "family": "etb-ltb",
+  "oracle_sha": "6f762697f48a",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

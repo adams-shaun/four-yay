@@ -1,6 +1,7 @@
 {
   "card": "Gravecrawler",
   "family": "conditional-static",
+  "oracle_sha": "935f8cd0a532",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

@@ -1,6 +1,7 @@
 {
   "card": "Geralf's Messenger",
   "family": "etb-ltb",
+  "oracle_sha": "c0963282f383",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

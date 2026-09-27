@@ -1,6 +1,7 @@
 {
   "card": "Ruby Medallion",
   "family": "cost-modifier",
+  "oracle_sha": "7af2ea6b3982",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

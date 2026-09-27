@@ -1,6 +1,7 @@
 {
   "card": "Thalia, Guardian of Thraben",
   "family": "cost-modifier",
+  "oracle_sha": "60ceca4e6d3f",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

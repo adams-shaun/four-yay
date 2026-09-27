@@ -1,6 +1,7 @@
 {
   "card": "Knight of the White Orchid",
   "family": "trigger-condition",
+  "oracle_sha": "187f44415460",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

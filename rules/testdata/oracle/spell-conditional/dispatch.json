@@ -1,6 +1,7 @@
 {
   "card": "Dispatch",
   "family": "spell-conditional",
+  "oracle_sha": "5c11130c043d",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

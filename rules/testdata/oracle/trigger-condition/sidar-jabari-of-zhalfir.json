@@ -1,6 +1,7 @@
 {
   "card": "Sidar Jabari of Zhalfir",
   "family": "trigger-condition",
+  "oracle_sha": "15ca35ce3883",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

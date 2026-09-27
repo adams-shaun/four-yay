@@ -1,6 +1,7 @@
 {
   "card": "Goblin Piledriver",
   "family": "trigger-condition",
+  "oracle_sha": "60f756b87c8a",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

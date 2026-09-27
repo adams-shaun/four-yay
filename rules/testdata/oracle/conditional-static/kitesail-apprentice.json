@@ -1,6 +1,7 @@
 {
   "card": "Kitesail Apprentice",
   "family": "conditional-static",
+  "oracle_sha": "5a20583efb64",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

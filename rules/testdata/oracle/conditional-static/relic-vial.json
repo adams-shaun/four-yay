@@ -1,6 +1,7 @@
 {
   "card": "Relic Vial",
   "family": "conditional-static",
+  "oracle_sha": "0c71a6320d13",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {
@@ -69,6 +70,42 @@
       ],
       "expect": [
         {"card": "p0:Harsh Mentor", "zone": "graveyard"},
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "only-cleric-dies-to-damage-looks-back",
+      "cr": ["603.10a", "704.5g"],
+      "why": "Triage control (added after the destroy variant failed; expectation is CR-only): the only Cleric dying to lethal damage, a state-based action, is the same look-back case and must drain.",
+      "setup": {
+        "p0": {"hand": ["Lightning Bolt"], "battlefield": ["Relic Vial", "Harsh Mentor"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Harsh Mentor"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Harsh Mentor", "zone": "graveyard"},
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "sacrifice-only-cleric-as-cost-looks-back",
+      "cr": ["603.10a", "602.2c"],
+      "why": "Triage control (CR-only expectation): sacrificing the only Cleric to Relic Vial's own ability is a death the game looks back on, so the granted trigger drains; the ability also draws a card.",
+      "setup": {
+        "p0": {"battlefield": ["Relic Vial", "Harsh Mentor"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Relic Vial", "ability": "Draw", "mana": "CC",
+         "answers": [{"kind": "any", "pick": ["p0:Harsh Mentor"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Harsh Mentor", "zone": "graveyard"},
+        {"hand_size": {"p0": 1}},
         {"life": {"p0": 21, "p1": 19}}
       ]
     }

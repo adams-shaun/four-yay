@@ -1,6 +1,7 @@
 {
   "card": "Blooming Marsh",
   "family": "etb-ltb",
+  "oracle_sha": "4175c22fad62",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

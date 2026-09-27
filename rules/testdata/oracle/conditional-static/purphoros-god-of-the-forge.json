@@ -1,6 +1,7 @@
 {
   "card": "Purphoros, God of the Forge",
   "family": "conditional-static",
+  "oracle_sha": "7d3e1045e21f",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {

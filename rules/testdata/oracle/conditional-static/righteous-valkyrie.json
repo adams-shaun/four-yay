@@ -1,6 +1,7 @@
 {
   "card": "Righteous Valkyrie",
   "family": "conditional-static",
+  "oracle_sha": "4c495aa9771e",
   "author": "pilot/opus (Oracle + CR only)",
   "scenarios": [
     {
