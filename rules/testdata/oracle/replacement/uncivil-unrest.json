@@ -1,0 +1,24 @@
+{
+  "card": "Uncivil Unrest",
+  "family": "replacement",
+  "oracle_sha": "7c523511d459",
+  "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "riot-counter-creature-doubles-combat-damage",
+      "cr": ["614.1c", "614.12a", "702.136a", "614.1a", "120.3a"],
+      "why": "Choose the +1/+1 counter as the creature enters. Its counter enables Uncivil Unrest's damage replacement, so its three-power combat damage is doubled to six.",
+      "setup": {"p0": {"battlefield": ["Uncivil Unrest"], "hand": ["Savannah Lions"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Savannah Lions", "mana": "W", "answers": [{"kind": "any", "pick": ["+1/+1"]}]}, {"op": "attack", "seat": 0, "attackers": ["p0:Savannah Lions"], "defender": "p1"}],
+      "expect": [{"card": "p0:Savannah Lions", "zone": "battlefield", "pt": "3/2", "counters": {"+1/+1": 1}}, {"life": {"p1": 14}}]
+    },
+    {
+      "name": "riot-haste-without-counter-does-not-double",
+      "cr": ["614.1c", "702.136a", "614.1a", "120.3a"],
+      "why": "Choose haste instead of the optional counter. The creature can attack immediately, but without a +1/+1 counter its two combat damage is not doubled.",
+      "setup": {"p0": {"battlefield": ["Uncivil Unrest"], "hand": ["Savannah Lions"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Savannah Lions", "mana": "W", "answers": [{"kind": "any", "pick": ["haste"]}]}, {"op": "attack", "seat": 0, "attackers": ["p0:Savannah Lions"], "defender": "p1"}],
+      "expect": [{"card": "p0:Savannah Lions", "zone": "battlefield", "pt": "2/1", "counters": {"+1/+1": 0}}, {"life": {"p1": 18}}]
+    }
+  ]
+}
