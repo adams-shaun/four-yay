@@ -9291,20 +9291,12 @@ func (e *Engine) executePlannedManaActivation(pc *pendingCast) bool {
 	}
 	ma := step.ma
 	pc.paymentNext++ // a synchronous continuation may re-enter payCast.
-	// A fixed Produced$ Any plan records the selected colour in Produces.
-	// Resolve the ordinary ability with only that field rewritten, retaining
-	// the compiled pointer as original for activation limits and replay.
-	exec := ma
-	if strings.TrimSpace(ma.Params["Produced"]) == "Any" {
-		for i, n := range pa.Produces {
-			if n == 0 || i >= 5 {
-				continue
-			}
-			color := string(cards.ManaSymbol(i))
-			exec = withProduced(ma, ma, color)
-			break
-		}
-	}
+	// The planner already resolved the exact ability to run: the original for
+	// fixed production, or a withProduced copy carrying the selected colour
+	// for Any/Combo/Chosen/ColorIdentity. Resolve step.exec while retaining
+	// step.ma as the compiled original for activation limits and replay, so no
+	// colour prompt is posed at execution.
+	exec := step.exec
 	mark := len(e.L.Events)
 	// This is a spell's CR 601.2g payment window: the call the manual
 	// "activate" answer makes (activateManaPayment), never the distinct
