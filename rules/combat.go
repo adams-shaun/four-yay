@@ -643,6 +643,18 @@ func (e *Engine) askAttackers() {
 	// same list and the same budget.
 	offers := e.attackOffers()
 	budget := e.attackBudget(p)
+	// A creature that is declared as attacking cannot also be tapped for
+	// mana, so a declaration including a mana source gives up that source's
+	// production. The published per-option budget cost therefore folds the
+	// option's own production into its Value whenever the declaration carries
+	// a mana tax (attackTaxed); the engine's own whole-declaration check and
+	// every client repair sum the same folded Values against the same
+	// MaxSum, so a declaration is admitted exactly when its remaining sources
+	// can pay the tax. Without any mana tax every Value stays 0, so an
+	// ordinary prop-free declaration serialises byte-identically. See
+	// attackSourceUnits / attackTaxed in rules/attack_cost.go.
+	selfUnits := e.attackSourceUnits(p)
+	taxed := e.attackTaxed(offers)
 	var opts []decision.Option
 	// groupLimits carries a raised per-defender attacker cap to the wire
 	// (Decision.GroupLimits): a scoped AttackRestrict ceiling above one
@@ -689,11 +701,15 @@ func (e *Engine) askAttackers() {
 		}
 		opt := decision.Option{Index: len(opts), Kind: "attacker",
 			Label: label, Obj: of.id, Player: of.def, Battle: of.battle, Required: mustAtt[of.id], Group: group,
-			// Value is the pair's mana price: the cumulative-budget contract
-			// MaxSum names. omitempty keeps a prop-free list byte-identical
-			// (price 0 omits), so the option enumeration order and the wire
-			// payload of every ordinary declaration are unchanged.
-			Value: int(of.charge.mana)}
+			// Value is the pair's cumulative-budget cost: its mana price, plus
+			// -- when the declaration carries a mana tax -- the mana units its
+			// own Obj would otherwise contribute to the budget (a declared
+			// attacker cannot also tap for mana). A rules-ignorant client sums
+			// this against MaxSum without knowing what a mana source is.
+			// omitempty keeps a prop-free list byte-identical (price 0 and no
+			// tax omits), so the option enumeration order and the wire payload
+			// of every ordinary declaration are unchanged.
+			Value: int(e.attackOptionBudgetValue(of.charge, of.id, selfUnits, taxed))}
 		// The non-mana components ride the same fields a block option uses,
 		// so a rules-ignorant client can reason about the whole charge.
 		opt.CostLife = int(of.charge.life)
@@ -750,12 +766,14 @@ func (e *Engine) askAttackers() {
 	e.ask(&decision.Decision{Player: p, Kind: decision.KAttackers, Min: 0, Max: maxOpts,
 		Prompt: fmt.Sprintf("turn %d — declare attackers", e.G.Turn), Options: opts,
 		// The cumulative attack-cost budget: the sum of the chosen options'
-		// Value (each pair's mana price) must not exceed the payer's budget.
-		// Decision.Validate enforces it as a general wire contract, so the
-		// engine never sees an over-budget declaration and no client has to
-		// sum prices itself. Published only when some offered pair is priced:
-		// with every Value 0 the cap is vacuous, and leaving it 0 (omitted)
-		// keeps every prop-free declaration's wire payload byte-identical.
+		// Value (each pair's folded mana price: its tax plus, under a tax, the
+		// mana the attacker's own source would have produced) must not exceed
+		// the payer's budget. Decision.Validate enforces it as a general wire
+		// contract, so the engine never sees an over-budget declaration and no
+		// client has to sum prices itself. Published only when some offered
+		// pair is priced: with every Value 0 the cap is vacuous, and leaving
+		// it 0 (omitted) keeps every prop-free declaration's wire payload
+		// byte-identical.
 		MaxSum: maxSum,
 		// A raised per-defender attacker cap (AttackRestrict scoped by
 		// ValidDefender$). Nil when no scoped ceiling exceeds one, so every
@@ -1052,11 +1070,20 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// attack-prop budget serialization are properties of the OFFER LIST, and
 	// re-deriving it here (the same pure read askAttackers ran) keeps a
 	// hand-built intent from naming a pair the budget ran out on.
+	offers := e.attackOffers()
 	offered := make(map[attackOfferKey]blockCharge, 8)
-	for _, of := range e.attackOffers() {
+	for _, of := range offers {
 		offered[attackOfferKey{id: of.id, def: of.def, battle: of.battle}] = of.charge
 	}
 	budget := e.attackBudget(d.Player)
+	// The same folded budget currency askAttackers published (attackBudget
+	// Value): each attacker costs its mana price PLUS, under a mana tax, the
+	// mana its own source forgoes by attacking. Summing the raw charge.mana
+	// here would let this belt admit a declaration the very next check
+	// (combatChargeAffordable over chosenAttackers) rejects -- the two must
+	// agree. See attackOptionBudgetValue in rules/attack_cost.go.
+	selfUnits := e.attackSourceUnits(d.Player)
+	taxed := e.attackTaxed(offers)
 	total := int32(0)
 	// The whole declaration's composite charge, validated against the same
 	// combatChargeAffordable read the offer gate used: mana within the budget,
@@ -1088,11 +1115,13 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 			return fmt.Errorf("attacker %d cannot attack player %d (attack cost not affordable or pair not offered)", o.Obj, o.Player)
 		}
 		// Belt against a future membership gap: the serialized offer list
-		// already bounds every subset's mana total, so this can only fire if
-		// the two walks ever diverge. A free pair adds nothing and can never
-		// be what overruns the budget, so only a priced pair is checked.
-		total += charge.mana
-		if charge.mana > 0 && total > budget {
+		// already bounds every subset's folded Value total, so this can only
+		// fire if the two walks ever diverge. A free, source-free pair adds
+		// nothing and can never be what overruns the budget, so only a priced
+		// or source-bearing pair is checked.
+		cost := e.attackOptionBudgetValue(charge, o.Obj, selfUnits, taxed)
+		total += cost
+		if cost > 0 && total > budget {
 			return fmt.Errorf("declaration's attack cost {%d} exceeds the affordable {%d}", total, budget)
 		}
 		declaredCharge = declaredCharge.plus(charge)

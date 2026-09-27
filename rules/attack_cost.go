@@ -1278,18 +1278,62 @@ func oneColourProduced(counts [6]int32) string {
 // defect the wedge guard exists to prevent.
 func (e *Engine) attackBudget(p state.PlayerID) int32 {
 	total := e.G.Players[p].Pool.Total()
+	// A map range is order-independent here (integer addition is
+	// commutative) and reaches no event, option or view: only total matters.
+	for _, n := range e.attackSourceUnits(p) {
+		total += n
+	}
+	return total
+}
+
+// attackSourceUnits returns, per mana-source Obj, the maximum units that
+// source contributes to attackBudget -- the max over its priceable
+// alternatives, exactly the per-source term attackBudget sums. A creature
+// that is DECLARED as attacking cannot also be tapped for mana, so a
+// declaration that includes a source must give up this contribution: the
+// published budget cost of one attack option is its mana price PLUS this
+// value (attackOffers' per-pair charge plus the source it forgoes). The same
+// read is the engine's whole-declaration check and the wire's, so the two
+// cannot disagree about what the declaration can pay.
+func (e *Engine) attackSourceUnits(p state.PlayerID) map[state.ObjID]int32 {
 	best := make(map[state.ObjID]int32)
 	for _, s := range e.attackManaSources(p) {
 		if s.units > best[s.id] {
 			best[s.id] = s.units
 		}
 	}
-	// A map range is order-independent here (integer addition is
-	// commutative) and reaches no event, option or view: only total matters.
-	for _, n := range best {
-		total += n
+	return best
+}
+
+// attackTaxed reports whether any currently offered pair carries a positive
+// mana price. The published per-option budget cost folds in the option's own
+// mana production only when a mana tax is in play (askAttackers). Without a
+// tax every Value stays at its historical 0, so every prop-free declaration's
+// option list and wire payload is byte-identical -- but the fold cannot be
+// applied per-option, because a mana-source creature that attacks while
+// OTHER mana funds another creature's tax must STILL give up its own
+// contribution; the fold is a property of the whole declaration.
+func (e *Engine) attackTaxed(offers []attackOffer) bool {
+	for _, of := range offers {
+		if of.charge.mana > 0 {
+			return true
+		}
 	}
-	return total
+	return false
+}
+
+// attackOptionBudgetValue is the ONE home for an attack option's published
+// budget cost: its per-pair mana charge plus -- only when the decision carries
+// a mana tax -- the units its own Obj contributes to attackBudget (a declared
+// attacker cannot also tap for mana). askAttackers publishes this as
+// Option.Value and the whole-declaration check (validateAttackers) sums the
+// same currency against attackBudget, so a declaration is admitted exactly
+// when the sources it does NOT commit can pay its tax.
+func (e *Engine) attackOptionBudgetValue(charge blockCharge, id state.ObjID, selfUnits map[state.ObjID]int32, taxed bool) int32 {
+	if !taxed {
+		return charge.mana
+	}
+	return charge.mana + selfUnits[id]
 }
 
 // attackOffer is one (attacker, defender) pair askAttackers offers, with the
