@@ -73,6 +73,10 @@
      *  menu as a board tile (R-E4-1: each item posts the option's own index). */
     options = null,
     paymentActions = [],
+    /** autoPay is the seat's Auto-pay preference: it only changes the CAST
+     *  shortcut's wording ("with suggested mana" vs "then choose mana"); the
+     *  route itself is SeatPanelState.castAction's. */
+    autoPay = true,
     onCastPayment = null,
     /** open0 seeds the fan's open menu (by card id), injectable for the repo's
      *  SSR test harness just as CardTile's `open0` is: this environment has no
@@ -81,7 +85,7 @@
      *  it drives the detail panel. Production never passes it and the default
      *  is that no menu is open. */
     open0 = null,
-  }: { player: PlayerView; width?: number; options?: CardOptions | null; open0?: number | null; paymentActions?: PaymentAction[]; onCastPayment?: ((action: PaymentAction, holdPriority: boolean) => void) | null } = $props();
+  }: { player: PlayerView; width?: number; options?: CardOptions | null; open0?: number | null; paymentActions?: PaymentAction[]; autoPay?: boolean; onCastPayment?: ((action: PaymentAction, holdPriority: boolean) => void) | null } = $props();
 
   const hand = $derived(visibleHand(player) ?? []);
 
@@ -284,7 +288,7 @@
           <CardDetail card={c} anchor={anchor} />
         {/if}
         {#if payment}
-          <button class="payment-shortcut" type="button" data-payment-card={payment.id} aria-label="Cast {c.name} with suggested mana" title="Cast with suggested mana" onclick={(event) => onCastPayment?.(payment, event.ctrlKey)}>CAST</button>
+          <button class="payment-shortcut" type="button" data-payment-card={payment.id} aria-label={autoPay ? `Cast ${c.name} with suggested mana` : `Cast ${c.name}, then choose mana`} title={autoPay ? 'Cast with suggested mana' : 'Cast, then choose the mana to pay with'} onclick={(event) => onCastPayment?.(payment, event.ctrlKey)}>CAST</button>
         {:else if landPlay && opt}
           <button class="payment-shortcut" type="button" data-play-land={landPlay.index} aria-label={landPlay.label} title={landPlay.label} onclick={(event) => opt.post(landPlay.index, false, event.ctrlKey)}>PLAY</button>
         {/if}

@@ -1556,6 +1556,12 @@ var apiSpecificRulesSA = map[string][]string{
 	// api:Mana alone -- left in the generic union they mask every other API's
 	// unread Produced$ (measured: api:Sacrifice/api:DealDamage).
 	"Engine.attackChoiceManaSources": {"Mana"},
+	// The announced select-mana window's per-colour flattening
+	// (rules/announce_pay.go, announce-then-pay spec §4.2): its Produced$
+	// read sits behind an explicit ma.API == "Mana" guard, so it belongs to
+	// api:Mana alone -- left in the generic union it masks api:Sacrifice's
+	// and api:DealDamage's unread Produced$.
+	"Engine.announcedAbilityColours": {"Mana"},
 	// The cast-payment window's activation-cost layer: castWindowProbeUnits
 	// walks untapped api:Mana abilities (with the live-pool payability gate
 	// lifted, so a fee an earlier same-window activation funds is priced) and
