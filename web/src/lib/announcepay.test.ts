@@ -25,8 +25,8 @@ const action = (id: string, base: number | null, plans: PaymentPlan[] = [plan]):
 });
 const priority = (seq: number, actions: PaymentAction[]): Decision => ({
   seq, player: 0, kind: 'priority', prompt: 'Priority', min: 1, max: 1,
-  options: [{ index: 0, kind: 'activate', label: 'Activate Mountain for mana', obj: 41 }, { index: 1, kind: 'pass', label: 'Pass' },
-    { index: 7, kind: 'cast', label: 'Cast pooled' }],
+  options: [{ index: 0, player: 0, kind: 'activate', label: 'Activate Mountain for mana', obj: 41 }, { index: 1, player: 0, kind: 'pass', label: 'Pass' },
+    { index: 7, player: 0, kind: 'cast', label: 'Cast pooled' }],
   payment_actions: actions,
 });
 
@@ -34,13 +34,13 @@ const priority = (seq: number, actions: PaymentAction[]): Decision => ({
 const windowDecision = (seq = 30): Decision => ({
   seq, player: 0, kind: 'choose', prompt: 'Pay for Doom Test', min: 1, max: 1, source: 22,
   options: [
-    { index: 0, kind: 'mana', label: 'Add B', obj: 41 },
-    { index: 1, kind: 'mana', label: 'Add B', obj: 42, mana_symbol: 'B' },
-    { index: 2, kind: 'mana', label: 'Add R', obj: 42, mana_symbol: 'R' },
-    { index: 3, kind: 'mana', label: 'Pay 1 life: Add U', obj: 43 },
-    { index: 4, kind: 'autofill', label: 'Auto-fill: tap Swamp, Badlands' },
-    { index: 5, kind: 'undo_tap', label: 'Undo tapping Island', obj: 44 },
-    { index: 6, kind: 'cancel_cast', label: 'Cancel cast' },
+    { index: 0, player: 0, kind: 'mana', label: 'Add B', obj: 41 },
+    { index: 1, player: 0, kind: 'mana', label: 'Add B', obj: 42, mana_symbol: 'B' },
+    { index: 2, player: 0, kind: 'mana', label: 'Add R', obj: 42, mana_symbol: 'R' },
+    { index: 3, player: 0, kind: 'mana', label: 'Pay 1 life: Add U', obj: 43 },
+    { index: 4, player: 0, kind: 'autofill', label: 'Auto-fill: tap Swamp, Badlands' },
+    { index: 5, player: 0, kind: 'undo_tap', label: 'Undo tapping Island', obj: 44 },
+    { index: 6, player: 0, kind: 'cancel_cast', label: 'Cancel cast' },
   ],
   mana_payment: { card: 22, cost: { generic: 1, mana: [0, 1, 1, 0, 0, 0] }, owed: { generic: 1, mana: [0, 0, 1, 0, 0, 0] },
     pool: [0, 1, 0, 0, 0, 0], autofill: [41, 42] },

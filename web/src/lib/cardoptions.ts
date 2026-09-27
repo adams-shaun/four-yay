@@ -191,10 +191,9 @@ export type SingleActionIcon = 'cast' | 'tap' | 'target' | 'attack' | 'block' | 
 export function scenarioIconOf(kind: string): SingleActionIcon {
   switch (kind) {
     case 'cast': return 'cast';
-    case 'activate':
-    // An announced select-mana window's per-ability option (announce-then-pay):
-    // the board tile answers it by tapping the source.
-    case 'mana': return 'tap';
+    // 'mana' is an announced select-mana window's per-ability option
+    // (announce-then-pay): the board tile answers it by tapping the source.
+    case 'activate': case 'mana': return 'tap';
     case 'permanent':
     case 'player': return 'target';
     case 'attacker': return 'attack';

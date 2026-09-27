@@ -40,13 +40,13 @@ const view = (d: Decision | null, hand: CardView[] = []): View => ({
 const payWindow: Decision = {
   seq: 40, player: 0, kind: 'choose', prompt: 'Pay for Grixis Test', min: 1, max: 1, source: 22,
   options: [
-    { index: 0, kind: 'mana', label: 'Add B', obj: 41 },
-    { index: 1, kind: 'mana', label: 'Add B', obj: 42 },
-    { index: 2, kind: 'mana', label: 'Add U', obj: 43, mana_symbol: 'U' },
-    { index: 3, kind: 'mana', label: 'Add B', obj: 43, mana_symbol: 'B' },
-    { index: 4, kind: 'autofill', label: 'Auto-fill: tap Swamp, Swamp' },
-    { index: 5, kind: 'undo_tap', label: 'Undo tapping Island', obj: 44 },
-    { index: 6, kind: 'cancel_cast', label: 'Cancel cast' },
+    { index: 0, player: 0, kind: 'mana', label: 'Add B', obj: 41 },
+    { index: 1, player: 0, kind: 'mana', label: 'Add B', obj: 42 },
+    { index: 2, player: 0, kind: 'mana', label: 'Add U', obj: 43, mana_symbol: 'U' },
+    { index: 3, player: 0, kind: 'mana', label: 'Add B', obj: 43, mana_symbol: 'B' },
+    { index: 4, player: 0, kind: 'autofill', label: 'Auto-fill: tap Swamp, Swamp' },
+    { index: 5, player: 0, kind: 'undo_tap', label: 'Undo tapping Island', obj: 44 },
+    { index: 6, player: 0, kind: 'cancel_cast', label: 'Cancel cast' },
   ],
   mana_payment: { card: 22, cost: { generic: 0, mana: [0, 1, 2, 0, 0, 0] }, owed: { generic: 0, mana: [0, 0, 2, 0, 0, 0] },
     pool: [0, 1, 0, 0, 0, 0], autofill: [41, 42] },
@@ -100,7 +100,7 @@ describe('announce-then-pay casts at priority', () => {
   };
   const prio: Decision = {
     seq: 39, player: 0, kind: 'priority', prompt: 'You have priority.', min: 1, max: 1,
-    options: [{ index: 0, kind: 'pass', label: 'Pass priority' }], payment_actions: [action],
+    options: [{ index: 0, player: 0, kind: 'pass', label: 'Pass priority' }], payment_actions: [action],
   };
 
   it('lists a plan-only cast as an announce row while Auto-pay is off, and not while it is on', () => {
