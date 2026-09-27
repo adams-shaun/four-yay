@@ -385,4 +385,10 @@ describe('HotButtonStrip — manual mana under auto-pay reads the shared predica
     expect(html).toContain('No action is offered by this decision.');
     expect(html).not.toContain('Activate Plains for mana');
   });
+
+  it('keeps ACTIONS live with the taps listed while an unplanned cast (an X spell) needs mana floated first', () => {
+    const html = autoPayStrip([{ kind: 'cast', obj: 31, label: 'Cast Fireball' }]);
+    expect(html).toMatch(/data-hot-tab="actions"[^>]*aria-disabled="false"/);
+    expect(html).toContain('Activate Plains for mana');
+  });
 });

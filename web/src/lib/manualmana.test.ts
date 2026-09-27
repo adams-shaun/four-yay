@@ -1,21 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type { Decision, Option, PaymentAction, PotentialAction, View } from '../protocol';
-import { isManualManaOption, manualManaHidden } from './manualmana';
+import { isManualManaOption, isPlainManualTap, manualManaHidden } from './manualmana';
 
-// Spec §8 (as amended 2026-09-26): with the seat's auto-pay preference on,
-// manual "Activate … for mana" options are hidden from the option list, the
-// board badges and the hot strip, "unless the decision also offers a non-cast
-// action that may need mana". manualManaHidden is the ONE predicate all three
-// surfaces read. The shapes below are the measured wire (aph-web-autopay-policy
-// Go probe at e77928ae9): a mana-costed non-cast action is offered FLOAT-FIRST,
-// so on an empty pool it is absent from the options and present only in the
-// seat's potential_actions.
+// Spec §8 (as amended by aph-web-manual-only-plays): with the seat's auto-pay
+// preference on, "manual mana taps are hidden under auto-pay only when every
+// play the window can reach is reachable without them". manualManaHidden is
+// the ONE predicate all three surfaces read, and isPlainManualTap the one
+// per-option test they apply it to. The shapes below are the measured wire
+// (aph-web-autopay-policy Go probe at e77928ae9): a mana-costed play is
+// offered FLOAT-FIRST, so on an empty pool it is absent from the options and
+// present only in the seat's potential_actions.
 
 const opt = (index: number, kind: string, label: string, extra: Partial<Option> = {}): Option =>
   ({ index, kind, label, player: 0, ...extra });
 
 const plains = opt(0, 'activate', 'Activate Plains for mana', { obj: 81 });
 const mountain = opt(1, 'activate', 'Activate Mountain for mana', { obj: 82 });
+const led = opt(2, 'activate', 'Activate Lion\'s Eye Diamond for mana', { obj: 83, cost: 'T Sac<1/CARDNAME> Discard<1/Hand>' });
+const treasure = opt(3, 'activate', 'Activate Treasure for mana', { obj: 86, cost: 'T Sac<1/CARDNAME>' });
+const confluence = opt(4, 'activate', 'Activate Mana Confluence for mana', { obj: 87, cost: 'T PayLife<1>' });
 const pass = opt(8, 'pass', 'Pass priority');
 const concede = opt(9, 'concede', 'Concede');
 
@@ -58,6 +61,28 @@ describe('isManualManaOption — the one manual mana tap test', () => {
     expect(isManualManaOption(opt(0, 'ability', 'Probe Blade: Equip 1', { obj: 84, cost: '1' }))).toBe(false);
     expect(isManualManaOption(opt(0, 'cast', 'Cast Opt'))).toBe(false);
     expect(isManualManaOption(pass)).toBe(false);
+  });
+});
+
+describe('isPlainManualTap — only a bare tap is ever hidden (a costly mana activation is a play of its own)', () => {
+  it('a plain land tap is hideable', () => {
+    expect(isPlainManualTap(plains)).toBe(true);
+    expect(isPlainManualTap(mountain)).toBe(true);
+  });
+
+  it('Lion\u2019s Eye Diamond, a Treasure and Mana Confluence carry a cost on the wire and are never hidden', () => {
+    // autopilot.isCostlyManaActivation's marker (Option.cost on an activate):
+    // Auto already stops for these as real plays, so hiding them left Auto
+    // stopping for something the panel did not show.
+    expect(isPlainManualTap(led)).toBe(false);
+    expect(isPlainManualTap(treasure)).toBe(false);
+    expect(isPlainManualTap(confluence)).toBe(false);
+  });
+
+  it('is never anything but a manual mana option', () => {
+    expect(isPlainManualTap(opt(0, 'ability', 'Probe Blade: Equip 1', { obj: 84, cost: '1' }))).toBe(false);
+    expect(isPlainManualTap(opt(0, 'cast', 'Cast Opt'))).toBe(false);
+    expect(isPlainManualTap(pass)).toBe(false);
   });
 });
 
@@ -120,20 +145,67 @@ describe('manualManaHidden — the predicate table (spec §8)', () => {
     expect(manualManaHidden(d, view([{ kind: 'play_land', obj: 97, label: 'Play Forest' }]), 0, true)).toBe(true);
   });
 
-  it('a float-gated CAST is not a non-cast action: §8 pays a cast by hand by switching the preference off', () => {
+  it('an UNPLANNED float-gated cast keeps manual mana visible: a flashback cast has no plan to pay it', () => {
     const d = priority([plains, mountain, pass, concede]);
-    expect(manualManaHidden(d, view([{ kind: 'cast', obj: 30, mode: 'flashback', label: 'Cast Think Twice (flashback)' }]), 0, true)).toBe(true);
+    expect(manualManaHidden(d, view([{ kind: 'cast', obj: 30, mode: 'flashback', label: 'Cast Think Twice (flashback)' }]), 0, true)).toBe(false);
   });
 
-  it('a payment action carrying zero plans is still a cast; it does not by itself keep manual mana visible (§8 as written)', () => {
-    // OPEN QUESTION (see manualmana.ts): kept at §8's single exception and at
-    // main's behaviour on all three surfaces, although the panel's "use the
-    // manual mana controls" line reads as if the taps were visible. The
-    // engine never publishes a zero-plan action (rules/payment_plan.go skips
-    // a nil plan), so no live window reaches this shape; flipping it is a
-    // one-line change in manualManaHidden plus this expectation.
+  it('an X spell the planner never plans keeps manual mana visible', () => {
+    // rules/payment_plan.go publishes no payment action for a cast it cannot
+    // plan (X, kicker, alternative and optional costs, flashback, ...): the
+    // projection is the only trace of it, and floating mana the only route.
+    const d = priority([plains, mountain, pass, concede]);
+    expect(manualManaHidden(d, view([{ kind: 'cast', obj: 31, label: 'Cast Fireball' }]), 0, true)).toBe(false);
+  });
+
+  it('a potential cast its OWN plan pays hides them: the plan button reaches it', () => {
+    const d = priority([plains, mountain, pass, concede], [planned(null)]);
+    expect(manualManaHidden(d, view([{ kind: 'cast', obj: 22, label: 'Cast Opt' }]), 0, true)).toBe(true);
+  });
+
+  it('a planned card\u2019s OTHER cast routes are not planned: kicker and alternative-cost variants keep the taps', () => {
+    // The plan pays exactly the ordinary cast (Mode "", AltCostIndex 0 --
+    // PaymentActionsForPriority), whose label the payment action carries
+    // verbatim; any other route of the same card is reachable only by hand.
+    const d = priority([plains, mountain, pass, concede], [planned(null)]);
+    const plain = { kind: 'cast', obj: 22, label: 'Cast Opt' };
+    expect(manualManaHidden(d, view([plain, { kind: 'cast', obj: 22, mode: 'optionalcost', label: 'Cast Opt (optional cost)' }]), 0, true)).toBe(false);
+    expect(manualManaHidden(d, view([plain, { kind: 'cast', obj: 22, label: 'Cast Opt (alternative cost)' }]), 0, true)).toBe(false);
+  });
+
+  it('a cast the floating pool already pays is a visible option, so it does not keep them', () => {
+    const bolt = opt(5, 'cast', 'Cast Lightning Bolt', { obj: 40 });
+    const d = priority([plains, bolt, pass, concede]);
+    expect(manualManaHidden(d, view([{ kind: 'cast', obj: 40, label: 'Cast Lightning Bolt' }]), 0, true)).toBe(true);
+  });
+
+  it('a payment action carrying zero plans keeps manual mana visible (the panel says "use the manual mana controls")', () => {
+    // Resolves aph-web-autopay-policy's open question under the amended §8:
+    // a cast no plan pays is reachable only by floating mana by hand. The
+    // engine never publishes this shape today (rules/payment_plan.go skips a
+    // nil plan); the panel's own line must still be true when it does.
     const d = priority([plains, mountain, pass, concede], [planned(null, [])]);
+    expect(manualManaHidden(d, view(), 0, true)).toBe(false);
+  });
+
+  it('every widened non-cast potential kind keeps them: unlock, turn face up, specialize, granted', () => {
+    const d = priority([plains, mountain, pass, concede]);
+    for (const a of [
+      { kind: 'unlock', obj: 93, label: 'Unlock Prop Room' },
+      { kind: 'turn_face_up', obj: 94, label: 'Turn face up ({G})' },
+      { kind: 'specialize', obj: 95, mode: '1', label: 'Specialize as White Form ({1})' },
+      { kind: 'granted', obj: 96, label: 'Probe Engine: Draw a card.' },
+    ]) {
+      expect(manualManaHidden(d, view([a]), 0, true), a.kind).toBe(false);
+    }
+    // A station is never mana-costed: its potential twin changes nothing.
+    expect(manualManaHidden(d, view([{ kind: 'station', obj: 98, label: 'Station Probe Ship' }]), 0, true)).toBe(true);
+  });
+
+  it('a costly mana activation alone does not keep the plain taps (it is shown itself, and needs none of them)', () => {
+    const d = priority([plains, led, pass, concede]);
     expect(manualManaHidden(d, view(), 0, true)).toBe(true);
+    expect(isPlainManualTap(led)).toBe(false);
   });
 
   it('only the viewing seat’s own projection counts; a spectator or another seat’s view carries none', () => {

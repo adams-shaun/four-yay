@@ -22,7 +22,7 @@
     toneOf,
   } from '../lib/seatpanel.svelte';
   import { laterByObj, optionsByObj, optionsByPlayer, resolveCardFollowUp, type CardOptions } from '../lib/cardoptions';
-  import { isManualManaOption, manualManaHidden } from '../lib/manualmana';
+  import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { rematchDecks, startRematch } from '../lib/playvsbot';
   import { stuckDecision } from '../lib/prompt';
   import { loadLogShown, saveLogShown, type LogScope } from '../lib/logshown';
@@ -289,13 +289,15 @@
     // manual tap badge on a source: that made the setting look ineffective
     // and let a player spend the source outside the offered payment plan.
     // This is presentation-only filtering; the server remains authoritative.
-    // Plans only pay casts, so a non-cast action that may need mana keeps the
-    // ordinary mana route visible -- including one offered only once the
-    // mana floats (an Equip on an empty pool). WHEN is the one shared rule
-    // the option list and the hot strip read too (lib/manualmana.ts, §8).
+    // The taps stay whenever a play the window can reach needs them -- a
+    // non-cast action or a cast no plan pays, including one offered only
+    // once the mana floats -- and a costly activation (Lion's Eye Diamond, a
+    // Treasure) is a play of its own, never hidden. WHEN and WHICH are the
+    // one shared rule the option list and the hot strip read too
+    // (lib/manualmana.ts, §8).
     if (manualManaHidden(d, m.view, seatCtx?.seat, panel.autoPayMana)) {
       for (const [obj, offered] of byObj) {
-        const visible = offered.filter((option) => !isManualManaOption(option));
+        const visible = offered.filter((option) => !isPlainManualTap(option));
         if (visible.length === 0) byObj.delete(obj);
         else if (visible.length !== offered.length) byObj.set(obj, visible);
       }

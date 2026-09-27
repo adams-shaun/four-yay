@@ -8,7 +8,7 @@
   import { discardCard, isDiscardPick } from '../lib/discard';
   import { isSearchPick, searchCard, searchOptions } from '../lib/search';
   import { isNamePick, nameOptions, NAME_PICK_RENDER_LIMIT } from '../lib/name-pick';
-  import { isManualManaOption, manualManaHidden } from '../lib/manualmana';
+  import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { modalPickerOpen } from '../lib/modals';
   import ArrangeModal from './ArrangeModal.svelte';
   import DiscardModal from './DiscardModal.svelte';
@@ -196,8 +196,10 @@
   // planner's cast button is the remaining route while it is on; turning the
   // switch off deliberately restores every normal activation. WHEN the manual
   // taps are hidden is the one shared rule (lib/manualmana.ts, spec §8): only
-  // on a priority decision, and never while a non-cast action may need the
-  // mana — including one the engine offers only after the mana floats.
+  // on a priority decision, and only when every play the window can reach is
+  // reachable without them — never while a non-cast action or a cast no plan
+  // pays may need the mana, including one the engine offers only after the
+  // mana floats. A costly activation (isPlainManualTap) is never hidden.
   const hideManualMana = $derived(manualManaHidden(decision, view, ctx.seat, logic.autoPayMana));
 
   // holdPriority is the Ctrl modifier, exactly as on every other option
@@ -761,7 +763,7 @@
             </div>
           {/if}
           <div class="list">
-            {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index && !paymentBases.has(opt.index) && !(hideManualMana && isManualManaOption(opt))) as opt (opt.index)}
+            {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index && !paymentBases.has(opt.index) && !(hideManualMana && isPlainManualTap(opt))) as opt (opt.index)}
               {@const pickedAt = logic.picked.indexOf(opt.index)}
               {@const pickedCount = decision.repeatable ? logic.picked.filter((i) => i === opt.index).length : 0}
               <button

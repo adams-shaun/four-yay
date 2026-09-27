@@ -220,6 +220,21 @@ describe('SeatPanel — manual mana under auto-pay reads the shared predicate', 
     expect(html).not.toContain('Activate Plains for mana');
   });
 
+  it('keeps the manual taps listed while a cast no plan pays (a flashback) is reachable only by floating mana', () => {
+    const v = withPotential(view(tapWindow), [{ kind: 'cast', obj: 30, mode: 'flashback', label: 'Cast Think Twice (flashback)' }]);
+    const html = render(SeatPanel, { props: { ...props(v), state: autoPaying(tapWindow) } }).html;
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Activate Plains for mana');
+  });
+
+  it('never hides a costly mana activation: Lion\u2019s Eye Diamond stays listed while the plain taps are hidden', () => {
+    const d: Decision = { ...tapWindow, options: [...tapWindow.options.slice(0, 2), { ...opt(2, 'activate', 'Activate Lion\'s Eye Diamond for mana', 83), cost: 'T Sac<1/CARDNAME> Discard<1/Hand>' }, ...tapWindow.options.slice(2)] };
+    const html = render(SeatPanel, { props: { ...props(view(d)), state: autoPaying(d) } }).html;
+    expect(html).toContain('data-option="2"');
+    expect(html).toContain('Eye Diamond for mana');
+    expect(html).not.toContain('Activate Plains for mana');
+  });
+
   it('never hides the taps of a manual payment window (the fallback’s CR 601.2g window)', () => {
     const castWindow: Decision = {
       seq: 50, player: 1, kind: 'choose', prompt: 'Activate mana abilities to pay for Opt', min: 1, max: 1, source: 22,

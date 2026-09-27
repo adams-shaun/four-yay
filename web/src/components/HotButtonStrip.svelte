@@ -8,7 +8,7 @@
   import { clientBreadcrumbs } from '../lib/breadcrumbs';
   import { turnSide } from '../lib/autopilot';
   import { autoNoteText, isConcede, toneOf, type SeatPanelState } from '../lib/seatpanel.svelte';
-  import { isManualManaOption, manualManaHidden } from '../lib/manualmana';
+  import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import SeatPanel from './SeatPanel.svelte';
 
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
@@ -68,7 +68,7 @@
     (decision?.options.filter((option) =>
       option.kind !== 'pass' && !isConcede(option)
       && (!logic.autoPayMana || !paymentBaseIndexes.has(option.index))
-      && !(hideManualMana && isManualManaOption(option)),
+      && !(hideManualMana && isPlainManualTap(option)),
     ).length ?? 0) + visiblePaymentActions.length,
   );
   const passAvailable = $derived(logic.passOption !== null && !logic.busy);

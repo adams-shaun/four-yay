@@ -1,5 +1,5 @@
 import type { Decision, Option, View } from '../protocol';
-import { castablesAfterTap, respondableAfterTap } from './castable';
+import { castablesAfterTap, isResponseKind, respondableAfterTap } from './castable';
 import type { OpponentObjectRule, OpponentTriggerRule, PlaySettings, StoppableStep } from './playsettings';
 import { stackYieldKey } from './yields';
 
@@ -116,7 +116,7 @@ export function turnSide(view: View, seat: number): TurnSide {
  * mana-source ask) sits on a non-priority decision those consumers already
  * refuse. respondable() below is deliberately NOT this predicate: it answers
  * a different question (could the seat interact with a resolving spell) and
- * admits only cast/ability.
+ * admits only the response kinds (lib/castable isResponseKind).
  */
 export function isActionKind(kind: string): boolean {
   return kind !== 'pass' && kind !== 'concede' && kind !== 'activate';
@@ -231,16 +231,19 @@ export function actionable(decision: Decision, view: View, seat: number, autoPay
 
 /**
  * respondable reports whether the player could respond to something on the
- * stack: a cast or ability option (a spell or non-mana ability at speed).
+ * stack: an option of a response kind (lib/castable isResponseKind — a cast,
+ * a non-mana ability, a max-speed granted ability, or a morph turn-face-up,
+ * the special action CR 708.6 allows any time its controller has priority).
  * It deliberately excludes play_land (a land drop is never a response —
  * lands are sorcery-speed and cannot interact with a resolving spell) and
  * activate (see actionable above — every mana source offers a tap at every
  * window). Used by decide()'s stack rules so an opponent object on the
  * stack only stops a player who can actually answer it, not one who can
- * merely tap a land.
+ * merely tap a land. The projection half (respondableAfterTap) reads the
+ * same kind test.
  */
 export function respondable(decision: Decision): boolean {
-  return decision.options.some((o) => o.kind === 'cast' || o.kind === 'ability');
+  return decision.options.some((o) => isResponseKind(o.kind));
 }
 
 /**

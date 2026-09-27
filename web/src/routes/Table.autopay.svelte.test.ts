@@ -101,8 +101,18 @@ describe('Table.svelte — board badges under auto-pay read the shared manual-ma
     expect(tile).toContain('data-options="1"');
   });
 
-  it('drops the badge when nothing but a cast could use the mana', () => {
+  it('drops the badge when nothing but a planned or offered cast could use the mana', () => {
     const tile = plainsTile(board());
     expect(tile).not.toContain('data-options');
+  });
+
+  it('keeps the badge while a cast no plan pays (an X spell) is reachable only by floating mana first', () => {
+    const tile = plainsTile(board([{ kind: 'cast', obj: 31, label: 'Cast Fireball' }]));
+    expect(tile).toContain('data-options="1"');
+  });
+
+  it('keeps the badge while a widened projection kind (a Room unlock) needs the mana', () => {
+    const tile = plainsTile(board([{ kind: 'unlock', obj: 93, label: 'Unlock Prop Room' }]));
+    expect(tile).toContain('data-options="1"');
   });
 });
