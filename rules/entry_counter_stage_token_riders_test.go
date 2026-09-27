@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -448,4 +449,229 @@ func TestParkedTokenImprintsItsMints(t *testing.T) {
 		t.Fatalf("source imprinted %v, want the minted token %d (ImprintCards$ Remembered must run after the mint)", o.Imprinted, mintID)
 	}
 	replayCheck(t, e, cfg)
+}
+
+// TestEncoreCopiesStageAndKeepTheirRiders is the loop-caller class: Encore
+// emits one CardToken copy per opponent, and two copies of one source are
+// field-for-field equal events. With the copied creature's entry grant
+// competing under Hardened Scales and Branching Evolution, the first copy
+// stages its order ask; the second copy must be recognised as a NEW mint
+// (not the staged one's re-drive, which swallowed it), and each copy must
+// still gain haste and join the one end-step sacrifice group -- post-mint
+// work that needs the ids the answers mint, so it resumes with them.
+func TestEncoreCopiesStageAndKeepTheirRiders(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		pick int
+		want int32
+	}{{"scales-first", 0, 4}, {"evolution-first", 1, 3}} {
+		t.Run(tc.name, func(t *testing.T) {
+			scales := tokenReplCorpusCard(t, "Hardened Scales")
+			evolution := tokenReplCorpusCard(t, "Branching Evolution")
+			grace := card(t, "Name:Encore Grace\nManaCost:1\nTypes:Creature Elf\nPT:1/1\nK:Encore:1\n"+
+				"R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ AddEntry | ReplacementResult$ Updated | Description$ entry counter\n"+
+				"SVar:AddEntry:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True\nOracle:x\n")
+			reg := testutil.CorpusRegistry(t)
+			cfg := seatZeroStart(Config{Seed: 1007, Names: []string{"a", "b", "c"},
+				Decks: [][]*cards.Card{
+					append([]*cards.Card{scales, evolution, grace}, mountainDeck(t, 37)...),
+					mountainDeck(t, 40), mountainDeck(t, 40),
+				},
+				Tokens: reg.Tokens})
+			e := New(cfg)
+			e.Advance()
+			for _, c := range []*cards.Card{scales, evolution} {
+				if o := e.G.Obj(moveSeededCard(t, e, 0, c, state.ZBattlefield)); o == nil || o.Zone != state.ZBattlefield {
+					t.Fatal("precondition: counter modifier absent")
+				}
+			}
+			e.SetCounterAdder(0)
+			graceID := moveSeededCard(t, e, 0, grace, state.ZGraveyard)
+			addMana(t, e, 0, "C")
+			submitChoices(t, e, abilityOption(t, e, graceID, 0).Index)
+			first := e.G.NextID
+			asks := 0
+			for i := 0; i < 40; i++ {
+				d := e.Pending()
+				if d == nil {
+					t.Fatal("no decision while resolving")
+				}
+				if d.Kind == decision.KReplacement {
+					asks++
+					if len(e.G.Delayed) != 0 {
+						t.Fatalf("ask %d: the sacrifice group registered before every copy was minted: %+v", asks, e.G.Delayed)
+					}
+					if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{tc.pick}}); err != nil {
+						t.Fatal(err)
+					}
+					continue
+				}
+				if d.Kind != decision.KPriority {
+					t.Fatalf("unexpected decision %+v", d)
+				}
+				if len(e.G.Stack) == 0 {
+					break
+				}
+				passPriorityOnce(t, e)
+			}
+			if asks != 2 {
+				t.Fatalf("answered %d order asks, want 2 (one per opponent's copy)", asks)
+			}
+			var copies []state.ObjID
+			for id := first; id < e.G.NextID; id++ {
+				if o := e.G.Obj(id); o != nil && o.IsToken && o.Zone == state.ZBattlefield && o.Face() != nil && o.Face().Name == "Encore Grace" {
+					copies = append(copies, id)
+				}
+			}
+			if len(copies) != 2 {
+				t.Fatalf("Encore minted %d copies, want 2 (one per opponent)", len(copies))
+			}
+			for _, id := range copies {
+				if got := e.G.Obj(id).Counter("P1P1"); got != tc.want {
+					t.Fatalf("copy %d counters = %d, want %d", id, got, tc.want)
+				}
+				if !e.HasKeyword(id, "Haste") {
+					t.Fatalf("copy %d lacks haste: Encore's grant was lost across the order ask", id)
+				}
+			}
+			if len(e.G.Delayed) != 1 || !slices.Equal(targetObjIDs(e.G.Delayed[0].Remembered), copies) {
+				t.Fatalf("sacrifice group = %+v, want one registration remembering %v", e.G.Delayed, copies)
+			}
+			replayCheck(t, e, cfg)
+		})
+	}
+}
+
+func targetObjIDs(ts []state.Target) []state.ObjID {
+	var ids []state.ObjID
+	for _, t := range ts {
+		if !t.IsPlayer {
+			ids = append(ids, t.Obj)
+		}
+	}
+	return ids
+}
+
+// TestEqualMintsWhileStagedAreNewMints pins the mint identity itself, for any
+// caller that keeps emitting while a mint's order ask is outstanding (a loop
+// with no id-dependent work, such as Investigate's Clues): a second
+// field-for-field equal CardToken (and TokenCreate) is a NEW mint that stages
+// behind its own ask, never the parked mint's re-drive.
+func TestEqualMintsWhileStagedAreNewMints(t *testing.T) {
+	for _, kind := range []events.Kind{events.CardToken, events.TokenCreate} {
+		t.Run(kind.String(), func(t *testing.T) {
+			scales := tokenReplCorpusCard(t, "Hardened Scales")
+			evolution := tokenReplCorpusCard(t, "Branching Evolution")
+			entrant := card(t, "Name:Equal Mint\nTypes:Creature Elf\nPT:1/1\n"+
+				"R:Event$ Moved | ValidCard$ Card.Self | Destination$ Battlefield | ReplaceWith$ AddEntry | ReplacementResult$ Updated | Description$ entry counter\n"+
+				"SVar:AddEntry:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ 1 | ETB$ True\nOracle:x\n")
+			e, cfg := tokenReplGame(t, 1009, scales, evolution, entrant)
+			cfg.Tokens = maps.Clone(cfg.Tokens)
+			cfg.Tokens["equal_mint"] = entrant
+			e = New(cfg)
+			e.Advance()
+			for _, c := range []*cards.Card{scales, evolution} {
+				moveSeededCard(t, e, 0, c, state.ZBattlefield)
+			}
+			e.SetCounterAdder(0)
+			mint := events.Event{Kind: kind, Player: 0, Text: "equal_mint"}
+			if kind == events.CardToken {
+				mint.Obj = moveSeededCard(t, e, 0, entrant, state.ZGraveyard)
+			}
+			first := e.G.NextID
+			e.emit(mint)
+			e.emit(mint)
+			for n := 0; n < 2; n++ {
+				d := e.Pending()
+				if d == nil || d.Kind != decision.KReplacement {
+					t.Fatalf("mint %d: expected its own staged order ask, got %+v", n, d)
+				}
+				if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got := e.G.NextID - first; got != 2 {
+				t.Fatalf("two equal mints produced %d objects, want 2 (the second was swallowed as a re-drive)", got)
+			}
+			for id := first; id < first+2; id++ {
+				if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield || o.Counter("P1P1") != 4 {
+					t.Fatalf("mint %d = %+v, want a battlefield token with 4 counters", id, o)
+				}
+			}
+			replayCheck(t, e, cfg)
+		})
+	}
+}
+
+// TestIncubateAndAmassResumeOntoParkedMints covers the other two emitters
+// whose post-mint work reads the minted id: Incubate's counters (real Eyes of
+// Gitaxias, whose Incubator parks on Doubling Season against Worldwalker
+// Helm) and Amass's counters on the Army it had to create (real Invade the
+// City, whose Army parks on Doubling Season against Divine Visitation). The
+// counters must land on the token the answer minted, and the SubAbility$ (or
+// the resolution) must finish after it.
+func TestIncubateAndAmassResumeOntoParkedMints(t *testing.T) {
+	for _, tc := range []struct {
+		name, spell, other, mana string
+	}{
+		{"incubate", "Eyes of Gitaxias", "Worldwalker Helm", "UUU"},
+		{"amass", "Invade the City", "Divine Visitation", "UUR"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ds := tokenReplCorpusCard(t, "Doubling Season")
+			other := tokenReplCorpusCard(t, tc.other)
+			spell := tokenReplCorpusCard(t, tc.spell)
+			fodder := card(t, "Name:Graveyard Sorcery\nManaCost:0\nTypes:Sorcery\nA:SP$ GainLife | LifeAmount$ 1 | SpellDescription$ x\nOracle:x\n")
+			e, cfg := tokenReplGame(t, 1011, ds, other, spell, fodder)
+			moveSeededCard(t, e, 0, ds, state.ZBattlefield)
+			moveSeededCard(t, e, 0, other, state.ZBattlefield)
+			moveSeededCard(t, e, 0, fodder, state.ZGraveyard)
+			spellID := moveSeededCard(t, e, 0, spell, state.ZHand)
+			hand := len(e.G.Zone(state.ZHand, 0))
+			addMana(t, e, 0, tc.mana)
+			castSpellOption(t, e, tc.spell)
+			first := e.G.NextID
+			asks := 0
+			for i := 0; i < 40; i++ {
+				d := e.Pending()
+				if d == nil {
+					t.Fatal("no decision while resolving")
+				}
+				if d.Kind == decision.KReplacement {
+					asks++
+					if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}); err != nil {
+						t.Fatal(err)
+					}
+					continue
+				}
+				if d.Kind != decision.KPriority {
+					t.Fatalf("unexpected decision %+v", d)
+				}
+				if len(e.G.Stack) == 0 {
+					break
+				}
+				passPriorityOnce(t, e)
+			}
+			if asks != 1 {
+				t.Fatalf("answered %d token order asks, want 1", asks)
+			}
+			o := e.G.Obj(first)
+			if o == nil || !o.IsToken || o.Zone != state.ZBattlefield {
+				t.Fatalf("first minted %d = %+v, want a battlefield token", first, o)
+			}
+			if o.Counter("P1P1") == 0 {
+				t.Fatalf("%s's counters did not land on the token the answer minted (%s)", tc.spell, o.Face().Name)
+			}
+			if tc.name == "incubate" {
+				// Cast from hand (-1), then the DBDraw sub (+1), exactly once.
+				if got := len(e.G.Zone(state.ZHand, 0)); got != hand {
+					t.Fatalf("hand = %d, want %d (the Draw sub runs once, after the mint)", got, hand)
+				}
+			}
+			if s := e.G.Obj(spellID); s == nil || s.Zone != state.ZGraveyard {
+				t.Fatalf("resolved spell = %+v, want it in the graveyard", s)
+			}
+			replayCheck(t, e, cfg)
+		})
+	}
 }

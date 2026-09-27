@@ -36,17 +36,18 @@ import (
 // through the ordinary emit -- whose fold consumes the completed stage via
 // entryStageDone.
 type entryCounterStage struct {
-	move     events.Event               // the staged entry as the pose received it
-	grants   []entryGrant               // the origin-zone snapshot plus body-defined grants
-	placed   []events.EntryCounterGrant // grants finalized so far, in grant order
-	counter  events.Event               // the parked grant's counter event
-	cands    []replMatch                // its competition
-	applied  []replMatch                // bodies already applied, in answer order
-	player   state.PlayerID             // the asked player
-	inRes    bool                       // the pose's in-resolution provenance
-	inBody   bool                       // the entry was emitted by a replacement body; do not rematch it on re-drive
-	idx      int                        // index into grants of the parked grant
-	complete bool                       // every grant finalized; the fold may consume
+	move      events.Event               // the staged entry as the pose received it
+	grants    []entryGrant               // the origin-zone snapshot plus body-defined grants
+	placed    []events.EntryCounterGrant // grants finalized so far, in grant order
+	counter   events.Event               // the parked grant's counter event
+	cands     []replMatch                // its competition
+	applied   []replMatch                // bodies already applied, in answer order
+	player    state.PlayerID             // the asked player
+	inRes     bool                       // the pose's in-resolution provenance
+	inBody    bool                       // the entry was emitted by a replacement body; do not rematch it on re-drive
+	idx       int                        // index into grants of the parked grant
+	complete  bool                       // every grant finalized; the fold may consume
+	redriving bool                       // the completed stage's own re-emit is in flight (mint identity)
 	// bodyIDs names every Updated PutCounter|ETB$ True replacement body whose
 	// placement this stage's grant set folded (replIdentity). The completed
 	// fold returns them so the Updated dispatch skips running those bodies;
@@ -110,12 +111,24 @@ func (st *entryCounterStage) restage(posed *entryCounterStage) entryCounterStage
 	return next
 }
 
-// sameEntryMove reports whether ev is (a re-drive of) the staged move. The
-// identifying fields are the ones a re-driven entry keeps: a re-emit may
-// recompute markers, never origin, destination or object.
+// sameEntryMove reports whether ev is (a re-drive of) the staged move. For a
+// MoveZone the identifying fields are the ones a re-driven entry keeps: a
+// re-emit may recompute markers, never origin, destination or object.
+//
+// A TokenCreate/CardToken mint has no such identity -- two mints of one
+// script, or two copies of one source (Encore's copy per opponent), are
+// field-for-field equal -- so a mint is its stage's move only while that
+// stage's own completed re-drive is being emitted (redriving, set by
+// resumeEntryCounterOrder around exactly that emit). Any other mint, however
+// equal, is a NEW mint and stages (or folds) on its own.
 func (st *entryCounterStage) sameEntryMove(ev events.Event) bool {
-	return st.move.Kind == ev.Kind && st.move.Obj == ev.Obj &&
-		st.move.From == ev.From && st.move.To == ev.To
+	if st.move.Kind != ev.Kind {
+		return false
+	}
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken {
+		return st.redriving
+	}
+	return st.move.Obj == ev.Obj && st.move.From == ev.From && st.move.To == ev.To
 }
 
 // entryCounterGrants snapshots the intrinsic counters of a battlefield
@@ -604,7 +617,14 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 	if st.inBody {
 		e.applyingReplacement = true
 	}
+	st.redriving = true
 	e.emit(st.move)
+	st.redriving = false
+	if e.entryStageDone == st {
+		// The re-drive never reached its fold (replaced away): the stage
+		// is spent either way and must not be consumed by a later entry.
+		e.entryStageDone = nil
+	}
 	e.applyingReplacement = priorApplying
 	// A staged TOKEN mint may be only the first of a finalized plan. The
 	// plan's remaining mints were suspended by emitTokenPlanMints so they

@@ -61,6 +61,17 @@ const incubatorTokenKey = "incubator_c_0_0_a_phyrexian"
 // sees every other mint) and the counters are the ordinary CounterChange
 // event, the same two-event shape effAmass uses for its Army.
 func effIncubate(h Host, c *Ctx, sa *cards.SA) {
+	if rest := resumingMint(c, sa); rest != nil && len(rest.Players) == 1 {
+		// A repeat's mint parked behind a CR 616.1 order ask and the
+		// answer has minted it: counter it, then run the repeats after it
+		// with the values the first pass resolved.
+		parked := rest.Parked
+		if parked == nil {
+			parked = []state.ObjID{}
+		}
+		incubateLoop(h, c, sa, rest.Players[0], rest.Script, rest.Amount, rest.Count, int32(rest.Next), parked)
+		return
+	}
 	g := h.Game()
 	n := Num(h, c, sa, "Amount", 1)
 	if n < 0 {
@@ -92,9 +103,33 @@ func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 	if times < 1 {
 		times = 1
 	}
-	for i := int32(0); i < times; i++ {
+	incubateLoop(h, c, sa, owner, key, n, times, 0, nil)
+}
+
+// incubateLoop is effIncubate's create-and-counter repeat from repeat start.
+// parked (on a TokenRest re-entry) is what the answer minted for repeat
+// start, whose mint parked the resolution behind a CR 616.1 order ask; a
+// repeat whose mint parks hands the rest of the loop to the host the same
+// way. The counters land on the repeat's first minted object, as they
+// always have.
+func incubateLoop(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, key string, n, times int32, start int32, parked []state.ObjID) {
+	g := h.Game()
+	for i := start; i < times; i++ {
 		want := g.NextID
-		h.Emit(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
+		if parked != nil && i == start {
+			if len(parked) == 0 {
+				return
+			}
+			want = parked[0]
+		} else {
+			wasSuspended := h.Suspended()
+			minted := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: owner, Text: key})
+			if !wasSuspended && h.Suspended() && len(minted) == 0 &&
+				suspendMint(h, c, TokenRest{SA: sa, Next: int(i), Players: []state.PlayerID{owner},
+					Script: key, Amount: n, Count: times}) {
+				return
+			}
+		}
 		if o := g.Obj(want); o == nil {
 			// The mint folded nowhere (an invalid owner): nothing to
 			// counter, and stopping the repeat keeps the loop total.

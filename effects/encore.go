@@ -31,37 +31,57 @@ func init() { Register("Encore", effEncore) }
 
 func effEncore(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
-	src := g.Obj(c.Source)
-	if src == nil || src.Card == nil {
-		return
-	}
 	// "For each opponent": the opponents of the ACTIVATOR (c.Controller),
 	// in AliveFrom's fixed seat order -- never a map, so the token order is
 	// replay-stable. The card is in exile (its own cost exiled it), but the
 	// copy is created from the object wherever it sits.
-	var tokens []state.ObjID
-	for _, p := range g.AliveFrom(c.Controller) {
-		if p == c.Controller {
-			continue
+	var opponents, tokens, parked = []state.PlayerID(nil), []state.ObjID(nil), []state.ObjID(nil)
+	start := 0
+	rest := resumingMint(c, sa)
+	if rest != nil {
+		// A copy parked behind a CR 616.1 order ask (a staged entry-counter
+		// order on the copied card, a CreateToken order) and the answer has
+		// minted it: take its haste and group membership, then continue
+		// with the opponents after it (tokenRest's continuation).
+		opponents, tokens, parked, start = rest.Players, rest.Minted, rest.Parked, rest.Next
+	} else {
+		src := g.Obj(c.Source)
+		if src == nil || src.Card == nil {
+			return
 		}
-		want := g.NextID
-		// Amount encodes defender+1 for events.Apply: the token's required
-		// opponent is replay-derived state, not an effects-side mutation.
-		h.Emit(events.Event{Kind: events.CardToken, Obj: c.Source, Player: c.Controller,
-			Amount: int32(p) + 1})
-		tok := g.Obj(want)
-		if tok == nil {
-			continue
+		for _, p := range g.AliveFrom(c.Controller) {
+			if p != c.Controller {
+				opponents = append(opponents, p)
+			}
 		}
-		// "They gain haste": a layer-6 UntilEOT grant scoped to the token
-		// itself (the effPump shape). The token's sacrifice at the next end
-		// step lands after cleanup would drop the grant anyway; the turn
-		// boundary handles the pathological survivor.
-		h.AddContinuous(state.ContinuousEffect{
-			Source: want, Affects: "Card.Self", Controller: c.Controller,
-			Layer: state.LAbilities, AddKeywords: []string{"Haste"}, UntilEOT: true,
-		})
-		tokens = append(tokens, want)
+	}
+	for i := start; i < len(opponents); i++ {
+		p := opponents[i]
+		var minted []state.ObjID
+		if rest != nil && i == start {
+			minted = parked
+		} else {
+			want := g.NextID
+			wasSuspended := h.Suspended()
+			// Amount encodes defender+1 for events.Apply: the token's required
+			// opponent is replay-derived state, not an effects-side mutation.
+			minted = h.EmitTokenCreate(events.Event{Kind: events.CardToken, Obj: c.Source, Player: c.Controller,
+				Amount: int32(p) + 1})
+			if !wasSuspended && h.Suspended() {
+				// The copy parked the resolution: what landed takes its
+				// haste now, and the parked copy, the opponents after it and
+				// the group registration resume with the answer.
+				tokens = encoreGrantHaste(h, c, minted, tokens)
+				if suspendMint(h, c, TokenRest{SA: sa, Next: i, Minted: tokens, Players: opponents}) {
+					return
+				}
+				continue
+			}
+			if len(minted) == 0 {
+				minted = []state.ObjID{want}
+			}
+		}
+		tokens = encoreGrantHaste(h, c, minted, tokens)
 	}
 	// One activation creates one delayed triggered ability, remembering all
 	// token identities. DelayedPush carries the group into the builtin
@@ -71,4 +91,23 @@ func effEncore(h Host, c *Ctx, sa *cards.SA) {
 			Player: c.Controller, Step: state.StepEnd,
 			Counter: "__kwEncoreSacrificeGroup", IDs: tokens})
 	}
+}
+
+// encoreGrantHaste grants each minted copy "They gain haste" -- a layer-6
+// UntilEOT grant scoped to the token itself (the effPump shape); the token's
+// sacrifice at the next end step lands after cleanup would drop the grant
+// anyway, and the turn boundary handles the pathological survivor -- and
+// returns tokens with the copies that exist appended.
+func encoreGrantHaste(h Host, c *Ctx, minted, tokens []state.ObjID) []state.ObjID {
+	for _, id := range minted {
+		if h.Game().Obj(id) == nil {
+			continue
+		}
+		h.AddContinuous(state.ContinuousEffect{
+			Source: id, Affects: "Card.Self", Controller: c.Controller,
+			Layer: state.LAbilities, AddKeywords: []string{"Haste"}, UntilEOT: true,
+		})
+		tokens = append(tokens, id)
+	}
+	return tokens
 }

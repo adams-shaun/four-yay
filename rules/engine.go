@@ -818,8 +818,9 @@ type Engine struct {
 	// counterReplacementFold marks the already-rewritten event's final emit;
 	// new counter events from a replacement body still take their own pass.
 	counterReplacementFold bool
-	// tokenMintSink, when non-nil, collects every object the TokenCreate event
-	// currently being emitted actually created (EmitTokenCreate). It is a
+	// tokenMintSink, when non-nil, collects every object the TokenCreate or
+	// CardToken event currently being emitted actually created
+	// (EmitTokenCreate, and a parked mint's answer through withMintSink). It is a
 	// stack discipline: a nested token creation saves and restores the outer
 	// sink, so the outer effect's rider loop sees only its own mints. Nil on
 	// every ordinary Emit, so no other emit pays for the collection.
@@ -2575,7 +2576,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		}
 	}
 	var tokenMintWant state.ObjID
-	if ev.Kind == events.TokenCreate && e.tokenMintSink != nil {
+	if (ev.Kind == events.TokenCreate || ev.Kind == events.CardToken) && e.tokenMintSink != nil {
 		tokenMintWant = e.G.NextID
 	}
 	var stackCopyMintWant state.ObjID

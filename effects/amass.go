@@ -40,6 +40,16 @@ func init() { Register("Amass", effAmass) }
 // generic-Army fallback).
 func effAmass(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
+	if rest := resumingMint(c, sa); rest != nil {
+		// The Army's mint parked behind a CR 616.1 order ask and the answer
+		// has minted it: amass onto it with the values the first pass
+		// resolved (an Army the answer did not create leaves nothing to
+		// amass onto, the same stop the unparked miss takes).
+		if len(rest.Parked) > 0 && g.Obj(rest.Parked[0]) != nil {
+			amassOnto(h, c, sa, rest.Parked[0], rest.Amount, rest.Script)
+		}
+		return
+	}
 	n := Num(h, c, sa, "Num", 1)
 	if n <= 0 {
 		return
@@ -77,7 +87,14 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		want := g.NextID
-		h.Emit(events.Event{Kind: events.TokenCreate, Player: c.Controller, Text: key})
+		wasSuspended := h.Suspended()
+		minted := h.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: c.Controller, Text: key})
+		if !wasSuspended && h.Suspended() && len(minted) == 0 &&
+			suspendMint(h, c, TokenRest{SA: sa, Amount: n, Script: typ}) {
+			// The Army parked behind an order ask: the counters, the type
+			// grant and the remember land on it when the answer mints it.
+			return
+		}
 		if o := g.Obj(want); o != nil {
 			army = want
 		}
@@ -85,6 +102,13 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 	if army == 0 {
 		return
 	}
+	amassOnto(h, c, sa, army, n, typ)
+}
+
+// amassOnto puts n +1/+1 counters on army and makes it a typ (CR 701.55b),
+// remembering it for RememberAmass$.
+func amassOnto(h Host, c *Ctx, sa *cards.SA, army state.ObjID, n int32, typ string) {
+	g := h.Game()
 	h.Emit(events.Event{Kind: events.CounterChange, Obj: army,
 		Counter: "P1P1", Amount: n})
 	// "It's also a <Type>" (CR 701.55b): a permanent type grant.
