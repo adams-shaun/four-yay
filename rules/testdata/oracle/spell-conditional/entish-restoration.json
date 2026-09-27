@@ -1,0 +1,140 @@
+{
+  "card": "Entish Restoration",
+  "family": "spell-conditional",
+  "oracle_sha": "563f36d61a10",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "power-four-three-lands",
+      "cr": [
+        "608.2c",
+        "608.2h",
+        "701.23b"
+      ],
+      "why": "The land is sacrificed as the spell resolves; a 4-power Angel remains, so three basic lands may enter tapped rather than two.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Entish Restoration"
+          ],
+          "battlefield": [
+            "Forest",
+            "Serra Angel"
+          ],
+          "library": [
+            "Plains",
+            "Plains",
+            "Plains"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Entish Restoration",
+          "mana": "GGG"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Plains"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Forest",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Plains"
+          },
+          "eq": 3
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "library",
+            "name": "Plains"
+          },
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "name": "power-three-only-two-lands",
+      "cr": [
+        "608.2c",
+        "608.2h",
+        "701.23b"
+      ],
+      "why": "A 3-power Courser is below the four-power cutoff; the sacrificed Forest leaves, only two of three Plains enter tapped, and one stays in the library.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Entish Restoration"
+          ],
+          "battlefield": [
+            "Forest",
+            "Centaur Courser"
+          ],
+          "library": [
+            "Plains",
+            "Plains",
+            "Plains"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Entish Restoration",
+          "mana": "GGG"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Plains"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Forest",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Plains"
+          },
+          "eq": 2
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "library",
+            "name": "Plains"
+          },
+          "eq": 1
+        }
+      ]
+    }
+  ]
+}

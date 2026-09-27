@@ -1,0 +1,119 @@
+{
+  "card": "Fabled Passage",
+  "family": "spell-conditional",
+  "oracle_sha": "455955255abc",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "three-other-lands-stays-tapped",
+      "cr": [
+        "602.2b",
+        "608.2c",
+        "608.2h"
+      ],
+      "why": "The activation sacrifices Passage before resolution, leaving three lands controlled. The searched Forest enters tapped and stays tapped.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Fabled Passage",
+            "Plains",
+            "Island",
+            "Mountain"
+          ],
+          "library": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Fabled Passage",
+          "ability": "Search",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Forest"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Fabled Passage",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Forest",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Forest",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "four-other-lands-untaps",
+      "cr": [
+        "602.2b",
+        "608.2c",
+        "608.2h"
+      ],
+      "why": "After sacrificing Passage, four other lands remain; the searched Forest first enters tapped, then the four-land condition untaps that Forest.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Fabled Passage",
+            "Plains",
+            "Island",
+            "Mountain",
+            "Swamp"
+          ],
+          "library": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Fabled Passage",
+          "ability": "Search",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Forest"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Fabled Passage",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Forest",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Forest",
+          "tapped": false
+        }
+      ]
+    }
+  ]
+}
