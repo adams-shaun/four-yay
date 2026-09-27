@@ -1,0 +1,35 @@
+{
+  "card": "Butcher Ghoul",
+  "family": "trigger-condition",
+  "oracle_sha": "40d95499c0b7",
+  "author": "cli-20260927T211250Z-fb1ba634 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dies-without-counter-returns",
+      "cr": ["603.2", "702.93a"],
+      "why": "After dying with no +1/+1 counter, Butcher Ghoul returns under its owner's control with one.",
+      "setup": {"p0": {"battlefield": ["Butcher Ghoul"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Butcher Ghoul"]},
+        {"op": "resolve", "expect": [{"trigger_on_stack": "p0:Butcher Ghoul", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Butcher Ghoul", "zone": "battlefield", "counters": {"+1/+1": 1}, "pt": "2/2"}]
+    },
+    {
+      "name": "second-death-with-counter-does-not-return",
+      "cr": ["603.2", "702.93a"],
+      "why": "The first return gave it a +1/+1 counter. Its later death therefore does not satisfy the return condition.",
+      "setup": {"p0": {"battlefield": ["Butcher Ghoul"], "hand": ["Lightning Bolt", "Lightning Bolt"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Butcher Ghoul"]},
+        {"op": "resolve"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt#2", "mana": "R", "targets": ["p0:Butcher Ghoul"]},
+        {"op": "resolve", "expect": [{"trigger_on_stack": "p0:Butcher Ghoul", "want": false}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Butcher Ghoul", "zone": "graveyard"}]
+    }
+  ]
+}

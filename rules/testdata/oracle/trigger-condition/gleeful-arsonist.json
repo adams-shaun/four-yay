@@ -1,0 +1,31 @@
+{
+  "card": "Gleeful Arsonist",
+  "family": "trigger-condition",
+  "oracle_sha": "bddf25a27c45",
+  "author": "cli-20260927T211250Z-fb1ba634 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-noncreature-spell-is-damaged",
+      "cr": ["603.2", "603.6a"],
+      "why": "An opponent's noncreature spell matches the trigger event, so the Arsonist deals damage equal to its current power to that opponent.",
+      "setup": {"p0": {"battlefield": ["Gleeful Arsonist"]}, "p1": {"hand": ["Revitalize"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Revitalize", "mana": "1W", "expect": [{"trigger_on_stack": "p0:Gleeful Arsonist", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p0": 20, "p1": 22}}]
+    },
+    {
+      "name": "opponent-creature-spell-no-trigger",
+      "cr": ["603.2"],
+      "why": "A creature spell is not a noncreature spell, so casting it does not match the Arsonist's trigger event.",
+      "setup": {"p0": {"battlefield": ["Gleeful Arsonist"]}, "p1": {"hand": ["Grizzly Bears"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Grizzly Bears", "mana": "1G", "expect": [{"trigger_on_stack": "p0:Gleeful Arsonist", "want": false}]}
+      ],
+      "expect": [{"life": {"p1": 20}}]
+    }
+  ]
+}
