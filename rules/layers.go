@@ -1359,6 +1359,15 @@ const (
 type derivedPTSnapshot struct {
 	id                                         state.ObjID
 	power, toughness, basePower, baseToughness int32
+	// preCounterPower/preCounterToughness are the same running value WITHOUT
+	// the layer-7d counters. A layer-7c static whose amount reads the P/T of
+	// an object the walk is currently deriving (Snowblind's AddToughness$
+	// -NotAttackingY, sized from the enchanted creature's own toughness) must
+	// see the value before this effect; CR 613.4 orders counters after every
+	// 7c modify, so that value excludes them while power/toughness -- the
+	// counter-inclusive pair FilterDerivedPT hands to Count$Valid -- includes
+	// them.
+	preCounterPower, preCounterToughness int32
 }
 
 type Derived struct {
@@ -2804,12 +2813,21 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 	e.derivedPTFrames = append(e.derivedPTFrames, derivedPTSnapshot{id: id})
 	defer func() { e.derivedPTFrames = e.derivedPTFrames[:frameIndex] }()
 	setFrame := func() {
+		preCounterPower, preCounterToughness := power, toughness
 		currentPower, currentToughness := power, toughness
 		if o != nil {
 			currentPower += o.Counter("P1P1") - o.Counter("M1M1")
 			currentToughness += o.Counter("P1P1") - o.Counter("M1M1")
 		}
-		e.derivedPTFrames[frameIndex] = derivedPTSnapshot{id: id, power: currentPower, toughness: currentToughness, basePower: basePower, baseToughness: baseToughness}
+		e.derivedPTFrames[frameIndex] = derivedPTSnapshot{
+			id:                  id,
+			power:               currentPower,
+			toughness:           currentToughness,
+			basePower:           basePower,
+			baseToughness:       baseToughness,
+			preCounterPower:     preCounterPower,
+			preCounterToughness: preCounterToughness,
+		}
 	}
 	if o != nil && o.FaceDown && o.Zone == state.ZBattlefield {
 		// CR 708.5's base: a face-down battlefield permanent is a 2/2
@@ -2976,13 +2994,16 @@ func (e *Engine) inProgressDerivedPT(id state.ObjID) (derivedPTSnapshot, bool) {
 // InProgressDerivedPT exposes the current layer-7 value to effects-side P/T
 // references. A reference made by the static currently deriving this object
 // must observe the value before that effect, rather than recursively deriving
-// the same object. It intentionally has no fallback derivation.
+// the same object. It intentionally has no fallback derivation, and it reads
+// the PRE-COUNTER pair: the running value excludes layer 7d counters (CR
+// 613.4 orders counters after every 7c modify), so a 7c amount sized from
+// this object's P/T does not depend on its own +1/+1 counters.
 func (e *Engine) InProgressDerivedPT(id state.ObjID) (power, toughness int32, ok bool) {
 	frame, ok := e.inProgressDerivedPT(id)
 	if !ok {
 		return 0, 0, false
 	}
-	return frame.power, frame.toughness, true
+	return frame.preCounterPower, frame.preCounterToughness, true
 }
 
 // FilterDerivedPT exposes a value snapshot for effects-side zone counts. The
