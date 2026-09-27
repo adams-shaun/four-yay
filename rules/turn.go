@@ -1260,9 +1260,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	// the effect).
 	if e.resume != nil {
 		rp := e.resume
-		if rp.kind == "name" && len(chosen) == 1 {
-			rp.name = chosen[0].Label
-		}
+		// The name-answer binding lives in resumeResolution, the one home
+		// every resume-point consumer shares.
 		e.resume = nil
 		e.resumeResolution(rp, chosen)
 		return
