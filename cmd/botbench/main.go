@@ -417,6 +417,34 @@ func recordAutoPayMirror(status paymirror.Status, key string) {
 	autopayMirrorCounts.Unlock()
 }
 
+// paymentStatsEnabled is switched on by the -payment-stats flag when main
+// starts a run, the same package-scope pattern as decisionStatsEnabled. When
+// on, every game's engine gets its own rules.PaymentPlanStats sink (engines
+// never share one) and the game's counters are merged into
+// paymentStatsTotal once it finishes; when off no sink is attached, nothing
+// is recorded and nothing is printed, so the run's output is byte-identical
+// to a pre-flag build. The sink is a pure engine-side observer, so attaching
+// it changes no game either.
+var paymentStatsEnabled bool
+var paymentStatsTotal = struct {
+	sync.Mutex
+	stats rules.PaymentPlanStats
+}{}
+
+func mergePaymentStats(s *rules.PaymentPlanStats) {
+	paymentStatsTotal.Lock()
+	paymentStatsTotal.stats.Merge(s)
+	paymentStatsTotal.Unlock()
+}
+
+// writePaymentStats prints the aggregated -payment-stats report (sorted,
+// rules.PaymentPlanStats.WriteText).
+func writePaymentStats(w io.Writer) error {
+	paymentStatsTotal.Lock()
+	defer paymentStatsTotal.Unlock()
+	return paymentStatsTotal.stats.WriteText(w)
+}
+
 func isAutoPayPolicy(name string) bool {
 	return name == "bot-auto-pay" || name == "cast-profile-auto-pay"
 }
@@ -634,6 +662,11 @@ func playMatchOnce(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns,
 // is no second copy of the watchdog/livelock loop to keep in step.
 func playMatchOnceTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns, maxIntents int, collect *decisionStats, cov *actionCoverage, trace *gameTrace, meta traceDecisionMeta) (gameOutcome, *rules.Engine, error) {
 	hooks := gbench.Hooks{NeedBoard: trace != nil}
+	if paymentStatsEnabled {
+		sink := &rules.PaymentPlanStats{}
+		hooks.Setup = func(e *rules.Engine) { e.SetPaymentPlanStats(sink) }
+		defer mergePaymentStats(sink)
+	}
 	if autopayMirrorEnabled {
 		hooks.Submit = func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (bool, error) {
 			if in.Payment == nil || seatIdx < 0 || seatIdx >= len(pols) || !isAutoPayPolicy(pols[seatIdx]) {
@@ -2157,6 +2190,7 @@ func main() {
 	decisionStats := flag.Bool("decision-stats", false, "append a per-decision-kind histogram (count, mean per game, mean option count, singleton share, first-option share) at the end of a run; default off so the normal report is unchanged")
 	actionCoverage := flag.Bool("action-coverage", false, "append the action-coverage completeness report (decision kinds / option rows never asked, offered-but-never-chosen shapes, cast shapes, cards and ability slots never fired, primitives never exercised) at the end of a run; default off so the normal report is unchanged")
 	autopayMirror := flag.Bool("autopay-mirror", false, "mirror each auto-pay planned cast against float-then-cast and print verdict counts")
+	paymentStats := flag.Bool("payment-stats", false, "append the aggregated auto-pay planner diagnostics (offer builds, cast outcomes by reason and detail, search nodes, offered actions, planned submissions, fallbacks by reason; sorted) after the run, for any policy; written to stderr under -out json so stdout stays machine-readable; default off so the normal report is unchanged")
 	decisionTrace := flag.String("decision-trace", "", "write an opt-in atomic JSONL decision trace to a new file (matrix mode only; parent must exist and destination must not)")
 	analyzeTrace := flag.String("analyze-trace", "", "read a decision trace and write deterministic diagnostic-proxy JSON; no games are played")
 	grind := flag.String("grind", "", "grind mode: pin one repo deck to one goroutine and play it against itself as many games as the budget allows; a deck name, or \"all\" for every deck in the format's pool (one goroutine each); mutually exclusive with -pairs; -workers is ignored (the one-goroutine-per-deck shape IS the mode)")
@@ -2187,6 +2221,7 @@ func main() {
 	decisionStatsEnabled = *decisionStats
 	actionCoverageEnabled = *actionCoverage
 	autopayMirrorEnabled = *autopayMirror
+	paymentStatsEnabled = *paymentStats
 	autopayMirrorCounts.Lock()
 	autopayMirrorCounts.counts = map[string]int{}
 	autopayMirrorCounts.Unlock()
@@ -2217,6 +2252,20 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	fail := func(err error) int {
 		fmt.Fprintln(os.Stderr, "botbench:", err)
 		return 1
+	}
+	if paymentStatsEnabled {
+		// Deferred like the mirror verdicts, so the report follows the run's
+		// own output. Under -out json it goes to stderr: stdout stays the
+		// machine-readable document.
+		defer func() {
+			w := io.Writer(os.Stdout)
+			if out == "json" {
+				w = os.Stderr
+			}
+			if err := writePaymentStats(w); err != nil {
+				fmt.Fprintln(os.Stderr, "botbench: writing -payment-stats:", err)
+			}
+		}()
 	}
 	if autopayMirrorEnabled {
 		defer func() {

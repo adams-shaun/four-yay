@@ -43,6 +43,11 @@ func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn 
 // returned, so Pending() != nil or G.Over. That is the only moment the
 // fields below are not being written. A match host clones at every turn
 // start to answer "view at seq N" with at most one turn of replay.
+//
+// The harness observers are deliberately NOT copied: ManaAbilityHook and the
+// auto-pay diagnostics sink (paymentStats, SetPaymentPlanStats) stay nil on
+// the copy, so no sink pointer is ever shared between engines (payment-plan
+// spec §7) and a clone's planning never counts into the original's sink.
 func (e *Engine) Clone() *Engine {
 	c := &Engine{
 		G:               e.G.Clone(),

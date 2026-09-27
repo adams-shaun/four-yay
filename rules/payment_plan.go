@@ -363,8 +363,10 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
 	if !paymentPlanPoolOK(e.G.Players[p]) {
+		e.paymentStats.recordBuild(true)
 		return nil
 	}
+	e.paymentStats.recordBuild(false)
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
 	// source-exclusive witness.
@@ -384,6 +386,7 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 		}
 		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: "hand"}
 		got := e.planCastPaymentChecked(p, cast, &statics, &legal)
+		e.paymentStats.recordOutcome(got)
 		if got.Plan == nil {
 			continue
 		}
@@ -409,6 +412,7 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 			}
 		}
 		out = append(out, a)
+		e.paymentStats.recordOffered(len(a.Plans))
 	}
 	return out
 }
