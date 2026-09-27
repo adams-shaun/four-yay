@@ -95,6 +95,15 @@ func SVarAcrossFaces(src *state.Object, name string) string {
 	return ""
 }
 
+// maxQueuedGrants bounds the pending entries ONE ExtraTurn or AddPhase grant
+// appends (one per granted turn or phase). An Amount is an arbitrary int32 --
+// an X value, or TestApplyNeverPanics' MaxInt32, which queued 2^31 turns and
+// allocated ~11 GB -- while a game ends long before a thousand extra turns or
+// phases could be taken. Folded here, so live play and replay clamp alike; the
+// ExtraTurns count takes the clamped amount too, keeping it equal to the
+// queue.
+const maxQueuedGrants int32 = 1 << 10
+
 func Apply(g *state.Game, e Event) {
 	switch e.Kind {
 	// RollDice is the proposal-only roll-action Kind (task rolldice-repl): it
@@ -656,7 +665,8 @@ func Apply(g *state.Game, e Event) {
 			if g.ExtraTurns == nil {
 				g.ExtraTurns = map[state.PlayerID]int{}
 			}
-			g.ExtraTurns[e.Player] += int(e.Amount)
+			amount := min(e.Amount, maxQueuedGrants)
+			g.ExtraTurns[e.Player] += int(amount)
 			if g.ExtraTurns[e.Player] < 0 {
 				g.ExtraTurns[e.Player] = 0
 			}
@@ -668,7 +678,7 @@ func Apply(g *state.Game, e Event) {
 				// Forge SkipUntap$ rider without changing Event's hash-chain
 				// schema.
 				skipUntap := e.Text == ExtraTurnSkipUntapText
-				for n := int32(0); n < e.Amount; n++ {
+				for n := int32(0); n < amount; n++ {
 					g.ExtraTurnQueue = append(g.ExtraTurnQueue, state.ExtraTurn{Player: e.Player, SkipUntap: skipUntap})
 				}
 			} else {
@@ -763,7 +773,7 @@ func Apply(g *state.Game, e Event) {
 			}
 			ep.HasDelayedPhase, ep.DelayedPhase = riders.HasDelayedPhase, riders.DelayedPhase
 			ep.ValidPlayer = riders.ValidPlayer
-			for n := int32(0); n < e.Amount; n++ {
+			for n := int32(0); n < min(e.Amount, maxQueuedGrants); n++ {
 				g.ExtraPhases = append(g.ExtraPhases, ep)
 			}
 		case e.Amount == -1:
