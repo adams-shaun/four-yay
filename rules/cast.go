@@ -9488,7 +9488,7 @@ func (e *Engine) manaWindowAsk() bool {
 		// carries, so the one "activate" option shape stays consistent across
 		// both ask sites (fb-led1); this ask sits on a choose decision, which
 		// every auto path refuses, so the marker changes no classification.
-		if marker := manaActivationCostMarker(e.availableManaAbilities(pc.player, id)); marker != "" {
+		if marker := e.manaActivationCostMarker(e.availableManaAbilities(pc.player, id)); marker != "" {
 			opt.Cost = marker
 		}
 		d.Options = append(d.Options, opt)

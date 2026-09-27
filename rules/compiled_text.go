@@ -30,11 +30,13 @@ type compiledCost struct {
 	// zero -- the cost of nearly every mana ability. manaAbilityCostPayable
 	// prices it without the generic payability walk.
 	bareTap bool
+	// beyondTap caches manaCostBeyondTap(Cost) (the fb-led1 marker test).
+	beyondTap bool
 }
 
 func newCompiledCost(text string) *compiledCost {
 	c := freezeCost(ParseCost(text))
-	return &compiledCost{Cost: c, bareTap: costIsBareTap(&c)}
+	return &compiledCost{Cost: c, bareTap: costIsBareTap(&c), beyondTap: manaCostBeyondTap(c)}
 }
 
 // costIsBareTap reports whether c is exactly {T}. Any component it cannot

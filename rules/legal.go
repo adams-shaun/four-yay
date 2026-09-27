@@ -3203,7 +3203,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 					// fb-led1: a mana ability that costs more than a bare tap is the
 					// play the window exists for — carry its cost so the client's
 					// empty-priority-window floor stops instead of passing it away.
-					if marker := manaActivationCostMarker(mas); marker != "" {
+					if marker := e.manaActivationCostMarker(mas); marker != "" {
 						opt.Cost = marker
 					}
 					out = append(out, opt)

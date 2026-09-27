@@ -2382,11 +2382,14 @@ func manaCostBeyondTap(c Cost) bool {
 // costs no new rules knowledge at the offer site; it exists purely so a
 // client that (rightly) does not count a bare tap as a play can still tell
 // the Lion's Eye Diamond window it must show the player.
-func manaActivationCostMarker(abilities []*cards.SA) string {
+//
+// The cost is the configured text's compiled parse (compiledCostOf, the same
+// ParseCost result frozen), so the per-offer read neither re-parses nor
+// copies it; only a marked ability's cost is formatted.
+func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 	for _, ma := range abilities {
-		c := ParseCost(ma.Params["Cost"])
-		if manaCostBeyondTap(c) {
-			return formatCost(c)
+		if cc := e.compiledCostOf(ma.Params["Cost"]); cc.beyondTap {
+			return formatCost(cc.Cost)
 		}
 	}
 	return ""
