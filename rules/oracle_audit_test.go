@@ -46,11 +46,10 @@ import (
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
 var oracleKnownDivergent = map[string]string{
-	// Engine gap: stat:Continuous RemoveType$ is never read (layers.go reads
-	// only AddType$/RemoveCardTypes$/RemoveCreatureTypes$); paramcensus
-	// already lists it for Purphoros and Mogis. 29 corpus scripts carry it,
-	// the Theros god cycle among them, so every god is always a creature.
-	"Purphoros, God of the Forge/low-devotion-not-a-creature": "a devotion-1 Purphoros is a 6/5 creature (RemoveType$ unread)",
+	// (Purphoros, God of the Forge/low-devotion-not-a-creature retired when
+	// rules/layers.go's type-static emission read stat:Continuous RemoveType$
+	// -- the devotion gods' "isn't a creature" gate, pinned in
+	// rules/remove_type_static_test.go; the paramcensus rows retired with it.)
 	// Engine bug (CR 603.10a): a granted "whenever a creature you control
 	// dies" trigger is checked AFTER a non-SBA departure, so the departure
 	// that ends the grant's IsPresent$ condition loses its own trigger. The

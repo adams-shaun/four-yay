@@ -601,7 +601,8 @@ var layer4PrecheckVerify = layer4PrecheckVerifyFlag != ""
 // the emit path when, as almost always, the answer is "no").
 //
 // staticEffects' ONLY LType emission is the AddType$/AddTypes$/
-// AddAllCreatureTypes$ branch, reached from a face's own statics or from an
+// AddAllCreatureTypes$/RemoveType$ branch (RemoveType$ stands alone on the
+// devotion gods), reached from a face's own statics or from an
 // AddStaticAbility$ grant on one, and only for a static whose zone gate
 // admits the source's zone. The faces that scan walks are o.Face() for an
 // object in a static-source zone of an alive seat, plus, on the battlefield,

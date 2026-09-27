@@ -2,6 +2,7 @@ package rules
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -55,11 +56,11 @@ func TestFaceStaticProbesAreConservative(t *testing.T) {
 				if !onBF && !f.ContinuousStaticsMayFunctionOffBattlefield() {
 					t.Errorf("%s: Continuous static live in zone %v but the off-battlefield probe says no", f.Name, z)
 				}
-				typeChanging := hasStat(st, "AddType") || hasStat(st, "AddTypes") || hasStat(st, "AddAllCreatureTypes")
+				typeChanging := hasStat(st, "AddType") || hasStat(st, "AddTypes") || hasStat(st, "AddAllCreatureTypes") || strings.TrimSpace(st.Params["RemoveType"]) != ""
 				if name := st.Params["AddStaticAbility"]; name != "" {
 					if inners, ok := cards.ParseStaticLines(f.SVars[name]); ok {
 						for _, in := range inners {
-							if in.Mode == "Continuous" && (hasStat(in, "AddType") || hasStat(in, "AddTypes") || hasStat(in, "AddAllCreatureTypes")) {
+							if in.Mode == "Continuous" && (hasStat(in, "AddType") || hasStat(in, "AddTypes") || hasStat(in, "AddAllCreatureTypes") || strings.TrimSpace(in.Params["RemoveType"]) != "") {
 								typeChanging = true
 							}
 						}

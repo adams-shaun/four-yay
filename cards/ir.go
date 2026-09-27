@@ -107,9 +107,11 @@ type Face struct {
 
 // typeStaticParams are the static parameter keys whose presence can make
 // rules' staticEffects emit a layer-4 (LType) ContinuousEffect: the three
-// AddType branch keys, plus AddStaticAbility$, whose granted inner static is
-// read from an SVar body and so is conservatively treated as possibly one.
-var typeStaticParams = [...]string{"AddType", "AddTypes", "AddAllCreatureTypes", "AddStaticAbility"}
+// AddType branch keys, RemoveType$ (the reverse grant -- the Theros gods'
+// "isn't a creature" devotion gate stands alone without any AddType$), plus
+// AddStaticAbility$, whose granted inner static is read from an SVar body and
+// so is conservatively treated as possibly one.
+var typeStaticParams = [...]string{"AddType", "AddTypes", "AddAllCreatureTypes", "AddStaticAbility", "RemoveType"}
 
 // staticMayChangeTypes reports whether one static carries a typeStaticParams
 // key, and whether it could function OFF the battlefield. The off-battlefield
