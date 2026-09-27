@@ -1,0 +1,41 @@
+{
+  "card": "Saprazzan Skerry",
+  "family": "spell-conditional",
+  "oracle_sha": "977ff605a760",
+  "author": "cli-20260927T211250Z-4337fce8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "one-counter-remains-after-first-use",
+      "cr": ["608.2c"],
+      "why": "The first activation removes one of the two depletion counters, so the land still has a counter and the conditional sacrifice does not occur.",
+      "setup": {"p0": {"battlefield": ["Saprazzan Skerry"]}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "untap", "active": "p0"},
+        {"op": "activate", "seat": 0, "card": "p0:Saprazzan Skerry", "ability": "Add"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Saprazzan Skerry", "zone": "battlefield", "counters": {"depletion": 1}},
+        {"pool": {"p0": "UU"}}
+      ]
+    },
+    {
+      "name": "zero-counters-sacrifices-after-second-use",
+      "cr": ["608.2c"],
+      "why": "After the second activation removes the last depletion counter, the resolving ability finds no counters and sacrifices the land; that activation still adds two blue mana.",
+      "setup": {"p0": {"battlefield": ["Saprazzan Skerry"]}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "untap", "active": "p0"},
+        {"op": "activate", "seat": 0, "card": "p0:Saprazzan Skerry", "ability": "Add"},
+        {"op": "resolve"},
+        {"op": "pass_to", "seat": 0, "step": "untap", "active": "p0"},
+        {"op": "activate", "seat": 0, "card": "p0:Saprazzan Skerry", "ability": "Add"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Saprazzan Skerry", "zone": "graveyard", "counters": {"depletion": 0}},
+        {"pool": {"p0": "UU"}}
+      ]
+    }
+  ]
+}

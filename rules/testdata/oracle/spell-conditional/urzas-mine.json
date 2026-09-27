@@ -1,0 +1,24 @@
+{
+  "card": "Urza's Mine",
+  "family": "spell-conditional",
+  "oracle_sha": "8cc1682abcbd",
+  "author": "cli-20260927T211250Z-4337fce8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "both-siblings-add-two",
+      "cr": ["608.2c"],
+      "why": "With a Power-Plant and a Tower under my control, the Mine's tap ability produces two colorless mana.",
+      "setup": {"p0": {"battlefield": ["Urza's Mine", "Urza's Power Plant", "Urza's Tower"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Mine", "ability": "Add"}],
+      "expect": [{"pool": {"p0": "CC"}}]
+    },
+    {
+      "name": "missing-tower-adds-one",
+      "cr": ["608.2c"],
+      "why": "Without a Tower under my control, the extra-mana condition is false and the Mine produces only one colorless mana.",
+      "setup": {"p0": {"battlefield": ["Urza's Mine", "Urza's Power Plant"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Urza's Mine", "ability": "Add"}],
+      "expect": [{"pool": {"p0": "C"}}]
+    }
+  ]
+}

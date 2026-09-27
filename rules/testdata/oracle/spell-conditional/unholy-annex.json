@@ -1,0 +1,40 @@
+{
+  "card": "Unholy Annex",
+  "family": "spell-conditional",
+  "oracle_sha": "71cc6081b547",
+  "author": "cli-20260927T211250Z-4337fce8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "demon-gains-life-and-opponent-loses",
+      "cr": ["608.2c"],
+      "why": "At the end step, the controller draws a card and controls a Demon, so the conditional instruction makes the opponent lose 2 life and its controller gain 2 life.",
+      "setup": {"p0": {"hand": ["Unholy Annex"], "battlefield": ["Griselbrand"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Unholy Annex", "mana": "2B"},
+        {"op": "resolve"},
+        {"op": "pass_to", "seat": 0, "step": "end"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 22, "p1": 18}},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "no-demon-loses-life",
+      "cr": ["608.2c"],
+      "why": "At the end step, the controller draws a card but controls no Demon, so the alternate instruction makes the controller lose 2 life instead.",
+      "setup": {"p0": {"hand": ["Unholy Annex"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Unholy Annex", "mana": "2B"},
+        {"op": "resolve"},
+        {"op": "pass_to", "seat": 0, "step": "end"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 18, "p1": 20}},
+        {"hand_size": {"p0": 1}}
+      ]
+    }
+  ]
+}

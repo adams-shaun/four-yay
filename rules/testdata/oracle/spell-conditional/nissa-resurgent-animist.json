@@ -1,0 +1,38 @@
+{
+  "card": "Nissa, Resurgent Animist",
+  "family": "spell-conditional",
+  "oracle_sha": "98678911f0be",
+  "author": "cli-20260927T211250Z-4337fce8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "second-resolution-finds-elf",
+      "cr": ["608.2c", "608.2h"],
+      "why": "Two landfall abilities resolve this turn. Each adds one mana; the second resolution is the boundary that also reveals to the Elf and puts it into hand.",
+      "setup": {"p0": {"battlefield": ["Nissa, Resurgent Animist"], "hand": ["Wastes", "Wastes"], "library_top": ["Llanowar Elves"]}},
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Wastes", "to": "battlefield"},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Wastes#2", "to": "battlefield"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"pool": {"p0": "GG"}},
+        {"count": {"seat": 0, "zone": "hand", "name": "Llanowar Elves"}, "eq": 1}
+      ]
+    },
+    {
+      "name": "first-resolution-does-not-find-elf",
+      "cr": ["608.2c", "608.2h"],
+      "why": "Only one landfall ability has resolved this turn, so it adds one mana but does not perform the additional reveal-and-put-into-hand instruction.",
+      "setup": {"p0": {"battlefield": ["Nissa, Resurgent Animist"], "hand": ["Wastes", "Wastes"], "library_top": ["Llanowar Elves"]}},
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Wastes", "to": "battlefield"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"pool": {"p0": "G"}},
+        {"count": {"seat": 0, "zone": "library", "name": "Llanowar Elves"}, "eq": 1}
+      ]
+    }
+  ]
+}
