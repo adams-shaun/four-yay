@@ -283,3 +283,11 @@ func (e *Engine) verifyDerivedMemo(id state.ObjID, atStack state.Zone, got Deriv
 		panic(fmt.Sprintf("rules: derived memo stale for obj %d: cached %+v, fresh %+v", id, got, want))
 	}
 }
+
+// retireCrossWalkMemo makes every existing memo entry ineligible for
+// cross-walk reuse, and every entry built from here until the next call
+// ineligible after it, by moving activeBuildSeq without rebuilding active().
+// It is for the engine's few no-event runtime inputs to Derived (faceprobe.go's
+// face flip, statics.go's cost-composition exclusion): an event reaches
+// active() on its own, these do not.
+func (e *Engine) retireCrossWalkMemo() { e.activeBuildSeq++ }

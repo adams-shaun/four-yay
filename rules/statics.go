@@ -2371,8 +2371,17 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 			}
 		}
 	}
+	if e.costCompositionEvent == previous {
+		return compose()
+	}
+	// costCompositionEvent hides the pending cast from Count$ThisTurnCast, a
+	// layer-7 input (CheckSVar$ statics) the cross-walk Derived memo cannot
+	// see: retire its entries on entry and exit so none built under the
+	// exclusion is served outside it, nor a live one inside it.
+	e.retireCrossWalkMemo()
 	mods := compose()
 	e.costCompositionEvent = previous
+	e.retireCrossWalkMemo()
 	return mods
 }
 

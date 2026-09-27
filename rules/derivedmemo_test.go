@@ -68,9 +68,10 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 }
 
 // TestDerivedMemoCrossWalkVerifyCatchesDirectWrite documents the cross-walk
-// reuse's one blind spot -- a direct e.G write with no event between two
-// walks, which the engine never makes (all mutation goes through
-// events.Apply) but tests may -- and proves verify mode flags it.
+// reuse's blind spot -- a direct e.G write with no event between two walks.
+// Game mutation goes through events.Apply; the engine's own no-event runtime
+// inputs (offerAsFace's face flip, the cost-composition exclusion) call
+// retireCrossWalkMemo. Tests may still write directly, and verify mode flags it.
 func TestDerivedMemoCrossWalkVerifyCatchesDirectWrite(t *testing.T) {
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -251,4 +252,43 @@ func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
 		e.Advance()
 	}
 	t.Skip("no priority decision with a walk-derived creature reached")
+}
+
+// TestDerivedMemoFaceProbeDoesNotLeak pins offerAsFace's isolation under
+// cross-walk reuse: an entry a nested scope builds under the probed face is
+// never served after the probe, and a live-face entry from before the probe
+// is never served inside it.
+func TestDerivedMemoFaceProbeDoesNotLeak(t *testing.T) {
+	e, _, id := newFixtureDeck(t, 7413, taxedAdventureSrc, taxWardenSrc)
+	o := e.G.Obj(id)
+	if o == nil || len(o.Card.Faces) < 2 {
+		t.Fatalf("fixture card has no adventure face")
+	}
+	adv := o.Card.Faces[1]
+	live := func() bool { return slices.Contains(e.Derived(id).Types, "Creature") }
+
+	// Probed face must not leak out.
+	e.offerAsFace(id, adv, func() bool {
+		e.beginDerivedMemo()
+		defer e.endDerivedMemo()
+		if live() {
+			t.Fatalf("probe derived the live face")
+		}
+		return true
+	})
+	e.beginDerivedMemo()
+	if !live() {
+		t.Fatalf("after the probe Derived served the probed face")
+	}
+	e.endDerivedMemo()
+
+	// Live face must not leak in.
+	e.offerAsFace(id, adv, func() bool {
+		e.beginDerivedMemo()
+		defer e.endDerivedMemo()
+		if live() {
+			t.Fatalf("probe served the pre-probe live-face entry")
+		}
+		return true
+	})
 }
