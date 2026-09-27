@@ -411,6 +411,13 @@ func TestChangeZoneChooseFromDefinedTargetedCmcLE4(t *testing.T) {
 	}
 	c := &Ctx{Source: spell, Controller: 0, Targets: []state.Target{{Obj: cheap}, {Obj: pricey}}}
 	effChangeZone(h, c, sa)
+	// The leg's explicit Optional$ marker poses Forge's confirm-before-pick
+	// gate first: accept it, then the narrowed hidden-pick ask follows.
+	if h.asked == nil || h.asked.ResumeKind != "hidden_pick_confirm" {
+		t.Fatalf("first ask = %+v, want the hidden_pick_confirm gate (Optional$ asks before the pick)", h.asked)
+	}
+	c.HiddenPickConfirm, c.HiddenPickConfirmDone, c.HiddenPickConfirmTarget = "yes", true, 0
+	effChangeZone(h, c, sa)
 	if h.asked == nil || h.asked.ResumeKind != "hidden_pick" {
 		t.Fatalf("no hidden-pick ask for the Targeted.cmcLE4 leg: %+v", h.asked)
 	}

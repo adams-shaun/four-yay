@@ -67,6 +67,15 @@ func TestEachHandMoveAsksOneOfEachListedType(t *testing.T) {
 	sh := &suspendHost{fakeHost: *h}
 	Resolve(sh, &Ctx{Source: src.ID, Controller: 0}, sa)
 	d := sh.asked
+	// The explicit Optional$ True marker poses Forge's confirm-before-pick
+	// gate first: accept it, then the structured pick follows.
+	if d == nil || d.ResumeKind != "hand_move_confirm" {
+		t.Fatalf("decision = %+v, want the hand_move_confirm gate (Optional$ True asks before the pick)", d)
+	}
+	sh.suspended = false // the double's suspension flag: the resume is a fresh pass
+	Resolve(sh, &Ctx{Source: src.ID, Controller: 0,
+		HandMoveConfirmDone: true, HandMoveConfirm: "yes", HandMoveConfirmTarget: 0}, sa)
+	d = sh.asked
 	if d == nil {
 		t.Fatal("no hand-move decision was posed (the feature never ran)")
 	}
@@ -152,6 +161,15 @@ func TestEachHiddenPickAsksOneOfEachListedType(t *testing.T) {
 	sh := &suspendHost{fakeHost: *h}
 	Resolve(sh, &Ctx{Source: src.ID, Controller: 0}, sa)
 	d := sh.asked
+	// The explicit Optional$ True marker poses Forge's confirm-before-pick
+	// gate first: accept it, then the structured pick follows.
+	if d == nil || d.ResumeKind != "hidden_pick_confirm" {
+		t.Fatalf("decision = %+v, want the hidden_pick_confirm gate (Optional$ True asks before the pick)", d)
+	}
+	sh.suspended = false // the double's suspension flag: the resume is a fresh pass
+	Resolve(sh, &Ctx{Source: src.ID, Controller: 0,
+		HiddenPickConfirmDone: true, HiddenPickConfirm: "yes", HiddenPickConfirmTarget: 0}, sa)
+	d = sh.asked
 	if d == nil {
 		t.Fatal("no hidden-pick decision was posed (the feature never ran)")
 	}

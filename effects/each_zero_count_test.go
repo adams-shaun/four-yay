@@ -58,6 +58,22 @@ func TestEachExplicitZeroChangeNumSelectsNothing(t *testing.T) {
 			}
 			sh := &suspendHost{fakeHost: *h}
 			Resolve(sh, &Ctx{Source: src.ID, Controller: 0}, eachSyntheticChangeZone(params))
+			if tc.name != "library_search" {
+				// The Optional$ marker on these two subcases poses the
+				// confirm-before-pick gate even over an empty ChangeNum$ 0
+				// pick; answer yes, and the entered fetch completes with no
+				// further ask and no movement (Forge's gate runs before the
+				// fetch list is consulted).
+				if sh.asked == nil || sh.asked.ResumeKind != "hand_move_confirm" && sh.asked.ResumeKind != "hidden_pick_confirm" {
+					t.Fatalf("zero-count EACH first ask = %+v, want the Optional$ confirmation gate", sh.asked)
+				}
+				sh.suspended = false
+				sh.asked = nil
+				Resolve(sh, &Ctx{Source: src.ID, Controller: 0,
+					HandMoveConfirmDone: tc.name == "hand", HandMoveConfirm: "yes", HandMoveConfirmTarget: 0,
+					HiddenPickConfirmDone: tc.name == "hidden_pick", HiddenPickConfirm: "yes", HiddenPickConfirmTarget: 0},
+					eachSyntheticChangeZone(params))
+			}
 			if sh.asked != nil {
 				t.Fatalf("zero-count EACH unexpectedly posed a choice: min=%d max=%d options=%+v", sh.asked.Min, sh.asked.Max, sh.asked.Options)
 			}
