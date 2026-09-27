@@ -17,7 +17,7 @@ import (
 //     no_matching_mana_option on Urza's Workshop's metalcraft ability, whose
 //     non-literal Amount$ the wheel labels "Add C" exactly like its plain
 //     {T}: Add {C}; the float now proves the option on a clone
-//     (verifiedVariableAmount) and the cast mirrors equivalently.
+//     (verifiedProductions) and the cast mirrors equivalently.
 //   - 6085: Chain of Vapor's only target is the Lotus Petal paying for it;
 //     the float sacrificed it before the cast (cast_not_offered_after_float,
 //     now expected float_removed_every_target).

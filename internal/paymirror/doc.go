@@ -67,11 +67,16 @@
 // Where several priority-wheel options produce the witness's mana (a source
 // that gained the same "Add {R}" from two cards), the float route picks the
 // member run A activated (its ManaActivate marker), trying each on a clone.
-// Where no label can name the witness -- the wheel spells a non-literal
+// Where no label names the witness itself -- the wheel spells a non-literal
 // Amount$ as the bare pip, so Urza's Workshop's metalcraft ability and
 // Itlimoc's "Add {G} for each creature you control" both read "Add C"/"Add
-// G" beside their plain ability -- the float accepts a single-pip option only
-// once a clone proves it produces exactly the witness.
+// G" beside their plain ability; Command Tower's commander-identity
+// production reads the raw "Add Combo ColorIdentity"; and a granted "Add any
+// color" names no amount -- the float accepts an option for a single-colour
+// witness only once a clone proves it produces exactly the witness, the
+// planned printed ability first. An any-colour label that names a literal
+// amount ("Add three mana of any one color") is never a candidate for a
+// witness of another total.
 //
 // Two games that both ended inside the transaction are equivalent when their
 // outcome (winner/draw and the set of losers) is equal.
@@ -170,6 +175,14 @@
 // triggers the float already put on the stack is answered with A's order over
 // the remaining options; the route's end state must then pass
 // floatTriggerOnly (float_trigger_precedes_cast) or it stays a mismatch.
+// A trigger-order ask run A posed and the float route has no counterpart for
+// at all -- every option but at most one claims a distinct triggered-ability
+// object the float's activations created for that player, which the float
+// put on the stack one at a time as each activation triggered it -- is
+// skipped with a decision-shape note; the end state is compared as usual
+// (through floatTriggerOnly when the float's triggers are still on the
+// stack). floatTriggerOnly compares events with since-fork ObjIDs masked, as
+// it compares the objects themselves.
 //
 // Not excluded, and therefore compared: everything else, including the log-
 // derived engine tallies rules reads later (manaExpended, tappedTurn,

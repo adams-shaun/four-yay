@@ -88,11 +88,25 @@ func (e *Engine) refreshStaticContinuous() {
 	}
 	e.staticEpoch = n
 	e.staticVersion, e.staticObjs = e.continuousVersion, len(e.G.Objs)
+	builds := e.activeBuildSeq
 	e.staticContinuous = e.staticEffects(e.staticContinuous)
 	// A content change: any activeBuf built from the previous list is stale,
 	// even at an unmoved log head and continuousVersion (staticControlWants
 	// refreshes this memo outside active()).
 	e.staticBuildSeq++
+	// A gate the scan evaluates can read Derived (a CheckSVar$ count
+	// matching a spell's type), and Derived builds active() -- which, with
+	// staticEpoch already stamped n above, took the PREVIOUS static list.
+	// When this refresh was not itself entered from active() (the
+	// staticControlWants caller), that nested build is an outermost one and
+	// stamped activeBuf at n: drop it so the next active() rebuilds with the
+	// list just scanned. Measured with layerInertVerify: a Leapfrog-shaped
+	// CheckSVar$ flying grant built while Gust of Wind's cast was in flight
+	// (inFlightCast) was re-adopted across the priority bookkeeping after
+	// the cast completed.
+	if e.activeBuildSeq != builds && e.activeDepth == 0 && e.activeEpoch == n {
+		e.activeEpoch = -1
+	}
 }
 
 // verifyInertActive is active()'s layer-inert reuse check: it rebuilds the

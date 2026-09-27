@@ -2,6 +2,7 @@ package paymirror
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"runtime/debug"
 	"slices"
@@ -137,6 +138,12 @@ type RouteResult struct {
 	floatTriggered bool
 	// floatStack is the float route's stack before its first activation.
 	floatStack []state.ObjID
+	// floatCreated counts, per (controller, source), the triggered-ability
+	// objects the float route's activations created before its cast --
+	// whether they are still on the stack or already left it (a Scrap
+	// Trawler trigger with no legal target is removed as it is put on the
+	// stack, CR 603.3d). floatOnlyTriggerOrder reads it.
+	floatCreated map[floatTriggerKey]int
 }
 
 // Report is the result of one mirror check of one planned cast.
@@ -649,6 +656,7 @@ func mirrorFloat(b *rules.Engine, rep *Report, res *RouteResult, aEvents []event
 	}
 	res.floatTriggered = floatAddedAbility(b, stackBefore)
 	res.floatStack = stackBefore
+	res.floatCreated = floatCreatedTriggers(b, rep.forkObjs)
 	if err := submitChoices(b, d, []int{idx}); err != nil {
 		setUnmirrorable(res, "cast_rejected", err.Error())
 		return
@@ -812,6 +820,15 @@ func replayFollowUps(b *rules.Engine, rep *Report, window []decision.PaymentActi
 		if note != "" && len(res.ShapeNotes) < 8 {
 			res.ShapeNotes = append(res.ShapeNotes, note)
 		}
+		if !ok && res.Route == RouteFloat && floatOnlyTriggerOrder(r, res.floatCreated) {
+			// Run A's CR 603.3b order ask exists only because A's window
+			// queued the float's triggers together; the float route put
+			// each on the stack as its activation triggered it, with no
+			// ask. The mirror's pending decision is left for A's next
+			// answer, and the end state is still compared.
+			floatSkippedOrder(res)
+			continue
+		}
 		if !ok {
 			if res.Route == RouteFloat && r.Kind == decision.KModes && len(r.Choices) == 1 {
 				if t := floatRemovedEveryTarget(b, rep, ri); t != "" {
@@ -842,6 +859,10 @@ func replayFollowUps(b *rules.Engine, rep *Report, window []decision.PaymentActi
 			setMismatch(res, "follow_up_rejected", string(d.Kind)+":"+err.Error())
 			return
 		}
+	}
+	for ri < len(rep.FollowUps) && res.Route == RouteFloat && floatOnlyTriggerOrder(rep.FollowUps[ri], res.floatCreated) {
+		floatSkippedOrder(res) // see the in-loop skip above
+		ri++
 	}
 	if ri < len(rep.FollowUps) {
 		setMismatch(res, "mirror_missing_decision", string(rep.FollowUps[ri].Kind)+":"+rep.FollowUps[ri].Prompt)
@@ -1008,6 +1029,73 @@ func floatTrimmedTriggerOrder(b *rules.Engine, r Recorded, d *decision.Decision,
 		return nil, false
 	}
 	return out, true
+}
+
+// floatTriggerKey names a triggered ability's controller and source.
+type floatTriggerKey struct {
+	controller state.PlayerID
+	source     state.ObjID
+}
+
+// floatCreatedTriggers counts the triggered-ability objects created in b since
+// the fork (ObjIDs above forkObjs are arena positions allocated since), by
+// controller and source. Called at the float route's cast submit, it is
+// exactly what the float's activations triggered: mana abilities never use
+// the stack (CR 605.3a), so every such object is a trigger they caused.
+func floatCreatedTriggers(b *rules.Engine, forkObjs int) map[floatTriggerKey]int {
+	if forkObjs <= 0 {
+		return nil
+	}
+	var out map[floatTriggerKey]int
+	for i := forkObjs; i < len(b.G.Objs); i++ {
+		o := &b.G.Objs[i]
+		if o.Ability == nil || o.Source == 0 {
+			continue
+		}
+		if out == nil {
+			out = map[floatTriggerKey]int{}
+		}
+		out[floatTriggerKey{o.Controller, o.Source}]++
+	}
+	return out
+}
+
+// floatOnlyTriggerOrder reports whether run A's recorded answer r is a CR
+// 603.3b trigger-order ask the float route has no counterpart for because it
+// orders the float's own triggers: every option but at most one is a trigger
+// claiming a distinct ability object the float's activations created for r's
+// player (created). Run A pays inside the cast's CR 601.2g window, so the
+// triggers of two sacrificed sources (Syr Konrad's dies trigger for each of
+// two Eldrazi Spawn, Scrap Trawler's for each of two Treasures) wait
+// together and their controller orders them; the float route activates one
+// source at a time at priority, so each trigger is put on the stack alone,
+// with nothing to order (round-9 commander4 seed 11056, random4 seed 10056).
+// A single remaining trigger is likewise put on the stack without an ask.
+// Skipping the ask proves nothing by itself: the route's end state is
+// compared as usual, through floatTriggerOnly when the float's triggers are
+// still on the stack.
+func floatOnlyTriggerOrder(r Recorded, created map[floatTriggerKey]int) bool {
+	if r.Kind != decision.KTriggerOrder || len(created) == 0 || len(r.Options) == 0 {
+		return false
+	}
+	left := maps.Clone(created)
+	other := 0
+	for _, o := range r.Options {
+		k := floatTriggerKey{r.Player, o.Obj}
+		if o.Kind == "trigger" && o.Obj != 0 && left[k] > 0 {
+			left[k]--
+			continue
+		}
+		other++
+	}
+	return other <= 1 && other < len(r.Options)
+}
+
+// floatSkippedOrder records one skipped float-only trigger-order ask.
+func floatSkippedOrder(res *RouteResult) {
+	if len(res.ShapeNotes) < 8 {
+		res.ShapeNotes = append(res.ShapeNotes, "trigger_order: run A ordered the float's own triggers together; the float route put each on the stack as it triggered")
+	}
 }
 
 // passAnsweris the post-resolution horizon's deterministic answerer: pass
@@ -1400,8 +1488,16 @@ func answerManaAsks(b *rules.Engine, p state.PlayerID, act decision.PaymentActiv
 			return ""
 		}
 		cands := matchProductions(d, act.Produces, printedManaRank(b, act))
-		if len(cands) == 0 {
-			cands = verifiedVariableAmount(b, p, act, d)
+		if _, single := singleColour(act.Produces); single && !labelExact(d, act.Produces) {
+			// Only a loose class matched (an any-colour or "X or Y"
+			// label, whose amount the wheel may not spell) or none did:
+			// the option proven on a clone to produce the witness wins.
+			// A single-colour witness bounds the proof: the colour ask
+			// after a stage-1 pick names the colour (labelExact), so the
+			// clone's own answerManaAsks never verifies again.
+			if v := verifiedProductions(b, p, act, d, cands); len(v) > 0 {
+				cands = v
+			}
 		}
 		if len(cands) == 0 {
 			return "no_matching_mana_option"
@@ -1422,39 +1518,73 @@ func answerManaAsks(b *rules.Engine, p state.PlayerID, act decision.PaymentActiv
 	return "mana_ask_loop"
 }
 
-// verifiedVariableAmount is the wheel options whose label names one pip of
-// the witness's single colour while the witness produced several of it, and
-// whose activation, tried on a throwaway clone, produces exactly the witness.
-// The wheel spells a non-literal Amount$ (X, an SVar, Count$) as the bare pip
-// (rules' manaAmountPips: a wrong number on the wheel is worse than none), so
-// Urza's Workshop's metalcraft "Add {C} for each Urza's land you control"
-// reads "Add C" beside its plain {T}: Add {C} -- no label can match a CC
-// witness (round-7 commander4 seeds 4038/6130/6146: 25x
-// no_matching_mana_option). The planned printed ability's rank leads, and
-// only an option proven on the clone to produce the witness is accepted, so
-// a fallback can never pick the other "Add C". b is untouched.
-func verifiedVariableAmount(b *rules.Engine, p state.PlayerID, act decision.PaymentActivation, d *decision.Decision) []int {
-	col, single := singleColour(act.Produces)
-	if !single || act.Produces[col] < 2 {
-		return nil
-	}
-	var pip decision.ManaAmount
-	pip[col] = 1
-	prefer := printedManaRank(b, act)
-	var preferred, rest []int
+// labelExact reports whether some option's label names the witness itself:
+// its exact production ("Add GG"), or the witness's single colour on a
+// colour-ask option. The looser classes matchProductions falls back to (an
+// any-colour or "X or Y" label) say nothing about the amount.
+func labelExact(d *decision.Decision, want decision.ManaAmount) bool {
+	col, single := singleColour(want)
 	for _, o := range d.Options {
-		amt, any, combo, ok := labelProduction(o.Label)
-		if !ok || any || combo != nil || amt != pip {
-			continue
+		if amt, any, combo, ok := labelProduction(o.Label); ok && !any && combo == nil && amt == want {
+			return true
 		}
-		if prefer >= 0 && o.Ability == prefer {
-			preferred = append(preferred, o.Index)
-		} else {
-			rest = append(rest, o.Index)
+		if single && len(o.ManaSymbol) == 1 && state.ManaIndex(o.ManaSymbol[0]) == col {
+			return true
 		}
+	}
+	return false
+}
+
+// verifiedProductions is the wheel options whose activation, tried on a
+// throwaway clone, produces exactly the witness: the planned printed
+// ability's rank first, then the label candidates loose in matchProductions'
+// order, then every other option. b is untouched. It is asked only when no
+// label names the witness itself (labelExact), because then a label cannot
+// tell which option produces the witness:
+//
+//   - the wheel spells a non-literal Amount$ (X, an SVar, Count$) as the bare
+//     pip (rules' manaAmountPips: a wrong number on the wheel is worse than
+//     none), so Urza's Workshop's metalcraft "Add {C} for each Urza's land
+//     you control" reads "Add C" beside its plain {T}: Add {C} and no label
+//     can match a CC witness (round-7 commander4 seeds 4038/6130/6146);
+//   - Leafkin Druid's "Add {G}, or {G}{G} with four creatures" reads "Add G";
+//     beside a granted "Add any color" the any-colour class matched the
+//     grant, and the float tapped it for one where the witness was GG
+//     (round-9 cardfuzz mirror seed 17348437687370656270,
+//     production_differs);
+//   - Command Tower's "Produced$ Combo ColorIdentity" reaches the stage-1
+//     wheel as the raw "Add Combo ColorIdentity" (manaProducedLabel has no
+//     commander-identity wording), which no label class parses; the
+//     any-colour class matched a Tectonic Split-granted "Add three mana of
+//     any one color" on the same land instead and the float tapped it for
+//     three where the witness was G (round-9 commander4 seed 10860,
+//     production_differs).
+//
+// Only an option proven on the clone is accepted, so the fallback can never
+// pick an option that makes other mana than the witness.
+func verifiedProductions(b *rules.Engine, p state.PlayerID, act decision.PaymentActivation, d *decision.Decision, loose []int) []int {
+	prefer := printedManaRank(b, act)
+	var order []int
+	seen := make([]bool, len(d.Options))
+	add := func(i int) {
+		if i >= 0 && i < len(seen) && !seen[i] {
+			seen[i] = true
+			order = append(order, i)
+		}
+	}
+	for _, o := range d.Options {
+		if prefer >= 0 && o.Ability == prefer && o.ManaSymbol == "" {
+			add(o.Index)
+		}
+	}
+	for _, i := range loose {
+		add(i)
+	}
+	for _, o := range d.Options {
+		add(o.Index)
 	}
 	var out []int
-	for _, idx := range append(preferred, rest...) {
+	for _, idx := range order {
 		c := b.Clone()
 		before := c.G.Players[p].Pool
 		if submitChoices(c, d, []int{idx}) != nil || answerManaAsks(c, p, act, 0) != "" {
@@ -1501,22 +1631,58 @@ func manaAsk(d *decision.Decision, source state.ObjID) bool {
 // rather than against a fixed word list that would silently reject an
 // amount above twenty.
 func labeledAnyAmount(tail string) bool {
+	_, ok := labeledAnyCount(tail)
+	return ok
+}
+
+// anyColourNumberWords is the rules formatter's spelling of 1..20
+// (manaNumberWord); index i spells i+1.
+var anyColourNumberWords = []string{"one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+	"eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"}
+
+// labeledAnyCount is the literal amount an any-colour amount label names
+// ("three mana of any one color" is 3, "21 mana in any combination of
+// colors" is 21), and whether tail is such a label at all.
+func labeledAnyCount(tail string) (int, bool) {
 	for _, suffix := range []string{" mana of any one color", " mana in any combination of colors"} {
 		amount, ok := strings.CutSuffix(tail, suffix)
-		if !ok || amount == "" {
+		if !ok {
 			continue
 		}
-		if strings.IndexFunc(amount, func(r rune) bool { return r != ' ' }) < 0 {
+		amount = strings.TrimSpace(amount)
+		if amount == "" {
 			continue
 		}
-		if _, err := strconv.Atoi(strings.TrimSpace(amount)); err == nil {
-			return true
+		if n, err := strconv.Atoi(amount); err == nil && n > 0 {
+			return n, true
 		}
-		if strings.Contains(" one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty ", " "+strings.TrimSpace(amount)+" ") {
-			return true
+		if i := slices.Index(anyColourNumberWords, amount); i >= 0 {
+			return i + 1, true
 		}
 	}
-	return false
+	return 0, false
+}
+
+// anyLabelFits reports whether an any-colour option's label can produce a
+// witness of total want: a label naming a literal amount ("Add three mana of
+// any one color") produces exactly that many, so it cannot be the source of
+// a one-pip witness (round-9 commander4 seed 10860: a Tectonic Split grant
+// beside Command Tower's own ability). "Add any color" names no amount (the
+// wheel spells a non-literal Amount$ that way too) and always fits.
+func anyLabelFits(label string, want decision.ManaAmount) bool {
+	i := strings.LastIndex(label, "Add ")
+	if i < 0 {
+		return true
+	}
+	n, ok := labeledAnyCount(strings.TrimSpace(label[i+len("Add "):]))
+	if !ok {
+		return true
+	}
+	total := 0
+	for _, v := range want {
+		total += int(v)
+	}
+	return total == n
 }
 
 // labelProduction parses the "Add ..." tail of a mana option label.
@@ -1608,7 +1774,7 @@ func matchProductions(d *decision.Decision, want decision.ManaAmount, prefer int
 		}
 		return collect(func(o decision.Option) bool {
 			_, any, combo, ok := labelProduction(o.Label)
-			return ok && (any || containsInt(combo, col))
+			return ok && ((any && anyLabelFits(o.Label, want)) || containsInt(combo, col))
 		})
 	}
 	return nil

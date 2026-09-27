@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // routeEvent reports whether an event records the ROUTE rather than the game:
@@ -134,6 +135,41 @@ func compareEvents(a, b []events.Event) eventDiff {
 		for ; n < 0 && len(out.OnlyB) < maxEventDiffs; n++ {
 			out.OnlyB = append(out.OnlyB, k)
 		}
+	}
+	return out
+}
+
+// maskNewObjects copies evs with every ObjID in (forkObjs, objs] -- an object
+// created since the fork, whose arena position depends on creation order --
+// zeroed in Obj, IDs and Pairs. A value past the arena (a tagged payload
+// word: damage provenance, an entry-counter grant) is no ObjID and is kept.
+// floatTriggerOnly compares the float route's events under it: the same
+// objects exist under permuted ObjIDs.
+func maskNewObjects(evs []events.Event, forkObjs, objs int) []events.Event {
+	mask := func(id state.ObjID) state.ObjID {
+		if int(id) > forkObjs && int(id) <= objs {
+			return 0
+		}
+		return id
+	}
+	out := make([]events.Event, len(evs))
+	for i, ev := range evs {
+		ev.Obj = mask(ev.Obj)
+		if len(ev.IDs) > 0 {
+			ids := make([]state.ObjID, len(ev.IDs))
+			for j, id := range ev.IDs {
+				ids[j] = mask(id)
+			}
+			ev.IDs = ids
+		}
+		if len(ev.Pairs) > 0 {
+			pairs := make([][2]state.ObjID, len(ev.Pairs))
+			for j, p := range ev.Pairs {
+				pairs[j] = [2]state.ObjID{mask(p[0]), mask(p[1])}
+			}
+			ev.Pairs = pairs
+		}
+		out[i] = ev
 	}
 	return out
 }

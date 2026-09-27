@@ -705,7 +705,9 @@ func normalizePath(p string) string {
 //   - this turn's zone-entry lists are the same multiset once since-fork
 //     ObjIDs are masked, and only then is the spell's PreStackEnteredLen
 //     boundary into them left uncompared;
-//   - the event multisets are equal;
+//   - the event multisets are equal once since-fork ObjIDs are masked (a
+//     cast trigger removed for want of a target names its own permuted
+//     ObjID, round-9 commander4 seed 11056);
 //   - a full differ walk (with the cost-move floatReorder allowance) finds
 //     nothing outside those fields and the per-object bookkeeping maps keyed
 //     by a since-fork object (trigger contexts and LKI snapshots, whose
@@ -761,7 +763,7 @@ func floatTriggerOnly(a, b *rules.Engine, fork int, rep *Report) string {
 	if !maps.Equal(masked(a.G.Entered), masked(b.G.Entered)) {
 		return "entered"
 	}
-	if ev := compareEvents(a.L.Events[fork:], b.L.Events[fork:]); len(ev.OnlyA) > 0 || len(ev.OnlyB) > 0 {
+	if ev := compareEvents(maskNewObjects(a.L.Events[fork:], rep.forkObjs, len(a.G.Objs)), maskNewObjects(b.L.Events[fork:], rep.forkObjs, len(b.G.Objs))); len(ev.OnlyA) > 0 || len(ev.OnlyB) > 0 {
 		return "events"
 	}
 	keyed := []string{"triggerContexts{", "triggerLKI{", "damageSourceLKI{", "sourceLifelinkLKI{", "sourceControllerLKI{"}
