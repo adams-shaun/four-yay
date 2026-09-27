@@ -1575,6 +1575,14 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.paymentPlanManaUnits":        {"Mana"},
 	"Engine.paymentPlanUnitAlternatives": {"Mana"},
 	"Engine.paymentPlanChoiceColours":    {"Mana"},
+	// The payment-plan source-interference check (ticket
+	// aph-interference-scope, rules/payment_plan_interference.go) is reached
+	// only from paymentPlanAbilityTier, i.e. for an AB$ Mana candidate: it
+	// reads that ability's Cost$ (does it tap?) and Produced$ (the concrete
+	// productions its hypothetical tap proposes to the trigger and
+	// replacement matchers), never another API's.
+	"Engine.paymentPlanSourceInterference": {"Mana"},
+	"Engine.paymentPlanProductions":        {"Mana"},
 	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk),
 	// the per-mode target declaration (modalTargetSA), the resume-side mode
 	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
