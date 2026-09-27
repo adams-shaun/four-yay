@@ -114,6 +114,12 @@ var excluded = map[excludedField]bool{
 	// decisions by construction, so these count the route, not the game.
 	{"rules.Engine", "loop"}:     true,
 	{"rules.Engine", "askCount"}: true,
+	// legalActionWalks is legalActionsPriced's diagnostic call counter: the
+	// float route re-prices every offer against a hypothetical floating pool
+	// the control route never opens, so it counts the route's work, not the
+	// game (ticket cli-20260927T103840Z-0fb8a354: the field was read by this
+	// differ in round 1 and every route pair mismatched on it).
+	{"rules.Engine", "legalActionWalks"}: true,
 }
 
 // differ walks two values of the same type in lockstep and records every
