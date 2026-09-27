@@ -716,11 +716,6 @@
                   {:else}
                     <p class="payment-summary">Suggested payment is unavailable; use the manual mana controls.</p>
                   {/if}
-                  {#if !logic.autoPayMana && action.base_option_index !== undefined && action.base_option_index !== null}
-                    <button class="option" type="button" data-payment-manual={action.id} onclick={(e) => logic.click(action.base_option_index!, { holdPriority: e.ctrlKey })} disabled={logic.busy}>Pay manually</button>
-                  {:else}
-                    <p class="payment-summary" data-payment-manual-needed>Tap mana manually, then cast.</p>
-                  {/if}
                 </div>
               {/each}
             </div>

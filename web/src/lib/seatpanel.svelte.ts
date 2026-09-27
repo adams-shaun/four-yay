@@ -560,9 +560,15 @@ export class SeatPanelState {
   busy = $state(false);
   /** Auto-pay is intentionally local to this seat-panel instance.  Unlike
    * play settings it is not persisted, so a different seat or match starts
-   * manual and toggling cannot send an engine intent. */
+   * manual and toggling cannot send an engine intent.  It is also the ONE
+   * auto-pay input to the autopilot (derivePass/deriveActPass hand it to
+   * emptyPriorityWindow and decide(); spec §8): while it is on, a plan-bearing
+   * payment action is a real play and Auto resolves the seat's own spell.
+   * Toggling it never re-runs that classification by itself. */
   autoPayMana = $state(false);
-  /** Set from the table's explicit auto_mana capability. */
+  /** Set from the table's explicit auto_mana capability.  It only makes the
+   * auto-pay switch available; it never reaches the pass policy, so a player
+   * who leaves the switch off plays exactly as on a capability-less table. */
   autoManaAvailable = $state(false);
 
   setAutoManaAvailable(on: boolean) {
@@ -1320,8 +1326,10 @@ export class SeatPanelState {
         // a smart step stop fired because this window offered a real play —
         // say what the play is, so "why did it pause on my own priority" is
         // answered on the panel. A 'forced' stop with nothing to do, and every
-        // other reason, carry no detail and keep the base wording.
-        const labels = verdict.reason === 'stop-set' ? actionables(view, this.ctx.seat, d) : [];
+        // other reason, carry no detail and keep the base wording. The labels
+        // read the same auto-pay preference decide() was handed, so a stop a
+        // planned cast made is named as that cast.
+        const labels = verdict.reason === 'stop-set' ? actionables(view, this.ctx.seat, d, this.autoPayMana) : [];
         this.note = labels.length > 0
           ? { kind: 'waiting', reason: verdict.reason, detail: labels.join(', ') }
           : { kind: 'waiting', reason: verdict.reason };
@@ -1412,8 +1420,16 @@ export class SeatPanelState {
     | null {
     const d = this.pending;
     if (d === null) return null;
-    // Auto-pay changes the witness used for an explicit cast only. It must
-    // not alter Auto/Manual or empty-window pass policy.
+    // Auto-pay changes which witness an explicit cast uses; it is not a pass
+    // policy of its own, so there is deliberately no auto-pay guard here (the
+    // blanket one that held every window carrying a plan was removed by
+    // 4757be4e9, squashed into 7022042e6). It reaches this classification
+    // only as the seat PREFERENCE handed to the one shared actionable test
+    // (spec §8): while it is on, a plan-bearing payment action is a real play,
+    // so neither the floor nor decide() passes a window whose only play is a
+    // plan-only cast, and decide()'s own-object pass is keyed on it. The table
+    // capability (autoManaAvailable) never reaches here: with the preference
+    // off this is exactly the capability-less policy.
     // The undo pause owns the whole classification: while it holds, neither
     // auto, nor the empty-window floor, nor a one-shot run passes anything.
     // It must gate HERE, before the autoOn split below, not only on the
@@ -1427,7 +1443,7 @@ export class SeatPanelState {
     // seat is still not stopped at a window that asks nothing. With Auto on,
     // decide() owns the same shape and classifies it under Auto's counter.
     if (!autoOn && this.oneShot === 'none') {
-      const index = this.skipEmpty ? emptyPriorityWindow(d, view, this.ctx.seat) : null;
+      const index = this.skipEmpty ? emptyPriorityWindow(d, view, this.ctx.seat, this.autoPayMana) : null;
       return index === null ? null : { act: 'pass', index, kind: 'empty', reason: 'empty-window' };
     }
 
@@ -1448,7 +1464,8 @@ export class SeatPanelState {
       // main-phase floor. Persistent Auto keeps the default (the floor
       // applies); ffwd never reaches here.
       skipOwnTurnFloor: this.oneShot !== 'none',
-      autoManaAvailable: this.autoManaAvailable,
+      // The seat's auto-pay PREFERENCE, never the table capability (spec §8).
+      autoPayMana: this.autoPayMana,
     });
     if (verdict.act === 'stop') return verdict;
     const kind: Exclude<AutoPassKind, 'act'> = this.oneShot === 'end-turn'
@@ -1660,7 +1677,7 @@ export class SeatPanelState {
     const d = this.pending;
     const autoOn = this.auto && !this.machinePaused;
     if (d === null || !this.actPass || autoOn || this.oneShot !== 'none') return null;
-    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoManaAvailable: this.autoManaAvailable });
+    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoPayMana: this.autoPayMana });
     return verdict.act === 'pass' ? { ...verdict, kind: 'act', reason: 'no-stop-rule' } : null;
   }
 

@@ -124,7 +124,7 @@ describe('SeatPanel — payment plans', () => {
     pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0],
   });
 
-  it('groups a legacy cast with its ordered plan list and leaves planned-only casts manual-aware', () => {
+  it('groups a legacy cast with its ordered plan list and shows a plan-only cast the same way', () => {
     const d: Decision = {
       ...priority,
       payment_actions: [
@@ -141,8 +141,11 @@ describe('SeatPanel — payment plans', () => {
     expect(html.match(/Cast Grizzly Bears/g)).toHaveLength(1);
     expect(html).toContain('data-payment-plan="first"');
     expect(html).toContain('data-payment-plan="second"');
-    expect(html).not.toContain('data-payment-manual="a"');
-    expect(html).toContain('data-payment-manual-needed');
+    // The plan-only cast (no legacy option) is its own payment action with
+    // its plan button (spec §8: "Plan-only casts ... are shown the same way").
+    expect(html).toContain('data-payment-action="b"');
+    expect(html).toContain('data-payment-plan="third"');
+    expect(html).toContain('Cast Future Spell');
     expect(html).toContain('data-payment-fallback');
   });
 
@@ -153,6 +156,25 @@ describe('SeatPanel — payment plans', () => {
     };
     const html = render(SeatPanel, { props: props(view(d)) }).html;
     expect(html).not.toContain('data-payment-plan');
+    expect(html).toContain('data-option="0"');
+    expect(html).toContain('Cast Grizzly Bears');
+  });
+
+  it('with the table capability on but the seat preference off, the list is the legacy one and a plan-only cast is not shown', () => {
+    const d: Decision = {
+      ...priority,
+      payment_actions: [
+        { id: 'a', cast: { object: 101, face: 0, origin: 'hand' }, base_option_index: 0, label: 'Cast Grizzly Bears', plans: [plan('first')] },
+        { id: 'b', cast: { object: 102, face: 0, origin: 'hand' }, label: 'Cast Future Spell', plans: [plan('third')] },
+      ],
+    };
+    const state = new SeatPanelState('t1', 1, ctx, null, null);
+    state.setAutoManaAvailable(true);
+    state.adoptView(d);
+    const html = render(SeatPanel, { props: { ...props(view(d)), state } }).html;
+    expect(html).toContain('data-auto-pay-toggle');
+    expect(html).not.toContain('data-payment-actions');
+    expect(html).not.toContain('Cast Future Spell');
     expect(html).toContain('data-option="0"');
     expect(html).toContain('Cast Grizzly Bears');
   });
