@@ -795,6 +795,9 @@ func (e *Engine) blitzCosts(p state.PlayerID, id state.ObjID) []struct {
 	if o == nil || o.Face() == nil {
 		return nil
 	}
+	if !e.stackKeywordPossible(id, "Blitz") {
+		return nil
+	}
 	var out []struct {
 		mode string
 		cost Cost
@@ -1009,6 +1012,9 @@ type convokePayment struct {
 // the stack (derivedWith's override); a wasCast Affected$ predicate already
 // matches because it keys on the object being a cast spell, which it is.
 func (e *Engine) hasCastConvoke(id state.ObjID) bool {
+	if !e.stackKeywordPossible(id, "Convoke") {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Convoke") {
 			return true
@@ -1022,6 +1028,9 @@ func (e *Engine) hasCastConvoke(id state.ObjID) bool {
 // keyword or a layer-6 grant reaching the cast spell. Inspiring Statuary
 // grants Improvise to nonartifact spells, so the grant path is live.
 func (e *Engine) hasCastImprovise(id state.ObjID) bool {
+	if !e.stackKeywordPossible(id, "Improvise") {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Improvise") {
 			return true
@@ -1039,6 +1048,9 @@ func (e *Engine) hasCastImprovise(id state.ObjID) bool {
 // match). The offer gate and the provenance read share this one helper so
 // the two stages cannot disagree about whether the spell is conspirable.
 func (e *Engine) hasCastConspire(id state.ObjID) bool {
+	if !e.stackKeywordPossible(id, "Conspire") {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Conspire") {
 			return true
@@ -1133,6 +1145,9 @@ type casualtyInfo struct {
 }
 
 func (e *Engine) casualtySpec(id state.ObjID) (casualtyInfo, bool) {
+	if !e.stackKeywordPossible(id, "Casualty") {
+		return casualtyInfo{}, false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if !strings.EqualFold(cardsKeywordHead(k), "Casualty") {
 			continue

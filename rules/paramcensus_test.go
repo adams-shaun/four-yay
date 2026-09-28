@@ -1704,17 +1704,17 @@ var mayPlayStaticParamReads = map[string]bool{
 }
 
 var apiSpecificRulesStat = map[string]string{
-	// The MayPlay grant path: mayPlayGrant (the offer walk's per-card
-	// evaluation, over the card's own face statics and activeStatics
-	// "Continuous") carries the family's propagated reads (propagateKeyReads
+	// The MayPlay grant path: mayPlayGrantScoped (mayPlayGrant's body, the
+	// offer walk's per-card evaluation, over the card's own face statics and
+	// activeStatics "Continuous") carries the family's propagated reads (propagateKeyReads
 	// attributes mayPlayStatic's map indexes to it), and
 	// warpGraveyardAllowed scans Continuous MayPlay statics directly over
 	// the face's Statics slice (Timeline Culler's explicit graveyard-Warp
 	// permission) -- it was previously a generic Continuous root
 	// (handRoots.stat), which masked ValidSA$/EffectZone$ for every plain
 	// Continuous static.
-	"Engine.mayPlayGrant":  "Continuous.MayPlay",
-	"warpGraveyardAllowed": "Continuous.MayPlay",
+	"Engine.mayPlayGrantScoped": "Continuous.MayPlay",
+	"warpGraveyardAllowed":      "Continuous.MayPlay",
 	// The raise walk (rules/mayplay.go's mayPlayRaiseCost, called from
 	// legal.go's may-play spell word and land walks and cast.go's "mayplay"
 	// cost case): it carries mayPlayStatic's propagated reads (RaiseCost$

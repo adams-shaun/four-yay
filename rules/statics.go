@@ -1863,6 +1863,54 @@ func (m costMods) hasFloor() bool {
 	return false
 }
 
+// composeFeasible is feasibleAny's leaf composition of the cost it prices:
+// the XMin announcement floor, the modifiers, the commander tax and the delve
+// credit, in that order.
+func (m costMods) composeFeasible(c Cost, taxGeneric, delve int32) Cost {
+	// A cost carrying an XMin<N> lower bound is priced at its smallest
+	// LEGAL announcement: "X can't be 0" means the offer must be able
+	// to pay {X}=XMin, never {X}=0 (Thieving Skydiver's kicked Kicker).
+	// The fold is on a LOCAL copy, so the payment descriptor's
+	// announced-X marker (set from the raw cost's own Cost.X by
+	// paymentFor) still reports CostContainsX. WithX clears XMin, so
+	// an already-announced cost (XMin==0) is untouched here.
+	if c.XMin > 0 {
+		c = c.WithX(c.XMin)
+	}
+	cc := m.apply(c)
+	cc.Generic = addClampedGeneric(cc.Generic, int64(taxGeneric))
+	if cc.Generic > delve {
+		cc.Generic -= delve
+	} else {
+		cc.Generic = 0
+	}
+	return cc
+}
+
+// poolUnitsFloor is a lower bound on the pool units every successful
+// resolveManaWith payment of c spends: its Generic plus one unit per strict
+// W/U/R/G/C pip. Each such pip is paid only by a colour alternative (the
+// anyColor/anyType riders and a conversion widen WHICH colour, never
+// whether a unit is taken), and takeUnit removes exactly one unit of the
+// remainder; the search then needs the remainder to cover a generic
+// requirement that only ever grows from c.Generic. A {B} pip is left out
+// (PayLifeInsteadOf:B may pay it with life), as is every hybrid, Phyrexian
+// and snow pip, so the bound holds whatever the payer's grants are. A pool
+// holding fewer units than this can pay nothing, which is exactly the
+// answer the search would give.
+func (c *Cost) poolUnitsFloor() int64 {
+	n := int64(c.Generic)
+	for _, letter := range pipLetters {
+		if letter == 'B' {
+			continue
+		}
+		if k := c.Colored[state.ManaIndex(letter)]; k > 0 {
+			n += int64(k)
+		}
+	}
+	return n
+}
+
 // feasibleAny is THE one shared mana-feasibility primitive of the cast flow.
 // It answers the CR 601.2b/601.2f question for a cost whose flexible pips may
 // still be unresolved — at the offer gate (offerCastable), at each CR 601.2b
@@ -1895,22 +1943,11 @@ func (m costMods) hasFloor() bool {
 // tree.
 func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana, life, taxGeneric, delve int32, bLifeOK bool, rider pipRider, conv *manaConv) bool {
 	composed := func(c Cost) bool {
-		// A cost carrying an XMin<N> lower bound is priced at its smallest
-		// LEGAL announcement: "X can't be 0" means the offer must be able
-		// to pay {X}=XMin, never {X}=0 (Thieving Skydiver's kicked Kicker).
-		// The fold is on a LOCAL copy, so the payment descriptor's
-		// announced-X marker (set from the raw cost's own Cost.X by
-		// paymentFor) still reports CostContainsX. WithX clears XMin, so
-		// an already-announced cost (XMin==0) is untouched here.
-		if c.XMin > 0 {
-			c = c.WithX(c.XMin)
-		}
-		cc := m.apply(c)
-		cc.Generic = addClampedGeneric(cc.Generic, int64(taxGeneric))
-		if cc.Generic > delve {
-			cc.Generic -= delve
-		} else {
-			cc.Generic = 0
+		cc := m.composeFeasible(c, taxGeneric, delve)
+		// The pool-unit floor is a necessary condition of resolveManaWith's
+		// own search (poolUnitsFloor), decided without building its pips.
+		if int64(pool.Total()) < cc.poolUnitsFloor() {
+			return false
 		}
 		_, ok := cc.resolveManaWith(pool, snow, typed, life, bLifeOK, rider, conv)
 		return ok
@@ -1994,6 +2031,14 @@ func (e *Engine) manaFeasibleGrant(p state.PlayerID, id state.ObjID, ability boo
 // modes, so a potential action and the offer the walk mirrors can never
 // disagree about what the pool may satisfy.
 func (e *Engine) manaFeasiblePool(p state.PlayerID, id state.ObjID, ability bool, c Cost, mods costMods, taxGeneric, delve int32, pool state.Mana, typed [7]state.Mana) bool {
+	// Without an announcement walk feasibleAny is exactly its composed leaf,
+	// whose first answer is the pool-unit floor (poolUnitsFloor): decide that
+	// here, before the payer's grant and conversion reads the search needs.
+	if !mods.hasFloor() || c.annPipCount() == 0 {
+		if cc := mods.composeFeasible(c, taxGeneric, delve); int64(pool.Total()) < cc.poolUnitsFloor() {
+			return false
+		}
+	}
 	pl := e.G.Players[p]
 	return mods.feasibleAny(c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
 		e.payerGrantsPayLifeInsteadOfB(p),

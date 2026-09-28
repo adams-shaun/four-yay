@@ -12,6 +12,7 @@
 package rules
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -59,6 +60,43 @@ import (
 // withhold the offer, not widen it. The full fail-closed list is in
 // mayPlayStatic.
 func (e *Engine) mayPlayGrant(p state.PlayerID, id state.ObjID) (free, ok bool) {
+	return e.mayPlayGrantScoped(p, id, true)
+}
+
+// mayPlayBoardGrantsOpen reports whether either board-side source of
+// mayPlayGrant can contribute for player p: a battlefield Continuous static
+// p controls carrying MayPlay$ True (mayPlayStatic answers nothing for any
+// other value), or an active effect that is a FREE may-play grant of p's
+// (mayPlayEffectFree covers nothing else). When it is false, mayPlayGrant
+// is exactly its self-grant half for every card, which a walk asking it per
+// card (mayPlaySpellIds) can take through mayPlayGrantScoped.
+func (e *Engine) mayPlayBoardGrantsOpen(p state.PlayerID) bool {
+	for _, sv := range e.activeStatics("Continuous") {
+		if sv.Controller == p && strings.TrimSpace(sv.Params["MayPlay"]) == "True" {
+			return true
+		}
+	}
+	ces := e.active()
+	for i := range ces {
+		if ces[i].MayPlay && ces[i].MayPlayFree && ces[i].Controller == p {
+			return true
+		}
+	}
+	return false
+}
+
+// mayPlayGrantScoped is mayPlayGrant with the board-side sources (b) and (c)
+// read only when board is true. board false is exact only while
+// mayPlayBoardGrantsOpen(p) is false; verify mode (derivedMemoVerify)
+// re-runs the full grant and panics on a difference.
+func (e *Engine) mayPlayGrantScoped(p state.PlayerID, id state.ObjID, board bool) (free, ok bool) {
+	if !board && derivedMemoVerify {
+		defer func() {
+			if wf, wo := e.mayPlayGrantScoped(p, id, true); wf != free || wo != ok {
+				panic(fmt.Sprintf("rules: board-closed may-play grant of obj %d disagrees with the full read", id))
+			}
+		}()
+	}
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
 		return false, false
@@ -77,6 +115,9 @@ func (e *Engine) mayPlayGrant(p state.PlayerID, id state.ObjID) (free, ok bool) 
 		if grants {
 			ok = true
 		}
+	}
+	if !board {
+		return free, ok
 	}
 	// (b) Battlefield grants, in activeStatics' deterministic APNAP order.
 	for _, sv := range e.activeStatics("Continuous") {
@@ -533,17 +574,21 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		return nil
 	}
 	var out []Cost
-	// The two sources the permission grant walks, merged into one
-	// deterministic scan (battlefield statics first, then the card's own
-	// face statics): the copy keeps activeStatics' slice from being
-	// appended to in place.
-	statics := append([]staticView(nil), e.activeStatics("Continuous")...)
-	for _, st := range o.Face().Statics {
-		if st.Mode == "Continuous" {
-			statics = append(statics, staticView{Params: st.Params, Source: id, Controller: o.Controller})
+	// The two sources the permission grant walks, scanned in one
+	// deterministic order (battlefield statics first, then the card's own
+	// face statics). Each is ranged in place -- neither list is appended to
+	// -- so no merged copy is built per call.
+	bf := e.activeStatics("Continuous")
+	face := o.Face().Statics
+	for i, n := 0, len(bf)+len(face); i < n; i++ {
+		var sv staticView
+		if i < len(bf) {
+			sv = bf[i]
+		} else if st := face[i-len(bf)]; st.Mode == "Continuous" {
+			sv = staticView{Params: st.Params, Source: id, Controller: o.Controller}
+		} else {
+			continue
 		}
-	}
-	for _, sv := range statics {
 		raw := strings.TrimSpace(sv.Params["MayPlayAltManaCost"])
 		if raw == "" || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
 			!e.mayPlayConditionGateHolds(sv.Params, sv.Source, sv.Controller) {
@@ -709,7 +754,7 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 	if o.Zone != state.ZGraveyard && o.Zone != state.ZExile {
 		return false, false
 	}
-	limited := e.mayPlaysThisTurn(p)
+	limited := lazyMayPlays{e: e, p: p}
 	for _, ce := range e.active() {
 		if !ce.MayPlay || !ce.MayPlayFree || ce.Controller != p {
 			continue
@@ -717,7 +762,7 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 		if ce.MayPlayPlayerTurn && e.G.Active != p {
 			continue
 		}
-		if ce.MayPlayLimit > 0 && int32(limited) >= ce.MayPlayLimit {
+		if ce.MayPlayLimit > 0 && int32(limited.count()) >= ce.MayPlayLimit {
 			continue
 		}
 		zones, all, ok := effects.ParseZones(ce.AffectedZone)
@@ -749,7 +794,7 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 	if o.Zone != state.ZGraveyard && o.Zone != state.ZExile {
 		return false
 	}
-	limited := e.mayPlaysThisTurn(p)
+	limited := lazyMayPlays{e: e, p: p}
 	for _, ce := range e.active() {
 		if !ce.MayPlay || ce.Controller != p {
 			continue
@@ -757,7 +802,7 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 		if ce.MayPlayPlayerTurn && e.G.Active != p {
 			continue
 		}
-		if ce.MayPlayLimit > 0 && int32(limited) >= ce.MayPlayLimit {
+		if ce.MayPlayLimit > 0 && int32(limited.count()) >= ce.MayPlayLimit {
 			continue
 		}
 		zones, all, ok := effects.ParseZones(ce.AffectedZone)
