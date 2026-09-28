@@ -34,6 +34,11 @@ func TestSpellbenchSmokeDigestIsStable(t *testing.T) {
 	o := sbOpts{
 		bots: "sb-uniform,sb-heuristic,bot", pairs: 1, decks: "Burn,Faeries",
 		out: t.TempDir(), baseSeed: 20260926,
+		// catalog is the -spellbench-catalog flag default. The test
+		// constructs sbOpts directly (bypassing flag parsing), so it must
+		// set the same default the CLI does or spellbenchExit rejects the
+		// empty id. Burn/Faeries come from the pauper-kernel catalog.
+		catalog: "pauper-kernel",
 	}
 	if code := spellbenchExit(o, dir, 2, 40, 8000, "", io.Discard, io.Discard); code != 0 {
 		t.Fatalf("spellbenchExit = %d, want 0", code)
