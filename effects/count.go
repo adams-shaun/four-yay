@@ -1936,6 +1936,9 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	}
 	head, arg, _ := strings.Cut(body, " ")
 	arg = strings.TrimSpace(arg)
+	if head == "ValidSelf" {
+		return evalCountValidSelf(h, c, arg)
+	}
 	if arg == "" {
 		// ONLY OptionalGenericCostPaid's space-less dotted <paid>.<unpaid>
 		// argument is split here. Every other dotted head (CardCounters.CHARGE,
@@ -3607,6 +3610,39 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 // head cannot safely treat an unknown field as a filter that matches nothing:
 // CheckSVar distinguishes that evaluated zero from an unresolvable Count$.
 // Keep this narrow until a corpus carrier establishes another spelling.
+// evalCountValidSelf reads the bounded ValidSelf forms carried by the corpus.
+// Unlike an unknown Count$ head, this head is recognised even when its
+// argument is outside the implemented grammar, so that argument fails closed
+// with an evaluated zero instead of making a CheckSVar gate disappear.
+func evalCountValidSelf(h Host, c *Ctx, arg string) (int32, bool) {
+	g := h.Game()
+	if strings.TrimSpace(arg) == "Creature.greatestPowerControlledByCardController" {
+		// On a ChangesZone trigger, ValidSelf is the event card (the
+		// TriggerCard LKI), not the trigger source. The predicate asks whether
+		// that card's power was at least the greatest among creatures its
+		// controller had on the battlefield.
+		dead := g.Obj(c.TriggerCard)
+		if dead == nil || c.TriggerCard == 0 || dead.Face() == nil || !dead.Face().IsCreature() {
+			return 0, true
+		}
+		power := h.Power(dead.ID)
+		for _, id := range g.Zone(state.ZBattlefield, dead.Controller) {
+			o := g.Obj(id)
+			if o == nil || o.Face() == nil || !o.Face().IsCreature() {
+				continue
+			}
+			if h.Power(id) > power {
+				return 0, true
+			}
+		}
+		return 1, true
+	}
+	// A recognized head with an unsupported ValidSelf argument is an
+	// evaluated zero. This deliberately makes comparisons such as GE1 fail
+	// closed instead of letting an unmodelled argument bypass the gate.
+	return 0, true
+}
+
 func countersAddedThisTurnArgsKnown(kind, actor, object string) bool {
 	if !strings.EqualFold(kind, "Any") && !strings.EqualFold(kind, "P1P1") && !strings.EqualFold(kind, "LORE") {
 		return false

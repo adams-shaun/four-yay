@@ -2471,6 +2471,34 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 			return false
 		}
 	}
+	// CheckOnTriggeredCard$ compares an SVar evaluated with the triggering
+	// event card as the ANCHOR (Forge evaluates the copied SVar on the
+	// triggered card): TriggerCard carries the event card and Source anchors
+	// the filter vocabulary's CardController/StrictlySelf to that same card
+	// (Tunnel Ignus and Confounding Conundrum's "that player had another land
+	// enter" count the ENTERING land's controller; Urza's Miter's
+	// StrictlySelf is the artifact that died). The CONTROLLER stays the
+	// trigger source's -- You in the gate's grammar is still the trigger's
+	// controller, not the event card's. An event without an object card and a
+	// malformed or unresolved clause fail closed (Kraven the Hunter's
+	// greatest-power death condition).
+	if raw, ok := t.Params["CheckOnTriggeredCard"]; ok {
+		parts := strings.Fields(raw)
+		if len(parts) != 2 || ev.Obj == 0 {
+			return false
+		}
+		svars := ownedSVars
+		if svars == nil {
+			if face := e.G.Obj(source).Face(); face != nil {
+				svars = face.SVars
+			}
+		}
+		ctx := &effects.Ctx{Source: ev.Obj, Controller: e.controllerOf(source), SVars: svars,
+			TriggerContext: effects.TriggerContext{TriggerCard: ev.Obj}}
+		if holds, evaluated := effects.CheckSVarHolds(e, ctx, parts[0], parts[1]); !evaluated || !holds {
+			return false
+		}
+	}
 	// CR 603.4 intervening-if: a trigger whose condition is false at the
 	// moment the trigger event occurs does not trigger at all. This gate is
 	// applied uniformly to every mode so the same T: line grammar (a
