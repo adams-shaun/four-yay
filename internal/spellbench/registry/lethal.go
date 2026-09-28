@@ -12,14 +12,18 @@ package registry
 //   - Combat. The engine's own declare-attackers options already name every
 //     creature that can legally attack (summoning sickness and haste are the
 //     engine's business), so the attacker set is read from those options. The
-//     damage it guarantees is a lower bound under the WORST-CASE blocking
-//     assignment for us: untapped opposing creatures block, an evasive
-//     attacker only connects when no untapped blocker can block it (flying
+//     damage it guarantees is a lower bound computed per attacker against the
+//     WHOLE untapped opposing pool (see guaranteedDamage): the opponent owns
+//     the blocking assignment, so summing per-attacker minima over a superset
+//     of each attacker's assignments can only under-count -- the bound is
+//     pessimistic by construction and may miss a kill, but it never claims
+//     one the opponent can prevent. Untapped opposing creatures block; an
+//     evasive attacker only connects when no blocker can block it (flying
 //     needs flying or reach; unblockable always connects; trample carries
-//     only the excess over the toughest assigned blocker's toughness), a
-//     menace attacker needs two blockers, and every other blocked attacker
-//     deals nothing. The bound is deliberately pessimistic: it may miss a
-//     kill, but it never claims one that the opponent can prevent.
+//     only the excess over the biggest soak); a menace attacker needs two
+//     blockers; a non-striking attacker the pool holds a first/double-striking
+//     (or deathtouch) killer for deals nothing; every other blocked attacker
+//     deals nothing.
 //
 //   - Burn and pump. At a main-phase priority decision the decorator reads
 //     the printed IR of each offered ordinary cast (registry.SetCardLookup)
@@ -136,6 +140,7 @@ type lethalCre struct {
 	unblockable bool
 	firstStrk   bool
 	doubleStrk  bool
+	deathtouch  bool
 	defender    bool
 }
 
@@ -299,6 +304,8 @@ func (c *lethalCre) setKeyword(k string) {
 		c.firstStrk = true
 	case "double strike":
 		c.doubleStrk = true
+	case "deathtouch":
+		c.deathtouch = true
 	case "defender":
 		c.defender = true
 	}
@@ -530,81 +537,104 @@ func (c *lethalCore) target(w lethalSpace, d *decision.Decision, in decision.Int
 }
 
 // guaranteedDamage is a lower bound on the combat damage a set of attackers
-// deals against a worst-case blocking assignment for us. Attackers the
-// blockers cannot answer (unblockable, or flying with no flying/reach
-// blocker) connect in full. The rest are blocked in power order: a menace
-// attacker consumes two blockers, and a trampler that is blocked carries
-// only its excess over the blockers' combined toughness. A blocked
-// non-trampler deals nothing.
+// deals this turn against the opponent's own worst-case blocking. The
+// opponent owns the assignment, so the bound must never exceed the minimum
+// they can force; it is computed as the SUM of a PER-ATTACKER minimum, each
+// priced against the WHOLE untapped defensive pool.
 //
-// Strike steps are priced conservatively. A blocked attacker loses its
-// double-strike multiplier: the second damage step's extra can only add, and
-// the model refuses to claim what it does not re-derive (a first-striking
-// blocker may kill the attacker between the steps). A non-striking attacker
-// blocked by a first-striking blocker whose power reaches the attacker's
-// toughness is dead before the regular damage step and prices 0 -- that
-// blocker soaks everything.
+// That per-attacker-pool relaxation is the structural guarantee. A shared
+// greedy over one assignment cannot be a bound: it can spend a blocker on the
+// wrong attacker (a killer blocker routed to a harmless attacker, or the
+// biggest blocker spent on a non-trampler) and claim damage the opponent
+// simply denies by assigning otherwise. Summing minima taken over a superset
+// of each attacker's possible assignments is provably <= the best disjoint
+// assignment's damage, and it errs only downward -- the decorator may miss a
+// kill, never invent one (the file's header invariant).
+//
+// Per attacker:
+//   - unblockable, or flying with no flying/reach blocker in the pool,
+//     connects in full (a double striker twice).
+//   - a menace attacker needs two blockers, everything else one.
+//   - a non-striking attacker the pool holds a KILLER for -- a first/double-
+//     striking blocker whose power reaches its toughness, or any such striker
+//     with deathtouch -- deals nothing (it dies in the first-strike step).
+//   - any other blocked non-trampler deals nothing.
+//   - a blocked trampler carries only its excess over the pool's biggest
+//     soak: the `need` largest-toughness blockers it could be assigned. A
+//     blocked attacker prices a single step -- a first-striking blocker may
+//     kill it between the steps, so the double-strike second step is never
+//     claimed.
 func guaranteedDamage(atk, blockers []lethalCre) int32 {
-	bs := append([]lethalCre(nil), blockers...)
-	sort.Slice(bs, func(i, j int) bool {
-		if bs[i].toughness != bs[j].toughness {
-			return bs[i].toughness > bs[j].toughness
-		}
-		return bs[i].obj < bs[j].obj
-	})
-	hasFly, hasReach := false, false
-	for _, b := range bs {
-		hasFly = hasFly || b.flying
-		hasReach = hasReach || b.reach
-	}
-	var ground []lethalCre
 	var total int32
 	for _, a := range atk {
-		p := strikePower(a, false)
-		if a.unblockable || (a.flying && !hasFly && !hasReach) {
-			total += p
-			continue
-		}
-		ground = append(ground, a)
-	}
-	sort.Slice(ground, func(i, j int) bool {
-		pi := strikePower(ground[i], false)
-		pj := strikePower(ground[j], false)
-		if pi != pj {
-			return pi > pj
-		}
-		return ground[i].obj < ground[j].obj
-	})
-	bi := 0
-	for _, a := range ground {
-		need := 1
-		if a.menace {
-			need = 2
-		}
-		if bi+need > len(bs) {
-			total += strikePower(a, false) // not enough blockers left: it gets through
-			continue
-		}
-		assigned := bs[bi : bi+need]
-		bi += need
-		var soak int32
-		for _, b := range assigned {
-			soak += b.toughness
-		}
-		p := strikePower(a, true)
-		if !a.firstStrk && !a.doubleStrk {
-			for _, b := range assigned {
-				if (b.firstStrk || b.doubleStrk) && b.power >= a.toughness {
-					p = 0 // killed in the first-strike step before it deals
-					break
-				}
-			}
-		}
-		if a.trample && p > soak {
-			total += p - soak
-		}
+		total += minDamage(a, blockers)
 	}
 	return total
+}
+
+// minDamage is the least damage one attacker can be held to using the whole
+// untapped pool. Blocker reuse across attackers is the deliberate relaxation
+// documented on guaranteedDamage.
+func minDamage(a lethalCre, blockers []lethalCre) int32 {
+	if a.unblockable {
+		return strikePower(a, false)
+	}
+	// Lane: only a flying/reach blocker can block a flyer; every blocker can
+	// block a ground attacker.
+	var pool []lethalCre
+	for _, b := range blockers {
+		if a.flying && !b.flying && !b.reach {
+			continue
+		}
+		pool = append(pool, b)
+	}
+	need := 1
+	if a.menace {
+		need = 2
+	}
+	if len(pool) < need {
+		return strikePower(a, false) // cannot be blocked by any assignment
+	}
+	// A killer ends a non-striking attacker before it deals damage. One that
+	// also strikes first lands its damage in the same step and is safe.
+	if !a.firstStrk && !a.doubleStrk {
+		for _, b := range pool {
+			if killerKills(b, a) {
+				return 0
+			}
+		}
+	}
+	if !a.trample {
+		return 0 // blocked and not trampling
+	}
+	// Trample: the opponent maximises the soak, so price the `need` biggest
+	// blockers in the pool (toughness desc, then object id -- deterministic).
+	soak := append([]lethalCre(nil), pool...)
+	sort.Slice(soak, func(i, j int) bool {
+		if soak[i].toughness != soak[j].toughness {
+			return soak[i].toughness > soak[j].toughness
+		}
+		return soak[i].obj < soak[j].obj
+	})
+	var sum int32
+	for i := 0; i < need; i++ {
+		sum += soak[i].toughness
+	}
+	if p := strikePower(a, true); p > sum {
+		return p - sum
+	}
+	return 0
+}
+
+// killerKills reports whether blocker b kills attacker a in the first-strike
+// step, so that a -- which does not strike first itself -- never deals damage.
+// A first/double-striking blocker kills with power reaching a's toughness, or
+// with deathtouch at any positive power.
+func killerKills(b, a lethalCre) bool {
+	if !b.firstStrk && !b.doubleStrk {
+		return false
+	}
+	return b.power >= a.toughness || (b.deathtouch && b.power > 0)
 }
 
 // strikePower is the damage an attacker prices per the strike model. A

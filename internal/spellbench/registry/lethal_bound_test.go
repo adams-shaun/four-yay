@@ -20,11 +20,10 @@ import (
 
 // sharedBlockersView is the probe board that broke the isolated pump delta:
 // our 3/3 trampler (obj 10) and 5/5 vanilla (obj 30) against untapped 2/2
-// and 1/1 blockers, a +2 pump in hand. Unpumped the attack guarantees 2 (the
-// vanilla eats the 2/2 for nothing, the trampler tramples the 1/1 for 2).
-// Pumping the trampler to 5 moves it ahead in power order, it now eats the
-// 2/2 for 3, and the vanilla falls to the 1/1 for nothing: the combined line
-// delivers 3, not 4.
+// and 1/1 blockers, a +2 pump in hand. Unpumped the attack guarantees 1: the
+// vanilla block is free for the opponent (0), and the trampler's worst case
+// is the 2/2 soak, an excess of 1. Pumping the trampler to 5 raises the
+// combined line to 3 (the trampler's excess over the 2/2), a gain of 2.
 func sharedBlockersView(life int32) view.View {
 	return view.View{
 		Viewer: 0, Active: 0, Phase: "main1",
