@@ -348,6 +348,12 @@ var policies = map[string]func(seed uint64) seat.Seat{
 		w.Race = false
 		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
 	},
+	// sb-tactical-arch is the Archetype idea group: it reads the opponent's
+	// colours and playing style from public cards and re-weights the tactical
+	// weights as a counter-strategy.
+	"sb-tactical-arch": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalArchW)
+	},
 	"sb-tactical-alt": func(seed uint64) seat.Seat {
 		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[0])
 	},
@@ -370,10 +376,18 @@ func tacticalAlt(i int) func(seed uint64) seat.Seat {
 var (
 	tacticalLookup     builtins.CardLookup
 	tacticalWeights    = builtins.DefaultTacticalWeights()
+	tacticalArchW      = builtins.DefaultTacticalWeights()
 	tacticalAltWeights = [8]builtins.TacticalWeights{builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
 		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
 		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights()}
 )
+
+func init() {
+	// sb-tactical-arch is the Archetype idea group on top of the default
+	// tactical weights; the arch policy must not be tunable through the
+	// sb-tactical weight JSON, so it gets its own defaulted copy.
+	tacticalArchW.Archetype = true
+}
 
 func setTacticalRegistry(reg *cards.Registry) {
 	if tacticalLookup == nil {

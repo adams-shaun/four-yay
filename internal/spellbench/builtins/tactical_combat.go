@@ -211,6 +211,27 @@ func (t *tactical) blockers(v view.View, d *decision.Decision) decision.Intent {
 		})
 		return out
 	}
+	// Group 4: against burn/aggro, life is a resource they are spending, so
+	// chump earlier than the pure race rules would: spend our least valuable
+	// free blocker on the biggest unblocked attacker even when the hit is not
+	// lethal. Scaled by ArchBlock, which is 1.0 when the group is off.
+	if s.arch.burnThreat > 0.15 && t.w.ArchBlock > 1 && incoming() < s.myLife {
+		as := append([]*tcre(nil), attackers...)
+		sortCre(as, func(x, y *tcre) bool { return x.pow > y.pow || (x.pow == y.pow && x.id < y.id) })
+		for _, a := range as {
+			if len(blocksOf[a.id]) > 0 || a.menace || a.pow < 2 {
+				continue
+			}
+			for _, b := range free() {
+				if _, ok := opt[pair{b.id, a.id}]; ok {
+					blocksOf[a.id] = append(blocksOf[a.id], b)
+					usedB[b.id] = true
+					break
+				}
+			}
+			break
+		}
+	}
 	// Rule 1: survive.
 	if incoming() >= s.myLife {
 		as := append([]*tcre(nil), attackers...)

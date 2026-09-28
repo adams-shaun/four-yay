@@ -57,7 +57,7 @@ func (t *tactical) costValue(s *tstate, cost string, src state.ObjID) float64 {
 		case "ExileFromGrave":
 			v += 0.3
 		case "PayLife":
-			v += s.lifeValue(s.myLife, n)
+			v += s.ownLifeValue(n)
 		case "AddCounter":
 			v += 0.5
 		}

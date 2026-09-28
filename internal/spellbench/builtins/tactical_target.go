@@ -127,7 +127,7 @@ func (t *tactical) targetValue(s *tstate, e *tEffect, tg *ttarget, src state.Obj
 		case effDamage, effDrain:
 			dmg := t.effDamage(s, e, src, dmgOverride)
 			if mine {
-				return -s.lifeValue(s.myLife, dmg) * 2
+				return -s.ownLifeValue(dmg) * 2
 			}
 			return s.faceValue(dmg)
 		case effMill:
@@ -153,7 +153,7 @@ func (t *tactical) targetValue(s *tstate, e *tEffect, tg *ttarget, src state.Obj
 			return -w.Card
 		case effLifeGain:
 			if mine {
-				return s.lifeValue(s.myLife, max(e.amount, 1))
+				return s.ownLifeValue(max(e.amount, 1))
 			}
 			return -1
 		}
@@ -356,7 +356,7 @@ func (t *tactical) combatSwing(s *tstate, c *tcre, att, def int32, kw string, ha
 			if c.mine {
 				v = s.faceValue(att)
 			} else {
-				v = s.lifeValue(s.myLife, att)
+				v = s.ownLifeValue(att)
 			}
 			if harm {
 				return -v
