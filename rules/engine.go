@@ -75,6 +75,9 @@ type Config struct {
 	// acceptance config sets it so the 12-deck suite exercises keep/mulligan
 	// and bottoming.
 	Mulligans int
+	// WindowDiagnostics opts this table into per-priority-option withholding
+	// reasons. It is observer-only and emits no events.
+	WindowDiagnostics bool
 	// Tokens is the token definitions the decks in this match can create --
 	// cards.Registry.Tokens. Copied onto Game.Tokens in New so
 	// events.Apply's TokenCreate case has something to mint from. Replay
@@ -235,6 +238,9 @@ type Engine struct {
 	// hand-off the genesis branch would have taken, and cfg is not otherwise
 	// retained. Plain int, so Clone copies it.
 	mulligans int
+	// windowDiagnostics is the default-off, observer-only priority sidecar
+	// gate copied from genesis Config.
+	windowDiagnostics bool
 	// startingLife is Config.StartingLife with the 0-means-20 convention
 	// already resolved at genesis — the value state.NewGameLife opened the
 	// game with. It is the effects.Host StartingLife backing (the
@@ -2256,16 +2262,17 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		spare, *cfg.Spare = *cfg.Spare, Spare{}
 	}
 	e := &Engine{
-		G:             state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),
-		L:             events.NewLogInto(cfg.Seed, spare.events),
-		format:        cfg.Format,
-		rng:           random,
-		loop:          newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
-		turnsTaken:    make([]int32, len(cfg.Names)),
-		compiledText:  newCompiledText(cfg),
-		landTypeWords: corpusLandTypeWords(cfg.NameUniverse),
-		mulligans:     cfg.Mulligans,
-		startingLife:  life,
+		G:                 state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),
+		L:                 events.NewLogInto(cfg.Seed, spare.events),
+		format:            cfg.Format,
+		rng:               random,
+		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
+		turnsTaken:        make([]int32, len(cfg.Names)),
+		compiledText:      newCompiledText(cfg),
+		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
+		mulligans:         cfg.Mulligans,
+		windowDiagnostics: cfg.WindowDiagnostics,
+		startingLife:      life,
 		// The per-turn ManaExpend tally (rules/cast.go) starts empty; payCast
 		// stamps and resets it lazily on e.G.Turn.
 		manaExpended: make([]int32, len(cfg.Names)),

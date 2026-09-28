@@ -1751,6 +1751,13 @@ var apiSpecificRulesStat = map[string]string{
 	// (handRoots.stat), which masked ValidSA$/EffectZone$ for every plain
 	// Continuous static.
 	"Engine.mayPlayGrantScoped": "Continuous.MayPlay",
+	// The permission enumerator (rules/mayplay.go's mayPlayPermissions,
+	// called from legal.go's mayPlaySpellIds to list each still-unused
+	// MayPlayText$-typed permission) reads MayPlay statics directly through
+	// mayPlayStatic, so it is a family root exactly like the grant path --
+	// left generic it would mask a plain Continuous static's real unread
+	// keys.
+	"Engine.mayPlayPermissions": "Continuous.MayPlay",
 	"warpGraveyardAllowed":      "Continuous.MayPlay",
 	// The raise walk (rules/mayplay.go's mayPlayRaiseCost, called from
 	// legal.go's may-play spell word and land walks and cast.go's "mayplay"
@@ -2470,6 +2477,9 @@ var ignoredParamKeys = map[string]string{
 }
 
 // ignoredStatParams scopes a presentation key to individual stat modes.
+// ignoredAbilityParams scopes an inert key to one api primitive. PumpZone is
+// inert on api:Effect (Forge EffectEffect does not read it), but is read by
+// api:Pump and api:PumpAll, so it cannot be key-global.
 // ignoredParamKeys is consulted with the BARE key in every bucket, so a key
 // some primitives genuinely read can never go in it. Secondary$ is that
 // key: on a static it is Forge's card-text dedup marker --
@@ -2501,6 +2511,10 @@ var statPresentationSecondary = []string{
 	"CastWithFlash", "CantGainLife", "CantTarget", "Panharmonicon",
 }
 
+var ignoredAbilityParams = map[string]string{
+	"Effect.PumpZone": "inert on api:Effect (EffectEffect.java reads no PumpZone; only PumpEffect.java:439 does)",
+}
+
 var ignoredStatParams = func() map[string]string {
 	const cite = "static text-dedup marker; forge-game/src/main/java/forge/game/CardTraitBase.java:179 (Card.java getText callers only)"
 	m := make(map[string]string, len(statPresentationSecondary))
@@ -2511,11 +2525,13 @@ var ignoredStatParams = func() map[string]string {
 }()
 
 // ignoredParam is the census's single classification point for a parameter
-// key: the key-global ignoredParamKeys table, then the stat-mode-scoped
-// overlay (consulted only for a "stat:" primitive, so trigger, SA and
-// replacement reads stay measurable no matter what lands in the overlay).
+// key: the key-global table, then api- and stat-scoped overlays. Scoped
+// entries cannot suppress reads by sibling primitives or other buckets.
 func ignoredParam(prim, key string) bool {
 	if ignoredParamKeys[key] != "" {
+		return true
+	}
+	if api, ok := strings.CutPrefix(prim, "api:"); ok && ignoredAbilityParams[api+"."+key] != "" {
 		return true
 	}
 	if mode, ok := strings.CutPrefix(prim, "stat:"); ok {
@@ -2968,11 +2984,15 @@ var knownUnsupportedParams = map[string][]string{
 	// param:api:Play.WithoutManaCost row retired with the same attribution
 	// fix (see the Spinerock Knoll note above).
 	"World Shaper": {"param:api:Mill.Optional"},
-	// Torment of Hailfire's FallbackAbility$/TempRemember$ are unread
-	// everywhere: its DB$ GenericChoice now resolves through effCharm's
-	// modal ask (effects/misc.go), but these two params ride the ask and
-	// neither is read by any code (pinned in rules/generic_choice_test.go).
-	"Torment of Hailfire": {"param:api:GenericChoice.FallbackAbility", "param:api:GenericChoice.TempRemember"},
+	// Torment of Hailfire and Hag of Ceaseless Torment carry
+	// api:GenericChoice's FallbackAbility$/TempRemember$ on the per-player
+	// path; both are read now (effects/misc.go charmGenericPlayersRun
+	// gates the chooser binding on TempRemember$ Chooser and filters the
+	// Choices$ to those the chooser can pay, resolving FallbackAbility$
+	// when none can), pinned end to end on the FDN carrier Perforating
+	// Artist in rules/perforating_artist_test.go. Their entries left this
+	// table with the read.
+	//
 	// The pro-shaper player-submitted Commander import (2026-09-18): the
 	// parameter reads its cards expose that this build does not implement.
 	// Each label is the unimplemented parameter on a fully-registered

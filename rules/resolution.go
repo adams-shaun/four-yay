@@ -221,6 +221,7 @@ type resumePoint struct {
 	// for its chooser and the remaining choosers are still asked.
 	genericChoosers     []state.Target
 	genericChooserIndex int
+	genericRemembered   []state.Target
 	genericChoice       string
 	// flipCursor is the DB$ FlipCoin loop position a kind "flip_rest" frame
 	// re-enters with (the remaining flips a per-flip sub-ability's nested ask
@@ -486,6 +487,7 @@ type contFrame struct {
 	genericChoiceRest   bool
 	genericChoosers     []state.Target
 	genericChooserIndex int
+	genericRemembered   []state.Target
 	// flipRest marks a frame that re-enters a DB$ FlipCoin's own SA (not
 	// sa.Sub) with the flip cursor below, continuing the flips a per-flip
 	// sub-ability's nested ask left unrun. The reported sa IS the FlipCoin SA,
@@ -1095,7 +1097,8 @@ func (e *Engine) SuspendGenericChoiceRest(sa *cards.SA, rest effects.GenericChoi
 	}
 	e.contChain = append(e.contChain, contFrame{sa: sa, genericChoiceRest: true,
 		genericChoosers:     append([]state.Target(nil), rest.Choosers...),
-		genericChooserIndex: rest.Next})
+		genericChooserIndex: rest.Next,
+		genericRemembered:   append([]state.Target(nil), rest.Remembered...)})
 	e.repeatReported = sa
 }
 
@@ -3962,14 +3965,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			ctx.GenericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 			ctx.GenericChooserIndex = rp.genericChooserIndex + 1
 		case "generic_players_rest":
-			// A multi-player GenericChoice's chosen body suspended on its own
-			// nested ask and that ask's chain has completed: re-enter the
-			// primitive with the chooser cursor restored to ask the remaining
-			// Defined$ choosers. Ctx.Modes is cleared — this frame carries no
-			// answered mode (it was consumed by the body that suspended).
+			// Re-enter after the chosen body's nested ask, restoring both the
+			// remaining chooser cursor and the enclosing remembered set.
 			ctx.Modes = nil
 			ctx.GenericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 			ctx.GenericChooserIndex = rp.genericChooserIndex
+			ctx.Remembered = append([]state.Target(nil), rp.genericRemembered...)
 		case "token_rest":
 			// A DB$ Token's mint parked behind a replacement-order ask and
 			// the answer has minted it: re-enter the Token with its frozen
@@ -4440,6 +4441,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			f.kind, f.sa = "generic_players_rest", sa
 			f.genericChoosers = append([]state.Target(nil), cf.genericChoosers...)
 			f.genericChooserIndex = cf.genericChooserIndex
+			f.genericRemembered = append([]state.Target(nil), cf.genericRemembered...)
 		} else if cf.flipRest {
 			// The FlipCoin re-enters ITSELF (rp.sa = the FlipCoin SA, not
 			// sa.Sub — a FlipCoin body has no SubAbility$ chain of its own to

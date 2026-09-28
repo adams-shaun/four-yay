@@ -885,8 +885,9 @@ type VillainousRest struct {
 // host can carry it on its own continuation frame and replay re-derives it
 // identically.
 type GenericChoiceRest struct {
-	Choosers []state.Target
-	Next     int
+	Choosers   []state.Target
+	Next       int
+	Remembered []state.Target
 }
 
 // DamageSourceLKI is the pre-departure damage provenance of one object.
