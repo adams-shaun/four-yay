@@ -11,12 +11,13 @@ import (
 // Names are the registered shadow policies (cmd/sbagent -policy shadow-*):
 //
 //	tactical              sb-tactical on the shadow
+//	generic               route (a): the hint-free v1 policy (sb-generic) on v2 observations
 //	search                sb-search's default budget (16 worlds, to game end)
 //	search-fast[-atk]     8 worlds, 3-turn horizon (+ attack declarations searched)
 //	search-lite[-atk]     4 worlds, 2-turn horizon (+ attacks)
 //	search-wN-hM[-atk]    N worlds, M-turn horizon
 //	fallback              the fallback policy only (a plumbing control)
-var Names = []string{"tactical", "search", "search-fast", "search-fast-atk", "search-lite", "search-lite-atk", "fallback"}
+var Names = []string{"tactical", "generic", "search", "search-fast", "search-fast-atk", "search-lite", "search-lite-atk", "fallback"}
 
 // NamedConfig returns the Config of a registered shadow policy name (the
 // part after "shadow-"). The registry, seed, clock and trace are the
@@ -29,6 +30,9 @@ func NamedConfig(name string, reg *cards.Registry) (Config, error) {
 		return cfg, nil
 	case name == "fallback":
 		cfg.Mode = ModeFallback
+		return cfg, nil
+	case name == "generic":
+		cfg.Mode = ModeGeneric
 		return cfg, nil
 	case strings.HasPrefix(name, "search"):
 		cfg.Mode = ModeSearch

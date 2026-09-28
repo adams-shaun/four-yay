@@ -735,8 +735,10 @@ func (b *builder) stageStack() {
 			}
 			b.stageTargets(id, it)
 		case it.StackKind == "spell":
-			b.sh.Fatal = "copied spell on the stack"
-			return
+			// A copy of a spell: left off the stack (the shadow decides
+			// without it, and treats the stack as not empty).
+			b.lossy("copied spell skipped")
+			b.sh.StackGap = true
 		case it.StackKind == "triggered_ability" || it.StackKind == "activated_ability":
 			if why := b.stageAbility(it, ctrl); why != "" {
 				// An ability the shadow cannot identify (a dungeon room,

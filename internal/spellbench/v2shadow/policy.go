@@ -35,6 +35,10 @@ const (
 	// ModeFallback answers every decision with the fallback policy (a
 	// control arm: the same agent plumbing without the shadow).
 	ModeFallback = "fallback"
+	// ModeGeneric is route (a): the hint-free v1 policy (sb-generic)
+	// ported to v2 observations, choosing priority plays and combat
+	// declarations among the shadow's options (generic.go).
+	ModeGeneric = "generic"
 )
 
 // Decision classes.
@@ -154,11 +158,14 @@ type Policy struct {
 	seed  uint64
 	gs    *builtins.Seat
 	srch  *sbsearch.Seat
+	gen   *genericState
 	// manual: the engine poses mana abilities (no engine_autopay), so a
 	// planner-paid cast is lowered here (low) onto the wire's taps.
 	manual bool
 	low    *lowering
 	plan   *followPlan
+	// curDecision is the wire decision being answered (route (a) reads it).
+	curDecision *v2agent.Decision
 	// t0 is the current decision's start (Clock), clocked the budget.
 	t0      float64
 	clocked bool
@@ -175,7 +182,7 @@ type Policy struct {
 // New builds a Policy.
 func New(cfg Config) (*Policy, error) {
 	switch cfg.Mode {
-	case ModeTactical, ModeSearch, ModeFallback:
+	case ModeTactical, ModeSearch, ModeFallback, ModeGeneric:
 	default:
 		return nil, fmt.Errorf("v2shadow: unknown mode %q", cfg.Mode)
 	}
@@ -230,9 +237,12 @@ func (p *Policy) GameStart(g *v2agent.GameStart) {
 	// sb-tactical always plays AutoPay in the shadow: a planner-paid cast
 	// is its answer, lowered here onto a manual engine's taps.
 	p.gs = builtins.NewTactical(builtins.AutoPay, p.seed^0x7461632d, p.look, w)
-	p.srch = nil
-	if p.cfg.Mode == ModeSearch {
+	p.srch, p.gen = nil, nil
+	switch p.cfg.Mode {
+	case ModeSearch:
 		p.srch = sbsearch.New(p.gs, p.seed^0x73726368, p.cfg.Search)
+	case ModeGeneric:
+		p.gen = newGenericState(g)
 	}
 }
 
@@ -251,6 +261,7 @@ func (p *Policy) decisionSeed(d *v2agent.Decision) uint64 {
 // failure is the fallback's answer, counted.
 func (p *Policy) Choose(d *v2agent.Decision) (pick int, err error) {
 	p.Stats.Decisions++
+	p.curDecision = d
 	if p.cfg.Clock != nil {
 		p.t0, p.clocked = p.cfg.Clock(), false
 	}
@@ -638,6 +649,24 @@ func (p *Policy) rootAnswer(sh *Shadow, rd *decision.Decision) (decision.Intent,
 		rd = pd
 	}
 	p.gs.SetPlanner(sh.E)
+	if p.gen != nil && p.curDecision != nil {
+		var in decision.Intent
+		var err error
+		switch pd.Kind {
+		case decision.KPriority:
+			in, err = p.genericPriority(sh, p.curDecision, rd)
+		case decision.KAttackers:
+			in, err = p.genericAttack(sh, p.curDecision, pd)
+		case decision.KBlockers:
+			in, err = p.genericBlock(sh, p.curDecision, pd)
+		default:
+			err = fmt.Errorf("kind %s", pd.Kind)
+		}
+		if err == nil {
+			return in, nil
+		}
+		p.Stats.Reasons["generic: "+lossyKey(err.Error())]++
+	}
 	if p.srch == nil || (pd.Kind != decision.KPriority && pd.Kind != decision.KAttackers) {
 		return p.gs.Decide(context.Background(), gorgeView(sh, rd), *rd)
 	}
@@ -1161,6 +1190,12 @@ func sourceMatches(sh *Shadow, d *v2agent.Decision, nd *decision.Decision) bool 
 // from the wire alone: a mana colour (the lowering's witness when one is
 // running, else the colour our hand wants most).
 func (p *Policy) smartChoice(d *v2agent.Decision) (int, bool) {
+	if k, ok := smartTarget(d); ok {
+		return k, true
+	}
+	if k, ok := smartDiscard(d); ok {
+		return k, true
+	}
 	var colours []int
 	for i := range d.Candidates {
 		if d.Candidates[i].Semantic.Kind == "choose_color" {
@@ -1196,6 +1231,107 @@ func (p *Policy) smartChoice(d *v2agent.Decision) (int, bool) {
 		}
 	}
 	return best, true
+}
+
+// smartTarget answers a choose_target the shadow could not re-pose (its
+// source is off the stack: a dungeon room, a rules-level trigger) without
+// knowing the effect: a player target is the opponent; among objects, our
+// own best creature when one is offered (the rooms and riders that target
+// "a creature" are mostly beneficial), else the opponent's best.
+func smartTarget(d *v2agent.Decision) (int, bool) {
+	obs := d.Observation()
+	best, bestV := -1, -1.0
+	for i := range d.Candidates {
+		s := &d.Candidates[i].Semantic
+		if s.Kind != "choose_target" || s.Target == nil {
+			continue
+		}
+		v := 0.0
+		switch {
+		case s.Target.Player != nil:
+			if *s.Target.Player != obs.Viewer {
+				v = 50
+			}
+		case s.Target.Object != nil:
+			r := obs.Object(s.Target.Object.ObjectID)
+			if r == nil {
+				continue
+			}
+			v = 1 + objValue(r)
+			if r.ControllerSeat == obs.Viewer {
+				v += 100
+			}
+		}
+		if v > bestV {
+			best, bestV = i, v
+		}
+	}
+	return best, best >= 0
+}
+
+// objValue is a rough value of an object: power plus toughness for a
+// creature, its mana value otherwise.
+func objValue(r *v2agent.ObjectRecord) float64 {
+	c := r.Characteristics
+	if c == nil {
+		return 0
+	}
+	if c.Power != nil && c.Toughness != nil {
+		return float64(*c.Power) + float64(*c.Toughness)
+	}
+	return float64(c.ManaValue) / 2
+}
+
+// smartDiscard answers a discard selection the shadow could not re-pose:
+// a land when we have plenty of them (on the battlefield and in hand),
+// else the most expensive card we cannot cast soon.
+func smartDiscard(d *v2agent.Decision) (int, bool) {
+	obs := d.Observation()
+	me := obs.Me()
+	if me == nil || d.Seat == nil || d.Seat.Context.Purpose == nil || *d.Seat.Context.Purpose != "discard" {
+		return 0, false
+	}
+	lands := 0
+	for _, r := range me.Battlefield {
+		if r.Characteristics != nil && r.Characteristics.HasType("land") {
+			lands++
+		}
+	}
+	handLands := 0
+	for _, r := range me.Hand {
+		if r.Characteristics != nil && r.Characteristics.HasType("land") {
+			handLands++
+		}
+	}
+	best, bestV := -1, -1e9
+	for i := range d.Candidates {
+		s := &d.Candidates[i].Semantic
+		if s.Kind != "select_object" || len(s.Choice) == 0 {
+			continue
+		}
+		var t v2agent.TargetRef
+		if json.Unmarshal(s.Choice, &t) != nil || t.Object == nil {
+			continue
+		}
+		r := obs.Object(t.Object.ObjectID)
+		if r == nil || r.Characteristics == nil {
+			continue
+		}
+		v := 0.0
+		if r.Characteristics.HasType("land") {
+			if lands+handLands >= 5 {
+				v = 10
+			} else {
+				v = -10
+			}
+		} else {
+			v = float64(r.Characteristics.ManaValue) - float64(lands)
+		}
+		if v > bestV {
+			best, bestV = i, v
+		}
+	}
+	return best, best >= 0
 }
 
 // colourIndex is a colour word's index in decision.ManaAmount (W U B R G C).
@@ -1293,7 +1429,7 @@ func (p *Policy) block(d *v2agent.Decision) (int, bool, string) {
 		if pd.Kind != decision.KBlockers {
 			return 0, false, "staged kind " + string(pd.Kind)
 		}
-		in, err := p.ask(sh)
+		in, err := p.rootAnswer(sh, nil)
 		if err != nil {
 			return 0, false, "policy: " + err.Error()
 		}
