@@ -34,13 +34,7 @@ func TestCopyPermanentAtEOTTrigSacrificeAndCopy(t *testing.T) {
 				return id
 			}
 		}
-		for i := range e.G.Objs {
-			o := &e.G.Objs[i]
-			if o.ID != 0 {
-				t.Logf("obj %d zone=%v token=%v body=%q ctrl=%d", o.ID, o.Zone, o.IsToken, o.AtEOTTrigBody, o.Controller)
-			}
-		}
-		t.Fatalf("CopyPermanent did not mint an AtEOTTrig token; bf0=%v events: %+v", e.G.Zone(state.ZBattlefield, 0), e.L.Events)
+		t.Fatalf("CopyPermanent did not mint an AtEOTTrig token; events: %+v", e.L.Events)
 		return 0
 	}
 
