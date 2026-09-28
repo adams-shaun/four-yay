@@ -1,0 +1,164 @@
+{
+  "card": "Conduit of Ruin",
+  "family": "cost-modifier",
+  "oracle_sha": "41739076a677",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "first-creature-two-less",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Conduit discounts the first creature spell this turn by two; a 1G Bear needs only green.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Conduit of Ruin"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "G",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "second-creature-not-reduced",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A first creature cast uses the turn\u2019s discount; a second 1G Bear cannot be cast for one green.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Conduit of Ruin"
+          ],
+          "hand": [
+            "Grizzly Bears",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "G",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears#2"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "noncreature-before-creature-does-not-count",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "An artifact cast before the first creature does not consume the creature-spell discount.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Conduit of Ruin"
+          ],
+          "hand": [
+            "Bonesplitter",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "mana": "C",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "G",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

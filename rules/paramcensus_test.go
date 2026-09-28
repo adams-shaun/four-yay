@@ -1172,7 +1172,12 @@ var stringMapParams = map[string]string{
 	// effects/misc.go parseStaticLine: svars is the face's SVars table (a
 	// cards.SA's SVar: bodies), read by NAME to fetch a static line -- not a
 	// card Params map.
-	"effects:parseStaticLine:svars":          "SVars table lookup by static-line name, not a card Params map",
+	"effects:parseStaticLine:svars": "SVars table lookup by static-line name, not a card Params map",
+	// rules/stack.go staticModesFromSVars: svars is the face's SVar table
+	// (ctx.SVars / abFace.SVars), read by NAME -- the StaticAbilities$ list
+	// from the SA's own Params -- to fetch each granted static line's Mode$
+	// value; not a card Params map.
+	"rules:staticModesFromSVars:svars":       "SVars table lookup by StaticAbilities$ name, not a card Params map",
 	"effects:CloneStaticGrantReadable:svars": "SVars table lookup by named Clone static, not a card Params map",
 	// Goad-static helpers inspect map arguments copied from parsed SVar
 	// statics, not card SA Params; their callers classify the actual source.
@@ -1556,6 +1561,12 @@ var apiSpecificRulesSA = map[string][]string{
 	// api:Mana alone -- left in the generic union they mask every other API's
 	// unread Produced$ (measured: api:Sacrifice/api:DealDamage).
 	"Engine.attackChoiceManaSources": {"Mana"},
+	// The announced select-mana window's per-colour flattening
+	// (rules/announce_pay.go, announce-then-pay spec §4.2): its Produced$
+	// read sits behind an explicit ma.API == "Mana" guard, so it belongs to
+	// api:Mana alone -- left in the generic union it masks api:Sacrifice's
+	// and api:DealDamage's unread Produced$.
+	"Engine.announcedAbilityColours": {"Mana"},
 	// The cast-payment window's activation-cost layer: castWindowProbeUnits
 	// walks untapped api:Mana abilities (with the live-pool payability gate
 	// lifted, so a fee an earlier same-window activation funds is priced) and

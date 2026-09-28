@@ -1,0 +1,125 @@
+{
+  "card": "Jeska's Will",
+  "family": "command-zone",
+  "oracle_sha": "8c0c33433da0",
+  "author": "cli-20260927T211250Z-1c17051b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-commander-one-mode-hand-count-two",
+      "cr": [
+        "903.3",
+        "601.2b",
+        "608.2c"
+      ],
+      "why": "With the commander only in the command zone, the caster chooses one mode; two cards in the opponent\u2019s hand make the mana mode generate exactly two red mana.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Jeska's Will"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Grizzly Bears",
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Jeska's Will",
+          "mana": "CCR",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "RR"
+          }
+        }
+      ]
+    },
+    {
+      "name": "controlled-commander-both-modes-hand-count-three",
+      "cr": [
+        "903.3",
+        "601.2b",
+        "608.2c"
+      ],
+      "why": "Control of the commander as the spell is cast permits choosing both modes; three cards in the opponent\u2019s hand yield three red mana and three exiled library cards.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Jeska's Will"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Grizzly Bears",
+            "Savannah Lions",
+            "Centaur Courser"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Jeska's Will",
+          "mana": "CCR",
+          "targets": [
+            "p1"
+          ],
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "Add {R}",
+                "Exile the top three"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "RRR"
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "exile",
+            "name": "Wastes"
+          },
+          "eq": 3
+        }
+      ]
+    }
+  ]
+}

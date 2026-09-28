@@ -1,0 +1,153 @@
+{
+  "card": "Path of Ancestry",
+  "family": "command-zone",
+  "oracle_sha": "5a66371cbb8b",
+  "author": "cli-20260927T211249Z-7acc6934 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tapped",
+      "cr": [
+        "614.1c",
+        "903.6"
+      ],
+      "why": "Playing the land from hand puts it onto the battlefield tapped; the designated commander remains in its own zone.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Path of Ancestry"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Path of Ancestry"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Path of Ancestry",
+          "zone": "battlefield",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "different-creature-type-no-scry",
+      "cr": [
+        "903.3e",
+        "603.2",
+        "605.1a"
+      ],
+      "why": "The Cat spell shares no creature type with the Dog commander. Spending this land’s white mana to cast it does not trigger scry.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Path of Ancestry"
+          ],
+          "hand": [
+            "Savannah Lions"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Path of Ancestry",
+          "ability": "for mana",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "White"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Path of Ancestry",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "shared-creature-type-scry",
+      "cr": [
+        "903.3e",
+        "603.2",
+        "605.1a"
+      ],
+      "why": "The commander and another Dog share a type. Spending white from this land on that creature spell triggers its scry instruction.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Path of Ancestry"
+          ],
+          "hand": [
+            "Alpine Watchdog"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Path of Ancestry",
+          "ability": "for mana",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "White"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Alpine Watchdog",
+          "mana": "C",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Path of Ancestry",
+              "want": true
+            }
+          ]
+        }
+      ],
+      "expect": []
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "card": "Gatekeeper of Malakir",
+  "family": "trigger-condition",
+  "oracle_sha": "8da9fc7614fe",
+  "author": "cli-20260927T211250Z-75464868 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "kicked-target-sacrifices",
+      "cr": [
+        "702.33a",
+        "603.4"
+      ],
+      "why": "Paying the extra black mana on casting makes the entry condition true; the target player must sacrifice their only creature.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gatekeeper of Malakir"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Gatekeeper of Malakir",
+          "mana": "BBB",
+          "kicked": true,
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p1"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "not-kicked-no-trigger",
+      "cr": [
+        "702.33a",
+        "603.4"
+      ],
+      "why": "Casting without the additional cost makes the entry condition false, so no sacrifice ability goes on the stack.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gatekeeper of Malakir"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Gatekeeper of Malakir",
+          "mana": "BB"
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Gatekeeper of Malakir",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "uncast-entry-no-conditional-trigger",
+      "cr": [
+        "603.4",
+        "702.33a"
+      ],
+      "why": "Entering without having been cast with kicker cannot produce a sacrifice trigger; the opposing creature remains.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gatekeeper of Malakir"
+          ],
+          "battlefield": []
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Gatekeeper of Malakir",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Gatekeeper of Malakir",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

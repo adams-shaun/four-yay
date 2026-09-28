@@ -1,0 +1,128 @@
+{
+  "card": "Kederekt Parasite",
+  "family": "trigger-condition",
+  "oracle_sha": "38c285c75e56",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "red-permanent-opponent-draws",
+      "cr": [
+        "603.4",
+        "504.1"
+      ],
+      "why": "The controller has a red permanent as the opponent draws in their draw step; the optional trigger can deal one.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Kederekt Parasite",
+            "Harsh Mentor"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "draw",
+          "active": "p1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Kederekt Parasite",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 19
+          }
+        }
+      ]
+    },
+    {
+      "name": "no-red-permanent-no-trigger",
+      "cr": [
+        "603.4",
+        "504.1"
+      ],
+      "why": "The controller has only a black creature, so an opponent draw does not put the conditional trigger on the stack.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Kederekt Parasite"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "draw",
+          "active": "p1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Kederekt Parasite",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 20
+          }
+        }
+      ]
+    },
+    {
+      "name": "red-permanent-leaves-before-resolution",
+      "cr": [
+        "603.4"
+      ],
+      "why": "The red permanent exists when the opponent draws, but is gone by resolution; the intervening condition is checked again and prevents damage.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Kederekt Parasite",
+            "Harsh Mentor"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "draw",
+          "active": "p1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Kederekt Parasite",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "move",
+          "card": "p0:Harsh Mentor",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 20
+          }
+        }
+      ]
+    }
+  ]
+}

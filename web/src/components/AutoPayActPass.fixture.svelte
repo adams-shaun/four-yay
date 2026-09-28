@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CardView, Decision, PaymentPlan, PlayerView, SeatInfo, View } from '../protocol';
   import { SeatPanelState } from '../lib/seatpanel.svelte';
+  import { castableActions } from '../lib/announcepay';
   import SeatPanel from './SeatPanel.svelte';
   import HotButtonStrip from './HotButtonStrip.svelte';
   import HandFan from './HandFan.svelte';
@@ -114,6 +115,6 @@
   <HotButtonStrip {view} {seats} state={panel} {ctx} table="fixture" match={1} />
   {#if surface === 'hand'}
     <!-- Table.svelte's HandFan wiring, verbatim. -->
-    <HandFan player={view.players[0]} width={900} paymentActions={panel?.autoManaAvailable && panel.autoPayMana ? (panel.active?.payment_actions ?? []) : []} onCastPayment={(action, holdPriority) => panel?.submitPayment(action, action.plans[0], holdPriority)} />
+    <HandFan player={view.players[0]} width={900} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
   {/if}
 {/if}

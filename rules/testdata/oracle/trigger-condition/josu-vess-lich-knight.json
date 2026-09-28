@@ -1,0 +1,136 @@
+{
+  "card": "Josu Vess, Lich Knight",
+  "family": "trigger-condition",
+  "oracle_sha": "50c482362629",
+  "author": "cli-20260927T211250Z-75464868 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "kicked-creates-eight-knights",
+      "cr": [
+        "702.33a",
+        "603.4"
+      ],
+      "why": "The additional kicker cost was paid as the spell was cast; on entry the ability makes exactly eight Zombie Knights.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Josu Vess, Lich Knight"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Josu Vess, Lich Knight",
+          "mana": "BBBBBBBBBB",
+          "kicked": true
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Zombie Knight",
+            "token": true
+          },
+          "eq": 8
+        }
+      ]
+    },
+    {
+      "name": "not-kicked-no-knights",
+      "cr": [
+        "702.33a",
+        "603.4"
+      ],
+      "why": "No kicker cost was paid, so the conditional entry ability is absent rather than merely producing zero tokens.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Josu Vess, Lich Knight"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Josu Vess, Lich Knight",
+          "mana": "BBBB"
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Josu Vess, Lich Knight",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Zombie Knight",
+            "token": true
+          },
+          "eq": 0
+        },
+        {
+          "card": "p0:Josu Vess, Lich Knight",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "uncast-entry-no-conditional-trigger",
+      "cr": [
+        "603.4",
+        "702.33a"
+      ],
+      "why": "Putting this creature onto the battlefield without paying a kicker cost does not create the conditional token trigger.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Josu Vess, Lich Knight"
+          ],
+          "battlefield": []
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Josu Vess, Lich Knight",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Josu Vess, Lich Knight",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Zombie Knight",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}

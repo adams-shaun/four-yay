@@ -435,21 +435,33 @@ var beneficialGrantModes = map[string]bool{
 	"CanAttackDefender": true,
 }
 
+// boonStaticsOnly is the ONE polarity classifier for a list of granted static
+// modes: it reports whether the list is non-empty and every mode in it is a
+// readable one-way boon (beneficialGrantModes). Both consumers of the static
+// payload go through it -- the KTarget branch reads it over the decision's
+// TargetEffect.Statics (beneficialGrant), and the ability scorer reads it
+// over the offer-time twin on the ability option (decision.Option's
+// GrantStatics, A1c in ability.go) -- so the activation-side decline and the
+// target-side aim can never disagree about what counts as a boon.
+func boonStaticsOnly(statics []string) bool {
+	if len(statics) == 0 {
+		return false
+	}
+	for _, mode := range statics {
+		if !beneficialGrantModes[mode] {
+			return false
+		}
+	}
+	return true
+}
+
 // beneficialGrant reports whether a KTarget decision's effect is a readable
 // Effect that grants only boon statics to its target. An absent/empty Statics
 // (the unknown-is-no rule), or ANY mode outside the set, reports false and
 // stays on today's ranking -- an unknown is never treated as friendly, just
 // as it is never treated as lethal elsewhere in this file.
 func beneficialGrant(te *decision.TargetEffect) bool {
-	if te == nil || len(te.Statics) == 0 {
-		return false
-	}
-	for _, mode := range te.Statics {
-		if !beneficialGrantModes[mode] {
-			return false
-		}
-	}
-	return true
+	return te != nil && boonStaticsOnly(te.Statics)
 }
 
 func (b Board) removalRanker(me state.PlayerID, effect *decision.TargetEffect) func(decision.Option) targetRank {
@@ -718,13 +730,46 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 			return s[i].idx < s[j].idx
 		})
 	}
+	// byScoreAsc is the grant branch's totality floor ordering: ascending
+	// threat with the same index tie-break, so the residual foreign pick is
+	// the weakest offered option, never the strongest (see the R1B note
+	// above). A "player" option is pinned to the very END of the order:
+	// a boon's granted statics target creatures, so a face pick is never a
+	// sensible answer while any foreign creature is offered -- but it must
+	// remain available for totality when no foreign creature is offered.
+	byScoreAsc := func(s []targetRank) {
+		harm := func(r targetRank) int32 {
+			if d.Options[r.idx].Kind == "player" {
+				return 1 << 30 // a face pick is the least plausible grant.
+			}
+			return r.score
+		}
+		sort.SliceStable(s, func(i, j int) bool {
+			if harm(s[i]) != harm(s[j]) {
+				return harm(s[i]) < harm(s[j])
+			}
+			return s[i].idx < s[j].idx
+		})
+	}
 
 	// R1: lead with the opposing options; only top up with our own when a
 	// decision is all-ours or does not offer enough of theirs to meet Min
 	// (totality is preserved either way). R1B (the grant-polarity branch
-	// above) INVERTS the lead order: a beneficial one-way grant leads with
-	// our own board, and only falls back to an opponent's option when no own
-	// option was offered -- R1's totality shape is preserved, just reversed.
+	// above) INVERTS the lead order: a beneficial one-way grant is aimed at
+	// our own board ONLY. The no-own-target case is not a policy choice the
+	// branch makes -- the ability scorer (A1c) declines the activation
+	// before any cost is paid when the seat controls no creature, so a bot
+	// activation never reaches a boon ask that offers no own option. What
+	// remains below is the totality floor: a posed KTarget decision must be
+	// answered (a bot that returns fewer than Min answers is re-asked
+	// forever -- the livelock shape), and the only way to reach a boon ask
+	// with no own option is an activation whose COST consumed the seat's
+	// last own creature between the activation and the ask. For that
+	// residue the branch picks the LEAST threatening foreign option --
+	// harm minimisation, never the gift-maximising "opponent's best
+	// creature" the pre-fallback code handed out; a boon's value to its
+	// receiver scales with the creature's worth, so the weakest receiver
+	// loses the least.
 	//
 	// Group discipline (Decision.Validate's mutual-exclusion rule): two
 	// options sharing one non-empty Group are mutually exclusive -- the
@@ -748,7 +793,6 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 	}
 	choices := make([]int, 0, pick)
 	pickFrom := func(s []targetRank) {
-		byScore(s)
 		for i := 0; i < len(s) && len(choices) < pick; i++ {
 			o := d.Options[s[i].idx]
 			if !fits(o) {
@@ -764,13 +808,21 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 		}
 	}
 	if leadOwn {
+		byScore(own)
 		pickFrom(own)
 		if len(choices) < pick {
+			// The totality floor (R1B above): no own option was offered, so
+			// the residue is harm-minimised over the foreign ones -- weakest
+			// threat first, index tie-break -- never gifted to the opponent's
+			// best creature.
+			byScoreAsc(foreign)
 			pickFrom(foreign)
 		}
 	} else {
+		byScore(foreign)
 		pickFrom(foreign)
 		if len(choices) < pick {
+			byScore(own)
 			pickFrom(own)
 		}
 	}

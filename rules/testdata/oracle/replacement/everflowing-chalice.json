@@ -1,0 +1,88 @@
+{
+  "card": "Everflowing Chalice",
+  "family": "replacement",
+  "oracle_sha": "288f129a5ed5",
+  "author": "cli-20260927T211250Z-05593657 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "kicked-once-enters-with-one",
+      "cr": [
+        "702.33a",
+        "614.1c"
+      ],
+      "why": "Paying the multikicker cost once gives exactly one charge counter as it enters.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Everflowing Chalice"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Everflowing Chalice",
+          "mana": "CC",
+          "cast_mode": "multikicked",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Pay multikicker once"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Everflowing Chalice",
+          "zone": "battlefield",
+          "counters": {
+            "charge": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "not-kicked-enters-with-zero",
+      "cr": [
+        "702.33a",
+        "614.1c"
+      ],
+      "why": "No kicker payment means no charge counter; the artifact still enters.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Everflowing Chalice"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Everflowing Chalice"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Everflowing Chalice",
+          "zone": "battlefield",
+          "counters": {
+            "charge": 0
+          }
+        }
+      ]
+    }
+  ]
+}

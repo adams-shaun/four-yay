@@ -262,6 +262,13 @@ func Describe(g *state.Game, ev events.Event) string {
 		return obj(g, ev.Obj) + " is revealed as the current plane"
 	case events.PlanarWalk:
 		return "Planeswalk to the next plane"
+	case events.ManaUndo:
+		// The announced payment window's undo of one mana activation (CR
+		// 733.1): the first event of a reversal names the untapped source.
+		if ev.Obj != 0 {
+			return player(g, ev.Player) + " untaps " + obj(g, ev.Obj) + " and returns " + mana(ev.Counter, ev.Amount)
+		}
+		return player(g, ev.Player) + " returns " + mana(ev.Counter, ev.Amount)
 	case events.ChaosEnsues:
 		// CR 901.9 (task planar-verbs): the chaos-ensues marker. Obj is the
 		// plane it erupts on when the emitter resolved one (the roll path and

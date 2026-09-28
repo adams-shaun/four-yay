@@ -70,12 +70,39 @@ func (r *Registry) SubmitIntent(id TableID, k int, player state.PlayerID, in dec
 	if err != nil {
 		return err
 	}
-	if in.Payment == nil {
+	if in.Payment == nil && in.Announce == nil {
 		return hs.submit(in)
 	}
 	_, m, err := r.lookup(id, k)
 	if err != nil {
 		return err
+	}
+	if in.Announce != nil {
+		// Announce then pay (docs/superpowers/specs/2026-09-27-announce-then-pay.md
+		// §3.1): Decision.Validate proves the selector names an offered action
+		// that carries a plan; the engine's independent re-plan proves the cast
+		// is still payable before the parked match is woken.
+		return hs.submitAdmitted(in, func(d decision.Decision, admitted decision.Intent) error {
+			var action *decision.PaymentAction
+			for i := range d.PaymentActions {
+				if d.PaymentActions[i].ID == admitted.Announce.ActionID {
+					action = &d.PaymentActions[i]
+					break
+				}
+			}
+			if action == nil {
+				return fmt.Errorf("host: payment action is not offered")
+			}
+			return m.locked(func() error {
+				if m.state != protocol.MatchLive {
+					return fmt.Errorf("host: match %d is %s, nothing pending", k, m.state)
+				}
+				if err := m.e.ValidateCastAnnounce(player, action.Cast); err != nil {
+					return fmt.Errorf("host: announce rejected: %w", err)
+				}
+				return nil
+			})
+		})
 	}
 	return hs.submitAdmitted(in, func(d decision.Decision, admitted decision.Intent) error {
 		// Decision.Validate above proves this selector names an offered action

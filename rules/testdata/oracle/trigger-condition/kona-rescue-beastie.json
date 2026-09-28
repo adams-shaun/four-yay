@@ -1,0 +1,33 @@
+{
+  "card": "Kona, Rescue Beastie",
+  "family": "trigger-condition",
+  "oracle_sha": "aab4de5e3013",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "tapped-at-second-main-puts-permanent-onto-battlefield",
+      "cr": ["603.4", "505.1"],
+      "why": "Kona attacked and is tapped at the beginning of the second main phase; choosing the permanent card in hand puts it onto the battlefield.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Kona, Rescue Beastie"]}, "p1": {}},
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Kona, Rescue Beastie"], "defender": "p1"},
+        {"op": "pass_to", "step": "main2", "expect": [{"trigger_on_stack": "p0:Kona, Rescue Beastie", "want": true}]},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Kona, Rescue Beastie", "zone": "battlefield", "tapped": true},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "untapped-at-second-main-no-trigger",
+      "cr": ["603.4", "505.1"],
+      "why": "Kona did not attack and remains untapped at the beginning of the second main phase, so the survival condition is false and no trigger occurs.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Kona, Rescue Beastie"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "step": "main2", "expect": [{"trigger_on_stack": "p0:Kona, Rescue Beastie", "want": false}]}
+      ],
+      "expect": [{"card": "p0:Grizzly Bears", "zone": "hand"}, {"card": "p0:Kona, Rescue Beastie", "tapped": false}]
+    }
+  ]
+}
