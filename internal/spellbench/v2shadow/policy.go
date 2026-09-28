@@ -77,6 +77,10 @@ type Config struct {
 	Fallback v2agent.Policy
 	// Search is ModeSearch's budget (zero Worlds: sbsearch.DefaultConfig).
 	Search sbsearch.Config
+	// Collect adds route (a)'s picks (the hint-free v1 policy) to the
+	// search's roots at every searched decision: a collection arbitrated
+	// per decision by sb-search's rollouts (ModeSearch only).
+	Collect bool
 	// Clock (monotonic ms) and BudgetMS are the search's clock guard: no
 	// further world is dealt once BudgetMS has elapsed in a decision (at
 	// least MinWorlds are). It is the only clock read, it never fires on
@@ -121,6 +125,10 @@ type Stats struct {
 	// decisions whose world loop the clock guard cut.
 	Searched   int `json:"searched"`
 	ClockStops int `json:"clock_stops"`
+	// ProposalRoots counts the collection's proposed roots searched;
+	// ProposalWins those played.
+	ProposalRoots int `json:"proposal_roots"`
+	ProposalWins  int `json:"proposal_wins"`
 }
 
 func newStats() Stats {
@@ -241,6 +249,9 @@ func (p *Policy) GameStart(g *v2agent.GameStart) {
 	switch p.cfg.Mode {
 	case ModeSearch:
 		p.srch = sbsearch.New(p.gs, p.seed^0x73726368, p.cfg.Search)
+		if p.cfg.Collect {
+			p.gen = newGenericState(g)
+		}
 	case ModeGeneric:
 		p.gen = newGenericState(g)
 	}
@@ -658,7 +669,7 @@ func (p *Policy) rootAnswer(sh *Shadow, rd *decision.Decision) (decision.Intent,
 		rd = pd
 	}
 	p.gs.SetPlanner(sh.E)
-	if p.gen != nil && p.curDecision != nil {
+	if p.cfg.Mode == ModeGeneric && p.gen != nil && p.curDecision != nil {
 		var in decision.Intent
 		var err error
 		switch pd.Kind {
@@ -680,7 +691,54 @@ func (p *Policy) rootAnswer(sh *Shadow, rd *decision.Decision) (decision.Intent,
 		return p.gs.Decide(context.Background(), gorgeView(sh, rd), *rd)
 	}
 	p.Stats.Searched++
-	return p.srch.DecideWorlds(context.Background(), sh.E, p.dealer(sh), *rd)
+	if p.cfg.Collect && p.gen != nil && p.curDecision != nil {
+		p.srch.Propose(p.proposals(sh, rd))
+	}
+	in, err := p.srch.DecideWorlds(context.Background(), sh.E, p.dealer(sh), *rd)
+	p.Stats.ProposalRoots, p.Stats.ProposalWins = p.srch.ProposalRoots, p.srch.ProposalWins
+	return in, err
+}
+
+// proposals are route (a)'s picks at rd, as sb-search roots (a panic or a
+// refusal in the proposing policy only drops the proposal).
+func (p *Policy) proposals(sh *Shadow, rd *decision.Decision) (out sbsearch.Proposals) {
+	defer func() {
+		if r := recover(); r != nil {
+			p.Stats.Reasons["proposal panic"]++
+			out = sbsearch.Proposals{}
+		}
+	}()
+	d := p.curDecision
+	switch rd.Kind {
+	case decision.KPriority:
+		in, err := p.genericPriority(sh, d, rd)
+		if err != nil {
+			return out
+		}
+		if in.Payment != nil {
+			for i := range rd.PaymentActions {
+				if rd.PaymentActions[i].ID == in.Payment.ActionID {
+					out.Priority = append(out.Priority, builtins.PriorityKey{Src: builtins.KeyPlan, Opt: -1, Kind: "cast", Obj: rd.PaymentActions[i].Cast.Object})
+				}
+			}
+			return out
+		}
+		if len(in.Choices) == 1 {
+			if o, _ := optByIndex(rd, in.Choices[0]); o != nil {
+				out.Priority = append(out.Priority, builtins.PriorityKey{Src: builtins.KeyOption, Opt: o.Index, Kind: o.Kind,
+					Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Alt: o.AltCostIndex})
+			}
+		}
+	case decision.KAttackers:
+		if in, err := p.genericAttack(sh, d, rd); err == nil {
+			out.Answers = append(out.Answers, in)
+		}
+	case decision.KBlockers:
+		if in, err := p.genericBlock(sh, d, rd); err == nil {
+			out.Answers = append(out.Answers, in)
+		}
+	}
+	return out
 }
 
 // dealer deals the search's worlds from the shadow: a hypothetical clone
@@ -1555,6 +1613,9 @@ func (p *Policy) Summary() map[string]any {
 	}
 	sort.Strings(reasons)
 	out := map[string]any{"shadow": p.Stats, "mode": p.cfg.Mode}
+	if p.srch != nil {
+		out["proposal_roots"], out["proposal_wins"] = p.srch.ProposalRoots, p.srch.ProposalWins
+	}
 	if p.gs != nil {
 		out["tactical"] = p.gs.Stats
 	}

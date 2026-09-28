@@ -311,6 +311,8 @@ func summarize(w io.Writer, rows []row, a, b string) {
 			agg[pol]["lowered_casts"] += s.Stats.LoweredCasts
 			agg[pol]["searched"] += s.Stats.Searched
 			agg[pol]["clock_stops"] += s.Stats.ClockStops
+			agg[pol]["proposal_roots"] += s.Stats.ProposalRoots
+			agg[pol]["proposal_wins"] += s.Stats.ProposalWins
 			agg[pol]["agent_fallbacks"] += r.Fallback[i]
 			for cls, m := range s.Stats.Answered {
 				for src, n := range m {

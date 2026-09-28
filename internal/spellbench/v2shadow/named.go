@@ -17,6 +17,7 @@ import (
 //	search-lite[-atk]     4 worlds, 2-turn horizon (+ attacks)
 //	search-wN-hM[-atk]    N worlds, M-turn horizon
 //	...-blk               any search budget with block declarations searched too
+//	...-col               the collection: route (a)'s picks added to every search's roots
 //	fallback              the fallback policy only (a plumbing control)
 var Names = []string{"tactical", "generic", "search", "search-fast", "search-fast-atk", "search-lite", "search-lite-atk", "fallback"}
 
@@ -39,6 +40,10 @@ func NamedConfig(name string, reg *cards.Registry) (Config, error) {
 		cfg.Mode = ModeSearch
 		sc := sbsearch.DefaultConfig()
 		rest := strings.TrimPrefix(name, "search")
+		if r, ok := strings.CutSuffix(rest, "-col"); ok {
+			cfg.Collect = true
+			rest = r
+		}
 		if r, ok := strings.CutSuffix(rest, "-blk"); ok {
 			sc.Block = true
 			rest = r

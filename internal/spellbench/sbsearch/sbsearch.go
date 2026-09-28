@@ -124,7 +124,26 @@ type Seat struct {
 	spareBase, spareCand rules.Spare
 	// failRollout forces every rollout to fail (tests: the fallback path).
 	failRollout bool
+	// prop are the next searched decision's extra roots (Propose).
+	prop Proposals
+	// ProposalRoots counts proposed roots searched; ProposalWins those the
+	// search played.
+	ProposalRoots, ProposalWins int
 }
+
+// Proposals are one decision's extra root candidates from another policy
+// of a collection (spec D§8, arbitrated per decision instead of routed per
+// deck): priority plays named by key, whole attack or block answers. A
+// proposal is searched exactly like sb-tactical's own candidates and played
+// only when it beats sb-tactical's pick by the margin.
+type Proposals struct {
+	Priority []builtins.PriorityKey
+	Answers  []decision.Intent
+}
+
+// Propose sets the extra roots of the next decision searched through
+// DecideSearch or DecideWorlds; they are dropped after it either way.
+func (s *Seat) Propose(p Proposals) { s.prop = p }
 
 var (
 	_ seat.Seat                           = (*Seat)(nil)
@@ -234,6 +253,7 @@ func (f funcDealer) release(*rules.Engine) {}
 // decideOn is the search at e's decision d; worlds come from mk, called
 // only when a search runs.
 func (s *Seat) decideOn(ctx context.Context, e *rules.Engine, mk func() (dealer, string), d decision.Decision) (decision.Intent, error) {
+	defer func() { s.prop = Proposals{} }()
 	// The view sb-tactical is shown in plain play (bench.PlayGame's
 	// View-seat branch builds exactly this), projected with d itself: a
 	// caller may hand a reduced copy of the pending decision (DecideWorlds),
@@ -269,14 +289,53 @@ func (s *Seat) priority(ctx context.Context, e *rules.Engine, mk func() (dealer,
 		return s.inner.Decide(ctx, v, d)
 	}
 	roots, gap := pickRoots(cands, best, s.cfg.TopK)
+	own := len(roots)
+	for _, k := range s.prop.Priority {
+		dup, offered := false, false
+		for _, r := range roots {
+			dup = dup || *r.key == k
+		}
+		for _, c := range cands {
+			offered = offered || c.Key == k
+		}
+		if !dup && offered {
+			kk := k
+			roots = append(roots, root{key: &kk})
+			s.ProposalRoots++
+		}
+	}
 	if len(roots) < 2 {
 		return s.inner.Decide(ctx, v, d)
 	}
 	choice := s.search(e, mk, d, "priority", roots, gap)
 	if choice > 0 {
+		if choice >= own {
+			s.ProposalWins++
+		}
 		s.inner.ForcePriority(*roots[choice].key)
 	}
 	return s.inner.Decide(ctx, v, d)
+}
+
+// addProposed appends the proposed whole answers that validate and are not
+// already roots; it returns how many roots were there before.
+func (s *Seat) addProposed(d decision.Decision, roots []root) ([]root, int) {
+	own := len(roots)
+	for _, in := range s.prop.Answers {
+		in.Seq, in.Player = d.Seq, d.Player
+		if d.Validate(in) != nil {
+			continue
+		}
+		dup := false
+		for _, r := range roots {
+			dup = dup || builtins.SameChoices(r.in, in)
+		}
+		if !dup {
+			roots = append(roots, root{in: in})
+			s.ProposalRoots++
+		}
+	}
+	return roots, own
 }
 
 // pickRoots is sb-tactical's pick first, then the rest by score (ties to
@@ -326,10 +385,14 @@ func (s *Seat) attackers(ctx context.Context, e *rules.Engine, mk func() (dealer
 			roots = append(roots, root{in: alt})
 		}
 	}
+	roots, first := s.addProposed(d, roots)
 	if len(roots) < 2 {
 		return own, nil
 	}
 	choice := s.search(e, mk, d, "attackers", roots, 0)
+	if choice >= first && first < len(roots) {
+		s.ProposalWins++
+	}
 	return roots[choice].in, nil
 }
 
@@ -356,10 +419,14 @@ func (s *Seat) blockers(ctx context.Context, e *rules.Engine, mk func() (dealer,
 	}
 	add(botpolicy.Clamp(&d, decision.Intent{Seq: d.Seq, Player: d.Player}))
 	add(botpolicy.Decide(seat.BoardFromView(v), &d, rand.New(rand.NewPCG(s.seed, d.Seq^0xb10c))))
+	roots, first := s.addProposed(d, roots)
 	if len(roots) < 2 {
 		return own, nil
 	}
 	choice := s.search(e, mk, d, "blockers", roots, 0)
+	if choice >= first && first < len(roots) {
+		s.ProposalWins++
+	}
 	return roots[choice].in, nil
 }
 
