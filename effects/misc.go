@@ -5685,8 +5685,10 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// evaluates its Valid$: MatchesSpecFrom with the resolving source as
 	// Self and its controller as You. An empty colour set is a legitimate
 	// deterministic no-op ("for each color" over none adds nothing) -- no
-	// Note, no mana, like ChangeNum$ 0 Dig. Every OTHER Special selector
-	// (EachColorAmong_ExiledWith, EnchantedManaCost, DoubleManaInPool,
+	// Note, no mana, like ChangeNum$ 0 Dig. Special EachColorAmong_ExiledWith
+	// (Sunbird Effigy: the colours among the cards exiled with the source)
+	// resolves the same way over the exiledWithSet. DoubleManaInPool is
+	// handled just below. Every OTHER Special selector (EnchantedManaCost,
 	// EachColoredManaSymbol_Milled) still falls through to the rune gate's
 	// loud Note below.
 	// Special DoubleManaInPool (Doubling Cube: "Double the amount of each
@@ -5713,6 +5715,16 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		produced = b.String()
+	}
+	if strings.EqualFold(produced, "Special EachColorAmong_ExiledWith") {
+		syms := eachColorAmongExiledWith(h, c)
+		if syms == "" {
+			// An empty set is a deterministic no-op, exactly like the
+			// EachColorAmong_Valid empty set: "for each color among none"
+			// adds nothing, and no card is promised mana it cannot get.
+			return
+		}
+		produced = syms
 	}
 	if sel, ok := strings.CutPrefix(produced, "Special EachColorAmong_Valid "); ok {
 		syms := eachColorAmongValid(h, c, strings.TrimSpace(sel))
@@ -5893,6 +5905,22 @@ func eachColorAmongValid(h Host, c *Ctx, spec string) string {
 				mask |= ColorMaskOf(g.Obj(id))
 			}
 		}
+	}
+	return mask.String()
+}
+
+// eachColorAmongExiledWith resolves a Produced$ Special
+// EachColorAmong_ExiledWith selector (Sunbird Effigy's "for each color among
+// the exiled cards used to craft it"): the union of the colours among the
+// cards exiled WITH the resolving source (state.Object.ExiledWith naming it,
+// the same exiledWithSet the Defined$ ExiledWith referent reads), rendered in
+// fixed WUBRG order. An empty set returns "" -- a deterministic no-op, the
+// eachColorAmongValid convention.
+func eachColorAmongExiledWith(h Host, c *Ctx) string {
+	g := h.Game()
+	var mask ColorMask
+	for _, t := range exiledWithSet(g, c) {
+		mask |= ColorMaskOf(g.Obj(t.Obj))
 	}
 	return mask.String()
 }

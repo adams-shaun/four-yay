@@ -935,6 +935,9 @@ func (cz *autopayCensus) evalItem(row *censusRow) {
 	f := it.card.Faces[it.face]
 	row.selfIntf = yn(censusSelfInterference(f))
 	row.noUntap = censusNoUntap(f)
+	// Printed-type creature flag, a fallback for every family; evalActivated
+	// overwrites it with the layer-4-derived types on the probe board.
+	row.creature = f != nil && censusHas(f.Types, "Creature")
 	if it.sa != nil {
 		row.api = it.sa.API
 		row.prodClass, row.amount = censusProdClass(it.sa)
@@ -1595,13 +1598,13 @@ func (cz *autopayCensus) writeCSV(path string, rows []censusRow) {
 	_ = w.Write([]string{"kind", "card", "face", "ability", "family", "api", "zone", "cost_class", "cost_parts",
 		"prod_class", "amount", "restricted", "riders", "params_extra", "conditions", "self_interference", "no_untap",
 		"class", "v1_eligible", "v1_structural", "v1_reason", "v1_window", "v1_e2e_probe", "v1_admitted_while_sick", "presence_interference",
-		"manual_offered", "manual_outcome", "manual_detail", "playable", "missing_primitives", "repo_decks",
+		"creature", "manual_offered", "manual_outcome", "manual_detail", "playable", "missing_primitives", "repo_decks",
 		"token_creators", "token_creator_decks"})
 	for _, r := range rows {
 		_ = w.Write([]string{r.item.kind, r.item.key, strconv.Itoa(r.item.face), r.item.ident, r.item.family, r.api,
 			r.zone, r.costClass, r.costParts, r.prodClass, r.amount, r.restricted, r.riders, r.paramsExtra, r.conditions,
 			r.selfIntf, yn(r.noUntap), r.class, r.v1Eligible, r.v1Structural, r.v1Reason, r.v1Window, r.v1E2E, r.v1Sick, r.presenceIntf,
-			r.manualOffered, r.manualOutcome, r.manualDetail, r.playable, r.missing, strings.Join(r.decks, ";"),
+			yn(r.creature), r.manualOffered, r.manualOutcome, r.manualDetail, r.playable, r.missing, strings.Join(r.decks, ";"),
 			strconv.Itoa(r.creators), strings.Join(r.creatorDecks, ";")})
 	}
 	w.Flush()
