@@ -32,6 +32,17 @@ func TestParamSetsMatchMaps(t *testing.T) {
 					bound++
 				}
 				check(f.Name+" trigger", tr.Param, tr.Params)
+				for sa := tr.Effect; sa != nil; sa = sa.Sub {
+					check(f.Name+" trigger body", sa.Param, sa.Params)
+				}
+			}
+			for _, a := range f.Abilities {
+				for sa, d := a, 0; sa != nil && d < 32; sa, d = sa.Sub, d+1 {
+					if sa.ps.bound(sa.Params) {
+						bound++
+					}
+					check(f.Name+" ability", sa.Param, sa.Params)
+				}
 			}
 		}
 	}

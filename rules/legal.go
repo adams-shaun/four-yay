@@ -514,7 +514,7 @@ func activationGameTypesOK(f Format, raw string) bool {
 // ability but only if CARDNAME is on the stack"); Command is not and
 // therefore never offers an option.
 func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
-	az, ok := ab.Params["ActivationZone"]
+	az, ok := ab.Param(cards.PKActivationZone)
 	if !ok {
 		return z == state.ZBattlefield
 	}

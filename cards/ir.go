@@ -14,6 +14,10 @@ type SA struct {
 
 	compiledCatalog *CompiledCatalog
 	compiledID      AbilityID
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Trigger is a T: line. Execute$ names an SVar holding the effect.
@@ -123,6 +127,10 @@ type Face struct {
 	kwHeadsFirst   *string
 	kwHeadsLen     int
 	kwHeadsBound   bool
+	// cmcSrc is the ManaCost text cmc was derived from (PrintedManaValue's
+	// guard). Not serialized.
+	cmcSrc   string
+	cmcBound bool
 }
 
 // typeStaticParams are the static parameter keys whose presence can make

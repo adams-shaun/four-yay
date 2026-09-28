@@ -240,7 +240,9 @@ func wordIDOf(front *[1 << wordFrontBits]atomic.Pointer[wordFrontEntry], in *wor
 // string's identity, for a hot caller holding a STABLE string (a literal or
 // configured card text): a repeat call costs a pointer hash and compare. A
 // caller building strings at run time should precompile the ordinal instead.
-func TypeWordIDOf(s string) TypeWordID { return TypeWordID(wordIDOf(&typeWordFront, &typeWordInterner, s)) }
+func TypeWordIDOf(s string) TypeWordID {
+	return TypeWordID(wordIDOf(&typeWordFront, &typeWordInterner, s))
+}
 
 // KeywordHeadIDOf is InternKeywordHead behind the same front cache.
 func KeywordHeadIDOf(s string) KeywordHeadID {

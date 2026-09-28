@@ -178,7 +178,7 @@ func (e *Engine) zoneGate(t cards.Trigger, source state.ObjID, ev events.Event) 
 	if o == nil {
 		return false
 	}
-	spec := t.Params["TriggerZones"]
+	spec := t.ParamStr(cards.PKTriggerZones)
 	if spec == "" {
 		// Forge's ActiveZones$ is the trigger-side spelling of the same gate
 		// (the replacement side already reads the key:
@@ -187,7 +187,7 @@ func (e *Engine) zoneGate(t cards.Trigger, source state.ObjID, ev events.Event) 
 		// ActiveZones$ is authoritative exactly like an explicit
 		// TriggerZones$, so the two special cases below keep treating it as
 		// declared.
-		spec = t.Params["ActiveZones"]
+		spec = t.ParamStr(cards.PKActiveZones)
 	}
 	if spec == "" && ev.Kind == events.PutOnStack && source == ev.Obj && t.Mode == "SpellCast" {
 		// CR 601.2i: the spell's OWN cast trigger fires while the source is

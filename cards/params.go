@@ -19,6 +19,11 @@ type ParamKey uint8
 
 const (
 	pkNone ParamKey = iota
+	PKActivationAfterBlockers
+	PKActivationFirstCombat
+	PKActivationPhases
+	PKActivationZone
+	PKActiveZones
 	PKAddAbility
 	PKAddAllCreatureTypes
 	PKAddColor
@@ -49,8 +54,10 @@ const (
 	PKIsPresent2
 	PKMayLookAt
 	PKMayPlay
+	PKOpponentTurn
 	PKOrigin
 	PKPhase
+	PKPlayerTurn
 	PKPresentZone
 	PKRemoveAllAbilities
 	PKRemoveCardTypes
@@ -60,11 +67,17 @@ const (
 	PKSetName
 	PKSetPower
 	PKSetToughness
+	PKTriggerZones
 	paramKeyCount
 )
 
 // paramKeyNames maps each ParamKey to its Forge key text.
 var paramKeyNames = [paramKeyCount]string{
+	PKActivationAfterBlockers: "ActivationAfterBlockers",
+	PKActivationFirstCombat:   "ActivationFirstCombat",
+	PKActivationPhases:        "ActivationPhases",
+	PKActivationZone:          "ActivationZone",
+	PKActiveZones:             "ActiveZones",
 	PKAddAbility:              "AddAbility",
 	PKAddAllCreatureTypes:     "AddAllCreatureTypes",
 	PKAddColor:                "AddColor",
@@ -95,8 +108,10 @@ var paramKeyNames = [paramKeyCount]string{
 	PKIsPresent2:              "IsPresent2",
 	PKMayLookAt:               "MayLookAt",
 	PKMayPlay:                 "MayPlay",
+	PKOpponentTurn:            "OpponentTurn",
 	PKOrigin:                  "Origin",
 	PKPhase:                   "Phase",
+	PKPlayerTurn:              "PlayerTurn",
 	PKPresentZone:             "PresentZone",
 	PKRemoveAllAbilities:      "RemoveAllAbilities",
 	PKRemoveCardTypes:         "RemoveCardTypes",
@@ -106,6 +121,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKSetName:                 "SetName",
 	PKSetPower:                "SetPower",
 	PKSetToughness:            "SetToughness",
+	PKTriggerZones:            "TriggerZones",
 }
 
 // String is the key's Forge text.
@@ -237,12 +253,44 @@ func ParamSetMayHaveAny(ps *ParamSet, m map[string]string, mask ParamMask) bool 
 	return paramMayHaveAny(ps, m, mask)
 }
 
-// deriveParamSets binds each printed static's and trigger's ParamSet.
+// Param is Params[k] with presence, through the compiled set when bound.
+func (sa *SA) Param(k ParamKey) (string, bool) { return paramGet(sa.ps, sa.Params, k) }
+
+// ParamStr is Params[k] ("" when absent).
+func (sa *SA) ParamStr(k ParamKey) string { v, _ := paramGet(sa.ps, sa.Params, k); return v }
+
+// HasParam reports whether key k is present.
+func (sa *SA) HasParam(k ParamKey) bool { _, ok := paramGet(sa.ps, sa.Params, k); return ok }
+
+// MayHaveAnyParam is false only when the ability provably holds no key of
+// mask.
+func (sa *SA) MayHaveAnyParam(mask ParamMask) bool { return paramMayHaveAny(sa.ps, sa.Params, mask) }
+
+// deriveParamSets binds each printed static's, trigger's and ability's
+// ParamSet (every ability reachable from the face: its Abilities, their
+// SubAbility$ chains, trigger Execute$ bodies and replacement bodies). It
+// runs at load (derive, and again at the end of link, which re-resolves
+// bodies); a node built later stays unbound and reads its map.
 func (f *Face) deriveParamSets() {
 	for i := range f.Statics {
 		f.Statics[i].ps = newParamSet(f.Statics[i].Params)
 	}
 	for i := range f.Triggers {
 		f.Triggers[i].ps = newParamSet(f.Triggers[i].Params)
+	}
+	bindSA := func(sa *SA) {
+		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {
+			sa.ps = newParamSet(sa.Params)
+			sa = sa.Sub
+		}
+	}
+	for _, a := range f.Abilities {
+		bindSA(a)
+	}
+	for i := range f.Triggers {
+		bindSA(f.Triggers[i].Effect)
+	}
+	for i := range f.Repls {
+		bindSA(f.Repls[i].With)
 	}
 }

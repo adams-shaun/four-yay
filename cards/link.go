@@ -56,6 +56,9 @@ func (f *Face) link(path string) []Diag {
 		f.Repls[i].With = resolve(f.Repls[i].Params["ReplaceWith"], 0)
 		walk(f.Repls[i].With)
 	}
+	// Linking replaced trigger and replacement bodies: bind their compiled
+	// parameter sets (a later derive rebinds everything again).
+	f.deriveParamSets()
 	return diags
 }
 

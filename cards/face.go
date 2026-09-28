@@ -224,6 +224,16 @@ func (f *Face) Toughness() int { return int(f.toughness) }
 // while a monocolour hybrid such as {2/W} counts its generic face (two).
 func (f *Face) Cmc() int32 { return f.cmc }
 
+// PrintedManaValue is Cmc() when the face's ManaCost is still the text it
+// was derived from (a face copy with a rewritten ManaCost reports false and
+// the caller prices the text itself).
+func (f *Face) PrintedManaValue() (int32, bool) {
+	if !f.cmcBound || f.ManaCost != f.cmcSrc {
+		return 0, false
+	}
+	return f.cmc, true
+}
+
 // CharacteristicDefining reports whether the face's printed P/T is a
 // characteristic-defining value ("*", "1+*"): Power()/Toughness() return 0
 // for these and layer 7a (in rules) supplies the real value.
@@ -274,6 +284,7 @@ func (f *Face) derive() {
 	f.power, f.toughness, f.characteristicDefining = parsePT(f.PT)
 	f.allCreatureTypesCDA = cdaAllCreatureTypes(f.Statics)
 	f.cmc = cmcFromManaCost(f.ManaCost)
+	f.cmcSrc, f.cmcBound = f.ManaCost, true
 	f.manaProduction = ManaProduction{}
 	for _, a := range f.ManaAbilities() {
 		f.manaProduction.add(a)

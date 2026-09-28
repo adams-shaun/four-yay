@@ -169,7 +169,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 		var cmc int32
 		var manaCost string
 		if f := o.Face(); f != nil {
-			cmc = CmcOf(f.ManaCost)
+			cmc = cmcOfFace(f)
 			// Only a spell carries a printed payment; an ability object is
 			// Face-less anyway, and the view half's StackView.Card is nil for
 			// a "trigger"/"ability", so guarding on IsSpell keeps the halves
@@ -311,7 +311,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				Creature:      f.IsCreature(),
 				Power:         power,
 				Toughness:     toughness,
-				CMC:           CmcOf(f.ManaCost),
+				CMC:           cmcOfFace(f),
 				Basic:         f.TypeLineHas("Basic", twBasic),
 				AttachedTo:    o.AttachedTo,
 				Activated:     o.ActivatedThisTurn,
@@ -380,7 +380,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			b.Cards[id] = Card{
 				Creature:  f.IsCreature(),
 				Power:     power,
-				CMC:       CmcOf(f.ManaCost),
+				CMC:       cmcOfFace(f),
 				Basic:     f.TypeLineHas("Basic", twBasic),
 				ManaCost:  f.ManaCost,
 				Toughness: toughness,
