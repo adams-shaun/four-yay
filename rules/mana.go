@@ -1918,7 +1918,7 @@ func (e *Engine) costTargetingSA(id state.ObjID, scope costScope) *cards.SA {
 // announced targets, which are a legal assignment by construction. The chosen
 // targets are always repriced at CR 601.2c/h.
 func (e *Engine) costAmountTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) []state.Target {
-	if len(targets) <= 1 {
+	if len(targets) == 0 {
 		return targets
 	}
 	sa := e.costTargetingSA(id, scope)
@@ -1926,6 +1926,13 @@ func (e *Engine) costAmountTargets(p state.PlayerID, id state.ObjID, scope costS
 		return targets
 	}
 	_, max := e.resolvedTargetBounds(p, id, sa, 0)
+	// A resolved maximum of 0 (the "instead" idiom) must yield the empty
+	// assignment even when the census holds a single candidate: the bound is
+	// resolved BEFORE the size fast path so one candidate can never stand in
+	// for a target the declaration is not allowed to announce.
+	if max == 0 {
+		return nil
+	}
 	if max < 0 || max >= len(targets) {
 		return targets
 	}
