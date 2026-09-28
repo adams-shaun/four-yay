@@ -44,8 +44,12 @@ const (
 	PKCheckSVar
 	PKClassBand
 	PKCondition
+	PKDestination
+	PKDiscard
+	PKEffectOnly
 	PKEffectZone
 	PKExcludeZone
+	PKFoundSearchingLibrary
 	PKGainControl
 	PKGainsAbilitiesOf
 	PKGainsAbilitiesOfDefined
@@ -68,6 +72,9 @@ const (
 	PKSetPower
 	PKSetToughness
 	PKTriggerZones
+	PKValidCard
+	PKValidCause
+	PKValidLKI
 	paramKeyCount
 )
 
@@ -98,8 +105,12 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCheckSVar:               "CheckSVar",
 	PKClassBand:               "ClassBand",
 	PKCondition:               "Condition",
+	PKDestination:             "Destination",
+	PKDiscard:                 "Discard",
+	PKEffectOnly:              "EffectOnly",
 	PKEffectZone:              "EffectZone",
 	PKExcludeZone:             "ExcludeZone",
+	PKFoundSearchingLibrary:   "FoundSearchingLibrary",
 	PKGainControl:             "GainControl",
 	PKGainsAbilitiesOf:        "GainsAbilitiesOf",
 	PKGainsAbilitiesOfDefined: "GainsAbilitiesOfDefined",
@@ -122,6 +133,9 @@ var paramKeyNames = [paramKeyCount]string{
 	PKSetPower:                "SetPower",
 	PKSetToughness:            "SetToughness",
 	PKTriggerZones:            "TriggerZones",
+	PKValidCard:               "ValidCard",
+	PKValidCause:              "ValidCause",
+	PKValidLKI:                "ValidLKI",
 }
 
 // String is the key's Forge text.
@@ -242,6 +256,15 @@ func (t Trigger) ParamStr(k ParamKey) string { v, _ := paramGet(t.ps, t.Params, 
 // HasParam reports whether key k is present.
 func (t Trigger) HasParam(k ParamKey) bool { _, ok := paramGet(t.ps, t.Params, k); return ok }
 
+// Param is Params[k] with presence, through the compiled set when bound.
+func (r Repl) Param(k ParamKey) (string, bool) { return paramGet(r.ps, r.Params, k) }
+
+// ParamStr is Params[k] ("" when absent).
+func (r Repl) ParamStr(k ParamKey) string { v, _ := paramGet(r.ps, r.Params, k); return v }
+
+// HasParam reports whether key k is present.
+func (r Repl) HasParam(k ParamKey) bool { _, ok := paramGet(r.ps, r.Params, k); return ok }
+
 // ParamSetParam reads key k of m through ps (a view carrying a node's Params
 // map and its ParamSet side by side).
 func ParamSetParam(ps *ParamSet, m map[string]string, k ParamKey) (string, bool) {
@@ -277,6 +300,9 @@ func (f *Face) deriveParamSets() {
 	}
 	for i := range f.Triggers {
 		f.Triggers[i].ps = newParamSet(f.Triggers[i].Params)
+	}
+	for i := range f.Repls {
+		f.Repls[i].ps = newParamSet(f.Repls[i].Params)
 	}
 	bindSA := func(sa *SA) {
 		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {

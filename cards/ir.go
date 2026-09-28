@@ -46,6 +46,10 @@ type Repl struct {
 	Event  string
 	Params map[string]string
 	With   *SA
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Face is one printed face. Most cards have exactly one; ALTERNATE starts
@@ -90,6 +94,9 @@ type Face struct {
 	// time. Keeping this hot prefilter beside the legacy face avoids a catalog
 	// slice lookup during every trigger scan; it is not serialized.
 	compiledTriggerInterests TriggerInterest
+	// compiledTypeMask is the bound catalog row's TypeMask, copied beside
+	// the face at bind time like compiledTriggerInterests (hasTypeMask).
+	compiledTypeMask TypeMask
 
 	compiledCatalog *CompiledCatalog
 	compiledID      FaceID

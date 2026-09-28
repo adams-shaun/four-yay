@@ -36,6 +36,9 @@ func TestParamSetsMatchMaps(t *testing.T) {
 					check(f.Name+" trigger body", sa.Param, sa.Params)
 				}
 			}
+			for _, rp := range f.Repls {
+				check(f.Name+" replacement", rp.Param, rp.Params)
+			}
 			for _, a := range f.Abilities {
 				for sa, d := a, 0; sa != nil && d < 32; sa, d = sa.Sub, d+1 {
 					if sa.ps.bound(sa.Params) {

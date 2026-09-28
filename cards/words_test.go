@@ -110,3 +110,40 @@ func TestWordIDOfConcurrent(t *testing.T) {
 		}
 	}
 }
+
+// TestTypeMaskPredicatesMatchSwitch pins each fixed-word predicate's mask to
+// typeMaskFor of its word (hasTypeMask's contract).
+func TestTypeMaskPredicatesMatchSwitch(t *testing.T) {
+	for w, m := range map[string]TypeMask{"Land": TypeLand, "Basic": TypeBasic, "Legendary": TypeLegendary,
+		"World": TypeWorld, "Creature": TypeCreature, "Instant": TypeInstant, "Sorcery": TypeSorcery,
+		"Artifact": TypeArtifact, "Spacecraft": TypeSpacecraft, "Vehicle": TypeVehicle,
+		"Enchantment": TypeEnchantment, "Planeswalker": TypePlaneswalker, "Battle": TypeBattle, "Room": TypeRoom} {
+		if got := typeMaskFor(w); got != m {
+			t.Fatalf("typeMaskFor(%q) = %v, predicate uses %v", w, got, m)
+		}
+	}
+}
+
+// TestCompiledTypeMaskMatchesCatalogRow: every bound face's copied mask is
+// its catalog row's.
+func TestCompiledTypeMaskMatchesCatalogRow(t *testing.T) {
+	reg := compiledCorpus(t)
+	n := 0
+	for _, c := range reg.Cards {
+		for _, f := range c.Faces {
+			if f == nil || f.compiledCatalog == nil || f.compiledID == 0 {
+				continue
+			}
+			if int(f.compiledID) > len(f.compiledCatalog.Faces) {
+				t.Fatalf("%s: compiledID out of range", f.Name)
+			}
+			if got, want := f.compiledTypeMask, f.compiledCatalog.Faces[f.compiledID-1].TypeMask; got != want {
+				t.Fatalf("%s: copied TypeMask %v, row %v", f.Name, got, want)
+			}
+			n++
+		}
+	}
+	if n == 0 {
+		t.Skip("corpus registry has no compiled catalog bound")
+	}
+}

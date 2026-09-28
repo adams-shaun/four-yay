@@ -11,9 +11,15 @@ import (
 // not per call, because derive runs on every face of the corpus at load.
 var manaBraceForm = strings.NewReplacer("{", " ", "}", " ")
 
-func (f *Face) hasType(t string) bool {
-	if mask := typeMaskFor(t); mask != 0 && f.compiledCatalog != nil && f.compiledID != 0 && int(f.compiledID) <= len(f.compiledCatalog.Faces) {
-		return f.compiledCatalog.Faces[f.compiledID-1].TypeMask&mask != 0
+func (f *Face) hasType(t string) bool { return f.hasTypeMask(typeMaskFor(t), t) }
+
+// hasTypeMask is hasType with t's catalog TypeMask (typeMaskFor(t))
+// supplied, so the fixed-word predicates below skip the string switch.
+func (f *Face) hasTypeMask(mask TypeMask, t string) bool {
+	if mask != 0 && f.compiledCatalog != nil && f.compiledID != 0 {
+		// Bound at CompileMetadata together with compiledID (always a valid
+		// row of the immutable catalog): the row's TypeMask, copied.
+		return f.compiledTypeMask&mask != 0
 	}
 	for _, x := range f.Types {
 		if strings.EqualFold(x, t) {
@@ -23,20 +29,20 @@ func (f *Face) hasType(t string) bool {
 	return false
 }
 
-func (f *Face) IsLand() bool         { return f.hasType("Land") }
-func (f *Face) IsBasic() bool        { return f.hasType("Basic") }
-func (f *Face) IsLegendary() bool    { return f.hasType("Legendary") }
-func (f *Face) IsWorld() bool        { return f.hasType("World") }
-func (f *Face) IsCreature() bool     { return f.hasType("Creature") }
-func (f *Face) IsInstant() bool      { return f.hasType("Instant") }
-func (f *Face) IsSorcery() bool      { return f.hasType("Sorcery") }
-func (f *Face) IsArtifact() bool     { return f.hasType("Artifact") }
-func (f *Face) IsSpacecraft() bool   { return f.hasType("Spacecraft") }
-func (f *Face) IsVehicle() bool      { return f.hasType("Vehicle") }
-func (f *Face) IsEnchantment() bool  { return f.hasType("Enchantment") }
-func (f *Face) IsPlaneswalker() bool { return f.hasType("Planeswalker") }
-func (f *Face) IsBattle() bool       { return f.hasType("Battle") }
-func (f *Face) IsRoom() bool         { return f.hasType("Room") }
+func (f *Face) IsLand() bool         { return f.hasTypeMask(TypeLand, "Land") }
+func (f *Face) IsBasic() bool        { return f.hasTypeMask(TypeBasic, "Basic") }
+func (f *Face) IsLegendary() bool    { return f.hasTypeMask(TypeLegendary, "Legendary") }
+func (f *Face) IsWorld() bool        { return f.hasTypeMask(TypeWorld, "World") }
+func (f *Face) IsCreature() bool     { return f.hasTypeMask(TypeCreature, "Creature") }
+func (f *Face) IsInstant() bool      { return f.hasTypeMask(TypeInstant, "Instant") }
+func (f *Face) IsSorcery() bool      { return f.hasTypeMask(TypeSorcery, "Sorcery") }
+func (f *Face) IsArtifact() bool     { return f.hasTypeMask(TypeArtifact, "Artifact") }
+func (f *Face) IsSpacecraft() bool   { return f.hasTypeMask(TypeSpacecraft, "Spacecraft") }
+func (f *Face) IsVehicle() bool      { return f.hasTypeMask(TypeVehicle, "Vehicle") }
+func (f *Face) IsEnchantment() bool  { return f.hasTypeMask(TypeEnchantment, "Enchantment") }
+func (f *Face) IsPlaneswalker() bool { return f.hasTypeMask(TypePlaneswalker, "Planeswalker") }
+func (f *Face) IsBattle() bool       { return f.hasTypeMask(TypeBattle, "Battle") }
+func (f *Face) IsRoom() bool         { return f.hasTypeMask(TypeRoom, "Room") }
 
 // IsPermanent reports whether resolving this face puts it onto the battlefield.
 func (f *Face) IsPermanent() bool { return !f.IsInstant() && !f.IsSorcery() }
