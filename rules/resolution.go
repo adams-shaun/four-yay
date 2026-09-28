@@ -2836,6 +2836,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if len(chosen) > 0 {
 				ctx.ClonePick = chosen[0].Obj
 			}
+		case "changezone_alternative":
+			// The card owner chose the primary or alternative library position.
+			// Carry the offered label through the re-entered ChangeZone body.
+			if len(chosen) > 0 {
+				ctx.ChangeZoneAlternative = chosen[0].Label
+			}
 		case "choosedirection":
 			// A mid-resolution ChooseDirection ask (Aminatou's [-6], Order of
 			// Succession) was answered. The chosen option's Label is the

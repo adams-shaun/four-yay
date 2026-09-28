@@ -961,6 +961,9 @@ type Ctx struct {
 	PromisedGiftOverride *bool
 	// NameChoice carries a mid-resolution NameCard answer across re-entry.
 	NameChoice string
+	// ChangeZoneAlternative carries the owner's answered top/bottom choice
+	// across a suspended ChangeZone resolution. It is consumed by effChangeZone.
+	ChangeZoneAlternative string
 	// ChosenDirection carries a mid-resolution ChooseDirection answer across
 	// re-entry: the "left"/"right" pick (Aminatou's [-6], Order of
 	// Succession). It is resolution-scratch like NameChoice -- never
