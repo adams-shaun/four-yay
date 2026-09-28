@@ -1,0 +1,34 @@
+{
+  "card": "Dakmor Salvage",
+  "family": "replacement",
+  "oracle_sha": "1712d306dde0",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dredge-mills-two-and-returns-salvage",
+      "cr": ["702.52a", "702.52b"],
+      "why": "With Dakmor Salvage in the graveyard and enough cards available, its controller may mill exactly two and return the Salvage to hand instead of drawing. The padded library does not test the fewer-than-two-card restriction.",
+      "setup": {"p0": {"graveyard": ["Dakmor Salvage"], "library_top": ["Forest", "Island"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0", "answers": [{"kind": "any", "pick": ["dredge"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Dakmor Salvage", "zone": "hand"},
+        {"hand_size": {"p0": 1}},
+        {"graveyard_size": {"p0": 2}}
+      ]
+    },
+    {
+      "name": "not-in-graveyard-does-not-replace-draw",
+      "cr": ["702.52a"],
+      "why": "Dredge functions only while the card is in its owner's graveyard. A copy in hand cannot replace the draw, so the turn-three draw occurs and both cards remain in hand.",
+      "setup": {"p0": {"hand": ["Dakmor Salvage"], "library_top": ["Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
+      "expect": [{"hand_size": {"p0": 2}}, {"card": "p0:Dakmor Salvage", "zone": "hand"}]
+    }
+  ]
+}

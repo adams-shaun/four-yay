@@ -1,0 +1,34 @@
+{
+  "card": "Haakon, Stromgald Scourge",
+  "family": "conditional-static",
+  "oracle_sha": "f88fd1d9827c",
+  "author": "cli-20260927T211250Z-95557374 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "haakon-on-battlefield-permits-knight-from-graveyard",
+      "cr": ["611.3a", "601.2", "113.6"],
+      "why": "Haakon is on the battlefield, so its permission to cast Knight spells from the graveyard is active.",
+      "setup": {
+        "p0": {"battlefield": ["Haakon, Stromgald Scourge"], "graveyard": ["Knight of the Ebon Legion"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "B", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Knight of the Ebon Legion"}, "want": true}]}
+      ],
+      "expect": []
+    },
+    {
+      "name": "haakon-in-graveyard-does-not-permit-other-knights",
+      "cr": ["611.3a", "601.2"],
+      "why": "Haakon's battlefield condition is false while it remains in the graveyard, so another Knight spell cannot be cast from there.",
+      "setup": {
+        "p0": {"graveyard": ["Haakon, Stromgald Scourge", "Knight of the Ebon Legion"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "B", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Knight of the Ebon Legion"}, "want": false}]}
+      ],
+      "expect": []
+    }
+  ]
+}
