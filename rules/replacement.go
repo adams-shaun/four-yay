@@ -1595,11 +1595,14 @@ func (e *Engine) seedEffectReplCtx(ctx *effects.Ctx, m replMatch) {
 	if src, ts, ok := parseEffectKey(m.key); ok {
 		ctx.EffectFrame = effects.EffectFrame{Source: src, Stamp: ts}
 	}
-	if m.key == "" || len(m.remembered) == 0 {
+	if m.key == "" || (len(m.remembered) == 0 && len(m.rememberedPlayers) == 0) {
 		return
 	}
 	for _, id := range m.remembered {
 		ctx.Remembered = append(ctx.Remembered, state.Target{Obj: id})
+	}
+	for _, player := range m.rememberedPlayers {
+		ctx.Remembered = append(ctx.Remembered, state.Target{Player: player, IsPlayer: true})
 	}
 }
 
@@ -1677,17 +1680,10 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 	if ctx != nil {
 		e.replReplacedCards = append([]state.ObjID(nil), ctx.ReplacedCards...)
 		// The body's own remembered binding is what a VarValue$ Remembered
-		// Affected rewrite resolves against (the Effect-created damage-magnet
-		// family: Heroic Sacrifice, Kor Chant, Shield Dancer...). Objects only:
-		// the player half of a capture is unreachable here and fails closed.
-		// Each body owns its backing array: a nested runReplaceWith must not
-		// overwrite the saved outer body's referents through a shared slice.
-		e.replRemembered = nil
-		for _, tg := range ctx.Remembered {
-			if !tg.IsPlayer && tg.Obj != 0 {
-				e.replRemembered = append(e.replRemembered, tg.Obj)
-			}
-		}
+		// Affected rewrite resolves against. Each body owns its backing array:
+		// a nested runReplaceWith must not overwrite the saved outer body's
+		// referents through a shared slice.
+		e.replRemembered = append([]state.Target(nil), ctx.Remembered...)
 	} else {
 		e.replReplacedCards = nil
 		e.replRemembered = nil
@@ -5415,20 +5411,22 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 			ev.Obj, ev.Player = 0, target.Controller
 		}
 	case "Remembered":
-		// The Effect-created damage magnet's recipient (Heroic Sacrifice's
-		// `VarValue$ Remembered | VarType$ Card`: "all damage that would be
-		// dealt to you and creatures you control is dealt to the chosen
-		// creature instead", CR 614.6 + CR 120.3a). The referent is the
-		// replacement body's own remembered binding, carried in
-		// e.replRemembered because this Host method sees no Ctx. Fail closed,
-		// matching the Oracle's "if it's still on the battlefield": with no
-		// remembered binding, or one whose referent has left the battlefield,
-		// the held event keeps its original recipient. A player-referent
-		// remember (the VarType$ GameEntity carriers' player half) never
-		// reaches here -- the capture records objects only.
-		if len(e.replRemembered) > 0 {
-			if ref := e.G.Obj(e.replRemembered[0]); ref != nil && ref.Zone == state.ZBattlefield {
-				ev.Obj, ev.Player = e.replRemembered[0], 0
+		// Infer the destination kind from the captured GameEntity, rather than
+		// parsing VarType$. Remembered permanents must still be on the
+		// battlefield; remembered players are valid damage recipients while
+		// they remain in the game. With no live referent the held event is
+		// unchanged (fail closed).
+		for _, target := range e.replRemembered {
+			if target.IsPlayer {
+				if int(target.Player) < len(e.G.Players) {
+					ev.Obj, ev.Player = 0, target.Player
+					break
+				}
+				continue
+			}
+			if obj := e.G.Obj(target.Obj); target.Obj != 0 && obj != nil && obj.Zone == state.ZBattlefield {
+				ev.Obj, ev.Player = target.Obj, 0
+				break
 			}
 		}
 	}
