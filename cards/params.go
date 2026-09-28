@@ -23,6 +23,7 @@ const (
 	PKActivationFirstCombat
 	PKActivationPhases
 	PKActivationZone
+	PKActivator
 	PKActiveZones
 	PKAddAbility
 	PKAddAllCreatureTypes
@@ -40,6 +41,7 @@ const (
 	PKAffected
 	PKAffectedZone
 	PKCantHaveKeyword
+	PKCaster
 	PKCharacteristicDefining
 	PKCheckSVar
 	PKClassBand
@@ -49,6 +51,7 @@ const (
 	PKEffectOnly
 	PKEffectZone
 	PKExcludeZone
+	PKFirstForetell
 	PKFoundSearchingLibrary
 	PKGainControl
 	PKGainsAbilitiesOf
@@ -58,6 +61,7 @@ const (
 	PKIsPresent2
 	PKMayLookAt
 	PKMayPlay
+	PKOnlyFirstSpell
 	PKOpponentTurn
 	PKOrigin
 	PKPhase
@@ -72,9 +76,11 @@ const (
 	PKSetPower
 	PKSetToughness
 	PKTriggerZones
+	PKType
 	PKValidCard
 	PKValidCause
 	PKValidLKI
+	PKValidSpell
 	paramKeyCount
 )
 
@@ -84,6 +90,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKActivationFirstCombat:   "ActivationFirstCombat",
 	PKActivationPhases:        "ActivationPhases",
 	PKActivationZone:          "ActivationZone",
+	PKActivator:               "Activator",
 	PKActiveZones:             "ActiveZones",
 	PKAddAbility:              "AddAbility",
 	PKAddAllCreatureTypes:     "AddAllCreatureTypes",
@@ -101,6 +108,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKAffected:                "Affected",
 	PKAffectedZone:            "AffectedZone",
 	PKCantHaveKeyword:         "CantHaveKeyword",
+	PKCaster:                  "Caster",
 	PKCharacteristicDefining:  "CharacteristicDefining",
 	PKCheckSVar:               "CheckSVar",
 	PKClassBand:               "ClassBand",
@@ -110,6 +118,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKEffectOnly:              "EffectOnly",
 	PKEffectZone:              "EffectZone",
 	PKExcludeZone:             "ExcludeZone",
+	PKFirstForetell:           "FirstForetell",
 	PKFoundSearchingLibrary:   "FoundSearchingLibrary",
 	PKGainControl:             "GainControl",
 	PKGainsAbilitiesOf:        "GainsAbilitiesOf",
@@ -119,6 +128,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKIsPresent2:              "IsPresent2",
 	PKMayLookAt:               "MayLookAt",
 	PKMayPlay:                 "MayPlay",
+	PKOnlyFirstSpell:          "OnlyFirstSpell",
 	PKOpponentTurn:            "OpponentTurn",
 	PKOrigin:                  "Origin",
 	PKPhase:                   "Phase",
@@ -133,9 +143,11 @@ var paramKeyNames = [paramKeyCount]string{
 	PKSetPower:                "SetPower",
 	PKSetToughness:            "SetToughness",
 	PKTriggerZones:            "TriggerZones",
+	PKType:                    "Type",
 	PKValidCard:               "ValidCard",
 	PKValidCause:              "ValidCause",
 	PKValidLKI:                "ValidLKI",
+	PKValidSpell:              "ValidSpell",
 }
 
 // String is the key's Forge text.

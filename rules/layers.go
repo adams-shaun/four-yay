@@ -240,7 +240,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// (the shipped statics convention rules/statics.go's
 						// checkSVarHolds documents): the grant is withheld whole, never
 						// silently always-applied.
-						if st.MayHaveAnyParam(continuousGateKeys) && !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: faceSVars}) {
+						if st.MayHaveAnyParam(continuousGateKeys) && !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
 							continue
 						}
 						base := ContinuousEffect{

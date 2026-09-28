@@ -25,6 +25,10 @@ type staticView struct {
 	Source     state.ObjID
 	Controller state.PlayerID
 	Params     map[string]string
+	// PS is the printed static's compiled parameter set (nil for a view
+	// built from a map that has none): the view's ParamStr/Param/HasParam
+	// read through it when it is bound to Params.
+	PS *cards.ParamSet
 	// SVars is the SVar table of the face that carries this static. For a
 	// plain permanent it is the top face's table (unchanged); for a card
 	// merged beneath a mutated pile's top (CR 702.140d) it is the
@@ -205,7 +209,7 @@ func (e *Engine) scanActionStatics() actionStaticViews {
 					default:
 						continue
 					}
-					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars})
+					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 				}
 			}
 		}
@@ -267,7 +271,7 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 					if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
 						continue
 					}
-					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars})
+					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 				}
 			}
 		}
@@ -594,7 +598,7 @@ func (e *Engine) castRestrictionSources(statics []staticView, id state.ObjID) []
 		if st.Mode != "CantBeCast" || !effectZoneOK(st.Params["EffectZone"], o.Zone) {
 			continue
 		}
-		out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params})
+		out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf()})
 	}
 	return out
 }
@@ -615,13 +619,13 @@ func (e *Engine) restrictionGateHolds(sv staticView, target state.ObjID) bool {
 	if !e.classBandGateHolds(sv.Params, sv.Source) {
 		return false
 	}
-	if az, ok := sv.Params["AffectedZone"]; ok {
+	if az, ok := sv.Param(cards.PKAffectedZone); ok {
 		o := e.G.Obj(target)
 		if o == nil || !affectedZoneOK(az, o.Zone) {
 			return false
 		}
 	}
-	switch strings.TrimSpace(sv.Params["Condition"]) {
+	switch strings.TrimSpace(sv.ParamStr(cards.PKCondition)) {
 	case "":
 		return true
 	case "PlayerTurn":
@@ -861,7 +865,7 @@ func (e *Engine) withSelfStatics(base []staticView, id state.ObjID, mode string)
 	out := append([]staticView(nil), base...)
 	for _, st := range o.Face().Statics {
 		if st.Mode == mode {
-			out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params})
+			out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf()})
 		}
 	}
 	return out
@@ -2192,7 +2196,7 @@ func (e *Engine) scanCostStatics() costStaticViews {
 			if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
 				continue
 			}
-			*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars})
+			*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 		}
 	}
 	for pi, p := range e.G.AliveFrom(0) {
@@ -2399,10 +2403,10 @@ func raiseFromCost(s string) (col state.Mana, gen, life int32, ok bool) {
 // static with an Activator$ or Caster$ parameter scopes to whose cost it
 // modifies. With neither it applies regardless of actor.
 func (e *Engine) costActorMatches(sv staticView, actor state.PlayerID) bool {
-	if _, ok := sv.Params["Activator"]; ok {
+	if sv.HasParam(cards.PKActivator) {
 		return e.actorMatches(sv, "Activator", actor)
 	}
-	if _, ok := sv.Params["Caster"]; ok {
+	if sv.HasParam(cards.PKCaster) {
 		return e.actorMatches(sv, "Caster", actor)
 	}
 	return true
@@ -2750,13 +2754,13 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 	if !e.classBandGateHolds(sv.Params, sv.Source) {
 		return false
 	}
-	if ty, ok := sv.Params["Type"]; ok && ty != "" && ty != scope.kind {
+	if ty, ok := sv.Param(cards.PKType); ok && ty != "" && ty != scope.kind {
 		return false
 	}
 	if !e.costActorMatches(sv, p) {
 		return false
 	}
-	if strings.EqualFold(strings.TrimSpace(sv.Params["OnlyFirstSpell"]), "True") &&
+	if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKOnlyFirstSpell)), "True") &&
 		e.onlyFirstSpellUsed(sv, p, id) {
 		// OnlyFirstSpell$ (Conduit of Ruin: "The first creature spell you cast
 		// each turn costs {2} less"): the reduction is spent once the
@@ -2764,7 +2768,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// onlyFirstSpellUsed for the tracking.
 		return false
 	}
-	if spec, ok := sv.Params["ValidCard"]; ok {
+	if spec, ok := sv.Param(cards.PKValidCard); ok {
 		// The provenance-keyed ValidCard$ (castprov3: Bilbo's
 		// "!wasCastFromYourHand" ReduceCost) is unresolvable while the priced
 		// object has no cast in the log yet — the offer walk and the
@@ -2784,14 +2788,14 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 			return false
 		}
 	}
-	if first, ok := sv.Params["FirstForetell"]; ok && strings.EqualFold(strings.TrimSpace(first), "True") &&
+	if first, ok := sv.Param(cards.PKFirstForetell); ok && strings.EqualFold(strings.TrimSpace(first), "True") &&
 		scope.kind == "Foretell" && e.firstForetellUsed(p) {
 		return false
 	}
-	if vs, ok := sv.Params["ValidSpell"]; ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
+	if vs, ok := sv.Param(cards.PKValidSpell); ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
 		return false
 	}
-	if az, ok := sv.Params["AffectedZone"]; ok && scope.kind == "Ability" {
+	if az, ok := sv.Param(cards.PKAffectedZone); ok && scope.kind == "Ability" {
 		o := e.G.Obj(id)
 		if o == nil {
 			return false
@@ -2800,7 +2804,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 			return false
 		}
 	}
-	if spec, ok := sv.Params["IsPresent"]; ok && !e.isPresent(spec, sv) {
+	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.isPresent(spec, sv) {
 		return false
 	}
 	if !e.costConditionHolds(sv, p) {
@@ -3378,7 +3382,7 @@ func (e *Engine) assignmentStatics(mode string) []staticView {
 					if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
 						continue
 					}
-					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars})
+					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 				}
 			}
 		}
@@ -3746,3 +3750,20 @@ func (e *Engine) unspentManaKeep(p state.PlayerID) string {
 // manaSlotSymbols indexes the pool slot order (state.MW..state.MC) to its
 // WUBRGC letter, the encoding the ManaClear keep Text rides.
 const manaSlotSymbols = "WUBRGC"
+
+// Param is Params[k] with presence, through the view's compiled set.
+func (sv staticView) Param(k cards.ParamKey) (string, bool) {
+	return cards.ParamSetParam(sv.PS, sv.Params, k)
+}
+
+// ParamStr is Params[k] ("" when absent).
+func (sv staticView) ParamStr(k cards.ParamKey) string {
+	v, _ := cards.ParamSetParam(sv.PS, sv.Params, k)
+	return v
+}
+
+// HasParam reports whether key k is present.
+func (sv staticView) HasParam(k cards.ParamKey) bool {
+	_, ok := cards.ParamSetParam(sv.PS, sv.Params, k)
+	return ok
+}
