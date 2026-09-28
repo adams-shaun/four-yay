@@ -258,7 +258,13 @@ func (t *tactical) decideKind(s *Seat, v view.View, d *decision.Decision) decisi
 		if in, ok := t.targets(v, d); ok {
 			return in
 		}
-	case decision.KChoose:
+	case decision.KChoose, decision.KModes:
+		if in, ok := t.discard(v, d); ok {
+			return in
+		}
+		if d.Kind == decision.KModes {
+			break
+		}
 		if s.pursuit != nil {
 			if i, ok := pursuitColour(v, d); ok {
 				return one(d, i)
@@ -424,3 +430,76 @@ func (t *tactical) observe(v view.View, me state.PlayerID) {
 
 // oppNeverBlocks reports an opponent observed declining every block.
 func (t *tactical) oppNeverBlocks() bool { return t.blockChances >= 2 && t.blocks == 0 }
+
+// discard answers a discard ask (a cost, looting, the hand-size limit): the
+// Min cards of our hand we would least like to keep.
+func (t *tactical) discard(v view.View, d *decision.Decision) (decision.Intent, bool) {
+	if !strings.Contains(strings.ToLower(d.Prompt), "discard") || len(d.Options) == 0 {
+		return decision.Intent{}, false
+	}
+	st := t.newState(&v, d.Player)
+	type kv struct {
+		idx int
+		v   float64
+	}
+	var ks []kv
+	for i := range d.Options {
+		o := &d.Options[i]
+		if st.zoneOf(o.Obj) != "hand" {
+			return decision.Intent{}, false
+		}
+		ks = append(ks, kv{o.Index, t.keepValue(st, st.objs[o.Obj])})
+	}
+	sort.SliceStable(ks, func(i, j int) bool {
+		if ks[i].v != ks[j].v {
+			return ks[i].v < ks[j].v
+		}
+		return ks[i].idx < ks[j].idx
+	})
+	var chosen []int
+	for _, k := range ks {
+		if len(chosen) >= d.Min {
+			break
+		}
+		if admissible(d, chosen, &d.Options[k.idx]) {
+			chosen = append(chosen, k.idx)
+		}
+	}
+	return repaired(d, decision.Intent{Choices: chosen}), true
+}
+
+// keepValue is how much we want to keep a hand card: lands while we still
+// need them, spells by their cast value, discounted when far off the curve
+// and for cards that work from the graveyard (flashback, madness).
+func (t *tactical) keepValue(s *tstate, cv *view.CardView) float64 {
+	if cv == nil {
+		return 0
+	}
+	lands := s.lands
+	for i := range s.meP.Hand {
+		if isLandView(&s.meP.Hand[i]) {
+			lands++
+		}
+	}
+	if isLandView(cv) {
+		if lands-1 < 5 {
+			return 8
+		}
+		return 1
+	}
+	p := t.profile(cv)
+	v := t.w.Card + t.w.ManaSpent*float64(p.cmc)
+	if p.creature {
+		v += t.w.Body * t.profileCreValue(s, p, cv)
+	}
+	if p.cmc > lands+1 {
+		v *= 0.5
+	}
+	for _, k := range cv.Keywords {
+		switch strings.ToLower(cards.KeywordHead(k)) {
+		case "flashback", "madness":
+			v *= 0.3
+		}
+	}
+	return v
+}

@@ -316,21 +316,38 @@ func (t *tactical) abilityScore(s *tstate, obj state.ObjID, abil int, pot bool) 
 	if cv.AttachedTo != 0 && len(ab.effects) > 0 && ab.effects[0].class == effAttach {
 		return -1 // equip onto the creature it already equips: a no-op
 	}
-	if w.Timing && !ab.sorcery && !ab.ninjutsu && !ab.fromHand {
-		// Instant-speed card flow (loot, clue, draw) belongs at the
-		// opponent's end step.
-		drawish := false
+	if !ab.sorcery && !ab.ninjutsu {
+		combat := false
 		for i := range ab.effects {
 			switch ab.effects[i].class {
-			case effDraw, effSelect, effLifeGain:
-				drawish = true
+			case effPump, effDebuff, effRemoval, effDamage, effDamageAll, effTap, effUntap, effCounter, effFog:
+				combat = true
 			}
 		}
-		if drawish && !(!s.myTurn && s.step == "end") {
+		eot := !s.myTurn && s.step == "end"
+		landNow := ab.fromHand && s.myTurn && s.main && !s.landInHand()
+		switch {
+		case combat || eot || landNow:
+		case w.Timing:
+			// Card flow (loot, clue, treasure, cycling) belongs at the
+			// opponent's end step, when the mana has nothing better to do.
 			v -= w.WaitEOT
+		case s.myTurn && !s.main && !s.combat && ab.manaCost > 0:
+			// Sanity, not tuning: never tap mana before our own main phase
+			// for card flow (it empties before we can cast).
+			v -= 5
 		}
 	}
 	return v
+}
+
+func (s *tstate) landInHand() bool {
+	for i := range s.meP.Hand {
+		if isLandView(&s.meP.Hand[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 // cycleValue values a from-hand ability (cycling / landcycling): the card
@@ -442,6 +459,8 @@ func (t *tactical) effValue(s *tstate, p *tProfile, e *tEffect, src state.ObjID)
 		return w.Card * 0.8 * min(amount, float64(n))
 	case effGraveHate:
 		return 0.3
+	case effFog:
+		return t.fogValue(s)
 	case effAttach:
 		for _, c := range s.mine {
 			if c.id != src {
@@ -645,4 +664,41 @@ func (t *tactical) timingPenaltyIf(s *tstate, p *tProfile, obj state.ObjID, v fl
 		return 0
 	}
 	return t.timingPenalty(s, p, obj, v)
+}
+
+// fogValue values preventing this combat's damage: only on the opponent's
+// turn once blockers are declared, the unblocked damage we would take plus
+// our blockers that would die.
+func (t *tactical) fogValue(s *tstate) float64 {
+	if s.myTurn || !s.combat || !s.blocksDone {
+		return -1
+	}
+	var dmg int32
+	v := 0.0
+	for _, a := range s.theirs {
+		if !a.attacking {
+			continue
+		}
+		if !a.blocked {
+			dmg += a.pow * (1 + int32(b2f(a.doubleStrike)))
+			continue
+		}
+		var bs []*tcre
+		for _, id := range a.cv.BlockedBy {
+			if b := s.cre[id]; b != nil {
+				bs = append(bs, b)
+			}
+		}
+		r := fightOutcome(a, bs, 0, 0, false)
+		for i, dead := range r.foeDies {
+			if dead {
+				v += s.creValue(bs[i])
+			}
+		}
+	}
+	v += s.lifeValue(s.myLife, dmg)
+	if dmg >= s.myLife {
+		v += t.w.Lethal
+	}
+	return v
 }

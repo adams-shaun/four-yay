@@ -48,6 +48,7 @@ const (
 	effCheat              // put this card onto the battlefield (ninjutsu)
 	effAttach             // equip / aura onto a creature
 	effInitiative         // take the initiative (a strong card-advantage engine)
+	effFog                // prevent combat damage this turn
 )
 
 // polarity is an effect's direction relative to the permanent or player it
@@ -141,7 +142,7 @@ func (p *tProfile) reactive() bool {
 	}
 	for _, e := range p.spell {
 		switch e.class {
-		case effCounter, effRemoval, effDamage, effPump, effDebuff, effDraw, effSelect, effTap:
+		case effCounter, effRemoval, effDamage, effPump, effDebuff, effDraw, effSelect, effTap, effFog:
 			return true
 		}
 	}
@@ -295,6 +296,9 @@ func chainEffects(f *cards.Face, sa *cards.SA, kicked bool) []tEffect {
 		}
 		e := labelSA(sa)
 		e.kicked = kicked
+		if sa.API == "Fog" || sa.API == "Effect" && strings.Contains(f.SVars[sa.Params["ReplacementEffects"]], "Prevent$ True") {
+			e.class = effFog
+		}
 		if !e.known || e.class == effPump && (e.att == 2 && strings.Contains(sa.Params["NumAtt"], "X")) {
 			for _, k := range []string{"NumDmg", "NumCards", "LifeAmount", "NumAtt", "Amount"} {
 				if v := strings.TrimPrefix(sa.Params[k], "+"); v != "" {
