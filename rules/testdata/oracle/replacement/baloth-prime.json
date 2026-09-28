@@ -10,7 +10,7 @@
       "why": "When Baloth Prime enters, it has six stun counters and is tapped.",
       "setup": {"p0": {"hand": ["Baloth Prime"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Baloth Prime", "mana": "3G"},
+        {"op": "cast", "seat": 0, "card": "p0:Baloth Prime", "mana": "GGGG"},
         {"op": "resolve"}
       ],
       "expect": [
@@ -23,7 +23,7 @@
       "why": "The entry modification applies to Baloth Prime itself, not another creature entering under the same player's control.",
       "setup": {"p0": {"hand": ["Grizzly Bears"]}, "p1": {}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "1G"},
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "GG"},
         {"op": "resolve"}
       ],
       "expect": [

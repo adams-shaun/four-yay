@@ -5,9 +5,9 @@
   "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "dredge-two-replaces-draw-at-boundary",
+      "name": "dredge-mills-two-and-returns-salvage",
       "cr": ["702.52a", "702.52b"],
-      "why": "With at least two cards in the library and Dakmor Salvage in the graveyard, its controller may mill exactly two and return the Salvage to hand instead of drawing.",
+      "why": "With Dakmor Salvage in the graveyard and enough cards available, its controller may mill exactly two and return the Salvage to hand instead of drawing. The padded library does not test the fewer-than-two-card restriction.",
       "setup": {"p0": {"graveyard": ["Dakmor Salvage"], "library_top": ["Forest", "Island"]}, "p1": {}},
       "steps": [
         {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},

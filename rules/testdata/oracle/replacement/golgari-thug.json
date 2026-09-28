@@ -5,9 +5,9 @@
   "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "dredge-four-replaces-draw-at-boundary",
+      "name": "dredge-mills-four-and-returns-thug",
       "cr": ["702.52a", "702.52b"],
-      "why": "With at least four cards in the library and Golgari Thug in the graveyard, its controller may mill exactly four and return the Thug to hand instead of drawing.",
+      "why": "With Golgari Thug in the graveyard and enough cards available, its controller may mill exactly four and return the Thug to hand instead of drawing. The padded library does not test the fewer-than-four-card restriction.",
       "setup": {"p0": {"graveyard": ["Golgari Thug"], "library_top": ["Forest", "Island", "Swamp", "Mountain"]}, "p1": {}},
       "steps": [
         {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
