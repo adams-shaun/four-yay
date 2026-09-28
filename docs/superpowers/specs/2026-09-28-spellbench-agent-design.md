@@ -558,3 +558,48 @@ alongside D§14.
   also implements `probe_resample`)?
 - **Q5.** Resources for M1 Q2 at 2,000+ games per arm (current AZ budget is
   2 cores / 5 GB).
+
+## 15. Experiment framework
+
+One standard way to add a SpellBench policy idea and measure it. Three
+parts, all landed (sb-gauntlet workstream):
+
+**Registry** (`internal/spellbench/registry`). A named policy registry:
+`name -> factory(seed uint64, mana builtins.ManaMode) seat.Seat`. The
+sb-* builtins are registered by the package itself (`sb.go`); `bot` and
+`az` are registered by `cmd/botbench` (they need the command's hosted-policy
+and azmcts wiring); `botbench -spellbench` resolves every name through it,
+and an unknown name fails with the registered names listed. Registering a
+new policy is one file plus one `Register` call from `init()`.
+
+**Decorators.** A policy spec may be `base+dec1+dec2` (e.g. `bot+lethal`).
+A decorator is `func(inner seat.Seat, seed uint64) seat.Seat`, registered
+by name in the same registry; its seat may answer a decision itself or
+delegate it to `inner`. The spec string is the policy's name in the ledger,
+so the ledger shows the composed name. The first decorator is
+`passguard`: it delegates everything, replacing a pass pick with the first
+non-pass candidate only when the decision offers exactly one non-pass
+candidate that is a land play (the wrapper keeps the wrapped seat's
+BoardSeat-ness, so `bot+passguard` still answers from the board, and the
+inner is consulted exactly once per decision, so a seed-streamed inner
+draws the same numbers bare or wrapped).
+
+**Gauntlet** (`scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]`).
+Rates candidate specs against a fixed reference set: `sb-uniform` (the Elo
+anchor), `sb-heuristic` and `bot`, plus every spec in
+`/mnt/sata/gorge-training/spellbench-work/gauntlet/champions.txt` when it
+exists. Candidates play the references through `-spellbench-with <spec>`
+(full round robin's seeds and indices kept); reference-vs-reference games
+are cached under `/mnt/sata/gorge-training/spellbench-work/gauntlet/ref/<key>/`,
+keyed by the `git rev-parse HEAD:` tree hashes of `rules effects cards
+decision botpolicy internal/spellbench cmd/botbench` plus pairs and decks,
+so any engine or policy change invalidates the cache. Every relevant ledger
+is rated together with `scripts/spellbench-rate.py`
+(`/mnt/sata/gorge-training/sbvenv/bin` provides the interpreter); the run
+prints a per-candidate table (spec, Elo, CI95, W-L, head-to-head vs each
+reference) and appends one JSON row per candidate to
+`.../gauntlet/results.jsonl` (`spec, elo, ci_lo, ci_hi, wins, losses,
+pairs, decks, git_head, key, ts`). Exit code 0 unless the run fails. Every
+botbench invocation runs under
+`flock -o .../heavy.lock systemd-run --user --scope -q -p MemoryMax=4G env
+GOMEMLIMIT=2GiB GOMAXPROCS=8` with `-workers 8`.
