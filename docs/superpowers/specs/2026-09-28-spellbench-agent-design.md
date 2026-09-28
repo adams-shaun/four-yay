@@ -517,6 +517,19 @@ H1 and H2 first (they gate everything), then M1 (cheap, gorge-native, answers
 the biggest unknown), M2 with W2's harness, M3 when adapter Tasks 26-28 land,
 M4 after the kernel v2 bridge exists, M5 when §15 ships.
 
+**Policy networks (v1c).** The network this agent's search consumes (D§6
+prior and leaf, D§7 fallback, D§8 specialists) is surveyed and planned in
+`docs/superpowers/reports/2026-09-28-spellbench-policy-networks.md`. In
+short, the network serves search and does not replace it. Value is trained
+first, as two heads: a seat-view value for the root and a full-world value
+that is used only at the leaves of sampled worlds. The input is an entity
+table with two front ends: gorge's view, and the v2 neutral observation,
+which must agree bit for bit on gorge-engine transcripts. Candidates are
+scored pointer-style over the v2 list. Policy targets come only from honest
+search, with Gumbel root selection. Stages S0-S5 carry kill criteria. S3
+(honest expert iteration) waits for M1 Q2. Its open questions (O1-O9) sit
+alongside D§14.
+
 ## 13. Risks
 
 | Risk | Why it bites | Mitigation |
