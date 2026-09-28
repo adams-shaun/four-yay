@@ -4507,6 +4507,11 @@ type SpecContext struct {
 	// making `Creature.faceDown+...` specs match the entry they name. Like
 	// AsStack it is absent from every other evaluation.
 	AsFaceDown bool
+	// ExcludeFromBattlefieldCount is the object that is being evaluated by
+	// an Updated battlefield-entry replacement body. Its entry has been
+	// folded by then, but CR 614.12 counts the battlefield as it would be
+	// immediately before the permanent enters.
+	ExcludeFromBattlefieldCount state.ObjID
 	// Remembered is the resolving spell or ability's Remembered set (a
 	// RepeatEach iteration binds its subject here). Like ResolutionTargets it
 	// is meaningful only while Resolving. It is also the Remembered.* base

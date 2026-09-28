@@ -501,7 +501,8 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 		// CantTarget) agrees with the layer walk. Also a field copy of
 		// immutable data.
 		DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads,
-		TargetableObjects: c.TargetableObjects}
+		TargetableObjects:           c.TargetableObjects,
+		ExcludeFromBattlefieldCount: c.ExcludeFromBattlefieldCount}
 	// Numeric-RHS resolution for a resolution-time filter spec, in priority
 	// order:
 	//

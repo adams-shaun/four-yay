@@ -1489,6 +1489,9 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	if o == nil {
 		ctx := &effects.Ctx{Source: m.id, ReplacementTarget: target,
 			ReplacementSource: e.protectionSource(e.damaging), ReplacementAmount: drawMatchAmount(ev)}
+		if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
+			ctx.ExcludeFromBattlefieldCount = ev.Obj
+		}
 		e.seedEffectReplCtx(ctx, m)
 		return ctx
 	}
@@ -1513,6 +1516,9 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		// act on exactly the card being kept out of the graveyard -- not the
 		// source that owns the replacement.
 		Replaced: ev.Obj}
+	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
+		ctx.ExcludeFromBattlefieldCount = ev.Obj
+	}
 	// The cascade instruction's ordered exiled batch, the plural referent
 	// Averna's ReplaceWith$ body reads as Defined$ ReplacedCards.<qual>. Only a
 	// Cascade proposal carries it; every other replacement leaves the field
