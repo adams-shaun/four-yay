@@ -449,7 +449,34 @@ type specResolveEnv struct {
 	lkiPTValid             bool
 	x                      int32
 	ctx                    *effects.Ctx
+	// resolveFn is resolve bound to this env, made once when the env is
+	// allocated: a method value taken per call would heap-allocate its
+	// closure every time.
+	resolveFn func(string) (int32, bool)
 }
+
+// acquireSpecEnv hands targetSpecContext its env from the engine's stack of
+// reusable envs (e.specEnvs[e.specEnvDepth]), allocating only when the stack
+// is deeper than it has ever been. Every caller releases it (releaseSpecEnv,
+// deferred) when its SpecContext goes out of use, and the SpecContext --
+// with its Resolve -- is only ever passed down into the matching walk, never
+// stored, so the env is free again by then. Nested target walks (a Resolve
+// that evaluates a count, which walks targets again) take deeper slots:
+// defers pop in LIFO order, including when a panic unwinds. The lazily built
+// count Ctx is dropped on reuse, so a retained one is never rewritten.
+func (e *Engine) acquireSpecEnv() *specResolveEnv {
+	if e.specEnvDepth == len(e.specEnvs) {
+		env := &specResolveEnv{}
+		env.resolveFn = env.resolve
+		e.specEnvs = append(e.specEnvs, env)
+	}
+	env := e.specEnvs[e.specEnvDepth]
+	e.specEnvDepth++
+	return env
+}
+
+// releaseSpecEnv returns the innermost env acquireSpecEnv handed out.
+func (e *Engine) releaseSpecEnv() { e.specEnvDepth-- }
 
 func (r *specResolveEnv) countCtx() *effects.Ctx {
 	if r.ctx == nil {
@@ -531,11 +558,17 @@ func (e *Engine) targetSpecContext(source, stack state.ObjID, you state.PlayerID
 	// offers never do; it is built on first use (once, and then reused
 	// exactly as the eager one was). Every field it reads is final by now, so
 	// a late build is identical to an eager one.
-	env := &specResolveEnv{e: e, source: source, you: you, tcx: tcx, remembered: remembered,
-		svars: svars, lki: lki, lkiPower: lkiPower, lkiToughness: lkiToughness, lkiPTValid: lkiPTValid, x: x}
+	//
+	// The record itself is one of the engine's reusable envs (acquireSpecEnv):
+	// the caller must defer e.releaseSpecEnv() once it is done with the
+	// returned SpecContext.
+	env := e.acquireSpecEnv()
+	*env = specResolveEnv{e: e, source: source, you: you, tcx: tcx, remembered: remembered,
+		svars: svars, lki: lki, lkiPower: lkiPower, lkiToughness: lkiToughness, lkiPTValid: lkiPTValid, x: x,
+		resolveFn: env.resolveFn}
 	sc := effects.SpecContext{You: you, Source: source, TriggerContext: tcx,
 		Remembered: remembered,
-		Resolve:    env.resolve}
+		Resolve:    env.resolveFn}
 	// The stack object's Remembered and fire-time LKI are bound above, beside
 	// TriggerContext, so placement-time numeric SVars read the same captured
 	// referents the resolving Ctx receives later.

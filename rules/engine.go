@@ -1374,6 +1374,12 @@ type Engine struct {
 	// a real suspended card loses its final TIME counter. IDs are appended in
 	// exile order and consumed before priority; it is plain replayable engine
 	// continuation state, not an inference from arbitrary exile cards.
+	// specEnvs/specEnvDepth: targetSpecContext's reusable Resolve records,
+	// used as a stack (trigger_referents.go, acquireSpecEnv). Scratch that is
+	// free at every intent boundary, so Clone starts a fresh one.
+	specEnvs     []*specResolveEnv
+	specEnvDepth int
+
 	suspendedCasts []state.ObjID
 	// defeatedCasts is the CR 310.11 "may cast it transformed without paying
 	// its mana cost" offer for every battle the zero-defense SBA exiled
@@ -2135,6 +2141,11 @@ type Spare struct {
 	// arena's size plus the slots; cleared by Release, which is exactly the
 	// zeroed never-written state derivedMemoTable.slot's growth relies on.
 	memo, memoStack derivedMemoTable
+	// The livelock watcher's signature and event windows (livelock.go):
+	// filled from empty by every engine, so a recycled pair saves their
+	// regrowth; the watcher reads only their length.
+	loopSigs   []uint64
+	loopRecent []events.Event
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -2144,14 +2155,37 @@ type Spare struct {
 // the Events prefix (events.Log.Clone) -- which is why only a batch runner
 // that owns the finished engine outright calls it. The arrays are cleared so
 // the Spare does not pin the finished game's cards, strings and slices.
+//
+// A clone (Clone, CloneInto) may be released too -- that is the search loop
+// CloneInto documents. A clone's Events and Intents start as its parent's
+// backing arrays with cap == len (events.Log.Clone) and become its own only
+// once an append regrows them, so a forked log's array with no spare
+// capacity is left alone rather than cleared: recycling it would zero the
+// parent's history. (An own array that happens to be exactly full is skipped
+// too, which only forgoes one reuse.) The object arena and memo tables are
+// always the clone's own.
 func (e *Engine) Release() Spare {
-	sp := Spare{
-		events:    e.L.Events[:cap(e.L.Events)],
-		objs:      e.G.Objs[:cap(e.G.Objs)],
-		intents:   e.L.Intents[:cap(e.L.Intents)],
-		memo:      e.derivedMemo.release(),
-		memoStack: e.derivedMemoStack.release(),
+	evs, ints := e.L.Events[:cap(e.L.Events)], e.L.Intents[:cap(e.L.Intents)]
+	if e.L.Forked() {
+		if cap(e.L.Events) == len(e.L.Events) {
+			evs = nil
+		}
+		if cap(e.L.Intents) == len(e.L.Intents) {
+			ints = nil
+		}
 	}
+	sp := Spare{
+		events:     evs,
+		objs:       e.G.Objs[:cap(e.G.Objs)],
+		intents:    ints,
+		memo:       e.derivedMemo.release(),
+		memoStack:  e.derivedMemoStack.release(),
+		loopSigs:   e.loop.sigs[:0],
+		loopRecent: e.loop.recent[:cap(e.loop.recent)],
+	}
+	clear(sp.loopRecent)
+	sp.loopRecent = sp.loopRecent[:0]
+	e.loop.sigs, e.loop.recent = nil, nil
 	clear(sp.events)
 	clear(sp.objs)
 	clear(sp.intents)
@@ -2219,7 +2253,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		L:             events.NewLogInto(cfg.Seed, spare.events),
 		format:        cfg.Format,
 		rng:           random,
-		loop:          newLivelockWatcher(cfg.LoopGuard),
+		loop:          newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
 		turnsTaken:    make([]int32, len(cfg.Names)),
 		compiledText:  newCompiledText(cfg),
 		landTypeWords: corpusLandTypeWords(cfg.NameUniverse),
