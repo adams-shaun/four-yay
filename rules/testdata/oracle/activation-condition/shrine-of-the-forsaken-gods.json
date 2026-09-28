@@ -1,7 +1,7 @@
 {
   "card": "Shrine of the Forsaken Gods",
   "family": "activation-condition",
-  "oracle_sha": "fffbb58b6748",
+  "oracle_sha": "fffbb58b674c",
   "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
   "scenarios": [
     {
