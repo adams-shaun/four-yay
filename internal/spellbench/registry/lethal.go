@@ -81,6 +81,7 @@ type lethalCore struct {
 type lethalTarget struct {
 	burn     bool
 	attacker state.ObjID // pump only
+	seq      uint64      // the priority decision's Seq that armed it
 }
 
 // lethalSeat is the plain wrapper over a non-BoardSeat inner.
@@ -133,6 +134,7 @@ type lethalCre struct {
 	menace      bool
 	trample     bool
 	unblockable bool
+	firstStrk   bool
 	doubleStrk  bool
 	defender    bool
 }
@@ -293,6 +295,8 @@ func (c *lethalCre) setKeyword(k string) {
 		c.trample = true
 	case "unblockable":
 		c.unblockable = true
+	case "first strike":
+		c.firstStrk = true
 	case "double strike":
 		c.doubleStrk = true
 	case "defender":
@@ -450,7 +454,7 @@ func (c *lethalCore) priority(w lethalSpace, d *decision.Decision, in decision.I
 		}
 	}
 	if burnIdx >= 0 && (burnDmg >= w.oppLife || projected+burnDmg >= w.oppLife) {
-		c.pending = &lethalTarget{burn: true}
+		c.pending = &lethalTarget{burn: true, seq: d.Seq}
 		out := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{burnIdx}}
 		if d.Validate(out) == nil {
 			return out
@@ -481,7 +485,7 @@ func (c *lethalCore) priority(w lethalSpace, d *decision.Decision, in decision.I
 			}
 		}
 		if pumpIdx >= 0 && pumpGain > 0 && projected+pumpGain >= w.oppLife {
-			c.pending = &lethalTarget{attacker: pumpObj}
+			c.pending = &lethalTarget{attacker: pumpObj, seq: d.Seq}
 			out := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{pumpIdx}}
 			if d.Validate(out) == nil {
 				return out
@@ -493,12 +497,15 @@ func (c *lethalCore) priority(w lethalSpace, d *decision.Decision, in decision.I
 }
 
 // target arms the burn or pump the decorator just cast, so the wrapped seat
-// cannot redirect the line. Any other target decision, and a pending line
-// whose matching option is absent, is delegated.
+// cannot redirect the line. The pending line is consumed only by a target
+// decision posed AFTER the priority that armed it (a greater Seq): a cast
+// aborted without a target ask must not let a later unrelated KTarget be
+// hijacked and re-aimed. Any other target decision, and a pending line whose
+// matching option is absent, is delegated.
 func (c *lethalCore) target(w lethalSpace, d *decision.Decision, in decision.Intent) decision.Intent {
 	p := c.pending
 	c.pending = nil
-	if p == nil {
+	if p == nil || d.Seq <= p.seq {
 		return in
 	}
 	for i := range d.Options {
@@ -529,6 +536,14 @@ func (c *lethalCore) target(w lethalSpace, d *decision.Decision, in decision.Int
 // attacker consumes two blockers, and a trampler that is blocked carries
 // only its excess over the blockers' combined toughness. A blocked
 // non-trampler deals nothing.
+//
+// Strike steps are priced conservatively. A blocked attacker loses its
+// double-strike multiplier: the second damage step's extra can only add, and
+// the model refuses to claim what it does not re-derive (a first-striking
+// blocker may kill the attacker between the steps). A non-striking attacker
+// blocked by a first-striking blocker whose power reaches the attacker's
+// toughness is dead before the regular damage step and prices 0 -- that
+// blocker soaks everything.
 func guaranteedDamage(atk, blockers []lethalCre) int32 {
 	bs := append([]lethalCre(nil), blockers...)
 	sort.Slice(bs, func(i, j int) bool {
@@ -545,7 +560,7 @@ func guaranteedDamage(atk, blockers []lethalCre) int32 {
 	var ground []lethalCre
 	var total int32
 	for _, a := range atk {
-		p := a.power * ptMultiplier(a)
+		p := strikePower(a, false)
 		if a.unblockable || (a.flying && !hasFly && !hasReach) {
 			total += p
 			continue
@@ -553,8 +568,8 @@ func guaranteedDamage(atk, blockers []lethalCre) int32 {
 		ground = append(ground, a)
 	}
 	sort.Slice(ground, func(i, j int) bool {
-		pi := ground[i].power * ptMultiplier(ground[i])
-		pj := ground[j].power * ptMultiplier(ground[j])
+		pi := strikePower(ground[i], false)
+		pj := strikePower(ground[j], false)
 		if pi != pj {
 			return pi > pj
 		}
@@ -562,20 +577,29 @@ func guaranteedDamage(atk, blockers []lethalCre) int32 {
 	})
 	bi := 0
 	for _, a := range ground {
-		p := a.power * ptMultiplier(a)
 		need := 1
 		if a.menace {
 			need = 2
 		}
 		if bi+need > len(bs) {
-			total += p // not enough blockers left: it gets through
+			total += strikePower(a, false) // not enough blockers left: it gets through
 			continue
 		}
-		var soak int32
-		for k := 0; k < need; k++ {
-			soak += bs[bi+k].toughness
-		}
+		assigned := bs[bi : bi+need]
 		bi += need
+		var soak int32
+		for _, b := range assigned {
+			soak += b.toughness
+		}
+		p := strikePower(a, true)
+		if !a.firstStrk && !a.doubleStrk {
+			for _, b := range assigned {
+				if (b.firstStrk || b.doubleStrk) && b.power >= a.toughness {
+					p = 0 // killed in the first-strike step before it deals
+					break
+				}
+			}
+		}
 		if a.trample && p > soak {
 			total += p - soak
 		}
@@ -583,24 +607,34 @@ func guaranteedDamage(atk, blockers []lethalCre) int32 {
 	return total
 }
 
-// ptMultiplier is 2 for a double striker (two damage steps) and 1 otherwise.
-func ptMultiplier(c lethalCre) int32 {
-	if c.doubleStrk {
-		return 2
+// strikePower is the damage an attacker prices per the strike model. A
+// double striker with no blocker in front of it deals its power twice (two
+// damage steps); once blocked, only one step is counted (see
+// guaranteedDamage).
+func strikePower(c lethalCre, blocked bool) int32 {
+	if c.doubleStrk && !blocked {
+		return 2 * c.power
 	}
-	return 1
+	return c.power
 }
 
 // bestPump returns the largest guaranteed-attack gain a +n/+n pump on one of
 // atk adds, and the object to aim it at (the first maximum in object order).
+// The gain is measured against the COMBINED attack -- guaranteedDamage over
+// the whole attacker set with the candidate pumped, minus the same over the
+// whole set unpumped -- because the blockers are shared between the
+// attackers: an isolated per-attacker delta can exceed the true combined
+// delta (pumping one attacker past another in power order re-routes the
+// blocking), and a claim built on it prices a lethal the line cannot deliver.
 func bestPump(atk, blockers []lethalCre, n int32) (int32, state.ObjID) {
+	base := guaranteedDamage(atk, blockers)
 	bestGain := int32(0)
 	var bestID state.ObjID
 	for i := range atk {
+		pumped := append([]lethalCre(nil), atk...)
+		pumped[i].power += n
+		gain := guaranteedDamage(pumped, blockers) - base
 		a := atk[i]
-		pumped := atk[i]
-		pumped.power += n
-		gain := guaranteedDamage([]lethalCre{pumped}, blockers) - guaranteedDamage([]lethalCre{a}, blockers)
 		if gain > bestGain || (gain == bestGain && gain > 0 && (bestID == 0 || a.obj < bestID)) {
 			bestGain, bestID = gain, a.obj
 		}

@@ -58,6 +58,11 @@ var cardLookup func(name string) *cards.Card
 // SetCardLookup installs the process-wide card lookup. cmd/botbench wires
 // the run's corpus once before any seat is built; a test may install its
 // own lookup (the last writer wins) since package tests run sequentially.
+// The write-once discipline is by convention, not enforced: the wiring must
+// happen before any match starts (the engine tier is single-goroutine per
+// match, but a lookup installed mid-run would race with readers across
+// concurrent matches), so an embedder other than cmd/botbench must wire it
+// at startup or leave it unset.
 // The value is read-only once games start. A decorator sees nil until a
 // caller wires it and must treat nil as "card unknown".
 func SetCardLookup(l func(name string) *cards.Card) {
