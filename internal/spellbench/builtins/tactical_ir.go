@@ -22,33 +22,33 @@ import (
 type effClass uint8
 
 const (
-	effOther     effClass = iota
-	effDraw               // a player draws (amount = cards)
-	effSelect             // scry / surveil / look-and-rearrange: card quality
-	effTutor              // library -> hand
-	effRamp               // mana: a land onto the battlefield, a mana ability, ritual mana
-	effToken              // creates tokens (amount = count)
-	effClue               // a clue / blood / map style card-for-mana token
-	effRemoval            // a permanent leaves the battlefield (destroy / exile / bounce)
-	effDamage             // damage to a target (amount = damage)
-	effDamageAll          // damage to each creature and/or each opponent
-	effDrain              // damage / life loss to each opponent, untargeted
-	effCounter            // counter a spell
-	effPump               // +N/+N or a beneficial keyword (target or self)
-	effPumpAll            // a team pump
-	effDebuff             // -N/-N or -N/-0 (a curse pump)
-	effLifeGain           // gain life
-	effDiscard            // a target player (opponent) discards
-	effLoot               // the caster discards (a cost-like rider)
-	effTap                // tap a target permanent
-	effUntap              // untap a target (or lands: a refund)
-	effRecursion          // graveyard -> hand / battlefield
-	effGraveHate          // exile a graveyard
-	effMill               // a target player mills (Balustrade Spy)
-	effCheat              // put this card onto the battlefield (ninjutsu)
-	effAttach             // equip / aura onto a creature
-	effInitiative         // take the initiative (a strong card-advantage engine)
-	effFog                // prevent combat damage this turn
+	effOther      effClass = iota
+	effDraw                // a player draws (amount = cards)
+	effSelect              // scry / surveil / look-and-rearrange: card quality
+	effTutor               // library -> hand
+	effRamp                // mana: a land onto the battlefield, a mana ability, ritual mana
+	effToken               // creates tokens (amount = count)
+	effClue                // a clue / blood / map style card-for-mana token
+	effRemoval             // a permanent leaves the battlefield (destroy / exile / bounce)
+	effDamage              // damage to a target (amount = damage)
+	effDamageAll           // damage to each creature and/or each opponent
+	effDrain               // damage / life loss to each opponent, untargeted
+	effCounter             // counter a spell
+	effPump                // +N/+N or a beneficial keyword (target or self)
+	effPumpAll             // a team pump
+	effDebuff              // -N/-N or -N/-0 (a curse pump)
+	effLifeGain            // gain life
+	effDiscard             // a target player (opponent) discards
+	effLoot                // the caster discards (a cost-like rider)
+	effTap                 // tap a target permanent
+	effUntap               // untap a target (or lands: a refund)
+	effRecursion           // graveyard -> hand / battlefield
+	effGraveHate           // exile a graveyard
+	effMill                // a target player mills (Balustrade Spy)
+	effCheat               // put this card onto the battlefield (ninjutsu)
+	effAttach              // equip / aura onto a creature
+	effInitiative          // take the initiative (a strong card-advantage engine)
+	effFog                 // prevent combat damage this turn
 )
 
 // polarity is an effect's direction relative to the permanent or player it
@@ -65,28 +65,28 @@ func (c effClass) polarity() int {
 
 // tEffect is one labelled effect of an ability chain.
 type tEffect struct {
-	class    effClass
-	api      string
-	amount   int32 // the literal amount (damage, cards, tokens, life); 0 when unknown
-	known    bool  // amount is a literal
-	att, def int32 // Pump / PutCounter P/T change (literal parts only)
-	kw       string
-	targeted bool   // ValidTgts$ present
-	valid    string // ValidTgts$ / ValidCards$
-	players  bool   // the target list admits players (Any / Player / Opponent)
-	bounce   bool   // a removal that returns the permanent to hand
-	lands    bool   // an untap / ramp of lands
-	oppOnly  bool   // ValidTgts names only the opponent's side (OppCtrl / Opponent)
-	ownOnly  bool   // ValidTgts names only the caster's side (YouCtrl / YouOwn)
-	curse    bool   // IsCurse$ True
-	rider    bool   // DefinedPlayer$ TargetedController: a rider that benefits the target's controller
-	kicked   bool   // from a trigger that fires only when the spell was kicked
-	self     bool   // Defined$ Self / You (not targeted)
-	unless   bool   // a soft counter (UnlessCost$)
-	unlessN  int32  // the UnlessCost$ mana
-	xExpr    string // the SVar body a variable amount names ("Count$Valid Elf")
-	toBattlefield bool // a recursion that returns to the battlefield (reanimation)
-	trigger       bool // from a triggered ability (an ETB / cast trigger), not the spell itself
+	class         effClass
+	api           string
+	amount        int32 // the literal amount (damage, cards, tokens, life); 0 when unknown
+	known         bool  // amount is a literal
+	att, def      int32 // Pump / PutCounter P/T change (literal parts only)
+	kw            string
+	targeted      bool   // ValidTgts$ present
+	valid         string // ValidTgts$ / ValidCards$
+	players       bool   // the target list admits players (Any / Player / Opponent)
+	bounce        bool   // a removal that returns the permanent to hand
+	lands         bool   // an untap / ramp of lands
+	oppOnly       bool   // ValidTgts names only the opponent's side (OppCtrl / Opponent)
+	ownOnly       bool   // ValidTgts names only the caster's side (YouCtrl / YouOwn)
+	curse         bool   // IsCurse$ True
+	rider         bool   // DefinedPlayer$ TargetedController: a rider that benefits the target's controller
+	kicked        bool   // from a trigger that fires only when the spell was kicked
+	self          bool   // Defined$ Self / You (not targeted)
+	unless        bool   // a soft counter (UnlessCost$)
+	unlessN       int32  // the UnlessCost$ mana
+	xExpr         string // the SVar body a variable amount names ("Count$Valid Elf")
+	toBattlefield bool   // a recursion that returns to the battlefield (reanimation)
+	trigger       bool   // from a triggered ability (an ETB / cast trigger), not the spell itself
 }
 
 // tAbility is one activated ability (a Face.Abilities entry).
