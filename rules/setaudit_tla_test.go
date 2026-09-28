@@ -15,6 +15,7 @@ package rules
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -364,4 +365,202 @@ func tlaDriveToMain1Answering(t *testing.T, e *Engine, turn int32, active state.
 		}
 	}
 	t.Fatalf("never reached turn %d seat %d main1", turn, active)
+}
+
+// ---------------------------------------------------------------------------
+// (b) OptionalCost with a Waterbend<N> cost -- CR 601.2f / 701.67
+// ---------------------------------------------------------------------------
+
+// TestSetAudit_tla_RuinousWaterbending_OptionalCostOffered pins the optional
+// additional cost shape `S:Mode$ OptionalCost | Cost$ Waterbend<4>`: "As an
+// additional cost to cast this spell, you may waterbend {4}." With four
+// untapped creatures and enough mana, the engine must offer BOTH the plain
+// cast and the "(optional cost)" cast, because CR 601.2f makes the payer
+// choose whether to pay it. optionalCostViews drops any static whose Cost$
+// ParseCost cannot model, and ParseCost does not model Waterbend<N>, so the
+// paid branch is unreachable for the 3 tla cards that carry this shape.
+func TestSetAudit_tla_RuinousWaterbending_OptionalCostOffered(t *testing.T) {
+	tlaSkip(t, "S:Mode$ OptionalCost with Cost$ Waterbend<N> is dropped by optionalCostViews (ParseCost.Unknown != 0), so Ruinous Waterbending/Spirit Water Revival/Secret of Bloodbending never offer their paid branch. Follow-up: tla-waterbend-ability-cost")
+	reg := testutil.CorpusRegistry(t)
+	e, _ := searchEngine(t, reg, "Ruinous Waterbending")
+	rb := searchMoveByName(t, e, "Ruinous Waterbending", state.ZHand)
+	for i := 0; i < 4; i++ {
+		onBoard(t, e, 0, "Name:Tap Fodder\nManaCost:0\nTypes:Creature Goat\nPT:1/1\nOracle:x\n")
+	}
+	addMana(t, e, 0, "BBC")
+	e.pending = nil
+	e.priorityRound()
+	optional := false
+	for _, o := range e.Pending().Options {
+		if o.Kind == "cast" && o.Obj == rb && o.Mode == "optionalcost" {
+			optional = true
+		}
+	}
+	if !optional {
+		t.Fatalf("Ruinous Waterbending (optional waterbend {4}) offered no optional-cost cast with four creatures to tap (CR 601.2f): %+v", e.Pending().Options)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// (a)/(b) Diligent Zookeeper -- Count$ValidSelf
+// ---------------------------------------------------------------------------
+
+// TestSetAudit_tla_DiligentZookeeper_CountsCreatureTypes pins the continuous
+// bonus "Each non-Human creature you control gets +1/+1 for each of its
+// creature types, to a maximum of 10." A Cat Soldier is two creature types, so
+// it must be +2/+2; a Human creature gets nothing. Count$ValidSelf
+// (Card$CreatureType/LimitMax.10) is unread, so the static is a no-op and the
+// card is counted supported while its whole rules text does nothing.
+func TestSetAudit_tla_DiligentZookeeper_CountsCreatureTypes(t *testing.T) {
+	tlaSkip(t, "Count$ValidSelf (Card$CreatureType/LimitMax.10) is unread, so Diligent Zookeeper's +1/+1-per-type bonus is a no-op. Follow-up: tla-diligent-zookeeper-validself-count")
+	reg := testutil.CorpusRegistry(t)
+	e := combatEngine(t)
+	onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Diligent Zookeeper"))
+	cat := onBoard(t, e, 0, "Name:Feline Warrior\nManaCost:0\nTypes:Creature Cat Soldier\nPT:2/2\nOracle:x\n")
+	human := onBoard(t, e, 0, "Name:Village Guard\nManaCost:0\nTypes:Creature Human Soldier\nPT:2/2\nOracle:x\n")
+	dc := e.Derived(cat)
+	if dc.Power != 4 || dc.Toughness != 4 {
+		t.Fatalf("Cat Soldier P/T = %d/%d, want 4/4 (2 creature types, +2/+2)", dc.Power, dc.Toughness)
+	}
+	dh := e.Derived(human)
+	if dh.Power != 2 || dh.Toughness != 2 {
+		t.Fatalf("Human Soldier P/T = %d/%d, want 2/2 (non-Human filter excludes it)", dh.Power, dh.Toughness)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// (c) Graveyard census + target-player mill -- Master Pakku (regression)
+// ---------------------------------------------------------------------------
+
+// TestSetAudit_tla_MasterPakku_MillsForLessonsInGraveyard pins CR 701.13a for a
+// graveyard-reading "for each" count: Master Pakku's "Whenever CARDNAME
+// becomes tapped, target player mills X cards, where X is the number of Lesson
+// cards in your graveyard" (Count$ValidGraveyard Lesson.YouOwn). With two
+// Lesson cards in the controller's graveyard, tapping Pakku must mill the
+// targeted player exactly two cards. This leaf is expected to PASS --
+// regression coverage for the graveyard-count + mill family the set leans on
+// (8 Mill cards, Master Pakku among them).
+func TestSetAudit_tla_MasterPakku_MillsForLessonsInGraveyard(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	e, _ := searchEngine(t, reg, "Master Pakku", "Airbending Lesson", "Sokka's Haiku")
+	pakku := searchMoveByName(t, e, "Master Pakku", state.ZBattlefield)
+	if o := e.G.Obj(pakku); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Master Pakku must be on the battlefield: %+v", o)
+	}
+	for _, name := range []string{"Airbending Lesson", "Sokka's Haiku"} {
+		id := searchMoveByName(t, e, name, state.ZGraveyard)
+		if o := e.G.Obj(id); o == nil || o.Zone != state.ZGraveyard {
+			t.Fatalf("precondition: %s must be in the graveyard: %+v", name, o)
+		}
+	}
+	before := len(e.G.Zone(state.ZGraveyard, 1))
+	e.emit(events.Event{Kind: events.Tap, Obj: pakku, Player: 0})
+	tlaAnswerTargetsAndPass(t, e, 1, 64)
+	after := len(e.G.Zone(state.ZGraveyard, 1))
+	if after-before != 2 {
+		t.Fatalf("targeted player milled %d cards, want 2 (one per Lesson card in the graveyard)", after-before)
+	}
+}
+
+// tlaAnswerTargetsAndPass answers every KTarget ask naming player p (or, if no
+// option names p, the first option) and passes every priority decision until
+// the stack and trigger queue drain.
+func tlaAnswerTargetsAndPass(t *testing.T, e *Engine, p state.PlayerID, limit int) {
+	t.Helper()
+	for n := 0; n < limit; n++ {
+		d := e.Pending()
+		if d == nil {
+			return
+		}
+		switch d.Kind {
+		case decision.KTarget:
+			idx := d.Options[0].Index
+			for _, o := range d.Options {
+				if o.Player == p {
+					idx = o.Index
+				}
+			}
+			submitChoices(t, e, idx)
+		case decision.KPriority:
+			if len(e.G.Stack) == 0 && len(e.pendingTriggers) == 0 {
+				return
+			}
+			pass := -1
+			for _, o := range d.Options {
+				if o.Kind == "pass" {
+					pass = o.Index
+				}
+			}
+			if pass < 0 {
+				t.Fatalf("priority decision with no pass option: %+v", d)
+			}
+			submitChoices(t, e, pass)
+		default:
+			t.Fatalf("unexpected decision %v while settling: %+v", d.Kind, d)
+		}
+	}
+	t.Fatalf("engine never settled within %d answers", limit)
+}
+
+// ---------------------------------------------------------------------------
+// (c) Scry trigger on a library look -- Planetarium of Wan Shi Tong (regression)
+// ---------------------------------------------------------------------------
+
+// TestSetAudit_tla_Planetarium_ScryTriggerLooksAtTop pins the library half of
+// "Whenever you scry or surveil, look at the top card of your library. You may
+// cast that card without paying its mana cost. Do this only once each turn."
+// Planetarium of Wan Shi Tong carries the trigger as `T:Mode$ Scry`; activating
+// its `{1},{T}: Scry 2` ability must fire it, and the fired handler must record
+// the look (the "looks at the top of the library" Note). This leaf is expected
+// to PASS -- regression coverage for the scry/surveil trigger family in the
+// set (10 Scry cards), not a finding.
+func TestSetAudit_tla_Planetarium_ScryTriggerLooksAtTop(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	e, _ := searchEngine(t, reg, "Planetarium of Wan Shi Tong")
+	p := searchMoveByName(t, e, "Planetarium of Wan Shi Tong", state.ZBattlefield)
+	if o := e.G.Obj(p); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Planetarium must be on the battlefield: %+v", o)
+	}
+	addMana(t, e, 0, "CC")
+	opt := abilityOption(t, e, p, 0)
+	submitChoices(t, e, opt.Index)
+	// The scry ask: keep every card on top, in the order offered.
+	sawArrange := false
+	for n := 0; n < 40; n++ {
+		d := e.Pending()
+		if d == nil {
+			break
+		}
+		if d.Kind == decision.KArrange {
+			sawArrange = true
+			submitChoices(t, e, d.Options[0].Index)
+			continue
+		}
+		if d.Kind == decision.KPriority {
+			if len(e.G.Stack) == 0 && len(e.pendingTriggers) == 0 {
+				break
+			}
+			pass := -1
+			for _, o := range d.Options {
+				if o.Kind == "pass" {
+					pass = o.Index
+				}
+			}
+			submitChoices(t, e, pass)
+			continue
+		}
+		break
+	}
+	if !sawArrange {
+		t.Fatal("precondition: Scry 2 must pose a KArrange decision")
+	}
+	fired := false
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.Note && strings.Contains(ev.Text, "looks at the top of the library") {
+			fired = true
+		}
+	}
+	if !fired {
+		t.Fatalf("Mode$ Scry trigger handler never ran after a scry (no 'looks at the top of the library' Note)")
+	}
 }
