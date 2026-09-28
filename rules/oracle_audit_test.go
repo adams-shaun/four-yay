@@ -73,6 +73,14 @@ var oracleKnownDivergent = map[string]string{
 	// that ends the grant's IsPresent$ condition loses its own trigger. The
 	// SBA path (only-cleric-dies-to-damage-looks-back) uses the pre-batch
 	// snapshot and passes.
+	// Suspected script translation: Evendo's conditional may-play static uses
+	// an exiled-with-source affected zone plus a turn/SVar gate; the Bolt is
+	// exiled by its sacrifice trigger but is not offered from exile.
+	"Evendo Brushrazer/sacrifice-this-turn-allows-exiled-card-play": "Lightning Bolt was exiled, but casting it from exile was not offered during the turn (conditional may-play static)",
+	// Suspected script translation: the Knight graveyard permission is a
+	// conditional continuous may-play static; Haakon is present, but the
+	// Knight in its controller's graveyard is not offered.
+	"Haakon, Stromgald Scourge/haakon-on-battlefield-permits-knight-from-graveyard": "Knight of the Ebon Legion from the graveyard was not offered while Haakon was on the battlefield",
 	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
