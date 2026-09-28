@@ -47,6 +47,14 @@ type compiledSpec struct {
 	// alts is filterAlternatives(spec) regardless of EACH: the zone-aware
 	// matcher (matchesZoneSpecCtx) never took the EACH split.
 	alts []compiledAlt
+	// id is the spec's dense ordinal in the process-wide cache (1-based;
+	// 0 = not retained). PredicatePrograms index their membership bitsets
+	// by it instead of hashing the spec text.
+	id uint32
+	// prog is the text's predicate program (compilePredicateProgram, a
+	// pure function of the text), consulted only for a spec a
+	// PredicatePrograms set holds.
+	prog predicateProgram
 }
 
 type compiledBaseKind uint8
@@ -277,7 +285,7 @@ func compiledPredEval(c *compiledPred, g *state.Game, o *state.Object, sc *SpecC
 }
 
 func compileSpec(spec string) *compiledSpec {
-	cs := &compiledSpec{}
+	cs := &compiledSpec{prog: compilePredicateProgram(spec)}
 	if subs, ok := eachAlternatives(spec); ok {
 		cs.each = make([]*compiledSpec, len(subs))
 		for i, sub := range subs {
@@ -596,6 +604,7 @@ func (c *specCache) slow(spec string) *compiledSpec {
 		if len(c.dirty) >= compiledSpecCacheMax {
 			return cs
 		}
+		cs.id = uint32(len(c.dirty) + 1)
 		c.dirty[spec] = cs
 	}
 	c.misses++

@@ -3,6 +3,7 @@ package effects
 import (
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
@@ -22,8 +23,22 @@ const (
 // original Forge text. It is built before a game begins and never changes
 // during matching, cloning, or replay.
 type PredicatePrograms struct {
-	byText map[string]predicateProgram
+	// texts is the member spec texts, sorted and deduplicated; progs[i] is
+	// texts[i]'s program. Only a spec the process-wide compiled-spec cache
+	// did not retain (compiledSpec.id 0) is answered by binary search here.
+	texts []string
+	progs []predicateProgram
+	// known/member are membership bitsets over compiledSpec.id, filled on a
+	// spec's first evaluation against this set: known marks an id whose
+	// membership was decided, member the ones that are members. Bits are
+	// only ever set (member before known), so a concurrent reader that sees
+	// known also sees member, and every answer is the texts search's.
+	known  [specIDWords]atomic.Uint64
+	member [specIDWords]atomic.Uint64
 }
+
+// specIDWords covers every compiledSpec.id (1..compiledSpecCacheMax).
+const specIDWords = (compiledSpecCacheMax + 64) / 64
 
 type predicateProgram struct {
 	alternatives []predicateAlternative
@@ -92,17 +107,52 @@ type predicateTerm struct {
 func CompilePredicatePrograms(specs []string) *PredicatePrograms {
 	texts := append([]string(nil), specs...)
 	sort.Strings(texts)
-	programs := &PredicatePrograms{byText: make(map[string]predicateProgram, len(texts))}
+	programs := &PredicatePrograms{}
 	for _, spec := range texts {
 		if spec == "" {
 			continue
 		}
-		if _, exists := programs.byText[spec]; exists {
+		if n := len(programs.texts); n > 0 && programs.texts[n-1] == spec {
 			continue
 		}
-		programs.byText[spec] = compilePredicateProgram(spec)
+		programs.texts = append(programs.texts, spec)
+		programs.progs = append(programs.progs, compilePredicateProgram(spec))
 	}
 	return programs
+}
+
+// lookup is the text membership search: spec's program when it is a member.
+func (ps *PredicatePrograms) lookup(spec string) (*predicateProgram, bool) {
+	i := sort.SearchStrings(ps.texts, spec)
+	if i < len(ps.texts) && ps.texts[i] == spec {
+		return &ps.progs[i], true
+	}
+	return nil, false
+}
+
+// programFor is lookup through the compiled spec's dense id: after the
+// first evaluation of a retained spec against this set, membership is two
+// bit tests and the program is the one the spec carries.
+func (ps *PredicatePrograms) programFor(cs *compiledSpec, spec string) (*predicateProgram, bool) {
+	if cs == nil || cs.id == 0 {
+		return ps.lookup(spec)
+	}
+	w, b := cs.id>>6, uint64(1)<<(cs.id&63)
+	if ps.known[w].Load()&b != 0 {
+		if ps.member[w].Load()&b != 0 {
+			return &cs.prog, true
+		}
+		return nil, false
+	}
+	_, ok := ps.lookup(spec)
+	if ok {
+		ps.member[w].Or(b)
+	}
+	ps.known[w].Or(b)
+	if ok {
+		return &cs.prog, true
+	}
+	return nil, false
 }
 
 func compilePredicateProgram(spec string) predicateProgram {
@@ -260,7 +310,15 @@ func (ps *PredicatePrograms) evaluate(spec string, g *state.Game, o *state.Objec
 	if ps == nil || o == nil {
 		return PredicateMaybe
 	}
-	p, ok := ps.byText[spec]
+	return ps.evaluateCS(compiledSpecFor(spec), spec, g, o, sc)
+}
+
+// evaluateCS is evaluate for a caller already holding spec's compiled form.
+func (ps *PredicatePrograms) evaluateCS(cs *compiledSpec, spec string, g *state.Game, o *state.Object, sc *SpecContext) PredicateResult {
+	if ps == nil || o == nil {
+		return PredicateMaybe
+	}
+	p, ok := ps.programFor(cs, spec)
 	if !ok {
 		return PredicateMaybe
 	}
@@ -399,5 +457,5 @@ func (ps *PredicatePrograms) Len() int {
 	if ps == nil {
 		return 0
 	}
-	return len(ps.byText)
+	return len(ps.texts)
 }

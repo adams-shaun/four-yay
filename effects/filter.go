@@ -4743,15 +4743,16 @@ func matchesObjectPtr(g *state.Game, spec string, o *state.Object, sc *SpecConte
 	// Goblin type test would silently miss the derived characteristic. The same
 	// discipline the layer walk keeps for ExtraTypes (rules/layers.go), scoped
 	// here to the one object that actually carries a change.
+	cs := compiledSpecFor(spec)
 	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveNamePtr(o, sc) && !hasDerivedTypeEntryPtr(o, sc) {
-		switch ps.evaluate(spec, g, o, sc) {
+		switch ps.evaluateCS(cs, spec, g, o, sc) {
 		case PredicateYes:
 			return true
 		case PredicateNo:
 			return false
 		}
 	}
-	return compiledMatch(compiledSpecFor(spec), g, o, sc)
+	return compiledMatch(cs, g, o, sc)
 }
 
 // matchesObjectText is the original textual filter evaluator. It remains the
