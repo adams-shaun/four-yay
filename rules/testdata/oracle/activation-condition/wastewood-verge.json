@@ -1,0 +1,24 @@
+{
+  "card": "Wastewood Verge",
+  "family": "activation-condition",
+  "oracle_sha": "c70dc3a83877",
+  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "restricted-black-mana-unavailable-without-swamp-or-forest",
+      "cr": ["602.5", "305.6"],
+      "why": "Without a land having the Swamp or Forest subtype, only the unrestricted green-producing ability is available.",
+      "setup": {"p0": {"battlefield": ["Wastewood Verge"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Wastewood Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
+      "expect": [{"pool": {"p0": "G"}}]
+    },
+    {
+      "name": "restricted-black-mana-available-with-swamp",
+      "cr": ["602.5", "305.6", "605.1a", "106.12"],
+      "why": "A Swamp meets the restriction, so choosing the black-producing ability taps the Verge and adds black mana.",
+      "setup": {"p0": {"battlefield": ["Wastewood Verge", "Swamp"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Wastewood Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
+      "expect": [{"pool": {"p0": "B"}}]
+    }
+  ]
+}
