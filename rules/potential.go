@@ -79,7 +79,16 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	out := e.G.Players[p].Pool
-	added := map[state.ObjID]bool{}
+	// admitted[zi][k] marks member k of source zi counted into out. A
+	// source's abilities are admitted independently: one whose paid
+	// activation the pool could not cover yet (Heap Gate's "{1}, {T}: Add
+	// one mana of any color" before any other source floated mana) is
+	// admitted on a later pass, even when the same source's free ability
+	// was already counted -- otherwise the bound depended on zone order and
+	// could miss a colour only the paid ability makes (a sound upper bound
+	// may count both of a source's abilities; it already did when both were
+	// payable on the same pass).
+	var admitted [][]bool
 	// Each object's membership list (below) reads the board only, never the
 	// accumulated pool, and the fixpoint changes no state, so it is computed
 	// once per object on the first pass and reused by every later pass; only
@@ -88,12 +97,11 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	zone := e.G.Zone(state.ZBattlefield, p)
 	members := make([][]*cards.SA, len(zone))
 	walked := make([]bool, len(zone))
+	admitted = make([][]bool, len(zone))
+	own := make([]state.Mana, len(zone)) // each source's counted production
 	for {
 		progressed := false
 		for zi, id := range zone {
-			if added[id] {
-				continue
-			}
 			o := e.G.Obj(id)
 			if o == nil || o.Face() == nil {
 				continue
@@ -113,21 +121,34 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			if len(members[zi]) == 0 {
 				continue
 			}
-			ses := slices.Clone(members[zi])
-			for i := 0; i < len(ses); {
-				if !e.manaAbilityPayablePool(p, id, ses[i], &out) {
-					ses = append(ses[:i], ses[i+1:]...)
-					continue
+			if admitted[zi] == nil {
+				admitted[zi] = make([]bool, len(members[zi]))
+			}
+			// Price every not-yet-admitted member against the pool built
+			// from OTHER sources (a source's own production never funds its
+			// own paid activation: one tap cannot do both), then add the
+			// admitted ones together.
+			others := out
+			for c := range others {
+				others[c] -= own[zi][c]
+			}
+			var ses []*cards.SA
+			for k, ma := range members[zi] {
+				if !admitted[zi][k] && e.manaAbilityPayablePool(p, id, ma, &others) {
+					admitted[zi][k] = true
+					ses = append(ses, ma)
 				}
-				i++
 			}
 			if len(ses) == 0 {
 				continue
 			}
-			added[id] = true
 			progressed = true
+			before := out
 			for _, ma := range ses {
 				addPotentialMana(&out, ma)
+			}
+			for c := range out {
+				own[zi][c] += out[c] - before[c]
 			}
 		}
 		if !progressed {

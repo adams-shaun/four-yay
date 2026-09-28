@@ -122,10 +122,13 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/host"
+	"github.com/adams-shaun/gorge/internal/azmcts"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/paymirror"
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchseat"
+	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/spellbench/registry"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -258,6 +261,144 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"search": func(seed uint64) seat.Seat {
 		return searchseat.NewSearchBot(seed, searchKnobs)
 	},
+	// az is the AlphaZero-style MCTS seat (internal/azmcts, spec
+	// 2026-09-27): a PUCT tree over the seat's own searched decisions whose
+	// leaf is the -checkpoint value head (no checkpoint = generation 0: a
+	// uniform prior and the frozen heuristic leaf). Like search, it answers
+	// from the driver's engine feed (internal/bench.PlayGame's
+	// searchseat.SearchSeat branch). -az-world clairvoyant searches clones
+	// of the REAL engine, so it is bench and training only: azFrontDoor is
+	// the only azmcts.AllowClairvoyant caller, host.NormalizeBotPolicy does
+	// not know the name, and internal/archtest forbids host, host/httpapi
+	// and cmd/gorged from linking azmcts at all.
+	"az": func(seed uint64) seat.Seat {
+		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az"))
+		if err != nil {
+			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
+		}
+		return s
+	},
+	// az-redeal is az on the honest world source (azmcts.RedealSource,
+	// SpellBench M1): every simulation walks a world that keeps what the
+	// seat sees and re-deals the hidden cards it cannot. It takes every
+	// -az-* knob but -az-world, so one run can seat it beside a
+	// clairvoyant az.
+	"az-redeal": func(seed uint64) seat.Seat {
+		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az-redeal"))
+		if err != nil {
+			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
+		}
+		return s
+	},
+	// sb-* are SpellBench's three builtin bots (uniform, heuristic, first)
+	// ported onto gorge's decision model (internal/spellbench/builtins, whose
+	// package doc records every mapping choice). The plain names hide mana
+	// abilities and pay casts through gorge's planner (v2 "engine_autopay");
+	// the -manual arms offer every mana ability as a priority candidate, the
+	// literal surface SpellBench's own engine adapters expose. sb-uniform
+	// XORs in the benchmark's uniform seed (11). Bench-only: the
+	// -spellbench mode (spellbench.go) round-robins them.
+	"sb-uniform": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Uniform, builtins.AutoPay, seed^builtins.UniformSeed)
+	},
+	"sb-heuristic": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Heuristic, builtins.AutoPay, seed)
+	},
+	"sb-first": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.First, builtins.AutoPay, seed)
+	},
+	"sb-uniform-manual": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Uniform, builtins.Manual, seed^builtins.UniformSeed)
+	},
+	"sb-heuristic-manual": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Heuristic, builtins.Manual, seed)
+	},
+	// The -planned arms play the manual surface with the auto-pay choice
+	// logic: a chosen cast's payment plan is lowered into manual taps by
+	// internal/spellbench/payexec (builtins.Planned).
+	"sb-uniform-planned": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Uniform, builtins.Planned, seed^builtins.UniformSeed)
+	},
+	"sb-heuristic-planned": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Heuristic, builtins.Planned, seed)
+	},
+	// sb-tactical is the scored seat-visible heuristic (internal/spellbench/
+	// builtins/tactical.go) on the auto-pay surface; -planned plays the
+	// manual surface through payexec. The -no<group> arms switch one of
+	// its three idea groups off (the ablation), and sb-tactical-alt plays
+	// -spellbench-tactical-alt-weights (weight tuning A/B). Card names
+	// resolve through the corpus registry the run opened (tacticalLookup).
+	"sb-tactical": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights)
+	},
+	"sb-tactical-planned": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.Planned, seed, tacticalLookup, tacticalWeights)
+	},
+	"sb-tactical-noearly": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.EarlyGame = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-notiming": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.Timing = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-norace": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.Race = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	// sb-tactical-arch is the Archetype idea group: it reads the opponent's
+	// colours and playing style from public cards and re-weights the tactical
+	// weights as a counter-strategy.
+	"sb-tactical-arch": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalArchW)
+	},
+	"sb-tactical-alt": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[0])
+	},
+	"sb-tactical-alt2": tacticalAlt(1), "sb-tactical-alt3": tacticalAlt(2), "sb-tactical-alt4": tacticalAlt(3),
+	"sb-tactical-alt5": tacticalAlt(4), "sb-tactical-alt6": tacticalAlt(5), "sb-tactical-alt7": tacticalAlt(6),
+	"sb-tactical-alt8": tacticalAlt(7),
+}
+
+func tacticalAlt(i int) func(seed uint64) seat.Seat {
+	return func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[i])
+	}
+}
+
+// tacticalLookup resolves card names for the sb-tactical arms; set once from
+// the run's corpus registry (setTacticalRegistry) before any game starts and
+// read-only afterwards. tacticalWeights / tacticalAltWeights are the arms'
+// weights: the defaults unless -spellbench-tactical-weights /
+// -spellbench-tactical-alt-weights name a JSON file.
+var (
+	tacticalLookup     builtins.CardLookup
+	tacticalWeights    = builtins.DefaultTacticalWeights()
+	tacticalArchW      = builtins.DefaultTacticalWeights()
+	tacticalAltWeights = [8]builtins.TacticalWeights{builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights()}
+)
+
+func init() {
+	// sb-tactical-arch is the Archetype idea group on top of the default
+	// tactical weights; the arch policy must not be tunable through the
+	// sb-tactical weight JSON, so it gets its own defaulted copy.
+	tacticalArchW.Archetype = true
+}
+
+func setTacticalRegistry(reg *cards.Registry) {
+	if tacticalLookup == nil {
+		tacticalLookup = builtins.NewRegistryLookup(reg)
+		// The registry's card-fact decorators (lethal) read printed IR from
+		// the same corpus lookup: card names resolve identically for every
+		// seat, so one lookup serves both the tactical seats and the
+		// decorators.
+		registry.SetCardLookup(tacticalLookup)
+	}
 }
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
@@ -330,7 +471,7 @@ func parseOppMix(spec string) ([]oppMixEntry, error) {
 		if err != nil || f <= 0 || f > 1 {
 			return nil, fmt.Errorf("-opp-mix entry %q: fraction must be in (0,1]", part)
 		}
-		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" {
+		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" || isAZPolicy(name) {
 			return nil, fmt.Errorf("-opp-mix entry %q: %q is not a mixable built-in policy", part, name)
 		}
 		total += f
@@ -446,6 +587,38 @@ func recordAutoPayMirror(status paymirror.Status, key string) {
 // to a pre-flag build. The sink is a pure engine-side observer, so attaching
 // it changes no game either.
 var paymentStatsEnabled bool
+
+// maxTurnIntents is the -max-turn-intents watchdog: the most decisions one
+// turn may ask before the game ends as an "intents" stall. It is the
+// per-turn half of -max-intents, catching the same pathology -- a turn that
+// never ends while intents keep coming -- without first paying for the whole
+// per-game budget. That budget is what made a looping searched seat look like
+// a hang: the az seat re-equipping a free Bonesplitter forever (Stage 0,
+// 2026-09-27) pays two searched decisions per cycle, so reaching the 20000
+// per-game cap took ~15 minutes at 25 simulations and ~4x that at 100. No
+// healthy constructed game measures more than 1136 intents in total, so 2000
+// in ONE turn is a loop, never a long game; 0 disables it.
+var maxTurnIntents = 2000
+
+// turnIntentGuard is maxTurnIntents' bench.Hooks.Guard for one game: it
+// counts the decisions asked since the turn number last changed and stalls
+// the game as "intents" (the frozen-turn kind the stall notice already
+// tallies) once more than max have been asked in one turn. The closure's
+// counter is game-local, so each game needs its own guard.
+func turnIntentGuard(max int) func(e *rules.Engine) (string, string) {
+	turn, n := int32(-1), 0
+	return func(e *rules.Engine) (string, string) {
+		if e.G.Turn != turn {
+			turn, n = e.G.Turn, 0
+		}
+		n++
+		if n > max {
+			return "intents", fmt.Sprintf("-max-turn-intents: %d decisions on turn %d (step %v) without the turn advancing", max, turn, e.G.Step)
+		}
+		return "", ""
+	}
+}
+
 var paymentStatsTotal = struct {
 	sync.Mutex
 	stats rules.PaymentPlanStats
@@ -682,6 +855,9 @@ func playMatchOnce(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns,
 // is no second copy of the watchdog/livelock loop to keep in step.
 func playMatchOnceTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns, maxIntents int, collect *decisionStats, cov *actionCoverage, trace *gameTrace, meta traceDecisionMeta) (gameOutcome, *rules.Engine, error) {
 	hooks := gbench.Hooks{NeedBoard: trace != nil}
+	if maxTurnIntents > 0 {
+		hooks.Guard = turnIntentGuard(maxTurnIntents)
+	}
 	if paymentStatsEnabled {
 		sink := &rules.PaymentPlanStats{}
 		hooks.Setup = func(e *rules.Engine) { e.SetPaymentPlanStats(sink) }
@@ -1802,6 +1978,7 @@ func runMatrixTraced(baseSeed uint64, games, seats int, aName, bName, dir, forma
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
 	}
+	setTacticalRegistry(reg)
 
 	// Resolve each distinct deck once; pairs share decks so one deck list
 	// maps to many pairs. The map is only looked up by key during play --
@@ -2034,6 +2211,7 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
 	}
+	setTacticalRegistry(reg)
 
 	// Decks are tied to seats for the whole run (seat 0 always holds the
 	// first deck of the pool), and seats trade policies every game, so each
@@ -2198,6 +2376,7 @@ func main() {
 	// games measure 171-1136 intents, so the 20000 default is ~17x the worst
 	// of those with room for Commander's longer games.
 	maxTurns := flag.Int("max-turns", 200, "maximum turns per game before it ends as a stall (not a win, not a draw); catches a game that runs long in turn count; 0 = no cap")
+	flag.IntVar(&maxTurnIntents, "max-turn-intents", maxTurnIntents, "maximum decisions in ONE turn before the game ends as an intents stall (the per-turn half of -max-intents: a frozen turn is caught without first spending the whole per-game budget, which a searched seat pays for at every decision); 0 = no cap")
 	maxIntents := flag.Int("max-intents", 20000, "maximum intents per game before it ends as a stall (not a win, not a draw); catches a game whose turn count never advances but that keeps submitting intents; 0 = no cap")
 	dir := flag.String("dir", ".cards", "corpus directory (holds ir.gob.gz / cardsfolder)")
 	profile := flag.String("profile", "", "path to a cast-profile weights JSON (schema {\"version\":1,\"cast\":{...}}) applied to any side named cast-profile; empty = the embedded default profile")
@@ -2243,10 +2422,15 @@ func main() {
 	flag.Int64Var(&attackSimParams.Margin, "attack-sim-margin", attackSimParams.Margin, "attack-sim arms: score margin a set must beat the default answer by")
 	cpuprofile := flag.String("cpuprofile", "", "write a CPU profile to this pprof file over the whole run (empty = off)")
 	memprofile := flag.String("memprofile", "", "write a heap profile to this pprof file after the last game finishes (pprof reads both alloc_space and inuse_space from it; empty = off)")
+	registerAZFlags(flag.CommandLine)
+	registerSpellbenchFlags(flag.CommandLine)
 	flag.Parse()
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "policynet-kinds" {
 			policynetKindsGiven = true
+		}
+		if strings.HasPrefix(f.Name, "az-") {
+			azFlagsGiven = true
 		}
 	})
 	decisionStatsEnabled = *decisionStats
@@ -2270,6 +2454,15 @@ func main() {
 		Redeal:       *searchRedeal,
 	}
 
+	if sbFlags.bots != "" {
+		// The SpellBench workup (spellbench.go): its own round-robin
+		// schedule over the -spellbench policies, not the -a/-b bench.
+		os.Exit(spellbenchExit(sbFlags, *dir, *workers, *maxTurns, *maxIntents, *checkpoint, os.Stdout, os.Stderr))
+	}
+	if azCorpusPath != "" {
+		fmt.Fprintln(os.Stderr, "botbench: -az-corpus is a -spellbench mode flag")
+		os.Exit(2)
+	}
 	os.Exit(mainExit(*a, *b, *games, *seed, *seats, *rotate, *pairs, *format, *out, *workers,
 		*maxTurns, *maxIntents, *dir, *profile, *decisionStats, *actionCoverage, *grind, *grindSeconds, *grindIters, *cpuprofile, *memprofile, *decisionTrace, *analyzeTrace, *checkpoint))
 }
@@ -2364,8 +2557,21 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	if policynetSide && checkpoint == "" {
 		return fail(fmt.Errorf("policy policynet requires -checkpoint <path> (there is no embedded checkpoint)"))
 	}
-	if !policynetSide && checkpoint != "" {
-		return fail(fmt.Errorf("-checkpoint was given but neither side is policynet"))
+	// -checkpoint also feeds an az side: its value head is the search's leaf
+	// and its policy head the prior (azFrontDoor refuses a checkpoint with
+	// no value head). A package-level policynetModel left by an earlier
+	// in-process run must never reach az, so only this run's checkpoint is
+	// passed on.
+	azSide := isAZPolicy(aName) || isAZPolicy(bName)
+	if !policynetSide && !azSide && checkpoint != "" {
+		return fail(fmt.Errorf("-checkpoint was given but neither side is policynet or az"))
+	}
+	var ckModel *policynet.Model
+	if checkpoint != "" {
+		ckModel = policynetModel
+	}
+	if err := azFrontDoor(aName, bName, ckModel); err != nil {
+		return fail(err)
 	}
 	oracleKnobs, err := withSearchOracle(searchOracleCheckpoint, aName, bName, searchKnobs)
 	if err != nil {
@@ -2433,6 +2639,9 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	searchSide := aName == "search" || bName == "search"
 	if searchSide {
 		installSearchCostStats()
+	}
+	if azSide {
+		installAZCostStats()
 	}
 
 	prof := &profiler{cpuPath: cpuprofile, memPath: memprofile}
@@ -2526,6 +2735,9 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 		if searchSide {
 			fmt.Fprint(os.Stdout, searchCostReport(games*len(ps)))
 		}
+		if azSide {
+			fmt.Fprint(os.Stdout, azCostReport(games*len(ps)))
+		}
 		return 0
 	}
 	if decisionTrace != "" {
@@ -2536,6 +2748,9 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	}
 	if searchSide {
 		fmt.Fprint(os.Stdout, searchCostReport(games))
+	}
+	if azSide {
+		fmt.Fprint(os.Stdout, azCostReport(games))
 	}
 	return 0
 }

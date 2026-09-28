@@ -64,6 +64,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		statsOut       = fs.String("stats-out", "", "PPO mode: write the round's machine-readable readout (JSON) to this path")
 		upgradeEntity  = fs.Int("upgrade-entity", 0, "pn14: write -init (an mz checkpoint) upgraded to the entity feature set with a per-card encoder of this width to -out, and exit. The pooled projection and the new option inputs start at zero, so the upgraded checkpoint scores exactly as -init until trained")
 		setResidual    = fs.Float64("set-residual", -1, "pn14: write -init with its fixed bot-prior residual weight replaced by this value (>= 0) to -out, and exit (the residual-prior ablation: a smaller prior no longer pins the greedy answer to the bot's)")
+		visitsCorpora  = fs.String("visits-corpus", "", "M1b: comma-separated az VISIT corpora (cmd/botbench -az-corpus): switches to the visit-distillation mode -- soft candidate cross-entropy against the teacher search's visits (or -visits-label bot), plus the value head on (1-b)*outcome + b*root value (-value-blend b); holdout by game pair; -corpus/-ppo-corpus/-value-corpus must be empty. With -epochs 0 it evaluates -init on -visits-eval")
+		visitsLabel    = fs.String("visits-label", "teacher", "visits mode: policy target, teacher (the search's visit distribution) or bot (one-hot on the default bot's answer over the same candidates: the behaviour-cloning control)")
+		visitsDiag     = fs.Bool("visits-diag", false, "visits mode: MEASUREMENT ONLY -- the student also reads the opponent's hand (the recorded FeaturesMZOppHand rows); never checkpointed")
+		visitsMaxGames = fs.Int("visits-max-games", 0, "visits mode: train only on the first N games of the corpus list (the equal-data-volume cap; 0 = all)")
+		visitsEval     = fs.String("visits-eval", "", "visits mode: comma-separated visit corpora to score the model on after training (teacher visits, value AUC within deck)")
+		visitsTemp     = fs.Float64("visits-temp", 1, "visits mode: teacher target temperature, pi ∝ visits^(1/T); 1 is the raw visit distribution, small T approaches the teacher's argmax")
+		visitsReport   = fs.String("visits-report", "", "visits mode: write the -visits-eval readout as JSON to this path")
 		kindLoss       = fs.String("kind-loss", "attackers=bce", "per-kind loss overrides as kind=mode,... (e.g. attackers=bce); kinds not listed keep -loss. The attackers default is bce: a per-option binary logistic loss trains the score LEVEL the seat's per-option admission rule reads, which argmax CE (shift-invariant) cannot")
 	)
 	var grid gridFlags
@@ -88,6 +95,25 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "policytrain: %v\n", err)
 		return 2
+	}
+	if *visitsCorpora != "" || (*visitsEval != "" && *epochs == 0) {
+		if *corpora != "" || *ppoCorpora != "" || *valueCorpora != "" {
+			fmt.Fprintln(stderr, "policytrain: -visits-corpus is mutually exclusive with -corpus, -ppo-corpus and -value-corpus")
+			return 2
+		}
+		label, err := policynet.ParseVisitLabel(*visitsLabel)
+		if err != nil {
+			fmt.Fprintf(stderr, "policytrain: %v\n", err)
+			return 2
+		}
+		return runVisits(visitsArgs{
+			corpora: *visitsCorpora, eval: *visitsEval, init: *initCkpt, out: *out, report: *visitsReport,
+			label: label, diag: *visitsDiag, maxGames: *visitsMaxGames, temp: *visitsTemp,
+			cfg: Config{Epochs: *epochs, Batch: *batch, LR: *lr, Seed: *seed, Holdout: *holdout,
+				Embed: *embed, Hidden: *hidden, Mode: policynet.LossCE, RankWeight: 1, Clip: *clip, OverrideWeight: 1,
+				ResidualInit: *residualInit,
+				ValueHidden:  *valueHidden, ValueWeight: *valueWeight, ValueBlend: *valueBlend},
+		}, stdout, stderr)
 	}
 	if *ppoCorpora != "" {
 		if *corpora != "" {

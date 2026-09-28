@@ -137,7 +137,7 @@ func TestCreateGameBotPolicyDecodeAndRejectsDiagnostic(t *testing.T) {
 	if len(got) != 2 || got[0].BotPolicy != host.BotPolicy || got[1].BotPolicy != host.LethalPressurePolicy {
 		t.Fatalf("builder options = %+v", got)
 	}
-	for _, body := range []string{`{"bot_policy":"legacy"}`, `{"bot_policy":"random"}`} {
+	for _, body := range []string{`{"bot_policy":"legacy"}`, `{"bot_policy":"random"}`, `{"bot_policy":"az"}`} {
 		status, e, _ := postGames(t, srv.URL, body)
 		if status != http.StatusBadRequest || e.Code != "bad_request" {
 			t.Fatalf("%s: %d %+v", body, status, e)

@@ -1,0 +1,100 @@
+{
+ "name": "FDN14-BR",
+ "format": "limited",
+ "archetype": "BR",
+ "notes": "SpellBench FDN Limited catalog deck FDN14-BR (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=02df6836b5f9d34a, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Arbiter of Woe",
+   "count": 1
+  },
+  {
+   "name": "Bake into a Pie",
+   "count": 1
+  },
+  {
+   "name": "Brazen Scourge",
+   "count": 1
+  },
+  {
+   "name": "Burst Lightning",
+   "count": 2
+  },
+  {
+   "name": "Courageous Goblin",
+   "count": 1
+  },
+  {
+   "name": "Eaten Alive",
+   "count": 1
+  },
+  {
+   "name": "Firebrand Archer",
+   "count": 2
+  },
+  {
+   "name": "Goblin Boarders",
+   "count": 1
+  },
+  {
+   "name": "Goblin Negotiation",
+   "count": 1
+  },
+  {
+   "name": "Gorehorn Raider",
+   "count": 1
+  },
+  {
+   "name": "Gutless Plunderer",
+   "count": 1
+  },
+  {
+   "name": "Hungry Ghoul",
+   "count": 1
+  },
+  {
+   "name": "Infernal Vessel",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 1
+  },
+  {
+   "name": "Macabre Waltz",
+   "count": 1
+  },
+  {
+   "name": "Mountain",
+   "count": 9
+  },
+  {
+   "name": "Nine-Lives Familiar",
+   "count": 1
+  },
+  {
+   "name": "Perforating Artist",
+   "count": 1
+  },
+  {
+   "name": "Seeker's Folly",
+   "count": 1
+  },
+  {
+   "name": "Strongbox Raider",
+   "count": 1
+  },
+  {
+   "name": "Sure Strike",
+   "count": 1
+  },
+  {
+   "name": "Swamp",
+   "count": 8
+  },
+  {
+   "name": "Twinflame Tyrant",
+   "count": 1
+  }
+ ]
+}

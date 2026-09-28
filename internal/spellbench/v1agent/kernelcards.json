@@ -1,0 +1,2423 @@
+{
+"source": "mtg-kernel data/cards_v1.json (MIT), card_db_id = array index; carddb 64c82a261e078f1a @ 2c5e72f",
+"cards": [
+{
+"name": "Annul",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target",
+"artifact_hate"
+]
+},
+{
+"name": "Avenging Hunter",
+"mana_cost": "{4}{G}",
+"mv": 5,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"initiative"
+]
+},
+{
+"name": "Azorius Guildgate",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"W",
+"U"
+],
+"mechanics": [
+"enters_tapped",
+"gate_land",
+"mana_ability",
+"dual_land"
+]
+},
+{
+"name": "Basilisk Gate",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"C"
+],
+"mechanics": [
+"mana_ability",
+"gate_land",
+"static_pump",
+"activated_ability"
+]
+},
+{
+"name": "Bind the Monster",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Enchantment"
+],
+"produces": [],
+"mechanics": [
+"aura",
+"etb_trigger",
+"removal"
+]
+},
+{
+"name": "Black Mage's Rod",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"equipment",
+"static_pump",
+"type_change",
+"keyword_grant",
+"burn",
+"job_select"
+]
+},
+{
+"name": "Blood Fountain",
+"mana_cost": "{B}",
+"mv": 1,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"token_creation",
+"activated_ability",
+"sacrifice_cost",
+"tap_ability",
+"graveyard_recursion"
+]
+},
+{
+"name": "Blue Elemental Blast",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target",
+"destroy_target",
+"modal",
+"color_hoser"
+]
+},
+{
+"name": "Brainstorm",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"draw_card",
+"card_selection"
+]
+},
+{
+"name": "Breath Weapon",
+"mana_cost": "{2}{R}",
+"mv": 3,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal"
+]
+},
+{
+"name": "Burning-Tree Emissary",
+"mana_cost": "{R/G}{R/G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [
+"R",
+"G"
+],
+"mechanics": [
+"etb_trigger",
+"mana_ability"
+]
+},
+{
+"name": "Cast Down",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"destroy_target",
+"removal"
+]
+},
+{
+"name": "Cast into the Fire",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"modal",
+"burn",
+"exile_target",
+"artifact_hate"
+]
+},
+{
+"name": "Chain Lightning",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal",
+"spell_copy"
+]
+},
+{
+"name": "Citadel Gate",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"W",
+"U",
+"B",
+"R",
+"G"
+],
+"mechanics": [
+"enters_tapped",
+"gate_land",
+"mana_ability"
+]
+},
+{
+"name": "Cleansing Wildfire",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"destroy_target",
+"removal",
+"fetch_effect",
+"enters_tapped",
+"draw_card"
+]
+},
+{
+"name": "Clockwork Percussionist",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Artifact",
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"haste",
+"death_trigger",
+"impulse_draw"
+]
+},
+{
+"name": "Counterspell",
+"mana_cost": "{U}{U}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target"
+]
+},
+{
+"name": "Cryogen Relic",
+"mana_cost": "{1}{U}",
+"mv": 2,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"draw_card",
+"sacrifice_cost",
+"activated_ability",
+"stun_counter"
+]
+},
+{
+"name": "Cryptic Serpent",
+"mana_cost": "{5}{U}{U}",
+"mv": 7,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"cost_reduction"
+]
+},
+{
+"name": "Deem Inferior",
+"mana_cost": "{3}{U}",
+"mv": 4,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"cost_reduction",
+"removal"
+]
+},
+{
+"name": "Deep Analysis",
+"mana_cost": "{3}{U}",
+"mv": 4,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"draw_card",
+"flashback",
+"flashback_cost"
+]
+},
+{
+"name": "Dispel",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target"
+]
+},
+{
+"name": "Drossforge Bridge",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact",
+"Land"
+],
+"produces": [
+"B",
+"R"
+],
+"mechanics": [
+"dual_land",
+"enters_tapped",
+"indestructible",
+"mana_ability"
+]
+},
+{
+"name": "Duress",
+"mana_cost": "{B}",
+"mv": 1,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"discard",
+"discard_hand_disruption"
+]
+},
+{
+"name": "Dust to Dust",
+"mana_cost": "{1}{W}{W}",
+"mv": 3,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"exile_target",
+"artifact_hate"
+]
+},
+{
+"name": "Elvish Mystic",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"mana_ability",
+"mana_dork",
+"ramp",
+"tap_ability"
+]
+},
+{
+"name": "End the Festivities",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal"
+]
+},
+{
+"name": "Envelop",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_spell"
+]
+},
+{
+"name": "Eviscerator's Insight",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"sacrifice_cost",
+"draw_card",
+"flashback"
+]
+},
+{
+"name": "Experimental Synthesizer",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"impulse_draw",
+"activated_ability",
+"sacrifice_cost",
+"token_creation"
+]
+},
+{
+"name": "Extract a Confession",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"collect_evidence",
+"removal"
+]
+},
+{
+"name": "Faerie Miscreant",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"etb_trigger",
+"draw_card"
+]
+},
+{
+"name": "Faerie Seer",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"etb_trigger",
+"card_selection"
+]
+},
+{
+"name": "Faithless Looting",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"draw_card",
+"discard",
+"flashback",
+"looter"
+]
+},
+{
+"name": "Fanatical Offering",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"sacrifice_cost",
+"draw_card",
+"token_creation"
+]
+},
+{
+"name": "Fiery Temper",
+"mana_cost": "{1}{R}{R}",
+"mv": 3,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal",
+"alt_cost"
+]
+},
+{
+"name": "Fireblast",
+"mana_cost": "{4}{R}{R}",
+"mv": 6,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"alt_cost",
+"sacrifice_cost",
+"burn",
+"removal"
+]
+},
+{
+"name": "Force Spike",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target"
+]
+},
+{
+"name": "Forest",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"mana_ability"
+]
+},
+{
+"name": "Fyndhorn Elves",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"mana_ability",
+"mana_dork",
+"ramp",
+"tap_ability"
+]
+},
+{
+"name": "Galvanic Blast",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal",
+"metalcraft"
+]
+},
+{
+"name": "Generous Ent",
+"mana_cost": "{5}{G}",
+"mv": 6,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"token_creation",
+"cycling",
+"reach"
+]
+},
+{
+"name": "Gingerbread Cabin",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"mana_ability",
+"enters_tapped",
+"token_creation",
+"etb_trigger"
+]
+},
+{
+"name": "Goblin Bushwhacker",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"kicker",
+"alt_cost",
+"etb_trigger",
+"haste"
+]
+},
+{
+"name": "Goblin Tomb Raider",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"static_pump",
+"haste"
+]
+},
+{
+"name": "Gorilla Shaman",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"destroy_target",
+"artifact_hate"
+]
+},
+{
+"name": "Grab the Prize",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"discard",
+"draw_card",
+"burn",
+"conditional_effect"
+]
+},
+{
+"name": "Great Furnace",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact",
+"Land"
+],
+"produces": [
+"R"
+],
+"mechanics": [
+"mana_ability",
+"affinity_land"
+]
+},
+{
+"name": "Guardian of the Guildpact",
+"mana_cost": "{3}{W}",
+"mv": 4,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"protection"
+]
+},
+{
+"name": "Gut Shot",
+"mana_cost": "{R/P}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal",
+"phyrexian_mana"
+]
+},
+{
+"name": "Guttersnipe",
+"mana_cost": "{2}{R}",
+"mv": 3,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"spell_cast_trigger"
+]
+},
+{
+"name": "Harrier Strix",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"etb_trigger",
+"tap_ability",
+"activated_ability",
+"looter"
+]
+},
+{
+"name": "Heap Gate",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"C",
+"W",
+"U",
+"B",
+"R",
+"G"
+],
+"mechanics": [
+"mana_ability",
+"gate_land",
+"token_creation",
+"tap_ability",
+"activated_ability"
+]
+},
+{
+"name": "Highway Robbery",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"modal",
+"discard",
+"sacrifice_cost",
+"draw_card",
+"alt_cost",
+"plot"
+]
+},
+{
+"name": "Humbling Elder",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flash",
+"etb_trigger",
+"static_pump"
+]
+},
+{
+"name": "Hunter's Blowgun",
+"mana_cost": "{1}",
+"mv": 1,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"equipment",
+"static_pump",
+"conditional_effect",
+"keyword_grant"
+]
+},
+{
+"name": "Hydroblast",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target",
+"destroy_target",
+"modal",
+"color_hoser"
+]
+},
+{
+"name": "Ichor Wellspring",
+"mana_cost": "{2}",
+"mv": 2,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"draw_card"
+]
+},
+{
+"name": "Idyllic Beachfront",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"W",
+"U"
+],
+"mechanics": [
+"dual_land",
+"enters_tapped",
+"mana_ability"
+]
+},
+{
+"name": "Island",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"U"
+],
+"mechanics": [
+"mana_ability"
+]
+},
+{
+"name": "Journey to Nowhere",
+"mana_cost": "{1}{W}",
+"mv": 2,
+"types": [
+"Enchantment"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"leaves_battlefield_trigger",
+"exile_target",
+"removal"
+]
+},
+{
+"name": "Krark-Clan Shaman",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"sacrifice_cost",
+"removal",
+"burn"
+]
+},
+{
+"name": "Lava Dart",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal",
+"flashback",
+"sacrifice_cost"
+]
+},
+{
+"name": "Lead the Stampede",
+"mana_cost": "{2}{G}",
+"mv": 3,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"card_selection"
+]
+},
+{
+"name": "Lembas",
+"mana_cost": "{2}",
+"mv": 2,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"card_selection",
+"draw_card",
+"sacrifice_cost",
+"life_gain",
+"graveyard_recursion"
+]
+},
+{
+"name": "Lightning Bolt",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"burn",
+"removal"
+]
+},
+{
+"name": "Llanowar Elves",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"mana_ability",
+"mana_dork",
+"ramp",
+"tap_ability"
+]
+},
+{
+"name": "Lorien Revealed",
+"mana_cost": "{3}{U}{U}",
+"mv": 5,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"draw_card",
+"cycling"
+]
+},
+{
+"name": "Makeshift Munitions",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Enchantment"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"sacrifice_cost",
+"removal",
+"burn"
+]
+},
+{
+"name": "Masked Meower",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"haste",
+"discard",
+"sacrifice_cost",
+"draw_card",
+"activated_ability"
+]
+},
+{
+"name": "Masked Vandal",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"exile_target",
+"removal",
+"changeling"
+]
+},
+{
+"name": "Mental Note",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"self_mill",
+"draw_card"
+]
+},
+{
+"name": "Mistvault Bridge",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact",
+"Land"
+],
+"produces": [
+"U",
+"B"
+],
+"mechanics": [
+"dual_land",
+"enters_tapped",
+"indestructible",
+"mana_ability"
+]
+},
+{
+"name": "Monstrous Emergence",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"removal",
+"burn",
+"power_based_damage"
+]
+},
+{
+"name": "Moon-Circuit Hacker",
+"mana_cost": "{1}{U}",
+"mv": 2,
+"types": [
+"Enchantment",
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"ninjutsu",
+"draw_card",
+"discard"
+]
+},
+{
+"name": "Mountain",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"R"
+],
+"mechanics": [
+"mana_ability"
+]
+},
+{
+"name": "Murmuring Mystic",
+"mana_cost": "{3}{U}",
+"mv": 4,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"token_creation",
+"spell_cast_trigger"
+]
+},
+{
+"name": "Myr Enforcer",
+"mana_cost": "{7}",
+"mv": 7,
+"types": [
+"Artifact",
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"affinity"
+]
+},
+{
+"name": "Nihil Spellbomb",
+"mana_cost": "{1}",
+"mv": 1,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"sacrifice_cost",
+"tap_ability",
+"exile_target",
+"draw_card"
+]
+},
+{
+"name": "Ninja of the Deep Hours",
+"mana_cost": "{3}{U}",
+"mv": 4,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"ninjutsu",
+"draw_card"
+]
+},
+{
+"name": "Nyxborn Hydra",
+"mana_cost": "{X}{G}",
+"mv": 1,
+"types": [
+"Enchantment",
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"bestow",
+"alt_cost",
+"reach",
+"trample",
+"add_counters",
+"keyword_grant"
+]
+},
+{
+"name": "Of One Mind",
+"mana_cost": "{2}{U}",
+"mv": 3,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"cost_reduction",
+"draw_card"
+]
+},
+{
+"name": "Outlaw Medic",
+"mana_cost": "{1}{W}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"lifelink",
+"death_trigger",
+"draw_card"
+]
+},
+{
+"name": "Piracy Charm",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"modal",
+"keyword_grant",
+"static_pump",
+"discard"
+]
+},
+{
+"name": "Ponder",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"card_selection",
+"draw_card"
+]
+},
+{
+"name": "Preordain",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"card_selection",
+"draw_card"
+]
+},
+{
+"name": "Priest of Titania",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"mana_ability",
+"mana_dork",
+"ramp",
+"tribal_synergy",
+"tap_ability"
+]
+},
+{
+"name": "Prismatic Strands",
+"mana_cost": "{2}{W}",
+"mv": 3,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"flashback",
+"alt_cost",
+"damage_prevention"
+]
+},
+{
+"name": "Pulse of Murasa",
+"mana_cost": "{2}{G}",
+"mv": 3,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"graveyard_recursion",
+"life_gain"
+]
+},
+{
+"name": "Pyroblast",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target",
+"destroy_target",
+"modal",
+"color_hoser"
+]
+},
+{
+"name": "Quirion Ranger",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"alt_cost"
+]
+},
+{
+"name": "Rally at the Hornburg",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"token_creation",
+"haste"
+]
+},
+{
+"name": "Reckless Impulse",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"impulse_draw"
+]
+},
+{
+"name": "Reckoner's Bargain",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"sacrifice_cost",
+"draw_card",
+"life_gain"
+]
+},
+{
+"name": "Red Elemental Blast",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target",
+"destroy_target",
+"modal",
+"color_hoser"
+]
+},
+{
+"name": "Refurbished Familiar",
+"mana_cost": "{3}{B}",
+"mv": 4,
+"types": [
+"Artifact",
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"affinity",
+"flying",
+"etb_trigger",
+"discard",
+"draw_card"
+]
+},
+{
+"name": "Relic of Progenitus",
+"mana_cost": "{1}",
+"mv": 1,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"tap_ability",
+"activated_ability",
+"exile_target",
+"draw_card",
+"graveyard_hate"
+]
+},
+{
+"name": "Sacred Cat",
+"mana_cost": "{W}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"lifelink",
+"embalm"
+]
+},
+{
+"name": "Saiba Cryptomancer",
+"mana_cost": "{1}{U}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flash",
+"backup"
+]
+},
+{
+"name": "Sea Gate",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"W",
+"U",
+"B",
+"R",
+"G"
+],
+"mechanics": [
+"enters_tapped",
+"gate_land",
+"mana_ability"
+]
+},
+{
+"name": "Searing Blaze",
+"mana_cost": "{R}{R}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"landfall",
+"burn",
+"removal"
+]
+},
+{
+"name": "Seat of the Synod",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact",
+"Land"
+],
+"produces": [
+"U"
+],
+"mechanics": [
+"mana_ability",
+"affinity_land"
+]
+},
+{
+"name": "Silverbluff Bridge",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact",
+"Land"
+],
+"produces": [
+"U",
+"R"
+],
+"mechanics": [
+"dual_land",
+"enters_tapped",
+"indestructible",
+"mana_ability"
+]
+},
+{
+"name": "Slagwoods Bridge",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact",
+"Land"
+],
+"produces": [
+"R",
+"G"
+],
+"mechanics": [
+"dual_land",
+"enters_tapped",
+"indestructible",
+"mana_ability"
+]
+},
+{
+"name": "Sleep of the Dead",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"tap_ability",
+"alt_cost",
+"escape"
+]
+},
+{
+"name": "Snap",
+"mana_cost": "{1}{U}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"bounce"
+]
+},
+{
+"name": "Sneaky Snacker",
+"mana_cost": "{U}{B}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"graveyard_recursion",
+"enters_tapped",
+"draw_trigger"
+]
+},
+{
+"name": "Snow-Covered Forest",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"mana_ability"
+]
+},
+{
+"name": "Spell Pierce",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"counter_target"
+]
+},
+{
+"name": "Spellstutter Sprite",
+"mana_cost": "{1}{U}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flash",
+"flying",
+"etb_trigger",
+"counter_target"
+]
+},
+{
+"name": "Spinewoods Paladin",
+"mana_cost": "{4}{G}",
+"mv": 5,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"trample",
+"etb_trigger",
+"life_gain",
+"alt_cost",
+"plot"
+]
+},
+{
+"name": "Squadron Hawk",
+"mana_cost": "{1}{W}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"etb_trigger",
+"card_selection"
+]
+},
+{
+"name": "Steel Sabotage",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"modal",
+"counter_spell",
+"artifact_hate"
+]
+},
+{
+"name": "Swamp",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"B"
+],
+"mechanics": [
+"mana_ability"
+]
+},
+{
+"name": "The Modern Age",
+"mana_cost": "{1}{U}",
+"mv": 2,
+"types": [
+"Enchantment"
+],
+"produces": [],
+"mechanics": [
+"saga",
+"draw_card",
+"discard",
+"transform",
+"flying"
+]
+},
+{
+"name": "Thought Scour",
+"mana_cost": "{U}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"mill",
+"draw_card"
+]
+},
+{
+"name": "Thoughtcast",
+"mana_cost": "{4}{U}",
+"mv": 5,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"affinity",
+"draw_card"
+]
+},
+{
+"name": "Thraben Charm",
+"mana_cost": "{1}{W}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"modal",
+"burn",
+"destroy_target",
+"exile_target",
+"removal"
+]
+},
+{
+"name": "Timberwatch Elf",
+"mana_cost": "{2}{G}",
+"mv": 3,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"static_pump",
+"tribal_synergy",
+"tap_ability"
+]
+},
+{
+"name": "Tolarian Terror",
+"mana_cost": "{6}{U}",
+"mv": 7,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"cost_reduction",
+"ward"
+]
+},
+{
+"name": "Toxin Analysis",
+"mana_cost": "{B}",
+"mv": 1,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"keyword_grant",
+"token_creation",
+"investigate"
+]
+},
+{
+"name": "Troublemaker Ouphe",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"exile_target",
+"bargain",
+"sacrifice_cost",
+"artifact_hate",
+"enchantment_hate"
+]
+},
+{
+"name": "Twisted Landscape",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Land"
+],
+"produces": [
+"C"
+],
+"mechanics": [
+"mana_ability",
+"sacrifice_cost",
+"tap_ability",
+"fetch_effect",
+"cycling"
+]
+},
+{
+"name": "Unexpected Fangs",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"add_counters"
+]
+},
+{
+"name": "Vault of Whispers",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact",
+"Land"
+],
+"produces": [
+"B"
+],
+"mechanics": [
+"mana_ability",
+"affinity_land"
+]
+},
+{
+"name": "Vitu-Ghazi Inspector",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"collect_evidence",
+"reach",
+"etb_trigger",
+"counter_placement",
+"life_gain"
+]
+},
+{
+"name": "Voldaren Epicure",
+"mana_cost": "{R}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"burn",
+"token_creation"
+]
+},
+{
+"name": "Weather the Storm",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"storm_like",
+"life_gain"
+]
+},
+{
+"name": "Wellwisher",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"tap_ability",
+"activated_ability"
+]
+},
+{
+"name": "Winding Way",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"modal",
+"card_selection",
+"mill"
+]
+},
+{
+"name": "Writhing Chrysalis",
+"mana_cost": "{2}{R}{G}",
+"mv": 4,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"devoid",
+"spell_cast_trigger",
+"token_creation",
+"reach",
+"sacrifice_trigger",
+"add_counters"
+]
+},
+{
+"name": "Blood Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"discard",
+"sacrifice_cost",
+"draw_card",
+"loot"
+]
+},
+{
+"name": "Human Soldier Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"token_creation"
+]
+},
+{
+"name": "Samurai Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"token_creation",
+"vigilance"
+]
+},
+{
+"name": "Bird Illusion Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"token_creation",
+"flying"
+]
+},
+{
+"name": "Elves of Deep Shadow",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [
+"B"
+],
+"mechanics": [
+"mana_ability",
+"mana_dork",
+"tap_ability",
+"self_damage"
+]
+},
+{
+"name": "Lotus Petal",
+"mana_cost": "{0}",
+"mv": 0,
+"types": [
+"Artifact"
+],
+"produces": [
+"W",
+"U",
+"B",
+"R",
+"G"
+],
+"mechanics": [
+"mana_ability",
+"sacrifice_cost",
+"any_color_mana"
+]
+},
+{
+"name": "Overgrown Battlement",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"defender",
+"mana_ability",
+"tap_ability",
+"dynamic_mana"
+]
+},
+{
+"name": "Saruli Caretaker",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [
+"W",
+"U",
+"B",
+"R",
+"G"
+],
+"mechanics": [
+"defender",
+"mana_ability",
+"tap_ability",
+"tap_other_creature_cost",
+"any_color_mana"
+]
+},
+{
+"name": "Tinder Wall",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [
+"R"
+],
+"mechanics": [
+"defender",
+"mana_ability",
+"sacrifice_cost",
+"activated_ability",
+"blocking_filter",
+"damage"
+]
+},
+{
+"name": "Wall of Roots",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [
+"G"
+],
+"mechanics": [
+"defender",
+"mana_ability",
+"put_counter_cost",
+"once_per_turn"
+]
+},
+{
+"name": "Sagu Wildling",
+"mana_cost": "{4}{G}",
+"mv": 5,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"etb_trigger",
+"life_gain",
+"omen",
+"library_search",
+"shuffle"
+]
+},
+{
+"name": "Troll of Khazad-dum",
+"mana_cost": "{5}{B}",
+"mv": 6,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"cycling",
+"block_restriction"
+]
+},
+{
+"name": "Food Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"sacrifice_cost",
+"life_gain"
+]
+},
+{
+"name": "Gatecreeper Vine",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"defender",
+"etb_trigger",
+"library_search",
+"reveal",
+"shuffle"
+]
+},
+{
+"name": "Healer of the Glade",
+"mana_cost": "{G}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"life_gain"
+]
+},
+{
+"name": "Map Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"sacrifice_cost",
+"tap_ability",
+"explore",
+"counter",
+"reveal"
+]
+},
+{
+"name": "Sacred Cat Embalmed Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"token_creation",
+"lifelink",
+"embalm"
+]
+},
+{
+"name": "Treasure Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact"
+],
+"produces": [
+"W",
+"U",
+"B",
+"R",
+"G"
+],
+"mechanics": [
+"token_creation",
+"mana_ability",
+"tap_ability",
+"sacrifice_cost",
+"any_color_mana"
+]
+},
+{
+"name": "Balustrade Spy",
+"mana_cost": "{3}{B}",
+"mv": 4,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"etb_trigger",
+"target_player",
+"reveal_until_land",
+"mill"
+]
+},
+{
+"name": "Dread Return",
+"mana_cost": "{2}{B}{B}",
+"mv": 4,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"graveyard_target",
+"return_to_battlefield",
+"flashback",
+"sacrifice_cost"
+]
+},
+{
+"name": "Land Grant",
+"mana_cost": "{1}{G}",
+"mv": 2,
+"types": [
+"Sorcery"
+],
+"produces": [],
+"mechanics": [
+"alternative_cost",
+"reveal_hand",
+"library_search",
+"reveal",
+"shuffle"
+]
+},
+{
+"name": "Lotleth Giant",
+"mana_cost": "{6}{B}",
+"mv": 7,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"target_opponent",
+"graveyard_count",
+"damage"
+]
+},
+{
+"name": "Eldrazi Spawn Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Creature"
+],
+"produces": [
+"C"
+],
+"mechanics": [
+"token_creation",
+"mana_ability",
+"sacrifice_cost",
+"colorless_mana"
+]
+},
+{
+"name": "Faerie Macabre",
+"mana_cost": "{1}{B}{B}",
+"mv": 3,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"flying",
+"activated_ability",
+"hand_ability",
+"discard_self_cost",
+"up_to_two_targets",
+"graveyard_target",
+"exile"
+]
+},
+{
+"name": "Flaring Pain",
+"mana_cost": "{1}{R}",
+"mv": 2,
+"types": [
+"Instant"
+],
+"produces": [],
+"mechanics": [
+"damage_cant_be_prevented",
+"until_end_of_turn",
+"flashback"
+]
+},
+{
+"name": "Fume Spitter",
+"mana_cost": "{B}",
+"mv": 1,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"sacrifice_self_cost",
+"target_creature",
+"minus_one_minus_one_counter"
+]
+},
+{
+"name": "Mesmeric Fiend",
+"mana_cost": "{1}{B}",
+"mv": 2,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"etb_trigger",
+"leaves_battlefield_trigger",
+"target_opponent",
+"reveal_hand",
+"choose_nonland_card",
+"linked_exile",
+"return_to_hand"
+]
+},
+{
+"name": "Hero Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"token_creation",
+"job_select"
+]
+},
+{
+"name": "Clue Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Artifact"
+],
+"produces": [],
+"mechanics": [
+"activated_ability",
+"sacrifice_cost",
+"draw_card"
+]
+},
+{
+"name": "Skeleton Token",
+"mana_cost": "",
+"mv": 0,
+"types": [
+"Creature"
+],
+"produces": [],
+"mechanics": [
+"token_creation",
+"menace"
+]
+}
+]
+}

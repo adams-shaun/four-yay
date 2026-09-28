@@ -1,0 +1,96 @@
+{
+ "name": "Wildfire",
+ "format": "pauper",
+ "archetype": "wildfire",
+ "notes": "SpellBench pauper-kernel catalog deck Wildfire (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Jund Wildfire.dek.",
+ "cards": [
+  {
+   "name": "Blood Fountain",
+   "count": 1
+  },
+  {
+   "name": "Cast Down",
+   "count": 4
+  },
+  {
+   "name": "Cleansing Wildfire",
+   "count": 4
+  },
+  {
+   "name": "Drossforge Bridge",
+   "count": 4
+  },
+  {
+   "name": "Eviscerator's Insight",
+   "count": 1
+  },
+  {
+   "name": "Fanatical Offering",
+   "count": 4
+  },
+  {
+   "name": "Forest",
+   "count": 2
+  },
+  {
+   "name": "Ichor Wellspring",
+   "count": 3
+  },
+  {
+   "name": "Krark-Clan Shaman",
+   "count": 3
+  },
+  {
+   "name": "Lembas",
+   "count": 3
+  },
+  {
+   "name": "Makeshift Munitions",
+   "count": 1
+  },
+  {
+   "name": "Mountain",
+   "count": 2
+  },
+  {
+   "name": "Nihil Spellbomb",
+   "count": 4
+  },
+  {
+   "name": "Nyxborn Hydra",
+   "count": 1
+  },
+  {
+   "name": "Pulse of Murasa",
+   "count": 1
+  },
+  {
+   "name": "Refurbished Familiar",
+   "count": 4
+  },
+  {
+   "name": "Slagwoods Bridge",
+   "count": 4
+  },
+  {
+   "name": "Swamp",
+   "count": 3
+  },
+  {
+   "name": "Toxin Analysis",
+   "count": 2
+  },
+  {
+   "name": "Twisted Landscape",
+   "count": 4
+  },
+  {
+   "name": "Vault of Whispers",
+   "count": 1
+  },
+  {
+   "name": "Writhing Chrysalis",
+   "count": 4
+  }
+ ]
+}
