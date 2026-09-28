@@ -174,8 +174,9 @@ func TestSetAudit_ecl_Brigid_TransformTriggerFires(t *testing.T) {
 // TestSetAudit_ecl_MornsongAria_CantDrawStopsDrawStep pins CR 121.6 and the
 // CantDraw static: Mornsong Aria is "Players can't draw cards or gain life."
 // The draw-step draw (CR 504.1) must not happen while it is on the
-// battlefield. `S:Mode$ CantDraw` is not implemented anywhere in the engine,
-// so the draw still occurs.
+// battlefield. `S:Mode$ CantDraw` is now implemented (rules/replacement.go
+// drawForbidden, consulted by applyReplacements), so this is ordinary
+// regression coverage rather than a guarded finding.
 func TestSetAudit_ecl_MornsongAria_CantDrawStopsDrawStep(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
@@ -212,8 +213,6 @@ func TestSetAudit_ecl_MornsongAria_CantDrawStopsDrawStep(t *testing.T) {
 		}
 	}
 	if drew != 0 {
-		eclGuard(t, "the CantDraw static is unimplemented, so a player still draws at their draw step",
-			"Implement the CantDraw static (players can't draw cards)")
 		t.Fatalf("seat 1 drew %d cards on entering its draw step, want 0 (CantDraw)", drew)
 	}
 	replayCheck(t, e, cfg)
