@@ -1,0 +1,29 @@
+{
+  "card": "Field of the Dead",
+  "family": "trigger-condition",
+  "oracle_sha": "bb8348a16a0a",
+  "author": "cli-20260927T211250Z-fb1ba634 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "seventh-distinct-land-makes-zombie",
+      "cr": ["603.4", "603.2"],
+      "why": "Field of the Dead plus five basic land names gives six distinct lands. When Wastes enters, the land event occurs while its controller has seven distinct land names, satisfying the intervening condition.",
+      "setup": {"p0": {"battlefield": ["Field of the Dead", "Plains", "Island", "Swamp", "Mountain", "Forest"], "hand": ["Wastes"]}, "p1": {}},
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Wastes", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Field of the Dead", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 1}]
+    },
+    {
+      "name": "six-distinct-land-names-no-zombie",
+      "cr": ["603.4"],
+      "why": "Field of the Dead and five basic land names make six distinct lands. A repeated Forest entering does not raise that number to seven, so the trigger condition is false.",
+      "setup": {"p0": {"battlefield": ["Field of the Dead", "Plains", "Island", "Swamp", "Mountain", "Forest"], "hand": ["Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Forest#2", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Field of the Dead", "want": false}]}
+      ],
+      "expect": [{"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 0}]
+    }
+  ]
+}

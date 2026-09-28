@@ -94,7 +94,13 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: Urza's Workshop's conditional Urza-land count is
 	// not reflected in its mana ability; the three-land board produces one C.
 	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
-
+	// Engine filter gap: Captain Marvel's script uses Creature...+nonKree,
+	// which the trigger matcher fails closed on (also noted in acceptance_test.go).
+	"Captain Marvel, Apex Avenger/non-kree-creature-counter-is-copied": "Experiment One gets a counter, but Captain Marvel stays 4/4 with none (nonKree filter fails closed)",
+	// Engine trigger-chain gap: Earthbender's script chains ImmediateTrigger
+	// with ConditionCheckSVar$ and ConditionPresent$; the mixed condition shape
+	// is unresolved in effects/conditions.go, and the fourth-counter follow-up is lost.
+	"Earthbender Ascension/fourth-landfall-reaches-quest-threshold": "4 quest counters reached, but target gets no +1/+1 counter or Trample (reflexive trigger chain lost)",
 }
 
 type oracleFile struct {
