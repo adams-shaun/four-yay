@@ -68,18 +68,23 @@ func TestTakeInitiativePrimitiveRegisteredForEveryCorpusCarrier(t *testing.T) {
 	}
 }
 
-// initiativeEngine builds a two-seat game with the corpus token scripts wired
-// in (the Undercity dungeon script among them), seat 0's turn parked at main1
-// and no pending decision, so a caller can place cards and drive the engine
-// itself.
-func initiativeEngine(t *testing.T, reg *cards.Registry, p0, p1 []*cards.Card) (*Engine, Config) {
+// initiativeEngine builds an N-seat game (one deck argument per seat; nil
+// means mountains only) with the corpus token scripts wired in (the
+// Undercity dungeon script among them), seat 0's turn parked at main1 and no
+// pending decision, so a caller can place cards and drive the engine itself.
+// The two-seat form is the original shape; the CR 726.4 leave-game tests pass
+// three decks so a seat can depart without ending the game.
+func initiativeEngine(t *testing.T, reg *cards.Registry, decks ...[]*cards.Card) (*Engine, Config) {
 	t.Helper()
-	d0 := append([]*cards.Card{}, p0...)
-	d1 := append([]*cards.Card{}, p1...)
-	d0 = append(d0, mountainDeck(t, 40-len(d0))...)
-	d1 = append(d1, mountainDeck(t, 40-len(d1))...)
-	cfg := seatZeroStart(Config{Seed: 91, Names: []string{"a", "b"}, Tokens: reg.Tokens,
-		Decks: [][]*cards.Card{d0, d1}})
+	names := make([]string, len(decks))
+	full := make([][]*cards.Card, len(decks))
+	for i, d := range decks {
+		names[i] = string(rune('a' + i))
+		d = append([]*cards.Card{}, d...)
+		full[i] = append(d, mountainDeck(t, 40-len(d))...)
+	}
+	cfg := seatZeroStart(Config{Seed: 91, Names: names, Tokens: reg.Tokens,
+		Decks: full})
 	e := New(cfg)
 	if e.choosing == chooseOpening {
 		// The fabricated board below replaces the pregame, abandoning the
@@ -362,5 +367,178 @@ func TestInitiativeReplayHead(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := runInitiativeUpkeepScenario(t, reg)
+	initiativeReplayHead(t, e, cfg)
+}
+
+// ---- CR 726.4: the initiative holder leaving the game ----
+
+// initiativeHandoffScenario builds a three-seat game (so one seat can depart
+// without ending it) in which holder holds the initiative, granted through a
+// LOGGED InitiativeChange -- the same shape the combat scenario uses -- and
+// asserts the precondition the CR 726.4 handoff reads.
+func initiativeHandoffScenario(t *testing.T, reg *cards.Registry, holder state.PlayerID) (*Engine, Config) {
+	t.Helper()
+	e, cfg := initiativeEngine(t, reg, nil, nil, nil)
+	e.emit(events.Event{Kind: events.InitiativeChange, Player: holder})
+	if !e.G.IsInitiative(holder) {
+		t.Fatalf("precondition: seat %d does not hold the initiative (has=%v who=%d)",
+			holder, e.G.HasInitiative, e.G.Initiative)
+	}
+	return e, cfg
+}
+
+// assertInitiativeHandoff is the shared tail of the leave-game leaves: the
+// lost seat must no longer project as the holder, the new holder must hold
+// it, the CR 726.2 venture must have been queued and resolved for the new
+// holder (Undercity, first room), and the whole game must replay to the same
+// chain head.
+func assertInitiativeHandoff(t *testing.T, e *Engine, cfg Config, lost, newHolder state.PlayerID) {
+	t.Helper()
+	if e.G.IsInitiative(lost) {
+		t.Fatalf("the departed seat %d still projects as the initiative holder (who=%d)",
+			lost, e.G.Initiative)
+	}
+	if !e.G.IsInitiative(newHolder) {
+		t.Fatalf("seat %d did not take the initiative on seat %d's departure (has=%v who=%d)",
+			newHolder, lost, e.G.HasInitiative, e.G.Initiative)
+	}
+	if !initiativeVentureQueued(e, newHolder) && initiativeVentureEvents(e, newHolder) == 0 {
+		t.Fatalf("the CR 726.4 handoff neither queued nor resolved the CR 726.2 venture for the new holder %d", newHolder)
+	}
+	drainInitiative(t, e)
+	if n := initiativeVentureEvents(e, newHolder); n != 1 {
+		t.Fatalf("the CR 726.4 handoff pushed %d ventures for the new holder %d, want 1", n, newHolder)
+	}
+	dobj, room := dungeonRoom(t, e, newHolder)
+	if got := e.G.Obj(dobj).Face().Name; got != "Undercity" {
+		t.Fatalf("new holder %d's dungeon %q, want Undercity", newHolder, got)
+	}
+	if room != "Entrance" {
+		t.Fatalf("new holder %d's marker %q, want Entrance (the venture into a fresh Undercity)", newHolder, room)
+	}
+	if e.G.Obj(dobj).Zone != state.ZCommand {
+		t.Fatalf("dungeon zone %s, want command zone", e.G.Obj(dobj).Zone)
+	}
+	initiativeReplayHead(t, e, cfg)
+}
+
+// loseSeatToLethalLife drops seat p to 0 life through one logged LifeChange
+// and runs the state-based sweep, so the loss enters through the ordinary
+// CR 704.5a path and the ONE loss gate (rules/cantlose.go's playerLoses).
+func loseSeatToLethalLife(t *testing.T, e *Engine, p state.PlayerID) {
+	t.Helper()
+	if e.G.Players[p].Lost {
+		t.Fatalf("precondition: seat %d has already lost", p)
+	}
+	e.emit(events.Event{Kind: events.LifeChange, Player: p, Amount: -e.G.Players[p].Life})
+	e.checkStateBased()
+	if !e.G.Players[p].Lost {
+		t.Fatalf("precondition: seat %d did not lose at 0 life", p)
+	}
+}
+
+// TestInitiativeHolderLeavesHandsOffToActivePlayer is the CR 726.4 first
+// half through the state-based-action loss path: the holder (seat 1) is not
+// the active player, loses at 0 life, and the ACTIVE player (seat 0) takes
+// the initiative at the same time the holder leaves -- venturing into the
+// Undercity per CR 726.2.
+func TestInitiativeHolderLeavesHandsOffToActivePlayer(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, cfg := initiativeHandoffScenario(t, reg, 1)
+	loseSeatToLethalLife(t, e, 1)
+	assertInitiativeHandoff(t, e, cfg, 1, 0)
+}
+
+// TestInitiativeActiveHolderLeavesHandsOffToNextInTurnOrder is CR 726.4's
+// second half through the same loss path: the holder IS the active player
+// (initiativeEngine parks the game on seat 0's main1), so the next player in
+// turn order takes the initiative instead -- seat 1, by NextAlive's seat
+// order.
+func TestInitiativeActiveHolderLeavesHandsOffToNextInTurnOrder(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, cfg := initiativeHandoffScenario(t, reg, 0)
+	if e.G.Active != 0 {
+		t.Fatalf("precondition: active player %d, want 0 (the seat about to leave)", e.G.Active)
+	}
+	loseSeatToLethalLife(t, e, 0)
+	assertInitiativeHandoff(t, e, cfg, 0, 1)
+}
+
+// TestInitiativeHolderConcedingHandsOff drives the SECOND PlayerLost emit
+// site (rules/legal.go's "concede" option, which deliberately bypasses the
+// playerLoses gate): the holder concedes at its own priority and the active
+// player takes the initiative while the game continues with the two
+// surviving seats.
+func TestInitiativeHolderConcedingHandsOff(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, cfg := initiativeHandoffScenario(t, reg, 1)
+	// Drive seat 1 to its own priority decision: pass on seat 0's first.
+	if d := e.Pending(); d != nil {
+		t.Fatalf("precondition: a decision is pending before any was advanced: %+v", d)
+	}
+	e.Advance()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority || d.Player != 0 {
+		t.Fatalf("precondition: expected seat 0's priority decision, got %+v", d)
+	}
+	submitChoices(t, e, highestPriorityOptionWithKind(t, e, "pass").Index)
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KPriority || d.Player != 1 {
+		t.Fatalf("precondition: after seat 0 passed, expected seat 1's priority, got %+v", d)
+	}
+	submitChoices(t, e, highestPriorityOptionWithKind(t, e, "concede").Index)
+	if !e.G.Players[1].Lost {
+		t.Fatal("precondition: seat 1 chose concede but is not Lost")
+	}
+	found := false
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.PlayerLost && ev.Player == 1 && ev.Text == "conceded" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("the log carries no PlayerLost \"conceded\" event for seat 1")
+	}
+	assertInitiativeHandoff(t, e, cfg, 1, 0)
+}
+
+// TestInitiativeLastSeatTakesItWhenActiveHolderConcedes pins the 2-player
+// edge: the active player IS the holder and concedes, so the next player in
+// turn order (the only other seat) takes the initiative at the same moment
+// the conceder leaves -- even though the game ends right after (the venture
+// trigger is queued but never resolves).
+func TestInitiativeLastSeatTakesItWhenActiveHolderConcedes(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, cfg := initiativeEngine(t, reg, nil, nil)
+	e.emit(events.Event{Kind: events.InitiativeChange, Player: 0})
+	if !e.G.IsInitiative(0) {
+		t.Fatalf("precondition: seat 0 does not hold the initiative (has=%v who=%d)", e.G.HasInitiative, e.G.Initiative)
+	}
+	e.Advance()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority || d.Player != 0 {
+		t.Fatalf("precondition: expected seat 0's priority decision, got %+v", d)
+	}
+	submitChoices(t, e, highestPriorityOptionWithKind(t, e, "concede").Index)
+	if !e.G.Over || e.G.Winner != 1 || !e.G.Players[0].Lost {
+		t.Fatalf("precondition: after seat 0 concedes: over=%v winner=%d seat0lost=%v",
+			e.G.Over, e.G.Winner, e.G.Players[0].Lost)
+	}
+	if e.G.IsInitiative(0) {
+		t.Fatal("the conceding holder still projects as the initiative holder")
+	}
+	if !e.G.IsInitiative(1) {
+		t.Fatalf("the last seat did not take the initiative (has=%v who=%d)", e.G.HasInitiative, e.G.Initiative)
+	}
+	if !initiativeVentureQueued(e, 1) {
+		t.Fatal("the CR 726.2 venture was not queued for the last seat taking the initiative")
+	}
+	if n := initiativeVentureEvents(e, 1); n != 0 {
+		t.Fatalf("a finished game resolved %d ventures, want 0", n)
+	}
 	initiativeReplayHead(t, e, cfg)
 }
