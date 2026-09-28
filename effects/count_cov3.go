@@ -343,6 +343,12 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string) (int32, bool) {
 		switch prop {
 		case "Amount":
 			return int32(len(players)), true
+		case "Valid":
+			seen := make(map[state.PlayerID]struct{}, len(players))
+			for _, p := range players {
+				seen[p] = struct{}{}
+			}
+			return int32(len(seen)), true
 		case "LifeLostThisTurn":
 			var n int32
 			for _, p := range players {
