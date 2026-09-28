@@ -76,8 +76,11 @@ func assertActiveMainPriority(t *testing.T, e *Engine) {
 		t.Fatalf("stack after ETB election = %v, want empty", e.G.Stack)
 	}
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KPriority || d.Player != e.G.Active {
-		t.Fatalf("pending after ETB election = %+v, want active player's priority", d)
+	if d == nil {
+		t.Fatal("pending after ETB election = nil, want active player's priority")
+	}
+	if d.Kind != decision.KPriority || d.Player != e.G.Active {
+		t.Fatalf("pending after ETB election = kind %s for player %d (%q), want active player's priority", d.Kind, d.Player, d.Prompt)
 	}
 	if d.Player != 0 {
 		t.Fatalf("priority player = %d, want caster seat 0", d.Player)
