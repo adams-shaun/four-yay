@@ -3172,6 +3172,11 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if len(chosen) > 0 && chosen[0].Kind == "yes" {
 				ctx.PutOpt = "yes"
 			}
+		case "endturn_optional":
+			ctx.EndTurnOpt = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.EndTurnOpt = "yes"
+			}
 		case "setstate_optional":
 			// An Optional$ True SetState's yes/no election (Dowsing Dagger's
 			// "you may transform this Equipment", High Marshal Arguel's "you
@@ -4156,6 +4161,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		e.replRedirect = savedRedirect
 		e.applyingReplacement = savedReplacement
 		e.damaging = 0
+		// A resumed EndTurn has already exiled the stack, including the
+		// resolving ability. Do not continue its Sub chain or grant priority
+		// in the skipped step; enter cleanup just as resolveTop does.
+		if e.endTurnRequested {
+			e.finishEndTurn()
+			return
+		}
 		// A resolution is still suspended when EITHER the ordinary
 		// mid-resolution ask (e.resume) or an off-stack mana rider ask is
 		// pending. The latter parks on the mana activation and sets

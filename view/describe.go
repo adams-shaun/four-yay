@@ -559,6 +559,8 @@ func Describe(g *state.Game, ev events.Event) string {
 		return obj(g, ev.Obj) + " triggers"
 	case events.EndCombatReset:
 		return "Combat ends"
+	case events.EndTurn:
+		return "The turn ends"
 	case events.CastInfo:
 		// Records how a spell was cast, right before the PutOnStack line
 		// (Task 4): Amount is the value chosen for {X}, Counter the comma-
