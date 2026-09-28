@@ -177,16 +177,28 @@ func TestProposalLaterShuffleCreditsOpponentHand(t *testing.T) {
 
 func TestProposalLaterDrawsPreserveKnownDuplicateObjects(t *testing.T) {
 	land := syntheticCard(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:Fixture.\n")
-	// LibraryPosition$ -1 (bottom) is pinned deliberately: this fixture is
-	// about the sampler preserving KNOWN DUPLICATE physical objects across a
-	// redraw, not about where the cards land before the shuffle. Without the
-	// param the ChangeZoneAll takes Forge's absent-position default (TOP,
-	// golgari_thug2) and emits a replacement LibraryOrder, which is a real
-	// placement but here is immediately shuffled away; pinning -1 keeps the
-	// fixture exercising exactly the pre-golgari_thug2 event shape it was
-	// written for. The sampler's handling of the TOP-placement-then-shuffle
-	// shape (the real Head Games / Jester's Mask script) is tracked by the
-	// follow-up ticket filed with this round.
+	// LibraryPosition$ -1 (bottom) is pinned deliberately, and this pin is
+	// NOT incidental: it was re-examined by agent-20260928T191540Z and found
+	// necessary for a reason other than the one the follow-up ticket assumed.
+	// Without the param the ChangeZoneAll takes Forge's absent-position TOP
+	// default (golgari_thug2) and emits a LibraryOrder before the shuffle.
+	//
+	// The ticket attributed the fixture's failure to compileEpochs marking the
+	// PRE-shuffle epoch unguided on that LibraryOrder. Measured: that epoch is
+	// unguided anyway by the five hand-to-library MoveZone events
+	// ("library_mutation"), and forcing it guided changes the sample result
+	// not at all (3/16 accepted either way). The real limitation is that the
+	// observed top five draws are 1 previously-known object + 4 NEVER-SEEN
+	// objects, and the epoch/constraint model counts cards by NAME only
+	// (internal/searchprobe/constraints.go), so it cannot require a drawn
+	// position to be a previously-unseen copy rather than one of the known
+	// duplicates that were moved into the same library. The TOP-placement
+	// history simply draws fewer known duplicates into the top five than the
+	// pre-golgari_thug2 bottom-placement history did, so the limitation
+	// surfaces. Fixing it needs a new per-card "unseen" constraint in the
+	// permutation solver; tracked separately. The paired-shuffle epochs fix
+	// this round DID land (a placement erased by a shuffle no longer unguides
+	// its epoch) and is pinned by placement_shuffle_test.go.
 	spell := syntheticCard(t, "Name:Return Shuffle Draw\nManaCost:0\nTypes:Sorcery\nA:SP$ ChangeZoneAll | Origin$ Hand | Destination$ Library | ChangeType$ Card.YouOwn | LibraryPosition$ -1 | SubAbility$ Mix\nSVar:Mix:DB$ Shuffle | Defined$ You | SubAbility$ Pull\nSVar:Pull:DB$ Draw | Defined$ You | NumCards$ 5\nOracle:Fixture.\n")
 	decks := [][]*cards.Card{repeatCard(land, 12), repeatCard(land, 12)}
 	decks[0][0] = spell
