@@ -36,6 +36,9 @@ type RollConfig struct {
 	// BaseTactical makes sb-tactical's pick the default the search must
 	// beat (arbiter only), instead of v1agent.Tactical's.
 	BaseTactical bool
+	// SecondSearch makes sb-search (Config.SBSearch), not plain
+	// sb-tactical, the arbiter's second opinion.
+	SecondSearch bool
 	// Extra adds, at a contested arbiter decision, v1agent.Tactical's next
 	// Extra best-scored candidates to the two opinions.
 	Extra int

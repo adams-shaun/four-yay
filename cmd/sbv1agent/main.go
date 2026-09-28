@@ -39,6 +39,7 @@ import (
 
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/spellbench/kshadow"
+	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/internal/spellbench/v1agent"
 )
 
@@ -68,6 +69,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	rollExtra := fs.Int("roll-extra", 0, "shadow-roll arbiter: extra v1agent.Tactical candidates searched at a contested decision")
 	budget := fs.Float64("budget-ms", 12000, "shadow-roll: per-decision search budget in ms (the clock guard; 0 disables)")
 	rollArb := fs.Bool("roll-arbiter", false, "shadow-roll: search only v1agent.Tactical's pick against sb-tactical's, where they disagree")
+	sbsW := fs.Int("sbs-worlds", 0, "shadow-sbsearch/-arbsearch: sb-search worlds (0: sb-search-lite-atk, W4 H2)")
+	sbsH := fs.Int("sbs-horizon", -1, "shadow-sbsearch/-arbsearch: sb-search horizon in turns (-1: lite-atk's 2)")
 	route := fs.String("route", "", "shadow-route: DECK=MODE/.../default=MODE (, or / separated) (modes: kernel, tactical, roll, az, aztac)")
 	kinds := fs.String("kinds", "priority,attackers,blockers,target", "shadow-az*: searched decision kinds")
 	if err := fs.Parse(args); err != nil {
@@ -126,6 +129,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		roll.Clock = func() float64 { return float64(time.Since(start).Microseconds()) / 1000 }
 		roll.BudgetMS = *budget
 		cfg := kshadow.Config{Reg: reg, Mode: mode, Sims: *sims, Worlds: *worlds, Kinds: k, Seed: *seed, Roll: roll}
+		if *sbsW > 0 {
+			cfg.SBSearch = sbsearch.DefaultConfig()
+			cfg.SBSearch.Worlds, cfg.SBSearch.Horizon, cfg.SBSearch.Attack = *sbsW, 2, true
+			if *sbsH >= 0 {
+				cfg.SBSearch.Horizon = int32(*sbsH)
+			}
+		}
 		if *route != "" {
 			cfg.Route = map[string]string{}
 			for _, kv := range strings.FieldsFunc(*route, func(r rune) bool { return r == ',' || r == '/' }) {

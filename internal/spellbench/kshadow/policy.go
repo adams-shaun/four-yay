@@ -15,6 +15,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/internal/spellbench/v1agent"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
@@ -47,6 +48,11 @@ const (
 	// default (routing targets).
 	ModeArb   = "arb"
 	ModeArbST = "arbst"
+	// ModeSBSearch answers with sb-search (Config.SBSearch; sb-tactical
+	// rollouts over redealt worlds) on the shadow; ModeArbSearch is the
+	// arbiter with sb-search's pick as the second opinion.
+	ModeSBSearch  = "sbsearch"
+	ModeArbSearch = "arbsearch"
 )
 
 // Config configures a Policy.
@@ -67,6 +73,8 @@ type Config struct {
 	Fallback v1agent.Policy
 	// Roll is ModeRoll's budget.
 	Roll RollConfig
+	// SBSearch is ModeSBSearch's configuration (sbsearch.Config).
+	SBSearch sbsearch.Config
 	// Route maps our deck's catalog id to the mode it plays (ModeRoute);
 	// the key "default" covers every other deck.
 	Route map[string]string
@@ -140,11 +148,11 @@ type Policy struct {
 // New builds a Policy.
 func New(cfg Config) (*Policy, error) {
 	switch cfg.Mode {
-	case ModeTactical, ModeAZ, ModeAZTac, ModeRoll, ModeKernel, ModeArb, ModeArbST:
+	case ModeTactical, ModeAZ, ModeAZTac, ModeRoll, ModeKernel, ModeArb, ModeArbST, ModeSBSearch, ModeArbSearch:
 	case ModeRoute:
 		for deck, m := range cfg.Route {
 			switch m {
-			case ModeTactical, ModeAZ, ModeAZTac, ModeRoll, ModeKernel, ModeArb, ModeArbST:
+			case ModeTactical, ModeAZ, ModeAZTac, ModeRoll, ModeKernel, ModeArb, ModeArbST, ModeSBSearch, ModeArbSearch:
 			default:
 				return nil, fmt.Errorf("kshadow: route %s: unknown mode %q", deck, m)
 			}
@@ -157,6 +165,12 @@ func New(cfg Config) (*Policy, error) {
 	}
 	if cfg.Roll.Worlds == 0 {
 		cfg.Roll = DefaultRoll()
+	}
+	if cfg.SBSearch.Worlds == 0 {
+		// sb-search-lite-atk (cmd/botbench's registry): W4, 2-turn horizon,
+		// attacks searched.
+		cfg.SBSearch = sbsearch.DefaultConfig()
+		cfg.SBSearch.Worlds, cfg.SBSearch.Horizon, cfg.SBSearch.Attack = 4, 2, true
 	}
 	if cfg.Kinds == (azmcts.Kinds{}) {
 		cfg.Kinds = azmcts.AllKinds()
@@ -190,8 +204,9 @@ func (p *Policy) GameStart(g *v1agent.GameStart) {
 	}
 	p.roll = p.cfg.Roll
 	switch p.mode {
-	case ModeArb, ModeArbST:
+	case ModeArb, ModeArbST, ModeArbSearch:
 		p.roll.Arbiter, p.roll.BaseTactical = true, p.mode == ModeArbST
+		p.roll.SecondSearch = p.mode == ModeArbSearch
 		p.mode = ModeRoll
 	}
 	p.plan, p.attackPlan, p.blockPlan = nil, nil, nil
@@ -446,8 +461,12 @@ func (p *Policy) priority(d *v1agent.Decision, fbPick int) (int, bool, string) {
 	var in decision.Intent
 	var err error
 	switch p.mode {
-	case ModeTactical:
-		in, err = p.tacticalAnswer(sh)
+	case ModeTactical, ModeSBSearch:
+		if p.mode == ModeSBSearch {
+			in, err = p.sbsearchAnswer(sh, d)
+		} else {
+			in, err = p.tacticalAnswer(sh)
+		}
 		if err == nil {
 			in, pd, err = throughMana(sh, in, func() (decision.Intent, error) { return p.tacticalAnswer(sh) })
 		}
@@ -461,7 +480,7 @@ func (p *Policy) priority(d *v1agent.Decision, fbPick int) (int, bool, string) {
 	k, why := kernelIndexPriority(sh, d, pd, in)
 	// A play the kernel does not offer (its mana or timing rules differ):
 	// sb-tactical is told the play was refused and chooses again.
-	for tries := 0; k < 0 && p.mode == ModeTactical && tries < 4 && pd.Kind == decision.KPriority; tries++ {
+	for tries := 0; k < 0 && (p.mode == ModeTactical || p.mode == ModeSBSearch) && tries < 4 && pd.Kind == decision.KPriority; tries++ {
 		p.Stats.Refusals++
 		in = p.gs.Refused(gorgeView(sh, pd), *pd, in)
 		in, pd, err = throughMana(sh, in, func() (decision.Intent, error) { return p.tacticalAnswer(sh) })
@@ -617,7 +636,7 @@ type planTarget struct {
 // decisions with the same policy until priority (or anything else) comes
 // back, recording targets, numbers and modes.
 func (p *Policy) makePlan(sh *Shadow, pd *decision.Decision, in decision.Intent, seed uint64) *followPlan {
-	return p.makePlanWith(sh, pd, in, seed, p.mode == ModeTactical || p.mode == ModeRoll)
+	return p.makePlanWith(sh, pd, in, seed, p.mode == ModeTactical || p.mode == ModeRoll || p.mode == ModeSBSearch)
 }
 
 // makePlanWith is makePlan answering the follow-ups with sb-tactical
@@ -869,6 +888,11 @@ func (p *Policy) combatAnswer(sh *Shadow, d *v1agent.Decision) (decision.Intent,
 	switch p.mode {
 	case ModeTactical:
 		return p.tacticalAnswer(sh)
+	case ModeSBSearch:
+		if sh.E.Pending().Kind == decision.KAttackers {
+			return p.sbsearchAnswer(sh, d)
+		}
+		return p.tacticalAnswer(sh)
 	case ModeRoll:
 		return p.rollCombat(sh, d)
 	}
@@ -959,6 +983,8 @@ func (p *Policy) Summary() map[string]any {
 		"agree_with_fallback": p.Stats.Agree, "panics": p.Stats.Panics, "refusals": p.Stats.Refusals,
 		"roll_searched": p.Roll.Searched, "roll_overrides": p.Roll.Overrides,
 		"roll_rollouts": p.Roll.Rollouts, "roll_failed": p.Roll.Failed, "roll_proposals": p.Roll.Proposals, "clock_guard_stops": p.roll.stopped, "decided_stops": p.roll.early,
+		"sbsearch_searched": sbStats.Searched, "sbsearch_overrides": sbStats.Overrides,
+		"sbsearch_refused": sbStats.Refused, "sbsearch_reasons": sbStats.Reasons,
 		"az_decisions": p.AZ.Decisions, "az_searched": p.AZ.Searched, "az_overrides": p.AZ.Overrides,
 	}
 }

@@ -33,7 +33,13 @@ func (sh *Shadow) clone() *Shadow {
 // kernel candidate index.
 func (p *Policy) tacticalPick(sh *Shadow, d *v1agent.Decision) (int, *followPlan, bool) {
 	c := sh.clone()
-	in, err := p.tacticalAnswer(c)
+	var in decision.Intent
+	var err error
+	if p.roll.SecondSearch {
+		in, err = p.sbsearchAnswer(c, d)
+	} else {
+		in, err = p.tacticalAnswer(c)
+	}
 	if err != nil {
 		return 0, nil, false
 	}
@@ -238,7 +244,11 @@ func (p *Policy) rollCombat(sh *Shadow, d *v1agent.Decision) (decision.Intent, e
 		}
 	}
 	stBase := 0
-	if in, err := p.tacticalAnswer(sh.clone()); err == nil && in.Payment == nil {
+	second := p.tacticalAnswer
+	if p.roll.SecondSearch && pd.Kind == decision.KAttackers {
+		second = func(c *Shadow) (decision.Intent, error) { return p.sbsearchAnswer(c, d) }
+	}
+	if in, err := second(sh.clone()); err == nil && in.Payment == nil {
 		add(in.Choices)
 		ch := append([]int(nil), in.Choices...)
 		sort.Ints(ch)
