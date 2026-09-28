@@ -257,6 +257,13 @@ func controlReferent(p string) (op, ref string, ok bool) {
 		// like the bare case: the tail maps each remembered target by op
 		// (ControlledBy -> Controller, OwnedBy -> Owner).",
 		"RememberedController", "RememberedOwner",
+		// CardController names the triggering card's controller -- as it last
+		// existed on the battlefield for a card that left it (CR 603.10a),
+		// else its current controller. Kraven the Hunter's
+		// `greatestPowerControlledByCardController` and the
+		// `Land.ControlledBy CardController` entered-this-turn counts
+		// (Confounding Conundrum, Tunnel Ignus) are the corpus carriers.
+		"CardController",
 		// The controller of the CAUSING spell/ability's source a
 		// BecomesTarget/BecomesTargetOnce trigger captured (Leyline of
 		// Combustion's payout, Black Bolt's Lethal Voice destroy ask):
@@ -317,6 +324,17 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 		// "Controlled by the triggering card's controller": the card's
 		// last-known controller when it left the battlefield (CR 603.10a).
 		if op == "ControlledBy" && sc.TriggerCardController.IsPlayer {
+			targets = []state.Target{sc.TriggerCardController}
+			break
+		}
+		targets = []state.Target{{Obj: sc.TriggerCard}}
+	case "CardController":
+		// The triggering card's controller as it last existed on the
+		// battlefield (CR 603.10a), else its current controller. Binds only
+		// through the trigger's own card role; with no card context the
+		// referent stays unbound and the predicate fails closed, never
+		// widening to every player.
+		if sc.TriggerCardController.IsPlayer {
 			targets = []state.Target{sc.TriggerCardController}
 			break
 		}

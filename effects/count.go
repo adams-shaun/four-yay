@@ -3610,36 +3610,48 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 // head cannot safely treat an unknown field as a filter that matches nothing:
 // CheckSVar distinguishes that evaluated zero from an unresolvable Count$.
 // Keep this narrow until a corpus carrier establishes another spelling.
-// evalCountValidSelf reads the bounded ValidSelf forms carried by the corpus.
-// Unlike an unknown Count$ head, this head is recognised even when its
-// argument is outside the implemented grammar, so that argument fails closed
-// with an evaluated zero instead of making a CheckSVar gate disappear.
+//
+// evalCountValidSelf models Forge's `Count$ValidSelf <spec>` head: the count
+// of the "Self" card when it matches <spec>, 0 otherwise. Self is the card the
+// SVar is evaluated for -- the triggering event's card under
+// `CheckOnTriggeredCard$` (a dies trigger's dying creature), else the
+// resolving source (a `CheckSVar$` gate). It is a RECOGNISED head even when
+// <spec> is outside this build's filter grammar: an unreadable argument then
+// fails closed with an evaluated zero instead of falling through to the
+// unknown-head verdict, so a `GE1` gate reads a real false rather than an
+// unresolvable body a caller might fail open. A missing Self binding is the
+// same evaluated zero.
+//
+// The match runs over the shared filter matcher, so every predicate the
+// engine already reads -- including `greatestPower...` and its
+// `ControlledBy CardController` referent -- answers here without a second
+// implementation. CR 603.10: a card that left the battlefield is judged as it
+// last existed there, so the trigger's LKI snapshot is preferred when it
+// names Self (a dying creature's controller is reset to its owner by the
+// move, and its counters with it).
 func evalCountValidSelf(h Host, c *Ctx, arg string) (int32, bool) {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return 0, true
+	}
 	g := h.Game()
-	if strings.TrimSpace(arg) == "Creature.greatestPowerControlledByCardController" {
-		// On a ChangesZone trigger, ValidSelf is the event card (the
-		// TriggerCard LKI), not the trigger source. The predicate asks whether
-		// that card's power was at least the greatest among creatures its
-		// controller had on the battlefield.
-		dead := g.Obj(c.TriggerCard)
-		if dead == nil || c.TriggerCard == 0 || dead.Face() == nil || !dead.Face().IsCreature() {
-			return 0, true
-		}
-		power := h.Power(dead.ID)
-		for _, id := range g.Zone(state.ZBattlefield, dead.Controller) {
-			o := g.Obj(id)
-			if o == nil || o.Face() == nil || !o.Face().IsCreature() {
-				continue
-			}
-			if h.Power(id) > power {
-				return 0, true
-			}
-		}
+	self := c.TriggerCard
+	if self == 0 {
+		self = c.Source
+	}
+	if self == 0 {
+		return 0, true
+	}
+	o := g.Obj(self)
+	if c.LKI != nil && c.LKI.ID == self {
+		o = c.LKI
+	}
+	if o == nil {
+		return 0, true
+	}
+	if MatchesObjectCtx(g, arg, o, c.SpecContext(c.Controller)) {
 		return 1, true
 	}
-	// A recognized head with an unsupported ValidSelf argument is an
-	// evaluated zero. This deliberately makes comparisons such as GE1 fail
-	// closed instead of letting an unmodelled argument bypass the gate.
 	return 0, true
 }
 

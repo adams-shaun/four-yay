@@ -16,10 +16,16 @@ import (
 func TestSetAudit_spm_Kraven_GreatestPowerDeathTrigger(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	e := crAbortEngine(t, reg, "ur-delver", "Kraven the Hunter", "Grizzly Bears", "Colossal Dreadmaw")
+	e := crAbortEngine(t, reg, "ur-delver", "Kraven the Hunter", "Grizzly Bears", "Colossal Dreadmaw", "Gigantosaurus")
 	kraven := crAbortMove(t, e, 0, "Kraven the Hunter", state.ZBattlefield)
 	bear := crAbortMove(t, e, 0, "Grizzly Bears", state.ZBattlefield)
 	big := crAbortMove(t, e, 0, "Colossal Dreadmaw", state.ZBattlefield)
+	// A creature on Kraven's OWN side, larger than the opponent's greatest.
+	// A gate that scanned the dying creature's owner's battlefield (the move
+	// resets its controller to its owner) instead of the player it last
+	// belonged to would suppress the 6/6's death too, so this board makes the
+	// two readings disagree. See the assertion below.
+	own := crAbortMove(t, e, 0, "Gigantosaurus", state.ZBattlefield)
 	// Put both tested creatures under one opposing controller, retaining the
 	// real corpus faces and their distinct powers (2 versus 6).
 	e.emit(events.Event{Kind: events.ControlChange, Obj: bear, Player: 1})
@@ -31,8 +37,14 @@ func TestSetAudit_spm_Kraven_GreatestPowerDeathTrigger(t *testing.T) {
 	if e.G.Obj(bear).Zone != state.ZBattlefield || e.G.Obj(big).Zone != state.ZBattlefield || e.G.Obj(bear).Controller != 1 || e.G.Obj(big).Controller != 1 {
 		t.Fatal("precondition: the 2/2 and 6/6 must both be controlled by Kraven's opponent")
 	}
+	if e.G.Obj(own).Zone != state.ZBattlefield || e.G.Obj(own).Controller != 0 {
+		t.Fatal("precondition: the 10/10 must be a seat-0 battlefield permanent (Kraven's side)")
+	}
 	if e.Power(bear) >= e.Power(big) {
 		t.Fatalf("precondition: tested powers are not ordered: bear=%d dreadmaw=%d", e.Power(bear), e.Power(big))
+	}
+	if e.Power(own) <= e.Power(big) {
+		t.Fatalf("precondition: Kraven's own creature must exceed the opponent's greatest, else the owner-vs-LKI distinction is invisible: gigantosaurus=%d dreadmaw=%d", e.Power(own), e.Power(big))
 	}
 	tr := crTriggerFixture(t, e, kraven, "ChangesZone", "Draw")
 	if got := tr.Params["CheckOnTriggeredCard"]; got != "X GE1" {
@@ -65,6 +77,31 @@ func TestSetAudit_spm_Kraven_GreatestPowerDeathTrigger(t *testing.T) {
 	}
 	if got := e.G.Obj(kraven).Counter("P1P1"); got != 1 {
 		t.Fatalf("Kraven has %d +1/+1 counters, want 1", got)
+	}
+}
+
+func TestCountValidSelfUnreadableArgumentFailsClosed(t *testing.T) {
+	// The head is RECOGNISED even for an argument the filter grammar cannot
+	// read, and such an argument evaluates to 0 (an evaluated zero), never to
+	// an unresolvable body a CheckSVar gate would fail open on and never to a
+	// silent 1 that would make a negated predicate gate-true. IsPrepared is
+	// not a modelled filter predicate and Card$... is a count property, not a
+	// filter, so both are the unreadable class.
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := crAbortEngine(t, reg, "ur-delver", "Kraven the Hunter")
+	src := crAbortMove(t, e, 0, "Kraven the Hunter", state.ZBattlefield)
+	svars := e.G.Obj(src).Face().SVars
+	for _, arg := range []string{"Card.!IsPrepared", "Card$CreatureType/LimitMax.10"} {
+		body := "Count$ValidSelf " + arg
+		if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, body); !ok || got != 0 {
+			t.Fatalf("Count$ValidSelf %q = %d, resolved=%v; want 0, true (fail closed)", arg, got, ok)
+		}
+	}
+	// An empty argument is the degenerate unreadable case and fails closed the
+	// same way, rather than panicking on a missing self binding.
+	if got, ok := effects.EvalCountOK(e, &effects.Ctx{}, "Count$ValidSelf"); !ok || got != 0 {
+		t.Fatalf("Count$ValidSelf with no argument = %d, resolved=%v; want 0, true", got, ok)
 	}
 }
 
