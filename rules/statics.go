@@ -3588,6 +3588,12 @@ func init() {
 	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:RaiseCost", "stat:CastWithFlash",
 		"stat:ReduceCost", "stat:AlternativeCost", "stat:CantBlock", "stat:CantBlockBy",
 		"stat:CantGainLife", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
+		// cantdraw1: the CR 121.6 CantDraw prohibition static
+		// (rules/replacement.go drawForbidden, consulted by applyReplacements
+		// before any Draw replacement). Its ValidPlayer$ scope is read; a
+		// DrawLimit$ count cap is left unread and the static skipped in the
+		// permissive direction (see drawForbidden's own note).
+		"stat:CantDraw",
 		// surveilnum1: the stat:SurveilNum static (Host.SurveilLookExtra,
 		// consulted by effects' effSurveil through the shared activeStatics
 		// collector). Only the literal-or-SVar Num$ value and the Optional$
