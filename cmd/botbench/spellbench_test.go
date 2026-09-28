@@ -5,8 +5,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
+	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/seat"
 )
 
 // TestSpellbenchGameSeedsMatchArena pins sbGameSeed to SpellBench's
@@ -122,5 +126,43 @@ func TestSpellbenchFDNCatalogMirrors(t *testing.T) {
 			t.Fatalf("format %v", row["format"])
 		}
 		t.Logf("%s %s: %s turns=%d intents=%d", g.id, g.deck, sbResultLabel(r), r.outcome.Turns, r.outcome.Intents)
+	}
+}
+
+// TestSpellbenchTacticalDeterministic plays sb-tactical (auto-pay and
+// planned) against sb-heuristic twice from the same seed on four catalog
+// mirrors and requires the same event-log chain head (the game digest), a
+// finished game and no refused-answer fallback.
+func TestSpellbenchTacticalDeterministic(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	setTacticalRegistry(reg)
+	for _, deckID := range []string{"Burn", "Faeries", "Elves", "CawGates"} {
+		deck, err := spellbench.Deck(reg, spellbench.PauperKernel, deckID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, pol := range []string{"sb-tactical", "sb-tactical-planned"} {
+			seed := sbGameSeed(20260926, 3, 1)
+			play := func() (string, gbench.Outcome, [2]int) {
+				var res sbResult
+				seats := []seat.Seat{policies[pol](seed ^ 1), policies["sb-heuristic"](seed ^ 2)}
+				cfg := rules.Config{Seed: seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
+					Tokens: reg.Tokens, NameUniverse: reg.Cards}
+				o, e, err := gbench.PlayGame(cfg, seats, 200, 20000, gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res)})
+				if err != nil {
+					t.Fatalf("%s on %s: %v", pol, deckID, err)
+				}
+				return e.L.Head(), o, res.fallbacks
+			}
+			h1, o1, fb := play()
+			h2, o2, _ := play()
+			if h1 != h2 || o1 != o2 {
+				t.Fatalf("%s on %s: same seed, different games: %s %+v vs %s %+v", pol, deckID, h1, o1, h2, o2)
+			}
+			if o1.IsStalled() || fb != [2]int{} {
+				t.Fatalf("%s on %s: stalled %+v or fallbacks %v", pol, deckID, o1, fb)
+			}
+			t.Logf("%-20s %-8s head %s winner p%d turns %d", pol, deckID, h1, o1.WinnerSeat, o1.Turns)
+		}
 	}
 }
