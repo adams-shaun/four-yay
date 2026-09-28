@@ -151,3 +151,28 @@ func TestPriorsUniformWithoutANetwork(t *testing.T) {
 		t.Fatalf("priors = %v (fell back %v), want uniform", p, fell)
 	}
 }
+
+// The priority arm never offers an ability the bot's own guards decline
+// (botpolicy A1/A5): here a free Equip with no creature to attach to (the
+// zero Board a nil engine reads) and a keyword grant the source already has.
+// With only the pass left there is nothing to search. A worth-taking ability
+// beside them is still a candidate.
+func TestEnumerateDropsAbilitiesTheBotDeclines(t *testing.T) {
+	d := &decision.Decision{Seq: 12, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: []decision.Option{
+		{Index: 0, Kind: "pass", Label: "Pass"},
+		{Index: 1, Kind: "ability", Label: "Equip 0", Attach: true},
+		{Index: 2, Kind: "ability", Label: "Gain flying", Grant: &decision.Grant{Already: true}},
+	}}
+	bot := decision.Intent{Seq: 12, Player: 0, Choices: []int{0}}
+	if _, kind, why, ok := enumerateWhy(searchprobe.NewCollector(0), nil, d, bot, AllKinds(), 6); ok || kind != "priority" || why != SkipFewCandidates {
+		t.Fatalf("declined abilities searched: ok %v kind %q why %v", ok, kind, why)
+	}
+	d.Options = append(d.Options, decision.Option{Index: 3, Kind: "ability", Label: "Draw a card"})
+	cands, _, ok := enumerate(searchprobe.NewCollector(0), nil, d, bot, AllKinds(), 6)
+	if !ok {
+		t.Fatal("a worth-taking ability beside the declined ones was not searched")
+	}
+	if got := choicesOf(cands); !reflect.DeepEqual(got, [][]int{{0}, {3}}) {
+		t.Fatalf("candidates %v, want pass then the draw only", got)
+	}
+}

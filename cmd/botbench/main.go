@@ -464,6 +464,38 @@ func recordAutoPayMirror(status paymirror.Status, key string) {
 // to a pre-flag build. The sink is a pure engine-side observer, so attaching
 // it changes no game either.
 var paymentStatsEnabled bool
+
+// maxTurnIntents is the -max-turn-intents watchdog: the most decisions one
+// turn may ask before the game ends as an "intents" stall. It is the
+// per-turn half of -max-intents, catching the same pathology -- a turn that
+// never ends while intents keep coming -- without first paying for the whole
+// per-game budget. That budget is what made a looping searched seat look like
+// a hang: the az seat re-equipping a free Bonesplitter forever (Stage 0,
+// 2026-09-27) pays two searched decisions per cycle, so reaching the 20000
+// per-game cap took ~15 minutes at 25 simulations and ~4x that at 100. No
+// healthy constructed game measures more than 1136 intents in total, so 2000
+// in ONE turn is a loop, never a long game; 0 disables it.
+var maxTurnIntents = 2000
+
+// turnIntentGuard is maxTurnIntents' bench.Hooks.Guard for one game: it
+// counts the decisions asked since the turn number last changed and stalls
+// the game as "intents" (the frozen-turn kind the stall notice already
+// tallies) once more than max have been asked in one turn. The closure's
+// counter is game-local, so each game needs its own guard.
+func turnIntentGuard(max int) func(e *rules.Engine) (string, string) {
+	turn, n := int32(-1), 0
+	return func(e *rules.Engine) (string, string) {
+		if e.G.Turn != turn {
+			turn, n = e.G.Turn, 0
+		}
+		n++
+		if n > max {
+			return "intents", fmt.Sprintf("-max-turn-intents: %d decisions on turn %d (step %v) without the turn advancing", max, turn, e.G.Step)
+		}
+		return "", ""
+	}
+}
+
 var paymentStatsTotal = struct {
 	sync.Mutex
 	stats rules.PaymentPlanStats
@@ -700,6 +732,9 @@ func playMatchOnce(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns,
 // is no second copy of the watchdog/livelock loop to keep in step.
 func playMatchOnceTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns, maxIntents int, collect *decisionStats, cov *actionCoverage, trace *gameTrace, meta traceDecisionMeta) (gameOutcome, *rules.Engine, error) {
 	hooks := gbench.Hooks{NeedBoard: trace != nil}
+	if maxTurnIntents > 0 {
+		hooks.Guard = turnIntentGuard(maxTurnIntents)
+	}
 	if paymentStatsEnabled {
 		sink := &rules.PaymentPlanStats{}
 		hooks.Setup = func(e *rules.Engine) { e.SetPaymentPlanStats(sink) }
@@ -2216,6 +2251,7 @@ func main() {
 	// games measure 171-1136 intents, so the 20000 default is ~17x the worst
 	// of those with room for Commander's longer games.
 	maxTurns := flag.Int("max-turns", 200, "maximum turns per game before it ends as a stall (not a win, not a draw); catches a game that runs long in turn count; 0 = no cap")
+	flag.IntVar(&maxTurnIntents, "max-turn-intents", maxTurnIntents, "maximum decisions in ONE turn before the game ends as an intents stall (the per-turn half of -max-intents: a frozen turn is caught without first spending the whole per-game budget, which a searched seat pays for at every decision); 0 = no cap")
 	maxIntents := flag.Int("max-intents", 20000, "maximum intents per game before it ends as a stall (not a win, not a draw); catches a game whose turn count never advances but that keeps submitting intents; 0 = no cap")
 	dir := flag.String("dir", ".cards", "corpus directory (holds ir.gob.gz / cardsfolder)")
 	profile := flag.String("profile", "", "path to a cast-profile weights JSON (schema {\"version\":1,\"cast\":{...}}) applied to any side named cast-profile; empty = the embedded default profile")

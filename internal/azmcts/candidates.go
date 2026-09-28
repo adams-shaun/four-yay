@@ -91,7 +91,7 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 		if err != nil || len(base) != 1 {
 			return nil, kind, SkipTranslate, false
 		}
-		for _, a := range searchprobe.Candidates(od, base[0], limit) {
+		for _, a := range searchprobe.Candidates(worthOptions(od, e, d), base[0], limit) {
 			in, err := obs.Match(d, []searchprobe.Action{a})
 			if err != nil {
 				return nil, kind, SkipTranslate, false
@@ -111,6 +111,56 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 		out = append(out, cand{acts: acts, key: actionsKey(acts), in: in})
 	}
 	return out, kind, 0, true
+}
+
+// worthOptions is od without the "ability" options the bot's own activation
+// guards decline (botpolicy.Board.AbilityWorthTaking: A1's provable no-ops
+// and A5's per-turn budget), so the priority arm never offers one as a
+// candidate. The bot's termination argument rests on those guards (A4: once
+// nothing is worth activating, the pass ends the turn); a candidate that
+// bypasses them lets the search pick a free no-op -- a re-equip onto the
+// creature already wearing the Equipment -- over the pass at every priority,
+// and the real game's turn never advances (Stage 0, 2026-09-27: seed
+// 90000003, uw-tempo:mono-white-equipment, Bonesplitter re-equipped onto a
+// Phyrexian Germ until -max-intents). Filtering here covers the root and
+// every in-tree searched decision, since both enumerate.
+//
+// od.Options[i] is d.Options[i] (observeDecision maps them one to one). e
+// nil (a synthetic unit-test decision with no engine) reads the zero Board:
+// no creature, no activation census, exactly what such a decision shows the
+// bot. od is returned unchanged when nothing is dropped.
+func worthOptions(od *searchprobe.ObservedDecision, e *rules.Engine, d *decision.Decision) *searchprobe.ObservedDecision {
+	if od == nil || len(od.Options) != len(d.Options) {
+		return od
+	}
+	var b botpolicy.Board
+	built := false
+	var keep []searchprobe.ObservedOption
+	for i, o := range d.Options {
+		if o.Kind == "ability" {
+			if !built {
+				if e != nil {
+					b = botpolicy.BoardFromGame(e.G, e, d.Player)
+				}
+				built = true
+			}
+			if !b.AbilityWorthTaking(o, d.Player) {
+				if keep == nil {
+					keep = append(make([]searchprobe.ObservedOption, 0, len(od.Options)), od.Options[:i]...)
+				}
+				continue
+			}
+		}
+		if keep != nil {
+			keep = append(keep, od.Options[i])
+		}
+	}
+	if keep == nil {
+		return od
+	}
+	out := *od
+	out.Options = keep
+	return &out
 }
 
 // priorityBase classifies the bot's answer at a priority decision by the
