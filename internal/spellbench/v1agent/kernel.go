@@ -157,6 +157,9 @@ type KPlayerStatus struct {
 	LandsPlayed int `json:"lands_played_this_turn"`
 	SpellsCast  int `json:"spells_cast_this_turn"`
 	DrawsTurn   int `json:"draws_this_turn"`
+	Dungeon     struct {
+		RoomID *int `json:"room_id"`
+	} `json:"dungeon"`
 }
 
 // KCombatSelection is PrivateCombatSelectionV5: where an attacker/blocker

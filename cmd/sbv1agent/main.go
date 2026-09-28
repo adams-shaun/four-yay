@@ -19,6 +19,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -41,6 +42,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	seed := fs.Uint64("seed", 0, "uniform: the builtin's seed")
 	quiet := fs.Bool("quiet", false, "no diagnostics on stderr")
 	trace := fs.String("trace", "", "tactical: append a per-decision trace to this file")
+	stats := fs.String("stats", "", "append one JSON line of agent counters (decisions, fallbacks, missing x_kernel_v5, wire errors, retries) at exit")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -72,7 +74,20 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	agent := v1agent.New(p, opts)
 	w := bufio.NewWriter(stdout)
-	if err := agent.Serve(stdin, w); err != nil {
+	err = agent.Serve(stdin, w)
+	if *stats != "" {
+		rec, _ := json.Marshal(map[string]any{
+			"game_id": agent.LastGame, "seat": agent.LastSeat, "bot": *name,
+			"decisions": agent.Stats.Decisions, "fallbacks": agent.Stats.Fallbacks,
+			"kernel_missing": agent.Stats.KernelMissing, "wire_errors": agent.Stats.WireErrors,
+			"retries": agent.Stats.RetriesServed,
+		})
+		if f, ferr := os.OpenFile(*stats, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); ferr == nil {
+			f.Write(append(rec, '\n'))
+			f.Close()
+		}
+	}
+	if err != nil {
 		fmt.Fprintf(stderr, "sbv1agent: %v\n", err)
 		return 1
 	}

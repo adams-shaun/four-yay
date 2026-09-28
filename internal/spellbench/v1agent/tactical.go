@@ -28,6 +28,11 @@ type Tactical struct {
 	attackPlan map[uint32]bool
 	blockGrp   int64
 	blockPlan  map[uint32]uint32 // blocker -> attacker
+	// In-game opponent model (no state crosses games): combats where the
+	// opponent could have blocked one of our attackers, and how many of
+	// those it did block in.
+	blockChances, blocksSeen int
+	lastBlockObs             int
 }
 
 // NewTactical builds the policy.
@@ -42,7 +47,46 @@ func (t *Tactical) GameStart(g *GameStart) {
 		t.deck = g.CatalogIDs[i]
 	}
 	t.attackGrp, t.blockGrp = -1, -1
+	t.blockChances, t.blocksSeen, t.lastBlockObs = 0, 0, -1
 }
+
+// observeBlocks records, once per turn of ours, whether the opponent blocked
+// when it could have.
+func (t *Tactical) observeBlocks(b *Board) {
+	if b.Thin || !b.MyTurn || !b.Combat.BlockersDeclared || t.lastBlockObs == b.Turn || len(b.Combat.Attackers) == 0 {
+		return
+	}
+	t.lastBlockObs = b.Turn
+	blocks := b.Combat.Blocks()
+	blocked := false
+	for _, bs := range blocks {
+		if len(bs) > 0 {
+			blocked = true
+		}
+	}
+	could := blocked
+	for _, a := range b.Combat.Attackers {
+		ac := b.Card(a.ArenaID)
+		if ac == nil {
+			continue
+		}
+		for _, bl := range Creatures(b.Theirs) {
+			if CanBlock(bl, ac) {
+				could = true
+			}
+		}
+	}
+	if could {
+		t.blockChances++
+		if blocked {
+			t.blocksSeen++
+		}
+	}
+}
+
+// oppNeverBlocks: the opponent has passed up every one of at least two
+// chances to block this game.
+func (t *Tactical) oppNeverBlocks() bool { return t.blockChances >= 2 && t.blocksSeen == 0 }
 
 // GameOver implements Policy.
 func (t *Tactical) GameOver(*Terminal) {}
@@ -60,6 +104,7 @@ func (t *Tactical) burnDeck() bool { return t.deck == "Burn" || t.deck == "Rally
 // Choose implements Policy.
 func (t *Tactical) Choose(d *Decision) int {
 	b := NewBoard(d)
+	t.observeBlocks(b)
 	has := func(kind string) bool {
 		for i := range d.Candidates {
 			if d.Candidates[i].Kind() == kind {
@@ -514,6 +559,22 @@ func (t *Tactical) modeScore(b *Board, name string, idx int) float64 {
 func (t *Tactical) optionScore(b *Board, name string, idx int) float64 {
 	if hasXCost(name) {
 		return float64(idx) // the kernel poses X as an option index
+	}
+	if dungeonSource(name) {
+		// next-room choice, options in the kernel's printed order
+		switch b.Room {
+		case 0, roomSecretEntrance: // [Forge, Lost Well]
+			if len(Creatures(b.Mine)) > 0 {
+				return -float64(idx)
+			}
+			return float64(idx)
+		case roomForge: // [Trap, Arena]: 5 life
+			return -float64(idx)
+		case roomLostWell: // [Arena, Stash]
+			return -float64(idx)
+		case roomArena: // [Archives, Catacombs]: a 4/1
+			return float64(idx)
+		}
 	}
 	return -float64(idx) * 0.01
 }
@@ -980,10 +1041,31 @@ func polarity(name string) int {
 	return 1
 }
 
+// Undercity rooms (mtg-kernel UndercityRoomV1 stable ids) and the target
+// polarity of the ones that target: Forge puts counters on a creature,
+// Trap makes a player lose 5 life, Arena goads a creature.
+const (
+	roomSecretEntrance = 1
+	roomForge          = 2
+	roomLostWell       = 3
+	roomTrap           = 4
+	roomArena          = 5
+)
+
+func dungeonSource(name string) bool { return name == "Avenging Hunter" }
+
 func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 	c := &d.Candidates[i]
 	name := srcName(c)
 	pol := polarity(name)
+	if dungeonSource(name) {
+		switch b.Room {
+		case roomForge:
+			pol = 1
+		case roomTrap, roomArena:
+			pol = -1
+		}
+	}
 	var kt *KTarget
 	if ka := kact(d, i); ka != nil {
 		kt = ka.Target
@@ -1245,7 +1327,7 @@ func (t *Tactical) planAttack(b *Board, cands []*KCard) map[uint32]bool {
 	}
 	var blockers []*KCard
 	for _, c := range Creatures(b.Theirs) {
-		if !c.Tapped {
+		if !c.Tapped && !t.oppNeverBlocks() {
 			blockers = append(blockers, c)
 		}
 	}
@@ -1363,6 +1445,45 @@ func (t *Tactical) planAttack(b *Board, cands []*KCard) map[uint32]bool {
 	return plan
 }
 
+var elfNames = map[string]bool{
+	"Llanowar Elves": true, "Fyndhorn Elves": true, "Elvish Mystic": true, "Elves of Deep Shadow": true,
+	"Priest of Titania": true, "Timberwatch Elf": true, "Quirion Ranger": true, "Wellwisher": true,
+	"Masked Vandal": true,
+}
+
+// oppPump is the largest +X/+X the opponent can give one attacker from an
+// untapped on-board source.
+func oppPump(b *Board) int {
+	best := 0
+	for _, c := range b.Theirs {
+		if c.Tapped {
+			continue
+		}
+		x := 0
+		switch c.Name {
+		case "Timberwatch Elf":
+			if c.SummoningSick {
+				continue
+			}
+			for _, e := range Creatures(b.Theirs) {
+				if elfNames[e.Name] {
+					x++
+				}
+			}
+		case "Basilisk Gate":
+			for _, g := range b.Theirs {
+				if k := KernelCardByName(g.Name); k != nil && k.Has("gate_land") {
+					x++
+				}
+			}
+		}
+		if x > best {
+			best = x
+		}
+	}
+	return best
+}
+
 func (t *Tactical) block(d *Decision, b *Board) int {
 	if d.Kernel == nil {
 		return HeuristicPick(d)
@@ -1400,6 +1521,21 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 			mine = append(mine, c)
 		}
 	}
+	// Combat tricks the opponent has on board: an untapped Timberwatch Elf
+	// or Basilisk Gate pumps one attacker after blocks. Judge blocker
+	// survival against the pumped attacker and count the pump once in the
+	// damage that gets through.
+	pump := oppPump(b)
+	pumped := func(a *KCard) *KCard {
+		if pump == 0 {
+			return a
+		}
+		c := *a
+		p := a.Power() + pump
+		tt := a.Toughness() + pump
+		c.Characteristics.Power, c.Characteristics.Toughness = &p, &tt
+		return &c
+	}
 	used := map[uint32]bool{}
 	blocked := map[uint32]bool{}
 	assign := func(bl, a *KCard) {
@@ -1417,13 +1553,52 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 			if !canBlock(bl, a) {
 				continue
 			}
-			blDies, aDies := Fight(bl, a)
+			blDies, _ := Fight(bl, pumped(a))
+			_, aDies := Fight(bl, a)
 			if aDies && !blDies && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
 				pick = bl
 			}
 		}
 		if pick != nil {
 			assign(pick, a)
+		}
+	}
+	// 1b. double blocks that kill a big attacker for at most one blocker
+	for _, a := range attackers {
+		if blocked[a.Stable.ArenaID] || Kw(a).FirstStrike || Kw(a).DoubleStrike || Kw(a).Indestructible || CreatureValue(a) < 4 {
+			continue
+		}
+		pa := pumped(a)
+		var bestPair [2]*KCard
+		bestGain := 0.5
+		for i, x := range mine {
+			for _, y := range mine[i+1:] {
+				if !canBlock(x, a) || !canBlock(y, a) {
+					continue
+				}
+				if strikeDamage(x)+strikeDamage(y) < a.Remaining() && !Kw(x).Deathtouch && !Kw(y).Deathtouch {
+					continue
+				}
+				// the attacker kills what its power reaches, the most
+				// valuable first
+				lost := 0.0
+				power := strikeDamage(pa)
+				pair := []*KCard{x, y}
+				sort.SliceStable(pair, func(i, j int) bool { return CreatureValue(pair[i]) > CreatureValue(pair[j]) })
+				for _, bl := range pair {
+					if power >= bl.Remaining() || (Kw(pa).Deathtouch && power > 0) {
+						lost += CreatureValue(bl)
+						power -= bl.Remaining()
+					}
+				}
+				if gain := CreatureValue(a) - lost; gain > bestGain {
+					bestGain, bestPair = gain, [2]*KCard{x, y}
+				}
+			}
+		}
+		if bestPair[0] != nil {
+			assign(bestPair[0], a)
+			assign(bestPair[1], a)
 		}
 	}
 	// 2. free blocks (blocker survives)
@@ -1436,7 +1611,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 			if !canBlock(bl, a) {
 				continue
 			}
-			if blDies, _ := Fight(bl, a); !blDies && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
+			if blDies, _ := Fight(bl, pumped(a)); !blDies && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
 				pick = bl
 			}
 		}
@@ -1470,6 +1645,9 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 			if !blocked[a.Stable.ArenaID] {
 				n += strikeDamage(a)
 			}
+		}
+		if n > 0 {
+			n += pump
 		}
 		return n
 	}

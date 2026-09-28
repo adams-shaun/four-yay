@@ -90,6 +90,9 @@ type Agent struct {
 	lastReq  []byte
 	lastResp []byte
 	Stats    Stats
+	// LastGame and LastSeat name the most recent game_start (for stats
+	// records written after the game).
+	LastGame, LastSeat string
 }
 
 // New builds an agent.
@@ -243,6 +246,7 @@ func (a *Agent) gameStart(id string, top map[string]json.RawMessage) []byte {
 	}
 	_ = a.call(func() { a.fallback.GameStart(g) })
 	a.gameID, a.active = g.GameID, true
+	a.LastGame, a.LastSeat = g.GameID, g.Seat
 	return a.response("ack", id, nil)
 }
 

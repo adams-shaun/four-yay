@@ -28,6 +28,8 @@ type Board struct {
 	// Purpose is the pending effect choice's purpose (card_selection,
 	// search_result, library_order, effect_targets, ...), "" when none.
 	Purpose string
+	// Room is our current Undercity room (kernel stable id; 0 none).
+	Room    int
 	Thin    bool
 	byArena map[uint32]*KCard
 }
@@ -75,6 +77,9 @@ func NewBoard(d *Decision) *Board {
 	b.Combat = p.Combat
 	b.Selection = p.SurfaceContext.Selection
 	b.LandsPlayed = p.Status[b.Me].LandsPlayed
+	if r := p.Status[b.Me].Dungeon.RoomID; r != nil {
+		b.Room = *r
+	}
 	if pe := p.EngineContext.PendingEffect; pe != nil && pe.Choice != nil {
 		b.Purpose = pe.Choice.Purpose
 	}
