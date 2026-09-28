@@ -9,7 +9,7 @@
       "cr": ["602.5", "305.6"],
       "why": "Without a Swamp, the Peak's colored-mana ability is unavailable, while its colorless ability can still be activated.",
       "setup": {"p0": {"battlefield": ["Tainted Peak", "Wastes"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Tainted Peak", "ability": "", "answers": [{"kind": "choose", "pick": ["Add C"]}]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Tainted Peak", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
       "expect": [{"pool": {"p0": "C"}}]
     },
     {

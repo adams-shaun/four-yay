@@ -9,7 +9,7 @@
       "cr": ["602.5", "305.6"],
       "why": "With no land having either named subtype, the restricted red ability cannot be selected; the unrestricted black ability remains available.",
       "setup": {"p0": {"battlefield": ["Blazemire Verge"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add R"]}]}],
       "expect": [{"pool": {"p0": "B"}}]
     },
     {

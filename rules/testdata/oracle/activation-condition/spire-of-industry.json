@@ -9,7 +9,7 @@
       "cr": ["602.5"],
       "why": "Without an artifact, the any-color ability is unavailable; choosing the unrestricted ability adds colorless mana without paying life.",
       "setup": {"p0": {"battlefield": ["Spire of Industry"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Spire of Industry", "ability": "", "answers": [{"kind": "choose", "pick": ["Add C"]}]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Spire of Industry", "ability": "", "answers": [{"kind": "choose", "pick": ["Pay 1 life: Add any color"]}, {"kind": "choose", "pick": ["R"]}]}],
       "expect": [{"life": {"p0": 20}, "pool": {"p0": "C"}}]
     },
     {

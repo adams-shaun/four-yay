@@ -9,7 +9,7 @@
       "cr": ["602.5"],
       "why": "The Shrine and five other lands total six, one short of the seven-land activation condition; only the ordinary one-mana ability can be used.",
       "setup": {"p0": {"battlefield": ["Shrine of the Forsaken Gods", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Shrine of the Forsaken Gods", "ability": "", "answers": [{"kind": "choose", "pick": ["Add C"]}]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Shrine of the Forsaken Gods", "ability": "", "answers": [{"kind": "choose", "pick": ["Add CC"]}]}],
       "expect": [{"pool": {"p0": "C"}}]
     },
     {

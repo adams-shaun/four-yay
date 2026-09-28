@@ -9,7 +9,7 @@
       "cr": ["602.5", "305.6"],
       "why": "The Fortress is present before turn one, so its entry-turn alternative is false; with no basic land controlled, the colored ability is unavailable and colorless mana remains available.",
       "setup": {"p0": {"battlefield": ["Dark Fortress"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Dark Fortress", "ability": "", "answers": [{"kind": "choose", "pick": ["Add C"]}]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Dark Fortress", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
       "expect": [{"pool": {"p0": "C"}}]
     },
     {

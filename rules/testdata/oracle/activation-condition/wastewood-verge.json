@@ -9,7 +9,7 @@
       "cr": ["602.5", "305.6"],
       "why": "Without a land having the Swamp or Forest subtype, only the unrestricted green-producing ability is available.",
       "setup": {"p0": {"battlefield": ["Wastewood Verge"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Wastewood Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add G"]}]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Wastewood Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
       "expect": [{"pool": {"p0": "G"}}]
     },
     {

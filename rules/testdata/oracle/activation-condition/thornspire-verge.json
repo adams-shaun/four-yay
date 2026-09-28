@@ -9,7 +9,7 @@
       "cr": ["602.5", "305.6"],
       "why": "Without a land having the Forest or Mountain subtype, only the unrestricted red-producing ability is available.",
       "setup": {"p0": {"battlefield": ["Thornspire Verge"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Thornspire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add R"]}]}],
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Thornspire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add G"]}]}],
       "expect": [{"pool": {"p0": "R"}}]
     },
     {
