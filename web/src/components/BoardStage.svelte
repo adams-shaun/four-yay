@@ -43,6 +43,7 @@
       match: number;
       showLog: boolean;
       onToggleLog: () => void;
+      onToggleOptions?: () => void;
     } | null;
   } = $props();
 </script>
@@ -53,7 +54,7 @@
     <div class="phase-instrument" data-centre-instrument>
       <PhaseTrack {view} {seats} {seat} {stops} {onToggle} />
       {#if controlsLive}
-        <HotButtonStrip {view} {seats} state={controls!.state} ctx={controls!.ctx} table={controls!.table} match={controls!.match} showLog={controls!.showLog} onToggleLog={controls!.onToggleLog} />
+        <HotButtonStrip {view} {seats} state={controls!.state} ctx={controls!.ctx} table={controls!.table} match={controls!.match} showLog={controls!.showLog} onToggleLog={controls!.onToggleLog} onToggleOptions={controls!.onToggleOptions} />
       {/if}
     </div>
   </div>

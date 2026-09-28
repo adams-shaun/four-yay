@@ -17,6 +17,19 @@ import {
 } from './playsettings';
 import { autoPassLogText, pushAutoPassLog, type AutoPassKind, type AutoPassLog } from './autolog';
 import { loadYields, saveYields } from './yields';
+import {
+  emptyStore,
+  listProfiles,
+  loadProfiles,
+  normaliseName,
+  saveProfiles,
+  storeApply,
+  storeDelete,
+  storeRename,
+  storeSave,
+  storeSetActive,
+  type ProfileStore,
+} from './profiles';
 import { clientBreadcrumbs } from './breadcrumbs';
 import {
   emptyRemembered,
@@ -520,6 +533,10 @@ export class SeatPanelState {
     // — and every test — sees the player's saved preferences. SSR and a
     // browser that refuses site data both pass null and get casual.
     this.settings = loadSettings(storage);
+    // The saved profiles load here too, from their own key — a corrupt profile
+    // blob yields the empty store and never touches the settings blob.
+    this.profiles = loadProfiles(storage);
+    this.activeProfileName = this.profiles.lastActive;
     // The remembered answers load here for the same reason (part B): the
     // first adopted decision can already be one the player asked the client
     // to remember. SSR gets the empty store — no answer ever fires there.
@@ -617,6 +634,25 @@ export class SeatPanelState {
    * reload and a match boundary: begin() must not — and does not — reset it.
    */
   settings = $state<PlaySettings>(defaultSettings());
+
+  /**
+   * profiles is the player's saved configurations (lib/profiles.ts): a map of
+   * named PlaySettings plus an order and the name last applied. It is loaded
+   * from its OWN localStorage key at construction (SSR has no storage and
+   * gets the empty store) and saved on every write. It deliberately does NOT
+   * live inside `settings`: that blob's format is pinned, and the active
+   * profile identity belongs to the profile store, not the settings object.
+   */
+  profiles = $state<ProfileStore>(emptyStore());
+
+  /**
+   * activeProfileName is the profile last applied and not since edited away
+   * from, or null. Kept in component state (mirrored into the store's
+   * lastActive) so the panel can label "(modified)" the moment the player
+   * edits while a profile is active — the profile itself is only rewritten by
+   * an explicit Save, never by an edit.
+   */
+  activeProfileName = $state<string | null>(null);
 
   /**
    * machinePaused is the runaway brake, and it is deliberately NOT a
@@ -999,6 +1035,122 @@ export class SeatPanelState {
     this.autoActedSeq = null;
     this.patchSettings(presetPatch(id));
     this.note = this.auto ? { kind: 'armed' } : { kind: 'off' };
+    // A named preset is not a profile: the active-profile identity clears.
+    this.activeProfileName = null;
+    this.persistProfiles(storeSetActive(this.profiles, null));
+  }
+
+  /** profileNames is the saved profiles' names in pinned order (never map iteration order). */
+  get profileNames(): string[] {
+    return listProfiles(this.profiles);
+  }
+
+  /**
+   * profileModified reports whether the live settings differ from the stored
+   * copy of the active profile — the panel's "(modified)" marker. Editing
+   * while a profile is active does NOT auto-save: only an explicit Save
+   * rewrites the entry.
+   */
+  get profileModified(): boolean {
+    if (this.activeProfileName === null) return false;
+    const saved = this.profiles.profiles[this.activeProfileName];
+    if (saved === undefined) return false;
+    return JSON.stringify(saved) !== JSON.stringify(this.settings);
+  }
+
+  /** persistProfiles swaps the whole profile store and persists it to its own key. */
+  private persistProfiles(next: ProfileStore) {
+    this.profiles = next;
+    saveProfiles(this.storage, next);
+  }
+
+  /**
+   * saveProfile stores the LIVE settings under a name (explicit Save only) and
+   * marks that profile active. A rejected name (empty, too long) is a no-op
+   * returning false so the panel can report it; the entry is deep-cloned, so
+   * later edits cannot mutate the saved copy.
+   */
+  saveProfile(name: string): boolean {
+    const clean = normaliseName(name);
+    if (clean === null) return false;
+    this.persistProfiles(storeSave(this.profiles, clean, this.settings));
+    this.activeProfileName = clean;
+    return true;
+  }
+
+  /**
+   * applyProfile applies a saved profile through withChange (so its preset
+   * label is re-derived from the configuration, normally 'custom') with the
+   * SAME machine-side re-arm effects as applyNamedPreset: a profile that runs
+   * auto must clear the runaway brake and reset the run counters, or the panel
+   * would read auto-pass on while considerAuto keeps refusing to act.
+   */
+  applyProfile(name: string): boolean {
+    const s = storeApply(this.profiles, name);
+    if (s === null) return false;
+    this.cancelRun(false);
+    this.machinePaused = false;
+    this.autoRun = 0;
+    this.autoActedSeq = null;
+    // withChange relabels the preset by deep-equality against the named
+    // presets; storeApply already returns the earned label, but the call also
+    // normalises a stored label that drifted from its configuration.
+    this.applySettings(withChange(s, {}));
+    this.activeProfileName = name;
+    this.persistProfiles(storeSetActive(this.profiles, name));
+    this.note = this.auto ? { kind: 'armed' } : { kind: 'off' };
+    return true;
+  }
+
+  /** deleteProfile removes a saved profile; deleting the active one clears the active identity. */
+  deleteProfile(name: string): boolean {
+    if (!(name in this.profiles.profiles)) return false;
+    this.persistProfiles(storeDelete(this.profiles, name));
+    if (this.activeProfileName === name) this.activeProfileName = null;
+    return true;
+  }
+
+  /**
+   * renameProfile renames in place (order preserved). A rejected new name, an
+   * absent old name, or a name already taken is a no-op returning false; the
+   * active identity follows the rename.
+   */
+  renameProfile(oldName: string, newName: string): boolean {
+    const next = storeRename(this.profiles, oldName, newName);
+    if (next === this.profiles) return false;
+    this.persistProfiles(next);
+    if (this.activeProfileName === oldName) this.activeProfileName = normaliseName(newName);
+    return true;
+  }
+
+  /**
+   * cycleProfile steps the profile list by one (the Ctrl+Shift+]/[ hotkeys),
+   * wrapping. The cycle runs over the NAMED PRESETS plus saved profiles — the
+   * presets are the first three entries, in PRESET_LIST order — so a player
+   * with no saved profiles can still hotkey between the shipped presets.
+   * Returns the new label, or null when there is nothing to step to.
+   */
+  cycleProfile(delta: number, presetIds: readonly PresetName[]): string | null {
+    const names: string[] = [...presetIds];
+    const saved = listProfiles(this.profiles);
+    const current = this.activeProfileName;
+    let index: number;
+    if (current !== null && saved.includes(current)) {
+      index = presetIds.length + saved.indexOf(current);
+    } else {
+      index = presetIds.indexOf(this.settings.preset as PresetName);
+      if (index < 0) index = 0;
+    }
+    const size = names.length + saved.length;
+    if (size === 0) return null;
+    const next = (((index + delta) % size) + size) % size;
+    if (next < names.length) {
+      this.applyNamedPreset(names[next] as PresetName);
+      return names[next];
+    }
+    const name = saved[next - names.length];
+    this.applyProfile(name);
+    return name;
   }
 
   /**

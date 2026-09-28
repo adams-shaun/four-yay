@@ -148,6 +148,9 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 //
 // The speed-trigger fix (CR 702.179d) then moved 4139's Incubator cast to
 // seq 6761 on the merged tree; it was re-measured there, verdict equivalent.
+// lifeLost1 publishes AFLifeLost on each LoseLife resolution: the same
+// Incubator and Demonic Tutor casts now occur at seq 6763 and 5797,
+// respectively; both remain equivalent in the end-to-end mirror.
 func TestRoundSixFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -166,8 +169,8 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 0, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7685, ""},
-		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6761, ""},
-		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5788, ""},
+		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6763, ""},
+		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5797, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: true, Policy: "bot"})
 		if len(reports) == 0 {

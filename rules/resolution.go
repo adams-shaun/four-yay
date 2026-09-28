@@ -578,8 +578,8 @@ func (e *Engine) EventMark() int { return len(e.L.Events) }
 // LifeChange likewise folds into nothing (events.Apply adds 0 to the life
 // total; CR 119.9's "gains 0 life" is no life-gain event, and a 0 loss the
 // same): Ad Nauseam repeated over an empty library loses life equal to the
-// mana value of no card, and a passer that always repeats looped it into
-// the livelock watcher (paymirror resolve horizon, seed 1014).
+// mana value of no card. AFLifeLost is always published, even for that zero
+// loss: a StoreSVar only changes state when it replaces a different value.
 func (e *Engine) StateChangedSince(mark int) bool {
 	if mark < 0 {
 		mark = 0
@@ -589,6 +589,26 @@ func (e *Engine) StateChangedSince(mark int) bool {
 		if ev.Kind == events.Note || (ev.Kind == events.Damage && ev.Amount == 0) ||
 			(ev.Kind == events.LifeChange && ev.Amount == 0) {
 			continue
+		}
+		if ev.Kind == events.StoreSVar {
+			// Read the value immediately before this event, not the final
+			// object value: intermediate changes still count as progress.
+			unchanged := false
+			for j := i - 1; j >= 0; j-- {
+				prev := e.L.Events[j]
+				// CR 400.7 resets RuntimeSVars on a zone change: an
+				// earlier write to that ObjID is no longer its old value.
+				if prev.Obj == ev.Obj && (prev.Kind == events.MoveZone || prev.Kind == events.Draw || prev.Kind == events.PutOnStack) {
+					break
+				}
+				if prev.Kind == events.StoreSVar && prev.Obj == ev.Obj && prev.Text == ev.Text {
+					unchanged = prev.Amount == ev.Amount
+					break
+				}
+			}
+			if unchanged {
+				continue
+			}
 		}
 		return true
 	}

@@ -3246,18 +3246,20 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			ev.Counter != "infect") {
 		e.checkSpeedGain(ev)
 	}
-	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
-		e.checkSpeedStart(ev.Obj)
-	}
 	// Ascend (CR 702.131a): the city's blessing's continuous re-check. A
 	// battlefield entry (the ordinary MoveZone), a token mint (TokenCreate/
 	// CardToken -- Apply mints those without a MoveZone event) or a control
 	// transfer can each push a seat's permanent count over ten; the scan
 	// only emits for an unblessed seat that newly qualifies, so every other
-	// event reaching here is inert (rules/ascend.go).
+	// event reaching here is inert (rules/ascend.go). The Start your
+	// engines! grant (CR 702.179a) runs on the same set: each of those
+	// events can hand a speed-less seat a permanent carrying the keyword,
+	// and a control transfer is the case a battlefield-entry-only hook
+	// cannot see (rules/speed.go).
 	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield) ||
 		ev.Kind == events.TokenCreate || ev.Kind == events.CardToken ||
 		ev.Kind == events.ControlChange {
+		e.checkSpeedStart()
 		e.checkBlessingGrants()
 		e.checkEnduringStoryGrants()
 	}

@@ -54,10 +54,6 @@ import (
 // file row naming a scenario of another family, fails the build. Rows here are
 // legacy and may be moved into the family files.
 var oracleKnownDivergent = map[string]string{
-	// Gray Merchant's drain resolves but its subsequent life-gain amount is
-	// zero: the life-loss total is not propagated to the gain (effects/life.go,
-	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
-	"Gray Merchant of Asphodel/self-devotion-two-life-gain": "observed p0 life 20, expected 22 after two life lost by p1",
 	// Mogis's creature-removal instruction is not interpreted by the
 	// continuous-effect type layer (rules/layers.go); the gate at seven
 	// devotion is therefore stuck on the printed creature type.
@@ -159,7 +155,15 @@ type oracleStep struct {
 	To        string         `json:"to,omitempty"`
 	Amount    int32          `json:"amount,omitempty"`
 	Answers   []oracleAnswer `json:"answers,omitempty"`
+	Observe   *oracleObserve `json:"observe,omitempty"`
 	Expect    []oracleExpect `json:"expect,omitempty"`
+}
+
+type oracleObserve struct {
+	Kind   string   `json:"kind"`
+	Source string   `json:"source,omitempty"`
+	Has    []string `json:"has,omitempty"`
+	Not    []string `json:"not,omitempty"`
 }
 
 type oracleAnswer struct {
@@ -224,13 +228,14 @@ func harnessf(format string, a ...any) error {
 }
 
 type oracleRun struct {
-	cfg     Config
-	reg     *cards.Registry
-	e       *Engine
-	refs    map[string]state.ObjID
-	targets []string
-	answers []oracleAnswer
-	log     []string
+	cfg        Config
+	reg        *cards.Registry
+	e          *Engine
+	refs       map[string]state.ObjID
+	targets    []string
+	answers    []oracleAnswer
+	log        []string
+	extraFails []string
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -514,6 +519,53 @@ func oracleLabelMatches(label, want string) bool {
 	return strings.Contains(normalize(label), normalize(want))
 }
 
+func oracleManaColourMatches(symbol, want string) bool {
+	aliases := map[string]string{
+		"w": "W", "white": "W", "u": "U", "blue": "U", "b": "B", "black": "B",
+		"r": "R", "red": "R", "g": "G", "green": "G",
+	}
+	wantSymbol, ok := aliases[strings.ToLower(strings.TrimSpace(want))]
+	return ok && strings.EqualFold(symbol, wantSymbol)
+}
+
+func oracleOptionMatches(o decision.Option, want string) bool {
+	return oracleManaColourMatches(o.ManaSymbol, want) || oracleLabelMatches(o.Label, want)
+}
+
+func oracleObserveMismatches(d *decision.Decision, observe oracleObserve) []string {
+	var mismatches []string
+	for _, want := range observe.Has {
+		found := false
+		for _, o := range d.Options {
+			if oracleOptionMatches(o, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			mismatches = append(mismatches, fmt.Sprintf("observed %s options missing %q", d.Kind, want))
+		}
+	}
+	for _, want := range observe.Not {
+		for _, o := range d.Options {
+			if oracleOptionMatches(o, want) {
+				mismatches = append(mismatches, fmt.Sprintf("observed %s options unexpectedly contain %q", d.Kind, want))
+				break
+			}
+		}
+	}
+	return mismatches
+}
+
+func hasOracleAnswer(answers []oracleAnswer, kind decision.Kind) bool {
+	for _, answer := range answers {
+		if strings.EqualFold(answer.Kind, string(kind)) {
+			return true
+		}
+	}
+	return false
+}
+
 // manaAbilityLabels returns the engine's currently available mana abilities,
 // which are the authoritative named candidates behind the generic priority option.
 func (r *oracleRun) manaAbilityLabels(seat state.PlayerID, id state.ObjID) []string {
@@ -582,7 +634,12 @@ func (r *oracleRun) matchPick(d *decision.Decision, pick string, used map[int]bo
 		}
 	}
 	for _, o := range d.Options {
-		if !used[o.Index] && (strings.EqualFold(o.Kind, pick) || strings.Contains(strings.ToLower(o.Label), lp)) {
+		if !used[o.Index] && oracleManaColourMatches(o.ManaSymbol, pick) {
+			return o.Index, nil
+		}
+	}
+	for _, o := range d.Options {
+		if !used[o.Index] && (strings.EqualFold(o.Kind, pick) || oracleLabelMatches(o.Label, pick)) {
 			return o.Index, nil
 		}
 	}
@@ -806,6 +863,26 @@ func (r *oracleRun) do(st oracleStep) error {
 		if err := r.submit(d, []int{idx}, st.Op); err != nil {
 			return err
 		}
+		if st.Observe != nil {
+			pending := e.Pending()
+			if pending == nil || pending.Kind != decision.Kind(st.Observe.Kind) {
+				got := "none"
+				if pending != nil {
+					got = string(pending.Kind)
+				}
+				return harnessf("observe expected pending %s decision, got %s", st.Observe.Kind, got)
+			}
+			if st.Observe.Source != "" {
+				source, err := r.resolve(st.Observe.Source)
+				if err != nil {
+					return err
+				}
+				if pending.Source != source {
+					return harnessf("observe expected source %s (object %d), got %d", st.Observe.Source, source, pending.Source)
+				}
+			}
+			r.extraFails = append(r.extraFails, oracleObserveMismatches(pending, *st.Observe)...)
+		}
 		if st.Op == "activate" && st.Ability != "" && d.Options[idx].Kind == "activate" &&
 			!oracleLabelMatches(d.Options[idx].Label, st.Ability) {
 			// The generic mana option was submitted for a named ability. When
@@ -838,7 +915,7 @@ func (r *oracleRun) do(st oracleStep) error {
 							break
 						}
 					}
-					if !matched {
+					if !matched && !hasOracleAnswer(r.answers, choice.Kind) {
 						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
 					}
 				}
@@ -1254,6 +1331,10 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 		if err := r.do(st); err != nil {
 			return append(fails, fmt.Sprintf("step %d (%s): %v", i, st.Op, err)), r.log, r
 		}
+		for _, msg := range r.extraFails {
+			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))
+		}
+		r.extraFails = nil
 		for _, x := range st.Expect {
 			for _, b := range r.check(x) {
 				fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, b))
