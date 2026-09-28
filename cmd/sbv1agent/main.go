@@ -63,6 +63,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	rollM := fs.Float64("roll-margin", -1, "shadow-roll: override margin (-1: default)")
 	rollK := fs.Int("roll-topk", 0, "shadow-roll: priority candidates kept (0: default)")
 	rollP := fs.String("roll-policy", "", "shadow-roll: rollout policy bot|tactical (default bot)")
+	rollExtra := fs.Int("roll-extra", 0, "shadow-roll arbiter: extra v1agent.Tactical candidates searched at a contested decision")
 	budget := fs.Float64("budget-ms", 12000, "shadow-roll: per-decision search budget in ms (the clock guard; 0 disables)")
 	rollArb := fs.Bool("roll-arbiter", false, "shadow-roll: search only v1agent.Tactical's pick against sb-tactical's, where they disagree")
 	route := fs.String("route", "", "shadow-route: DECK=MODE/.../default=MODE (, or / separated) (modes: kernel, tactical, roll, az, aztac)")
@@ -115,6 +116,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			roll.Rollout = *rollP
 		}
 		roll.Arbiter = *rollArb
+		roll.Extra = *rollExtra
 		// The clock guard: a decision's search stops after -budget-ms
 		// (counted as clock_guard_stops; the arena's per-decision limit is
 		// 30 s).

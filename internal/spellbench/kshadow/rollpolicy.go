@@ -93,6 +93,23 @@ func (p *Policy) rollPriority(sh *Shadow, d *v1agent.Decision, fbPick int) (int,
 			return fbPick, true, ""
 		}
 		idx = []int{fbPick, alt}
+		if p.roll.Extra > 0 && !p.roll.BaseTactical {
+			if t, ok := p.fb.(*v1agent.Tactical); ok {
+				var rest []int
+				for i := range acts {
+					if i != fbPick && i != alt {
+						rest = append(rest, i)
+					}
+				}
+				sort.Ints(rest)
+				more := topK(rest, t.Scores(d), p.roll.Extra, -1)
+				for _, i := range more {
+					if i >= 0 && acts[i] != nil {
+						idx = append(idx, i)
+					}
+				}
+			}
+		}
 		if p.roll.BaseTactical {
 			idx = []int{alt, fbPick}
 			base := 0

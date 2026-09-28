@@ -36,6 +36,9 @@ type RollConfig struct {
 	// BaseTactical makes sb-tactical's pick the default the search must
 	// beat (arbiter only), instead of v1agent.Tactical's.
 	BaseTactical bool
+	// Extra adds, at a contested arbiter decision, v1agent.Tactical's next
+	// Extra best-scored candidates to the two opinions.
+	Extra int
 	// Clock (ms, monotonic) and BudgetMS guard the per-decision time: the
 	// world loop stops once BudgetMS has elapsed (counted in Stats as a
 	// clock-guard stop; nil Clock or 0 budget never stops). It is the only
@@ -282,7 +285,7 @@ func topK(idx []int, scores []float64, k int, must int) []int {
 			has = true
 		}
 	}
-	if !has {
+	if !has && must >= 0 {
 		out = append(out, must)
 	}
 	return out
