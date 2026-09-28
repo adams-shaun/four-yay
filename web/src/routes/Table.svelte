@@ -213,7 +213,7 @@
   // object stable during teardown: child prop getters may re-read it mid-flush.
   const controls = $derived(
     panel && seatCtx && m.match !== null && m.view !== null
-      ? { state: panel, ctx: seatCtx, table, match: m.match, showLog, onToggleLog: toggleLog }
+      ? { state: panel, ctx: seatCtx, table, match: m.match, showLog, onToggleLog: toggleLog, onToggleOptions: toggleOptions }
       : null,
   );
   const controlsLive = $derived(controls !== null && !finished && mulligan === null && !m.view?.over);

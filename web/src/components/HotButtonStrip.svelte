@@ -12,10 +12,18 @@
   import { announceActions } from '../lib/announcepay';
   import SeatPanel from './SeatPanel.svelte';
 
+  /**
+   * PRESET_CYCLE is the hotkey cycle's leading entries: the three shipped
+   * presets in picker order, ahead of the player's saved profiles. Kept here
+   * (the strip already knows the presets through the panel's picker) as a
+   * literal list so the pure cycle order is independent of any rendered panel.
+   */
+  const PRESET_CYCLE = ['casual', 'no-tells', 'full-control'] as const;
+
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
   const HOT_STRIP_CLOSE_DELAY_MS = 180;
 
-  let { view, seats, state: logic, ctx, table, match, showLog: _showLog = false, onToggleLog: _onToggleLog = null }: {
+  let { view, seats, state: logic, ctx, table, match, showLog: _showLog = false, onToggleLog: _onToggleLog = null, onToggleOptions = null }: {
     view: View;
     seats: SeatInfo[];
     state: SeatPanelState;
@@ -25,6 +33,12 @@
     /** Retained during the rail migration so existing callers stay compatible. */
     showLog?: boolean;
     onToggleLog?: (() => void) | null;
+    /** Ctrl+Shift+O's write path. The Game Options popover is owned by the
+     *  route (Table.svelte owns optionsOpen and its outside-click/Escape
+     *  teardown), so the strip does NOT own that state: the route passes its
+     *  own toggle down through this callback. Absent/null leaves the hotkey a
+     *  no-op (a context with no options panel). */
+    onToggleOptions?: (() => void) | null;
   } = $props();
 
   type Tab = 'actions' | 'pass' | 'ffwd' | 'done' | 'options';
@@ -220,6 +234,16 @@
           break;
         case 'toggle-full-control':
           logic.toggleFullControl();
+          break;
+        case 'next-profile':
+          logic.cycleProfile(1, PRESET_CYCLE);
+          break;
+        case 'prev-profile':
+          logic.cycleProfile(-1, PRESET_CYCLE);
+          break;
+        case 'toggle-options':
+          if (onToggleOptions === null) return;
+          onToggleOptions();
           break;
       }
     };
