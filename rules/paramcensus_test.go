@@ -2487,17 +2487,18 @@ var ignoredParamKeys = map[string]string{
 // (forge-game/src/main/java/forge/game/card/Card.java lines
 // 2926/2958/2977/2993/3087/3096/3155/3291/3297/3303) and no
 // staticability/cost/spellability execution path gates on it. Gorge however
-// DOES read Secondary$ rules-side on two classes: the cost-modifier statics
-// (rules/statics.go costModifiers' paired-text skip) and every trigger
+// DOES read Secondary$ rules-side on every trigger
 // (rules/trigger_match.go secondaryYields -- the merged "one card text is
 // not two triggers" behaviour, pinned by rules/param_combat_triggers_test.go
 // and rules/magecraft_trigger_test.go). So the bare key stays out of
-// ignoredParamKeys -- the trigger and cost-modifier reads must stay
-// measurable (TestParamCensusDetectsADeletedConsumer's class) -- and the
-// presentation modes are ignored scoped, here.
+// ignoredParamKeys -- the trigger read must stay measurable
+// (TestParamCensusDetectsADeletedConsumer's class) -- and the presentation
+// modes are ignored scoped, here.
 //
-// RaiseCost/ReduceCost statics are deliberately NOT listed: they carry the
-// live cost-modifier read, and the Continuous.MayPlay family's whitelist
+// RaiseCost/ReduceCost are listed too: costStaticApplies used to SKIP a
+// Secondary$ cost static (the costgate fix removed that -- Forge applies it
+// like any other), so on a cost modifier the key is now exactly the text
+// marker it is in Forge. The Continuous.MayPlay family's whitelist still
 // fail-closes a Secondary$-carrying grant (rules/layers.go mayPlayGrant) --
 // a RECOGNITION the census keeps measurable exactly like MayPlayPlayer$.
 // The modes below are the REGISTERED stat modes the corpus carries
@@ -2507,6 +2508,7 @@ var statPresentationSecondary = []string{
 	"Continuous", "CantBlockBy", "MustAttack", "CantBlock", "MinMaxBlocker",
 	"CantBeActivated", "CantSacrifice", "CantBeCast", "CantAttack",
 	"CastWithFlash", "CantGainLife", "CantTarget", "Panharmonicon",
+	"RaiseCost", "ReduceCost",
 }
 
 var ignoredAbilityParams = map[string]string{

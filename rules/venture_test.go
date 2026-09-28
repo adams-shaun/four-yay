@@ -316,9 +316,13 @@ func TestVentureIntoUndercityPicksUndercity(t *testing.T) {
 // TestVentureAdvancesAlongNextRoomArrows is CR 701.49b: a later venture
 // moves the marker to one of the current room's NextRoom$ rooms. A two-arrow
 // room poses a choose decision to the venturing seat whose answer moves the
-// marker; a one-arrow room moves without asking; venturing from the
-// bottommost room is a LOUD nothing (dungeon completion is slice 3) and the
-// whole scenario replays byte-identically from its log.
+// marker; a one-arrow room moves without asking; and each room's ability
+// (CR 309.4c, the dungeon chain's slice 3) triggers and resolves. Venturing
+// after the marker reached the bottommost room does NOT move a marker: once
+// the bottom room's ability has left the stack CR 704.5t completes and
+// removes the dungeon, so the next venture starts a new dungeon (CR
+// 701.49a) and poses the dungeon choice again. The whole scenario replays
+// byte-identically from its log.
 //
 // The walk follows the Lost Mine of Phandelver script's own arrows (this
 // corpus pin): DBEntrance --(DBGoblinLair, DBMineTunnels); DBMineTunnels
@@ -328,17 +332,20 @@ func TestVentureAdvancesAlongNextRoomArrows(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, id := newVentureGame(t, reg, ventureFixtureSrc, 6)
-	// First venture: enter Lost Mine (the ask answered with its key).
+	var seen []decision.Kind
+	// First venture: enter Lost Mine (the ask answered with its key), then
+	// resolve the entering room's own ability (Cave Entrance's Scry 1).
 	d := castVenture(t, e, id)
 	if d == nil {
 		t.Fatal("first venture posed no dungeon choice")
 	}
 	lostMine := slices.IndexFunc(d.Options, func(o decision.Option) bool { return o.Key == "lost_mine_of_phandelver" })
 	submitChoices(t, e, lostMine)
-	_, room := dungeonRoom(t, e, 0)
+	dobj, room := dungeonRoom(t, e, 0)
 	if room != "DBEntrance" {
 		t.Fatalf("precondition: first venture marker on %q, want DBEntrance", room)
 	}
+	driveRoomResolution(t, e, dobj, &seen)
 
 	// Second venture: Cave Entrance's two arrows are Goblin Lair and Mine
 	// Tunnels, in the script's printed NextRoom$ order.
@@ -364,6 +371,7 @@ func TestVentureAdvancesAlongNextRoomArrows(t *testing.T) {
 	if ventureEvents(e, events.DungeonRoom, 0, "DBMineTunnels") != 1 {
 		t.Fatal("the room answer was not logged as one DungeonRoom")
 	}
+	driveRoomResolution(t, e, dobj, &seen)
 
 	// Third venture: Mine Tunnels' arrows are Dark Pool and Fungi Cavern --
 	// two arrows again; answer with Dark Pool. Then a one-arrow room must
@@ -379,43 +387,42 @@ func TestVentureAdvancesAlongNextRoomArrows(t *testing.T) {
 	if _, room = dungeonRoom(t, e, 0); room != "DBDarkPool" {
 		t.Fatalf("marker on %q, want DBDarkPool", room)
 	}
+	driveRoomResolution(t, e, dobj, &seen)
 	id4 := moveByName(t, e, 0, "Delve Deep", state.ZHand)
 	addMana(t, e, 0, "B")
 	if d = castVenture(t, e, id4); d != nil {
 		t.Fatalf("one-arrow room (Dark Pool) asked: %+v", d)
 	}
-	if _, room = dungeonRoom(t, e, 0); room != "DBTempleDumathoin" {
-		t.Fatalf("one-arrow room left the marker on %q, want DBTempleDumathoin", room)
+	// The single-arrow advance moved the marker into the bottommost room
+	// WITHOUT asking. The room ability resolved during castVenture's own
+	// priority passing (it is the only non-ask the venture can leave behind),
+	// so the marker is asserted from the logged DungeonRoom, not from live
+	// state -- the dungeon may already be completed by the time we look.
+	if ventureEvents(e, events.DungeonRoom, 0, "DBTempleDumathoin") != 1 {
+		t.Fatal("one-arrow room (Dark Pool) did not move the marker to DBTempleDumathoin")
 	}
 
-	// Fifth venture: from the bottommost room (Temple of Dumathoin, no
-	// NextRoom$), which is slice 3's completion: a LOUD Note, and the marker
-	// does not move.
-	notesBefore := len(e.L.Events)
+	// Temple of Dumathoin is the bottommost room; its room ability resolved
+	// and left the stack, so CR 704.5t completed and removed the dungeon. The
+	// next venture therefore starts a NEW dungeon.
+	if e.G.Players[0].DungeonObj != 0 || e.G.Players[0].CompletedDungeons != 1 {
+		t.Fatalf("bottom room did not complete the dungeon: obj=%d count=%d",
+			e.G.Players[0].DungeonObj, e.G.Players[0].CompletedDungeons)
+	}
+	if ventureEvents(e, events.DungeonComplete, 0, "") != 1 || ventureEvents(e, events.DungeonRemove, 0, "") != 1 {
+		t.Fatal("completion was not logged as one DungeonComplete + one DungeonRemove")
+	}
+
+	// The next venture starts a new dungeon: a dungeon choice is posed, and
+	// it is the CR 701.49a list because no dungeon is active.
 	id6 := moveByName(t, e, 0, "Delve Deep", state.ZHand)
 	addMana(t, e, 0, "B")
-	if d = castVenture(t, e, id6); d != nil {
-		t.Fatalf("bottommost-room venture asked: %+v", d)
+	d = castVenture(t, e, id6)
+	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "venture_dungeon" {
+		t.Fatalf("venture after completion did not start a new dungeon: %+v", d)
 	}
-	if _, room = dungeonRoom(t, e, 0); room != "DBTempleDumathoin" {
-		t.Fatalf("bottommost-room venture moved the marker to %q", room)
-	}
-	loud := false
-	for _, ev := range e.L.Events[notesBefore:] {
-		if ev.Kind == events.Note && ev.Obj == id6 && len(ev.Text) > 0 {
-			loud = true
-		}
-	}
-	if !loud {
-		t.Fatal("bottommost-room venture was silent: it must say loudly that dungeon completion is not yet implemented")
-	}
-	// Exactly one DungeonRoom to the Temple (the fourth venture's move): the
-	// bottommost-room venture moved nothing and logged no marker event.
-	if ventureEvents(e, events.DungeonRoom, 0, "DBTempleDumathoin") != 1 {
-		t.Fatalf("bottommost-room venture moved the marker or the fourth venture's move was mislogged")
-	}
-	if ventureEvents(e, events.DungeonComplete, 0, "") != 0 {
-		t.Fatal("a completion was recorded; dungeon completion is slice 3")
+	if e.G.Players[0].CompletedDungeons != 1 {
+		t.Fatalf("starting a new dungeon changed the completed count to %d", e.G.Players[0].CompletedDungeons)
 	}
 	replayCheck(t, e, cfg)
 }
