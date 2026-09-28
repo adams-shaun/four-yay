@@ -982,5 +982,26 @@ field. **UNDEFINED** means the type is referenced but no page defines it.
   refined after observing engines that already speak the protocol on ManaBrew's
   server.
 - **Q8:** held. No upstream contact until the operator decides.
-- **Q9:** held, pending the operator's answer on `CardDto.text`.
+- **Q9:** fill `CardDto.text` from Scryfall Oracle text, using gorged's existing
+  Scryfall catalog (`cmd/gorged/art.go`: per-face `oracle_text` sidecar, startup
+  prewarm of every deck name, 10 req/s limiter). Ticket MB-16. The rules that keep
+  this out of a corner:
+  1. **Presentation only.** The text never enters events, the log, replay, hashes,
+     golden heads or any bot input. A different text changes no game.
+  2. **A consumer-defined seam.** `internal/manabrew` declares
+     `type CardText interface { Text(name string) (string, bool) }`. The translator
+     takes it as a dependency; nil means empty. It never fetches, blocks or reads a
+     clock, so the translator stays pure. gorged implements it over the art cache.
+     Tests and golden transcripts use a fixed stub. Any later protocol or client
+     can use the same seam; nothing about it is ManaBrew-specific.
+  3. **Keyed only by what the redacted view already shows.** The lookup uses the
+     name on the seat's `CardView` (the face name for DFC, split, adventure and
+     MDFC cards). A face-down or hidden card has no name in the view, so it is
+     never looked up. The text can leak nothing the name did not already.
+  4. **A miss is an empty string, never a wait.** The startup prewarm covers deck
+     cards. Tokens, emblems and anything else not prewarmed may miss, and a miss
+     may queue a background fill through the existing limiter. A game never
+     waits on Scryfall.
+  5. **Oracle text, not printed text,** matching what the web client shows
+     today. No Forge script text is ever used (GPL boundary).
 - **Q10:** filed as a separate follow-up engine ticket.
