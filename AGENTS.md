@@ -9,6 +9,22 @@ compiled from Forge card scripts into an IR; the engine implements the
 primitives that IR references. See
 `docs/superpowers/specs/2026-09-03-mtgcore-go-engine-design.md`.
 
+## Agent guide
+
+The detail behind this file lives in [`docs/agents/`](docs/agents/README.md),
+so it stays out of every turn's context:
+
+- [repo-map.md](docs/agents/repo-map.md): what lives where, and where each
+  kind of change goes.
+- [invariants.md](docs/agents/invariants.md): the design invariants, what
+  enforces each one, the legitimate way to change it, and the contributor
+  workflow.
+- [do-not.md](docs/agents/do-not.md): mistakes that have actually happened
+  here.
+
+Bot and policy work starts at README's *Bot player training and adoption
+guidelines*.
+
 ## Hard rules
 
 - **Never commit Forge card scripts.** They are GPL-3.0; gorge is Apache-2.0.
