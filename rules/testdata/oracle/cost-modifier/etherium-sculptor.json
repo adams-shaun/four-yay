@@ -1,0 +1,117 @@
+{
+  "card": "Etherium Sculptor",
+  "family": "cost-modifier",
+  "oracle_sha": "4ec5b9e93964",
+  "author": "cli-20260927T211250Z-9b48f4e3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "artifact-spell-zero-generic",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Bonesplitter is an artifact spell with one generic mana to pay; the Sculptor removes it entirely.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bonesplitter"
+          ],
+          "battlefield": [
+            "Etherium Sculptor"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "nonartifact-still-needs-generic",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Grizzly Bears is a creature but not an artifact; one green mana leaves its generic payment unpaid.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Etherium Sculptor"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-artifact-not-discounted",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The Sculptor affects only its controller; an opponent cannot cast a one-generic artifact for free.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Etherium Sculptor"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Bonesplitter"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

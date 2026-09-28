@@ -1,0 +1,186 @@
+{
+  "card": "Rakdos, Lord of Riots",
+  "family": "cost-modifier",
+  "oracle_sha": "dfe01308bece",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "no-life-lost-no-reduction",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "An opponent has lost no life this turn, so one green cannot pay for a 1G creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Rakdos, Lord of Riots"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "two-life-lost",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "After the opponent loses two life this turn, two generic mana of a creature cost is removed but its green symbols remain.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Rakdos, Lord of Riots"
+          ],
+          "hand": [
+            "Centaur Courser"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "life",
+          "seat": 1,
+          "amount": -2
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Centaur Courser",
+          "mana": "G",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Centaur Courser",
+          "zone": "battlefield"
+        },
+        {
+          "life": {
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "four-life-lost-green-floor",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Four life lost erases all four generic mana from a six-mana green creature, but cannot erase two green.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Rakdos, Lord of Riots"
+          ],
+          "hand": [
+            "Colossal Dreadmaw"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "life",
+          "seat": 1,
+          "amount": -4
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Colossal Dreadmaw",
+          "mana": "GG",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Colossal Dreadmaw",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "controller-loss-not-opponent-loss",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Life lost by the reduction source\u2019s controller does not count as opponent life lost.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Rakdos, Lord of Riots"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "life",
+          "seat": 0,
+          "amount": -2
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

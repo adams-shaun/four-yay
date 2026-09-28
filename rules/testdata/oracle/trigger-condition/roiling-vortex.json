@@ -1,0 +1,93 @@
+{
+  "card": "Roiling Vortex",
+  "family": "trigger-condition",
+  "oracle_sha": "27e38146ac65",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "free-spell-five-damage",
+      "cr": [
+        "603.4",
+        "601.2h"
+      ],
+      "why": "A zero-cost spell uses no mana; casting it during the first main phase triggers five damage to its caster, in addition to the earlier upkeep damage.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Roiling Vortex"
+          ],
+          "hand": [
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Roiling Vortex",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 14
+          }
+        }
+      ]
+    },
+    {
+      "name": "paid-spell-no-cast-trigger",
+      "cr": [
+        "603.4",
+        "601.2h"
+      ],
+      "why": "A paid spell spent mana, so the cast does not put the five-damage trigger on the stack; the initial upkeep still dealt one.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Roiling Vortex"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "GG",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Roiling Vortex",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 19
+          }
+        }
+      ]
+    }
+  ]
+}

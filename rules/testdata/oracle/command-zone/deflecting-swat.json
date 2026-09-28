@@ -1,0 +1,105 @@
+{
+  "card": "Deflecting Swat",
+  "family": "command-zone",
+  "oracle_sha": "c6a60ec30354",
+  "author": "cli-20260927T211250Z-1c17051b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "controlled-commander-zero-mana-option",
+      "cr": [
+        "903.3",
+        "118.9",
+        "601.2f"
+      ],
+      "why": "An opponent-facing spell on the stack supplies a legal target, and control of the designated commander permits the no-mana alternative cost.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Deflecting Swat",
+            "Lightning Bolt"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Deflecting Swat"
+          },
+          "want": true
+        }
+      ]
+    },
+    {
+      "name": "other-legend-not-commander-zero-mana-unavailable",
+      "cr": [
+        "903.3",
+        "118.9"
+      ],
+      "why": "A legendary creature not designated commander does not satisfy the condition; an actual commander still in the command zone is not controlled.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Deflecting Swat",
+            "Lightning Bolt"
+          ],
+          "battlefield": [
+            "Jocasta, Automaton Avenger",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Deflecting Swat"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

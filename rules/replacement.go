@@ -4466,6 +4466,17 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if o, ok := r.Params["Origin"]; ok && o != "Any" && effects.ParseZone(o) != ev.From {
 			return false
 		}
+		// A creature's "would die" replacement is about a permanent moving
+		// from the battlefield to the graveyard (CR 700.4), not a creature
+		// card being milled or otherwise moved there from another zone. Forge
+		// scripts commonly encode this with a creature ValidLKI and a graveyard
+		// destination but omit Origin$; keep that shape from matching non-BF
+		// moves while leaving explicit from-anywhere replacements alone.
+		if _, hasOrigin := r.Params["Origin"]; !hasOrigin && ev.To == state.ZGraveyard {
+			if validLKI := r.Params["ValidLKI"]; strings.HasPrefix(validLKI, "Creature.") && ev.From != state.ZBattlefield {
+				return false
+			}
+		}
 		if d, ok := r.Params["Destination"]; ok && d != "Any" && effects.ParseZone(d) != ev.To {
 			return false
 		}

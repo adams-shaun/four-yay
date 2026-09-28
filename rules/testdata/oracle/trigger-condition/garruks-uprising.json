@@ -1,0 +1,139 @@
+{
+  "card": "Garruk's Uprising",
+  "family": "trigger-condition",
+  "oracle_sha": "d4fab64fda9a",
+  "author": "cli-20260927T211250Z-75464868 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "power-four-on-entry-draws",
+      "cr": [
+        "603.4"
+      ],
+      "why": "A 4-power creature is already controlled when the enchantment enters, so its conditional draw triggers.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Garruk's Uprising"
+          ],
+          "battlefield": [
+            "Josu Vess, Lich Knight"
+          ],
+          "library_top": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Garruk's Uprising",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Garruk's Uprising",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "hand"
+        }
+      ]
+    },
+    {
+      "name": "power-three-on-entry-no-trigger",
+      "cr": [
+        "603.4"
+      ],
+      "why": "A 3-power creature is below the threshold of four, so the first draw ability does not enter the stack.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Garruk's Uprising"
+          ],
+          "battlefield": [
+            "Centaur Courser"
+          ],
+          "library_top": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Garruk's Uprising",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Garruk's Uprising",
+              "want": false
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "library"
+        }
+      ]
+    },
+    {
+      "name": "power-four-leaves-before-resolution",
+      "cr": [
+        "603.4"
+      ],
+      "why": "The entering condition is initially satisfied, but removing the only 4-power creature before resolution makes the second check fail.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Garruk's Uprising"
+          ],
+          "battlefield": [
+            "Josu Vess, Lich Knight"
+          ],
+          "library_top": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Garruk's Uprising",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Garruk's Uprising",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "move",
+          "card": "p0:Josu Vess, Lich Knight",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "library"
+        }
+      ]
+    }
+  ]
+}

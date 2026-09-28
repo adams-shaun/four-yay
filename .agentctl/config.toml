@@ -13,71 +13,89 @@ state_dir = ".ds4"
 worktrees_dir = ".worktrees"
 
 # config.py:45-57, 96-98; seats.py:121 hard-codes the escalated thinking.
-[seats.local]
+# 2026-09-24 (operator): [[tiers]] replace the five fixed seat roles (agentctl
+# tiered dispatch, slice 2). "DeepSeek as implementer, local glm for review and
+# triage." Each job tries free tiers first, then paid tiers in this order. Jobs,
+# rounds, thinking, order and caps are editable live from the dash's Seats
+# section (overrides.json); provider/model/paid/tag_prefix are TOML-only.
+# Replaced: [seats.*], [seats.allow], [caps.models], policy.max_local_rounds
+# (2) and policy.max_escalated_rounds (3) -- the ladder is now DeepSeek high x3
+# then DeepSeek max x2 (5 rounds, as before). Codex tiers are declared at cap 0
+# so they can be switched on from the dash without a restart.
+[[tiers]]
+name = "glm"
 provider = "bm-llms-glm"
-model = "glm-5.3-flash"
-thinking = "medium"
+model = "GLM-5.3-Flash"
+thinking = "high"
+paid = false
+cap = 3
+# 2026-09-28: glm is now the FIRST implement rung, not just review/triage.
+# It is free and sorts first, so every ticket gets two local rounds before any
+# paid seat is spent. The engine behind it (GLM-5.3-Flash NVFP4 on vLLM TP2)
+# serves a 899,579-token KV pool with 4 request slots; cap 3 leaves a slot for
+# the review/triage seats that also land here. Concurrency past the slot count
+# QUEUES rather than deadlocking -- measured: 4 x 70k and even 2 x 465k
+# contexts all complete, because --max-parallel-prefills 1 serialises prefill.
+rounds = 2
+tag_prefix = "r"
+tasks = ["implement", "review", "triage"]
 
-# 2026-09-19 (operator): the GPT/Codex seats are out for now (plan exhausted);
-# every paid role runs DeepSeek-V4.1-Flash on DeepInfra. The key is
-# DEEPSEEK_API_KEY, inherited from the supervisor's environment (~/.zshrc).
-# To restore the GPT seats, swap the commented lines back in.
-[seats.overflow]
-# provider = "openai-codex"
-# model = "gpt-5.6-terra"
+[[tiers]]
+name = "deepseek"
 provider = "deepinfra"
 model = "deepseek-ai/DeepSeek-V4.1-Flash"
 thinking = "high"
-# 2026-09-22 (operator): spill to luna when DeepSeek has no free slot.
-fallback = ["openai-codex/gpt-6-luna"]
+paid = true
+cap = 4
+rounds = 3
+tag_prefix = "t"
+tasks = ["implement", "merge-fix", "wide-sweep"]
 
-[seats.escalated]
-# 2026-09-22 (operator): "escalate terra" -> gpt-6-sol. DeepSeek-high was the top
-# rung and no stronger than the codex reviewer: the 15:08Z batch parked at sol2
-# with a fresh MAJOR every round. Escalation now runs gpt-6-sol (its own
-# [caps.models] ceiling); reviewer and triage share the gpt-6-luna ceiling.
+[[tiers]]
+name = "deepseek-max"
+provider = "deepinfra"
+model = "deepseek-ai/DeepSeek-V4.1-Flash"
+thinking = "max"
+paid = true
+cap = 4
+rounds = 2
+tag_prefix = "tm"
+tasks = ["implement"]
+
+[[tiers]]
+name = "luna"
+provider = "openai-codex"
+model = "gpt-6-luna"
+thinking = "medium"
+paid = true
+cap = 0
+rounds = 0
+tag_prefix = "l"
+tasks = ["review", "triage"]
+
+[[tiers]]
+name = "sol"
 provider = "openai-codex"
 model = "gpt-6-sol"
 thinking = "high"
+paid = true
+cap = 0
+rounds = 0
+tag_prefix = "sol"
+tasks = ["implement", "review"]
 
-# 2026-09-22 (operator): reviewer back on a GPT codex seat, now gpt-6-luna
-# (Codex plan verified live with a one-prompt probe). Implementers stay DeepSeek.
-[seats.reviewer]
-provider = "openai-codex"
-model = "gpt-6-luna"
-thinking = "medium"
-
-# What an overrides.json entry may switch each role to (design §12.10); the
-# daemon re-checks every override against this list. Astra is never listed
-# 2026-09-22 (operator): triage has its own seat (agentctl b20353a); it
-# falls back to local, then overflow, when this seat is full or cut off.
-# gpt-6-luna's [caps.models] ceiling is shared with the reviewer seat.
-[seats.triage]
-provider = "openai-codex"
-model = "gpt-6-luna"
-thinking = "medium"
-
-# (config.py:49-50). The reviewer list is design §13.2's example.
-[seats.allow]
-local = ["bm-llms-glm/glm-5.3-flash"]
-# overflow = ["openai-codex/gpt-5.6-terra"]
-# escalated = ["openai-codex/gpt-5.6-terra", "openai-codex/gpt-5.6-sol"]
-# reviewer = ["openai-codex/gpt-5.6-terra", "openai-codex/gpt-5.6-sol", "bm-llms-glm/glm-5.3-flash"]
-overflow = ["deepinfra/deepseek-ai/DeepSeek-V4.1-Flash", "openai-codex/gpt-6-luna"]
-escalated = ["openai-codex/gpt-6-sol", "openai-codex/gpt-6-luna", "deepinfra/deepseek-ai/DeepSeek-V4.1-Flash"]
-reviewer = ["openai-codex/gpt-6-luna", "openai-codex/gpt-6-sol", "deepinfra/deepseek-ai/DeepSeek-V4.1-Flash", "bm-llms-glm/glm-5.3-flash"]
-triage = ["openai-codex/gpt-6-luna", "deepinfra/deepseek-ai/DeepSeek-V4.1-Flash", "bm-llms-glm/glm-5.3-flash"]
-
-# config.py:64-65, 73, 79, 99-100, 119; daemon.py:308.
 [policy]
-review_local_fallback = true
+# 2026-09-24 (operator): false -- seats.local is DeepSeek now; reviews stay on glm.
+review_local_fallback = false
 review_local_thinking = "high"
 # 2026-09-22 (operator): false. With the fallback on, 51 escalated rounds in
 # 48h ran on local glm-flash because the DeepInfra cap was full, so the
 # ladder's LAST chance ran on its weakest seat and exhausted straight into
 # human_needed. An escalated round now waits for a paid slot instead.
 escalation_local_fallback = false
-local_endpoint_probe = true
+# 2026-09-24 (operator): off while seats.local is DeepSeek -- the probe would
+# hit deepinfra with the local key and hold every implementer as DOWN.
+local_endpoint_probe = false
 # 2026-09-20 (operator): "stop taking all new tickets into local or paid jobs
 # until needs-human or blocked jobs are resolved". While any ticket sits in
 # human_needed, no `new` or `briefed` ticket starts; in-flight work still
@@ -98,7 +116,6 @@ hold_new_while_waiting_over = 5
 # implementers; no new triage launches while this many sit in `briefed`.
 triage_ahead = 100
 
-max_local_rounds = 2
 # 2026-09-19 (operator): the escalated tier is held for Claude. 0 means ONE
 # DeepSeek escalated round after the local rounds (the ladder launches the first
 # escalated round before it checks the cap), then human_needed, which a Claude
@@ -111,7 +128,16 @@ max_local_rounds = 2
 # single escalated round, and a batch of 17 tickets queued at 15:08Z hit
 # that wall together between 17:00 and 19:50Z (15 exhaustions in 3h).
 # The Claude hand-landing path is the safety valve, not the pipeline.
-max_escalated_rounds = 3
+# 2026-09-23 (operator): 3. Measured that morning, six tickets reached
+# human_needed in forty minutes, and 55 of the previous 56 blocks were
+# "escalation ladder exhausted". Nearly every round of those six ended
+# DONE_WITH_CONCERNS -- one on all six rounds, another on five -- because each
+# brief asked for a whole multi-part Known-approximations row and no round
+# could close all of it. The seat said so every time and the ladder spent the
+# rounds anyway. A third self-declared incomplete round now parks the ticket
+# with `brief_too_broad` so the brief gets split, instead of burning the
+# remaining paid rounds on a scope no round can close.
+concerns_rounds_before_park = 3
 max_merge_rounds = 2
 seat_start_grace_s = 180
 # 2026-09-22 (operator): tick every 10s.
@@ -120,22 +146,19 @@ poll_seconds = 10
 # config.py:75, 90-91.
 # 2026-09-21 (operator): "2 local, 5 paid".
 [caps]
-local = 2
+# 2026-09-24 (operator): under [[tiers]] the free pool is the glm tier. Was 2, then 4.
+local = 3
 # 2026-09-22 (operator): the paid pool is sized to hold every per-model cap
 # below at once; [caps.models] does the real bounding, so one paid provider
 # can no longer fill the pool and push codex reviews onto the local seat.
 # Raised to 12 with luna (4) joining the per-model caps.
-paid = 12
+# 2026-09-24 (operator): DeepSeek implementers ride the "local" pool (caps.local);
+# the paid pool now holds the glm reviewer/triage seats (they differ from
+# seats.local, so they count as paid) plus DeepSeek overflow/escalation.
+# [caps.models] bounds each model: glm 3, DeepSeek 4. Was 12, then 0.
+paid = 4
 max_minutes = 75
 
-[caps.models]
-"bm-llms-glm/glm-5.3-flash" = 2
-"deepinfra/deepseek-ai/DeepSeek-V4.1-Flash" = 4
-"openai-codex/gpt-6-sol" = 4
-# 2026-09-22 (operator): luna seats (overflow spill, reviewer, triage) capped at 4.
-"openai-codex/gpt-6-luna" = 4
-
-# config.py:21-22.
 [dispatch]
 context_file = ".superpowers/ds4/gorge-context.md"
 tails_dir = ".superpowers/ds4"
@@ -149,7 +172,7 @@ feedback_dir = "feedback"
 # git_ops.py:27-37 (create_worktree), :58-67 (triage), :80-86 (node_modules),
 # :231-237 (TEST_HISTORY.md).
 [worktree]
-copy = [".ds4/ledger.json"]
+copy = [".ds4/ledger.json", ".ds4/MagicCompRules-20260807.txt"]
 link = [".cards", ".superpowers"]
 hardlink = ["web/node_modules"]
 ignore_uncommitted = ["TEST_HISTORY.md"]
@@ -157,13 +180,15 @@ ignore_uncommitted = ["TEST_HISTORY.md"]
 # gates.py:114-148, in order; each gate's argv/timeout/env/cwd is gates.py:34-103.
 [[gates]]
 name = "go build"
-cmd = ["go", "build", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "build", "./..."]
 timeout = 900
+env = { GOMEMLIMIT = "1GiB" }
 
 [[gates]]
 name = "go vet"
-cmd = ["go", "vet", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "vet", "./..."]
 timeout = 600
+env = { GOMEMLIMIT = "1GiB" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
@@ -171,27 +196,29 @@ timeout = 600
 # binaries across worktrees have exhausted this box's memory before.
 [[gates]]
 name = "go test (module)"
-cmd = ["go", "test", "-p=2", "-skip", "^TestHeads$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "-p=1", "-skip", "^TestHeads$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "5GiB" }
+env = { GOMEMLIMIT = "1GiB" }
 
 [[gates]]
 name = "CR conformance"
-cmd = ["go", "test", "-p=2", "./rules", "-run", "TestCR", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
-env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "5GiB" }
+env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB" }
 accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
-cmd = ["go", "test", "./rules", "-run", "TestHeads", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
+env = { GOMEMLIMIT = "1GiB" }
 blocking = false          # the TestHeads policy (hooks.testheads_policy) decides
 
 [[gates]]
 name = "make sim"
-cmd = ["make", "sim"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "make", "sim"]
 timeout = 600
+env = { GOMEMLIMIT = "1GiB" }
 accept = "orchestrator.hooks:sim_all_replayed"
 
 [[gates]]

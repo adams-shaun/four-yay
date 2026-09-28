@@ -1,0 +1,114 @@
+{
+  "card": "Mogis, God of Slaughter",
+  "family": "conditional-static",
+  "oracle_sha": "d08c0743d725",
+  "author": "cli-20260927T211250Z-1813bb98 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "devotion-two-not-creature",
+      "cr": [
+        "700.5",
+        "611.3a",
+        "613.1d"
+      ],
+      "why": "The two colored symbols on Mogis alone are fewer than seven; it remains an enchantment but not a creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mogis, God of Slaughter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Mogis, God of Slaughter",
+          "types": [
+            "Enchantment"
+          ],
+          "no_types": [
+            "Creature"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "devotion-seven-exact-boundary",
+      "cr": [
+        "700.5",
+        "611.3a",
+        "613.1d"
+      ],
+      "why": "Mogis contributes two, two Needleheads contribute four, and Sarah contributes one: exactly seven, so Mogis is a creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mogis, God of Slaughter",
+            "Razorkin Needlehead",
+            "Razorkin Needlehead",
+            "Sentinel Sarah Lyons"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Mogis, God of Slaughter",
+          "types": [
+            "Creature",
+            "Enchantment"
+          ],
+          "pt": "7/5"
+        }
+      ]
+    },
+    {
+      "name": "devotion-falls-below-seven",
+      "cr": [
+        "700.5",
+        "611.3a",
+        "613.1d"
+      ],
+      "why": "Removing the one-symbol permanent from an exactly-seven board changes devotion to six and removes only the creature type.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mogis, God of Slaughter",
+            "Razorkin Needlehead",
+            "Razorkin Needlehead",
+            "Sentinel Sarah Lyons"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Sentinel Sarah Lyons",
+          "to": "graveyard",
+          "expect": [
+            {
+              "card": "p0:Mogis, God of Slaughter",
+              "types": [
+                "Enchantment"
+              ],
+              "no_types": [
+                "Creature"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Mogis, God of Slaughter",
+          "no_types": [
+            "Creature"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -471,6 +471,28 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 
+	case ManaUndo:
+		// The announced payment window's reversal of one mana activation
+		// (CR 733.1, announce-then-pay spec §5): remove exactly the units one
+		// ManaAdd put in the pool -- the same slot and snow/typed tally the
+		// add credited, through the add's own fold with the amount negated --
+		// and untap the named source. The rules side offers it only when the
+		// pool still holds those units, so the clamp is defensive.
+		if validPlayer(g, e.Player) && e.Amount > 0 {
+			rm := e
+			rm.Kind, rm.Amount, rm.Text = ManaAdd, -e.Amount, ""
+			idx := manaAddSlot(rm.Counter)
+			if have := g.Players[e.Player].Pool[idx]; have < e.Amount {
+				rm.Amount = -have
+			}
+			if rm.Amount < 0 {
+				applyManaAdd(g, rm)
+			}
+		}
+		if o := g.Obj(e.Obj); e.Obj != 0 && o != nil {
+			o.Tapped = false
+		}
+
 	case ChaosEnsues:
 		// The chaos-ensues marker (CR 901.9, task planar-verbs) is a pure
 		// marker, exactly like PlanarRoll: no state folds. The current plane's
@@ -1436,124 +1458,7 @@ func Apply(g *state.Game, e Event) {
 		}
 
 	case ManaAdd:
-		if validPlayer(g, e.Player) {
-			player := &g.Players[e.Player]
-			// PersistentMana$ True (task persistentmana): the suffix rides Text
-			// after every other encoding, so cut it before the restriction
-			// parse and mark the tally/batch below.
-			rest, persistent := cutManaPersistent(e.Text)
-			// One event moves the pool and its parallel producer tally, so a
-			// tally can never drift from the pool it partitions. Three counter
-			// forms exist, and all three land in the colour's pool slot:
-			//
-			//   "S<colour>"       -- a SNOW mana unit (CR 107.4h), tallied in
-			//                        Player.Snow so a {S} pip can be paid only
-			//                        from it. The historical two-char form stays
-			//                        first and exact: recorded games carry it.
-			//   "<Tag><colour>"   -- a TYPED mana unit (task castfilter2),
-			//                        tallied in Player.TypedMana[tag] so the
-			//                        filtered Count$CastTotalManaSpent
-			//                        Treasure/Cave/Desert heads can read how much
-			//                        of a cast's spend came from a producer of
-			//                        that type.
-			//   a bare WUBRGC letter (or the empty default) -- plain pool mana.
-			idx := state.MC
-			if len(e.Counter) == 2 && e.Counter[0] == 'S' {
-				idx = state.ManaIndex(e.Counter[1])
-			} else if _, slot, ok := state.TypedManaCounter(e.Counter); ok {
-				idx = slot
-			} else if e.Counter != "" {
-				idx = state.ManaIndex(e.Counter[0])
-			}
-			player.Pool[idx] += e.Amount
-			if e.Amount > 0 && persistent {
-				player.PersistentMana[idx] += e.Amount
-			}
-			if len(e.Counter) == 2 && e.Counter[0] == 'S' {
-				player.Snow[idx] += e.Amount
-			} else if tag, slot, ok := state.TypedManaCounter(e.Counter); ok {
-				base, artifact := state.ManaUnitTypes(tag)
-				player.TypedMana[base][slot] += e.Amount
-				if artifact && base != state.TypedArtifact {
-					player.ArtifactTyped[base][slot] += e.Amount
-				}
-			}
-			// The RestrictValid$/AddsNoCounter$ provenance is registered for
-			// EVERY counter form, never only a plain one: a tagged restricted
-			// unit (Echoing Cavern's Cave mana, Sunken Citadel's, Bucolic
-			// Ranch's) keeps its restriction exactly like a plain one, and the
-			// matching spend event (which carries r.Color verbatim) consumes
-			// it here. Registering before the pool write would be equivalent
-			// for the ADD path; the consume path needs the batch list, which
-			// this block owns.
-			if valid, srcID, cond, addsCounters, restricted := ManaRestrictionFromText(rest); restricted {
-				if e.Amount > 0 {
-					player.RestrictedMana = append(player.RestrictedMana, state.ManaRestriction{
-						Color: e.Counter, Amount: e.Amount, Valid: valid, Source: srcID,
-						NoCounter: cond, Persistent: persistent, AddsCounters: addsCounters,
-					})
-				} else if e.Amount < 0 {
-					// A restricted spend event names exactly the restriction batch it
-					// consumes. Walk insertion order so two matching additions replay
-					// identically, and tolerate a malformed historical event that
-					// over-spends its batch without making Pool negative here.
-					//
-					// The consumed batches' own Persistent flags move the persistent
-					// tally: the payment path carved a MATCHING batch, so the units
-					// this spend took are the batch's, and the flag — not raw slot
-					// arithmetic — is what keeps the tally on the units that
-					// actually survived. The " pm" marker is meaningless on a
-					// restricted spend; the batch flags are authoritative.
-					need := -e.Amount
-					perUsed := int32(0)
-					for i := 0; i < len(player.RestrictedMana) && need > 0; {
-						r := &player.RestrictedMana[i]
-						if r.Color != e.Counter || r.Valid != valid {
-							i++
-							continue
-						}
-						used := r.Amount
-						if used > need {
-							used = need
-						}
-						r.Amount -= used
-						need -= used
-						if r.Persistent {
-							perUsed += used
-						}
-						if r.Amount == 0 {
-							player.RestrictedMana = append(player.RestrictedMana[:i], player.RestrictedMana[i+1:]...)
-							continue
-						}
-						i++
-					}
-					if perUsed > 0 {
-						d := perUsed
-						if player.PersistentMana[idx] < d {
-							d = player.PersistentMana[idx]
-						}
-						player.PersistentMana[idx] -= d
-					}
-				}
-			} else if e.Amount < 0 && persistent {
-				// A marked PLAIN spend event names the persistent share the
-				// payment consumed: the payment path (payManaForSpent) attributes
-				// the slot's units ordinary-first over the VISIBLE pool and marks
-				// the persistent remainder with this suffix, so the tally follows
-				// the units that actually survived instead of raw slot arithmetic.
-				// (The old fresh-rule — decrement past Pool minus PersistentMana —
-				// misattributed whenever a payment's visible pool differed from
-				// the raw slot: a hidden restricted batch, or a carve that consumed
-				// the persistent batch first, made ordinary mana wrongly survive a
-				// step boundary. An unmarked negative event consumes ordinary
-				// units only, by the same attribution convention.)
-				d := -e.Amount
-				if player.PersistentMana[idx] < d {
-					d = player.PersistentMana[idx]
-				}
-				player.PersistentMana[idx] -= d
-			}
-		}
+		applyManaAdd(g, e)
 
 	case ManaClear:
 		if validPlayer(g, e.Player) {
@@ -4453,4 +4358,135 @@ func countActivation(g *state.Game, id state.ObjID) {
 	if src := g.Obj(id); src != nil && src.Zone == state.ZBattlefield {
 		src.ActivatedThisTurn++
 	}
+}
+
+// applyManaAdd folds one ManaAdd event (the ManaAdd case of Apply); the
+// ManaUndo case reuses it with the amount negated so a reversal walks the
+// identical slot and snow/typed tally arithmetic.
+func applyManaAdd(g *state.Game, e Event) {
+	if validPlayer(g, e.Player) {
+		player := &g.Players[e.Player]
+		// PersistentMana$ True (task persistentmana): the suffix rides Text
+		// after every other encoding, so cut it before the restriction
+		// parse and mark the tally/batch below.
+		rest, persistent := cutManaPersistent(e.Text)
+		// One event moves the pool and its parallel producer tally, so a
+		// tally can never drift from the pool it partitions. Three counter
+		// forms exist, and all three land in the colour's pool slot:
+		//
+		//   "S<colour>"       -- a SNOW mana unit (CR 107.4h), tallied in
+		//                        Player.Snow so a {S} pip can be paid only
+		//                        from it. The historical two-char form stays
+		//                        first and exact: recorded games carry it.
+		//   "<Tag><colour>"   -- a TYPED mana unit (task castfilter2),
+		//                        tallied in Player.TypedMana[tag] so the
+		//                        filtered Count$CastTotalManaSpent
+		//                        Treasure/Cave/Desert heads can read how much
+		//                        of a cast's spend came from a producer of
+		//                        that type.
+		//   a bare WUBRGC letter (or the empty default) -- plain pool mana.
+		idx := manaAddSlot(e.Counter)
+		player.Pool[idx] += e.Amount
+		if e.Amount > 0 && persistent {
+			player.PersistentMana[idx] += e.Amount
+		}
+		if len(e.Counter) == 2 && e.Counter[0] == 'S' {
+			player.Snow[idx] += e.Amount
+		} else if tag, slot, ok := state.TypedManaCounter(e.Counter); ok {
+			base, artifact := state.ManaUnitTypes(tag)
+			player.TypedMana[base][slot] += e.Amount
+			if artifact && base != state.TypedArtifact {
+				player.ArtifactTyped[base][slot] += e.Amount
+			}
+		}
+		// The RestrictValid$/AddsNoCounter$ provenance is registered for
+		// EVERY counter form, never only a plain one: a tagged restricted
+		// unit (Echoing Cavern's Cave mana, Sunken Citadel's, Bucolic
+		// Ranch's) keeps its restriction exactly like a plain one, and the
+		// matching spend event (which carries r.Color verbatim) consumes
+		// it here. Registering before the pool write would be equivalent
+		// for the ADD path; the consume path needs the batch list, which
+		// this block owns.
+		if valid, srcID, cond, addsCounters, restricted := ManaRestrictionFromText(rest); restricted {
+			if e.Amount > 0 {
+				player.RestrictedMana = append(player.RestrictedMana, state.ManaRestriction{
+					Color: e.Counter, Amount: e.Amount, Valid: valid, Source: srcID,
+					NoCounter: cond, Persistent: persistent, AddsCounters: addsCounters,
+				})
+			} else if e.Amount < 0 {
+				// A restricted spend event names exactly the restriction batch it
+				// consumes. Walk insertion order so two matching additions replay
+				// identically, and tolerate a malformed historical event that
+				// over-spends its batch without making Pool negative here.
+				//
+				// The consumed batches' own Persistent flags move the persistent
+				// tally: the payment path carved a MATCHING batch, so the units
+				// this spend took are the batch's, and the flag — not raw slot
+				// arithmetic — is what keeps the tally on the units that
+				// actually survived. The " pm" marker is meaningless on a
+				// restricted spend; the batch flags are authoritative.
+				need := -e.Amount
+				perUsed := int32(0)
+				for i := 0; i < len(player.RestrictedMana) && need > 0; {
+					r := &player.RestrictedMana[i]
+					if r.Color != e.Counter || r.Valid != valid {
+						i++
+						continue
+					}
+					used := r.Amount
+					if used > need {
+						used = need
+					}
+					r.Amount -= used
+					need -= used
+					if r.Persistent {
+						perUsed += used
+					}
+					if r.Amount == 0 {
+						player.RestrictedMana = append(player.RestrictedMana[:i], player.RestrictedMana[i+1:]...)
+						continue
+					}
+					i++
+				}
+				if perUsed > 0 {
+					d := perUsed
+					if player.PersistentMana[idx] < d {
+						d = player.PersistentMana[idx]
+					}
+					player.PersistentMana[idx] -= d
+				}
+			}
+		} else if e.Amount < 0 && persistent {
+			// A marked PLAIN spend event names the persistent share the
+			// payment consumed: the payment path (payManaForSpent) attributes
+			// the slot's units ordinary-first over the VISIBLE pool and marks
+			// the persistent remainder with this suffix, so the tally follows
+			// the units that actually survived instead of raw slot arithmetic.
+			// (The old fresh-rule — decrement past Pool minus PersistentMana —
+			// misattributed whenever a payment's visible pool differed from
+			// the raw slot: a hidden restricted batch, or a carve that consumed
+			// the persistent batch first, made ordinary mana wrongly survive a
+			// step boundary. An unmarked negative event consumes ordinary
+			// units only, by the same attribution convention.)
+			d := -e.Amount
+			if player.PersistentMana[idx] < d {
+				d = player.PersistentMana[idx]
+			}
+			player.PersistentMana[idx] -= d
+		}
+	}
+}
+
+// manaAddSlot is the pool slot a ManaAdd counter credits: a snow "S<colour>",
+// a typed "<Tag><colour>", a bare WUBRGC letter, or C for the empty default.
+func manaAddSlot(counter string) int {
+	idx := state.MC
+	if len(counter) == 2 && counter[0] == 'S' {
+		idx = state.ManaIndex(counter[1])
+	} else if _, slot, ok := state.TypedManaCounter(counter); ok {
+		idx = slot
+	} else if counter != "" {
+		idx = state.ManaIndex(counter[0])
+	}
+	return idx
 }

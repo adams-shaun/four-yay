@@ -1,0 +1,32 @@
+{
+  "card": "Mana Vault",
+  "family": "trigger-condition",
+  "oracle_sha": "8a6a4f7a7efb",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "tapped-at-draw-step-deals-one",
+      "cr": ["603.4", "504.1"],
+      "why": "Mana Vault is tapped when the draw step begins, so its intervening-if trigger deals one damage to its controller.",
+      "setup": {"p0": {"battlefield": ["Mana Vault"]}, "p1": {}},
+      "setup_answers": [{"kind": "trigger_optional", "pick": ["no"]}],
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Mana Vault", "ability": "mana"},
+        {"op": "pass_to", "step": "draw", "active": "p0", "answers": [{"kind": "trigger_optional", "pick": ["no"]}], "expect": [{"trigger_on_stack": "p0:Mana Vault", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p0": 19}, "card": "p0:Mana Vault", "tapped": true}]
+    },
+    {
+      "name": "untapped-at-draw-step-no-trigger",
+      "cr": ["603.4", "504.1"],
+      "why": "Mana Vault remains untapped, so the condition on its draw-step ability is false and no trigger is put on the stack.",
+      "setup": {"p0": {"battlefield": ["Mana Vault"]}, "p1": {}},
+      "setup_answers": [{"kind": "trigger_optional", "pick": ["no"]}],
+      "steps": [
+        {"op": "pass_to", "step": "draw", "active": "p0", "answers": [{"kind": "trigger_optional", "pick": ["no"]}], "expect": [{"trigger_on_stack": "p0:Mana Vault", "want": false}]}
+      ],
+      "expect": [{"life": {"p0": 20}, "card": "p0:Mana Vault", "tapped": false}]
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "card": "Fierce Guardianship",
+  "family": "command-zone",
+  "oracle_sha": "06dde65f0546",
+  "author": "cli-20260927T211250Z-1c17051b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "controlled-commander-free-counter",
+      "cr": [
+        "903.3",
+        "118.9",
+        "601.2f",
+        "608.2b"
+      ],
+      "why": "With our designated commander controlled, we may counter a noncreature instant without paying mana.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Fierce Guardianship",
+            "Lightning Bolt"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Fierce Guardianship",
+          "targets": [
+            "p0:Lightning Bolt"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "damage": 0
+        }
+      ]
+    },
+    {
+      "name": "commander-in-command-zone-no-free-counter",
+      "cr": [
+        "903.3",
+        "118.9"
+      ],
+      "why": "A commander not on the battlefield cannot be controlled, even if a different legendary creature is controlled; with no mana this counterspell cannot be cast.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Fierce Guardianship",
+            "Lightning Bolt"
+          ],
+          "battlefield": [
+            "Jocasta, Automaton Avenger",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Fierce Guardianship"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "card": "Defense of the Heart",
+  "family": "trigger-condition",
+  "oracle_sha": "19eaa0f15d2f",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "three-opponent-creatures-sacrifices-and-finds-two",
+      "cr": ["603.4", "503.1"],
+      "why": "At the beginning of upkeep the opponent controls exactly three creatures, meeting the condition; the enchantment is sacrificed and up to two creature cards are put onto the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Defense of the Heart"], "library": ["Grizzly Bears", "Savannah Lions"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Savannah Lions", "Centaur Courser"]}
+      },
+      "setup_answers": [{"kind": "choose", "pick": ["Grizzly Bears", "Savannah Lions"]}],
+      "steps": [{"op": "resolve"}],
+      "expect": [
+        {"card": "p0:Defense of the Heart", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p0:Savannah Lions", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "two-opponent-creatures-no-upkeep-trigger",
+      "cr": ["603.4", "503.1"],
+      "why": "Two opposing creatures are fewer than the required three, so Defense of the Heart does not trigger at upkeep.",
+      "setup": {
+        "p0": {"battlefield": ["Defense of the Heart"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "upkeep", "active": "p0", "expect": [{"trigger_on_stack": "p0:Defense of the Heart", "want": false}]}
+      ],
+      "expect": [{"card": "p0:Defense of the Heart", "zone": "battlefield"}]
+    }
+  ]
+}
