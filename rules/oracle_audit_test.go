@@ -84,9 +84,6 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: the once-per-turn permission is tracked per
 	// affected spell, so Darksteel Monolith's free-cast grant is available again.
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
-	// Engine primitive: entering Angel appears to be included in Giada's CountValid
-	// when pricing the replacement, rather than counting only Angels already controlled.
-	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
 	// Engine primitive: the Effect-created entry replacement from the attack
 	// trigger does not put its counter on the remembered Hero returned from the graveyard.
 	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
