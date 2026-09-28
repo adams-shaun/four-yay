@@ -356,7 +356,9 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, boo
 			// rather than re-implementing it: the /Op suffix was already
 			// peeled by evalCountExprOK, and the fold's per-candidate match
 			// reads the RememberedPlayerCtrl predicate off Ctx.Remembered
-			// (the same binding Count$Valid uses for Legate Lanius).
+			// (the same binding Count$Valid uses for Legate Lanius). The
+			// Count$ path peels /Op before dispatch; the bare SVar path does
+			// that in evalCountExprOK before this Valid arm is reached.
 			if arg == "" {
 				return 0, false
 			}

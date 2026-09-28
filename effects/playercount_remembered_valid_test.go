@@ -19,13 +19,13 @@ import (
 // The Pox family sizes "a third/half of the creatures/permanents they
 // control"; Batwing Brume sizes "each player loses 1 life for each attacking
 // creature they control". With one remembered player controlling three
-// creatures and another controlling one, the head must read 4 on the
+// creatures and another controlling two, the head must read 5 on the
 // battlefield, not the 2 distinct remembered players.
 func TestPlayerCountRememberedValidCountsRememberedPlayersCards(t *testing.T) {
 	g := state.NewGame(names(4))
 	h := &fakeHost{g: g}
-	// Three creatures controlled by remembered player 1, one by remembered
-	// player 3. The precondition assert below proves the four are live
+	// Three creatures controlled by remembered player 1, two by remembered
+	// player 3. The precondition assert below proves the five are live
 	// battlefield permanents, so a battlefield-scan regression cannot pass
 	// this by counting nothing.
 	mk := func(owner state.PlayerID) state.ObjID {
@@ -33,7 +33,7 @@ func TestPlayerCountRememberedValidCountsRememberedPlayersCards(t *testing.T) {
 		h.Emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZLibrary, To: state.ZBattlefield})
 		return o.ID
 	}
-	ids := []state.ObjID{mk(1), mk(1), mk(1), mk(3)}
+	ids := []state.ObjID{mk(1), mk(1), mk(1), mk(3), mk(3)}
 	// A non-creature permanent controlled by a remembered player must not be
 	// counted: the spec's `Creature` half has to bind.
 	land := g.AddObject(mkCard(t, "Name:Remembered land\nTypes:Land\nOracle:x\n"), 1)
@@ -43,7 +43,7 @@ func TestPlayerCountRememberedValidCountsRememberedPlayersCards(t *testing.T) {
 		{Player: 1, IsPlayer: true},
 		{Player: 3, IsPlayer: true},
 	}}
-	// Preconditions the real assertion depends on: four live battlefield
+	// Preconditions the real assertion depends on: five live battlefield
 	// creatures, one live non-creature, and two distinct remembered players
 	// that are not the resolving controller. A vacuous setup fails loudly.
 	battleCreatures := 0
@@ -54,8 +54,8 @@ func TestPlayerCountRememberedValidCountsRememberedPlayersCards(t *testing.T) {
 		}
 		battleCreatures++
 	}
-	if battleCreatures != 4 {
-		t.Fatalf("fixture: %d battlefield creatures, want 4", battleCreatures)
+	if battleCreatures != 5 {
+		t.Fatalf("fixture: %d battlefield creatures, want 5", battleCreatures)
 	}
 	if lo := g.Obj(land.ID); lo == nil || lo.Zone != state.ZBattlefield {
 		t.Fatalf("fixture: remembered land not on the battlefield: %+v", lo)
@@ -68,23 +68,48 @@ func TestPlayerCountRememberedValidCountsRememberedPlayersCards(t *testing.T) {
 	if !ok {
 		t.Fatal("PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl reported UNRESOLVED")
 	}
-	if got != 4 {
-		t.Fatalf("PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl = %d, want 4 "+
-			"(three creatures of player 1 plus one of player 3, not the 2 remembered players)", got)
+	if got != 5 {
+		t.Fatalf("PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl = %d, want 5 "+
+			"(three creatures of player 1 plus two of player 3, not the 2 remembered players)", got)
 	}
 
-	// The /Op suffix the corpus writes (Pox Plague's HalfDown) must keep
-	// flowing through the same arithmetic: half of 4, rounded down, is 2.
-	if got, ok := EvalCountOK(h, c, "Count$PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl/HalfDown"); !ok || got != 2 {
-		t.Fatalf("PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl/HalfDown = (%d, %v), want (2, true)", got, ok)
+	// These are the exact bare SVar bodies in Pox, Pox Plague and Fraying
+	// Omnipotence. Their /Op is attached to the Valid filter argument, so the
+	// evaluator must peel it before dispatching the remembered-player head.
+	// Five creatures exercise distinct raw/HalfDown/HalfUp/ThirdUp values:
+	// 5/2/3/2.
+	for _, tc := range []struct {
+		body string
+		want int32
+	}{
+		{"PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl", 5},
+		{"PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl/ThirdUp", 2},
+		{"PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl/HalfUp", 3},
+		{"PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl/HalfDown", 2},
+	} {
+		if got, ok := EvalCountOK(h, c, tc.body); !ok || got != tc.want {
+			t.Errorf("bare %s = (%d, %v), want (%d, true)", tc.body, got, ok, tc.want)
+		}
+	}
+	// Keep the same corpus bodies behind SVar indirection, the route the
+	// effects consume for the E/Z amount variables.
+	c.SVars = map[string]string{
+		"E": "PlayerCountRemembered$Valid Creature.RememberedPlayerCtrl/ThirdUp",
+		"Z": "PlayerCountRemembered$Valid Permanent.RememberedPlayerCtrl/HalfDown",
+	}
+	if got, ok := EvalCountOK(h, c, "SVar$E"); !ok || got != 2 {
+		t.Errorf("SVar$E = (%d, %v), want (2, true)", got, ok)
+	}
+	if got, ok := EvalCountOK(h, c, "SVar$Z"); !ok || got != 3 {
+		t.Errorf("SVar$Z = (%d, %v), want (3, true)", got, ok)
 	}
 
 	// Pox Plague's spec is `Permanent.RememberedPlayerCtrl` and Pox's land leg
 	// is `Land.RememberedPlayerCtrl`: the same fold must honour any card-type
 	// prefix, not only Creature. The land from the fixture is a permanent
 	// controlled by remembered player 1, so both reads include it (+1).
-	if got, ok := EvalCountOK(h, c, "Count$PlayerCountRemembered$Valid Permanent.RememberedPlayerCtrl"); !ok || got != 5 {
-		t.Fatalf("PlayerCountRemembered$Valid Permanent.RememberedPlayerCtrl = (%d, %v), want (5, true)", got, ok)
+	if got, ok := EvalCountOK(h, c, "Count$PlayerCountRemembered$Valid Permanent.RememberedPlayerCtrl"); !ok || got != 6 {
+		t.Fatalf("PlayerCountRemembered$Valid Permanent.RememberedPlayerCtrl = (%d, %v), want (6, true)", got, ok)
 	}
 	if got, ok := EvalCountOK(h, c, "Count$PlayerCountRemembered$Valid Land.RememberedPlayerCtrl"); !ok || got != 1 {
 		t.Fatalf("PlayerCountRemembered$Valid Land.RememberedPlayerCtrl = (%d, %v), want (1, true)", got, ok)
