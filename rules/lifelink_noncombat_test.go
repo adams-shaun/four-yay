@@ -134,6 +134,7 @@ func countLifeChanges(t *testing.T, e *Engine, p state.PlayerID, amount int32) i
 // Brion has printed lifelink -- so his controller gains that much life with
 // the damage. Before the fix the damage landed and nobody gained any.
 func TestBrionStoutarmThrowGainsLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := linkBoard(t, reg, []string{"Brion Stoutarm", "Hill Giant"}, nil)
 	var fodder, brion state.ObjID
@@ -179,6 +180,7 @@ func TestBrionStoutarmThrowGainsLife(t *testing.T) {
 // still pays. Teferi, Hero of Dominaria enters at 4 loyalty (per its corpus
 // script), so the 3-power throw leaves it alive at 1.
 func TestBrionStoutarmThrowAtPlaneswalkerGainsLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := linkBoard(t, reg, []string{"Brion Stoutarm", "Hill Giant"},
 		[]string{"Teferi, Hero of Dominaria"})
@@ -310,6 +312,7 @@ func TestLifelinkAbilityDamageToCreatureGainsLife(t *testing.T) {
 // Bears means two landed 7s, and the controller gains the SUM (14), not one
 // rider for the resolution.
 func TestLifelinkDeathSweepSumsLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := linkBoard(t, reg, []string{"Piru, the Volatile"},
 		[]string{"Grizzly Bears", "Grizzly Bears"})
@@ -427,6 +430,7 @@ func TestGrantedLifelinkEquipmentDamageGainsLife(t *testing.T) {
 // so its damage must use the source's last derived lifelink state rather than
 // the now-graveyard card's current characteristics.
 func TestSacrificedGrantedLifelinkSourceUsesLKI(t *testing.T) {
+	t.Parallel()
 	collar := "Name:Life Collar\nManaCost:1\nTypes:Artifact Equipment\nK:Equip:2\n" +
 		"S:Mode$ Continuous | Affected$ Creature.EquippedBy | AddKeyword$ Lifelink | Description$ Equipped creature has lifelink.\nOracle:x\n"
 	pinger := "Name:Sac Pinger\nManaCost:2 R\nTypes:Creature Wizard\nPT:1/2\n" +

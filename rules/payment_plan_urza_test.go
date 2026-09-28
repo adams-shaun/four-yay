@@ -56,6 +56,7 @@ func planUrzaTowerActivation(t *testing.T, plan decision.PaymentPlan, tower stat
 // 7) and leave the surplus land untapped; executing that witness casts the
 // spell and empties the pool.
 func TestPaymentPlanUrzaTowerPlansForThree(t *testing.T) {
+	t.Parallel()
 	e, cfg, spell := newFixtureDeck(t, 9411, planSevenSpell, urzaTowerSrc, urzaMineSrc, urzaPlantSrc, planUrzaOtherLand)
 	// Precondition: the spell is a plain castable-from-hand card with the
 	// printed {7} cost this test plans against.
@@ -130,6 +131,7 @@ func TestPaymentPlanUrzaTowerPlansForThree(t *testing.T) {
 // Plant is unassembled, so its Count$UrzaLands.3.1 evaluates to 1. A {1}
 // spell must plan as a single Tower tap producing 1, and cast cleanly.
 func TestPaymentPlanUrzaTowerPlansForOne(t *testing.T) {
+	t.Parallel()
 	e, cfg, spell := newFixtureDeck(t, 9412, "Name:Plan One\nManaCost:1\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n", urzaTowerSrc, urzaMineSrc, urzaPlantSrc)
 	tower := findAndMoveToBattlefield(t, e, 0, "Urza's Tower")
 	o := e.G.Obj(tower)
@@ -182,6 +184,7 @@ func TestPaymentPlanUrzaTowerPlansForOne(t *testing.T) {
 // would price 1, a plan would form, and the executor would then see it produce
 // 0.
 func TestPaymentPlanRefusesUntappedCountAmount(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9413, "Name:Plan One B\nManaCost:1\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n", planUntappedCountLand)
 	source := findAndMoveToBattlefield(t, e, 0, "Plan Untapped Count Land")
 	o := e.G.Obj(source)

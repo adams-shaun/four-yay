@@ -43,6 +43,7 @@
         "pool": {},
         "command": [],
         "commanders": [],
+        "completed_dungeons": 0,
         "commander_casts": []
       },
       {
@@ -201,6 +202,7 @@
         "pool": {},
         "command": [],
         "commanders": [],
+        "completed_dungeons": 0,
         "commander_casts": []
       }
     ],
@@ -257,6 +259,7 @@
         "pool": {},
         "command": [],
         "commanders": [],
+        "completed_dungeons": 0,
         "commander_casts": []
       },
       {
@@ -423,6 +426,7 @@
         "pool": {},
         "command": [],
         "commanders": [],
+        "completed_dungeons": 0,
         "commander_casts": []
       }
     ],

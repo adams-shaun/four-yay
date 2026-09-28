@@ -131,6 +131,7 @@ func passOnce(t *testing.T, e *Engine) {
 // is not a card, so it takes the exile parking every ceased-to-exist ability
 // takes (CR 608.2m), and the trigger's effect never happens.
 func TestStifleCountersOpponentTriggeredAbility(t *testing.T) {
+	t.Parallel()
 	e := counterHands(t,
 		[]*cards.Card{card(t, heraldSrc)},
 		[]*cards.Card{card(t, stifleSrc)}, nil, nil)
@@ -241,6 +242,7 @@ func TestStifleCountersOpponentTriggeredAbility(t *testing.T) {
 // gate in isolation: with a spell on the stack and nothing else, a
 // TargetType$ Activated,Triggered counter is not offered at all.
 func TestStifleNotCastableWithOnlyASpellOnTheStack(t *testing.T) {
+	t.Parallel()
 	e := counterHands(t,
 		[]*cards.Card{card(t, grizzlySrc)},
 		[]*cards.Card{card(t, stifleSrc)}, nil, nil)
@@ -308,6 +310,7 @@ func censusOf(t *testing.T, e *Engine, you state.PlayerID, sa *cards.SA) []state
 // three stack kinds, while a TargetType$-less counter (Spell default) sees
 // only the spell and Stifle's Activated,Triggered sees only the abilities.
 func TestVoidslimeTargetsSpellActivatedAndTriggered(t *testing.T) {
+	t.Parallel()
 	e, ids := stackTargetsFixture(t)
 
 	stifle := card(t, stifleSrc).Faces[0].SpellAbility()
@@ -349,6 +352,7 @@ func TestVoidslimeTargetsSpellActivatedAndTriggered(t *testing.T) {
 // controller qualifier -- an opponent's ability is not offered to you, your
 // own is.
 func TestTargetTypeYouCtrlAdmitsOnlyYourAbilities(t *testing.T) {
+	t.Parallel()
 	e, ids := stackTargetsFixture(t)
 	src := "Name:Weaver\nManaCost:G\nTypes:Creature\nPT:1/1\n" +
 		"A:AB$ CopySpellAbility | Cost$ G T | ValidTgts$ Card,Emblem | " +
@@ -371,6 +375,7 @@ func TestTargetTypeYouCtrlAdmitsOnlyYourAbilities(t *testing.T) {
 // countered ACTIVATED ability is removed from the stack to the exile
 // parking, never the graveyard, and never resolves.
 func TestActivatedAbilityCanBeCountered(t *testing.T) {
+	t.Parallel()
 	e := counterHands(t,
 		[]*cards.Card{card(t, stifleSrc)}, nil,
 		nil, []*cards.Card{card(t, tapperSrc)})
@@ -454,6 +459,7 @@ func TestActivatedAbilityCanBeCountered(t *testing.T) {
 // the stack at all -- the offer loop skips AB$ Mana -- so there is nothing
 // for an ability counter to point at. Pin the offer side.
 func TestManaAbilityNeverTargetable(t *testing.T) {
+	t.Parallel()
 	src := "Name:Petall\nManaCost:0\nTypes:Creature Plant\nPT:0/1\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ add G\n" +
 		"A:AB$ Draw | Cost$ T | Defined$ You | SpellDescription$ draw\nOracle:x\n"
@@ -500,6 +506,7 @@ const riteSrc = "Name:Ritepiece\nManaCost:B\nTypes:Sorcery\nOracle:x\n"
 // Silence's `Spell.Instant,Spell.Sorcery,...` (qualified bases), while a
 // real instant, a real sorcery and the ability objects still are.
 func TestInstantSorceryCounterRestrictsCardObjects(t *testing.T) {
+	t.Parallel()
 	e, ids := stackTargetsFixture(t)
 	inst := e.G.AddObject(card(t, flashSrc), 1)
 	inst.Zone = state.ZStack
@@ -541,6 +548,7 @@ func TestInstantSorceryCounterRestrictsCardObjects(t *testing.T) {
 // counter (Dispel/Envelop's shape) has no legal target and is not offered at
 // all -- the census restriction reaches the cast-offer gate.
 func TestInstantCounterNotCastableAgainstCreatureSpell(t *testing.T) {
+	t.Parallel()
 	e := counterHands(t,
 		[]*cards.Card{card(t, grizzlySrc)},
 		[]*cards.Card{card(t, envelopSrc)}, nil, nil)

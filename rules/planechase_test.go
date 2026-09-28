@@ -103,6 +103,7 @@ func searchForFace(t *testing.T, seedBase uint64, maxSeeds int, stone *cards.Car
 // own precondition -- a chaos face was actually rolled -- and fails loudly if
 // the engine never produces one.
 func TestChaosFaceFiresThePlanesChaosTrigger(t *testing.T) {
+	t.Parallel()
 	stone := tokenReplCorpusCard(t, "Fractured Powerstone")
 	probe := probePlaneCard(t)
 
@@ -160,6 +161,7 @@ func TestChaosFaceFiresThePlanesChaosTrigger(t *testing.T) {
 // trigger, rather than the "no planar deck" Note the verb degrades to without
 // one.
 func TestChaosVerbResolvesTheCurrentPlane(t *testing.T) {
+	t.Parallel()
 	stone := tokenReplCorpusCard(t, "Fractured Powerstone")
 	probe := probePlaneCard(t)
 	cfg := planeDeckConfig(t, 81001, stone, probe)
@@ -211,6 +213,7 @@ func TestChaosVerbResolvesTheCurrentPlane(t *testing.T) {
 // on a real planar-dice roll: a kept planeswalk face rotates the roller's
 // planar deck, revealing the next plane.
 func TestPlaneswalkFaceWalksToTheNextPlane(t *testing.T) {
+	t.Parallel()
 	stone := tokenReplCorpusCard(t, "Fractured Powerstone")
 	planeA := tokenReplCorpusCard(t, "Aretopolis")
 	planeB := tokenReplCorpusCard(t, "Pools of Becoming")

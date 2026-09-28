@@ -177,6 +177,28 @@ type pendingCast struct {
 	// payment (CR 601.2h) -- the same recorded-at-beginCast discipline as
 	// mayPlayIgnore, and for the same reason. Nil for every ordinary cast.
 	mayPlayRemembered map[state.ObjID][]state.ObjID
+	// mayPlayPerm is the MayPlayText$-typed permission a may-play cast
+	// consumes (rules/mayplay.go's mayPlayPermKey). Empty for an untyped
+	// grant. beginCast copies it off the option, the "mayplay" cost case
+	// prices exactly that static's free/RaiseCost$ riders, and payCast stamps
+	// it on the pay-time CastInfo (a "perm=<key>" token) so
+	// mayPlayTypedLimitReached can attribute the play to its static.
+	mayPlayPerm string
+	// mayPlayHosts records, at beginCast, the hosts of the may-play
+	// permissions that covered this "mayplay" cast's card while it still sat
+	// in the granted zone (mayPlayHostsCovering). The cost chain's
+	// MayPlaySource reads (castRidesMayPlayOf) consult it after CR 601.2a's
+	// push, when the permission no longer covers the card on the stack.
+	// mayPlayHostsSet marks a captured (possibly empty) record.
+	mayPlayHosts    []state.ObjID
+	mayPlayHostsSet bool
+	// costRemembered records, at beginCast, the captured Remembered set of
+	// every Effect-delivered cost-modifier static whose set held this card
+	// (costRememberedCapture): the "a spell cast this way" raise's
+	// Card.IsRemembered must keep naming the card after CR 601.2a moves it,
+	// although the Effect's ForgetOnMoved$ drops it from the live set at that
+	// move -- the mayPlayRemembered discipline, for cost statics.
+	costRemembered []costRememberedEntry
 
 	// replaceGraveyard is the Play SA's ReplaceGraveyard$ Exile rider
 	// (task replplay1): the played spell must not rest in the graveyard —
@@ -203,6 +225,18 @@ type pendingCast struct {
 	// exactly the mana values some exilable card matches at; exAsk binds the
 	// announced value into that filter). Empty on every ordinary cast.
 	announceX string
+
+	// named / namedN / namedDone carry a NAMED announcement (Forge's
+	// Announce$ other than X) that a RaiseCost additional-cost part counts
+	// by (CostPart.Dyn "@<Name>"): the March cycle's "exile any number of
+	// red cards from your hand" (Announce$ Exiled) and Explosive
+	// Singularity's "tap any number of untapped creatures" (Announce$
+	// Tapped). namedAnnounceAsk poses it before any other cost stage, the
+	// part then pays exactly namedN, and the paired Relative$ ReduceCost
+	// reads the value through the SVar the name spells (namedAnnounceSVars).
+	named     string
+	namedN    int32
+	namedDone bool
 
 	// suspendTimeX makes the chosen cast X also set the number of TIME
 	// counters; suspendMinX is Forge's XMin<N> lower bound.
@@ -598,8 +632,14 @@ type pendingCast struct {
 	// entries are announced by emitChoiceCosts -- a chosen permanent is a
 	// public choice, never a reveal of a hand card. Plain Reveal parts and
 	// every other paid card append true (they reveal).
+	//
+	// revealedEmptyHand records that a whole-hand Reveal part paid with an
+	// EMPTY hand (CR 701.20a: revealing a hand with no cards is legal). The
+	// empty payment is still a public reveal, so emitChoiceCosts announces it
+	// loudly instead of the reveal silently vanishing from the log.
 	revealOrChoosePart int
 	revealHandArm      []bool
+	revealedEmptyHand  bool
 
 	// ninjutsuDefender is the defender (CR 702.49b: the player, planeswalker
 	// or battle the returned creature was attacking) captured when a
@@ -799,6 +839,9 @@ func (e *Engine) blitzCosts(p state.PlayerID, id state.ObjID) []struct {
 } {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
+		return nil
+	}
+	if !e.stackKeywordPossibleH(id, kwhBlitz) {
 		return nil
 	}
 	var out []struct {
@@ -1005,6 +1048,10 @@ type convokePayment struct {
 	color      byte
 	power      int32
 	countsMana bool
+	// waterbend marks a tap that pays one generic of a RaiseCost
+	// Waterbend<N>/<X> additional cost (convokeAsk's waterbend_generic
+	// option); the count of such taps is capped at the waterbend amount.
+	waterbend bool
 }
 
 // hasCastConvoke reports whether the spell being cast carries Convoke once
@@ -1015,6 +1062,9 @@ type convokePayment struct {
 // the stack (derivedWith's override); a wasCast Affected$ predicate already
 // matches because it keys on the object being a cast spell, which it is.
 func (e *Engine) hasCastConvoke(id state.ObjID) bool {
+	if !e.stackKeywordPossibleH(id, kwhConvoke) {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Convoke") {
 			return true
@@ -1028,6 +1078,9 @@ func (e *Engine) hasCastConvoke(id state.ObjID) bool {
 // keyword or a layer-6 grant reaching the cast spell. Inspiring Statuary
 // grants Improvise to nonartifact spells, so the grant path is live.
 func (e *Engine) hasCastImprovise(id state.ObjID) bool {
+	if !e.stackKeywordPossibleH(id, kwhImprovise) {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Improvise") {
 			return true
@@ -1045,6 +1098,9 @@ func (e *Engine) hasCastImprovise(id state.ObjID) bool {
 // match). The offer gate and the provenance read share this one helper so
 // the two stages cannot disagree about whether the spell is conspirable.
 func (e *Engine) hasCastConspire(id state.ObjID) bool {
+	if !e.stackKeywordPossibleH(id, kwhConspire) {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Conspire") {
 			return true
@@ -1139,6 +1195,9 @@ type casualtyInfo struct {
 }
 
 func (e *Engine) casualtySpec(id state.ObjID) (casualtyInfo, bool) {
+	if !e.stackKeywordPossibleH(id, kwhCasualty) {
+		return casualtyInfo{}, false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if !strings.EqualFold(cardsKeywordHead(k), "Casualty") {
 			continue
@@ -1316,7 +1375,7 @@ func (e *Engine) flashbackCost(id state.ObjID) Cost {
 // cost whose generic requirement is generic: the smaller of that and p's
 // graveyard size. Zero for a card without Delve.
 func (e *Engine) delveCredit(p state.PlayerID, id state.ObjID, generic int32) int32 {
-	if generic <= 0 || !e.HasKeyword(id, "Delve") {
+	if generic <= 0 || !e.hasKeywordH(id, kwhDelve) {
 		return 0
 	}
 	gy := int32(len(e.G.Zone(state.ZGraveyard, p)))
@@ -1474,6 +1533,19 @@ func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool
 // one helper means that specialized offer logic cannot bypass Sac/Discard/
 // counter/tap legality.
 func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ability bool) bool {
+	// A RaiseCost Cost$ part no payment stage can settle (Cost.Withheld):
+	// the additional cost cannot be paid, so neither can the whole cost.
+	if len(cost.Withheld) > 0 {
+		return false
+	}
+	// untapYType<N/Spec> parts have a settle only on the mana-activation path
+	// (manaUntapStage). The cast / non-mana activated-ability path has none,
+	// so a cost carrying one is refused rather than offered with the untap
+	// silently unpaid (the head now parses to a real part, no longer
+	// Cost.Unknown).
+	if len(cost.UntapPermanent) > 0 {
+		return false
+	}
 	reserved := map[state.ObjID]bool{}
 	for _, part := range cost.Sac {
 		var avail []state.ObjID
@@ -1519,6 +1591,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			zone = state.ZHand
 		}
 		selfInZone := !ability && castObj != nil && castObj.Zone == zone
+		wholeZone := isWholeZoneExileSpec(part.Spec)
 		var avail []state.ObjID
 		for _, oid := range e.G.Zone(zone, p) {
 			if reserved[oid] || (selfInZone && oid == id) {
@@ -1534,12 +1607,23 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(ability)) {
 				continue
 			}
-			if e.matchesSpecFrom(part.Spec, oid, p, id) {
+			if wholeZone || e.matchesSpecFrom(part.Spec, oid, p, id) {
 				avail = append(avail, oid)
 			}
 		}
 		if int32(len(avail)) < part.N {
 			return false
+		}
+		if wholeZone {
+			// ExileFromHand<1/All> names the WHOLE zone, not a filter (the
+			// same isWholeZoneExileSpec reading the triggered window's arm
+			// takes): every still-available card pays, so reserve every
+			// candidate, not just part.N. No cast/activation corpus carrier
+			// exists today; the wiring keeps the two paths from diverging.
+			for _, oid := range avail {
+				reserved[oid] = true
+			}
+			continue
 		}
 		for i := int32(0); i < part.N; i++ {
 			reserved[avail[i]] = true
@@ -1560,8 +1644,34 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			reserved[avail[i]] = true
 		}
 	}
+	// Reveal cost parts: a whole-hand Reveal (Reveal<N/Hand>) is payable with
+	// ANY hand -- including an empty one (CR 701.20a) -- so it never gates the
+	// offer. Every other part needs N matching hand cards. The self-exclusion
+	// follows the payment stage's rule: for a CAST (ability == false) the card
+	// being cast is on the stack while its cost is paid, so it cannot pay its
+	// own Reveal; for an ABILITY activation (ability == true) the source stays
+	// in the hand and CAN pay a self-reveal (Reveal<1/CARDNAME>, the forecast
+	// cycle) -- the unconditional exclusion here used to make every such
+	// ability unpayable and therefore unoffered.
 	for _, part := range cost.Reveal {
-		if len(e.costCandidates(p, id, state.ZHand, part.Spec, true, false)) < int(part.N) {
+		if isWholeHandRevealSpec(part.Spec) {
+			continue
+		}
+		// Reveal<N/SameColor> (Illuminated Folio) is RELATIONAL: SameColor
+		// matches no card as a filter, so the candidates are every eligible
+		// hand card and the part is payable iff N DISTINCT ones share one
+		// colour (SetPropCapacity's largest shared class; a colourless
+		// card's empty token set shares nothing). The payment ask carries
+		// the same decision.SetPropShared rule, so offer and intake read
+		// one definition -- sameColorRevealSets in rules/setprops.go.
+		if isSameColorRevealSpec(part.Spec) {
+			_, sets := e.sameColorRevealSets(p, id, !ability)
+			if decision.SetPropCapacity(decision.SetPropShared, sets) < int(part.N) {
+				return false
+			}
+			continue
+		}
+		if len(e.costCandidates(p, id, state.ZHand, part.Spec, !ability, false)) < int(part.N) {
 			return false
 		}
 	}
@@ -1764,6 +1874,17 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			}
 		}
 	}
+	// GainLife<N/Player...> cost parts: the payment needs at least one alive
+	// player the part's spec names relative to the payer (a player has to be
+	// there to gain the life). A part whose spec matches nobody -- the only
+	// payer alive, or an unevaluable spec -- leaves the cost unpayable and
+	// therefore unoffered, the fail-closed direction. The same helper the
+	// payment uses resolves the candidates, so gate and settlement agree.
+	for _, part := range cost.GainLife {
+		if len(e.gainLifeCostPlayers(p, part)) == 0 {
+			return false
+		}
+	}
 	if o := e.G.Obj(id); o != nil {
 		for _, part := range cost.SubCounter {
 			// An announced SubCounter<X/Kind> part's count is the cast's X,
@@ -1822,7 +1943,7 @@ func castFlowDrawPlayer(spec string, payer state.PlayerID) (state.PlayerID, bool
 func (e *Engine) drawCostCard(p state.PlayerID) {
 	lib := e.G.Zone(state.ZLibrary, p)
 	if len(lib) == 0 {
-		e.emit(events.Event{Kind: events.PlayerLost, Player: p, Text: "drew from an empty library"})
+		e.playerLoses(p, loseReasonMilled, "drew from an empty library")
 		return
 	}
 	e.emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
@@ -1981,6 +2102,50 @@ func (e *Engine) putLibPicksOnTop(picks []state.ObjID) {
 			}
 		}
 		e.emit(events.Event{Kind: events.LibraryOrder, Player: owner, IDs: order, Secret: true})
+	}
+}
+
+// gainLifeCostPlayers lists the seats a GainLife cost part's Spec names
+// relative to the payer, in APNAP order starting at the payer (the same walk
+// every multi-player effect uses). Spec is Forge's raw player word
+// (Player.Opponent / Player.Other); both mean "a player other than the
+// payer", and the engine evaluates them through the ONE shared player-spec
+// evaluator (effects.MatchesPlayerSpec) so this can never disagree with the
+// ValidPlayer$ rider arm that reads the same call. The payer is never its
+// own gain-life target ("an opponent"/"each other player"), so a part that
+// somehow matched the payer is skipped -- harmless for the corpus spellings,
+// and it keeps the payer's own life out of a cost payment.
+func (e *Engine) gainLifeCostPlayers(payer state.PlayerID, part CostPart) []state.PlayerID {
+	var out []state.PlayerID
+	for _, p := range e.G.AliveFrom(payer) {
+		if p == payer {
+			continue
+		}
+		if effects.MatchesPlayerSpec(e.G, part.Spec, p, payer) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// payGainLifeCost settles the payer's GainLife<N/Player...> cost parts
+// (Forge CostGainLife; Invigorate/Reverent Silence/Skyshroud Cutter): each
+// part has every player its Spec names relative to the payer gain N life as
+// one POSITIVE LifeChange per player. That is exactly the oracle for the
+// /* "each other player" spelling and exact in the two-seat game for the
+// bare Player.Opponent spelling; in a larger pod the bare spelling pays
+// EVERY opponent rather than one chosen opponent (a documented deviation --
+// the alternative-cost route has no mid-cast choose-an-opponent ask). The
+// emit routes through applyReplacements/applyLifeReplacements, so a CR 616
+// GainLife replacement and the CantGainLife static apply for free.
+func (e *Engine) payGainLifeCost(payer state.PlayerID, parts []CostPart) {
+	for _, part := range parts {
+		if part.N <= 0 {
+			continue
+		}
+		for _, p := range e.gainLifeCostPlayers(payer, part) {
+			e.emit(events.Event{Kind: events.LifeChange, Player: p, Amount: part.N})
+		}
 	}
 }
 
@@ -2164,10 +2329,30 @@ func (e *Engine) sacrificeCostAssignable(p state.PlayerID, source state.ObjID, p
 	return true
 }
 
+// lastDrawnThisTurn returns the card player p most recently DREW this turn
+// (the last events.Draw naming p since the most recent TurnChange), or 0 if p
+// drew nothing this turn. Derived from the event log exactly like
+// CardsDrawnThisTurn, so a replay derives it identically; it is NOT a filter.
+// Discard<1/LastDrawn> (Jandor's Ring) is the corpus's only carrier.
+func (e *Engine) lastDrawnThisTurn(p state.PlayerID) state.ObjID {
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		ev := e.L.Events[i]
+		if ev.Kind == events.TurnChange {
+			break
+		}
+		if ev.Kind == events.Draw && ev.Player == p {
+			return ev.Obj
+		}
+	}
+	return 0
+}
+
 // discardCandidates returns the still-available cards that can pay one
 // Discard cost part. Random names a selection method rather than a card
 // characteristic, and a Hand spec is Forge's "discard your hand" shape
-// (the corpus spells its ignored count as both 0 and 1).
+// (the corpus spells its ignored count as both 0 and 1). LastDrawn is the
+// other history-keyed slot: "the last card you drew this turn", one specific
+// card, unpayable when p drew nothing or that card has left the hand.
 // A spell being announced is excluded because it will be on the stack when
 // costs are paid; an activated ability's source may remain in hand and can
 // therefore pay CARDNAME/NICKNAME costs such as channel and bloodrush.
@@ -2178,6 +2363,19 @@ func (e *Engine) discardCandidates(p state.PlayerID, source state.ObjID, part Co
 		// Forge uses NICKNAME as the same self-reference as CARDNAME in the
 		// four discard-cost lines that carry it.
 		matchSpec = "CARDNAME"
+	}
+	if strings.EqualFold(matchSpec, "LastDrawn") {
+		// The single candidate is the last card p drew this turn, and only if
+		// it is still in p's hand. If p drew nothing, or that card has left
+		// the hand, the cost is unpayable -- do not skip back to an earlier
+		// draw.
+		last := e.lastDrawnThisTurn(p)
+		if last != 0 && !reserved[last] && !(casting && last == source) {
+			if o := e.G.Obj(last); o != nil && o.Zone == state.ZHand {
+				return []state.ObjID{last}
+			}
+		}
+		return nil
 	}
 	var out []state.ObjID
 	for _, id := range e.G.Zone(state.ZHand, p) {
@@ -2196,6 +2394,12 @@ func (e *Engine) discardCandidates(p state.PlayerID, source state.ObjID, part Co
 func (e *Engine) discardCostPayable(p state.PlayerID, source state.ObjID, parts []CostPart, casting bool) bool {
 	reserved := map[state.ObjID]bool{}
 	for _, part := range parts {
+		if part.Announced {
+			// An announced Discard<X/Spec> (the RaiseCost bridge's Aether
+			// Tide shape): X = 0 is a legal announcement, and xAsk caps the
+			// X by the matching cards, so the part never withholds an offer.
+			continue
+		}
 		candidates := e.discardCandidates(p, source, part, casting, reserved)
 		if strings.EqualFold(part.Spec, "Hand") {
 			for _, id := range candidates {
@@ -2329,6 +2533,9 @@ func foldAdditionalCost(cost, extra Cost) Cost {
 	}
 	if len(extra.DamageYou) > 0 {
 		cost.DamageYou = append(append([]CostPart(nil), cost.DamageYou...), extra.DamageYou...)
+	}
+	if len(extra.GainLife) > 0 {
+		cost.GainLife = append(append([]CostPart(nil), cost.GainLife...), extra.GainLife...)
 	}
 	if len(extra.Mill) > 0 {
 		cost.Mill = append(append([]CostPart(nil), cost.Mill...), extra.Mill...)
@@ -2629,10 +2836,15 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// walk) used, so the offered cost and the charged cost structurally
 		// cannot disagree. A raise the helper could not price leaves
 		// mayPlayGrant withholding the card; the cast never reaches here.
-		if free, ok := e.mayPlayGrant(p, id); ok && free {
+		// A MayPlayText$-typed option names its permission, so a card cast
+		// through ONE of several matching statics pays exactly that
+		// static's riders (mayPlayPermFreeRaise); an untyped option keeps
+		// the aggregate read.
+		free, raise, hasRaise, priced := e.mayPlayPermFreeRaise(p, id, opt.MayPlayPerm)
+		if free {
 			cost = Cost{}
 		}
-		if raise, hasRaise, priced := e.mayPlayRaiseCost(p, id); hasRaise && priced {
+		if hasRaise && priced {
 			cost = cost.Plus(raise)
 		}
 	case "miracle":
@@ -2665,7 +2877,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// graveyard have retrace") is not on the printed face, and reading
 		// f here offered the grant's cast but charged no discard -- a free
 		// graveyard recast loop (fuzz batch6 line 1, Jeweled Lotus).
-		if e.HasKeyword(id, "Retrace") {
+		if e.hasKeywordH(id, kwhRetrace) {
 			cost = cost.Plus(retraceExtra())
 		}
 	case "jumpstart":
@@ -2675,7 +2887,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// composition and proved a card payable; the same stale-option
 		// degradation applies (a jumpstart mode whose keyword is gone folds
 		// nothing rather than charging an unoffered discard).
-		if e.HasKeyword(id, "Jump-start") {
+		if e.hasKeywordH(id, kwhJumpStart) {
 			cost = cost.Plus(jumpstartExtra())
 		}
 	case "evoked", "dashed", "overloaded", "warped", "madness", "bestowed", "blitzed":
@@ -2827,7 +3039,12 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		optionalCost = parts[opt.AltCostIndex-1]
 	}
 	if opt.AltCostIndex == 0 && (opt.Mode == "" || opt.Mode == "mayplay" || opt.Mode == "modal_spell" || opt.Mode == "room_alt" ||
-		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || opt.Mode == "casualty" || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart") {
+		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || opt.Mode == "casualty" || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart" ||
+		// CR 702.34a/601.2f: flashback replaces only the mana cost; the
+		// spell's own additional cost (Eviscerator's Insight's sacrifice,
+		// Electric Revelation's discard) is still paid. The offer gate
+		// (legal.go's flashback walk) folds the same extras.
+		opt.Mode == "flashback") {
 		cost = withSpellAbilityExtras(f, cost)
 	}
 	// Convoke and Harmonize are announced only after X/mode/pip choices have
@@ -2861,16 +3078,17 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		return
 	}
 	cost = converted
-	// A RaiseCost static's non-mana Cost$ (Soul Immolation's `Cost$ Blight<X>`)
+	// A RaiseCost static's non-mana Cost$ (Soul Immolation's `Cost$ Blight<X>`,
+	// Grafted Identity's creature sacrifice, the Champion cycle's BeholdExile)
 	// is carried in mods.extra so the OFFER gate (composedOfferCost, which
 	// applies mods) enforces it and the CHARGE prices it. The pending cast's
 	// own cost must carry it too, because every non-mana cost stage -- xAsk's
-	// X announcement, blightCostAsk, the settle and costAnnouncesX -- reads
-	// pc.cost, not the composed charge. Fold it in here once and drop it from
-	// mods so manaToPay's mods.apply cannot count the same part twice.
-	if len(mods.extra.Blight) > 0 {
-		cost = foldAdditionalCost(cost, mods.extra)
-		mods.extra = Cost{}
+	// X announcement, sacAsk, blightCostAsk, the settle and costAnnouncesX --
+	// reads pc.cost, not the composed charge. Fold it in here once and drop
+	// it from mods so manaToPay's mods.apply cannot count the same part twice.
+	cost, ok = e.foldRaiseExtra(p, id, cost, &mods)
+	if !ok {
+		return
 	}
 	if opt.AltCostIndex == 0 && opt.Mode == "" {
 		pcAlt := altAddCostParts(f)
@@ -2997,6 +3215,12 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		e.cast.mayPlayIgnore = e.payerGrantsIgnoreColor(p, id)
 		e.cast.mayPlayIgnoreType = e.payerGrantsIgnoreType(p, id)
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)
+		e.cast.mayPlayPerm = opt.MayPlayPerm
+		e.cast.mayPlayHosts = e.mayPlayHostsCovering(p, id)
+		e.cast.mayPlayHostsSet = true
+	}
+	if e.cast != nil {
+		e.cast.costRemembered = e.costRememberedCapture(id)
 	}
 	if selection != nil && e.cast != nil {
 		e.cast.payment = &plannedCastPayment{actionID: selection.ActionID, plan: decision.ClonePaymentPlan(selection.Plan)}
@@ -3152,9 +3376,9 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 	// A RaiseCost static's non-mana Cost$ rides mods.extra; fold it into the
 	// pending cost and drop it from mods so the charge cannot double it (the
 	// same agreement beginCast makes).
-	if len(mods.extra.Blight) > 0 {
-		cost = foldAdditionalCost(cost, mods.extra)
-		mods.extra = Cost{}
+	cost, ok = e.foldRaiseExtra(p, id, cost, &mods)
+	if !ok {
+		return
 	}
 	e.cast = &pendingCast{player: p, card: id, from: o.Zone, mode: "play", ability: -1,
 		cost: cost, mods: mods, replaceGraveyard: replaceGraveyard}
@@ -3199,7 +3423,7 @@ func (e *Engine) applyDredge(p state.PlayerID, dredgeID state.ObjID) {
 func (e *Engine) resumeOrdinaryDraw(p state.PlayerID) {
 	lib := e.G.Zone(state.ZLibrary, p)
 	if len(lib) == 0 {
-		e.emit(events.Event{Kind: events.PlayerLost, Player: p, Text: "drew from an empty library"})
+		e.playerLoses(p, loseReasonMilled, "drew from an empty library")
 		return
 	}
 	e.emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
@@ -3231,6 +3455,13 @@ func (e *Engine) continueCast() {
 	// X bound of Count$PromisedGift.2.1 resolves when that ask is built -- a
 	// promise settled after targeting would be invisible to it.
 	if e.giftAsk() {
+		return
+	}
+	// A RaiseCost part counted by a named announcement (the March cycle,
+	// Explosive Singularity) announces its count before every stage that
+	// pays or prices it: the tap election below, xAsk's discounted X bound
+	// and the exile pick.
+	if e.namedAnnounceAsk() {
 		return
 	}
 	if e.forageAsk() || e.revealCostAsk() || e.revealCostOrChooseAsk() || e.beholdCostAsk() || e.tapPermanentCostAsk() || e.blightCostAsk() {
@@ -3514,7 +3745,66 @@ func (e *Engine) revealCostAsk() bool {
 	pc := e.cast
 	for pc.revealPart < len(pc.cost.Reveal) {
 		part := pc.cost.Reveal[pc.revealPart]
-		candidates := e.costCandidates(pc.player, pc.card, state.ZHand, part.Spec, true, false)
+		// A whole-hand Reveal (Reveal<N/Hand>) settles without asking: it
+		// reveals the payer's whole hand AS IT STANDS at payment. For a CAST
+		// the spell being paid for has already moved to the stack (CR 601.2a)
+		// and is no longer part of the hand; for an ABILITY activation the
+		// source still sits in the hand and IS part of the hand it reveals.
+		// Zero cards is a legal payment (CR 701.20a); emitChoiceCosts
+		// announces it loudly via pc.revealedEmptyHand.
+		if isWholeHandRevealSpec(part.Spec) {
+			var hand []state.ObjID
+			excludeSource := !pc.isAbility()
+			for _, oid := range e.G.Zone(state.ZHand, pc.player) {
+				if excludeSource && oid == pc.card {
+					continue
+				}
+				hand = append(hand, oid)
+			}
+			pc.reveals = append(pc.reveals, hand...)
+			for range hand {
+				pc.revealHandArm = append(pc.revealHandArm, true)
+			}
+			if len(hand) == 0 {
+				pc.revealedEmptyHand = true
+			}
+			pc.revealPart++
+			continue
+		}
+		// Relational SameColor (Illuminated Folio): SameColor matches no card
+		// as a filter, so the candidates are every eligible hand card and
+		// the ask itself carries the constraint -- decision.SetPropShared
+		// over each option's DERIVED colour tokens, so Decision.Validate
+		// (seats) and botpolicy's Clamp (the bot) reject a non-sharing
+		// answer through the same rule the offer gate measured. The exactly-N
+		// auto-settle sits behind the capacity check, so it can never pay an
+		// illegal reveal.
+		if isSameColorRevealSpec(part.Spec) {
+			cands, sets := e.sameColorRevealSets(pc.player, pc.card, !pc.isAbility())
+			if decision.SetPropCapacity(decision.SetPropShared, sets) < int(part.N) {
+				e.abortCast(pc, "reveal cost no longer payable; cast aborted", true)
+				return true
+			}
+			if len(cands) == int(part.N) {
+				pc.reveals = append(pc.reveals, cands...)
+				for range cands {
+					pc.revealHandArm = append(pc.revealHandArm, true)
+				}
+				pc.revealPart++
+				continue
+			}
+			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
+				Prompt: "Choose cards to reveal", Source: pc.card,
+				SetPropMode: decision.SetPropShared}
+			for _, id := range cands {
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "revealcost", Obj: id,
+					SetProps: e.setPropTokens("color", id), Label: e.targetName(id)})
+			}
+			e.choosing = chooseCast
+			e.ask(d)
+			return true
+		}
+		candidates := e.costCandidates(pc.player, pc.card, state.ZHand, part.Spec, !pc.isAbility(), false)
 		if len(candidates) < int(part.N) {
 			e.abortCast(pc, "reveal cost no longer payable; cast aborted", true)
 			return true
@@ -3673,6 +3963,33 @@ func (e *Engine) tapPermanentCostAsk() bool {
 				}
 			}
 			candidates = kept
+		}
+		if isNamedCountPart(part) {
+			// A named-announcement count (Explosive Singularity's Announce$
+			// Tapped): namedAnnounceAsk already fixed how many; tap exactly
+			// that many. A shrunken board is the unpayable abort.
+			n := int(pc.namedN)
+			if n > len(candidates) {
+				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
+				return true
+			}
+			if n == 0 {
+				pc.tapPart++
+				continue
+			}
+			if n == len(candidates) {
+				pc.taps = append(pc.taps, candidates...)
+				pc.tapPart++
+				continue
+			}
+			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: n, Max: n,
+				Prompt: "Choose permanents to tap", Source: pc.card}
+			for _, id := range candidates {
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)})
+			}
+			e.choosing = chooseCast
+			e.ask(d)
+			return true
 		}
 		if part.Dyn != "" {
 			// The dynamic tapXType heads (dynTapCost's doc). An X-form part whose
@@ -3916,8 +4233,9 @@ func (e *Engine) exAsk() bool {
 			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(pc.isAbility())) {
 				continue
 			}
-			match := e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card)
-			if sc != nil {
+			wholeZone := isWholeZoneExileSpec(part.Spec)
+			match := wholeZone || e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card)
+			if sc != nil && !wholeZone {
 				match = e.matchesSpec(part.Spec, oid, *sc)
 			}
 			if match {
@@ -3937,11 +4255,25 @@ func (e *Engine) exAsk() bool {
 		if part.Announced {
 			n = int(pc.x)
 		}
-		if n < 0 || n > len(candidates) || (!part.Announced && n == 0) {
+		named := isNamedCountPart(part)
+		if named {
+			n = int(pc.namedN)
+		}
+		if n < 0 || n > len(candidates) || (!part.Announced && !named && n == 0) {
 			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
 			return true
 		}
 		if n == 0 {
+			pc.exilePart++
+			continue
+		}
+		if isWholeZoneExileSpec(part.Spec) {
+			// ExileFromHand<1/All> pays the WHOLE zone and never asks: every
+			// candidate is the payment (the isWholeZoneExileSpec reading the
+			// triggered window's arm takes). The count check above still
+			// demands part.N cards. No cast/activation corpus carrier exists
+			// today; the wiring keeps the paths from diverging.
+			pc.exiles = append(pc.exiles, candidates...)
 			pc.exilePart++
 			continue
 		}
@@ -4692,8 +5024,14 @@ func (e *Engine) xAsk() bool {
 			blightX = true
 		}
 	}
+	discardX := false
+	for _, part := range pc.cost.Discard {
+		if part.Announced {
+			discardX = true
+		}
+	}
 	lifeXCount := len(pc.cost.LifeX)
-	if pc.cost.X <= 0 && !energyX && !sacX && !exileX && !subCounterX && !blightX && lifeXCount == 0 {
+	if pc.cost.X <= 0 && !energyX && !sacX && !exileX && !subCounterX && !blightX && !discardX && lifeXCount == 0 {
 		return false
 	}
 	min := int32(0)
@@ -4735,6 +5073,15 @@ func (e *Engine) xAsk() bool {
 		}
 	}
 	bound := pool.Total() + gy + credit + 1
+	// A named-announcement discount (the March cycle's "{2} less for each
+	// card exiled this way") is a generic reduction the X can spend: the
+	// ceiling rises by the composed reduction at the announced count, or an
+	// X affordable only through it would never be offered.
+	if costHasNamedCount(pc.cost) {
+		for _, red := range e.manaToPayXMods(pc, 0).reduces {
+			bound = addClampedGeneric(bound, int64(red.generic))
+		}
+	}
 	// A PayEnergy<X> cost part pays the SAME announced X in energy counters
 	// (Forge CostPayEnergy.getMaxAmountX bounds a dynamic PayEnergy by the
 	// payer's energy total). When the energy part is the ONLY X the cost
@@ -4811,6 +5158,13 @@ func (e *Engine) xAsk() bool {
 	// mana X -- and when another announced X also exists each cap min-clamps
 	// the shared X (CR 601.2b's announcement must be one the payment can
 	// settle).
+	// An announced Discard<X/Spec> (Aether Tide) discards exactly X matching
+	// cards, so X is capped by the matching cards in hand.
+	for _, part := range pc.cost.Discard {
+		if part.Announced {
+			applyCap(int32(len(e.discardCandidates(pc.player, pc.card, part, !pc.isAbility(), nil))))
+		}
+	}
 	for _, part := range pc.cost.Exile {
 		if !part.Announced {
 			continue
@@ -4880,19 +5234,55 @@ func (e *Engine) xAsk() bool {
 	// cost keeps the early break (generic only grows with x, so nothing
 	// past the first unpayable x can be payable).
 	nonMonotonic := costAnnouncesPaidX(pc.cost)
+	// The target-dependent retry's statics are collected lazily, on the first
+	// candidate X the ordinary nil-target price cannot settle, and reused for
+	// the rest of the loop.
+	var xStatics costStaticViews
+	xStaticsLoaded := false
 	for x := min; x <= bound; x++ {
 		// The offer sweep and the announcement must agree on whether the
 		// SAME X can settle every Sac part without reusing an object.
 		if sacX && !e.sacrificeCostAssignable(pc.player, pc.card, pc.cost.Sac, pc.isAbility(), x) {
 			continue
 		}
+		var potentialMods costMods
+		usedPotential := false
 		wx := e.paymentManaX(pc, x)
 		wx.Generic -= e.delveCredit(pc.player, pc.card, wx.Generic)
 		// The descriptor carries the announced-X marker: WithX folded this
 		// payment's X into Generic, and a CostContainsX batch must still see
 		// an X payment here or every X announcement would be unpayable.
-		if !e.costPayableClass(pc.player, paymentForCast(pc, wx),
-			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, wx) {
+		payable := e.costPayableClass(pc.player, paymentForCast(pc, wx),
+			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, wx)
+		if !payable {
+			// A target-dependent reduction is absent from the nil-target
+			// composition pc.mods carries, so an X affordable only under it
+			// (Lullmage's Domination) would be withheld. Retry through the
+			// same potential-target composition the offer gate uses; the
+			// chosen target is repriced at CR 601.2c before payment, so this
+			// only widens the menu to X some legal target can pay.
+			if !xStaticsLoaded {
+				xStatics = e.collectCostStatics()
+				xStaticsLoaded = true
+				// A target-dependent reduction does not price monotonically in
+				// x: the candidate targets an X legalizes differ per X (a cmc-1
+				// creature may qualify where a cmc-2 one does not, and vice
+				// versa), so an unpayable X does not imply every larger X is
+				// unpayable. Suppress the early break for the rest of the loop
+				// exactly as costAnnouncesPaidX does for the Dargo shape.
+				if xStatics.validTarget {
+					nonMonotonic = true
+				}
+			}
+			if m, ok := e.xTargetPotentialMods(pc, x, xStatics); ok {
+				potentialMods = m
+				wx = e.paymentManaXUsing(pc, x, m)
+				wx.Generic -= e.delveCredit(pc.player, pc.card, wx.Generic)
+				payable = true
+				usedPotential = true
+			}
+		}
+		if !payable {
 			if !nonMonotonic {
 				break
 			}
@@ -4910,7 +5300,16 @@ func (e *Engine) xAsk() bool {
 		// breaking: absorption improves monotonically with x. Without
 		// announced contributions the absorb check is vacuously true, so
 		// the offer is exactly the old payable range.
-		if !e.convokeAbsorbs(pc, e.manaToPayX(pc, x), pc.convoke, false) {
+		convMana := e.manaToPayX(pc, x)
+		if usedPotential {
+			convMana = e.manaToPayXUsing(pc, x, potentialMods)
+		}
+		if !e.convokeAbsorbs(pc, convMana, pc.convoke, false) {
+			continue
+		}
+		// Waterbend taps pay only the waterbend amount, which a Waterbend<X>
+		// raise ties to this X.
+		if waterbendTaps(pc.convoke) > pc.mods.waterbend+pc.mods.raiseX*x {
 			continue
 		}
 		legal = append(legal, x)
@@ -4951,6 +5350,48 @@ func (e *Engine) xAsk() bool {
 	return true
 }
 
+// xTargetPotentialMods prices candidate X through the potential-target retry
+// the offer gate uses: a ReduceCost static that reads the chosen targets
+// (ValidTarget$, a target-conditional ValidSpell$, or a target-relative
+// Count$Compare Amount$) is absent from pc.mods, which was priced with no
+// targets. Lullmage's Domination is the corpus carrier: its {3} reduction
+// hinges on the controller of the creature it targets, so with only {U}{U}{U}
+// available X=1 is payable only after a qualifying target is chosen. xAsk runs
+// before CR 601.2c, so without this the X menu offered only X=0 and the
+// reduction was unusable for nonzero X. The candidate X is bound while the
+// potential targets are enumerated so an X-dependent ValidTgts$ (cmcEQX)
+// resolves. ok=false means no potential-target composition made X payable, in
+// which case the caller keeps the ordinary fail-closed break. The final
+// selection is still repriced before payment (repriceForTargets and
+// affordableTargetCandidates), so this only widens the MENU to X values some
+// legal target choice can pay.
+func (e *Engine) xTargetPotentialMods(pc *pendingCast, x int32, statics costStaticViews) (costMods, bool) {
+	if !statics.validTarget {
+		return costMods{}, false
+	}
+	scope, ok := e.pendingCastScope(pc)
+	if !ok {
+		return costMods{}, false
+	}
+	// Bind the candidate X for the target census: targetSpecContext reads
+	// e.cast.x, so an X-bound ValidTgts$ (Creature.cmcEQX) enumerates exactly
+	// the targets X would legalize. Restored immediately; pc.x is only
+	// assigned the announcement after the decision is answered.
+	prevX := pc.x
+	pc.x = x
+	targets := e.costPotentialTargets(pc.player, pc.card, scope)
+	pc.x = prevX
+	if len(targets) == 0 {
+		return costMods{}, false
+	}
+	return e.potentialCostModsUsing(statics, pc.player, pc.card, scope, targets, x, func(m costMods) bool {
+		w := e.paymentManaXUsing(pc, x, m)
+		w.Generic -= e.delveCredit(pc.player, pc.card, w.Generic)
+		return e.costPayableClass(pc.player, paymentForCast(pc, w),
+			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, w)
+	})
+}
+
 // delveAsk offers exiling graveyard cards to pay for id's Delve, when id has
 // Delve, the caster's graveyard is non-empty and the resolved cost still
 // carries a generic requirement to reduce. Runs at most once (delveDone).
@@ -4963,7 +5404,7 @@ func (e *Engine) delveAsk() bool {
 		return false
 	}
 	pc.delveDone = true
-	if !e.HasKeyword(pc.card, "Delve") {
+	if !e.hasKeywordH(pc.card, kwhDelve) {
 		return false
 	}
 	gy := e.G.Zone(state.ZGraveyard, pc.player)
@@ -5496,6 +5937,15 @@ func (e *Engine) discardAsk() bool {
 			continue
 		}
 		n := int(part.N)
+		if part.Announced {
+			// The announced Discard<X/Spec>: exactly the announced X, and
+			// X = 0 discards nothing.
+			n = int(pc.x)
+			if n == 0 {
+				pc.discardPart++
+				continue
+			}
+		}
 		if n <= 0 || n > len(candidates) {
 			e.abortCast(pc, "discard cost no longer payable; cast/activation aborted", true)
 			return true
@@ -6322,12 +6772,14 @@ func (e *Engine) targetDependentCostMayPay(pc *pendingCast) bool {
 	if !ok {
 		return false
 	}
-	mods := e.costModifiersForPotentialTargets(pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope))
 	delve := int32(0)
 	if !pc.isAbility() {
 		delve = int32(len(pc.delve))
 	}
-	return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType})
+	_, ok = e.potentialCostModsUsing(e.collectCostStatics(), pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope), 0, func(mods costMods) bool {
+		return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType})
+	})
+	return ok
 }
 
 // pendingCastScope returns the exact spell or ability scope whose modifiers
@@ -6574,7 +7026,9 @@ func costAnnouncesPaidX(c Cost) bool {
 			return true
 		}
 	}
-	return false
+	// A named-announcement count (the March cycle's Exiled, Explosive
+	// Singularity's Tapped) feeds its Relative$ ReduceCost the same way.
+	return costHasNamedCount(c)
 }
 
 // manaToPayX is manaToPay with {X} folded to an explicit value.
@@ -6937,7 +7391,15 @@ func (e *Engine) paymentMana(pc *pendingCast) Cost {
 // folded into the total. xAsk uses it so an X value funded by Convoke or
 // Harmonize is actually offered, not rejected before the payment is known.
 func (e *Engine) paymentManaX(pc *pendingCast, x int32) Cost {
-	return e.applyConvoke(pc, e.manaToPayX(pc, x))
+	return e.paymentManaXUsing(pc, x, e.manaToPayXMods(pc, x))
+}
+
+// paymentManaXUsing is paymentManaX with an explicit modifier composition
+// (xAsk's target-potential retry), so the announced Convoke/Harmonize
+// contributions are folded onto the alternatively-priced total exactly as
+// they are onto the ordinary one.
+func (e *Engine) paymentManaXUsing(pc *pendingCast, x int32, mods costMods) Cost {
+	return e.applyConvoke(pc, e.manaToPayXUsing(pc, x, mods))
 }
 
 func convokeManaSpent(pays []convokePayment) int32 {
@@ -7196,6 +7658,8 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 			pays = append(pays, convokePayment{id: o.Obj, power: int32(o.Amount)})
 		case o.Kind == "improvise_generic":
 			pays = append(pays, convokePayment{id: o.Obj})
+		case o.Kind == "waterbend_generic":
+			pays = append(pays, convokePayment{id: o.Obj, waterbend: true})
 		case strings.HasPrefix(o.Kind, "convoke_"):
 			color := byte(0)
 			if o.Kind != "convoke_generic" {
@@ -7209,6 +7673,12 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	all := append(append([]convokePayment(nil), pc.convoke...), pays...)
 	if !e.convokeAbsorbs(pc, e.manaToPay(pc), all, pc.cost.X > 0) {
 		return fmt.Errorf("announcement reduces nothing: the outstanding cost cannot absorb every chosen contribution")
+	}
+	// Waterbend taps pay only the waterbend amount. A Waterbend<X> cap is
+	// not known until X is announced; xAsk offers only the X values whose
+	// cap covers the announced taps.
+	if pc.mods.raiseX == 0 && waterbendTaps(all) > pc.mods.waterbend {
+		return fmt.Errorf("more permanents tapped than the waterbend cost allows")
 	}
 	return nil
 }
@@ -7225,7 +7695,11 @@ func (e *Engine) convokeAsk() bool {
 	isConvoke := e.hasCastConvoke(pc.card)
 	isHarmonize := pc.mode == "harmonize"
 	isImprovise := e.hasCastImprovise(pc.card)
-	if !isConvoke && !isHarmonize && !isImprovise {
+	// A RaiseCost Waterbend<N>/<X> additional cost (Water Whip, Crashing
+	// Wave): each untapped artifact or creature tapped while paying it pays
+	// for {1} of the waterbend amount.
+	isWaterbend := pc.mods.waterbend > 0 || pc.mods.waterbendX
+	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend {
 		return false
 	}
 	mana := e.manaToPay(pc)
@@ -7276,10 +7750,28 @@ func (e *Engine) convokeAsk() bool {
 		// pay one generic. The shared payment group makes the object's
 		// Convoke and Improvise options mutually exclusive, so one artifact
 		// can never be committed to both payments.
+		genericOffered := false
 		if isImprovise && o.EffectiveIsArtifact() && (mana.Generic > 0 || hasX) {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "improvise_generic", Obj: id,
 				Group: group, Label: "Tap " + o.Face().Name + " for 1"})
 			sawArtifact = true
+			genericOffered = true
+		}
+		if isConvoke && o.EffectiveIsCreature() && (mana.Generic > 0 || hasX) {
+			genericOffered = true
+		}
+		// Waterbend: an artifact or creature not already offered a generic
+		// payment by the spell's own Convoke/Improvise may tap for {1} of
+		// the waterbend amount (the same payment group keeps one object to
+		// one contribution).
+		if isWaterbend && !genericOffered && (o.EffectiveIsArtifact() || o.EffectiveIsCreature()) && (mana.Generic > 0 || hasX) {
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "waterbend_generic", Obj: id,
+				Group: group, Label: "Tap " + o.Face().Name + " to waterbend for 1"})
+			if o.EffectiveIsCreature() {
+				sawCreature = true
+			} else {
+				sawArtifact = true
+			}
 		}
 	}
 	if len(d.Options) == 0 {
@@ -7309,21 +7801,42 @@ func (e *Engine) convokeAsk() bool {
 			d.Max = slots
 		}
 	}
+	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.raiseX == 0 && int(pc.mods.waterbend) < d.Max {
+		// Only waterbend taps are offered: at most the waterbend amount.
+		d.Max = int(pc.mods.waterbend)
+	}
 	e.choosing = chooseCast
 	e.ask(d)
 	return true
 }
 
 func (e *Engine) manaToPayX(pc *pendingCast, x int32) Cost {
-	m := pc.mods.apply(pc.resolvedManaX(x))
+	return e.manaToPayXUsing(pc, x, e.manaToPayXMods(pc, x))
+}
+
+// manaToPayXMods is the modifier composition manaToPayX applies to a
+// candidate X: pc.mods, except that a cost whose announced count feeds a
+// ReduceCost static reading the paid X (Dargo's {2}-less-per-sacrifice) is
+// re-priced with the X-bound targets, because the offer-time pc.mods snapshot
+// was bound to X=0. xAsk reads it so the convoke-absorption check and the
+// potential-target retry compose the SAME modifiers the payable check used.
+func (e *Engine) manaToPayXMods(pc *pendingCast, x int32) costMods {
 	if costAnnouncesPaidX(pc.cost) {
-		// The announced sacrifice count re-prices the ReduceCost statics that
-		// read the paid X (Dargo's {2}-less-per-sacrifice): the offer-time
-		// pc.mods snapshot was bound to X=0.
 		if scope, ok := e.pendingCastScope(pc); ok {
-			m = e.costModifiersForTargetsX(pc.player, pc.card, scope, pc.targets, x).apply(pc.resolvedManaX(x))
+			return e.costModifiersForTargetsX(pc.player, pc.card, scope, pc.targets, x)
 		}
 	}
+	return pc.mods
+}
+
+// manaToPayXUsing is manaToPayX with an explicit modifier composition.
+// xAsk's target-potential retry prices a candidate X under the reduction a
+// potential target would give (mods is then the potential composition); every
+// other caller passes manaToPayXMods. The commander tax is folded in the same
+// place as manaToPayX, so an alternative composition charges the identical
+// total.
+func (e *Engine) manaToPayXUsing(pc *pendingCast, x int32, mods costMods) Cost {
+	m := mods.apply(pc.resolvedManaX(x))
 	m.Generic += pc.taxGeneric
 	return m
 }
@@ -7592,6 +8105,10 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		// positional rather than label-based so a translated label cannot alter
 		// the payment semantics.
 		pc.manaConvertUse = len(chosen) > 0 && chosen[0].Index == 0
+	case "named_announce":
+		if len(chosen) > 0 {
+			pc.namedN = int32(chosen[0].Amount)
+		}
 	case "x":
 		if len(chosen) > 0 {
 			// The value rides on Option.Amount, not Option.Index: xAsk is the
@@ -7840,13 +8357,14 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.payGeneric += int32(chosen[0].Amount)
 		}
 		pc.payIdx++
-	case "convoke_W", "convoke_U", "convoke_B", "convoke_R", "convoke_G", "convoke_generic", "improvise_generic":
+	case "convoke_W", "convoke_U", "convoke_B", "convoke_R", "convoke_G", "convoke_generic", "improvise_generic", "waterbend_generic":
 		for _, choice := range chosen {
 			color := byte(0)
-			if choice.Kind != "convoke_generic" && choice.Kind != "improvise_generic" {
+			if strings.HasPrefix(choice.Kind, "convoke_") && choice.Kind != "convoke_generic" {
 				color = choice.Kind[len("convoke_")]
 			}
-			pc.convoke = append(pc.convoke, convokePayment{id: choice.Obj, color: color, countsMana: strings.HasPrefix(choice.Kind, "convoke_")})
+			pc.convoke = append(pc.convoke, convokePayment{id: choice.Obj, color: color,
+				countsMana: strings.HasPrefix(choice.Kind, "convoke_"), waterbend: choice.Kind == "waterbend_generic"})
 		}
 	case "harmonize":
 		for _, choice := range chosen {
@@ -9648,6 +10166,13 @@ func (e *Engine) emitChoiceCosts(pc *pendingCast) {
 		}
 		return strings.Join(out, ", ")
 	}
+	// A whole-hand Reveal part paid with an empty hand (Land Grant with no
+	// other cards in hand): nothing else would appear in the log, so emit the
+	// empty reveal as its own public note.
+	if pc.revealedEmptyHand {
+		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
+			Text: "revealed no cards (an empty hand) as a cost"})
+	}
 	if len(pc.reveals) > 0 {
 		// Split the paid list by arm: an announced hand reveal (a plain Reveal
 		// card, the REVEAL arm of an either-or cost, or any legacy entry with no
@@ -9684,6 +10209,28 @@ func (e *Engine) emitChoiceCosts(pc *pendingCast) {
 	if len(pc.beholds) > 0 {
 		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
 			IDs: append([]state.ObjID(nil), pc.beholds...), Text: "beheld " + names(pc.beholds) + " as a cost"})
+		// BeholdExile<N/Spec> parts (CostPart.ThenExile): the beheld objects
+		// are exiled as the rest of the same payment. beholdCostAsk records
+		// each part's N objects in part order, so the paid list is sliced by
+		// part. The MoveZone carries the paying source in IDs, the event-
+		// derived ExiledWith provenance the Champion cycle's "return the
+		// exiled card to its owner's hand" (Defined$ ExiledWith) reads.
+		at := 0
+		for _, part := range pc.cost.Behold {
+			n := int(part.N)
+			if at+n > len(pc.beholds) {
+				break
+			}
+			if part.ThenExile {
+				for _, id := range pc.beholds[at : at+n] {
+					if o := e.G.Obj(id); o != nil && o.Zone != state.ZExile {
+						e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile,
+							IDs: []state.ObjID{pc.card}, Text: "exiled as a cost"})
+					}
+				}
+			}
+			at += n
+		}
 	}
 	for _, id := range pc.taps {
 		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
@@ -9981,6 +10528,9 @@ func (e *Engine) payCast() {
 		for _, part := range pc.cost.DamageYou {
 			e.payDamageCost(pc.player, part.N, pc.card, sourceKeywordLKI, sourceControllerLKI)
 		}
+		// GainLife<N/Player...> cost parts (see payGainLifeCost): every player
+		// the part names relative to the payer gains N life.
+		e.payGainLifeCost(pc.player, pc.cost.GainLife)
 		// Mill cost parts (Mill<N>): the payer mills the summed requirement
 		// from the top of their library as part of the payment.
 		e.payMillCostParts(pc)
@@ -10241,6 +10791,7 @@ func (e *Engine) payCast() {
 	for _, part := range pc.cost.DamageYou {
 		e.payDamageCost(pc.player, part.N, pc.card, sourceKeywordLKI, sourceControllerLKI)
 	}
+	e.payGainLifeCost(pc.player, pc.cost.GainLife)
 	e.payDrawCostParts(pc)
 	// Return cost parts (see the ability branch above for the why).
 	for _, id := range pc.returns {
@@ -10420,6 +10971,18 @@ func (e *Engine) payCast() {
 	// pin, no K:Replicate carrier's mana value carries {X}, so the
 	// single-event shape below is the live path; the defensive two-event
 	// split keeps the two provenances distinct should one ever pair.
+	// A MayPlayText$-typed permission (rules/mayplay.go): stamp the
+	// permission token on the pay-time CastInfo so mayPlayTypedLimitReached
+	// can attribute the play to the static that granted it. The token rides
+	// the Counter as an extra comma-separated field, which FlagsFrom ignores
+	// (the CastFlags word is unaffected). It is appended ONLY to the main
+	// CastInfo emission below, so a face whose trailing provenance events
+	// (converge, mana spend) also carry `flags` cannot count the permission
+	// twice; an untyped cast (empty mayPlayPerm) is byte-identical.
+	permSuffix := ""
+	if pc.mayPlayPerm != "" {
+		permSuffix = ",perm=" + pc.mayPlayPerm
+	}
 	repCount := int32(0)
 	if pc.mode == "replicated" {
 		repCount = pc.replicateTimes
@@ -10429,14 +10992,14 @@ func (e *Engine) payCast() {
 	}
 	if repCount > 0 && pc.x != 0 {
 		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: pc.x,
-			Counter: events.FlagsString(events.FlagsFrom(flags) &^ state.FlagReplicated)})
+			Counter: events.FlagsString(events.FlagsFrom(flags)&^state.FlagReplicated) + permSuffix})
 		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: repCount, Counter: flags})
 	} else if pc.x != 0 || flags != "" {
 		amt := pc.x
 		if repCount > 0 {
 			amt = repCount
 		}
-		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: amt, Counter: flags})
+		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: amt, Counter: flags + permSuffix})
 	}
 	// Squad (CR 702.66): the payment count rides its own TRAILING pay-time
 	// CastInfo -- the flag routes the Amount into Object.SquadPaid (events.Apply's
@@ -11443,6 +12006,7 @@ func castWindowOtherPartsAbsent(c Cost) bool {
 		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 &&
 		len(c.Exert) == 0 && !c.Forage && !c.LifeHalfUp && len(c.Draw) == 0 &&
 		len(c.Energy) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&
+		len(c.GainLife) == 0 &&
 		len(c.Return) == 0 && len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 &&
 		len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 &&
 		len(c.Unknown) == 0 && len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 &&

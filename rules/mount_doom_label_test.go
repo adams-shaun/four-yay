@@ -19,6 +19,7 @@ const mountDoomSrc = "Name:Mount Doom\nManaCost:no cost\nTypes:Legendary Land\n"
 	"Oracle:{T}, Pay 1 life: Add {B} or {R}.\n"
 
 func TestMountDoomColorOptionsNameTheLifePayment(t *testing.T) {
+	t.Parallel()
 	e, _, doom := manaSourceEngine(t, mountDoomSrc)
 	life := lifeOf(t, e, 0)
 	activateMana(t, e, doom)
@@ -50,6 +51,7 @@ func TestMountDoomColorOptionsNameTheLifePayment(t *testing.T) {
 // object reads with an article, N > 1 keeps its number, and an exile names
 // its origin zone. Every case is a shape the corpus actually carries.
 func TestManaAbilityCostPhraseArticleForms(t *testing.T) {
+	t.Parallel()
 	cases := []struct{ raw, want string }{
 		{"T Sac<1/Creature>", "sacrifice a creature"},
 		{"T Sac<1/Artifact>", "sacrifice an artifact"},

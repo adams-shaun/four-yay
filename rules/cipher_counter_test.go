@@ -60,6 +60,7 @@ func drainCipherEncodeAsk(t *testing.T, e *Engine, limit int) bool {
 // encode ask, so the negative assertion cannot pass because the feature was
 // never wired.
 func TestCipherCounteredSpellDoesNotEncode(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherProbeSrc)
 	if !cipherHasResolutionTail(probe) {
@@ -105,6 +106,7 @@ func TestCipherCounteredSpellDoesNotEncode(t *testing.T) {
 // is the fizzle sibling of the countered case above; the control there proves
 // the resolution path poses the ask.
 func TestCipherFizzledSpellDoesNotEncode(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherProbeSrc)
 	if !cipherHasResolutionTail(probe) {

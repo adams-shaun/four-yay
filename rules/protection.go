@@ -354,6 +354,9 @@ func (e *Engine) cantPreventDamage(damageSource, target state.ObjID) bool {
 func init() {
 	effects.RegisterNonAPI("kw:Protection", "kw:Protection from white", "kw:Protection from blue",
 		"kw:Protection from black", "kw:Protection from red", "kw:Protection from green",
+		// Progenitus's printed "Protection from everything": sourceHasQuality
+		// already answers the "everything" quality true for any source.
+		"kw:Protection from everything",
 		"stat:CantPreventDamage")
 	// kw:Hexproof is the plain keyword and every parameterised K:Hexproof:<Spec>
 	// form (KeywordHead collapses them onto the same head); enforcement lives

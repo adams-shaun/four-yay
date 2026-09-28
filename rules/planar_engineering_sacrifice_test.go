@@ -111,6 +111,7 @@ func objName(t *testing.T, e *Engine, id state.ObjID) string {
 //     honours the answer;
 //  4. the four searched lands enter the battlefield tapped.
 func TestPlanarEngineeringSacrificeTwoLandsAsksAndHonoursTheAnswer(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := planarTestEngine(t, reg, "Forest", "Mountain", "Rockfall Vale", "Swamp", "Island", "Forest", "Mountain")
 	d := castPlanar(t, e)
@@ -212,6 +213,7 @@ func TestPlanarEngineeringSacrificeTwoLandsAsksAndHonoursTheAnswer(t *testing.T)
 // ask would have no answer anyone could give differently. The very next ask
 // is the search.
 func TestPlanarEngineeringSacrificeNoAskWhenEligibleLEAmount(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := planarTestEngine(t, reg)
 	land0 := searchMoveByName(t, e, "Rockfall Vale", state.ZBattlefield)
@@ -244,6 +246,7 @@ func TestPlanarEngineeringSacrificeNoAskWhenEligibleLEAmount(t *testing.T) {
 // battlefield at all the sacrifice half is a no-op with no ask, and the
 // search half still runs.
 func TestPlanarEngineeringZeroEligibleSacrificesNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := planarTestEngine(t, reg)
 	d := castPlanar(t, e)

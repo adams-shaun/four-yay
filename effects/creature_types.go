@@ -93,3 +93,8 @@ var permanentTypeWords = map[string]bool{
 	"Artifact": true, "Battle": true, "Creature": true, "Enchantment": true,
 	"Land": true, "Planeswalker": true,
 }
+
+// CardTypeWord reports whether w is a CR 205.2a card type word (the
+// cardTypeWords vocabulary, plus Kindred -- the current spelling of the
+// Tribal type).
+func CardTypeWord(w string) bool { return cardTypeWords[w] || w == "Kindred" }

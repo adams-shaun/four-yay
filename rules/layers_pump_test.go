@@ -16,6 +16,7 @@ import (
 // really works," which is the whole reason this task exists: before this
 // wiring, effPump only emitted a Note and the target's stats never moved.
 func TestPumpSpellChangesPowerAndToughnessThroughTheLayerSystem(t *testing.T) {
+	t.Parallel()
 	growth := card(t, "Name:Giant Growth\nManaCost:G\nTypes:Instant\n"+
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +3 | NumDef$ +3\nOracle:x\n")
 	e := handEngine(t, growth)
@@ -68,6 +69,7 @@ func TestPumpSpellChangesPowerAndToughnessThroughTheLayerSystem(t *testing.T) {
 // toughness swing is what actually kills most creatures it targets; asserting
 // the drop is what proves this is real removal, not a logged no-op.
 func TestDismemberShapedPumpReducesToughness(t *testing.T) {
+	t.Parallel()
 	dismember := card(t, "Name:Dismember\nManaCost:1 B\nTypes:Instant\n"+
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ -5 | NumDef$ -5\nOracle:x\n")
 	e := handEngine(t, dismember)

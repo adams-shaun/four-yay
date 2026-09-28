@@ -46,6 +46,7 @@ func blocksCombatEngine(t *testing.T, active state.PlayerID) *Engine {
 // declaration queues the Blocks trigger on top, so each half creates one
 // Food, the attack half first.
 func TestSavvyHunterBlocksCreatesFood(t *testing.T) {
+	t.Parallel()
 	hunter := mshCorpusCard(t, "Savvy Hunter")
 	// The ATTACK half (the control arm, trig:Attacks): the Hunter attacks, a
 	// Memnite blocks it; the drain resolves the Attacks trigger pushed at
@@ -91,6 +92,7 @@ func TestSavvyHunterBlocksCreatesFood(t *testing.T) {
 // are two trigger instances in one declaration, and the damage lands on the
 // BLOCKER's controller, never the attacker's.
 func TestBlocksTriggerFiresPerPair(t *testing.T) {
+	t.Parallel()
 	hob := mshCorpusCard(t, "Heat of Battle")
 	e := blocksCombatEngine(t, 0)
 	onBoardCard(t, e, 0, hob)
@@ -145,6 +147,7 @@ func TestBlocksTriggerFiresPerPair(t *testing.T) {
 // of Battle's TriggeredBlockerController damages the blocker's controller,
 // never the attacker's.
 func TestBlocksTriggerBlockerReferents(t *testing.T) {
+	t.Parallel()
 	wand := mshCorpusCardPath(t, "Wand of Orcus", "w/wand_of_orcus.txt")
 	e := blocksCombatEngine(t, 1)
 	h := onBoard(t, e, 0, "Name:Kor Outfitter\nManaCost:1 W\nTypes:Creature Kor Cleric\nPT:2/2\nOracle:x\n")
@@ -196,6 +199,7 @@ func TestBlocksTriggerBlockerReferents(t *testing.T) {
 // declaration pair a non-bearer blocks, and a declaration where the bearer
 // does not block queues nothing.
 func TestBlocksTriggerAttachedBearer(t *testing.T) {
+	t.Parallel()
 	bond := mshCorpusCardPath(t, "Contaminated Bond", "c/contaminated_bond.txt")
 	e := blocksCombatEngine(t, 1)
 	h := onBoard(t, e, 0, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -276,6 +280,7 @@ func TestBlocksTriggerAttachedBearer(t *testing.T) {
 // spelling -- ValidTgts$ Opponent with no NewController$ -- is a separate,
 // pre-existing engine gap; see this round's report.)
 func TestBlocksTriggerValidBlockedGatesAttacker(t *testing.T) {
+	t.Parallel()
 	rashka := mshCorpusCard(t, "Rashka the Slayer")
 	black := "Name:Black Rat\nManaCost:B\nTypes:Creature Rat\nPT:1/1\nOracle:x\n"
 	mem := "Name:Memnite\nManaCost:0\nTypes:Artifact Creature Construct\nPT:1/1\nOracle:x\n"
@@ -358,6 +363,7 @@ func TestBlocksTriggerValidBlockedGatesAttacker(t *testing.T) {
 // half is the attacker the bearer blocked, so the choice pool holds exactly
 // the attacker and the answer exiles it.
 func TestGodsendBlocksOffersTheAttacker(t *testing.T) {
+	t.Parallel()
 	godsend := mshCorpusCardPath(t, "Godsend", "g/godsend.txt")
 	e := blocksCombatEngine(t, 1)
 	h := onBoard(t, e, 0, "Name:Kor Outfitter\nManaCost:1 W\nTypes:Creature Kor Cleric\nPT:2/2\nOracle:x\n")
@@ -395,6 +401,7 @@ func TestGodsendBlocksOffersTheAttacker(t *testing.T) {
 // whole block flow driven through the same intents on a Clone produces the
 // identical event log.
 func TestBlocksTriggerCloneReplaysExactly(t *testing.T) {
+	t.Parallel()
 	hunter := mshCorpusCard(t, "Savvy Hunter")
 	e := blocksCombatEngine(t, 1)
 	h := onBoardCard(t, e, 0, hunter)
@@ -421,6 +428,7 @@ func TestBlocksTriggerCloneReplaysExactly(t *testing.T) {
 // support declaration (the Exerted pins' shape): the mode is eligible on
 // DeclareBlockers only, and cmd/forgec's report reads effects.Supported.
 func TestBlocksModeEligibilityMask(t *testing.T) {
+	t.Parallel()
 	m := triggerModeEvents("Blocks")
 	if !m.allows(events.DeclareBlockers) {
 		t.Fatal("triggerModeEvents(Blocks) does not allow events.DeclareBlockers")

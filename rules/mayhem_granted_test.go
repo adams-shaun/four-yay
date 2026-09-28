@@ -11,6 +11,7 @@ import (
 // continuous grant: its Mayhem:CardManaCost placeholder becomes the affected
 // card's own mana cost before the Mayhem cast is priced.
 func TestNormanOsbornGrantsMayhemAtCardManaCost(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t,
 		corpusAlternativeCard(t, "Norman Osborn"),
 		corpusAlternativeCard(t, "Grizzly Bears"),
@@ -71,6 +72,7 @@ const mayhemSacSpellSrc = "Name:Mayhem Sac Spell\nManaCost:9\nTypes:Sorcery\n" +
 // SpellAbility Cost$. A cast that cannot sacrifice its required creature must
 // not be offered; after a real creature enters, the same option must appear.
 func TestGrantedMayhemOfferIncludesSpellAbilityAdditionalCost(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t,
 		card(t, mayhemGrantSrc),
 		card(t, mayhemSacSpellSrc),

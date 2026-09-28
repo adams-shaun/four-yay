@@ -35,6 +35,7 @@ const effectTriggerSelfExileSrc = "Name:Fixture Effect Trigger\nTypes:Creature\n
 // trigger's self-exile body ends that registration. Without the trigger-path
 // frame the registration survives (see the report's "Fails without the fix").
 func TestEffectTriggerBodySelfExileEndsTheEffect(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.pending = nil
 	src := onBoard(t, e, 0, effectTriggerSelfExileSrc)
@@ -72,6 +73,7 @@ func TestEffectTriggerBodySelfExileEndsTheEffect(t *testing.T) {
 // false) must survive the Effect's source-scoped self-exile, so the ender
 // cannot be mistaken for "end everything from this source".
 func TestEffectTriggerBodySelfExileLeavesPrintedStatics(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.pending = nil
 	src := onBoard(t, e, 0, effectTriggerSelfExileSrc)
@@ -114,6 +116,7 @@ func TestEffectTriggerBodySelfExileLeavesPrintedStatics(t *testing.T) {
 // had no frame at all (the Effect was registered by an ordinary spell
 // ability, not a replacement body), so the idiom ended nothing.
 func TestEffectChainSelfExileEndsTheEffect(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.pending = nil
 	line := "Name:Fixture Chain Effect\nTypes:Sorcery\n" +

@@ -75,6 +75,7 @@ func answerProtector(t *testing.T, e *Engine) {
 // must enter with Counter("DEFENSE") equal to its printed Defense. Invasion
 // of Tolvada prints Defense:5.
 func TestBattleEntersWithPrintedDefense(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, id := battleBoard(t, reg, "Invasion of Tolvada")
 	o := e.G.Obj(id)
@@ -93,6 +94,7 @@ func TestBattleEntersWithPrintedDefense(t *testing.T) {
 // poses a real choice of opponent to protect it, and the answer is recorded
 // through a Choose "protector" event (never a direct field write).
 func TestSiegeEntryPosesProtectorChoice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	battle := mustCorpusCard(t, reg, "Invasion of Tolvada")
 	deck := append([]*cards.Card{battle}, mountainDeck(t, 39)...)
@@ -167,6 +169,7 @@ func TestSiegeEntryPosesProtectorChoice(t *testing.T) {
 // face-down entry markers -- the manifest/FaceDown$ one and Cloak's, which
 // applySiegeProtector reaches through the shared events.IsFaceDownEntry.
 func TestBattleFaceDownEntryGrantsNothingAndDoesNotPark(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, counter string }{
 		{"manifest", events.FaceDownEntryCounter},
 		{"cloak", events.CloakEntryCounter},
@@ -221,6 +224,7 @@ func TestBattleFaceDownEntryGrantsNothingAndDoesNotPark(t *testing.T) {
 // code at all would leak the hidden card's identity into the public
 // transcript even though nothing parked. Both markers must emit nothing.
 func TestBattleFaceDownEntryEmitsNoProtectorChoose(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, counter string }{
 		{"manifest", events.FaceDownEntryCounter},
 		{"cloak", events.CloakEntryCounter},
@@ -263,6 +267,7 @@ func TestBattleFaceDownEntryEmitsNoProtectorChoose(t *testing.T) {
 // is a legal protector, so no decision is posed and the sole opponent is
 // recorded through the same Choose "protector" event.
 func TestSiegeTwoPlayerRecordsSoleOpponentWithoutAsking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	battle := mustCorpusCard(t, reg, "Invasion of Tolvada")
 	deck := append([]*cards.Card{battle}, mountainDeck(t, 39)...)
@@ -312,6 +317,7 @@ func TestSiegeTwoPlayerRecordsSoleOpponentWithoutAsking(t *testing.T) {
 // replay cannot reproduce; the fold proves the same property these fixtures
 // can -- every mutation on the path is event-derived, never engine memory.
 func TestBattlePathReplaysExactly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	battle := mustCorpusCard(t, reg, "Invasion of Tolvada")
 	deck := append([]*cards.Card{battle}, mountainDeck(t, 40-1)...)

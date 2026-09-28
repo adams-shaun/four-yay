@@ -1060,6 +1060,17 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// `Amount` property, this sizes the token; the corpus's `/Twice` op
 		// rides the ordinary applyCountOp suffix.
 		return paidCostTargets(c, "Exiled"), true
+	case "Equipped", "Enchanted", "AttachedTo":
+		// The object the source is attached to (Glamdring's "where X is
+		// equipped creature's power", Equipped$CardPower). Claimed here rather
+		// than through the defined-targets fallback below, which refuses an
+		// empty set: an unattached Equipment names NO creature, and "its
+		// power" is then a legitimate zero, not an unreadable body.
+		g := h.Game()
+		if o := g.Obj(c.Source); o != nil && o.AttachedTo != 0 && g.Obj(o.AttachedTo) != nil {
+			return []state.Target{{Obj: o.AttachedTo}}, true
+		}
+		return nil, true
 	case "TargetedObjects", "TargetedObjectsDistinct":
 		// Forge's TargetedObjects referent (AbilityUtils.calcX's
 		// `calcX[0].startsWith("TargetedObjects")` arm): the UNION of every
@@ -1481,17 +1492,22 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 }
 
 // evalPlayerRefProperty resolves one "TargetedPlayer$<Property>[...][/Op]"
-// (and the sibling "ThisTargetedPlayer$..." spelling) count body over the
-// PLAYERS a target reference names -- the <Ref>$<Property> family's
-// player-valued half, which evalRefProperty's object loop structurally
-// cannot serve (it `continue`s every IsPlayer target and its property
-// switch is object-only). The player list is the generic pre-ask's
-// answered set (Ctx.PickedTargets) when non-nil, else the resolution's own
-// Ctx.Targets, filtered to IsPlayer entries -- effects/context.go's
-// Defined$ Targeted precedence exactly, so the head answers the player the
-// resolving body acts on. The count of players can be several; Forge's own
-// Count sums over the referenced players the same way evalRefProperty sums
-// over referenced objects.
+// (and the siblings "ThisTargetedPlayer$..." and "TargetedController$...")
+// count body over the PLAYERS a target reference names -- the
+// <Ref>$<Property> family's player-valued half, which evalRefProperty's
+// object loop structurally cannot serve (it `continue`s every IsPlayer target
+// and its property switch is object-only). The player list is the generic
+// pre-ask's answered set (Ctx.PickedTargets) when non-nil, else the
+// resolution's own Ctx.Targets, filtered to IsPlayer entries --
+// effects/context.go's Defined$ Targeted precedence exactly, so the head
+// answers the player the resolving body acts on. The count of players can be
+// several; Forge's own Count sums over the referenced players the same way
+// evalRefProperty sums over referenced objects.
+//
+// TargetedController$<Property> is the same family read through the CONtroller
+// of the target list: its players are controllersOf(Ctx.Targets/PickedTargets)
+// -- the exact resolution effects/context.go's Defined$ TargetedController
+// case already uses -- so it shares this arm's whole property switch.
 //
 // A ref this arm does not special-case (TriggeredTarget, TriggeredPlayer,
 // TriggeredDefendingPlayer, ...) is resolved through effects/context.go's
@@ -1540,6 +1556,20 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		if c.PickedTargets != nil {
 			ts = c.PickedTargets
 		}
+	case "TargetedController":
+		// The target list read through its controllers: the same
+		// PickedTargets-else-Targets precedence as the TargetedPlayer arm,
+		// converted with the shared controllersOf helper the Defined$
+		// TargetedController case in effects/context.go also uses, so a
+		// count head and a Defined$ spelling of the ref cannot disagree.
+		// Lullmage's Domination's SVar:CheckTgt reads
+		// `TargetedController$CardsInGraveyard` through the ReduceCost
+		// static's Count$Compare (agent-20260928T043626Z-b7e271c1).
+		src := c.Targets
+		if c.PickedTargets != nil {
+			src = c.PickedTargets
+		}
+		ts = controllersOf(h.Game(), src)
 	case "TriggeredPlayersOpponentVotedDiff":
 		// The canonical vote-finished carrier's diff set (trig:Vote): the
 		// fire-time referent capture is the ONLY binding, so a count read
@@ -1698,8 +1728,10 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 
 // refPower/refToughness use rules' derived characteristics while a referenced
 // object is a battlefield permanent. A referred-to object that already left
-// keeps the LKI-compatible printed-plus-counters fallback: no live layer
-// applies in a graveyard, and asking Host for it would read a different state.
+// keeps the LKI-compatible printed-face-plus-P/T-counters fallback: no live
+// layer applies in a graveyard, and asking Host for it would read a different
+// state. The counter sum covers every P/T counter kind (CR 613.7d), not just
+// the +1/+1 / -1/-1 pair.
 // inProgressDerivedPTHost is implemented by rules.Engine so a Count$ read made
 // during layer 7 can consume the current walk's value instead of recursively
 // asking the host to derive the same object again. It is optional to preserve
@@ -1717,7 +1749,8 @@ func refPower(h Host, o *state.Object, snapshot bool) int32 {
 		}
 		return h.Power(o.ID)
 	}
-	return int32(o.Face().Power()) + o.Counter("P1P1") - o.Counter("M1M1")
+	dp, _ := o.CounterPTTotals()
+	return int32(o.Face().Power()) + dp
 }
 
 func refToughness(h Host, o *state.Object, snapshot bool) int32 {
@@ -1729,7 +1762,8 @@ func refToughness(h Host, o *state.Object, snapshot bool) int32 {
 		}
 		return h.Toughness(o.ID)
 	}
-	return int32(o.Face().Toughness()) + o.Counter("P1P1") - o.Counter("M1M1")
+	_, dt := o.CounterPTTotals()
+	return int32(o.Face().Toughness()) + dt
 }
 
 // EvalCountOnObject evaluates a Count$ expression with the count's source
@@ -1802,6 +1836,27 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		}
 		return int32(h.SpellsCastThisTurnMatching(c.Controller, rest)), true
 	}
+	// ThisTurnActivated_<spec> (Professor Hojo's and Tezzeret, Betrayer of
+	// Flesh's "the first activated ability ... each turn" gates, the Equip/
+	// Cycling/Exhaust families' counts): the activated abilities activated
+	// this turn matching an `Activated.<props>` spec, the in-flight
+	// activation being priced (Ctx.AffectedAbility) included -- Forge records
+	// an activation before its cost is adjusted, which is why those gates
+	// read LE1. The spec keeps its spaces (IsTargeting Valid <spec>), so the
+	// arm runs before the head split, exactly as ThisTurnCast_ does. The log
+	// fold lives in rules; a Host without it leaves the head unmodelled.
+	if rest, ok := strings.CutPrefix(body, "ThisTurnActivated_"); ok {
+		// The Ctx's fields are passed by value, never the *Ctx itself: a Ctx
+		// handed to an interface method escapes, and the hot layer walk
+		// builds one per object (TestEvalCountValidZoneScanIsAllocationFree).
+		provider, okP := h.(interface {
+			AbilitiesActivatedThisTurnMatching(you state.PlayerID, affected state.ObjID, ab *cards.SA, targets []state.Target, spec string) (int32, bool)
+		})
+		if !okP {
+			return 0, false
+		}
+		return provider.AbilitiesActivatedThisTurnMatching(c.Controller, c.AffectedObj, c.AffectedAbility, c.Targets, strings.TrimSpace(rest))
+	}
 	head, arg, _ := strings.Cut(body, " ")
 	arg = strings.TrimSpace(arg)
 	if arg == "" {
@@ -1849,6 +1904,67 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		}
 		if hasOp {
 			n = applyCountOp(n, op)
+		}
+		return n, true
+	}
+
+	// TargetedByTarget$Valid <spec> (Forge; 2 corpus carriers -- Not of This
+	// World's SVar:CheckTgt:TargetedByTarget$Valid Card.powerGE7+YouCtrl and
+	// Bane's Contingency's ...IsCommander+YouCtrl+inZoneBattlefield): the
+	// number of objects, among the targets of the spell/ability(ies) that the
+	// resolving source targets, that match <spec> -- the NESTED read one
+	// level past spellIsTargetingMatches' own .Targets walk. The resolving
+	// source's targets are Ctx.Targets (registry.go), the same binding the
+	// Targeted ref reads; the cost-modifier static path binds the cast's
+	// chosen or potential targets onto it (rules' modAmountX), so Not of This
+	// World's Amount$ Compare gate sees Giant Growth's chosen target both at
+	// the offer gate and at the CR 601.2c reprice. Object targets of each
+	// targeted spell are matched through MatchesSpecCtx with the resolving
+	// context's SpecContext (You/Source/Remembered bound as everywhere else);
+	// player targets cannot match a Card... spec and are skipped. An absent
+	// or empty Ctx.Targets is a legitimate zero -- a MODELLED head, not the
+	// unresolvable verdict -- so the Compare gate fails closed at 0 (no
+	// reduction) instead of erroring. A property other than Valid (the only
+	// form either carrier uses) and an empty spec fail closed per the
+	// unmodelled-property convention.
+	if rest, ok := strings.CutPrefix(head, "TargetedByTarget$"); ok {
+		if strings.TrimSpace(rest) != "Valid" || arg == "" {
+			return 0, false
+		}
+		n := int32(0)
+		sc := c.SpecContext(c.Controller)
+		for _, t := range c.Targets {
+			if t.IsPlayer || t.Obj == 0 {
+				continue
+			}
+			inner := g.Obj(t.Obj)
+			if inner == nil {
+				continue
+			}
+			for _, it := range inner.Targets {
+				if it.IsPlayer || it.Obj == 0 {
+					continue
+				}
+				isc := sc
+				// The zone-count fold's derived-PT bind (zoneCountFold.visit):
+				// a battlefield inner target's numeric filter must read rules'
+				// layer-derived characteristics (Syr Elenora's power-equals-hand
+				// size), not the printed face -- skip the bind entirely unless
+				// the spec reads a P/T field, the same dependency guard.
+				if io := g.Obj(it.Obj); io != nil && io.Zone == state.ZBattlefield && SpecReadsPT(arg) {
+					if provider, ok := h.(interface {
+						FilterDerivedPT(state.ObjID) (power, toughness, basePower, baseToughness int32, ok bool)
+					}); ok {
+						if power, toughness, basePower, baseToughness, found := provider.FilterDerivedPT(it.Obj); found {
+							isc.DerivedPower, isc.DerivedToughness, isc.HasDerivedPT = power, toughness, true
+							isc.BasePower, isc.BaseToughness, isc.HasBasePT = basePower, baseToughness, true
+						}
+					}
+				}
+				if MatchesSpecCtx(g, arg, it.Obj, isc) {
+					n++
+				}
+			}
 		}
 		return n, true
 	}
@@ -3525,9 +3641,9 @@ func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, 
 }
 
 // objectProperty reads one Count$Valid-spec "$Property" aggregate term over
-// a single object: its face value plus +1/+1 counters for power/toughness,
-// the mana value for CardManaCost. An unknown property reads 0 — the same
-// conservative no-op every unmodelled head here takes.
+// a single object: its face value plus the summed P/T counter deltas for
+// power/toughness, the mana value for CardManaCost. An unknown property reads
+// 0 — the same conservative no-op every unmodelled head here takes.
 func objectProperty(g *state.Game, id state.ObjID, prop string) int32 {
 	o := g.Obj(id)
 	if o == nil || o.Face() == nil {
@@ -3535,9 +3651,11 @@ func objectProperty(g *state.Game, id state.ObjID, prop string) int32 {
 	}
 	switch strings.TrimSpace(prop) {
 	case "CardPower":
-		return int32(o.Face().Power()) + o.Counter("P1P1")
+		dp, _ := o.CounterPTTotals()
+		return int32(o.Face().Power()) + dp
 	case "CardToughness":
-		return int32(o.Face().Toughness()) + o.Counter("P1P1")
+		_, dt := o.CounterPTTotals()
+		return int32(o.Face().Toughness()) + dt
 	case "CardManaCost":
 		return o.Face().ManaValue()
 	}
@@ -4568,9 +4686,11 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 	}
 	switch f.prop {
 	case "CardPower":
-		f.n += int32(o.Face().Power()) + o.Counter("P1P1")
+		dp, _ := o.CounterPTTotals()
+		f.n += int32(o.Face().Power()) + dp
 	case "CardToughness":
-		f.n += int32(o.Face().Toughness()) + o.Counter("P1P1")
+		_, dt := o.CounterPTTotals()
+		f.n += int32(o.Face().Toughness()) + dt
 	case "CardManaCost":
 		f.n += o.Face().Cmc()
 	case "CardTypes", "CardTypesPermanent":

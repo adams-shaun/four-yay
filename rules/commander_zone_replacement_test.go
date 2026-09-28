@@ -93,6 +93,7 @@ func assertAskCount(t *testing.T, l *events.Log, want int) {
 // shape is pinned too: Min == Max == 1, options "command_zone" first then
 // "leave", Player the owner.
 func TestDestroyedCommanderOffersTheOwnerTheChoiceAndAcceptSendsItToTheCommandZone(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	e.G.Obj(cmd).Damage = 1 // 1 >= toughness 1: lethal (CR 704.5g)
@@ -140,6 +141,7 @@ func TestDestroyedCommanderOffersTheOwnerTheChoiceAndAcceptSendsItToTheCommandZo
 // emit each close a re-offer arm), and the log carries exactly one
 // commander-zone ask.
 func TestDestroyedCommanderDeclineLetsTheGraveyardHappen(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	e.G.Obj(cmd).Damage = 1
@@ -169,6 +171,7 @@ func TestDestroyedCommanderDeclineLetsTheGraveyardHappen(t *testing.T) {
 // commander whose exile is attempted (the ChangeZone Destination$ Exile
 // shape) is offered the choice, exactly like a destroy.
 func TestCommanderExiledAcceptsTheCommandZone(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 
@@ -190,6 +193,7 @@ func TestCommanderExiledAcceptsTheCommandZone(t *testing.T) {
 // and the decline arm of a non-destruction move: the commander goes where
 // the effect pointed it, unchanged.
 func TestCommanderReturnedToHandDeclinedKeepsTheHand(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 
@@ -208,6 +212,7 @@ func TestCommanderReturnedToHandDeclinedKeepsTheHand(t *testing.T) {
 // destination: the same choice, and an accept sends an object that was
 // heading for the library into the command zone instead.
 func TestCommanderPutOnTopOfLibraryAcceptsTheCommandZone(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 
@@ -230,6 +235,7 @@ func TestCommanderPutOnTopOfLibraryAcceptsTheCommandZone(t *testing.T) {
 // scope (restricting the replacement to battlefield sources) fails this test
 // by name.
 func TestCounteredCommanderOnTheStackIsOfferedTheChoice(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	// Stands in for the cast: a real cast (the m31 tax task's commitCast,
@@ -264,6 +270,7 @@ func TestCounteredCommanderOnTheStackIsOfferedTheChoice(t *testing.T) {
 // your graveyard to your hand" effect) is offered the choice, and an accept
 // leaves the graveyard for the command zone.
 func TestOwnersCommanderInGraveyardReturnedToHandAsks(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	// Fixture: the commander rests in its owner's graveyard. (A real game
@@ -296,6 +303,7 @@ func TestOwnersCommanderInGraveyardReturnedToHandAsks(t *testing.T) {
 // seat 1's. Deleting the owner-not-controller lookup (reading o.Controller
 // instead of o.Owner) fails this test by name.
 func TestStolenCommanderGoesToItsOwnersCommandZoneByItsOwnersChoice(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	// Theft: seat 1 controls the commander on its battlefield. events.Move
@@ -338,6 +346,7 @@ func TestStolenCommanderGoesToItsOwnersCommandZoneByItsOwnersChoice(t *testing.T
 // makes fieldCommander itself (and this test) ask a decision where CR 903.9
 // must not.
 func TestCommanderMovingToBattlefieldOrStackIsNotReplaced(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := e.G.Players[0].Commanders[0]
 	// fieldCommander emits the logged CZ -> battlefield MoveZone. If the
@@ -365,6 +374,7 @@ func TestCommanderMovingToBattlefieldOrStackIsNotReplaced(t *testing.T) {
 // decision, no queue and no commander-zone events anywhere in the log.
 // Deleting the format gate fails this test by name.
 func TestNonCommanderGameNeverRunsTheReplacement(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatConstructed, 40, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	e.G.Obj(cmd).Damage = 1
@@ -385,6 +395,7 @@ func TestNonCommanderGameNeverRunsTheReplacement(t *testing.T) {
 // in any Commanders list) must not even be considered for the replacement.
 // Deleting the Commanders membership check fails this test by name.
 func TestNonCommanderCreatureIsNeverAsked(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	bear := onBoard(t, e, 0, "Name:Plain\nManaCost:1 G\nTypes:Creature Bear\nPT:1/1\nOracle:x\n")
 	e.G.Obj(bear).Damage = 1
@@ -410,6 +421,7 @@ func TestNonCommanderCreatureIsNeverAsked(t *testing.T) {
 // re-runs between the two answers from re-parking the second commander
 // (the no-progress failure shape).
 func TestTwoCommandersParkedAtOnceAreAskedOneAtATime(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc, tinyCmdSrc2}, {}})
 	cmds := append([]state.ObjID(nil), e.G.Zone(state.ZCommand, 0)...)
 	a, b := cmds[0], cmds[1]
@@ -453,6 +465,7 @@ func TestTwoCommandersParkedAtOnceAreAskedOneAtATime(t *testing.T) {
 // commanderReplayFromLog fold, the same helper it uses for the CmdDamage
 // event: the log alone never needs the live engine's memory).
 func TestCommanderZoneChoiceIsInTheLog(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		choice int
@@ -521,6 +534,7 @@ func TestCommanderZoneChoiceIsInTheLog(t *testing.T) {
 // engine state, and dropping it from Clone would make the clone's answer
 // find no parked move and leave the commander stranded).
 func TestCommanderZoneDecisionSurvivesClone(t *testing.T) {
+	t.Parallel()
 	e, _ := cmdZoneGame(t, [][]string{{tinyCmdSrc}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	e.G.Obj(cmd).Damage = 1

@@ -20,6 +20,7 @@ import (
 // answers and livelocked a bot game). Every chooseFor constant must be
 // distinct.
 func TestChooseForValuesAreDistinct(t *testing.T) {
+	t.Parallel()
 	files, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)

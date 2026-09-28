@@ -28,6 +28,7 @@ import (
 // graveyard). Correct resolution: the caster loses 11 total over two distinct
 // lose-life events.
 func TestResumptionRunsOuterContinuationAfterNestedAsk(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiN\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ Charm | Choices$ DoDiscard,DoGain | SubAbility$ DBLife\n" +
 		"SVar:DoDiscard:DB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 1 | SubAbility$ DBSub\n" +
@@ -105,6 +106,7 @@ func TestResumptionRunsOuterContinuationAfterNestedAsk(t *testing.T) {
 // Modes value and re-resolves itself endlessly. Repeat has no such coupling,
 // so it is the one expressible two-level carrier.
 func TestResumptionRunsEveryContinuationAtDepthThree(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiN3\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ Charm | Choices$ DoRepeat,DoGain | SubAbility$ Out\n" +
 		"SVar:DoRepeat:SP$ Repeat | RepeatSubAbility$ DoDiscard | RepeatNum$ 1 | SubAbility$ Mid\n" +

@@ -124,6 +124,7 @@ func squadCopies(e *Engine, id state.ObjID) int {
 // pay-time CastInfo carries the squadpaid flag with Amount 2, and two token
 // copies of the creature enter the battlefield.
 func TestSquadSecuritronSquadronPaidTwiceMintsTwoCopies(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := squadEngine(t)
 	hero := searchMoveByName(t, e, "Securitron Squadron", state.ZHand)
 	// Base {1}{W} plus two {3} squad payments: 2 + 3 + 3 = 8 white.
@@ -168,6 +169,7 @@ func TestSquadSecuritronSquadronPaidTwiceMintsTwoCopies(t *testing.T) {
 // -- the cast resolves exactly like the pre-existing plain cast: no copies,
 // no squadpaid flag, no CastInfo from the squad path.
 func TestSquadSecuritronDeclinedIsAPlainCast(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := squadEngine(t)
 	hero := searchMoveByName(t, e, "Securitron Squadron", state.ZHand)
 	addMana(t, e, 0, "WWWWWWWW")
@@ -193,6 +195,7 @@ func TestSquadSecuritronDeclinedIsAPlainCast(t *testing.T) {
 // squadded mode) mints no copies and stamps no squadpaid flag -- the
 // byte-identical-plain-cast contract the replicate/multikicker modes keep.
 func TestSquadSecuritronPlainCastUnchanged(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := squadEngine(t)
 	hero := searchMoveByName(t, e, "Securitron Squadron", state.ZHand)
 	addMana(t, e, 0, "WW")
@@ -223,6 +226,7 @@ func TestSquadSecuritronPlainCastUnchanged(t *testing.T) {
 // flow can settle; the fail-closed direction this guards is a cost ParseCost
 // genuinely cannot model (an Unknown token), not a modelled one.
 func TestSquadNonManaCostsParse(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	for _, name := range []string{"Thrill-Kill Disciple", "Ruthless Radrat", "Wasteland Raider"} {
 		card, ok := reg.Lookup(name)
@@ -252,6 +256,7 @@ func TestSquadNonManaCostsParse(t *testing.T) {
 // cost composes with the ordinary Discard cost machinery (squadAsk folds the
 // part into pc.cost, discardAsk settles it), not just plain mana.
 func TestSquadThrillKillDisciplePaysTheDiscardEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	mountain := searchCorpusCard(t, reg, "Mountain")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -322,6 +327,7 @@ func TestSquadThrillKillDisciplePaysTheDiscardEndToEnd(t *testing.T) {
 // trigger whose body copies the entering creature Count$SquadPaid times --
 // the property that makes kw:Squad real rather than an inert keyword line.
 func TestSquadKeywordExpansionAddsTheETBTrigger(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	card, ok := reg.Lookup("Securitron Squadron")
 	if !ok {

@@ -33,6 +33,7 @@ var etbCloneCleanNames = []string{
 // scope says: offered iff every parameter is inside {Choices, AddTypes,
 // AddKeywords, SpellDescription}. A card is never classified both ways.
 func TestETBCloneWhitelistCensus(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	var clean []string
 	verdicts := map[string]bool{}
@@ -67,6 +68,7 @@ func TestETBCloneWhitelistCensus(t *testing.T) {
 // IntoPlayTapped$/ChoiceTitle$-shaped bodies) and of the end-to-end test
 // cards.
 func TestETBCloneWhitelistRegressionCarriers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pins := []struct {
 		name string
@@ -127,6 +129,7 @@ func TestETBCloneWhitelistRegressionCarriers(t *testing.T) {
 // must enter as itself, must not copy, and must retain the loud
 // unimplemented-API Clone fallback note.
 func TestCursedMirrorETBKeepsLoudFallback(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Cursed Mirror"))
 	bear := e.G.AddObject(corpusAlternativeCard(t, "Colossal Dreadmaw"), 0)
 	bear.Zone = state.ZBattlefield

@@ -51,6 +51,29 @@ type morphFaceUp struct {
 	megamorph bool
 }
 
+// scope is the special-action cost scope the turn-up is priced under, so the
+// CR 601.2f modifiers a ValidSpell$ Static.MorphUp / Static.isTurnFaceUp
+// static names reach it: Morph and Megamorph turn up under "morphup" (Forge's
+// abilityTurnFaceUp stamps MorphUp$ on both), Disguise under "disguiseup".
+func (mf morphFaceUp) scope() costScope {
+	if mf.family == "Disguise" {
+		return specialActionScope("disguiseup")
+	}
+	return specialActionScope("morphup")
+}
+
+// morphTurnUpMods composes the cost modifiers that apply to id's turn-up
+// action right now. A modifier that adds a non-mana cost part (a RaiseCost
+// Cost$ extra) has no ask in this self-contained flow, so ok=false withholds
+// the action rather than silently waiving that part.
+func (e *Engine) morphTurnUpMods(p state.PlayerID, id state.ObjID, mf morphFaceUp) (costMods, bool) {
+	mods := e.costModifiers(p, id, mf.scope())
+	if mods.hasExtra {
+		return costMods{}, false
+	}
+	return mods, true
+}
+
 // morphFaceUpCost resolves the turn-face-up action a face-down battlefield
 // permanent offers, or ok=false when it offers none: not face down, not a
 // creature the morph family put down (no family flag), or a face that
@@ -113,6 +136,7 @@ func morphTurnUpCostSupported(c Cost) bool {
 		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 &&
 		len(c.Exert) == 0 && !c.Forage && len(c.Draw) == 0 && len(c.Energy) == 0 &&
 		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 &&
+		len(c.GainLife) == 0 &&
 		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 &&
 		len(c.Evidence) == 0 && len(c.RollDice) == 0
 }
@@ -142,7 +166,12 @@ func morphTurnUpCountAnnounced(c Cost) bool {
 // cost with no {X} is priced once at X=0. A nonzero XMin floor is honored, and
 // no payable X at all withholds the action -- never an offer whose payment
 // would abort.
-func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost) bool {
+//
+// mods are the turn-up's CR 601.2f cost modifiers (morphTurnUpMods), composed
+// onto the cost AFTER the X announcement -- the same increase-then-reduce
+// order the cast flow's charge takes -- so the offer, the X ask and the
+// settlement price one total.
+func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost, mods costMods) bool {
 	if !e.nonManaCastable(p, id, cost, false) {
 		return false
 	}
@@ -151,13 +180,15 @@ func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost)
 		min = 0
 	}
 	if cost.X == 0 {
-		return e.costPayable(p, id, false, cost)
+		return e.costPayable(p, id, false, mods.apply(cost))
 	}
 	// Each extra X adds one generic, so the pool total is the finite ceiling
 	// past which no further X can be paid (the same safe bound xAsk uses).
-	bound := e.G.Players[p].Pool.Total() + cost.Generic + int32(cost.X) + 1
+	// A reduction can only lower the price of a larger X, so the modifiers'
+	// reduction total widens the ceiling rather than cutting it short.
+	bound := e.G.Players[p].Pool.Total() + cost.Generic + int32(cost.X) + 1 + mods.reduceTotal()
 	for x := min; x <= bound; x++ {
-		if e.costPayable(p, id, false, cost.WithX(x)) {
+		if e.costPayable(p, id, false, mods.apply(cost.WithX(x))) {
 			return true
 		}
 	}
@@ -173,9 +204,9 @@ func (e *Engine) morphTurnUpPayable(p state.PlayerID, id state.ObjID, cost Cost)
 // cost is priced at its smallest legal announcement: each extra X only adds
 // generic, so no larger X is payable when the smallest is not, and the
 // hypothetical bound may be unbounded (no finite loop ceiling exists there).
-func (e *Engine) morphTurnUpPayablePriced(p state.PlayerID, id state.ObjID, cost Cost, hyp *state.Mana) bool {
+func (e *Engine) morphTurnUpPayablePriced(p state.PlayerID, id state.ObjID, cost Cost, mods costMods, hyp *state.Mana) bool {
 	if hyp == nil {
-		return e.morphTurnUpPayable(p, id, cost)
+		return e.morphTurnUpPayable(p, id, cost, mods)
 	}
 	if !e.nonManaCastable(p, id, cost, false) {
 		return false
@@ -183,7 +214,7 @@ func (e *Engine) morphTurnUpPayablePriced(p state.PlayerID, id state.ObjID, cost
 	if cost.X != 0 {
 		cost = cost.WithX(max(cost.XMin, 0))
 	}
-	return e.costPayablePool(p, id, false, cost, *hyp, e.G.Players[p].ManaUnits())
+	return e.costPayablePool(p, id, false, mods.apply(cost), *hyp, e.G.Players[p].ManaUnits())
 }
 
 // turnUpPay carries the CR 708.6 turn-face-up special action's payment
@@ -197,6 +228,10 @@ type turnUpPay struct {
 	player state.PlayerID
 	card   state.ObjID
 	cost   Cost
+	// mods are the CR 601.2f cost modifiers composed onto cost (after the X
+	// announcement) at every payability read and at settlement, captured
+	// once when the action is taken -- the snapshot the offer priced.
+	mods costMods
 	// x is the announced value of the cost's {X}, folded into the payment at
 	// settle time; xDone marks the announcement already answered.
 	x     int32
@@ -237,11 +272,12 @@ func (e *Engine) turnFaceUp(p state.PlayerID, opt decision.Option) {
 	// The offer proved the cost payable; re-prove it here so a board that
 	// changed under the option degrades to a no-op rather than paying a
 	// partial cost (no partial payment followed by a no-op).
-	if !e.morphTurnUpPayable(p, opt.Obj, mf.cost) {
+	mods, ok := e.morphTurnUpMods(p, opt.Obj, mf)
+	if !ok || !e.morphTurnUpPayable(p, opt.Obj, mf.cost, mods) {
 		return
 	}
 	e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
-	e.turnUp = &turnUpPay{player: p, card: opt.Obj, cost: mf.cost}
+	e.turnUp = &turnUpPay{player: p, card: opt.Obj, cost: mf.cost, mods: mods}
 	e.advanceTurnUp()
 }
 
@@ -287,9 +323,9 @@ func (e *Engine) turnUpXAsk(tp *turnUpPay) bool {
 		min = 0
 	}
 	var legal []int32
-	bound := e.G.Players[tp.player].Pool.Total() + tp.cost.Generic + int32(tp.cost.X) + 1
+	bound := e.G.Players[tp.player].Pool.Total() + tp.cost.Generic + int32(tp.cost.X) + 1 + tp.mods.reduceTotal()
 	for x := min; x <= bound; x++ {
-		if e.costPayable(tp.player, tp.card, false, tp.cost.WithX(x)) {
+		if e.costPayable(tp.player, tp.card, false, tp.mods.apply(tp.cost.WithX(x))) {
 			legal = append(legal, x)
 		}
 	}
@@ -566,6 +602,7 @@ func (e *Engine) settleTurnUp(tp *turnUpPay) {
 	if paidCost.X > 0 {
 		paidCost = paidCost.WithX(tp.x)
 	}
+	paidCost = tp.mods.apply(paidCost)
 	if !tp.settled {
 		// Revalidate EVERY saved cost object and the mana/life remainder before
 		// anything moves. Once a replacement answer suspends payment, the

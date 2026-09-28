@@ -12,6 +12,7 @@ const undauntedSrc = "Name:Undaunted Test\nManaCost:6 G\nTypes:Sorcery\nK:Undaun
 const plainCostSrc = "Name:Plain Cost Test\nManaCost:6 G\nTypes:Sorcery\nOracle:x\n"
 
 func TestSeedsOfRenewalUndaunted(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card := lookup(t, reg, "Seeds of Renewal")
 	if !card.Faces[0].HasKeyword("Undaunted") {
@@ -25,6 +26,7 @@ func TestSeedsOfRenewalUndaunted(t *testing.T) {
 }
 
 func TestUndauntedReducesGenericAndNotColoredCost(t *testing.T) {
+	t.Parallel()
 	e, cfg, card := newFixtureDeck(t, 1705, undauntedSrc, plainCostSrc)
 	o := e.G.Obj(card)
 	if o == nil || o.Zone != state.ZHand || o.Face() == nil || !o.Face().HasKeyword("Undaunted") {
@@ -61,6 +63,7 @@ func TestUndauntedReducesGenericAndNotColoredCost(t *testing.T) {
 }
 
 func TestUndauntedDoesNotReducePlainSpell(t *testing.T) {
+	t.Parallel()
 	e, _, plain := newFixtureDeck(t, 1707, plainCostSrc)
 	if got := reduceOf(t, e, 0, plain); got != 0 {
 		t.Fatalf("plain spell reduction = %d, want 0", got)

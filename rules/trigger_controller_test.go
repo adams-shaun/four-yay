@@ -8,6 +8,7 @@ import (
 )
 
 func TestChangesZoneTriggeredCardControllerUsesDepartingCardLKI(t *testing.T) {
+	t.Parallel()
 	const watcher = "Name:Controller Witness\nTypes:Enchantment\n" +
 		"T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature | TriggerZones$ Battlefield | TriggerController$ TriggeredCardController | Execute$ TrigLife | TriggerDescription$ x\n" +
 		"SVar:TrigLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"

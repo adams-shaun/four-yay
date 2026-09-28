@@ -14,6 +14,7 @@ import (
 // `SubCounter<X1+/...>` parse as ONE announced SubCounter part (no phantom
 // generic pip, nothing Unknown) with the bound folded into Cost.XMin.
 func TestParseRemoveAnyCounterXMin(t *testing.T) {
+	t.Parallel()
 	for _, input := range []string{
 		"RemoveAnyCounter<X1+/P1P1/Creature>",
 		"SubCounter<X1+/DREAM/NICKNAME>",
@@ -64,6 +65,7 @@ func xMinOozeEngine(t *testing.T, seed uint64, withCounters int) (*Engine, Confi
 // the counter-count values DOWN TO the X1+ floor of 1 -- never X = 0 -- and
 // the chosen announcement settles by removing that many counters.
 func TestRemoveAnyCounterXMinAskFloorBinds(t *testing.T) {
+	t.Parallel()
 	e, cfg, srcID, bearID := xMinOozeEngine(t, 83, 2)
 	opt := abilityOption(t, e, srcID, 0)
 	startLife := e.G.Players[0].Life
@@ -99,6 +101,7 @@ func TestRemoveAnyCounterXMinAskFloorBinds(t *testing.T) {
 // ability (it skips announced parts by design); choosing it must abort, not
 // ask.
 func TestRemoveAnyCounterXMinNoCountersAborts(t *testing.T) {
+	t.Parallel()
 	e, cfg, srcID, bearID := xMinOozeEngine(t, 84, 0)
 	if got := e.G.Obj(bearID).Counter("P1P1"); got != 0 {
 		t.Fatalf("setup: Bear carries %d +1/+1 counters, want none", got)
@@ -138,6 +141,7 @@ func TestRemoveAnyCounterXMinNoCountersAborts(t *testing.T) {
 // token. Because Ooze Flux comes from the corpus, a parser or compiler
 // regression on the card's own Cost$ makes this test fail.
 func TestRemoveAnyCounterRealCorpusOozeFluxAnnouncesX(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	ooze := searchCorpusCard(t, reg, "Ooze Flux")
 	if ooze == nil {

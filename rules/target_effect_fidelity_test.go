@@ -45,6 +45,7 @@ func stackTargetEffect(t *testing.T, src string, x int32) (*Engine, *cards.SA) {
 }
 
 func TestTargetEffectReportsAnnouncedXAndSVarAmounts(t *testing.T) {
+	t.Parallel()
 	e, _ := stackTargetEffect(t,
 		"Name:X Bolt\nManaCost:X R\nTypes:Instant\n"+
 			"A:SP$ DealDamage | ValidTgts$ Player | NumDmg$ X\n"+
@@ -66,6 +67,7 @@ func TestTargetEffectReportsAnnouncedXAndSVarAmounts(t *testing.T) {
 }
 
 func TestTargetEffectClassifiesKnownRemovalShapes(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, api, destination, kind string
 	}{
@@ -98,6 +100,7 @@ func TestTargetEffectClassifiesKnownRemovalShapes(t *testing.T) {
 }
 
 func TestTargetEffectLeavesUnknownAPIsUninterpreted(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.askTarget(0, 0, &cards.SA{API: "FutureRemoval", Params: map[string]string{"ValidTgts": "Player"}})
 	d := e.Pending()

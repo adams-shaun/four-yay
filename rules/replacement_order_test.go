@@ -38,6 +38,7 @@ func optionFor(t *testing.T, d *decision.Decision, source state.ObjID) int {
 // first (double, then plus). The affected player (the creature's controller)
 // is asked which applies first.
 func TestHardenedScalesAndBranchingEvolutionPoseOrderChoice(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 
 	t.Run("scan order answer: plus then double", func(t *testing.T) {
@@ -92,6 +93,7 @@ func TestHardenedScalesAndBranchingEvolutionPoseOrderChoice(t *testing.T) {
 // controller is asked which applies first, and the two answers land opposite
 // tapped states.
 func TestKismetAndSpelunkingPoseEntryOrderChoice(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 
 	entry := func(t *testing.T, e *Engine) (state.ObjID, *decision.Decision) {
@@ -154,6 +156,7 @@ func TestKismetAndSpelunkingPoseEntryOrderChoice(t *testing.T) {
 // the rewriter first and six with the adder first, so the token's creator is
 // asked which applies first.
 func TestManufactorAndXornPoseTokenOrderChoice(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 
 	count := func(e *Engine, name string) int {
@@ -225,6 +228,7 @@ func TestManufactorAndXornPoseTokenOrderChoice(t *testing.T) {
 // the outstanding decision -- never overwriting it, never applying in scan
 // order in its shadow -- and is asked when the queue drains.
 func TestLifeCompetitionParkedBehindOutstandingDecision(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	angelCard := mustCorpusCard(t, reg, "Angel of Vitality")
 	boonCard := mustCorpusCard(t, reg, "Boon Reflection")

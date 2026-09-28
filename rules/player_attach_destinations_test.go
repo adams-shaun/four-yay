@@ -137,6 +137,7 @@ func yesOption(d *decision.Decision) int {
 // attachment rather than a deterministic first-seat pick; the second subtest
 // chooses the controller's own seat to prove "either seat".
 func TestCurseOfLeechesTransformAttachesToChosenPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name string
@@ -209,6 +210,7 @@ func TestCurseOfLeechesTransformAttachesToChosenPlayer(t *testing.T) {
 // Enchant:Player so it is admitted; the Equipment in the same pool must NOT
 // attach to the player.
 func TestArdennAttachesPluralAurasToChosenPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Ardenn, Intrepid Archaeologist", "Curse of the Pierced Heart", "Bonesplitter")
 	if e.G.Obj(ids["Ardenn, Intrepid Archaeologist"]).Zone != state.ZBattlefield {
@@ -269,6 +271,7 @@ func TestArdennAttachesPluralAurasToChosenPlayer(t *testing.T) {
 // seat 0; accepting the may must attach the Aura to seat 1 through the
 // ordinary destination walk.
 func TestArchnemesisAttackTriggerAttachesToAttackingPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	archnemesis := mustCorpusCard(t, reg, "Archnemesis")
 	// A THREE-seat table so the attacked seat (0), the currently enchanted
@@ -414,6 +417,7 @@ func TestArchnemesisAttackTriggerAttachesToAttackingPlayer(t *testing.T) {
 // different opponent from the enchanted seat 1), which is exactly the context
 // the trigger's resolution carries.
 func TestMaddeningHexAttachToChosenPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	hex := mustCorpusCard(t, reg, "Maddening Hex")
 	cfg := Config{Seed: 47, Names: []string{"a", "b", "c"},

@@ -15,7 +15,7 @@ type rankRandom struct{ value uint64 }
 func (r *rankRandom) Uint64() uint64 { return r.value }
 
 func TestConstrainedPermutationExactDistribution(t *testing.T) {
-	cards := []proposalCard{{1, "A"}, {2, "A"}, {3, "B"}, {4, "C"}}
+	cards := []proposalCard{{ID: 1, Name: "A"}, {ID: 2, Name: "A"}, {ID: 3, Name: "B"}, {ID: 4, Name: "C"}}
 	tests := []struct {
 		name      string
 		positions []positionConstraint
@@ -56,7 +56,7 @@ func TestConstrainedPermutationExactDistribution(t *testing.T) {
 }
 
 func TestConstrainedPermutationRejectsInvalidOrImpossibleConstraints(t *testing.T) {
-	cards := []proposalCard{{1, "A"}, {2, "B"}, {3, "C"}}
+	cards := []proposalCard{{ID: 1, Name: "A"}, {ID: 2, Name: "B"}, {ID: 3, Name: "C"}}
 	invalid := []struct {
 		positions []positionConstraint
 		deadlines []deadlineConstraint
@@ -109,7 +109,7 @@ func keyIDs(ids []state.ObjID) string {
 }
 
 func TestConstrainedPermutationDoesNotMutateInput(t *testing.T) {
-	cards := []proposalCard{{1, "A"}, {2, "A"}, {3, "B"}}
+	cards := []proposalCard{{ID: 1, Name: "A"}, {ID: 2, Name: "A"}, {ID: 3, Name: "B"}}
 	want := append([]proposalCard(nil), cards...)
 	_, _, _, err := sampleConstrainedPermutation(cards, []positionConstraint{{Index: 0, Name: "A"}}, nil, &rankRandom{})
 	if err != nil {
@@ -121,7 +121,7 @@ func TestConstrainedPermutationDoesNotMutateInput(t *testing.T) {
 }
 
 func TestConstraintCounterPrecomputesFactorials(t *testing.T) {
-	cards := []proposalCard{{1, "A"}, {2, "A"}, {3, "B"}, {4, "C"}, {5, "D"}}
+	cards := []proposalCard{{ID: 1, Name: "A"}, {ID: 2, Name: "A"}, {ID: 3, Name: "B"}, {ID: 4, Name: "C"}, {ID: 5, Name: "D"}}
 	counter, _, err := newConstraintCounter(cards, nil, []deadlineConstraint{{Through: 2, Name: "A", Count: 1}})
 	if err != nil {
 		t.Fatal(err)
@@ -141,7 +141,7 @@ func TestConstraintCounterPrecomputesFactorials(t *testing.T) {
 }
 
 func TestConstraintCounterMemoReturnsImmutableEntry(t *testing.T) {
-	cards := []proposalCard{{1, "A"}, {2, "A"}, {3, "B"}, {4, "C"}}
+	cards := []proposalCard{{ID: 1, Name: "A"}, {ID: 2, Name: "A"}, {ID: 3, Name: "B"}, {ID: 4, Name: "C"}}
 	counter, available, err := newConstraintCounter(cards, nil, []deadlineConstraint{{Through: 2, Name: "A", Count: 1}})
 	if err != nil {
 		t.Fatal(err)
@@ -149,11 +149,11 @@ func TestConstraintCounterMemoReturnsImmutableEntry(t *testing.T) {
 	remaining := append([]int(nil), counter.initialFree...)
 	wantRemaining := append([]int(nil), remaining...)
 	other := len(available) - sumInts(remaining)
-	first := counter.count(0, remaining, other)
+	first := counter.count(0, remaining, append([]int(nil), counter.initialUnseen...), other)
 	if !reflect.DeepEqual(remaining, wantRemaining) {
 		t.Fatalf("count mutated remaining: got %v want %v", remaining, wantRemaining)
 	}
-	second := counter.count(0, remaining, other)
+	second := counter.count(0, remaining, append([]int(nil), counter.initialUnseen...), other)
 	if first != second {
 		t.Fatal("memo hit returned a defensive big.Int copy instead of the immutable cached entry")
 	}
@@ -185,10 +185,10 @@ func TestConstraintCounterSparseDeadline(t *testing.T) {
 
 func TestCountKeyIsUnambiguousWithOneAllocation(t *testing.T) {
 	keys := []string{
-		countKey(1, []int{23, 4}, 5),
-		countKey(12, []int{3, 4}, 5),
-		countKey(1, []int{2, 34}, 5),
-		countKey(1, []int{23, 4}, 6),
+		countKey(1, []int{23, 4}, []int{0}, 5),
+		countKey(12, []int{3, 4}, []int{0}, 5),
+		countKey(1, []int{2, 34}, []int{0}, 5),
+		countKey(1, []int{23, 4}, []int{0}, 6),
 	}
 	for i := range keys {
 		for j := i + 1; j < len(keys); j++ {
@@ -198,7 +198,7 @@ func TestCountKeyIsUnambiguousWithOneAllocation(t *testing.T) {
 		}
 	}
 	if allocs := testing.AllocsPerRun(100, func() {
-		_ = countKey(12, []int{3, 4, 5, 6, 7}, 8)
+		_ = countKey(12, []int{3, 4, 5, 6, 7}, []int{0}, 8)
 	}); allocs > 1 {
 		t.Fatalf("countKey allocations = %.0f, want <= 1", allocs)
 	}
@@ -217,7 +217,7 @@ func TestConstrainedPermutationAllocationBudget(t *testing.T) {
 }
 
 func TestConstraintPlanCacheReusesOnlyIdenticalInputs(t *testing.T) {
-	cards := []proposalCard{{1, "A"}, {2, "A"}, {3, "B"}, {4, "C"}}
+	cards := []proposalCard{{ID: 1, Name: "A"}, {ID: 2, Name: "A"}, {ID: 3, Name: "B"}, {ID: 4, Name: "C"}}
 	positions := []positionConstraint{{Index: 0, Name: "A"}}
 	deadlines := []deadlineConstraint{{Through: 2, Name: "B", Count: 1}}
 	cache := newConstraintPlanCache()

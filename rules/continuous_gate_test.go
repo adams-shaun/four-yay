@@ -37,6 +37,7 @@ const kiyomaroSrc = "Name:Kiyomaro, First to Stand\nManaCost:3 W W\nTypes:Legend
 // battlefield, present once one enters, and absent again the moment it
 // leaves, all on the same engine with no re-registration.
 func TestContinuousIsPresentGateTurnsTheGrantOnAndOff(t *testing.T) {
+	t.Parallel()
 	e, _, overseer := newFixtureDeck(t, 61, angelicOverseerSrc, "Name:Human\nManaCost:W\nTypes:Creature Human Soldier\nPT:1/1\nOracle:x\n")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: overseer, From: state.ZHand, To: state.ZBattlefield})
 	if e.HasKeyword(overseer, "Hexproof") || e.HasKeyword(overseer, "Indestructible") {
@@ -69,6 +70,7 @@ func TestContinuousIsPresentGateTurnsTheGrantOnAndOff(t *testing.T) {
 // +1/+1 to Soldiers and Knights is absent while nothing is attached, present
 // once the Equipment attaches, and absent again after the Equipment leaves.
 func TestContinuousIsPresentGateEquippedPredicate(t *testing.T) {
+	t.Parallel()
 	sword := "Name:Gate Sword\nManaCost:3\nTypes:Artifact Equipment\nK:Equip:2\nOracle:x\n"
 	e, cfg, sw := newFixtureDeck(t, 61, sword, auriokSteelshaperSrc)
 	auriok := putCreature(t, e, 0, auriokSteelshaperSrc)
@@ -106,6 +108,7 @@ func TestContinuousIsPresentGateEquippedPredicate(t *testing.T) {
 // cards in hand and absent below the threshold, re-checked as the hand
 // shrinks.
 func TestContinuousCheckSVarGateTurnsTheGrantOnAndOff(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kiyoCard, ok := reg.Lookup("Kiyomaro, First to Stand")
 	if !ok {
@@ -158,6 +161,7 @@ func addToGraveyardType(t testing.TB, e *Engine, p state.PlayerID, typeLine stri
 // at four, and absent again the moment one type leaves the graveyard -- the
 // continuous recheck (the same on/off/off shape as the Angelic Overseer test).
 func TestContinuousConditionDeliriumTurnsTheGrantOnAndOff(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, deliriumPumpSrc)
 	if got := e.Power(bear); got != 2 {
@@ -186,6 +190,7 @@ func TestContinuousConditionDeliriumTurnsTheGrantOnAndOff(t *testing.T) {
 // Deathcap Cultivator has no deathtouch with an empty graveyard and has it at
 // four distinct core types; Grim Flayer is 2/2 vs 4/4 across the same swing.
 func TestContinuousConditionDeliriumRealCorpusCards(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deathcap := searchCorpusCard(t, reg, "Deathcap Cultivator")
 	grim := searchCorpusCard(t, reg, "Grim Flayer")
@@ -228,6 +233,7 @@ const duskFeasterSrc = "Name:Dusk Feaster\nManaCost:5 B B\nTypes:Creature Vampir
 // discounts {2} at four distinct types and not one mana below that. The
 // graveyard is filled by real seeded moves, so the whole scenario replays.
 func TestContinuousConditionDeliriumReduceCostRealCarrier(t *testing.T) {
+	t.Parallel()
 	types := []string{"Artifact", "Instant", "Sorcery", "Enchantment"}
 	extras := make([]string, len(types))
 	for i, tl := range types {
@@ -255,6 +261,7 @@ func TestContinuousConditionDeliriumReduceCostRealCarrier(t *testing.T) {
 // true state and denies it in its false state, all through the one
 // continuousGateHolds switch.
 func TestContinuousConditionTable(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		cond       string
 		setupTrue  func(e *Engine)
@@ -320,6 +327,7 @@ func TestContinuousConditionTable(t *testing.T) {
 // CR 702.131 latch (ascend1) -- see TestContinuousConditionTable's Blessing
 // entry and rules/ascend_test.go.
 func TestContinuousConditionUnknownNeverApplies(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Comatose Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\n"+
 		"S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 2 | Condition$ FatefulHour | Description$ x\n"+

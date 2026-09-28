@@ -51,6 +51,7 @@ func p1p1Of(t *testing.T, e *Engine, name string) int32 {
 // extra +1/+1 counter. The Human is moved library -> battlefield directly so
 // no cast/priority plumbing obscures the replacement.
 func TestDearlyDepartedGraveyardPumpsAnEnteringHuman(t *testing.T) {
+	t.Parallel()
 	e := etbZoneEngine(t)
 	searchMoveByName(t, e, "Dearly Departed", state.ZGraveyard)
 	pilgrim := searchMoveByName(t, e, "Avacyn's Pilgrim", state.ZBattlefield)
@@ -64,6 +65,7 @@ func TestDearlyDepartedGraveyardPumpsAnEnteringHuman(t *testing.T) {
 // ActiveZones$ half: on the battlefield the graveyard static is inert, so
 // the same Human enters bare.
 func TestDearlyDepartedBattlefieldDoesNotPumpAnEnteringHuman(t *testing.T) {
+	t.Parallel()
 	e := etbZoneEngine(t)
 	searchMoveByName(t, e, "Dearly Departed", state.ZBattlefield)
 	searchMoveByName(t, e, "Avacyn's Pilgrim", state.ZBattlefield)
@@ -78,6 +80,7 @@ func TestDearlyDepartedBattlefieldDoesNotPumpAnEnteringHuman(t *testing.T) {
 // (its own entry) and confirm it does not self-pump even though its printed
 // static would, if mis-expanded to Card.Self, put a counter on it.
 func TestDearlyDepartedNoLongerTouchesItself(t *testing.T) {
+	t.Parallel()
 	e := etbZoneEngine(t)
 	searchMoveByName(t, e, "Dearly Departed", state.ZBattlefield)
 	if got := p1p1Of(t, e, "Dearly Departed"); got != 0 {
@@ -91,6 +94,7 @@ func TestDearlyDepartedNoLongerTouchesItself(t *testing.T) {
 // Battlefield makes the static inert from the graveyard. Bramblewood Paragon
 // is in no legacy golden deck.
 func TestBramblewoodParagonPumpsOtherWarriorsNotItself(t *testing.T) {
+	t.Parallel()
 	t.Run("on battlefield, other Warrior gets a counter", func(t *testing.T) {
 		reg := searchTestRegistry(t)
 		e, _ := searchEngine(t, reg, "Bramblewood Paragon", "Akki Avalanchers")
@@ -117,6 +121,7 @@ func TestBramblewoodParagonPumpsOtherWarriorsNotItself(t *testing.T) {
 // TestEtbReplacementZoneFilterIsRead asserts the expansion's parsed params
 // directly, so a regression names the field rather than only the symptom.
 func TestEtbReplacementZoneFilterIsRead(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	c, ok := reg.Lookup("Dearly Departed")
 	if !ok {

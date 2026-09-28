@@ -147,6 +147,7 @@ func cantsacDrainStack(t *testing.T, e *Engine) {
 // offers the ward's sacrifice payment, so the restriction's absence is the
 // only difference.
 func TestCantSacCostCauseTriggeredBlocksWardSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ripper := mustCorpusCard(t, reg, "Vein Ripper")
 	warden := card(t, cantsacTrigCreatureFixture)
@@ -212,6 +213,7 @@ func TestCantSacCostCauseTriggeredBlocksWardSacrifice(t *testing.T) {
 // prove the static is live and the cause filter (not a dead registration)
 // is what leaves the ward alone.
 func TestCantSacCostCauseAngelLeavesWardAlone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ripper := mustCorpusCard(t, reg, "Vein Ripper")
 	angel := mustCorpusCard(t, reg, "Angel of Jubilation")
@@ -283,6 +285,7 @@ func cantsacUpkeepGame(t *testing.T, seed uint64, board []*cards.Card) (*Engine,
 // land payment unpayable, and the upkeep trigger's own sacrifice arm takes
 // the Kraken. The control board pays a real land and keeps the Kraken.
 func TestCantSacCostCauseTriggeredBlocksCumulativeUpkeepPayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kraken := mustCorpusCard(t, reg, "Polar Kraken")
 	warden := card(t, cantsacTrigLandFixture)
@@ -362,6 +365,7 @@ func TestCantSacCostCauseTriggeredBlocksCumulativeUpkeepPayment(t *testing.T) {
 // demands, so the pay election and the creature candidates are still offered
 // and a real creature pays.
 func TestCantSacCostCauseAngelLeavesUpkeepAlone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	soulgorger := mustCorpusCard(t, reg, "Phyrexian Soulgorger")
 	angel := mustCorpusCard(t, reg, "Angel of Jubilation")
@@ -425,6 +429,7 @@ func TestCantSacCostCauseAngelLeavesUpkeepAlone(t *testing.T) {
 // TestUnlessCostTresserhornPaysSacLifeAndDraw drive's, which places its
 // board eventlessly and therefore carries no replayCheck, like that test.
 func TestCantSacCostCauseAngelLeavesUnlessAlone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 744)
 	angel := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Angel of Jubilation"))
@@ -482,6 +487,7 @@ func TestCantSacCostCauseAngelLeavesUnlessAlone(t *testing.T) {
 // readable ValidCause$ bases on the cost path admit exactly the cause each
 // names, and nothing else -- including the two corpus carriers' shape.
 func TestCantSacCostCauseAdmitsTable(t *testing.T) {
+	t.Parallel()
 	spellActivated := "Spell,Activated"
 	if !causeCostAdmits(spellActivated, costCauseSpell) {
 		t.Error("Spell,Activated must admit a spell-cast cost")

@@ -584,6 +584,69 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
+	// AlternativeDecider$ chooses which library position receives the
+	// targeted card. The owner, not the spell's controller, answers (the
+	// referent may be the OPPONENT of the caster, and the ask goes to that
+	// seat). Keep the ask after target resolution so TargetedOwner is bound to
+	// the actual referent, and before any move so replay re-entry cannot
+	// partially apply. The one shape modelled is the corpus's uniform
+	// AlternativeDecider shape: ONE targeted card moving to a library whose
+	// primary position is the TOP (or second from top) and whose alternative
+	// position is `-1` (bottom). Other shapes stay LOUD and take the
+	// pre-existing deterministic placement rather than silently offering a
+	// choice the script never posed.
+	altDecider := strings.TrimSpace(sa.Params["AlternativeDecider"])
+	altAnswer := c.ChangeZoneAlternative
+	c.ChangeZoneAlternative = ""
+	altBottom := false
+	altEngaged := false
+	if altDecider != "" && len(targets) > 0 {
+		primaryPosition := strings.TrimSpace(sa.Params["LibraryPosition"])
+		altPosition := strings.TrimSpace(sa.Params["LibraryPositionAlternative"])
+		shapeOK := to == state.ZLibrary && len(targets) == 1 && !targets[0].IsPlayer &&
+			altPosition == "-1" && (primaryPosition == "" || primaryPosition == "0" || primaryPosition == "1")
+		switch {
+		case !shapeOK:
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "AlternativeDecider$ " + altDecider + " is not the top-or-bottom library shape this engine can ask; the primary destination is taken"})
+		default:
+			target := h.Game().Obj(targets[0].Obj)
+			var chooser state.PlayerID
+			chooserOK := false
+			switch altDecider {
+			case "TargetedOwner":
+				if target != nil {
+					chooser, chooserOK = target.Owner, true
+				}
+			}
+			if !chooserOK || int(chooser) >= len(h.Game().Players) {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+					Text: "AlternativeDecider$ " + altDecider + " cannot resolve an object owner"})
+			} else if altAnswer == "" {
+				primaryLabel := "top"
+				if primaryPosition == "1" {
+					primaryLabel = "second from top"
+				}
+				d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
+					Source: c.Source, ResumeKind: "changezone_alternative", ResumeSA: sa,
+					Prompt: "Choose your library position",
+					Options: []decision.Option{
+						{Index: 0, Kind: "primary", Label: primaryLabel},
+						{Index: 1, Kind: "bottom", Label: "bottom"},
+					}}
+				if Ask(h, d) == AskAsked {
+					return
+				}
+				// R-9 no-ask host: the primary placement, deterministically.
+				altAnswer = "top"
+				altBottom = false
+				altEngaged = true
+			} else {
+				altBottom = altAnswer == "bottom"
+				altEngaged = true
+			}
+		}
+	}
 	forgetOtherRemembered(h, c, sa)
 	// ForgetOtherTargets$ True (Journey to Nowhere, Leonin Relic-Warder):
 	// Forge's ChangeZoneEffect.forgetOtherTargets -- forget every previously
@@ -868,10 +931,37 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// distinct card owner's library is shuffled once (a cross-graveyard mover
 	// like Turn the Earth touches several players), in first-move order so
 	// the event stream stays deterministic.
+	// LibraryPosition$ placement tail on the object-target path
+	// (golgari_thug1): every targeted mover -- a ValidTgts$ ask, a
+	// changeZoneChosenTargets answer, or a Defined$ that names concrete
+	// objects -- used to stop after the MoveZone loop, so a targeted
+	// ChangeZone INTO a library that names a position never reached the
+	// placement helpers the hidden-origin movers share. The MoveZone bottom
+	// append stood: Golgari Thug's "put target creature card from your
+	// graveyard on top of your library" (LibraryPosition$ 0) left the card at
+	// the BOTTOM. Measured at the corpus pin, 140 corpus lines carry the
+	// class (targeted ChangeZone, Destination$ Library, an explicit
+	// LibraryPosition$): 70 top, 51 bottom, 12 second-from-top, 3+1 deeper,
+	// 3 SVar-resolved X. The placement runs BEFORE the Shuffle$ tail (the
+	// ChangeZoneAll order: "put on top ..., then shuffle") and is skipped
+	// when AlternativeDecider$ engaged -- that branch places below through
+	// its own primary/alternative election.
+	if to == state.ZLibrary && len(moved) > 0 && !altEngaged {
+		placeTargetedLibraryObjects(h, c, sa, moved)
+	}
 	if to == state.ZLibrary && len(moved) > 0 && objectPathShuffleOwed(sa) {
 		if objectPathShuffleTail(h, c, sa, moved) {
 			return
 		}
+	}
+	if altEngaged && len(moved) > 0 {
+		position := int32(0)
+		if altBottom {
+			position = -1
+		} else if strings.TrimSpace(sa.Params["LibraryPosition"]) == "1" {
+			position = 1
+		}
+		libraryOrderPlacementAt(h, h.Game().Obj(moved[0]).Owner, moved, position)
 	}
 }
 
@@ -3211,7 +3301,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 			}
 		}
 		shuffleLibrary(h, sa, f.owner)
-		placeLibraryObjects(h, sa, f.owner, moved, to)
+		placeLibraryObjects(h, c, sa, f.owner, moved, to)
 		// Explicit Reveal$ on a Defined$ fetch list (Forge reveals movedCards
 		// whenever Reveal$ names the effect, defined or not): the same public
 		// Note payload applyLibrarySearch emits -- no auto-reveal here, since
@@ -4787,12 +4877,12 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved
 		if ans == "yes" {
 			shuffleLibraryOrder(h, owner)
 		}
-		placeLibraryObjects(h, sa, owner, placed, to)
+		placeLibraryObjects(h, c, sa, owner, placed, to)
 		return false
 	}
 	if !strings.EqualFold(strings.TrimSpace(sa.Params["ShuffleNonMandatory"]), "True") {
 		shuffleLibrary(h, sa, owner)
-		placeLibraryObjects(h, sa, owner, moved, to)
+		placeLibraryObjects(h, c, sa, owner, moved, to)
 		return false
 	}
 	d := &decision.Decision{Player: owner, Kind: decision.KChoose, Min: 1, Max: 1,
@@ -4811,7 +4901,7 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved
 		return true // suspended; the answer re-enters with Ctx.SearchShuffle set.
 	}
 	// No-host stand-in (R-9): decline the shuffle, keep the order.
-	placeLibraryObjects(h, sa, owner, moved, to)
+	placeLibraryObjects(h, c, sa, owner, moved, to)
 	return false
 }
 
@@ -4827,6 +4917,61 @@ func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 	h.Emit(events.Event{Kind: events.Shuffle, Player: owner, IDs: order, Secret: true})
 }
 
+// placeTargetedLibraryObjects implements LibraryPosition$ for the
+// object-target path of effChangeZone (golgari_thug1): the one placement the
+// targeted movers never reached. Each moved card is placed in ITS OWNER's
+// library -- a battlefield creature controlled by another player still
+// returns to its owner's library, because the MoveZone keeps its owner (the
+// same rule effChangeZoneAll applies) -- and the targets of one owner are
+// placed as a block, in target/move order, at the exact position: "0" = top,
+// "1" = second from top, "N" = beneath the top N cards, negative = from the
+// bottom ("-1" is the bottom). An SVar-resolved value (Quarry Colossus'
+// LibraryPosition$ X, read through the ordinary Num grammar) resolves at
+// resolution time; a value Num cannot resolve is LOUD -- one Note and the
+// MoveZone bottom append stands -- never a guessed placement. An ABSENT
+// LibraryPosition$ is Forge's TOP default (golgari_thug2):
+// ChangeZoneEffect.changeKnownOriginResolve computes libPos = 0 when the
+// parameter is absent, the same default the hand path (handLibraryTail) and
+// the ChangeZoneAll path apply, so the absent spelling places at position 0.
+func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.ObjID) {
+	position := int32(0) // Forge's absent-LibraryPosition$ default is TOP
+	if raw := strings.TrimSpace(sa.Params["LibraryPosition"]); raw != "" {
+		p, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
+		if !ok {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "LibraryPosition$ " + raw + " is not implemented; the cards sit at the BOTTOM of their owners' libraries (the MoveZone append)"})
+			return
+		}
+		position = p
+	}
+	type ownerMoved struct {
+		owner state.PlayerID
+		ids   []state.ObjID
+	}
+	var groups []ownerMoved
+	for _, id := range moved {
+		o := h.Game().Obj(id)
+		if o == nil { // a token ceased to exist on leaving the battlefield
+			continue
+		}
+		idx := -1
+		for i := range groups {
+			if groups[i].owner == o.Owner {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			groups = append(groups, ownerMoved{owner: o.Owner})
+			idx = len(groups) - 1
+		}
+		groups[idx].ids = append(groups[idx].ids, id)
+	}
+	for _, grp := range groups {
+		libraryOrderPlacementAt(h, grp.owner, grp.ids, position)
+	}
+}
+
 // placeLibraryObjects implements LibraryPosition$ after its source library
 // was shuffled. It is shared by a searched subset and a Defined$ fetch list.
 // Reorder$ True (Goblin Recruiter's "put those cards on top in any order",
@@ -4834,19 +4979,46 @@ func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 // placement order: the branch below pins the chosen cards on top in exactly
 // the order the player's answer carried them (libraryOrderPlacement), never
 // a re-sorted one.
-func placeLibraryObjects(h Host, sa *cards.SA, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
+func placeLibraryObjects(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
+	// An ABSENT LibraryPosition$ is Forge's TOP default on the searched-library
+	// path too (agent-20260928T191540Z): Forge computes libPos = 0 when the
+	// parameter is absent in BOTH resolvers -- changeKnownOriginResolve
+	// (ChangeZoneEffect.java:484) and changeHiddenOriginResolve (:994) -- the
+	// same default the object-target and ChangeZoneAll paths apply
+	// (golgari_thug2), so this helper treats "" exactly like the explicit "0"
+	// in both of its branches. Without it a searched card put back into its
+	// library (Knowledge Exploitation, the Kodama's Reach/Cultivate family)
+	// stayed at the MoveZone bottom append.
+	position := strings.TrimSpace(sa.Params["LibraryPosition"])
+	if position == "" {
+		position = "0"
+	}
 	if strings.EqualFold(strings.TrimSpace(sa.Params["Reorder"]), "True") && to == state.ZLibrary {
-		position := strings.TrimSpace(sa.Params["LibraryPosition"])
 		if len(moved) > 0 && (position == "0" || position == "-1") {
 			libraryOrderPlacement(h, owner, moved, position == "-1")
 		}
 		return
 	}
-	position := strings.TrimSpace(sa.Params["LibraryPosition"])
-	if to != state.ZLibrary || len(moved) == 0 || (position != "0" && position != "-1") {
+	if to != state.ZLibrary || len(moved) == 0 {
 		return
 	}
-	libraryOrderPlacement(h, owner, moved, position == "-1")
+	if position == "0" || position == "-1" {
+		libraryOrderPlacement(h, owner, moved, position == "-1")
+		return
+	}
+	// A non-{0,-1} position (Long-Term Plans' "put that card third from the
+	// top", LibraryPosition$ 2) resolves through the same NumResolved grammar
+	// placeTargetedLibraryObjects applies and places via
+	// libraryOrderPlacementAt (positive = zero-based from the top, negative =
+	// from the bottom). An unresolvable value is LOUD -- one Note, the
+	// MoveZone bottom append stands -- never a guessed placement.
+	p, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
+	if !ok {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "LibraryPosition$ " + position + " is not implemented; the cards sit at the BOTTOM of the library (the MoveZone append)"})
+		return
+	}
+	libraryOrderPlacementAt(h, owner, moved, p)
 }
 
 // libraryOrderPlacement is the one LibraryPosition$ placement both
@@ -4882,6 +5054,44 @@ func libraryOrderPlacement(h Host, owner state.PlayerID, moved []state.ObjID, bo
 	} else {
 		order = append(order, rest...)
 		order = append(order, placed...)
+	}
+	h.Emit(events.Event{Kind: events.LibraryOrder, Player: owner, IDs: order, Secret: true})
+}
+
+// libraryOrderPlacementAt places an already-moved subset at an exact library
+// position. Negative positions count from the bottom (-1 is the bottom); a
+// positive position is a zero-based offset from the top. AlternativeDecider
+// uses position 1 for the corpus's second-from-top vs bottom choices.
+func libraryOrderPlacementAt(h Host, owner state.PlayerID, moved []state.ObjID, position int32) {
+	selected := make(map[state.ObjID]bool, len(moved))
+	for _, id := range moved {
+		selected[id] = true
+	}
+	lib := h.Game().Zone(state.ZLibrary, owner)
+	rest := make([]state.ObjID, 0, len(lib)-len(moved))
+	placed := make([]state.ObjID, 0, len(moved))
+	for _, id := range moved {
+		if containsID(lib, id) {
+			placed = append(placed, id)
+		}
+	}
+	for _, id := range lib {
+		if !selected[id] {
+			rest = append(rest, id)
+		}
+	}
+	order := make([]state.ObjID, 0, len(lib))
+	if position < 0 {
+		order = append(order, rest...)
+		order = append(order, placed...)
+	} else {
+		offset := int(position)
+		if offset > len(rest) {
+			offset = len(rest)
+		}
+		order = append(order, rest[:offset]...)
+		order = append(order, placed...)
+		order = append(order, rest[offset:]...)
 	}
 	h.Emit(events.Event{Kind: events.LibraryOrder, Player: owner, IDs: order, Secret: true})
 }
@@ -5220,10 +5430,13 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		// destination library in settle order, so "-1" (Terminus) is exactly the
 		// move order and needs no extra event; "0" pins the moved cards on TOP
 		// via the one Secret LibraryOrder placement every library placement
-		// shares. Any other value is loud rather than silently inert.
+		// shares. The ABSENT spelling is also TOP (golgari_thug2):
+		// ChangeZoneAllEffect computes libPos = 0 when LibraryPosition$ is
+		// absent, the same default the hand path and the object-target path
+		// apply. Any other value is loud rather than silently inert.
 		switch position {
-		case "", "-1":
-		case "0":
+		case "-1":
+		case "", "0":
 			for _, pm := range placements {
 				libraryOrderPlacement(h, pm.owner, pm.ids, false)
 			}
@@ -5923,6 +6136,11 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 	if _, targeted := sa.Params["ValidTgts"]; !targeted ||
 		strings.TrimSpace(sa.Params["Defined"]) != "" {
 		return nil, false
+	}
+	if c.SubPreAsk != nil {
+		if ts, ok := c.SubPreAsk[sa.Line]; ok {
+			return ts, true
+		}
 	}
 	if c.TargetsOffered && (c.OfferedSA == nil || sa.Line == c.OfferedSA.Line) {
 		// The announcement/placement ask offered THIS SA's targeting (rules

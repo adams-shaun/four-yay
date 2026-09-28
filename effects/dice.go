@@ -212,7 +212,7 @@ func effLosesGame(h Host, c *Ctx, sa *cards.SA) {
 	if int(player) < 0 || int(player) >= len(g.Players) || g.Players[player].Lost {
 		return
 	}
-	h.Emit(events.Event{Kind: events.PlayerLost, Player: player, Text: "lost the game"})
+	h.EmitPlayerLost(player, "Effect", "lost the game")
 }
 
 // effWinsGame implements DB$ WinsGame (40 corpus files): the Defined$ player
@@ -247,7 +247,7 @@ func effWinsGame(h Host, c *Ctx, sa *cards.SA) {
 	if int(player) < 0 || int(player) >= len(g.Players) || g.Players[player].Lost || g.Over {
 		return
 	}
-	h.Emit(events.Event{Kind: events.GameOver, Player: player, Text: g.Players[player].Name})
+	h.EmitGameWin(player, g.Players[player].Name)
 }
 
 // parseDieRanges splits Forge's ResultSubAbilities$ value into its range

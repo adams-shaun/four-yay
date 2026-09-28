@@ -30,6 +30,7 @@ import (
 // creature exiled as payment makes a tapped 2/2 that is still on the
 // battlefield after the stack empties.
 func TestCorpseweftPaidExiledCards(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cw := mustCorpusCard(t, reg, "Corpseweft")
 	// Precondition: the corpus card's Token ability really is the dynamic-P/T

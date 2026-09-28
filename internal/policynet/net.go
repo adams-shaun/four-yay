@@ -1077,9 +1077,12 @@ func (m *Model) Loss(ex Example, lc LossConfig) StepStat {
 	}
 	var parts LossParts
 	var ps PPOStep
-	if ex.PPO != nil {
+	switch {
+	case ex.PPO != nil:
 		parts, _, ps = lossPPO(lc, ex, labelled, ys)
-	} else {
+	case ex.Visits != nil:
+		parts, _ = lossVisits(ex, labelled, ys)
+	default:
 		parts, _ = lossFromScores(lc, ex, labelled, ys)
 	}
 	if t, on := m.valueTermOn(lc, ex); on {
@@ -1133,9 +1136,12 @@ func (m *Model) LossGrad(ex Example, lc LossConfig, g *Grads) StepStat {
 	var parts LossParts
 	var dys []float64
 	var ps PPOStep
-	if ex.PPO != nil {
+	switch {
+	case ex.PPO != nil:
 		parts, dys, ps = lossPPO(lc, ex, labelled, ys)
-	} else {
+	case ex.Visits != nil:
+		parts, dys = lossVisits(ex, labelled, ys)
+	default:
 		parts, dys = lossFromScores(lc, ex, labelled, ys)
 	}
 	st := StepStat{Loss: parts.Total, Parts: parts, PPO: ps}
@@ -1305,6 +1311,9 @@ func (m *Model) Argmax(ex Example) (idx int, ok bool) {
 // the teacher-preferred set. Ties go to the FIRST argmax (the lowest option
 // index in the record's order), matching the engine's tie rule.
 func agreement(ex Example, labelled []int, ys []float64) (eligible, agree bool) {
+	if ex.Visits != nil {
+		return visitAgreement(ex, labelled, ys)
+	}
 	hasPref := false
 	for _, i := range labelled {
 		if ex.Options[i].Target.Preferred {

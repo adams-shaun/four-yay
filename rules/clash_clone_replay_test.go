@@ -60,6 +60,7 @@ func clashLibraryTwo(t *testing.T, e *Engine, p state.PlayerID, top, bottom stat
 // pending choice, cursor, revealed set, log head and library untouched, and the
 // original's own (different) answer must then produce its own order and head.
 func TestClashPlacementCloneIndependence(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	marvo := onBoardCard(t, e, 0, unblockedCorpusCard(t, "m/marvo_deep_operative.txt"))
 	e.G.Obj(marvo).SummonSick = false
@@ -269,6 +270,7 @@ func clashReplayEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, stat
 // choose bottom on a multi-card library, so a real secret LibraryOrder is
 // emitted for each.
 func TestClashPlacementLogOnlyReplay(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, marvoID := clashReplayEngine(t, reg)
 

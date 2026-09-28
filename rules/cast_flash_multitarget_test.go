@@ -47,6 +47,7 @@ func multiTargetFlashEngine(t *testing.T) (*Engine, state.ObjID) {
 // Min 2, so the ask aborted a cast the offer census had admitted. The full
 // pool keeps the mixed completion (own creature + opponent creature) legal.
 func TestFlashMultitargetMixedCompletionIsOfferedAndCasts(t *testing.T) {
+	t.Parallel()
 	e, spell := multiTargetFlashEngine(t)
 	myBear := battlePerm(t, e, 0, "Name:My Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	theirBear := battlePerm(t, e, 1, "Name:Their Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -83,6 +84,7 @@ func TestFlashMultitargetMixedCompletionIsOfferedAndCasts(t *testing.T) {
 // pair including it and one own permanent is a legal announcement), instead
 // of being hidden by the per-candidate filter.
 func TestFlashMultitargetQualifyingPairAnnouncesBoth(t *testing.T) {
+	t.Parallel()
 	e, spell := multiTargetFlashEngine(t)
 	bearOne := battlePerm(t, e, 0, "Name:My Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	bearTwo := battlePerm(t, e, 0, "Name:My Other Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -117,6 +119,7 @@ func TestFlashMultitargetQualifyingPairAnnouncesBoth(t *testing.T) {
 // alive on the multi-target shape: with only opponent creatures the cast can
 // NEVER satisfy the grant, so it must not be offered (and not reach the ask).
 func TestFlashMultitargetNoQualifyingTargetWithheld(t *testing.T) {
+	t.Parallel()
 	e, spell := multiTargetFlashEngine(t)
 	battlePerm(t, e, 1, "Name:Their Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	if e.G.Obj(spell).Face().IsInstant() {

@@ -15,12 +15,22 @@ import (
 type proposalCard struct {
 	ID   state.ObjID
 	Name string
+	// Known marks a physical card the replay's observer had already
+	// introduced when the shuffle holding it was planned. Only !Known cards
+	// may fill an Unseen position: drawing a known duplicate there would
+	// emit no new observation identity, so the sampled world could never
+	// match the observed history's identity counts.
+	Known bool
 }
 
 type positionConstraint struct {
 	Index int
 	Name  string
 	Obj   state.ObjID
+	// Unseen requires the position to hold a card the replay's observer has
+	// not introduced yet. Mutually exclusive with Obj: a position cannot
+	// simultaneously be pinned to an exact physical card and be unseen.
+	Unseen bool
 }
 
 type deadlineConstraint struct {
@@ -47,18 +57,27 @@ type proposalRandom interface {
 }
 
 type constraintCounter struct {
-	n           int
-	stop        int
-	names       []string
-	nameIndex   map[string]int
-	fixedObj    map[int]proposalCard
-	fixedName   map[int]string
-	exactPrefix [][]int
-	initialFree []int
-	deadlines   []deadlineConstraint
-	exclusions  []exclusionConstraint
-	memo        map[string]*big.Int
-	factorials  []*big.Int
+	n         int
+	stop      int
+	names     []string
+	nameIndex map[string]int
+	fixedObj  map[int]proposalCard
+	fixedName map[int]string
+	// unseenIndex records, per position, whether the position is an unseen
+	// one; unseenTracked records, per relevant name, whether the name is
+	// carried by at least one unseen position. The per-name unseen-remaining
+	// dimension only exists for tracked names, so a constraint problem with
+	// no unseen positions produces exactly the pre-fix counts, weights and
+	// unranking order.
+	unseenIndex   map[int]bool
+	unseenTracked []bool
+	exactPrefix   [][]int
+	initialFree   []int
+	initialUnseen []int
+	deadlines     []deadlineConstraint
+	exclusions    []exclusionConstraint
+	memo          map[string]*big.Int
+	factorials    []*big.Int
 }
 
 type constrainedPermutation struct {
@@ -132,25 +151,39 @@ func (p *constrainedPermutation) sample(r proposalRandom) ([]state.ObjID, float6
 	order := make([]state.ObjID, counter.n)
 	remaining := append([]proposalCard(nil), p.available...)
 	counts := append([]int(nil), counter.initialFree...)
+	unseen := append([]int(nil), counter.initialUnseen...)
 	other := len(remaining) - sumInts(counts)
 	for pos := 0; pos < counter.n; pos++ {
 		if card, ok := counter.fixedObj[pos]; ok {
 			order[pos] = card.ID
 			continue
 		}
+		mustBeUnseen := counter.unseenIndex[pos]
 		chosen := -1
 		for i, card := range remaining {
 			if name := counter.fixedName[pos]; name != "" && card.Name != name {
 				continue
 			}
-			nextOther := other
 			countIndex, relevant := counter.nameIndex[card.Name]
+			// A card sits in the unseen class exactly when its name is tracked
+			// and the attempt's observer has not introduced it; count() splits
+			// a name's copies the same way, so the two unrank identical totals.
+			unseenClass := relevant && !card.Known && counter.unseenTracked[countIndex]
+			// A position that must hold an unseen card admits only the unseen
+			// class; every other position admits both.
+			if mustBeUnseen && !unseenClass {
+				continue
+			}
+			nextOther := other
 			if relevant {
 				counts[countIndex]--
 			} else {
 				nextOther--
 			}
-			completions := counter.count(pos+1, counts, nextOther)
+			if unseenClass {
+				unseen[countIndex]--
+			}
+			completions := counter.count(pos+1, counts, unseen, nextOther)
 			if rank.Cmp(completions) < 0 {
 				chosen = i
 				other = nextOther
@@ -158,6 +191,9 @@ func (p *constrainedPermutation) sample(r proposalRandom) ([]state.ObjID, float6
 			}
 			if relevant {
 				counts[countIndex]++
+			}
+			if unseenClass {
+				unseen[countIndex]++
 			}
 			rank.Sub(rank, completions)
 		}
@@ -175,7 +211,7 @@ func newConstraintCounter(cards []proposalCard, positions []positionConstraint, 
 }
 
 func newConstraintCounterWithExclusions(cards []proposalCard, positions []positionConstraint, deadlines []deadlineConstraint, exclusions []exclusionConstraint) (*constraintCounter, []proposalCard, error) {
-	c := &constraintCounter{n: len(cards), fixedObj: make(map[int]proposalCard), fixedName: make(map[int]string), memo: make(map[string]*big.Int)}
+	c := &constraintCounter{n: len(cards), fixedObj: make(map[int]proposalCard), fixedName: make(map[int]string), unseenIndex: make(map[int]bool), memo: make(map[string]*big.Int)}
 	c.factorials = make([]*big.Int, len(cards)+1)
 	c.factorials[0] = big.NewInt(1)
 	for i := 1; i <= len(cards); i++ {
@@ -194,6 +230,11 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 		if p.Index < 0 || p.Index >= len(cards) || p.Name == "" && p.Obj == 0 {
 			return nil, nil, fmt.Errorf("invalid position constraint %+v", p)
 		}
+		// A position cannot simultaneously be pinned to an exact physical card
+		// and be required to hold an unseen one.
+		if p.Unseen && p.Obj != 0 {
+			return nil, nil, fmt.Errorf("invalid position constraint %+v", p)
+		}
 		card := proposalCard{}
 		if p.Obj != 0 {
 			var ok bool
@@ -206,17 +247,22 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 		if old, ok := c.fixedObj[p.Index]; ok && old.ID != card.ID || c.fixedName[p.Index] != "" && p.Name != "" && c.fixedName[p.Index] != p.Name {
 			return nil, nil, fmt.Errorf("conflicting position constraint %+v", p)
 		}
+		if old, seen := c.unseenIndex[p.Index]; seen && old != p.Unseen {
+			return nil, nil, fmt.Errorf("conflicting position constraint %+v", p)
+		}
 		if p.Obj != 0 {
 			if name := c.fixedName[p.Index]; name != "" && name != card.Name {
 				return nil, nil, fmt.Errorf("conflicting position constraint %+v", p)
 			}
 			c.fixedObj[p.Index] = card
 			c.fixedName[p.Index] = card.Name
+			c.unseenIndex[p.Index] = false
 		} else {
 			if old, ok := c.fixedObj[p.Index]; ok && old.Name != p.Name {
 				return nil, nil, fmt.Errorf("conflicting position constraint %+v", p)
 			}
 			c.fixedName[p.Index] = p.Name
+			c.unseenIndex[p.Index] = p.Unseen
 		}
 		relevant[c.fixedName[p.Index]] = true
 		if p.Index+1 > c.stop {
@@ -260,8 +306,22 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 			c.exactPrefix[pos+1][c.nameIndex[card.Name]]++
 		}
 	}
+	// Only names carried by an unseen position need the unseen-remaining
+	// dimension; for every other name it stays zero and the count branches
+	// collapse to the pre-fix single-class form.
+	unseenNames := make([]bool, len(c.names))
+	for pos, isUnseen := range c.unseenIndex {
+		if !isUnseen {
+			continue
+		}
+		if i, ok := c.nameIndex[c.fixedName[pos]]; ok {
+			unseenNames[i] = true
+		}
+	}
+	c.unseenTracked = unseenNames
 	available := make([]proposalCard, 0, len(cards)-len(c.fixedObj))
 	c.initialFree = make([]int, len(c.names))
+	c.initialUnseen = make([]int, len(c.names))
 	for _, card := range cards {
 		if usedObjects[card.ID] {
 			continue
@@ -269,6 +329,9 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 		available = append(available, card)
 		if i, ok := c.nameIndex[card.Name]; ok {
 			c.initialFree[i]++
+			if !card.Known && c.unseenTracked[i] {
+				c.initialUnseen[i]++
+			}
 		}
 	}
 	c.deadlines = append([]deadlineConstraint(nil), deadlines...)
@@ -278,10 +341,19 @@ func newConstraintCounterWithExclusions(cards []proposalCard, positions []positi
 
 func (c *constraintCounter) total(available []proposalCard) *big.Int {
 	remaining := append([]int(nil), c.initialFree...)
-	return c.count(0, remaining, len(available)-sumInts(remaining))
+	unseen := append([]int(nil), c.initialUnseen...)
+	return c.count(0, remaining, unseen, len(available)-sumInts(remaining))
 }
 
-func (c *constraintCounter) count(pos int, remaining []int, other int) *big.Int {
+// count walks the shuffle positions left of the epoch's constraints and
+// returns the number of completions. remaining[i] is the total number of free
+// copies of name i still to be placed, unseen[i] how many of those are cards
+// the replay observer has not introduced yet (only tracked for names carried
+// by an unseen position), and other the number of irrelevant copies. A placed
+// unseen card spends both dimensions, a placed known card only the total one:
+// that split is what keeps a later Unseen position from being satisfied by a
+// known duplicate.
+func (c *constraintCounter) count(pos int, remaining []int, unseen []int, other int) *big.Int {
 	// Past every constraint's Through the remaining suffix is unconstrained:
 	// a deadline is already satisfied or not, and an exclusion's window has
 	// closed. Returning here (before the checks below) keeps an unranking
@@ -295,33 +367,66 @@ func (c *constraintCounter) count(pos int, remaining []int, other int) *big.Int 
 	if pos >= c.stop {
 		return c.factorials[c.n-pos]
 	}
-	key := countKey(pos, remaining, other)
+	key := countKey(pos, remaining, unseen, other)
 	if cached := c.memo[key]; cached != nil {
 		return cached
 	}
 	total := new(big.Int)
 	if _, ok := c.fixedObj[pos]; ok {
-		total.Set(c.count(pos+1, remaining, other))
+		total.Set(c.count(pos+1, remaining, unseen, other))
 	} else if name := c.fixedName[pos]; name != "" {
 		i := c.nameIndex[name]
-		if remaining[i] > 0 {
-			multiplicity := remaining[i]
-			remaining[i]--
-			total.Mul(c.count(pos+1, remaining, other), big.NewInt(int64(multiplicity)))
-			remaining[i]++
+		if c.unseenIndex[pos] {
+			if unseen[i] > 0 {
+				multiplicity := unseen[i]
+				remaining[i]--
+				unseen[i]--
+				total.Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(multiplicity)))
+				unseen[i]++
+				remaining[i]++
+			}
+		} else if remaining[i] > 0 {
+			knownCopies := remaining[i] - unseen[i]
+			if knownCopies > 0 {
+				remaining[i]--
+				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(knownCopies)))
+				remaining[i]++
+				total.Add(total, branch)
+			}
+			if unseen[i] > 0 {
+				multiplicity := unseen[i]
+				remaining[i]--
+				unseen[i]--
+				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(multiplicity)))
+				unseen[i]++
+				remaining[i]++
+				total.Add(total, branch)
+			}
 		}
 	} else {
-		for i, multiplicity := range remaining {
-			if multiplicity == 0 {
+		for i := range remaining {
+			if remaining[i] == 0 {
 				continue
 			}
-			remaining[i]--
-			branch := new(big.Int).Mul(c.count(pos+1, remaining, other), big.NewInt(int64(multiplicity)))
-			remaining[i]++
-			total.Add(total, branch)
+			knownCopies := remaining[i] - unseen[i]
+			if knownCopies > 0 {
+				remaining[i]--
+				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(knownCopies)))
+				remaining[i]++
+				total.Add(total, branch)
+			}
+			if unseen[i] > 0 {
+				multiplicity := unseen[i]
+				remaining[i]--
+				unseen[i]--
+				branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other), big.NewInt(int64(multiplicity)))
+				unseen[i]++
+				remaining[i]++
+				total.Add(total, branch)
+			}
 		}
 		if other > 0 {
-			branch := new(big.Int).Mul(c.count(pos+1, remaining, other-1), big.NewInt(int64(other)))
+			branch := new(big.Int).Mul(c.count(pos+1, remaining, unseen, other-1), big.NewInt(int64(other)))
 			total.Add(total, branch)
 		}
 	}
@@ -358,9 +463,9 @@ func (c *constraintCounter) constraintsHold(pos int, remaining []int) bool {
 	return true
 }
 
-func countKey(pos int, remaining []int, other int) string {
+func countKey(pos int, remaining []int, unseen []int, other int) string {
 	var b strings.Builder
-	b.Grow(len(remaining) + 3)
+	b.Grow(len(remaining) + len(unseen) + 3)
 	var encoded [binary.MaxVarintLen64]byte
 	write := func(value int) {
 		n := binary.PutUvarint(encoded[:], uint64(value))
@@ -369,6 +474,9 @@ func countKey(pos int, remaining []int, other int) string {
 	write(pos)
 	write(len(remaining))
 	for _, n := range remaining {
+		write(n)
+	}
+	for _, n := range unseen {
 		write(n)
 	}
 	write(other)

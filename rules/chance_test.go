@@ -21,6 +21,7 @@ func chanceConfig(t *testing.T) Config {
 
 // Losing the opt-in boundary must not silently change ordinary replay.
 func TestHypotheticalUnconditionedMatchesNormal(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	normal := New(cfg)
 	hyp, err := NewHypothetical(cfg, nil)
@@ -40,6 +41,7 @@ func TestHypotheticalUnconditionedMatchesNormal(t *testing.T) {
 
 // A forced shuffle must happen during genesis, not via fabricated later moves.
 func TestHypotheticalForcesGenesisAndOwnsPrefix(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	prefix := []ChanceDraw{{Bound: 2, Value: 1}}
 	for p := 0; p < 2; p++ {
@@ -70,6 +72,7 @@ func TestHypotheticalForcesGenesisAndOwnsPrefix(t *testing.T) {
 }
 
 func TestHypotheticalPlannerControlsGenesisAndReplaysFromTranscript(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	calls := 0
 	e, err := NewHypotheticalPlanned(cfg, []ChanceDraw{{Bound: 2, Value: 0}}, func(ctx ShuffleContext) ([]state.ObjID, error) {
@@ -110,6 +113,7 @@ func TestHypotheticalPlannerControlsGenesisAndReplaysFromTranscript(t *testing.T
 }
 
 func TestHypotheticalPlannerRejectsNonPermutation(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	e, err := NewHypotheticalPlanned(cfg, []ChanceDraw{{Bound: 2, Value: 0}}, func(ctx ShuffleContext) ([]state.ObjID, error) {
 		out := make([]state.ObjID, len(ctx.Library))
@@ -121,6 +125,7 @@ func TestHypotheticalPlannerRejectsNonPermutation(t *testing.T) {
 }
 
 func TestHypotheticalPlannerControlsEffectsShuffleAndCloneDropsPlanner(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	spell := card(t, "Name:Planned Shuffle\nManaCost:0\nTypes:Sorcery\nA:SP$ Shuffle | Defined$ You\nOracle:Test shuffle.\n")
 	for i := range cfg.Decks[0] {
@@ -183,6 +188,7 @@ func TestHypotheticalPlannerControlsEffectsShuffleAndCloneDropsPlanner(t *testin
 }
 
 func TestHypotheticalPlannerControlsMulliganShuffle(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	cfg.Mulligans = 1
 	var desired []state.ObjID
@@ -237,6 +243,7 @@ func TestHypotheticalPlannerControlsMulliganShuffle(t *testing.T) {
 }
 
 func TestHypotheticalPlannerEffectErrorPoisonsSubmit(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	spell := card(t, "Name:Error Shuffle\nManaCost:0\nTypes:Sorcery\nA:SP$ Shuffle | Defined$ You\nOracle:Test shuffle.\n")
 	for i := range cfg.Decks[0] {
@@ -296,6 +303,7 @@ func TestHypotheticalPlannerEffectErrorPoisonsSubmit(t *testing.T) {
 }
 
 func TestClearHypotheticalPlannerRestoresOrdinaryShuffleContinuation(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	spell := card(t, "Name:Cleared Shuffle\nManaCost:0\nTypes:Sorcery\nA:SP$ Shuffle | Defined$ You\nOracle:Test shuffle.\n")
 	for i := range cfg.Decks[0] {
@@ -410,6 +418,7 @@ func submitPregameKeep(t *testing.T, e *Engine) error {
 }
 
 func TestHypotheticalRejectsMalformedChance(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		draw ChanceDraw
@@ -430,6 +439,7 @@ func TestHypotheticalRejectsMalformedChance(t *testing.T) {
 }
 
 func TestHypotheticalReplayAndCloneOwnChanceState(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	cfg.Mulligans = 1
 	e, err := NewHypothetical(cfg, []ChanceDraw{{Bound: 2, Value: 0}})
@@ -495,6 +505,7 @@ func TestHypotheticalReplayAndCloneOwnChanceState(t *testing.T) {
 }
 
 func TestHypotheticalSubmitFailurePoisonsOnlyThatBranch(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	cfg.Mulligans = 1
 	base, err := NewHypothetical(cfg, nil)
@@ -555,6 +566,7 @@ func TestHypotheticalSubmitFailurePoisonsOnlyThatBranch(t *testing.T) {
 // A full tape must restore not just the recorded prefix but the same seeded
 // continuation. Skipping the PCG advance at forced draws breaks that property.
 func TestHypotheticalFullTapePreservesRandomContinuation(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	original, err := NewHypothetical(cfg, []ChanceDraw{{Bound: 2, Value: 1}})
 	if err != nil {
@@ -574,6 +586,7 @@ func TestHypotheticalFullTapePreservesRandomContinuation(t *testing.T) {
 // Exercise Host.Rand inside a real resolving Shuffle spell, not only the
 // engine's separate genesis/mulligan Fisher-Yates loops.
 func TestHypotheticalEffectsShuffleReplaysAndRejectsWrongBound(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	spell := card(t, "Name:Hypothesis Shuffle\nManaCost:0\nTypes:Sorcery\nA:SP$ Shuffle | Defined$ You\nOracle:Test shuffle.\n")
 	for i := range cfg.Decks[0] {
@@ -656,6 +669,7 @@ func TestHypotheticalEffectsShuffleReplaysAndRejectsWrongBound(t *testing.T) {
 // own future chance: the source is untouched, the copy accepts
 // SubmitHypothetical, and its generator is the seed's, not the source's.
 func TestCloneHypotheticalReseedsWithoutTouchingSource(t *testing.T) {
+	t.Parallel()
 	e := New(chanceConfig(t))
 	e.Advance()
 	head, n, draws := e.L.Head(), len(e.L.Events), e.RNGDraws()

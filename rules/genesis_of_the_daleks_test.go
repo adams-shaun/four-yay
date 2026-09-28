@@ -23,6 +23,7 @@ import (
 // equals the measured total power of the Daleks the chapter itself destroyed,
 // and verifies the whole event stream replays byte-identically.
 func TestGenesisOfTheDaleksChapterLosesTotalDalekPower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	genesis := mustCorpusCard(t, reg, "Genesis of the Daleks")
 	// Precondition on the REAL compiled script: the SVar under test is the

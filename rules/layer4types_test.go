@@ -30,6 +30,7 @@ const layer4Victim = "Name:Layer4 Victim\nTypes:Creature Human\nPT:1/1\nOracle:x
 // target offer / Count$Valid / cost sites use now matches a creature a static
 // made a Goblin.
 func TestLayer4GrantedTypeReachesTheOrdinaryFilterGrammar(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Maskwood Nexus")}, nil)
 	moveByName(t, e, 0, "Maskwood Nexus", state.ZBattlefield)
@@ -69,6 +70,7 @@ func TestLayer4GrantedTypeReachesTheOrdinaryFilterGrammar(t *testing.T) {
 // offer is exactly the row's "not targetable by a Goblin-killer" symptom. The
 // Maskwood-affected Human must be offered; a Goblin-free artifact must not.
 func TestLayer4GrantedTypeIsOfferedAsAValidTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Maskwood Nexus"), lookup(t, reg, "Tivadar of Thorn")}, nil)
 	moveByName(t, e, 0, "Maskwood Nexus", state.ZBattlefield)
@@ -114,6 +116,7 @@ func TestLayer4GrantedTypeIsOfferedAsAValidTarget(t *testing.T) {
 // printed face (which would resurrect the removed word). The granted replacement
 // type stays visible.
 func TestLayer4RemovedTypeIsNotResurrectedByThePrintedFace(t *testing.T) {
+	t.Parallel()
 	stripper := "Name:Type Stripper\nTypes:Enchantment\n" +
 		"S:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | RemoveCardTypes$ True | AddTypes$ Wall\nOracle:x\n"
 	reg := testutil.CorpusRegistry(t)

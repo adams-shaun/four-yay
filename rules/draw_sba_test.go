@@ -39,6 +39,7 @@ import (
 )
 
 func TestDrawDuringResolutionDefersStateBasedActions(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Weave Fate"}, nil)
 
 	// Seat 1 (death-n-taxes) runs a real 3/3 Serra Avenger. Mark 3 lethal

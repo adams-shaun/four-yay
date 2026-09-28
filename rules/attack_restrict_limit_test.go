@@ -67,6 +67,7 @@ func optionIndicesAt(d *decision.Decision, p state.PlayerID) []int {
 // the field a single decision-wide GroupLimit could not express. Attacks at
 // the OTHER opponent stay uncapped, which is what proves the scoping.
 func TestAttackRestrictScopedLimitTwoOfferedDecision(t *testing.T) {
+	t.Parallel()
 	e, _ := attackRestrictTable(t, "Crawlspace", 4)
 	if sv := e.activeStatics("AttackRestrict"); len(sv) == 0 {
 		t.Fatal("precondition: Crawlspace's AttackRestrict static is not active")
@@ -131,6 +132,7 @@ func TestAttackRestrictScopedLimitTwoOfferedDecision(t *testing.T) {
 // Group at the default cap of one, and both enforcement paths reject two
 // while accepting one.
 func TestAttackRestrictScopedLimitOneStaysMutuallyExclusive(t *testing.T) {
+	t.Parallel()
 	e, _ := attackRestrictTable(t, "Judoon Enforcers", 3)
 	e.askAttackers()
 	d := e.Pending()
@@ -164,6 +166,7 @@ func TestAttackRestrictScopedLimitOneStaysMutuallyExclusive(t *testing.T) {
 // global maxAttackers()/decision Max carries the ceiling, and the decision
 // refuses a two-attacker declaration through its own Max without any Group.
 func TestAttackRestrictSilentArbiterIsGlobalAndOffered(t *testing.T) {
+	t.Parallel()
 	e, _ := attackRestrictTable(t, "Silent Arbiter", 3)
 	if got := e.maxAttackers(); got != 1 {
 		t.Fatalf("global ceiling = %d, want 1", got)
@@ -196,6 +199,7 @@ func TestAttackRestrictSilentArbiterIsGlobalAndOffered(t *testing.T) {
 // restricted defender's options gain the limit-one Group. Before the gate was
 // read the static was live while untapped (over-restriction).
 func TestAttackRestrictPresentGateTransition(t *testing.T) {
+	t.Parallel()
 	e, _ := attackRestrictTable(t, "Mirri, Weatherlight Duelist", 3)
 	mirri := e.G.Zone(state.ZBattlefield, 0)[0]
 	if o := e.G.Obj(mirri); o == nil || o.Tapped {
@@ -250,6 +254,7 @@ func TestAttackRestrictPresentGateTransition(t *testing.T) {
 // (the deterministic-bot livelock class the one-home rule exists for). The
 // actual policy answer (newTestBot) must satisfy the same two checks.
 func TestAttackRestrictScopedLimitBotRepair(t *testing.T) {
+	t.Parallel()
 	e, _ := attackRestrictTable(t, "Crawlspace", 4)
 	e.askAttackers()
 	d := e.Pending()

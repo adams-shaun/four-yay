@@ -9,6 +9,7 @@ import (
 )
 
 func TestPaymentPlanShapeGate(t *testing.T) {
+	t.Parallel()
 	for i, tc := range []struct {
 		name, face, detail string
 	}{
@@ -68,6 +69,7 @@ func TestPaymentPlanShapeGate(t *testing.T) {
 // the gaps audit proved on main; it must not regress when the additional-cost
 // and contribution gates above were added.
 func TestPaymentPlanShapeGateCostClassesStillDecline(t *testing.T) {
+	t.Parallel()
 	for i, tc := range []struct {
 		name, manaCost, detail string
 	}{
@@ -95,6 +97,7 @@ func TestPaymentPlanShapeGateCostClassesStillDecline(t *testing.T) {
 }
 
 func TestPaymentPlanShapeGateCostStaticAdditionalCost(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 2, "Soul Immolation")
 	spell := blightMove(t, e, 0, "Soul Immolation", state.ZHand)
@@ -112,6 +115,7 @@ func TestPaymentPlanShapeGateCostStaticAdditionalCost(t *testing.T) {
 }
 
 func TestPaymentPlanShapeGateGrantedImprovise(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9520, "Name:Nonartifact Spell\nManaCost:1 B\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:test\n")
 	stat := onBoardCard(t, e, 0, corpusCard(t, "Inspiring Statuary"))
 	if e.G.Obj(stat) == nil || e.G.Obj(spell).Zone != state.ZHand {
@@ -137,6 +141,7 @@ func TestPaymentPlanShapeGateGrantedImprovise(t *testing.T) {
 }
 
 func TestPaymentPlanShapeGateSpreeOffers(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, manaCost, modeCost string
 		sources                  int
@@ -197,6 +202,7 @@ func TestPaymentPlanShapeGateSpreeOffers(t *testing.T) {
 // the discard and delve
 // fixtures; sacrifice stays in the existing test.
 func TestPaymentPlanShapeGateAdditionalCostExecutorPays(t *testing.T) {
+	t.Parallel()
 	red := state.Mana{}
 	red[state.ManaIndex('R')] = 1
 

@@ -138,6 +138,7 @@ func viviDecline(d *decision.Decision) int {
 // re-pose the pay ask on the draw answer's re-entry (the pre-fix cycle
 // repeated pay/choose 80 times before the livelock detector fired).
 func TestRhysticStudyPayDeclineAsksTheOptionalDraw(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Rhystic Study")},
@@ -198,6 +199,7 @@ func TestRhysticStudyPayDeclineAsksTheOptionalDraw(t *testing.T) {
 // TestRhysticStudyDrawDeclineDrawsNothing pins the "no" arm: the decider's
 // decline draws nothing and the resolution completes (no re-ask).
 func TestRhysticStudyDrawDeclineDrawsNothing(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Rhystic Study")},
@@ -245,6 +247,7 @@ func TestRhysticStudyDrawDeclineDrawsNothing(t *testing.T) {
 // announced value binds the exile filter's cmcEQX, and the spell's pump
 // reads the announced X through Count$xPaid.
 func TestBlazingShoalAnnouncesXFromExileCandidates(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{
@@ -329,6 +332,7 @@ func TestBlazingShoalAnnouncesXFromExileCandidates(t *testing.T) {
 // MinTurn skips the current turn's own upkeep — the bauble was activated in
 // THIS turn — and fires at the NEXT turn's upkeep).
 func TestMishrasBaublePrivateLookAndNextTurnSlowtrip(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Mishra's Bauble")},
@@ -417,6 +421,7 @@ func TestMishrasBaublePrivateLookAndNextTurnSlowtrip(t *testing.T) {
 // engine's public note for Urza's Bauble's oracle-LOOK wording is the
 // recorded divergence (the report's Issues section).
 func TestUrzasBaublesRandomRevealNamesOneCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Urza's Bauble")},
@@ -462,6 +467,7 @@ func TestUrzasBaublesRandomRevealNamesOneCard(t *testing.T) {
 // activation notes the {U} it was paid with; the mana ability then adds one
 // blue mana.
 func TestJeweledAmuletNotesAndProducesTheSpentType(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Jeweled Amulet")},
@@ -515,6 +521,7 @@ func TestJeweledAmuletNotesAndProducesTheSpentType(t *testing.T) {
 // one {1} per legendary creature you control), the client-visible
 // AbilityCosts projection carries it, and the activation's charge agrees.
 func TestOtawaraChannelReduceCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Otawara, Soaring City"), viviCard(t, reg, "Krenko, Baron of Tin Street")},
@@ -563,6 +570,7 @@ func TestOtawaraChannelReduceCost(t *testing.T) {
 // naming graveyards of two different players is rejected (the pending
 // decision survives), and an answer from ONE player's graveyard is accepted.
 func TestLodestoneBaubleTargetsShareOneOwner(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Lodestone Bauble"), viviCard(t, reg, "Forest"), viviCard(t, reg, "Forest")},
@@ -613,6 +621,7 @@ func TestLodestoneBaubleTargetsShareOneOwner(t *testing.T) {
 // AntiMagic CantHappen replacement registers remembering the cast spell, and
 // a counterspell against THAT spell is stopped while the spell resolves.
 func TestMistriseVillageSpellCastPromise(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{
@@ -736,6 +745,7 @@ func TestMistriseVillageSpellCastPromise(t *testing.T) {
 // the body answer's re-entry. Mystic Remora is the live carrier; Rhystic
 // Study shares the shape.
 func TestUnlessBodyAskDoesNotRepose(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Mystic Remora")},

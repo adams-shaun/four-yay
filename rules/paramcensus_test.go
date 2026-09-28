@@ -571,6 +571,7 @@ func (s *scan) scanFuncBody(t *testing.T, fset *token.FileSet, fd *ast.FuncDecl,
 			}
 			return true
 		case *ast.CallExpr:
+			s.scanCompiledParamRead(t, fset, fi, name, v, pkg)
 			s.scanCall(t, fset, fi, name, v, pkg)
 			return true
 		case *ast.RangeStmt:
@@ -579,6 +580,36 @@ func (s *scan) scanFuncBody(t *testing.T, fset *token.FileSet, fd *ast.FuncDecl,
 		}
 		return true
 	})
+}
+
+// compiledParamReaders are the cards node methods that read one parameter
+// through its compiled ParamSet (cards/params.go): `x.Param(cards.PK<Key>)`,
+// `x.ParamStr(cards.PK<Key>)` and `x.HasParam(cards.PK<Key>)` are reads of
+// <Key> on base x, exactly like `x.Params["<Key>"]`.
+var compiledParamReaders = map[string]bool{"Param": true, "ParamStr": true, "HasParam": true}
+
+// scanCompiledParamRead records a compiled-ParamSet read (see
+// compiledParamReaders). The key argument must be a cards.PK<Key> constant;
+// anything else fails the rot guard, so a read cannot hide behind a
+// computed ParamKey.
+func (s *scan) scanCompiledParamRead(t *testing.T, fset *token.FileSet, fi *fnInfo, name string, ce *ast.CallExpr, pkg string) {
+	sel, ok := ce.Fun.(*ast.SelectorExpr)
+	if !ok || !compiledParamReaders[sel.Sel.Name] || len(ce.Args) != 1 {
+		return
+	}
+	arg, ok := ce.Args[0].(*ast.SelectorExpr)
+	if !ok {
+		return // not a ParamKey argument shape: some other Param method
+	}
+	if pk, ok := arg.X.(*ast.Ident); !ok || pk.Name != "cards" || !strings.HasPrefix(arg.Sel.Name, "PK") {
+		return
+	}
+	base := exprText(sel.X)
+	b, ok := s.bucketOf(t, fset, ce.Pos(), base, pkg)
+	if !ok {
+		return
+	}
+	s.addRead(fi, b, strings.TrimPrefix(arg.Sel.Name, "PK"))
 }
 
 // recordParamsRead records one `.Params[...]` (or alias) access on the given
@@ -1165,6 +1196,13 @@ func (s *scan) bucketOf(t *testing.T, fset *token.FileSet, pos token.Pos, base, 
 // each entry is "pkg:func:param" with its justification. Anything not listed
 // here AND not called with a `.Params`/alias argument fails the rot guard.
 var stringMapParams = map[string]string{
+	// rules/raise_cost_extra.go resolveRaiseCostText / raiseAnnounceName:
+	// svars is the RaiseCost static's source-face SVar table, read by the
+	// NAME a Cost$ token's count field spells (Sac<X/...>'s X, the March
+	// cycle's Y -> SVar$Exiled chain) -- an SVar-body lookup, not a card
+	// Params map.
+	"rules:resolveRaiseCostText:svars": "SVars table lookup by a RaiseCost Cost$ count name, not a card Params map",
+	"rules:raiseAnnounceName:svars":    "SVars table lookup along a RaiseCost count's SVar$ chain, not a card Params map",
 	// ETB choice option builders receive the source ability's selector map;
 	// the map is forwarded to type-choice enumeration, not consumed as card
 	// Params by the census.
@@ -1509,6 +1547,11 @@ var apiSpecificRulesSA = map[string][]string{
 	// Sacrifice's unread Produced$/DealDamage's unread Produced$.
 	"addPotentialMana": {"Mana"},
 	"potentialAmount":  {"Mana"},
+	// The potential-play planner's relaxed census proof (rules/
+	// potential_plan.go): it reads a missed MANA ability's Cost$/Produced$/
+	// ActivationLimit$ (it returns at once for any other API), so its reads
+	// must not mask another API's unread Produced$.
+	"Engine.paymentPlanRelaxedAlternatives": {"Mana"},
 	// The ManaReflected activation gate: only a reflected-mana ability's
 	// offer consults IsPresent$/PresentCompare$ on the SA itself (Tazri's
 	// "another activated ability" condition). A plain AB$ Mana ability's
@@ -1578,6 +1621,14 @@ var apiSpecificRulesSA = map[string][]string{
 	// api:ChangeZone/api:Sacrifice/api:DealDamage).
 	"Engine.castWindowProbeUnits": {"Mana"},
 	"Engine.castWindowAmount":     {"Mana"},
+	// manaAbilityWithSubX (rules/mana_cost_extra.go) rewrites the activated
+	// mana ability's production Amount$ to the announced SubCounter X -- the
+	// mana twin of manaAbilityWithPaidX's copy-on-write (which only WRITES
+	// Amount$ and so never counted as a read). Its ma.Params["Amount"] read
+	// recognises the literal "X" before delegating, so it belongs to
+	// api:Mana alone -- left in the generic union it would mask every other
+	// API's unread Amount$ (measured: api:ChangeZone).
+	"manaAbilityWithSubX": {"Mana"},
 	// The payment-plan offer is another mana-only source walk.  It obtains
 	// windowManaUnit alternatives exclusively from AB$ Mana abilities, then
 	// reads Produced$/RestrictValid$/Cost$ (and the Amount$ helper) to build a
@@ -1600,8 +1651,6 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.castModeAsk":     {"Charm"},
 	"modalTargetSA":          {"Charm"},
 	"modeDecision":           {"Charm"},
-	"modeDecisionForChoices": {"Charm"},
-	"modeLabels":             {"Charm"},
 	"modeChoiceNames":        {"Charm"},
 	"Engine.askTriggerModes": {"Charm"},
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
@@ -1710,17 +1759,24 @@ var mayPlayStaticParamReads = map[string]bool{
 }
 
 var apiSpecificRulesStat = map[string]string{
-	// The MayPlay grant path: mayPlayGrant (the offer walk's per-card
-	// evaluation, over the card's own face statics and activeStatics
-	// "Continuous") carries the family's propagated reads (propagateKeyReads
+	// The MayPlay grant path: mayPlayGrantScoped (mayPlayGrant's body, the
+	// offer walk's per-card evaluation, over the card's own face statics and
+	// activeStatics "Continuous") carries the family's propagated reads (propagateKeyReads
 	// attributes mayPlayStatic's map indexes to it), and
 	// warpGraveyardAllowed scans Continuous MayPlay statics directly over
 	// the face's Statics slice (Timeline Culler's explicit graveyard-Warp
 	// permission) -- it was previously a generic Continuous root
 	// (handRoots.stat), which masked ValidSA$/EffectZone$ for every plain
 	// Continuous static.
-	"Engine.mayPlayGrant":  "Continuous.MayPlay",
-	"warpGraveyardAllowed": "Continuous.MayPlay",
+	"Engine.mayPlayGrantScoped": "Continuous.MayPlay",
+	// The permission enumerator (rules/mayplay.go's mayPlayPermissions,
+	// called from legal.go's mayPlaySpellIds to list each still-unused
+	// MayPlayText$-typed permission) reads MayPlay statics directly through
+	// mayPlayStatic, so it is a family root exactly like the grant path --
+	// left generic it would mask a plain Continuous static's real unread
+	// keys.
+	"Engine.mayPlayPermissions": "Continuous.MayPlay",
+	"warpGraveyardAllowed":      "Continuous.MayPlay",
 	// The raise walk (rules/mayplay.go's mayPlayRaiseCost, called from
 	// legal.go's may-play spell word and land walks and cast.go's "mayplay"
 	// cost case): it carries mayPlayStatic's propagated reads (RaiseCost$
@@ -1742,6 +1798,12 @@ var apiSpecificRulesStat = map[string]string{
 	// plain and mutate halves encodes -- so its read is family-attributed
 	// exactly like the grant path's, never in the generic Continuous union.
 	"Engine.mayPlayKinds": "Continuous.MayPlay",
+	// The MayPlaySource host read (rules/mayplay.go's mayPlayGrantedBy, the
+	// cost chain's ValidSpell$ Spell.MayPlaySource / CastSa
+	// Spell.MayPlaySource answer): it walks the same MayPlay statics the
+	// grant path does, keeping the permissions a given host granted, so its
+	// read is family-attributed exactly like the grant path's.
+	"Engine.mayPlayGrantedBy": "Continuous.MayPlay",
 }
 
 // statFamilyInternal names the rules functions whose static reads are family
@@ -1807,7 +1869,11 @@ var handRoots = struct {
 			// through mayPlayGrant over the face's Statics slice -- the same
 			// direct-scan shape warpGraveyardAllowed has (mayPlaySpellIds also
 			// scans the exiled card's own EffectZone$ Exile self-grant).
-			"Engine.mayPlaySpellIds", "Engine.mayPlayLandIds"},
+			"Engine.mayPlaySpellIds", "Engine.mayPlayLandIds",
+			// The mana walk's AddAbility$ pre-filter reads the same
+			// Continuous statics' AddAbility$ once per offer walk, over the
+			// collectActionStatics snapshot, instead of once per object.
+			"actionStaticSource.addAbilityContinuous"},
 		// maxSpeedAbilities scans Continuous AddAbility$/Condition$MaxSpeed
 		// statics directly over the face's Statics slice (CR 702.179e's
 		// max-speed grant), with no activeStatics call -- the same
@@ -1827,6 +1893,12 @@ var handRoots = struct {
 		// mustAttackRequired has. staticPresentHolds (its IsPresent$/
 		// PresentCompare$ gate) is reached through it.
 		"UntapOtherPlayer": {"Engine.untapOtherStaticsMatch"},
+		// SpellCopyAllowed scans CantBeCopied statics directly over the
+		// pile's Statics slice (the stack-copy enforcement walk in
+		// statics.go), with no activeStatics call -- the same direct-scan
+		// shape mustAttackRequired has. Its reads are the shared
+		// EffectZone$/ValidCard$ static gate.
+		"CantBeCopied": {"Engine.SpellCopyAllowed"},
 	},
 	// The trigger-queue drain and the stack-resolution paths read trigger
 	// params (OptionalDecider$, TriggerDescription$, Static$, ValidCard$)
@@ -2435,6 +2507,9 @@ var ignoredParamKeys = map[string]string{
 }
 
 // ignoredStatParams scopes a presentation key to individual stat modes.
+// ignoredAbilityParams scopes an inert key to one api primitive. PumpZone is
+// inert on api:Effect (Forge EffectEffect does not read it), but is read by
+// api:Pump and api:PumpAll, so it cannot be key-global.
 // ignoredParamKeys is consulted with the BARE key in every bucket, so a key
 // some primitives genuinely read can never go in it. Secondary$ is that
 // key: on a static it is Forge's card-text dedup marker --
@@ -2444,17 +2519,18 @@ var ignoredParamKeys = map[string]string{
 // (forge-game/src/main/java/forge/game/card/Card.java lines
 // 2926/2958/2977/2993/3087/3096/3155/3291/3297/3303) and no
 // staticability/cost/spellability execution path gates on it. Gorge however
-// DOES read Secondary$ rules-side on two classes: the cost-modifier statics
-// (rules/statics.go costModifiers' paired-text skip) and every trigger
+// DOES read Secondary$ rules-side on every trigger
 // (rules/trigger_match.go secondaryYields -- the merged "one card text is
 // not two triggers" behaviour, pinned by rules/param_combat_triggers_test.go
 // and rules/magecraft_trigger_test.go). So the bare key stays out of
-// ignoredParamKeys -- the trigger and cost-modifier reads must stay
-// measurable (TestParamCensusDetectsADeletedConsumer's class) -- and the
-// presentation modes are ignored scoped, here.
+// ignoredParamKeys -- the trigger read must stay measurable
+// (TestParamCensusDetectsADeletedConsumer's class) -- and the presentation
+// modes are ignored scoped, here.
 //
-// RaiseCost/ReduceCost statics are deliberately NOT listed: they carry the
-// live cost-modifier read, and the Continuous.MayPlay family's whitelist
+// RaiseCost/ReduceCost are listed too: costStaticApplies used to SKIP a
+// Secondary$ cost static (the costgate fix removed that -- Forge applies it
+// like any other), so on a cost modifier the key is now exactly the text
+// marker it is in Forge. The Continuous.MayPlay family's whitelist still
 // fail-closes a Secondary$-carrying grant (rules/layers.go mayPlayGrant) --
 // a RECOGNITION the census keeps measurable exactly like MayPlayPlayer$.
 // The modes below are the REGISTERED stat modes the corpus carries
@@ -2464,6 +2540,11 @@ var statPresentationSecondary = []string{
 	"Continuous", "CantBlockBy", "MustAttack", "CantBlock", "MinMaxBlocker",
 	"CantBeActivated", "CantSacrifice", "CantBeCast", "CantAttack",
 	"CastWithFlash", "CantGainLife", "CantTarget", "Panharmonicon",
+	"RaiseCost", "ReduceCost",
+}
+
+var ignoredAbilityParams = map[string]string{
+	"Effect.PumpZone": "inert on api:Effect (EffectEffect.java reads no PumpZone; only PumpEffect.java:439 does)",
 }
 
 var ignoredStatParams = func() map[string]string {
@@ -2476,11 +2557,13 @@ var ignoredStatParams = func() map[string]string {
 }()
 
 // ignoredParam is the census's single classification point for a parameter
-// key: the key-global ignoredParamKeys table, then the stat-mode-scoped
-// overlay (consulted only for a "stat:" primitive, so trigger, SA and
-// replacement reads stay measurable no matter what lands in the overlay).
+// key: the key-global table, then api- and stat-scoped overlays. Scoped
+// entries cannot suppress reads by sibling primitives or other buckets.
 func ignoredParam(prim, key string) bool {
 	if ignoredParamKeys[key] != "" {
+		return true
+	}
+	if api, ok := strings.CutPrefix(prim, "api:"); ok && ignoredAbilityParams[api+"."+key] != "" {
 		return true
 	}
 	if mode, ok := strings.CutPrefix(prim, "stat:"); ok {
@@ -2536,9 +2619,12 @@ func measureParamCensus(t *testing.T, drop map[string]map[string]bool) (censusRe
 			censusBase = walkRepoDeckCensus(t, censusReads, nil)
 		})
 		if len(censusGuardErrs) > 0 {
-			sort.Strings(censusGuardErrs)
+			// Sort a copy: the memo is shared by every census test, which may
+			// run in parallel.
+			errs := append([]string(nil), censusGuardErrs...)
+			sort.Strings(errs)
 			t.Fatalf("paramcensus rot guard: %d findings:\n%s",
-				len(censusGuardErrs), strings.Join(censusGuardErrs, "\n"))
+				len(errs), strings.Join(errs, "\n"))
 		}
 		return censusBase, censusReads
 	}
@@ -2847,9 +2933,12 @@ var knownUnsupportedParams = map[string][]string{
 	// a real per-target "draw up to N" ask (task mordorparams1,
 	// effects/cardflow.go effDraw's upto branch, rules' draw_upto resume
 	// arm) — pinned by TestArcaneDenialSlowtripDrawsUpToTwo.
-	"Arcane Denial":       {"param:api:Counter.RememberTargets"},
-	"Avengers Quinjet":    {"param:api:ChangeZone.ValidTgtsDesc"},
-	"Acclaimed Contender": {"param:api:Dig.RestRandomOrder"},
+	"Arcane Denial":    {"param:api:Counter.RememberTargets"},
+	"Avengers Quinjet": {"param:api:ChangeZone.ValidTgtsDesc"},
+	// Acclaimed Contender's param:api:Dig.RestRandomOrder entry was deleted
+	// when RestRandomOrder$ became a real read (task
+	// fdn-dig-rest-random-order): effDig shuffles the untaken remainder into
+	// the library bottom from the seeded generator and poses no ask.
 	// Adeline, Resplendent Cathar's param:api:RepeatEach.ChangeZoneTable entry
 	// was deleted when the parameter became read (task agent-20260922T090929Z-
 	// 07378594): effRepeatEach opens the zone batch the parameter asks for, so
@@ -2864,8 +2953,6 @@ var knownUnsupportedParams = map[string][]string{
 	// election is pinned end to end in rules/putcounter_optional_test.go.
 	"Captain Marvel, Apex Avenger": {"param:api:PutCounter.TriggeredCounterMap"},
 	"Conduit of Worlds":            {"param:api:Play.RememberPlayed"},
-	"Conjurer's Mantle":            {"param:api:Dig.RestRandomOrder"},
-	"Director Nick Fury":           {"param:api:Dig.RestRandomOrder"},
 	// Gift of Immortality's param:api:ChangeZone.ForgetOtherRemembered label
 	// (and the whole entry) was deleted when the ForgetOtherRemembered read
 	// landed (ticket agent-20260919T181318Z-316d7b2a): effChangeZone and
@@ -2931,11 +3018,15 @@ var knownUnsupportedParams = map[string][]string{
 	// param:api:Play.WithoutManaCost row retired with the same attribution
 	// fix (see the Spinerock Knoll note above).
 	"World Shaper": {"param:api:Mill.Optional"},
-	// Torment of Hailfire's FallbackAbility$/TempRemember$ are unread
-	// everywhere: its DB$ GenericChoice now resolves through effCharm's
-	// modal ask (effects/misc.go), but these two params ride the ask and
-	// neither is read by any code (pinned in rules/generic_choice_test.go).
-	"Torment of Hailfire": {"param:api:GenericChoice.FallbackAbility", "param:api:GenericChoice.TempRemember"},
+	// Torment of Hailfire and Hag of Ceaseless Torment carry
+	// api:GenericChoice's FallbackAbility$/TempRemember$ on the per-player
+	// path; both are read now (effects/misc.go charmGenericPlayersRun
+	// gates the chooser binding on TempRemember$ Chooser and filters the
+	// Choices$ to those the chooser can pay, resolving FallbackAbility$
+	// when none can), pinned end to end on the FDN carrier Perforating
+	// Artist in rules/perforating_artist_test.go. Their entries left this
+	// table with the read.
+	//
 	// The pro-shaper player-submitted Commander import (2026-09-18): the
 	// parameter reads its cards expose that this build does not implement.
 	// Each label is the unimplemented parameter on a fully-registered
@@ -2990,6 +3081,7 @@ func TestEveryRepoDeckParamsAreRead(t *testing.T) {
 // inside an attribution root. Called from measureParamCensus too; this
 // standalone form keeps the failure visible without a corpus present.
 func TestParamCensusScanIsComplete(t *testing.T) {
+	t.Parallel()
 	s := scanPackages(t)
 	s.rotGuard(t)
 	s.failGuard(t)
@@ -3193,6 +3285,7 @@ func TestParamCensusIgnoresValidCardsDesc(t *testing.T) {
 // not in any repo deck; the same label appears in the baseline on Meathook
 // Massacre II and retires the moment the read is implemented.)
 func TestParamCensusPinsTheImportReviewExamples(t *testing.T) {
+	t.Parallel()
 	res, _ := measureParamCensus(t, nil)
 	// Every cost example this pin once demanded PRESENT has retired with a
 	// real ParseCost model; they joined the gone-side assertions below. The
@@ -3229,6 +3322,7 @@ func TestParamCensusPinsTheImportReviewExamples(t *testing.T) {
 // TestParamCensusScanIsComplete. Both halves are pinned: the read is
 // attributed, and the unreachable consumer fails the rot guard by name.
 func TestParamCensusCatchesAliasedParamsReads(t *testing.T) {
+	t.Parallel()
 	s := newScan()
 	s.scanSource(t, "probe_alias.go", "effects", `package effects
 
@@ -3261,6 +3355,7 @@ func censusProbeAlias(sa *cards.SA) string {
 // read with the argument's bucket), and a call passing a non-Params map --
 // or no call at all -- fails the rot guard.
 func TestParamCensusCatchesHelperPassedMaps(t *testing.T) {
+	t.Parallel()
 	s := newScan()
 	s.scanSource(t, "probe_helper.go", "effects", `package effects
 
@@ -3337,6 +3432,7 @@ func censusProbeCaller2(sa *cards.SA) string {
 // like knownUnsupported retires once a primitive registers even though a
 // given card's shape is narrower than full coverage).
 func TestParamCensusAttributesSpecialisedRulesPaths(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	want := map[string]map[string]bool{
 		"Mana":             {"Amount": true, "Produced": true},
@@ -3378,6 +3474,7 @@ func TestParamCensusAttributesSpecialisedRulesPaths(t *testing.T) {
 // consumption, and no census label misreads it as a live gap the offer path
 // would honour.
 func TestParamCensusMayPlayRiderFixture(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	params := map[string]string{"MayPlay": "True", "Affected": "Card", "AffectedZone": "Graveyard", "MayPlayIgnoreColor": "True", "MayPlayIgnoreType": "True"}
 	if params["MayPlay"] == "" || params["MayPlayIgnoreColor"] == "" || params["MayPlayIgnoreType"] == "" {
@@ -3395,6 +3492,7 @@ func TestParamCensusMayPlayRiderFixture(t *testing.T) {
 }
 
 func TestParamCensusScopesTheMayPlayStaticFamily(t *testing.T) {
+	t.Parallel()
 	res, d := measureParamCensus(t, nil)
 	// The MayPlay family's read set: the generic Continuous union PLUS the
 	// genuinely evaluated MayPlay gates. MayPlayAltManaCost$ joined with the
@@ -3491,6 +3589,7 @@ func TestParamCensusScopesTheMayPlayStaticFamily(t *testing.T) {
 // production call makes this test fail even though no current repo-deck card
 // carries one of these unknown face-owned cost tokens.
 func TestParamCensusCatchesFaceOwnedCosts(t *testing.T) {
+	t.Parallel()
 	c := &cards.Card{Faces: []*cards.Face{
 		{
 			ManaCost: "Waterbend<X>",
@@ -3526,6 +3625,7 @@ func TestParamCensusCatchesFaceOwnedCosts(t *testing.T) {
 // and each expected label is reachable ONLY through the SVar body: remove
 // the face-SVar walk from cardCensusLabels and both labels disappear.
 func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	// Preconditions: the outer primitives' parameters the fixture carries are
 	// genuinely read (so the labels can only come from the bodies), and the
@@ -3533,10 +3633,16 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 	// LoseLife's UnlessCost$ WAS the fixture's unread body key until the
 	// shared unless gate made every API's UnlessCost$ a read (the
 	// unlessProceed dispatch reads the parameter before any primitive
-	// dispatch); the body key below moved to RememberObjects$, which no
-	// LoseLife reader touches. (It was TargetingPlayer$ until the shared
-	// target-ask read made that parameter read for every API; the
-	// SVar-body-gap fixture is only meaningful while its key stays unread.)
+	// dispatch); it then moved to RememberObjects$ until the Effect
+	// root's pre-captured ChangeZone target read (prefetchRemembered-
+	// ChangeZoneTarget, which runs before any primitive dispatch) made that
+	// parameter read for every API too. The body key below is now
+	// RememberTargets$ -- the Laquatus's Champion / Soul Scourge LoseLife
+	// spelling -- which only the ChangeZone/combat readers touch, never a
+	// LoseLife or generic path. (It was TargetingPlayer$ before all of
+	// these, until the shared target-ask read made that parameter read for
+	// every API; the SVar-body-gap fixture is only meaningful while its key
+	// stays unread.)
 	// PayEnergy<X> WAS the fixture's unmodelled
 	// cost token until ParseCost gained a real Energy field; the body cost
 	// below moved to the fictional Waterbend<X>, which ParseCost can never
@@ -3544,15 +3650,15 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 	if !d.api["Charm"]["Choices"] || !d.api["Repeat"]["RepeatSubAbility"] {
 		t.Fatalf("outer Choices$/RepeatSubAbility$ reads lost -- fixture premise broken")
 	}
-	if d.api["LoseLife"]["RememberObjects"] {
-		t.Fatalf("api:LoseLife now reads RememberObjects$ -- re-point the fixture at a genuinely unread key")
+	if d.api["LoseLife"]["RememberTargets"] {
+		t.Fatalf("api:LoseLife now reads RememberTargets$ -- re-point the fixture at a genuinely unread key")
 	}
 	c := &cards.Card{Faces: []*cards.Face{{
-		// A modal spell whose one mode loses life for the player who targeted
-		// its source (the RememberObjects$ spelling no LoseLife reader
-		// touches -- TargetingPlayer$ WAS this fixture's unread body key
-		// until this ticket's shared target-ask read made it read for every
-		// API), and a repeat whose body carries an energy cost ParseCost
+		// A modal spell whose one mode loses life and remembers its target
+		// (the RememberTargets$ spelling no LoseLife reader touches --
+		// RememberObjects$ and, before it, TargetingPlayer$ WERE this
+		// fixture's unread body key until generic reads claimed them), and
+		// a repeat whose body carries an energy cost ParseCost
 		// does not model (the Chthonian Nightmare shape, reached through
 		// RepeatSubAbility$).
 		Abilities: []*cards.SA{
@@ -3560,23 +3666,24 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 			{Kind: "SP", API: "Repeat", Params: map[string]string{"RepeatNum": "2", "RepeatSubAbility": "DBMoney"}},
 		},
 		SVars: map[string]string{
-			"DBMode":  "DB$ LoseLife | RememberObjects$ True | Defined$ Remembered",
+			"DBMode":  "DB$ LoseLife | RememberTargets$ True | Defined$ Remembered",
 			"DBMoney": "DB$ LoseLife | Cost$ Waterbend<X>",
 		},
 	}}}
-	want := []string{"param:api:LoseLife.RememberObjects", "cost:Waterbend"}
+	want := []string{"param:api:LoseLife.RememberTargets", "cost:Waterbend"}
 	if got := cardCensusLabels(c, d, nil); !sameSet(got, want) {
 		t.Errorf("SVar-body census = %v, want %v -- an unread key or unmodelled token inside a Choices$/RepeatSubAbility$ body is not being reported", got, want)
 	}
 	// The drop plumbing reaches the bodies too: pretending the LoseLife
-	// RememberObjects$ read existed (it does not) must not un-report the
+	// RememberTargets$ read existed (it does not) must not un-report the
 	// body's gap through some other path.
-	if got := cardCensusLabels(c, d, map[string]map[string]bool{"api:LoseLife": {"RememberObjects": true}}); !sameSet(got, want) {
+	if got := cardCensusLabels(c, d, map[string]map[string]bool{"api:LoseLife": {"RememberTargets": true}}); !sameSet(got, want) {
 		t.Errorf("drop-simulated census = %v, want %v", got, want)
 	}
 }
 
 func TestParseCostReportsUnmodelledCostTokens(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		cost string
 		want []string

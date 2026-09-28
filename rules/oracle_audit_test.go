@@ -54,18 +54,10 @@ import (
 // file row naming a scenario of another family, fails the build. Rows here are
 // legacy and may be moved into the family files.
 var oracleKnownDivergent = map[string]string{
-	// (The Purphoros row retired when rules/layers.go's type-static emission
-	// read stat:Continuous RemoveType$ -- the devotion gods' "isn't a
-	// creature" gate, pinned in rules/remove_type_static_test.go; the
+	// (The Purphoros and Mogis rows retired when rules/layers.go's type-static
+	// emission read stat:Continuous RemoveType$ -- the devotion gods' "isn't
+	// a creature" gate, pinned in rules/remove_type_static_test.go; the
 	// paramcensus rows retired with it.)
-	// Gray Merchant's drain resolves but its subsequent life-gain amount is
-	// zero: the life-loss total is not propagated to the gain (effects/life.go,
-	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
-	"Gray Merchant of Asphodel/self-devotion-two-life-gain": "observed p0 life 20, expected 22 after two life lost by p1",
-	// (Mogis rows retired when the layer-4 type-static emission read
-	// stat:Continuous RemoveType$ -- the same fix that retired the Purphoros
-	// row above; both devotion gates are pinned in
-	// rules/remove_type_static_test.go.)
 	// Engine bug (CR 603.10a): a granted "whenever a creature you control
 	// dies" trigger is checked AFTER a non-SBA departure, so the departure
 	// that ends the grant's IsPresent$ condition loses its own trigger. The
@@ -82,11 +74,8 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: the once-per-turn permission is tracked per
 	// affected spell, so Darksteel Monolith's free-cast grant is available again.
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
-	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
-	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Thor damage 0; expected p0 life 20 and Thor damage 3",
-	// Engine primitive: the Effect-created entry replacement from the attack
-	// trigger does not put its counter on the remembered Hero returned from the graveyard.
-	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
+	// (Giada row retired: main's 6f256c81e/b250fa68c excluded the entering
+	// permanent from replacement counts, so the scenario now passes.)
 	// Engine/script gap: max-speed-gated AddAbility is not offered after the
 	// three turn-specific speed increases (CR 702.179).
 	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",
@@ -157,7 +146,15 @@ type oracleStep struct {
 	To        string         `json:"to,omitempty"`
 	Amount    int32          `json:"amount,omitempty"`
 	Answers   []oracleAnswer `json:"answers,omitempty"`
+	Observe   *oracleObserve `json:"observe,omitempty"`
 	Expect    []oracleExpect `json:"expect,omitempty"`
+}
+
+type oracleObserve struct {
+	Kind   string   `json:"kind"`
+	Source string   `json:"source,omitempty"`
+	Has    []string `json:"has,omitempty"`
+	Not    []string `json:"not,omitempty"`
 }
 
 type oracleAnswer struct {
@@ -222,13 +219,14 @@ func harnessf(format string, a ...any) error {
 }
 
 type oracleRun struct {
-	cfg     Config
-	reg     *cards.Registry
-	e       *Engine
-	refs    map[string]state.ObjID
-	targets []string
-	answers []oracleAnswer
-	log     []string
+	cfg        Config
+	reg        *cards.Registry
+	e          *Engine
+	refs       map[string]state.ObjID
+	targets    []string
+	answers    []oracleAnswer
+	log        []string
+	extraFails []string
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -379,7 +377,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			decks[p] = append(decks[p], filler)
 		}
 	}
-	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NameUniverse: r.reg.Cards}
+	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens}
 	switch sc.Format {
 	case "", "constructed":
 	case "commander":
@@ -512,6 +510,53 @@ func oracleLabelMatches(label, want string) bool {
 	return strings.Contains(normalize(label), normalize(want))
 }
 
+func oracleManaColourMatches(symbol, want string) bool {
+	aliases := map[string]string{
+		"w": "W", "white": "W", "u": "U", "blue": "U", "b": "B", "black": "B",
+		"r": "R", "red": "R", "g": "G", "green": "G",
+	}
+	wantSymbol, ok := aliases[strings.ToLower(strings.TrimSpace(want))]
+	return ok && strings.EqualFold(symbol, wantSymbol)
+}
+
+func oracleOptionMatches(o decision.Option, want string) bool {
+	return oracleManaColourMatches(o.ManaSymbol, want) || oracleLabelMatches(o.Label, want)
+}
+
+func oracleObserveMismatches(d *decision.Decision, observe oracleObserve) []string {
+	var mismatches []string
+	for _, want := range observe.Has {
+		found := false
+		for _, o := range d.Options {
+			if oracleOptionMatches(o, want) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			mismatches = append(mismatches, fmt.Sprintf("observed %s options missing %q", d.Kind, want))
+		}
+	}
+	for _, want := range observe.Not {
+		for _, o := range d.Options {
+			if oracleOptionMatches(o, want) {
+				mismatches = append(mismatches, fmt.Sprintf("observed %s options unexpectedly contain %q", d.Kind, want))
+				break
+			}
+		}
+	}
+	return mismatches
+}
+
+func hasOracleAnswer(answers []oracleAnswer, kind decision.Kind) bool {
+	for _, answer := range answers {
+		if strings.EqualFold(answer.Kind, string(kind)) {
+			return true
+		}
+	}
+	return false
+}
+
 // manaAbilityLabels returns the engine's currently available mana abilities,
 // which are the authoritative named candidates behind the generic priority option.
 func (r *oracleRun) manaAbilityLabels(seat state.PlayerID, id state.ObjID) []string {
@@ -580,7 +625,12 @@ func (r *oracleRun) matchPick(d *decision.Decision, pick string, used map[int]bo
 		}
 	}
 	for _, o := range d.Options {
-		if !used[o.Index] && (strings.EqualFold(o.Kind, pick) || strings.Contains(strings.ToLower(o.Label), lp)) {
+		if !used[o.Index] && oracleManaColourMatches(o.ManaSymbol, pick) {
+			return o.Index, nil
+		}
+	}
+	for _, o := range d.Options {
+		if !used[o.Index] && (strings.EqualFold(o.Kind, pick) || oracleLabelMatches(o.Label, pick)) {
 			return o.Index, nil
 		}
 	}
@@ -804,6 +854,26 @@ func (r *oracleRun) do(st oracleStep) error {
 		if err := r.submit(d, []int{idx}, st.Op); err != nil {
 			return err
 		}
+		if st.Observe != nil {
+			pending := e.Pending()
+			if pending == nil || pending.Kind != decision.Kind(st.Observe.Kind) {
+				got := "none"
+				if pending != nil {
+					got = string(pending.Kind)
+				}
+				return harnessf("observe expected pending %s decision, got %s", st.Observe.Kind, got)
+			}
+			if st.Observe.Source != "" {
+				source, err := r.resolve(st.Observe.Source)
+				if err != nil {
+					return err
+				}
+				if pending.Source != source {
+					return harnessf("observe expected source %s (object %d), got %d", st.Observe.Source, source, pending.Source)
+				}
+			}
+			r.extraFails = append(r.extraFails, oracleObserveMismatches(pending, *st.Observe)...)
+		}
 		if st.Op == "activate" && st.Ability != "" && d.Options[idx].Kind == "activate" &&
 			!oracleLabelMatches(d.Options[idx].Label, st.Ability) {
 			// The generic mana option was submitted for a named ability. When
@@ -836,7 +906,7 @@ func (r *oracleRun) do(st oracleStep) error {
 							break
 						}
 					}
-					if !matched {
+					if !matched && !hasOracleAnswer(r.answers, choice.Kind) {
 						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
 					}
 				}
@@ -1248,6 +1318,10 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 		if err := r.do(st); err != nil {
 			return append(fails, fmt.Sprintf("step %d (%s): %v", i, st.Op, err)), r.log, r
 		}
+		for _, msg := range r.extraFails {
+			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))
+		}
+		r.extraFails = nil
 		for _, x := range st.Expect {
 			for _, b := range r.check(x) {
 				fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, b))
@@ -1358,6 +1432,7 @@ var oracleOps = map[string]bool{
 // the schema (unknown fields are rejected by the decoder), the family
 // directory, unique scenario names, the step vocabulary, and ref syntax.
 func TestOracleScenarioFilesWellFormed(t *testing.T) {
+	t.Parallel()
 	files := loadOracleFiles(t)
 	// The ratchet files are checked here too (shape, duplicates, family), so
 	// a triage edit gets feedback without the corpus.
@@ -1429,6 +1504,7 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 // TestOracleAudit runs every Oracle-text scenario against the real corpus.
 // Filter with -run 'TestOracleAudit/<Card>/<scenario>'.
 func TestOracleAudit(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	files := loadOracleFiles(t)
 	divergent := oracleDivergent(t)

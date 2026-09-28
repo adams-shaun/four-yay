@@ -126,6 +126,7 @@ func cwActivateInWindow(t *testing.T, e *Engine, id state.ObjID) bool {
 // 2/2 DynAny ({G}{G} of any one colour), the weak target's repriced {8} is
 // payable, so it must be offered. Without DynAny it stays withheld.
 func TestCastWindowChoiceDynamicAmountAdmitsTarget(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 710, cwDynAnySrc)
 	e, cfg, beltID, bruteID, smallID := b.engine, b.cfg, b.belt, b.brute, b.small
 	dynID := b.byName["DynAny"]
@@ -227,6 +228,7 @@ func cwDrainManaWindow(t *testing.T, e *Engine, id state.ObjID) {
 // TriRock (pay {1}, add {R}{G}{W}) the weak target's {8} is payable, so it
 // must be offered; with only {4} floating it is not, and stays withheld.
 func TestCastWindowGenericMultiColourAdmitsTarget(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 711, cwTriRockSrc)
 	e, beltID, smallID, bruteID := b.engine, b.belt, b.small, b.brute
 	triID := b.byName["TriRock"]
@@ -266,6 +268,7 @@ func TestCastWindowGenericMultiColourAdmitsTarget(t *testing.T) {
 // exclusion withheld the target. Without the free producer the fee is
 // unfundable and the target stays withheld.
 func TestCastWindowGenericFundedByEarlierSourceAdmitsTarget(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 713, cwFreeRockSrc, cwPaidRockSrc)
 	e, cfg, beltID, smallID := b.engine, b.cfg, b.belt, b.small
 	paidID := b.byName["PaidRock"]
@@ -326,6 +329,7 @@ func TestCastWindowGenericFundedByEarlierSourceAdmitsTarget(t *testing.T) {
 // dual's single unit reaches 7, not 8. A probe that counted both alternatives
 // as two taps would admit the weak target; the correct probe withholds it.
 func TestCastWindowSamePermanentNotDoubleTapped(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 715, cwDualSrc)
 	e, beltID, smallID := b.engine, b.belt, b.small
 	dualID := b.byName["DualRock"]
@@ -365,6 +369,7 @@ func TestCastWindowSamePermanentNotDoubleTapped(t *testing.T) {
 // (TestCastWindowGenericFundedByEarlierSourceAdmitsTarget drives the real
 // window for it).
 func TestCastWindowNewShapesSubsetOfOffers(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 717, cwDynAnySrc, cwTriRockSrc, cwFreeRockSrc, cwPaidRockSrc, equipWindowInstantSrc)
 	e := b.engine
 	instantID := b.byName["InstantRock"]
@@ -417,6 +422,7 @@ func TestCastWindowNewShapesSubsetOfOffers(t *testing.T) {
 // reachability, even though the live window still offers its tap. Pricing it
 // would claim a batch the dotted matcher cannot prove can pay the cast.
 func TestCastWindowRestrictedAbilityStaysFailClosed(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 716, cwRestrictedSrc)
 	e, beltID, smallID, bruteID := b.engine, b.belt, b.small, b.brute
 	resID := b.byName["RestrictedRock"]

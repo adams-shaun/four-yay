@@ -97,6 +97,7 @@ func furyAllocationAsk(t *testing.T, e *Engine, td *decision.Decision, bear1, be
 // 3/1 split (which differs from the 2/2 the round-robin stand-in produced) is
 // honoured and the total is exactly the scripted 4.
 func TestFuryDividesDamageAmongTargets(t *testing.T) {
+	t.Parallel()
 	e, cfg, td, bear1, bear2 := furySetup(t)
 	ad := furyAllocationAsk(t, e, td, bear1, bear2)
 
@@ -140,6 +141,7 @@ func TestFuryDividesDamageAmongTargets(t *testing.T) {
 // nothing while the full total is assigned elsewhere ("divided as you choose"
 // allows a zero share for any chosen target).
 func TestFuryDamageSplitAllowsZeroShare(t *testing.T) {
+	t.Parallel()
 	e, _, td, bear1, bear2 := furySetup(t)
 	ad := furyAllocationAsk(t, e, td, bear1, bear2)
 	o1 := furyOptionForObj(t, ad, bear1)
@@ -162,6 +164,7 @@ func TestFuryDamageSplitAllowsZeroShare(t *testing.T) {
 // division with nothing to divide poses no allocation decision at all and
 // deals nothing, and the trigger still resolves (no silent stall).
 func TestFuryDamageSplitSkipsAskWithNoTargets(t *testing.T) {
+	t.Parallel()
 	e, _, td, bear1, bear2 := furySetup(t)
 	_ = td
 	submitChoices(t, e) // Min 0: elect zero targets
@@ -211,6 +214,7 @@ func drainStackPassing(t *testing.T, e *Engine, limit int) {
 // differently. Instead the sole target takes the whole scripted total, and
 // the resolution drains without a second non-priority ask.
 func TestFuryDamageSplitSingleTargetFillsWholeTotal(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	b := card(t, "Name:Bear1\nTypes:Creature Bear\nPT:0/8\nOracle:x\n")
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{choiceCorpusCard(t, "Fury")}, []*cards.Card{b})

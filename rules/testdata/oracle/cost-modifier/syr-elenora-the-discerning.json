@@ -1,0 +1,32 @@
+{
+  "card": "Syr Elenora, the Discerning",
+  "family": "cost-modifier",
+  "oracle_sha": "f7fcaba8bb1e",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-targeting-syr-pays-two-extra",
+      "cr": ["601.2f"],
+      "why": "Seat 1 is Syr Elenora's opponent and targets her with a spell, so the spell's red mana plus two generic mana pays the increased total cost.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "RRR", "targets": ["p0:Syr Elenora, the Discerning"], "expect": [{"pool": {"p1": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Syr Elenora, the Discerning", "zone": "battlefield", "damage": 3}]
+    },
+    {
+      "name": "spell-not-targeting-syr-is-untaxed",
+      "cr": ["601.2f"],
+      "why": "The opponent's Bolt targets seat 0 rather than Syr Elenora, so this spell does not meet the targeting condition and its printed red cost is sufficient.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"], "expect": [{"pool": {"p1": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p0": 17}}]
+    }
+  ]
+}

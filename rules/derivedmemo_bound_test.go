@@ -19,6 +19,7 @@ import (
 // first derive came after the removal: the two engines offered different
 // priority option lists.
 func TestDerivedMemoKeepsEmptyKeywordListBound(t *testing.T) {
+	t.Parallel()
 	const spec = "Card.Self+!withDefender"
 	e := layerEngine(t)
 	wall := onBoard(t, e, 0, "Name:Wall Engine\nManaCost:2\nTypes:Artifact Creature Construct\nPT:3/2\nK:Defender\nOracle:x\n")
@@ -58,6 +59,7 @@ func TestDerivedMemoKeepsEmptyKeywordListBound(t *testing.T) {
 // printed Flying must not answer a withFlying filter through the unbound
 // printed-face fallback.
 func TestDerivedKeywordsBoundBeforeScratchGrows(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, "Name:Hidden Flyer\nManaCost:3 U\nTypes:Creature Bird\nPT:3/3\nK:Flying\nOracle:x\n")
 	e.G.Obj(id).FaceDown = true

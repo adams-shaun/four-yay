@@ -66,6 +66,8 @@ import (
 // seq 3239, so the seed pins that cast as equivalent; its Command Tower
 // production root cause stays pinned by
 // TestMatchProductionsRespectsAnyColourAmount.
+// lifeLost1's AFLifeLost publication moves the same Lagomos and Songs of the
+// Damned casts to seq 6111 and 3694; both retain their recorded verdicts.
 func TestRoundNineFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -97,8 +99,8 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
 		10860: {3239: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
 		11056: {},         // the Artisan finding is no longer reached; assert a clean, control-equivalent game
-		10056: {6108: ""},
-		8175:  {3691: precedes},
+		10056: {6111: ""},
+		8175:  {3694: precedes},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)

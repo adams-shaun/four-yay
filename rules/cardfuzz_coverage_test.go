@@ -38,6 +38,7 @@ func stepTriggers(e *Engine, step state.Step, active state.PlayerID) int {
 // (DestroyAll Card.IsRemembered) must destroy only what the Stairwell
 // remembered -- nothing, here -- and never the Stairwell itself.
 func TestPhaseTriggerRemembersSourcesListNotSource(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoardCard(t, e, 0, corpusCard(t, "Tombstone Stairwell"))
 	if n := stepTriggers(e, state.StepEnd, 0); n != 1 {
@@ -57,6 +58,7 @@ func TestPhaseTriggerRemembersSourcesListNotSource(t *testing.T) {
 // tapped" through an Updated replacement; Amulet of Vigor's "whenever a
 // permanent you control enters tapped, untap it" must see it tapped.
 func TestEntersTappedPermanentMatchesTappedTrigger(t *testing.T) {
+	t.Parallel()
 	e, _, landID := newFixtureDeck(t, 202, corpusCardText(t, "g/guildless_commons.txt"))
 	amuletID := onBoardCard(t, e, 0, corpusCard(t, "Amulet of Vigor"))
 	driveToStep(t, e, 1, 0, state.StepMain1)
@@ -117,6 +119,7 @@ func TestEntersTappedPermanentMatchesTappedTrigger(t *testing.T) {
 // TestSVarCompareNE: Spark Fiend's upkeep roll is gated `CheckSVar$ Safe |
 // SVarCompare$ NE0` over SVar:Safe:Number$1 -- it fires until a roll stores 0.
 func TestSVarCompareNE(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, corpusCard(t, "Spark Fiend"))
 	if n := stepTriggers(e, state.StepUpkeep, 0); n != 1 {
@@ -127,6 +130,7 @@ func TestSVarCompareNE(t *testing.T) {
 // TestCountLifeYouLostThisTurn: Luminarch Ascension's opponent-end-step
 // quest counter is gated on Count$LifeYouLostThisTurn EQ0.
 func TestCountLifeYouLostThisTurn(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, corpusCard(t, "Luminarch Ascension"))
 	if n := stepTriggers(e, state.StepEnd, 1); n != 1 {
@@ -143,6 +147,7 @@ func TestCountLifeYouLostThisTurn(t *testing.T) {
 // TestCountParty: CR 700.8 -- one creature per role, a Changeling filling
 // whichever role is left.
 func TestCountParty(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	party := func() int32 {
 		n, ok := effects.EvalCountOK(e, &effects.Ctx{Controller: 0}, "Count$Party")
@@ -174,6 +179,7 @@ func TestCountParty(t *testing.T) {
 // Card.Self+!firstTurnControlled` -- controlled continuously since the
 // controller's most recent turn began.
 func TestFirstTurnControlled(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoardCard(t, e, 0, corpusCard(t, "Rocket Launcher"))
 	sc := effects.SpecContext{Source: id, You: 0}

@@ -7,6 +7,7 @@ import (
 )
 
 func TestCantAttackNegatedUnknownUnlessDefenderStaysBlocked(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	attacker := onBoard(t, e, 0, "Name:Unknown Gate Attacker\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\n"+
 		"S:Mode$ CantAttack | ValidCard$ Card.Self | UnlessDefender$ !unmodelledPredicate\nOracle:x\n")

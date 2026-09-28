@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -81,6 +82,12 @@ type pendingTrigger struct {
 	MonarchDraw    bool
 	RadiationDrain bool
 	SpeedIncrease  bool
+	// InitiativeVenture is the source-less CR 726.2 inherent ability that makes
+	// the initiative holder venture into Undercity: queued at the beginning of
+	// that player's upkeep, and after a combat-damage transfer of the
+	// designation. Like MonarchDraw it mints a real stack ability through the
+	// synthetic DelayedPush body, so the venture can be responded to.
+	InitiativeVenture bool
 	// Merged marks a mutated pile's under-card trigger (CR 702.140d): like
 	// a delayed trigger its Ability is the Execute$ SVar-named body, but the
 	// push must resolve that name against the UNDER-CARD's own face, never
@@ -944,6 +951,15 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	if ev.Kind == events.DoorUnlock {
 		e.checkUnlockTriggers(ev)
 	}
+	// Dungeon rooms (CR 309.4c, the dungeon chain's slice 3): the room
+	// ability of the room a player just entered. The dungeon object lives in
+	// the command zone, which the per-face walk above never visits, and the
+	// room bodies are SVars on the dungeon token script's face, not face
+	// Triggers lines -- the same synthetic-scan shape as the Ring emblem
+	// above, keyed off the DungeonRoom event itself.
+	if ev.Kind == events.DungeonRoom {
+		e.checkDungeonRoomTriggers(ev)
+	}
 	// Exert's Trigger$ rider (task exert1, CR 702.100a): the static's named
 	// SVar body queues off the Exert event itself, with Source = the
 	// exerted permanent. The Amount -1 consume marker fires nothing: it is
@@ -1206,6 +1222,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 					e.checkGrantedOffspringTriggers(observer, id, o, f, ev, objLKI)
 				case events.StepChange:
 					e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, ev, objLKI)
+					e.checkGrantedAtEOTTriggers(observer, id, o, ev, objLKI)
 				}
 			}
 			if len(grantedStatics) > 0 {
@@ -1254,7 +1271,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 					// per engine per spec, while triggerMatches rejects it on every
 					// event. Keeping reporting outside the scratch look-back walk
 					// means a Note is a real event, never an observer side effect.
-					spec := t.Params["Phase"]
+					spec := t.ParamStr(cards.PKPhase)
 					if strings.TrimSpace(spec) != "" {
 						if !e.parsedPhaseSpec(spec).valid {
 							if e.phaseUnknownNoted == nil {
@@ -1274,7 +1291,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 				// still use the post-event source/zone in the live walk.
 				// (split first: the Origin$ map read is only needed on a split
 				// leaves-the-battlefield walk.)
-				if split && (t.Mode == "ChangesZone" && t.Params["Origin"] == "Battlefield") != leaving {
+				if split && (t.Mode == "ChangesZone" && t.ParamStr(cards.PKOrigin) == "Battlefield") != leaving {
 					continue
 				}
 				// CR 603.8 state trigger: its condition is checked against the
@@ -1790,6 +1807,11 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 		// live for this step change -- the same both-paths rule Afflict,
 		// Conspire, Exploit, Offspring and Training follow.
 		e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, ev, objLKI)
+		// A copiable CopyPermanent AtEOTTrig$ body ("at the beginning of the
+		// end step, sacrifice/exile this token") must fire even when the
+		// object's own printed triggers are live for this step change -- the
+		// same both-paths rule cumulative upkeep follows.
+		e.checkGrantedAtEOTTriggers(observer, id, o, ev, objLKI)
 	}
 	// The live walk skips a zone none of whose objects can act on any event
 	// (rules/trigger_zoneskip.go); the look-back observer and any event a
@@ -2411,6 +2433,25 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 		e.G.Active != e.controllerOf(source) {
 		return false
 	}
+	// OpponentTurn$ True: only during an OPPONENT's turn -- the mirror of the
+	// PlayerTurn$ gate above (Forge Trigger.requirementsCheck,
+	// Trigger.java's `controller.isOpponentOf(phaseHandler.getPlayerTurn())`).
+	// Applied to every mode rather than scoped to actionTriggerModes: unlike
+	// PlayerTurn$, whose gate had to be confined to avoid changing modes that
+	// never read it, OpponentTurn$ is used by no mode this build had gated
+	// before, and Forge honours it on every trigger mode. Measured over the
+	// corpus at this pin: 23 raw T: lines across 23 files, all on Mode$
+	// SpellCast (22: Brineborn Cutthroat and the "first spell during each
+	// opponent's turn" family) and Mode$ Drawn (1: Kiora's follower), so the
+	// unscoped gate changes only those. Before it the trigger fired on its
+	// controller's own turn too, the over-fire direction. A value this build
+	// cannot read as True is unreadable and fails closed, the convention the
+	// PlayerTurn$ gate and the condition clauses share.
+	if v, ok := t.Params["OpponentTurn"]; ok {
+		if !strings.EqualFold(strings.TrimSpace(v), "True") || e.G.Active == e.controllerOf(source) {
+			return false
+		}
+	}
 	// CR 603.4 intervening-if: a trigger whose condition is false at the
 	// moment the trigger event occurs does not trigger at all. This gate is
 	// applied uniformly to every mode so the same T: line grammar (a
@@ -2610,6 +2651,12 @@ func init() {
 		// dies-trigger shape, reading counters_EQ0_M1M1 off the LKI and
 		// returning the permanent with a -1/-1 counter.
 		"kw:Undying", "kw:Persist", "kw:Evolve", "kw:Exalted", "kw:Dethrone", "kw:Prowess", "kw:Riot", "kw:Hideaway", "kw:Extort", "kw:Myriad", "kw:Soulbond", "kw:Dredge",
+		// Increment (CR 702.XX, task kw:Increment): a SpellCast self-trigger
+		// (cards/kw_increment.go) whose event-relative "mana spent > power or
+		// toughness" condition is read by incrementAdmits. Registered here so
+		// the coverage walk stops naming kw:Increment as a gap now that the
+		// expansion supplies the whole rule.
+		"kw:Increment",
 		// CR 702.70 Training: an Attacks trigger (cards/kw_training.go) whose
 		// "with another creature with greater power" condition is read by
 		// attacksMatches (the Dethrone precedent), with a granted-keyword
@@ -2693,6 +2740,11 @@ func init() {
 		// shape is understood; the chosen-companion pregame pick and the
 		// outside-the-game activation are separate play-side work.
 		"kw:Companion",
+		// "A deck can have any number of cards named CARDNAME." (Relentless
+		// Rats, Hare Apparent) is DECK CONSTRUCTION too (CR 100.2a /
+		// 903.5b): deck.AnyNumberAllowed exempts it from the Commander
+		// singleton check, and nothing in play reads it.
+		"kw:"+deck.AnyNumberKeyword,
 		// Graft (CR 702.57): the optional move-counter trigger is expanded
 		// from the keyword line in cards/kw_graft.go.
 		"kw:Graft",

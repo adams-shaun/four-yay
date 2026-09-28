@@ -1,0 +1,72 @@
+{
+ "name": "FDN13-BG",
+ "format": "limited",
+ "archetype": "BG",
+ "notes": "SpellBench FDN Limited catalog deck FDN13-BG (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=02b66f0c8155498c, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Billowing Shriekmass",
+   "count": 1
+  },
+  {
+   "name": "Dwynen's Elite",
+   "count": 5
+  },
+  {
+   "name": "Forest",
+   "count": 8
+  },
+  {
+   "name": "Giant Growth",
+   "count": 1
+  },
+  {
+   "name": "Hungry Ghoul",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 4
+  },
+  {
+   "name": "Jungle Hollow",
+   "count": 1
+  },
+  {
+   "name": "Llanowar Elves",
+   "count": 3
+  },
+  {
+   "name": "Mild-Mannered Librarian",
+   "count": 1
+  },
+  {
+   "name": "Overrun",
+   "count": 2
+  },
+  {
+   "name": "Snakeskin Veil",
+   "count": 1
+  },
+  {
+   "name": "Stab",
+   "count": 1
+  },
+  {
+   "name": "Swamp",
+   "count": 7
+  },
+  {
+   "name": "Tragic Banshee",
+   "count": 2
+  },
+  {
+   "name": "Vengeful Bloodwitch",
+   "count": 1
+  },
+  {
+   "name": "Wardens of the Cycle",
+   "count": 1
+  }
+ ]
+}

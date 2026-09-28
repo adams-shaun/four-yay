@@ -59,6 +59,7 @@ func answerClashPlacement(t *testing.T, e *Engine, wantPlayer state.PlayerID, wa
 // effClash's entry, the nested clash would silently reuse the outer's stale
 // cursor and pose no second round of elections at all.
 func TestClashChainedInOneContextRevealsFresh(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	src, sa := clashChainSource(t, e)
 
@@ -134,6 +135,7 @@ func clashSoloSA() *cards.SA {
 // stand-in is event-backed (one LibraryOrder per library), never a direct
 // game write.
 func TestClashNoHostPutsBothCardsOnBottom(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	marvo := onBoardCard(t, e, 0, unblockedCorpusCard(t, "m/marvo_deep_operative.txt"))
 	e.G.Obj(marvo).SummonSick = false

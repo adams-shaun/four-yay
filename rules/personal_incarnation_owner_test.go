@@ -18,6 +18,7 @@ import (
 // shared player-spec matcher, rather than falling back to the CR 602.2a
 // controller default (which would invert the answer for both seats).
 func TestPersonalIncarnationOwnerActivatorOffer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	piCard := lookup(t, reg, "Personal Incarnation")
 	e := corpusEngine(t, reg, nil, nil)

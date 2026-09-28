@@ -65,6 +65,7 @@ func turnFaceUpOptionPresent(t *testing.T, e *Engine, id state.ObjID) bool {
 // and when the announced X cannot be paid at all, and offered otherwise. No
 // TurnFaceUp event is emitted for a withheld action.
 func TestMorphTurnFaceUpPayableGateCoversNonManaAndX(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// Skirk Volcanist's Morph turn-up cost is Sac<2/Mountain>.
 	e, _ := manifestEngine(t, reg, "Skirk Volcanist", "Mountain", "Mountain", "Mountain")
@@ -117,6 +118,7 @@ func TestMorphTurnFaceUpPayableGateCoversNonManaAndX(t *testing.T) {
 // carriers: Reveal, Sac, Discard and Return. Each pays exactly the chosen
 // object(s) once, before the TurnFaceUp event, with no stack use.
 func TestMorphTurnFaceUpPaysNonManaCosts(t *testing.T) {
+	t.Parallel()
 	t.Run("Reveal", func(t *testing.T) {
 		reg := searchTestRegistry(t)
 		e, cfg := manifestEngine(t, reg, "Watcher of the Roost", "White Knight")
@@ -290,6 +292,7 @@ func TestMorphTurnFaceUpPaysNonManaCosts(t *testing.T) {
 // mana payment. Bane's printed trigger reads Count$xPaid; with X=2 its -2/-2
 // kills the real 2/2 Grizzly Bears, whereas an unbound X leaves it alive.
 func TestMorphTurnFaceUpTriggerUsesAnnouncedX(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Bane of the Living", "Grizzly Bears")
 	id := morphAndPool(t, e, "Bane of the Living", "morphed", "CCBB", 1, "BBCC")
@@ -334,6 +337,7 @@ func TestMorphTurnFaceUpTriggerUsesAnnouncedX(t *testing.T) {
 // the announced value is charged exactly. Bane of the Living (Morph:X B B)
 // and Aurelia's Vindicator (Disguise:X 3 W) are the two printed X shapes.
 func TestMorphTurnFaceUpAnnouncesAndPaysX(t *testing.T) {
+	t.Parallel()
 	t.Run("MorphXB B", func(t *testing.T) {
 		reg := searchTestRegistry(t)
 		e, cfg := manifestEngine(t, reg, "Bane of the Living")
@@ -418,6 +422,7 @@ func TestMorphTurnFaceUpAnnouncesAndPaysX(t *testing.T) {
 // helper, so a printed "Sacrifice another creature" cost can never be paid
 // with the permanent it is turning face up.
 func TestMorphTurnFaceUpSacExcludesTheSource(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Kin-Tree Warden", "Grizzly Bears")
 	id := morphDownCast(t, e, "Kin-Tree Warden", "morphed", "CCCG", 1)
@@ -444,7 +449,7 @@ func TestMorphTurnFaceUpSacExcludesTheSource(t *testing.T) {
 	}
 	// The whole turn-up gate agrees: with only the source available for a
 	// Creature.Other sacrifice, the action is not offered.
-	if e.morphTurnUpPayable(0, id, Cost{Generic: 0, Sac: []CostPart{{N: 1, Spec: "Creature.Other"}}}) {
+	if e.morphTurnUpPayable(0, id, Cost{Generic: 0, Sac: []CostPart{{N: 1, Spec: "Creature.Other"}}}, costMods{}) {
 		t.Fatalf("morphTurnUpPayable accepted a Creature.Other sacrifice payable only by the source")
 	}
 }
@@ -458,6 +463,7 @@ func TestMorphTurnFaceUpSacExcludesTheSource(t *testing.T) {
 // Each subtest asserts a real ask was reached (a non-vacuous one) and that the
 // bot's answer was accepted and actually paid the cost.
 func TestMorphTurnFaceUpBotAnswerValidates(t *testing.T) {
+	t.Parallel()
 	t.Run("X", func(t *testing.T) {
 		reg := searchTestRegistry(t)
 		e, cfg := manifestEngine(t, reg, "Bane of the Living")
@@ -557,6 +563,7 @@ func TestMorphTurnFaceUpBotAnswerValidates(t *testing.T) {
 // from that function turns this test red (a direct ParseCost or
 // morphTurnUpCountAnnounced assertion would not).
 func TestMorphTurnUpCostFailsClosedOnUnmodelledShapes(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	// Part A: Fugitive Codebreaker's exact printed Disguise parameter (the
@@ -609,6 +616,7 @@ func TestMorphTurnUpCostFailsClosedOnUnmodelledShapes(t *testing.T) {
 // generic per cost (or priced X as zero) fails the pool assertion; removing
 // the X ask from the turn-up flow fails the ask assertion.
 func TestMorphTurnUpCostParsesMultiXShape(t *testing.T) {
+	t.Parallel()
 	// The parse half is the precondition the end-to-end half depends on: the
 	// parameter really parses to X==2 plus {R}, and WithX folds two generics.
 	c := ParseCost("X X R")
@@ -681,6 +689,7 @@ func TestMorphTurnUpCostParsesMultiXShape(t *testing.T) {
 // settlement that trusted the saved IDs would half-pay the cost and still
 // emit the TurnFaceUp, which is exactly what this test pins shut.
 func TestMorphTurnUpCostInvalidatedChoiceAbortsThePayment(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Skirk Volcanist", "Mountain", "Mountain", "Mountain", "Mountain")
 	id := morphDownCast(t, e, "Skirk Volcanist", "morphed", "CCCCR", 2)

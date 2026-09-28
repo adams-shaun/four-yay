@@ -120,6 +120,7 @@ func TestProtectionFromBlueBlocksTargetingBlockingAndDamage(t *testing.T) {
 // life gain (CR 702.15a: lifelink triggers only on damage actually dealt) --
 // must be skipped too.
 func TestProtectedBlockerTakesNoDeathtouchAndGivesNoLifelink(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Merfolk\nManaCost:1 U\nTypes:Creature Merfolk\nPT:2/2\nK:Lifelink\nK:Deathtouch\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Piledriver\nManaCost:1 R\nTypes:Creature Goblin\nPT:1/2\nK:Protection from blue\nOracle:x\n")
@@ -160,6 +161,7 @@ func TestProtectedBlockerTakesNoDeathtouchAndGivesNoLifelink(t *testing.T) {
 // the ability fizzles to exile (CR 608.2b, CR 702.16c) without ever running
 // its damage script.
 func TestAbilityFizzlesWhenTargetGainsProtectionBeforeResolving(t *testing.T) {
+	t.Parallel()
 	mountain := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	blessing := card(t, "Name:Ward Blessing\nManaCost:1 W\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | KW$ Protection from artifacts\nOracle:x\n")
 	e := handEngine(t, mountain, blessing)
@@ -364,5 +366,30 @@ func TestGrantedProtectionFromEachColor(t *testing.T) {
 	e.damaging = 0
 	if got := e.G.Obj(bear).Damage; got != 1 {
 		t.Fatalf("artifact damage was prevented: Damage=%d, want 1", got)
+	}
+}
+
+// TestPrintedProtectionFromEverything pins Progenitus's printed K:Protection
+// from everything (CR 702.16j): damage from a colourless artifact source and
+// a coloured source is prevented, neither can block it, and the keyword is
+// registered so the card counts as fully supported.
+func TestPrintedProtectionFromEverything(t *testing.T) {
+	if !effects.Supported()["kw:Protection from everything"] {
+		t.Fatal("kw:Protection from everything is not registered")
+	}
+	e, _, hydra := newFixtureDeck(t, 74, "Name:Avatar\nManaCost:W U B R G\nTypes:Legendary Creature Hydra Avatar\nPT:10/10\nK:Protection from everything\nOracle:x\n")
+	e.emit(events.Event{Kind: events.MoveZone, Obj: hydra, From: state.ZHand, To: state.ZBattlefield})
+	red := putToken(t, e, 1, "Name:RedSource\nManaCost:R\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n", state.ZBattlefield)
+	artifact := putToken(t, e, 1, "Name:ArtifactSource\nTypes:Artifact Creature Construct\nPT:1/1\nOracle:x\n", state.ZBattlefield)
+	for _, src := range []state.ObjID{red, artifact} {
+		if !e.protectedFrom(hydra, src) {
+			t.Fatalf("source %d is not protected against", src)
+		}
+		e.damaging = src
+		e.emit(events.Event{Kind: events.Damage, Obj: hydra, Amount: 3})
+		e.damaging = 0
+		if got := e.G.Obj(hydra).Damage; got != 0 {
+			t.Fatalf("damage from %d not prevented: Damage=%d", src, got)
+		}
 	}
 }

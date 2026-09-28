@@ -19,6 +19,7 @@ const (
 // deducted before checking the spell: {C} pays the {1} fee, leaving {G}{G},
 // which cannot pay the spell's required {C}{G}.
 func TestCastWindowGenericFeeConsumesTheRealPool(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 718, cwFeeGreenSource)
 	e := b.engine
 	source := b.byName["FeeGreen"]
@@ -42,6 +43,7 @@ func TestCastWindowGenericFeeConsumesTheRealPool(t *testing.T) {
 // TestCastWindowFeeFundingMayExceedSpellPipCount ensures a free mana ability
 // can fund a later {2} activation even when the spell itself has only one pip.
 func TestCastWindowFeeFundingMayExceedSpellPipCount(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 719, cwFreeColorlessSource, cwTwoFeeGreenSource)
 	e := b.engine
 	freeID, paidID := b.byName["FreeColorless"], b.byName["TwoFeeGreen"]
@@ -72,6 +74,7 @@ func TestCastWindowFeeFundingMayExceedSpellPipCount(t *testing.T) {
 // TestCastWindowGenericFeeDebitsSnowProvenance ensures a generic activation
 // fee cannot leave a snow pip payable after spending the only snow unit.
 func TestCastWindowGenericFeeDebitsSnowProvenance(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 720, cwTwoFeeGreenSource)
 	e := b.engine
 	source := b.byName["TwoFeeGreen"]
@@ -109,6 +112,7 @@ func TestCastWindowGenericFeeDebitsSnowProvenance(t *testing.T) {
 // TestCastWindowPaidSourceOrderCanReverseCostSort proves an initially more
 // expensive activation may need to run before a cheaper fee-consuming source.
 func TestCastWindowPaidSourceOrderCanReverseCostSort(t *testing.T) {
+	t.Parallel()
 	large := `Name:LargeFee
 Types:Land
 A:AB$ Mana | Cost$ 2 T | Produced$ C | Amount$ 3 | SpellDescription$ Add {C}{C}{C}.

@@ -11,6 +11,7 @@ import (
 )
 
 func TestPlaneswalkerTokenEntersWithStartingLoyalty(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	starting, err := strconv.Atoi(card.Faces[0].Loyalty)

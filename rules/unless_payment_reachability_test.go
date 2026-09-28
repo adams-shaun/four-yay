@@ -41,6 +41,7 @@ func corpusUnlessCost(c *cards.Card) string {
 // (the pay branch vanished); a gate that merely counted "any source" would
 // offer {3} with one Island -- both directions are asserted here.
 func TestUnlessCostPayableNeedsEnoughAndRightColourFromRealCards(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	leak := mustCorpusCard(t, reg, "Mana Leak")
 	chain := mustCorpusCard(t, reg, "Chain Lightning")
@@ -98,6 +99,7 @@ func TestUnlessCostPayableNeedsEnoughAndRightColourFromRealCards(t *testing.T) {
 // defect -- before the fix Mana Leak was a hard counter against a
 // pool-empty payer because no window existed.
 func TestCounterUnlessCostManaLeakTapsRealManaSources(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, bearID := counterFixture(t, reg, "Mana Leak", "Grizzly Bears")
 	// The caster spent its pool on the Bear, so nothing floats -- the normal
@@ -167,6 +169,7 @@ func TestCounterUnlessCostManaLeakTapsRealManaSources(t *testing.T) {
 // Island and still countering the spell strands the payer). The ask is a
 // single decline option and the Bear is countered.
 func TestCounterUnlessCostManaLeakWithOneIslandPayNotOffered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, bearID := counterFixture(t, reg, "Mana Leak", "Grizzly Bears")
 	e.G.Players[0].Pool = state.Mana{}

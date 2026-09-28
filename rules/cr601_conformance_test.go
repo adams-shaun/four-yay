@@ -103,6 +103,7 @@ func TestCR601NoMandatoryCounterCastOnEmptyStack(t *testing.T) {
 // No synthetic SA or direct Game mutation is used. Repeated corpus cards make
 // the opening hand deterministic; the mana setup itself is an applied event.
 func TestCR601TargetsPrecedeManaPayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Lightning Bolt", "Shock", "Incinerate"} {
 		t.Run(name, func(t *testing.T) {

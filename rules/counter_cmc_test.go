@@ -65,6 +65,7 @@ func castElectrosiphonAt(t *testing.T, e *Engine, siphon, target state.ObjID) {
 // two -- the remembered NUMBER is the mana value, not a count of remembered
 // entries.
 func TestElectrosiphonEnergyEqualsManaValue(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		spellSrc string

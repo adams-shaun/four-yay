@@ -13,6 +13,7 @@ import (
 // creatures each carry two +1/+1 counters, so X=4 must be offered and paid
 // by selecting one counter unit from each object twice.
 func TestMoxiteRefineryAnyCounterXSpansObjects(t *testing.T) {
+	t.Parallel()
 	e, _, p := subCounterConfig(t, 107, "Moxite Refinery", "Walking Ballista", "Hangarback Walker")
 	moxite := bridgeToHand(t, e, "Moxite Refinery")
 	ballista := bridgeToHand(t, e, "Walking Ballista")

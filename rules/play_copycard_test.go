@@ -13,6 +13,7 @@ import (
 // CopyCard cast transaction: the source card remains in exile while a
 // distinct copy of its face is put on the stack and cast.
 func TestPlayCopyCardCastsCopyAndLeavesOriginalInExile(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 44021,
 		"Name:Play copy fixture\nManaCost:0\nTypes:Sorcery\nOracle:\n",
 		"Name:Exiled spell\nManaCost:1 R\nTypes:Sorcery\nOracle:Deal 3 damage.\n")

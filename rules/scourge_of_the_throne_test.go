@@ -92,6 +92,7 @@ func drainScourgeCombat(t *testing.T, e *Engine) {
 // the trigger untaps every attacking creature (Scourge itself) and grants the
 // additional combat phase (the AddPhase SubAbility).
 func TestScourgeOfTheThroneUntapsAttackingCreaturesAtMostLifeDefender(t *testing.T) {
+	t.Parallel()
 	e, scourge := scourgeSeat(t, [3]int32{30, 20, 20})
 
 	e.askAttackers()
@@ -112,6 +113,7 @@ func TestScourgeOfTheThroneUntapsAttackingCreaturesAtMostLifeDefender(t *testing
 // TestScourgeOfTheThroneFiresOnATiedMostLifeDefender pins "or tied for most
 // life": seat 0 ties seat 2 at 20 and the trigger still fires.
 func TestScourgeOfTheThroneFiresOnATiedMostLifeDefender(t *testing.T) {
+	t.Parallel()
 	e, scourge := scourgeSeat(t, [3]int32{20, 20, 20})
 
 	e.askAttackers()
@@ -127,6 +129,7 @@ func TestScourgeOfTheThroneFiresOnATiedMostLifeDefender(t *testing.T) {
 // negative: seat 0 has the LEAST life, so "attacking the player with the most
 // life" is false and the trigger never fires.
 func TestScourgeOfTheThroneDoesNotFireOnALessLifedDefender(t *testing.T) {
+	t.Parallel()
 	e, scourge := scourgeSeat(t, [3]int32{10, 20, 20})
 
 	e.askAttackers()
@@ -146,6 +149,7 @@ func TestScourgeOfTheThroneDoesNotFireOnALessLifedDefender(t *testing.T) {
 // the declare-attackers step without a TurnChange, so AttacksThisTurn is not
 // reset) must not fire even with the condition satisfied.
 func TestScourgeOfTheThroneFirstAttackOnly(t *testing.T) {
+	t.Parallel()
 	e, scourge := scourgeSeat(t, [3]int32{30, 20, 20})
 
 	// First attack: fires (the positive half, re-asserted here so the second
@@ -217,6 +221,7 @@ func reachScourgeStack(t *testing.T, e *Engine) *decision.Decision {
 // resolution check read no AttackedPlayerWithMostLife clause at all, so the
 // queued trigger still untapped the attackers and granted the extra combat.
 func TestScourgeOfTheThroneInterveningIfRecheckedAtResolution(t *testing.T) {
+	t.Parallel()
 	e, scourge := scourgeSeat(t, [3]int32{30, 20, 20})
 
 	e.askAttackers()
@@ -254,6 +259,7 @@ func TestScourgeOfTheThroneInterveningIfRecheckedAtResolution(t *testing.T) {
 // gate: strictly-most, tied, vetoed by a third seat, vetoed by death, and a
 // dead larger total that must NOT veto.
 func TestAttacksConditionMostLifeMatcher(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	scourge := onBoardCard(t, e, 1, mshCorpusCard(t, "Scourge of the Throne"))
 	e.G.Obj(scourge).SummonSick = false

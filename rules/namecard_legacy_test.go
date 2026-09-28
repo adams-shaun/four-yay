@@ -14,6 +14,7 @@ import (
 // intentionally NOT the modern corpus-universe rules; changing either list
 // changes the recorded DecisionAsk of an old match.
 func TestLegacyETBNameOptionsKeepThePreUniverseBuilder(t *testing.T) {
+	t.Parallel()
 	e, _ := nameCardEngine(t, "Pithing Needle", "Alpine Moon", "Wasteland", "Forest")
 	// Precondition: this test must exercise a no-universe replay mode, not
 	// the full-corpus modern path nameCardEngine normally wires.

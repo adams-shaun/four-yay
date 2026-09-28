@@ -153,6 +153,7 @@ func driveToEndStep(t *testing.T, e *Engine) {
 // ETB exiles a permanent and the delayed trigger returns it at the beginning
 // of the next end step.
 func TestDelayedTriggerFlickerwispReturnsPermanent(t *testing.T) {
+	t.Parallel()
 	e, _, tg := delayedFixture(t)
 	// Still exiled before the end step fires.
 	if o := e.G.Obj(tg); o == nil || o.Zone != state.ZExile {
@@ -225,6 +226,7 @@ func driveToStepAll(t *testing.T, e *Engine, turn int32, active state.PlayerID, 
 // halves: exactly one DelayedPush in the whole log, and no registration left
 // to fire again.
 func TestDelayedTriggerFiresOnce(t *testing.T) {
+	t.Parallel()
 	e, _, tg := delayedFixture(t)
 	driveToEndStep(t, e)
 	passUntilStackEmpty(t, e, 40)
@@ -250,6 +252,7 @@ func TestDelayedTriggerFiresOnce(t *testing.T) {
 // trigger does not fire again -- the target stays put and no further
 // DelayedPush is recorded.
 func TestDelayedTriggerDoesNotRefireNextTurn(t *testing.T) {
+	t.Parallel()
 	e, _, tg := delayedFixture(t)
 	driveToEndStep(t, e)
 	passUntilStackEmpty(t, e, 40)
@@ -284,6 +287,7 @@ func TestDelayedTriggerDoesNotRefireNextTurn(t *testing.T) {
 // TestDelayedTriggerFiresAfterSourceLeaves is the brief's test 3: the delayed
 // trigger still fires even when its source has left the battlefield.
 func TestDelayedTriggerFiresAfterSourceLeaves(t *testing.T) {
+	t.Parallel()
 	e, _, tg := delayedFixture(t)
 	// Destroy Flickerwisp (its source) before the end step.
 	fw := findByName(e, "Flickerwisp", 0)
@@ -303,6 +307,7 @@ func TestDelayedTriggerFiresAfterSourceLeaves(t *testing.T) {
 // object it refers to has changed zones since registration, the ability does
 // what it can and the rest does nothing -- no crash.
 func TestDelayedTriggerDegradesWhenReferentMoved(t *testing.T) {
+	t.Parallel()
 	e, _, tg := delayedFixture(t)
 	// Move the exiled referent out of exile before the end step (e.g. it was
 	// returned another way), so the delayed trigger's TrigBounce finds nothing
@@ -324,6 +329,7 @@ func TestDelayedTriggerDegradesWhenReferentMoved(t *testing.T) {
 // (Config, Log), proving the registration and its firing both survive the
 // event log.
 func TestDelayedTriggerReplaysIdentically(t *testing.T) {
+	t.Parallel()
 	e, cfg, tg := delayedFixture(t)
 
 	// Before the end step, a log-alone reconstruction (events.Apply, no
@@ -365,6 +371,7 @@ func TestDelayedTriggerReplaysIdentically(t *testing.T) {
 // between registration and firing behaves correctly and does not share
 // mutable state with its original.
 func TestDelayedTriggerCloneIsIndependent(t *testing.T) {
+	t.Parallel()
 	e, _, tg := delayedFixture(t)
 	// Clone while the registration is pending (before the end step). Both
 	// must behave independently.

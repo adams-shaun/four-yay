@@ -190,6 +190,7 @@ func riderBatchFor(t *testing.T, e *Engine, src state.ObjID) {
 // spell, which enters with exactly one +1/+1; the same ability's mana pays for
 // a noncreature artifact, which enters with none.
 func TestBiophagusAddsCountersPaysCreatureNotArtifact(t *testing.T) {
+	t.Parallel()
 	e, cfg := riderGame(t, 601,
 		card(t, acrBiophagusSrc), card(t, acrMonoCreatureSrc), card(t, acrArtifactSrc))
 	bio := moveToBattlefieldByName(t, e, 0, "Biophagus Test")
@@ -247,6 +248,7 @@ func TestBiophagusAddsCountersPaysCreatureNotArtifact(t *testing.T) {
 // Creature.nonHuman rider: a non-Human creature gets one +1/+1, a Human
 // creature gets none even though it is a creature.
 func TestAnimalAttendantAddsCountersPaysNonHumanNotHuman(t *testing.T) {
+	t.Parallel()
 	e, cfg := riderGame(t, 602,
 		card(t, acrAttendantSrc), card(t, acrMonoCreatureSrc), card(t, acrHumanCreatureSrc))
 	att := moveToBattlefieldByName(t, e, 0, "Animal Attendant Test")
@@ -306,6 +308,7 @@ func TestAnimalAttendantAddsCountersPaysNonHumanNotHuman(t *testing.T) {
 // {C} ability, so the negative is paid by ordinary mana from the same
 // permanent, proving the grant belongs to the rider ability.
 func TestGuildmagesForumAddsCountersPaysMultiColorNotMono(t *testing.T) {
+	t.Parallel()
 	e, cfg := riderGame(t, 603,
 		card(t, acrForumSrc), card(t, acrGoldCreatureSrc), card(t, acrMonoCreatureSrc))
 	forum := moveToBattlefieldByName(t, e, 0, "Guildmages' Forum Test")
@@ -372,6 +375,7 @@ func TestGuildmagesForumAddsCountersPaysMultiColorNotMono(t *testing.T) {
 // spends the rider unit itself and gets the counter, proving the distinction is
 // which unit was paid, not a blanket suppression.
 func TestAddsCountersRiderSameColourUnitIsNotPaid(t *testing.T) {
+	t.Parallel()
 	e, cfg := riderGame(t, 604,
 		card(t, acrSameColourTotemSrc), card(t, acrSameColourCreatureSrc), card(t, acrSameColourCreatureSrc))
 	totem := moveToBattlefieldByName(t, e, 0, "Red Totem")

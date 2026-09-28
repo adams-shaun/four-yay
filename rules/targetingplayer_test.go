@@ -28,6 +28,7 @@ import (
 // TriggeredTarget names the chooser. Answering it destroys that permanent
 // and the whole game replays.
 func TestBladegriffPrototypeChoosingPlayerIsTheDamagedSeat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg,
 		[]string{"Bladegriff Prototype"},
@@ -114,6 +115,7 @@ func hasTargetingPlayerTrigger(card *cards.Card, spec string) bool {
 // value cannot be represented: casting -1 from an external integer produces
 // 255, which must fail closed without indexing the players slice.
 func TestTargetChooserInvalidPlayerIDFailsClosed(t *testing.T) {
+	t.Parallel()
 	e, _ := combatTriggerBoard(t, testutil.CorpusRegistry(t), nil, nil, nil, nil)
 	const controller state.PlayerID = 0
 	negative := -1
@@ -132,6 +134,7 @@ func TestTargetChooserInvalidPlayerIDFailsClosed(t *testing.T) {
 // unbound role and a dead referent all fail closed so the ask stays with the
 // ability's controller.
 func TestTargetChooserFromSpecFailsClosed(t *testing.T) {
+	t.Parallel()
 	e, _ := combatTriggerBoard(t, testutil.CorpusRegistry(t), nil, nil, nil, nil)
 	const controller state.PlayerID = 0
 

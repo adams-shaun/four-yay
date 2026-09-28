@@ -119,6 +119,7 @@ func noteContaining(t *testing.T, e *Engine, sub string) bool {
 // exactly one G and one W; with an extra mono-blue permanent in play the
 // same tap must add a U as well.
 func TestFaeburrowElderEachColorAmong(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	elder := corpusCommander(t, reg, "Faeburrow Elder")
 
@@ -155,6 +156,7 @@ func TestFaeburrowElderEachColorAmong(t *testing.T) {
 // not otherwise present, and the colourless Vista and mountains contribute
 // nothing either (colourless is not a colour and not monocolored).
 func TestTarnationVistaEachColorAmongMonoColor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	vista := corpusCommander(t, reg, "Tarnation Vista")
 	monoG := card(t, monoFixtureSrc("G"))
@@ -205,6 +207,7 @@ func TestTarnationVistaEachColorAmongMonoColor(t *testing.T) {
 // TestMonoColorPredicate pins the filter predicate itself: exactly one
 // colour is MonoColor; zero colours (colourless) and two colours are not.
 func TestMonoColorPredicate(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	elder := corpusCommander(t, reg, "Faeburrow Elder")
 	monoG := card(t, monoFixtureSrc("G"))
@@ -247,6 +250,7 @@ func TestMonoColorPredicate(t *testing.T) {
 // the word. Tarnation Vista is the carrier the ticket's fix needed; Ultimate
 // Price is one of the ~16 other corpus files the same predicate widened.
 func TestMonoColorWidensRealCorpusSpecs(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	price, ok := reg.Lookup("Ultimate Price")
 	if !ok {
@@ -294,6 +298,7 @@ func TestMonoColorWidensRealCorpusSpecs(t *testing.T) {
 // Note -- "for each color" over none is a deterministic no-op, not a
 // failure (the ChangeNum$ 0 Dig convention).
 func TestEachColorAmongEmptySetIsSilentNoOp(t *testing.T) {
+	t.Parallel()
 	e, cfg := eachColorGame(t, 94, []*cards.Card{card(t, colorlessFixture("Special EachColorAmong_Valid Permanent.YouCtrl"))})
 	id := tapForManaAfterTurnClears(t, e, "Colorless Sifter")
 	poolIs(t, e, [state.MC + 1]int32{})
@@ -305,10 +310,13 @@ func TestEachColorAmongEmptySetIsSilentNoOp(t *testing.T) {
 }
 
 // TestEachColorAmongUnknownSelectorStaysLoud pins the fail-closed boundary:
-// a Special selector the executor does not resolve (here ExiledWith, the
-// sunbird_effigy shape) keeps the loud Note and adds no mana.
+// a Special selector the executor does not resolve (here
+// EachColoredManaSymbol_Milled, which nothing models) keeps the loud Note and
+// adds no mana. (EachColorAmong_ExiledWith used to be the example here; it is
+// now implemented -- see each_color_among_exiled_with_test.go.)
 func TestEachColorAmongUnknownSelectorStaysLoud(t *testing.T) {
-	e, _ := eachColorGame(t, 95, []*cards.Card{card(t, colorlessFixture("Special EachColorAmong_ExiledWith"))})
+	t.Parallel()
+	e, _ := eachColorGame(t, 95, []*cards.Card{card(t, colorlessFixture("Special EachColoredManaSymbol_Milled"))})
 	tapForManaAfterTurnClears(t, e, "Colorless Sifter")
 	if !noteContaining(t, e, "unhandled Produced$") {
 		t.Fatalf("unknown Special selector did not emit the loud Note: %v", notes(t, e))

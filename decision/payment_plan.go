@@ -288,6 +288,7 @@ func (d *Decision) Clone() *Decision {
 func (d *Decision) CloneValue() Decision {
 	c := *d
 	c.Options = append([]Option(nil), d.Options...)
+	c.WindowReasons = append([]WindowReason(nil), d.WindowReasons...)
 	c.PaymentActions = make([]PaymentAction, len(d.PaymentActions))
 	for i := range d.PaymentActions {
 		c.PaymentActions[i] = ClonePaymentAction(d.PaymentActions[i])

@@ -1,6 +1,6 @@
 package rules
 
-// CR 702.70 Backup: "When this creature enters, put N +1/+1 counters on
+// CR 702.165 Backup: "When this creature enters, put N +1/+1 counters on
 // target creature. If that's another creature, it gains the following
 // abilities until end of turn." cards/kw_backup.go expands the printed
 // `K:Backup:<N>:<SVar>` into a ChangesZone self-entry trigger whose body is a
@@ -129,7 +129,7 @@ func TestGuardianScalelordBackupCountersAndCopiesAbilities(t *testing.T) {
 	addMana(t, e, caster, "WWWWW") // {4}{W}
 	submitChoices(t, e, castOptionFor(t, e, sid).Index)
 	offered := backupAnswerTarget(t, e, mid, 30)
-	// The Scalelord is a legal target of its own trigger (CR 702.70), so both
+	// The Scalelord is a legal target of its own trigger (CR 702.165), so both
 	// creatures are offered; what matters is that the OTHER creature is.
 	if !offered[mid] {
 		t.Fatalf("Backup did not offer the other creature (%d)", mid)
@@ -192,7 +192,7 @@ func TestGuardianScalelordBackupCopiesThePrintedTrigger(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
-// TestGuardianScalelordBackupSelfTargetGrantsNothing pins CR 702.70's "if
+// TestGuardianScalelordBackupSelfTargetGrantsNothing pins CR 702.165's "if
 // that's ANOTHER creature" restriction: targeting the entering Scalelord
 // itself puts the counter but must NOT grant a second copy of its abilities.
 // The observable is the number of triggers the attack declaration queues: the

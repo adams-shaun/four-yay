@@ -11,6 +11,7 @@ import (
 )
 
 func TestZygonCloneEndsWhenTargetActuallyUntaps(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Zygon Infiltrator", "Grizzly Bears")
 	zygon := searchMoveByName(t, e, "Zygon Infiltrator", state.ZBattlefield)
@@ -41,6 +42,7 @@ func TestZygonCloneEndsWhenTargetActuallyUntaps(t *testing.T) {
 }
 
 func TestZygonCloneEndsWhenTargetLeavesTapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Zygon Infiltrator", "Grizzly Bears")
 	zygon := searchMoveByName(t, e, "Zygon Infiltrator", state.ZBattlefield)
@@ -66,6 +68,7 @@ func TestZygonCloneEndsWhenTargetLeavesTapped(t *testing.T) {
 }
 
 func TestVesuvanShapeshifterCloneEndsOnTurnFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Vesuvan Shapeshifter", "Grizzly Bears")
 	mimic := searchMoveByName(t, e, "Vesuvan Shapeshifter", state.ZBattlefield)

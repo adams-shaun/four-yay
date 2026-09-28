@@ -190,6 +190,7 @@ func TestEntryCounterStageReplacementBody(t *testing.T) {
 // re-matched by the very replacement whose body emitted it -- the body's
 // GainLife runs twice. Both grants answered the same way: 4+4 or 3+3.
 func TestEntryCounterStageReplacementBodyTwoGrants(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int

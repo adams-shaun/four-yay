@@ -24,6 +24,7 @@ import (
 // CR 107.4e (761-766) independently requires one of its two colors. No engine
 // parser or target finder constructs the oracle. seq 0 denotes no game events.
 func TestCR601HybridCostsCannotSpendOnlyColorless(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked, rejected := 0, 0
@@ -72,6 +73,7 @@ func TestCR601HybridCostsCannotSpendOnlyColorless(t *testing.T) {
 // or bypassed the 601.2b choice. These tests do not infer life payment from
 // ParseCost, nor manufacture a payment decision or SA.
 func TestCR601SpecialManaRequiresAnnouncement(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
@@ -134,6 +136,7 @@ func TestCR601SpecialManaRequiresAnnouncement(t *testing.T) {
 // A modal spell announces its modes on the cast proposal before targets or
 // payment (CR 601.2b), not when the spell resolves.
 func TestCR601ModesAnnouncedBeforePayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
 	for _, name := range []string{"Azorius Charm", "Boros Charm"} {
@@ -166,6 +169,7 @@ func TestCR601ModesAnnouncedBeforePayment(t *testing.T) {
 // Faithless Looting's flashback {2}{R} costs {3}{R} under Thalia. Reducing
 // before folding X, or replacing an already-taxed cost, loses the modifier.
 func TestCR601TotalCostIncludesModifiers(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
@@ -237,6 +241,7 @@ func TestCR601TotalCostIncludesModifiers(t *testing.T) {
 // No creature exists to pay it; two black mana alone can never complete this
 // proposal. The CR 601.2h example (4748-4751) names this very card.
 func TestCR601AdditionalSacrificeIsPartOfTotalCost(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Altar's Reap")
@@ -262,6 +267,7 @@ func TestCR601AdditionalSacrificeIsPartOfTotalCost(t *testing.T) {
 }
 
 func TestCR601ManaWindowBeforePayment(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Mountain")

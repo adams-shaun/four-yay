@@ -69,6 +69,7 @@ func whipEngine(t *testing.T, reg *cards.Registry, creatureName string) (*Engine
 // the graveyard — and the promise is consumed by the departure (ExileOnMoved
 // sweep), so no grant or promise lingers on the exiled card.
 func TestWhipOfErebosLeaveBattlefieldExilesOnDeath(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _, cid := whipEngine(t, reg, "Grizzly Bears")
 
@@ -112,6 +113,7 @@ func TestWhipOfErebosLeaveBattlefieldExilesOnDeath(t *testing.T) {
 // TestWhipOfErebosLeaveBattlefieldExilesOnBounce: "instead of putting it
 // anywhere else" — a bounce to hand is exiled too.
 func TestWhipOfErebosLeaveBattlefieldExilesOnBounce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _, cid := whipEngine(t, reg, "Grizzly Bears")
 
@@ -127,6 +129,7 @@ func TestWhipOfErebosLeaveBattlefieldExilesOnBounce(t *testing.T) {
 // "Exile it at the beginning of the next end step" — through the same chain,
 // and the DBCleanup sub clears Whip's remembered set.
 func TestWhipOfErebosAtEOTExilesTheAnimatedCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, wid, cid := whipEngine(t, reg, "Grizzly Bears")
 
@@ -150,6 +153,7 @@ func TestWhipOfErebosAtEOTExilesTheAnimatedCreature(t *testing.T) {
 // promise and returns to the battlefield, neither the animation's haste nor
 // the granted sVars may re-apply.
 func TestWhipOfErebosGrantsDoNotSurviveReentry(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _, cid := whipEngine(t, reg, "Grizzly Bears")
 
@@ -185,6 +189,7 @@ func TestWhipOfErebosGrantsDoNotSurviveReentry(t *testing.T) {
 // Targeted | Duration$ Permanent`, so the returned creature is exiled when
 // it would leave the battlefield.
 func TestDreamsOfTheDeadLeaveBattlefieldExilesOnBounce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	dreams := lookup(t, reg, "Dreams of the Dead")
 	specter := lookup(t, reg, "Hypnotic Specter")
@@ -233,6 +238,7 @@ func TestDreamsOfTheDeadLeaveBattlefieldExilesOnBounce(t *testing.T) {
 // LeaveBattlefield$ Exile`, so the creature it returns is exiled when it
 // would leave the battlefield.
 func TestFromTheCatacombsLeaveBattlefieldExilesOnBounce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	catacombs := lookup(t, reg, "From the Catacombs")
 	specter := lookup(t, reg, "Hypnotic Specter")
@@ -260,6 +266,17 @@ func TestFromTheCatacombsLeaveBattlefieldExilesOnBounce(t *testing.T) {
 		t.Fatalf("graveyard specter %d not offered: %+v", sid, d.Options)
 	}
 	submitChoices(t, e, idx)
+	// From the Catacombs also takes the initiative. Its venture into
+	// Undercity poses Secret Entrance's basic-land search while the room
+	// ability resolves; answer it before asserting the ChangeZone rider.
+	search := passUntilNonPriority(t, e, 40)
+	if search == nil || search.Kind != decision.KChoose || search.ResumeKind != "search" || search.Player != 0 || len(search.Options) == 0 {
+		t.Fatalf("expected Secret Entrance search for the caster, got %+v", search)
+	}
+	if !e.G.IsInitiative(0) {
+		t.Fatal("From the Catacombs did not take the initiative before its room search")
+	}
+	submitChoices(t, e, search.Options[0].Index)
 	resolveCast(t, e)
 
 	// PRECONDITION: the specter really returned to the battlefield under
@@ -287,6 +304,7 @@ func TestFromTheCatacombsLeaveBattlefieldExilesOnBounce(t *testing.T) {
 // reanimate (grant), bounce (rewritten to exile), then return the card from
 // exile to the battlefield -- and asserts the grant is gone.
 func TestDreamsOfTheDeadPumpGrantDoesNotSurviveReentry(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	dreams := lookup(t, reg, "Dreams of the Dead")
 	specter := lookup(t, reg, "Hypnotic Specter")

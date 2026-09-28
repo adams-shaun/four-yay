@@ -20,6 +20,7 @@ const foreignDrawRecipient = "Name:Test Foreign Recipient\nManaCost:2\nTypes:Cre
 	"SVar:N:1\nOracle:x\n"
 
 func TestGrantedTriggerUsesGrantorSVarsAfterGrantExpires(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 914, foreignDrawGrant, foreignDrawRecipient, artifactSpellSrc, plainSifterSrc)
 	grantor := moveSeeded(t, e, 0, foreignDrawGrant, state.ZBattlefield)
 	recipient := moveSeeded(t, e, 0, foreignDrawRecipient, state.ZBattlefield)

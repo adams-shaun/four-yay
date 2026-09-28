@@ -52,6 +52,7 @@ func chooseTargetOption(t *testing.T, e *Engine, obj state.ObjID) {
 // blockable. After it the ability resolves to a live CantBlockBy restriction
 // that the blockRestricted combat walk consults beside the printed statics.
 func TestEffectCantBlockBySuspiciousBookcaseUnblocksItsTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Suspicious Bookcase")
 	bookcase := searchMoveByName(t, e, "Suspicious Bookcase", state.ZBattlefield)
@@ -158,6 +159,7 @@ func TestEffectCantBlockBySuspiciousBookcaseUnblocksItsTarget(t *testing.T) {
 // unimplemented Note and the creature stays blockable, the permissive
 // direction for a restriction.
 func TestEffectCantBlockByRegistrationScopesReadableAndUnreadableBodies(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Suspicious Bookcase", "Space Beleren")
 	bookcase := searchMoveByName(t, e, "Suspicious Bookcase", state.ZBattlefield)

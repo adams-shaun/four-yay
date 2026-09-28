@@ -1,0 +1,104 @@
+{
+ "name": "FDN02-WG",
+ "format": "limited",
+ "archetype": "WG",
+ "notes": "SpellBench FDN Limited catalog deck FDN02-WG (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=00235c5ccdefe261, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Apothecary Stomper",
+   "count": 1
+  },
+  {
+   "name": "Arahbo, the First Fang",
+   "count": 1
+  },
+  {
+   "name": "Banishing Light",
+   "count": 1
+  },
+  {
+   "name": "Blossoming Sands",
+   "count": 2
+  },
+  {
+   "name": "Cackling Prowler",
+   "count": 1
+  },
+  {
+   "name": "Cat Collector",
+   "count": 1
+  },
+  {
+   "name": "Cathar Commando",
+   "count": 2
+  },
+  {
+   "name": "Dazzling Angel",
+   "count": 2
+  },
+  {
+   "name": "Fleeting Flight",
+   "count": 1
+  },
+  {
+   "name": "Forest",
+   "count": 7
+  },
+  {
+   "name": "Guarded Heir",
+   "count": 1
+  },
+  {
+   "name": "Hare Apparent",
+   "count": 2
+  },
+  {
+   "name": "Healer's Hawk",
+   "count": 1
+  },
+  {
+   "name": "Inspiring Paladin",
+   "count": 1
+  },
+  {
+   "name": "Joust Through",
+   "count": 1
+  },
+  {
+   "name": "Llanowar Elves",
+   "count": 1
+  },
+  {
+   "name": "Loot, Exuberant Explorer",
+   "count": 1
+  },
+  {
+   "name": "Make Your Move",
+   "count": 1
+  },
+  {
+   "name": "Overrun",
+   "count": 1
+  },
+  {
+   "name": "Plains",
+   "count": 7
+  },
+  {
+   "name": "Skyknight Squire",
+   "count": 1
+  },
+  {
+   "name": "Valkyrie's Call",
+   "count": 1
+  },
+  {
+   "name": "Vanguard Seraph",
+   "count": 1
+  },
+  {
+   "name": "Youthful Valkyrie",
+   "count": 1
+  }
+ ]
+}

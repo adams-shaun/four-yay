@@ -221,6 +221,7 @@ type resumePoint struct {
 	// for its chooser and the remaining choosers are still asked.
 	genericChoosers     []state.Target
 	genericChooserIndex int
+	genericRemembered   []state.Target
 	genericChoice       string
 	// flipCursor is the DB$ FlipCoin loop position a kind "flip_rest" frame
 	// re-enters with (the remaining flips a per-flip sub-ability's nested ask
@@ -486,6 +487,7 @@ type contFrame struct {
 	genericChoiceRest   bool
 	genericChoosers     []state.Target
 	genericChooserIndex int
+	genericRemembered   []state.Target
 	// flipRest marks a frame that re-enters a DB$ FlipCoin's own SA (not
 	// sa.Sub) with the flip cursor below, continuing the flips a per-flip
 	// sub-ability's nested ask left unrun. The reported sa IS the FlipCoin SA,
@@ -578,8 +580,8 @@ func (e *Engine) EventMark() int { return len(e.L.Events) }
 // LifeChange likewise folds into nothing (events.Apply adds 0 to the life
 // total; CR 119.9's "gains 0 life" is no life-gain event, and a 0 loss the
 // same): Ad Nauseam repeated over an empty library loses life equal to the
-// mana value of no card, and a passer that always repeats looped it into
-// the livelock watcher (paymirror resolve horizon, seed 1014).
+// mana value of no card. AFLifeLost is always published, even for that zero
+// loss: a StoreSVar only changes state when it replaces a different value.
 func (e *Engine) StateChangedSince(mark int) bool {
 	if mark < 0 {
 		mark = 0
@@ -589,6 +591,26 @@ func (e *Engine) StateChangedSince(mark int) bool {
 		if ev.Kind == events.Note || (ev.Kind == events.Damage && ev.Amount == 0) ||
 			(ev.Kind == events.LifeChange && ev.Amount == 0) {
 			continue
+		}
+		if ev.Kind == events.StoreSVar {
+			// Read the value immediately before this event, not the final
+			// object value: intermediate changes still count as progress.
+			unchanged := false
+			for j := i - 1; j >= 0; j-- {
+				prev := e.L.Events[j]
+				// CR 400.7 resets RuntimeSVars on a zone change: an
+				// earlier write to that ObjID is no longer its old value.
+				if prev.Obj == ev.Obj && (prev.Kind == events.MoveZone || prev.Kind == events.Draw || prev.Kind == events.PutOnStack) {
+					break
+				}
+				if prev.Kind == events.StoreSVar && prev.Obj == ev.Obj && prev.Text == ev.Text {
+					unchanged = prev.Amount == ev.Amount
+					break
+				}
+			}
+			if unchanged {
+				continue
+			}
 		}
 		return true
 	}
@@ -1075,7 +1097,8 @@ func (e *Engine) SuspendGenericChoiceRest(sa *cards.SA, rest effects.GenericChoi
 	}
 	e.contChain = append(e.contChain, contFrame{sa: sa, genericChoiceRest: true,
 		genericChoosers:     append([]state.Target(nil), rest.Choosers...),
-		genericChooserIndex: rest.Next})
+		genericChooserIndex: rest.Next,
+		genericRemembered:   append([]state.Target(nil), rest.Remembered...)})
 	e.repeatReported = sa
 }
 
@@ -1526,14 +1549,14 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 // resumeETBEntry is the resolution-owned continuation for an as-enters
 // choice. Keeping the e.resume write here preserves the structural invariant
 // that only resolution machinery consumes a suspended frame.
-func (e *Engine) resumeETBEntry(chosen []decision.Option) {
+func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 	// handleChoose owns clearing e.resume; this continuation only consumes the
 	// parked entry, keeping the archtest's single ownership rule intact.
 	if e.etbMove == nil || len(chosen) != 1 {
 		e.etbMove = nil
 		e.etbNext = 0
 		e.choosing = chooseNone
-		return
+		return 0
 	}
 	move := *e.etbMove
 	opt := chosen[0]
@@ -1598,6 +1621,7 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) {
 	// answer), settle the land play here rather than leaving the continuation
 	// armed for an unrelated later entry to consume.
 	e.settleLandPlayIfDone(move.Obj)
+	return move.Obj
 }
 
 // continueAfterETBEntry hands an as-enters entry choice's answer back to the
@@ -1610,13 +1634,19 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) {
 // object is finished, instead of being left on the stack for resolveTop to
 // resolve a second time.
 //
-// Three shapes deliberately continue nothing, because no interrupted stack
-// resolution exists to finish: a direct frame (a land play or any other entry
-// posed with an empty stack), a frame whose object is the ENTERING object
-// itself (a permanent spell's own stack->battlefield move -- resolveTop's tail
-// already moved it), and a frame whose object has since left the stack.
-func (e *Engine) continueAfterETBEntry(rp *resumePoint) {
+// Direct frames have no interrupted stack resolution, and frames whose object
+// has left the stack independently have no remaining resolution to finish. A
+// permanent spell's own entry is different: its parked move is re-emitted by
+// the answer, so resolveTop never reached its completion tail. Finish that
+// spell here, from the same resolution-owned continuation used by other
+// suspended resolutions.
+func (e *Engine) continueAfterETBEntry(rp *resumePoint, entry state.ObjID) {
 	if rp == nil || rp.direct || rp.obj == 0 || e.pending != nil {
+		return
+	}
+	if rp.obj == entry {
+		e.finishResumption(rp.obj)
+		e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
 		return
 	}
 	if o := e.G.Obj(rp.obj); o == nil || o.Zone != state.ZStack {
@@ -2494,9 +2524,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				// while never letting an empty pool satisfy it.
 				ctx.UnlessPay = "decline"
 			} else if chosePay && e.unlessCostPayable(payOption.Player, rawUnlessCost, ctx, rp.obj) {
-				if len(paid.Sac) > 0 || len(paid.Discard) > 0 || len(paid.Reveal) > 0 || len(paid.RevealChosen) > 0 || len(paid.Return) > 0 {
-					// Sacrifice, discard, reveal and return are choice-bearing
-					// costs.
+				if len(paid.Sac) > 0 || len(paid.Discard) > 0 || len(paid.Reveal) > 0 || len(paid.RevealChosen) > 0 || len(paid.Return) > 0 || len(paid.Exile) > 0 {
+					// Sacrifice, discard, reveal, return and exile are
+					// choice-bearing costs.
 					// Park this resume before any mutation and let the payer
 					// select every component; finishUnlessPayment re-enters
 					// with unlessPay set, so this arm never charges it twice.
@@ -2808,6 +2838,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			ctx.ClonePickDone = true
 			if len(chosen) > 0 {
 				ctx.ClonePick = chosen[0].Obj
+			}
+		case "changezone_alternative":
+			// The card owner chose the primary or alternative library position.
+			// Carry the offered label through the re-entered ChangeZone body.
+			if len(chosen) > 0 {
+				ctx.ChangeZoneAlternative = chosen[0].Label
 			}
 		case "choosedirection":
 			// A mid-resolution ChooseDirection ask (Aminatou's [-6], Order of
@@ -3136,6 +3172,30 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if len(chosen) > 0 && chosen[0].Kind == "yes" {
 				ctx.PutOpt = "yes"
 			}
+		case "endturn_optional":
+			ctx.EndTurnOpt = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.EndTurnOpt = "yes"
+			}
+		case "venture_dungeon", "venture_room":
+			// An api:Venture choice was answered (CR 701.49a/49b). The chosen
+			// option's server-side Key names what the re-entered effVenture
+			// acts on: the dungeon token script a first venture enters
+			// ("venture_dungeon") or the room key the marker moves to
+			// ("venture_room"). The ask's cursor (Decision.ResumeTarget ->
+			// rp.target) rides back so a multi-player venture walk resumes
+			// after the answered player; the answer fields' emptiness
+			// distinguishes a fresh walk from a resumed one, so a malformed
+			// empty answer keeps the walk at its start (the conservative read
+			// the endturn_optional decline takes).
+			if len(chosen) > 0 {
+				if rp.kind == "venture_dungeon" {
+					ctx.VentureEnter = chosen[0].Key
+				} else {
+					ctx.VentureRoom = chosen[0].Key
+				}
+			}
+			ctx.VentureIdx = int32(rp.target)
 		case "setstate_optional":
 			// An Optional$ True SetState's yes/no election (Dowsing Dagger's
 			// "you may transform this Equipment", High Marshal Arguel's "you
@@ -3929,14 +3989,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			ctx.GenericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 			ctx.GenericChooserIndex = rp.genericChooserIndex + 1
 		case "generic_players_rest":
-			// A multi-player GenericChoice's chosen body suspended on its own
-			// nested ask and that ask's chain has completed: re-enter the
-			// primitive with the chooser cursor restored to ask the remaining
-			// Defined$ choosers. Ctx.Modes is cleared — this frame carries no
-			// answered mode (it was consumed by the body that suspended).
+			// Re-enter after the chosen body's nested ask, restoring both the
+			// remaining chooser cursor and the enclosing remembered set.
 			ctx.Modes = nil
 			ctx.GenericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 			ctx.GenericChooserIndex = rp.genericChooserIndex
+			ctx.Remembered = append([]state.Target(nil), rp.genericRemembered...)
 		case "token_rest":
 			// A DB$ Token's mint parked behind a replacement-order ask and
 			// the answer has minted it: re-enter the Token with its frozen
@@ -4122,6 +4180,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		e.replRedirect = savedRedirect
 		e.applyingReplacement = savedReplacement
 		e.damaging = 0
+		// A resumed EndTurn has already exiled the stack, including the
+		// resolving ability. Do not continue its Sub chain or grant priority
+		// in the skipped step; enter cleanup just as resolveTop does.
+		if e.endTurnRequested {
+			e.finishEndTurn()
+			return
+		}
 		// A resolution is still suspended when EITHER the ordinary
 		// mid-resolution ask (e.resume) or an off-stack mana rider ask is
 		// pending. The latter parks on the mana activation and sets
@@ -4407,6 +4472,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			f.kind, f.sa = "generic_players_rest", sa
 			f.genericChoosers = append([]state.Target(nil), cf.genericChoosers...)
 			f.genericChooserIndex = cf.genericChooserIndex
+			f.genericRemembered = append([]state.Target(nil), cf.genericRemembered...)
 		} else if cf.flipRest {
 			// The FlipCoin re-enters ITSELF (rp.sa = the FlipCoin SA, not
 			// sa.Sub — a FlipCoin body has no SubAbility$ chain of its own to
@@ -4502,14 +4568,9 @@ func modeDecisionForChoices(p state.PlayerID, source state.ObjID, sa *cards.SA, 
 		ResumeModes: append([]string(nil), choices...),
 		Prompt:      "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)"}
 	for i, name := range choices {
-		label := name
-		if sub := cards.ResolveSVar(svars, name); sub != nil {
-			if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-				label = desc
-			}
-		}
 		d.Options = append(d.Options, decision.Option{
-			Index: i, Kind: "mode", Label: label, Obj: source, Player: p})
+			Index: i, Kind: "mode", Label: effects.CharmModeLabel(cards.ResolveSVar(svars, name), name),
+			Obj: source, Player: p})
 	}
 	return d
 }
@@ -4520,13 +4581,7 @@ func modeDecisionForChoices(p state.PlayerID, source state.ObjID, sa *cards.SA, 
 func modeLabels(sa *cards.SA, svars map[string]string, names []string) []string {
 	labels := make([]string, 0, len(names))
 	for _, name := range names {
-		label := name
-		if sub := cards.ResolveSVar(svars, name); sub != nil {
-			if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-				label = desc
-			}
-		}
-		labels = append(labels, label)
+		labels = append(labels, effects.CharmModeLabel(cards.ResolveSVar(svars, name), name))
 	}
 	return labels
 }

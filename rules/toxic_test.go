@@ -17,6 +17,7 @@ import (
 // rule states. The poison counters are the player's (PlayerCounterChange), so
 // the assertion reads Players[1].Counter("POISON"), not any creature state.
 func TestToxicIxhelAddsPoisonOnCombatDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	ixhel := onBoardCard(t, e, 0, corpusKeywordCard(t, "Ixhel, Scion of Atraxa"))
 	// PRECONDITION: the source's toxic is readable off the real K:Toxic:2
@@ -48,6 +49,7 @@ func TestToxicIxhelAddsPoisonOnCombatDamage(t *testing.T) {
 // a toxic hit loses. Starting from nine, Ixhel's toxic 2 crosses the
 // threshold, and the SBA runs as part of the same combat damage sequence.
 func TestToxicTenthCounterLosesTheGame(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	ixhel := onBoardCard(t, e, 0, corpusKeywordCard(t, "Ixhel, Scion of Atraxa"))
 	if got := e.ToxicValue(ixhel); got != 2 {
@@ -80,6 +82,7 @@ func TestToxicTenthCounterLosesTheGame(t *testing.T) {
 // This is the discriminator against infect, which would also change the
 // creature damage to -1/-1 counters.
 func TestToxicDoesNotPoisonOnCreatureDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	ixhel := onBoardCard(t, e, 0, corpusKeywordCard(t, "Ixhel, Scion of Atraxa"))
 	if got := e.ToxicValue(ixhel); got != 2 {
@@ -93,6 +96,7 @@ func TestToxicDoesNotPoisonOnCreatureDamage(t *testing.T) {
 	e.G.Obj(ixhel).Attacking = 1
 	e.G.Obj(ixhel).SummonSick = false
 	e.G.Obj(ixhel).BlockedBy = []state.ObjID{blocker}
+	e.G.NoteBlockers() // written directly, not by DeclareBlockers
 
 	lifeBefore := e.G.Players[1].Life
 	e.dealCombatDamage()
@@ -115,6 +119,7 @@ func TestToxicDoesNotPoisonOnCreatureDamage(t *testing.T) {
 // printed face would miss it, so this test would fail against a face-only
 // implementation while the printed-toxic tests above would still pass.
 func TestToxicGrantedByLayerCountsToo(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	// PRECONDITION: the plain bearer has no toxic until the grant lands, so
@@ -149,6 +154,7 @@ func TestToxicGrantedByLayerCountsToo(t *testing.T) {
 // first-entry read reports 2 and this test fails while the single-instance
 // tests above still pass.
 func TestToxicInstancesCumulate(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	ixhel := onBoardCard(t, e, 0, corpusKeywordCard(t, "Ixhel, Scion of Atraxa"))
 	if got := e.ToxicValue(ixhel); got != 2 {
@@ -176,6 +182,7 @@ func TestToxicInstancesCumulate(t *testing.T) {
 // Aura grant (Necrogen Communion, AddKeyword$ Toxic:2) is toxic 3, proving
 // the sum walks past a single granted instance too.
 func TestToxicTwoGrantsCumulate(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	if got := e.ToxicValue(bear); got != 0 {
@@ -200,6 +207,7 @@ func TestToxicTwoGrantsCumulate(t *testing.T) {
 // still lands) -- each was a 0-poison defect before the replChoice toxic
 // rider existed.
 func TestToxicSurvivesParkedReplacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deck0 := mountainDeck(t, 40)
 	ix, ok := reg.Lookup("Ixhel, Scion of Atraxa")

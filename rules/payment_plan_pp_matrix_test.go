@@ -76,6 +76,7 @@ func ppTaps(e *Engine, from int, id state.ObjID) int {
 }
 
 func TestPaymentPlanPrefersMountainOverBadlandsAndLeavesItUntapped(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9310, "Name:Grixis Plan\nManaCost:1 U B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, ppIsland)
 	onBoard(t, e, 0, ppSwamp)
@@ -101,6 +102,7 @@ func TestPaymentPlanPrefersMountainOverBadlandsAndLeavesItUntapped(t *testing.T)
 }
 
 func TestPaymentPlanPP01PaysGenericWithMountainOnExactBoard(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9300, "Name:Grixis Plan\nManaCost:1 U B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	island := onBoard(t, e, 0, ppIsland)
 	swamp := onBoard(t, e, 0, ppSwamp)
@@ -124,6 +126,7 @@ func TestPaymentPlanPP01PaysGenericWithMountainOnExactBoard(t *testing.T) {
 }
 
 func TestPaymentPlanFixedMultiOutputLeavesSurplusFloating(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9311, "Name:Generic Plan\nManaCost:1\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	rock := onBoard(t, e, 0, "Name:Twin Rock\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ C | Amount$ 2\nOracle:x\n")
 	d := ppAsk(t, e)
@@ -139,6 +142,7 @@ func TestPaymentPlanFixedMultiOutputLeavesSurplusFloating(t *testing.T) {
 }
 
 func TestPaymentPlanSourceEligibilityShapes(t *testing.T) {
+	t.Parallel()
 	const dork = "Name:Elf Dork\nTypes:Creature Elf\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G\nOracle:x\n"
 	const hasty = "Name:Hasty Dork\nTypes:Creature Elf\nPT:1/1\nK:Haste\nA:AB$ Mana | Cost$ T | Produced$ G\nOracle:x\n"
 	const greenSpell = "Name:Green Plan\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n"
@@ -191,6 +195,7 @@ func TestPaymentPlanSourceEligibilityShapes(t *testing.T) {
 }
 
 func TestPaymentPlanLegalityGatesSuppressPlans(t *testing.T) {
+	t.Parallel()
 	t.Run("sorcery outside main phase", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9330, "Name:Slow Plan\nManaCost:R\nTypes:Sorcery\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		for i := 0; i < 4; i++ {
@@ -236,6 +241,7 @@ func TestPaymentPlanLegalityGatesSuppressPlans(t *testing.T) {
 }
 
 func TestPaymentPlanProducerAndPoolExclusions(t *testing.T) {
+	t.Parallel()
 	const redSpell = "Name:Red Plan\nManaCost:R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n"
 	t.Run("unsupported producer does not block a basic plan", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9350, redSpell)
@@ -295,6 +301,7 @@ func TestPaymentPlanProducerAndPoolExclusions(t *testing.T) {
 }
 
 func TestPaymentPlanSearchLimitDeterministic(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9360, "Name:Huge Plan\nManaCost:12\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	for i := 0; i < 30; i++ {
 		onBoard(t, e, 0, ppMountain)
@@ -319,6 +326,7 @@ func TestPaymentPlanSearchLimitDeterministic(t *testing.T) {
 }
 
 func TestPaymentPlanEngineRejectsForgedWitnessBeforeMutation(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9370, "Name:Red Plan\nManaCost:R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, ppMountain)
 	d := ppAsk(t, e)
@@ -344,6 +352,7 @@ func TestPaymentPlanEngineRejectsForgedWitnessBeforeMutation(t *testing.T) {
 }
 
 func TestPaymentPlanTargetsPrecedePlannedActivation(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9308, ppShock)
 	mtn := onBoard(t, e, 0, ppMountain)
 	d := ppAsk(t, e)
@@ -368,6 +377,7 @@ func TestPaymentPlanTargetsPrecedePlannedActivation(t *testing.T) {
 }
 
 func TestPaymentPlanPlannedMatchesManualExecution(t *testing.T) {
+	t.Parallel()
 	build := func() (*Engine, state.ObjID, []state.ObjID) {
 		e, _, spell := newFixtureDeck(t, 9309, "Name:Drake Plan\nManaCost:1 U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		ids := []state.ObjID{onBoard(t, e, 0, ppIsland), onBoard(t, e, 0, ppSwamp)}
@@ -418,6 +428,7 @@ func TestPaymentPlanPlannedMatchesManualExecution(t *testing.T) {
 }
 
 func TestPaymentPlanExecutionHonoursWitnessPoolSpend(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9396, "Name:Pool Plan\nManaCost:1 U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	e.G.Players[0].Pool[state.ManaIndex('U')] = 1
 	e.G.Players[0].Pool[state.ManaIndex('R')] = 1
@@ -435,6 +446,7 @@ func TestPaymentPlanExecutionHonoursWitnessPoolSpend(t *testing.T) {
 }
 
 func TestPaymentPlanCloneAtTargetAskFinishesIdentically(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9380, ppShock2)
 	onBoard(t, e, 0, ppMountain)
 	onBoard(t, e, 0, ppMountain)
@@ -456,6 +468,7 @@ func TestPaymentPlanCloneAtTargetAskFinishesIdentically(t *testing.T) {
 }
 
 func TestPaymentPlanNewSeqRejectsPreviousOffer(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9371, "Name:Red Plan\nManaCost:R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, ppMountain)
 	onBoard(t, e, 0, ppMountain)

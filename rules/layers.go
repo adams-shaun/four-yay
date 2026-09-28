@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -76,6 +77,11 @@ func (e *Engine) staticEffects(dst []ContinuousEffect) []ContinuousEffect {
 // which every object it leaves out would have been skipped at the
 // ContinuousStaticsMayFunctionOffBattlefield gate below anyway.
 func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []ContinuousEffect {
+	// This walk is a full rescan, so it is the place the per-build gate flag
+	// is recomputed. staticEffects calls no callbacks and cannot re-enter
+	// (see its doc), so reset/set ordering is safe. A verify-only second walk
+	// (staticZoneSkipVerify) resets it again below and sets it identically.
+	e.staticMemoGated = false
 	out := dst[:0]
 	for pi, p := range e.G.AliveFrom(0) {
 		// staticSourceZones (below) walks the battlefield FIRST so every
@@ -216,10 +222,10 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// is the ONE read both this gate and cdaPTStatic make, so the
 						// emitted characteristic grant and the layer-7a P/T claim can
 						// never disagree about where the static is live.
-						if !e.stackSelfStaticOK(st, o) && !staticZoneAdmits(st.Params["ExcludeZone"], st.Params["EffectZone"], o.Zone) {
+						if !e.stackSelfStaticOK(st, o) && !staticZoneAdmits(st.ParamStr(cards.PKExcludeZone), st.ParamStr(cards.PKEffectZone), o.Zone) {
 							continue
 						}
-						affects := st.Params["Affected"]
+						affects := st.ParamStr(cards.PKAffected)
 						// Forge omits Affected$ on a self-only characteristic-defining
 						// static (Tarmogoyf, Krovikan Mist). Its default is the host
 						// card, not "no affected object".
@@ -239,8 +245,17 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// (the shipped statics convention rules/statics.go's
 						// checkSVarHolds documents): the grant is withheld whole, never
 						// silently always-applied.
-						if !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: faceSVars}) {
-							continue
+						if st.MayHaveAnyParam(continuousGateKeys) {
+							// A gate-carrying static was ENCOUNTERED -- set the flag even
+							// when the gate holds, because a later battlefield-composition
+							// change can flip a passing gate off. layercache.go's
+							// staticSafeSince refuses a TokenCreate re-stamp whenever this
+							// is set, so the memo is only reused across a token entry on a
+							// board with no gate-carrying Continuous static anywhere.
+							e.staticMemoGated = true
+							if !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
+								continue
+							}
 						}
 						base := ContinuousEffect{
 							Source:     id,
@@ -249,22 +264,22 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							Affects:    affects,
 							SVars:      faceSVars,
 						}
-						if hasStat(st, "AddPower") || hasStat(st, "AddToughness") {
+						if st.HasParam(cards.PKAddPower) || st.HasParam(cards.PKAddToughness) {
 							pt := base
 							pt.Layer, pt.Sub = LPT, SubModify
-							pt.AddPowerExpr = st.Params["AddPower"]
-							pt.AddToughnessExpr = st.Params["AddToughness"]
+							pt.AddPowerExpr = st.ParamStr(cards.PKAddPower)
+							pt.AddToughnessExpr = st.ParamStr(cards.PKAddToughness)
 							pt.AddPowerAffected = effects.AffectedXStaticAmount(pt.AddPowerExpr)
 							pt.AddToughnessAffected = effects.AffectedXStaticAmount(pt.AddToughnessExpr)
 							out = append(out, pt)
 						}
-						if hasStat(st, "AddKeyword") || hasStat(st, "RemoveKeyword") || hasStat(st, "CantHaveKeyword") {
+						if st.HasParam(cards.PKAddKeyword) || st.HasParam(cards.PKRemoveKeyword) || st.HasParam(cards.PKCantHaveKeyword) {
 							kw := base
 							kw.Layer = LAbilities
 							kw.AddKeywords = statKeywords(st)
 							kw.RemoveKeywords = statRemoveKeywords(st)
 							kw.CantHaveKeywords = statCantHaveKeywords(st)
-							kw.AffectedZone = strings.TrimSpace(st.Params["AffectedZone"])
+							kw.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
 							if len(kw.AddKeywords) > 0 || len(kw.RemoveKeywords) > 0 || len(kw.CantHaveKeywords) > 0 {
 								out = append(out, kw)
 							}
@@ -284,11 +299,11 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// whose body is missing or is not an AB degrades to no grant
 						// in grantedAbilities (the same totality every SVar
 						// resolution takes), so no validation is needed here.
-						if hasStat(st, "AddAbility") {
+						if st.HasParam(cards.PKAddAbility) {
 							ga := base
 							ga.Layer = LAbilities
 							ga.AddAbilities = statList(st, "AddAbility")
-							ga.AffectedZone = strings.TrimSpace(st.Params["AffectedZone"])
+							ga.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
 							if len(ga.AddAbilities) > 0 {
 								out = append(out, ga)
 							}
@@ -310,7 +325,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// fail-closed direction every grant takes; the scan re-runs per
 						// event, so a card exiled later is gained on the next rescan
 						// and a card that leaves the scoped zones loses its grant.
-						if gainsAbilitiesOf(st) {
+						if st.MayHaveAnyParam(gainsAbilitiesKeys) && gainsAbilitiesOf(st) {
 							// The two parameters are resolved SEPARATELY and carried on
 							// separate face lists: GainsAbilitiesOf$ means ACTIVATED
 							// abilities only and GainsTriggerAbsOf$ TRIGGERED only (a
@@ -339,7 +354,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								out = append(out, gg)
 							}
 						}
-						if rawName, ok := st.Params["SetName"]; ok {
+						if rawName, ok := st.Param(cards.PKSetName); ok {
 							if name, ok := resolveChosenName(rawName, o); ok {
 								n := base
 								n.Layer = LText
@@ -354,7 +369,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// an AddType$ (Luxior's equipped walker stops being a planeswalker
 						// and becomes a creature) but STANDS ALONE on the devotion gods,
 						// so the emission cannot gate on the AddType family.
-						if hasStat(st, "AddType") || hasStat(st, "AddTypes") || hasStat(st, "AddAllCreatureTypes") || strings.TrimSpace(st.Params["RemoveType"]) != "" {
+						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.Params["RemoveType"]) != "" {
 							ty := base
 							ty.Layer = LType
 							ty.AddTypes = statList(st, "AddTypes")
@@ -367,7 +382,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							// type list: typeCharacteristics appends the CreatureTypeWords
 							// vocabulary for affected objects, so the answer stays live
 							// and no non-creature word (Arcane/Alara/Ajani) can leak.
-							ty.AddAllCreatureTypes = hasStat(st, "AddAllCreatureTypes")
+							ty.AddAllCreatureTypes = st.HasParam(cards.PKAddAllCreatureTypes)
 							// AddType$ ChosenType (22 corpus files: Adaptive Automaton's
 							// "CARDNAME is the chosen type in addition to its other
 							// types" and its siblings): the VALUE is the static's host
@@ -411,10 +426,10 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							// the strip is not silently dropped. RemoveType$ is the one
 							// strip that DOES stand alone (the gods' devotion gate), so it
 							// enters the emission condition too.
-							ty.RemoveCardTypes = hasStat(st, "RemoveCardTypes")
-							ty.RemoveCreatureTypes = hasStat(st, "RemoveCreatureTypes")
+							ty.RemoveCardTypes = st.HasParam(cards.PKRemoveCardTypes)
+							ty.RemoveCreatureTypes = st.HasParam(cards.PKRemoveCreatureTypes)
 							ty.RemoveTypes = statList(st, "RemoveType")
-							ty.AffectedZone = strings.TrimSpace(st.Params["AffectedZone"])
+							ty.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
 							if len(ty.AddTypes) > 0 || ty.RemoveCardTypes || ty.RemoveCreatureTypes || ty.AddAllCreatureTypes || len(ty.RemoveTypes) > 0 {
 								out = append(out, ty)
 							}
@@ -440,7 +455,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// colours, the same direction effAnimate's Colors$ gate takes.
 						// No Note is emitted because this scan re-runs on every event;
 						// a per-derivation Note would flood the log.
-						if raw, isSet := st.Params["SetColor"]; isSet {
+						if raw, isSet := st.Param(cards.PKSetColor); isSet {
 							// A resolvable characteristic-defining self SetColor$ (the
 							// Transguild Courier / Sphinx of the Guildpact "CARDNAME is
 							// all colors", Ghostfire "CARDNAME is colorless" class) is
@@ -464,19 +479,19 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								sc.Layer = LColor
 								sc.AddColors = cols
 								sc.OverwriteColors = true
-								sc.AffectedZone = strings.TrimSpace(st.Params["AffectedZone"])
+								sc.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
 								out = append(out, sc)
 							}
 						}
-						if raw, isAdd := st.Params["AddColor"]; isAdd || st.Params["AddColors"] != "" {
+						if raw, isAdd := st.Param(cards.PKAddColor); isAdd || st.ParamStr(cards.PKAddColors) != "" {
 							if !isAdd {
-								raw = st.Params["AddColors"]
+								raw = st.ParamStr(cards.PKAddColors)
 							}
 							if cols, ok := resolveChosenColors(raw, o); ok {
 								sc := base
 								sc.Layer = LColor
 								sc.AddColors = cols
-								sc.AffectedZone = strings.TrimSpace(st.Params["AffectedZone"])
+								sc.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
 								out = append(out, sc)
 							}
 						}
@@ -491,9 +506,9 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// twice. A CDA whose value this build cannot resolve keeps
 						// today's emission -- fail closed is the same degrade direction
 						// every static gate takes.
-						if hasStat(st, "SetPower") || hasStat(st, "SetToughness") {
+						if st.HasParam(cards.PKSetPower) || st.HasParam(cards.PKSetToughness) {
 							skip := false
-							if strings.TrimSpace(st.Params["CharacteristicDefining"]) != "" {
+							if strings.TrimSpace(st.ParamStr(cards.PKCharacteristicDefining)) != "" {
 								if _, _, hp, ht := e.cdaPTStatic(st, &effects.Ctx{Source: id, Controller: o.Controller, SVars: fc.SVars}); hp || ht {
 									skip = true
 								}
@@ -501,19 +516,19 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							if !skip {
 								set := base
 								set.Layer, set.Sub = LPT, SubSet
-								if strings.EqualFold(st.Params["CharacteristicDefining"], "true") {
+								if strings.EqualFold(st.ParamStr(cards.PKCharacteristicDefining), "true") {
 									set.Sub = SubCDA
 								}
-								set.SetPowerExpr = st.Params["SetPower"]
-								set.SetToughnessExpr = st.Params["SetToughness"]
-								set.SetPowerPresent = hasStat(st, "SetPower")
-								set.SetToughnessPresent = hasStat(st, "SetToughness")
+								set.SetPowerExpr = st.ParamStr(cards.PKSetPower)
+								set.SetToughnessExpr = st.ParamStr(cards.PKSetToughness)
+								set.SetPowerPresent = st.HasParam(cards.PKSetPower)
+								set.SetToughnessPresent = st.HasParam(cards.PKSetToughness)
 								set.StaticSet = true
 								set.HasSet = true
 								out = append(out, set)
 							}
 						}
-						if hasStat(st, "RemoveAllAbilities") {
+						if st.HasParam(cards.PKRemoveAllAbilities) {
 							ra := base
 							ra.Layer = LAbilities
 							ra.RemoveAbilities = true
@@ -534,10 +549,10 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// (MayPlay stays false) rather than being silently over-applied
 						// against the ordinary LandsPlayed limit. Expiry is the ordinary
 						// source-leaves rule (CR 611.3b) via active()'s battlefield scan.
-						if mayPlayGrant(st) {
+						if st.HasParam(cards.PKMayPlay) && mayPlayGrant(st) {
 							mp := base
 							mp.MayPlay = true
-							mp.AffectedZone = strings.TrimSpace(st.Params["AffectedZone"])
+							mp.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
 							mp.MayPlayIgnoreColor, mp.MayPlayIgnoreType, mp.MayPlayLimit, mp.MayPlayPlayerTurn, _ = effects.MayPlayStaticParams(st.Params)
 							out = append(out, mp)
 						}
@@ -563,7 +578,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// your turns") is the offer gate itself -- a play_land option is
 						// only offered to the active player in a main phase -- and the
 						// per-turn reset stays events' TurnChange LandsPlayed = 0.
-						if n, ok := adjustLandPlaysGrant(st.Params); ok {
+						if n, ok := adjustLandPlaysGrantOf(st); ok {
 							al := base
 							al.AdjustLandPlays = n
 							out = append(out, al)
@@ -589,12 +604,36 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// above applies to the inner static unchanged. A body this
 						// parser refuses, one whose mode is not Continuous, or a host
 						// the outer spec no longer matches, grants nothing.
-						if name := strings.TrimSpace(st.Params["AddStaticAbility"]); name != "" && w.depth == 0 {
+						if name := strings.TrimSpace(st.ParamStr(cards.PKAddStaticAbility)); name != "" && w.depth == 0 {
 							if inners, ok := cards.ParseStaticLines(fc.SVars[name]); ok {
 								for _, inner := range inners {
 									if inner.Mode == "Continuous" &&
 										e.matchesSpecFrom(affects, id, o.Controller, id) {
 										grantQueue = append(grantQueue, staticWork{st: inner, depth: w.depth + 1})
+									}
+									// A granted COST-MODIFIER static (Jubilant
+									// Skybonder's "Creatures you control with
+									// flying have 'Spells your opponents cast that
+									// target this creature cost {2} more'",
+									// Acolyte of Bahamut's commander grant): the
+									// objects the OUTER Affected$ matches each HAVE
+									// the static while the outer one is live. It
+									// rides this scan as a granted cost static
+									// (state.ContinuousEffect.CostStaticGranted);
+									// rules' appendGrantedCostStatic binds it to
+									// every matching host at collection time, the
+									// same registry route the Animate and
+									// CopyPermanent grants take. The Effect route's
+									// whitelist gates it: an unread scoping key
+									// grants nothing rather than a blanket modifier.
+									if effects.IsGrantableCostStaticMode(inner.Mode) && effects.CostStaticParamsReadable(inner.Params) {
+										cg := base
+										cg.CostStaticMode = inner.Mode
+										cg.CostStaticParams = inner.Params
+										cg.CostStaticSVars = fc.SVars
+										cg.CostStaticGranted = true
+										cg.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
+										out = append(out, cg)
 									}
 								}
 							}
@@ -613,7 +652,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// queue and a replayed one mint the same stack object. A
 						// self-grant degenerates to the affected object; a body that
 						// fails to parse grants nothing.
-						if raw := strings.TrimSpace(st.Params["AddTrigger"]); raw != "" {
+						if raw := strings.TrimSpace(st.ParamStr(cards.PKAddTrigger)); raw != "" {
 							// The value may name SEVERAL SVar triggers joined by Forge's
 							// " & " separator (Mirror Shield's TrigBlocks &
 							// TrigBecomeBlocked). Split through the ONE exported grammar
@@ -640,7 +679,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// grant and resolves it through Engine.GrantedSVar, the lookup a
 						// later CheckSVar$-style consumer of the affected object's
 						// variables reads. A body in any other shape grants nothing.
-						if raw := strings.TrimSpace(st.Params["AddSVar"]); raw != "" {
+						if raw := strings.TrimSpace(st.ParamStr(cards.PKAddSVar)); raw != "" {
 							if n, v, ok := parseSVarGrant(fc.SVars[raw]); ok {
 								gv := base
 								gv.AddSVars = map[string]string{n: v}
@@ -656,7 +695,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// corpus shape (73/34/1 raw lines at the pin); anything else
 						// fails closed. Consumed by Engine.MayLookAtLibraryTop, the
 						// view's reveal of that top card.
-						if raw := strings.TrimSpace(st.Params["MayLookAt"]); raw != "" {
+						if raw := strings.TrimSpace(st.ParamStr(cards.PKMayLookAt)); raw != "" {
 							if strings.EqualFold(raw, "You") || strings.EqualFold(raw, "Player") || strings.EqualFold(raw, "True") {
 								lv := base
 								lv.MayLookAt = true
@@ -688,7 +727,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// *.EnchantedBy and the value You (41) or Player.isMonarch (1,
 						// Fealty to the Realm); none is in any repo deck, so the golden
 						// heads and the ratchet are untouched by construction.
-						if raw := strings.TrimSpace(st.Params["GainControl"]); raw != "" {
+						if raw := strings.TrimSpace(st.ParamStr(cards.PKGainControl)); raw != "" {
 							gc := base
 							gc.GainControl = raw
 							out = append(out, gc)
@@ -743,11 +782,29 @@ func staticZoneAdmits(exclude, effectZone string, z state.Zone) bool {
 }
 
 func (e *Engine) stackSelfStaticOK(st cards.Static, o *state.Object) bool {
-	if st.Params["EffectZone"] != "" || o == nil || o.Zone != state.ZStack {
+	if o == nil || o.Zone != state.ZStack || st.ParamStr(cards.PKEffectZone) != "" {
 		return false
 	}
-	return strings.Contains(st.Params["PresentZone"], "Stack") ||
-		st.Params["AffectedZone"] == "Stack"
+	return strings.Contains(st.ParamStr(cards.PKPresentZone), "Stack") ||
+		st.ParamStr(cards.PKAffectedZone) == "Stack"
+}
+
+// continuousGateKeys are the keys continuousGateHolds reads to decide
+// anything: a static carrying none of them passes every gate (ClassBand$
+// empty, no IsPresent$/IsPresent2$, no Condition$, no CheckSVar$).
+var continuousGateKeys = cards.ParamMaskOf(cards.PKClassBand, cards.PKIsPresent, cards.PKIsPresent2, cards.PKCondition, cards.PKCheckSVar)
+
+// gainsAbilitiesKeys are gainsAbilitiesOf's keys: with none present it is
+// false.
+var gainsAbilitiesKeys = cards.ParamMaskOf(cards.PKGainsAbilitiesOf, cards.PKGainsAbilitiesOfDefined, cards.PKGainsTriggerAbsOf)
+
+// adjustLandPlaysGrantOf is adjustLandPlaysGrant on a static, skipping the
+// map walk when the compiled set proves AdjustLandPlays$ absent.
+func adjustLandPlaysGrantOf(st cards.Static) (int32, bool) {
+	if !st.HasParam(cards.PKAdjustLandPlays) {
+		return 0, false
+	}
+	return adjustLandPlaysGrant(st.Params)
 }
 
 // staticSourceZones is staticEffects' per-seat source walk, in one fixed
@@ -1139,7 +1196,7 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 	case "Metalcraft":
 		return e.metalcraftHolds(sv.Controller)
 	case "Threshold":
-		return len(e.G.Zone(state.ZGraveyard, sv.Controller)) >= 7
+		return e.thresholdHolds(sv.Controller)
 	case "Hellbent":
 		return len(e.G.Zone(state.ZHand, sv.Controller)) == 0
 	case "Blessing":
@@ -2501,17 +2558,9 @@ func (e *Engine) typeCharacteristicsActive(act []ContinuousEffect, id state.ObjI
 			ty = kept
 		}
 		if len(ce.RemoveTypes) > 0 {
-			currentTypes := append([]string(nil), ty...)
 			kept := ty[:0]
 			for _, t := range ty {
-				remove := false
-				for _, removedType := range ce.RemoveTypes {
-					if strings.EqualFold(t, removedType) || removedSubtype(t, removedType, currentTypes, e.G.NameUniverse) {
-						remove = true
-						break
-					}
-				}
-				if !remove {
+				if !slices.ContainsFunc(ce.RemoveTypes, func(remove string) bool { return strings.EqualFold(t, remove) }) {
 					kept = append(kept, t)
 				}
 			}
@@ -2589,176 +2638,6 @@ func corpusLandTypeWords(universe []*cards.Card) []string {
 	}
 	landTypeWordsCache.m[k] = out
 	return out
-}
-
-// removedSubtypeCache memoises subtype ownership in the compiled corpus. The
-// derived type list is flat, so this relation lets RemoveType$ remove subtypes
-// of a removed card type without deleting a subtype shared by another type.
-var removedSubtypeCache struct {
-	mu sync.Mutex
-	m  map[landTypeWordsKey]map[string]map[string]struct{}
-}
-
-func removedSubtype(word, removedType string, current []string, universe []*cards.Card) bool {
-	knownCreatureSubtype := strings.EqualFold(removedType, "Creature") && effects.CreatureTypeWords(word)
-	if isCardType(word) || isSupertype(word) {
-		return false
-	}
-	if len(universe) == 0 {
-		if knownCreatureSubtype && hasRemainingKindredOwner(current) {
-			return false
-		}
-		return knownCreatureSubtype || noOtherCardType(current, removedType)
-	}
-	key := landTypeWordsKey{first: &universe[0], n: len(universe)}
-	removedSubtypeCache.mu.Lock()
-	byType := removedSubtypeCache.m[key]
-	removedSubtypeCache.mu.Unlock()
-	if byType == nil {
-		byType = buildRemovedSubtypeMap(universe)
-		removedSubtypeCache.mu.Lock()
-		if removedSubtypeCache.m == nil {
-			removedSubtypeCache.m = make(map[landTypeWordsKey]map[string]map[string]struct{})
-		}
-		if cached := removedSubtypeCache.m[key]; cached != nil {
-			byType = cached
-		} else {
-			if len(removedSubtypeCache.m) >= 64 {
-				removedSubtypeCache.m = nil
-			}
-			if removedSubtypeCache.m == nil {
-				removedSubtypeCache.m = make(map[landTypeWordsKey]map[string]map[string]struct{})
-			}
-			removedSubtypeCache.m[key] = byType
-		}
-		removedSubtypeCache.mu.Unlock()
-	}
-	_, knownSubtype := byType[strings.ToLower(removedType)][strings.ToLower(word)]
-	knownSubtype = knownSubtype || knownCreatureSubtype
-	for _, typ := range current {
-		if (isCardType(typ) || isKindredType(typ)) && !strings.EqualFold(typ, removedType) {
-			if _, shared := byType[strings.ToLower(typ)][strings.ToLower(word)]; shared {
-				return false
-			}
-			// Kindred (formerly Tribal) makes the creature subtype part of
-			// the surviving Kindred type line even when a face also has Creature.
-			if isKindredType(typ) && effects.CreatureTypeWords(word) {
-				return false
-			}
-		}
-	}
-	// A subtype introduced by a synthetic/test card may be absent from the
-	// pinned corpus vocabulary. With no other card type remaining, it still
-	// belongs to the removed type and must leave with it.
-	return knownSubtype || noOtherCardType(current, removedType)
-}
-
-func hasRemainingKindredOwner(types []string) bool {
-	for _, typ := range types {
-		if isKindredType(typ) {
-			return true
-		}
-	}
-	return false
-}
-
-func noOtherCardType(types []string, removedType string) bool {
-	for _, typ := range types {
-		if (isCardType(typ) || isKindredType(typ)) && !strings.EqualFold(typ, removedType) {
-			return false
-		}
-	}
-	return true
-}
-
-func isKindredType(t string) bool {
-	return strings.EqualFold(t, "Kindred") || strings.EqualFold(t, "Tribal")
-}
-
-func buildRemovedSubtypeMap(universe []*cards.Card) map[string]map[string]struct{} {
-	// A face's flat type line does not say which type owns a subtype when the
-	// face has multiple card types (e.g. Purphoros is an Enchantment Creature
-	// God). Infer ownership only from unambiguous one-card-type faces; the
-	// creature vocabulary supplies the creature-owned subtypes that occur only
-	// on multi-type creatures such as the Theros gods.
-	owners := make(map[string]map[string]struct{})
-	addOwner := func(word, typ string) {
-		word, typ = strings.ToLower(word), strings.ToLower(typ)
-		if owners[word] == nil {
-			owners[word] = make(map[string]struct{})
-		}
-		owners[word][typ] = struct{}{}
-	}
-	for _, card := range universe {
-		if card == nil {
-			continue
-		}
-		for _, face := range card.Faces {
-			if face == nil {
-				continue
-			}
-			var onlyType string
-			count := 0
-			for _, word := range face.Types {
-				if isCardType(word) || isKindredType(word) {
-					count++
-					onlyType = word
-				}
-			}
-			if count == 1 {
-				for _, word := range face.Types {
-					if !isCardType(word) && !isKindredType(word) && !isSupertype(word) {
-						addOwner(word, onlyType)
-					}
-				}
-			}
-			// A Kindred/Tribal subtype is owned by that card type even when
-			// the face also has Creature (or another card type). Keep this
-			// ownership alongside Creature so shared creature subtypes survive
-			// removal of Creature while Kindred/Tribal remains.
-			for _, typ := range face.Types {
-				if !isKindredType(typ) {
-					continue
-				}
-				for _, word := range face.Types {
-					if !isCardType(word) && !isKindredType(word) && !isSupertype(word) {
-						addOwner(word, typ)
-					}
-				}
-			}
-		}
-	}
-	// The creature taxonomy is independently known even where the only corpus
-	// examples are multi-type creatures. Add those words only if no other
-	// single-type evidence assigns them to another card type.
-	for _, card := range universe {
-		if card == nil {
-			continue
-		}
-		for _, face := range card.Faces {
-			if face == nil {
-				continue
-			}
-			for _, word := range face.Types {
-				if effects.CreatureTypeWords(word) {
-					addOwner(word, "Creature")
-				}
-			}
-		}
-	}
-	byType := make(map[string]map[string]struct{})
-	for word, types := range owners {
-		if len(types) != 1 {
-			continue
-		}
-		for typ := range types {
-			if byType[typ] == nil {
-				byType[typ] = make(map[string]struct{})
-			}
-			byType[typ][word] = struct{}{}
-		}
-	}
-	return byType
 }
 
 func buildCorpusLandTypeWords(universe []*cards.Card) []string {
@@ -2938,7 +2817,7 @@ func (e *Engine) matchesWithCharsPT(ce *ContinuousEffect, id state.ObjID, types,
 	// self-only effect is covered too.
 	if ce.Affects == "Card.Self" && id != ce.Source {
 		if layer4PrecheckVerify {
-			selfRejectVerify++
+			selfRejectVerify.Add(1)
 			// Recompute through the full match and confirm the early-out
 			// agreed: a non-source Card.Self must never match. This is the
 			// empirical proof the shortcut is result-preserving.
@@ -2954,8 +2833,11 @@ func (e *Engine) matchesWithCharsPT(ce *ContinuousEffect, id state.ObjID, types,
 // selfRejectVerify counts the Card.Self early rejections the shortcut made
 // under verify mode; a test asserts it advances so the shortcut cannot be
 // silently removed. It is written only under the layer4PrecheckVerify branch,
-// so production pays one predictable branch and no store.
-var selfRejectVerify int
+// so production pays one predictable branch and no store. It is atomic
+// because the test binary turns verify mode on and runs engines on parallel
+// test goroutines (TestInvariantsUnderSeedFuzz's seed subtests), which all
+// bump this one counter.
+var selfRejectVerify atomic.Int64
 
 // matchesWithCharsPTSlow is matchesWithCharsPT with the Card.Self early
 // rejection removed. Verify mode calls it to prove the shortcut agrees with
@@ -3082,13 +2964,20 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 	frameIndex := len(e.derivedPTFrames)
 	e.derivedPTFrames = append(e.derivedPTFrames, derivedPTSnapshot{id: id})
 	defer func() { e.derivedPTFrames = e.derivedPTFrames[:frameIndex] }()
+	// Layer 7d's contribution is fixed for the whole walk (counters do not
+	// change mid-derivation), so sum every P/T counter KIND once here -- the
+	// frame snapshot and the 7d tail below then add the same pair, and no
+	// step of the walk can disagree about what a counter does to P/T. All
+	// P/T counter kinds (P1P1, M0M1, P2P0, ...) are honoured through the one
+	// state.CounterPTDelta parser; before this only P1P1 and M1M1 were.
+	var counterDPower, counterDToughness int32
+	if o != nil {
+		counterDPower, counterDToughness = o.CounterPTTotals()
+	}
 	setFrame := func() {
 		preCounterPower, preCounterToughness := power, toughness
-		currentPower, currentToughness := power, toughness
-		if o != nil {
-			currentPower += o.Counter("P1P1") - o.Counter("M1M1")
-			currentToughness += o.Counter("P1P1") - o.Counter("M1M1")
-		}
+		currentPower := power + counterDPower
+		currentToughness := toughness + counterDToughness
 		e.derivedPTFrames[frameIndex] = derivedPTSnapshot{
 			id:                  id,
 			power:               currentPower,
@@ -3210,15 +3099,10 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 			toughness = addPT(toughness, addToughness)
 		}
 	}
-	// 7d: counters apply after every other layer-7 effect (CR 613.4).
-	if n := o.Counter("P1P1"); n != 0 {
-		power += n
-		toughness += n
-	}
-	if n := o.Counter("M1M1"); n != 0 {
-		power -= n
-		toughness -= n
-	}
+	// 7d: counters apply after every other layer-7 effect (CR 613.4). Every
+	// P/T counter kind contributes its CR 122.1a delta, summed once above.
+	power += counterDPower
+	toughness += counterDToughness
 	return power, toughness, basePower, baseToughness
 }
 
@@ -3825,7 +3709,13 @@ func (e *Engine) Toughness(id state.ObjID) int32 {
 // case-insensitive comparison, so an exact-match Engine.HasKeyword would have
 // been a silent trap for the first caller with non-canonical-cased input.
 func (e *Engine) HasKeyword(id state.ObjID, kw string) bool {
-	if !e.mayHaveDerivedKeyword(id, kw) {
+	return e.hasKeywordH(id, kwHeadOf(kw))
+}
+
+// hasKeywordH is HasKeyword for a precompiled head (rules/keyword_heads.go).
+func (e *Engine) hasKeywordH(id state.ObjID, h kwHead) bool {
+	kw := h.s
+	if !e.mayHaveDerivedKeywordH(id, h) {
 		if derivedMemoVerify {
 			e.verifyKeywordPrecheck(id, kw)
 		}
@@ -3844,7 +3734,13 @@ func (e *Engine) HasKeyword(id state.ObjID, kw string) bool {
 // effect delivered (Underworld Breach's AddKeyword$ Escape grant, Snapcaster
 // Mage's Flashback) is readable exactly where the printed one would be.
 func (e *Engine) derivedKeywordParam(id state.ObjID, head string) (string, bool) {
-	if !e.mayHaveDerivedKeyword(id, head) {
+	return e.derivedKeywordParamH(id, kwHeadOf(head))
+}
+
+// derivedKeywordParamH is derivedKeywordParam for a precompiled head.
+func (e *Engine) derivedKeywordParamH(id state.ObjID, h kwHead) (string, bool) {
+	head := h.s
+	if !e.mayHaveDerivedKeywordH(id, h) {
 		if derivedMemoVerify {
 			e.verifyKeywordPrecheck(id, head)
 		}

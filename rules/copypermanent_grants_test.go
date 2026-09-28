@@ -41,6 +41,7 @@ func resolveSourceFaceSA(t *testing.T, e *Engine, id state.ObjID, name string) *
 // (Biomancy) SVar table, the trigger fires exactly once, and the copied
 // original never gains the trigger.
 func TestAggressiveBiomancy(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Aggressive Biomancy"), lookup(t, reg, "Grizzly Bears")},
@@ -231,6 +232,7 @@ func copyNotes(e *Engine) []string {
 // granted on the COPY, activating it pays the {2} and sacrifices the copy to
 // gain 3 life, and it is never offered on the original effect source.
 func TestShelobFoodCopy(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Brenard, Ginger Sculptor"), lookup(t, reg, "Grizzly Bears")},
@@ -436,6 +438,7 @@ func TestArnaCopy(t *testing.T) {
 // receives the KChoose, selecting a non-first eligible creature copies THAT
 // creature under the friend, and the no-host fallback is deterministic.
 func TestZndrspltFriendCopy(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Zndrsplt's Judgment")},
@@ -516,6 +519,7 @@ func (noAskHost) Ask(*decision.Decision) bool { return false }
 // eligible friend creature deterministically and records the no-host Note,
 // never the resolving spell.
 func TestZndrspltNoHostCopy(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Zndrsplt's Judgment")},
@@ -568,6 +572,7 @@ func TestZndrspltNoHostCopy(t *testing.T) {
 // MoveZone emit) fires the granted TrigLeavesBattlefield trigger and the
 // exiled bearer returns to the graveyard.
 func TestHofriCopyPermanentGrants(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := tokenRememberedBoard(t, reg, "Hofri Ghostforge", "Vampire Nighthawk")
 	hofri, bearer := ids["Hofri Ghostforge"], ids["Vampire Nighthawk"]

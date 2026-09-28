@@ -104,6 +104,7 @@ func vowEffect(t *testing.T, e *Engine) *ContinuousEffect {
 // RememberCards$ remembered set: the vowed creature survives), and the
 // registered effect remembers exactly the chosen creatures.
 func TestPromiseOfLoyaltyAsksEachPlayerAndVowsACreature(t *testing.T) {
+	t.Parallel()
 	e, cfg, bears := vowRestrictionGame(t, 6121, 3, 2)
 	d := castVow(t, e)
 
@@ -192,6 +193,7 @@ func TestPromiseOfLoyaltyAsksEachPlayerAndVowsACreature(t *testing.T) {
 // posed for them — the vow and the sacrifice (of nothing) resolve
 // deterministically.
 func TestPromiseOfLoyaltySingleCreatureTakesTheVowWithoutAsking(t *testing.T) {
+	t.Parallel()
 	e, cfg, bears := vowRestrictionGame(t, 6122, 1, 1)
 	castVow(t, e)
 	passUntilStackEmpty(t, e, 60)
@@ -220,6 +222,7 @@ func TestPromiseOfLoyaltySingleCreatureTakesTheVowWithoutAsking(t *testing.T) {
 //     from the effect's Remembered set and the restriction stops applying;
 //   - ForgetOnMoved$ Battlefield (the creature dying) drops it the same way.
 func TestPromiseOfLoyaltyVowForgets(t *testing.T) {
+	t.Parallel()
 	e, cfg, bears := vowRestrictionGame(t, 6123, 2, 2, 2)
 	d := castVow(t, e)
 	// Three picks, one per seat in turn order; each answers its second bear.

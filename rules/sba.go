@@ -60,11 +60,12 @@ const maxSBAPasses = 32
 // LethalDamage had already touched. alive is Ruling T22-p's re-arm
 // watermark, described on checkStateBased below.
 type sbaAttempts struct {
-	objs    map[state.ObjID]bool
-	tokens  map[state.ObjID]bool
-	players map[state.PlayerID]bool
-	sagas   map[state.ObjID]bool
-	alive   int
+	objs     map[state.ObjID]bool
+	tokens   map[state.ObjID]bool
+	players  map[state.PlayerID]bool
+	sagas    map[state.ObjID]bool
+	dungeons map[state.ObjID]bool
+	alive    int
 }
 
 // rearm forgets every memory when the alive-player set has shrunk since it
@@ -250,11 +251,12 @@ func (e *Engine) checkStateBased() {
 	}
 	stable := false
 	tried := &sbaAttempts{
-		objs:    map[state.ObjID]bool{},
-		tokens:  map[state.ObjID]bool{},
-		players: map[state.PlayerID]bool{},
-		sagas:   map[state.ObjID]bool{},
-		alive:   e.G.AliveCount(),
+		objs:     map[state.ObjID]bool{},
+		tokens:   map[state.ObjID]bool{},
+		players:  map[state.PlayerID]bool{},
+		sagas:    map[state.ObjID]bool{},
+		dungeons: map[state.ObjID]bool{},
+		alive:    e.G.AliveCount(),
 	}
 	// Safety net for a duration-ending change folded outside Engine.emit
 	// (the Updated replacement paths call events.Emit directly).
@@ -315,6 +317,13 @@ func (e *Engine) checkStateBased() {
 			changed = true
 		}
 		if e.checkSagas(tried) {
+			changed = true
+		}
+		// CR 704.5t: a dungeon whose marker sits on its bottommost room and
+		// whose room ability has left the stack is completed. It runs after
+		// checkSagas in the pass, both are deterministic scans that pose no
+		// choice, and neither reads the other's writes.
+		if e.dungeonCompletion(tried) {
 			changed = true
 		}
 		if !changed {
@@ -809,8 +818,9 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 	for i := range e.G.Players {
 		p := &e.G.Players[i]
 		if !p.Lost && p.Life <= 0 {
-			e.emit(events.Event{Kind: events.PlayerLost, Player: p.ID, Text: "life total is 0 or less"})
-			changed = true
+			if e.playerLoses(p.ID, loseReasonLifeReachedZero, "life total is 0 or less") {
+				changed = true
+			}
 		}
 	}
 	// CR 704.5b: a player with ten or more poison counters loses. Ward's
@@ -819,8 +829,9 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 	for i := range e.G.Players {
 		p := &e.G.Players[i]
 		if !p.Lost && p.Counter("POISON") >= 10 {
-			e.emit(events.Event{Kind: events.PlayerLost, Player: p.ID, Text: "ten or more poison counters"})
-			changed = true
+			if e.playerLoses(p.ID, loseReasonPoisoned, "ten or more poison counters") {
+				changed = true
+			}
 		}
 	}
 	// CR 903.10 (commander damage, Task m33): a player that has been dealt 21
@@ -843,9 +854,10 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 			}
 			for _, dmg := range p.CmdDamage {
 				if dmg >= 21 {
-					e.emit(events.Event{Kind: events.PlayerLost, Player: p.ID,
-						Text: "commander damage (21 or more from one commander)"})
-					changed = true
+					if e.playerLoses(p.ID, loseReasonCommanderDamage,
+						"commander damage (21 or more from one commander)") {
+						changed = true
+					}
 					break
 				}
 			}
@@ -887,6 +899,16 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 // swept in seat order and an attacker owned by a later seat attacks an earlier
 // one.
 func (e *Engine) ceaseDepartedObjects(p state.PlayerID) {
+	// CR 800.4a: the departed player's objects leave simultaneously, so every
+	// battlefield departure in this sweep observes ONE pre-sweep board -- the
+	// batch discipline destroyLethalDamage and the world rule follow. Without
+	// it emit snapshots the whole game per departing permanent, which is
+	// quadratic in a large board (60,001 tokens in
+	// TestLargeEliminationSweepDoesNotTripLivelockWatcher took minutes).
+	if e.triggerBefore == nil && e.ceaseSweepLeavesBattlefield(p) {
+		e.triggerBefore = e.snapshotTriggerBoard()
+		defer func() { e.triggerBefore = nil }()
+	}
 	for i := range e.G.Objs {
 		o := &e.G.Objs[i]
 		if o.Zone == state.ZCeased {
@@ -907,6 +929,19 @@ func (e *Engine) ceaseDepartedObjects(p state.PlayerID) {
 		}
 		e.emit(events.Event{Kind: events.EndCombatReset, Obj: o.ID})
 	}
+}
+
+// ceaseSweepLeavesBattlefield reports whether ceaseDepartedObjects(p) will
+// move at least one permanent off the battlefield (the only departures whose
+// triggers look back at the pre-departure board).
+func (e *Engine) ceaseSweepLeavesBattlefield(p state.PlayerID) bool {
+	for i := range e.G.Objs {
+		o := &e.G.Objs[i]
+		if o.Zone == state.ZBattlefield && o.Owner == p && o.Card != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // casualty is one creature destroyLethalDamage has found lethal, together
@@ -1025,7 +1060,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 			if o.Damage < e.Toughness(id) && dtMark == 0 {
 				continue
 			}
-			if e.HasKeyword(id, "Indestructible") {
+			if e.hasKeywordH(id, kwhIndestructible) {
 				continue
 			}
 			dead = append(dead, casualty{id, "lethal damage"})
@@ -1269,10 +1304,9 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 	var dead []tokenCasualty
 	for i := range e.G.Objs {
 		o := &e.G.Objs[i]
-		if tried.tokens[o.ID] {
-			continue
-		}
-		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
+		// The field test first: the attempt memory is only consulted for a
+		// token that would otherwise be ceased (the same set as before).
+		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased && !tried.tokens[o.ID] {
 			dead = append(dead, tokenCasualty{o.ID, o.Zone})
 		}
 	}
@@ -1308,7 +1342,16 @@ func (e *Engine) checkGameOver() {
 	}
 	if len(alive) == 1 {
 		w := alive[0]
-		e.emit(events.Event{Kind: events.GameOver, Player: w, Text: e.G.Players[w].Name})
+		// The CR 104.2a last-player-standing win is a win like any other, so a
+		// live GameWin CantHappen replacement for the survivor stops it (CR
+		// 104.3's "can't win"; Herald of Eternal Dawn, Platinum Angel). This
+		// runs after checkLoseConditions has swept every departed seat's
+		// objects, so a replacement whose source has just left with its
+		// controller no longer applies -- which is why a concession still ends
+		// the game (the Angel leaves the game, then the survivor wins).
+		if !e.playerWins(w, e.G.Players[w].Name) {
+			return
+		}
 	} else {
 		e.emit(events.Event{Kind: events.GameOver, Amount: 1, Text: "draw"})
 	}

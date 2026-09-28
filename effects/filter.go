@@ -49,7 +49,7 @@ func keywordPredicateFor(p string) (keywordPredicate, bool) {
 	if kp, ok := keywordPredicates[p]; ok {
 		return kp, true
 	}
-	if strings.HasPrefix(p, "with") || strings.HasPrefix(p, "without") {
+	if strings.HasPrefix(p, "with") || strings.HasPrefix(p, "without") || strings.HasPrefix(p, "hasKeyword") {
 		compact := strings.ReplaceAll(p, " ", "")
 		kp, ok := keywordPredicates[compact]
 		return kp, ok
@@ -68,6 +68,33 @@ var predicates = map[string]predFn{
 		return o.Controller != you
 	},
 	"YouOwn": func(g *state.Game, o *state.Object, you state.PlayerID, _ state.ObjID) bool { return o.Owner == you },
+	// YouDontOwn is Forge's CardProperty YouDontOwn: the card's owner is not
+	// the evaluating controller (Gonti, Canny Acquisitor's "spells you cast
+	// but don't own").
+	"YouDontOwn": func(g *state.Game, o *state.Object, you state.PlayerID, _ state.ObjID) bool { return o.Owner != you },
+	// hasXCost is Forge's CardProperty hasXCost: the card's mana cost
+	// carries at least one {X} (ManaCost.countX > 0) -- Zimone, Infinite
+	// Analyst's "spell with {X} in its mana cost". A face-down object has no
+	// mana cost (CR 708.2), so it never matches.
+	"hasXCost": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if o == nil || o.FaceDown || o.Face() == nil {
+			return false
+		}
+		for tok := range strings.FieldsSeq(o.Face().ManaCost) {
+			if tok == "X" {
+				return true
+			}
+		}
+		return false
+	},
+	// DrawnThisTurn is Forge's Card.getDrawnThisTurn (Captain Eberhart's
+	// "spells cast from among cards you drew this turn"): the object's last
+	// Draw is this turn's and it has since moved nowhere but the stack --
+	// state.Object.DrawnTurn, stamped by events.Apply's Draw fold and cleared
+	// by every other move (Forge keeps the flag only onto the stack).
+	"DrawnThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o != nil && o.DrawnTurn != 0 && o.DrawnTurn == g.Turn
+	},
 	"foretold": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagForetold != 0
 	},
@@ -401,17 +428,30 @@ func init() {
 	// a gap on every changeling carrier.
 	RegisterNonAPI("kw:Changeling")
 
+	// Flash and Mutate (task costfilter): Cunning Nightbonder's
+	// `Card.hasKeywordFlash` and Pollywog Symbiote's `Creature.withMutate`
+	// cost reductions, plus every other corpus withFlash/hasKeywordFlash
+	// filter. Forge's hasKeyword<X> is the exact-keyword spelling of the same
+	// test (CardProperty: card.hasKeyword(X), introduced so "withFlash" could
+	// not prefix-match Flashback); this matcher's KeywordHead comparison is
+	// already exact, so hasKeyword<X> registers as a plain alias of with<X>
+	// for every keyword in this list. Any other hasKeyword<X> (Landwalk,
+	// Enchant, ...) stays unknown and fails closed.
 	for _, kw := range [...]string{"Flying", "Trample", "Deathtouch", "Lifelink",
 		"Vigilance", "Reach", "Haste", "Indestructible", "First Strike", "Menace",
-		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion"} {
+		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion",
+		"Flash", "Mutate"} {
 		k := kw
-		predicates["with"+strings.ReplaceAll(k, " ", "")] = func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		with := func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 			return objectHasKeyword(o, k)
 		}
+		predicates["with"+strings.ReplaceAll(k, " ", "")] = with
+		predicates["hasKeyword"+strings.ReplaceAll(k, " ", "")] = with
 		predicates["without"+strings.ReplaceAll(k, " ", "")] = func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 			return !objectHasKeyword(o, k)
 		}
 		keywordPredicates["with"+strings.ReplaceAll(k, " ", "")] = keywordPredicate{keyword: k}
+		keywordPredicates["hasKeyword"+strings.ReplaceAll(k, " ", "")] = keywordPredicate{keyword: k}
 		keywordPredicates["without"+strings.ReplaceAll(k, " ", "")] = keywordPredicate{keyword: k, negated: true}
 	}
 	// These read ColorsOf, not the face directly, so Devoid (effects.ColorsOf)
@@ -705,6 +745,11 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 	case "RememberedCard", "Remembered", "RememberedLKI", "TriggeredCard",
 		"TriggeredCardLKICopy", "Targeted", "Self", "Commander", "Convoked":
 		return name, arg, true
+	case "Imprinted":
+		// Forge special-cases only sharesCardTypeWith Imprinted (Semblance
+		// Anvil); the other family members resolve Imprinted through
+		// getDefinedCards, which this referent answers the same way.
+		return name, arg, true
 	}
 	return "", "", false
 }
@@ -819,6 +864,16 @@ func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Targ
 	case "Self":
 		if sc.Source != 0 {
 			ts = append(ts, state.Target{Obj: sc.Source})
+		}
+	case "Imprinted":
+		// The SOURCE's live imprint association -- the same pile Defined$
+		// Imprinted resolves (imprintPileTargets: an exiled card only while
+		// it stays in exile, CR 607.2a). Forge reads the FIRST imprinted card
+		// (Iterables.getFirst(source.getImprintedCards())), so only that one
+		// is the referent. A source with nothing imprinted binds nothing and
+		// the predicate fails closed.
+		if pile := imprintPileTargets(g, &Ctx{Source: sc.Source}); len(pile) > 0 {
+			ts = append(ts, pile[0])
 		}
 	}
 	return ts
@@ -1697,13 +1752,15 @@ func wordPredicate(p string) (wordKind, string) {
 	// and the per-event walk in spellsCastThisTurnMatching;
 	// effects/conditions.go's castSaAdmitsFilter for the ConditionPresent
 	// gates), which remove the token before the filter runs; wordMatches'
-	// body fails closed. The still-unmodelled spelling (CastSa
-	// Spell.MayPlaySource -- the sibling ticket's scope) stays unknown and
-	// fails closed everywhere.
+	// body fails closed. CastSa Spell.MayPlaySource is stripped rules-side
+	// too: castSaAdmits reads the cast's FlagMayPlay after payment, and the
+	// cost-static chain answers it from the may-play permission the cast
+	// rides (rules' castRidesMayPlayOf) -- so it is recognised here as well;
+	// an effects-side read that no rules strip precedes still fails closed.
 	case "CastSa Spell.ManaFromTreasure", "CastSa Spell.ManaFromCave",
 		"CastSa Spell.ManaFromDesert", "CastSa Spell.ManaFromArtifact",
 		"CastSa Spell.ManaSpent EQ0",
-		"CastSa Spell.Mayhem", "CastSa Spell.Warp":
+		"CastSa Spell.Mayhem", "CastSa Spell.Warp", "CastSa Spell.MayPlaySource":
 		return wordCastProvenance, p
 	case "ActivePlayerCtrl":
 		return wordActivePlayerCtrl, ""
@@ -3771,8 +3828,12 @@ func canReceiveCounter(kind string, o *state.Object) bool {
 // rules package supplies SpecContext.Types when a layer-derived type list is
 // available; this fallback remains deliberately useful to effects, which sits
 // below rules and cannot import the layer engine.
-func hasType(o *state.Object, t string) bool {
-	d, f := hasTypePrinted(o, t)
+func hasType(o *state.Object, t string) bool { return hasTypeID(o, t, 0) }
+
+// hasTypeID is hasType with t's precompiled cards.InternTypeWord ordinal (0 =
+// none): the printed type-line test is one bit test when the face is bound.
+func hasTypeID(o *state.Object, t string, id cards.TypeWordID) bool {
+	d, f := hasTypePrinted(o, t, id)
 	if d != typeUndecided {
 		return d == typeYes
 	}
@@ -3782,19 +3843,19 @@ func hasType(o *state.Object, t string) bool {
 	// the positive subtype vocabulary, so a non-creature word (Arcane,
 	// Alara, Ajani) can never leak, and neither materialises subtypes into
 	// the derived type list.
-	return (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA()) && changelingType(t)
+	return (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA()) && changelingType(t)
 }
 
 // hasTypeSub is hasType with changelingType(t) supplied precomputed as sub
 // (the compiled filter form classifies its type words once). Every function
 // involved is pure, so reading sub first only skips the keyword probe for a
 // word no Changeling can grant.
-func hasTypeSub(o *state.Object, t string, sub bool) bool {
-	d, f := hasTypePrinted(o, t)
+func hasTypeSub(o *state.Object, t string, id cards.TypeWordID, sub bool) bool {
+	d, f := hasTypePrinted(o, t, id)
 	if d != typeUndecided {
 		return d == typeYes
 	}
-	return sub && (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA())
+	return sub && (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA())
 }
 
 type typeDecision uint8
@@ -3808,7 +3869,7 @@ const (
 // hasTypePrinted is hasType up to (not including) its intrinsic-CDA tail:
 // the bestow/reconfigure switches and the printed type line. Undecided means
 // the answer is the CDA tail's, read off the returned face.
-func hasTypePrinted(o *state.Object, t string) (typeDecision, *cards.Face) {
+func hasTypePrinted(o *state.Object, t string, id cards.TypeWordID) (typeDecision, *cards.Face) {
 	f := o.Face()
 	if f == nil {
 		return typeNo, nil
@@ -3843,10 +3904,8 @@ func hasTypePrinted(o *state.Object, t string) (typeDecision, *cards.Face) {
 			return typeNo, f
 		}
 	}
-	for _, x := range f.Types {
-		if strings.EqualFold(x, t) {
-			return typeYes, f
-		}
+	if f.TypeLineHas(t, id) {
+		return typeYes, f
 	}
 	return typeUndecided, f
 }
@@ -3928,6 +3987,12 @@ func hasTypeCtx(o *state.Object, t string, sc SpecContext) bool {
 // compiled predicate paths that already hold a *SpecContext do not copy the
 // whole context per type test (see hasEffectiveNamePtr).
 func hasTypeCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
+	return hasTypeCtxPtrID(o, t, 0, sc)
+}
+
+// hasTypeCtxPtrID is hasTypeCtxPtr with t's precompiled type-word ordinal
+// (0 = none), which only the printed-face fallback reads.
+func hasTypeCtxPtrID(o *state.Object, t string, id cards.TypeWordID, sc *SpecContext) bool {
 	// ExtraTypes is the layer walk's accumulating type list for the ONE
 	// object being matched: a plain value slice, deliberately not a callable
 	// resolver. Any call made through a SpecContext field makes escape
@@ -3948,7 +4013,7 @@ func hasTypeCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
 	// clears sc.DerivedTypes for the same reason, but this guard keeps the
 	// contract even for a caller that sets ExtraTypes without clearing it).
 	if sc.ExtraTypes != nil {
-		return hasType(o, t)
+		return hasTypeID(o, t, id)
 	}
 	// Outside the walk a published layer-4 entry makes the object's DERIVED
 	// type list authoritative for type words: it already carries the printed
@@ -3967,19 +4032,19 @@ func hasTypeCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
 		return intrinsicCDAType(o, t)
 	}
 	// No derived entry: the printed face plus intrinsic CDAs, as before.
-	return hasType(o, t)
+	return hasTypeID(o, t, id)
 }
 
 // hasTypeCtxSub is hasTypeCtx with changelingType(t) precomputed as sub: the
 // same reads in the same order, the intrinsic-CDA tails taking sub.
-func hasTypeCtxSub(o *state.Object, t string, sub bool, sc *SpecContext) bool {
+func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc *SpecContext) bool {
 	for _, x := range sc.ExtraTypes {
 		if strings.EqualFold(x, t) {
 			return true
 		}
 	}
 	if sc.ExtraTypes != nil {
-		return hasTypeSub(o, t, sub)
+		return hasTypeSub(o, t, id, sub)
 	}
 	for _, d := range sc.DerivedTypes {
 		if d.ID != o.ID {
@@ -3995,9 +4060,9 @@ func hasTypeCtxSub(o *state.Object, t string, sub bool, sc *SpecContext) bool {
 			return false
 		}
 		f := o.Face()
-		return f != nil && (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA())
+		return f != nil && (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA())
 	}
-	return hasTypeSub(o, t, sub)
+	return hasTypeSub(o, t, id, sub)
 }
 
 // changelingType reports whether t is an actual creature subtype. This uses
@@ -4018,8 +4083,11 @@ func intrinsicCDAType(o *state.Object, t string) bool {
 	if f == nil {
 		return false
 	}
-	return (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA()) && changelingType(t)
+	return (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA()) && changelingType(t)
 }
+
+// kwChangeling is Changeling's interned keyword head (cards.InternKeywordHead).
+var kwChangeling = cards.InternKeywordHead("Changeling")
 
 func isBlocking(g *state.Game, id state.ObjID) bool {
 	for i := range g.Objs {
@@ -4047,25 +4115,28 @@ func noResolve(string) (int32, bool) { return 0, false }
 // a filter spec is either a hard "no" or "not this predicate", never a
 // silent match.
 // objectPower is the one net-power read the filter grammar shares (face
-// power plus +1/+1 counters -- numericPred's power predicates and the
-// greatestPower classifier both use it). A continuous-effect power pump is
-// not visible from the filter path; the limitation is recorded in AGENTS.md.
+// power plus the summed P/T counter deltas of every counter kind --
+// numericPred's power predicates and the greatestPower classifier both use
+// it). A continuous-effect power pump is not visible from the filter path;
+// the limitation is recorded in AGENTS.md.
 func objectPower(o *state.Object) int {
 	f := o.Face()
 	if f == nil {
 		return 0
 	}
-	return f.Power() + int(o.Counter("P1P1"))
+	dp, _ := o.CounterPTTotals()
+	return f.Power() + int(dp)
 }
 
-// objectToughness is objectPower's counterpart, the same base-plus-P1P1 read
-// the toughness family uses.
+// objectToughness is objectPower's counterpart, the same face-plus-counter
+// read summed over every P/T counter kind the toughness family uses.
 func objectToughness(o *state.Object) int {
 	f := o.Face()
 	if f == nil {
 		return 0
 	}
-	return f.Toughness() + int(o.Counter("P1P1"))
+	_, dt := o.CounterPTTotals()
+	return f.Toughness() + int(dt)
 }
 
 // objectBasePower / objectBaseToughness are the object-alone BASE P/T read:
@@ -4775,15 +4846,16 @@ func matchesObjectPtr(g *state.Game, spec string, o *state.Object, sc *SpecConte
 	// Goblin type test would silently miss the derived characteristic. The same
 	// discipline the layer walk keeps for ExtraTypes (rules/layers.go), scoped
 	// here to the one object that actually carries a change.
+	cs := compiledSpecFor(spec)
 	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveNamePtr(o, sc) && !hasDerivedTypeEntryPtr(o, sc) {
-		switch ps.evaluate(spec, g, o, sc) {
+		switch ps.evaluateCS(cs, spec, g, o, sc) {
 		case PredicateYes:
 			return true
 		case PredicateNo:
 			return false
 		}
 	}
-	return compiledMatch(compiledSpecFor(spec), g, o, sc)
+	return compiledMatch(cs, g, o, sc)
 }
 
 // matchesObjectText is the original textual filter evaluator. It remains the

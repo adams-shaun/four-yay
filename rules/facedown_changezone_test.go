@@ -63,6 +63,7 @@ func killCreature(t *testing.T, e *Engine, id state.ObjID, amount int32) {
 // its folded FaceDownSetType$ makes it exactly a Forest land -- no creature
 // type, no printed abilities, derived 0/0, and (CR 305.6) tapping for {G}.
 func TestYedoraReturnsADeadCreatureAsAFaceDownForestLand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownEngine(t, reg, "Yedora, Grave Gardener", "Llanowar Elves")
 	searchMoveByName(t, e, "Yedora, Grave Gardener", state.ZBattlefield)
@@ -159,6 +160,7 @@ func TestYedoraReturnsADeadCreatureAsAFaceDownForestLand(t *testing.T) {
 // CorrectedSelf) returns that same object face down as CR 708.5's 2/2
 // creature.
 func TestShorecrasherElementalReturnsItselfFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownEngine(t, reg, "Shorecrasher Elemental")
 	id := searchMoveByName(t, e, "Shorecrasher Elemental", state.ZBattlefield)
@@ -204,6 +206,7 @@ func TestShorecrasherElementalReturnsItselfFaceDown(t *testing.T) {
 // FaceDownToughness$ pair riding the same set-type fold: Magar's activated
 // ability puts a graveyard instant face down as a 3/3 creature.
 func TestMagarReturnsASpellAsA33FaceDownCreature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownEngine(t, reg, "Magar of the Magic Strings", "Lightning Bolt")
 	magar := searchMoveByName(t, e, "Magar of the Magic Strings", state.ZBattlefield)
@@ -267,6 +270,7 @@ func TestMagarReturnsASpellAsA33FaceDownCreature(t *testing.T) {
 // source (Tezzeret's Reckoning: the line names no exiling source). It is done
 // at the event decode so the whole shared marker path is covered.
 func TestFaceDownExileHasNoExiledWithAssociation(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := facedownEngine(t, reg, "Grizzly Bears", "Shorecrasher Elemental")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
@@ -306,6 +310,7 @@ func TestFaceDownExileHasNoExiledWithAssociation(t *testing.T) {
 // deck import's side. This test fails loudly if a HEAD-PINNED deck ever gains
 // one of the carriers, which is the regression it exists to catch.
 func TestFaceDownCarriersAreNotInRepoDecks(t *testing.T) {
+	t.Parallel()
 	pool := testutil.LegacyDeckNames()
 	// PRECONDITION: the head-pinned pool is non-empty, so the scan below
 	// cannot pass vacuously if the pool ever empties.

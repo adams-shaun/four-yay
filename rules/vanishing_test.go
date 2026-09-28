@@ -35,6 +35,7 @@ func deepForestHermitEngine(t *testing.T) (*Engine, state.ObjID) {
 }
 
 func TestVanishingDeepForestHermitUpkeepAndLastCounter(t *testing.T) {
+	t.Parallel()
 	e, id := deepForestHermitEngine(t)
 	// A controller's upkeep queues the ordinary Phase trigger; it does not
 	// remove counters as a turn-based action.
@@ -72,6 +73,7 @@ func TestVanishingDeepForestHermitUpkeepAndLastCounter(t *testing.T) {
 }
 
 func TestVanishingOnlyTriggersOnControllersUpkeepAndNotAtZero(t *testing.T) {
+	t.Parallel()
 	e, id := deepForestHermitEngine(t)
 	e.pendingTriggers = nil
 	e.G.Active, e.G.Priority = 1, 1

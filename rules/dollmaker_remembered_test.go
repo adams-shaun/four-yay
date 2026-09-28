@@ -87,6 +87,7 @@ func tokenCopies(e *Engine, c *cards.Card) int {
 }
 
 func TestDollmakerCopiesOnlyTheExiledPermanent(t *testing.T) {
+	t.Parallel()
 	e, doll, bear, bid := dollmakerGame(t, true)
 	drainDollmaker(t, e, bid)
 	if got := e.G.Obj(bid).Zone; got != state.ZExile {
@@ -101,6 +102,7 @@ func TestDollmakerCopiesOnlyTheExiledPermanent(t *testing.T) {
 }
 
 func TestDollmakerWithNoTargetCopiesNothing(t *testing.T) {
+	t.Parallel()
 	e, doll, _, _ := dollmakerGame(t, false)
 	drainDollmaker(t, e, 0)
 	if n := tokenCopies(e, doll); n != 0 {

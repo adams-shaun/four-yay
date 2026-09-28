@@ -214,7 +214,8 @@ func triggerOrdersDuplicates(t cards.Trigger) bool {
 func (pt pendingTrigger) printed() bool {
 	return !pt.Delayed && !pt.Granted && pt.Merged == 0 && !pt.Miracle && !pt.Madness &&
 		!pt.Evoke && !pt.Gift && pt.Ward == "" && pt.Afflict == "" && !pt.Conspire && !pt.Casualty && !pt.Cascade &&
-		!pt.Exploit && !pt.Offspring && !pt.Mentor && pt.RingEmblem == 0 && pt.Cipher == 0 && !pt.SpeedIncrease
+		!pt.Exploit && !pt.Offspring && !pt.Mentor && pt.RingEmblem == 0 && pt.Cipher == 0 && !pt.SpeedIncrease &&
+		!pt.InitiativeVenture
 }
 
 // orderDuplicatesGroup returns the duplicate-group identity of pt's trigger
@@ -403,6 +404,18 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 		}
 		e.emit(events.Event{Kind: events.DelayedPush, Obj: pt.Source,
 			Player: pt.Controller, Counter: "__monarch_draw"})
+		return
+	}
+	if pt.InitiativeVenture {
+		// CR 726.2's source-less "that player ventures into Undercity". Like
+		// MonarchDraw it mints a real stack ability from a synthetic body
+		// (events/apply.go's DelayedPush case), so the venture can be responded
+		// to by the ordinary priority round.
+		if int(pt.Controller) >= len(e.G.Players) || e.G.Players[pt.Controller].Lost {
+			return
+		}
+		e.emit(events.Event{Kind: events.DelayedPush,
+			Player: pt.Controller, Counter: "__initiative_venture"})
 		return
 	}
 	// Evoke and Madness are mandatory keyword-triggered abilities minted as

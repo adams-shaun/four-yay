@@ -86,6 +86,7 @@ func entryStagingRiotUnleash(t testing.TB) *cards.Card {
 }
 
 func TestEntryCounterStagingSecondGrantReposesTheStage(t *testing.T) {
+	t.Parallel()
 	scales := tokenReplCorpusCard(t, "Hardened Scales")
 	be := tokenReplCorpusCard(t, "Branching Evolution")
 	cre := entryStagingRiotUnleash(t)
@@ -127,6 +128,7 @@ func TestEntryCounterStagingSecondGrantReposesTheStage(t *testing.T) {
 // 1 -> 2 -> 4; Branching Evolution first: 1 -> 2 -> 3), so a test that only
 // ever saw one answer could not tell a real order choice from a fixed one.
 func TestEntryCounterStagingOrderIsDecidedBeforeEntry(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		pick  int
@@ -206,6 +208,7 @@ func entryStagingCounterLock(t testing.TB) *cards.Card {
 // swept, never parked at printed loyalty. The un-prevented precondition
 // variant pins that the entry path places the counters at all.
 func TestEntryCounterStagingZeroLoyaltySBASeesCompletedEntry(t *testing.T) {
+	t.Parallel()
 	walker := entryCounterWalker(t)
 	e, cfg := tokenReplGame(t, 215, walker)
 	wid := moveSeededCard(t, e, 0, walker, state.ZBattlefield)
@@ -244,6 +247,7 @@ func TestEntryCounterStagingZeroLoyaltySBASeesCompletedEntry(t *testing.T) {
 // brief names: a lone modifier settles in the pre-pass with no ask, and the
 // entry still folds atomically.
 func TestEntryCounterStagingVorinclexHalvesOpponentWalker(t *testing.T) {
+	t.Parallel()
 	vori := tokenReplCorpusCard(t, "Vorinclex, Monstrous Raider")
 	walker := entryCounterWalker(t)
 	e, cfg := tokenReplGameSeats(t, 219, []*cards.Card{vori}, []*cards.Card{walker})
@@ -279,6 +283,7 @@ func TestEntryCounterStagingVorinclexHalvesOpponentWalker(t *testing.T) {
 // its entry move directly. A single commuting modifier settles in the
 // pre-pass with no order ask, and the doubled entry still folds atomically.
 func TestEntryCounterStagingDoublingSeasonDoublesRiotElection(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	riot := tokenReplCorpusCard(t, "Zhur-Taa Goblin")
 	e, cfg := tokenReplGame(t, 221, ds, riot)
@@ -325,6 +330,7 @@ func entryStagingTapUntapWalker(t testing.TB) *cards.Card {
 }
 
 func TestEntryCounterStagingUpdatedParkKeepsEntryGrants(t *testing.T) {
+	t.Parallel()
 	walker := entryStagingTapUntapWalker(t)
 	e, cfg := tokenReplGame(t, 223, walker)
 	wid := moveSeededCard(t, e, 0, walker, state.ZHand)

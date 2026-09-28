@@ -40,6 +40,7 @@ type castSaCarrier struct {
 // TestCastSaWarpAndMayhemProvenanceAllSites drives both flag predicates
 // through all four match sites the ValidLKI row names.
 func TestCastSaWarpAndMayhemProvenanceAllSites(t *testing.T) {
+	t.Parallel()
 	carriers := []castSaCarrier{
 		{name: "Full Bore", token: "CastSa Spell.Warp", flag: state.FlagWarped, param: "ConditionPresent"},
 		{name: "Sandman's Quicksand", token: "CastSa Spell.Mayhem", flag: state.FlagMayhem, param: "ConditionPresent"},

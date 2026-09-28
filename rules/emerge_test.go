@@ -89,6 +89,7 @@ func castEmergeSacrificing(t *testing.T, e *Engine, id, sacObj state.ObjID) {
 // {5}{U}{U} reduced by 3) is taken from a pool funded with the full printed
 // cost.
 func TestEmergeCastPaysReducedCost(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 4242, []string{"Elder Deep-Fiend"}, []string{emergeFuelSrc}, nil)
 	// The primitive must be registered (Ruling W1): without it the coverage
 	// census rejects every Emerge card as unsupported, so reverting the
@@ -161,6 +162,7 @@ func TestEmergeCastPaysReducedCost(t *testing.T) {
 // {U}{U}, not free -- the two blue pips must still be paid from the pool, and
 // an emerge cast is not even OFFERED while the pool holds no blue mana.
 func TestEmergeCastReductionExceedsGenericKeepsColored(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 4243, []string{"Elder Deep-Fiend"}, []string{emergeColossusSrc}, nil)
 	deep := findCardObj(t, e, 0, "Elder Deep-Fiend", state.ZHand)
 	colossus := findCardObj(t, e, 0, "Emerge Colossus", state.ZBattlefield)

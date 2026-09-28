@@ -273,9 +273,13 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	if max <= 0 {
 		return nil, false
 	}
+	resumeSA := sa
+	if c.TargetAskResume != nil {
+		resumeSA = c.TargetAskResume
+	}
 	d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 		Min: int(min), Max: int(max), Source: c.Source,
-		ResumeKind: resumeKind, ResumeSA: sa,
+		ResumeKind: resumeKind, ResumeSA: resumeSA,
 		ResumeRemembered: copyTargets(c.Remembered), Prompt: prompt}
 	// The TargetUnique accumulator rides EVERY ask through the ask boundary
 	// (Engine.Ask stamps the live chain Ctx's accumulator onto any decision

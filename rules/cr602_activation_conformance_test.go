@@ -34,6 +34,7 @@ func crActivationSA(t *testing.T, e *Engine, id state.ObjID, api, cost string) i
 // nonmana costs rather than pretending they are paid. It counts examined SAs,
 // not cards or successful gameplay; seq 0 means there is no event timeline.
 func TestCR602HybridActivationCostsRequireColor(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked, wrong := 0, 0
@@ -80,6 +81,7 @@ func TestCR602HybridActivationCostsRequireColor(t *testing.T) {
 }
 
 func TestCR602PhyrexianActivationCannotPayColorlessWithoutLife(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Immolating Souleater")
@@ -97,6 +99,7 @@ func TestCR602PhyrexianActivationCannotPayColorlessWithoutLife(t *testing.T) {
 }
 
 func TestCR602ActivationTargetsPrecedePayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Qasali Pridemage")
 	id := crAbortMove(t, e, 0, "Qasali Pridemage", state.ZBattlefield)
@@ -124,6 +127,7 @@ func TestCR602ActivationTargetsPrecedePayment(t *testing.T) {
 }
 
 func TestCR602IllegalActivationReversesSacrificeAndConsequences(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Qasali Pridemage", "Blood Artist")
 	id := crAbortMove(t, e, 0, "Qasali Pridemage", state.ZBattlefield)
@@ -174,6 +178,7 @@ func TestCR602IllegalActivationReversesSacrificeAndConsequences(t *testing.T) {
 }
 
 func TestCR602ManaWindowDuringActivation(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Azure Mage", "Island", "Island", "Island", "Island")
@@ -207,6 +212,7 @@ func TestCR602ManaWindowDuringActivation(t *testing.T) {
 }
 
 func TestCR602ActivationCostIncludesReduction(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Azure Mage", "Heartstone")
@@ -233,6 +239,7 @@ func TestCR602ActivationCostIncludesReduction(t *testing.T) {
 }
 
 func TestCR602NewNoncreatureCanActivateTapAbility(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "death-n-taxes")
 	id := crAbortMove(t, e, 0, "Aether Vial", state.ZBattlefield)
@@ -252,6 +259,7 @@ func TestCR602NewNoncreatureCanActivateTapAbility(t *testing.T) {
 }
 
 func TestCR602OncePerTurnActivationRestriction(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Basking Rootwalla")
 	id := crAbortMove(t, e, 0, "Basking Rootwalla", state.ZBattlefield)

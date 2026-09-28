@@ -30,6 +30,7 @@ import (
 // answer, and DBSacAll's SacrificeAll | ValidCards$ Card.IsRemembered
 // sacrifices exactly the chosen card.
 func TestMyrkulsEdictChosenGreatestPowerIsSacrificed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	edict := mustCorpusCard(t, reg, "Myrkul's Edict")
 	big := mustCorpusCard(t, reg, "Hill Giant")
@@ -97,6 +98,7 @@ func TestMyrkulsEdictChosenGreatestPowerIsSacrificed(t *testing.T) {
 // greatestPower: every creature at the maximum power matches, so two 3-power
 // creatures are BOTH offered and the answer picks one of them.
 func TestMyrkulsEdictGreatestPowerTiesAreAllOffered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	edict := mustCorpusCard(t, reg, "Myrkul's Edict")
 	giant := mustCorpusCard(t, reg, "Hill Giant")
@@ -145,6 +147,7 @@ func TestMyrkulsEdictGreatestPowerTiesAreAllOffered(t *testing.T) {
 // draw's ConditionDefined$ Remembered GE1 gate therefore passes: seat 0 draws
 // exactly the damage dealt.
 func TestKainRememberControlledFeedsTheDrawGate(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Kain, Traitorous Dragoon"},
 		[]string{"Name:Ox\nManaCost:1 G\nTypes:Creature Ox\nPT:2/4\nOracle:x\n"}, nil, nil)
@@ -177,6 +180,7 @@ func TestKainRememberControlledFeedsTheDrawGate(t *testing.T) {
 // matches both holders and the control grant resolves to the first seat in
 // turn order (seat 0, already the owner -- a no-op).
 func TestWildDogsGainsControlOfTheWithMostLifeSeat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	dogsCard := mustCorpusCard(t, reg, "Wild Dogs")
 	e := New(Config{Seed: 13, Names: []string{"a", "b"},
@@ -211,6 +215,7 @@ func TestWildDogsGainsControlOfTheWithMostLifeSeat(t *testing.T) {
 // damaged creature (gap 2), including through the per-stack-instance
 // TriggerContext.
 func TestKashiTribeEliteTapsItsTriggeredTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Kashi-Tribe Elite"},
 		nil, nil, []string{"Name:Ox\nManaCost:2 G\nTypes:Creature Ox\nPT:2/6\nOracle:x\n"})
@@ -238,6 +243,7 @@ func TestKashiTribeEliteTapsItsTriggeredTarget(t *testing.T) {
 // reads Count$RememberedSize/Twice: two discarded creatures make four +1/+1
 // counters.
 func TestMindMaggotsAnyNumberDiscardAndRememberedCount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	maggots := mustCorpusCard(t, reg, "Mind Maggots")
 	e := New(Config{Seed: 14, Names: []string{"a", "b"},
@@ -331,6 +337,7 @@ func TestMindMaggotsAnyNumberDiscardAndRememberedCount(t *testing.T) {
 // and each player sacrifices a creature instead (the deterministic first-match
 // stand-in takes seat 0's Bear).
 func TestGravelighterBranchCountsCreaturesThatDiedThisTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	grave := mustCorpusCard(t, reg, "Gravelighter")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -418,6 +425,7 @@ func TestGravelighterBranchCountsCreaturesThatDiedThisTurn(t *testing.T) {
 // shape this stands for (its phase-out is idempotent, so the divergence there
 // is silent -- the mover here makes it observable).
 func TestChooseReplacesItsKindNotAccumulate(t *testing.T) {
+	t.Parallel()
 	src := card(t, "Name:Chainer\nManaCost:1 U\nTypes:Sorcery\n"+
 		"A:SP$ ChooseCard | Choices$ Permanent | Mandatory$ True | SubAbility$ ChooseLand\n"+
 		"SVar:ChooseLand:DB$ ChooseCard | Choices$ Land | Mandatory$ True | SubAbility$ DBMove\n"+

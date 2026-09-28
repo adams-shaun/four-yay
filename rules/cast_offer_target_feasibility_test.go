@@ -39,6 +39,7 @@ func corpusTargetFeasibleCard(t *testing.T, seed uint64, rel, wantTgts string) (
 // must not be offered. Before the shared rule the count-only census offered it
 // and the ask reversed it with "cast aborted: no legal target".
 func TestIncriminateSameControllerSplitIsWithheld(t *testing.T) {
+	t.Parallel()
 	e, spell := corpusTargetFeasibleCard(t, 7201, "i/incriminate.txt", "Creature")
 	bearA, bearB := bearPermanent(t, e, 0), bearPermanent(t, e, 1)
 	a, b := e.G.Obj(bearA), e.G.Obj(bearB)
@@ -70,6 +71,7 @@ func TestIncriminateSameControllerSplitIsWithheld(t *testing.T) {
 // the identical target declaration shape ("Choose two target creatures
 // controlled by the same player. Exile one ..."), so the fix covers it too.
 func TestCannibalizeSameControllerSplitIsWithheld(t *testing.T) {
+	t.Parallel()
 	e, spell := corpusTargetFeasibleCard(t, 7202, "c/cannibalize.txt", "Creature")
 	bearA, bearB := bearPermanent(t, e, 0), bearPermanent(t, e, 1)
 	a, b := e.G.Obj(bearA), e.G.Obj(bearB)
@@ -90,6 +92,7 @@ func TestCannibalizeSameControllerSplitIsWithheld(t *testing.T) {
 // legal creatures under one controller the same-controller pair exists, so the
 // cast must stay offered and pose an answerable two-target ask.
 func TestIncriminateSameControllerPairIsOffered(t *testing.T) {
+	t.Parallel()
 	e, spell := corpusTargetFeasibleCard(t, 7203, "i/incriminate.txt", "Creature")
 	bearA, bearB := bearPermanent(t, e, 1), bearPermanent(t, e, 1)
 	if a, b := e.G.Obj(bearA), e.G.Obj(bearB); a == nil || b == nil || a.Controller != 1 || b.Controller != 1 {
@@ -119,6 +122,7 @@ func TestIncriminateSameControllerPairIsOffered(t *testing.T) {
 // TestIntoTheFloodMawGiftRequiresAFeasibleTarget pins the Gift-dependent
 // mandatory target branch with both own and opponent creatures present.
 func TestIntoTheFloodMawGiftRequiresAFeasibleTarget(t *testing.T) {
+	t.Parallel()
 	e, spell := corpusTargetFeasibleCard(t, 7205, "i/into_the_flood_maw.txt", "Creature.OppCtrl")
 	ownCreature := bearPermanent(t, e, 0)
 	opponentCreature := bearPermanent(t, e, 1)
@@ -172,6 +176,7 @@ func TestIntoTheFloodMawGiftRequiresAFeasibleTarget(t *testing.T) {
 // offered target list must already be restricted, so choosing an opponent's
 // otherwise-legal permanent cannot produce a CR 601.2e reversal.
 func TestFlashPhotographyAnnouncementUsesCoveredTarget(t *testing.T) {
+	t.Parallel()
 	e, spell := offTurnFlashEngine(t, "Flash Photography", 2, 2)
 	theirBear := battlePerm(t, e, 1, "Name:Their Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	myBear := battlePerm(t, e, 0, "Name:My Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -203,6 +208,7 @@ func TestFlashPhotographyAnnouncementUsesCoveredTarget(t *testing.T) {
 // expansion's ValidTgts$ Artifact still admits it, so the cast is offered and
 // announces that artifact -- offer and announcement agree.
 func TestDisruptionAuraAttachAILogicDoesNotRestrictTargets(t *testing.T) {
+	t.Parallel()
 	e, spell := corpusTargetFeasibleCard(t, 7204, "d/disruption_aura.txt", "Artifact")
 	o := e.G.Obj(spell)
 	// Precondition: the AI hints really are on the card (so this test would

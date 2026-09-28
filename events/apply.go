@@ -1,6 +1,7 @@
 package events
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -104,6 +105,34 @@ func SVarAcrossFaces(src *state.Object, name string) string {
 // queue.
 const maxQueuedGrants int32 = 1 << 10
 
+// resetCombat removes permanent(s) from combat (CR 511.3). only == 0 is the
+// whole-combat reset EndCombatReset's Obj-zero form and CR 723.1c's "end the
+// turn" both need; a nonzero only removes that single permanent (the
+// regeneration shape) and leaves a zero tombstone in every attacker's blocker
+// list -- the attacker remains blocked (CR 509.1h) while liveBlockers ignores
+// the removed blocker, even if it lives. Shared so the two callers cannot
+// drift apart.
+func resetCombat(g *state.Game, only state.ObjID) {
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if only == 0 || o.ID == only {
+			o.IsAttacking = false
+			o.AttackingBattle = 0
+			o.BlockedBy = nil
+		} else {
+			for j, id := range o.BlockedBy {
+				if id == only {
+					o.BlockedBy[j] = 0
+				}
+			}
+		}
+	}
+	if only == 0 {
+		// Every BlockedBy list is now nil.
+		g.ClearBlockers()
+	}
+}
+
 func Apply(g *state.Game, e Event) {
 	switch e.Kind {
 	// RollDice is the proposal-only roll-action Kind (task rolldice-repl): it
@@ -115,6 +144,20 @@ func Apply(g *state.Game, e Event) {
 		// Apply writes nothing; the log lets replay re-derive the same branch.
 		// ManaActivate is the ActivationLimit$ scan marker (see the Kind's own
 		// comment): the mana itself lands through the nearby ManaAdd events.
+
+	case EndTurn:
+		// CR 723.1a/c: all spells and abilities on the stack cease to exist,
+		// and every creature/planeswalker is removed from combat. IDs is a
+		// snapshot of the stack taken by the effect before this fold.
+		for _, id := range e.IDs {
+			if o := g.Obj(id); o != nil && o.Zone == state.ZStack {
+				Move(g, id, state.ZStack, state.ZExile)
+			}
+		}
+		// CR 723.1c's removal from combat is exactly CR 511.3's whole-combat
+		// reset, so it shares EndCombatReset's own helper rather than
+		// restating the field clears.
+		resetCombat(g, 0)
 
 	case Resolve:
 		// The resolving object leaves the stack through its own MoveZone event,
@@ -471,6 +514,42 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 
+	case DungeonCreate:
+		if !validPlayer(g, e.Player) || g.Players[e.Player].DungeonObj != 0 {
+			break
+		}
+		def := g.Tokens[e.Text]
+		if def == nil {
+			break
+		}
+		o := g.AddObject(def, e.Player)
+		// A dungeon script is stored alongside token scripts, but the dungeon
+		// object itself is not a battlefield token and persists in the command
+		// zone until the dungeon is completed.
+		Move(g, o.ID, state.ZLibrary, state.ZCommand)
+		g.Players[e.Player].DungeonObj = o.ID
+		g.Players[e.Player].DungeonRoom = ""
+		g.Players[e.Player].DungeonCompleted = false
+
+	case DungeonRoom:
+		if e.Text != "" && activeDungeon(g, e.Player, e.Obj) != nil {
+			g.Players[e.Player].DungeonRoom = e.Text
+		}
+
+	case DungeonComplete:
+		if activeDungeon(g, e.Player, e.Obj) != nil && !g.Players[e.Player].DungeonCompleted {
+			g.Players[e.Player].CompletedDungeons++
+			g.Players[e.Player].DungeonCompleted = true
+		}
+
+	case DungeonRemove:
+		if o := activeDungeon(g, e.Player, e.Obj); o != nil {
+			Move(g, o.ID, state.ZCommand, state.ZCeased)
+			g.Players[e.Player].DungeonObj = 0
+			g.Players[e.Player].DungeonRoom = ""
+			g.Players[e.Player].DungeonCompleted = false
+		}
+
 	case ManaUndo:
 		// The announced payment window's reversal of one mana activation
 		// (CR 733.1, announce-then-pay spec §5): remove exactly the units one
@@ -503,6 +582,14 @@ func Apply(g *state.Game, e Event) {
 	case MonarchChange:
 		if validPlayer(g, e.Player) {
 			g.Monarch, g.HasMonarch = e.Player, true
+		}
+
+	case InitiativeChange:
+		// CR 726.3: only one player can have the initiative at a time; as a
+		// player takes it, the player who currently has it ceases to have it.
+		// Assigning the single holder covers both halves of that transition.
+		if validPlayer(g, e.Player) {
+			g.Initiative, g.HasInitiative = e.Player, true
 		}
 
 	case BlessingChange:
@@ -929,7 +1016,12 @@ func Apply(g *state.Game, e Event) {
 		// otherwise a blob return/re-entry reusing the same ObjID could keep a
 		// stale designation.
 		wasBattlefield := false
+		// The DrawnThisTurn stamp before the move: a CR 733.1 reversal
+		// ("reversed" stack->origin move) undoes the proposal, so the card is
+		// still the card that was drawn; Move's clear is reverted below.
+		drawnBefore := int32(0)
 		if o := g.Obj(e.Obj); o != nil {
+			drawnBefore = o.DrawnTurn
 			wasStack = o.Zone == state.ZStack
 			wasBattlefield = o.Zone == state.ZBattlefield
 			if e.To == state.ZStack {
@@ -985,6 +1077,17 @@ func Apply(g *state.Game, e Event) {
 			MoveCountersRemain(g, e.Obj, e.From, e.To)
 		} else {
 			Move(g, e.Obj, e.From, e.To)
+		}
+		if e.Kind == Draw && e.To == state.ZHand {
+			// The DrawnThisTurn stamp (state.Object.DrawnTurn): the card
+			// was drawn on this turn.
+			if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZHand {
+				o.DrawnTurn = g.Turn
+			}
+		} else if wasStack && e.Text == "reversed" {
+			if o := g.Obj(e.Obj); o != nil {
+				o.DrawnTurn = drawnBefore
+			}
 		}
 		if sacrificed {
 			// Stamp the sacrifice onto this move's own zone entry (the
@@ -1438,6 +1541,7 @@ func Apply(g *state.Game, e Event) {
 				}
 			}
 			o.Goads = append(o.Goads, ge)
+			g.NoteGoad()
 			pruneGoads(g)
 		}
 
@@ -1541,6 +1645,7 @@ func Apply(g *state.Game, e Event) {
 				continue
 			}
 			a.BlockedBy = append(a.BlockedBy, pr[1])
+			g.NoteBlockers()
 		}
 
 	case CombatRetarget:
@@ -1793,23 +1898,8 @@ func Apply(g *state.Game, e Event) {
 
 	case EndCombatReset:
 		// Obj zero retains the original whole-combat reset. A nonzero Obj
-		// removes only that permanent (regeneration). Keep a zero tombstone
-		// in attackers' blocker lists: they remain blocked (CR 509.1h),
-		// while liveBlockers ignores the removed blocker, even if it lives.
-		for i := range g.Objs {
-			o := &g.Objs[i]
-			if e.Obj == 0 || o.ID == e.Obj {
-				o.IsAttacking = false
-				o.AttackingBattle = 0
-				o.BlockedBy = nil
-			} else {
-				for j, id := range o.BlockedBy {
-					if id == e.Obj {
-						o.BlockedBy[j] = 0
-					}
-				}
-			}
-		}
+		// removes only that permanent (regeneration).
+		resetCombat(g, e.Obj)
 
 	case CastInfo:
 		if o := g.Obj(e.Obj); o != nil {
@@ -2256,6 +2346,14 @@ func Apply(g *state.Game, e Event) {
 		o.IsToken = true
 		o.IsCopy = true
 		o.FaceIdx = faceIdx
+		// AtEOTTrig$ is a copiable value (CR 707.2): the mint's own body when
+		// the copying spell carries one (Counter), else the source object's --
+		// a token copy of an AtEOTTrig$ token still sacrifices itself at the
+		// end step. See state.Object.AtEOTTrigBody.
+		o.AtEOTTrigBody = e.Counter
+		if o.AtEOTTrigBody == "" {
+			o.AtEOTTrigBody = src.AtEOTTrigBody
+		}
 		if e.Amount&CopyTokenTapped != 0 {
 			o.Tapped = true
 		}
@@ -3075,13 +3173,14 @@ func Apply(g *state.Game, e Event) {
 		monarchDraw := e.Counter == "__monarch_draw"
 		radiationDrain := e.Counter == "__radiation_drain"
 		speedIncrease := e.Counter == "__speed_increase"
+		initiativeVenture := e.Counter == "__initiative_venture"
 		// Consume the registration first, even when its tracked permanent has
 		// changed incarnation. A stale dash/warp promise expires once; it must
 		// neither act on the returned object nor be retried forever. Ordinary
 		// delayed triggers, including Encore's group cleanup, are independent
 		// of their source and still resolve.
 		var registration *state.DelayedTrigger
-		if !monarchDraw && !radiationDrain && !speedIncrease {
+		if !monarchDraw && !radiationDrain && !speedIncrease && !initiativeVenture {
 			for i := range g.Delayed {
 				if g.Delayed[i].ID == uint32(e.Amount) {
 					dt := g.Delayed[i]
@@ -3094,7 +3193,7 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 		src := g.Obj(e.Obj)
-		if !radiationDrain && !speedIncrease {
+		if !radiationDrain && !speedIncrease && !initiativeVenture {
 			if src == nil {
 				break
 			}
@@ -3113,6 +3212,14 @@ func Apply(g *state.Game, e Event) {
 			sa = &cards.SA{Kind: "DB", API: "RadiationDrain", Params: map[string]string{"Defined": "You"}}
 		} else if speedIncrease {
 			sa = &cards.SA{Kind: "DB", API: "SpeedIncrease"}
+		} else if initiativeVenture {
+			// CR 726.2: the inherent "whenever a player takes the initiative,
+			// that player ventures into Undercity" ability (the combat-damage
+			// path queues this). The body is the ordinary Venture primitive
+			// narrowed to the Undercity quality (CR 726.2 / 701.49d), resolved
+			// by effects/venture.go's effVenture exactly as a printed DB$
+			// Venture | Dungeon$ Undercity would be.
+			sa = &cards.SA{Kind: "DB", API: "Venture", Params: map[string]string{"Dungeon": "Undercity"}}
 		} else {
 			sa = ResolveSVarAcrossFaces(src, e.Counter)
 		}
@@ -3145,7 +3252,7 @@ func Apply(g *state.Game, e Event) {
 		Move(g, o.ID, state.ZLibrary, state.ZStack)
 		o.Ability = sa
 		o.StackKind, o.StackKindKnown = state.StackKindTriggered, true
-		if !radiationDrain && !speedIncrease {
+		if !radiationDrain && !speedIncrease && !initiativeVenture {
 			o.Source = e.Obj
 		}
 		if registration != nil && registration.TrackSource {
@@ -3604,6 +3711,12 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 	enteredFrom := o.Zone
 	wasBattlefield := enteredFrom == state.ZBattlefield
 	wasStack := enteredFrom == state.ZStack
+	// Forge's drawnThisTurn survives only the move onto the stack (a cast of
+	// the drawn card); any other move makes the card a new object that was
+	// not drawn. The Draw fold re-stamps it after this Move.
+	if to != state.ZStack {
+		o.DrawnTurn = 0
+	}
 	if enteredFrom == state.ZExile && to != state.ZExile {
 		// Forge's exiledCards association is a zone relationship, not an
 		// imprint. Once this object leaves exile it is a new object for that
@@ -3634,17 +3747,27 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.SuspendGranted = false
 		}
 	}
-	if wasBattlefield && to != state.ZBattlefield {
+	if wasBattlefield && to != state.ZBattlefield && (g.BlockersLive() || ArenaSkipVerify) {
 		// Leaving combat removes this permanent as a blocker, but does not
 		// make creatures it blocked unblocked (CR 506.4, 509.1h). Preserve
 		// each attacker's blocker-list length with the same zero tombstone
 		// EndCombatReset uses for regeneration. Dense arena order keeps this
 		// deterministic, and the departing object's own state is cleared by
-		// the zone reset below.
+		// the zone reset below. With no blocker recorded since the last
+		// whole-combat reset (state.Game.BlockersLive) every list is empty
+		// and the arena walk is skipped: without it a mass departure of N
+		// permanents walked the arena N times.
+		live := g.BlockersLive()
 		for i := range g.Objs {
 			other := &g.Objs[i]
-			if other.ID == id {
+			// The empty-list test first: it is the common case, and it reads
+			// only the BlockedBy header instead of also touching the ID at
+			// the other end of the ~800-byte object on every arena entry.
+			if len(other.BlockedBy) == 0 || other.ID == id {
 				continue
+			}
+			if !live {
+				panic(fmt.Sprintf("events: obj %d has BlockedBy %v while no blocker is live (a BlockedBy write skipped state.Game.NoteBlockers)", other.ID, other.BlockedBy))
 			}
 			for j, blocker := range other.BlockedBy {
 				if blocker == id {
@@ -4105,14 +4228,21 @@ func changeControl(g *state.Game, o *state.Object, p state.PlayerID) {
 	if o.Zone == state.ZBattlefield {
 		remove(g, o.ID, state.ZBattlefield, o.Controller)
 		g.SetZone(state.ZBattlefield, p, append(g.Zone(state.ZBattlefield, p), o.ID))
-		for i := range g.Objs {
-			other := &g.Objs[i]
-			if other.ID == o.ID {
-				continue
-			}
-			for j, blocker := range other.BlockedBy {
-				if blocker == o.ID {
-					other.BlockedBy[j] = 0
+		// The same tombstone walk as move's, skipped the same way while no
+		// blocker is live (state.Game.BlockersLive).
+		if live := g.BlockersLive(); live || ArenaSkipVerify {
+			for i := range g.Objs {
+				other := &g.Objs[i]
+				if len(other.BlockedBy) == 0 || other.ID == o.ID {
+					continue
+				}
+				if !live {
+					panic(fmt.Sprintf("events: obj %d has BlockedBy %v while no blocker is live (a BlockedBy write skipped state.Game.NoteBlockers)", other.ID, other.BlockedBy))
+				}
+				for j, blocker := range other.BlockedBy {
+					if blocker == o.ID {
+						other.BlockedBy[j] = 0
+					}
 				}
 			}
 		}
@@ -4135,6 +4265,19 @@ func changeControl(g *state.Game, o *state.Object, p state.PlayerID) {
 // validPlayer reports whether p indexes an existing seat.
 func validPlayer(g *state.Game, p state.PlayerID) bool {
 	return int(p) < len(g.Players)
+}
+
+// activeDungeon rejects malformed lifecycle events, including Obj 0 when no
+// dungeon is active. A departed dungeon cannot accrue completions or rooms.
+func activeDungeon(g *state.Game, p state.PlayerID, id state.ObjID) *state.Object {
+	if !validPlayer(g, p) || id == 0 || g.Players[p].DungeonObj != id {
+		return nil
+	}
+	o := g.Obj(id)
+	if o == nil || o.Owner != p || o.Zone != state.ZCommand {
+		return nil
+	}
+	return o
 }
 
 // manaClearKeepSlots parses the keep-mask Text the stat:UnspentMana emitter
@@ -4262,7 +4405,29 @@ func expireTurnGoads(in []state.GoadEffect, p state.PlayerID) []state.GoadEffect
 }
 
 // pruneGoads enforces source/control conditions from replayable state.
+// ArenaSkipVerify makes the arena walks the flags skip run anyway and panic
+// on anything they would have had to do: the blocker-tombstone walks while no
+// blocker is live (state.Game.BlockersLive) panic on any non-empty BlockedBy,
+// and pruneGoads before any goad was seen (state.Game.GoadsSeen) panics on
+// any non-nil Goads -- the empirical check that every write sets its flag. The events and rules test binaries set it; production leaves it
+// false.
+var ArenaSkipVerify bool
+
 func pruneGoads(g *state.Game) {
+	if !g.GoadsSeen() {
+		// No object has ever gained a goad (the Goad fold above is the only
+		// place a goad is added), so every Goads list is nil: skip the
+		// whole-arena walk, which a mass departure otherwise ran once per
+		// moved object.
+		if ArenaSkipVerify {
+			for i := range g.Objs {
+				if g.Objs[i].Goads != nil {
+					panic(fmt.Sprintf("events: obj %d has Goads %v before any goad was seen (a Goads write skipped state.Game.NoteGoad)", g.Objs[i].ID, g.Objs[i].Goads))
+				}
+			}
+		}
+		return
+	}
 	for i := range g.Objs {
 		o := &g.Objs[i]
 		if o.Goads == nil {

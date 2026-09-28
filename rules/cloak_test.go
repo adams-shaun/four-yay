@@ -243,6 +243,7 @@ func cloakedDerived(t *testing.T, e *Engine, id state.ObjID, controller state.Pl
 // card of the controller's library lands face down as a cloaked 2/2 with the
 // derived ward, and no unimplemented-API note is emitted.
 func TestVeiledAscensionUpkeepCloaksFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Veiled Ascension")
 	castVanilla(t, e, "Veiled Ascension", "WWWW")
@@ -316,6 +317,7 @@ func TestVeiledAscensionUpkeepCloaksFaceDown(t *testing.T) {
 // 2/2. Before the predicate existed the spec failed closed and the counter
 // never landed.
 func TestVeiledAscensionFlyingCountersFaceDownCreatures(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Veiled Ascension", "Grizzly Bears")
 	// A bear face, not a Forest: the ETB trigger's ValidCards$ spec and every
@@ -341,6 +343,7 @@ func TestVeiledAscensionFlyingCountersFaceDownCreatures(t *testing.T) {
 // pay-or-counter ask, and declining counters the targeting spell with no
 // effect while the cloaked card stays.
 func TestCloakedWardDeclinedCountersTheSpell(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Lightning Bolt")
 	top := cloakBear(t, e, 1)
@@ -383,6 +386,7 @@ func TestCloakedWardDeclinedCountersTheSpell(t *testing.T) {
 // (which also pins the leave-battlefield reveal for the combat-damage-free
 // lethal-damage path).
 func TestCloakedWardPaidLetsTheSpellResolve(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Lightning Bolt")
 	top := cloakBear(t, e, 1)
@@ -422,6 +426,7 @@ func TestCloakedWardPaidLetsTheSpellResolve(t *testing.T) {
 // face-down early return still suppresses the granted-ward walk for a PLAIN
 // manifested card -- only the cloak status revives it.
 func TestManifestedCardGetsNoWard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Lightning Bolt")
 	// Manifest seat 1's Grizzly Bears with the pre-existing marker value (a
@@ -471,6 +476,7 @@ func TestManifestedCardGetsNoWard(t *testing.T) {
 // cloaked card that leaves the battlefield clears BOTH status flags and its
 // identity is visible again.
 func TestCloakedLeavesBattlefieldReveals(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg)
 	top := cloakTop(t, e, 0)
@@ -502,6 +508,7 @@ func TestCloakedLeavesBattlefieldReveals(t *testing.T) {
 // chooser, Defined$ ValidLibrary) emits the SAME "unimplemented API Cloak"
 // note the unimplemented fallback always emitted, and moves nothing.
 func TestCloakOutOfScopeShapesStayLoud(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct{ name, sa string }{
 		{"choices", "A:SP$ Cloak | Choices$ Card.YouCtrl"},
 		{"valid-library", "A:SP$ Cloak | Defined$ ValidLibrary Card.TopLibrary"},
@@ -549,6 +556,7 @@ func TestCloakOutOfScopeShapesStayLoud(t *testing.T) {
 // "Defined$ TopOfLibrary | DefinedPlayer$ RememberedController" sub-cloak
 // takes each listed controller's OWN top card -- never the caster's.
 func TestUnexplainedAbsenceCloaksEachControllerTop(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Unexplained Absence", "Grizzly Bears")
 	bear0 := bearOn(t, e, 0)

@@ -75,6 +75,9 @@ type Config struct {
 	// acceptance config sets it so the 12-deck suite exercises keep/mulligan
 	// and bottoming.
 	Mulligans int
+	// WindowDiagnostics opts this table into per-priority-option withholding
+	// reasons. It is observer-only and emits no events.
+	WindowDiagnostics bool
 	// Tokens is the token definitions the decks in this match can create --
 	// cards.Registry.Tokens. Copied onto Game.Tokens in New so
 	// events.Apply's TokenCreate case has something to mint from. Replay
@@ -123,10 +126,11 @@ type counterAddedThisTurn struct {
 }
 
 type Engine struct {
-	G             *state.Game
-	L             *events.Log
-	compiledText  *compiledText
-	landTypeWords []string
+	G                *state.Game
+	endTurnRequested bool
+	L                *events.Log
+	compiledText     *compiledText
+	landTypeWords    []string
 
 	// ManaAbilityHook, when non-nil, is called once per mana ability
 	// activation the engine resolves (resolveManaAbilityRefOriginal, the one
@@ -190,6 +194,13 @@ type Engine struct {
 	// nothing. See effects.Host's CombatDamageToPlayersThisTurn.
 	combatHitsThisTurn  []effects.CombatDamageHit
 	counterAddsThisTurn []counterAddedThisTurn
+	// activationsThisTurn and crimeSeatsThisTurn are two more per-turn
+	// NO-EVENT ledgers of the same kind (rules/turn_ledgers.go): this turn's
+	// activated-ability stack objects with the targets they chose, and the
+	// seats that committed a crime (CR 700.13). Re-derived by every rebuild,
+	// cleared on TurnChange, copied by Clone.
+	activationsThisTurn []activationThisTurn
+	crimeSeatsThisTurn  uint64
 
 	// format is the construction format New was configured with (Config.
 	// Format). It is the explicit gate the Commander rules (the tax, CR
@@ -235,6 +246,9 @@ type Engine struct {
 	// hand-off the genesis branch would have taken, and cfg is not otherwise
 	// retained. Plain int, so Clone copies it.
 	mulligans int
+	// windowDiagnostics is the default-off, observer-only priority sidecar
+	// gate copied from genesis Config.
+	windowDiagnostics bool
 	// startingLife is Config.StartingLife with the 0-means-20 convention
 	// already resolved at genesis — the value state.NewGameLife opened the
 	// game with. It is the effects.Host StartingLife backing (the
@@ -346,6 +360,16 @@ type Engine struct {
 	// layer-inert events (layercache.go) additionally requires both unchanged.
 	staticVersion int
 	staticObjs    int
+	// staticMemoGated records whether the last full staticEffects build
+	// encountered any Continuous static carrying a continuousGateKeys param
+	// (IsPresent$/IsPresent2$/Condition$/CheckSVar$/ClassBand$), whether or
+	// not the gate currently passes. A gate that passes now can be flipped
+	// off by a later battlefield-composition change (a token entering), so
+	// the re-stamp admission in layercache.go's staticSafeSince must be
+	// refused whenever this is true: only a gate-free build's output is
+	// invariant under a static-cold token entry. Reset at the top of each
+	// full staticEffectsWalk and set at the one gate site.
+	staticMemoGated bool
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous
@@ -536,11 +560,11 @@ type Engine struct {
 	// memo for ONE legal-actions walk (rules/derivedmemo.go): derivedMemoDepth
 	// is the scope counter legalActionsPriced raises, derivedMemoGen is bumped
 	// on every outermost scope entry so no entry outlives the walk that built
-	// it, and derivedMemo (indexed by ObjID) owns each cached result's slices.
+	// it, and derivedMemo (keyed by ObjID) owns each cached result's slices.
 	// Pure per-walk scratch: Clone copies none of it (a clone starts with an
 	// empty memo and generation 0, which no entry ever matches).
-	derivedMemo      []derivedMemoEntry
-	derivedMemoStack []derivedMemoEntry
+	derivedMemo      derivedMemoTable
+	derivedMemoStack derivedMemoTable
 	derivedMemoDepth int
 	derivedMemoGen   uint64
 	// derivedMemoTail / derivedMemoAlias* carry the priority walk's memo
@@ -559,6 +583,18 @@ type Engine struct {
 	// installed for one query and validated against the log on every read.
 	// Pure per-query scratch: Clone copies none of it.
 	paymentPlanQuery *paymentPlanQuery
+	// paymentPlanRelaxed is PotentialPaymentPlans' transient proof mode
+	// (rules/potential_plan.go paymentPlanRelaxProof): relaxed, never
+	// executed alternatives for the mana abilities the planner census does
+	// not price, appended to every search while it is set. Pure per-query
+	// scratch: Clone copies none of it.
+	paymentPlanRelaxed [][]plannedManaActivation
+	// paymentPlanRelaxedFee is the generic the relaxed proof charges on top
+	// of every planned cost for the paid relaxed abilities it admits.
+	paymentPlanRelaxedFee int32
+	// paymentPlanPotentialPool marks a PotentialPaymentPlans query
+	// (paymentPlanPoolAccepted). Pure per-query scratch: Clone copies none.
+	paymentPlanPotentialPool bool
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7
@@ -996,6 +1032,13 @@ type Engine struct {
 	// cloned/replayed engine state.
 	replacingEvent  *events.Event
 	replacingSource state.ObjID
+	// replRemembered is the in-flight replacement body's remembered referents,
+	// visible to that one body and restored right after it, the same scratch
+	// pattern as replacingEvent. ReplaceEvent carries no Ctx, so the
+	// VarValue$ Remembered rewrite reads its binding here. Never part of
+	// cloned/replayed engine state: it lives only during the body run, before
+	// the held event is logged.
+	replRemembered []state.Target
 	// replAction is the action marker (events.ActionMarker) of the event the
 	// in-flight destination-changing replacement discarded: "sacrificed",
 	// "discarded" or "discarded as a cost". emit re-labels the replacement
@@ -1196,6 +1239,12 @@ type Engine struct {
 	// validated on every use, so Clone copies neither.
 	staticZones   []staticZoneSummary
 	staticZonesEp int
+	// staticZoneVerified is verify-mode scratch (static_zoneskip.go's
+	// staticZoneSkipVerifyOnce): the (cur, hot) slices each summary slot was
+	// verified against inside the current verifyBoardStatics call
+	// (staticZoneVerifyScope set). Clone copies none of it.
+	staticZoneVerified    []staticZoneVerifiedAt
+	staticZoneVerifyScope bool
 
 	// choosing says which flow is waiting on the current KChoose decision
 	// (Task 8). It is plain data, not a closure, so Engine.Clone (a sibling
@@ -1364,6 +1413,12 @@ type Engine struct {
 	// CopyToken events carry the choice and a log-only replay re-derives the
 	// mints. Clone-copied (clone.go).
 	tokenChoice *tokenChoiceState
+	// specEnvs/specEnvDepth: targetSpecContext's reusable Resolve records,
+	// used as a stack (trigger_referents.go, acquireSpecEnv). Scratch that is
+	// free at every intent boundary, so Clone starts a fresh one.
+	specEnvs     []*specResolveEnv
+	specEnvDepth int
+
 	// suspendedCasts is the mandatory "cast it if able" trigger created when
 	// a real suspended card loses its final TIME counter. IDs are appended in
 	// exile order and consumed before priority; it is plain replayable engine
@@ -1968,10 +2023,10 @@ type damageKeywordLKI struct {
 
 func (e *Engine) damageKeywordsOf(id state.ObjID) damageKeywordLKI {
 	return damageKeywordLKI{
-		lifelink:   e.HasKeyword(id, "Lifelink"),
-		infect:     e.HasKeyword(id, "Infect"),
-		wither:     e.HasKeyword(id, "Wither"),
-		deathtouch: e.HasKeyword(id, "Deathtouch"),
+		lifelink:   e.hasKeywordH(id, kwhLifelink),
+		infect:     e.hasKeywordH(id, kwhInfect),
+		wither:     e.hasKeywordH(id, kwhWither),
+		deathtouch: e.hasKeywordH(id, kwhDeathtouch),
 	}
 }
 
@@ -2125,10 +2180,15 @@ type Spare struct {
 	events  []events.Event
 	objs    []state.Object
 	intents []decision.Intent
-	// The Derived memo tables (derivedmemo.go): indexed by ObjID, grown to
-	// the arena's size; cleared by Release, which is exactly the zeroed
-	// never-written state derivedMemoizedAt's growth relies on.
-	memo, memoStack []derivedMemoEntry
+	// The Derived memo tables (derivedmemo.go): an ObjID index grown to the
+	// arena's size plus the slots; cleared by Release, which is exactly the
+	// zeroed never-written state derivedMemoTable.slot's growth relies on.
+	memo, memoStack derivedMemoTable
+	// The livelock watcher's signature and event windows (livelock.go):
+	// filled from empty by every engine, so a recycled pair saves their
+	// regrowth; the watcher reads only their length.
+	loopSigs   []uint64
+	loopRecent []events.Event
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -2138,21 +2198,42 @@ type Spare struct {
 // the Events prefix (events.Log.Clone) -- which is why only a batch runner
 // that owns the finished engine outright calls it. The arrays are cleared so
 // the Spare does not pin the finished game's cards, strings and slices.
+//
+// A clone (Clone, CloneInto) may be released too -- that is the search loop
+// CloneInto documents. A clone's Events and Intents start as its parent's
+// backing arrays with cap == len (events.Log.Clone) and become its own only
+// once an append regrows them, so a forked log's array with no spare
+// capacity is left alone rather than cleared: recycling it would zero the
+// parent's history. (An own array that happens to be exactly full is skipped
+// too, which only forgoes one reuse.) The object arena and memo tables are
+// always the clone's own.
 func (e *Engine) Release() Spare {
-	sp := Spare{
-		events:    e.L.Events[:cap(e.L.Events)],
-		objs:      e.G.Objs[:cap(e.G.Objs)],
-		intents:   e.L.Intents[:cap(e.L.Intents)],
-		memo:      e.derivedMemo[:cap(e.derivedMemo)],
-		memoStack: e.derivedMemoStack[:cap(e.derivedMemoStack)],
+	evs, ints := e.L.Events[:cap(e.L.Events)], e.L.Intents[:cap(e.L.Intents)]
+	if e.L.Forked() {
+		if cap(e.L.Events) == len(e.L.Events) {
+			evs = nil
+		}
+		if cap(e.L.Intents) == len(e.L.Intents) {
+			ints = nil
+		}
 	}
+	sp := Spare{
+		events:     evs,
+		objs:       e.G.Objs[:cap(e.G.Objs)],
+		intents:    ints,
+		memo:       e.derivedMemo.release(),
+		memoStack:  e.derivedMemoStack.release(),
+		loopSigs:   e.loop.sigs[:0],
+		loopRecent: e.loop.recent[:cap(e.loop.recent)],
+	}
+	clear(sp.loopRecent)
+	sp.loopRecent = sp.loopRecent[:0]
+	e.loop.sigs, e.loop.recent = nil, nil
 	clear(sp.events)
 	clear(sp.objs)
 	clear(sp.intents)
-	clear(sp.memo)
-	clear(sp.memoStack)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
-	e.derivedMemo, e.derivedMemoStack, e.intentBuf = nil, nil, nil
+	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
 	return sp
 }
 
@@ -2211,16 +2292,17 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		spare, *cfg.Spare = *cfg.Spare, Spare{}
 	}
 	e := &Engine{
-		G:             state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),
-		L:             events.NewLogInto(cfg.Seed, spare.events),
-		format:        cfg.Format,
-		rng:           random,
-		loop:          newLivelockWatcher(cfg.LoopGuard),
-		turnsTaken:    make([]int32, len(cfg.Names)),
-		compiledText:  newCompiledText(cfg),
-		landTypeWords: corpusLandTypeWords(cfg.NameUniverse),
-		mulligans:     cfg.Mulligans,
-		startingLife:  life,
+		G:                 state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),
+		L:                 events.NewLogInto(cfg.Seed, spare.events),
+		format:            cfg.Format,
+		rng:               random,
+		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
+		turnsTaken:        make([]int32, len(cfg.Names)),
+		compiledText:      newCompiledText(cfg),
+		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
+		mulligans:         cfg.Mulligans,
+		windowDiagnostics: cfg.WindowDiagnostics,
+		startingLife:      life,
 		// The per-turn ManaExpend tally (rules/cast.go) starts empty; payCast
 		// stamps and resets it lazily on e.G.Turn.
 		manaExpended: make([]int32, len(cfg.Names)),
@@ -2229,7 +2311,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	// arrays (derivedMemoizedAt only reslices up into zeroed capacity), and
 	// the intent array waits for the first Submit (the log's Intents stays
 	// nil until an intent exists, as it always has).
-	e.derivedMemo, e.derivedMemoStack = spare.memo[:0], spare.memoStack[:0]
+	e.derivedMemo, e.derivedMemoStack = spare.memo, spare.memoStack
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]
 	}
@@ -2391,7 +2473,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 			for next := i + 1; next < len(cfg.Decks) && next < len(cfg.Names); next++ {
 				available := len(cfg.Decks[next]) - len(cfg.commandersFor(next, len(cfg.Decks[next])))
 				if available < openingHand && !e.G.Players[next].Lost {
-					e.emit(events.Event{Kind: events.PlayerLost, Player: state.PlayerID(next), Text: "drew from an empty library"})
+					e.playerLoses(state.PlayerID(next), loseReasonMilled, "drew from an empty library")
 				}
 			}
 			if e.finishTerminalGenesis() {
@@ -2570,6 +2652,9 @@ func tossName(g *state.Game, p state.PlayerID) string {
 // logging. Otherwise the event is logged and folded into state exactly as
 // before, and checkTriggers then looks for anything it just made true.
 func (e *Engine) emit(ev events.Event) events.Event {
+	if ev.Kind == events.EndTurn {
+		e.endTurnRequested = true
+	}
 	// Task 15 protection (CR 702.16d/e): a Damage event dealt to a
 	// protection-bearer by a source it is protected from is prevented -- the
 	// damage never happens, reported as a Note rather than silently dropped.
@@ -2861,6 +2946,11 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			}
 		}
 	}
+	var abilityMintWant state.ObjID
+	switch ev.Kind {
+	case events.AbilityPush, events.KeywordAbilityPush, events.GrantAbilityPush, events.GainedAbilityPush:
+		abilityMintWant = e.G.NextID
+	}
 	var tokenMintWant state.ObjID
 	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken || ev.Kind == events.CopyToken {
 		tokenMintWant = e.G.NextID
@@ -2888,6 +2978,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.rechooseDepartedBattleProtector(stored.Player)
 	}
 	e.publishTokenEntry(stored, tokenMintWant)
+	e.recordTurnLedgers(stored, abilityMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
 		*e.stackCopyMintSink = append(*e.stackCopyMintSink, stackCopyMintWant)
 	}
@@ -2983,6 +3074,8 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	if stored.Kind == events.TurnChange {
 		e.combatHitsThisTurn = nil
 		e.counterAddsThisTurn = nil
+		e.activationsThisTurn = nil
+		e.crimeSeatsThisTurn = 0
 	}
 	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
 	// setname.go: keep the layer-3 rename table the filter tier reads in step
@@ -3208,18 +3301,20 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			ev.Counter != "infect") {
 		e.checkSpeedGain(ev)
 	}
-	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
-		e.checkSpeedStart(ev.Obj)
-	}
 	// Ascend (CR 702.131a): the city's blessing's continuous re-check. A
 	// battlefield entry (the ordinary MoveZone), a token mint (TokenCreate/
 	// CardToken -- Apply mints those without a MoveZone event) or a control
 	// transfer can each push a seat's permanent count over ten; the scan
 	// only emits for an unblessed seat that newly qualifies, so every other
-	// event reaching here is inert (rules/ascend.go).
+	// event reaching here is inert (rules/ascend.go). The Start your
+	// engines! grant (CR 702.179a) runs on the same set: each of those
+	// events can hand a speed-less seat a permanent carrying the keyword,
+	// and a control transfer is the case a battlefield-entry-only hook
+	// cannot see (rules/speed.go).
 	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield) ||
 		ev.Kind == events.TokenCreate || ev.Kind == events.CardToken ||
 		ev.Kind == events.ControlChange {
+		e.checkSpeedStart()
 		e.checkBlessingGrants()
 		e.checkEnduringStoryGrants()
 	}

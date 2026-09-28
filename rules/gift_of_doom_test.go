@@ -39,6 +39,7 @@ import (
 )
 
 func TestGiftOfDoomFaceDownSurvivesAttachmentSBAAndTurnsFaceUp(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Gift of Doom", "Grizzly Bears", "Grizzly Bears")
 	// Gift of Doom is an Aura: its printed cast is only offered once a legal
@@ -153,6 +154,7 @@ func TestGiftOfDoomFaceDownSurvivesAttachmentSBAAndTurnsFaceUp(t *testing.T) {
 // attached to nothing is an ordinary unattached Aura (CR 704.5m) and still
 // goes to its owner's graveyard at the checkpoint.
 func TestGiftOfDoomFaceUpUnattachedAuraStillDies(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Gift of Doom")
 	id := searchMoveByName(t, e, "Gift of Doom", state.ZHand)
@@ -176,6 +178,7 @@ func TestGiftOfDoomFaceUpUnattachedAuraStillDies(t *testing.T) {
 // with its Note, and the now face-up unattached Aura dies at the next SBA
 // checkpoint (CR 704.5m again — the turn-up itself is never blocked).
 func TestGiftOfDoomTurnUpWithNoBearerGoesToGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Gift of Doom", "Grizzly Bears")
 	// The bear must precede the cast: the printed Aura cast needs a legal

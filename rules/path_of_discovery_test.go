@@ -107,6 +107,7 @@ func assertFoldsExactly(t *testing.T, baseline *state.Game, start int, e *Engine
 // creature explores, the revealed Forest moves library -> hand, and no +1/+1
 // counter is put on it. The record is the Amount-1 land shape.
 func TestPathOfDiscoveryLandRevealGoesToHand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, baseline, start, cr := pathOfDiscoveryBoard(t, reg)
 	// A land on top means the explore takes the no-election shape.
@@ -144,6 +145,7 @@ func TestPathOfDiscoveryLandRevealGoesToHand(t *testing.T) {
 // revealed nonland poses the LCI election, the answered "back on top" keeps it
 // there, and the +1/+1 counter lands on the entering creature.
 func TestPathOfDiscoveryNonlandPutsCounterAndElection(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, baseline, start, cr := pathOfDiscoveryBoard(t, reg)
 	top := arrangeLibraryTop(t, e, "Grizzly Bears")
@@ -183,6 +185,7 @@ func TestPathOfDiscoveryNonlandPutsCounterAndElection(t *testing.T) {
 // TestPathOfDiscoveryNonlandGraveyardElection is the other election arm: the
 // revealed nonland is binned to the graveyard after the counter.
 func TestPathOfDiscoveryNonlandGraveyardElection(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, baseline, start, cr := pathOfDiscoveryBoard(t, reg)
 	top := arrangeLibraryTop(t, e, "Grizzly Bears")

@@ -40,6 +40,7 @@ import (
 // be created: one owned by seat 1, one by seat 0. Without the fix both are
 // owned by seat 0 (the caster): the seat-1 Boar assertion fails.
 func TestCurseOfTheSwineBoarsFollowTheExiledCreaturesController(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	curse := searchCorpusCard(t, reg, "Curse of the Swine")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")

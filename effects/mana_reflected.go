@@ -176,8 +176,10 @@ func producibleSymbols(o *state.Object) string {
 // alive seat's graveyard in AliveFrom(0) order (Urborg's "a color among cards
 // in your graveyard"; the optional trailing spec narrows the scan);
 // "Sacrificed" reads the resolution's Remembered list (the land the
-// Sac<1/Land> cost paid -- Squandered Resources); "Untapped" scans the
-// controller's untapped battlefield permanents (Benthic Explorers); and
+// Sac<1/Land> cost paid -- Squandered Resources); "Untapped" reads the
+// resolution's elected untapYType cost binding (Ctx.CostUntapped -- the
+// tapped land an opponent controls that Benthic Explorers just untapped;
+// an empty binding stays fail-closed, never a widened scan); and
 // "ExiledWith" scans exile for cards whose ExiledWith provenance names the
 // source (Pit of Offerings' imprint family).
 func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
@@ -206,12 +208,16 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 		}
 		return out, true
 	case "Untapped":
+		// The reflected object is the permanent the activation's untapYType
+		// cost elected (for Benthic Explorers, a tapped land an OPPONENT
+		// controls), carried on the resolution Ctx as CostUntapped. The
+		// controller's own untapped permanents are never a substitute, so an
+		// empty binding stays fail-closed: no candidates -> the executor's
+		// Note, never a widened scan.
 		var out []state.ObjID
-		for _, q := range g.AliveFrom(0) {
-			for _, id := range g.Zone(state.ZBattlefield, q) {
-				if o := g.Obj(id); o != nil && o.Controller == c.Controller && !o.Tapped {
-					out = append(out, id)
-				}
+		for _, id := range c.CostUntapped {
+			if o := g.Obj(id); o != nil && o.Zone == state.ZBattlefield {
+				out = append(out, id)
 			}
 		}
 		return out, true

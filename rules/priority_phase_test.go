@@ -78,6 +78,7 @@ func TestTestBotOnlyActivatesInAMainPhase(t *testing.T) {
 // after a full game is a strong statement, not merely "the first few
 // decisions matched".
 func TestBotMatchIsDeterministicAcrossRuns(t *testing.T) {
+	t.Parallel()
 	run := func() (head string, events int) {
 		names, decks := testutil.SampleDecks(t, 4)
 		e := New(Config{Seed: 3, Names: names, Decks: decks})

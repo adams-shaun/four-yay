@@ -82,6 +82,7 @@ func castSabinBlitzed(t *testing.T, e *Engine) state.ObjID {
 // TestSabinBlitzCastsForItsCostDiscardsAndGainsHaste pins the offer/charge and
 // the CR 702.152c haste rider on the real corpus card.
 func TestSabinBlitzCastsForItsCostDiscardsAndGainsHaste(t *testing.T) {
+	t.Parallel()
 	e, cfg := blitzEngine(t, 971)
 	id := castSabinBlitzed(t, e)
 	// Precondition: the haste assertion must be about a creature that entered
@@ -96,6 +97,7 @@ func TestSabinBlitzCastsForItsCostDiscardsAndGainsHaste(t *testing.T) {
 // dies, draw a card": the runtime AddTrigger grant registered by blitzEnter
 // fires for its own permanent's death and draws for the controller.
 func TestBlitzedCreatureDrawsWhenItDies(t *testing.T) {
+	t.Parallel()
 	e, cfg := blitzEngine(t, 972)
 	id := castSabinBlitzed(t, e)
 	// Precondition: the death trigger must be registered while the permanent
@@ -139,6 +141,7 @@ func TestBlitzedCreatureDrawsWhenItDies(t *testing.T) {
 // delayed sacrifice registered by blitzEnter resolves at the end step of the
 // turn it entered and sends it to the graveyard.
 func TestBlitzedCreatureIsSacrificedAtTheNextEndStep(t *testing.T) {
+	t.Parallel()
 	e, cfg := blitzEngine(t, 973)
 	id := castSabinBlitzed(t, e)
 	// Precondition: the end-step sacrifice was registered at entry.
@@ -167,6 +170,7 @@ func TestBlitzedCreatureIsSacrificedAtTheNextEndStep(t *testing.T) {
 // Graveyard) makes the blitz cast offered from the graveyard, and only the
 // blitz cast -- the plain printed-cost cast is NOT granted.
 func TestSabinGraveyardBlitzCastViaItsOwnStatic(t *testing.T) {
+	t.Parallel()
 	e, cfg := blitzEngine(t, 974)
 	id := findCardObj(t, e, 0, "Sabin, Master Monk", state.ZGraveyard)
 	if got := e.G.Obj(id).Zone; got != state.ZGraveyard {
@@ -222,6 +226,7 @@ func TestSabinGraveyardBlitzCastViaItsOwnStatic(t *testing.T) {
 // offer, so the offer above is attributable to Sabin's static rather than to
 // the keyword alone.
 func TestBlitzGraveyardOfferAbsentWithoutTheStatic(t *testing.T) {
+	t.Parallel()
 	e, _, _ := altCostEngine(t, 975, []string{"Mezzio Mugger"}, nil, nil)
 	id := findCardObj(t, e, 0, "Mezzio Mugger", state.ZGraveyard)
 	if got := e.G.Obj(id).Zone; got != state.ZGraveyard {

@@ -16,6 +16,7 @@ import (
 // NOT blocked, and a bare IsRemembered spec still blocks a remembered object
 // of ANY type.
 func TestCompoundRememberedRestrictionDoesNotOverapply(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	// A remembered permanent that fails the compound's extra "Creature"
 	// predicate: an artifact, not a creature.
@@ -63,6 +64,7 @@ func TestCompoundRememberedRestrictionDoesNotOverapply(t *testing.T) {
 // which is creature-only). No corpus card reaches this shape, so it is purely
 // a guard.
 func TestCompoundRememberedEffectStaticRegistersAndDoesNotOverapply(t *testing.T) {
+	t.Parallel()
 	guard := card(t, "Name:Guard\nManaCost:G\nTypes:Instant\n"+
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBEffect\n"+
 		"SVar:DBEffect:DB$ Effect | Defined$ Targeted | Duration$ UntilTheEndOfYourNextTurn | StaticAbilities$ Guard | RememberObjects$ Targeted\n"+

@@ -78,6 +78,7 @@ func emergeCost(f *cards.Face) (Cost, bool) {
 		len(c.Exile) != 0 || len(c.Reveal) != 0 || len(c.RevealChosen) != 0 || len(c.Behold) != 0 ||
 		len(c.TapPermanent) != 0 || len(c.Blight) != 0 || c.Forage || len(c.Draw) != 0 ||
 		len(c.Energy) != 0 || len(c.LifeX) != 0 || c.LifeHalfUp || len(c.DamageYou) != 0 ||
+		len(c.GainLife) != 0 ||
 		len(c.Return) != 0 || len(c.PutToLib) != 0 || len(c.MoveToGrave) != 0 || len(c.Mill) != 0 ||
 		len(c.Evidence) != 0 || len(c.RollDice) != 0 {
 		return Cost{}, false
@@ -144,7 +145,7 @@ func (e *Engine) emergeOfferCost(p state.PlayerID, id state.ObjID, f *cards.Face
 func (e *Engine) emergeSacPayable(pc *pendingCast, oid state.ObjID) bool {
 	candidate := e.emergeCandidateCost(pc.cost, oid)
 	delve := int32(0)
-	if e.HasKeyword(pc.card, "Delve") {
+	if e.hasKeywordH(pc.card, kwhDelve) {
 		delve = int32(len(e.G.Zone(state.ZGraveyard, pc.player)))
 	}
 	return e.manaFeasiblePriced(pc.player, pc.card, false, candidate, pc.mods, pc.taxGeneric, delve, nil)

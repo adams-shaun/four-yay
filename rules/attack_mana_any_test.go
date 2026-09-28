@@ -26,6 +26,7 @@ import (
 // (the affordability bound saw the sources), the window must tap exactly two,
 // pose NO colour sub-ask, and commit the attack with the pool emptied.
 func TestAttackManaAnySourcePaysAGenericTax(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Ghostly Prison", 0)
 	anyLand := card(t, "Name:Cavern\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | Oracle:x\n")
 	var lands []state.ObjID

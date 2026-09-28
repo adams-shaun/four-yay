@@ -17,6 +17,7 @@ import (
 // pumps Defined$ TriggeredBlockerLKICopy -1/-1 -- the ordinary pump/continuous
 // path, never a direct state write.
 func TestFlankingKnightOfTheHolyNimbusDebuffsBlockers(t *testing.T) {
+	t.Parallel()
 	nimbus := mshCorpusCardPath(t, "Knight of the Holy Nimbus", "k/knight_of_the_holy_nimbus.txt")
 	e := combatEngine(t)
 	knight := onBoardCard(t, e, 0, nimbus)
@@ -105,6 +106,7 @@ func TestFlankingKnightOfTheHolyNimbusDebuffsBlockers(t *testing.T) {
 // BLOCKS, only the self-source line matches and it must stay inert, leaving
 // both creatures undamaged.
 func TestAttackerBlockedByCreatureBlockerRoleStaysInert(t *testing.T) {
+	t.Parallel()
 	goblin := mshCorpusCardPath(t, "Ornery Goblin", "o/ornery_goblin.txt")
 	e := combatEngine(t)
 	bear := onBoardReady(t, e, 0, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

@@ -1,0 +1,64 @@
+{
+ "name": "Elves",
+ "format": "pauper",
+ "archetype": "elves",
+ "notes": "SpellBench pauper-kernel catalog deck Elves (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Elves.dek.",
+ "cards": [
+  {
+   "name": "Avenging Hunter",
+   "count": 4
+  },
+  {
+   "name": "Elvish Mystic",
+   "count": 4
+  },
+  {
+   "name": "Fyndhorn Elves",
+   "count": 3
+  },
+  {
+   "name": "Generous Ent",
+   "count": 4
+  },
+  {
+   "name": "Lead the Stampede",
+   "count": 4
+  },
+  {
+   "name": "Llanowar Elves",
+   "count": 2
+  },
+  {
+   "name": "Masked Vandal",
+   "count": 4
+  },
+  {
+   "name": "Nyxborn Hydra",
+   "count": 4
+  },
+  {
+   "name": "Priest of Titania",
+   "count": 4
+  },
+  {
+   "name": "Quirion Ranger",
+   "count": 4
+  },
+  {
+   "name": "Snow-Covered Forest",
+   "count": 13
+  },
+  {
+   "name": "Timberwatch Elf",
+   "count": 4
+  },
+  {
+   "name": "Wellwisher",
+   "count": 2
+  },
+  {
+   "name": "Winding Way",
+   "count": 4
+  }
+ ]
+}

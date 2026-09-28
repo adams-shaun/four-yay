@@ -34,6 +34,7 @@ import (
 // while both permanents remain, ends when Skilled Animator leaves, and is not
 // restored by the target's own leave-and-return while the host is gone.
 func TestSkilledAnimatorAsLongAsInPlayDuration(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Skilled Animator"), lookup(t, reg, "Sol Ring")},

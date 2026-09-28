@@ -85,6 +85,7 @@ func moveNamedToGrave(t *testing.T, e *Engine, name string) state.ObjID {
 // themselves stay offered (each can pair with the other), and the real bot's
 // answer must Validate.
 func TestTotalPowerCapOffsetRespectsTargetMax(t *testing.T) {
+	t.Parallel()
 	const victim = "BigTwo"
 	victimScript := "Name:" + victim + "\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, src := newFixtureDeck(t, 9701, maxPowerAbilityFixture(0, 2),
@@ -158,6 +159,7 @@ func TestTotalPowerCapOffsetRespectsTargetMax(t *testing.T) {
 // (2-1-1 = 0) and MUST be offered; a fix that bounded the offset too tightly
 // would wrongly prune it.
 func TestTotalPowerCapOffsetUnboundedWhenTargetMaxIsEveryCandidate(t *testing.T) {
+	t.Parallel()
 	const victim = "BigTwo"
 	victimScript := "Name:" + victim + "\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, src := newFixtureDeck(t, 9702,
@@ -228,6 +230,7 @@ func charmMaxPowerScript() string {
 // the combined ask carries the present budget (MaxSum 10, Budgeted) exactly
 // as askTarget and cast.go's targetAsk do; before the fix both were zero.
 func TestCrossModeCharmAskReadsThePowerCap(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 9703, charmMaxPowerScript())
 	addMana(t, e, 0, "B")
 	d := castFixture(t, e, id, -1)

@@ -167,6 +167,60 @@ var derivedMemoVerifyFlag string
 
 var derivedMemoVerify = derivedMemoVerifyFlag != ""
 
+// derivedMemoTable is one memo table (the live-zone one or the stack-zone
+// override's): a dense ObjID -> slot index and the slots themselves, which
+// exist only for objects actually derived under a memo scope. A walk derives
+// a fraction of the arena, so a fresh engine -- a Clone's first walk, the
+// search shape -- allocates an index word per object instead of a whole
+// entry per object. A zero index is "no slot", which reads exactly like the
+// zero entry a dense table held (gen 0 is never a live generation).
+type derivedMemoTable struct {
+	idx     []int32
+	entries []derivedMemoEntry
+}
+
+// slot returns id's entry, creating a zero one on first use. n is the index
+// length the arena needs (len(Objs)+1) and hint its capacity target
+// (cap(Objs)+1, the arena's own headroom, so the index is allocated once per
+// game rather than regrown on each minted object). The returned pointer is
+// valid until the next slot call.
+func (t *derivedMemoTable) slot(id state.ObjID, n, hint int) *derivedMemoEntry {
+	if len(t.idx) < n {
+		if cap(t.idx) < n {
+			grown := make([]int32, len(t.idx), max(n, hint, 2*cap(t.idx)))
+			copy(grown, t.idx)
+			t.idx = grown
+		}
+		// The index only ever grows, so [len, cap) was never written (or
+		// was cleared by Release): the words exposed here are zero.
+		t.idx = t.idx[:n]
+	}
+	k := t.idx[id]
+	if k == 0 {
+		t.entries = append(t.entries, derivedMemoEntry{})
+		k = int32(len(t.entries))
+		t.idx[id] = k
+	}
+	return &t.entries[k-1]
+}
+
+// at returns id's entry, or nil when id has none (tests read it).
+func (t *derivedMemoTable) at(id state.ObjID) *derivedMemoEntry {
+	if int(id) >= len(t.idx) || t.idx[id] == 0 {
+		return nil
+	}
+	return &t.entries[t.idx[id]-1]
+}
+
+// release clears the table's arrays for reuse by another engine (Spare) and
+// returns them at full length-zero capacity.
+func (t *derivedMemoTable) release() derivedMemoTable {
+	idx, entries := t.idx[:cap(t.idx)], t.entries[:cap(t.entries)]
+	clear(idx)
+	clear(entries)
+	return derivedMemoTable{idx: idx[:0], entries: entries[:0]}
+}
+
 type derivedMemoEntry struct {
 	gen  uint64
 	ep   int
@@ -216,20 +270,7 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 	if atStack != 0 {
 		table = &e.derivedMemoStack
 	}
-	if n := len(e.G.Objs) + 1; len(*table) < n {
-		if cap(*table) < n {
-			// Size the table to the arena's own capacity (newWithRNG reserves
-			// headroom for minted objects), so it is allocated once per game
-			// rather than regrown -- with a temporary -- on each new object.
-			grown := make([]derivedMemoEntry, len(*table), max(n, cap(e.G.Objs)+1, 2*cap(*table)))
-			copy(grown, *table)
-			*table = grown
-		}
-		// The table only ever grows, so [len, cap) was never written: the
-		// entries exposed here are zero, exactly what the append added.
-		*table = (*table)[:n]
-	}
-	m := &(*table)[id]
+	m := table.slot(id, len(e.G.Objs)+1, cap(e.G.Objs)+1)
 	ep, ver, objs := len(e.L.Events), e.continuousVersion, len(e.G.Objs)
 	epOK := m.ep == ep || (m.ep == e.derivedMemoAliasFrom && ep == e.derivedMemoAliasTo)
 	if m.gen == e.derivedMemoGen && epOK && m.ver == ver && m.objs == objs {
@@ -276,6 +317,9 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 	if e.activeBuildSeq != seq {
 		seq = 0 // active() rebuilt mid-derivation: never reuse across walks
 	}
+	// Re-resolve the entry: its storage is the table's append-grown entry
+	// list, so the pointer taken above is not held across the derivation.
+	m = table.slot(id, len(e.G.Objs)+1, cap(e.G.Objs)+1)
 	d.Keywords = memoOwned(&m.kw, d.Keywords)
 	d.Types = memoOwned(&m.ty, d.Types)
 	m.d = d

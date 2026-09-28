@@ -12,6 +12,7 @@ import (
 // Registered keywords must each have a behaviour test naming them; this
 // pins the M2r registrations against the tests that prove them.
 func TestRegisteredKeywordsAreHonoured(t *testing.T) {
+	t.Parallel()
 	sup := effects.Supported()
 	for kw, proof := range map[string]string{
 		"kw:Flash":          "TestFlashCreatureIsCastableOffTurn",
@@ -58,6 +59,7 @@ func TestRegisteredKeywordsAreHonoured(t *testing.T) {
 		"kw:Wither":         "TestWitherVillagePillagersETBDamageAllDealsCounters",
 		"kw:Battle cry":     "TestBattleCryPumpsOtherAttackingCreatures",
 		"kw:Graft":          "TestLlanowarRebornGraftEntersWithCounterAndMayMoveIt",
+		"kw:Backup":         "TestSaibaCryptomancerBackup",
 	} {
 		if !sup[kw] {
 			t.Errorf("%s is not registered (proof test: %s)", kw, proof)
@@ -66,6 +68,7 @@ func TestRegisteredKeywordsAreHonoured(t *testing.T) {
 }
 
 func TestIndestructibleSurvivesLethalDamageAndDestroy(t *testing.T) {
+	t.Parallel()
 	// Printed Indestructible survives lethal damage (SBA) and a Destroy
 	// effect; a Destroy against a creature that GAINED Indestructible via a
 	// Pump also does nothing (Host.HasKeyword reads derived keywords).
@@ -96,6 +99,7 @@ func TestIndestructibleSurvivesLethalDamageAndDestroy(t *testing.T) {
 }
 
 func TestDevoidCreatureIsColourless(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 7, "Name:Breaker\nManaCost:6 G\nTypes:Creature Eldrazi\nK:Devoid\nOracle:x\n")
 	if got := effects.ColorsOf(e.G.Obj(id)); got != "" {
 		t.Fatalf("devoid creature has colours %q", got)

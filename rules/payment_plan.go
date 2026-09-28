@@ -129,7 +129,7 @@ func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedC
 	if detail := paymentPlanNonManaAdmissible(cost); detail != "" {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
-	if !paymentPlanPoolOK(e.G.Players[p]) {
+	if !e.paymentPlanPoolAccepted(p) {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	if global, detail := e.paymentPlanGlobalManaEffect(p, cast.Object); global {
@@ -246,7 +246,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	if paymentPlanNonManaAdmissible(spellCost) != "" || paymentPlanNonManaAdmissible(withSpellAbilityExtras(f, Cost{})) != "" {
 		return "shape:additional_cost"
 	}
-	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.HasKeyword(id, "Delve") {
+	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.hasKeywordH(id, kwhDelve) {
 		return "shape:contribution"
 	}
 	if f.HasKeyword("Gift") {
@@ -350,6 +350,8 @@ func paymentPlanCostDetail(c Cost) string {
 		return "cost:energy"
 	case len(c.DamageYou) != 0:
 		return "cost:damage"
+	case len(c.GainLife) != 0:
+		return "cost:gain_life"
 	case len(c.Return) != 0:
 		return "cost:return"
 	case len(c.PutToLib) != 0:
@@ -366,6 +368,8 @@ func paymentPlanCostDetail(c Cost) string {
 		return "cost:exert"
 	case len(c.Unknown) != 0:
 		return "cost:unknown"
+	case len(c.Withheld) != 0:
+		return "cost:withheld"
 	case !paymentPlanCostOK(c):
 		return "cost:other"
 	default:
@@ -391,6 +395,12 @@ func (e *Engine) paymentPlanHasTargetDependentModifier(p state.PlayerID, id stat
 // paymentPlanHasTargetDependentModifier over one already-collected
 // cost-static set.
 func (e *Engine) paymentPlanHasTargetDependentModifierUsing(statics costStaticViews, p state.PlayerID, id state.ObjID) bool {
+	return e.paymentPlanTargetDependentFor(statics, p, id, spellScope(""))
+}
+
+// paymentPlanTargetDependentFor is paymentPlanHasTargetDependentModifierUsing
+// for a cast in scope (a flashback or bestowed cast's own scope).
+func (e *Engine) paymentPlanTargetDependentFor(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope) bool {
 	if o := e.G.Obj(id); o == nil || !paymentPlanSpellTargets(o.Face()) {
 		return false
 	}
@@ -413,7 +423,7 @@ func (e *Engine) paymentPlanHasTargetDependentModifierUsing(statics costStaticVi
 				}
 			}
 			sv.Params = params
-			if e.costStaticApplies(sv, group.mode, p, id, spellScope(""), nil, false) {
+			if e.costStaticApplies(sv, group.mode, p, id, scope, nil, false) {
 				return true
 			}
 		}
@@ -656,8 +666,23 @@ func paymentPlanCostOK(c Cost) bool {
 		!c.Tap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
 		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
 		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage && len(c.Draw) == 0 && len(c.Energy) == 0 &&
-		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 && len(c.Return) == 0 &&
+		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 && len(c.GainLife) == 0 && len(c.Return) == 0 &&
 		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 && len(c.Unknown) == 0 && len(c.Exert) == 0
+}
+
+// paymentPlanPoolAccepted is paymentPlanPoolOK, relaxed inside a
+// PotentialPaymentPlans query (paymentPlanPotentialPool): there the witness
+// is never submitted as an Intent.Payment -- the seat taps its sources on
+// the manual surface and the ordinary payment spends the pool -- so snow,
+// persistent and producer-typed units (Treasure, Cave, Desert, artifact
+// mana) are ordinary mana of their colour. Restricted mana, which only some
+// spells may spend, is still declined.
+func (e *Engine) paymentPlanPoolAccepted(p state.PlayerID) bool {
+	pl := e.G.Players[p]
+	if e.paymentPlanPotentialPool {
+		return len(pl.RestrictedMana) == 0
+	}
+	return paymentPlanPoolOK(pl)
 }
 
 func paymentPlanPoolOK(p state.Player) bool {
@@ -725,13 +750,87 @@ type plannedManaActivation struct {
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
+	return e.planPaymentCostExcluding(p, cast, cost, nil)
+}
+
+// planPaymentCostExcluding is planPaymentCost over the census with the
+// sources in exclude left out entirely (planPaymentCostWithout's gone).
+func (e *Engine) planPaymentCostExcluding(p state.PlayerID, cast decision.PlannedCast, cost Cost, exclude []state.ObjID) PaymentPlanOutcome {
+	return e.planPaymentCostWithout(p, cast, cost, nil, exclude, nil)
+}
+
+// planPaymentCostWithout is planPaymentCost over the census with three
+// kinds of withheld source (PotentialPaymentPlans): a tapped source is one
+// the play's own cost taps (the ability's {T}, a tapXType candidate), so it
+// keeps only its alternatives whose ability does not tap it (Wall of
+// Roots' counter); a kept source is one the play's cost sacrifices, so it
+// keeps only its alternatives that leave it on the battlefield (it may tap
+// for mana first); a gone source is left out entirely. With none it is
+// planPaymentCost exactly, cached classes included; a withheld census
+// groups its own classes, because the query cache's classes are keyed by
+// payer and phase only.
+func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedCast, cost Cost, tapped, gone, kept []state.ObjID) PaymentPlanOutcome {
 	defer e.paymentPlanQueryScope()()
 	units := e.paymentPlanQueryUnits(p)
+	queryClasses := e.paymentPlanQueryClasses
+	ownClasses := func(_ state.PlayerID, _ paymentAbilityTier, choices [][]plannedManaActivation) []paymentPlanClass {
+		return paymentPlanClasses(choices)
+	}
+	if len(gone) != 0 {
+		kept := make([]windowManaUnit, 0, len(units))
+		for _, u := range units {
+			if !slices.Contains(gone, u.id) {
+				kept = append(kept, u)
+			}
+		}
+		units = kept
+		queryClasses = ownClasses
+	}
+	// withhold drops a tapped source's tapping alternatives and a kept
+	// source's consuming ones.
+	withhold := func(alts []plannedManaActivation) []plannedManaActivation {
+		if len(alts) == 0 {
+			return alts
+		}
+		src := alts[0].activation.Source
+		tap, keep := slices.Contains(tapped, src), slices.Contains(kept, src)
+		if !tap && !keep {
+			return alts
+		}
+		var out []plannedManaActivation
+		for _, alt := range alts {
+			if tap && e.parseCost(alt.ma.Params["Cost"]).Tap {
+				continue
+			}
+			if keep && (alt.consequence.sacrifice || alt.consequence.returnToHand) {
+				continue
+			}
+			out = append(out, alt)
+		}
+		return out
+	}
+	if len(tapped) != 0 || len(kept) != 0 {
+		queryClasses = ownClasses
+	}
 	// V1 accepts only fixed production.  A permissive window unit is useful to
 	// manual payment, but not proof an automatic choice will remain exact.
 	choices := make([][]plannedManaActivation, len(units))
 	for i, u := range units {
-		choices[i] = e.paymentPlanQueryAlternatives(u)
+		choices[i] = withhold(e.paymentPlanQueryAlternatives(u))
+	}
+	if len(e.paymentPlanRelaxed) != 0 {
+		// PotentialPaymentPlans' relaxed proof (paymentPlanRelaxProof): the
+		// census's uncovered sources as free, never-executed alternatives,
+		// withheld exactly like the census's own, and the fees of the paid
+		// ones it admits charged as generic.
+		cost.Generic += e.paymentPlanRelaxedFee
+		for _, alts := range e.paymentPlanRelaxed {
+			if len(alts) == 0 || slices.Contains(gone, alts[0].activation.Source) {
+				continue
+			}
+			choices = append(choices, withhold(alts))
+		}
+		queryClasses = ownClasses
 	}
 	// Phase 1 (spec 5): normal sources only. If it finds a complete plan,
 	// that is the offer and last-resort sources are never considered.
@@ -739,7 +838,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
 	rankCtx := newPaymentPlanRankContext(choices, e.paymentPlanHandDemand(p, cast.Object))
 	search := searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
-		phase1, e.paymentPlanQueryClasses(p, paymentTierNormal, phase1))
+		phase1, queryClasses(p, paymentTierNormal, phase1))
 	nodes := search.nodes
 	// Phase 2 runs only when phase 1 PROVES no plan exists (insufficient,
 	// not search_limit): normal plus last-resort alternatives, ranked by the
@@ -749,7 +848,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	if search.best == nil && !search.limited {
 		if phase2 := paymentPlanLastResortChoices(choices, life); phase2 != nil {
 			search = searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
-				phase2, e.paymentPlanQueryClasses(p, paymentTierLastResort, phase2))
+				phase2, queryClasses(p, paymentTierLastResort, phase2))
 			nodes += search.nodes
 		}
 	}

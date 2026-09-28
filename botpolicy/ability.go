@@ -135,6 +135,19 @@ func (b Board) boonHasNoOwnTarget(o decision.Option, me state.PlayerID) bool {
 	return true
 }
 
+// AbilityWorthTaking reports whether the "ability" option o passes the
+// bot's own activation guards for seat me: A1 (not a provable no-op -- a
+// re-attach, an attach with no creature, a redundant keyword grant) and A5
+// (the per-source, per-turn repeatability budget). It is the SAME test
+// chooseAbility applies, exported so a search seat that offers the bot's
+// alternatives as candidates (internal/azmcts) never offers one the bot's
+// termination guarantee rests on declining: a free re-equip picked over the
+// pass at every priority freezes the turn forever.
+func (b Board) AbilityWorthTaking(o decision.Option, me state.PlayerID) bool {
+	_, worth := b.abilityScore(o, me)
+	return worth
+}
+
 // equipNoOp is A1's provable no-op: does activating the "ability" option o
 // leave the board exactly as it is? Every permanent's AttachedTo is on the
 // Board (companion to Power/CMC/Basic), filled by both adapter halves from

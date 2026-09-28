@@ -1,0 +1,96 @@
+{
+ "name": "FDN07-UR",
+ "format": "limited",
+ "archetype": "UR",
+ "notes": "SpellBench FDN Limited catalog deck FDN07-UR (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=01a69b8d72584532, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Arcane Epiphany",
+   "count": 1
+  },
+  {
+   "name": "Archmage of Runes",
+   "count": 1
+  },
+  {
+   "name": "Axgard Cavalry",
+   "count": 1
+  },
+  {
+   "name": "Balmor, Battlemage Captain",
+   "count": 1
+  },
+  {
+   "name": "Brazen Scourge",
+   "count": 1
+  },
+  {
+   "name": "Brineborn Cutthroat",
+   "count": 1
+  },
+  {
+   "name": "Burst Lightning",
+   "count": 3
+  },
+  {
+   "name": "Drake Hatcher",
+   "count": 1
+  },
+  {
+   "name": "Elementalist Adept",
+   "count": 1
+  },
+  {
+   "name": "Evolving Wilds",
+   "count": 1
+  },
+  {
+   "name": "Faebloom Trick",
+   "count": 2
+  },
+  {
+   "name": "Goblin Boarders",
+   "count": 1
+  },
+  {
+   "name": "Goblin Surprise",
+   "count": 2
+  },
+  {
+   "name": "Heartfire Immolator",
+   "count": 1
+  },
+  {
+   "name": "Island",
+   "count": 7
+  },
+  {
+   "name": "Krenko, Mob Boss",
+   "count": 1
+  },
+  {
+   "name": "Micromancer",
+   "count": 1
+  },
+  {
+   "name": "Mountain",
+   "count": 8
+  },
+  {
+   "name": "Skyship Buccaneer",
+   "count": 1
+  },
+  {
+   "name": "Sure Strike",
+   "count": 2
+  },
+  {
+   "name": "Swiftwater Cliffs",
+   "count": 1
+  },
+  {
+   "name": "Tolarian Terror",
+   "count": 1
+  }
+ ]
+}

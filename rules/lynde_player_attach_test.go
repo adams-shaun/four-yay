@@ -151,6 +151,7 @@ func answerLyndeUpkeep(t *testing.T, e *Engine, curse state.ObjID) (sawCardAsk, 
 // `cannot attach: no legal target` Note was emitted with no Curse chosen and
 // no cards drawn.
 func TestLyndeUpkeepMovesCurseOntoOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, ids := lyndeBoard3(t, reg, "Lynde, Cheerful Tormentor", "Curse of the Pierced Heart")
 	lynde := ids["Lynde, Cheerful Tormentor"]
@@ -202,6 +203,7 @@ func TestLyndeUpkeepMovesCurseOntoOpponent(t *testing.T) {
 // the param was unread, the Curse entered unattached, and the CR 704.5m
 // attachment SBA swept it to the graveyard.
 func TestAccursedWitchReturnAttachesToParentTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoard(t, reg, "Accursed Witch")
 	witch := ids["Accursed Witch"]
@@ -279,6 +281,7 @@ func TestAccursedWitchReturnAttachesToParentTarget(t *testing.T) {
 // You`: a Curse attached to the Orb's controller is destroyed when the Orb
 // enters. Before the word was recognised the DestroyAll pool was empty.
 func TestWitchbaneOrbDestroysCurseAttachedToYou(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoard(t, reg, "Witchbane Orb", "Curse of the Pierced Heart")
 	orb := ids["Witchbane Orb"]
@@ -336,6 +339,7 @@ func TestWitchbaneOrbDestroysCurseAttachedToYou(t *testing.T) {
 // through to the object walker, which drops players, and the Aura entered
 // unattached (then swept by the CR 704.5m SBA).
 func TestEnchantOpponentAuraCastAttachesToOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	aura := mustCorpusCard(t, reg, "Tenuous Truce")
 	e := handEngine(t, aura)
@@ -388,6 +392,7 @@ func TestEnchantOpponentAuraCastAttachesToOpponent(t *testing.T) {
 // is on the battlefield and attached to seat 0, and that no second
 // battlefield->graveyard MoveZone happened in the same window.
 func TestLyndeGraveyardReturnAttachesToYou(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoard(t, reg, "Lynde, Cheerful Tormentor", "Curse of the Pierced Heart")
 	curse := ids["Curse of the Pierced Heart"]

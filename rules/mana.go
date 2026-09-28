@@ -87,6 +87,22 @@ type CostPart struct {
 	// count the announcement fixes first would need re-pricing at settle --
 	// no corpus carrier combines them).
 	MinPower int32
+	// ThenExile marks a Behold part spelled BeholdExile<N/Spec> (the
+	// Lorwyn Champion cycle's "behold a Kithkin and exile it"): the beheld
+	// object -- a permanent the payer controls or a card revealed from their
+	// hand -- is then exiled as part of the same payment, linked to the
+	// paying source (ExiledWith) so "return the exiled card" reads it.
+	ThenExile bool
+	// Each marks a GainLife part spelled GainLife<N/Player.../*>, Forge's
+	// "each" marker on the trailing third field (Reverent Silence's "each
+	// other player gains 6 life", Skyshroud Cutter's 5). It is preserved as
+	// parsed data -- never re-derived from the Spec text at payment -- so the
+	// prose and any future per-part reading agree with the token. It is
+	// unused by every other head. Note this is a DESCRIPTION of the printed
+	// wording, not the payment semantics: the payment pays every player the
+	// Spec matches relative to the payer (which for Player.Other/* is exactly
+	// the oracle), with or without the marker.
+	Each bool
 }
 
 // ManaPair is one two-face hybrid symbol: each face is a WUBRGC mana symbol,
@@ -181,7 +197,15 @@ type Cost struct {
 	RevealChosen []CostPart
 	Behold       []CostPart
 	TapPermanent []CostPart
-	Blight       []CostPart
+	// UntapPermanent carries untapYType<N/Spec> parts -- untapping N
+	// permanents matching Spec as a cost (Benthic Explorers' "{T}, Untap a
+	// tapped land an opponent controls: Add one mana of any type that land
+	// could produce"). It is DISTINCT from Cost.Untap (the {Q} symbol,
+	// untapping the SOURCE itself): this head untaps OTHER permanents the
+	// spec names, so the settle elects them like the literal tapXType form.
+	// The trailing "/description" is captured into CostPart.Desc.
+	UntapPermanent []CostPart
+	Blight         []CostPart
 	// Exert carries Exert<1/CARDNAME> parts (CR 701.39: the source will not
 	// untap during its controller's next untap step). Paid by one
 	// events.Exert on the source -- the same event the declare-attackers
@@ -218,6 +242,20 @@ type Cost struct {
 	// stops substituting generic mana for it, and a plain Cost$ part is
 	// settled by the cast flow like every other damage payment.
 	DamageYou []CostPart
+	// GainLife carries GainLife<N/Player...> parts -- the PAYER has the named
+	// player(s) gain N life as the payment (Forge CostGainLife; the
+	// Invigorate/Reverent Silence/Skyshroud Cutter AlternativeCost family,
+	// "rather than pay this spell's mana cost, you may have an opponent gain
+	// N life"). It is a payment of the cost, not an effect on the payer:
+	// each part emits one POSITIVE LifeChange per player the part's Spec
+	// matches relative to the payer, routed through the ordinary
+	// applyLifeReplacements machinery (CR 616 GainLife replacements apply).
+	// Spec keeps Forge's raw player word (Player.Opponent / Player.Other);
+	// Each is the trailing `/*` marker (see CostPart.Each) for the
+	// "each other player" spelling. Before the head existed the token hit
+	// the unrecognised-symbol fallback -- a phantom generic pip and the
+	// whole alternative withheld (altCostParse fails closed on Unknown).
+	GainLife []CostPart
 	// Return carries Return<N/Spec> tokens: a permanent (usually the source
 	// itself, Spec CARDNAME) returned to its OWNER's hand as the payment
 	// (Forge CostReturn.moveToHand; CR 118.2a lists returning a permanent to
@@ -269,6 +307,14 @@ type Cost struct {
 	// rolls each die and publishes its canonical effects.DieRollNote; Dyn names
 	// the ability X binding (currently only X is modelled).
 	RollDice []CostPart
+	// Withheld lists the parts of a RaiseCost static's Cost$ that the
+	// payment machinery cannot pay (a head no stage settles, a named count
+	// with no resolvable reading). It is never produced by ParseCost: only
+	// the RaiseCost bridge (rules/raise_cost_extra.go) writes it, and
+	// nonManaCastable refuses any cost that carries it, so the spell or
+	// ability is withheld at the offer gate instead of being offered with
+	// the additional cost silently dropped.
+	Withheld []string
 	// Unknown lists the HEAD (the text before any "<...>") of every cost
 	// token this parse did not model, in order of appearance, deduplicated.
 	// A token lands here exactly when ParseCost could not give it real
@@ -379,7 +425,7 @@ var exertCost = regexp.MustCompile(`^Exert<1/(?:CARDNAME|NICKNAME)(?:/([^>]*))?>
 // has no source from which to resolve their value.
 var lifeCost = regexp.MustCompile(`^PayLife<(\d+)>$`)
 
-var choiceCost = regexp.MustCompile(`^(Reveal|Behold|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+var choiceCost = regexp.MustCompile(`^(Reveal|Behold|BeholdExile|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
 
 // choiceCostRevealOrChoose additionally recognises Forge's either-or
 // `RevealOrChoose<N/Spec>` cost (Monstrous Emergence, Dragon's Fire): reveal a
@@ -400,6 +446,47 @@ var choiceCostRevealOrChoose = regexp.MustCompile(`^RevealOrChoose<(\d+)/([^/>]+
 // share of these heads used to be the unrecognised-symbol fallback, which
 // priced each at one generic mana and dropped the reveal entirely.
 var revealChosenCost = regexp.MustCompile(`^RevealChosen<(Player|Type)(?:/([^>]*))?>$`)
+
+// isWholeHandRevealSpec reports whether a Reveal cost part's type slot names
+// the WHOLE hand rather than a card filter. Forge spells "reveal your hand"
+// as Reveal<N/Hand> (Land Grant's free-cast cost, Sasaya, Orochi Ascendant's
+// flip cost) -- the count is display noise, the same reading
+// discardCandidates gives Discard<1/Hand> and Discard<0/Hand> -- and no card
+// ever matches the bare word "Hand" as a filter, so reading it as one leaves
+// the cost permanently unpayable and every carrier unplayable. Revealing an
+// empty hand is legal (CR 701.20a), so a whole-hand reveal is payable with
+// ANY hand, including an empty one.
+func isWholeHandRevealSpec(spec string) bool {
+	return strings.EqualFold(spec, "Hand")
+}
+
+// isSameColorRevealSpec reports whether a Reveal cost part's type slot is the
+// RELATIONAL "SameColor" (Reveal<2/SameColor>, Illuminated Folio's "Reveal
+// two cards from your hand that share a color"). SameColor names a relation
+// BETWEEN the revealed cards, not a card property: no card's type line
+// carries it, so reading it as one left the ability permanently unoffered.
+// The reading lives beside the offer gate and the payment ask
+// (rules/cast.go's nonManaCastable / revealCostAsk) as a decision.SetPropShared
+// constraint over each candidate's DERIVED colour tokens -- see
+// sameColorRevealSets in rules/setprops.go.
+func isSameColorRevealSpec(spec string) bool {
+	return strings.EqualFold(spec, "SameColor")
+}
+
+// isWholeZoneExileSpec reports whether an Exile cost part's type slot names
+// the WHOLE zone rather than a card filter. Forge spells "exile your hand"
+// (Herigast, Erupting Nullkite) as ExileFromHand<N/All> and "exile all cards
+// from their graveyard" (Grip of Amnesia) as ExileFromGrave<N/All> -- the
+// count is display noise, the same reading isWholeHandRevealSpec gives
+// Reveal<N/Hand> and discardCandidates gives Discard<N/Hand>. No card ever
+// matches the bare word "All" as a filter, so reading it as one leaves the
+// cost permanently unpayable and every carrier's pay window decline-only.
+// Unlike the whole-hand reveal, an ALL-zone exile is NOT payable empty: the
+// token still demands part.N cards (the corpus writes 1), so a zone holding
+// fewer than part.N cards cannot pay.
+func isWholeZoneExileSpec(spec string) bool {
+	return strings.EqualFold(spec, "All")
+}
 
 // dynTapCost matches Forge's dynamic tap-any-number tapXType tokens -- the
 // heads the literal choiceCost regex above cannot read:
@@ -423,6 +510,16 @@ var revealChosenCost = regexp.MustCompile(`^RevealChosen<(Player|Type)(?:/([^>]*
 // The trailing "/description" is captured into CostPart.Desc and ";" alternations
 // fold to "," like every other non-mana head.
 var dynTapCost = regexp.MustCompile(`^tapXType<(X|Any)/([^/>]+)(?:/([^>]*))?>$`)
+
+// untapYTypeCost matches Forge's untapYType<N/Spec> cost token -- untapping N
+// permanents matching Spec as the payment (Forge CostUntapType: Benthic
+// Explorers' "untap a tapped land an opponent controls", Halo Fountain's and
+// Crackleburr's non-mana activations). N is a literal count; there is no X
+// form in the corpus. It is the mirror of the literal tapXType<N/Spec> head
+// (choiceCost), except the elected permanents must already be TAPPED. The
+// trailing "/description" is captured into CostPart.Desc and ";" alternations
+// fold to "," like every other non-mana head.
+var untapYTypeCost = regexp.MustCompile(`^untapYType<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
 var blightCost = regexp.MustCompile(`^Blight<(\d+|X)>$`)
 
 // groupPowerFloor matches the withTotalPowerGE<N> GROUP predicate Forge
@@ -582,6 +679,19 @@ var removeAnyCounterCost = regexp.MustCompile(`^RemoveAnyCounter<(X\d+\+|X|\d+)/
 // effects.ParseDamageUnlessCost; this head keeps a plain Cost$ spelling out
 // of Cost.Unknown.
 var damageYouCost = regexp.MustCompile(`^DamageYou<(\d+)(?:/([^>]*))?>$`)
+
+// gainLifeCost matches Forge's GainLife<N/Player...> cost token -- the payer
+// has the named player(s) gain N life as the payment (Forge CostGainLife).
+// The corpus carries it as a cost head on exactly the three "opponent gains
+// life" AlternativeCost cards (Invigorate, Reverent Silence, Skyshroud
+// Cutter); it also appears as a Cumulative-upkeep action (Wall of Shards,
+// whose own parseCumulativeAction reads it) and as a Splice cost (Roar of
+// Jukai, whose keyword is unimplemented) -- neither of those routes reaches
+// ParseCost. The amount is a FIXED literal N: every corpus carrier is a
+// literal, so any other value form falls to the ordinary malformed-token
+// fallback (never a silent dynamic reading). Spec keeps Forge's raw player
+// word; the optional trailing field is the `/*` each/all marker.
+var gainLifeCost = regexp.MustCompile(`^GainLife<(\d+)/(Player[^/>]+)(?:/([^>]*))?>$`)
 var rollDiceCost = regexp.MustCompile(`^RollDice<([^>]*)>$`)
 
 // xMinCost matches Forge's XMin<N> cost token -- the announced-X LOWER
@@ -665,6 +775,20 @@ func ParseCost(s string) Cost {
 				c.Mill = append(c.Mill, CostPart{N: int32(n)})
 				continue
 			}
+			if m := untapYTypeCost.FindStringSubmatch(sym); m != nil {
+				// untapYType<N/Spec> (Forge CostUntapType): untap N matching
+				// permanents as the payment. A malformed/overflowing N degrades to
+				// the reported one-generic fallback like every other head.
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n <= 0 || n > int64(math.MaxInt32) {
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				c.UntapPermanent = append(c.UntapPermanent, CostPart{N: int32(n),
+					Spec: strings.ReplaceAll(m[2], ";", ","), Desc: m[3]})
+				continue
+			}
 			if m := dynTapCost.FindStringSubmatch(sym); m != nil {
 				// The dynamic tapXType heads (see the regex's doc): a TapPermanent
 				// part whose count the tap election resolves at payment -- "X"
@@ -696,6 +820,10 @@ func ParseCost(s string) Cost {
 				case "Reveal":
 					c.Reveal = append(c.Reveal, part)
 				case "Behold":
+					c.Behold = append(c.Behold, part)
+				case "BeholdExile":
+					// Behold, then exile the beheld object (CostPart.ThenExile).
+					part.ThenExile = true
 					c.Behold = append(c.Behold, part)
 				default:
 					// A literal tapXType form may carry a group predicate too;
@@ -947,6 +1075,19 @@ func ParseCost(s string) Cost {
 					continue
 				}
 				c.DamageYou = append(c.DamageYou, CostPart{N: int32(n), Desc: m[2]})
+				continue
+			}
+			if m := gainLifeCost.FindStringSubmatch(sym); m != nil {
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n < 0 || n > int64(math.MaxInt32) {
+					// Same safe fallback as every other malformed cost token --
+					// and REPORT it: the head is recognised, this instance is
+					// not modelled.
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				c.GainLife = append(c.GainLife, CostPart{N: int32(n), Spec: m[2], Each: m[3] == "*"})
 				continue
 			}
 			if m := exileCost.FindStringSubmatch(sym); m != nil {
@@ -1437,6 +1578,9 @@ func (c Cost) Plus(d Cost) Cost {
 	if len(d.TapPermanent) > 0 {
 		c.TapPermanent = append(append([]CostPart(nil), c.TapPermanent...), d.TapPermanent...)
 	}
+	if len(d.UntapPermanent) > 0 {
+		c.UntapPermanent = append(append([]CostPart(nil), c.UntapPermanent...), d.UntapPermanent...)
+	}
 	if len(d.Blight) > 0 {
 		c.Blight = append(append([]CostPart(nil), c.Blight...), d.Blight...)
 	}
@@ -1461,7 +1605,13 @@ func (c Cost) Plus(d Cost) Cost {
 	if len(d.DamageYou) > 0 {
 		c.DamageYou = append(append([]CostPart(nil), c.DamageYou...), d.DamageYou...)
 	}
+	if len(d.GainLife) > 0 {
+		c.GainLife = append(append([]CostPart(nil), c.GainLife...), d.GainLife...)
+	}
 	c.Forage = c.Forage || d.Forage
+	if len(d.Withheld) > 0 {
+		c.Withheld = append(append([]string(nil), c.Withheld...), d.Withheld...)
+	}
 	return c
 }
 
@@ -1528,7 +1678,7 @@ func (e *Engine) rawBaseCost(p state.PlayerID, id state.ObjID) Cost {
 	if o == nil || o.Face() == nil {
 		return Cost{}
 	}
-	return e.parseCost(o.Face().ManaCost)
+	return e.faceCost(o.Face())
 }
 
 // castOfferBase is the composed RAW base every ordinary cast offer is gated on:
@@ -1542,6 +1692,12 @@ func (e *Engine) rawBaseCost(p state.PlayerID, id state.ObjID) Cost {
 // the offer gate only needs the credit; the actual commitment is re-derived
 // per cast by convokeAsk.
 func (e *Engine) castOfferBase(p state.PlayerID, id state.ObjID) Cost {
+	// Without either keyword both credits are the identity (convokeCost and
+	// improviseCost return the cost they were handed), so the raw base is
+	// the answer and the two Cost round trips are skipped.
+	if !e.hasCastConvoke(id) && !e.hasCastImprovise(id) {
+		return e.rawBaseCost(p, id)
+	}
 	base, taps := e.convokeCost(p, id, e.rawBaseCost(p, id))
 	base, _ = e.improviseCost(p, id, base, taps)
 	return base
@@ -1569,7 +1725,7 @@ func (e *Engine) offerCostForUsing(statics costStaticViews, p state.PlayerID, id
 // both the per-face enumeration and the composed castable check.
 func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, mods costMods, scope costScope) Cost {
 	c := mods.apply(base)
-	if scope.kind != "Ability" && scope.kind != "Foretell" {
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		c = e.commanderTaxFor(p, id, c)
 	}
 	return c
@@ -1742,12 +1898,13 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		}
 	}
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
+	mods = e.withWaterbendOfferCredit(p, id, mods)
 	tax := int32(0)
-	if scope.kind != "Ability" && scope.kind != "Foretell" {
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)
 	}
 	delve := int32(0)
-	if e.HasKeyword(id, "Delve") {
+	if e.hasKeywordH(id, kwhDelve) {
 		delve = int32(len(e.G.Zone(state.ZGraveyard, p)))
 	}
 	if !e.manaFeasiblePriced(p, id, ability, base, mods, tax, delve, hyp) {
@@ -1764,10 +1921,14 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		// retry would re-ask the exact question that just failed: the target
 		// census (a pure read) is skipped, not changed.
 		var potential costMods
+		potentialOK := false
 		if statics.validTarget {
-			potential = e.costModifiersWithTargetsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), true)
+			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
+				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
+					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability)
+			})
 		}
-		if statics.validTarget && e.manaFeasiblePriced(p, id, ability, base, potential, tax, delve, hyp) {
+		if potentialOK {
 			mods = potential
 		} else if accepted, ok := e.offerSacXMods(p, id, ability, base, statics, scope, tax, delve, hyp); ok {
 			// The cost announces a Sac<X/Spec> count whose resulting X-dependent
@@ -1777,6 +1938,13 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 			// SOME legal announcement is payable -- the same announced-X
 			// recomputation manaToPay makes after the announcement, applied at
 			// the gate so the offer and the charge agree.
+			mods = accepted
+		} else if accepted, ok := e.offerNamedMods(p, id, ability, base, mods, statics, scope, tax, delve, hyp); ok {
+			// A RaiseCost part counted by a named announcement (Explosive
+			// Singularity's "tap any number of untapped creatures ... costs
+			// {1} less for each creature tapped this way") can make the cast
+			// payable at a nonzero announcement the 0 snapshot misprices --
+			// the offerSacXMods sweep, for the named count.
 			mods = accepted
 		} else {
 			return false
@@ -1845,9 +2013,10 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 		if len(targets) == 0 {
 			continue
 		}
-		mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, targets, true, x)
-		if e.manaFeasiblePriced(p, id, ability, announced, mods, tax, delve, hyp) {
-			return mods, true
+		if candidateMods, ok := e.potentialCostModsUsing(statics, p, id, scope, targets, x, func(m costMods) bool {
+			return e.manaFeasiblePriced(p, id, ability, announced, m, tax, delve, hyp)
+		}); ok {
+			return candidateMods, true
 		}
 	}
 	return costMods{}, false
@@ -1859,12 +2028,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 // announcement exist" half of CR 601.2. Modal spells have no selected mode
 // yet and therefore conservatively contribute no potential discount.
 func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope) []state.Target {
-	var sa *cards.SA
-	if scope.kind == "Ability" {
-		sa = scope.ab
-	} else if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		sa = o.Face().SpellAbility()
-	}
+	sa := e.costTargetingSA(id, scope)
 	if sa == nil || sa.Params["ValidTgts"] == "" || sa.Params["Choices"] != "" {
 		return nil
 	}
@@ -1882,6 +2046,64 @@ func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope co
 		}
 	}
 	return out
+}
+
+// costTargetingSA returns the spell or activated ability whose ValidTgts$ and
+// TargetMin$/TargetMax$ a target-relative cost read shares. A spell's face
+// carries the declaration while it is in hand; an activated ability is the
+// scope's own SA. This is the ONE derivation costPotentialTargets and
+// costAmountTargets use, so the offer census and the amount's legal-assignment
+// size can never name different declarations.
+func (e *Engine) costTargetingSA(id state.ObjID, scope costScope) *cards.SA {
+	if scope.kind == "Static" {
+		// A special action (specialActionScope) announces no targets.
+		return nil
+	}
+	if scope.kind == "Ability" {
+		return scope.ab
+	}
+	if o := e.G.Obj(id); o != nil && o.Face() != nil {
+		return o.Face().SpellAbility()
+	}
+	return nil
+}
+
+// costAmountTargets trims a potential-target census to a COMPLETE LEGAL TARGET
+// ASSIGNMENT before a target-relative Amount$ reads it. The offer gate's
+// potential pass hands the whole costPotentialTargets census to the modifier
+// composition so every ValidTarget$/ValidSpell$ rule can match against SOME
+// candidate, but an Amount$ that counts the cast's targets (Battlefield
+// Thaumaturge's TargetedObjectsDistinct, "for each creature it targets") must
+// see only as many targets as the declaration actually announces -- pricing
+// every legal candidate at once would reduce the cost by the census size and
+// offer a cast the table can never complete. The size is resolvedTargetBounds'
+// own maximum (the most targets a reduction reading the count can see, and so
+// the reduction-favourable witness the existential offer gate wants), capped
+// at the census. A resolved maximum of 0 (the "instead" idiom) yields the
+// empty assignment, never a target the declaration may not announce. Only the
+// potential pass calls this: a non-potential composition already carries the
+// announced targets, which are a legal assignment by construction. The chosen
+// targets are always repriced at CR 601.2c/h.
+func (e *Engine) costAmountTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) []state.Target {
+	if len(targets) == 0 {
+		return targets
+	}
+	sa := e.costTargetingSA(id, scope)
+	if sa == nil {
+		return targets
+	}
+	_, max := e.resolvedTargetBounds(p, id, sa, 0)
+	// A resolved maximum of 0 (the "instead" idiom) must yield the empty
+	// assignment even when the census holds a single candidate: the bound is
+	// resolved BEFORE the size fast path so one candidate can never stand in
+	// for a target the declaration is not allowed to announce.
+	if max == 0 {
+		return nil
+	}
+	if max < 0 || max >= len(targets) {
+		return targets
+	}
+	return targets[:max]
 }
 
 // AbilityCosts returns id's non-mana activated-ability costs after the same
@@ -1963,6 +2185,13 @@ func formatCost(c Cost) string {
 	}
 	for _, part := range c.DamageYou {
 		parts = append(parts, "DamageYou<"+strconv.FormatInt(int64(part.N), 10)+">")
+	}
+	for _, part := range c.GainLife {
+		tok := "GainLife<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
+		if part.Each {
+			tok += "/*"
+		}
+		parts = append(parts, tok+">")
 	}
 	if c.Tap {
 		parts = append(parts, "T")
@@ -2103,6 +2332,9 @@ func costPhrase(c Cost) string {
 	}
 	for _, part := range c.DamageYou {
 		clauses = append(clauses, "take "+countPhrase(part.N)+" damage")
+	}
+	for _, part := range c.GainLife {
+		clauses = append(clauses, gainLifeCostPhrase(part))
 	}
 	for _, part := range c.Sac {
 		clauses = append(clauses, "sacrifice "+objectPhrase(part, "permanent"))
@@ -2322,6 +2554,30 @@ func countPhrase(n int32) string {
 	return strconv.FormatInt(int64(n), 10)
 }
 
+// gainLifeCostPhrase renders one GainLife<N/Player...> part as player-facing
+// prose: "an opponent gains N life" for the bare Player.Opponent form and
+// "each other player gains N life" for the /* marker (Reverent Silence,
+// Skyshroud Cutter). An unrecognised player word falls back to the generic
+// "a player" rather than echoing raw Forge filter syntax.
+func gainLifeCostPhrase(part CostPart) string {
+	who := "a player"
+	switch strings.TrimSpace(part.Spec) {
+	case "Player.Opponent":
+		who = "an opponent"
+	case "Player.Other":
+		if part.Each {
+			who = "each other player"
+		} else {
+			who = "another player"
+		}
+	}
+	verb := "gains"
+	if who == "each other player" {
+		verb = "gain"
+	}
+	return who + " " + verb + " " + countPhrase(part.N) + " life"
+}
+
 // pluralSuffix returns "s" for a count that is not exactly one.
 func pluralSuffix(n int32) string {
 	if n == 1 {
@@ -2481,7 +2737,7 @@ func costAnnouncesCastX(c Cost) bool {
 // even though it takes no payment), so a caller using this to skip the
 // cast-flow stages is told the truth.
 func (c Cost) HasNonMana() bool {
-	return c.Life > 0 || c.Tap || c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
+	return c.Life > 0 || c.Tap || c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.UntapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.GainLife) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
 }
 
 // Priceable reports whether payMana can actually charge every part of this
@@ -2501,9 +2757,10 @@ func (c Cost) HasNonMana() bool {
 func (c Cost) Priceable() bool {
 	return c.X == 0 && !c.Tap && !c.Untap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 &&
 		len(c.Draw) == 0 && len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
-		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
+		len(c.TapPermanent) == 0 && len(c.UntapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
 		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
 		len(c.Energy) == 0 && len(c.Return) == 0 && len(c.PutToLib) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&
+		len(c.GainLife) == 0 &&
 		len(c.MoveToGrave) == 0 && len(c.Mill) == 0
 }
 
@@ -3016,16 +3273,18 @@ func (c Cost) Pay(p state.Mana) (state.Mana, bool) {
 // or PayEnergy<X> energy part, a Return<N/Spec> component, the
 // LifeTotalHalfUp token, a fixed Mill<N> component, a Sac<N/Spec>,
 // Discard<N/Spec>, SubCounter<N/Kind>,
-// Draw<N/Spec> or Reveal<N/Spec> component, or the Mandatory marker.
+// Draw<N/Spec>, Reveal<N/Spec> or Exile<N/Spec> (including the zone-headed
+// ExileFromGrave/ExileFromHand/ExileAnyGrave forms) component, or the
+// Mandatory marker.
 // Anything else — an unfolded X/Y/Z (UnlessCostResolved folds an announced X
 // and resolvable SVar bodies first; an unbound X never prices here),
-// DamageYou<N> (the Sacrifice arm's own path), ExileFromGrave<...>,
-// Behold<...>, tapXType<...>, CopyCost, or any prose —
+// DamageYou<N> (the Sacrifice arm's own path), Behold<...>, tapXType<...>,
+// CopyCost, or any prose —
 // reports ok=false, and the unless-pay arm treats that as a hard decline
 // (the conservative read: a payer who "pays" a cost the engine cannot price
 // has not paid it). A Reveal component is choice-bearing like Sac/Discard
 // and pays through the beginUnlessPayment continuation, never synchronously.
-// Return components are choice-bearing the same way.
+// Return and Exile components are choice-bearing the same way.
 func ParseUnlessCost(s string) (Cost, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" || strings.EqualFold(s, "no cost") {
@@ -3161,6 +3420,34 @@ func ParseUnlessCost(s string) (Cost, bool) {
 				c.Mill = append(c.Mill, CostPart{N: int32(n)})
 				continue
 			}
+			// Exile<N/Spec> / ExileFromGrave / ExileFromHand / ExileAnyGrave is
+			// the choice-bearing exile unless cost (Grip of Amnesia's
+			// ExileFromGrave<1/All>: "Counter target spell unless its
+			// controller exiles all cards from their graveyard"). The zone
+			// mapping is the SAME one the cast-cost parser applies: FromHand
+			// stays the hand (zone zero), every other exile head is the
+			// payer's graveyard. An unfolded X amount is never priceable
+			// (UnlessCostResolved folds an announced X first), so it declines
+			// exactly like every other dynamic token. The part PAYS through the
+			// beginUnlessPayment continuation (payUnlessCost refuses it, exactly
+			// like Sac/Discard): a whole-graveyard exile is choice-bearing, and
+			// the offer gate reads isWholeZoneExileSpec so the All spec names
+			// the whole zone rather than a filter no card matches.
+			if m := exileCost.FindStringSubmatch(sym); m != nil {
+				if m[2] == "X" {
+					return Cost{}, false
+				}
+				n, err := strconv.ParseInt(m[2], 10, 64)
+				if err != nil || n < 0 || n > int64(math.MaxInt32) {
+					return Cost{}, false
+				}
+				part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[3], ";", ","), Desc: m[4]}
+				if m[1] != "FromHand" {
+					part.Zone = state.ZGraveyard
+				}
+				c.Exile = append(c.Exile, part)
+				continue
+			}
 			// RevealChosen<Player>/<Type> is the no-ask designation reveal
 			// (Stalking Leonin's activation cost). As an UnlessCost$ it is
 			// accepted here too so the shared beginUnlessPayment continuation
@@ -3187,7 +3474,11 @@ func ParseUnlessCost(s string) (Cost, bool) {
 // payable with 2 life anywhere K'rrik is in play under its controller.
 func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("Continuous") {
-		if !slices.Contains(cards.SplitKeywordList(sv.Params["AddKeyword"]), "PayLifeInsteadOf:B") {
+		// A member equal to the keyword needs the keyword as a substring, so
+		// the allocation-free substring test rejects every other static
+		// before the list is split.
+		if raw := sv.Params["AddKeyword"]; !strings.Contains(raw, "PayLifeInsteadOf:B") ||
+			!slices.Contains(cards.SplitKeywordList(raw), "PayLifeInsteadOf:B") {
 			continue
 		}
 		if effects.MatchesPlayerSpec(e.G, sv.Params["Affected"], p, sv.Controller) {
@@ -3226,8 +3517,10 @@ func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider
 	if o == nil {
 		return false
 	}
-	for _, ce := range e.active() {
-		if !ce.MayPlay || !rider(ce) || ce.Controller != p {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
+		if !ce.MayPlay || !rider(*ce) || ce.Controller != p {
 			continue
 		}
 		if ce.MayPlayPlayerTurn && e.G.Active != p {

@@ -1,0 +1,92 @@
+{
+ "name": "FDN15-UB",
+ "format": "limited",
+ "archetype": "UB",
+ "notes": "SpellBench FDN Limited catalog deck FDN15-UB (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=02f9456e791dfaa6, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Bake into a Pie",
+   "count": 1
+  },
+  {
+   "name": "Bigfin Bouncer",
+   "count": 1
+  },
+  {
+   "name": "Brineborn Cutthroat",
+   "count": 1
+  },
+  {
+   "name": "Burglar Rat",
+   "count": 1
+  },
+  {
+   "name": "Diregraf Ghoul",
+   "count": 2
+  },
+  {
+   "name": "Eaten Alive",
+   "count": 2
+  },
+  {
+   "name": "Erudite Wizard",
+   "count": 1
+  },
+  {
+   "name": "Fleeting Distraction",
+   "count": 2
+  },
+  {
+   "name": "Gutless Plunderer",
+   "count": 1
+  },
+  {
+   "name": "Hungry Ghoul",
+   "count": 2
+  },
+  {
+   "name": "Icewind Elemental",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 1
+  },
+  {
+   "name": "Island",
+   "count": 8
+  },
+  {
+   "name": "Phyrexian Arena",
+   "count": 1
+  },
+  {
+   "name": "Sphinx of Forgotten Lore",
+   "count": 1
+  },
+  {
+   "name": "Stab",
+   "count": 1
+  },
+  {
+   "name": "Strix Lookout",
+   "count": 1
+  },
+  {
+   "name": "Swamp",
+   "count": 8
+  },
+  {
+   "name": "Tolarian Terror",
+   "count": 1
+  },
+  {
+   "name": "Vampire Soulcaller",
+   "count": 2
+  },
+  {
+   "name": "Witness Protection",
+   "count": 1
+  }
+ ]
+}

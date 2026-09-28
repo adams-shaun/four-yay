@@ -54,6 +54,7 @@ func meleeAttack(t *testing.T, e *Engine, choices map[state.ObjID]state.PlayerID
 }
 
 func TestTitaniaMeleeCountsDistinctAttackedOpponents(t *testing.T) {
+	t.Parallel()
 	titania := meleeCorpus(t, "t/titania_proud_pummeler.txt")
 	bear := meleeCorpus(t, "g/grizzly_bears.txt")
 	if !titania.Faces[0].HasKeyword("Melee") {
@@ -107,6 +108,7 @@ func TestTitaniaMeleeCountsDistinctAttackedOpponents(t *testing.T) {
 // an extra opponent. The two declarations below differ only in whether the
 // Bear attacks that same protector or a second seat.
 func TestTitaniaMeleeBattleCountsProtectorOnce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	titania := mustCorpusCard(t, reg, "Titania, Proud Pummeler")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -161,6 +163,7 @@ func TestTitaniaMeleeBattleCountsProtectorOnce(t *testing.T) {
 }
 
 func TestTitaniaAndAdrianaGrantTwoMeleeInstances(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	titania := mustCorpusCard(t, reg, "Titania, Proud Pummeler")
 	adriana := mustCorpusCard(t, reg, "Adriana, Captain of the Guard")

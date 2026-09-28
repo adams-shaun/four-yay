@@ -55,6 +55,7 @@ func activateAbilityOf(t *testing.T, e *Engine, obj state.ObjID, api string) {
 }
 
 func TestChromeMoxReflectsTheImprintedCardColour(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Chrome Mox"))
 	mox := e.G.Zone(state.ZHand, 0)[0]
 	// Seed the imprint candidate BEFORE the trigger resolves (the mover ask
@@ -166,6 +167,7 @@ func TestCorruptedGrafstoneReflectsGraveyardColours(t *testing.T) {
 }
 
 func TestExoticOrchardReflectsProducedColours(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Exotic Orchard"))
 	orchard := e.G.Obj(e.G.Zone(state.ZHand, 0)[0])
 	orchard.Zone = state.ZBattlefield

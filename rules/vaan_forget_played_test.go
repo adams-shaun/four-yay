@@ -152,6 +152,7 @@ func vaanPlayAsk(t *testing.T, e *Engine, vaanID state.ObjID) (state.ObjID, *dec
 // ForgetPlayed$ drops it from the remembered set, and the chained Treasure
 // gate fails — no Treasure token exists.
 func TestVaanStreetThiefAnsweredPlayCreatesNoTreasure(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, vaanID, _ := vaanEngine(t, reg)
 	bearID, _ := vaanPlayAsk(t, e, vaanID)
@@ -184,6 +185,7 @@ func TestVaanStreetThiefAnsweredPlayCreatesNoTreasure(t *testing.T) {
 // exile, the remembered set still holds it, and the chained Treasure gate
 // passes — exactly one Treasure token is created.
 func TestVaanStreetThiefDeclinedPlayCreatesTheTreasure(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, vaanID, _ := vaanEngine(t, reg)
 	bearID, _ := vaanPlayAsk(t, e, vaanID)

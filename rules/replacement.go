@@ -57,6 +57,17 @@ func (e *Engine) finalityReplacementApplies(id state.ObjID) bool {
 }
 
 func (e *Engine) applyReplacements(ev events.Event) (events.Event, bool) {
+	// A CantDraw static (CR 121.6: "If a player would draw a card and an
+	// effect says that player can't, the draw does not happen") is a "can't"
+	// replacement with no ReplaceWith$ body: the proposed Draw is swallowed
+	// whole, so no Draw event is logged and no Draw replacement (dredge,
+	// Notion Thief) may apply to it. Handled here, beside the positive-
+	// LifeChange CantGainLife gate in applyLifeReplacements below, so the two
+	// halves of a card like Mornsong Aria ("Players can't draw cards or gain
+	// life") take the same shape -- one static read, one prevented Note.
+	if ev.Kind == events.Draw && e.drawForbidden(ev.Player) {
+		return e.emit(events.Event{Kind: events.Note, Player: ev.Player, Text: "prevented: cannot draw cards"}), true
+	}
 	// Positive LifeChange is a gain; it never carries a repl:DamageDone
 	// match (that class names a Damage event only), so it routes straight
 	// to the life replacement machinery.
@@ -111,7 +122,7 @@ func (e *Engine) applyReplacements(ev events.Event) (events.Event, bool) {
 // corpus, all 23 printed lines spell <N> or X) fails closed to no match --
 // the conservative direction for a counter put.
 func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
-	param, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst")
+	param, ok := e.derivedKeywordParamH(ev.Obj, kwhBloodthirst)
 	if !ok {
 		return nil
 	}
@@ -167,7 +178,7 @@ func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
 // gate, widened to cover sunburst's cast faces). An inline Count body keeps
 // this a one-line body with no SVar minted on the face.
 func (e *Engine) sunburstEntryMatch(ev events.Event) *replMatch {
-	if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); !ok {
+	if _, ok := e.derivedKeywordParamH(ev.Obj, kwhSunburst); !ok {
 		return nil
 	}
 	o := e.G.Obj(ev.Obj)
@@ -1595,11 +1606,14 @@ func (e *Engine) seedEffectReplCtx(ctx *effects.Ctx, m replMatch) {
 	if src, ts, ok := parseEffectKey(m.key); ok {
 		ctx.EffectFrame = effects.EffectFrame{Source: src, Stamp: ts}
 	}
-	if m.key == "" || len(m.remembered) == 0 {
+	if m.key == "" || (len(m.remembered) == 0 && len(m.rememberedPlayers) == 0) {
 		return
 	}
 	for _, id := range m.remembered {
 		ctx.Remembered = append(ctx.Remembered, state.Target{Obj: id})
+	}
+	for _, player := range m.rememberedPlayers {
+		ctx.Remembered = append(ctx.Remembered, state.Target{Player: player, IsPlayer: true})
 	}
 }
 
@@ -1665,6 +1679,7 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 	savedRepl, savedEvent, savedSource, savedAction, savedPlayer :=
 		e.replReplaced, e.replacingEvent, e.replacingSource, e.replAction, e.replReplacedPlayer
 	savedReplCards := e.replReplacedCards
+	savedRemembered := e.replRemembered
 	savedApplying := e.applyingReplacement
 	e.applyingReplacement = true
 	action := ""
@@ -1675,13 +1690,20 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 		replaced, ev, ctx.Source, action, ctx.ReplacedPlayer
 	if ctx != nil {
 		e.replReplacedCards = append([]state.ObjID(nil), ctx.ReplacedCards...)
+		// The body's own remembered binding is what a VarValue$ Remembered
+		// Affected rewrite resolves against. Each body owns its backing array:
+		// a nested runReplaceWith must not overwrite the saved outer body's
+		// referents through a shared slice.
+		e.replRemembered = append([]state.Target(nil), ctx.Remembered...)
 	} else {
 		e.replReplacedCards = nil
+		e.replRemembered = nil
 	}
 	e.resolveReplacementBody(ctx, with)
 	e.replReplaced, e.replacingEvent, e.replacingSource, e.replAction, e.replReplacedPlayer =
 		savedRepl, savedEvent, savedSource, savedAction, savedPlayer
 	e.replReplacedCards = savedReplCards
+	e.replRemembered = savedRemembered
 	e.applyingReplacement = savedApplying
 }
 
@@ -4335,7 +4357,7 @@ func (e *Engine) commandReplZoneAdmits(r cards.Repl, source state.ObjID) bool {
 	if o == nil || o.Zone != state.ZCommand {
 		return true
 	}
-	active, ok := r.Params["ActiveZones"]
+	active, ok := r.Param(cards.PKActiveZones)
 	return ok && zoneSpecContains(active, state.ZCommand)
 }
 
@@ -4365,7 +4387,7 @@ func (e *Engine) activeZonesGateOK(r cards.Repl, source state.ObjID, ev events.E
 	if !e.commandReplZoneAdmits(r, source) {
 		return false
 	}
-	if active, ok := r.Params["ActiveZones"]; ok {
+	if active, ok := r.Param(cards.PKActiveZones); ok {
 		o := e.G.Obj(source)
 		currentlyActive := o != nil && zoneSpecContains(active, o.Zone)
 		enteringActive := ev.Kind == events.MoveZone && source == ev.Obj &&
@@ -4475,18 +4497,18 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		}
 		// Discard$ True narrows a Moved replacement to a discard. EffectOnly$
 		// excludes cost and cleanup discards; ValidCause$ names its cause.
-		if r.Params["Discard"] == "True" {
+		if r.ParamStr(cards.PKDiscard) == "True" {
 			if !events.IsDiscard(ev) {
 				return false
 			}
-			if r.Params["EffectOnly"] == "True" && (events.IsDiscardCost(ev) || e.actionCause() == 0) {
+			if r.ParamStr(cards.PKEffectOnly) == "True" && (events.IsDiscardCost(ev) || e.actionCause() == 0) {
 				return false
 			}
-			if spec := r.Params["ValidCause"]; spec != "" && !e.discardCauseAdmits(spec, source, ev) {
+			if spec := r.ParamStr(cards.PKValidCause); spec != "" && !e.discardCauseAdmits(spec, source, ev) {
 				return false
 			}
 		}
-		if o, ok := r.Params["Origin"]; ok && o != "Any" && effects.ParseZone(o) != ev.From {
+		if o, ok := r.Param(cards.PKOrigin); ok && o != "Any" && effects.ParseZone(o) != ev.From {
 			return false
 		}
 		// A creature's "would die" replacement is about a permanent moving
@@ -4495,12 +4517,12 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// scripts commonly encode this with a creature ValidLKI and a graveyard
 		// destination but omit Origin$; keep that shape from matching non-BF
 		// moves while leaving explicit from-anywhere replacements alone.
-		if _, hasOrigin := r.Params["Origin"]; !hasOrigin && ev.To == state.ZGraveyard {
-			if validLKI := r.Params["ValidLKI"]; strings.HasPrefix(validLKI, "Creature.") && ev.From != state.ZBattlefield {
+		if hasOrigin := r.HasParam(cards.PKOrigin); !hasOrigin && ev.To == state.ZGraveyard {
+			if validLKI := r.ParamStr(cards.PKValidLKI); strings.HasPrefix(validLKI, "Creature.") && ev.From != state.ZBattlefield {
 				return false
 			}
 		}
-		if d, ok := r.Params["Destination"]; ok && d != "Any" && effects.ParseZone(d) != ev.To {
+		if d, ok := r.Param(cards.PKDestination); ok && d != "Any" && effects.ParseZone(d) != ev.To {
 			return false
 		}
 		// FoundSearchingLibrary$ True (Opposition Agent's "While an opponent
@@ -4509,13 +4531,13 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// host scopes that fact (BeginLibrarySearch/EndLibrarySearch around
 		// effects' applyLibrarySearch); with no search in flight, or with the
 		// repl's own controller the one searching, the replacement is inert.
-		if raw, ok := r.Params["FoundSearchingLibrary"]; ok &&
+		if raw, ok := r.Param(cards.PKFoundSearchingLibrary); ok &&
 			strings.EqualFold(strings.TrimSpace(raw), "True") {
 			if e.searchingBy == 0 || e.controllerOf(source) == e.searchingBy {
 				return false
 			}
 		}
-		if v, ok := r.Params["ValidCard"]; ok {
+		if v, ok := r.Param(cards.PKValidCard); ok {
 			// The bare wasCastFromYourHandByYou qualifier (epochrasite's
 			// etbCounter gate field `ValidCard$ Card.Self+
 			// !wasCastFromYourHandByYou`: "enters with three +1/+1 counters on
@@ -5046,6 +5068,48 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
+	case "GameLoss", "GameWin":
+		// The "you can't lose the game" / "your opponents can't win the
+		// game" class (CR 104.3 / 704.5a-c, task fdn-repl-cant-lose). Only
+		// the SYNTHETIC proposal reaches here (Engine.gameLossPrevented /
+		// gameWinPrevented pose it with the affected player and, for a loss,
+		// the Forge lose reason in ev.Text): the event log has no GameLoss or
+		// GameWin event, so replacementEvent deliberately maps none and
+		// applyReplacements never routes one. Requiring the matching event
+		// kind keeps a stray face line from matching a real PlayerLost or
+		// GameOver log event through some future route. ValidLoseReason$ is
+		// Forge's reason discriminator (life/poison/commander/mill/effect): an
+		// ABSENT reason applies to every cause, a PRESENT one only to its own
+		// (Lich's Tomb's "don't lose for having 0 or less life" must not stop
+		// a deck-out), so an unknown reason fails closed. The shared condition
+		// gate below carries IsPresent$ (Pact Weapon's attach rider) and
+		// CheckSVar$ (Platinum Angel Avatar's four-type gate, which fails
+		// closed until those SVars resolve).
+		//
+		// The Layer$ CantHappen requirement is the class's whole meaning (a
+		// GameLoss line with a ReplaceWith$ body -- Lich's Mirror, Exquisite
+		// Archangel -- is the out-of-scope Lich family, never a "can't").
+		// gameEventCantHappen already pre-filters on it; repeating it here
+		// keeps this matcher self-consistent for any future caller.
+		if !strings.EqualFold(strings.TrimSpace(r.Params["Layer"]), "CantHappen") {
+			return false
+		}
+		if r.Event == "GameLoss" {
+			if ev.Kind != events.PlayerLost {
+				return false
+			}
+			if reason, ok := r.Params["ValidLoseReason"]; ok &&
+				!strings.EqualFold(strings.TrimSpace(reason), ev.Text) {
+				return false
+			}
+		} else if ev.Kind != events.GameOver {
+			return false
+		}
+		if vp, ok := r.Params["ValidPlayer"]; ok &&
+			!effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
+			return false
+		}
+		return e.replacementConditionHolds(r, source, you)
 	}
 	return false
 }
@@ -5399,6 +5463,25 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 		if target := e.G.Obj(ev.Obj); target != nil {
 			ev.Obj, ev.Player = 0, target.Controller
 		}
+	case "Remembered":
+		// Infer the destination kind from the captured GameEntity, rather than
+		// parsing VarType$. Remembered permanents must still be on the
+		// battlefield; remembered players are valid damage recipients while
+		// they remain in the game. With no live referent the held event is
+		// unchanged (fail closed).
+		for _, target := range e.replRemembered {
+			if target.IsPlayer {
+				if int(target.Player) < len(e.G.Players) && !e.G.Players[target.Player].Lost {
+					ev.Obj, ev.Player = 0, target.Player
+					break
+				}
+				continue
+			}
+			if obj := e.G.Obj(target.Obj); target.Obj != 0 && obj != nil && obj.Zone == state.ZBattlefield {
+				ev.Obj, ev.Player = target.Obj, 0
+				break
+			}
+		}
 	}
 	// CR 702.90b: the infect marker on a Damage event encodes the FORM the
 	// damage is dealt in, and the form depends on the RECIPIENT. A redirect
@@ -5565,6 +5648,16 @@ func (e *Engine) MetalcraftHolds(controller state.PlayerID) bool {
 	return e.metalcraftHolds(controller)
 }
 
+// thresholdHolds is the ONE census for the Threshold ability word's
+// "seven or more cards in your graveyard" clause, shared by the trigger-side
+// gate (triggerConditionHoldsWithSVars' Threshold$ clause) and the Continuous
+// static gate (layers.go continuousConditionHolds' Condition$ Threshold arm),
+// so the two spellings cannot drift apart. The count is every card in the
+// controller's graveyard zone; an out-of-range controller has no graveyard.
+func (e *Engine) thresholdHolds(controller state.PlayerID) bool {
+	return len(e.G.Zone(state.ZGraveyard, controller)) >= 7
+}
+
 func (e *Engine) graveyardCardTypeCount(controller state.PlayerID) int {
 	seen := map[string]bool{}
 	for _, id := range e.G.Zone(state.ZGraveyard, controller) {
@@ -5643,7 +5736,7 @@ func (e *Engine) replacementCauseMatches(spec string, replacementSource, cause s
 		if o.Source == 0 {
 			return false
 		}
-		return e.HasKeyword(o.Source, "Modular")
+		return e.hasKeywordH(o.Source, kwhModular)
 	}
 	return false
 }
@@ -6184,7 +6277,7 @@ func (e *Engine) poseDamageReplacementChoice(ev events.Event, matches []replMatc
 	e.replChoices = append(e.replChoices, replChoice{
 		kind: replChoiceDamage, ev: ev, cands: matches, before: e.triggerBefore, player: p,
 		damaging: source, combat: e.combatDamaging,
-		lifelink: e.HasKeyword(source, "Lifelink"), deadly: e.HasKeyword(source, "Deathtouch"),
+		lifelink: e.hasKeywordH(source, kwhLifelink), deadly: e.hasKeywordH(source, kwhDeathtouch),
 		toxic: e.ToxicValue(source),
 	})
 	if e.pending == nil {
@@ -7458,6 +7551,34 @@ func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 	return false
 }
 
+// drawForbidden checks active CantDraw statics against the player who would
+// draw a card (CR 121.6). It is lifeGainForbidden's sibling: the same
+// battlefield-static collector, the same ValidPlayer$ scope read in the
+// static's own parameter bucket, consulted by the same replacement pass.
+//
+// One parameter is deliberately not read: DrawLimit$ N ("each opponent can't
+// draw more than one card each turn", Leovold / Narset, Parter of Veils /
+// Spirit of the Labyrinth -- 3 of the class's 7 corpus carriers) is a per-turn
+// COUNT CAP, not a total prohibition: the draws at or below N still happen,
+// so enforcing it as "cannot draw at all" would over-block. The unread shape
+// is skipped in the permissive direction, matching every other unwhitelisted
+// static parameter in this file (see cantRestrictionParamsReadable): a
+// static carrying it prohibits nothing this build enforces, rather than
+// prohibiting everything.
+func (e *Engine) drawForbidden(p state.PlayerID) bool {
+	for _, sv := range e.activeStatics("CantDraw") {
+		if spec := sv.Params["ValidPlayer"]; spec != "" &&
+			!effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
+			continue
+		}
+		if _, hasLimit := sv.Params["DrawLimit"]; hasLimit {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 func replacementActive(e *Engine, source state.ObjID, r *cards.Repl) bool {
 	if !e.commandReplZoneAdmits(*r, source) {
 		return false
@@ -7521,6 +7642,13 @@ func init() {
 		"repl:GainLife", "repl:LifeReduced", "repl:DamageDone", "repl:Counter",
 		"repl:CreateToken", "repl:RollPlanarDice", "repl:Explore", "repl:Attached", "repl:Scry", "api:ReplaceToken",
 		"repl:AddCounter", "api:ReplaceCounter",
+		// repl:GameLoss / repl:GameWin (task fdn-repl-cant-lose) are the
+		// "you can't lose the game" / "your opponents can't win the game"
+		// CantHappen class (Herald of Eternal Dawn, the Platinum Angel family,
+		// Abyssal Persecutor, Lich's Mastery). Matching and application live in
+		// rules/cantlose.go; this registration is what makes the coverage
+		// ratchet see the heads as supported.
+		"repl:GameLoss", "repl:GameWin",
 		// repl:TurnFaceUp (task cli-20260924T031747Z-6d0658fc) is the "as this
 		// is turned face up" class (Hooded Hydra's five +1/+1 counters, Karlov
 		// Watchdog's CantHappen, Gift of Doom's attach), matched by

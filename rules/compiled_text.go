@@ -63,6 +63,7 @@ type compiledTextConfig struct {
 }
 
 type compiledTextCacheEntry struct {
+	key    *cards.Card
 	config compiledTextConfig
 	text   *compiledText
 }
@@ -73,16 +74,17 @@ type compiledTextCacheEntry struct {
 // decks every game) grew it without bound -- measured 2026-09-27 at 3-4 GB per
 // fuzz run before the process hit its memory cap. A server's tables reuse a
 // handful of deck configurations, and a game's replay reuses its own, so a
-// small bound keeps every real hit. Dropped wholesale on overflow, like
-// landTypeWordsCache: an eviction only costs a recompile, and the text is
+// small bound keeps every real hit. On overflow, the oldest inserted entry
+// is evicted (FIFO): an eviction only costs a recompile, and the text is
 // immutable, so it can never reach an event.
 const compiledTextCacheLimit = 64
 
 var compiledTextCache = struct {
 	sync.Mutex
-	entries map[*cards.Card][]compiledTextCacheEntry
+	entries map[*cards.Card][]*compiledTextCacheEntry
+	order   []*compiledTextCacheEntry
 	n       int
-}{entries: make(map[*cards.Card][]compiledTextCacheEntry)}
+}{entries: make(map[*cards.Card][]*compiledTextCacheEntry)}
 
 func newCompiledText(cfg Config) *compiledText {
 	key := firstConfiguredCard(cfg)
@@ -96,13 +98,26 @@ func newCompiledText(cfg Config) *compiledText {
 	config := snapshotCompiledTextConfig(cfg)
 	text := buildCompiledText(cfg)
 	if compiledTextCache.n >= compiledTextCacheLimit {
-		compiledTextCache.entries = make(map[*cards.Card][]compiledTextCacheEntry)
-		compiledTextCache.n = 0
+		oldest := compiledTextCache.order[0]
+		compiledTextCache.order[0] = nil
+		compiledTextCache.order = compiledTextCache.order[1:]
+		bucket := compiledTextCache.entries[oldest.key]
+		for i, entry := range bucket {
+			if entry == oldest {
+				bucket = append(bucket[:i], bucket[i+1:]...)
+				break
+			}
+		}
+		if len(bucket) == 0 {
+			delete(compiledTextCache.entries, oldest.key)
+		} else {
+			compiledTextCache.entries[oldest.key] = bucket
+		}
+		compiledTextCache.n--
 	}
-	compiledTextCache.entries[key] = append(compiledTextCache.entries[key], compiledTextCacheEntry{
-		config: config,
-		text:   text,
-	})
+	entry := &compiledTextCacheEntry{key: key, config: config, text: text}
+	compiledTextCache.entries[key] = append(compiledTextCache.entries[key], entry)
+	compiledTextCache.order = append(compiledTextCache.order, entry)
 	compiledTextCache.n++
 	return text
 }
@@ -154,10 +169,82 @@ func (c compiledTextConfig) matchesConfig(cfg Config) bool {
 	return true
 }
 
-func buildCompiledText(cfg Config) *compiledText {
+// cardText is one card's contribution to a compiledText, compiled once per
+// card and hung on the card (cards.Card.CompiledSlot): every non-empty
+// parameter value (the predicate candidates), every cost text, and every
+// ability reachable from its faces. shape records the face lists it was
+// computed over, so a card whose lists were replaced or grown since is
+// recomputed rather than read stale.
+type cardText struct {
+	shape []cardTextShape
+	texts []string
+	costs []string
+	sas   []*cards.SA
+}
+
+type cardTextShape struct {
+	face                                *cards.Face
+	manaCost                            string
+	abilities, triggers, statics, repls int
+}
+
+func cardTextShapeOf(c *cards.Card) []cardTextShape {
+	out := make([]cardTextShape, 0, len(c.Faces))
+	for _, f := range c.Faces {
+		if f == nil {
+			out = append(out, cardTextShape{})
+			continue
+		}
+		out = append(out, cardTextShape{face: f, manaCost: f.ManaCost, abilities: len(f.Abilities),
+			triggers: len(f.Triggers), statics: len(f.Statics), repls: len(f.Repls)})
+	}
+	return out
+}
+
+func (ct *cardText) matches(c *cards.Card) bool {
+	if len(ct.shape) != len(c.Faces) {
+		return false
+	}
+	for i, f := range c.Faces {
+		sh := ct.shape[i]
+		if f == nil {
+			if sh.face != nil {
+				return false
+			}
+			continue
+		}
+		if sh.face != f || sh.manaCost != f.ManaCost || sh.abilities != len(f.Abilities) ||
+			sh.triggers != len(f.Triggers) || sh.statics != len(f.Statics) || sh.repls != len(f.Repls) {
+			return false
+		}
+	}
+	return true
+}
+
+// cardTextOf is c's compiled contribution, from its slot when current.
+func cardTextOf(c *cards.Card) *cardText {
+	slot := c.CompiledSlot()
+	if v, ok := slot.Load(""); ok {
+		if ct := v.(*cardText); ct.matches(c) {
+			return ct
+		}
+		return buildCardText(c)
+	}
+	ct := buildCardText(c)
+	if slot == nil {
+		return ct
+	}
+	if got := slot.Store("", ct).(*cardText); got.matches(c) {
+		return got
+	}
+	return ct
+}
+
+func buildCardText(c *cards.Card) *cardText {
 	predicateTexts := make(map[string]struct{})
 	costTexts := make(map[string]struct{})
 	seen := make(map[*cards.SA]struct{})
+	ct := &cardText{shape: cardTextShapeOf(c)}
 	addParams := func(params map[string]string) {}
 	var addAbility func(*cards.SA)
 	addAbility = func(sa *cards.SA) {
@@ -168,6 +255,7 @@ func buildCompiledText(cfg Config) *compiledText {
 			return
 		}
 		seen[sa] = struct{}{}
+		ct.sas = append(ct.sas, sa)
 		addParams(sa.Params)
 		addAbility(sa.Sub)
 	}
@@ -187,31 +275,65 @@ func buildCompiledText(cfg Config) *compiledText {
 			}
 		}
 	}
+	for _, f := range c.Faces {
+		if f == nil {
+			continue
+		}
+		if f.ManaCost != "" {
+			costTexts[f.ManaCost] = struct{}{}
+		}
+		for _, sa := range f.Abilities {
+			addAbility(sa)
+		}
+		for _, tr := range f.Triggers {
+			addParams(tr.Params)
+			addAbility(tr.Effect)
+		}
+		for _, st := range f.Statics {
+			addParams(st.Params)
+		}
+		for _, rp := range f.Repls {
+			addParams(rp.Params)
+			addAbility(rp.With)
+		}
+	}
+	for text := range predicateTexts {
+		ct.texts = append(ct.texts, text)
+	}
+	sort.Strings(ct.texts)
+	for text := range costTexts {
+		ct.costs = append(ct.costs, text)
+	}
+	sort.Strings(ct.costs)
+	return ct
+}
+
+func buildCompiledText(cfg Config) *compiledText {
+	predicateTexts := make(map[string]struct{})
+	costTexts := make(map[string]struct{})
+	seen := make(map[*cards.SA]struct{})
+	cardsSeen := make(map[*cards.Card]struct{})
+	// Each card's contribution is compiled once (cardTextOf); a config is
+	// the union of its cards', so repeat configurations -- and the token
+	// scripts every configuration shares -- cost a merge, not a re-walk of
+	// every parameter map.
 	addCard := func(c *cards.Card) {
 		if c == nil {
 			return
 		}
-		for _, f := range c.Faces {
-			if f == nil {
-				continue
-			}
-			if f.ManaCost != "" {
-				costTexts[f.ManaCost] = struct{}{}
-			}
-			for _, sa := range f.Abilities {
-				addAbility(sa)
-			}
-			for _, tr := range f.Triggers {
-				addParams(tr.Params)
-				addAbility(tr.Effect)
-			}
-			for _, st := range f.Statics {
-				addParams(st.Params)
-			}
-			for _, rp := range f.Repls {
-				addParams(rp.Params)
-				addAbility(rp.With)
-			}
+		if _, ok := cardsSeen[c]; ok {
+			return
+		}
+		cardsSeen[c] = struct{}{}
+		ct := cardTextOf(c)
+		for _, text := range ct.texts {
+			predicateTexts[text] = struct{}{}
+		}
+		for _, text := range ct.costs {
+			costTexts[text] = struct{}{}
+		}
+		for _, sa := range ct.sas {
+			seen[sa] = struct{}{}
 		}
 	}
 	for _, deck := range cfg.Decks {
@@ -281,6 +403,7 @@ func freezeCost(c Cost) Cost {
 	c.Energy = c.Energy[:len(c.Energy):len(c.Energy)]
 	c.LifeX = c.LifeX[:len(c.LifeX):len(c.LifeX)]
 	c.DamageYou = c.DamageYou[:len(c.DamageYou):len(c.DamageYou)]
+	c.GainLife = c.GainLife[:len(c.GainLife):len(c.GainLife)]
 	c.Return = c.Return[:len(c.Return):len(c.Return)]
 	c.PutToLib = c.PutToLib[:len(c.PutToLib):len(c.PutToLib)]
 	c.MoveToGrave = c.MoveToGrave[:len(c.MoveToGrave):len(c.MoveToGrave)]
@@ -295,6 +418,27 @@ func (e *Engine) parseCost(raw string) Cost {
 		}
 	}
 	return ParseCost(raw)
+}
+
+// faceCost is parseCost(f.ManaCost) through the face's ManaCost slot: the
+// compiled cost (the configured frozen parse, or a fresh one for a face
+// outside the configured set -- the same content) is hung on the face at
+// first use, so later reads follow a pointer instead of hashing the text.
+// Like parseCost it hands out a value copy.
+func (e *Engine) faceCost(f *cards.Face) Cost {
+	return e.faceCompiledCost(f).Cost
+}
+
+func (e *Engine) faceCompiledCost(f *cards.Face) *compiledCost {
+	slot := f.ManaCostSlot()
+	if v, ok := slot.Load(f.ManaCost); ok {
+		return v.(*compiledCost)
+	}
+	c := e.compiledCostOf(f.ManaCost)
+	if slot == nil {
+		return c
+	}
+	return slot.Store(f.ManaCost, c).(*compiledCost)
 }
 
 // freeCost is the parse of an empty cost text, shared read-only by costRef.

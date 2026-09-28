@@ -18,6 +18,10 @@ type epochPosition struct {
 	Index int
 	Name  string
 	Ref   uint32
+	// Unseen marks a draw whose object was first seen by the observer in the
+	// same burst as the draw itself: the sampled world must fill this
+	// position with a card its own observer has not introduced yet.
+	Unseen bool
 }
 
 type epochConstraints struct {
@@ -33,6 +37,13 @@ type epochCursor struct {
 	reliable bool
 	order    []int // remaining library positions in the epoch's original shuffle
 	arrange  *epochArrange
+	// pendingPlacement records a LibraryOrder whose order may yet be erased
+	// by an immediately following Shuffle of the same library. Such a
+	// placement leaks nothing (CR 701.20 destroys the order) and must not
+	// unguide the pre-shuffle epoch; the flag is cleared by the erasing
+	// shuffle, or resolved conservatively by the next event that touches
+	// that library first.
+	pendingPlacement bool
 }
 
 type epochArrange struct {
@@ -75,6 +86,10 @@ func compileEpochs(h History) (map[epochKey]epochConstraints, error) {
 			cursor := cursors[ev.Player]
 			switch ev.Kind {
 			case events.Shuffle:
+				// This is the eraser for a placement this player's library
+				// just received: the order is destroyed without ever being
+				// observed, so the pre-shuffle epoch stays guided.
+				cursor.pendingPlacement = false
 				cursor.ordinal++
 				cursor.draws = 0
 				cursor.reliable = true
@@ -83,6 +98,14 @@ func compileEpochs(h History) (map[epochKey]epochConstraints, error) {
 				ensureEpoch(epochs, epochKey{Player: ev.Player, Ordinal: cursor.ordinal - 1})
 				continue
 			case events.Draw:
+				// A draw observes the library before any shuffle erases a
+				// pending placement: break the pairing and fall back to
+				// today's conservative result.
+				if cursor.pendingPlacement {
+					addLibraryOrderUnguided(epochs, cursor, ev.Player)
+					cursor.reliable = false
+					cursor.pendingPlacement = false
+				}
 				if ev.Player == h.Actor && ev.Obj != 0 && names[ev.Obj] == "" {
 					return nil, fail("contradictory", "draw identity %d has no card name", ev.Obj)
 				}
@@ -97,6 +120,11 @@ func compileEpochs(h History) (map[epochKey]epochConstraints, error) {
 					if _, firstSeen := introduced[ev.Obj]; !firstSeen {
 						position.Ref = ev.Obj
 					}
+					// A drawn object that the observer had not introduced before
+					// this burst must stay a first introduction in the sampled
+					// world too: such positions require a physical card its own
+					// observer has not yet introduced.
+					position.Unseen = position.Ref == 0
 					if err := addEpochPosition(&ep, position); err != nil {
 						return nil, err
 					}
@@ -134,20 +162,25 @@ func compileEpochs(h History) (map[epochKey]epochConstraints, error) {
 			}
 
 			if ev.Kind == events.LibraryOrder {
+				// A second placement before the first is shuffled away means
+				// the earlier order was overwritten, not erased: break the
+				// pairing conservatively.
+				if cursor.pendingPlacement {
+					addLibraryOrderUnguided(epochs, cursor, ev.Player)
+					cursor.reliable = false
+					cursor.pendingPlacement = false
+				}
 				if cursor.reliable && ev.Player == h.Actor && cursor.arrange != nil && cursor.arrange.frame == frameIndex {
 					cursor.order = cursor.arrange.order
 					cursor.arrange = nil
 					cursors[ev.Player] = cursor
 					continue
 				}
-				if cursor.ordinal > 0 {
-					key := epochKey{Player: ev.Player, Ordinal: cursor.ordinal - 1}
-					ep := epochs[key]
-					addUnguided(&ep, "library_order")
-					epochs[key] = ep
-				}
-				cursor.reliable = false
+				// Defer: a Shuffle of this same library immediately after
+				// erases the order and leaves the epoch guided. An unpaired
+				// placement is resolved at the end of the history.
 				cursor.arrange = nil
+				cursor.pendingPlacement = true
 				cursors[ev.Player] = cursor
 			}
 			if ev.Kind == events.MoveZone && (ev.From == state.ZLibrary || ev.To == state.ZLibrary) {
@@ -157,6 +190,11 @@ func compileEpochs(h History) (map[epochKey]epochConstraints, error) {
 				for player, affected := range cursors {
 					if known && player != owner {
 						continue
+					}
+					if affected.pendingPlacement {
+						addLibraryOrderUnguided(epochs, affected, player)
+						affected.reliable = false
+						affected.pendingPlacement = false
 					}
 					if affected.ordinal > 0 {
 						key := epochKey{Player: player, Ordinal: affected.ordinal - 1}
@@ -203,7 +241,29 @@ func compileEpochs(h History) (map[epochKey]epochConstraints, error) {
 			epochs[key] = ep
 		}
 	}
+	// An unresolved placement -- a LibraryOrder with no following Shuffle of
+	// the same library anywhere in the history -- keeps the old conservative
+	// result: the order stayed observable, so the pre-shuffle epoch is
+	// unguided. A pairing that crossed a frame boundary was already consumed
+	// by the Shuffle event, which clears the flag.
+	for player, cursor := range cursors {
+		if cursor.pendingPlacement {
+			addLibraryOrderUnguided(epochs, cursor, player)
+		}
+	}
 	return epochs, nil
+}
+
+// addLibraryOrderUnguided records the pre-shuffle epoch's positional loss when
+// a LibraryOrder's order was never erased by a shuffle of the same library.
+func addLibraryOrderUnguided(epochs map[epochKey]epochConstraints, cursor epochCursor, player state.PlayerID) {
+	if cursor.ordinal <= 0 {
+		return
+	}
+	key := epochKey{Player: player, Ordinal: cursor.ordinal - 1}
+	ep := epochs[key]
+	addUnguided(&ep, "library_order")
+	epochs[key] = ep
 }
 
 // The owned board supplies only the public library size. Semantic actor

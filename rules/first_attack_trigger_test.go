@@ -47,6 +47,7 @@ func firstAttackFire(t *testing.T, e *Engine, src, bear state.ObjID) {
 // next turn's first attack fires again. Before the gate existed the trigger
 // fired on EVERY DeclareAttackers, the loop the ap1 reporter measured.
 func TestAureliaFirstAttackFiresOncePerTurn(t *testing.T) {
+	t.Parallel()
 	e, src, bear := firstAttackFixture(t, "Aurelia, the Warleader", "a/aurelia_the_warleader.txt")
 	firstAttackFire(t, e, src, bear)
 
@@ -109,6 +110,7 @@ func answerTriggerOrders(t *testing.T, e *Engine) {
 // scope), so the fire/silence assertions pin on the queued FirstAttack SA
 // itself, not on the untap -- Fear's Untap execution needs a target ask.
 func TestFirstAttackFiresOncePerTurnGodoAndScourge(t *testing.T) {
+	t.Parallel()
 	carriers := []struct {
 		name string
 		path string
@@ -161,6 +163,7 @@ func TestFirstAttackFiresOncePerTurnGodoAndScourge(t *testing.T) {
 // event where the source attacks alongside others still fires, because each
 // attacker's count is 1 after the fold.
 func TestFirstAttackSecondAttackerInSameEventStillFires(t *testing.T) {
+	t.Parallel()
 	e, src, bear := firstAttackFixture(t, "Aurelia, the Warleader", "a/aurelia_the_warleader.txt")
 	fox := onBoardReady(t, e, 0, "Name:Fox\nManaCost:1 W\nTypes:Creature Fox\nPT:2/2\nOracle:x\n")
 	e.G.Obj(bear).Tapped = true
@@ -189,6 +192,7 @@ func TestFirstAttackSecondAttackerInSameEventStillFires(t *testing.T) {
 // the queued triggers and resolution must be byte-identical, the
 // TestAttackersDeclaredReplaysExactly precedent.
 func TestFirstAttackReplaysExactly(t *testing.T) {
+	t.Parallel()
 	card := mshCorpusCardPath(t, "Aurelia, the Warleader", "a/aurelia_the_warleader.txt")
 	e := combatEngine(t)
 	src := onBoardCard(t, e, 0, card)
@@ -216,6 +220,7 @@ func TestFirstAttackReplaysExactly(t *testing.T) {
 // only possible match), so pinned synthetically on a non-Self spec via
 // ParseBytes (no fixture file on disk).
 func TestFirstAttackLoopContinuesPastANonFirstMatch(t *testing.T) {
+	t.Parallel()
 	c, ds := cards.ParseBytes("first_attack_observer.txt", []byte(
 		"Name:FirstAttackObserver\nManaCost:2 W\nTypes:Creature Angel\nPT:4/4\nOracle:x\n"+
 			"T:Mode$ Attacks | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ TrigUntap | FirstAttack$ True | TriggerDescription$ Whenever a creature attacks for the first time each turn, untap all creatures you control.\n"+

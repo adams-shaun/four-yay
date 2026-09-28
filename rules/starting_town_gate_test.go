@@ -38,6 +38,7 @@ Oracle:x
 // independent game through the real play_land path; TurnsTaken is folded
 // from TurnChange events, so driving real turns exercises the whole gate.
 func TestStartingTownEntersUntappedFirstThreeTurns(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		seatTurn int // the controller's Nth turn of the game
 		gameTurn int32

@@ -47,6 +47,7 @@ func mistformMove(t *testing.T, e *Engine, id state.ObjID, to state.Zone) {
 }
 
 func TestMistformUltimusIsEveryCreatureTypeInEveryZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Mistform Ultimus")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Mistform Ultimus", state.ZHand)
@@ -91,6 +92,7 @@ func TestMistformUltimusIsEveryCreatureTypeInEveryZone(t *testing.T) {
 }
 
 func TestMistformAllCreatureTypesCDAIsNotAGrant(t *testing.T) {
+	t.Parallel()
 	// The Card.Self gate: Maskwood Nexus's AddAllCreatureTypes$ True is an
 	// Affected$ Creature.YouCtrl GRANT handled by the layer walk, not an
 	// intrinsic CDA. With the Nexus off the battlefield its grant must reach

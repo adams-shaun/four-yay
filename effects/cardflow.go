@@ -67,7 +67,7 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 	g := h.Game()
 	lib := zoneOf(g, state.ZLibrary, p)
 	if len(lib) == 0 {
-		h.Emit(events.Event{Kind: events.PlayerLost, Player: p, Text: "drew from an empty library"})
+		h.EmitPlayerLost(p, "Milled", "drew from an empty library")
 		return
 	}
 	// A DrawFor reached while the resolution is already suspended: a caller
@@ -1252,10 +1252,11 @@ func rememberMilled(h Host, c *Ctx, id state.ObjID) {
 //     (view/cardViews) admits exactly that player. Absent the param the
 //     marker is unchanged, so every non-maylook Dig emits byte-identically.
 //
-// Still unread here: RestRandomOrder$ (the bottom pile returns in the
-// answered/offered order, never shuffled) and the exotic DestinationZone2
-// values (PlanarDeck). The primary optional election, primary
-// LibraryPosition$, Choser$ and DigNum$ X are handled by this walk.
+// RestRandomOrder$ True (the bottom pile returns shuffled from the engine's
+// seeded generator, with no ask) is read below. Still unread here: the
+// exotic DestinationZone2 values (PlanarDeck). The primary optional
+// election, primary LibraryPosition$, Choser$ and DigNum$ X are handled by
+// this walk.
 func effDig(h Host, c *Ctx, sa *cards.SA) {
 	digNum := Num(h, c, sa, "DigNum", 1)
 	// Forge's DigNum$ X names the resolving X value when one was paid, but
@@ -1338,14 +1339,30 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	dest2Name := strings.TrimSpace(sa.Params["DestinationZone2"])
 	pos2 := strings.TrimSpace(sa.Params["LibraryPosition2"])
 	// Forge's omitted second destination means bottom-of-library remainder.
+	// An EXPLICIT DestinationZone2$ Library with no LibraryPosition2$ is the
+	// same bottom default: the corpus's older single-position spelling writes
+	// `LibraryPosition$ -1` (Squad Rallier, Keldon Flamesage, Kaalia,
+	// Winota -- 26 files) and leaves LibraryPosition2$ unset, so without this
+	// fallback the remainder stayed on top. Only "-1" (bottom) and "0" (top)
+	// appear in the corpus, so a library second destination with no explicit
+	// second position is always the bottom.
 	if dest2Name == "" {
 		dest2Name, pos2 = "Library", "-1"
+	} else if strings.EqualFold(dest2Name, "Library") && pos2 == "" {
+		pos2 = "-1"
 	}
 	// bottomRest says the remainder moves to the library bottom (the default,
 	// or an explicit Library + LibraryPosition2$ "-1"), so a no-choice tail
 	// with two or more untaken cards must record the look before the ordered
 	// bottom ask -- the same record the take-ask path makes before ITS ask.
 	bottomRest := !skipReorder && strings.EqualFold(strings.TrimSpace(dest2Name), "Library") && pos2 == "-1"
+	// RestRandomOrder$ True (task fdn-dig-rest-random-order): the remainder
+	// goes to the library bottom in a RANDOM order drawn from the engine's
+	// seeded generator, and the controller is NOT asked to order it -- the
+	// offered order is not even shown. Drivers: Squad Rallier, Loot,
+	// Exuberant Explorer (209 corpus scripts). Absent the param the walk is
+	// unchanged, so every pre-existing game replays byte-identically.
+	restRandomOrder := strings.EqualFold(strings.TrimSpace(sa.Params["RestRandomOrder"]), "True")
 	// fx42 scoping: capture and clear the answered pick BEFORE the target
 	// loop. DigTarget identifies the exact target that asked: earlier targets
 	// completed before suspension and must be skipped, that target consumes
@@ -1472,12 +1489,22 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				if len(ids) == 0 {
 					return false
 				}
+				// RestRandomOrder$ True: shuffle the remainder itself (the engine's
+				// seeded h.Rand, recorded as one LibraryOrder through
+				// moveRestToBottom) and pose NO ask -- the controller never chooses
+				// or sees the bottom order. A one-card remainder has exactly one
+				// order either way, so the shuffle is a no-op there (the helper
+				// skips it) and the same branch serves both counts.
+				if restRandomOrder {
+					moveRestToBottom(h, g, p, ids, true)
+					return false
+				}
 				// A one-card remainder has exactly one possible order, so no
 				// decision anybody could answer differently is posed -- the same
 				// rule the take ask's ChangeNum$ 0 gate applies. It moves to the
 				// bottom directly (skipped when it already sits there).
 				if len(ids) == 1 {
-					moveRestToBottom(h, g, p, ids)
+					moveRestToBottom(h, g, p, ids, false)
 					return false
 				}
 				// The ordered-bottom ask: Min == Max == len(ids), so the answer
@@ -1515,7 +1542,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				// R-9 no-host stand-in: the OFFERED order is the bottom order --
 				// the exact permutation botpolicy's clamp top-up answers, so the
 				// two deterministic readers cannot drift.
-				moveRestToBottom(h, g, p, ids)
+				moveRestToBottom(h, g, p, ids, false)
 				return false
 			}
 			for _, id := range ids {
@@ -1790,12 +1817,28 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 }
 
 // moveRestToBottom moves the untaken Dig window cards to the BOTTOM of
-// their owner's library in the given order, as one Secret events.LibraryOrder
-// carrying the complete reordered library (Ruling J1) -- the same single-event
-// record rules' handleArrange emits for an answered arrange, so a replay
-// re-derives the same order either way. The emit is skipped when the move
-// would change nothing (the cards already sit on the bottom).
-func moveRestToBottom(h Host, g *state.Game, p state.PlayerID, ids []state.ObjID) {
+// their owner's library, as one Secret events.LibraryOrder carrying the
+// complete reordered library (Ruling J1) -- the same single-event record
+// rules' handleArrange emits for an answered arrange, so a replay re-derives
+// the same order either way. The emit is skipped when the move would change
+// nothing (the cards already sit on the bottom).
+//
+// random selects the order: false keeps the caller's offered order, true
+// draws a FULL Fisher-Yates permutation from the engine's seeded generator
+// (h.Rand) -- the same idiom the RevealRandomOrder$ arm of effDigUntil uses,
+// so the order is replay-exact and no seat can influence it. RestRandomOrder$
+// True is the caller (task fdn-dig-rest-random-order); a one-card list has a
+// single possible order, so the shuffle leaves it untouched.
+func moveRestToBottom(h Host, g *state.Game, p state.PlayerID, ids []state.ObjID, random bool) {
+	if random && len(ids) > 1 {
+		// The shuffle mutates the caller's slice in place. Every caller passes
+		// a freshly built remainder, and the LibraryOrder below copies before
+		// Apply stores it, so no shared state aliases this ordering.
+		for i := len(ids) - 1; i > 0; i-- {
+			j := h.Rand(i + 1)
+			ids[i], ids[j] = ids[j], ids[i]
+		}
+	}
 	lib := zoneOf(g, state.ZLibrary, p)
 	if len(ids) > len(lib) {
 		return

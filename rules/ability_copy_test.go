@@ -244,6 +244,7 @@ func allStackCopies(e *Engine) []state.ObjID {
 // each). Before the fix this emitted 0 StackCopy events (the trigger's
 // Remembered named the battlefield permanent; the copy's zone guard no-oped).
 func TestUFActivationCopyResolvesTheAbility(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 140, unboundFlourishingSrc, changeXSifterSrc, plainSifterSrc)
 	uf := moveSeeded(t, e, 0, unboundFlourishingSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, changeXSifterSrc, state.ZBattlefield)
@@ -268,6 +269,7 @@ func TestUFActivationCopyResolvesTheAbility(t *testing.T) {
 // TestEnigmaJewelActivationCopyResolves is the second clean DB carrier on its
 // verbatim corpus lines: same shape, different card.
 func TestEnigmaJewelActivationCopyResolves(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 141, enigmaJewelAbilityCopySrc, changeXSifterSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, enigmaJewelAbilityCopySrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, changeXSifterSrc, state.ZBattlefield)
@@ -290,6 +292,7 @@ func TestEnigmaJewelActivationCopyResolves(t *testing.T) {
 // DECLINE the {2} pay ask -- no StackCopy, only the ability's own resolution
 // (one draw).
 func TestRingsCopyDeclineNeverCopies(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 142, ringsAbilityCopySrc, changeXSifterSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, ringsAbilityCopySrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, changeXSifterSrc, state.ZBattlefield)
@@ -310,6 +313,7 @@ func TestRingsCopyDeclineNeverCopies(t *testing.T) {
 // answered "pay" with the floating mana -- exactly one StackCopy and BOTH
 // resolutions' draws (ability 1 + copy 1).
 func TestRingsCopyPaidCopiesOnce(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 143, ringsAbilityCopySrc, changeXSifterSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, ringsAbilityCopySrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, changeXSifterSrc, state.ZBattlefield)
@@ -331,6 +335,7 @@ func TestRingsCopyPaidCopiesOnce(t *testing.T) {
 // Cost$ PayLife<X> copy execute (verbatim SVar) poses its pay ask but offers
 // NO answerable pay option -- one decline-only decision, no copy.
 func TestUnpriceableCopyCostIsHardDecline(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 144, verrakUnpriceableCopySrc, lifepaySifterSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, verrakUnpriceableCopySrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, lifepaySifterSrc, state.ZBattlefield)
@@ -359,6 +364,7 @@ func TestUnpriceableCopyCostIsHardDecline(t *testing.T) {
 // newer wrapper twice and draw 1+1+2+2's counterpart 7, and the pre-fix
 // engine copies nothing at all).
 func TestEachTriggerCopiesItsOwnActivation(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 145, unboundFlourishingSrc, taplessXSifterSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, unboundFlourishingSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, taplessXSifterSrc, state.ZBattlefield)
@@ -444,6 +450,7 @@ func poolTotal(m state.Mana) int {
 // trigger's OptionalDecider$ ask, then DECLINE the {3} pay ask -- no
 // StackCopy, only the spell's own resolution (one draw), pool untouched.
 func TestMirariCopySpellDeclineNeverCopies(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 146, mirariSpellCopySrc, spellInsightSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, mirariSpellCopySrc, state.ZBattlefield)
 	spell := moveSeeded(t, e, 0, spellInsightSrc, state.ZHand)
@@ -470,6 +477,7 @@ func TestMirariCopySpellDeclineNeverCopies(t *testing.T) {
 // from the floating pool -- exactly one StackCopy of the cast spell, the copy
 // RESOLVES (spell and copy each draw 1), and the pool is charged exactly {3}.
 func TestMirariCopySpellPaidCopiesAndResolves(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 147, mirariSpellCopySrc, spellInsightSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, mirariSpellCopySrc, state.ZBattlefield)
 	spell := moveSeeded(t, e, 0, spellInsightSrc, state.ZHand)
@@ -499,6 +507,7 @@ func TestMirariCopySpellPaidCopiesAndResolves(t *testing.T) {
 // instant). Pay -> exactly one StackCopy that RESOLVES; the mandatory shape's
 // decline half is the Ulalek leaf below.
 func TestClovenCastingCopySpellPaidCopiesAndResolves(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 148, clovenCastingSpellCopySrc, clovenBoltSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, clovenCastingSpellCopySrc, state.ZBattlefield)
 	spell := moveSeeded(t, e, 0, clovenBoltSrc, state.ZHand)
@@ -527,6 +536,7 @@ func TestClovenCastingCopySpellPaidCopiesAndResolves(t *testing.T) {
 // activated and triggered abilities" half has its own end-to-end pin:
 // TestUlalekSubAbilityCopiesOtherTriggeredAbility below.)
 func TestUlalekCopySpellPaidCopiesAndResolves(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 149, ulalekSpellCopySrc, eldraziInsightSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, ulalekSpellCopySrc, state.ZBattlefield)
 	spell := moveSeeded(t, e, 0, eldraziInsightSrc, state.ZHand)
@@ -552,6 +562,7 @@ func TestUlalekCopySpellPaidCopiesAndResolves(t *testing.T) {
 // decline leaf: "Do not pay" leaves the trigger unexecuted -- no StackCopy,
 // only the spell's own draw, pool untouched.
 func TestUlalekCopySpellDeclineNeverCopies(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 151, ulalekSpellCopySrc, eldraziInsightSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, ulalekSpellCopySrc, state.ZBattlefield)
 	spell := moveSeeded(t, e, 0, eldraziInsightSrc, state.ZHand)
@@ -579,6 +590,7 @@ func TestUlalekCopySpellDeclineNeverCopies(t *testing.T) {
 // ParseUnlessCost hard-decline convention -- never a free copy through a
 // zero-amount read), and answering it copies nothing.
 func TestMicaCopySpellCostIsHardDecline(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 152, micaSpellCopySrc, spellInsightSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, micaSpellCopySrc, state.ZBattlefield)
 	spell := moveSeeded(t, e, 0, spellInsightSrc, state.ZHand)
@@ -689,6 +701,7 @@ func drainUlalekSubCopyAsks(t *testing.T, e *Engine, ulalek, echo state.ObjID, l
 // Ctx.ResolvingObj (rules set it at both ability-resolution ctx sites), the
 // loop guard that keeps the pay/copy walk from regressing on itself.
 func TestUlalekSubAbilityCopiesOtherTriggeredAbility(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 153, ulalekSpellCopySrc, eldraziInsightSrc, eldraziEchoSrc)
 	ulalek := moveSeeded(t, e, 0, ulalekSpellCopySrc, state.ZBattlefield)
 	echo := moveSeeded(t, e, 0, eldraziEchoSrc, state.ZBattlefield)

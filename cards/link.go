@@ -1,5 +1,10 @@
 package cards
 
+import (
+	"sync/atomic"
+	"unsafe"
+)
+
 // maxSVarDepth caps sub-ability nesting. The deepest real chain in the corpus
 // is well under this; the cap exists so a cyclic SVar reference in upstream
 // data cannot hang the compiler.
@@ -8,6 +13,9 @@ const maxSVarDepth = 32
 // Link resolves SVar-named sub-abilities into a tree. Call it once, after
 // Parse, before the card is used.
 func (c *Card) Link() []Diag {
+	if c.compiledSlot == nil {
+		c.compiledSlot = &Slot{}
+	}
 	var diags []Diag
 	for _, f := range c.Faces {
 		diags = append(diags, f.link(c.Path)...)
@@ -56,6 +64,9 @@ func (f *Face) link(path string) []Diag {
 		f.Repls[i].With = resolve(f.Repls[i].Params["ReplaceWith"], 0)
 		walk(f.Repls[i].With)
 	}
+	// Linking replaced trigger and replacement bodies: bind their compiled
+	// parameter sets (a later derive rebinds everything again).
+	f.deriveParamSets()
 	return diags
 }
 
@@ -94,6 +105,16 @@ var builtinSVars = map[string]string{
 	// Each token registers its own delayed trigger, so Self is that token.
 	"__kwEncoreSacrifice":      "DB$ Sacrifice | Defined$ Self",
 	"__kwEncoreSacrificeGroup": "DB$ Sacrifice | Defined$ DelayTriggerRememberedLKI",
+	// CopyPermanent AtEOTTrig$ (Chandra, Flameshaper; Electroduplicate; Heat
+	// Shimmer): the copy token's own "At the beginning of the end step,
+	// sacrifice/exile this token" triggered ability, part of its copiable
+	// values for a token copy to inherit. rules' checkGrantedAtEOTTriggers
+	// synthesizes the Phase/EndStep trigger for an object carrying the body
+	// name (Object.AtEOTTrigBody), and the synthesized trigger's Defined$ Self
+	// names the token itself -- exactly the __kwEncoreSacrifice shape, whose
+	// body is likewise the token's own one-shot end-step promise.
+	"__cpAtEOTSacrifice": "DB$ Sacrifice | Defined$ Self",
+	"__cpAtEOTExile":     "DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Exile",
 	// AtEOT$ Destroy (the end-of-turn rider's destroy arm, read by the shared
 	// effects.scheduleAtEOT helper on Animate/Pump/PumpAll/Token/ChangeZone
 	// bodies): the registered source is the affected permanent itself.
@@ -159,9 +180,60 @@ func resolveSVar(svars map[string]string, name string, depth int) *SA {
 	if !ok {
 		return nil
 	}
+	tmpl := svarTemplate(body)
+	if tmpl == nil {
+		return nil
+	}
+	// A fresh SA per call (callers own its identity and may rebind its
+	// fields), sharing the template's immutable parse: Kind/API/Line and
+	// the Params map with its bound ParamSet. The shared map is read-only:
+	// every engine site that rewrites an ability's parameters first copies
+	// Params into a map of its own (effects' Defined splitter, reveal and
+	// exchange rewrites, damage riders, prevention shields, paid-X mana
+	// copies -- audited 2026-09-27), exactly as it must for a printed
+	// ability's map. TestResolveSVarTemplateMatchesFreshParse pins the
+	// shared parse to a fresh one over the corpus.
+	sa := new(SA)
+	*sa = *tmpl
+	sa.Sub = resolveSVar(svars, sa.Params["SubAbility"], depth+1)
+	return sa
+}
+
+// svarTemplate is parseSA("", body) compiled once per body text: the SVar
+// bodies ResolveSVar re-read on every activation offer, grant scan and
+// delayed-trigger push are immutable card text, so their parse is too. The
+// front is a fixed-size direct-mapped table keyed by the body string's
+// identity (bodies are configured text with stable storage); an entry is
+// re-checked by content, so a collision or a runtime-built body can only
+// cost a re-parse, never a wrong template. A body with no ability head
+// caches as a nil template.
+func svarTemplate(body string) *SA {
+	slot := &svarFront[svarFrontSlot(body)]
+	if e := slot.Load(); e != nil && e.body == body {
+		return e.sa
+	}
 	sa, _ := parseSA("", body)
 	if sa != nil {
-		sa.Sub = resolveSVar(svars, sa.Params["SubAbility"], depth+1)
+		sa.ps = newParamSet(sa.Params)
 	}
+	slot.Store(&svarFrontEntry{body: body, sa: sa})
 	return sa
+}
+
+const svarFrontBits = 12
+
+type svarFrontEntry struct {
+	body string
+	sa   *SA
+}
+
+var svarFront [1 << svarFrontBits]atomic.Pointer[svarFrontEntry]
+
+func svarFrontSlot(s string) uint {
+	p := uintptr(unsafe.Pointer(unsafe.StringData(s)))
+	h := uint64(p>>3) ^ uint64(len(s))*0x9e3779b97f4a7c15
+	h ^= h >> 29
+	h *= 0xbf58476d1ce4e5b9
+	h ^= h >> 32
+	return uint(h) & (1<<svarFrontBits - 1)
 }

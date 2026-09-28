@@ -11,6 +11,7 @@
   const player = $state<PlayerView>({
     seat: 0, name: 'P0', life: 20, lost: false, library_size: 60, hand_size: 3,
     graveyard_size: 0, hand: [card(7, 'Grizzly Bears'), card(8, 'Bear Cub'), card(9, 'Runeclaw Bear')],
+    completed_dungeons: 0,
     battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
   });
 

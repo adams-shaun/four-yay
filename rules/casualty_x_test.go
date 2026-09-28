@@ -19,6 +19,7 @@ import (
 // resolves nonlegendary with loyalty 1 while the original resolves legendary
 // with its printed 3 (CR 702.249a + the copy riders).
 func TestCasualtyXObNixilisCopyRiders(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := casualtyEngine(t, "Ob Nixilis, the Adversary")
 	sac := seedBattlefield(t, e, reg, "Llanowar Elves")  // power 1
 	other := seedBattlefield(t, e, reg, "Grizzly Bears") // power 2, stays

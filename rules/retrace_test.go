@@ -54,6 +54,7 @@ func graveyardCorpus(t *testing.T, e *Engine) state.ObjID {
 // offers exactly the land, and answering it moves that land from hand to
 // graveyard and puts the spell on the stack.
 func TestEmbraceTheUnknownRetraceOfferedAndDiscardsALand(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Embrace the Unknown"))
 	cardID := graveyardCorpus(t, e)
 
@@ -109,6 +110,7 @@ func TestEmbraceTheUnknownRetraceOfferedAndDiscardsALand(t *testing.T) {
 // same card is then given a land and the offer appears, proving the first
 // assertion is about the cost and not about some other gate.
 func TestEmbraceTheUnknownRetraceNotOfferedWithoutALandToDiscard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Embrace the Unknown"))
 	cardID := graveyardCorpus(t, e)
 	if got := e.G.Obj(cardID).Zone; got != state.ZGraveyard {
@@ -139,6 +141,7 @@ func TestEmbraceTheUnknownRetraceNotOfferedWithoutALandToDiscard(t *testing.T) {
 // gate: a land is in hand, but the printed {2}{R} is not payable, so the cast
 // must be withheld.
 func TestRetraceNotOfferedWhenManaUnpayable(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Embrace the Unknown"))
 	cardID := graveyardCorpus(t, e)
 	if got := e.G.Obj(cardID).Zone; got != state.ZGraveyard {
@@ -159,6 +162,7 @@ func TestRetraceNotOfferedWhenManaUnpayable(t *testing.T) {
 // the graveyard with no Retrace keyword gets no retrace option, so the offers
 // above are attributable to the keyword rather than to the graveyard walk.
 func TestRetraceOfferAbsentOnAnOrdinaryGraveyardCard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Embrace the Unknown"))
 	plain := graveyardCard(t, e, "Name:Plain Spell\nManaCost:R\nTypes:Sorcery\nOracle:x\n")
 	if got := e.G.Obj(plain).Zone; got != state.ZGraveyard {

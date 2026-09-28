@@ -89,6 +89,7 @@ func labelIndex(d *decision.Decision, want string) int {
 // offered names visible in the caster's own hand/battlefield/graveyard, so
 // the land was both filtered out and unseen.
 func TestPithingNeedleNamesAnUnseenLand(t *testing.T) {
+	t.Parallel()
 	e, _ := nameCardEngine(t, "Pithing Needle")
 	needle := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MC] = 1
@@ -121,6 +122,7 @@ func TestPithingNeedleNamesAnUnseenLand(t *testing.T) {
 // rejected answer and livelock the name window. The bare validate of the
 // chosen index is the constraint this test binds.
 func TestNameAskBotAnswerValidates(t *testing.T) {
+	t.Parallel()
 	e, _ := nameCardEngine(t, "Pithing Needle")
 	needle := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MC] = 1
@@ -147,6 +149,7 @@ func TestNameAskBotAnswerValidates(t *testing.T) {
 // ask must exclude every land while still offering the full unseen universe
 // of nonlands.
 func TestPhyrexianRevokerNamesANonland(t *testing.T) {
+	t.Parallel()
 	e, _ := nameCardEngine(t, "Phyrexian Revoker")
 	revoker := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MC] = 2
@@ -178,6 +181,7 @@ func TestPhyrexianRevokerNamesANonland(t *testing.T) {
 // (the SA's ValidCards$ Card.nonLand), not silently name the top of the
 // caster's own library.
 func TestCabalTherapyNamesANonlandMidResolution(t *testing.T) {
+	t.Parallel()
 	e, _ := nameCardEngine(t, "Cabal Therapy")
 	therapy := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MB] = 1

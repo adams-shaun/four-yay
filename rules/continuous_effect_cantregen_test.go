@@ -15,6 +15,7 @@ import (
 // registration now blocks the shield consumption (an inline fixture, per the
 // licensing rule).
 func TestIncinerateCantRegenerate(t *testing.T) {
+	t.Parallel()
 	inc := card(t, "Name:Incinerate\nManaCost:1 R\nTypes:Instant\n"+
 		"A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | SubAbility$ DBEffect | RememberDamaged$ True\n"+
 		"SVar:DBEffect:DB$ Effect | RememberObjects$ Remembered.Creature | StaticAbilities$ NoRegen\n"+

@@ -9,6 +9,7 @@ import (
 )
 
 func TestEffectDelayedRiderExpiry(t *testing.T) {
+	t.Parallel()
 	trigger := "Mode$ DamageDone | ValidTarget$ Player | Execute$ Pain"
 	t.Run("forget counter", func(t *testing.T) {
 		e := layerEngine(t)
@@ -69,6 +70,7 @@ func TestEffectDelayedRiderExpiry(t *testing.T) {
 }
 
 func TestEffectDelayedUnsupportedDurationLoud(t *testing.T) {
+	t.Parallel()
 	for _, dur := range []string{"UntilStateBasedActionChecked", "AsLongAsControl"} {
 		e := layerEngine(t)
 		src := onBoard(t, e, 0, "Name:Rejected\nTypes:Creature\nPT:2/2\nA:AB$ Effect | Triggers$ Hook | Duration$ "+dur+"\nSVar:Hook:Mode$ DamageDone | ValidTarget$ Player | Execute$ Pain\nSVar:Pain:DB$ LoseLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")

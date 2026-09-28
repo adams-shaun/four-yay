@@ -13,6 +13,7 @@ const card = (id: number, name = `Card ${id}`): CardView => ({
 
 const player = (seat: number, name: string): PlayerView => ({
   seat, name, life: 40, lost: false, library_size: 60, hand_size: 7, graveyard_size: 0,
+  completed_dungeons: 0,
   hand: [], battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
 });
 

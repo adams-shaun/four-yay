@@ -9,6 +9,22 @@ compiled from Forge card scripts into an IR; the engine implements the
 primitives that IR references. See
 `docs/superpowers/specs/2026-09-03-mtgcore-go-engine-design.md`.
 
+## Agent guide
+
+The detail behind this file lives in [`docs/agents/`](docs/agents/README.md),
+so it stays out of every turn's context:
+
+- [repo-map.md](docs/agents/repo-map.md): what lives where, and where each
+  kind of change goes.
+- [invariants.md](docs/agents/invariants.md): the design invariants, what
+  enforces each one, the legitimate way to change it, and the contributor
+  workflow.
+- [do-not.md](docs/agents/do-not.md): mistakes that have actually happened
+  here.
+
+Bot and policy work starts at README's *Bot player training and adoption
+guidelines*.
+
 ## Hard rules
 
 - **Never commit Forge card scripts.** They are GPL-3.0; gorge is Apache-2.0.
@@ -108,54 +124,51 @@ DIVERGED exactly as a stale report would.
 
 ## Status
 
-**M2r closed the coverage ratchet.** `rules/acceptance_test.go`'s
-`knownUnsupported` (Ruling P12/D2-a) names exactly the cards the measured
-deck set does not fully support, and
-`TestEveryRepoDeckIsFullySupported` asserts the measured gap set equals the
-table in both directions (Ruling R-20): a card the build newly cannot fully
-support fails and is named together with the primitives it is missing, and a
-table entry the build now supports is stale and fails too. Measured
-2026-09-17 at the avengers-assemble Commander import, the ratchet stands at
-**3 of 791** -- every one of the 791 distinct cards across the repo deck
-files (`internal/testutil/decks/*.json`: 14 60-card constructed decks plus
-10 Commander decks) is fully supported and plays except the three the table
-holds (Avengers Quinjet's crew, Captain Marvel's mirror-counter trigger,
-Speed's pay-on-trigger -- the Marvel Super Heroes Commander import's own
-remaining backlog). The 12 pinned Legacy decks (`legacyDeckNames`)
-round-robin across 2/4/6/8 seats
-(`TestRepoDecksPlayAtEverySeatCount`), replay byte-identically
-(`TestRepoDeckGamesReplayExactly`), and `TestHeads` pins the chain heads as
-goldens in `rules/heads_test.go`:
+**The coverage ratchet.** `rules/acceptance_test.go`'s `knownUnsupported`
+(Ruling P12/D2-a) names exactly the repo-deck cards the build does not fully
+support. `TestEveryRepoDeckIsFullySupported` asserts that the measured gap
+equals the table in both directions (Ruling R-20). A card the build newly
+cannot support fails, named together with its missing primitives. A table
+entry the build now supports is stale and fails too. **The test's log line is
+the live count.**
 
-| seats | 2 | 4 | 6 | 8 |
-|---|---|---|---|---|
-| chain head | `3ddcc4e3ba5bb799` | `b3bf75f0c56512ae` | `16182bb0d97a61c8` | `5a7a1a2a41b48fa8` |
+Measured 2026-09-28 on `main` (`go test ./rules/ -run
+'TestEveryRepoDeckIsFullySupported|TestEveryRepoDeckParamsAreRead|TestHeads$'
+-v`, `make report`, `make sim`):
 
-`TestEveryRepoDeckParamsAreRead` (`rules/paramcensus_test.go`) is the
-companion ratchet over the same decks' parameters: measured at the same
-date, its `knownUnsupportedParams` table holds 25 repo-deck cards carrying
-an unread param or unmodelled cost token (19 of them from the
-avengers-assemble import; the desc-only `ValidTgtsDesc` family the new
-deck's cards carry several of).
+- **Ratchet: 3 of 1110 distinct cards unsupported.** The cards come from the
+  29 deck files in `internal/testutil/decks/*.json`: 14 60-card constructed
+  decks and 15 100-card Commander decks. The three are:
+  - Incinerate (`stat:CantRegenerate`)
+  - Vines of Vastwood (`stat:CantTarget`)
+  - Ojer Axonil, Deepest Might (`count:NonCombatDamageThisTurn`)
+- **Param census: 23 of 1110.** `TestEveryRepoDeckParamsAreRead`
+  (`rules/paramcensus_test.go`) is the companion ratchet over the same decks'
+  parameters. Its `knownUnsupportedParams` table holds 23 cards that carry an
+  unread param or an unmodelled cost token: 20 distinct param labels and 1
+  cost label.
+- **Golden games.** The 12 pinned Legacy decks (`legacyDeckNames`, which
+  deliberately excludes the Commander decks) round-robin across 2/4/6/8 seats
+  (`TestRepoDecksPlayAtEverySeatCount`). They replay byte-identically
+  (`TestRepoDeckGamesReplayExactly`), and `TestHeads` pins their chain heads
+  in `rules/heads_test.go` `acceptanceHeads`. That map is the authority. At
+  this date:
 
-`make sim` plays 20 verified 4-seat games from the same seed set, every one
-replaying byte-identically (20/20 `replay OK`).
+  | seats | 2 | 4 | 6 | 8 |
+  |---|---|---|---|---|
+  | chain head | `a991478b3edb213c` | `d4876057e0477830` | `b4a5d33f302e6bfc` | `b73492c5ccdaadca` |
 
-Measured at the corpus pin `master @
-95f04e8a04c8925fa97cb226fc3341cabcc90a53` (`FORGE_REF` in the Makefile):
-`make report` prints `cards: 33667  playable: 29820 (88.6%)` with `tokens:
-839` (re-measured 2026-09-24 at fuzz-cov3, which made the gate count the
-`count:<head>` value heads a card's referenced SVars read -- 30050 before it;
-`effects.modelledValueHeads` lists the modelled heads and rules'
-`TestValueHeadRegistryMatchesEvaluator` holds that list to the evaluator. The
-2026-09-17 figure was 24727/73.4%; the jump from the 2026-09-14 figure of
-21108/62.7% is the parameter-read registrations merged since -- the
-param-census task wave -- and the pw1 figure 20635/61.3% predated api:Untap,
-api:ManaReflected, stat:ManaConvert, stat:UntapOtherPlayer and
-kw:Cumulative upkeep registering. `repl:Untap` is out of scope and remains
-unsupported. The registered primitive set is measured by `make report`.
-M1's 37/8/8/8/1 = 62 was the count before M2r registered the keyword,
-trigger, static and mid-game primitives the ratchet's card work needed.)
+- **`make sim`:** 20/20 `replay OK` over 20 verified 4-seat games.
+- **Corpus coverage** at the pin `95f04e8a04c8925fa97cb226fc3341cabcc90a53`
+  (`FORGE_REF`): `make report` prints `cards: 33667  playable: 31005 (92.1%)`
+  and `tokens: 839`, matching the README's CI-generated coverage block. Since
+  fuzz-cov3 (2026-09-24) the gate also counts the `count:<head>` value heads
+  that a card's SVars read (`effects.modelledValueHeads`, held to the
+  evaluator by `TestValueHeadRegistryMatchesEvaluator`). `repl:Untap` is out
+  of scope and remains unsupported.
+
+These figures go stale with every merge. Re-measure them before quoting;
+don't copy them.
 
 A seat's clients must be able to answer every `decision.Kind`, and the set is
 closed: the M1 kinds (`priority`, `target`, `attackers`, `blockers`,
@@ -164,7 +177,7 @@ exiles, cost sacrifices, "as it enters" name/type/number, miracle-style
 yes/no), the two M2d closures -- `mulligan`, the London keep/mulligan
 and bottoming round `Config.Mulligans` runs between the deal and turn 1, and
 `modes`, the modal pick and unless-pay ask a mid-resolution answer serves
-(the `ModeChosen` event carries the answer into the log) -- and the three
+(the `ModeChosen` event carries the answer into the log) -- and the four
 kinds the later card work added: `commander_zone` (a commander's OWNER's
 CR 903.9 command-zone replacement choice), `replacement` (the CR 616.1
 order choice over competing replacement effects) and `arrange` (the ordered

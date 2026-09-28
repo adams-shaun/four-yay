@@ -168,6 +168,7 @@ func assertFaceDownMarkers(t *testing.T, e *Engine, id state.ObjID, marker strin
 }
 
 func TestMorphFaceDownCastPaysThreeAndEntersFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Kin-Tree Warden")
 	id := morphDownCast(t, e, "Kin-Tree Warden", "morphed", "CCCG", 1)
@@ -184,6 +185,7 @@ func TestMorphFaceDownCastPaysThreeAndEntersFaceDown(t *testing.T) {
 }
 
 func TestMegamorphFaceDownCastRecordsTheFamily(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Kolaghan Stormsinger")
 	id := morphDownCast(t, e, "Kolaghan Stormsinger", "megamorphed", "CCCR", 1)
@@ -199,6 +201,7 @@ func TestMegamorphFaceDownCastRecordsTheFamily(t *testing.T) {
 }
 
 func TestDisguiseFaceDownCastHasWardTwo(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Basilica Stalker")
 	id := morphDownCast(t, e, "Basilica Stalker", "disguised", "CCCCCB", 3)

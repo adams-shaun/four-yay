@@ -179,6 +179,7 @@ func glavaAnnounce(t *testing.T, e *Engine, x int) state.ObjID {
 // optional trigger, and the ability object's X is rewritten to 5 BEFORE the
 // ability resolves -- the ability's own NumCards$ X then draws 5.
 func TestChangeXGlavaActivationSetsXToFive(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 132, glavaSrc, changeXSifterSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, glavaSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, changeXSifterSrc, state.ZBattlefield)
@@ -205,6 +206,7 @@ func TestChangeXGlavaActivationSetsXToFive(t *testing.T) {
 // never reaches the stack, no XChange is emitted, and the ability resolves at
 // its paid X=1 (one draw).
 func TestChangeXGlavaDeclineLeavesXAlone(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 133, glavaSrc, changeXSifterSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, glavaSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, changeXSifterSrc, state.ZBattlefield)
@@ -231,6 +233,7 @@ func TestChangeXGlavaDeclineLeavesXAlone(t *testing.T) {
 // before the spell resolves -- the ETB counter keyword then enters it with 4
 // +1/+1 counters and Move preserves the rewritten X on the permanent.
 func TestChangeXUnboundFlourishingDoublesXPaid(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 134, unboundFlourishingSrc, changeXHydraSrc)
 	uf := moveSeeded(t, e, 0, unboundFlourishingSrc, state.ZBattlefield)
 	hydra := toHand(t, e, changeXHydraSrc)
@@ -266,6 +269,7 @@ func TestChangeXUnboundFlourishingDoublesXPaid(t *testing.T) {
 // is NOT evaluated -- no XChange is emitted and the loud Note records it,
 // rather than a silent rewrite to 0.
 func TestChangeXUnresolvableValueStaysLoud(t *testing.T) {
+	t.Parallel()
 	src := "Name:Test Doubler\nManaCost:1 U\nTypes:Enchantment\n" +
 		"T:Mode$ SpellCast | ValidSA$ Spell | ValidActivatingPlayer$ You | HasXManaCost$ True | Execute$ TrigX | TriggerZones$ Battlefield | TriggerDescription$ x\n" +
 		"SVar:TrigX:DB$ ChangeX | Defined$ TriggeredSpellAbility | Value$ CastSA>Count$xPaid/Twice\n" +

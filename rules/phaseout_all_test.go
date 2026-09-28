@@ -21,6 +21,7 @@ import (
 // Doctor (phase-out-excluded) is not counted, and if the latch were per-event
 // the counter would be 2.
 func TestTheWarDoctorPhaseOutAllFiresOncePerBatch(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 601, "The War Doctor", "Guardian of Faith", "Grizzly Bears", "Grizzly Bears")
 	toMain1(t, e)
 	doctor := moveByName(t, e, 0, "The War Doctor", state.ZBattlefield)

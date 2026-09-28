@@ -91,6 +91,63 @@
           }
         }
       ]
+    },
+    {
+      "name": "two-colour-identity-offers-only-identity-colours",
+      "cr": [
+        "903.3",
+        "903.4",
+        "605.1a"
+      ],
+      "why": "A black-red commander offers exactly its identity colours for this mana ability; the other colours are absent.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Valgavoth, Harrower of Souls"
+          ],
+          "battlefield": [
+            "Arcane Signet"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Arcane Signet",
+          "ability": "for mana",
+          "observe": {
+            "kind": "choose",
+            "source": "p0:Arcane Signet",
+            "has": [
+              "Black",
+              "Red"
+            ],
+            "not": [
+              "White",
+              "Blue",
+              "Green"
+            ]
+          },
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Red"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "R"
+          }
+        }
+      ]
     }
   ]
 }

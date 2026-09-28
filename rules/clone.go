@@ -48,10 +48,31 @@ func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn 
 // auto-pay diagnostics sink (paymentStats, SetPaymentPlanStats) stay nil on
 // the copy, so no sink pointer is ever shared between engines (payment-plan
 // spec §7) and a clone's planning never counts into the original's sink.
-func (e *Engine) Clone() *Engine {
+func (e *Engine) Clone() *Engine { return e.cloneWith(Spare{}) }
+
+// CloneInto is Clone drawing the copy's event log, intent, object-arena and
+// Derived-memo arrays from *sp -- a spent clone's storage, handed back by its
+// Release -- and consuming it (*sp is left as the zero Spare), so a search
+// that clones one root per simulation recycles the same few arrays instead of
+// allocating and collecting a mid-game log and arena every simulation. The
+// loop is: c := root.CloneInto(&sp); play c; sp = c.Release(). The copy is
+// identical to Clone's in everything a caller can observe (same events,
+// intents, objects, chain, RNG; TestCloneIntoIsInvisible pins it): the
+// recycled arrays were cleared by Release, every slot is overwritten before
+// it is read, and an array too small for this root is dropped and the clone
+// allocates as Clone would. The zero Spare makes CloneInto exactly Clone.
+func (e *Engine) CloneInto(sp *Spare) *Engine {
+	var spare Spare
+	if sp != nil {
+		spare, *sp = *sp, Spare{}
+	}
+	return e.cloneWith(spare)
+}
+
+func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
-		G:               e.G.Clone(),
-		L:               e.L.Clone(),
+		G:               e.G.CloneInto(sp.objs),
+		L:               e.L.CloneInto(sp.events, sp.intents),
 		compiledText:    e.compiledText,
 		landTypeWords:   e.landTypeWords,
 		turnsTaken:      append([]int32(nil), e.turnsTaken...),
@@ -65,6 +86,8 @@ func (e *Engine) Clone() *Engine {
 		// own ledger.
 		combatHitsThisTurn:  append([]effects.CombatDamageHit(nil), e.combatHitsThisTurn...),
 		counterAddsThisTurn: cloneCounterAddsThisTurn(e.counterAddsThisTurn),
+		activationsThisTurn: cloneActivationsThisTurn(e.activationsThisTurn),
+		crimeSeatsThisTurn:  e.crimeSeatsThisTurn,
 		format:              e.format,
 		rng:                 e.rng.clone(),
 		orderedTriggers:     e.orderedTriggers,
@@ -144,9 +167,10 @@ func (e *Engine) Clone() *Engine {
 		// struct values, re-allocated like oppPicksMid so a clone taken
 		// between the answer and the CR 608.2b recheck still sees the seat
 		// that answered.
-		tpCtlChooser: cloneTpCtlChooser(e.tpCtlChooser),
-		mulligans:    e.mulligans,
-		startingLife: e.startingLife,
+		tpCtlChooser:      cloneTpCtlChooser(e.tpCtlChooser),
+		mulligans:         e.mulligans,
+		windowDiagnostics: e.windowDiagnostics,
+		startingLife:      e.startingLife,
 		// E2 held-out cast suppression (cast.go): the set of card ids whose
 		// cast option is held out of the current window after an unpayable
 		// decline. A clone taken at any intent boundary carries it forward so
@@ -174,7 +198,7 @@ func (e *Engine) Clone() *Engine {
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop: newLivelockWatcherFromGuard(e.loop.guard),
+		loop: newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent),
 		// setname.go's layer-3 rename table and its genesis-time gate. The
 		// clone's board is identical at the clone boundary, so the table is
 		// carried with its (epoch, version) key rather than rebuilt -- but as
@@ -677,10 +701,14 @@ func (e *Engine) Clone() *Engine {
 		ma.cost.RevealChosen = append([]CostPart(nil), e.manaDiscardActivation.cost.RevealChosen...)
 		ma.cost.Behold = append([]CostPart(nil), e.manaDiscardActivation.cost.Behold...)
 		ma.cost.TapPermanent = append([]CostPart(nil), e.manaDiscardActivation.cost.TapPermanent...)
+		ma.cost.UntapPermanent = append([]CostPart(nil), e.manaDiscardActivation.cost.UntapPermanent...)
 		ma.cost.Blight = append([]CostPart(nil), e.manaDiscardActivation.cost.Blight...)
 		ma.sacs = append([]state.ObjID(nil), e.manaDiscardActivation.sacs...)
 		ma.discards = append([]state.ObjID(nil), e.manaDiscardActivation.discards...)
 		ma.exiles = append([]state.ObjID(nil), e.manaDiscardActivation.exiles...)
+		ma.taps = append([]state.ObjID(nil), e.manaDiscardActivation.taps...)
+		ma.untaps = append([]state.ObjID(nil), e.manaDiscardActivation.untaps...)
+		ma.subCounterPays = append([]subCounterPay(nil), e.manaDiscardActivation.subCounterPays...)
 		c.manaDiscardActivation = &ma
 	}
 	if e.manaAfterCost != nil {
@@ -816,6 +844,7 @@ func (e *Engine) Clone() *Engine {
 		pc.cost.LifeX = append([]CostPart(nil), e.cast.cost.LifeX...)
 		pc.cost.Evidence = append([]CostPart(nil), e.cast.cost.Evidence...)
 		pc.cost.DamageYou = append([]CostPart(nil), e.cast.cost.DamageYou...)
+		pc.cost.GainLife = append([]CostPart(nil), e.cast.cost.GainLife...)
 		pc.cost.Energy = append([]CostPart(nil), e.cast.cost.Energy...)
 		pc.cost.Return = append([]CostPart(nil), e.cast.cost.Return...)
 		pc.cost.PutToLib = append([]CostPart(nil), e.cast.cost.PutToLib...)
@@ -823,6 +852,14 @@ func (e *Engine) Clone() *Engine {
 		pc.cost.Phyrexian = append([]byte(nil), e.cast.cost.Phyrexian...)
 		pc.cost.Twobrid = append([]Twobrid(nil), e.cast.cost.Twobrid...)
 		pc.cost.HybridPhyrexian = append([]HybridPhyrexian(nil), e.cast.cost.HybridPhyrexian...)
+		pc.mayPlayHosts = append([]state.ObjID(nil), e.cast.mayPlayHosts...)
+		if e.cast.costRemembered != nil {
+			pc.costRemembered = make([]costRememberedEntry, len(e.cast.costRemembered))
+			for i, c := range e.cast.costRemembered {
+				pc.costRemembered[i] = costRememberedEntry{source: c.source, stamp: c.stamp,
+					ids: append([]state.ObjID(nil), c.ids...)}
+			}
+		}
 		pc.mods.reduces = append([]costMod(nil), e.cast.mods.reduces...)
 		pc.mods.raises = append([]int32(nil), e.cast.mods.raises...)
 		pc.delve = append([]state.ObjID(nil), e.cast.delve...)
@@ -897,6 +934,8 @@ func (e *Engine) Clone() *Engine {
 		tp.discs = append([]state.ObjID(nil), e.turnUp.discs...)
 		tp.reveal = append([]state.ObjID(nil), e.turnUp.reveal...)
 		tp.returns = append([]state.ObjID(nil), e.turnUp.returns...)
+		tp.mods.reduces = append([]costMod(nil), e.turnUp.mods.reduces...)
+		tp.mods.raises = append([]int32(nil), e.turnUp.mods.raises...)
 		c.turnUp = &tp
 	}
 	if e.cmdZone != nil {
@@ -958,6 +997,10 @@ func (e *Engine) Clone() *Engine {
 	}
 	c.madnessChoices = append([]events.Event(nil), e.madnessChoices...)
 	c.madnessSuspended = e.madnessSuspended
+	// A clone's Derived memo starts empty (it is not copied above); recycled
+	// tables start empty over Release-cleared capacity, the same zeroed state
+	// derivedMemoizedAt's growth relies on for a Config.Spare game.
+	c.derivedMemo, c.derivedMemoStack = sp.memo, sp.memoStack
 	return c
 }
 
@@ -1123,6 +1166,10 @@ func cloneCombatRound(cr combatRound) combatRound {
 	// asunblk1: the as-unblocked election queues the same way.
 	cr.electQueue = append([]state.ObjID(nil), cr.electQueue...)
 	cr.doneElect = append([]state.ObjID(nil), cr.doneElect...)
+	// CR 726.2 pass adjudication state: the landed candidate list must not
+	// alias the original's (the holder snapshot and the bools are plain
+	// values, carried by the value copy).
+	cr.initCtrls = append([]state.PlayerID(nil), cr.initCtrls...)
 	// askElection is a plain bool, carried by the value copy.
 	return cr
 }
@@ -1164,6 +1211,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// The multi-player GenericChoice chooser cursor is likewise a sliced value
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
+	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
 	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat

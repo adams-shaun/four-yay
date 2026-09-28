@@ -19,6 +19,7 @@ import (
 // then turn face up exactly once, after both replaced moves, and the game
 // must replay from the log.
 func TestMorphTurnFaceUpWaitsForSacrificeReplacementOrderChoice(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		picks [2]int // the KReplacement option index answered for each sacrifice

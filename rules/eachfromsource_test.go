@@ -33,6 +33,7 @@ func mustCorpusCardT(t *testing.T, name string) *cards.Card {
 // Before the fix the CounterType$ EachFromSource put placed NOTHING (not a
 // real counter kind), so the trigger resolved onto an untouched target.
 func TestResourcefulDefenseCopiesEachCounterKind(t *testing.T) {
+	t.Parallel()
 	rd := mustCorpusCardT(t, "Resourceful Defense")
 	leaver := card(t, "Name:Leaving Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	recvr := card(t, "Name:Receiving Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -92,6 +93,7 @@ func TestResourcefulDefenseCopiesEachCounterKind(t *testing.T) {
 // that never answers it, and a zero-count Ozolith after the move is the
 // pre-fix silence this shape exists to disprove.
 func TestTheOzolithCollectsTheLeftCounters(t *testing.T) {
+	t.Parallel()
 	oz := mustCorpusCardT(t, "The Ozolith")
 	leaver := card(t, "Name:Leaving Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 449, oz, leaver)
@@ -123,6 +125,7 @@ func TestTheOzolithCollectsTheLeftCounters(t *testing.T) {
 // added after entry; a nontoken creature entering copies BOTH kinds. The
 // entering creature's own pre-entry count of zero is the vacuity guard.
 func TestDenryKlinCopiesHisOwnKindsOntoTheEnteringCreature(t *testing.T) {
+	t.Parallel()
 	denry := mustCorpusCardT(t, "Denry Klin, Editor in Chief")
 	entering := card(t, "Name:Arriving Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 451, denry, entering)
@@ -189,6 +192,7 @@ func TestDenryKlinCopiesHisOwnKindsOntoTheEnteringCreature(t *testing.T) {
 // the dying creature's counters land on the 0/0 Fractal token, which
 // therefore survives its own toughness-0 moment, the card's whole point.
 func TestAmbitiousAugmenterCountersRideOntoTheFractalToken(t *testing.T) {
+	t.Parallel()
 	aa := mustCorpusCardT(t, "Ambitious Augmenter")
 	e, cfg := tokenReplGame(t, 453, aa)
 	aaID := moveSeededCard(t, e, 0, aa, state.ZBattlefield)
@@ -235,6 +239,7 @@ func TestAmbitiousAugmenterCountersRideOntoTheFractalToken(t *testing.T) {
 // cost-sacrifice LKI snapshot (SacrificedInfo.Counters, captured at the
 // instant of the sacrifice) is the only place they still exist.
 func TestZackFairBequeathsCountersThroughTheSacrificeLKI(t *testing.T) {
+	t.Parallel()
 	zack := mustCorpusCardT(t, "Zack Fair")
 	recvr := card(t, "Name:Heir Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 455, zack, recvr)
@@ -291,6 +296,7 @@ func TestZackFairBequeathsCountersThroughTheSacrificeLKI(t *testing.T) {
 // dinosaur is mid-entry when the replacement body runs, so only the ETB$
 // True path can place on it at all.
 func TestBlueLoyalRaptorEnteringDinosaurCarriesHisKinds(t *testing.T) {
+	t.Parallel()
 	blue := mustCorpusCardT(t, "Blue, Loyal Raptor")
 	dino := card(t, "Name:Arriving Dinosaur\nTypes:Creature Dinosaur\nPT:3/3\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 457, blue, dino)

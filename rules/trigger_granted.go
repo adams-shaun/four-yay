@@ -51,7 +51,7 @@ func (e *Engine) checkGrantedConspireTriggers(observer *Engine, id state.ObjID, 
 	if ev.Kind != events.PutOnStack || id != ev.Obj {
 		return
 	}
-	if !e.HasKeyword(id, "Conspire") || f.HasKeyword("Conspire") {
+	if !e.hasKeywordH(id, kwhConspire) || f.HasKeyword("Conspire") {
 		return
 	}
 	t := cards.Trigger{Mode: "SpellCast", Params: map[string]string{
@@ -116,7 +116,7 @@ func (e *Engine) checkGrantedDemonstrateTriggers(observer *Engine, id state.ObjI
 	if ev.Kind != events.PutOnStack || id != ev.Obj {
 		return
 	}
-	if !e.HasKeyword(id, "Demonstrate") || f.HasKeyword("Demonstrate") {
+	if !e.hasKeywordH(id, kwhDemonstrate) || f.HasKeyword("Demonstrate") {
 		return
 	}
 	t := cards.Trigger{Mode: "SpellCast", Params: map[string]string{
@@ -247,7 +247,7 @@ func (e *Engine) checkGrantedExploitTriggers(observer *Engine, id state.ObjID, o
 	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || id != ev.Obj || o.Zone != state.ZBattlefield {
 		return
 	}
-	if f.HasKeyword("Exploit") || !e.HasKeyword(id, "Exploit") {
+	if f.HasKeyword("Exploit") || !e.hasKeywordH(id, kwhExploit) {
 		return
 	}
 	t := cards.Trigger{Mode: "ChangesZone", Params: map[string]string{
@@ -364,10 +364,10 @@ func (e *Engine) checkGrantedDethroneTriggers(observer *Engine, id state.ObjID, 
 	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
 		return
 	}
-	if e.HasKeyword(id, "Dethrone") && f.HasKeyword("Dethrone") {
+	if e.hasKeywordH(id, kwhDethrone) && f.HasKeyword("Dethrone") {
 		return
 	}
-	if !e.HasKeyword(id, "Dethrone") || f.HasKeyword("Dethrone") {
+	if !e.hasKeywordH(id, kwhDethrone) || f.HasKeyword("Dethrone") {
 		return
 	}
 	t := cards.Trigger{Mode: "Attacks", Params: map[string]string{
@@ -412,7 +412,7 @@ func (e *Engine) checkGrantedTrainingTriggers(observer *Engine, id state.ObjID, 
 	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
 		return
 	}
-	if !e.HasKeyword(id, "Training") || f.HasKeyword("Training") {
+	if !e.hasKeywordH(id, kwhTraining) || f.HasKeyword("Training") {
 		return
 	}
 	t := cards.Trigger{Mode: "Attacks", Params: map[string]string{
@@ -457,7 +457,7 @@ func (e *Engine) checkGrantedMentorTriggers(observer *Engine, id state.ObjID, o 
 	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
 		return
 	}
-	if !e.HasKeyword(id, "Mentor") || f.HasKeyword("Mentor") {
+	if !e.hasKeywordH(id, kwhMentor) || f.HasKeyword("Mentor") {
 		return
 	}
 	t := cards.Trigger{Mode: "Attacks", Params: map[string]string{
@@ -522,7 +522,7 @@ func (e *Engine) checkGrantedAfflictTriggers(id state.ObjID, o *state.Object, f 
 	if !blocked {
 		return
 	}
-	if !e.HasKeyword(id, "Afflict") {
+	if !e.hasKeywordH(id, kwhAfflict) {
 		return
 	}
 	printed := map[string]bool{}
@@ -1022,6 +1022,81 @@ type triggerCastAlt struct {
 // invoked for every object the event visits, so reject everything but a
 // battlefield object on a step change before any derived-characteristics
 // read.
+// atEOTTrigPhase is the synthesized CopyPermanent AtEOTTrig$ trigger's Phase$
+// value: Forge's script name for the end step (state.ParsePhases maps
+// "End of Turn" to StepEnd). No ValidPlayer$: the token's ability triggers at
+// the beginning of the END STEP, any player's -- the wording is "at the
+// beginning of the end step, sacrifice this token", not "your next end
+// step" (which is the AtEOT$ DELAYED rider's family, not this copiable one).
+const atEOTTrigPhase = "End of Turn"
+
+// checkGrantedAtEOTTriggers synthesizes the "At the beginning of the end
+// step, sacrifice/exile this token" triggered ability a DB$ CopyPermanent |
+// AtEOTTrig$ put on the object as a copiable value (Object.AtEOTTrigBody,
+// set by events.Apply's CopyToken case from the mint's body or the source
+// object's). It is deliberately NOT the AtEOT$ rider: that schedules a
+// one-shot DELAYED trigger keyed to the object's incarnation, so a token
+// copy of the minted token would not carry it; here the ability is part of
+// the object's copiable values (CR 707.2) and a copy inherits the body name.
+//
+// The synthesized trigger reuses the printed Phase shape (Mode$ Phase | Phase$
+// End of Turn | TriggerZones$ Battlefield) and a builtin SVar body, so its
+// behaviour is byte-identical to a printed instance: the queue entry is the
+// granted-trigger shape (Granted + the builtin Execute$ name, Grantor 0 =
+// the self-grant form), which events.Apply's GrantTriggerPush case resolves
+// from the recipient's own table -- where the builtin body is always
+// available -- exactly as a replay does. Nothing here mutates state.
+//
+// Runs on BOTH the faceMayTrigger early-return path and the full path, like
+// every other granted trigger (a copiable body is independent of the object's
+// printed triggers). Cheap gates first: reject everything but a battlefield
+// object with a body on a step change before any match work.
+func (e *Engine) checkGrantedAtEOTTriggers(observer *Engine, id state.ObjID, o *state.Object, ev events.Event, objLKI *state.Object) {
+	if ev.Kind != events.StepChange || o.Zone != state.ZBattlefield || o.AtEOTTrigBody == "" {
+		return
+	}
+	// The synthesized trigger's Phase$ gate (triggerMatches' phaseGate, the
+	// same parsed spec on the same observer) hoisted above the match: on any
+	// other step the trigger cannot match, and the body lookup below is a
+	// pure read, so skipping it there queues nothing less.
+	if p := observer.parsedPhaseSpec(atEOTTrigPhase); !p.valid || !p.set.Has(observer.G.Step) {
+		return
+	}
+	body := o.AtEOTTrigBody
+	sa := grantedTriggerExecute(o, body)
+	if sa == nil {
+		return
+	}
+	t := cards.Trigger{Mode: "Phase", Params: map[string]string{
+		"Mode": "Phase", "Phase": atEOTTrigPhase, "TriggerZones": "Battlefield", "Execute": body}}
+	t.Effect = sa
+	if !observer.triggerMatches(t, id, ev, objLKI) {
+		return
+	}
+	key := triggerKey{Source: id, Idx: -1}
+	if e.triggerFireCount == nil {
+		e.triggerFireCount = map[triggerKey]int32{}
+	}
+	if e.triggerFireCount[key] >= maxTriggerFires {
+		return // cascade bound: see maxTriggerFires.
+	}
+	e.triggerFireCount[key]++
+	e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+		Source:     id,
+		Controller: o.Controller,
+		Granted:    true,
+		Execute:    body,
+		SA:         sa,
+		Trigger:    t,
+		Ctx: effects.Ctx{
+			Source:         id,
+			Controller:     o.Controller,
+			LKI:            objLKI,
+			TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
+		},
+	})
+}
+
 // cumulativeUpkeepPhase is the synthesized cumulative-upkeep trigger's
 // Phase$ value, shared by the trigger and its early step gate.
 const cumulativeUpkeepPhase = "Upkeep"

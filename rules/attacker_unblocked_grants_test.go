@@ -14,6 +14,7 @@ import (
 // round-complete hook must queue that grant through GrantTriggerPush, then the
 // resolved body must pump the captured unblocked attacker.
 func TestFrenzySliverGrantedAttackerUnblockedPumps(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	frenzy := onBoardCard(t, e, 0, unblockedCorpusCard(t, "f/frenzy_sliver.txt"))
 	e.G.Obj(frenzy).SummonSick = false

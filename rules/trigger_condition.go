@@ -236,6 +236,25 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
+	if v, ok := t.Params["Threshold"]; ok {
+		// Threshold$ True (the CR 207.2c ability word, "seven or more cards
+		// in your graveyard"): the trigger-side gate, read through the SAME
+		// thresholdHolds census the Continuous static gate reads
+		// (rules/layers.go continuousConditionHolds' Condition$ Threshold
+		// arm), so the two spellings cannot drift apart. Measured over the
+		// corpus at this pin: 5 raw T: lines across 5 files -- Kiora, the
+		// Rising Tide and Crypt Feaster on Mode$ Attacks, Persistent
+		// Marshstalker on Mode$ AttackersDeclared, Tidecaller Mentor on
+		// Mode$ ChangesZone -- before this clause the trigger fired
+		// UNCONDITIONALLY, the over-fire direction. CR 603.4 makes it an
+		// intervening-if, so the same clause is re-evaluated at resolution
+		// through triggerResolvingCheckHolds. A value this build cannot
+		// read as True is an unreadable clause shape and fails closed like
+		// the Metalcraft$, Revolt$ and Delirium$ clauses above.
+		if !strings.EqualFold(strings.TrimSpace(v), "True") || !e.thresholdHolds(you) {
+			return false
+		}
+	}
 	if strings.EqualFold(strings.TrimSpace(t.Params["Condition"]), "AttackedPlayerWithMostLife") {
 		// Scourge of the Throne's intervening-if ("if it's attacking the
 		// player with the most life or tied for most life"): an
@@ -300,27 +319,39 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 }
 
 // checkDefinedPlayerHolds evaluates the player-state predicate class used by
-// event-trigger conditions. isMonarch, with the controller, opponent and any-
-// player selectors, is the supported form; supported is false for any other
-// predicate (hasInitiative, withMost*, committedCrimeThisTurn, ...).
+// event-trigger conditions. isMonarch and hasInitiative, with the controller,
+// opponent and any-player selectors, are the supported forms; supported is
+// false for any other predicate (withMost*, committedCrimeThisTurn, ...).
 func (e *Engine) checkDefinedPlayerHolds(spec string, you state.PlayerID) (holds, supported bool) {
 	base, property, ok := strings.Cut(strings.TrimSpace(spec), ".")
-	if !ok || property != "isMonarch" {
+	if !ok {
+		return false, false
+	}
+	var predicate func(state.PlayerID) bool
+	switch property {
+	case "isMonarch":
+		predicate = e.G.IsMonarch
+	case "hasInitiative":
+		// CR 726.1: the initiative designation (Loot Dispute's AttackedTarget$,
+		// Rasaad yn Bashir's / Imoen's end-step intervening-if). It reads the
+		// folded state.Initiative the InitiativeChange event maintains.
+		predicate = e.G.IsInitiative
+	default:
 		return false, false
 	}
 	switch base {
 	case "You":
-		return e.G.IsMonarch(you), true
+		return predicate(you), true
 	case "Opponent", "Other":
 		for _, p := range e.G.AliveFrom(you) {
-			if p != you && e.G.IsMonarch(p) {
+			if p != you && predicate(p) {
 				return true, true
 			}
 		}
 		return false, true
 	case "Player", "Any":
 		for _, p := range e.G.AliveFrom(0) {
-			if e.G.IsMonarch(p) {
+			if predicate(p) {
 				return true, true
 			}
 		}

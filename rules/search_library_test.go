@@ -70,6 +70,7 @@ func searchEngine(t *testing.T, reg *cards.Registry, fixtures ...string) (*Engin
 }
 
 func TestCorpusNameChoiceUsesFullUniverse(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Pithing Needle", "Phyrexian Revoker", "Cabal Therapy")
 	if _, ok := reg.Lookup("Wasteland"); !ok {
@@ -182,6 +183,7 @@ func searchEvents(log []events.Event, start int, player state.PlayerID) []events
 }
 
 func TestEvolvingWildsSearchPosesHiddenChooseAndSuspends(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Evolving Wilds")
 	wilds := searchMoveByName(t, e, "Evolving Wilds", state.ZBattlefield)
@@ -202,6 +204,7 @@ func TestEvolvingWildsSearchPosesHiddenChooseAndSuspends(t *testing.T) {
 }
 
 func TestEvolvingWildsAnswerMovesThenTapsThenShuffles(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Evolving Wilds")
 	wilds := searchMoveByName(t, e, "Evolving Wilds", state.ZBattlefield)
@@ -233,6 +236,7 @@ func TestEvolvingWildsAnswerMovesThenTapsThenShuffles(t *testing.T) {
 }
 
 func TestEvolvingWildsFailToFindStillShuffles(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Evolving Wilds")
 	wilds := searchMoveByName(t, e, "Evolving Wilds", state.ZBattlefield)
@@ -255,6 +259,7 @@ func TestEvolvingWildsFailToFindStillShuffles(t *testing.T) {
 }
 
 func TestExplosiveVegetationAllowsTwoPicksInAnswerOrder(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Explosive Vegetation")
 	_, d := castSearchSpell(t, e, "Explosive Vegetation")
@@ -276,6 +281,7 @@ func TestExplosiveVegetationAllowsTwoPicksInAnswerOrder(t *testing.T) {
 }
 
 func TestTimeOfNeedMovesChosenLegendToHandAndShuffles(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Time of Need", "Isamaru, Hound of Konda")
 	_, d := castSearchSpell(t, e, "Time of Need")
@@ -300,6 +306,7 @@ func TestTimeOfNeedMovesChosenLegendToHandAndShuffles(t *testing.T) {
 }
 
 func TestVampiricTutorPutsChosenCardOnTopWithLibraryOrder(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Vampiric Tutor")
 	_, d := castSearchSpell(t, e, "Vampiric Tutor")
@@ -322,6 +329,7 @@ func TestVampiricTutorPutsChosenCardOnTopWithLibraryOrder(t *testing.T) {
 }
 
 func TestLibrarySearchOptionsVisibleOnlyToChooser(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Evolving Wilds")
 	wilds := searchMoveByName(t, e, "Evolving Wilds", state.ZBattlefield)
@@ -341,6 +349,7 @@ func TestLibrarySearchOptionsVisibleOnlyToChooser(t *testing.T) {
 }
 
 func TestLibrarySearchChoicesReplayByteIdentically(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Evolving Wilds", "Evolving Wilds")
 	for attempt := 0; attempt < 2; attempt++ {
@@ -359,6 +368,7 @@ func TestLibrarySearchChoicesReplayByteIdentically(t *testing.T) {
 }
 
 func TestVampiricTutorSearchResumeRunsSubAbilityOnceWithoutReask(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Vampiric Tutor")
 	_, d := castSearchSpell(t, e, "Vampiric Tutor")

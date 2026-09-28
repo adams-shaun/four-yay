@@ -33,6 +33,7 @@ import (
 // hand range, the outer loop reads those clobbered ids, and this test fails
 // on the seen/want mismatch.
 func TestForEachObjectReentrySafety(t *testing.T) {
+	t.Parallel()
 	g := state.NewGame([]string{"a", "b"})
 	add := func(p state.PlayerID) state.ObjID { return g.AddObject(nil, p).ID }
 	// Zone sizes: seat 1's battlefield is the largest (drives the warm-up
@@ -109,6 +110,7 @@ func TestForEachObjectReentrySafety(t *testing.T) {
 // clone, and assert the clone's own buffer starts fresh and independent while
 // the original's keeps working.
 func TestForEachObjectCloneOwnsScratch(t *testing.T) {
+	t.Parallel()
 	g := state.NewGame([]string{"a"})
 	var ids []state.ObjID
 	for i := 0; i < 8; i++ {

@@ -139,6 +139,19 @@ func evalCov3Head(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 			return objectProperty(g, o.ID, "CardManaCost"), true
 		}
 		return 0, true
+	case "YourSpeed":
+		// CR 702.179's speed (Samut, the Driving Force's "where X is your
+		// speed", the Start-your-engines! family's gates): the resolving
+		// controller's folded state.Player.Speed, 0..4. An out-of-range seat
+		// is a modelled zero.
+		if c.Controller < 0 || int(c.Controller) >= len(g.Players) {
+			return 0, true
+		}
+		return g.Players[c.Controller].Speed, true
+	case "TypesSharedWith":
+		return typesSharedWith(h, c, arg)
+	case "MostProminentCreatureType":
+		return mostProminentCreatureType(h, c, arg), true
 	case "CreaturesAttackedThisTurn":
 		// The creatures matching the spec that were declared as attackers
 		// this turn (Neyali's "for each creature that attacked this turn",
@@ -182,6 +195,20 @@ func cov3BranchHolds(h Host, c *Ctx, pred string, depth int) (holds, ok bool) {
 	case "FatefulHour":
 		// Five or less life.
 		return valid && g.Players[you].Life <= 5, true
+	case "CommittedCrimeThisTurn":
+		// CR 700.13: the resolving controller targeted an opponent, a
+		// permanent or a spell/ability an opponent controls, or a card in an
+		// opponent's graveyard this turn (Seize the Secrets' "costs {1} less
+		// if you've committed a crime this turn"). The per-turn record is
+		// rules' TargetsChosen ledger, captured at the choice (a later move of
+		// the target cannot un-commit the crime); a Host without it leaves
+		// the predicate unmodelled.
+		if provider, ok := h.(interface {
+			CommittedCrimeThisTurn(p state.PlayerID) bool
+		}); ok {
+			return valid && provider.CommittedCrimeThisTurn(you), true
+		}
+		return false, false
 	case "Landfall":
 		// A land entered the battlefield under your control this turn
 		// (Groundswell, Tomb Hex): a battlefield entry of a land whose
@@ -294,6 +321,14 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string) (int32, bool) {
 		players = g.AliveFrom(0)
 	case "PlayerCountOpponents":
 		players = opponentGroup(g, c)
+	case "PlayerCountRegisteredOpponents":
+		// Only the per-turn noncombat damage property is answered here; every
+		// other property of this group keeps its own dispatch (count.go's
+		// RegisteredOpponents arm), which this early consult must not shadow.
+		if prop != "NonCombatDamageDealtThisTurn" {
+			return 0, false
+		}
+		players = opponentGroup(g, c)
 	case "PlayerCountRemembered":
 		// The players the resolving ability remembered (Ctx.Remembered's
 		// player entries, the resolution's own set the Remembered$ head
@@ -385,6 +420,55 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string) (int32, bool) {
 	switch prop {
 	case "SacrificedThisTurn":
 		return sacrificedThisTurn(g, c, players, arg), true
+	case "SacrificedPermanentTypesThisTurn":
+		// Korvold, Gleeful Glutton's "for each card type among permanents
+		// you've sacrificed this turn": the distinct card types of this
+		// turn's battlefield sacrifices by the counted players.
+		return sacrificedPermanentTypes(g, players), true
+	case "CardsDrawn":
+		// The cards the counted players drew this turn, summed (Heliod, the
+		// Warped Eclipse's "for each card your opponents have drawn this
+		// turn") -- the same Host log fold the Highest/Lowest extremes and
+		// Count$YouDrewThisTurn read.
+		var n int32
+		for _, p := range players {
+			n += h.CardsDrawnThisTurn(p)
+		}
+		return n, true
+	case "NonCombatDamageDealtThisTurn":
+		// Chandra's Incinerator's "the total amount of noncombat damage dealt
+		// to your opponents this turn": each counted player's damage taken
+		// this turn (the Host's Damage-event fold) minus the combat damage
+		// the per-turn combat ledger recorded landing on them.
+		hits := h.CombatDamageToPlayersThisTurn()
+		var n int32
+		for _, p := range players {
+			v := h.DamageTakenThisTurn(p)
+			for _, hit := range hits {
+				if hit.Player == p {
+					v -= hit.Amount
+				}
+			}
+			if v > 0 {
+				n += v
+			}
+		}
+		return n, true
+	case "OpponentsAttackedThisTurn":
+		// Fast Forward's "for each opponent you attacked this turn": the
+		// distinct opponents the resolving controller declared attacks on
+		// this turn, read off the Host's DeclareAttackers log fold (the live
+		// combat state forgets them once combat ends).
+		if group != "PlayerCountPropertyYou" {
+			return 0, false
+		}
+		provider, ok := h.(interface {
+			OpponentsAttackedThisTurn(p state.PlayerID) int32
+		})
+		if !ok {
+			return 0, false
+		}
+		return provider.OpponentsAttackedThisTurn(c.Controller), true
 	case "LifeLostLastTurn":
 		// The life each counted player lost during the PREVIOUS turn (the
 		// Host's log fold between the last two TurnChange events), summed
@@ -457,4 +541,120 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string) (int32, bool) {
 		return domainCount(h, c, c.Controller, 0), true
 	}
 	return 0, false
+}
+
+// sacrificedPermanentTypes counts the distinct card types among this turn's
+// battlefield sacrifices (g.Entered's Sacrificed stamp) whose sacrificer is
+// one of players, each object read through its card face (CR 205.2a's card
+// types; the face a sacrificed permanent had is the card it went to the
+// graveyard as).
+func sacrificedPermanentTypes(g *state.Game, players []state.PlayerID) int32 {
+	seen := map[string]bool{}
+	for _, en := range g.Entered {
+		if !en.Sacrificed || en.From != state.ZBattlefield || !slices.Contains(players, en.Sacrificer) {
+			continue
+		}
+		o := g.Obj(en.Obj)
+		if o == nil || o.Face() == nil {
+			continue
+		}
+		for _, typ := range o.Face().Types {
+			if cardTypeWords[typ] || typ == "Kindred" {
+				seen[typ] = true
+			}
+		}
+	}
+	return int32(len(seen))
+}
+
+// typesSharedWith answers Count$TypesSharedWith <ZoneHead> <spec> (Cemetery
+// Prowler's AffectedX: "for each card type they share with cards exiled with
+// CARDNAME"): the number of card types the AFFECTED object (Ctx.AffectedObj,
+// the spell a cost static is pricing; Source when unbound -- Forge's host
+// card) shares with the union of the card types of the objects in the named
+// zone matching spec. An unknown zone head or an empty spec is unresolvable.
+func typesSharedWith(h Host, c *Ctx, arg string) (int32, bool) {
+	zoneHead, spec, _ := strings.Cut(strings.TrimSpace(arg), " ")
+	spec = strings.TrimSpace(spec)
+	zone, ok := countZone(zoneHead)
+	if !ok || spec == "" {
+		return 0, false
+	}
+	g := h.Game()
+	subject := c.AffectedObj
+	if subject == 0 {
+		subject = c.Source
+	}
+	so := g.Obj(subject)
+	if so == nil || so.Face() == nil {
+		return 0, true
+	}
+	isCardType := func(t string) bool { return cardTypeWords[t] || t == "Kindred" }
+	pool := map[string]bool{}
+	sc := c.SpecContext(c.Controller)
+	for i := range g.Players {
+		if zone == state.ZStack && i > 0 {
+			break
+		}
+		for _, id := range g.Zone(zone, state.PlayerID(i)) {
+			o := g.Obj(id)
+			if o == nil || o.Face() == nil || !matchesZoneSpecCtx(g, spec, id, sc, zone) {
+				continue
+			}
+			for _, t := range o.Face().Types {
+				if isCardType(t) {
+					pool[t] = true
+				}
+			}
+		}
+	}
+	var n int32
+	counted := map[string]bool{}
+	for _, t := range so.Face().Types {
+		if isCardType(t) && pool[t] && !counted[t] {
+			counted[t] = true
+			n++
+		}
+	}
+	return n, true
+}
+
+// mostProminentCreatureType answers Count$MostProminentCreatureType <spec>
+// (Synchronized Eviction's "at least two creatures that share a creature
+// type"): the size of the largest group of battlefield objects matching spec
+// that share one creature type. A changeling (CR 702.73a: every creature
+// type) joins every group.
+func mostProminentCreatureType(h Host, c *Ctx, spec string) int32 {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		spec = "Creature"
+	}
+	g := h.Game()
+	sc := c.SpecContext(c.Controller)
+	counts := map[string]int32{}
+	var all int32
+	for i := range g.Players {
+		for _, id := range g.Zone(state.ZBattlefield, state.PlayerID(i)) {
+			o := g.Obj(id)
+			if o == nil || o.Face() == nil || !matchesZoneSpecCtx(g, spec, id, sc, state.ZBattlefield) {
+				continue
+			}
+			if h.HasKeyword(id, "Changeling") {
+				all++
+				continue
+			}
+			for _, t := range o.Face().Types {
+				if creatureSubtypeWords[t] {
+					counts[t]++
+				}
+			}
+		}
+	}
+	var best int32
+	for _, n := range counts {
+		if n > best {
+			best = n
+		}
+	}
+	return best + all
 }

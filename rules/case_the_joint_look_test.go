@@ -25,6 +25,7 @@ import (
 )
 
 func TestCaseTheJointLookAcksEachTargetOnce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Case the Joint")},

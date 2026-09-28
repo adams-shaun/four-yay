@@ -29,6 +29,7 @@ import (
 // targeting seat 0's Ashenmoor Liege; the Liege's trigger makes seat 1 (the
 // ability's controller) lose 4 life, and seat 0 none.
 func TestAshenmoorLiegeTriggeredSourceSAController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lcard := mustCorpusCard(t, reg, "Ashenmoor Liege")
 	trig := corpusTriggerMode(t, lcard, "BecomesTarget")
@@ -82,6 +83,7 @@ func TestAshenmoorLiegeTriggeredSourceSAController(t *testing.T) {
 // player's seat only, and the chosen target must still be legal at
 // resolution (it leaves the battlefield destroyed).
 func TestBlackBoltTriggeredSourceSAController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lcard := mustCorpusCard(t, reg, "Black Bolt, Inhuman King")
 	trig := corpusTriggerMode(t, lcard, "BecomesTarget")

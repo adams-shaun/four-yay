@@ -13,6 +13,7 @@ import (
 // belongs to seat 1 but is controlled by seat 0, exercising owner-not-controller
 // choice and suspension across its CR 903.9 replacement.
 func TestMorphTurnFaceUpWaitsForSacrificedCommanderReplacement(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int
@@ -54,7 +55,7 @@ func TestMorphTurnFaceUpWaitsForSacrificedCommanderReplacement(t *testing.T) {
 				t.Fatalf("precondition: commander %d does not carry the CR 903.9 replacement", cmd)
 			}
 			mark := len(e.L.Events)
-			if !e.morphTurnUpPayable(0, id, mf.cost) {
+			if !e.morphTurnUpPayable(0, id, mf.cost, costMods{}) {
 				t.Fatal("precondition: turn-up cost is not payable")
 			}
 			e.priorityRound()

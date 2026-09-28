@@ -78,6 +78,7 @@ func awaitDefeatAsk(t *testing.T, e *Engine) *decision.Decision {
 // a battle with no defense counters is DEFEATED -- exiled (CR 310.11), not
 // put into its owner's graveyard.
 func TestDefeatedBattleIsExiledNotGraveyarded(t *testing.T) {
+	t.Parallel()
 	e, id := defeatedBoard(t, "Invasion of Tolvada")
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil || !o.Face().IsBattle() {
@@ -109,6 +110,7 @@ func TestDefeatedBattleIsExiledNotGraveyarded(t *testing.T) {
 // Move clears o.Counters as the object leaves the battlefield, so the queue
 // must read the pre-fold defense count (Engine.emit's defenseBefore).
 func TestHealthyExiledBattleGetsNoCastOffer(t *testing.T) {
+	t.Parallel()
 	e, id := defeatedBoard(t, "Invasion of Pyrulea")
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZBattlefield {
@@ -137,6 +139,7 @@ func TestHealthyExiledBattleGetsNoCastOffer(t *testing.T) {
 // without paying its mana cost, and resolved onto the battlefield as that
 // back face.
 func TestDefeatedBattleOffersTransformedCast(t *testing.T) {
+	t.Parallel()
 	e, id := defeatedBoard(t, "Invasion of Pyrulea")
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZBattlefield || o.Card == nil || len(o.Card.Faces) != 2 {
@@ -197,6 +200,7 @@ func TestDefeatedBattleOffersTransformedCast(t *testing.T) {
 // decline leaves the exiled battle in exile (front face, unflipped) and
 // offers nothing further.
 func TestDefeatedBattleDeclineLeavesInExile(t *testing.T) {
+	t.Parallel()
 	e, id := defeatedBoard(t, "Invasion of Pyrulea")
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZBattlefield || len(o.Card.Faces) != 2 {

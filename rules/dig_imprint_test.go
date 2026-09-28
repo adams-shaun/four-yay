@@ -22,6 +22,7 @@ const digImprintSpell = "Name:Imprint Spell\nManaCost:U\nTypes:Instant\n" +
 	"A:SP$ Draw | NumCards$ 1 | Defined$ You\nOracle:Draw a card.\n"
 
 func TestDigImprintPlaysExiledCardAndMovesRemainderToHand(t *testing.T) {
+	t.Parallel()
 	e, cfg, source := newFixtureDeck(t, 7901, digImprintSource, digImprintSpell)
 	before := digReorder(t, e, "Imprint Spell", "Mountain", "Mountain", "Mountain")
 	if len(before) < 4 {

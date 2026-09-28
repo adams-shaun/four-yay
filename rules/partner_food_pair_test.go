@@ -17,6 +17,7 @@ import (
 // feeds Config.Commanders is pinned at the deck and cmd layers; this leaf is
 // the engine half, over the same pair a partner deck file now names.
 func TestFoodFellowshipPartnerPairSeatsBothCommanders(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	frodo := lookup(t, reg, "Frodo, Adventurous Hobbit")
 	sam := lookup(t, reg, "Sam, Loyal Attendant")

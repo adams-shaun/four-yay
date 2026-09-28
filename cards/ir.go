@@ -14,6 +14,10 @@ type SA struct {
 
 	compiledCatalog *CompiledCatalog
 	compiledID      AbilityID
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Trigger is a T: line. Execute$ names an SVar holding the effect.
@@ -21,12 +25,20 @@ type Trigger struct {
 	Mode   string
 	Params map[string]string
 	Effect *SA
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Static is an S: line: a continuous effect or a play restriction.
 type Static struct {
 	Mode   string
 	Params map[string]string
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Repl is an R: line: a replacement effect. ReplaceWith$ names an SVar.
@@ -34,6 +46,10 @@ type Repl struct {
 	Event  string
 	Params map[string]string
 	With   *SA
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Face is one printed face. Most cards have exactly one; ALTERNATE starts
@@ -78,6 +94,9 @@ type Face struct {
 	// time. Keeping this hot prefilter beside the legacy face avoids a catalog
 	// slice lookup during every trigger scan; it is not serialized.
 	compiledTriggerInterests TriggerInterest
+	// compiledTypeMask is the bound catalog row's TypeMask, copied beside
+	// the face at bind time like compiledTriggerInterests (hasTypeMask).
+	compiledTypeMask TypeMask
 
 	compiledCatalog *CompiledCatalog
 	compiledID      FaceID
@@ -103,6 +122,25 @@ type Face struct {
 	// anyStaticEZ: some static (any Mode$) carries an EffectZone$ key (see
 	// StaticsMayNameEffectZone).
 	anyStaticEZ bool
+
+	// typeWords/kwHeads are the interned printed type-line words and keyword
+	// heads as bitsets (words.go), guarded by the identity of the slice they
+	// were derived over. Not serialized.
+	typeWords      TypeWordSet
+	typeWordsFirst *string
+	typeWordsLen   int
+	typeWordsBound bool
+	kwHeads        KeywordHeadSet
+	kwHeadsFirst   *string
+	kwHeadsLen     int
+	kwHeadsBound   bool
+	// cmcSrc is the ManaCost text cmc was derived from (PrintedManaValue's
+	// guard). Not serialized.
+	cmcSrc   string
+	cmcBound bool
+	// manaCostSlot holds a downstream compiled form of ManaCost (slot.go),
+	// allocated at load. Not serialized.
+	manaCostSlot *Slot
 }
 
 // typeStaticParams are the static parameter keys whose presence can make
@@ -447,7 +485,15 @@ type Card struct {
 	Path          string
 	AlternateMode string
 	Faces         []*Face
+
+	// compiledSlot holds a downstream compiled summary of the card's text
+	// (slot.go), allocated at Link. Not serialized.
+	compiledSlot *Slot
 }
+
+// CompiledSlot is the card's slot for a downstream compiled summary of its
+// text (nil on a card never linked).
+func (c *Card) CompiledSlot() *Slot { return c.compiledSlot }
 
 // Diag is a non-fatal parse complaint. The whole corpus is expected to produce
 // under ten of these; a jump means either a parser regression or an upstream

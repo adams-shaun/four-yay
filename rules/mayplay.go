@@ -12,6 +12,7 @@
 package rules
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -59,6 +60,43 @@ import (
 // withhold the offer, not widen it. The full fail-closed list is in
 // mayPlayStatic.
 func (e *Engine) mayPlayGrant(p state.PlayerID, id state.ObjID) (free, ok bool) {
+	return e.mayPlayGrantScoped(p, id, true)
+}
+
+// mayPlayBoardGrantsOpen reports whether either board-side source of
+// mayPlayGrant can contribute for player p: a battlefield Continuous static
+// p controls carrying MayPlay$ True (mayPlayStatic answers nothing for any
+// other value), or an active effect that is a FREE may-play grant of p's
+// (mayPlayEffectFree covers nothing else). When it is false, mayPlayGrant
+// is exactly its self-grant half for every card, which a walk asking it per
+// card (mayPlaySpellIds) can take through mayPlayGrantScoped.
+func (e *Engine) mayPlayBoardGrantsOpen(p state.PlayerID) bool {
+	for _, sv := range e.activeStatics("Continuous") {
+		if sv.Controller == p && strings.TrimSpace(sv.Params["MayPlay"]) == "True" {
+			return true
+		}
+	}
+	ces := e.active()
+	for i := range ces {
+		if ces[i].MayPlay && ces[i].MayPlayFree && ces[i].Controller == p {
+			return true
+		}
+	}
+	return false
+}
+
+// mayPlayGrantScoped is mayPlayGrant with the board-side sources (b) and (c)
+// read only when board is true. board false is exact only while
+// mayPlayBoardGrantsOpen(p) is false; verify mode (derivedMemoVerify)
+// re-runs the full grant and panics on a difference.
+func (e *Engine) mayPlayGrantScoped(p state.PlayerID, id state.ObjID, board bool) (free, ok bool) {
+	if !board && derivedMemoVerify {
+		defer func() {
+			if wf, wo := e.mayPlayGrantScoped(p, id, true); wf != free || wo != ok {
+				panic(fmt.Sprintf("rules: board-closed may-play grant of obj %d disagrees with the full read", id))
+			}
+		}()
+	}
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
 		return false, false
@@ -77,6 +115,9 @@ func (e *Engine) mayPlayGrant(p state.PlayerID, id state.ObjID) (free, ok bool) 
 		if grants {
 			ok = true
 		}
+	}
+	if !board {
+		return free, ok
 	}
 	// (b) Battlefield grants, in activeStatics' deterministic APNAP order.
 	for _, sv := range e.activeStatics("Continuous") {
@@ -109,6 +150,110 @@ func (e *Engine) mayPlayGrant(p state.PlayerID, id state.ObjID) (free, ok bool) 
 		ok = true
 	}
 	return free, ok
+}
+
+// mayPlaySpellOffer is one cast offer a may-play permission produces for a
+// card: which card and zone, the permission's identity (key/text -- empty
+// for an untyped grant), and the permission's own free-cast / RaiseCost$
+// riders (populated only for typed permissions; an untyped offer's riders
+// are read by the caller's existing aggregate helpers).
+type mayPlaySpellOffer struct {
+	zone     state.Zone
+	id       state.ObjID
+	key      string
+	text     string
+	free     bool
+	raise    Cost
+	hasRaise bool
+	priced   bool
+}
+
+// mayPlayPermissions returns every usable printed/self/board MayPlay static
+// permission covering card id for player p, in deterministic order: the
+// card's own face statics, then battlefield statics in activeStatics' APNAP
+// order. board is mayPlayGrantScoped's board switch, so the verify-mode
+// scoping stays consistent. An untyped grant collapses to one entry with an
+// empty key (its limit is the historical per-card one); a MayPlayText$-typed
+// grant is its own entry keyed by (source, label), so an artifact creature
+// matching both Muldrotha's Artifact and Creature statics is offered once
+// per still-unused permission and the cast can say which one it consumes.
+// A static whose own limit is already reached reports applies=false inside
+// mayPlayStatic, so it is absent here.
+func (e *Engine) mayPlayPermissions(p state.PlayerID, id state.ObjID, board bool) []mayPlaySpellOffer {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return nil
+	}
+	var out []mayPlaySpellOffer
+	typed := map[string]bool{}
+	untyped := false
+	// ok records one static's permission (or the untyped collapse) after
+	// mayPlayStatic's gates. The callers below pass st.Params / sv.Params
+	// DIRECTLY so the parameter census traces each argument to a Params map
+	// (the same shape mayPlayRaiseCost uses).
+	ok := func(text string, source state.ObjID, free bool, raise Cost, hasRaise, priced bool) {
+		if text == "" {
+			untyped = true
+			return
+		}
+		key := mayPlayPermKey(source, text)
+		if typed[key] {
+			return
+		}
+		typed[key] = true
+		out = append(out, mayPlaySpellOffer{id: id, key: key, text: text,
+			free: free, raise: raise, hasRaise: hasRaise, priced: priced})
+	}
+	for _, st := range o.Face().Statics {
+		if st.Mode != "Continuous" {
+			continue
+		}
+		applies, grants, free, raise, hasRaise, priced := e.mayPlayStatic(st.Params, id, o.Controller, id)
+		if !applies || !grants {
+			continue
+		}
+		ok(strings.TrimSpace(st.Params["MayPlayText"]), id, free, raise, hasRaise, priced)
+	}
+	if board {
+		for _, sv := range e.activeStatics("Continuous") {
+			if sv.Controller != p {
+				continue
+			}
+			applies, grants, free, raise, hasRaise, priced := e.mayPlayStatic(sv.Params, id, sv.Controller, sv.Source)
+			if !applies || !grants {
+				continue
+			}
+			ok(strings.TrimSpace(sv.Params["MayPlayText"]), sv.Source, free, raise, hasRaise, priced)
+		}
+	}
+	if untyped {
+		// The untyped entry carries no riders: the caller reads them through
+		// the existing mayPlayGrant/mayPlayRaiseCost aggregate, exactly as it
+		// did before typed permissions existed.
+		out = append([]mayPlaySpellOffer{{id: id}}, out...)
+	}
+	return out
+}
+
+// mayPlayPermFreeRaise reports the free-cast and RaiseCost$ composition of a
+// CAST through the may-play permission named by key. The empty key is the
+// aggregate read every untyped grant uses (mayPlayGrant / mayPlayRaiseCost);
+// a typed key is looked up among the card's matching permissions so the cast
+// prices exactly the static it consumed. A stale or unmatched key falls back
+// to the aggregate -- the fail-closed direction beginCast already takes for
+// a grant that vanished between offer and payment.
+func (e *Engine) mayPlayPermFreeRaise(p state.PlayerID, id state.ObjID, key string) (free bool, raise Cost, hasRaise, priced bool) {
+	if key != "" {
+		for _, off := range e.mayPlayPermissions(p, id, true) {
+			if off.key == key {
+				return off.free, off.raise, off.hasRaise, off.priced
+			}
+		}
+	}
+	free, granted := e.mayPlayGrant(p, id)
+	free = free && granted
+	raise, hasRaise, priced = e.mayPlayRaiseCost(p, id)
+	return free, raise, hasRaise, priced
 }
 
 // mayPlayRaiseCost reports the composition of the RaiseCost$ surcharge the
@@ -429,13 +574,28 @@ func (e *Engine) mayPlayStatic(params map[string]string, id state.ObjID, you sta
 	if !e.matchesSpecFrom(targetSpecForZone(spec, o.Zone), id, you, source) {
 		return false, false, false, Cost{}, hasRaise, priced
 	}
+	// MayPlayText$ names the permission this static grants (Muldrotha, the
+	// Gravetide's six per-permanent-type grants: "you may ... cast a
+	// permanent spell of each permanent type from your graveyard"). It is
+	// both the option label and the permission's identity: a typed grant's
+	// MayPlayLimit$ is enforced once per turn PER STATIC
+	// (mayPlayTypedLimitReached), not per card, so Muldrotha allows one
+	// creature AND one artifact in the same turn while a second creature is
+	// withheld. An untyped grant keeps the historical per-card limit (Kess).
+	permissionText := strings.TrimSpace(params["MayPlayText"])
 	// MayPlayLimit$ (always the literal 1 in the corpus, 45 S: lines): the
 	// granted play is once per turn. An unresolvable value stays unenforced,
 	// the same convention activationLimitReached applies to a non-literal
 	// ActivationLimit$.
 	if raw := strings.TrimSpace(params["MayPlayLimit"]); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 && e.mayPlayLimitReached(id, n) {
-			return false, false, false, Cost{}, hasRaise, priced
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			if permissionText != "" {
+				if e.mayPlayTypedLimitReached(source, permissionText, n) {
+					return false, false, false, Cost{}, hasRaise, priced
+				}
+			} else if e.mayPlayLimitReached(id, n) {
+				return false, false, false, Cost{}, hasRaise, priced
+			}
 		}
 	}
 	grants = !strings.EqualFold(params["MayPlayDontGrantZonePermissions"], "True")
@@ -480,6 +640,42 @@ func (e *Engine) mayPlayLimitReached(id state.ObjID, limit int) bool {
 		}
 		if ev.Kind == events.PutOnStack ||
 			(ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && ev.From != state.ZHand && ev.From != state.ZStack) {
+			used++
+		}
+	}
+	return used >= limit
+}
+
+// mayPlayPermKey is a MayPlayText$-typed permission's stable identity: the
+// granting static's source object plus its MayPlayText$ label. Muldrotha's
+// six statics share one source and differ by label, so the pair names
+// exactly one permission; two different Muldrothas (or a second card
+// granting the same type name) never share a limit. Deterministic and
+// replay-stable.
+func mayPlayPermKey(source state.ObjID, text string) string {
+	return strconv.FormatInt(int64(source), 10) + ":" + text
+}
+
+// mayPlayTypedLimitReached reports whether a MayPlayText$-typed permission
+// has already been used `limit` times this turn. A cast through such a
+// permission stamps a "perm=<key>" token on its pay-time CastInfo (payCast),
+// so the scan mirrors mayPlayLimitReached's backward walk to the last
+// TurnChange but keys on the permission token rather than the card id. A
+// land played through a typed permission emits no CastInfo, so a typed LAND
+// permission's count is not tracked here; the once-per-turn land drop
+// (LandsPlayed) bounds it instead (Muldrotha's Land static).
+func (e *Engine) mayPlayTypedLimitReached(source state.ObjID, text string, limit int) bool {
+	token := "perm=" + mayPlayPermKey(source, text)
+	used := 0
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		ev := e.L.Events[i]
+		if ev.Kind == events.TurnChange {
+			break
+		}
+		if ev.Kind != events.CastInfo || ev.Counter == "" {
+			continue
+		}
+		if strings.Contains(ev.Counter, token) {
 			used++
 		}
 	}
@@ -533,17 +729,21 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		return nil
 	}
 	var out []Cost
-	// The two sources the permission grant walks, merged into one
-	// deterministic scan (battlefield statics first, then the card's own
-	// face statics): the copy keeps activeStatics' slice from being
-	// appended to in place.
-	statics := append([]staticView(nil), e.activeStatics("Continuous")...)
-	for _, st := range o.Face().Statics {
-		if st.Mode == "Continuous" {
-			statics = append(statics, staticView{Params: st.Params, Source: id, Controller: o.Controller})
+	// The two sources the permission grant walks, scanned in one
+	// deterministic order (battlefield statics first, then the card's own
+	// face statics). Each is ranged in place -- neither list is appended to
+	// -- so no merged copy is built per call.
+	bf := e.activeStatics("Continuous")
+	face := o.Face().Statics
+	for i, n := 0, len(bf)+len(face); i < n; i++ {
+		var sv staticView
+		if i < len(bf) {
+			sv = bf[i]
+		} else if st := face[i-len(bf)]; st.Mode == "Continuous" {
+			sv = staticView{Params: st.Params, PS: st.ParamSetOf(), Source: id, Controller: o.Controller}
+		} else {
+			continue
 		}
-	}
-	for _, sv := range statics {
 		raw := strings.TrimSpace(sv.Params["MayPlayAltManaCost"])
 		if raw == "" || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
 			!e.mayPlayConditionGateHolds(sv.Params, sv.Source, sv.Controller) {
@@ -709,15 +909,17 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 	if o.Zone != state.ZGraveyard && o.Zone != state.ZExile {
 		return false, false
 	}
-	limited := e.mayPlaysThisTurn(p)
-	for _, ce := range e.active() {
+	limited := lazyMayPlays{e: e, p: p}
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
 		if !ce.MayPlay || !ce.MayPlayFree || ce.Controller != p {
 			continue
 		}
 		if ce.MayPlayPlayerTurn && e.G.Active != p {
 			continue
 		}
-		if ce.MayPlayLimit > 0 && int32(limited) >= ce.MayPlayLimit {
+		if ce.MayPlayLimit > 0 && int32(limited.count()) >= ce.MayPlayLimit {
 			continue
 		}
 		zones, all, ok := effects.ParseZones(ce.AffectedZone)
@@ -727,7 +929,7 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if !e.effectGrantMatches(ce, o.ID) {
+		if !e.effectGrantMatches(*ce, o.ID) {
 			continue
 		}
 		return true, true
@@ -749,15 +951,17 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 	if o.Zone != state.ZGraveyard && o.Zone != state.ZExile {
 		return false
 	}
-	limited := e.mayPlaysThisTurn(p)
-	for _, ce := range e.active() {
+	limited := lazyMayPlays{e: e, p: p}
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
 		if !ce.MayPlay || ce.Controller != p {
 			continue
 		}
 		if ce.MayPlayPlayerTurn && e.G.Active != p {
 			continue
 		}
-		if ce.MayPlayLimit > 0 && int32(limited) >= ce.MayPlayLimit {
+		if ce.MayPlayLimit > 0 && int32(limited.count()) >= ce.MayPlayLimit {
 			continue
 		}
 		zones, all, ok := effects.ParseZones(ce.AffectedZone)
@@ -767,11 +971,122 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if e.effectGrantMatches(ce, o.ID) {
+		if e.effectGrantMatches(*ce, o.ID) {
 			return true
 		}
 	}
 	return false
+}
+
+// mayPlayGrantedBy reports whether a may-play permission HOSTED by host
+// covers card id for player p right now -- Forge's MayPlaySource property
+// (SpellAbilityProperty: sa.getMayPlay().getHostCard() equals the source),
+// read for "spells you cast this way" (Urianger Augurelt's ValidSpell$
+// Spell.MayPlaySource reduction, the CastSa Spell.MayPlaySource raises).
+// It walks the same three sources mayPlayGrant reads, keeping only the
+// permissions whose host is host, under the same gates:
+//
+//   - the card's own face statics (host == id, a self-grant);
+//   - a battlefield Continuous static whose source is host (only its
+//     controller benefits, mayPlayGrant's rule);
+//   - an Effect-delivered grant (plain or free) whose Source is host, with
+//     mayPlayEffectGrantsCast's controller / PlayerTurn / MayPlayLimit$ /
+//     AffectedZone$ / Affects gates.
+//
+// A may-play cast's own record of these hosts (pendingCast.mayPlayHosts,
+// captured at beginCast while the card still sat in the granted zone) is
+// what the cost chain reads once the card has moved to the stack -- the
+// permission's Affects$/ForgetOnMoved$ scope no longer covers it there.
+func (e *Engine) mayPlayGrantedBy(p state.PlayerID, id, host state.ObjID) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil || host == 0 {
+		return false
+	}
+	if host == id {
+		for _, st := range o.Face().Statics {
+			if st.Mode != "Continuous" {
+				continue
+			}
+			if _, grants, _, _, _, _ := e.mayPlayStatic(st.Params, id, o.Controller, id); grants {
+				return true
+			}
+		}
+	}
+	for _, sv := range e.activeStatics("Continuous") {
+		if sv.Controller != p || sv.Source != host {
+			continue
+		}
+		if _, grants, _, _, _, _ := e.mayPlayStatic(sv.Params, id, sv.Controller, sv.Source); grants {
+			return true
+		}
+	}
+	if o.Zone != state.ZGraveyard && o.Zone != state.ZExile {
+		return false
+	}
+	limited := lazyMayPlays{e: e, p: p}
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
+		if !ce.MayPlay || ce.Source != host || ce.Controller != p {
+			continue
+		}
+		if ce.MayPlayPlayerTurn && e.G.Active != p {
+			continue
+		}
+		if ce.MayPlayLimit > 0 && int32(limited.count()) >= ce.MayPlayLimit {
+			continue
+		}
+		zones, all, ok := effects.ParseZones(ce.AffectedZone)
+		if !ok && !all {
+			continue
+		}
+		if !all && !slices.Contains(zones, o.Zone) {
+			continue
+		}
+		if e.effectGrantMatches(*ce, o.ID) {
+			return true
+		}
+	}
+	return false
+}
+
+// mayPlayHostsCovering returns, in activeStatics/active() order, the hosts of
+// every may-play permission covering id for p (mayPlayGrantedBy's three
+// sources). beginCast records it for a "mayplay" cast so the cost chain can
+// still name the permission's host after CR 601.2a moves the card.
+func (e *Engine) mayPlayHostsCovering(p state.PlayerID, id state.ObjID) []state.ObjID {
+	var out []state.ObjID
+	seen := func(h state.ObjID) bool { return slices.Contains(out, h) }
+	if e.mayPlayGrantedBy(p, id, id) {
+		out = append(out, id)
+	}
+	for _, sv := range e.activeStatics("Continuous") {
+		if sv.Controller == p && !seen(sv.Source) && e.mayPlayGrantedBy(p, id, sv.Source) {
+			out = append(out, sv.Source)
+		}
+	}
+	ces := e.active()
+	for i := range ces {
+		if ces[i].MayPlay && !seen(ces[i].Source) && e.mayPlayGrantedBy(p, id, ces[i].Source) {
+			out = append(out, ces[i].Source)
+		}
+	}
+	return out
+}
+
+// castRidesMayPlayOf reports whether the cast being priced under scope is a
+// may-play cast whose permission host is host (Forge's MayPlaySource). Only
+// the "mayplay" cast mode rides a may-play permission. The pending cast of id
+// answers from the hosts it recorded at beginCast; the pre-cast offer walk
+// reads the live permissions.
+func (e *Engine) castRidesMayPlayOf(p state.PlayerID, id, host state.ObjID, scope costScope) bool {
+	if scope.kind != "Spell" || scope.mode != "mayplay" {
+		return false
+	}
+	if pc := e.cast; pc != nil && pc.card == id && pc.mayPlayHostsSet {
+		return slices.Contains(pc.mayPlayHosts, host)
+	}
+	return e.mayPlayGrantedBy(p, id, host)
 }
 
 // mayPlayValidSAKinds splits one may-play permission's ValidSA$ into its

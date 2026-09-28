@@ -115,6 +115,19 @@ func (e *Engine) checkUnlockTriggers(ev events.Event) {
 	}
 }
 
+// unlockMods composes the CR 601.2f cost modifiers that reach o's unlock
+// special action (specialActionScope("unlock"): Inquisitive Glimmer's
+// ValidSpell$ Static.Unlock). The unlock pays mana only, so a modifier that
+// adds a non-mana cost part (a RaiseCost Cost$ extra) reports ok=false and
+// the action is withheld rather than the part silently waived.
+func (e *Engine) unlockMods(p state.PlayerID, id state.ObjID) (costMods, bool) {
+	mods := e.costModifiers(p, id, specialActionScope("unlock"))
+	if mods.hasExtra {
+		return costMods{}, false
+	}
+	return mods, true
+}
+
 // unlockRoomCost returns the locked half's mana cost, parsed, for the offer
 // and payment gate.
 func (e *Engine) unlockRoomCost(o *state.Object) (Cost, bool) {
@@ -122,5 +135,5 @@ func (e *Engine) unlockRoomCost(o *state.Object) (Cost, bool) {
 	if f == nil {
 		return Cost{}, false
 	}
-	return e.parseCost(f.ManaCost), true
+	return e.faceCost(f), true
 }

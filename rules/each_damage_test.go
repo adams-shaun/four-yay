@@ -89,6 +89,7 @@ func unimplementedNotes(e *Engine) []string {
 // reading HasKeyword(DAMAGER, "Deathtouch"), so a wrong source binding
 // (the spell, say) would leave no mark anywhere.
 func TestWaveOfReckoningSurvivorsAreExactlyToughnessGreaterThanPower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := eachBoard(t, reg,
 		[]*cards.Card{mustCorpusCard(t, reg, "Wave of Reckoning")},
@@ -159,6 +160,7 @@ func TestWaveOfReckoningSurvivorsAreExactlyToughnessGreaterThanPower(t *testing.
 // each of the two creatures deals damage equal to its TOUGHNESS to the
 // other (per-damager amounts: the 0/5 wall deals 5, the 6/4 wurm deals 4).
 func TestGrimContestToEachOtherDealsToughnessBothWays(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := eachBoard(t, reg,
 		[]*cards.Card{mustCorpusCard(t, reg, "Grim Contest")},
@@ -240,6 +242,7 @@ func TestGrimContestToEachOtherDealsToughnessBothWays(t *testing.T) {
 // to target player or planeswalker -- the damagers come from the ValidCards
 // sweep, the recipient from the ability's own announcement ask.
 func TestSarkhanTheMadUltimatePinsDamagersAndTargetRecipients(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sarkhanCard := mustCorpusCard(t, reg, "Sarkhan the Mad")
 	e, cfg := eachBoard(t, reg, nil,

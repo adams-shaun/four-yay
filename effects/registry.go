@@ -62,6 +62,20 @@ type Host interface {
 	// test double returns the printed face's keywords.
 	ObjectKeywords(*state.Object) []string
 	Emit(events.Event)
+	// EmitPlayerLost proposes a PlayerLost event for p, gated by any live
+	// `R:Event$ GameLoss | Layer$ CantHappen` replacement for that player and
+	// cause (CR 104.3 / 704.5a-c, task fdn-repl-cant-lose). reason is the
+	// Forge GameLossReason spelling the replacement's ValidLoseReason$
+	// discriminator compares ("Milled" for an empty-library draw, "Effect"
+	// for api:LosesGame); an unmodelled value fails closed in the rules gate.
+	// A loss the replacement stops emits nothing and the caller must not
+	// report the state change -- the deck-out draw and api:LosesGame both use
+	// this instead of Emit so neither can bypass the gate.
+	EmitPlayerLost(p state.PlayerID, reason, text string)
+	// EmitGameWin proposes a GameOver win for p (the api:WinsGame family),
+	// gated by any live `R:Event$ GameWin | Layer$ CantHappen` replacement for
+	// that player (task fdn-repl-cant-lose). A prevented win emits nothing.
+	EmitGameWin(p state.PlayerID, text string)
 	// EmitTokenCreate emits a token-creation event and returns every object
 	// it actually created, in mint order. A token-creation replacement may
 	// rewrite one would-be token into several mints (Divine Visitation's one
@@ -871,8 +885,9 @@ type VillainousRest struct {
 // host can carry it on its own continuation frame and replay re-derives it
 // identically.
 type GenericChoiceRest struct {
-	Choosers []state.Target
-	Next     int
+	Choosers   []state.Target
+	Next       int
+	Remembered []state.Target
 }
 
 // DamageSourceLKI is the pre-departure damage provenance of one object.
@@ -942,11 +957,29 @@ type Ctx struct {
 	ClashTop          bool
 	Source            state.ObjID
 	Controller        state.PlayerID
+	// CostUntapped carries permanents untapped as an activation cost into
+	// effects whose Defined.Untapped selector refers to that paid target.
+	CostUntapped []state.ObjID
+	// AffectedObj is the object a static ability is being evaluated FOR --
+	// Forge's "affected" card, whose AffectedX amount a static reads relative
+	// to it. rules binds it on a cost-modifier static's Amount$ evaluation
+	// (modAmountX): the spell or ability source being priced. Cemetery
+	// Prowler's Count$TypesSharedWith reads the card types the priced spell
+	// shares with the cards exiled with the Prowler. Zero means unbound; a
+	// head that reads it falls back to Source (Forge's host card).
+	AffectedObj state.ObjID
+	// AffectedAbility is the activated ability being priced when AffectedObj
+	// is an ability's source (nil for a spell): the in-flight activation a
+	// Count$ThisTurnActivated_ gate counts alongside this turn's earlier ones.
+	AffectedAbility *cards.SA
 	// PromisedGiftOverride is bound only by rules' pre-election target-feasibility
 	// census, which must consider either branch before the player elects Gift.
 	PromisedGiftOverride *bool
 	// NameChoice carries a mid-resolution NameCard answer across re-entry.
 	NameChoice string
+	// ChangeZoneAlternative carries the owner's answered top/bottom choice
+	// across a suspended ChangeZone resolution. It is consumed by effChangeZone.
+	ChangeZoneAlternative string
 	// ChosenDirection carries a mid-resolution ChooseDirection answer across
 	// re-entry: the "left"/"right" pick (Aminatou's [-6], Order of
 	// Succession). It is resolution-scratch like NameChoice -- never
@@ -1425,6 +1458,9 @@ type Ctx struct {
 	// body, the matching convention rules' charmModeTarget already
 	// established).
 	OfferedSA *cards.SA
+	// TargetAskResume overrides the SA that owns a target ask while an Effect
+	// pre-captures the target of its immediately following ChangeZone sub.
+	TargetAskResume *cards.SA
 	// ModesSeen names the chosen modes earlier passes of a CanRepeatModes$
 	// Charm's mode walk already ran (rules' charm_rest resume arm seeds it
 	// from the consumed prefix of the object's ChosenModes; a first pass has
@@ -1617,6 +1653,20 @@ type Ctx struct {
 	// consumed and cleared at the re-entry's top (fx42 scoping), so a nested
 	// SetState poses its own ask.
 	SetStateOpt string
+	// EndTurnOpt is the answer to Obeka's Optional$ EndTurn election. It is
+	// consumed on re-entry so another EndTurn in the chain asks independently.
+	EndTurnOpt string
+	// VentureEnter is the answered dungeon choice of an api:Venture first
+	// venture (CR 701.49a): the token-script key the re-entered effVenture
+	// puts into the answering player's command zone. VentureRoom is the
+	// answered room choice of an api:Venture advance (CR 701.49b): the room
+	// key the marker moves to. Both ride the ask with the walk cursor
+	// (VentureIdx, the actingPlayers index the ask was posed for), are
+	// consumed and cleared at the re-entry's top (fx42 scoping), and their
+	// emptiness distinguishes a fresh walk from a resumed one.
+	VentureEnter string
+	VentureRoom  string
+	VentureIdx   int32
 	// CounterKind is the answered kind for a comma-separated PutCounter list.
 	// CounterKindDone distinguishes an answered first-option fallback from the
 	// first pass; CounterKinds carries a ChooseDifferent$ multi-answer.
@@ -2826,6 +2876,53 @@ type targetableObjectsHost interface {
 	TargetableObjects(triggerCard state.ObjID) []state.ObjID
 }
 
+func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool, bool) {
+	if c == nil || sa == nil || sa.API != "Effect" ||
+		strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
+		return nil, false, false
+	}
+	remembersTargeted := false
+	for _, member := range strings.Split(sa.Params["RememberObjects"], "&") {
+		member = strings.TrimSpace(member)
+		if member == "Targeted" || member == "ThisTargetedCard" {
+			remembersTargeted = true
+			break
+		}
+	}
+	if !remembersTargeted {
+		return nil, false, false
+	}
+	childName := strings.TrimSpace(sa.Params["SubAbility"])
+	child := cards.ResolveSVar(c.SVars, childName)
+	if child == nil || child.API != "ChangeZone" ||
+		strings.TrimSpace(child.Params["ValidTgts"]) == "" {
+		return nil, false, false
+	}
+	// The root Effect has no target of its own, so a generic placement marker
+	// cannot mean that this child was offered. Temporarily remove that marker
+	// while using ChangeZone's normal chooser and restore it before dispatch.
+	offeredSA, targetsOffered := c.OfferedSA, c.TargetsOffered
+	previousResume := c.TargetAskResume
+	answeredEmpty := c.ChoiceDone && len(c.Choice) == 0
+	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = nil, false, sa
+	ts, handled := changeZoneChosenTargets(h, c, child)
+	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = offeredSA, targetsOffered, previousResume
+	if !handled {
+		return nil, false, false
+	}
+	if ts == nil && !answeredEmpty {
+		return nil, false, true
+	}
+	if ts == nil {
+		ts = []state.Target{}
+	}
+	if c.SubPreAsk == nil {
+		c.SubPreAsk = make(map[string][]state.Target)
+	}
+	c.SubPreAsk[child.Line] = ts
+	return ts, true, false
+}
+
 func Resolve(h Host, c *Ctx, sa *cards.SA) {
 	// Publish this walk's Effect-created registration frame (set by rules'
 	// seedEffectReplCtx on an api:Effect replacement's body Ctx) for the whole
@@ -3077,6 +3174,17 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// before any skip could suppress it. API$ ChangeZone is left to
 		// effChangeZone's own mid-resolution ask (changeZoneChosenTargets),
 		// which the closed ChangeZone slice owns.
+		// An Effect that remembers Targeted may own a replacement whose
+		// referent is chosen by its immediately following ChangeZone sub.
+		// Capture that sub's answer before registering the replacement, then
+		// retain it for the sub so its ordinary ChangeZone path does not ask
+		// twice. Other Effect shapes keep their established ask timing.
+		rememberedSubTargets, prefetchedRememberedSub, suspendedForRememberedSub :=
+			prefetchRememberedChangeZoneTarget(h, c, sa)
+		if suspendedForRememberedSub {
+			h.SuspendContinuation(sa)
+			return
+		}
 		if ts, done := chosenTargetsFor(h, c, sa, d == 0); done {
 			if ts == nil {
 				// The ask was posed and suspended the resolution: stop here
@@ -3100,7 +3208,13 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			fn(h, c, sa)
 			c.PickedTargets = nil
 		} else {
+			if prefetchedRememberedSub {
+				c.PickedTargets = rememberedSubTargets
+			}
 			fn(h, c, sa)
+			if prefetchedRememberedSub {
+				c.PickedTargets = nil
+			}
 		}
 		// A DB$ Token whose mint parked has not finished: its Imprint/
 		// ClearImprinted tail belongs after the mints, so it runs on the

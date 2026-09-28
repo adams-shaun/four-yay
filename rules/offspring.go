@@ -38,6 +38,9 @@ import (
 // printed and the Zinnia-granted forms — and the two cannot disagree about
 // which cost the cast pays.
 func (e *Engine) offspringRawParam(id state.ObjID) (string, bool) {
+	if !e.stackKeywordPossibleH(id, kwhOffspring) {
+		return "", false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if !strings.EqualFold(cardsKeywordHead(k), "Offspring") {
 			continue

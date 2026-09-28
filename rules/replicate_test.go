@@ -152,6 +152,7 @@ func splitCSV(s string) []string {
 // CR 707.10g a copy of a permanent spell becomes a token: the resolved copy
 // arrives as a token object (IsToken, not IsCopy), not a card copy.
 func TestReplicateChangingLoyaltyPaidOnceAttachesTheCopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := replicateEngine(t, "Changing Loyalty")
 	bear := castBear(t, e)
 	hero := searchMoveByName(t, e, "Changing Loyalty", state.ZHand)
@@ -211,6 +212,7 @@ func TestReplicateChangingLoyaltyPaidOnceAttachesTheCopy(t *testing.T) {
 // replicated flag, no CastInfo event at all (the declined shape emits nothing
 // the plain cast would not).
 func TestReplicateDeclinedIsAPlainCast(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := replicateEngine(t, "Changing Loyalty")
 	bear := castBear(t, e)
 	hero := searchMoveByName(t, e, "Changing Loyalty", state.ZHand)
@@ -251,6 +253,7 @@ func TestReplicateDeclinedIsAPlainCast(t *testing.T) {
 // original (3 damage instances to the targeted opponent), the instant copies
 // resting in exile.
 func TestReplicatePyromaticsPaidTwiceBoundedByAffordability(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := replicateEngine(t, "Pyromatics")
 	hero := searchMoveByName(t, e, "Pyromatics", state.ZHand)
 	addMana(t, e, 0, "RRRCCC") // base {1}{R} + two {1}{R}: 3 R pips + 3 generic
@@ -420,6 +423,7 @@ func drainStackDecliningPlays(t *testing.T, e *Engine, limit int) {
 // exactly 0..2, and answering the true max 2 completes the cast end to end:
 // both Daleks tapped, the victim destroyed, two IsCopy spell copies resolved.
 func TestReplicateTapCostAskBoundedByUntappedCandidates(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := replicateTapEngine(t, "Exterminate!", "Dalek Squadron", "Dalek Squadron")
 	dalekCard := searchCorpusCard(t, reg, "Dalek Squadron")
 	dalek1 := moveSeededCard(t, e, 0, dalekCard, state.ZBattlefield)
@@ -500,6 +504,7 @@ func TestReplicateTapCostAskBoundedByUntappedCandidates(t *testing.T) {
 // board's: 0..2, and answering 2 pays, taps both Horrors and puts three
 // spell objects on the stack (original + two IsCopy copies).
 func TestReplicateTapCostPsionicRitualBoundReservesCandidates(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := replicateTapEngine(t, "Psionic Ritual",
 		"Kederekt Creeper", "Kederekt Creeper", "Giant Growth")
 	creeperCard := searchCorpusCard(t, reg, "Kederekt Creeper")
@@ -568,6 +573,7 @@ func TestReplicateTapCostPsionicRitualBoundReservesCandidates(t *testing.T) {
 // offers exactly 0..2, and answering 2 drains all 6 energy and resolves two
 // copies.
 func TestReplicateEnergyCostAskBoundedByEnergyPool(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := replicateTapEngine(t, "Reiterating Bolt")
 	bear := castBear(t, e)
 	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 0, Counter: "ENERGY", Amount: 6})

@@ -101,6 +101,7 @@ func titanBearFixture(t *testing.T, reg *cards.Registry) (*Engine, state.ObjID) 
 // whose SVar:X resolves yields exactly that count, and the trigger window
 // offers the pay election (so the handler is provably reached).
 func TestDrawXCostSVarFoldsAndDraws(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Champion of Wits")
 	id := searchMoveByName(t, e, "Champion of Wits", state.ZBattlefield)
@@ -141,6 +142,7 @@ func TestDrawXCostSVarFoldsAndDraws(t *testing.T) {
 // source face does NOT define SVar:X is refused by the fold, and the trigger
 // window then offers the decline only (never a silent zero draw).
 func TestDrawXUnresolvableWithheld(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Grizzly Bears")
 	id := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
@@ -172,6 +174,7 @@ func TestDrawXUnresolvableWithheld(t *testing.T) {
 // pose exactly ONE pay/decline election per trigger (the round-1 pin paid
 // every election it was shown, which masked the duplicate-window shape).
 func TestTitanOfLittjaraDrawXCost(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, titan := titanBearFixture(t, reg)
 
@@ -245,6 +248,7 @@ func TestTitanOfLittjaraDrawXCost(t *testing.T) {
 // unimplemented), and declining leaves the body unrun — no draw, no discard,
 // no hand or library movement.
 func TestTitanOfLittjaraDrawXDecline(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, titan := titanBearFixture(t, reg)
 	if n, ok := e.drawCostCount(titan, 0, drawCostPart()); !ok || n != 1 {

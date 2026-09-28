@@ -432,8 +432,11 @@ const (
 	// controller and Amount is the entry-state rider bitmask the
 	// CopyToken* constants name; bit CopyTokenAttacking takes the defender
 	// it attacks from IDs[0] (a player number, the MyriadCopy/TokenAttacks
-	// precedent). Appended after ExtraPhase, still after every earlier
-	// Kind, so no earlier ordinal, hash chain or golden replay is affected.
+	// precedent). Counter is the AtEOTTrig$ copiable body the copy carries
+	// (Object.AtEOTTrigBody), or "" for the source object's own; see
+	// state.Object.AtEOTTrigBody. Appended after ExtraPhase, still after
+	// every earlier Kind, so no earlier ordinal, hash chain or golden replay
+	// is affected.
 	CopyToken
 	// Exert records CR 702.100's exert election (task exert1): Obj is the
 	// permanent the controller exerted and Player is the controller at exert
@@ -1033,10 +1036,29 @@ const (
 	// triggers nor is replaced). Emitted only from the announced window, so no
 	// bot game and no golden replay contains it. Appended after ChaosEnsues.
 	ManaUndo
+	// EndTurn exiles the stack objects named by IDs and clears combat. It is
+	// the replayable CR 723.1a/c action proposed by api:EndTurn.
+	EndTurn
+	// DungeonCreate creates a dungeon token in its owner's command zone.
+	// Text is the immutable Game.Tokens script key.
+	DungeonCreate
+	// DungeonRoom moves a player's venture marker to the named room key.
+	// Obj identifies the active dungeon object; Player owns the marker.
+	DungeonRoom
+	// DungeonComplete increments the player's completed-dungeon count.
+	DungeonComplete
+	// DungeonRemove moves the active dungeon token out of the command zone.
+	DungeonRemove
+	// InitiativeChange gives the initiative designation to Player (CR 726.1).
+	// Like MonarchChange it is a state transition, not a Note: CR 726.3 keeps
+	// at most one holder, so folding it on a replay re-derives the same
+	// designation the live match had. Appended after DungeonRemove so no
+	// earlier ordinal, hash chain or golden replay is affected.
+	InitiativeChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ManaUndo) + 1
+	NumKinds = int(InitiativeChange) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1180,7 +1202,9 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"delayed_remove", "turn_face_up", "searched_library", "keyword_ability_push", "scry", "store_svar", "turn_face_down", "clone_static",
 	"damage_provenance", "enduring_story_change", "phase_out", "gift_promise", "give_gift", "roll_dice",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
-	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo"}
+	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
+	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
+	"initiative_change"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

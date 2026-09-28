@@ -58,7 +58,7 @@ func (e *Engine) canAttack(id state.ObjID) bool {
 	if !ok {
 		return false
 	}
-	if !e.HasKeyword(id, "Defender") {
+	if !e.hasKeywordH(id, kwhDefender) {
 		return true
 	}
 	for _, d := range e.G.AliveFrom(0) {
@@ -80,7 +80,7 @@ func (e *Engine) canAttackPair(id state.ObjID, defender state.PlayerID) bool {
 	if _, ok := e.attackableCreature(id); !ok {
 		return false
 	}
-	if e.HasKeyword(id, "Defender") && !e.attackAllowedThroughDefender(id, defender) {
+	if e.hasKeywordH(id, kwhDefender) && !e.attackAllowedThroughDefender(id, defender) {
 		return false
 	}
 	return true
@@ -110,7 +110,7 @@ func (e *Engine) attackableCreature(id state.ObjID) (*state.Object, bool) {
 	if o.Tapped {
 		return nil, false
 	}
-	if o.SummonSick && !e.HasKeyword(id, "Haste") {
+	if o.SummonSick && !e.hasKeywordH(id, kwhHaste) {
 		return nil, false
 	}
 	return o, true
@@ -385,7 +385,7 @@ func (e *Engine) canBlock(blocker, attacker state.ObjID) bool {
 	// plus layer-6 granted -- Tesak's "Other Dogs you control have unleash"),
 	// and the counter is live state, so both halves are read here, the same
 	// status-gate shape the Suspected check above practises.
-	if e.HasKeyword(blocker, "Unleash") && b.Counter("P1P1") > 0 {
+	if e.hasKeywordH(blocker, kwhUnleash) && b.Counter("P1P1") > 0 {
 		return false
 	}
 	// CR 509.1a / 702.16j: a creature that the attacker is protected from
@@ -396,10 +396,10 @@ func (e *Engine) canBlock(blocker, attacker state.ObjID) bool {
 	// CR 702.27/702.28: Shadow creatures can block only Shadow creatures,
 	// and a Shadow creature is blockable only by one. Fear permits only an
 	// artifact or black creature to block it.
-	if e.HasKeyword(attacker, "Shadow") != e.HasKeyword(blocker, "Shadow") {
+	if e.hasKeywordH(attacker, kwhShadow) != e.hasKeywordH(blocker, kwhShadow) {
 		return false
 	}
-	if e.HasKeyword(attacker, "Fear") && !bf.IsArtifact() && !strings.ContainsRune(e.objColors(b), 'B') {
+	if e.hasKeywordH(attacker, kwhFear) && !bf.IsArtifact() && !strings.ContainsRune(e.objColors(b), 'B') {
 		return false
 	}
 	// CR 702.13a: an Intimidate attacker can be blocked only by artifact
@@ -409,7 +409,7 @@ func (e *Engine) canBlock(blocker, attacker state.ObjID) bool {
 	// derived (layer-5) colours on both sides; a colourless Intimidate
 	// attacker has no colour to share, so only an artifact creature blocks
 	// it.
-	if e.HasKeyword(attacker, "Intimidate") {
+	if e.hasKeywordH(attacker, kwhIntimidate) {
 		attColors, blockColors := e.objColors(a), e.objColors(b)
 		shared := false
 		for i := 0; i < len(attColors); i++ {
@@ -426,10 +426,10 @@ func (e *Engine) canBlock(blocker, attacker state.ObjID) bool {
 	// creature with horsemanship. The rule is asymmetric and attacker-keyed
 	// -- unlike Shadow, a horsemanship creature MAY block a creature without
 	// horsemanship -- so only the attacker side is gated here.
-	if e.HasKeyword(attacker, "Horsemanship") && !e.HasKeyword(blocker, "Horsemanship") {
+	if e.hasKeywordH(attacker, kwhHorsemanship) && !e.hasKeywordH(blocker, kwhHorsemanship) {
 		return false
 	}
-	if e.HasKeyword(attacker, "Flying") && !e.HasKeyword(blocker, "Flying") && !e.HasKeyword(blocker, "Reach") {
+	if e.hasKeywordH(attacker, kwhFlying) && !e.hasKeywordH(blocker, kwhFlying) && !e.hasKeywordH(blocker, kwhReach) {
 		return false
 	}
 	// CR 702.14: a creature with landwalk can't be blocked as long as the
@@ -449,7 +449,7 @@ func (e *Engine) canBlock(blocker, attacker state.ObjID) bool {
 	// what the CR means). CR 509.1h: this is a declaration-legality rule,
 	// checked here at CR 509.1a -- a blocker's power growing past the
 	// attacker's after declaration does not unblock it, and no re-check runs.
-	if e.HasKeyword(attacker, "Skulk") && e.Derived(blocker).Power > e.Derived(attacker).Power {
+	if e.hasKeywordH(attacker, kwhSkulk) && e.Derived(blocker).Power > e.Derived(attacker).Power {
 		return false
 	}
 	if e.blockRestricted(blocker, attacker) {
@@ -946,7 +946,7 @@ func (e *Engine) finishAttackers(chosen []decision.Option, player state.PlayerID
 		e.emit(events.Event{Kind: events.DeclareAttackers, Player: k.player, Obj: k.battle, IDs: byDef[k]})
 	}
 	for _, opt := range chosen {
-		if !e.HasKeyword(opt.Obj, "Vigilance") {
+		if !e.hasKeywordH(opt.Obj, kwhVigilance) {
 			// CR 508.1f: the player declaring attackers taps them.
 			e.emitTap(opt.Obj, player, false)
 		}
@@ -1618,7 +1618,7 @@ func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) erro
 			continue
 		}
 		checked[o.Attacker] = true
-		if byAttacker[o.Attacker] == 1 && e.HasKeyword(o.Attacker, "Menace") {
+		if byAttacker[o.Attacker] == 1 && e.hasKeywordH(o.Attacker, kwhMenace) {
 			return fmt.Errorf("attacker %d with menace must be blocked by at least two creatures", o.Attacker)
 		}
 		if err := e.validateMinMaxBlockers(o.Attacker, byAttacker[o.Attacker], d.Player); err != nil {
@@ -1656,7 +1656,7 @@ func (e *Engine) blockPairScopeFor(defender state.PlayerID) blockPairScope {
 		// itself instead of having to re-derive the keyword, and a Menace
 		// attacker that also carries a Max$ below two (or faces fewer than
 		// two legal blockers) is never offered at all.
-		if !all && e.HasKeyword(aid, "Menace") && (!minOK || min < 2) {
+		if !all && e.hasKeywordH(aid, kwhMenace) && (!minOK || min < 2) {
 			min, minOK = 2, true
 		}
 		var b [2]int
@@ -1675,7 +1675,7 @@ func (e *Engine) blockPairScopeFor(defender state.PlayerID) blockPairScope {
 			// to field it drops the block.
 			required := e.defenderCreatureCount(defender)
 			if e.legalBlockerCount(aid, defender) < required ||
-				(required < 2 && e.HasKeyword(aid, "Menace")) {
+				(required < 2 && e.hasKeywordH(aid, kwhMenace)) {
 				scope.minImpossible[aid] = true
 			} else {
 				b = [2]int{required, required}
@@ -1942,7 +1942,7 @@ func (e *Engine) askBlockers() {
 				// requirement forces a block -- so the shared solver cannot
 				// count a lone required blocker whose declaration would be
 				// rejected.
-				if (opt.Required || opt.AttackMust) && e.HasKeyword(aid, "Menace") && opt.MinBlockers < 2 {
+				if (opt.Required || opt.AttackMust) && e.hasKeywordH(aid, kwhMenace) && opt.MinBlockers < 2 {
 					opt.MinBlockers = 2
 				}
 				opts = append(opts, opt)
@@ -2132,6 +2132,17 @@ type combatRound struct {
 	// cannot run (nor can its SBA/regular pass) until that event settles.
 	assignments []assignment
 	damageNext  int
+	// initHad/initHolder/initCtrls carry the CR 726.2 simultaneous-pass
+	// adjudication across a replacement-order suspension the same way:
+	// initHolder is the initiative-holder snapshot taken when the pass began
+	// dealing (the designation must be matched against WHO HELD IT when the
+	// simultaneous pass began, not the live field, because this very block
+	// moves it), and initCtrls accumulates the distinct controllers of
+	// creatures whose hits LANDED on that snapshot holder. The one
+	// adjudication runs after the loop, once per completed pass.
+	initHad    bool
+	initHolder state.PlayerID
+	initCtrls  []state.PlayerID
 	// dealing marks a pass whose damage has started being dealt (damageStep's
 	// fresh path stored its assignments) and whose completeCombatPass tail
 	// has not run yet. A decision that is NOT a replacement-order ask can be
@@ -2243,7 +2254,7 @@ func (e *Engine) divisionNeeding(pass bool) []state.ObjID {
 		if !e.actsThisDamageStep(id, pass) {
 			continue
 		}
-		if e.HasKeyword(id, "Trample") || e.combatDamageAmount(id) <= 0 || len(e.liveBlockers(a)) < 2 {
+		if e.hasKeywordH(id, kwhTrample) || e.combatDamageAmount(id) <= 0 || len(e.liveBlockers(a)) < 2 {
 			continue
 		}
 		if e.divisionCount(e.liveBlockers(a), e.combatDamageAmount(id)) > maxDivisionOptions {
@@ -2342,7 +2353,7 @@ func (e *Engine) asUnblockedNeeding(pass bool) []state.ObjID {
 		if len(a.BlockedBy) == 0 || e.combatDamageAmount(id) <= 0 {
 			continue
 		}
-		if e.HasKeyword(id, "Trample") && len(e.liveBlockers(a)) == 0 {
+		if e.hasKeywordH(id, kwhTrample) && len(e.liveBlockers(a)) == 0 {
 			continue
 		}
 		matched, mandatory := e.asUnblockedStaticMatches(id)
@@ -2639,11 +2650,11 @@ func (e *Engine) anyFirstStrike() bool {
 		if a == nil || !a.IsAttacking {
 			continue
 		}
-		if e.HasKeyword(id, "First Strike") || e.HasKeyword(id, "Double Strike") {
+		if e.hasKeywordH(id, kwhFirstStrike) || e.hasKeywordH(id, kwhDoubleStrike) {
 			return true
 		}
 		for _, bid := range e.liveBlockers(a) {
-			if e.HasKeyword(bid, "First Strike") || e.HasKeyword(bid, "Double Strike") {
+			if e.hasKeywordH(bid, kwhFirstStrike) || e.hasKeywordH(bid, kwhDoubleStrike) {
 				return true
 			}
 		}
@@ -2681,10 +2692,10 @@ type assignment struct {
 // and the regular step; First Strike (without Double Strike) acts only in
 // the first-strike step; everything else acts only in the regular step.
 func (e *Engine) actsThisDamageStep(id state.ObjID, firstStrike bool) bool {
-	if e.HasKeyword(id, "Double Strike") {
+	if e.hasKeywordH(id, kwhDoubleStrike) {
 		return true
 	}
-	if e.HasKeyword(id, "First Strike") {
+	if e.hasKeywordH(id, kwhFirstStrike) {
 		return firstStrike
 	}
 	return !firstStrike
@@ -2763,11 +2774,11 @@ func (e *Engine) damageStep(firstStrike bool) {
 
 		if e.actsThisDamageStep(aid, firstStrike) {
 			if pw := e.combatDamageAmount(aid); pw > 0 {
-				link := e.HasKeyword(aid, "Lifelink")
-				dt := e.HasKeyword(aid, "Deathtouch")
-				trample := e.HasKeyword(aid, "Trample")
-				inf := e.HasKeyword(aid, "Infect")
-				wit := e.HasKeyword(aid, "Wither")
+				link := e.hasKeywordH(aid, kwhLifelink)
+				dt := e.hasKeywordH(aid, kwhDeathtouch)
+				trample := e.hasKeywordH(aid, kwhTrample)
+				inf := e.hasKeywordH(aid, kwhInfect)
+				wit := e.hasKeywordH(aid, kwhWither)
 				damageToDefender := func(amount int32) {
 					tp, to, ok := e.combatDefenderTarget(a)
 					if !ok {
@@ -2871,9 +2882,9 @@ func (e *Engine) damageStep(firstStrike bool) {
 			}
 			if bp := e.combatDamageAmount(bid); bp > 0 {
 				as = append(as, assignment{toObj: aid, amount: bp,
-					lifelink: e.G.Obj(bid).Controller, hasLink: e.HasKeyword(bid, "Lifelink"),
-					deathtouch: e.HasKeyword(bid, "Deathtouch"), from: bid,
-					infect: e.HasKeyword(bid, "Infect"), wither: e.HasKeyword(bid, "Wither")})
+					lifelink: e.G.Obj(bid).Controller, hasLink: e.hasKeywordH(bid, kwhLifelink),
+					deathtouch: e.hasKeywordH(bid, kwhDeathtouch), from: bid,
+					infect: e.hasKeywordH(bid, kwhInfect), wither: e.hasKeywordH(bid, kwhWither)})
 			}
 		}
 	}
@@ -2903,6 +2914,17 @@ func (e *Engine) damageStep(firstStrike bool) {
 // assignment. A replacement-order ask returns immediately, keeping the next
 // index and every later assignment parked until handleReplacement resumes it.
 func (e *Engine) runCombatAssignments() {
+	// CR 726.2 snapshot, taken when the pass STARTS dealing (damageNext == 0;
+	// a replacement-order re-entry always resumes at damageNext >= 1, so this
+	// runs once per pass): the whole simultaneous pass is ONE adjudication, so
+	// who held the initiative is fixed when dealing begins, not re-read per
+	// hit -- this very pass moves it. Cleared here, accumulated in the loop,
+	// and judged once in this function's tail.
+	if e.combatRound.damageNext == 0 {
+		e.combatRound.initHad = e.G.HasInitiative
+		e.combatRound.initHolder = e.G.Initiative
+		e.combatRound.initCtrls = e.combatRound.initCtrls[:0]
+	}
 	for i := e.combatRound.damageNext; i < len(e.combatRound.assignments); i++ {
 		x := e.combatRound.assignments[i]
 		// e.damaging names the dealing creature for the whole of this
@@ -3027,6 +3049,37 @@ func (e *Engine) runCombatAssignments() {
 						e.emit(events.Event{Kind: events.MonarchChange,
 							Player: e.G.Obj(x.from).Controller})
 					}
+					// CR 726.2: "Whenever one or more creatures a player controls
+					// deal combat damage to the player who has the initiative, the
+					// controller of those creatures takes the initiative." The
+					// whole simultaneous pass is ONE adjudication: this block only
+					// records the controllers of creatures whose hits LANDED on the
+					// holder SNAPSHOT (taken when dealing began -- the live field
+					// must not be re-read, because this very rule moves it), and
+					// runCombatAssignments' tail judges once: the candidate first in
+					// turn order takes the initiative, exactly one InitiativeChange
+					// folds and exactly one source-less "whenever a player takes
+					// the initiative" venture trigger (CR 726.2) is queued with the
+					// rest of the combat-damage triggers. Judging by turn order
+					// rather than event order is the rule's own reading (CR 726.2
+					// fires once for the pass, and "the controller of those
+					// creatures" is a single designation), and it matches 726.5:
+					// a controller who already holds the designation re-taking it
+					// folds an idempotent InitiativeChange and still ventures.
+					if e.combatRound.initHad && ev.Player == e.combatRound.initHolder &&
+						x.from != 0 && e.G.Obj(x.from) != nil {
+						ctrl := e.G.Obj(x.from).Controller
+						known := false
+						for _, c := range e.combatRound.initCtrls {
+							if c == ctrl {
+								known = true
+								break
+							}
+						}
+						if !known {
+							e.combatRound.initCtrls = append(e.combatRound.initCtrls, ctrl)
+						}
+					}
 					// CR 702.164 (toxic): a player dealt combat damage by a source
 					// with toxic N ALSO gets N poison counters. Toxic modifies the
 					// damage only by adding a second instruction, so it must not
@@ -3054,6 +3107,38 @@ func (e *Engine) runCombatAssignments() {
 			e.combatRound.damageNext = i + 1
 			return
 		}
+	}
+	// CR 726.2, the one adjudication of this simultaneous pass (see the
+	// collection block above): among the distinct controllers whose creatures
+	// landed combat damage on the holder snapshot, the one FIRST IN TURN ORDER
+	// takes the initiative -- a turn-based action, not an event-order race.
+	// AliveFrom(e.G.Active) walks the surviving seats in APNAP order from the
+	// active player (the same "first in turn order" convention askBlockers
+	// uses for CR 802.4); the first walk entry that is a candidate wins. One
+	// InitiativeChange folds and one venture trigger is queued, no matter how
+	// many hits (or how many distinct controllers) the pass carried. A
+	// controller who already holds the designation wins cleanly: the fold is
+	// idempotent (CR 726.3) and the venture still fires (CR 726.5).
+	if e.combatRound.initHad && len(e.combatRound.initCtrls) > 0 {
+		order := e.G.AliveFrom(e.G.Active)
+		winner, found := state.PlayerID(0), false
+		for _, p := range order {
+			for _, c := range e.combatRound.initCtrls {
+				if c == p {
+					winner, found = p, true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if found {
+			e.emit(events.Event{Kind: events.InitiativeChange, Player: winner})
+			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+				Controller: winner, InitiativeVenture: true})
+		}
+		e.combatRound.initCtrls = e.combatRound.initCtrls[:0]
 	}
 	e.closeDamageBatch()
 	e.combatRound.assignments = nil
@@ -3321,7 +3406,7 @@ func init() {
 		// fold, driven by the infect marker rules/combat.go and effects/damage.go
 		// set on the event; rules need no keyword machinery of its own beyond
 		// the HasKeyword read the combat path already makes.
-		"kw:Infect", "kw:Wither",
+		"kw:Infect", "kw:Wither", "kw:Backup",
 		"kw:Flash", "kw:Indestructible", "kw:Devoid", "kw:Defender", "kw:Menace",
 		"kw:Fear", "kw:Shadow", "kw:Horsemanship", "kw:Skulk",
 		// kw:Intimidate (CR 702.13a): an Intimidate attacker is blocked only
