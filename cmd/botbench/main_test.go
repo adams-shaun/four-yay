@@ -748,9 +748,15 @@ func TestConstructedDefaultIsByteIdentical(t *testing.T) {
 	// explore policy's X1 promoted), so an attached Equipment's own
 	// non-attach abilities and a creatureless seat's non-attach abilities are
 	// activated. The base commit measures 7/13; this change alone moves it.
-	const wantSeat0, wantSeat1 = 6, 14
+	// fdn-dig-rest-random-order then re-measured 6/14 to 5/15: in the
+	// avengers-assemble deck Squad Rallier's RestRandomOrder$ Dig now consumes
+	// the seeded RNG to randomize the three unchosen cards at the bottom of
+	// the library, changing the later deterministic game path. Reverting
+	// effects/cardflow.go alone restores 6/14; the new Dig regression test
+	// independently pins the random bottom order and replay.
+	const wantSeat0, wantSeat1 = 5, 15
 	if seat0, seat1 := atoi(m[8]), atoi(m[9]); seat0 != wantSeat0 || seat1 != wantSeat1 {
-		t.Errorf("constructed default split = %d/%d, want %d/%d after scoping A1 to attach abilities (%s vs %s at seed 0, games 20)", seat0, seat1, wantSeat0, wantSeat1, testutil.RepoDeckNames()[0], testutil.RepoDeckNames()[1])
+		t.Errorf("constructed default split = %d/%d, want %d/%d after Squad Rallier RestRandomOrder seeded bottom shuffle (%s vs %s at seed 0, games 20)", seat0, seat1, wantSeat0, wantSeat1, testutil.RepoDeckNames()[0], testutil.RepoDeckNames()[1])
 	}
 	if strings.Contains(buf.String(), "STALLED") {
 		t.Errorf("constructed default (no stalls) must not print a stall line")
