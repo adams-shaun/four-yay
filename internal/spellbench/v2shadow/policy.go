@@ -532,6 +532,11 @@ func (p *Policy) reduce(sh *Shadow, d *v2agent.Decision, pd *decision.Decision) 
 	for i := range pd.Options {
 		o := &pd.Options[i]
 		if o.Kind != "pass" && o.Kind != "concede" {
+			if isManaOption(o) && !p.manual {
+				// engine_autopay: the wire hides every mana ability and
+				// pays planner-paid casts itself.
+				continue
+			}
 			if k, _, _ := mapOption(sh, d, pd, o); k < 0 {
 				p.Stats.Withheld++
 				if o.Kind == "activate" {
@@ -571,6 +576,10 @@ func (p *Policy) reduce(sh *Shadow, d *v2agent.Decision, pd *decision.Decision) 
 	}
 	return &c
 }
+
+// isManaOption reports a gorge priority option that activates a mana
+// ability.
+func isManaOption(o *decision.Option) bool { return o.Kind == "activate" || o.ManaSymbol != "" }
 
 // withoutAnswer is d without the option or payment action in names (a
 // refused answer stays withdrawn for every later retry).
@@ -1196,6 +1205,9 @@ func (p *Policy) smartChoice(d *v2agent.Decision) (int, bool) {
 	if k, ok := smartDiscard(d); ok {
 		return k, true
 	}
+	if k, ok := p.smartSearch(d); ok {
+		return k, true
+	}
 	var colours []int
 	for i := range d.Candidates {
 		if d.Candidates[i].Semantic.Kind == "choose_color" {
@@ -1326,6 +1338,64 @@ func smartDiscard(d *v2agent.Decision) (int, bool) {
 			}
 		} else {
 			v = float64(r.Characteristics.ManaValue) - float64(lands)
+		}
+		if v > bestV {
+			best, bestV = i, v
+		}
+	}
+	return best, best >= 0
+}
+
+// smartSearch answers a library search the shadow could not re-pose (a
+// dungeon room, an unstaged trigger): finding something beats finding
+// nothing, a land while we have fewer than six, else the costliest card.
+func (p *Policy) smartSearch(d *v2agent.Decision) (int, bool) {
+	if d.Seat == nil || d.Seat.Context.Purpose == nil || *d.Seat.Context.Purpose != "search" {
+		return 0, false
+	}
+	obs := d.Observation()
+	lands := 0
+	if me := obs.Me(); me != nil {
+		for _, r := range me.Battlefield {
+			if r.Characteristics != nil && r.Characteristics.HasType("land") {
+				lands++
+			}
+		}
+	}
+	best, bestV := -1, -1e9
+	for i := range d.Candidates {
+		s := &d.Candidates[i].Semantic
+		if s.Kind != "select_object" || len(s.Choice) == 0 {
+			continue
+		}
+		var t v2agent.TargetRef
+		if json.Unmarshal(s.Choice, &t) != nil || t.Object == nil || t.Object.CardName == nil {
+			continue
+		}
+		v := 0.0
+		name := *t.Object.CardName
+		isLand := false
+		for _, k := range obs.Known {
+			if k.ObjectID != nil && *k.ObjectID == t.Object.ObjectID {
+				name = k.CardName
+			}
+		}
+		if p.look != nil {
+			if c := p.look(name); c != nil && len(c.Faces) > 0 && c.Faces[0] != nil {
+				for _, ty := range c.Faces[0].Types {
+					if ty == "Land" {
+						isLand = true
+					}
+				}
+			}
+		}
+		switch {
+		case isLand && lands < 6:
+			v = 10
+		case isLand:
+			v = 1
+		default:
+			v = 5
 		}
 		if v > bestV {
 			best, bestV = i, v
