@@ -340,6 +340,44 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 	return out
 }
 
+// SpellCopyAllowed reports whether no live CantBeCopied static names id.
+// The source-zone walk follows staticSourceZones, so Stack-scoped spell
+// statics and broader EffectZone statics share the normal static filter path.
+func (e *Engine) SpellCopyAllowed(id state.ObjID) bool {
+	candidate := e.G.Obj(id)
+	if candidate == nil || candidate.Zone != state.ZStack {
+		return false
+	}
+	for pi, p := range e.G.AliveFrom(0) {
+		for _, z := range staticSourceZones {
+			if z == state.ZStack && pi > 0 {
+				continue
+			}
+			for _, source := range e.staticSourceIDs(p, z) {
+				o := e.G.Obj(source)
+				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) || e.faceDownPrintedHides(o) {
+					continue
+				}
+				for si, n := 0, o.PileStaticCount(); si < n; si++ {
+					pst, ok := o.PileStaticAt(si)
+					if !ok || pst.Static.Mode != "CantBeCopied" || !effectZoneOK(pst.Static.Params["EffectZone"], o.Zone) {
+						continue
+					}
+					spec := strings.TrimSpace(pst.Static.Params["ValidCard"])
+					if spec == "" {
+						continue
+					}
+					sv := staticView{Source: source, Controller: o.Controller, Params: pst.Static.Params, PS: pst.Static.ParamSetOf(), SVars: pst.Face.SVars}
+					if e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
+}
+
 // countersRemainApplies reports whether the departing permanent itself has
 // an active CountersRemain static. Static lines are read through the canonical
 // activeStatics walk so EffectZone, merged-face and face-down rules stay
@@ -3585,7 +3623,7 @@ func parseAmount(s string, def int32) int32 {
 }
 
 func init() {
-	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:RaiseCost", "stat:CastWithFlash",
+	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:CantBeCopied", "stat:RaiseCost", "stat:CastWithFlash",
 		"stat:ReduceCost", "stat:AlternativeCost", "stat:CantBlock", "stat:CantBlockBy",
 		"stat:CantGainLife", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
 		// cantdraw1: the CR 121.6 CantDraw prohibition static
