@@ -1,0 +1,106 @@
+{
+  "card": "Command Beacon",
+  "family": "command-zone",
+  "oracle_sha": "fd5b1897622d",
+  "author": "cli-20260927T211249Z-7acc6934 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "commander-from-command-zone-to-hand",
+      "cr": [
+        "903.3d",
+        "408.3",
+        "602.2",
+        "903.9b"
+      ],
+      "why": "The designated commander starts in the command zone. On Beacon resolving, its owner declines the optional command-zone replacement and receives the card in hand.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Command Beacon"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Command Beacon",
+          "ability": "Put your commander"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "commander_zone",
+              "pick": [
+                "hand"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Isamaru, Hound of Konda",
+          "zone": "hand"
+        },
+        {
+          "card": "p0:Command Beacon",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "commander-already-on-battlefield",
+      "cr": [
+        "903.3",
+        "903.3d",
+        "408.3"
+      ],
+      "why": "The designated commander has already left the command zone; sacrificing Beacon cannot move a commander from a zone where none is present.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Command Beacon"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Command Beacon",
+          "ability": "Put your commander"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Isamaru, Hound of Konda",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Command Beacon",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}
