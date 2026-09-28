@@ -1,0 +1,134 @@
+{
+  "card": "Knights of the Black Rose",
+  "family": "trigger-condition",
+  "oracle_sha": "02d462cf898c",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "monarch-at-turn-start-opponent-takes-crown",
+      "cr": [
+        "603.4",
+        "725.3"
+      ],
+      "why": "A setup Knight gives seat 0 the crown during turn 1 upkeep, not before the turn starts. At the beginning of seat 1\u2019s turn, seat 0 is monarch; when an outside effect returns the opposing Knight it gives seat 1 the crown and seat 0\u2019s conditional ability drains two. The crown-transfer trigger is observed only after the entering Knight\u2019s own ability resolves; two priority passes resolve that ability without clearing the next trigger.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Knights of the Black Rose"
+          ]
+        },
+        "p1": {
+          "graveyard": [
+            "Knights of the Black Rose"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "move",
+          "card": "p1:Knights of the Black Rose",
+          "to": "battlefield"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Knights of the Black Rose",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 22,
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "crowned-midturn-opponent-takes-crown",
+      "cr": [
+        "603.4",
+        "725.3"
+      ],
+      "why": "Seat 0 starts without the crown, then its cast Knight gives it the crown during the turn. An outside effect returns an opposing Knight and transfers the crown to seat 1. Seat 0 was not monarch when the turn began: its conditional ability never goes on the stack. The stack check is after the entering Knight\u2019s crown-transfer ability resolves (two priority passes), not when it first enters.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Knights of the Black Rose"
+          ]
+        },
+        "p1": {
+          "graveyard": [
+            "Knights of the Black Rose"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Knights of the Black Rose",
+          "mana": "WWBBB"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "move",
+          "card": "p1:Knights of the Black Rose",
+          "to": "battlefield",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Knights of the Black Rose",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "main1"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Knights of the Black Rose",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 20,
+            "p1": 20
+          }
+        }
+      ]
+    }
+  ]
+}

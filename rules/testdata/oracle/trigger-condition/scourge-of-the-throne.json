@@ -1,0 +1,29 @@
+{
+  "card": "Scourge of the Throne",
+  "family": "trigger-condition",
+  "oracle_sha": "63b3d101ec53",
+  "author": "cli-20260927T211250Z-fb1ba634 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "first-attack-at-most-life-untaps-and-grants-combat",
+      "cr": ["603.4", "603.2"],
+      "why": "Scourge attacks for the first time this turn while its defending player is tied for the most life, so its attack trigger occurs; dethrone also adds a +1/+1 counter.",
+      "setup": {"p0": {"battlefield": ["Scourge of the Throne"], "life": 20}, "p1": {"life": 20}},
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Scourge of the Throne"], "defender": "p1", "expect": [{"trigger_on_stack": "p0:Scourge of the Throne", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Scourge of the Throne", "counters": {"+1/+1": 1}, "pt": "6/6"}]
+    },
+    {
+      "name": "not-most-life-no-first-attack-trigger",
+      "cr": ["603.4", "603.2"],
+      "why": "Scourge's controller has more life than the defending player, so the defending player is not the player with the most life; neither its first-attack trigger nor dethrone triggers.",
+      "setup": {"p0": {"battlefield": ["Scourge of the Throne"], "life": 21}, "p1": {"life": 20}},
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Scourge of the Throne"], "defender": "p1", "expect": [{"trigger_on_stack": "p0:Scourge of the Throne", "want": false}]}
+      ],
+      "expect": [{"card": "p0:Scourge of the Throne", "counters": {"+1/+1": 0}, "pt": "5/5"}]
+    }
+  ]
+}

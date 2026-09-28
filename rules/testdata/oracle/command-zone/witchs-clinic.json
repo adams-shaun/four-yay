@@ -1,0 +1,104 @@
+{
+  "card": "Witch's Clinic",
+  "family": "command-zone",
+  "oracle_sha": "12c9e8c5236d",
+  "author": "cli-20260927T211249Z-7acc6934 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "commander-target-gains-lifelink",
+      "cr": [
+        "903.3",
+        "903.3d",
+        "702.15"
+      ],
+      "why": "The designated commander is a battlefield creature and thus a legal target for Clinic; the granted keyword lasts until this turn ends.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Witch's Clinic"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Witch's Clinic",
+          "ability": "lifelink",
+          "mana": "CC",
+          "targets": [
+            "p0:Isamaru, Hound of Konda"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Isamaru, Hound of Konda",
+          "zone": "battlefield",
+          "keywords": [
+            "lifelink"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "legendary-noncommander-not-targetable",
+      "cr": [
+        "903.3",
+        "903.3d"
+      ],
+      "why": "Legendary status alone does not confer commander designation. With the actual commander still in the command zone, a different battlefield legendary creature is not a legal target for Clinic.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Witch's Clinic",
+            "Sram, Senior Edificer"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CC"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "ability",
+            "card": "p0:Witch's Clinic",
+            "label": "lifelink"
+          },
+          "want": false
+        },
+        {
+          "card": "p0:Sram, Senior Edificer",
+          "pt": "2/2",
+          "no_keywords": [
+            "lifelink"
+          ]
+        }
+      ]
+    }
+  ]
+}

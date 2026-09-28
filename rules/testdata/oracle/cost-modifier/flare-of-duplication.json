@@ -1,0 +1,61 @@
+{
+  "card": "Flare of Duplication",
+  "family": "cost-modifier",
+  "oracle_sha": "0566cbac981a",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "alt-cost-sacrifices-a-red-creature",
+      "cr": ["118.9", "601.2b", "601.2h", "707.10"],
+      "why": "Sacrificing a nontoken red creature is the alternative cost, so with no mana seat 0 sacrifices Mogg Fanatic and copies Lightning Bolt, dealing 3 twice for 6 total.",
+      "setup": {
+        "p0": {"hand": ["Flare of Duplication", "Lightning Bolt"], "battlefield": ["Mogg Fanatic"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "cast", "seat": 0, "card": "p0:Flare of Duplication", "targets": ["p0:Lightning Bolt"],
+         "answers": [{"kind": "any", "pick": ["p0:Mogg Fanatic"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Mogg Fanatic", "zone": "graveyard"},
+        {"life": {"p1": 14}}
+      ]
+    },
+    {
+      "name": "alt-cost-needs-a-red-creature",
+      "cr": ["118.9", "601.2b"],
+      "why": "Seat 0 controls only a green creature, so there is no nontoken red creature to sacrifice and, with an empty pool, Flare of Duplication is not offered.",
+      "setup": {
+        "p0": {"hand": ["Flare of Duplication", "Lightning Bolt"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Flare of Duplication"}, "want": false}
+      ]
+    },
+    {
+      "name": "mana-cost-path-keeps-the-creature",
+      "cr": ["118.9", "601.2f", "707.10"],
+      "why": "With one generic and two red the {1}{R}{R} mana cost is paid instead, Mogg Fanatic stays, and the Bolt copy still deals 3 twice.",
+      "setup": {
+        "p0": {"hand": ["Flare of Duplication", "Lightning Bolt"], "battlefield": ["Mogg Fanatic"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "mana", "seat": 0, "mana": "RRCC"},
+        {"op": "cast", "seat": 0, "card": "p0:Flare of Duplication", "targets": ["p0:Lightning Bolt"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Mogg Fanatic", "zone": "battlefield"},
+        {"life": {"p1": 14}}
+      ]
+    }
+  ]
+}

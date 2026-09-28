@@ -46,6 +46,18 @@ import (
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
 var oracleKnownDivergent = map[string]string{
+	// Script translation: effects/play.go validSAOK rejects the Hero subtype
+	// when filtering a free cast, leaving no offered Hero despite X = 5.
+	"West Coast Expansion/x-five-may-cast-hero": "observed Hero stays in hand (6 cards after drawing five), expected free cast to battlefield (5 cards in hand)",
+	// Gray Merchant's drain resolves but its subsequent life-gain amount is
+	// zero: the life-loss total is not propagated to the gain (effects/life.go,
+	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
+	"Gray Merchant of Asphodel/self-devotion-two-life-gain": "observed p0 life 20, expected 22 after two life lost by p1",
+	// Mogis's creature-removal instruction is not interpreted by the
+	// continuous-effect type layer (rules/layers.go); the gate at seven
+	// devotion is therefore stuck on the printed creature type.
+	"Mogis, God of Slaughter/devotion-two-not-creature":  "observed Creature at devotion two, expected no Creature type",
+	"Mogis, God of Slaughter/devotion-falls-below-seven": "observed Creature after devotion fell to six, expected no Creature type",
 	// Engine gap: stat:Continuous RemoveType$ is never read (layers.go reads
 	// only AddType$/RemoveCardTypes$/RemoveCreatureTypes$); paramcensus
 	// already lists it for Purphoros and Mogis. 29 corpus scripts carry it,
@@ -56,8 +68,27 @@ var oracleKnownDivergent = map[string]string{
 	// that ends the grant's IsPresent$ condition loses its own trigger. The
 	// SBA path (only-cleric-dies-to-damage-looks-back) uses the pre-batch
 	// snapshot and passes.
-	"Relic Vial/only-cleric-dies-looks-back":              "destroying the only Cleric drains nobody (no look-back for an effect destroy)",
-	"Relic Vial/sacrifice-only-cleric-as-cost-looks-back": "sacrificing the only Cleric as a cost drains nobody (no look-back for a cost sacrifice)",
+	// Suspected script translation: Evendo's conditional may-play static uses
+	// an exiled-with-source affected zone plus a turn/SVar gate; the Bolt is
+	// exiled by its sacrifice trigger but is not offered from exile.
+	"Evendo Brushrazer/sacrifice-this-turn-allows-exiled-card-play": "Lightning Bolt was exiled, but casting it from exile was not offered during the turn (conditional may-play static)",
+	// Suspected script translation: the Knight graveyard permission is a
+	// conditional continuous may-play static; Haakon is present, but the
+	// Knight in its controller's graveyard is not offered.
+	"Haakon, Stromgald Scourge/haakon-on-battlefield-permits-knight-from-graveyard": "Knight of the Ebon Legion from the graveyard was not offered while Haakon was on the battlefield",
+	// Script translation: the once-per-turn permission is tracked per
+	// affected spell, so Darksteel Monolith's free-cast grant is available again.
+	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
+	// Engine primitive gap: the death trigger's damage-source filter has no
+	// DamagedBy matcher (40 corpus scripts use that qualifier). The script
+	// accurately encodes Hawkeye's printed condition.
+	"Hawkeye, Avenging Archer/damaged-victim-dies-draw": "observed no draw (hand 0), expected one draw (hand 1) after Hawkeye damaged the victim",
+	// Engine primitive: entering Angel appears to be included in Giada's CountValid
+	// when pricing the replacement, rather than counting only Angels already controlled.
+	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
+	// Engine primitive: the Effect-created entry replacement from the attack
+	// trigger does not put its counter on the remembered Hero returned from the graveyard.
+	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
 	// Engine/script gap: max-speed-gated AddAbility is not offered after the
 	// three turn-specific speed increases (CR 702.179).
 	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",
@@ -67,6 +98,13 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: Urza's Workshop's conditional Urza-land count is
 	// not reflected in its mana ability; the three-land board produces one C.
 	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
+	// Engine filter gap: Captain Marvel's script uses Creature...+nonKree,
+	// which the trigger matcher fails closed on (also noted in acceptance_test.go).
+	"Captain Marvel, Apex Avenger/non-kree-creature-counter-is-copied": "Experiment One gets a counter, but Captain Marvel stays 4/4 with none (nonKree filter fails closed)",
+	// Engine trigger-chain gap: Earthbender's script chains ImmediateTrigger
+	// with ConditionCheckSVar$ and ConditionPresent$; the mixed condition shape
+	// is unresolved in effects/conditions.go, and the fourth-counter follow-up is lost.
+	"Earthbender Ascension/fourth-landfall-reaches-quest-threshold": "4 quest counters reached, but target gets no +1/+1 counter or Trample (reflexive trigger chain lost)",
 }
 
 type oracleFile struct {

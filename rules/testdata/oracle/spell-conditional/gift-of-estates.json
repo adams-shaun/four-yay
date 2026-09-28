@@ -1,0 +1,138 @@
+{
+  "card": "Gift of Estates",
+  "family": "spell-conditional",
+  "oracle_sha": "68381697d37f",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-one-more-land-finds-three",
+      "cr": [
+        "608.2c",
+        "608.2h",
+        "701.23b"
+      ],
+      "why": "With one land against two, the resolution condition holds and all three available Plains can be put into hand.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gift of Estates"
+          ],
+          "battlefield": [
+            "Forest"
+          ],
+          "library": [
+            "Plains",
+            "Plains",
+            "Plains"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Forest",
+            "Island"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Gift of Estates",
+          "mana": "WW"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Plains",
+                "Plains",
+                "Plains"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "hand",
+            "name": "Plains"
+          },
+          "eq": 3
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "library",
+            "name": "Plains"
+          },
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "name": "equal-lands-finds-none",
+      "cr": [
+        "608.2c",
+        "608.2h"
+      ],
+      "why": "One land apiece is not more lands for the opponent, so the search never happens and the Plains remain in the library.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Gift of Estates"
+          ],
+          "battlefield": [
+            "Forest"
+          ],
+          "library": [
+            "Plains",
+            "Plains",
+            "Plains"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Gift of Estates",
+          "mana": "WW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "hand",
+            "name": "Plains"
+          },
+          "eq": 0
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "library",
+            "name": "Plains"
+          },
+          "eq": 3
+        },
+        {
+          "card": "p0:Gift of Estates",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

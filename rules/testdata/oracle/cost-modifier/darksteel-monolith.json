@@ -1,0 +1,66 @@
+{
+  "card": "Darksteel Monolith",
+  "family": "cost-modifier",
+  "oracle_sha": "b533eae69f71",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "colorless-spell-cast-for-zero",
+      "cr": ["118.9", "118.9b", "601.2b"],
+      "why": "Darksteel Monolith lets its controller pay {0} instead of a colorless spell's mana cost once each turn, so with an empty pool Cathodion (colorless) is cast for free.",
+      "setup": {
+        "p0": {"hand": ["Cathodion"], "battlefield": ["Darksteel Monolith"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Cathodion"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Cathodion", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "once-each-turn-second-colorless-pays",
+      "cr": ["118.9", "118.9b"],
+      "why": "The {0} alternative is once each turn: after the first colorless spell is cast for free, the second cannot use it, so with an empty pool it is not offered.",
+      "setup": {
+        "p0": {"hand": ["Cathodion", "Runed Servitor"], "battlefield": ["Darksteel Monolith"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Cathodion"},
+        {"op": "resolve", "expect": [{"card": "p0:Cathodion", "zone": "battlefield"}]}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Runed Servitor"}, "want": false}
+      ]
+    },
+    {
+      "name": "colored-spell-not-free",
+      "cr": ["118.9", "118.9b"],
+      "why": "The {0} alternative applies only to colorless spells; Grizzly Bears is green, so with an empty pool it is not offered.",
+      "setup": {
+        "p0": {"hand": ["Grizzly Bears"], "battlefield": ["Darksteel Monolith"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}
+      ]
+    },
+    {
+      "name": "without-monolith-colorless-not-free",
+      "cr": ["118.9"],
+      "why": "Without Darksteel Monolith there is no {0} alternative, so with an empty pool the colorless spell is not offered.",
+      "setup": {
+        "p0": {"hand": ["Cathodion"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Cathodion"}, "want": false}
+      ]
+    }
+  ]
+}

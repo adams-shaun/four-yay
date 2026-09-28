@@ -1,0 +1,82 @@
+{
+  "card": "Painful Truths",
+  "family": "spell-conditional",
+  "oracle_sha": "2e292d080709",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "one-color-draw-one-lose-one",
+      "cr": [
+        "601.2h",
+        "608.2c",
+        "121.2"
+      ],
+      "why": "Three black mana pay the full cost but represent just one color; the spell draws one and reduces life from 20 to 19.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Painful Truths"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Painful Truths",
+          "mana": "BBB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 19
+          },
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "three-colors-draw-three-lose-three",
+      "cr": [
+        "601.2h",
+        "608.2c",
+        "121.2"
+      ],
+      "why": "White, blue, and black mana pay the full three-mana cost: three distinct colors, so three draws and three life lost.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Painful Truths"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Painful Truths",
+          "mana": "WUB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 17
+          },
+          "hand_size": {
+            "p0": 3
+          }
+        }
+      ]
+    }
+  ]
+}

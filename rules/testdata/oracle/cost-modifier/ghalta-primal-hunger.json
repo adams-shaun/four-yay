@@ -1,0 +1,133 @@
+{
+  "card": "Ghalta, Primal Hunger",
+  "family": "cost-modifier",
+  "oracle_sha": "64c5ab8c82df",
+  "author": "cli-20260927T211250Z-f353f3d7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "empty-board-no-discount",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Zero controlled power leaves ten generic plus two green to pay.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Ghalta, Primal Hunger"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "GG"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Ghalta, Primal Hunger"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "four-power-four-off",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Two controlled 2-power Bears contribute four total power, reducing ten generic to six.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Ghalta, Primal Hunger"
+          ],
+          "battlefield": [
+            "Grizzly Bears",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ghalta, Primal Hunger",
+          "mana": "GGGGGGGG",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ghalta, Primal Hunger",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "twelve-power-cannot-reduce-green",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Two 6-power creatures supply twelve power: the generic component becomes zero but both green symbols remain.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Ghalta, Primal Hunger"
+          ],
+          "battlefield": [
+            "Colossal Dreadmaw",
+            "Colossal Dreadmaw"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ghalta, Primal Hunger",
+          "mana": "GG",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ghalta, Primal Hunger",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}
