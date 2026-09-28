@@ -60,14 +60,35 @@
 //     planner-paid cast is not submitted as a witness; its plan (the first
 //     one with no last-resort step, internal/spellbench/payexec.SelectPlan)
 //     is LOWERED: the seat answers the following decisions by activating
-//     each plan source in order, answering any mana-ability or colour ask
-//     with the witness's production, and then selecting the ordinary cast
-//     option. payexec verifies every step (the option is offered, the pool
-//     is what the plan predicts); on a divergence the lowering aborts, the
-//     seat passes (at priority; any other ask goes to the policy) and the
-//     abort is counted in Stats. So the policy never sees or picks a raw
-//     tap: taps happen only inside a chosen cast's lowering (or, exactly as
-//     under AutoPay, a pursuit of a play the planner does not price).
+//     each plan source (last-resort sources last), answering any
+//     mana-ability or colour ask with the witness's production, and then
+//     selecting the ordinary cast option. payexec verifies every step (the
+//     option is offered, the pool is what the plan predicts). So the policy
+//     never sees or picks a raw tap: taps happen only inside a chosen play's
+//     lowering (or, exactly as under AutoPay, a pursuit of a play no planner
+//     prices).
+//
+//     Activated abilities with a mana cost (both AutoPay and Planned): when
+//     the seat has a Planner (SetPlanner; cmd/botbench hands it the engine,
+//     rules.Engine.PotentialPaymentPlans), a potential ability the planner
+//     can pay is lowered from its witness exactly like a Planned cast, and a
+//     potential play the planner PROVES unpayable is not a candidate at all
+//     (it is not a legal action; the naive pursuit used to tap out for it).
+//     Without a Planner, or for a play the planner does not price (an X
+//     cost, a mode such as flashback, a granted ability), the naive pursuit
+//     below stands.
+//
+//     Never losing a chosen play (every mode): a lowering hands back a
+//     decision that is not its own (a trigger to order or target: the policy
+//     answers it) and resumes; waits (passes priority, the pool floating) when
+//     its play is withheld only because a trigger its sacrifice caused sits
+//     on the stack; and when it does abort, the seat re-plans the SAME play
+//     from the pool it now holds (a fresh plan from the same decision) before
+//     letting the policy choose anew. A play is excluded for the rest of the
+//     step only after two failed lowerings. Stats.LostPlays counts the
+//     chosen, planner-payable plays that were still not taken when their
+//     step ended; a refused answer (Refused) is retried with the policy's
+//     next choice rather than a pass.
 //
 //     Manual (sb-uniform-manual, sb-heuristic-manual): the literal protocol
 //     surface SpellBench's own mtg-kernel and gorge adapters expose, where
@@ -136,6 +157,7 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/spellbench/payexec"
+	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -190,27 +212,57 @@ const (
 // seed, mirroring v2's (agent_seed ^ seed).
 const UniformSeed uint64 = 11
 
-// Stats counts the seat's AutoPay pursuit and Planned lowering activity
+// Stats counts the seat's AutoPay pursuit and plan lowering activity
 // (package doc, 1).
 type Stats struct {
 	Decisions       int // decisions this seat answered
-	Pursuits        int // potential plays chosen
+	Pursuits        int // potential plays chosen and pursued by naive tapping
 	PursuitTaps     int // mana sources tapped while pursuing
 	PursuitFailures int // pursuits abandoned with no source left
+	// PursuitFailuresPriced counts the pursuit failures of plays the
+	// planner called payable (a cast it plans but does not offer as a
+	// witness); every other failure was of a play no planner prices.
+	PursuitFailuresPriced int
+	// PursuitFailuresByVerdict counts every pursuit failure by the
+	// planner's verdict on the play ("reason:detail", "unlisted" when the
+	// planner did not list it, "no_planner" without one).
+	PursuitFailuresByVerdict map[string]int
+	// ExcludedUnpayable counts potential plays dropped from a candidate
+	// list because the planner proved them unpayable (per decision).
+	ExcludedUnpayable int
 
-	// Planned only: plan lowerings started, completed (cast submitted) and
-	// aborted, the sources they activated, and the aborts by payexec
-	// reason. An abort met at priority is answered with pass
-	// (AbortPasses); one met at any other ask is answered by the policy.
-	Lowerings     int
-	LoweredCasts  int
-	LoweringTaps  int
-	LoweringAsks  int
-	Aborts        int
+	// Plan lowerings (Planned casts; ability witnesses in every mode):
+	// started, completed (play submitted) and aborted, the sources they
+	// activated, and the aborts by payexec reason.
+	Lowerings        int
+	LoweredCasts     int
+	AbilityLowerings int // of Lowerings, activated-ability witnesses
+	LoweredAbilities int
+	LoweringTaps     int
+	LoweringAsks     int
+	LoweringYields   int // foreign decisions handed back mid-lowering
+	LoweringWaits    int // stack passes made waiting for the play
+	Aborts           int
+	// Replans counts aborted lowerings re-planned from the pool then held;
+	// AbortPasses the aborts at priority that ended in a pass (the play
+	// failed twice, or nothing else was chosen).
+	Replans       int
 	AbortPasses   int
 	AbortsByCause map[string]int
 	// AbortSamples keeps the first few aborts' payexec reason and detail.
 	AbortSamples []string
+
+	// LostPlays counts (step, play) pairs where the policy chose a play the
+	// planner could pay and the play was not taken (a lowering aborted and
+	// no re-plan completed it, or a pursuit of a priced play failed).
+	// RecoveredPlays counts the aborted plays a re-plan still completed.
+	LostPlays      int
+	RecoveredPlays int
+	// Refusals counts answers the engine refused (Refused).
+	Refusals int
+	// AutoPayFallbacks counts decisions posed with a PaymentFallback: an
+	// AutoPay witness the engine stopped executing mid-cast.
+	AutoPayFallbacks int
 }
 
 const maxAbortSamples = 4
@@ -221,12 +273,29 @@ func (s *Stats) Add(o Stats) {
 	s.Pursuits += o.Pursuits
 	s.PursuitTaps += o.PursuitTaps
 	s.PursuitFailures += o.PursuitFailures
+	s.PursuitFailuresPriced += o.PursuitFailuresPriced
+	for k, v := range o.PursuitFailuresByVerdict {
+		if s.PursuitFailuresByVerdict == nil {
+			s.PursuitFailuresByVerdict = map[string]int{}
+		}
+		s.PursuitFailuresByVerdict[k] += v
+	}
+	s.ExcludedUnpayable += o.ExcludedUnpayable
 	s.Lowerings += o.Lowerings
 	s.LoweredCasts += o.LoweredCasts
+	s.AbilityLowerings += o.AbilityLowerings
+	s.LoweredAbilities += o.LoweredAbilities
 	s.LoweringTaps += o.LoweringTaps
 	s.LoweringAsks += o.LoweringAsks
+	s.LoweringYields += o.LoweringYields
+	s.LoweringWaits += o.LoweringWaits
 	s.Aborts += o.Aborts
+	s.Replans += o.Replans
 	s.AbortPasses += o.AbortPasses
+	s.LostPlays += o.LostPlays
+	s.RecoveredPlays += o.RecoveredPlays
+	s.Refusals += o.Refusals
+	s.AutoPayFallbacks += o.AutoPayFallbacks
 	for _, a := range o.AbortSamples {
 		if len(s.AbortSamples) < maxAbortSamples {
 			s.AbortSamples = append(s.AbortSamples, a)
@@ -240,6 +309,14 @@ func (s *Stats) Add(o Stats) {
 	}
 }
 
+// Planner prices the deciding seat's potential plays: an activated
+// ability's mana witness, and a proof when a play cannot be paid.
+// *rules.Engine implements it (PotentialPaymentPlans); it must be a pure
+// read of the seat's own public state at the decision being answered.
+type Planner interface {
+	PotentialPaymentPlans(p state.PlayerID) []rules.PotentialPlan
+}
+
 // Seat is one SpellBench builtin bot playing one seat of one game.
 type Seat struct {
 	policy Policy
@@ -250,11 +327,27 @@ type Seat struct {
 	// for, nil when none. failed holds the plays a pursuit could not pay
 	// for in the current step (lookup only), and window names that step.
 	pursuit *actionKey
-	failed  map[actionKey]bool
-	window  stepWindow
+	// pursuitVerdict and pursuitPriced record the planner's verdict on the
+	// pursued play when it was chosen.
+	pursuitVerdict string
+	pursuitPriced  bool
+	failed         map[actionKey]bool
+	window         stepWindow
 
-	// exec is the plan lowering in progress (Planned), nil when none.
-	exec *payexec.Execution
+	// exec is the plan lowering in progress, nil when none; execKey names
+	// its play. attempts counts each play's lowerings this step and lost
+	// the aborted ones not yet completed (both lookup only).
+	exec      *payexec.Execution
+	execKey   actionKey
+	execLabel string // the play's label, for abort samples
+	attempts  map[actionKey]int
+	lost      map[actionKey]bool
+
+	// planner prices potential plays (nil: pursue naively); plans caches
+	// its answer for the decision planSeq (lookup only).
+	planner Planner
+	planSeq uint64
+	plans   map[actionKey]*rules.PotentialPlan
 
 	// tac is the Tactical policy's state, nil for the SpellBench ports.
 	tac *tactical
@@ -276,26 +369,33 @@ var _ interface {
 // the caller supplies (per-seat seed ^ UniformSeed); the other two policies
 // draw nothing.
 func New(p Policy, m ManaMode, seed uint64) *Seat {
-	return &Seat{policy: p, mana: m, rng: SplitMix64{state: seed}, failed: map[actionKey]bool{}}
+	return &Seat{policy: p, mana: m, rng: SplitMix64{state: seed}, failed: map[actionKey]bool{},
+		attempts: map[actionKey]int{}, lost: map[actionKey]bool{}}
 }
+
+// SetPlanner gives the seat a potential-play planner (package doc, 1). The
+// Manual variants never read it.
+func (s *Seat) SetPlanner(p Planner) { s.planner = p }
 
 // Policy reports the seat's policy.
 func (s *Seat) Policy() Policy { return s.policy }
 
 // WantsPaymentActions opts an AutoPay or Planned seat into gorge's payment
-// plans. A Planned seat mid-lowering needs none: it is following the plan it
-// already holds.
-func (s *Seat) WantsPaymentActions() bool {
-	return s.mana == AutoPay || (s.mana == Planned && s.exec == nil)
-}
+// plans. A Planned seat mid-lowering wants them too: should its lowering
+// abort, it re-plans from the decision's fresh plans.
+func (s *Seat) WantsPaymentActions() bool { return s.mana != Manual }
 
-// Decide answers d. The View supplies the step (to scope a pursuit) and the
-// seat's own PotentialActions; nothing else of it is read.
+// Decide answers d. The View supplies the step (to scope a pursuit), the
+// seat's own pool and PotentialActions, and the stack size; nothing else of
+// it is read.
 func (s *Seat) Decide(_ context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	s.sync(v)
 	s.Stats.Decisions++
+	if d.PaymentFallback != nil {
+		s.Stats.AutoPayFallbacks++
+	}
 	if s.exec != nil {
-		if in, ok := s.lower(v, &d); ok {
+		if in, ok := s.lower(v, &d, 0); ok {
 			in.Seq, in.Player = d.Seq, d.Player
 			return in, nil
 		}
@@ -303,6 +403,43 @@ func (s *Seat) Decide(_ context.Context, v view.View, d decision.Decision) (deci
 	in := s.decide(v, &d)
 	in.Seq, in.Player = d.Seq, d.Player
 	return in, nil
+}
+
+// Refused answers d again after the engine refused refused (a
+// whole-declaration constraint the options do not publish). At priority the
+// refused option (or payment action) is withdrawn from d and the policy
+// chooses again among the rest -- its next choice, not a pass; any other
+// ask gets the minimal valid answer. A lowering or pursuit whose answer was
+// refused is abandoned (and its play counted by the usual abort path).
+func (s *Seat) Refused(v view.View, d decision.Decision, refused decision.Intent) decision.Intent {
+	s.Stats.Refusals++
+	if s.exec != nil {
+		s.abortLowering("refused")
+	}
+	s.pursuit = nil
+	if d.Kind != decision.KPriority {
+		return repaired(&d, decision.Intent{})
+	}
+	drop := make(map[int]bool, len(refused.Choices)) // lookup only
+	for _, c := range refused.Choices {
+		drop[c] = true
+	}
+	d2 := d
+	d2.Options = nil
+	for _, o := range d.Options {
+		if !drop[o.Index] {
+			d2.Options = append(d2.Options, o)
+		}
+	}
+	d2.PaymentActions = nil
+	for _, a := range d.PaymentActions {
+		if refused.Payment == nil || a.ID != refused.Payment.ActionID {
+			d2.PaymentActions = append(d2.PaymentActions, a)
+		}
+	}
+	in := s.decide(v, &d2)
+	in.Seq, in.Player = d.Seq, d.Player
+	return in
 }
 
 // sync clears the pursuit and the failed set when the step changes: the
@@ -319,6 +456,8 @@ func (s *Seat) sync(v view.View) {
 		// The pool empties with the step: a lowering cannot span it.
 		s.abortLowering("step_changed")
 	}
+	clear(s.attempts)
+	clear(s.lost)
 }
 
 func (s *Seat) decide(v view.View, d *decision.Decision) decision.Intent {

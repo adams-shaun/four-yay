@@ -69,3 +69,11 @@ func TestFlags(t *testing.T) {
 		}
 	}
 }
+
+// TestStatsLine: -stats reports the recovery counts at exit.
+func TestStatsLine(t *testing.T) {
+	code, _, errs := session(t, "-policy", "heuristic", "-stats", "-quiet")
+	if code != 0 || !strings.Contains(errs, `sbagent-stats: {"Choices":1,`) {
+		t.Fatalf("exit %d, stderr %q", code, errs)
+	}
+}

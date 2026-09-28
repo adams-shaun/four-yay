@@ -133,10 +133,15 @@ class CapturingSubprocessDriver(SubprocessDriver):
         super().close()
 
 
+# SBAGENT_EXTRA_ARGS (whitespace separated) is appended to every sbagent command line, e.g. "-stats" to have
+# each process report its recovery counts (summed by report()).
+EXTRA_ARGS = tuple(os.environ.get("SBAGENT_EXTRA_ARGS", "").split())
+
+
 def make_driver(name: str, sbagent: str | None, stderr_log: list):
     if name in GO_POLICY:
         spec = BotSpec(name=name, version=GO_VERSION, type="subprocess",
-                       command=(sbagent, "-policy", GO_POLICY[name], "-name", name, "-version", GO_VERSION))
+                       command=(sbagent, "-policy", GO_POLICY[name], "-name", name, "-version", GO_VERSION) + EXTRA_ARGS)
         driver = CapturingSubprocessDriver(spec, startup_ms=TIME_CONTROL.startup_ms)
         driver.stderr_log = stderr_log
         return driver
@@ -306,6 +311,24 @@ def report(out: str, label: str, rows, board, check, stderr_log, bots) -> int:
     print(f"twin parity: {check['compared']} games replayed with python twins, {len(check['mismatches'])} mismatches")
     for m in check["mismatches"][:5]:
         print("  MISMATCH", json.dumps(m, sort_keys=True)[:600])
+    totals: dict = {}
+    for text in stderr_log:
+        for line in text.splitlines():
+            if line.startswith("sbagent-stats: "):
+                for key, value in json.loads(line[len("sbagent-stats: "):]).items():
+                    if isinstance(value, dict):
+                        for code, n in value.items():
+                            totals[f"{key}.{code}"] = totals.get(f"{key}.{code}", 0) + n
+                    elif isinstance(value, int):
+                        totals[key] = totals.get(key, 0) + value
+    if totals:
+        print(f"sbagent recovery counts (summed over processes): {json.dumps(totals, sort_keys=True)}")
+        (out_dir / f"{label}_sbagent_stats.json").write_text(json.dumps(totals, indent=1, sort_keys=True))
+    forfeits: dict = {}
+    for row in rows:
+        if row["classification"] == "forfeit":
+            forfeits[row["reason"]] = forfeits.get(row["reason"], 0) + 1
+    print(f"forfeits by reason: {json.dumps(forfeits, sort_keys=True)}")
     print(f"sbagent stderr: {len(stderr_log)} non-empty process logs")
     for text in stderr_log[:3]:
         print("  " + text.strip().replace("\n", "\n  ")[:800])

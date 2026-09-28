@@ -85,10 +85,19 @@ func TestSpellbenchBuiltinsPlayMirrors(t *testing.T) {
 			}
 			if strings.HasSuffix(pol, "-planned") {
 				// The planned seat (p0) casts through lowered plans, and
-				// almost every lowering reaches its cast.
+				// lowers activated abilities from the planner's witness.
+				// Every lowering is accounted for: it reached its cast, its
+				// ability, or a named abort (none is left open at a
+				// finished game). Almost every cast lowering reaches its
+				// cast.
 				st := a.stats[0]
-				if st.Lowerings == 0 || st.LoweredCasts*10 < st.Lowerings*9 {
-					t.Fatalf("%s on %s: lowerings %d, cast %d, aborts %v", pol, deckID, st.Lowerings, st.LoweredCasts, st.AbortsByCause)
+				castLowerings := st.Lowerings - st.AbilityLowerings
+				if st.Lowerings != st.LoweredCasts+st.LoweredAbilities+st.Aborts {
+					t.Fatalf("%s on %s: unattributed lowering: lowerings %d = cast %d + ability %d + aborts %d (%v)?",
+						pol, deckID, st.Lowerings, st.LoweredCasts, st.LoweredAbilities, st.Aborts, st.AbortsByCause)
+				}
+				if castLowerings == 0 || st.LoweredCasts*10 < castLowerings*9 {
+					t.Fatalf("%s on %s: cast lowerings %d, cast %d, aborts %v", pol, deckID, castLowerings, st.LoweredCasts, st.AbortsByCause)
 				}
 			}
 			if a.outcome.IsStalled() {

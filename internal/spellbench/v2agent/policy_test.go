@@ -177,9 +177,10 @@ type panicky struct{ First }
 
 func (panicky) Choose(*Decision) (int, error) { panic("boom") }
 
-// TestPolicyFailuresAnswerInternalError: a panicking or out-of-range policy
-// answers internal_error (spec 10.5) and the agent keeps serving.
-func TestPolicyFailuresAnswerInternalError(t *testing.T) {
+// TestPolicyFailuresAnswerTheFallback: a panicking policy no longer answers
+// internal_error (a forfeit, spec 10.5): the fallback policy's legal choice
+// answers, and the agent keeps serving.
+func TestPolicyFailuresAnswerTheFallback(t *testing.T) {
 	a, err := New(panicky{}, Options{Name: "t", Version: "1"})
 	if err != nil {
 		t.Fatal(err)
@@ -189,7 +190,7 @@ func TestPolicyFailuresAnswerInternalError(t *testing.T) {
 	over := `{"request_type":"game_over","protocol":"spellbench/v2","request_id":"r-3","game_id":"g","terminal":{"outcome":"draw","classification":"natural","winner":null,"reason":"x","seat_step_count":1}}`
 	for _, step := range []struct{ line, want string }{
 		{start, `"response_type":"ack"`},
-		{choose, `"code":"internal_error"`},
+		{choose, `"selection":{"candidate_id":0`},
 		{over, `"response_type":"ack"`},
 	} {
 		if out := string(a.HandleLine([]byte(step.line))); !strings.Contains(out, step.want) {
