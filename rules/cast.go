@@ -1837,7 +1837,7 @@ func castFlowDrawPlayer(spec string, payer state.PlayerID) (state.PlayerID, bool
 func (e *Engine) drawCostCard(p state.PlayerID) {
 	lib := e.G.Zone(state.ZLibrary, p)
 	if len(lib) == 0 {
-		e.emit(events.Event{Kind: events.PlayerLost, Player: p, Text: "drew from an empty library"})
+		e.playerLoses(p, loseReasonMilled, "drew from an empty library")
 		return
 	}
 	e.emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
@@ -3214,7 +3214,7 @@ func (e *Engine) applyDredge(p state.PlayerID, dredgeID state.ObjID) {
 func (e *Engine) resumeOrdinaryDraw(p state.PlayerID) {
 	lib := e.G.Zone(state.ZLibrary, p)
 	if len(lib) == 0 {
-		e.emit(events.Event{Kind: events.PlayerLost, Player: p, Text: "drew from an empty library"})
+		e.playerLoses(p, loseReasonMilled, "drew from an empty library")
 		return
 	}
 	e.emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],

@@ -67,7 +67,7 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 	g := h.Game()
 	lib := zoneOf(g, state.ZLibrary, p)
 	if len(lib) == 0 {
-		h.Emit(events.Event{Kind: events.PlayerLost, Player: p, Text: "drew from an empty library"})
+		h.EmitPlayerLost(p, "Milled", "drew from an empty library")
 		return
 	}
 	// A DrawFor reached while the resolution is already suspended: a caller
