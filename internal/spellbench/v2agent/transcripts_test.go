@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -69,6 +70,24 @@ var twins = []struct{ goPolicy, python string }{
 // 10.5 defines malformed_json as "not valid JSON").
 var knownDeviations = map[string]string{"[1,2]": ErrMalformedRequest, "null": ErrMalformedRequest}
 
+// recoveries are the agent_errors requests (by request_id) this agent
+// answers where the python reference agent errors -- and the host forfeits
+// the seat for any error answering game_start or choose (spec 10.5, 11.5).
+// Each is a recoverable error (Agent.Stats): a game_start while a game is
+// active replaces the stale game; a choose for a game the agent is not
+// serving starts it implicitly when there is something to answer; a
+// candidate without an integer candidate_id is answered by position (ids
+// are dense, spec 11.3 V1). The state they leave differs from python's, so
+// r-4 and r-5 differ too: g-2 is now the active game.
+var recoveries = map[string]string{
+	"r-3": "ack",                          // game_start g-2 while g-1 is active
+	"r-4": "error:" + ErrMalformedRequest, // g-2 is active; no candidates
+	"r-5": "error:" + ErrUnknownGame,      // g-1 was replaced; nothing to answer
+	"r-6": "choice:0",                     // g-1 adopted; missing candidate_id
+	"r-7": "choice:0",                     // non-object candidate
+	"r-8": "choice:0",                     // string candidate_id
+}
+
 type response struct {
 	ResponseType string `json:"response_type"`
 	Protocol     string `json:"protocol"`
@@ -121,6 +140,23 @@ func TestTranscriptsMatchPythonBuiltins(t *testing.T) {
 				if err != nil || !bytes.Equal(canon, out[:len(out)-1]) {
 					t.Errorf("%s/%s #%d: response is not canonical JSON: %s", tr.Name, tw.goPolicy, i, out)
 				}
+				if tr.Name == "agent_errors" {
+					if want, ok := recoveries[got.RequestID]; ok {
+						var have string
+						switch {
+						case got.Error != nil:
+							have = "error:" + got.Error.Code
+						case got.Selection != nil && got.Selection.CandidateID != nil:
+							have = fmt.Sprintf("choice:%d", *got.Selection.CandidateID)
+						default:
+							have = got.ResponseType
+						}
+						if have != want {
+							t.Errorf("%s/%s #%d: recovery %s, want %s (%s)", tr.Name, tw.goPolicy, i, have, want, out)
+						}
+						continue
+					}
+				}
 				if code, ok := knownDeviations[req]; ok {
 					if got.Error == nil || got.Error.Code != code {
 						t.Errorf("%s #%d %q: got %s, want error %s", tr.Name, i, req, out, code)
@@ -138,6 +174,11 @@ func TestTranscriptsMatchPythonBuiltins(t *testing.T) {
 					continue
 				}
 				if exp.Selection == nil {
+					continue
+				}
+				if tr.Name == "agent_errors" && tw.goPolicy == "random" && (got.RequestID == "r-9" || got.RequestID == "r-10") {
+					// The recoveries above drew three answers from a stream
+					// re-seeded by the adoption of g-1; python's drew none.
 					continue
 				}
 				choices++
