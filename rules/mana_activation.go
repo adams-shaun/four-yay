@@ -1967,7 +1967,8 @@ func (e *Engine) commitManaDiscard() {
 		// for the answer instead; Submit resumes it (resumeManaAfterCost).
 		e.manaAfterCost = &manaAfterCost{player: md.player, source: md.source, ability: md.ability,
 			cast: md.cast, cumulative: md.cumulative, triggers: manaTriggers,
-			sacs: append([]state.ObjID(nil), md.sacs...), gained: md.gained}
+			sacs: append([]state.ObjID(nil), md.sacs...), gained: md.gained,
+			untaps: append([]state.ObjID(nil), md.untaps...)}
 		return
 	}
 	e.resolveManaEffect(md.player, md.source, md.ability, md.cast, md.cumulative, manaTriggers, md.sacs, md.gained, md.untaps)
@@ -1975,7 +1976,9 @@ func (e *Engine) commitManaDiscard() {
 }
 
 // manaAfterCost parks a paid mana ability's effect while a decision its cost
-// payment posed is outstanding (see Engine.manaAfterCost).
+// payment posed is outstanding (see Engine.manaAfterCost). untaps carries the
+// elected untapYType permanents through the park, so a ManaReflected
+// "Defined.Untapped" selector still binds them at resume.
 type manaAfterCost struct {
 	player     state.PlayerID
 	source     state.ObjID
@@ -1985,6 +1988,7 @@ type manaAfterCost struct {
 	triggers   []pendingTrigger
 	sacs       []state.ObjID
 	gained     gainedManaRef
+	untaps     []state.ObjID
 }
 
 // resumeManaAfterCost resolves the parked mana effect once the decision its
@@ -1996,7 +2000,7 @@ type manaAfterCost struct {
 func (e *Engine) resumeManaAfterCost() {
 	r := e.manaAfterCost
 	e.manaAfterCost = nil
-	e.resolveManaEffect(r.player, r.source, r.ability, r.cast, r.cumulative, r.triggers, r.sacs, r.gained, nil)
+	e.resolveManaEffect(r.player, r.source, r.ability, r.cast, r.cumulative, r.triggers, r.sacs, r.gained, r.untaps)
 	if r.cumulative && e.choosing == chooseNone {
 		e.paymentWindowAsk()
 	}
