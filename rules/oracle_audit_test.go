@@ -80,10 +80,6 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: the once-per-turn permission is tracked per
 	// affected spell, so Darksteel Monolith's free-cast grant is available again.
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
-	// Engine primitive gap: the death trigger's damage-source filter has no
-	// DamagedBy matcher (40 corpus scripts use that qualifier). The script
-	// accurately encodes Hawkeye's printed condition.
-	"Hawkeye, Avenging Archer/damaged-victim-dies-draw": "observed no draw (hand 0), expected one draw (hand 1) after Hawkeye damaged the victim",
 	// Engine primitive: entering Angel appears to be included in Giada's CountValid
 	// when pricing the replacement, rather than counting only Angels already controlled.
 	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
