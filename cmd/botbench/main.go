@@ -128,6 +128,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/spellbench/registry"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -392,6 +393,11 @@ func init() {
 func setTacticalRegistry(reg *cards.Registry) {
 	if tacticalLookup == nil {
 		tacticalLookup = builtins.NewRegistryLookup(reg)
+		// The registry's card-fact decorators (lethal) read printed IR from
+		// the same corpus lookup: card names resolve identically for every
+		// seat, so one lookup serves both the tactical seats and the
+		// decorators.
+		registry.SetCardLookup(tacticalLookup)
 	}
 }
 
