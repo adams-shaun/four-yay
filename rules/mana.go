@@ -428,6 +428,19 @@ func isWholeHandRevealSpec(spec string) bool {
 	return strings.EqualFold(spec, "Hand")
 }
 
+// isSameColorRevealSpec reports whether a Reveal cost part's type slot is the
+// RELATIONAL "SameColor" (Reveal<2/SameColor>, Illuminated Folio's "Reveal
+// two cards from your hand that share a color"). SameColor names a relation
+// BETWEEN the revealed cards, not a card property: no card's type line
+// carries it, so reading it as one left the ability permanently unoffered.
+// The reading lives beside the offer gate and the payment ask
+// (rules/cast.go's nonManaCastable / revealCostAsk) as a decision.SetPropShared
+// constraint over each candidate's DERIVED colour tokens -- see
+// sameColorRevealSets in rules/setprops.go.
+func isSameColorRevealSpec(spec string) bool {
+	return strings.EqualFold(spec, "SameColor")
+}
+
 // dynTapCost matches Forge's dynamic tap-any-number tapXType tokens -- the
 // heads the literal choiceCost regex above cannot read:
 //

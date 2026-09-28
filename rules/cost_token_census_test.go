@@ -109,7 +109,14 @@ var costNonFilterSpecs = map[string]string{
 	// recorded here so a reviewer can see them; the census's job is to make
 	// them visible, not to silently treat them as filters. (Filed per the
 	// dispatch's new-ticket process.)
-	"SameColor": "LEFT: Reveal<2/SameColor> (Illuminated Folio) -- 'two cards sharing a color' is relational; an unmatched filter makes the ability unoffered",
+	// SameColor is no longer LEFT: Reveal<2/SameColor> (Illuminated Folio,
+	// "reveal two cards from your hand that share a color") is read as a
+	// RELATIONAL part by isSameColorRevealSpec at the offer gate
+	// (nonManaCastable) and the payment (revealCostAsk). The ask carries
+	// decision.SetPropShared over each candidate's DERIVED colour tokens
+	// (setPropTokens "color"), so Decision.Validate and botpolicy's Clamp
+	// enforce the same pair rule the offer gate measured.
+	"SameColor": "relational same-colour reveal (Reveal<2/SameColor>, Illuminated Folio) -- isSameColorRevealSpec; SetPropShared over derived colours",
 	"LastDrawn": "LEFT: Discard<1/LastDrawn> (Jandor's Ring) -- 'the last card drawn this turn' is history-keyed; an unmatched filter makes the ability unoffered",
 	"All":       "LEFT: ExileFromHand<1/All> (Herigast, Erupting Nullkite) -- the whole hand, on the Exile path",
 }
@@ -279,6 +286,13 @@ func TestCostTokenCensus(t *testing.T) {
 			// the census, not just the Land Grant behaviour test.
 			if spec == "Hand" && !isWholeHandRevealSpec(spec) {
 				t.Errorf("isWholeHandRevealSpec(%q) is false: the whole-hand reveal reading is gone", spec)
+			}
+			// SameColor's verdict is coupled to its production predicate the
+			// same way: a revert or rename of isSameColorRevealSpec (the
+			// Illuminated Folio fix) must fail the census, not just the
+			// card's behaviour test.
+			if spec == "SameColor" && !isSameColorRevealSpec(spec) {
+				t.Errorf("isSameColorRevealSpec(%q) is false: the same-colour reveal reading is gone", spec)
 			}
 		case base != spec && costNonFilterSpecs[base] != "":
 			// A predicate-carrying spec whose BASE is a table word (e.g.
