@@ -322,6 +322,7 @@ func onePassDriveGame(t *testing.T, cfg Config, botSeed uint64, st *onePassGameS
 // demands at least 200 priority decisions and floors of offered and
 // planned casts, so the drive cannot pass vacuously.
 func TestPaymentPlanOnePassMatchesReferenceOverAutoPayGame(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("long")
 	}

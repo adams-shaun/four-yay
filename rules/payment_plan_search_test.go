@@ -276,6 +276,7 @@ var srchOracleCosts = []string{
 // brute-force oracle's best for every cost, and repeated queries and clones
 // give identical plans and IDs.
 func TestPaymentPlanSearchMatchesOracleOnMixedBoard(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9970, srchSpell("U"))
 	srchMixedBoard(t, e)
 	if n := len(e.paymentPlanManaUnits(0)); n != 20 {
@@ -465,6 +466,7 @@ func TestPaymentPlanSearchZoneSeqIndexFixture(t *testing.T) {
 // Property test over fixed-seed repo-deck games: at every priority decision
 // the index agrees with the scan for every battlefield object.
 func TestPaymentPlanSearchZoneSeqIndexAgreesInGames(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("long")
 	}
@@ -519,6 +521,7 @@ func srchDistinctRock(k int) string {
 // proving the best of C(20,10) witnesses needs more nodes than the budget;
 // the outcome is the best complete plan found, recorded as search_limit.
 func TestPaymentPlanSearchBudgetExhaustionIsDeterministic(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9995, srchSpell("10"))
 	for k := 0; k < 20; k++ {
 		onBoard(t, e, 0, srchDistinctRock(k))
@@ -547,6 +550,7 @@ func TestPaymentPlanSearchBudgetExhaustionIsDeterministic(t *testing.T) {
 // with a random floating pool and cost: every search answer equals the
 // oracle's.
 func TestPaymentPlanSearchMatchesOracleOnRandomBoards(t *testing.T) {
+	t.Parallel()
 	palette := []string{srchIsland, srchMountain, srchForest, srchPlains, srchSwamp, srchVolcanic, srchSavannah,
 		srchBadlands, srchCombo, srchDork, srchAnyRock, srchWastes, srchTwoRock}
 	rng := rand.New(rand.NewPCG(20260927, 1))
@@ -776,6 +780,7 @@ func TestPaymentPlanSearchHandReserveDecidesOnClassBoard(t *testing.T) {
 // equals the oracle's under the same nonzero hand demand, and key 6 decides
 // a share of them.
 func TestPaymentPlanSearchMatchesOracleWithHandDemand(t *testing.T) {
+	t.Parallel()
 	palette := []string{srchIsland, srchMountain, srchForest, srchPlains, srchSwamp, srchVolcanic, srchSavannah,
 		srchBadlands, srchCombo, srchDork, srchAnyRock, srchWastes, srchTwoRock}
 	rng := rand.New(rand.NewPCG(20260927, 6))

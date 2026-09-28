@@ -461,6 +461,7 @@ func TestCloneSharesNoMutableStateWithTheOriginal(t *testing.T) {
 }
 
 func TestCloneOfAFinishedGameIsFinished(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 11, Names: names, Decks: decks})
 	e.Advance()
