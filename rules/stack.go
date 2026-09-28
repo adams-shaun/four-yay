@@ -5270,11 +5270,43 @@ func (e *Engine) ExchangeLifeVariant(ev events.Event, source state.ObjID, contro
 	e.lifeExchange = nil
 	if e.pending == nil && len(e.replChoices) == 0 {
 		e.finishLifeExchange(tx)
+	} else {
+		// The life change suspended (a consumed GainLife→Draw body that itself
+		// parked a Dredge ask): park the transaction so a later drain can
+		// finish it. Nothing else references tx once this call returns.
+		e.pendingLifeExchange = tx
 	}
 }
 
+// settlePendingLifeExchange re-drives a parked exchange transaction once the
+// engine is idle again. It is the ONE home every post-suspension drain calls
+// (askNextReplacementChoice, and through it Submit's tail): a suspension that
+// is not a replacement-order ask leaves the transaction referenced by nothing
+// else, so without this the exchange silently half-applies. A second
+// suspension inside finishLifeExchange re-parks it.
+func (e *Engine) settlePendingLifeExchange() {
+	tx := e.pendingLifeExchange
+	if tx == nil || e.pending != nil || len(e.replChoices) > 0 {
+		return
+	}
+	e.pendingLifeExchange = nil
+	e.finishLifeExchange(tx)
+}
+
+// finishLifeExchange completes an exchange transaction. It resumes from the
+// stage the transaction stopped at, so a re-drive after a suspension (the
+// dredge arm, Submit's tail) settles exactly the sides not yet applied. It
+// re-parks the transaction on the engine whenever a replacement path
+// suspends again, so the transaction is never orphaned mid-flight.
 func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 	if tx == nil {
+		return
+	}
+	if e.pendingLifeExchange == tx {
+		e.pendingLifeExchange = nil
+	}
+	if e.pending != nil || len(e.replChoices) > 0 {
+		e.pendingLifeExchange = tx
 		return
 	}
 	if tx.second.Kind != 0 && tx.stage == 0 {
@@ -5283,9 +5315,11 @@ func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 		e.lifeExchange = tx
 		e.emit(tx.second)
 		e.lifeExchange = prior
-		if e.pending == nil && len(e.replChoices) == 0 {
-			e.finishLifeExchange(tx)
+		if e.pending != nil || len(e.replChoices) > 0 {
+			e.pendingLifeExchange = tx
+			return
 		}
+		e.finishLifeExchange(tx)
 		return
 	}
 	if tx.second.Kind != 0 {
@@ -5345,6 +5379,11 @@ func (e *Engine) ExchangeLife(first, second events.Event, controller state.Playe
 	e.lifeExchange = nil
 	if e.pending == nil && len(e.replChoices) == 0 {
 		e.finishLifeExchange(tx)
+	} else {
+		// The FIRST side suspended (a replacement body that parked a decision):
+		// park the transaction so a later drain emits the second side and
+		// settles both. Without this, neither side is referenced again.
+		e.pendingLifeExchange = tx
 	}
 }
 func (e *Engine) Rand(n int) int { return e.rng.IntN(n) }

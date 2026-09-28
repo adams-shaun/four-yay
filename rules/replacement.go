@@ -6681,8 +6681,14 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		} else {
 			e.consumeExchangeLifeSide(rc.ev)
 		}
-		if rc.exchange != nil && e.pending == nil && len(e.replChoices) == 0 {
-			e.finishLifeExchange(rc.exchange)
+		if rc.exchange != nil {
+			if e.pending == nil && len(e.replChoices) == 0 {
+				e.finishLifeExchange(rc.exchange)
+			} else {
+				// The chosen replacement's body itself suspended (a Dredge ask):
+				// park the transaction for the drain that answers it.
+				e.pendingLifeExchange = rc.exchange
+			}
 		}
 		e.lifeExchange = priorExchange
 		e.damaging, e.combatDamaging, e.dmgSrcOverride = damaging, combat, override
@@ -6966,6 +6972,12 @@ func (e *Engine) askNextReplacementChoice() {
 			e.askMadnessReplacement(o.Owner)
 		}
 	}
+	// No replacement-order decision remains outstanding: an exchange
+	// transaction parked by a suspension (a consumed GainLife→Draw body whose
+	// own draw parked a Dredge ask) has no other drain, so finish it here. A
+	// competition asked just above re-set e.pending, which makes this inert
+	// until that answer lands and calls this tail again.
+	e.settlePendingLifeExchange()
 }
 
 // handleDamageReplacementChoice returns false only when recomputation leaves
