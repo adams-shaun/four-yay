@@ -246,6 +246,14 @@ type Game struct {
 	// pure function of the applied events, so replay rebuilds it; Clone
 	// copies it with the struct.
 	goadsSeen bool
+	// blockersLive is set whenever an attacker gains a blocker (events.Apply's
+	// DeclareBlockers fold calls NoteBlockers) and cleared by the whole-combat
+	// EndCombatReset, which empties every BlockedBy list. While it is false no
+	// object has a non-empty BlockedBy, so a blocker-tombstone walk has
+	// nothing to write. A pure function of the applied events (replay
+	// rebuilds it); Clone copies it with the struct. Code that writes
+	// BlockedBy directly (tests) must call NoteBlockers.
+	blockersLive bool
 
 	Players []Player
 	// Objs is a dense arena: Objs[i] has ID i+1, so ObjID 0 is "no object".
@@ -604,6 +612,17 @@ func (g *Game) NoteGoad() { g.goadsSeen = true }
 
 // GoadsSeen reports whether any object has ever gained a goad in this game.
 func (g *Game) GoadsSeen() bool { return g.goadsSeen }
+
+// NoteBlockers records that some object's BlockedBy may be non-empty (see
+// blockersLive).
+func (g *Game) NoteBlockers() { g.blockersLive = true }
+
+// ClearBlockers records that every BlockedBy list is empty; only the
+// whole-combat reset, which empties them all, may call it.
+func (g *Game) ClearBlockers() { g.blockersLive = false }
+
+// BlockersLive reports whether any object's BlockedBy may be non-empty.
+func (g *Game) BlockersLive() bool { return g.blockersLive }
 
 func (g *Game) AddObject(card *cards.Card, owner PlayerID) *Object {
 	o := Object{ID: g.NextID, Card: card, Owner: owner, Controller: owner, Zone: ZLibrary}
