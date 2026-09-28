@@ -12,6 +12,7 @@ import (
 
 // fdnScenario supplies real corpus spells and inline, license-safe board fixtures.
 const fdnBear = "Name:FDN Audit Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
+const fdnHastyBear = "Name:FDN Audit Hasty Bear\nManaCost:1 R\nTypes:Creature Bear\nPT:2/2\nK:Haste\nOracle:x\n"
 const fdnGiant = "Name:FDN Audit Giant\nManaCost:3 G\nTypes:Creature Giant\nPT:6/6\nOracle:x\n"
 
 func fdnSetup(t *testing.T, reg *cards.Registry, name string, own, opposing []*cards.Card) (*Engine, state.ObjID) {
@@ -224,19 +225,37 @@ func TestFDNCastability(t *testing.T) {
 		}
 	})
 	t.Run("Joust Through", func(t *testing.T) {
-		// The spell targets any attacking or blocking creature, so the legal
-		// fixture is player 0's OWN attacker (an opponent's creature cannot
-		// attack for player 0).
-		e, id := fdnSetup(t, reg, "Joust Through", []*cards.Card{bear}, nil)
-		attacker := moveByName(t, e, 0, bear.Faces[0].Name, state.ZBattlefield)
-		e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{attacker}})
-		if !e.G.Obj(attacker).IsAttacking {
-			t.Fatal("creature not attacking")
+		// Move the creature onto the battlefield during Main1, then make a
+		// real combat declaration. Haste makes this turn's attacker eligible.
+		hasty := card(t, fdnHastyBear)
+		e, id := fdnSetup(t, reg, "Joust Through", []*cards.Card{hasty}, nil)
+		attacker := moveByName(t, e, 0, hasty.Faces[0].Name, state.ZBattlefield)
+		if e.G.Obj(attacker).Controller != 0 || !e.G.Obj(attacker).SummonSick || !e.HasKeyword(attacker, "Haste") {
+			t.Fatalf("attacker lacks legal haste precondition: %+v", e.G.Obj(attacker))
 		}
-		if e.G.Obj(attacker).Controller != 0 {
-			t.Fatal("attacker not controlled by the caster")
+		driveToStepAll(t, e, e.G.Turn, 0, state.StepDeclareAttackers)
+		if e.G.Step != state.StepDeclareAttackers || !e.canAttackPair(attacker, 1) {
+			t.Fatalf("attacker ineligible at %s: %+v", e.G.Step, e.G.Obj(attacker))
 		}
-		addMana(t, e, 0, "W")
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KAttackers {
+			t.Fatalf("expected attack declaration: %+v", d)
+		}
+		declared := false
+		for _, o := range d.Options {
+			if o.Obj == attacker && o.Player == 1 {
+				submitChoices(t, e, o.Index)
+				declared = true
+				break
+			}
+		}
+		if !declared || !e.G.Obj(attacker).IsAttacking || e.G.Step != state.StepDeclareAttackers {
+			t.Fatalf("attacker not legally declared: %+v at %s", e.G.Obj(attacker), e.G.Step)
+		}
+		// addMana drives back to Main1; fund the post-declaration
+		// priority window in place instead.
+		e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "W", Amount: 1})
+		e.priorityRound()
 		life := e.G.Players[0].Life
 		fdnOffer(t, e, id)
 		fdnTarget(t, e, attacker)
