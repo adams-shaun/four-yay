@@ -1,0 +1,24 @@
+{
+  "card": "Shrine of the Forsaken Gods",
+  "family": "activation-condition",
+  "oracle_sha": "fffbb58b674c",
+  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "double-colorless-unavailable-at-six-lands",
+      "cr": ["602.5"],
+      "why": "The Shrine and five other lands total six, one short of the seven-land activation condition; only the ordinary one-mana ability can be used.",
+      "setup": {"p0": {"battlefield": ["Shrine of the Forsaken Gods", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Shrine of the Forsaken Gods", "ability": "", "answers": [{"kind": "choose", "pick": ["Add CC"]}]}],
+      "expect": [{"pool": {"p0": "C"}}]
+    },
+    {
+      "name": "double-colorless-available-at-seven-lands",
+      "cr": ["602.5", "605.1a", "106.12"],
+      "why": "The Shrine and six other lands total exactly seven; choosing its restricted ability adds two colorless mana.",
+      "setup": {"p0": {"battlefield": ["Shrine of the Forsaken Gods", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Shrine of the Forsaken Gods", "ability": "", "answers": [{"kind": "choose", "pick": ["Add CC"]}]}],
+      "expect": [{"pool": {"p0": "CC"}}]
+    }
+  ]
+}

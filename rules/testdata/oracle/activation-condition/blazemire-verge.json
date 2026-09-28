@@ -1,0 +1,24 @@
+{
+  "card": "Blazemire Verge",
+  "family": "activation-condition",
+  "oracle_sha": "adbff3fdc2db",
+  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "restricted-red-mana-unavailable-without-swamp-or-mountain",
+      "cr": ["602.5", "305.6"],
+      "why": "With no land having either named subtype, the restricted red ability cannot be selected; the unrestricted black ability remains available.",
+      "setup": {"p0": {"battlefield": ["Blazemire Verge"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add R"]}]}],
+      "expect": [{"pool": {"p0": "B"}}]
+    },
+    {
+      "name": "restricted-red-mana-available-with-mountain",
+      "cr": ["602.5", "305.6", "605.1a", "106.12"],
+      "why": "A Mountain meets the restriction, so choosing the red-producing ability taps the Verge and adds red mana.",
+      "setup": {"p0": {"battlefield": ["Blazemire Verge", "Mountain"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add R"]}]}],
+      "expect": [{"pool": {"p0": "R"}}]
+    }
+  ]
+}
