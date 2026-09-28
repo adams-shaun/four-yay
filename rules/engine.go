@@ -1370,16 +1370,16 @@ type Engine struct {
 	// CopyToken events carry the choice and a log-only replay re-derives the
 	// mints. Clone-copied (clone.go).
 	tokenChoice *tokenChoiceState
-	// suspendedCasts is the mandatory "cast it if able" trigger created when
-	// a real suspended card loses its final TIME counter. IDs are appended in
-	// exile order and consumed before priority; it is plain replayable engine
-	// continuation state, not an inference from arbitrary exile cards.
 	// specEnvs/specEnvDepth: targetSpecContext's reusable Resolve records,
 	// used as a stack (trigger_referents.go, acquireSpecEnv). Scratch that is
 	// free at every intent boundary, so Clone starts a fresh one.
 	specEnvs     []*specResolveEnv
 	specEnvDepth int
 
+	// suspendedCasts is the mandatory "cast it if able" trigger created when
+	// a real suspended card loses its final TIME counter. IDs are appended in
+	// exile order and consumed before priority; it is plain replayable engine
+	// continuation state, not an inference from arbitrary exile cards.
 	suspendedCasts []state.ObjID
 	// defeatedCasts is the CR 310.11 "may cast it transformed without paying
 	// its mana cost" offer for every battle the zero-defense SBA exiled

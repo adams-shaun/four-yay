@@ -887,6 +887,16 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 // swept in seat order and an attacker owned by a later seat attacks an earlier
 // one.
 func (e *Engine) ceaseDepartedObjects(p state.PlayerID) {
+	// CR 800.4a: the departed player's objects leave simultaneously, so every
+	// battlefield departure in this sweep observes ONE pre-sweep board -- the
+	// batch discipline destroyLethalDamage and the world rule follow. Without
+	// it emit snapshots the whole game per departing permanent, which is
+	// quadratic in a large board (60,001 tokens in
+	// TestLargeEliminationSweepDoesNotTripLivelockWatcher took minutes).
+	if e.triggerBefore == nil && e.ceaseSweepLeavesBattlefield(p) {
+		e.triggerBefore = e.snapshotTriggerBoard()
+		defer func() { e.triggerBefore = nil }()
+	}
 	for i := range e.G.Objs {
 		o := &e.G.Objs[i]
 		if o.Zone == state.ZCeased {
@@ -907,6 +917,19 @@ func (e *Engine) ceaseDepartedObjects(p state.PlayerID) {
 		}
 		e.emit(events.Event{Kind: events.EndCombatReset, Obj: o.ID})
 	}
+}
+
+// ceaseSweepLeavesBattlefield reports whether ceaseDepartedObjects(p) will
+// move at least one permanent off the battlefield (the only departures whose
+// triggers look back at the pre-departure board).
+func (e *Engine) ceaseSweepLeavesBattlefield(p state.PlayerID) bool {
+	for i := range e.G.Objs {
+		o := &e.G.Objs[i]
+		if o.Zone == state.ZBattlefield && o.Owner == p && o.Card != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // casualty is one creature destroyLethalDamage has found lethal, together
