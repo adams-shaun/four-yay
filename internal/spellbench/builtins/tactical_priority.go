@@ -172,43 +172,49 @@ func (t *tactical) profileCreValue(s *tstate, p *tProfile, cv *view.CardView) fl
 // better window. value is the cast's score before the penalty.
 func (t *tactical) timingPenalty(s *tstate, p *tProfile, obj state.ObjID, value float64) float64 {
 	w := &t.w
-	reactive := p.reactive()
-	pen := 0.0
+	answer := p.has(effCounter) || p.has(effRemoval) || p.has(effDamage) || p.has(effDebuff) ||
+		p.has(effPump) || p.has(effFog) || p.has(effTap)
+	off := func(base float64) float64 { return max(base, value*w.OffWindow) }
 	switch {
-	case s.myTurn && s.main && reactive:
-		// Our own main phase: a reactive card waits for the opponent's turn,
+	case !p.instant && !p.flash:
+		// Sorcery speed (only offered in our own main phase): keep up a held
+		// answer; optionally cast a non-haste creature after combat.
+		if s.myTurn && s.main {
+			pen := t.keepUpPenalty(s, obj, p)
+			if s.main1 && p.creature && !p.haste && !p.playMain1 && s.willAttack() {
+				pen += w.PostCombat
+			}
+			return pen
+		}
+		return 0
+	case !s.myTurn && s.step == "end":
+		return 0 // the opponent's end step: every instant-speed play's window
+	case s.myTurn && s.main:
+		// Our own main phase: an instant waits for the opponent's turn,
 		// unless it is lethal now or it clears the way for our attack.
 		if value >= w.Lethal {
 			return 0
 		}
-		if s.main1 && p.has(effRemoval) || s.main1 && p.has(effDamage) && s.oppBlockersMatter() {
-			pen = w.HoldReactive * 0.25
-		} else {
-			pen = w.HoldReactive
+		if answer && s.main1 && (p.has(effRemoval) || p.has(effDamage) && s.oppBlockersMatter()) {
+			return w.HoldReactive * 0.25
 		}
-	case !s.myTurn && (p.instant || p.flash):
-		// The opponent's turn: answers go when they are needed (a counter at
-		// a foreign spell, removal on an attacker -- priced by effValue);
-		// proactive plays wait for the end step.
-		if s.step != "end" && !p.has(effCounter) && !(s.combat && (p.has(effRemoval) || p.has(effDamage) || p.has(effDebuff) || p.has(effPump))) {
-			pen = w.WaitEOT
+		return off(w.HoldReactive)
+	case !s.myTurn:
+		// The opponent's turn before its end step: answers go when needed (a
+		// counter at a foreign spell, combat answers -- priced by effValue);
+		// everything else waits for the end step.
+		if p.has(effCounter) && s.foreign != nil || s.combat && answer {
+			return 0
 		}
-	case s.myTurn && s.main && !reactive:
-		// A proactive main-phase cast: keep up a held answer, and cast a
-		// non-haste creature after combat when we attack.
-		pen += t.keepUpPenalty(s, obj, p)
-		if s.main1 && p.creature && !p.haste && !p.playMain1 && s.willAttack() {
-			pen += w.PostCombat
+		return off(w.WaitEOT)
+	default:
+		// Our own upkeep, draw, combat or end step: tricks in combat, the
+		// rest waits for the opponent's end step.
+		if s.combat && answer {
+			return 0
 		}
-	case s.myTurn && !s.main && !p.instant && !p.flash:
-	case s.myTurn && !s.main:
-		// Our own non-main step (upkeep, combat): tricks in combat after
-		// blocks; anything else waits.
-		if !(s.combat && (p.has(effPump) || p.has(effDebuff) || p.has(effRemoval) || p.has(effDamage))) {
-			pen = w.WaitEOT
-		}
+		return off(w.WaitEOT)
 	}
-	return pen
 }
 
 // oppBlockersMatter reports whether the opponent has an untapped creature
@@ -503,12 +509,19 @@ func (s *tstate) artifacts() int {
 // counterValue values a counterspell at the top foreign spell.
 func (t *tactical) counterValue(s *tstate, e *tEffect, src state.ObjID) float64 {
 	f := s.foreign
+	// Nothing of theirs to counter: a counterspell would hit our own spell.
+	// A counter TRIGGER (Spellstutter Sprite) with no spell on the stack at
+	// all simply has no target and costs nothing.
+	miss := -50.0
+	if e.trigger && s.stackEmpty {
+		miss = 0
+	}
 	if f == nil || f.Card == nil {
-		return -50 // nothing of theirs to counter: never counter our own
+		return miss
 	}
 	cv := f.Card
 	if !counterAdmits(s, e, cv, src) {
-		return -50
+		return miss
 	}
 	mv := float64(t.profile(cv).cmc)
 	v := t.w.Counter + t.w.CounterMV*mv

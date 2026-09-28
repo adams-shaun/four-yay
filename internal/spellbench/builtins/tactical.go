@@ -143,6 +143,7 @@ type TacticalWeights struct {
 	KeepUp       float64 // penalty: a main-phase cast that taps below a held reactive card
 	PostCombat   float64 // penalty: a non-haste creature in main 1 when we will attack
 	KillAttacker float64 // bonus: removal on an attacking creature
+	OffWindow    float64 // an instant-speed play outside its window loses at least this share of its value
 
 	// Group 3: race.
 	FaceAhead  float64 // burn-to-face multiplier when we win the race
@@ -163,7 +164,7 @@ func DefaultTacticalWeights() TacticalWeights {
 
 		EarlyTurns: 4, EarlyDraw: 1.5, EarlyRamp: 2.5, KeyPiece: 3,
 
-		HoldReactive: 8, WaitEOT: 4, KeepUp: 1.0, PostCombat: 0, KillAttacker: 3,
+		HoldReactive: 8, WaitEOT: 4, KeepUp: 1.0, PostCombat: 0, KillAttacker: 3, OffWindow: 0.6,
 
 		FaceAhead: 1.3, FaceBehind: 0.6, ClockTurn: 4, Lethal: 1000,
 	}
@@ -260,6 +261,9 @@ func (t *tactical) decideKind(s *Seat, v view.View, d *decision.Decision) decisi
 		}
 	case decision.KChoose, decision.KModes:
 		if in, ok := t.discard(v, d); ok {
+			return in
+		}
+		if in, ok := t.sacrifice(v, d); ok {
 			return in
 		}
 		if d.Kind == decision.KModes {
@@ -486,4 +490,41 @@ func (t *tactical) keepValue(s *tstate, cv *view.CardView) float64 {
 		}
 	}
 	return v
+}
+
+// sacrifice answers a sacrifice-as-a-cost ask: the Min permanents we lose
+// least by (consumables and tokens first, lands last while we develop).
+func (t *tactical) sacrifice(v view.View, d *decision.Decision) (decision.Intent, bool) {
+	if !strings.HasPrefix(d.Prompt, "Sacrifice") || len(d.Options) == 0 || d.Min < 1 {
+		return decision.Intent{}, false
+	}
+	st := t.newState(&v, d.Player)
+	type kv struct {
+		idx int
+		v   float64
+	}
+	var ks []kv
+	for i := range d.Options {
+		o := &d.Options[i]
+		if st.zoneOf(o.Obj) != "battlefield" {
+			return decision.Intent{}, false
+		}
+		ks = append(ks, kv{o.Index, t.permValue(st, st.objs[o.Obj])})
+	}
+	sort.SliceStable(ks, func(i, j int) bool {
+		if ks[i].v != ks[j].v {
+			return ks[i].v < ks[j].v
+		}
+		return ks[i].idx < ks[j].idx
+	})
+	var chosen []int
+	for _, k := range ks {
+		if len(chosen) >= d.Min {
+			break
+		}
+		if admissible(d, chosen, &d.Options[k.idx]) {
+			chosen = append(chosen, k.idx)
+		}
+	}
+	return repaired(d, decision.Intent{Choices: chosen}), true
 }

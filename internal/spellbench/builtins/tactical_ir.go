@@ -86,6 +86,7 @@ type tEffect struct {
 	unlessN  int32  // the UnlessCost$ mana
 	xExpr    string // the SVar body a variable amount names ("Count$Valid Elf")
 	toBattlefield bool // a recursion that returns to the battlefield (reanimation)
+	trigger       bool // from a triggered ability (an ETB / cast trigger), not the spell itself
 }
 
 // tAbility is one activated ability (a Face.Abilities entry).
@@ -264,10 +265,14 @@ func profileOf(c *cards.Card) *tProfile {
 		switch {
 		case t.Mode == "ChangesZone" && self && t.Params["Destination"] == "Battlefield":
 			for _, e := range chainEffects(f, t.Effect, strings.Contains(valid, "+kicked")) {
+				e.trigger = true
 				p.etb = append(p.etb, e)
 			}
 		case t.Mode == "SpellCast" && self:
-			p.etb = append(p.etb, chainEffects(f, t.Effect, false)...)
+			for _, e := range chainEffects(f, t.Effect, false) {
+				e.trigger = true
+				p.etb = append(p.etb, e)
+			}
 		case t.Mode == "ChangesZone" && self && t.Params["Origin"] == "Battlefield":
 			p.dies = append(p.dies, chainEffects(f, t.Effect, false)...)
 		case t.Mode == "SpellCast" || t.Mode == "DamageDone" || t.Mode == "Attacks" || t.Mode == "Sacrificed":
