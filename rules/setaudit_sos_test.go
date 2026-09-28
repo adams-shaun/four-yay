@@ -332,7 +332,7 @@ func TestSetAudit_sos_DelugeVirtuoso_OpusManaSpentThreshold(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (a) Ward (CR 702.36) — Inkshape Demonstrator: Ward {2}. The targeting
+// (a) Ward (CR 702.21a) — Inkshape Demonstrator: Ward {2}. The targeting
 // opponent may pay {2} or let the spell be countered.
 func TestSetAudit_sos_InkshapeDemonstrator_WardPayOrCounter(t *testing.T) {
 	// castWardFlow gets the Demonstrator onto the battlefield and the foe's
@@ -363,6 +363,8 @@ func TestSetAudit_sos_InkshapeDemonstrator_WardPayOrCounter(t *testing.T) {
 		passUntilStackEmpty(t, e, 20)
 		if o := e.G.Obj(demo); o == nil || o.Zone != state.ZBattlefield {
 			t.Fatal("ward pay: the Demonstrator should be on the battlefield")
+		} else if o.Damage != 1 {
+			t.Errorf("ward pay: demonstrator damage = %d, want 1 (paid Bolt must resolve)", o.Damage)
 		}
 		replayCheck(t, e, cfg)
 	})
@@ -375,10 +377,10 @@ func TestSetAudit_sos_InkshapeDemonstrator_WardPayOrCounter(t *testing.T) {
 		if o := e.G.Obj(demo); o == nil || o.Zone != state.ZBattlefield {
 			t.Fatal("ward decline: the Demonstrator should still be on the battlefield")
 		}
-		// CR 702.36: the spell was countered without resolving, so the warding
-		// permanent is undamaged.
-		if life := e.G.Players[0].Life; life != 20 {
-			t.Errorf("ward decline: seat 0 life = %d, want 20", life)
+		// CR 702.21a: the spell was countered without resolving, so the
+		// targeted creature, not just its controller, must be undamaged.
+		if got := e.G.Obj(demo).Damage; got != 0 {
+			t.Errorf("ward decline: demonstrator damage = %d, want 0 (unpaid Bolt countered)", got)
 		}
 		replayCheck(t, e, cfg)
 	})
@@ -389,10 +391,10 @@ func TestSetAudit_sos_InkshapeDemonstrator_WardPayOrCounter(t *testing.T) {
 // it's prepared, you may cast a copy of its spell. Doing so unprepares it.)"
 // The engine models only Suspected in AlterAttribute (effects/misc.go
 // effAlterAttribute); Attributes$ Prepared emits a "not modelled" note and
-// the cast-a-copy rider has no implementation at all.
+// the cast-a-copy rider has no implementation at all. CR 722.3a-c.
 func TestSetAudit_sos_EliteInterceptor_PreparedAttribute(t *testing.T) {
 	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): AlterAttribute 'Prepared' is unmodelled and the cast-a-copy-of-its-spell rider does not exist. Follow-up: implement the Prepared mechanic")
+		t.Skip("set-audit finding (sos): AlterAttribute 'Prepared' is unmodelled. Follow-up: implement the Prepared mechanic")
 	}
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 909, []string{"Elite Interceptor"}, nil, nil)
@@ -426,15 +428,86 @@ func TestSetAudit_sos_EliteInterceptor_PreparedAttribute(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
+// CR 722.3c: preparation exiles a copy with ONLY the inset spell's
+// characteristics. Its controller can cast it; the creature becomes
+// unprepared at cast time, not when the spell resolves. This tests the
+// defining rider independently of the ETB attribute event above.
+func TestSetAudit_sos_EliteInterceptor_PreparedSpellCopyUnprepares(t *testing.T) {
+	if os.Getenv("GORGE_SET_AUDIT") == "" {
+		t.Skip("set-audit finding (sos): no prepare-spell copy or cast/unprepare option. Follow-up: implement the Prepared mechanic")
+	}
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 916, []string{"Elite Interceptor // Rejoinder"}, []string{sosBearSrc}, nil)
+	intl := findAndMoveToHand(t, e, 0, "Elite Interceptor")
+	addMana(t, e, 0, "W")
+	submitChoices(t, e, castOptionFor(t, e, intl).Index)
+	passUntilStackEmpty(t, e, 20)
+	if o := e.G.Obj(intl); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Interceptor must enter the battlefield, got %+v", o)
+	}
+	bear := putCreature(t, e, 0, sosBearSrc)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("precondition: copy has no legal creature target")
+	}
+	// putCreature's setup MoveZone clears pending; resume priority before
+	// inspecting the cast options for the exiled copy.
+	e.priorityRound()
+	// At sorcery timing a prepared Interceptor must have an exiled Rejoinder
+	// copy available for casting; a bare ability Note cannot satisfy this.
+	var copyID state.ObjID
+	for _, id := range e.G.Zone(state.ZExile, 0) {
+		if o := e.G.Obj(id); o != nil && o.IsCopy && o.Face() != nil && o.Face().Name == "Rejoinder" {
+			copyID = id
+		}
+	}
+	if copyID == 0 {
+		t.Fatal("prepared copy: no Rejoinder spell copy in exile after Interceptor enters (CR 722.3c)")
+	}
+	idx := -1
+	for _, opt := range castOptions(t, e) {
+		if opt.Obj == copyID {
+			idx = opt.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("prepared copy: exiled Rejoinder copy %d has no cast option", copyID)
+	}
+	libBefore := len(e.G.Zone(state.ZLibrary, 0))
+	submitChoices(t, e, idx)
+	// Casting has put the copy on the stack, but priority has not passed and
+	// the spell has not resolved. CR 601.2i / 722.3c require unpreparing as
+	// part of the cast, not as a later resolution or zone-change consequence.
+	if o := e.G.Obj(copyID); o == nil || o.Zone != state.ZStack {
+		t.Fatalf("prepared copy: after cast choice, copy zone = %v, want stack before resolution", zoneOf(o))
+	}
+	if o := e.G.Obj(intl); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("prepared copy: Interceptor left the battlefield during casting")
+	}
+	unpreparedAtCast := false
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.AlterAttribute && ev.Obj == intl && ev.Text == "Prepared" && ev.Amount < 0 {
+			unpreparedAtCast = true
+		}
+	}
+	if !unpreparedAtCast {
+		t.Fatal("prepared copy: no removal of Interceptor's Prepared designation immediately after casting, before resolution")
+	}
+	sosDrain(t, e, bear, 30)
+	if o := e.G.Obj(intl); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("prepared copy: Interceptor left the battlefield unexpectedly")
+	}
+	if got := len(e.G.Zone(state.ZLibrary, 0)); got != libBefore-1 {
+		t.Errorf("prepared copy: library has %d cards, want %d (Rejoinder must draw)", got, libBefore-1)
+	}
+	replayCheck(t, e, cfg)
+}
+
 // ---------------------------------------------------------------------------
 // FINDING (a) Increment (9 cards). "Whenever you cast a spell, if the amount
 // of mana you spent is greater than this creature's power or toughness, put
 // a +1/+1 counter on this creature." kw:Increment is unsupported
 // (cards.Registry.Unsupported: kw:Increment).
 func TestSetAudit_sos_PensiveProfessor_IncrementOnExpensiveCast(t *testing.T) {
-	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): kw:Increment is unimplemented -- casts never add counters. Follow-up: implement the Increment keyword")
-	}
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 910, []string{"Pensive Professor"}, []string{sosInsightSrc}, nil)
 	prof := findAndMoveToHand(t, e, 0, "Pensive Professor")
@@ -486,9 +559,82 @@ func TestSetAudit_sos_RestorationSeminar_ParadigmExileAndCopy(t *testing.T) {
 	}
 	// Paradigm: the spell exiles itself after resolving (currently it goes to
 	// the graveyard), and a copy would then be castable free from exile at
-	// each of the player's first main phases — the same root cause.
+	// each of the player's first main phases — the same root cause (CR 702.192a).
 	if o := e.G.Obj(seminar); o == nil || o.Zone != state.ZExile {
 		t.Errorf("paradigm: seminar zone = %v, want exile", o)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// CR 702.192a: after the first successful resolution, EACH precombat main
+// phase creates a copy of the exiled Lesson which may be cast for free.
+// This separate test keeps the delayed-copy half from being masked by the
+// missing exile-on-resolution assertion in the test above.
+func TestSetAudit_sos_RestorationSeminar_ParadigmNextMainCopyCast(t *testing.T) {
+	if os.Getenv("GORGE_SET_AUDIT") == "" {
+		t.Skip("set-audit finding (sos): Paradigm never creates a free copy at the next first main phase. Follow-up: implement the Paradigm mechanic")
+	}
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 917, []string{"Restoration Seminar"}, []string{sosRelicSrc, sosRelicSrc}, nil)
+	first := addToGraveyard(t, e, 0, sosRelicSrc)
+	seminar := findAndMoveToHand(t, e, 0, "Restoration Seminar")
+	addMana(t, e, 0, "WWWWWWW")
+	submitChoices(t, e, castOptionFor(t, e, seminar).Index)
+	answerTargetAsk(t, e, []state.ObjID{first})
+	passUntilStackEmpty(t, e, 20)
+	if o := e.G.Obj(first); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: original Seminar did not resolve, relic zone = %+v", o)
+	}
+	if o := e.G.Obj(seminar); o == nil || o.Zone != state.ZExile {
+		t.Errorf("paradigm prerequisite: resolved seminar not exiled (zone %v, CR 702.192a)", zoneOf(o))
+	}
+	// Leave a second legal graveyard target for the later copy. No mana is
+	// added for the copy: it must be cast without paying its mana cost.
+	second := addToGraveyard(t, e, 0, sosRelicSrc)
+	if second == first || e.G.Obj(second).Zone != state.ZGraveyard {
+		t.Fatalf("precondition: second relic must be in graveyard, ids %d/%d", first, second)
+	}
+	// moveSeeded clears pending after its setup MoveZone. Resume the ordinary
+	// priority loop before advancing time; otherwise driveToStep sees nil.
+	e.priorityRound()
+	// A two-player game starts with seat 0 on turn 1; its next precombat
+	// main is turn 3. Stop at entry before passing away the optional ask.
+	driveToStep(t, e, 3, 0, state.StepMain1)
+	if e.G.Active != 0 || e.G.Step != state.StepMain1 {
+		t.Fatal("precondition: did not arrive at seat 0's next first main phase")
+	}
+	var copyID state.ObjID
+	for i := 0; i < 12 && copyID == 0 && e.G.Step == state.StepMain1; i++ {
+		for _, id := range e.G.Zone(state.ZExile, 0) {
+			if o := e.G.Obj(id); o != nil && o.IsCopy && o.Face() != nil && o.Face().Name == "Restoration Seminar" {
+				copyID = id
+			}
+		}
+		if copyID == 0 {
+			sosPassPriority(t, e)
+		}
+	}
+	if copyID == 0 {
+		t.Fatal("paradigm next main: no free Restoration Seminar copy created in exile (CR 702.192a)")
+	}
+	d := e.Pending()
+	if d == nil {
+		t.Fatal("paradigm next main: no pending decision to cast the copy")
+	}
+	castIdx := -1
+	for _, opt := range d.Options {
+		if opt.Obj == copyID && (opt.Kind == "cast" || strings.Contains(strings.ToLower(opt.Label), "cast")) {
+			castIdx = opt.Index
+		}
+	}
+	if castIdx < 0 {
+		t.Fatalf("paradigm next main: copy %d not offered for free cast: %+v", copyID, d)
+	}
+	submitChoices(t, e, castIdx)
+	answerTargetAsk(t, e, []state.ObjID{second})
+	passUntilStackEmpty(t, e, 20)
+	if o := e.G.Obj(second); o == nil || o.Zone != state.ZBattlefield {
+		t.Errorf("paradigm next main: copied Seminar did not return second relic; got %+v", o)
 	}
 	replayCheck(t, e, cfg)
 }
@@ -638,8 +784,9 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// FINDING (census) — the cards cards.Registry.Unsupported still names. Each
-// entry here is a root-cause gap: kw:Increment (9 sos cards), kw:Paradigm
+// Census ONLY (not a behavioural test): cards.Registry.Unsupported still
+// names these missing primitives. The corresponding game outcomes for the
+// three single-card gaps remain untested in this audit: kw:Increment (9 sos cards), kw:Paradigm
 // (5 sos cards), api:SkipTurn (Ral Zarek's [-7] "target opponent skips their
 // next X turns"), stat:CantBeCopied (Choreographed Sparks), and
 // count:PlayerCountRemembered$Valid (Pox Plague).
