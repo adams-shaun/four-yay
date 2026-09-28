@@ -249,7 +249,7 @@ func (p *Policy) rollCombat(sh *Shadow, d *v1agent.Decision) (decision.Intent, e
 		p.Roll.Overrides++
 	}
 	p.lastRoll = summary
-	if res[base].n*2 < p.roll.Worlds && best == base {
+	if res[base].n == 0 && best == base {
 		return decision.Intent{}, fmt.Errorf("roll: every declaration failed")
 	}
 	return decision.Intent{Seq: pd.Seq, Player: pd.Player, Choices: plans[best]}, nil

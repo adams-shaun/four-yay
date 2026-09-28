@@ -958,7 +958,7 @@ func (p *Policy) Summary() map[string]any {
 		"shadow_decisions": p.Stats.Decisions, "mode": p.mode, "arbiter": p.roll.Arbiter, "base_tactical": p.roll.BaseTactical, "answered": p.Stats.Answered, "fallback_reasons": p.Stats.Reasons,
 		"agree_with_fallback": p.Stats.Agree, "panics": p.Stats.Panics, "refusals": p.Stats.Refusals,
 		"roll_searched": p.Roll.Searched, "roll_overrides": p.Roll.Overrides,
-		"roll_rollouts": p.Roll.Rollouts, "roll_failed": p.Roll.Failed, "roll_proposals": p.Roll.Proposals,
+		"roll_rollouts": p.Roll.Rollouts, "roll_failed": p.Roll.Failed, "roll_proposals": p.Roll.Proposals, "clock_guard_stops": p.roll.stopped,
 		"az_decisions": p.AZ.Decisions, "az_searched": p.AZ.Searched, "az_overrides": p.AZ.Overrides,
 	}
 }

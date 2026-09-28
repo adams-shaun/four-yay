@@ -36,6 +36,13 @@ type RollConfig struct {
 	// BaseTactical makes sb-tactical's pick the default the search must
 	// beat (arbiter only), instead of v1agent.Tactical's.
 	BaseTactical bool
+	// Clock (ms, monotonic) and BudgetMS guard the per-decision time: the
+	// world loop stops once BudgetMS has elapsed (counted in Stats as a
+	// clock-guard stop; nil Clock or 0 budget never stops). It is the only
+	// clock read and it fires only on pathological positions.
+	Clock    func() float64
+	BudgetMS float64
+	stopped  int
 }
 
 // DefaultRoll is the starting budget.
@@ -205,7 +212,15 @@ func (r rollResult) mean() float64 {
 // evaluate plays every action in the same W worlds of sh.
 func (r *RollConfig) evaluate(sh *Shadow, acts []*action, seed uint64, look builtins.CardLookup) []rollResult {
 	res := make([]rollResult, len(acts))
+	var t0 float64
+	if r.Clock != nil {
+		t0 = r.Clock()
+	}
 	for w := 0; w < r.Worlds; w++ {
+		if r.Clock != nil && r.BudgetMS > 0 && w >= 2 && r.Clock()-t0 > r.BudgetMS {
+			r.stopped++
+			break
+		}
 		ws := mix(seed ^ mix(uint64(w)+0x77))
 		base := sh.E.CloneHypothetical(ws)
 		Redeal(base, sh, rand.New(rand.NewPCG(ws, ws^0x5eed)))
@@ -225,14 +240,14 @@ func (r *RollConfig) evaluate(sh *Shadow, acts []*action, seed uint64, look buil
 func (r *RollConfig) choose(res []rollResult, base int) (int, string) {
 	best := base
 	for i := range res {
-		if res[i].n*2 < r.Worlds {
+		if res[i].n*2 < res[base].n || res[i].n == 0 {
 			continue
 		}
 		if res[i].mean() > res[best].mean() {
 			best = i
 		}
 	}
-	if res[base].n*2 < r.Worlds {
+	if res[base].n == 0 {
 		return base, "fallback candidate failed its rollouts"
 	}
 	if best != base && res[best].mean()-res[base].mean() <= r.Margin {
