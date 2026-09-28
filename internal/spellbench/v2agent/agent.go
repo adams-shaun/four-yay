@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Agent error codes (spec 10.5).
@@ -45,17 +47,6 @@ type Options struct {
 	BeliefLog io.Writer
 }
 
-// Stats counts what the agent answered. Every protocol-visible failure is
-// here: errors it sent (by code), and the choose requests it answered with
-// a fallback instead of an error because the policy failed (a choose error
-// is a forfeit, spec 10.5, and never loses a legal action on our side).
-type Stats struct {
-	Requests        int
-	Chooses         int
-	Errors          map[string]int
-	PolicyFallbacks int
-}
-
 // Agent serves the agent role of spec Section 10 for one policy. It is not
 // safe for concurrent use: the protocol never pipelines (spec 2).
 type Agent struct {
@@ -73,12 +64,40 @@ type Agent struct {
 	// Decision is the latest decision as the policy read it.
 	Decision *Decision
 
+	// Stats counts the recoveries (never forfeit on a recoverable error).
+	Stats Stats
+
 	logged   map[string]bool
 	logLines int
 
+	// belief is the active game's reconstruction, kept only when
+	// Options.BeliefLog is set.
 	belief *Belief
-	// Stats counts the agent's answers (see Stats).
-	Stats Stats
+}
+
+// Stats counts every path on which the agent answered a request it could
+// have refused. The host forfeits a seat for any error answering choose
+// (spec 10.5) and for an error answering game_start, so each of these was a
+// forfeit, not an action, before the agent recovered it.
+type Stats struct {
+	Choices int // choices answered
+	// PolicyFallbacks: the policy failed (an error, a panic, an index
+	// outside the candidates); the fallback policy answered instead.
+	PolicyFallbacks int
+	// DenseIDs: candidates whose candidate_id was missing or not an
+	// integer, answered by position (spec 11.3 V1: ids are dense, 0..n-1).
+	DenseIDs int
+	// GamesAdopted: a choose naming a game the agent was not serving,
+	// answered after starting that game implicitly.
+	GamesAdopted int
+	// GamesReplaced: a game_start while another game was active; the stale
+	// game (whose game_over never arrived) is ended and the new one starts.
+	GamesReplaced int
+	// EchoesOmitted: a semantic_echo that could not be re-encoded to the
+	// same value (so the host could read it as a mismatch) was left out.
+	EchoesOmitted int
+	// Errors counts the error responses still sent, by code.
+	Errors map[string]int
 }
 
 // New returns an agent that answers with policy.
@@ -110,7 +129,7 @@ func (a *Agent) Serve(r io.Reader, w io.Writer) error {
 			return nil
 		case errors.Is(err, ErrLineTooLong), errors.Is(err, ErrUnterminated):
 			a.logf("framing: %v", err)
-			out = errorLine("", ErrMalformedJSON, err.Error())
+			out = a.errorLine("", ErrMalformedJSON, err.Error())
 		default:
 			return err
 		}
@@ -126,40 +145,28 @@ func (a *Agent) Serve(r io.Reader, w io.Writer) error {
 // HandleLine answers one request line (terminator optional) with one
 // canonical response line, "\n" included.
 func (a *Agent) HandleLine(line []byte) []byte {
-	a.Stats.Requests++
-	out := a.handleLine(line)
-	if bytes.HasPrefix(out, []byte(`{"error":{"code":"`)) {
-		code := out[len(`{"error":{"code":"`):]
-		if i := bytes.IndexByte(code, '"'); i >= 0 {
-			a.Stats.Errors[string(code[:i])]++
-		}
-	}
-	return out
-}
-
-func (a *Agent) handleLine(line []byte) []byte {
 	line = bytes.TrimRight(line, "\r\n")
 	if !json.Valid(line) {
-		return errorLine("", ErrMalformedJSON, "line is not valid JSON")
+		return a.errorLine("", ErrMalformedJSON, "line is not valid JSON")
 	}
 	var top map[string]json.RawMessage
 	if err := json.Unmarshal(line, &top); err != nil || top == nil {
-		return errorLine("", ErrMalformedRequest, "top-level JSON value is not an object")
+		return a.errorLine("", ErrMalformedRequest, "top-level JSON value is not an object")
 	}
 	requestID, ok := rawString(top["request_id"])
 	if !ok || requestID == "" {
-		return errorLine("", ErrMalformedRequest, "request_id must be a nonempty string")
+		return a.errorLine("", ErrMalformedRequest, "request_id must be a nonempty string")
 	}
 	protocol, ok := rawString(top["protocol"])
 	if !ok {
-		return errorLine(requestID, ErrMalformedRequest, "protocol must be a string")
+		return a.errorLine(requestID, ErrMalformedRequest, "protocol must be a string")
 	}
 	if protocol != Protocol {
-		return errorLine(requestID, ErrProtocolMismatch, `protocol must be "`+Protocol+`"`)
+		return a.errorLine(requestID, ErrProtocolMismatch, `protocol must be "`+Protocol+`"`)
 	}
 	requestType, ok := rawString(top["request_type"])
 	if !ok {
-		return errorLine(requestID, ErrMalformedRequest, "request_type must be a string")
+		return a.errorLine(requestID, ErrMalformedRequest, "request_type must be a string")
 	}
 	switch requestType {
 	case "hello":
@@ -171,7 +178,7 @@ func (a *Agent) handleLine(line []byte) []byte {
 	case "game_over":
 		return a.gameOver(requestID, line, top)
 	}
-	return errorLine(requestID, ErrMalformedRequest, "unknown request_type")
+	return a.errorLine(requestID, ErrMalformedRequest, "unknown request_type")
 }
 
 func (a *Agent) hello(requestID string) []byte {
@@ -183,12 +190,17 @@ func (a *Agent) hello(requestID string) []byte {
 }
 
 func (a *Agent) gameStart(requestID string, line []byte, top map[string]json.RawMessage) []byte {
-	if a.active {
-		return errorLine(requestID, ErrGameAlreadyActive, "a game is already active")
-	}
 	gameID, ok := rawString(top["game_id"])
 	if !ok {
-		return errorLine(requestID, ErrMalformedRequest, "game_id must be a string")
+		return a.errorLine(requestID, ErrMalformedRequest, "game_id must be a string")
+	}
+	if a.active {
+		// The stale game's game_over never arrived (the host restarts
+		// nothing for us): end it here rather than forfeit the new game.
+		a.logf("game_start %s while %s is active: ending the stale game", gameID, a.gameID)
+		a.Stats.GamesReplaced++
+		a.active = false
+		_ = a.call(func() error { a.policy.GameOver(&GameOver{}); return nil })
 	}
 	gs := &GameStart{}
 	if err := json.Unmarshal(line, gs); err != nil {
@@ -204,7 +216,7 @@ func (a *Agent) gameStart(requestID string, line []byte, top map[string]json.Raw
 	}
 	if err := a.call(func() error { a.policy.GameStart(gs); return nil }); err != nil {
 		// The game did not start, so a later game_start is still welcome.
-		return errorLine(requestID, ErrInternal, "game_start failed: "+err.Error())
+		return a.errorLine(requestID, ErrInternal, "game_start failed: "+err.Error())
 	}
 	a.Game, a.gameID, a.active = gs, gameID, true
 	a.Observation, a.Decision = nil, nil
@@ -214,35 +226,66 @@ func (a *Agent) gameStart(requestID string, line []byte, top map[string]json.Raw
 	return responseLine("ack", requestID, nil)
 }
 
+// adopt starts game gameID implicitly for a choose that names it while it
+// is not the active game (a game_start the agent never saw, or a stale
+// active game): the policy is told the game started, with the acting seat
+// as its seat, so the decision is answered instead of forfeited.
+func (a *Agent) adopt(gameID string, d *Decision) {
+	a.logf("choose for game %s, which the agent is not serving: starting it implicitly", gameID)
+	a.Stats.GamesAdopted++
+	if a.active {
+		_ = a.call(func() error { a.policy.GameOver(&GameOver{}); return nil })
+	}
+	gs := &GameStart{GameID: gameID}
+	if d.Seat != nil && d.Seat.ActingSeat != "" {
+		gs.Seat, gs.seatIsString = d.Seat.ActingSeat, true
+	}
+	if err := a.call(func() error { a.policy.GameStart(gs); return nil }); err != nil {
+		a.logf("implicit game_start failed: %v", err)
+	}
+	a.Game, a.gameID, a.active = gs, gameID, true
+	a.Observation, a.Decision = nil, nil
+	a.belief = nil
+	if a.opts.BeliefLog != nil {
+		a.belief = NewBelief(gs)
+	}
+}
+
 func (a *Agent) choose(requestID string, top map[string]json.RawMessage) []byte {
-	if refusal := a.refuseUnlessActive(requestID, top); refusal != nil {
-		return refusal
+	gameID, ok := rawString(top["game_id"])
+	if !ok {
+		return a.errorLine(requestID, ErrMalformedRequest, "game_id must be a string")
 	}
 	d, err := a.readDecision(top)
-	if err != nil {
-		return errorLine(requestID, ErrMalformedRequest, err.Error())
+	if !a.active || gameID != a.gameID {
+		if err != nil {
+			// Nothing to answer: the reference agent's error stands.
+			return a.errorLine(requestID, ErrUnknownGame, "game_id names no active game")
+		}
+		a.adopt(gameID, d)
 	}
-	a.Stats.Chooses++
+	if err != nil {
+		return a.errorLine(requestID, ErrMalformedRequest, err.Error())
+	}
 	if a.belief != nil {
 		beliefWriter{a.opts.BeliefLog}.write(a.belief.Record(a.gameID, d))
 	}
 	index := -1
-	err = a.call(func() error {
+	if err := a.call(func() error {
 		var e error
 		index, e = a.policy.Choose(d)
 		return e
-	})
-	if err == nil && (index < 0 || index >= len(d.Candidates)) {
-		err = fmt.Errorf("policy chose index %d of %d candidates", index, len(d.Candidates))
-	}
-	if err != nil {
-		// An error answering choose is a forfeit (spec 10.5): answer the
-		// first candidate instead -- pass whenever passing is legal (spec
-		// 7.1) -- and count it.
+	}); err != nil || index < 0 || index >= len(d.Candidates) {
+		// The policy failed: answer with the fallback policy's choice (a
+		// legal candidate), never an error the host forfeits.
+		if err == nil {
+			err = fmt.Errorf("policy chose index %d of %d candidates", index, len(d.Candidates))
+		}
+		a.logf("choose: %v; answering with the fallback policy", err)
 		a.Stats.PolicyFallbacks++
-		a.logf("choose: policy failed (%v); answering candidate 0", err)
-		index = 0
+		index = a.fallback(d)
 	}
+	a.Stats.Choices++
 	a.Decision, a.Observation = d, d.Observation()
 	chosen := &d.Candidates[index]
 	selection := map[string]any{"candidate_id": chosen.ID}
@@ -251,10 +294,33 @@ func (a *Agent) choose(requestID string, top map[string]json.RawMessage) []byte 
 			selection["seat_step"] = *d.SeatStep
 		}
 		if len(chosen.Raw) > 0 {
-			selection["semantic_echo"] = chosen.Raw
+			if echoPreservesValue(chosen.Raw) {
+				selection["semantic_echo"] = chosen.Raw
+			} else {
+				a.logf("semantic_echo omitted: its canonical form would change its value")
+				a.Stats.EchoesOmitted++
+			}
 		}
 	}
 	return responseLine("choice", requestID, map[string]any{"selection": selection})
+}
+
+// fallback is the index the fallback policy (the heuristic builtin, for
+// the game's seat) chooses; it cannot fail.
+func (a *Agent) fallback(d *Decision) int {
+	h := Heuristic{}
+	if a.Game != nil {
+		h.GameStart(a.Game)
+	}
+	i := 0
+	if err := a.call(func() error {
+		var e error
+		i, e = h.Choose(d)
+		return e
+	}); err != nil || i < 0 || i >= len(d.Candidates) {
+		return 0
+	}
+	return i
 }
 
 func (a *Agent) gameOver(requestID string, line []byte, top map[string]json.RawMessage) []byte {
@@ -267,9 +333,18 @@ func (a *Agent) gameOver(requestID string, line []byte, top map[string]json.RawM
 	}
 	a.active = false // the game is over even if the hook fails
 	if err := a.call(func() error { a.policy.GameOver(g); return nil }); err != nil {
-		return errorLine(requestID, ErrInternal, "game_over failed: "+err.Error())
+		return a.errorLine(requestID, ErrInternal, "game_over failed: "+err.Error())
 	}
 	return responseLine("ack", requestID, nil)
+}
+
+// errorLine is the package errorLine, counted in Stats.Errors.
+func (a *Agent) errorLine(requestID, code, message string) []byte {
+	if a.Stats.Errors == nil {
+		a.Stats.Errors = map[string]int{}
+	}
+	a.Stats.Errors[code]++
+	return errorLine(requestID, code, message)
 }
 
 // refuseUnlessActive is the error for a request that does not name the
@@ -277,10 +352,10 @@ func (a *Agent) gameOver(requestID string, line []byte, top map[string]json.RawM
 func (a *Agent) refuseUnlessActive(requestID string, top map[string]json.RawMessage) []byte {
 	gameID, ok := rawString(top["game_id"])
 	if !ok {
-		return errorLine(requestID, ErrMalformedRequest, "game_id must be a string")
+		return a.errorLine(requestID, ErrMalformedRequest, "game_id must be a string")
 	}
 	if !a.active || gameID != a.gameID {
-		return errorLine(requestID, ErrUnknownGame, "game_id names no active game")
+		return a.errorLine(requestID, ErrUnknownGame, "game_id names no active game")
 	}
 	return nil
 }
@@ -308,11 +383,16 @@ func (a *Agent) readDecision(top map[string]json.RawMessage) (*Decision, error) 
 	for i, raw := range candidates {
 		var fields map[string]json.RawMessage
 		if r := trimJSON(raw); len(r) == 0 || r[0] != '{' || json.Unmarshal(r, &fields) != nil {
-			return nil, fmt.Errorf("decision.candidates[%d] has no integer candidate_id", i)
+			fields = nil
 		}
 		id, ok := rawInt(fields["candidate_id"])
 		if !ok {
-			return nil, fmt.Errorf("decision.candidates[%d] has no integer candidate_id", i)
+			// Candidate ids are dense (spec 11.3 V1: the host validated
+			// 0..n-1 in order), so the position is the id: answer it rather
+			// than forfeit the decision (the reference agent errors here).
+			a.logf("decision.candidates[%d] has no integer candidate_id: answering by position", i)
+			a.Stats.DenseIDs++
+			id = int64(i)
 		}
 		c := &d.Candidates[i]
 		c.ID = id
@@ -455,4 +535,69 @@ func errorLine(requestID, code, message string) []byte {
 		"error": map[string]any{"code": code, "message": message},
 	})
 	return out
+}
+
+// echoPreservesValue reports whether the canonical re-encoding of raw (what
+// responseLine writes as semantic_echo) decodes to the same JSON value as raw
+// itself -- the comparison the host makes (canonical bytes of both sides,
+// spec 10.3). Only invalid UTF-8 (repaired by the encoder) can differ today;
+// the check keeps any future encoder change from turning a valid choice
+// into an invalid_selection forfeit.
+func echoPreservesValue(raw json.RawMessage) bool {
+	if !utf8.Valid(raw) {
+		return false
+	}
+	a, err := decodeAny(raw)
+	if err != nil {
+		return false
+	}
+	canon, err := Canonical(raw)
+	if err != nil {
+		return false
+	}
+	b, err := decodeAny(canon)
+	if err != nil {
+		return false
+	}
+	return sameJSONValue(a, b)
+}
+
+// sameJSONValue compares two decodeAny trees; numbers compare by value.
+func sameJSONValue(a, b any) bool {
+	switch x := a.(type) {
+	case map[string]any:
+		y, ok := b.(map[string]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for k, v := range x {
+			w, ok := y[k]
+			if !ok || !sameJSONValue(v, w) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		y, ok := b.([]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for i := range x {
+			if !sameJSONValue(x[i], y[i]) {
+				return false
+			}
+		}
+		return true
+	case json.Number:
+		y, ok := b.(json.Number)
+		if !ok {
+			return false
+		}
+		if xi, ok1 := new(big.Int).SetString(string(x), 10); ok1 {
+			yi, ok2 := new(big.Int).SetString(string(y), 10)
+			return ok2 && xi.Cmp(yi) == 0
+		}
+		return x == y
+	}
+	return a == b
 }

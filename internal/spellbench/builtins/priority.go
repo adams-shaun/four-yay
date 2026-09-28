@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/spellbench/payexec"
+	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -60,12 +61,14 @@ func optionKey(o *decision.Option) actionKey {
 }
 
 // cand is one priority candidate: an offered option (opt >= 0), a
-// planner-paid cast (plan), or a potential play to pursue (pot).
+// planner-paid cast (plan), a potential ability with a mana witness (pot and
+// witness), or a potential play to pursue (pot alone).
 type cand struct {
-	cls  class
-	opt  int
-	plan *decision.PaymentAction
-	pot  *actionKey
+	cls     class
+	opt     int
+	plan    *decision.PaymentAction
+	pot     *actionKey
+	witness *decision.PaymentPlan
 }
 
 // priority answers a KPriority decision (package doc, 1). depth bounds the
@@ -86,23 +89,41 @@ func (s *Seat) priority(v view.View, d *decision.Decision, depth int) decision.I
 		i = s.rng.Index(len(cands))
 	case Heuristic:
 		i = heuristicPick(cands)
+	case Tactical:
+		i = s.tac.pickPriority(v, d, cands)
 	}
 	c := cands[i]
 	switch {
 	case c.opt >= 0:
 		return one(d, c.opt)
 	case c.plan != nil:
-		return s.payWith(v, d, c.plan)
+		return s.payWith(v, d, c.plan, depth)
+	case c.witness != nil:
+		return s.lowerPlay(v, d, *c.pot, *c.witness, depth)
 	}
 	k := *c.pot
 	s.pursuit = &k
 	s.Stats.Pursuits++
+	s.pursuitVerdict, s.pursuitPriced = "no_planner", false
+	if s.planner != nil {
+		s.pursuitVerdict = "unlisted"
+		if pp := s.potentialPlan(d, k); pp != nil {
+			s.pursuitVerdict = pp.Reason + ":" + pp.Detail
+			s.pursuitPriced = pp.Reason == "" && (pp.Plan != nil || k.kind == "cast")
+		}
+	}
 	if in, ok := s.pursue(v, d); ok {
 		return in
 	}
 	// No source to tap: the play is now in the failed set, so choose again
 	// (bounded: every retry excludes one more play).
-	if depth < len(cands) {
+	return s.rechoose(v, d, depth, len(cands))
+}
+
+// rechoose answers d with a fresh choice after a play was excluded, bounded
+// by depth (every retry excludes one more play), else pass.
+func (s *Seat) rechoose(v view.View, d *decision.Decision, depth, bound int) decision.Intent {
+	if depth < bound+maxAttempts {
 		return s.priority(v, d, depth+1)
 	}
 	if i, ok := firstKind(d, "pass"); ok {
@@ -162,8 +183,12 @@ func (s *Seat) candidates(v view.View, d *decision.Decision) []cand {
 		if len(a.Plans) == 0 || a.BaseOptionIndex != nil || ordinaryCast[a.Cast.Object] {
 			continue
 		}
+		k := actionKey{kind: "cast", obj: a.Cast.Object}
+		if s.failed[k] {
+			continue
+		}
 		ordinaryCast[a.Cast.Object] = true
-		offered[actionKey{kind: "cast", obj: a.Cast.Object}] = true
+		offered[k] = true
 		cands = append(cands, cand{cls: clsCast, opt: -1, plan: a})
 	}
 	for _, p := range potential(v, d.Player) {
@@ -173,9 +198,42 @@ func (s *Seat) candidates(v view.View, d *decision.Decision) []cand {
 		}
 		offered[k] = true
 		kk := k
-		cands = append(cands, cand{cls: classify(p.Kind, p.Mode), opt: -1, pot: &kk})
+		c := cand{cls: classify(p.Kind, p.Mode), opt: -1, pot: &kk}
+		if pp := s.potentialPlan(d, k); pp != nil {
+			switch {
+			case pp.Reason == "insufficient":
+				// Proven unpayable: not a legal action (the potential walk is
+				// an over-bound), so not a candidate.
+				s.Stats.ExcludedUnpayable++
+				continue
+			case pp.Plan != nil:
+				c.witness = pp.Plan
+			}
+		}
+		cands = append(cands, c)
 	}
 	return cands
+}
+
+// potentialPlan is the planner's verdict on play k at d, nil without a
+// planner or for a play it did not list. One planner call per decision.
+func (s *Seat) potentialPlan(d *decision.Decision, k actionKey) *rules.PotentialPlan {
+	if s.planner == nil {
+		return nil
+	}
+	if s.plans == nil || s.planSeq != d.Seq {
+		s.planSeq = d.Seq
+		if s.plans == nil {
+			s.plans = map[actionKey]*rules.PotentialPlan{}
+		}
+		clear(s.plans)
+		pps := s.planner.PotentialPaymentPlans(d.Player)
+		for i := range pps {
+			a := pps[i].Action
+			s.plans[actionKey{kind: a.Kind, obj: a.Obj, ability: a.Ability, mode: a.Mode}] = &pps[i]
+		}
+	}
+	return s.plans[k]
 }
 
 // potential returns the deciding seat's own PotentialActions from the view.
@@ -193,6 +251,14 @@ func potential(v view.View, me state.PlayerID) []decision.PotentialAction {
 // the pursuit fails: the play joins the step's failed set and ok is false.
 func (s *Seat) pursue(v view.View, d *decision.Decision) (decision.Intent, bool) {
 	k := *s.pursuit
+	if s.tac != nil && s.tac.tapAll {
+		// sb-tactical pursuing an {X} spell: float every source first so X
+		// is as large as the board allows.
+		if i, ok := firstKind(d, "activate"); ok {
+			s.Stats.PursuitTaps++
+			return one(d, i), true
+		}
+	}
 	for i := range d.Options {
 		if optionKey(&d.Options[i]) == k {
 			s.pursuit = nil
@@ -204,7 +270,7 @@ func (s *Seat) pursue(v view.View, d *decision.Decision) (decision.Intent, bool)
 			a := &d.PaymentActions[i]
 			if a.Cast.Object == k.obj && len(a.Plans) > 0 {
 				s.pursuit = nil
-				return s.payWith(v, d, a), true
+				return s.payWith(v, d, a, 0), true
 			}
 		}
 	}
@@ -215,6 +281,16 @@ func (s *Seat) pursue(v view.View, d *decision.Decision) (decision.Intent, bool)
 	s.failed[k] = true
 	s.pursuit = nil
 	s.Stats.PursuitFailures++
+	if s.pursuitPriced {
+		// The planner could pay it when it was chosen: a lost play, not an
+		// over-bound.
+		s.Stats.PursuitFailuresPriced++
+		s.Stats.LostPlays++
+	}
+	if s.Stats.PursuitFailuresByVerdict == nil {
+		s.Stats.PursuitFailuresByVerdict = map[string]int{}
+	}
+	s.Stats.PursuitFailuresByVerdict[k.kind+"/"+k.mode+" "+s.pursuitVerdict]++
 	return decision.Intent{}, false
 }
 
@@ -269,61 +345,138 @@ func pursuitColour(v view.View, d *decision.Decision) (int, bool) {
 	return best, true
 }
 
+// maxAttempts bounds one play's lowerings in one step: a play whose second
+// lowering aborts too is excluded for the rest of the step.
+const maxAttempts = 2
+
 // payWith pays for a planner-offered cast. AutoPay submits the first plan
 // as the Intent.Payment witness. Planned lowers the plan onto the manual
 // surface through payexec, answering this decision with its first step.
-func (s *Seat) payWith(v view.View, d *decision.Decision, a *decision.PaymentAction) decision.Intent {
+func (s *Seat) payWith(v view.View, d *decision.Decision, a *decision.PaymentAction, depth int) decision.Intent {
 	if s.mana != Planned {
 		return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
 			ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
 		}}
 	}
 	s.exec = payexec.Start(d.Player, a, payexec.PoolFromView(v, d.Player))
+	s.execKey = actionKey{kind: "cast", obj: a.Cast.Object}
+	s.execLabel = a.Label
 	s.Stats.Lowerings++
-	if in, ok := s.lower(v, d); ok {
+	return s.lowerFirst(v, d, depth)
+}
+
+// lowerPlay lowers witness, the planner's mana witness for potential play
+// k (an activated ability), in every mode that hides mana abilities.
+func (s *Seat) lowerPlay(v view.View, d *decision.Decision, k actionKey, witness decision.PaymentPlan, depth int) decision.Intent {
+	play := payexec.Play{Kind: k.kind, Obj: k.obj, Ability: k.ability}
+	s.exec = payexec.StartPlay(d.Player, play, witness, payexec.PoolFromView(v, d.Player))
+	s.execKey = k
+	s.execLabel = ""
+	if pp := s.potentialPlan(d, k); pp != nil {
+		s.execLabel = pp.Action.Label
+	}
+	s.Stats.Lowerings++
+	s.Stats.AbilityLowerings++
+	return s.lowerFirst(v, d, depth)
+}
+
+// lowerFirst answers d with a fresh lowering's first step.
+func (s *Seat) lowerFirst(v view.View, d *decision.Decision, depth int) decision.Intent {
+	if in, ok := s.lower(v, d, depth); ok {
 		return in
 	}
-	// Unreachable: an abort at priority answers pass inside lower.
+	// A fresh lowering at priority never yields; an abort was answered by
+	// lower's re-plan. Defensive only.
 	return repaired(d, decision.Intent{})
 }
 
-// lower feeds d to the lowering in progress. ok is false only when the
-// lowering aborted on a non-priority ask, which the policy then answers; an
-// abort at priority is answered with pass (counted).
-func (s *Seat) lower(v view.View, d *decision.Decision) (decision.Intent, bool) {
-	in, st := s.exec.Step(d, payexec.PoolFromView(v, d.Player))
+// lower feeds d to the lowering in progress. ok is false when the policy
+// must answer d: the lowering yielded a foreign decision (and continues), or
+// aborted on a non-priority ask. An abort at priority is answered here: the
+// same play re-planned from the pool now held, else the policy's next
+// choice (rechoose), else pass.
+func (s *Seat) lower(v view.View, d *decision.Decision, depth int) (decision.Intent, bool) {
+	in, st := s.exec.StepOn(d, payexec.Surface{Pool: payexec.PoolFromView(v, d.Player), Stack: len(v.Stack)})
 	switch st {
 	case payexec.InProgress:
 		return in, true
+	case payexec.Yield:
+		s.Stats.LoweringYields++
+		return decision.Intent{}, false
 	case payexec.Done:
-		s.Stats.LoweredCasts++
+		if s.exec.Play.Kind == "ability" {
+			s.Stats.LoweredAbilities++
+		} else {
+			s.Stats.LoweredCasts++
+		}
+		if s.lost[s.execKey] {
+			delete(s.lost, s.execKey)
+			s.Stats.LostPlays--
+			s.Stats.RecoveredPlays++
+		}
 		s.finishLowering()
 		return in, true
 	}
 	if len(s.Stats.AbortSamples) < maxAbortSamples {
-		s.Stats.AbortSamples = append(s.Stats.AbortSamples, fmt.Sprintf("turn %d %s: %s: %s", v.Turn, v.Step, s.exec.Reason, s.exec.Detail))
+		s.Stats.AbortSamples = append(s.Stats.AbortSamples, fmt.Sprintf("turn %d %s: %q: %s: %s", v.Turn, v.Step, s.execLabel, s.exec.Reason, s.exec.Detail))
 	}
+	k := s.execKey
 	s.abortLowering(s.exec.Reason)
-	if d.Kind == decision.KPriority {
-		if i, ok := firstKind(d, "pass"); ok {
-			s.Stats.AbortPasses++
-			return one(d, i), true
+	if d.Kind != decision.KPriority {
+		return decision.Intent{}, false
+	}
+	if s.attempts[k] < maxAttempts && depth < maxAttempts {
+		// Re-plan the same play from the pool now held: the decision's own
+		// plans (and the planner's) are priced from it.
+		for i := range d.PaymentActions {
+			a := &d.PaymentActions[i]
+			if k.kind == "cast" && k.mode == "" && a.Cast.Object == k.obj && len(a.Plans) > 0 {
+				s.Stats.Replans++
+				if a.BaseOptionIndex != nil {
+					// The floating pool now pays it outright.
+					return one(d, *a.BaseOptionIndex), true
+				}
+				return s.payWith(v, d, a, depth+1), true
+			}
+		}
+		if pp := s.potentialPlan(d, k); pp != nil && pp.Plan != nil {
+			s.Stats.Replans++
+			return s.lowerPlay(v, d, k, *pp.Plan, depth+1), true
+		}
+		for i := range d.Options {
+			if optionKey(&d.Options[i]) == k {
+				s.Stats.Replans++
+				return one(d, d.Options[i].Index), true
+			}
 		}
 	}
-	return decision.Intent{}, false
+	s.failed[k] = true
+	in = s.rechoose(v, d, depth, len(d.Options)+len(d.PaymentActions))
+	if len(in.Choices) == 1 && in.Payment == nil && d.Options[in.Choices[0]].Kind == "pass" {
+		s.Stats.AbortPasses++
+	}
+	return in, true
 }
 
 func (s *Seat) finishLowering() {
 	s.Stats.LoweringTaps += s.exec.Taps
 	s.Stats.LoweringAsks += s.exec.Asks
+	s.Stats.LoweringWaits += s.exec.Waits
 	s.exec = nil
 }
 
+// abortLowering ends the lowering in progress, counting the abort and
+// opening its play as lost until a re-plan completes it.
 func (s *Seat) abortLowering(reason string) {
 	s.Stats.Aborts++
 	if s.Stats.AbortsByCause == nil {
 		s.Stats.AbortsByCause = map[string]int{}
 	}
 	s.Stats.AbortsByCause[reason]++
+	s.attempts[s.execKey]++
+	if !s.lost[s.execKey] {
+		s.lost[s.execKey] = true
+		s.Stats.LostPlays++
+	}
 	s.finishLowering()
 }

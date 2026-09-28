@@ -98,6 +98,7 @@ type Stats struct {
 	EnvSteps       int // environment submits (the searched intents excluded), a discarded simulation's included
 	PriorFallbacks int // network priors that fell back to uniform, at the root and at in-walk points (a discarded simulation's included)
 	FeedStopped    int // decisions the driver routed around the search (its observation feed stopped): the bot's answer was played
+	RedealRefused  int // decisions whose honest (redeal) world source refused to prepare: no world, the bot's answer was played
 
 	// KindSearched splits Searched by kind (KindNames order).
 	KindSearched [NumKinds]int
@@ -191,6 +192,7 @@ func (s *Stats) Add(o Stats) {
 	s.EnvSteps += o.EnvSteps
 	s.PriorFallbacks += o.PriorFallbacks
 	s.FeedStopped += o.FeedStopped
+	s.RedealRefused += o.RedealRefused
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {

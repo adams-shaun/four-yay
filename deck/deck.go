@@ -426,7 +426,7 @@ func (f File) ValidateCommander(r *cards.Registry) error {
 	for _, e := range f.Cards {
 		c := byName[cards.NormalizeName(e.Name)]
 		basic := isBasicLand(c)
-		if e.Count > 1 && !basic {
+		if e.Count > 1 && !basic && !AnyNumberAllowed(c) {
 			errs = append(errs, fmt.Sprintf("card %q appears %d times; a Commander deck is singleton except basic lands", e.Name, e.Count))
 		}
 		if id := c.ColourIdentity(); id&^cmdrID != 0 {
@@ -562,6 +562,27 @@ func producedColours(p string) uint8 {
 		}
 	}
 	return m
+}
+
+// AnyNumberKeyword is the deck-construction keyword line Relentless Rats,
+// Hare Apparent and their kin print (CR 100.2a's exception): "A deck can
+// have any number of cards named CARDNAME."
+const AnyNumberKeyword = "A deck can have any number of cards named CARDNAME."
+
+// AnyNumberAllowed reports whether c's front face carries AnyNumberKeyword,
+// which exempts the card from the Commander singleton rule (CR 903.5b) as it
+// does from constructed's four-copy limit. Only the front face counts: a
+// card outside the game has its front face's characteristics.
+func AnyNumberAllowed(c *cards.Card) bool {
+	if len(c.Faces) == 0 {
+		return false
+	}
+	for _, k := range c.Faces[0].Keywords {
+		if k == AnyNumberKeyword {
+			return true
+		}
+	}
+	return false
 }
 
 // isBasicLand reports whether a card is a basic land — the singleton rule's

@@ -179,9 +179,144 @@ Planned variants sit inside their auto-pay twins' CIs (heuristic 1076 vs
 1064, uniform 1012 vs 1000) and roughly 230 Elo above the naive `-manual`
 variants (840, 788); head to head each planned bot is 65-63 against its
 auto-pay twin. Aborts: 0.5-0.9% of lowerings, all on plans that sacrifice a
-mana source whose trigger stacks before a sorcery-speed cast. Open: lowering
-for activated abilities (gorge plans casts only), and ordering sacrifice
-steps last.
+mana source whose trigger stacks before a sorcery-speed cast.
+
+Closed (branch `wt/sb-actions`): every one of those aborts was recoverable,
+and the seat now never loses a chosen, payable action. payexec runs
+last-resort steps after plain taps (Tinder Wall before Overgrown Battlement
+shrank the defender count), hands a foreign ask (a trigger order) back to the
+policy and resumes, and waits out a stack a sacrifice trigger filled (Eldrazi
+Spawn into Writhing Chrysalis) instead of aborting. `rules.Engine.
+PotentialPaymentPlans` gives each potential play the exact planner's verdict:
+a witness for a printed activated ability's mana part (its own and its
+cost's tap/sacrifice candidates withheld), and a proof when a play the
+over-bound walk offers cannot be paid. An aborted lowering re-plans the same
+play from the pool it holds; a refused answer is retried with the policy's
+next choice. Measured on the same 768-game workup (4 sb seats, 8 pairs):
+lowering aborts 59 -> 0; "legal actions lost" (chosen, planner-payable, not
+taken) 0 in every seat; about 1,600-2,000 activated abilities per seat are
+now lowered from a witness, and about 2,200-2,650 over-bound plays per seat
+are dropped as proven unpayable instead of being tapped out for. The
+remaining naive pursuit failures are plays no planner prices (a census with
+an unpriceable source, X costs, flashback), not proven-legal plays. The v2
+agent (`cmd/sbagent`) now answers every recoverable request instead of
+erroring (a host forfeit): policy failure, unknown or stale game, missing
+candidate ids, an echo that would not round-trip; `-stats` counts each.
+On the v2 harness (`sbv2_harness.py tournament --pairs 2`, 84 games against
+the python bots): 0 forfeits, 0 halts, empty agent stderr, twin parity 0
+mismatches over 60 replays; sbagent-heuristic scored 90.0% (16-4-0), ahead
+of the python heuristic at 82.5%.
+
+### 3.4 v1b: sb-tactical (measured)
+
+`sb-tactical` (`internal/spellbench/builtins/tactical*.go`, Policy
+`Tactical`) is a hand-written scored heuristic built for the v2 observation
+constraint: every answer is a function of the seat's projected `view.View`
+(public battlefields, stack, graveyards, life, library and hand *sizes*; its
+own hand and pool), the decision's options, and printed card facts its card
+names resolve to in gorge's IR. It never reads the opponent's hand or any
+library. It reuses gorge's seat-visible combat simulation
+(`botpolicy.AttackSimDecide` over `seat.BoardFromView`) and falls back to
+`botpolicy.Decide` on the same Board for asks it does not model (modes,
+trigger order, searches).
+
+- **Structure.** Feature extraction (`tactical_state.go`: derived P/T and
+  keywords, projected damage per attack and turns-to-kill both ways, mana on
+  hand) → one score per candidate (`scoreCand`), pass = 0, every weight in
+  `TacticalWeights`. Card IR is labelled with an effect *direction*
+  (`tactical_ir.go`: removal, damage, counter, pump, debuff, draw, ramp, mill,
+  fog...), so targets are scored as "the change to the target controller's
+  position, signed by whose it is" plus riders to the target's controller
+  (`tactical_target.go`). That one rule points harm at the opponent and help
+  at us, and also finds deliberate exceptions: Cleansing Wildfire on our own
+  indestructible Bridge (no loss, we get the land and the card).
+- **Idea groups** (each switchable, the ablation arms):
+  1. *EarlyGame* — land first, ramp and draw weighted up in the first four
+     own turns, removal bonus for key pieces (mana creatures, engines,
+     evasive threats).
+  2. *Timing* — instant-speed plays have windows: counters only at a foreign
+     spell, combat answers in combat, everything else at the opponent's end
+     step; outside its window a play loses `max(Hold|WaitEOT, 0.6·value)`;
+     proactive casts pay `KeepUp` for tapping below a held answer.
+  3. *Race* — burn face-vs-creature by the race state, an alpha strike when
+     the team is lethal through the best blocks (or when a never-blocking
+     opponent is out-raced), otherwise the combat simulation; blocks chump
+     only when the hit is lethal, drop chumps when we are ahead and the hit
+     is safe, and double-block a big attacker that two free blockers kill
+     profitably.
+- **Also fixed while measuring** (each found in a decision trace,
+  `botbench -spellbench-trace <dir>`): pursuits of unaffordable plays
+  (colour-aware `canAfford`), card flow at the wrong time (treasure/cycling in
+  upkeep), cost-aware sacrifice and discard choices, {X} spells tapped out
+  before casting, a counter *trigger* with no target, deck-out races (no
+  extra draws with a short library), hand-size overflow, milling ourselves.
+
+**Measured (commit `fd8c30e39`).** Benchmark-shaped round robin, 8 pairs per
+deck (128 games per pair of bots), rated with `scripts/spellbench-rate.py`;
+0 truncated, 0 halted, 0 refused-answer fallbacks for any sb-tactical seat.
+
+| Bot | pauper-kernel, benchmark seed 20260926 | held-out seed 99991 | held-out decks: FDN Limited, 4 pairs |
+|---|---|---|---|
+| sb-tactical | **1507** [1465, 1555] 527-113 | **1538** [1477, 1607] 348-36 | **1444** [1392, 1504] 318-66 |
+| sb-tactical-planned | 1509 [1465, 1561] 528-112 | — | — |
+| bot | 1242 [1204, 1284] 330-310 | 1277 [1226, 1331] 228-156 | 1315 [1268, 1373] 249-135 |
+| sb-heuristic-planned | 1094 [1057, 1132] | — | — |
+| sb-heuristic | 1078 [1041, 1116] 194-446 | 1073 [1021, 1125] 115-269 | 1114 [1073, 1161] 131-253 |
+| sb-uniform (anchor) | 1000 | 1000 | 1000 |
+
+Head to head sb-tactical vs bot: 110-18 (benchmark seed), 106-22 (seed
+99991), 87-41 (FDN); vs sb-heuristic 116-12, 116-12, 111-17. The edge over
+`bot` roughly halves on decks it was never looked at (+130 Elo on FDN vs
++260 on pauper-kernel). Mean wall time per game (8 workers): about 50 ms
+against sb-heuristic, 80 ms against bot (bot vs sb-heuristic is 50 ms).
+Pursuits failed 15% (684/4430) against sb-heuristic's 35%.
+
+**Ablation** (same run, all nine arms in one field): full 1506 [1473, 1543];
+no-EarlyGame 1522 [1487, 1560]; no-Timing 1511 [1476, 1548]; no-Race 1449
+[1415, 1487]. Only the Race group is a measured gain (+57); the early-game
+and timing groups are neutral within the CI. Every arm keeps the shared
+fixes above, which is where most of the strength is.
+
+**Tuning honesty.** Three runs on the benchmark seed (the first cut at
+1359, then 1401) drove the first round of fixes, including the Spy
+investigation; everything after that used dev seeds 777-781 and 5000+
+(about 25 runs, 128-512 games per pair). One weight change came from those
+runs: `PostCombat` 20 → 0, measured +4-5 points of win rate. A 42-iteration
+SPSA over 30 weights (log-space, seeds 5000-5041) moved no weight by more
+than 6% and was discarded, so the landscape near the defaults is flat and
+the weights are hand-set. Seed 99991 and the FDN catalog were each run once,
+after the code was frozen.
+
+**Card-specific knowledge**, and whether it generalises: `Count$Valid`,
+`Count$ValidGraveyard` and `Count$Metalcraft` amounts (Timberwatch Elf,
+Priest of Titania, Galvanic Blast, Lotleth Giant) use a small generic
+Forge-grammar evaluator. Spellstutter Sprite's "mana value X or less" reads
+the card's own SVar X. Consumables (clue, food, treasure, Lotus Petal) are
+derived from "sacrifice this" abilities, not names. A fog is any
+`Prevent$ True` replacement effect. The Forge AI hint `SVar:PlayMain1` is
+honoured. Three rules are generic in form but were written for a specific
+card or opponent: the mill value assumes "mill until a land" (Balustrade
+Spy; it over-values fixed-count mills); the dig amounts (a third of the
+cards when filtered, half for "all of a type") were set by eye on Lead the
+Stampede and Winding Way; and the never-blocks opponent model exploits
+sb-heuristic's fixed no-block rule. No card is named in the code.
+
+**Known weaknesses.** The Spy combo is not played: self-mill into Dread
+Return with Lotleth Giant needs plan knowledge, and the seat deliberately
+never mills itself. Spy is its weakest deck (10-6 against bot on the benchmark seed, against 13-3 to 16-0 elsewhere). There
+is no mulligan logic (the runner poses none). Plan choice is moot because
+gorge offers one plan per cast. The early-game and timing weights are
+unvalidated. On FDN the lead over `bot` is smaller, as expected from
+pauper-driven fixes.
+
+Rerun (worktree root, a built `botbench`, heavy-job wrapper per the
+operator rules):
+
+1. `botbench -dir .cards -workers 8 -spellbench sb-uniform,sb-heuristic,bot,sb-heuristic-planned,sb-tactical,sb-tactical-planned,sb-tactical-noearly,sb-tactical-notiming,sb-tactical-norace -spellbench-pairs 8 -spellbench-out <dir>`
+2. Rate with `scripts/spellbench-rate.py --anchor sb-uniform --out <dir>/rate <dir>`, adding `--bots sb-uniform,sb-heuristic,bot,sb-heuristic-planned,sb-tactical,sb-tactical-planned` for the main table.
+3. For the held-out runs, add `-spellbench-base-seed 99991` (and `--base-seed 99991` when rating), or use `-spellbench-catalog fdn -spellbench-pairs 4` (and `--format fdn-limited-bo1` when rating).
+
+Data: `/mnt/sata/gorge-training/spellbench-work/v1b/{final-bench,heldout-seed,heldout-fdn}`.
 
 ## 4. (b) The shadow gorge state
 
@@ -553,8 +688,10 @@ error frame, no rejected selection (`invalid_selection`), no timeout, no
 resync (`expected_step_mismatch`) or retransmission, no validator violation,
 no halt, no truncation, no gorge refusal, no dropped legal option. The one
 latent loss path on our side -- a policy failure answered `internal_error`,
-which the host turns into an `agent_error` forfeit -- is now answered with
-candidate 0 and counted (`sbagent-stats` on stderr); it never fired. Choice
+which the host turns into an `agent_error` forfeit -- was closed by the
+agent's recovery paths (`v2agent.Stats`, `sbagent -stats`: the heuristic
+fallback answers a failed policy); these runs predate that merge and used a
+candidate-0 answer, which never fired either. Choice
 decisions posed as the enumerated fallback: 0.4% (R1: 2,216 of 509,841;
 mostly gorge's "Add C / Pay 1: Add any color" ability pick, trigger-cost
 pay/decline, madness exile/graveyard).
@@ -656,7 +793,7 @@ of a pile-B remainder follows gorge's `Rest` convention unverified.
 | M | Where | Question | Result slot |
 |---|---|---|---|
 | M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | done (D§3.1): bot +238, clairvoyant az +436 over the uniform port |
-| M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | — |
+| M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | Q2 done (D§12.5): K1 passes, az25 +14.7pp, az100 +20.5pp over `bot`; Q1 open |
 | M2 | v2 mocked backend (W2), then v2 on gorge in reverse (D§11.1) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); on real gorge 896 games with 0 protocol errors, belief-level shadow 0 mismatches, heuristic intent parity 15/16 (D§11.1); staged-shadow (D§4) fidelity open |
 | M3 | v2 on Jack's adapter, `pauper-gorge` (5 decks: Wildfire, Rally, Spy, Burn, CawGates; plan Task 7) | strength vs `gorge-bot`, `gorge-lethal-pressure`, builtins; neutral vs xview entry | — |
 | M4 | v2 on mtg-kernel (Annex A bridge), `pauper-kernel` | cross-engine: fidelity and candidate agreement on a foreign engine; rating vs g115 (1388), a48, c12, heuristic (1102) | — |
@@ -700,6 +837,133 @@ H1 and H2 first (they gate everything), then M1 (cheap, gorge-native, answers
 the biggest unknown), M2 with W2's harness, M3 when adapter Tasks 26-28 land,
 M4 after the kernel v2 bridge exists, M5 when §15 ships.
 
+**Policy networks (v1c).** The network this agent's search consumes (D§6
+prior and leaf, D§7 fallback, D§8 specialists) is surveyed and planned in
+`docs/superpowers/reports/2026-09-28-spellbench-policy-networks.md`. In
+short, the network serves search and does not replace it. Value is trained
+first, as two heads: a seat-view value for the root and a full-world value
+that is used only at the leaves of sampled worlds. The input is an entity
+table with two front ends: gorge's view, and the v2 neutral observation,
+which must agree bit for bit on gorge-engine transcripts. Candidates are
+scored pointer-style over the v2 list. Policy targets come only from honest
+search, with Gumbel root selection. Stages S0-S5 carry kill criteria. S3
+(honest expert iteration) waits for M1 Q2. Its open questions (O1-O9) sit
+alongside D§14.
+
+### 12.5 M1 result (Q2, measured 2026-09-28)
+
+**Verdict: K1 PASSES.** Honest search beats `bot` by far more than 3pp at
+more than 2,000 games, CI clear of 0: az25 on redeal worlds wins **64.7%
+[63.2, 66.2]** over 4,000 games against a same-seed `bot`-vs-`bot` control
+of 50.0% [48.4, 51.5], a gain of **+14.7pp [12.6, 16.8]** (about +106 Elo).
+az100 gains **+20.5pp [18.0, 23.0]** (70.5%, 2,000 games). Search stays on
+the critical path; T1 (the gorge bot on the shadow) remains the fallback.
+
+**World source.** `azmcts.RedealSource` (`internal/azmcts/redeal.go`,
+`-az-world redeal` or policy `az-redeal` in botbench and `-spellbench`) is
+the D§5.2 v1 sampler with the list posterior a point mass: every simulation
+walks a `searchprobe.Redealer` deal (`internal/searchprobe/redeal.go`, the
+pn21 `RedealBase` redeal, now exported as prepare-once / deal-many). Public
+state, zone sizes, the seat's own hand and every card the known-card
+projection pins stay put. Each player's other hidden cards (the seat's own
+library order, the opponent's hand and library) are dealt uniformly from the
+pool the seat can derive: the declared list minus every card it has seen
+outside the hidden zones. Future chance is re-seeded, per-world seeds are
+SplitMix64 of the per-decision seed, and every change is a Secret event on
+the world's own log. A pool the list cannot account for (a face-down card, a
+wrong list) refuses: the refusal is counted (`redeal-refused`) and the bot's
+answer is played, never a clairvoyant world. The leak test
+(`TestRedealWorldsIgnoreTheRealHiddenCards`) swaps the opponent's real hand
+cards with library cards of other names and reverses both libraries, then
+checks that every seed deals name-identical worlds. `-az-worlds K` deals K
+worlds round-robin, each simulation with fresh chance.
+
+**Setting.** Main table: stage 0's matrix (`uw-tempo` against the five mono
+decks, seat-alternating, 5 pairs), chunked at 100 games per pair per chunk,
+seeds `91000000 + 1000·chunk` (50 per pair for the 100-simulation arms).
+The seat is given the true lists (the benchmark's `visible` case), and its
+known-card projection comes from the full gorge observation feed.
+`bot` is both the opponent and the search's environment model, which
+flatters every search arm equally; the round robin below also covers
+non-`bot` opponents. Gen 0 throughout: uniform prior, heuristic leaf, no
+network.
+
+| Arm | Games | Win % [CI95] | vs control | ms/searched decision mean (p95) | games/h (8 workers) |
+|---|---|---|---|---|---|
+| `bot` vs `bot` (control) | 4,000 | 50.0 [48.4, 51.5] | — | — | ~550k |
+| az25, redeal | 4,000 | 64.7 [63.2, 66.2] | +14.7 [12.6, 16.8] | 45 (107) | 15.6k |
+| az25, clairvoyant | 4,000 | 75.4 [74.1, 76.8] | +25.4 | 46 (112) | 14.6k |
+| az100, redeal | 2,000 | 70.5 [68.5, 72.5] | +20.5 [18.0, 23.0] | 216-278 uncontended (380-550) | 2.5k |
+| az100, clairvoyant | 1,000 | 81.1 [78.7, 83.5] | +31.1 | 230-261 (474-574) | 3.1k |
+| az25, redeal, K=1 world | 1,000 | 63.7 [60.7, 66.7] | +13.7 | 40 (90) | 18k |
+| az100, redeal, K=4 worlds | 500 | 68.8 [64.7, 72.9] | +18.8 | 192-219 (367-414) | 2.7k |
+
+- **Cost of honesty:** 10.7pp [8.7, 12.7] at 25 simulations and
+  10.6pp [7.5, 13.7] at 100. It does not shrink with budget: both sources
+  gain about 6pp from 4x the simulations (redeal +5.8 [3.3, 8.3]).
+- **Worlds per decision:** no measurable strategy-fusion effect at gen 0.
+  One deal per decision (K=1) is within noise of a fresh deal per
+  simulation (63.7 vs 65.0 on the same seeds, 1,000 games), and K=4 at 100
+  simulations equals the fresh-deal arm on the same 500 seeds (344 wins
+  each). The §6 K ≥ 16 default is therefore not measured to matter, and
+  cheaper K is free. Resolving this needs a network prior and value.
+- **Cost:** redeal is not measurably dearer than clairvoyant. The deal
+  (clone, secret moves, projection check, one capture) costs about as much
+  as the clone it replaces. ms/simulation is 1.8-1.9 at 25 and 2.2-2.8 at
+  100, because deeper trees take more env steps (35 vs 50). The
+  100-simulation timings shared the box with other jobs (load up to 45 on
+  32 cores), so their ranges are per uncontended chunk. Peak RSS was
+  0.9 GB per 8-worker run.
+- **Fallbacks:** 0 refusals and 0 failed deals in every matrix arm except
+  one decision (25 simulations lost to the empty-library bug below). On the
+  pauper-kernel round robin the first build refused 1.6% of searched
+  decisions (an embalmed Sacred Cat token counted as a seen deck card) and
+  failed deals once a library was empty (a nil zone compared with
+  `reflect.DeepEqual`). Both were fixed in `b87ab3d4c` with a regression
+  test. After the fix: 2 refusals in 15k decisions ("observed frame refers
+  to an unpinned hidden card").
+
+**SpellBench-shaped round robin** (8 pauper-kernel decks as mirrors, 4 pairs
+per deck, 64 games per matchup, 640 games, rated with
+`scripts/spellbench-rate.py`, anchor sb-uniform; `b87ab3d4c`):
+
+| Bot | Elo | CI95 | W-L |
+|---|---|---|---|
+| az-clairvoyant-sims25 (reference, NOT fair) | 1444 | [1377, 1521] | 201-55 |
+| **az-redeal-sims25** | **1382** | [1320, 1455] | 180-76 |
+| bot | 1264 | [1205, 1330] | 136-120 |
+| sb-heuristic | 1114 | [1056, 1177] | 80-176 |
+| sb-uniform (anchor) | 1000 | — | 43-213 |
+
+Head to head, az-redeal beats bot 43-21 and sb-heuristic 55-9, and loses to
+clairvoyant az 25-39. That is +118 Elo over `bot` on the benchmark's own
+fit, against +180 for the clairvoyant reference.
+
+**Not answered here:** Q1 (L10 on redeal-only worlds vs its rejection
+sampler) and hidden-list worlds (list posterior not a point mass).
+
+**Rerun** (worktree `wt/sb-m1-redeal`; outputs and the chunk runner are in
+`/mnt/sata/gorge-training/spellbench-work/m1/`: `run_chunk.sh`,
+`aggregate.py`, one directory per arm):
+
+```sh
+go build -o $M1/botbench ./cmd/botbench
+P=uw-tempo:mono-white-equipment,uw-tempo:mono-blue-tempo,uw-tempo:mono-black-aggro,uw-tempo:mono-red-prowess,uw-tempo:mono-green-stompy
+# chunk c (0..7): 500 games at seed 91000000+1000c
+$M1/botbench -pairs $P -games 100 -seed $((91000000+1000*c)) -workers 8 -a az-redeal -b bot -az-sims 25
+$M1/botbench ... -a bot -b bot                                           # control
+$M1/botbench ... -a az -b bot -az-world clairvoyant -az-sims 25          # clairvoyant
+$M1/botbench ... -games 50 -a az-redeal -b bot -az-sims 100 [-az-worlds 4]
+$M1/botbench -spellbench az,az-redeal,bot,sb-heuristic,sb-uniform -az-world clairvoyant \
+    -az-sims 25 -spellbench-pairs 4 -spellbench-out $M1/sb-rr2 -workers 8
+scripts/spellbench-rate.py --anchor sb-uniform --out $M1/sb-rr2-rated $M1/sb-rr2
+```
+
+Every heavy command ran under `flock heavy.lock systemd-run --scope -p
+MemoryMax=4G env GOMEMLIMIT=2GiB GOMAXPROCS=8`. The matrix arms ran on
+`666cc2720`, which has the two bugs above. They never hit the Sacred Cat
+case (the matrix decks have no embalm), so their numbers stand.
+
 ## 13. Risks
 
 | Risk | Why it bites | Mitigation |
@@ -728,3 +992,58 @@ M4 after the kernel v2 bridge exists, M5 when §15 ships.
   also implements `probe_resample`)?
 - **Q5.** Resources for M1 Q2 at 2,000+ games per arm (current AZ budget is
   2 cores / 5 GB).
+
+## 15. Experiment framework
+
+One standard way to add a SpellBench policy idea and measure it. Three
+parts, all landed (sb-gauntlet workstream):
+
+**Registry** (`internal/spellbench/registry`). A named policy registry:
+`name -> factory(seed uint64, mana builtins.ManaMode) seat.Seat`. The
+sb-* builtins are registered by the package itself (`sb.go`); `bot` and
+`az` are registered by `cmd/botbench` (they need the command's hosted-policy
+and azmcts wiring); `botbench -spellbench` resolves every name through it,
+and an unknown name fails with the registered names listed. Registering a
+new policy is one file plus one `Register` call from `init()`.
+
+**Decorators.** A policy spec may be `base+dec1+dec2` (e.g. `bot+lethal`).
+A decorator is `func(inner seat.Seat, seed uint64) seat.Seat`, registered
+by name in the same registry; its seat may answer a decision itself or
+delegate it to `inner`. The spec string is the policy's name in the ledger,
+so the ledger shows the composed name. The first decorator is
+`passguard`: it delegates everything, replacing a pass pick with the first
+non-pass candidate only when the decision offers exactly one non-pass
+candidate that is a land play (the wrapper keeps the wrapped seat's
+BoardSeat-ness, so `bot+passguard` still answers from the board, and the
+inner is consulted exactly once per decision, so a seed-streamed inner
+draws the same numbers bare or wrapped). A delegating decorator implements
+the registry's `Unwrapper` contract (`UnwrapSeat`), so the runner's
+refused-answer fallback and stats collection reach the seat underneath: a
+decorated `sb-*` spec keeps the builtin's fallback exactly as the bare
+name has it. And `sbDisplayName` marks the spec's BASE, so an `az`-composed
+spec keeps the clairvoyant ledger marker (`az+passguard` is recorded as
+`az-clairvoyant-sims<N>+passguard`) and rate.py's name tag (a leading
+`az-`) still classifies it as a search agent.
+
+**Gauntlet** (`scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]`).
+Rates candidate specs against a fixed reference set: `sb-uniform` (the Elo
+anchor), `sb-heuristic` and `bot`, plus every spec in
+`/mnt/sata/gorge-training/spellbench-work/gauntlet/champions.txt` when it
+exists. Candidates play the references through `-spellbench-with <spec>`
+(full round robin's seeds and indices kept); reference-vs-reference games
+are cached under `/mnt/sata/gorge-training/spellbench-work/gauntlet/ref/<key>/`,
+keyed by the `git rev-parse HEAD:` tree hashes of `rules effects cards
+decision botpolicy internal/spellbench cmd/botbench` plus pairs and decks,
+so any engine or policy change invalidates the cache, as does any change
+to the champions file's content (a new champion line must get its own
+ref-vs-ref games, not ride a cache built without it). Every relevant ledger
+is rated together with `scripts/spellbench-rate.py`
+(`/mnt/sata/gorge-training/sbvenv/bin` provides the interpreter); the run
+prints a per-candidate table (spec, Elo, CI95, W-L, head-to-head vs each
+reference) and appends one JSON row per candidate to
+`.../gauntlet/results.jsonl` (`spec, elo, ci_lo, ci_hi, wins, losses,
+pairs, decks, git_head, key, ts`). Exit code 0 unless the run fails. Every
+botbench invocation runs under
+`flock -o .../heavy.lock systemd-run --user --scope -q -p MemoryMax=4G env
+GOMEMLIMIT=2GiB GOMAXPROCS=8` with `-workers 8` (SB_GAUNTLET_WORKERS
+overrides the worker count for a smoke-sized run).

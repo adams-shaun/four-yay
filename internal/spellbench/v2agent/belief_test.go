@@ -1,7 +1,9 @@
 package v2agent
 
 import (
+	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -59,5 +61,32 @@ func TestBeliefCountsFacesAgainstFullNames(t *testing.T) {
 	r := b.Record("g", d)
 	if len(r.OwnLibrary) != 1 || r.OwnLibrary["Island"] != 1 {
 		t.Errorf("own library %v, want Island:1 only", r.OwnLibrary)
+	}
+}
+
+// TestBeliefLogCoversRecoveredDecisions: the belief log keeps one line per
+// answered choose on the recovery paths too -- a choose adopted without a
+// game_start, answered by the fallback after the policy panics -- so the
+// shadow check joins every decision the host saw answered.
+func TestBeliefLogCoversRecoveredDecisions(t *testing.T) {
+	var log bytes.Buffer
+	a, err := New(&faulty{mode: "panic"}, Options{Name: "t", Version: "1", BeliefLog: &log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, code := selection(t, a.HandleLine([]byte(rcChoose))) // no game_start
+	if code != "" || id != 1 || a.Stats.GamesAdopted != 1 || a.Stats.PolicyFallbacks != 1 {
+		t.Fatalf("answered %d %q, stats %+v", id, code, a.Stats)
+	}
+	lines := strings.Split(strings.TrimSpace(log.String()), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("belief log has %d lines, want 1: %q", len(lines), log.String())
+	}
+	var r BeliefRecord
+	if err := json.Unmarshal([]byte(lines[0]), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.GameID != "g-1" || r.Seat != "p0" || r.SeatStep != 4 {
+		t.Errorf("belief record keyed %s/%s/%d, want g-1/p0/4", r.GameID, r.Seat, r.SeatStep)
 	}
 }

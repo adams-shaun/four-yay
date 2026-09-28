@@ -1,0 +1,96 @@
+{
+ "name": "FDN03-WB",
+ "format": "limited",
+ "archetype": "WB",
+ "notes": "SpellBench FDN Limited catalog deck FDN03-WB (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=00aa5f42e14fe9fe, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Crystal Barricade",
+   "count": 1
+  },
+  {
+   "name": "Eaten Alive",
+   "count": 1
+  },
+  {
+   "name": "Elenda, Saint of Dusk",
+   "count": 1
+  },
+  {
+   "name": "Fleeting Flight",
+   "count": 2
+  },
+  {
+   "name": "Guarded Heir",
+   "count": 1
+  },
+  {
+   "name": "Hare Apparent",
+   "count": 1
+  },
+  {
+   "name": "Helpful Hunter",
+   "count": 2
+  },
+  {
+   "name": "Herald of Eternal Dawn",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 1
+  },
+  {
+   "name": "Inspiring Paladin",
+   "count": 2
+  },
+  {
+   "name": "Leyline Axe",
+   "count": 1
+  },
+  {
+   "name": "Make Your Move",
+   "count": 1
+  },
+  {
+   "name": "Plains",
+   "count": 8
+  },
+  {
+   "name": "Prideful Parent",
+   "count": 1
+  },
+  {
+   "name": "Sanguine Syphoner",
+   "count": 1
+  },
+  {
+   "name": "Scoured Barrens",
+   "count": 1
+  },
+  {
+   "name": "Soul-Shackled Zombie",
+   "count": 2
+  },
+  {
+   "name": "Squad Rallier",
+   "count": 1
+  },
+  {
+   "name": "Stab",
+   "count": 1
+  },
+  {
+   "name": "Swamp",
+   "count": 8
+  },
+  {
+   "name": "Twinblade Blessing",
+   "count": 1
+  },
+  {
+   "name": "Vampire Nighthawk",
+   "count": 1
+  }
+ ]
+}

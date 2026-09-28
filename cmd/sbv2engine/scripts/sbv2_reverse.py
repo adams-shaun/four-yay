@@ -127,7 +127,7 @@ class CapturingSubprocessDriver(SubprocessDriver):
 
 def make_driver(name, args, index, seat, captured):
     if name in GO_POLICY:
-        command = [args.sbagent, "-policy", GO_POLICY[name], "-name", name, "-version", GO_VERSION]
+        command = [args.sbagent, "-policy", GO_POLICY[name], "-name", name, "-version", GO_VERSION, "-stats"]
         if args.truth:
             bdir = Path(args.out) / "belief"
             bdir.mkdir(parents=True, exist_ok=True)
@@ -172,8 +172,8 @@ def play_one(worker, job, catalog, domain):
     agent_stats = []
     for text in captured:
         for line in text.splitlines():
-            if line.startswith("sbagent-stats "):
-                agent_stats.append(json.loads(line[len("sbagent-stats "):]))
+            if line.startswith("sbagent-stats: "):
+                agent_stats.append(json.loads(line[len("sbagent-stats: "):]))
     return dict(job, outcome=result.outcome, classification=result.classification, winner=result.winner,
                 reason=result.reason, adjudication=result.adjudication, step_count=result.step_count,
                 decision_count=result.decision_count, game_digest=result.game_digest, violation=result.violation,
@@ -242,7 +242,7 @@ def cmd_report(args):
     rows = [json.loads(l) for l in (out / "games.jsonl").read_text().splitlines() if l.strip()]
     bots = args.bots.split(",") if args.bots else sorted({r["p0"] for r in rows} | {r["p1"] for r in rows})
     classes, halts, violations, forfeits, errors = {}, {}, {}, {}, {}
-    agent = {"requests": 0, "chooses": 0, "policy_fallbacks": 0, "errors": {}}
+    agent = {"Errors": {}}  # v2agent.Stats summed over every Go seat
     steps = []
     walls = []
     for r in rows:
@@ -257,11 +257,11 @@ def cmd_report(args):
         if r["classification"] == "harness_error":
             errors[r["reason"][:120]] = errors.get(r["reason"][:120], 0) + 1
         for s in r.get("agent_stats") or []:
-            agent["requests"] += s.get("Requests", 0)
-            agent["chooses"] += s.get("Chooses", 0)
-            agent["policy_fallbacks"] += s.get("PolicyFallbacks", 0)
+            for k, v in s.items():
+                if isinstance(v, int):
+                    agent[k] = agent.get(k, 0) + v
             for k, v in (s.get("Errors") or {}).items():
-                agent["errors"][k] = agent["errors"].get(k, 0) + v
+                agent["Errors"][k] = agent["Errors"].get(k, 0) + v
         if r.get("step_count"):
             steps.append(r["step_count"])
         if r.get("wall_s"):
