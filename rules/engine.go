@@ -2436,7 +2436,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 			for next := i + 1; next < len(cfg.Decks) && next < len(cfg.Names); next++ {
 				available := len(cfg.Decks[next]) - len(cfg.commandersFor(next, len(cfg.Decks[next])))
 				if available < openingHand && !e.G.Players[next].Lost {
-					e.emit(events.Event{Kind: events.PlayerLost, Player: state.PlayerID(next), Text: "drew from an empty library"})
+					e.playerLoses(state.PlayerID(next), loseReasonMilled, "drew from an empty library")
 				}
 			}
 			if e.finishTerminalGenesis() {

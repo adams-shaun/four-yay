@@ -5057,6 +5057,48 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
+	case "GameLoss", "GameWin":
+		// The "you can't lose the game" / "your opponents can't win the
+		// game" class (CR 104.3 / 704.5a-c, task fdn-repl-cant-lose). Only
+		// the SYNTHETIC proposal reaches here (Engine.gameLossPrevented /
+		// gameWinPrevented pose it with the affected player and, for a loss,
+		// the Forge lose reason in ev.Text): the event log has no GameLoss or
+		// GameWin event, so replacementEvent deliberately maps none and
+		// applyReplacements never routes one. Requiring the matching event
+		// kind keeps a stray face line from matching a real PlayerLost or
+		// GameOver log event through some future route. ValidLoseReason$ is
+		// Forge's reason discriminator (life/poison/commander/mill/effect): an
+		// ABSENT reason applies to every cause, a PRESENT one only to its own
+		// (Lich's Tomb's "don't lose for having 0 or less life" must not stop
+		// a deck-out), so an unknown reason fails closed. The shared condition
+		// gate below carries IsPresent$ (Pact Weapon's attach rider) and
+		// CheckSVar$ (Platinum Angel Avatar's four-type gate, which fails
+		// closed until those SVars resolve).
+		//
+		// The Layer$ CantHappen requirement is the class's whole meaning (a
+		// GameLoss line with a ReplaceWith$ body -- Lich's Mirror, Exquisite
+		// Archangel -- is the out-of-scope Lich family, never a "can't").
+		// gameEventCantHappen already pre-filters on it; repeating it here
+		// keeps this matcher self-consistent for any future caller.
+		if !strings.EqualFold(strings.TrimSpace(r.Params["Layer"]), "CantHappen") {
+			return false
+		}
+		if r.Event == "GameLoss" {
+			if ev.Kind != events.PlayerLost {
+				return false
+			}
+			if reason, ok := r.Params["ValidLoseReason"]; ok &&
+				!strings.EqualFold(strings.TrimSpace(reason), ev.Text) {
+				return false
+			}
+		} else if ev.Kind != events.GameOver {
+			return false
+		}
+		if vp, ok := r.Params["ValidPlayer"]; ok &&
+			!effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
+			return false
+		}
+		return e.replacementConditionHolds(r, source, you)
 	}
 	return false
 }
@@ -7551,6 +7593,13 @@ func init() {
 		"repl:GainLife", "repl:LifeReduced", "repl:DamageDone", "repl:Counter",
 		"repl:CreateToken", "repl:RollPlanarDice", "repl:Explore", "repl:Attached", "repl:Scry", "api:ReplaceToken",
 		"repl:AddCounter", "api:ReplaceCounter",
+		// repl:GameLoss / repl:GameWin (task fdn-repl-cant-lose) are the
+		// "you can't lose the game" / "your opponents can't win the game"
+		// CantHappen class (Herald of Eternal Dawn, the Platinum Angel family,
+		// Abyssal Persecutor, Lich's Mastery). Matching and application live in
+		// rules/cantlose.go; this registration is what makes the coverage
+		// ratchet see the heads as supported.
+		"repl:GameLoss", "repl:GameWin",
 		// repl:TurnFaceUp (task cli-20260924T031747Z-6d0658fc) is the "as this
 		// is turned face up" class (Hooded Hydra's five +1/+1 counters, Karlov
 		// Watchdog's CantHappen, Gift of Doom's attach), matched by
