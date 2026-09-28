@@ -479,6 +479,13 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if azSide {
 		installAZCostStats()
 	}
+	sbSearchSide := false
+	for _, b := range bots {
+		sbSearchSide = sbSearchSide || isSBSearchPolicy(b)
+	}
+	if sbSearchSide {
+		installSBSearchCostStats()
+	}
 	cat, err := spellbench.CatalogByID(o.catalog)
 	if err != nil {
 		return fail(err)
@@ -570,6 +577,15 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		// Both az policies feed one cost report; its game count is the
 		// games either seated.
 		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")))
+	}
+	if sbSearchSide {
+		n := 0
+		for _, b := range bots {
+			if isSBSearchPolicy(b) {
+				n += sbCount(sched, b)
+			}
+		}
+		fmt.Fprint(stdout, sbSearchCostReport(n))
 	}
 	return 0
 }

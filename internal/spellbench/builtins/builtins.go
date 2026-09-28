@@ -402,6 +402,9 @@ func (s *Seat) Decide(_ context.Context, v view.View, d decision.Decision) (deci
 	}
 	in := s.decide(v, &d)
 	in.Seq, in.Player = d.Seq, d.Player
+	if s.tac != nil {
+		s.tac.force = nil // ForcePriority never outlives its decision
+	}
 	return in, nil
 }
 
