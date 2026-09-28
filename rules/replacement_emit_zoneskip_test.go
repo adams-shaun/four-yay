@@ -1,9 +1,12 @@
 package rules
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -80,4 +83,54 @@ func TestReplacementSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
 	}()
 	e.forEachReplacementSource(func(state.ObjID) {})
 	t.Fatal("replacement skip served a stale cold summary without a verify panic")
+}
+
+// TestReplacementAppendFastPathDuringTokenFlood drives the TokenCreate
+// append fast path in replZoneHot (the branch keyed on a log suffix of
+// TokenCreates for the same player): a cold token appended onto an already
+// classified battlefield must not enter the walk, a replacement-bearing
+// token appended in the same flood must, and the pre-existing hot source
+// must keep its slot and order throughout.
+func TestReplacementAppendFastPathDuringTokenFlood(t *testing.T) {
+	if !replZoneSkipVerify {
+		t.Fatal("precondition: replacement-zone skip verifier is disabled")
+	}
+	e := layerEngine(t)
+	e.G.Tokens = make(map[string]*cards.Card)
+	e.G.Tokens["cold"] = card(t, "Name:Plain token\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
+	e.G.Tokens["hot"] = card(t, "Name:Replacement token\nTypes:Creature Goblin\nPT:1/1\n"+
+		"R:Event$ CreateToken | ActiveZones$ Battlefield | ReplaceWith$ None | Description$ replacement token\nOracle:x\n")
+	// A pre-existing hot source and a cold one, classified by a first walk.
+	hot := onBoard(t, e, 0, "Name:Replacement\nTypes:Creature\nPT:1/1\n"+
+		"R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Creature | ReplaceWith$ None | Description$ existing\nOracle:x\n")
+	onBoard(t, e, 0, "Name:Vanilla\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
+	var visited []state.ObjID
+	e.forEachReplacementSource(func(id state.ObjID) { visited = append(visited, id) })
+	if len(visited) != 1 || visited[0] != hot {
+		t.Fatalf("precondition: first walk = %v, want [%d]", visited, hot)
+	}
+
+	// Emit an append-only TokenCreate flood: one cold, one hot, one cold.
+	for _, name := range []string{"cold", "hot", "cold"} {
+		before := len(e.G.Zone(state.ZBattlefield, 0))
+		got := e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: name})
+		if got.Kind != events.TokenCreate || len(e.G.Zone(state.ZBattlefield, 0)) != before+1 {
+			t.Fatalf("precondition: %q TokenCreate did not append one battlefield object", name)
+		}
+		created := e.G.Zone(state.ZBattlefield, 0)[before]
+		if wantHot := objectReplHot(e.G.Obj(created)); wantHot != (name == "hot") {
+			t.Fatalf("precondition: token %q hot = %v", name, wantHot)
+		}
+		visited = visited[:0]
+		e.forEachReplacementSource(func(id state.ObjID) { visited = append(visited, id) })
+		want := []state.ObjID{hot}
+		for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+			if id != hot && objectReplHot(e.G.Obj(id)) {
+				want = append(want, id)
+			}
+		}
+		if !slices.Equal(visited, want) {
+			t.Fatalf("after %q append, walk = %v, want %v", name, visited, want)
+		}
+	}
 }
