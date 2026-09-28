@@ -667,7 +667,7 @@ func (p *Policy) rootAnswer(sh *Shadow, rd *decision.Decision) (decision.Intent,
 		}
 		p.Stats.Reasons["generic: "+lossyKey(err.Error())]++
 	}
-	if p.srch == nil || (pd.Kind != decision.KPriority && pd.Kind != decision.KAttackers) {
+	if p.srch == nil || (pd.Kind != decision.KPriority && pd.Kind != decision.KAttackers && pd.Kind != decision.KBlockers) {
 		return p.gs.Decide(context.Background(), gorgeView(sh, rd), *rd)
 	}
 	p.Stats.Searched++

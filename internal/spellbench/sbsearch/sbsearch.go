@@ -72,6 +72,9 @@ type Config struct {
 	Margin float64
 	// Attack searches KAttackers decisions too.
 	Attack bool
+	// Block searches KBlockers decisions too: sb-tactical's declaration,
+	// no block, and the default gorge bot's declaration.
+	Block bool
 }
 
 // DefaultConfig is sb-search's registered configuration.
@@ -245,6 +248,8 @@ func (s *Seat) decideOn(ctx context.Context, e *rules.Engine, mk func() (dealer,
 		return s.priority(ctx, e, mk, v, d)
 	case d.Kind == decision.KAttackers && s.cfg.Attack:
 		return s.attackers(ctx, e, mk, v, d)
+	case d.Kind == decision.KBlockers && s.cfg.Block:
+		return s.blockers(ctx, e, mk, v, d)
 	}
 	return s.inner.Decide(ctx, v, d)
 }
@@ -325,6 +330,36 @@ func (s *Seat) attackers(ctx context.Context, e *rules.Engine, mk func() (dealer
 		return own, nil
 	}
 	choice := s.search(e, mk, d, "attackers", roots, 0)
+	return roots[choice].in, nil
+}
+
+// blockers searches a KBlockers decision over sb-tactical's declaration, no
+// block, and the default gorge bot's declaration (each a valid whole
+// answer; duplicates dropped).
+func (s *Seat) blockers(ctx context.Context, e *rules.Engine, mk func() (dealer, string), v view.View, d decision.Decision) (decision.Intent, error) {
+	own, err := s.inner.Decide(ctx, v, d)
+	if err != nil {
+		return own, err
+	}
+	roots := []root{{in: own}}
+	add := func(in decision.Intent) {
+		in.Seq, in.Player = d.Seq, d.Player
+		if d.Validate(in) != nil {
+			return
+		}
+		for _, r := range roots {
+			if builtins.SameChoices(r.in, in) {
+				return
+			}
+		}
+		roots = append(roots, root{in: in})
+	}
+	add(botpolicy.Clamp(&d, decision.Intent{Seq: d.Seq, Player: d.Player}))
+	add(botpolicy.Decide(seat.BoardFromView(v), &d, rand.New(rand.NewPCG(s.seed, d.Seq^0xb10c))))
+	if len(roots) < 2 {
+		return own, nil
+	}
+	choice := s.search(e, mk, d, "blockers", roots, 0)
 	return roots[choice].in, nil
 }
 
