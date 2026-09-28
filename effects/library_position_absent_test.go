@@ -143,6 +143,24 @@ func TestChangeZoneAllAbsentLibraryPositionIsTop(t *testing.T) {
 	}
 }
 
+// searchedAbsentCount pins the measured census of the SEARCHED-LIBRARY
+// absent-spelling class (agent-20260928T191540Z): API ChangeZone; Origin$
+// names Library; Destination$ names Library; LibraryPosition$ absent. Every
+// such carrier routes its placement through placeLibraryObjects (the search's
+// shuffle-and-place tail, or the object-valued Defined$ fetch list), which now
+// defaults the absent spelling to TOP the same way Forge's
+// changeKnownOriginResolve (ChangeZoneEffect.java:484) and
+// changeHiddenOriginResolve (:994) do. Measured 2026-09-28 over the compiled
+// registry with the same walk as TestAbsentLibraryPositionCensus: 42 carriers
+// (Knowledge Exploitation, Kodama's Reach, Cultivate, Gifts Ungiven,
+// Intuition, Nissa's Pilgrimage, Sphinx Ambassador, Sword of Hearth and Home,
+// Aether Searcher, ...) and 0 carrying Reorder$ True (the 6 library-Reorder
+// carriers all write LibraryPosition$ 0 explicitly), so normalizing "" -> "0"
+// is census-safe for the Reorder branch too. The pin is bidirectional: a
+// corpus bump or support change that alters the count fails here and forces
+// a deliberate re-measure.
+const searchedAbsentCount = 42
+
 // absentAffectedCount pins the measured census of the absent-spelling class
 // at the current corpus pin. The predicate (measured with the same compiled-IR
 // walk TestTargetedLibraryPositionCensus uses -- Abilities/Triggers/Repls
@@ -173,6 +191,8 @@ func TestAbsentLibraryPositionCensus(t *testing.T) {
 	seen := map[*cards.SA]bool{}
 	tzCarriers := map[string]bool{}
 	allCarriers := map[string]bool{}
+	searchCarriers := map[string]bool{}
+	searchReorderCarriers := map[string]bool{}
 	for _, c := range reg.Cards {
 		for _, f := range c.Faces {
 			var walk func(sa *cards.SA)
@@ -185,6 +205,22 @@ func TestAbsentLibraryPositionCensus(t *testing.T) {
 					if (sa.API != "ChangeZone" && sa.API != "ChangeZoneAll") ||
 						!strings.Contains(sa.Params["Destination"], "Library") {
 						continue
+					}
+					// The searched-library class (agent-20260928T191540Z): an Origin$
+					// naming Library routes the placement through placeLibraryObjects
+					// whatever the object selectors say, so its census is keyed on the
+					// origin alone, before the ValidTgts$/Defined$ filter below (most
+					// of the 42 search their controller's own library and carry
+					// neither). The Reorder split asserts the absent-default
+					// normalization never reached a Reorder carrier.
+					if sa.API == "ChangeZone" &&
+						strings.Contains(sa.Params["Origin"], "Library") &&
+						strings.TrimSpace(sa.Params["LibraryPosition"]) == "" {
+						if strings.EqualFold(strings.TrimSpace(sa.Params["Reorder"]), "True") {
+							searchReorderCarriers[f.Name] = true
+						} else {
+							searchCarriers[f.Name] = true
+						}
 					}
 					if strings.TrimSpace(sa.Params["ValidTgts"]) == "" &&
 						strings.TrimSpace(sa.Params["Defined"]) == "" {
@@ -235,5 +271,194 @@ func TestAbsentLibraryPositionCensus(t *testing.T) {
 	if len(tzCarriers) == 0 || len(allCarriers) == 0 {
 		t.Fatalf("census measured an empty class -- the corpus walk found nothing; a pin of %d/%d cannot be trusted",
 			absentAffectedCount, absentAffectedAllCount)
+	}
+	if len(searchCarriers) != searchedAbsentCount || len(searchReorderCarriers) != 0 {
+		src := make([]string, 0, len(searchCarriers))
+		for n := range searchCarriers {
+			src = append(src, n)
+		}
+		reo := make([]string, 0, len(searchReorderCarriers))
+		for n := range searchReorderCarriers {
+			reo = append(reo, n)
+		}
+		slices.Sort(src)
+		slices.Sort(reo)
+		t.Errorf("searched-library absent LibraryPosition$ census drifted: measured %d carriers (pin %d), %d Reorder carriers (pin 0)\n  ChangeZone: %v\n  Reorder: %v",
+			len(searchCarriers), searchedAbsentCount, len(searchReorderCarriers), src, reo)
+	}
+	if len(searchCarriers) == 0 {
+		t.Fatalf("census measured an empty searched-library class -- the corpus walk found nothing; a pin of %d cannot be trusted",
+			searchedAbsentCount)
+	}
+}
+
+// TestSearchAbsentLibraryPositionIsTop drives a synthetic hidden-origin
+// DB$ ChangeZone (Origin$ Library | Destination$ Library | Shuffle$ False,
+// NO LibraryPosition$) through the searched-library path with a pre-answered
+// pick, and asserts the moved card lands at library index 0 of its owner with
+// one Secret LibraryOrder and no degradation Note (agent-20260928T191540Z).
+func TestSearchAbsentLibraryPositionIsTop(t *testing.T) {
+	h := newHost(t, 2)
+	src := lzCreature(t, h, 0, state.ZBattlefield, "Caster")
+	fills := lzFills(t, h, 2)
+	pick := lzFiller(t, h, 0, "Found")
+	wantPre := append(append([]state.ObjID(nil), fills...), pick)
+	if lib := lzLibraryOrderIDs(h, 0); !slices.Equal(lib, wantPre) {
+		t.Fatalf("precondition: library = %v, want %v (two fillers then Found)", lib, wantPre)
+	}
+	sa := sa(t, "DB$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Card | Shuffle$ False")
+	if sa.Params["LibraryPosition"] != "" {
+		t.Fatalf("precondition: SA carries LibraryPosition$ %q, want absent", sa.Params["LibraryPosition"])
+	}
+
+	Resolve(h, &Ctx{Controller: 0, Source: src, Search: []state.ObjID{pick},
+		SearchDone: true, LibraryTarget: 0}, sa)
+
+	if z := h.g.Obj(pick).Zone; z != state.ZLibrary {
+		t.Fatalf("Found zone = %v, want library (the move itself must still land)", z)
+	}
+	want := append([]state.ObjID{pick}, fills...)
+	if lib := lzLibraryOrderIDs(h, 0); !slices.Equal(lib, want) {
+		t.Fatalf("library = %v, want %v (absent LibraryPosition$ = TOP, Forge's default)", lib, want)
+	}
+	sawOrder := false
+	for _, e := range h.log {
+		if e.Kind == events.Note {
+			t.Fatalf("unexpected Note %+v (the absent default must not be loud)", e)
+		}
+		if e.Kind == events.LibraryOrder && e.Player == 0 && e.Secret && len(e.IDs) > 0 && e.IDs[0] == pick {
+			sawOrder = true
+		}
+	}
+	if !sawOrder {
+		t.Fatalf("no Secret LibraryOrder put Found on top; log = %+v", h.log)
+	}
+	if h.askCount != 0 {
+		t.Fatalf("the answered search posed %d asks, want 0 (the TOP default is deterministic)", h.askCount)
+	}
+}
+
+// TestKnowledgeExploitationSearchPlacesChosenOnTop drives the ACTUAL compiled
+// SA for Knowledge Exploitation ("Search target opponent's library for an
+// instant or sorcery card. You may cast that card without paying its mana
+// cost. Then that player shuffles." -- no LibraryPosition$ in the script)
+// through the searched-library path with an answered pick and a declined
+// may-cast, and asserts the Secret LibraryOrder puts the chosen card on top
+// of its owner's library at the placement point, BEFORE the closing DBShuffle
+// (agent-20260928T191540Z).
+func TestKnowledgeExploitationSearchPlacesChosenOnTop(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	ke, ok := reg.Lookup("Knowledge Exploitation")
+	if !ok {
+		t.Fatal("corpus has no Knowledge Exploitation")
+	}
+	var keSA *cards.SA
+	for _, a := range ke.Faces[0].Abilities {
+		if a.API == "ChangeZone" {
+			keSA = a
+			break
+		}
+	}
+	if keSA == nil {
+		t.Fatal("Knowledge Exploitation has no ChangeZone ability in the corpus")
+	}
+	if keSA.Params["LibraryPosition"] != "" || keSA.Params["Origin"] != "Library" ||
+		keSA.Params["Destination"] != "Library" {
+		t.Fatalf("precondition: compiled params = %v, want no LibraryPosition$ with Origin/Destination Library", keSA.Params)
+	}
+	if keSA.Params["SubAbility"] != "DBPlay" || keSA.Params["RememberChanged"] != "True" {
+		t.Fatalf("precondition: compiled params = %v, want SubAbility$ DBPlay and RememberChanged$ True", keSA.Params)
+	}
+
+	h := newHost(t, 2)
+	src := lzCreature(t, h, 0, state.ZBattlefield, "Caster")
+	g0 := lzFiller(t, h, 1, "G0")
+	g1 := lzFiller(t, h, 1, "G1")
+	found := lzFiller(t, h, 1, "Found")
+	if lib := lzLibraryOrderIDs(h, 1); !slices.Equal(lib, []state.ObjID{g0, g1, found}) {
+		t.Fatalf("precondition: opponent library = %v, want [G0 G1 Found]", lib)
+	}
+
+	// Pass 1: the answered search pick runs to the placement point. The
+	// fake host reports Suspended from the start, so Resolve's sub-ability
+	// walk stops after the ChangeZone body: the DBPlay ask and the closing
+	// DBShuffle have not run yet, and the library is exactly as the placement
+	// left it.
+	h.suspendAfterAsk = true
+	Resolve(h, &Ctx{Controller: 0, Source: src, SVars: ke.Faces[0].SVars,
+		Targets: []state.Target{{Player: 1, IsPlayer: true}},
+		Search:  []state.ObjID{found}, SearchDone: true, LibraryTarget: 0}, keSA)
+
+	if h.askCount != 0 {
+		t.Fatalf("pass 1 posed %d asks, want 0 (the pick was pre-answered)", h.askCount)
+	}
+	if lib := lzLibraryOrderIDs(h, 1); !slices.Equal(lib, []state.ObjID{found, g0, g1}) {
+		t.Fatalf("opponent library = %v, want Found on TOP (Forge's absent-LibraryPosition$ default is position 0)", lib)
+	}
+	orderAt := -1
+	for i, e := range h.log {
+		if e.Kind == events.LibraryOrder && e.Player == 1 && e.Secret && slices.Equal(e.IDs, []state.ObjID{found, g0, g1}) {
+			orderAt = i
+		}
+	}
+	if orderAt < 0 {
+		t.Fatalf("no Secret LibraryOrder put Found on top of its owner's library; log = %+v", h.log)
+	}
+	for _, e := range h.log {
+		if e.Kind == events.PutOnStack {
+			t.Fatalf("a card was cast before the may-cast ask was answered: %+v", e)
+		}
+	}
+
+	// Pass 2: the may-cast ask. DBPlay (Optional$ True over the Remembered
+	// found card) poses its ask to the searching player and suspends; the
+	// DBShuffle tail still has not run.
+	body := cards.ResolveSVar(ke.Faces[0].SVars, "DBPlay")
+	if body == nil || body.Params["Optional"] != "True" || body.Params["Defined"] != "Remembered" {
+		t.Fatalf("precondition: DBPlay = %+v, want Optional$ True over Defined$ Remembered", body.Params)
+	}
+	h.askResult = true
+	Resolve(h, &Ctx{Controller: 0, Source: src, SVars: ke.Faces[0].SVars,
+		Remembered: []state.Target{{Obj: found}}}, body)
+
+	if h.askCount != 1 {
+		t.Fatalf("pass 2 posed %d asks, want 1 (the DBPlay may-cast)", h.askCount)
+	}
+	d := h.lastAsk
+	if d == nil || d.ResumeKind != "play" || d.Player != 0 {
+		t.Fatalf("expected the may-cast ask for the searching player, got %+v", d)
+	}
+	sawFound := false
+	for _, o := range d.Options {
+		if o.Obj == found {
+			sawFound = true
+		}
+	}
+	if !sawFound {
+		t.Fatalf("the found card is not offered by the may-cast ask: %+v", d.Options)
+	}
+
+	// Pass 3: the DECLINED may-cast re-enters DBPlay with the empty answer
+	// (PlayDone with a zero pick); the chain then runs its DBShuffle tail
+	// AFTER the LibraryOrder placement.
+	h.askResult = false
+	h.suspendAfterAsk = false
+	Resolve(h, &Ctx{Controller: 0, Source: src, SVars: ke.Faces[0].SVars,
+		Remembered: []state.Target{{Obj: found}}, PlayDone: true}, body)
+
+	if h.askCount != 1 {
+		t.Fatalf("the decline re-entry posed %d new asks, want none", h.askCount-1)
+	}
+	if z := h.g.Obj(found).Zone; z != state.ZLibrary {
+		t.Fatalf("declined may-cast still moved the card: Found zone = %v, want library", z)
+	}
+	shuffled := false
+	for i, e := range h.log {
+		if e.Kind == events.Shuffle && e.Player == 1 && i > orderAt {
+			shuffled = true
+		}
+	}
+	if !shuffled {
+		t.Fatalf("the declined may-cast did not run the closing DBShuffle after the LibraryOrder at %d; log = %+v", orderAt, h.log)
 	}
 }

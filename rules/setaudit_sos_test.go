@@ -508,9 +508,6 @@ func TestSetAudit_sos_EliteInterceptor_PreparedSpellCopyUnprepares(t *testing.T)
 // a +1/+1 counter on this creature." kw:Increment is unsupported
 // (cards.Registry.Unsupported: kw:Increment).
 func TestSetAudit_sos_PensiveProfessor_IncrementOnExpensiveCast(t *testing.T) {
-	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): kw:Increment is unimplemented -- casts never add counters. Follow-up: implement the Increment keyword")
-	}
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 910, []string{"Pensive Professor"}, []string{sosInsightSrc}, nil)
 	prof := findAndMoveToHand(t, e, 0, "Pensive Professor")
