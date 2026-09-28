@@ -1,0 +1,36 @@
+{
+  "card": "Mox Diamond",
+  "family": "replacement",
+  "oracle_sha": "76b300eceb51",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "discard-land-to-enter",
+      "cr": ["614.1c", "614.12a"],
+      "why": "As Mox Diamond would enter, its controller chooses to discard a land; that permits it to enter the battlefield.",
+      "setup": {"p0": {"hand": ["Mox Diamond", "Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Mox Diamond"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Mox Diamond", "zone": "battlefield"},
+        {"card": "p0:Forest", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "decline-discard-mox-does-not-enter",
+      "cr": ["614.1c", "614.12a", "614.6"],
+      "why": "Declining the optional land discard means the replacement puts Mox Diamond into its owner's graveyard instead of onto the battlefield.",
+      "setup": {"p0": {"hand": ["Mox Diamond", "Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Mox Diamond"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Mox Diamond", "zone": "graveyard"},
+        {"card": "p0:Forest", "zone": "hand"}
+      ]
+    }
+  ]
+}

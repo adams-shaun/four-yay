@@ -1500,6 +1500,7 @@ const (
 	// an opponent of the evaluating controller (sc.You), the object-side twin
 	// of the player grammar's `Opponent` base.
 	wordDealtDamageThisTurn
+	wordDamagedBy
 	wordImprinted
 	wordDefenderCtrl
 	wordNotDefinedTargeted
@@ -1559,6 +1560,19 @@ const (
 // unrecognised word is wordUnknown: both sides must fail closed on it, never
 // turn it into an always-true predicate.
 func wordPredicate(p string) (wordKind, string) {
+	if suffix, ok := strings.CutPrefix(p, "DamagedBy"); ok {
+		if suffix == "" {
+			return wordDamagedBy, ""
+		}
+		base := strings.TrimSuffix(suffix, ".YouCtrl")
+		if base != "Card" && base != "Giant" && base != "Spider" {
+			return wordUnknown, suffix
+		}
+		if suffix != base && suffix != base+".YouCtrl" {
+			return wordUnknown, suffix
+		}
+		return wordDamagedBy, suffix
+	}
 	if l, is := colorLetter[p]; is {
 		return wordColor, l
 	}
@@ -2141,6 +2155,26 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// source. Source==0 is the unbound case and fails closed
 		// (contextPredicateBound refuses to invert it beneath '!').
 		return damageGameRecordHas(o.DamageTakenByGame, source)
+	case wordDamagedBy:
+		if key == "" {
+			return damageGameRecordHas(o.DamageTakenThisTurnBy, source)
+		}
+		base := strings.TrimSuffix(key, ".YouCtrl")
+		spec := base
+		if strings.HasSuffix(key, ".YouCtrl") {
+			if base == "Card" {
+				spec += ".YouCtrl"
+			} else {
+				spec = "Creature." + base + "+YouCtrl"
+			}
+		}
+		for _, srcID := range o.DamageTakenThisTurnBy {
+			srcObj := g.Obj(srcID)
+			if srcObj != nil && MatchesObjectCtx(g, spec, srcObj, sc) {
+				return true
+			}
+		}
+		return false
 	case wordDealtDamageThisGameBy:
 		// Forge's wasDealtDamageThisGameBy <ref> (the_fallen's walker half
 		// Planeswalker.wasDealtDamageByThisGame-by-Self is the bare sibling
@@ -2390,11 +2424,15 @@ func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecCont
 	case wordImprinted, wordChosenColor:
 		return sc.Source != 0
 	case wordDealtDamageByThisGame:
-		// The bare word names the bound source; with no source (a direct
-		// MatchesPlayerSpec/MatchesSpecCtx caller) the body would test the
-		// record against 0 and, beneath '!', invert that absence into a
-		// match. Refuse it.
+		// The bare word names the bound source; without one it must not
+		// invert an absent referent beneath '!'.
 		return sc.Source != 0
+	case wordDamagedBy:
+		if key == "" {
+			return sc.Source != 0
+		}
+		base := strings.TrimSuffix(key, ".YouCtrl")
+		return base == "Card" || base == "Giant" || base == "Spider"
 	case wordDealtDamageThisGameBy:
 		// The argument form binds through <ref>; an unresolvable ref names no
 		// source at all, so both the positive and the '!'-negated spelling

@@ -4320,13 +4320,33 @@ func (e *Engine) replacementMatchesRemembered(r cards.Repl, source state.ObjID, 
 	return e.replacementMatchesRememberedUngated(r, source, ev, remembered, rememberedPlayers, nil)
 }
 
+// commandReplZoneAdmits is the one home for the command-zone half of the
+// printed-replacement zone gate: a replacement whose source currently sits in
+// the command zone may act only when its script explicitly declares
+// ActiveZones$ Command. The ordinary object walk (rules/trigger_match.go's
+// forEachObject) now reaches the command zone because it shares that walk with
+// the printed-trigger scan, which must see command-zone triggers such as
+// Sidar Jabari of Zhalfir's Eminence. Every printed-replacement path that
+// reads a face's R: lines off that walk therefore applies this gate, keeping
+// ordinary card text parked in the command zone inert (CR 611.3b's declared-
+// zone rule). A source outside the command zone always admits.
+func (e *Engine) commandReplZoneAdmits(r cards.Repl, source state.ObjID) bool {
+	o := e.G.Obj(source)
+	if o == nil || o.Zone != state.ZCommand {
+		return true
+	}
+	active, ok := r.Params["ActiveZones"]
+	return ok && zoneSpecContains(active, state.ZCommand)
+}
+
 // activeZonesGateOK is the ActiveZones$ zone gate the PRINTED replacement
 // paths share:
 //
-//   - the generic object walk historically excludes the command zone; its
-//     replacement-only extension admits command-zone sources, but only when
-//     the script explicitly declares that zone; this keeps ordinary card
-//     text parked there inert and does not change trigger discovery.
+//   - the ordinary object walk now reaches the command zone (it shares
+//     forEachObject with the printed-trigger scan); a replacement source
+//     there is admitted only when its script explicitly declares that zone
+//     (commandReplZoneAdmits), which keeps ordinary card text parked there
+//     inert.
 //
 //   - CR 611.3b/614.4: a static replacement only applies from one of its
 //     declared active zones. Accept the comma-separated list grammar used by
@@ -4342,11 +4362,8 @@ func (e *Engine) replacementMatchesRemembered(r cards.Repl, source state.ObjID, 
 //     value, so the clause is MoveZone-only rather than reading a
 //     meaningless zero zone.
 func (e *Engine) activeZonesGateOK(r cards.Repl, source state.ObjID, ev events.Event) bool {
-	if o := e.G.Obj(source); o != nil && o.Zone == state.ZCommand {
-		active, ok := r.Params["ActiveZones"]
-		if !ok || !zoneSpecContains(active, state.ZCommand) {
-			return false
-		}
+	if !e.commandReplZoneAdmits(r, source) {
+		return false
 	}
 	if active, ok := r.Params["ActiveZones"]; ok {
 		o := e.G.Obj(source)
@@ -5732,6 +5749,9 @@ func (e *Engine) counterReplacementMatches(r cards.Repl, source, target, cause s
 	o := e.G.Obj(source)
 	t := e.G.Obj(target)
 	if o == nil || t == nil || t.Zone != state.ZStack {
+		return false
+	}
+	if !e.commandReplZoneAdmits(r, source) {
 		return false
 	}
 	if active := r.Params["ActiveZones"]; active != "" && !zoneSpecContains(active, o.Zone) {
@@ -7439,6 +7459,9 @@ func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 }
 
 func replacementActive(e *Engine, source state.ObjID, r *cards.Repl) bool {
+	if !e.commandReplZoneAdmits(*r, source) {
+		return false
+	}
 	active, ok := r.Params["ActiveZones"]
 	if !ok {
 		return true

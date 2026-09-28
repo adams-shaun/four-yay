@@ -45,10 +45,15 @@ import (
 // listed scenario must still FAIL (a fixed one is stale and fails the build
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
+//
+// NEW rows go in the family's own oracleDivergentFile
+// (testdata/oracle/<family>/known-divergent.json), not here: every audit
+// ticket appending to this one map made each merge conflict with every other
+// in-flight audit branch, and each conflict cost a merge-fix round plus a full
+// re-gate. The two sources are merged by oracleDivergent; a key in both, or a
+// file row naming a scenario of another family, fails the build. Rows here are
+// legacy and may be moved into the family files.
 var oracleKnownDivergent = map[string]string{
-	// Script translation: effects/play.go validSAOK rejects the Hero subtype
-	// when filtering a free cast, leaving no offered Hero despite X = 5.
-	"West Coast Expansion/x-five-may-cast-hero": "observed Hero stays in hand (6 cards after drawing five), expected free cast to battlefield (5 cards in hand)",
 	// Gray Merchant's drain resolves but its subsequent life-gain amount is
 	// zero: the life-loss total is not propagated to the gain (effects/life.go,
 	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
@@ -76,17 +81,9 @@ var oracleKnownDivergent = map[string]string{
 	// conditional continuous may-play static; Haakon is present, but the
 	// Knight in its controller's graveyard is not offered.
 	"Haakon, Stromgald Scourge/haakon-on-battlefield-permits-knight-from-graveyard": "Knight of the Ebon Legion from the graveyard was not offered while Haakon was on the battlefield",
-	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
-	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
-	// so an Eminence trigger never fires from the command zone.
-	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
 	// Script translation: the once-per-turn permission is tracked per
 	// affected spell, so Darksteel Monolith's free-cast grant is available again.
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
-	// Engine primitive gap: the death trigger's damage-source filter has no
-	// DamagedBy matcher (40 corpus scripts use that qualifier). The script
-	// accurately encodes Hawkeye's printed condition.
-	"Hawkeye, Avenging Archer/damaged-victim-dies-draw": "observed no draw (hand 0), expected one draw (hand 1) after Hawkeye damaged the victim",
 	// Engine primitive: the Effect-created entry replacement from the attack
 	// trigger does not put its counter on the remembered Hero returned from the graveyard.
 	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
@@ -1165,6 +1162,59 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 	return fails, r.log, r
 }
 
+// oracleDivergentFile is a family directory's ratchet rows: one flat JSON
+// object, "<card>/<scenario>" -> the one-line observed-vs-expected reason.
+// It is not a scenario file; loadOracleFiles skips it.
+const oracleDivergentFile = "known-divergent.json"
+
+// oracleDivergentRow is one ratchet row and where it came from: the family of
+// the file that holds it, or "" for the legacy oracleKnownDivergent map.
+type oracleDivergentRow struct {
+	reason, family string
+}
+
+// oracleDivergent merges the legacy oracleKnownDivergent map with every
+// family's oracleDivergentFile. It needs no corpus, so the scenario-schema
+// test holds the files to their shape where the author works.
+func oracleDivergent(t *testing.T) map[string]oracleDivergentRow {
+	t.Helper()
+	out := make(map[string]oracleDivergentRow, len(oracleKnownDivergent))
+	for k, v := range oracleKnownDivergent {
+		out[k] = oracleDivergentRow{reason: v}
+	}
+	paths, err := filepath.Glob(filepath.Join("testdata", "oracle", "*", oracleDivergentFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range paths {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rows map[string]string
+		if err := json.Unmarshal(raw, &rows); err != nil {
+			t.Fatalf("%s: want one JSON object of \"<card>/<scenario>\": \"reason\" rows: %v", p, err)
+		}
+		fam := filepath.Base(filepath.Dir(p))
+		for k, v := range rows {
+			if !strings.Contains(k, "/") || strings.TrimSpace(v) == "" {
+				t.Errorf("%s: row %q needs a \"<card>/<scenario>\" key and a non-empty reason", p, k)
+				continue
+			}
+			if prev, dup := out[k]; dup {
+				where := "oracleKnownDivergent"
+				if prev.family != "" {
+					where = filepath.Join(prev.family, oracleDivergentFile)
+				}
+				t.Errorf("%s: row %q is also listed in %s", p, k, where)
+				continue
+			}
+			out[k] = oracleDivergentRow{reason: v, family: fam}
+		}
+	}
+	return out
+}
+
 func loadOracleFiles(t *testing.T) map[string]oracleFile {
 	t.Helper()
 	paths, err := filepath.Glob(filepath.Join("testdata", "oracle", "*", "*.json"))
@@ -1173,6 +1223,9 @@ func loadOracleFiles(t *testing.T) map[string]oracleFile {
 	}
 	out := map[string]oracleFile{}
 	for _, p := range paths {
+		if filepath.Base(p) == oracleDivergentFile {
+			continue
+		}
 		raw, err := os.ReadFile(p)
 		if err != nil {
 			t.Fatal(err)
@@ -1208,6 +1261,24 @@ var oracleOps = map[string]bool{
 // directory, unique scenario names, the step vocabulary, and ref syntax.
 func TestOracleScenarioFilesWellFormed(t *testing.T) {
 	files := loadOracleFiles(t)
+	// The ratchet files are checked here too (shape, duplicates, family), so
+	// a triage edit gets feedback without the corpus.
+	divergent := oracleDivergent(t)
+	scenarioFamily := map[string]string{}
+	for _, f := range files {
+		for _, sc := range f.Scenarios {
+			scenarioFamily[f.Card+"/"+sc.Name] = f.Family
+		}
+	}
+	for key, row := range divergent {
+		fam, ok := scenarioFamily[key]
+		switch {
+		case !ok:
+			t.Errorf("ratchet row %q names no scenario", key)
+		case row.family != "" && row.family != fam:
+			t.Errorf("ratchet row %q is in %s/%s but the scenario is family %q", key, row.family, oracleDivergentFile, fam)
+		}
+	}
 	checkRef := func(where, ref string) {
 		if ref == "" {
 			return
@@ -1262,6 +1333,7 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 func TestOracleAudit(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	files := loadOracleFiles(t)
+	divergent := oracleDivergent(t)
 	paths := make([]string, 0, len(files))
 	for p := range files {
 		paths = append(paths, p)
@@ -1292,13 +1364,17 @@ func TestOracleAudit(t *testing.T) {
 						t.Errorf("log-only replay differs:\n%s", diff)
 					}
 				}
-				known, isKnown := oracleKnownDivergent[key]
+				row, isKnown := divergent[key]
+				known := row.reason
+				if isKnown && row.family != "" && row.family != f.Family {
+					t.Errorf("ratchet row for %s is in %s/%s but the scenario is family %q", key, row.family, oracleDivergentFile, f.Family)
+				}
 				if os.Getenv("ORACLE_AUDIT_TRACE") != "" {
 					t.Logf("transcript:\n    %s", strings.Join(transcript, "\n    "))
 				}
 				switch {
 				case len(fails) == 0 && isKnown:
-					t.Errorf("stale known divergence (the scenario now passes; delete its oracleKnownDivergent row): %s", known)
+					t.Errorf("stale known divergence (the scenario now passes; delete its row from %s/%s or oracleKnownDivergent): %s", f.Family, oracleDivergentFile, known)
 				case len(fails) > 0 && isKnown:
 					t.Logf("known divergence: %s\n  observed: %s", known, strings.Join(fails, "\n  observed: "))
 				case len(fails) > 0:
@@ -1308,9 +1384,13 @@ func TestOracleAudit(t *testing.T) {
 			})
 		}
 	}
-	for key := range oracleKnownDivergent {
+	for key, row := range divergent {
 		if !seen[key] {
-			t.Errorf("oracleKnownDivergent row %q names no scenario", key)
+			where := "oracleKnownDivergent"
+			if row.family != "" {
+				where = filepath.Join(row.family, oracleDivergentFile)
+			}
+			t.Errorf("%s row %q names no scenario", where, key)
 		}
 	}
 }
