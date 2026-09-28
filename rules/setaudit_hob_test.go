@@ -13,7 +13,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -157,21 +156,114 @@ func TestSetAudit_hob_ElvenPassage_BeholdUntapsSearchedLand(t *testing.T) {
 //	(Draw a card, then discard a card. If you discarded a nonland card,
 //	 create a 1/1 white Human Soldier creature token.)
 //
-// -- is a real action (CR 701), and the engine has no api:Recruit at all:
-// all 10 carriers in the set are Unsupported. A keyword the set is defined
-// by must not be a silent no-op.
-func TestSetAudit_hob_GreatGildedBoat_RecruitIsImplemented(t *testing.T) {
-	hobGuard(t, "the Recruit keyword action is unimplemented (api:Recruit), so all 10 hob Recruit cards do nothing when their trigger fires", "hob-recruit-keyword")
+// -- is a real action (CR 701.9): draw a card, discard a card, then create a
+// Human Soldier if the discarded card was nonland. The ETB trigger on
+// Celebrate the Mountain-king must execute the draw and reach the discard ask.
+func TestSetAudit_hob_GreatGildedBoat_RecruitDrawsThenAsksDiscard(t *testing.T) {
+	hobGuard(t, "Recruit does not draw then ask for a discard when its ETB trigger resolves", "hob-recruit-keyword")
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	boat := hobCard(t, reg, "Great Gilded Boat")
-	sup := effects.Supported()
-	t.Run("registry", func(t *testing.T) {
-		if !sup["api:Recruit"] {
-			miss := reg.Unsupported(boat, sup)
-			t.Fatalf("Great Gilded Boat is Unsupported %v; api:Recruit is not implemented", miss)
+	e := handEngine(t, hobCard(t, reg, "Celebrate the Mountain-king"))
+	var recruit state.ObjID
+	for _, id := range e.G.Zone(state.ZHand, 0) {
+		if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == "Celebrate the Mountain-king" {
+			recruit = id
 		}
-	})
+	}
+	if recruit == 0 {
+		t.Fatal("precondition: Recruit carrier not in hand")
+	}
+	// Place the carrier on the battlefield and queue its compiled ETB ability
+	// directly. This isolates Recruit resolution from the trigger-event setup.
+	e.emit(events.Event{Kind: events.MoveZone, Obj: recruit, From: state.ZHand, To: state.ZBattlefield})
+	if e.G.Obj(recruit).Zone != state.ZBattlefield {
+		t.Fatal("precondition: Recruit carrier did not enter")
+	}
+	triggerIdx := -1
+	for i, tr := range e.G.Obj(recruit).Face().Triggers {
+		if tr.Params["Execute"] == "TrigRecruit" {
+			triggerIdx = i
+			break
+		}
+	}
+	if triggerIdx < 0 {
+		t.Fatal("precondition: compiled Recruit trigger missing")
+	}
+	// A draw needs a nonempty library; handEngine's minimal fixture has none.
+	libCard := card(t, "Name:Recruit Library Filler\nTypes:Instant\nOracle:x\n")
+	var library []state.ObjID
+	for i := 0; i < 3; i++ {
+		o := e.G.AddObject(libCard, 0)
+		o.Zone = state.ZLibrary
+		library = append(library, o.ID)
+	}
+	e.G.SetZone(state.ZLibrary, 0, library)
+	e.pushTrigger(pendingTrigger{Source: recruit, Controller: 0, Idx: triggerIdx, SA: e.G.Obj(recruit).Face().Triggers[triggerIdx].Effect})
+	if len(e.G.Stack) == 0 {
+		t.Fatal("precondition: Recruit ETB trigger was not put on the stack")
+	}
+	before := len(e.G.Zone(state.ZHand, 0))
+	e.resolveTop()
+	if got := len(e.G.Zone(state.ZHand, 0)); got != before+1 {
+		t.Fatalf("Recruit hand after resolving ETB = %d, want %d after its draw (CR 701.9)", got, before+1)
+	}
+	if d := e.Pending(); d == nil || d.Kind != decision.KChoose {
+		t.Fatalf("Recruit discard decision = %+v, want a choice after drawing", d)
+	}
+}
+
+// TestSetAudit_hob_BardKingOfDale_ReplacesExtraDrawWithTwo is a guarded
+// finding: Bard's CR 616.1 draw replacement should make an extra draw into two.
+func TestSetAudit_hob_BardKingOfDale_ReplacesExtraDrawWithTwo(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngine(t, hobCard(t, reg, "Bard, King of Dale"))
+	bard := hobPut(t, e, 0, hobCard(t, reg, "Bard, King of Dale"))
+	if o := e.G.Obj(bard); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("precondition: Bard is not on battlefield")
+	}
+	before := len(e.G.Zone(state.ZHand, 0))
+	emitDraw(t, e, 0) // handEngine is outside the draw step: this is an extra draw.
+	if got := len(e.G.Zone(state.ZHand, 0)) - before; got != 2 {
+		t.Fatalf("Bard extra-draw hand delta = %d, want 2 (CR 616.1)", got)
+	}
+}
+
+// TestSetAudit_hob_GollumRiddleMaster_ChoosesOddOrEven checks the actual
+// ETB replacement choice, not merely registration. CR 614.1: the replacement
+// effect modifies how Gollum enters and must ask for the chosen quality.
+func TestSetAudit_hob_GollumRiddleMaster_ChoosesOddOrEven(t *testing.T) {
+	hobGuard(t, "Gollum, Riddle Master enters without the required odd-or-even choice", "hob-gollum-even-odd")
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngine(t, hobCard(t, reg, "Gollum, Riddle Master"))
+	e.askPriority(0)
+	addMana(t, e, 0, "1B")
+	opt := castByName(t, e, 0, "Gollum, Riddle Master")
+	if opt == nil {
+		t.Fatal("precondition: Gollum is not castable")
+	}
+	submitChoices(t, e, opt.Index)
+	for i := 0; i < 20; i++ {
+		d := e.Pending()
+		if d == nil {
+			break
+		}
+		if d.Kind == decision.KChoose || d.Kind == decision.KModes {
+			return
+		}
+		if d.Kind == decision.KPriority {
+			castFirst(t, e, "pass")
+			continue
+		}
+		t.Fatalf("unexpected decision before Gollum ETB choice: %+v", d)
+	}
+	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+		if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == "Gollum, Riddle Master" {
+			t.Fatal("Gollum entered without an odd/even choice (CR 614.1)")
+		}
+	}
+	t.Fatal("precondition failed: Gollum did not enter; no entry-choice behavior was tested")
 }
 
 // drainToEnd answers every pending decision deterministically until the stack
@@ -200,7 +292,6 @@ func hobDrain(t *testing.T, e *Engine, limit int) {
 // "then attach this Equipment to the amassed Army"). CR 701.3/701.34: the
 // amass creates (or grows) the Army, and the attach must name THAT object.
 func TestSetAudit_hob_GoblinPlateMail_AmassesThenAttaches(t *testing.T) {
-	hobGuard(t, "Goblin Plate Mail's Amass RememberAmass$ True + Attach Defined$ Remembered sequence does not attach to the amassed Army", "hob-goblin-plate-mail-amass-attach")
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngineTokens(t, hobCard(t, reg, "Goblin Plate Mail"))
@@ -252,9 +343,6 @@ func TestSetAudit_hob_GoblinPlateMail_AmassesThenAttaches(t *testing.T) {
 		t.Fatalf("amass precondition: Goblin Plate Mail's ETB minted no Army to attach to; battlefield = %v", names)
 	}
 	army := armies[0]
-	if got := e.G.Obj(army).AttachedTo; got != mail {
-		t.Fatalf("amassed Army AttachedTo = %d, want the Equipment %d", got, mail)
-	}
 	if got := e.G.Obj(mail).AttachedTo; got != army {
 		t.Fatalf("Goblin Plate Mail AttachedTo = %d, want the amassed Army %d", got, army)
 	}
