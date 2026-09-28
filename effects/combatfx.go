@@ -711,6 +711,14 @@ type animateGrant struct {
 	abilities []string
 	duration  string
 	permanent bool
+	// perpetual is Duration$ Perpetual (the Alchemy "perpetually" family:
+	// Chronicler of Worship's "It perpetually gains ...", Absorb Energy's
+	// "... perpetually gain ..."): the animation lasts for the rest of the
+	// game and follows the object through every zone change, so it is
+	// registered Permanent with NO move-driven sweep (a Duration$ Permanent
+	// animation instead ends when its object leaves the zone it was granted
+	// in). See registerAnimateEffects.
+	perpetual bool
 	zone      string
 	// endOnLeave ends the grant the moment the animated object leaves the
 	// battlefield, regardless of Duration$. registerAnimateEffects expresses
@@ -891,6 +899,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 		ag.triggers = append(ag.triggers, t)
 	}
 	ag.permanent = strings.EqualFold(strings.TrimSpace(sa.Params["Duration"]), "Permanent")
+	ag.perpetual = isPerpetualDuration(sa.Params["Duration"])
 	// RemoveAllAbilities$ True (state.ContinuousEffect.RemoveAbilities): the
 	// layer-6 ability strip the static Humility carries, delivered here by
 	// the Animate-param path. See animateGrant.removeAbilities.
@@ -957,10 +966,16 @@ func animateHostScoped(dur string) bool {
 // its own turn boundary from AddContinuous. Every other value -- the absent
 // Duration$ and UntilEndOfTurn -- keeps the historic end-of-turn cleanup.
 func animateUntilEOT(dur string) bool {
-	if animateHostScoped(dur) {
+	if animateHostScoped(dur) || isPerpetualDuration(dur) {
 		return false
 	}
 	return !strings.EqualFold(strings.TrimSpace(dur), "Permanent") && !IsNextTurnDuration(dur)
+}
+
+// isPerpetualDuration reports Duration$ Perpetual: the effect lasts for the
+// rest of the game, across every zone change of the affected object.
+func isPerpetualDuration(dur string) bool {
+	return strings.EqualFold(strings.TrimSpace(dur), "Perpetual")
 }
 
 // emitAnimateTriggersNotes is the shared Triggers$ fail-closed surface: one
@@ -1004,6 +1019,12 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 	// until-end-of-turn / Permanent classes. Hoisting it keeps the halves from
 	// disagreeing (see animateUntilEOT).
 	untilEOT := animateUntilEOT(ag.duration)
+	// Duration$ Perpetual registers every half Permanent, like Duration$
+	// Permanent, but WITHOUT the zone-scoped sweep below: a perpetual grant
+	// follows its object through hand, stack, battlefield and graveyard
+	// (Chronicler of Worship's discount must still apply when the card is
+	// cast -- the cost is determined with the spell on the stack).
+	permanent := ag.permanent || ag.perpetual
 	var durSource state.ObjID
 	if animateHostScoped(ag.duration) {
 		durSource = c.Source
@@ -1052,7 +1073,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			// half-permanent — types kept while an UntilEOT P/T set
 			// strips them to an untransformed-basis 0/0 the CR 704.5f
 			// SBA destroys.
-			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Duration: ag.duration, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1063,7 +1084,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Layer: state.LType, AddTypes: ag.types,
 			RemoveCreatureTypes: ag.removeCreatureTypes, RemoveTypes: ag.removeTypes,
 			AddAllCreatureTypes: ag.allCreatureTypes, RemoveCardTypes: ag.removeCardTypes,
-			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Duration: ag.duration, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1079,7 +1100,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LText, SetName: ag.name,
-			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Duration: ag.duration, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1088,7 +1109,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LColor, AddColors: ag.colors, OverwriteColors: ag.overwriteColors,
-			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Duration: ag.duration, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1116,7 +1137,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LAbilities, RemoveAbilities: ag.removeAbilities,
 			AddKeywords: kws, RemoveKeywords: ag.removeKeywords,
-			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Duration: ag.duration, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1126,7 +1147,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LAbilities, AddAbilities: ag.abilities,
 			SVars: c.SVars, AbilityGrantor: svarTableOwner(h, c),
-			Duration: ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Duration: ag.duration, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1147,7 +1168,7 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 			Layer:          state.LAbilities,
 			AddTrigger:     &t,
 			TriggerGrantor: ag.triggerGrantor,
-			Duration:       ag.duration, Permanent: ag.permanent, UntilEOT: untilEOT, DurationSource: durSource,
+			Duration:       ag.duration, Permanent: permanent, UntilEOT: untilEOT, DurationSource: durSource,
 			ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
 			AffectedZone: ag.zone,
 		})
@@ -1156,13 +1177,13 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 	// Kheru Lich Lord, Gruesome Encore, Storm Herald): both ride the
 	// animation's own lifetime, one registration per animated object -- see
 	// effects/leavebattlefield.go for the shape each takes.
-	registerLeaveExile(h, c, id, ag.leaveExile, ag.duration, ag.permanent)
-	registerSVarGrants(h, c, id, ag.svars, ag.duration, ag.permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
-	registerAnimateStaticAbilities(h, c, id, ag.staticAbilities, ag.duration, ag.permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
+	registerLeaveExile(h, c, id, ag.leaveExile, ag.duration, permanent)
+	registerSVarGrants(h, c, id, ag.svars, ag.duration, permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
+	registerAnimateStaticAbilities(h, c, id, ag.staticAbilities, ag.duration, permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
 	// The Replacements$ grant: one Effect-created replacement per named SVar
 	// body, riding the animation's own lifetime (ExileOnMoved$/Remembered),
 	// exactly like the LeaveBattlefield$ promise above.
-	registerAnimateReplacements(h, c, id, ag.replacements, ag.duration, ag.permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
+	registerAnimateReplacements(h, c, id, ag.replacements, ag.duration, permanent, untilEOT, durSource, exileOn, exileAlso, remembered)
 }
 
 // animateAllUnreadNote names, in ONE loud note, every parameter the SA carries

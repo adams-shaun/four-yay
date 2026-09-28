@@ -2281,8 +2281,17 @@ func amountMayReadTargets(sv staticView) bool {
 	return err != nil
 }
 
-// appendEffectCostStatics appends the Effect-delivered cost-modifier statics
-// (see scanCostStatics) after the printed ones.
+// appendEffectCostStatics appends the registry-delivered cost-modifier
+// statics (see scanCostStatics) after the printed ones: the Effect-delivered
+// ones, and every GRANTED one (state.ContinuousEffect.CostStaticGranted --
+// Animate/AnimateAll staticAbilities$, Mode$ Continuous AddStaticAbility$,
+// CopyPermanent AddStaticAbilities$). Both read e.active(), so a grant's
+// lifetime is exactly the lifetime the layer walk honours for its siblings:
+// cleanup drops an UntilEOT grant, the move sweep ends a zone-scoped one, a
+// static-derived grant exists only while its granting static is live (the
+// staticContinuous scan re-runs per event). Order is active()'s CR 613
+// layer/timestamp order, then each spec-scoped grant's hosts in the
+// deterministic zone walk grantedCostStaticHosts takes.
 func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 	for _, ce := range e.active() {
 		var dst *[]staticView
@@ -2296,9 +2305,62 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 		default:
 			continue
 		}
+		if ce.CostStaticGranted {
+			e.appendGrantedCostStatic(dst, &ce)
+			continue
+		}
 		*dst = append(*dst, staticView{Source: ce.Source, Controller: ce.Controller,
 			Params: ce.CostStaticParams, ChosenNumber: ce.ChosenNumber, chosenNumberBound: true})
 	}
+}
+
+// appendGrantedCostStatic binds one granted cost-modifier static to each of
+// its hosts exactly as scanCostStatics binds a printed static to the object
+// printing it: the host is the view's Source (ValidCard$/ValidTarget$
+// Card.Self name the host, not the grantor), the host's CURRENT controller is
+// its Controller (Activator$ You/Opponent read the object that has the
+// ability), EffectZone$ gates on the host's zone (default the battlefield),
+// and the granting face's SVar table resolves Amount$/CheckSVar$ names.
+func (e *Engine) appendGrantedCostStatic(dst *[]staticView, ce *ContinuousEffect) {
+	add := func(id state.ObjID) {
+		o := e.G.Obj(id)
+		if o == nil || (o.Zone == state.ZBattlefield && o.PhasedOut) ||
+			!effectZoneOK(ce.CostStaticParams["EffectZone"], o.Zone) {
+			return
+		}
+		*dst = append(*dst, staticView{Source: id, Controller: o.Controller,
+			Params: ce.CostStaticParams, SVars: ce.CostStaticSVars})
+	}
+	affects := strings.TrimSpace(ce.Affects)
+	if affects == "" || affects == "Card.Self" {
+		add(ce.Source)
+		return
+	}
+	for pi, p := range e.G.AliveFrom(0) {
+		for _, z := range staticSourceZones {
+			if z == state.ZStack && pi > 0 {
+				continue
+			}
+			if !grantedHostZone(ce.AffectedZone, z) {
+				continue
+			}
+			for _, id := range e.G.Zone(z, p) {
+				if e.matchesSpecFrom(affects, id, ce.Controller, ce.Source) {
+					add(id)
+				}
+			}
+		}
+	}
+}
+
+// grantedHostZone reports whether a spec-scoped grant reaches objects in z:
+// the battlefield by default (Forge's Affected$ default), otherwise the
+// grant's own AffectedZone$ list.
+func grantedHostZone(affectedZone string, z state.Zone) bool {
+	if strings.TrimSpace(affectedZone) == "" {
+		return z == state.ZBattlefield
+	}
+	return affectedZoneOK(affectedZone, z)
 }
 
 // modAmountX evaluates one cost-modifier static's Amount$: a plain literal
