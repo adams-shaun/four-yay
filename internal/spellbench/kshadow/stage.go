@@ -556,8 +556,13 @@ func (b *builder) stageStack() {
 		case it.Kind == "triggered_ability" || it.Kind == "activated_ability":
 			src, ok := b.sh.ArenaToObj[it.Source.ArenaID]
 			if !ok {
-				b.sh.Fatal = "stack ability source not staged"
-				return
+				// The source has left (a token sacrificed for the cost, a
+				// card that died or shuffled away, a ninjutsu card in hand):
+				// stage it from its last known name.
+				if src, ok = b.lkiSource(it); !ok {
+					b.sh.Fatal = "stack ability source not staged"
+					return
+				}
 			}
 			o := b.g.Obj(src)
 			f := o.Face()
@@ -620,6 +625,25 @@ func (b *builder) stageStack() {
 				return
 			}
 			b.stageTargets(b.g.Objs[len(b.g.Objs)-1].ID, it)
+		case it.Kind == "madness_offer":
+			// CR 702.35a: the madness trigger of a card discarded into
+			// exile; gorge mints it as a keyword trigger over the card.
+			name := ""
+			if k := v1agent.KernelCardByID(it.Source.CardDBID); k != nil {
+				name = k.Name
+			}
+			id, ok := b.take(seatID(it.Source.Owner), name, it.Source.ArenaID)
+			if !ok {
+				b.sh.Fatal = "madness card not staged"
+				return
+			}
+			b.move(id, state.ZExile)
+			before := len(b.g.Objs)
+			b.ev(events.Event{Kind: events.KeywordTriggerPush, Player: ctrl, Obj: id, Counter: "__kwMadnessCast", Text: "madness cast"})
+			if len(b.g.Objs) == before {
+				b.sh.Fatal = "madness trigger not created"
+				return
+			}
 		default:
 			b.sh.Fatal = "unstageable stack item " + it.Kind
 			return
@@ -948,4 +972,39 @@ func (b *builder) grantedTrigger(src state.ObjID) (state.ObjID, string, bool) {
 		}
 	}
 	return grantor, exec, n == 1
+}
+
+// lkiSource stages a stack ability's departed source from the kernel's
+// reference (card DB name, owner, zone): a token is minted and put in the
+// graveyard (where it ceases to exist); a card is claimed from its owner's
+// unseen cards and put in the zone the kernel names (hand for ninjutsu,
+// otherwise the graveyard). The ability then resolves from last known
+// information, as in the kernel.
+func (b *builder) lkiSource(it *v1agent.KStackItem) (state.ObjID, bool) {
+	k := v1agent.KernelCardByID(it.Source.CardDBID)
+	if k == nil {
+		return 0, false
+	}
+	owner := seatID(it.Source.Owner)
+	var id state.ObjID
+	if stem, ok := b.s.TokenStem(k.Name); ok {
+		before := len(b.g.Objs)
+		b.ev(events.Event{Kind: events.TokenCreate, Player: owner, Text: stem})
+		if len(b.g.Objs) == before {
+			return 0, false
+		}
+		id = b.g.Objs[len(b.g.Objs)-1].ID
+	} else {
+		var ok bool
+		if id, ok = b.take(owner, k.Name, it.Source.ArenaID); !ok {
+			return 0, false
+		}
+	}
+	to := state.ZGraveyard
+	if it.Source.Zone == "Hand" {
+		to = state.ZHand
+	}
+	b.move(id, to)
+	b.lossy("ability source staged from its last known name")
+	return id, true
 }
