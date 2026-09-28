@@ -203,6 +203,18 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 // Warlock Collector): a Manascape Refractor had gained "Add {R}" from a
 // Mountain and from a Vivid Crag; the float route picked the Crag's while
 // run A activated the Mountain's, and the ManaActivate markers differed.
+//
+// sb-job-select re-pinned the seed with an empty pin (the round-10
+// convention): registering kw:Job select (CR 702.182) made its 19 corpus
+// carriers fully supported, so they entered the RandomPool (NewRandomPool
+// indexes only cards with reg.Unsupported(c, sup) == nil) and every later
+// draw index shifted -- seed 3589's deck lists changed although neither
+// contains a Job select carrier. The moved game is clean end to end (28
+// planned casts, every verdict equivalent) and no Manascape Refractor
+// gained-member scenario occurs in it, so the finding's planned cast at
+// seq 1553 no longer reproduces; the gained-member witness itself stays
+// live in paymirror.go (gainedMember/answerManaAsks) for the next game
+// that shows the shape.
 func TestRoundSixGainedMemberSeed3589(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -217,16 +229,13 @@ func TestRoundSixGainedMemberSeed3589(t *testing.T) {
 		spec.Decks = append(spec.Decks, label)
 		spec.Lists = append(spec.Lists, list)
 	}
-	found := false
-	for _, r := range round6Game(t, d, spec) {
+	reports := round6Game(t, d, spec)
+	if len(reports) == 0 {
+		t.Fatal("no planned-cast reports; the clean-game assertions would be vacuous")
+	}
+	for _, r := range reports {
 		if st, key := r.Verdict(); st == Mismatch {
 			t.Errorf("seq %d %q: %s", r.Seq, r.Card, key)
 		}
-		if r.Seq == 1553 {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("no planned cast at seq 1553 (the game no longer reaches the finding)")
 	}
 }
