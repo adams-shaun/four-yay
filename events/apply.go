@@ -1008,7 +1008,12 @@ func Apply(g *state.Game, e Event) {
 		// otherwise a blob return/re-entry reusing the same ObjID could keep a
 		// stale designation.
 		wasBattlefield := false
+		// The DrawnThisTurn stamp before the move: a CR 733.1 reversal
+		// ("reversed" stack->origin move) undoes the proposal, so the card is
+		// still the card that was drawn; Move's clear is reverted below.
+		drawnBefore := int32(0)
 		if o := g.Obj(e.Obj); o != nil {
+			drawnBefore = o.DrawnTurn
 			wasStack = o.Zone == state.ZStack
 			wasBattlefield = o.Zone == state.ZBattlefield
 			if e.To == state.ZStack {
@@ -1070,6 +1075,10 @@ func Apply(g *state.Game, e Event) {
 			// was drawn on this turn.
 			if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZHand {
 				o.DrawnTurn = g.Turn
+			}
+		} else if wasStack && e.Text == "reversed" {
+			if o := g.Obj(e.Obj); o != nil {
+				o.DrawnTurn = drawnBefore
 			}
 		}
 		if sacrificed {
