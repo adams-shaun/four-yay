@@ -1,0 +1,101 @@
+{
+  "card": "What Must Be Done",
+  "family": "replacement",
+  "oracle_sha": "270a528cdb45",
+  "author": "cli-20260928T034234Z-b2750488 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "release-juno-historic-creature-gets-two-counters",
+      "cr": [
+        "614.12"
+      ],
+      "why": "Release Juno returns a historic creature card from the graveyard and it enters with two additional +1/+1 counters.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "What Must Be Done"
+          ],
+          "graveyard": [
+            "Captain America, Living Legend"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:What Must Be Done",
+          "mana": "WWWWW",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "DBConditionEffect"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Captain America, Living Legend",
+          "zone": "battlefield",
+          "pt": "5/6",
+          "counters": {
+            "+1/+1": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "release-juno-historic-noncreature-no-counters",
+      "cr": [
+        "614.12"
+      ],
+      "why": "A returned historic noncreature permanent does not get the +1/+1 counters.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "What Must Be Done"
+          ],
+          "graveyard": [
+            "Sol Ring"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:What Must Be Done",
+          "mana": "WWWWW",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "DBConditionEffect"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Sol Ring",
+          "zone": "battlefield",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}
