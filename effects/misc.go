@@ -4465,6 +4465,7 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 	// outer SubAbility$. Without the param Forge leaves Remembered untouched,
 	// so a body that did not ask for the binding must not get one.
 	tempRemember := strings.TrimSpace(sa.Params["TempRemember"]) != ""
+	baselineRemembered := append([]state.Target(nil), c.Remembered...)
 	// FallbackAbility$ (Forge ChooseGenericEffect): the ability resolved for a
 	// chooser when NONE of the Choices$ is payable RIGHT NOW -- Forge drops a
 	// choice whose UnlessCost$ the chooser cannot pay, and when that empties
@@ -4487,16 +4488,22 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 	if c.Modes != nil {
 		names := c.Modes
 		c.Modes = nil
+		chooser := c.GenericChoosers[c.GenericChooserIndex-1]
 		for _, name := range names {
-			if !runBody(name) {
+			if tempRemember {
+				c.Remembered = []state.Target{chooser}
+			}
+			suspended := runBody(name)
+			c.Remembered = append([]state.Target(nil), baselineRemembered...)
+			if !suspended {
 				continue
 			}
-			// The chosen body posed a nested mid-resolution ask. Record the
-			// cursor so the remaining choosers are still asked once that ask's
-			// chain completes, instead of being stranded.
+			// Preserve the enclosing remembered set as well as the chooser
+			// cursor while the chosen body's nested ask is suspended.
 			h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-				Choosers: append([]state.Target(nil), c.GenericChoosers...),
-				Next:     c.GenericChooserIndex})
+				Choosers:   append([]state.Target(nil), c.GenericChoosers...),
+				Next:       c.GenericChooserIndex,
+				Remembered: append([]state.Target(nil), baselineRemembered...)})
 			return true
 		}
 	}
@@ -4508,15 +4515,22 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			c.Remembered = []state.Target{chooser}
 		}
 		available := genericChoiceAvailable(h, c, chooser.Player, choices)
+		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 		if len(available) == 0 {
 			// No choice is payable. Forge runs FallbackAbility$ instead of
 			// asking; with the chooser still bound (TempRemember$) its body
 			// reads Defined$ Remembered as that player.
 			if fallback != "" {
-				if runBody(fallback) {
+				if tempRemember {
+					c.Remembered = []state.Target{chooser}
+				}
+				suspended := runBody(fallback)
+				c.Remembered = append([]state.Target(nil), baselineRemembered...)
+				if suspended {
 					h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-						Choosers: append([]state.Target(nil), c.GenericChoosers...),
-						Next:     c.GenericChooserIndex + 1})
+						Choosers:   append([]state.Target(nil), c.GenericChoosers...),
+						Next:       c.GenericChooserIndex + 1,
+						Remembered: append([]state.Target(nil), baselineRemembered...)})
 					return true
 				}
 			} else {
@@ -4548,21 +4562,25 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		}
 		// R-9: an effects-only host has no chooser, so deterministically take
 		// the first option for this chooser and continue to the next.
-		if runBody(available[0]) {
-			// The deterministic body posed its own ask: preserve the cursor
-			// exactly as the answered branch above does.
+		if tempRemember {
+			c.Remembered = []state.Target{chooser}
+		}
+		suspended := runBody(available[0])
+		c.Remembered = append([]state.Target(nil), baselineRemembered...)
+		if suspended {
+			// Preserve both cursor and outer remembered set across the nested ask.
 			h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-				Choosers: append([]state.Target(nil), c.GenericChoosers...),
-				Next:     c.GenericChooserIndex + 1})
+				Choosers:   append([]state.Target(nil), c.GenericChoosers...),
+				Next:       c.GenericChooserIndex + 1,
+				Remembered: append([]state.Target(nil), baselineRemembered...)})
 			return true
 		}
 		c.GenericChooserIndex++
 	}
 	if tempRemember {
-		// Unbind the last chooser: Forge restores the remembered set it had
-		// before the chooser was added, so the outer SubAbility$ does not see a
-		// stale chooser in Remembered.
-		dropRememberedPlayers(c)
+		// Forge restores the complete remembered set that preceded the
+		// temporary chooser binding, including any enclosing player remembers.
+		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 	}
 	return true
 }
@@ -4597,28 +4615,6 @@ func genericChoiceAvailable(h Host, c *Ctx, payer state.PlayerID, choices []stri
 		}
 	}
 	return out
-}
-
-// dropRememberedPlayers removes player entries from c.Remembered -- the
-// TempRemember$ Chooser unbind: the binding is per chooser, so once a
-// chooser's body has finished the next chooser (or the outer SubAbility$)
-// must not read it. Non-player Remembered entries are left alone, matching
-// Forge's removeRemembered(filter(..., Player.class)).
-func dropRememberedPlayers(c *Ctx) {
-	if len(c.Remembered) == 0 {
-		return
-	}
-	out := make([]state.Target, 0, len(c.Remembered))
-	for _, t := range c.Remembered {
-		if !t.IsPlayer {
-			out = append(out, t)
-		}
-	}
-	if len(out) == 0 {
-		c.Remembered = nil
-		return
-	}
-	c.Remembered = out
 }
 
 // effCharm runs the selected Choices$ sub-abilities in chosen order.

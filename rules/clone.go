@@ -1189,6 +1189,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// The multi-player GenericChoice chooser cursor is likewise a sliced value
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
+	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
 	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat
