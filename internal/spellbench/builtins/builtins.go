@@ -160,6 +160,7 @@ package builtins
 
 import (
 	"context"
+	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
@@ -283,8 +284,12 @@ type Stats struct {
 	// Refusals counts answers the engine refused (Refused).
 	Refusals int
 	// AutoPayFallbacks counts decisions posed with a PaymentFallback: an
-	// AutoPay witness the engine stopped executing mid-cast.
+	// AutoPay witness the engine stopped executing mid-cast. AutoFills
+	// counts the manual payment windows answered with the engine's own
+	// auto-fill.
 	AutoPayFallbacks int
+	AutoFills        int
+	WindowTaps       int // sources a fallback window was paid with one by one
 }
 
 const maxAbortSamples = 4
@@ -325,6 +330,8 @@ func (s *Stats) Add(o Stats) {
 	s.ExactLimited += o.ExactLimited
 	s.Refusals += o.Refusals
 	s.AutoPayFallbacks += o.AutoPayFallbacks
+	s.AutoFills += o.AutoFills
+	s.WindowTaps += o.WindowTaps
 	for _, a := range o.AbortSamples {
 		if len(s.AbortSamples) < maxAbortSamples {
 			s.AbortSamples = append(s.AbortSamples, a)
@@ -523,6 +530,11 @@ func (s *Seat) decide(v view.View, d *decision.Decision) decision.Intent {
 	case decision.KArrange:
 		return s.arrange(d)
 	case decision.KChoose:
+		if d.ManaPayment != nil {
+			if i, ok := s.payWindow(d); ok {
+				return one(d, i)
+			}
+		}
 		if s.pursuit != nil {
 			if i, ok := pursuitColour(v, d); ok {
 				return one(d, i)
@@ -544,6 +556,39 @@ func (s *Seat) decide(v view.View, d *decision.Decision) decision.Intent {
 		}
 	}
 	return s.sequential(d)
+}
+
+// payWindow answers the manual payment window an AutoPay witness fell back
+// to (Decision.PaymentFallback). Paying is the engine's job under
+// engine_autopay, not a policy choice, so every policy answers it the same
+// way: the engine's own auto-fill when offered; else a source making a
+// colour still owed, else any source (for the generic); only with no source
+// left, cancel -- never a random tap, and never an undo (which would loop).
+// ok is false for a window with none of these.
+func (s *Seat) payWindow(d *decision.Decision) (int, bool) {
+	if i, ok := firstKind(d, decision.OptAutoFill); ok {
+		s.Stats.AutoFills++
+		return i, true
+	}
+	owed := d.ManaPayment.Owed
+	anyMana := -1
+	for _, o := range d.Options {
+		if o.Kind != "mana" {
+			continue
+		}
+		if anyMana < 0 {
+			anyMana = o.Index
+		}
+		if c := strings.Index("WUBRGC", o.ManaSymbol); len(o.ManaSymbol) == 1 && c >= 0 && owed.Mana[c] > 0 {
+			s.Stats.WindowTaps++
+			return o.Index, true
+		}
+	}
+	if anyMana >= 0 {
+		s.Stats.WindowTaps++
+		return anyMana, true
+	}
+	return firstKind(d, decision.OptCancelCast)
 }
 
 // pick draws the candidate index for a list of n candidates: uniform draws,

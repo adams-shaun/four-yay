@@ -41,7 +41,7 @@ import (
 // sources outside its census, the seat decides any other unpriced play with
 // the exact search (rules.Engine.PotentialPlayScript), and builtins.Stats,
 // which games.jsonl records per seat, gained the script counters.
-const smokeDigestGolden = "2ad777f7f86cca866afa0dc5cbc45231fc6cfe40cebb9c924f7ecab673c35d5a"
+const smokeDigestGolden = "8936bd7c7999398717193009fc6425213496b6e3d0223e5c348891ba3e260897"
 
 // TestSpellbenchSmokeDigestIsStable plays the smoke run and compares its
 // games.jsonl digest against the golden above.
