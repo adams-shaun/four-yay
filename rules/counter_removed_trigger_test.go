@@ -20,6 +20,7 @@ import (
 // effects.Supported() report the primitive, so the coverage report/ratchet
 // see it.
 func TestCounterRemovedIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:CounterRemoved"] {
 		t.Fatal("effects.Supported() lacks trig:CounterRemoved")
 	}

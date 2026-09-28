@@ -81,6 +81,7 @@ func classMove(t *testing.T, e *Engine, name string, to state.Zone) state.ObjID 
 // the level-2 SPump static ("Creatures you control get +1/+1") is actually
 // applied to a creature on the battlefield.
 func TestPaladinClassEntersAtLevel1LevelsUpAndTurnsOnItsStatic(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Paladin Class", "Grizzly Bears")
 
@@ -139,6 +140,7 @@ func TestPaladinClassEntersAtLevel1LevelsUpAndTurnsOnItsStatic(t *testing.T) {
 // outside a sorcery window -- the CR 702.118b "only as a sorcery" clause the
 // expansion carries as SorcerySpeed$ True.
 func TestPaladinClassBandUpIsSorcerySpeed(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Paladin Class")
 	class := classMove(t, e, "Paladin Class", state.ZBattlefield)
@@ -171,6 +173,7 @@ func TestPaladinClassBandUpIsSorcerySpeed(t *testing.T) {
 // create a token that's a copy of target token you control"), which fires
 // from the same CounterChange event the level-up activator emits.
 func TestCaretakersTalentLevelGainedTriggerFiresOnTheLevelUp(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Caretaker's Talent")
 	class := classMove(t, e, "Caretaker's Talent", state.ZBattlefield)
@@ -242,6 +245,7 @@ func classHasTriggerMode(f *cards.Face, mode string) bool {
 // have to hold before the top card is playable, and the top card must then
 // actually be offered.
 func TestFortuneTellersTalentLevelTwoGrantsPlayFromTop(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Fortune Teller's Talent", "Grizzly Bears", "Forest", "Forest")
 	class := classMove(t, e, "Fortune Teller's Talent", state.ZBattlefield)
@@ -341,6 +345,7 @@ func classLevelUp(t *testing.T, e *Engine, class state.ObjID, idx int) {
 // on the battlefield, the level-3 "draw a card" fired every end step. The
 // band is now a separate ClassBand$ AND gate.
 func TestHuntersTalentEndStepTriggerIsGatedByItsOwnIsPresentAndTheLevelBand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Hunter's Talent", "Craw Wurm")
 	class := classMove(t, e, "Hunter's Talent", state.ZBattlefield)
@@ -395,6 +400,7 @@ func TestHuntersTalentEndStepTriggerIsGatedByItsOwnIsPresentAndTheLevelBand(t *t
 // the live face and fires on an attack, so the granted trigger is not merely
 // appended but actually reaches the trigger scan.
 func TestPaladinClassBandThreeGrantFires(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Paladin Class", "Grizzly Bears")
 	class := classMove(t, e, "Paladin Class", state.ZBattlefield)
@@ -452,6 +458,7 @@ func TestPaladinClassBandThreeGrantFires(t *testing.T) {
 // control below (same body, no band) proves the level-1 refusal is the band
 // and not the body's own present clause.
 func TestClassBandBandGatesGrantedReplacement(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := classEngine(t, reg, "Paladin Class", "Grizzly Bears")
 	class := classMove(t, e, "Paladin Class", state.ZBattlefield)

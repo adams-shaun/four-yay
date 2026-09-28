@@ -57,6 +57,7 @@ func attacksTriggerSeat(t *testing.T) (*Engine, state.ObjID) {
 // TestRevengeOfRavensFiresWhenItsControllerIsAttacked is the positive half:
 // seat 1 attacks seat 0 (the trigger's controller) and the drain fires.
 func TestRevengeOfRavensFiresWhenItsControllerIsAttacked(t *testing.T) {
+	t.Parallel()
 	e, bear := attacksTriggerSeat(t)
 	life0, life1 := e.G.Players[0].Life, e.G.Players[1].Life
 
@@ -76,6 +77,7 @@ func TestRevengeOfRavensFiresWhenItsControllerIsAttacked(t *testing.T) {
 // attacks seat 2, which is neither the trigger's controller nor a permanent
 // that controller owns, so nothing drains and nothing is gained.
 func TestRevengeOfRavensDoesNotFireWhenAThirdSeatIsAttacked(t *testing.T) {
+	t.Parallel()
 	e, bear := attacksTriggerSeat(t)
 	life0, life1 := e.G.Players[0].Life, e.G.Players[1].Life
 
@@ -147,6 +149,7 @@ func kazuulUnlessPayPending(t *testing.T, e *Engine) bool {
 // "Attacked$ You,Planeswalker.YouCtrl,Battle.ProtectedBy You" must resolve on
 // the player half and queue the ogre-token trigger.
 func TestKazuulFiresWhenItsControllerIsAttacked(t *testing.T) {
+	t.Parallel()
 	e, bear := kazuulAttackedSeat(t)
 
 	e.askAttackers()
@@ -160,6 +163,7 @@ func TestKazuulFiresWhenItsControllerIsAttacked(t *testing.T) {
 // seat 1 attacks seat 2, which is not Kazuul's controller, so the trigger must
 // not queue at all.
 func TestKazuulDoesNotFireWhenAThirdSeatIsAttacked(t *testing.T) {
+	t.Parallel()
 	e, bear := kazuulAttackedSeat(t)
 
 	e.askAttackers()
@@ -175,6 +179,7 @@ func TestKazuulDoesNotFireWhenAThirdSeatIsAttacked(t *testing.T) {
 // seat. Exercised on the engine matcher directly so the opponent-positive and
 // controller-is-self-negative cases share one fixture.
 func TestAttacksAttackedOpponentScopesToTheTriggersOpponent(t *testing.T) {
+	t.Parallel()
 	e, _ := attacksTriggerSeat(t)
 	// A source on seat 0: the perspective `you` is then seat 0, which makes
 	// seat 2 the opponent under test.

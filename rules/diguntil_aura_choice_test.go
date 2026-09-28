@@ -12,6 +12,7 @@ import (
 // resume arm carries the selected bearer back into effects.Resolve rather than
 // accepting the first battlefield permanent silently.
 func TestSongbirdsBlessingDigUntilAuraChoice(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, auraID, _, bearID := songbirdsTestEngine(t, reg)
 	second := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)

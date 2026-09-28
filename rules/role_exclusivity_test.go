@@ -75,6 +75,7 @@ func sweepMoveZoneInLog(e *Engine, oldID state.ObjID) bool {
 // applies, so the bearer ends with exactly one Role and its power reflects
 // only the surviving one.
 func TestRoleExclusivityOldRoleGoesToGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{choiceCorpusCard(t, "Royal Treatment"), choiceCorpusCard(t, "Royal Treatment")}, nil)
@@ -124,6 +125,7 @@ func TestRoleExclusivityOldRoleGoesToGraveyard(t *testing.T) {
 // graveyard, the Royal Role survives attached, and the bearer's power
 // reflects only the surviving Role.
 func TestRoleExclusivityDifferentKindSweepsOldRole(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{choiceCorpusCard(t, "Charming Scoundrel"), choiceCorpusCard(t, "Royal Treatment")}, nil)

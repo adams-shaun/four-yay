@@ -51,6 +51,7 @@ func countRestrictionEntries(e *Engine) int {
 // attacker) pair, the pair is offered charged, and submitting the block pays
 // exactly one life (one LifeChange event) and commits the block.
 func TestHeatWaveBlockChargesLife(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	heat := onBoardCard(t, e, 1, mshCorpusCard(t, "Heat Wave"))
 	bear := onBoardReady(t, e, 1, bearBlockSrc)
@@ -105,6 +106,7 @@ func TestHeatWaveBlockChargesLife(t *testing.T) {
 // at all (CR 509.1b -- the decision never tempts the seat with a block the
 // engine would reject).
 func TestHeatWaveInsufficientLifeIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	heat := onBoardCard(t, e, 1, mshCorpusCard(t, "Heat Wave"))
 	bear := onBoardReady(t, e, 1, bearBlockSrc)
@@ -129,6 +131,7 @@ func TestHeatWaveInsufficientLifeIsNeverOffered(t *testing.T) {
 // deterministic candidate in zone order, R-9 -- the build never asks which
 // permanent to tap), via the same Tap event every cost payment emits.
 func TestHollowWarriorBlockTapsAnUntappedNonblocker(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	warrior := onBoardCard(t, e, 0, mshCorpusCard(t, "Hollow Warrior"))
 	bear := onBoardReady(t, e, 0, bearBlockSrc)
@@ -184,6 +187,7 @@ func TestHollowWarriorBlockTapsAnUntappedNonblocker(t *testing.T) {
 // half: with no untapped non-blocking creature to tap, the pair is not
 // offered (the blocker itself cannot pay its own obligation).
 func TestHollowWarriorWithoutATapperIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	warrior := onBoardCard(t, e, 0, mshCorpusCard(t, "Hollow Warrior"))
 	memnite := onBoardReady(t, e, 1, memniteSrc)
@@ -204,6 +208,7 @@ func TestHollowWarriorWithoutATapperIsNeverOffered(t *testing.T) {
 // Cleric on the battlefield (the SVar body Count$Valid Cleric read live at
 // consult time).
 func TestWhipgrassEntanglerDeliveredStaticChargesPerCleric(t *testing.T) {
+	t.Parallel()
 	whipCard := mshCorpusCard(t, "Whipgrass Entangler")
 	e := chargeEngine(t, 8101, whipCard)
 	bear := onBoardReady(t, e, 0, bearBlockSrc)
@@ -277,6 +282,7 @@ func TestWhipgrassEntanglerDeliveredStaticChargesPerCleric(t *testing.T) {
 // block charges {X} through the registered body's Cost$ XChosen (the
 // Count$ChosenNumber SVar resolved against the frozen binding).
 func TestWarCadenceEffectDeliveredChargesTheChosenX(t *testing.T) {
+	t.Parallel()
 	cadCard := mshCorpusCard(t, "War Cadence")
 	e := chargeEngine(t, 8102, cadCard)
 	bear := onBoardReady(t, e, 0, bearBlockSrc)
@@ -350,6 +356,7 @@ func TestWarCadenceEffectDeliveredChargesTheChosenX(t *testing.T) {
 // jointly not. The bot's guard must drop the over-budget pair rather than
 // submit a declaration the engine rejects forever.
 func TestBlockChargeBotAnswerNeverRejected(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	heat := onBoardCard(t, e, 1, mshCorpusCard(t, "Heat Wave"))
 	a1 := onBoardReady(t, e, 1, bearBlockSrc)
@@ -402,6 +409,7 @@ func TestBlockChargeBotAnswerNeverRejected(t *testing.T) {
 // declaration's tap payments ride real events the replay re-derives
 // byte-identically.
 func TestBlockChargeReplays(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	warrior := onBoardCard(t, e, 0, mshCorpusCard(t, "Hollow Warrior"))
 	bear := onBoardReady(t, e, 0, bearBlockSrc)

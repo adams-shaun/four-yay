@@ -60,6 +60,7 @@ func (b *testBot) answer(e *Engine, d *decision.Decision) decision.Intent {
 // policy's behaviour is now tested once, in botpolicy/combat_test.go and
 // policy_test.go, and this file only has to prove it forwards unchanged.
 func TestTestBotDelegatesToBotPolicy(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 99, Names: names, Decks: decks})
 	e.Advance()

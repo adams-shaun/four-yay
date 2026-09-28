@@ -88,6 +88,7 @@ func mayRevealNotes(e *Engine) []events.Event {
 // arm: the ask suspends mid-resolution, "no" reveals nothing, and the
 // resolution finishes (the game continues past it).
 func TestMayRevealHandAskSuspendsAndDeclineRevealsNothing(t *testing.T) {
+	t.Parallel()
 	e, id := mayRevealEngine(t, "SP$ RevealHand | Defined$ You | Optional$ True")
 	d := castAndReachRevealAsk(t, e, id)
 	if d.Player != 0 || len(d.Options) != 2 || d.Options[0].Kind != "yes" || d.Options[1].Kind != "no" {
@@ -110,6 +111,7 @@ func TestMayRevealHandAskSuspendsAndDeclineRevealsNothing(t *testing.T) {
 // project-attached decision reaches the deciding seat alone while it is
 // pending (the delver peek's privacy property, on the hand shape).
 func TestMayRevealHandAcceptEmitsThePublicReveal(t *testing.T) {
+	t.Parallel()
 	e, id := mayRevealEngine(t, "SP$ RevealHand | Defined$ You | Optional$ True")
 	d := castAndReachRevealAsk(t, e, id)
 

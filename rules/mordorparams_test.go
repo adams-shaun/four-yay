@@ -227,6 +227,7 @@ func submitObj(t *testing.T, e *Engine, kind string, obj state.ObjID) {
 // only the leader. This is a pin of an already-working read — if it fails
 // the premise moved.
 func TestBlackGateChoosePlayerOffersTheTiedLeaders(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := mordorEngine(t, reg, 4101, "The Black Gate", "Grizzly Bears")
 	// The gate is PLAYED (the real land-drop flow, not a raw move): its
@@ -316,6 +317,7 @@ func amassArmyCount(t *testing.T, e *Engine) int {
 // is the cost-discard log channel (rules/stack.go DiscardedInWindow) feeding
 // effects' ConditionDefined$ Discarded.
 func TestMoriaScavengerAmassesOnlyOnCreatureDiscard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := mordorEngine(t, reg, 4102, "Moria Scavenger", "Grizzly Bears", "Forest")
 	moria := moveToBattlefieldByName(t, e, 0, "Moria Scavenger")
@@ -397,6 +399,7 @@ func TestMoriaScavengerAmassesOnlyOnCreatureDiscard(t *testing.T) {
 // nobody. That gap is this test's reason for driving the SVar directly —
 // it is NOT worked around by pinning the wrong-seat fallback.
 func TestArcaneDenialSlowtripDrawsUpToTwo(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	denial := searchCorpusCard(t, reg, "Arcane Denial")
 	drawTwo := cards.ResolveSVar(denial.Faces[0].SVars, "DrawTwo")
@@ -498,6 +501,7 @@ func TestArcaneDenialSlowtripDrawsUpToTwo(t *testing.T) {
 // PLAYER target; this one pins it against the multi-target Defined$ walk and
 // through the ordinary stack resolution.
 func TestTruceOffersEachPlayerAnUptoDraw(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := mordorEngine(t, reg, 4107, "Truce")
 	truce := searchMoveByName(t, e, "Truce", state.ZHand)
@@ -551,6 +555,7 @@ func countDrawFor(e *Engine, p state.PlayerID) int {
 // same ids, and a log-only replay reproduces the game exactly (the shuffle
 // draws the seeded engine rng).
 func TestGrimaRestRandomOrderShufflesAndReplays(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	grim := searchCorpusCard(t, reg, "Gríma, Saruman's Footman")
 	e, cfg := mordorEngine(t, reg, 4106, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
@@ -642,6 +647,7 @@ func countGrantPushes(e *Engine, src state.ObjID) int {
 // exactly once; a mana-value-2 spell paid with it fires nothing; plain
 // (unprovenanced) mana on the matching cast fires nothing.
 func TestGilanraCallerOfWirewoodSpentManaDraws(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	t.Run("matching cast fires exactly once", func(t *testing.T) {
@@ -727,6 +733,7 @@ func TestGilanraCallerOfWirewoodSpentManaDraws(t *testing.T) {
 // mana — the scry-1 trigger fires exactly once (the KArrange ask appears); a
 // non-matching cast and plain mana fire nothing.
 func TestPathOfAncestrySpentManaScrOne(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	t.Run("matching cast asks the scry", func(t *testing.T) {

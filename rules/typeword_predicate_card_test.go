@@ -28,6 +28,7 @@ import (
 // The non-artifact Grizzly Bears (a creature, but not an Artifact) must never
 // be offered.
 func TestTypeWordPredicateUnlocksCorpusTargeting(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	vc := mustCorpusCard(t, reg, "Voltaic Construct") // {2}: Untap target artifact creature.
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")   // a creature, but not an artifact

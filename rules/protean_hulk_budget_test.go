@@ -117,6 +117,7 @@ func hulkWindowEngine(t *testing.T, reg *cards.Registry, seed uint64) (*Engine, 
 // over-budget answer is rejected on the wire, and the answered (in-budget)
 // pair lands exactly those two creatures on the battlefield.
 func TestProteanHulkBudgetSearchEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, window := hulkWindowEngine(t, reg, 4409)
 	// Kill the Hulk: Battlefield -> Graveyard fires the death trigger.

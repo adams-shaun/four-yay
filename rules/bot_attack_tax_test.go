@@ -20,6 +20,7 @@ import (
 // pip count into the shared decision.ChargeOptionConstraints life bound, so
 // the policy's declaration is a payable subset Submit accepts.
 func TestBotAttackDeclarationFitsCombinedPhyrexianTax(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.Advance()
 	onBoardCard(t, e, 1, corpusCard(t, "Norn's Annex"))

@@ -64,6 +64,7 @@ func activateIndex(t *testing.T, e *Engine, id state.ObjID) int {
 }
 
 func TestChthonianNightmarePaysEnergySacsAndReturns(t *testing.T) {
+	t.Parallel()
 	e, target, fodder := nightmareBoard(t)
 	nm := nightmareID(t, e)
 	if n := e.G.Players[0].Counter("ENERGY"); n != 3 {
@@ -116,6 +117,7 @@ func TestChthonianNightmarePaysEnergySacsAndReturns(t *testing.T) {
 }
 
 func TestChthonianNightmareXBoundedByEnergy(t *testing.T) {
+	t.Parallel()
 	e, _, _ := nightmareBoard(t)
 	nm := nightmareID(t, e)
 	submitChoices(t, e, activateIndex(t, e, nm))

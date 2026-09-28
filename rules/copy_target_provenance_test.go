@@ -11,6 +11,7 @@ import (
 // A target that has left the battlefield must retain its CAST declaration,
 // rather than being attributed to the last half by a fresh legality check.
 func TestCopyFusedIllegalInheritedTargetKeepsDeclaration(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	eng, _ := miscHandsEngine(t, reg, []string{"Wear"}, nil,
 		[]string{"Mirrorpool"}, []string{"Sol Ring", "Ghostly Prison"})
@@ -79,6 +80,7 @@ func TestCopyFusedIllegalInheritedTargetKeepsDeclaration(t *testing.T) {
 }
 
 func TestCopyCharmAsksEveryChosenTargetMode(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	card := searchCorpusCard(t, reg, "Winterflame")
 	sa := card.Faces[0].SpellAbility()

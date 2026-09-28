@@ -112,6 +112,7 @@ func handToBattlefieldMoves(log []events.Event, id state.ObjID) int {
 // answer -- here the SECOND option, proving the choice is honoured, not a
 // first-eligible default -- moves exactly that card onto the battlefield.
 func TestBurgeoningAsksForTheHandLandAndHonoursTheAnswer(t *testing.T) {
+	t.Parallel()
 	e, cfg := burgeoningFixture(t, 71, 2)
 	handBefore := append([]state.ObjID(nil), e.G.Zone(state.ZHand, 0)...)
 
@@ -167,6 +168,7 @@ func TestBurgeoningAsksForTheHandLandAndHonoursTheAnswer(t *testing.T) {
 // hand->battlefield move; the guard is that none of SEAT 0's hand objects
 // moved.
 func TestBurgeoningNoLandInHandResolvesSilently(t *testing.T) {
+	t.Parallel()
 	e, cfg := burgeoningFixture(t, 72, 0)
 	handIDs := make(map[state.ObjID]bool)
 	for _, oid := range e.G.Zone(state.ZHand, 0) {
@@ -196,6 +198,7 @@ func TestBurgeoningNoLandInHandResolvesSilently(t *testing.T) {
 // makes declining a distinct legal answer. The hand move therefore poses a
 // Min 0 / Max 1 KChoose, and its empty answer leaves the land in hand.
 func TestBurgeoningSingleLandCanBeDeclined(t *testing.T) {
+	t.Parallel()
 	e, cfg := burgeoningFixture(t, 73, 1)
 	handBefore := append([]state.ObjID(nil), e.G.Zone(state.ZHand, 0)...)
 
@@ -245,6 +248,7 @@ func handMoveOption(t *testing.T, d *decision.Decision, id state.ObjID) int {
 // answer -- the two bears named in REVERSE hand order, proving the choice and
 // the order are honoured -- lands on TOP of the library in answer order.
 func TestBrainstormPutsTwoChosenCardsBackOnTop(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	brainstorm := mustCorpusCard(t, reg, "Brainstorm")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -346,6 +350,7 @@ func TestBrainstormPutsTwoChosenCardsBackOnTop(t *testing.T) {
 // 0) asks over the whole hand, and the answered two bears land on TOP in
 // answer order, with the walker's loyalty untouched by the free [+0] cost.
 func TestJaceTheMindSculptorZeroAbilityPutsTwoBackOnTop(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	zero := jaceAbility(t, jaceCard, "AddCounter", 0)
@@ -412,6 +417,7 @@ func TestJaceTheMindSculptorZeroAbilityPutsTwoBackOnTop(t *testing.T) {
 // silently no-op'd (the player targets fell off the object path's Origin$
 // precondition) and no ask of any kind was ever posed.
 func TestKynaiosAndTiroAsksEachPlayerForItsOwnLand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kyn := mustCorpusCard(t, reg, "Kynaios and Tiro of Meletis")
 	db := kynAbilities(t, reg)

@@ -35,6 +35,7 @@ func manaTapBoard(t *testing.T, seed uint64, names ...string) (*Engine, Config, 
 // so summoning-sick) the offer is present; activating it taps BOTH the Drum
 // and the creature, then asks the colour and adds exactly one mana.
 func TestManaTapPermanentCostSpringleafDrum(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := manaTapBoard(t, 9901, "Springleaf Drum", "Llanowar Elves")
 	drum, elf := ids["Springleaf Drum"], ids["Llanowar Elves"]
 	// Precondition: the creature must be untapped and summoning-sick, so the
@@ -80,6 +81,7 @@ func TestManaTapPermanentCostSpringleafDrum(t *testing.T) {
 // still a real mana ability (the offer machinery evaluated it): the same
 // fixture with a creature does offer it.
 func TestManaTapPermanentCostSpringleafDrumNeedsACreature(t *testing.T) {
+	t.Parallel()
 	e, _, ids := manaTapBoard(t, 9902, "Springleaf Drum")
 	drum := ids["Springleaf Drum"]
 	if hasActivateOption(e, drum) {
@@ -102,6 +104,7 @@ func TestManaTapPermanentCostSpringleafDrumNeedsACreature(t *testing.T) {
 // candidates include the source; the forced election taps all three and adds
 // three green.
 func TestManaTapPermanentCostHeritageDruid(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := manaTapBoard(t, 9904, "Heritage Druid", "Llanowar Elves", "Elvish Mystic")
 	druid := ids["Heritage Druid"]
 	elves := []state.ObjID{druid, ids["Llanowar Elves"], ids["Elvish Mystic"]}
@@ -130,6 +133,7 @@ func TestManaTapPermanentCostHeritageDruid(t *testing.T) {
 // three-per-part election is a real choice: the ability is offered, the ask
 // offers exactly the four candidates and the chosen three are tapped.
 func TestManaTapPermanentCostHeritageDruidElection(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := manaTapBoard(t, 9905, "Heritage Druid", "Llanowar Elves", "Elvish Mystic", "Fyndhorn Elves")
 	druid := ids["Heritage Druid"]
 	submitChoices(t, e, activateOption(t, e, druid))
@@ -176,6 +180,7 @@ func TestManaTapPermanentCostHeritageDruidElection(t *testing.T) {
 // rows legitimately stay not_offered there; these boards supply the matching
 // permanents and assert the offer and the payment.
 func TestManaTapPermanentCostFoodAndTokenSpecs(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 9906, "Name:Tap Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	reg := testutil.CorpusRegistry(t)
 	cabbage, ok := reg.Lookup("The Cabbage Merchant")

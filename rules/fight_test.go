@@ -318,6 +318,7 @@ func TestFightDeathtouchNamesTheFighter(t *testing.T) {
 // effDealDamage's n<=0 shape, and a fighter or opponent that has already left
 // the battlefield is skipped — both sides no-op cleanly, no wedge, no panic.
 func TestFightZeroPowerAndOffBattlefieldNoWedge(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, "Name:Vanisher\nManaCost:U\nTypes:Creature\nPT:0/1\nOracle:x\n"))
 	ox := onBoard(t, e, 0, "Name:Ox\nManaCost:G\nTypes:Creature Ox\nPT:0/1\nOracle:x\n")
 	bear := onBoard(t, e, 1, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

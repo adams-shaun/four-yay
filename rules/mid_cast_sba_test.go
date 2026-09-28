@@ -35,6 +35,7 @@ import (
 // Island settles the payment does the state-based action at the priority
 // boundary record the loss.
 func TestMidCastSBADoesNotEndGameDuringManaWindow(t *testing.T) {
+	t.Parallel()
 	e, tombID, islandID, watchID := nlCastEngine(t, 423, 1, "")
 	// Preconditions: the caster really is at 1 life with the spell in hand,
 	// and both mana sources really are on the battlefield where the window

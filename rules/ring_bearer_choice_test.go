@@ -19,6 +19,7 @@ import (
 // the "ring_bearer" resume arm, and the re-entered effRingTemptsYou emitting
 // exactly one RingTemptsYou event.
 func TestCR701RingTemptsYouAsksThePlayerOnTheRealEngine(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	// Zone order is placement order: Bear first, Gorilla second. The

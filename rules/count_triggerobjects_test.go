@@ -11,6 +11,7 @@ import (
 // the actual compiled card SVars tied to the evaluator rather than a copied
 // literal, while effects/count_triggerobjects_test pins the batch semantics.
 func TestRepoTriggerObjectsCardsHeadsCompileAndResolve(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := newSeats(t, 2)
 	for _, name := range []string{"Polluted Cistern // Dim Oubliette", "Amzu, Swarms' Hunger", "The Skullspore Nexus"} {

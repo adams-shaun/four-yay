@@ -66,6 +66,7 @@ func seekUnlessPayAsk(t *testing.T, e *Engine, limit int) *decision.Decision {
 // records the reveal silently, announces it with the cast flow's public Note,
 // leaves the card in hand, and the land enters UNTAPPED.
 func TestUnlessRevealPrimalBeyondPayEntersUntapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	fern := card(t, "Name:Fern\nTypes:Creature Elemental\nPT:1/1\nOracle:x\n")
 	e := handEngine(t, mustCorpusCard(t, reg, "Primal Beyond"), fern)
@@ -109,6 +110,7 @@ func TestUnlessRevealPrimalBeyondPayEntersUntapped(t *testing.T) {
 // KChoose (Min=Max=1, ResumeKind "unless_cost", option kind "revealcost"),
 // the chosen card is revealed publicly, and the land enters untapped.
 func TestUnlessRevealPortTownAsksRevealCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	plains := card(t, "Name:Steppe\nTypes:Land Plains\nOracle:x\n")
 	island := card(t, "Name:Lagoon\nTypes:Land Island\nOracle:x\n")
@@ -156,6 +158,7 @@ func TestUnlessRevealPortTownAsksRevealCost(t *testing.T) {
 // Mountain in hand reveals it (one public Note, the card stays in hand) and
 // the land enters UNTAPPED; a decline keeps the old tapped entry.
 func TestUnlessRevealFurycalmSnarlPayEntersUntapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mountain := card(t, "Name:Ridge\nTypes:Land Mountain\nOracle:x\n")
 	for _, tc := range []struct {
@@ -212,6 +215,7 @@ func TestUnlessRevealFurycalmSnarlPayEntersUntapped(t *testing.T) {
 // poses the Pay branch at all (it used to offer it and then decline). The
 // sole option is the decline and the land enters tapped with no reveal Note.
 func TestUnlessRevealDeclineEntersTapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name  string
@@ -296,6 +300,7 @@ func drivePriestTrigger(t *testing.T, dinos int) (*Engine, state.ObjID) {
 // the real KChoose; the chosen one is revealed publicly (one Note, both cards
 // stay in hand) and the priest's 2 life land.
 func TestUnlessRevealPriestSwitchedPayGainsLife(t *testing.T) {
+	t.Parallel()
 	e, priest := drivePriestTrigger(t, 2)
 	before := e.G.Players[0].Life
 	answerUnlessPay(t, e, true)
@@ -336,6 +341,7 @@ func TestUnlessRevealPriestSwitchedPayGainsLife(t *testing.T) {
 // TestUnlessRevealPriestSwitchedDeclineRunsNoBody is the mirror: a decline on
 // the switched carrier runs NO body — no life change, no reveal.
 func TestUnlessRevealPriestSwitchedDeclineRunsNoBody(t *testing.T) {
+	t.Parallel()
 	e, _ := drivePriestTrigger(t, 1)
 	before := e.G.Players[0].Life
 	answerUnlessPay(t, e, false)

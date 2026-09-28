@@ -50,6 +50,7 @@ func valeforBoard(t *testing.T, reg *cards.Registry) (*Engine, map[state.PlayerI
 // own 6-CMC Craw Wurm and never the cheaper Grizzly Bears nor the other
 // opponent's creature; the chosen creatures return to their owners' hands.
 func TestSummonValeforEachOpponentReturnsTheirGreatestManaValueCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, held := valeforBoard(t, reg)
 	// Precondition: each opponent really holds a dearer and a cheaper
@@ -95,6 +96,7 @@ func TestSummonValeforEachOpponentReturnsTheirGreatestManaValueCreature(t *testi
 // getCardsWithHighestCMC: an opponent holding TWO creatures tied for the
 // highest mana value is offered BOTH, and only the answered one returns.
 func TestSummonValeforGreatestCMCTiesAreAllOffered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := New(Config{Seed: 42, Names: []string{"a", "b", "c"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}})

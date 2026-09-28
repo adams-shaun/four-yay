@@ -1192,6 +1192,7 @@ var oracleOps = map[string]bool{
 // the schema (unknown fields are rejected by the decoder), the family
 // directory, unique scenario names, the step vocabulary, and ref syntax.
 func TestOracleScenarioFilesWellFormed(t *testing.T) {
+	t.Parallel()
 	files := loadOracleFiles(t)
 	checkRef := func(where, ref string) {
 		if ref == "" {
@@ -1245,6 +1246,7 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 // TestOracleAudit runs every Oracle-text scenario against the real corpus.
 // Filter with -run 'TestOracleAudit/<Card>/<scenario>'.
 func TestOracleAudit(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	files := loadOracleFiles(t)
 	paths := make([]string, 0, len(files))

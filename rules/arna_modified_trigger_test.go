@@ -41,6 +41,7 @@ func arnaModifiedEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, sta
 // an unequipped attacker carrying a +1/+1 counter is modified, so Arna's
 // trigger fires and MultiplyCounter doubles the counter.
 func TestArnaModifiedTriggerDoublesCounters(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, arna, bear, equip := arnaModifiedEngine(t, reg)
 
@@ -83,6 +84,7 @@ func TestArnaModifiedTriggerDoublesCounters(t *testing.T) {
 // trigger fires and creates a token copy of the Equipment attached to the
 // attacker (her real AttachedTo$ TriggeredAttackerLKICopy endpoint).
 func TestArnaModifiedTriggerCopiesAttachedEquipment(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, arna, bear, equip := arnaModifiedEngine(t, reg)
 
@@ -136,6 +138,7 @@ func TestArnaModifiedTriggerCopiesAttachedEquipment(t *testing.T) {
 // so Arna's trigger must not reach the stack. Without this the positive
 // tests could pass on a trigger that fires unconditionally.
 func TestArnaModifiedTriggerDoesNotFireUnmodified(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, arna, bear, equip := arnaModifiedEngine(t, reg)
 

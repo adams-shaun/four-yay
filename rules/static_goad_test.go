@@ -42,6 +42,7 @@ func corpusCardByName(t *testing.T, name string) *cards.Card {
 // victim attacking seat 2 -- attacking the Aura's controller 0 is forbidden
 // by CR 701.38b -- and the option is marked Required (CR 508.1d).
 func TestStaticGoadShinyImpetusForcesAttackAway(t *testing.T) {
+	t.Parallel()
 	e := staticGoadEngine(t)
 	impetus := onBoardCard(t, e, 0, corpusCardByName(t, "Shiny Impetus"))
 	victim := onBoardReady(t, e, 1, "Name:Victim\nTypes:Creature\nPT:1/1\nOracle:x\n")
@@ -78,6 +79,7 @@ func TestStaticGoadShinyImpetusForcesAttackAway(t *testing.T) {
 // per call (no lifetime bookkeeping), so a real MoveZone to the graveyard
 // ends it exactly as the Aura being destroyed in play would.
 func TestStaticGoadEndsWhenAuraLeaves(t *testing.T) {
+	t.Parallel()
 	e := staticGoadEngine(t)
 	impetus := onBoardCard(t, e, 0, corpusCardByName(t, "Shiny Impetus"))
 	victim := onBoardReady(t, e, 1, "Name:Victim\nTypes:Creature\nPT:1/1\nOracle:x\n")
@@ -120,6 +122,7 @@ func TestStaticGoadEndsWhenAuraLeaves(t *testing.T) {
 // goads an opponent's creature with power less than Baeloth's own (5), and
 // does NOT goad one with greater power.
 func TestStaticGoadBaelothPowerThreshold(t *testing.T) {
+	t.Parallel()
 	e := staticGoadEngine(t)
 	onBoardCard(t, e, 0, corpusCardByName(t, "Baeloth Barrityl, Entertainer")) // 2/5
 	weak := onBoardReady(t, e, 1, "Name:Weak\nTypes:Creature\nPT:1/1\nOracle:x\n")

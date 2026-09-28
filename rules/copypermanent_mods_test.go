@@ -99,6 +99,7 @@ func answerOptionalYes(t *testing.T, e *Engine, limit int) {
 // the copy is exactly a 1/1 green Frog, so the printed Bear subtype is gone
 // (SetCreatureTypes$ REPLACES the creature types, not adds them).
 func TestCroakingCounterpartCopyIsAOneOneGreenFrog(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Croaking Counterpart"), lookup(t, reg, "Grizzly Bears")},
@@ -139,6 +140,7 @@ func TestCroakingCounterpartCopyIsAOneOneGreenFrog(t *testing.T) {
 // does not inherit from the copied Bear) and the AtEOT$ Sacrifice rider is
 // still honoured beside it.
 func TestKikiJikiCopyHasHasteAndIsSacrificedAtNextEndStep(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Kiki-Jiki, Mirror Breaker"), lookup(t, reg, "Grizzly Bears")},
@@ -186,6 +188,7 @@ func TestKikiJikiCopyHasHasteAndIsSacrificedAtNextEndStep(t *testing.T) {
 // SBA reads the DERIVED type list (rules/sba.go legendCasualties). Before that
 // read, the copy was binned as a duplicate and the card did nothing.
 func TestMultiversalRecruitmentCopyIsNotLegendary(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Multiversal Recruitment"), lookup(t, reg, "Kiki-Jiki, Mirror Breaker")},
@@ -231,6 +234,7 @@ func TestMultiversalRecruitmentCopyIsNotLegendary(t *testing.T) {
 // the PRINTED face -- o.Face().IsLegendary() -- so the layer-4 supertype strip
 // never saves it. Recorded in this round's Issues.)
 func TestEmberIslandProductionCopyIsNotLegendary(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Ember Island Production")},
@@ -384,6 +388,7 @@ func drainToTargetAsk(t *testing.T, e *Engine, limit int) *decision.Decision {
 // api:Clone ticket agent-20260920T071934Z-aafa7993; extend this assertion when
 // that ticket lands.
 func TestEleventhHourChapterIIIPrisonerZeroLegendaryAlien(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "The Eleventh Hour"), lookup(t, reg, "Grizzly Bears")},
@@ -427,6 +432,7 @@ func TestEleventhHourChapterIIIPrisonerZeroLegendaryAlien(t *testing.T) {
 // Phalanx grants itself a begin-combat copy that has haste and NOT soulbond,
 // so RemoveKeywords$ applies before the same effect's AddKeywords$ (CR 613.1f).
 func TestMiragePhalanxCopyLosesSoulbondAndGainsHaste(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Mirage Phalanx"), lookup(t, reg, "Grizzly Bears")},
@@ -463,6 +469,7 @@ func TestMiragePhalanxCopyLosesSoulbondAndGainsHaste(t *testing.T) {
 // 4/4 black Zombie with haste, and the haste is a THIS-TURN grant -- gone by
 // the next turn while the copy itself persists.
 func TestGodPharaohsGiftCopyGainsHasteOnlyUntilEndOfTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "God-Pharaoh's Gift"), lookup(t, reg, "Grizzly Bears")},

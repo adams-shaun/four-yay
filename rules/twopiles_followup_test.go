@@ -9,6 +9,7 @@ import (
 )
 
 func TestRiddlesInTheDarkRememberedPeekMovesBothPiles(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Riddles in the Dark", "Grizzly Bears", "Island", "Swamp", "Mountain")
 	cardID := searchMoveByName(t, e, "Riddles in the Dark", state.ZHand)

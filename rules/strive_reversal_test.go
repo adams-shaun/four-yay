@@ -78,6 +78,7 @@ func skitterspikeTriggerPushes(e *Engine, spike state.ObjID) int {
 // damage. The second identical reversal then holds the cast out of the
 // window (F05-2), which the leaked trigger's push used to defeat.
 func TestReversedStriveCastQueuesNoBecomesTargetTrigger(t *testing.T) {
+	t.Parallel()
 	e, cfg, pf, spike, raiders := striveTriggerFixture(t, 951)
 	addMana(t, e, 0, "WWW")
 	oppLife := e.G.Players[1].Life
@@ -121,6 +122,7 @@ func TestReversedStriveCastQueuesNoBecomesTargetTrigger(t *testing.T) {
 // the cast completes and Skitterspike's trigger fires exactly once, so the
 // CR 733.1 drop is scoped to reversed proposals only.
 func TestStriveCastWithAffordableTargetsFiresTheTrigger(t *testing.T) {
+	t.Parallel()
 	e, cfg, pf, spike, raiders := striveTriggerFixture(t, 952)
 	addMana(t, e, 0, "WWWWW")
 	oppLife := e.G.Players[1].Life

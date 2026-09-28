@@ -70,6 +70,7 @@ func fuseTestEngine(t *testing.T, reg *cards.Registry, carrier string, teeg bool
 //     unrestricted. The fused offer is absent (the front-face continue) while
 //     Well's independent split_alt offer remains.
 func TestFuseCantBeCastEitherHalf(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	t.Run("BreakingEnteringBackRestricted", func(t *testing.T) {

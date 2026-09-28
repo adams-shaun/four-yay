@@ -20,6 +20,7 @@ func corpusCard(t *testing.T, name string) *cards.Card {
 }
 
 func TestSheoldredDrawnTriggerUsesDrawEventPlayer(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	sheoldred := corpusCard(t, "Sheoldred, the Apocalypse")
 	source := onBoardCard(t, e, 0, sheoldred)
@@ -40,6 +41,7 @@ func TestSheoldredDrawnTriggerUsesDrawEventPlayer(t *testing.T) {
 }
 
 func TestFateUnravelerDamagesTheDrawingOpponent(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Fate Unraveler"))
 	drawn := e.G.Zone(state.ZLibrary, 1)[0]
@@ -58,6 +60,7 @@ func TestFateUnravelerDamagesTheDrawingOpponent(t *testing.T) {
 }
 
 func TestBlackWidowDrawnNumberAndValidPlayer(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Black Widow, Agile Avenger"))
 	// The unmodified card says an OPPONENT's SECOND draw. Neither controller
@@ -77,6 +80,7 @@ func TestBlackWidowDrawnNumberAndValidPlayer(t *testing.T) {
 }
 
 func TestKeranosDrawnOnlyTriggersOnControllerTurn(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Keranos, God of Storms"))
 	if got := e.G.Obj(source).Face().Triggers[0].Params["PlayerTurn"]; got != "True" {
@@ -101,6 +105,7 @@ func TestKeranosDrawnOnlyTriggersOnControllerTurn(t *testing.T) {
 }
 
 func TestOrcishBowmastersDrawnSkipsFirstDrawStepCard(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bowmasters := corpusCard(t, "Orcish Bowmasters")
 	source := onBoardCard(t, e, 0, bowmasters)
@@ -166,6 +171,7 @@ func TestLifeLostAllObNixilisQueuesOnceForDamageAllPlayers(t *testing.T) {
 }
 
 func TestLifeLostAllObNixilisAggregatesEachPlayersBatchLoss(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Ob Nixilis, Captive Kingpin"))
 	trigger := e.G.Obj(source).Face().Triggers[0]
@@ -189,6 +195,7 @@ func TestLifeLostAllObNixilisAggregatesEachPlayersBatchLoss(t *testing.T) {
 }
 
 func TestValgavothLifeLostFirstTimeGate(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	valgavoth := corpusCard(t, "Valgavoth, Harrower of Souls")
 	source := onBoardCard(t, e, 0, valgavoth)
@@ -247,6 +254,7 @@ func TestKefkaLifeLostPlayerTurnGate(t *testing.T) {
 }
 
 func TestSahirLifeLostCauseAndAmountGates(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Sahir, Visitor in Darkness"))
 	// Sahir's unmodified secondary trigger requires exactly one life lost to
@@ -266,6 +274,7 @@ func TestSahirLifeLostCauseAndAmountGates(t *testing.T) {
 }
 
 func TestArchfiendCantGainLifePreventsOpponentOnly(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	archfiend := corpusCard(t, "Archfiend of Despair")
 	source := onBoardCard(t, e, 0, archfiend)
@@ -283,6 +292,7 @@ func TestArchfiendCantGainLifePreventsOpponentOnly(t *testing.T) {
 }
 
 func TestSulfuricVortexGainLifeReplacementPreventsGain(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	vortex := corpusCard(t, "Sulfuric Vortex")
 	source := onBoardCard(t, e, 0, vortex)
@@ -296,6 +306,7 @@ func TestSulfuricVortexGainLifeReplacementPreventsGain(t *testing.T) {
 }
 
 func TestBloodletterLifeReducedDoublesOpponentLossOnYourTurn(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bloodletter := corpusCard(t, "Bloodletter of Aclazotz")
 	source := onBoardCard(t, e, 0, bloodletter)
@@ -310,6 +321,7 @@ func TestBloodletterLifeReducedDoublesOpponentLossOnYourTurn(t *testing.T) {
 }
 
 func TestAlhammarretsArchiveDoublesGain(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	archive := corpusCard(t, "Alhammarret's Archive")
 	onBoardCard(t, e, 0, archive)
@@ -407,6 +419,7 @@ func TestArchiveAndClericClassControllerChoosesOrder(t *testing.T) {
 
 // Two doublers commute, so no order choice is posed and each applies once.
 func TestTwoArchivesCommuteWithoutOrderChoice(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	archive := corpusCard(t, "Alhammarret's Archive")
 	onBoardCard(t, e, 0, archive)
@@ -421,6 +434,7 @@ func TestTwoArchivesCommuteWithoutOrderChoice(t *testing.T) {
 }
 
 func TestTwoBloodlettersEachApplyOnce(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bloodletter := corpusCard(t, "Bloodletter of Aclazotz")
 	onBoardCard(t, e, 0, bloodletter)

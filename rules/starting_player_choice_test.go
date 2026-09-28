@@ -54,6 +54,7 @@ func optionForSeat(t *testing.T, d *decision.Decision, p state.PlayerID) decisio
 // winner can name the OTHER seat, which becomes both the recorded starting
 // player and turn 1's active seat.
 func TestStartingPlayerChoiceIsPosedToTheTossWinner(t *testing.T) {
+	t.Parallel()
 	cfg := tossedTwoSeat(t, 1, 0) // measured: seed 1 tosses to seat 1
 	e := NewStartingPlayerChoice(cfg)
 	notes := tossNotes(e)
@@ -112,6 +113,7 @@ func TestStartingPlayerChoiceIsPosedToTheTossWinner(t *testing.T) {
 // AskStartingPlayer, and Advance resolves the choice to the toss winner --
 // the pre-choice seat -- so the game proceeds exactly as before.
 func TestStartingPlayerChoiceDefaultsToTheTossWinner(t *testing.T) {
+	t.Parallel()
 	cfg := tossedTwoSeat(t, 1, 0)
 	e := NewStartingPlayerChoice(cfg)
 	notes := tossNotes(e)
@@ -149,6 +151,7 @@ func TestStartingPlayerChoiceDefaultsToTheTossWinner(t *testing.T) {
 // may name a seat that is neither itself nor the next in turn order, and the
 // engine both records and starts with exactly that seat.
 func TestStartingPlayerChoiceAnyLivingSeatFourSeats(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b", "c", "d"}
 	e := NewStartingPlayerChoice(Config{Seed: 3, Names: names, Mulligans: 0,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}})
@@ -185,6 +188,7 @@ func TestStartingPlayerChoiceAnyLivingSeatFourSeats(t *testing.T) {
 // offering seat (the deterministic default) and whatever it returns must be a
 // legal answer, or the hosted bot would livelock on a rejected intent.
 func TestStartingPlayerBotArmNamesItselfAndValidates(t *testing.T) {
+	t.Parallel()
 	cfg := tossedTwoSeat(t, 1, 0)
 	e := NewStartingPlayerChoice(cfg)
 	d := e.AskStartingPlayer()
@@ -214,6 +218,7 @@ func TestStartingPlayerBotArmNamesItselfAndValidates(t *testing.T) {
 // intent is recorded, the replay re-poses the ask from the log's DecisionAsk,
 // and the chain heads agree.
 func TestStartingPlayerChoiceReplaysWhenAnswered(t *testing.T) {
+	t.Parallel()
 	cfg := tossedTwoSeat(t, 1, 0)
 	e := NewStartingPlayerChoice(cfg)
 	d := e.AskStartingPlayer()

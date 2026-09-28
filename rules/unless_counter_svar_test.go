@@ -224,6 +224,7 @@ var counterUnlessSVarCensus = []string{
 // starts folding, a folded AMOUNT that moves, and a line added to or removed
 // from the corpus each name themselves here.
 func TestCounterUnlessCostSVarResolvedPopulation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := classifyCounterUnlessSVarLines(t, reg)
 	want := append([]string(nil), counterUnlessSVarCensus...)
@@ -259,6 +260,7 @@ func TestCounterUnlessCostSVarResolvedPopulation(t *testing.T) {
 // sees "Pay the cost" and fails before payment, so it protects the shared
 // Count$ path rather than merely the ordinary counter outcome.
 func TestPowerSinkUnlessPayChargesResolvedX(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, creatureID := xCounterFixture(t, reg, "Power Sink", "Grizzly Bears", "2")
 

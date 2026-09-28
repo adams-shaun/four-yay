@@ -163,6 +163,7 @@ func kangarooRollFixture(t *testing.T, carriers ...string) (*Engine, state.ObjID
 // count toward the published Result the counter sub reads. Wyll's own
 // RolledDieOnce trigger still fires exactly once for the roll ACTION.
 func TestWyllRollDiceReplacementAddsDieAndIgnoresLowest(t *testing.T) {
+	t.Parallel()
 	e, wyll, kang, rolls := kangarooRollFixture(t, "Wyll, Blade of Frontiers")
 	if n := len(rolls); n != 2 {
 		t.Fatalf("want two dice rolled (1 + the replacement's one), got %d (%v)", n, rolls)
@@ -195,6 +196,7 @@ func TestWyllRollDiceReplacementAddsDieAndIgnoresLowest(t *testing.T) {
 // and the whole batch is still ONE roll action to the once-per-action
 // trigger.
 func TestRollDiceReplacementCompositionAppliesEachOnce(t *testing.T) {
+	t.Parallel()
 	e, wyll, kang, rolls := kangarooRollFixture(t, "Wyll, Blade of Frontiers", "Pixie Guide")
 	if n := len(rolls); n != 3 {
 		t.Fatalf("want three dice rolled (1 + one per carrier), got %d (%v)", n, rolls)
@@ -232,6 +234,7 @@ func TestRollDiceReplacementCompositionAppliesEachOnce(t *testing.T) {
 // matched replacement is skipped LOUDLY and Kangaroo's roll proceeds with
 // exactly its own one die.
 func TestRollDiceSwapRollCarrierIsFailClosed(t *testing.T) {
+	t.Parallel()
 	e, _, _, rolls := kangarooRollFixture(t, "Vedalken Squirrel-Whacker")
 	if n := len(rolls); n != 1 {
 		t.Fatalf("the unmodelled SwapRoll carrier must not alter the dice count, got %d dice (%v)", n, rolls)
@@ -247,6 +250,7 @@ func TestRollDiceSwapRollCarrierIsFailClosed(t *testing.T) {
 // publishes from the carried dice and re-rolls NOTHING -- the resumed
 // resolution never re-applies the replacement.
 func TestWyllRollReplacementResumedAskDoesNotReroll(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := flipEngine(t, reg, 11, []*cards.Card{
 		lookup(t, reg, "Wyll, Blade of Frontiers"),

@@ -12,6 +12,7 @@ import (
 )
 
 func TestPlagonEffectDeliveredCombatDamageToughness(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	plagon := mustCorpusCard(t, reg, "Plagon, Lord of the Beach")
 	targetedCard := card(t, toughnessBeast)

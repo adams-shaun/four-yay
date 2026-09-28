@@ -43,6 +43,7 @@ func castOption(t *testing.T, e *Engine, spell state.ObjID) int {
 }
 
 func TestDargoAnnouncesSacrificeCountAndReduces(t *testing.T) {
+	t.Parallel()
 	// Three sac candidates; announce X=2, sacrifice two, pay {6}{R} - {4} =
 	// {2}{R}. The offer gate priced the FULL {6}{R} (no announced X yet), so
 	// the pool is funded for that worst case.
@@ -99,6 +100,7 @@ func TestDargoAnnouncesSacrificeCountAndReduces(t *testing.T) {
 }
 
 func TestDargoSacrificingNothingPaysFullCost(t *testing.T) {
+	t.Parallel()
 	// X=0 is legal: no sacrifice ask at all, full {6}{R} paid.
 	e, spell, ids := dargoEngine(t, []string{"Name:Anvil\nTypes:Artifact\nOracle:x\n"}, "RRRRRRR")
 	submitChoices(t, e, castOption(t, e, spell))

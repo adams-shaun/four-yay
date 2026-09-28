@@ -19,6 +19,7 @@ import (
 // seats 2, 3, 0 in that order; the pre-fix AliveFrom(0) walk visited seats
 // 0 and 2 instead (two flips, wrong order and wrong flippers).
 func TestFlipCoinForEachPlayerOpponentOrderIsControllerRelative(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mutalith := lookup(t, reg, "Mutalith Vortex Beast")
 	run := func(seed uint64) []effects.FlipResult {
@@ -99,6 +100,7 @@ Oracle:x
 // which lazily allocates a fresh one and loses every pre-suspension result --
 // is a failure this test observes as the missing damage.
 func TestFlipCoinSuspendedWinBranchKeepsMemoryAcrossResume(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	asker := card(t, flipAskerSrc)
 	run := func(seed uint64) (flips []effects.FlipResult, hitsOn0 int, suspended bool) {

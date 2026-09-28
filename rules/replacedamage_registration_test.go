@@ -16,6 +16,7 @@ import (
 // corpus carrier cards reporting as unsupported even though prevention works
 // in play.
 func TestReplaceDamagePrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	if !supported["api:ReplaceDamage"] {
 		t.Fatal(`effects.Supported() is missing "api:ReplaceDamage"`)
@@ -28,6 +29,7 @@ func TestReplaceDamagePrimitiveIsRegistered(t *testing.T) {
 // the corpus registry -- so a missing card fails loudly rather than passing
 // vacuously.
 func TestReplaceDamageCarrierHasNoGap(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	herb := mustCorpusCard(t, reg, "Heart-Shaped Herb")
 	prims := herb.Primitives()

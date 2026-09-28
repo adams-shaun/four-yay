@@ -146,6 +146,7 @@ func submitChangeText(t *testing.T, e *Engine, from, to string) {
 // walk and deck validation read: without it make report keeps all 32 Entwine
 // carriers gated on kw:Entwine.
 func TestEntwinePrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:Entwine"] {
 		t.Fatal(`effects.Supported() is missing "kw:Entwine"`)
 	}
@@ -200,6 +201,7 @@ func TestEntwineCorpusCostFormsAreAllPriced(t *testing.T) {
 // legal count), the composed {3}{U} drains the pool exactly, and BOTH
 // substitutions land on the two battlefield permanents.
 func TestEntwinePaidChoosesEveryModeAndCharges(t *testing.T) {
+	t.Parallel()
 	e, cfg := entwineFixture(t, 901, fixEntwineShiftN,
 		[]string{"Fix Mountain Elk", "Fix Red Mage"}, []string{"Fix Entwine Bear"}, nil)
 	elk := findByName(e, "Fix Mountain Elk", 0)
@@ -302,6 +304,7 @@ func TestEntwinePaidChoosesEveryModeAndCharges(t *testing.T) {
 // CharmNum$ 1/1 bound, only the printed {1}{U} is charged, and only the chosen
 // mode resolves.
 func TestEntwineDeclinedIsTheOrdinaryOneModeCast(t *testing.T) {
+	t.Parallel()
 	e, cfg := entwineFixture(t, 903, fixEntwineShiftN,
 		[]string{"Fix Mountain Elk", "Fix Red Mage"}, []string{"Fix Entwine Bear"}, nil)
 	elk := findByName(e, "Fix Mountain Elk", 0)
@@ -360,6 +363,7 @@ func TestEntwineDeclinedIsTheOrdinaryOneModeCast(t *testing.T) {
 // absent from the priority options entirely (the shared offerCastable gate),
 // so an unpayable entwine can never be proposed and then abort.
 func TestEntwineNotOfferedWhenCostUnpayable(t *testing.T) {
+	t.Parallel()
 	e, _ := entwineFixture(t, 905, fixEntwineShiftN,
 		[]string{"Fix Mountain Elk"}, nil, nil)
 	d := e.Pending()
@@ -379,6 +383,7 @@ func TestEntwineNotOfferedWhenCostUnpayable(t *testing.T) {
 // the Sac<2/Land> part (two lands leave the battlefield) and forces BOTH
 // targetless DestroyAll modes, so the 1/1 and the 3/3 both die.
 func TestEntwineNonManaCostFormSacrificesLands(t *testing.T) {
+	t.Parallel()
 	e, cfg := entwineFixture(t, 907, fixEntwineTideN,
 		[]string{"Fix Entwine Forest", "Fix Entwine Forest B", "Fix Entwine Forest C", "Fix Entwine Forest D"},
 		[]string{"Fix Weenie", "Fix Giant"}, nil)

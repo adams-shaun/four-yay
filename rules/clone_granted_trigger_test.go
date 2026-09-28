@@ -10,6 +10,7 @@ import (
 )
 
 func TestAuroraShifterCloneGrantsNamedTriggerAndSVars(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Aurora Shifter", "Grizzly Bears")
 	shifter := searchMoveByName(t, e, "Aurora Shifter", state.ZBattlefield)

@@ -51,6 +51,7 @@ func windgraceEngine(t *testing.T) *Engine {
 // with two targets destroys exactly those two and creates the six Cat
 // Warrior tokens, and the walker's own loyalty drops by the cost.
 func TestLordWindgraceUltimateDestroysNonlands(t *testing.T) {
+	t.Parallel()
 	e := windgraceEngine(t)
 	walker := onBoard(t, e, 0, windgraceSrc)
 	// onBoard bypasses events, so the printed starting loyalty never applied:

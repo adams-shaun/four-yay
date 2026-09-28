@@ -92,6 +92,7 @@ func pcsAssertSVar(t *testing.T, e *Engine, id state.ObjID, name, want string) {
 // PlayerCountPlayers$HasPropertyisMonarch EQ0, which must count the REAL
 // monarch state (event-folded), and never a fabricated zero.
 func TestArchivistOfGondorNoMonarchGate(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := pcsCorpusEngine(t, "Tymna the Weaver", "Archivist of Gondor", "Grizzly Bears")
 	archivist, bears := ids["Archivist of Gondor"], ids["Grizzly Bears"]
 	cmd := e.G.Players[0].Commanders[0]
@@ -160,6 +161,7 @@ func TestArchivistOfGondorNoMonarchGate(t *testing.T) {
 // PlayerCountOpponents$HasPropertyHasCardsInHand_Card_GE4, so X — and only
 // X — tracks how many opponents hold four or more cards.
 func TestWolfcallersHowlCountsOpponentsHands(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := pcsCorpusEngine(t, "", "Wolfcaller's Howl")
 	howl := ids["Wolfcaller's Howl"]
 	pcsAssertSVar(t, e, howl, "X", "PlayerCountOpponents$HasPropertyHasCardsInHand_Card_GE4")
@@ -228,6 +230,7 @@ func TestWolfcallersHowlCountsOpponentsHands(t *testing.T) {
 // player hits satisfy it, and damage a redirect moved onto a PERMANENT does
 // not.
 func TestWarElementalSacrificeGateOnLandedDamage(t *testing.T) {
+	t.Parallel()
 	// No damage anywhere: the gate holds (count 0, EQ0) and War Elemental
 	// sacrifices itself on entry.
 	e, _, ids := pcsCorpusEngine(t, "", "War Elemental", "Grizzly Bears")
@@ -294,6 +297,7 @@ func TestWarElementalSacrificeGateOnLandedDamage(t *testing.T) {
 // counts opponents the per-turn combat ledger recorded a hit for, evaluated
 // through the card's own compiled SVar on the real engine.
 func TestTymnaNoSourceCombatLedgerCountsHitOpponents(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := pcsCorpusEngine(t, "", "Tymna the Weaver", "Grizzly Bears")
 	tymna := ids["Tymna the Weaver"]
 	pcsAssertSVar(t, e, tymna, "X", "PlayerCountRegisteredOpponents$HasPropertywasDealtCombatDamageThisTurn")

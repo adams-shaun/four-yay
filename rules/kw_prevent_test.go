@@ -59,6 +59,7 @@ func attackerBlockedBy(t *testing.T, e *Engine, atk, blocker state.ObjID) {
 // (`K:Prevent all combat damage that would be dealt to and dealt by
 // CARDNAME.`) — a 5/5 attacker blocked by the Fog Bank deals it nothing.
 func TestFogBankKeywordPreventsCombatDamageToIt(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardCard(t, e, 0, card(t, "Name:Bludgeon\nManaCost:4 R\nTypes:Creature Ogre\nPT:5/5\nOracle:x\n"))
 	fog := onBoardCard(t, e, 1, preventCorpusCard(t, "Fog Bank", "f/fog_bank.txt"))
@@ -82,6 +83,7 @@ func TestFogBankKeywordPreventsCombatDamageToIt(t *testing.T) {
 // full. Without this half a wrongly-broad expansion (IsCombat omitted) would
 // pass the combat test above just the same.
 func TestFogBankKeywordDoesNotPreventNonCombatDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	src := onBoardCard(t, e, 0, card(t, "Name:Zap\nManaCost:1 R\nTypes:Creature Ogre\nPT:1/1\nOracle:x\n"))
 	fog := onBoardCard(t, e, 1, preventCorpusCard(t, "Fog Bank", "f/fog_bank.txt"))
@@ -104,6 +106,7 @@ func TestFogBankKeywordDoesNotPreventNonCombatDamage(t *testing.T) {
 // hit-back are both prevented. Also pins the by-direction's own combat
 // scoping: a non-combat hit the carrier deals lands in full.
 func TestPreventKeywordDealsByDirectionPrevented(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	carrier := onBoardCard(t, e, 0, card(t, "Name:Pacifist Oaf\nManaCost:2 W\nTypes:Creature Giant\nPT:3/3\n"+
 		"K:Prevent all combat damage that would be dealt to and dealt by CARDNAME.\nOracle:x\n"))
@@ -140,6 +143,7 @@ func TestPreventKeywordDealsByDirectionPrevented(t *testing.T) {
 // the brief names, the to-only combat sentence (no "dealt by" half), on the
 // real script.
 func TestGuardGomazoaKeywordPreventsCombatDamageToIt(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardCard(t, e, 0, card(t, "Name:Bludgeon\nManaCost:4 R\nTypes:Creature Ogre\nPT:5/5\nOracle:x\n"))
 	gom := onBoardCard(t, e, 1, preventCorpusCard(t, "Guard Gomazoa", "g/guard_gomazoa.txt"))
@@ -160,6 +164,7 @@ func TestGuardGomazoaKeywordPreventsCombatDamageToIt(t *testing.T) {
 // prevents a NON-combat hit, which the two combat-scoped shapes above
 // deliberately do not.
 func TestChoMannoKeywordPreventsNonCombatDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	src := onBoardCard(t, e, 0, card(t, "Name:Burn\nManaCost:1 R\nTypes:Creature Ogre\nPT:1/1\nOracle:x\n"))
 	cho := onBoardCard(t, e, 1, preventCorpusCard(t, "Cho-Manno, Revolutionary", "c/cho_manno_revolutionary.txt"))

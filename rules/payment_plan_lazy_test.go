@@ -9,6 +9,7 @@ import (
 )
 
 func TestPaymentPlanEnsureIsLazyCloneableAndSubmittable(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 94101, "Name:Lazy Plan Spell\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	e.pending = nil

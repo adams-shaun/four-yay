@@ -10,6 +10,7 @@ import (
 )
 
 func TestClayGolemRollDiceCostAndMonstrosity(t *testing.T) {
+	t.Parallel()
 	parsed := ParseCost("6 RollDice<1/8/X>")
 	if parsed.Generic != 6 || len(parsed.Unknown) != 0 || len(parsed.RollDice) != 1 {
 		t.Fatalf("RollDice cost parse = %+v, want {6} and one modelled roll", parsed)

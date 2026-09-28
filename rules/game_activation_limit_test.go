@@ -43,6 +43,7 @@ const gameLimitedBeastSrc = "Name:OnceBeast\nManaCost:0\nTypes:Creature Beast\nP
 // activation of the same turn, and -- unlike its per-turn sibling -- stays
 // withheld after the turn changes.
 func TestGameActivationLimitWithholdsSecondActivationSameGame(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 11, gameLimitedBeastSrc)
 	moveByName(t, e, 0, "OnceBeast", state.ZBattlefield)
 	// Four green: two {1}{G} activations are payable, so the withheld second
@@ -85,6 +86,7 @@ func TestGameActivationLimitWithholdsSecondActivationSameGame(t *testing.T) {
 // becomes a 0/0 Spirit creature ... Activate only once." is offered once and
 // withheld after that activation.
 func TestGameActivationLimitRealCorpusHauntedScreen(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	hs, ok := reg.Lookup("Haunted Screen")
 	if !ok {
@@ -123,6 +125,7 @@ func TestGameActivationLimitRealCorpusHauntedScreen(t *testing.T) {
 // report: a NON-permanent source's Animate grant resolves against the
 // recipient's table and so never finds its SVar today).
 func TestGameActivationLimitGrantedAbilityWithheldAfterOneUse(t *testing.T) {
+	t.Parallel()
 	const grantedSrc = "Name:GrantBeast\nManaCost:0\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Animate | Cost$ 0 | Defined$ Self | Abilities$ ABLimited | Duration$ Permanent | SpellDescription$ CARDNAME gains an ability.\n" +
 		"SVar:ABLimited:AB$ Untap | Cost$ 0 | Defined$ Self | GameActivationLimit$ 1 | SpellDescription$ Untap this creature. Activate only once.\n" +
@@ -179,6 +182,7 @@ func findAbilityOptionByLabel(e *Engine, id state.ObjID, want string) (decision.
 // AddAbilities provenance: the Bears remain the continuous effect's Source,
 // while Touch owns the SVar body and therefore the activation grant source.
 func TestTouchOfVitaeGrantsTargetedUntapAbility(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	touch := lookup(t, reg, "Touch of Vitae")
 	bearsCard := lookup(t, reg, "Grizzly Bears")

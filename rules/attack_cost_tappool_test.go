@@ -23,6 +23,7 @@ import (
 // pool-exhausting declaration, and the acceptance (and payment) of the
 // declaration that leaves a candidate.
 func TestHollowWarriorAttackDeclarationTapPool(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	warrior := onBoardReadyCard(t, e, 0, mshCorpusCard(t, "Hollow Warrior"))
 	bear1 := onBoardReady(t, e, 0, "Name:Test Bear One\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

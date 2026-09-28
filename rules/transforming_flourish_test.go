@@ -32,6 +32,7 @@ import (
 )
 
 func TestTransformingFlourishDestroyRemembersVictimAndRunsGatedDig(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	flourish := mustCorpusCard(t, reg, "Transforming Flourish")
 	victimCard := card(t, "Name:Test Beast\nManaCost:2\nTypes:Creature\nPT:3/3\nOracle:x\n")

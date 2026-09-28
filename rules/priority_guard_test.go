@@ -112,6 +112,7 @@ func TestEveryOfferedPriorityOptionActs(t *testing.T) {
 //     the backstop records the inert Note and holds that option out until
 //     the next state-changing event.
 func TestStalePriorityOptionIsRejectedOrHeldOut(t *testing.T) {
+	t.Parallel()
 	bears := tokenReplCorpusCard(t, "Grizzly Bears")
 	e, _ := tokenReplGame(t, 9183, bears)
 	bearID := moveSeededCard(t, e, 0, bears, state.ZBattlefield)

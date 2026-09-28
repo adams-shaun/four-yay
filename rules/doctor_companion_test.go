@@ -24,6 +24,7 @@ import (
 // the two layers agree about a Doctor's-companion pair rather than testing
 // the deck package alone.
 func TestDoctorCompanionSeatsBothCommanders(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	rose := lookup(t, reg, "Rose Tyler")
 	doctor := lookup(t, reg, "The Tenth Doctor")
@@ -86,6 +87,7 @@ func TestDoctorCompanionSeatsBothCommanders(t *testing.T) {
 // authored here rather than drawn from the corpus; the pair predicate under
 // test (partnerPairOK -> deck.IsPartnerPair) is the production one either way.
 func TestTwoDoctorCompanionsSeatBothCommanders(t *testing.T) {
+	t.Parallel()
 	reg := cards.NewRegistry()
 	fifth := card(t, "Name:The Fifth Doctor\nManaCost:W\nTypes:Legendary Creature Time Lord Doctor\nK:Doctor's companion\n")
 	sixth := card(t, "Name:The Sixth Doctor\nManaCost:U\nTypes:Legendary Creature Time Lord Doctor\nK:Doctor's companion\n")

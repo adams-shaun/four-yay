@@ -27,6 +27,7 @@ import (
 // creature with a counter" could never be activated. The uncountered Grizzly
 // Bears must never be offered.
 func TestHasCountersPredicateUnlocksTargeting(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	abolisher := mustCorpusCard(t, reg, "Razorfin Abolisher") // {1}{U},{T}: return target creature with a counter on it
 	bearA := mustCorpusCard(t, reg, "Grizzly Bears")

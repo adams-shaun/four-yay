@@ -68,6 +68,7 @@ func assertExilePayments(t *testing.T, e *Engine, ids ...state.ObjID) {
 }
 
 func TestNecropolisFiendAnnouncedExilePayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	fiend := mustCorpusCard(t, reg, "Necropolis Fiend")
 	bear := card(t, "Name:ExileTarget\nTypes:Creature Bear\nPT:4/4\nOracle:x\n")
@@ -124,6 +125,7 @@ func TestNecropolisFiendAnnouncedExilePayment(t *testing.T) {
 }
 
 func TestChillHauntingExileOnlyAnnouncesX(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	chill := mustCorpusCard(t, reg, "Chill Haunting")
 	creature := mustCorpusCard(t, reg, "Grizzly Bears")

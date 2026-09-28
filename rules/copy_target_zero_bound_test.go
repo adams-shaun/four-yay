@@ -16,6 +16,7 @@ import (
 // target anything; a copy of it (Increasing Vengeance, fuzz batch4 lines 3
 // and 8) then posed a Min 0 Max 0 target ask and panicked the engine.
 func TestAvacynsJudgmentTargetBoundCountsPlayersAndPermanents(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	eng, cfg := miscHandsEngine(t, reg,
 		[]string{"Avacyn's Judgment"}, nil, nil, []string{"Grizzly Bears"})
@@ -63,6 +64,7 @@ func TestAvacynsJudgmentTargetBoundCountsPlayersAndPermanents(t *testing.T) {
 // with a panic; it must resolve the empty election silently and let the
 // copy resolve.
 func TestCopyWithZeroTargetBoundResolvesWithoutAsking(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	eng, cfg := miscHandsEngine(t, reg,
 		[]string{"Crackle with Power", "Increasing Vengeance"}, nil, nil, []string{"Grizzly Bears"})

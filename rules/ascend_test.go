@@ -45,6 +45,7 @@ func vanillaBears(t testing.TB, e *Engine, p state.PlayerID, n int) {
 // board shape but no Ascend permanent never gets it; and the latch survives
 // the Ascend permanent's own death (CR 702.131a, "for the rest of the game").
 func TestAscendPermanentGrantsTheBlessingAtTenPermanents(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	vanillaBears(t, e, 0, 9)
 	dusk := enterOnBattlefield(t, e, 0, corpusCard(t, "Dusk Charger"))
@@ -64,6 +65,7 @@ func TestAscendPermanentGrantsTheBlessingAtTenPermanents(t *testing.T) {
 // TestAscendNinePermanentsNeverGrants pins the gate's count side: nine
 // permanents under an Ascend controller hold no blessing.
 func TestAscendNinePermanentsNeverGrants(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	vanillaBears(t, e, 0, 8)
 	enterOnBattlefield(t, e, 0, corpusCard(t, "Dusk Charger"))
@@ -78,6 +80,7 @@ func TestAscendNinePermanentsNeverGrants(t *testing.T) {
 // unblockable; at nine permanents the gate denies and the Detective blocks
 // normally.
 func TestDetectiveOfTheMonthCantBlockByNeedsTheBlessing(t *testing.T) {
+	t.Parallel()
 	t.Run("blessed/unblockable", func(t *testing.T) {
 		e := layerEngine(t)
 		vanillaBears(t, e, 0, 9)
@@ -106,6 +109,7 @@ func TestDetectiveOfTheMonthCantBlockByNeedsTheBlessing(t *testing.T) {
 // or more permanents. The spell's own Count$Blessing-gated branch is a
 // separate (unimplemented) head -- this pin asserts the state change only.
 func TestAscendSpellResolutionGrantsTheBlessing(t *testing.T) {
+	t.Parallel()
 	t.Run("ten permanents", func(t *testing.T) {
 		e := layerEngine(t)
 		vanillaBears(t, e, 0, 10)
@@ -137,6 +141,7 @@ func TestAscendSpellResolutionGrantsTheBlessing(t *testing.T) {
 // Continuous read on the real carrier (Dusk Charger's +2/+2): buffed only
 // while the latch holds, re-derived across the emitted BlessingChange.
 func TestAscendContinuousBuffFollowsTheBlessing(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	dusk := onBoardCard(t, e, 0, corpusCard(t, "Dusk Charger"))
 	if got := e.Power(dusk); got != 3 {
@@ -158,6 +163,7 @@ func TestAscendContinuousBuffFollowsTheBlessing(t *testing.T) {
 // the setup checks that each source and affected creature is actually on the
 // battlefield so neither assertion can pass vacuously.
 func TestBlessingReadersUseThePerPlayerLatch(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	prophet := onBoardCard(t, e, 0, corpusCard(t, "Twilight Prophet"))
 	prophetFace := e.G.Obj(prophet).Face()
@@ -204,6 +210,7 @@ func TestBlessingReadersUseThePerPlayerLatch(t *testing.T) {
 }
 
 func TestCantBlockByConditionGateThresholdNotBlessingSpecific(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	ink := onBoardCard(t, e, 0, corpusCard(t, "Cephalid Inkmage"))
 	blocker := onBoard(t, e, 1, "Name:Wall Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -225,6 +232,7 @@ func TestCantBlockByConditionGateThresholdNotBlessingSpecific(t *testing.T) {
 // controller's tenth permanent latch the blessing, while an opponent with
 // the same board shape and only printed-less creatures does not.
 func TestAscendGrantedKeywordStillGrantsTheBlessing(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Ascend Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Ascend | Description$ Creatures you control have ascend.\nOracle:x\n")
 	vanillaBears(t, e, 0, 8)
@@ -243,6 +251,7 @@ func TestAscendGrantedKeywordStillGrantsTheBlessing(t *testing.T) {
 // two answers on real objects: a printed Ascend carrier and a vanilla
 // creature.
 func TestAscendScanSkipsOnlyObjectsThatCannotHaveIt(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	dusk := onBoardCard(t, e, 0, corpusCard(t, "Dusk Charger"))
 	bear := onBoardCard(t, e, 0, corpusCard(t, "Grizzly Bears"))

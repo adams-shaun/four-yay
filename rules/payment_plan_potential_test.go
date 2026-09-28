@@ -11,6 +11,7 @@ import (
 )
 
 func TestPaymentPlanPotentialUrborgGrantedIntrinsic(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	urborgCard, ok := reg.Lookup("Urborg, Tomb of Yawgmoth")
 	if !ok {

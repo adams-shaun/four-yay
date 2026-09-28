@@ -162,6 +162,7 @@ func steppedInto(e *Engine, from, to int, s state.Step) bool {
 // and the cleanup step. A stronger-than-Magic rule that ended the turn at the
 // elimination would skip both, and this named test would fail.
 func TestEliminatedActivePlayersTurnContinuesToCleanup(t *testing.T) {
+	t.Parallel()
 	e := elimActiveScenario(t)
 	playEliminatedTurn(t, e, 3)
 	// The elimination happens during playEliminatedTurn (the drain trigger
@@ -204,6 +205,7 @@ func TestEliminatedActivePlayersTurnContinuesToCleanup(t *testing.T) {
 // guarantee — the thing a client asking "do I need a live response from seat
 // 1?" cares about — which is what must hold for the match to keep moving.)
 func TestNoPriorityIsGrantedToTheEliminatedActivePlayer(t *testing.T) {
+	t.Parallel()
 	e := elimActiveScenario(t)
 	before := len(e.L.Events)
 	playEliminatedTurn(t, e, 3)
@@ -235,6 +237,7 @@ func TestNoPriorityIsGrantedToTheEliminatedActivePlayer(t *testing.T) {
 // combat rather than handing a departed seat a decision. Asserted on the asks
 // across the whole log from the elimination, not on any one guard.
 func TestNoDecisionIsEverAskedOfTheDepartedSeat(t *testing.T) {
+	t.Parallel()
 	e := elimActiveScenario(t)
 	playEliminatedTurn(t, e, 3)
 	lost := indexOfPlayerLost(e, 1)
@@ -272,6 +275,7 @@ func TestNoDecisionIsEverAskedOfTheDepartedSeat(t *testing.T) {
 // eliminated player's turn. Asserted on the real life delta, not on a trigger
 // queued/still-piled internal.
 func TestLivingSeatsEndOfTurnTriggerStillFiresOnTheEliminatedTurn(t *testing.T) {
+	t.Parallel()
 	e := elimActiveScenario(t)
 	life := e.G.Players[2].Life
 	playEliminatedTurn(t, e, 3)
@@ -296,6 +300,7 @@ func TestLivingSeatsEndOfTurnTriggerStillFiresOnTheEliminatedTurn(t *testing.T) 
 // is seat 2 — and that turn begins normally, with a priority decision offered
 // to seat 2.
 func TestNextTurnBelongsToTheNextLivingSeat(t *testing.T) {
+	t.Parallel()
 	e := elimActiveScenario(t)
 	playEliminatedTurn(t, e, 3)
 	if e.G.Turn != 3 {
@@ -317,6 +322,7 @@ func TestNextTurnBelongsToTheNextLivingSeat(t *testing.T) {
 // game (two seats survive) — the turn must still complete and the match keep
 // going.
 func TestThreeSeatGameContinuesWhenOnePlayerIsEliminatedMidTurn(t *testing.T) {
+	t.Parallel()
 	e := elimActiveScenario(t)
 	playEliminatedTurn(t, e, 3)
 	if e.G.Over {
@@ -338,6 +344,7 @@ func TestThreeSeatGameContinuesWhenOnePlayerIsEliminatedMidTurn(t *testing.T) {
 // advance — no TurnChange (and no further StepChange/priority) may appear
 // after the GameOver event.
 func TestEliminationThatEndsTheGameDoesNotAdvanceTheTurn(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	onBoard(t, e, 1, drainerSrc)
 	driveToStep(t, e, 2, 1, state.StepUpkeep)

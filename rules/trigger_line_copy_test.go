@@ -12,6 +12,7 @@ import (
 // resolution. The original wrapper is removed so only the copied wrapper can
 // produce the optional and cost asks.
 func TestCopiedGrantedTriggerKeepsItsLineAcrossStackCopyAndClone(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 907, mendicantCoreSrc, artifactSpellSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, mendicantCoreSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, artifactSpellSrc, state.ZHand)

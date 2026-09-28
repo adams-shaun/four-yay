@@ -135,6 +135,7 @@ func TestButchDeLoriaMenaceCounterGrantsMenaceEndToEnd(t *testing.T) {
 // classifier every counter-to-keyword read goes through, so its edges are the
 // edges of the feature.
 func TestMenaceCounterKeywordClassifier(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		kind string
 		want string

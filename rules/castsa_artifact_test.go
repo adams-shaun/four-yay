@@ -31,6 +31,7 @@ import (
 )
 
 func TestCastSaManaFromArtifactAllSites(t *testing.T) {
+	t.Parallel()
 	shadow := corpusAlternativeCard(t, "Shadow the Hedgehog")
 	if len(shadow.Faces) == 0 {
 		t.Fatal("Shadow the Hedgehog has no face")
@@ -160,6 +161,7 @@ func hasSplitSecond(keywords []string) bool {
 // through the real option wheel and the produced units are asserted to sit in
 // the Artifact tally.
 func TestManaProducerTagsArtifact(t *testing.T) {
+	t.Parallel()
 	e := handEngineTokens(t, corpusAlternativeCard(t, "Sol Ring"))
 	ring := e.G.Zone(state.ZHand, 0)[0]
 	placeOnBattlefield(t, e, ring)

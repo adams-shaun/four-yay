@@ -136,6 +136,7 @@ func zallDraws(t *testing.T, e *Engine, p state.PlayerID) int {
 //     entries queue exactly one trigger);
 //  4. an OPPONENT's creature entering draws nothing (YouCtrl).
 func TestTocasiasWelcomeDrawsOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := zallEngine(t, reg,
 		[]string{"Tocasia's Welcome", "Grizzly Bears", "Colossapede", "Grizzly Bears", "Grizzly Bears"},
@@ -206,6 +207,7 @@ func TestTocasiasWelcomeDrawsOncePerTurn(t *testing.T) {
 //     source); and on a fresh engine, an OPPONENT's creature dying draws
 //     one (Other does not exclude the other side's creatures).
 func TestMorbidOpportunistDrawsOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := zallEngine(t, reg,
 		[]string{"Morbid Opportunist", "Grizzly Bears", "Grizzly Bears", "Forest"},
@@ -284,6 +286,7 @@ func TestMorbidOpportunistDrawsOncePerTurn(t *testing.T) {
 //     (the ActivationLimit$ 1 latch);
 //  3. an OPPONENT's artifact entering creates nothing (YouCtrl).
 func TestMerryWardenOfIsengardBathesArtifactsOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := zallEngine(t, reg,
 		[]string{"Merry, Warden of Isengard", "Sol Ring", "Tormod's Crypt", "Mox Amber", "Forest"},
@@ -376,6 +379,7 @@ func TestMerryWardenOfIsengardBathesArtifactsOncePerTurn(t *testing.T) {
 // the engine's partnerHead/partnerPairOK seat the named pair, so the
 // registration asserts the corpus shape is understood.
 func TestChangesZoneAllPrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:ChangesZoneAll"] {
 		t.Fatal(`effects.Supported() is missing "trig:ChangesZoneAll"`)
 	}

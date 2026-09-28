@@ -90,6 +90,7 @@ func treasureUnit(t *testing.T, e *Engine) {
 }
 
 func TestRainOfRichesTreasureManaCastCascades(t *testing.T) {
+	t.Parallel()
 	e, cfg := rainOfRichesEngine(t, 9311)
 	rainID := searchMoveByName(t, e, "Rain of Riches", state.ZHand)
 	rainOnBattlefield(t, e, rainID)
@@ -123,6 +124,7 @@ func TestRainOfRichesTreasureManaCastCascades(t *testing.T) {
 }
 
 func TestRainOfRichesPlainCastDoesNotCascade(t *testing.T) {
+	t.Parallel()
 	e, cfg := rainOfRichesEngine(t, 9312)
 	rainID := searchMoveByName(t, e, "Rain of Riches", state.ZHand)
 	rainOnBattlefield(t, e, rainID)
@@ -155,6 +157,7 @@ func TestRainOfRichesPlainCastDoesNotCascade(t *testing.T) {
 }
 
 func TestRainOfRichesSecondTreasureCastDoesNotCascade(t *testing.T) {
+	t.Parallel()
 	e, cfg := rainOfRichesEngine(t, 9313)
 	rainID := searchMoveByName(t, e, "Rain of Riches", state.ZHand)
 	rainOnBattlefield(t, e, rainID)
@@ -193,6 +196,7 @@ func TestRainOfRichesSecondTreasureCastDoesNotCascade(t *testing.T) {
 // first exile-origin cast of the turn cascades. The exile-origin cast is a
 // foretell cast (the was_cast_from_zone_test.go flow).
 func TestWildMagicSorcererFirstExileCastCascades(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Delayed Blast Fireball"),
 		corpusAlternativeCard(t, "Wild-Magic Sorcerer"))
 	dbf := e.G.Zone(state.ZHand, 0)[0]
@@ -226,6 +230,7 @@ func TestWildMagicSorcererFirstExileCastCascades(t *testing.T) {
 // creature cast with no mana spent (Ornithopter, cost {0}) draws the card, a
 // paid cast does not.
 func TestSatoruEntryReadsNoManaSpentCastSa(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Satoru, the Infiltrator"),
 		corpusAlternativeCard(t, "Ornithopter"), corpusAlternativeCard(t, "Grizzly Bears"))
 	satoru := e.G.Zone(state.ZHand, 0)[0]
@@ -268,6 +273,7 @@ func TestSatoruEntryReadsNoManaSpentCastSa(t *testing.T) {
 // the cast (Vengevine's EQ2 "second creature spell" gate is the inclusive
 // convention).
 func TestCountStaysInclusiveOutsideTheGrantWalk(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"))
 	bear := e.G.Zone(state.ZHand, 0)[0]
 	addMana(t, e, 0, "GG")

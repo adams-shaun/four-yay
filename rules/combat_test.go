@@ -203,6 +203,7 @@ func submitBlockers(t *testing.T, e *Engine, blockerIDs ...state.ObjID) {
 }
 
 func TestBlockerDeclarationLegality(t *testing.T) {
+	t.Parallel()
 	const creature = "Name:Memnite\nManaCost:0\nTypes:Artifact Creature Construct\nPT:1/1\nOracle:x\n"
 
 	t.Run("one blocker cannot block two attackers", func(t *testing.T) {
@@ -263,6 +264,7 @@ func TestBlockerDeclarationLegality(t *testing.T) {
 }
 
 func TestMenaceBlockDeclarationNeedsZeroOrAtLeastTwoBlockers(t *testing.T) {
+	t.Parallel()
 	const menace = "Name:Goblin Glory Chaser\nManaCost:R\nTypes:Creature Goblin Warrior\nPT:1/1\nK:Menace\nOracle:x\n"
 	const blocker = "Name:Memnite\nManaCost:0\nTypes:Artifact Creature Construct\nPT:1/1\nOracle:x\n"
 
@@ -311,6 +313,7 @@ func TestMenaceBlockDeclarationNeedsZeroOrAtLeastTwoBlockers(t *testing.T) {
 }
 
 func TestCombatPriorityDoesNotRepeatDeclarations(t *testing.T) {
+	t.Parallel()
 	const creature = "Name:Memnite\nManaCost:0\nTypes:Artifact Creature Construct\nPT:1/1\nOracle:x\n"
 
 	passOnce := func(t *testing.T, e *Engine) {
@@ -380,6 +383,7 @@ func TestCombatPriorityDoesNotRepeatDeclarations(t *testing.T) {
 }
 
 func TestUnblockedAttackerDamagesTheDefendingPlayer(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 
@@ -392,6 +396,7 @@ func TestUnblockedAttackerDamagesTheDefendingPlayer(t *testing.T) {
 }
 
 func TestWallOfOmensWithDefenderCannotAttack(t *testing.T) {
+	t.Parallel()
 	const wallOfOmens = "Name:Wall of Omens\nManaCost:1 W\nTypes:Creature Wall\nPT:0/4\nK:Defender\nOracle:x\n"
 	const bear = "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 
@@ -426,6 +431,7 @@ func TestWallOfOmensWithDefenderCannotAttack(t *testing.T) {
 }
 
 func TestBotCombatDeclarationsRemainLegalWithDefenderAndMenace(t *testing.T) {
+	t.Parallel()
 	const wall = "Name:Wall of Omens\nManaCost:1 W\nTypes:Creature Wall\nPT:0/4\nK:Defender\nOracle:x\n"
 	const bear = "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	const menace = "Name:Goblin Glory Chaser\nManaCost:R\nTypes:Creature Goblin Warrior\nPT:3/3\nK:Menace\nOracle:x\n"
@@ -475,6 +481,7 @@ func TestBotCombatDeclarationsRemainLegalWithDefenderAndMenace(t *testing.T) {
 }
 
 func TestSummoningSickCreatureCannotAttackWithoutHaste(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	sick := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.G.Obj(sick).SummonSick = true
@@ -507,6 +514,7 @@ func TestSummoningSickCreatureCannotAttackWithoutHaste(t *testing.T) {
 }
 
 func TestVigilanceAttackerStaysUntapped(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Sentinel\nManaCost:2 W\nTypes:Creature Soldier\nPT:2/2\nK:Vigilance\nOracle:x\n")
 
@@ -519,6 +527,7 @@ func TestVigilanceAttackerStaysUntapped(t *testing.T) {
 }
 
 func TestBlockedAttackerAndBlockerTradeDamage(t *testing.T) {
+	t.Parallel()
 	// Toughness 4 on both sides, well above either creature's power, so the
 	// exchange is observable afterward: events.Move clears Object.Damage the
 	// instant something actually dies (see TestDeathtouchKillsRegardlessOf-
@@ -548,6 +557,7 @@ func TestBlockedAttackerAndBlockerTradeDamage(t *testing.T) {
 }
 
 func TestFlyingCannotBeBlockedByGroundCreature(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	flier := onBoard(t, e, 0, "Name:Griffin\nManaCost:2 W\nTypes:Creature Griffin\nPT:2/2\nK:Flying\nOracle:x\n")
 	ground := onBoard(t, e, 1, "Name:Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:2/2\nOracle:x\n")
@@ -588,6 +598,7 @@ func TestFlyingCannotBeBlockedByGroundCreature(t *testing.T) {
 }
 
 func TestDeathtouchKillsRegardlessOfToughness(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Ogre\nManaCost:4 R\nTypes:Creature Ogre\nPT:5/5\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Adder\nManaCost:G\nTypes:Creature Snake\nPT:1/1\nK:Deathtouch\nOracle:x\n")
@@ -602,6 +613,7 @@ func TestDeathtouchKillsRegardlessOfToughness(t *testing.T) {
 }
 
 func TestTrampleAssignsExcessToThePlayer(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Rhino\nManaCost:3 G G\nTypes:Creature Rhino\nPT:5/5\nK:Trample\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:2/2\nOracle:x\n")
@@ -624,6 +636,7 @@ func TestTrampleAssignsExcessToThePlayer(t *testing.T) {
 }
 
 func TestLifelinkGainsLifeOnCombatDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Cleric\nManaCost:2 W\nTypes:Creature Cleric\nPT:3/3\nK:Lifelink\nOracle:x\n")
 
@@ -639,6 +652,7 @@ func TestLifelinkGainsLifeOnCombatDamage(t *testing.T) {
 }
 
 func TestFirstStrikeKillsBeforeTheNormalDamageStep(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Duelist\nManaCost:1 W\nTypes:Creature Soldier\nPT:2/1\nK:First Strike\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Peasant\nManaCost:B\nTypes:Creature Human\nPT:1/1\nOracle:x\n")
@@ -663,6 +677,7 @@ func TestFirstStrikeKillsBeforeTheNormalDamageStep(t *testing.T) {
 // hold both the remaining pass and its SBA until answered. Otherwise a blocker
 // lethally hit by the answered first-strike damage gets an illegal regular hit.
 func TestFirstStrikeReplacementOrderSettlesBeforeRegularPass(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	fiery := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Fiery Emancipation"))
@@ -704,6 +719,7 @@ func TestFirstStrikeReplacementOrderSettlesBeforeRegularPass(t *testing.T) {
 }
 
 func TestMultipleBlockersEachTakeDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Rhino\nManaCost:3 G G\nTypes:Creature Rhino\nPT:3/5\nK:Trample\nOracle:x\n")
 	first := onBoard(t, e, 1, "Name:First Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:2/2\nOracle:x\n")
@@ -732,6 +748,7 @@ func TestMultipleBlockersEachTakeDamage(t *testing.T) {
 }
 
 func TestCombatDamageUsesDerivedPowerNotPrinted(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.AddContinuous(ContinuousEffect{Source: atk, Timestamp: 1, Layer: LPT, Sub: SubModify,
@@ -755,6 +772,7 @@ func TestCombatDamageUsesDerivedPowerNotPrinted(t *testing.T) {
 // direct EndOfTurnCleanup call) so the wiring itself is under test, not just
 // the primitive layers_test.go already covers in isolation.
 func TestCleanupClearsCombatDamageDeathtouchAndUntilEOTEffects(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	id := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	o := e.G.Obj(id)
@@ -797,6 +815,7 @@ func TestCleanupClearsCombatDamageDeathtouchAndUntilEOTEffects(t *testing.T) {
 // vs. a 3/5 vanilla blocker used to leave the attacker on 0 damage; it
 // should be 3).
 func TestFirstStrikeAttackerTakesSurvivingBlockersRegularDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Duelist\nManaCost:1 W\nTypes:Creature Soldier\nPT:2/5\nK:First Strike\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Guard\nManaCost:2 W\nTypes:Creature Soldier\nPT:3/5\nOracle:x\n")
@@ -834,6 +853,7 @@ func TestFirstStrikeAttackerTakesSurvivingBlockersRegularDamage(t *testing.T) {
 // Before this fix, this test's second-declared blocker would read 0 damage
 // and stay fully healthy, not 1.
 func TestNonTrampleMultipleBlockersAssignLethalThenSpill(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Ox\nManaCost:2 G\nTypes:Creature Ox\nPT:3/4\nOracle:x\n")
 	first := onBoard(t, e, 1, "Name:First Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:1/2\nOracle:x\n")
@@ -876,6 +896,7 @@ func TestNonTrampleMultipleBlockersAssignLethalThenSpill(t *testing.T) {
 // a legal blocker for it also existed -- exactly the situation this test
 // sets up (a real, legal blocker on the other side).
 func TestAskBlockersSkipsAnAttackerWithNoFace(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	ghost := e.G.AddObject(nil, 0)
 	ghost.Zone = state.ZBattlefield
@@ -909,6 +930,7 @@ func TestAskBlockersSkipsAnAttackerWithNoFace(t *testing.T) {
 // dealCombatDamage before this test gets a chance to remove the blocker, so
 // there would be no gap left to reproduce the bug in.
 func TestAttackerWhoseBlockerIsRemovedDealsNoDamageWithoutTrample(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:2/2\nOracle:x\n")
@@ -946,6 +968,7 @@ func TestAttackerWhoseBlockerIsRemovedDealsNoDamageWithoutTrample(t *testing.T) 
 // 506.4 for Menace specifically: legality is checked once, on the declaration
 // as a whole, and is not rechecked when one blocker later leaves combat.
 func TestMenaceStaysBlockedWhenOneOfTwoBlockersLeavesCombat(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Goblin Glory Chaser\nManaCost:R\nTypes:Creature Goblin Warrior\nPT:3/3\nK:Menace\nOracle:x\n")
 	first := onBoard(t, e, 1, "Name:Guard One\nManaCost:1 W\nTypes:Creature Soldier\nPT:1/4\nOracle:x\n")
@@ -1006,6 +1029,7 @@ func TestMenaceStaysBlockedWhenOneOfTwoBlockersLeavesCombat(t *testing.T) {
 // perturbing one real (Damage) event's payload, must both cause the
 // reconstruction to diverge from the live game.
 func TestReplayReconstructsPostCombatStateExactly(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Ox\nManaCost:2 G\nTypes:Creature Ox\nPT:2/4\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Guard\nManaCost:1 W\nTypes:Creature Soldier\nPT:1/4\nOracle:x\n")
@@ -1089,6 +1113,7 @@ func TestReplayReconstructsPostCombatStateExactly(t *testing.T) {
 // seat onto every option, so an attack could never point at two opponents
 // at once, let alone land on both.
 func TestSplitAttackAcrossTwoDefenders(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	atk2 := onBoardReady(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	atk3 := onBoardReady(t, e, 0, "Name:Wolf\nManaCost:2 G\nTypes:Creature Wolf\nPT:3/3\nOracle:x\n")
@@ -1142,6 +1167,7 @@ func TestSplitAttackAcrossTwoDefenders(t *testing.T) {
 // is a property of the declaration, not of any single option -- and the
 // pending decision must survive for a legal answer.
 func TestSameAttackerCannotAttackTwoDefenders(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	atk := onBoardReady(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	driveToStep(t, e, 1, 0, state.StepDeclareAttackers)
@@ -1194,6 +1220,7 @@ func TestSameAttackerCannotAttackTwoDefenders(t *testing.T) {
 // byte-identical (the 2-seat acceptance chain head does not move under this
 // task).
 func TestAttackersOfferEveryLivingOpponentOnce(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	a := onBoardReady(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	b := onBoardReady(t, e, 0, "Name:Wolf\nManaCost:2 G\nTypes:Creature Wolf\nPT:3/3\nOracle:x\n")
@@ -1247,6 +1274,7 @@ func TestAttackersOfferEveryLivingOpponentOnce(t *testing.T) {
 // rules-ignorant client enforce CR 509.1a (one creature blocks one attacker)
 // from the wire alone, without learning what a blocker is.
 func TestAskBlockersGroupsOptionsByBlocker(t *testing.T) {
+	t.Parallel()
 	const creature = "Name:Memnite\nManaCost:0\nTypes:Artifact Creature Construct\nPT:1/1\nOracle:x\n"
 
 	e := combatEngine(t)

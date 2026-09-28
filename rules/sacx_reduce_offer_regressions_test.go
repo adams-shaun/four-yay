@@ -135,6 +135,7 @@ func drainResolution(t *testing.T, e *Engine, limit int) {
 // and a pool of {B}{B} cannot pay the unreduced {6}{B}{B} (8), but X=4
 // sacrifices four creatures, {2} less each, leaving {B}{B}.
 func TestTorgaarCastOfferedWhenSacrificeReducesManaCost(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := sacXFixture(t, "Torgaar, Famine Incarnate", []string{
 		"Name:C1\nTypes:Creature\nPT:1/1\nOracle:x\n",
 		"Name:C2\nTypes:Creature\nPT:1/1\nOracle:x\n",
@@ -185,6 +186,7 @@ func TestTorgaarCastOfferedWhenSacrificeReducesManaCost(t *testing.T) {
 // be a candidate, so the announced maximum is 3 and the sacrifice ask offers
 // exactly the three nonlands.
 func TestRottenmouthCastOfferedWhenSacrificeReducesManaCost(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := sacXFixture(t, "Rottenmouth Viper", []string{
 		"Name:C1\nTypes:Creature\nPT:1/1\nOracle:x\n",
 		"Name:C2\nTypes:Creature\nPT:1/1\nOracle:x\n",
@@ -252,6 +254,7 @@ func TestRottenmouthCastOfferedWhenSacrificeReducesManaCost(t *testing.T) {
 // The card is the back face of the modal Extus, Oriq Overlord. Its reachable
 // CR 712.8 modal-spell offer must select and cast that face from the hand.
 func TestAwakenTheBloodAvatarAbilityOfferSacrificeReducesManaCost(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := sacXFixture(t, "Awaken the Blood Avatar", []string{
 		"Name:C1\nTypes:Creature\nPT:1/1\nOracle:x\n",
 		"Name:C2\nTypes:Creature\nPT:1/1\nOracle:x\n",

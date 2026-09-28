@@ -24,6 +24,7 @@ func battlefieldCreature(t *testing.T, e *Engine, src string) state.ObjID {
 }
 
 func TestBountyOfTheHuntPaysItsExileFromHandAlternativeCost(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Bounty of the Hunt"),
 		card(t, "Name:Green Fuel\nManaCost:G\nTypes:Creature Insect\nPT:1/1\nOracle:x\n"),
 		card(t, "Name:Blue Fuel\nManaCost:U\nTypes:Creature\nPT:1/1\nOracle:x\n"))
@@ -86,6 +87,7 @@ func TestBountyOfTheHuntPaysItsExileFromHandAlternativeCost(t *testing.T) {
 }
 
 func TestBountyExileAlternativeNeedsAMatchingCard(t *testing.T) {
+	t.Parallel()
 	// With no green card in hand the alternative is withheld; the base cast
 	// remains gated on the full mana cost (empty pool -> nothing offered).
 	e := handEngine(t, corpusAlternativeCard(t, "Bounty of the Hunt"),

@@ -54,6 +54,7 @@ func charmModeOptions(d *decision.Decision, obj state.ObjID) []int {
 // ask is Min == Max == 1 over players, the Bear stays in the graveyard, and
 // only the lose mode's target lands.
 func TestPluralCharmModeGetsItsOwnTargetAsk(t *testing.T) {
+	t.Parallel()
 	charm := pluralCharmScript()
 	e, cfg, id := newFixtureDeck(t, 6310, charm, vanillaCreatureScript, otherCreatureScript)
 	bear := addToGraveyard(t, e, 0, vanillaCreatureScript)
@@ -128,6 +129,7 @@ func TestPluralCharmModeGetsItsOwnTargetAsk(t *testing.T) {
 // 1..1 mode would silently lose its own target. Each mode must still get its
 // own ask.
 func TestPluralCharmModeChosenFirstKeepsSingletonAsk(t *testing.T) {
+	t.Parallel()
 	charm := pluralCharmScript()
 	e, cfg, id := newFixtureDeck(t, 6313, charm, vanillaCreatureScript, otherCreatureScript)
 	bear := addToGraveyard(t, e, 0, vanillaCreatureScript)
@@ -188,6 +190,7 @@ func TestPluralCharmModeChosenFirstKeepsSingletonAsk(t *testing.T) {
 // a triggered Charm with one 1..1 mode and one plural mode must ask and bind
 // both, not fall through to the first target-bearing mode alone.
 func TestTriggeredPluralCharmBindsBothModeTargets(t *testing.T) {
+	t.Parallel()
 	charm := "Name:Triggered Plural Charm\nManaCost:1 B\nTypes:Creature Bear\nPT:2/2\n" +
 		"T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigCharm\n" +
 		"SVar:TrigCharm:DB$ Charm | CharmNum$ 2 | Choices$ PlayerMode,ExileMode\n" +
@@ -277,6 +280,7 @@ func TestTriggeredPluralCharmBindsBothModeTargets(t *testing.T) {
 // mandatory minimum the board cannot meet must fizzle to exile, not pose an
 // unanswerable ask or run the first mode alone.
 func TestPluralCharmUnmeetableMinimumFizzles(t *testing.T) {
+	t.Parallel()
 	charm := "Name:Unmeetable Plural Charm\nManaCost:1 B\nTypes:Creature Bear\nPT:2/2\n" +
 		"T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigCharm\n" +
 		"SVar:TrigCharm:DB$ Charm | CharmNum$ 2 | Choices$ PlayerMode,ExileMode\n" +
@@ -328,6 +332,7 @@ func TestPluralCharmUnmeetableMinimumFizzles(t *testing.T) {
 // correct for a single target-bearing mode. The fix must not force the
 // sequential per-mode path on it.
 func TestChooseOnePluralCharmKeepsFlatAsk(t *testing.T) {
+	t.Parallel()
 	charm := "Name:Choose One Plural Charm\nManaCost:B\nTypes:Instant\n" +
 		"A:SP$ Charm | CharmNum$ 1 | Choices$ LoseMode,ExileMode\n" +
 		"SVar:LoseMode:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ 2 | SpellDescription$ Target player loses 2 life.\n" +

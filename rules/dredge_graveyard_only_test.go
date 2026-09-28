@@ -12,6 +12,7 @@ import (
 )
 
 func TestTurnDrawDredgeOnlyFromGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	thug, ok := reg.Lookup("Golgari Thug")
 	if !ok {

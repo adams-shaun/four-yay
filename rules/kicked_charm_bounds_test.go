@@ -54,6 +54,7 @@ func kickedCharmModeAsk(t *testing.T, kicked bool) *decision.Decision {
 // shape end to end: kicked offers 0..3 modes (Count$Kicked.0.1 /
 // Count$Kicked.3.1), unkicked exactly one.
 func TestKickedCharmModeBoundsInTheRealCast(t *testing.T) {
+	t.Parallel()
 	if d := kickedCharmModeAsk(t, true); d.Min != 0 || d.Max != 3 {
 		t.Fatalf("kicked mode bounds = %d..%d, want 0..3", d.Min, d.Max)
 	}

@@ -94,6 +94,7 @@ func bounceTheAttacker(t *testing.T, e *Engine, wurm state.ObjID) {
 // RESOLVE -- NoResolvingCheck$ True opts it out of the CR 603.4
 // resolution-time recheck.
 func TestNoResolvingCheckUginMasteryResolvesAfterPowerLeaves(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, trigID := attackWithSixPower(t, mustCorpusCard(t, reg, "Ugin's Mastery"))
 
@@ -120,6 +121,7 @@ func TestNoResolvingCheckUginMasteryResolvesAfterPowerLeaves(t *testing.T) {
 // before. This control is what makes the first test prove the param, not a
 // global disabling of the recheck.
 func TestNoResolvingCheckControlWithoutTheParamStillFizzles(t *testing.T) {
+	t.Parallel()
 	twin, ds := cards.ParseBytes("twin", []byte("Name:Pack Tactics Twin\nManaCost:4\nTypes:Enchantment\n"+
 		"T:Mode$ AttackersDeclared | ValidAttackers$ Creature.YouCtrl | Execute$ TrigPump | "+
 		"TriggerZones$ Battlefield | CheckSVar$ PackTactics | SVarCompare$ GE6 | "+

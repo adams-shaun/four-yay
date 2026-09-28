@@ -80,6 +80,7 @@ func assertPhaseFires(t *testing.T, e *Engine, id state.ObjID, wants ...state.St
 }
 
 func TestBraidsEndOfTurnTriggerFiresOnlyAtTheEndStep(t *testing.T) {
+	t.Parallel()
 	e, id := phaseCardEngine(t, "Braids, Arisen Nightmare")
 	tr := crTriggerFixture(t, e, id, "Phase", "Sacrifice")
 	if tr.Params["Phase"] != "End of Turn" {
@@ -89,6 +90,7 @@ func TestBraidsEndOfTurnTriggerFiresOnlyAtTheEndStep(t *testing.T) {
 }
 
 func TestKamahlBeginCombatTriggerFiresOnlyAtBeginCombat(t *testing.T) {
+	t.Parallel()
 	e, id := phaseCardEngine(t, "Kamahl, Heart of Krosa")
 	tr := crTriggerFixture(t, e, id, "Phase", "PumpAll")
 	if tr.Params["Phase"] != "BeginCombat" {
@@ -98,6 +100,7 @@ func TestKamahlBeginCombatTriggerFiresOnlyAtBeginCombat(t *testing.T) {
 }
 
 func TestFrostbeastEndCombatTriggerFiresOnlyAtEndCombat(t *testing.T) {
+	t.Parallel()
 	e, id := phaseCardEngine(t, "Kjeldoran Frostbeast")
 	tr := crTriggerFixture(t, e, id, "Phase", "DestroyAll")
 	if tr.Params["Phase"] != "EndCombat" {
@@ -111,6 +114,7 @@ func TestFrostbeastEndCombatTriggerFiresOnlyAtEndCombat(t *testing.T) {
 // matched NO step at all; now each main phase queues exactly one trigger
 // and no other step queues any.
 func TestCarpetOfFlowersListFiresAtBothMains(t *testing.T) {
+	t.Parallel()
 	e, id := phaseCardEngine(t, "Carpet of Flowers")
 	tr := crTriggerFixture(t, e, id, "Phase", "Pump")
 	if tr.Params["Phase"] != "Main1,Main2" {
@@ -181,6 +185,7 @@ func TestPhaseGateAppliesToChangesZoneAndSpellCast(t *testing.T) {
 // exactly one Note naming it, once per engine no matter how often the
 // trigger is walked.
 func TestPhaseTriggerUnknownNameReportsAndNeverFires(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 42, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 41)}}))
 	e.Advance()
@@ -215,6 +220,7 @@ Oracle:x
 // a zone trigger must fail closed and report rather than silently firing on
 // every zone change (the bug that the old Mode$ Phase-only parser left open).
 func TestPhaseGateReportsUnknownForChangesZone(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 42, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 41)}}))
 	e.Advance()

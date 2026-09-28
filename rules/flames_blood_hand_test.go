@@ -8,6 +8,7 @@ import (
 )
 
 func TestFlamesOfTheBloodHandPreventsOnlyRememberedLifeGain(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Flames of the Blood Hand"))
 	o := e.G.Obj(source)

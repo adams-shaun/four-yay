@@ -121,6 +121,7 @@ func TestTurnDrawDredgeSuspendsBeforePriority(t *testing.T) {
 // the OTHER answer: accepting the replacement must also leave exactly one
 // priority grant in the draw step, after the mill-and-return completes.
 func TestTurnDrawDredgeAcceptAlsoGrantsExactlyOnePriority(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	thug, ok := reg.Lookup("Golgari Thug")
 	if !ok {

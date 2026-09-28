@@ -10,6 +10,7 @@ import (
 )
 
 func TestMirrorImageCopy(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Mirror Image"))
 	bear := e.G.AddObject(corpusAlternativeCard(t, "Colossal Dreadmaw"), 0)
 	bear.Zone = state.ZBattlefield
@@ -32,6 +33,7 @@ func TestMirrorImageCopy(t *testing.T) {
 }
 
 func TestMalleableImpostorCopy(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Malleable Impostor"))
 	bear := e.G.AddObject(corpusAlternativeCard(t, "Colossal Dreadmaw"), 1)
 	bear.Zone = state.ZBattlefield
@@ -101,6 +103,7 @@ func TestMalleableImpostorCopy(t *testing.T) {
 // SBA removes it, and the event stream shows both the self-entry move and
 // the SBA move -- and no ClonePermanent, since no copy was made.
 func TestMalleableImpostorDecline(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Malleable Impostor"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MC] = 3

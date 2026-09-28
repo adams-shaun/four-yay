@@ -43,6 +43,7 @@ func driveStackEmpty(t *testing.T, e *Engine, budget int, pick func(d *decision.
 // cap. The answered choice now resumes the resolution, which finishes and
 // leaves the stack once.
 func TestMoveReplacementOrderChoiceResumesTheResolution(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Shoal Kraken", "Library of Leng", "Library of Leng", "Glorious Anthem")
 	kraken := searchMoveByName(t, e, "Shoal Kraken", state.ZBattlefield)
 	searchMoveByName(t, e, "Library of Leng", state.ZBattlefield)
@@ -81,6 +82,7 @@ func TestMoveReplacementOrderChoiceResumesTheResolution(t *testing.T) {
 // their opportunity on the modified event (the one already applied never
 // re-applies, CR 614.5): the Mox is exiled.
 func TestRedirectedMoveGetsTheOtherReplacements(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Magus of the Will", "Mox Diamond")
 	magus := searchMoveByName(t, e, "Magus of the Will", state.ZBattlefield)
 	// A logged TurnChange clears summoning sickness (CR 302.6) the

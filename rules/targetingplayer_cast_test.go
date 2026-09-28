@@ -89,6 +89,7 @@ func opponentChooserBoard(t *testing.T, reg *cards.Registry, carrier *cards.Card
 // chooser), not seat 0. The chooser picks its own bear and the spell
 // resolves, moving that bear under seat 0's control; the whole game replays.
 func TestEvangelizeCastTargetAskGoesToOpponent(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	evangelize := searchCorpusCard(t, reg, "Evangelize")
 	// Precondition: the compiled spell still carries the parameter under test.
@@ -144,6 +145,7 @@ func TestEvangelizeCastTargetAskGoesToOpponent(t *testing.T) {
 // chosen creature is copied into a haste token under seat 0's control; the
 // whole game replays.
 func TestEchoChamberActivationTargetAskGoesToOpponent(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	echoChamber := searchCorpusCard(t, reg, "Echo Chamber")
 	// Precondition: the compiled activation still carries the parameter.

@@ -24,6 +24,7 @@ Oracle:x
 `
 
 func TestEnterTheBattlefieldTriggerGoesOnTheStackAndResolves(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	before := len(e.G.Zone(state.ZHand, 0))
 	id := onBoard(t, e, 0, etbDrawSrc)
@@ -44,6 +45,7 @@ func TestEnterTheBattlefieldTriggerGoesOnTheStackAndResolves(t *testing.T) {
 }
 
 func TestTriggerDoesNotFireForOtherObjects(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	watcher := onBoard(t, e, 0, etbDrawSrc)
 	_ = watcher
@@ -59,6 +61,7 @@ func TestTriggerDoesNotFireForOtherObjects(t *testing.T) {
 }
 
 func TestTriggerZonesGateFiring(t *testing.T) {
+	t.Parallel()
 	// A graveyard-only trigger must not fire while the card is on the
 	// battlefield.
 	src := `Name:Ghoul
@@ -94,6 +97,7 @@ Oracle:x
 // after a separator). The reference computation below IS the old code, so a
 // regression that drops a part or mishandles an empty segment fails here.
 func TestZoneSpecContainsMatchesSplitSemantics(t *testing.T) {
+	t.Parallel()
 	candidates := []state.Zone{
 		state.ZBattlefield, state.ZLibrary, state.ZGraveyard,
 		state.ZExile, state.ZStack, state.ZHand,
@@ -130,6 +134,7 @@ func TestZoneSpecContainsMatchesSplitSemantics(t *testing.T) {
 // parts of the spec; a last-part-drop regression would make a Library,Graveyard
 // trigger fire only from the library.
 func TestMultiZoneTriggerZonesFiresFromEachZone(t *testing.T) {
+	t.Parallel()
 	src := `Name:Ghost
 ManaCost:B
 Types:Creature Spirit
@@ -153,6 +158,7 @@ Oracle:x
 }
 
 func TestSimultaneousTriggersStackInAPNAPOrder(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// Two upkeep triggers, one per seat. APNAP means the active player's goes
 	// on the stack first and therefore resolves last.
@@ -177,6 +183,7 @@ Oracle:x
 }
 
 func TestReplacementRedirectsTheEvent(t *testing.T) {
+	t.Parallel()
 	src := `Name:Phoenix
 ManaCost:2 R
 Types:Creature Phoenix
@@ -198,6 +205,7 @@ Oracle:x
 }
 
 func TestReplacementAppliesOnlyOncePerEvent(t *testing.T) {
+	t.Parallel()
 	// A replacement that re-emits a matching event must not re-trigger itself
 	// into an infinite loop.
 	src := `Name:Loop
@@ -227,6 +235,7 @@ Oracle:x
 // out by name. ---
 
 func TestSpellCastTriggerMatchesValidCardAndPlayer(t *testing.T) {
+	t.Parallel()
 	src := `Name:Watcher
 ManaCost:1 U
 Types:Creature Wizard
@@ -250,6 +259,7 @@ Oracle:x
 }
 
 func TestSpellCastTriggerIgnoresATriggeredAbilityEnteringTheStack(t *testing.T) {
+	t.Parallel()
 	// A SpellCast trigger with a bare "Any" filter must not fire for a
 	// triggered ability object (no Face -- Ruling F3) entering the stack;
 	// only an actual spell (a card) counts as "casting a spell".
@@ -283,6 +293,7 @@ Oracle:x
 }
 
 func TestAttacksTriggerFiresForTheDeclaredAttacker(t *testing.T) {
+	t.Parallel()
 	src := `Name:Raider
 ManaCost:1 R
 Types:Creature Goblin
@@ -301,6 +312,7 @@ Oracle:x
 }
 
 func TestAttacksTriggerDoesNotFireForANonAttacker(t *testing.T) {
+	t.Parallel()
 	src := `Name:Raider
 ManaCost:1 R
 Types:Creature Goblin
@@ -321,6 +333,7 @@ Oracle:x
 }
 
 func TestDamageDoneTriggerMatchesValidTarget(t *testing.T) {
+	t.Parallel()
 	src := `Name:Vampire
 ManaCost:1 B
 Types:Creature Vampire
@@ -339,6 +352,7 @@ Oracle:x
 }
 
 func TestDamageDealtOnceFiresPerDamageBatch(t *testing.T) {
+	t.Parallel()
 	src := `Name:Vampire
 ManaCost:1 B
 Types:Creature Vampire
@@ -383,6 +397,7 @@ Oracle:x
 // inner bracket is part of the outer simultaneous batch, so its End must not
 // clear the outer latch: all three events below queue one trigger totaling 6.
 func TestNestedDamageBatchesKeepOuterOnceLatch(t *testing.T) {
+	t.Parallel()
 	src := `Name:Vampire
 ManaCost:1 B
 Types:Creature Vampire
@@ -420,6 +435,7 @@ Oracle:x
 // they are not damage dealt. Both Once modes must ignore the repair, rather
 // than adding another trigger after the positive damage that it clears.
 func TestDamageOnceDoesNotTriggerOnNegativeDamageRepair(t *testing.T) {
+	t.Parallel()
 	src := `Name:Vampire
 ManaCost:1 B
 Types:Creature Vampire
@@ -448,6 +464,7 @@ Oracle:x
 }
 
 func TestBecomesTargetTriggerFiresWhenTargeted(t *testing.T) {
+	t.Parallel()
 	src := `Name:Ward
 ManaCost:1 W
 Types:Creature Soldier
@@ -466,6 +483,7 @@ Oracle:x
 }
 
 func TestLandPlayedTriggerFiresOnlyForLands(t *testing.T) {
+	t.Parallel()
 	src := `Name:Ranger
 ManaCost:1 G
 Types:Creature Human
@@ -488,6 +506,7 @@ Oracle:x
 }
 
 func TestLandPlayedTriggerIgnoresTheSeparateLandPlayedEvent(t *testing.T) {
+	t.Parallel()
 	// The bookkeeping LandPlayed event carries no Obj, so it must never by
 	// itself satisfy a LandPlayed trigger's ValidCard$.
 	src := `Name:Ranger
@@ -508,6 +527,7 @@ Oracle:x
 }
 
 func TestTriggerCascadeIsBounded(t *testing.T) {
+	t.Parallel()
 	// A trigger that fires in response to its own effect must not queue
 	// forever: maxTriggerFires caps how many times one (source, index) pair
 	// can enqueue, even across many repeats of the same event.
@@ -532,6 +552,7 @@ Oracle:x
 }
 
 func TestDiesTriggerFiresWithDefaultTriggerZones(t *testing.T) {
+	t.Parallel()
 	// A "dies" trigger's own source leaves the battlefield as part of the
 	// very event it must react to: by the time checkTriggers runs, the
 	// object's current zone is already the graveyard, so a naive zoneGate
@@ -557,6 +578,7 @@ Oracle:x
 }
 
 func TestReplacementDoesNotFireForAnUnrelatedDestination(t *testing.T) {
+	t.Parallel()
 	src := `Name:Phoenix
 ManaCost:2 R
 Types:Creature Phoenix
@@ -584,6 +606,7 @@ Oracle:x
 // Piledriver/Mimic.
 
 func TestTriggerEffectAppliesToTheSourceNotTheAbilityWrapper(t *testing.T) {
+	t.Parallel()
 	// Ruling T20-b regression: resolveTop's ability branch used to build
 	// Ctx.Source from the transient stack-object id instead of o.Source, so
 	// Defined$ Self -- the single most common Defined$ value in real
@@ -614,6 +637,7 @@ Oracle:x
 }
 
 func TestTriggerEffectAppliesToTheRememberedObject(t *testing.T) {
+	t.Parallel()
 	// Ruling T20-c regression: events.Move's zone-leave reset used to wipe
 	// Object.Remembered on the very MoveZone that placed the ability on the
 	// stack (ZStack falls into Move's "leaving play" default case, the same
@@ -659,6 +683,7 @@ Oracle:x
 // silently no-op'd (events.Move's "if o == nil { return }" guard) and the
 // replayed stack permanently diverged from the live one.
 func TestReplayFromLogAloneReconstructsTriggeredAbilities(t *testing.T) {
+	t.Parallel()
 	// The trigger-bearing creature must reach the battlefield through
 	// ordinary logged events, not the onBoard test helper every other test
 	// in this file uses -- onBoard's whole point is to bypass the log
@@ -726,6 +751,7 @@ func TestReplayFromLogAloneReconstructsTriggeredAbilities(t *testing.T) {
 }
 
 func TestDiesTriggerSeesTheCreatureAsItWas(t *testing.T) {
+	t.Parallel()
 	// A creature with a dies trigger and two +1/+1 counters: Move clears the
 	// counters, so only last known information can say it had them.
 	src := "Name:Geist\nManaCost:G G\nTypes:Creature Spirit\nPT:2/1\n" +
@@ -765,6 +791,7 @@ func TestDiesTriggerSeesTheCreatureAsItWas(t *testing.T) {
 // let mutating the LKI's copy mutate the live object's counters too. Fix
 // round 1, Minor 3.
 func TestETBTriggerLKIDoesNotAliasCountersEnteringPlay(t *testing.T) {
+	t.Parallel()
 	src := "Name:Geist\nManaCost:G G\nTypes:Creature Spirit\nPT:2/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigNote | TriggerDescription$ x\n" +
 		"SVar:TrigNote:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
@@ -789,6 +816,7 @@ func TestETBTriggerLKIDoesNotAliasCountersEnteringPlay(t *testing.T) {
 }
 
 func TestAttacksTriggerRemembersTheDefendingPlayer(t *testing.T) {
+	t.Parallel()
 	ids := []state.ObjID{4, 5}
 	got := triggerRemembered(events.Event{Kind: events.DeclareAttackers, Player: 2, IDs: ids}, 9)
 	if len(got) != 3 || got[0].Obj != 4 || got[1].Obj != 5 || !got[2].IsPlayer || got[2].Player != 2 {

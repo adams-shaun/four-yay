@@ -20,6 +20,7 @@ import (
 // now carries how many explores were already done (Ctx.ExploreCount), so the
 // explorer explores exactly Num$ times whatever it answers.
 func TestExploreNumSurvivesTheDestinationAsk(t *testing.T) {
+	t.Parallel()
 	const bear = "Name:Filler Bear\nManaCost:1\nTypes:Creature Bear\nPT:1/1\nOracle:x\n"
 	for _, tc := range []struct {
 		name   string

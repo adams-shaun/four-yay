@@ -13,6 +13,7 @@ import (
 // known parser fields (not Cost.Unknown): battlefield/graveyard exile and
 // source counter removal.
 func TestMorphTurnUpRejectsParsedButUnpaidCostParts(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Grizzly Bears")
 

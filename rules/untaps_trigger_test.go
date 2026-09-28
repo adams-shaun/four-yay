@@ -11,6 +11,7 @@ import (
 )
 
 func TestUntapsTriggerKeyToTheCityDrawsAfterPaying(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	key := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Key to the City"))
@@ -69,6 +70,7 @@ func TestUntapsTriggerKeyToTheCityDrawsAfterPaying(t *testing.T) {
 }
 
 func TestUntapsTriggerScopesToUntappedObjectAndBattlefield(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	key := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Key to the City"))

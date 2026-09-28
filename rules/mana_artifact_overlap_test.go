@@ -11,6 +11,7 @@ import (
 // A Treasure is simultaneously an Artifact. Paying with it must retain both
 // facts without double-counting its one unit in the pool.
 func TestArtifactTreasureManaPaysCastWithBothProvenances(t *testing.T) {
+	t.Parallel()
 	e := handEngineTokens(t, corpusAlternativeCard(t, "Marut"), corpusAlternativeCard(t, "Shadow the Hedgehog"))
 	marut, shadow := e.G.Zone(state.ZHand, 0)[0], e.G.Zone(state.ZHand, 0)[1]
 	placeOnBattlefield(t, e, shadow)

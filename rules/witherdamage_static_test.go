@@ -42,6 +42,7 @@ func tormentActive(t *testing.T, e *Engine, torment state.ObjID) {
 }
 
 func TestEverlastingTormentWitherDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	torment := onBoardCard(t, e, 0, witherCorpusCard(t, "e/everlasting_torment.txt"))
 	source := onBoard(t, e, 0, "Name:Bear\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -93,6 +94,7 @@ func TestEverlastingTormentWitherDamage(t *testing.T) {
 }
 
 func TestEverlastingTormentCombatDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	torment := onBoardCard(t, e, 0, witherCorpusCard(t, "e/everlasting_torment.txt"))
 	atk := onBoard(t, e, 0, "Name:Bear\nTypes:Creature\nPT:2/2\nOracle:x\n")

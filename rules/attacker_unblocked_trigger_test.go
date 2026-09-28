@@ -57,6 +57,7 @@ func swampMosquitoFixture(t *testing.T) (*Engine, state.ObjID) {
 // this leaf also fails if the registration is reverted. The blocked negative
 // case queues nothing and places no counter.
 func TestSwampMosquitoUnblockedAttackPoisonsDefender(t *testing.T) {
+	t.Parallel()
 	e, mosquito := swampMosquitoFixture(t)
 
 	// Preconditions the rule reads: the attacker is on the battlefield, is a
@@ -147,6 +148,7 @@ func TestSwampMosquitoUnblockedAttackPoisonsDefender(t *testing.T) {
 // DB$ LoseLife | Defined$ TriggeredDefendingPlayer | LifeAmount$ 2, so seat
 // 1's life drops by exactly 2, and only after the queued trigger resolves.
 func TestKeeperOfTresserhornUnblockedAttackDrainsDefender(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	keeper := onBoardCard(t, e, 0, unblockedCorpusCard(t, "k/keeper_of_tresserhorn.txt"))
 	e.G.Obj(keeper).SummonSick = false
@@ -178,6 +180,7 @@ func TestKeeperOfTresserhornUnblockedAttackDrainsDefender(t *testing.T) {
 // its OWN captured attacker: each Rogue gains +2/+1 and the Bandit (a Goblin
 // Rogue that did not attack) is untouched.
 func TestStinkdrinkerBanditPumpsEachUnblockedRogue(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	bandit := onBoardCard(t, e, 0, unblockedCorpusCard(t, "s/stinkdrinker_bandit.txt"))
 	r1 := onBoardReady(t, e, 0, "Name:Rogue One\nManaCost:0\nTypes:Creature Rogue\nPT:1/1\nOracle:x\n")
@@ -240,6 +243,7 @@ func TestStinkdrinkerBanditPumpsEachUnblockedRogue(t *testing.T) {
 // ValidDefender$ is matched against that attacker's actual defender: an attack
 // at a defender other than the source's controller is rejected.
 func TestAttackerUnblockedValidCardAndDefenderGates(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	source := onBoard(t, e, 1, "Name:Watcher\nTypes:Creature\nPT:1/1\n"+
 		"T:Mode$ AttackerUnblocked | ValidCard$ Rogue | ValidDefender$ You | TriggerZones$ Battlefield | Execute$ X | TriggerDescription$ x.\n"+

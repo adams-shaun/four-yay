@@ -53,6 +53,7 @@ func armZoneEffect(t *testing.T, e *Engine, src state.ObjID, owner state.PlayerI
 // relative ValidCard$ against the registration owner, not the creating
 // permanent's last-known controller.
 func TestEffectZoneLookbackSeesOverlayController(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.pending = nil
 	src := onBoard(t, e, 0, corpusZoneTrigger)
@@ -80,6 +81,7 @@ func TestEffectZoneLookbackSeesOverlayController(t *testing.T) {
 // ownership mismatch the same body fires on the source's own departure, so
 // the regression pin above is not passing because the branch is dead.
 func TestEffectZoneLookbackPositiveControl(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.pending = nil
 	src := onBoard(t, e, 0, corpusZoneTrigger)
@@ -96,6 +98,7 @@ func TestEffectZoneLookbackPositiveControl(t *testing.T) {
 // objects (the Kjeldoran Guard `RememberObjects$ Targeted` shape), not the
 // creating card's event-backed memory.
 func TestEffectZoneLookbackSeesCapturedMemory(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.pending = nil
 	// Kjeldoran Guard registers its promise from the Guard permanent.

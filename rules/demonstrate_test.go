@@ -99,6 +99,7 @@ func demonstrateBearsOnBattlefield(e *Engine, p state.PlayerID, name string) (to
 // text is the AddKeyword$ Demonstrate static granting demonstrate to creature
 // spells you cast.
 func TestSilverquillLecturerDemonstrateCopyAndOpponentToken(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	lecturer := searchCorpusCard(t, reg, "Silverquill Lecturer")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -177,6 +178,7 @@ func TestSilverquillLecturerDemonstrateCopyAndOpponentToken(t *testing.T) {
 // TestDemonstrateElectionDeclineCopiesNothing pins the may-copy election's
 // decline arm: answering no copies nothing and the original resolves alone.
 func TestDemonstrateElectionDeclineCopiesNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	lecturer := searchCorpusCard(t, reg, "Silverquill Lecturer")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -210,6 +212,7 @@ func TestDemonstrateElectionDeclineCopiesNothing(t *testing.T) {
 // so both copies are recorded without a second ask (the battle-protector
 // precedent).
 func TestDemonstrateSoleOpponentAsksNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	lecturer := searchCorpusCard(t, reg, "Silverquill Lecturer")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -243,6 +246,7 @@ func TestDemonstrateSoleOpponentAsksNothing(t *testing.T) {
 // poses the same may-copy election -- a decline copies nothing and the spell
 // itself resolves.
 func TestPrintedDemonstrateCarrierOffersTheElection(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	et := searchCorpusCard(t, reg, "Excavation Technique")
 	found := false

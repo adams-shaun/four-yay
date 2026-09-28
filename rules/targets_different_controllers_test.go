@@ -68,6 +68,7 @@ func protectorOfTheWastesEngine(t *testing.T) (e *Engine, sa *cards.SA, a0, a1, 
 // which pins the same grouping for TargetsForEachPlayer$ — both constraints
 // share the one helper.
 func TestProtectorOfTheWastesDifferentControllersGroups(t *testing.T) {
+	t.Parallel()
 	e, _, a0, a1, b0 := protectorOfTheWastesEngine(t)
 	e.pending = nil
 	e.priorityRound()
@@ -113,6 +114,7 @@ func TestProtectorOfTheWastesDifferentControllersGroups(t *testing.T) {
 // battlefield. Before the key was read, the seat-0 pair was a legal answer and
 // the card exiled two permanents one player controlled.
 func TestProtectorOfTheWastesExilesOnlyDifferentControllers(t *testing.T) {
+	t.Parallel()
 	e, _, a0, a1, b0 := protectorOfTheWastesEngine(t)
 	e.pending = nil
 	e.priorityRound()
@@ -150,6 +152,7 @@ func TestProtectorOfTheWastesExilesOnlyDifferentControllers(t *testing.T) {
 // widens a list the per-target filter already narrowed, and a
 // different-controller set passes through untouched.
 func TestProtectorOfTheWastesResolutionRecheckNarrowsSameController(t *testing.T) {
+	t.Parallel()
 	e, sa, a0, a1, b0 := protectorOfTheWastesEngine(t)
 	// Precondition: the real SA carries the flag the recheck keys on.
 	if sa.Params["TargetsWithDifferentControllers"] != "True" {
@@ -234,6 +237,7 @@ func runAwayTogetherEngine(t *testing.T, controllers []state.PlayerID) (e *Engin
 // withheld at offer time rather than offered and then reversed with the
 // CR 733.1 abort.
 func TestRunAwayTogetherMandatoryTwoSameControllerIsWithheld(t *testing.T) {
+	t.Parallel()
 	e, spell, bears := runAwayTogetherEngine(t, []state.PlayerID{1, 1})
 	// Precondition: exactly two legal creature targets, both controlled by
 	// seat 1 -- the shape that cannot satisfy the different-controller ask.
@@ -264,6 +268,7 @@ func TestRunAwayTogetherMandatoryTwoSameControllerIsWithheld(t *testing.T) {
 // pass Decision.Validate and Submit -- the deterministic bot re-submitting a
 // rejected answer forever is exactly the livelock the capacity read prevents.
 func TestRunAwayTogetherDifferentControllersBotAnswerNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	e, spell, _ := runAwayTogetherEngine(t, []state.PlayerID{0, 1, 1})
 	var cast *decision.Option
 	for _, o := range castOptions(t, e) {
@@ -310,6 +315,7 @@ func TestRunAwayTogetherDifferentControllersBotAnswerNeverLivelocks(t *testing.T
 // pre-fix code turned into a Min 2 / Max 2 decision whose two options shared
 // one Option.Group.
 func TestKitsuneMandatoryTwoOneControllerFizzles(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kitsune, ok := reg.Lookup("Kitsune, Dragon's Daughter")
 	if !ok {
@@ -366,6 +372,7 @@ func TestKitsuneMandatoryTwoOneControllerFizzles(t *testing.T) {
 // TargetsForEachPlayer$ and this card asked for ONE target (Min 1 / Max 1)
 // instead of one per represented player.
 func TestMysteriousStrangerOneEachWithoutForEachPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	stranger, ok := reg.Lookup("Mysterious Stranger")
 	if !ok {

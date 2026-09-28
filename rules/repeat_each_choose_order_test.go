@@ -32,6 +32,7 @@ const orderProbeSrc = "Name:Order Probe\nManaCost:1\nTypes:Sorcery\n" +
 // controller answering in reverse of the selector's scan order, and the
 // Damage events then reaching the subjects in exactly that answer order.
 func TestRepeatEachChooseOrderGovernsIterationOrder(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := corpusEngineCfg(t, reg, []*cards.Card{card(t, orderProbeSrc)},
 		[]*cards.Card{card(t, "Name:Order Bear A\nTypes:Creature\nPT:2/2\nOracle:x\n"),
@@ -154,6 +155,7 @@ const ezuriBeastStem = "g_4_4_phyrexian_beast"
 // behaviour ChooseOrder governs is pinned by the focused synthetic test
 // above, whose body (DealDamage Defined$ Imprinted) is unimpeded.
 func TestRepeatEachChooseOrderEzurisPredationAsksBeforeLoop(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	ez, ok := reg.Lookup("Ezuri's Predation")
 	if !ok {

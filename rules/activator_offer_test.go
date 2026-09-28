@@ -26,6 +26,7 @@ func hasAbilityOptionFor(options []decision.Option, id state.ObjID) bool {
 }
 
 func TestOftNabbedGoatActivatorOffer(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 8601, oftNabbedGoatOfferFixture)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
 	driveToStep(t, e, 1, 0, state.StepMain1)
@@ -55,6 +56,7 @@ func TestOftNabbedGoatActivatorOffer(t *testing.T) {
 }
 
 func TestActivatorOfferDefaultsAndSelectors(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name      string
 		activator string

@@ -81,6 +81,7 @@ func animateKarnRing(t *testing.T, e *Engine) state.ObjID {
 // turn is skipped. Premise: seat 0's next turn is turn 3 either way, so a
 // pending skipped grant must NOT move nextTurnFor(0) at all.
 func TestNextTurnForIgnoresAPendingSkippedGrant(t *testing.T) {
+	t.Parallel()
 	e, _ := skipCorpusEngine(t)
 	baseline := e.nextTurnFor(0)
 	e.emit(events.Event{Kind: events.ExtraTurn, Player: 1, Amount: 1})
@@ -104,6 +105,7 @@ func TestNextTurnForIgnoresAPendingSkippedGrant(t *testing.T) {
 // cleanup. Pre-fix, nextTurnFor counted the skipped grant as turn 2, moving
 // the boundary to 1 and dropping the animation at turn 1's cleanup.
 func TestKarnAnimateSurvivesASkippedOwnExtraTurn(t *testing.T) {
+	t.Parallel()
 	e, cfg := skipCorpusEngine(t)
 	ring := animateKarnRing(t, e)
 
@@ -175,6 +177,7 @@ func stealRealArtifact(t *testing.T, e *Engine) state.ObjID {
 // only rewrote e.continuous, leaving controlGrant.untilTurn frozen at 3 and
 // the artifact stolen through seat 0's turn 3.
 func TestControlNextTurnEndsOnLateControllerExtraTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := corpusEngineCfg(t, reg, nil, nil)
 	stolen := stealRealArtifact(t, e)
@@ -200,6 +203,7 @@ func TestControlNextTurnEndsOnLateControllerExtraTurn(t *testing.T) {
 // so the steal outlives them. Pre-fix the frozen untilTurn=3 ended the steal
 // at turn 3's cleanup even though seat 0's next turn had become turn 4.
 func TestControlNextTurnSurvivesLateOpponentExtraTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := corpusEngineCfg(t, reg, nil, nil)
 	stolen := stealRealArtifact(t, e)

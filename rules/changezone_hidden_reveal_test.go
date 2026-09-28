@@ -99,6 +99,7 @@ func castFixtureNamed(t *testing.T, e *Engine, name string) state.ObjID {
 // while the search's own options still carry names (the searching player is
 // allowed to look at their own library).
 func TestChangeZoneSearchRevealsTheFoundCards(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Cultivate")
 	start := len(e.L.Events)
@@ -162,6 +163,7 @@ func TestChangeZoneSearchRevealsTheFoundCards(t *testing.T) {
 // the object path and bounce ITSELF silently; it now poses the pick and moves
 // the CHOSEN permanent.
 func TestChangeZoneHiddenPickAsksForTheBouncedPermanent(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Kor Skyfisher")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
@@ -208,6 +210,7 @@ func TestChangeZoneHiddenPickAsksForTheBouncedPermanent(t *testing.T) {
 // ability shape: Temur Sabertooth's Hidden$ pick (ChangeType$
 // Creature.YouCtrl+Other) must offer only OTHER creatures, never the source.
 func TestChangeZoneHiddenPickReturnsAnotherCreature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Temur Sabertooth")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
@@ -244,6 +247,7 @@ func TestChangeZoneHiddenPickReturnsAnotherCreature(t *testing.T) {
 // from their graveyard" used to be a silent no-op (the player fetchers were
 // skipped); the pick now asks the TARGETED player over their own graveyard.
 func TestChangeZoneHiddenPickTargetsThePlayerGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Relic of Progenitus")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZGraveyard)
@@ -286,6 +290,7 @@ func TestChangeZoneHiddenPickTargetsThePlayerGraveyard(t *testing.T) {
 // search against a compiled-corpus sideboard card. The sideboard is private
 // to its owner and the wish's own SubAbility$ still runs after the pick.
 func TestChangeZoneWishFindsSideboard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Burning Wish")
 	cfg.Sideboards = [][]*cards.Card{{searchCorpusCard(t, reg, "Empty the Warrens")}, nil}
@@ -349,6 +354,7 @@ func TestChangeZoneWishFindsSideboard(t *testing.T) {
 // already held. A genuinely unseen card still stays blind
 // (TestSearchLegStaysBlindWhenUnknown).
 func TestChangeZoneNoLookingLegsSeeRevealedCards(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Cultivate")
 	_, d := castSearchSpell(t, e, "Cultivate")
@@ -387,6 +393,7 @@ func TestChangeZoneNoLookingLegsSeeRevealedCards(t *testing.T) {
 // Choose "forget-remembered" event, the persistent half), which Cultivate --
 // whose legs carry no ForgetChanged$ -- never emits for its own moved cards.
 func TestChangeZoneForgetChangedDropsTheMovedCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Troop of Ponies")
 	troop := searchMoveByName(t, e, "Troop of Ponies", state.ZBattlefield)
@@ -476,6 +483,7 @@ func troopPicks(e *Engine, troop state.ObjID) []state.ObjID {
 // Validate refuses a same-name pair, and a distinct-name answer drives the
 // whole chain (opponent-chosen graveyard half, hand half).
 func TestChangeZoneDifferentNamesRestrictsToOnePerName(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Realms Uncharted")
 	_, d := castSearchSpell(t, e, "Realms Uncharted")

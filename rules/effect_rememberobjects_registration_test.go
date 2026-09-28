@@ -18,6 +18,7 @@ import (
 // asserts BOTH the positive and the negative, with the usual preconditions
 // (both on the battlefield, neither already carrying the granted keyword).
 func TestEffectRememberObjectsRegistration(t *testing.T) {
+	t.Parallel()
 	grant := card(t, "Name:MarkOpponents\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | StaticAbilities$ STMark | RememberObjects$ Valid Creature.OppCtrl\n"+
 		"SVar:STMark:Mode$ Continuous | Affected$ Card.IsRemembered | AddKeyword$ Flying\n"+

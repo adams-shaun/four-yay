@@ -11,6 +11,7 @@ import (
 // precedence when a scripted Origin$ and ValidTgts$ disagree. An absent
 // Origin$ still permits the graveyard-enchant inference.
 func TestAnimateAttachExplicitOriginOutranksInZone(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, origin, valid, tgtZone string
 		want                         state.Zone

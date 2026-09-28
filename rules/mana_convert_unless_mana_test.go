@@ -22,6 +22,7 @@ import (
 // its own Knight). The window lets the payer tap the Mountain (R) and pay the
 // {U} pip with the converted red mana, so the Knight survives.
 func TestUnlessPayTapsForConvertedMana(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		manaConvertCard(t, reg, "Knight of the Mists"),

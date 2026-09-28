@@ -28,6 +28,7 @@ import (
 // is offered and the full activation completes, so the pushed ability object
 // proves the discounted charge succeeded.
 func TestCrownOfGondorEquipCostsLessAsMonarch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Crown of Gondor", "Grizzly Bears"}, nil)
 	crown := findOnBoard(t, e, 0, "Crown of Gondor")
@@ -55,6 +56,7 @@ func TestCrownOfGondorEquipCostsLessAsMonarch(t *testing.T) {
 // the monarch the ReduceCost$ resolves to 0, so the equip stays at {4} —
 // not offered with {3} in the pool, offered with {4}.
 func TestCrownOfGondorEquipFullPriceWithoutMonarch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Crown of Gondor", "Grizzly Bears"}, nil)
 	crown := findOnBoard(t, e, 0, "Crown of Gondor")
@@ -75,6 +77,7 @@ func TestCrownOfGondorEquipFullPriceWithoutMonarch(t *testing.T) {
 // one-generic pool; with no other Equipment it stays {3} and a one-generic
 // pool does not offer it.
 func TestPlateArmorEquipDiscount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	e, _ := linkBoard(t, reg, []string{"Plate Armor", "Basilisk Collar", "Lightning Greaves", "Grizzly Bears"}, nil)
@@ -105,6 +108,7 @@ func TestPlateArmorEquipDiscount(t *testing.T) {
 // contain the Hero creature and NOT a non-Hero creature (ability 1 is the
 // unrestricted Equip {6}, untouched).
 func TestHulkbusterEquipRestriction(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Hulkbuster Armor", "Brave Brawler", "Grizzly Bears"}, nil)
 	hulk := findOnBoard(t, e, 0, "Hulkbuster Armor")
@@ -145,6 +149,7 @@ func TestHulkbusterEquipRestriction(t *testing.T) {
 // turn. The first (free) equip completes; the second activation the SAME turn
 // is withheld.
 func TestEquipActivationLimit(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Leather Armor", "Grizzly Bears"}, nil)
 	la := findOnBoard(t, e, 0, "Leather Armor")

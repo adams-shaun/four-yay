@@ -13,6 +13,7 @@ import (
 // Fain-shaped activation: both the permanent and the counter kind are legal
 // choices, and the selected kind is the one removed by payment.
 func TestRemoveAnyCounterCostOffersCounterKindChoice(t *testing.T) {
+	t.Parallel()
 	const fain = "Name:Fain, the Broker\nManaCost:2 B\nTypes:Legendary Creature Human Warlock\nPT:3/3\nK:Haste\n" +
 		"A:AB$ Token | Cost$ T RemoveAnyCounter<1/Any/Creature> | TokenScript$ c_a_treasure_sac | SpellDescription$ Create a Treasure token.\nOracle:x\n"
 	targetCard := "Name:Counter Creature\nTypes:Creature\nPT:2/2\nOracle:x\n"
@@ -55,6 +56,7 @@ func TestRemoveAnyCounterCostOffersCounterKindChoice(t *testing.T) {
 }
 
 func TestParseRemoveAnyCounterCost(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("T RemoveAnyCounter<1/Any/Creature>")
 	if len(c.Unknown) != 0 || len(c.SubCounter) != 1 {
 		t.Fatalf("parsed cost = %+v, want one modelled counter-removal part", c)
@@ -117,6 +119,7 @@ func fainCorpusEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, state
 // real token registry. Because Fain comes from the corpus, a parser or
 // compiler regression on the card's own Cost$ makes this test fail.
 func TestRemoveAnyCounterRealCorpusFainPays(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, fainID, bearID := fainCorpusEngine(t, reg)
 	if e.G.Tokens["c_a_treasure_sac"] == nil {
@@ -164,6 +167,7 @@ func TestRemoveAnyCounterRealCorpusFainPays(t *testing.T) {
 // counter count. Each unit is chosen separately, so the activation is offered
 // and settles rather than aborting as "kind no longer payable".
 func TestRemoveAnyCounterMultiUnitSpansKinds(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Two-Any\nManaCost:0\nTypes:Artifact\n" +
 		"A:AB$ GainLife | Cost$ T RemoveAnyCounter<2/Any/Creature> | Defined$ You | LifeAmount$ 2 | SpellDescription$ Gain 2 life.\nOracle:x\n"
 	const bear = "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -247,6 +251,7 @@ func TestRemoveAnyCounterMultiUnitSpansKinds(t *testing.T) {
 // what settles, not a positional fallback that would have removed the first
 // kind in counter-list order.
 func TestRemoveAnyCounterMixedFixedAndWildcardParts(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Mixed\nManaCost:0\nTypes:Artifact\n" +
 		"A:AB$ GainLife | Cost$ T SubCounter<1/P1P1/Creature> RemoveAnyCounter<1/Any/Creature> | Defined$ You | LifeAmount$ 2 | SpellDescription$ Gain 2 life.\nOracle:x\n"
 	const bearA = "Name:Bear A\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"

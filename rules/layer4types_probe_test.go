@@ -23,6 +23,7 @@ import (
 // registry with a BOUND probe, so the fast path is actually taken; an unbound
 // probe is conservative (true) but would silently cost the whole saving.
 func TestFaceStaticProbesAreConservative(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := &Engine{}
 	var faces []*cards.Face

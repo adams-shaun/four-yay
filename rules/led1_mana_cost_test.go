@@ -52,6 +52,7 @@ func led1Board(t *testing.T, c *cards.Card) (*Engine, Config, state.ObjID, state
 // The marker is what lets the client's empty-priority-window floor stop on
 // the LED window instead of auto-passing it away (fb-20260917T192520Z-26136705).
 func TestLed1CostlyManaActivationCarriesCostMarker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	c := mustCorpusCard(t, reg, "Lion's Eye Diamond")
 	e, _, led, mtn := led1Board(t, c)
@@ -92,6 +93,7 @@ func TestLed1CostlyManaActivationCarriesCostMarker(t *testing.T) {
 // bare tap, so narrowing the marker to irreversible components would
 // re-swear these windows.
 func TestLed1PayLifeManaActivationCarriesCostMarker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Mana Confluence", "Treasonous Ogre"} {
 		t.Run(name, func(t *testing.T) {

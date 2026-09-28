@@ -41,6 +41,7 @@ func chosenModeCast(t *testing.T, e *Engine, name, mode string) state.ObjID {
 }
 
 func TestChosenModePredicateGatesModeTriggers(t *testing.T) {
+	t.Parallel()
 	g := &state.Game{NextID: 3, Objs: []state.Object{
 		{ID: 1, Zone: state.ZBattlefield, ChosenModes: []string{"Khans"}},
 		{ID: 2, Zone: state.ZBattlefield},
@@ -88,6 +89,7 @@ func TestChosenModePredicateGatesModeTriggers(t *testing.T) {
 // Each subtest starts from a fresh cast: a decline cannot poison the accept
 // path, and both answers have the same legal Min-0 hidden-pick ask.
 func TestPhenomenonInvestigatorsDoubtMayReturn(t *testing.T) {
+	t.Parallel()
 	for _, accept := range []bool{false, true} {
 		name := "decline"
 		if accept {

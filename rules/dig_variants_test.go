@@ -150,6 +150,7 @@ func digPublicRevealNote(e *Engine, want ...state.ObjID) *events.Event {
 // is revealed to the whole table (a non-Secret Note carrying the window's
 // ids) before the Secret move puts the card into the owner's hand.
 func TestDigRevealRevealsTheWindow(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 4111, digRevealSrc)
 	libBefore := digReorder(t, e, "Mountain")
 	top := libBefore[0]
@@ -178,6 +179,7 @@ func TestDigRevealRevealsTheWindow(t *testing.T) {
 // revealed -- no non-Secret Note carries library ids anywhere in the log,
 // the look stays a Secret owner's Note, and the answered move is Secret.
 func TestDigNoRevealKeepsTheWindowPrivate(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 4112, digNoRevealSrc)
 
 	d := digCast(t, e, id, "U", true)
@@ -220,6 +222,7 @@ func TestDigNoRevealKeepsTheWindowPrivate(t *testing.T) {
 // (the default remainder destination; the drain answers the ordered-bottom
 // ask in the offered order).
 func TestDigForceRevealRevealsTheTakenCard(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 4113, digForceRevealSrc)
 	libBefore := digReorder(t, e, "Mountain")
 
@@ -265,6 +268,7 @@ func TestDigForceRevealRevealsTheTakenCard(t *testing.T) {
 // stay-in-place default, so an unmatched card emits no move at all. Matter
 // Reshaper's: the unmatched card goes to DestinationZone2$ Hand.
 func TestDigDestinationZone2SplitsThePiles(t *testing.T) {
+	t.Parallel()
 	t.Run("chaos warp: unmatched card stays on the library top", func(t *testing.T) {
 		e, cfg, id := newFixtureDeck(t, 4114, digSplitLibrarySrc, digBear)
 		libBefore := digReorder(t, e, "Digr Bear", "Mountain")
@@ -356,6 +360,7 @@ func TestDigDestinationZone2SplitsThePiles(t *testing.T) {
 // and 3, proving the answered SUBSET -- not take-all, not take-nothing --
 // is what moves.
 func TestDigTappedAndSkipReorder(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 4118, digTappedSrc)
 	libBefore := digReorder(t, e, "Mountain")
 

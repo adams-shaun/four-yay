@@ -43,6 +43,7 @@ const effectSelfExileResumeSrc = "Name:Fixture Self-Exile Effect\nManaCost:1 U\n
 // the resumed self-exile runs, and the body's other work (the +1/+1 counter)
 // proves the resume ran the body rather than short-circuiting.
 func TestEffectReplacementResumeEndsSelfExile(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, seedTossSeat0(307), []string{effectSelfExileResumeSrc, wgBearSrc}, nil)
 
 	// Cast the Effect sorcery: it registers a live Moved replacement.
@@ -108,6 +109,7 @@ func TestEffectReplacementResumeEndsSelfExile(t *testing.T) {
 // survive. It proves the previous test's disappearance is caused by the
 // resumed self-exile, not by some incidental cleanup.
 func TestEffectReplacementResumePaymentKeepsRegistration(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, seedTossSeat0(311), []string{effectSelfExileResumeSrc, wgBearSrc}, nil)
 
 	sfx := find("Fixture Self-Exile Effect", 0)

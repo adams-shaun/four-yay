@@ -26,6 +26,7 @@ import (
 // TestChangeZoneWishFindsSideboard (which suspends on a real sideboard pick
 // and so already took the guarded resumed path).
 func TestBurningWishEmptySideboardKeepsSelfExile(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// searchEngine leaves cfg.Sideboards empty: no outside-the-game card.
 	e, cfg := searchEngine(t, reg, "Burning Wish")

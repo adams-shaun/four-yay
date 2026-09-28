@@ -9,6 +9,7 @@ import (
 )
 
 func TestFixedAddTokenAppliesOncePerCreationEvent(t *testing.T) {
+	t.Parallel()
 	helm := tokenReplCorpusCard(t, "Worldwalker Helm")
 	doubler := tokenReplCorpusCard(t, "Doubling Season")
 
@@ -56,6 +57,7 @@ func TestFixedAddTokenAppliesOncePerCreationEvent(t *testing.T) {
 }
 
 func TestChatterfangAddTokenRemainsProportional(t *testing.T) {
+	t.Parallel()
 	chatterfang := tokenReplCorpusCard(t, "Chatterfang, Squirrel General")
 	doubler := tokenReplCorpusCard(t, "Doubling Season")
 	e, cfg := tokenReplGame(t, 20260927, chatterfang, doubler)

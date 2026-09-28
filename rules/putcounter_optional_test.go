@@ -108,6 +108,7 @@ func talusPaladinGame(t *testing.T, seed uint64) (*Engine /*cfg*/, Config, state
 // Optional$ PutCounter poses the yes/no election; answering NO emits no
 // CounterChange at all and the trigger completes (no pending decision).
 func TestTalusPaladinMayPutElectionPosesAndDeclinePlacesNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, pal := talusPaladinGame(t, 911)
 	answerPutOptional(t, e, 1) // no
 	if d := e.Pending(); d != nil && d.Kind != decision.KPriority {
@@ -125,6 +126,7 @@ func TestTalusPaladinMayPutElectionPosesAndDeclinePlacesNothing(t *testing.T) {
 // TestTalusPaladinMayPutAcceptPlacesExactlyOneCounter: answering YES places
 // exactly the one P1P1 counter (byte-identical to the pre-ask silent put).
 func TestTalusPaladinMayPutAcceptPlacesExactlyOneCounter(t *testing.T) {
+	t.Parallel()
 	e, cfg, pal := talusPaladinGame(t, 912)
 	answerPutOptional(t, e, 0) // yes
 	if d := e.Pending(); d != nil && d.Kind != decision.KPriority {
@@ -151,6 +153,7 @@ func TestTalusPaladinMayPutAcceptPlacesExactlyOneCounter(t *testing.T) {
 // decline places nothing and the trigger completes; the accept places one
 // P1P1 counter on the hand object through the real trigger resolution path.
 func TestPutCounterOptionalNonBattlefieldRecipientElection(t *testing.T) {
+	t.Parallel()
 	// Decline: the election is posed with the recipient in hand; answering no
 	// places nothing and the resolution completes.
 	e, cfg, pal := gateFixture(t, 913, "Talus Paladin")
@@ -207,6 +210,7 @@ func TestPutCounterOptionalNonBattlefieldRecipientElection(t *testing.T) {
 // the decline's grant; the ACCEPT path's grant gating is RememberPut$, out
 // of scope here).
 func TestBlackWidowMayPutDeclinePlacesNoCounterAndRunsTheChain(t *testing.T) {
+	t.Parallel()
 	// Eight extras so the top-7 opening deal leaves a nonland in the library
 	// for the DigUntil to find (a mountain-only library would exhaust the
 	// scan before the put's election was ever reached).
@@ -234,6 +238,7 @@ func TestBlackWidowMayPutDeclinePlacesNoCounterAndRunsTheChain(t *testing.T) {
 // CounterNum$ 2): the decline places no energy counter, the accept places
 // exactly the one batch of 2.
 func TestSynthEradicatorMayPutEnergyDeclinePlacesNoneAndAcceptPlacesTwo(t *testing.T) {
+	t.Parallel()
 	e, cfg, synth := gateFixture(t, 915, "Synth Eradicator")
 	synth = gateMoveFromLibrary(t, e, "Synth Eradicator", state.ZBattlefield)
 	e.emit(events.Event{Kind: events.TriggerPush, Obj: synth, Player: 0, Amount: 0})
@@ -272,6 +277,7 @@ func TestSynthEradicatorMayPutEnergyDeclinePlacesNoneAndAcceptPlacesTwo(t *testi
 // chained modal ask (Odd/Even, mid-resolution via effCharm) and the test
 // answers it so the stack drains.
 func TestZimonesHypothesisMayPutElectionWrapsThePick(t *testing.T) {
+	t.Parallel()
 	const bearSrc = "Name:Test Bear\nTypes:Creature\nPT:2/2\nOracle:x\n"
 	news := func(seed uint64) (*Engine, Config, state.ObjID, state.ObjID, state.ObjID) {
 		e, cfg, zim := gateFixture(t, seed, "Zimone's Hypothesis", bearSrc, bearSrc)

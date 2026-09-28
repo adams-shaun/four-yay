@@ -29,6 +29,7 @@ func entryCounterBattle(t testing.TB) *cards.Card {
 // snapshot skips any move whose object is already on the battlefield, so a
 // second MoveZone within the zone leaves the count at 5.
 func TestEntryCounterStayDoesNotRegrant(t *testing.T) {
+	t.Parallel()
 	battle := entryCounterBattle(t)
 	e, cfg := tokenReplGame(t, 151, battle)
 	bid := moveSeededCard(t, e, 0, battle, state.ZBattlefield)
@@ -70,6 +71,7 @@ func entryCounterEtbCreature(t testing.TB) *cards.Card {
 // placed the counters with no event, so the replacement never ran and the
 // entry stayed at the printed 4.
 func TestEntryCounterMoveFoldIsReplacementVisible(t *testing.T) {
+	t.Parallel()
 	// Precondition: with no replacement on the board the walker still enters
 	// with its printed 4 loyalty -- the entry path must place the counters,
 	// not silently drop them.
@@ -114,6 +116,7 @@ func TestEntryCounterMoveFoldIsReplacementVisible(t *testing.T) {
 // and with it the prohibition -- while the body was in flight, so Solemnity
 // was ignored and the creature entered with its two counters anyway.
 func TestReplacementBodyCounterIsBlockedByCantPutCounter(t *testing.T) {
+	t.Parallel()
 	// Precondition: without Solemnity the body really does place 2 counters
 	// (2 != 0, so the blocked assertion below cannot pass vacuously).
 	cre := entryCounterEtbCreature(t)

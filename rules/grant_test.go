@@ -40,6 +40,7 @@ func keywordGrantOption(opts []decision.Option) *decision.Option {
 // grants flying it does not yet have and has no identical activation pending,
 // so Grant is non-nil with Keywords {Flying} and both redundant halves false.
 func TestAbilityGrantIdempotentKeywordFlag(t *testing.T) {
+	t.Parallel()
 	e := balloonGoblin(t)
 	op := keywordGrantOption(e.legalActions(0))
 	if op == nil {
@@ -62,6 +63,7 @@ func TestAbilityGrantIdempotentKeywordFlag(t *testing.T) {
 // bot declines a second activation that gains nothing. The gate removes the
 // HasKeyword read in abilityGrant (and this test fails: Already stays false).
 func TestAbilityGrantAlreadyInEffect(t *testing.T) {
+	t.Parallel()
 	e := balloonGoblin(t)
 	o := e.G.Zone(state.ZBattlefield, 0)[0]
 	e.AddContinuous(ContinuousEffect{Source: o, Timestamp: 1, Layer: LAbilities,
@@ -85,6 +87,7 @@ func TestAbilityGrantAlreadyInEffect(t *testing.T) {
 // keyword. The gate removes the grantPending stack walk (and this test
 // fails: Duplicate stays false).
 func TestAbilityGrantDuplicatePending(t *testing.T) {
+	t.Parallel()
 	e := balloonGoblin(t)
 	o := e.G.Zone(state.ZBattlefield, 0)[0]
 	src := e.G.Obj(o)

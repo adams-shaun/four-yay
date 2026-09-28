@@ -137,6 +137,7 @@ func TestEntryCounterStageTokenEffectRiders(t *testing.T) {
 // mint must not be emitted into the first mint's outstanding ask, and the
 // SubAbility$ Cleanup (ClearRemembered) must run once, after both.
 func TestTokenOrderAskKeepsTokenEffectRiders(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name    string
 		dsFirst bool
@@ -275,6 +276,7 @@ func TestTokenRewriteSettlesBeforeEntryStaging(t *testing.T) {
 // TokenTapped$, and the later Powerstone mints and the GainLife sub must run
 // once, after them.
 func TestTokenElectionKeepsTokenEffectRiders(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		doubling   bool
@@ -460,6 +462,7 @@ func TestParkedTokenImprintsItsMints(t *testing.T) {
 // still gain haste and join the one end-step sacrifice group -- post-mint
 // work that needs the ids the answers mint, so it resumes with them.
 func TestEncoreCopiesStageAndKeepTheirRiders(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int
@@ -611,6 +614,7 @@ func TestEqualMintsWhileStagedAreNewMints(t *testing.T) {
 // counters must land on the token the answer minted, and the SubAbility$ (or
 // the resolution) must finish after it.
 func TestIncubateAndAmassResumeOntoParkedMints(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, spell, other, mana string
 	}{

@@ -88,6 +88,7 @@ func castControlAura(t *testing.T, e *Engine, name string, bear state.ObjID) sta
 // Aura's controller through a real ControlChange; the Aura leaves the
 // battlefield -> the bearer returns to its owner.
 func TestMindControlStaticTakesAndReturnsControl(t *testing.T) {
+	t.Parallel()
 	mc, ok := testutil.CorpusRegistry(t).Lookup("Mind Control")
 	if !ok {
 		t.Fatal("corpus missing Mind Control")
@@ -123,6 +124,7 @@ func TestMindControlStaticTakesAndReturnsControl(t *testing.T) {
 // when the monarch designation moves away the static grant ends and the
 // bearer returns to its owner.
 func TestFealtyToTheRealmMonarchControlsEnchantedCreature(t *testing.T) {
+	t.Parallel()
 	ft, ok := testutil.CorpusRegistry(t).Lookup("Fealty to the Realm")
 	if !ok {
 		t.Fatal("corpus missing Fealty to the Realm")
@@ -158,6 +160,7 @@ func TestFealtyToTheRealmMonarchControlsEnchantedCreature(t *testing.T) {
 // expires the bearer returns to the STATIC's controller, not its owner --
 // and only after the Mind Control itself ends does the bearer go home.
 func TestStaticGainControlStacksWithTemporarySteal(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mc, ok := reg.Lookup("Mind Control")
 	if !ok {
@@ -212,6 +215,7 @@ func TestStaticGainControlStacksWithTemporarySteal(t *testing.T) {
 // runs (staticGainControlController): no monarch on the board, and a bare
 // unqualified Player/Any that would match every seat.
 func TestStaticGainControlFailsClosedOnUnresolvableValues(t *testing.T) {
+	t.Parallel()
 	ft, ok := testutil.CorpusRegistry(t).Lookup("Fealty to the Realm")
 	if !ok {
 		t.Fatal("corpus missing Fealty to the Realm")
@@ -239,6 +243,7 @@ func TestStaticGainControlFailsClosedOnUnresolvableValues(t *testing.T) {
 // releases the old bearer to its owner and takes the new one in the same
 // pass -- the wanted set is re-derived per event, so both legs land.
 func TestStaticGainControlFollowsBearerMoves(t *testing.T) {
+	t.Parallel()
 	mc, ok := testutil.CorpusRegistry(t).Lookup("Mind Control")
 	if !ok {
 		t.Fatal("corpus missing Mind Control")

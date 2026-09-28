@@ -16,6 +16,7 @@ import (
 // 0's answer was re-applied to a hand that never held target 1's cards and
 // target 1 was re-asked forever — targets 2..n were abandoned.
 func TestDiscardMultiTargetAsksEveryTarget(t *testing.T) {
+	t.Parallel()
 	ms := "Name:MultiMind\nManaCost:B\nTypes:Sorcery\n" +
 		"A:SP$ Discard | Defined$ You & Opponent | Mode$ TgtChoose | NumCards$ 1\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 96, ms)

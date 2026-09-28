@@ -88,6 +88,7 @@ func exileAnyGraveBoard(t *testing.T, reg *cards.Registry, top, fodder, decoy, b
 // a graveyard` must not price an extra {1}, and the malformed fallback stays
 // reserved for a non-literal amount.
 func TestExileAnyGraveParsesToTheGraveyardExilePart(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("B G ExileAnyGrave<1/Fungus>")
 	if c.Generic != 0 || c.Colored[state.ManaIndex('B')] != 1 || c.Colored[state.ManaIndex('G')] != 1 {
 		t.Fatalf("ExileAnyGrave parse priced the mana half wrong: %+v", c)
@@ -114,6 +115,7 @@ func TestExileAnyGraveParsesToTheGraveyardExilePart(t *testing.T) {
 // non-Fungus decoy), answering it exiles the chosen card, and the ability's
 // effect resolves (a SPORE counter on the battlefield Fungus).
 func TestExileAnyGraveThelonOfHavenwoodAbilityPaysAndExiles(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	th := mustCorpusCard(t, reg, "Thelon of Havenwood")
 	fungus := mustCorpusCard(t, reg, "Vitaspore Thallid")
@@ -234,6 +236,7 @@ func waitForWindow(t *testing.T, e *Engine) *decision.Decision {
 // ask runs and the chosen card moves on top of the library. Declining leaves
 // the Cavalier in the graveyard and the body unexecuted.
 func TestCavalierOfThornsDiesPaysTheExileAndResumes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := exileAnyGraveBoard(t, reg, "Cavalier of Thorns", "", "Bear Cub", "")
 	cavalier := ids["Cavalier of Thorns"]
@@ -375,6 +378,7 @@ func TestCavalierOfThornsDiesPaysTheExileAndResumes(t *testing.T) {
 // body then runs; a decline leaves the Harbinger in the graveyard and the
 // body unexecuted -- never the old one-generic charge.
 func TestDoombotHarbingerExileCostWindowPaysTheExile(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := exileAnyGraveBoard(t, reg, "Doombot Harbinger", "Bear Cub", "", "")
 	harb := ids["Doombot Harbinger"]
@@ -455,6 +459,7 @@ func TestDoombotHarbingerExileCostWindowPaysTheExile(t *testing.T) {
 // never offered, even with eligible-looking cards in the zone -- the
 // fail-closed default means the offer path never invents a referent.
 func TestTriggeredNewCardCostIsUnpayableWithoutATriggerContext(t *testing.T) {
+	t.Parallel()
 	src := card(t, "Name:Referent Payer\nManaCost:1\nTypes:Artifact\n"+
 		"A:AB$ GainLife | Cost$ ExileAnyGrave<1/Card.TriggeredNewCard> | ActivationZone$ Graveyard | Defined$ You | LifeAmount$ 1\n"+
 		"Oracle:x\n")

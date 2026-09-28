@@ -42,6 +42,7 @@ const cycledPrintedSrc = "Name:Printed Cycler\nManaCost:U\nTypes:Instant\nK:Cycl
 // that prints NO Cycling. The precondition asserts the fixture really has no
 // printed keyword, so the assertion cannot pass by the old printed-face path.
 func TestCycledFiresForAProvenanceTaggedDiscard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, cycledSelfTriggerSrc))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	if o := e.G.Obj(id); o == nil || o.Face() == nil {
@@ -73,6 +74,7 @@ func TestCycledFiresForAProvenanceTaggedDiscard(t *testing.T) {
 // cause; the second engine proves the matcher is live by firing the same card
 // on a properly tagged discard.
 func TestCycledIgnoresABareCostDiscardOfAPrintedCycler(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, cycledPrintedSrc))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	if o := e.G.Obj(id); o == nil || o.Face() == nil {
@@ -106,6 +108,7 @@ func TestCycledIgnoresABareCostDiscardOfAPrintedCycler(t *testing.T) {
 // must not fire. A genuine tagged cycle of the same kind then fires it, so the
 // no-fire assertion cannot pass because the trigger is unregistered.
 func TestCycledIgnoresADiscardCostPaidForADifferentAbility(t *testing.T) {
+	t.Parallel()
 	rescuer := mshCorpusCard(t, "Valiant Rescuer")
 	aven := mshCorpusCard(t, "Windcaller Aven")
 	tusker := mshCorpusCard(t, "Warped Tusker")
@@ -189,6 +192,7 @@ func TestCycledIgnoresADiscardCostPaidForADifferentAbility(t *testing.T) {
 // Mode$ Cycled trigger still sees the redirected discard as a cycle. Without
 // the carry the substituted move's Counter is empty and the trigger misses.
 func TestCyclingProvenanceSurvivesAReplacementRedirect(t *testing.T) {
+	t.Parallel()
 	const obj state.ObjID = 7
 	cyc := events.DiscardCostCycling(obj, "Cycling")
 	if kw, ok := events.IsCyclingDiscard(cyc); !ok || kw != "Cycling" {

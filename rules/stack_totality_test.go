@@ -97,6 +97,7 @@ Oracle:x
 // lands it in the graveyard -- exactly the single Note and single Resolve
 // asserted below.
 func TestInstantResolvingUnderAGraveyardReplacementDoesNotStickOnTheStack(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 110, harmlessInstantSrc)
 	onBoard(t, e, 1, graveyardBlockingSpellsReplacementSrc)
 	driveToStep(t, e, 1, 0, state.StepMain1)
@@ -162,6 +163,7 @@ func TestInstantResolvingUnderAGraveyardReplacementDoesNotStickOnTheStack(t *tes
 // terminating, on an equivalent board). The guard's rescue is the single
 // exile move that finally lands it there.
 func TestAbilityObjectResolvingUnderAnExileReplacementDoesNotStickOnTheStack(t *testing.T) {
+	t.Parallel()
 	e, _, landID := newFixtureDeck(t, 111, plainLandSrc)
 	onBoard(t, e, 0, watcherSrc)
 	onBoard(t, e, 1, exileBlockingReplacementSrc)
@@ -257,6 +259,7 @@ Oracle:x
 // destination of a logged move, so the discovery holds whatever zone the
 // guard or the replacement lands the object in.
 func TestAbilityFizzlingAtResolutionUnderAnExileReplacementDoesNotStickOnTheStack(t *testing.T) {
+	t.Parallel()
 	e, _, landID := newFixtureDeck(t, 112, plainLandSrc)
 	sentinel := onBoard(t, e, 0, damageWatcherSrc)
 	onBoard(t, e, 1, exileBlockingReplacementSrc)
@@ -343,6 +346,7 @@ Oracle:x
 // The graveyard replacement discards the spell's fizzle move, so the totality
 // guard must still remove the spell from the stack.
 func TestSpellCounteredForNoTargetsAtCastUnderAGraveyardReplacementDoesNotStickOnTheStack(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 113, creatureTargetInstantSrc)
 	target := onBoard(t, e, 1, fieldRatSrc)
 	onBoard(t, e, 1, graveyardBlockingSpellsReplacementSrc)
@@ -463,6 +467,7 @@ Oracle:x
 // the two spells' exits are affected, keeping this test about the spell
 // branch's guard, not the creature's.
 func TestSpellFizzlingAtResolutionUnderAGraveyardReplacementDoesNotStickOnTheStack(t *testing.T) {
+	t.Parallel()
 	spell := card(t, twinDamageInstantSrc)
 	e := handEngine(t, spell, spell)
 	target := onBoard(t, e, 1, fieldRatSrc)
@@ -566,6 +571,7 @@ func TestSpellFizzlingAtResolutionUnderAGraveyardReplacementDoesNotStickOnTheSta
 // guarantee the ask-time test above asserts, reached here through the public
 // cast->resolve path rather than a direct ability-object fizzle.
 func TestAbilityFizzlesAtResolutionWhenItsTargetDiesBeforeResolving(t *testing.T) {
+	t.Parallel()
 	mountain := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	removal := card(t, removalSparkSrc)
 	e := handEngine(t, mountain, removal)

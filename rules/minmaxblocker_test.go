@@ -67,6 +67,7 @@ func submitBlocks(t *testing.T, e *Engine, d *decision.Decision, n int) error {
 // (CR 509.1a: the declaration is illegal) and admits the three-creature one.
 // The unblocked declaration is always legal.
 func TestMinMaxBlockerCorpusTrollMinThree(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	troll := searchCorpusCard(t, reg, "Troll of Khazad-dûm")
 	bear := card(t, staticBearFixture)
@@ -121,6 +122,7 @@ func TestMinMaxBlockerCorpusTrollMinThree(t *testing.T) {
 // TestMinMaxBlockerCorpusKrosanVorineMaxOne pins the dual bound on the real
 // card: Krosan Vorine's `Max$ 1` refuses two blockers and admits one.
 func TestMinMaxBlockerCorpusKrosanVorineMaxOne(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	vorine := searchCorpusCard(t, reg, "Krosan Vorine")
 	bear := card(t, staticBearFixture)
@@ -167,6 +169,7 @@ func TestMinMaxBlockerCorpusKrosanVorineMaxOne(t *testing.T) {
 // legal. With no lands and one bear the single-bear declaration is the whole
 // legal answer.
 func TestMinMaxBlockerCorpusTromokratisMinAll(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	tromokratis := searchCorpusCard(t, reg, "Tromokratis")
 	bear := card(t, staticBearFixture)
@@ -246,6 +249,7 @@ func TestMinMaxBlockerCorpusTromokratisMinAll(t *testing.T) {
 // so its pairs are never offered and the defender is skipped to the forced
 // empty declaration (a decision nobody could answer differently is not posed).
 func TestMinMaxBlockerMinImpossibleOffersNoOptions(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	troll := searchCorpusCard(t, reg, "Troll of Khazad-dûm")
 	bear := card(t, staticBearFixture)
@@ -279,6 +283,7 @@ func TestMinMaxBlockerMinImpossibleOffersNoOptions(t *testing.T) {
 // creature's block count. The lord is seat 0's; seat 0's attacking bear is
 // bounded, and a seat-1 bear (not the lord's controller's) is not.
 func TestMinMaxBlockerNonSelfScope(t *testing.T) {
+	t.Parallel()
 	const lord = "Name:MinMax Lord\nManaCost:1\nTypes:Creature Soldier\nPT:1/1\n" +
 		"S:Mode$ MinMaxBlocker | ValidCard$ Creature.YouCtrl | Max$ 1 | Description$ x\nOracle:x\n"
 	const bear = staticBearFixture
@@ -314,6 +319,7 @@ func TestMinMaxBlockerNonSelfScope(t *testing.T) {
 // attacker compose (0 or exactly [3..1] would be empty, so only 0 is legal),
 // and independently the Max$ 1 refuses two blockers while one is legal.
 func TestMinMaxBlockerInlineDeclaration(t *testing.T) {
+	t.Parallel()
 	const maxOne = "Name:Max One\nManaCost:0\nTypes:Creature Bear\nPT:2/2\n" +
 		"S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Max$ 1 | Description$ x\nOracle:x\n"
 	const minThree = "Name:Min Three\nManaCost:0\nTypes:Creature Bear\nPT:2/2\n" +

@@ -20,6 +20,7 @@ import (
 // plane), so only a fuzzed/hand-built event reaches the negative arm -- which
 // is exactly why the boundary is asserted here.
 func TestPlaneswalkFromScanRejectsAnotherSeatsPlane(t *testing.T) {
+	t.Parallel()
 	away := planeWalkedFromProbe(t, "Probe Away")
 	theirs := planeWalkedFromProbe(t, "Probe Theirs")
 	// Seat 0 gets the away probe; seat 1 gets an identical probe in its own

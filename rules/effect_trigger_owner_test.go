@@ -13,6 +13,7 @@ import (
 // it (the opening-hand EffectOwner$ Opponent shape). The matcher must use the
 // registration's owner for ValidTarget$ You, not the source card's controller.
 func TestEffectTriggerMatchesRegistrationOwner(t *testing.T) {
+	t.Parallel()
 	watcher := card(t, "Name:OpponentsPromise\nTypes:Creature\nPT:1/1\n"+
 		"SVar:Grant:DB$ Effect | Triggers$ Hook | EffectOwner$ Opponent | Duration$ UntilEndOfTurn\n"+
 		"SVar:Hook:Mode$ DamageDone | ValidTarget$ You | Execute$ Pain | TriggerZones$ Command\n"+
@@ -58,6 +59,7 @@ func TestEffectTriggerMatchesRegistrationOwner(t *testing.T) {
 }
 
 func TestEffectTriggerMatchesCapturedMemory(t *testing.T) {
+	t.Parallel()
 	watcher := card(t, "Name:MemoryPromise\nTypes:Creature\nPT:1/1\n"+
 		"SVar:Grant:DB$ Effect | Triggers$ Hook | Duration$ UntilEndOfTurn\n"+
 		"SVar:Hook:Mode$ DamageDone | ValidTarget$ Creature.IsRemembered | Execute$ Pain | TriggerZones$ Command\n"+

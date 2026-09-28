@@ -21,6 +21,7 @@ import (
 // it is rejected; it does not use decision.New, because a test that only
 // calls New proves nothing about the sites that build the struct literal.
 func TestAskRejectsMisindexedDecision(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 1, Names: names, Decks: decks})
 	e.Advance()
@@ -75,6 +76,7 @@ func TestAskRejectsMisindexedDecision(t *testing.T) {
 // options carry the correct position indices still reaches ask unchanged, so
 // the guard rejects only the broken state, never the good one.
 func TestAskAcceptsWellIndexedDecision(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 3, Names: names, Decks: decks})
 	e.Advance()

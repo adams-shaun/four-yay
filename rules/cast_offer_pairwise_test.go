@@ -25,6 +25,7 @@ import (
 // TargetsWithDifferentControllers$ ask with exactly two legal creatures under
 // ONE controller has no legal answer, so the offer must not present it at all.
 func TestCastOfferCensusWithholdsRunAwayTogetherSingleController(t *testing.T) {
+	t.Parallel()
 	e, spell, bears := runAwayTogetherEngine(t, []state.PlayerID{1, 1})
 	o := e.G.Obj(spell)
 	if o == nil || o.Zone != state.ZHand || o.Face() == nil || len(bears) != 2 {
@@ -55,6 +56,7 @@ const pairwiseCensusSrc = "Name:Pairwise Census\nManaCost:1 W\nTypes:Instant\n" 
 	"TargetMax$ 2 | TargetsWithSameController$ True | Oracle:x\n"
 
 func TestCastOfferCensusWithholdsPairwiseConstrainedCast(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 6015, pairwiseCensusSrc)
 	bearA := bearPermanent(t, e, 0)
 	bearB := bearPermanent(t, e, 1)

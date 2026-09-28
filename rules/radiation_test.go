@@ -50,6 +50,7 @@ func radiationSpell(t testing.TB, n string) *cards.Card {
 // The inherent CR 728.1 ability exists without any card permanent to serve as
 // its source. Its event-created stack object must retain that zero source.
 func TestRadiationDrainIsSourceLessTriggeredAbility(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	seedPlayerCounter(t, e, 0, "RAD", 2)
 	if got := e.G.Players[0].Counter("RAD"); got != 2 {
@@ -74,6 +75,7 @@ func TestRadiationDrainIsSourceLessTriggeredAbility(t *testing.T) {
 }
 
 func TestRadiationDrainNotQueuedWithoutCounters(t *testing.T) {
+	t.Parallel()
 	// The no-op assertion below would also pass with the whole mechanic
 	// unregistered, so pin that both primitives are reachable first.
 	for _, api := range []string{"api:Radiation", "api:RadiationDrain"} {
@@ -101,6 +103,7 @@ func TestRadiationDrainNotQueuedWithoutCounters(t *testing.T) {
 // `DB$ Radiation | Defined$ TriggeredDefendingPlayer | Num$ 2`. The defending
 // player gets exactly two rad counters and the attacking player gets none.
 func TestRadiationPlacementAcquiredMutationAttacks(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	aura := onBoardCard(t, e, 0, radiationCorpusCard(t, "Acquired Mutation"))
 	bear := onBoard(t, e, 0, "Name:Test Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -133,6 +136,7 @@ func TestRadiationPlacementAcquiredMutationAttacks(t *testing.T) {
 // three rad counters. The chapter is queued by the lore counter the Saga
 // enters with, exactly as a live entry does.
 func TestRadiationPlacementVault12ChapterI(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	saga := onBoardCard(t, e, 0, radiationCorpusCard(t, "Vault 12: The Necropolis"))
 	// Precondition: chapter I is the DB$ Radiation body over every player.
@@ -174,6 +178,7 @@ func TestRadiationPlacementVault12ChapterI(t *testing.T) {
 // rad counter for each of the 2 NONLANDS milled -- the land exclusion is what
 // a naive "remove one per card milled" implementation would fail.
 func TestRadiationDrainMillsAndDrains(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	top := radiationLibrary(t, e, 0,
 		radiationLand(t), radiationSpell(t, "Mill One"), radiationSpell(t, "Mill Two"), radiationLand(t), radiationSpell(t, "Below"))
@@ -220,6 +225,7 @@ func TestRadiationDrainMillsAndDrains(t *testing.T) {
 // nothing is milled and no life is lost. The registration precondition is
 // pinned by TestRadiationDrainNotQueuedWithoutCounters.
 func TestRadiationDrainZeroCountersDoesNothing(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	radiationLibrary(t, e, 0, radiationLand(t), radiationSpell(t, "Untouched"))
 	lifeBefore := e.G.Players[0].Life
@@ -246,6 +252,7 @@ func TestRadiationDrainZeroCountersDoesNothing(t *testing.T) {
 // queues it and it is pushed, the counters and library are untouched until the
 // stack object resolves.
 func TestRadiationDrainIsOnTheStackBeforeResolving(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	radiationLibrary(t, e, 0, radiationSpell(t, "Mill Me"))
 	seedPlayerCounter(t, e, 0, "RAD", 1)

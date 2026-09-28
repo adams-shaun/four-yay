@@ -43,6 +43,7 @@ func corpusInfectCard(t *testing.T, name string) *cards.Card {
 // dealt as a -1/-1 counter, with NO marked damage, while the blocker's own
 // (non-infect) hit back stays ordinary marked damage.
 func TestInfectDamageToCreatureIsMinusOneCountersNotMarkedDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	mamba := onBoardCard(t, e, 0, corpusInfectCard(t, "Blight Mamba"))
 	e.G.Obj(mamba).SummonSick = false
@@ -91,6 +92,7 @@ func TestInfectDamageToCreatureIsMinusOneCountersNotMarkedDamage(t *testing.T) {
 // Colossus deals its 11 power to the defending player as 11 poison counters
 // (life untouched), and the tenth poison counter loses the game.
 func TestInfectDamageToPlayerIsPoisonAndTenPoisonLoses(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	colo := onBoardCard(t, e, 0, corpusInfectCard(t, "Blightsteel Colossus"))
 	e.G.Obj(colo).SummonSick = false
@@ -126,6 +128,7 @@ func TestInfectDamageToPlayerIsPoisonAndTenPoisonLoses(t *testing.T) {
 // creature read infect (so its combat damage converts), here as poison on
 // the defending player for its boosted 4 power.
 func TestGraftedExoskeletonGrantedInfectDealsInCounterForm(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	exo := onBoardCard(t, e, 0, corpusInfectCard(t, "Grafted Exoskeleton"))
 	bearer := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -164,6 +167,7 @@ func TestGraftedExoskeletonGrantedInfectDealsInCounterForm(t *testing.T) {
 // marked damage, with NO -1/-1 counters and NO -1/-1 CounterChange event in
 // the log.
 func TestInfectDamageToNonCreatureArtifactIsMarked(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	mamba := onBoardCard(t, e, 0, corpusInfectCard(t, "Blight Mamba"))
 	artifact := onBoard(t, e, 1, "Name:Brass Sprocket\nManaCost:2\nTypes:Artifact\nOracle:x\n")
@@ -203,6 +207,7 @@ func TestInfectDamageToNonCreatureArtifactIsMarked(t *testing.T) {
 // exchange applies and nothing else -- no marked damage, no -1/-1 counters
 // (the r1 defect put counters on the walker IN ADDITION to the loyalty).
 func TestInfectDamageToPlainPlaneswalkerOnlyRemovesLoyalty(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	mamba := onBoardCard(t, e, 0, corpusInfectCard(t, "Blight Mamba"))
 	walker := onBoard(t, e, 1, "Name:Plain Walker\nTypes:Planeswalker Jace\nLoyalty:5\nOracle:x\n")
@@ -248,6 +253,7 @@ func TestInfectDamageToPlainPlaneswalkerOnlyRemovesLoyalty(t *testing.T) {
 // infect creature puts on your blocker and the poison counters one puts on
 // you, exactly as it doubles any other placement.
 func TestInfectCountersRideTheCounterReplacementPath(t *testing.T) {
+	t.Parallel()
 	constrictor := corpusInfectCard(t, "Winding Constrictor")
 
 	// Creature half: the constrictor's controller blocks an opposing infect
@@ -306,6 +312,7 @@ func TestInfectCountersRideTheCounterReplacementPath(t *testing.T) {
 // one hit. After the fix the redirect lands exactly one form: -1/-1 counters,
 // no marked damage.
 func TestInfectDamageRedirectedToCreatureIsCountersOnly(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	// The infect attacker belongs to the active player (seat 1) and swings
 	// unblocked at seat 0, whose Palisade Giant redirects the hit to itself.
@@ -360,6 +367,7 @@ func TestInfectDamageRedirectedToCreatureIsCountersOnly(t *testing.T) {
 // counters and no game loss from an impossible creature counter. It drives
 // ReplaceEvent directly, the one recipient-rewriting site a redirect owns.
 func TestInfectDamageRedirectedToPlayerIsPoisonOnly(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	mamba := onBoardCard(t, e, 0, corpusInfectCard(t, "Blight Mamba"))
 	self := onBoard(t, e, 0, "Name:Redirector\nTypes:Enchantment\nOracle:x\n")
@@ -394,6 +402,7 @@ func TestInfectDamageRedirectedToPlayerIsPoisonOnly(t *testing.T) {
 // dies -- the Deathtouched mark is lethal on its own, without marked
 // damage, exactly as it is beside it.
 func TestInfectDeathtouchKillsThroughCounters(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	stinger := onBoard(t, e, 0, "Name:Toxic Stinger\nManaCost:B\nTypes:Creature Insect\nPT:1/1\nK:Deathtouch\nK:Infect\nOracle:x\n")
 	e.G.Obj(stinger).SummonSick = false
@@ -460,6 +469,7 @@ func corpusInfectSrc(t *testing.T, path string) string {
 // landed as one life loss; the source's last known infect must make it one
 // poison counter instead.
 func TestSacrificedGraftedExoskeletonBearerDealsInfectFromLKI(t *testing.T) {
+	t.Parallel()
 	pinger := "Name:Sac Pinger\nManaCost:2 R\nTypes:Creature Wizard\nPT:1/2\n" +
 		"A:AB$ DealDamage | Cost$ Sac<1/CARDNAME> | ValidTgts$ Player | NumDmg$ 1 | SpellDescription$ deals 1.\nOracle:x\n"
 	e, cfg, exoID := newFixtureDeck(t, 107, corpusInfectSrc(t, "g/grafted_exoskeleton.txt"), pinger)
@@ -580,6 +590,7 @@ func TestSacrificedGrantedDeathtouchSourceUsesLKI(t *testing.T) {
 // effect-path tag regressed, a pinger-style infect hit would mark ordinary
 // damage and place no counters with every combat test still green.
 func TestInfectEffectDamageToCreatureIsMinusOneCountersNotMarkedDamage(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	// Blight Mamba is the corpus infect source (1/1, so one point of damage
 	// converts to exactly one -1/-1 counter), driven here through the effect

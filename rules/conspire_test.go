@@ -131,6 +131,7 @@ func tappedByCost(e *Engine, id state.ObjID) bool {
 // copy resolves (3 damage twice = 6) and the pay-time CastInfo carries the
 // "conspired" flag.
 func TestConspirePrintedOfferPayAndCopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := conspireEngine(t, "Burn Trail")
 	bear := seedBattlefield(t, e, reg, "Grizzly Bears") // green: shares no colour with {R}
 	g1 := seedBattlefield(t, e, reg, "Goblin Piker")
@@ -191,6 +192,7 @@ func TestConspirePrintedOfferPayAndCopy(t *testing.T) {
 // copy, no "conspired" CastInfo and no flag — the byte-identical
 // modeFlags("conspired") == "" contract.
 func TestConspireDeclinedPlainCast(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := conspireEngine(t, "Burn Trail")
 	seedBattlefield(t, e, reg, "Goblin Piker")
 	seedBattlefield(t, e, reg, "Goblin Piker")
@@ -219,6 +221,7 @@ func TestConspireDeclinedPlainCast(t *testing.T) {
 // TestConspireEligibilityBounds: fewer than two eligible shared-colour
 // creatures means the conspired option is not offered at all.
 func TestConspireEligibilityBounds(t *testing.T) {
+	t.Parallel()
 	e, _, reg := conspireEngine(t, "Burn Trail")
 	// One eligible (red Goblin) and one ineligible (green Bear).
 	seedBattlefield(t, e, reg, "Goblin Piker")
@@ -242,6 +245,7 @@ func TestConspireEligibilityBounds(t *testing.T) {
 // (checkGrantedConspireTriggers, the Dethrone/Afflict synthesis pattern)
 // copies the spell exactly once: 3 damage twice = 6 damage, life 14.
 func TestConspireGrantedOfferPayAndCopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := conspireEngine(t, "Lightning Bolt")
 	seedBattlefield(t, e, reg, "Goblin Piker")
 	seedBattlefield(t, e, reg, "Goblin Piker")
@@ -302,6 +306,7 @@ func countStackCopies(e *Engine, id state.ObjID) int {
 // spell, so Raiding Schemes' grant applies to it too; a conspired cast must
 // still copy once (life 14), never twice.
 func TestConspireGrantedPrintedFaceNotDoubled(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := conspireEngine(t, "Burn Trail")
 	seedBattlefield(t, e, reg, "Goblin Piker")
 	seedBattlefield(t, e, reg, "Goblin Piker")
@@ -332,6 +337,7 @@ func TestConspireGrantedPrintedFaceNotDoubled(t *testing.T) {
 // emits nothing. Two eligible creatures sit untapped; nothing is tapped and
 // no copy resolves.
 func TestConspireGrantedPlainCastCopiesNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := conspireEngine(t, "Lightning Bolt")
 	seedBattlefield(t, e, reg, "Goblin Piker")
 	seedBattlefield(t, e, reg, "Goblin Piker")
@@ -360,6 +366,7 @@ func TestConspireGrantedPlainCastCopiesNothing(t *testing.T) {
 // is byte-identical to the pre-Conspire engine -- no conspired option, no
 // trigger, no copy.
 func TestConspireNoGrantSilent(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := conspireEngine(t, "Lightning Bolt")
 	seedBattlefield(t, e, reg, "Goblin Piker")
 	seedBattlefield(t, e, reg, "Goblin Piker")
@@ -389,6 +396,7 @@ func TestConspireNoGrantSilent(t *testing.T) {
 // forced — no conspire KChoose is posed (the strict-supersets convention) and
 // both are tapped.
 func TestConspireExactTwoAutoTaps(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := conspireEngine(t, "Burn Trail")
 	g1 := seedBattlefield(t, e, reg, "Goblin Piker")
 	g2 := seedBattlefield(t, e, reg, "Goblin Piker")

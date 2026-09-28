@@ -108,6 +108,7 @@ func driveToNextTurnDecliningAttackers(t *testing.T, e *Engine, turn int32) {
 // battlefield), because without it the trigger would never fire and the
 // "no haste" assertion could pass vacuously.
 func TestLoyalApprenticeLieutenantThopterGainsHasteUntilEOT(t *testing.T) {
+	t.Parallel()
 	apprentice := tokenReplCorpusCard(t, "Loyal Apprentice")
 	// The Lieutenant condition is `IsPresent$ Card.IsCommander+YouOwn+YouCtrl`,
 	// which reads Players[].Commanders; the fixture is an authored creature
@@ -162,6 +163,7 @@ func TestLoyalApprenticeLieutenantThopterGainsHasteUntilEOT(t *testing.T) {
 // measured PumpDuration$ spelling, `EndOfTurn` (Legion Warboss), on the same
 // real trigger shape and asserts the same expiry at the following turn.
 func TestBaralAndKariZevNoFreeSpellCreatesHastyRagavan(t *testing.T) {
+	t.Parallel()
 	baral := tokenReplCorpusCard(t, "Baral and Kari Zev")
 	spell := cardByName(t, "Name:Zero Mana Instant\nManaCost:0\nTypes:Instant\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 79, baral, spell)
@@ -223,6 +225,7 @@ func TestBaralAndKariZevNoFreeSpellCreatesHastyRagavan(t *testing.T) {
 }
 
 func TestLegionWarbossTokenGainsHasteEndOfTurnSpelling(t *testing.T) {
+	t.Parallel()
 	warboss := tokenReplCorpusCard(t, "Legion Warboss")
 	e, _ := tokenReplGame(t, 78, warboss)
 	_ = moveSeededCard(t, e, 0, warboss, state.ZBattlefield)

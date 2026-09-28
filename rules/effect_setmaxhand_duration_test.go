@@ -13,6 +13,7 @@ import (
 // to "Permanent" must not make the state flag permanent: cleanup must remove
 // the grant even while its creature source remains on the battlefield.
 func TestEffectDeliveredSetMaxHandSizeAbsentDurationEndsAtCleanup(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoard(t, e, 0, "Name:Effect source\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	c, diags := cards.ParseBytes("effect-duration.txt", []byte("Name:Effect\nTypes:Sorcery\nA:DB$ Effect | StaticAbilities$ HandSize | Affected$ You\nOracle:x\nSVar:HandSize:Mode$ Continuous | Affected$ You | SetMaxHandSize$ Unlimited\n"))

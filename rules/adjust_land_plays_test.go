@@ -133,6 +133,7 @@ func playAllLands(t *testing.T, e *Engine, p state.PlayerID, id state.ObjID, lim
 // and the fourth drop is not offered -- the cap read is 1+adjust, not
 // "always offered".
 func TestAzusaGrantsTwoAdditionalLandDrops(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	onBoardGrant(t, e, 0, azusaSrc)
 	lands := []state.ObjID{
@@ -166,6 +167,7 @@ func TestAzusaGrantsTwoAdditionalLandDrops(t *testing.T) {
 // data the gate now reads, so a distinct size gets its own test): two drops
 // in the turn, the third not offered.
 func TestOracleGrantsOneAdditionalLandDrop(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	onBoardGrant(t, e, 0, oracleSrc)
 	first := handCard(e, card(t, landSrc("Mountain")), 0)
@@ -187,6 +189,7 @@ func TestOracleGrantsOneAdditionalLandDrop(t *testing.T) {
 // the battlefield give their TOTAL, not the max -- Azusa (+2) plus
 // Exploration (+1) is four drops, not three.
 func TestAdjustLandPlaysGrantsSumNotMax(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	onBoardGrant(t, e, 0, azusaSrc)
 	onBoardGrant(t, e, 0, explorationSrc)
@@ -215,6 +218,7 @@ func TestAdjustLandPlaysGrantsSumNotMax(t *testing.T) {
 // LandsPlayed, so seat 0's next turn offers the ordinary drop (plus the
 // grant) again. Drives two real turns.
 func TestAdjustLandPlaysResetsAtUntap(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	onBoardGrant(t, e, 0, azusaSrc)
 	lands := []state.ObjID{
@@ -265,6 +269,7 @@ func TestAdjustLandPlaysResetsAtUntap(t *testing.T) {
 // ordinary drop and the source's departure, the remaining hand land is not
 // offered.
 func TestAdjustLandPlaysExpiresWhenSourceLeaves(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	azusa := onBoardGrant(t, e, 0, azusaSrc)
 	first := handCard(e, card(t, landSrc("Mountain")), 0)
@@ -288,6 +293,7 @@ func TestAdjustLandPlaysExpiresWhenSourceLeaves(t *testing.T) {
 // grants NOTHING (matching the pre-grant behaviour for that shape), so the
 // cap stays at one and a second drop is not offered.
 func TestAdjustLandPlaysUnlimitedFailsClosed(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	onBoardGrant(t, e, 0, azusaUnlimitedSrc)
 	first := handCard(e, card(t, landSrc("Mountain")), 0)
@@ -308,6 +314,7 @@ func TestAdjustLandPlaysUnlimitedFailsClosed(t *testing.T) {
 // IsPresent$ rider: the conditional grant is not applied (matching today's
 // behaviour for that shape) even though its value is a literal.
 func TestAdjustLandPlaysIsPresentFailsClosed(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	onBoardGrant(t, e, 0, azusaIsPresentSrc)
 	first := handCard(e, card(t, landSrc("Mountain")), 0)
@@ -329,6 +336,7 @@ func TestAdjustLandPlaysIsPresentFailsClosed(t *testing.T) {
 // effect's live controller, so an Azusa handed to seat 1 mid-turn grants
 // SEAT 1 -- seat 0's extra drops vanish and seat 1's appear.
 func TestAdjustLandPlaysFollowsControl(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	azusa := onBoardGrant(t, e, 0, azusaSrc)
 	seat0First := handCard(e, card(t, landSrc("Mountain")), 0)
@@ -372,6 +380,7 @@ func TestAdjustLandPlaysFollowsControl(t *testing.T) {
 // drops in the turn, spendable across the hand walk and the graveyard walk
 // alike, and the fourth is not offered through either.
 func TestAdjustLandPlaysSharesOneBudgetWithMayPlayGrants(t *testing.T) {
+	t.Parallel()
 	e := landBase(t)
 	onBoardGrant(t, e, 0, azusaSrc)
 	onBoardGrant(t, e, 0, conduitGrantSrc)

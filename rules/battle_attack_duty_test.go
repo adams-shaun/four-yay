@@ -9,6 +9,7 @@ import (
 // A battle's protector is not the player defender for CR 508.1d. Attacking
 // the protector's battle cannot satisfy a named MustAttack duty to that player.
 func TestBattleDoesNotSatisfyNamedPlayerAttackDuty(t *testing.T) {
+	t.Parallel()
 	e, battle, attacker, protector := battleAttackBoard(t)
 	b := e.G.Obj(battle)
 	a := e.G.Obj(attacker)

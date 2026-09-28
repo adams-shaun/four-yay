@@ -152,6 +152,7 @@ func assertNoAddendum(t *testing.T, e *Engine, ids ...state.ObjID) {
 // corpus card cast during seat 0's Main1 gets the full addendum — vigilance
 // AND the +1/+1 counters (and the ungated indestructible).
 func TestUnbreakableFormationAddendumOnOwnMainPhase(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := condPhasesDeck(t, reg, 9204, "Unbreakable Formation")
 	c1 := condPhasesCreature(t, e)
@@ -167,6 +168,7 @@ func TestUnbreakableFormationAddendumOnOwnMainPhase(t *testing.T) {
 // ConditionPhases$ Main1,Main2 unmet) only the ungated indestructible
 // lands — no vigilance keyword, no counters.
 func TestUnbreakableFormationAddendumOnOpponentTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := condPhasesDeck(t, reg, 9205, "Unbreakable Formation")
 	c1 := condPhasesCreature(t, e)
@@ -185,6 +187,7 @@ func TestUnbreakableFormationAddendumOnOpponentTurn(t *testing.T) {
 // ConditionPlayerTurn$ True is met and the addendum is still withheld —
 // the two keys gate independently, not by their conjunction alone.
 func TestUnbreakableFormationAddendumOnOwnEndStep(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := condPhasesDeck(t, reg, 9206, "Unbreakable Formation")
 	c1 := condPhasesCreature(t, e)
@@ -201,6 +204,7 @@ func TestUnbreakableFormationAddendumOnOwnEndStep(t *testing.T) {
 // enters-tapped tap applies on an opponent's turn and NOT on the
 // controller's own turn (honoured both ways, not by absence).
 func TestEddymurkCrabEntersTappedOnlyOnOpponentsTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// Own turn: the ConditionPlayerTurn$ False gate is NOT met — untapped.
 	e, cfg := condPhasesDeck(t, reg, 9207, "Eddymurk Crab")
@@ -226,6 +230,7 @@ func TestEddymurkCrabEntersTappedOnlyOnOpponentsTurn(t *testing.T) {
 // ConditionPlayerTurn$ False beside it says skip. Pinned so a future parser
 // change cannot silently silence cards.
 func TestConditionPhasesUnknownValueFailsOpen(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 9209, condPhasesFailOpenSrc, condPhasesBearSrc, condPhasesBearSrc)
 	c1 := condPhasesCreature(t, e)
 	c2 := condPhasesCreature(t, e)

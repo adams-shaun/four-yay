@@ -117,6 +117,7 @@ func BenchmarkLegalActionsRealGames(b *testing.B) {
 // seat's PotentialActions and (on a clone) its PaymentActions. Two builds
 // whose files are byte-identical offered the same surfaces at every stop.
 func TestLegalWalkDigest(t *testing.T) {
+	t.Parallel()
 	path := os.Getenv("LEGAL_WALK_DIGEST")
 	if path == "" {
 		t.Skip("set LEGAL_WALK_DIGEST=<file> to write the offer-walk digest")

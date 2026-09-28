@@ -10,6 +10,7 @@ import (
 // An opponent-permitted source must participate not just in priority's
 // activate option, but in the membership/probe used to open a payment window.
 func TestActivatorOfferManaSourceInPaymentWindow(t *testing.T) {
+	t.Parallel()
 	const src = `Name:Opponent Mana Cache
 ManaCost:0
 Types:Artifact

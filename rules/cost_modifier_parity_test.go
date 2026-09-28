@@ -131,6 +131,7 @@ func reduceOf(t *testing.T, e *Engine, p state.PlayerID, id state.ObjID) int32 {
 // and to nothing else — a {1}{W} creature cast is NOT discounted even though
 // the static's ValidCard$ Card would admit every card.
 func TestAuriokSteelshaperDiscountsOnlyEquip(t *testing.T) {
+	t.Parallel()
 	e, cfg, fan := newFixtureDeck(t, 61, equiperSrc, thaliaRv2cSrc, steelshaperSrc)
 	if got := e.AbilityCosts(0, fan); len(got) != 1 || got[0] != "2" {
 		t.Fatalf("equip costs before the Steelshaper: %v, want [2]", got)
@@ -182,6 +183,7 @@ func TestBiomancersFamiliarOnlyReducesItsControllersCreatures(t *testing.T) {
 // reduction is Count$LifeOppsLostThisTurn — 0 with no life lost (the old
 // parseAmount fallback made it 1), 2 after an opponent lost 2 life.
 func TestRakdosReduceCostEvaluatesTheLifeSVar(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 63, testBearSrc, rakdosSrc)
 	_ = putCreature(t, e, 0, rakdosSrc)
 	var bear state.ObjID
@@ -214,6 +216,7 @@ func TestRakdosReduceCostEvaluatesTheLifeSVar(t *testing.T) {
 // TestHeraldOfWarReducesByItsCounters pins Count$CardCounters: the reduction
 // tracks the +1/+1 counters ON the herald itself, live as they accumulate.
 func TestHeraldOfWarReducesByItsCounters(t *testing.T) {
+	t.Parallel()
 	angelSrc := "Name:Angel\nManaCost:3 W\nTypes:Creature Angel\nPT:2/2\nOracle:x\n"
 	e, cfg, _ := newFixtureDeck(t, 64, angelSrc, heraldRv2cSrc)
 	herald := putCreature(t, e, 0, heraldRv2cSrc)
@@ -248,6 +251,7 @@ func TestHeraldOfWarReducesByItsCounters(t *testing.T) {
 // EffectZone$ All reduction is live while the card is still IN HAND, so 18
 // power of creatures turns {10}{G}{G} into {G}{G}.
 func TestGhaltaSelfReductionFromHand(t *testing.T) {
+	t.Parallel()
 	bigSrc := "Name:Big\nManaCost:6 G\nTypes:Creature Beast\nPT:9/9\nOracle:x\n"
 	e, cfg, ghalta := newFixtureDeck(t, 65, ghaltaSrc, bigSrc, bigSrc)
 	putCreature(t, e, 0, bigSrc)
@@ -273,6 +277,7 @@ func TestGhaltaSelfReductionFromHand(t *testing.T) {
 // TestColorReduceRemovesColoredPips pins Color$: Khalni Hydra's reduction is
 // one GREEN pip per green creature (SVar count), not a generic discount.
 func TestColorReduceRemovesColoredPips(t *testing.T) {
+	t.Parallel()
 	greenSrc := "Name:Elvish\nManaCost:G\nTypes:Creature Elf Druid\nPT:1/1\nOracle:x\n"
 	e, cfg, hydra := newFixtureDeck(t, 66, hydraRv2cSrc, greenSrc, greenSrc)
 	putCreature(t, e, 0, greenSrc)
@@ -299,6 +304,7 @@ func TestColorReduceRemovesColoredPips(t *testing.T) {
 // TestMinManaFloorKeepsOneMana pins MinMana$: Heartstone's reduction can't
 // reduce a creature ability's activation cost below one mana.
 func TestMinManaFloorKeepsOneMana(t *testing.T) {
+	t.Parallel()
 	pumperSrc := "Name:Pumper\nManaCost:1 G\nTypes:Creature Beast\nPT:1/1\n" +
 		"A:AB$ Pump | Cost$ 1 | Defined$ Self | NumAtt$ +1 | SpellDescription$ +1/+0.\n" +
 		"Oracle:x\n"
@@ -324,6 +330,7 @@ func TestMinManaFloorKeepsOneMana(t *testing.T) {
 // untapped Trinisphere raises every cheaper spell's total mana to 3; a tapped
 // one raises nothing.
 func TestTrinisphereSetCostFloor(t *testing.T) {
+	t.Parallel()
 	zapSrc := "Name:Zap\nManaCost:1\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
 	e, cfg, zap := newFixtureDeck(t, 68, zapSrc, trinisphereSrc)
 	putCreature(t, e, 0, trinisphereSrc)
@@ -365,6 +372,7 @@ func TestTrinisphereSetCostFloor(t *testing.T) {
 // announced; Trinisphere therefore adds only one generic to its generic-face
 // payment, letting exactly {C}{C}{C} pay the resulting {3}.
 func TestTrinisphereSetCostDoesNotRaiseTwobridGenericFace(t *testing.T) {
+	t.Parallel()
 	if got := ParseCost("2/W").CMC(); got != 2 {
 		t.Fatalf("{2/W} mana value = %d, want 2", got)
 	}
@@ -428,6 +436,7 @@ func TestTrinisphereSetCostDoesNotRaiseTwobridGenericFace(t *testing.T) {
 // {2/W} pip is announced as one decision, payable by one white OR two
 // generic (CR 107.4e).
 func TestSpectralProcessionTwobridPayments(t *testing.T) {
+	t.Parallel()
 	// All white: three announcements, each paid white.
 	e, cfg, proc := newFixtureDeck(t, 70, spectralProcessionSrc)
 	addMana(t, e, 0, "WWW")
@@ -505,6 +514,7 @@ func TestSpectralProcessionTwobridPayments(t *testing.T) {
 // genuinely payable, so it is offered and selecting it casts the spell cleanly
 // end to end rather than stranding the cast in an abort.
 func TestTwobridGenericFaceOnlyWhenFeasible(t *testing.T) {
+	t.Parallel()
 	prowlerSrc := "Name:Prowler\nManaCost:2W\nTypes:Creature Cat\nPT:2/1\nOracle:x\n"
 
 	// Exactly {W}: only the colour face completes the {2/W} pip.
@@ -577,6 +587,7 @@ func TestTwobridGenericFaceOnlyWhenFeasible(t *testing.T) {
 // white for Thalia's tax. Its generic face would make the final cost {3}, so
 // CR 601.2b must not offer it and choosing the legal face must reach stack.
 func TestTwobridAnnouncementSeesRaiseCost(t *testing.T) {
+	t.Parallel()
 	spellSrc := "Name:Taxed Prowler\nManaCost:2/W\nTypes:Sorcery\nOracle:x\n"
 	e, cfg, spell := newFixtureDeck(t, 82, spellSrc, thaliaRv2cSrc)
 	putCreature(t, e, 0, thaliaRv2cSrc)
@@ -608,6 +619,7 @@ func TestTwobridAnnouncementSeesRaiseCost(t *testing.T) {
 // only by a mana a snow permanent produced, and paying it consumes the snow
 // unit (the pool slot and the parallel tally together).
 func TestSnowCostPaidOnlyBySnowMana(t *testing.T) {
+	t.Parallel()
 	e, cfg, golem := newFixtureDeck(t, 74, icehideGolemSrc, snowWastesSrc)
 	wastes := moveSeeded(t, e, 0, snowWastesSrc, state.ZBattlefield)
 	addMana(t, e, 0, "C")
@@ -663,6 +675,7 @@ func TestSnowCostPaidOnlyBySnowMana(t *testing.T) {
 // also proves pay_C is dispatched as an announced flexible-pip payment rather
 // than falling through and repeating its decision.
 func TestColorlessHybridCostsParseAndPay(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("C/W")
 	if c.Generic != 0 || len(c.Hybrid) != 1 || c.Hybrid[0] != (ManaPair{A: 'C', B: 'W'}) {
 		t.Fatalf("ParseCost(\"C/W\") = %+v, want one C/W hybrid", c)
@@ -697,6 +710,7 @@ func TestColorlessHybridCostsParseAndPay(t *testing.T) {
 // by its white half under the real reduction, while its blue half remains
 // unaffordable from an empty pool.
 func TestColorReductionSeesTheAnnouncedHybridFace(t *testing.T) {
+	t.Parallel()
 	spellSrc := "Name:Hybrid Spell\nManaCost:W/U\nTypes:Sorcery\nOracle:x\n"
 	reducerSrc := "Name:White Reducer\nManaCost:2\nTypes:Artifact\n" +
 		"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Color$ W | Amount$ 1 | Description$ White spells cost {W} less.\nOracle:x\n"
@@ -725,6 +739,7 @@ func TestColorReductionSeesTheAnnouncedHybridFace(t *testing.T) {
 // target menu: with no mana it would reprice to an unaffordable W cost and
 // used to reverse the already-announced cast after the player selected it.
 func TestValidTargetModifierRepricesBeforePayment(t *testing.T) {
+	t.Parallel()
 	spellSrc := "Name:Targeted Growth\nManaCost:W/U\nTypes:Sorcery\n" +
 		"A:SP$ Pump | ValidTgts$ Permanent | NumAtt$ +1 | NumDef$ +1\nOracle:x\n"
 	reducerSrc := "Name:Target Discount\nManaCost:2\nTypes:Artifact\n" +
@@ -770,6 +785,7 @@ func TestValidTargetModifierRepricesBeforePayment(t *testing.T) {
 // TestHybridPhyrexianCostsParseAndPay pins the three-part compleated symbol:
 // one pip payable by either colour or two life.
 func TestHybridPhyrexianCostsParseAndPay(t *testing.T) {
+	t.Parallel()
 	// Forge also emits the same symbol P-first on the real Lukka, Bound to
 	// Ruin script; normalise that spelling before payment choices are built.
 	pfirst := ParseCost("PRG")
@@ -819,6 +835,7 @@ func TestHybridPhyrexianCostsParseAndPay(t *testing.T) {
 // Ability reduction: a static scoped to Graveyard abilities must not reach a
 // battlefield ability.
 func TestAffectedZoneScopesAbilityModifier(t *testing.T) {
+	t.Parallel()
 	pumperSrc := "Name:Pumper\nManaCost:1 G\nTypes:Creature Beast\nPT:1/1\n" +
 		"A:AB$ Pump | Cost$ 2 | Defined$ Self | NumAtt$ +1 | SpellDescription$ +1/+0.\n" +
 		"Oracle:x\n"
@@ -838,6 +855,7 @@ func TestAffectedZoneScopesAbilityModifier(t *testing.T) {
 // evaluation matches the comparison, and the count itself is the
 // Count$ThisTurnCast_Card.YouCtrl log fold.
 func TestCheckSVarGatesTheReduction(t *testing.T) {
+	t.Parallel()
 	dualcastSrc := "Name:Dualcast\nManaCost:2\nTypes:Enchantment\n" +
 		"S:Mode$ ReduceCost | ValidCard$ Card | Type$ Spell | Activator$ You | Amount$ 1 | CheckSVar$ YouCastThisTurn | SVarCompare$ EQ1 | Description$ The second spell you cast each turn costs {1} less to cast.\n" +
 		"SVar:YouCastThisTurn:Count$ThisTurnCast_Card.YouCtrl\n" +
@@ -882,6 +900,7 @@ func TestCheckSVarGatesTheReduction(t *testing.T) {
 // NotPlayerTurn (Discontinuity's real line): the reduction applies only on
 // the caster's own turn.
 func TestConditionPlayerTurnGatesTheReduction(t *testing.T) {
+	t.Parallel()
 	discontinuitySrc := "Name:Discontinuity\nManaCost:2 U U\nTypes:Instant\n" +
 		"S:Mode$ ReduceCost | Condition$ PlayerTurn | ValidCard$ Card.Self | Amount$ 1 | Color$ 2 U U | Type$ Spell | EffectZone$ All | Description$ During your turn, CARDNAME costs {2}{U}{U} less to cast.\n" +
 		"Oracle:During your turn, CARDNAME costs {2}{U}{U} less to cast.\n"
@@ -1154,6 +1173,7 @@ func TestThaliaPhyrexianAnnouncementFiltersUnpayableFace(t *testing.T) {
 // Leech's real line): the additional cost is whole mana — the raised spell
 // owes the extra {B} pip, and a non-black spell is untouched.
 func TestRaiseCostManaShapeAddsPips(t *testing.T) {
+	t.Parallel()
 	blightSrc := "Name:Blight\nManaCost:B\nTypes:Sorcery\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
 	leechSrc := "Name:Andradite Leech\nManaCost:2 B\nTypes:Creature Leech\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ B | Defined$ Self | NumAtt$ +1 | NumDef$ +1 | SpellDescription$ CARDNAME gets +1/+1 until end of turn.\n" +

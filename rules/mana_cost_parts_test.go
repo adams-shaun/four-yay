@@ -88,6 +88,7 @@ func answerRitualistAbility(t *testing.T, e *Engine, rit state.ObjID, exert bool
 }
 
 func TestManaCostPartsParsePrecisely(t *testing.T) {
+	t.Parallel()
 	wall := ParseCost("AddCounter<1/M0M1>")
 	if len(wall.AddCounter) != 1 || wall.AddCounter[0].N != 1 || wall.AddCounter[0].Spec != "M0M1" ||
 		wall.Generic != 0 || len(wall.Unknown) != 0 {
@@ -107,6 +108,7 @@ func TestManaCostPartsParsePrecisely(t *testing.T) {
 // TestAetherHubManaAbilityPaysEnergy: "{T}, Pay {E}: Add one mana of any
 // color" spends the energy; with none, the energy ability is not an option.
 func TestAetherHubManaAbilityPaysEnergy(t *testing.T) {
+	t.Parallel()
 	e, cfg, hub := manaCostBoard(t, 81, "Aether Hub", 1)
 	submitChoices(t, e, activateOption(t, e, hub))
 	answerManaChoose(t, e, "Pay 1 energy: Add any color")
@@ -121,6 +123,7 @@ func TestAetherHubManaAbilityPaysEnergy(t *testing.T) {
 }
 
 func TestAetherHubWithoutEnergyOffersOnlyColourless(t *testing.T) {
+	t.Parallel()
 	e, _, hub := manaCostBoard(t, 82, "Aether Hub", 0)
 	abs := e.availableManaAbilities(0, hub)
 	if len(abs) != 1 || abs[0].Params["Produced"] != "C" {
@@ -131,6 +134,7 @@ func TestAetherHubWithoutEnergyOffersOnlyColourless(t *testing.T) {
 // TestServantOfTheConduitNeedsEnergy: the Servant's only mana ability costs
 // {E}; with no energy it is not offered at all, with one it spends it.
 func TestServantOfTheConduitNeedsEnergy(t *testing.T) {
+	t.Parallel()
 	e, _, servant := manaCostBoard(t, 83, "Servant of the Conduit", 0)
 	if hasActivateOption(e, servant) {
 		t.Fatal("Servant of the Conduit offered for mana with no energy to pay {E}")
@@ -152,6 +156,7 @@ func TestServantOfTheConduitNeedsEnergy(t *testing.T) {
 // pool it activates, the Wall carries one M0M1 counter and the pool holds
 // exactly {G}.
 func TestWallOfRootsManaAbilityPutsItsCounter(t *testing.T) {
+	t.Parallel()
 	e, cfg, wall := manaCostBoard(t, 85, "Wall of Roots", 0)
 	if e.G.Players[0].Pool.Total() != 0 {
 		t.Fatalf("fixture pool not empty: %v", e.G.Players[0].Pool)
@@ -172,6 +177,7 @@ func TestWallOfRootsManaAbilityPutsItsCounter(t *testing.T) {
 // {1} -- with an empty pool it activates, and the plain {T} ability does not
 // exert.
 func TestOasisRitualistExertManaAbilityExerts(t *testing.T) {
+	t.Parallel()
 	e, cfg, rit := manaCostBoard(t, 86, "Oasis Ritualist", 0)
 	submitChoices(t, e, activateOption(t, e, rit))
 	answerRitualistAbility(t, e, rit, true)
@@ -202,6 +208,7 @@ func TestOasisRitualistExertManaAbilityExerts(t *testing.T) {
 // that used to be one phantom generic) and Cryptex's CollectEvidence<3>
 // (a modelled part the mana path has no settle for).
 func TestManaAbilityUnsettleablePartsFailClosed(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"Pili-Pala", "Cryptex"} {
 		e, _, id := manaCostBoard(t, 88, name, 0)
 		// Give the seat plenty of mana and graveyard fodder so only the
@@ -223,6 +230,7 @@ func TestManaAbilityUnsettleablePartsFailClosed(t *testing.T) {
 // generic, so it cost {2}) and exerts Hope Tender through the activation
 // settle's events.Exert.
 func TestHopeTenderExertAbilityExertsInsteadOfAPhantomMana(t *testing.T) {
+	t.Parallel()
 	e, cfg, tender, mtns := activationLimitBoard(t, "Hope Tender", 2)
 	submitChoices(t, e, activateOption(t, e, mtns[0]))
 	submitChoices(t, e, activateOption(t, e, mtns[1]))

@@ -46,6 +46,7 @@ const enchantFixture = "Name:Test Aura\nTypes:Enchantment\nOracle:x\n"
 // offered, submitting it sacrifices a land (a real Sacrifice event) and
 // commits the attack.
 func TestExaltedDragonAttackSacrificesALand(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	dragon := onBoardReadyCard(t, e, 0, mshCorpusCard(t, "Exalted Dragon"))
 	land := onBoardCard(t, e, 0, card(t, landFixture))
@@ -107,6 +108,7 @@ func TestExaltedDragonAttackSacrificesALand(t *testing.T) {
 // no land to sacrifice the pair is not offered at all, so an unpayable
 // sacrifice charge never tempts a free attack.
 func TestExaltedDragonWithoutALandIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	dragon := onBoardReadyCard(t, e, 0, mshCorpusCard(t, "Exalted Dragon"))
 	e.G.Active = 0
@@ -133,6 +135,7 @@ func TestExaltedDragonWithoutALandIsNeverOffered(t *testing.T) {
 // obligation, submitting it returns the enchantment to its owner's hand
 // (the ReturnCost zone change) and commits the attack.
 func TestFloodtideSerpentAttackReturnsAnEnchantment(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	serpent := onBoardReadyCard(t, e, 0, mshCorpusCard(t, "Floodtide Serpent"))
 	aura := onBoardCard(t, e, 0, card(t, enchantFixture))
@@ -174,6 +177,7 @@ func TestFloodtideSerpentAttackReturnsAnEnchantment(t *testing.T) {
 // Warrior's tapXType<1/Creature.!attacking>: declaring the attack taps one
 // untapped creature the controller also controls but is not attacking with.
 func TestHollowWarriorAttackTapsANonAttacker(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	warrior := onBoardReadyCard(t, e, 0, mshCorpusCard(t, "Hollow Warrior"))
 	other := onBoardReady(t, e, 0, "Name:Test Helper\nManaCost:1 G\nTypes:Creature Bear\nPT:1/1\nOracle:x\n")
@@ -221,6 +225,7 @@ func TestHollowWarriorAttackTapsANonAttacker(t *testing.T) {
 // TestHollowWarriorAttackWithoutATapperIsNeverOffered pins the fail-closed
 // half: no untapped non-attacker means no attack.
 func TestHollowWarriorAttackWithoutATapperIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	warrior := onBoardReadyCard(t, e, 0, mshCorpusCard(t, "Hollow Warrior"))
 	e.G.Active = 0
@@ -253,6 +258,7 @@ const attackPayLifeFixture = "Name:Pay Life Tax\nTypes:Enchantment\n" +
 // the charge is two life, submitting the pair pays exactly that (one
 // LifeChange) and commits the attack.
 func TestAttackPayLifeChargesTwoLife(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, attackPayLifeFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -297,6 +303,7 @@ func TestAttackPayLifeChargesTwoLife(t *testing.T) {
 // TestAttackPayLifeInsufficientIsNeverOffered pins the fail-closed half: a
 // payer who cannot pay the life never sees the pair.
 func TestAttackPayLifeInsufficientIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, attackPayLifeFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -320,6 +327,7 @@ func TestAttackPayLifeInsufficientIsNeverOffered(t *testing.T) {
 // white source the Phyrexian pip is paid with two life (CR 107.4f), the
 // attack commits, and the life is spent.
 func TestNornsAnnexPhyrexianPaidWithLife(t *testing.T) {
+	t.Parallel()
 	e, bear := attackTaxSeat(t, "Norn's Annex")
 
 	// PRECONDITION: the charge is one white Phyrexian pip and nothing else,
@@ -359,6 +367,7 @@ func TestNornsAnnexPhyrexianPaidWithLife(t *testing.T) {
 // real colour-versus-life choice, and taking the life branch spends life
 // rather than the source; taking the colour branch taps the white source.
 func TestNornsAnnexPhyrexianColourVersusLifeChoice(t *testing.T) {
+	t.Parallel()
 	e, bear := attackTaxSeat(t, "Norn's Annex")
 	plains := onBoardCard(t, e, 1, card(t, "Name:Test Plains\nTypes:Basic Land Plains\nOracle:x\n"))
 
@@ -432,6 +441,7 @@ const blockPhyrexianFixture = "Name:Block Phyrexian Tax\nTypes:Enchantment\n" +
 // composite charge carries the sacrifice, submitting the block sacrifices a
 // land and commits the block.
 func TestBlockSacrificeChargesALand(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, blockSacFixture))
 	land := onBoardCard(t, e, 0, card(t, landFixture))
@@ -475,6 +485,7 @@ func TestBlockSacrificeChargesALand(t *testing.T) {
 // TestBlockReturnChargesALand pins the block-side Return component: the
 // charged permanent returns to its owner's hand and the block commits.
 func TestBlockReturnChargesALand(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, blockReturnFixture))
 	land := onBoardCard(t, e, 0, card(t, landFixture))
@@ -514,6 +525,7 @@ func TestBlockReturnChargesALand(t *testing.T) {
 // TestBlockPhyrexianPaysTwoLife pins the block-side Phyrexian component: with
 // no blue source the pip is paid with two life.
 func TestBlockPhyrexianPaysTwoLife(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, blockPhyrexianFixture))
 	blocker := onBoardReady(t, e, 0, memniteSrc)
@@ -556,6 +568,7 @@ func TestBlockPhyrexianPaysTwoLife(t *testing.T) {
 // TestBlockSacrificeWithoutALandIsNeverOffered pins the fail-closed half on
 // the block side.
 func TestBlockSacrificeWithoutALandIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, blockSacFixture))
 	blocker := onBoardReady(t, e, 0, memniteSrc)
@@ -578,6 +591,7 @@ func TestBlockSacrificeWithoutALandIsNeverOffered(t *testing.T) {
 // affordable, both jointly not. The bot guard must drop the over-budget pair
 // rather than submit a declaration the engine rejects forever.
 func TestAttackChargeBotAnswerNeverRejected(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, attackPayLifeFixture))
 	a1 := onBoardReady(t, e, 1, "Name:Attacker One\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

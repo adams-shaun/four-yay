@@ -87,6 +87,7 @@ func wonderscapeSageActivate(t *testing.T, e *Engine, sage, soil state.ObjID) *d
 // Desert is a Land Desert: a nonbasic land type, so EQ0 is false and the
 // discard is suppressed.
 func TestWonderscapeSageNonbasicLandTypeSuppressesDiscard(t *testing.T) {
+	t.Parallel()
 	e, cfg, sage, desert := wonderscapeSageBoard(t, "Desert")
 	d := wonderscapeSageActivate(t, e, sage, desert)
 	if d == nil {
@@ -113,6 +114,7 @@ func TestWonderscapeSageNonbasicLandTypeSuppressesDiscard(t *testing.T) {
 // Returned stopped resolving, because then the group is empty for BOTH lands
 // and the Desert test above would have caught that.
 func TestWonderscapeSageBasicLandTypeKeepsDiscard(t *testing.T) {
+	t.Parallel()
 	e, cfg, sage, forest := wonderscapeSageBoard(t, "Forest")
 	d := wonderscapeSageActivate(t, e, sage, forest)
 	if d == nil {

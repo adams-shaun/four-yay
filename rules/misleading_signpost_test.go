@@ -24,6 +24,7 @@ import (
 // resolveTop's CR 608.2b target recheck through the Engine ask, the
 // suspension, the "choice" resume and the state mutation is the real engine.
 func TestMisleadingSignpostRetargetsAttackAfterAnsweredChoice(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	// The signpost enters BEFORE the declare-attackers step is staged, so its
 	// ChangesZone/Phase$ trigger never queues from the placement itself; the
@@ -105,6 +106,7 @@ func TestMisleadingSignpostRetargetsAttackAfterAnsweredChoice(t *testing.T) {
 // unblock a blocked attack and send its damage to the player instead of the
 // blocker (CR 506.3b / CR 509.1h shape).
 func TestMisleadingSignpostKeepCurrentDefenderPreservesTheBlock(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	sp := onBoardCard(t, e, 0, choiceCorpusCard(t, "Misleading Signpost"))
 	e.G.Active = 0

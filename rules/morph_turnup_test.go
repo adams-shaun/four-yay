@@ -85,6 +85,7 @@ func assertTurnUpEventOnce(t *testing.T, e *Engine, id state.ObjID, mark int) {
 }
 
 func TestMorphTurnFaceUpIsASpecialActionPaysItsKeywordCost(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Kin-Tree Warden")
 	id := morphDownCast(t, e, "Kin-Tree Warden", "morphed", "CCCG", 1)
@@ -136,6 +137,7 @@ func TestMorphTurnFaceUpIsASpecialActionPaysItsKeywordCost(t *testing.T) {
 // response priority, the face-down permanent's turn_face_up option is still
 // offered. This is the "regardless of timing" half of the contract.
 func TestMorphTurnFaceUpIsOfferedWithASpellOnTheStack(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Kin-Tree Warden")
 	id := morphDownCast(t, e, "Kin-Tree Warden", "morphed", "CCCG", 1)
@@ -201,6 +203,7 @@ func TestMorphTurnFaceUpIsOfferedWithASpellOnTheStack(t *testing.T) {
 }
 
 func TestMegamorphTurnFaceUpAddsAPlusOnePlusOneCounter(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Kolaghan Stormsinger")
 	id := morphDownCast(t, e, "Kolaghan Stormsinger", "megamorphed", "CCCR", 1)
@@ -304,6 +307,7 @@ func boltAtTarget(t *testing.T, e *Engine, bolt, target state.ObjID) {
 }
 
 func TestDisguiseTurnFaceUpWardTwoIsEnforcedWhileFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Basilica Stalker")
 	id := morphDownCast(t, e, "Basilica Stalker", "disguised", "CCCCCB", 3)
@@ -328,6 +332,7 @@ func TestDisguiseTurnFaceUpWardTwoIsEnforcedWhileFaceDown(t *testing.T) {
 }
 
 func TestDisguiseTurnFaceUpEndsTheWardTwo(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Basilica Stalker")
 	id := morphDownCast(t, e, "Basilica Stalker", "disguised", "CCCCCB", 3)

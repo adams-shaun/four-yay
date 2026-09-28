@@ -21,6 +21,7 @@ import (
 // and the SAME game exercises both branches: an accepted election runs the
 // body (a draw), a declined one does not.
 func TestEffectOptionalDeciderElectionIsPosedAtResolution(t *testing.T) {
+	t.Parallel()
 	beck := corpusAlternativeCard(t, "Beck")
 	bear := card(t, "Name:Test FreeBear\nManaCost:0\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 

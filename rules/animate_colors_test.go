@@ -44,6 +44,7 @@ var animateManlandCases = []struct {
 }
 
 func TestAnimateManlandsCarryTheirGrantedColoursKeywordsAndTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range animateManlandCases {
 		t.Run(tc.card, func(t *testing.T) {
@@ -87,6 +88,7 @@ func TestAnimateManlandsCarryTheirGrantedColoursKeywordsAndTypes(t *testing.T) {
 // Spirit from its Types$ -- so the printed subtype does not stack under the
 // animation, and comes back when the animation expires.
 func TestAnimateStripsBaseCreatureTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Figure of Destiny")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Figure of Destiny", state.ZBattlefield)
@@ -110,6 +112,7 @@ func TestAnimateStripsBaseCreatureTypes(t *testing.T) {
 // (including an overwrite to colourless -- the Colors$ Colorless shape), and
 // a later add extends the overwritten set. WUBRG order is the output order.
 func TestDerivedColorsLayerCompose(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grizzly Bears")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield)
@@ -139,6 +142,7 @@ func TestDerivedColorsLayerCompose(t *testing.T) {
 // (Legendary, Snow) survive, subtypes go, and the animation's own AddTypes
 // land after the strip.
 func TestRemoveCreatureTypesStripsOnlySubtypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Boggart Ram-Gang")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Boggart Ram-Gang", state.ZBattlefield)
@@ -193,6 +197,7 @@ func animateAbilityOption(t *testing.T, e *Engine, id state.ObjID) decision.Opti
 // activation resolves, emits the unimplemented Note, and leaves the printed
 // colours alone. Before the fail-closed round this was a silent no-op.
 func TestAnimateColorlessWithoutOverwriteKeepsColoursAndNotes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Raging Spirit")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Raging Spirit", state.ZBattlefield)
@@ -220,6 +225,7 @@ func TestAnimateColorlessWithoutOverwriteKeepsColoursAndNotes(t *testing.T) {
 // skipped -- never an index panic. Valid elements in the same list still
 // land.
 func TestDerivedColorsSkipsMalformedColourElements(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grizzly Bears")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield)
@@ -239,6 +245,7 @@ func TestDerivedColorsSkipsMalformedColourElements(t *testing.T) {
 // one unrecognised word, the read failed closed, and the bearer kept its
 // printed colour (the review's MAJOR finding).
 func TestSetColorStaticAmpersandListMakesWitnessProtectionBearerGreenWhite(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	witness := mustCorpusCard(t, reg, "Witness Protection")
 	elemental := mustCorpusCard(t, reg, "Air Elemental") // a blue creature
@@ -264,6 +271,7 @@ func TestSetColorStaticAmpersandListMakesWitnessProtectionBearerGreenWhite(t *te
 // "Protection from black". Before the SetColor$ read the enchanted creature
 // kept its printed black and White Knight's protection still applied.
 func TestSetColorStaticMakesImprisonedBearerColourless(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	imprisoned := mustCorpusCard(t, reg, "Imprisoned in the Moon")
 	specter := mustCorpusCard(t, reg, "Hypnotic Specter") // a black creature
@@ -299,6 +307,7 @@ func TestSetColorStaticMakesImprisonedBearerColourless(t *testing.T) {
 // `SetColor$ All` makes each nonland permanent its controller owns all five
 // colours (WUBRG), not just its printed ones.
 func TestSetColorAllStaticMakesLeylinePermanentsAllColours(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	leyline := mustCorpusCard(t, reg, "Leyline of the Guildpact")
 	bears := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -317,6 +326,7 @@ func TestSetColorAllStaticMakesLeylinePermanentsAllColours(t *testing.T) {
 // white rather than white alone. Before the AddColor$ read the equipment's
 // pump and keyword landed but the colour did nothing.
 func TestAddColorStaticExtendsColours(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	armaments := mustCorpusCard(t, reg, "Angelic Armaments")
 	bears := mustCorpusCard(t, reg, "Grizzly Bears")

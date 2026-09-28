@@ -17,6 +17,7 @@ import (
 // two-seat version of this test could not tell "the loser was correctly
 // eliminated" apart from "the game incorrectly ended for everyone".
 func TestZeroLifeEliminatesAPlayer(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	e.G.Players[1].Life = 0
 
@@ -35,6 +36,7 @@ func TestZeroLifeEliminatesAPlayer(t *testing.T) {
 }
 
 func TestDepartureSweepUsesOwnershipOnBattlefield(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	owned := onBoard(t, e, 0, "Name:Owned\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	controlled := onBoard(t, e, 1, "Name:Controlled\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -56,6 +58,7 @@ func TestDepartureSweepUsesOwnershipOnBattlefield(t *testing.T) {
 // TestLethalDamageDestroysACreature: damage marked at least equal to
 // toughness is a destroying state-based action (CR 704.5g).
 func TestLethalDamageDestroysACreature(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.emit(events.Event{Kind: events.Damage, Obj: bear, Amount: 2})
@@ -72,6 +75,7 @@ func TestLethalDamageDestroysACreature(t *testing.T) {
 // to spare (CR 704.5g / 702.2c, modelled here the same way combat.go's own
 // damageStep marks it -- a Deathtouched counter alongside the damage).
 func TestDeathtouchDamageDestroysRegardlessOfAmount(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	troll := onBoard(t, e, 0, "Name:Troll\nManaCost:3 G\nTypes:Creature Troll\nPT:4/4\nOracle:x\n")
 	e.emit(events.Event{Kind: events.Damage, Obj: troll, Amount: 1})
@@ -87,6 +91,7 @@ func TestDeathtouchDamageDestroysRegardlessOfAmount(t *testing.T) {
 // TestZeroToughnessDies: a -3/-3 effect on a 2/2 puts it at -1 toughness,
 // which is destruction with no damage involved at all (CR 704.5f).
 func TestZeroToughnessDies(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.AddContinuous(ContinuousEffect{Source: bear, Timestamp: 1, Layer: LPT, Sub: SubModify,
@@ -107,6 +112,7 @@ func TestZeroToughnessDies(t *testing.T) {
 // zero-toughness rule is not destruction and is not an exception
 // Indestructible covers.
 func TestIndestructibleSurvivesLethalDamageButNotZeroToughness(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	tough := onBoard(t, e, 0, "Name:Juggernaut\nManaCost:3 R\nTypes:Creature Juggernaut\nPT:2/2\nK:Indestructible\nOracle:x\n")
 	e.emit(events.Event{Kind: events.Damage, Obj: tough, Amount: 5})
@@ -134,6 +140,7 @@ func TestIndestructibleSurvivesLethalDamageButNotZeroToughness(t *testing.T) {
 // call to checkStateBased -- if the loop only ran the destruction check
 // once, the bear would incorrectly survive.
 func TestSBALoopsUntilStable(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	lord := onBoard(t, e, 0, "Name:Lord\nManaCost:2 W\nTypes:Creature Human\nPT:1/1\nOracle:x\n")
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -161,6 +168,7 @@ func TestSBALoopsUntilStable(t *testing.T) {
 // become true and Winner must name the one seat left standing, not just
 // "some" seat.
 func TestGameEndsWithOneSurvivor(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	e.G.Players[0].Life = 0
 	e.G.Players[1].Life = 0
@@ -184,6 +192,7 @@ func TestGameEndsWithOneSurvivor(t *testing.T) {
 // the regression test for stubs.go's old fallback, which unconditionally
 // named seat 0 the winner when nobody survived.
 func TestGameEndsWithZeroSurvivors(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.G.Players[0].Life = 0
 	e.G.Players[1].Life = 0
@@ -203,6 +212,7 @@ func TestGameEndsWithZeroSurvivors(t *testing.T) {
 // them (CR 800.4a-shaped cleanup this build approximates as exile, the same
 // zone resolveTop already uses for "no equivalent zone exists").
 func TestEliminatedPlayersPermanentsLeaveTheBattlefield(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	a := onBoard(t, e, 1, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	b := onBoard(t, e, 1, "Name:Goat\nManaCost:1 G\nTypes:Creature Goat\nPT:1/1\nOracle:x\n")
@@ -226,6 +236,7 @@ func TestEliminatedPlayersPermanentsLeaveTheBattlefield(t *testing.T) {
 // leave no decision outstanding -- a client must never be asked to answer
 // anything once Over is true.
 func TestNoDecisionIsIssuedAfterGameOver(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority {
@@ -277,6 +288,7 @@ func TestNoDecisionIsIssuedAfterGameOver(t *testing.T) {
 // before this task existed at all (BASE dec046a had no pass loop to
 // exhaust in the first place).
 func TestDestroyLethalDamageDoesNotAmplifyWhenAReplacementKeepsThePermanent(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	shield := onBoard(t, e, 0, `Name:Shield
 ManaCost:1 G
@@ -343,6 +355,7 @@ Oracle:x
 // the event count is no longer fixed because CR 800.4a now also emits one
 // cessation move for every other card that player owns.
 func TestDepartureSweepDoesNotAmplifyWhenAReplacementKeepsThePermanent(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	onBoard(t, e, 0, `Name:Ward
 ManaCost:1 W
@@ -419,6 +432,7 @@ Oracle:x
 // in the log explaining why. After the fix, a Note event says the budget
 // was exhausted.
 func TestStateBasedActionsExhaustingThePassBudgetAreReported(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	const n = maxSBAPasses + 8
 	ids := make([]state.ObjID, n)
@@ -466,6 +480,7 @@ func TestStateBasedActionsExhaustingThePassBudgetAreReported(t *testing.T) {
 // log should be able to tell them apart even though Text carries no rules
 // weight of its own.
 func TestDestructionTextDistinguishesToughnessFromLethalDamage(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	shrunk := onBoard(t, e, 0, "Name:Shrunk\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.AddContinuous(ContinuousEffect{Source: shrunk, Timestamp: 1, Layer: LPT, Sub: SubModify,
@@ -515,6 +530,7 @@ func TestDestructionTextDistinguishesToughnessFromLethalDamage(t *testing.T) {
 // every single one -- not just at a specific submit count -- so this
 // catches the violation regardless of which pass it would show up on.
 func TestNoPendingDecisionWithAZeroLifePlayerNotYetLost(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	shield := onBoard(t, e, 0, `Name:Shield
 ManaCost:1 G
@@ -570,6 +586,7 @@ Oracle:x
 // repeated real Submits, checking after every single one (not a fixed
 // count) that no player sits at life <= 0 with Lost=false.
 func TestNoPendingDecisionWithAZeroLifePlayerNotYetLostViaRemovalSweep(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	onBoard(t, e, 0, `Name:Victim
 ManaCost:1
@@ -637,6 +654,7 @@ Oracle:x
 // sitting on the battlefield with lethal damage marked. Against bd3c730
 // this fails on the very first Submit.
 func TestLethalDamageIsRetriedWhenTheReplacementsControllerIsEliminatedMidCall(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	doomed := onBoard(t, e, 0, "Name:Doomed\nManaCost:G\nTypes:Creature Goat\nPT:1/1\nOracle:x\n")
 	guardian := onBoard(t, e, 2, `Name:Guardian
@@ -737,6 +755,7 @@ Oracle:x
 // amplification, measured by building that variant, not assumed -- so this
 // is the assertion that catches that mistake being made again.
 func TestRemovalSweepFiringsDoNotScaleWithAnUnrelatedDeathChain(t *testing.T) {
+	t.Parallel()
 	// Filled by the chain=0 run, which must come first: the per-submit
 	// firing count when there is no unrelated death chain at all.
 	var want []int32
@@ -897,6 +916,7 @@ func newFixtureDeckWithTokens(t *testing.T, seed uint64, fixtureSrc string) (*En
 // damage sends a creature) is checked: it must not remain there or in any
 // other game zone.
 func TestATokenThatDiesCeasesToExist(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeckWithTokens(t, 51, "Name:Pyro\nManaCost:1 R\nTypes:Creature Human Shaman\nPT:2/1\nOracle:x\n")
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "r_1_1_goblin"})
 	tok := e.G.Zone(state.ZBattlefield, 0)[len(e.G.Zone(state.ZBattlefield, 0))-1]
@@ -922,6 +942,7 @@ func TestATokenThatDiesCeasesToExist(t *testing.T) {
 // on purpose -- the check is that this specific token id is gone from
 // wherever it landed, not that the whole hand emptied out.
 func TestATokenBouncedToHandCeasesToExist(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeckWithTokens(t, 52, "Name:Pyro\nManaCost:1 R\nTypes:Creature Human Shaman\nPT:2/1\nOracle:x\n")
 	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "r_1_1_goblin"})
 	bf := e.G.Zone(state.ZBattlefield, 0)
@@ -952,6 +973,7 @@ func TestATokenBouncedToHandCeasesToExist(t *testing.T) {
 // only IsToken and Zone, so a token object placed on the stack by hand is
 // exactly as much of a test of the exclusion as a real spell copy would be.
 func TestATokenOnTheStackIsNotPrematurelyCeased(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	goblin := card(t, "Name:Goblin Token\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
 	o := e.G.AddObject(goblin, 0)
@@ -980,6 +1002,7 @@ func TestATokenOnTheStackIsNotPrematurelyCeased(t *testing.T) {
 // and TestDepartureSweepDoesNotAmplifyWhenAReplacementKeepsThePermanent
 // above are the same shape for their own passes).
 func TestCeaseDeadTokensDoesNotAmplifyWhenAReplacementBlocksTheMove(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	onBoard(t, e, 0, `Name:Ward
 ManaCost:1 W
@@ -1064,6 +1087,7 @@ func containsID(ids []state.ObjID, id state.ObjID) bool {
 // only the final field value -- a log-only replay must learn that the token
 // left by that route.
 func TestATokenLeavingTheBattlefieldByAnyRouteCeasesToExist(t *testing.T) {
+	t.Parallel()
 	for _, z := range []struct {
 		name string
 		zone state.Zone
@@ -1107,6 +1131,7 @@ func TestATokenLeavingTheBattlefieldByAnyRouteCeasesToExist(t *testing.T) {
 // proved "tokens cease" would also pass a broken implementation that ceased
 // everything; this pins that it does not.
 func TestCeaseDeadTokensLeavesBattlefieldAndStackTokensAlone(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 
 	// A token on the battlefield is an ordinary permanent and must be
@@ -1141,6 +1166,7 @@ func TestCeaseDeadTokensLeavesBattlefieldAndStackTokensAlone(t *testing.T) {
 // or the graveyard is an ordinary card that lives on in that zone; only a
 // token ceases.
 func TestCeaseDeadTokensLeavesNonTokensAlone(t *testing.T) {
+	t.Parallel()
 	for _, z := range []struct {
 		name string
 		zone state.Zone
@@ -1173,6 +1199,7 @@ func TestCeaseDeadTokensLeavesNonTokensAlone(t *testing.T) {
 // membership list: Game.Zone(ZCeased, _) returns nil, so a ceased token
 // appears in no zone query. It is an inert arena tombstone, not a game zone.
 func TestCeasedZoneHasNoMembership(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	if z := e.G.Zone(state.ZCeased, 0); z != nil {
 		t.Fatalf("Zone(ZCeased, 0) = %v, want nil (ZCeased has no membership list)", z)
@@ -1194,6 +1221,7 @@ func TestCeasedZoneHasNoMembership(t *testing.T) {
 // combat state is cleared and, since the CR 506.4 fix, where other objects'
 // references to it are tombstoned. A token exiled from play crosses both.
 func TestATokenExiledFromTheBattlefieldCeasesToExist(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	goblin := card(t, "Name:Goblin Token\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
 	o := e.G.AddObject(goblin, 0)

@@ -64,6 +64,7 @@ func deferredOptionIndex(t *testing.T, d *decision.Decision, label string) int {
 // lands' asks are posed, one after the other, each applying to its own land,
 // and the SubAbility$ runs exactly once, after both.
 func TestDeferredAskMassReturnOfTwoPayLifeLands(t *testing.T) {
+	t.Parallel()
 	sweep := card(t, "Name:Deferred Ask Sweep\nManaCost:G\nTypes:Sorcery\n"+
 		"A:SP$ ChangeZoneAll | ChangeType$ Land.YouCtrl | Origin$ Graveyard | Destination$ Battlefield | SubAbility$ DBGain\n"+
 		"SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 5\nOracle:x\n")
@@ -119,6 +120,7 @@ func TestDeferredAskMassReturnOfTwoPayLifeLands(t *testing.T) {
 // confirm, then gains 5 life. The land's ask comes first, the shuffle confirm
 // second, the SubAbility$ last.
 func TestDeferredAskSearchShuffleConfirmAfterPayLifeLand(t *testing.T) {
+	t.Parallel()
 	search := card(t, "Name:Deferred Ask Search\nManaCost:G\nTypes:Sorcery\n"+
 		"A:SP$ ChangeZone | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.nonBasic | ChangeNum$ 1 | ShuffleNonMandatory$ True | SubAbility$ DBGain\n"+
 		"SVar:DBGain:DB$ GainLife | Defined$ You | LifeAmount$ 5\nOracle:x\n")

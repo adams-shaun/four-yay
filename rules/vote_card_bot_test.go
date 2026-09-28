@@ -30,6 +30,7 @@ import (
 // higher-worth, non-first Brontodon must be the unanimous vote and the exile
 // must hit it, not the first ballot entry.
 func TestCouncilsJudgmentBotVotesTheBestBallotPermanent(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Council's Judgment"}, nil,

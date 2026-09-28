@@ -49,6 +49,7 @@ func xMinParamAbility(t *testing.T, e *Engine, srcID state.ObjID, wantParam stri
 // X = 0 -- with one exilable creature the ONLY offer is X = 1, and paying it
 // exiles the creature and resolves the ability.
 func TestXMinParamFloorsAnnouncedExileX(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 91, xMinParamRelicSrc, xMinParamBearSrc)
 	relicID := moveSeeded(t, e, 0, xMinParamRelicSrc, state.ZBattlefield)
 	bearID := moveSeeded(t, e, 0, xMinParamBearSrc, state.ZGraveyard)
@@ -116,6 +117,7 @@ func xMinParamCounters(t *testing.T, e *Engine, bearSrc string, withCounters int
 // XMin$ 2 raises a cost whose own XMin1 carrier floors at 1, so the offered
 // range starts at 2, not at the cost's floor and never at 0 or 1.
 func TestXMinParamTakesMaxWithCostFloor(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 92, xMinParamMaxSrc, xMinParamBearSrc)
 	relicID := moveSeeded(t, e, 0, xMinParamMaxSrc, state.ZBattlefield)
 	xMinParamAbility(t, e, relicID, "2", 1)
@@ -149,6 +151,7 @@ func TestXMinParamTakesMaxWithCostFloor(t *testing.T) {
 // whose own XMin3 token floors ABOVE the ability's XMin$ 1 keeps the higher
 // cost floor -- the parameter never lowers an existing bound.
 func TestXMinParamDoesNotLowerCostFloor(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 93, xMinParamCostHiSrc, xMinParamBearSrc)
 	relicID := moveSeeded(t, e, 0, xMinParamCostHiSrc, state.ZBattlefield)
 	xMinParamAbility(t, e, relicID, "1", 3)
@@ -175,6 +178,7 @@ func TestXMinParamDoesNotLowerCostFloor(t *testing.T) {
 // `Cost$ 1 B ExileFromGrave<X/Creature> | XMin$ 1`, and with exactly one
 // creature in the graveyard the X ask offers ONLY X = 1.
 func TestCorpseweftXMinParamOffersNoZeroExileX(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cw := mustCorpusCard(t, reg, "Corpseweft")
 	// Precondition: the corpus card's activation carries XMin$ 1 on the same
@@ -270,6 +274,7 @@ func TestCorpseweftXMinParamOffersNoZeroExileX(t *testing.T) {
 // activation is offered. With two generic the offer appears, X starts at 2,
 // and payment resolves the ability at that value.
 func TestXMinParamOfferGateWithholdsUnpayableMinimum(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 96, xMinOfferGateSrc, xMinOfferGateBearSrc)
 	relicID := moveSeeded(t, e, 0, xMinOfferGateSrc, state.ZBattlefield)
 	e.pending = nil

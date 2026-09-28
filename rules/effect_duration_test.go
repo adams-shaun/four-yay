@@ -11,6 +11,7 @@ import (
 // Duration$ on the real corpus card. Abbot is a creature, so this distinguishes
 // an absent duration (this turn) from an explicit Permanent/source-leaves grant.
 func TestAbbotOfKeralKeepAbsentEffectDurationEndsAtCleanup(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	abbot := choiceCorpusCard(t, "Abbot of Keral Keep")
 	e := corpusEngine(t, reg, []*cards.Card{abbot}, nil)

@@ -13,6 +13,7 @@ import (
 // counter this turn, then each other creature controlled by its controller
 // gets one +1/+1 counter, but Wakka and the opponent's creature do not.
 func TestWakkaBlitzballCaptainPutsCountersOnOtherCreatures(t *testing.T) {
+	t.Parallel()
 	wakkaCard := corpusCard(t, "Wakka, Devoted Guardian")
 	e, cfg := putCounterTable(t, 20260923,
 		[]*cards.Card{wakkaCard, card(t, counterBear("Blitzball Teammate"))},

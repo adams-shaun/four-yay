@@ -46,6 +46,7 @@ func pendingTargetFixture(t *testing.T, src string, creatures ...string) (*Engin
 // published 0 is a false nominal amount, not an unknown one. The amount
 // stays null until a target-dependent representation exists.
 func TestTargetEffectWithholdsAmountForPendingTargetDependentBody(t *testing.T) {
+	t.Parallel()
 	e, d := pendingTargetFixture(t, corpusCardText(t, "k/kikus_shadow.txt"),
 		"Name:Bear Fixture\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n",
 		"Name:Giant Fixture\nManaCost:3 R\nTypes:Creature Giant\nPT:3/3\nOracle:x\n")
@@ -86,6 +87,7 @@ func TestTargetEffectWithholdsAmountForPendingTargetDependentBody(t *testing.T) 
 // the same helper still publishes (round 1's SVar coverage already pins
 // Count$YourLifeTotal and Count$xPaid through the SVar branch).
 func TestTargetEffectWithholdsInlinePendingTargetBody(t *testing.T) {
+	t.Parallel()
 	_, d := pendingTargetFixture(t,
 		"Name:Inline Ref Bolt\nManaCost:R\nTypes:Instant\n"+
 			"A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ Targeted$CardPower\nOracle:x\n",
@@ -104,6 +106,7 @@ func TestTargetEffectWithholdsInlinePendingTargetBody(t *testing.T) {
 // not read the target reference family keeps its round-1 publishable
 // amount even though the probe now runs on every posed damage ask.
 func TestTargetEffectPublishesTargetIndependentBodyThroughTheSameProbe(t *testing.T) {
+	t.Parallel()
 	e, d := pendingTargetFixture(t,
 		"Name:Independent Bolt\nManaCost:R\nTypes:Instant\n"+
 			"A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ X\n"+

@@ -60,6 +60,7 @@ func driveEnlistAttack(t *testing.T, e *Engine, carrier state.ObjID, opt int) {
 // grants Double Strike, and the DBDraw sub fires because the pumped power is
 // 4 (GE4). The whole game replays byte-identically.
 func TestAradeshEnlistElectionPumpAndTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, aradesh, giant := enlistEngine(t, reg, lookup(t, reg, "Aradesh, the Founder"))
 	if got := e.Power(aradesh); got != 1 {
@@ -138,6 +139,7 @@ func TestAradeshEnlistElectionPumpAndTrigger(t *testing.T) {
 // trigger never queues and the attacker's power is unchanged; the election's
 // only effect was Aradesh's ordinary attack tap.
 func TestAradeshDeclinedEnlistIsNoTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, aradesh, giant := enlistEngine(t, reg, lookup(t, reg, "Aradesh, the Founder"))
 	driveToExertTurn(t, e)
@@ -169,6 +171,7 @@ func TestAradeshDeclinedEnlistIsNoTrigger(t *testing.T) {
 // `T:Mode$ Enlisted | Execute$ TrigScry` fires, and the resolution poses the
 // scry-2 KArrange over the library's top cards.
 func TestGuardianOfNewBenaliaEnlistedTriggerScr(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, guardian, giant := enlistEngine(t, reg, lookup(t, reg, "Guardian of New Benalia"))
 	driveToExertTurn(t, e)
@@ -213,6 +216,7 @@ func TestGuardianOfNewBenaliaEnlistedTriggerScr(t *testing.T) {
 // derived from the recorded declaration itself -- Aradesh's election offers
 // only the true nonattackers (Hill Giant, Bear), never his fellow attacker.
 func TestEnlistElectionExcludesTheDeclaredFellow(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg, []*cards.Card{
 		lookup(t, reg, "Aradesh, the Founder"), lookup(t, reg, "Guardian of New Benalia"),
@@ -278,6 +282,7 @@ func TestEnlistElectionExcludesTheDeclaredFellow(t *testing.T) {
 // Creature.!token filters the tapped creature): a real enlist action matches,
 // and an enlisted id that is not a creature fails the ValidEnlisted spec.
 func TestEnlistedMatchesValidEnlistedSpec(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, goblin, giant := enlistEngine(t, reg, lookup(t, reg, "Goblin Morale Sergeant"))
 	f := e.G.Obj(goblin).Face()
