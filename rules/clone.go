@@ -840,6 +840,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		pc.cost.LifeX = append([]CostPart(nil), e.cast.cost.LifeX...)
 		pc.cost.Evidence = append([]CostPart(nil), e.cast.cost.Evidence...)
 		pc.cost.DamageYou = append([]CostPart(nil), e.cast.cost.DamageYou...)
+		pc.cost.GainLife = append([]CostPart(nil), e.cast.cost.GainLife...)
 		pc.cost.Energy = append([]CostPart(nil), e.cast.cost.Energy...)
 		pc.cost.Return = append([]CostPart(nil), e.cast.cost.Return...)
 		pc.cost.PutToLib = append([]CostPart(nil), e.cast.cost.PutToLib...)
