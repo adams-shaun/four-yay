@@ -164,6 +164,25 @@ unmerged `protocol-v2-p23` plus `-p26` merged locally
 - **Not yet measured:** shadow fidelity (needs the shadow, D§4) and parity
   with native gorge answers (needs Jack's gorge engine adapter).
 
+### 3.3 Mana taps as candidates: plan lowering (measured)
+
+Engines that pose mana abilities as candidates (mtg-kernel v1; any v2 engine
+not declaring `mana_payment: engine_autopay`) require the agent to choose its
+taps. The agent keeps deciding at intent level (pass, land, cast X, ability),
+exactly as under auto-pay, and `internal/spellbench/payexec` lowers a chosen
+cast into gorge's payment-plan witness: tap each planned source, answer its
+colour ask, then cast, aborting on any divergence (pool check each step).
+Taps never enter the search tree.
+
+Measured (commit after `ddc66997c`, 8 pairs per deck, 2688 games): the
+Planned variants sit inside their auto-pay twins' CIs (heuristic 1076 vs
+1064, uniform 1012 vs 1000) and roughly 230 Elo above the naive `-manual`
+variants (840, 788); head to head each planned bot is 65-63 against its
+auto-pay twin. Aborts: 0.5-0.9% of lowerings, all on plans that sacrifice a
+mana source whose trigger stacks before a sorcery-speed cast. Open: lowering
+for activated abilities (gorge plans casts only), and ordering sacrifice
+steps last.
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the
