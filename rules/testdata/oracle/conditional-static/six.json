@@ -13,9 +13,24 @@
         "p1": {}
       },
       "steps": [
-        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": true}]}
+        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"card": "p0:Grizzly Bears", "keywords": ["Retrace"]}, {"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": true}]}
       ],
       "expect": []
+    },
+    {
+      "name": "opponent-turn-graveyard-permanent-has-no-retrace",
+      "cr": ["611.3a", "702.81a", "500.1"],
+      "why": "The grant is limited to its controller's turn. Six is still on the battlefield, but on the opponent's turn the graveyard permanent carries no retrace, so the turn scope—not the source—is what removes the ability.",
+      "setup": {
+        "p0": {"hand": ["Forest"], "battlefield": ["Six"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"card": "p0:Grizzly Bears", "no_keywords": ["Retrace"]}]}
+      ],
+      "expect": [{"card": "p0:Six", "zone": "battlefield"}]
     },
     {
       "name": "source-removed-does-not-grant-retrace",

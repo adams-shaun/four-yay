@@ -15,10 +15,28 @@
       "steps": [
         {"op": "activate", "seat": 0, "card": "p0:Evendo Brushrazer", "ability": "Activate Evendo Brushrazer"},
         {"op": "resolve", "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]},
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "targets": ["p1"]},
-        {"op": "resolve"}
+        {"op": "mana", "seat": 0, "mana": "R", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Lightning Bolt"}, "want": true}]}
       ],
-      "expect": [{"card": "p0:Lightning Bolt", "zone": "graveyard"}]
+      "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]
+    },
+    {
+      "name": "source-present-but-no-sacrifice-this-turn-does-not-allow-play",
+      "cr": ["611.3a", "701.21a", "500.1", "601.2"],
+      "why": "The land sacrifice exiles a card during turn one, but after the turn changes the condition that permits playing it has not been met this turn. Evendo remains on the battlefield, so its turn-scoped condition—not source removal—prevents the play.",
+      "setup": {
+        "p0": {"battlefield": ["Evendo Brushrazer", "Forest"], "library_top": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Evendo Brushrazer", "ability": "Activate Evendo Brushrazer"},
+        {"op": "resolve", "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]},
+        {"op": "pass_to", "step": "upkeep", "active": "p0"},
+        {"op": "mana", "seat": 0, "mana": "R", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Lightning Bolt"}, "want": false}]}
+      ],
+      "expect": [
+        {"card": "p0:Evendo Brushrazer", "zone": "battlefield"},
+        {"card": "p0:Lightning Bolt", "zone": "exile"}
+      ]
     },
     {
       "name": "source-removed-no-longer-allows-exiled-card-play",

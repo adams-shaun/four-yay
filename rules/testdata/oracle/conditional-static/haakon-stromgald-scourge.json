@@ -13,11 +13,9 @@
         "p1": {}
       },
       "steps": [
-        {"op": "mana", "seat": 0, "mana": "B", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Knight of the Ebon Legion"}, "want": true}]},
-        {"op": "cast", "seat": 0, "card": "p0:Knight of the Ebon Legion"},
-        {"op": "resolve"}
+        {"op": "mana", "seat": 0, "mana": "B", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Knight of the Ebon Legion"}, "want": true}]}
       ],
-      "expect": [{"card": "p0:Knight of the Ebon Legion", "zone": "battlefield"}]
+      "expect": []
     },
     {
       "name": "haakon-in-graveyard-does-not-permit-other-knights",

@@ -66,9 +66,6 @@ var oracleKnownDivergent = map[string]string{
 	// conditional continuous may-play static; Haakon is present, but the
 	// Knight in its controller's graveyard is not offered.
 	"Haakon, Stromgald Scourge/haakon-on-battlefield-permits-knight-from-graveyard": "Knight of the Ebon Legion from the graveyard was not offered while Haakon was on the battlefield",
-	// Suspected script translation: AddKeyword$ UntapAdjust is not enforced;
-	// all three tapped Bears untap despite the untapped Static Orb.
-	"Static Orb/untapped-orb-limits-next-untap-to-two": "all three attacking Bears untapped, expected no more than two permanents to untap",
 	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
