@@ -558,6 +558,10 @@ type Object struct {
 	// read it as a membership test. CloneDeep deep-copies it so a snapshot
 	// never aliases the live object's backing array.
 	DamageTakenByGame []ObjID
+	// DamageTakenThisTurnBy lists each object source that dealt this object
+	// damage since the current turn began. events.Apply appends with dedup and
+	// clears it at TurnChange; CloneDeep keeps LKI snapshots faithful.
+	DamageTakenThisTurnBy []ObjID
 	// The control-acquisition tuple (AcqTurn, AcqStep) records WHEN this
 	// object last came under its current controller's control on the
 	// battlefield: stamped by events.Apply on every battlefield ENTRY (Move,
@@ -1534,6 +1538,7 @@ func (o *Object) CloneDeep() Object {
 	c.IntrinsicKeywords = append([]string(nil), o.IntrinsicKeywords...)
 	c.Imprinted = append([]ObjID(nil), o.Imprinted...)
 	c.DamageTakenByGame = append([]ObjID(nil), o.DamageTakenByGame...)
+	c.DamageTakenThisTurnBy = append([]ObjID(nil), o.DamageTakenThisTurnBy...)
 	c.ImprintTokens = append([]ObjID(nil), o.ImprintTokens...)
 	c.EncodedCards = append([]ObjID(nil), o.EncodedCards...)
 	c.SeekFound = append([]ObjID(nil), o.SeekFound...)
