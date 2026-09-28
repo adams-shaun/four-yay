@@ -345,8 +345,8 @@
   /* The muted tap glyph: the same ↻ the live option draws, held at the
      bottom-right, dimmed and non-interactive, so a player reaching for a
      freshly-cast mana dork sees the affordance exist AND that it is not yet
-     available. aria-disabled + the reason tooltip carry the why; there is
-     deliberately no pointer-events or click path. */
+     available. aria-disabled + the reason tooltip carry the why; the span
+     remains pointer-targetable for the native title tooltip and has no click path. */
   .sick-tap {
     position: absolute;
     right: 2px;
@@ -361,7 +361,6 @@
     line-height: 1.35;
     border-radius: 2px;
     padding: 0 2px;
-    pointer-events: none;
   }
   /* Attacking is a red rim on the permanent itself, the same relationship the
      red arrow draws (survey #16). */
