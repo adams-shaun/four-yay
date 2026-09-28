@@ -538,6 +538,21 @@ type Object struct {
 	IsToken  bool
 	IsCopy   bool
 	Counters []Counter
+
+	// AtEOTTrigBody names the "at the beginning of the end step, <body> this
+	// token" triggered ability a DB$ CopyPermanent | AtEOTTrig$ grant puts on
+	// the copy it mints (Chandra, Flameshaper; Electroduplicate; Heat Shimmer).
+	// The value is the builtin SVar name of the body the trigger resolves
+	// ("__cpAtEOTSacrifice" / "__cpAtEOTExile"). Unlike the AtEOT$ rider --
+	// which registers a one-shot DELAYED trigger, not a copiable value -- this
+	// is part of the token's copiable values (CR 707.2), so a token copy of a
+	// token carrying it INHERITS it: events.Apply's CopyToken case sets the
+	// field from the mint's own body, falling back to the source object's, and
+	// rules' checkGrantedAtEOTTriggers synthesizes the Phase/EndStep trigger
+	// from it for every battlefield object that carries one. Nothing else
+	// writes it; it is re-derived identically on replay from the CopyToken
+	// fold.
+	AtEOTTrigBody string
 	// MergedCards holds the cards stacked BENEATH a mutated permanent's top
 	// card; see TimesMutated below for the full contract.
 	MergedCards []MergedCard

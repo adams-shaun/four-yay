@@ -2263,6 +2263,14 @@ func Apply(g *state.Game, e Event) {
 		o.IsToken = true
 		o.IsCopy = true
 		o.FaceIdx = faceIdx
+		// AtEOTTrig$ is a copiable value (CR 707.2): the mint's own body when
+		// the copying spell carries one (Counter), else the source object's --
+		// a token copy of an AtEOTTrig$ token still sacrifices itself at the
+		// end step. See state.Object.AtEOTTrigBody.
+		o.AtEOTTrigBody = e.Counter
+		if o.AtEOTTrigBody == "" {
+			o.AtEOTTrigBody = src.AtEOTTrigBody
+		}
 		if e.Amount&CopyTokenTapped != 0 {
 			o.Tapped = true
 		}

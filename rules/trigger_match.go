@@ -1206,6 +1206,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 					e.checkGrantedOffspringTriggers(observer, id, o, f, ev, objLKI)
 				case events.StepChange:
 					e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, ev, objLKI)
+					e.checkGrantedAtEOTTriggers(observer, id, o, ev, objLKI)
 				}
 			}
 			if len(grantedStatics) > 0 {
@@ -1790,6 +1791,11 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 		// live for this step change -- the same both-paths rule Afflict,
 		// Conspire, Exploit, Offspring and Training follow.
 		e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, ev, objLKI)
+		// A copiable CopyPermanent AtEOTTrig$ body ("at the beginning of the
+		// end step, sacrifice/exile this token") must fire even when the
+		// object's own printed triggers are live for this step change -- the
+		// same both-paths rule cumulative upkeep follows.
+		e.checkGrantedAtEOTTriggers(observer, id, o, ev, objLKI)
 	}
 	// The live walk skips a zone none of whose objects can act on any event
 	// (rules/trigger_zoneskip.go); the look-back observer and any event a
