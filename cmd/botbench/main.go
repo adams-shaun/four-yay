@@ -127,6 +127,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/paymirror"
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchseat"
+	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -275,6 +276,29 @@ var policies = map[string]func(seed uint64) seat.Seat{
 			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
 		}
 		return s
+	},
+	// sb-* are SpellBench's three builtin bots (uniform, heuristic, first)
+	// ported onto gorge's decision model (internal/spellbench/builtins, whose
+	// package doc records every mapping choice). The plain names hide mana
+	// abilities and pay casts through gorge's planner (v2 "engine_autopay");
+	// the -manual arms offer every mana ability as a priority candidate, the
+	// literal surface SpellBench's own engine adapters expose. sb-uniform
+	// XORs in the benchmark's uniform seed (11). Bench-only: the
+	// -spellbench mode (spellbench.go) round-robins them.
+	"sb-uniform": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Uniform, builtins.AutoPay, seed^builtins.UniformSeed)
+	},
+	"sb-heuristic": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Heuristic, builtins.AutoPay, seed)
+	},
+	"sb-first": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.First, builtins.AutoPay, seed)
+	},
+	"sb-uniform-manual": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Uniform, builtins.Manual, seed^builtins.UniformSeed)
+	},
+	"sb-heuristic-manual": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Heuristic, builtins.Manual, seed)
 	},
 }
 
@@ -2298,6 +2322,7 @@ func main() {
 	cpuprofile := flag.String("cpuprofile", "", "write a CPU profile to this pprof file over the whole run (empty = off)")
 	memprofile := flag.String("memprofile", "", "write a heap profile to this pprof file after the last game finishes (pprof reads both alloc_space and inuse_space from it; empty = off)")
 	registerAZFlags(flag.CommandLine)
+	registerSpellbenchFlags(flag.CommandLine)
 	flag.Parse()
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "policynet-kinds" {
@@ -2328,6 +2353,11 @@ func main() {
 		Redeal:       *searchRedeal,
 	}
 
+	if sbFlags.bots != "" {
+		// The SpellBench workup (spellbench.go): its own round-robin
+		// schedule over the -spellbench policies, not the -a/-b bench.
+		os.Exit(spellbenchExit(sbFlags, *dir, *workers, *maxTurns, *maxIntents, *checkpoint, os.Stdout, os.Stderr))
+	}
 	os.Exit(mainExit(*a, *b, *games, *seed, *seats, *rotate, *pairs, *format, *out, *workers,
 		*maxTurns, *maxIntents, *dir, *profile, *decisionStats, *actionCoverage, *grind, *grindSeconds, *grindIters, *cpuprofile, *memprofile, *decisionTrace, *analyzeTrace, *checkpoint))
 }

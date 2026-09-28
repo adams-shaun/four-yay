@@ -1,0 +1,592 @@
+package main
+
+// -spellbench: a gorge-native SpellBench workup. It plays a round robin of
+// bot policies on the SpellBench pauper-kernel catalog decks exactly the way
+// SpellBench's arena schedules its benchmark (python/spellbench/arena/
+// runner.py, "spellbench-arena-seed-v1"):
+//
+//   - matchups are the unordered bot pairs (i < j) in -spellbench order,
+//     self-play excluded (the benchmark's include_self_play false);
+//   - each matchup plays pairs_per_matchup = -spellbench-pairs x len(decks)
+//     seat-swapped PAIRS; pair p plays deck pool[p % len(pool)] in BOTH
+//     seats (a mirror, the benchmark's deck_pool form);
+//   - both games of a pair share one game seed (common random numbers):
+//     game 0 seats bot i as p0, game 1 seats bot j as p0;
+//   - game_seed(m, p) = SplitMix64(base ^ 0x5350_5f47_414d_4553 ^ m*golden ^
+//     p*0xd1b54a32d192ed03).next() & (2^53-1), the arena's derivation, and
+//     the base seed defaults to the benchmark's 20260926.
+//
+// The gorge engine is seeded with the game seed, so the CR 103.1 toss hands
+// the first turn to the same SEAT in both games of a pair and each bot
+// starts once. A seat's policy seed is (game seed ^ seat+1), bench's
+// per-seat derivation; the sb-uniform constructor XORs in the benchmark's
+// uniform seed (11), v2's (agent_seed ^ seed).
+//
+// Results are written as a SpellBench match ledger (matches.jsonl, schema
+// spellbench-match-ledger/v1) in schedule order, so SpellBench's own
+// leaderboard code rates them (scripts/spellbench-rate.py): natural wins and
+// draws are rated; a game ended by -max-turns / -max-intents /
+// -max-turn-intents is "truncated" and one ended by an engine panic,
+// livelock or a refused answer is "halted" -- both recorded, both excluded,
+// exactly as SpellBench excludes them. games.jsonl carries the gorge-side
+// extras (turns, wall time, stall kind, fallbacks) per game.
+//
+// A builtin (sb-*) seat whose answer the engine refuses (a whole-declaration
+// constraint the wire does not publish, e.g. a lone blocker on a menace
+// attacker) is answered by a fallback instead of halting the game: the
+// minimal answer (pass, or the clamped empty answer), else the default bot's
+// answer. Every fallback is counted per policy and reported. Any other
+// seat's refused answer halts the game.
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"math/rand/v2"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
+	gbench "github.com/adams-shaun/gorge/internal/bench"
+	"github.com/adams-shaun/gorge/internal/policynet"
+	"github.com/adams-shaun/gorge/internal/spellbench"
+	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/seat"
+)
+
+// sbOpts are the -spellbench-* flags.
+type sbOpts struct {
+	bots          string
+	pairs         int
+	decks         string
+	out           string
+	baseSeed      uint64
+	with, without string
+	engineVersion string
+}
+
+var sbFlags sbOpts
+
+func registerSpellbenchFlags(fs *flag.FlagSet) {
+	fs.StringVar(&sbFlags.bots, "spellbench", "", "SpellBench workup mode: comma list of policies to round-robin (e.g. sb-uniform,sb-heuristic,sb-first,bot,az) on the pauper-kernel catalog decks as mirrors; writes a SpellBench match ledger to -spellbench-out")
+	fs.IntVar(&sbFlags.pairs, "spellbench-pairs", 4, "spellbench: seat-swapped pairs per deck per matchup (the benchmark's pairs_per_deck)")
+	fs.StringVar(&sbFlags.decks, "spellbench-decks", "", "spellbench: comma list of catalog deck ids (default: the benchmark's 8-deck pool)")
+	fs.StringVar(&sbFlags.out, "spellbench-out", "", "spellbench: output directory (created; matches.jsonl, games.jsonl, run.json are written there)")
+	fs.Uint64Var(&sbFlags.baseSeed, "spellbench-base-seed", 20260926, "spellbench: tournament base seed (the benchmark's base_seed)")
+	fs.StringVar(&sbFlags.with, "spellbench-with", "", "spellbench: play only the matchups that include this policy (indices and seeds stay those of the full round robin)")
+	fs.StringVar(&sbFlags.without, "spellbench-without", "", "spellbench: skip the matchups that include this policy")
+	fs.StringVar(&sbFlags.engineVersion, "spellbench-engine-version", "dev", "spellbench: engine_version recorded in the ledger (e.g. the git commit)")
+}
+
+const (
+	sbMask64       = ^uint64(0)
+	sbGolden       = uint64(0x9E3779B97F4A7C15)
+	sbGameDomain   = uint64(0x53505F47414D4553) // "SP_GAMES"
+	sbPairMixer    = uint64(0xD1B54A32D192ED03)
+	sbMaxJSONInt   = uint64(1)<<53 - 1
+	sbLedgerSchema = "spellbench-match-ledger/v1"
+)
+
+// sbGameSeed is the arena's derive_game_seed.
+func sbGameSeed(base uint64, matchup, pair int) uint64 {
+	mixed := base ^ sbGameDomain ^ (uint64(matchup) * sbGolden) ^ (uint64(pair) * sbPairMixer)
+	s := builtins.NewSplitMix64(mixed & sbMask64)
+	return s.Next() & sbMaxJSONInt
+}
+
+// sbGame is one scheduled game.
+type sbGame struct {
+	id      string
+	matchup int
+	pair    int
+	game    int
+	seed    uint64
+	deck    string
+	seats   [2]string // policy name at p0, p1
+	ordinal int       // position in the full schedule
+}
+
+// sbSchedule is the arena's _schedule over bots and pool.
+func sbSchedule(bots, pool []string, pairsPerDeck int, base uint64) []sbGame {
+	var out []sbGame
+	m := 0
+	for i := 0; i < len(bots); i++ {
+		for j := i + 1; j < len(bots); j++ {
+			for p := 0; p < pairsPerDeck*len(pool); p++ {
+				seed := sbGameSeed(base, m, p)
+				for g := 0; g < 2; g++ {
+					seats := [2]string{bots[i], bots[j]}
+					if g == 1 {
+						seats = [2]string{bots[j], bots[i]}
+					}
+					out = append(out, sbGame{
+						id: fmt.Sprintf("m%04dp%04dg%d", m, p, g), matchup: m, pair: p, game: g,
+						seed: seed, deck: pool[p%len(pool)], seats: seats, ordinal: len(out),
+					})
+				}
+			}
+			m++
+		}
+	}
+	return out
+}
+
+// sbResult is one played game.
+type sbResult struct {
+	outcome   gbench.Outcome
+	err       error
+	wall      time.Duration
+	fallbacks [2]int
+	rejects   [2]string // first refused answer per seat
+	stats     [2]builtins.Stats
+}
+
+// sbDisplayName is the ledger name for a policy: az carries its world and
+// simulation count so a clairvoyant number can never be read as a fair one.
+func sbDisplayName(policy string) string {
+	if policy == "az" {
+		return fmt.Sprintf("az-clairvoyant-sims%d", azCfg.Search.Sims)
+	}
+	return policy
+}
+
+func sbBotID(name string) string {
+	h := sha256.Sum256([]byte("gorge-botbench-policy/v1:" + name))
+	return hex.EncodeToString(h[:])
+}
+
+// sbSubmitWithFallback is the Hooks.Submit that keeps a builtin seat's
+// refused answer from halting the game (file comment).
+func sbSubmitWithFallback(seats []seat.Seat, res *sbResult) func(*rules.Engine, int, *decision.Decision, decision.Intent) (bool, error) {
+	return func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (bool, error) {
+		err := e.Submit(in)
+		if err == nil {
+			return true, nil
+		}
+		if _, ok := seats[seatIdx].(*builtins.Seat); !ok {
+			return true, err
+		}
+		res.fallbacks[seatIdx]++
+		if res.rejects[seatIdx] == "" {
+			res.rejects[seatIdx] = fmt.Sprintf("%s: %v", d.Kind, err)
+		}
+		fb := decision.Intent{Seq: d.Seq, Player: d.Player}
+		if d.Kind == decision.KPriority {
+			for _, o := range d.Options {
+				if o.Kind == "pass" {
+					fb.Choices = []int{o.Index}
+					break
+				}
+			}
+		} else {
+			fb = botpolicy.Clamp(d, fb)
+		}
+		if e.Submit(fb) == nil {
+			return true, nil
+		}
+		brd := botpolicy.BoardFromGame(e.G, e, d.Player)
+		fb = botpolicy.Decide(brd, d, rand.New(rand.NewPCG(d.Seq, uint64(seatIdx)+1)))
+		fb.Seq, fb.Player = d.Seq, d.Player
+		err3 := e.Submit(fb)
+		if err3 == nil {
+			return true, nil
+		}
+		return true, fmt.Errorf("answer refused (%v); fallbacks refused (%v)", err, err3)
+	}
+}
+
+func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxIntents int) sbResult {
+	var res sbResult
+	seats := make([]seat.Seat, 2)
+	for s := 0; s < 2; s++ {
+		seats[s] = policies[g.seats[s]](g.seed ^ uint64(s+1))
+	}
+	cfg := rules.Config{
+		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
+		Tokens: reg.Tokens, NameUniverse: reg.Cards,
+	}
+	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res)}
+	if maxTurnIntents > 0 {
+		hooks.Guard = turnIntentGuard(maxTurnIntents)
+	}
+	t0 := time.Now()
+	o, _, err := gbench.PlayGame(cfg, seats, maxTurns, maxIntents, hooks)
+	res.wall = time.Since(t0)
+	res.outcome, res.err = o, err
+	for s := 0; s < 2; s++ {
+		if b, ok := seats[s].(*builtins.Seat); ok {
+			res.stats[s] = b.Stats
+		}
+	}
+	return res
+}
+
+// sbLedgerRow renders one game as a spellbench-match-ledger/v1 row.
+func sbLedgerRow(g sbGame, r sbResult, engine map[string]string) map[string]any {
+	seatRows := make([]map[string]any, 2)
+	ids := [2]string{}
+	for s := 0; s < 2; s++ {
+		name := sbDisplayName(g.seats[s])
+		ids[s] = sbBotID(name)
+		seatRows[s] = map[string]any{"seat": fmt.Sprintf("p%d", s), "bot_id": ids[s], "name": name, "version": "1.0.0"}
+	}
+	row := map[string]any{
+		"schema": sbLedgerSchema, "game_id": g.id, "matchup_index": g.matchup, "pair_index": g.pair,
+		"game_index": g.game, "format": "pauper-bo1", "game_seed": g.seed, "seats": seatRows,
+		"decks":      []map[string]string{{"catalog_id": g.deck}, {"catalog_id": g.deck}},
+		"step_count": r.outcome.Intents, "decision_count": r.outcome.Intents, "engine": engine,
+		"winner": nil, "winner_bot_id": nil, "adjudication": nil,
+	}
+	o := r.outcome
+	switch {
+	case r.err != nil:
+		row["outcome"], row["classification"], row["reason"] = "halted", "halted", "engine_error"
+		row["adjudication"] = map[string]string{"kind": "engine_halt", "detail": sbTrim(r.err.Error())}
+	case gbench.IsAbort(o.StallOn):
+		row["outcome"], row["classification"], row["reason"] = "halted", "halted", o.StallOn
+		row["adjudication"] = map[string]string{"kind": "engine_halt", "detail": sbTrim(o.Livelock)}
+	case o.IsStalled():
+		row["outcome"], row["classification"], row["reason"] = "truncated", "truncated", "max_"+o.StallOn
+	case o.Draw:
+		row["outcome"], row["classification"], row["reason"] = "draw", "natural", "game_over"
+	default:
+		w := o.WinnerSeat
+		row["outcome"], row["classification"], row["reason"] = fmt.Sprintf("p%d_win", w), "natural", "game_over"
+		row["winner"], row["winner_bot_id"] = fmt.Sprintf("p%d", w), ids[w]
+	}
+	return row
+}
+
+func sbTrim(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > 300 {
+		s = s[:300]
+	}
+	if s == "" {
+		s = "unspecified"
+	}
+	return s
+}
+
+// sbCardPool reads the corpus pin for the ledger's card_pool_identity.
+func sbCardPool(dir string) string {
+	raw, err := os.ReadFile(filepath.Join(dir, "cards.lock"))
+	if err == nil {
+		var lock struct {
+			Commit string `json:"commit"`
+		}
+		if json.Unmarshal(raw, &lock) == nil && lock.Commit != "" {
+			return "spellbench-pauper-kernel-catalog/forge@" + lock.Commit
+		}
+	}
+	return "spellbench-pauper-kernel-catalog/forge@unknown"
+}
+
+func sbSplit(s string) []string {
+	var out []string
+	for _, t := range strings.Split(s, ",") {
+		if t = strings.TrimSpace(t); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// spellbenchExit runs the -spellbench mode and returns the exit code.
+func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, checkpoint string, stdout, stderr io.Writer) int {
+	fail := func(err error) int {
+		fmt.Fprintln(stderr, "botbench -spellbench:", err)
+		return 1
+	}
+	bots := sbSplit(o.bots)
+	if len(bots) < 2 {
+		return fail(fmt.Errorf("need at least two policies, got %q", o.bots))
+	}
+	seen := map[string]bool{}
+	azSide := false
+	for _, b := range bots {
+		if _, ok := policies[b]; !ok {
+			return fail(fmt.Errorf("unknown policy %q; built-in policies: %s", b, strings.Join(builtinPolicyNames(), ", ")))
+		}
+		if b == "policynet" || b == "search" {
+			return fail(fmt.Errorf("policy %q is not supported by -spellbench", b))
+		}
+		if seen[b] {
+			return fail(fmt.Errorf("policy %q listed twice", b))
+		}
+		seen[b] = true
+		if b == "az" {
+			azSide = true
+		}
+	}
+	for _, f := range []string{o.with, o.without} {
+		if f != "" && !seen[f] {
+			return fail(fmt.Errorf("-spellbench-with/-without %q is not in the policy list", f))
+		}
+	}
+	if o.pairs < 1 {
+		return fail(fmt.Errorf("-spellbench-pairs must be at least 1"))
+	}
+	if o.out == "" {
+		return fail(fmt.Errorf("-spellbench-out is required"))
+	}
+	var ckModel *policynet.Model
+	if checkpoint != "" {
+		if !azSide {
+			return fail(fmt.Errorf("-checkpoint in -spellbench mode feeds az only, and az is not listed"))
+		}
+		m, err := policynet.LoadCheckpointFile(checkpoint)
+		if err != nil {
+			return fail(fmt.Errorf("-checkpoint %s: %w", checkpoint, err))
+		}
+		ckModel = m
+	}
+	azA := ""
+	if azSide {
+		azA = "az"
+	}
+	if err := azFrontDoor(azA, "", ckModel); err != nil {
+		return fail(err)
+	}
+	if azSide {
+		installAZCostStats()
+	}
+	pool := spellbench.BenchmarkPool
+	if o.decks != "" {
+		pool = sbSplit(o.decks)
+	}
+	reg, err := testutil.OpenCorpusRegistry(dir)
+	if err != nil {
+		return fail(fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err))
+	}
+	decks := make(map[string][]*cards.Card, len(pool)) // lookup only
+	for _, id := range pool {
+		d, err := spellbench.Deck(reg, spellbench.PauperKernel, id)
+		if err != nil {
+			return fail(err)
+		}
+		decks[id] = d
+	}
+	if err := os.MkdirAll(o.out, 0o755); err != nil {
+		return fail(err)
+	}
+
+	full := sbSchedule(bots, pool, o.pairs, o.baseSeed)
+	var sched []sbGame
+	for _, g := range full {
+		has := func(p string) bool { return g.seats[0] == p || g.seats[1] == p }
+		if (o.with != "" && !has(o.with)) || (o.without != "" && has(o.without)) {
+			continue
+		}
+		sched = append(sched, g)
+	}
+	if len(sched) == 0 {
+		return fail(fmt.Errorf("no games scheduled"))
+	}
+	if workers <= 0 {
+		workers = 1
+	}
+	engine := map[string]string{
+		"engine_name": "gorge", "engine_version": o.engineVersion,
+		"rules_snapshot_id": "gorge/" + o.engineVersion, "card_pool_identity": sbCardPool(dir),
+	}
+
+	fmt.Fprintf(stderr, "spellbench: %d policies, %d decks, %d pairs/deck -> %d games (%d scheduled here), %d workers\n",
+		len(bots), len(pool), o.pairs, len(full), len(sched), workers)
+	results := make([]sbResult, len(sched))
+	var done atomic.Int64
+	var mu sync.Mutex
+	start := time.Now()
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				g := sched[i]
+				results[i] = sbPlay(g, decks[g.deck], reg, maxTurns, maxIntents)
+				n := done.Add(1)
+				r := results[i]
+				mu.Lock()
+				fmt.Fprintf(stderr, "[%d/%d %s] %s %-8s %s vs %s: %s turns=%d intents=%d %.1fs\n",
+					n, len(sched), time.Since(start).Round(time.Second), g.id, g.deck, g.seats[0], g.seats[1],
+					sbResultLabel(r), r.outcome.Turns, r.outcome.Intents, r.wall.Seconds())
+				mu.Unlock()
+			}
+		}()
+	}
+	for i := range sched {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+	elapsed := time.Since(start)
+
+	if err := sbWriteOutputs(o, bots, pool, sched, results, engine, elapsed, workers); err != nil {
+		return fail(err)
+	}
+	sbWriteSummary(stdout, bots, sched, results, elapsed)
+	if azSide {
+		fmt.Fprint(stdout, azCostReport(sbCount(sched, "az")))
+	}
+	return 0
+}
+
+func sbCount(sched []sbGame, policy string) int {
+	n := 0
+	for _, g := range sched {
+		if g.seats[0] == policy || g.seats[1] == policy {
+			n++
+		}
+	}
+	return n
+}
+
+func sbResultLabel(r sbResult) string {
+	switch {
+	case r.err != nil:
+		return "HALTED(" + sbTrim(r.err.Error()) + ")"
+	case gbench.IsAbort(r.outcome.StallOn):
+		return "HALTED(" + r.outcome.StallOn + ")"
+	case r.outcome.IsStalled():
+		return "truncated(" + r.outcome.StallOn + ")"
+	case r.outcome.Draw:
+		return "draw"
+	}
+	return fmt.Sprintf("p%d wins", r.outcome.WinnerSeat)
+}
+
+func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbResult, engine map[string]string, elapsed time.Duration, workers int) error {
+	lf, err := os.Create(filepath.Join(o.out, "matches.jsonl"))
+	if err != nil {
+		return err
+	}
+	defer lf.Close()
+	gf, err := os.Create(filepath.Join(o.out, "games.jsonl"))
+	if err != nil {
+		return err
+	}
+	defer gf.Close()
+	le, ge := json.NewEncoder(lf), json.NewEncoder(gf)
+	for i, g := range sched {
+		r := results[i]
+		if err := le.Encode(sbLedgerRow(g, r, engine)); err != nil {
+			return err
+		}
+		extra := map[string]any{
+			"game_id": g.id, "deck": g.deck, "seed": g.seed, "p0": g.seats[0], "p1": g.seats[1],
+			"result": sbResultLabel(r), "turns": r.outcome.Turns, "intents": r.outcome.Intents,
+			"wall_ms": r.wall.Milliseconds(), "stall_on": r.outcome.StallOn,
+			"fallbacks": r.fallbacks, "first_reject": r.rejects, "pursuit_stats": r.stats,
+		}
+		if r.outcome.StarterSet {
+			extra["starter"] = r.outcome.Starter
+		}
+		if err := ge.Encode(extra); err != nil {
+			return err
+		}
+	}
+	names := make([]string, len(bots))
+	for i, b := range bots {
+		names[i] = sbDisplayName(b)
+	}
+	run := map[string]any{
+		"policies": bots, "display_names": names, "decks": pool, "pairs_per_deck": o.pairs,
+		"base_seed": o.baseSeed, "with": o.with, "without": o.without, "games": len(sched),
+		"wall_seconds": elapsed.Seconds(), "workers": workers, "engine": engine,
+		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg},
+		"max_turn_intents": maxTurnIntents,
+	}
+	raw, err := json.MarshalIndent(run, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(o.out, "run.json"), append(raw, '\n'), 0o644)
+}
+
+// sbWriteSummary prints per-matchup W/D/L (bot A = the earlier listed),
+// excluded games, fallbacks and wall time.
+func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResult, elapsed time.Duration) {
+	type tally struct {
+		games, aw, bw, dr, trunc, halt int
+		wall                           time.Duration
+		turns                          int64
+	}
+	order := []string{}
+	tallies := map[string]*tally{} // keyed lookups; printed in schedule order
+	fallbacks := map[string]int{}
+	seatGames := map[string]int{}
+	pursuits := map[string]*builtins.Stats{}
+	for i, g := range sched {
+		r := results[i]
+		a, b := g.seats[0], g.seats[1]
+		if g.game == 1 {
+			a, b = b, a
+		}
+		key := a + " vs " + b
+		t := tallies[key]
+		if t == nil {
+			t = &tally{}
+			tallies[key] = t
+			order = append(order, key)
+		}
+		t.games++
+		t.wall += r.wall
+		t.turns += int64(r.outcome.Turns)
+		switch {
+		case r.err != nil || gbench.IsAbort(r.outcome.StallOn):
+			t.halt++
+		case r.outcome.IsStalled():
+			t.trunc++
+		case r.outcome.Draw:
+			t.dr++
+		case g.seats[r.outcome.WinnerSeat] == a:
+			t.aw++
+		default:
+			t.bw++
+		}
+		for s := 0; s < 2; s++ {
+			fallbacks[g.seats[s]] += r.fallbacks[s]
+			seatGames[g.seats[s]]++
+			if pursuits[g.seats[s]] == nil {
+				pursuits[g.seats[s]] = &builtins.Stats{}
+			}
+			ps := pursuits[g.seats[s]]
+			ps.Pursuits += r.stats[s].Pursuits
+			ps.PursuitTaps += r.stats[s].PursuitTaps
+			ps.PursuitFailures += r.stats[s].PursuitFailures
+		}
+	}
+	fmt.Fprintf(w, "spellbench workup: %d games in %s wall\n", len(sched), elapsed.Round(time.Second))
+	fmt.Fprintf(w, "%-44s %5s %5s %5s %5s %6s %5s %8s %9s\n", "matchup (A vs B)", "games", "A", "B", "draw", "trunc", "halt", "turns", "s/game")
+	for _, k := range order {
+		t := tallies[k]
+		fmt.Fprintf(w, "%-44s %5d %5d %5d %5d %6d %5d %8.1f %9.2f\n", k, t.games, t.aw, t.bw, t.dr, t.trunc, t.halt,
+			float64(t.turns)/float64(t.games), t.wall.Seconds()/float64(t.games))
+	}
+	names := append([]string(nil), bots...)
+	sort.Strings(names)
+	for _, n := range names {
+		if seatGames[n] == 0 {
+			continue
+		}
+		ps := pursuits[n]
+		fmt.Fprintf(w, "policy %-22s seat-games %4d  refused-answer fallbacks %4d  pursuits %5d (taps %5d, failed %4d)\n",
+			n, seatGames[n], fallbacks[n], ps.Pursuits, ps.PursuitTaps, ps.PursuitFailures)
+	}
+}

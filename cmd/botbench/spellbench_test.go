@@ -1,0 +1,83 @@
+package main
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/adams-shaun/gorge/internal/spellbench"
+	"github.com/adams-shaun/gorge/internal/testutil"
+)
+
+// TestSpellbenchGameSeedsMatchArena pins sbGameSeed to SpellBench's
+// derive_game_seed (python/spellbench/arena/runner.py); the first three are
+// also the published pauper-kernel ledger's m0000p0000, m0001p0000 and
+// m0000p0001 seeds.
+func TestSpellbenchGameSeedsMatchArena(t *testing.T) {
+	for _, tc := range []struct {
+		m, p int
+		want uint64
+	}{
+		{0, 0, 3077497140376949},
+		{1, 0, 6920715974369554},
+		{0, 1, 470744788133123},
+		{3, 17, 7894190567072193},
+	} {
+		if got := sbGameSeed(20260926, tc.m, tc.p); got != tc.want {
+			t.Errorf("game_seed(m=%d, p=%d) = %d, want %d", tc.m, tc.p, got, tc.want)
+		}
+	}
+}
+
+func TestSpellbenchSchedule(t *testing.T) {
+	bots := []string{"a", "b", "c"}
+	pool := []string{"D1", "D2"}
+	s := sbSchedule(bots, pool, 2, 1)
+	// 3 matchups x (2 pairs/deck x 2 decks) pairs x 2 games.
+	if len(s) != 3*4*2 {
+		t.Fatalf("%d games", len(s))
+	}
+	g0, g1 := s[0], s[1]
+	if g0.seed != g1.seed || g0.deck != g1.deck || g0.seats != [2]string{"a", "b"} || g1.seats != [2]string{"b", "a"} {
+		t.Fatalf("pair not seat-swapped on one seed: %+v %+v", g0, g1)
+	}
+	var decks []string
+	for _, g := range s[:8] {
+		if g.game == 0 {
+			decks = append(decks, g.deck)
+		}
+	}
+	if !reflect.DeepEqual(decks, []string{"D1", "D2", "D1", "D2"}) {
+		t.Fatalf("pair p plays pool[p %% len(pool)]: %v", decks)
+	}
+	if s[8].id != "m0001p0000g0" || s[8].seats != [2]string{"a", "c"} {
+		t.Fatalf("second matchup starts %+v", s[8])
+	}
+}
+
+// TestSpellbenchBuiltinsPlayMirrors plays every sb-* policy against sb-first
+// on two catalog mirrors and checks each game finishes, replays exactly
+// from its seed, and needs no refused-answer fallback on these seeds.
+func TestSpellbenchBuiltinsPlayMirrors(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	for _, deckID := range []string{"Burn", "Faeries"} {
+		deck, err := spellbench.Deck(reg, spellbench.PauperKernel, deckID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, pol := range []string{"sb-uniform", "sb-heuristic", "sb-first", "sb-uniform-manual", "sb-heuristic-manual"} {
+			g := sbGame{id: "t", seed: sbGameSeed(20260926, 0, 0), deck: deckID, seats: [2]string{pol, "sb-heuristic"}}
+			a := sbPlay(g, deck, reg, 200, 20000)
+			b := sbPlay(g, deck, reg, 200, 20000)
+			if a.err != nil {
+				t.Fatalf("%s on %s: %v", pol, deckID, a.err)
+			}
+			if a.outcome != b.outcome {
+				t.Fatalf("%s on %s: not deterministic: %+v vs %+v", pol, deckID, a.outcome, b.outcome)
+			}
+			if a.outcome.IsStalled() {
+				t.Fatalf("%s on %s: stalled %+v", pol, deckID, a.outcome)
+			}
+			t.Logf("%-20s %-8s %s turns=%d intents=%d fallbacks=%v", pol, deckID, sbResultLabel(a), a.outcome.Turns, a.outcome.Intents, a.fallbacks)
+		}
+	}
+}
