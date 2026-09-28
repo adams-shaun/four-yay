@@ -2240,10 +2240,30 @@ func (e *Engine) sacrificeCostAssignable(p state.PlayerID, source state.ObjID, p
 	return true
 }
 
+// lastDrawnThisTurn returns the card player p most recently DREW this turn
+// (the last events.Draw naming p since the most recent TurnChange), or 0 if p
+// drew nothing this turn. Derived from the event log exactly like
+// CardsDrawnThisTurn, so a replay derives it identically; it is NOT a filter.
+// Discard<1/LastDrawn> (Jandor's Ring) is the corpus's only carrier.
+func (e *Engine) lastDrawnThisTurn(p state.PlayerID) state.ObjID {
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		ev := e.L.Events[i]
+		if ev.Kind == events.TurnChange {
+			break
+		}
+		if ev.Kind == events.Draw && ev.Player == p {
+			return ev.Obj
+		}
+	}
+	return 0
+}
+
 // discardCandidates returns the still-available cards that can pay one
 // Discard cost part. Random names a selection method rather than a card
 // characteristic, and a Hand spec is Forge's "discard your hand" shape
-// (the corpus spells its ignored count as both 0 and 1).
+// (the corpus spells its ignored count as both 0 and 1). LastDrawn is the
+// other history-keyed slot: "the last card you drew this turn", one specific
+// card, unpayable when p drew nothing or that card has left the hand.
 // A spell being announced is excluded because it will be on the stack when
 // costs are paid; an activated ability's source may remain in hand and can
 // therefore pay CARDNAME/NICKNAME costs such as channel and bloodrush.
@@ -2254,6 +2274,19 @@ func (e *Engine) discardCandidates(p state.PlayerID, source state.ObjID, part Co
 		// Forge uses NICKNAME as the same self-reference as CARDNAME in the
 		// four discard-cost lines that carry it.
 		matchSpec = "CARDNAME"
+	}
+	if strings.EqualFold(matchSpec, "LastDrawn") {
+		// The single candidate is the last card p drew this turn, and only if
+		// it is still in p's hand. If p drew nothing, or that card has left
+		// the hand, the cost is unpayable -- do not skip back to an earlier
+		// draw.
+		last := e.lastDrawnThisTurn(p)
+		if last != 0 && !reserved[last] && !(casting && last == source) {
+			if o := e.G.Obj(last); o != nil && o.Zone == state.ZHand {
+				return []state.ObjID{last}
+			}
+		}
+		return nil
 	}
 	var out []state.ObjID
 	for _, id := range e.G.Zone(state.ZHand, p) {
