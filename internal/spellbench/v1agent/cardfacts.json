@@ -1,0 +1,1735 @@
+{
+ "Avenging Hunter": {
+  "cmc": 5,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 5,
+  "toughness": 4,
+  "keywords": [
+   "Trample"
+  ],
+  "triggers": [
+   {
+    "api": "TakeInitiative",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Azorius Guildgate": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Balustrade Spy": {
+  "cmc": 4,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 3,
+  "keywords": [
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "DigUntil",
+    "trigger": "ETB",
+    "target": "player",
+    "harmful": true
+   }
+  ]
+ },
+ "Basilisk Gate": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true,
+  "abilities": [
+   {
+    "api": "Pump",
+    "target": "creature"
+   }
+  ]
+ },
+ "Black Mage's Rod": {
+  "cmc": 2,
+  "types": [
+   "artifact"
+  ],
+  "keywords": [
+   "Equip"
+  ],
+  "abilities": [
+   {
+    "api": "Attach",
+    "target": "creature"
+   }
+  ]
+ },
+ "Blood Fountain": {
+  "cmc": 1,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZone",
+    "target": "creature"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Token",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Brainstorm": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Draw",
+   "chain": [
+    "ChangeZone"
+   ],
+   "cards": 3
+  }
+ },
+ "Burning-Tree Emissary": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 2,
+  "triggers": [
+   {
+    "api": "Mana",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Cast Down": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Destroy",
+   "target": "creature",
+   "harmful": true
+  }
+ },
+ "Chain Lightning": {
+  "cmc": 1,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "chain": [
+    "CopySpellAbility"
+   ],
+   "damage": 3,
+   "target": "any",
+   "harmful": true
+  }
+ },
+ "Citadel Gate": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Cleansing Wildfire": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Destroy",
+   "chain": [
+    "ChangeZone",
+    "Draw"
+   ],
+   "target": "other",
+   "harmful": true
+  }
+ },
+ "Clockwork Percussionist": {
+  "cmc": 1,
+  "types": [
+   "artifact",
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Haste"
+  ],
+  "triggers": [
+   {
+    "api": "Dig",
+    "chain": [
+     "Effect",
+     "Cleanup"
+    ],
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Counterspell": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Counter",
+   "target": "spell",
+   "harmful": true
+  }
+ },
+ "Cryogen Relic": {
+  "cmc": 2,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "PutCounter",
+    "target": "creature"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Draw",
+    "trigger": "ETB"
+   },
+   {
+    "api": "Draw",
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Cryptic Serpent": {
+  "cmc": 7,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 6,
+  "toughness": 5
+ },
+ "Deem Inferior": {
+  "cmc": 4,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "ChangeZone",
+   "target": "permanent"
+  }
+ },
+ "Deep Analysis": {
+  "cmc": 4,
+  "types": [
+   "sorcery"
+  ],
+  "keywords": [
+   "Flashback"
+  ],
+  "spell": {
+   "api": "Draw",
+   "cards": 2,
+   "target": "player"
+  }
+ },
+ "Dispel": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Counter",
+   "target": "other",
+   "harmful": true
+  }
+ },
+ "Dread Return": {
+  "cmc": 4,
+  "types": [
+   "sorcery"
+  ],
+  "keywords": [
+   "Flashback"
+  ],
+  "spell": {
+   "api": "ChangeZone",
+   "target": "creature"
+  }
+ },
+ "Drossforge Bridge": {
+  "cmc": 0,
+  "types": [
+   "artifact",
+   "land"
+  ],
+  "keywords": [
+   "Indestructible"
+  ],
+  "mana": true
+ },
+ "Elves of Deep Shadow": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "mana": true
+ },
+ "Elvish Mystic": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "mana": true
+ },
+ "End the Festivities": {
+  "cmc": 1,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "DamageAll",
+   "damage": 1
+  }
+ },
+ "Eviscerator's Insight": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "keywords": [
+   "Flashback"
+  ],
+  "spell": {
+   "api": "Draw",
+   "cards": 2
+  }
+ },
+ "Experimental Synthesizer": {
+  "cmc": 1,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "Token"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Dig",
+    "chain": [
+     "Effect",
+     "Cleanup"
+    ],
+    "trigger": "ETB"
+   },
+   {
+    "api": "Dig",
+    "chain": [
+     "Effect",
+     "Cleanup"
+    ],
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Faerie Miscreant": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "Draw",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Faerie Seer": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "Scry",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Faithless Looting": {
+  "cmc": 1,
+  "types": [
+   "sorcery"
+  ],
+  "keywords": [
+   "Flashback"
+  ],
+  "spell": {
+   "api": "Draw",
+   "chain": [
+    "Discard"
+   ],
+   "cards": 2
+  }
+ },
+ "Fanatical Offering": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Draw",
+   "chain": [
+    "Token"
+   ],
+   "cards": 2
+  }
+ },
+ "Fiery Temper": {
+  "cmc": 3,
+  "types": [
+   "instant"
+  ],
+  "keywords": [
+   "Madness"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "damage": 3,
+   "target": "any",
+   "harmful": true
+  }
+ },
+ "Fireblast": {
+  "cmc": 6,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "damage": 4,
+   "target": "any",
+   "harmful": true
+  }
+ },
+ "Force Spike": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Counter",
+   "target": "spell",
+   "harmful": true
+  }
+ },
+ "Forest": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Fyndhorn Elves": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "mana": true
+ },
+ "Galvanic Blast": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "target": "any",
+   "harmful": true
+  }
+ },
+ "Gatecreeper Vine": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 2,
+  "keywords": [
+   "Defender"
+  ],
+  "triggers": [
+   {
+    "api": "ChangeZone",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Generous Ent": {
+  "cmc": 6,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 5,
+  "toughness": 7,
+  "keywords": [
+   "Reach",
+   "TypeCycling"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZone"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Token",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Goblin Bushwhacker": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Kicker"
+  ],
+  "triggers": [
+   {
+    "api": "PumpAll",
+    "trigger": "ETB",
+    "pump_power": 1
+   }
+  ]
+ },
+ "Goblin Tomb Raider": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 2
+ },
+ "Grab the Prize": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Draw",
+   "chain": [
+    "DamageAll"
+   ],
+   "cards": 2
+  }
+ },
+ "Great Furnace": {
+  "cmc": 0,
+  "types": [
+   "artifact",
+   "land"
+  ],
+  "mana": true
+ },
+ "Guardian of the Guildpact": {
+  "cmc": 4,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 3,
+  "keywords": [
+   "Protection"
+  ]
+ },
+ "Guttersnipe": {
+  "cmc": 3,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 2,
+  "triggers": [
+   {
+    "api": "DealDamage",
+    "trigger": "SpellCast",
+    "damage": 2,
+    "harmful": true
+   }
+  ]
+ },
+ "Harrier Strix": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Flying"
+  ],
+  "abilities": [
+   {
+    "api": "Draw",
+    "chain": [
+     "Discard"
+    ],
+    "cards": 1
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Tap",
+    "trigger": "ETB",
+    "target": "permanent",
+    "harmful": true
+   }
+  ]
+ },
+ "Heap Gate": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true,
+  "abilities": [
+   {
+    "api": "Token"
+   }
+  ]
+ },
+ "Highway Robbery": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "keywords": [
+   "Plot"
+  ],
+  "spell": {
+   "api": "GenericChoice"
+  }
+ },
+ "Humbling Elder": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 2,
+  "keywords": [
+   "Flash"
+  ],
+  "triggers": [
+   {
+    "api": "Pump",
+    "trigger": "ETB",
+    "pump_power": -2,
+    "target": "opp_creature",
+    "harmful": true
+   }
+  ]
+ },
+ "Hunter's Blowgun": {
+  "cmc": 1,
+  "types": [
+   "artifact"
+  ],
+  "keywords": [
+   "Equip"
+  ],
+  "abilities": [
+   {
+    "api": "Attach",
+    "target": "creature"
+   }
+  ]
+ },
+ "Ichor Wellspring": {
+  "cmc": 2,
+  "types": [
+   "artifact"
+  ],
+  "triggers": [
+   {
+    "api": "Draw",
+    "trigger": "ETB"
+   },
+   {
+    "api": "Draw",
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Idyllic Beachfront": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Island": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Journey to Nowhere": {
+  "cmc": 2,
+  "types": [
+   "enchantment"
+  ],
+  "triggers": [
+   {
+    "api": "ChangeZone",
+    "trigger": "ETB",
+    "target": "creature",
+    "harmful": true
+   },
+   {
+    "api": "ChangeZone",
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Krark-Clan Shaman": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+   {
+    "api": "DamageAll",
+    "damage": 1
+   }
+  ]
+ },
+ "Land Grant": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "ChangeZone"
+  }
+ },
+ "Lava Dart": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "keywords": [
+   "Flashback"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "damage": 1,
+   "target": "any",
+   "harmful": true
+  }
+ },
+ "Lead the Stampede": {
+  "cmc": 3,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Dig"
+  }
+ },
+ "Lembas": {
+  "cmc": 2,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "GainLife"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Scry",
+    "chain": [
+     "Draw"
+    ],
+    "trigger": "ETB",
+    "cards": 1
+   },
+   {
+    "api": "ChangeZone",
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Lightning Bolt": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "damage": 3,
+   "target": "any",
+   "harmful": true
+  }
+ },
+ "Llanowar Elves": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "mana": true
+ },
+ "Lotleth Giant": {
+  "cmc": 7,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 6,
+  "toughness": 5,
+  "triggers": [
+   {
+    "api": "DealDamage",
+    "trigger": "ETB",
+    "target": "opponent",
+    "harmful": true
+   }
+  ]
+ },
+ "Lotus Petal": {
+  "cmc": 0,
+  "types": [
+   "artifact"
+  ],
+  "mana": true
+ },
+ "Lórien Revealed": {
+  "cmc": 5,
+  "types": [
+   "sorcery"
+  ],
+  "keywords": [
+   "TypeCycling"
+  ],
+  "spell": {
+   "api": "Draw",
+   "cards": 3
+  },
+  "abilities": [
+   {
+    "api": "ChangeZone"
+   }
+  ]
+ },
+ "Makeshift Munitions": {
+  "cmc": 2,
+  "types": [
+   "enchantment"
+  ],
+  "abilities": [
+   {
+    "api": "DealDamage",
+    "damage": 1,
+    "target": "any",
+    "harmful": true
+   }
+  ]
+ },
+ "Masked Meower": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Haste"
+  ],
+  "abilities": [
+   {
+    "api": "Draw"
+   }
+  ]
+ },
+ "Masked Vandal": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 3,
+  "keywords": [
+   "Changeling"
+  ],
+  "triggers": [
+   {
+    "api": "ChangeZone",
+    "trigger": "ETB",
+    "target": "artifact_or_enchantment",
+    "harmful": true
+   }
+  ]
+ },
+ "Mental Note": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Mill",
+   "chain": [
+    "Draw"
+   ],
+   "cards": 2
+  }
+ },
+ "Mesmeric Fiend": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "triggers": [
+   {
+    "api": "ChangeZone",
+    "trigger": "ETB",
+    "target": "opponent",
+    "harmful": true
+   },
+   {
+    "api": "ChangeZone",
+    "chain": [
+     "Cleanup"
+    ],
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Mistvault Bridge": {
+  "cmc": 0,
+  "types": [
+   "artifact",
+   "land"
+  ],
+  "keywords": [
+   "Indestructible"
+  ],
+  "mana": true
+ },
+ "Moon-Circuit Hacker": {
+  "cmc": 2,
+  "types": [
+   "enchantment",
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 1,
+  "keywords": [
+   "Ninjutsu"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZone"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Discard",
+    "trigger": "DamageDone"
+   }
+  ]
+ },
+ "Mountain": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Murmuring Mystic": {
+  "cmc": 4,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 5,
+  "triggers": [
+   {
+    "api": "Token",
+    "trigger": "SpellCast"
+   }
+  ]
+ },
+ "Myr Enforcer": {
+  "cmc": 7,
+  "types": [
+   "artifact",
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 4,
+  "toughness": 4,
+  "keywords": [
+   "Affinity"
+  ]
+ },
+ "Nihil Spellbomb": {
+  "cmc": 1,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZoneAll",
+    "target": "player"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Draw",
+    "trigger": "ChangesZone",
+    "cards": 1
+   }
+  ]
+ },
+ "Ninja of the Deep Hours": {
+  "cmc": 4,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 2,
+  "keywords": [
+   "Ninjutsu"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZone"
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Draw",
+    "trigger": "DamageDone",
+    "cards": 1
+   }
+  ]
+ },
+ "Nyxborn Hydra": {
+  "cmc": 1,
+  "types": [
+   "enchantment",
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 1,
+  "keywords": [
+   "Bestow",
+   "Reach",
+   "Trample"
+  ]
+ },
+ "Of One Mind": {
+  "cmc": 3,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Draw",
+   "cards": 2
+  }
+ },
+ "Outlaw Medic": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 3,
+  "keywords": [
+   "Lifelink"
+  ],
+  "triggers": [
+   {
+    "api": "Draw",
+    "trigger": "ChangesZone"
+   }
+  ]
+ },
+ "Overgrown Battlement": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 4,
+  "keywords": [
+   "Defender"
+  ],
+  "mana": true
+ },
+ "Ponder": {
+  "cmc": 1,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "RearrangeTopOfLibrary",
+   "chain": [
+    "Draw"
+   ],
+   "cards": 3
+  }
+ },
+ "Preordain": {
+  "cmc": 1,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Scry",
+   "chain": [
+    "Draw"
+   ]
+  }
+ },
+ "Priest of Titania": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "mana": true
+ },
+ "Prismatic Strands": {
+  "cmc": 3,
+  "types": [
+   "instant"
+  ],
+  "keywords": [
+   "Flashback"
+  ],
+  "spell": {
+   "api": "ChooseColor",
+   "chain": [
+    "Effect"
+   ]
+  }
+ },
+ "Pulse of Murasa": {
+  "cmc": 3,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "ChangeZone",
+   "chain": [
+    "GainLife"
+   ],
+   "target": "creature"
+  }
+ },
+ "Quirion Ranger": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+   {
+    "api": "Untap",
+    "target": "creature"
+   }
+  ]
+ },
+ "Rally at the Hornburg": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Token",
+   "chain": [
+    "PumpAll"
+   ]
+  }
+ },
+ "Reckless Impulse": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Dig",
+   "chain": [
+    "Effect",
+    "Cleanup"
+   ]
+  }
+ },
+ "Reckoner's Bargain": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "GainLife",
+   "chain": [
+    "Draw"
+   ],
+   "cards": 2
+  }
+ },
+ "Refurbished Familiar": {
+  "cmc": 4,
+  "types": [
+   "artifact",
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 1,
+  "keywords": [
+   "Affinity",
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "Discard",
+    "chain": [
+     "Draw",
+     "Cleanup"
+    ],
+    "trigger": "ETB",
+    "cards": 1,
+    "harmful": true
+   }
+  ]
+ },
+ "Sacred Cat": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Lifelink",
+   "Embalm"
+  ],
+  "abilities": [
+   {
+    "api": "CopyPermanent"
+   }
+  ]
+ },
+ "Sagu Wildling": {
+  "cmc": 5,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 3,
+  "toughness": 3,
+  "keywords": [
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "GainLife",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Saiba Cryptomancer": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 1,
+  "keywords": [
+   "Flash",
+   "Backup",
+   "Hexproof"
+  ],
+  "triggers": [
+   {
+    "api": "PutCounter",
+    "chain": [
+     "Pump"
+    ],
+    "trigger": "ETB",
+    "target": "creature"
+   }
+  ]
+ },
+ "Saruli Caretaker": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 3,
+  "keywords": [
+   "Defender"
+  ],
+  "mana": true
+ },
+ "Sea Gate": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Seat of the Synod": {
+  "cmc": 0,
+  "types": [
+   "artifact",
+   "land"
+  ],
+  "mana": true
+ },
+ "Silverbluff Bridge": {
+  "cmc": 0,
+  "types": [
+   "artifact",
+   "land"
+  ],
+  "keywords": [
+   "Indestructible"
+  ],
+  "mana": true
+ },
+ "Slagwoods Bridge": {
+  "cmc": 0,
+  "types": [
+   "artifact",
+   "land"
+  ],
+  "keywords": [
+   "Indestructible"
+  ],
+  "mana": true
+ },
+ "Sleep of the Dead": {
+  "cmc": 1,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Tap",
+   "chain": [
+    "Pump"
+   ],
+   "target": "creature",
+   "harmful": true
+  }
+ },
+ "Snap": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "ChangeZone",
+   "chain": [
+    "Untap"
+   ],
+   "target": "creature",
+   "harmful": true
+  }
+ },
+ "Sneaky Snacker": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 1,
+  "keywords": [
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "ChangeZone",
+    "trigger": "Drawn"
+   }
+  ]
+ },
+ "Snow-Covered Forest": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "Spell Pierce": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Counter",
+   "target": "spell",
+   "harmful": true
+  }
+ },
+ "Spellstutter Sprite": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Flash",
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "Counter",
+    "trigger": "ETB",
+    "target": "spell",
+    "harmful": true
+   }
+  ]
+ },
+ "Squadron Hawk": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Flying"
+  ],
+  "triggers": [
+   {
+    "api": "ChangeZone",
+    "trigger": "ETB"
+   }
+  ]
+ },
+ "Swamp": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true
+ },
+ "The Modern Age": {
+  "cmc": 2,
+  "types": [
+   "enchantment"
+  ]
+ },
+ "Thought Scour": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Mill",
+   "chain": [
+    "Draw"
+   ],
+   "cards": 2,
+   "target": "player",
+   "harmful": true
+  }
+ },
+ "Thoughtcast": {
+  "cmc": 5,
+  "types": [
+   "sorcery"
+  ],
+  "keywords": [
+   "Affinity"
+  ],
+  "spell": {
+   "api": "Draw",
+   "cards": 2
+  }
+ },
+ "Thraben Charm": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm"
+  }
+ },
+ "Timberwatch Elf": {
+  "cmc": 3,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 2,
+  "abilities": [
+   {
+    "api": "Pump",
+    "target": "creature"
+   }
+  ]
+ },
+ "Tinder Wall": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 3,
+  "keywords": [
+   "Defender"
+  ],
+  "mana": true,
+  "abilities": [
+   {
+    "api": "DealDamage",
+    "damage": 2,
+    "target": "creature",
+    "harmful": true
+   }
+  ]
+ },
+ "Tolarian Terror": {
+  "cmc": 7,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 5,
+  "toughness": 5,
+  "triggers": [
+   {
+    "api": "Ward",
+    "trigger": "BecomesTarget"
+   }
+  ]
+ },
+ "Toxin Analysis": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Pump",
+   "chain": [
+    "Investigate"
+   ],
+   "target": "creature"
+  }
+ },
+ "Troll of Khazad-dûm": {
+  "cmc": 6,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 6,
+  "toughness": 5,
+  "keywords": [
+   "TypeCycling"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZone"
+   }
+  ]
+ },
+ "Twisted Landscape": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "keywords": [
+   "Cycling"
+  ],
+  "mana": true,
+  "abilities": [
+   {
+    "api": "ChangeZone"
+   },
+   {
+    "api": "Draw",
+    "cards": 1
+   }
+  ]
+ },
+ "Vault of Whispers": {
+  "cmc": 0,
+  "types": [
+   "artifact",
+   "land"
+  ],
+  "mana": true
+ },
+ "Voldaren Epicure": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "triggers": [
+   {
+    "api": "DealDamage",
+    "chain": [
+     "Token"
+    ],
+    "trigger": "ETB",
+    "damage": 1,
+    "harmful": true
+   }
+  ]
+ },
+ "Wall of Roots": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 5,
+  "keywords": [
+   "Defender"
+  ],
+  "mana": true
+ },
+ "Wellwisher": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+   {
+    "api": "GainLife"
+   }
+  ]
+ },
+ "Winding Way": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "ChooseType",
+   "chain": [
+    "Dig"
+   ]
+  }
+ },
+ "Writhing Chrysalis": {
+  "cmc": 4,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 3,
+  "keywords": [
+   "Devoid",
+   "Reach"
+  ],
+  "triggers": [
+   {
+    "api": "Token",
+    "trigger": "SpellCast"
+   },
+   {
+    "api": "PutCounter",
+    "trigger": "Sacrificed"
+   }
+  ]
+ }
+}
