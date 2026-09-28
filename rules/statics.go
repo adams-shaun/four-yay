@@ -2511,6 +2511,13 @@ func (e *Engine) costModifiersWithTargetsX(p state.PlayerID, id state.ObjID, sco
 func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
 	// The same per-pass provenance capture costModifiersWithTargetsUsing owns.
 	e.costProvenanceSeen = false
+	// The same census-vs-assignment split costModifiersWithTargetsUsing makes:
+	// matching reads every candidate, a target-relative amount reads only a
+	// complete legal assignment.
+	amountTargets := targets
+	if potential {
+		amountTargets = e.costAmountTargets(p, id, scope, targets)
+	}
 	var mods costMods
 	xBound := x != 0
 	for _, group := range []struct {
@@ -2561,7 +2568,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmountX(sv, x, targets))
+				mods.raises = append(mods.raises, e.modAmountX(sv, x, amountTargets))
 				continue
 			}
 			red := costMod{
@@ -2578,7 +2585,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, x, targets)
+				amount := e.modAmountX(sv, x, amountTargets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2594,7 +2601,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, x, targets)
+				red.generic = e.modAmountX(sv, x, amountTargets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2608,7 +2615,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
 			continue
 		}
-		if n := e.modAmountX(sv, x, targets); n > mods.setFloor {
+		if n := e.modAmountX(sv, x, amountTargets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2623,6 +2630,13 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 	// Each pass owns the provenance capture: cleared here, set by
 	// costStaticApplies when a ValidCard$ carries a cast-provenance token.
 	e.costProvenanceSeen = false
+	// The potential pass hands the whole candidate census to the gate chain
+	// (so ValidTarget$/ValidSpell$ can match ANY candidate) but a target-relative
+	// Amount$ reads only a complete legal assignment (costAmountTargets).
+	amountTargets := targets
+	if potential {
+		amountTargets = e.costAmountTargets(p, id, scope, targets)
+	}
 	var mods costMods
 	for _, group := range []struct {
 		mode  string
@@ -2672,7 +2686,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmount(sv, targets))
+				mods.raises = append(mods.raises, e.modAmount(sv, amountTargets))
 				continue
 			}
 			red := costMod{
@@ -2689,7 +2703,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmount(sv, targets)
+				amount := e.modAmount(sv, amountTargets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2705,7 +2719,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 					}
 				}
 			} else {
-				red.generic = e.modAmount(sv, targets)
+				red.generic = e.modAmount(sv, amountTargets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2719,7 +2733,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, false) {
 			continue
 		}
-		if n := e.modAmount(sv, targets); n > mods.setFloor {
+		if n := e.modAmount(sv, amountTargets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
