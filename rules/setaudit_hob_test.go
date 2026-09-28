@@ -1,0 +1,433 @@
+package rules
+
+// Set audit: The Hobbit (hob), 193 cards. Tests minted from the audit are
+// named TestSetAudit_hob_<Card>_<Behaviour>. A test that asserts CORRECT
+// behaviour and passes is regression coverage and stays unguarded. A test
+// that asserts correct behaviour the engine does NOT have is guarded by
+// GORGE_SET_AUDIT so the committed suite stays green; its guard names the
+// defect and the follow-up ticket.
+
+import (
+	"os"
+	"testing"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// hobGuard skips a finding test unless GORGE_SET_AUDIT is set.
+func hobGuard(t *testing.T, defect, ticket string) {
+	t.Helper()
+	if os.Getenv("GORGE_SET_AUDIT") == "" {
+		t.Skip("set-audit finding (hob): " + defect + ". Follow-up: " + ticket)
+	}
+}
+
+// hobCard is reg.Lookup or a fatal: a corpus card a finding test depends on
+// being absent is a corpus-pin change, not something to paper over.
+func hobCard(t *testing.T, reg *cards.Registry, name string) *cards.Card {
+	t.Helper()
+	c, ok := reg.Lookup(name)
+	if !ok {
+		t.Fatalf("corpus fixture: %q missing from the registry", name)
+	}
+	return c
+}
+
+// hobHasType reports whether a face's type line holds t.
+func hobHasType(f *cards.Face, t string) bool {
+	if f == nil {
+		return false
+	}
+	for _, x := range f.Types {
+		if x == t {
+			return true
+		}
+	}
+	return false
+}
+
+// hobPut puts a corpus card onto seat p's battlefield eventlessly (as the
+// other onBoard helpers do) and returns its id.
+func hobPut(t *testing.T, e *Engine, p state.PlayerID, c *cards.Card) state.ObjID {
+	t.Helper()
+	o := e.G.AddObject(c, p)
+	o.Zone = state.ZBattlefield
+	e.G.SetZone(state.ZBattlefield, p, append(e.G.Zone(state.ZBattlefield, p), o.ID))
+	return o.ID
+}
+
+// hobSeekUnlessPay passes priority decisions and any mid-resolution search
+// ask until the mid-resolution unless-pay KModes is pending, returning nil if
+// none is posed within limit.
+func hobSeekUnlessPay(t *testing.T, e *Engine, limit int) *decision.Decision {
+	t.Helper()
+	for i := 0; i < limit && !e.G.Over; i++ {
+		d := e.Pending()
+		if d == nil {
+			return nil
+		}
+		if d.Kind == decision.KModes && d.ResumeKind == "unless_pay" {
+			return d
+		}
+		switch d.Kind {
+		case decision.KPriority:
+			castFirst(t, e, "pass")
+		case decision.KChoose:
+			// A library search or similar mid-resolution pick: take the
+			// first offered card so the activation can reach its unless gate.
+			if len(d.Options) == 0 {
+				return nil
+			}
+			submitChoices(t, e, d.Options[0].Index)
+		default:
+			t.Fatalf("unexpected decision %v (seat %d) while seeking the unless-pay ask: %+v", d.Kind, d.Player, d)
+		}
+	}
+	return nil
+}
+
+// TestSetAudit_hob_ElvenPassage_BeholdUntapsSearchedLand: Elven Passage is
+// the corpus's switched Behold carrier:
+//
+//	You may behold an Elf. If you do, untap that land.
+//	(To behold an Elf, choose an Elf you control or reveal an Elf card from your hand.)
+//
+// CR 702.176 (Behold) makes beholding a choice that may name a permanent you
+// control or a card in your hand; CR 608.2 applies the "if you do" body to
+// the chosen branch. The engine's ParseUnlessCost hard-declines
+// Behold<...> ("no corpus UnlessCost$ carries either"), so the untap body is
+// unreachable and the searched land stays tapped.
+func TestSetAudit_hob_ElvenPassage_BeholdUntapsSearchedLand(t *testing.T) {
+	hobGuard(t, "Elven Passage's UnlessCost$ Behold<1/Elf> is unpriceable, so the beholding branch never runs and the searched land stays tapped", "hob-elven-passage-behold")
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	elf := card(t, "Name:Elf Scout\nTypes:Creature Elf Scout\nPT:1/1\nOracle:x\n")
+	e := handEngine(t, hobCard(t, reg, "Elven Passage"))
+	elfID := hobPut(t, e, 0, elf)
+	passage := hobPut(t, e, 0, hobCard(t, reg, "Elven Passage"))
+	e.askPriority(0)
+
+	if o := e.G.Obj(passage); o == nil || o.Face() == nil || o.Face().Name != "Elven Passage" || o.Tapped {
+		t.Fatalf("Elven Passage precondition: %+v, want untapped on the battlefield", o)
+	}
+	if o := e.G.Obj(elfID); o == nil || o.Zone != state.ZBattlefield || !hobHasType(o.Face(), "Creature") {
+		t.Fatalf("Elf precondition: %+v", e.G.Obj(elfID))
+	}
+	before := len(e.G.Zone(state.ZBattlefield, 0))
+	opt := abilityOption(t, e, passage, 0)
+	submitChoices(t, e, opt.Index)
+
+	ask := hobSeekUnlessPay(t, e, 60)
+	if ask == nil {
+		t.Fatal("no unless-pay ask posed for Elven Passage's Behold branch")
+	}
+	if len(ask.Options) < 2 {
+		t.Fatalf("Behold pay branch not offered: options = %+v", ask.Options)
+	}
+	// Precondition: the search put a NEW permanent on the battlefield, so
+	// there is a land whose untap the beholding should cause.
+	after := e.G.Zone(state.ZBattlefield, 0)
+	if len(after) != before+1 {
+		t.Fatalf("searched land precondition: battlefield %d -> %d, want one new permanent", before, len(after))
+	}
+	var searched state.ObjID
+	for _, id := range after {
+		if id != elfID && id != passage {
+			searched = id
+		}
+	}
+	if o := e.G.Obj(searched); o == nil || !o.Tapped {
+		t.Fatalf("searched land precondition: %+v, want it on the battlefield tapped", e.G.Obj(searched))
+	}
+	submitChoices(t, e, ask.Options[0].Index) // beholding pay branch
+	hobDrain(t, e, 60)
+	if o := e.G.Obj(searched); o == nil || o.Tapped {
+		t.Fatalf("searched land = %+v, want untapped after beholding an Elf (CR 702.176)", o)
+	}
+}
+
+// TestSetAudit_hob_GreatGildedBoat_RecruitIsImplemented: Recruit is one of
+// the set's named keyword actions. Its rules text --
+//
+//	(Draw a card, then discard a card. If you discarded a nonland card,
+//	 create a 1/1 white Human Soldier creature token.)
+//
+// -- is a real action (CR 701), and the engine has no api:Recruit at all:
+// all 10 carriers in the set are Unsupported. A keyword the set is defined
+// by must not be a silent no-op.
+func TestSetAudit_hob_GreatGildedBoat_RecruitIsImplemented(t *testing.T) {
+	hobGuard(t, "the Recruit keyword action is unimplemented (api:Recruit), so all 10 hob Recruit cards do nothing when their trigger fires", "hob-recruit-keyword")
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	boat := hobCard(t, reg, "Great Gilded Boat")
+	sup := effects.Supported()
+	t.Run("registry", func(t *testing.T) {
+		if !sup["api:Recruit"] {
+			miss := reg.Unsupported(boat, sup)
+			t.Fatalf("Great Gilded Boat is Unsupported %v; api:Recruit is not implemented", miss)
+		}
+	})
+}
+
+// drainToEnd answers every pending decision deterministically until the stack
+// empties, so a probing test can inspect the final board.
+func hobDrain(t *testing.T, e *Engine, limit int) {
+	t.Helper()
+	for i := 0; i < limit && !e.G.Over && len(e.G.Stack) > 0; i++ {
+		d := e.Pending()
+		if d == nil {
+			return
+		}
+		switch d.Kind {
+		case decision.KPriority:
+			castFirst(t, e, "pass")
+		default:
+			if len(d.Options) == 0 {
+				return
+			}
+			submitChoices(t, e, d.Options[0].Index)
+		}
+	}
+}
+
+// TestSetAudit_hob_GoblinPlateMail_AmassesThenAttaches: the Equipment's ETB
+// amasses Goblins 1 and then attaches itself to the amassed Army (the cards
+// "then attach this Equipment to the amassed Army"). CR 701.3/701.34: the
+// amass creates (or grows) the Army, and the attach must name THAT object.
+func TestSetAudit_hob_GoblinPlateMail_AmassesThenAttaches(t *testing.T) {
+	hobGuard(t, "Goblin Plate Mail's Amass RememberAmass$ True + Attach Defined$ Remembered sequence does not attach to the amassed Army", "hob-goblin-plate-mail-amass-attach")
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngineTokens(t, hobCard(t, reg, "Goblin Plate Mail"))
+	e.askPriority(0)
+	mail := e.G.Zone(state.ZHand, 0)[0]
+	// Play the artifact through the ordinary cast offer so its ETB trigger
+	// fires through real events (eventless placement fires no trigger).
+	addMana(t, e, 0, "BR")
+	opt := castByName(t, e, 0, "Goblin Plate Mail")
+	if opt == nil {
+		t.Fatalf("Goblin Plate Mail not castable: %+v", e.Pending().Options)
+	}
+	submitChoices(t, e, opt.Index)
+	hobDrain(t, e, 60)
+
+	o := e.G.Obj(mail)
+	if o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Goblin Plate Mail precondition: %+v, want on the battlefield", o)
+	}
+	var armies []state.ObjID
+	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+		if id == mail {
+			continue
+		}
+		ao := e.G.Obj(id)
+		if ao != nil && ao.Face() != nil && hobHasType(ao.Face(), "Creature") && ao.Face().Name == "Goblin Army" {
+			armies = append(armies, id)
+		}
+	}
+	// Fall back to any 0/0 Army token the amass minted.
+	if len(armies) == 0 {
+		for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+			if id == mail {
+				continue
+			}
+			ao := e.G.Obj(id)
+			if ao != nil && ao.Face() != nil && hobHasType(ao.Face(), "Creature") && hobHasType(ao.Face(), "Army") {
+				armies = append(armies, id)
+			}
+		}
+	}
+	if len(armies) == 0 {
+		var names []string
+		for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+			if ao := e.G.Obj(id); ao != nil && ao.Face() != nil {
+				names = append(names, ao.Face().Name)
+			}
+		}
+		t.Fatalf("amass precondition: Goblin Plate Mail's ETB minted no Army to attach to; battlefield = %v", names)
+	}
+	army := armies[0]
+	if got := e.G.Obj(army).AttachedTo; got != mail {
+		t.Fatalf("amassed Army AttachedTo = %d, want the Equipment %d", got, mail)
+	}
+	if got := e.G.Obj(mail).AttachedTo; got != army {
+		t.Fatalf("Goblin Plate Mail AttachedTo = %d, want the amassed Army %d", got, army)
+	}
+}
+
+// TestSetAudit_hob_Bombur_DoesNotUntapWithoutEnduringStory pins the Storied
+// replacement on Bombur, Gentle Dreamer:
+//
+//	Bombur doesn't untap during your untap step unless you have an enduring story.
+//
+// The Forge script is `R:Event$ Untap | ValidCard$ Card.Self |
+// ValidStepTurnToController$ You | Layer$ CantHappen | EnduringStory$ False`.
+// CR 702.175: without the enduring story the replacement must apply and the
+// untap cannot happen; with it, Bombur untaps.
+func TestSetAudit_hob_Bombur_DoesNotUntapWithoutEnduringStory(t *testing.T) {
+	hobGuard(t, "Bombur's Untap replacement with EnduringStory$ False is not read, so Bombur untaps regardless of the enduring story", "hob-bombur-storied-untap")
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngine(t, hobCard(t, reg, "Bombur, Gentle Dreamer"))
+	bombur := hobPut(t, e, 0, hobCard(t, reg, "Bombur, Gentle Dreamer"))
+	if o := e.G.Obj(bombur); o == nil || !o.Face().HasKeyword("Storied") {
+		t.Fatalf("precondition: Bombur lacks Storied: %+v", e.G.Obj(bombur))
+	}
+	if got := countEvents(e, func(ev events.Event) bool { return ev.Kind == events.Untap }); got != 0 {
+		t.Fatalf("precondition: %d untap events already", got)
+	}
+	// Tap Bombur, then run the untap step of seat 0's next turn with no
+	// enduring story: he must stay tapped.
+	e.emit(events.Event{Kind: events.Tap, Obj: bombur})
+	if !e.G.Obj(bombur).Tapped {
+		t.Fatal("precondition: Bombur did not tap")
+	}
+	e.finishUntapStep(0)
+	if !e.G.Obj(bombur).Tapped {
+		t.Fatal("Bombur untapped without an enduring story (CR 702.175)")
+	}
+}
+
+// hobGraveyardFiller puts n plain cards into seat p's graveyard.
+func hobGraveyardFiller(t *testing.T, e *Engine, p state.PlayerID, n int) {
+	t.Helper()
+	filler := card(t, "Name:Set-Audit Filler\nTypes:Instant\nOracle:x\n")
+	var ids []state.ObjID
+	for i := 0; i < n; i++ {
+		o := e.G.AddObject(filler, p)
+		o.Zone = state.ZGraveyard
+		ids = append(ids, o.ID)
+	}
+	e.G.SetZone(state.ZGraveyard, p, ids)
+}
+
+// TestSetAudit_hob_MastersCouncillors_CountsGraveyardsWithSevenPlus pins the
+// Forge static
+//
+//	S:Mode$ Continuous | Affected$ Card.Self | AddPower$ X
+//	SVar:X:PlayerCountPlayers$HasPropertyHasCardsInGraveyard_Card_GE7/Times.2
+//
+// -- "This creature gets +2/+0 for each graveyard with seven or more cards in
+// it." CR 604.3 makes this a static ability generating a continuous effect;
+// the player-count head enumerates PLAYERS whose graveyard holds at least
+// seven cards, times two. The engine never reads the
+// HasPropertyHasCardsInGraveyard_<types>_GE<n> head, so X evaluates to 0 and
+// the ability is a silent no-op (the creature stays 1/3 even with a full
+// graveyard).
+func TestSetAudit_hob_MastersCouncillors_CountsGraveyardsWithSevenPlus(t *testing.T) {
+	hobGuard(t, "the PlayerCountPlayers$HasPropertyHasCardsInGraveyard_Card_GE7/Times.2 count read from a continuous AddPower$ static resolves to 0, so Master's Councillors' +2/+0 per full graveyard is a no-op", "hob-hascardsingraveyard-count")
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngine(t, hobCard(t, reg, "Master's Councillors"))
+	id := hobPut(t, e, 0, hobCard(t, reg, "Master's Councillors"))
+	// Precondition: the printed base is 1/3 and the graveyard starts empty.
+	if o := e.G.Obj(id); o == nil || o.Face() == nil || o.Face().Name != "Master's Councillors" || o.Zone != state.ZBattlefield {
+		t.Fatalf("Master's Councillors precondition: %+v", o)
+	}
+	if p, tf := e.Derived(id).Power, e.Derived(id).Toughness; p != 1 || tf != 3 {
+		t.Fatalf("printed precondition: %d/%d, want 1/3", p, tf)
+	}
+	hobGraveyardFiller(t, e, 0, 7)
+	if got := len(e.G.Zone(state.ZGraveyard, 0)); got != 7 {
+		t.Fatalf("graveyard precondition: %d cards, want 7", got)
+	}
+	if p := e.Derived(id).Power; p != 3 {
+		t.Fatalf("Master's Councillors power = %d, want 3 (base 1 + 2 for one graveyard holding >=7 cards, CR 604.3)", p)
+	}
+}
+
+// TestSetAudit_hob_TheMasterOfLakeTown_DrawsForGraveyardsWithSevenPlus is
+// regression coverage (it PASSES): the un-suffixed
+// `PlayerCountPlayers$HasPropertyHasCardsInGraveyard_Card_GE7` head is read
+// correctly, so a full graveyard makes the dies trigger draw one.
+func TestSetAudit_hob_TheMasterOfLakeTown_DrawsForGraveyardsWithSevenPlus(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngine(t, hobCard(t, reg, "The Master of Lake-town"))
+	id := hobPut(t, e, 0, hobCard(t, reg, "The Master of Lake-town"))
+	if o := e.G.Obj(id); o == nil || o.Face() == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("The Master of Lake-town precondition: %+v", o)
+	}
+	hobGraveyardFiller(t, e, 0, 7)
+	before := len(e.G.Zone(state.ZHand, 0))
+	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZBattlefield, To: state.ZGraveyard})
+	e.putTriggersOnStack()
+	e.resolveTop()
+	passUntilStackEmpty(t, e, 60)
+	if got := len(e.G.Zone(state.ZHand, 0)); got != before+1 {
+		t.Fatalf("hand after the dies trigger = %d, want %d (one draw for the graveyard holding >=7 cards)", got, before+1)
+	}
+}
+
+// TestSetAudit_hob_CantankerousKeepers_AffinityForElvesReducesCost is
+// regression coverage (it PASSES): Affinity for Elves (CR 702.41) reduces the
+// generic cost by {1} per Elf controlled, so five Elves take {5}{G} to {G}.
+func TestSetAudit_hob_CantankerousKeepers_AffinityForElvesReducesCost(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngine(t, hobCard(t, reg, "Cantankerous Keepers"))
+	elf := card(t, "Name:Elf Scout\nTypes:Creature Elf Scout\nPT:1/1\nOracle:x\n")
+	for i := 0; i < 5; i++ {
+		hobPut(t, e, 0, elf)
+	}
+	var id state.ObjID
+	for _, h := range e.G.Zone(state.ZHand, 0) {
+		if o := e.G.Obj(h); o != nil && o.Face() != nil && o.Face().Name == "Cantankerous Keepers" {
+			id = h
+		}
+	}
+	if id == 0 {
+		t.Fatal("precondition: Cantankerous Keepers is not in hand")
+	}
+	if got := len(e.G.Zone(state.ZBattlefield, 0)); got != 5 {
+		t.Fatalf("Elf precondition: %d on the battlefield, want 5", got)
+	}
+	if red := reduceOf(t, e, 0, id); red != 5 {
+		t.Fatalf("Affinity for Elves reduction with 5 Elves = %d, want 5", red)
+	}
+}
+
+// TestSetAudit_hob_NastyLittleRabbit_FerociousGate is regression coverage (it
+// PASSES): Nasty Little Rabbit's Ferocious intervening-if
+// (`IsPresent$ Creature.YouCtrl+powerGE4`, CR 603.4) must fire the
+// beginning-of-combat counter only while a power-4-or-greater creature is
+// controlled.
+func TestSetAudit_hob_NastyLittleRabbit_FerociousGate(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e := handEngine(t, hobCard(t, reg, "Nasty Little Rabbit"))
+	rabbit := hobPut(t, e, 0, hobCard(t, reg, "Nasty Little Rabbit"))
+	if o := e.G.Obj(rabbit); o == nil || o.Face() == nil || !hobHasType(o.Face(), "Creature") || o.Zone != state.ZBattlefield {
+		t.Fatalf("Nasty Little Rabbit precondition: %+v", o)
+	}
+	e.G.Active = 0
+	e.G.Step = state.StepMain1
+	e.askPriority(0)
+	// No power-4 creature: the intervening-if fails, no counter.
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepBeginCombat})
+	e.putTriggersOnStack()
+	for i := 0; i < 10 && len(e.G.Stack) > 0; i++ {
+		e.resolveTop()
+	}
+	if c := e.G.Obj(rabbit).Counter("P1P1"); c != 0 {
+		t.Fatalf("Ferocious with no power-4 creature: rabbit has %d +1/+1 counters, want 0", c)
+	}
+	big := card(t, "Name:Set-Audit Beast\nTypes:Creature Beast\nPT:4/4\nOracle:x\n")
+	hobPut(t, e, 0, big)
+	if p := e.Derived(e.G.Zone(state.ZBattlefield, 0)[len(e.G.Zone(state.ZBattlefield, 0))-1]).Power; p < 4 {
+		t.Fatalf("power-4 precondition: the Beast has power %d", p)
+	}
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepBeginCombat})
+	e.putTriggersOnStack()
+	for i := 0; i < 10 && len(e.G.Stack) > 0; i++ {
+		e.resolveTop()
+	}
+	if c := e.G.Obj(rabbit).Counter("P1P1"); c != 1 {
+		t.Fatalf("Ferocious with a power-4 creature: rabbit has %d +1/+1 counters, want 1", c)
+	}
+}
