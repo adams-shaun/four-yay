@@ -722,6 +722,79 @@ redealt worlds and rolled out by both seats to a turn horizon, leaf
 combat: Tactical's plan, none, all, the gorge bot's and sb-tactical's
 declarations).
 
+**Fidelity (measured 2026-09-28, `kshadowcheck` over 64 recorded kernel
+games, 12,891 decisions of both seats: corpus1 tactical vs tactical,
+corpus2 tactical vs heuristic, seeds 800-801 and 810-815).** Every field
+the observation carries is compared after staging and `Advance`, re-read
+through gorge's own derivation (layers, zones):
+
+| Field | Checked | Mismatch |
+|---|---|---|
+| decision staged (engine poses our decision) | 12,891 | 1.99% (below) |
+| turn, step, active player (priority holder at priority decisions: 10,016) | 12,634 each | 0 |
+| life, hand / library / graveyard counts, mana pools, lands played | 25,268 each | 0 (graveyard count: 2) |
+| battlefield names (multiset per side) | 25,268 | 0.01% |
+| battlefield objects: staged, controller, tapped, damage, counters, attachments, token, land/creature type | 217,343 each | 0 (2 unstaged) |
+| creatures: power, toughness, 13 keywords | 81,405 each | 0 (with staged pumps) |
+| creatures without the staged pumps (ablation, `-nopumps`): power / toughness / haste / hexproof | 81,405 | 0.63% / 0.78% / 0.27% / 0.21% |
+| summoning sickness (active player's creatures) | 44,721 | 0.07% (0.37% without pumps) |
+| our hand, exile | 12,634 | 0 |
+| stack: count, controllers / target counts | 12,634 / 3,752 | 0 / 0.69% |
+| attackers declared | 2,721 | 0.07% |
+| hidden: opponent's true hand inside the dealt pool (truth read from the opponent's own observation) | 10,203 | 0.26% (a stale truth hand, read at its last decision) |
+
+The decisions that could not be staged (1.99%): 179 "other" decisions
+(mid-resolution choices the engine poses to the other seat first), 43
+stack items with no gorge counterpart (the kernel's `madness_offer`; an
+ability whose source is in a hidden zone; the Hero token's trigger), 8
+unmatched triggers. Unexplained P/T and keyword residue (a pump, an
+anthem gorge's layers do not reproduce) was staged as an until-EOT effect
+on 802 + 427 of the 12,891 decisions; without it 0.6-0.8% of creature
+P/T reads differ. Staging costs 0.47-0.65 ms a decision. Embalmed Sacred
+Cat tokens (427) are staged as card-copy tokens of the card.
+
+**Mapping coverage (same corpus).** Priority decisions: 99.4% staged,
+99.5% of the kernel's non-mana candidates have a gorge counterpart (an
+option, a payment action or a potential play), 98.6% of decisions map
+completely; gorge offered 82 non-mana options the kernel did not (Quirion
+Ranger's untap, Fireblast's alternative cost, a land drop the kernel
+withheld). Attacks: 99.7%; blocks: 100%. Targets, discards, library
+selections, colours and modes have no counterpart by design (answered
+from the gorge policy's plan when it made one, else by v1agent.Tactical).
+Live, over the dev matches below, the shadow answered 85-88% of all
+decisions (priority 94-97%, attacks and blocks ~100%); every other
+decision was v1agent.Tactical's, counted by reason, with 0 wire errors, 0
+agent fallbacks, 0 panics and 0 forfeits.
+
+**Dev matches against sbv1-tactical (tac9)** (`kshadow_corpus.py --match`,
+seat-swapped mirrors on all 8 decks, dev seeds 800-871; win rate of the
+shadow agent, ±1.96 SE):
+
+| Policy | Seeds | Games | Win % | ms/decision mean (max) |
+|---|---|---|---|---|
+| shadow-tactical (sb-tactical on the shadow) | 800-831 | 512 | 43.9 (225-287) | 0.8 (38) |
+| shadow-az (az-redeal, 25 sims, gen 0) | 800-807 | 128 | 21.1 ±7.1 | 18.6 (642) |
+| shadow-roll, top-5 of Tactical's candidates, bot rollouts, W12 H2 | 800-807 | 128 | 44.5 ±8.6 | 83 (1,586) |
+| arbiter (Tactical vs sb-tactical), bot rollouts, W16 H2 | 800-807 | 128 | 53.9 ±8.6 | 25 (920) |
+| arbiter, sb-tactical rollouts, W16 H2 | 800-807 | 128 | 53.1 ±8.6 | 69 (3,922) |
+| arbiter, sb-tactical rollouts, W32 H2, margin 0.02 | 808-823 | 256 | 57.4 ±6.1 | 134 (18,849) |
+| same, second seed set | 840-855 | 256 | 57.8 ±6.0 | 144 (7,030) |
+| arbiter + 2 more of Tactical's candidates | 808-823 | 256 | 56.2 ±6.1 | 181 (8,464) |
+| arbiter, sb-tactical rollouts, W16 H4 | 808-823 | 256 | 58.6 ±6.0 | 113 (7,698) |
+| routed: Affinity/Wildfire arbiter defaulting to sb-tactical, else arbiter, W16 H2 | 824-839 | 256 | 56.2 ±6.1 | 46 (3,033) |
+| routed, W32 H2 | 840-855 | 256 | 57.4 ±6.1 | 99 (7,574) |
+| routed, W24 H4 (`best1`) | 856-871 | 256 | 59.8 ±6.0 | 105 (5,346) |
+
+Per deck, sb-tactical on the shadow is far from uniform against tac9 (512
+games): Affinity 73%, Wildfire 67%, Burn 52%, Faeries 44%, Elves 39%,
+CawGates 34%, Rally 23%, Spy 16% (it never plays the Spy combo). The
+arbiter keeps tac9's pick unless sb-tactical's, played in the same W
+redealt worlds by sb-tactical rollouts for both seats to a turn horizon,
+scores more than the margin higher; it overrides at about 13-20% of the
+contested decisions (495 of 3,684 in the dev arena) and so inherits the
+better policy per position rather than per deck. Routing by deck adds
+nothing measurable on top (57.4 vs 57.8 on the same seeds).
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the
