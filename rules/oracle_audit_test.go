@@ -85,8 +85,6 @@ var oracleKnownDivergent = map[string]string{
 	"Not of This World/high-power-creature-target-enables-cost-reduction": "spell remains unoffered for zero despite targeting a spell targeting a controlled 9/9; expected cost reduced from {7} to {0}",
 	// (Giada row retired: main's 6f256c81e/b250fa68c excluded the entering
 	// permanent from replacement counts, so the scenario now passes.)
-	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
-	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Thor damage 0; expected p0 life 20 and Thor damage 3",
 	// Engine primitive: the Effect-created entry replacement from the attack
 	// trigger does not put its counter on the remembered Hero returned from the graveyard.
 	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
