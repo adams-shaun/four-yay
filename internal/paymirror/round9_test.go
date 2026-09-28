@@ -17,7 +17,7 @@ import (
 // script text) end to end: no cast is a mismatch, the live-vs-clone control
 // is equivalent, and each named cast gets its root-caused verdict.
 //
-//   - 10860 seq 8057 (Three Visits) and 10012 (Worldly Tutor), commander4
+//   - 10860 seq 8083 (Three Visits) and 10141 (Worldly Tutor), commander4
 //     production_differs "Command Tower planned G, manual GGG": Command
 //     Tower's Produced$ Combo ColorIdentity reaches the wheel as the raw
 //     "Add Combo ColorIdentity", which no label class parses, so the
@@ -26,7 +26,11 @@ import (
 //     one mana); the float now proves the option on a clone
 //     (verifiedProductions) and rejects an any-colour label naming another
 //     amount (anyLabelFits).
-//   - 11056 seq 6387 (Artisan of Kozilek), commander4 mirror_missing_decision:
+//   - 11056's former seq 6387 (Artisan of Kozilek) finding is no longer reached
+//     after fb-20260927T160557Z-b958ef31 correctly fires Sidar Jabari's
+//     command-zone Eminence trigger; the added draw/discard changes the game
+//     trajectory. The seed remains a full-game clean-mirror check.
+//     Before that behavior change it was a commander4 mirror_missing_decision:
 //     run A's window queued Syr Konrad's two dies triggers (two sacrificed
 //     Eldrazi Spawn) under one CR 603.3b order ask; the float put each on the
 //     stack as it triggered, with no ask (floatOnlyTriggerOrder). The end
@@ -74,8 +78,7 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 	}
 	const precedes = "expected:float_then_cast:float_trigger_precedes_cast"
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		10860: {8057: "", 10012: ""},
-		11056: {6387: precedes},
+		10860: {8083: "", 10141: ""},
 		10056: {6108: ""},
 		8175:  {5587: precedes},
 	}
