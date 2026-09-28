@@ -2940,13 +2940,20 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 	frameIndex := len(e.derivedPTFrames)
 	e.derivedPTFrames = append(e.derivedPTFrames, derivedPTSnapshot{id: id})
 	defer func() { e.derivedPTFrames = e.derivedPTFrames[:frameIndex] }()
+	// Layer 7d's contribution is fixed for the whole walk (counters do not
+	// change mid-derivation), so sum every P/T counter KIND once here -- the
+	// frame snapshot and the 7d tail below then add the same pair, and no
+	// step of the walk can disagree about what a counter does to P/T. All
+	// P/T counter kinds (P1P1, M0M1, P2P0, ...) are honoured through the one
+	// state.CounterPTDelta parser; before this only P1P1 and M1M1 were.
+	var counterDPower, counterDToughness int32
+	if o != nil {
+		counterDPower, counterDToughness = o.CounterPTTotals()
+	}
 	setFrame := func() {
 		preCounterPower, preCounterToughness := power, toughness
-		currentPower, currentToughness := power, toughness
-		if o != nil {
-			currentPower += o.Counter("P1P1") - o.Counter("M1M1")
-			currentToughness += o.Counter("P1P1") - o.Counter("M1M1")
-		}
+		currentPower := power + counterDPower
+		currentToughness := toughness + counterDToughness
 		e.derivedPTFrames[frameIndex] = derivedPTSnapshot{
 			id:                  id,
 			power:               currentPower,
@@ -3068,15 +3075,10 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 			toughness = addPT(toughness, addToughness)
 		}
 	}
-	// 7d: counters apply after every other layer-7 effect (CR 613.4).
-	if n := o.Counter("P1P1"); n != 0 {
-		power += n
-		toughness += n
-	}
-	if n := o.Counter("M1M1"); n != 0 {
-		power -= n
-		toughness -= n
-	}
+	// 7d: counters apply after every other layer-7 effect (CR 613.4). Every
+	// P/T counter kind contributes its CR 122.1a delta, summed once above.
+	power += counterDPower
+	toughness += counterDToughness
 	return power, toughness, basePower, baseToughness
 }
 
