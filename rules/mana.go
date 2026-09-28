@@ -3236,8 +3236,10 @@ func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider
 	if o == nil {
 		return false
 	}
-	for _, ce := range e.active() {
-		if !ce.MayPlay || !rider(ce) || ce.Controller != p {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
+		if !ce.MayPlay || !rider(*ce) || ce.Controller != p {
 			continue
 		}
 		if ce.MayPlayPlayerTurn && e.G.Active != p {

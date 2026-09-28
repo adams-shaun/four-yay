@@ -755,7 +755,9 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 		return false, false
 	}
 	limited := lazyMayPlays{e: e, p: p}
-	for _, ce := range e.active() {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
 		if !ce.MayPlay || !ce.MayPlayFree || ce.Controller != p {
 			continue
 		}
@@ -772,7 +774,7 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if !e.effectGrantMatches(ce, o.ID) {
+		if !e.effectGrantMatches(*ce, o.ID) {
 			continue
 		}
 		return true, true
@@ -795,7 +797,9 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 		return false
 	}
 	limited := lazyMayPlays{e: e, p: p}
-	for _, ce := range e.active() {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
 		if !ce.MayPlay || ce.Controller != p {
 			continue
 		}
@@ -812,7 +816,7 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if e.effectGrantMatches(ce, o.ID) {
+		if e.effectGrantMatches(*ce, o.ID) {
 			return true
 		}
 	}

@@ -1907,7 +1907,9 @@ func (e *Engine) gainedActivationsThisTurn(id, foreign state.ObjID, idx int) int
 // stays reproducible run to run.
 func (e *Engine) adjustLandPlays(p state.PlayerID) int {
 	total := 0
-	for _, ce := range e.active() {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
 		if ce.AdjustLandPlays <= 0 {
 			continue
 		}
@@ -2957,7 +2959,12 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		}
 		f := o.Face()
 		// The printed-keyword read is the cheap gate, so it runs first: every
-		// gate here is a pure read, so the order changes no answer.
+		// gate here is a pure read, so the order changes no answer. A face with
+		// no keyword line at all answers "absent" to every KeywordParam, so it
+		// is skipped before the reader builds its Cost.
+		if len(f.Keywords) == 0 {
+			continue
+		}
 		hc, ok := harmonizeCost(f)
 		if !ok || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
@@ -3044,7 +3051,8 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	for _, id := range e.G.Zone(state.ZGraveyard, p) {
 		o := e.G.Obj(id)
 		f := o.Face()
-		if f == nil {
+		if f == nil || len(f.Keywords) == 0 {
+			// No keyword line: KeywordParam("Warp") is absent.
 			continue
 		}
 		wc, ok := keywordAltCost(f, "Warp")
@@ -3166,6 +3174,14 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil {
+			continue
+		}
+		// mayhemCastCost reads the derived Mayhem parameter, which is absent
+		// whenever its subset precheck rules the head out (keywordmay.go).
+		if !e.mayHaveDerivedKeyword(id, "Mayhem") {
+			if derivedMemoVerify {
+				e.verifyKeywordPrecheck(id, "Mayhem")
+			}
 			continue
 		}
 		mc, ok := e.mayhemCastCost(id)
@@ -3969,6 +3985,11 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		// with what was offered; a manifest or cloak carrier (no family flag) is
 		// never offered here -- its turn-up is a separate subsystem.
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			// morphFaceUpCost answers false for any object that is not face
+			// down; test that flag before building its cost.
+			if o := e.G.Obj(id); o == nil || !o.FaceDown {
+				continue
+			}
 			mf, ok := morphFaceUpCost(e.G.Obj(id))
 			if !ok {
 				continue

@@ -103,6 +103,26 @@ type actionStaticSource struct {
 	e     *Engine
 	views actionStaticViews
 	ready bool
+	// addAbility is views.continuous' subsequence carrying a non-blank
+	// AddAbility$, built on first use (addAbilityContinuous).
+	addAbility      []staticView
+	addAbilityReady bool
+}
+
+// addAbilityContinuous returns, in order, the Continuous statics of get()
+// whose AddAbility$ is non-blank: the only ones the mana walk's per-object
+// AddAbility$ scan (appendAvailableManaAbilitiesGate) does not skip at its
+// first test, filtered once per walk instead of once per object.
+func (s *actionStaticSource) addAbilityContinuous() []staticView {
+	if !s.addAbilityReady {
+		for _, sv := range s.get().continuous {
+			if strings.TrimSpace(sv.Params["AddAbility"]) != "" {
+				s.addAbility = append(s.addAbility, sv)
+			}
+		}
+		s.addAbilityReady = true
+	}
+	return s.addAbility
 }
 
 func (s *actionStaticSource) get() actionStaticViews {
@@ -1148,7 +1168,9 @@ func (e *Engine) alternativeCosts(p state.PlayerID, id state.ObjID) []altCostVie
 	// route above over the same e.active() source collectCostStatics' sibling
 	// walk feeds the Raise/Reduce/Set modes, so the two delivery routes
 	// cannot disagree about what applies or when it expires.
-	for _, ce := range e.active() {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
 		if ce.CostStaticMode != "AlternativeCost" {
 			continue
 		}

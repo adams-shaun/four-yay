@@ -1801,7 +1801,11 @@ var handRoots = struct {
 			// through mayPlayGrant over the face's Statics slice -- the same
 			// direct-scan shape warpGraveyardAllowed has (mayPlaySpellIds also
 			// scans the exiled card's own EffectZone$ Exile self-grant).
-			"Engine.mayPlaySpellIds", "Engine.mayPlayLandIds"},
+			"Engine.mayPlaySpellIds", "Engine.mayPlayLandIds",
+			// The mana walk's AddAbility$ pre-filter reads the same
+			// Continuous statics' AddAbility$ once per offer walk, over the
+			// collectActionStatics snapshot, instead of once per object.
+			"actionStaticSource.addAbilityContinuous"},
 		// maxSpeedAbilities scans Continuous AddAbility$/Condition$MaxSpeed
 		// statics directly over the face's Statics slice (CR 702.163c's
 		// max-speed grant), with no activeStatics call -- the same
