@@ -2,7 +2,6 @@ package rules
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -53,9 +52,6 @@ func (e *Engine) checkSpeedStart() {
 	if e.G.Over {
 		return
 	}
-	if !e.speedPossible() {
-		return
-	}
 	for _, p := range e.G.AliveFrom(0) {
 		if int(p) >= len(e.G.Players) || e.G.Players[p].Lost || e.G.Players[p].Speed != 0 {
 			continue
@@ -76,81 +72,6 @@ func (e *Engine) checkSpeedStart() {
 				Text: "start your engines"})
 		}
 	}
-}
-
-// speedPossible is checkSpeedStart's amortised pre-filter, the exact shape of
-// ascendPossible (rules/ascend.go): the scan reads every permanent's DERIVED
-// keywords, and the post-fold hook runs it on every battlefield entry, token
-// mint and control transfer, so a game with no Start your engines! card in
-// its arena pays a full derived walk per event for nothing. No object can
-// carry the keyword unless some card in the game's object arena mentions it
-// (printed K:Start your engines!, or an AddKeyword$/KW$ grant naming it), so
-// the arena is scanned once, incrementally (objects are only ever appended),
-// and the per-seat walk runs only once such a card exists. It is a pure cache
-// over state and emits nothing.
-type speedScan struct {
-	game    *state.Game
-	scanned int
-	seen    bool
-}
-
-func (e *Engine) speedPossible() bool {
-	s := &e.speed
-	if s.game != e.G || s.scanned > len(e.G.Objs) {
-		*s = speedScan{game: e.G}
-	}
-	for ; !s.seen && s.scanned < len(e.G.Objs); s.scanned++ {
-		if cardMentionsStartYourEngines(e.G.Objs[s.scanned].Card) {
-			s.seen = true
-		}
-	}
-	return s.seen
-}
-
-// cardMentionsStartYourEngines reports whether any face of c prints Start
-// your engines! or names it in any parameter or SVar (a grant). Deliberately
-// over-inclusive: a false positive only costs the full scan.
-func cardMentionsStartYourEngines(c *cards.Card) bool {
-	if c == nil {
-		return false
-	}
-	params := func(m map[string]string) bool {
-		for _, v := range m { // membership test only; order cannot matter.
-			if strings.Contains(v, "Start your engines") {
-				return true
-			}
-		}
-		return false
-	}
-	for _, f := range c.Faces {
-		if f == nil {
-			continue
-		}
-		for _, k := range f.Keywords {
-			if strings.Contains(k, "Start your engines") {
-				return true
-			}
-		}
-		if params(f.SVars) {
-			return true
-		}
-		for _, st := range f.Statics {
-			if params(st.Params) {
-				return true
-			}
-		}
-		for _, a := range f.Abilities {
-			if a != nil && params(a.Params) {
-				return true
-			}
-		}
-		for _, tr := range f.Triggers {
-			if params(tr.Params) || (tr.Effect != nil && params(tr.Effect.Params)) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // speedTriggeredThisTurn counts the trigger, not its resolution. A queued

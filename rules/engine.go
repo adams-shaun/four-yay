@@ -162,10 +162,6 @@ type Engine struct {
 	// Storied" arena scan (rules/storied.go); a pure cache, zero = rescan.
 	storied storiedScan
 
-	// speed is checkSpeedStart's incremental "could anything carry Start your
-	// engines!" arena scan (rules/speed.go); a pure cache, zero = rescan.
-	speed speedScan
-
 	// turnsTaken caches the TurnChange census used by Count$TurnsThisGame.
 	// turnsTakenEpoch is the log length represented by the cache; emit advances
 	// both together, while an Engine assembled around an existing log lazily
@@ -3211,9 +3207,6 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		(ev.Kind == events.Damage && ev.Obj == 0 && ev.Amount > 0 &&
 			ev.Counter != "infect") {
 		e.checkSpeedGain(ev)
-	}
-	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
-		e.checkSpeedStart()
 	}
 	// Ascend (CR 702.131a): the city's blessing's continuous re-check. A
 	// battlefield entry (the ordinary MoveZone), a token mint (TokenCreate/
