@@ -166,3 +166,25 @@ No open ticket overlapped (queue checked 2026-09-28).
    v2.1 fixed-deck/hidden-list benchmarks exist.
 4. Propose the definition upstream (SpellBench `benchmarks/fdn-limited`) with
    the 16-deck pool and gorge as the engine.
+
+## First FDN baseline (2026-09-28, spellbench-prep 49544624c)
+
+This is a gorge-native round robin on the 16-deck `fdn-limited` pool, played as seat-swapped mirrors: 4 pairs per deck, 128 games per bot pair, 384 games in total. It was rated with SpellBench's own leaderboard code, anchored on sb-uniform.
+
+| Bot | Elo | CI95 | W-L |
+|---|---|---|---|
+| bot | 1327 | [1267, 1395] | 212-44 |
+| sb-heuristic | 1103 | [1058, 1150] | 110-146 |
+| sb-uniform (anchor) | 1000 | anchor | 62-194 |
+
+- Every game finished normally: 0 truncated, 0 halted, 0 draws.
+- One sb-uniform answer was refused by the engine, and the fallback handled it.
+- sb-heuristic's pursuits (multi-step plays) failed 216 of 743 times, and sb-uniform's 266 of 789. That is the lost-action signal the sb-actions work targets.
+- The ordering and the gaps are close to pauper-kernel's (bot 1238 / heuristic 1080).
+
+Rerun with this sequence:
+
+1. `botbench -spellbench sb-uniform,sb-heuristic,bot -spellbench-catalog fdn -spellbench-pairs 4 -spellbench-out <dir> -workers 8`
+2. `scripts/spellbench-rate.py --anchor sb-uniform --format fdn-limited-bo1 --out <dir>/rate <dir>` (with `/mnt/sata/gorge-training/sbvenv/bin` on PATH)
+
+The data is under `/mnt/sata/gorge-training/spellbench-work/fdn/base4/`.
