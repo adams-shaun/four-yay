@@ -15,7 +15,7 @@ import (
 
 // fixture loads a recorded mtg-kernel decision (x_kernel_v5 included) and
 // its mirror deck.
-func fixture(t *testing.T, name string) (*Setup, *v1agent.Decision) {
+func fixture(t testing.TB, name string) (*Setup, *v1agent.Decision) {
 	t.Helper()
 	reg := testutil.CorpusRegistry(t)
 	raw, err := os.ReadFile(filepath.Join("testdata", name+".json"))
