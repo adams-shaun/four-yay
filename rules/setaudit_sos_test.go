@@ -474,20 +474,27 @@ func TestSetAudit_sos_EliteInterceptor_PreparedSpellCopyUnprepares(t *testing.T)
 	}
 	libBefore := len(e.G.Zone(state.ZLibrary, 0))
 	submitChoices(t, e, idx)
+	// Casting has put the copy on the stack, but priority has not passed and
+	// the spell has not resolved. CR 601.2i / 722.3c require unpreparing as
+	// part of the cast, not as a later resolution or zone-change consequence.
+	if o := e.G.Obj(copyID); o == nil || o.Zone != state.ZStack {
+		t.Fatalf("prepared copy: after cast choice, copy zone = %v, want stack before resolution", zoneOf(o))
+	}
+	if o := e.G.Obj(intl); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("prepared copy: Interceptor left the battlefield during casting")
+	}
+	unpreparedAtCast := false
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.AlterAttribute && ev.Obj == intl && ev.Text == "Prepared" && ev.Amount < 0 {
+			unpreparedAtCast = true
+		}
+	}
+	if !unpreparedAtCast {
+		t.Fatal("prepared copy: no removal of Interceptor's Prepared designation immediately after casting, before resolution")
+	}
 	sosDrain(t, e, bear, 30)
 	if o := e.G.Obj(intl); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatal("prepared copy: Interceptor left the battlefield unexpectedly")
-	}
-	// CR 722.3c: unprepare at cast time, recorded as a removal event,
-	// not just when the prepare spell resolves or the copy leaves exile.
-	unprepared := false
-	for _, ev := range e.L.Events {
-		if ev.Kind == events.AlterAttribute && ev.Obj == intl && ev.Text == "Prepared" && ev.Amount < 0 {
-			unprepared = true
-		}
-	}
-	if !unprepared {
-		t.Error("prepared copy: no removal of Interceptor's Prepared designation on cast")
 	}
 	if got := len(e.G.Zone(state.ZLibrary, 0)); got != libBefore-1 {
 		t.Errorf("prepared copy: library has %d cards, want %d (Rejoinder must draw)", got, libBefore-1)
