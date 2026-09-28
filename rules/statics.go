@@ -1304,8 +1304,7 @@ func (e *Engine) alternativeCosts(p state.PlayerID, id state.ObjID) []altCostVie
 // parses into an unmodelled part is never offered -- an unpriceable cost
 // must not exist as an option, because ParseCost's malformed-token fallback
 // would otherwise price it one generic mana (the may-play route's
-// documented direction; the printed AlternativeCost statics all parse
-// today, measured over the corpus's 150 Mode$ AlternativeCost lines).
+// documented direction).
 func (e *Engine) altCostParse(id state.ObjID, raw string) (Cost, bool) {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {

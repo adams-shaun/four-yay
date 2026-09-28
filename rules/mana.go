@@ -93,6 +93,16 @@ type CostPart struct {
 	// hand -- is then exiled as part of the same payment, linked to the
 	// paying source (ExiledWith) so "return the exiled card" reads it.
 	ThenExile bool
+	// Each marks a GainLife part spelled GainLife<N/Player.../*>, Forge's
+	// "each" marker on the trailing third field (Reverent Silence's "each
+	// other player gains 6 life", Skyshroud Cutter's 5). It is preserved as
+	// parsed data -- never re-derived from the Spec text at payment -- so the
+	// prose and any future per-part reading agree with the token. It is
+	// unused by every other head. Note this is a DESCRIPTION of the printed
+	// wording, not the payment semantics: the payment pays every player the
+	// Spec matches relative to the payer (which for Player.Other/* is exactly
+	// the oracle), with or without the marker.
+	Each bool
 }
 
 // ManaPair is one two-face hybrid symbol: each face is a WUBRGC mana symbol,
@@ -224,6 +234,20 @@ type Cost struct {
 	// stops substituting generic mana for it, and a plain Cost$ part is
 	// settled by the cast flow like every other damage payment.
 	DamageYou []CostPart
+	// GainLife carries GainLife<N/Player...> parts -- the PAYER has the named
+	// player(s) gain N life as the payment (Forge CostGainLife; the
+	// Invigorate/Reverent Silence/Skyshroud Cutter AlternativeCost family,
+	// "rather than pay this spell's mana cost, you may have an opponent gain
+	// N life"). It is a payment of the cost, not an effect on the payer:
+	// each part emits one POSITIVE LifeChange per player the part's Spec
+	// matches relative to the payer, routed through the ordinary
+	// applyLifeReplacements machinery (CR 616 GainLife replacements apply).
+	// Spec keeps Forge's raw player word (Player.Opponent / Player.Other);
+	// Each is the trailing `/*` marker (see CostPart.Each) for the
+	// "each other player" spelling. Before the head existed the token hit
+	// the unrecognised-symbol fallback -- a phantom generic pip and the
+	// whole alternative withheld (altCostParse fails closed on Unknown).
+	GainLife []CostPart
 	// Return carries Return<N/Spec> tokens: a permanent (usually the source
 	// itself, Spec CARDNAME) returned to its OWNER's hand as the payment
 	// (Forge CostReturn.moveToHand; CR 118.2a lists returning a permanent to
@@ -609,6 +633,19 @@ var removeAnyCounterCost = regexp.MustCompile(`^RemoveAnyCounter<(X\d+\+|X|\d+)/
 // effects.ParseDamageUnlessCost; this head keeps a plain Cost$ spelling out
 // of Cost.Unknown.
 var damageYouCost = regexp.MustCompile(`^DamageYou<(\d+)(?:/([^>]*))?>$`)
+
+// gainLifeCost matches Forge's GainLife<N/Player...> cost token -- the payer
+// has the named player(s) gain N life as the payment (Forge CostGainLife).
+// The corpus carries it as a cost head on exactly the three "opponent gains
+// life" AlternativeCost cards (Invigorate, Reverent Silence, Skyshroud
+// Cutter); it also appears as a Cumulative-upkeep action (Wall of Shards,
+// whose own parseCumulativeAction reads it) and as a Splice cost (Roar of
+// Jukai, whose keyword is unimplemented) -- neither of those routes reaches
+// ParseCost. The amount is a FIXED literal N: every corpus carrier is a
+// literal, so any other value form falls to the ordinary malformed-token
+// fallback (never a silent dynamic reading). Spec keeps Forge's raw player
+// word; the optional trailing field is the `/*` each/all marker.
+var gainLifeCost = regexp.MustCompile(`^GainLife<(\d+)/(Player[^/>]+)(?:/([^>]*))?>$`)
 var rollDiceCost = regexp.MustCompile(`^RollDice<([^>]*)>$`)
 
 // xMinCost matches Forge's XMin<N> cost token -- the announced-X LOWER
@@ -978,6 +1015,19 @@ func ParseCost(s string) Cost {
 					continue
 				}
 				c.DamageYou = append(c.DamageYou, CostPart{N: int32(n), Desc: m[2]})
+				continue
+			}
+			if m := gainLifeCost.FindStringSubmatch(sym); m != nil {
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n < 0 || n > int64(math.MaxInt32) {
+					// Same safe fallback as every other malformed cost token --
+					// and REPORT it: the head is recognised, this instance is
+					// not modelled.
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				c.GainLife = append(c.GainLife, CostPart{N: int32(n), Spec: m[2], Each: m[3] == "*"})
 				continue
 			}
 			if m := exileCost.FindStringSubmatch(sym); m != nil {
@@ -1491,6 +1541,9 @@ func (c Cost) Plus(d Cost) Cost {
 	}
 	if len(d.DamageYou) > 0 {
 		c.DamageYou = append(append([]CostPart(nil), c.DamageYou...), d.DamageYou...)
+	}
+	if len(d.GainLife) > 0 {
+		c.GainLife = append(append([]CostPart(nil), c.GainLife...), d.GainLife...)
 	}
 	c.Forage = c.Forage || d.Forage
 	if len(d.Withheld) > 0 {
@@ -2070,6 +2123,13 @@ func formatCost(c Cost) string {
 	for _, part := range c.DamageYou {
 		parts = append(parts, "DamageYou<"+strconv.FormatInt(int64(part.N), 10)+">")
 	}
+	for _, part := range c.GainLife {
+		tok := "GainLife<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
+		if part.Each {
+			tok += "/*"
+		}
+		parts = append(parts, tok+">")
+	}
 	if c.Tap {
 		parts = append(parts, "T")
 	}
@@ -2209,6 +2269,9 @@ func costPhrase(c Cost) string {
 	}
 	for _, part := range c.DamageYou {
 		clauses = append(clauses, "take "+countPhrase(part.N)+" damage")
+	}
+	for _, part := range c.GainLife {
+		clauses = append(clauses, gainLifeCostPhrase(part))
 	}
 	for _, part := range c.Sac {
 		clauses = append(clauses, "sacrifice "+objectPhrase(part, "permanent"))
@@ -2428,6 +2491,30 @@ func countPhrase(n int32) string {
 	return strconv.FormatInt(int64(n), 10)
 }
 
+// gainLifeCostPhrase renders one GainLife<N/Player...> part as player-facing
+// prose: "an opponent gains N life" for the bare Player.Opponent form and
+// "each other player gains N life" for the /* marker (Reverent Silence,
+// Skyshroud Cutter). An unrecognised player word falls back to the generic
+// "a player" rather than echoing raw Forge filter syntax.
+func gainLifeCostPhrase(part CostPart) string {
+	who := "a player"
+	switch strings.TrimSpace(part.Spec) {
+	case "Player.Opponent":
+		who = "an opponent"
+	case "Player.Other":
+		if part.Each {
+			who = "each other player"
+		} else {
+			who = "another player"
+		}
+	}
+	verb := "gains"
+	if who == "each other player" {
+		verb = "gain"
+	}
+	return who + " " + verb + " " + countPhrase(part.N) + " life"
+}
+
 // pluralSuffix returns "s" for a count that is not exactly one.
 func pluralSuffix(n int32) string {
 	if n == 1 {
@@ -2587,7 +2674,7 @@ func costAnnouncesCastX(c Cost) bool {
 // even though it takes no payment), so a caller using this to skip the
 // cast-flow stages is told the truth.
 func (c Cost) HasNonMana() bool {
-	return c.Life > 0 || c.Tap || c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
+	return c.Life > 0 || c.Tap || c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.GainLife) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
 }
 
 // Priceable reports whether payMana can actually charge every part of this
@@ -2610,6 +2697,7 @@ func (c Cost) Priceable() bool {
 		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
 		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
 		len(c.Energy) == 0 && len(c.Return) == 0 && len(c.PutToLib) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&
+		len(c.GainLife) == 0 &&
 		len(c.MoveToGrave) == 0 && len(c.Mill) == 0
 }
 

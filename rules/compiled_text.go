@@ -403,6 +403,7 @@ func freezeCost(c Cost) Cost {
 	c.Energy = c.Energy[:len(c.Energy):len(c.Energy)]
 	c.LifeX = c.LifeX[:len(c.LifeX):len(c.LifeX)]
 	c.DamageYou = c.DamageYou[:len(c.DamageYou):len(c.DamageYou)]
+	c.GainLife = c.GainLife[:len(c.GainLife):len(c.GainLife)]
 	c.Return = c.Return[:len(c.Return):len(c.Return)]
 	c.PutToLib = c.PutToLib[:len(c.PutToLib):len(c.PutToLib)]
 	c.MoveToGrave = c.MoveToGrave[:len(c.MoveToGrave):len(c.MoveToGrave)]

@@ -288,7 +288,7 @@ func (e *Engine) chargeFromCost(c Cost, source state.ObjID) (blockCharge, bool) 
 		len(c.RevealOrChoose) > 0 ||
 		len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.Blight) > 0 ||
 		len(c.Draw) > 0 || len(c.Energy) > 0 || len(c.LifeX) > 0 ||
-		len(c.PutToLib) > 0 || len(c.DamageYou) > 0 ||
+		len(c.PutToLib) > 0 || len(c.DamageYou) > 0 || len(c.GainLife) > 0 ||
 		len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0 {
 		return blockCharge{}, false
 	}

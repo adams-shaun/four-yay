@@ -350,6 +350,8 @@ func paymentPlanCostDetail(c Cost) string {
 		return "cost:energy"
 	case len(c.DamageYou) != 0:
 		return "cost:damage"
+	case len(c.GainLife) != 0:
+		return "cost:gain_life"
 	case len(c.Return) != 0:
 		return "cost:return"
 	case len(c.PutToLib) != 0:
@@ -658,7 +660,7 @@ func paymentPlanCostOK(c Cost) bool {
 		!c.Tap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
 		len(c.Exile) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
 		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage && len(c.Draw) == 0 && len(c.Energy) == 0 &&
-		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 && len(c.Return) == 0 &&
+		len(c.LifeX) == 0 && !c.LifeHalfUp && len(c.DamageYou) == 0 && len(c.GainLife) == 0 && len(c.Return) == 0 &&
 		len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 && len(c.Unknown) == 0 && len(c.Exert) == 0
 }
 

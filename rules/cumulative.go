@@ -1128,7 +1128,7 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 	if len(amt.SubCounter) > 0 || len(amt.Reveal) > 0 || len(amt.RevealChosen) > 0 || len(amt.Behold) > 0 ||
 		len(amt.TapPermanent) > 0 || len(amt.Blight) > 0 ||
 		len(amt.AddCounter) > 0 || len(amt.Return) > 0 || len(amt.PutToLib) > 0 ||
-		len(amt.LifeX) > 0 || len(amt.DamageYou) > 0 || len(amt.Exert) > 0 || amt.Forage {
+		len(amt.LifeX) > 0 || len(amt.DamageYou) > 0 || len(amt.GainLife) > 0 || len(amt.Exert) > 0 || amt.Forage {
 		return false
 	}
 	if _, ok := e.triggeredCostDrawCounts(tc); !ok {

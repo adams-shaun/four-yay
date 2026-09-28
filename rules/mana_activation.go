@@ -3065,7 +3065,7 @@ func chainGatesOnActivationCount(sa *cards.SA) bool {
 // LifeX, an unsupported Return) live beside the call site.
 func manaCostPartsSettleable(cost Cost) bool {
 	if len(cost.Unknown) > 0 || len(cost.Evidence) > 0 || len(cost.Draw) > 0 ||
-		len(cost.DamageYou) > 0 || len(cost.PutToLib) > 0 || len(cost.MoveToGrave) > 0 ||
+		len(cost.DamageYou) > 0 || len(cost.GainLife) > 0 || len(cost.PutToLib) > 0 || len(cost.MoveToGrave) > 0 ||
 		len(cost.RollDice) > 0 || cost.LifeHalfUp {
 		return false
 	}
