@@ -2909,8 +2909,8 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && xBound) {
 		// Relative$ Amount$ scales with something the composition point does
 		// not yet know (IncreaseCost per target beyond the first, or a game
-		// state the offer-time read cannot price). Skip until X is bound or
-		// a target-bound amount can be evaluated. Other modes stay skipped.
+		// state the offer-time read cannot price) — a per-target shape no
+		// offer-time composition knows. Skipping, like ValidTarget$.
 		// EXCEPTION: the announced-X recomputation (costModifiersForTargetsX,
 		// manaToPay/manaToPayX) is exactly the caller whose composition point
 		// DOES know the variable a "costs {2} less for each permanent
@@ -2929,13 +2929,15 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// SVar:CostReduction:Count$Compare CheckTgt GE1.7.0 with
 		// SVar:CheckTgt:TargetedByTarget$Valid Card.powerGE7+YouCtrl reads
 		// its real {7}-or-0 from the targeted spell's own targets, at the
-		// offer gate (potentialCostModsUsing's legal assignment) and
+		// offer gate (potentialCostModsUsing's single candidate) and
 		// at the CR 601.2c reprice (the chosen targets) alike. The probe is
 		// the SAME evaluation modAmountX runs, so the gate and the amount
 		// cannot disagree; an amount that resolves to zero prices as no
 		// reduction, exactly what the skip produced. Anything unresolvable
 		// (and every RaiseCost/SetCost Relative$) keeps the fail-closed skip.
-		return false
+		if !(mode == "ReduceCost" && e.relativeAmountResolves(sv, targets)) {
+			return false
+		}
 	}
 	return true
 }
