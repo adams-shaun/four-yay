@@ -80,16 +80,16 @@ type Options struct {
 
 // Agent serves the v1 agent role for one policy.
 type Agent struct {
-	policy   Policy
-	fallback Policy
-	opts     Options
-	gameID   string
-	active   bool
-	pending  bool
-	lastID   string
-	lastReq  []byte
-	lastResp []byte
-	Stats    Stats
+	policy         Policy
+	fallbackPolicy Policy
+	opts           Options
+	gameID         string
+	active         bool
+	pending        bool
+	lastID         string
+	lastReq        []byte
+	lastResp       []byte
+	Stats          Stats
 	// LastGame and LastSeat name the most recent game_start (for stats
 	// records written after the game).
 	LastGame, LastSeat string
@@ -104,7 +104,7 @@ func New(p Policy, opts Options) *Agent {
 	if opts.ExtensionsAccepted == nil {
 		opts.ExtensionsAccepted = []string{}
 	}
-	return &Agent{policy: p, fallback: fb, opts: opts}
+	return &Agent{policy: p, fallbackPolicy: fb, opts: opts}
 }
 
 // Serve answers request lines from r on w until EOF.
@@ -244,7 +244,7 @@ func (a *Agent) gameStart(id string, top map[string]json.RawMessage) []byte {
 		// A policy that cannot start still plays: every choose falls back.
 		a.logf("game_start: policy failed: %v", err)
 	}
-	_ = a.call(func() { a.fallback.GameStart(g) })
+	_ = a.call(func() { a.fallbackPolicy.GameStart(g) })
 	a.gameID, a.active = g.GameID, true
 	a.LastGame, a.LastSeat = g.GameID, g.Seat
 	return a.response("ack", id, nil)
@@ -283,11 +283,7 @@ func (a *Agent) choose(id string, top map[string]json.RawMessage) []byte {
 	if pick < 0 || pick >= len(d.Candidates) {
 		a.Stats.Fallbacks++
 		a.logf("choose step %d: fallback (policy answered %d of %d)", d.Step, pick, len(d.Candidates))
-		pick = 0
-		_ = a.call(func() { pick = a.fallback.Choose(d) })
-		if pick < 0 || pick >= len(d.Candidates) {
-			pick = 0
-		}
+		pick = a.fallback(d)
 	}
 	var echo any
 	dec := json.NewDecoder(bytes.NewReader(d.Candidates[pick].Semantic.Raw))
@@ -298,6 +294,17 @@ func (a *Agent) choose(id string, top map[string]json.RawMessage) []byte {
 	return a.response("choice", id, map[string]any{
 		"selection": map[string]any{"candidate_id": pick, "semantic_echo": echo},
 	})
+}
+
+// fallback is the index the fallback policy (the heuristic builtin, for
+// the game's seat) chooses; it cannot fail. Same contract as v2agent's
+// Agent.fallback.
+func (a *Agent) fallback(d *Decision) int {
+	i := 0
+	if err := a.call(func() { i = a.fallbackPolicy.Choose(d) }); err != nil || i < 0 || i >= len(d.Candidates) {
+		return 0
+	}
+	return i
 }
 
 func (a *Agent) gameOver(id string, top map[string]json.RawMessage) []byte {
@@ -319,7 +326,7 @@ func (a *Agent) gameOver(id string, top map[string]json.RawMessage) []byte {
 		return a.errorLine(id, ErrMalformedRequest, "terminal: "+err.Error())
 	}
 	_ = a.call(func() { a.policy.GameOver(&t) })
-	_ = a.call(func() { a.fallback.GameOver(&t) })
+	_ = a.call(func() { a.fallbackPolicy.GameOver(&t) })
 	a.active, a.gameID = false, ""
 	return a.response("ack", id, nil)
 }

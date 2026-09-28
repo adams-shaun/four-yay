@@ -318,7 +318,7 @@ operator rules):
 
 Data: `/mnt/sata/gorge-training/spellbench-work/v1b/{final-bench,heldout-seed,heldout-fdn}`.
 
-### 3.4 Arena on mtg-kernel (v1)
+### 3.5 Arena on mtg-kernel (v1, measured)
 
 The public pauper-kernel leaderboard (g115 1388, a48 1238, c12 1226,
 heuristic 1102, uniform 1000, first 867;
@@ -344,7 +344,7 @@ engine, in that benchmark's shape, rated by SpellBench's own code.
   private bridge contract). Only the public client
   (`spellbench/integrations/mtg_kernel/kernel_flat_bot.py`) exists. The
   published ledger is the only g115 evidence we can use (below).
-- *sb-tactical (`wt/sb-v1b-heur` @ `c91a4d352`) cannot play here as is.*
+- *sb-tactical (D§3.4, merged on spellbench-prep) cannot play here as is.*
   It is a gorge-native seat policy: it reads gorge's `view.CardView` and
   `state` ids, so on a foreign engine it needs the shadow state of D§4.
   The mtg-kernel analogue is `v1agent.Tactical` (below); the two share
