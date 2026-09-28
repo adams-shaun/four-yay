@@ -415,6 +415,19 @@ var choiceCostRevealOrChoose = regexp.MustCompile(`^RevealOrChoose<(\d+)/([^/>]+
 // priced each at one generic mana and dropped the reveal entirely.
 var revealChosenCost = regexp.MustCompile(`^RevealChosen<(Player|Type)(?:/([^>]*))?>$`)
 
+// isWholeHandRevealSpec reports whether a Reveal cost part's type slot names
+// the WHOLE hand rather than a card filter. Forge spells "reveal your hand"
+// as Reveal<N/Hand> (Land Grant's free-cast cost, Sasaya, Orochi Ascendant's
+// flip cost) -- the count is display noise, the same reading
+// discardCandidates gives Discard<1/Hand> and Discard<0/Hand> -- and no card
+// ever matches the bare word "Hand" as a filter, so reading it as one leaves
+// the cost permanently unpayable and every carrier unplayable. Revealing an
+// empty hand is legal (CR 701.20a), so a whole-hand reveal is payable with
+// ANY hand, including an empty one.
+func isWholeHandRevealSpec(spec string) bool {
+	return strings.EqualFold(spec, "Hand")
+}
+
 // dynTapCost matches Forge's dynamic tap-any-number tapXType tokens -- the
 // heads the literal choiceCost regex above cannot read:
 //

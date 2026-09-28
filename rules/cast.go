@@ -632,8 +632,14 @@ type pendingCast struct {
 	// entries are announced by emitChoiceCosts -- a chosen permanent is a
 	// public choice, never a reveal of a hand card. Plain Reveal parts and
 	// every other paid card append true (they reveal).
+	//
+	// revealedEmptyHand records that a whole-hand Reveal part paid with an
+	// EMPTY hand (CR 701.20a: revealing a hand with no cards is legal). The
+	// empty payment is still a public reveal, so emitChoiceCosts announces it
+	// loudly instead of the reveal silently vanishing from the log.
 	revealOrChoosePart int
 	revealHandArm      []bool
+	revealedEmptyHand  bool
 
 	// ninjutsuDefender is the defender (CR 702.49b: the player, planeswalker
 	// or battle the returned creature was attacking) captured when a
@@ -1618,8 +1624,20 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			reserved[avail[i]] = true
 		}
 	}
+	// Reveal cost parts: a whole-hand Reveal (Reveal<N/Hand>) is payable with
+	// ANY hand -- including an empty one (CR 701.20a) -- so it never gates the
+	// offer. Every other part needs N matching hand cards. The self-exclusion
+	// follows the payment stage's rule: for a CAST (ability == false) the card
+	// being cast is on the stack while its cost is paid, so it cannot pay its
+	// own Reveal; for an ABILITY activation (ability == true) the source stays
+	// in the hand and CAN pay a self-reveal (Reveal<1/CARDNAME>, the forecast
+	// cycle) -- the unconditional exclusion here used to make every such
+	// ability unpayable and therefore unoffered.
 	for _, part := range cost.Reveal {
-		if len(e.costCandidates(p, id, state.ZHand, part.Spec, true, false)) < int(part.N) {
+		if isWholeHandRevealSpec(part.Spec) {
+			continue
+		}
+		if len(e.costCandidates(p, id, state.ZHand, part.Spec, !ability, false)) < int(part.N) {
 			return false
 		}
 	}
@@ -3597,7 +3615,33 @@ func (e *Engine) revealCostAsk() bool {
 	pc := e.cast
 	for pc.revealPart < len(pc.cost.Reveal) {
 		part := pc.cost.Reveal[pc.revealPart]
-		candidates := e.costCandidates(pc.player, pc.card, state.ZHand, part.Spec, true, false)
+		// A whole-hand Reveal (Reveal<N/Hand>) settles without asking: it
+		// reveals the payer's whole hand AS IT STANDS at payment. For a CAST
+		// the spell being paid for has already moved to the stack (CR 601.2a)
+		// and is no longer part of the hand; for an ABILITY activation the
+		// source still sits in the hand and IS part of the hand it reveals.
+		// Zero cards is a legal payment (CR 701.20a); emitChoiceCosts
+		// announces it loudly via pc.revealedEmptyHand.
+		if isWholeHandRevealSpec(part.Spec) {
+			var hand []state.ObjID
+			excludeSource := !pc.isAbility()
+			for _, oid := range e.G.Zone(state.ZHand, pc.player) {
+				if excludeSource && oid == pc.card {
+					continue
+				}
+				hand = append(hand, oid)
+			}
+			pc.reveals = append(pc.reveals, hand...)
+			for range hand {
+				pc.revealHandArm = append(pc.revealHandArm, true)
+			}
+			if len(hand) == 0 {
+				pc.revealedEmptyHand = true
+			}
+			pc.revealPart++
+			continue
+		}
+		candidates := e.costCandidates(pc.player, pc.card, state.ZHand, part.Spec, !pc.isAbility(), false)
 		if len(candidates) < int(part.N) {
 			e.abortCast(pc, "reveal cost no longer payable; cast aborted", true)
 			return true
@@ -9947,6 +9991,13 @@ func (e *Engine) emitChoiceCosts(pc *pendingCast) {
 			out = append(out, e.targetName(id))
 		}
 		return strings.Join(out, ", ")
+	}
+	// A whole-hand Reveal part paid with an empty hand (Land Grant with no
+	// other cards in hand): nothing else would appear in the log, so emit the
+	// empty reveal as its own public note.
+	if pc.revealedEmptyHand {
+		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
+			Text: "revealed no cards (an empty hand) as a cost"})
 	}
 	if len(pc.reveals) > 0 {
 		// Split the paid list by arm: an announced hand reveal (a plain Reveal
