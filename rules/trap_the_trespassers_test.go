@@ -62,6 +62,7 @@ func trapStunCounters(e *Engine, bears state.ObjID) int {
 // tapping it. With the double append (most-votes + voted) the loop ran
 // TWICE and put 4.
 func TestTrapTheTrespassersOneStunCounterPerVote(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := trapEngine(t, reg)
 

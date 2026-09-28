@@ -16,6 +16,7 @@ import (
 // its nil Face. CR 113.7a: an ability that leaves the stack ceases to exist,
 // so it must never be a member of any zone's card list.
 func TestResolvedAbilityIsNotAnExiledCard(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.emit(events.Event{Kind: events.MonarchChange, Player: 0})
 	e.G.Step = state.StepEnd

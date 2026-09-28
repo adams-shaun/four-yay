@@ -122,6 +122,7 @@ func inOwnerGraveyard(e *Engine, id state.ObjID) bool {
 // a real choice over the exile zone, and paying moves the exiled card to its
 // OWNER's graveyard while the counters land and the SubAbility$ draw runs.
 func TestShelobExiledMoveToGravePaysExactlyAndMovesTheCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := exileGraveEngine(t, reg, 4223, "Shelob, Dread Weaver")
 	shelob := searchMoveByName(t, e, "Shelob, Dread Weaver", state.ZBattlefield)
@@ -187,6 +188,7 @@ func TestShelobExiledMoveToGravePaysExactlyAndMovesTheCard(t *testing.T) {
 // offered (the totality rule -- an option that cannot be paid is never
 // offered).
 func TestShelobExiledMoveToGraveWithheldOnAShortPool(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := exileGraveEngine(t, reg, 4224, "Shelob, Dread Weaver")
 	shelob := searchMoveByName(t, e, "Shelob, Dread Weaver", state.ZBattlefield)
@@ -203,6 +205,7 @@ func TestShelobExiledMoveToGraveWithheldOnAShortPool(t *testing.T) {
 // PAY moves a card the opponent owns from exile into that player's graveyard
 // and the body resolves (the -3/-3 pump on the chosen creature).
 func TestWastelandStranglerTriggerCostMovesTheCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := exileGraveEngine(t, reg, 4225, "Wasteland Strangler", "Grizzly Bears")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
@@ -260,6 +263,7 @@ func TestWastelandStranglerTriggerCostMovesTheCard(t *testing.T) {
 // arm: a declined ExiledMoveToGrave body leaves the exiled card alone and
 // never pumps.
 func TestWastelandStranglerTriggerCostDeclineChangesNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := exileGraveEngine(t, reg, 4226, "Wasteland Strangler", "Grizzly Bears")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
@@ -316,6 +320,7 @@ func TestWastelandStranglerTriggerCostDeclineChangesNothing(t *testing.T) {
 // pick is a real KChoose over the exile zone, and paying moves the card to its
 // OWNER's graveyard before the damage resolves.
 func TestProcessorAssaultSpellAdditionalCostMovesTheCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := exileGraveEngine(t, reg, 4227, "Processor Assault", "Grizzly Bears")
 	spell := findCardByName(t, e, "Processor Assault")
@@ -386,6 +391,7 @@ func TestProcessorAssaultSpellAdditionalCostMovesTheCard(t *testing.T) {
 // gate: no opponent-owned card in exile, no cast (the additional cost cannot
 // be paid).
 func TestProcessorAssaultWithheldWithoutAnExiledCandidate(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := exileGraveEngine(t, reg, 4228, "Processor Assault")
 	spell := findCardByName(t, e, "Processor Assault")

@@ -12,6 +12,7 @@ import (
 // An eventless object insertion must not masquerade as an ordinary emitted
 // change; the length guard forces a full refresh and reseeds the index.
 func TestLayer4EventlessObjectCountForcesFullRefresh(t *testing.T) {
+	t.Parallel()
 	e, car, tap := incrBoard(t, 500)
 	incrBoardOK(t, e, car) // proves the self-only type grant changes the table
 	beforeEpoch, beforeObjs := e.typesEpoch, len(e.G.Objs)

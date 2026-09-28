@@ -23,6 +23,7 @@ const nonbasicLandSrc = "Name:Target Land\nTypes:Land\nOracle:x\n"
 // fetchland flow: activation pays life and sacrifices the Strand without a
 // singleton sacrifice KChoose, then the library search remains a real choice.
 func TestFloodedStrandSelfSacrificeSkipsTheSingletonChoice(t *testing.T) {
+	t.Parallel()
 	e, cfg, strand := newFixtureDeck(t, 76, floodedStrandSrc, plainsSrc)
 	plains := moveSeeded(t, e, 0, plainsSrc, state.ZLibrary)
 	moveSeeded(t, e, 0, floodedStrandSrc, state.ZBattlefield)
@@ -72,6 +73,7 @@ func TestFloodedStrandSelfSacrificeSkipsTheSingletonChoice(t *testing.T) {
 // forced self-payment is skipped; Wasteland's ordinary target decision still
 // happens before its source is sacrificed.
 func TestWastelandSelfSacrificeLeavesItsTargetChoice(t *testing.T) {
+	t.Parallel()
 	e, cfg, wasteland := newFixtureDeck(t, 77, wastelandSrc, nonbasicLandSrc)
 	target := moveSeeded(t, e, 0, nonbasicLandSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, wastelandSrc, state.ZBattlefield)
@@ -106,6 +108,7 @@ func TestWastelandSelfSacrificeLeavesItsTargetChoice(t *testing.T) {
 // TestOrdinarySacrificeCostStillAsks pins the boundary: a creature filter is
 // not a source reference, even if this fixture currently has only one match.
 func TestOrdinarySacrificeCostStillAsks(t *testing.T) {
+	t.Parallel()
 	e, _, rites := newFixtureDeck(t, 78, villageRitesSrc, bearSrc)
 	bear := putCreature(t, e, 0, bearSrc)
 	addMana(t, e, 0, "B")
@@ -125,6 +128,7 @@ func TestOrdinarySacrificeCostStillAsks(t *testing.T) {
 // TestNicknameSelfSacrificeSkipsTheSingletonChoice covers Forge's second
 // spelling for a bare source reference.
 func TestNicknameSelfSacrificeSkipsTheSingletonChoice(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Nickname Source\nTypes:Artifact\nA:AB$ GainLife | Cost$ Sac<1/NICKNAME> | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 79, src)
 	moveSeeded(t, e, 0, src, state.ZBattlefield)

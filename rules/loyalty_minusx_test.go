@@ -29,6 +29,7 @@ import (
 // even when the ability carries no Planeswalker$ marker, because the cost
 // itself identifies it (CR 606.1).
 func TestParseCostAnnouncedLoyaltySubCounter(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("SubCounter<X/LOYALTY>")
 	// Precondition: the compared values actually differ -- a fixed removal
 	// must NOT be the announced form.
@@ -62,6 +63,7 @@ func TestParseCostAnnouncedLoyaltySubCounter(t *testing.T) {
 // per loyalty the walker has, pays exactly X loyalty counters and deals X
 // damage (the body's `NumDmg$ X` reading `SVar:X:Count$xPaid`).
 func TestChandraMinusXAnnouncesPaysLoyaltyAndBindsX(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
 	e, cfg, chandra := walkerBoard(t, reg, "Chandra, Awakened Inferno", bear)
@@ -128,6 +130,7 @@ func TestChandraMinusXAnnouncesPaysLoyaltyAndBindsX(t *testing.T) {
 // could never be settled, CR 601.2b), and the activation consumes the CR
 // 606.3 once-per-turn window for the whole permanent.
 func TestChandraMinusXBoundAndOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
 	e, cfg, chandra := walkerBoard(t, reg, "Chandra, Awakened Inferno", bear)

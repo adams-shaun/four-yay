@@ -15,6 +15,7 @@ import (
 // — the pre-fix build spun past 400,000 intents here); seed 1019 is the
 // probed set's heaviest finisher (1,708 intents, 21 turns).
 func TestUlalekDeckSeedsPlayThrough(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deck0 := testutil.RepoDeck(t, reg, "ulalek-eldrazi")
 	deck1 := testutil.RepoDeck(t, reg, "valgavoth-endless-punishment")

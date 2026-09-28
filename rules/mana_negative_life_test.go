@@ -110,6 +110,7 @@ func nlPutOnStack(e *Engine, id state.ObjID) bool {
 // production and damage precede the pool deduction, and no PlayerLost
 // appears before the spell is paid for.
 func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
+	t.Parallel()
 	e, tombID, islandID, watchID := nlCastEngine(t, 421, 1, "")
 	// Preconditions: the caster really is at 1 life with the spell in hand,
 	// and both mana sources really are on the battlefield where the window
@@ -252,6 +253,7 @@ func TestManaPaymentContinuesBelowZeroLife(t *testing.T) {
 // same machinery: a {U/P} pip cannot be paid with life at life <= 1, and the
 // 2-life face still works at life >= 2.
 func TestPhyrexianLifeBranchStillNeedsTwoLife(t *testing.T) {
+	t.Parallel()
 	// At life 1 with floating {C}{C} and no mana sources, the {2}{U/P} cast
 	// is not payable: the {2} can be paid, the pip's U face has no mana, and
 	// its life face needs 2. The offer gate must not price it payable.

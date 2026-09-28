@@ -41,6 +41,7 @@ Oracle:x
 // remembers nobody and the lost-flip seed loses no life -- which is what the
 // "no unread note" coverage alone could not see.
 func TestFlipCoinRememberLoserBindsTheLosingFlipper(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	loser := card(t, fluxLoserSrc)
 	bear := lookup(t, reg, "Grizzly Bears")

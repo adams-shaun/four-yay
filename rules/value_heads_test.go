@@ -20,6 +20,7 @@ import (
 // listed head that never resolves puts cards with an unreadable gate into
 // it (the fuzz-cov3 audit's registration gap). Both are named.
 func TestValueHeadRegistryMatchesEvaluator(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	resolves := map[string]bool{}

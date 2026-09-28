@@ -13,6 +13,7 @@ import (
 // TestZimoneManifestDreadLooksAndChooses exercises the real corpus trigger:
 // Zimone's landfall ability looks at the top two and lets its controller pick.
 func TestZimoneManifestDreadLooksAndChooses(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Zimone, Mystery Unraveler")
 	zid := searchMoveByName(t, e, "Zimone, Mystery Unraveler", state.ZHand)
@@ -279,6 +280,7 @@ func dreadLookCount(t *testing.T, e *Engine, wantIDs ...state.ObjID) {
 // NOTHING and manifests that card face down deterministically -- its
 // controller had only one legal answer.
 func TestZimoneManifestDreadSingleCardLibrary(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Zimone, Mystery Unraveler")
 	zid := searchMoveByName(t, e, "Zimone, Mystery Unraveler", state.ZHand)
@@ -315,6 +317,7 @@ func TestZimoneManifestDreadSingleCardLibrary(t *testing.T) {
 // library does nothing loudly -- no look, no ask, no move -- and never the
 // unimplemented-API fallback.
 func TestZimoneManifestDreadEmptyLibrary(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Zimone, Mystery Unraveler")
 	zid := searchMoveByName(t, e, "Zimone, Mystery Unraveler", state.ZHand)
@@ -349,6 +352,7 @@ func TestZimoneManifestDreadEmptyLibrary(t *testing.T) {
 // emitted, and move nothing: no library→battlefield manifest move, no silent
 // wrong-count, wrong-player or wrong-card move.
 func TestManifestDreadOutOfScopeShapesStayLoud(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, params string }{
 		{"Amount", "Amount$ 1"},
 		{"DefinedPlayer", "DefinedPlayer$ TargetedController"},

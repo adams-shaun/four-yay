@@ -13,6 +13,7 @@ import (
 // indeterminate amount, its one-unit output is provable even though the
 // payer chooses its colour. It must keep the weak target at {7}+{1}.
 func TestBeltOfGiantStrengthEquipChoiceManaWindow(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	belt, ok := reg.Lookup("Belt of Giant Strength")
 	if !ok {

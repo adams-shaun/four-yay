@@ -91,6 +91,7 @@ func playerTargetOption(d *decision.Decision, seat state.PlayerID) (state.Player
 // caster's own seat stays offerable -- and the grant does not bleed to seat 1
 // (the player half of `Affected$ You,Permanent.YouCtrl` is `You` only).
 func TestGorMuldrakPlayerProtection(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Engine A -- control: no carrier, the player target is offered and bites.
@@ -156,6 +157,7 @@ func TestGorMuldrakPlayerProtection(t *testing.T) {
 // an object quality at all -- it is judged through the shared player filter
 // against the source's controller.
 func TestAbsoluteVirtuePlayerProtection(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Absolute Virtue", "Grizzly Bears"}, []string{"Hill Giant"})
 	av := findOnBoard(t, e, 0, "Absolute Virtue")
@@ -225,6 +227,7 @@ func TestAbsoluteVirtuePlayerProtection(t *testing.T) {
 // the player arm; the control engine keeps the same target. The source is a
 // Salamander object so sourceHasQuality resolves the quality.
 func TestPlayerProtectionRecheck(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sa := card(t, testSalamanderScript).Faces[0].Abilities[0]
 	targets := []state.Target{{Player: 0, IsPlayer: true}}
@@ -256,6 +259,7 @@ func TestPlayerProtectionRecheck(t *testing.T) {
 // asserts that direction; it does not depend on the ETB ChooseType/ChooseName
 // ask machinery resolving.
 func TestPlayerProtectionChosenQualityFailsClosed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// The read half is not broken: the grant DOES reach the player surface

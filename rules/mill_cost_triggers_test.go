@@ -42,6 +42,7 @@ func queuedMillTriggers(e *Engine, source state.ObjID) (count int, amount int32)
 }
 
 func TestMillCostTriggersMilledPerCard(t *testing.T) {
+	t.Parallel()
 	e, sources, milled := millCostTriggerEngine(t, []string{"Glowing One"}, 1)
 	if o := e.G.Obj(sources[0]); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatalf("precondition: Glowing One not on battlefield: %+v", o)
@@ -59,6 +60,7 @@ func TestMillCostTriggersMilledPerCard(t *testing.T) {
 }
 
 func TestMillCostTriggersMilledAllOnceForBatch(t *testing.T) {
+	t.Parallel()
 	e, sources, milled := millCostTriggerEngine(t, []string{"The Wise Mothman"}, 3)
 	if o := e.G.Obj(sources[0]); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatalf("precondition: Mothman not on battlefield: %+v", o)

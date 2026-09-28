@@ -78,6 +78,7 @@ func castUnswitchedMimic(t *testing.T, e *Engine, m state.ObjID) *decision.Decis
 // Mimic whose own (unswitched) clause re-asks, and paying it off stops the
 // cascade at exactly one copy.
 func TestUnswitchedCopyShapePayingStopsTheCopies(t *testing.T) {
+	t.Parallel()
 	t.Run("pay makes no copy", func(t *testing.T) {
 		e, cfg, m := newFixtureDeck(t, 99, unswitchedCopySrc)
 		addMana(t, e, 0, "R1")

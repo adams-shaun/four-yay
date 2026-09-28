@@ -11,6 +11,7 @@ import (
 )
 
 func TestStaticRemoveKeywordStripsFlying(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Colossus Hammer"), lookup(t, reg, "Serra Angel"), lookup(t, reg, "Serra Angel")}, nil)
 	hammer := moveByName(t, e, 0, "Colossus Hammer", state.ZBattlefield)
@@ -34,6 +35,7 @@ func TestStaticRemoveKeywordStripsFlying(t *testing.T) {
 }
 
 func TestStaticRemoveKeywordScopedToAffected(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Colossus Hammer"), lookup(t, reg, "Serra Angel"), lookup(t, reg, "Serra Angel")}, nil)
 	hammer := moveByName(t, e, 0, "Colossus Hammer", state.ZBattlefield)
@@ -49,6 +51,7 @@ func TestStaticRemoveKeywordScopedToAffected(t *testing.T) {
 }
 
 func TestStaticRemoveKeywordAndAddKeywordSameLine(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Sky Tether"), lookup(t, reg, "Serra Angel")}, nil)
 	tether := moveByName(t, e, 0, "Sky Tether", state.ZBattlefield)
@@ -65,6 +68,7 @@ func TestStaticRemoveKeywordAndAddKeywordSameLine(t *testing.T) {
 }
 
 func TestStaticRemoveKeywordExpiresWithSource(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Colossus Hammer"), lookup(t, reg, "Serra Angel")}, nil)
 	hammer := moveByName(t, e, 0, "Colossus Hammer", state.ZBattlefield)
@@ -83,6 +87,7 @@ func TestStaticRemoveKeywordExpiresWithSource(t *testing.T) {
 }
 
 func TestStaticCantHaveKeywordStripsPrintedAndBlocksGrant(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Archetype of Imagination")}, []*cards.Card{lookup(t, reg, "Serra Angel")})
 	archetype := moveByName(t, e, 0, "Archetype of Imagination", state.ZBattlefield)
@@ -106,6 +111,7 @@ func TestStaticCantHaveKeywordStripsPrintedAndBlocksGrant(t *testing.T) {
 }
 
 func TestStaticRemoveKeywordSameTimestampRemovalFirst(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Serra Angel")}, nil)
 	bearer := moveByName(t, e, 0, "Serra Angel", state.ZBattlefield)
@@ -125,6 +131,7 @@ func TestStaticRemoveKeywordSameTimestampRemovalFirst(t *testing.T) {
 }
 
 func TestStaticRemoveKeywordLandwalkVariant(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Mystic Decree"), lookup(t, reg, "Bog Wraith"), lookup(t, reg, "Serra Angel")}, nil)
 	wraith := moveByName(t, e, 0, "Bog Wraith", state.ZBattlefield)
@@ -167,6 +174,7 @@ func TestStaticRemoveKeywordLandwalkVariant(t *testing.T) {
 }
 
 func TestStaticCantHaveKeywordCloneCopiesKeywordSlices(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grizzly Bears")}, nil)
 	bear := moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield)
@@ -184,6 +192,7 @@ func TestStaticCantHaveKeywordCloneCopiesKeywordSlices(t *testing.T) {
 }
 
 func TestStaticCantHaveKeywordScopedToOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Archetype of Imagination"), lookup(t, reg, "Serra Angel")}, []*cards.Card{lookup(t, reg, "Serra Angel")})
 	archetype := moveByName(t, e, 0, "Archetype of Imagination", state.ZBattlefield)

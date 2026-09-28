@@ -157,6 +157,7 @@ func lrSetLife(e *Engine, p state.PlayerID, life int32) {
 // forced-sacrifice settle (no ask), keeps its typed Treasure provenance, taps
 // the Plains, puts the spell on the stack and leaves the pool empty.
 func TestPaymentPlanLastResortTreasureSacrifice(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12001, lrSpell("1 W"))
 	plains := onBoard(t, e, 0, lrPlains)
 	treasure := lrTreasure(t, e)
@@ -216,6 +217,7 @@ func TestPaymentPlanLastResortTreasureSacrifice(t *testing.T) {
 // 2. The same board plus an Island: a normal plan exists, so the Treasure is
 // never considered.
 func TestPaymentPlanLastResortNormalPlanLeavesTreasure(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12002, lrSpell("1 W"))
 	plains := onBoard(t, e, 0, lrPlains)
 	treasure := lrTreasure(t, e)
@@ -230,6 +232,7 @@ func TestPaymentPlanLastResortNormalPlanLeavesTreasure(t *testing.T) {
 // 3. Arena's Treasure-versus-Mana-Vault calibration: {2} takes two Treasures
 // (20) over the Vault (25); {3} takes the Vault (25) over three Treasures (30).
 func TestPaymentPlanLastResortTreasuresVersusManaVault(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12003, lrSpell("2"))
 	t1, t2 := lrTreasure(t, e), lrTreasure(t, e)
 	vault := lrCorpus(t, e, "Mana Vault")
@@ -254,6 +257,7 @@ func TestPaymentPlanLastResortTreasuresVersusManaVault(t *testing.T) {
 // life:1, paid through a LifeChange event. At 1 life the Confluence has no
 // alternative and the cast is insufficient.
 func TestPaymentPlanLastResortManaConfluenceLife(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12005, lrSpell("1 U"))
 	island := onBoard(t, e, 0, lrIsland)
 	confluence := lrCorpus(t, e, "Mana Confluence")
@@ -293,6 +297,7 @@ func TestPaymentPlanLastResortManaConfluenceLife(t *testing.T) {
 // A PayLife<2> source at 1 life is refused by the shared gate itself (CR
 // 119.4: life >= N), before any planner rule.
 func TestPaymentPlanLastResortPayLifeGateCR1194(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12007, lrSpell("U"))
 	src := onBoard(t, e, 0, "Name:Dear Land\nTypes:Land\nA:AB$ Mana | Cost$ T PayLife<2> | Produced$ U | SpellDescription$ x\nOracle:x\n")
 	lrSetLife(e, 0, 1)
@@ -327,6 +332,7 @@ func lrUnitHasAlternative(e *Engine, choices [][]plannedManaActivation, id state
 // 5. {2} with only Ancient Tomb: damage:2 at 20 life; at 2 life the plan would
 // kill its caster and is never offered (the fuzz self-kill).
 func TestPaymentPlanLastResortAncientTombLethalGuard(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12008, lrSpell("2"))
 	tomb := lrCorpus(t, e, "Ancient Tomb")
 	lrAssertPlan(t, e, e.PlanCastPayment(0, paymentCast(spell)), []lrStep{{tomb, lrC(2), &decision.PaymentConsequence{Damage: 2}}})
@@ -366,6 +372,7 @@ func TestPaymentPlanLastResortAncientTombLethalGuard(t *testing.T) {
 // after Submit is on the stack above the spell, as for a manual activation in
 // the 601.2g window.
 func TestPaymentPlanLastResortCityOfBrassTrigger(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12010, lrSpell("R"))
 	city := lrCorpus(t, e, "City of Brass")
 	lrAssertPlan(t, e, e.PlanCastPayment(0, paymentCast(spell)), []lrStep{{city, lrR, &decision.PaymentConsequence{Damage: 1}}})
@@ -422,6 +429,7 @@ func lrManualPay(t *testing.T, e *Engine, source state.ObjID, colour string) {
 
 // 7. Undiscovered Paradise alone for {G}: return_to_hand.
 func TestPaymentPlanLastResortUndiscoveredParadise(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12011, lrSpell("G"))
 	paradise := lrCorpus(t, e, "Undiscovered Paradise")
 	lrAssertPlan(t, e, e.PlanCastPayment(0, paymentCast(spell)), []lrStep{{paradise, lrG, &decision.PaymentConsequence{ReturnToHand: true}}})
@@ -435,6 +443,7 @@ func TestPaymentPlanLastResortUndiscoveredParadise(t *testing.T) {
 // 8. A normal plan always wins, even one that taps a creature: Forest +
 // Llanowar Elves (not summoning sick) + Treasure for {1}{G}.
 func TestPaymentPlanLastResortNormalCreatureBeatsTreasure(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12012, lrSpell("1 G"))
 	forest := onBoard(t, e, 0, lrForest)
 	elves := lrCorpus(t, e, "Llanowar Elves")
@@ -449,6 +458,7 @@ func TestPaymentPlanLastResortNormalCreatureBeatsTreasure(t *testing.T) {
 // Eldrazi Spawn's Sac<1/CARDNAME> (no {T}) is a creature sacrifice (20); an
 // artifact sacrifice (10) is preferred to it.
 func TestPaymentPlanLastResortCreatureSacrificeWeighsMore(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12013, lrSpell("1"))
 	spawn := onBoard(t, e, 0, "Name:Spawn Test\nTypes:Creature Eldrazi Spawn\nPT:0/1\nA:AB$ Mana | Cost$ Sac<1/CARDNAME> | Produced$ C | SpellDescription$ x\nOracle:x\n")
 	lrAssertPlan(t, e, e.PlanCastPayment(0, paymentCast(spell)), []lrStep{{spawn, lrC(1), &decision.PaymentConsequence{Sacrifice: true}}})
@@ -467,6 +477,7 @@ func TestPaymentPlanLastResortCreatureSacrificeWeighsMore(t *testing.T) {
 // 9a. The Treasure removed between offer and execution: automation falls
 // back source_changed before any tap.
 func TestPaymentPlanLastResortSourceRemovedFallsBack(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12015, lrShock("1 W"))
 	plains := onBoard(t, e, 0, lrPlains)
 	treasure := lrTreasure(t, e)
@@ -488,6 +499,7 @@ func TestPaymentPlanLastResortSourceRemovedFallsBack(t *testing.T) {
 // 9b. The caster's life lowered between offer and execution so the remaining
 // life payment is lethal: cost_changed before any tap.
 func TestPaymentPlanLastResortLethalAfterOfferFallsBack(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12016, lrShock("1 U"))
 	island := onBoard(t, e, 0, lrIsland)
 	confluence := lrCorpus(t, e, "Mana Confluence")
@@ -517,6 +529,7 @@ func TestPaymentPlanLastResortLethalAfterOfferFallsBack(t *testing.T) {
 // Tomb deal 4 -- is not usable here: this engine does not apply a DamageDone
 // replacement to a mana ability's damage rider.)
 func TestPaymentPlanLastResortLethalBeforeLaterStep(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12017, lrShock("2 U"))
 	tomb := lrCorpus(t, e, "Ancient Tomb")
 	lrCorpus(t, e, "Mana Confluence")
@@ -551,6 +564,7 @@ func TestPaymentPlanLastResortLethalBeforeLaterStep(t *testing.T) {
 // A consequence that changes between offer and execution is production_changed:
 // a Treasure-shaped rock whose sacrifice cost is gone is a different step.
 func TestPaymentPlanLastResortConsequenceChangeIsProductionChanged(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12018, lrShock("R"))
 	city := lrCorpus(t, e, "City of Brass")
 	plan, _ := lrSubmit(t, e, spell)
@@ -577,6 +591,7 @@ func TestPaymentPlanLastResortConsequenceChangeIsProductionChanged(t *testing.T)
 // damage is lethal is refused, and so is a last-resort step while a normal
 // plan exists.
 func TestPaymentPlanLastResortValidateRejects(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12019, lrSpell("2"))
 	tomb := lrCorpus(t, e, "Ancient Tomb")
 	got := e.PlanCastPayment(0, paymentCast(spell))
@@ -602,6 +617,7 @@ func TestPaymentPlanLastResortValidateRejects(t *testing.T) {
 // plan, the phase-2 search returns exactly the oracle's best non-lethal plan
 // over the phase-2 table, or insufficient when the oracle has none.
 func TestPaymentPlanLastResortSearchMatchesOracle(t *testing.T) {
+	t.Parallel()
 	treasure, ok := testutil.CorpusRegistry(t).Token("c_a_treasure_sac")
 	if !ok {
 		t.Fatal("corpus token c_a_treasure_sac missing")
@@ -683,6 +699,7 @@ func TestPaymentPlanLastResortSearchMatchesOracle(t *testing.T) {
 // disclosing its consequence, while the Talisman's painless {C} ability stays
 // normal and pays generic without any consequence.
 func TestPaymentPlanLastResortComboHalves(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 12021, lrSpell("B"))
 	talisman := lrCorpus(t, e, "Talisman of Dominance")
 	lrAssertPlan(t, e, e.PlanCastPayment(0, paymentCast(spell)), []lrStep{

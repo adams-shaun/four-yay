@@ -24,6 +24,7 @@ import (
 // This is end-to-end conformance, not proof that adding castRestricted at
 // one line fixes it: the current cmc predicate also ignores stack X.
 func TestCR601RecheckAfterXAndLegalTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
 	for _, x := range []int{1, 2} {

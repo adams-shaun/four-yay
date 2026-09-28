@@ -44,6 +44,7 @@ func stackInstant(t testing.TB, e *Engine, p state.PlayerID, src string) state.O
 // TestMagecraftSpellCastOrCopyFiresOnACast: a real cast (the deferred
 // PutOnStack walk) queues the magecraft trigger beside the spell.
 func TestMagecraftSpellCastOrCopyFiresOnACast(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, magecraftSrc)
 	spell := card(t, "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
@@ -62,6 +63,7 @@ func TestMagecraftSpellCastOrCopyFiresOnACast(t *testing.T) {
 // magecraft trigger. The copy MINT itself adds a stack entry, so the count
 // is against the pre-emit baseline, never against zero.
 func TestMagecraftSpellCastOrCopyFiresOnACopy(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, magecraftSrc)
 	spellID := stackInstant(t, e, 0, "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
@@ -76,6 +78,7 @@ func TestMagecraftSpellCastOrCopyFiresOnACopy(t *testing.T) {
 // TestSpellCastTriggerStaysSilentOnACopy is the boundary: a plain Mode$
 // SpellCast trigger does not fire for a copy -- a copy is not a cast.
 func TestSpellCastTriggerStaysSilentOnACopy(t *testing.T) {
+	t.Parallel()
 	src := `Name:Watcher
 ManaCost:1 U
 Types:Creature Wizard
@@ -99,6 +102,7 @@ Oracle:x
 // outside ValidCard$ and a copy by a player outside ValidActivatingPlayer$
 // queue nothing beyond the mint.
 func TestMagecraftSpellCastOrCopyRejectsNonMatchingShapes(t *testing.T) {
+	t.Parallel()
 	instSrc := "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
 	sorcSrc := "Name:Rites\nManaCost:1 B\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 1 | Defined$ You\nOracle:x\n"
 	t.Run("non-matching spell", func(t *testing.T) {
@@ -149,6 +153,7 @@ Oracle:x
 // shape -- same Execute$ SVar, Secondary$ True) must not double-fire beside
 // its SpellCastOrCopy primary, on a copy OR on a cast.
 func TestMagecraftSecondaryYieldsToItsSpellCastOrCopyPrimary(t *testing.T) {
+	t.Parallel()
 	src := `Name:Paired
 ManaCost:1 U
 Types:Creature Wizard
@@ -189,6 +194,7 @@ Oracle:x
 // (the parnesse/the_twelfth_doctor shape) does not fire for a plain cast --
 // only for a copy.
 func TestSpellCopyPrimarySilentOnAPlainCast(t *testing.T) {
+	t.Parallel()
 	src := `Name:Brush
 ManaCost:1 U
 Types:Creature Wizard
@@ -229,6 +235,7 @@ Oracle:x
 // card (measured: grepping every SpellCastOrCopy carrier name against
 // internal/testutil/decks/*.json returns nothing).
 func TestJadziMagecraftCastRevealsAndOffersThePlayAsk(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	forest := searchCorpusCard(t, reg, "Forest")
 	mountain := searchCorpusCard(t, reg, "Mountain")

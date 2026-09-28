@@ -27,6 +27,7 @@ import (
 // fix the Sliver is gone from the battlefield, the mana is spent, and the 2
 // damage still resolves.
 func TestGrantedAbilityPaysNonManaCosts(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sliver := mustCorpusCard(t, reg, "Acidic Sliver")
 	mountain := mustCorpusCard(t, reg, "Mountain")
@@ -82,6 +83,7 @@ func TestGrantedAbilityPaysNonManaCosts(t *testing.T) {
 // Slayer enters with 20 loyalty, so the payment is affordable; after the fix
 // twelve loyalty counters must be REMOVED (20 -> 8) and the extra turn granted.
 func TestGrantedActivationChargesLoyaltySubCounter(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	gauntlet := mustCorpusCard(t, reg, "Ichormoon Gauntlet")
 	garruk := mustCorpusCard(t, reg, "Garruk the Slayer")

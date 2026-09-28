@@ -82,6 +82,7 @@ func castAndReachOptionalRevealAsk(t *testing.T, e *Engine, id state.ObjID) *dec
 // engine end to end (suspend via e.resume, resume via the reveal_optional
 // arm setting Ctx.RevealOptTarget).
 func TestOptionalRevealPerTargetAskThroughTheEngine(t *testing.T) {
+	t.Parallel()
 	e, id := optionalRevealEngine(t, "SP$ RevealHand | Defined$ Player.Opponent | Optional$ True", "Seat2Card", "Seat3Card")
 
 	// Pass 1: target 0 is seat 1 (Defined$ Player.Opponent is seat order).

@@ -51,6 +51,7 @@ func answerTriggerOrder(t *testing.T, e *Engine) {
 }
 
 func TestUnderworldBreachGrantsEscapeAndTheEscapeCastResolves(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Underworld Breach"))
 	breach := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.Event{Kind: events.MoveZone, Obj: breach, From: state.ZHand, To: state.ZBattlefield})
@@ -112,6 +113,7 @@ func TestUnderworldBreachGrantsEscapeAndTheEscapeCastResolves(t *testing.T) {
 }
 
 func TestKroxaSacrificesItselfWhenItDoesNotEscape(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Kroxa, Titan of Death's Hunger"))
 	kroxa := e.G.Zone(state.ZHand, 0)[0]
 	addMana(t, e, 0, "BR")
@@ -125,6 +127,7 @@ func TestKroxaSacrificesItselfWhenItDoesNotEscape(t *testing.T) {
 }
 
 func TestKroxaEscapeCastDoesNotSacrificeOnETB(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Kroxa, Titan of Death's Hunger"))
 	kroxa := e.G.Zone(state.ZHand, 0)[0]
 	// The escape cast is a GRAVEYARD walk: Kroxa moves there first.
@@ -172,6 +175,7 @@ func TestKroxaEscapeCastDoesNotSacrificeOnETB(t *testing.T) {
 }
 
 func TestEscapeNotOfferedWithoutTheGrant(t *testing.T) {
+	t.Parallel()
 	// Without a grant, a nonland card in the graveyard is never offered an
 	// escape cast; the Underworld Breach static is what carries the keyword.
 	e := handEngine(t, corpusAlternativeCard(t, "Underworld Breach"))

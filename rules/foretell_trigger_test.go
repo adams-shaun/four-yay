@@ -31,7 +31,6 @@ func dreamDevourerID(t *testing.T, e *Engine) state.ObjID {
 }
 
 func TestDreamDevourerForetellTriggerPumpsUntilEndOfTurn(t *testing.T) {
-	t.Parallel()
 	e := handEngine(t, card(t, grantedForetellBear))
 	dreamDevourerOut(t, e)
 	dd := dreamDevourerID(t, e)
@@ -77,7 +76,6 @@ func TestDreamDevourerForetellTriggerPumpsUntilEndOfTurn(t *testing.T) {
 }
 
 func TestDreamDevourerForetellTriggerFiresOnEffectDesignation(t *testing.T) {
-	t.Parallel()
 	// Ethereal Valkyrie's ETB exiles a hand card face down with Foretold$
 	// True: the effect-designation MoveZone shape (counter
 	// exiled_with_face_down_foretold), which emits no CastInfo at all.

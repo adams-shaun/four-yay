@@ -71,6 +71,7 @@ func fbDrivePastSearch(t *testing.T, e *Engine) {
 }
 
 func TestFBSoftlockSearchWithNoEligibleResolvesSilently(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	hunt := card(t, fbSoftlockSearchSrc)
 	// Seat 0's deck: the Dragon-search sorcery over Mountains -- deliberately
@@ -139,6 +140,7 @@ func TestFBSoftlockSearchWithNoEligibleResolvesSilently(t *testing.T) {
 // itself the assertion that no zero-option choose is ever posted; the
 // byte-identical replay pins determinism.
 func TestFBSoftlockKeenVsValgavothPlays(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	hero := testutil.RepoDeck(t, reg, "foundations-keen-engineering")
 	foe := testutil.RepoDeck(t, reg, "valgavoth-endless-punishment")

@@ -28,6 +28,7 @@ import (
 // graveyard's card list, so Rubble Rouser's "{T}, Exile a card from your
 // graveyard: Add {R}" offers only real cards and never panics on a nil Face.
 func TestManaExileCostNeverOffersACeasedAbility(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.emit(events.Event{Kind: events.MonarchChange, Player: 0})
 	e.G.Step = state.StepEnd
@@ -106,6 +107,7 @@ func declareAndAskBlockers(e *Engine, attacker state.ObjID) *decision.Decision {
 // Menace attacker. The engine now publishes Menace as MinBlockers 2 on the
 // option, and the bot's answer always validates.
 func TestMenaceFloorIsPublishedAndBotNeverSubmitsALoneBlocker(t *testing.T) {
+	t.Parallel()
 	e, brute := menaceBlockEngine(t)
 	onBoardCard(t, e, 0, corpusCard(t, "Grizzly Bears"))
 	onBoardCard(t, e, 0, corpusCard(t, "Hollow Warrior"))
@@ -142,6 +144,7 @@ func TestMenaceFloorIsPublishedAndBotNeverSubmitsALoneBlocker(t *testing.T) {
 // previously it offered Min 0/Max 1 pairs and the bot's Max trim produced
 // the rejected lone block.
 func TestMenaceWithMaxOneBlockerIsUnblockable(t *testing.T) {
+	t.Parallel()
 	e, brute := menaceBlockEngine(t)
 	onBoardCard(t, e, 1, corpusCard(t, "Familiar Ground"))
 	onBoardCard(t, e, 0, corpusCard(t, "Grizzly Bears"))
@@ -161,6 +164,7 @@ func TestMenaceWithMaxOneBlockerIsUnblockable(t *testing.T) {
 // board leaves only its draw mode legal. The bot must answer the 3..3 ask
 // with that mode three times; it used to submit two picks and wedge.
 func TestBotFillsRepeatableModesWithOneLegalMode(t *testing.T) {
+	t.Parallel()
 	mystic := corpusCard(t, "Mystic Confluence")
 	cfg := seatZeroStart(Config{Seed: 3, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{
@@ -209,6 +213,7 @@ func TestBotFillsRepeatableModesWithOneLegalMode(t *testing.T) {
 // below X, the watcher used to abort that legitimate batch as a period-1
 // cycle; each mint adds a fresh object, so it is progress, not a loop.
 func TestKrenkoBatchIsNotALivelock(t *testing.T) {
+	t.Parallel()
 	krenko := corpusCard(t, "Krenko, Mob Boss")
 	gob := corpusCard(t, "Mons's Goblin Raiders")
 	deck := []*cards.Card{krenko}
@@ -278,6 +283,7 @@ func TestKrenkoBatchIsNotALivelock(t *testing.T) {
 // overshoot capture (Undead Augur with Lord of the Accursed's menace vs a
 // lone untapped Lathliss).
 func TestMenaceAgainstOneLegalBlockerPosesNoPair(t *testing.T) {
+	t.Parallel()
 	e, brute := menaceBlockEngine(t)
 	onBoardCard(t, e, 0, corpusCard(t, "Grizzly Bears"))
 	d := declareAndAskBlockers(e, brute)

@@ -66,6 +66,7 @@ func TestPhyrexianGrimoirePumpAllRememberPumped(t *testing.T) {
 }
 
 func TestPumpAllRememberPumpedBattlefield(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	const sourceSrc = "Name:Pump Source\nTypes:Artifact\nOracle:x\n"
 	const bearSrc = "Name:Pump Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -104,6 +105,7 @@ func TestPumpAllRememberPumpedBattlefield(t *testing.T) {
 }
 
 func TestParamCensusReadsPumpAllRememberPumped(t *testing.T) {
+	t.Parallel()
 	base, d := measureParamCensus(t, nil)
 	if d == nil || !d.api["PumpAll"]["RememberPumped"] {
 		t.Fatal("param census does not derive the RememberPumped$ read for api:PumpAll")

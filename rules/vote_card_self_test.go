@@ -78,6 +78,7 @@ func voteThreeSeatEngine(t *testing.T, reg *cards.Registry, hand0, board1, board
 // foreign Bear, and the caster (seat 0) and seat 2 — whose own Bear is the
 // lower one — still vote the best FOREIGN permanent, the Brontodon.
 func TestCouncilsJudgmentBotDoesNotVoteItsOwnPermanent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := voteThreeSeatEngine(t, reg,
 		[]string{"Council's Judgment"},
@@ -231,6 +232,7 @@ func TestCouncilsJudgmentBotDoesNotVoteItsOwnPermanent(t *testing.T) {
 // same production bot path as the test above and inspects the offered
 // options' Player fields.
 func TestVoteCardOptionCarriesSubjectController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := voteThreeSeatEngine(t, reg,
 		[]string{"Council's Judgment"},

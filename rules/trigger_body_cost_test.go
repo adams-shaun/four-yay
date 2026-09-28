@@ -74,6 +74,7 @@ func killOnBattlefield(t *testing.T, e *Engine, id state.ObjID) {
 // the real corpus SA: answering PAY charges the {B} from the pool and the
 // drain resolves (target player loses 2, controller gains 2).
 func TestKalastriaTriggerCostPayChargesAndDrains(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Kalastria Highborn")
 	id := searchMoveByName(t, e, "Kalastria Highborn", state.ZBattlefield)
@@ -112,6 +113,7 @@ func TestKalastriaTriggerCostPayChargesAndDrains(t *testing.T) {
 // TestKalastriaTriggerCostDeclineChangesNothing pins the decline arm: a
 // declined {B} body does NOT drain and does NOT gain.
 func TestKalastriaTriggerCostDeclineChangesNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Kalastria Highborn")
 	id := searchMoveByName(t, e, "Kalastria Highborn", state.ZBattlefield)
@@ -167,6 +169,7 @@ func elendaEndStepCostAsk(t *testing.T, e *Engine) *decision.Decision {
 // Azor's end-step body (`AB$ Token | Cost$ PayLife<4> | TokenAmount$ Y`) is
 // "you may pay 4 life. If you do, ..." -- paying charges 4 life.
 func TestElendaAndAzorEndStepPayLifeCharges(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Elenda and Azor")
 	myLife := e.G.Players[0].Life
@@ -186,6 +189,7 @@ func TestElendaAndAzorEndStepPayLifeCharges(t *testing.T) {
 
 // TestElendaAndAzorEndStepPayLifeDeclineChargesNone is the decline half.
 func TestElendaAndAzorEndStepPayLifeDeclineChargesNone(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Elenda and Azor")
 	myLife := e.G.Players[0].Life
@@ -227,6 +231,7 @@ func triggerCostWindowAskDecision(t *testing.T, d *decision.Decision) (pay, decl
 // then does the body run and create its four 1/1 Spirits. No pay/decline
 // election is ever posed for a mandatory cost.
 func TestPromiseOfBunreiMandatorySacrificeChargesAndTokens(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Promise of Bunrei")
 	promise := searchMoveByName(t, e, "Promise of Bunrei", state.ZBattlefield)
@@ -272,6 +277,7 @@ func TestPromiseOfBunreiMandatorySacrificeChargesAndTokens(t *testing.T) {
 // be skipped -- the draw must not happen. This is the mandatory semantics'
 // second half: if the cost cannot be paid, the effect does not run.
 func TestMandatorySacUnpayableBodyDoesNotRun(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Ingot Eater\nManaCost:1 R\nTypes:Creature Human Warrior\nPT:2/2\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigSac | TriggerDescription$ When CARDNAME enters, sacrifice an artifact. If you do, draw a card.\n" +
 		"SVar:TrigSac:AB$ Draw | Cost$ Mandatory Sac<1/Artifact> | NumCards$ 1\n" +
@@ -310,6 +316,7 @@ func TestMandatorySacUnpayableBodyDoesNotRun(t *testing.T) {
 // ## Issues), so the real card cannot fire in a test. The cost settle under
 // test is exactly the real card's.
 func TestDalekIntensiveCareMandatoryExileIsAChoice(t *testing.T) {
+	t.Parallel()
 	const dalekCostScript = "Name:Dalek Intensive Care\nTypes:Plane Dalek\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile\n" +
 		"SVar:TrigExile:AB$ Draw | Cost$ Mandatory Exile<1/Creature.nonDalek/non-Dalek creature> | NumCards$ 1\n" +
@@ -382,6 +389,7 @@ func TestDalekIntensiveCareMandatoryExileIsAChoice(t *testing.T) {
 // the 4 damage (targeted at the opponent in the body's earlier target ask)
 // lands. No mana is charged -- the cost has none.
 func TestKuldothaFlamefiendOptionalSacCostPays(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Kuldotha Flamefiend")
 	id := searchMoveByName(t, e, "Kuldotha Flamefiend", state.ZBattlefield)
@@ -429,6 +437,7 @@ func TestKuldothaFlamefiendOptionalSacCostPays(t *testing.T) {
 // TestKuldothaFlamefiendOptionalSacCostDeclineChangesNothing is the decline
 // half: a declined Sac-component body sacrifices nothing and deals nothing.
 func TestKuldothaFlamefiendOptionalSacCostDeclineChangesNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Kuldotha Flamefiend")
 	id := searchMoveByName(t, e, "Kuldotha Flamefiend", state.ZBattlefield)
@@ -518,6 +527,7 @@ func activateWindowMana(t *testing.T, e *Engine) {
 // chosen X = 1 plus the {W}{U}{B} pips is charged from the pool, and the body
 // draws exactly 1 card (NumCards$ X reads the binding).
 func TestElendaAndAzorAttackXFoldAnnouncesPaysAndDraws(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Elenda and Azor")
 	id := searchMoveByName(t, e, "Elenda and Azor", state.ZBattlefield)
@@ -573,6 +583,7 @@ func TestElendaAndAzorAttackXFoldAnnouncesPaysAndDraws(t *testing.T) {
 // following pay/decline election's decline leaves the pool untouched and
 // draws nothing.
 func TestElendaAndAzorAttackXFoldDeclineDrawsNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Elenda and Azor")
 	id := searchMoveByName(t, e, "Elenda and Azor", state.ZBattlefield)
@@ -627,6 +638,7 @@ func TestElendaAndAzorAttackXFoldDeclineDrawsNothing(t *testing.T) {
 // targeted opponent reveals exactly 2 cards (NumCards$ X reads the binding),
 // and the follow-up pick exiles one of them.
 func TestVizkopaConfessorETBChoosesLifeAndExilesRevealed(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Vizkopa Confessor")
 	myLife := e.G.Players[0].Life
@@ -688,6 +700,7 @@ func TestVizkopaConfessorETBChoosesLifeAndExilesRevealed(t *testing.T) {
 // payer-chooses carrier end to end: at the end step the window asks how much
 // life, a chosen X = 3 charges 3 life and draws exactly 3 cards.
 func TestNecrodominanceEndStepPaysLifeAndDrawsThatMany(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Necrodominance")
 	myLife := e.G.Players[0].Life
@@ -730,6 +743,7 @@ func TestNecrodominanceEndStepPaysLifeAndDrawsThatMany(t *testing.T) {
 // amount is read back off the pool delta, computed with the same evaluation
 // the window runs.
 func TestTomakulPhoenixFixedXNoAskPaysPowerAndReturns(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Tomakul Phoenix")
 	id := searchMoveByName(t, e, "Tomakul Phoenix", state.ZBattlefield)
@@ -793,6 +807,7 @@ func TestTomakulPhoenixFixedXNoAskPaysPowerAndReturns(t *testing.T) {
 // ask is posed, paying 4 life creates the Demon token with TokenPower$ X
 // reading 4.
 func TestTivashGainedLifeFixedXNoAskTokensAtPower(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Tivash, Gloom Summoner")
 	myLife := e.G.Players[0].Life
@@ -845,6 +860,7 @@ func TestTivashGainedLifeFixedXNoAskTokensAtPower(t *testing.T) {
 // now-resolvable player count has no combat hits in this setup, and declining
 // the resulting optional payment leaves the player unchanged.
 func TestTymnaUnresolvableFixedXDeclineOnly(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Tymna the Weaver")
 	myLife := e.G.Players[0].Life
@@ -887,6 +903,7 @@ func TestTymnaUnresolvableFixedXDeclineOnly(t *testing.T) {
 // only emit the unimplemented-API Note. The window stays decline-only, the
 // pre-fold behaviour.
 func TestUnregisteredBodyXCostStaysDeclineOnly(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Life Scribe\nManaCost:2 B\nTypes:Creature Human Cleric\nPT:2/2\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPay | TriggerDescription$ When CARDNAME enters, pay any amount of life.\n" +
 		"SVar:TrigPay:AB$ NoSuchUnregisteredAPI | Cost$ PayLife<X> | SVar$ LifePaid | Type$ CountSVar | Expression$ X\n" +
@@ -945,6 +962,7 @@ func monstrosityOpponents(t *testing.T, e *Engine, n int) []state.ObjID {
 // the seat's own creature is untouched, and DBCleanup cleared the source's
 // remembered list.
 func TestMonstrosityOfTheLakePayTapsStunsAndClears(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Monstrosity of the Lake")
 	opponents := monstrosityOpponents(t, e, 2)
@@ -984,6 +1002,7 @@ func TestMonstrosityOfTheLakePayTapsStunsAndClears(t *testing.T) {
 // untouched, taps nothing, puts no STUN counter anywhere, and the source's
 // remembered list stays empty.
 func TestMonstrosityOfTheLakeDeclineChangesNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Monstrosity of the Lake")
 	opponents := monstrosityOpponents(t, e, 2)
@@ -1030,6 +1049,7 @@ func TestMonstrosityOfTheLakeDeclineChangesNothing(t *testing.T) {
 // window for). This test pins the invariant that matters: a submitted pay
 // with NOTHING to pay from leaves the board untouched.
 func TestMonstrosityOfTheLakeUnpayableIsDeclinedAtSettle(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Monstrosity of the Lake")
 	opponents := monstrosityOpponents(t, e, 2)

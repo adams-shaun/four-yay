@@ -14,6 +14,7 @@ import (
 // TestDuplicantImprintReplacement resolves the real compiled trigger body twice
 // against the same host, without bouncing the host (which would itself clean up).
 func TestDuplicantImprintReplacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	duplicant := lookup(t, reg, "Duplicant")
 	e := layerEngine(t)
@@ -68,6 +69,7 @@ func TestDuplicantImprintReplacement(t *testing.T) {
 
 // Last-only also applies to multi-object moves, independently of Unimprint.
 func TestChangeZoneImprintLastMultiObject(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Imprint Host\nTypes:Artifact\nOracle:x\n")
 	a := onBoard(t, e, 1, "Name:A\nTypes:Creature Elf\nPT:1/1\nOracle:x\n")
@@ -88,6 +90,7 @@ func TestChangeZoneImprintLastMultiObject(t *testing.T) {
 
 // Unimprint clears before the move even if the operation finds no candidate.
 func TestChangeZoneUnimprintWithoutMovedCard(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Imprint Host\nTypes:Artifact\nOracle:x\n")
 	old := onBoard(t, e, 1, "Name:Old Card\nTypes:Creature Elf\nPT:1/1\nOracle:x\n")

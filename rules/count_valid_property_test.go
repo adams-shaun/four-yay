@@ -38,6 +38,7 @@ func seedObjectCounter(t *testing.T, e *Engine, id state.ObjID, kind string, n i
 // `Permanent.YouCtrl$CardCounters.TIME` token was treated as the spec, matched
 // nothing) and the pump was +0/+0.
 func TestFerraforETBCreatesSaprolingsForTargetPlayersCreatureCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ferrafor, ok := reg.Lookup("Ferrafor, Young Yew")
 	if !ok {

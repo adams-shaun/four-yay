@@ -79,6 +79,7 @@ func tokenForgeTappedSrc(script string) string {
 // Optional$ True replacement poses a real KChoose (decline first, apply
 // second) and an accepted election rewrites the Treasure into a Clue.
 func TestTokenReplacementOptionalAsksAndAccepts(t *testing.T) {
+	t.Parallel()
 	lyev := tokenReplCorpusCard(t, "Flitwing, Lyev Detective")
 	maker := cardByName(t, tokenForgeSrc("c_a_treasure_sac"))
 	e, cfg := tokenReplGame(t, 101, lyev, maker)
@@ -113,6 +114,7 @@ func TestTokenReplacementOptionalAsksAndAccepts(t *testing.T) {
 // Treasure, and the ask was really posed (the assertion above), not the old
 // silent decline.
 func TestTokenReplacementOptionalDeclineStandsVerbatim(t *testing.T) {
+	t.Parallel()
 	lyev := tokenReplCorpusCard(t, "Flitwing Lyev, Detective")
 	maker := cardByName(t, tokenForgeSrc("c_a_treasure_sac"))
 	e, cfg := tokenReplGame(t, 107, lyev, maker)
@@ -139,6 +141,7 @@ func TestTokenReplacementOptionalDeclineStandsVerbatim(t *testing.T) {
 // replacement on seat 0's battlefield makes an opponent-created creature
 // token enter under seat 0's control.
 func TestTokenReplacementControllerShift(t *testing.T) {
+	t.Parallel()
 	shift := cardByName(t, tokenControllerReplSrc())
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGameSeats(t, 109, []*cards.Card{shift}, []*cards.Card{maker})
@@ -166,6 +169,7 @@ func TestTokenReplacementControllerShift(t *testing.T) {
 // SVar body (ReplaceCount$CounterNum/Twice) doubles the mint instead of
 // taking the unpriceable-Note path.
 func TestTokenReplacementSVarAmountDoubles(t *testing.T) {
+	t.Parallel()
 	dbl := cardByName(t, tokenSVarAmountReplSrc())
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGame(t, 113, dbl, maker)
@@ -185,6 +189,7 @@ func TestTokenReplacementSVarAmountDoubles(t *testing.T) {
 // TokenTapped$ rider lands on BOTH mints Doubling Season produces, not just
 // the first.
 func TestTokenReplacementRidersLandOnEveryExtra(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	maker := cardByName(t, tokenForgeTappedSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGame(t, 127, ds, maker)
@@ -220,6 +225,7 @@ func TestTokenReplacementRidersLandOnEveryExtra(t *testing.T) {
 // class -- the registration this test's fix adds. A token the OPPONENT then
 // creates enters under Cutpurse's controller's control instead.
 func TestCraftyCutpurseRedirectsOpponentTokens(t *testing.T) {
+	t.Parallel()
 	cutpurse := tokenReplCorpusCard(t, "Crafty Cutpurse")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGameSeats(t, 139, []*cards.Card{cutpurse}, []*cards.Card{maker})
@@ -262,6 +268,7 @@ func TestCraftyCutpurseRedirectsOpponentTokens(t *testing.T) {
 // the cleanup that ends the turn. On the NEXT turn the opponent's token is
 // NOT redirected.
 func TestCraftyCutpurseRegistrationExpiresAfterTheTurn(t *testing.T) {
+	t.Parallel()
 	cutpurse := tokenReplCorpusCard(t, "Crafty Cutpurse")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGameSeats(t, 149, []*cards.Card{cutpurse}, []*cards.Card{maker})

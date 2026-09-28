@@ -48,6 +48,7 @@ const radiantFlamesSrc = "Name:Radiant Flames\nManaCost:2 R\nTypes:Sorcery\n" +
 // that resolveManaWith closes with), so {4} from R,R,G,G pays 2 R + 2 G and
 // the delta is exactly the two colours.
 func TestConvergeCrawlerEntersWithColourCount(t *testing.T) {
+	t.Parallel()
 	t.Run("two colours of mana", func(t *testing.T) {
 		e, cfg, find := etbConfig(t, 131, []string{crystallineCrawlerSrc}, nil)
 		id := find("Crystalline Crawler", 0)
@@ -88,6 +89,7 @@ func TestConvergeCrawlerEntersWithColourCount(t *testing.T) {
 // field assertion pins (a colourless-only cast is a real zero, not a
 // missing capture).
 func TestConvergeColourlessSpendCountsZero(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, 133, []string{crystallineCrawlerSrc}, nil)
 	id := find("Crystalline Crawler", 0)
 	addMana(t, e, 0, "CCCC") // {4} paid entirely as {C}
@@ -124,6 +126,7 @@ func TestConvergeColourlessSpendCountsZero(t *testing.T) {
 // 1 G is two colours, so the opposing 2/2 takes 2 and dies. Under the silent
 // zero the same cast dealt 0 and the bear survived.
 func TestConvergeRadiantFlamesDealsPerColour(t *testing.T) {
+	t.Parallel()
 	bear := "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, find := etbConfig(t, 134, []string{radiantFlamesSrc}, []string{bear})
 	radiant := find("Radiant Flames", 0)
@@ -143,6 +146,7 @@ func TestConvergeRadiantFlamesDealsPerColour(t *testing.T) {
 // emits no FlagConverged CastInfo, so no game that casts no converge card
 // changes an event (this is what keeps the chain heads put).
 func TestConvergeCastInfoNotStampedOnPlainCast(t *testing.T) {
+	t.Parallel()
 	bolt := "Name:Bolt\nManaCost:2 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n"
 	e, cfg, find := etbConfig(t, 139, []string{bolt}, nil) // seed: toss starts seat 0
 	boltID := find("Bolt", 0)

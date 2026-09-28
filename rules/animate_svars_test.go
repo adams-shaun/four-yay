@@ -59,6 +59,7 @@ func guardianScalelordAnimEngine(t *testing.T) (*Engine, state.ObjID, *cards.Car
 // under `AE`, the expanded marker under `HasAttackEffect` — and the sibling
 // Keywords$ Flying grant lands in the same registration.
 func TestGuardianScalelordAnimateGrantsSVars(t *testing.T) {
+	t.Parallel()
 	e, fixtureID, gs := guardianScalelordAnimEngine(t)
 	sa := cards.ResolveSVar(gs.Faces[0].SVars, "BackupAbilities")
 	if sa == nil {
@@ -91,6 +92,7 @@ func TestGuardianScalelordAnimateGrantsSVars(t *testing.T) {
 // guards the "nothing happens" direction against a silently unregistered
 // handler.
 func TestGuardianScalelordAnimateMissingSVarIsLoud(t *testing.T) {
+	t.Parallel()
 	e, fixtureID, gs := guardianScalelordAnimEngine(t)
 	sa := cards.ResolveSVar(gs.Faces[0].SVars, "BackupAbilities")
 	if sa == nil {

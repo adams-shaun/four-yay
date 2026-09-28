@@ -96,6 +96,7 @@ func unpriceableCounterCards(reg *cards.Registry) []string {
 // distinct DamageYou payment path and still offers it).
 // Raw .cards/cardsfolder lines with UnlessCost$ X number the same 21.
 func TestUnlessCostUnpriceablePopulation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := unpriceableCounterCards(reg)
 	var want = []string{
@@ -197,6 +198,7 @@ func xCounterFixture(t *testing.T, reg *cards.Registry, counter, creature string
 // has an empty pool and no window-eligible source, so the ask is decline-only
 // and the assertion below pins that shape.
 func TestPowerSinkCastTimeXUnlessPayCannotSucceedFromEmptyPool(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, creatureID := xCounterFixture(t, reg, "Power Sink", "Grizzly Bears", "2")
 
@@ -248,6 +250,7 @@ func inDeck(deck []*cards.Card, name string) bool {
 // verifies its X unless cost resolves from the captured sacrificed-card LKI.
 // The card ships in the mono-blue-tempo and uw-tempo replay decks.
 func TestMausoleumWandererUnlessCostX(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	wanderer := mustCorpusCard(t, reg, "Mausoleum Wanderer")
 	sa := counterSA(t, wanderer)
@@ -282,6 +285,7 @@ func TestMausoleumWandererUnlessCostX(t *testing.T) {
 // cost" property travels through Cost.Priceable and not through a
 // `if cost == "X"` special case.
 func TestParseCostPriceable(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		cost string
 		want bool
@@ -370,6 +374,7 @@ func strictUnpriceableCards(reg *cards.Registry) []string {
 // adds or removes a name here is a real scope change that must be
 // understood, not silently absorbed.
 func TestUnlessCostStrictParsePopulation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := strictUnpriceableCards(reg)
 	want := []string{"A-Karn, Living Legacy", "Aether Spike", "Alliance of Arms",

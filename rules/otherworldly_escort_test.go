@@ -63,6 +63,7 @@ func escortOnBattlefield(t *testing.T, e *Engine) state.ObjID {
 }
 
 func TestOtherworldlyEscortReturnsAsSpiritDetective(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := escortEngine(t, reg)
 	id := escortOnBattlefield(t, e)

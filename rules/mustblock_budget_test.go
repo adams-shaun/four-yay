@@ -13,6 +13,7 @@ import (
 // The fixture combines Watchdog's MustBlock and Qal Sisma Behemoth's printed
 // CantBlockUnless shapes; flying makes the second attacker's pairing unique.
 func TestMustBlockAggregateBudget(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	priced := strings.Replace(pricedMustBlockSrc, "Cost$ 3", "Cost$ 2", 1)
 	ground := onBoardCard(t, e, 0, card(t, priced))
@@ -60,6 +61,7 @@ func TestMustBlockAggregateBudget(t *testing.T) {
 // TestMustBlockAggregateBudgetBotAnswerNeverLivelocks runs the actual bot
 // answer through Submit under the same aggregate-budget constraint.
 func TestMustBlockAggregateBudgetBotAnswerNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	priced := strings.Replace(pricedMustBlockSrc, "Cost$ 3", "Cost$ 2", 1)
 	ground := onBoardCard(t, e, 0, card(t, priced))

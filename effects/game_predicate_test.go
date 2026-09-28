@@ -101,6 +101,7 @@ func TestGameAwarePredicates(t *testing.T) {
 	// src was fetched early; g.Obj reallocates as objects accumulate, so
 	// re-fetch by ID before mutating it, never through the held pointer.
 	g.Obj(src.ID).BlockedBy = append(g.Obj(src.ID).BlockedBy, blocker.ID)
+	g.NoteBlockers() // written directly, not by DeclareBlockers
 	if !MatchesObjectCtx(g, "Creature.blockingSource", blocker, SpecContext{You: 0, Source: src.ID}) {
 		t.Errorf("Creature.blockingSource must match a creature blocking the source")
 	}
@@ -112,6 +113,7 @@ func TestGameAwarePredicates(t *testing.T) {
 	// object's BlockedBy names the source.
 	blocked := g.Obj(corpusObject(t, reg, g, "Grizzly Bears").ID)
 	blocked.BlockedBy = append(blocked.BlockedBy, src.ID)
+	g.NoteBlockers()
 	if !MatchesObjectCtx(g, "Creature.blockedBySource", blocked, SpecContext{You: 0, Source: src.ID}) {
 		t.Errorf("Creature.blockedBySource must match a creature the source is blocking")
 	}

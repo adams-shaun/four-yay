@@ -24,6 +24,7 @@ import (
 // not survive the suspension and the re-entry re-derived Defined$ Imprinted
 // to nothing.
 func TestGoldwardensGambitRemembersAttachedEquipment(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Goldwardens' Gambit", "Lightning Greaves", "Swiftfoot Boots")
 	greaves := searchMoveByName(t, e, "Lightning Greaves", state.ZBattlefield)

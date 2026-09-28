@@ -14,6 +14,7 @@ import (
 // mid-resolution ChangeZone sub-ability asks for a nonland permanent an
 // opponent controls. Answering that ask completes the cast with no reversal.
 func TestIntoTheFloodMawPromisedGiftCastsAndBounces(t *testing.T) {
+	t.Parallel()
 	e, spell := corpusTargetFeasibleCard(t, 7206, "i/into_the_flood_maw.txt", "Creature.OppCtrl")
 	theirBear := bearPermanent(t, e, 1)
 	if o := e.G.Obj(theirBear); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {

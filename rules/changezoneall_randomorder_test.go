@@ -19,6 +19,7 @@ import (
 // log-only replay re-derives the identical order (the shuffle draws the
 // seeded engine rng, never math/rand).
 func TestSunbirdsInvocationRestRandomOrderShufflesLibraryBottom(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sunbird := searchCorpusCard(t, reg, "Sunbird's Invocation")
 	e, cfg := mordorEngine(t, reg, 4242, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
@@ -87,6 +88,7 @@ func TestSunbirdsInvocationRestRandomOrderShufflesLibraryBottom(t *testing.T) {
 // TOP of your library", so the shuffled pile must sit above the pre-existing
 // library.
 func TestTriumphOfSaintKatherineRandomOrderOnTop(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	triumph := searchCorpusCard(t, reg, "Triumph of Saint Katherine")
 	e, cfg := mordorEngine(t, reg, 7701, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")

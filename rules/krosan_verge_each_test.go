@@ -71,6 +71,7 @@ func firstGroupIndex(d *decision.Decision, group string) int {
 // the activation offers one pick per listed type and the answered Forest and
 // Plains both enter the battlefield tapped, then the library shuffles.
 func TestKrosanVergeFetchesAForestAndAPlainsTapped(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := vergeEngine(t, reg, true)
 	d := activateVerge(t, e)
@@ -140,6 +141,7 @@ func TestKrosanVergeFetchesAForestAndAPlainsTapped(t *testing.T) {
 // a library of Forests and no Plains offers only the Forest group (Max 1),
 // and the answered Forest still moves.
 func TestKrosanVergeWithNoPlainsOffersOnlyForests(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := vergeEngine(t, reg, false)
 	d := activateVerge(t, e)
@@ -174,6 +176,7 @@ func TestKrosanVergeWithNoPlainsOffersOnlyForests(t *testing.T) {
 // fail-to-find: a library holding neither a Forest nor a Plains asks nothing
 // (no KChoose DecisionAsk), still shuffles, and moves nothing.
 func TestKrosanVergeWithNeitherTypeFailsToFindSilently(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := vergeEngineNeither(t, reg)
 	verge := searchMoveByName(t, e, "Krosan Verge", state.ZBattlefield)

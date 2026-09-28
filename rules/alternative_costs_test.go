@@ -25,6 +25,7 @@ func castMode(t *testing.T, e *Engine, id state.ObjID, mode string) {
 }
 
 func TestBuybackConstantMistsReturnsToHand(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Constant Mists"))
 	mtn := card(t, "Name:Land\nTypes:Basic Land Mountain\nA:AB$ Mana | Cost$ T | Produced$ R\nOracle:x\n")
 	land := e.G.AddObject(mtn, 0)
@@ -47,6 +48,7 @@ func TestBuybackConstantMistsReturnsToHand(t *testing.T) {
 }
 
 func TestBuybackSearingTouchFizzleGoesToGraveyard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Searing Touch"))
 	target := e.G.AddObject(card(t, "Name:Target\nTypes:Creature Human\nPT:1/1\nOracle:x\n"), 1)
 	target.Zone = state.ZBattlefield
@@ -98,6 +100,7 @@ func suspendToFinalCounter(t *testing.T) (*Engine, state.ObjID) {
 }
 
 func TestSuspendProfaneTutorHasProvenanceAndOptionalCast(t *testing.T) {
+	t.Parallel()
 	e, profane := suspendToFinalCounter(t)
 	// CR 702.62a: "you may play it without paying its mana cost if able" --
 	// answering the offer casts it; option 0 is Cast, option 1 is Leave.
@@ -108,6 +111,7 @@ func TestSuspendProfaneTutorHasProvenanceAndOptionalCast(t *testing.T) {
 }
 
 func TestSuspendDeclinedCastStaysInExileAndTurnContinues(t *testing.T) {
+	t.Parallel()
 	e, profane := suspendToFinalCounter(t)
 	// A decline (or a stale offer) leaves the card in exile with its Suspend
 	// provenance, and the upkeep completes: the next step is the draw step.
@@ -146,6 +150,7 @@ func TestSuspendOrdinaryExiledCardNeverGetsTheOffer(t *testing.T) {
 }
 
 func TestSuspendDoesNotCastThroughCantBeCast(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Profane Tutor"))
 	profane := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MB], e.G.Players[0].Pool[state.MC] = 1, 1
@@ -165,6 +170,7 @@ func TestSuspendDoesNotCastThroughCantBeCast(t *testing.T) {
 }
 
 func TestSuspendXBenalishCommanderAnnouncesTimeAndCost(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Benalish Commander"))
 	commander := e.G.Zone(state.ZHand, 0)[0]
 	if info, ok := suspendCost(e.G.Obj(commander).Face()); !ok || !info.timeX || info.minTime != 1 || info.cost.X != 1 {
@@ -191,6 +197,7 @@ func TestSuspendXBenalishCommanderAnnouncesTimeAndCost(t *testing.T) {
 }
 
 func TestConvokeCrowdsFavorCommitsChosenCreature(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Crowd's Favor"))
 	creature := card(t, "Name:Red Druid\nManaCost:R\nTypes:Creature Elf\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ R\nOracle:x\n")
 	id := e.G.AddObject(creature, 0)
@@ -218,6 +225,7 @@ func TestConvokeCrowdsFavorCommitsChosenCreature(t *testing.T) {
 }
 
 func TestConvokeMarchOfMultitudesAnnouncesEveryCreatureAndFundsX(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "March of the Multitudes"))
 	for i := 0; i < 3; i++ {
 		c := card(t, "Name:White Helper\nManaCost:W\nTypes:Creature Human\nPT:1/1\nOracle:x\n")
@@ -265,6 +273,7 @@ func TestConvokeMarchOfMultitudesAnnouncesEveryCreatureAndFundsX(t *testing.T) {
 }
 
 func TestHarmonizeZenithFestivalFundsX(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	spell := e.G.AddObject(corpusAlternativeCard(t, "Zenith Festival"), 0)
 	spell.Zone = state.ZGraveyard
@@ -293,6 +302,7 @@ func TestHarmonizeZenithFestivalFundsX(t *testing.T) {
 }
 
 func TestHarmonizeWildRideUsesAnnouncedPower(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Wild Ride"))
 	creature := card(t, "Name:Four Power Druid\nTypes:Creature Elf\nPT:4/4\nA:AB$ Mana | Cost$ T | Produced$ R\nOracle:x\n")
 	id := e.G.AddObject(creature, 0)
@@ -321,6 +331,7 @@ func TestHarmonizeWildRideUsesAnnouncedPower(t *testing.T) {
 // Wild Ride pin uses must be absent from the announcement and untapped after
 // payment.
 func TestHarmonizeAnnouncementSkipsNonCreaturePower(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Wild Ride"))
 	vehicle := card(t, "Name:Test Vehicle\nTypes:Artifact Vehicle\nPT:5/3\nOracle:x\n")
 	vid := e.G.AddObject(vehicle, 0)
@@ -353,6 +364,7 @@ func TestHarmonizeAnnouncementSkipsNonCreaturePower(t *testing.T) {
 }
 
 func TestConvokeOverSelectionIsRejectedAndResubmitted(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Crowd's Favor"))
 	for i := 0; i < 2; i++ {
 		creature := card(t, "Name:Red Druid\nManaCost:R\nTypes:Creature Elf\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ R\nOracle:x\n")
@@ -397,6 +409,7 @@ func TestConvokeOverSelectionIsRejectedAndResubmitted(t *testing.T) {
 }
 
 func TestConvokeXAnnouncementPricesEveryCreature(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "March of the Multitudes"))
 	for i := 0; i < 2; i++ {
 		c := card(t, "Name:White Helper\nManaCost:W\nTypes:Creature Human\nPT:1/1\nOracle:x\n")
@@ -439,6 +452,7 @@ func TestConvokeXAnnouncementPricesEveryCreature(t *testing.T) {
 }
 
 func TestHarmonizePaysDerivedPowerNotPrinted(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Wild Ride"))
 	creature := card(t, "Name:Boosted Druid\nTypes:Creature Elf\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ R\nOracle:x\n")
 	id := e.G.AddObject(creature, 0)
@@ -465,6 +479,7 @@ func TestHarmonizePaysDerivedPowerNotPrinted(t *testing.T) {
 }
 
 func TestHarmonizeReducedDerivedPowerPaysOnlyItsPower(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Wild Ride"))
 	creature := card(t, "Name:Diminished Druid\nTypes:Creature Elf\nPT:4/4\nA:AB$ Mana | Cost$ T | Produced$ R\nOracle:x\n")
 	id := e.G.AddObject(creature, 0)
@@ -694,6 +709,7 @@ func TestCastWithFlashHonorsScriptGates(t *testing.T) {
 }
 
 func TestVedalkenOrreryAppliesOutsideHand(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	orrery := e.G.AddObject(corpusAlternativeCard(t, "Vedalken Orrery"), 0)
 	orrery.Zone = state.ZBattlefield
@@ -718,6 +734,7 @@ func TestVedalkenOrreryAppliesOutsideHand(t *testing.T) {
 }
 
 func TestGemstoneCavernsOpeningHandEffect(t *testing.T) {
+	t.Parallel()
 	gem := corpusAlternativeCard(t, "Gemstone Caverns")
 	fill := card(t, "Name:Filler\nTypes:Basic Land\nOracle:x\n")
 	for seed := uint64(1); seed < 200; seed++ {
@@ -759,6 +776,7 @@ func TestGemstoneCavernsOpeningHandEffect(t *testing.T) {
 }
 
 func TestGemstoneCavernsIsOfferedOnlyAfterMulligans(t *testing.T) {
+	t.Parallel()
 	gem := corpusAlternativeCard(t, "Gemstone Caverns")
 	fill := card(t, "Name:Filler\nTypes:Basic Land\nOracle:x\n")
 	deck := func() []*cards.Card {
@@ -812,6 +830,7 @@ func TestGemstoneCavernsIsOfferedOnlyAfterMulligans(t *testing.T) {
 }
 
 func TestChancellorOpeningEffectRegistersAndRunsItsPhaseTrigger(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Chancellor of the Tangle"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	e.applyOpeningEffect(openingEffect{player: 0, card: id, svar: "RevealCard"})
@@ -835,6 +854,7 @@ func TestChancellorOpeningEffectRegistersAndRunsItsPhaseTrigger(t *testing.T) {
 }
 
 func TestImpatientIguanaBecomesStartingPlayer(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Impatient Iguana"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	e.pending = nil
@@ -927,6 +947,7 @@ func altCastOptions(opts []decision.Option, id state.ObjID) []decision.Option {
 // unoffered until the payer controls an Island. Taking the alternative
 // returns the Island at cast commit, beside the other payments.
 func TestDazeAltCostGatedOnAnIslandToReturn(t *testing.T) {
+	t.Parallel()
 	daze := corpusAlternativeCard(t, "Daze")
 	e := handEngine(t, daze)
 	dazeID := e.G.Zone(state.ZHand, 0)[0]
@@ -1005,6 +1026,7 @@ func TestDazeAltCostGatedOnAnIslandToReturn(t *testing.T) {
 // IsPresent$ Card.IsCommander+YouCtrl, which counts battlefield permanents
 // only, so a commander in the command zone does not unlock the free cast.
 func TestDeadlyRollickAltCostGatedOnCommanderPresence(t *testing.T) {
+	t.Parallel()
 	rollick := corpusAlternativeCard(t, "Deadly Rollick")
 	e := handEngine(t, rollick)
 	rollickID := e.G.Zone(state.ZHand, 0)[0]
@@ -1072,6 +1094,7 @@ func TestDeadlyRollickAltCostGatedOnCommanderPresence(t *testing.T) {
 // the fail-closed direction for an unevaluable ValidSA$ Spell constraint:
 // the free cast is denied, never silently widened.
 func TestAlternativeCostValidPlayerScopesTheOffer(t *testing.T) {
+	t.Parallel()
 	freebie := card(t, "Name:Freebie\nManaCost:1 U\nTypes:Instant\n"+
 		"A:SP$ Draw | Defined$ You | NumCards$ 1\n"+
 		"S:Mode$ AlternativeCost | ValidSA$ Spell | ValidPlayer$ You | Cost$ 0\nOracle:x\n")

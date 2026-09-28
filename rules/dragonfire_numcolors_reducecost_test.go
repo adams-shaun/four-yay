@@ -75,6 +75,7 @@ func dragonfireGame(t *testing.T, seed uint64, extra string) (*Engine, Config, s
 // Targeted$CardNumColors head read 0, so the equip priced at the full {4} and
 // was withheld from the {3} pool.
 func TestDragonfireBladeEquipOfferedAtColorDiscountedPrice(t *testing.T) {
+	t.Parallel()
 	e, cfg, bladeID, monoID := dragonfireGame(t, 611, dragonfireMonoSrc)
 	// Precondition: the target really is monocolored, so its CardNumColors
 	// read is 1 -- the {1} reduction is nonzero. A vacuous setup (colorless,
@@ -108,6 +109,7 @@ func TestDragonfireBladeEquipOfferedAtColorDiscountedPrice(t *testing.T) {
 // (pool 0). The mono leaf above charges {3}; the two charges differ by the
 // target's own color count.
 func TestDragonfireBladeEquipChargeFollowsTargetColorCount(t *testing.T) {
+	t.Parallel()
 	e, cfg, bladeID, multiID := dragonfireGame(t, 612, dragonfireMultiSrc)
 	// Precondition: the target really is two-colored, so its CardNumColors
 	// read is 2 and the {2} reduction differs from the mono leaf's {1}. A
@@ -140,6 +142,7 @@ func TestDragonfireBladeEquipChargeFollowsTargetColorCount(t *testing.T) {
 // {4}) must hold it out, fail closed; with a fourth mana added it is offered
 // and charges exactly {4} (pool 0). A constant {1} read would offer it at {3}.
 func TestDragonfireBladeEquipWithheldAtThreeAgainstColorless(t *testing.T) {
+	t.Parallel()
 	e, cfg, bladeID, colorlessID := dragonfireGame(t, 613, dragonfireColorlessSrc)
 	// Precondition: the target really is colorless, so its CardNumColors read
 	// is 0 and the reduction really is zero. A colored fixture (or a printed

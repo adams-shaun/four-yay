@@ -89,6 +89,7 @@ func millTo(t *testing.T, e *Engine, n int) {
 // empty graveyard, {1}{B} paid from a floating {B}{B}, and the resolution
 // adding exactly three black mana.
 func TestCabalRitualAddsThreeWithoutThreshold(t *testing.T) {
+	t.Parallel()
 	ritual := corpusCard(t, "Cabal Ritual")
 	ritualShape(t, ritual)
 	e := handEngine(t, ritual, ritual)
@@ -115,6 +116,7 @@ func TestCabalRitualAddsThreeWithoutThreshold(t *testing.T) {
 // TestCabalRitualThresholdAddsFive drives the threshold-ON half: seven
 // graveyard cards (CR 702.24's boundary), a second cast, five black mana.
 func TestCabalRitualThresholdAddsFive(t *testing.T) {
+	t.Parallel()
 	ritual := corpusCard(t, "Cabal Ritual")
 	e := handEngine(t, ritual, ritual)
 	hand := e.G.Zone(state.ZHand, 0)
@@ -136,6 +138,7 @@ func TestCabalRitualThresholdAddsFive(t *testing.T) {
 // engine side: six cards in the graveyard is NOT Threshold — the second
 // ritual still adds three.
 func TestCabalRitualSixGraveyardCardsStaysAtThree(t *testing.T) {
+	t.Parallel()
 	ritual := corpusCard(t, "Cabal Ritual")
 	e := handEngine(t, ritual, ritual)
 	hand := e.G.Zone(state.ZHand, 0)
@@ -180,6 +183,7 @@ func hydraShape(t *testing.T, hydra *cards.Card) {
 // {G}, the target's own {1}{G}), so the +X/+X is +3/+3 — not the +0/+0 the
 // unmodelled head produced.
 func TestAspectOfHydraPumpsByDevotion(t *testing.T) {
+	t.Parallel()
 	hydra := corpusCard(t, "Aspect of Hydra")
 	hydraShape(t, hydra)
 	e := handEngine(t, hydra)
@@ -238,6 +242,7 @@ func TestAspectOfHydraPumpsByDevotion(t *testing.T) {
 // creature and costless lands), X counts 0 and the +X/+X is +0/+0 — the
 // target is untouched.
 func TestAspectOfHydraZeroDevotionPumpsNothing(t *testing.T) {
+	t.Parallel()
 	hydra := corpusCard(t, "Aspect of Hydra")
 	e := handEngine(t, hydra)
 	wall := onBoardCard(t, e, 0, card(t, "Name:Vanilla Wall\nManaCost:no cost\nTypes:Creature Wall\nPT:0/4\nOracle:x\n"))

@@ -13,6 +13,7 @@ import (
 // is itself copiable. A second CopySpellAbility with no NonLegendary$ True
 // must not restore the printed Legendary supertype.
 func TestSixthDoctorNonLegendaryCopyOfCopy(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		value string

@@ -54,6 +54,7 @@ func playModalLand(t *testing.T, e *Engine, id state.ObjID) {
 // TestCR712ModalDFCLandLandOffersBothFaces pins that the back-land offer is
 // additive when the front face is also a land (CR 712.8).
 func TestCR712ModalDFCLandLandOffersBothFaces(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Branchloft Pathway")
 	id := searchMoveByName(t, e, "Branchloft Pathway", state.ZHand)
@@ -80,6 +81,7 @@ func TestCR712ModalDFCLandLandOffersBothFaces(t *testing.T) {
 // TestCR712ModalDFCLandBackIsOfferedPlayedAndReplays pins CR 712.8/712.4d:
 // the hand action selects the land face, which enters face up as that land.
 func TestCR712ModalDFCLandBackIsOfferedPlayedAndReplays(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := modalLandFixture(t)
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZHand || o.FaceIdx != 0 || o.Card == nil {
@@ -126,6 +128,7 @@ func TestCR712ModalDFCLandBackIsOfferedPlayedAndReplays(t *testing.T) {
 // TestCR712ModalDFCLandBackResetsToFrontOnExit pins the battlefield boundary:
 // leaving the land face returns the object to its front face in hand.
 func TestCR712ModalDFCLandBackResetsToFrontOnExit(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := modalLandFixture(t)
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZHand || o.Card == nil || o.Card.AlternateMode != "Modal" || len(o.Card.Faces) != 2 || o.Card.Faces[0].IsLand() == o.Card.Faces[1].IsLand() {

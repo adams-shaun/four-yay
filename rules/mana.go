@@ -1528,7 +1528,7 @@ func (e *Engine) rawBaseCost(p state.PlayerID, id state.ObjID) Cost {
 	if o == nil || o.Face() == nil {
 		return Cost{}
 	}
-	return e.parseCost(o.Face().ManaCost)
+	return e.faceCost(o.Face())
 }
 
 // castOfferBase is the composed RAW base every ordinary cast offer is gated on:
@@ -1542,6 +1542,12 @@ func (e *Engine) rawBaseCost(p state.PlayerID, id state.ObjID) Cost {
 // the offer gate only needs the credit; the actual commitment is re-derived
 // per cast by convokeAsk.
 func (e *Engine) castOfferBase(p state.PlayerID, id state.ObjID) Cost {
+	// Without either keyword both credits are the identity (convokeCost and
+	// improviseCost return the cost they were handed), so the raw base is
+	// the answer and the two Cost round trips are skipped.
+	if !e.hasCastConvoke(id) && !e.hasCastImprovise(id) {
+		return e.rawBaseCost(p, id)
+	}
 	base, taps := e.convokeCost(p, id, e.rawBaseCost(p, id))
 	base, _ = e.improviseCost(p, id, base, taps)
 	return base
@@ -1747,7 +1753,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		tax = e.commanderTaxAmount(p, id)
 	}
 	delve := int32(0)
-	if e.HasKeyword(id, "Delve") {
+	if e.hasKeywordH(id, kwhDelve) {
 		delve = int32(len(e.G.Zone(state.ZGraveyard, p)))
 	}
 	if !e.manaFeasiblePriced(p, id, ability, base, mods, tax, delve, hyp) {
@@ -3187,7 +3193,11 @@ func ParseUnlessCost(s string) (Cost, bool) {
 // payable with 2 life anywhere K'rrik is in play under its controller.
 func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("Continuous") {
-		if !slices.Contains(cards.SplitKeywordList(sv.Params["AddKeyword"]), "PayLifeInsteadOf:B") {
+		// A member equal to the keyword needs the keyword as a substring, so
+		// the allocation-free substring test rejects every other static
+		// before the list is split.
+		if raw := sv.Params["AddKeyword"]; !strings.Contains(raw, "PayLifeInsteadOf:B") ||
+			!slices.Contains(cards.SplitKeywordList(raw), "PayLifeInsteadOf:B") {
 			continue
 		}
 		if effects.MatchesPlayerSpec(e.G, sv.Params["Affected"], p, sv.Controller) {
@@ -3226,8 +3236,10 @@ func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider
 	if o == nil {
 		return false
 	}
-	for _, ce := range e.active() {
-		if !ce.MayPlay || !rider(ce) || ce.Controller != p {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
+		if !ce.MayPlay || !rider(*ce) || ce.Controller != p {
 			continue
 		}
 		if ce.MayPlayPlayerTurn && e.G.Active != p {

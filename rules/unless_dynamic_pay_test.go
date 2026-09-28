@@ -44,6 +44,7 @@ const mvFiveCreatureSrc = "Name:Big Beast\nManaCost:3 G G\nTypes:Creature Beast\
 // asserted: the pay option is offered (the gate priced {3} as reachable) and
 // its label names the announced amount.
 func TestUnlessPayAnnouncedXEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Power Sink"), mustCorpusCard(t, reg, "Grizzly Bears"))
 	ids := handIDsByFace(e)
@@ -106,6 +107,7 @@ func TestUnlessPayAnnouncedXEndToEnd(t *testing.T) {
 // prices {0}, the pay option is offered, and paying it (which charges
 // nothing) saves the spell.
 func TestUnlessPayZeroAnnouncedXEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Power Sink"), mustCorpusCard(t, reg, "Grizzly Bears"))
 	ids := handIDsByFace(e)
@@ -192,6 +194,7 @@ func driveUntilUnlessPay(t *testing.T, e *Engine, limit int) *decision.Decision 
 // energy counters (granted by the creature's own ETB at resolution). Paying
 // spends one energy counter and spares the tap; declining taps it.
 func TestUnlessPayEnergyEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	zoa := mustCorpusCard(t, reg, "Electrozoa")
 	e := handEngine(t, zoa)
@@ -232,6 +235,7 @@ func TestUnlessPayEnergyEndToEnd(t *testing.T) {
 
 // TestUnlessPayEnergyDeclineTaps is the decline half of the same trigger.
 func TestUnlessPayEnergyDeclineTaps(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	zoa := mustCorpusCard(t, reg, "Electrozoa")
 	e := handEngine(t, zoa)
@@ -270,6 +274,7 @@ func TestUnlessPayEnergyDeclineTaps(t *testing.T) {
 // Precondition asserted: a Mountain is on the battlefield (a reachable
 // candidate); without it the gate declines and the caldera dies instead.
 func TestUnlessPayReturnNonLairLandEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	caldera := mustCorpusCard(t, reg, "Darigaaz's Caldera")
 	e := handEngine(t, caldera)
@@ -313,6 +318,7 @@ func TestUnlessPayReturnNonLairLandEndToEnd(t *testing.T) {
 // non-Lair land on the battlefield the Return cost is unreachable, so the
 // ask is decline-only and the caldera is sacrificed.
 func TestUnlessPayReturnNoCandidatesDeclines(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	caldera := mustCorpusCard(t, reg, "Darigaaz's Caldera")
 	e := handEngine(t, caldera)
@@ -351,6 +357,7 @@ func TestUnlessPayReturnNoCandidatesDeclines(t *testing.T) {
 // life, and the switched counter runs (no extra turn). The decline branch
 // resolves the spell and takes the extra turn.
 func TestUnlessPayLifeTotalHalfUpEndToEnd(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		choice     int // 0 = pay, 1 = decline
@@ -415,6 +422,7 @@ func TestUnlessPayLifeTotalHalfUpEndToEnd(t *testing.T) {
 // DefinedSACost — the triggering spell's whole mana cost string, colours
 // included, which the strict parser must then price.
 func TestUnlessCostResolvedDefinedCostShapes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Disruption Aura: the granted trigger's SOURCE is the enchanted
@@ -473,6 +481,7 @@ func TestUnlessCostResolvedDefinedCostShapes(t *testing.T) {
 // fail-closed control: an UnlessCost$ X with no announcement stays raw and
 // the strict parser rejects it.
 func TestUnlessCostResolvedDynamicSVarChains(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Rune Snag: one copy in each graveyard -> Y = 2 * 2 = 4 -> Z = 2 + 4 = 6.
@@ -540,6 +549,7 @@ func TestUnlessCostResolvedDynamicSVarChains(t *testing.T) {
 // payable, an unannounced PayEnergy<X> never is, and LifeTotalHalfUp folds
 // against the payer's own life.
 func TestUnlessPayableEnergyAndHalfUpGates(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Temporal Extortion"))
 

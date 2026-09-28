@@ -56,6 +56,7 @@ func tfkOptionFor(d *decision.Decision, id state.ObjID) int {
 // the election is posed (an artifact is in hand), answered "unless", and the
 // single artifact leaves the hand -- the two ordinary cards stay.
 func TestThirstForKnowledgeDiscardsTheArtifactInstead(t *testing.T) {
+	t.Parallel()
 	e, id := tfkHand(t, tfkArtifact("My Mox"), "Name:Frog\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	addMana(t, e, 0, "UUU")
 	d := castFixture(t, e, id, -1)
@@ -83,6 +84,7 @@ func TestThirstForKnowledgeDiscardsTheArtifactInstead(t *testing.T) {
 // "ordinary": the ordinary TgtChoose ask follows and two non-artifact cards
 // leave the hand -- the artifact stays.
 func TestThirstForKnowledgeDeclinedElectionDiscardsTwo(t *testing.T) {
+	t.Parallel()
 	e, id := tfkHand(t, tfkArtifact("My Mox"), "Name:Frog\nTypes:Creature\nPT:1/1\nOracle:x\n",
 		"Name:Bird\nTypes:Creature\nPT:1/1\nOracle:x\n", "Name:Fish\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	addMana(t, e, 0, "UUU")
@@ -124,6 +126,7 @@ func TestThirstForKnowledgeDeclinedElectionDiscardsTwo(t *testing.T) {
 // artifact in hand the election is never posed and the ordinary ask comes
 // straight away.
 func TestThirstForKnowledgeNoArtifactAsksOrdinarily(t *testing.T) {
+	t.Parallel()
 	e, id := tfkHand(t, "Name:Frog\nTypes:Creature\nPT:1/1\nOracle:x\n",
 		"Name:Bird\nTypes:Creature\nPT:1/1\nOracle:x\n", "Name:Fish\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	addMana(t, e, 0, "UUU")
@@ -142,6 +145,7 @@ func TestThirstForKnowledgeNoArtifactAsksOrdinarily(t *testing.T) {
 // with TWO artifacts in hand: the unless arm's own one-card ask runs, and
 // the artifact NOT chosen stays in hand.
 func TestThirstForKnowledgeChoosesAmongArtifacts(t *testing.T) {
+	t.Parallel()
 	e, id := tfkHand(t, tfkArtifact("Mox A"), tfkArtifact("Mox B"),
 		"Name:Frog\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	addMana(t, e, 0, "UUU")

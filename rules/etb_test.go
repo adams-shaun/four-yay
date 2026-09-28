@@ -111,6 +111,7 @@ func findManaAbilityOption(e *Engine, obj state.ObjID, _ state.PlayerID) (decisi
 // moving object (replacement.go's Ctx.X), not zero. X=3 -> 3/3 on the
 // battlefield; X=0 -> a 0/0 that dies to state-based actions.
 func TestEtbCounterUsesTheChosenX(t *testing.T) {
+	t.Parallel()
 	src := "Name:Endless\nManaCost:X\nTypes:Creature Eldrazi\nPT:0/0\nK:etbCounter:P1P1:X\nSVar:X:Count$xPaid\nOracle:x\n"
 	e, cfg, find := etbConfig(t, 41, []string{src}, nil)
 	id := find("Endless", 0)
@@ -140,6 +141,7 @@ func TestEtbCounterUsesTheChosenX(t *testing.T) {
 // 1-charge Chalice. Without specCtx's EvalCount/Chosen resolution the trigger
 // would silently never match (cmcEQY unresolvable) and the bolt would resolve.
 func TestChaliceCountersSpellsOfTheChargedManaValue(t *testing.T) {
+	t.Parallel()
 	chalice := "Name:Chalice\nManaCost:X X\nTypes:Artifact\nK:etbCounter:CHARGE:X\n" +
 		"T:Mode$ SpellCast | ValidCard$ Card.cmcEQY | ValidActivatingPlayer$ Player | TriggerZones$ Battlefield | Execute$ TrigCounter | TriggerDescription$ x\n" +
 		"SVar:TrigCounter:DB$ Counter | Defined$ TriggeredSpellAbility\nSVar:X:Count$xPaid\nSVar:Y:Count$CardCounters.CHARGE\nOracle:x\n"
@@ -170,6 +172,7 @@ func TestChaliceCountersSpellsOfTheChargedManaValue(t *testing.T) {
 // static (cmcEQChosen, resolved through specCtx) then forbids the chosen
 // conversion value afterwards.
 func TestSanctumPrelateNumberIsChosenAtEntryAndRestrictsCasting(t *testing.T) {
+	t.Parallel()
 	prelate := "Name:Prelate\nManaCost:1 W W\nTypes:Creature Human Cleric\nPT:2/2\nK:ETBReplacement:Other:ChooseNumber\n" +
 		"SVar:ChooseNumber:DB$ ChooseNumber | Defined$ You | SpellDescription$ As CARDNAME enters, choose a number.\n" +
 		"S:Mode$ CantBeCast | ValidCard$ Card.nonCreature+cmcEQChosen | Description$ x\nOracle:x\n"
@@ -210,6 +213,7 @@ func TestSanctumPrelateNumberIsChosenAtEntryAndRestrictsCasting(t *testing.T) {
 // static; Cavern of Souls (a land) picks a creature type at its entry boundary
 // and enters the battlefield with it recorded.
 func TestNeedleNamesACardAndCavernChoosesAType(t *testing.T) {
+	t.Parallel()
 	needle := "Name:Needle\nManaCost:1\nTypes:Artifact\nK:ETBReplacement:Other:DBNameCard\n" +
 		"SVar:DBNameCard:DB$ NameCard | Defined$ You | SpellDescription$ x\n" +
 		"S:Mode$ CantBeActivated | ValidCard$ Card.NamedCard | ValidSA$ Activated.!ManaAbility | Description$ x\nOracle:x\n"

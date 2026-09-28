@@ -56,6 +56,7 @@ func mindbreakTrapMaxTgtsEngine(t *testing.T) (*Engine, state.ObjID, state.ObjID
 // is dynamic) are asserted so a broken setup fails loudly rather than pinning
 // a vacuous 1.
 func TestMindbreakTrapMaxTgtsCountsTheSharedStackOnce(t *testing.T) {
+	t.Parallel()
 	e, trapID, bearID := mindbreakTrapMaxTgtsEngine(t)
 
 	// Precondition: two alive seats -- a per-seat stack walk would visit the

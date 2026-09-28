@@ -33,6 +33,7 @@ const controlsVictim = "Name:Controls Victim\nTypes:Creature Human\nPT:1/1\nOrac
 // a controlsCreature.Goblin trigger must therefore fire for the seat whose
 // otherwise-Human creature it affects.
 func TestPlayerControlsCreatureSeesLayer4DerivedTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Maskwood Nexus")}, nil)
 	source := moveByName(t, e, 0, "Maskwood Nexus", state.ZBattlefield)
@@ -73,6 +74,7 @@ func TestPlayerControlsCreatureSeesLayer4DerivedTypes(t *testing.T) {
 // the nested filter still counts, so a _GE2 token over a two-creature board
 // grants by layer 4 must be satisfied (and _GE3 not).
 func TestPlayerControlsCreatureSeesLayer4CountComparison(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Maskwood Nexus")}, nil)
 	moveByName(t, e, 0, "Maskwood Nexus", state.ZBattlefield)
@@ -92,6 +94,7 @@ func TestPlayerControlsCreatureSeesLayer4CountComparison(t *testing.T) {
 // SetName$ rename must satisfy Player.controlsPermanent.named<X>, exactly as
 // it already satisfies an ordinary named<X> object filter.
 func TestPlayerControlsPermanentSeesLayer3Name(t *testing.T) {
+	t.Parallel()
 	blade := card(t, "Name:Renaming Blade\nManaCost:1\nTypes:Artifact Equipment\nK:Equip:1\n"+
 		"S:Mode$ Continuous | Affected$ Creature.EquippedBy | SetName$ First Name | Description$ x\nOracle:x\n")
 	bear := card(t, "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -152,6 +155,7 @@ func TestPlayerControlsPermanentSeesLayer3Name(t *testing.T) {
 // face. This is a scope control, not a widening: the fix threads the tables
 // only through contexts a rules caller builds.
 func TestPlayerControlsPrintedFaceFallback(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Maskwood Nexus")}, nil)
 	moveByName(t, e, 0, "Maskwood Nexus", state.ZBattlefield)

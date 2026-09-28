@@ -11,6 +11,7 @@ import (
 // Both printed replacements compete for the same instruction: the affected
 // player, not source scan order, chooses whether the +1 applies before draw.
 func TestScryReplacementOrderChoiceAndResume(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		first string

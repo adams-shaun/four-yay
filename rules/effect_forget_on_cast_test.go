@@ -106,6 +106,7 @@ func aliveCostStaticEntries(e *Engine, mode string) int {
 }
 
 func TestMarshlandBloodcasterAlternativeCostPaysLifeOnceForTheNextSpell(t *testing.T) {
+	t.Parallel()
 	// Marshland Bloodcaster: the two cast spells have different mana values
 	// (2 then 3), so the dynamic PayLife<ConvertedManaCost> pricing is
 	// observable spell by spell.
@@ -203,6 +204,7 @@ func TestMarshlandBloodcasterAlternativeCostPaysLifeOnceForTheNextSpell(t *testi
 }
 
 func TestKazaRoilChaserGrantedReductionIsOneShotAndKindScoped(t *testing.T) {
+	t.Parallel()
 	// Kaza's activation (Cost$ T) registers a Mode$ ReduceCost static with
 	// Amount$ Count$ChosenNumber (SetChosenNumber$ X at resolution) and
 	// ValidCard$ Instant,Sorcery; ForgetOnCast$ Instant.YouCtrl,Sorcery.

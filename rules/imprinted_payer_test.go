@@ -83,6 +83,7 @@ func heroismID(t *testing.T, e *Engine) state.ObjID {
 // Defined$ ImprintedController names the destroyed land's controller — the
 // same player the UnlessPayer$ asks.
 func TestImprintedControllerStenchOfEvil(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		pay        bool
@@ -127,6 +128,7 @@ func TestImprintedControllerStenchOfEvil(t *testing.T) {
 // on: the Sac<1/Creature.White> activation cost is a real KChoose when two
 // white creatures exist, so the cost cannot silently take the first.
 func TestImprintedControllerHeroismCostIsAChoice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 742)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Heroism"))

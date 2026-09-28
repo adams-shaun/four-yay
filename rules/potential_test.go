@@ -105,6 +105,7 @@ func restrictedBearBoard(t *testing.T, valid string) (*Engine, state.ObjID) {
 // action), so the projection may still carry the cast here -- only the
 // ordinary offer is pinned.
 func TestCastableExcludesNonMatchingRestrictedMana(t *testing.T) {
+	t.Parallel()
 	e, bear := restrictedBearBoard(t, "Spell.Artifact")
 	if e.costPayable(0, bear, false, ParseCost("2")) {
 		t.Fatal("costPayable admitted a restricted batch the payment would refuse")
@@ -158,6 +159,7 @@ func TestCastableExcludesNonMatchingRestrictedMana(t *testing.T) {
 // without Thalia the same board makes the Jitte cast potential, because the
 // pool CAN pay the printed {2}.
 func TestPotentialActionsJitteThaliaSnapshotIsNotCastable(t *testing.T) {
+	t.Parallel()
 	e, jitte := jitteSnapshotBoard(t, true)
 	acts := e.PotentialActions(0)
 	for _, a := range acts {
@@ -195,6 +197,7 @@ func TestPotentialActionsJitteThaliaSnapshotIsNotCastable(t *testing.T) {
 // even though the floating pool alone (empty) offers no cast. The old client
 // priced the printed cost and passed the window; the projection stops it.
 func TestPotentialActionsReduceCostOffered(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -229,6 +232,7 @@ func TestPotentialActionsReduceCostOffered(t *testing.T) {
 // is empty. The old client skipped every activation without {T} plus floated
 // mana and read the window as empty.
 func TestPotentialActionsEquipAbility(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -255,6 +259,7 @@ func TestPotentialActionsEquipAbility(t *testing.T) {
 // cast once the seat's untapped sources cover its (taxed) cost, though the
 // floating pool is empty. The old client scanned only the hand.
 func TestPotentialActionsCommandZoneCast(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 0, [][]string{
 		{"Name:Giada, Font of Hope\nManaCost:1 W\nTypes:Legendary Creature Angel\nPT:2/2\nOracle:x\n"},
 		{"Name:Beatstick\nManaCost:0\nTypes:Creature Zombie\nPT:1/1\nOracle:x\n"},
@@ -281,6 +286,7 @@ func TestPotentialActionsCommandZoneCast(t *testing.T) {
 // once the seat's untapped sources cover it. The old client scanned only the
 // hand.
 func TestPotentialActionsFlashbackCast(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -309,6 +315,7 @@ func TestPotentialActionsFlashbackCast(t *testing.T) {
 // resolves to zero) make the {7} creature a potential cast, though the
 // floating pool is empty and the fixed-colour bound would see nothing.
 func TestPotentialActionsIndeterminateSource(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -339,6 +346,7 @@ func TestPotentialActionsIndeterminateSource(t *testing.T) {
 // math.MaxInt32, and the affordability total saturates too, so it cannot wrap
 // negative while checking the generic cost.
 func TestPotentialActionsIndeterminateSourceIsUnbounded(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -365,6 +373,7 @@ func TestPotentialActionsIndeterminateSourceIsUnbounded(t *testing.T) {
 // old client's variable-pip refusal ate (the pin autopilot.test.ts used to
 // carry). One untapped Mountain behind a floating {R} is enough.
 func TestPotentialActionsBlazeAtXZero(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -392,6 +401,7 @@ func TestPotentialActionsBlazeAtXZero(t *testing.T) {
 // could respond if it stopped. The old client ignored mana-only activations
 // entirely, so the window passed.
 func TestPotentialActionsRishadanPortRespondable(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -424,6 +434,7 @@ func TestPotentialActionsRishadanPortRespondable(t *testing.T) {
 // it must not make a window stop-worthy. The old client read every bare-T
 // cost as payable and stopped every main phase.
 func TestPotentialActionsKarakasNoTargetDoesNotStop(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -456,6 +467,7 @@ func TestPotentialActionsKarakasNoTargetDoesNotStop(t *testing.T) {
 // a fixed single-face source, a fixed multi-face source, an open (Any)
 // production and an indeterminate amount.
 func TestPotentialManaOverbound(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.SetZone(state.ZHand, 0, nil)
 	onBoard(t, e, 0, jitteSnapshotPlains) // W:1
@@ -480,6 +492,7 @@ func TestPotentialManaOverbound(t *testing.T) {
 // it emits no event, mutates no pool, and leaves the real offer walk (and
 // therefore the engine's pending decision surface) exactly as it found it.
 func TestPotentialActionsIsAPureRead(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -512,6 +525,7 @@ func TestPotentialActionsIsAPureRead(t *testing.T) {
 // source against the REAL pool (empty) and dropped it, so only the {W}
 // projected and the {2} spell was silently uncastable.
 func TestPotentialManaPaidManaAbilitySequenced(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.SetZone(state.ZHand, 0, nil)
 	onBoard(t, e, 0, jitteSnapshotPlains) // untapped free {W}
@@ -541,6 +555,7 @@ func TestPotentialManaPaidManaAbilitySequenced(t *testing.T) {
 // pool), though the floating pool is empty. This is the exact shape the second
 // round's break attempt reproduced (pool=[C:1], {2} omitted).
 func TestPotentialActionsPaidManaAbilitySequenced(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -576,6 +591,7 @@ func TestPotentialActionsPaidManaAbilitySequenced(t *testing.T) {
 // producedOpen("") returned true and the source granted potentialUnbounded in
 // every colour slot -- turning an unpayable {W} spell into a potential cast.
 func TestPotentialManaBlankProducedIsColourless(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.SetZone(state.ZHand, 0, nil)
 	onBoard(t, e, 0, "Name:BlankManaLand\nTypes:Land\n"+
@@ -597,6 +613,7 @@ func TestPotentialManaBlankProducedIsColourless(t *testing.T) {
 // attempt hit (PotentialMana was [99 99 99 99 99 99] and projected the white
 // cast).
 func TestPotentialActionsBlankProducedNotColoured(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -626,6 +643,7 @@ func TestPotentialActionsBlankProducedNotColoured(t *testing.T) {
 // pool {C}{W} pays the printed {2}. The projection is what the auto-pass
 // stop decision reads, so the window the Jitte report described is skipped.
 func TestPotentialActionsJitteThaliaCorpusScriptIsNotCastable(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jitte, ok := reg.Lookup("Umezawa's Jitte")
 	if !ok {
@@ -699,6 +717,7 @@ func TestPotentialActionsJitteThaliaCorpusScriptIsNotCastable(t *testing.T) {
 // the {T} the damage ability needs; this test holds the engine contract the
 // client relies on.
 func TestPotentialActionsMountDoomDamageAbility(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)

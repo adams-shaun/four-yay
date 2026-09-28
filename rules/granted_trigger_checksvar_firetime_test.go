@@ -30,6 +30,7 @@ const firetimeRecipientSrc = "Name:Test Firetime Recipient\nManaCost:2\nTypes:Cr
 // pre-fix recipient read the trigger failed closed and never queued, leaving
 // the trinket spell's own draw as the only one.
 func TestGrantedTriggerFiretimeCheckSVarReadsGrantor(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 917, firetimeGrantorSrc, firetimeRecipientSrc, artifactSpellSrc, plainSifterSrc)
 	grantor := moveSeeded(t, e, 0, firetimeGrantorSrc, state.ZBattlefield)
 	recipient := moveSeeded(t, e, 0, firetimeRecipientSrc, state.ZBattlefield)

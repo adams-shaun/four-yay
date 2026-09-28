@@ -55,6 +55,7 @@ func moxHandPlains(e *Engine, p state.PlayerID) []state.ObjID {
 // TestMoxDiamondDeclineDiscardGoesToGraveyard: declining the optional
 // discard keeps every land in hand and puts Mox Diamond into the graveyard.
 func TestMoxDiamondDeclineDiscardGoesToGraveyard(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Mox Diamond")
 	lands := moxHandPlains(e, 0)
 	if len(lands) == 0 {
@@ -80,6 +81,7 @@ func TestMoxDiamondDeclineDiscardGoesToGraveyard(t *testing.T) {
 // the land pick (no zero-card answer any more); the picked land goes to the
 // graveyard and Mox Diamond enters the battlefield.
 func TestMoxDiamondAcceptDiscardEntersBattlefield(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Mox Diamond")
 	lands := moxHandPlains(e, 0)
 	if len(lands) < 2 {

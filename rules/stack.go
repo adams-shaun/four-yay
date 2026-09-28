@@ -1788,6 +1788,7 @@ func (e *Engine) candidatesForLimit(p state.PlayerID, source, excludeSelf state.
 		specSrc = o.Source
 	}
 	sc := e.targetSpecContext(specSrc, excludeSelf, p)
+	defer e.releaseSpecEnv()
 	zones := targetZones(sa)
 	var out []targetCandidate
 	// Resolve the source ONCE for the whole census -- for an ability this is
@@ -4886,6 +4887,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	// failed closed there -- a target the placement offer had just certified
 	// fizzled at resolution.
 	sc := e.targetSpecContext(source, self, you)
+	defer e.releaseSpecEnv()
 	sc.ResolutionTargets = targets
 	sc.Resolving = true
 	// TargetingPlayerControls$ (tpc1): the restriction's answering seat is

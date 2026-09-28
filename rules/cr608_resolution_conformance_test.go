@@ -74,6 +74,7 @@ func crResolutionPlayerTarget(t *testing.T, e *Engine, p state.PlayerID) {
 }
 
 func TestCR608CompletedSpellLeavesStackAfterDepartedPayer(t *testing.T) {
+	t.Parallel()
 	// MEASURED at 88ea57a+fx9: the concession below leaves e.resume non-nil
 	// forever. Suspended() tests ANY non-nil resume, so every LATER stack
 	// object skips completion -- seat 0's Bolt below deals its 3 damage and
@@ -145,6 +146,7 @@ func TestCR608CompletedSpellLeavesStackAfterDepartedPayer(t *testing.T) {
 // or an all-targets-illegal spell. Expectations use zones/order, never the
 // engine's target or resting-zone helpers. Counter counts EXAMINED SAs.
 func TestCR608CorpusOrdinaryBurnFinishesInGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
 	for _, c := range reg.Cards {
@@ -236,6 +238,7 @@ func TestCR608CorpusOrdinaryBurnFinishesInGraveyard(t *testing.T) {
 }
 
 func TestCR608ResolutionRechecksVinesTargetRestriction(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, nil, []string{"Vines of Vastwood"})
 	bolt := crAbortMove(t, e, 0, "Lightning Bolt", state.ZHand)
 	vines := crAbortMove(t, e, 1, "Vines of Vastwood", state.ZHand)

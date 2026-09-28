@@ -41,6 +41,7 @@ func jumpstartOptions(e *Engine, p state.PlayerID) []decision.Option {
 // the spell on the stack; after resolution the spell is exiled and its
 // controller has drawn a card.
 func TestRadicalIdeaJumpstartCastsDiscardsAndExiles(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Radical Idea"))
 	cardID := graveyardCorpus(t, e)
 
@@ -118,6 +119,7 @@ func TestRadicalIdeaJumpstartCastsDiscardsAndExiles(t *testing.T) {
 // discard, so no jump-start option may be offered. A card then joins the hand
 // and the offer appears, proving the first absence was the discard gate.
 func TestRadicalIdeaJumpstartNotOfferedWithoutACardToDiscard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Radical Idea"))
 	cardID := graveyardCorpus(t, e)
 	if got := e.G.Obj(cardID).Zone; got != state.ZGraveyard {
@@ -143,6 +145,7 @@ func TestRadicalIdeaJumpstartNotOfferedWithoutACardToDiscard(t *testing.T) {
 // the offer gate: a card is in hand but the printed {1}{U} is not payable, so
 // the cast must be withheld.
 func TestRadicalIdeaJumpstartNotOfferedWhenManaUnpayable(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Radical Idea"))
 	cardID := graveyardCorpus(t, e)
 	if got := e.G.Obj(cardID).Zone; got != state.ZGraveyard {
@@ -164,6 +167,7 @@ func TestRadicalIdeaJumpstartNotOfferedWhenManaUnpayable(t *testing.T) {
 // offers above are attributable to the keyword rather than to the graveyard
 // walk.
 func TestJumpstartOfferAbsentOnAnOrdinaryGraveyardCard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Radical Idea"))
 	plain := graveyardCard(t, e, "Name:Plain Spell\nManaCost:1 U\nTypes:Sorcery\nOracle:x\n")
 	if got := e.G.Obj(plain).Zone; got != state.ZGraveyard {
@@ -183,6 +187,7 @@ func TestJumpstartOfferAbsentOnAnOrdinaryGraveyardCard(t *testing.T) {
 // which includes being countered. effCounter must not send it back to the
 // graveyard where it could be jump-started again.
 func TestJumpstartedSpellCounteredGoesToExile(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Radical Idea"))
 	cardID := graveyardCorpus(t, e)
 	if got := e.G.Obj(cardID).Zone; got != state.ZGraveyard {

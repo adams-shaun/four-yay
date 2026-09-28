@@ -65,11 +65,22 @@ const (
 // progressKinds are the events that prove the game is still moving: a
 // decision was asked (control returned to a seat), or the turn/step
 // structure advanced. Every other event can repeat inside one resolution.
-var progressKinds = map[events.Kind]bool{
-	events.DecisionAsk: true,
-	events.StepChange:  true,
-	events.TurnChange:  true,
+var progressKinds = newKindSet(events.DecisionAsk, events.StepChange, events.TurnChange)
+
+// kindSet is a set of event kinds as a 256-bit bitset (events.Kind is a
+// uint8): the watcher tests two of them per emitted event, so a bit test
+// replaces a map lookup on the emit path.
+type kindSet [4]uint64
+
+func newKindSet(ks ...events.Kind) kindSet {
+	var s kindSet
+	for _, k := range ks {
+		s[k>>6] |= 1 << (k & 63)
+	}
+	return s
 }
+
+func (s *kindSet) has(k events.Kind) bool { return s[k>>6]&(1<<(k&63)) != 0 }
 
 // LoopGuard overrides the livelock watcher's thresholds for one game. Zero
 // fields fall back to the defaults above; a nil *LoopGuard in Config is
@@ -226,20 +237,26 @@ var livelockCandVerify = derivedMemoVerifyFlag != ""
 // period-1 "cycle". A genuinely unbounded minting loop still grows the
 // object arena every iteration, which is exactly the loop shape the
 // runaway backstop exists for, so nothing escapes the watcher.
-var mintingKinds = map[events.Kind]bool{
-	events.TokenCreate: true,
-	events.CardToken:   true,
-	events.StackCopy:   true,
-}
+var mintingKinds = newKindSet(events.TokenCreate, events.CardToken, events.StackCopy)
 
 func newLivelockWatcher(g *LoopGuard) livelockWatcher {
-	return livelockWatcher{guard: g.filled()}
+	return newLivelockWatcherInto(g, nil, nil)
+}
+
+// newLivelockWatcherInto is newLivelockWatcher over recycled window arrays
+// (Config.Spare); see newLivelockWatcherFromGuard.
+func newLivelockWatcherInto(g *LoopGuard, sigs []uint64, recent []events.Event) livelockWatcher {
+	return newLivelockWatcherFromGuard(g.filled(), sigs, recent)
 }
 
 // newLivelockWatcherFromGuard is Clone's constructor: a fresh watcher over
 // thresholds the source engine was already running (Clone's doc above).
-func newLivelockWatcherFromGuard(g LoopGuard) livelockWatcher {
-	return livelockWatcher{guard: g}
+// sigs and recent are recycled window arrays (Spare) or nil; the watcher
+// reads only their length, which starts at zero, so a recycled array's
+// capacity and old contents are invisible -- it only saves the regrowth
+// from nil every clone otherwise pays as its windows fill.
+func newLivelockWatcherFromGuard(g LoopGuard, sigs []uint64, recent []events.Event) livelockWatcher {
+	return livelockWatcher{guard: g, sigs: sigs[:0], recent: recent[:0]}
 }
 
 // observe feeds one just-logged event to the watcher. It panics with a
@@ -288,7 +305,7 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 	// the runaway-resolution budget.
 	eliminationSweep := ev.Kind == events.MoveZone && ev.To == state.ZCeased && ev.Text == "player left the game"
 	// Runaway backstop: count the events since the last progress event.
-	if progressKinds[ev.Kind] || eliminationSweep {
+	if progressKinds.has(ev.Kind) || eliminationSweep {
 		w.quiet = 0
 	} else {
 		if w.quiet == 0 {
@@ -326,7 +343,7 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 		binary.LittleEndian.PutUint32(u4[:], uint32(damageSource))
 		sigBytes(&sig, u4[:])
 	}
-	if mintingKinds[ev.Kind] {
+	if mintingKinds.has(ev.Kind) {
 		w.mints++
 		var u8 [8]byte
 		binary.LittleEndian.PutUint64(u8[:], w.mints)

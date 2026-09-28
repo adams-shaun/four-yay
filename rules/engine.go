@@ -536,11 +536,11 @@ type Engine struct {
 	// memo for ONE legal-actions walk (rules/derivedmemo.go): derivedMemoDepth
 	// is the scope counter legalActionsPriced raises, derivedMemoGen is bumped
 	// on every outermost scope entry so no entry outlives the walk that built
-	// it, and derivedMemo (indexed by ObjID) owns each cached result's slices.
+	// it, and derivedMemo (keyed by ObjID) owns each cached result's slices.
 	// Pure per-walk scratch: Clone copies none of it (a clone starts with an
 	// empty memo and generation 0, which no entry ever matches).
-	derivedMemo      []derivedMemoEntry
-	derivedMemoStack []derivedMemoEntry
+	derivedMemo      derivedMemoTable
+	derivedMemoStack derivedMemoTable
 	derivedMemoDepth int
 	derivedMemoGen   uint64
 	// derivedMemoTail / derivedMemoAlias* carry the priority walk's memo
@@ -1196,6 +1196,12 @@ type Engine struct {
 	// validated on every use, so Clone copies neither.
 	staticZones   []staticZoneSummary
 	staticZonesEp int
+	// staticZoneVerified is verify-mode scratch (static_zoneskip.go's
+	// staticZoneSkipVerifyOnce): the (cur, hot) slices each summary slot was
+	// verified against inside the current verifyBoardStatics call
+	// (staticZoneVerifyScope set). Clone copies none of it.
+	staticZoneVerified    []staticZoneVerifiedAt
+	staticZoneVerifyScope bool
 
 	// choosing says which flow is waiting on the current KChoose decision
 	// (Task 8). It is plain data, not a closure, so Engine.Clone (a sibling
@@ -1364,6 +1370,12 @@ type Engine struct {
 	// CopyToken events carry the choice and a log-only replay re-derives the
 	// mints. Clone-copied (clone.go).
 	tokenChoice *tokenChoiceState
+	// specEnvs/specEnvDepth: targetSpecContext's reusable Resolve records,
+	// used as a stack (trigger_referents.go, acquireSpecEnv). Scratch that is
+	// free at every intent boundary, so Clone starts a fresh one.
+	specEnvs     []*specResolveEnv
+	specEnvDepth int
+
 	// suspendedCasts is the mandatory "cast it if able" trigger created when
 	// a real suspended card loses its final TIME counter. IDs are appended in
 	// exile order and consumed before priority; it is plain replayable engine
@@ -1968,10 +1980,10 @@ type damageKeywordLKI struct {
 
 func (e *Engine) damageKeywordsOf(id state.ObjID) damageKeywordLKI {
 	return damageKeywordLKI{
-		lifelink:   e.HasKeyword(id, "Lifelink"),
-		infect:     e.HasKeyword(id, "Infect"),
-		wither:     e.HasKeyword(id, "Wither"),
-		deathtouch: e.HasKeyword(id, "Deathtouch"),
+		lifelink:   e.hasKeywordH(id, kwhLifelink),
+		infect:     e.hasKeywordH(id, kwhInfect),
+		wither:     e.hasKeywordH(id, kwhWither),
+		deathtouch: e.hasKeywordH(id, kwhDeathtouch),
 	}
 }
 
@@ -2125,10 +2137,15 @@ type Spare struct {
 	events  []events.Event
 	objs    []state.Object
 	intents []decision.Intent
-	// The Derived memo tables (derivedmemo.go): indexed by ObjID, grown to
-	// the arena's size; cleared by Release, which is exactly the zeroed
-	// never-written state derivedMemoizedAt's growth relies on.
-	memo, memoStack []derivedMemoEntry
+	// The Derived memo tables (derivedmemo.go): an ObjID index grown to the
+	// arena's size plus the slots; cleared by Release, which is exactly the
+	// zeroed never-written state derivedMemoTable.slot's growth relies on.
+	memo, memoStack derivedMemoTable
+	// The livelock watcher's signature and event windows (livelock.go):
+	// filled from empty by every engine, so a recycled pair saves their
+	// regrowth; the watcher reads only their length.
+	loopSigs   []uint64
+	loopRecent []events.Event
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -2138,21 +2155,42 @@ type Spare struct {
 // the Events prefix (events.Log.Clone) -- which is why only a batch runner
 // that owns the finished engine outright calls it. The arrays are cleared so
 // the Spare does not pin the finished game's cards, strings and slices.
+//
+// A clone (Clone, CloneInto) may be released too -- that is the search loop
+// CloneInto documents. A clone's Events and Intents start as its parent's
+// backing arrays with cap == len (events.Log.Clone) and become its own only
+// once an append regrows them, so a forked log's array with no spare
+// capacity is left alone rather than cleared: recycling it would zero the
+// parent's history. (An own array that happens to be exactly full is skipped
+// too, which only forgoes one reuse.) The object arena and memo tables are
+// always the clone's own.
 func (e *Engine) Release() Spare {
-	sp := Spare{
-		events:    e.L.Events[:cap(e.L.Events)],
-		objs:      e.G.Objs[:cap(e.G.Objs)],
-		intents:   e.L.Intents[:cap(e.L.Intents)],
-		memo:      e.derivedMemo[:cap(e.derivedMemo)],
-		memoStack: e.derivedMemoStack[:cap(e.derivedMemoStack)],
+	evs, ints := e.L.Events[:cap(e.L.Events)], e.L.Intents[:cap(e.L.Intents)]
+	if e.L.Forked() {
+		if cap(e.L.Events) == len(e.L.Events) {
+			evs = nil
+		}
+		if cap(e.L.Intents) == len(e.L.Intents) {
+			ints = nil
+		}
 	}
+	sp := Spare{
+		events:     evs,
+		objs:       e.G.Objs[:cap(e.G.Objs)],
+		intents:    ints,
+		memo:       e.derivedMemo.release(),
+		memoStack:  e.derivedMemoStack.release(),
+		loopSigs:   e.loop.sigs[:0],
+		loopRecent: e.loop.recent[:cap(e.loop.recent)],
+	}
+	clear(sp.loopRecent)
+	sp.loopRecent = sp.loopRecent[:0]
+	e.loop.sigs, e.loop.recent = nil, nil
 	clear(sp.events)
 	clear(sp.objs)
 	clear(sp.intents)
-	clear(sp.memo)
-	clear(sp.memoStack)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
-	e.derivedMemo, e.derivedMemoStack, e.intentBuf = nil, nil, nil
+	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
 	return sp
 }
 
@@ -2215,7 +2253,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		L:             events.NewLogInto(cfg.Seed, spare.events),
 		format:        cfg.Format,
 		rng:           random,
-		loop:          newLivelockWatcher(cfg.LoopGuard),
+		loop:          newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
 		turnsTaken:    make([]int32, len(cfg.Names)),
 		compiledText:  newCompiledText(cfg),
 		landTypeWords: corpusLandTypeWords(cfg.NameUniverse),
@@ -2229,7 +2267,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	// arrays (derivedMemoizedAt only reslices up into zeroed capacity), and
 	// the intent array waits for the first Submit (the log's Intents stays
 	// nil until an intent exists, as it always has).
-	e.derivedMemo, e.derivedMemoStack = spare.memo[:0], spare.memoStack[:0]
+	e.derivedMemo, e.derivedMemoStack = spare.memo, spare.memoStack
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]
 	}

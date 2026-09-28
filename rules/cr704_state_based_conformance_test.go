@@ -22,6 +22,7 @@ import (
 )
 
 func TestCR704NoLifeSBAInsideSmallpoxDiscard(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Smallpox"}, nil, nil)
 	id := crAbortMove(t, e, 0, "Smallpox", state.ZHand)
 	sa := e.G.Obj(id).Face().SpellAbility()
@@ -81,6 +82,7 @@ func TestCR704NoLifeSBAInsideSmallpoxDiscard(t *testing.T) {
 }
 
 func TestCR704SimultaneousDeathsPreserveBloodArtistWitness(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	e := crResolutionEngine(t, []string{"Blood Artist"}, nil)
 	artist := crAbortMove(t, e, 0, "Blood Artist", state.ZBattlefield)
@@ -116,6 +118,7 @@ func TestCR704SimultaneousDeathsPreserveBloodArtistWitness(t *testing.T) {
 // The assertion allows a real choice to suspend the boundary: it forbids
 // priority with both legends, but does NOT certify a future chooser's options.
 func TestCR704CorpusLegendDuplicatesCannotReachPriority(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
@@ -150,6 +153,7 @@ func TestCR704CorpusLegendDuplicatesCannotReachPriority(t *testing.T) {
 }
 
 func TestCR704RepoCreatureOppositeCountersAnnihilate(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	seen := map[string]bool{}
 	checked := 0
@@ -187,6 +191,7 @@ func TestCR704RepoCreatureOppositeCountersAnnihilate(t *testing.T) {
 }
 
 func TestCR704DepartedTokenIsNotAnExiledObject(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Raise the Alarm", "Unsummon"}, nil)
 	raise := crAbortMove(t, e, 0, "Raise the Alarm", state.ZHand)
 	f := e.G.Obj(raise).Face()
@@ -224,6 +229,7 @@ func TestCR704DepartedTokenIsNotAnExiledObject(t *testing.T) {
 }
 
 func TestCR704NoncombatDeathtouchDestroysDamagedCreature(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Prodigal Pyromancer", "Lace with Moonglove"}, nil)
 	pyro := crAbortMove(t, e, 0, "Prodigal Pyromancer", state.ZBattlefield)
 	lace := crAbortMove(t, e, 0, "Lace with Moonglove", state.ZHand)
@@ -247,6 +253,7 @@ func TestCR704NoncombatDeathtouchDestroysDamagedCreature(t *testing.T) {
 }
 
 func TestCR704AuraBecomesIllegalAfterProtection(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Rancor", "Dominaria's Judgment", "Plains", "Island", "Swamp", "Mountain", "Forest"}, nil)
 	bearer := crAbortMove(t, e, 0, "Delver of Secrets", state.ZBattlefield)
 	aura := crAbortMove(t, e, 0, "Rancor", state.ZBattlefield)

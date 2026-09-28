@@ -20,6 +20,7 @@ import (
 // differing G recorded it offers R and G, and neither reports the other three
 // colours. Both branches are asserted so a hard-coded colour cannot satisfy it.
 func TestAvailableManaReadsRecordedChosenColour(t *testing.T) {
+	t.Parallel()
 	src := "Name:Thriving Bluff\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo R Chosen | Oracle:x\n"
 
 	eR := layerEngine(t)

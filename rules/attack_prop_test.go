@@ -49,6 +49,7 @@ func floatMana(t *testing.T, e *Engine, p state.PlayerID, symbols string) {
 // attack is illegal, CR 508.1 -- the decision never tempts the seat with a
 // declaration the engine would reject).
 func TestGhostlyPrisonChargesPerAttackerFromThePool(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Ghostly Prison", 0)
 
 	e.askAttackers()
@@ -100,6 +101,7 @@ func TestGhostlyPrisonChargesPerAttackerFromThePool(t *testing.T) {
 // at a time, and the declaration commits exactly when the pool covers the
 // {2} -- both sources tapped, no over-tap, pool back to zero.
 func TestGhostlyPrisonTapsManaSourcesToPay(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Ghostly Prison", 2)
 	var mountains []state.ObjID
 	for _, id := range e.G.Zone(state.ZBattlefield, 1) {
@@ -161,6 +163,7 @@ func TestGhostlyPrisonTapsManaSourcesToPay(t *testing.T) {
 // the {2} charge is out of reach, and the pair is never offered -- the
 // conservative direction for a prop (the attack is refused, never wedged).
 func TestGhostlyPrisonBlocksWhenTheWindowCannotReach(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Ghostly Prison", 1)
 	e.askAttackers()
 	d := e.Pending()
@@ -182,6 +185,7 @@ func TestGhostlyPrisonBlocksWhenTheWindowCannotReach(t *testing.T) {
 // reads X off the static's own source (the Sphere plus the Ghostly Prison =
 // 2 enchantments), so the price is {2} per attacker, paid from the pool.
 func TestSphereOfSafetyPricesItsEnchantmentCount(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Sphere of Safety", 0)
 	onBoardCard(t, e, 0, mshCorpusCard(t, "Ghostly Prison"))
 
@@ -221,6 +225,7 @@ func TestSphereOfSafetyPricesItsEnchantmentCount(t *testing.T) {
 // {2}-per-attacker prop whose pair pricing and payment are identical to
 // Ghostly Prison's.
 func TestWindbornMusePropIsTheSameShape(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Windborn Muse", 2)
 	e.askAttackers()
 	d := e.Pending()
@@ -267,6 +272,7 @@ func TestWindbornMusePropIsTheSameShape(t *testing.T) {
 // Before the fix the window's finishAttackers ran with an emptied scratch and
 // the trainee got nothing.
 func TestGhostlyPrisonWindowKeepsCrossDefenderTraining(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 1, mshCorpusCard(t, "Ghostly Prison")) // charged defender = seat 1
 	rider := onBoardCard(t, e, 0, mshCorpusCard(t, "Gryff Rider"))
@@ -345,6 +351,7 @@ func TestGhostlyPrisonWindowKeepsCrossDefenderTraining(t *testing.T) {
 // bounds the declaration TOTAL through Decision.MaxSum, which this test
 // submits against the real decision.
 func TestAttackPropsAcrossDefendersAllowAPayableDeclaration(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 1, mshCorpusCard(t, "Ghostly Prison"))      // seat 1: {2}
 	onBoardCard(t, e, 2, mshCorpusCard(t, "Archangel of Tithes")) // seat 2: {1} untapped

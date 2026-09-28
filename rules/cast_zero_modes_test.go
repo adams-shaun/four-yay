@@ -18,6 +18,7 @@ import (
 // announcement must resolve as nothing even when a legal target appears
 // before resolution, rather than re-posing the modal ask at resolution.
 func TestUpToModalCastWithNoLegalModeAnnouncesZero(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Call Damage Control"))
 	spell := handIDsByFace(e)["Call Damage Control"]

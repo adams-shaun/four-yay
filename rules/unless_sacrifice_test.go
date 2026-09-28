@@ -60,6 +60,7 @@ func answerUnlessPay(t *testing.T, e *Engine, pay bool) {
 // abilities are off-stack, so this proves their UnlessCost$ still asks and
 // charges rather than taking effects.Resolve's stack-resume shortcut.
 func TestManaUnlessCostThomil(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 740)
 	thomil := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Thomil, the Destroyer"))
@@ -120,6 +121,7 @@ func TestManaUnlessCostThomil(t *testing.T) {
 // SVar:X:Remembered$Valid Card.RememberedPlayerCtrl gate (X != 0) keeps them
 // from losing 2 life and keeps Braids's controller from drawing.
 func TestBraidsOpponentChoosesItsSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 737)
 	relic := onBoard(t, e, 0, "Name:Relic\nTypes:Artifact\nOracle:x\n")
@@ -158,6 +160,7 @@ func TestBraidsOpponentChoosesItsSacrifice(t *testing.T) {
 // SVar:X:Remembered$Valid Card.RememberedPlayerCtrl gate reads X == 0 — so the
 // opponent loses 2 life and Braids's controller draws the card.
 func TestBraidsOpponentDeclinesItsSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 737)
 	relic := onBoard(t, e, 0, "Name:Relic\nTypes:Artifact\nOracle:x\n")
@@ -188,6 +191,7 @@ func TestBraidsOpponentDeclinesItsSacrifice(t *testing.T) {
 // two (Min == Max == 2 over the three eligible), and each seat buries exactly
 // the two it named, keeping the third.
 func TestSacrificeHonoursAmountTwo(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Barter in Blood"))
 	kept0 := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -249,6 +253,7 @@ func TestSacrificeHonoursAmountTwo(t *testing.T) {
 // is decline-or-sacrifice-two; accepting then permits only an EXACT two-Food
 // KChoose, never the old illegal one-Food partial sacrifice.
 func TestGiantOpportunityStrictOptionalSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	giant := mustCorpusCard(t, reg, "Giant Opportunity")
 	food := card(t, "Name:Food\nTypes:Artifact Food\nOracle:x\n")
@@ -305,6 +310,7 @@ func TestGiantOpportunityStrictOptionalSacrifice(t *testing.T) {
 // seat 1 from the Aura's live attachment, not silently fall back to the Aura
 // controller or an unrelated target.
 func TestPowerTaintUnlessPayerEnchantedController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 737)
 	taint := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Power Taint"))
@@ -326,6 +332,7 @@ func TestPowerTaintUnlessPayerEnchantedController(t *testing.T) {
 }
 
 func TestMeathookUnlessPayPaysLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 737)
 	hook := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Meathook Massacre II"))
@@ -354,6 +361,7 @@ func TestMeathookUnlessPayPaysLife(t *testing.T) {
 // ChangeZone's GainControl$ is intentionally outside this task's unless-cost
 // scope, so control is covered by the dedicated control-effect work instead.
 func TestMeathookUnlessPayDeclined(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 737)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Meathook Massacre II"))
@@ -392,6 +400,7 @@ func counterTotal(o *state.Object, kind string) int32 {
 // UnlessCost$ PayLife<2> and UnlessPayer$ You, resolved through the shared
 // gate inside a replacement body. Paying keeps it untapped; declining taps it.
 func TestTapUnlessCostHallowedFountain(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	fountain := mustCorpusCard(t, reg, "Hallowed Fountain")
 	for _, tc := range []struct {
@@ -429,6 +438,7 @@ func TestTapUnlessCostHallowedFountain(t *testing.T) {
 // draws two; declining does neither — and the chained token sub runs either
 // way.
 func TestDrawUnlessCostWitchsMark(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mark := mustCorpusCard(t, reg, "Witch's Mark")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -489,6 +499,7 @@ func TestDrawUnlessCostWitchsMark(t *testing.T) {
 // family already had; the point is that the same gate now serves a
 // DealDamage, whose UnlessCost$ used to be ignored entirely.
 func TestUnswitchedUnlessPayPreventsTheEffect(t *testing.T) {
+	t.Parallel()
 	fixture := card(t, "Name:Test Salvo\nManaCost:R\nTypes:Instant\n"+
 		"A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 3 | UnlessCost$ PayLife<4> | UnlessPayer$ TargetedController\nOracle:x\n")
 	bear := card(t, "Name:Target Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

@@ -9,6 +9,7 @@ import (
 )
 
 func TestMillikinMillCostMovesTopLibraryCardBeforeMana(t *testing.T) {
+	t.Parallel()
 	millikin, ok := testutil.CorpusRegistry(t).Lookup("Millikin")
 	if !ok {
 		t.Fatal("corpus missing Millikin")

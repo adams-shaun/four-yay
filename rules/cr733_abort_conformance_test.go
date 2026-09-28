@@ -151,10 +151,12 @@ func crAbortUnchanged(t *testing.T, e *Engine, before *state.Game, start int, na
 // now fixed in abortCast and graduated separately below, so this test keeps
 // its original four correct sites.
 func TestCR733EarlyAbortSitesPreserveResources(t *testing.T) {
+	t.Parallel()
 	crAbortSites(t, []string{"sacrifice", "spell_mana", "activation_mana", "source_moved"})
 }
 
 func TestCR733AbortAfterAsEntersChoiceKeepsChosenNumber(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	// It pins CR 733.1's undo of an as-enters choice: Sanctum Prelate's number
 	// choice is recorded, then a mana abort must return the object to its
@@ -172,6 +174,7 @@ func TestCR733AbortAfterAsEntersChoiceKeepsChosenNumber(t *testing.T) {
 // TestTurnChangeResetsZoneEntryAndDamageHistory remains the committed-move
 // control: ordinary moves must still record true and their actual departure.
 func TestCR733AbortRestoresZoneEntryHistory(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "uw-control")
 	id := crAbortMove(t, e, 0, "Lightning Bolt", state.ZHand)
@@ -290,6 +293,7 @@ func crAbortSites(t *testing.T, sites []string) {
 }
 
 func TestCR733UnderDelveReversalAllowsLegalRetry(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
 	for _, paid := range []int{0, 1, 7} {
@@ -361,6 +365,7 @@ func TestCR733UnderDelveReversalAllowsLegalRetry(t *testing.T) {
 // stale_card red, and suppressing the CastInfo emit at cast.go:810 turns
 // paid_control red.
 func TestCR733MiracleAbortAndTriggerControl(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
 	for _, arm := range []string{"unpayable", "stale_card", "paid_control"} {

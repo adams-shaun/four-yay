@@ -16,6 +16,7 @@ const batchWitness = "Name:Batch witness\nManaCost:B\nTypes:Creature Vampire\nPT
 	"SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 
 func TestSBABatchUsesPreDepartureBoard(t *testing.T) {
+	t.Parallel()
 	for _, shape := range []string{"lethal", "zero toughness", "regenerated", "exiled", "different controllers", "legend rule"} {
 		t.Run(shape, func(t *testing.T) {
 			e := layerEngine(t)
@@ -115,6 +116,7 @@ const walkerBatchWitness = "Name:Batch walker\nLoyalty:0\nTypes:Planeswalker Jac
 	"SVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 
 func TestPlaneswalkerSBABatchUsesPreDepartureBoard(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	a := onBoard(t, e, 0, walkerBatchWitness)
 	b := onBoard(t, e, 1, walkerBatchWitness)
@@ -143,6 +145,7 @@ func TestPlaneswalkerSBABatchUsesPreDepartureBoard(t *testing.T) {
 }
 
 func TestSBABatchDoesNotLookBackForFromAnywhereTriggers(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, "Name:Graveyard arrival\nTypes:Creature Bear\nPT:1/1\n"+
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Graveyard | TriggerZones$ Graveyard | ValidCard$ Card.Self | Execute$ Gain\n"+
@@ -155,6 +158,7 @@ func TestSBABatchDoesNotLookBackForFromAnywhereTriggers(t *testing.T) {
 }
 
 func TestSBABatchParkedMovesRetainLookBackAcrossClone(t *testing.T) {
+	t.Parallel()
 	src := strings.Replace(batchWitness, "Types:Creature", "Types:Legendary Creature", 1)
 	e, _ := cmdZoneGame(t, [][]string{{src}, {src}})
 	for p := state.PlayerID(0); p < 2; p++ {
@@ -184,6 +188,7 @@ func TestSBABatchParkedMovesRetainLookBackAcrossClone(t *testing.T) {
 }
 
 func TestSBABatchLookBackEndsBeforeNextPass(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// No intervening-if here: the assertion is about which batch a source
 	// belongs to, not whether a condition masks an incorrectly retained one.

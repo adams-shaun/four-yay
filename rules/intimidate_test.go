@@ -12,6 +12,7 @@ import (
 // sharing the attacker's only colour (allowed) -- and a white creature
 // (neither artifact nor shared colour: denied).
 func TestIntimidateBlocksOnlyArtifactsAndSharedColors(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	// Seat 1 attacks seat 0, so seat 0's creatures are the prospective
 	// blockers (the same shape TestHorsemanshipCanBlockOnlyHorsemanshipAttackers

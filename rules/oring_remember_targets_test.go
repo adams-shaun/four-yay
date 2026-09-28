@@ -84,6 +84,7 @@ func oringConfig(t *testing.T, seed uint64, protagonist string, targets ...strin
 // it under its owner's control. A second enter/leave pair exercises
 // ForgetOtherTargets$ True.
 func TestJourneyToNowhereReturnsTheExiledCreature(t *testing.T) {
+	t.Parallel()
 	e, cfg := oringConfig(t, 63, "Journey to Nowhere", "Hill Giant", "Grizzly Bears")
 	giant := moveCorpusCard(t, e, "Hill Giant", 1, state.ZBattlefield)
 	bears := moveCorpusCard(t, e, "Grizzly Bears", 1, state.ZBattlefield)
@@ -150,6 +151,7 @@ func TestJourneyToNowhereReturnsTheExiledCreature(t *testing.T) {
 // (Artifact,Enchantment) and an optional trigger aside, the remember/return
 // contract is the one Journey pins.
 func TestLeoninRelicWarderReturnsTheExiledArtifact(t *testing.T) {
+	t.Parallel()
 	e, cfg := oringConfig(t, 64, "Leonin Relic-Warder", "Sol Ring")
 	ring := moveCorpusCard(t, e, "Sol Ring", 1, state.ZBattlefield)
 	warder := moveCorpusCard(t, e, "Leonin Relic-Warder", 0, state.ZBattlefield)
@@ -185,6 +187,7 @@ func TestLeoninRelicWarderReturnsTheExiledArtifact(t *testing.T) {
 // census names, and the end-step delayed trigger returns the exiled
 // permanent.
 func TestFlickerwispBlinkRemembersTheObject(t *testing.T) {
+	t.Parallel()
 	e, cfg := oringConfig(t, 65, "Flickerwisp", "Hill Giant")
 	giant := moveCorpusCard(t, e, "Hill Giant", 1, state.ZBattlefield)
 	moveCorpusCard(t, e, "Flickerwisp", 0, state.ZBattlefield)
@@ -228,6 +231,7 @@ func TestFlickerwispBlinkRemembersTheObject(t *testing.T) {
 // it does NOT fire at an opponent's end step -- it fires at the controller's
 // NEXT end step and puts the card into its controller's hand.
 func TestNecropotenceExilesFaceDownAndReturnsNextEndStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	necro := mustCorpusCard(t, reg, "Necropotence")
 	build := func(s uint64) Config {

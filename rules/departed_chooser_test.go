@@ -44,6 +44,7 @@ import (
 // Submit can express it at this point, and a 3-seat game keeps playing on
 // after the loss.
 func TestDepartedChooserResumptionEventStreamIsDeterministic(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cfg := Config{Seed: 42, Tokens: reg.Tokens}
 	for _, n := range []string{"ur-delver", "death-n-taxes", "ur-delver"} {
@@ -241,6 +242,7 @@ func kindRuns(evs []events.Event) [][2]int {
 // seat's priority is posed with no choose flow armed and no parked colour
 // activation (the A/B payment-plan mirror measured both surviving).
 func TestStateBasedLossDuringManaColourAskClearsTheFlow(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	toMain1(t, e)
 	src := onBoard(t, e, 0, "Name:Confluence Test\nTypes:Land\nA:AB$ Mana | Cost$ T PayLife<1> | Produced$ Any | SpellDescription$ Add one mana of any color.\nOracle:x\n")

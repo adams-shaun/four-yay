@@ -21,6 +21,7 @@ import (
 // effects.Supported(), so a missing registration would silently keep every
 // carrier unplayable.
 func TestPhasesPrimitiveSupported(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["api:Phases"] {
 		t.Fatal("effects.Supported() is missing api:Phases")
 	}
@@ -54,6 +55,7 @@ func phasesHasNote(e *Engine, want string) bool {
 // resolves on a creature, the creature is phased out (CS 702.25d status),
 // and it phases in at its controller's next untap step.
 func TestTalonGatesOfMadaraPhasesOutAndIn(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 301, "Talon Gates of Madara", "Grizzly Bears")
 	bears := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	// Precondition: the creature is really a battlefield permanent before the
@@ -100,6 +102,7 @@ func TestTalonGatesOfMadaraPhasesOutAndIn(t *testing.T) {
 // second carrier, Guardian of Faith's "any number of other target creatures
 // you control phase out".
 func TestGuardianOfFaithPhasesOutOtherCreatures(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 302, "Guardian of Faith", "Grizzly Bears", "Hill Giant")
 	bears := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	giant := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Hill Giant"), state.ZBattlefield)
@@ -134,6 +137,7 @@ func TestGuardianOfFaithPhasesOutOtherCreatures(t *testing.T) {
 // `Phaseout$ False` phases a phased-out permanent back in early, without
 // waiting for its untap step.
 func TestPhaseoutFalsePhasesIn(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 303, "Grizzly Bears")
 	bears := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	// Phase it out directly (the effect's own emit path), so the test is
@@ -153,6 +157,7 @@ func TestPhaseoutFalsePhasesIn(t *testing.T) {
 // phased-out permanent that leaves the battlefield phases in as it does so,
 // so a later return is a fresh, phased-in permanent.
 func TestPhasedOutPermanentLeavesBattlefieldPhasesIn(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 304, "Grizzly Bears")
 	bears := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	e.emit(events.Event{Kind: events.PhaseOut, Obj: bears, Amount: 1})

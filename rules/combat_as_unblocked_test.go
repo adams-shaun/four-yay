@@ -87,6 +87,7 @@ func electionAskedAfter(t *testing.T, e *Engine, marker int, player state.Player
 }
 
 func TestAsUnblockedElectionClonesWithTheCombatPass(t *testing.T) {
+	t.Parallel()
 	// The election queues live in combatRound (combat.go), the combat damage
 	// step's continuation state: a Clone taken while an election is pending
 	// must own its own electQueue/doneElect, and the two engines must be
@@ -126,6 +127,7 @@ func TestAsUnblockedElectionClonesWithTheCombatPass(t *testing.T) {
 }
 
 func TestIndomitableMightElectionDeclinedAssignsNormally(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	// 3/6 base: the attached Might's +3/+3 static makes the attacker 6/9, so
@@ -175,6 +177,7 @@ func TestIndomitableMightElectionDeclinedAssignsNormally(t *testing.T) {
 }
 
 func TestIndomitableMightElectionAcceptedAssignsAsUnblocked(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	// Lifelink on the attacker so the lifelink attribution check has
@@ -214,6 +217,7 @@ func TestIndomitableMightElectionAcceptedAssignsAsUnblocked(t *testing.T) {
 }
 
 func TestRhoxSelfStaticMayAssignAsUnblocked(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	rhox := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Rhox"))
@@ -242,6 +246,7 @@ func TestRhoxSelfStaticMayAssignAsUnblocked(t *testing.T) {
 }
 
 func TestSiegeBehemothElectionGatedOnAttacking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	t.Run("attacking: every controlled attacker is offered the election", func(t *testing.T) {

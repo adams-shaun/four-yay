@@ -38,6 +38,7 @@ import (
 // 14 registers Attach, this test's last assertion should flip to checking
 // the token is actually attached instead of checking the fallback fired.
 func TestBatterskullLivingWeaponCreatesAGermAndReachesAttach(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bsk, ok := reg.Lookup("Batterskull")
 	if !ok {

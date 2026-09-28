@@ -61,6 +61,7 @@ func animateTriggersEngine(t *testing.T, reg *cards.Registry, extras0 ...*cards.
 // +1/+1 counter on it -- "Whenever this creature attacks, put a +1/+1
 // counter on it", live exactly while the animation is.
 func TestRagingRavineAnimateAttackTriggerPutsACounter(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := animateTriggersEngine(t, reg, lookup(t, reg, "Raging Ravine"))
 	ravine := moveByName(t, e, 0, "Raging Ravine", state.ZBattlefield)
@@ -132,6 +133,7 @@ func passUntilTurn(t *testing.T, e *Engine, turn int32) {
 // UntilEOT grant is dropped at end-of-turn cleanup, the land stops being a
 // creature, and the counter the trigger put on it REMAINS.
 func TestRagingRavineTriggerGrantExpiresWithTheAnimation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := animateTriggersEngine(t, reg, lookup(t, reg, "Raging Ravine"))
 	ravine := moveByName(t, e, 0, "Raging Ravine", state.ZBattlefield)
@@ -166,6 +168,7 @@ func TestRagingRavineTriggerGrantExpiresWithTheAnimation(t *testing.T) {
 // (resolve the body from the grantor's table or never queue) would silently
 // swallow the trigger -- so this test fails without the fix.
 func TestCrossObjectAnimateTriggerResolvesTheGrantorsBody(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := animateTriggersEngine(t, reg,
 		lookup(t, reg, "Dragon-Cursed Halls"), lookup(t, reg, "Grizzly Bears"))

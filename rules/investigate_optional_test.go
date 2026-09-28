@@ -98,6 +98,7 @@ func willThreeSeatGame(t *testing.T, seed uint64, seat0 ...*cards.Card) (*Engine
 // the controller, not the old automatic-Clue stand-in. A decline creates no
 // Clue; an acceptance creates exactly one.
 func TestNickValentineOptionalInvestigateCanDecline(t *testing.T) {
+	t.Parallel()
 	nick := tokenReplCorpusCard(t, "Nick Valentine, Private Eye")
 	for _, tc := range []struct {
 		name   string
@@ -150,6 +151,7 @@ func TestNickValentineOptionalInvestigateCanDecline(t *testing.T) {
 // number of acceptors (PlayerCountRemembered$Amount), so exactly 2 Clues on
 // seat 0, 1 on the accepting opponent, none on the decliner.
 func TestWillTheWiseOptionalInvestigateRemembersOnlyAcceptors(t *testing.T) {
+	t.Parallel()
 	will := tokenReplCorpusCard(t, "Will the Wise")
 	e, cfg := willThreeSeatGame(t, 92, will)
 	id := moveSeededCard(t, e, 0, will, state.ZBattlefield)

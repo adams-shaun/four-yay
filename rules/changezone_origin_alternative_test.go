@@ -16,6 +16,7 @@ import (
 // God-Pharaoh's Gift in the GRAVEYARD (not the library) and proves the search
 // offers it and moves it onto the battlefield.
 func TestChangeZoneOriginAlternativeSearchesEveryNamedZone(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Gate to the Afterlife", "God-Pharaoh's Gift", "God-Pharaoh's Gift")
 	gate := searchMoveByName(t, e, "Gate to the Afterlife", state.ZBattlefield)
@@ -95,6 +96,7 @@ func TestChangeZoneOriginAlternativeSearchesEveryNamedZone(t *testing.T) {
 // Tower stays in HAND, a zone the named origin set (Library, Graveyard) does
 // not cover, to prove the search did not accidentally widen past its origins.
 func TestChangeZoneOriginAlternativeTowerWinderGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Tower Winder", "Command Tower", "Command Tower")
 	tower := searchMoveByName(t, e, "Command Tower", state.ZGraveyard)

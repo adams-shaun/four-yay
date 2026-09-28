@@ -22,6 +22,7 @@ func requireOneEventTrigger(t *testing.T, e *Engine, name string) {
 }
 
 func TestSacrificedTriggerMayhemDevil(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Mayhem Devil"))
@@ -55,6 +56,7 @@ func observedTriggerCount(e *Engine, source state.ObjID) int {
 // guards the producer boundary: effDiscard itself must mark the MoveZone, not
 // rely on a test manufacturing a discard label.
 func TestDiscardedTriggerNecropotenceFromResolvingEffect(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	necro := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Necropotence"))
@@ -88,6 +90,7 @@ func TestDiscardedTriggerNecropotenceFromResolvingEffect(t *testing.T) {
 // path. Cleanup is not an effect primitive, so it has its own discard producer
 // and must carry the same action marker without masquerading as a cost.
 func TestDiscardedTriggerNecropotenceFromCleanup(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	necro := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Necropotence"))
@@ -112,6 +115,7 @@ func TestDiscardedTriggerNecropotenceFromCleanup(t *testing.T) {
 }
 
 func TestDiscardedTriggerValidCauseRejectsCosts(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	orvar := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Orvar, the All-Form"))
@@ -141,6 +145,7 @@ func TestDiscardedTriggerValidCauseRejectsCosts(t *testing.T) {
 }
 
 func TestCommitCrimeTriggerForsakenMiner(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	miner := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Forsaken Miner"))
@@ -159,6 +164,7 @@ func TestCommitCrimeTriggerForsakenMiner(t *testing.T) {
 }
 
 func TestTapsTriggerCityOfBrass(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	city := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "City of Brass"))
@@ -170,6 +176,7 @@ func TestTapsTriggerCityOfBrass(t *testing.T) {
 // becoming tapped. effects.ChangeZone records that distinction in the replayed
 // Tap event so City of Brass cannot deal damage for entering tapped.
 func TestTapsTriggerCityOfBrassDoesNotFireForEntryTapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	city := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "City of Brass"))
@@ -180,6 +187,7 @@ func TestTapsTriggerCityOfBrassDoesNotFireForEntryTapped(t *testing.T) {
 }
 
 func TestTapsForManaTriggerCryptGhastPaysForCastImmediately(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	spell := mustCorpusCard(t, reg, "Black Knight") // real {B}{B} corpus cost
 	e := handEngine(t, spell)
@@ -227,6 +235,7 @@ func TestTapsForManaTriggerCryptGhastPaysForCastImmediately(t *testing.T) {
 }
 
 func TestTapsForManaTriggerForsakenMonumentRejectsWrongColourAndActor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Forsaken Monument"))
@@ -246,6 +255,7 @@ func TestTapsForManaTriggerForsakenMonumentRejectsWrongColourAndActor(t *testing
 }
 
 func TestTapsForManaTriggerRegalBehemothChecksMonarch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Regal Behemoth"))
@@ -275,6 +285,7 @@ func TestTapsForManaTriggerRegalBehemothChecksMonarch(t *testing.T) {
 }
 
 func TestAttackersDeclaredOneTargetTriggerHorizonExplorer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Horizon Explorer"))
@@ -284,6 +295,7 @@ func TestAttackersDeclaredOneTargetTriggerHorizonExplorer(t *testing.T) {
 }
 
 func TestAttackersDeclaredOneTargetKarazikarCarriesBothPlayers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deck := mountainDeck(t, 40)
 	e := New(Config{Seed: 1, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{deck, deck, deck}})
@@ -336,6 +348,7 @@ func castOnStack(t *testing.T, e *Engine, reg *cards.Registry, name string, p, t
 // Mayhem Devil triggers. An ordinary death Rest in Peace redirects the same
 // way is not a sacrifice and must not.
 func TestSacrificedTriggerSurvivesRestInPeaceRedirect(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	devil := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Mayhem Devil"))
@@ -377,6 +390,7 @@ func TestSacrificedTriggerSurvivesRestInPeaceRedirect(t *testing.T) {
 // so Necropotence triggers. Leng must not apply to the CR 514.1 cleanup
 // discard, which no effect causes.
 func TestDiscardedTriggerSurvivesDestinationReplacements(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		replacement string
@@ -429,6 +443,7 @@ func TestDiscardedTriggerSurvivesDestinationReplacements(t *testing.T) {
 // the graveyard. When it does redirect, the card was still discarded (CR
 // 701.9a), so Necropotence triggers either way.
 func TestDiscardReplacementObstinateBalothGates(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	setup := func(t *testing.T) (*Engine, state.ObjID, state.ObjID) {
 		e := layerEngine(t)
@@ -508,6 +523,7 @@ func enterFromHand(t *testing.T, e *Engine, reg *cards.Registry, p state.PlayerI
 // Authority of the Consuls. The same creature becoming tapped afterwards
 // does trigger both, so the matcher itself is live.
 func TestTapsTriggerIgnoresEnterTappedReplacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	t.Run("City of Brass under Frozen Aether", func(t *testing.T) {
 		e := layerEngine(t)
@@ -560,6 +576,7 @@ func TestTapsTriggerIgnoresEnterTappedReplacement(t *testing.T) {
 // tapping its own creature is not. Sharae's ActivationLimit$ 1 holds it to
 // one trigger a turn.
 func TestTapsTriggerValidPlayerIsTheTapper(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	e.G.Turn = 1
@@ -604,6 +621,7 @@ func TestTapsTriggerValidPlayerIsTheTapper(t *testing.T) {
 // America's real FirstTime$ True | PlayerTurn$ True line: only the first time
 // each of your creatures becomes tapped in a turn, and only during your turn.
 func TestTapsTriggerFirstTimeDuringYourTurnCaptainAmerica(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	e.G.Turn, e.G.Active = 1, 0
@@ -639,6 +657,7 @@ func TestTapsTriggerFirstTimeDuringYourTurnCaptainAmerica(t *testing.T) {
 // Produced$ C fires when the tapped-for mana CONTAINS colourless (Forge's
 // contains test), so Coral Atoll's real "Produced$ C U" gets the extra {C}.
 func TestTapsForManaProducedMatchesContainedColourless(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Forsaken Monument"))
@@ -656,6 +675,7 @@ func TestTapsForManaProducedMatchesContainedColourless(t *testing.T) {
 // colour (Fertile Ground on an opponent's land) -- including inside a spell's
 // payment window, which resumes once the colour is chosen.
 func TestTriggeredManaHonoursRecipientAndColourChoice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		trigger, land string
@@ -723,6 +743,7 @@ func TestTriggeredManaHonoursRecipientAndColourChoice(t *testing.T) {
 // opponent's effect; Bartered Cow and Titanbones trigger for any discard,
 // including Lion's Eye Diamond's discard-your-hand cost.
 func TestDiscardedSelfTriggersFireFromHand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	names := []string{"Orvar, the All-Form", "Bartered Cow", "Titanbones, Towering Heart"}
 	inHand := func(t *testing.T, e *Engine, name string) state.ObjID {
@@ -788,6 +809,7 @@ func TestDiscardedSelfTriggersFireFromHand(t *testing.T) {
 // opponent's graveyard is a crime target (judged by owner, CR 108.4a); an
 // opponent-owned card in exile is not.
 func TestCommitCrimeTargetingExileIsNotACrime(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	miner := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Forsaken Miner"))
@@ -816,6 +838,7 @@ func TestCommitCrimeTargetingExileIsNotACrime(t *testing.T) {
 // TargetsWithDefinedController$ ParentTargetedController is unsupported and
 // leaves the target offer as it was rather than emptying it.
 func TestUnsupportedSelectorsKeepOtherModesFiring(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	rasaad := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Rasaad yn Bashir"))

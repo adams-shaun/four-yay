@@ -32,6 +32,7 @@ const (
 // exclusion across the answer's layer-inert DecisionMade, and the reduction
 // applied.
 func TestInFlightCastIsNotYetCastThisTurn(t *testing.T) {
+	t.Parallel()
 	e, _, gale := newFixtureDeck(t, 9640, galeReduce+
 		"A:SP$ ChangeZone | ValidTgts$ Permanent.nonLand+YouDontCtrl | TgtPrompt$ x | Origin$ Battlefield | Destination$ Hand\nOracle:x\n")
 	onBoard(t, e, 1, "Name:Bounce Target\nManaCost:1\nTypes:Artifact\nOracle:x\n")
@@ -75,6 +76,7 @@ func TestInFlightCastIsNotYetCastThisTurn(t *testing.T) {
 // missing until the next non-bookkeeping event, and the layer-inert verifier
 // (layerInertVerify) panicked on the reused list disagreeing with a rebuild.
 func TestStaticRefreshDropsNestedActiveBuild(t *testing.T) {
+	t.Parallel()
 	e, _, gale := newFixtureDeck(t, 9641, galeReduce+"A:SP$ Draw | NumCards$ 1\nOracle:x\n")
 	frog := onBoard(t, e, 0, frogTestSrc)
 	addMana(t, e, 0, "UUUU")

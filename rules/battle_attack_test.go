@@ -51,6 +51,7 @@ func battleDefenderOption(d *decision.Decision, id state.ObjID) *decision.Option
 // defender for that player's opponents, carrying the battle id on the option
 // so the declaration can be distinguished from an attack at the protector.
 func TestBattleIsOfferedAsAnAttackerOption(t *testing.T) {
+	t.Parallel()
 	e, id, atk, protector := battleAttackBoard(t)
 
 	// Preconditions: the battle is really on the battlefield with counters,
@@ -95,6 +96,7 @@ func TestBattleIsOfferedAsAnAttackerOption(t *testing.T) {
 // player protecting a battle is not one of the opponents CR 310.7 lets attack
 // it, so when that player is the active player the battle is not offered.
 func TestProtectorCannotAttackOwnBattle(t *testing.T) {
+	t.Parallel()
 	e, id, _, protector := battleAttackBoard(t)
 	e.G.Active = protector
 	// Give the protector a ready attacker so the refusal is about the
@@ -120,6 +122,7 @@ func TestProtectorCannotAttackOwnBattle(t *testing.T) {
 // removes that many defense counters (through the ordinary Damage fold), and
 // the protector takes no life loss.
 func TestBattleAttackDealsDefenseCounterDamage(t *testing.T) {
+	t.Parallel()
 	e, id, atk, protector := battleAttackBoard(t)
 	startDefense := e.G.Obj(id).Counter("DEFENSE")
 	startLife := e.G.Players[protector].Life
@@ -181,6 +184,7 @@ func TestBattleAttackDealsDefenseCounterDamage(t *testing.T) {
 // combat damage to their life, so the battle conversion cannot have broken
 // the ordinary player path.
 func TestAttackingPlayerStillDealsLifeDamage(t *testing.T) {
+	t.Parallel()
 	e, id, atk, protector := battleAttackBoard(t)
 	startLife := e.G.Players[protector].Life
 

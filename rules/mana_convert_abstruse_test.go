@@ -25,6 +25,7 @@ import (
 // the effect's Remembered set, and the exiled card must actually be castable
 // with only colourless mana in the pool.
 func TestAbstruseAppropriationRememberedExileConversion(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{

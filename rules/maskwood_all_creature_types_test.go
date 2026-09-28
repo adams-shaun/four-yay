@@ -39,6 +39,7 @@ var arbitrarySubtypes = []string{"Goblin", "Wizard", "Surrakar", "Dinosaur", "Sh
 var nonCreatureTypeWords = []string{"Arcane", "Alara", "Ajani", "Aura"}
 
 func TestMaskwoodNexusGrantsEveryCreatureType(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Maskwood Nexus")}, []*cards.Card{})
 	moveByName(t, e, 0, "Maskwood Nexus", state.ZBattlefield)
@@ -69,6 +70,7 @@ func TestMaskwoodNexusGrantsEveryCreatureType(t *testing.T) {
 }
 
 func TestMaskwoodNexusCreatureCardInHandIsEveryType(t *testing.T) {
+	t.Parallel()
 	// AffectedZone$ All: "The same is true for creature spells you control
 	// and creature cards you own that aren't on the battlefield."
 	reg := testutil.CorpusRegistry(t)
@@ -88,6 +90,7 @@ func TestMaskwoodNexusCreatureCardInHandIsEveryType(t *testing.T) {
 }
 
 func TestMutavaultAnimationGrantsAllCreatureTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Mutavault")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Mutavault", state.ZBattlefield)

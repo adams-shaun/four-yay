@@ -68,6 +68,7 @@ func fundColorless(e *Engine, p state.PlayerID, n int) {
 // permanents under the Arch's own K:Ascend), the tenth +1/-1 seat-shape the
 // latch's other pins use.
 func TestArchOfOrazcaBlessingGateIsExact(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// Nine filler Bears eventlessly, then the Arch enters through the REAL
 	// MoveZone path so Engine.emit's Ascend scan runs: nine + the Arch is

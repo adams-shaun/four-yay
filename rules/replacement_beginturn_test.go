@@ -53,6 +53,7 @@ func turnChangeHoldersAfter(e *Engine, i int) []state.PlayerID {
 // NOT carry Final Fortune's delayed-trigger rider (the granted turn never
 // begins, so its "lose the game" end step must never register).
 func TestTroubleInPairsSkipsAnOpponentsExtraTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Final Fortune")},
@@ -100,6 +101,7 @@ func TestTroubleInPairsSkipsAnOpponentsExtraTurn(t *testing.T) {
 // at the extra turn's end step) -- proving the skip is the only shape that
 // drops it.
 func TestTroubleInPairsLeavesItsControllersOwnExtraTurnAlone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Final Fortune"), lookup(t, reg, "Trouble in Pairs")},
@@ -140,6 +142,7 @@ func TestTroubleInPairsLeavesItsControllersOwnExtraTurnAlone(t *testing.T) {
 // carriers: Ugin's Nexus skips ANY player's extra turn, its controller's own
 // included (a ValidPlayer$-gated carrier would not).
 func TestUginsNexusSkipsItsControllersOwnExtraTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Final Fortune"), lookup(t, reg, "Ugin's Nexus")},
@@ -171,6 +174,7 @@ func TestUginsNexusSkipsItsControllersOwnExtraTurn(t *testing.T) {
 // the synthetic begin-turn event the extra-turn consumption poses, so a
 // normal turn never consults it at all; this test pins that end to end.
 func TestBeginTurnSkipLeavesNormalTurnsAlone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{},

@@ -59,6 +59,7 @@ func countCopies(t *testing.T, e *Engine, obj state.ObjID) int {
 }
 
 func TestSevinneReclamationFlashbackCastCopies(t *testing.T) {
+	t.Parallel()
 	e, cfg, sev, bear := sevinneTestEngine(t, "Sevinne's Reclamation", "Grizzly Bears")
 	// Precondition: the spell really is in the graveyard with the flashback
 	// keyword, and the Bears really are its legal return target (MV 2 <= 3).
@@ -133,6 +134,7 @@ func TestSevinneReclamationFlashbackCastCopies(t *testing.T) {
 }
 
 func TestSevinneReclamationHandCastDoesNotCopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, sev, bear := sevinneTestEngine(t, "Sevinne's Reclamation", "Grizzly Bears")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZHand, To: state.ZGraveyard})
 	addMana(t, e, 0, "WWW")
@@ -158,6 +160,7 @@ const flashFixture = "Name:Flash\nManaCost:R\nTypes:Instant\nK:Flashback:R\n" +
 	"A:SP$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 
 func TestBurningVengeanceYourGraveyardTriggerFiresOnFlashback(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Burning Vengeance"), card(t, flashFixture))
 	bv := e.G.Obj(e.G.Zone(state.ZHand, 0)[0])
 	bv.Zone = state.ZBattlefield
@@ -189,6 +192,7 @@ func TestBurningVengeanceYourGraveyardTriggerFiresOnFlashback(t *testing.T) {
 }
 
 func TestBurningVengeanceHandCastFiresNothing(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Burning Vengeance"), card(t, flashFixture))
 	bv := e.G.Obj(e.G.Zone(state.ZHand, 0)[0])
 	bv.Zone = state.ZBattlefield
@@ -207,6 +211,7 @@ func TestBurningVengeanceHandCastFiresNothing(t *testing.T) {
 }
 
 func TestAerialExtortionistDrawsOnANonHandCast(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, flashFixture))
 	ext := e.G.AddObject(corpusAlternativeCard(t, "Aerial Extortionist"), 1)
 	ext.Zone = state.ZBattlefield
@@ -226,6 +231,7 @@ func TestAerialExtortionistDrawsOnANonHandCast(t *testing.T) {
 }
 
 func TestAerialExtortionistHandCastDrawsNothing(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, flashFixture))
 	ext := e.G.AddObject(corpusAlternativeCard(t, "Aerial Extortionist"), 1)
 	ext.Zone = state.ZBattlefield
@@ -242,6 +248,7 @@ func TestAerialExtortionistHandCastDrawsNothing(t *testing.T) {
 }
 
 func TestDelayedBlastFireballForetellCastDealsFive(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Delayed Blast Fireball"))
 	id := e.G.Obj(e.G.Zone(state.ZHand, 0)[0]).ID
 	e.G.Players[0].Pool[state.MC] = 2
@@ -266,6 +273,7 @@ func TestDelayedBlastFireballForetellCastDealsFive(t *testing.T) {
 }
 
 func TestDelayedBlastFireballHandCastDealsTwo(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Delayed Blast Fireball"))
 	id := e.G.Obj(e.G.Zone(state.ZHand, 0)[0]).ID
 	e.G.Players[0].Pool[state.MC], e.G.Players[0].Pool[state.MR] = 1, 2
@@ -280,6 +288,7 @@ func TestDelayedBlastFireballHandCastDealsTwo(t *testing.T) {
 }
 
 func TestArchfiendsVesselCastFromGraveyardByYouExilesAndTokens(t *testing.T) {
+	t.Parallel()
 	e := handEngineTokens(t, corpusAlternativeCard(t, "Archfiend's Vessel"))
 	vessel := e.G.Obj(e.G.Zone(state.ZHand, 0)[0])
 	// A graveyard-origin cast by seat 0, then the battlefield entry: the
@@ -308,6 +317,7 @@ func TestArchfiendsVesselCastFromGraveyardByYouExilesAndTokens(t *testing.T) {
 }
 
 func TestArchfiendsVesselHandOriginEntryStaysPut(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Archfiend's Vessel"))
 	vessel := e.G.Obj(e.G.Zone(state.ZHand, 0)[0])
 	// A hand-origin "cast" (provenance hand) followed by the entry: the
@@ -328,6 +338,7 @@ func TestArchfiendsVesselHandOriginEntryStaysPut(t *testing.T) {
 // TestRoryWilliamsWasCastFromExilePredicate pins the real Rory Williams
 // carrier's negative exile-origin predicate and its census recognition.
 func TestRoryWilliamsWasCastFromExilePredicate(t *testing.T) {
+	t.Parallel()
 	if got := effects.UnknownPredicates("Card.Self+!wasCastFromExile"); len(got) != 0 {
 		t.Fatalf("Rory's real trigger predicate is still unknown: %v", got)
 	}
@@ -360,6 +371,7 @@ func TestRoryWilliamsWasCastFromExilePredicate(t *testing.T) {
 // and a non-exile trigger wrongly fires on an exile cast, so the assertion
 // fails.
 func TestRorySpellCastTriggerReadsBothOrigins(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	eval := func(from state.Zone) (bool, *Engine, state.ObjID) {
 		rory := searchCorpusCard(t, reg, "Rory Williams")
@@ -391,6 +403,7 @@ func TestRorySpellCastTriggerReadsBothOrigins(t *testing.T) {
 // a real hand cast fires Rory's SpellCast trigger, moves it to exile, and puts
 // the three TIME counters on the exiled card.
 func TestRoryExilesItselfWithTimeCountersOnCast(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	rory := searchCorpusCard(t, reg, "Rory Williams")
 	e := handEngine(t, rory)
@@ -416,6 +429,7 @@ func TestRoryExilesItselfWithTimeCountersOnCast(t *testing.T) {
 // ByYou scoping at the rules level: the log shapes each spelling reads, and
 // the copy guard.
 func TestCastOriginAdmitsChainUnit(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, flashFixture))
 	id := e.G.Obj(e.G.Zone(state.ZHand, 0)[0]).ID
 	// A card with no cast at all: a positive-only origin spec matches
@@ -463,6 +477,7 @@ func TestCastOriginAdmitsChainUnit(t *testing.T) {
 // graveyard — so the restricted mana pays a flashback {2} and nothing else
 // is in the pool to pay it with.
 func TestLordOfTheForsakenRestrictedManaPaysAFlashbackCast(t *testing.T) {
+	t.Parallel()
 	flash2 := "Name:Flash2\nManaCost:2 U\nTypes:Instant\nK:Flashback:2\n" +
 		"A:SP$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 	e := handEngine(t, corpusAlternativeCard(t, "Lord of the Forsaken"), card(t, flash2))

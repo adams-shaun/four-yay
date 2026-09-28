@@ -60,6 +60,7 @@ func chooseStriveTargets(t *testing.T, e *Engine, ids ...state.ObjID) {
 // {3}{R}{R}, exactly the five red mana in the pool -- base + (N-1) x strive
 // cost. The spell resolves and mints one haste token copy per target.
 func TestTwinflameStriveTwoTargetsChargesBasePlusOneStrive(t *testing.T) {
+	t.Parallel()
 	e, cfg, tf := gateFixture(t, 931, "Twinflame", gateRaiderSrc, gateRaiderSrc)
 	r1 := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)
 	r2 := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)
@@ -97,6 +98,7 @@ func TestTwinflameStriveTwoTargetsChargesBasePlusOneStrive(t *testing.T) {
 // single target pays exactly the printed {1}{R} -- no strive payment, and
 // two mana would be left if the fold misread the count.
 func TestTwinflameStriveOneTargetChargesBaseOnly(t *testing.T) {
+	t.Parallel()
 	e, cfg, tf := gateFixture(t, 932, "Twinflame", gateRaiderSrc, gateRaiderSrc)
 	r1 := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)
 	addMana(t, e, 0, "RR") // {1}{R} exactly
@@ -118,6 +120,7 @@ func TestTwinflameStriveOneTargetChargesBaseOnly(t *testing.T) {
 // prices {3}{R}{R}, which the pool cannot pay, and the proposal reverses (CR
 // 733.1) -- the card back in hand, the pool untouched, nothing on the stack.
 func TestTwinflameStriveExtraTargetNeedsTheStriveMana(t *testing.T) {
+	t.Parallel()
 	e, cfg, tf := gateFixture(t, 933, "Twinflame", gateRaiderSrc, gateRaiderSrc)
 	r1 := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)
 	r2 := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)

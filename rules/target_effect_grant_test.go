@@ -59,6 +59,7 @@ func grantTargetEffect(t *testing.T, staticName, staticBody string) (*Engine, *c
 // TargetEffect.Statics to know the grant is a boon. Before the fix the payload
 // carried statics nowhere and the bot aimed the grant at an opponent.
 func TestTargetEffectPublishesGrantedStaticModes(t *testing.T) {
+	t.Parallel()
 	e, _ := grantTargetEffect(t, "Unblockable", "Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered")
 	d := e.Pending()
 	if d.TargetEffect == nil {
@@ -76,6 +77,7 @@ func TestTargetEffectPublishesGrantedStaticModes(t *testing.T) {
 // StaticAbilities$ list publishes every readable mode, in the body's own
 // order, while a name with no SVar body is skipped rather than guessed.
 func TestTargetEffectPublishesCompoundGrantModes(t *testing.T) {
+	t.Parallel()
 	e, _ := grantTargetEffect(t, "Unblockable",
 		"Mode$ CantBlockBy | ValidAttacker$ Card.IsRemembered")
 	if got := e.Pending().TargetEffect.Statics; len(got) != 1 || got[0] != "CantBlockBy" {
@@ -110,6 +112,7 @@ func TestTargetEffectPublishesCompoundGrantModes(t *testing.T) {
 // TestTargetEffectLeavesNonEffectStaticsEmpty guards the scope: only an
 // Effect SA publishes Statics, so a removal-shaped ask keeps an empty list.
 func TestTargetEffectLeavesNonEffectStaticsEmpty(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.askTarget(0, 0, &cards.SA{API: "Destroy", Params: map[string]string{
 		"ValidTgts": "Player", "StaticAbilities": "Unblockable"}})

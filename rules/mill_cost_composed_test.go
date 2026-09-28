@@ -42,6 +42,7 @@ func smallLibraryEngine(t *testing.T, n int, hand ...*cards.Card) *Engine {
 // partial-library rule: a Mill<1> Mill<1> cost with one card mills that
 // card, then completes the remainder of the activation cost.
 func TestComposedMillManaAbilityMillsAvailableLibrary(t *testing.T) {
+	t.Parallel()
 	e := smallLibraryEngine(t, 1, card(t, composedMillManaScript))
 	src := onBoard(t, e, 0, composedMillManaScript)
 	o := e.G.Obj(src)
@@ -74,6 +75,7 @@ func TestComposedMillManaAbilityMillsAvailableLibrary(t *testing.T) {
 // r1 review named (a spell, not an ability): casting a spell whose additional
 // Cost$ carries Mill<1> really mills the top card as its cost.
 func TestSpellMillCostMillsOnPayment(t *testing.T) {
+	t.Parallel()
 	e := smallLibraryEngine(t, 2, card(t, "Name:Mill Spell\nManaCost:0\nTypes:Sorcery\nA:SP$ Draw | Cost$ Mill<1> | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:x\n"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	lib := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
@@ -91,6 +93,7 @@ func TestSpellMillCostMillsOnPayment(t *testing.T) {
 // corpus carrier: Rot Farm Skeleton's "{2}{B}{G}, Mill four cards" ability
 // remains payable with three library cards and mills every available card.
 func TestOrdinaryAbilityMillCostMillsShortLibrary(t *testing.T) {
+	t.Parallel()
 	skeleton, ok := testutil.CorpusRegistry(t).Lookup("Rot Farm Skeleton")
 	if !ok {
 		t.Fatal("corpus missing Rot Farm Skeleton")
@@ -127,6 +130,7 @@ func TestOrdinaryAbilityMillCostMillsShortLibrary(t *testing.T) {
 // side: activating Rot Farm Skeleton's ability really mills its four library
 // cards as part of paying the cost.
 func TestOrdinaryAbilityMillCostMillsBeforeResolving(t *testing.T) {
+	t.Parallel()
 	skeleton, ok := testutil.CorpusRegistry(t).Lookup("Rot Farm Skeleton")
 	if !ok {
 		t.Fatal("corpus missing Rot Farm Skeleton")

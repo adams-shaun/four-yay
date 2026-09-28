@@ -13,6 +13,7 @@ import (
 // not a fabricated call to the spent-mana trigger dispatcher. Sunken Palace's
 // SpellAbilityCast rider applies to both targetless and targeted activations.
 func TestSunkenPalaceManaSpentOnActivationQueuesTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cmdr := corpusCommander(t, reg, "Wort, Boggart Auntie")
 	sunken := corpusCommander(t, reg, "Sunken Palace")

@@ -35,6 +35,7 @@ import (
 // +1/+1 counter to a counter-bearing carrier. The old per-event reading would
 // pose two proliferate asks and add two counters.
 func TestDamageAllFiresOncePerBatchOnRealCorpusScript(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg,
 		[]string{"Contaminant Grafter", "Hill Giant"},
@@ -277,6 +278,7 @@ func passPriorityAll(t *testing.T, e *Engine) bool {
 // sends BOTH pirates at ONE opponent: exactly ONE treasure, the batch counts
 // OPPONENTS, not damage events (a per-event firing would mint two).
 func TestDamageAllBatchTargetSetCountsMatchingPlayersOnRealCorpusScript(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, leg := range []struct {
 		name     string
@@ -343,6 +345,7 @@ func TestDamageAllBatchTargetSetCountsMatchingPlayersOnRealCorpusScript(t *testi
 // resolved face is then pinned too: the single instance's batch target set
 // has both opponents, so TokenAmount$ X mints both Treasures.
 func TestDamageAllLatchQueuesOneInstanceAcrossDifferentTargets(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := damageAllBoard4(t, reg,
 		[]string{"Malcolm, Keen-Eyed Navigator", "Kitesail Corsair"},
@@ -392,6 +395,7 @@ func TestDamageAllLatchQueuesOneInstanceAcrossDifferentTargets(t *testing.T) {
 // leg is also a positive control -- it proves the mode is registered and
 // queued, so this test cannot pass vacuously against an unregistered mode.
 func TestDamageAllNonCombatDamageDoesNotFire(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg,
 		[]string{"Contaminant Grafter"},
@@ -460,6 +464,7 @@ func faceDamageAllTrigger(o *state.Object) bool {
 // offer a real "pay" -- an unresolvable X lands decline-only and the card
 // does nothing (the pre-fix reading).
 func TestDamageAllTargetSetDrivesHordewingSkaabDrawCount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, leg := range []struct {
 		name        string
@@ -568,6 +573,7 @@ func TestDamageAllTargetSetDrivesHordewingSkaabDrawCount(t *testing.T) {
 // plus both controllers); two hits from creatures under ONE controller draw
 // for two (the dedup); a single hit draws for two.
 func TestDamageAllBatchSourceControllersDrawOnRealCorpusScript(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, leg := range []struct {
 		name      string
@@ -654,6 +660,7 @@ func TestDamageAllBatchSourceControllersDrawOnRealCorpusScript(t *testing.T) {
 // opponent; the control leg that sends both pirates at one opponent exiles
 // exactly one card, from that opponent only.
 func TestDamageAllTriggeredTargetsDrivesBreechesExileTop(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, leg := range []struct {
 		name      string

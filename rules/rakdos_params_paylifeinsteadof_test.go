@@ -71,6 +71,7 @@ func castDoomBlade(t *testing.T, e *Engine, target state.ObjID) {
 }
 
 func TestKrrikGrantPaysBlackPipWithLife(t *testing.T) {
+	t.Parallel()
 	e, bear := krrikEngine(t)
 	e.G.Players[0].Life = 20
 	// The pool holds only green: the {1} generic comes from it, the {B} pip
@@ -88,6 +89,7 @@ func TestKrrikGrantPaysBlackPipWithLife(t *testing.T) {
 }
 
 func TestKrrikGrantPrefersManaWhenItExists(t *testing.T) {
+	t.Parallel()
 	e, bear := krrikEngine(t)
 	e.G.Players[0].Life = 20
 	addMana(t, e, 0, "B")
@@ -102,6 +104,7 @@ func TestKrrikGrantPrefersManaWhenItExists(t *testing.T) {
 }
 
 func TestKrrikGrantIsTheGrantorsCostsOnly(t *testing.T) {
+	t.Parallel()
 	// Without K'rrik on the battlefield the same cast is NOT offered on the
 	// same board: the {B} pip has no mana and no life route.
 	e := handEngine(t, corpusAlternativeCard(t, "K'rrik, Son of Yawgmoth"))
@@ -119,6 +122,7 @@ func TestKrrikGrantIsTheGrantorsCostsOnly(t *testing.T) {
 }
 
 func TestKrrikGrantDoesNotCoverOtherColours(t *testing.T) {
+	t.Parallel()
 	// The grant names {B} only: a {R} pip stays mana-only.
 	e := handEngine(t, corpusAlternativeCard(t, "K'rrik, Son of Yawgmoth"))
 	for _, o := range e.G.Zone(state.ZHand, 0) {
@@ -173,6 +177,7 @@ func krrikWindowEngine(t *testing.T) (*Engine, state.ObjID, state.ObjID, state.O
 // the payer is offered the Swamp and may choose the mana; "done" still spends
 // the life through the ordinary payment.
 func TestKrrikGrantPosesManaWindowWhenSourceCanPay(t *testing.T) {
+	t.Parallel()
 	e, bolt, bear, swamp := krrikWindowEngine(t)
 	e.G.Players[0].Life = 20
 	// Precondition: no mana is floating -- otherwise the pool could pay the pip
@@ -247,6 +252,7 @@ func TestKrrikGrantPosesManaWindowWhenSourceCanPay(t *testing.T) {
 // with "done": the {B} pip then spends the granted 2 life through the
 // ordinary payment, proving the window did not remove the life route.
 func TestKrrikGrantPaysLifeFromWindowWhenNoSourceCan(t *testing.T) {
+	t.Parallel()
 	e, bolt, bear, swamp := krrikWindowEngine(t)
 	e.G.Players[0].Life = 20
 	d := e.Pending()

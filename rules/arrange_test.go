@@ -50,6 +50,7 @@ func arrangeDecision(t *testing.T, e *Engine, id state.ObjID) *decision.Decision
 // resolution suspended -- the spell stays on the stack, the asking effect has
 // returned, and nothing before the ask re-runs until the answer arrives.
 func TestArrangePosesDecisionAndSuspends(t *testing.T) {
+	t.Parallel()
 	e, _, id := arrangeFixture(t, 100)
 	d := arrangeDecision(t, e, id)
 	if d.Min != 3 || d.Max != 3 {
@@ -75,6 +76,7 @@ func TestArrangePosesDecisionAndSuspends(t *testing.T) {
 // carrying the full new order. It also runs the log-only replay check, so a
 // reorder that bypassed the event log would be caught.
 func TestArrangeAnswerReordersLibrary(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := arrangeFixture(t, 102)
 	d := arrangeDecision(t, e, id)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
@@ -124,6 +126,7 @@ func TestArrangeAnswerReordersLibrary(t *testing.T) {
 // SAME SET; a correct handler must yield DIFFERENT top orders, and the two
 // must be permutations of one another.
 func TestArrangeHonoursAnswerOrderNotSorted(t *testing.T) {
+	t.Parallel()
 	orderFor := func(seed uint64, choices ...int) []state.ObjID {
 		e, _, id := arrangeFixture(t, seed)
 		d := arrangeDecision(t, e, id)
@@ -181,6 +184,7 @@ func sameObjSet(a, b []state.ObjID) bool {
 // LibraryOrder event -- or an event that did not actually set the order --
 // would produce a reconstructed library that diverges from the live one.
 func TestArrangeReplaysByteIdentically(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := arrangeFixture(t, 105)
 	d := arrangeDecision(t, e, id)
 	submitChoices(t, e, d.Options[2].Index, d.Options[0].Index, d.Options[1].Index)

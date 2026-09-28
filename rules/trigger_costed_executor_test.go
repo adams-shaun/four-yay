@@ -84,6 +84,7 @@ func drainCostedStack(t *testing.T, e *Engine, limit int) {
 // real Phase-trigger carrier: paying {E}{E}{E} spends exactly three energy
 // and puts the +1/+1 counter on it.
 func TestOverclockedElectromancerPaysEnergyAndAddsCounter(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Overclocked Electromancer")
 	id := searchMoveByName(t, e, "Overclocked Electromancer", state.ZBattlefield)
@@ -110,6 +111,7 @@ func TestOverclockedElectromancerPaysEnergyAndAddsCounter(t *testing.T) {
 // TestOverclockedElectromancerDeclineKeepsEnergyAndCounter pins the decline
 // arm: a declined body neither spends energy nor adds the counter.
 func TestOverclockedElectromancerDeclineKeepsEnergyAndCounter(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Overclocked Electromancer")
 	id := searchMoveByName(t, e, "Overclocked Electromancer", state.ZBattlefield)
@@ -137,6 +139,7 @@ func TestOverclockedElectromancerDeclineKeepsEnergyAndCounter(t *testing.T) {
 // gate: with two energy (one short of {E}{E}{E}) the window poses the ask but
 // offers NO "pay" option, so a free body is unreachable.
 func TestOverclockedElectromancerEnergyShortOffersNoPay(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Overclocked Electromancer")
 	id := searchMoveByName(t, e, "Overclocked Electromancer", state.ZBattlefield)
@@ -166,6 +169,7 @@ func TestOverclockedElectromancerEnergyShortOffersNoPay(t *testing.T) {
 // carrier (a mandatory AB$ PutCounter with a chained DB$ Tap sub-ability): pay
 // {E}{E} charges two energy and puts the +1/+1 counter on the Roc.
 func TestAetherstormRocAttackPaysEnergyAndAddsCounter(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := combatEngine(t)
 	roc := onBoardCard(t, e, 0, searchCorpusCard(t, reg, "Aetherstorm Roc"))
@@ -195,6 +199,7 @@ func TestAetherstormRocAttackPaysEnergyAndAddsCounter(t *testing.T) {
 
 // TestAetherstormRocAttackDeclineKeepsEnergyAndCounter is the decline half.
 func TestAetherstormRocAttackDeclineKeepsEnergyAndCounter(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := combatEngine(t)
 	roc := onBoardCard(t, e, 0, searchCorpusCard(t, reg, "Aetherstorm Roc"))
@@ -226,6 +231,7 @@ func TestAetherstormRocAttackDeclineKeepsEnergyAndCounter(t *testing.T) {
 // (AB$ Pump | Cost$ PayEnergy<1>): the same shared gate must charge the energy
 // and run the +1/+1 body, proving the fix is not special-cased to PutCounter.
 func TestVoltaicBrawlerAttackPaysEnergyAndPumps(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := combatEngine(t)
 	brawler := onBoardCard(t, e, 0, searchCorpusCard(t, reg, "Voltaic Brawler"))
@@ -261,6 +267,7 @@ func TestVoltaicBrawlerAttackPaysEnergyAndPumps(t *testing.T) {
 // carrier end to end: an artifact entering triggers the body, paying {1}
 // spends one generic from the pool and grants {E}{E}.
 func TestEraOfInnovationPaysManaAndGrantsEnergy(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Era of Innovation", "Ornithopter")
 	searchMoveByName(t, e, "Era of Innovation", state.ZBattlefield)
@@ -287,6 +294,7 @@ func TestEraOfInnovationPaysManaAndGrantsEnergy(t *testing.T) {
 
 // TestEraOfInnovationDeclineKeepsManaAndGrantsNothing is the decline half.
 func TestEraOfInnovationDeclineKeepsManaAndGrantsNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Era of Innovation", "Ornithopter")
 	searchMoveByName(t, e, "Era of Innovation", state.ZBattlefield)

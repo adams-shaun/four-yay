@@ -77,6 +77,7 @@ func choicePlanUses(p decision.PaymentPlan, id state.ObjID) (decision.PaymentAct
 // asserts its own precondition (the source really is on the battlefield and
 // the plan really exercised it) so an empty plan cannot pass silently.
 func TestPaymentPlanChoiceSources(t *testing.T) {
+	t.Parallel()
 	t.Run("combo land funds and executes with no colour ask", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9401, "Name:White Probe\nManaCost:W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		gate := onBoardCard(t, e, 0, choiceCard(t, "Selesnya Guildgate"))
@@ -322,6 +323,7 @@ func choiceHand(t *testing.T, e *Engine, src string) state.ObjID {
 // boundary: Combo Any and a multi-unit Combo allocation never produce an
 // alternative.
 func TestPaymentPlanChoiceSourcesComboAnyStaysDeferred(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 9411, "Name:Green Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	comboAny := onBoard(t, e, 0, "Name:Combo Any Land\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo Any\nOracle:x\n")
 	if alts := choiceAlts(t, e, comboAny); len(alts) != 0 {
@@ -336,6 +338,7 @@ func TestPaymentPlanChoiceSourcesComboAnyStaysDeferred(t *testing.T) {
 // TestPaymentPlanChoiceSourcesPathOfAncestryStaysDeferred pins the brief's
 // TriggersWhenSpent exclusion on the real corpus card.
 func TestPaymentPlanChoiceSourcesPathOfAncestryStaysDeferred(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 9412, "Name:Green Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	path := onBoardCard(t, e, 0, choiceCard(t, "Path of Ancestry"))
 	if alts := choiceAlts(t, e, path); len(alts) != 0 {

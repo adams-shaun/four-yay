@@ -80,6 +80,7 @@ func TestCantAttackWalkerControlledByCardOwner(t *testing.T) {
 }
 
 func TestCantAttackWalkerRememberedSelectors(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ card, face, svar, want string }{
 		{"Chaos Dragon", "", "STCantAttack", "Planeswalker.RememberedPlayerCtrl"},
 		{"Unstable Glyphbridge", "Sandswirl Wanderglyph", "STCantAttack", "Planeswalker.ControlledBy Remembered"},

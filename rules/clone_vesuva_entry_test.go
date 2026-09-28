@@ -10,6 +10,7 @@ import (
 // Vesuva's real ETB-copy replacement must apply IntoPlayTapped$ to the
 // entering copy, not to a previously existing battlefield permanent.
 func TestCloneVesuvaETBEntersAsTappedLand(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Vesuva"))
 	forest := e.G.AddObject(corpusAlternativeCard(t, "Forest"), 1)
 	forest.Zone = state.ZBattlefield
@@ -45,6 +46,7 @@ func TestCloneVesuvaETBEntersAsTappedLand(t *testing.T) {
 // A non-Goad named static must use the same printed-static scanner after the
 // copy. Sakashima's NoLegendRule is the corpus carrier.
 func TestCloneSakashimaETBGrantsNamedIgnoreLegendRule(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Sakashima of a Thousand Faces"))
 	bear := e.G.AddObject(corpusAlternativeCard(t, "Grizzly Bears"), 0)
 	bear.Zone = state.ZBattlefield

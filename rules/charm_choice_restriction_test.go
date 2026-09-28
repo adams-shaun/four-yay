@@ -194,6 +194,7 @@ func modeNameIndex(d *decision.Decision, name string) int {
 // assertions read d.ResumeModes -- the eligible SVar vocabulary the engine
 // builds the options from -- so an option-label drift cannot fake the result.
 func TestParapetThrasherChoiceRestrictionThisTurn(t *testing.T) {
+	t.Parallel()
 	e, cfg, pt, d1, d2 := parapetThrasherGame(t, 4212)
 
 	// Two Dragons, each attacking a different opponent: exactly the two
@@ -284,6 +285,7 @@ func TestParapetThrasherChoiceRestrictionThisTurn(t *testing.T) {
 // so this cannot pass by inspecting a marker alone. A control assertion proves
 // the filter binds BEFORE the blink, making the clear the load-bearing act.
 func TestParapetThrasherChoiceRestrictionClearsOnBlink(t *testing.T) {
+	t.Parallel()
 	e, cfg, pt, _, _ := parapetThrasherGame(t, 99)
 
 	// Resolve the real compiled Charm SA (the trigger's Execute$ SVar) so the
@@ -349,6 +351,7 @@ func TestParapetThrasherChoiceRestrictionClearsOnBlink(t *testing.T) {
 // offered. Pre-fix this path was unreachable by ChoiceRestriction (the filter
 // did not exist), which is why the guard ships with the feature.
 func TestParapetThrasherAllModesExhaustedDoesNotWedge(t *testing.T) {
+	t.Parallel()
 	e, _, pt, d1, d2 := parapetThrasherGame(t, 77)
 	for _, m := range []string{"DBSmash", "DBStrafe", "DBSwoop"} {
 		e.emit(events.Event{Kind: events.Choose, Obj: pt,

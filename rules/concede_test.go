@@ -51,6 +51,7 @@ func highestPriorityOptionWithKind(t *testing.T, e *Engine, kind string) decisio
 // path. The log must carry the PlayerLost "conceded" event so a concede
 // replays to the same chain head it was played to.
 func TestConcedeAtPriorityEndsTheGameForTheOtherSeat(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 131, "Name:Bear\nManaCost:1 G\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	e.Advance()
 	// find the priority option whose Kind == "concede"; choose it.
@@ -81,6 +82,7 @@ func TestConcedeAtPriorityEndsTheGameForTheOtherSeat(t *testing.T) {
 // moment concede exists -- a default-to-final client would concede on every
 // priority -- so the new ordering must be explicit and pinned, not implicit.
 func TestConcedeIsTheLastOptionAfterPass(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 132, "Name:Bear\nManaCost:1 G\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority || len(d.Options) < 2 {
@@ -105,6 +107,7 @@ func TestConcedeIsTheLastOptionAfterPass(t *testing.T) {
 // the conceding seat's own priority, which the engine grants every living
 // seat at least once per turn).
 func TestConcedeOnlyOnThePriorityHolder(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 133, "Name:Bear\nManaCost:1 G\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	// Seat 0 holds the first priority decision; pass, so seat 1 holds the
 	// next one. That decision must offer "concede" -- to seat 1.
@@ -145,6 +148,7 @@ func TestConcedeOnlyOnThePriorityHolder(t *testing.T) {
 // The round completes normally (keep, keep) and turn 1's first priority
 // decision then offers it.
 func TestConcedeIsNotOfferedOnANonPriorityDecision(t *testing.T) {
+	t.Parallel()
 	m := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	cfg := Config{Seed: 134, Names: []string{"a", "b"},
 		Decks:     [][]*cards.Card{{m, m, m, m, m, m, m, m}, {m, m, m, m, m, m, m, m}},
@@ -179,6 +183,7 @@ func TestConcedeIsNotOfferedOnANonPriorityDecision(t *testing.T) {
 // permanents exactly like a life-loss elimination (the same checkLoseConditions
 // path), before the game ends on seat 2's concession.
 func TestLastButOneConcedeEndsWithTheRightWinner(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	bear := onBoard(t, e, 1, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	concealed := map[state.PlayerID]bool{1: true, 2: true}
@@ -222,6 +227,7 @@ func TestLastButOneConcedeEndsWithTheRightWinner(t *testing.T) {
 // real Submit path for hundreds of intents with "concede" offered on every
 // priority decision and asserts none of them choose it for seat 0.
 func TestConcedeInFourSeatsLeavesTheRestPlayingOn(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	// Seat 0 concedes at its own turn-1 upkeep decision.
 	submitChoices(t, e, highestPriorityOptionWithKind(t, e, "concede").Index)

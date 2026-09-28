@@ -65,6 +65,7 @@ func TestEntryUnleashCountersAreAtomicUnderScalesAndSolemnity(t *testing.T) {
 }
 
 func TestRedirectedEntryLeavesNoEntryCounters(t *testing.T) {
+	t.Parallel()
 	priest := tokenReplCorpusCard(t, "Containment Priest")
 	cre := card(t, "Name:Entry Creature Walker\nTypes:Creature Planeswalker Entry\nPT:2/2\nLoyalty:4\nOracle:x\n")
 	control, controlCfg := tokenReplGame(t, 174, cre)
@@ -114,6 +115,7 @@ func TestRedirectedEntryLeavesNoEntryCounters(t *testing.T) {
 }
 
 func TestSagaEntryLoreReplacementChaptersExactlyOnce(t *testing.T) {
+	t.Parallel()
 	saga := tokenReplCorpusCard(t, "Urza's Saga")
 	for _, tc := range []struct {
 		name     string

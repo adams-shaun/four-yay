@@ -43,6 +43,7 @@ func cardPower(t *testing.T, o *state.Object) int {
 }
 
 func TestMimeoplasmForgetChosenLeavesTheOtherRemembered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mimeo, ok := reg.Lookup("The Mimeoplasm")
 	if !ok {
@@ -180,6 +181,7 @@ func rememberedPair(o *state.Object) []state.ObjID {
 // unread-param labels, and the derived read sets must still attribute both
 // keys (otherwise this pin could no longer fail).
 func TestMimeoplasmForgetParamsAreRead(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	if !d.api["ChangeZoneAll"]["ForgetOtherRemembered"] {
 		t.Fatal("api:ChangeZoneAll no longer derives the ForgetOtherRemembered read -- the census cannot see the parameter this ticket implemented")

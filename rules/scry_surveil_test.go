@@ -62,6 +62,7 @@ func surveilDecision(t *testing.T, e *Engine, id state.ObjID) *decision.Decision
 // one option per top card in top-down order, Option.Kind "bottom", and the
 // resolution suspended.
 func TestScryPosesArrangeAndSuspends(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 201)
 	d := scryDecision(t, e, id)
 	if d.Min != 0 || d.Max != 3 {
@@ -99,6 +100,7 @@ func TestScryPosesArrangeAndSuspends(t *testing.T) {
 // library must have a remainder of at least 2 cards or the two placements
 // are indistinguishable.
 func TestScryAnswerKeepsChosenOnTopAndUnchosenAtBottom(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := scryFixture(t, 202)
 	d := scryDecision(t, e, id)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
@@ -127,6 +129,7 @@ func TestScryAnswerKeepsChosenOnTopAndUnchosenAtBottom(t *testing.T) {
 // TestScryAnswerEmptySendsAllToBottom is the leaf 3: answering [] puts every
 // offered card on the bottom, in the order they were offered.
 func TestScryAnswerEmptySendsAllToBottom(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 203)
 	d := scryDecision(t, e, id)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
@@ -149,6 +152,7 @@ func TestScryAnswerEmptySendsAllToBottom(t *testing.T) {
 // graveyard, and the emitted kinds are exactly LibraryOrder then MoveZone in
 // that order (the contract a replay depends on).
 func TestSurveilAnswerKeepsChosenOnTopAndMovesOtherToGraveyard(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := surveilFixture(t, 204)
 	d := surveilDecision(t, e, id)
 	if d.Min != 0 || d.Max != 2 {
@@ -193,6 +197,7 @@ func TestSurveilAnswerKeepsChosenOnTopAndMovesOtherToGraveyard(t *testing.T) {
 // answering [] moves every offered card to the graveyard, in offered order
 // (assert the graveyard's own order, not just membership).
 func TestSurveilAnswerEmptySendsEveryOfferedCardToGraveyard(t *testing.T) {
+	t.Parallel()
 	e, _, id := surveilFixture(t, 205)
 	d := surveilDecision(t, e, id)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj}
@@ -217,6 +222,7 @@ func TestSurveilAnswerEmptySendsEveryOfferedCardToGraveyard(t *testing.T) {
 // TestScryReplaysByteIdentically is the leaf 6a: a match with an answered
 // Scry replays byte-identically (the same library), caught by replayCheck.
 func TestScryReplaysByteIdentically(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := scryFixture(t, 206)
 	d := scryDecision(t, e, id)
 	submitChoices(t, e, d.Options[2].Index, d.Options[0].Index)
@@ -227,6 +233,7 @@ func TestScryReplaysByteIdentically(t *testing.T) {
 // Surveil replays byte-identically -- the same library AND the same
 // graveyard, which is what the LibraryOrder-then-MoveZone contract buys.
 func TestSurveilReplaysByteIdentically(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := surveilFixture(t, 207)
 	d := surveilDecision(t, e, id)
 	submitChoices(t, e, d.Options[0].Index)
@@ -237,6 +244,7 @@ func TestSurveilReplaysByteIdentically(t *testing.T) {
 // answer sends every offered card to the graveyard replays to the same
 // graveyard order.
 func TestSurveilEmptyReplaysByteIdentically(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := surveilFixture(t, 208)
 	_ = surveilDecision(t, e, id)
 	submitChoices(t, e)
@@ -249,6 +257,7 @@ func TestSurveilEmptyReplaysByteIdentically(t *testing.T) {
 // decision is mutated to disagree and answered, and the Note plus the
 // Options[0] ("bottom") routing must both hold.
 func TestArrangeMixedKindDegradesWithNote(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 205)
 	d := scryDecision(t, e, id)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
@@ -282,6 +291,7 @@ func TestArrangeMixedKindDegradesWithNote(t *testing.T) {
 // change, so a routing bug that only bites a non-empty pile B cannot be
 // mistaken for "rearrange works".
 func TestArrangeUnchangedForRearrangeTopOfLibrary(t *testing.T) {
+	t.Parallel()
 	e, _, id := arrangeFixture(t, 210)
 	// The default ("bottom", pile B empty) route must keep the permutation:
 	// run the canonical reorder via the real arrange machinery.
@@ -348,6 +358,7 @@ func surveilSubFixture(t *testing.T, seed uint64) (*Engine, Config, state.ObjID)
 // is not another KArrange for the same source, and the chained Draw ran
 // exactly once.
 func TestScryResumeRunsSubAbilityOnceAndDoesNotReask(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := scrySubFixture(t, 211)
 	d := scryDecision(t, e, id)
 	pre := countDraw(e)
@@ -369,6 +380,7 @@ func TestScryResumeRunsSubAbilityOnceAndDoesNotReask(t *testing.T) {
 // TestSurveilResumeRunsSubAbilityOnceAndDoesNotReask is the Surveil half of
 // TestScryResumeRunsSubAbilityOnceAndDoesNotReask.
 func TestSurveilResumeRunsSubAbilityOnceAndDoesNotReask(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := surveilSubFixture(t, 212)
 	d := surveilDecision(t, e, id)
 	pre := countDraw(e)

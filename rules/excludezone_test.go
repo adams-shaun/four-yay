@@ -35,6 +35,7 @@ import (
 // the planeswalker carries no creature P/T, only its printed starting
 // loyalty (CR 306.5b).
 func TestGristOnBattlefieldKeepsItsPlaneswalkerBody(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grist, the Hunger Tide")}, nil)
 	id := moveByName(t, e, 0, "Grist, the Hunger Tide", state.ZBattlefield)
@@ -67,6 +68,7 @@ func TestGristOnBattlefieldKeepsItsPlaneswalkerBody(t *testing.T) {
 // addition to its other types (CR 604.3's every-zone reading, minus the
 // excluded battlefield), and cdaSetPT's layer-7a claim sets the 1/1 base.
 func TestGristOffBattlefieldIsAOneOneInsectCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grist, the Hunger Tide")}, nil)
 	id := cdaMoveTo(t, e, 0, "Grist, the Hunger Tide", state.ZHand)
@@ -96,6 +98,7 @@ func TestGristOffBattlefieldIsAOneOneInsectCreature(t *testing.T) {
 // the exclusion does not reach it ("isn't on the battlefield"), so the
 // spell is an Insect creature spell there.
 func TestGristStaticIsLiveOnTheStackToo(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grist, the Hunger Tide")}, nil)
 	id := cdaMoveTo(t, e, 0, "Grist, the Hunger Tide", state.ZHand)

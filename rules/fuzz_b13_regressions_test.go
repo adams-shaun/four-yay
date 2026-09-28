@@ -25,6 +25,7 @@ import (
 // declaration ("declaration's attack cost {0} exceeds the affordable
 // {-1}").
 func TestTanukiPersistentArtifactManaSpendMovesTheTally(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Tanuki Transplanter", "Giant Growth", "Giant Growth", "Giant Growth")
 	tanuki := searchMoveByName(t, e, "Tanuki Transplanter", state.ZBattlefield)
 	// A logged TurnChange clears summoning sickness (CR 302.6) the

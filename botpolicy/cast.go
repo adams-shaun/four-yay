@@ -178,6 +178,17 @@ func CmcOf(mc string) int32 {
 	return cmcOfSlow(mc)
 }
 
+// cmcOfFace is CmcOf(f.ManaCost) answered from the face's load-time mana
+// value when its ManaCost is unchanged: cards' cmcFromManaCost prices
+// exactly the grammar CmcOf does (TestCmcOfFaceMatchesCmcOf pins the two
+// over the whole corpus), so the per-board-build text parse is skipped.
+func cmcOfFace(f *cards.Face) int32 {
+	if v, ok := f.PrintedManaValue(); ok {
+		return v
+	}
+	return CmcOf(f.ManaCost)
+}
+
 // cmcOfPlain is CmcOf's allocation-free path for the ordinary Forge
 // spelling: pure ASCII, no braces. It splits on the ASCII whitespace
 // strings.Fields/TrimSpace split on for such a string and prices each
@@ -316,6 +327,13 @@ func twobridManaValue(sym string) (int32, bool) {
 // a basic land (a basic Plains is "Types:Basic Land Plains"; a dual like
 // Underground Sea is "Types:Land Island Swamp" — subtypes "Island Swamp"
 // but no Basic, which is the whole point of the L1 rule).
+// twInstant/twBasic are the interned type words BoardFromGame's face reads
+// test (cards.Face.TypeLineHas: the same EqualFold answer as hasTypeWord).
+var (
+	twInstant = cards.InternTypeWord("Instant")
+	twBasic   = cards.InternTypeWord("Basic")
+)
+
 func hasTypeWord(words []string, want string) bool {
 	for _, w := range words {
 		if strings.EqualFold(w, want) {

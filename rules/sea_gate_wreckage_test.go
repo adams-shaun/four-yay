@@ -27,6 +27,7 @@ const wreckSrc = "Name:Sea Gate Wreckage\nTypes:Land\n" +
 // end: with a card in hand the ability is not offered; with an empty hand it
 // is, and answering it pays {2}{C}{T} and draws exactly the one card.
 func TestSeaGateWreckageHellbentGate(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}))
 	// The genesis hand would hold mountains; this fixture owns the hand.
@@ -92,6 +93,7 @@ func TestSeaGateWreckageHellbentGate(t *testing.T) {
 // TestSeaGateWreckageThresholdMetalcraftDelirium pins the other three
 // evaluated conditions of the shared gate at the offer boundary.
 func TestSeaGateWreckageThresholdMetalcraftDelirium(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}))
 	for p := state.PlayerID(0); p < 2; p++ {

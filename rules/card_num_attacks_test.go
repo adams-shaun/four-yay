@@ -27,6 +27,7 @@ import (
 // base power; if it aggregated the team (2) both pumped creatures would get
 // +2 -- neither matches the asserted values.
 func TestMoraugCountsEachAffectedCreaturesAttacks(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		mustCorpusCard(t, reg, "Moraug, Fury of Akoum"),

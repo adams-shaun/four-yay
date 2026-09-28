@@ -46,6 +46,7 @@ func resolveSephirothDeath(t *testing.T, e *Engine, reg *cards.Registry, sep sta
 // failed OPEN and SetState transformed every time. With the head modelled
 // the face holds until the fourth resolution.
 func TestSephirothTransformsOnlyOnFourthResolution(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	sep := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Sephiroth, Fabled SOLDIER"))
@@ -92,6 +93,7 @@ func TestSephirothTransformsOnlyOnFourthResolution(t *testing.T) {
 // same TriggeredCard$CardManaCost read rules/rakdos_muscle_deck_test.go pins,
 // driven through the actual sacrifice trigger rather than a cast.
 func TestRakdosExilesUntransformedSephirothManaValue(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	rakdos := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Rakdos, the Muscle"))
@@ -155,6 +157,7 @@ func TestRakdosExilesUntransformedSephirothManaValue(t *testing.T) {
 // the replay comparison is meaningful; Sephiroth's own ETB trigger is dropped
 // with the established e.pending = nil pattern before the deaths are driven.
 func TestSephirothResolvedTallyReplaysExactly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sep, ok := reg.Lookup("Sephiroth, Fabled SOLDIER")
 	if !ok {
@@ -209,6 +212,7 @@ func TestSephirothResolvedTallyReplaysExactly(t *testing.T) {
 // front, where a carried-over count of 1 would have made the first of them
 // the fourth and flipped Sephiroth mid-way).
 func TestSephirothResolvedTallyResetsAtTurnChange(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	sep := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Sephiroth, Fabled SOLDIER"))

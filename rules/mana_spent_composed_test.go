@@ -12,6 +12,7 @@ import (
 // encoding. The SVar is Sunken Palace's real SpellAbilityCast rider; the
 // RestrictValid parameter creates the combined carrier absent in the corpus.
 func TestRestrictedManaKeepsSpentActivationRider(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	src := card(t, "Name:Restricted Palace\nTypes:Land\n"+
 		"A:AB$ Mana | Cost$ T | Produced$ U | RestrictValid$ Activated.Creature | TriggersWhenSpent$ TrigCopy\n"+

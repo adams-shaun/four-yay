@@ -54,6 +54,7 @@ import (
 // shape (ValidBlocker$ Creature.Self, "can block only creatures with
 // flying") is pinned too, since the same read serves it.
 func TestSteelLeafChampionCantBeBlockedBySmallPower(t *testing.T) {
+	t.Parallel()
 	leafCard := card(t, "Name:Steel Leaf Champion\nManaCost:G G G\nTypes:Creature Elf Knight\nPT:5/4\n"+
 		"S:Mode$ CantBlockBy | ValidAttacker$ Creature.Self | ValidBlocker$ Creature.powerLE2\nOracle:x\n")
 	vanillaCard := card(t, "Name:Vanilla\nManaCost:G G G\nTypes:Creature Elf Knight\nPT:5/4\nOracle:x\n")
@@ -112,6 +113,7 @@ func TestSteelLeafChampionCantBeBlockedBySmallPower(t *testing.T) {
 // controller gains it until end of turn (layer-6 grant), the unchosen
 // candidates stay off, and end-of-turn cleanup drops the grant.
 func TestAngelicSkirmisherChoosesCombatKeyword(t *testing.T) {
+	t.Parallel()
 	angelic := "Name:Angelic Skirmisher\nManaCost:4 W W\nTypes:Creature Angel\nPT:4/4\nK:Flying\n" +
 		"T:Mode$ Phase | Phase$ BeginCombat | TriggerZones$ Battlefield | Execute$ TrigChoose\n" +
 		"SVar:TrigChoose:DB$ Pump | Defined$ Valid Creature.YouCtrl | KWChoice$ First Strike,Vigilance,Lifelink\n" +
@@ -205,6 +207,7 @@ func etbSeed(t *testing.T, want uint64, s0, s1 []string) uint64 {
 // BEFORE the next chooser picks, and the non-chosen lands are then
 // sacrificed by the chained SacrificeAll.
 func TestPlanetaryAnnihilationRevealsKeptLands(t *testing.T) {
+	t.Parallel()
 	pa := "Name:Planetary Annihilation\nManaCost:3 R R\nTypes:Sorcery\n" +
 		"A:SP$ ChooseCard | Defined$ Player | Choices$ Land | ControlledByPlayer$ Chooser | Amount$ 6 | Mandatory$ True | Reveal$ True | SubAbility$ DBSac\n" +
 		"SVar:DBSac:DB$ SacrificeAll | ValidCards$ Land.nonChosenCard | SubAbility$ DBDamageAll\n" +
@@ -296,6 +299,7 @@ func find2ByName(t *testing.T, e *Engine, name string, p state.PlayerID) state.O
 // scoped layer-6 grant), the flashback cast option is offered at its mana
 // cost, and the cast resolves into exile (CR 702.34a).
 func TestSnapcasterMageGrantsGraveyardFlashback(t *testing.T) {
+	t.Parallel()
 	snap := "Name:Snapcaster\nManaCost:1 U\nTypes:Creature Human Wizard\nPT:2/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigFlashback\n" +
 		"SVar:TrigFlashback:DB$ Pump | ValidTgts$ Instant.YouCtrl,Sorcery.YouCtrl | TgtZone$ Graveyard | TgtPrompt$ Select target instant or sorcery card | KW$ Flashback | PumpZone$ Graveyard\nOracle:x\n"
@@ -354,6 +358,7 @@ func TestSnapcasterMageGrantsGraveyardFlashback(t *testing.T) {
 // stack (one can't-be-countered Note), and the spell resolves. The control
 // half casts the same creature on ordinary mana and it counters cleanly.
 func TestCavernOfSoulsChosenCreatureSpellCantBeCountered(t *testing.T) {
+	t.Parallel()
 	cavern := "Name:Cavern\nManaCost:no cost\nTypes:Land\nK:ETBReplacement:Other:ChooseCT\n" +
 		"SVar:ChooseCT:DB$ ChooseType | Defined$ You | Type$ Creature\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ C\n" +
@@ -474,6 +479,7 @@ func TestCavernOfSoulsChosenCreatureSpellCantBeCountered(t *testing.T) {
 // never a literal "ChosenType" type word), and the other creature you
 // control of the chosen type gets +1/+1.
 func TestAdaptiveAutomatonIsTheChosenType(t *testing.T) {
+	t.Parallel()
 	auto := "Name:Adaptive Automaton\nManaCost:3\nTypes:Artifact Creature Construct\nPT:2/2\n" +
 		"K:ETBReplacement:Other:ChooseCT\nSVar:ChooseCT:DB$ ChooseType | Type$ Creature\n" +
 		"S:Mode$ Continuous | Affected$ Card.Self | AddType$ ChosenType\n" +
@@ -529,6 +535,7 @@ func TestAdaptiveAutomatonIsTheChosenType(t *testing.T) {
 // transforms Delver (the RememberRevealed$ capture feeding the chained
 // SetState).
 func TestDelverPeekWindowIsExactlyPeekAmount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	delver, ok := reg.Lookup("Delver of Secrets")
 	if !ok {

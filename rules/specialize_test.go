@@ -48,6 +48,7 @@ func specializeOption(e *Engine, p state.PlayerID, id state.ObjID, faceIdx int) 
 // FaceIdx through an event-sourced Specialize transition, and the registered
 // matcher accepts the specializing object's own event.
 func TestSpecializeSpecialActionChangesFaceAndMatchesTrigger(t *testing.T) {
+	t.Parallel()
 	c, diags := cards.ParseBytes("specialize.txt", []byte(`Name:Front
 AlternateMode:Specialize
 Types:Creature Druid
@@ -116,6 +117,7 @@ SVar:Trig:DB$ PutCounter | CounterType$ P1P1 | CounterNum$ 1 | Defined$ Self
 // by exactly the counted value, so a build that ignored the gate cannot pass
 // both halves.
 func TestSpecializeLukaminaGateBindsOnLands(t *testing.T) {
+	t.Parallel()
 	card := corpusCard(t, "Lukamina, Moon Druid")
 	if len(card.Faces) != 6 {
 		t.Fatalf("precondition: Lukamina compiles to %d faces, want 6", len(card.Faces))
@@ -141,6 +143,7 @@ func TestSpecializeLukaminaGateBindsOnLands(t *testing.T) {
 // less. The two boards differ by exactly the compared value, so a build that
 // ignored the CheckSVar$ half of the grammar cannot pass both halves.
 func TestSpecializeShadowheartSVarGateBinds(t *testing.T) {
+	t.Parallel()
 	card := corpusCard(t, "Shadowheart, Sharran Cleric")
 	if len(card.Faces) != 6 {
 		t.Fatalf("precondition: Shadowheart compiles to %d faces, want 6", len(card.Faces))
@@ -173,6 +176,7 @@ func TestSpecializeShadowheartSVarGateBinds(t *testing.T) {
 // Unspecialize body, flips the card back to the front face, and its chained
 // DBReturn returns it to the battlefield tapped.
 func TestSpecializeLukaminaCorpusEndToEnd(t *testing.T) {
+	t.Parallel()
 	lukamina := corpusCard(t, "Lukamina, Moon Druid")
 	if got := len(lukamina.Faces); got != 6 {
 		t.Fatalf("precondition: Lukamina faces = %d, want 6", got)
@@ -308,6 +312,7 @@ func TestSpecializeLukaminaCorpusEndToEnd(t *testing.T) {
 // TestSpecializePlainCostVhalChoosesFace pins the 15 plain-cost files: Vhal
 // offers one option per specialization face and the chosen one wins.
 func TestSpecializePlainCostVhalChoosesFace(t *testing.T) {
+	t.Parallel()
 	vhal := corpusCard(t, "Vhal, Eager Scholar")
 	if len(vhal.Faces) != 6 {
 		t.Fatalf("precondition: Vhal faces = %d, want 6", len(vhal.Faces))
@@ -347,6 +352,7 @@ func TestSpecializePlainCostVhalChoosesFace(t *testing.T) {
 // scope, so neither offers a specialize option (a silent merged-again or an
 // ignored rider would offer one).
 func TestSpecializeUnsupportedRiderOffersNoOption(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"Imoen, Trickster Friend", "Karlach, Raging Tiefling"} {
 		c := corpusCard(t, name)
 		if len(c.Faces) != 6 {
@@ -368,6 +374,7 @@ func TestSpecializeUnsupportedRiderOffersNoOption(t *testing.T) {
 // priorityOptionStale, which reads the same specializeLegal predicate the
 // offer walk does. A guard that disagreed with the gate would accept it.
 func TestSpecializeStaleGuardRejectsWhenGateBinds(t *testing.T) {
+	t.Parallel()
 	lukamina := corpusCard(t, "Lukamina, Moon Druid")
 	e, id := specializeEngine(t, lukamina, 5)
 	addMana(t, e, 0, "CCC")
@@ -382,6 +389,7 @@ func TestSpecializeStaleGuardRejectsWhenGateBinds(t *testing.T) {
 // the stale guard accepts exactly that option, and the bot's OWN answer --
 // which it builds from the offered list -- clears both the guard and Submit.
 func TestSpecializeBotAnswerPassesValidator(t *testing.T) {
+	t.Parallel()
 	lukamina := corpusCard(t, "Lukamina, Moon Druid")
 	e, id := specializeEngine(t, lukamina, 6)
 	addMana(t, e, 0, "CCC")

@@ -62,6 +62,7 @@ const captureVictimCard = "Name:Victim\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 // was silently skipped -- exactly Enchanter's Bane's dead damage leg (triage
 // measured zero Damage events).
 func TestRememberedCaptureExcludedInTriggerBody(t *testing.T) {
+	t.Parallel()
 	// run drives one probe card and returns (draws, victimZone).
 	run := func(t *testing.T, probeSrc string) (int, state.Zone) {
 		t.Helper()

@@ -25,6 +25,7 @@ import (
 // effects.Supported(), so a missing entry would silently keep every carrier
 // unplayable.
 func TestInvestigatedSupported(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	if !supported["trig:Investigated"] {
 		t.Fatalf("effects.Supported() is missing trig:Investigated")
@@ -38,6 +39,7 @@ func TestInvestigatedSupported(t *testing.T) {
 // Erdwal's own extra investigate does not chain either. Three Clue tokens
 // total, replay-verified.
 func TestErdwalIlluminatorInvestigatesAnAdditionalTimeOnTheFirstInvestigate(t *testing.T) {
+	t.Parallel()
 	erdwal := tokenReplCorpusCard(t, "Erdwal Illuminator")
 	wave := tokenReplCorpusCard(t, "Wavesifter")
 	e, cfg := tokenReplGame(t, 77, erdwal, wave)
@@ -58,6 +60,7 @@ func TestErdwalIlluminatorInvestigatesAnAdditionalTimeOnTheFirstInvestigate(t *t
 // entering later in the turn investigates once more and must NOT fire Erdwal
 // again (still 3 Clues, not 4).
 func TestErdwalIlluminatorSecondInvestigateThisTurnDoesNotFire(t *testing.T) {
+	t.Parallel()
 	erdwal := tokenReplCorpusCard(t, "Erdwal Illuminator")
 	martha := tokenReplCorpusCard(t, "Martha Jones")
 	e, cfg := tokenReplGame(t, 78, erdwal, martha, martha)
@@ -98,6 +101,7 @@ func TestErdwalIlluminatorSecondInvestigateThisTurnDoesNotFire(t *testing.T) {
 // investigate" — the reason the trigger keys on its own event Kind rather
 // than on the mint.
 func TestPlainClueTokenCreationDoesNotFireInvestigated(t *testing.T) {
+	t.Parallel()
 	erdwal := tokenReplCorpusCard(t, "Erdwal Illuminator")
 	forge := cardByName(t, tokenForgeSrc("c_a_clue_draw"))
 	e, cfg := tokenReplGame(t, 79, erdwal, forge)

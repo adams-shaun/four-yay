@@ -10,6 +10,7 @@ import (
 )
 
 func TestTriggerRememberedFilterReachability(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Watcher\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	captured := onBoard(t, e, 1, "Name:Captured\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -54,6 +55,7 @@ func TestTriggerRememberedFilterReachability(t *testing.T) {
 // the body. The life delta is the observable stand-in for a token-creating
 // Blessed Defiance body, without importing Forge's GPL script or token corpus.
 func TestTriggerRememberedFilterDelayedAttackers(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoard(t, e, 0, "Name:Watcher\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	captured := onBoard(t, e, 1, "Name:Captured\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -72,6 +74,7 @@ func TestTriggerRememberedFilterDelayedAttackers(t *testing.T) {
 }
 
 func TestTriggerRememberedFilterDelayedDies(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Defiance promise\nTypes:Creature Wizard\nPT:2/2\nSVar:Trig:DB$ GainLife | Defined$ You | LifeAmount$ 3\nOracle:x\n")
 	captured := onBoard(t, e, 0, "Name:Protected\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -105,6 +108,7 @@ func TestTriggerRememberedFilterDelayedDies(t *testing.T) {
 }
 
 func TestTriggerRememberedFilterDamageSource(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Damage watcher\nTypes:Creature\nPT:2/2\nSVar:Trig:DB$ GainLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")
 	captured := onBoard(t, e, 0, "Name:Captured\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -132,6 +136,7 @@ func TestTriggerRememberedFilterDamageSource(t *testing.T) {
 }
 
 func TestTriggerRememberedFilterPhasePlayer(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Promise\nTypes:Creature\nPT:2/2\nSVar:Trig:DB$ GainLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")
 	captured := onBoard(t, e, 1, "Name:Captured\nTypes:Creature\nPT:2/2\nOracle:x\n")

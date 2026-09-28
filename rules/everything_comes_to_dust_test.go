@@ -71,6 +71,7 @@ func castEverythingComesToDustWithConvoke(t *testing.T, e *Engine, convokeWith s
 }
 
 func TestEverythingComesToDustSparesConvokerTypeShares(t *testing.T) {
+	t.Parallel()
 	e, _ := conniveEngine(t,
 		[]string{"Everything Comes to Dust", "Grizzly Bears", "Grizzly Bears", "Scathe Zombies", "Sol Ring", "Glorious Anthem"},
 		[]string{"Grizzly Bears"})

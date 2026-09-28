@@ -68,6 +68,7 @@ func assertFaceDownCommandCast(t *testing.T, e *Engine, id state.ObjID, name str
 // and that a second command-zone cast composes the {2} commander tax on top
 // of the {3}.
 func TestMorphFaceDownCastOfferedFromTheCommandZone(t *testing.T) {
+	t.Parallel()
 	e := morphCommanderEngine(t, 941, "Akroma, Angel of Fury")
 	id := e.G.Players[0].Commanders[0]
 	// Precondition: the object the rule reads is in the command zone.
@@ -135,6 +136,7 @@ func TestMorphFaceDownCastOfferedFromTheCommandZone(t *testing.T) {
 // marker, and that {3} was spent. (No replayCheck: replay genesis drops
 // commander state -- filed as .ds4/new-tickets/commander-replay-drops-commanders.md.)
 func TestDisguiseFaceDownCastOfferedFromTheCommandZone(t *testing.T) {
+	t.Parallel()
 	e := morphCommanderEngine(t, 942, "Bayek of Siwa")
 	id := e.G.Players[0].Commanders[0]
 	if o := e.G.Obj(id); o.Zone != state.ZCommand {

@@ -16,6 +16,7 @@ import (
 // the census answers false and the cast option is withheld (the original
 // symptom, observed here at the census layer the offer gate reads).
 func TestGiftOfferCensusUnionsPromisedBranch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pull := mustCorpusCard(t, reg, "Long River's Pull")
 	zap := card(t, lrpZapSrc)

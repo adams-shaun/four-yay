@@ -15,6 +15,7 @@ import (
 // chooses a card (deliberately not the front card), and that exact card
 // leaves seat 1's hand — not hand[0].
 func TestThoughtseizeLetsTheCasterChoose(t *testing.T) {
+	t.Parallel()
 	ts := "Name:PiT\nManaCost:B\nTypes:Sorcery\n" +
 		"A:SP$ Discard | ValidTgts$ Player | NumCards$ 1 | Mode$ RevealYouChoose | DiscardValid$ Card.nonLand\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 96, ts)
@@ -85,6 +86,7 @@ func TestThoughtseizeLetsTheCasterChoose(t *testing.T) {
 // RevealYouChoose spell now uses. This is the "do not convert all Discard
 // into an ask" guard at the engine level.
 func TestCleanupDiscardStaysDeterministic(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Active = 0
 	e.G.Step = state.StepCleanup

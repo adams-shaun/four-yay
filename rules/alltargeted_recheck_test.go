@@ -11,6 +11,7 @@ import (
 // shroud in the response window. The chosen victim must not be used at
 // resolution, even though it is still on the battlefield.
 func TestWaytaCastSubTargetRecheckedAfterResponse(t *testing.T) {
+	t.Parallel()
 	waytaSrc := alltargetedCorpusText(t, "w/wayta_trainer_prodigy.txt")
 	e, _, _ := newFixtureDeckWithOpponentCard(t, 86, waytaSrc, atBearSrc, atBearSrc)
 	wayta := moveSeeded(t, e, 0, waytaSrc, state.ZBattlefield)

@@ -34,6 +34,7 @@ func BenchmarkNewEngineObjectArena(b *testing.B) {
 }
 
 func TestNewEngineSizesInitialObjectArenaWithHeadroom(t *testing.T) {
+	t.Parallel()
 	e := New(objectArenaConfig(t))
 	if got := len(e.G.Objs); got != 240 {
 		t.Fatalf("objects = %d, want 240", got)

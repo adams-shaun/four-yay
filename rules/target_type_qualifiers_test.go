@@ -36,6 +36,7 @@ func corpusSA(t *testing.T, reg *cards.Registry, name, svar string) *cards.SA {
 // each remaining TargetType$ qualifier. The compared cards deliberately differ
 // in the characteristic the qualifier reads, so a widened census cannot pass.
 func TestTargetTypeQualifiersReadAllNamedQualifiers(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, ids := stackTargetsFixture(t)
 
@@ -109,6 +110,7 @@ func TestTargetTypeQualifiersReadAllNamedQualifiers(t *testing.T) {
 // last-known-information half: the triggered/activated classification comes
 // from the minted stack object, not a source-face lookup at targeting time.
 func TestTriggeredTargetTypeKeepsKindAfterSourceLeaves(t *testing.T) {
+	t.Parallel()
 	e := counterHands(t, nil, nil, nil, []*cards.Card{card(t, heraldSrc)})
 	source := e.G.Zone(state.ZBattlefield, 1)[0]
 	e.emit(events.Event{Kind: events.TriggerPush, Obj: source, Player: 1, Amount: 0})

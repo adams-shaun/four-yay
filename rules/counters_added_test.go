@@ -13,6 +13,7 @@ import (
 )
 
 func TestCountersAddedThisTurn(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	tarfire := onBoardCard(t, e, 0, yourCountersCard(t, "Lasting Tarfire"))
 	creature := onBoardCard(t, e, 0, yourCountersCard(t, "Wakka, Devoted Guardian"))
@@ -142,6 +143,7 @@ func TestCountersAddedThisTurn(t *testing.T) {
 }
 
 func TestLastingTarfire(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	tarfire := onBoardCard(t, e, 0, yourCountersCard(t, "Lasting Tarfire"))
 	creature := onBoardCard(t, e, 0, yourCountersCard(t, "Wakka, Devoted Guardian"))
@@ -261,6 +263,7 @@ func TestCountersAddedThisTurnIgnoresInternalStatusMarkers(t *testing.T) {
 // entry count, same count-head answers -- since every placement's adder is
 // re-derived by the re-executed driving code, never carried by the event.
 func TestCountersAddedThisTurnLedgerReplays(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deck := testutil.RepoDeck(t, reg, "avengers-assemble")
 	cfg := Config{Seed: 3, Names: []string{"a", "b"}, Decks: [][]*cards.Card{deck, deck}, Tokens: reg.Tokens}
@@ -344,6 +347,7 @@ func TestCountersAddedThisTurnLedgerReplays(t *testing.T) {
 // EffectSource and replay pins above), and for the emit-gate marker
 // exclusion TestCountersAddedThisTurnIgnoresInternalStatusMarkers.
 func TestCountersAddedThisTurnMalformedStaysUnresolvable(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	tarfire := onBoardCard(t, e, 0, yourCountersCard(t, "Lasting Tarfire"))
 	ctx := &effects.Ctx{Controller: 0, Source: tarfire}

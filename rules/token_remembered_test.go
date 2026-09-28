@@ -140,6 +140,7 @@ func driveToAttackersAt(t *testing.T, e *Engine, turn int32, active state.Player
 // to the opponent, and the granted trigger sacrifices the Bat and returns the
 // exiled Vampire to the battlefield tapped under seat 0's control.
 func TestTokenRememberedTimotharEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := tokenRememberedBoard(t, reg, "Timothar, Baron of Bats", "Vampire Nighthawk")
 	timothar := ids["Timothar, Baron of Bats"]

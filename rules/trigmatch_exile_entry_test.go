@@ -12,6 +12,7 @@ import (
 // Permanent requires the candidate to be on the battlefield, which is true of
 // the post-move object and false of the exile LKI snapshot.
 func TestChangesZonePermanentYouCtrlStillMatchesEnteringFromExile(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	source := onBoardCard(t, e, 0, card(t, `Name:Exile Entry Watcher
 Types:Artifact

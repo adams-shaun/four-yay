@@ -92,6 +92,7 @@ func targetOptionFor(t *testing.T, e *Engine, obj state.ObjID) int {
 // {1}), two modes cost {W}{2}. Before this the modes resolved free for the
 // printed {W}.
 func TestRequisitionRaidSpreeChargesEachChosenMode(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name      string
@@ -177,6 +178,7 @@ func TestRequisitionRaidSpreeChargesEachChosenMode(t *testing.T) {
 // offered, while its {1} Rabbit mode (same target legality: a creature and a
 // player are both present) is. A mode declined for cost is not selected.
 func TestMetamorphicBlastSpreeUnaffordableModeNotOffered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "uw-control", "Metamorphic Blast", "Grizzly Bears")
 	id := crAbortMove(t, e, 0, "Metamorphic Blast", state.ZHand)
@@ -231,6 +233,7 @@ func TestMetamorphicBlastSpreeUnaffordableModeNotOffered(t *testing.T) {
 // the printed {W} affordable no mode is payable and the cast is not offered --
 // it reverses to hand (CR 733.1) instead of silently resolving a free mode.
 func TestRequisitionRaidSpreeZeroModeCastNotOffered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "uw-control", "Requisition Raid", "Sol Ring", "Ghostly Prison")
 	id := crAbortMove(t, e, 0, "Requisition Raid", state.ZHand)
@@ -261,6 +264,7 @@ func TestRequisitionRaidSpreeZeroModeCastNotOffered(t *testing.T) {
 // SUM ({W}{2}) exceeds {W}{W}, so the whole proposal reverses (CR 733.1) and
 // the cast never pays for modes it cannot afford.
 func TestRequisitionRaidSpreeUnaffordableCombinationReverses(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "uw-control", "Requisition Raid", "Sol Ring", "Ghostly Prison")
 	id := crAbortMove(t, e, 0, "Requisition Raid", state.ZHand)
@@ -302,6 +306,7 @@ func TestRequisitionRaidSpreeUnaffordableCombinationReverses(t *testing.T) {
 // every mode and drive the whole cast through the min > len(legal) no-progress
 // abort, denying a legal cast.
 func TestMetamorphicBlastSpreeModeGateAppliesCostModifiers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "uw-control", "Metamorphic Blast", "Baral, Chief of Compliance", "Grizzly Bears")
 	id := crAbortMove(t, e, 0, "Metamorphic Blast", state.ZHand)
@@ -353,6 +358,7 @@ func TestMetamorphicBlastSpreeModeGateAppliesCostModifiers(t *testing.T) {
 // identically; this test would fail if the per-mode charge were wired to the
 // Spree keyword instead of to ModeCost$ itself.
 func TestFireMagicTieredChargesTheChosenMode(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "uw-control", "Fire Magic")
 	id := crAbortMove(t, e, 0, "Fire Magic", state.ZHand)
@@ -405,6 +411,7 @@ func TestFireMagicTieredChargesTheChosenMode(t *testing.T) {
 // withheld from the cast's legal set while the {1} mode is offered, and
 // modeCostUnparseable names the shape.
 func TestSpreeUnparseableModeCostWithheld(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Bad Spree\nManaCost:U\nTypes:Sorcery\nK:Spree\n" +
 		"A:SP$ Charm | Choices$ DBGood,DBBad | MinCharmNum$ 1\n" +
 		"SVar:DBGood:DB$ Draw | ModeCost$ 1 | Defined$ You | NumCards$ 1 | SpellDescription$ Good mode.\n" +

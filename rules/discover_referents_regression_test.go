@@ -12,6 +12,7 @@ import (
 // completed Discover marker, so the follow-up marker must retain the original
 // discover value rather than degrading to discover 0.
 func TestCuratorOfSunsCreationRepeatsTheDiscoverValue(t *testing.T) {
+	t.Parallel()
 	curator := tokenReplCorpusCard(t, "Curator of Sun's Creation")
 	e, cfg := tokenReplGame(t, 7015704, curator)
 	curatorID := moveSeededCard(t, e, 0, curator, state.ZBattlefield)

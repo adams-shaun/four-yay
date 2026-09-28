@@ -15,6 +15,7 @@ import (
 // of any one color" both read "Add any color", so a manual payer could not
 // choose the larger ability on purpose (task mana-wheel-amount-labels).
 func TestManaWheelLabelsDistinguishAnyColourAmounts(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	toMain1(t, e)
 	src := onBoard(t, e, 0, "Name:Sceptre Test\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Any | SpellDescription$ Add one.\nA:AB$ Mana | Cost$ T | Produced$ Any | Amount$ 3 | SpellDescription$ Add three.\nOracle:x\n")
@@ -88,6 +89,7 @@ func TestManaWheelLabelsDistinguishAnyColourAmounts(t *testing.T) {
 // named 21 and 22. The literal rule is now exactly manaColourPrompt's -- any
 // positive literal -- and the wording falls back to digits past twenty.
 func TestManaWheelLabelsNameAnyColourAmountsAboveTwenty(t *testing.T) {
+	t.Parallel()
 	any := func(amount string) string {
 		ma := &cards.SA{Kind: "AB", API: "Mana",
 			Params: map[string]string{"Cost": "T", "Produced": "Any", "Amount": amount}}
@@ -118,6 +120,7 @@ func TestManaWheelLabelsNameAnyColourAmountsAboveTwenty(t *testing.T) {
 // and 22, so the "above twenty" fix is proved at the wheel, not just at the
 // label formatter (the finding asked for a wheel regression).
 func TestManaWheelOptionsNameAnyColourAmountsAboveTwenty(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	toMain1(t, e)
 	src := onBoard(t, e, 0, "Name:Big Sceptre Test\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Any | Amount$ 21 | SpellDescription$ Add 21.\nA:AB$ Mana | Cost$ T | Produced$ Any | Amount$ 22 | SpellDescription$ Add 22.\nOracle:x\n")

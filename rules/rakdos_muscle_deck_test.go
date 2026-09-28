@@ -88,6 +88,7 @@ func optionOf(t *testing.T, e *Engine, kind string, obj state.ObjID) int {
 // mana of any type" — the MayPlayIgnoreType$ rider is what lets a
 // colourless-only pool pay the {R} pip of the exiled bolt.
 func TestRakdosMuscleSacTriggerExilesAndMayPlaysWithAnyTypeMana(t *testing.T) {
+	t.Parallel()
 	bolt := card(t, "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n")
 	e := handEngine(t, bolt)
 	rakdos := e.G.AddObject(choiceCorpusCard(t, "Rakdos, the Muscle"), 0)
@@ -161,6 +162,7 @@ func TestRakdosMuscleSacTriggerExilesAndMayPlaysWithAnyTypeMana(t *testing.T) {
 // TestCharmingScoundrelWickedRoleAttaches pins Token.AttachedTo$: the created
 // Role token enters attached to the targeted creature.
 func TestCharmingScoundrelWickedRoleAttaches(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{choiceCorpusCard(t, "Charming Scoundrel")}, nil)
 	bear := battlefieldFixture(t, e, 0, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -220,6 +222,7 @@ func TestCharmingScoundrelWickedRoleAttaches(t *testing.T) {
 // (and the IsPresent$ AND IsPresent2$ clause pair): the die roll fires on a battlefield entry
 // from hand, never on one from the graveyard or exile.
 func TestNameStickerGoblinExcludedOrigins(t *testing.T) {
+	t.Parallel()
 	// The die roll fires only for the hand entry, once the trigger resolves:
 	// exactly one roll note and a mana event in the log (the pool itself may
 	// already have been cleared by a later step the drain crossed).
@@ -258,6 +261,7 @@ func TestNameStickerGoblinExcludedOrigins(t *testing.T) {
 // activated ability: the option exists on the controller's turn, never on an
 // opponent's.
 func TestWishclawActivationOnlyOnYourTurn(t *testing.T) {
+	t.Parallel()
 	run := func(active state.PlayerID) bool {
 		e := handEngine(t)
 		wish := e.G.AddObject(choiceCorpusCard(t, "Wishclaw Talisman"), 0)
@@ -280,6 +284,7 @@ func TestWishclawActivationOnlyOnYourTurn(t *testing.T) {
 // the "if this artifact is tapped" condition counts the vault itself, not
 // every tapped permanent.
 func TestManaVaultDrawStepDamageScopedToSelf(t *testing.T) {
+	t.Parallel()
 	run := func(vaultTapped bool) int32 {
 		e := handEngine(t)
 		vault := e.G.AddObject(choiceCorpusCard(t, "Mana Vault"), 0)
@@ -381,6 +386,7 @@ func driveToDrawStep2(t *testing.T, e *Engine) {
 // TestMasterOfDarkRitesRestrictsSpend pins Mana.RestrictValid$: the
 // sac-fuelled {B}{B}{B} is spendable only on Vampire/Cleric/Demon spells.
 func TestMasterOfDarkRitesRestrictsSpend(t *testing.T) {
+	t.Parallel()
 	cleric := card(t, "Name:Cleric Charm\nManaCost:B\nTypes:Instant Cleric\nOracle:x\n")
 	plain := card(t, "Name:Plain Charm\nManaCost:B\nTypes:Instant\nOracle:x\n")
 	e := handEngine(t, cleric, plain)
@@ -424,6 +430,7 @@ func TestMasterOfDarkRitesRestrictsSpend(t *testing.T) {
 // (ControlOpponentsSearchingLibrary$) and the found card is exiled instead
 // of taken (repl:Moved FoundSearchingLibrary$), with the may-play grant live.
 func TestOppositionAgentExilesOpponentSearchFinds(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	agent := e.G.AddObject(choiceCorpusCard(t, "Opposition Agent"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: agent.ID, From: state.ZLibrary, To: state.ZBattlefield})
@@ -481,6 +488,7 @@ func TestOppositionAgentExilesOpponentSearchFinds(t *testing.T) {
 // when its pick found nothing (CR 701.23b's fail-to-find still shuffles,
 // which is what Squadron Hawk's committed pin holds too).
 func TestFlamekinDeclinedSearchDoesNotShuffle(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	flame := e.G.AddObject(choiceCorpusCard(t, "Flamekin Harbinger"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: flame.ID, From: state.ZHand, To: state.ZBattlefield})
@@ -556,6 +564,7 @@ func TestFlamekinDeclinedSearchDoesNotShuffle(t *testing.T) {
 // Flare — an unbounded self-copy loop no bot game could finish (measured:
 // seed 1 of the deck-mirror mtgsim run never terminated).
 func TestFlareOfDuplicationCopiesItsTarget(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{choiceCorpusCard(t, "Flare of Duplication")}, nil)
 	moveByName(t, e, 0, "Flare of Duplication", state.ZHand)

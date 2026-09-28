@@ -229,7 +229,7 @@ func (e *Engine) staticSourceIDs(p state.PlayerID, z state.Zone) []state.ObjID {
 	s := &e.staticZones[i]
 	if s.valid && slices.Equal(s.ids, cur) {
 		if staticZoneSkipVerify {
-			e.verifyStaticZoneSkip(z, cur, s.hotIDs)
+			e.staticZoneSkipVerifyOnce(i, z, cur, s.hotIDs)
 		}
 		return s.hotIDs
 	}
@@ -276,9 +276,49 @@ func (e *Engine) staticSourceIDs(p state.PlayerID, z state.Zone) []state.ObjID {
 	s.ids = append(s.ids[:0], cur...)
 	s.hotIDs, s.valid = hot, true
 	if staticZoneSkipVerify {
-		e.verifyStaticZoneSkip(z, cur, hot)
+		e.staticZoneSkipVerifyOnce(i, z, cur, hot)
 	}
 	return hot
+}
+
+// staticZoneVerifiedAt records the exact (cur, hot) slices one summary slot
+// was verified against: same backing arrays, same lengths.
+type staticZoneVerifiedAt struct {
+	cur, hot *state.ObjID
+	nc, nh   int
+	ok       bool
+}
+
+func sliceHead(s []state.ObjID) *state.ObjID {
+	if cap(s) == 0 {
+		return nil
+	}
+	return &s[:1][0]
+}
+
+// staticZoneSkipVerifyOnce is verifyStaticZoneSkip, deduplicated inside ONE
+// verifyBoardStatics call. That call recomputes the cost, action and
+// ManaConvert scans back to back, a pure read with no event and no state
+// write between them, and each scan asks staticSourceIDs for the same seats
+// and zones -- so without the dedupe the identical (cur, hot) check ran three
+// times over identical objects. A slot is skipped only when the very same
+// cur and hot slices (backing array and length) were verified earlier in the
+// same call; every first sighting, and every call outside a verify scope,
+// runs the full check.
+func (e *Engine) staticZoneSkipVerifyOnce(i int, z state.Zone, cur, hot []state.ObjID) {
+	if !e.staticZoneVerifyScope {
+		e.verifyStaticZoneSkip(z, cur, hot)
+		return
+	}
+	for i >= len(e.staticZoneVerified) {
+		e.staticZoneVerified = append(e.staticZoneVerified, staticZoneVerifiedAt{})
+	}
+	at := staticZoneVerifiedAt{cur: sliceHead(cur), hot: sliceHead(hot), nc: len(cur), nh: len(hot), ok: true}
+	if e.staticZoneVerified[i] == at {
+		return
+	}
+	e.verifyStaticZoneSkip(z, cur, hot)
+	e.staticZoneVerified[i] = at
 }
 
 // verifyStaticZoneSkip panics when hot is not exactly the static-hot

@@ -30,6 +30,7 @@ const foodSrc = "Name:Yummy\nManaCost:0\nTypes:Artifact Food\nOracle:x\n"
 // amount against the battlefield count: two artifacts out -> {4} prices {2};
 // a third makes the spell castable from an EMPTY pool and the pool ends 0.
 func TestFrogmiteAffinityReducesByArtifactsControlled(t *testing.T) {
+	t.Parallel()
 	e, cfg, frogmite := newFixtureDeck(t, 701, frogmiteSrc, artCritterSrc, artCritterSrc, artCritterSrc)
 	putCreature(t, e, 0, artCritterSrc)
 	putCreature(t, e, 0, artCritterSrc)
@@ -60,6 +61,7 @@ func TestFrogmiteAffinityReducesByArtifactsControlled(t *testing.T) {
 // whole generic {2} — never the coloured pips — so {X}{G}{W} is paid as
 // {G}{W} exactly. With no Foods the reduction is 0 and the generic is real.
 func TestBanquetGuestsFoodAffinityCoversGeneric(t *testing.T) {
+	t.Parallel()
 	e, cfg, guests := newFixtureDeck(t, 702, banquetGuestsSrc, foodSrc, foodSrc, foodSrc)
 	putCreature(t, e, 0, foodSrc)
 	putCreature(t, e, 0, foodSrc)
@@ -83,6 +85,7 @@ func TestBanquetGuestsFoodAffinityCoversGeneric(t *testing.T) {
 // TestBanquetGuestsNoFoodsPricesFullGeneric pins reduction 0: no Foods out
 // means no discount and the {2} generic is real money.
 func TestBanquetGuestsNoFoodsPricesFullGeneric(t *testing.T) {
+	t.Parallel()
 	e, cfg, guests := newFixtureDeck(t, 703, banquetGuestsSrc)
 	if got := reduceOf(t, e, 0, guests); got != 0 {
 		t.Fatalf("Banquet Guests reduction with no Foods = %d, want 0", got)

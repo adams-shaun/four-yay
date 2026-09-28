@@ -19,6 +19,7 @@ const phyrexianTowerSrc = "Name:Phyrexian Tower\nTypes:Legendary Land\n" +
 	"Oracle:{T}: Add {C}.\\n{T}, Sacrifice a creature: Add {B}{B}.\n"
 
 func TestPhyrexianTowerWheelNamesTheSacrificeAndBothPips(t *testing.T) {
+	t.Parallel()
 	e, _, tower := manaSourceEngine(t, phyrexianTowerSrc)
 	bear := onBoard(t, e, 0, "Name:Tower Fodder\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.pending = nil

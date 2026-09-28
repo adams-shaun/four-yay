@@ -65,6 +65,7 @@ func submitChoicePass(t *testing.T, e *Engine) {
 // is a persisted per-chooser continuation and ControlledByPlayer$ Chooser
 // filters the option list before it reaches each player.
 func TestPlanetaryAnnihilationEachPlayerChoosesOwnLand(t *testing.T) {
+	t.Parallel()
 	decks := make([][]*cards.Card, 4)
 	for i := range decks {
 		decks[i] = mountainDeck(t, 40)
@@ -97,6 +98,7 @@ func TestPlanetaryAnnihilationEachPlayerChoosesOwnLand(t *testing.T) {
 // real suspended answer; hostless fallback must not be mistaken for a target
 // rewrite.
 func TestCommandeerChangesTargetAfterAnsweredChoice(t *testing.T) {
+	t.Parallel()
 	decks := [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}
 	e := New(Config{Seed: 714, Names: []string{"a", "b"}, Decks: decks})
 	target := e.G.AddObject(card(t, "Name:Burn\nTypes:Instant\nManaCost:R\nA:SP$ DealDamage | ValidTgts$ Player | NumDmg$ 1\nOracle:x\n"), 1)
@@ -124,6 +126,7 @@ func TestCommandeerChangesTargetAfterAnsweredChoice(t *testing.T) {
 }
 
 func TestVialSmasherChosenPlayerTakesDamage(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 715, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}})
 	vial := e.G.AddObject(choiceCorpusCard(t, "Vial Smasher the Fierce"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: vial.ID, From: state.ZLibrary, To: state.ZBattlefield})
@@ -146,6 +149,7 @@ func TestVialSmasherChosenPlayerTakesDamage(t *testing.T) {
 }
 
 func TestWishclawChosenPlayerGainsControl(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 716, Names: []string{"a", "b"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 	wish := e.G.AddObject(choiceCorpusCard(t, "Wishclaw Talisman"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: wish.ID, From: state.ZLibrary, To: state.ZBattlefield})
@@ -169,6 +173,7 @@ func TestWishclawChosenPlayerGainsControl(t *testing.T) {
 // ctx, and the PERMANENT changes controller -- the pre-fix engine recorded
 // the choice and handed control to nobody.
 func TestSleeperAgentETBControlGoesToChosenOpponent(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 721, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}))
 	sleeper := e.G.AddObject(choiceCorpusCard(t, "Sleeper Agent"), 0)
@@ -192,6 +197,7 @@ func TestSleeperAgentETBControlGoesToChosenOpponent(t *testing.T) {
 }
 
 func TestReboundTargetRestrictionOnlyOffersPlayers(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 717, Names: []string{"a", "b"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 	spell := e.G.AddObject(card(t, "Name:Flexible\nTypes:Instant\nManaCost:R\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"), 1)
 	rebound := e.G.AddObject(choiceCorpusCard(t, "Rebound"), 0)
@@ -214,6 +220,7 @@ func TestReboundTargetRestrictionOnlyOffersPlayers(t *testing.T) {
 }
 
 func TestFlayerTemporaryControlExpiresAndZoneChangeResetsControl(t *testing.T) {
+	t.Parallel()
 	decks := [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}
 	e := New(Config{Seed: 713, Names: []string{"a", "b"}, Decks: decks})
 	flayer := e.G.AddObject(choiceCorpusCard(t, "Flayer of Loyalties"), 0)
@@ -239,6 +246,7 @@ func TestFlayerTemporaryControlExpiresAndZoneChangeResetsControl(t *testing.T) {
 }
 
 func TestSowerOfDiscordETBChoicesResume(t *testing.T) {
+	t.Parallel()
 	e, _, _ := etbConfig(t, 711, nil, nil)
 	sower := e.G.AddObject(choiceCorpusCard(t, "Sower of Discord"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: sower.ID, From: state.ZLibrary, To: state.ZHand})
@@ -286,6 +294,7 @@ func abilityIndex(t *testing.T, c *cards.Card, api string) int {
 // no-ValidTgts$ ChoosePlayer shape: "Choose a player" offers every living
 // player, and the chosen player -- not the controller -- adds the mana.
 func TestValleymakerChoosePlayerOffersEveryPlayer(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 718, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}})
 	vm := e.G.AddObject(choiceCorpusCard(t, "Valleymaker"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: vm.ID, From: state.ZLibrary, To: state.ZBattlefield})
@@ -321,6 +330,7 @@ func TestValleymakerChoosePlayerOffersEveryPlayer(t *testing.T) {
 // Player.IsRemembered), and then continue the loop to the second opponent
 // instead of dropping it.
 func TestOnlyBloodRepeatEachResumesEachOpponentsDiscard(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 719, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}})
 	scheme := e.G.AddObject(choiceCorpusCard(t, "Only Blood Ends Your Nightmares"), 0)
 	hands := map[state.PlayerID][]state.ObjID{}
@@ -389,6 +399,7 @@ func controlBoard(t *testing.T, seed uint64, thief string) (*Engine, *state.Obje
 // Untap,LeavesPlay: control lasts exactly as long as the source stays tapped,
 // and CR 611.2b makes the steal do nothing if the source is already untapped.
 func TestVedalkenShacklesControlEndsWhenSourceUntaps(t *testing.T) {
+	t.Parallel()
 	e, shackles, victim := controlBoard(t, 720, "Vedalken Shackles")
 	sa := shackles.Face().Abilities[abilityIndex(t, shackles.Card, "GainControl")]
 	stealWith(t, e, shackles, sa, 0, victim.ID)
@@ -416,6 +427,7 @@ func TestVedalkenShacklesControlEndsWhenSourceUntaps(t *testing.T) {
 // steal that ends while Kellogg's is live changes nothing, and Kellogg's end
 // returns the creature to the controller it had before either effect.
 func TestKelloggControlEndsWhenSourceLeavesOrChangesHands(t *testing.T) {
+	t.Parallel()
 	e, kellogg, victim := controlBoard(t, 721, "Kellogg, Dangerous Mind")
 	sa := kellogg.Face().Abilities[abilityIndex(t, kellogg.Card, "GainControl")]
 	stealWith(t, e, kellogg, sa, 0, victim.ID)
@@ -449,6 +461,7 @@ func TestKelloggControlEndsWhenSourceLeavesOrChangesHands(t *testing.T) {
 // UntilTheEndOfYourNextTurn: control survives this turn's cleanup and the
 // opponent's turn, and ends at the cleanup of the controller's next turn.
 func TestPowerOfPersuasionControlLastsThroughYourNextTurn(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 723, Names: []string{"a", "b"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 	spell := e.G.AddObject(choiceCorpusCard(t, "Power of Persuasion"), 0)
 	victim := e.G.AddObject(card(t, "Name:Victim\nTypes:Creature\nPT:1/1\nOracle:x\n"), 1)
@@ -474,6 +487,7 @@ func TestPowerOfPersuasionControlLastsThroughYourNextTurn(t *testing.T) {
 // TestOldManOfTheSeaStaticCommandCheck covers LoseControl$ StaticCommandCheck:
 // the stolen creature returns once its power exceeds Old Man's power.
 func TestOldManOfTheSeaStaticCommandCheck(t *testing.T) {
+	t.Parallel()
 	e, oldMan, victim := controlBoard(t, 724, "Old Man of the Sea")
 	sa := oldMan.Face().Abilities[abilityIndex(t, oldMan.Card, "GainControl")]
 	e.emit(events.Event{Kind: events.Tap, Obj: oldMan.ID})
@@ -499,6 +513,7 @@ func TestOldManOfTheSeaStaticCommandCheck(t *testing.T) {
 // and Eriette's with the Aura as the triggering source and the enchanted
 // permanent as its target.
 func TestControlEndsAtEndOfCombatAndWhenAuraUnattaches(t *testing.T) {
+	t.Parallel()
 	e, tahngarth, _ := controlBoard(t, 725, "Tahngarth, First Mate")
 	sa := cards.ResolveSVar(tahngarth.Face().SVars, "TrigGainControl")
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDeclareAttackers})
@@ -556,6 +571,7 @@ func TestControlEndsAtEndOfCombatAndWhenAuraUnattaches(t *testing.T) {
 // names remembered players alone, so ControlledBy Remembered in iteration 2
 // is seat 2 even though the relic seat 1 remembered is still in the set.
 func TestChaosDefilerRemembersEveryAskedIteration(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 702, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}})
 	defiler := e.G.AddObject(choiceCorpusCard(t, "Chaos Defiler"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: defiler.ID, From: state.ZLibrary, To: state.ZBattlefield})
@@ -622,6 +638,7 @@ const diesToYou = "Name:Victim\nTypes:Creature Bear\nPT:2/2\n" +
 // reader through the rules engine. It is a separate keyword-list reader from
 // static AddKeyword$ and Pump/PumpAll KW$, and must share their parser.
 func TestGainControlAmpersandAddKWsGrantsEveryKeyword(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 730)
 	victim := onBoardReady(t, e, 1, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	gain := card(t, "Name:Steal\nTypes:Sorcery\nA:SP$ GainControl | ValidTgts$ Creature | LoseControl$ EOT | AddKWs$ Haste & Lifelink\nOracle:x\n")
@@ -646,6 +663,7 @@ func TestGainControlAmpersandAddKWsGrantsEveryKeyword(t *testing.T) {
 // and a leaves-the-battlefield trigger is controlled by the player who
 // controlled it as it died (CR 603.3a/603.10a).
 func TestStolenCreatureLivesInItsControllersBattlefield(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 731)
 	victim := onBoardReady(t, e, 1, diesToYou)
 	e.emit(events.Event{Kind: events.Tap, Obj: victim})
@@ -717,6 +735,7 @@ func TestStolenCreatureLivesInItsControllersBattlefield(t *testing.T) {
 // 302.6); the owner's untap step no longer untaps it and the taker's does,
 // which is also when its summoning sickness ends.
 func TestStolenPermanentUntapsAndSickensUnderItsController(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 732)
 	victim := onBoardReady(t, e, 1, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.emit(events.Event{Kind: events.ControlChange, Obj: victim, Player: 0})
@@ -742,6 +761,7 @@ func TestStolenPermanentUntapsAndSickensUnderItsController(t *testing.T) {
 // see a stolen permanent as its taker's as it leaves, although the move has
 // already returned it to its owner.
 func TestStolenCreatureDeathAndSacrificeUseLastKnownController(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 733)
 	watch := "Name:Watch\nTypes:Enchantment\n" +
 		"T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.%s | TriggerZones$ Battlefield | Execute$ TrigLife | TriggerDescription$ x\n" +
@@ -774,6 +794,7 @@ func TestStolenCreatureDeathAndSacrificeUseLastKnownController(t *testing.T) {
 // resumes from that spell, so after the discard answer the rest of its chain
 // (gain 3 life) still runs and the sorcery leaves the stack.
 func TestMoxDiamondReanimatedFinishesTheReanimatingSpell(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 735)
 	mox := e.G.AddObject(choiceCorpusCard(t, "Mox Diamond"), 0)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: mox.ID, From: state.ZLibrary, To: state.ZGraveyard})
@@ -818,6 +839,7 @@ func TestMoxDiamondReanimatedFinishesTheReanimatingSpell(t *testing.T) {
 // controls" aimed at one of our creatures may be moved to our other creature,
 // never to the caster's own.
 func TestDeflectingSwatOffersTheSpellControllersLegalTargets(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 736)
 	mineA := onBoard(t, e, 0, "Name:A\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	mineB := onBoard(t, e, 0, "Name:B\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -865,6 +887,7 @@ func TestDeflectingSwatOffersTheSpellControllersLegalTargets(t *testing.T) {
 // remembers that the ITERATED opponent controls) holds because the relic is
 // seat 0's.
 func TestBraidsRepeatEachSeesTheSacrificedCard(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 737)
 	relic := onBoard(t, e, 0, "Name:Relic\nTypes:Artifact\nOracle:x\n")
 	braids := onBoardCard(t, e, 0, choiceCorpusCard(t, "Braids, Arisen Nightmare"))
@@ -903,6 +926,7 @@ func TestBraidsRepeatEachSeesTheSacrificedCard(t *testing.T) {
 // and only for them. Over turns 1-3 with seat 0 starting, seat 0 has two
 // first main phases and seat 1 one.
 func TestTriggeredManaGoesToTheDefinedPlayer(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	want := map[string][2]int32{"Eladamri's Vineyard": {4, 2}, "Tangleroot": {1, 1}}
 	for _, name := range []string{"Eladamri's Vineyard", "Tangleroot"} {
@@ -971,6 +995,7 @@ func stealAndKill(t *testing.T, e *Engine) state.ObjID {
 // draws for, the player who controlled the creature as it died (its taker),
 // although the move returned it to its owner before the ability resolved.
 func TestFecundityOffersTheStolenCreaturesLastController(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 738)
 	onBoardCard(t, e, 1, choiceCorpusCard(t, "Fecundity"))
 	stealAndKill(t, e)
@@ -999,6 +1024,7 @@ func TestFecundityOffersTheStolenCreaturesLastController(t *testing.T) {
 // "whenever a creature dies, its controller draws a card" resolving from the
 // stack draws for the stolen creature's taker.
 func TestTriggeredCardControllerFromTheStackIsTheLastController(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 739)
 	onBoard(t, e, 1, "Name:Wake\nTypes:Enchantment\n"+
 		"T:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature | TriggerZones$ Battlefield | Execute$ TrigDraw | TriggerDescription$ x\n"+
@@ -1018,6 +1044,7 @@ func TestTriggeredCardControllerFromTheStackIsTheLastController(t *testing.T) {
 // payer referent the way the stack object will resolve it: through the
 // trigger context the ability carries onto the stack.
 func TestMeathookMassacreIIPayerIsTheStolenCreaturesLastController(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 740)
 	meathook := onBoardCard(t, e, 1, choiceCorpusCard(t, "Meathook Massacre II"))
 	stealAndKill(t, e)

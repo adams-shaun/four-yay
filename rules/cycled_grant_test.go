@@ -34,6 +34,7 @@ func grantedCyclingOption(e *Engine, p state.PlayerID, id state.ObjID) (decision
 // discards the card with the cycling provenance and Valiant Rescuer's real
 // corpus Cycled trigger fires and draws.
 func TestGrantedCyclingActivationFiresCycledTrigger(t *testing.T) {
+	t.Parallel()
 	mystic := mshCorpusCard(t, "Rhet-Tomb Mystic")
 	rescuer := mshCorpusCard(t, "Valiant Rescuer")
 	const beast = "Name:Vanilla Beast\nManaCost:1 G\nTypes:Creature Beast\nPT:2/2\nOracle:x\n"
@@ -120,6 +121,7 @@ func TestGrantedCyclingActivationFiresCycledTrigger(t *testing.T) {
 // line is offered exactly ONE cycling activation -- the printed expansion the
 // pile walk offers -- never a synthesized duplicate beside it.
 func TestGrantedCyclingIsOfferedOnceWhenTheFacePrintsTheSameLine(t *testing.T) {
+	t.Parallel()
 	mystic := mshCorpusCard(t, "Rhet-Tomb Mystic")
 	const printed = "Name:Printed Cycler\nManaCost:2 G\nTypes:Creature Beast\nPT:2/2\nK:Cycling:1 U\nOracle:x\n"
 	e := handEngine(t, card(t, printed))
@@ -150,6 +152,7 @@ func TestGrantedCyclingIsOfferedOnceWhenTheFacePrintsTheSameLine(t *testing.T) {
 // seat 1's, while seat 0 controls the grantor -- and activating it discards
 // with the TypeCycling provenance, firing the sliver's own Cycled trigger.
 func TestGrantedTypeCyclingCrossSeatActivationFiresCycledTrigger(t *testing.T) {
+	t.Parallel()
 	homing := mshCorpusCard(t, "Homing Sliver")
 	const sliver = "Name:Test Sliver\nManaCost:1 G\nTypes:Creature Sliver\nPT:1/1\n" +
 		"T:Mode$ Cycled | ValidCard$ Card.Self | Execute$ TrigDraw | TriggerDescription$ When you cycle CARDNAME, draw a card.\n" +
@@ -236,6 +239,7 @@ func TestGrantedTypeCyclingCrossSeatActivationFiresCycledTrigger(t *testing.T) {
 
 // compile-time shape guards on the synthesizer the route stands on.
 func TestGrantedCyclingAbilityShapes(t *testing.T) {
+	t.Parallel()
 	plain := cards.GrantedCyclingAbility("Cycling:1 U")
 	if plain == nil || plain.Kind != "AB" || plain.API != "Draw" || plain.Params["Keyword"] != "Cycling" {
 		t.Fatalf("Cycling:1 U synthesized = %+v, want the AB$ Draw cycling body", plain)
@@ -260,6 +264,7 @@ func TestGrantedCyclingAbilityShapes(t *testing.T) {
 // different card type than the creature-grant pin -- and activating it
 // discards with the cycling provenance and draws.
 func TestGrantedCyclingTectonicReformationLandGrant(t *testing.T) {
+	t.Parallel()
 	reformation := mshCorpusCard(t, "Tectonic Reformation")
 	const land = "Name:Vanilla Land\nTypes:Land\nOracle:x\n"
 	e := handEngine(t, card(t, land))
@@ -332,6 +337,7 @@ func TestGrantedCyclingTectonicReformationLandGrant(t *testing.T) {
 // cycling {2}{W}, and Jo Grant's own `Mode$ Cycled` trigger puts a +1/+1
 // counter on it when the cycle resolves.
 func TestGrantedCyclingJoGrantHistoricGrant(t *testing.T) {
+	t.Parallel()
 	jo := mshCorpusCard(t, "Jo Grant")
 	// A legendary artifact is historic on BOTH the artifact and legendary
 	// limbs of the filter.

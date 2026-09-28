@@ -50,6 +50,7 @@ func tutorPassIndex(t *testing.T, d *decision.Decision) int {
 // pre-fix build revealed the front card (Lightning Bolt) and searched for
 // Lightning Bolt.
 func TestInfernalTutorEngineSearchUsesTheChosenCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	tutor := mustCorpusCard(t, reg, "Infernal Tutor")
 	bolt := mustCorpusCard(t, reg, "Lightning Bolt")

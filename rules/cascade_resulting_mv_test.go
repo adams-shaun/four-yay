@@ -75,6 +75,7 @@ func cascadeIntoWealth(t *testing.T, seed uint64) (*Engine, Config, state.ObjID,
 // cascadeXAsk that commit added posed a KChoose offering X values right
 // here, and this test fails against it.
 func TestCascadeFreeCastAnnouncesNoX(t *testing.T) {
+	t.Parallel()
 	e, cfg, elfID, wealthID, idx := cascadeIntoWealth(t, 9231)
 	submitChoices(t, e, idx) // accept the free-cast election
 	// CR 107.3b: no X announcement. The very next ask is the CR 601.2c

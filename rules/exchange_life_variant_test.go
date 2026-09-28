@@ -45,6 +45,7 @@ func activateExchange(t *testing.T, e *Engine, source state.ObjID, target state.
 }
 
 func TestTreeOfPerditionExchangesTargetLifeAndToughness(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Tree of Perdition")
 	tree := searchMoveByName(t, e, "Tree of Perdition", state.ZBattlefield)
@@ -80,6 +81,7 @@ func TestTreeOfPerditionExchangesTargetLifeAndToughness(t *testing.T) {
 }
 
 func TestTreeOfRedemptionExchangesControllerLifeAndToughness(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Tree of Redemption")
 	tree := searchMoveByName(t, e, "Tree of Redemption", state.ZBattlefield)
@@ -143,6 +145,7 @@ func passUntilLifeReplacement(t *testing.T, e *Engine, limit int) *decision.Deci
 }
 
 func TestEvraExchangeFailsClosedForParkedLifeReplacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Evra, Halcyon Witness", "Alhammarret's Archive", "Cleric Class")
 	archive := searchMoveByName(t, e, "Alhammarret's Archive", state.ZBattlefield)
@@ -193,6 +196,7 @@ func TestEvraExchangeFailsClosedForParkedLifeReplacement(t *testing.T) {
 }
 
 func TestEvraExchangesControllerLifeAndPower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Evra, Halcyon Witness")
 	evra := searchMoveByName(t, e, "Evra, Halcyon Witness", state.ZBattlefield)

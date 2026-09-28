@@ -20,6 +20,7 @@ import (
 // corpus Sivitri +1 and asserts the registered restriction carries the
 // explicit UntilYourNextTurn lifetime, not a Permanent or UntilEOT default.
 func TestSivitriDeliveredCantAttackUnlessLifetimePinned(t *testing.T) {
+	t.Parallel()
 	sivCard := mshCorpusCard(t, "Sivitri, Dragon Master")
 	e := chargeEngine(t, 9106, sivCard)
 	activateSivitriPlusOne(t, e, sivCard)

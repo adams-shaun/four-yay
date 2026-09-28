@@ -23,6 +23,7 @@ import (
 // T:$Execute$-names-an-AB$-with-Cost$ shape (819 corpus files) rather than a
 // synthetic construction.
 func TestTitanOfLittjaraDrawXPayAskCountedOnce(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, titan := titanBearFixture(t, reg)
 

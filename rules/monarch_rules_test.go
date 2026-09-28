@@ -9,6 +9,7 @@ import (
 )
 
 func TestMonarchEndStepDrawUsesTheStack(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.emit(events.Event{Kind: events.MonarchChange, Player: 0})
 	before := len(e.G.Zone(state.ZHand, 0))
@@ -30,6 +31,7 @@ func TestMonarchEndStepDrawUsesTheStack(t *testing.T) {
 }
 
 func TestCombatDamageToMonarchTransfersTheCrown(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	attacker := onBoardCard(t, e, 1, mustCorpusCard(t, reg, "Grizzly Bears"))
