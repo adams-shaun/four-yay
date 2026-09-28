@@ -25,7 +25,7 @@ import (
 //
 // Structure: seat-visible feature extraction (tactical_state.go: creatures
 // with derived P/T/keywords, the race clocks, the mana on hand) -> a score
-// per candidate, with every weight in TacticalWeights. Three idea groups,
+// per candidate, with every weight in TacticalWeights. Four idea groups,
 // each switchable for ablation:
 //
 //  1. EarlyGame: development and card advantage early (land every turn,
