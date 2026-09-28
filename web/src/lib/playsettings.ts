@@ -301,7 +301,7 @@ const OWN_RULES: readonly OwnObjectRule[] = ['never', 'if-respondable'];
  * defaults to casual's value (true). Blob version 2 requires the field.
  * Both migrate to the in-memory version 2; the next save writes v2.
  */
-function validate(v: unknown): PlaySettings | null {
+export function validate(v: unknown): PlaySettings | null {
   if (!isPlainObject(v)) return null;
   if (v.version !== 1 && v.version !== 2) return null;
   if (!isRule(v.opponentSpell, OBJECT_RULES) || !isRule(v.opponentAbility, OBJECT_RULES)) return null;

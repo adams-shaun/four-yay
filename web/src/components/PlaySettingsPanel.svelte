@@ -149,6 +149,13 @@
   ] as const;
 
   const blurb = $derived(PRESET_LIST.find((p) => p.id === s.preset)?.blurb ?? null);
+  // The blurb line shows the active profile's name when one is applied, with
+  // a "(modified)" marker once the live settings have diverged from the
+  // stored copy (editing never auto-saves).
+  const activeProfile = $derived(logic.activeProfileName);
+  const profileNote = $derived(
+    activeProfile === null ? null : `${activeProfile}${logic.profileModified ? ' (modified)' : ''}`,
+  );
   const pacingId = $derived(
     PACING_OPTIONS.find((p) => p.stepMs === s.pacing.stepMs && p.resolveMs === s.pacing.resolveMs)?.id ?? null,
   );
@@ -172,6 +179,53 @@
     // also clear the machine's runaway brake, or the panel would read
     // auto-pass on while the loop keeps refusing to act.
     logic.applyNamedPreset(id);
+  }
+
+  // The profiles row's own ephemeral UI state: the name input, which profile
+  // is being renamed (and to what), and the last rejected-name message.
+  let profileName = $state('');
+  let renaming = $state<string | null>(null);
+  let renameName = $state('');
+  let profileError = $state<string | null>(null);
+
+  /** saveCurrentProfile is the Save button's handler: the typed name, or a default. */
+  function saveCurrentProfile(): void {
+    const name = profileName.trim();
+    if (name.length === 0) {
+      profileError = 'Enter a profile name';
+      return;
+    }
+    if (logic.saveProfile(name)) {
+      profileName = '';
+      profileError = null;
+    } else {
+      profileError = 'Name must be 1–24 characters';
+    }
+  }
+  /** applyOne applies a saved profile through the state write path (re-arm + note). */
+  function applyOne(name: string): void {
+    logic.applyProfile(name);
+    profileError = null;
+  }
+  function deleteOne(name: string): void {
+    logic.deleteProfile(name);
+  }
+  function startRename(name: string): void {
+    renaming = name;
+    renameName = name;
+  }
+  function commitRename(): void {
+    if (renaming === null) return;
+    if (logic.renameProfile(renaming, renameName)) {
+      renaming = null;
+      profileError = null;
+    } else {
+      profileError = 'Name must be 1–24 characters and not already used';
+    }
+  }
+  function cancelRename(): void {
+    renaming = null;
+    profileError = null;
   }
   function cycleCell(step: StoppableStep, side: TurnSide): void {
     const cur = s.steps[side][step] ?? 'off';
@@ -218,6 +272,57 @@
     {#if blurb !== null}
       <p class="blurb" data-preset-blurb>{blurb}</p>
     {/if}
+    <div class="profiles" data-profiles>
+      <div class="profile-save">
+        <input
+          type="text"
+          class="name-input"
+          data-profile-name
+          placeholder="Profile name"
+          maxlength="24"
+          bind:value={profileName}
+          onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCurrentProfile(); } }}
+        />
+        <button type="button" class="seg" data-profile-save onclick={saveCurrentProfile}>Save</button>
+      </div>
+      {#if profileNote !== null}
+        <p class="blurb" data-active-profile>{profileNote}</p>
+      {/if}
+      {#if logic.profileNames.length > 0}
+        <ul class="profile-list" data-profile-list>
+          {#each logic.profileNames as name (name)}
+            <li class="profile-item" data-profile-item={name}>
+              {#if renaming === name}
+                <input
+                  type="text"
+                  class="name-input"
+                  data-profile-rename-input={name}
+                  maxlength="24"
+                  bind:value={renameName}
+                  onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitRename(); } if (e.key === 'Escape') cancelRename(); }}
+                />
+                <button type="button" class="seg" data-profile-rename-commit={name} onclick={commitRename}>OK</button>
+                <button type="button" class="seg" data-profile-rename-cancel={name} onclick={cancelRename}>Cancel</button>
+              {:else}
+                <button
+                  type="button"
+                  class="seg"
+                  class:on={activeProfile === name}
+                  aria-pressed={activeProfile === name}
+                  data-profile-apply={name}
+                  onclick={() => applyOne(name)}
+                >{name}{activeProfile === name && logic.profileModified ? ' *' : ''}</button>
+                <button type="button" class="seg" data-profile-rename={name} onclick={() => startRename(name)}>Rename</button>
+                <button type="button" class="seg" data-profile-delete={name} onclick={() => deleteOne(name)}>Delete</button>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      {#if profileError !== null}
+        <p class="blurb" data-profile-error role="alert">{profileError}</p>
+      {/if}
+    </div>
   </section>
 
   <section class="sec">

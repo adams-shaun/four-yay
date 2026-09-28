@@ -22,12 +22,16 @@
  *    one guard wider than the brief's input list on purpose: Space with focus
  *    on the PASS button would otherwise both activate the button and pass,
  *    posting the same intent twice;
- *  - Ctrl+Shift+F before the plain-Ctrl check: Ctrl held ALONE is the
- *    hold-priority modifier for clicks (it is never a hotkey by itself —
- *    Ctrl+Shift alone is too easy to hit, hence the F).
+ *  - Ctrl+Shift+F / Ctrl+Shift+O / Ctrl+Shift+[ / Ctrl+Shift+] before the
+ *    plain-Ctrl check: Ctrl held ALONE is the hold-priority modifier for
+ *    clicks (it is never a hotkey by itself — Ctrl+Shift alone is too easy to
+ *    hit, hence the extra key). Ctrl+Shift+] / Ctrl+Shift+[ cycle the profile
+ *    list (presets + saved profiles) forward and back; Ctrl+Shift+O toggles
+ *    the Game Options panel. Ctrl+Shift+P is deliberately NOT used: Firefox
+ *    opens a private window on it.
  */
 
-export type HotkeyAction = 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'toggle-full-control';
+export type HotkeyAction = 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'toggle-full-control' | 'next-profile' | 'prev-profile' | 'toggle-options';
 
 /**
  * MODAL_PICKER_SELECTOR is structural first: every open ARIA menu, dialog or
@@ -71,6 +75,9 @@ export function hotkeyAction(
   const t = e.target as { closest?: (sel: string) => unknown } | null | undefined;
   if (t && typeof t.closest === 'function' && t.closest('button, a, input, textarea, select, [contenteditable]')) return null;
   if (e.ctrlKey && e.shiftKey && (e.key === 'f' || e.key === 'F')) return 'toggle-full-control';
+  if (e.ctrlKey && e.shiftKey && e.key === 'O') return 'toggle-options';
+  if (e.ctrlKey && e.shiftKey && e.key === ']') return 'next-profile';
+  if (e.ctrlKey && e.shiftKey && e.key === '[') return 'prev-profile';
   if (e.ctrlKey) return null;
   if (e.key === ' ') return 'pass';
   if (e.key === 'Enter') return e.shiftKey ? 'hard-skip' : 'end-turn';
