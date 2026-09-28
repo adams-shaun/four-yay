@@ -96,6 +96,59 @@
           "zone": "graveyard"
         }
       ]
+    },
+    {
+      "name": "commander-damage-gives-one-counter",
+      "cr": [
+        "903.3",
+        "603.2",
+        "510.2"
+      ],
+      "why": "When the unblocked commander deals combat damage to the opponent, Jocasta receives one +1/+1 counter.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Jocasta, Automaton Avenger"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "pass_to", "step": "main1", "active": "p1"
+        },
+        {
+          "op": "pass_to", "step": "main1", "active": "p0"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Isamaru, Hound of Konda"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to", "step": "main2"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Jocasta, Automaton Avenger",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
     }
   ]
 }
