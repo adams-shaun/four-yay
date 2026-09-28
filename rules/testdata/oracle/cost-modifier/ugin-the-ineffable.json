@@ -1,0 +1,38 @@
+{
+  "card": "Ugin, the Ineffable",
+  "family": "cost-modifier",
+  "oracle_sha": "1ef0baaafb84",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "your-colorless-eldrazi-spell-reduced",
+      "cr": ["601.2f", "118.7a"],
+      "why": "Thought-Knot Seer is colorless, so Ugin reduces its generic component by two. Its required colorless component remains, leaving {1}{C} to pay.",
+      "setup": {"p0": {"hand": ["Thought-Knot Seer"], "battlefield": ["Ugin, the Ineffable"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Thought-Knot Seer", "mana": "CC", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Thought-Knot Seer", "zone": "battlefield"}]
+    },
+    {
+      "name": "your-colorless-noneldrazi-spell-also-reduced",
+      "cr": ["601.2f", "118.7"],
+      "why": "Ugin reduces every colorless spell you cast, not only Eldrazi spells. Bonesplitter's generic cost is reduced to zero and the artifact can be cast without mana.",
+      "setup": {"p0": {"hand": ["Bonesplitter"], "battlefield": ["Ugin, the Ineffable"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Bonesplitter", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Bonesplitter", "zone": "battlefield"}]
+    },
+    {
+      "name": "colored-spell-not-reduced",
+      "cr": ["601.2f"],
+      "why": "Grizzly Bears is green, not colorless. Ugin does not reduce its cost, so {G} alone cannot pay its additional generic component.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Ugin, the Ineffable"]}},
+      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+    }
+  ]
+}
