@@ -71,6 +71,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/spellbench/registry"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -176,18 +177,44 @@ type sbResult struct {
 	stats     [2]builtins.Stats
 }
 
-// sbDisplayName is the ledger name for a policy: az carries its world and
-// simulation count so a clairvoyant number can never be read as a fair one.
+// sbDisplayName is the ledger name for a policy. A spec resolves through
+// internal/spellbench/registry and the spec string is itself the ledger
+// name (a composed candidate shows up under its composed name), except az:
+// it carries its world and simulation count so a clairvoyant number can
+// never be read as a fair one -- and a COMPOSED az spec keeps that marker
+// ahead of its decorators ("az+passguard" is
+// "az-clairvoyant-sims<N>+passguard"), so scripts/spellbench-rate.py's
+// name tag (a leading "az-") still classifies it as a search agent and no
+// composed clairvoyant spec can be rated as a fair one.
 func sbDisplayName(policy string) string {
-	if !isAZPolicy(policy) {
+	base := basePolicy(policy)
+	if !isAZPolicy(base) {
 		return policy
 	}
-	cfg := azSeatConfig(policy)
-	name := fmt.Sprintf("az-%s-sims%d", cfg.World, cfg.Search.Sims)
-	if cfg.World == "redeal" && cfg.Worlds > 0 {
+	cfg := azSeatConfig(base)
+	world := cfg.World
+	if world == "" {
+		// azFrontDoor always sets azCfg.World before a run; the empty case
+		// is a bare sbDisplayName call (tests), where az's historical world
+		// is clairvoyant.
+		world = "clairvoyant"
+	}
+	name := fmt.Sprintf("az-%s-sims%d", world, cfg.Search.Sims)
+	if world == "redeal" && cfg.Worlds > 0 {
 		name += fmt.Sprintf("-k%d", cfg.Worlds)
 	}
+	if rest := strings.TrimPrefix(policy, base); rest != "" {
+		name += rest
+	}
 	return name
+}
+
+// basePolicy is a registry spec's base policy, dropping its decorators
+// ("az+passguard" -> "az"); az classification uses it so a decorated az
+// seat is still recognised as az.
+func basePolicy(spec string) string {
+	base, _, _ := strings.Cut(spec, "+")
+	return base
 }
 
 func sbBotID(name string) string {
@@ -196,14 +223,16 @@ func sbBotID(name string) string {
 }
 
 // sbSubmitWithFallback is the Hooks.Submit that keeps a builtin seat's
-// refused answer from halting the game (file comment).
+// refused answer from halting the game (file comment). The builtin is
+// found through the decoration (registry.UnwrapSeat), so a decorated sb-*
+// spec keeps the fallback exactly as the bare name has it.
 func sbSubmitWithFallback(seats []seat.Seat, res *sbResult) func(*rules.Engine, int, *decision.Decision, decision.Intent) (bool, error) {
 	return func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (bool, error) {
 		err := e.Submit(in)
 		if err == nil {
 			return true, nil
 		}
-		b, ok := seats[seatIdx].(*builtins.Seat)
+		b, ok := registry.UnwrapSeat(seats[seatIdx]).(*builtins.Seat)
 		if !ok {
 			return true, err
 		}
@@ -245,8 +274,14 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	var res sbResult
 	seats := make([]seat.Seat, 2)
 	for s := 0; s < 2; s++ {
-		seats[s] = policies[g.seats[s]](g.seed ^ uint64(s+1))
-		if b, ok := seats[s].(*builtins.Seat); ok && sbFlags.trace != "" && b.Policy() == builtins.Tactical {
+		// The names were validated by spellbenchExit; a build failure here
+		// is a programming error, so it panics like the old nil map entry.
+		s0, err := registry.Build(g.seats[s], g.seed^uint64(s+1))
+		if err != nil {
+			panic("spellbench: " + err.Error())
+		}
+		seats[s] = s0
+		if b, ok := registry.UnwrapSeat(seats[s]).(*builtins.Seat); ok && sbFlags.trace != "" && b.Policy() == builtins.Tactical {
 			f, err := os.Create(filepath.Join(sbFlags.trace, fmt.Sprintf("%s-%s-p%d.txt", g.id, g.deck, s)))
 			if err == nil {
 				defer f.Close()
@@ -260,7 +295,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	}
 	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res), Setup: func(e *rules.Engine) {
 		for _, st := range seats {
-			if b, ok := st.(*builtins.Seat); ok {
+			if b, ok := registry.UnwrapSeat(st).(*builtins.Seat); ok {
 				b.SetPlanner(e)
 			}
 		}
@@ -273,7 +308,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	res.wall = time.Since(t0)
 	res.outcome, res.err = o, err
 	for s := 0; s < 2; s++ {
-		if b, ok := seats[s].(*builtins.Seat); ok {
+		if b, ok := registry.UnwrapSeat(seats[s]).(*builtins.Seat); ok {
 			res.stats[s] = b.Stats
 		}
 	}
@@ -365,22 +400,23 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	seen := map[string]bool{}
 	azSide := false
+	azBases := map[string]bool{}
 	for _, b := range bots {
-		if _, ok := policies[b]; !ok {
-			return fail(fmt.Errorf("unknown policy %q; built-in policies: %s", b, strings.Join(builtinPolicyNames(), ", ")))
-		}
-		if b == "policynet" || b == "search" {
-			return fail(fmt.Errorf("policy %q is not supported by -spellbench", b))
+		// Every name is a registry spec ("bot", "bot+passguard"); the
+		// error names the registered policies for an unknown base.
+		if err := registry.CheckSpec(b); err != nil {
+			return fail(err)
 		}
 		if seen[b] {
 			return fail(fmt.Errorf("policy %q listed twice", b))
 		}
 		seen[b] = true
-		if isAZPolicy(b) {
+		if base := basePolicy(b); isAZPolicy(base) {
 			azSide = true
+			azBases[base] = true
 		}
 	}
-	if seen["az"] && seen["az-redeal"] && azWorldArg == "redeal" {
+	if azBases["az"] && azBases["az-redeal"] && azWorldArg == "redeal" {
 		return fail(fmt.Errorf("az with -az-world redeal and az-redeal are the same policy; list one"))
 	}
 	for _, f := range []string{o.with, o.without} {
@@ -431,10 +467,10 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		ckModel = m
 	}
 	azA, azB := "", ""
-	if seen["az"] {
+	if azBases["az"] {
 		azA = "az"
 	}
-	if seen["az-redeal"] {
+	if azBases["az-redeal"] {
 		azB = "az-redeal"
 	}
 	if err := azFrontDoor(azA, azB, ckModel); err != nil {
@@ -533,7 +569,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if azSide {
 		// Both az policies feed one cost report; its game count is the
 		// games either seated.
-		fmt.Fprint(stdout, azCostReport(sbCount(sched, "az")+sbCount(sched, "az-redeal")))
+		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")))
 	}
 	return 0
 }
@@ -542,6 +578,19 @@ func sbCount(sched []sbGame, policy string) int {
 	n := 0
 	for _, g := range sched {
 		if g.seats[0] == policy || g.seats[1] == policy {
+			n++
+		}
+	}
+	return n
+}
+
+// sbCountBase counts games either seat played a spec whose base policy is
+// the given name, so a decorated az spec ("az+passguard") still feeds the
+// az cost report.
+func sbCountBase(sched []sbGame, policy string) int {
+	n := 0
+	for _, g := range sched {
+		if basePolicy(g.seats[0]) == policy || basePolicy(g.seats[1]) == policy {
 			n++
 		}
 	}
