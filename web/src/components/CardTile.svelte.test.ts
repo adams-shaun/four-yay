@@ -362,3 +362,63 @@ describe('CardTile faceTapped presentation override (fb-20260917T004545Z)', () =
     expect(render(CardTile, { props: { card: card() } }).html).not.toMatch(/class="card-tile[^"']*tapped/);
   });
 });
+
+describe('CardTile muted tap affordance for a summoning-sick mana source (fb-20260928T161557Z-2d23d432)', () => {
+  // Elvish Mystic's shape: a creature that would tap for mana, freshly cast.
+  const green = { colour: [0, 0, 0, 0, 1, 0] as [number, number, number, number, number, number], any: false };
+  const mystic = (over: Partial<CardView> = {}): CardView => card({
+    id: 16, name: 'Elvish Mystic', types: 'Creature Elf Druid', mana_cost: 'G',
+    power: 1, toughness: 1, summon_sick: true, produces: green, ...over,
+  });
+
+  it('renders a muted, non-interactive tap glyph with the reason on the reported shape', () => {
+    const c = mystic();
+    // preconditions the assertion depends on: really sick, untapped, has a
+    // mana ability, no haste — otherwise the glyph could be absent for the
+    // wrong reason and the test would pass vacuously.
+    expect(c.summon_sick).toBe(true);
+    expect(c.tapped).toBe(false);
+    expect(c.produces).not.toBeNull();
+    expect(c.keywords ?? []).not.toContain('haste');
+    const { html } = render(CardTile, { props: { card: c } });
+    expect(html).toMatch(/class="sick-tap[ "]/);
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).toContain('summoning sick — untappable until your next turn');
+    expect(html).toContain('\u21bb'); // the shared ACTION_GLYPHS.tap glyph
+    // display-only: never a control of its own, never an option index
+    expect(html).not.toMatch(/<span[^>]*class="sick-tap"[^>]*role="button"/);
+    expect(html).not.toMatch(/<span[^>]*class="sick-tap"[^>]*data-wire-index/);
+  });
+
+  it('shows no glyph on a healthy creature with a mana ability', () => {
+    const c = mystic({ summon_sick: false });
+    expect(c.summon_sick).toBe(false); // setup: differs from the shown case
+    expect(render(CardTile, { props: { card: c } }).html).not.toContain('sick-tap');
+  });
+
+  it('shows no glyph on a sick creature with haste (the engine haste escape)', () => {
+    const c = mystic({ keywords: ['Haste'] });
+    expect(c.keywords).toContain('Haste'); // setup: the escape is present
+    expect(render(CardTile, { props: { card: c } }).html).not.toContain('sick-tap');
+  });
+
+  it('shows no glyph on a sick creature with no mana ability (produces nil)', () => {
+    const c = mystic({ produces: null, name: 'Grizzly Bears' });
+    expect(c.produces).toBeNull(); // setup: really no mana ability
+    expect(render(CardTile, { props: { card: c } }).html).not.toContain('sick-tap');
+  });
+
+  it('shows no glyph on a tapped sick creature', () => {
+    const c = mystic({ tapped: true });
+    expect(c.tapped).toBe(true); // setup: differs from the shown case
+    expect(render(CardTile, { props: { card: c } }).html).not.toContain('sick-tap');
+  });
+
+  it('shows no glyph on a sick noncreature land, and keeps its dim off (fb-20260917T004545Z)', () => {
+    const c = mystic({ types: 'Basic Land Forest', name: 'Forest', mana_cost: '', power: 0, toughness: 0 });
+    expect(c.types.includes('Creature')).toBe(false); // setup: really a land
+    const { html } = render(CardTile, { props: { card: c } });
+    expect(html).not.toContain('sick-tap');
+    expect(html).not.toMatch(/class="card-tile[^"']*sick/);
+  });
+});
