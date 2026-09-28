@@ -98,7 +98,7 @@ func registerSpellbenchFlags(fs *flag.FlagSet) {
 	fs.StringVar(&sbFlags.with, "spellbench-with", "", "spellbench: play only the matchups that include this policy (indices and seeds stay those of the full round robin)")
 	fs.StringVar(&sbFlags.without, "spellbench-without", "", "spellbench: skip the matchups that include this policy")
 	fs.StringVar(&sbFlags.tacticalWeights, "spellbench-tactical-weights", "", "spellbench: JSON file of builtins.TacticalWeights for the sb-tactical arms (default: the built-in weights; absent fields keep their defaults)")
-	fs.StringVar(&sbFlags.tacticalAlt, "spellbench-tactical-alt-weights", "", "spellbench: JSON file of builtins.TacticalWeights for sb-tactical-alt (weight-tuning A/B)")
+	fs.StringVar(&sbFlags.tacticalAlt, "spellbench-tactical-alt-weights", "", "spellbench: comma list of JSON files of builtins.TacticalWeights for sb-tactical-alt, -alt2 ... -alt8 (weight-tuning A/B)")
 	fs.StringVar(&sbFlags.trace, "spellbench-trace", "", "spellbench: directory for sb-tactical decision traces (one file per game and seat)")
 	fs.StringVar(&sbFlags.engineVersion, "spellbench-engine-version", "dev", "spellbench: engine_version recorded in the ledger (e.g. the git commit)")
 }
@@ -358,10 +358,18 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 			return fail(fmt.Errorf("-spellbench-with/-without %q is not in the policy list", f))
 		}
 	}
-	for _, f := range []struct {
+	type wfile struct {
 		path string
 		dst  *builtins.TacticalWeights
-	}{{o.tacticalWeights, &tacticalWeights}, {o.tacticalAlt, &tacticalAltWeights}} {
+	}
+	wfiles := []wfile{{o.tacticalWeights, &tacticalWeights}}
+	for i, pth := range sbSplit(o.tacticalAlt) {
+		if i >= len(tacticalAltWeights) {
+			return fail(fmt.Errorf("-spellbench-tactical-alt-weights: at most %d files", len(tacticalAltWeights)))
+		}
+		wfiles = append(wfiles, wfile{pth, &tacticalAltWeights[i]})
+	}
+	for _, f := range wfiles {
 		if f.path == "" {
 			continue
 		}

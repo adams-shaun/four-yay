@@ -337,8 +337,17 @@ var policies = map[string]func(seed uint64) seat.Seat{
 		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
 	},
 	"sb-tactical-alt": func(seed uint64) seat.Seat {
-		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights)
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[0])
 	},
+	"sb-tactical-alt2": tacticalAlt(1), "sb-tactical-alt3": tacticalAlt(2), "sb-tactical-alt4": tacticalAlt(3),
+	"sb-tactical-alt5": tacticalAlt(4), "sb-tactical-alt6": tacticalAlt(5), "sb-tactical-alt7": tacticalAlt(6),
+	"sb-tactical-alt8": tacticalAlt(7),
+}
+
+func tacticalAlt(i int) func(seed uint64) seat.Seat {
+	return func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[i])
+	}
 }
 
 // tacticalLookup resolves card names for the sb-tactical arms; set once from
@@ -349,7 +358,9 @@ var policies = map[string]func(seed uint64) seat.Seat{
 var (
 	tacticalLookup     builtins.CardLookup
 	tacticalWeights    = builtins.DefaultTacticalWeights()
-	tacticalAltWeights = builtins.DefaultTacticalWeights()
+	tacticalAltWeights = [8]builtins.TacticalWeights{builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights()}
 )
 
 func setTacticalRegistry(reg *cards.Registry) {

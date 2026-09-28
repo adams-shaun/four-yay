@@ -49,6 +49,8 @@ _TAGS = {
 
 
 def _tags(name: str) -> tuple[str, ...]:
+    if name.startswith("sb-tactical"):
+        return ("heuristic",)
     if name.startswith("az-"):
         return ("search",)
     return _TAGS.get(name, ())
