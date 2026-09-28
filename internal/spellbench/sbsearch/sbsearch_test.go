@@ -1,6 +1,7 @@
 package sbsearch
 
 import (
+	"math"
 	"sync"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/view"
 )
 
 // testGame is one SpellBench-style mirror: the Rally deck in both seats,
@@ -167,5 +169,83 @@ func TestPickRoots(t *testing.T) {
 	roots, gap := pickRoots(cands, 2, 2)
 	if gap != 2 || len(roots) != 3 || roots[0].key.Kind != "ability" || roots[1].key.Kind != "cast2" || !roots[2].key.IsPass() {
 		t.Fatalf("roots %+v %+v %+v", roots[0].key, roots[1].key, roots[2].key)
+	}
+}
+
+// TestCombatAndTargetSearch: blockers and single-target decisions are
+// searched (Block, Target), deterministically, and every searched kind
+// completes worlds.
+func TestCombatAndTargetSearch(t *testing.T) {
+	g := newTestGame(t)
+	ds := watch(t)
+	cfg := quick()
+	cfg.Attack, cfg.Block, cfg.Target, cfg.AttackWide = true, true, true, 3
+	mk := func(s uint64) seat.Seat { return New(g.tactical(s), s, cfg) }
+	kinds := map[string]int{}
+	valid := map[string]int{}
+	for _, seed := range []uint64{testSeed, testSeed + 1, testSeed + 2} {
+		*ds = nil
+		a, oa := g.play(t, seed, mk)
+		n := len(*ds)
+		for _, d := range (*ds)[:n] {
+			kinds[d.Kind]++
+			valid[d.Kind] += d.Worlds
+		}
+		b, ob := g.play(t, seed, mk)
+		if a != b || oa != ob || len(*ds) != 2*n {
+			t.Fatalf("seed %d: two runs differ: %s %+v vs %s %+v (%d/%d searched)", seed, a, oa, b, ob, n, len(*ds)-n)
+		}
+	}
+	t.Logf("searched %v, valid worlds %v", kinds, valid)
+	if kinds["blockers"] == 0 || valid["blockers"] == 0 {
+		t.Fatalf("no blockers decision searched: %v %v", kinds, valid)
+	}
+}
+
+// TestAdaptiveWorlds: a decision stops early only after MinWorlds valid
+// worlds and extends past Worlds only up to MaxWorlds.
+func TestAdaptiveWorlds(t *testing.T) {
+	g := newTestGame(t)
+	ds := watch(t)
+	cfg := quick()
+	cfg.Worlds, cfg.MinWorlds, cfg.StopBelow, cfg.MaxWorlds, cfg.CloseBand = 3, 1, 0, 5, 1
+	g.play(t, testSeed, func(s uint64) seat.Seat { return New(g.tactical(s), s, cfg) })
+	short, long := 0, 0
+	for _, d := range *ds {
+		if d.Worlds+d.Failed > 5 || (d.Worlds < 1 && d.Failed == 0) {
+			t.Fatalf("world count out of bounds: %+v", d)
+		}
+		if d.Worlds < 3 && d.Failed == 0 {
+			short++
+		}
+		if d.Worlds > 3 {
+			long++
+		}
+	}
+	t.Logf("%d decisions, %d stopped early, %d extended", len(*ds), short, long)
+	if long == 0 {
+		t.Fatal("CloseBand 1 extends every decision whose lead is finite, yet none was")
+	}
+}
+
+// TestFittedLeafSymmetric: the fitted leaf is a zero-sum win probability,
+// the two seats' values of one view sum to 1, and more life is better.
+func TestFittedLeafSymmetric(t *testing.T) {
+	mk := func(l0, l1 int32) view.View {
+		return view.View{Active: 0, Players: []view.PlayerView{
+			{ID: 0, Life: l0, HandSize: 3, LibrarySize: 30, Battlefield: []view.CardView{{Types: "Land"}, {Types: "Creature", Power: 2, Toughness: 2}}},
+			{ID: 1, Life: l1, HandSize: 5, LibrarySize: 2, Battlefield: []view.CardView{{Types: "Creature", Power: 3, Toughness: 1, Keywords: []string{"Flying"}}}},
+		}}
+	}
+	v := mk(12, 7)
+	a, b := fittedLeaf(v, 0), fittedLeaf(v, 1)
+	if math.Abs(a+b-1) > 1e-12 || a <= 0 || a >= 1 {
+		t.Fatalf("leaf %v + %v != 1", a, b)
+	}
+	if fittedLeaf(mk(13, 7), 0) <= a || fittedLeaf(mk(12, 6), 0) <= a {
+		t.Fatal("more life (or less opposing life) did not raise the leaf")
+	}
+	if d := fittedLeaf(mk(400, 7), 0) - fittedLeaf(mk(300, 7), 0); d < 0 || d > 1e-3 {
+		t.Fatalf("life above the cap moved the leaf by %v (only the opposing clock term reads it)", d)
 	}
 }

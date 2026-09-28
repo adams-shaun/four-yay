@@ -472,23 +472,49 @@ func fightOutcome(c *tcre, foes []*tcre, att, def int32, dt bool) fightResult {
 // targets answers a KTarget decision with direction-aware scoring. ok is
 // false when the effect cannot be read (the default policy answers).
 func (t *tactical) targets(v view.View, d *decision.Decision) (decision.Intent, bool) {
-	if d.TargetEffect == nil || len(d.Options) == 0 {
+	sc, ok := t.scoreTargets(v, d)
+	if !ok {
 		return decision.Intent{}, false
+	}
+	var chosen []int
+	for _, x := range sc {
+		if len(chosen) >= d.Max {
+			break
+		}
+		if len(chosen) >= d.Min && x.v <= 0 {
+			break
+		}
+		o := &d.Options[x.idx]
+		if !admissible(d, chosen, o) {
+			continue
+		}
+		chosen = append(chosen, x.idx)
+	}
+	return repaired(d, decision.Intent{Choices: chosen}), true
+}
+
+// scoredTarget is one KTarget option and its tactical value.
+type scoredTarget struct {
+	idx int
+	v   float64
+}
+
+// scoreTargets values every option of a KTarget decision, best first (ties
+// to the lower option index). ok is false when the effect cannot be read.
+func (t *tactical) scoreTargets(v view.View, d *decision.Decision) ([]scoredTarget, bool) {
+	if d.TargetEffect == nil || len(d.Options) == 0 {
+		return nil, false
 	}
 	s := t.newState(&v, d.Player)
 	e, chain := t.findEffect(s, d)
 	if e == nil {
-		return decision.Intent{}, false
+		return nil, false
 	}
 	dmg := int32(-1)
 	if d.TargetEffect.Damage != nil && d.TargetEffect.Damage.Amount != nil {
 		dmg = int32(*d.TargetEffect.Damage.Amount)
 	}
-	type scored struct {
-		idx int
-		v   float64
-	}
-	var sc []scored
+	var sc []scoredTarget
 	for i := range d.Options {
 		o := &d.Options[i]
 		tg := ttarget{}
@@ -509,7 +535,7 @@ func (t *tactical) targets(v view.View, d *decision.Decision) (decision.Intent, 
 				}
 			}
 		}
-		sc = append(sc, scored{idx: o.Index, v: t.targetValue(s, e, &tg, d.Source, chain, dmg)})
+		sc = append(sc, scoredTarget{idx: o.Index, v: t.targetValue(s, e, &tg, d.Source, chain, dmg)})
 	}
 	sort.SliceStable(sc, func(i, j int) bool {
 		if sc[i].v != sc[j].v {
@@ -517,21 +543,7 @@ func (t *tactical) targets(v view.View, d *decision.Decision) (decision.Intent, 
 		}
 		return sc[i].idx < sc[j].idx
 	})
-	var chosen []int
-	for _, x := range sc {
-		if len(chosen) >= d.Max {
-			break
-		}
-		if len(chosen) >= d.Min && x.v <= 0 {
-			break
-		}
-		o := &d.Options[x.idx]
-		if !admissible(d, chosen, o) {
-			continue
-		}
-		chosen = append(chosen, x.idx)
-	}
-	return repaired(d, decision.Intent{Choices: chosen}), true
+	return sc, true
 }
 
 // findEffect locates the targeted effect a KTarget decision is for: the

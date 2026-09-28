@@ -40,6 +40,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -55,6 +56,9 @@ import (
 
 // Config is sb-search's budget and selection.
 type Config struct {
+	// Name labels the seat's Diags (the registered policy name); it never
+	// reaches an answer.
+	Name string
 	// Worlds is W, the redealt worlds per searched decision. 0 is plain
 	// sb-tactical (decision-identical: no world is dealt).
 	Worlds int
@@ -70,8 +74,35 @@ type Config struct {
 	// Margin is how much a candidate's mean value must beat sb-tactical's
 	// own pick's before it is played instead.
 	Margin float64
+	// Leaf picks the cut-point evaluator (LeafMaterial, LeafFitted).
+	Leaf int
 	// Attack searches KAttackers decisions too.
 	Attack bool
+	// AttackWide adds up to AttackWide one-creature neighbours of
+	// sb-tactical's declaration (builtins.AttackNeighbours) to the
+	// attack candidates.
+	AttackWide int
+	// Block searches KBlockers decisions too: sb-tactical's blocks, none,
+	// the value blocks, the maximal blocks and the default bot's
+	// (builtins.Seat.BlockAlternatives).
+	Block bool
+	// Target searches single-target KTarget decisions: sb-tactical's pick
+	// and the next best targets by its value, TargetK in all (0: 3).
+	Target  bool
+	TargetK int
+	// SkipGap, when positive, plays sb-tactical's priority pick unsearched
+	// when its score beats the runner-up's by SkipGap or more.
+	SkipGap float64
+	// MinWorlds, when positive and below Worlds, stops a decision early once
+	// MinWorlds worlds are valid and no candidate's paired mean is within
+	// StopBelow of sb-tactical's pick (it is clearly best).
+	MinWorlds int
+	StopBelow float64
+	// MaxWorlds, when above Worlds, keeps dealing worlds past Worlds (up to
+	// MaxWorlds) while the decision is close: the best candidate's paired
+	// lead over sb-tactical's pick is within CloseBand of Margin.
+	MaxWorlds int
+	CloseBand float64
 }
 
 // DefaultConfig is sb-search's registered configuration.
@@ -81,8 +112,9 @@ func DefaultConfig() Config {
 
 // Diag is one searched decision as a cost report sees it.
 type Diag struct {
+	Policy     string // Config.Name
 	Turn       int32
-	Kind       string // "priority" or "attackers"
+	Kind       string // "priority", "attackers", "blockers" or "target"
 	Candidates int
 	Worlds     int // worlds every candidate completed
 	Failed     int // worlds dropped (deal refused or a rollout failed)
@@ -92,7 +124,14 @@ type Diag struct {
 	// Gap is sb-tactical's score margin of its pick over the next searched
 	// candidate (priority only; 0 for attackers).
 	Gap float64
-	MS  float64 // wall ms of the whole decision; 0 when untimed
+	// Lead is the best candidate's paired mean lead over sb-tactical's pick
+	// (NaN when no world was valid).
+	Lead float64
+	// Values are the root values of every valid world (world-major, one
+	// entry per candidate, NaN for a dropped candidate); only filled while
+	// Watch is installed.
+	Values [][]float64 `json:",omitempty"`
+	MS     float64     // wall ms of the whole decision; 0 when untimed
 }
 
 // Millis is the monotonic elapsed-milliseconds clock the driving command
@@ -194,6 +233,10 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		return s.priority(ctx, env, v, d)
 	case d.Kind == decision.KAttackers && s.cfg.Attack:
 		return s.attackers(ctx, env, v, d)
+	case d.Kind == decision.KBlockers && s.cfg.Block:
+		return s.blockers(ctx, env, v, d)
+	case d.Kind == decision.KTarget && s.cfg.Target:
+		return s.target(ctx, env, v, d)
 	}
 	return s.inner.Decide(ctx, v, d)
 }
@@ -213,7 +256,7 @@ func (s *Seat) priority(ctx context.Context, env searchseat.Env, v view.View, d 
 		return s.inner.Decide(ctx, v, d)
 	}
 	roots, gap := pickRoots(cands, best, s.cfg.TopK)
-	if len(roots) < 2 {
+	if len(roots) < 2 || (s.cfg.SkipGap > 0 && gap >= s.cfg.SkipGap) {
 		return s.inner.Decide(ctx, v, d)
 	}
 	choice := s.search(env, d, "priority", roots, gap)
@@ -265,8 +308,16 @@ func (s *Seat) attackers(ctx context.Context, env searchseat.Env, v view.View, d
 		return own, err
 	}
 	roots := []root{{in: own}}
-	for _, alt := range builtins.AttackAlternatives(v, d) {
-		if !builtins.SameChoices(alt, own) {
+	alts := builtins.AttackAlternatives(v, d)
+	if s.cfg.AttackWide > 0 {
+		alts = append(alts, builtins.AttackNeighbours(v, d, own, s.cfg.AttackWide)...)
+	}
+	for _, alt := range alts {
+		dup := false
+		for _, r := range roots {
+			dup = dup || builtins.SameChoices(alt, r.in)
+		}
+		if !dup {
 			roots = append(roots, root{in: alt})
 		}
 	}
@@ -274,6 +325,55 @@ func (s *Seat) attackers(ctx context.Context, env searchseat.Env, v view.View, d
 		return own, nil
 	}
 	choice := s.search(env, d, "attackers", roots, 0)
+	return roots[choice].in, nil
+}
+
+// blockers searches a KBlockers decision over sb-tactical's own blocks and
+// builtins.Seat.BlockAlternatives.
+func (s *Seat) blockers(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+	alts := s.inner.BlockAlternatives(v, d)
+	own, err := s.inner.Decide(ctx, v, d)
+	if err != nil {
+		return own, err
+	}
+	roots := []root{{in: own}}
+	for _, alt := range alts {
+		if !builtins.SameChoices(alt, own) {
+			roots = append(roots, root{in: alt})
+		}
+	}
+	if len(roots) < 2 {
+		return own, nil
+	}
+	choice := s.search(env, d, "blockers", roots, 0)
+	return roots[choice].in, nil
+}
+
+// target searches a single-target KTarget decision over sb-tactical's own
+// target and its next best (builtins.Seat.TargetAlternatives).
+func (s *Seat) target(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+	k := s.cfg.TargetK
+	if k <= 0 {
+		k = 3
+	}
+	alts := s.inner.TargetAlternatives(v, d, k)
+	own, err := s.inner.Decide(ctx, v, d)
+	if err != nil || len(alts) == 0 {
+		return own, err
+	}
+	roots := []root{{in: own}}
+	for _, alt := range alts {
+		if len(roots) >= k {
+			break
+		}
+		if !builtins.SameChoices(alt, own) {
+			roots = append(roots, root{in: alt})
+		}
+	}
+	if len(roots) < 2 {
+		return own, nil
+	}
+	choice := s.search(env, d, "target", roots, 0)
 	return roots[choice].in, nil
 }
 
@@ -285,7 +385,7 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 	if Millis != nil {
 		t0 = Millis()
 	}
-	dg := Diag{Turn: env.Engine.G.Turn, Kind: kind, Candidates: len(roots), Gap: gap}
+	dg := Diag{Policy: s.cfg.Name, Turn: env.Engine.G.Turn, Kind: kind, Candidates: len(roots), Gap: gap}
 	defer func() {
 		if p := recover(); p != nil {
 			// Never lose an action to the search: sb-tactical's pick.
@@ -300,14 +400,25 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 			Watch(dg)
 		}
 	}()
-	means, valid, failed, rollouts, refused := s.evaluate(env, d, roots)
+	var rec *[][]float64
+	if Watch != nil {
+		rec = &dg.Values
+	}
+	dg.Lead = math.NaN()
+	means, valid, failed, rollouts, refused := s.evaluate(env, d, roots, kind == "blockers" || kind == "target" || (kind == "attackers" && s.cfg.AttackWide > 0), rec)
 	dg.Worlds, dg.Failed, dg.Rollouts, dg.Refused = valid, failed, rollouts, refused
 	if valid == 0 {
 		return 0
 	}
+	dg.Lead = math.Inf(-1)
+	for i := 1; i < len(means); i++ {
+		if !math.IsNaN(means[i]) {
+			dg.Lead = max(dg.Lead, means[i]-means[0])
+		}
+	}
 	best := 0
 	for i := 1; i < len(means); i++ {
-		if means[i] > means[best] {
+		if !math.IsNaN(means[i]) && means[i] > means[best] {
 			best = i
 		}
 	}
@@ -319,8 +430,11 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 }
 
 // evaluate plays every root on every world and returns each root's mean
-// value over the worlds every root completed.
-func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root) (means []float64, valid, failed, rollouts int, refused string) {
+// value over the worlds every root completed. With perCand (a whole-answer
+// root other than sb-tactical's), a root refused at the root decision is
+// dropped for good (its mean is NaN) instead of failing the world. The
+// world count adapts (Config.MinWorlds / MaxWorlds) on the paired leads.
+func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root, perCand bool, rec *[][]float64) (means []float64, valid, failed, rollouts int, refused string) {
 	rd, reason := s.redealer(env)
 	if reason != "" {
 		return nil, 0, s.cfg.Worlds, 0, reason
@@ -328,8 +442,34 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root) (
 	dseed := azmcts.DecisionSeed(s.seed, d.Seq)
 	sums := make([]float64, len(roots))
 	vals := make([]float64, len(roots))
+	dead := make([]bool, len(roots))
 	rootTurn := env.Engine.G.Turn
-	for w := 0; w < s.cfg.Worlds; w++ {
+	maxW := max(s.cfg.Worlds, s.cfg.MaxWorlds)
+	// lead is the best live candidate's paired mean lead over root 0.
+	lead := func() float64 {
+		l := math.Inf(-1)
+		for c := 1; c < len(roots); c++ {
+			if !dead[c] {
+				l = max(l, (sums[c]-sums[0])/float64(valid))
+			}
+		}
+		return l
+	}
+	for w := 0; w < maxW; w++ {
+		if valid > 0 {
+			l := lead()
+			if math.IsInf(l, -1) {
+				break // every alternative dropped
+			}
+			if s.cfg.MinWorlds > 0 && valid >= s.cfg.MinWorlds && w < s.cfg.Worlds && l < -s.cfg.StopBelow {
+				break // the pick is clearly best
+			}
+			if w >= s.cfg.Worlds && math.Abs(l-s.cfg.Margin) > s.cfg.CloseBand {
+				break // not close: the budget is spent
+			}
+		} else if w >= s.cfg.Worlds {
+			break
+		}
 		base, why := rd.Deal(azmcts.RedealSeed(dseed, w), &s.spareBase)
 		if why != "" {
 			failed++
@@ -342,11 +482,18 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root) (
 		seedA, seedB := mix(chance^0x5eed_a), mix(chance^0x5eed_b)
 		ok := true
 		for c := range roots {
+			if dead[c] {
+				continue
+			}
 			wc := base.CloneHypotheticalInto(chance, &s.spareCand)
 			val, err := s.rollout(wc, d, rootTurn, roots[c], seedA, seedB)
 			rollouts++
 			s.spareCand = wc.Release()
 			if err != nil {
+				if perCand && c > 0 && errors.Is(err, errRootRefused) {
+					dead[c] = true
+					continue
+				}
 				ok = false
 				if refused == "" {
 					refused = "rollout: " + err.Error()
@@ -362,7 +509,19 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root) (
 		}
 		valid++
 		for c := range roots {
-			sums[c] += vals[c]
+			if !dead[c] {
+				sums[c] += vals[c]
+			}
+		}
+		if rec != nil {
+			row := make([]float64, len(roots))
+			for c := range row {
+				row[c] = vals[c]
+				if dead[c] {
+					row[c] = math.NaN()
+				}
+			}
+			*rec = append(*rec, row)
 		}
 	}
 	if valid == 0 {
@@ -371,6 +530,9 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root) (
 	means = make([]float64, len(roots))
 	for c := range sums {
 		means[c] = sums[c] / float64(valid)
+		if dead[c] {
+			means[c] = math.NaN()
+		}
 	}
 	return means, valid, failed, rollouts, refused
 }
@@ -390,7 +552,10 @@ func (s *Seat) redealer(env searchseat.Env) (*searchprobe.Redealer, string) {
 	return searchprobe.NewRedealer(env.Setup, h, known, searchprobe.RedealBase{Engine: env.Engine, Observer: env.Feed.Collector()})
 }
 
-var errRollout = errors.New("sbsearch: rollout failed")
+var (
+	errRollout     = errors.New("sbsearch: rollout failed")
+	errRootRefused = fmt.Errorf("%w: root answer refused", errRollout)
+)
 
 // rollout applies r at w's root decision and plays sb-tactical on both
 // sides until the game ends, the horizon passes or the step cap is spent;
@@ -429,7 +594,11 @@ func (s *Seat) rollout(w *rules.Engine, d decision.Decision, rootTurn int32, r r
 			return 0, fmt.Errorf("%w: no pending decision", errRollout)
 		}
 		if steps > 0 && ((s.cfg.Horizon > 0 && g.Turn > rootTurn+s.cfg.Horizon) || steps >= s.cfg.MaxSteps) {
-			return searchprobe.LeafValue(view.Project(g, w, actor, pd), actor), nil
+			lv := view.Project(g, w, actor, pd)
+			if s.cfg.Leaf == LeafFitted {
+				return fittedLeaf(lv, actor), nil
+			}
+			return searchprobe.LeafValue(lv, actor), nil
 		}
 		if int(pd.Player) >= len(seats) {
 			return 0, fmt.Errorf("%w: player %d", errRollout, pd.Player)
@@ -445,7 +614,7 @@ func (s *Seat) rollout(w *rules.Engine, d decision.Decision, rootTurn int32, r r
 			if r.key == nil {
 				in = r.in
 				if err := pd.Validate(in); err != nil {
-					return 0, fmt.Errorf("%w: root answer: %v", errRollout, err)
+					return 0, fmt.Errorf("%w: %v", errRootRefused, err)
 				}
 			} else {
 				cands, _, ok := st.TacticalPriority(v, *pd)
@@ -460,7 +629,7 @@ func (s *Seat) rollout(w *rules.Engine, d decision.Decision, rootTurn int32, r r
 				in, _ = st.Decide(ctx, v, *pd)
 			}
 			if err := w.SubmitHypothetical(in); err != nil {
-				return 0, fmt.Errorf("%w: root answer refused: %v", errRollout, err)
+				return 0, fmt.Errorf("%w: %v", errRootRefused, err)
 			}
 			continue
 		}

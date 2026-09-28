@@ -74,6 +74,7 @@ func init() {
 	// sides' rollout policy. The variants differ in budget only.
 	for _, v := range sbSearchVariants {
 		cfg := v.cfg
+		cfg.Name = v.name
 		registry.Register(v.name, func(seed uint64, _ builtins.ManaMode) seat.Seat {
 			return sbsearch.New(builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights), seed, cfg)
 		})
@@ -111,5 +112,16 @@ var sbSearchVariants = func() []struct {
 		{"sb-search-lite", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon = 4, 2 })},
 		{"sb-search-lite-atk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 4, 2, true })},
 		{"sb-search-atk", with(func(c *sbsearch.Config) { c.Attack = true })},
+		// sb-search2: more decision kinds and adaptive budgets on lite-atk.
+		{"sb-search-lite-atk-blk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack, c.Block = 4, 2, true, true })},
+		{"sb-search-lite-atk-tgt", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack, c.Target = 4, 2, true, true })},
+		{"sb-search-lite-atk-bt", with(func(c *sbsearch.Config) {
+			c.Worlds, c.Horizon, c.Attack, c.Block, c.Target = 4, 2, true, true, true
+		})},
+		// -rec8 is lite-atk at W=8 (its first 4 worlds are lite-atk's): the
+		// per-world values it records drive the offline budget study.
+		{"sb-search-lite-atk-fl", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack, c.Leaf = 4, 2, true, sbsearch.LeafFitted })},
+		{"sb-search-lite-atk-aw", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack, c.AttackWide = 4, 2, true, 4 })},
+		{"sb-search-lite-atk-rec8", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 8, 2, true })},
 	}
 }()

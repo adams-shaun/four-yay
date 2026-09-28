@@ -1,6 +1,7 @@
 package builtins
 
 import (
+	"math/rand/v2"
 	"sort"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -173,6 +174,210 @@ func AttackAlternatives(v view.View, d decision.Decision) []decision.Intent {
 	out := []decision.Intent{none}
 	if !SameChoices(none, alpha) {
 		out = append(out, alpha)
+	}
+	return out
+}
+
+// AttackNeighbours are the declarations one creature away from own at a
+// KAttackers decision: own without each attacker it names (unless that
+// attacker is required), and own plus each creature it leaves home that can
+// attack the opponent. Each is repaired to a valid answer and made legal
+// (botpolicy.LegalAttackChoices); duplicates of own and of one another are
+// dropped. At most max are returned, removals first.
+func AttackNeighbours(v view.View, d decision.Decision, own decision.Intent, max int) []decision.Intent {
+	if d.Kind != decision.KAttackers || own.Payment != nil || own.Announce != nil {
+		return nil
+	}
+	brd := seat.BoardFromView(v)
+	chosen := map[int]bool{} // lookup only
+	for _, c := range own.Choices {
+		chosen[c] = true
+	}
+	var out []decision.Intent
+	add := func(choices []int) {
+		in := repaired(&d, decision.Intent{Choices: botpolicy.LegalAttackChoices(brd, &d, choices)})
+		if SameChoices(in, own) {
+			return
+		}
+		for _, o := range out {
+			if SameChoices(o, in) {
+				return
+			}
+		}
+		out = append(out, in)
+	}
+	groups := groupByObj(&d)
+	for _, g := range groups {
+		if g.required || len(out) >= max {
+			continue
+		}
+		in := false
+		for _, i := range g.opts {
+			in = in || chosen[i]
+		}
+		if !in {
+			continue
+		}
+		var rest []int
+		for _, c := range own.Choices {
+			if d.Options[c].Obj != g.obj {
+				rest = append(rest, c)
+			}
+		}
+		add(rest)
+	}
+	for _, g := range groups {
+		if len(out) >= max {
+			break
+		}
+		in := false
+		for _, i := range g.opts {
+			in = in || chosen[i]
+		}
+		if in {
+			continue
+		}
+		for _, i := range g.opts {
+			o := &d.Options[i]
+			if o.Battle == 0 && o.Player != d.Player {
+				add(append(append([]int(nil), own.Choices...), i))
+				break
+			}
+		}
+	}
+	return out
+}
+
+// BlockAlternatives are the whole blocking declarations worth comparing
+// with sb-tactical's own answer at a KBlockers decision: no blocks; the
+// value blocks (each attacker, biggest first, met by the blocker that best
+// kills it and survives, else survives it, else trades up, never a chump);
+// the maximal blocks (the same, chumping with the least valuable free
+// creature where nothing better exists); and gorge's default bot's blocks.
+// A menace attacker is never assigned (its two-blocker minimum is not
+// published per option). Each is repaired to a valid answer; duplicates of
+// one another are dropped (the caller drops its own pick's duplicate). It
+// reads no seat state that Decide changes and draws nothing from the
+// seat's stream. nil when the seat is not sb-tactical or the decision has
+// a shape the tactical blocker leaves to its incumbent.
+func (s *Seat) BlockAlternatives(v view.View, d decision.Decision) []decision.Intent {
+	if s.tac == nil || d.Kind != decision.KBlockers || len(d.Options) == 0 {
+		return nil
+	}
+	st := s.tac.newState(&v, d.Player)
+	type pair struct{ blk, atk state.ObjID }
+	opt := map[pair]int{} // lookup only
+	var atks, blks []*tcre
+	seen := map[state.ObjID]bool{} // lookup only
+	for i := range d.Options {
+		o := &d.Options[i]
+		if o.Kind != "block" || o.MinBlockers != 0 || o.MaxBlockers != 0 {
+			return nil
+		}
+		a, b := st.cre[o.Attacker], st.cre[o.Obj]
+		if a == nil || b == nil {
+			return nil
+		}
+		opt[pair{o.Obj, o.Attacker}] = o.Index
+		if !seen[a.id] {
+			seen[a.id] = true
+			atks = append(atks, a)
+		}
+		if !seen[b.id] {
+			seen[b.id] = true
+			blks = append(blks, b)
+		}
+	}
+	sortCre(atks, func(x, y *tcre) bool { return x.pow > y.pow || (x.pow == y.pow && x.id < y.id) })
+	sortCre(blks, func(x, y *tcre) bool {
+		vx, vy := st.creValue(x), st.creValue(y)
+		return vx < vy || (vx == vy && x.id < y.id)
+	})
+	greedy := func(chump bool) []int {
+		used := map[state.ObjID]bool{} // lookup only
+		var choices []int
+		for _, a := range atks {
+			if a.menace {
+				continue
+			}
+			bi, bestV := -1, 0.0
+			for j, b := range blks {
+				if used[b.id] {
+					continue
+				}
+				if _, ok := opt[pair{b.id, a.id}]; !ok {
+					continue
+				}
+				r := fightOutcome(b, []*tcre{a}, 0, 0, false)
+				var val float64
+				switch {
+				case !r.cDies && r.foeDies[0]:
+					val = 1000 + st.creValue(a) - st.creValue(b)/100
+				case !r.cDies:
+					val = 500 - st.creValue(b)/100
+				case r.foeDies[0] && st.creValue(a) >= st.creValue(b):
+					val = 100 + st.creValue(a) - st.creValue(b)
+				case chump:
+					val = 1 / (1 + st.creValue(b))
+				default:
+					continue
+				}
+				if bi < 0 || val > bestV {
+					bi, bestV = j, val
+				}
+			}
+			if bi >= 0 {
+				used[blks[bi].id] = true
+				choices = append(choices, opt[pair{blks[bi].id, a.id}])
+			}
+		}
+		return choices
+	}
+	brd := seat.BoardFromView(v)
+	var out []decision.Intent
+	add := func(in decision.Intent) {
+		in = repaired(&d, in)
+		for _, o := range out {
+			if SameChoices(o, in) {
+				return
+			}
+		}
+		out = append(out, in)
+	}
+	add(decision.Intent{})
+	add(decision.Intent{Choices: botpolicy.LegalBlockChoices(brd, &d, greedy(false))})
+	add(decision.Intent{Choices: botpolicy.LegalBlockChoices(brd, &d, greedy(true))})
+	add(botpolicy.Decide(brd, &d, rand.New(rand.NewPCG(d.Seq, 0xb10c))))
+	return out
+}
+
+// TargetAlternatives are up to k single-target answers of a KTarget
+// decision (Max 1), best first by sb-tactical's own target value, each
+// admissible and valid. nil when the seat is not sb-tactical, the decision
+// takes more than one target, or the effect cannot be read (sb-tactical
+// then answers with the default policy).
+func (s *Seat) TargetAlternatives(v view.View, d decision.Decision, k int) []decision.Intent {
+	if s.tac == nil || d.Kind != decision.KTarget || d.Max != 1 {
+		return nil
+	}
+	sc, ok := s.tac.scoreTargets(v, &d)
+	if !ok {
+		return nil
+	}
+	var out []decision.Intent
+	for _, x := range sc {
+		if len(out) >= k {
+			break
+		}
+		o := &d.Options[x.idx]
+		if !admissible(&d, nil, o) {
+			continue
+		}
+		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{x.idx}}
+		if d.Validate(in) != nil {
+			continue
+		}
+		out = append(out, in)
 	}
 	return out
 }
