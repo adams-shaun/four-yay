@@ -7,6 +7,7 @@ import (
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
@@ -142,4 +143,32 @@ func BenchmarkCloneOnly(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		newEngineSink = root.Clone()
 	}
+}
+
+// BenchmarkCloneFirstAppend prices a clone plus its log's first append (the
+// append that, on a plain Clone, copies the shared event prefix) at the late
+// root, without the simulation's engine work: the part of a search
+// simulation a forkable log could remove.
+func BenchmarkCloneFirstAppend(b *testing.B) {
+	benchWithoutVerify(b)
+	rc := cloneCycleRoots[len(cloneCycleRoots)-1]
+	root := cloneCycleRoot(b, rc.opp, rc.turn)
+	ev := events.Event{Kind: events.Note, Text: "x"}
+	b.Run("Clone", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			c := root.Clone()
+			c.L.Append(ev)
+			newEngineSink = c
+		}
+	})
+	b.Run("CloneInto", func(b *testing.B) {
+		b.ReportAllocs()
+		var sp Spare
+		for i := 0; i < b.N; i++ {
+			c := root.CloneInto(&sp)
+			c.L.Append(ev)
+			sp = c.Release()
+		}
+	})
 }
