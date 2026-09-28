@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"sort"
+	"strings"
 )
 
 // Belief is the seat's reconstruction of the game from its own message
@@ -29,15 +30,39 @@ type Belief struct {
 	seat    string
 	ownDeck map[string]int
 	oppDeck map[string]int // nil when the opponent's list is hidden
+	// faces maps each face of a multi-face decklist entry ("A // B") to
+	// the entry: an object names the face currently up (spec 4.4).
+	faces map[string]string
 }
 
 // NewBelief starts a belief from game_start.
 func NewBelief(g *GameStart) *Belief {
-	b := &Belief{seat: g.Seat, ownDeck: deckCounts(g.OwnDeck)}
+	b := &Belief{seat: g.Seat, ownDeck: deckCounts(g.OwnDeck), faces: map[string]string{}}
 	if g.OpponentDeck != nil {
 		b.oppDeck = deckCounts(g.OpponentDeck)
 	}
+	for _, d := range []map[string]int{b.ownDeck, b.oppDeck} {
+		for name := range d {
+			if parts := strings.Split(name, " // "); len(parts) > 1 {
+				for _, p := range parts {
+					b.faces[p] = name
+				}
+			}
+		}
+	}
 	return b
+}
+
+// deckKey is the decklist entry a visible object counts against: its full
+// name when the engine sends one, else the entry its face name belongs to.
+func (b *Belief) deckKey(name string, full *string) string {
+	if full != nil && *full != "" {
+		return *full
+	}
+	if k, ok := b.faces[name]; ok {
+		return k
+	}
+	return name
 }
 
 func deckCounts(d *Deck) map[string]int {
@@ -113,7 +138,7 @@ func (b *Belief) Record(gameID string, d *Decision) BeliefRecord {
 		r.Active = *o.ActiveSeat
 	}
 	own, opp := copyCounts(b.ownDeck), copyCounts(b.oppDeck)
-	subtract := func(ref *ObjectRef, token, isCopy bool) {
+	subtract := func(ref *ObjectRef, full *string, token, isCopy bool) {
 		if token || isCopy {
 			return
 		}
@@ -126,7 +151,7 @@ func (b *Belief) Record(gameID string, d *Decision) BeliefRecord {
 			return
 		}
 		if target != nil {
-			target[*ref.CardName]--
+			target[b.deckKey(*ref.CardName, full)]--
 		}
 	}
 	for i := range o.Players {
@@ -153,7 +178,7 @@ func (b *Belief) Record(gameID string, d *Decision) BeliefRecord {
 		}{{"battlefield", p.Battlefield}, {"graveyard", p.Graveyard}, {"exile", p.Exile}, {"hand", p.Hand}, {"command", p.Command}} {
 			for j := range zone.recs {
 				rec := &zone.recs[j]
-				subtract(&rec.ObjectRef, rec.Token, rec.Copy)
+				subtract(&rec.ObjectRef, rec.FullName, rec.Token, rec.Copy)
 				r.Objects = append(r.Objects, beliefObject(zone.name, rec))
 			}
 		}
@@ -167,7 +192,7 @@ func (b *Belief) Record(gameID string, d *Decision) BeliefRecord {
 		r.Objects = append(r.Objects, BeliefObject{ObjectID: se.ObjectID, Zone: "stack", Name: name,
 			Controller: se.ControllerSeat, Owner: se.OwnerSeat})
 		if se.StackKind == "spell" {
-			subtract(&se.ObjectRef, false, se.Copy)
+			subtract(&se.ObjectRef, nil, false, se.Copy)
 		}
 	}
 	r.OwnLibrary, r.OppHidden = positive(own), positive(opp)

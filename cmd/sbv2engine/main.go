@@ -7,7 +7,8 @@
 //
 //	sbv2engine [-dir .cards] [-mana manual|autopay] [-truth FILE] [-stats FILE] [-version V] [-quiet]
 //
-// -truth enables the TEST-MODE truth side channel: one JSON line per posed
+// -truth enables the TEST-MODE truth side channel (gzip-compressed when the
+// name ends in .gz; each engine process appends one gzip member): one JSON line per posed
 // decision with engine truth for the acting seat (gorge's own seat view plus
 // the hidden library and hand contents), for the offline shadow-state check.
 // It is written to a local file only; never use it in a rated run.
@@ -20,11 +21,13 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/adams-shaun/gorge/internal/spellbench/v2engine"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -61,6 +64,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 		defer f.Close()
 		opts.Truth = f
+		if strings.HasSuffix(*truth, ".gz") {
+			// one gzip member per process: readers concatenate members
+			zw := gzip.NewWriter(f)
+			defer zw.Close()
+			opts.Truth = zw
+		}
 	}
 	srv, err := v2engine.New(opts)
 	if err != nil {

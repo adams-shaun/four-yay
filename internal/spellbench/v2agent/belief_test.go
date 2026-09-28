@@ -40,3 +40,24 @@ func TestBeliefInfersHiddenMultisets(t *testing.T) {
 		t.Errorf("record %+v", r)
 	}
 }
+
+// TestBeliefCountsFacesAgainstFullNames: an object showing the back face of
+// an "A // B" entry counts against that entry, with or without full_name.
+func TestBeliefCountsFacesAgainstFullNames(t *testing.T) {
+	var gs GameStart
+	if err := json.Unmarshal([]byte(`{"game_id":"g","seat":"p0",
+		"own_deck":{"decklist":[{"name":"The Modern Age // Vector Glider","count":2},{"name":"Island","count":1}]}}`), &gs); err != nil {
+		t.Fatal(err)
+	}
+	gs.Seat = "p0"
+	b := NewBelief(&gs)
+	name := func(s string) *string { return &s }
+	d := &Decision{Seat: &SeatDecision{Observation: Observation{Viewer: "p0", Players: []Player{{Seat: "p0",
+		Battlefield: []ObjectRecord{{ObjectRef: ObjectRef{ObjectID: "o-1", CardName: name("Vector Glider"), OwnerSeat: "p0", ControllerSeat: "p0", Zone: "battlefield"}, Permanent: &Permanent{}}},
+		Graveyard: []ObjectRecord{{ObjectRef: ObjectRef{ObjectID: "o-2", CardName: name("The Modern Age"), OwnerSeat: "p0", ControllerSeat: "p0", Zone: "graveyard"},
+			FullName: name("The Modern Age // Vector Glider")}}}}}}}
+	r := b.Record("g", d)
+	if len(r.OwnLibrary) != 1 || r.OwnLibrary["Island"] != 1 {
+		t.Errorf("own library %v, want Island:1 only", r.OwnLibrary)
+	}
+}

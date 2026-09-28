@@ -23,16 +23,23 @@
 // a hidden zone gets ":look:<n>" with n advanced per gorge decision that
 // shows it). gorge reuses an ObjID across zones, so zone changes are counted
 // from the event log (MoveZone, Draw, PutOnStack). Optional observation
-// flags: only keywords is declared; known_cards is false, so known lists
-// only the cards shown in the current decision (searching, looked_at,
-// revealed).
+// flags: keywords and full_name are declared ("A // B" for a multi-face
+// card, which is also how the catalog decklists name it, spec 4.4);
+// known_cards is false, so known lists only the cards shown in the current
+// decision (searching, looked_at, revealed). A stack ability is named after
+// its source; a source that moved to a hidden zone keeps the name the viewer
+// already saw on that stack object, and one activated from a hand is named
+// (activation reveals it, CR 602.2a). gorge's option labels are sent as
+// display_text only when they name nothing the viewer may not see.
 //
 // Decisions (spec 7, 8): gorge asks one Decision with an option list and a
 // Min..Max answer; this package decomposes it into v2 wire decisions and
 // submits the assembled Intent once the last substep is answered:
 //
 //   - KPriority -> one priority decision: pass first, then play_land,
-//     cast_spell (method from the option's mode), activate_mana_ability
+//     cast_spell (method from the option's mode; a kicked, buyback,
+//     entwined... twin of a plain cast is the plain cast_spell followed by
+//     an optional_cost decision), activate_mana_ability
 //     (every mana ability is a candidate: mana_payment is not auto-paid in
 //     the default "manual" surface), activate_ability, special_action.
 //     concede is never offered (the host owns concession). Under -mana

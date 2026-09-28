@@ -17,7 +17,7 @@ game pairs; pair p plays deck ``decks[p % len(decks)]`` in both seats, as SpellB
 one row per game to ``DIR/games.jsonl``. ``--from/--to`` select a slice of the schedule's game indices so long runs can
 be chunked; rows already in games.jsonl are skipped. Each worker keeps one engine process (restarted after an engine
 fault or a validator halt, as the host must). ``--truth`` turns on the engine's test-mode truth side channel
-(``DIR/truth-w<k>.jsonl``) and every Go agent's belief log (``DIR/belief/g<index>-<seat>.jsonl``) for the
+(``DIR/truth-w<k>.jsonl.gz``) and every Go agent's belief log (``DIR/belief/g<index>-<seat>.jsonl``) for the
 shadow-state check (cmd/sbv2shadow).
 
 Bots: ``uniform``, ``heuristic``, ``first`` (the python v2 builtins, in-process drivers) and ``sbagent-random``,
@@ -85,7 +85,7 @@ class Worker:
         a = self.args
         argv = [a.engine, "-dir", a.dir, "-mana", a.mana, "-stats", str(Path(a.out) / f"engine-stats-w{self.k}-{os.getpid()}-{time.time_ns()}.json")]
         if a.truth:
-            argv += ["-truth", str(Path(a.out) / f"truth-w{self.k}.jsonl")]
+            argv += ["-truth", str(Path(a.out) / f"truth-w{self.k}.jsonl.gz")]
         return argv
 
     def ensure(self):

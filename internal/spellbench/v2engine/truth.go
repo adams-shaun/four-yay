@@ -133,7 +133,7 @@ func (g *Game) writeTruth(p *posedDecision, d *decision.Decision) {
 	count := func(z state.Zone, p state.PlayerID) map[string]int {
 		m := map[string]int{}
 		for _, o := range g.cards(z, p) {
-			m[o.Face().Name]++
+			m[fullName(o.Card)]++
 		}
 		return m
 	}

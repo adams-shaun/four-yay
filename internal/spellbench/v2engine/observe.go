@@ -44,6 +44,11 @@ func (g *Game) visibleName(o *state.Object, viewer state.PlayerID) *string {
 	if f == nil {
 		return nil
 	}
+	if o.Zone == state.ZLibrary || (o.Zone == state.ZHand && o.Owner != viewer) {
+		// a card in a zone hidden from the viewer (an ability's source still
+		// in a hand or library) is nameless (spec 6.8)
+		return nil
+	}
 	if o.FaceDown {
 		looker := o.Controller
 		if o.HasMayLook {
@@ -161,8 +166,13 @@ func (g *Game) buildObservation(viewer state.PlayerID, priority bool, looks []lo
 			OwnerSeat: seatOf(o.Owner), ControllerSeat: seatOf(controller), Zone: zoneName(o.Zone)}
 		b.refs[o.ID] = r
 		seen[o.ID] = true
-		return v2agent.ObjectRecord{ObjectRef: r, FaceDown: o.FaceDown, Token: o.IsToken, Copy: o.IsCopy,
+		rec := v2agent.ObjectRecord{ObjectRef: r, FaceDown: o.FaceDown, Token: o.IsToken, Copy: o.IsCopy,
 			Characteristics: g.characteristics(o, viewer)}
+		if name != nil && isMultiFace(o.Card) {
+			fn := fullName(o.Card)
+			rec.FullName = &fn
+		}
+		return rec
 	}
 	for pi := 0; pi < 2; pi++ {
 		p := state.PlayerID(pi)
@@ -253,8 +263,25 @@ func (g *Game) buildObservation(viewer state.PlayerID, priority bool, looks []lo
 			default:
 				se.StackKind = "activated_ability"
 			}
+			// An ability is named after its source (spec 5.1). A source
+			// that has since moved to a hidden zone (Lembas's gain-life
+			// ability once its shuffle trigger resolved) keeps the name the
+			// viewer already saw on this stack object; one never seen public
+			// stays nameless.
+			key := lookKey{viewer, id}
 			if src := gs.Obj(o.Source); src != nil && src.Face() != nil {
 				se.CardName = g.visibleName(src, viewer)
+				if se.CardName == nil && src.Zone == state.ZHand && !src.FaceDown {
+					// activating an ability of a card in a hidden zone reveals
+					// it (CR 602.2a): ninjutsu from the other seat's hand
+					n := src.Face().Name
+					se.CardName = &n
+				}
+			}
+			if se.CardName != nil {
+				g.abilityNames[key] = *se.CardName
+			} else if n, ok := g.abilityNames[key]; ok {
+				se.CardName = &n
 			}
 		}
 		se.ObjectRef = v2agent.ObjectRef{ObjectID: g.objectID(viewer, id, ""), CardName: se.CardName,

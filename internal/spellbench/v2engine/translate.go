@@ -107,6 +107,13 @@ func (t *base) sourceRef(b *obsBuild) *v2agent.ObjectRef {
 	return b.refPtr(id)
 }
 
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
 func refOrNil(r *v2agent.ObjectRef) any {
 	if r == nil {
 		return nil
@@ -455,13 +462,24 @@ func (t *priorityTr) contextKind() string {
 
 func (t *priorityTr) progress() (int, int, bool) { return 0, 1, !t.done }
 
+// castMethods maps gorge's "cast" option modes to spec 7.4 methods (the
+// same table SpellBench's own gorge adapter uses, mapping/priority.go on
+// its gorge-adapter branch); an unknown mode is "other".
 var castMethods = map[string]string{
-	"": "normal", "flashback": "flashback", "madness": "madness", "miracle": "miracle", "evoke": "evoke",
-	"escape": "escape", "overload": "overload", "adventure": "adventure", "disturb": "disturb",
-	"foretell": "foretell", "disguise": "disguise", "morph": "morph", "prototype": "prototype",
-	"suspend": "suspend", "plot": "plot", "cascade": "cascade", "discover": "discover",
-	"rebound": "rebound", "free": "free", "mdfc": "mdfc_back", "back": "mdfc_back",
+	"": "normal", "mayplay": "normal", "mayflash": "normal", "flashback": "flashback",
+	"plot_cast": "plot", "bestowed": "alternative", "surged": "alternative", "blitzed": "alternative",
+	"emerged": "alternative", "mutated": "alternative", "escape": "escape", "madness": "madness", "miracle": "miracle",
+	"foretell_cast": "foretell", "adventure_alt": "adventure", "split_alt": "split_right", "fuse": "fuse",
+	"suspend_cast": "suspend", "modal_spell": "mdfc_back", "evoke": "evoke", "overload": "overload",
+	"disturb": "disturb", "disguise": "disguise", "morph": "morph", "prototype": "prototype", "cascade": "cascade",
+	"discover": "discover", "rebound": "rebound", "free": "free",
 }
+
+// optionalCostModes are the cast modes v2 poses as cast_spell plus an
+// optional_cost follow-up (spec 7.5 Costs) when the card also has a plain
+// cast.
+var optionalCostModes = map[string]string{"kicked": "kicker", "buyback": "buyback", "entwined": "entwine",
+	"conspired": "conspire", "casualty": "casualty", "offspring": "offspring"}
 
 func (t *priorityTr) candidates(b *obsBuild) ([]cand, error) {
 	if t.kickAsk {
@@ -470,9 +488,10 @@ func (t *priorityTr) candidates(b *obsBuild) ([]cand, error) {
 		if src == nil {
 			return nil, fmt.Errorf("kicker_source")
 		}
+		cost := optionalCostModes[t.d.Options[c.kicker].Mode]
 		return []cand{
-			{sem: map[string]any{"kind": "optional_cost", "source": *src, "cost": "kicker", "pay": false}, act: 0, display: "Don't pay kicker"},
-			{sem: map[string]any{"kind": "optional_cost", "source": *src, "cost": "kicker", "pay": true}, act: 1, display: "Pay kicker"},
+			{sem: map[string]any{"kind": "optional_cost", "source": *src, "cost": cost, "pay": false}, act: 0, display: "Don't pay " + cost},
+			{sem: map[string]any{"kind": "optional_cost", "source": *src, "cost": cost, "pay": true}, act: 1, display: "Pay " + cost},
 		}, nil
 	}
 	d := t.d
@@ -489,7 +508,8 @@ func (t *priorityTr) candidates(b *obsBuild) ([]cand, error) {
 			break
 		}
 	}
-	// kicked twins: a "kicked" cast of a card that also has a plain cast.
+	// optional-cost twins: a "kicked" (buyback, entwined, ...) cast of a card
+	// that also has a plain cast is the plain cast plus an optional_cost.
 	plain := map[state.ObjID]int{} // lookup only
 	for i := range d.Options {
 		o := &d.Options[i]
@@ -501,7 +521,7 @@ func (t *priorityTr) candidates(b *obsBuild) ([]cand, error) {
 	skip := map[int]bool{}    // lookup only
 	for i := range d.Options {
 		o := &d.Options[i]
-		if o.Kind == "cast" && o.Mode == "kicked" {
+		if _, opt := optionalCostModes[o.Mode]; o.Kind == "cast" && opt {
 			if p, ok := plain[o.Obj]; ok {
 				if _, dup := kickedOf[p]; !dup {
 					kickedOf[p] = i
@@ -537,11 +557,13 @@ func (t *priorityTr) candidates(b *obsBuild) ([]cand, error) {
 		switch {
 		case o.Kind == "play_land":
 			face := 0
-			if o.Mode == "back" || o.Mode == "mdfc" {
-				face = 1
+			if o.Mode == "modal_land" {
+				face = 1 // a modal double-faced card's back face
 			}
 			sem = map[string]any{"kind": "play_land", "source": src, "face": face}
 		case o.Kind == "cast" && o.Mode == "plot":
+			// plotting is a special action (spec 7.4); casting a plotted
+			// card later is mode "plot_cast"
 			sem = map[string]any{"kind": "special_action", "source": src, "action": "plot"}
 		case o.Kind == "cast":
 			m, known := castMethods[o.Mode]
@@ -1455,7 +1477,29 @@ type enumTr struct {
 
 func newEnumTr(b base) translator {
 	b.g.srv.stats.add("enumerated:"+string(b.d.Kind), 1)
+	b.g.srv.stats.add("enumerated_kinds:"+string(b.d.Kind)+":"+optionKinds(b.d), 1)
+	var opts []string
+	for _, o := range b.d.Options {
+		opts = append(opts, fmt.Sprintf("%s/%q/sym=%s/obj=%d", o.Kind, o.Label, o.ManaSymbol, o.Obj))
+	}
+	b.g.srv.logf("enumerated %s min %d max %d: %s", b.d.Kind, b.d.Min, b.d.Max, strings.Join(opts, " | "))
 	return &enumTr{base: b, pick: -1}
+}
+
+// optionKinds is the sorted distinct option kinds of d, comma joined.
+func optionKinds(d *decision.Decision) string {
+	var ks []string
+	for _, o := range d.Options {
+		ks = append(ks, o.Kind)
+	}
+	sort.Strings(ks)
+	out := ks[:0]
+	for i, k := range ks {
+		if i == 0 || k != ks[i-1] {
+			out = append(out, k)
+		}
+	}
+	return strings.Join(out, ",")
 }
 
 func (t *enumTr) progress() (int, int, bool) { return 0, 1, !t.done }

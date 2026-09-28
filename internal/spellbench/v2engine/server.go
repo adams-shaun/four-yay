@@ -128,8 +128,19 @@ func New(opts Options) (*Server, error) {
 			return nil, err
 		}
 		cd := catalogDeck{id: f.Name, cards: cs}
-		for _, e := range f.Cards {
-			cd.rows = append(cd.rows, map[string]any{"name": e.Name, "count": e.Count})
+		// Rows by Oracle full name ("A // B" for a multi-face card, spec
+		// 4.4, 12.1), in the file's order, one row per distinct name.
+		counts := map[string]int{} // lookup only
+		var names []string
+		for _, c := range cs {
+			n := fullName(c)
+			if counts[n] == 0 {
+				names = append(names, n)
+			}
+			counts[n]++
+		}
+		for _, n := range names {
+			cd.rows = append(cd.rows, map[string]any{"name": n, "count": counts[n]})
 		}
 		s.catalog = append(s.catalog, cd)
 	}
@@ -348,7 +359,7 @@ func (s *Server) DecisionKinds() []string {
 func (s *Server) hello() map[string]any {
 	obsFlags := map[string]any{}
 	for _, f := range observationFlags {
-		obsFlags[f] = f == "keywords"
+		obsFlags[f] = f == "keywords" || f == "full_name"
 	}
 	var catalog []any
 	for _, c := range s.catalog {
@@ -421,6 +432,11 @@ func (s *Server) resolveDeck(v any, withID bool) ([]*cards.Card, *reqError) {
 		n, ok := asInt(rm["count"])
 		if name == "" || !ok || n < 1 || len(rm) != 2 {
 			return nil, fail("malformed_request", "decklist row must be {name, count}")
+		}
+		if _, ok := s.opts.Registry.Lookup(name); !ok {
+			if front, _, multi := strings.Cut(name, " // "); multi {
+				name = front // the registry keys a multi-face card by its front face
+			}
 		}
 		entries = append(entries, deck.Entry{Name: name, Count: int(n)})
 	}

@@ -2,7 +2,9 @@ package v2engine
 
 import (
 	"bufio"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -74,23 +76,45 @@ func ReadBelief(path string) ([]v2agent.BeliefRecord, error) {
 	return out, err
 }
 
+// readLines calls f per nonblank line; a ".gz" file is read as
+// concatenated gzip members, and a member truncated by a killed writer
+// ends the read quietly after its last complete line.
 func readLines(path string, f func([]byte) error) error {
 	fh, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer fh.Close()
-	sc := bufio.NewScanner(fh)
+	var r io.Reader = fh
+	if strings.HasSuffix(path, ".gz") {
+		zr, err := gzip.NewReader(fh)
+		if err != nil {
+			return err
+		}
+		defer zr.Close()
+		r = zr
+	}
+	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 1<<20), 64<<20)
 	for sc.Scan() {
 		if len(strings.TrimSpace(sc.Text())) == 0 {
 			continue
 		}
 		if err := f(sc.Bytes()); err != nil {
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				return nil
+			}
+			var syn *json.SyntaxError
+			if errors.As(err, &syn) {
+				return nil // a torn last line
+			}
 			return err
 		}
 	}
-	return sc.Err()
+	if err := sc.Err(); err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return err
+	}
+	return nil
 }
 
 type fieldTable struct {
@@ -114,31 +138,107 @@ func (t *fieldTable) check(field string, equal bool, example func() string) {
 	}
 }
 
-// CompareShadow joins truth and belief records and counts mismatches.
-func CompareShadow(truth []TruthRecord, belief []v2agent.BeliefRecord) ShadowReport {
-	rep := ShadowReport{TruthRecords: len(truth), BeliefRecords: len(belief)}
+// Shadow accumulates the comparison game by game, so a run's side channel
+// (hundreds of MB) never has to be held in memory at once.
+type Shadow struct {
+	rep ShadowReport
+	t   *fieldTable
+}
+
+// NewShadow starts an empty comparison.
+func NewShadow() *Shadow {
+	return &Shadow{t: &fieldTable{stats: map[string]*FieldStat{}}}
+}
+
+// AddGame compares one game's truth and belief records (any records of
+// other games are joined just the same).
+func (s *Shadow) AddGame(truth []TruthRecord, belief []v2agent.BeliefRecord) {
+	s.rep.TruthRecords += len(truth)
+	s.rep.BeliefRecords += len(belief)
 	byKey := make(map[shadowKey]*TruthRecord, len(truth))
 	for i := range truth {
 		r := &truth[i]
 		byKey[shadowKey{r.GameID, r.Seat, r.SeatStep}] = r
 	}
-	t := &fieldTable{stats: map[string]*FieldStat{}}
 	for i := range belief {
 		b := &belief[i]
 		tr := byKey[shadowKey{b.GameID, b.Seat, b.SeatStep}]
 		if tr == nil {
-			t.check("join:truth_record_present", false, func() string { return fmt.Sprintf("%s %s step %d", b.GameID, b.Seat, b.SeatStep) })
+			s.t.check("join:truth_record_present", false, func() string { return fmt.Sprintf("%s %s step %d", b.GameID, b.Seat, b.SeatStep) })
 			continue
 		}
-		t.check("join:truth_record_present", true, nil)
-		rep.Joined++
-		compareRecord(t, tr, b)
+		s.t.check("join:truth_record_present", true, nil)
+		s.rep.Joined++
+		compareRecord(s.t, tr, b)
 	}
-	for _, f := range t.order {
-		rep.Fields = append(rep.Fields, *t.stats[f])
+}
+
+// Report is the comparison so far.
+func (s *Shadow) Report() ShadowReport {
+	rep := s.rep
+	rep.Fields = nil
+	for _, f := range s.t.order {
+		rep.Fields = append(rep.Fields, *s.t.stats[f])
 	}
 	return rep
 }
+
+// CompareShadow joins truth and belief records and counts mismatches.
+func CompareShadow(truth []TruthRecord, belief []v2agent.BeliefRecord) ShadowReport {
+	s := NewShadow()
+	s.AddGame(truth, belief)
+	return s.Report()
+}
+
+// StreamTruth calls f with each game's truth records, in file order; a
+// worker's side channel holds its games one after another.
+func StreamTruth(path string, f func(gameID string, recs []TruthRecord)) error {
+	var cur []TruthRecord
+	flush := func() {
+		if len(cur) > 0 {
+			f(cur[0].GameID, cur)
+		}
+		cur = nil
+	}
+	err := readLines(path, func(line []byte) error {
+		var r TruthRecord
+		if err := json.Unmarshal(line, &r); err != nil {
+			return err
+		}
+		if len(cur) > 0 && cur[0].GameID != r.GameID {
+			flush()
+		}
+		cur = append(cur, r)
+		return nil
+	})
+	flush()
+	return err
+}
+
+// BeliefGameID is the game id of a belief log's first record ("" when it
+// has none).
+func BeliefGameID(path string) (string, error) {
+	id := ""
+	err := readLines(path, func(line []byte) error {
+		if id != "" {
+			return errStop
+		}
+		var r struct {
+			GameID string `json:"game_id"`
+		}
+		if err := json.Unmarshal(line, &r); err != nil {
+			return err
+		}
+		id = r.GameID
+		return errStop
+	})
+	if errors.Is(err, errStop) {
+		err = nil
+	}
+	return id, err
+}
+
+var errStop = errors.New("stop")
 
 func compareRecord(t *fieldTable, tr *TruthRecord, b *v2agent.BeliefRecord) {
 	at := fmt.Sprintf("%s %s step %d (%s turn %d %s)", tr.GameID, tr.Seat, tr.SeatStep, tr.GorgeKind, tr.Turn, tr.PhaseStep)

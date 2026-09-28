@@ -3,8 +3,25 @@ package v2engine
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
+
+// fullName is a card's Oracle full name (spec 4.4): "A // B" for a
+// multi-face card (transform, modal DFC, split, adventure, flip), else its
+// one face's name. Decklists and full_name use it.
+func fullName(c *cards.Card) string {
+	if c == nil || len(c.Faces) == 0 {
+		return ""
+	}
+	if len(c.Faces) >= 2 && c.AlternateMode != "" && c.Faces[1] != nil && c.Faces[1].Name != "" {
+		return c.Faces[0].Name + " // " + c.Faces[1].Name
+	}
+	return c.Faces[0].Name
+}
+
+// isMultiFace reports whether c has an "A // B" full name.
+func isMultiFace(c *cards.Card) bool { return c != nil && strings.Contains(fullName(c), " // ") }
 
 // Vocabulary normalization (spec 6.10): lowercase, apostrophes removed,
 // spaces and hyphens become "_".

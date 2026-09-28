@@ -40,6 +40,9 @@ type Game struct {
 	evScan   int
 	looks    map[lookKey]uint32
 	idCache  map[string]string
+	// abilityNames keeps, per viewer, the name each stack ability showed
+	// the last time its source was visible (observe.go).
+	abilityNames map[lookKey]string
 
 	tr      translator
 	trSeq   uint64
@@ -82,11 +85,11 @@ func newGame(srv *Server, gameID string, secret []byte, decks [2][]*cards.Card, 
 	idKey := mac.Sum(nil)
 	g := &Game{srv: srv, id: gameID, secret: secret, idKey: idKey, maxDecisions: maxDecisions, maxSteps: maxSteps,
 		zc: map[state.ObjID]uint32{}, lastZone: map[state.ObjID]state.Zone{}, looks: map[lookKey]uint32{},
-		idCache: map[string]string{}, curGroup: [2]int64{-1, -1}}
+		idCache: map[string]string{}, abilityNames: map[lookKey]string{}, curGroup: [2]int64{-1, -1}}
 	for s := 0; s < 2; s++ {
 		g.decks[s] = map[string]int{}
 		for _, c := range decks[s] {
-			g.decks[s][c.Faces[0].Name]++
+			g.decks[s][fullName(c)]++
 		}
 	}
 	seed := g.rngSeed("shared", "gorge-seed")
