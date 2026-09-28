@@ -430,6 +430,15 @@ func validSAOK(f *cards.Face, spec string, resolve func(string) (int32, bool)) b
 					partOK = partOK && f.IsSorcery()
 				case seg == "Creature":
 					partOK = partOK && f.IsCreature()
+				case CreatureTypeWords(seg):
+					isSubtype := false
+					for _, typ := range f.Types {
+						if strings.EqualFold(typ, seg) {
+							isSubtype = true
+							break
+						}
+					}
+					partOK = partOK && f.IsCreature() && isSubtype
 				case seg == "nonCreature":
 					partOK = partOK && !f.IsCreature()
 				case seg == "nonLand":
