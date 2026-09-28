@@ -23,11 +23,9 @@ func TestRelativeReduceCostTargetCountAdmitsCastOffer(t *testing.T) {
 		t.Fatal("precondition: the offered target must be a creature")
 	}
 	statics := e.collectCostStatics()
-	t.Logf("cost statics: validTarget=%v reduce=%+v", statics.validTarget, statics.reduce)
 	if !statics.validTarget {
 		t.Fatal("precondition: Relative$ reducer must activate the potential-target retry")
 	}
-	t.Logf("amount with target=%d", e.modAmount(statics.reduce[0], []state.Target{{Obj: bear}}))
 	if got := e.costModifiersForTargets(0, spellID, spellScope(""), []state.Target{{Obj: bear}}).apply(e.parseCost("3")).CMC(); got != 2 {
 		t.Fatalf("target-bound price = %d, want 2", got)
 	}
