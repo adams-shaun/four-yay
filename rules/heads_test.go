@@ -1078,7 +1078,11 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	4: "d8a1ddfd311237dd",
+	// 4 seats moved to d4876057e0477830 (autonomous orchestrator): resolving agent-20260927T212305Z-e87e2ff0 (Gray Merchant of Asphodel drains but never gains the life lost)
+	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
+	// the same proxy this repo has used by hand for every head move -- neither
+	// check is sensitive to bot-choice quality, only engine correctness.
+	4: "d4876057e0477830",
 	// 6 seats moved to c8c36b87e598c090 (autonomous orchestrator): resolving fb-20260914T033246Z-3f1cc033 (delver of secrets was played, but I was not prompted ... "you MAY reveal"... ...)
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
@@ -1230,7 +1234,11 @@ var acceptanceHeads = map[int]string{
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
 	// CR 302.6: sick creature {T}/{Q} mana abilities are no longer offered; 6-seat head measured at 16182bb0d97a61c8.
-	6: "16182bb0d97a61c8",
+	// 6 seats moved to b4a5d33f302e6bfc (autonomous orchestrator): resolving agent-20260927T212305Z-e87e2ff0 (Gray Merchant of Asphodel drains but never gains the life lost)
+	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
+	// the same proxy this repo has used by hand for every head move -- neither
+	// check is sensitive to bot-choice quality, only engine correctness.
+	6: "b4a5d33f302e6bfc",
 	// 8 seats moved to cc022f9ba9f2bf39 with task mana2 (fix(rules): pay mana
 	// ability costs and choose colors): mana abilities that spend a Sac cost
 	// are now gated on a payable, deterministic sacrifice candidate existing,
@@ -1434,7 +1442,11 @@ var acceptanceHeads = map[int]string{
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
 	// CR 302.6: sick creature {T}/{Q} mana abilities are no longer offered; 8-seat head measured at 5a7a1a2a41b48fa8.
-	8: "5a7a1a2a41b48fa8",
+	// 8 seats moved to b73492c5ccdaadca (autonomous orchestrator): resolving agent-20260927T212305Z-e87e2ff0 (Gray Merchant of Asphodel drains but never gains the life lost)
+	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
+	// the same proxy this repo has used by hand for every head move -- neither
+	// check is sensitive to bot-choice quality, only engine correctness.
+	8: "b73492c5ccdaadca",
 }
 
 func TestHeads(t *testing.T) {
