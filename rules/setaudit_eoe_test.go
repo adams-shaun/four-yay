@@ -19,8 +19,8 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// setAuditGuard skips a known-defect test unless GORGE_SET_AUDIT is set.
-func setAuditGuard(t *testing.T, defect, followUp string) {
+// eoeGuard skips a known-defect test unless GORGE_SET_AUDIT is set.
+func eoeGuard(t *testing.T, defect, followUp string) {
 	t.Helper()
 	if os.Getenv("GORGE_SET_AUDIT") == "" {
 		t.Skipf("set-audit finding (eoe): %s. Follow-up: %s", defect, followUp)
@@ -59,7 +59,7 @@ func passToAsk(t *testing.T, e *Engine, limit int) *decision.Decision {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_TapestryWarden_StationUsesToughness(t *testing.T) {
-	setAuditGuard(t, "Tapestry Warden's stat:TapPowerValue is unread, so Station charges a "+
+	eoeGuard(t, "Tapestry Warden's stat:TapPowerValue is unread, so Station charges a "+
 		"toughness>power creature's POWER instead of its toughness",
 		"Implement stat:TapPowerValue for Station (and the other 10 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
@@ -122,7 +122,7 @@ func TestSetAudit_eoe_TapestryWarden_StationUsesToughness(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_MutinousMassacre_ChooseEvenOdd(t *testing.T) {
-	setAuditGuard(t, "api:ChooseEvenOdd is unregistered, so Mutinous Massacre is a no-op Note "+
+	eoeGuard(t, "api:ChooseEvenOdd is unregistered, so Mutinous Massacre is a no-op Note "+
 		"and destroys nothing",
 		"Register api:ChooseEvenOdd and its cmcChosenEvenOdd filter")
 	reg := testutil.CorpusRegistry(t)
@@ -197,7 +197,7 @@ func TestSetAudit_eoe_MutinousMassacre_ChooseEvenOdd(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_TheEndstone_EndStepSetsHalfStartingLife(t *testing.T) {
-	setAuditGuard(t, "api:SetLife is unregistered, so The Endstone's end-step life set is a no-op",
+	eoeGuard(t, "api:SetLife is unregistered, so The Endstone's end-step life set is a no-op",
 		"Register api:SetLife (35 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "The Endstone")}, nil)
@@ -227,7 +227,7 @@ func TestSetAudit_eoe_TheEndstone_EndStepSetsHalfStartingLife(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_ScoutForSurvivors_TotalManaValueCap(t *testing.T) {
-	setAuditGuard(t, "ChangeZone never reads MaxTotalTargetCMC$, so Scout for Survivors returns "+
+	eoeGuard(t, "ChangeZone never reads MaxTotalTargetCMC$, so Scout for Survivors returns "+
 		"three mana-value-3 creature cards (total 9) under a cap of 3",
 		"Enforce MaxTotalTargetCMC$ in the target walk (14 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
@@ -281,7 +281,7 @@ func TestSetAudit_eoe_ScoutForSurvivors_TotalManaValueCap(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_TheDominionBracelet_GrantedControlAbilityOffered(t *testing.T) {
-	setAuditGuard(t, "The Dominion Bracelet's granted '{15}, Exile this Equipment: control target "+
+	eoeGuard(t, "The Dominion Bracelet's granted '{15}, Exile this Equipment: control target "+
 		"opponent' ability is never offered on the equipped creature",
 		"Offer granted AddAbility$ abilities whose cost is Exile<OriginalHost> (api:ControlPlayer)")
 	reg := testutil.CorpusRegistry(t)
@@ -477,7 +477,7 @@ func TestSetAudit_eoe_CountVoid_TokenDeparture(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_MightformHarmonizer_DoublePower(t *testing.T) {
-	setAuditGuard(t, "the 'Double' Pump amount (NumAtt$ Double / NumDef$ Double) is unmodelled, "+
+	eoeGuard(t, "the 'Double' Pump amount (NumAtt$ Double / NumDef$ Double) is unmodelled, "+
 		"so Mightform Harmonizer's Landfall doubling adds +0/+0",
 		"Implement the Double count operation for Pump/Animate P-T (36 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
