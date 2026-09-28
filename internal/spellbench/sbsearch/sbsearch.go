@@ -231,13 +231,11 @@ func (f funcDealer) release(*rules.Engine) {}
 // decideOn is the search at e's decision d; worlds come from mk, called
 // only when a search runs.
 func (s *Seat) decideOn(ctx context.Context, e *rules.Engine, mk func() (dealer, string), d decision.Decision) (decision.Intent, error) {
-	pd := e.Pending()
-	if pd == nil || pd.Seq != d.Seq {
-		pd = &d
-	}
 	// The view sb-tactical is shown in plain play (bench.PlayGame's
-	// View-seat branch builds exactly this).
-	v := view.Project(e.G, e, d.Player, pd)
+	// View-seat branch builds exactly this), projected with d itself: a
+	// caller may hand a reduced copy of the pending decision (DecideWorlds),
+	// and sb-tactical indexes the view's decision by d's option positions.
+	v := view.Project(e.G, e, d.Player, &d)
 	v.Round = view.RoundOf(e.G, e.L.Events)
 	if s.cfg.Worlds <= 0 || len(e.G.Players) != 2 {
 		return s.inner.Decide(ctx, v, d)

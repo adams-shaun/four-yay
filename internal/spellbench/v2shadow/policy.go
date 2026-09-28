@@ -2,6 +2,7 @@ package v2shadow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -109,6 +110,9 @@ type Stats struct {
 	LoweredCasts   int            `json:"lowered_casts"`
 	LoweringTaps   int            `json:"lowering_taps"`
 	LoweringAborts map[string]int `json:"lowering_aborts"`
+	// Withheld counts shadow priority options with no wire counterpart,
+	// withdrawn before the gorge policy chose.
+	Withheld int `json:"withheld"`
 	// Searched counts the decisions handed to sb-search; ClockStops the
 	// decisions whose world loop the clock guard cut.
 	Searched   int `json:"searched"`
@@ -270,6 +274,9 @@ func (p *Policy) Choose(d *v2agent.Decision) (pick int, err error) {
 		p.Stats.answered(class, src)
 		if src == "fallback" {
 			p.Stats.Reasons[class+": "+why]++
+			if p.cfg.Trace != nil && class == ClassChoice {
+				why += " | " + p.plan.describe() + " | cands:" + candsText(d)
+			}
 		}
 		p.trace(d, class, src, why, pick, fbPick)
 	}()
@@ -301,8 +308,12 @@ func (p *Policy) Choose(d *v2agent.Decision) (pick int, err error) {
 			pick, ok, src = k, true, "plan"
 		} else if len(d.Candidates) == 1 {
 			pick, ok, src = 0, true, "single"
+		} else if k, hit, w := p.repose(d); hit {
+			pick, ok, src = k, true, "repose"
+		} else if k, hit := p.smartChoice(d); hit {
+			pick, ok, src, why = k, true, "smart", w
 		} else {
-			why = "no plan"
+			why = w
 		}
 	}
 	if !ok {
@@ -330,6 +341,14 @@ func (p *Policy) trace(d *v2agent.Decision, class, src, why string, pick, fb int
 		len(d.Candidates), desc(pick), desc(fb), why)
 }
 
+func candsText(d *v2agent.Decision) string {
+	var out []string
+	for i := range d.Candidates {
+		out = append(out, "["+candText(&d.Candidates[i])+"]")
+	}
+	return strings.Join(out, " ")
+}
+
 func candText(c *v2agent.Candidate) string {
 	s := &c.Semantic
 	out := s.Kind
@@ -354,6 +373,21 @@ func candText(c *v2agent.Candidate) string {
 		} else if s.Target.Object != nil {
 			out += " ->" + name(s.Target.Object)
 		}
+	}
+	if len(s.Choice) > 0 {
+		var t v2agent.TargetRef
+		if json.Unmarshal(s.Choice, &t) == nil && t.Object != nil {
+			out += " choice=" + name(t.Object) + "@" + t.Object.Zone
+		}
+	}
+	if s.Candidate != nil {
+		out += " cand=" + name(s.Candidate)
+	}
+	if s.Card != nil {
+		out += " card=" + name(s.Card) + " dest=" + s.Destination
+	}
+	if s.Item != nil && s.Item.Object != nil {
+		out += " item=" + name(s.Item.Object)
 	}
 	if s.Defender != nil && s.Defender.Player != nil {
 		out += " def=" + *s.Defender.Player
@@ -435,19 +469,31 @@ func (p *Policy) priority(d *v2agent.Decision) (int, bool, string) {
 			// afresh on it.
 		}
 	}
-	in, err := p.rootAnswer(sh)
+	sh.E.EnsurePaymentActions()
+	pd = sh.E.Pending()
+	rd := p.reduce(sh, d, pd)
+	in, err := p.rootAnswer(sh, rd)
 	if err != nil {
 		return 0, false, "policy: " + err.Error()
 	}
-	pd = sh.E.Pending()
 	why := ""
 	for tries := 0; tries < 8; tries++ {
 		if tries > 0 {
 			p.Stats.Refusals++
-			in = p.gs.Refused(gorgeView(sh, pd), *pd, in)
+			p.Stats.Reasons["refusal: "+lossyKey(why)]++
+			if p.cfg.Trace != nil {
+				fmt.Fprintf(p.cfg.Trace, "  refusal: %s | cands: %s\n", why, candsText(d))
+			}
+			refused := in
+			in = p.gs.Refused(gorgeView(sh, rd), *rd, refused)
+			rd = withoutAnswer(rd, refused)
+		}
+		if sh.StackGap && sorcerySpeed(sh, pd, in) {
+			why = "sorcery-speed play over an unstaged stack item"
+			continue
 		}
 		if in.Payment != nil && p.manual {
-			k, w := p.startLowering(sh, d, pd, in)
+			k, w := p.startLowering(sh, d, rd, in)
 			if k >= 0 {
 				return k, true, ""
 			}
@@ -464,19 +510,139 @@ func (p *Policy) priority(d *v2agent.Decision) (int, bool, string) {
 	return 0, false, "unmapped: " + why
 }
 
-// rootAnswer is the gorge policy's answer at the shadow's pending root
-// decision (priority or attackers): sb-search when searching, else
-// sb-tactical.
-func (p *Policy) rootAnswer(sh *Shadow) (decision.Intent, error) {
-	pd := sh.E.Pending()
-	if p.srch == nil || (pd.Kind != decision.KPriority && pd.Kind != decision.KAttackers) {
-		return p.ask(sh)
+// reduce is pd without the options the wire does not offer (an ability
+// already used this turn, a play the real stack forbids) and without every
+// payment plan that taps a withheld mana source: each would only be
+// refused, and a lowering must not start on one. Options keep their Index
+// (the builtins look options up by Index).
+func (p *Policy) reduce(sh *Shadow, d *v2agent.Decision, pd *decision.Decision) *decision.Decision {
+	gone := map[state.ObjID]bool{} // lookup only
+	var keep []decision.Option
+	for i := range pd.Options {
+		o := &pd.Options[i]
+		if o.Kind != "pass" && o.Kind != "concede" {
+			if k, _, _ := mapOption(sh, d, pd, o); k < 0 {
+				p.Stats.Withheld++
+				if o.Kind == "activate" {
+					gone[o.Obj] = true
+				}
+				continue
+			}
+		}
+		keep = append(keep, *o)
 	}
+	if len(keep) == len(pd.Options) {
+		return pd
+	}
+	c := pd.CloneValue()
+	c.Options = keep
+	if len(gone) > 0 {
+		c.PaymentActions = c.PaymentActions[:0]
+		for _, a := range pd.PaymentActions {
+			a = decision.ClonePaymentAction(a)
+			plans := a.Plans[:0]
+			for _, pl := range a.Plans {
+				ok := true
+				for _, act := range pl.Activations {
+					if gone[act.Source] {
+						ok = false
+					}
+				}
+				if ok {
+					plans = append(plans, pl)
+				}
+			}
+			a.Plans = plans
+			if len(a.Plans) > 0 {
+				c.PaymentActions = append(c.PaymentActions, a)
+			}
+		}
+	}
+	return &c
+}
+
+// withoutAnswer is d without the option or payment action in names (a
+// refused answer stays withdrawn for every later retry).
+func withoutAnswer(d *decision.Decision, in decision.Intent) *decision.Decision {
+	c := d.CloneValue()
+	drop := map[int]bool{} // lookup only
+	for _, x := range in.Choices {
+		drop[x] = true
+	}
+	c.Options = c.Options[:0]
+	for _, o := range d.Options {
+		if !drop[o.Index] || o.Kind == "pass" {
+			c.Options = append(c.Options, o)
+		}
+	}
+	if in.Payment != nil {
+		c.PaymentActions = c.PaymentActions[:0]
+		for _, a := range d.PaymentActions {
+			if a.ID != in.Payment.ActionID {
+				c.PaymentActions = append(c.PaymentActions, decision.ClonePaymentAction(a))
+			}
+		}
+	}
+	return &c
+}
+
+// sorcerySpeed reports a play that needs an empty stack: a land, or a cast
+// of a card that is neither an instant nor has flash.
+func sorcerySpeed(sh *Shadow, pd *decision.Decision, in decision.Intent) bool {
+	var obj state.ObjID
+	switch {
+	case in.Payment != nil:
+		for i := range pd.PaymentActions {
+			if pd.PaymentActions[i].ID == in.Payment.ActionID {
+				obj = pd.PaymentActions[i].Cast.Object
+			}
+		}
+	case len(in.Choices) == 1:
+		o, _ := optByIndex(pd, in.Choices[0])
+		if o == nil {
+			return false
+		}
+		if o.Kind == "play_land" {
+			return true
+		}
+		if o.Kind != "cast" {
+			return false
+		}
+		obj = o.Obj
+	}
+	ob := sh.E.G.Obj(obj)
+	if ob == nil || ob.Face() == nil {
+		return false
+	}
+	f := ob.Face()
+	for _, t := range f.Types {
+		if t == "Instant" {
+			return false
+		}
+	}
+	for _, k := range f.Keywords {
+		if k == "Flash" {
+			return false
+		}
+	}
+	return true
+}
+
+// rootAnswer is the gorge policy's answer to rd (the shadow's pending root
+// decision, priority or attackers, possibly reduced): sb-search when
+// searching, else sb-tactical.
+func (p *Policy) rootAnswer(sh *Shadow, rd *decision.Decision) (decision.Intent, error) {
 	sh.E.EnsurePaymentActions()
-	pd = sh.E.Pending()
+	pd := sh.E.Pending()
+	if rd == nil {
+		rd = pd
+	}
 	p.gs.SetPlanner(sh.E)
+	if p.srch == nil || (pd.Kind != decision.KPriority && pd.Kind != decision.KAttackers) {
+		return p.gs.Decide(context.Background(), gorgeView(sh, rd), *rd)
+	}
 	p.Stats.Searched++
-	return p.srch.DecideWorlds(context.Background(), sh.E, p.dealer(sh), *pd)
+	return p.srch.DecideWorlds(context.Background(), sh.E, p.dealer(sh), *rd)
 }
 
 // dealer deals the search's worlds from the shadow: a hypothetical clone
@@ -524,6 +690,13 @@ func (p *Policy) startLowering(sh *Shadow, d *v2agent.Decision, pd *decision.Dec
 	}
 	p.Stats.Lowerings++
 	p.low = &lowering{x: x, turn: sh.E.G.Turn, step: sh.E.G.Step}
+	if p.cfg.Trace != nil {
+		name := "?"
+		if o := sh.E.G.Obj(a.Cast.Object); o != nil && o.Face() != nil {
+			name = o.Face().Name
+		}
+		fmt.Fprintf(p.cfg.Trace, "  lowering %s: %d steps, pool %v\n", name, len(x.Steps()), payexec.PoolOf(sh.E, sh.Me))
+	}
 	k, why := p.lowerStep(sh, d)
 	if k < 0 {
 		p.Stats.LoweringAborts[why]++
@@ -549,9 +722,8 @@ func (p *Policy) lowerStep(sh *Shadow, d *v2agent.Decision) (int, string) {
 	}
 	k, ki, why := mapPriority(sh, d, pd, in)
 	if k < 0 {
-		return -1, "unmapped_step"
+		return -1, "unmapped_step: " + why
 	}
-	_ = why
 	if st == payexec.Done {
 		p.Stats.LoweredCasts++
 		p.low = nil
@@ -711,7 +883,7 @@ func mapOption(sh *Shadow, d *v2agent.Decision, pd *decision.Decision, o *decisi
 	if len(hits) > 1 {
 		return hits[0], ki, ""
 	}
-	return -1, ki, "no " + o.Kind + " candidate"
+	return -1, ki, fmt.Sprintf("no %s candidate (%q sym=%q ability=%d)", o.Kind, o.Label, o.ManaSymbol, o.Ability)
 }
 
 // manaAbilityIndex is o's index among its face's mana abilities (-1 when
@@ -761,59 +933,286 @@ func abilityIndex(sh *Shadow, o *decision.Option, pd *decision.Decision) int {
 	return n
 }
 
-// makePlan submits in to the shadow and answers its own follow-up
-// decisions with sb-tactical until priority (or another seat's decision)
-// comes back, recording each answer.
+// makePlan submits in to the shadow and plays on (runFollowUps),
+// recording the gorge policy's answers to our own follow-up decisions.
 func (p *Policy) makePlan(sh *Shadow, pd *decision.Decision, in decision.Intent, ki kickInfo) *followPlan {
 	fp := &followPlan{kicker: ki.pay, hasKicker: ki.has}
-	if len(in.Choices) == 1 {
-		if o, _ := optByIndex(pd, in.Choices[0]); o != nil && (o.Kind == "pass" || o.Kind == "play_land") {
-			return nil
-		}
-	}
-	e := sh.E
-	func() {
-		defer func() { _ = recover() }()
-		if err := e.Submit(in); err != nil {
-			return
-		}
-		for steps := 0; steps < 32 && !e.G.Over; steps++ {
-			nd := e.Pending()
-			if nd == nil || nd.Player != sh.Me {
-				return
+	ok := func() (ok bool) {
+		defer func() {
+			if r := recover(); r != nil {
+				ok = false
 			}
-			if nd.Kind == decision.KPriority && nd.ManaPayment == nil {
-				return
-			}
-			var ans decision.Intent
-			answered := false
-			if p.low != nil && nd.Kind != decision.KPriority {
-				a, st := p.low.x.StepOn(nd, payexec.SurfaceOf(e, sh.Me))
-				switch st {
-				case payexec.InProgress, payexec.Done:
-					ans, answered = a, true
-				case payexec.Aborted:
-					p.Stats.LoweringAborts[p.low.x.Reason]++
-					p.low = nil
-				}
-			}
-			if !answered {
-				a, err := p.ask(sh)
-				if err != nil {
-					return
-				}
-				ans = a
-			}
-			fp.record(sh, nd, ans)
-			if err := e.Submit(ans); err != nil {
-				return
-			}
-		}
+		}()
+		return sh.E.Submit(in) == nil
 	}()
+	if ok {
+		p.runFollowUps(sh, fp)
+	}
 	if len(fp.steps) == 0 && !fp.hasKicker {
 		return nil
 	}
 	return fp
+}
+
+// runFollowUps plays the shadow forward from its current state: our own
+// decisions are answered by sb-tactical (a lowering's colour asks by the
+// lowering) and recorded, the opponent's priority is passed (the likeliest
+// response), until our next priority, attack or block decision, another
+// opponent decision, a turn change or the step cap. Decisions in a later
+// step than the root are answered by a rollout copy of the seat, so the
+// real seat's step-scoped state (its pursuit, its lowering) is untouched.
+func (p *Policy) runFollowUps(sh *Shadow, fp *followPlan) {
+	e := sh.E
+	turn, step := e.G.Turn, e.G.Step
+	var clone *builtins.Seat
+	defer func() { _ = recover() }()
+	for steps := 0; steps < 48 && !e.G.Over; steps++ {
+		nd := e.Pending()
+		if nd == nil || e.G.Turn != turn {
+			return
+		}
+		if nd.Player != sh.Me {
+			if nd.Kind != decision.KPriority {
+				return
+			}
+			pass := decision.Intent{Seq: nd.Seq, Player: nd.Player}
+			for _, o := range nd.Options {
+				if o.Kind == "pass" {
+					pass.Choices = []int{o.Index}
+					break
+				}
+			}
+			if len(pass.Choices) == 0 || e.Submit(pass) != nil {
+				return
+			}
+			continue
+		}
+		if (nd.Kind == decision.KPriority && nd.ManaPayment == nil) || nd.Kind == decision.KAttackers || nd.Kind == decision.KBlockers {
+			return
+		}
+		var ans decision.Intent
+		answered := false
+		if p.low != nil && nd.Kind != decision.KPriority {
+			a, st := p.low.x.StepOn(nd, payexec.SurfaceOf(e, sh.Me))
+			switch st {
+			case payexec.InProgress, payexec.Done:
+				ans, answered = a, true
+			case payexec.Aborted:
+				p.Stats.LoweringAborts[p.low.x.Reason]++
+				p.low = nil
+			}
+		}
+		if !answered {
+			seat := p.gs
+			if e.G.Step != step {
+				if clone == nil {
+					clone = p.gs.RolloutClone(p.seed^uint64(steps+1)*0x9e37, nil, true)
+				}
+				seat = clone
+			}
+			if seat.WantsPaymentActions() && nd.Kind == decision.KPriority {
+				e.EnsurePaymentActions()
+				nd = e.Pending()
+			}
+			seat.SetPlanner(e)
+			a, err := seat.Decide(context.Background(), gorgeView(sh, nd), *nd)
+			if err != nil {
+				return
+			}
+			ans = a
+		}
+		fp.record(sh, nd, ans)
+		if err := e.Submit(ans); err != nil {
+			return
+		}
+	}
+}
+
+// repose re-poses a choice decision the plan does not answer on a fresh
+// shadow: the observation is staged and the engine advanced, passing
+// priority for either seat, until it poses a decision of ours of the same
+// family (a spell or ability resolving, the cleanup discard); sb-tactical
+// answers it and the plan is recorded from there.
+func (p *Policy) repose(d *v2agent.Decision) (int, bool, string) {
+	sh := p.build(d, Options{})
+	if sh.Fatal != "" && !strings.HasPrefix(sh.Fatal, "pending decision is the opponent's") {
+		return 0, false, "repose stage: " + sh.Fatal
+	}
+	e := sh.E
+	wk := wireKinds(d)
+	turn := e.G.Turn
+	for i := 0; i < 8 && !e.G.Over && e.G.Turn == turn; i++ {
+		nd := e.Pending()
+		if nd == nil {
+			return 0, false, "repose: no decision"
+		}
+		if nd.Player == sh.Me && familyMatches(wk, nd) && sourceMatches(sh, d, nd) {
+			fp := &followPlan{}
+			p.runFollowUps(sh, fp)
+			if k, ok := fp.answer(d); ok {
+				p.plan = fp
+				return k, true, ""
+			}
+			if p.cfg.Trace != nil {
+				fmt.Fprintf(p.cfg.Trace, "  repose plan: %s\n", fp.describe())
+				var kn, top []string
+				for _, k := range d.Observation().Known {
+					pos := -1
+					if k.PositionFromTop != nil {
+						pos = int(*k.PositionFromTop)
+					}
+					kn = append(kn, fmt.Sprintf("%s/%s/%s@%d", k.OwnerSeat, k.Zone, k.CardName, pos))
+				}
+				lib := sh.MyLib
+				for i := 0; i < len(lib) && i < 6; i++ {
+					if o := e.G.Obj(lib[i]); o != nil && o.Face() != nil {
+						top = append(top, o.Face().Name)
+					}
+				}
+				fmt.Fprintf(p.cfg.Trace, "  known %v mylib-top %v\n", kn, top)
+			}
+			return 0, false, "repose: answer unmatched (" + string(nd.Kind) + ")"
+		}
+		if nd.Kind != decision.KPriority {
+			return 0, false, "repose: posed " + string(nd.Kind)
+		}
+		pass := decision.Intent{Seq: nd.Seq, Player: nd.Player}
+		for _, o := range nd.Options {
+			if o.Kind == "pass" {
+				pass.Choices = []int{o.Index}
+				break
+			}
+		}
+		if len(pass.Choices) == 0 || e.Submit(pass) != nil {
+			return 0, false, "repose: pass refused"
+		}
+	}
+	return 0, false, "repose: not reached"
+}
+
+func wireKinds(d *v2agent.Decision) map[string]bool {
+	k := map[string]bool{} // lookup only
+	for i := range d.Candidates {
+		k[d.Candidates[i].Semantic.Kind] = true
+	}
+	return k
+}
+
+// familyMatches reports whether gorge decision nd can be the physical
+// decision behind a wire decision with candidate kinds wk.
+func familyMatches(wk map[string]bool, nd *decision.Decision) bool {
+	switch {
+	case wk["choose_target"] || wk["finish_target_selection"]:
+		return nd.Kind == decision.KTarget
+	case wk["arrange_card"]:
+		return nd.Kind == decision.KArrange
+	case wk["order_pick"]:
+		return nd.Kind == decision.KTriggerOrder || nd.Kind == decision.KArrange
+	case wk["select_object"] || wk["finish_selection"] || wk["choose_cost_target"]:
+		return nd.Kind == decision.KChoose || nd.Kind == decision.KModes
+	case wk["choose_spell_mode"] || wk["optional_cost"]:
+		return nd.Kind == decision.KModes
+	case wk["choose_boolean"]:
+		return nd.Kind == decision.KChoose || nd.Kind == decision.KTriggerOptional || nd.Kind == decision.KReplacement
+	case wk["choose_number"] || wk["choose_color"] || wk["choose_name"]:
+		return nd.Kind == decision.KChoose || nd.Kind == decision.KReplacement
+	case wk["choose_option"]:
+		return nd.Kind != decision.KPriority && nd.Kind != decision.KAttackers && nd.Kind != decision.KBlockers
+	}
+	return false
+}
+
+// sourceMatches reports whether the wire decision's source (context or
+// candidate) names the same card as nd's source, when both are known.
+func sourceMatches(sh *Shadow, d *v2agent.Decision, nd *decision.Decision) bool {
+	want := ""
+	if d.Seat != nil && d.Seat.Context.Source != nil && d.Seat.Context.Source.CardName != nil {
+		want = *d.Seat.Context.Source.CardName
+	}
+	for i := 0; want == "" && i < len(d.Candidates); i++ {
+		if s := d.Candidates[i].Semantic.Source; s != nil && s.CardName != nil {
+			want = *s.CardName
+		}
+	}
+	if want == "" || nd.Source == 0 {
+		return true
+	}
+	o := sh.E.G.Obj(nd.Source)
+	for o != nil && o.Face() == nil && o.Source != 0 {
+		o = sh.E.G.Obj(o.Source)
+	}
+	if o == nil || o.Face() == nil {
+		return true
+	}
+	if fold(o.Face().Name) == fold(want) {
+		return true
+	}
+	if o.Card != nil {
+		for _, f := range o.Card.Faces {
+			if f != nil && fold(f.Name) == fold(want) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// smartChoice answers a few choice families the shadow cannot re-pose,
+// from the wire alone: a mana colour (the lowering's witness when one is
+// running, else the colour our hand wants most).
+func (p *Policy) smartChoice(d *v2agent.Decision) (int, bool) {
+	var colours []int
+	for i := range d.Candidates {
+		if d.Candidates[i].Semantic.Kind == "choose_color" {
+			colours = append(colours, i)
+		}
+	}
+	if len(colours) == 0 || len(colours) != len(d.Candidates) {
+		return 0, false
+	}
+	if p.low != nil && p.low.x.Taps > 0 && p.low.x.Taps <= len(p.low.x.Steps()) {
+		prod := p.low.x.Steps()[p.low.x.Taps-1].Produces
+		for _, i := range colours {
+			if c := colourIndex(d.Candidates[i].Semantic.Color); c >= 0 && prod[c] > 0 {
+				return i, true
+			}
+		}
+	}
+	want := map[string]int{} // lookup only
+	if me := d.Observation().Me(); me != nil {
+		for _, h := range me.Hand {
+			if h.Characteristics == nil || h.Characteristics.HasType("land") {
+				continue
+			}
+			for _, c := range h.Characteristics.Colors {
+				want[c]++
+			}
+		}
+	}
+	best := colours[0]
+	for _, i := range colours {
+		if want[d.Candidates[i].Semantic.Color] > want[d.Candidates[best].Semantic.Color] {
+			best = i
+		}
+	}
+	return best, true
+}
+
+// colourIndex is a colour word's index in decision.ManaAmount (W U B R G C).
+func colourIndex(c string) int {
+	switch c {
+	case "white":
+		return 0
+	case "blue":
+		return 1
+	case "black":
+		return 2
+	case "red":
+		return 3
+	case "green":
+		return 4
+	}
+	return -1
 }
 
 // ---- combat ----
@@ -831,7 +1230,7 @@ func (p *Policy) attack(d *v2agent.Decision) (int, bool, string) {
 		if pd.Kind != decision.KAttackers {
 			return 0, false, "staged kind " + string(pd.Kind)
 		}
-		in, err := p.rootAnswer(sh)
+		in, err := p.rootAnswer(sh, nil)
 		if err != nil {
 			return 0, false, "policy: " + err.Error()
 		}

@@ -513,6 +513,21 @@ func one(d *decision.Decision, i int) decision.Intent {
 	return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
 }
 
+// optAt is the option whose Index is idx. A candidate's opt holds the
+// option's Index, which equals its position in an engine-built decision but
+// not in a decision with options withdrawn (Refused).
+func optAt(d *decision.Decision, idx int) *decision.Option {
+	if idx >= 0 && idx < len(d.Options) && d.Options[idx].Index == idx {
+		return &d.Options[idx]
+	}
+	for i := range d.Options {
+		if d.Options[i].Index == idx {
+			return &d.Options[i]
+		}
+	}
+	return &decision.Option{Index: idx, Kind: "missing"}
+}
+
 func firstKind(d *decision.Decision, kind string) (int, bool) {
 	for _, o := range d.Options {
 		if o.Kind == kind {

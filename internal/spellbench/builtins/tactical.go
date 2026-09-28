@@ -403,7 +403,7 @@ func (s *tstate) zoneOf(obj state.ObjID) string {
 func (t *tactical) candLabel(s *tstate, d *decision.Decision, c cand) string {
 	switch {
 	case c.opt >= 0:
-		o := &d.Options[c.opt]
+		o := optAt(d, c.opt)
 		if o.Kind == "pass" {
 			return "pass"
 		}

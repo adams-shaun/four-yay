@@ -3,6 +3,7 @@ package v2shadow
 import (
 	"fmt"
 	"math/rand/v2"
+	"sort"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -30,6 +31,10 @@ type Shadow struct {
 	OppHand, OppLib, MyLib []state.ObjID
 	// StagedStep is the step the observation was staged at.
 	StagedStep state.Step
+	// StackGap is set when a stack item could not be staged: the shadow's
+	// stack is shorter than the real one, so a sorcery-speed play the
+	// shadow offers is not legal on the wire.
+	StackGap bool
 }
 
 // Tracker keeps the deck object each v2 object id claimed, across the
@@ -631,7 +636,9 @@ func (b *builder) hiddenDeal() {
 		}
 		lib := unseen
 		want := int(pv.LibraryCount)
-		// Place pinned library cards at their positions.
+		// Place pinned library cards at their positions, top first (an
+		// insert then never shifts an earlier pin).
+		sort.SliceStable(pins, func(i, j int) bool { return pins[i].pos < pins[j].pos })
 		for _, p := range pins {
 			if p.pos < 0 {
 				continue
@@ -731,71 +738,79 @@ func (b *builder) stageStack() {
 			b.sh.Fatal = "copied spell on the stack"
 			return
 		case it.StackKind == "triggered_ability" || it.StackKind == "activated_ability":
-			src, ok := b.abilitySource(it)
-			if !ok {
-				b.sh.Fatal = "stack ability source not staged"
-				return
+			if why := b.stageAbility(it, ctrl); why != "" {
+				// An ability the shadow cannot identify (a dungeon room,
+				// a keyword's rules-level trigger such as madness) is left
+				// off the stack: the shadow decides without it.
+				b.lossy("stack ability skipped: %s", why)
+				b.sh.StackGap = true
 			}
-			o := b.g.Obj(src)
-			f := o.Face()
-			if f == nil {
-				b.sh.Fatal = "stack ability source has no face"
-				return
-			}
-			before := len(b.g.Objs)
-			if it.StackKind == "triggered_ability" {
-				if n, names := cards.SagaChapters(f); n > 0 && len(names) > 0 {
-					lore := int(o.Counter("LORE"))
-					if lore < 1 {
-						lore = 1
-					}
-					if lore > len(names) {
-						lore = len(names)
-					}
-					b.ev(events.Event{Kind: events.DelayedPush, Player: ctrl, Obj: src, Amount: -1, Counter: names[lore-1]})
-				} else {
-					idx, sure := pickTrigger(f, o)
-					if idx < 0 {
-						b.sh.Fatal = fmt.Sprintf("triggered ability of %s: %d triggers", f.Name, len(f.Triggers))
-						return
-					}
-					if !sure {
-						b.lossy("ambiguous trigger")
-					}
-					b.ev(events.Event{Kind: events.TriggerPush, Player: ctrl, Obj: src, Amount: int32(idx)})
-				}
-			} else {
-				idx := -1
-				n := 0
-				for j, sa := range f.Abilities {
-					if sa != nil && sa.Kind == "AB" && sa.API != "Mana" {
-						if idx < 0 {
-							idx = j
-						}
-						n++
-					}
-				}
-				if n == 0 {
-					b.sh.Fatal = fmt.Sprintf("activated ability of %s: none", f.Name)
-					return
-				}
-				if n > 1 {
-					b.lossy("ambiguous activated ability")
-				}
-				b.ev(events.Event{Kind: events.AbilityPush, Player: ctrl, Obj: src, Amount: int32(idx)})
-			}
-			if len(b.g.Objs) == before {
-				b.sh.Fatal = "stack ability not created"
-				return
-			}
-			aid := b.g.Objs[len(b.g.Objs)-1].ID
-			b.bind(it.ObjectID, aid)
-			b.stageTargets(aid, it)
 		default:
 			b.sh.Fatal = "unstageable stack item " + it.StackKind
 			return
 		}
 	}
+}
+
+// stageAbility puts one triggered or activated ability on the stack; a
+// non-empty reason means it could not be identified.
+func (b *builder) stageAbility(it *v2agent.StackEntry, ctrl state.PlayerID) string {
+	src, ok := b.abilitySource(it)
+	if !ok {
+		return "source not staged"
+	}
+	o := b.g.Obj(src)
+	f := o.Face()
+	if f == nil {
+		return "source has no face"
+	}
+	before := len(b.g.Objs)
+	if it.StackKind == "triggered_ability" {
+		if n, names := cards.SagaChapters(f); n > 0 && len(names) > 0 {
+			lore := int(o.Counter("LORE"))
+			if lore < 1 {
+				lore = 1
+			}
+			if lore > len(names) {
+				lore = len(names)
+			}
+			b.ev(events.Event{Kind: events.DelayedPush, Player: ctrl, Obj: src, Amount: -1, Counter: names[lore-1]})
+		} else {
+			idx, sure := pickTrigger(f, o)
+			if idx < 0 {
+				return "no printed trigger"
+			}
+			if !sure {
+				b.lossy("ambiguous trigger")
+			}
+			b.ev(events.Event{Kind: events.TriggerPush, Player: ctrl, Obj: src, Amount: int32(idx)})
+		}
+	} else {
+		idx := -1
+		n := 0
+		for j, sa := range f.Abilities {
+			if sa != nil && sa.Kind == "AB" && sa.API != "Mana" {
+				if idx < 0 {
+					idx = j
+				}
+				n++
+			}
+		}
+		if n == 0 {
+			return "no printed activated ability"
+		}
+		if n > 1 {
+			b.lossy("ambiguous activated ability")
+		}
+		b.ev(events.Event{Kind: events.AbilityPush, Player: ctrl, Obj: src, Amount: int32(idx)})
+	}
+	if len(b.g.Objs) == before {
+		return "not created"
+	}
+	aid := b.g.Objs[len(b.g.Objs)-1].ID
+	b.bind(it.ObjectID, aid)
+	b.stageTargets(aid, it)
+	return ""
 }
 
 // abilitySource finds a stack ability's source: its source reference, else

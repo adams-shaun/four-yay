@@ -2,11 +2,13 @@ package v2shadow
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/spellbench/v2agent"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // A follow-up plan is what the gorge policy answered, in the shadow, for
@@ -36,6 +38,12 @@ type planStep struct {
 	order []int
 	pos   int // next unconsumed part
 	done  bool
+	// src is the name of the decision's source card ("" unknown): a wire
+	// decision naming another source is not this step's.
+	src string
+	// names are the options' object names (by option position; the label
+	// for an option naming no object).
+	names []string
 }
 
 // followPlan is one root decision's recorded follow-ups.
@@ -58,7 +66,19 @@ func optByIndex(d *decision.Decision, idx int) (*decision.Option, int) {
 
 // record adds one shadow follow-up (nd answered with in).
 func (fp *followPlan) record(sh *Shadow, nd *decision.Decision, in decision.Intent) {
-	st := &planStep{kind: nd.Kind, d: nd, in: in}
+	dc := nd.CloneValue() // the engine reuses its pending decision
+	nd = &dc
+	in.Choices = append([]int(nil), in.Choices...)
+	in.Rest = append([]int(nil), in.Rest...)
+	st := &planStep{kind: nd.Kind, d: nd, in: in, src: sourceName(sh, nd.Source)}
+	for i := range nd.Options {
+		o := &nd.Options[i]
+		n := o.Label
+		if ob := sh.E.G.Obj(o.Obj); o.Obj != 0 && ob != nil && ob.Face() != nil {
+			n = ob.Face().Name
+		}
+		st.names = append(st.names, n)
+	}
 	for _, c := range in.Choices {
 		o, pos := optByIndex(nd, c)
 		if o == nil {
@@ -74,6 +94,43 @@ func (fp *followPlan) record(sh *Shadow, nd *decision.Decision, in decision.Inte
 		}
 	}
 	fp.steps = append(fp.steps, st)
+}
+
+// sourceName is the folded face names ("|"-joined) of the card behind a
+// decision source object (an ability names its source's card), "" when
+// unknown.
+func sourceName(sh *Shadow, id state.ObjID) string {
+	o := sh.E.G.Obj(id)
+	for n := 0; o != nil && o.Face() == nil && o.Source != 0 && n < 4; n++ {
+		o = sh.E.G.Obj(o.Source)
+	}
+	if o == nil || o.Face() == nil {
+		return ""
+	}
+	if o.Card == nil {
+		return fold(o.Face().Name)
+	}
+	var names []string
+	for _, f := range o.Card.Faces {
+		if f != nil {
+			names = append(names, fold(f.Name))
+		}
+	}
+	return strings.Join(names, "|")
+}
+
+// wireSource is the wire decision's source card name (context, else the
+// first candidate naming one), "" when none is named.
+func wireSource(d *v2agent.Decision) string {
+	if d.Seat != nil && d.Seat.Context.Source != nil && d.Seat.Context.Source.CardName != nil {
+		return *d.Seat.Context.Source.CardName
+	}
+	for i := range d.Candidates {
+		if s := d.Candidates[i].Semantic.Source; s != nil && s.CardName != nil {
+			return *s.CardName
+		}
+	}
+	return ""
 }
 
 func refOf(sh *Shadow, o *decision.Option) planRef {
@@ -131,8 +188,9 @@ func (fp *followPlan) answer(d *v2agent.Decision) (int, bool) {
 			}
 		}
 	}
+	want := wireSource(d)
 	for _, st := range fp.steps {
-		if st.done {
+		if st.done || (want != "" && st.src != "" && !strings.Contains("|"+st.src+"|", "|"+fold(want)+"|")) {
 			continue
 		}
 		if k, ok := st.answer(d, kinds); ok {
@@ -346,6 +404,18 @@ func (st *planStep) answerArrange(d *v2agent.Decision) (int, bool) {
 			orderNames = append(orderNames, fold(n))
 		}
 	}
+	if len(st.in.Rest) == 0 {
+		// Pile B unordered by the answer: the engine keeps option order.
+		inA := map[int]bool{} // lookup only
+		for _, c := range st.in.Choices {
+			inA[c] = true
+		}
+		for i := range st.d.Options {
+			if o := &st.d.Options[i]; !inA[o.Index] {
+				orderNames = append(orderNames, fold(objName(st, o)))
+			}
+		}
+	}
 	// Count what the wire has already placed from this group: the
 	// substep index tells the position.
 	sub := int(d.Seat.Group.SubstepIndex)
@@ -378,9 +448,9 @@ func (st *planStep) answerArrange(d *v2agent.Decision) (int, bool) {
 }
 
 func objName(st *planStep, o *decision.Option) string {
-	for i, pos := range st.order {
-		if &st.d.Options[pos] == o && st.refs[i].name != "" {
-			return st.refs[i].name
+	for i := range st.d.Options {
+		if &st.d.Options[i] == o && i < len(st.names) {
+			return st.names[i]
 		}
 	}
 	return o.Label
@@ -456,4 +526,22 @@ func snakeWord(s string) string {
 		}
 	}
 	return strings.Trim(b.String(), "_")
+}
+
+// describe renders the plan (traces).
+func (fp *followPlan) describe() string {
+	if fp == nil {
+		return "plan=nil"
+	}
+	var parts []string
+	for _, st := range fp.steps {
+		var opts []string
+		for _, c := range st.in.Choices {
+			if o, _ := optByIndex(st.d, c); o != nil {
+				opts = append(opts, fmt.Sprintf("%s/%q/%s", o.Kind, o.Label, o.ManaSymbol))
+			}
+		}
+		parts = append(parts, fmt.Sprintf("{%s src=%s done=%v pos=%d min=%d max=%d chose=%v rest=%v nopts=%d}", st.kind, st.src, st.done, st.pos, st.d.Min, st.d.Max, opts, st.in.Rest, len(st.d.Options)))
+	}
+	return fmt.Sprintf("plan kick=%v/%v %s", fp.hasKicker, fp.kicker, strings.Join(parts, " "))
 }
