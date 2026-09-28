@@ -1680,7 +1680,9 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 		// Affected rewrite resolves against (the Effect-created damage-magnet
 		// family: Heroic Sacrifice, Kor Chant, Shield Dancer...). Objects only:
 		// the player half of a capture is unreachable here and fails closed.
-		e.replRemembered = e.replRemembered[:0]
+		// Each body owns its backing array: a nested runReplaceWith must not
+		// overwrite the saved outer body's referents through a shared slice.
+		e.replRemembered = nil
 		for _, tg := range ctx.Remembered {
 			if !tg.IsPlayer && tg.Obj != 0 {
 				e.replRemembered = append(e.replRemembered, tg.Obj)
