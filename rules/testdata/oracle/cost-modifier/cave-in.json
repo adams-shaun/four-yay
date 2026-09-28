@@ -1,0 +1,63 @@
+{
+  "card": "Cave-In",
+  "family": "cost-modifier",
+  "oracle_sha": "4664034eda7b",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "alt-cost-exiles-a-red-card",
+      "cr": ["118.9", "601.2b"],
+      "why": "Exiling a red card from hand is the alternative cost. Seat 0 exiles Lightning Bolt, so with no mana Cave-In resolves and deals 2 to each creature and each player, killing both 2-toughness creatures.",
+      "setup": {
+        "p0": {"hand": ["Cave-In", "Lightning Bolt"], "battlefield": ["Savannah Lions"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Cave-In",
+         "answers": [{"kind": "any", "pick": ["p0:Lightning Bolt"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "exile"},
+        {"card": "p0:Savannah Lions", "zone": "graveyard"},
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+        {"life": {"p0": 18}},
+        {"life": {"p1": 18}}
+      ]
+    },
+    {
+      "name": "alt-cost-needs-a-red-card",
+      "cr": ["118.9", "601.2b"],
+      "why": "No red card is in hand to exile (Cave-In itself is the spell being cast, not a card in hand) and the pool is empty, so the cast is not offered.",
+      "setup": {
+        "p0": {"hand": ["Cave-In"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Cave-In"}, "want": false}
+      ]
+    },
+    {
+      "name": "mana-cost-path-keeps-the-red-card",
+      "cr": ["118.9", "601.2f"],
+      "why": "With three generic and two red the {3}{R}{R} mana cost is paid instead: Lightning Bolt stays in hand and Cave-In still deals 2 to everything.",
+      "setup": {
+        "p0": {"hand": ["Cave-In", "Lightning Bolt"], "battlefield": ["Savannah Lions"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "RRCCC"},
+        {"op": "cast", "seat": 0, "card": "p0:Cave-In"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "hand"},
+        {"card": "p0:Savannah Lions", "zone": "graveyard"},
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+        {"life": {"p0": 18}},
+        {"life": {"p1": 18}}
+      ]
+    }
+  ]
+}

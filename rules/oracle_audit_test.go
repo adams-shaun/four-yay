@@ -45,22 +45,64 @@ import (
 // listed scenario must still FAIL (a fixed one is stale and fails the build
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
+//
+// NEW rows go in the family's own oracleDivergentFile
+// (testdata/oracle/<family>/known-divergent.json), not here: every audit
+// ticket appending to this one map made each merge conflict with every other
+// in-flight audit branch, and each conflict cost a merge-fix round plus a full
+// re-gate. The two sources are merged by oracleDivergent; a key in both, or a
+// file row naming a scenario of another family, fails the build. Rows here are
+// legacy and may be moved into the family files.
 var oracleKnownDivergent = map[string]string{
-	// (Purphoros, God of the Forge/low-devotion-not-a-creature retired when
-	// rules/layers.go's type-static emission read stat:Continuous RemoveType$
-	// -- the devotion gods' "isn't a creature" gate, pinned in
-	// rules/remove_type_static_test.go; the paramcensus rows retired with it.)
+	// (The Purphoros row retired when rules/layers.go's type-static emission
+	// read stat:Continuous RemoveType$ -- the devotion gods' "isn't a
+	// creature" gate, pinned in rules/remove_type_static_test.go; the
+	// paramcensus rows retired with it.)
+	// Gray Merchant's drain resolves but its subsequent life-gain amount is
+	// zero: the life-loss total is not propagated to the gain (effects/life.go,
+	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
+	"Gray Merchant of Asphodel/self-devotion-two-life-gain": "observed p0 life 20, expected 22 after two life lost by p1",
+	// (Mogis rows retired when the layer-4 type-static emission read
+	// stat:Continuous RemoveType$ -- the same fix that retired the Purphoros
+	// row above; both devotion gates are pinned in
+	// rules/remove_type_static_test.go.)
 	// Engine bug (CR 603.10a): a granted "whenever a creature you control
 	// dies" trigger is checked AFTER a non-SBA departure, so the departure
 	// that ends the grant's IsPresent$ condition loses its own trigger. The
 	// SBA path (only-cleric-dies-to-damage-looks-back) uses the pre-batch
 	// snapshot and passes.
-	"Relic Vial/only-cleric-dies-looks-back":              "destroying the only Cleric drains nobody (no look-back for an effect destroy)",
-	"Relic Vial/sacrifice-only-cleric-as-cost-looks-back": "sacrificing the only Cleric as a cost drains nobody (no look-back for a cost sacrifice)",
-	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
-	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
-	// so an Eminence trigger never fires from the command zone.
-	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Suspected script translation: Evendo's conditional may-play static uses
+	// an exiled-with-source affected zone plus a turn/SVar gate; the Bolt is
+	// exiled by its sacrifice trigger but is not offered from exile.
+	"Evendo Brushrazer/sacrifice-this-turn-allows-exiled-card-play": "Lightning Bolt was exiled, but casting it from exile was not offered during the turn (conditional may-play static)",
+	// Suspected script translation: the Knight graveyard permission is a
+	// conditional continuous may-play static; Haakon is present, but the
+	// Knight in its controller's graveyard is not offered.
+	"Haakon, Stromgald Scourge/haakon-on-battlefield-permits-knight-from-graveyard": "Knight of the Ebon Legion from the graveyard was not offered while Haakon was on the battlefield",
+	// Script translation: the once-per-turn permission is tracked per
+	// affected spell, so Darksteel Monolith's free-cast grant is available again.
+	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
+	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
+	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Thor damage 0; expected p0 life 20 and Thor damage 3",
+	// Engine primitive: the Effect-created entry replacement from the attack
+	// trigger does not put its counter on the remembered Hero returned from the graveyard.
+	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
+	// Engine/script gap: max-speed-gated AddAbility is not offered after the
+	// three turn-specific speed increases (CR 702.179).
+	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",
+	// Script translation: Brotherhood Scribe's CounterAddedOnce trigger does
+	// not produce the printed team-wide +1/+1 bonus after its energy ability.
+	"Brotherhood Scribe/metalcraft-three-artifacts-gives-energy": "observed Scribe 1/3 and Lions 2/1, expected 2/4 and 3/2 after energy",
+	// Script translation: Urza's Workshop's conditional Urza-land count is
+	// not reflected in its mana ability; the three-land board produces one C.
+	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
+	// Engine filter gap: Captain Marvel's script uses Creature...+nonKree,
+	// which the trigger matcher fails closed on (also noted in acceptance_test.go).
+	"Captain Marvel, Apex Avenger/non-kree-creature-counter-is-copied": "Experiment One gets a counter, but Captain Marvel stays 4/4 with none (nonKree filter fails closed)",
+	// Engine trigger-chain gap: Earthbender's script chains ImmediateTrigger
+	// with ConditionCheckSVar$ and ConditionPresent$; the mixed condition shape
+	// is unresolved in effects/conditions.go, and the fourth-counter follow-up is lost.
+	"Earthbender Ascension/fourth-landfall-reaches-quest-threshold": "4 quest counters reached, but target gets no +1/+1 counter or Trample (reflexive trigger chain lost)",
 }
 
 type oracleFile struct {
@@ -461,6 +503,26 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	return nil
 }
 
+func oracleLabelMatches(label, want string) bool {
+	normalize := func(s string) string {
+		s = strings.ToLower(s)
+		s = strings.NewReplacer("{", "", "}", "").Replace(s)
+		return s
+	}
+	return strings.Contains(normalize(label), normalize(want))
+}
+
+// manaAbilityLabels returns the engine's currently available mana abilities,
+// which are the authoritative named candidates behind the generic priority option.
+func (r *oracleRun) manaAbilityLabels(seat state.PlayerID, id state.ObjID) []string {
+	abilities := r.e.availableManaAbilities(seat, id)
+	labels := make([]string, 0, len(abilities))
+	for _, ma := range abilities {
+		labels = append(labels, manaAbilityLabel(ma, r.e.chosenProducedColour(id)))
+	}
+	return labels
+}
+
 func optionDump(d *decision.Decision) string {
 	var b strings.Builder
 	for _, o := range d.Options {
@@ -678,10 +740,30 @@ func (r *oracleRun) do(st oracleStep) error {
 		// cast, an explicit cast_mode (flashback, evoke, ...) when given, and
 		// otherwise the plain cast -- or, when the card offers only a
 		// permission-mode cast (a graveyard "mayplay"), that one.
-		idx, fallback := -1, -1
+		idx, fallback, manaFallback := -1, -1, -1
 		wantMode := st.CastMode
 		if st.Kicked {
 			wantMode = "kicked"
+		}
+		// A named mana ability lives behind the generic "Activate <card> for
+		// mana" priority option: the engine asks a second-stage KChoose over
+		// the source's available mana abilities (or, when exactly one is
+		// available, resolves it with no ask at all). The generic option may
+		// stand in for a requested label only when that label names an ability
+		// the source can currently produce -- the same authoritative set the
+		// offer and the second stage are built from -- otherwise the step must
+		// fail loudly below instead of silently activating a different ability
+		// (or a mana ability when a non-mana label was requested).
+		manaLabels := []string(nil)
+		requestedManaAbility := false
+		if st.Op == "activate" && st.Ability != "" {
+			manaLabels = r.manaAbilityLabels(seat, id)
+			for _, label := range manaLabels {
+				if oracleLabelMatches(label, st.Ability) {
+					requestedManaAbility = true
+					break
+				}
+			}
 		}
 		for _, o := range d.Options {
 			if o.Obj != id {
@@ -696,20 +778,71 @@ func (r *oracleRun) do(st oracleStep) error {
 					fallback = o.Index
 				}
 			}
-			if st.Op == "activate" && (o.Kind == "ability" || o.Kind == "activate") &&
-				strings.Contains(strings.ToLower(o.Label), strings.ToLower(st.Ability)) {
-				idx = o.Index
-				break
+			if st.Op == "activate" && (o.Kind == "ability" || o.Kind == "activate") {
+				if st.Ability == "" || oracleLabelMatches(o.Label, st.Ability) {
+					idx = o.Index
+					break
+				}
+				if o.Kind == "activate" && requestedManaAbility && strings.Contains(strings.ToLower(o.Label), "for mana") && manaFallback < 0 {
+					manaFallback = o.Index
+				}
 			}
+		}
+		if idx < 0 {
+			idx = manaFallback
 		}
 		if idx < 0 {
 			idx = fallback
 		}
 		if idx < 0 {
-			return harnessf("%s %s not offered: %s", st.Op, st.Card, optionDump(d))
+			want := ""
+			if st.Ability != "" {
+				want = fmt.Sprintf(" (ability: %q)", st.Ability)
+			}
+			return harnessf("%s %s not offered%s: %s", st.Op, st.Card, want, optionDump(d))
 		}
 		if err := r.submit(d, []int{idx}, st.Op); err != nil {
 			return err
+		}
+		if st.Op == "activate" && st.Ability != "" && d.Options[idx].Kind == "activate" &&
+			!oracleLabelMatches(d.Options[idx].Label, st.Ability) {
+			// The generic mana option was submitted for a named ability. When
+			// the engine poses the second-stage wheel, the requested label must
+			// be among its options. When it does NOT -- exactly one ability was
+			// available and the engine resolved it with no ask -- the requested
+			// label must have been that single ability (checked above against
+			// the same set); a multi-ability source that never asks, or a single
+			// ability that does not match, is an error, never a silent
+			// different-ability activation.
+			choice := e.Pending()
+			if choice != nil && choice.Kind == decision.KChoose && choice.Source == id {
+				manaOptions := false
+				for _, o := range choice.Options {
+					if o.Kind == "mana" {
+						manaOptions = true
+						if oracleLabelMatches(o.Label, st.Ability) {
+							if err := r.submit(choice, []int{o.Index}, "mana ability"); err != nil {
+								return err
+							}
+							break
+						}
+					}
+				}
+				if manaOptions {
+					matched := false
+					for _, o := range choice.Options {
+						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
+							matched = true
+							break
+						}
+					}
+					if !matched {
+						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
+					}
+				}
+			} else if len(manaLabels) != 1 || !oracleLabelMatches(manaLabels[0], st.Ability) {
+				return harnessf("mana ability %q not offered (available: %v)", st.Ability, manaLabels)
+			}
 		}
 		return r.untilPriority(st.Op)
 	case "play":
@@ -1021,8 +1154,15 @@ func (r *oracleRun) check(x oracleExpect) []string {
 			found := false
 			for _, o := range d.Options {
 				kindOK := o.Kind == x.Offered.Kind || (x.Offered.Kind == "activate" && o.Kind == "ability")
-				if o.Obj == id && kindOK && strings.Contains(strings.ToLower(o.Label), strings.ToLower(x.Offered.Label)) {
+				if o.Obj == id && kindOK && oracleLabelMatches(o.Label, x.Offered.Label) {
 					found = true
+				}
+			}
+			if x.Offered.Kind == "activate" && x.Offered.Label != "" {
+				for _, label := range r.manaAbilityLabels(state.PlayerID(x.Offered.Seat), id) {
+					if oracleLabelMatches(label, x.Offered.Label) {
+						found = true
+					}
 				}
 			}
 			if found != r.wantBool(x) {
@@ -1120,6 +1260,59 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 	return fails, r.log, r
 }
 
+// oracleDivergentFile is a family directory's ratchet rows: one flat JSON
+// object, "<card>/<scenario>" -> the one-line observed-vs-expected reason.
+// It is not a scenario file; loadOracleFiles skips it.
+const oracleDivergentFile = "known-divergent.json"
+
+// oracleDivergentRow is one ratchet row and where it came from: the family of
+// the file that holds it, or "" for the legacy oracleKnownDivergent map.
+type oracleDivergentRow struct {
+	reason, family string
+}
+
+// oracleDivergent merges the legacy oracleKnownDivergent map with every
+// family's oracleDivergentFile. It needs no corpus, so the scenario-schema
+// test holds the files to their shape where the author works.
+func oracleDivergent(t *testing.T) map[string]oracleDivergentRow {
+	t.Helper()
+	out := make(map[string]oracleDivergentRow, len(oracleKnownDivergent))
+	for k, v := range oracleKnownDivergent {
+		out[k] = oracleDivergentRow{reason: v}
+	}
+	paths, err := filepath.Glob(filepath.Join("testdata", "oracle", "*", oracleDivergentFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range paths {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rows map[string]string
+		if err := json.Unmarshal(raw, &rows); err != nil {
+			t.Fatalf("%s: want one JSON object of \"<card>/<scenario>\": \"reason\" rows: %v", p, err)
+		}
+		fam := filepath.Base(filepath.Dir(p))
+		for k, v := range rows {
+			if !strings.Contains(k, "/") || strings.TrimSpace(v) == "" {
+				t.Errorf("%s: row %q needs a \"<card>/<scenario>\" key and a non-empty reason", p, k)
+				continue
+			}
+			if prev, dup := out[k]; dup {
+				where := "oracleKnownDivergent"
+				if prev.family != "" {
+					where = filepath.Join(prev.family, oracleDivergentFile)
+				}
+				t.Errorf("%s: row %q is also listed in %s", p, k, where)
+				continue
+			}
+			out[k] = oracleDivergentRow{reason: v, family: fam}
+		}
+	}
+	return out
+}
+
 func loadOracleFiles(t *testing.T) map[string]oracleFile {
 	t.Helper()
 	paths, err := filepath.Glob(filepath.Join("testdata", "oracle", "*", "*.json"))
@@ -1128,6 +1321,9 @@ func loadOracleFiles(t *testing.T) map[string]oracleFile {
 	}
 	out := map[string]oracleFile{}
 	for _, p := range paths {
+		if filepath.Base(p) == oracleDivergentFile {
+			continue
+		}
 		raw, err := os.ReadFile(p)
 		if err != nil {
 			t.Fatal(err)
@@ -1163,6 +1359,24 @@ var oracleOps = map[string]bool{
 // directory, unique scenario names, the step vocabulary, and ref syntax.
 func TestOracleScenarioFilesWellFormed(t *testing.T) {
 	files := loadOracleFiles(t)
+	// The ratchet files are checked here too (shape, duplicates, family), so
+	// a triage edit gets feedback without the corpus.
+	divergent := oracleDivergent(t)
+	scenarioFamily := map[string]string{}
+	for _, f := range files {
+		for _, sc := range f.Scenarios {
+			scenarioFamily[f.Card+"/"+sc.Name] = f.Family
+		}
+	}
+	for key, row := range divergent {
+		fam, ok := scenarioFamily[key]
+		switch {
+		case !ok:
+			t.Errorf("ratchet row %q names no scenario", key)
+		case row.family != "" && row.family != fam:
+			t.Errorf("ratchet row %q is in %s/%s but the scenario is family %q", key, row.family, oracleDivergentFile, fam)
+		}
+	}
 	checkRef := func(where, ref string) {
 		if ref == "" {
 			return
@@ -1217,6 +1431,7 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 func TestOracleAudit(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	files := loadOracleFiles(t)
+	divergent := oracleDivergent(t)
 	paths := make([]string, 0, len(files))
 	for p := range files {
 		paths = append(paths, p)
@@ -1247,13 +1462,17 @@ func TestOracleAudit(t *testing.T) {
 						t.Errorf("log-only replay differs:\n%s", diff)
 					}
 				}
-				known, isKnown := oracleKnownDivergent[key]
+				row, isKnown := divergent[key]
+				known := row.reason
+				if isKnown && row.family != "" && row.family != f.Family {
+					t.Errorf("ratchet row for %s is in %s/%s but the scenario is family %q", key, row.family, oracleDivergentFile, f.Family)
+				}
 				if os.Getenv("ORACLE_AUDIT_TRACE") != "" {
 					t.Logf("transcript:\n    %s", strings.Join(transcript, "\n    "))
 				}
 				switch {
 				case len(fails) == 0 && isKnown:
-					t.Errorf("stale known divergence (the scenario now passes; delete its oracleKnownDivergent row): %s", known)
+					t.Errorf("stale known divergence (the scenario now passes; delete its row from %s/%s or oracleKnownDivergent): %s", f.Family, oracleDivergentFile, known)
 				case len(fails) > 0 && isKnown:
 					t.Logf("known divergence: %s\n  observed: %s", known, strings.Join(fails, "\n  observed: "))
 				case len(fails) > 0:
@@ -1263,9 +1482,13 @@ func TestOracleAudit(t *testing.T) {
 			})
 		}
 	}
-	for key := range oracleKnownDivergent {
+	for key, row := range divergent {
 		if !seen[key] {
-			t.Errorf("oracleKnownDivergent row %q names no scenario", key)
+			where := "oracleKnownDivergent"
+			if row.family != "" {
+				where = filepath.Join(row.family, oracleDivergentFile)
+			}
+			t.Errorf("%s row %q names no scenario", where, key)
 		}
 	}
 }

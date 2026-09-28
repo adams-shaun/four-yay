@@ -1,0 +1,141 @@
+{
+  "card": "Deadly Rollick",
+  "family": "command-zone",
+  "oracle_sha": "5e306a2ee456",
+  "author": "cli-20260927T211250Z-1c17051b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "commander-controlled-free-exile",
+      "cr": [
+        "903.3",
+        "118.9",
+        "601.2f",
+        "608.2c"
+      ],
+      "why": "The designated commander is on the battlefield under our control; its presence permits the alternative zero-mana payment, and the target is exiled.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Deadly Rollick"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Isamaru, Hound of Konda",
+          "to": "battlefield"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Deadly Rollick",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "exile"
+        }
+      ]
+    },
+    {
+      "name": "command-zone-and-other-legend-not-free",
+      "cr": [
+        "903.3",
+        "118.9",
+        "601.2f"
+      ],
+      "why": "A commander in the command zone is not controlled; a different legendary creature on the battlefield cannot qualify. The ordinary four-mana payment still works.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Jocasta, Automaton Avenger"
+          ],
+          "hand": [
+            "Deadly Rollick"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Deadly Rollick"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "without-commander-paid-four",
+      "cr": [
+        "118.9",
+        "601.2f"
+      ],
+      "why": "Without a controlled commander the spell can still be paid for normally using three generic and a black mana.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "hand": [
+            "Deadly Rollick"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Deadly Rollick",
+          "mana": "CCCB",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "exile"
+        }
+      ]
+    }
+  ]
+}

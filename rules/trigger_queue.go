@@ -214,7 +214,7 @@ func triggerOrdersDuplicates(t cards.Trigger) bool {
 func (pt pendingTrigger) printed() bool {
 	return !pt.Delayed && !pt.Granted && pt.Merged == 0 && !pt.Miracle && !pt.Madness &&
 		!pt.Evoke && !pt.Gift && pt.Ward == "" && pt.Afflict == "" && !pt.Conspire && !pt.Casualty && !pt.Cascade &&
-		!pt.Exploit && !pt.Offspring && !pt.Mentor && pt.RingEmblem == 0 && pt.Cipher == 0
+		!pt.Exploit && !pt.Offspring && !pt.Mentor && pt.RingEmblem == 0 && pt.Cipher == 0 && !pt.SpeedIncrease
 }
 
 // orderDuplicatesGroup returns the duplicate-group identity of pt's trigger
@@ -383,6 +383,10 @@ func (e *Engine) takeAnsweredTrigger(d *decision.Decision) (pendingTrigger, bool
 // is recorded, and it is the whole of what a log-only replay needs. No event
 // kind and no Event field was added for Task 27.
 func (e *Engine) pushTrigger(pt pendingTrigger) {
+	if pt.SpeedIncrease {
+		e.emit(events.Event{Kind: events.DelayedPush, Player: pt.Controller, Counter: speedTrigger})
+		return
+	}
 	if pt.RadiationDrain {
 		if int(pt.Controller) >= len(e.G.Players) || e.G.Players[pt.Controller].Lost {
 			return
@@ -1583,6 +1587,9 @@ func (e *Engine) triggerLabel(pt pendingTrigger) string {
 	// may appear in an ordering ask beside ordinary simultaneous triggers.
 	// The emblem's own label, before triggerOf -- an emblem entry has no face
 	// to read a TriggerDescription$ from.
+	if pt.SpeedIncrease {
+		return "Speed: whenever an opponent loses life during your turn"
+	}
 	if pt.RingEmblem > 0 {
 		return ringEmblemLabel(pt.RingEmblem)
 	}

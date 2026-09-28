@@ -23,6 +23,7 @@
   } from '../lib/seatpanel.svelte';
   import { laterByObj, optionsByObj, optionsByPlayer, resolveCardFollowUp, type CardOptions } from '../lib/cardoptions';
   import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
+  import { castableActions } from '../lib/announcepay';
   import { rematchDecks, startRematch } from '../lib/playvsbot';
   import { stuckDecision } from '../lib/prompt';
   import { loadLogShown, saveLogShown, type LogScope } from '../lib/logshown';
@@ -461,7 +462,7 @@
                marked and carries the same options menu (one mechanism, one
                index, one post path). boardOptions is null for a spectator /
                when nothing is pending, so no hand card is marked. -->
-          <HandFan player={ownPlayer} options={boardOptions} paymentActions={panel?.autoManaAvailable && panel.autoPayMana ? (panel.active?.payment_actions ?? []) : []} onCastPayment={(action, holdPriority) => panel?.submitPayment(action, action.plans[0], holdPriority)} />
+          <HandFan player={ownPlayer} options={boardOptions} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
         {/if}
       </section>
       <aside class="rail">

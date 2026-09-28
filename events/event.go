@@ -264,7 +264,7 @@ const (
 	// checkTriggers), so this event is the whole state delta. Appended
 	// after ExtraTurn, same append-only precedent.
 	DoorUnlock
-	// SpeedChange records one increment of a seat's speed (CR 702.163,
+	// SpeedChange records one increment of a seat's speed (CR 702.179,
 	// "Start your engines!"). Player is the seat whose speed rises and
 	// Amount the delta (always +1 today; the engine caps the grant at max
 	// speed 4 and at once per turn before ever emitting). Folded into
@@ -1021,10 +1021,22 @@ const (
 	// face, and by effects' DB$ ChaosEnsues (the "Will of the Planeswalkers"
 	// cycle). Appended here after Specialize; earlier ordinals remain stable.
 	ChaosEnsues
+	// ManaUndo reverses one mana activation made in an announced CR 601.2g
+	// payment window (the "Undo last tap" / "Cancel cast" answers,
+	// docs/superpowers/specs/2026-09-27-announce-then-pay.md §5, CR 733.1).
+	// Player is the payer; Counter/Amount name exactly one ManaAdd the
+	// activation made (Amount > 0 is the number of units removed from that
+	// counter's pool slot and its snow/typed tally); a non-zero Obj also
+	// untaps that source. It is deliberately NOT a negative ManaAdd (the spend
+	// scans count those as mana spent on the spell on the stack) nor an Untap
+	// (a trigger-interest kind and a replacement target: a reversal neither
+	// triggers nor is replaced). Emitted only from the announced window, so no
+	// bot game and no golden replay contains it. Appended after ChaosEnsues.
+	ManaUndo
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ChaosEnsues) + 1
+	NumKinds = int(ManaUndo) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1168,7 +1180,7 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"delayed_remove", "turn_face_up", "searched_library", "keyword_ability_push", "scry", "store_svar", "turn_face_down", "clone_static",
 	"damage_provenance", "enduring_story_change", "phase_out", "gift_promise", "give_gift", "roll_dice",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
-	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues"}
+	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

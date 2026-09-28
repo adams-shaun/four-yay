@@ -1,0 +1,63 @@
+{
+  "card": "Daze",
+  "family": "cost-modifier",
+  "oracle_sha": "62dc4194e3f4",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "alt-cost-returns-island-and-counters",
+      "cr": ["118.9", "601.2b", "601.2h"],
+      "why": "Returning an Island is the alternative cost, so with no mana seat 0 returns its Island and Daze counters seat 0's own Lightning Bolt (the controller does not pay the {1}).",
+      "setup": {
+        "p0": {"hand": ["Daze", "Lightning Bolt"], "battlefield": ["Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "cast", "seat": 0, "card": "p0:Daze", "targets": ["p0:Lightning Bolt"],
+         "answers": [{"kind": "any", "pick": ["p0:Island"]}]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Island", "zone": "hand"},
+        {"card": "p0:Lightning Bolt", "zone": "graveyard"},
+        {"life": {"p1": 20}}
+      ]
+    },
+    {
+      "name": "alt-cost-needs-an-island",
+      "cr": ["118.9", "601.2b"],
+      "why": "Seat 0 controls no Island to return, and the pool is empty, so Daze is not offered even with a spell on the stack to target.",
+      "setup": {
+        "p0": {"hand": ["Daze", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Daze"}, "want": false}
+      ]
+    },
+    {
+      "name": "mana-cost-path-keeps-island",
+      "cr": ["118.9", "601.2f"],
+      "why": "With one generic and one blue the {1}{U} mana cost is paid instead, the Island stays on the battlefield, and the Bolt is still countered when the {1} is not paid.",
+      "setup": {
+        "p0": {"hand": ["Daze", "Lightning Bolt"], "battlefield": ["Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "mana", "seat": 0, "mana": "UC"},
+        {"op": "cast", "seat": 0, "card": "p0:Daze", "targets": ["p0:Lightning Bolt"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Island", "zone": "battlefield"},
+        {"card": "p0:Lightning Bolt", "zone": "graveyard"},
+        {"life": {"p1": 20}}
+      ]
+    }
+  ]
+}

@@ -356,7 +356,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip bool, fn func(id sta
 		buf = nil
 	}
 	for si, p := range e.G.AliveFrom(0) {
-		for z := state.ZLibrary; z <= state.ZStack; z++ {
+		for _, z := range objectWalkZones {
 			if z == state.ZStack && si != 0 {
 				continue
 			}

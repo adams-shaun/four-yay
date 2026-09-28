@@ -3491,12 +3491,14 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 							out = append(out, decision.Option{Index: len(out), Kind: "ability",
 								Label: abFace.Name + ": " + ab.Params["SpellDescription"], Obj: id, Ability: i,
 								Cost:  e.abilityOfferCost(p, id, ab),
-								Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach"})
+								Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach",
+								GrantStatics: staticModesFromSVars(ab, abFace.SVars)})
 						}
 						if altOK {
 							out = append(out, decision.Option{Index: len(out), Kind: "ability",
 								Label: abFace.Name + ": " + ab.Params["SpellDescription"] + " (alternate cost)",
-								Obj:   id, Ability: i, AltCostIndex: 1, Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach"})
+								Obj:   id, Ability: i, AltCostIndex: 1, Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach",
+								GrantStatics: staticModesFromSVars(ab, abFace.SVars)})
 						}
 					}
 					// Keyword-granted cycling (CR 613.1f): a layer-6 AddKeyword$
@@ -3754,7 +3756,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 			}
 		}
 
-		// kw:Start your engines (CR 702.163c, rules/speed.go): a max-speed
+		// kw:Start your engines (CR 702.179e, rules/speed.go): a max-speed
 		// static grants its AddAbility$ while its controller has speed 4, and
 		// the granted ability is offered through the same cost/target gates
 		// every other activation uses. NOT sorcery-gated: the grant is an
@@ -4100,7 +4102,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj})
 
 	case "granted":
-		// kw:Start your engines (CR 702.163c, rules/speed.go): a max-speed
+		// kw:Start your engines (CR 702.179e, rules/speed.go): a max-speed
 		// static's granted ability, activated through the ordinary cost
 		// payment and the delayed-shape ability mint.
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})

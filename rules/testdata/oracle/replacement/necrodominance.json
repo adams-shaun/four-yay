@@ -1,0 +1,56 @@
+{
+  "card": "Necrodominance",
+  "family": "replacement",
+  "oracle_sha": "23477e073850",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "draw-step-skipped",
+      "cr": ["614.1b"],
+      "why": "The static effect skips its controller's draw step. The setup enchantment is present before the game begins, so the first player's turn-three draw does not add a card.",
+      "setup": {"p0": {"battlefield": ["Necrodominance"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
+      "expect": [{"hand_size": {"p0": 0}}]
+    },
+    {
+      "name": "card-going-to-graveyard-exiled-instead",
+      "cr": ["614.1a", "614.6"],
+      "why": "A card that would be put into its controller's graveyard from the stack is exiled instead, so the resolved Lightning Bolt is not in the graveyard.",
+      "setup": {"p0": {"battlefield": ["Necrodominance"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Lightning Bolt", "zone": "exile"}]
+    },
+    {
+      "name": "opponents-spell-goes-to-their-graveyard",
+      "cr": ["614.1a", "614.6"],
+      "why": "The replacement changes cards that would go into this enchantment controller's graveyard, not an opponent's; the opponent's resolved Lightning Bolt goes to its owner's graveyard.",
+      "setup": {"p0": {"battlefield": ["Necrodominance"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Lightning Bolt", "zone": "graveyard"},
+        {"life": {"p0": 17}}
+      ]
+    },
+    {
+      "name": "without-enchantment-draw-step-draws",
+      "cr": ["614.1b"],
+      "why": "Without the skip effect, the first player's turn-three draw step draws one card normally.",
+      "setup": {"p0": {}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p0"}
+      ],
+      "expect": [{"hand_size": {"p0": 1}}]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "card": "Constant Mists",
+  "family": "replacement",
+  "oracle_sha": "141b58e87ca9",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "combat-damage-prevented",
+      "cr": ["615.1a", "615.4", "120.3a"],
+      "why": "Once Constant Mists resolves, combat damage for the turn is prevented, so the attacker does not reduce the defending player's life.",
+      "setup": {"p0": {"hand": ["Constant Mists"], "battlefield": ["Grizzly Bears"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Constant Mists", "mana": "GG"},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p1": 20}}]
+    },
+    {
+      "name": "noncombat-damage-unaffected",
+      "cr": ["615.1a", "615.4", "120.3a"],
+      "why": "The effect is limited to combat damage; a subsequent noncombat Lightning Bolt still deals three damage.",
+      "setup": {"p0": {"hand": ["Constant Mists", "Lightning Bolt"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Constant Mists", "mana": "GG"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p1": 17}}]
+    }
+  ]
+}

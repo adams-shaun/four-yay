@@ -160,7 +160,11 @@ describe('SeatPanel — payment plans', () => {
     expect(html).toContain('Cast Grizzly Bears');
   });
 
-  it('with the table capability on but the seat preference off, the list is the legacy one and a plan-only cast is not shown', () => {
+  // Amended by announce-then-pay (docs/superpowers/specs/2026-09-27-announce-then-pay.md
+  // §8, §9): with the preference off the legacy options are unchanged, no
+  // suggested-plan group is shown, and a plan-only cast is offered as ONE
+  // announce row that opens the select-mana window.
+  it('with the table capability on but the seat preference off, the list is the legacy one plus an announce row for a plan-only cast', () => {
     const d: Decision = {
       ...priority,
       payment_actions: [
@@ -174,7 +178,10 @@ describe('SeatPanel — payment plans', () => {
     const html = render(SeatPanel, { props: { ...props(view(d)), state } }).html;
     expect(html).toContain('data-auto-pay-toggle');
     expect(html).not.toContain('data-payment-actions');
-    expect(html).not.toContain('Cast Future Spell');
+    expect(html).not.toContain('data-payment-plan=');
+    expect(html).toContain('data-announce="b"');
+    expect(html.match(/Cast Future Spell/g)).toHaveLength(1);
+    expect(html).not.toContain('data-announce="a"');
     expect(html).toContain('data-option="0"');
     expect(html).toContain('Cast Grizzly Bears');
   });

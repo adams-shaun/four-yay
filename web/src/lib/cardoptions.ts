@@ -191,7 +191,9 @@ export type SingleActionIcon = 'cast' | 'tap' | 'target' | 'attack' | 'block' | 
 export function scenarioIconOf(kind: string): SingleActionIcon {
   switch (kind) {
     case 'cast': return 'cast';
-    case 'activate': return 'tap';
+    // 'mana' is an announced select-mana window's per-ability option
+    // (announce-then-pay): the board tile answers it by tapping the source.
+    case 'activate': case 'mana': return 'tap';
     case 'permanent':
     case 'player': return 'target';
     case 'attacker': return 'attack';
@@ -301,11 +303,14 @@ export function tileScenario(tile: Pick<TileOptions, 'list'>): TileScenario | nu
  * A collapsed pile of interchangeable mana sources can act like one physical
  * button when every offered action has identical object-independent wire
  * semantics. The option with the lowest wire index wins; member/list order is
- * not option identity (R-E4-1).
+ * not option identity (R-E4-1). An announced select-mana window's per-source
+ * `mana` options (announce-then-pay) collapse the same way: a pile of basic
+ * Swamps offering "Add B" each is one tap, while a dual land's two colours
+ * differ in wire semantics and keep the picker.
  */
 export function singleTapOptionOf(tile: TileOptions): Option | null {
   if (hasLater(tile)) return null;
-  if (tile.list.length === 0 || tile.list.some((o) => o.kind !== 'activate')) return null;
+  if (tile.list.length === 0 || tile.list.some((o) => o.kind !== 'activate' && o.kind !== 'mana')) return null;
 
   const semantics = (option: Option) => JSON.stringify(
     Object.entries(option)

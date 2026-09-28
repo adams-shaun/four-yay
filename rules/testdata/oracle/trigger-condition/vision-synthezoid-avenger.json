@@ -1,0 +1,112 @@
+{
+  "card": "Vision, Synthezoid Avenger",
+  "family": "trigger-condition",
+  "oracle_sha": "c167dff0bb25",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-turn-cast-grows-vision",
+      "cr": [
+        "603.4"
+      ],
+      "why": "A spell cast during the other player\u2019s turn passes the condition; choosing the counter mode makes Vision 4/4. After reaching the upkeep, the active player passes priority once, allowing the nonactive player to cast.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Vision, Synthezoid Avenger"
+          ],
+          "hand": [
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1"
+          ],
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Vision, Synthezoid Avenger",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Vision, Synthezoid Avenger",
+          "counters": {
+            "+1/+1": 1
+          },
+          "pt": "4/4"
+        }
+      ]
+    },
+    {
+      "name": "active-player-cast-no-trigger",
+      "cr": [
+        "603.4"
+      ],
+      "why": "A player casts on their own turn; Vision sees no off-turn cast and has no trigger on the stack.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Vision, Synthezoid Avenger"
+          ],
+          "hand": [
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1"
+          ],
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Vision, Synthezoid Avenger",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Vision, Synthezoid Avenger",
+          "counters": {
+            "+1/+1": 0
+          },
+          "pt": "3/3"
+        }
+      ]
+    }
+  ]
+}

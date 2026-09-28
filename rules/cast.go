@@ -97,6 +97,12 @@ type pendingCast struct {
 	payment         *plannedCastPayment
 	paymentNext     int
 	paymentFallback *decision.PaymentFallback
+	// announced marks a cast begun by Intent.Announce (announce-then-pay
+	// spec, rules/announce_pay.go): its CR 601.2g window is the announced
+	// one. windowTaps records the activations made from that window, for
+	// Undo last tap and Cancel cast. Both are zero for every other cast.
+	announced  bool
+	windowTaps []windowTap
 
 	// grantSource / grantSVar (task grantcost1) anchor a GRANTED activation
 	// (rules/speed.go's beginGrantedActivation, reached from the max-speed
@@ -2348,6 +2354,17 @@ func (e *Engine) beginCast(p state.PlayerID, opt decision.Option) {
 // client cast descriptor: the selector is resolved against the offered action
 // in Submit before this point.
 func (e *Engine) beginCastWithPayment(p state.PlayerID, opt decision.Option, selection *decision.PaymentSelection) {
+	e.beginCastWith(p, opt, selection, false)
+}
+
+// beginCastAnnounced begins an announced cast (Intent.Announce): the ordinary
+// cast transaction with no witness, whose CR 601.2g window is the announced
+// "select mana" window (rules/announce_pay.go).
+func (e *Engine) beginCastAnnounced(p state.PlayerID, opt decision.Option) {
+	e.beginCastWith(p, opt, nil, true)
+}
+
+func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection *decision.PaymentSelection, announced bool) {
 	id := opt.Obj
 	o := e.G.Obj(id)
 	if o == nil {
@@ -2983,6 +3000,9 @@ func (e *Engine) beginCastWithPayment(p state.PlayerID, opt decision.Option, sel
 	}
 	if selection != nil && e.cast != nil {
 		e.cast.payment = &plannedCastPayment{actionID: selection.ActionID, plan: decision.ClonePaymentPlan(selection.Plan)}
+	}
+	if announced && e.cast != nil {
+		e.cast.announced = true
 	}
 	e.continueCast()
 }
@@ -7846,6 +7866,32 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 	case "done":
 		// CR 601.2g: the player declines further mana abilities; pay the cost.
 		pc.windowDone = true
+	case "mana":
+		// The announced window's per-ability option (announce_pay.go).
+		if pc.announced && len(chosen) > 0 {
+			e.announcedActivate(pc, chosen[0])
+		}
+	case decision.OptAutoFill:
+		// Auto-fill: the planner's activations for what is still owed, run by
+		// the ordinary plan executor on re-entry (spec §4.4). The plan is
+		// re-derived at the unchanged state the ask priced.
+		if pc.announced {
+			if plan := e.announcedAutoFillPlan(pc, e.castPaymentMana(pc)); plan != nil {
+				pc.payment = &plannedCastPayment{actionID: decision.OptAutoFill, plan: *plan}
+				pc.paymentNext = 0
+				pc.paymentFallback = nil
+			}
+		}
+	case decision.OptUndoTap:
+		if pc.announced {
+			if _, ok := e.undoableWindowTap(pc); ok {
+				e.undoWindowTap(pc)
+			}
+		}
+	case decision.OptCancelCast:
+		if pc.announced {
+			e.cancelAnnouncedCast(pc)
+		}
 	}
 }
 
@@ -9363,6 +9409,11 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 		return false
 	}
 	ma := step.ma
+	if pc.announced {
+		// An Auto-fill step of an announced window is an in-window
+		// activation too: Undo last tap and Cancel cast may reverse it.
+		e.beginWindowTap(pc, pa.Source, step.tier == paymentTierNormal)
+	}
 	pc.paymentNext++ // a synchronous continuation may re-enter payCast.
 	// The planner already resolved the exact ability to run: the original for
 	// fixed production, or a withProduced copy carrying the selected colour
@@ -9452,6 +9503,20 @@ func (e *Engine) manaWindowAsk() bool {
 	if e.costPayableClassLife(pc.player, paymentForCast(pc, mana),
 		pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, mana, false) {
 		return false
+	}
+	if pc.announced {
+		// Announce then pay: the "select mana" window, posed even with no
+		// untapped source left so the caster can undo or cancel. A plan
+		// (Auto-fill) that ran every step yet left the pool short falls back
+		// into it with its reason, as a planned cast does.
+		if pc.payment != nil {
+			reason := e.paymentPlanCheck(pc)
+			if reason == "" {
+				reason = paymentFallbackProductionChanged
+			}
+			e.paymentPlanFallback(pc, reason)
+		}
+		return e.announcedManaWindowAsk(pc, mana)
 	}
 	var sources []state.ObjID
 	for _, id := range e.manaSourceIDs(pc.player) {

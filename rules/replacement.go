@@ -1489,6 +1489,9 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	if o == nil {
 		ctx := &effects.Ctx{Source: m.id, ReplacementTarget: target,
 			ReplacementSource: e.protectionSource(e.damaging), ReplacementAmount: drawMatchAmount(ev)}
+		if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
+			ctx.ExcludeFromBattlefieldCount = ev.Obj
+		}
 		e.seedEffectReplCtx(ctx, m)
 		return ctx
 	}
@@ -1513,6 +1516,9 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 		// act on exactly the card being kept out of the graveyard -- not the
 		// source that owns the replacement.
 		Replaced: ev.Obj}
+	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
+		ctx.ExcludeFromBattlefieldCount = ev.Obj
+	}
 	// The cascade instruction's ordered exiled batch, the plural referent
 	// Averna's ReplaceWith$ body reads as Defined$ ReplacedCards.<qual>. Only a
 	// Cascade proposal carries it; every other replacement leaves the field
@@ -4314,13 +4320,33 @@ func (e *Engine) replacementMatchesRemembered(r cards.Repl, source state.ObjID, 
 	return e.replacementMatchesRememberedUngated(r, source, ev, remembered, rememberedPlayers, nil)
 }
 
+// commandReplZoneAdmits is the one home for the command-zone half of the
+// printed-replacement zone gate: a replacement whose source currently sits in
+// the command zone may act only when its script explicitly declares
+// ActiveZones$ Command. The ordinary object walk (rules/trigger_match.go's
+// forEachObject) now reaches the command zone because it shares that walk with
+// the printed-trigger scan, which must see command-zone triggers such as
+// Sidar Jabari of Zhalfir's Eminence. Every printed-replacement path that
+// reads a face's R: lines off that walk therefore applies this gate, keeping
+// ordinary card text parked in the command zone inert (CR 611.3b's declared-
+// zone rule). A source outside the command zone always admits.
+func (e *Engine) commandReplZoneAdmits(r cards.Repl, source state.ObjID) bool {
+	o := e.G.Obj(source)
+	if o == nil || o.Zone != state.ZCommand {
+		return true
+	}
+	active, ok := r.Params["ActiveZones"]
+	return ok && zoneSpecContains(active, state.ZCommand)
+}
+
 // activeZonesGateOK is the ActiveZones$ zone gate the PRINTED replacement
 // paths share:
 //
-//   - the generic object walk historically excludes the command zone; its
-//     replacement-only extension admits command-zone sources, but only when
-//     the script explicitly declares that zone; this keeps ordinary card
-//     text parked there inert and does not change trigger discovery.
+//   - the ordinary object walk now reaches the command zone (it shares
+//     forEachObject with the printed-trigger scan); a replacement source
+//     there is admitted only when its script explicitly declares that zone
+//     (commandReplZoneAdmits), which keeps ordinary card text parked there
+//     inert.
 //
 //   - CR 611.3b/614.4: a static replacement only applies from one of its
 //     declared active zones. Accept the comma-separated list grammar used by
@@ -4336,11 +4362,8 @@ func (e *Engine) replacementMatchesRemembered(r cards.Repl, source state.ObjID, 
 //     value, so the clause is MoveZone-only rather than reading a
 //     meaningless zero zone.
 func (e *Engine) activeZonesGateOK(r cards.Repl, source state.ObjID, ev events.Event) bool {
-	if o := e.G.Obj(source); o != nil && o.Zone == state.ZCommand {
-		active, ok := r.Params["ActiveZones"]
-		if !ok || !zoneSpecContains(active, state.ZCommand) {
-			return false
-		}
+	if !e.commandReplZoneAdmits(r, source) {
+		return false
 	}
 	if active, ok := r.Params["ActiveZones"]; ok {
 		o := e.G.Obj(source)
@@ -4465,6 +4488,17 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		}
 		if o, ok := r.Params["Origin"]; ok && o != "Any" && effects.ParseZone(o) != ev.From {
 			return false
+		}
+		// A creature's "would die" replacement is about a permanent moving
+		// from the battlefield to the graveyard (CR 700.4), not a creature
+		// card being milled or otherwise moved there from another zone. Forge
+		// scripts commonly encode this with a creature ValidLKI and a graveyard
+		// destination but omit Origin$; keep that shape from matching non-BF
+		// moves while leaving explicit from-anywhere replacements alone.
+		if _, hasOrigin := r.Params["Origin"]; !hasOrigin && ev.To == state.ZGraveyard {
+			if validLKI := r.Params["ValidLKI"]; strings.HasPrefix(validLKI, "Creature.") && ev.From != state.ZBattlefield {
+				return false
+			}
 		}
 		if d, ok := r.Params["Destination"]; ok && d != "Any" && effects.ParseZone(d) != ev.To {
 			return false
@@ -5715,6 +5749,9 @@ func (e *Engine) counterReplacementMatches(r cards.Repl, source, target, cause s
 	o := e.G.Obj(source)
 	t := e.G.Obj(target)
 	if o == nil || t == nil || t.Zone != state.ZStack {
+		return false
+	}
+	if !e.commandReplZoneAdmits(r, source) {
 		return false
 	}
 	if active := r.Params["ActiveZones"]; active != "" && !zoneSpecContains(active, o.Zone) {
@@ -7422,6 +7459,9 @@ func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 }
 
 func replacementActive(e *Engine, source state.ObjID, r *cards.Repl) bool {
+	if !e.commandReplZoneAdmits(*r, source) {
+		return false
+	}
 	active, ok := r.Params["ActiveZones"]
 	if !ok {
 		return true

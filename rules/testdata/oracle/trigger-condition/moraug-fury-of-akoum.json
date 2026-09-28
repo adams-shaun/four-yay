@@ -1,0 +1,30 @@
+{
+  "card": "Moraug, Fury of Akoum",
+  "family": "trigger-condition",
+  "oracle_sha": "7485ee09eeb3",
+  "author": "cli-20260927T211250Z-fb1ba634 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "main-phase-landfall-grants-combat",
+      "cr": ["603.4", "603.2"],
+      "why": "A land enters under Moraug's controller during their main phase, satisfying the intervening condition and creating an additional combat phase after that phase.",
+      "setup": {"p0": {"battlefield": ["Moraug, Fury of Akoum"], "hand": ["Mountain"]}, "p1": {}},
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Mountain", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Moraug, Fury of Akoum", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": []
+    },
+    {
+      "name": "non-main-phase-landfall-no-combat-trigger",
+      "cr": ["603.4"],
+      "why": "The land enters during the end step, not a main phase, so the intervening condition is false and no additional-combat ability triggers.",
+      "setup": {"p0": {"battlefield": ["Moraug, Fury of Akoum"], "hand": ["Mountain"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "step": "end", "active": "p0"},
+        {"op": "move", "seat": 0, "card": "p0:Mountain", "to": "battlefield", "expect": [{"trigger_on_stack": "p0:Moraug, Fury of Akoum", "want": false}]}
+      ],
+      "expect": []
+    }
+  ]
+}

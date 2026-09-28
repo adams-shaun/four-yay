@@ -1,0 +1,113 @@
+{
+  "card": "West Coast Expansion",
+  "family": "spell-conditional",
+  "oracle_sha": "8d5837d2a256",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "x-four-no-free-hero",
+      "cr": [
+        "107.3a",
+        "608.2c",
+        "121.2"
+      ],
+      "why": "X chosen as four while casting: draw four cards, but the five-or-more permission does not apply and the Hero remains in hand.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "West Coast Expansion",
+            "Captain America, First Avenger"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:West Coast Expansion",
+          "mana": "UUUUUU",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "4"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Captain America, First Avenger",
+          "zone": "hand"
+        },
+        {
+          "hand_size": {
+            "p0": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "x-five-may-cast-hero",
+      "cr": [
+        "107.3a",
+        "608.2c",
+        "121.2"
+      ],
+      "why": "X chosen as five and paid: draw five, then the five-or-more permission allows the Hero creature in hand to be cast without paying its cost.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "West Coast Expansion",
+            "Captain America, First Avenger"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:West Coast Expansion",
+          "mana": "UUUUUUU",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "5"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "Captain America"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Captain America, First Avenger",
+          "zone": "battlefield"
+        },
+        {
+          "hand_size": {
+            "p0": 5
+          }
+        }
+      ]
+    }
+  ]
+}

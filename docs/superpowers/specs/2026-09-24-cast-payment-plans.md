@@ -56,6 +56,11 @@ match; the hardening work is the wave in
    priority and then casting (CR 601.2 order differs from the planned route,
    which activates inside the 601.2g window). No additive "cast then pay"
    selector is added.
+   *Superseded 2026-09-27* for a human seat with the Auto-pay preference off
+   on an `auto_mana` table: such a seat announces a plan-payable cast
+   (`Intent.Announce`) and pays in the 601.2g window
+   ([`2026-09-27-announce-then-pay.md`](2026-09-27-announce-then-pay.md)).
+   Float-first casting still works unchanged.
 
 ## 1. Outcome and decisions
 
@@ -726,6 +731,12 @@ board badges and hand fan are exactly the legacy/manual ones. Plan-only casts
 are not shown; a player pays for such a cast by floating mana at priority and
 then casting (D-MANUAL, amendment item 5). There is no one-cast "Cast with
 suggested mana" action while off.
+
+(Amended 2026-09-27, [`2026-09-27-announce-then-pay.md`](2026-09-27-announce-then-pay.md).)
+With the preference off, a cast whose payment action has a plan is shown as
+CAST; it posts the legacy option when the pool already pays and otherwise an
+`announce` selector, which opens the select-mana prompt (the announced 601.2g
+window). Floating mana at priority and then casting is unchanged.
 
 Keep one card/action group for a cast even when it has both a legacy option and
 a PaymentAction. The UI honors Plans order and supports rendering multiple

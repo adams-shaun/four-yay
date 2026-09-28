@@ -2751,6 +2751,33 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// in the same Apply call that would otherwise mark damage, so replay
 	// derives it from the one logged Damage event and no separate
 	// CounterChange is ever emitted for it.
+	// CR 603.10a: a leaves-the-battlefield trigger's eligibility is read
+	// against the game state as it was immediately before the event. The SBA
+	// paths (rules/sba.go) park that board in triggerBefore around their
+	// batches; an effect destroy, a cost sacrifice or any other departure that
+	// funnels through THIS emit used to emit with triggerBefore nil, so the
+	// trigger's own grant gate was read only AFTER the departure had already
+	// switched it off (Relic Vial's IsPresent$-Cleric AddTrigger$ grant dying
+	// with the only Cleric it names). Park the pre-departure board around the
+	// fold here -- the same immutable snapshot the SBA discipline shares, the
+	// same split pass checkTriggers already consumes -- so every departure
+	// route looks back the same way. The guard keeps an outer batch's parked
+	// board winning: every departure inside an SBA batch or a parked
+	// replacement window still observes that ONE shared board, and the
+	// deferred restore keeps triggerBefore nil at intent boundaries (clone.go
+	// deliberately does not copy it). The snapshot is taken AFTER the
+	// replacement pass settled, so it is the board the folded move actually
+	// departs from; recursion inside this emit (the Role sweep above, a
+	// replacement body's own move) snapshots its own departure before this
+	// window opens or reuses this board like any batch member.
+	if ev.Kind == events.MoveZone && ev.From == state.ZBattlefield &&
+		ev.To != state.ZBattlefield && e.triggerBefore == nil {
+		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {
+			saved := e.triggerBefore
+			e.triggerBefore = e.snapshotTriggerBoard()
+			defer func() { e.triggerBefore = saved }()
+		}
+	}
 	// LKI (CR 603.10 "look back in time") is captured HERE, before
 	// events.Emit runs Apply and mutates the object -- a zone-change trigger
 	// needs the object exactly as it was a moment ago (its counters, tapped
@@ -3163,11 +3190,11 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.tappedTurn[ev.Obj] = e.G.Turn
 	}
 	e.finishSourceLifelinkLKI(ev, departingSource, departingSourceLifelink, departingSourceController)
-	// CR 702.163 ("Start your engines!", rules/speed.go): a loss may raise
-	// every eligible opponent's speed (if they have any), and a Start your
+	// CR 702.179 ("Start your engines!", rules/speed.go): a loss may queue
+	// the active player's speed trigger (if they have speed), and a Start your
 	// engines! permanent's battlefield entry starts a speed-less
 	// controller's speed at 1. Checked on the FOLDED event, after
-	// checkTriggers, so the gain event follows everything the loss itself
+	// checkTriggers, so the queued trigger follows everything the loss itself
 	// caused -- and both checks are inert for every other event. The loss
 	// reaches here two ways: an explicit LifeChange with a negative amount
 	// (life payment, "each player loses N life"), and a player D_DAMAGE --
@@ -3651,7 +3678,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if d == nil {
 		return fmt.Errorf("no decision pending")
 	}
-	if in.Payment != nil && d.Kind == decision.KPriority {
+	if (in.Payment != nil || in.Announce != nil) && d.Kind == decision.KPriority {
 		e.EnsurePaymentActions()
 	}
 	if err := d.Validate(in); err != nil {
@@ -3699,6 +3726,15 @@ func (e *Engine) Submit(in decision.Intent) error {
 		}
 	}
 	if d.Kind == decision.KPriority {
+		if in.Announce != nil {
+			action, ok := paymentActionFor(d, in.Announce.ActionID)
+			if !ok {
+				return fmt.Errorf("payment action is not offered") // defensive: Decision.Validate already checked.
+			}
+			if err := e.ValidateCastAnnounce(in.Player, action.Cast); err != nil {
+				return err
+			}
+		}
 		if in.Payment != nil {
 			action, ok := paymentActionFor(d, in.Payment.ActionID)
 			if !ok {
@@ -3711,7 +3747,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 		// A priority answer whose handler would no-op at its first guard is
 		// rejected before it is recorded (rules/priority_guard.go), so a
 		// stale or mis-offered option errors instead of spinning.
-		if in.Payment == nil {
+		if in.Payment == nil && in.Announce == nil {
 			if err := e.validatePriorityChoice(d, in); err != nil {
 				return err
 			}
@@ -3727,10 +3763,20 @@ func (e *Engine) Submit(in decision.Intent) error {
 	// replay history, so a client-side mutation after Submit cannot alter it.
 	in = decision.CloneIntent(in)
 	e.L.Intents = append(e.L.Intents, in)
-	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player,
-		Text: decisionMadePaymentText(d.Kind, in.Choices, in.Payment)})
+	made := decisionMadePaymentText(d.Kind, in.Choices, in.Payment)
+	if in.Announce != nil {
+		made = decisionMadeAnnounceText(d.Kind, in.Choices, in.Announce)
+	}
+	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player, Text: made})
 	e.pending = nil
-	if in.Payment != nil {
+	if in.Announce != nil {
+		action, _ := paymentActionFor(d, in.Announce.ActionID)
+		// The same Priority marker the planned route emits, then the ordinary
+		// cast transaction with no witness: the caster pays in the announced
+		// CR 601.2g window (announce_pay.go).
+		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
+		e.beginCastAnnounced(in.Player, decision.Option{Kind: "cast", Obj: action.Cast.Object})
+	} else if in.Payment != nil {
 		e.paymentStats.recordPlannedSubmission()
 		action, _ := paymentActionFor(d, in.Payment.ActionID)
 		// Match the ordinary cast priority action exactly, then enter the same
