@@ -2886,7 +2886,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// lines). Skipping the secondary applies the primary only.
 		return false
 	}
-	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && (xBound || len(targets) > 0 && e.relativeAmountResolves(sv, targets))) {
+	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && (xBound || e.relativeAmountResolves(sv, targets))) {
 		// Relative$ Amount$ scales with something the composition point does
 		// not yet know (IncreaseCost per target beyond the first, or a game
 		// state the offer-time read cannot price). Skip until X is bound or
