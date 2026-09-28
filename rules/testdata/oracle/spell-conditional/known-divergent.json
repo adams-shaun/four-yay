@@ -1,0 +1,3 @@
+{
+  "West Coast Expansion/x-five-may-cast-hero": "observed Hero stays in hand (6 cards after drawing five), expected free cast to battlefield (5 cards in hand); suspected: effects/play.go validSAOK rejects the Hero subtype when filtering a free cast"
+}
