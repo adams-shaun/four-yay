@@ -751,6 +751,26 @@ func (r *oracleRun) do(st oracleStep) error {
 		if st.Kicked {
 			wantMode = "kicked"
 		}
+		// A named mana ability lives behind the generic "Activate <card> for
+		// mana" priority option: the engine asks a second-stage KChoose over
+		// the source's available mana abilities (or, when exactly one is
+		// available, resolves it with no ask at all). The generic option may
+		// stand in for a requested label only when that label names an ability
+		// the source can currently produce -- the same authoritative set the
+		// offer and the second stage are built from -- otherwise the step must
+		// fail loudly below instead of silently activating a different ability
+		// (or a mana ability when a non-mana label was requested).
+		manaLabels := []string(nil)
+		requestedManaAbility := false
+		if st.Op == "activate" && st.Ability != "" {
+			manaLabels = r.manaAbilityLabels(seat, id)
+			for _, label := range manaLabels {
+				if oracleLabelMatches(label, st.Ability) {
+					requestedManaAbility = true
+					break
+				}
+			}
+		}
 		for _, o := range d.Options {
 			if o.Obj != id {
 				continue
@@ -769,7 +789,7 @@ func (r *oracleRun) do(st oracleStep) error {
 					idx = o.Index
 					break
 				}
-				if o.Kind == "activate" && strings.Contains(strings.ToLower(o.Label), "for mana") && manaFallback < 0 {
+				if o.Kind == "activate" && requestedManaAbility && strings.Contains(strings.ToLower(o.Label), "for mana") && manaFallback < 0 {
 					manaFallback = o.Index
 				}
 			}
@@ -781,13 +801,25 @@ func (r *oracleRun) do(st oracleStep) error {
 			idx = fallback
 		}
 		if idx < 0 {
-			return harnessf("%s %s not offered: %s", st.Op, st.Card, optionDump(d))
+			want := ""
+			if st.Ability != "" {
+				want = fmt.Sprintf(" (ability: %q)", st.Ability)
+			}
+			return harnessf("%s %s not offered%s: %s", st.Op, st.Card, want, optionDump(d))
 		}
 		if err := r.submit(d, []int{idx}, st.Op); err != nil {
 			return err
 		}
 		if st.Op == "activate" && st.Ability != "" && d.Options[idx].Kind == "activate" &&
 			!oracleLabelMatches(d.Options[idx].Label, st.Ability) {
+			// The generic mana option was submitted for a named ability. When
+			// the engine poses the second-stage wheel, the requested label must
+			// be among its options. When it does NOT -- exactly one ability was
+			// available and the engine resolved it with no ask -- the requested
+			// label must have been that single ability (checked above against
+			// the same set); a multi-ability source that never asks, or a single
+			// ability that does not match, is an error, never a silent
+			// different-ability activation.
 			choice := e.Pending()
 			if choice != nil && choice.Kind == decision.KChoose && choice.Source == id {
 				manaOptions := false
@@ -814,6 +846,8 @@ func (r *oracleRun) do(st oracleStep) error {
 						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
 					}
 				}
+			} else if len(manaLabels) != 1 || !oracleLabelMatches(manaLabels[0], st.Ability) {
+				return harnessf("mana ability %q not offered (available: %v)", st.Ability, manaLabels)
 			}
 		}
 		return r.untilPriority(st.Op)

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -65,6 +66,58 @@ func TestOracleManaAbilityOffered(t *testing.T) {
 		r := run(t, true, true)
 		if got := poolString(r.e.G.Players[0].Pool); got != "R" {
 			t.Fatalf("pool %q, want R (not the Add B fallback)", got)
+		}
+	})
+
+	// The generic "Activate <card> for mana" priority option must never stand
+	// in for an ability the source cannot currently produce: the step has to
+	// fail loudly, not silently activate the one available ability instead.
+	t.Run("activate of a gated-out ability fails loudly", func(t *testing.T) {
+		r := run(t, false, false)
+		id, _ := r.resolve("p0:Blazemire Verge")
+		labels := r.manaAbilityLabels(0, id)
+		if !oracleHasFold(labels, "Add B") {
+			t.Fatalf("precondition: source has no mana ability at all in %v -- the failure below would not be about the gate", labels)
+		}
+		sc := oracleScenario{
+			Setup: map[string]oracleSeat{"p0": {Battlefield: []string{"Blazemire Verge"}}},
+			Steps: []oracleStep{{Op: "activate", Seat: 0, Card: "p0:Blazemire Verge", Ability: "Add {R}"}},
+		}
+		fails, _, _ := runOracleScenario(reg, sc)
+		if len(fails) == 0 {
+			t.Fatal("activate Add {R} with no Swamp succeeded: the harness fell back to a different mana ability")
+		}
+		named := false
+		for _, f := range fails {
+			if strings.Contains(f, "not offered") && strings.Contains(f, "Add {R}") {
+				named = true
+			}
+		}
+		if !named {
+			t.Fatalf("expected a not-offered failure naming Add {R}, got %v", fails)
+		}
+	})
+
+	// A non-mana ability label must never fall back to the generic mana
+	// activation either (Mistveil Plains' graveyard ability is not a mana
+	// ability; without white mana in the pool it is not even offered).
+	t.Run("activate with a non-mana label never activates mana", func(t *testing.T) {
+		sc := oracleScenario{
+			Setup: map[string]oracleSeat{"p0": {Battlefield: []string{"Mistveil Plains", "Savannah Lions", "Savannah Lions"}, Graveyard: []string{"Grizzly Bears"}}},
+			Steps: []oracleStep{{Op: "activate", Seat: 0, Card: "p0:Mistveil Plains", Ability: "Put"}},
+		}
+		fails, _, _ := runOracleScenario(reg, sc)
+		if len(fails) == 0 {
+			t.Fatal("activate ability Put on Mistveil Plains succeeded: the harness silently activated the mana ability")
+		}
+		named := false
+		for _, f := range fails {
+			if strings.Contains(f, "not offered") {
+				named = true
+			}
+		}
+		if !named {
+			t.Fatalf("expected a not-offered failure, got %v", fails)
 		}
 	})
 }
