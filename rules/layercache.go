@@ -33,6 +33,12 @@ import (
 // whose result would have been identical -- the chain, replay and every
 // output are unchanged.
 //
+// The staticEffects memo has a second, narrower re-stamp admission
+// (staticSafeSince) that also spans TokenCreate events. It is sound only when
+// the memo's build encountered no continuous static carrying a gate param --
+// a static-cold token's ARRIVAL can flip an existing gate's IsPresent$ count
+// -- so it further requires !e.staticMemoGated; see staticSafeSince.
+//
 // An epoch <= 0 (a fresh engine, a clone, or cascade.go's explicit -1
 // invalidation around its scratch-driven walk) never reuses.
 //
@@ -72,12 +78,32 @@ func (e *Engine) layerInertSince(epoch int) bool {
 
 // staticSafeSince admits the ordinary layer-inert run plus TokenCreate events
 // that each appended exactly one battlefield object with no printed or copied
-// static. TokenCreate's event has no Obj referent, so object growth is matched
-// by the suffix count and every appended object is classified directly. This
-// is safe only for the staticEffects memo: a static-carrying token, an
-// unaccounted object append, or any other event forces the full rebuild.
+// static, but only when the memo's last build encountered no gate-carrying
+// Continuous static (Engine.staticMemoGated). TokenCreate's event has no Obj
+// referent, so object growth is matched by the suffix count and every appended
+// object is classified directly.
+//
+// A static-cold token adds no static of its own (this loop's check), but its
+// ARRIVAL changes the battlefield composition an EXISTING static's continuous
+// gate reads: IsPresent$/IsPresent2$ count battlefield objects against a type
+// filter, so a Goblin token entering can turn Bolg's Company's
+// `IsPresent$ Goblin.Other+YouCtrl` haste grant ON, and a
+// "you control exactly one creature" gate OFF (this is the bug
+// agent-20260928T171650Z-006e2611 fixes: the re-stamp served a static list a
+// fresh rescan would no longer produce). staticSafeSince's own loop cannot
+// see that, and re-parsing the gate values here would re-implement the gate
+// grammar -- the fragile direction. Instead the build records whether the
+// scan saw any gate-carrying static at all (staticMemoGated, set at the one
+// gate site in staticEffectsWalk): only a gate-free build's output is
+// invariant under a static-cold token entry, so only then is the re-stamp
+// admitted. A static-carrying token, a gate-carrying board, an unaccounted
+// object append, or any other event forces the full rebuild. The gate-free
+// board is the runtime common case, so the perf win of e748c8f1b survives.
 func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 	n := len(e.L.Events)
+	if e.staticMemoGated {
+		return false
+	}
 	if epoch <= 0 || epoch > n || oldObjs < 0 || oldObjs > len(e.G.Objs) {
 		return false
 	}
@@ -111,6 +137,10 @@ func (e *Engine) refreshStaticContinuous() {
 	if e.staticEpoch == n {
 		return
 	}
+	// The re-stamp is admitted only when the memo's last build was gate-free
+	// (staticSafeSince's staticMemoGated check): a gate-carrying build's
+	// output can be changed by a token's arrival, so it always rescans. See
+	// staticSafeSince.
 	if e.staticVersion == e.continuousVersion && e.staticSafeSince(e.staticEpoch, e.staticObjs) {
 		e.staticEpoch = n
 		e.staticObjs = len(e.G.Objs)
