@@ -187,7 +187,15 @@ type Cost struct {
 	RevealChosen []CostPart
 	Behold       []CostPart
 	TapPermanent []CostPart
-	Blight       []CostPart
+	// UntapPermanent carries untapYType<N/Spec> parts -- untapping N
+	// permanents matching Spec as a cost (Benthic Explorers' "{T}, Untap a
+	// tapped land an opponent controls: Add one mana of any type that land
+	// could produce"). It is DISTINCT from Cost.Untap (the {Q} symbol,
+	// untapping the SOURCE itself): this head untaps OTHER permanents the
+	// spec names, so the settle elects them like the literal tapXType form.
+	// The trailing "/description" is captured into CostPart.Desc.
+	UntapPermanent []CostPart
+	Blight         []CostPart
 	// Exert carries Exert<1/CARDNAME> parts (CR 701.39: the source will not
 	// untap during its controller's next untap step). Paid by one
 	// events.Exert on the source -- the same event the declare-attackers
@@ -437,6 +445,16 @@ var revealChosenCost = regexp.MustCompile(`^RevealChosen<(Player|Type)(?:/([^>]*
 // The trailing "/description" is captured into CostPart.Desc and ";" alternations
 // fold to "," like every other non-mana head.
 var dynTapCost = regexp.MustCompile(`^tapXType<(X|Any)/([^/>]+)(?:/([^>]*))?>$`)
+
+// untapYTypeCost matches Forge's untapYType<N/Spec> cost token -- untapping N
+// permanents matching Spec as the payment (Forge CostUntapType: Benthic
+// Explorers' "untap a tapped land an opponent controls", Halo Fountain's and
+// Crackleburr's non-mana activations). N is a literal count; there is no X
+// form in the corpus. It is the mirror of the literal tapXType<N/Spec> head
+// (choiceCost), except the elected permanents must already be TAPPED. The
+// trailing "/description" is captured into CostPart.Desc and ";" alternations
+// fold to "," like every other non-mana head.
+var untapYTypeCost = regexp.MustCompile(`^untapYType<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
 var blightCost = regexp.MustCompile(`^Blight<(\d+|X)>$`)
 
 // groupPowerFloor matches the withTotalPowerGE<N> GROUP predicate Forge
@@ -677,6 +695,20 @@ func ParseCost(s string) Cost {
 					continue
 				}
 				c.Mill = append(c.Mill, CostPart{N: int32(n)})
+				continue
+			}
+			if m := untapYTypeCost.FindStringSubmatch(sym); m != nil {
+				// untapYType<N/Spec> (Forge CostUntapType): untap N matching
+				// permanents as the payment. A malformed/overflowing N degrades to
+				// the reported one-generic fallback like every other head.
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n <= 0 || n > int64(math.MaxInt32) {
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				c.UntapPermanent = append(c.UntapPermanent, CostPart{N: int32(n),
+					Spec: strings.ReplaceAll(m[2], ";", ","), Desc: m[3]})
 				continue
 			}
 			if m := dynTapCost.FindStringSubmatch(sym); m != nil {
@@ -1454,6 +1486,9 @@ func (c Cost) Plus(d Cost) Cost {
 	}
 	if len(d.TapPermanent) > 0 {
 		c.TapPermanent = append(append([]CostPart(nil), c.TapPermanent...), d.TapPermanent...)
+	}
+	if len(d.UntapPermanent) > 0 {
+		c.UntapPermanent = append(append([]CostPart(nil), c.UntapPermanent...), d.UntapPermanent...)
 	}
 	if len(d.Blight) > 0 {
 		c.Blight = append(append([]CostPart(nil), c.Blight...), d.Blight...)
@@ -2574,7 +2609,7 @@ func costAnnouncesCastX(c Cost) bool {
 // even though it takes no payment), so a caller using this to skip the
 // cast-flow stages is told the truth.
 func (c Cost) HasNonMana() bool {
-	return c.Life > 0 || c.Tap || c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
+	return c.Life > 0 || c.Tap || c.Untap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 || len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.ExileFromTop) > 0 || len(c.Reveal) > 0 || len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 || len(c.UntapPermanent) > 0 || len(c.Blight) > 0 || c.Forage || len(c.Energy) > 0 || len(c.Return) > 0 || len(c.PutToLib) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 || len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Exert) > 0
 }
 
 // Priceable reports whether payMana can actually charge every part of this
@@ -2594,7 +2629,7 @@ func (c Cost) HasNonMana() bool {
 func (c Cost) Priceable() bool {
 	return c.X == 0 && !c.Tap && !c.Untap && len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 &&
 		len(c.Draw) == 0 && len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealChosen) == 0 && len(c.Behold) == 0 &&
-		len(c.TapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
+		len(c.TapPermanent) == 0 && len(c.UntapPermanent) == 0 && len(c.Blight) == 0 && !c.Forage &&
 		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
 		len(c.Energy) == 0 && len(c.Return) == 0 && len(c.PutToLib) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&
 		len(c.MoveToGrave) == 0 && len(c.Mill) == 0

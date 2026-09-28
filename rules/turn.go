@@ -1626,6 +1626,42 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 				e.continueCast()
 			}
 		}
+	case chooseManaSubCounter:
+		// The announced-SubCounter X announcement / removal target and the
+		// untapYType pick share this arm's tail shape; each answer resumes the
+		// continuation, then the same Ward/unless/cast tail runs.
+		cast := e.answerManaSubCounter(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if e.unlessPayment != nil {
+				e.advanceUnlessPayment()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	case chooseManaForage:
+		cast := e.answerManaForage(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if e.unlessPayment != nil {
+				e.advanceUnlessPayment()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	case chooseManaUntap:
+		cast := e.answerManaUntap(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if e.unlessPayment != nil {
+				e.advanceUnlessPayment()
+			} else if cast {
+				e.continueCast()
+			}
+		}
 	case chooseManaDiscard:
 		cast := e.answerManaDiscard(chosen)
 		if e.pending == nil && !e.manaCostChoicePending() {

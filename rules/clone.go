@@ -701,10 +701,14 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		ma.cost.RevealChosen = append([]CostPart(nil), e.manaDiscardActivation.cost.RevealChosen...)
 		ma.cost.Behold = append([]CostPart(nil), e.manaDiscardActivation.cost.Behold...)
 		ma.cost.TapPermanent = append([]CostPart(nil), e.manaDiscardActivation.cost.TapPermanent...)
+		ma.cost.UntapPermanent = append([]CostPart(nil), e.manaDiscardActivation.cost.UntapPermanent...)
 		ma.cost.Blight = append([]CostPart(nil), e.manaDiscardActivation.cost.Blight...)
 		ma.sacs = append([]state.ObjID(nil), e.manaDiscardActivation.sacs...)
 		ma.discards = append([]state.ObjID(nil), e.manaDiscardActivation.discards...)
 		ma.exiles = append([]state.ObjID(nil), e.manaDiscardActivation.exiles...)
+		ma.taps = append([]state.ObjID(nil), e.manaDiscardActivation.taps...)
+		ma.untaps = append([]state.ObjID(nil), e.manaDiscardActivation.untaps...)
+		ma.subCounterPays = append([]subCounterPay(nil), e.manaDiscardActivation.subCounterPays...)
 		c.manaDiscardActivation = &ma
 	}
 	if e.manaAfterCost != nil {
