@@ -32,7 +32,10 @@ import (
 // fb-20260927T163321Z-69285807 re-pinned the commander seeds (4038, 6191)
 // after the command-zone payment-plan fix: a commander in the command zone
 // now gets a plan, the auto-pay bots cast it through one, and those games
-// move. The same cards keep the same pins at their new seqs.
+// move. fb-20260927T212721Z-1f9fc4b0 restores active-player priority after
+// an as-enters election; this adds priority/pass events and moves seed 4038's
+// Eldrazi Monument from seq 7684 to 7696 and seed 6191's Roaming Throne from
+// seq 9956 to 9969. Reverting that continuation restores both old sequences.
 func TestRoundSevenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -46,9 +49,9 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 		seq       uint64
 		want      string // the named cast's verdict key ("" = equivalent)
 	}{
-		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7684, ""},
+		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7696, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
-		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9956, "expected:float_then_cast:float_trigger_precedes_cast"},
+		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9969, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})

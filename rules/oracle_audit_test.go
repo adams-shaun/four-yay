@@ -964,6 +964,7 @@ func (r *oracleRun) do(st oracleStep) error {
 			want = s
 		}
 		active, hasActive := parseSeatRef(st.Active)
+		leftTarget := st.Step == "" || e.G.Step != want || (hasActive && e.G.Active != active)
 		for i := 0; i < 2000; i++ {
 			d := e.Pending()
 			if d == nil || e.G.Over {
@@ -972,7 +973,10 @@ func (r *oracleRun) do(st oracleStep) error {
 			if st.Decision != "" && string(d.Kind) == st.Decision {
 				return nil
 			}
-			if st.Step != "" && i > 0 && e.G.Step == want && (!hasActive || e.G.Active == active) {
+			if e.G.Step != want || (hasActive && e.G.Active != active) {
+				leftTarget = true
+			}
+			if st.Step != "" && leftTarget && e.G.Step == want && (!hasActive || e.G.Active == active) {
 				return nil
 			}
 			if err := r.answer(d, "pass_to"); err != nil {
