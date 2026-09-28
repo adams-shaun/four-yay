@@ -123,6 +123,7 @@ func nameOf(f *cards.Face) string {
 // pick offers the milled lands and moves the answered one to hand, the
 // cleanup clears the remembered list, and the game replays byte-identically.
 func TestMillRememberMilledPicksUpARememberedLand(t *testing.T) {
+	t.Parallel()
 	e, cfg, sixID, milled := millRememberedEngine(t)
 
 	// The helper already drove to seat 0's declare-attackers step; attack

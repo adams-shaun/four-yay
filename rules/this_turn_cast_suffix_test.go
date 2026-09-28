@@ -68,6 +68,7 @@ func srcName(t testing.TB, src string) string {
 // sorcery-only board counts 0, so the two boards differ from the want and
 // from each other.
 func TestRoothaGreatestManaValueAmongInstantsAndSorceries(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name          string
 		instantSrc    string
@@ -122,6 +123,7 @@ func TestRoothaGreatestManaValueAmongInstantsAndSorceries(t *testing.T) {
 // single-card-type board reads 1. On the buggy build the whole
 // `YouCtrl$CardTypes` token is unknown and both read 0.
 func TestAprilOneilCardTypesAmongSpellsCast(t *testing.T) {
+	t.Parallel()
 	const creatureSrc = "Name:Probe Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	t.Run("two_card_types", func(t *testing.T) {
 		e := handEngine(t, card(t, "Name:Probe Spark\nManaCost:U\nTypes:Instant\nOracle:x\n"), card(t, creatureSrc))

@@ -10,6 +10,7 @@ import (
 // One surviving-to-the-end witness does not certify simultaneous deaths.
 // Every real Blood Artist present before this batch must witness both deaths.
 func TestCR704EveryDyingBloodArtistWitnessesWholeBatch(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Blood Artist", "Blood Artist"}, nil)
 	a := crAbortMove(t, e, 0, "Blood Artist", state.ZBattlefield)
 	b := crAbortMove(t, e, 0, "Blood Artist", state.ZBattlefield)

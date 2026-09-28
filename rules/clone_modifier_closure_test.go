@@ -20,6 +20,7 @@ func cloneHasType(types []string, want string) bool {
 }
 
 func TestHallOfMirrorsCloneRemovesLegendary(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Hall of Mirrors", "Isamaru, Hound of Konda", "Grizzly Bears")
 	hall := searchMoveByName(t, e, "Hall of Mirrors", state.ZBattlefield)
@@ -41,6 +42,7 @@ func TestHallOfMirrorsCloneRemovesLegendary(t *testing.T) {
 }
 
 func TestCloneSubtypeModifiersStripBeforeAdding(t *testing.T) {
+	t.Parallel()
 	const mimic = "Name:Type Mimic\nManaCost:2\nTypes:Artifact\nA:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | RemoveSubTypes$ True | SetCreatureTypes$ Shapeshifter\nOracle:x\n"
 	const landCreature = "Name:Forest Ox\nManaCost:2\nTypes:Land Creature Forest Ox\nPT:2/2\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 218, mimic, landCreature)
@@ -63,6 +65,7 @@ func TestCloneSubtypeModifiersStripBeforeAdding(t *testing.T) {
 }
 
 func TestCloneAddAbilitiesGrantExpiresWithCopy(t *testing.T) {
+	t.Parallel()
 	const mimic = "Name:Gift Mimic\nManaCost:2\nTypes:Artifact\nA:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | AddAbilities$ Gift | Duration$ UntilEndOfTurn\nSVar:Gift:AB$ Pump | Cost$ 1 | Defined$ Self | NumAtt$ 1 | NumDef$ 0\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 217, mimic, cloneOxSrc)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})

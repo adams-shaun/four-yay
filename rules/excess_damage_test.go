@@ -147,6 +147,7 @@ func TestBottleCapBlastNoExcessCreatesNoTreasures(t *testing.T) {
 // PLAYER never produces excess (CR 120.10 defines it only for a permanent):
 // 5 to the opponent's face makes no Treasures.
 func TestBottleCapBlastPlayerTargetCreatesNoTreasures(t *testing.T) {
+	t.Parallel()
 	e, cfg, blast := excessFixture(t, 13, "b/bottle_cap_blast.txt")
 	addMana(t, e, 0, "RRRRR")
 	excessCastAndDrain(t, e, blast, 0, 1)

@@ -82,6 +82,7 @@ const forgetRegenerator = "Name:Regenerator\nManaCost:1 G\nTypes:Creature Bear\n
 // returning object is a new object), and the same destroy then consumes a
 // fresh shield and the bear survives.
 func TestIncinerateForgetOnMovedRestoresRegeneration(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	inc := choiceCorpusCard(t, "Incinerate")
 	smite := card(t, "Name:Smite\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature\nOracle:x\n")
@@ -140,6 +141,7 @@ func TestIncinerateForgetOnMovedRestoresRegeneration(t *testing.T) {
 // the exiled card to its owner's graveyard, and the grant must stop
 // remembering it ("you may play this card for as long as it remains exiled").
 func TestValakutExplorationGrantForgetsWhenExileDeparts(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	val := choiceCorpusCard(t, "Valakut Exploration")
 	e := corpusEngine(t, reg, []*cards.Card{val}, nil)

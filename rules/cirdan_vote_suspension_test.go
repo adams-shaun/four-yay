@@ -182,6 +182,7 @@ func cirdanEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, cirdanFix
 // TestCirdanVoteTallySurvivesChangeZoneSuspension is the end-to-end pin for
 // the tally riding an AmountFromVotes$ loop's suspension.
 func TestCirdanVoteTallySurvivesChangeZoneSuspension(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, fx := cirdanEngine(t, reg)
 

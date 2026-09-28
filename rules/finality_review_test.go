@@ -12,6 +12,7 @@ import (
 )
 
 func TestFinalityOnlyExilesCreatureDeaths(t *testing.T) {
+	t.Parallel()
 	creature := "Name:Finality Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	artifact := "Name:Finality Rock\nTypes:Artifact\nOracle:x\n"
 	e, _, bear := newFixtureDeck(t, 91201, creature, artifact)
@@ -45,6 +46,7 @@ func TestFinalityOnlyExilesCreatureDeaths(t *testing.T) {
 }
 
 func TestWinterCynicalOpportunistRejectsInsufficientTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	winter := mustCorpusCard(t, reg, "Winter, Cynical Opportunist")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")

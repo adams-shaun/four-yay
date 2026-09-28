@@ -145,6 +145,7 @@ func countTokensNamedOnSeat(t *testing.T, e *Engine, p state.PlayerID, name stri
 // w_4_4_angel_flying_vigilance script), one per would-be token; a
 // NON-creature token (a Treasure) is untouched.
 func TestDivineVisitationReplacesCreatureTokens(t *testing.T) {
+	t.Parallel()
 	dv := tokenReplCorpusCard(t, "Divine Visitation")
 	squirrelMaker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	treasureMaker := cardByName(t, tokenForgeSrc("c_a_treasure_sac"))
@@ -205,6 +206,7 @@ func TestDivineVisitationReplacesCreatureTokens(t *testing.T) {
 // TestDoublingSeasonDoublesTokens pins the Amount default: one would-be
 // token becomes two identical mints.
 func TestDoublingSeasonDoublesTokens(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGame(t, 47, ds, maker)
@@ -220,6 +222,7 @@ func TestDoublingSeasonDoublesTokens(t *testing.T) {
 // TestAcademyManufactorClueFoodTreasure pins the CSV / 1-to-N shape: one
 // Clue becomes one Clue, one Food and one Treasure.
 func TestAcademyManufactorClueFoodTreasure(t *testing.T) {
+	t.Parallel()
 	am := tokenReplCorpusCard(t, "Academy Manufactor")
 	maker := cardByName(t, tokenForgeSrc("c_a_clue_draw"))
 	e, cfg := tokenReplGame(t, 53, am, maker)
@@ -239,6 +242,7 @@ func TestAcademyManufactorClueFoodTreasure(t *testing.T) {
 // TestXornAddsTreasure pins the AddToken shape: a Treasure creation becomes
 // that Treasure PLUS one more Treasure.
 func TestXornAddsTreasure(t *testing.T) {
+	t.Parallel()
 	xorn := tokenReplCorpusCard(t, "Xorn")
 	maker := cardByName(t, tokenForgeSrc("c_a_treasure_sac"))
 	e, cfg := tokenReplGame(t, 59, xorn, maker)
@@ -256,6 +260,7 @@ func TestXornAddsTreasure(t *testing.T) {
 // token into TWO angels — scan order over the plan, each match applying
 // once, no infinite loop.
 func TestTokenReplacementsComposeScanOrder(t *testing.T) {
+	t.Parallel()
 	dv := tokenReplCorpusCard(t, "Divine Visitation")
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
@@ -278,6 +283,7 @@ func TestTokenReplacementsComposeScanOrder(t *testing.T) {
 // never 8 and never a livelock — the extras are emitted through the direct
 // events.Emit path and can never re-match.
 func TestTokenReplacementExtrasNeverRematch(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	pl := tokenReplCorpusCard(t, "Parallel Lives")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
@@ -300,6 +306,7 @@ func TestTokenReplacementExtrasNeverRematch(t *testing.T) {
 // mint ever lands, so effToken's want-id rider bookkeeping reads a nil
 // g.Obj(want) and skips).
 func TestHalvingSeasonRoundsOpponentTokensDownToZero(t *testing.T) {
+	t.Parallel()
 	hs := tokenReplCorpusCard(t, "Halving Season")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGameSeats(t, 73, []*cards.Card{hs}, []*cards.Card{maker})
@@ -342,6 +349,7 @@ func TestHalvingSeasonRoundsOpponentTokensDownToZero(t *testing.T) {
 // token created verbatim. The accept arm and the ask itself are pinned in
 // token_replacement_standins_test.go.
 func TestTokenReplacementOptionalDeclines(t *testing.T) {
+	t.Parallel()
 	lyev := tokenReplCorpusCard(t, "Flitwing, Lyev Detective")
 	maker := cardByName(t, tokenForgeSrc("c_a_treasure_sac"))
 	e, cfg := tokenReplGame(t, 71, lyev, maker)

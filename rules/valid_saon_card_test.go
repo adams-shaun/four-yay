@@ -119,6 +119,7 @@ func damageEvents(e *Engine) int {
 // the activated card, while ValidSA$ Activated.OppCtrl is relative to the
 // trigger source. An opponent's artifact activation therefore deals damage.
 func TestAvalancheOfSector7OpponentArtifactAbilityDealsDamage(t *testing.T) {
+	t.Parallel()
 	av := corpusAlternativeCard(t, "Avalanche of Sector 7")
 	e := saonEngine(t, []*cards.Card{av, card(t, saonArtifact)}, []*cards.Card{card(t, saonArtifact)})
 	if e.G.Obj(e.G.Zone(state.ZBattlefield, 0)[0]).Face().Name != "Avalanche of Sector 7" {
@@ -141,6 +142,7 @@ func TestAvalancheOfSector7OpponentArtifactAbilityDealsDamage(t *testing.T) {
 // This is the required ValidSAonCard$ discriminator: a non-mana
 // activation must not satisfy a card clause that asks for ManaAbility.
 func TestAbilityCastValidSAonCardRejectsNonMatchingAbility(t *testing.T) {
+	t.Parallel()
 	e := saonEngine(t, []*cards.Card{card(t, saonManaOnlyWatcher)}, []*cards.Card{card(t, saonArtifact)})
 	if e.G.Players[1].Life != 20 {
 		t.Fatalf("test precondition: seat 1 life = %d, want 20", e.G.Players[1].Life)
@@ -158,6 +160,7 @@ func TestAbilityCastValidSAonCardRejectsNonMatchingAbility(t *testing.T) {
 // card. On main the param is unread, so the trigger fires wide and this test
 // fails; the artifact-only watcher needs no other gate to reach the filter.
 func TestAbilityCastValidCardRejectsNonMatchingAbilitySource(t *testing.T) {
+	t.Parallel()
 	e := saonEngine(t, []*cards.Card{card(t, saonArtifactOnlyWatcher)}, []*cards.Card{card(t, saonCreature)})
 	watcher := e.G.Obj(e.G.Zone(state.ZBattlefield, 0)[0])
 	if watcher.Face().Name != "Test SAon Card Watcher" {
@@ -187,6 +190,7 @@ func TestAbilityCastValidCardRejectsNonMatchingAbilitySource(t *testing.T) {
 // pins; retained so a future change to either validSAonCard or ValidCard
 // cannot regress Avalanche silently.
 func TestAvalancheOfSector7RejectsNonArtifactAbilitySource(t *testing.T) {
+	t.Parallel()
 	av := corpusAlternativeCard(t, "Avalanche of Sector 7")
 	e := saonEngine(t, []*cards.Card{av}, []*cards.Card{card(t, saonCreature)})
 	if e.G.Obj(e.G.Zone(state.ZBattlefield, 1)[0]).Face().Types[0] == "Artifact" {

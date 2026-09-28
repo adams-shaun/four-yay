@@ -105,6 +105,7 @@ func playFixtureLand(t *testing.T, e *Engine, id state.ObjID) {
 // count that included the entering land would tap at 2 other lands instead
 // of 3. Each row is an independent game through the real play_land path.
 func TestFastLandEntersUntappedAtTwoOrFewerOtherLands(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		others int
 		tapped bool
@@ -123,6 +124,7 @@ func TestFastLandEntersUntappedAtTwoOrFewerOtherLands(t *testing.T) {
 // Glacial Fortress shape: the EQ0 gate is unmet (so no tap) exactly when you
 // control a Plains or an Island, and met (tap) when you control neither.
 func TestCheckLandEntersUntappedWhenYouControlAPlainsOrIsland(t *testing.T) {
+	t.Parallel()
 	// Control a Plains: enters untapped.
 	e, _, id := newFixtureDeck(t, 400, checkLandSrc)
 	onBoard(t, e, 0, condPlainsSrc)

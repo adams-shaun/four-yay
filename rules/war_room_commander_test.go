@@ -27,6 +27,7 @@ import (
 // ability is NOT among seat 0's priority options (ActivationGameTypes$ has
 // no Constructed token), while the land's mana ability still is.
 func TestWarRoomDrawWithheldInConstructed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	warRoom := mustCorpusCard(t, reg, "War Room")
 	valgavoth := corpusCommander(t, reg, "Valgavoth, Harrower of Souls")
@@ -49,6 +50,7 @@ func TestWarRoomDrawWithheldInConstructed(t *testing.T) {
 // (fixLifeXCost folds the resolvable count into Cost.Life, payMana charges
 // it) end to end.
 func TestWarRoomDrawOfferedInCommanderPricesTwoColourIdentity(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	warRoom := mustCorpusCard(t, reg, "War Room")
 	valgavoth := corpusCommander(t, reg, "Valgavoth, Harrower of Souls")
@@ -86,6 +88,7 @@ func TestWarRoomDrawOfferedInCommanderPricesTwoColourIdentity(t *testing.T) {
 // TestWarRoomDrawPricesSingleColourIdentity: a single-colour commander
 // (Krenko, Mob Boss → R) prices the life part at 1.
 func TestWarRoomDrawPricesSingleColourIdentity(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	warRoom := mustCorpusCard(t, reg, "War Room")
 	krenko := corpusCommander(t, reg, "Krenko, Mob Boss")

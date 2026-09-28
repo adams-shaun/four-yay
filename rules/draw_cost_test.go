@@ -61,6 +61,7 @@ func witsPayOption(d *decision.Decision) int {
 // draws exactly two cards (X = power 2), and the chained discard takes
 // exactly two.
 func TestChampionOfWitsDrawsItsPowerThenDiscardsTwo(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Champion of Wits")
 	searchMoveByName(t, e, "Champion of Wits", state.ZBattlefield)
@@ -118,6 +119,7 @@ func TestChampionOfWitsDrawsItsPowerThenDiscardsTwo(t *testing.T) {
 // "you may draw ... If you do, discard" cost is a real pay/decline, and a
 // decline draws nothing and discards nothing.
 func TestChampionOfWitsDeclinedDrawCostSkipsTheDiscard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Champion of Wits")
 	searchMoveByName(t, e, "Champion of Wits", state.ZBattlefield)
@@ -160,6 +162,7 @@ func TestChampionOfWitsDeclinedDrawCostSkipsTheDiscard(t *testing.T) {
 // the same for the unless-cost parser. This is what removes the parameter
 // census's `cost:Draw` label for every Draw<X/...> carrier.
 func TestParseCostModelsDynamicDraw(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("Draw<X/You>")
 	if len(c.Unknown) != 0 {
 		t.Fatalf("Draw<X/You> still reports unmodelled tokens: %v", c.Unknown)

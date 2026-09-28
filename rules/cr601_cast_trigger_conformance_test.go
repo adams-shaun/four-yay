@@ -19,6 +19,7 @@ import (
 // cast trigger yet, even in a private queue. After the answer the Pyromancer
 // trigger must drain exactly once and the caster must retain priority.
 func TestCR601CastTriggerWaitsForCompletedProposal(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver")
 	pyro := crAbortPyromancer(t, e)

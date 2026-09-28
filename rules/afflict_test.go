@@ -18,6 +18,7 @@ import (
 // (cards/keywords.go -> trig:AttackerBlocked): Lost Monarch of Ifnir attacks
 // and is blocked, defending player loses exactly 3.
 func TestPrintedAfflictDrainsTheDefender(t *testing.T) {
+	t.Parallel()
 	monarch := mshCorpusCardPath(t, "Lost Monarch of Ifnir", "l/lost_monarch_of_ifnir.txt")
 	e := combatEngine(t)
 	mon := onBoardCard(t, e, 0, monarch)
@@ -45,6 +46,7 @@ func TestPrintedAfflictDrainsTheDefender(t *testing.T) {
 // condition: an Afflict creature that attacks and is NOT blocked queues
 // nothing and drains nothing.
 func TestUnblockedAfflictDrainsNothing(t *testing.T) {
+	t.Parallel()
 	monarch := mshCorpusCardPath(t, "Lost Monarch of Ifnir", "l/lost_monarch_of_ifnir.txt")
 	e := combatEngine(t)
 	mon := onBoardCard(t, e, 0, monarch)
@@ -66,6 +68,7 @@ func TestUnblockedAfflictDrainsNothing(t *testing.T) {
 // non-Zombie attacker under the same controller gains nothing, and the
 // granting Monarch itself does not double up from its own static.
 func TestGrantedAfflictDrainsTheDefender(t *testing.T) {
+	t.Parallel()
 	monarch := mshCorpusCardPath(t, "Lost Monarch of Ifnir", "l/lost_monarch_of_ifnir.txt")
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, monarch) // the grant's source; never attacks here
@@ -118,6 +121,7 @@ func TestGrantedAfflictDrainsTheDefender(t *testing.T) {
 // synthesized trigger must not fire for a DIFFERENT blocked creature's
 // declaration (ValidCard$ Card.Self).
 func TestGrantedAfflictIsOneInstancePerDeclaration(t *testing.T) {
+	t.Parallel()
 	monarch := mshCorpusCardPath(t, "Lost Monarch of Ifnir", "l/lost_monarch_of_ifnir.txt")
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, monarch)
@@ -172,6 +176,7 @@ func TestGrantedAfflictIsOneInstancePerDeclaration(t *testing.T) {
 // defender loses 6 -- while the Monarchs' own printed afflict is untouched
 // by each other's grant (the printed line is never re-expanded).
 func TestGrantedAfflictStacksOneInstancePerGrant(t *testing.T) {
+	t.Parallel()
 	monarch := mshCorpusCardPath(t, "Lost Monarch of Ifnir", "l/lost_monarch_of_ifnir.txt")
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, monarch)

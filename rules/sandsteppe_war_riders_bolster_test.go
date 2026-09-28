@@ -132,6 +132,7 @@ func driveToBeginCombat(t *testing.T, e *Engine) *decision.Decision {
 // least-toughness creature -- the 2/1 Lions, not the 4/4 rider -- with no
 // election posed (a unique minimum is no choice).
 func TestSandsteppeWarRidersBolstersDistinctTokenCount(t *testing.T) {
+	t.Parallel()
 	reg := sandsteppeRegistry(t)
 	e, riderID, lionIDs := sandsteppeEngine(t, reg, 1)
 	for _, key := range []string{"c_a_treasure_sac", "c_a_treasure_sac", "c_a_clue_draw", "c_a_food_sac"} {
@@ -150,6 +151,7 @@ func TestSandsteppeWarRidersBolstersDistinctTokenCount(t *testing.T) {
 // are two DIFFERENT names, not three tokens -- X = 1 after the two-token
 // Treasure duplication... (two distinct names: Treasure, Clue).
 func TestSandsteppeWarRidersSameNameTokensCountOnce(t *testing.T) {
+	t.Parallel()
 	reg := sandsteppeRegistry(t)
 	e, _, lionIDs := sandsteppeEngine(t, reg, 1)
 	for _, key := range []string{"c_a_treasure_sac", "c_a_treasure_sac", "c_a_clue_draw"} {
@@ -166,6 +168,7 @@ func TestSandsteppeWarRidersSameNameTokensCountOnce(t *testing.T) {
 // creatures, answered to the second lion, which takes the counters while the
 // first takes none.
 func TestSandsteppeWarRidersTieElection(t *testing.T) {
+	t.Parallel()
 	reg := sandsteppeRegistry(t)
 	e, _, lionIDs := sandsteppeEngine(t, reg, 2)
 	for _, key := range []string{"c_a_treasure_sac", "c_a_clue_draw", "c_a_food_sac"} {

@@ -29,6 +29,7 @@ func cr702corpusCard(t *testing.T, name string) *cards.Card {
 // uses; a phased-in control creature IS offered, so the exclusion is real,
 // not a vacuous empty list.
 func TestCR702PhasedOutPermanentIsNotATarget(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 401, "Grizzly Bears")
 	bears := moveSeededCard(t, e, 0, cr702corpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	sa := &cards.SA{Params: map[string]string{"ValidTgts": "Creature"}}
@@ -51,6 +52,7 @@ func TestCR702PhasedOutPermanentIsNotATarget(t *testing.T) {
 // permanent's static abilities are off, so a lord's pump does not reach it.
 // Glorious Anthem is the lord; the Bears' effective power is the probe.
 func TestCR702PhasedOutPermanentStaticAbilityIsOff(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 402, "Glorious Anthem", "Grizzly Bears")
 	anthem := moveSeededCard(t, e, 0, cr702corpusCard(t, "Glorious Anthem"), state.ZBattlefield)
 	bears := moveSeededCard(t, e, 0, cr702corpusCard(t, "Grizzly Bears"), state.ZBattlefield)
@@ -73,6 +75,7 @@ func TestCR702PhasedOutPermanentStaticAbilityIsOff(t *testing.T) {
 // the attacker offer and the validator read. Raging Goblin carries Haste, so
 // the only gate under test is phasing (no summoning-sickness setup needed).
 func TestCR702PhasedOutPermanentDoesNotAttack(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 403, "Raging Goblin")
 	goblin := moveSeededCard(t, e, 0, cr702corpusCard(t, "Raging Goblin"), state.ZBattlefield)
 	if o := e.G.Obj(goblin); o == nil || o.Zone != state.ZBattlefield || !e.HasKeyword(goblin, "Haste") {
@@ -91,6 +94,7 @@ func TestCR702PhasedOutPermanentDoesNotAttack(t *testing.T) {
 // TestCR702PhasedOutPermanentPhasesInAtUntap pins CR 702.25d with CR 502.4:
 // a phased-out permanent phases in at its controller's untap step.
 func TestCR702PhasedOutPermanentPhasesInAtUntap(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 404, "Grizzly Bears")
 	bears := moveSeededCard(t, e, 0, cr702corpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	e.emit(events.Event{Kind: events.PhaseOut, Obj: bears, Amount: 1})
@@ -110,6 +114,7 @@ func TestCR702PhasedOutPermanentPhasesInAtUntap(t *testing.T) {
 // next such step (the CR 702.25d scan serves the phase-in half of the
 // toggle) — one toggle per step, so the phase-in is not immediately undone.
 func TestCR702PhasingKeywordTogglesAtUntapStep(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 405, "Katabatic Winds", "Grizzly Bears")
 	kw := moveSeededCard(t, e, 0, cr702corpusCard(t, "Katabatic Winds"), state.ZBattlefield)
 	bears := moveSeededCard(t, e, 0, cr702corpusCard(t, "Grizzly Bears"), state.ZBattlefield)

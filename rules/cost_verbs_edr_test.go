@@ -92,6 +92,7 @@ func edrSeatZeroPriority(t *testing.T, e *Engine) {
 // fallback and priced one generic mana, which is exactly the deviation the
 // deleted row described.
 func TestCostVerbExileDiscardReturnParsePrecisely(t *testing.T) {
+	t.Parallel()
 	exile := ParseCost("Exile<1/CARDNAME>")
 	if len(exile.Exile) != 1 || exile.Exile[0].N != 1 || exile.Exile[0].Spec != "CARDNAME" {
 		t.Fatalf("Exile<1/CARDNAME> part = %+v", exile.Exile)
@@ -123,6 +124,7 @@ func TestCostVerbExileDiscardReturnParsePrecisely(t *testing.T) {
 // (the controller's graveyard is shuffled into their library). A row-17
 // engine withheld the offer entirely.
 func TestEnhancedSurveillanceExilesItselfAsItsCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	surv := mustCorpusCard(t, reg, "Enhanced Surveillance")
 	idx := costAbilityIndex(t, surv, "Exile<1/CARDNAME>")
@@ -156,6 +158,7 @@ func TestEnhancedSurveillanceExilesItselfAsItsCost(t *testing.T) {
 // (Mnemonic Sphere) is offered from the HAND, and paying it discards the
 // Sphere and draws its controller a card.
 func TestMnemonicSphereDiscardsItselfFromHandAsItsCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sphere := mustCorpusCard(t, reg, "Mnemonic Sphere")
 	idx := costAbilityIndex(t, sphere, "Discard<1/CARDNAME>")
@@ -225,6 +228,7 @@ func TestMnemonicSphereDiscardsItselfFromHandAsItsCost(t *testing.T) {
 // offered from the battlefield, and paying it returns the Aura-like
 // enchantment source to its owner's hand and shields the chosen creature.
 func TestBrokenFallReturnsItselfAsItsCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	fall := mustCorpusCard(t, reg, "Broken Fall")
 	idx := costAbilityIndex(t, fall, "Return<1/CARDNAME>")

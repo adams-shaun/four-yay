@@ -12,6 +12,7 @@ import (
 // keyword-granted ability must be visible to AbilityCast just like a printed
 // activation. The second watcher exercises SpellAbilityCast's activation arm.
 func TestGrantedCyclingActivationFiresAbilityCastWatchers(t *testing.T) {
+	t.Parallel()
 	mystic := mshCorpusCard(t, "Rhet-Tomb Mystic")
 	rings := mshCorpusCard(t, "Rings of Brighthearth")
 	const watcher = "Name:Activation Watcher\nTypes:Enchantment\n" +

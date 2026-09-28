@@ -73,6 +73,7 @@ func passIdx(t *testing.T, e *Engine) int {
 // Whirler Rogue would always count as its own sensible target and the gate
 // would never fire. The target ask that round 1 fixed is never even posed.
 func TestBotDeclinesWhirlerGrantWithoutOwnCreature(t *testing.T) {
+	t.Parallel()
 	e, whirler := whirlerRogueBoard(t, false)
 	opt := findWhirlerAbilityOption(t, e, whirler)
 	// Precondition: the ability option carries the polarity signal the gate
@@ -95,6 +96,7 @@ func TestBotDeclinesWhirlerGrantWithoutOwnCreature(t *testing.T) {
 // the own creature (Whirler Rogue remembers it), so the assertion covers
 // activation, targeting and resolution together.
 func TestBotWhirlerGrantAimsOwnCreature(t *testing.T) {
+	t.Parallel()
 	e, whirler := whirlerRogueBoard(t, true)
 	own := e.G.Zone(state.ZBattlefield, 0)[len(e.G.Zone(state.ZBattlefield, 0))-1]
 	if e.G.Obj(own).Face().Name != "Own Giant" {

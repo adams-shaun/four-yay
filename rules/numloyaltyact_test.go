@@ -25,6 +25,7 @@ import (
 // registration is real (no unimplemented Note) and the granted limit allows a
 // second activation while withholding a third (CR 606.3).
 func TestEffectDeliveredNumLoyaltyActTwiceGrantsSecondActivation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kaito := mustCorpusCard(t, reg, "Kaito, Dancing Shadow")
 	e, _, kaitoID := walkerBoard(t, reg, "Kaito, Dancing Shadow")
@@ -85,6 +86,7 @@ func TestEffectDeliveredNumLoyaltyActTwiceGrantsSecondActivation(t *testing.T) {
 // (base 1 + 2). It is the second parameter of the combination rule, so it
 // gets its own real corpus assertion rather than being inferred from Twice.
 func TestEffectDeliveredNumLoyaltyActAdditionalRaisesLimit(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	comet := mustCorpusCard(t, reg, "Comet, Stellar Pup")
 	e, _, cometID := walkerBoard(t, reg, "Comet, Stellar Pup")
@@ -114,6 +116,7 @@ func TestEffectDeliveredNumLoyaltyActAdditionalRaisesLimit(t *testing.T) {
 // controller controls), proving the read resolves ValidCard$ against the
 // effect's own source and controller rather than the permanent's.
 func TestEffectDeliveredNumLoyaltyActControllerScopeTwice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	urza := mustCorpusCard(t, reg, "Urza Assembles the Titans")
 	e, _, jaceID := walkerBoard(t, reg, "Jace, the Mind Sculptor", urza)
@@ -154,6 +157,7 @@ func TestEffectDeliveredNumLoyaltyActControllerScopeTwice(t *testing.T) {
 // Planeswalker.YouCtrl. Before the fix the ability emitted the
 // NumLoyaltyAct unimplemented Note and granted nothing.
 func TestEffectDeliveredNumLoyaltyActChainVeilActivatedAbility(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	veil := mustCorpusCard(t, reg, "The Chain Veil")
 	e, _, jaceID := walkerBoard(t, reg, "Jace, the Mind Sculptor", veil)
@@ -194,6 +198,7 @@ func TestEffectDeliveredNumLoyaltyActChainVeilActivatedAbility(t *testing.T) {
 // granting blanket. Precondition is the positive sibling above, which proves
 // the same registration path DOES go live for a readable body.
 func TestEffectDeliveredNumLoyaltyActUnreadParamFailsClosed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	src := card(t, "Name:BadGrant\nTypes:Creature\nPT:1/1\n"+
 		"SVar:DBEffect:DB$ Effect | StaticAbilities$ Bad\n"+

@@ -115,6 +115,7 @@ func TestCountersRemovedThisTurnObjectSpecIsUnresolvable(t *testing.T) {
 // is offered only once the paid energy discounts it to at most 6 — and the
 // paid mana actually drained matches the discounted total.
 func TestBlasterHulkDiscountTracksEnergyPaid(t *testing.T) {
+	t.Parallel()
 	for _, paid := range []int32{0, 1, 2, 3} {
 		t.Run("paid "+string(rune('0'+paid)), func(t *testing.T) {
 			e := handEngine(t, yourCountersCard(t, "Blaster Hulk"))

@@ -1,0 +1,24 @@
+{
+  "card": "Spider-Punk",
+  "family": "replacement",
+  "oracle_sha": "6eb3cd3f13ec",
+  "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "damage-cannot-be-prevented",
+      "cr": ["615.1a", "614.6", "120.3a"],
+      "why": "Spider-Punk makes damage unpreventable, so a Bolt aimed at a player protected by Glacial Chasm still deals its three damage.",
+      "setup": {"p0": {"battlefield": ["Spider-Punk"]}, "p1": {"battlefield": ["Wastes"], "hand": ["Glacial Chasm", "Lightning Bolt"]}},
+      "steps": [{"op": "pass_to", "step": "main1", "active": "p1"}, {"op": "play", "seat": 1, "card": "p1:Glacial Chasm"}, {"op": "resolve", "answers": [{"kind": "any", "pick": ["p1:Wastes"]}]}, {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 20, "p1": 17}}]
+    },
+    {
+      "name": "without-spider-punk-chasm-prevents-damage",
+      "cr": ["615.1a", "120.3a"],
+      "why": "Without the effect that makes damage unpreventable, Glacial Chasm prevents the three damage that would be dealt to its controller.",
+      "setup": {"p0": {}, "p1": {"battlefield": ["Wastes"], "hand": ["Glacial Chasm", "Lightning Bolt"]}},
+      "steps": [{"op": "pass_to", "step": "main1", "active": "p1"}, {"op": "play", "seat": 1, "card": "p1:Glacial Chasm"}, {"op": "resolve", "answers": [{"kind": "any", "pick": ["p1:Wastes"]}]}, {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 20, "p1": 20}}]
+    }
+  ]
+}

@@ -165,6 +165,7 @@ func p1p1Counters(t *testing.T, e *Engine, id state.ObjID) int32 {
 // (the augmenting replacement never prevented the flip), funded by the
 // keyword's {3}{G}{G} turn-up cost, and the game replays byte-identically.
 func TestHoodedHydraTurnFaceUpReplacementPutsFiveCounters(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Hooded Hydra")
 	// The face-down {3} plus the printed {X}{G}{G} ride together out of a
@@ -214,6 +215,7 @@ func TestHoodedHydraTurnFaceUpReplacementPutsFiveCounters(t *testing.T) {
 // trigger ("whenever a face-down creature you control enters") is not in
 // play when the warden enters face down.
 func TestTrailOfMysteryTurnFaceUpTriggerPumpsOnce(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Kin-Tree Warden", "Trail of Mystery")
 	id := morphDownCast(t, e, "Kin-Tree Warden", "morphed", "CCCG", 1)
@@ -264,6 +266,7 @@ func TestTrailOfMysteryTurnFaceUpTriggerPumpsOnce(t *testing.T) {
 //   - back on seat 1's turn the option returns, the action turns the warden
 //     up for its {G}, and the game replays byte-identically.
 func TestKarlovWatchdogTurnFaceUpCantHappenGatesTheOpponentsTurnUp(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// Each seat holds its own carrier: seat 0 the prohibition's source, seat
 	// 1 the face-down morph target (manifestEngine deals every fixture into
@@ -343,6 +346,7 @@ func TestKarlovWatchdogTurnFaceUpCantHappenGatesTheOpponentsTurnUp(t *testing.T)
 // 4/4 until end of turn), and the game replays byte-identically. A second
 // firing would read 6/6, none would read 2/2.
 func TestMasterOfPearlsTurnFaceUpSelfTriggerFiresOnce(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Master of Pearls")
 	// The face-down {3} plus the printed morph turn-up cost {3}{W}{W} ride
@@ -423,6 +427,7 @@ func morphDownCastWithoutPrintedOption(t *testing.T, e *Engine, name, symbols st
 // declining the compiled replacement still completes the turn-up without
 // cloning, and the answer is replayable.
 func TestVesuvanShapeshifterCanDeclineItsTurnFaceUpReplacement(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Vesuvan Shapeshifter", "Grizzly Bears")
 	id := morphDownCastWithoutPrintedOption(t, e, "Vesuvan Shapeshifter", "CCCUU")
@@ -445,6 +450,7 @@ func TestVesuvanShapeshifterCanDeclineItsTurnFaceUpReplacement(t *testing.T) {
 // TestVesuvanShapeshifterCanAcceptItsTurnFaceUpReplacement pins the yes arm
 // of Optional$: the compiled Clone body resolves before the turn-up folds.
 func TestVesuvanShapeshifterCanAcceptItsTurnFaceUpReplacement(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Vesuvan Shapeshifter", "Grizzly Bears")
 	bear := oppBear(t, e)
@@ -483,6 +489,7 @@ func TestVesuvanShapeshifterCanAcceptItsTurnFaceUpReplacement(t *testing.T) {
 // TestTurnFaceUpReplacementAskParksTheTransition proves an asking ReplaceWith
 // body cannot expose the turn-up while its answer is outstanding.
 func TestTurnFaceUpReplacementAskParksTheTransition(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := corpusEngine(t, reg, nil, nil)
 	id := onBoardCard(t, e, 0, lookup(t, reg, "Aquamorph Entity"))
@@ -519,6 +526,7 @@ func TestTurnFaceUpReplacementAskParksTheTransition(t *testing.T) {
 // separately from the offer gate: an offered option becomes stale once the
 // prohibition appears, even if the player still submits the old option.
 func TestTurnFaceUpStaleOptionRechecksCantHappen(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	forest := searchCorpusCard(t, reg, "Forest")
 	fill := func(name string) []*cards.Card {
@@ -554,6 +562,7 @@ func TestTurnFaceUpStaleOptionRechecksCantHappen(t *testing.T) {
 // trigger_match.go registration line would silently drop trig:TurnFaceUp from
 // the measured corpus coverage — not just the census.
 func TestTurnFaceUpIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:TurnFaceUp"] {
 		t.Fatal(`effects.Supported() lacks "trig:TurnFaceUp" — the trigger_match.go registration was reverted`)
 	}
@@ -572,6 +581,7 @@ func TestTurnFaceUpIsRegistered(t *testing.T) {
 // prevent a raw-emitted turn-up of seat 1's face-down permanent — the
 // FaceDown marker survives and a Note records the prevention.
 func TestTurnFaceUpCantHappenStopsTheRawEmitRoute(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// onBoardCard is eventless direct placement (the panoptic_projektor_test
 	// precedent), so this scenario has no replayable genesis — the raw-emit

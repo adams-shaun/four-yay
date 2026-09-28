@@ -100,6 +100,7 @@ func etbreplEngine(t *testing.T, reg *cards.Registry, hand ...string) (*Engine, 
 // time the entering object has not yet had FaceDown folded onto it, so
 // `Creature.faceDown+YouCtrl` would fail closed without it.
 func TestETBReplacementFilterVeiledAscension(t *testing.T) {
+	t.Parallel()
 	reg := freshCorpusRegistry(t,
 		"v/veiled_ascension.txt", "g/grizzly_bears.txt", "f/forest.txt", "m/mountain.txt")
 	e, cfg := etbreplEngine(t, reg, "Veiled Ascension", "Grizzly Bears")
@@ -140,6 +141,7 @@ func TestETBReplacementFilterVeiledAscension(t *testing.T) {
 // be missed because the matcher reads events.IsFaceDownEntry, the one
 // predicate covering both.
 func TestETBReplacementFilterVeiledAscensionManifestMarker(t *testing.T) {
+	t.Parallel()
 	reg := freshCorpusRegistry(t,
 		"v/veiled_ascension.txt", "g/grizzly_bears.txt", "f/forest.txt", "m/mountain.txt")
 	e, cfg := etbreplEngine(t, reg, "Veiled Ascension", "Grizzly Bears")
@@ -177,6 +179,7 @@ func TestETBReplacementFilterVeiledAscensionManifestMarker(t *testing.T) {
 // entry must not double-apply (the `Other` predicate), and a later Angel must
 // receive counters.
 func TestETBReplacementFilterGiada(t *testing.T) {
+	t.Parallel()
 	reg := freshCorpusRegistry(t,
 		"g/giada_font_of_hope.txt", "s/serra_angel.txt",
 		"g/grizzly_bears.txt", "f/forest.txt", "m/mountain.txt", "p/plains.txt")

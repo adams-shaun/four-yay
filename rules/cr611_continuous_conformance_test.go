@@ -14,6 +14,7 @@ import (
 )
 
 func TestCR611IndefinitePumpSurvivesCleanup(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	e := crResolutionEngine(t, []string{"Riding the Dilu Horse"}, nil)
 	horse := crAbortMove(t, e, 0, "Riding the Dilu Horse", state.ZHand)
@@ -38,6 +39,7 @@ func TestCR611IndefinitePumpSurvivesCleanup(t *testing.T) {
 }
 
 func TestCR613HumilitySetsBaseBeforePumpAndRemovesAbilities(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	e := crResolutionEngine(t, []string{"Humility", "Giant Growth"}, nil)
 	target := crAbortMove(t, e, 1, "Serra Avenger", state.ZBattlefield)

@@ -73,6 +73,7 @@ func assertGrants(t *testing.T, e *Engine, bearer state.ObjID, want []string) {
 // each grant arrived as a single bogus keyword ("Deathtouch & Lifelink")
 // that HasKeyword never matched, so none of these grants worked.
 func TestEquipmentAmpersandGrantsRealKeywords(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cases := []struct {
 		equipment string
@@ -135,6 +136,7 @@ func derivedKeywordsRegistered(t *testing.T, e *Engine, id state.ObjID, head str
 // seat 0 gains that 1. Before the fix the bearer's lifelink was the bogus
 // joined keyword and nobody gained anything.
 func TestBasiliskCollarBearerNonCombatDamageGainsLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Basilisk Collar", "Prodigal Pyromancer"}, nil)
 	collar := findOnBoard(t, e, 0, "Basilisk Collar")
@@ -161,6 +163,7 @@ func TestBasiliskCollarBearerNonCombatDamageGainsLife(t *testing.T) {
 // keywords (the +4/+4 static has always applied — the germ's survival was
 // never the bug; its keywords were).
 func TestBatterskullGermHasVigilanceAndLifelink(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	skull := mustCorpusCard(t, reg, "Batterskull")
 	cfg := seatZeroStart(Config{Seed: 9, Names: []string{"a", "b"},
@@ -240,6 +243,7 @@ func skullID(e *Engine, name string) state.ObjID {
 //  4. effects GainControl — its AddKWs$ read calls cards.SplitKeywordList and
 //     effects.TestGainControlKeywordListReaderUsesSharedParser executes it.
 func TestKeywordListReadersShareTheParser(t *testing.T) {
+	t.Parallel()
 	// 1. The static keyword path must divide the Forge ampersand list.
 	st := cards.Static{Mode: "Continuous", Params: map[string]string{
 		"AddKeyword": "Vigilance & Lifelink",

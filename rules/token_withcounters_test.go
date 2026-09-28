@@ -69,6 +69,7 @@ func newestTokenOnBattlefield(t *testing.T, e *Engine) *state.Object {
 // the minted Incubator token enter WITH its +1/+1 counter -- a 1/1, not a
 // 0/0 that the zero-toughness SBA sweeps before the test can even look.
 func TestIncubobTokenEntersWithACounter(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := tokenWithCountersEngine(t, reg, "Incubob")
 	incubob := searchMoveByName(t, e, "Incubob", state.ZHand)
@@ -107,6 +108,7 @@ func TestIncubobTokenEntersWithACounter(t *testing.T) {
 // the face's own SVar table bound exactly as the engine binds it for a
 // resolving trigger body.
 func TestPrintlifterOozeTokenEntersWithComputedCounters(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := tokenWithCountersEngine(t, reg, "Printlifter Ooze", "Llanowar Elves")
 	ooze := searchMoveByName(t, e, "Printlifter Ooze", state.ZBattlefield)
@@ -152,6 +154,7 @@ func TestPrintlifterOozeTokenEntersWithComputedCounters(t *testing.T) {
 // resolution's table) is ONE loud Note naming the value and the token enters
 // WITHOUT counters -- never a silent wrong count, never a silent default.
 func TestPrintlifterOozeUnresolvableAmountIsLoudAndSkipped(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := tokenWithCountersEngine(t, reg, "Printlifter Ooze")
 	ooze := searchMoveByName(t, e, "Printlifter Ooze", state.ZBattlefield)
@@ -188,6 +191,7 @@ func TestPrintlifterOozeUnresolvableAmountIsLoudAndSkipped(t *testing.T) {
 // with ONE +1/+1 counter. The pin resolves the real compiled ability with a
 // seeded target (the mvts1 PickedTargets arm's shape).
 func TestLittjaraMirrorlakeCopyEntersWithACounter(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := tokenWithCountersEngine(t, reg, "Littjara Mirrorlake", "Grizzly Bears")
 	lake := searchMoveByName(t, e, "Littjara Mirrorlake", state.ZBattlefield)

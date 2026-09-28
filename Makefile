@@ -160,8 +160,9 @@ gentypes:
 	go run ./cmd/gentypes -o web/src/protocol.ts
 
 .PHONY: test
+# GOGC=200: rules.test measured 104 s vs 112 s CPU (28.3 s vs 30.4 s wall) for 1.2-1.4 GB vs 0.9 GB RSS.
 test:
-	go test $(GO_TEST_FLAGS) ./...
+	GOGC=200 go test $(GO_TEST_FLAGS) ./...
 
 # conformance runs the CR 601 and CR 733 conformance suites. I-2
 # (mandatory-target feasibility), I-7 (targets before payment), and the CR 733.1

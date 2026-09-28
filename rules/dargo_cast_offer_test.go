@@ -21,6 +21,7 @@ import (
 // announcement/payment must succeed, and all three permanents must be
 // sacrificed.
 func TestDargoCastOfferedWhenSacrificeReducesManaCost(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 		"Name:Crab\nTypes:Creature\nPT:1/1\nOracle:x\n",
@@ -96,6 +97,7 @@ func TestDargoCastOfferedWhenSacrificeReducesManaCost(t *testing.T) {
 // precondition split this could pass vacuously, so the eligible permanent and
 // the shortfall are both asserted.
 func TestDargoWithheldWhenNoSacrificeCountIsPayable(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 	}, "1R")

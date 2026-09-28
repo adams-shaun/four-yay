@@ -21,6 +21,7 @@ import (
 // carriers unplayable in every coverage/deck-validation consumer even though
 // the engine now implements the cast.
 func TestSplitFuseKeywordIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:Fuse"] {
 		t.Fatal(`effects.Supported() is missing "kw:Fuse"`)
 	}
@@ -33,6 +34,7 @@ func TestSplitFuseKeywordIsRegistered(t *testing.T) {
 // control", read off the just-created token), so each half's own SVar table
 // survived the shared resolution.
 func TestSplitFuseWithATargetlessHalfRunsBothHalves(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	alive := searchCorpusCard(t, reg, "Alive")
 	island := searchCorpusCard(t, reg, "Island")
@@ -86,6 +88,7 @@ func TestSplitFuseWithATargetlessHalfRunsBothHalves(t *testing.T) {
 // was last cast as. Before the normalization the returned card sat at face 1
 // and, with Tear's own target gone, offered nothing at all.
 func TestSplitResolvedHalfDoesNotPersistOnTheCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, _, prisonID := splitCorpusEngine(t, reg, 8421)
 	// A second enchantment so Tear still has a target after the first one is
@@ -191,6 +194,7 @@ func splitCorpusEngine(t *testing.T, reg *cards.Registry, seed uint64) (*Engine,
 // Tear resolves Tear's own body -- it destroys the enchantment, not the
 // artifact.
 func TestSplitCardEachHalfIsSeparatelyCastable(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, ringID, prisonID := splitCorpusEngine(t, reg, 8411)
 	addMana(t, e, 0, "RW")
@@ -241,6 +245,7 @@ func TestSplitCardEachHalfIsSeparatelyCastable(t *testing.T) {
 // = {1}{R}{W}), asks each half's own targets in turn, and resolves both
 // destroys in one spell.
 func TestSplitFusePaysCombinedCostAndResolvesBothHalves(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, ringID, prisonID := splitCorpusEngine(t, reg, 8412)
 
@@ -311,6 +316,7 @@ func TestSplitFusePaysCombinedCostAndResolvesBothHalves(t *testing.T) {
 // artifact alone leaves Wear castable but withholds Tear -- and therefore the
 // fused cast, which needs both halves' targets.
 func TestSplitHalfWithNoLegalTargetIsWithheld(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	wear := searchCorpusCard(t, reg, "Wear")
 	ring := searchCorpusCard(t, reg, "Sol Ring")
@@ -348,6 +354,7 @@ func TestSplitHalfWithNoLegalTargetIsWithheld(t *testing.T) {
 // the real corpus card Bound // Determined is a Split card with NO K:Fuse and
 // no Aftermath, so each half is offered separately but never a fused cast.
 func TestNonFuseSplitOffersBothHalvesButNoFusedCast(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	bound := searchCorpusCard(t, reg, "Bound")
 	island := searchCorpusCard(t, reg, "Island")
@@ -391,6 +398,7 @@ func TestNonFuseSplitOffersBothHalvesButNoFusedCast(t *testing.T) {
 // pre-fix mis-assignment). Turn's Animate then leaves its own target a 0/1
 // red Weird that took no damage; Burn kills its own target.
 func TestSplitFuseOverlappingHalfSpecsResolveTheirOwnTargets(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	turn := searchCorpusCard(t, reg, "Turn")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -491,6 +499,7 @@ func TestSplitFuseOverlappingHalfSpecsResolveTheirOwnTargets(t *testing.T) {
 // creature of mine to tap. Pre-fix the front-face gate suppressed the whole
 // card's offers.
 func TestSplitInstantHalfOfferedAtInstantTiming(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	said := searchCorpusCard(t, reg, "Said")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")

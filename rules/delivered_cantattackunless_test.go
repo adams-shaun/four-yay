@@ -107,6 +107,7 @@ func activateSivitriPlusOne(t *testing.T, e *Engine, sivitri *cards.Card) state.
 // the pair, and the tax expires at the beginning of the controller's next
 // turn.
 func TestSivitriDeliveredCantAttackUnlessChargesLife(t *testing.T) {
+	t.Parallel()
 	sivCard := mshCorpusCard(t, "Sivitri, Dragon Master")
 	// A second planeswalker Sivitri's controller controls, so the
 	// Planeswalker.YouCtrl half of the Target$ is exercised against a real
@@ -212,6 +213,7 @@ func TestSivitriDeliveredCantAttackUnlessChargesLife(t *testing.T) {
 // against the frozen binding). The zero/default and the selected prices
 // differ, so a missed binding cannot pass.
 func TestWarTaxDeliveredCantAttackUnlessChargesChosenX(t *testing.T) {
+	t.Parallel()
 	tax := mshCorpusCard(t, "War Tax")
 	e := chargeEngine(t, 9102, tax)
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -280,6 +282,7 @@ func TestWarTaxDeliveredCantAttackUnlessChargesChosenX(t *testing.T) {
 // {1} per Cleric on the battlefield (the SVar body Count$Valid Cleric read
 // live at consult time).
 func TestWhipgrassEntanglerDeliveredStaticChargesAttackPerCleric(t *testing.T) {
+	t.Parallel()
 	whipCard := mshCorpusCard(t, "Whipgrass Entangler")
 	e := chargeEngine(t, 9103, whipCard)
 	bear := onBoardReady(t, e, 1, bearBlockSrc)
@@ -341,6 +344,7 @@ func TestWhipgrassEntanglerDeliveredStaticChargesAttackPerCleric(t *testing.T) {
 // half on the real card: a payer who cannot pay the 2 life never sees the
 // pair, and Sivitri's +1 really registered.
 func TestSivitriDeliveredInsufficientLifeIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	sivCard := mshCorpusCard(t, "Sivitri, Dragon Master")
 	e := chargeEngine(t, 9104, sivCard)
 	activateSivitriPlusOne(t, e, sivCard)
@@ -373,6 +377,7 @@ func TestSivitriDeliveredInsufficientLifeIsNeverOffered(t *testing.T) {
 // unimplemented" Note that the pre-fix registration branch produced, and must
 // instead register a live restriction.
 func TestSivitriDeliveredRegistrationEmitsNoUnimplementedNote(t *testing.T) {
+	t.Parallel()
 	sivCard := mshCorpusCard(t, "Sivitri, Dragon Master")
 	e := chargeEngine(t, 9105, sivCard)
 	e.Advance()

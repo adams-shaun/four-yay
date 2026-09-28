@@ -32,6 +32,7 @@ func avernaOptions(d *decision.Decision) []state.ObjID {
 // exile), the land enters tapped, and the ordinary free-cast election for
 // Grizzly Bears follows. The unrelated land must remain in exile throughout.
 func TestAvernaCascadeOffersOnlyExiledLandBeforeCastElection(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9301, "Bloodbraid Elf",
 		[]string{"Forest", "Grizzly Bears"},
 		[]string{"Averna, the Chaos Bloom"})
@@ -121,6 +122,7 @@ func TestAvernaCascadeOffersOnlyExiledLandBeforeCastElection(t *testing.T) {
 // Min 0), the found card is exiled exactly once, and the ordinary cast
 // election follows directly.
 func TestAvernaCascadeNoLandOffersNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9302, "Bloodbraid Elf",
 		[]string{"Grizzly Bears"},
 		[]string{"Averna, the Chaos Bloom"})
@@ -153,6 +155,7 @@ func TestAvernaCascadeNoLandOffersNothing(t *testing.T) {
 // the land pick leaves it exiled (then bottomed by the residue), and the
 // cascade still reaches its free-cast election.
 func TestAvernaCascadeDeclinedLandStillProceeds(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9303, "Bloodbraid Elf",
 		[]string{"Forest", "Grizzly Bears"},
 		[]string{"Averna, the Chaos Bloom"})

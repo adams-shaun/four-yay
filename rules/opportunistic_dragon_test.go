@@ -29,6 +29,7 @@ import (
 // remains, the stolen artifact creature loses all printed abilities; when the
 // Dragon leaves the battlefield the abilities return.
 func TestOpportunisticDragonStripsStolenPermanentAbilities(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Opportunistic Dragon")},

@@ -146,7 +146,7 @@ func (e *Engine) escapeCost(id state.ObjID) (Cost, bool) {
 	if o == nil || o.Face() == nil {
 		return Cost{}, false
 	}
-	raw, ok := e.derivedKeywordParam(id, "Escape")
+	raw, ok := e.derivedKeywordParamH(id, kwhEscape)
 	if !ok {
 		return Cost{}, false
 	}
@@ -470,7 +470,7 @@ func (e *Engine) mayhemCastCost(id state.ObjID) (Cost, bool) {
 	if o == nil || o.Face() == nil {
 		return Cost{}, false
 	}
-	raw, ok := e.derivedKeywordParam(id, "Mayhem")
+	raw, ok := e.derivedKeywordParamH(id, kwhMayhem)
 	if !ok || strings.TrimSpace(raw) == "" {
 		return Cost{}, false
 	}

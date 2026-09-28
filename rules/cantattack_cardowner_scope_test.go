@@ -35,6 +35,7 @@ func cardOwnerScopeFixture(t *testing.T) (*Engine, state.ObjID) {
 // behave exactly as it did before the CardOwner resolution existed — fail
 // closed, block nobody.
 func TestCantPutCounterValidPlayerCardOwnerStaysSourceLess(t *testing.T) {
+	t.Parallel()
 	e, id := cardOwnerScopeFixture(t)
 	e.AddContinuous(ContinuousEffect{Source: id, Controller: 1, Restriction: "CantPutCounter",
 		RestrictParams: map[string]string{"CounterType": "P1P1", "ValidPlayer": "Player.CardOwner"}})
@@ -60,6 +61,7 @@ func TestCantPutCounterValidPlayerCardOwnerStaysSourceLess(t *testing.T) {
 // permission must NOT hold (fail closed, the pre-CardOwner behavior), so a
 // Defender wall still keeps the creature home.
 func TestCanAttackDefenderValidAttackedCardOwnerStaysSourceLess(t *testing.T) {
+	t.Parallel()
 	e, id := cardOwnerScopeFixture(t)
 	e.AddContinuous(ContinuousEffect{Source: id, Controller: 1, Restriction: "CanAttackDefender",
 		// ValidCard$ Card.Self is required for restrictionApplies to reach the

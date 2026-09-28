@@ -27,6 +27,7 @@ import (
 //     land type -- CR 205.3i), and the answered pick moves to hand.
 //   - unkicked: the trigger never fires, so no search ask is posed.
 func TestSproutingGoblinKickedETBSearchesBasicLandTypedLand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Sprouting Goblin", "Wasteland")
 	goblin := searchMoveByName(t, e, "Sprouting Goblin", state.ZHand)
@@ -90,6 +91,7 @@ func TestSproutingGoblinKickedETBSearchesBasicLandTypedLand(t *testing.T) {
 // fail-without-the-fix's counterpart: it pins that the trigger itself is
 // gated on kicked and not merely on entering.
 func TestSproutingGoblinUnkickedETBSearchesNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Sprouting Goblin", "Wasteland")
 	goblin := searchMoveByName(t, e, "Sprouting Goblin", state.ZHand)

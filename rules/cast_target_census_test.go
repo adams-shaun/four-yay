@@ -18,6 +18,7 @@ const charmTargetCensusSrc = "Name:Charm Census\nManaCost:1 W\nTypes:Instant\n" 
 	"TargetMin$ 1 | NumCards$ 1 | Oracle:x\n"
 
 func TestCastOfferCensusRejectsMandatoryTargetlessChoices(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 6012, targetMinChoiceCensusSrc)
 	addMana(t, e, 0, "1W")
 	o := e.G.Obj(id)
@@ -37,6 +38,7 @@ func TestCastOfferCensusRejectsMandatoryTargetlessChoices(t *testing.T) {
 }
 
 func TestCastOfferCensusKeepsMandatoryTargetWithCandidate(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 6013, targetMinChoiceCensusSrc, testBearSrc)
 	bear := putCreature(t, e, 0, testBearSrc)
 	addMana(t, e, 0, "1W")
@@ -70,6 +72,7 @@ func TestCastOfferCensusKeepsMandatoryTargetWithCandidate(t *testing.T) {
 }
 
 func TestCastOfferCensusRejectsTargetlessCharmAnnouncement(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 6014, charmTargetCensusSrc)
 	addMana(t, e, 0, "1W")
 	o := e.G.Obj(id)

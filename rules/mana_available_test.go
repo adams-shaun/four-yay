@@ -11,6 +11,7 @@ import (
 // contributes nothing; and a player with no battlefield permanents has
 // nothing available.
 func TestAvailableManaBasic(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Plains\nTypes:Basic Land Plains\nOracle:x\n")
 	island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
@@ -37,6 +38,7 @@ func TestAvailableManaBasic(t *testing.T) {
 // express that alternative as one fixed vector; counting both would claim the
 // land can pay both pips with one tap.
 func TestAvailableManaOmitsMultiAbilitySource(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Volcanic Island\nTypes:Land Island Mountain\nOracle:x\n")
 	if got := e.AvailableMana(0); got.Total() != 0 {
@@ -45,6 +47,7 @@ func TestAvailableManaOmitsMultiAbilitySource(t *testing.T) {
 }
 
 func TestAvailableManaSumsAcrossSources(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Plains\nTypes:Basic Land Plains\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Plains\nTypes:Basic Land Plains\nOracle:x\n")
@@ -65,6 +68,7 @@ func TestAvailableManaSumsAcrossSources(t *testing.T) {
 // contributes nothing; a permanent mixing one free tap with one paid ability
 // contributes only the free one.
 func TestAvailableManaExcludesPaidCosts(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// A land whose only mana ability sacrifices itself for two black.
 	onBoard(t, e, 0, "Name:SacLand\nTypes:Land\nA:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ B | Amount$ 2 | Oracle:x\n")
@@ -85,6 +89,7 @@ func TestAvailableManaExcludesPaidCosts(t *testing.T) {
 // each WUBRG colour and no colourless unit, while one activation still adds
 // only the colour the player chooses.
 func TestAvailableManaAnyReportsItsAlternatives(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, "Name:Cavern\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | Oracle:x\n")
 	if e.G.Obj(id).Zone != state.ZBattlefield || e.G.Obj(id).Tapped {
@@ -106,6 +111,7 @@ func TestAvailableManaAnyReportsItsAlternatives(t *testing.T) {
 // an ability yields no amount the pool is guaranteed to receive, so it
 // contributes zero.
 func TestAvailableManaIndeterminateAmountContributesNothing(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Indet\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ W | Amount$ X | Oracle:x\n")
 	got := e.AvailableMana(0)
@@ -118,6 +124,7 @@ func TestAvailableManaIndeterminateAmountContributesNothing(t *testing.T) {
 // the battlefield: a card in a hand or graveyard contributes nothing, and no
 // hidden zone is consulted.
 func TestAvailableManaIsBattlefieldOnly(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// A bear (a creature, no mana ability) and an untapped source.
 	onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -133,6 +140,7 @@ func TestAvailableManaIsBattlefieldOnly(t *testing.T) {
 // folding here must agree with cards.Face.ManaProduction for the free-tap
 // ability, so the engine and the projected CardView.Produces never drift.
 func TestAvailableManaMatchesCardProjection(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := "Name:Plains\nTypes:Basic Land Plains\nOracle:x\n"
 	onBoard(t, e, 0, src)
@@ -154,6 +162,7 @@ func TestAvailableManaMatchesCardProjection(t *testing.T) {
 // walk counted the letters of the word "Combo" as five phantom colourless,
 // which the mana rail then advertised as tappable.
 func TestAvailableManaComboDualNamesItsColoursOnly(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Blackcleave Cliffs\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo B R | Oracle:x\n")
 	got := e.AvailableMana(0)
@@ -169,6 +178,7 @@ func TestAvailableManaComboDualNamesItsColoursOnly(t *testing.T) {
 // conservative value (the same convention as an Indeterminate amount), not
 // the 18 phantom colourless the rune walk counted.
 func TestAvailableManaColorIdentityClaimsNothing(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Command Tower\nManaCost:no cost\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Combo ColorIdentity | Oracle:x\n")
 	if got := e.AvailableMana(0); got.Total() != 0 {
@@ -180,6 +190,7 @@ func TestAvailableManaColorIdentityClaimsNothing(t *testing.T) {
 // still counts a plain multi-symbol token per rune ("RR" two red), so the
 // fix narrowed only the unrecognised-word case.
 func TestAvailableManaSameSymbolTokenCountsTwice(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:RRland\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ RR | Oracle:x\n")
 	if got := e.AvailableMana(0); got[state.MR] != 2 {

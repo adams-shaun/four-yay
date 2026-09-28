@@ -46,6 +46,7 @@ func noClonePumpNote(t *testing.T, e *Engine) {
 // UntilEndOfTurn clone whose PumpKeywords$ has NO PumpDuration$, so the grant
 // lasts as long as the copy and both expire together at this turn's cleanup.
 func TestClonePumpKeywordsRideTheCopyLifetime(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Park Mimic\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilEndOfTurn | AddTypes$ Land | PumpKeywords$ Haste | SpellDescription$ becomes a copy until end of turn and gains haste.\n" +
 		"Oracle:x\n"
@@ -99,6 +100,7 @@ func TestClonePumpKeywordsRideTheCopyLifetime(t *testing.T) {
 // stays -- proving the two durations (Clone's Duration$ and PumpDuration$) are
 // independent, which is the bug the rider's absence produced.
 func TestClonePumpDurationEOtExpiresWhileThePermanentCopySurvives(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Doctor Mimic\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | PumpKeywords$ Haste | PumpDuration$ EOT | SpellDescription$ becomes a permanent copy and gains haste until end of turn.\n" +
 		"Oracle:x\n"

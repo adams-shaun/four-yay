@@ -130,6 +130,7 @@ func victim2controller(e *Engine, victim state.ObjID) state.PlayerID {
 // Goad$ True` static goads that creature for combat exactly like a printed
 // static: it must attack the non-goader defender, Required, and cannot skip.
 func TestEffectGrantedGoadHotPursuitForcesAttackAway(t *testing.T) {
+	t.Parallel()
 	e := goadGrantEngine(t, corpusAlternativeCard(t, "Hot Pursuit"))
 	victim := onBoardReady(t, e, 1, "Name:Victim\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	e.G.Players[0].Pool[state.MC] = 1
@@ -190,6 +191,7 @@ func TestEffectGrantedGoadHotPursuitForcesAttackAway(t *testing.T) {
 // requirement (active() drops the unit on the source-leaves rule) with no
 // lifetime bookkeeping on the static reader's side.
 func TestEffectGrantedGoadEndsWithTheHost(t *testing.T) {
+	t.Parallel()
 	e := goadGrantEngine(t, corpusAlternativeCard(t, "Hot Pursuit"))
 	victim := onBoardReady(t, e, 1, "Name:Victim\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	e.G.Players[0].Pool[state.MC] = 1
@@ -233,6 +235,7 @@ func TestEffectGrantedGoadEndsWithTheHost(t *testing.T) {
 // goads it, so the returned creature must attack a player other than the
 // caster (CR 701.38b), Required (CR 508.1d).
 func TestEffectGrantedGoadImmortalObligation(t *testing.T) {
+	t.Parallel()
 	e := goadGrantEngine(t, corpusAlternativeCard(t, "Immortal Obligation"))
 	e.G.Players[0].Pool[state.MC] = 1
 	e.G.Players[0].Pool[state.MW] = 1
@@ -289,6 +292,7 @@ func TestEffectGrantedGoadImmortalObligation(t *testing.T) {
 // creature with the copy's name -- including the copied template -- for the
 // clone's controller, and never the clone itself.
 func TestCloneGrantedGoadMockingDoppelganger(t *testing.T) {
+	t.Parallel()
 	bear := corpusAlternativeCard(t, "Grizzly Bears")
 	e := goadGrantEngine(t, corpusAlternativeCard(t, "Mocking Doppelganger"))
 	bear1 := onBoardReadyCard(t, e, 1, bear)

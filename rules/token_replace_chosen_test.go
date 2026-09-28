@@ -77,6 +77,7 @@ func countCreatureTokenCopiesNamed(t *testing.T, e *Engine, p state.PlayerID, na
 // than Esix itself (the maker artifact is not a creature and must not be
 // offered). The decline answer stands the original token verbatim.
 func TestEsixChosenTokenCopyElectionPins(t *testing.T) {
+	t.Parallel()
 	esix := tokenReplCorpusCard(t, "Esix, Fractal Bloom")
 	bears := tokenReplCorpusCard(t, "Grizzly Bears")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
@@ -132,6 +133,7 @@ func esixID(t *testing.T, e *Engine) state.ObjID {
 // the tokens that entered the battlefield this turn) then holds the SECOND
 // creation of the same turn verbatim -- no second election, a plain squirrel.
 func TestEsixChosenTokenCopyAccept(t *testing.T) {
+	t.Parallel()
 	esix := tokenReplCorpusCard(t, "Esix, Fractal Bloom")
 	bears := tokenReplCorpusCard(t, "Grizzly Bears")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
@@ -202,6 +204,7 @@ func TestEsixChosenTokenCopyAccept(t *testing.T) {
 // enchanted permanent (the attachedBy predicate -- the Crown's EquippedBy is
 // the same predicate body), and the accept mints a copy of it.
 func TestMoonlitChosenTokenCopy(t *testing.T) {
+	t.Parallel()
 	moonlit := tokenReplCorpusCard(t, "Moonlit Meditation")
 	bears := tokenReplCorpusCard(t, "Grizzly Bears")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
@@ -243,6 +246,7 @@ func TestMoonlitChosenTokenCopy(t *testing.T) {
 // snapshot failed closed and the bear copy stood -- this test asserts the
 // composition, not either replacement alone.
 func TestEsixChosenCopyThenDivineVisitationComposes(t *testing.T) {
+	t.Parallel()
 	esix := tokenReplCorpusCard(t, "Esix, Fractal Bloom")
 	visitation := tokenReplCorpusCard(t, "Divine Visitation")
 	bears := tokenReplCorpusCard(t, "Grizzly Bears")

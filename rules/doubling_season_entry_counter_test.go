@@ -24,6 +24,7 @@ import (
 // +1/+1 counters" body's placement is a new event, and Doubling Season's
 // "if an effect would put one or more counters" replacement must read it.
 func TestDoublingSeasonDoublesEntryCounterBodyPlacement(t *testing.T) {
+	t.Parallel()
 	// Precondition: with no doubler on the board the body really does place
 	// 2 counters (2 != 4, so the doubled assertion below cannot pass vacuously).
 	cre := entryCounterEtbCreature(t)
@@ -60,6 +61,7 @@ func TestDoublingSeasonDoublesEntryCounterBodyPlacement(t *testing.T) {
 // actionCause-based EffectOnly$ read saw nothing -- the same 2-instead-of-4
 // through the exact same gate.
 func TestDoublingSeasonDoublesCastEntryCounterBody(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	cre := entryCounterEtbCreature(t)
 	e, cfg := tokenReplGame(t, 223, ds, cre)
@@ -94,6 +96,7 @@ func TestDoublingSeasonDoublesCastEntryCounterBody(t *testing.T) {
 // an OPPONENT's enters with half rounded down ("If an OPPONENT would put").
 // Neither has a published adder or a stack cause at the nested emit.
 func TestVorinclexReadsCastEntryCounterBodySource(t *testing.T) {
+	t.Parallel()
 	cre := entryCounterEtbCreature(t)
 	vori := tokenReplCorpusCard(t, "Vorinclex, Monstrous Raider")
 
@@ -155,6 +158,7 @@ func TestVorinclexReadsCastEntryCounterBodySource(t *testing.T) {
 // placement is itself an event) with CR 616.1e (each applicable replacement
 // reads the running total).
 func TestCR614EntryBodyCounterIsReplaceable(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Triskelion", "Doubling Season"}, nil)
 	ds := crAbortMove(t, e, 0, "Doubling Season", state.ZBattlefield)
 	lineOK := false

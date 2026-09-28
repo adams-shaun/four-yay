@@ -131,6 +131,7 @@ func resolveQuinjetETB(t *testing.T, e *Engine) {
 // tapping creatures as a cost, so the ability is offered and payable with
 // the sickness flag live.
 func TestCrewAvengersQuinjetAnimatesUntilEndOfTurn(t *testing.T) {
+	t.Parallel()
 	e, vehicle, ids := crewFixture(t, "Grizzly Bears", "Llanowar Elves")
 	bears, elves := ids[0], ids[1]
 	// Preconditions the assertions below depend on: the vehicle is a summoning-SICK,
@@ -234,6 +235,7 @@ func TestCrewAvengersQuinjetAnimatesUntilEndOfTurn(t *testing.T) {
 // (never an election whose every answer would be rejected -- the livelock
 // shape the offer gates exist to withhold).
 func TestCrewIsNotOfferedWhenTotalPowerFallsShort(t *testing.T) {
+	t.Parallel()
 	e, vehicle, ids := crewFixture(t, "Llanowar Elves")
 	elves := ids[0]
 	if e.IsCreature(vehicle) || e.Power(elves) != 1 {
@@ -250,6 +252,7 @@ func TestCrewIsNotOfferedWhenTotalPowerFallsShort(t *testing.T) {
 // artifact at offer time, excluded twice over by Creature.Other) is never a
 // candidate no matter what its printed power is.
 func TestCrewElectionExcludesTappedCreaturesAndTheVehicle(t *testing.T) {
+	t.Parallel()
 	e, vehicle, ids := crewFixture(t, "Grizzly Bears", "Llanowar Elves", "Centaur Courser")
 	bears, elves, courser := ids[0], ids[1], ids[2]
 	// Preconditions: the elves are a legal-looking candidate that this test
@@ -311,6 +314,7 @@ func TestCrewElectionExcludesTappedCreaturesAndTheVehicle(t *testing.T) {
 // constraint binds here because the floor is unmeetable by any single
 // low-power pick the default arm would take.
 func TestCrewBotAnswerMeetsTheFloor(t *testing.T) {
+	t.Parallel()
 	e, vehicle, ids := crewFixture(t, "Grizzly Bears", "Llanowar Elves")
 	bears, elves := ids[0], ids[1]
 	if e.Power(bears)+e.Power(elves) != 3 {
@@ -351,6 +355,7 @@ func TestCrewBotAnswerMeetsTheFloor(t *testing.T) {
 // offers the ability, an election short of the floor is rejected, and a
 // sufficient one taps exactly the chosen creatures and resolves the +20/+20.
 func TestMossbridgeTrollPaysWhenTotalPowerReachesTheFloor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	trollCard, ok := reg.Lookup("Mossbridge Troll")
 	if !ok {
@@ -408,6 +413,7 @@ func TestMossbridgeTrollPaysWhenTotalPowerReachesTheFloor(t *testing.T) {
 // evaluate), while the X form keeps it in the spec -- failing closed, as no
 // corpus carrier combines a floor with an announced count.
 func TestParseCostCrewFloorStripsTheGroupPredicate(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("tapXType<Any/Creature.Other+withTotalPowerGE3>")
 	if len(c.TapPermanent) != 1 {
 		t.Fatalf("Any form parsed %+v, want one TapPermanent part", c.TapPermanent)
@@ -430,6 +436,7 @@ func TestParseCostCrewFloorStripsTheGroupPredicate(t *testing.T) {
 // only once each turn"): the rider is carried onto the minted SA verbatim,
 // where the offer loop's ActivationLimit gate reads it.
 func TestCrewActivationLimitRiderRidesTheMintedAbility(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	loco, ok := reg.Lookup("Luxurious Locomotive")
 	if !ok {
@@ -456,6 +463,7 @@ func TestCrewActivationLimitRiderRidesTheMintedAbility(t *testing.T) {
 // real card face: one minted Animate ability whose cost carries the floor
 // token the machinery reads.
 func TestCrewAbilityParsesOnTheRealVehicle(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	vehicle, ok := reg.Lookup("Avengers Quinjet")
 	if !ok {

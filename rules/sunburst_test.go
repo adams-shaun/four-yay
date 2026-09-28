@@ -59,6 +59,7 @@ func sunburstEngine(t *testing.T, reg *cards.Registry, seed uint64, names ...str
 // coincidence. A colourless-only cast (CCCC) enters with none, proving the
 // count is colours, not mana.
 func TestSunburstEtchedOracleEntersWithP1P1PerColour(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	t.Run("two colours of mana", func(t *testing.T) {
 		e, cfg, id := sunburstEngine(t, reg, seedTossSeat0(151), "Etched Oracle")
@@ -122,6 +123,7 @@ func TestSunburstEtchedOracleEntersWithP1P1PerColour(t *testing.T) {
 // creature, so the SAME colour count arrives as CHARGE counters, not +1/+1 --
 // the branch distinction a single-card test could not see.
 func TestSunburstPentadPrismEntersWithChargePerColour(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, id := sunburstEngine(t, reg, seedTossSeat0(167), "Pentad Prism")
 	o := e.G.Obj(id)
@@ -156,6 +158,7 @@ func TestSunburstPentadPrismEntersWithChargePerColour(t *testing.T) {
 // Sunburst) with two colours; the ONLY source of the keyword is Solar Array's
 // grant, so this test fails vacuously if the grant path does not run.
 func TestSunburstAnimateGrantOnSolarArray(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, thopterID := sunburstEngine(t, reg, seedTossSeat0(173), "Ornithopter of Paradise", "Solar Array")
 	to := e.G.Obj(thopterID)

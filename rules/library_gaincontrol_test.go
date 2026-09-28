@@ -52,6 +52,7 @@ func briberyEngine(t *testing.T) (*Engine, Config) {
 // library's owner. Before the fix the fetched permanent kept its existing
 // controller (seat 1).
 func TestBriberyEndToEndPutsFetchedCreatureUnderCastersControl(t *testing.T) {
+	t.Parallel()
 	e, cfg := briberyEngine(t)
 	bribery := searchMoveByName(t, e, "Bribery", state.ZHand)
 	addMana(t, e, 0, "UUUCCCCCCCC")

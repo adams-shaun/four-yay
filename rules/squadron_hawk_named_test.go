@@ -116,6 +116,7 @@ func hawkCastAndAccept(t *testing.T, e *Engine, id state.ObjID) *decision.Decisi
 // Hawks (up to ChangeNum 3); taking all of them moves exactly those cards to
 // the hand and shuffles once.
 func TestSquadronHawkSearchFindsUpToThreeNamed(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := hawkSeats(t, 1, 3)
 	d := hawkCastAndAccept(t, e, id)
 	if d.Min != 0 || d.Max != 3 || len(d.Options) != 3 {
@@ -165,6 +166,7 @@ func TestSquadronHawkSearchFindsUpToThreeNamed(t *testing.T) {
 // It must shuffle and complete directly -- publishing an empty KChoose would
 // suspend a live host until somebody submitted a meaningless empty answer.
 func TestSquadronHawkSearchWithNoHawksResolvesSilently(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := hawkSeats(t, 1, 0)
 	addMana(t, e, 0, "WC")
 	d := castFixture(t, e, id, -1)
@@ -208,6 +210,7 @@ func TestSquadronHawkSearchWithNoHawksResolvesSilently(t *testing.T) {
 // the cards actually present, and the answer order (not the offer order) is
 // what the moves record.
 func TestSquadronHawkTwoHawksInLibrary(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := hawkSeats(t, 1, 2)
 	d := hawkCastAndAccept(t, e, id)
 	if d.Max != 2 || len(d.Options) != 2 {

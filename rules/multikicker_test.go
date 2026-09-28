@@ -121,6 +121,7 @@ func hasMultikickedCastInfo(e *Engine, obj state.ObjID) bool {
 // ETB trigger's TargetMax$ X (SVar:X:Count$TimesKicked) bounds the graveyard
 // ask at 2, and the answered ask returns exactly those creatures.
 func TestMarshalsAnthemMultikickedETBReturnsKickedCount(t *testing.T) {
+	t.Parallel()
 	e, _, anthem := gateFixture(t, 911, "Marshal's Anthem", gateRaiderSrc, gateRaiderSrc)
 	g1 := gateMoveFromLibrary(t, e, "Raider", state.ZGraveyard)
 	g2 := gateMoveFromLibrary(t, e, "Raider", state.ZGraveyard)
@@ -188,6 +189,7 @@ func TestMarshalsAnthemMultikickedETBReturnsKickedCount(t *testing.T) {
 // graveyard stays untouched. A multikicked cast answered "No multikick"
 // has the same result -- no FlagKicked or multikicked CastInfo.
 func TestMarshalsAnthemPlainCastETBAsksForNothing(t *testing.T) {
+	t.Parallel()
 	e, _, anthem := gateFixture(t, 912, "Marshal's Anthem", gateRaiderSrc, gateRaiderSrc)
 	g1 := gateMoveFromLibrary(t, e, "Raider", state.ZGraveyard)
 	g2 := gateMoveFromLibrary(t, e, "Raider", state.ZGraveyard)
@@ -233,6 +235,7 @@ func TestMarshalsAnthemPlainCastETBAsksForNothing(t *testing.T) {
 // CounterNum$ XKicked chain resolving through SVar XKicked:Count$TimesKicked),
 // and the {T} ability adds that many {C}.
 func TestEverflowingChaliceKickedEntersWithChargeCounters(t *testing.T) {
+	t.Parallel()
 	e, _, chalice := gateFixture(t, 914, "Everflowing Chalice")
 	addMana(t, e, 0, "GGGG") // two {2} kicks
 
@@ -276,6 +279,7 @@ func TestEverflowingChaliceKickedEntersWithChargeCounters(t *testing.T) {
 // pending count seeded by targetBoundCtx, so one kick demands 2 targets and
 // each takes X damage.
 func TestCometStormXAndMultikickRideSeparateEvents(t *testing.T) {
+	t.Parallel()
 	e, _, storm := gateFixture(t, 915, "Comet Storm", gateRaiderSrc, gateRaiderSrc)
 	g1 := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)
 	g2 := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)
@@ -348,6 +352,7 @@ func dMax(d *decision.Decision) int {
 // composed per answer), and a pool that cannot pay base+one payment offers no
 // multikicked option at all.
 func TestMultikickAskBoundedByPool(t *testing.T) {
+	t.Parallel()
 	src := "Name:Kickerling\nManaCost:2 G\nTypes:Creature\nPT:2/2\nK:Multikicker:3\nOracle:x\n"
 	e, _, k := newFixtureDeck(t, 916, src)
 	addMana(t, e, 0, "GGGGGGGGG") // base 3 + two 3-generic payments = 9; a third is 12
@@ -385,6 +390,7 @@ func TestMultikickAskBoundedByPool(t *testing.T) {
 // cast counts 2 (6 life) -- the count rides the SVar-gated trailing CastInfo
 // because the face carries Count$TimesKicked.
 func TestStrongholdArenaTimesKickedThrice(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, mode string
 		pool       string
@@ -418,6 +424,7 @@ func TestStrongholdArenaTimesKickedThrice(t *testing.T) {
 // event -- the gate (b) emission is the design, so unrelated kicked casts stay
 // byte-identical.
 func TestIntoTheRoilKickedEmitsNoMultikickEvent(t *testing.T) {
+	t.Parallel()
 	e, _, roil := gateFixture(t, 919, "Into the Roil", gateRaiderSrc)
 	raider := gateMoveFromLibrary(t, e, "Raider", state.ZBattlefield)
 	addMana(t, e, 0, "UUUU")

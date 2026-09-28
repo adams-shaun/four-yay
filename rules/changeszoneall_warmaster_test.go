@@ -84,6 +84,7 @@ func warmasterTrigger(t *testing.T, e *Engine, id state.ObjID) {
 // an extra Elf and a Grizzly Bears in seat 0's opening hand/library, and a
 // Sol Ring in seat 1's, all real corpus cards.
 func TestElvishWarmasterTokenOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := zallEngine(t, reg,
 		[]string{"Elvish Warmaster", "Llanowar Elves", "Llanowar Elves", "Llanowar Elves", "Grizzly Bears"},

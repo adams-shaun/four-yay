@@ -152,6 +152,7 @@ func draws(e *Engine) int {
 // creates one Faerie token per countered object (SVar:X:Count$RememberedSize
 // after RememberCounteredSA$ True).
 func TestAnswerCountersOpponentSpellsAndAbilitiesNotItsOwn(t *testing.T) {
+	t.Parallel()
 	e, ids := validStackFixture(t)
 	e.G.SetZone(state.ZHand, 0, []state.ObjID{})
 	e.G.SetZone(state.ZHand, 1, []state.ObjID{})
@@ -195,6 +196,7 @@ func TestAnswerCountersOpponentSpellsAndAbilitiesNotItsOwn(t *testing.T) {
 // spec carries no controller qualifier, so the caster's own other spells are
 // countered too; only the resolving source itself is excluded by Other.
 func TestSilenceDrawsPerCounteredSpell(t *testing.T) {
+	t.Parallel()
 	e, ids := validStackFixture(t)
 	e.G.SetZone(state.ZHand, 0, []state.ObjID{})
 	e.G.SetZone(state.ZHand, 1, []state.ObjID{})
@@ -229,6 +231,7 @@ func TestSilenceDrawsPerCounteredSpell(t *testing.T) {
 // on the stack -- opponent's and the caster's own -- but never the resolving
 // Charm itself.
 func TestPolarityCounterModeCountersAllOtherSpells(t *testing.T) {
+	t.Parallel()
 	e, ids := validStackFixture(t)
 	e.G.SetZone(state.ZHand, 0, []state.ObjID{})
 	e.G.SetZone(state.ZHand, 1, []state.ObjID{})
@@ -273,6 +276,7 @@ func TestPolarityCounterModeCountersAllOtherSpells(t *testing.T) {
 // so both seats' ability objects are countered, and the card-object spells
 // beneath them are not.
 func TestDismissalCountersAbilitiesOfBothSeats(t *testing.T) {
+	t.Parallel()
 	e, ids := validStackFixture(t)
 	e.G.SetZone(state.ZHand, 0, []state.ObjID{})
 	e.G.SetZone(state.ZHand, 1, []state.ObjID{})
@@ -305,6 +309,7 @@ func TestDismissalCountersAbilitiesOfBothSeats(t *testing.T) {
 // unknown (ok=false), which is what keeps copy.go's known-token guard
 // fail-closed for a genuinely unparsed token.
 func TestStackKindTokenOfAbilityBase(t *testing.T) {
+	t.Parallel()
 	tok, ok := state.StackKindTokenOf("Ability.YouCtrl")
 	if !ok {
 		t.Fatal("Ability.YouCtrl did not parse as a stack-kind token")

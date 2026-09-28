@@ -83,6 +83,7 @@ func passAll(t *testing.T, e *Engine, limit int) int {
 }
 
 func TestOpeningHandsAndStartingLife(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	for p := state.PlayerID(0); p < 4; p++ {
 		if got := len(e.G.Zone(state.ZHand, p)); got != 7 {
@@ -98,6 +99,7 @@ func TestOpeningHandsAndStartingLife(t *testing.T) {
 }
 
 func TestPriorityVisitsEverySeatInAPNAPOrder(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	var seen []state.PlayerID
 	for i := 0; i < 4; i++ {
@@ -124,6 +126,7 @@ func TestPriorityVisitsEverySeatInAPNAPOrder(t *testing.T) {
 }
 
 func TestPriorityRoundAdvancesTheStep(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	start := e.G.Step
 	passAll(t, e, 4)
@@ -133,6 +136,7 @@ func TestPriorityRoundAdvancesTheStep(t *testing.T) {
 }
 
 func TestLeavingEndCombatRemovesAttackerBeforePostcombatMain(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	attacker := onBoardReady(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 1, IDs: []state.ObjID{attacker}})
@@ -152,6 +156,7 @@ func TestLeavingEndCombatRemovesAttackerBeforePostcombatMain(t *testing.T) {
 }
 
 func TestTurnsRotateThroughEverySeat(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	seen := map[state.PlayerID]bool{}
 	for i := 0; i < 4000 && len(seen) < 4; i++ {
@@ -168,6 +173,7 @@ func TestTurnsRotateThroughEverySeat(t *testing.T) {
 }
 
 func TestEliminatedSeatsAreSkipped(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	e.emit(events.Event{Kind: events.PlayerLost, Player: 1, Text: "test"})
 	for i := 0; i < 12; i++ {
@@ -189,6 +195,7 @@ func TestEliminatedSeatsAreSkipped(t *testing.T) {
 }
 
 func TestSameSeedSameOpeningHands(t *testing.T) {
+	t.Parallel()
 	a, b := newSeats(t, 4), newSeats(t, 4)
 	for p := state.PlayerID(0); p < 4; p++ {
 		ah, bh := a.G.Zone(state.ZHand, p), b.G.Zone(state.ZHand, p)

@@ -29,6 +29,7 @@ const handGuide = "Name:Hand Guide\nManaCost:no cost\nTypes:Creature Spirit\nPT:
 // no mana abilities through availableManaAbilities, so it can never be used
 // to pay a cost. The same object while phased in is the control.
 func TestCR702PhasedOutBattlefieldManaAbilityNotPayable(t *testing.T) {
+	t.Parallel()
 	e, _ := phasesGame(t, 601, "Forest")
 	forest := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Forest"), state.ZBattlefield)
 	o := e.G.Obj(forest)
@@ -54,6 +55,7 @@ func TestCR702PhasedOutBattlefieldManaAbilityNotPayable(t *testing.T) {
 // ActivationZone$ lets function there. The object sits in hand for the whole
 // test, so a no-offer can only be the zone gate, never a missing card.
 func TestCR702HandManaAbilityStillPayablePhasedIn(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 602, handGuide)
 	if o := e.G.Obj(id); o == nil || o.Zone != state.ZHand {
 		t.Fatalf("precondition: Hand Guide not in hand: %+v", o)

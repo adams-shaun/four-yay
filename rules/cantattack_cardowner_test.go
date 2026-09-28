@@ -34,6 +34,7 @@ func playerClause(t *testing.T, body string) string {
 // creature has changed controllers, with no owner planeswalker present to
 // make the walker half (TestCantAttackWalkerControlledByCardOwner) the cause.
 func TestCantAttackPlayerCardOwner(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	x := corpusCard(t, "Xantcha, Sleeper Agent")
 	if len(x.Faces[0].Statics) == 0 {

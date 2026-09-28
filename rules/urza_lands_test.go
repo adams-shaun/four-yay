@@ -92,6 +92,7 @@ func activateMana(t *testing.T, e *Engine, obj state.ObjID) {
 // Leaf 1: all three lands under one controller. Mine and Plant each tap for 2,
 // Tower for 3.
 func TestUrzaLandsPoolAllThree(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := urzaEngine(t, map[string]bool{"mine": true, "tower": true, "plant": true}, nil)
 	activateMana(t, e, ids["mine"])
 	if got := e.G.Players[0].Pool[state.MC]; got != 2 {
@@ -110,6 +111,7 @@ func TestUrzaLandsPoolAllThree(t *testing.T) {
 
 // Leaf 2a: only Mine+Tower present (plant missing); each taps for 1.
 func TestUrzaLandsPoolOnlyMineAndTower(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := urzaEngine(t, map[string]bool{"mine": true, "tower": true}, nil)
 	activateMana(t, e, ids["mine"])
 	if got := e.G.Players[0].Pool[state.MC]; got != 1 {
@@ -125,6 +127,7 @@ func TestUrzaLandsPoolOnlyMineAndTower(t *testing.T) {
 // Leaf 2b (the "other" pair): only Mine+Plant present (tower missing); each
 // taps for 1.
 func TestUrzaLandsPoolOnlyMineAndPlant(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := urzaEngine(t, map[string]bool{"mine": true, "plant": true}, nil)
 	activateMana(t, e, ids["mine"])
 	if got := e.G.Players[0].Pool[state.MC]; got != 1 {
@@ -143,6 +146,7 @@ func TestUrzaLandsPoolOnlyMineAndPlant(t *testing.T) {
 // battlefield, not every battlefield. This setup changes a controller
 // directly (no control-change event exists), so it is not replay-checked.
 func TestUrzaLandsPoolSplitAcrossControllers(t *testing.T) {
+	t.Parallel()
 	e, _, ids := urzaEngine(t, map[string]bool{"mine": true, "tower": true, "plant": true},
 		map[string]state.PlayerID{"plant": 1})
 	activateMana(t, e, ids["mine"])

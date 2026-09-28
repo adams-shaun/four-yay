@@ -132,6 +132,7 @@ func assertDerivedEnchantSwapped(t *testing.T, e *Engine, auraID state.ObjID) {
 // already back under the caster's control (the pre-reanimate window itself is
 // pinned raw in TestAnimateDeadGraveyardWindowSurvivesSBA).
 func TestAnimateDeadCastOfferedTargetsGraveyardCreature(t *testing.T) {
+	t.Parallel()
 	e, auraID, bearID := graveyardEnchantFixture(t, 4711, "Animate Dead")
 	addMana(t, e, 0, "BB") // {1}{B}: the generic 1 is payable with black
 	castGraveyardEnchant(t, e, auraID, bearID)
@@ -153,6 +154,7 @@ func TestAnimateDeadCastOfferedTargetsGraveyardCreature(t *testing.T) {
 // graveyard enchant, and the pair survives a real turn boundary's SBA
 // checkpoints.
 func TestAnimateDeadReanimateChainCompletes(t *testing.T) {
+	t.Parallel()
 	e, auraID, bearID := graveyardEnchantFixture(t, 4712, "Animate Dead")
 	addMana(t, e, 0, "BB")
 	castGraveyardEnchant(t, e, auraID, bearID)
@@ -180,6 +182,7 @@ func TestAnimateDeadReanimateChainCompletes(t *testing.T) {
 // TestDanceOfTheDeadReanimateChainCompletes is the same shape on the second
 // carrier (the target enters tapped; the enchant swap is identical).
 func TestDanceOfTheDeadReanimateChainCompletes(t *testing.T) {
+	t.Parallel()
 	e, auraID, bearID := graveyardEnchantFixture(t, 4713, "Dance of the Dead")
 	addMana(t, e, 0, "BB")
 	castGraveyardEnchant(t, e, auraID, bearID)
@@ -211,6 +214,7 @@ func TestDanceOfTheDeadReanimateChainCompletes(t *testing.T) {
 // swept by the same pass (the regression guard that keeps the exemption
 // zone-positive).
 func TestAnimateDeadGraveyardWindowSurvivesSBA(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	aura := mustCorpusCard(t, reg, "Animate Dead")
 	strength := mustCorpusCard(t, reg, "Unholy Strength")
@@ -262,6 +266,7 @@ func TestAnimateDeadGraveyardWindowSurvivesSBA(t *testing.T) {
 // stale graveyard enchant is gone from the derived list, the granted
 // IsRemembered enchant is on it, and the attachment survives the checkpoint.
 func TestAnimateDeadDerivedEnchantDrivesTheSBA(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	aura := mustCorpusCard(t, reg, "Animate Dead")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")

@@ -52,6 +52,7 @@ func llanowarOn(t *testing.T, e *Engine, p state.PlayerID) state.ObjID {
 // offered, the bot's own answer is accepted, and the charge settles by
 // tapping the blocker itself.
 func TestBlockTaxBlockerOwnManaIsARealSource(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	// Oppressive Rays lies on the battlefield under seat 0, attached to the
 	// defender's only creature. (An aura's controller controls the aura; the
@@ -199,6 +200,7 @@ func TestBlockTaxBlockerOwnManaIsARealSource(t *testing.T) {
 // blocker from the mana half, so the same declaration the offer list showed
 // was rejected on submit. The fix lets the declaration settle by tapping A.
 func TestBlockTaxTwoBlockersOnePaysTheOthersTax(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	elves := llanowarOn(t, e, 0) // untaxed, the mana source
 	bear := onBoardReady(t, e, 0, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

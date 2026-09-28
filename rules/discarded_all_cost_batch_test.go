@@ -29,6 +29,7 @@ import (
 // event was its own batch-of-one: two pushes and two points of damage, or --
 // for a FirstTime$/amount card -- the wrong total.
 func TestDiscardedAllMultiCardCostIsOneBatch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	brush := mustCorpusCard(t, reg, "Anurid Brushhopper")
 	idx := costAbilityIndex(t, brush, "Discard<2")
@@ -134,6 +135,7 @@ func TestDiscardedAllMultiCardCostIsOneBatch(t *testing.T) {
 // Mnemonic Sphere's real `Cost$ U Discard<1/CARDNAME>` ability is activated
 // from hand and discards itself; Magmakin sees one discard action.
 func TestDiscardedAllSingleCardCostIsOneBatch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sphere := mustCorpusCard(t, reg, "Mnemonic Sphere")
 	idx := costAbilityIndex(t, sphere, "Discard<1")

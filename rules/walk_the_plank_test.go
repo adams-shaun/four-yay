@@ -92,6 +92,7 @@ func wtpCastIndex(t *testing.T, e *Engine, id state.ObjID) int {
 // the cast IS offered, the target ask offers EXACTLY the non-Merfolk (never
 // the Merfolk), and resolution destroys it.
 func TestWalkThePlankOffersAndDestroysNonMerfolkTarget(t *testing.T) {
+	t.Parallel()
 	e, wtpID, opp := wtpEngine(t, "Merfolk of the Pearl Trident", "Grizzly Bears")
 	addMana(t, e, 0, "BB")
 
@@ -127,6 +128,7 @@ func TestWalkThePlankOffersAndDestroysNonMerfolkTarget(t *testing.T) {
 // only a Merfolk opposing, the cast is NOT offered (CR 601.2c — a spell with
 // no legal target may not be announced).
 func TestWalkThePlankWithheldWhenOnlyMerfolkToTarget(t *testing.T) {
+	t.Parallel()
 	e, wtpID, _ := wtpEngine(t, "Merfolk of the Pearl Trident")
 	addMana(t, e, 0, "BB")
 

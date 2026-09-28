@@ -32,6 +32,7 @@ const taxWardenSrc = "Name:Tax Warden\nManaCost:1 W\nTypes:Creature Human Soldie
 // Sorcery Adventure face costs {2}{B} and must NOT be offered -- the offer and
 // the cast flow price the same (flipped) face.
 func TestAdventureFaceOfferPricesTheAdventureFace(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 7411, taxedAdventureSrc, taxWardenSrc)
 	putCreature(t, e, 0, taxWardenSrc)
 	addMana(t, e, 0, "BB")
@@ -64,6 +65,7 @@ func TestAdventureFaceOfferPricesTheAdventureFace(t *testing.T) {
 // at zero on every attempt). The cast is begun directly -- the offer no
 // longer produces it.
 func TestAdventureFaceNoProgressAbortIsHeldOut(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 7412, taxedAdventureSrc, taxWardenSrc)
 	putCreature(t, e, 0, taxWardenSrc)
 	addMana(t, e, 0, "BB")

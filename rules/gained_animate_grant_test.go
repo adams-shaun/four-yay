@@ -24,6 +24,7 @@ import (
 // through GrantAbilityPush naming Spawning Pool as the table owner, and its
 // resolution gives the REFRACTOR (the recipient) a regeneration shield.
 func TestGainedAnimateGrantResolvesOffTheForeignCard(t *testing.T) {
+	t.Parallel()
 	refractor := tokenReplCorpusCard(t, "Manascape Refractor")
 	pool := tokenReplCorpusCard(t, "Spawning Pool")
 	e, cfg := tokenReplGame(t, 9171, refractor, pool)

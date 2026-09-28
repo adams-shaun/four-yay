@@ -15,6 +15,7 @@ import (
 // decline, silently countering every ward target whose cost WAS offered.
 // The labels stay the user-facing ones; the marker is the meaning.
 func TestWardAskOptionsCarryExplicitPayDeclineMarkers(t *testing.T) {
+	t.Parallel()
 	e, bear := hexingEngine(t)
 	if e.G.Obj(bear).Zone != state.ZBattlefield {
 		t.Fatal("precondition: the warded bear must be on the battlefield")

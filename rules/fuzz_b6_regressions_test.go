@@ -31,6 +31,7 @@ func handLands(e *Engine, p state.PlayerID) int {
 // Lotus was cast from the graveyard, sacrificed for mana and recast for free
 // forever. The cast now charges the additional "discard a land card".
 func TestGrantedRetraceChargesTheLandDiscard(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Six", "Jeweled Lotus")
 	searchMoveByName(t, e, "Six", state.ZBattlefield)
 	lotus := searchMoveByName(t, e, "Jeweled Lotus", state.ZGraveyard)
@@ -76,6 +77,7 @@ func TestGrantedRetraceChargesTheLandDiscard(t *testing.T) {
 // the O(n^2) static sweeps). The election now suspends the resolution; the
 // ability resolves exactly once and leaves the stack.
 func TestTokenElectionSuspendsTheResolvingAbility(t *testing.T) {
+	t.Parallel()
 	vivien := tokenReplCorpusCard(t, "Vivien, Monsters' Advocate")
 	crown := tokenReplCorpusCard(t, "Mirrormind Crown")
 	bears := tokenReplCorpusCard(t, "Grizzly Bears")
@@ -133,6 +135,7 @@ func TestTokenElectionSuspendsTheResolvingAbility(t *testing.T) {
 // ask on top of it and ask's overwrite guard panicked at intent 0. The round
 // now waits for the entry choice and steps on once it is answered.
 func TestOpeningEntryChoiceDoesNotOverwriteTheOpeningRound(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	leyline := searchCorpusCard(t, reg, "Leyline of Transformation")
 	plains := searchCorpusCard(t, reg, "Plains")
@@ -197,6 +200,7 @@ func TestOpeningEntryChoiceDoesNotOverwriteTheOpeningRound(t *testing.T) {
 // forever. A non-positive Damage event is not damage dealt, so no DamageDone
 // replacement applies and the damage wears off.
 func TestCleanupDamageRemovalIsNotDamageDone(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Ghosts of the Innocent", "Ghosts of the Innocent", "Grizzly Bears")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
 	e.emit(events.Event{Kind: events.Damage, Obj: bear, Amount: 1})

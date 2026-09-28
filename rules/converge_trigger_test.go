@@ -79,6 +79,7 @@ func submitTargetTo(t *testing.T, e *Engine, p state.PlayerID) {
 // closes with), so {2}{R} from R,R,G,G spends R pip + R,G generic = two
 // colours, and from R,R,R spends one.
 func TestMagmabloodPumpsPerColourOfCastSpell(t *testing.T) {
+	t.Parallel()
 	t.Run("two colours of mana", func(t *testing.T) {
 		e, cfg, find := etbConfig(t, seedTossSeat0(141), []string{magmabloodReaderSrc, pumbaSrc, emberBoltSrc}, nil)
 		reader := find("Magmablood Archaic", 0)
@@ -134,6 +135,7 @@ func TestMagmabloodPumpsPerColourOfCastSpell(t *testing.T) {
 // change an event, which is what keeps the chain heads put for every game
 // that holds no reader out.
 func TestMagmabloodNoReaderOutStampsNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, seedTossSeat0(153), []string{magmabloodReaderSrc, pumbaSrc, emberBoltSrc}, nil)
 	// seed: toss starts seat 0
 	boltID := find("Ember Bolt", 0)

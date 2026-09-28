@@ -14,6 +14,7 @@ import (
 // IsPresent$ Creature.YouCtrl+powerGTbasePower condition. The two arms differ
 // only in whether the controlled creature has a +1/+1 counter.
 func TestBasePowerPredicateUsesLayerSevenBSet(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	setter := onBoard(t, e, 0, "Name:Setter\nTypes:Enchantment\nS:Mode$ Continuous | Affected$ Creature.Other | SetPower$ 4 | SetToughness$ 3 | Description$ set base P/T\nOracle:x\n")
 	bear := onBoard(t, e, 0, "Name:Set Creature\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -37,6 +38,7 @@ func TestBasePowerPredicateUsesLayerSevenBSet(t *testing.T) {
 }
 
 func TestBairdEndStepTriggerUsesPowerComparedWithBasePower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bairdCard, ok := reg.Lookup("Baird, Argivian Recruiter")
 	if !ok {
@@ -52,6 +54,7 @@ func TestBairdEndStepTriggerUsesPowerComparedWithBasePower(t *testing.T) {
 }
 
 func TestSwordOfTheSqueakCountsBasePowerOrToughnessOne(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	swordCard, ok := reg.Lookup("Sword of the Squeak")
 	if !ok {

@@ -16,6 +16,7 @@ import (
 // BEFORE the CR 400.7 reset returns the card to its owner, which is the
 // actor provenance the PlayerCount*$SacrificedThisTurn heads read.
 func TestSacrificedThisTurnCountsTheSacrificer(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 1, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 	creature := card(t, "Name:Creature\nTypes:Creature\nPT:2/2\nOracle:x\n")

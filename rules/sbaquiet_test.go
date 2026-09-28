@@ -10,6 +10,7 @@ import (
 // that applied nothing arms it, a layer-inert event keeps it, any other event
 // or a pending player-level loss drops it.
 func TestSBAQuietKey(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	e.checkStateBased()
 	if !e.sbaQuietNow() {
@@ -40,6 +41,7 @@ func TestSBAQuietKey(t *testing.T) {
 // TestProvenanceGate pins the cast-provenance early-out: a spec with no
 // provenance token passes unchanged, a token-carrying spec still evaluates.
 func TestProvenanceGate(t *testing.T) {
+	t.Parallel()
 	for _, spec := range []string{"Creature.YouCtrl", "Card.Other+nonLand", "Creature.wasCastByYou",
 		"Card.!wasCastFromYourHand", "Spell.wasCastFromExile", "Card.CastSa Spell.Mayhem", "Card.wasCast",
 		"Card.Colorless+YouCtrl+YouOwn+wasCastFromHand+cmcGE7"} {

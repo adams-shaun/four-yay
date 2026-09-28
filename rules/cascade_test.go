@@ -147,6 +147,7 @@ func movedTo(t *testing.T, e *Engine, id state.ObjID, from, to state.Zone) int {
 // election as a real optional decision; accepting casts that card without
 // paying its mana cost, from exile, and it resolves before the Elf does.
 func TestBloodbraidElfCascadeExilesUntilLesserAndOffersFreeCast(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9211, "Bloodbraid Elf", []string{"Forest", "Grizzly Bears"}, nil)
 	lib := e.G.Zone(state.ZLibrary, 0)
 	forestID, bearID := lib[0], lib[1]
@@ -192,6 +193,7 @@ func TestBloodbraidElfCascadeExilesUntilLesserAndOffersFreeCast(t *testing.T) {
 // UNGAST, and the cascade's chained tail puts it on the bottom of the
 // library beneath the cards already returned.
 func TestCascadeDeclinedFoundCardGoesToBottom(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9212, "Bloodbraid Elf", []string{"Forest", "Grizzly Bears"}, nil)
 	lib := e.G.Zone(state.ZLibrary, 0)
 	forestID, bearID := lib[0], lib[1]
@@ -221,6 +223,7 @@ func TestCascadeDeclinedFoundCardGoesToBottom(t *testing.T) {
 // a library whose nonland cards all cost at least the cascade spell's mana
 // value is exiled whole and returned, with no election posed.
 func TestCascadeNoCandidateExilesAndBottomsWithNoElection(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngineFiller(t, 9213, "Bloodbraid Elf", []string{"Forest", "Hill Giant"}, nil, "Mountain")
 	lib := e.G.Zone(state.ZLibrary, 0)
 	forestID, giantID := lib[0], lib[1]
@@ -266,6 +269,7 @@ func TestCascadeNoCandidateExilesAndBottomsWithNoElection(t *testing.T) {
 // controller is asked their order, and each trigger runs its own
 // exile-until + election in turn.
 func TestMaelstromWandererCascadesTwice(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9214, "Maelstrom Wanderer", []string{"Forest", "Lightning Bolt", "Grizzly Bears"}, nil)
 	wandererID := searchMoveByName(t, e, "Maelstrom Wanderer", state.ZHand)
 	addMana(t, e, 0, "GGUURRRR")
@@ -326,6 +330,7 @@ func TestMaelstromWandererCascadesTwice(t *testing.T) {
 // unreachable end to end — its K:Crew is an unsupported primitive, so the
 // vehicle can never attack — see the report's Issues.)
 func TestDarkApostleGrantedCascadeRegistersAndOffers(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9215, "Night's Whisper", []string{"Forest", "Lightning Bolt"}, []string{"Dark Apostle"})
 	apostleID := state.ObjID(0)
 	for _, id := range e.G.Zone(state.ZBattlefield, 0) {

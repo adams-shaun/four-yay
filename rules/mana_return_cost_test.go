@@ -18,6 +18,7 @@ import (
 // on the battlefield and a bot re-activated it forever (cardfuzz batch1
 // line 10: +2 colourless per cycle, never a state the loop could leave).
 func TestGrinningIgnusManaAbilityReturnsItself(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := edrBoard(t, reg, 71, map[string]state.Zone{
 		"Grinning Ignus": state.ZBattlefield,
@@ -82,6 +83,7 @@ func delayedRegistersFor(e *Engine, id state.ObjID) int {
 // batch1 line 3's delayed_register on each cycle). The first three
 // activations must register nothing; the fourth registers the sacrifice.
 func TestFarrelitePriestSacrificeOnlyFromFourthActivation(t *testing.T) {
+	t.Parallel()
 	e, cfg, priest, mtns := activationLimitBoard(t, "Farrelite Priest", 4)
 	for i, m := range mtns {
 		submitChoices(t, e, activateOption(t, e, m))
@@ -104,6 +106,7 @@ func TestFarrelitePriestSacrificeOnlyFromFourthActivation(t *testing.T) {
 // of the same gate: Dragon Whelp's "{R}: +1/+0 ... four or more times"
 // resolves through resolveTop, whose Ctx binds the AbilityPush census.
 func TestDragonWhelpSacrificeOnlyFromFourthActivation(t *testing.T) {
+	t.Parallel()
 	e, cfg, whelp, mtns := activationLimitBoard(t, "Dragon Whelp", 4)
 	for i, m := range mtns {
 		submitChoices(t, e, activateOption(t, e, m))

@@ -14,6 +14,7 @@ import (
 // Choices$ Equipment.YouCtrl may-attach election. Declining must preserve the
 // equipment's unattached state after the preceding gain-control rider resolves.
 func TestYuffieMayDeclineHerETBAttach(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lookup := func(name string) *cards.Card {
 		t.Helper()

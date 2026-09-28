@@ -75,6 +75,7 @@ func deliriumTriggers(c *cards.Card) []cards.Trigger {
 // asserts the fire-time CR 603.4 gate denies an empty graveyard and admits
 // four distinct core types -- on the card's REAL trigger IR.
 func TestTriggerDeliriumGatePerCorpusCarrier(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	// Precondition over the measured population, both directions: every
 	// named card really carries a Delirium$ True trigger, and no OTHER corpus
@@ -143,6 +144,7 @@ func TestTriggerDeliriumGatePerCorpusCarrier(t *testing.T) {
 // trigger does not fire), the same convention the Metalcraft$/Revolt$
 // clauses document.
 func TestTriggerDeliriumValueFailsClosed(t *testing.T) {
+	t.Parallel()
 	e, _, _ := gateFixture(t, 961, "Grizzly Bears",
 		deliriumBearSrc, deliriumPlainsSrc, deliriumBoltSrc, deliriumOathSrc)
 	millExtras(t, e, "Delirium Bear", "Delirium Plains", "Delirium Bolt", "Delirium Oath")
@@ -170,6 +172,7 @@ func TestTriggerDeliriumValueFailsClosed(t *testing.T) {
 // must not queue at all (the over-fire direction the ticket closes); a fresh
 // board whose graveyard holds four distinct types queues it.
 func TestWinterDeliriumEndStepTriggerGatesOnGraveyardTypes(t *testing.T) {
+	t.Parallel()
 	t.Run("three distinct types does not queue", func(t *testing.T) {
 		e, cfg, winter := gateFixture(t, 962, "Winter, Cynical Opportunist",
 			deliriumBearSrc, deliriumPlainsSrc, deliriumBoltSrc,

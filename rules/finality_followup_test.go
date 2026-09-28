@@ -12,6 +12,7 @@ import (
 )
 
 func TestFinalityDestroyRespectsDerivedNonCreatureType(t *testing.T) {
+	t.Parallel()
 	e, cfg, bear := newFixtureDeck(t, 91203, "Name:Finality Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZHand, To: state.ZBattlefield})
 	e.emit(events.Event{Kind: events.CounterChange, Obj: bear, Counter: "FINALITY", Amount: 1})
@@ -35,6 +36,7 @@ func TestFinalityDestroyRespectsDerivedNonCreatureType(t *testing.T) {
 }
 
 func TestWinterCynicalOpportunistReturnsFinalityPermanentAndReplays(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	winter := mustCorpusCard(t, reg, "Winter, Cynical Opportunist")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")

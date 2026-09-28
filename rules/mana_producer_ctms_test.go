@@ -99,6 +99,7 @@ const cumulativeDesertSource = "Name:Ctms Oasis\nManaCost:0\nTypes:Land Desert\n
 // Desert<colour>, so it counts as Desert in the filtered head. Before the fix
 // the action emitted a bare "C" Counter.
 func TestCumulativeUpkeepAddManaTagsItsSourceType(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	oasis := onBoard(t, e, 0, cumulativeDesertSource)
 	// Preconditions: the permanent is where the rule reads it and prints
@@ -155,6 +156,7 @@ func TestCumulativeUpkeepAddManaTagsItsSourceType(t *testing.T) {
 // without the producer tagging fix (the reflected unit is untagged, so the
 // Desert spend reads 0).
 func TestCastTotalManaSpentGrammarCountsModelledAndFailsClosed(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name      string
 		arg       string

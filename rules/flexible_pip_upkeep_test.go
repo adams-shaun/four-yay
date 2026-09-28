@@ -70,6 +70,7 @@ func flexPipDecision(t *testing.T, e *Engine, id state.ObjID) []string {
 // from an Island, the permanent survives, and only the elected resource is
 // consumed.
 func TestEchoFlexiblePipPayment(t *testing.T) {
+	t.Parallel()
 	const echoHybrid = "Name:Test Echo Hybrid\nManaCost:2\nTypes:Creature Bear\nPT:2/2\n" +
 		"K:Echo:W/U\nOracle:test\n"
 	e, cfg, bear := flexUpkeepEngine(t, echoHybrid, []string{
@@ -135,6 +136,7 @@ func TestEchoFlexiblePipPayment(t *testing.T) {
 // offers both the blue face and the two-life face, and paying life keeps the
 // permanent at no mana cost.
 func TestEchoPhyrexianPipPaidWithLife(t *testing.T) {
+	t.Parallel()
 	const echoPhyrexian = "Name:Test Echo Phyrexian\nManaCost:2\nTypes:Creature Bear\nPT:2/2\n" +
 		"K:Echo:UP\nOracle:test\n"
 	e, cfg, bear := flexUpkeepEngine(t, echoPhyrexian, []string{
@@ -185,6 +187,7 @@ func TestEchoPhyrexianPipPaidWithLife(t *testing.T) {
 // option is absent (the announced face cannot be covered) and the sacrifice
 // path is retained.
 func TestEchoUnpayableElectionStillSacrifices(t *testing.T) {
+	t.Parallel()
 	const echoHybrid = "Name:Test Echo Hybrid\nManaCost:2\nTypes:Creature Bear\nPT:2/2\n" +
 		"K:Echo:W/U\nOracle:test\n"
 	e, cfg, bear := flexUpkeepEngine(t, echoHybrid, nil)
@@ -235,6 +238,7 @@ func flexCumulativeEngine(t *testing.T, fixtureSrc string, seat0Lands []string) 
 // a {W/U} upkeep cost is announced, the elected green face is paid from a
 // Forest, the permanent survives and only the elected resource is consumed.
 func TestCumulativeUpkeepFlexiblePipPayment(t *testing.T) {
+	t.Parallel()
 	const cumulativeHybrid = "Name:Test Cumulative Hybrid\nManaCost:1\nTypes:Creature Bear\nPT:2/2\n" +
 		"K:Cumulative upkeep:W/U\nOracle:test\n"
 	e, cfg, bear := flexCumulativeEngine(t, cumulativeHybrid, []string{
@@ -295,6 +299,7 @@ func TestCumulativeUpkeepFlexiblePipPayment(t *testing.T) {
 // decline half: no mana source means the announcement is posed but the pay
 // option is absent and the sacrifice path is retained.
 func TestCumulativeUpkeepUnpayableElectionStillSacrifices(t *testing.T) {
+	t.Parallel()
 	const cumulativeHybrid = "Name:Test Cumulative Hybrid\nManaCost:1\nTypes:Creature Bear\nPT:2/2\n" +
 		"K:Cumulative upkeep:W/U\nOracle:test\n"
 	e, cfg, bear := flexCumulativeEngine(t, cumulativeHybrid, nil)

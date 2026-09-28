@@ -8,6 +8,7 @@ import (
 )
 
 func TestTurnsTakenCacheTracksEmitCloneAndExternalLogGrowth(t *testing.T) {
+	t.Parallel()
 	e := &Engine{
 		G:    state.NewGame([]string{"a", "b"}),
 		L:    events.NewLog(41),

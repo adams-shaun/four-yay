@@ -95,6 +95,7 @@ func submitDiscard(t *testing.T, e *Engine, wantIDs ...state.ObjID) *decision.De
 // "discard" decision over exactly their nine hand cards with Min == Max == 2,
 // and after answering ends at seven in hand and two more in the graveyard.
 func Test3141DiscardDownToSevenIsAsked(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Active = 0
 	e.G.Step = state.StepCleanup
@@ -165,6 +166,7 @@ func Test3141DiscardDownToSevenIsAsked(t *testing.T) {
 // regardless); this test guards the exactly-at-the-limit boundary where a
 // buggy "<=" instead of ">" would quietly pose a zero-count decision.
 func Test3141ExactlyMaxHandSizeAsksNothing(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Active = 0
 	e.G.Step = state.StepCleanup
@@ -185,6 +187,7 @@ func Test3141ExactlyMaxHandSizeAsksNothing(t *testing.T) {
 // the active player's cleanup step. Only the active player's hand is subject
 // to the discard.
 func Test3141OnlyActivePlayerDiscards(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Active = 0
 	e.G.Step = state.StepCleanup
@@ -209,6 +212,7 @@ func Test3141OnlyActivePlayerDiscards(t *testing.T) {
 // the answer names indices that are NOT the first N. (The bot may take the
 // first N, but the engine must honour whatever valid indices a client sends.)
 func Test3141DiscardedCardsAreTheIntentNamed(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Active = 0
 	e.G.Step = state.StepCleanup
@@ -261,6 +265,7 @@ func Test3141DiscardedCardsAreTheIntentNamed(t *testing.T) {
 // 514.2 body, and advance the step, i.e. a defensive fallback became a
 // destructive one).
 func Test3141ChoosingIsClearedByDiscardCleanup(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Active = 0
 	e.G.Step = state.StepCleanup
@@ -337,5 +342,6 @@ func Test3141ChoosingIsClearedByDiscardCleanup(t *testing.T) {
 // papering over it. Skip until the turn loop grows the repeat; the skip
 // carries the CR reference so the next pass finds it.
 func Test3143SecondCleanupStep(t *testing.T) {
+	t.Parallel()
 	t.Skip("CR 514.3: a trigger created by cleanup (a discard or 514.2 action) is placed at the NEXT player's first priority instead of in a repeated cleanup step. Follow-up: make priorityRound re-run cleanup after granting priority when a cleanup action left pendingTriggers non-empty or performed a state-based action.")
 }

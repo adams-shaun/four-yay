@@ -48,6 +48,7 @@ func inZoneCard(t *testing.T, e *Engine, p state.PlayerID, zone state.Zone, src 
 // ("can't attack unless you control an artifact"). With no artifact the gate
 // holds and it is blocked; one artifact of its controller releases it.
 func TestCantAttackPresentArtifactEQ0(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	castaways := onBoardCard(t, e, 0, corpusCard(t, "Desperate Castaways"))
 	if o := e.G.Obj(castaways); o == nil || o.Zone != state.ZBattlefield {
@@ -77,6 +78,7 @@ func TestCantAttackPresentArtifactEQ0(t *testing.T) {
 // only while an enchantment is present -- the opposite direction from the EQ0
 // shape above, and the reason the family must be read, not skipped.
 func TestCantAttackBarePresentEnchantment(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	wirecat := onBoardCard(t, e, 0, corpusCard(t, "Wirecat"))
 	if o := e.G.Obj(wirecat); o == nil || o.Zone != state.ZBattlefield {
@@ -109,6 +111,7 @@ func TestCantAttackBarePresentEnchantment(t *testing.T) {
 // a creature, so the count starts at 1 (not > 1) and it may attack; a second
 // creature tips it to 2 and blocks it. The precondition asserts both counts.
 func TestCantAttackPresentCreatureGT1(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	shauku := onBoardCard(t, e, 0, corpusCard(t, "Shauku, Endbringer"))
 	if o := e.G.Obj(shauku); o == nil || o.Zone != state.ZBattlefield {
@@ -139,6 +142,7 @@ func TestCantAttackPresentCreatureGT1(t *testing.T) {
 // before the fix the count was stuck at 0, LE6 always held, and Kefnet could
 // never attack. Six cards block it; the seventh releases it.
 func TestCantAttackPresentHandLE6(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	kefnet := onBoardCard(t, e, 0, corpusCard(t, "Kefnet the Mindful"))
 	if o := e.G.Obj(kefnet); o == nil || o.Zone != state.ZBattlefield {
@@ -181,6 +185,7 @@ func TestCantAttackPresentHandLE6(t *testing.T) {
 // over-restriction this fix repairs). Six exiled cards block both halves;
 // the seventh releases both.
 func TestCantAttackPresentExileLT7(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	ketramose := onBoardCard(t, e, 0, corpusCard(t, "Ketramose, the New Dawn"))
 	attacker := onBoard(t, e, 1, "Name:Raider\nTypes:Creature Goblin\nPT:2/2\nOracle:x\n")

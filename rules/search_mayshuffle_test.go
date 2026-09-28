@@ -35,6 +35,7 @@ func mayShuffleConfirm(t *testing.T, e *Engine, who state.PlayerID) (int, int) {
 // just taught them -- no Shuffle event, the library exactly what it was minus
 // the taken card.
 func TestSearchMayShuffleDeclinedKeepsOrder(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := hawkSeats(t, 1, 2)
 	d := hawkCastAndAccept(t, e, id)
 	if d.Min != 0 || d.Max != 2 || len(d.Options) != 2 {
@@ -72,6 +73,7 @@ func TestSearchMayShuffleDeclinedKeepsOrder(t *testing.T) {
 // Shuffle event follows the moves, and the library still holds what the
 // search left there.
 func TestSearchMayShuffleAcceptedShuffles(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := hawkSeats(t, 1, 2)
 	d := hawkCastAndAccept(t, e, id)
 	if got := hawkIn(e, state.ZLibrary); got != 2 {
@@ -107,6 +109,7 @@ func TestSearchMayShuffleAcceptedShuffles(t *testing.T) {
 // shuffled underneath. The moved list rides the confirm (Decision.ResumeMoved
 // -> Ctx.SearchShuffleMoved), which is what lets the re-entry place at all.
 func TestBoggartHarbingerMayShufflePlacement(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		accept bool

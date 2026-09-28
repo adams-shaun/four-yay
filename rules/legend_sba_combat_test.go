@@ -51,6 +51,7 @@ func combatLegendBoard(t *testing.T) (*Engine, state.ObjID, state.ObjID) {
 // the legend ask and wedged the SBA pass. The ask must be the surviving
 // pending decision, and answering it must settle the batch.
 func TestLegendRuleSurvivesFirstStrikeCombatTail(t *testing.T) {
+	t.Parallel()
 	e, id1, id2 := combatLegendBoard(t)
 	e.completeCombatPass(true)
 
@@ -86,6 +87,7 @@ func TestLegendRuleSurvivesFirstStrikeCombatTail(t *testing.T) {
 // tail's end-of-combat transition must defer to the legend ask, and the
 // transition must complete once the answer lands.
 func TestLegendRuleSurvivesRegularCombatTail(t *testing.T) {
+	t.Parallel()
 	e, id1, id2 := combatLegendBoard(t)
 	// The regular-pass tail's deferred transition lives in combatStep, which
 	// runs only in the combat damage step.
@@ -124,6 +126,7 @@ func TestLegendRuleSurvivesRegularCombatTail(t *testing.T) {
 // the loss engine-unreachable in flow, so only a direct probe can exercise the
 // recovery.
 func TestLegendRuleReposesDisplacedAsk(t *testing.T) {
+	t.Parallel()
 	e, id1, id2 := combatLegendBoard(t)
 	e.checkStateBased()
 	first := e.Pending()
@@ -161,6 +164,7 @@ func TestLegendRuleReposesDisplacedAsk(t *testing.T) {
 // direct askLegendChoice call keeps the scenario to the arm under test (the
 // ordinary SBA sweep would already have removed a departed seat's board).
 func TestLegendRuleDepartedControllerDeclines(t *testing.T) {
+	t.Parallel()
 	e, id1, id2 := combatLegendBoard(t)
 	e.checkStateBased()
 	if d := e.Pending(); d == nil || d.Kind != decision.KChoose {

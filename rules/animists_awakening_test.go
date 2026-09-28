@@ -64,6 +64,7 @@ func untapAnimistEngine(t *testing.T, instants int) (*Engine, []state.ObjID) {
 // two instants in the graveyard meet GE2 counted in the graveyard, and the
 // remembered lands the spell put onto the battlefield tapped untap.
 func TestAnimistsAwakeningSpellMasteryUntaps(t *testing.T) {
+	t.Parallel()
 	e, lands := untapAnimistEngine(t, 2)
 	for _, id := range lands {
 		if e.G.Obj(id).Tapped {
@@ -75,6 +76,7 @@ func TestAnimistsAwakeningSpellMasteryUntaps(t *testing.T) {
 // TestAnimistsAwakeningSpellMasteryFallsShort: one instant fails GE2, the
 // lands stay tapped.
 func TestAnimistsAwakeningSpellMasteryFallsShort(t *testing.T) {
+	t.Parallel()
 	e, lands := untapAnimistEngine(t, 1)
 	for _, id := range lands {
 		if !e.G.Obj(id).Tapped {

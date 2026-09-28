@@ -160,6 +160,7 @@ func zoneHasName(e *Engine, p state.PlayerID, z state.Zone, name string) bool {
 // walk and deck validation read: without it make report keeps all nine
 // Escalate carriers gated on kw:Escalate.
 func TestEscalatePrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:Escalate"] {
 		t.Fatal(`effects.Supported() is missing "kw:Escalate"`)
 	}
@@ -171,6 +172,7 @@ func TestEscalatePrimitiveIsRegistered(t *testing.T) {
 // +1/+1 counter on the target player's creature). Byte-identical before and
 // after the fix by design (the negative control).
 func TestEscalateOneModeChargesNoExtraCost(t *testing.T) {
+	t.Parallel()
 	e, cfg := escalateFixture(t, 771, fixEffortN, []string{"Fix Bear", "Fix Cub"}, []string{"Fix Bear", "Fix Cub"}, []string{"Fix Ogre"}, []string{"Fix Ogre"})
 	if !untappedOn(t, e, 0, "Fix Bear") || !untappedOn(t, e, 0, "Fix Cub") {
 		t.Fatal("precondition: fixture creatures already tapped")
@@ -220,6 +222,7 @@ func TestEscalateOneModeChargesNoExtraCost(t *testing.T) {
 // destroy mode resolves on the Ogre; the counter mode independently targets
 // the opponent (who has no remaining creature to receive its counter).
 func TestEscalateExtraModeTapsAnAdditionalCreature(t *testing.T) {
+	t.Parallel()
 	e, cfg := escalateFixture(t, 773, fixEffortN, []string{"Fix Bear", "Fix Cub"}, []string{"Fix Bear", "Fix Cub"}, []string{"Fix Ogre"}, []string{"Fix Ogre"})
 	if !untappedOn(t, e, 0, "Fix Bear") || !untappedOn(t, e, 0, "Fix Cub") {
 		t.Fatal("precondition: fixture creatures already tapped")
@@ -287,6 +290,7 @@ func TestEscalateExtraModeTapsAnAdditionalCreature(t *testing.T) {
 // creature exactly one escalation is affordable (Max 2); with two creatures
 // the CharmNum$ 3 bound stands. Before the fix every board read Max 3.
 func TestEscalateNotOfferedWithoutEnoughCreatures(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name    string
 		bears   []string
@@ -341,6 +345,7 @@ func TestEscalateNotOfferedWithoutEnoughCreatures(t *testing.T) {
 // a cast that charges only the printed {2}{W} leaves 2 mana in the pool and
 // fails this test.
 func TestEscalateManaEscalateChargesPerExtraMode(t *testing.T) {
+	t.Parallel()
 	e, cfg := escalateFixture(t, 777, fixGraceN, []string{"Fix Bear", "Fix Cub"}, []string{"Fix Bear", "Fix Cub"}, nil, nil)
 	if !untappedOn(t, e, 0, "Fix Bear") || !untappedOn(t, e, 0, "Fix Cub") {
 		t.Fatal("precondition: fixture creatures already tapped")
@@ -371,6 +376,7 @@ func TestEscalateManaEscalateChargesPerExtraMode(t *testing.T) {
 // hand, and each mode separately targets the opponent (the RevealYouChoose
 // pick discards the instant from their hand; the drain moves 2 life).
 func TestEscalateDiscardCarrier(t *testing.T) {
+	t.Parallel()
 	e, cfg := escalateFixture(t, 779, fixBrutN, []string{"Fix Bear", "Fix Pebble"}, []string{"Fix Bear"}, []string{"Fix Ogre", "Fix Scroll", "Fix Tome"}, []string{"Fix Ogre"})
 	// Guarantee the discardable card in the caster's hand and the eligible
 	// instant/sorcery cards in the opponent's hand (the deck deal is

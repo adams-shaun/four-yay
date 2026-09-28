@@ -26,6 +26,7 @@ import (
 // and a later TWO-counter batch on the same creature draws exactly one more
 // — one trigger per counter-placing event, never per counter.
 func TestGenerousPatronSupportPutsCountersAndDrawsOncePerBatch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	patron, ok := reg.Lookup("Generous Patron")
 	if !ok {
@@ -135,6 +136,7 @@ func TestGenerousPatronSupportPutsCountersAndDrawsOncePerBatch(t *testing.T) {
 // longer offers that creature as a blocker — the attack deals its damage
 // unblocked. A control game without the put proves the assertions can fail.
 func TestRikkuCounterPutMakesTheCreatureUnblockable(t *testing.T) {
+	t.Parallel()
 	counterSpell := "Name:Count Up\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ PutCounter | Cost$ R | CounterType$ P1P1 | ValidTgts$ Creature | CounterNum$ 1\nOracle:x\n"
 	reg := testutil.CorpusRegistry(t)
@@ -242,6 +244,7 @@ func TestRikkuCounterPutMakesTheCreatureUnblockable(t *testing.T) {
 // board with NO counter put leaves the bear a legal blocker for Rikku and the
 // blocker decision posed.
 func TestRikkuWindowUncontrolledWithoutThePut(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	rikku, ok := reg.Lookup("Rikku, Resourceful Guardian")
 	if !ok {
@@ -283,6 +286,7 @@ func TestRikkuWindowUncontrolledWithoutThePut(t *testing.T) {
 // through that turn, and by the next turn's declare-blockers the bear is a legal
 // blocker again.
 func TestRikkuWindowExpiresAtEndOfTurn(t *testing.T) {
+	t.Parallel()
 	counterSpell := "Name:Count Up\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ PutCounter | Cost$ R | CounterType$ P1P1 | ValidTgts$ Creature | CounterNum$ 1\nOracle:x\n"
 	reg := testutil.CorpusRegistry(t)
@@ -398,6 +402,7 @@ func TestRikkuWindowExpiresAtEndOfTurn(t *testing.T) {
 // opposite ("other": a permanent's support cannot target its own source) is
 // pinned by the Generous Patron probe above.
 func TestLeadByExampleSpellSupportOffersEveryCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lead, ok := reg.Lookup("Lead by Example")
 	if !ok {
@@ -492,6 +497,7 @@ func TestLeadByExampleSpellSupportOffersEveryCreature(t *testing.T) {
 // `NumDmg$ X` with `SVar:X:TriggerCount$Amount` must read the batch size --
 // three poison counters deal three damage, not one and not zero.
 func TestAllWillBeOnePlayerCounterBranchDealsBatchDamage(t *testing.T) {
+	t.Parallel()
 	awo, ok := testutil.CorpusRegistry(t).Lookup("All Will Be One")
 	if !ok {
 		t.Fatal("corpus has no All Will Be One")

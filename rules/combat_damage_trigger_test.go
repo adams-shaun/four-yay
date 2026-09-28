@@ -122,6 +122,7 @@ func countDraws(e *Engine, p state.PlayerID) int {
 // second firing (this test used to pin exactly that -- it asserted n != 1 and
 // was flipped by the per-batch fix).
 func TestUmezawasJitteGainsChargeCountersPerDamageStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Umezawa's Jitte"},
 		[]string{"Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nK:Double Strike\nOracle:x\n"}, nil, nil)
@@ -165,6 +166,7 @@ func TestUmezawasJitteGainsChargeCountersPerDamageStep(t *testing.T) {
 // this shape could only have been kept quiet by the flag itself -- a Damage
 // event from an ability resolution must never satisfy CombatDamage$ True.
 func TestEquippedCreatureDealingNoncombatDamageGainsNoCharge(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Umezawa's Jitte"},
 		[]string{
@@ -215,6 +217,7 @@ func TestEquippedCreatureDealingNoncombatDamageGainsNoCharge(t *testing.T) {
 // combat damage back at the bearer is real (its source is not equipped, so
 // the ValidSource$ gate keeps it quiet as well).
 func TestPreventedCombatDamageGainsNoCharge(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Umezawa's Jitte"},
 		[]string{"Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"}, nil,
@@ -251,6 +254,7 @@ func TestPreventedCombatDamageGainsNoCharge(t *testing.T) {
 // batch latch), not once per Damage event, and the two events' amounts
 // accumulate into one referent (invisible here: DB$ Draw reads no amount).
 func TestDamageDoneOnceFiresOncePerDamageStepOnRealCorpusScript(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg,
 		[]string{"Keeper of Fables", "Hill Giant", "Hill Giant"}, nil, nil, nil)
@@ -289,6 +293,7 @@ func TestDamageDoneOnceFiresOncePerDamageStepOnRealCorpusScript(t *testing.T) {
 // resolution state) it does not, same event shape, DamageDone so the
 // once-per-batch latch never enters the comparison.
 func TestCombatDamageFlagDrivesTheCombatDamageGate(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, nil,
 		[]string{
@@ -396,6 +401,7 @@ const dealtOnceCounterSrc = "Name:Punisher\nManaCost:3 R\nTypes:Creature Goblin 
 // also never summed: the first hit fired it, the turn latch suppressed the
 // second.
 func TestDamageDoneOnceTriggerAmountIsTheBatchTotal(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, nil, []string{enrageCounterSrc}, nil,
 		[]string{bearSrc, bearSrc})
@@ -432,6 +438,7 @@ func TestDamageDoneOnceTriggerAmountIsTheBatchTotal(t *testing.T) {
 // its TriggerCount$DamageAmount referent is the total that source dealt in
 // the batch (4), matching Forge's per-source batch table.
 func TestDamageDealtOnceTriggerAmountIsTheBatchTotal(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, nil, []string{dealtOnceCounterSrc}, nil,
 		[]string{bearSrc, bearSrc})
@@ -462,6 +469,7 @@ func TestDamageDealtOnceTriggerAmountIsTheBatchTotal(t *testing.T) {
 // it to one. Each firing's retort lands at that event's own amount (2, then
 // 3), which also proves the per-event referent amounts are not conflated.
 func TestScreamingNemesisFiresPerDamageEvent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Screaming Nemesis"}, nil, nil,
 		[]string{"Name:Target Dummy\nManaCost:2\nTypes:Artifact Creature Golem\nPT:0/9\nOracle:x\n"})
@@ -501,6 +509,7 @@ func TestScreamingNemesisFiresPerDamageEvent(t *testing.T) {
 // the old once-per-turn latch held it to one, so a second Shock in the same
 // turn never made its second 3/3 Dinosaur.
 func TestRaptorHatchlingFiresPerDamageEvent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Raptor Hatchling"}, nil, nil, nil)
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})

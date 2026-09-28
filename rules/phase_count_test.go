@@ -45,6 +45,7 @@ func stepOnce(e *Engine, s state.Step) {
 // passes the Phase/PhaseCount gate at the second main phase only -- NOT the
 // first, nor any other step.
 func TestLostMonarchOfIfnirPhaseCountSecondMain(t *testing.T) {
+	t.Parallel()
 	e, id := phaseCardEngine(t, "Lost Monarch of Ifnir")
 	tr := crTriggerFixture(t, e, id, "Phase", "Mill")
 	if tr.Params["Phase"] != "Main" || tr.Params["PhaseCount"] != "2" {
@@ -89,6 +90,7 @@ func TestLostMonarchOfIfnirTriggerMatchesSecondMainOnly(t *testing.T) {
 // a condition-free real corpus carrier of the same shape: exactly one trigger
 // queues at the second main phase and none at the first.
 func TestNinjaPizzaPhaseCountQueuesOnlyAtSecondMain(t *testing.T) {
+	t.Parallel()
 	e, id := phaseCardEngine(t, "Ninja Pizza")
 	tr := crTriggerFixture(t, e, id, "Phase", "Token")
 	if tr.Params["Phase"] != "Main" || tr.Params["PhaseCount"] != "2" {
@@ -104,6 +106,7 @@ func TestNinjaPizzaPhaseCountQueuesOnlyAtSecondMain(t *testing.T) {
 // main phase only; a non-numeric or non-positive value fails closed at every
 // step.
 func TestPhaseCountAppliesToEveryModeWithAPhaseGate(t *testing.T) {
+	t.Parallel()
 	e, _ := phaseCardEngine(t, "Mountain")
 	gate := func(count string) map[state.Step]bool {
 		t.Helper()

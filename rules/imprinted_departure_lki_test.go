@@ -28,6 +28,7 @@ import (
 // ChangesZone matcher), not just the matcher directly, and pins both the
 // positive and the bystander negative.
 func TestPoolTriggerMatchesImprintedCardLeavingExile(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 
 	pool := onBoardCard(t, e, 0, card(t, `Name:Knowledge Vat

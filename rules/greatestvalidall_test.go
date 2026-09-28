@@ -84,6 +84,7 @@ func greatestWildspeakerEngine(t *testing.T, reg *cards.Registry, extras ...stri
 }
 
 func TestReturnOfTheWildspeakerDrawModeDrawsGreatestNonHumanPower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name      string
@@ -150,6 +151,7 @@ func TestReturnOfTheWildspeakerDrawModeDrawsGreatestNonHumanPower(t *testing.T) 
 // mana values are unambiguous; a two-colour hybrid pip contributes one mana
 // value.
 func TestCactusPreserveAnimatesAtGreatestCommanderManaValue(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name       string

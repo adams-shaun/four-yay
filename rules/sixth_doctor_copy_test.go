@@ -54,6 +54,7 @@ func derivedHasType(e *Engine, id state.ObjID, word string) bool {
 // permanents resolve, and -- because the copy is not legendary -- NO CR 704.5j
 // duplicate set forms and both remain on the battlefield.
 func TestSixthDoctorCopyIsNonLegendary(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 97, []string{sixthDoctorSrc, legendaryBearSrc}, nil)
 	doc := moveSeeded(t, e, 0, sixthDoctorSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, legendaryBearSrc, state.ZHand)

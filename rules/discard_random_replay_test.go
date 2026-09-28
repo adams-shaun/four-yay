@@ -12,6 +12,7 @@ import (
 // from each remaining hand. Both the chosen object and the one-based random
 // index must be in the applied discard event, not just in the engine's RNG.
 func TestBurningInquiryRandomDiscardIsLoggedAndReplayable(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Burning Inquiry"}, nil)
 	id := crAbortMove(t, e, 0, "Burning Inquiry", state.ZHand)
 	face := e.G.Obj(id).Face()

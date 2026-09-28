@@ -92,7 +92,12 @@ func effLoseLife(h Host, c *Ctx, sa *cards.SA) {
 		b.BeginLifeLossBatch()
 		defer b.EndLifeLossBatch()
 	}
+	var total int32
 	for _, t := range actingPlayers(h, c, sa) {
 		h.Emit(events.Event{Kind: events.LifeChange, Player: t, Amount: -n})
+		total += n
 	}
+	// Forge's AFLifeLost is the sum requested by this LoseLife instruction.
+	// Write even zero: the source can retain a value from an earlier resolution.
+	h.Emit(events.Event{Kind: events.StoreSVar, Obj: c.Source, Text: "AFLifeLost", Amount: total})
 }

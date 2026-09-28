@@ -80,6 +80,7 @@ func answerBattleProtector(t *testing.T, e *Engine, choice int) state.PlayerID {
 // entry ask uses, so the protector stays replay-derived. Invasion of Tolvada
 // is the real corpus Siege carrier.
 func TestSiegeBattleProtectorIsRechosenWhenProtectorLeaves(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	battle := mustCorpusCard(t, reg, "Invasion of Tolvada")
 	e, id, ask := battleProtectorDeck(t, battle)
@@ -124,6 +125,7 @@ func TestSiegeBattleProtectorIsRechosenWhenProtectorLeaves(t *testing.T) {
 // firing on an unrelated player's departure: a battle whose protector is
 // still alive must keep that protector and log no reselection.
 func TestBattleProtectorNotRechosenWhileProtectorLives(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	battle := mustCorpusCard(t, reg, "Invasion of Tolvada")
 	e, id, ask := battleProtectorDeck(t, battle)
@@ -167,6 +169,7 @@ func TestBattleProtectorNotRechosenWhileProtectorLives(t *testing.T) {
 // test cannot pass on a Siege or a non-battle), and the ask is what a parker
 // only reaches for a real Battle entry.
 func TestNonSiegeBattlePosesProtectorAsk(t *testing.T) {
+	t.Parallel()
 	battle := card(t, "Name:Test Campaign\nTypes:Battle Campaign\nDefense:3\nOracle:x\n")
 	f := battle.Faces[0]
 	if !f.IsBattle() {
@@ -202,6 +205,7 @@ func TestNonSiegeBattlePosesProtectorAsk(t *testing.T) {
 // counterpart of the Siege re-derive test: a non-Siege Battle's protector is
 // re-derived too.
 func TestNonSiegeBattleProtectorIsRechosenWhenProtectorLeaves(t *testing.T) {
+	t.Parallel()
 	battle := card(t, "Name:Test Campaign\nTypes:Battle Campaign\nDefense:3\nOracle:x\n")
 	e, id, ask := battleProtectorDeck(t, battle)
 	if ask == nil || len(ask.Options) < 2 {

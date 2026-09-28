@@ -103,6 +103,7 @@ func activateVraskaUltimate(t *testing.T, e *Engine, id state.ObjID, target stat
 // placement). The 6 (not 9) value is what proves the operand is LIVE --
 // a coincidental fixed 9 or a dead zero would both fail this leaf.
 func TestVraskaBetrayalsStingPoisonDifferential(t *testing.T) {
+	t.Parallel()
 	t.Run("targetAtThreePoisonGetsSix", func(t *testing.T) {
 		e, cfg, id := vraskaUltGame(t, 9301)
 		e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 1, Counter: "POISON", Amount: 3})
@@ -150,6 +151,7 @@ func TestVraskaBetrayalsStingPoisonDifferential(t *testing.T) {
 // target starts at four (nonzero, non-one) and ends at zero, poisoned down
 // through the signed event the fold clamps.
 func TestLeechesPoisonRemovalMatchesPriorCount(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Leeches")
 	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 1, Counter: "POISON", Amount: 4})
@@ -214,6 +216,7 @@ func TestLeechesPoisonRemovalMatchesPriorCount(t *testing.T) {
 // The placement rides the same PlayerCounterChange choke point a direct emit
 // rides, so the SBA cannot be bypassed by the effect route.
 func TestPoisonSBAReachesTenLoses(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Prologue to Phyresis")
 	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 1, Counter: "POISON", Amount: 9})
@@ -259,6 +262,7 @@ func TestPoisonSBAReachesTenLoses(t *testing.T) {
 // literal Poison placement must be swallowed at the PlayerCounterChange
 // choke point, proving the prohibition sees the resolving api route.
 func TestPoisonCounterProhibitionStillBinds(t *testing.T) {
+	t.Parallel()
 	prologue := tokenReplCorpusCard(t, "Prologue to Phyresis")
 	phila := tokenReplCorpusCard(t, "Phila, Unsealed")
 	e, cfg := tokenReplGameSeats(t, 9305, []*cards.Card{prologue}, []*cards.Card{phila})

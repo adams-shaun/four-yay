@@ -45,6 +45,7 @@ func submitRest(t *testing.T, e *Engine, choices, rest []int) {
 // option 2 then option 1, so the library's bottom tail must be exactly
 // [option2, option1] -- NOT the offered order [option1, option2].
 func TestScryRestOrdersTheBottomPile(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := scryFixture(t, 210)
 	d := scryDecision(t, e, id)
 	if !d.Restable {
@@ -80,6 +81,7 @@ func TestScryRestOrdersTheBottomPile(t *testing.T) {
 // scry ask now advertises Restable, but an answer in the legacy shape (no
 // Rest) must behave exactly as before -- the unchosen pile in OFFERED order.
 func TestScryWithoutRestKeepsOfferedOrder(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 211)
 	d := scryDecision(t, e, id)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
@@ -102,6 +104,7 @@ func TestScryWithoutRestKeepsOfferedOrder(t *testing.T) {
 // [option2, option1] -- NOT the offered order -- while the library keeps
 // option 0 on top of the untouched remainder.
 func TestSurveilRestOrdersTheGraveyardPile(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := surveil3Fixture(t, 212)
 	d := castFixture(t, e, id, -1)
 	if d == nil || d.Kind != decision.KArrange {
@@ -187,6 +190,7 @@ func TestSurveilRestOrdersTheGraveyardPile(t *testing.T) {
 // keeps NOTHING on top (Choices empty) but orders the entire graveyard pile
 // through Rest puts all three cards into the graveyard in that order.
 func TestSurveilRestFullPermutation(t *testing.T) {
+	t.Parallel()
 	e, _, id := surveil3Fixture(t, 213)
 	d := castFixture(t, e, id, -1)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
@@ -217,6 +221,7 @@ func TestSurveilRestFullPermutation(t *testing.T) {
 // Submit, and the pending scry decision SURVIVES for a legal answer (the
 // no-livelock shape: a rejected intent must not consume the ask).
 func TestRestRejectedKeepsDecisionPending(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 214)
 	d := scryDecision(t, e, id)
 	cases := []struct {

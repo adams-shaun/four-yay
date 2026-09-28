@@ -50,6 +50,7 @@ func castRhysticSyphon(t *testing.T) *Engine {
 // targeted player declines, the LoseLife body runs, and DBGainLife resolves
 // with it — five life each way.
 func TestUnlessResolveSubsWhenNotPaidDeclined(t *testing.T) {
+	t.Parallel()
 	e := castRhysticSyphon(t)
 	life0, life1 := e.G.Players[0].Life, e.G.Players[1].Life
 	answerUnlessPay(t, e, false)
@@ -65,6 +66,7 @@ func TestUnlessResolveSubsWhenNotPaidDeclined(t *testing.T) {
 // player pays {3}, the LoseLife body is prevented, and the WhenNotPaid
 // DBGainLife chain is skipped with it — only the payer's pool moves.
 func TestUnlessResolveSubsWhenNotPaidPaid(t *testing.T) {
+	t.Parallel()
 	e := castRhysticSyphon(t)
 	life0, life1 := e.G.Players[0].Life, e.G.Players[1].Life
 	answerUnlessPay(t, e, true)

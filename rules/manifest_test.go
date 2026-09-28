@@ -136,6 +136,7 @@ func noUnimplementedManifest(t *testing.T, e *Engine) {
 // before the cast), face down, derived 2/2 and Creature-only, redacted to
 // the opponent by the view, and the whole game replays from the log.
 func TestRealityShiftManifestsFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Reality Shift")
 	bear := oppBear(t, e)
@@ -215,6 +216,7 @@ func TestRealityShiftManifestsFaceDown(t *testing.T) {
 // TestManifestedLandIsA22Creature pins CR 708.5's exact text: even a
 // manifested LAND is a 2/2 creature with no land types while face down.
 func TestManifestedLandIsA22Creature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Reality Shift")
 	bear := oppBear(t, e)
@@ -242,6 +244,7 @@ func TestManifestedLandIsA22Creature(t *testing.T) {
 // manifests the top card of its controller's own library — the defaults
 // (controller, top card, one card) with no parameters named at all.
 func TestWhisperwoodManifestsOnEndStep(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Whisperwood Elemental")
 	id := searchMoveByName(t, e, "Whisperwood Elemental", state.ZBattlefield)
@@ -273,6 +276,7 @@ func TestWhisperwoodManifestsOnEndStep(t *testing.T) {
 // trigger of a MANIFESTED card fires nothing (CR 708.8: while face down its
 // printed triggers do not exist).
 func TestSultaiEmissaryDeathTriggerManifests(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Sultai Emissary", "Grizzly Bears")
 	id := searchMoveByName(t, e, "Sultai Emissary", state.ZBattlefield)
@@ -297,6 +301,7 @@ func TestSultaiEmissaryDeathTriggerManifests(t *testing.T) {
 // that leaves the battlefield is revealed — FaceDown clears and its identity
 // is visible to every viewer again.
 func TestManifestedCardRevealsWhenItLeaves(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Reality Shift")
 	bear := oppBear(t, e)
@@ -337,6 +342,7 @@ func TestManifestedCardRevealsWhenItLeaves(t *testing.T) {
 // Manifest" note the unimplemented fallback always emitted, and moves
 // nothing: no library→battlefield manifest move, no silent wrong-card move.
 func TestManifestOutOfScopeShapesStayLoud(t *testing.T) {
+	t.Parallel()
 	src := "Name:Loud Manifest\nManaCost:0\nTypes:Instant\n" +
 		"A:SP$ Manifest | RememberManifested$ True\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 4401, src)

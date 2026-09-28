@@ -22,6 +22,7 @@ import (
 // TestVedalkenHumiliatorMetalcraftGate declares the Humiliator attacking with
 // two artifacts controlled (no trigger) and then with three (one trigger).
 func TestVedalkenHumiliatorMetalcraftGate(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	hum := onBoardCard(t, e, 0, corpusCard(t, "Vedalken Humiliator"))
 	art := corpusCard(t, "Ornithopter") // Artifact Creature: counts for Metalcraft
@@ -52,6 +53,7 @@ func TestVedalkenHumiliatorMetalcraftGate(t *testing.T) {
 // S: statics the Continuous gate already reads), so the pin is deliberately
 // synthetic and keeps the two spellings from drifting apart.
 func TestTriggerBareConditionMetalcraftGate(t *testing.T) {
+	t.Parallel()
 	src := `Name:Artificer
 ManaCost:1
 Types:Creature Artificer

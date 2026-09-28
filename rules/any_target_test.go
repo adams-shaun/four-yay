@@ -12,6 +12,7 @@ import (
 // remain outside the repository; this fixture contains only the minimum IR
 // source needed to reach askTarget.
 func TestAnyTargetOffersOnlyCR1154Targets(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	bolt := card(t, "Name:Bolt Fixture\nManaCost:R\nTypes:Instant\n"+
 		"A:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n")

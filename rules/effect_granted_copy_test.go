@@ -151,6 +151,7 @@ func drainCopyGrants(t *testing.T, e *Engine, limit int, acceptOptional, pay boo
 // (the trigger IS a trigger), the {1} pay ask must pose, and paying must charge
 // the pool and copy. Pre-fix neither ask posed and the copy resolved for free.
 func TestGrantedStaticSpellCopyPaysCost(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 902, mendicantCoreSrc, artifactSpellSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, mendicantCoreSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, artifactSpellSrc, state.ZHand)
@@ -182,6 +183,7 @@ func TestGrantedStaticSpellCopyPaysCost(t *testing.T) {
 // TestGrantedStaticSpellCopyDeclinesOptional leaves the optional ask a NO: no
 // copy, no charge -- the control that makes the paid leaf meaningful.
 func TestGrantedStaticSpellCopyDeclinesOptional(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 903, mendicantCoreSrc, artifactSpellSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, mendicantCoreSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, artifactSpellSrc, state.ZHand)
@@ -209,6 +211,7 @@ func TestGrantedStaticSpellCopyDeclinesOptional(t *testing.T) {
 // Rowan's verbatim lines: cast the effect, then cast an instant -- the
 // registration's {2} ask must pose, and paying must charge the pool and copy.
 func TestEffectGrantedSpellCopyPaysCost(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 904, rowanEmblemSrc, spellInsightSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, rowanEmblemSrc, state.ZHand)
 	moveSeeded(t, e, 0, spellInsightSrc, state.ZHand)
@@ -242,6 +245,7 @@ func TestEffectGrantedSpellCopyPaysCost(t *testing.T) {
 // TestEffectGrantedSpellCopyDeclineNeverCopies is the Effect route's decline
 // leaf: the {2} ask is answered "do not pay" -- no copy, pool untouched.
 func TestEffectGrantedSpellCopyDeclineNeverCopies(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 905, rowanEmblemSrc, spellInsightSrc, plainSifterSrc)
 	moveSeeded(t, e, 0, rowanEmblemSrc, state.ZHand)
 	moveSeeded(t, e, 0, spellInsightSrc, state.ZHand)
@@ -339,6 +343,7 @@ func drainUlalekPluralAsks(t *testing.T, e *Engine, ulalek, echo1, echo2 state.O
 // stack must copy BOTH, not just the first in stack-arena order. The resolving
 // wrapper is still excluded (the family anchor).
 func TestUlalekValidStackCopyIsPlural(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 906, ulalekSpellCopySrc, eldraziInsightSrc, eldraziEchoSrc, eldraziEchoTwoSrc)
 	ulalek := moveSeeded(t, e, 0, ulalekSpellCopySrc, state.ZBattlefield)
 	echo1 := moveSeeded(t, e, 0, eldraziEchoSrc, state.ZBattlefield)

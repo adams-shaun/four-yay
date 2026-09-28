@@ -29,6 +29,7 @@ func burntOfferingEngine(t *testing.T, creatureSrc string) (*Engine, state.ObjID
 }
 
 func TestBurntOfferingAmountIsTheSacrificedCreatureManaValue(t *testing.T) {
+	t.Parallel()
 	// A 4-drop creature ({1}{R}{R}{G}): the ability adds X = 4.
 	e, spell, creature := burntOfferingEngine(t,
 		"Name:Big Boar\nManaCost:1 R R G\nTypes:Creature Boar\nPT:3/3\nOracle:x\n")
@@ -80,6 +81,7 @@ func TestBurntOfferingAmountIsTheSacrificedCreatureManaValue(t *testing.T) {
 }
 
 func TestBurntOfferingAmountTracksAOneDrop(t *testing.T) {
+	t.Parallel()
 	// A 1-drop creature: X = 1, so 1 of each listed colour.
 	e, spell, creature := burntOfferingEngine(t,
 		"Name:Small Boar\nManaCost:R\nTypes:Creature Boar\nPT:1/1\nOracle:x\n")

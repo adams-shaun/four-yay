@@ -71,6 +71,7 @@ func fieryConfluenceEngine(t *testing.T, seed uint64) (*Engine, Config, state.Ob
 // (Decision.Validate's no-duplicate rule relaxed only for this ask), and run
 // the mode three times at resolution.
 func TestFieryConfluenceRepeatsAMode(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := fieryConfluenceEngine(t, 1)
 	addMana(t, e, 0, "RRRR") // 2 R R
 
@@ -210,6 +211,7 @@ func mysticConfluenceEngine(t *testing.T, seed uint64) (*Engine, Config, state.O
 // returned ONE bear for a three-pick answer). Three picks of the return mode
 // must return three distinct creatures.
 func TestMysticConfluenceRepeatsTargetedModeAsksPerInstance(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, bears := mysticConfluenceEngine(t, 1)
 	addMana(t, e, 0, "UUUUU") // 3 U U
 

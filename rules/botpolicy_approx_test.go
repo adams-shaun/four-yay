@@ -14,6 +14,7 @@ import (
 // replacement, multikicker, and mutate cases; each asserts that the real ask
 // and a non-fallback answer were reached.
 func TestBotPolicyCorpusReplacementOrder(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil
@@ -60,6 +61,7 @@ func TestBotPolicyCorpusReplacementOrder(t *testing.T) {
 }
 
 func TestBotPolicyCorpusMultikickerPaysMaximum(t *testing.T) {
+	t.Parallel()
 	e, _, anthem := gateFixture(t, 911, "Marshal's Anthem", gateRaiderSrc, gateRaiderSrc)
 	gateMoveFromLibrary(t, e, "Raider", state.ZGraveyard)
 	gateMoveFromLibrary(t, e, "Raider", state.ZGraveyard)

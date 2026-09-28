@@ -112,6 +112,7 @@ func castConcussiveBolt(t *testing.T, artifacts int) (*Engine, state.ObjID) {
 // offered, and below it the pair IS offered and the declaration is accepted.
 // The precondition asserts the derived keyword is the thing that differs.
 func TestConcussiveBoltCantBlockIsADeclareBlockersOutcome(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		artifacts   int
@@ -162,6 +163,7 @@ func TestConcussiveBoltCantBlockIsADeclareBlockersOutcome(t *testing.T) {
 // until-end-of-turn restriction and not a permanent change: after the SAME
 // game's EndOfTurnCleanup the keyword is gone and the pair is offered again.
 func TestConcussiveBoltCantBlockExpiresAtEndOfTurn(t *testing.T) {
+	t.Parallel()
 	e, victim := castConcussiveBolt(t, 3)
 	attacker := boltAttacker(t, e)
 	// Precondition: the grant blocks the pair before cleanup, so its absence
@@ -191,6 +193,7 @@ func TestConcussiveBoltCantBlockExpiresAtEndOfTurn(t *testing.T) {
 // block.` with no HIDDEN marker; the derived grant must reach the same oracle
 // the HIDDEN form does.
 func TestBareCantBlockKeywordSpellingEnforced(t *testing.T) {
+	t.Parallel()
 	e, _, spell, victim := metalcraftSpell(t, 2100, "Unearthly Blizzard", 0)
 	addMana(t, e, 0, "RRR")
 	submitChoices(t, e, castOptMode(t, castOptions(t, e), spell, "").Index)

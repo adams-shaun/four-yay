@@ -26,6 +26,7 @@ import (
 // pre-fix build then posed a Min/Max 1/1 reveal_pick anyway; the fixed build
 // finishes the resolution with nothing revealed.
 func TestDragonsDiscipleDeclinedRevealPosesNoPick(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	disciple := mustCorpusCard(t, reg, "Dragon's Disciple")
 	dragon := mustCorpusCard(t, reg, "Shivan Dragon")

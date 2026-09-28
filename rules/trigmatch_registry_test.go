@@ -261,6 +261,7 @@ func allRegisteredModeNames() []string {
 }
 
 func TestEveryDispatchedTriggerModeHasAMatcher(t *testing.T) {
+	t.Parallel()
 	for _, mode := range allRegisteredModeNames() {
 		if trigMatchers[mode] == nil {
 			t.Errorf("Mode$ %s has no registered matcher: it can never fire", mode)
@@ -269,6 +270,7 @@ func TestEveryDispatchedTriggerModeHasAMatcher(t *testing.T) {
 }
 
 func TestNoTriggerModeIsRegisteredThatTheSwitchNeverDispatched(t *testing.T) {
+	t.Parallel()
 	// The mirror of the test above: a mode in the table that is on neither
 	// the pre-split switch's list nor the documented post-split additions
 	// means a dispatch appeared without review -- which is a behaviour
@@ -291,6 +293,7 @@ func TestNoTriggerModeIsRegisteredThatTheSwitchNeverDispatched(t *testing.T) {
 }
 
 func TestAnUnregisteredModeNeverFires(t *testing.T) {
+	t.Parallel()
 	// The switch had no default arm: an unknown mode fell off the end with
 	// matched still false. The table must keep that, not panic on a lookup miss.
 	if trigMatchers["NoSuchModeExists"] != nil {
@@ -299,6 +302,8 @@ func TestAnUnregisteredModeNeverFires(t *testing.T) {
 }
 
 func TestRegisteringOneModeTwicePanics(t *testing.T) {
+	// Serial: it writes the package-level trigMatchers registry every
+	// parallel test reads.
 	// Two files claiming one mode is the merge accident the split makes
 	// possible, so it must be loud at startup rather than a matcher that
 	// quietly stopped being reached.

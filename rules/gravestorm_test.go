@@ -86,6 +86,7 @@ func copiesInExile(e *Engine) int {
 // original's target -- the documented copy-target stand-in). A control run
 // with no death this turn makes no copy and drains 1.
 func TestOminousHarvestGravestormCopiesPerDeath(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	run := func(t *testing.T, deadThisTurn bool) (lost int32, copies int) {

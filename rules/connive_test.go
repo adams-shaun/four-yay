@@ -207,6 +207,7 @@ func castLethalSchemeAtBear(t *testing.T, e *Engine, opponentBear, convokeWith s
 // pin: the convoked creature connives (draws one, is ASKED which card to
 // discard), and discarding a nonland card puts the +1/+1 counter on it.
 func TestLethalSchemeConvokedConniveNonlandDiscardCounters(t *testing.T) {
+	t.Parallel()
 	e, _ := conniveEngine(t, []string{"Lethal Scheme", "Grizzly Bears", "Grizzly Bears"}, []string{"Grizzly Bears"})
 	convokeWith := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield)
 	opponentBear := conniveMoveTo(t, e, 1, "Grizzly Bears", state.ZBattlefield)
@@ -268,6 +269,7 @@ func TestLethalSchemeConvokedConniveNonlandDiscardCounters(t *testing.T) {
 // TestLethalSchemeConvokedConniveLandDiscardSkipsCounter is the other half of
 // CR 702.59a: a LAND discard puts no counter.
 func TestLethalSchemeConvokedConniveLandDiscardSkipsCounter(t *testing.T) {
+	t.Parallel()
 	e, _ := conniveEngine(t, []string{"Lethal Scheme", "Grizzly Bears"}, []string{"Grizzly Bears"})
 	convokeWith := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield)
 	opponentBear := conniveMoveTo(t, e, 1, "Grizzly Bears", state.ZBattlefield)
@@ -310,6 +312,7 @@ func TestLethalSchemeConvokedConniveLandDiscardSkipsCounter(t *testing.T) {
 // read on the ETB half: the convoked set survives the stack->battlefield
 // move and the PutCounter trigger counters exactly those creatures.
 func TestVeneratedLoxodonCountersExactlyTheConvoked(t *testing.T) {
+	t.Parallel()
 	e, _ := conniveEngine(t, []string{"Venerated Loxodon", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"}, nil)
 	// Gather every bear into the hand first so each battlefield move below
 	// takes a DIFFERENT bear (conniveMoveTo scans hand first; with the bears
@@ -370,6 +373,7 @@ func TestVeneratedLoxodonCountersExactlyTheConvoked(t *testing.T) {
 // card is what is discarded, and the events.Connive record is what a
 // trig:Connives trigger reads.
 func TestLedgerShredderConnivesWithOneCardHandWithoutAsking(t *testing.T) {
+	t.Parallel()
 	e, _ := conniveEngine(t, []string{"Ledger Shredder", "Lightning Bolt", "Lightning Bolt"}, nil)
 	shredder := conniveMoveTo(t, e, 0, "Ledger Shredder", state.ZBattlefield)
 	bolt1 := conniveMoveTo(t, e, 0, "Lightning Bolt", state.ZHand)
@@ -456,6 +460,7 @@ func TestLedgerShredderConnivesWithOneCardHandWithoutAsking(t *testing.T) {
 // Monger (itself a Villain) gets its +1/+1 counter when a creature you
 // control connives — the record the matcher reads.
 func TestConnivesTriggerFiresForIronMonger(t *testing.T) {
+	t.Parallel()
 	e, _ := conniveEngine(t, []string{"Ledger Shredder", "Lightning Bolt", "Lightning Bolt", "Iron Monger, Sadistic Tycoon"}, nil)
 	shredder := conniveMoveTo(t, e, 0, "Ledger Shredder", state.ZBattlefield)
 	ironMonger := conniveMoveTo(t, e, 0, "Iron Monger, Sadistic Tycoon", state.ZBattlefield)
@@ -541,6 +546,7 @@ func conniveSeedGraveyard(t *testing.T, e *Engine, p state.PlayerID, name string
 // discard ask fire; the discard reads the post-replacement hand and the
 // connive record/counter land exactly once.
 func TestLethalSchemeConviveDrawReplacementDoesNotOrphanTheAsk(t *testing.T) {
+	t.Parallel()
 	e, cfg := conniveEngine(t, []string{"Lethal Scheme", "Grizzly Bears", "Grizzly Bears", "Golgari Thug"}, []string{"Grizzly Bears"})
 	convokeWith := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield)
 	opponentBear := conniveMoveTo(t, e, 1, "Grizzly Bears", state.ZBattlefield)
@@ -603,6 +609,7 @@ func TestLethalSchemeConviveDrawReplacementDoesNotOrphanTheAsk(t *testing.T) {
 // card; accepting the Dredge returns the nonland carrier to hand, which the
 // connive discards (one counter) in the same resolution.
 func TestLethalSchemeConviveDrawReplacementHandAtMostN(t *testing.T) {
+	t.Parallel()
 	e, cfg := conniveEngine(t, []string{"Lethal Scheme", "Grizzly Bears", "Grizzly Bears", "Golgari Thug"}, []string{"Grizzly Bears"})
 	convokeWith := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield)
 	opponentBear := conniveMoveTo(t, e, 1, "Grizzly Bears", state.ZBattlefield)
@@ -676,6 +683,7 @@ func TestLethalSchemeConviveDrawReplacementHandAtMostN(t *testing.T) {
 // ask, the answer drives the re-entry to the second, and only after both
 // draws are settled does the discard fire.
 func TestSpymastersVaultConniveTwoWithDrawReplacements(t *testing.T) {
+	t.Parallel()
 	e, cfg := conniveEngine(t, []string{"Spymaster's Vault", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Golgari Thug"}, nil)
 	vault := conniveMoveTo(t, e, 0, "Spymaster's Vault", state.ZBattlefield)
 	// A direct battlefield move still runs the enter-tapped replacement (no

@@ -77,6 +77,7 @@ func adventureCorpusEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, 
 // its front face, and the adventure-zone offer is gone afterwards. The front
 // face's ordinary cast from hand is present throughout.
 func TestAdventureSpellFaceOfferedCastAndRecast(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, oppBear := adventureCorpusEngine(t, reg)
 	addMana(t, e, 0, "UUU")
@@ -143,6 +144,7 @@ func TestAdventureSpellFaceOfferedCastAndRecast(t *testing.T) {
 // apply -- it goes to its owner's graveyard, and no adventure-zone recast is
 // ever offered for it.
 func TestAdventureSpellCounteredGoesToGraveyard(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 7402, adventureFixtureSrc, adventureCancelSrc, adventureBearSrc)
 	cancelID := addToHand(t, e, 0, adventureCancelSrc)
 	bearID := putCreature(t, e, 0, adventureBearSrc)
@@ -203,6 +205,7 @@ func TestAdventureSpellCounteredGoesToGraveyard(t *testing.T) {
 // adventure zone. A card exiled by another effect -- even while showing its
 // Adventure spell face -- is plain exiled, and the recast is never offered.
 func TestAdventureExileWithoutResolutionProvenance(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 7403, adventureFixtureSrc)
 	// Route 1: exiled from the hand, still showing its front face.
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZExile})

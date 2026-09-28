@@ -124,6 +124,7 @@ const (
 // exercises the exact expression the fix added (effects/count.go
 // refTargets' ExiledWith case plus evalRefProperty's Amount property).
 func TestColfenorUrnGateBelowThresholdStaysSilent(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	urnID, exiled := colfenorUrnFixture(t, e, bearFixtureScript, bearFixtureScript)
 
@@ -159,6 +160,7 @@ func TestColfenorUrnGateBelowThresholdStaysSilent(t *testing.T) {
 // CARDNAME-eligible permanent is the Urn itself) before the body returns the
 // exiled cards.
 func TestColfenorUrnMandatorySacrificeChargesTheUrn(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	urnID, exiled := colfenorUrnFixture(t, e, bearFixtureScript, lionFixtureScript, bearFixtureScript)
 

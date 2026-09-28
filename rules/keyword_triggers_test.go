@@ -29,6 +29,7 @@ import (
 // See the task report.
 
 func TestUndyingReturnsOnceWithACounter(t *testing.T) {
+	t.Parallel()
 	geist := "Name:Geist\nManaCost:G G\nTypes:Creature Spirit\nPT:2/1\nK:Haste\nK:Undying\nOracle:x\n"
 	e, cfg, g := newFixtureDeck(t, 81, geist)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: g, From: state.ZHand, To: state.ZBattlefield})
@@ -662,6 +663,7 @@ func TestDredgeUsesRealCorpusCard(t *testing.T) {
 // replacement cannot offer a choice the library cannot pay for: with three
 // cards left, Dredge 4 is not offered and the draw stays ordinary.
 func TestDredgeCannotReplaceDrawWithInsufficientLibrary(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	thug, ok := reg.Lookup("Golgari Thug")
 	if !ok {
@@ -699,6 +701,7 @@ func TestDredgeCannotReplaceDrawWithInsufficientLibrary(t *testing.T) {
 // choices are exercised: dredging the first draw, and declining both offered
 // replacements to draw two cards normally.
 func TestDredgeResumesEveryDrawAndContinuation(t *testing.T) {
+	t.Parallel()
 	thug, ok := testutil.CorpusRegistry(t).Lookup("Golgari Thug")
 	if !ok {
 		t.Fatal("Golgari Thug missing from corpus")
@@ -822,6 +825,7 @@ func TestSoulbondUsesRealCorpusCard(t *testing.T) {
 // TestSoulbondTriggersWhenAnotherCreatureEnters covers Soulbond's second CR
 // 702.103 trigger case and proves a noncreature cannot be offered as partner.
 func TestSoulbondTriggersWhenAnotherCreatureEnters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lookout, ok := reg.Lookup("Tandem Lookout")
 	if !ok {
@@ -864,6 +868,7 @@ func TestSoulbondTriggersWhenAnotherCreatureEnters(t *testing.T) {
 // only one eligible creature on the board, a broad scan and a Remembered-
 // restricted scan produce the same single-option offer either way.
 func TestSoulbondOtherEntryOffersOnlyItsOwnTriggeringCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lookout, ok := reg.Lookup("Tandem Lookout")
 	if !ok {
@@ -1121,6 +1126,7 @@ func TestMyriadMayChooseEachOpponentIndependently(t *testing.T) {
 }
 
 func TestExaltedPumpsALoneAttackerAndProwessPumpsOnNoncreatureSpells(t *testing.T) {
+	t.Parallel()
 	knight := "Name:Knight\nManaCost:1 B\nTypes:Creature Human Knight\nPT:2/1\nK:Exalted\nOracle:x\n"
 	other := "Name:Other\nManaCost:1\nTypes:Creature\nPT:1/1\nOracle:x\n"
 	e, cfg, k := newFixtureDeck(t, 83, knight, other)

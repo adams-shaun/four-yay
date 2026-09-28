@@ -98,6 +98,7 @@ func zoneOfObj(e *Engine, id state.ObjID) state.Zone {
 //   - A discard of an OPPONENT's (seat 1's) hand does not fire Veronica at
 //     all: ValidPlayer$ You admits only her controller's discards.
 func TestDiscardedAllVeronicaFirstTimeBatch(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	veronica := searchCorpusCard(t, reg, "Veronica, Dissident Scribe")
 	e, _, _ := discardedAllEngine(t, 9101, veronica)
@@ -179,6 +180,7 @@ func TestDiscardedAllVeronicaFirstTimeBatch(t *testing.T) {
 // count that came from anywhere but the batch (0, or the number of events
 // since the turn began) fails at least one of these.
 func TestDiscardedAllMagmakinAmount(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	magmakin := searchCorpusCard(t, reg, "Magmakin Artillerist")
 
@@ -240,6 +242,7 @@ func TestDiscardedAllMagmakinAmount(t *testing.T) {
 // Serve, "This ability triggers only once each turn", enforced through
 // actionTriggerModes).
 func TestDiscardedAllValidPlayerAnyAndActivationLimit(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	// ValidPlayer$ Player: an OPPONENT's discard counts. Tinybones deals 1 to
@@ -289,6 +292,7 @@ func TestDiscardedAllValidPlayerAnyAndActivationLimit(t *testing.T) {
 // discards two cards") is cast on the stack so the ask and its resume ride
 // the production resolution path; the test fails loudly if no ask was posed.
 func TestDiscardedAllSurvivesSuspensionAcrossAsk(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	magmakin := searchCorpusCard(t, reg, "Magmakin Artillerist")
 	e, _, _ := discardedAllEngine(t, 9106, magmakin)
@@ -334,6 +338,7 @@ func TestDiscardedAllSurvivesSuspensionAcrossAsk(t *testing.T) {
 // each turn" must still admit only the first such discard of the turn. Two
 // cost discards of nonlands are emitted; only the first may make a Junk.
 func TestDiscardedAllFirstTimeWithoutBatch(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	veronica := searchCorpusCard(t, reg, "Veronica, Dissident Scribe")
 	e, _, _ := discardedAllEngine(t, 9107, veronica)
@@ -370,6 +375,7 @@ func TestDiscardedAllFirstTimeWithoutBatch(t *testing.T) {
 // (effects.RegisterNonAPI) so a revert of the registration -- not just the
 // matcher -- fails loudly rather than leaving the trigger silently inert.
 func TestDiscardedAllPrimitiveRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:DiscardedAll"] {
 		t.Fatal("primitive trig:DiscardedAll not registered (effects.Supported)")
 	}

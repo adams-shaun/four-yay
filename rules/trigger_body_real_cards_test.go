@@ -67,6 +67,7 @@ func movedEvents(e *Engine, mark int) (draws, saccs, discards int) {
 // corpus card: its ETB trigger's `Cost$ Sac<1/Land>` body poses the
 // sacrifice election; declining draws nothing and sacrifices nothing.
 func TestYumaEnterCostDeclineDrawsNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	yuma := searchCorpusCard(t, reg, "Yuma, Proud Protector")
 	forest := searchCorpusCard(t, reg, "Forest")
@@ -116,6 +117,7 @@ func srcID(t *testing.T, e *Engine, name string) state.ObjID {
 // pick, the CHOSEN (not zone-order-first) land is sacrificed by a real
 // events.Sacrifice, and the body draws exactly one.
 func TestYumaEnterCostPaysSacrificesChosenLandAndDraws(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	yuma := searchCorpusCard(t, reg, "Yuma, Proud Protector")
 	forest := searchCorpusCard(t, reg, "Forest")
@@ -174,6 +176,7 @@ func TestYumaEnterCostPaysSacrificesChosenLandAndDraws(t *testing.T) {
 // unpicked hand card stays, and the body draws its two. The decline moves
 // nothing.
 func TestBitterReunionCostDiscardThenDrawsTwo(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	reunion := searchCorpusCard(t, reg, "Bitter Reunion")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -240,6 +243,7 @@ func TestBitterReunionCostDiscardThenDrawsTwo(t *testing.T) {
 // two basics enter the battlefield tapped. The decline keeps the land and
 // never searches.
 func TestSpringbloomDruidCostPaysThenSearches(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	spring := searchCorpusCard(t, reg, "Springbloom Druid")
 	forest := searchCorpusCard(t, reg, "Forest")

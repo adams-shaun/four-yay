@@ -15,6 +15,7 @@ import (
 // (it still gets the election; see clash_placement_test.go) -- this test keeps
 // the empty case from being conflated with it.
 func TestClashEmptyLibraryParticipantIsNotAsked(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	marvo := onBoardCard(t, e, 0, unblockedCorpusCard(t, "m/marvo_deep_operative.txt"))
 	e.G.Obj(marvo).SummonSick = false

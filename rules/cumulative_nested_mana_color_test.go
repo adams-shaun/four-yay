@@ -44,6 +44,7 @@ func optionIndex(t *testing.T, d *decision.Decision, pred func(decision.Option) 
 }
 
 func TestCumulativeWindowSubAbilityColourChoiceResumesWindow(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	charm := onBoard(t, e, 0, upkeepEnchantment)
 	grotto := onBoard(t, e, 0, luckGrotto)
@@ -88,6 +89,7 @@ func TestCumulativeWindowSubAbilityColourChoiceResumesWindow(t *testing.T) {
 // is activated inside the cumulative window: rules' Suspended() is widened by
 // the window itself, which must not read as "this resolution suspended".
 func TestCumulativeWindowManaAbilitySubChainRuns(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	onBoard(t, e, 0, upkeepEnchantment)
 	spring := onBoard(t, e, 0, lifeSpring)
@@ -106,6 +108,7 @@ func TestCumulativeWindowManaAbilitySubChainRuns(t *testing.T) {
 // Outside any window, the same sub-ability colour ask with a spell on the
 // stack must not re-enter (and finish) that unrelated stack object.
 func TestSubAbilityColourChoiceWithStackDoesNotHijackStackTop(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	grotto := onBoard(t, e, 0, luckGrotto)
 	e.emit(events.Event{Kind: events.CounterChange, Obj: grotto, Counter: "LUCK", Amount: 1})

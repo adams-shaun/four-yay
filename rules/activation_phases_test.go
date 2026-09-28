@@ -105,6 +105,7 @@ func abilityFor(t *testing.T, e *Engine, p state.PlayerID, id state.ObjID) *deci
 // drive to. Offer-only: the Gambit's RemoveFromCombat resolution is
 // unrelated machinery this pin does not drive.
 func TestIllusionistsGambitCastableOnlyOnDeclareBlockers(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	gambit := searchCorpusCard(t, reg, "Illusionist's Gambit")
 	forest := searchCorpusCard(t, reg, "Forest")
@@ -142,6 +143,7 @@ func TestIllusionistsGambitCastableOnlyOnDeclareBlockers(t *testing.T) {
 // offered in the turn's FIRST combat, withheld once a second combat has
 // begun (Aurelia's own attack trigger grants one). Offer-only.
 func TestBerserkFirstCombatOnly(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := activationDeck(t, 9312,
 		[]*cards.Card{lookup(t, reg, "Aurelia, the Warleader"), lookup(t, reg, "Berserk"),
@@ -192,6 +194,7 @@ func TestBerserkFirstCombatOnly(t *testing.T) {
 // with a synthetic: `ActivationPhases$ Upkeep | PlayerTurn$ True` is offered
 // on the controller's own upkeep and withheld at Main1 of the same turn.
 func TestActivationPhasesUpkeepAbilityOfferedOnlyInUpkeep(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 9313, actPhaseUpkeepProbeSrc)
 	probe := putCreature(t, e, 0, actPhaseUpkeepProbeSrc)
 	fundPool(t, e, "C") // re-asks priority after the seeded move
@@ -217,6 +220,7 @@ func TestActivationPhasesUpkeepAbilityOfferedOnlyInUpkeep(t *testing.T) {
 // ability entirely (never widened), and a rider whose value is not "True"
 // does the same.
 func TestActivationPhasesUnresolvableSpecWithheld(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 9314, actPhaseNonsenseProbeSrc)
 	probe := putCreature(t, e, 0, actPhaseNonsenseProbeSrc)
 	fundPool(t, e, "CC")

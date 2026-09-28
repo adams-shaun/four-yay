@@ -12,6 +12,7 @@ import (
 // Each delivery route must use exactly the same affected-object convention,
 // including the signed forms Num accepts. Other SVar names remain grantor-bound.
 func TestEffectStaticAffectedXParity(t *testing.T) {
+	t.Parallel()
 	for _, expr := range []string{"AffectedX", "+AffectedX", "-AffectedX", " Other ", "Count$Valid Creature"} {
 		want := strings.TrimLeft(strings.TrimSpace(expr), "+-") == "AffectedX"
 		if got := effects.AffectedXStaticAmount(expr); got != want {
@@ -21,6 +22,7 @@ func TestEffectStaticAffectedXParity(t *testing.T) {
 }
 
 func TestEffectContinuousMixedUnreadFailsClosed(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Grantor\nTypes:Creature\nPT:2/2\nA:AB$ Effect | StaticAbilities$ Gift\nSVar:Gift:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying | AddHiddenKeyword$ Shroud\nOracle:x\n")
 	other := onBoard(t, e, 0, "Name:Recipient\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -41,6 +43,7 @@ func TestEffectContinuousMixedUnreadFailsClosed(t *testing.T) {
 }
 
 func TestEffectTriggerExpiryAndUnsupportedLifetime(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, mode, duration string }{
 		{"event expires", "SpellCast", ""},
 		{"phase expires", "Phase", ""},

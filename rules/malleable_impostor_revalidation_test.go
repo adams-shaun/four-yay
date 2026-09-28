@@ -21,6 +21,7 @@ import (
 // the answer is outstanding. The stale option is still on the list and can
 // still be chosen; effects' cloneETBTemplateLegal is what refuses it.
 func TestMalleableImpostorRevalidatesTemplateAtEntry(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name    string
 		respond func(*Engine, state.ObjID)

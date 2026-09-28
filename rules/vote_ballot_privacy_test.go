@@ -13,6 +13,7 @@ import (
 )
 
 func TestSecretVoteTriggerRetainsReferentsWithoutLoggingBallots(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := voteCarrierEngine(t, reg, "Grudge Keeper")
 	carrier := enterCarrier(t, e, "Grudge Keeper")
@@ -58,6 +59,7 @@ func TestSecretVoteTriggerRetainsReferentsWithoutLoggingBallots(t *testing.T) {
 }
 
 func TestVaultVoteMessageAndUpToWithSecretBallot(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := voteCarrierEngine(t, reg, "Grudge Keeper")
 	creature := enterCarrier(t, e, "Grudge Keeper")

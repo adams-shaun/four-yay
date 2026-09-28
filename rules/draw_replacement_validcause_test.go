@@ -36,6 +36,7 @@ func cycloneSetup(t *testing.T, top *cards.Card) (*Engine, state.ObjID) {
 // by any cycling ability, so it must NOT be replaced — exactly one Draw event
 // is emitted and the card reaches the hand.
 func TestUnpredictableCycloneOrdinaryDrawIsNotReplaced(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, top := cycloneSetup(t, mustCorpusCard(t, reg, "Grizzly Bears"))
 
@@ -57,6 +58,7 @@ func TestUnpredictableCycloneOrdinaryDrawIsNotReplaced(t *testing.T) {
 // Ability.Params["Keyword"] is "Cycling", and whose source card (Violent
 // Impact) is a nonland.
 func TestUnpredictableCycloneCyclingDrawIsReplaced(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Violent Impact"))
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Unpredictable Cyclone"))
@@ -93,6 +95,7 @@ func TestUnpredictableCycloneCyclingDrawIsReplaced(t *testing.T) {
 // activated ability of a nonland card (an inline artifact's "{T}: Draw a
 // card") is NOT caused by a cycling ability, so it is not replaced.
 func TestUnpredictableCycloneNonCyclingAbilityDrawIsNotReplaced(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	drawer := card(t, "Name:Drawer\nManaCost:1\nTypes:Artifact\n"+
 		"A:AB$ Draw | Cost$ T | NumCards$ 1 | SpellDescription$ Draw a card.\nOracle:x\n")
@@ -122,6 +125,7 @@ func TestUnpredictableCycloneNonCyclingAbilityDrawIsNotReplaced(t *testing.T) {
 // source card is not a nonland and the `nonLand` qualifier must withhold the
 // replacement — the draw happens normally.
 func TestUnpredictableCycloneLandCyclingIsNotReplaced(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Ziatora's Proving Ground"))
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Unpredictable Cyclone"))

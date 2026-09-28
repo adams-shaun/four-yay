@@ -93,6 +93,7 @@ func drainAll(t *testing.T, e *Engine, limit int) {
 // sacrifices a creature for each player whose coin came up tails. Before the
 // fix FlippedTails resolved to the EMPTY set, so no one sacrificed.
 func TestFlipCoinGoblinAssassinFlippedTails(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(seed uint64) (int, int, []effects.FlipResult, map[state.PlayerID]int) {
 		e, _ := flipEngine(t, reg, seed,
@@ -163,6 +164,7 @@ func TestFlipCoinGoblinAssassinFlippedTails(t *testing.T) {
 // opponent (seat 1), not once total, and the lose branch's Defined$
 // Remembered names the opponent whose flip lost.
 func TestFlipCoinMutalithForEachPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(seed uint64) ([]effects.FlipResult, int) {
 		e, _ := flipEngine(t, reg, seed,
@@ -213,6 +215,7 @@ func TestFlipCoinMutalithForEachPlayer(t *testing.T) {
 // (CounterNum$ Wins). Before the fix Wins was unbound, so Crazed Firecat
 // always entered with zero counters.
 func TestFlipCoinCrazedFirecatWinsCounter(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(seed uint64) (int, []bool) {
 		e, _ := flipEngine(t, reg, seed,

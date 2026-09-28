@@ -177,6 +177,7 @@ func TestCelestialArchonBearerLeavesBecomesCreatureAgain(t *testing.T) {
 // same card still works with no target ask, enters unattached as a 4/4
 // creature, and emits no bestowed provenance.
 func TestCelestialArchonPlainCastUnchanged(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	archon := mustCorpusCard(t, reg, "Celestial Archon")
 	e, cfg := tokenReplGame(t, 143, archon)

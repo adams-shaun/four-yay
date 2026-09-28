@@ -74,6 +74,7 @@ func drivePregameDeclarations(t *testing.T, e *Engine) (declAt []int, redrawMove
 // mulligan declaration precedes the pass's first redraw event -- which is the
 // only observable difference the row describes.
 func TestMulliganRedrawsResolveAtPassEnd(t *testing.T) {
+	t.Parallel()
 	cfg := fourSeatConfig(t, 60, 1) // Mulligans: 1 -> all four mulligan in pass 1
 	e := New(cfg)
 
@@ -123,6 +124,7 @@ func TestMulliganRedrawsResolveAtPassEnd(t *testing.T) {
 // the whole pass has declared, so the redraw lands after the last KEEP
 // declaration, not between seat 0's declaration and seat 1's ask.
 func TestMulliganRedrawWaitsForAllSeats(t *testing.T) {
+	t.Parallel()
 	cfg := fourSeatConfig(t, 60, 1)
 	e := New(cfg)
 

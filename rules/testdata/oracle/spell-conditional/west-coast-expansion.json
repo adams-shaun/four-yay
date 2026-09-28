@@ -86,15 +86,9 @@
           "op": "resolve",
           "answers": [
             {
-              "kind": "choose",
-              "pick": [
-                "Captain America"
-              ]
-            },
-            {
               "kind": "modes",
               "pick": [
-                "yes"
+                "Captain America"
               ]
             }
           ]

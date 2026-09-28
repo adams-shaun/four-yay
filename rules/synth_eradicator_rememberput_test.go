@@ -27,6 +27,7 @@ import (
 // engine's OWN offer list (mayPlaySpellIds), not merely the registered
 // continuous effect, and each run is replayed from its log.
 func TestSynthEradicatorRememberPutGatesTheExiledCard(t *testing.T) {
+	t.Parallel()
 	run := func(seed uint64, accept bool) (*Engine, Config, state.ObjID) {
 		e, cfg, synth := gateFixture(t, seed, "Synth Eradicator")
 		synth = gateMoveFromLibrary(t, e, "Synth Eradicator", state.ZBattlefield)

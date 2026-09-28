@@ -15,6 +15,7 @@ import (
 // the election here is answered by the BOT's own answer path, never an
 // explicit intent.
 func TestEffectOptionalDeciderBotDeclines(t *testing.T) {
+	t.Parallel()
 	beck := corpusAlternativeCard(t, "Beck")
 	bear := card(t, "Name:Test FreeBear\nManaCost:0\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 

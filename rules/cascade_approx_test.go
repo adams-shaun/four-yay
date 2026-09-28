@@ -73,6 +73,7 @@ func findCascadeGrant(e *Engine) (state.ContinuousEffect, bool) {
 // Angel) BEFORE the mana-value-5 Air Elemental beneath it. Reading only the
 // printed face compares at 6 and finds Air Elemental instead.
 func TestCascadeXSpellUsesAnnouncedManaValue(t *testing.T) {
+	t.Parallel()
 	e, cfg := cascadeTestEngine(t, 9221, "Let the Galaxy Burn",
 		[]string{"Forest", "Platinum Angel", "Air Elemental"}, nil)
 	lib := e.G.Zone(state.ZLibrary, 0)
@@ -130,6 +131,7 @@ func TestCascadeXSpellUsesAnnouncedManaValue(t *testing.T) {
 // After an opponent loses life the restriction lifts, the same card is
 // offered, and it casts.
 func TestCascadeFreeCastRespectsCantBeCast(t *testing.T) {
+	t.Parallel()
 	cascadeIntoRakdos := func(t *testing.T, seed uint64, opponentLosesLife bool) (*Engine, Config, state.ObjID) {
 		t.Helper()
 		e, cfg := cascadeTestEngineFiller(t, seed, "Maelstrom Colossus",

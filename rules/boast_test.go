@@ -91,6 +91,7 @@ func boastOffered(e *Engine, id state.ObjID) bool {
 // Boast and would re-offer it every window. The test emits all three marker
 // shapes and asserts the once-per-turn half keys on the right one.
 func TestBoastGateIdentities(t *testing.T) {
+	t.Parallel()
 	e, _, bomb := boastFixture(t, 925, 0)
 	if e.G.Obj(bomb).AttacksThisTurn != 0 {
 		t.Fatal("fixture unexpectedly starts with an attack this turn")
@@ -139,6 +140,7 @@ func TestBoastGateIdentities(t *testing.T) {
 // ability whose source has not attacked this turn is not offered, even with
 // a legal sacrifice and enough mana for target selection.
 func TestBroadsideBombardiersBoastGateNotOfferedBeforeAttacking(t *testing.T) {
+	t.Parallel()
 	e, cfg, bomb := boastFixture(t, 921, 1)
 	// A sacrificial creature and red mana: the offer is withheld by the
 	// Boast gate, never by an unpayable cost or a dry pool.
@@ -153,6 +155,7 @@ func TestBroadsideBombardiersBoastGateNotOfferedBeforeAttacking(t *testing.T) {
 // TestBroadsideBombardiersBoastGateOfferedAfterAttacking: once the source
 // is declared an attacker this turn, the Boast gate opens.
 func TestBroadsideBombardiersBoastGateOfferedAfterAttacking(t *testing.T) {
+	t.Parallel()
 	e, cfg, bomb := boastFixture(t, 922, 1)
 	moveByName(t, e, 0, "Raider", state.ZBattlefield)
 	addMana(t, e, 0, "RRR")
@@ -169,6 +172,7 @@ func TestBroadsideBombardiersBoastGateOfferedAfterAttacking(t *testing.T) {
 // A real AbilityPush is emitted by submitting the offered option (the cost
 // is paid through the ordinary sac flow).
 func TestBroadsideBombardiersBoastOncePerTurn(t *testing.T) {
+	t.Parallel()
 	e, cfg, bomb := boastFixture(t, 923, 2)
 	moveByName(t, e, 0, "Raider", state.ZBattlefield)
 	moveByName(t, e, 0, "Raider", state.ZBattlefield)
@@ -218,6 +222,7 @@ func boastOfferedAfterResolution(t *testing.T, e *Engine, id state.ObjID) (decis
 // so the Boast ability is withheld again until the source attacks in the
 // new turn.
 func TestBroadsideBombardiersBoastResetsNextTurn(t *testing.T) {
+	t.Parallel()
 	e, cfg, bomb := boastFixture(t, 924, 2)
 	moveByName(t, e, 0, "Raider", state.ZBattlefield)
 	moveByName(t, e, 0, "Raider", state.ZBattlefield)

@@ -47,6 +47,7 @@ func plainCastOffered(e *Engine, p state.PlayerID, obj state.ObjID) bool {
 // take every step, and 601.2f-h price and pay the total cost, additional costs
 // included).
 func TestAdditionalSacrificeCostGatesTheOffer(t *testing.T) {
+	t.Parallel()
 	e, _, rites := newFixtureDeck(t, 30, villageRitesSrc, bearSrc)
 	addMana(t, e, 0, "B")
 
@@ -84,6 +85,7 @@ func TestAdditionalSacrificeCostGatesTheOffer(t *testing.T) {
 // refuses to hand one out, exactly as TestUnderDelveAbortsTheCast does for the
 // under-delve abort.
 func TestUnpayableSacrificeAbortHoldsTheOptionOut(t *testing.T) {
+	t.Parallel()
 	e, _, rites := newFixtureDeck(t, 30, villageRitesSrc, bearSrc)
 	addMana(t, e, 0, "B")
 

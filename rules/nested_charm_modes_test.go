@@ -37,6 +37,7 @@ import (
 // the inner modal ask never fires. Correct resolution: the outer mode runs
 // once (+5), then the inner Charm poses its own KModes decision.
 func TestNestedCharmDoesNotInheritOuterModes(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiNest\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ Charm | Choices$ DoGain,DoLose | SubAbility$ InnerCharm\n" +
 		"SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life\n" +

@@ -31,6 +31,7 @@ import (
 // source, so its own attachment does not satisfy Other -- the Unholy
 // Strength below does).
 func TestDaybreakCoronetCastsOntoAuraBearingCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	coronet := mustCorpusCard(t, reg, "Daybreak Coronet") // K:Enchant:Creature.EnchantedBy Aura.Other
 	e := handEngine(t, coronet)
@@ -108,6 +109,7 @@ func TestDaybreakCoronetCastsOntoAuraBearingCreature(t *testing.T) {
 // battlefield the cast is still withheld -- recognising the predicate must
 // not have widened the filter to "any creature".
 func TestDaybreakCoronetNeverOfferedWithoutAura(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	coronet := mustCorpusCard(t, reg, "Daybreak Coronet")
 	e := handEngine(t, coronet)
@@ -132,6 +134,7 @@ func TestDaybreakCoronetNeverOfferedWithoutAura(t *testing.T) {
 // OPPONENT's Aura never queue it (the qualifier is evaluated against the
 // attached object, not the candidate).
 func TestEnchantedByAuraYouCtrlKillianTriggerDraws(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	killian := mustCorpusCard(t, reg, "Killian, Decisive Mentor")
 	bearSrc := "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -182,6 +185,7 @@ func TestEnchantedByAuraYouCtrlKillianTriggerDraws(t *testing.T) {
 // a Coronet cast cannot exercise: during the cast the source is not yet
 // attached).
 func TestFaceOfDivinityAnotherAuraStatic(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	face := mustCorpusCard(t, reg, "Face of Divinity")
 	e := handEngine(t)

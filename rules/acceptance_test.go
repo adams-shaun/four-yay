@@ -184,6 +184,7 @@ var knownUnsupported = map[string][]string{
 // sync in either direction as the engine grows, and both directions are a
 // bug in the ratchet, not something to silently tolerate.
 func TestEveryRepoDeckIsFullySupported(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	measured := map[string][]string{}

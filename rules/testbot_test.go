@@ -25,6 +25,12 @@ import (
 // game facts.
 type testBot struct {
 	r *rand.Rand
+	// board is refilled per decision (botpolicy.BoardFromGameInto), the
+	// host match loop's own reuse shape: Decide never retains a Board past
+	// the call (botpolicy's TestBoardOwnership), so one Board per bot is
+	// safe and spares a fresh set of maps per decision.
+	board    botpolicy.Board
+	hasBoard bool
 }
 
 func newTestBot(seed uint64) *testBot {
@@ -46,7 +52,10 @@ func newTestBot(seed uint64) *testBot {
 // the intent this forwards always validates against d for any Min/Max the
 // wire format allows, not only today's shapes.
 func (b *testBot) answer(e *Engine, d *decision.Decision) decision.Intent {
-	return botpolicy.Decide(botpolicy.BoardFromGame(e.G, e, d.Player), d, b.r)
+	if !b.hasBoard {
+		b.board, b.hasBoard = botpolicy.NewBoard(len(e.G.Players)), true
+	}
+	return botpolicy.Decide(botpolicy.BoardFromGameInto(e.G, e, d.Player, &b.board), d, b.r)
 }
 
 // TestTestBotDelegatesToBotPolicy pins answer's wiring: for representative
@@ -60,6 +69,7 @@ func (b *testBot) answer(e *Engine, d *decision.Decision) decision.Intent {
 // policy's behaviour is now tested once, in botpolicy/combat_test.go and
 // policy_test.go, and this file only has to prove it forwards unchanged.
 func TestTestBotDelegatesToBotPolicy(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 99, Names: names, Decks: decks})
 	e.Advance()

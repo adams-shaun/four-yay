@@ -21,6 +21,7 @@ import (
 // Animate continuous effect per loop. cardfuzz batch3 lines 4/21 reached 500+
 // active continuous effects and a 60s wall-clock "hang" in the layer walk.
 func TestHiddenPredatorsIsPresent2IsAnAndClause(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Hidden Predators")},

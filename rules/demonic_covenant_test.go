@@ -184,6 +184,7 @@ func covenantAssertions(t *testing.T, e *Engine, covID state.ObjID, milled []sta
 }
 
 func TestDemonicCovenantSacrificesWhenMilledCardsShareAllTypes(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
 	e, covID, milled := covenantEngine(t, reg, bear, bear)
@@ -195,6 +196,7 @@ func TestDemonicCovenantSacrificesWhenMilledCardsShareAllTypes(t *testing.T) {
 }
 
 func TestDemonicCovenantStaysWhenMilledCardsDifferInType(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
 	forest := searchCorpusCard(t, reg, "Forest")
@@ -213,6 +215,7 @@ func TestDemonicCovenantStaysWhenMilledCardsDifferInType(t *testing.T) {
 // fixed probe list had no Instant/Sorcery entry, both trivially passed and
 // the Covenant sacrificed itself after milling two spells.
 func TestDemonicCovenantStaysWhenMilledSpellsShareNoType(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	bolt := searchCorpusCard(t, reg, "Lightning Bolt")
 	growth := searchCorpusCard(t, reg, "Rampant Growth")
@@ -234,6 +237,7 @@ func TestDemonicCovenantStaysWhenMilledSpellsShareNoType(t *testing.T) {
 // spell case on the real corpus: two Lightning Bolts share the card type
 // Instant, the count is 2 and the Covenant is sacrificed.
 func TestDemonicCovenantSacrificesWhenMilledInstantsShareType(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	bolt := searchCorpusCard(t, reg, "Lightning Bolt")
 	e, covID, milled := covenantEngineFiller(t, reg, bolt, searchCorpusCard(t, reg, "Rampant Growth"), bolt, bolt)
@@ -250,6 +254,7 @@ func TestDemonicCovenantSacrificesWhenMilledInstantsShareType(t *testing.T) {
 // end-step Phase trigger the assertions above would vacuously compare a
 // never-run chain. The mill events must exist on the log.
 func TestDemonicCovenantTriggerFiredAtAll(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
 	forest := searchCorpusCard(t, reg, "Forest")

@@ -21,6 +21,7 @@ import (
 // The madness ask must suspend the resolution: it is the pending decision,
 // its answer moves the card, and only then does the Repeat election come.
 func TestMadnessDiscardSuspendsTheResolvingRepeat(t *testing.T) {
+	t.Parallel()
 	kindle := tokenReplCorpusCard(t, "Kindle the Carnage")
 	eruption := tokenReplCorpusCard(t, "Violent Eruption")
 	bear := tokenReplCorpusCard(t, "Grizzly Bears")
@@ -103,6 +104,7 @@ func TestMadnessDiscardSuspendsTheResolvingRepeat(t *testing.T) {
 // which the livelock watcher killed. An empty clear is no longer an event,
 // and a gated repeat whose pass posed nothing and changed nothing stops.
 func TestGatedRepeatStopsWhenAnIterationChangesNothing(t *testing.T) {
+	t.Parallel()
 	rally := tokenReplCorpusCard(t, "Rally the Horde")
 	e, cfg := tokenReplGame(t, 9182, rally)
 	rallyID := moveSeededCard(t, e, 0, rally, state.ZHand)

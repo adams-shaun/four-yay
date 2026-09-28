@@ -43,6 +43,7 @@ func attackBlockedRegressionEngine(t *testing.T) *Engine {
 // with none it is blocked, and an Island on the defender's battlefield
 // releases it -- both directions measured through attackBlocked.
 func TestCantAttackUnlessDefenderControlsIsland(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	serpent := onBoardCard(t, e, 0, corpusCard(t, "Kukemssa Serpent"))
 	if e.G.Obj(serpent).Zone != state.ZBattlefield {
@@ -67,6 +68,7 @@ func TestCantAttackUnlessDefenderControlsIsland(t *testing.T) {
 // creatures than the Toady's controller. With the defender behind it is
 // released; at parity the predicate fails and it is blocked.
 func TestCantAttackUnlessDefenderHasFewerCreatures(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	toady := onBoardCard(t, e, 0, corpusCard(t, "Mogg Toady"))
 	onBoard(t, e, 0, "Name:Ally A\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -103,6 +105,7 @@ func TestCantAttackUnlessDefenderHasFewerCreatures(t *testing.T) {
 // BLOCKS, and a tapped-only land releases. This is the negation half of the
 // UnlessDefender$ evaluator.
 func TestCantAttackUnlessDefenderNegated(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	brawlers := onBoardCard(t, e, 0, corpusCard(t, "Veteran Brawlers"))
 	if e.G.Obj(brawlers).Zone != state.ZBattlefield {
@@ -127,6 +130,7 @@ func TestCantAttackUnlessDefenderNegated(t *testing.T) {
 // Seven cards in the DEFENDER's graveyard release it; fewer block it. This is
 // the HasCardsIn<zone>_<type>_<cmp> half of the UnlessDefender$ evaluator.
 func TestCantAttackUnlessDefenderHasCardsInGraveyard(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	gargoyle := onBoardCard(t, e, 0, corpusCard(t, "Vantress Gargoyle"))
 	if e.G.Obj(gargoyle).Zone != state.ZBattlefield {
@@ -157,6 +161,7 @@ func TestCantAttackUnlessDefenderHasCardsInGraveyard(t *testing.T) {
 // gate holds and it is blocked, at seven the gate fails and it may attack.
 // This exercises the CheckSVar$/SVarCompare$ half through continuousGateHolds.
 func TestCantAttackCheckSVarGate(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	terror := onBoardCard(t, e, 0, corpusCard(t, "Deep-Sea Terror"))
 	if o := e.G.Obj(terror); o == nil || o.Zone != state.ZBattlefield {
@@ -187,6 +192,7 @@ func TestCantAttackCheckSVarGate(t *testing.T) {
 // board is probed at seat 0's turn (gate holds, blocked) and after a real
 // TurnChange to seat 1 (gate fails, released).
 func TestCantAttackConditionGate(t *testing.T) {
+	t.Parallel()
 	e := attackBlockedRegressionEngine(t)
 	bear := onBoard(t, e, 0, "Name:Conditional Attacker\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\n"+
 		"S:Mode$ CantAttack | ValidCard$ Card.Self | Condition$ PlayerTurn | Description$ CARDNAME can't attack unless it is your turn.\nOracle:x\n")

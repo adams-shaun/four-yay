@@ -32,6 +32,7 @@ Oracle:Banish a creature; its controller may fetch a basic land.
 // The fix: an ask posed while a commander-zone choice is outstanding waits
 // behind it and is posed once that answer has been applied.
 func TestCommanderZoneAskIsNotOverwrittenByLaterResolutionAsk(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		choice int

@@ -43,6 +43,7 @@ const forcedRememberedNumberProbe = "Name:ProbeRN2\nManaCost:1 R\nTypes:Enchantm
 // count at 0 and the EQ0-gated Draw fires; the forced-sacrifice contrast
 // remembers the sacrificed card and the leg stays skipped.
 func TestRememberedNumberCaptureExcludedInTriggerBody(t *testing.T) {
+	t.Parallel()
 	run := func(t *testing.T, probeSrc string) (int, state.Zone) {
 		t.Helper()
 		probeCard := card(t, probeSrc)

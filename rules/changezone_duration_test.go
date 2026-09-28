@@ -49,6 +49,7 @@ func passToTargetAsk(t *testing.T, e *Engine) *decision.Decision {
 }
 
 func TestChangeZoneDurationUntilHostLeavesPlay(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name    string
 		orer    string
@@ -139,6 +140,7 @@ func TestChangeZoneDurationUntilHostLeavesPlay(t *testing.T) {
 // A token exiled under Duration$ has ceased to exist (CR 111.7) and must not
 // come back: the record step skips it, so the sweep has nothing to return.
 func TestChangeZoneDurationDoesNotReturnAToken(t *testing.T) {
+	t.Parallel()
 	light := card(t, "Name:Banishing Light\nManaCost:2 W\nTypes:Enchantment\n"+
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigExile | TriggerDescription$ When CARDNAME enters, exile target nonland permanent an opponent controls until CARDNAME leaves the battlefield.\n"+
 		"SVar:TrigExile:DB$ ChangeZone | Origin$ Battlefield | Destination$ Exile | ValidTgts$ Permanent.nonLand+OppCtrl | Duration$ UntilHostLeavesPlay\n"+

@@ -73,6 +73,7 @@ func pcdrQueue(e *Engine, s state.Step, src state.ObjID) int {
 // combat damage by a Zombie this turn, and never for a non-Zombie source, for
 // non-combat damage, or at the first main phase.
 func TestLostMonarchOfIfnirZombieCombatDamageGatesMill(t *testing.T) {
+	t.Parallel()
 	e, ids := pcdrEngine(t, "Lost Monarch of Ifnir", "Grizzly Bears")
 	monarch := ids["Lost Monarch of Ifnir"]
 	bears := ids["Grizzly Bears"]
@@ -118,6 +119,7 @@ func TestLostMonarchOfIfnirZombieCombatDamageGatesMill(t *testing.T) {
 // main phase only. Before the count head existed the condition could not be
 // evaluated and triggerMatches returned false at every step.
 func TestLostMonarchOfIfnirTriggerMatchesWithCondition(t *testing.T) {
+	t.Parallel()
 	e, ids := pcdrEngine(t, "Lost Monarch of Ifnir")
 	monarch := ids["Lost Monarch of Ifnir"]
 	tr := crTriggerFixture(t, e, monarch, "Phase", "Mill")
@@ -156,6 +158,7 @@ func TestLostMonarchOfIfnirTriggerMatchesWithCondition(t *testing.T) {
 // HighestLifeLostThisTurn gate: it fires only once a player has lost 4 or
 // more life this turn.
 func TestKnightOfTheEbonLegionEndStepLifeLossGate(t *testing.T) {
+	t.Parallel()
 	e, ids := pcdrEngine(t, "Knight of the Ebon Legion")
 	knight := ids["Knight of the Ebon Legion"]
 
@@ -176,6 +179,7 @@ func TestKnightOfTheEbonLegionEndStepLifeLossGate(t *testing.T) {
 // HighestLifeLostThisTurn route on the second carrier, whose end-step trigger
 // fires for every player's end step (no ValidPlayer$).
 func TestYshtolaNightsBlessedEndStepLifeLossGate(t *testing.T) {
+	t.Parallel()
 	e, ids := pcdrEngine(t, "Y'shtola, Night's Blessed")
 	yshtola := ids["Y'shtola, Night's Blessed"]
 
@@ -198,6 +202,7 @@ func TestYshtolaNightsBlessedEndStepLifeLossGate(t *testing.T) {
 // and the condition call site fails OPEN on an unresolved body — so the draw
 // offer was made even when nobody but the controller lost life.
 func TestLudevicOtherLostLifeConditionEvaluates(t *testing.T) {
+	t.Parallel()
 	e, ids := pcdrEngine(t, "Ludevic, Necro-Alchemist")
 	ludevic := ids["Ludevic, Necro-Alchemist"]
 	face := e.G.Obj(ludevic).Face()
@@ -235,6 +240,7 @@ func TestLudevicOtherLostLifeConditionEvaluates(t *testing.T) {
 // (`ev.Obj == 0`); before this guard the ledger appended a false hit and made
 // Lost Monarch's intervening-if hold with no player damage.
 func TestLedgerSkipsRedirectedPlayerCombatDamage(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	// Seat 0: Lost Monarch (the rider reading the ledger). Seat 1: Protector
 	// of the Crown, whose controller is the redirected-to player.
@@ -298,6 +304,7 @@ func TestLedgerSkipsRedirectedPlayerCombatDamage(t *testing.T) {
 // and Lost Monarch's intervening-if read 0 in exactly the games this ticket
 // exists to fix.
 func TestLedgerRecordsParkedDamageReplacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deck0 := mountainDeck(t, 40)
 	mon, ok := reg.Lookup("Lost Monarch of Ifnir")

@@ -121,6 +121,7 @@ func passToNextOwnTurn(t *testing.T, e *Engine) {
 // seat 0. It then confirms the answering opponent cannot submit an index
 // outside the offered options.
 func TestTargetingPlayerOpponentActivatedAbilityIsAnsweredByOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	carrier := mustCorpusCard(t, reg, "Preacher")
 	if sa := saWithTargetingPlayer(carrier, "AB", "Player.Opponent"); sa == nil {
@@ -186,6 +187,7 @@ func TestTargetingPlayerOpponentActivatedAbilityIsAnsweredByOpponent(t *testing.
 // TestTargetingPlayerOpponentSelectionAskIsControllerFacing asserts that the
 // controller, not a hard-coded first opponent, chooses the answering seat.
 func TestTargetingPlayerOpponentSelectionAskIsControllerFacing(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := targetingChooserBoard(t, reg, 3, "Preacher")
 	preacher := searchMoveByNameSeat(t, e, 0, "Preacher", state.ZBattlefield)
@@ -215,6 +217,7 @@ func TestTargetingPlayerOpponentSelectionAskIsControllerFacing(t *testing.T) {
 // TestTargetingPlayerOpponentSkipsDeadFirstOpponent is the sole-opponent
 // contract: seat 1 has left, so seat 2 answers directly without an extra ask.
 func TestTargetingPlayerOpponentSkipsDeadFirstOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := targetingChooserBoard(t, reg, 3, "Preacher")
 	preacher := searchMoveByNameSeat(t, e, 0, "Preacher", state.ZBattlefield)

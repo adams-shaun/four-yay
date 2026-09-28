@@ -42,6 +42,7 @@ func emitDraw(t *testing.T, e *Engine, p state.PlayerID) {
 // the UnlessPayer$ ReplacedPlayer ask reaches the draw-ER. Paying costs 3
 // life and keeps the card.
 func TestBreathstealersCryptReplacedPlayerPay(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Breathstealer's Crypt"))
@@ -71,6 +72,7 @@ func TestBreathstealersCryptReplacedPlayerPay(t *testing.T) {
 // TestBreathstealersCryptReplacedPlayerDecline is the mirror: declining
 // discards the revealed creature, and no life moves.
 func TestBreathstealersCryptReplacedPlayerDecline(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Breathstealer's Crypt"))
@@ -95,6 +97,7 @@ func TestBreathstealersCryptReplacedPlayerDecline(t *testing.T) {
 // TestBreathstealersCryptNonCreatureDoesNotAsk pins the condition gate: a
 // non-creature draw resolves the replacement without any unless ask.
 func TestBreathstealersCryptNonCreatureDoesNotAsk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Breathstealer's Crypt"))
@@ -117,6 +120,7 @@ func TestBreathstealersCryptNonCreatureDoesNotAsk(t *testing.T) {
 // True: paying CAUSES the mill) and the WhenNotPaid DBDraw sub is skipped;
 // declining skips the mill and the sub draws the card.
 func TestZursWeirdingNonReplacedPlayerPays(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Zur's Weirding"))
@@ -146,6 +150,7 @@ func TestZursWeirdingNonReplacedPlayerPays(t *testing.T) {
 // TestZursWeirdingNonReplacedPlayerDeclines is the mirror: declining skips
 // the mill and the WhenNotPaid sub draws the card for the draw-er.
 func TestZursWeirdingNonReplacedPlayerDeclines(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Zur's Weirding"))
@@ -175,6 +180,7 @@ func TestZursWeirdingNonReplacedPlayerDeclines(t *testing.T) {
 // was matched with no notion of the draw step, the opponent's turn-based draw
 // was consumed, and seat 0 drew the card instead.
 func TestNotionThiefExemptsTheDrawStepDraw(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Notion Thief"))
@@ -203,6 +209,7 @@ func TestNotionThiefExemptsTheDrawStepDraw(t *testing.T) {
 // draw in the same draw step is an extra draw, so it is still fully replaced
 // ("instead that player skips that draw and you draw a card").
 func TestNotionThiefRedirectsExtraDrawInDrawStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Notion Thief"))
@@ -230,6 +237,7 @@ func TestNotionThiefRedirectsExtraDrawInDrawStep(t *testing.T) {
 // draw and must still be replaced. stealEngine sits at Main 1, so the
 // existing emitDraw helper runs there.
 func TestNotFirstCardInDrawStepDoesNotOverRestrict(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Notion Thief"))
@@ -259,6 +267,7 @@ func TestNotFirstCardInDrawStepDoesNotOverRestrict(t *testing.T) {
 // trigger helper and drop p == e.G.Active, seat 0's draw would be wrongly
 // exempted and it would draw only one.
 func TestNotFirstCardInDrawStepOnlyExemptsTheActivePlayersDraw(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Teferi's Ageless Insight"))
@@ -287,6 +296,7 @@ func TestNotFirstCardInDrawStepOnlyExemptsTheActivePlayersDraw(t *testing.T) {
 // effect with no log line. stealEngine sits at Main 1, so the reported shape
 // is the pre-fix defect.
 func TestIslandSanctuaryActivePhasesDrawOnlyAppliesInDrawStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sanctuary := mustCorpusCard(t, reg, "Island Sanctuary")
 	// Fixture guard: the real compiled replacement must carry the
@@ -329,6 +339,7 @@ func TestIslandSanctuaryActivePhasesDrawOnlyAppliesInDrawStep(t *testing.T) {
 // replacement, which consumes the draw (Optional$ is separately unread, so
 // no ask is asserted -- only that the replacement was applicable).
 func TestIslandSanctuaryActivePhasesAppliesInDrawStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Island Sanctuary"))
@@ -361,6 +372,7 @@ func TestIslandSanctuaryActivePhasesAppliesInDrawStep(t *testing.T) {
 // an extra draw for seat 0 -- none of them is the exempt CR 504.1 turn-based
 // draw.
 func TestReedRichardsOnlyFirstExtraDrawIsReplaced(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Reed Richards, Smartest Man"))
@@ -392,6 +404,7 @@ func TestReedRichardsOnlyFirstExtraDrawIsReplaced(t *testing.T) {
 // FIRST extra draw in that same step is (it is the first non-exempt draw of
 // the turn), and the next one is not.
 func TestReedRichardsDrawStepDrawIsExemptAndFirstExtraIsReplaced(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Reed Richards, Smartest Man"))
@@ -422,6 +435,7 @@ func TestReedRichardsDrawStepDrawIsExemptAndFirstExtraIsReplaced(t *testing.T) {
 // "except ...", not the FirstExtraCardDrawnThisTurn latch -- the exempt draw
 // is the one pendingDrawIsFirstInDrawStep recognises).
 func TestReedRichardsDrawStepTurnBasedDrawNotReplaced(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Reed Richards, Smartest Man"))
@@ -445,6 +459,7 @@ func TestReedRichardsDrawStepTurnBasedDrawNotReplaced(t *testing.T) {
 // first extra draw of the turn for them and must be replaced -- mirroring
 // the active-player semantics of pendingDrawIsFirstInDrawStep.
 func TestReedRichardsExtraDrawOutsideStepIsFirstNotExempt(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 743)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Reed Richards, Smartest Man"))
