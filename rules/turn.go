@@ -911,13 +911,20 @@ func (e *Engine) resumeTriggerDrain() {
 }
 
 func (e *Engine) askPriority(p state.PlayerID) {
+	var window *windowCollector
+	if e.windowDiagnostics {
+		window = newWindowCollector(p)
+	}
 	d := &decision.Decision{
 		Player: p, Kind: decision.KPriority, Min: 1, Max: 1,
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
 		// ...) without fmt's boxing: every priority walk builds it.
 		Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + ", " + e.G.Step.String() + " — " +
 			seatFacingName(e.G, p) + " has priority",
-		Options: e.legalActions(p),
+		Options: e.legalActionsWithWindow(p, window),
+	}
+	if window != nil {
+		d.WindowReasons = window.finish(d.Options)
 	}
 	e.ask(d)
 }
