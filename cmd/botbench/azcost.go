@@ -10,6 +10,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +34,8 @@ var (
 func registerAZFlags(fs *flag.FlagSet) {
 	d := azmcts.DefaultOptions()
 	fs.IntVar(&azCfg.Search.Sims, "az-sims", d.Sims, "az policy: simulations per searched decision (spec default 100; 0 plays the bot)")
-	fs.StringVar(&azWorldArg, "az-world", "", "az policy, required: clairvoyant (every simulation walks a clone of the REAL engine, hidden zones and future chance included -- bench and training only). sampled arrives with ticket 5")
+	fs.StringVar(&azWorldArg, "az-world", "", "az policy, required: clairvoyant (every simulation walks a clone of the REAL engine, hidden zones and future chance included -- bench and training only) or redeal (honest: every simulation walks a world that keeps what the seat can see and re-deals the hidden cards it cannot, azmcts.RedealSource). The az-redeal policy is az with -az-world redeal fixed")
+	fs.IntVar(&azCfg.Worlds, "az-worlds", 0, "az policy, redeal world only: K distinct deals per searched decision, simulation i walking deal i mod K (0 = a fresh deal per simulation)")
 	fs.Float64Var(&azCfg.Search.CPUCT, "az-cpuct", d.CPUCT, "az policy: PUCT exploration constant c")
 	fs.Float64Var(&azCfg.Search.FPU, "az-fpu", d.FPU, "az policy: first-play urgency (an unvisited child's Q is its parent's Q minus this)")
 	fs.IntVar(&azCfg.Search.Limit, "az-candidates", d.Limit, "az policy: candidates per searched decision, the bot's answer first")
@@ -47,20 +49,26 @@ func registerAZFlags(fs *flag.FlagSet) {
 // validated config and opens the clairvoyant source for this process -- the
 // only azmcts.AllowClairvoyant call outside tests.
 func azFrontDoor(aName, bName string, m *policynet.Model) error {
-	if aName != "az" && bName != "az" {
+	if !isAZPolicy(aName) && !isAZPolicy(bName) {
 		if azFlagsGiven {
 			return fmt.Errorf("-az-* flags were given but neither side is az")
 		}
 		return nil
 	}
+	plainAZ := aName == "az" || bName == "az"
 	switch azWorldArg {
-	case "clairvoyant":
+	case azmcts.WorldClairvoyant, azmcts.WorldRedeal:
 	case "sampled":
-		return fmt.Errorf("-az-world sampled is not implemented yet (ticket 5); use -az-world clairvoyant")
+		return fmt.Errorf("-az-world sampled (the behaviour-consistent rejection sampler) is not implemented; use -az-world redeal (honest) or clairvoyant")
 	case "":
-		return fmt.Errorf("policy az requires -az-world clairvoyant (the only world source implemented; sampled arrives with ticket 5)")
+		if plainAZ {
+			return fmt.Errorf("policy az requires -az-world clairvoyant or redeal")
+		}
 	default:
-		return fmt.Errorf("-az-world %q: want clairvoyant or sampled", azWorldArg)
+		return fmt.Errorf("-az-world %q: want clairvoyant, redeal or sampled", azWorldArg)
+	}
+	if azCfg.Worlds < 0 {
+		return fmt.Errorf("-az-worlds %d must be >= 0", azCfg.Worlds)
 	}
 	kinds, err := azmcts.ParseKinds(azKindsArg)
 	if err != nil {
@@ -68,12 +76,28 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 	}
 	cfg := azCfg
 	cfg.Search.Kinds = kinds
+	cfg.World = azWorldArg
 	if err := cfg.Search.Validate(m); err != nil {
 		return fmt.Errorf("policy az: %w", err)
 	}
 	azCfg, azNet = cfg, m
-	azmcts.AllowClairvoyant()
+	if plainAZ && azWorldArg == azmcts.WorldClairvoyant {
+		azmcts.AllowClairvoyant()
+	}
 	return nil
+}
+
+// isAZPolicy is true for the az policies: az (world from -az-world) and
+// az-redeal (the honest redeal world, whatever -az-world says).
+func isAZPolicy(name string) bool { return name == "az" || name == "az-redeal" }
+
+// azSeatConfig is the configuration the named az policy's seat runs with.
+func azSeatConfig(policy string) azmcts.SeatConfig {
+	cfg := azCfg
+	if policy == "az-redeal" {
+		cfg.World = azmcts.WorldRedeal
+	}
+	return cfg
 }
 
 var azStats struct {
@@ -186,9 +210,26 @@ func azCostReport(totalGames int) string {
 		}
 		fmt.Fprintf(&b, "  %s: searched %d, ms mean %.1f p95 %.1f\n", bk, len(ms), meanF(ms), quantF(ms, .95))
 	}
-	fmt.Fprintf(&b, "counters: simulations %d, completed %d, chance-failures %d, panics %d, submit-errors %d, bad-worlds %d, no-world %d, all-failed %d, step-capped %d, terminal %d, expanded %d, unavailable %d, prior-fallbacks %d, skipped %d, feed-stopped %d\n",
+	fmt.Fprintf(&b, "counters: simulations %d, completed %d, chance-failures %d, panics %d, submit-errors %d, bad-worlds %d, no-world %d, all-failed %d, step-capped %d, terminal %d, expanded %d, unavailable %d, prior-fallbacks %d, skipped %d, feed-stopped %d, redeal-refused %d\n",
 		total.Simulations, total.Completed, total.ChanceFailures, total.Panics, total.SubmitErrors, total.BadWorlds, total.NoWorld,
-		total.AllFailed, total.StepCapped, total.Terminal, total.Expanded, total.Unavailable, total.PriorFallbacks, total.Skipped, total.FeedStopped)
+		total.AllFailed, total.StepCapped, total.Terminal, total.Expanded, total.Unavailable, total.PriorFallbacks, total.Skipped, total.FeedStopped, total.RedealRefused)
+	if total.RedealRefused > 0 {
+		var reasons []string
+		count := make(map[string]int)
+		for _, dg := range diags {
+			if dg.Refused == "" {
+				continue
+			}
+			if count[dg.Refused] == 0 {
+				reasons = append(reasons, dg.Refused)
+			}
+			count[dg.Refused]++
+		}
+		sort.Strings(reasons)
+		for _, r := range reasons {
+			fmt.Fprintf(&b, "  redeal refused %d: %s\n", count[r], r)
+		}
+	}
 	b.WriteString("searched by kind:")
 	for k, name := range azmcts.KindNames {
 		sep := ","

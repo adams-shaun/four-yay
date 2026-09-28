@@ -160,10 +160,15 @@ type sbResult struct {
 // sbDisplayName is the ledger name for a policy: az carries its world and
 // simulation count so a clairvoyant number can never be read as a fair one.
 func sbDisplayName(policy string) string {
-	if policy == "az" {
-		return fmt.Sprintf("az-clairvoyant-sims%d", azCfg.Search.Sims)
+	if !isAZPolicy(policy) {
+		return policy
 	}
-	return policy
+	cfg := azSeatConfig(policy)
+	name := fmt.Sprintf("az-%s-sims%d", cfg.World, cfg.Search.Sims)
+	if cfg.World == "redeal" && cfg.Worlds > 0 {
+		name += fmt.Sprintf("-k%d", cfg.Worlds)
+	}
+	return name
 }
 
 func sbBotID(name string) string {
@@ -333,9 +338,12 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 			return fail(fmt.Errorf("policy %q listed twice", b))
 		}
 		seen[b] = true
-		if b == "az" {
+		if isAZPolicy(b) {
 			azSide = true
 		}
+	}
+	if seen["az"] && seen["az-redeal"] && azWorldArg == "redeal" {
+		return fail(fmt.Errorf("az with -az-world redeal and az-redeal are the same policy; list one"))
 	}
 	for _, f := range []string{o.with, o.without} {
 		if f != "" && !seen[f] {
@@ -359,11 +367,14 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		}
 		ckModel = m
 	}
-	azA := ""
-	if azSide {
+	azA, azB := "", ""
+	if seen["az"] {
 		azA = "az"
 	}
-	if err := azFrontDoor(azA, "", ckModel); err != nil {
+	if seen["az-redeal"] {
+		azB = "az-redeal"
+	}
+	if err := azFrontDoor(azA, azB, ckModel); err != nil {
 		return fail(err)
 	}
 	if azSide {
@@ -451,7 +462,9 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	sbWriteSummary(stdout, bots, sched, results, elapsed)
 	if azSide {
-		fmt.Fprint(stdout, azCostReport(sbCount(sched, "az")))
+		// Both az policies feed one cost report; its game count is the
+		// games either seated.
+		fmt.Fprint(stdout, azCostReport(sbCount(sched, "az")+sbCount(sched, "az-redeal")))
 	}
 	return 0
 }
@@ -518,7 +531,7 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 		"policies": bots, "display_names": names, "catalog": o.catalog, "decks": pool, "pairs_per_deck": o.pairs,
 		"base_seed": o.baseSeed, "with": o.with, "without": o.without, "games": len(sched),
 		"wall_seconds": elapsed.Seconds(), "workers": workers, "engine": engine,
-		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg},
+		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg, "worlds": azCfg.Worlds},
 		"max_turn_intents": maxTurnIntents,
 	}
 	raw, err := json.MarshalIndent(run, "", "  ")
