@@ -489,21 +489,84 @@ builtins: g115 is stronger with Affinity (24-0 vs 20-4) and Elves (24-0 vs
 21-3); tactical with CawGates (23-1 vs 15-9) and Spy (20-4 vs 18-6); the
 other four decks are even (23-1 each).
 
-**Protocol errors, rejections, timeouts.** Across every arena run (5,568
-games, 1,348 tactical agent processes with `-stats`, 164,659 decisions):
-0 forfeits, 0 timeouts, 0 truncated games, 0 refused steps and 0 bridge
-halts; the agent answered no request with an error and needed 0
-fallbacks, with `x_kernel_v5` present on every decision. 5 games were
-`halted` by the kernel itself, all Faeries mirrors, all
-`InvalidEffectContinuation` on the resolution of a ninjutsu activated in
-declare blockers (`dev2 m0000p0007g1` seed 1677312375586864, heuristic vs
-uniform: uniform activated Moon-Circuit Hacker's ninjutsu at step 176;
-`dev6 m0001p0023g0` seed 8790084201229895, uniform vs tac5; three more in
-`dev2`/`dev3`). They replay exactly with
-`scripts/spellbench-arena/replay.py SEED Faeries Faeries GAME_ID P0 P1 -1 /dev/null`. Recorded here as an
-mtg-kernel bug; nothing was reported upstream. The tactical policy
-ninjutsus at most once per combat and never returns a creature that
-entered this turn, which removed the halts its own play caused.
+**Held-out seed (pool tuning check).** `hints.go` and several branches of
+`tactical.go` were written against these eight decks, and the published
+seed 20260926 was used for `pub1`, `pub2` and `final`. So the final
+configuration was run once more, frozen at the rebased tip (`b741760e5`,
+binary md5 `3d891db2…`), on seed 99991 (never used before), same 4 pairs,
+same roster (`runs/heldout`):
+
+| | seed 20260926 (`final`) | seed 99991 (`heldout`) |
+|---|---|---|
+| sbv1-tactical Elo | 1430 [1362, 1521] | 1412 [1327, 1522] |
+| W-L | 176-16 | 176-16 |
+| vs heuristic | 50-14 | 55-9 |
+| vs uniform | 64-0 | 61-3 |
+| vs first | 62-2 | 60-4 |
+| heuristic Elo | 1141 | 1102 |
+
+Per deck against the builtins the held-out run ranges from 20-4 (Elves,
+Spy) to 24-0 (Burn, Wildfire), the same spread as on the published seed.
+So the result does not depend on the seed. That is **not** a test of
+card-pool tuning, though: the held-out games use the same eight decks,
+and every nonland card in them is named in `hints.go`.
+
+*How much is hand-written.* `hints.go` has 106 entries, one per card
+name. Together they cover all 93 distinct nonland cards of the eight
+decks, plus 11 of the 19 lands (tapped lands and the gates), and two
+tokens (Blood, Eldrazi Spawn). Fields set: `role` 94, `ab` (activated
+ability use) 25, `pol` (target polarity) 17, `bonus` 13, `tapped` 8,
+`dmg` 7, `flash` 3, `sacCost` 3, `selfLand` 1. 18 entries are only
+`role: RoleCreature`, which the kernel card types already say. On top of the
+table, `tactical.go` names 37 cards in its own branches (for example the
+Spy combo, Fireblast's alt cost, the Undercity rooms, Timberwatch and
+Basilisk Gate pumps, the counterspell conditions, Lotus Petal), and
+`aggro()` names four decks. What comes from card data rather than names:
+all numbers (P/T, mana value, keywords, damage marked, counters: kernel
+observation), types and costs (`kernelcards.json`), and target polarity
+for any card without a `pol` or role (`cardfacts.json`: the IR's harmful
+flag). *A card with no hint* is played as follows:
+
+- a creature: cast at sorcery speed (or at instant speed if the IR or the
+  kernel says flash), valued from its observed P/T and keywords;
+- a noncreature spell: scored 20 (below lands, creatures and every
+  hinted role), so it is cast at sorcery speed, or any time if it is an
+  instant, whenever nothing better is offered;
+- its targets: from the IR's harmful flag;
+- an activated ability: never used (the `ab` default is "never").
+  Mana abilities are handled separately, so this is not a mana problem.
+
+A generic-strength measurement needs decks the hints never saw (the
+kernel also ships a `Terror` list: 9 of its nonland cards have no hint).
+That has not been run.
+
+**Protocol errors, rejections, timeouts.** Across every arena ledger kept under
+`runs/` (5,184 games, 1,541 tactical agent processes with `-stats`,
+187,339 decisions; an earlier revision said 5,568 games, an overcount):
+0 forfeits, 0 timeouts, 0 truncated games and 0 refused steps; the agent
+answered no request with an error and needed 0 fallbacks, with
+`x_kernel_v5` present on every decision. 7 games ended `halted`, none of
+them caused by a tactical move, from two mtg-kernel bugs:
+
+- 5 games, all Faeries mirrors: `InvalidEffectContinuation` on the
+  resolution of a ninjutsu activated in declare blockers
+  (`dev2 m0000p0007g1` seed 1677312375586864, heuristic vs uniform:
+  uniform activated Moon-Circuit Hacker's ninjutsu at step 176;
+  `dev6 m0001p0023g0` seed 8790084201229895, uniform vs tac5; three more
+  in `dev2`/`dev3`). The tactical policy ninjutsus at most once per
+  combat and never returns a creature that entered this turn, which
+  removed the halts its own play caused.
+- 2 games, one CawGates pair of heuristic vs first (`heldout
+  m0003p0014g0/g1`, seed 4016374969801364): the legal scan offers
+  casting Journey to Nowhere with no creature on either battlefield; the
+  cast is taken and the next decision has zero legal actions, which the
+  bridge fails closed on (`fail_closed: nonterminal decision produced zero
+  legal actions`). Tactical casts removal only at a creature worth it.
+
+Both replay exactly with `scripts/spellbench-arena/replay.py SEED DECK DECK
+GAME_ID P0 P1 -1 /dev/null`. Nothing was reported upstream. (The
+published ledger's 7 halted games are a different, bridge-side cause:
+`flat_v4_lockstep:selection_not_in_training_list`, all Elves.)
 
 **Gaps and what would raise the kernel rating most.**
 

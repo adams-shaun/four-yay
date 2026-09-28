@@ -1,7 +1,7 @@
 """replay.py SEED DECK0 DECK1 GAME_ID P0 P1 DUMP_STEP OUT
 
 Replays one game on our agent_bridge_v1 (legacy reset, env_seed = game_seed) with
-bots heuristic | uniform (python derivations, seed 11) | tac:<sbv1agent binary>,
+bots heuristic | first | uniform (python derivations, seed 11) | tac:<sbv1agent binary>,
 dumps the decision at DUMP_STEP to OUT and, for a halted game, prints the last
 decision. Deterministic: an arena ledger row replays exactly."""
 import json, subprocess, sys
@@ -18,6 +18,8 @@ for seat,spec in (("p0",p0),("p1",p1)):
         a=proc([spec[4:],"-policy","tactical","-trace","/dev/stderr"]); send(a,{"request_type":"hello"})
         send(a,{"request_type":"game_start","game_id":gid,"seat":seat,"format":"pauper-bo1","decks":[{"catalog_id":d0},{"catalog_id":d1}],"engine":{"name":"x","version":"1","source_revision":None,"rules_snapshot_id":"r","card_pool_identity":"c"}})
         bots[seat]=a
+    elif spec=="first":
+        bots[seat]=lambda: 0
     elif spec=="uniform":
         import hashlib
         st=[(11 ^ int.from_bytes(hashlib.sha256(gid.encode()).digest()[:8],"big")) & (2**64-1)]
