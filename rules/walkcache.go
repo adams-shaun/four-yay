@@ -247,6 +247,14 @@ func (e *Engine) scanBoardStatics() boardStatics {
 }
 
 func (e *Engine) verifyBoardStatics(got boardStatics) {
+	// The three scans below are one pure read: each zone summary's own
+	// verification runs once for the call, not once per scan
+	// (staticZoneSkipVerifyOnce).
+	if !e.staticZoneVerifyScope {
+		e.staticZoneVerifyScope = true
+		clear(e.staticZoneVerified)
+		defer func() { e.staticZoneVerifyScope = false }()
+	}
 	cost, action, mc := e.scanCostStatics(), e.scanActionStatics(), e.scanManaConvSources(nil)
 	same := got.cost.validTarget == cost.validTarget && staticViewsSame(got.cost.raise, cost.raise) && staticViewsSame(got.cost.reduce, cost.reduce) &&
 		staticViewsSame(got.cost.set, cost.set) && staticViewsSame(got.cost.optional, cost.optional) &&

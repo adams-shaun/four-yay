@@ -1196,6 +1196,12 @@ type Engine struct {
 	// validated on every use, so Clone copies neither.
 	staticZones   []staticZoneSummary
 	staticZonesEp int
+	// staticZoneVerified is verify-mode scratch (static_zoneskip.go's
+	// staticZoneSkipVerifyOnce): the (cur, hot) slices each summary slot was
+	// verified against inside the current verifyBoardStatics call
+	// (staticZoneVerifyScope set). Clone copies none of it.
+	staticZoneVerified    []staticZoneVerifiedAt
+	staticZoneVerifyScope bool
 
 	// choosing says which flow is waiting on the current KChoose decision
 	// (Task 8). It is plain data, not a closure, so Engine.Clone (a sibling
