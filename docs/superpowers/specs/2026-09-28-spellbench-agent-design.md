@@ -702,6 +702,210 @@ Escape rule) lost 16 generic-v-hinted games to our own escapes; after the
 rule, no generic-v-hinted game halted and every Escape halt has a builtin
 in the seat that escaped.
 
+### 3.6 Kernel shadow: gorge policies on mtg-kernel (v1, lane B)
+
+Goal: play gorge's strongest policies (sb-tactical, the az-redeal search,
+rollout search) on the live v1 benchmark engine. At each mtg-kernel
+decision, build a gorge engine consistent with what our seat sees (the
+decision's `x_kernel_v5` ObservationV5), map the kernel's candidates onto
+that engine's options, let a gorge policy answer, and map the answer back.
+Code: `internal/spellbench/kshadow` (staging, fidelity, mapping, policies),
+`cmd/sbv1agent -policy shadow-*`, `cmd/kshadowcheck` (offline fidelity and
+coverage over recorded games), `scripts/spellbench-arena/kshadow_corpus.py`
+(recording both seats of kernel games; parallel dev matches).
+
+**Design choice: rebuild from each observation, not incremental replay.**
+Evidence (corpus `kshadow/corpus1`: 16 tactical-vs-tactical kernel games,
+all 8 decks, 3,795 decisions, both seats recorded):
+
+- *The opponent's actions are not observable as actions.* Between two
+  consecutive decisions of one seat the other seat made 0 decisions 47.9%
+  of the time, 1 35.2%, 2 or more 16.8% (max 64). A replay has to infer each
+  of those from observation diffs and translate it into a gorge intent that
+  gorge accepts; a rebuild needs only the current observation.
+- *A replay desynchronises for good at the first divergence.* Two rules
+  engines disagree somewhere (kernel card DB vs Forge scripts, trigger
+  placement, the kernel's scan-shaped combat and auto-paid mana against
+  gorge's declaration and manual mana); one missed or refused action
+  corrupts every later decision. A rebuild bounds a divergence to the
+  decision it happens in, and is measured per decision (below).
+- *Cost is negligible.* A rebuild (`rules.New` on both lists + staging
+  events + `Advance`) costs 0.64 ms per decision with a 28 MB process
+  (pool registry: the 121 catalog cards + 839 token scripts, 84 KB on disk,
+  written by `kshadowcheck -save-pool`; the full corpus registry is ~400 MB
+  per process).
+- *What a replay would keep and a rebuild loses:* durations of continuous
+  effects, delayed triggers, linked exile ("until ~ leaves"), "this turn"
+  histories. The kernel observation carries none of them either, and the
+  fidelity check below shows the losses are rare on this pool; the P/T and
+  keyword residue a pump leaves is staged as an until-end-of-turn effect
+  (§4.2 step 3).
+
+**Staging** (`Setup.Build`). `rules.New` with both catalog lists (seat
+order) creates every deck card as an object; every visible kernel object
+(both battlefields, graveyards, exile, stack spells, our hand) claims a
+deck object of its name (arena id -> object id, stable across a game);
+tokens are minted from the token script the decks' own cards name.
+Everything is staged with raw `events.Emit` on the new engine's log
+(`events.Apply` is still the only mutation), which deliberately bypasses
+the rules engine's emit so that a staged permanent never re-fires its
+enters trigger: zone moves, face (transformed double-faced cards), control,
+tapped, damage, counters, attachments, life, mana pools, lands played,
+turn (a `TurnChange` for each seat so summoning sickness matches; this
+turn's permanents enter after it), step, the stack (spells with targets, X
+and kicker; triggered and activated abilities through `TriggerPush` /
+`AbilityPush` when the source's ability is unambiguous), combat
+(attackers, blocks), the initiative, and priority. The hidden zones are
+dealt from each list minus every seen card: our library in a random order,
+the opponent's hand (its observed size) and library from its unseen cards
+(the M1 redeal world, D§5.2). Kernel priority windows the engine does not
+have are staged as the window gorge has (a pre-declaration priority in
+declare attackers = beginning of combat; in declare blockers = after the
+attack declaration; priority in combat damage = end of combat, so the
+damage is not dealt twice). Then `Advance`: the engine must pose a decision
+to our seat, of the kind matching the kernel's.
+
+**Mapping.** Priority: `pass`, `play_land` and `cast_spell`/
+`activate_ability` by source object; gorge offers a cast with no mana
+floating only as a payment action (`EnsurePaymentActions`) or a potential
+play (reached through mana activations), and the kernel auto-pays, so a
+gorge answer that activates a mana ability is played on the shadow and the
+policy asked again until it names a real play (`throughMana`). Kernel mana
+abilities are never chosen. Attacks and blocks: the kernel's include/
+exclude scan is answered from one gorge declaration planned at the scan's
+first substep (per decision group). Follow-ups of our own cast (targets, X)
+are answered from the plan the gorge policy made in the shadow when it
+chose the cast; everything else (discard, library selection, colours,
+modes) is answered by v1agent.Tactical. **Every decision the shadow cannot
+stage or map is answered by v1agent.Tactical and counted by reason** (the
+agent's `-stats` line); the agent never forfeits, never refuses and never
+loses a legal action.
+
+**Policies.** `shadow-tactical` (sb-tactical on the shadow, AutoPay);
+`shadow-az`/`shadow-aztac` (azmcts over redealt shadow worlds; candidate 0
+the gorge bot's answer, or v1agent.Tactical's mapped); `shadow-roll`
+(determinized flat Monte Carlo over the kernel's own candidates:
+v1agent.Tactical's top-K by its own scores, each played in the same W
+redealt worlds and rolled out by both seats to a turn horizon, leaf
+`searchprobe.LeafValue`; Tactical's pick is overridden only past a margin;
+combat: Tactical's plan, none, all, the gorge bot's and sb-tactical's
+declarations).
+
+**Fidelity (measured 2026-09-28, `kshadowcheck` over 64 recorded kernel
+games, 12,891 decisions of both seats: corpus1 tactical vs tactical,
+corpus2 tactical vs heuristic, seeds 800-801 and 810-815).** Every field
+the observation carries is compared after staging and `Advance`, re-read
+through gorge's own derivation (layers, zones):
+
+| Field | Checked | Mismatch |
+|---|---|---|
+| decision staged (engine poses our decision) | 12,891 | 1.99% (below) |
+| turn, step, active player (priority holder at priority decisions: 10,016) | 12,634 each | 0 |
+| life, hand / library / graveyard counts, mana pools, lands played | 25,268 each | 0 (graveyard count: 2) |
+| battlefield names (multiset per side) | 25,268 | 0.01% |
+| battlefield objects: staged, controller, tapped, damage, counters, attachments, token, land/creature type | 217,343 each | 0 (2 unstaged) |
+| creatures: power, toughness, 13 keywords | 81,405 each | 0 (with staged pumps) |
+| creatures without the staged pumps (ablation, `-nopumps`): power / toughness / haste / hexproof | 81,405 | 0.63% / 0.78% / 0.27% / 0.21% |
+| summoning sickness (active player's creatures) | 44,721 | 0.07% (0.37% without pumps) |
+| our hand, exile | 12,634 | 0 |
+| stack: count, controllers / target counts | 12,634 / 3,752 | 0 / 0.69% |
+| attackers declared | 2,721 | 0.07% |
+| hidden: opponent's true hand inside the dealt pool (truth read from the opponent's own observation) | 10,203 | 0.26% (a stale truth hand, read at its last decision) |
+
+The decisions that could not be staged (1.99%): 179 "other" decisions
+(mid-resolution choices the engine poses to the other seat first), 43
+stack items with no gorge counterpart (the kernel's `madness_offer`; an
+ability whose source is in a hidden zone; the Hero token's trigger), 8
+unmatched triggers. Unexplained P/T and keyword residue (a pump, an
+anthem gorge's layers do not reproduce) was staged as an until-EOT effect
+on 802 + 427 of the 12,891 decisions; without it 0.6-0.8% of creature
+P/T reads differ. Staging costs 0.47-0.65 ms a decision. Embalmed Sacred
+Cat tokens (427) are staged as card-copy tokens of the card.
+
+**Mapping coverage (same corpus).** Priority decisions: 99.4% staged,
+99.5% of the kernel's non-mana candidates have a gorge counterpart (an
+option, a payment action or a potential play), 98.6% of decisions map
+completely; gorge offered 82 non-mana options the kernel did not (Quirion
+Ranger's untap, Fireblast's alternative cost, a land drop the kernel
+withheld). Attacks: 99.7%; blocks: 100%. Targets, discards, library
+selections, colours and modes have no counterpart by design (answered
+from the gorge policy's plan when it made one, else by v1agent.Tactical).
+Live, over the dev matches below, the shadow answered 85-88% of all
+decisions (priority 94-97%, attacks and blocks ~100%); every other
+decision was v1agent.Tactical's, counted by reason, with 0 wire errors, 0
+agent fallbacks, 0 panics and 0 forfeits.
+
+**Dev matches against sbv1-tactical (tac9)** (`kshadow_corpus.py --match`,
+seat-swapped mirrors on all 8 decks, dev seeds 800-871; win rate of the
+shadow agent, ±1.96 SE):
+
+| Policy | Seeds | Games | Win % | ms/decision mean (max) |
+|---|---|---|---|---|
+| shadow-tactical (sb-tactical on the shadow) | 800-831 | 512 | 43.9 (225-287) | 0.8 (38) |
+| shadow-az (az-redeal, 25 sims, gen 0) | 800-807 | 128 | 21.1 ±7.1 | 18.6 (642) |
+| shadow-roll, top-5 of Tactical's candidates, bot rollouts, W12 H2 | 800-807 | 128 | 44.5 ±8.6 | 83 (1,586) |
+| arbiter (Tactical vs sb-tactical), bot rollouts, W16 H2 | 800-807 | 128 | 53.9 ±8.6 | 25 (920) |
+| arbiter, sb-tactical rollouts, W16 H2 | 800-807 | 128 | 53.1 ±8.6 | 69 (3,922) |
+| arbiter, sb-tactical rollouts, W32 H2, margin 0.02 | 808-823 | 256 | 57.4 ±6.1 | 134 (18,849) |
+| same, second seed set | 840-855 | 256 | 57.8 ±6.0 | 144 (7,030) |
+| arbiter + 2 more of Tactical's candidates | 808-823 | 256 | 56.2 ±6.1 | 181 (8,464) |
+| arbiter, sb-tactical rollouts, W16 H4 | 808-823 | 256 | 58.6 ±6.0 | 113 (7,698) |
+| routed: Affinity/Wildfire arbiter defaulting to sb-tactical, else arbiter, W16 H2 | 824-839 | 256 | 56.2 ±6.1 | 46 (3,033) |
+| routed, W32 H2 | 840-855 | 256 | 57.4 ±6.1 | 99 (7,574) |
+| routed, W24 H4 (`best1`) | 856-871 | 256 | 59.8 ±6.0 | 105 (5,346) |
+| **arbiter, sb-tactical rollouts, W32 H4, margin 0.02 (final)** | 856-871 | 256 | 57.8 ±6.0 | 199 (8,288) |
+
+Pooled over the three W32 arbiter runs (768 games, three seed sets):
+57.7% [54.2, 61.2] against tac9.
+
+Per deck, sb-tactical on the shadow is far from uniform against tac9 (512
+games): Affinity 73%, Wildfire 67%, Burn 52%, Faeries 44%, Elves 39%,
+CawGates 34%, Rally 23%, Spy 16% (it never plays the Spy combo). The
+arbiter keeps tac9's pick unless sb-tactical's, played in the same W
+redealt worlds by sb-tactical rollouts for both seats to a turn horizon,
+scores more than the margin higher; it overrides at about 13-20% of the
+contested decisions (495 of 3,684 in the dev arena) and so inherits the
+better policy per position rather than per deck. Routing by deck adds
+nothing measurable on top (57.4 vs 57.8 on the same seeds).
+
+**Staging fixes after adjudication (2026-09-28, peer session gorge-2d
+read every disagreement against the kernel; the kernel was right in each).**
+S1 summoning sickness now comes from the kernel's `summoning_sick` flag for
+both seats (the kernel's `turn` counts rounds, so "entered this turn" cannot
+be read from it); S2 a triggered ability on the stack is matched to the
+source trigger that can fire from the zone the kernel names (Writhing
+Chrysalis's cast trigger); S3 this turn's `ability_uses_this_turn` are
+staged as inert `ManaActivate` markers (gorge counts per-turn activations
+from the log: Quirion Ranger's once per turn); S4 a trigger granted by a
+static (Black Mage's Rod's `AddTrigger$` on the Hero token) is staged as a
+`GrantTriggerPush`; S7 `exile_play_permissions` become gorge may-play
+grants (impulse draws); S8 an ability whose source has left (a token
+sacrificed for its cost, Lembas shuffled away, ninjutsu from hand) is staged
+from the kernel's card reference; S9 the kernel's `madness_offer` is
+gorge's madness keyword trigger; the kernel's `priority_passes` record is
+the staged pass count. Not done: S5 (pending triggers at an ordering
+decision), S6 (Snap's target mid-resolution), S10 (mid-resolution asks to
+the non-priority seat), S11 (a kernel projection bug, patched kernel-side
+by gorge-2d); all three staging gaps sit in decisions v1agent.Tactical
+answers anyway. Same corpus, before -> after:
+
+| | before | after |
+|---|---|---|
+| priority decisions staged | 99.4% | **100%** |
+| priority: kernel non-mana candidates mapped / fully mapped decisions | 99.5% / 98.6% | 99.7% / 99.1% |
+| priority: gorge options with no kernel candidate | 82 of 17,443 | 7 of 17,502 (Nyxborn Hydra's bestow) |
+| attack candidates mapped | 99.7% | 100% |
+| all decisions staged | 98.0% | 98.6% (185 left: mid-resolution asks, S10) |
+| summoning sickness mismatches | 32 | 0 |
+| ambiguous triggers / Hero-token and madness fatals / departed sources | 29 / 8+31 / 33 | 0 / 0 / 0 |
+
+The remaining unmapped priority candidates (0.3%) are offers gorge does
+not make at an empty pool: Highway Robbery's plot (47), Sagu Wildling's
+omen (26), Land Grant's alternative cost (11), Of One Mind (8). The
+unused-option table now counts priority decisions only (at a target or
+other sub-decision gorge sits at priority, so every option there would
+count). Staging now costs 0.7-1.0 ms.
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the

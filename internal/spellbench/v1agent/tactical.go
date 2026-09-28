@@ -1924,3 +1924,39 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 	}
 	return plan
 }
+
+// Scores returns Tactical's score of every candidate of a priority-style
+// decision (the values Choose maximises; nil for combat scans). It does not
+// update the in-game opponent model.
+func (t *Tactical) Scores(d *Decision) []float64 {
+	for i := range d.Candidates {
+		switch d.Candidates[i].Kind() {
+		case "choose_attacker_inclusion", "choose_blocker_inclusion":
+			return nil
+		}
+	}
+	b := NewBoard(d)
+	out := make([]float64, len(d.Candidates))
+	for i := range d.Candidates {
+		out[i] = t.score(d, b, i)
+	}
+	return out
+}
+
+// AttackPlan returns the attack plan Tactical made for decision group grp
+// (attacker arena id -> attacks), nil when it has none for that group.
+func (t *Tactical) AttackPlan(grp int64) map[uint32]bool {
+	if t.attackGrp != grp {
+		return nil
+	}
+	return t.attackPlan
+}
+
+// BlockPlan returns the block plan Tactical made for decision group grp
+// (blocker arena id -> attacker arena id), nil when it has none.
+func (t *Tactical) BlockPlan(grp int64) map[uint32]uint32 {
+	if t.blockGrp != grp {
+		return nil
+	}
+	return t.blockPlan
+}
