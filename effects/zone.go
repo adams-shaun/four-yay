@@ -931,6 +931,24 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// distinct card owner's library is shuffled once (a cross-graveyard mover
 	// like Turn the Earth touches several players), in first-move order so
 	// the event stream stays deterministic.
+	// LibraryPosition$ placement tail on the object-target path
+	// (golgari_thug1): every targeted mover -- a ValidTgts$ ask, a
+	// changeZoneChosenTargets answer, or a Defined$ that names concrete
+	// objects -- used to stop after the MoveZone loop, so a targeted
+	// ChangeZone INTO a library that names a position never reached the
+	// placement helpers the hidden-origin movers share. The MoveZone bottom
+	// append stood: Golgari Thug's "put target creature card from your
+	// graveyard on top of your library" (LibraryPosition$ 0) left the card at
+	// the BOTTOM. Measured at the corpus pin, 140 corpus lines carry the
+	// class (targeted ChangeZone, Destination$ Library, an explicit
+	// LibraryPosition$): 70 top, 51 bottom, 12 second-from-top, 3+1 deeper,
+	// 3 SVar-resolved X. The placement runs BEFORE the Shuffle$ tail (the
+	// ChangeZoneAll order: "put on top ..., then shuffle") and is skipped
+	// when AlternativeDecider$ engaged -- that branch places below through
+	// its own primary/alternative election.
+	if to == state.ZLibrary && len(moved) > 0 && !altEngaged {
+		placeTargetedLibraryObjects(h, c, sa, moved)
+	}
 	if to == state.ZLibrary && len(moved) > 0 && objectPathShuffleOwed(sa) {
 		if objectPathShuffleTail(h, c, sa, moved) {
 			return
@@ -4897,6 +4915,59 @@ func shuffleLibraryExplicit(h Host, sa *cards.SA, owner state.PlayerID) {
 func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 	order := h.ShuffleLibrary(owner, h.Game().Zone(state.ZLibrary, owner))
 	h.Emit(events.Event{Kind: events.Shuffle, Player: owner, IDs: order, Secret: true})
+}
+
+// placeTargetedLibraryObjects implements LibraryPosition$ for the
+// object-target path of effChangeZone (golgari_thug1): the one placement the
+// targeted movers never reached. Each moved card is placed in ITS OWNER's
+// library -- a battlefield creature controlled by another player still
+// returns to its owner's library, because the MoveZone keeps its owner (the
+// same rule effChangeZoneAll applies) -- and the targets of one owner are
+// placed as a block, in target/move order, at the exact position: "0" = top,
+// "1" = second from top, "N" = beneath the top N cards, negative = from the
+// bottom ("-1" is the bottom). An SVar-resolved value (Quarry Colossus'
+// LibraryPosition$ X, read through the ordinary Num grammar) resolves at
+// resolution time; a value Num cannot resolve is LOUD -- one Note and the
+// MoveZone bottom append stands -- never a guessed placement. An absent
+// LibraryPosition$ places nothing: the bottom append stands, exactly as the
+// ChangeZoneAll path treats absence.
+func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.ObjID) {
+	raw := strings.TrimSpace(sa.Params["LibraryPosition"])
+	if raw == "" {
+		return
+	}
+	position, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
+	if !ok {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "LibraryPosition$ " + raw + " is not implemented; the cards sit at the BOTTOM of their owners' libraries (the MoveZone append)"})
+		return
+	}
+	type ownerMoved struct {
+		owner state.PlayerID
+		ids   []state.ObjID
+	}
+	var groups []ownerMoved
+	for _, id := range moved {
+		o := h.Game().Obj(id)
+		if o == nil { // a token ceased to exist on leaving the battlefield
+			continue
+		}
+		idx := -1
+		for i := range groups {
+			if groups[i].owner == o.Owner {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			groups = append(groups, ownerMoved{owner: o.Owner})
+			idx = len(groups) - 1
+		}
+		groups[idx].ids = append(groups[idx].ids, id)
+	}
+	for _, grp := range groups {
+		libraryOrderPlacementAt(h, grp.owner, grp.ids, position)
+	}
 }
 
 // placeLibraryObjects implements LibraryPosition$ after its source library

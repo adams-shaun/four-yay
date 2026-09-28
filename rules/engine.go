@@ -360,6 +360,16 @@ type Engine struct {
 	// layer-inert events (layercache.go) additionally requires both unchanged.
 	staticVersion int
 	staticObjs    int
+	// staticMemoGated records whether the last full staticEffects build
+	// encountered any Continuous static carrying a continuousGateKeys param
+	// (IsPresent$/IsPresent2$/Condition$/CheckSVar$/ClassBand$), whether or
+	// not the gate currently passes. A gate that passes now can be flipped
+	// off by a later battlefield-composition change (a token entering), so
+	// the re-stamp admission in layercache.go's staticSafeSince must be
+	// refused whenever this is true: only a gate-free build's output is
+	// invariant under a static-cold token entry. Reset at the top of each
+	// full staticEffectsWalk and set at the one gate site.
+	staticMemoGated bool
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous

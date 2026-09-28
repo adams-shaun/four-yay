@@ -1497,6 +1497,79 @@ func (o *Object) Counter(kind string) int32 {
 	return 0
 }
 
+// CounterPTDelta parses a P/T counter kind into the power and toughness
+// delta it applies to its permanent (CR 122.1a: a +X/+Y counter gives +X/+Y
+// and a -X/-Y counter gives -X/-Y). Forge spells these kinds as two
+// sign-number pairs -- P is a plus, M is a minus, the first pair is power and
+// the second toughness -- so "P1P1" is +1/+1 and "M0M1" is -0/-1 (Wall of
+// Roots' mana cost). The mixed spellings ("P1M1") are accepted too. Any other
+// kind -- CHARGE, LOYALTY, a keyword counter, the engine's own status markers
+// -- reports ok=false.
+//
+// This is the ONE parser for the P/T counter vocabulary: every reader that
+// asks what a counter does to power/toughness goes through it (the layer-7d
+// walk and, by extension, every view, filter and count that derives from it),
+// so a new kind cannot be honoured by one consumer and ignored by another.
+// It is pure, allocation-free and keeps no state.
+func CounterPTDelta(kind string) (dPower, dToughness int32, ok bool) {
+	if len(kind) < 4 {
+		return 0, 0, false
+	}
+	sign := kind[0]
+	if sign != 'P' && sign != 'M' {
+		return 0, 0, false
+	}
+	i := 1
+	p := int32(0)
+	for i < len(kind) && kind[i] >= '0' && kind[i] <= '9' {
+		p = p*10 + int32(kind[i]-'0')
+		i++
+	}
+	if i == 1 || i >= len(kind) {
+		return 0, 0, false
+	}
+	if sign == 'M' {
+		p = -p
+	}
+	sign2 := kind[i]
+	if sign2 != 'P' && sign2 != 'M' {
+		return 0, 0, false
+	}
+	i++
+	start := i
+	t := int32(0)
+	for i < len(kind) && kind[i] >= '0' && kind[i] <= '9' {
+		t = t*10 + int32(kind[i]-'0')
+		i++
+	}
+	if i == start || i != len(kind) {
+		return 0, 0, false
+	}
+	if sign2 == 'M' {
+		t = -t
+	}
+	return p, t, true
+}
+
+// CounterPTTotals sums the power and toughness deltas of every P/T counter on
+// the object (CR 122.1a). It is the layer-7d aggregate: one pass over the
+// fixed-order Counters slice, no map and no allocation (the layer walk calls
+// it on the hot derived-P/T path). A zero-count entry is skipped so a removed
+// counter cannot contribute; entries whose kind is not a P/T counter
+// (CounterPTDelta reports ok=false) are ignored.
+func (o *Object) CounterPTTotals() (dPower, dToughness int32) {
+	for i := range o.Counters {
+		if o.Counters[i].N == 0 {
+			continue
+		}
+		if p, t, ok := CounterPTDelta(o.Counters[i].Kind); ok {
+			dPower += p * o.Counters[i].N
+			dToughness += t * o.Counters[i].N
+		}
+	}
+	return dPower, dToughness
+}
+
 // InternalCounterMarker reports whether a counter name is one of the engine's
 // own status markers rather than a counter a card could name. Both ride an
 // ordinary CounterChange -- the engine has no per-object status field, so a

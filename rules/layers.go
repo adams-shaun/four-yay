@@ -77,6 +77,11 @@ func (e *Engine) staticEffects(dst []ContinuousEffect) []ContinuousEffect {
 // which every object it leaves out would have been skipped at the
 // ContinuousStaticsMayFunctionOffBattlefield gate below anyway.
 func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []ContinuousEffect {
+	// This walk is a full rescan, so it is the place the per-build gate flag
+	// is recomputed. staticEffects calls no callbacks and cannot re-enter
+	// (see its doc), so reset/set ordering is safe. A verify-only second walk
+	// (staticZoneSkipVerify) resets it again below and sets it identically.
+	e.staticMemoGated = false
 	out := dst[:0]
 	for pi, p := range e.G.AliveFrom(0) {
 		// staticSourceZones (below) walks the battlefield FIRST so every
@@ -240,8 +245,17 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// (the shipped statics convention rules/statics.go's
 						// checkSVarHolds documents): the grant is withheld whole, never
 						// silently always-applied.
-						if st.MayHaveAnyParam(continuousGateKeys) && !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
-							continue
+						if st.MayHaveAnyParam(continuousGateKeys) {
+							// A gate-carrying static was ENCOUNTERED -- set the flag even
+							// when the gate holds, because a later battlefield-composition
+							// change can flip a passing gate off. layercache.go's
+							// staticSafeSince refuses a TokenCreate re-stamp whenever this
+							// is set, so the memo is only reused across a token entry on a
+							// board with no gate-carrying Continuous static anywhere.
+							e.staticMemoGated = true
+							if !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
+								continue
+							}
 						}
 						base := ContinuousEffect{
 							Source:     id,
@@ -2940,13 +2954,20 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 	frameIndex := len(e.derivedPTFrames)
 	e.derivedPTFrames = append(e.derivedPTFrames, derivedPTSnapshot{id: id})
 	defer func() { e.derivedPTFrames = e.derivedPTFrames[:frameIndex] }()
+	// Layer 7d's contribution is fixed for the whole walk (counters do not
+	// change mid-derivation), so sum every P/T counter KIND once here -- the
+	// frame snapshot and the 7d tail below then add the same pair, and no
+	// step of the walk can disagree about what a counter does to P/T. All
+	// P/T counter kinds (P1P1, M0M1, P2P0, ...) are honoured through the one
+	// state.CounterPTDelta parser; before this only P1P1 and M1M1 were.
+	var counterDPower, counterDToughness int32
+	if o != nil {
+		counterDPower, counterDToughness = o.CounterPTTotals()
+	}
 	setFrame := func() {
 		preCounterPower, preCounterToughness := power, toughness
-		currentPower, currentToughness := power, toughness
-		if o != nil {
-			currentPower += o.Counter("P1P1") - o.Counter("M1M1")
-			currentToughness += o.Counter("P1P1") - o.Counter("M1M1")
-		}
+		currentPower := power + counterDPower
+		currentToughness := toughness + counterDToughness
 		e.derivedPTFrames[frameIndex] = derivedPTSnapshot{
 			id:                  id,
 			power:               currentPower,
@@ -3068,15 +3089,10 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 			toughness = addPT(toughness, addToughness)
 		}
 	}
-	// 7d: counters apply after every other layer-7 effect (CR 613.4).
-	if n := o.Counter("P1P1"); n != 0 {
-		power += n
-		toughness += n
-	}
-	if n := o.Counter("M1M1"); n != 0 {
-		power -= n
-		toughness -= n
-	}
+	// 7d: counters apply after every other layer-7 effect (CR 613.4). Every
+	// P/T counter kind contributes its CR 122.1a delta, summed once above.
+	power += counterDPower
+	toughness += counterDToughness
 	return power, toughness, basePower, baseToughness
 }
 
