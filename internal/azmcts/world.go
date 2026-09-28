@@ -41,6 +41,12 @@ func AllowClairvoyant() { clairvoyantAllowed.Store(true) }
 type clairvoyant struct {
 	e   *rules.Engine
 	obs *searchprobe.Collector
+	// prev is the last world handed out and spare its recycled storage:
+	// simulations run one at a time, so the previous world is spent when the
+	// next is asked for, and its log, arena and memo arrays build this one
+	// (rules.CloneInto; reuse is invisible to the game).
+	prev  *rules.Engine
+	spare rules.Spare
 }
 
 // NewClairvoyant is the stage-1 source: every simulation walks a Clone of
@@ -58,5 +64,9 @@ func NewClairvoyant(e *rules.Engine, obs *searchprobe.Collector) (WorldSource, e
 }
 
 func (c *clairvoyant) World(int) (World, error) {
-	return World{Engine: c.e.Clone(), Observer: c.obs.Clone()}, nil
+	if c.prev != nil {
+		c.spare = c.prev.Release()
+	}
+	c.prev = c.e.CloneInto(&c.spare)
+	return World{Engine: c.prev, Observer: c.obs.Clone()}, nil
 }
