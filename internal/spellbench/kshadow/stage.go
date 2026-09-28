@@ -1,0 +1,750 @@
+package kshadow
+
+import (
+	"fmt"
+	"math/rand/v2"
+	"sort"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/spellbench/v1agent"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// Shadow is one staged gorge engine for one kernel decision.
+type Shadow struct {
+	E  *rules.Engine
+	Me state.PlayerID
+	// ArenaToObj maps every staged kernel object (kernel arena id) to its
+	// gorge object; ObjToArena is the reverse.
+	ArenaToObj map[uint32]state.ObjID
+	ObjToArena map[state.ObjID]uint32
+	// Lossy lists what the staging could not reproduce (one entry per
+	// gap, a stable reason string); Fatal is set when the engine is not
+	// positioned at a decision for Me (the shadow is then unusable).
+	Lossy []string
+	Fatal string
+	// Hidden are the gorge objects dealt into hidden zones: the
+	// opponent's hand and both libraries (redeal pools).
+	OppHand, OppLib, MyLib []state.ObjID
+	// StagedStep is the step the observation was staged at.
+	StagedStep state.Step
+}
+
+// Options tune one Build.
+type Options struct {
+	// Seed picks the deal of hidden cards and the engine's future chance.
+	Seed uint64
+	// NoPumps skips staging unexplained P/T and keyword differences as
+	// until-end-of-turn effects (the fidelity ablation).
+	NoPumps bool
+	// NoAdvance leaves the engine unadvanced (tests of the staging itself).
+	NoAdvance bool
+	// Priority marks a kernel priority decision (Classify == ClassPriority):
+	// the kernel's pre-declaration combat windows are then staged as the
+	// window gorge gives them (begin combat; after the attack declaration).
+	Priority bool
+}
+
+// kernelStep maps the kernel's phase names onto gorge steps.
+var kernelStep = map[string]state.Step{
+	"untap": state.StepUntap, "upkeep": state.StepUpkeep, "draw": state.StepDraw,
+	"main1": state.StepMain1, "begin_combat": state.StepBeginCombat,
+	"declare_attackers": state.StepDeclareAttackers, "declare_blockers": state.StepDeclareBlockers,
+	// Priority in the combat damage step comes after the damage; gorge's
+	// step would deal it again, so it is staged as end of combat.
+	"combat_damage": state.StepEndCombat, "first_strike_damage": state.StepEndCombat,
+	"end_combat": state.StepEndCombat, "main2": state.StepMain2, "end": state.StepEnd,
+	"cleanup": state.StepCleanup,
+}
+
+func seatID(seat string) state.PlayerID {
+	if seat == "p1" {
+		return 1
+	}
+	return 0
+}
+
+type builder struct {
+	s    *Setup
+	sh   *Shadow
+	e    *rules.Engine
+	g    *state.Game
+	obs  *v1agent.KObservation
+	p    *v1agent.KProjection
+	rng  *rand.Rand
+	free [2]map[string][]state.ObjID // folded name -> unassigned deck objects
+	// deckObj[p][i] is deck card i's gorge object.
+	deckObj [2][]state.ObjID
+}
+
+func (b *builder) ev(e events.Event) events.Event { return events.Emit(b.g, b.e.L, e) }
+
+func (b *builder) lossy(format string, args ...any) {
+	b.sh.Lossy = append(b.sh.Lossy, fmt.Sprintf(format, args...))
+}
+
+// Build stages obs (the acting seat's ObservationV5) into a fresh engine.
+func (s *Setup) Build(obs *v1agent.KObservation, o Options) *Shadow {
+	me := seatID(obs.ActingPlayer)
+	sh := &Shadow{Me: me, ArenaToObj: map[uint32]state.ObjID{}, ObjToArena: map[state.ObjID]uint32{}}
+	cfg := rules.Config{
+		Seed:   o.Seed,
+		Names:  []string{"p0", "p1"},
+		Decks:  [][]*cards.Card{s.Decks[0], s.Decks[1]},
+		Tokens: s.Reg.Tokens,
+	}
+	e := rules.New(cfg)
+	b := &builder{s: s, sh: sh, e: e, g: e.G, obs: obs, p: &obs.Projection,
+		rng: rand.New(rand.NewPCG(o.Seed, o.Seed^0x6b736861646f77))}
+	sh.E = e
+	if e.G.Over {
+		sh.Fatal = "genesis ended the game"
+		return sh
+	}
+	b.indexDeck()
+	b.stageZones()
+	b.stageTurn(o.Priority)
+	b.stageStack()
+	b.stageCombat()
+	b.stageDesignations()
+	if !o.NoPumps {
+		b.stagePumps()
+	}
+	if o.NoAdvance {
+		return sh
+	}
+	b.advance()
+	return sh
+}
+
+// indexDeck maps deck positions to the objects genesis created (AddObject
+// runs in deck order, seat by seat) and returns every card to its library.
+func (b *builder) indexDeck() {
+	for p := 0; p < 2; p++ {
+		b.free[p] = map[string][]state.ObjID{}
+	}
+	for i := range b.g.Objs {
+		o := &b.g.Objs[i]
+		if o.IsToken || o.Card == nil || int(o.Owner) > 1 {
+			continue
+		}
+		b.deckObj[o.Owner] = append(b.deckObj[o.Owner], o.ID)
+	}
+	for p := 0; p < 2; p++ {
+		for _, id := range b.deckObj[p] {
+			o := b.g.Obj(id)
+			seen := map[string]bool{}
+			for _, f := range o.Card.Faces {
+				if f == nil {
+					continue
+				}
+				k := fold(f.Name)
+				if !seen[k] {
+					seen[k] = true
+					b.free[p][k] = append(b.free[p][k], id)
+				}
+			}
+		}
+		for _, id := range append([]state.ObjID(nil), b.g.Zone(state.ZHand, state.PlayerID(p))...) {
+			b.ev(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZLibrary})
+		}
+	}
+}
+
+// take assigns an unassigned deck object of owner named name.
+func (b *builder) take(owner state.PlayerID, name string, arena uint32) (state.ObjID, bool) {
+	if id, ok := b.sh.ArenaToObj[arena]; ok {
+		return id, true
+	}
+	k := fold(name)
+	list := b.free[owner][k]
+	if len(list) == 0 {
+		return 0, false
+	}
+	id := list[0]
+	// Remove id from every name list (a multi-face card is listed under
+	// each face).
+	for n, l := range b.free[owner] {
+		for j, x := range l {
+			if x == id {
+				b.free[owner][n] = append(l[:j:j], l[j+1:]...)
+				break
+			}
+		}
+	}
+	b.sh.ArenaToObj[arena] = id
+	b.sh.ObjToArena[id] = arena
+	return id, true
+}
+
+func (b *builder) move(id state.ObjID, to state.Zone) {
+	o := b.g.Obj(id)
+	if o == nil || o.Zone == to {
+		return
+	}
+	b.ev(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: to})
+}
+
+type permEntry struct {
+	c     *v1agent.KCard
+	id    state.ObjID
+	fresh bool // entered this turn: staged after the turn boundary
+}
+
+func (b *builder) stageZones() {
+	p := b.p
+	var perms []permEntry
+	// Battlefield (non-token) cards.
+	for side := 0; side < 2; side++ {
+		for i := range p.Battlefield[side] {
+			c := &p.Battlefield[side][i]
+			if c.IsToken {
+				perms = append(perms, permEntry{c: c})
+				continue
+			}
+			owner := seatID(c.Stable.Owner)
+			id, ok := b.take(owner, c.Name, c.Stable.ArenaID)
+			if !ok {
+				b.lossy("unmatched battlefield card %s", c.Name)
+				continue
+			}
+			perms = append(perms, permEntry{c: c, id: id})
+		}
+	}
+	// Graveyards and exile.
+	for side := 0; side < 2; side++ {
+		for i := range p.Graveyards[side] {
+			c := &p.Graveyards[side][i]
+			if c.IsToken {
+				continue
+			}
+			if id, ok := b.take(seatID(c.Stable.Owner), c.Name, c.Stable.ArenaID); ok {
+				b.move(id, state.ZGraveyard)
+			} else {
+				b.lossy("unmatched graveyard card %s", c.Name)
+			}
+		}
+	}
+	for i := range p.Exile {
+		c := &p.Exile[i]
+		if c.IsToken {
+			continue
+		}
+		if id, ok := b.take(seatID(c.Stable.Owner), c.Name, c.Stable.ArenaID); ok {
+			b.move(id, state.ZExile)
+		} else {
+			b.lossy("unmatched exile card %s", c.Name)
+		}
+	}
+	// Our hand.
+	for _, h := range b.obs.OwnHand {
+		if id, ok := b.take(b.sh.Me, h.Name, h.Stable.ArenaID); ok {
+			b.move(id, state.ZHand)
+		} else {
+			b.lossy("unmatched hand card %s", h.Name)
+		}
+	}
+	// Spells on the stack (placed later, in stack order; claimed now so
+	// the hidden deal cannot use them).
+	for i := range p.Stack {
+		it := &p.Stack[i]
+		if it.Kind != "spell" || it.IsCopy {
+			continue
+		}
+		name := ""
+		if k := v1agent.KernelCardByID(it.Source.CardDBID); k != nil {
+			name = k.Name
+		}
+		if _, ok := b.take(seatID(it.Source.Owner), name, it.Source.ArenaID); !ok {
+			b.lossy("unmatched stack spell %s", name)
+		}
+	}
+	// Old permanents enter before the turn boundary (not summoning sick),
+	// this turn's after it.
+	for i := range perms {
+		pe := &perms[i]
+		ctrl := seatID(pe.c.Stable.Controller)
+		pe.fresh = (pe.c.EnteredTurn != nil && *pe.c.EnteredTurn == p.Turn) ||
+			(pe.c.SummoningSick && ctrl == seatID(p.ActivePlayer))
+	}
+	b.enterPerms(perms, false)
+	b.hiddenDeal()
+	// The turn boundary: TurnChange clears summoning sickness for that
+	// player's permanents and every per-turn fact.
+	active := seatID(p.ActivePlayer)
+	turn := int32(p.Turn)
+	if turn < 1 {
+		turn = 1
+	}
+	if turn > 1 {
+		b.ev(events.Event{Kind: events.TurnChange, Player: 1 - active, Amount: turn - 1})
+	}
+	b.ev(events.Event{Kind: events.TurnChange, Player: active, Amount: turn})
+	b.enterPerms(perms, true)
+	b.permState(perms)
+}
+
+func (b *builder) enterPerms(perms []permEntry, fresh bool) {
+	for i := range perms {
+		pe := &perms[i]
+		if pe.fresh != fresh {
+			continue
+		}
+		c := pe.c
+		ctrl := seatID(c.Stable.Controller)
+		if c.IsToken {
+			stem, ok := b.s.TokenStem(c.Name)
+			if !ok {
+				b.lossy("unknown token %s", c.Name)
+				continue
+			}
+			before := len(b.g.Objs)
+			b.ev(events.Event{Kind: events.TokenCreate, Player: ctrl, Text: stem})
+			if len(b.g.Objs) == before {
+				b.lossy("token %s not created", c.Name)
+				continue
+			}
+			pe.id = b.g.Objs[len(b.g.Objs)-1].ID
+			b.sh.ArenaToObj[c.Stable.ArenaID] = pe.id
+			b.sh.ObjToArena[pe.id] = c.Stable.ArenaID
+		} else {
+			if pe.id == 0 {
+				continue
+			}
+			b.move(pe.id, state.ZBattlefield)
+			if o := b.g.Obj(pe.id); o != nil && c.FaceIndex > 0 && int(o.FaceIdx) != c.FaceIndex {
+				b.ev(events.Event{Kind: events.FlipFace, Obj: pe.id, Amount: int32(c.FaceIndex)})
+			}
+			if o := b.g.Obj(pe.id); o != nil && o.Controller != ctrl {
+				b.ev(events.Event{Kind: events.ControlChange, Obj: pe.id, Player: ctrl})
+			}
+		}
+	}
+}
+
+// permState stages tapped state, damage, counters and attachments.
+func (b *builder) permState(perms []permEntry) {
+	for i := range perms {
+		pe := &perms[i]
+		if pe.id == 0 {
+			continue
+		}
+		c := pe.c
+		o := b.g.Obj(pe.id)
+		if o == nil {
+			continue
+		}
+		if c.Tapped != o.Tapped {
+			if c.Tapped {
+				b.ev(events.Event{Kind: events.Tap, Obj: pe.id})
+			} else {
+				b.ev(events.Event{Kind: events.Untap, Obj: pe.id})
+			}
+		}
+		if c.Damage > 0 && o.Damage == 0 {
+			b.ev(events.Event{Kind: events.Damage, Obj: pe.id, Amount: int32(c.Damage)})
+		}
+		for _, kc := range []struct {
+			kind string
+			n    int
+		}{{"P1P1", c.Counters.P1P1}, {"M1M1", c.Counters.M1M1}, {"M0M1", c.Counters.M0M1}, {"STUN", c.Counters.Stun}, {"LORE", c.Counters.Lore}} {
+			if have := o.Counter(kc.kind); int(have) != kc.n {
+				b.ev(events.Event{Kind: events.CounterChange, Obj: pe.id, Counter: kc.kind, Amount: int32(kc.n) - have})
+			}
+		}
+		if c.SkipNextUntap {
+			b.lossy("skip_next_untap not staged")
+		}
+	}
+	// Attachments: attachments lists what is attached to the card.
+	for i := range perms {
+		pe := &perms[i]
+		for _, a := range pe.c.Attachments {
+			aid, ok := b.sh.ArenaToObj[a]
+			if !ok || pe.id == 0 {
+				b.lossy("unmatched attachment")
+				continue
+			}
+			b.ev(events.Event{Kind: events.Attach, Obj: aid, IDs: []state.ObjID{pe.id}})
+		}
+	}
+}
+
+// hiddenDeal fills the hidden zones: our library from our unseen cards (a
+// random order), the opponent's hand and library from its unseen cards.
+func (b *builder) hiddenDeal() {
+	p := b.p
+	for pl := 0; pl < 2; pl++ {
+		owner := state.PlayerID(pl)
+		var unseen []state.ObjID
+		for _, id := range b.deckObj[pl] {
+			if _, ok := b.sh.ObjToArena[id]; !ok {
+				unseen = append(unseen, id)
+			}
+		}
+		// Deterministic shuffle of the unseen pool.
+		b.rng.Shuffle(len(unseen), func(i, j int) { unseen[i], unseen[j] = unseen[j], unseen[i] })
+		handN := 0
+		if owner != b.sh.Me {
+			handN = p.HandCounts[pl]
+		}
+		if handN > len(unseen) {
+			b.lossy("opponent hand %d exceeds unseen pool %d", handN, len(unseen))
+			handN = len(unseen)
+		}
+		hand, lib := unseen[:handN], unseen[handN:]
+		for _, id := range hand {
+			b.move(id, state.ZHand)
+		}
+		for _, id := range lib {
+			b.move(id, state.ZLibrary)
+		}
+		want := p.LibraryCounts[pl]
+		if len(lib) != want {
+			b.lossy("library size %d vs kernel %d (seat %d)", len(lib), want, pl)
+		}
+		// Trim or keep: a library longer than the kernel's loses its
+		// excess to exile (identity-less cards), so draws line up.
+		for len(lib) > want && want >= 0 {
+			id := lib[len(lib)-1]
+			lib = lib[:len(lib)-1]
+			b.move(id, state.ZExile)
+		}
+		order := append([]state.ObjID(nil), lib...)
+		b.ev(events.Event{Kind: events.Shuffle, Player: owner, IDs: order, Secret: true})
+		if owner == b.sh.Me {
+			b.sh.MyLib = order
+		} else {
+			b.sh.OppHand = append([]state.ObjID(nil), hand...)
+			b.sh.OppLib = order
+		}
+	}
+}
+
+func (b *builder) stageTurn(priority bool) {
+	p := b.p
+	for pl := 0; pl < 2; pl++ {
+		if d := int32(p.Life[pl]) - b.g.Players[pl].Life; d != 0 {
+			b.ev(events.Event{Kind: events.LifeChange, Player: state.PlayerID(pl), Amount: d})
+		}
+		for i, sym := range []string{"W", "U", "B", "R", "G", "C"} {
+			if n := p.ManaPools[pl][i]; n > 0 {
+				b.ev(events.Event{Kind: events.ManaAdd, Player: state.PlayerID(pl), Counter: sym, Amount: int32(n)})
+			}
+		}
+		for k := 0; k < p.Status[pl].LandsPlayed; k++ {
+			b.ev(events.Event{Kind: events.LandPlayed, Player: state.PlayerID(pl)})
+		}
+	}
+	st, ok := kernelStep[p.Phase]
+	if !ok {
+		b.sh.Fatal = "unknown phase " + p.Phase
+		return
+	}
+	if priority {
+		switch {
+		case st == state.StepDeclareAttackers && !p.Combat.AttackersDeclared:
+			st = state.StepBeginCombat
+		case st == state.StepDeclareBlockers && !p.Combat.BlockersDeclared:
+			st = state.StepDeclareAttackers
+		}
+	}
+	b.sh.StagedStep = st
+	b.ev(events.Event{Kind: events.StepChange, Step: st})
+}
+
+// stageStack places the stack bottom to top. Kernel stack_index 0 is the
+// bottom (INFERRED from the resolution order; verified by the fidelity
+// check's stack comparison).
+func (b *builder) stageStack() {
+	items := append([]v1agent.KStackItem(nil), b.p.Stack...)
+	sort.SliceStable(items, func(i, j int) bool { return items[i].Index < items[j].Index })
+	for i := range items {
+		it := &items[i]
+		ctrl := seatID(it.Controller)
+		switch {
+		case it.Kind == "spell" && !it.IsCopy:
+			id, ok := b.sh.ArenaToObj[it.Source.ArenaID]
+			if !ok {
+				b.sh.Fatal = "stack spell not staged"
+				return
+			}
+			o := b.g.Obj(id)
+			b.ev(events.Event{Kind: events.PutOnStack, Obj: id, From: o.Zone, To: state.ZStack, Player: ctrl})
+			if o.Controller != ctrl {
+				b.ev(events.Event{Kind: events.ControlChange, Obj: id, Player: ctrl})
+			}
+			if it.XValue > 0 || it.Kicked {
+				flags := ""
+				if it.Kicked {
+					flags = "kicked"
+				}
+				b.ev(events.Event{Kind: events.CastInfo, Obj: id, Amount: int32(it.XValue), Counter: flags})
+			}
+			b.stageTargets(id, it)
+		case it.Kind == "triggered_ability" || it.Kind == "activated_ability":
+			src, ok := b.sh.ArenaToObj[it.Source.ArenaID]
+			if !ok {
+				b.sh.Fatal = "stack ability source not staged"
+				return
+			}
+			o := b.g.Obj(src)
+			f := o.Face()
+			if f == nil {
+				b.sh.Fatal = "stack ability source has no face"
+				return
+			}
+			before := len(b.g.Objs)
+			if it.Kind == "triggered_ability" {
+				if n, names := cards.SagaChapters(f); n > 0 && len(names) > 0 {
+					lore := int(o.Counter("LORE"))
+					if lore < 1 {
+						lore = 1
+					}
+					if lore > len(names) {
+						lore = len(names)
+					}
+					b.ev(events.Event{Kind: events.DelayedPush, Player: ctrl, Obj: src, Amount: -1, Counter: names[lore-1]})
+				} else {
+					idx, sure := b.pickTrigger(f, o)
+					if idx < 0 {
+						b.sh.Fatal = fmt.Sprintf("triggered ability of %s: %d triggers", f.Name, len(f.Triggers))
+						return
+					}
+					if !sure {
+						b.lossy("ambiguous trigger of %s", f.Name)
+					}
+					b.ev(events.Event{Kind: events.TriggerPush, Player: ctrl, Obj: src, Amount: int32(idx)})
+				}
+			} else {
+				idx := -1
+				n := 0
+				for j, sa := range f.Abilities {
+					if sa != nil && sa.Kind == "AB" && sa.API != "Mana" {
+						idx = j
+						n++
+					}
+				}
+				if n != 1 {
+					b.sh.Fatal = fmt.Sprintf("activated ability of %s: %d candidates", f.Name, n)
+					return
+				}
+				b.ev(events.Event{Kind: events.AbilityPush, Player: ctrl, Obj: src, Amount: int32(idx)})
+			}
+			if len(b.g.Objs) == before {
+				b.sh.Fatal = "stack ability not created"
+				return
+			}
+			b.stageTargets(b.g.Objs[len(b.g.Objs)-1].ID, it)
+		default:
+			b.sh.Fatal = "unstageable stack item " + it.Kind
+			return
+		}
+	}
+}
+
+func (b *builder) stageTargets(id state.ObjID, it *v1agent.KStackItem) {
+	for _, t := range it.Targets {
+		amount := int32(2)
+		if t.Kind == "player" {
+			amount = 3
+			b.ev(events.Event{Kind: events.TargetsChosen, Obj: id, Player: seatID(t.Player), Amount: amount})
+		} else if t.Object != nil {
+			tid, ok := b.sh.ArenaToObj[t.Object.ArenaID]
+			if !ok {
+				b.lossy("stack target not staged")
+				continue
+			}
+			b.ev(events.Event{Kind: events.TargetsChosen, Obj: id, IDs: []state.ObjID{tid}, Amount: amount})
+		}
+	}
+}
+
+func (b *builder) stageCombat() {
+	c := &b.p.Combat
+	if !c.AttackersDeclared || len(c.Attackers) == 0 {
+		return
+	}
+	st := b.g.Step
+	if st < state.StepDeclareAttackers || st > state.StepCombatDamage {
+		return
+	}
+	active := seatID(b.p.ActivePlayer)
+	var ids []state.ObjID
+	for _, a := range c.Attackers {
+		if id, ok := b.sh.ArenaToObj[a.ArenaID]; ok {
+			ids = append(ids, id)
+		} else {
+			b.lossy("attacker not staged")
+		}
+	}
+	// The declaration belongs to the declare-attackers step: a later step
+	// replays the boundary so the engine's per-step derivation holds.
+	if st != state.StepDeclareAttackers {
+		b.ev(events.Event{Kind: events.StepChange, Step: state.StepDeclareAttackers})
+	}
+	b.ev(events.Event{Kind: events.DeclareAttackers, Player: 1 - active, IDs: ids})
+	if st == state.StepDeclareAttackers {
+		return
+	}
+	b.ev(events.Event{Kind: events.StepChange, Step: state.StepDeclareBlockers})
+	if c.BlockersDeclared {
+		var pairs [][2]state.ObjID
+		blocks := c.Blocks()
+		for _, a := range c.Attackers {
+			aid, ok := b.sh.ArenaToObj[a.ArenaID]
+			if !ok {
+				continue
+			}
+			for _, bl := range blocks[a.ArenaID] {
+				if bid, ok := b.sh.ArenaToObj[bl.ArenaID]; ok {
+					pairs = append(pairs, [2]state.ObjID{aid, bid})
+				}
+			}
+		}
+		b.ev(events.Event{Kind: events.DeclareBlockers, Player: 1 - active, Pairs: pairs})
+	}
+	if st != state.StepDeclareBlockers {
+		b.ev(events.Event{Kind: events.StepChange, Step: st})
+	}
+}
+
+func (b *builder) stageDesignations() {
+	if b.p.Initiative != nil {
+		b.ev(events.Event{Kind: events.InitiativeChange, Player: seatID(*b.p.Initiative)})
+	}
+}
+
+// stagePumps registers, for every battlefield creature whose derived P/T
+// or evasion keywords differ from the kernel's effective values, an
+// until-end-of-turn continuous effect closing the difference (spec D§4.2
+// step 3: unexplained deltas are pump effects).
+func (b *builder) stagePumps() {
+	for side := 0; side < 2; side++ {
+		for i := range b.p.Battlefield[side] {
+			c := &b.p.Battlefield[side][i]
+			id, ok := b.sh.ArenaToObj[c.Stable.ArenaID]
+			if !ok || !c.IsCreature() || c.Characteristics.Power == nil {
+				continue
+			}
+			if !b.e.IsCreature(id) {
+				continue
+			}
+			dp := int32(c.Power()) - b.e.Power(id)
+			dt := int32(c.Toughness()) - b.e.Toughness(id)
+			var kws []string
+			for _, kw := range keywordTable {
+				if kw.get(&c.Characteristics.Keywords) && !b.e.HasKeyword(id, kw.gorge) {
+					kws = append(kws, kw.gorge)
+				}
+			}
+			ctrl := seatID(c.Stable.Controller)
+			if dp != 0 || dt != 0 {
+				b.e.AddContinuous(state.ContinuousEffect{Source: id, Affects: "Card.Self", Controller: ctrl,
+					Layer: state.LPT, Sub: state.SubModify, AddPower: dp, AddToughness: dt, UntilEOT: true})
+				b.lossy("pump staged")
+			}
+			if len(kws) > 0 {
+				b.e.AddContinuous(state.ContinuousEffect{Source: id, Affects: "Card.Self", Controller: ctrl,
+					Layer: state.LAbilities, AddKeywords: kws, UntilEOT: true})
+				b.lossy("keyword grant staged")
+			}
+		}
+	}
+}
+
+// keywordTable pairs the kernel's keyword flags with gorge keyword names.
+var keywordTable = []struct {
+	gorge string
+	get   func(k *v1agent.KKeywords) bool
+}{
+	{"Flying", func(k *v1agent.KKeywords) bool { return k.Flying }},
+	{"Reach", func(k *v1agent.KKeywords) bool { return k.Reach }},
+	{"Haste", func(k *v1agent.KKeywords) bool { return k.Haste }},
+	{"Vigilance", func(k *v1agent.KKeywords) bool { return k.Vigilance }},
+	{"Trample", func(k *v1agent.KKeywords) bool { return k.Trample }},
+	{"First Strike", func(k *v1agent.KKeywords) bool { return k.FirstStrike }},
+	{"Double Strike", func(k *v1agent.KKeywords) bool { return k.DoubleStrike }},
+	{"Deathtouch", func(k *v1agent.KKeywords) bool { return k.Deathtouch }},
+	{"Menace", func(k *v1agent.KKeywords) bool { return k.Menace }},
+	{"Defender", func(k *v1agent.KKeywords) bool { return k.Defender }},
+	{"Lifelink", func(k *v1agent.KKeywords) bool { return k.Lifelink }},
+	{"Hexproof", func(k *v1agent.KKeywords) bool { return k.Hexproof }},
+	{"Indestructible", func(k *v1agent.KKeywords) bool { return k.Indestructible }},
+}
+
+// advance positions the engine at its next decision: priority to the
+// kernel's priority player (one pass counted when it is not the active
+// player: the active player passed to it), then Advance.
+func (b *builder) advance() {
+	if b.sh.Fatal != "" {
+		return
+	}
+	pp := seatID(b.p.PriorityPlayer)
+	passes := int32(0)
+	if pp != seatID(b.p.ActivePlayer) {
+		passes = 1
+	}
+	b.ev(events.Event{Kind: events.Priority, Player: pp, Amount: passes})
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				b.sh.Fatal = fmt.Sprintf("advance panicked: %v", r)
+			}
+		}()
+		b.e.Advance()
+	}()
+	if b.sh.Fatal != "" {
+		return
+	}
+	if b.g.Over {
+		b.sh.Fatal = "staged game is over"
+		return
+	}
+	d := b.e.Pending()
+	if d == nil {
+		b.sh.Fatal = "no pending decision"
+		return
+	}
+	if d.Player != b.sh.Me {
+		b.sh.Fatal = fmt.Sprintf("pending decision is the opponent's (%s)", d.Kind)
+	}
+}
+
+// pickTrigger chooses which of the source face's triggers a kernel
+// triggered ability on the stack is: the only one; else the zone-change
+// trigger the source's position implies (an enters trigger for a permanent
+// that entered this turn, a leaves/dies trigger for a source no longer on
+// the battlefield); else the first (sure false).
+func (b *builder) pickTrigger(f *cards.Face, o *state.Object) (int, bool) {
+	switch len(f.Triggers) {
+	case 0:
+		return -1, false
+	case 1:
+		return 0, true
+	}
+	var enters, leaves []int
+	for i, tr := range f.Triggers {
+		if tr.Mode != "ChangesZone" && tr.Mode != "ChangesZoneAll" {
+			continue
+		}
+		switch {
+		case tr.Params["Destination"] == "Battlefield":
+			enters = append(enters, i)
+		case tr.Params["Origin"] == "Battlefield":
+			leaves = append(leaves, i)
+		}
+	}
+	if o.Zone == state.ZBattlefield && o.EnteredThisTurn && len(enters) == 1 {
+		return enters[0], true
+	}
+	if o.Zone != state.ZBattlefield && len(leaves) == 1 {
+		return leaves[0], true
+	}
+	if o.Zone == state.ZBattlefield && len(enters) == 1 {
+		return enters[0], false
+	}
+	return 0, false
+}

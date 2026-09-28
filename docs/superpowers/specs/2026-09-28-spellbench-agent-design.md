@@ -633,6 +633,95 @@ published ledger's 7 halted games are a different, bridge-side cause:
     python3 scripts/spellbench-arena/rate.py joint.md \
       /mnt/sata/gorge-training/spellbench/benchmarks/pauper-kernel/runs/2026-09-27 $W/runs/final
 
+### 3.6 Kernel shadow: gorge policies on mtg-kernel (v1, lane B)
+
+Goal: play gorge's strongest policies (sb-tactical, the az-redeal search,
+rollout search) on the live v1 benchmark engine. At each mtg-kernel
+decision, build a gorge engine consistent with what our seat sees (the
+decision's `x_kernel_v5` ObservationV5), map the kernel's candidates onto
+that engine's options, let a gorge policy answer, and map the answer back.
+Code: `internal/spellbench/kshadow` (staging, fidelity, mapping, policies),
+`cmd/sbv1agent -policy shadow-*`, `cmd/kshadowcheck` (offline fidelity and
+coverage over recorded games), `scripts/spellbench-arena/kshadow_corpus.py`
+(recording both seats of kernel games; parallel dev matches).
+
+**Design choice: rebuild from each observation, not incremental replay.**
+Evidence (corpus `kshadow/corpus1`: 16 tactical-vs-tactical kernel games,
+all 8 decks, 3,795 decisions, both seats recorded):
+
+- *The opponent's actions are not observable as actions.* Between two
+  consecutive decisions of one seat the other seat made 0 decisions 47.9%
+  of the time, 1 35.2%, 2 or more 16.8% (max 64). A replay has to infer each
+  of those from observation diffs and translate it into a gorge intent that
+  gorge accepts; a rebuild needs only the current observation.
+- *A replay desynchronises for good at the first divergence.* Two rules
+  engines disagree somewhere (kernel card DB vs Forge scripts, trigger
+  placement, the kernel's scan-shaped combat and auto-paid mana against
+  gorge's declaration and manual mana); one missed or refused action
+  corrupts every later decision. A rebuild bounds a divergence to the
+  decision it happens in, and is measured per decision (below).
+- *Cost is negligible.* A rebuild (`rules.New` on both lists + staging
+  events + `Advance`) costs 0.64 ms per decision with a 28 MB process
+  (pool registry: the 121 catalog cards + 839 token scripts, 84 KB on disk,
+  written by `kshadowcheck -save-pool`; the full corpus registry is ~400 MB
+  per process).
+- *What a replay would keep and a rebuild loses:* durations of continuous
+  effects, delayed triggers, linked exile ("until ~ leaves"), "this turn"
+  histories. The kernel observation carries none of them either, and the
+  fidelity check below shows the losses are rare on this pool; the P/T and
+  keyword residue a pump leaves is staged as an until-end-of-turn effect
+  (§4.2 step 3).
+
+**Staging** (`Setup.Build`). `rules.New` with both catalog lists (seat
+order) creates every deck card as an object; every visible kernel object
+(both battlefields, graveyards, exile, stack spells, our hand) claims a
+deck object of its name (arena id -> object id, stable across a game);
+tokens are minted from the token script the decks' own cards name.
+Everything is staged with raw `events.Emit` on the new engine's log
+(`events.Apply` is still the only mutation), which deliberately bypasses
+the rules engine's emit so that a staged permanent never re-fires its
+enters trigger: zone moves, face (transformed double-faced cards), control,
+tapped, damage, counters, attachments, life, mana pools, lands played,
+turn (a `TurnChange` for each seat so summoning sickness matches; this
+turn's permanents enter after it), step, the stack (spells with targets, X
+and kicker; triggered and activated abilities through `TriggerPush` /
+`AbilityPush` when the source's ability is unambiguous), combat
+(attackers, blocks), the initiative, and priority. The hidden zones are
+dealt from each list minus every seen card: our library in a random order,
+the opponent's hand (its observed size) and library from its unseen cards
+(the M1 redeal world, D§5.2). Kernel priority windows the engine does not
+have are staged as the window gorge has (a pre-declaration priority in
+declare attackers = beginning of combat; in declare blockers = after the
+attack declaration; priority in combat damage = end of combat, so the
+damage is not dealt twice). Then `Advance`: the engine must pose a decision
+to our seat, of the kind matching the kernel's.
+
+**Mapping.** Priority: `pass`, `play_land` and `cast_spell`/
+`activate_ability` by source object; gorge offers a cast with no mana
+floating only as a payment action (`EnsurePaymentActions`) or a potential
+play (reached through mana activations), and the kernel auto-pays, so a
+gorge answer that activates a mana ability is played on the shadow and the
+policy asked again until it names a real play (`throughMana`). Kernel mana
+abilities are never chosen. Attacks and blocks: the kernel's include/
+exclude scan is answered from one gorge declaration planned at the scan's
+first substep (per decision group). Follow-ups of our own cast (targets, X)
+are answered from the plan the gorge policy made in the shadow when it
+chose the cast; everything else (discard, library selection, colours,
+modes) is answered by v1agent.Tactical. **Every decision the shadow cannot
+stage or map is answered by v1agent.Tactical and counted by reason** (the
+agent's `-stats` line); the agent never forfeits, never refuses and never
+loses a legal action.
+
+**Policies.** `shadow-tactical` (sb-tactical on the shadow, AutoPay);
+`shadow-az`/`shadow-aztac` (azmcts over redealt shadow worlds; candidate 0
+the gorge bot's answer, or v1agent.Tactical's mapped); `shadow-roll`
+(determinized flat Monte Carlo over the kernel's own candidates:
+v1agent.Tactical's top-K by its own scores, each played in the same W
+redealt worlds and rolled out by both seats to a turn horizon, leaf
+`searchprobe.LeafValue`; Tactical's pick is overridden only past a margin;
+combat: Tactical's plan, none, all, the gorge bot's and sb-tactical's
+declarations).
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the

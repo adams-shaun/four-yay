@@ -76,6 +76,7 @@ type KCard struct {
 	Counters        KCounters        `json:"counters"`
 	Attachments     []uint32         `json:"attachments"`
 	IsToken         bool             `json:"is_token"`
+	FaceIndex       int              `json:"face_index"`
 	EnteredTurn     *int             `json:"entered_battlefield_turn"`
 	SkipNextUntap   bool             `json:"skip_next_untap"`
 	Characteristics KCharacteristics `json:"characteristics"`
