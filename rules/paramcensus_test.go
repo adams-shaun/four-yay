@@ -2885,9 +2885,12 @@ var knownUnsupportedParams = map[string][]string{
 	// a real per-target "draw up to N" ask (task mordorparams1,
 	// effects/cardflow.go effDraw's upto branch, rules' draw_upto resume
 	// arm) — pinned by TestArcaneDenialSlowtripDrawsUpToTwo.
-	"Arcane Denial":       {"param:api:Counter.RememberTargets"},
-	"Avengers Quinjet":    {"param:api:ChangeZone.ValidTgtsDesc"},
-	"Acclaimed Contender": {"param:api:Dig.RestRandomOrder"},
+	"Arcane Denial":    {"param:api:Counter.RememberTargets"},
+	"Avengers Quinjet": {"param:api:ChangeZone.ValidTgtsDesc"},
+	// Acclaimed Contender's param:api:Dig.RestRandomOrder entry was deleted
+	// when RestRandomOrder$ became a real read (task
+	// fdn-dig-rest-random-order): effDig shuffles the untaken remainder into
+	// the library bottom from the seeded generator and poses no ask.
 	// Adeline, Resplendent Cathar's param:api:RepeatEach.ChangeZoneTable entry
 	// was deleted when the parameter became read (task agent-20260922T090929Z-
 	// 07378594): effRepeatEach opens the zone batch the parameter asks for, so
@@ -2902,8 +2905,6 @@ var knownUnsupportedParams = map[string][]string{
 	// election is pinned end to end in rules/putcounter_optional_test.go.
 	"Captain Marvel, Apex Avenger": {"param:api:PutCounter.TriggeredCounterMap"},
 	"Conduit of Worlds":            {"param:api:Play.RememberPlayed"},
-	"Conjurer's Mantle":            {"param:api:Dig.RestRandomOrder"},
-	"Director Nick Fury":           {"param:api:Dig.RestRandomOrder"},
 	// Gift of Immortality's param:api:ChangeZone.ForgetOtherRemembered label
 	// (and the whole entry) was deleted when the ForgetOtherRemembered read
 	// landed (ticket agent-20260919T181318Z-316d7b2a): effChangeZone and
