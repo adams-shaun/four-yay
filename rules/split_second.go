@@ -26,7 +26,7 @@ import (
 // gate needs it.
 func (e *Engine) splitSecondHolds() bool {
 	for _, id := range e.G.Zone(state.ZStack, 0) {
-		if o := e.G.Obj(id); o != nil && e.HasKeyword(id, "Split second") {
+		if o := e.G.Obj(id); o != nil && e.hasKeywordH(id, kwhSplitSecond) {
 			return true
 		}
 	}

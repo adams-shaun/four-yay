@@ -111,7 +111,7 @@ func (e *Engine) applyReplacements(ev events.Event) (events.Event, bool) {
 // corpus, all 23 printed lines spell <N> or X) fails closed to no match --
 // the conservative direction for a counter put.
 func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
-	param, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst")
+	param, ok := e.derivedKeywordParamH(ev.Obj, kwhBloodthirst)
 	if !ok {
 		return nil
 	}
@@ -167,7 +167,7 @@ func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
 // gate, widened to cover sunburst's cast faces). An inline Count body keeps
 // this a one-line body with no SVar minted on the face.
 func (e *Engine) sunburstEntryMatch(ev events.Event) *replMatch {
-	if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); !ok {
+	if _, ok := e.derivedKeywordParamH(ev.Obj, kwhSunburst); !ok {
 		return nil
 	}
 	o := e.G.Obj(ev.Obj)
@@ -4329,7 +4329,7 @@ func (e *Engine) commandReplZoneAdmits(r cards.Repl, source state.ObjID) bool {
 	if o == nil || o.Zone != state.ZCommand {
 		return true
 	}
-	active, ok := r.Params["ActiveZones"]
+	active, ok := r.Param(cards.PKActiveZones)
 	return ok && zoneSpecContains(active, state.ZCommand)
 }
 
@@ -4359,7 +4359,7 @@ func (e *Engine) activeZonesGateOK(r cards.Repl, source state.ObjID, ev events.E
 	if !e.commandReplZoneAdmits(r, source) {
 		return false
 	}
-	if active, ok := r.Params["ActiveZones"]; ok {
+	if active, ok := r.Param(cards.PKActiveZones); ok {
 		o := e.G.Obj(source)
 		currentlyActive := o != nil && zoneSpecContains(active, o.Zone)
 		enteringActive := ev.Kind == events.MoveZone && source == ev.Obj &&
@@ -4469,18 +4469,18 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		}
 		// Discard$ True narrows a Moved replacement to a discard. EffectOnly$
 		// excludes cost and cleanup discards; ValidCause$ names its cause.
-		if r.Params["Discard"] == "True" {
+		if r.ParamStr(cards.PKDiscard) == "True" {
 			if !events.IsDiscard(ev) {
 				return false
 			}
-			if r.Params["EffectOnly"] == "True" && (events.IsDiscardCost(ev) || e.actionCause() == 0) {
+			if r.ParamStr(cards.PKEffectOnly) == "True" && (events.IsDiscardCost(ev) || e.actionCause() == 0) {
 				return false
 			}
-			if spec := r.Params["ValidCause"]; spec != "" && !e.discardCauseAdmits(spec, source, ev) {
+			if spec := r.ParamStr(cards.PKValidCause); spec != "" && !e.discardCauseAdmits(spec, source, ev) {
 				return false
 			}
 		}
-		if o, ok := r.Params["Origin"]; ok && o != "Any" && effects.ParseZone(o) != ev.From {
+		if o, ok := r.Param(cards.PKOrigin); ok && o != "Any" && effects.ParseZone(o) != ev.From {
 			return false
 		}
 		// A creature's "would die" replacement is about a permanent moving
@@ -4489,12 +4489,12 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// scripts commonly encode this with a creature ValidLKI and a graveyard
 		// destination but omit Origin$; keep that shape from matching non-BF
 		// moves while leaving explicit from-anywhere replacements alone.
-		if _, hasOrigin := r.Params["Origin"]; !hasOrigin && ev.To == state.ZGraveyard {
-			if validLKI := r.Params["ValidLKI"]; strings.HasPrefix(validLKI, "Creature.") && ev.From != state.ZBattlefield {
+		if hasOrigin := r.HasParam(cards.PKOrigin); !hasOrigin && ev.To == state.ZGraveyard {
+			if validLKI := r.ParamStr(cards.PKValidLKI); strings.HasPrefix(validLKI, "Creature.") && ev.From != state.ZBattlefield {
 				return false
 			}
 		}
-		if d, ok := r.Params["Destination"]; ok && d != "Any" && effects.ParseZone(d) != ev.To {
+		if d, ok := r.Param(cards.PKDestination); ok && d != "Any" && effects.ParseZone(d) != ev.To {
 			return false
 		}
 		// FoundSearchingLibrary$ True (Opposition Agent's "While an opponent
@@ -4503,13 +4503,13 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// host scopes that fact (BeginLibrarySearch/EndLibrarySearch around
 		// effects' applyLibrarySearch); with no search in flight, or with the
 		// repl's own controller the one searching, the replacement is inert.
-		if raw, ok := r.Params["FoundSearchingLibrary"]; ok &&
+		if raw, ok := r.Param(cards.PKFoundSearchingLibrary); ok &&
 			strings.EqualFold(strings.TrimSpace(raw), "True") {
 			if e.searchingBy == 0 || e.controllerOf(source) == e.searchingBy {
 				return false
 			}
 		}
-		if v, ok := r.Params["ValidCard"]; ok {
+		if v, ok := r.Param(cards.PKValidCard); ok {
 			// The bare wasCastFromYourHandByYou qualifier (epochrasite's
 			// etbCounter gate field `ValidCard$ Card.Self+
 			// !wasCastFromYourHandByYou`: "enters with three +1/+1 counters on
@@ -5637,7 +5637,7 @@ func (e *Engine) replacementCauseMatches(spec string, replacementSource, cause s
 		if o.Source == 0 {
 			return false
 		}
-		return e.HasKeyword(o.Source, "Modular")
+		return e.hasKeywordH(o.Source, kwhModular)
 	}
 	return false
 }
@@ -6178,7 +6178,7 @@ func (e *Engine) poseDamageReplacementChoice(ev events.Event, matches []replMatc
 	e.replChoices = append(e.replChoices, replChoice{
 		kind: replChoiceDamage, ev: ev, cands: matches, before: e.triggerBefore, player: p,
 		damaging: source, combat: e.combatDamaging,
-		lifelink: e.HasKeyword(source, "Lifelink"), deadly: e.HasKeyword(source, "Deathtouch"),
+		lifelink: e.hasKeywordH(source, kwhLifelink), deadly: e.hasKeywordH(source, kwhDeathtouch),
 		toxic: e.ToxicValue(source),
 	})
 	if e.pending == nil {

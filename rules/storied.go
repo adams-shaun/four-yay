@@ -55,7 +55,7 @@ func (e *Engine) checkEnduringStoryGrants() {
 			if o == nil || o.Zone != state.ZBattlefield {
 				continue
 			}
-			if e.HasKeyword(id, "Storied") {
+			if e.hasKeywordH(id, kwhStoried) {
 				storied = true
 			}
 			d := e.Derived(id)

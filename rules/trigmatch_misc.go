@@ -439,7 +439,7 @@ func (e *Engine) parsedPhaseSpec(spec string) parsedPhase {
 // conservative direction -- the trigger then fires at no step rather than
 // every matching one).
 func (e *Engine) phaseGate(t cards.Trigger) bool {
-	spec := t.Params["Phase"]
+	spec := t.ParamStr(cards.PKPhase)
 	if strings.TrimSpace(spec) == "" {
 		return true
 	}

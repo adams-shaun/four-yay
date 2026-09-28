@@ -585,7 +585,7 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		if i < len(bf) {
 			sv = bf[i]
 		} else if st := face[i-len(bf)]; st.Mode == "Continuous" {
-			sv = staticView{Params: st.Params, Source: id, Controller: o.Controller}
+			sv = staticView{Params: st.Params, PS: st.ParamSetOf(), Source: id, Controller: o.Controller}
 		} else {
 			continue
 		}

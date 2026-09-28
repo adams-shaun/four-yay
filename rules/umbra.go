@@ -27,7 +27,7 @@ func (e *Engine) UmbraArmorAura(id state.ObjID) state.ObjID {
 			if s == nil || s.AttachedTo != id {
 				continue
 			}
-			if e.HasKeyword(sid, "Umbra armor") {
+			if e.hasKeywordH(sid, kwhUmbraArmor) {
 				return sid
 			}
 		}

@@ -228,7 +228,7 @@ func (e *Engine) scanBoardStatics() boardStatics {
 							continue
 						}
 						out.manaConv = append(out.manaConv, manaConvSource{sv: staticView{Source: id,
-							Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars}})
+							Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars}})
 						continue
 					default:
 						continue
@@ -236,7 +236,7 @@ func (e *Engine) scanBoardStatics() boardStatics {
 					if zoneGated && !effectZoneOK(st.Params["EffectZone"], o.Zone) {
 						continue
 					}
-					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars})
+					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 				}
 			}
 		}

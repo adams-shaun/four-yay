@@ -216,7 +216,7 @@ func (e *Engine) mayhemLandPlayIds(p state.PlayerID) []state.ObjID {
 		if o == nil || o.Face() == nil || !o.Face().IsLand() {
 			continue
 		}
-		raw, ok := e.derivedKeywordParam(id, "Mayhem")
+		raw, ok := e.derivedKeywordParamH(id, kwhMayhem)
 		if !ok || strings.TrimSpace(raw) != "" {
 			continue
 		}
@@ -537,7 +537,7 @@ func abilityZoneMask(ab *cards.SA) uint32 {
 }
 
 func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
-	az, ok := ab.Params["ActivationZone"]
+	az, ok := ab.Param(cards.PKActivationZone)
 	if !ok {
 		return z == state.ZBattlefield
 	}
@@ -1573,7 +1573,7 @@ func (e *Engine) castTargetsAvailable(p state.PlayerID, id state.ObjID, sa *card
 		return e.targetsAvailable(p, id, id, sa, false)
 	}
 	if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		xPending = costAnnouncesX(e.parseCost(o.Face().ManaCost))
+		xPending = costAnnouncesX(e.faceCost(o.Face()))
 		if ab := o.Face().SpellAbility(); ab != nil {
 			xPending = xPending || costAnnouncesX(e.parseCost(ab.Params["Cost"]))
 		}
@@ -1760,7 +1760,7 @@ func (e *Engine) grantedCyclingLines(id state.ObjID) []string {
 // list the answer is nil, and the offer walk skips the full layer walk it
 // otherwise paid for every card in every offered zone.
 func (e *Engine) mayDeriveCyclingLine(id state.ObjID) bool {
-	return e.mayHaveDerivedKeywordAny(id, "Cycling", "TypeCycling")
+	return e.mayHaveDerivedKeywordAnyH(id, kwhCycling, kwhTypeCycling)
 }
 
 // grantedCyclingLinesFull is grantedCyclingLines without the precheck.
@@ -2200,7 +2200,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		if mf := modalSpellBack(o); mf != nil && e.spellTimingOK(p, id, mf, sorcery) &&
 			e.castTargetsAvailable(p, id, mf.SpellAbility()) &&
 			!castRestrictedAsFace(p, id, mf) {
-			if offerCastableAsFace(p, id, mf, withSpellAbilityExtras(mf, e.parseCost(mf.ManaCost)), spellScope("")) {
+			if offerCastableAsFace(p, id, mf, withSpellAbilityExtras(mf, e.faceCost(mf)), spellScope("")) {
 				out = append(out, decision.Option{Index: len(out), Kind: "cast",
 					Label: "Cast " + mf.Name, Obj: id, Mode: "modal_spell"})
 			}
@@ -2237,10 +2237,10 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 			// CR 601.2e recheck (recheckIllegal) re-runs the same face-scoped
 			// read against the ANNOUNCED targets, so offer and enforcement
 			// agree on one interpretation.
-			instant := sf.IsInstant() || e.HasKeyword(id, "Flash") || e.castWithFlashAsFace(p, id, sf)
+			instant := sf.IsInstant() || e.hasKeywordH(id, kwhFlash) || e.castWithFlashAsFace(p, id, sf)
 			if (instant || sorcery) && e.splitCastTargetsAvailable(p, id, sf) &&
 				!castRestrictedAsFace(p, id, sf) {
-				if offerCastableAsFace(p, id, sf, withSpellAbilityExtras(sf, e.parseCost(sf.ManaCost)), spellScope("")) {
+				if offerCastableAsFace(p, id, sf, withSpellAbilityExtras(sf, e.faceCost(sf)), spellScope("")) {
 					out = append(out, decision.Option{Index: len(out), Kind: "cast",
 						Label: "Cast " + sf.Name, Obj: id, Mode: "split_alt"})
 				}
@@ -2269,10 +2269,10 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		// precedes the front-face restriction gate and probes the door being
 		// cast (rather than the displayed front face).
 		if rf := roomAlternateCastFace(o); rf != nil {
-			instant := rf.IsInstant() || e.HasKeyword(id, "Flash")
+			instant := rf.IsInstant() || e.hasKeywordH(id, kwhFlash)
 			if (instant || sorcery) && e.castTargetsAvailable(p, id, rf.SpellAbility()) &&
 				!castRestrictedAsFace(p, id, rf) {
-				if offerCastableAsFace(p, id, rf, withSpellAbilityExtras(rf, e.parseCost(rf.ManaCost)), spellScope("")) {
+				if offerCastableAsFace(p, id, rf, withSpellAbilityExtras(rf, e.faceCost(rf)), spellScope("")) {
 					out = append(out, decision.Option{Index: len(out), Kind: "cast",
 						Label: "Cast " + rf.Name, Obj: id, Mode: "room_alt"})
 				}
@@ -2329,7 +2329,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		// step of its controller's turn (with a stack, in an upkeep), and
 		// under the any-turn grant on any step of anyone's turn.
 		// castRestricted/castSuppressed above still bound the offer.
-		if _, ok := e.derivedKeywordParam(id, "Foretell"); ok &&
+		if _, ok := e.derivedKeywordParamH(id, kwhForetell); ok &&
 			(e.G.Active == p || e.playerForetellsAnyTurn(p)) &&
 			offerCastable(p, id, Cost{Generic: 2}, foretellScope(), false) {
 			out = append(out, decision.Option{Index: len(out), Kind: "cast", Label: "Foretell " + f.Name, Obj: id, Mode: "foretell"})
@@ -3009,7 +3009,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	for _, id := range e.G.Zone(state.ZGraveyard, p) {
 		o := e.G.Obj(id)
 		f := o.Face()
-		if f == nil || !e.HasKeyword(id, "Flashback") {
+		if f == nil || !e.hasKeywordH(id, kwhFlashback) {
 			continue
 		}
 		if castRestricted(p, id) {
@@ -3082,7 +3082,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		if !ok || !warpGraveyardAllowed(f) || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		instantSpeed := f.IsInstant() || e.HasKeyword(id, "Flash")
+		instantSpeed := f.IsInstant() || e.hasKeywordH(id, kwhFlash)
 		if !instantSpeed && !sorcery {
 			continue
 		}
@@ -3107,7 +3107,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	for _, id := range e.G.Zone(state.ZGraveyard, p) {
 		o := e.G.Obj(id)
 		f := o.Face()
-		if f == nil || !e.HasKeyword(id, "Escape") || castRestricted(p, id) || e.castSuppressed(p, id) {
+		if f == nil || !e.hasKeywordH(id, kwhEscape) || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
 		ec, ok := e.escapeCost(id)
@@ -3133,7 +3133,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	for _, id := range e.G.Zone(state.ZGraveyard, p) {
 		o := e.G.Obj(id)
 		f := o.Face()
-		if f == nil || !e.HasKeyword(id, "Retrace") || castRestricted(p, id) || e.castSuppressed(p, id) {
+		if f == nil || !e.hasKeywordH(id, kwhRetrace) || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
 		if !e.spellTimingOK(p, id, f, sorcery) ||
@@ -3163,7 +3163,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	for _, id := range e.G.Zone(state.ZGraveyard, p) {
 		o := e.G.Obj(id)
 		f := o.Face()
-		if f == nil || !e.HasKeyword(id, "Jump-start") || castRestricted(p, id) || e.castSuppressed(p, id) {
+		if f == nil || !e.hasKeywordH(id, kwhJumpStart) || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
 		if !e.spellTimingOK(p, id, f, sorcery) ||
@@ -3201,7 +3201,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		}
 		// mayhemCastCost reads the derived Mayhem parameter, which is absent
 		// whenever its subset precheck rules the head out (keywordmay.go).
-		if !e.mayHaveDerivedKeyword(id, "Mayhem") {
+		if !e.mayHaveDerivedKeywordH(id, kwhMayhem) {
 			if derivedMemoVerify {
 				e.verifyKeywordPrecheck(id, "Mayhem")
 			}
@@ -3310,7 +3310,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		if !ok || !e.warpRecastAvailable(id) || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		instantSpeed := f.IsInstant() || e.HasKeyword(id, "Flash")
+		instantSpeed := f.IsInstant() || e.hasKeywordH(id, kwhFlash)
 		if !instantSpeed && !sorcery {
 			continue
 		}
@@ -3902,7 +3902,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		if sorcery {
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
 				o := e.G.Obj(id)
-				if o == nil || o.Face() == nil || !e.HasKeyword(id, "Station") {
+				if o == nil || o.Face() == nil || !e.hasKeywordH(id, kwhStation) {
 					continue
 				}
 				if !existsOnBattlefield(o) {

@@ -29,7 +29,12 @@ import (
 // build) scans the list it was handed instead. Verify mode
 // (derivedMemoVerify) recomputes every negative answer through Derived.
 func (e *Engine) mayHaveDerivedKeyword(id state.ObjID, head string) bool {
-	return e.mayHaveDerivedKeywordAny(id, head, "")
+	return e.mayHaveDerivedKeywordH(id, kwHeadOf(head))
+}
+
+// mayHaveDerivedKeywordH is mayHaveDerivedKeyword for a precompiled head.
+func (e *Engine) mayHaveDerivedKeywordH(id state.ObjID, head kwHead) bool {
+	return e.mayHaveDerivedKeywordAnyH(id, head, kwHead{})
 }
 
 // stackKeywordPossible is mayHaveDerivedKeyword for the cast-keyword reads
@@ -44,8 +49,9 @@ func (e *Engine) mayHaveDerivedKeyword(id state.ObjID, head string) bool {
 // card, so the negative answer skips a whole layer walk per card. Verify
 // mode (derivedMemoVerify) runs the override derivation and panics on a
 // contradicted negative.
-func (e *Engine) stackKeywordPossible(id state.ObjID, head string) bool {
-	if e.mayHaveDerivedKeyword(id, head) {
+func (e *Engine) stackKeywordPossibleH(id state.ObjID, h kwHead) bool {
+	head := h.s
+	if e.mayHaveDerivedKeywordH(id, h) {
 		return true
 	}
 	if derivedMemoVerify {
@@ -68,6 +74,17 @@ func headIs(k, a, b string) bool {
 // mayHaveDerivedKeywordAny is mayHaveDerivedKeyword for either of two heads
 // in one pass (b empty: head a alone).
 func (e *Engine) mayHaveDerivedKeywordAny(id state.ObjID, a, b string) bool {
+	hb := kwHead{}
+	if b != "" {
+		hb = kwHeadOf(b)
+	}
+	return e.mayHaveDerivedKeywordAnyH(id, kwHeadOf(a), hb)
+}
+
+// mayHaveDerivedKeywordAnyH is mayHaveDerivedKeywordAny over precompiled
+// heads (b.s empty: head a alone).
+func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, ha, hb kwHead) bool {
+	a, b := ha.s, hb.s
 	o := e.G.Obj(id)
 	if o == nil {
 		return false
@@ -79,10 +96,10 @@ func (e *Engine) mayHaveDerivedKeywordAny(id state.ObjID, a, b string) bool {
 	if o.Cloaked || o.Suspected || o.SuspendGranted {
 		return true
 	}
-	for _, k := range f.Keywords {
-		if headIs(k, a, b) {
-			return true
-		}
+	// The printed keyword lines through the face's interned head bitset
+	// (cards.Face.KeywordLinesHaveHead: headIs's EqualFold answer per head).
+	if f.KeywordLinesHaveHead(a, ha.id) || (b != "" && f.KeywordLinesHaveHead(b, hb.id)) {
+		return true
 	}
 	for _, k := range o.IntrinsicKeywords {
 		if headIs(k, a, b) {
