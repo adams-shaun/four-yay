@@ -195,7 +195,7 @@ func TestProbeAttemptBudget(t *testing.T) {
 // window relaxes by exactly the overflow (cap = copies beyond the tail's
 // room) instead of turning every order infeasible.
 func TestFeasibleExclusionsClampsAndRelaxes(t *testing.T) {
-	cards := []proposalCard{{1, "C"}, {2, "C"}, {3, "C"}, {4, "C"}, {5, "L"}}
+	cards := []proposalCard{{ID: 1, Name: "C"}, {ID: 2, Name: "C"}, {ID: 3, Name: "C"}, {ID: 4, Name: "C"}, {ID: 5, Name: "L"}}
 	out := feasibleExclusions([]exclusionConstraint{
 		{Through: 99, Name: "C", Cap: 0},
 		{Through: 1, Name: "C", Cap: 0},
@@ -214,7 +214,7 @@ func TestFeasibleExclusionsClampsAndRelaxes(t *testing.T) {
 	// already holds -- the same reduction the deadline itself gets. The two
 	// library copies stay consistent with the hand copy (deck accounting), so
 	// no relaxation overrides the reduction.
-	cards2 := []proposalCard{{1, "C"}, {2, "C"}, {3, "L"}, {4, "L"}, {5, "L"}}
+	cards2 := []proposalCard{{ID: 1, Name: "C"}, {ID: 2, Name: "C"}, {ID: 3, Name: "L"}, {ID: 4, Name: "L"}, {ID: 5, Name: "L"}}
 	out = feasibleExclusions([]exclusionConstraint{{Through: 3, Name: "C", Cap: 1}}, cards2, map[string]int{"C": 1})
 	if out[0].Through != 3 || out[0].Cap != 0 {
 		t.Fatalf("hand copies did not reduce the deadline-derived cap: %+v", out[0])
@@ -292,7 +292,7 @@ func TestRecordCompetitionExclusionSpansPriorEpochsAndSkipsDeadlines(t *testing.
 // constrained space by exactly the fraction of orders it admitted (CR's
 // importance weight, the same bookkeeping every deadline already uses).
 func TestExclusionConstraintPrunesAndDownWeights(t *testing.T) {
-	cards := []proposalCard{{1, "W"}, {2, "S"}, {3, "L"}, {4, "L"}}
+	cards := []proposalCard{{ID: 1, Name: "W"}, {ID: 2, Name: "S"}, {ID: 3, Name: "L"}, {ID: 4, Name: "L"}}
 	exclusions := []exclusionConstraint{{Through: 1, Name: "S", Cap: 0}}
 	plan, err := newConstrainedPermutation(cards, nil, nil, exclusions)
 	if err != nil {

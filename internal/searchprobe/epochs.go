@@ -18,6 +18,10 @@ type epochPosition struct {
 	Index int
 	Name  string
 	Ref   uint32
+	// Unseen marks a draw whose object was first seen by the observer in the
+	// same burst as the draw itself: the sampled world must fill this
+	// position with a card its own observer has not introduced yet.
+	Unseen bool
 }
 
 type epochConstraints struct {
@@ -116,6 +120,11 @@ func compileEpochs(h History) (map[epochKey]epochConstraints, error) {
 					if _, firstSeen := introduced[ev.Obj]; !firstSeen {
 						position.Ref = ev.Obj
 					}
+					// A drawn object that the observer had not introduced before
+					// this burst must stay a first introduction in the sampled
+					// world too: such positions require a physical card its own
+					// observer has not yet introduced.
+					position.Unseen = position.Ref == 0
 					if err := addEpochPosition(&ep, position); err != nil {
 						return nil, err
 					}

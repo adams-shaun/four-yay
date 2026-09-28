@@ -227,13 +227,16 @@ func (p *proposalState) plan(ctx rules.ShuffleContext) ([]state.ObjID, error) {
 	cards := make([]proposalCard, len(ctx.Library))
 	byID := make(map[state.ObjID]string, len(ctx.Library))
 	for i, card := range ctx.Library {
-		cards[i] = proposalCard{ID: card.ID, Name: card.Name}
+		// Known is judged on this attempt's own observer at shuffle time: a
+		// card it already introduced is a known duplicate, one it has not seen
+		// yet can still serve as a first introduction in the replay.
+		cards[i] = proposalCard{ID: card.ID, Name: card.Name, Known: p.observer.known[card.ID] != 0}
 		byID[card.ID] = card.Name
 	}
 	positions := make([]positionConstraint, len(ep.Positions))
 	used := make(map[state.ObjID]bool)
 	for i, pos := range ep.Positions {
-		positions[i] = positionConstraint{Index: pos.Index, Name: pos.Name}
+		positions[i] = positionConstraint{Index: pos.Index, Name: pos.Name, Unseen: pos.Unseen}
 		// Only this attempt's prefix-aligned observer can translate a reference.
 		// Future introductions have no mapping yet and remain name constraints.
 		positions[i].Obj = p.observer.object(pos.Ref)

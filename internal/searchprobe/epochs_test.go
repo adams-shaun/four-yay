@@ -32,7 +32,7 @@ func TestCompileEpochsCapturesActorPositionsAndOpponentDeadlines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := epochs[epochKey{Player: 0, Ordinal: 0}].Positions, []epochPosition{{Index: 0, Name: "Actor Draw"}}; !reflect.DeepEqual(got, want) {
+	if got, want := epochs[epochKey{Player: 0, Ordinal: 0}].Positions, []epochPosition{{Index: 0, Name: "Actor Draw", Unseen: true}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("actor positions = %+v want %+v", got, want)
 	}
 	if got, want := epochs[epochKey{Player: 1, Ordinal: 0}].Deadlines, []deadlineConstraint{{Through: 7, Name: "Public Card", Count: 1}, {Through: 8, Name: "Public Card", Count: 2}}; !reflect.DeepEqual(got, want) {
@@ -60,7 +60,7 @@ func TestCompileEpochsCapturesLaterShuffleAndArrangeWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := epochs[epochKey{Player: 0, Ordinal: 1}]
-	wantPositions := []epochPosition{{Index: 0, Name: "First"}, {Index: 1, Name: "Second"}, {Index: 2, Name: "Top A", Ref: 3}, {Index: 3, Name: "Top B", Ref: 4}}
+	wantPositions := []epochPosition{{Index: 0, Name: "First", Unseen: true}, {Index: 1, Name: "Second", Unseen: true}, {Index: 2, Name: "Top A", Ref: 3}, {Index: 3, Name: "Top B", Ref: 4}}
 	if !reflect.DeepEqual(got.Positions, wantPositions) || got.ArrangeWindows != 1 {
 		t.Fatalf("later epoch = %+v want positions=%+v arrange=1", got, wantPositions)
 	}
@@ -86,7 +86,7 @@ func TestCompileEpochsMarksNonDrawLibraryMutationUnguidedUntilShuffle(t *testing
 		t.Fatalf("first epoch = %+v", first)
 	}
 	second := epochs[epochKey{Player: 0, Ordinal: 1}]
-	if got, want := second.Positions, []epochPosition{{Index: 0, Name: "Known Again"}}; !reflect.DeepEqual(got, want) {
+	if got, want := second.Positions, []epochPosition{{Index: 0, Name: "Known Again", Unseen: true}}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("second positions = %+v want %+v", got, want)
 	}
 }
