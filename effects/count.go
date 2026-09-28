@@ -1975,7 +1975,7 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	if n, ok := evalCov3Head(h, c, head, arg, depth); ok {
 		return n, true
 	}
-	if n, ok := evalCov3PlayerHead(h, c, head, arg); ok {
+	if n, ok := evalCov3PlayerHead(h, c, head, arg, depth); ok {
 		return n, true
 	}
 
