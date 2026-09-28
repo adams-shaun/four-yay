@@ -203,6 +203,14 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 // Warlock Collector): a Manascape Refractor had gained "Add {R}" from a
 // Mountain and from a Vivid Crag; the float route picked the Crag's while
 // run A activated the Mountain's, and the ManaActivate markers differed.
+//
+// Re-pinned to seq 0 (the round-10 convention) by the kw:Backup ticket
+// (CR 702.165): registering kw:Backup in effects' supported set made the
+// Backup carriers eligible for the random pool, so pool.Generate now returns
+// different decks for this seed and the moved game no longer casts Manascape
+// Refractor at all. The seed keeps an empty pin and asserts the whole game is
+// mismatch-free and control-equivalent; the finding's own shape stays pinned
+// by the marker unit tests above.
 func TestRoundSixGainedMemberSeed3589(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -217,16 +225,17 @@ func TestRoundSixGainedMemberSeed3589(t *testing.T) {
 		spec.Decks = append(spec.Decks, label)
 		spec.Lists = append(spec.Lists, list)
 	}
-	found := false
-	for _, r := range round6Game(t, d, spec) {
-		if st, key := r.Verdict(); st == Mismatch {
+	reports := round6Game(t, d, spec)
+	if len(reports) == 0 {
+		t.Fatal("no planned-cast reports; the clean-game assertions would be vacuous")
+	}
+	for _, r := range reports {
+		st, key := r.Verdict()
+		if st == Mismatch {
 			t.Errorf("seq %d %q: %s", r.Seq, r.Card, key)
 		}
-		if r.Seq == 1553 {
-			found = true
+		if r.Control == nil || r.Control.Status != Equivalent {
+			t.Errorf("seq %d %q: control %+v", r.Seq, r.Card, r.Control)
 		}
-	}
-	if !found {
-		t.Fatal("no planned cast at seq 1553 (the game no longer reaches the finding)")
 	}
 }
