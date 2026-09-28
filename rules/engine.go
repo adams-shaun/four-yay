@@ -194,6 +194,13 @@ type Engine struct {
 	// nothing. See effects.Host's CombatDamageToPlayersThisTurn.
 	combatHitsThisTurn  []effects.CombatDamageHit
 	counterAddsThisTurn []counterAddedThisTurn
+	// activationsThisTurn and crimeSeatsThisTurn are two more per-turn
+	// NO-EVENT ledgers of the same kind (rules/turn_ledgers.go): this turn's
+	// activated-ability stack objects with the targets they chose, and the
+	// seats that committed a crime (CR 700.13). Re-derived by every rebuild,
+	// cleared on TurnChange, copied by Clone.
+	activationsThisTurn []activationThisTurn
+	crimeSeatsThisTurn  uint64
 
 	// format is the construction format New was configured with (Config.
 	// Format). It is the explicit gate the Commander rules (the tax, CR
@@ -2917,6 +2924,11 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			}
 		}
 	}
+	var abilityMintWant state.ObjID
+	switch ev.Kind {
+	case events.AbilityPush, events.KeywordAbilityPush, events.GrantAbilityPush, events.GainedAbilityPush:
+		abilityMintWant = e.G.NextID
+	}
 	var tokenMintWant state.ObjID
 	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken || ev.Kind == events.CopyToken {
 		tokenMintWant = e.G.NextID
@@ -2944,6 +2956,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.rechooseDepartedBattleProtector(stored.Player)
 	}
 	e.publishTokenEntry(stored, tokenMintWant)
+	e.recordTurnLedgers(stored, abilityMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
 		*e.stackCopyMintSink = append(*e.stackCopyMintSink, stackCopyMintWant)
 	}
@@ -3039,6 +3052,8 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	if stored.Kind == events.TurnChange {
 		e.combatHitsThisTurn = nil
 		e.counterAddsThisTurn = nil
+		e.activationsThisTurn = nil
+		e.crimeSeatsThisTurn = 0
 	}
 	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
 	// setname.go: keep the layer-3 rename table the filter tier reads in step

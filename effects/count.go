@@ -1060,6 +1060,17 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// `Amount` property, this sizes the token; the corpus's `/Twice` op
 		// rides the ordinary applyCountOp suffix.
 		return paidCostTargets(c, "Exiled"), true
+	case "Equipped", "Enchanted", "AttachedTo":
+		// The object the source is attached to (Glamdring's "where X is
+		// equipped creature's power", Equipped$CardPower). Claimed here rather
+		// than through the defined-targets fallback below, which refuses an
+		// empty set: an unattached Equipment names NO creature, and "its
+		// power" is then a legitimate zero, not an unreadable body.
+		g := h.Game()
+		if o := g.Obj(c.Source); o != nil && o.AttachedTo != 0 && g.Obj(o.AttachedTo) != nil {
+			return []state.Target{{Obj: o.AttachedTo}}, true
+		}
+		return nil, true
 	case "TargetedObjects", "TargetedObjectsDistinct":
 		// Forge's TargetedObjects referent (AbilityUtils.calcX's
 		// `calcX[0].startsWith("TargetedObjects")` arm): the UNION of every
@@ -1820,6 +1831,27 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 			return aggregateCastSourceProperty(h, h.EachSpellCastThisTurnMatching(c.Controller, stripped, c.Source), prop)
 		}
 		return int32(h.SpellsCastThisTurnMatching(c.Controller, rest)), true
+	}
+	// ThisTurnActivated_<spec> (Professor Hojo's and Tezzeret, Betrayer of
+	// Flesh's "the first activated ability ... each turn" gates, the Equip/
+	// Cycling/Exhaust families' counts): the activated abilities activated
+	// this turn matching an `Activated.<props>` spec, the in-flight
+	// activation being priced (Ctx.AffectedAbility) included -- Forge records
+	// an activation before its cost is adjusted, which is why those gates
+	// read LE1. The spec keeps its spaces (IsTargeting Valid <spec>), so the
+	// arm runs before the head split, exactly as ThisTurnCast_ does. The log
+	// fold lives in rules; a Host without it leaves the head unmodelled.
+	if rest, ok := strings.CutPrefix(body, "ThisTurnActivated_"); ok {
+		// The Ctx's fields are passed by value, never the *Ctx itself: a Ctx
+		// handed to an interface method escapes, and the hot layer walk
+		// builds one per object (TestEvalCountValidZoneScanIsAllocationFree).
+		provider, okP := h.(interface {
+			AbilitiesActivatedThisTurnMatching(you state.PlayerID, affected state.ObjID, ab *cards.SA, targets []state.Target, spec string) (int32, bool)
+		})
+		if !okP {
+			return 0, false
+		}
+		return provider.AbilitiesActivatedThisTurnMatching(c.Controller, c.AffectedObj, c.AffectedAbility, c.Targets, strings.TrimSpace(rest))
 	}
 	head, arg, _ := strings.Cut(body, " ")
 	arg = strings.TrimSpace(arg)

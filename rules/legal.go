@@ -779,6 +779,68 @@ func (e *Engine) ownReduceCost(p state.PlayerID, id state.ObjID, ab *cards.SA, t
 	return 0
 }
 
+// ownReduceManaShape parses an ability's ReduceCost$ as a MANA COST (Kami of
+// Jealous Thirst's `ReduceCost$ 4 B`): the coloured pips and generic it
+// removes per unit. ok is false for the numeric/SVar-name form
+// ownReduceCost reads, and for any cost that is not plain mana.
+func ownReduceManaShape(v string) (col state.Mana, gen int32, ok bool) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return col, 0, false
+	}
+	if _, err := strconv.Atoi(v); err == nil {
+		return col, 0, false
+	}
+	col, gen, life, plain := raiseFromCost(v)
+	if !plain || life != 0 || col.Total()+gen == 0 {
+		return col, 0, false
+	}
+	return col, gen, true
+}
+
+// ownManaReduction composes an ability's own mana-cost ReduceCost$ into one
+// reduction: the parsed pips times ReduceAmount$ (Forge's
+// CostAdjustment.adjust repeats the ReduceCost$ cost that many times; absent
+// means once). ReduceAmount$ is read through the same evaluator
+// ownReduceCost uses (Kami's Count$Compare Y GE3.1.0 over
+// Count$YouDrewThisTurn -- 1 once you have drawn three cards this turn, else
+// 0), and an unreadable body reduces nothing, the fail-closed direction.
+// The coloured part is a Color$-style reduction (hasColor): a {B} pip with no
+// matching pip in the cost spills to generic exactly as a colour reduction
+// does.
+func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA, targets []state.Target) (costMod, bool) {
+	col, gen, ok := ownReduceManaShape(ab.Params["ReduceCost"])
+	if !ok {
+		return costMod{}, false
+	}
+	n := int32(1)
+	if raw := strings.TrimSpace(ab.Params["ReduceAmount"]); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil {
+			n = int32(v)
+		} else {
+			svars := e.pileSVars(id, 0)
+			body := raw
+			if b, found := svars[raw]; found {
+				body = b
+			}
+			v, evaluated := effects.EvalCountOK(e, &effects.Ctx{Source: id, Controller: p, SVars: svars, Targets: targets}, body)
+			if !evaluated {
+				return costMod{}, false
+			}
+			n = v
+		}
+	}
+	if n <= 0 {
+		return costMod{}, false
+	}
+	red := costMod{generic: addClampedGeneric(0, int64(gen)*int64(n))}
+	for i := range col {
+		red.colored[i] = addClampedGeneric(0, int64(col[i])*int64(n))
+	}
+	red.hasColor = col.Total() > 0
+	return red, true
+}
+
 // ownReduceCostOffer is ownReduceCost's offer-time reading for a body that
 // reads a ROOT target ref (Targeted$CardPower, CR 702.6's equip target). The
 // ability's own targets do not exist until CR 601.2c, so a plain nil-target

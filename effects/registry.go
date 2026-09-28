@@ -957,6 +957,18 @@ type Ctx struct {
 	ClashTop          bool
 	Source            state.ObjID
 	Controller        state.PlayerID
+	// AffectedObj is the object a static ability is being evaluated FOR --
+	// Forge's "affected" card, whose AffectedX amount a static reads relative
+	// to it. rules binds it on a cost-modifier static's Amount$ evaluation
+	// (modAmountX): the spell or ability source being priced. Cemetery
+	// Prowler's Count$TypesSharedWith reads the card types the priced spell
+	// shares with the cards exiled with the Prowler. Zero means unbound; a
+	// head that reads it falls back to Source (Forge's host card).
+	AffectedObj state.ObjID
+	// AffectedAbility is the activated ability being priced when AffectedObj
+	// is an ability's source (nil for a spell): the in-flight activation a
+	// Count$ThisTurnActivated_ gate counts alongside this turn's earlier ones.
+	AffectedAbility *cards.SA
 	// PromisedGiftOverride is bound only by rules' pre-election target-feasibility
 	// census, which must consider either branch before the player elects Gift.
 	PromisedGiftOverride *bool

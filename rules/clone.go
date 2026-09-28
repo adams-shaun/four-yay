@@ -86,6 +86,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// own ledger.
 		combatHitsThisTurn:  append([]effects.CombatDamageHit(nil), e.combatHitsThisTurn...),
 		counterAddsThisTurn: cloneCounterAddsThisTurn(e.counterAddsThisTurn),
+		activationsThisTurn: cloneActivationsThisTurn(e.activationsThisTurn),
+		crimeSeatsThisTurn:  e.crimeSeatsThisTurn,
 		format:              e.format,
 		rng:                 e.rng.clone(),
 		orderedTriggers:     e.orderedTriggers,
