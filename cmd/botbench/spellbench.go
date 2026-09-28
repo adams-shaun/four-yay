@@ -62,6 +62,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/spellbench/registry"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -157,8 +158,11 @@ type sbResult struct {
 	stats     [2]builtins.Stats
 }
 
-// sbDisplayName is the ledger name for a policy: az carries its world and
-// simulation count so a clairvoyant number can never be read as a fair one.
+// sbDisplayName is the ledger name for a policy. A spec resolves through
+// internal/spellbench/registry and the spec string is itself the ledger
+// name (a composed candidate shows up under its composed name), except az:
+// it carries its world and simulation count so a clairvoyant number can
+// never be read as a fair one.
 func sbDisplayName(policy string) string {
 	if policy == "az" {
 		return fmt.Sprintf("az-clairvoyant-sims%d", azCfg.Search.Sims)
@@ -215,7 +219,13 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	var res sbResult
 	seats := make([]seat.Seat, 2)
 	for s := 0; s < 2; s++ {
-		seats[s] = policies[g.seats[s]](g.seed ^ uint64(s+1))
+		// The names were validated by spellbenchExit; a build failure here
+		// is a programming error, so it panics like the old nil map entry.
+		s0, err := registry.Build(g.seats[s], g.seed^uint64(s+1))
+		if err != nil {
+			panic("spellbench: " + err.Error())
+		}
+		seats[s] = s0
 	}
 	cfg := rules.Config{
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
@@ -323,17 +333,16 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	seen := map[string]bool{}
 	azSide := false
 	for _, b := range bots {
-		if _, ok := policies[b]; !ok {
-			return fail(fmt.Errorf("unknown policy %q; built-in policies: %s", b, strings.Join(builtinPolicyNames(), ", ")))
-		}
-		if b == "policynet" || b == "search" {
-			return fail(fmt.Errorf("policy %q is not supported by -spellbench", b))
+		// Every name is a registry spec ("bot", "bot+passguard"); the
+		// error names the registered policies for an unknown base.
+		if err := registry.CheckSpec(b); err != nil {
+			return fail(err)
 		}
 		if seen[b] {
 			return fail(fmt.Errorf("policy %q listed twice", b))
 		}
 		seen[b] = true
-		if b == "az" {
+		if b == "az" || strings.HasPrefix(b, "az+") {
 			azSide = true
 		}
 	}
