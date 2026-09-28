@@ -337,7 +337,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			decks[p] = append(decks[p], filler)
 		}
 	}
-	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens}
+	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens, NameUniverse: r.reg.Cards}
 	switch sc.Format {
 	case "", "constructed":
 	case "commander":

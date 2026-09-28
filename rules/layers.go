@@ -2623,6 +2623,9 @@ func removedSubtype(word, removedType string, current []string, universe []*card
 			if len(removedSubtypeCache.m) >= 64 {
 				removedSubtypeCache.m = nil
 			}
+			if removedSubtypeCache.m == nil {
+				removedSubtypeCache.m = make(map[landTypeWordsKey]map[string]map[string]struct{})
+			}
 			removedSubtypeCache.m[key] = byType
 		}
 		removedSubtypeCache.mu.Unlock()
@@ -2652,7 +2655,19 @@ func noOtherCardType(types []string, removedType string) bool {
 }
 
 func buildRemovedSubtypeMap(universe []*cards.Card) map[string]map[string]struct{} {
-	byType := make(map[string]map[string]struct{})
+	// A face's flat type line does not say which type owns a subtype when the
+	// face has multiple card types (e.g. Purphoros is an Enchantment Creature
+	// God). Infer ownership only from unambiguous one-card-type faces; the
+	// creature vocabulary supplies the creature-owned subtypes that occur only
+	// on multi-type creatures such as the Theros gods.
+	owners := make(map[string]map[string]struct{})
+	addOwner := func(word, typ string) {
+		word, typ = strings.ToLower(word), strings.ToLower(typ)
+		if owners[word] == nil {
+			owners[word] = make(map[string]struct{})
+		}
+		owners[word][typ] = struct{}{}
+	}
 	for _, card := range universe {
 		if card == nil {
 			continue
@@ -2661,21 +2676,52 @@ func buildRemovedSubtypeMap(universe []*cards.Card) map[string]map[string]struct
 			if face == nil {
 				continue
 			}
-			for _, typ := range face.Types {
-				if !isCardType(typ) {
-					continue
-				}
-				set := byType[strings.ToLower(typ)]
-				if set == nil {
-					set = make(map[string]struct{})
-					byType[strings.ToLower(typ)] = set
-				}
-				for _, word := range face.Types {
-					if !isCardType(word) && !isSupertype(word) {
-						set[strings.ToLower(word)] = struct{}{}
-					}
+			var onlyType string
+			count := 0
+			for _, word := range face.Types {
+				if isCardType(word) {
+					count++
+					onlyType = word
 				}
 			}
+			if count != 1 {
+				continue
+			}
+			for _, word := range face.Types {
+				if !isCardType(word) && !isSupertype(word) {
+					addOwner(word, onlyType)
+				}
+			}
+		}
+	}
+	// The creature taxonomy is independently known even where the only corpus
+	// examples are multi-type creatures. Add those words only if no other
+	// single-type evidence assigns them to another card type.
+	for _, card := range universe {
+		if card == nil {
+			continue
+		}
+		for _, face := range card.Faces {
+			if face == nil {
+				continue
+			}
+			for _, word := range face.Types {
+				if effects.CreatureTypeWords(word) {
+					addOwner(word, "Creature")
+				}
+			}
+		}
+	}
+	byType := make(map[string]map[string]struct{})
+	for word, types := range owners {
+		if len(types) != 1 {
+			continue
+		}
+		for typ := range types {
+			if byType[typ] == nil {
+				byType[typ] = make(map[string]struct{})
+			}
+			byType[typ][word] = struct{}{}
 		}
 	}
 	return byType
