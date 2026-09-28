@@ -615,6 +615,11 @@ func TestCrashedMatchFeedbackCaptureStillTrims(t *testing.T) {
 // and a new head; no intent moved (provenance changes no decision).
 // Re-recorded via TestGenerateOvershootCapture: 2138 events, 378 intents,
 // head 55f5cbb8b801acb7.
+// lifeLost1: effLoseLife now publishes AFLifeLost on its source after each
+// instruction. Four StoreSVar events (seqs 179, 1695, 1722, 2086) are the
+// only difference from that stream apart from shifted seqs/head. Re-recorded
+// via TestGenerateOvershootCapture: 2142 events, 378 intents, head
+// 5775daf7a611571c.
 const committedCaptureRel = "../cmd/repro/testdata/feedback/20260915T094418Z-e484f1db"
 
 // requireCommittedCapture skips when the worktree has no .cards/ corpus:
@@ -646,8 +651,8 @@ func TestCommittedOvershootCaptureReplaysToTheParkedAsk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("feedback.Load: %v", err)
 	}
-	if n := len(l.Events); n != 2138 {
-		t.Fatalf("capture carries %d events, want the full 2138-event stream (re-recorded)", n)
+	if n := len(l.Events); n != 2142 {
+		t.Fatalf("capture carries %d events, want the full 2142-event stream (re-recorded)", n)
 	}
 	e, err := replay.Replay(l, cfg)
 	if err != nil {

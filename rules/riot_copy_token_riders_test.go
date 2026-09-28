@@ -29,6 +29,7 @@ import (
 // election, so the copy mints synchronously inside the resolving effect's own
 // EmitTokenCreate.
 func TestRiotCopyKeepsTokenEffectRiders(t *testing.T) {
+	t.Parallel()
 	for _, cp := range []struct {
 		name string
 		esix bool

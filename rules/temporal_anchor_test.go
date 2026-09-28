@@ -149,6 +149,7 @@ func anchorOnBattlefield(t *testing.T, seed uint64) (*Engine, Config, state.ObjI
 //     the one card bottomed (not the two looked at), exiling exactly that
 //     card from the BOTTOM of the library.
 func TestTemporalAnchorScryBottomTrigger(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:Scry"] {
 		t.Fatal("effects.Supported() is missing trig:Scry: the mode would not count as implemented")
 	}

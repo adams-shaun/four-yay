@@ -204,6 +204,7 @@ func replayCheck(t *testing.T, e *Engine, cfg Config) {
 }
 
 func TestXIsChosenAndRecorded(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 20, "Name:Endless\nManaCost:X\nTypes:Creature Eldrazi\nPT:0/0\nOracle:x\n")
 	addMana(t, e, 0, "GGG") // helper: three ManaAdd events into seat 0's pool
 	castFirst(t, e, "cast")
@@ -223,6 +224,7 @@ func TestXIsChosenAndRecorded(t *testing.T) {
 }
 
 func TestKickerOffersASecondCastOptionAndFlagsTheSpell(t *testing.T) {
+	t.Parallel()
 	src := "Name:Whacker\nManaCost:R\nTypes:Creature Goblin\nPT:1/1\nK:Kicker:R\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self+kicked | Execute$ TrigPump | TriggerDescription$ if kicked\n" +
 		"SVar:TrigPump:DB$ PumpAll | ValidCards$ Creature.YouCtrl | NumAtt$ +1\nOracle:x\n"
@@ -255,6 +257,7 @@ func TestKickerOffersASecondCastOptionAndFlagsTheSpell(t *testing.T) {
 }
 
 func TestSurgeNeedsAnotherSpellThisTurn(t *testing.T) {
+	t.Parallel()
 	src := "Name:Reckless\nManaCost:2 R\nTypes:Creature Goblin\nPT:2/1\nK:Surge:1 R\nK:Haste\nOracle:x\n"
 	boltSrc := "Name:Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n"
 	e, _, reckless := newFixtureDeck(t, 24, src, boltSrc)
@@ -289,6 +292,7 @@ func TestSurgeNeedsAnotherSpellThisTurn(t *testing.T) {
 }
 
 func TestFlashbackCastsFromTheGraveyardPaysASacrificeAndExiles(t *testing.T) {
+	t.Parallel()
 	src := "Name:Therapy\nManaCost:B\nTypes:Sorcery\nK:Flashback:Sac<1/Creature>\n" +
 		"A:SP$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -322,6 +326,7 @@ func TestFlashbackCastsFromTheGraveyardPaysASacrificeAndExiles(t *testing.T) {
 }
 
 func TestDelveExilesFromTheGraveyardToPayGeneric(t *testing.T) {
+	t.Parallel()
 	src := "Name:Angler\nManaCost:6 B\nTypes:Creature Zombie Fish\nPT:5/5\nK:Delve\nOracle:x\n"
 	junkSrc := "Name:Junk\nManaCost:1\nTypes:Sorcery\nOracle:x\n"
 	e, cfg, angler := newFixtureDeck(t, 26, src, junkSrc, junkSrc, junkSrc, junkSrc)
@@ -361,6 +366,7 @@ func TestDelveExilesFromTheGraveyardToPayGeneric(t *testing.T) {
 // must not ask an exile decision at all -- the cast goes straight from the
 // priority option to the stack, paying the full generic requirement.
 func TestDelveSkipsCleanlyWithAnEmptyGraveyard(t *testing.T) {
+	t.Parallel()
 	src := "Name:Angler\nManaCost:6 B\nTypes:Creature Zombie Fish\nPT:5/5\nK:Delve\nOracle:x\n"
 	e, cfg, angler := newFixtureDeck(t, 28, src)
 	addMana(t, e, 0, "BBBBBBB")
@@ -381,6 +387,7 @@ func TestDelveSkipsCleanlyWithAnEmptyGraveyard(t *testing.T) {
 // TestXZeroIsTheOnlyOption: with no mana at all, {X} still offers X = 0 as
 // the sole option and the spell is cast for free.
 func TestXZeroIsTheOnlyOption(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 29, "Name:Endless\nManaCost:X\nTypes:Creature Eldrazi\nPT:0/0\nOracle:x\n")
 	toMain1(t, e)
 	castFirst(t, e, "cast")
@@ -403,6 +410,7 @@ func TestXZeroIsTheOnlyOption(t *testing.T) {
 // only reachable from a hand-built intent -- exactly the stranding risk the
 // review called out.)
 func TestUnderDelveAbortsTheCast(t *testing.T) {
+	t.Parallel()
 	src := "Name:Angler\nManaCost:6 B\nTypes:Creature Zombie Fish\nPT:5/5\nK:Delve\nOracle:x\n"
 	junkSrc := "Name:Junk\nManaCost:1\nTypes:Sorcery\nOracle:x\n"
 	e, cfg, angler := newFixtureDeck(t, 30, src, junkSrc)
@@ -438,6 +446,7 @@ func TestUnderDelveAbortsTheCast(t *testing.T) {
 // -- effCounter must not send it back to the graveyard where it could be
 // flashbacked again.
 func TestFlashbackedSpellCounteredGoesToExile(t *testing.T) {
+	t.Parallel()
 	src := "Name:Therapy\nManaCost:B\nTypes:Sorcery\nK:Flashback:Sac<1/Creature>\n" +
 		"A:SP$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -473,6 +482,7 @@ func TestFlashbackedSpellCounteredGoesToExile(t *testing.T) {
 // actually satisfiable -- otherwise the cast flow would ask a sacrifice
 // decision with no options and the game could never leave the cast.
 func TestAlternativeCostWithSacPartIsGatedOnCastable(t *testing.T) {
+	t.Parallel()
 	src := "Name:Zap\nManaCost:2 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\n" +
 		"S:Mode$ AlternativeCost | ValidCard$ Card.Self | Cost$ Sac<1/Creature>\nOracle:x\n"
 	// No creatures: the base cost is castable off three red, but the

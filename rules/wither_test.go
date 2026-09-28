@@ -44,6 +44,7 @@ func witherCounterChanges(e *Engine, target state.ObjID, amount int32) int {
 }
 
 func TestWitherVillagePillagersETBDamageAllDealsCounters(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	target := onBoard(t, e, 1, "Name:Target\nTypes:Creature\nPT:4/4\nOracle:x\n")
 	source := onBoardCard(t, e, 0, witherCorpusCard(t, "v/village_pillagers.txt"))
@@ -78,6 +79,7 @@ func TestWitherVillagePillagersETBDamageAllDealsCounters(t *testing.T) {
 }
 
 func TestWitherGrantedKeywordStartsAndStopsWithStatic(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	grantor := onBoardCard(t, e, 0, witherCorpusCard(t, "m/massacre_girl_known_killer.txt"))
 	source := onBoard(t, e, 0, "Name:Bear\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -103,6 +105,7 @@ func TestWitherGrantedKeywordStartsAndStopsWithStatic(t *testing.T) {
 }
 
 func TestWitherCombatDamageToBlockerUsesCounterForm(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardCard(t, e, 0, witherCorpusCard(t, "n/necroskitter.txt"))
 	e.G.Obj(atk).SummonSick = false
@@ -117,6 +120,7 @@ func TestWitherCombatDamageToBlockerUsesCounterForm(t *testing.T) {
 }
 
 func TestWitherDamageToPlayerRemainsOrdinary(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	source := onBoardCard(t, e, 0, witherCorpusCard(t, "v/village_pillagers.txt"))
 	before := e.G.Players[1].Life
@@ -136,6 +140,7 @@ func TestWitherDamageToPlayerRemainsOrdinary(t *testing.T) {
 }
 
 func TestWitherNoncombatPlayerHitRedirectsToCreatureCounters(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	source := onBoardCard(t, e, 0, witherCorpusCard(t, "v/village_pillagers.txt"))
 	giant := onBoardCard(t, e, 1, witherCorpusCard(t, "p/palisade_giant.txt"))
@@ -157,6 +162,7 @@ func TestWitherNoncombatPlayerHitRedirectsToCreatureCounters(t *testing.T) {
 }
 
 func TestWitherCombatPlayerHitRedirectsToCreatureCounters(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	e.G.Active = 1
 	giant := onBoardCard(t, e, 0, witherCorpusCard(t, "p/palisade_giant.txt"))
@@ -181,6 +187,7 @@ func TestWitherCombatPlayerHitRedirectsToCreatureCounters(t *testing.T) {
 }
 
 func TestWitherPreventedCombatHitPlacesNoCounter(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	source := onBoardCard(t, e, 0, witherCorpusCard(t, "v/village_pillagers.txt"))
 	e.G.Obj(source).SummonSick = false
@@ -212,6 +219,7 @@ func TestWitherPreventedCombatHitPlacesNoCounter(t *testing.T) {
 }
 
 func TestWitherCounterChangeTriggersWickersmithsTools(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	tools := onBoardCard(t, e, 0, witherCorpusCard(t, "w/wickersmiths_tools.txt"))
 	source := onBoardCard(t, e, 0, witherCorpusCard(t, "v/village_pillagers.txt"))

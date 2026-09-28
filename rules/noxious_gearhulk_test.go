@@ -27,6 +27,7 @@ import (
 )
 
 func TestNoxiousGearhulkGainsDestroyedCreatureToughness(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	gearhulk := mustCorpusCard(t, reg, "Noxious Gearhulk")
 

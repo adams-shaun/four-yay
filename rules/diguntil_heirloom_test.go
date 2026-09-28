@@ -210,6 +210,7 @@ func countPublicRevealNote(e *Engine, ids []state.ObjID) int {
 // the Hill Giant is turned over first. The Cub reaches hand; the revealed
 // Giant returns to the bottom (a one-card pile has no order to shuffle).
 func TestHeirloomBladeDigUntilSharesCreatureTypeWithTheDeadBearer(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, _, _, cubID, giantID := heirloomTestEngine(t, reg, true)
 	d := heirloomMurderBearer(t, e, findHandCard(t, e, "Murder"), mustBearer(t, e))
@@ -250,6 +251,7 @@ func TestHeirloomBladeDigUntilSharesCreatureTypeWithTheDeadBearer(t *testing.T) 
 // (RevealRandomOrder$ True) — the CORRECT CR reading, asserted as such, no
 // special case.
 func TestHeirloomBladeDigUntilNoMatchRevealsAndBottomsTheWholeLibrary(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, _, _, _, giantID := heirloomTestEngine(t, reg, false)
 	d := heirloomMurderBearer(t, e, findHandCard(t, e, "Murder"), mustBearer(t, e))

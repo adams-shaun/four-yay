@@ -21,6 +21,7 @@ func hasAbilityAction(actions []decision.Option, obj state.ObjID, ability int) b
 // card's CheckSVar gate through the real TokenCreate path. The entry history
 // makes the ability legal only for the turn in which the token was created.
 func TestIdolOfOblivionTokenCreatedGateOpensThisTurn(t *testing.T) {
+	t.Parallel()
 	idolCard := choiceCorpusCard(t, "Idol of Oblivion")
 	makerCard := cardByName(t, tokenForgeSrc("c_a_food_sac"))
 	e, cfg := tokenReplGame(t, 940, idolCard, makerCard)

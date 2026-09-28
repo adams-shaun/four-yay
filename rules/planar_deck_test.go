@@ -10,6 +10,7 @@ import (
 )
 
 func TestPlanarDeckGenesisAndWalkReplay(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	planeA := searchCorpusCard(t, reg, "Aretopolis")
 	planeB := searchCorpusCard(t, reg, "Pools of Becoming")

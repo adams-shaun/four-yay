@@ -104,6 +104,7 @@ func TestCountLeftZoneThisTurn(t *testing.T) {
 // reads PlayerCountPlayers$AttackersDeclared EQ0 -- unmodelled, the end-step
 // trigger never fired at all.
 func TestChargingCinderhornNoAttackGate(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, corpusCard(t, "Charging Cinderhorn"))
 	if n := stepTriggers(e, state.StepEnd, 1); n != 1 {
@@ -156,6 +157,7 @@ func TestLastTurnHeads(t *testing.T) {
 // PresentCompare$ EQX with X the nonland-permanent count; the SVar
 // right-hand side failed the comparison closed, so it never fired.
 func TestZealotsEnDalPresentCompareSVar(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, corpusCard(t, "Zealots en-Dal"))
 	onBoardCard(t, e, 0, corpusCard(t, "Plains"))
@@ -185,6 +187,7 @@ func abilityWithAPI(t *testing.T, e *Engine, id state.ObjID, api string) int {
 // Doom's owner gains control of it" (ValidTgts$ Player.!CardOwner) matched
 // nobody, so the ability could never be activated.
 func TestCrownOfDoomTargetsANonOwner(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	crown := onBoardCard(t, e, 0, corpusCard(t, "Crown of Doom"))
 	ab := e.G.Obj(crown).Face().Abilities[abilityWithAPI(t, e, crown, "GainControl")]
@@ -201,6 +204,7 @@ func TestCrownOfDoomTargetsANonOwner(t *testing.T) {
 // Creature.hasAbility Activated.hasTapCost -- a creature with a {T} ability
 // is a legal target, a vanilla creature is not.
 func TestMagewrightsStoneTargetsATapAbilityCreature(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	stone := onBoardCard(t, e, 0, corpusCard(t, "Magewright's Stone"))
 	sorcerer := onBoardCard(t, e, 0, corpusCard(t, "Prodigal Sorcerer"))
@@ -245,6 +249,7 @@ func resolveStack(t *testing.T, e *Engine) {
 // Card.Self+suspended | PresentZone$ Exile) was never offered: the offer
 // walk skipped exile and the present gate counted the battlefield.
 func TestGreaterGargadonActivatesFromExile(t *testing.T) {
+	t.Parallel()
 	e, cfg, gargadon := newFixtureDeck(t, 311, corpusCardText(t, "g/greater_gargadon.txt"))
 	from := e.G.Obj(gargadon).Zone
 	e.emit(events.Event{Kind: events.MoveZone, Obj: gargadon, From: from, To: state.ZExile})
@@ -285,6 +290,7 @@ func TestGreaterGargadonActivatesFromExile(t *testing.T) {
 // of unspent mana you have" (Produced$ Special DoubleManaInPool) emitted a
 // loud "unhandled Produced$" Note and no mana.
 func TestDoublingCubeDoublesThePool(t *testing.T) {
+	t.Parallel()
 	e, cfg, cube := newFixtureDeck(t, 312, corpusCardText(t, "d/doubling_cube.txt"))
 	from := e.G.Obj(cube).Zone
 	e.emit(events.Event{Kind: events.MoveZone, Obj: cube, From: from, To: state.ZBattlefield})

@@ -124,6 +124,7 @@ func moveToHand(t *testing.T, e *Engine, id state.ObjID) {
 // rider. Before the fix the rider read the trigger's own source (Scourge,
 // which has no lifelink) and nobody gained life.
 func TestScourgeOfValkasDealsDamageFromTheEnteringDragon(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Scourge of Valkas", "Adult Gold Dragon")
 	dragon := ids["Adult Gold Dragon"]
@@ -168,6 +169,7 @@ func TestScourgeOfValkasDealsDamageFromTheEnteringDragon(t *testing.T) {
 // The real Scourge trigger names its entering Dragon as TriggeredCard; after
 // its target is chosen, that stolen lifelink Dragon leaves before resolution.
 func TestDepartedTriggeredDamageSourceCreditsLastController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Scourge of Valkas", "Adult Gold Dragon")
 	dragon := ids["Adult Gold Dragon"]
@@ -199,6 +201,7 @@ func TestDepartedTriggeredDamageSourceCreditsLastController(t *testing.T) {
 }
 
 func TestKikusShadowDamageSourceTargetedGainsLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Kiku's Shadow", "Adult Gold Dragon")
 	dragon := ids["Adult Gold Dragon"]
@@ -231,6 +234,7 @@ func TestKikusShadowDamageSourceTargetedGainsLife(t *testing.T) {
 // creature). Before the fix the player half of both sweeps silently did
 // nothing.
 func TestPestilenceAndEarthquakeHitPlayers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	e, cfg, ids := dsBoard(t, reg, "Pestilence", "Grizzly Bears")
@@ -300,6 +304,7 @@ func ids2Card(t *testing.T, e *Engine, name string) *cards.Card {
 // answered, and the angel deals 1 to the bolt's controller. Before the fix
 // walker damage emitted only a CounterChange and no trigger saw it.
 func TestFlamebladeAngelTriggersOnBoltToWalker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bolt := mustCorpusCard(t, reg, "Lightning Bolt")
 	e, cfg, ids := dsBoardWith(t, reg, bolt, "Flameblade Angel", "Jace, the Mind Sculptor")
@@ -393,6 +398,7 @@ func passUntilSeat0Priority(t *testing.T, e *Engine, limit int) {
 // lethal bookkeeping sees it) AND two lost loyalty counters, on one Damage
 // event, on a 2/4 body that survives the hit.
 func TestCreaturePlaneswalkerTakesMarkedDamageAndLoyaltyLoss(t *testing.T) {
+	t.Parallel()
 	walker := card(t, "Name:Battle Scholar\nManaCost:2 W W\nTypes:Creature Planeswalker\n"+
 		"Loyalty:4\nPT:2/4\nOracle:synthetic creature-walker probe\n")
 	spark := card(t, "Name:Spark\nManaCost:R\nTypes:Instant\n"+
@@ -461,6 +467,7 @@ func TestCreaturePlaneswalkerTakesMarkedDamageAndLoyaltyLoss(t *testing.T) {
 //     Dragon) fires off the NAMED source, never off the enabler (pre-fix the
 //     trigger read the stack top, the ability wrapper, and stayed silent).
 func TestDamageSourceIsTheSourceProtectionAndTriggersRead(t *testing.T) {
+	t.Parallel()
 	enabler := "Name:Awkward Robot\nManaCost:3\nTypes:Artifact Creature Golem\nPT:0/4\n" +
 		"A:AB$ DealDamage | Cost$ T | ValidTgts$ Creature | NumDmg$ 2 | DamageSource$ Targeted | " +
 		"SpellDescription$ The target deals damage to itself.\nOracle:x\n"
@@ -528,6 +535,7 @@ func TestDamageSourceIsTheSourceProtectionAndTriggersRead(t *testing.T) {
 // of battlefield order (CR 603.10a/702.15c: LKI from immediately before the
 // simultaneous event) -- the controller gains 1 with the damage.
 func TestDestroyAllBatchLifelinkLKIIrrespectiveOfBattlefieldOrder(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, collarFirst := range []bool{true, false} {
 		name := "collar first"
@@ -593,6 +601,7 @@ func TestDestroyAllBatchLifelinkLKIIrrespectiveOfBattlefieldOrder(t *testing.T) 
 // retain the resolving spell's controller when the named lifelink source is
 // opponent-owned.
 func TestNamedDamageSourceCreditsItsController(t *testing.T) {
+	t.Parallel()
 	link := "Name:Opponent Link\nTypes:Creature\nPT:2/5\nK:Lifelink\nOracle:x\n"
 	e := layerEngine(t)
 	id := onBoard(t, e, 1, link)
@@ -611,6 +620,7 @@ func TestNamedDamageSourceCreditsItsController(t *testing.T) {
 // Dig -> exile and end-step ChangeZoneAll -> DamageAll chain sees cards it
 // exiled, rather than treating ExiledWithSource as an unknown predicate.
 func TestValakutExplorationExileProvenanceUsesItsRealScripts(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Valakut Exploration", "Grizzly Bears")
 	val := ids["Valakut Exploration"]
@@ -662,6 +672,7 @@ func TestValakutExplorationExileProvenanceUsesItsRealScripts(t *testing.T) {
 // 2 damage, Spiteful's real trigger makes the creature deal 2 to its own
 // controller. Its controller therefore loses 2 and gains 2, netting 20.
 func TestSpitefulShadowsUsesTriggeredTargetAsDamageSource(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	creature := onBoard(t, e, 1, "Name:Linked Giant\nTypes:Creature Giant\nPT:2/5\nK:Lifelink\nOracle:x\n")
@@ -702,6 +713,7 @@ func TestSpitefulShadowsUsesTriggeredTargetAsDamageSource(t *testing.T) {
 // the live graveyard object has neither that layer nor battlefield counters,
 // so only the preserved trigger LKI can deal 4.
 func TestStalkingVengeanceUsesTheDyingCreaturesDerivedPowerLKI(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Stalking Vengeance", "Grizzly Bears")
 	bear := ids["Grizzly Bears"]
@@ -736,6 +748,7 @@ func TestStalkingVengeanceUsesTheDyingCreaturesDerivedPowerLKI(t *testing.T) {
 // drives the production DealDamage emitter so removing its derived-creature
 // marker makes the marked-damage assertion fail.
 func TestAnimatedWalkerDamageAndCleanup(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	walkerObj := e.G.AddObject(card(t, "Name:Animated Jace\nTypes:Planeswalker Jace\nLoyalty:4\nOracle:x\n"), 0)
 	walker := walkerObj.ID
@@ -757,6 +770,7 @@ func TestAnimatedWalkerDamageAndCleanup(t *testing.T) {
 // TestRefPropertyCountsUseDerivedPT proves Targeted$ properties include
 // continuous modifications and both +1/+1 and -1/-1 counters.
 func TestRefPropertyCountsUseDerivedPT(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, "Name:Count Target\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	e.AddContinuous(state.ContinuousEffect{Source: id, Controller: 0,
@@ -779,6 +793,7 @@ func TestRefPropertyCountsUseDerivedPT(t *testing.T) {
 // itself, and the lifelink rider must pay the CREATURE's controller (seat 1),
 // never the caster. Pre-fix (controller := c.Controller) the +2 went to seat 0.
 func TestNamedDamageSourceRealCastGainsOpponentController(t *testing.T) {
+	t.Parallel()
 	spell := "Name:Redirector\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 2 | DamageSource$ Targeted | " +
 		"SpellDescription$ The target creature deals damage to itself.\nOracle:x\n"
@@ -815,6 +830,7 @@ func TestNamedDamageSourceRealCastGainsOpponentController(t *testing.T) {
 // loyalty 2 -> 4). Pre-fix the clean-up restored loyalty because the
 // conversion ignored the sign of the Damage amount.
 func TestPrintedCreatureWalkerCleanupKeepsLoyalty(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	walker := card(t, "Name:Printed Walker\nTypes:Creature Planeswalker\nLoyalty:4\nPT:2/4\nOracle:x\n")
 	w := e.G.AddObject(walker, 0)
@@ -841,6 +857,7 @@ func TestPrintedCreatureWalkerCleanupKeepsLoyalty(t *testing.T) {
 // DamageSource$ (Self), ensuring the rider's named-source path uses the same
 // LKI controller rather than merely the resolving ability's controller.
 func TestDepartedStolenSourceCreditsLastController(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoard(t, e, 0, "Name:Stolen Spark\nTypes:Creature\nPT:2/2\nK:Lifelink\n"+
 		"A:AB$ DealDamage | Defined$ You | NumDmg$ 2 | DamageSource$ Self\nOracle:x\n")
@@ -872,6 +889,7 @@ func TestDepartedStolenSourceCreditsLastController(t *testing.T) {
 // end-of-batch clear resets batchDamageKeywords so a later departure reads live
 // state rather than a stale pre-batch TRUE entry.
 func TestBatchLifelinkClearedAfterRegeneratedBatchMember(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoard(t, reg, "Prodigal Pyromancer", "Basilisk Collar", "Magus of the Disk")
 	collarID := ids["Basilisk Collar"]

@@ -107,6 +107,7 @@ func landerActivateIndex(d *decision.Decision, src state.ObjID) int {
 // short, so the ability must stay withheld — the offer gate prices the mana
 // exactly, not "some mana exists".
 func TestLanderTokenAbilityOfferedOnlyWhenPoolFunded(t *testing.T) {
+	t.Parallel()
 	e, landers, mounts := landerFixture(t, 1)
 	lander := landers[0]
 	m1, m2 := mounts[0], mounts[1]
@@ -166,6 +167,7 @@ func TestLanderTokenAbilityOfferedOnlyWhenPoolFunded(t *testing.T) {
 // reverted to fail closed, the funded half of this test fails — that is the
 // shape the projection must keep admitting.
 func TestLanderTokenIsAPotentialActionAfterTap(t *testing.T) {
+	t.Parallel()
 	e, landers, mounts := landerFixture(t, 3)
 	if len(landers) != 3 {
 		t.Fatalf("fixture minted %d lander tokens, want 3 (the snapshot's count)", len(landers))

@@ -99,6 +99,7 @@ func (f uniformFixture) stealAndReturn() {
 }
 
 func TestDelayedEventPresentGateCapturedAttachedFires(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, uniformPromiseSource)
 	f := uniformFixtureNew(t, e, src, 0)
@@ -136,6 +137,7 @@ func TestDelayedEventPresentGateCapturedAttachedFires(t *testing.T) {
 }
 
 func TestDelayedEventPresentGateCapturedAttachedHeldBack(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, uniformPromiseSource)
 	// The captured Equipment is attached to seat 1's creature, so the
@@ -175,6 +177,7 @@ func TestDelayedEventPresentGateCapturedAttachedHeldBack(t *testing.T) {
 }
 
 func TestDelayedEventPresentGateDistinctEventObject(t *testing.T) {
+	t.Parallel()
 	// The capture and the firing event's object are DISTINCT: the
 	// registration remembers the Equipment, but the control change happens to
 	// an unrelated creature. The condition must still read the CAPTURED
@@ -236,6 +239,7 @@ func TestDelayedEventPresentGateDistinctEventObject(t *testing.T) {
 }
 
 func TestDelayedEventPresentGateNoPresentClauseStillFires(t *testing.T) {
+	t.Parallel()
 	// A registration whose inline body carries NO IsPresent$ (every
 	// pre-existing event body, e.g. the keyword-minted shapes) must keep
 	// firing ungated -- the binding is additive, never a new universal gate.
@@ -310,6 +314,7 @@ func victimDies(t *testing.T, e *Engine, victim state.ObjID) {
 }
 
 func TestDelayedEventPresentGateCommanderCondition(t *testing.T) {
+	t.Parallel()
 	t.Run("commander on the battlefield fires", func(t *testing.T) {
 		e, src, cmd := throneEngine(t)
 		victim := onBoard(t, e, 1, "Name:Victim\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -397,6 +402,7 @@ func presentZoneRegister(t *testing.T, e *Engine, src, captured state.ObjID, zon
 }
 
 func TestDelayedEventPresentGatePresentZoneAndCompare(t *testing.T) {
+	t.Parallel()
 	t.Run("PresentZone$ Exile counts the capture there", func(t *testing.T) {
 		e := layerEngine(t)
 		src := onBoard(t, e, 0, uniformPromiseSource)

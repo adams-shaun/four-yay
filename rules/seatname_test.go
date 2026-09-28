@@ -44,6 +44,7 @@ func seatNamesGame(t *testing.T, withPlayerNames bool) *Engine {
 // PlayerNames; the transcript convention is "You has priority"
 // (view/describe.go), and the box matching the transcript is the point.
 func TestPriorityPromptUsesSeatFacingName(t *testing.T) {
+	t.Parallel()
 	e := seatNamesGame(t, true)
 	d := e.Pending()
 	want := "turn 1, " + e.G.Step.String() + " — You has priority"
@@ -59,6 +60,7 @@ func TestPriorityPromptUsesSeatFacingName(t *testing.T) {
 // without PlayerNames (mtgsim, chain-head goldens, engine tests) the prompt
 // is byte-identical to the pre-fix composition from the deck-identity Name.
 func TestPriorityPromptFallsBackToDeckName(t *testing.T) {
+	t.Parallel()
 	e := seatNamesGame(t, false)
 	d := e.Pending()
 	want := "turn 1, " + e.G.Step.String() + " — foundations-keen-engineering has priority"
@@ -71,6 +73,7 @@ func TestPriorityPromptFallsBackToDeckName(t *testing.T) {
 // option's "(controller)" suffix read the controller's deck slug in a
 // vs-bot game.
 func TestTargetOptionLabelUsesSeatFacingName(t *testing.T) {
+	t.Parallel()
 	e := seatNamesGame(t, true)
 	hand := e.G.Zone(state.ZHand, 0)
 	if len(hand) == 0 {

@@ -53,6 +53,7 @@ func chainAskDeck(t *testing.T, reg *cards.Registry, fixtures ...string) *Engine
 // deal its 3 damage to no one); the answered player takes the damage exactly
 // once and the sacrifice (the chain root) still happened.
 func TestMoggBombersSubTargetAsked(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Mogg Bombers", "Grizzly Bears")
 	searchMoveByName(t, e, "Mogg Bombers", state.ZBattlefield)
@@ -103,6 +104,7 @@ func TestMoggBombersSubTargetAsked(t *testing.T) {
 // (which used to refuse as "cannot attach: no legal target" -- the equipment
 // targeting itself). The answered creature is what the equipment attaches to.
 func TestKorOutfitterAttachSubAsksItsOwnCreature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Kor Outfitter", "Sword of Light and Shadow")
 	sword := searchMoveByName(t, e, "Sword of Light and Shadow", state.ZBattlefield)
@@ -157,6 +159,7 @@ func TestKorOutfitterAttachSubAsksItsOwnCreature(t *testing.T) {
 // -- and the DBPump tail (Defined$ ParentTarget) must still run against the
 // OUTER placement target, not the empty election.
 func TestRhinoPutCounterMinZeroDeclineNotReasked(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Rhino, Terrible Trampler", "Grizzly Bears",
 		"Sword of Light and Shadow")

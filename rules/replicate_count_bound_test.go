@@ -25,6 +25,7 @@ import (
 // is short of N=3), the composed total 2N+1 (N=3 costs exactly seven). The
 // pre-fix bound priced the raw cost and offered 0..2.
 func TestReplicateCountBoundSeesReduceCostModifier(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := replicateTapEngine(t, "Pyromatics", "Baral, Chief of Compliance")
 	baralCard := searchCorpusCard(t, reg, "Baral, Chief of Compliance")
 	baral := moveSeededCard(t, e, 0, baralCard, state.ZBattlefield)
@@ -92,6 +93,7 @@ func TestReplicateCountBoundSeesReduceCostModifier(t *testing.T) {
 // {3}{R}{R}{R} - {2} = {1}{R}{R}{R}, four units, and is payable. The pre-fix
 // count bound offered 0..1.
 func TestReplicateCountBoundSeesImproviseContribution(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := replicateTapEngine(t, "Pyromatics",
 		"Ironheart, Clever Champion", "Ornithopter")
 	ironheart := moveSeededCard(t, e, 0, searchCorpusCard(t, reg, "Ironheart, Clever Champion"), state.ZBattlefield)

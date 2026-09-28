@@ -96,6 +96,7 @@ func activateCounterSourceAs(t *testing.T, e *Engine, seat state.PlayerID, sourc
 // mutually exclusive on one placement -- there is one adder -- so the counts
 // are exact, not a union.
 func TestVorinclexValidSourceDoublesOwnAndHalvesOpponents(t *testing.T) {
+	t.Parallel()
 	// Own placement: seat 0 owns everything.
 	e, cfg, source, target := vorinclexBoard(t, 211, 0, 0, 3)
 	activateCounterSource(t, e, source, target)
@@ -120,6 +121,7 @@ func TestVorinclexValidSourceDoublesOwnAndHalvesOpponents(t *testing.T) {
 // so an opponent's placement was untouched (never halved); the positive half
 // proves the own line now fires.
 func TestCounterAdderValidSourceYouFiresOwnNotOpponent(t *testing.T) {
+	t.Parallel()
 	// Own half: seat 0 places, so "You" fires and "Opponent" must not.
 	e, cfg, source, target := vorinclexBoard(t, 215, 0, 0, 1)
 	activateCounterSource(t, e, source, target)
@@ -144,6 +146,7 @@ func TestCounterAdderValidSourceYouFiresOwnNotOpponent(t *testing.T) {
 // stack leaves the placement verbatim (3 stays 3) rather than guessing an
 // adder -- even though Vorinclex's controller is the obvious candidate.
 func TestCounterAdderFailClosedWithoutPublishedAdder(t *testing.T) {
+	t.Parallel()
 	e, cfg, _, target := vorinclexBoard(t, 219, 0, 0, 1)
 	// Force an empty stack so actionCause() is 0 and no adder is published.
 	e.G.Stack = nil
@@ -162,6 +165,7 @@ func TestCounterAdderFailClosedWithoutPublishedAdder(t *testing.T) {
 // one loyalty counter the cost adds doubles, and the walker enters at 3 and
 // ends at 5 (3 + 2).
 func TestCounterAdderPublishesAtCostSite(t *testing.T) {
+	t.Parallel()
 	walkerSrc := "Name:Test Walker\nTypes:Planeswalker Test\nLoyalty:3\n" +
 		"A:AB$ GainLife | Cost$ AddCounter<1/LOYALTY> | LifeAmount$ 2 | Planeswalker$ True | SpellDescription$ You gain 2 life.\n" +
 		"Oracle:x\n"
@@ -233,6 +237,7 @@ func modularFixtureSrc(withKeyword bool) string {
 // wrapper's source satisfies ValidCause$ Triggered.Modular; the 1-counter put
 // becomes 2.
 func TestCounterModularCauseTriggered(t *testing.T) {
+	t.Parallel()
 	zabaz := card(t, zabazReplFixtureSrc())
 	fixture := card(t, modularFixtureSrc(true))
 	e, cfg := tokenReplGame(t, 225, zabaz, fixture)
@@ -255,6 +260,7 @@ func TestCounterModularCauseTriggered(t *testing.T) {
 // ValidCause$ Triggered.Modular, so the 1-counter put stays 1. This pins that
 // the qualifier reads the keyword, not merely "some triggered ability".
 func TestCounterModularCauseTriggeredFailsClosed(t *testing.T) {
+	t.Parallel()
 	zabaz := card(t, zabazReplFixtureSrc())
 	fixture := card(t, modularFixtureSrc(false))
 	e, cfg := tokenReplGame(t, 227, zabaz, fixture)
@@ -277,6 +283,7 @@ func TestCounterModularCauseTriggeredFailsClosed(t *testing.T) {
 // never matches. Zabaz's line is emitted over a bare placement with the stack
 // cleared, so the 1-counter put stays 1.
 func TestCounterModularCauseAbsentFailsClosed(t *testing.T) {
+	t.Parallel()
 	zabaz := card(t, zabazReplFixtureSrc())
 	target := card(t, "Name:Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 229, zabaz, target)
@@ -297,6 +304,7 @@ func TestCounterModularCauseAbsentFailsClosed(t *testing.T) {
 // Winding Constrictor's object line) names no ValidCounterType$, so without
 // the guard either one would be doubled. Both markers stay at 1.
 func TestStatusMarkerGuardCoversShieldAndDeathtouched(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		seed   uint64

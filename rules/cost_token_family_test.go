@@ -128,6 +128,7 @@ func chooseX(t *testing.T, e *Engine, x int) {
 // The unpayable shapes are bounded: no mana means no cast option, and the X
 // ask never offers a value beyond the payer's life.
 func TestToxicDelugePaysAnnouncedLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deluge := mustCorpusCard(t, reg, "Toxic Deluge")
 	bear := card(t, "Name:Grizzly\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -197,6 +198,7 @@ func TestToxicDelugePaysAnnouncedLife(t *testing.T) {
 // self-reference asks nothing), the ability resolves, and the mana plus the
 // exile requirement gate the offer.
 func TestBareExileCostExilesTheSource(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	relicCard := mustCorpusCard(t, reg, "Relic of Progenitus")
 	e, cfg, _ := corpusDeckEngine(t, nil, []*cards.Card{relicCard})
@@ -262,6 +264,7 @@ func TestBareExileCostExilesTheSource(t *testing.T) {
 // charge -- see the task report), so the payment path is pinned on a fixture
 // with the same printed token.
 func TestDrawCostDrawsThePayer(t *testing.T) {
+	t.Parallel()
 	// The parse half: the Draw bucket, on the real Riddlesmith script shape.
 	parsed := ParseCost("Draw<1/You>")
 	if len(parsed.Unknown) != 0 || len(parsed.Draw) != 1 || parsed.Draw[0].N != 1 || parsed.Draw[0].Spec != "You" {
@@ -308,6 +311,7 @@ func TestDrawCostDrawsThePayer(t *testing.T) {
 // and deals X to the target. Before the announced form was modelled the cost
 // degraded to one generic, no X was announced, and the ultimate dealt zero.
 func TestAnnouncedSubCounterCostRemovesCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	chandraCard := mustCorpusCard(t, reg, "Chandra, Awakened Inferno")
 	ult := -1
@@ -378,6 +382,7 @@ func TestAnnouncedSubCounterCostRemovesCounters(t *testing.T) {
 // end to end on the corpus card (the decline arm is the existing
 // sacrifice_unless_pay_test.go's).
 func TestDamageYouCostModelledAndPaid(t *testing.T) {
+	t.Parallel()
 	parsed := ParseCost("DamageYou<4>")
 	if len(parsed.Unknown) != 0 || len(parsed.DamageYou) != 1 || parsed.DamageYou[0].N != 4 {
 		t.Fatalf("ParseCost(\"DamageYou<4>\") = %+v, want one DamageYou part and no Unknown", parsed)
@@ -417,6 +422,7 @@ func TestDamageYouCostModelledAndPaid(t *testing.T) {
 // pays exactly half their life rounded up, and the body resolves. The
 // announcement menu the r2 build posed (an arbitrary 0..life X) is gone.
 func TestSVarFixedPayLifeXPaysItsBody(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	betrayalCard := mustCorpusCard(t, reg, "Murderous Betrayal")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -478,6 +484,7 @@ func TestSVarFixedPayLifeXPaysItsBody(t *testing.T) {
 // (life below the fixed price) withholds the ability instead of offering a
 // cheaper announcement.
 func TestFixedLifeXSVarCountsCounters(t *testing.T) {
+	t.Parallel()
 	src := "Name:VelocityEngine\nTypes:Enchantment\n" +
 		"A:AB$ GainLife | Cost$ 2 G PayLife<X> | Defined$ You | LifeAmount$ 1\n" +
 		"SVar:X:Count$CardCounters.CHARGE/Times.3\nOracle:x\n"
@@ -541,6 +548,7 @@ func TestFixedLifeXSVarCountsCounters(t *testing.T) {
 // format gate the ability would be a free {3},{T} draw here. The land's
 // mana ability is unaffected.
 func TestFixedLifeXUnresolvableWithheld(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	warRoomCard := mustCorpusCard(t, reg, "War Room")
 	e, cfg, _ := corpusDeckEngine(t, nil, []*cards.Card{warRoomCard})
@@ -567,6 +575,7 @@ func TestFixedLifeXUnresolvableWithheld(t *testing.T) {
 // the X ask is still posed and the settle pays exactly the chosen value of
 // both.
 func TestFreePayLifeXSharedAnnouncementStands(t *testing.T) {
+	t.Parallel()
 	src := "Name:LifeLedger\nTypes:Artifact Creature\nPT:1/1\n" +
 		"A:AB$ GainLife | Cost$ X B PayLife<X> | Defined$ You | LifeAmount$ 2\n" +
 		"SVar:X:Count$xPaid\nOracle:x\n"
@@ -602,6 +611,7 @@ func TestFreePayLifeXSharedAnnouncementStands(t *testing.T) {
 // part of the same cost, the controller fallback keeps the payment honest
 // instead of panicking on the gone source.
 func TestDamageYouCostPaidFromAbilityCost(t *testing.T) {
+	t.Parallel()
 	src := "Name:PainEngine\nTypes:Artifact Creature\nPT:1/1\nK:Lifelink\n" +
 		"A:AB$ GainLife | Cost$ DamageYou<4> | Defined$ You | LifeAmount$ 2\nOracle:x\n"
 	engine := card(t, src)

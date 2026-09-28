@@ -96,6 +96,7 @@ func unearthAbilityOptionLabel(t *testing.T, e *Engine, id state.ObjID) int {
 // K:Unearth line must expand to exactly one graveyard-zone ChangeZone ability
 // tagged Unearth, and the expansion must be idempotent across a second Link.
 func TestUnearthKeywordExpandsToGraveyardAbility(t *testing.T) {
+	t.Parallel()
 	c := card(t, "Name:Test Unearther\nManaCost:1 B\nTypes:Creature Zombie\nPT:2/2\nK:Unearth:1 B\nOracle:x\n")
 	count := func(f *cards.Face) int {
 		n := 0
@@ -141,6 +142,7 @@ func TestUnearthKeywordExpandsToGraveyardAbility(t *testing.T) {
 // must leave effects.Supported()'s unsupported set, and a real corpus carrier
 // must no longer name it as a missing primitive.
 func TestUnearthPrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	if !supported["kw:Unearth"] {
 		t.Fatal(`effects.Supported() is missing "kw:Unearth"`)
@@ -161,6 +163,7 @@ func TestUnearthPrimitiveIsRegistered(t *testing.T) {
 // the next end step's delayed trigger exiles it -- with the registration
 // consumed, not orphaned.
 func TestUnearthActivatesFromGraveyardGainsHasteAndExilesAtEndStep(t *testing.T) {
+	t.Parallel()
 	reg := freshUnearthRegistry(t)
 	e, cfg, _ := altCostEngineReg(t, 951, reg, []string{"Ashnod's Harvester"}, nil, nil)
 	id := findCardObj(t, e, 0, "Ashnod's Harvester", state.ZGraveyard)
@@ -204,12 +207,14 @@ func TestUnearthActivatesFromGraveyardGainsHasteAndExilesAtEndStep(t *testing.T)
 // actual destination must be exile, and the end-step promise must not later
 // move the exiled card again.
 func TestUnearthExilesInsteadOfLeavingToHand(t *testing.T) {
+	t.Parallel()
 	unearthRedirectTest(t, 952, state.ZHand)
 }
 
 // TestUnearthExilesInsteadOfLeavingToGraveyard is the same replacement for a
 // would-be graveyard departure (a destroy/dies move).
 func TestUnearthExilesInsteadOfLeavingToGraveyard(t *testing.T) {
+	t.Parallel()
 	unearthRedirectTest(t, 953, state.ZGraveyard)
 }
 
@@ -254,6 +259,7 @@ func unearthRedirectTest(t *testing.T, seed uint64, intended state.Zone) {
 // activated ability: the unearth offer must exist (label-selected) and the
 // returned permanent must have haste. It pays {3}{W}{B}.
 func TestUnearthPriestOfFellRitesOfferAndResolution(t *testing.T) {
+	t.Parallel()
 	reg := freshUnearthRegistry(t)
 	e, cfg, _ := altCostEngineReg(t, 954, reg, []string{"Priest of Fell Rites"}, nil, nil)
 	id := findCardObj(t, e, 0, "Priest of Fell Rites", state.ZGraveyard)

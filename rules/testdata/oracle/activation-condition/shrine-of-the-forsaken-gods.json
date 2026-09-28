@@ -1,0 +1,10 @@
+{
+  "card": "Shrine of the Forsaken Gods", "family": "activation-condition", "oracle_sha": "fffbb58b674c",
+  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
+  "scenarios": [
+    {"name": "double-colorless-unavailable-at-six-lands", "cr": ["602.5"], "why": "The Shrine plus five other lands is six lands, one short of the stated seven-land threshold.", "setup": {"p0": {"battlefield": ["Shrine of the Forsaken Gods", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Shrine of the Forsaken Gods", "label": "Add {C}{C}"}, "want": false}]},
+    {"name": "double-colorless-offered-at-seven-lands", "cr": ["602.5"], "why": "The Shrine and six other lands total exactly seven, meeting the restriction's minimum.", "setup": {"p0": {"battlefield": ["Shrine of the Forsaken Gods", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Shrine of the Forsaken Gods", "label": "Add {C}{C}"}, "want": true}]},
+    {"name": "double-colorless-produced-at-seven-lands", "cr": ["602.5", "605.1a", "106.12"], "why": "At exactly seven lands the restricted ability is legal, and its resolution adds two colorless mana.", "setup": {"p0": {"battlefield": ["Shrine of the Forsaken Gods", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}}, "steps": [{"op": "activate", "seat": 0, "card": "p0:Shrine of the Forsaken Gods", "ability": "Add {C}{C}"}], "expect": [{"pool": {"p0": "CC"}}]},
+    {"name": "single-colorless-activates-unrestricted", "cr": ["602.5", "605.1a", "106.12"], "why": "The ordinary colorless-producing ability carries no land-count restriction; activating it taps the Shrine and adds one colorless mana at six lands.", "setup": {"p0": {"battlefield": ["Shrine of the Forsaken Gods", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}}, "steps": [{"op": "activate", "seat": 0, "card": "p0:Shrine of the Forsaken Gods", "ability": "Add {C}"}], "expect": [{"pool": {"p0": "C"}}]}
+  ]
+}

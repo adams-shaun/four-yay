@@ -162,6 +162,7 @@ func driveSongbirdsToAttack(t *testing.T, e *Engine, bearID state.ObjID) *decisi
 // revealed non-matching card goes to the bottom, and the tail keeps its
 // order.
 func TestSongbirdsBlessingAttackRevealsUntilAuraPutsItOnTheBattlefield(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, auraID, first, bearID := songbirdsTestEngine(t, reg)
 	d := driveSongbirdsToAttack(t, e, bearID)
@@ -204,6 +205,7 @@ func TestSongbirdsBlessingAttackRevealsUntilAuraPutsItOnTheBattlefield(t *testin
 // branch: the declined Aura goes to OptionalNoDestination$ Hand; the
 // revealed rest and the tail are the same as the "yes" branch.
 func TestSongbirdsBlessingAttackDeclinePutsTheAuraInTheHand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, auraID, _, bearID := songbirdsTestEngine(t, reg)
 	d := driveSongbirdsToAttack(t, e, bearID)

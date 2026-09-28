@@ -28,6 +28,7 @@ import (
 // Rebel, and the Equipment is attached to it (the chained __kwFMAttach
 // sub-ability, not a leftover from the cast).
 func TestGlimmerLensForMirrodinCreatesARebelAndAttaches(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lens, ok := reg.Lookup("Glimmer Lens")
 	if !ok {

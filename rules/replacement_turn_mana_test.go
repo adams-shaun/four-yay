@@ -84,6 +84,7 @@ func passPriority(t *testing.T, e *Engine) {
 // through its controller's untap step while every other permanent untaps
 // normally.
 func TestBasaltMonolithStaysTappedThroughItsUntapStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := realCardEngine(t, reg, 11, "Basalt Monolith")
 	basalt := ids[0]
@@ -111,6 +112,7 @@ func TestBasaltMonolithStaysTappedThroughItsUntapStep(t *testing.T) {
 // main with no draw -- while seat 1's own draw step later in the same round
 // still draws (the ValidPlayer$ You gate).
 func TestNecropotenceSkipsItsControllersDrawStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _ := realCardEngine(t, reg, 23, "Necropotence")
 
@@ -145,6 +147,7 @@ func TestNecropotenceSkipsItsControllersDrawStep(t *testing.T) {
 // in turn 2, and a control game with no Wild Wasteland draws seat 0 on turn
 // 3 -- so the skip is the card's doing, not a stuck engine.
 func TestWildWastelandSkipsItsControllersDrawStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _ := realCardEngine(t, reg, 7, "Wild Wasteland")
 
@@ -202,6 +205,7 @@ func wildWastelandDrawsInTurn(e *Engine, p state.PlayerID, turn int32) int {
 // draw). The skipped steps emit no StepChange of their own after turn 2
 // begins -- the landing step's entry is the only one in the log.
 func TestChainedUntapAndUpkeepSkips(t *testing.T) {
+	t.Parallel()
 	const skipUntapSrc = "Name:Stasis Well\nManaCost:2 U\nTypes:Enchantment\n" +
 		"R:Event$ BeginPhase | ActiveZones$ Battlefield | Phase$ Untap | Skip$ True | Description$ Players skip their untap step.\nOracle:x\n"
 	const skipUpkeepSrc = "Name:Quiet Dawn\nManaCost:1 W\nTypes:Enchantment\n" +
@@ -252,6 +256,7 @@ func TestChainedUntapAndUpkeepSkips(t *testing.T) {
 // DBTransform SVar (DB$ SetState | Mode$ Transform) resolved out of the
 // stack, exactly resolveManaAbility resolves a mana ability.
 func TestSephirothTransformRunsTheDestinationFaceReplacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := realCardEngine(t, reg, 47, "Sephiroth, Fabled SOLDIER")
 	seph := ids[0]
@@ -290,6 +295,7 @@ func TestSephirothTransformRunsTheDestinationFaceReplacement(t *testing.T) {
 // an opponent's production untouched, and the rewritten ManaAdd is what the
 // log (and therefore replay) carries.
 func TestVirtueOfStrengthTriplesBasicLandMana(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := realCardEngine(t, reg, 5, "Virtue of Strength", "Volcanic Island")
 	virtue, volcano := ids[0], ids[1]
@@ -343,6 +349,7 @@ func TestVirtueOfStrengthTriplesBasicLandMana(t *testing.T) {
 // one mana of the named type instead of every type AND amount, so Tomb's
 // two-colorless event becomes exactly one colorless event.
 func TestDampingSphereReplacesTypeAndAmount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := realCardEngine(t, reg, 71, "Damping Sphere", "Ancient Tomb")
 	tomb := ids[1]
@@ -359,6 +366,7 @@ func TestDampingSphereReplacesTypeAndAmount(t *testing.T) {
 // replacement does not apply even though synchronous replacement context
 // identifies KCI as the producer.
 func TestNyxbloomDoesNotMultiplySacrificeOnlyMana(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := realCardEngine(t, reg, 73, "Nyxbloom Ancient", "Krark-Clan Ironworks")
 	kci := ids[1]
@@ -378,6 +386,7 @@ func TestNyxbloomDoesNotMultiplySacrificeOnlyMana(t *testing.T) {
 // which makes Damping's ManaAmount$ GE2 gate newly true, and Damping then
 // replaces the result with exactly one colorless mana.
 func TestManaReplacementApplicabilityIsRechecked(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _ := realCardEngine(t, reg, 77, "Nyxbloom Ancient", "Damping Sphere")
 	mountain := moveByName(t, e, 0, "Mountain", state.ZBattlefield)
@@ -396,6 +405,7 @@ func TestManaReplacementApplicabilityIsRechecked(t *testing.T) {
 // affected player which applies first; the unchosen replacement then applies
 // automatically and determines the final colour.
 func TestCompetingManaReplacementsUsePlayerOrder(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		first string
@@ -438,6 +448,7 @@ func TestCompetingManaReplacementsUsePlayerOrder(t *testing.T) {
 // resolves its gain-life body; declining logs the original draw-step entry
 // and performs the turn-based draw exactly once.
 func TestFastingAsksWhetherToSkipTheDrawStep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, apply := range []bool{true, false} {
 		name := "decline"
@@ -497,6 +508,7 @@ func TestFastingAsksWhetherToSkipTheDrawStep(t *testing.T) {
 // mandatory draw-step skip applied; declining one effect cannot bypass the
 // other applicable replacement.
 func TestDecliningOptionalPhaseReplacementContinuesToMandatoryReplacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _ := realCardEngine(t, reg, 89, "Fasting", "Necropotence")
 	e.pending = nil
@@ -538,6 +550,7 @@ func TestDecliningOptionalPhaseReplacementContinuesToMandatoryReplacement(t *tes
 // affected player chooses, and the answered blue production is what enters
 // both the pool and replayable log.
 func TestPulseOfLlanowarAsksForReplacementManaColor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _ := realCardEngine(t, reg, 97, "Pulse of Llanowar")
 	mountain := moveByName(t, e, 0, "Mountain", state.ZBattlefield)
@@ -567,6 +580,7 @@ func TestPulseOfLlanowarAsksForReplacementManaColor(t *testing.T) {
 // colour ask can interrupt CR 601.2g. A Mountain pays for real Sol Ring only
 // after Pulse's parked answer; the cast then commits and spends that mana.
 func TestReplacementManaColorResumesCastPayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := realCardEngine(t, reg, 99, "Pulse of Llanowar", "Sol Ring")
 	ring := ids[1]
@@ -602,6 +616,7 @@ func TestReplacementManaColorResumesCastPayment(t *testing.T) {
 // counters, so the affected permanent's controller must get the CR 616.1
 // choice rather than whichever replacement appears first in the zone scan.
 func TestCompetingUntapReplacementsUseAffectedPlayerOrder(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := realCardEngine(t, reg, 100, "Edge of Malacol", "Intruder Alarm", "Memnite")
 	edge, memnite := ids[0], ids[2]
@@ -649,6 +664,7 @@ func TestCompetingUntapReplacementsUseAffectedPlayerOrder(t *testing.T) {
 // command-zone scan on one real source for each ticket event that exists
 // there. Trigger discovery remains on the ordinary object walk.
 func TestCommandZoneReplacementSourcesAreDiscovered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	t.Run("Untap", func(t *testing.T) {
 		e, cfg, ids := realCardEngine(t, reg, 101, "Edge of Malacol", "Memnite")

@@ -1,6 +1,7 @@
 package events
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -858,10 +859,8 @@ func Apply(g *state.Game, e Event) {
 		}
 
 	case SpeedChange:
-		// One speed increment (CR 702.163). The cap and the once-per-turn
-		// gate are the EMITTER's (rules' emit-side speed check) responsibility,
-		// so Apply folds the delta plainly; a negative or oversized delta is
-		// still clamped to [0, 4] defensively.
+		// One speed change (CR 702.179). The once-per-turn trigger gate
+		// belongs to rules; Apply folds the delta and clamps to [0, 4].
 		if validPlayer(g, e.Player) {
 			g.Players[e.Player].Speed += e.Amount
 			if g.Players[e.Player].Speed < 0 {
@@ -1338,6 +1337,7 @@ func Apply(g *state.Game, e Event) {
 			for i := range g.Objs {
 				g.Objs[i].EnteredThisTurn = false
 				g.Objs[i].WasDealtDamageThisTurn = false
+				g.Objs[i].DamageTakenThisTurnBy = nil
 				g.Objs[i].ActivatedThisTurn = 0
 				g.Objs[i].AttacksThisTurn = 0
 				// CR 702.100a: exerted is a per-turn fact. ExertSkipUntap is
@@ -1439,6 +1439,7 @@ func Apply(g *state.Game, e Event) {
 				}
 			}
 			o.Goads = append(o.Goads, ge)
+			g.NoteGoad()
 			pruneGoads(g)
 		}
 
@@ -1542,6 +1543,7 @@ func Apply(g *state.Game, e Event) {
 				continue
 			}
 			a.BlockedBy = append(a.BlockedBy, pr[1])
+			g.NoteBlockers()
 		}
 
 	case CombatRetarget:
@@ -1810,6 +1812,10 @@ func Apply(g *state.Game, e Event) {
 					}
 				}
 			}
+		}
+		if e.Obj == 0 {
+			// Every BlockedBy list is now nil.
+			g.ClearBlockers()
 		}
 
 	case CastInfo:
@@ -3075,13 +3081,14 @@ func Apply(g *state.Game, e Event) {
 		// delete a bystander's pending delayed trigger.
 		monarchDraw := e.Counter == "__monarch_draw"
 		radiationDrain := e.Counter == "__radiation_drain"
+		speedIncrease := e.Counter == "__speed_increase"
 		// Consume the registration first, even when its tracked permanent has
 		// changed incarnation. A stale dash/warp promise expires once; it must
 		// neither act on the returned object nor be retried forever. Ordinary
 		// delayed triggers, including Encore's group cleanup, are independent
 		// of their source and still resolve.
 		var registration *state.DelayedTrigger
-		if !monarchDraw && !radiationDrain {
+		if !monarchDraw && !radiationDrain && !speedIncrease {
 			for i := range g.Delayed {
 				if g.Delayed[i].ID == uint32(e.Amount) {
 					dt := g.Delayed[i]
@@ -3094,7 +3101,7 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 		src := g.Obj(e.Obj)
-		if !radiationDrain {
+		if !radiationDrain && !speedIncrease {
 			if src == nil {
 				break
 			}
@@ -3111,6 +3118,8 @@ func Apply(g *state.Game, e Event) {
 			sa = &cards.SA{Kind: "DB", API: "Draw", Params: map[string]string{"Defined": "You", "NumCards": "1"}}
 		} else if radiationDrain {
 			sa = &cards.SA{Kind: "DB", API: "RadiationDrain", Params: map[string]string{"Defined": "You"}}
+		} else if speedIncrease {
+			sa = &cards.SA{Kind: "DB", API: "SpeedIncrease"}
 		} else {
 			sa = ResolveSVarAcrossFaces(src, e.Counter)
 		}
@@ -3143,7 +3152,7 @@ func Apply(g *state.Game, e Event) {
 		Move(g, o.ID, state.ZLibrary, state.ZStack)
 		o.Ability = sa
 		o.StackKind, o.StackKindKnown = state.StackKindTriggered, true
-		if !radiationDrain {
+		if !radiationDrain && !speedIncrease {
 			o.Source = e.Obj
 		}
 		if registration != nil && registration.TrackSource {
@@ -3453,6 +3462,9 @@ func Apply(g *state.Game, e Event) {
 			if !containsObjID(o.DamageTakenByGame, src) {
 				o.DamageTakenByGame = append(o.DamageTakenByGame, src)
 			}
+			if !containsObjID(o.DamageTakenThisTurnBy, src) {
+				o.DamageTakenThisTurnBy = append(o.DamageTakenThisTurnBy, src)
+			}
 		}
 	}
 }
@@ -3629,17 +3641,27 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.SuspendGranted = false
 		}
 	}
-	if wasBattlefield && to != state.ZBattlefield {
+	if wasBattlefield && to != state.ZBattlefield && (g.BlockersLive() || ArenaSkipVerify) {
 		// Leaving combat removes this permanent as a blocker, but does not
 		// make creatures it blocked unblocked (CR 506.4, 509.1h). Preserve
 		// each attacker's blocker-list length with the same zero tombstone
 		// EndCombatReset uses for regeneration. Dense arena order keeps this
 		// deterministic, and the departing object's own state is cleared by
-		// the zone reset below.
+		// the zone reset below. With no blocker recorded since the last
+		// whole-combat reset (state.Game.BlockersLive) every list is empty
+		// and the arena walk is skipped: without it a mass departure of N
+		// permanents walked the arena N times.
+		live := g.BlockersLive()
 		for i := range g.Objs {
 			other := &g.Objs[i]
-			if other.ID == id {
+			// The empty-list test first: it is the common case, and it reads
+			// only the BlockedBy header instead of also touching the ID at
+			// the other end of the ~800-byte object on every arena entry.
+			if len(other.BlockedBy) == 0 || other.ID == id {
 				continue
+			}
+			if !live {
+				panic(fmt.Sprintf("events: obj %d has BlockedBy %v while no blocker is live (a BlockedBy write skipped state.Game.NoteBlockers)", other.ID, other.BlockedBy))
 			}
 			for j, blocker := range other.BlockedBy {
 				if blocker == id {
@@ -4100,14 +4122,21 @@ func changeControl(g *state.Game, o *state.Object, p state.PlayerID) {
 	if o.Zone == state.ZBattlefield {
 		remove(g, o.ID, state.ZBattlefield, o.Controller)
 		g.SetZone(state.ZBattlefield, p, append(g.Zone(state.ZBattlefield, p), o.ID))
-		for i := range g.Objs {
-			other := &g.Objs[i]
-			if other.ID == o.ID {
-				continue
-			}
-			for j, blocker := range other.BlockedBy {
-				if blocker == o.ID {
-					other.BlockedBy[j] = 0
+		// The same tombstone walk as move's, skipped the same way while no
+		// blocker is live (state.Game.BlockersLive).
+		if live := g.BlockersLive(); live || ArenaSkipVerify {
+			for i := range g.Objs {
+				other := &g.Objs[i]
+				if len(other.BlockedBy) == 0 || other.ID == o.ID {
+					continue
+				}
+				if !live {
+					panic(fmt.Sprintf("events: obj %d has BlockedBy %v while no blocker is live (a BlockedBy write skipped state.Game.NoteBlockers)", other.ID, other.BlockedBy))
+				}
+				for j, blocker := range other.BlockedBy {
+					if blocker == o.ID {
+						other.BlockedBy[j] = 0
+					}
 				}
 			}
 		}
@@ -4257,7 +4286,29 @@ func expireTurnGoads(in []state.GoadEffect, p state.PlayerID) []state.GoadEffect
 }
 
 // pruneGoads enforces source/control conditions from replayable state.
+// ArenaSkipVerify makes the arena walks the flags skip run anyway and panic
+// on anything they would have had to do: the blocker-tombstone walks while no
+// blocker is live (state.Game.BlockersLive) panic on any non-empty BlockedBy,
+// and pruneGoads before any goad was seen (state.Game.GoadsSeen) panics on
+// any non-nil Goads -- the empirical check that every write sets its flag. The events and rules test binaries set it; production leaves it
+// false.
+var ArenaSkipVerify bool
+
 func pruneGoads(g *state.Game) {
+	if !g.GoadsSeen() {
+		// No object has ever gained a goad (the Goad fold above is the only
+		// place a goad is added), so every Goads list is nil: skip the
+		// whole-arena walk, which a mass departure otherwise ran once per
+		// moved object.
+		if ArenaSkipVerify {
+			for i := range g.Objs {
+				if g.Objs[i].Goads != nil {
+					panic(fmt.Sprintf("events: obj %d has Goads %v before any goad was seen (a Goads write skipped state.Game.NoteGoad)", g.Objs[i].ID, g.Objs[i].Goads))
+				}
+			}
+		}
+		return
+	}
 	for i := range g.Objs {
 		o := &g.Objs[i]
 		if o.Goads == nil {

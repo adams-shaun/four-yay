@@ -135,6 +135,7 @@ func drainOptionalUnlessCopy(t *testing.T, e *Engine, limit int, answerPay, allo
 // stops the copy AND the body never runs, so no may-copy election is ever
 // posed on top of the pay.
 func TestOptionalUnlessCopyPayingStopsCopyAndAsksNoElection(t *testing.T) {
+	t.Parallel()
 	e, cfg, m := newFixtureDeck(t, 311, optionalUnlessCopySrc)
 	addMana(t, e, 0, "R1")
 	addMana(t, e, 1, "22")
@@ -163,6 +164,7 @@ func TestOptionalUnlessCopyPayingStopsCopyAndAsksNoElection(t *testing.T) {
 // the caster (seat 0). A declined election makes no copy; the original still
 // resolves.
 func TestOptionalUnlessCopyDeclinePosesElectionToCopyController(t *testing.T) {
+	t.Parallel()
 	e, cfg, m := newFixtureDeck(t, 312, optionalUnlessCopySrc)
 	addMana(t, e, 0, "R1")
 	addMana(t, e, 1, "22")
@@ -198,6 +200,7 @@ func TestOptionalUnlessCopyDeclinePosesElectionToCopyController(t *testing.T) {
 // to the copy controller. A declined election makes no copy; the original
 // still resolves. Paying makes no election at all (the body never runs).
 func TestOptionalUnlessSwitchedCopyPaidGatePosesElection(t *testing.T) {
+	t.Parallel()
 	e, cfg, m := newFixtureDeck(t, 314, chainSilenceCopySrc)
 	addMana(t, e, 0, "R1")
 	addMana(t, e, 1, "22")
@@ -230,6 +233,7 @@ func TestOptionalUnlessSwitchedCopyPaidGatePosesElection(t *testing.T) {
 // and the drain pays it off, so exactly one copy resolves and seat 1 takes
 // the damage of both.
 func TestOptionalUnlessCopyAcceptedElectionMakesOneCopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, m := newFixtureDeck(t, 313, optionalUnlessCopySrc)
 	addMana(t, e, 0, "R1")
 	addMana(t, e, 1, "22")

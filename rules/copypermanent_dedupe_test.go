@@ -27,6 +27,7 @@ import (
 // tokens and a two-entry memory on each; one dies-trigger resolution must mint
 // exactly one.
 func TestHofriCopyPermanentMintsOneSpirit(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := tokenRememberedBoard(t, reg, "Hofri Ghostforge", "Vampire Nighthawk")
 	hofri, bearer := ids["Hofri Ghostforge"], ids["Vampire Nighthawk"]

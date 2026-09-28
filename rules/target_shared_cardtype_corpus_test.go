@@ -56,6 +56,7 @@ func sharedCardTypeCorpusSA(t *testing.T, cardName string) *cards.SA {
 // Legerdemain and Gauntlets of Chaos through target offer and CR 608.2b
 // recheck. This pins the parser/linker-produced parameters, not synthetic SAs.
 func TestSharedCardTypeRealSAPin(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		shared string
@@ -121,6 +122,7 @@ func TestSharedCardTypeRealSAPin(t *testing.T) {
 // and Power Struggle through their triggers' Execute$ effects; Gauntlets
 // through its printed ability's SubAbility$ chain).
 func TestSharedCardTypeRealIRCarriers(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		ref    string

@@ -88,7 +88,7 @@ type Player struct {
 	// aliases the live one's.
 	DamageTakenByGame []ObjID
 
-	// Speed is this seat's speed (CR 702.163, "Start your engines!"): it
+	// Speed is this seat's speed (CR 702.179, "Start your engines!"): it
 	// starts at 0 (or 1 the first time an engine grants speed), rises by one
 	// once on each of this seat's own turns when an opponent loses life,
 	// caps at 4 (max speed), and never resets. Written only by events.Apply's
@@ -240,6 +240,21 @@ func (p Player) ManaUnits() [7]Mana {
 // Game is the complete authoritative state. Everything a client sees is a
 // projection of this. Only the events package may mutate it.
 type Game struct {
+	// goadsSeen is set the first time any object gains a goad (events.Apply's
+	// Goad fold calls NoteGoad) and is never cleared, so while it is false no
+	// object carries a goad and a goad prune has nothing to visit. It is a
+	// pure function of the applied events, so replay rebuilds it; Clone
+	// copies it with the struct.
+	goadsSeen bool
+	// blockersLive is set whenever an attacker gains a blocker (events.Apply's
+	// DeclareBlockers fold calls NoteBlockers) and cleared by the whole-combat
+	// EndCombatReset, which empties every BlockedBy list. While it is false no
+	// object has a non-empty BlockedBy, so a blocker-tombstone walk has
+	// nothing to write. A pure function of the applied events (replay
+	// rebuilds it); Clone copies it with the struct. Code that writes
+	// BlockedBy directly (tests) must call NoteBlockers.
+	blockersLive bool
+
 	Players []Player
 	// Objs is a dense arena: Objs[i] has ID i+1, so ObjID 0 is "no object".
 	Objs     []Object
@@ -592,12 +607,32 @@ func (g *Game) Obj(id ObjID) *Object {
 	return &g.Objs[id-1]
 }
 
+// NoteGoad records that an object has gained a goad (see goadsSeen).
+func (g *Game) NoteGoad() { g.goadsSeen = true }
+
+// GoadsSeen reports whether any object has ever gained a goad in this game.
+func (g *Game) GoadsSeen() bool { return g.goadsSeen }
+
+// NoteBlockers records that some object's BlockedBy may be non-empty (see
+// blockersLive).
+func (g *Game) NoteBlockers() { g.blockersLive = true }
+
+// ClearBlockers records that every BlockedBy list is empty; only the
+// whole-combat reset, which empties them all, may call it.
+func (g *Game) ClearBlockers() { g.blockersLive = false }
+
+// BlockersLive reports whether any object's BlockedBy may be non-empty.
+func (g *Game) BlockersLive() bool { return g.blockersLive }
+
 func (g *Game) AddObject(card *cards.Card, owner PlayerID) *Object {
 	o := Object{ID: g.NextID, Card: card, Owner: owner, Controller: owner, Zone: ZLibrary}
 	g.NextID++
 	g.Objs = append(g.Objs, o)
 	return &g.Objs[len(g.Objs)-1]
 }
+
+// cloneObjectHeadroom is the spare Objs capacity Clone gives a copy.
+const cloneObjectHeadroom = 8
 
 // Clone deep-copies the game. Everything is slices of value types, so this is
 // a handful of copy() calls rather than a graph walk. Player's Commander
@@ -607,7 +642,15 @@ func (g *Game) AddObject(card *cards.Card, owner PlayerID) *Object {
 // and silently corrupt the other. Game.Clone is the hottest path in the
 // engine; three small copy() calls per seat (nil slices cost nothing) is the
 // whole price.
-func (g *Game) Clone() *Game {
+func (g *Game) Clone() *Game { return g.CloneInto(nil) }
+
+// CloneInto is Clone with the copied object arena written into objs, a
+// recycled arena (the rules engine's Release clears it), when objs can hold
+// every object plus cloneObjectHeadroom; otherwise it allocates exactly as
+// Clone does. Every slot up to len is overwritten here and AddObject
+// overwrites a slot before it is read, so objs' contents are never observed;
+// the caller must hold no other reference into it.
+func (g *Game) CloneInto(objs []Object) *Game {
 	c := *g
 	c.Players = make([]Player, len(g.Players))
 	for i := range g.Players {
@@ -620,7 +663,17 @@ func (g *Game) Clone() *Game {
 		c.Players[i].RestrictedMana = append([]ManaRestriction(nil), g.Players[i].RestrictedMana...)
 		c.Players[i].Notes = append([]string(nil), g.Players[i].Notes...)
 	}
-	c.Objs = make([]Object, len(g.Objs))
+	// A little spare capacity: a clone that mints even one object (a token,
+	// a copy on the stack) would otherwise regrow the whole arena through
+	// append -- a second copy of every ~1 KB Object, double-sized -- and the
+	// search clones a mid-game root once per simulation (measured: that
+	// regrow was 11% of all bytes the AlphaZero search allocated). Capacity
+	// only; AddObject's IDs and every reader's view of Objs are unchanged.
+	if cap(objs) >= len(g.Objs)+cloneObjectHeadroom {
+		c.Objs = objs[:len(g.Objs)]
+	} else {
+		c.Objs = make([]Object, len(g.Objs), len(g.Objs)+cloneObjectHeadroom)
+	}
 	for i := range g.Objs {
 		c.Objs[i] = g.Objs[i].CloneDeep()
 	}

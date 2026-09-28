@@ -30,6 +30,7 @@ import (
 // resolves to 0 with a valid SVar table is a priceable FREE charge, never
 // `unpriceable`.
 func TestCombatPropResolvedZeroCountIsFree(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	source := onBoardReady(t, e, 0, "Name:Count source\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	sv := staticView{
@@ -61,6 +62,7 @@ func TestCombatPropResolvedZeroCountIsFree(t *testing.T) {
 // as an attacker. Before the resolved-zero fix the pair was unpriceable and
 // disappeared from the offer list entirely -- the card could never attack.
 func TestMyrPrototypeZeroCountersAttacksFree(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	myr := onBoardReadyCard(t, e, 0, mshCorpusCard(t, "Myr Prototype"))
 	e.G.Active = 0
@@ -118,6 +120,7 @@ const combatMultiPipFixture = "Name:Multi Pip Tax\nTypes:Enchantment\n" +
 // such a pair is never offered. All-colour and all-life multi-pip charges are
 // still offered (asserted for the all-life branch here).
 func TestMixedOnlyMultiPipChargeIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatMultiPipFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -186,6 +189,7 @@ const combatTapPipFixture = "Name:Tap Pip Tax\nTypes:Enchantment\n" +
 // whose colour half the window cannot settle, aborting an otherwise payable
 // declaration.
 func TestPhyrexianColourBranchExcludesReservedTapSource(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatTapPipFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

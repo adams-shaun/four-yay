@@ -31,6 +31,7 @@ import (
 // unplayable -- six of the twelve carriers are the Revenant Recon (mkc)
 // census deck's cards, Mirko its commander.
 func TestSurveilTriggerIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:Surveil"] {
 		t.Fatal("effects.Supported() is missing trig:Surveil")
 	}
@@ -108,6 +109,7 @@ func surveilDrain(t *testing.T, e *Engine) {
 // surveil" exactly once (one +1/+1 counter per surveil, never per arranged
 // card), replay-verified.
 func TestMirkoSurveilPutsOneCounterPerSurveil(t *testing.T) {
+	t.Parallel()
 	mirko := tokenReplCorpusCard(t, "Mirko, Obsessive Theorist")
 	doll := tokenReplCorpusCard(t, "Wretched Doll")
 	e, cfg := tokenReplGame(t, 83, mirko, doll, doll)
@@ -155,6 +157,7 @@ func TestMirkoSurveilPutsOneCounterPerSurveil(t *testing.T) {
 // spell is ONE surveil instruction -- exactly one marker and exactly one
 // Mirko trigger (a per-card firing would place three counters).
 func TestOtherworldlyGazeSurveilThreeFiresMirkoOnce(t *testing.T) {
+	t.Parallel()
 	mirko := tokenReplCorpusCard(t, "Mirko, Obsessive Theorist")
 	gaze := tokenReplCorpusCard(t, "Otherworldly Gaze")
 	e, cfg := tokenReplGame(t, 84, mirko, gaze)
@@ -181,6 +184,7 @@ func TestOtherworldlyGazeSurveilThreeFiresMirkoOnce(t *testing.T) {
 // gains 1; a SECOND surveil in the same turn emits its marker (still one per
 // instruction) but fires nothing.
 func TestWhisperingSnitchFirstTimeEachTurn(t *testing.T) {
+	t.Parallel()
 	snitch := tokenReplCorpusCard(t, "Whispering Snitch")
 	doll := tokenReplCorpusCard(t, "Wretched Doll")
 	e, cfg := tokenReplGame(t, 85, snitch, doll, doll)
@@ -225,6 +229,7 @@ func TestWhisperingSnitchFirstTimeEachTurn(t *testing.T) {
 // would ride; the body's damage half needs a target this harness does not
 // drain, so the pin is the counter).
 func TestRiverSongOpponentSurveilFires(t *testing.T) {
+	t.Parallel()
 	river := tokenReplCorpusCard(t, "River Song")
 	e, cfg := tokenReplGame(t, 86, river)
 	riverID := moveSeededCard(t, e, 0, river, state.ZBattlefield)

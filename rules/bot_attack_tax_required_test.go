@@ -25,6 +25,7 @@ import (
 // pip, seat 0 is at four life and has no white source), so a mis-set-up board
 // fails loudly instead of passing vacuously.
 func TestBotRequiredAttackDeclarationFitsCombinedPhyrexianTax(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.Advance()
 	onBoardCard(t, e, 1, corpusCard(t, "Norn's Annex"))

@@ -49,6 +49,7 @@ func killerSplitEngine(t *testing.T, reg *cards.Registry, seed uint64) (*Engine,
 // casting it asks Killer's own creature target, and its 3 damage kills the
 // 2/2. Without the split-face offer the alternate half is dead half the card.
 func TestKillerHalfIsCastable(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, bearID := killerSplitEngine(t, reg, 8425)
 	// Precondition: the bear is where the damage lands and the card is in
@@ -101,6 +102,7 @@ func TestKillerHalfIsCastable(t *testing.T) {
 // is the proof the second half was visited after the first, rather than
 // silently skipped.
 func TestGallifreyFallsFuseCastsBothHalves(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	falls := searchCorpusCard(t, reg, "Gallifrey Falls")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")

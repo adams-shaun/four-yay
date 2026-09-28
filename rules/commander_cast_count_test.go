@@ -66,6 +66,7 @@ func commanderCastCountGame(t *testing.T, seed uint64) (*Engine, Config) {
 // twice. Before the head existed SVar:X degraded to 0 and the trigger copied
 // nothing.
 func TestThunderclapDrakeCopiesOncePerCommanderCast(t *testing.T) {
+	t.Parallel()
 	e, cfg := commanderCastCountGame(t, 71)
 	cmd0 := e.G.Players[0].Commanders[0]
 
@@ -181,6 +182,7 @@ func TestThunderclapDrakeCopiesOncePerCommanderCast(t *testing.T) {
 // casts count, a hand-origin cast of the same object does not, and a
 // non-commander card's command-zone... a non-commander seat reads 0.
 func TestCommanderCastsFromCommandZoneScopesToTheOwner(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderCastCountGame(t, 72)
 	cmd0 := e.G.Players[0].Commanders[0]
 

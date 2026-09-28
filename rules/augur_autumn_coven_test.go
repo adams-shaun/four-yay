@@ -141,6 +141,7 @@ func TestAugurOfAutumnCovenGateActivatesWithDistinctPowers(t *testing.T) {
 // offered. (A two-creature arm whose powers both differ from Augur's own
 // would read {Augur 2, x, y} = 3 and the Coven would legitimately open.)
 func TestAugurOfAutumnCovenGateWithheldOnDuplicatePowers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	augur := lookup(t, reg, "Augur of Autumn")
 
@@ -201,6 +202,7 @@ func distinctCreaturePowers(t *testing.T, e *Engine, p state.PlayerID) int {
 // set is EMPTY -- a future deck import would admit it into the ratchet's
 // supported set rather than into knownUnsupported.
 func TestAugurOfAutumnFullySupported(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	augur := lookup(t, reg, "Augur of Autumn")
 	if m := reg.Unsupported(augur, effects.Supported()); len(m) != 0 {

@@ -53,6 +53,7 @@ func driveToOver(t *testing.T, e *Engine, limit int) {
 // further makes no sense -- not shuffle and deal a later seat's hand
 // regardless, and not call beginTurn on a game that is already finished.
 func TestGenesisStopsAtEliminationDuringTheOpeningDraw(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 5, Names: names, Mulligans: 3,
 		Decks: [][]*cards.Card{mountainDeck(t, 3), mountainDeck(t, 40)}}
@@ -91,6 +92,7 @@ func TestGenesisStopsAtEliminationDuringTheOpeningDraw(t *testing.T) {
 // the assertion is "the start is a survivor and turn 1 runs for it", never
 // "the start is seat 1".
 func TestGenesisBeginsWithTheFirstAliveSeat(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b", "c"}
 	cfg := Config{Seed: 5, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 3), mountainDeck(t, 40), mountainDeck(t, 40)}}
@@ -129,6 +131,7 @@ func TestGenesisBeginsWithTheFirstAliveSeat(t *testing.T) {
 // trivially over (CR 104.4a's draw, vacuously) rather than a live game
 // nobody can ever submit anything to.
 func TestNewWithNoSeatsDoesNotPanic(t *testing.T) {
+	t.Parallel()
 	e := New(Config{})
 	if !e.G.Over {
 		t.Fatal("a zero-seat game should already be over")
@@ -153,6 +156,7 @@ func TestNewWithNoSeatsDoesNotPanic(t *testing.T) {
 // is simply never dealt; with zero real seats left, the game is trivially
 // over, same as the zero-seat case just above.
 func TestNewWithMoreDecksThanNamesDoesNotPanic(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Decks: [][]*cards.Card{mountainDeck(t, 40)}})
 	if !e.G.Over {
 		t.Fatal("a Config with no named seats at all should already be over")
@@ -172,6 +176,7 @@ func TestNewWithMoreDecksThanNamesDoesNotPanic(t *testing.T) {
 // the live value will drift from what the log can reconstruct and this test
 // fails.
 func TestReplayReconstructsPassesAndPriority(t *testing.T) {
+	t.Parallel()
 	e, cfg := smallDeckGame(t, 2, 8)
 	driveToOver(t, e, 5000)
 
@@ -195,6 +200,7 @@ func TestReplayReconstructsPassesAndPriority(t *testing.T) {
 // TestFinishedGameRejectsSubmit is the first Ruling B regression test: once
 // a game ends, no further decision should be outstanding at all.
 func TestFinishedGameRejectsSubmit(t *testing.T) {
+	t.Parallel()
 	e, _ := smallDeckGame(t, 2, 8)
 	driveToOver(t, e, 5000)
 
@@ -212,6 +218,7 @@ func TestFinishedGameRejectsSubmit(t *testing.T) {
 // must refuse it regardless of what Pending() currently holds; this is a
 // second, independent gate from the priorityRound fix above.
 func TestSubmitGuardsOverEvenWithStalePending(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.emit(events.Event{Kind: events.GameOver, Player: 0})
 	stale := &decision.Decision{
@@ -248,6 +255,7 @@ func TestSubmitGuardsOverEvenWithStalePending(t *testing.T) {
 // the common real case, life loss, but the mechanism is agnostic to why)
 // partway through their OWN turn, before that turn's draw step is reached.
 func TestDrawStepSkipsEliminatedActivePlayer(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	driveToStep(t, e, 2, 1, state.StepUpkeep)
 
@@ -309,6 +317,7 @@ func TestDrawStepSkipsEliminatedActivePlayer(t *testing.T) {
 // This was verified empirically, not just reasoned through: see the
 // Task 13 fix-round report for the revert-and-rerun check.
 func TestPlayLandReplayThroughSubmit(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 6, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}
@@ -407,6 +416,7 @@ func TestPlayLandReplayThroughSubmit(t *testing.T) {
 // fire if it did not. This test simply does not ASSERT the pool change; it
 // is about Passes/Priority/Tapped surviving Submit+replay, not mana.
 func TestActivateManaAbilityReplayThroughSubmit(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 9, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}

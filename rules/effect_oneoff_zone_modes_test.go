@@ -15,6 +15,7 @@ import (
 // TestEffectChangesZoneTriggerRepeatsWithinTurn
 // (rules/effect_event_modes_test.go).
 func TestEffectOneOffChangesZoneConsumesOnFirstFiring(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:OneOffZone\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigZone\n"+
 		"SVar:TrigZone:Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card | OneOff$ True | TriggerZones$ Command | Execute$ TrigPain\n"+
@@ -79,6 +80,7 @@ func TestEffectOneOffChangesZoneConsumesOnFirstFiring(t *testing.T) {
 // trigger matcher. OneOff$ True must consume the registration after its first
 // qualifying control change.
 func TestEffectOneOffChangesControllerConsumesOnFirstFiring(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:OneOffControl\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigControl\n"+
 		"SVar:TrigControl:Mode$ ChangesController | ValidCard$ Creature | ValidOriginalController$ You | OneOff$ True | TriggerZones$ Command | Execute$ TrigPain\n"+

@@ -64,6 +64,7 @@ func lastDecisionMadeText(t *testing.T, e *Engine) string {
 }
 
 func TestPaymentPlanDecisionMadeGolden(t *testing.T) {
+	t.Parallel()
 	t.Run("planned submission binds the witness bytes", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9107, goldenPlannedSpellSrc)
 		island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")

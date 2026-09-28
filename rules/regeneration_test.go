@@ -29,6 +29,7 @@ func regenSurvived(t *testing.T, e *Engine, id state.ObjID) {
 	}
 }
 func TestRegenerationCombat(t *testing.T) {
+	t.Parallel()
 	for _, blocker := range []bool{false, true} {
 		name := "attacker"
 		if blocker {
@@ -74,6 +75,7 @@ func TestRegenerationCombat(t *testing.T) {
 	}
 }
 func TestRegenerationConsumed(t *testing.T) {
+	t.Parallel()
 	e, id := regenFixture(t)
 	e.emit(events.Event{Kind: events.Damage, Obj: id, Amount: 2})
 	e.checkStateBased()
@@ -85,6 +87,7 @@ func TestRegenerationConsumed(t *testing.T) {
 	}
 }
 func TestRegenerationDeathtouch(t *testing.T) {
+	t.Parallel()
 	e, id := regenFixture(t)
 	e.emit(events.Event{Kind: events.Damage, Obj: id, Amount: 1})
 	e.emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "Deathtouched", Amount: 1})
@@ -101,6 +104,7 @@ func TestRegenerationDeathtouch(t *testing.T) {
 }
 
 func TestRegenerationDestroy(t *testing.T) {
+	t.Parallel()
 	for _, api := range []string{"Destroy", "DestroyAll"} {
 		t.Run(api, func(t *testing.T) {
 			e, id := regenFixture(t)
@@ -111,6 +115,7 @@ func TestRegenerationDestroy(t *testing.T) {
 	}
 }
 func TestRegenerationCannotReplaceNoRegen(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Terror", "Wrath of God", "Nekrataal"} {
 		t.Run(name, func(t *testing.T) {
@@ -149,6 +154,7 @@ func TestRegenerationCannotReplaceNoRegen(t *testing.T) {
 }
 
 func TestRegenerationDoesNotReplaceOtherMoves(t *testing.T) {
+	t.Parallel()
 	for _, api := range []string{"Sacrifice", "ChangeZone", "zero toughness"} {
 		t.Run(api, func(t *testing.T) {
 			e, id := regenFixture(t)
@@ -170,6 +176,7 @@ func TestRegenerationDoesNotReplaceOtherMoves(t *testing.T) {
 	}
 }
 func TestRegenerationExpires(t *testing.T) {
+	t.Parallel()
 	e, id := regenFixture(t)
 	regenEffect(e, id, "Regenerate", nil)
 	if e.G.Obj(id).Counter("Shield") != 2 {
@@ -182,6 +189,7 @@ func TestRegenerationExpires(t *testing.T) {
 	}
 }
 func TestRegenerationTwoShields(t *testing.T) {
+	t.Parallel()
 	e, id := regenFixture(t)
 	regenEffect(e, id, "Regenerate", nil)
 	regenEffect(e, id, "Destroy", nil)
@@ -202,6 +210,7 @@ func TestRegenerationTwoShields(t *testing.T) {
 	}
 }
 func TestRegenerationExperimentOne(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	c, ok := reg.Lookup("Experiment One")
 	if !ok {

@@ -41,6 +41,7 @@ func setStateDagger(t *testing.T, seed uint64) (*Engine, Config, state.ObjID) {
 }
 
 func TestSetStateOptionalDaggerDeclineAndAccept(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		seed   uint64
@@ -78,6 +79,7 @@ func TestSetStateOptionalDaggerDeclineAndAccept(t *testing.T) {
 }
 
 func TestSetStateOptionalBotClampAnswerValid(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := setStateDagger(t, 919)
 	d := e.Pending()
 	// The bot's deterministic first-option clamp has one home in botpolicy;

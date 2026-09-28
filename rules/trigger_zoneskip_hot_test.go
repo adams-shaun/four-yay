@@ -34,6 +34,7 @@ func hotSubsetBoard(tb testing.TB, n int) (*Engine, state.ObjID) {
 // subset stored, the walk called fn once per battlefield object, so visited
 // equalled the board size.
 func TestTriggerWalkVisitsOnlyHotObjects(t *testing.T) {
+	t.Parallel()
 	const n = 500
 	e, watcher := hotSubsetBoard(t, n)
 	board := len(e.G.Zone(state.ZBattlefield, 0))
@@ -68,6 +69,7 @@ func TestTriggerWalkVisitsOnlyHotObjects(t *testing.T) {
 // cold tokens must never drop the hot watcher's trigger. The watcher's
 // enter trigger queues exactly once on its own battlefield entry.
 func TestTriggerWalkHotSubsetStillFiresTheWatcher(t *testing.T) {
+	t.Parallel()
 	e, watcher := hotSubsetBoard(t, 300)
 	e.pendingTriggers = e.pendingTriggers[:0]
 	e.checkFaceTriggers(e, events.Event{Kind: events.MoveZone, Obj: watcher,
@@ -88,6 +90,7 @@ func TestTriggerWalkHotSubsetStillFiresTheWatcher(t *testing.T) {
 // among thousands of cold vanilla tokens. Without the StepChange full-walk,
 // the hot-subset skip prunes the granted creature and drops its upkeep.
 func TestTriggerWalkStepChangeStillFiresGrantedCumulativeUpkeep(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// A self-granting layer-6 static: the source grants ITSELF the derived
 	// keyword, so the filler tokens stay cold.

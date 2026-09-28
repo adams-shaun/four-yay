@@ -20,6 +20,7 @@ import (
 // recheck test uses — because equip is sorcery-speed and cannot be activated
 // while the Shock is on the stack.
 func TestHexproofRecheckDropsTargetChosenBeforeTheGrant(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Grizzly Bears"}, []string{"Hill Giant"})
 	bear := findOnBoard(t, e, 0, "Grizzly Bears")

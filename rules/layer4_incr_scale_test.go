@@ -115,6 +115,7 @@ func engineIntField(t testing.TB, e *Engine, name string) int {
 // plus at most the tapped token). The pin fails on the pre-incremental code,
 // where every refresh rescans the board and typesVisited would track len(Objs).
 func TestLayer4TableRefreshWorkIsNotPerObject(t *testing.T) {
+	t.Parallel()
 	visited := func(n int) int {
 		e, car, tap := incrBoard(t, n)
 		incrBoardOK(t, e, car)
@@ -148,6 +149,7 @@ func TestLayer4TableRefreshWorkIsNotPerObject(t *testing.T) {
 // explicit compare here is the same check with the verify flag read out in
 // the open).
 func TestLayer4TableRefreshTakesTheIncrementalPath(t *testing.T) {
+	t.Parallel()
 	e, car, tap := incrBoard(t, 4000)
 	incrBoardOK(t, e, car)
 	before := engineIntField(t, e, "typesIncrBuilds")

@@ -230,6 +230,7 @@ func castDose(t *testing.T, e *Engine, target state.ObjID) int {
 // in the caster's own main phase, the Count$InOwnMainPhase gate short-circuits
 // the chained DBBlight — the reanimate works, nothing is blighted, no ask.
 func TestBlightDoseOfDawnglowGateHoldsInOwnMainPhase(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 2, "Dose of Dawnglow")
 	bearA := blightMove(t, e, 0, "Grizzly Bears", state.ZBattlefield)
@@ -255,6 +256,7 @@ func TestBlightDoseOfDawnglowGateHoldsInOwnMainPhase(t *testing.T) {
 // on the OPPONENT's turn (an instant), the gate opens, the controller is asked
 // which of their creatures takes the two −1/−1 counters, and the answer lands.
 func TestBlightDoseOfDawnglowBlightsOutsideMainPhase(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 2, "Dose of Dawnglow")
 	bearA := blightMove(t, e, 0, "Grizzly Bears", state.ZBattlefield)
@@ -293,6 +295,7 @@ func TestBlightDoseOfDawnglowBlightsOutsideMainPhase(t *testing.T) {
 // creatures a real KChoose is posed and the answer lands; with exactly one,
 // the counter is placed silently with no decision.
 func TestBlightShadowUchinAsksOnlyWithTwoCreatures(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	blight := blightSVar(t, reg, "Shadow Urchin", "DBBlight")
 
@@ -330,6 +333,7 @@ func TestBlightShadowUchinAsksOnlyWithTwoCreatures(t *testing.T) {
 // with exactly one creature, and never touches the Elf's own controller's
 // creatures.
 func TestBlightHighPerfectMorcantAsksEachOpponent(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 3, "High Perfect Morcant")
 	morcant := blightMove(t, e, 0, "High Perfect Morcant", state.ZBattlefield)
@@ -369,6 +373,7 @@ func TestBlightHighPerfectMorcantAsksEachOpponent(t *testing.T) {
 // run and blight 2. The gate itself is effects.Resolve's unlessProceed — the
 // body never reads UnlessCost$.
 func TestBlightChaosSpewerUnlessGate(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	trig := blightSVar(t, reg, "Chaos Spewer", "TrigBlight")
 
@@ -429,6 +434,7 @@ func TestBlightChaosSpewerUnlessGate(t *testing.T) {
 // OPPONENT (not the activator) blight 2. The cost half working here is also
 // the regression guard the brief asks for.
 func TestBlightChampionOfTheWeirdActivationEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 2, "Champion of the Weird")
 	champ := blightMove(t, e, 0, "Champion of the Weird", state.ZBattlefield)
@@ -506,6 +512,7 @@ func lifeOf(t *testing.T, e *Engine, p state.PlayerID) int32 {
 // SubAbility$ DBBlight runs after it — the controller draws, then blights 1
 // (one controlled creature: silent, the strict-supersets arm again).
 func TestBlightSinisterGnarlbarkChainsAfterTheDraw(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 2, "Sinister Gnarlbark")
 	gnarlbark := blightMove(t, e, 0, "Sinister Gnarlbark", state.ZBattlefield)

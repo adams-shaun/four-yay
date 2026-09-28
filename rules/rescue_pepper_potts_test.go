@@ -75,6 +75,7 @@ func rescueCast(t *testing.T, want string) (*Engine, state.ObjID) {
 }
 
 func TestRescuePepperPottsArtifactBounceAddsCounter(t *testing.T) {
+	t.Parallel()
 	e, rescue := rescueCast(t, "Trinket")
 	if n := e.G.Obj(rescue).Counter("P1P1"); n != 1 {
 		t.Fatalf("Rescue bounced an artifact: P1P1 = %d, want 1", n)
@@ -82,6 +83,7 @@ func TestRescuePepperPottsArtifactBounceAddsCounter(t *testing.T) {
 }
 
 func TestRescuePepperPottsCreatureBounceAddsNoCounter(t *testing.T) {
+	t.Parallel()
 	e, rescue := rescueCast(t, "Bear")
 	if n := e.G.Obj(rescue).Counter("P1P1"); n != 0 {
 		t.Fatalf("Rescue bounced a non-artifact creature: P1P1 = %d, want 0 (the gate failed open)", n)
@@ -89,6 +91,7 @@ func TestRescuePepperPottsCreatureBounceAddsNoCounter(t *testing.T) {
 }
 
 func TestRescuePepperPottsNoTargetAddsNoCounter(t *testing.T) {
+	t.Parallel()
 	e, rescue := rescueCast(t, "")
 	if n := e.G.Obj(rescue).Counter("P1P1"); n != 0 {
 		t.Fatalf("Rescue returned nothing: P1P1 = %d, want 0 (the gate failed open)", n)

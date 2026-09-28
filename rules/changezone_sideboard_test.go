@@ -20,6 +20,7 @@ import (
 )
 
 func TestChangeZoneKarnCompoundSideboardExile(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	karn := searchCorpusCard(t, reg, "Karn, the Great Creator")
 	cage := searchCorpusCard(t, reg, "Grafdigger's Cage")

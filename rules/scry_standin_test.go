@@ -72,6 +72,7 @@ func emptyLibrary(t *testing.T, e *Engine, p state.PlayerID) {
 // so Matoya, Archon Elder's plain "Whenever you scry" fires ONCE while the
 // Temporal Anchor's ToBottom$ True gate stays closed on the zero pile.
 func TestScryZeroLookRecordsZeroBottomCompletion(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 205)
 	matoya := onBoardCard(t, e, 0, corpusCard(t, "Matoya, Archon Elder"))
 	anchor := onBoardCard(t, e, 0, corpusCard(t, "The Temporal Anchor"))
@@ -142,6 +143,7 @@ func TestScryZeroLookRecordsZeroBottomCompletion(t *testing.T) {
 // records a zero-card bottom pile, and a plain Mode$ Scry trigger still
 // fires exactly once for that instruction.
 func TestScryOncePerInstructionEvenWithZeroBottomed(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 206)
 	matoya := onBoardCard(t, e, 0, corpusCard(t, "Matoya, Archon Elder"))
 	if o := e.G.Obj(matoya); o == nil || o.Zone != state.ZBattlefield || len(o.Face().Triggers) == 0 || o.Face().Triggers[0].Mode != "Scry" {

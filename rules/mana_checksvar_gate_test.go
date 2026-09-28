@@ -45,6 +45,7 @@ func fpPlanUses(got PaymentPlanOutcome, id state.ObjID) (decision.PaymentActivat
 // absent from both the priority mana offer and the V1 {3} plan. Fails on the
 // pre-gate tree.
 func TestAutopayFPCheckSVarGateHoldsForManaAbilities(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9804, "Name:Three Probe\nManaCost:3\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	sphere := onBoardCard(t, e, 0, fpCorpus(t, "Glistening Sphere"))
 	gated := e.G.Obj(sphere).Face().Abilities[1]
@@ -64,6 +65,7 @@ func TestAutopayFPCheckSVarGateHoldsForManaAbilities(t *testing.T) {
 // the priority option for exactly three mana) once an opponent holds three
 // poison counters.
 func TestManaAbilityCheckSVarGate(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9804, "Name:Three Probe\nManaCost:3\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	sphere := onBoardCard(t, e, 0, fpCorpus(t, "Glistening Sphere"))
 	if o := e.G.Obj(sphere); o == nil || o.Zone != state.ZBattlefield {

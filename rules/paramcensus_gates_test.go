@@ -106,6 +106,7 @@ func findInZones(t *testing.T, e *Engine, p state.PlayerID, name string) state.O
 // with every opponent above 10 life the ConditionSVarCompare$ GE11 gate holds
 // and the controller loses 1 life at their upkeep.
 func TestVampireLaceratorUpkeepGateLosesOneLife(t *testing.T) {
+	t.Parallel()
 	e, cfg, lac := gateFixture(t, 901, "Vampire Lacerator")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: lac, From: state.ZHand, To: state.ZBattlefield})
 	before := e.G.Players[0].Life
@@ -125,6 +126,7 @@ func TestVampireLaceratorUpkeepGateLosesOneLife(t *testing.T) {
 // gate: an opponent at 10 or less makes PlayerCountOpponents$LowestLifeTotal
 // read 10, GE11 fails, and the upkeep loss does not happen.
 func TestVampireLaceratorUpkeepGateSparedUnderTen(t *testing.T) {
+	t.Parallel()
 	e, cfg, lac := gateFixture(t, 902, "Vampire Lacerator")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: lac, From: state.ZHand, To: state.ZBattlefield})
 	// The single opponent at the spared threshold, set through a logged
@@ -149,6 +151,7 @@ const gateLandSrc = "Name:Gate Land\nTypes:Land\nOracle:x\n"
 // SVar:SacX:Count$Valid Land.YouCtrl (= 2 here), so Max is 2, the card's own
 // "any number of lands".
 func TestScapeshiftOptionalDeclineSacrificesNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, sp := gateFixture(t, 903, "Scapeshift", gateLandSrc, gateLandSrc)
 	addMana(t, e, 0, "GGGG")
 	l1 := gateMoveFromLibrary(t, e, "Gate Land", state.ZBattlefield)
@@ -179,6 +182,7 @@ func TestScapeshiftOptionalDeclineSacrificesNothing(t *testing.T) {
 // same ask: it dies to the graveyard, the chained library search asks for up
 // to one land (Remembered$Amount 1), and the chosen Mountain enters tapped.
 func TestScapeshiftOptionalAcceptSacrificesAndSearches(t *testing.T) {
+	t.Parallel()
 	e, cfg, sp := gateFixture(t, 904, "Scapeshift", gateLandSrc, gateLandSrc)
 	addMana(t, e, 0, "GGGG")
 	l1 := gateMoveFromLibrary(t, e, "Gate Land", state.ZBattlefield)
@@ -229,6 +233,7 @@ func TestScapeshiftOptionalAcceptSacrificesAndSearches(t *testing.T) {
 // this turn the Raid gate fails and the legal-action walk does not offer the
 // return; with one attacker it does.
 func TestBloodsoakedChampionRaidGateOffersOnlyAfterAttacking(t *testing.T) {
+	t.Parallel()
 	e, cfg, champ := gateFixture(t, 905, "Bloodsoaked Champion",
 		"Name:Raider\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: champ, From: state.ZHand, To: state.ZGraveyard})
@@ -297,6 +302,7 @@ const gateRaiderSrc = "Name:Raider\nTypes:Creature\nPT:1/1\nOracle:x\n"
 // targeted permanent to its owner's hand either way; only the kicked cast
 // draws.
 func TestIntoTheRoilKickedConditionDrawsOnlyWhenKicked(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		kicked bool
@@ -376,6 +382,7 @@ func TestIntoTheRoilKickedConditionDrawsOnlyWhenKicked(t *testing.T) {
 // P1P1 counter, gated on Remembered$Amount) fires for the sacrifice that
 // happened.
 func TestDesecrationDemonMultiTargetOptionalDoesNotWedge(t *testing.T) {
+	t.Parallel()
 	victim := "Name:Victim\nTypes:Creature\nPT:1/1\nOracle:x\n"
 	fixture := choiceCorpusCard(t, "Desecration Demon")
 	cfg := seatZeroStart(Config{Seed: 908, Names: []string{"a", "b", "c"},

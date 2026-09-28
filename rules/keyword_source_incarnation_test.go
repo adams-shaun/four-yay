@@ -41,6 +41,7 @@ func stackAbilityForSource(e *Engine, src state.ObjID, api string) state.ObjID {
 // trigger except Gift, so resolveTop's incarnation gate drops this one and
 // the ward never asks.
 func TestGrantedWardSurvivesSourceRemoval(t *testing.T) {
+	t.Parallel()
 	e, bear := hexingEngine(t)
 
 	// Precondition: this is the GRANTED ward (a printed K:Ward expands to a
@@ -109,6 +110,7 @@ func TestGrantedWardSurvivesSourceRemoval(t *testing.T) {
 // Removing the attacker in response -- and returning it as a new incarnation
 // -- must not fizzle the drain.
 func TestGrantedAfflictSurvivesSourceRemoval(t *testing.T) {
+	t.Parallel()
 	monarch := mshCorpusCardPath(t, "Lost Monarch of Ifnir", "l/lost_monarch_of_ifnir.txt")
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, monarch)
@@ -188,6 +190,7 @@ func TestGrantedAfflictSurvivesSourceRemoval(t *testing.T) {
 // guarding it, unstamping Evoke would make the stale trigger sacrifice the
 // returned creature.
 func TestEvokeTriggerDoesNotSacrificeReturnedSource(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 923, []string{"Nulldrifter", "Stifle"}, nil, nil)
 	null := findCardObj(t, e, 0, "Nulldrifter", state.ZHand)
 	addMana(t, e, 0, "CCCUU")

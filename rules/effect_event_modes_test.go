@@ -10,6 +10,7 @@ import (
 // The DamageDone trigger mode is the Azra Oddsmaker Effect shape. The
 // deliberately simple Execute body makes each separate firing observable.
 func TestEffectDamageDoneTriggerRepeatsWithinTurn(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:OddsmakerPromise\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigDamage\n"+
 		"SVar:TrigDamage:Mode$ DamageDone | ValidTarget$ Player | TriggerZones$ Command | Execute$ TrigPain\n"+
@@ -43,6 +44,7 @@ func TestEffectDamageDoneTriggerRepeatsWithinTurn(t *testing.T) {
 // one-shot CR 603.7 promise: the registration must survive its own firing and
 // fire again for the next matching cast.
 func TestEffectSpellCastTriggerRepeatsWithinTurn(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:CastPromise\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigCast\n"+
 		"SVar:TrigCast:Mode$ SpellCast | ValidActivatingPlayer$ You | TriggerZones$ Command | Execute$ TrigPain\n"+
@@ -75,6 +77,7 @@ func TestEffectSpellCastTriggerRepeatsWithinTurn(t *testing.T) {
 // resolving sorcery's Stack -> Graveyard move is a matching zone change, and
 // the second one must fire the Effect too.
 func TestEffectChangesZoneTriggerRepeatsWithinTurn(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:ZonePromise\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigZone\n"+
 		"SVar:TrigZone:Mode$ ChangesZone | Origin$ Stack | Destination$ Graveyard | ValidCard$ Card | TriggerZones$ Command | Execute$ TrigPain\n"+

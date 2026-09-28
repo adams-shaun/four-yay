@@ -10,6 +10,7 @@ import (
 )
 
 func TestManaColorAnswerUsesStructuredSymbol(t *testing.T) {
+	t.Parallel()
 	const petal = "Name:Lotus Petal\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ Sac<1/CARDNAME> | Produced$ Any\nOracle:x\n"
 	e, _, id := manaSourceEngine(t, petal)
@@ -33,6 +34,7 @@ func TestManaColorAnswerUsesStructuredSymbol(t *testing.T) {
 }
 
 func TestNestedManaColorAnswerUsesStructuredSymbol(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	onBoard(t, e, 0, upkeepEnchantment)
 	grotto := onBoard(t, e, 0, luckGrotto)

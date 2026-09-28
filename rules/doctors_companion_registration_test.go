@@ -20,6 +20,7 @@ import (
 // companion carrier must no longer name the keyword as a gap, and any
 // carrier still unplayable must be blocked on a DIFFERENT, known primitive.
 func TestDoctorsCompanionPrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:Doctor's companion"] {
 		t.Fatal(`effects.Supported() is missing "kw:Doctor's companion"`)
 	}
@@ -74,6 +75,7 @@ func TestDoctorsCompanionPrimitiveIsRegistered(t *testing.T) {
 // line silently dropped from the face, so the precondition (the keyword is
 // on the face) is asserted, not assumed.
 func TestDoctorsCompanionCarrierIsUnderstood(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	c, ok := reg.Lookup("Yasmin Khan")
 	if !ok {

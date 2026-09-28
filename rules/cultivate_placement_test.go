@@ -81,6 +81,7 @@ func sameObjMultiset(a, b []state.ObjID) bool {
 // even though each leg carries NoLooking$ True, because the head's public
 // reveal already taught the chooser which cards they are.
 func TestCultivatePlacementLegs(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Cultivate")
 	_, d0 := castSearchSpell(t, e, "Cultivate")
@@ -136,6 +137,7 @@ func TestCultivatePlacementLegs(t *testing.T) {
 // the card's own SelectPrompt$ asks for exactly one. Both legs must carry the
 // script's prompt and no option may be blind.
 func TestSearchLegSelectPrompt(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Kodama's Reach")
 	_, d0 := castSearchSpell(t, e, "Kodama's Reach")
@@ -176,6 +178,7 @@ func TestSearchLegSelectPrompt(t *testing.T) {
 // options must still carry real names. This is the half a reveal-only fix
 // would miss.
 func TestSearchLegNoRevealSameChooser(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	if !headHasNoReveal(t, reg, "Final Parting") {
 		t.Fatal("precondition: Final Parting's head must carry no Reveal$")
@@ -216,6 +219,7 @@ func TestSearchLegNoRevealSameChooser(t *testing.T) {
 // alone must name the leg's options. A picked-by-name-only fix would leave
 // this chooser blind.
 func TestSearchLegOpponentChooser(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Elemental Teachings")
 	_, d0 := castSearchSpell(t, e, "Elemental Teachings")
@@ -269,6 +273,7 @@ func TestSearchLegOpponentChooser(t *testing.T) {
 // leg's options MUST stay the blind "a card" placeholder. The SelectPrompt$
 // is still honoured, which also proves the fixed builder ran.
 func TestSearchLegStaysBlindWhenUnknown(t *testing.T) {
+	t.Parallel()
 	src := "Name:BlindSearch\nManaCost:1 G\nTypes:Sorcery\n" +
 		"A:SP$ ChangeZone | Origin$ Library | Destination$ Library | ChangeType$ Land.Basic | " +
 		"ChangeNum$ 2 | RememberChanged$ True | NoReveal$ True | NoLooking$ True | SubAbility$ Leg\n" +
@@ -316,6 +321,7 @@ func TestSearchLegStaysBlindWhenUnknown(t *testing.T) {
 // are a display-only change, so a placement leg must not start emitting extra
 // public Note reveals of its own (the head already revealed).
 func TestCultivateLegsEmitNoRevealNote(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Cultivate")
 	_, d0 := castSearchSpell(t, e, "Cultivate")

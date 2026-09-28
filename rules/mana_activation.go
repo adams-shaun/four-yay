@@ -670,12 +670,15 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	if statics == nil {
 		continuous = e.activeStatics("Continuous")
 	} else {
-		continuous = statics.get().continuous
+		// The walk's snapshot pre-filtered to AddAbility$ carriers: every
+		// other static fails the name test below, so the order and the
+		// answer are those of the full list.
+		continuous = statics.addAbilityContinuous()
 	}
 	var printed map[string]bool // allocated on the first printed grant
 	for _, sv := range continuous {
-		name := strings.TrimSpace(sv.Params["AddAbility"])
-		if name == "" || !e.matchesSpec(sv.Params["Affected"], id, e.specCtx(sv.Source, sv.Controller)) {
+		name := strings.TrimSpace(sv.ParamStr(cards.PKAddAbility))
+		if name == "" || !e.matchesSpec(sv.ParamStr(cards.PKAffected), id, e.specCtx(sv.Source, sv.Controller)) {
 			continue
 		}
 		source := e.G.Obj(sv.Source)
@@ -1201,7 +1204,7 @@ func (e *Engine) tapFlagsSick(source state.ObjID, tap, untap bool) bool {
 	if o == nil || (!tap && !untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
 		return false
 	}
-	return slices.Contains(e.Derived(source).Types, "Creature") && !e.HasKeyword(source, "Haste")
+	return slices.Contains(e.Derived(source).Types, "Creature") && !e.hasKeywordH(source, kwhHaste)
 }
 
 func activationTapCostUnavailable(o *state.Object, cost Cost) bool {

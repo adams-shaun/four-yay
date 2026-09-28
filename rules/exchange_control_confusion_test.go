@@ -25,6 +25,7 @@ import (
 // rejected any TargetingPlayer$ value outright, so the trigger always
 // emitted an unimplemented Note and never exchanged anything.
 func TestExchangeControlConfusionTrigger(t *testing.T) {
+	t.Parallel()
 	confusion := corpusCard(t, "Confusion in the Ranks")
 	face := confusion.Faces[0]
 	sub := cards.ResolveSVar(face.SVars, "TrigExchangeControl")
@@ -117,6 +118,7 @@ func TestExchangeControlConfusionTrigger(t *testing.T) {
 // as the only records, so expireControl's empty-survivor base (g1.Previous =
 // 0) hands A back to seat 0 and this assertion fails.
 func TestExchangeControlGrantLayering(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	a := putBattlefield(t, e, 0, "Name:A\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	b := putBattlefield(t, e, 1, "Name:B\nTypes:Creature\nPT:2/2\nOracle:x\n")

@@ -464,6 +464,7 @@ func castAndResolveTappedCreature(t *testing.T, seed uint64) (*Engine, Config, s
 // already on the battlefield (effects/combatfx.go effTap), and the land is
 // simply left in hand, untapped, forever.
 func TestUpdatedReplacementAppliesTheOriginalMove(t *testing.T) {
+	t.Parallel()
 	e, _, id := playTappedLand(t, 100)
 
 	if got := e.G.Obj(id).Zone; got != state.ZBattlefield {
@@ -492,6 +493,7 @@ func TestUpdatedReplacementAppliesTheOriginalMove(t *testing.T) {
 // permanent's stack->battlefield Move every time, so resolveTop finds the
 // same object on top again on the next pass and resolves it again, forever.
 func TestUpdatedReplacementOnACreatureSpellResolvesOnce(t *testing.T) {
+	t.Parallel()
 	e, _, id := castAndResolveTappedCreature(t, 101)
 
 	if got := e.G.Obj(id).Zone; got != state.ZBattlefield {
@@ -543,6 +545,7 @@ func TestUpdatedReplacementOnACreatureSpellResolvesOnce(t *testing.T) {
 // -- unchanged behaviour, pinned so the Updated branch above cannot regress
 // it.
 func TestReplacedReplacementStillDiscardsTheMove(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	guardian := onBoard(t, e, 0, `Name:Relic Guardian
 ManaCost:1 G
@@ -571,6 +574,7 @@ Oracle:x
 // resolveTop's new guard exists for. At c19097f this hangs the same way
 // test 2 does (bounded here for the same reason).
 func TestPermanentSpellWhoseEntryIsFullyReplacedDoesNotStickOnTheStack(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 102, fullyReplacedEntrySrc)
 	driveToStep(t, e, 1, 0, state.StepMain1)
 	// Fund and re-ask, not fund-then-drive: see castAndResolveTappedCreature's
@@ -634,6 +638,7 @@ func TestPermanentSpellWhoseEntryIsFullyReplacedDoesNotStickOnTheStack(t *testin
 // CR 608.2m engine housekeeping, not a further game event a card's own
 // replacement should get to intercept.
 func TestTotalityGuardSurvivesABroadGraveyardReplacement(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 104, fullyReplacedEntrySrc)
 	onBoard(t, e, 1, graveyardBlockingReplacementSrc)
 	driveToStep(t, e, 1, 0, state.StepMain1)
@@ -697,6 +702,7 @@ func TestTotalityGuardSurvivesABroadGraveyardReplacement(t *testing.T) {
 // pin Updated's actual behaviour; this one only pins that whatever it does
 // is faithfully reconstructible from the log alone.
 func TestUpdatedReplacementReplaysFaithfully(t *testing.T) {
+	t.Parallel()
 	t.Run("land", func(t *testing.T) {
 		e, cfg, _ := playTappedLand(t, 200)
 		fresh := replayFromLog(t, cfg, e.L.Events)
@@ -720,6 +726,7 @@ func TestUpdatedReplacementReplaysFaithfully(t *testing.T) {
 // it) still reaches checkTriggers, exactly as an ordinary unreplaced Move
 // would.
 func TestUpdatedReplacementStillFiresETBTriggers(t *testing.T) {
+	t.Parallel()
 	e, _, landID := newFixtureDeck(t, 202, tappedLandSrc)
 	onBoard(t, e, 0, watcherSrc)
 	driveToStep(t, e, 1, 0, state.StepMain1)

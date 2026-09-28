@@ -13,6 +13,7 @@ import (
 // abort lands one event after the arena crosses the cap -- the whole point
 // (no decision boundary is needed).
 func TestLivelockWatcherObjectCapFires(t *testing.T) {
+	t.Parallel()
 	w := newLivelockWatcher(&LoopGuard{MaxObjs: 5})
 	defer func() {
 		r := recover()
@@ -42,6 +43,7 @@ func TestLivelockWatcherObjectCapFires(t *testing.T) {
 // guard (MaxObjs 0) observes the same events without ever firing, so every
 // existing Config keeps its behaviour.
 func TestLivelockWatcherObjectCapZeroIsOff(t *testing.T) {
+	t.Parallel()
 	w := newLivelockWatcher(&LoopGuard{})
 	for i := 0; i < 100; i++ {
 		w.observeFrom(events.Event{Kind: events.TokenCreate, Seq: uint64(i + 1)}, 0, 100000)
@@ -51,6 +53,7 @@ func TestLivelockWatcherObjectCapZeroIsOff(t *testing.T) {
 // TestLivelockWatcherObjectCapDisabledIsOff pins that the embedder opt-out
 // still wins: a Disabled guard observes nothing at all, cap armed or not.
 func TestLivelockWatcherObjectCapDisabledIsOff(t *testing.T) {
+	t.Parallel()
 	w := newLivelockWatcher(&LoopGuard{MaxObjs: 1, Disabled: true})
 	for i := 0; i < 100; i++ {
 		w.observeFrom(events.Event{Kind: events.TokenCreate, Seq: uint64(i + 1)}, 0, 100000)

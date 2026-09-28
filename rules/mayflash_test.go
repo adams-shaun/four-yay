@@ -53,6 +53,7 @@ func plainCastOptionExists(opts []decision.Option, id state.ObjID) bool {
 // and resolves the DestroyAll. Before the fix the option did not exist at all
 // (the sorcery was only castable at sorcery speed at full cost).
 func TestTegwyllsScouringMayflashCastTapsThreeFlyers(t *testing.T) {
+	t.Parallel()
 	teg := corpusCardText(t, "t/tegwylls_scouring.txt")
 	e, cfg, id := newFixtureDeck(t, 401, teg,
 		mayflashFlyerSrc, mayflashFlyerSrc, mayflashFlyerSrc, mayflashFlyerSrc, mayflashNonFlyerSrc)
@@ -146,6 +147,7 @@ func TestTegwyllsScouringMayflashCastTapsThreeFlyers(t *testing.T) {
 // (9 of the 11 corpus carriers) is used so the test does not depend on a tap
 // cost.
 func TestMayflashPlainCastUnaffectedAtSorceryTiming(t *testing.T) {
+	t.Parallel()
 	spell := card(t, "Name:Rout\nManaCost:2 R\nTypes:Sorcery\nK:MayFlashCost:2\nA:SP$ Draw | Defined$ You | NumCards$ 1\nOracle:x\n")
 	e := handEngine(t, spell)
 	e.G.Players[0].Pool[state.MR] = 1
@@ -162,6 +164,7 @@ func TestMayflashPlainCastUnaffectedAtSorceryTiming(t *testing.T) {
 // TestMayflashWithheldWithoutKeyword is the fail-closed negative: a sorcery
 // with no K:MayFlashCost line gets no mayflash option off-main.
 func TestMayflashWithheldWithoutKeyword(t *testing.T) {
+	t.Parallel()
 	spell := card(t, "Name:Plain Sorcery\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Draw | Defined$ You | NumCards$ 1\nOracle:x\n")
 	e := handEngine(t, spell)
 	e.G.Active = 1
@@ -181,6 +184,7 @@ func TestMayflashWithheldWithoutKeyword(t *testing.T) {
 // reports Unknown both withhold (the replicate/bestow fail-closed
 // convention), and the real Behold carrier parses to a Behold part.
 func TestMayflashExtraCostGrammar(t *testing.T) {
+	t.Parallel()
 	two := card(t, "Name:MF Two\nManaCost:1 R\nTypes:Sorcery\nK:MayFlashCost:2\nOracle:x\n")
 	if c, ok := mayflashExtraCost(two.Faces[0]); !ok || c.Generic != 2 {
 		t.Fatalf("MayFlashCost:2 -> (%+v, %v), want Generic 2", c, ok)

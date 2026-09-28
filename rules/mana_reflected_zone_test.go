@@ -15,6 +15,7 @@ import (
 // for mana" while IN HAND, because the plain AB$ Mana branch gated on
 // abilityZoneOK but the ManaReflected walk (considerReflected) did not.
 func TestManaReflectedNotActivatableOutsideBattlefield(t *testing.T) {
+	t.Parallel()
 	orchard := "Name:Exotic Meadow\nManaCost:no cost\nTypes:Land\n" +
 		"A:AB$ ManaReflected | Cost$ T | ColorOrType$ Color | Valid$ Land.OppCtrl | ReflectProperty$ Produce | SpellDescription$ {T}: Add one mana of any color that a land an opponent controls could produce.\n" +
 		"Oracle:{T}: Add one mana of any color that a land an opponent controls could produce.\n"
@@ -49,6 +50,7 @@ func TestManaReflectedNotActivatableOutsideBattlefield(t *testing.T) {
 // ActivationZone$ names the hand (a Spirit-Guide shape) must still be
 // offered from hand after the ManaReflected branch started gating too.
 func TestManaActivationZoneHandStillOffered(t *testing.T) {
+	t.Parallel()
 	src := "Name:Hand Guide\nManaCost:no cost\nTypes:Creature Spirit\nPT:1/1\n" +
 		"A:AB$ Mana | Cost$ 0 | ActivationZone$ Hand | Produced$ G | SpellDescription$ Add {G}.\n" +
 		"Oracle:Add {G}.\n"

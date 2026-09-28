@@ -96,6 +96,7 @@ func modalSpellOption(e *Engine, spell state.ObjID) (int, bool) {
 // creature front, so the modal_spell offer must be withheld even though the
 // FRONT face is unrestricted (which is what the pre-fix gate read).
 func TestModalSpellBackFaceRestrictionWithholdsOffer(t *testing.T) {
+	t.Parallel()
 	e, spell, _ := sacXFixture(t, "Awaken the Blood Avatar", []string{
 		"Name:C1\nTypes:Creature\nPT:1/1\nOracle:x\n",
 		"Name:C2\nTypes:Creature\nPT:1/1\nOracle:x\n",
@@ -138,6 +139,7 @@ func TestModalSpellBackFaceRestrictionWithholdsOffer(t *testing.T) {
 // Sac<X/Creature> candidate, so the full cast path runs with exactly the
 // three token creatures plus the Golem.
 func TestModalSpellOfferSurvivesFrontFaceRestriction(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := sacXFixture(t, "Awaken the Blood Avatar", []string{
 		"Name:C1\nTypes:Creature\nPT:1/1\nOracle:x\n",
 		"Name:C2\nTypes:Creature\nPT:1/1\nOracle:x\n",

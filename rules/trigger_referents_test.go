@@ -14,6 +14,7 @@ import (
 
 // These are event-role tests, not claims of complete card/trigger support.
 func TestTriggerReferentsUseEventRoles(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := e.G.Zone(state.ZLibrary, 0)[0]
 	other := e.G.Zone(state.ZLibrary, 1)[0]
@@ -46,6 +47,7 @@ func TestTriggerReferentsUseEventRoles(t *testing.T) {
 // bodies and resolved SVars, deduped per face by Kind/API/Params. Master of
 // Diversion's real Tap SA carries ControlledBy TriggeredDefendingPlayer.
 func TestMasterOfDiversionTriggerReferent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	master, ok := reg.Lookup("Master of Diversion")
 	if !ok {
@@ -112,6 +114,7 @@ func TestMasterOfDiversionTriggerReferent(t *testing.T) {
 // before the filtered DamageAll. CombatDamage$ True triggers remain unsupported;
 // this fixture intentionally uses the supported noncombat DamageDone mode.
 func TestTriggeredTargetSurvivesSuspension(t *testing.T) {
+	t.Parallel()
 	watcher := card(t, `Name:Referent watcher
 Types:Creature Wizard
 PT:3/3

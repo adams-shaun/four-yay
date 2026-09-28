@@ -36,6 +36,7 @@ func findStationOption(d *decision.Decision, id state.ObjID) int {
 // move, feeding the original the same intent lands both on the same chain
 // head, and the whole game replays byte-identically from the log.
 func TestStationHearthhullCloneContinuationReplays(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Hearthhull, the Worldseed"), card(t, bearSrc)},
@@ -132,6 +133,7 @@ func TestStationHearthhullCloneContinuationReplays(t *testing.T) {
 // and an animated Hearthhull (a creature in its own right) is still never its
 // own tap payer.
 func TestStationNegativeGates(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Gate 1: no other untapped creature -- the Bear is tapped, so the

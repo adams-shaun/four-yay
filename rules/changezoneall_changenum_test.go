@@ -54,6 +54,7 @@ func inHand(e *Engine, id state.ObjID) bool {
 // before the param read, so this test pins that the All spelling keeps the
 // uncapped sweep rather than degrading with the numeric branch.
 func TestExpertLevelSafeChangeNumAllReturnsEveryExiledCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	safe := searchCorpusCard(t, reg, "Expert-Level Safe")
 	e, cfg := mordorEngine(t, reg, 911, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
@@ -118,6 +119,7 @@ func TestExpertLevelSafeChangeNumAllReturnsEveryExiledCard(t *testing.T) {
 // convention: the card did nothing), so a second sweep over fresh exiles
 // with an unresolvable value moves nothing at all.
 func TestChangeZoneAllChangeNumCapsTheSweep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := mordorEngine(t, reg, 4242, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears")
 	src := moveToBattlefieldByName(t, e, 0, "Grizzly Bears")

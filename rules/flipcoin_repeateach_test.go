@@ -15,6 +15,7 @@ import (
 // outer SubAbility reads ValidPlayers$ FlippedTails. The per-iteration Ctx
 // copies must share their lazily allocated flip memory with that outer reader.
 func TestManaClashRepeatEachSharesFlipMemory(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	clash := lookup(t, reg, "Mana Clash")
 

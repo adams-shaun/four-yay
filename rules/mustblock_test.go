@@ -11,6 +11,7 @@ import (
 )
 
 func TestMustBlockCorpusWatchdogRequirement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	watchdog, ok := reg.Lookup("Watchdog")
 	if !ok {

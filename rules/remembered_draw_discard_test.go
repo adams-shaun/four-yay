@@ -9,6 +9,7 @@ import (
 )
 
 func TestRememberedDrawThenDiscardDiscards(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9360, "Name:Draw Discard Test\nManaCost:U\nTypes:Sorcery\nA:SP$ Draw | NumCards$ 3 | RememberDrawn$ True | SubAbility$ DBDiscard | SpellDescription$ Draw three, then discard two.\nSVar:DBDiscard:DB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 2 | ConditionDefined$ Remembered | ConditionPresent$ Card | SubAbility$ DBCleanup\nSVar:DBCleanup:DB$ Cleanup | ClearRemembered$ True\nOracle:x\n")
 	toMain1(t, e)
 	e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "U", Amount: 1})

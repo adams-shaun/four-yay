@@ -47,6 +47,14 @@ type compiledSpec struct {
 	// alts is filterAlternatives(spec) regardless of EACH: the zone-aware
 	// matcher (matchesZoneSpecCtx) never took the EACH split.
 	alts []compiledAlt
+	// id is the spec's dense ordinal in the process-wide cache (1-based;
+	// 0 = not retained). PredicatePrograms index their membership bitsets
+	// by it instead of hashing the spec text.
+	id uint32
+	// prog is the text's predicate program (compilePredicateProgram, a
+	// pure function of the text), consulted only for a spec a
+	// PredicatePrograms set holds.
+	prog predicateProgram
 }
 
 type compiledBaseKind uint8
@@ -71,6 +79,8 @@ type compiledAlt struct {
 	baseNeg bool
 	kind    compiledBaseKind
 	typ     string
+	// typID is typ's interned type-word ordinal (cards.InternTypeWord).
+	typID cards.TypeWordID
 	// typSub is changelingType(typ), precomputed for hasTypeCtxSub.
 	typSub bool
 	// contextualSameName is sameNameContextBase(base, rest).
@@ -275,7 +285,7 @@ func compiledPredEval(c *compiledPred, g *state.Game, o *state.Object, sc *SpecC
 }
 
 func compileSpec(spec string) *compiledSpec {
-	cs := &compiledSpec{}
+	cs := &compiledSpec{prog: compilePredicateProgram(spec)}
 	if subs, ok := eachAlternatives(spec); ok {
 		cs.each = make([]*compiledSpec, len(subs))
 		for i, sub := range subs {
@@ -316,7 +326,7 @@ func compileSpec(spec string) *compiledSpec {
 		case "Spell", "SpellAbility":
 			a.kind = cbSpell
 		default:
-			a.kind, a.typ, a.typSub = cbType, b, changelingType(b)
+			a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
 		}
 		// Forge's base-qualified Spell.IsTargeting form (and the SpellAbility
 		// spelling) is ONE alternative: the whole rest after `IsTargeting `
@@ -350,15 +360,15 @@ func compiledBaseMatch(a *compiledAlt, o *state.Object, sc *SpecContext, zone st
 	var m bool
 	switch a.kind {
 	case cbAny:
-		m = hasTypeCtxSub(o, "Creature", subCreature, sc) || hasTypeCtxSub(o, "Planeswalker", subPlaneswalker, sc) ||
-			hasTypeCtxSub(o, "Battle", subBattle, sc)
+		m = hasTypeCtxSub(o, "Creature", twCreature, subCreature, sc) || hasTypeCtxSub(o, "Planeswalker", twPlaneswalker, subPlaneswalker, sc) ||
+			hasTypeCtxSub(o, "Battle", twBattle, subBattle, sc)
 	case cbCard:
 		m = true
 	case cbPermanent:
 		if inZone && zone != state.ZBattlefield {
-			m = hasTypeCtxSub(o, "Artifact", subArtifact, sc) || hasTypeCtxSub(o, "Creature", subCreature, sc) ||
-				hasTypeCtxSub(o, "Enchantment", subEnchantment, sc) || hasTypeCtxSub(o, "Land", subLand, sc) ||
-				hasTypeCtxSub(o, "Planeswalker", subPlaneswalker, sc) || hasTypeCtxSub(o, "Battle", subBattle, sc)
+			m = hasTypeCtxSub(o, "Artifact", twArtifact, subArtifact, sc) || hasTypeCtxSub(o, "Creature", twCreature, subCreature, sc) ||
+				hasTypeCtxSub(o, "Enchantment", twEnchantment, subEnchantment, sc) || hasTypeCtxSub(o, "Land", twLand, subLand, sc) ||
+				hasTypeCtxSub(o, "Planeswalker", twPlaneswalker, subPlaneswalker, sc) || hasTypeCtxSub(o, "Battle", twBattle, subBattle, sc)
 		} else {
 			m = o.Zone == state.ZBattlefield
 		}
@@ -378,7 +388,7 @@ func compiledBaseMatch(a *compiledAlt, o *state.Object, sc *SpecContext, zone st
 	case cbSpell:
 		m = o.Zone == state.ZStack || (a.base == "Spell" && sc.AsStack)
 	default:
-		m = hasTypeCtxSub(o, a.typ, a.typSub, sc)
+		m = hasTypeCtxSub(o, a.typ, a.typID, a.typSub, sc)
 	}
 	if a.baseNeg {
 		return !m
@@ -394,6 +404,16 @@ var (
 	subArtifact     = changelingType("Artifact")
 	subEnchantment  = changelingType("Enchantment")
 	subLand         = changelingType("Land")
+)
+
+// The same fixed base words' interned type-word ordinals.
+var (
+	twCreature     = cards.InternTypeWord("Creature")
+	twPlaneswalker = cards.InternTypeWord("Planeswalker")
+	twBattle       = cards.InternTypeWord("Battle")
+	twArtifact     = cards.InternTypeWord("Artifact")
+	twEnchantment  = cards.InternTypeWord("Enchantment")
+	twLand         = cards.InternTypeWord("Land")
 )
 
 // compiledMatch is matchesObjectText(g, spec, o, sc) for the spec cs was compiled
@@ -584,6 +604,7 @@ func (c *specCache) slow(spec string) *compiledSpec {
 		if len(c.dirty) >= compiledSpecCacheMax {
 			return cs
 		}
+		cs.id = uint32(len(c.dirty) + 1)
 		c.dirty[spec] = cs
 	}
 	c.misses++

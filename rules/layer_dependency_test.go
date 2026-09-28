@@ -17,6 +17,7 @@ import (
 // the pre-grant keyword list, `withFlanking` failed, and the Sliver sat on
 // one instance.
 func TestLayer6DependencyOrderCavalryMasterOlderThanSidewinder(t *testing.T) {
+	t.Parallel()
 	master := mshCorpusCard(t, "Cavalry Master")
 	sliverCard := mshCorpusCard(t, "Sidewinder Sliver")
 	e := combatEngine(t)
@@ -64,6 +65,7 @@ func TestLayer6DependencyOrderCavalryMasterOlderThanSidewinder(t *testing.T) {
 // Petroglyphs ruling's reading. Before the fix raw timestamp order applied
 // the older lord first, while the gate still matched, and its grant stood.
 func TestLayer6NegativeKeywordDependencyAppliesDependentAfter(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	grantor := onBoard(t, e, 0, "Name:Grantor\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	gated := onBoard(t, e, 0, "Name:Gated\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -117,6 +119,7 @@ func TestLayer6NegativeKeywordDependencyAppliesDependentAfter(t *testing.T) {
 // reorders to A1, A2, B). Before the fix only the innermost, ungated grant
 // survived.
 func TestLayer6KeywordDependencyChainResolvesTransitively(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	bear := onBoard(t, e, 0, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

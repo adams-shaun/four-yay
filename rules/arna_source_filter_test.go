@@ -39,6 +39,7 @@ import (
 // and it fails if `AttachedTo TriggeredAttackerLKICopy` degrades to always-true
 // (which a bare `Attached`-style predicate that ignored the referent would).
 func TestArnaRealSourceFilterReachesCopyRider(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	arnaCard := lookup(t, reg, "Arna Kennerüd, Skycaptain")
 	e, cfg := corpusEngineCfg(t, reg,
@@ -118,6 +119,7 @@ func TestArnaRealSourceFilterReachesCopyRider(t *testing.T) {
 // binding: this is the engine's DeclareAttackers → putTriggersOnStack →
 // resolveTop path resolving the card's own Execute chain.
 func TestStanggRealTriggerCopiesAttachedPermanents(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	stanggCard := lookup(t, reg, "Stangg, Echo Warrior")
 	e, cfg := corpusEngineCfg(t, reg,

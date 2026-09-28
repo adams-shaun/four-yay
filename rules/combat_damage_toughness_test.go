@@ -28,6 +28,7 @@ import (
 const toughnessBeast = "Name:Combat Beast\nManaCost:3 G\nTypes:Creature Beast\nPT:5/2\nOracle:x\n"
 
 func TestAssaultFormationAttackerDealsToughnessInsteadOfPower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Assault Formation"))
@@ -58,6 +59,7 @@ func TestAssaultFormationAttackerDealsToughnessInsteadOfPower(t *testing.T) {
 }
 
 func TestAssaultFormationBlockerHitsBackWithToughness(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	// The static sits on seat 1, so it is seat 1's BLOCKER whose hit-back is
@@ -87,6 +89,7 @@ func TestAssaultFormationBlockerHitsBackWithToughness(t *testing.T) {
 }
 
 func TestAssaultFormationUnblockedAttackerDealsToughnessToPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Assault Formation"))
@@ -106,6 +109,7 @@ func TestAssaultFormationUnblockedAttackerDealsToughnessToPlayer(t *testing.T) {
 }
 
 func TestAssaultFormationReadsBoostedToughnessThroughTheLayerWalk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Assault Formation"))
@@ -131,6 +135,7 @@ func TestAssaultFormationReadsBoostedToughnessThroughTheLayerWalk(t *testing.T) 
 }
 
 func TestBedrockTortoisePowerLTtoughnessFilterScopesTheStatic(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Bedrock Tortoise"))
@@ -162,6 +167,7 @@ func TestBedrockTortoisePowerLTtoughnessFilterScopesTheStatic(t *testing.T) {
 }
 
 func TestCombatDamageToughnessFeedsTheDivisionDecision(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Assault Formation"))
@@ -234,6 +240,7 @@ func onCommandCard(t *testing.T, e *Engine, p state.PlayerID, c *cards.Card) sta
 // it, so without assignmentStatics the attacker would deal its power 5
 // instead of its toughness 2.
 func TestWeightAdvantageAppliesFromTheCommandZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	ca := mustCorpusCard(t, reg, "Weight Advantage")
@@ -278,6 +285,7 @@ func TestWeightAdvantageAppliesFromTheCommandZone(t *testing.T) {
 // EffectZone$ Command excludes the battlefield. Without this negative the
 // command-zone walk could over-reach to every zone.
 func TestWeightAdvantageNeedsItsEffectZoneCommand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Weight Advantage"))

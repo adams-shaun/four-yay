@@ -66,6 +66,7 @@ func seekUnlessPay(t *testing.T, e *Engine, limit int) *decision.Decision {
 // ---------------------------------------------------------------------------
 
 func TestUnlessPayTapBloodCryptPayEntersUntapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Blood Crypt"))
 	e.askPriority(0)
@@ -108,6 +109,7 @@ func TestUnlessPayTapBloodCryptPayEntersUntapped(t *testing.T) {
 }
 
 func TestUnlessPayTapBloodCryptDeclineEntersTapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Blood Crypt"))
 	e.askPriority(0)
@@ -158,6 +160,7 @@ func mogisEngine(t *testing.T, reg *cards.Registry) (*Engine, state.ObjID) {
 }
 
 func TestUnlessPayDealDamageMogisPaySacrificesAndSparesTheDamage(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, bear := mogisEngine(t, reg)
 	ask := seekUnlessPay(t, e, 60)
@@ -185,6 +188,7 @@ func TestUnlessPayDealDamageMogisPaySacrificesAndSparesTheDamage(t *testing.T) {
 }
 
 func TestUnlessPayDealDamageMogisDeclineTakesTwo(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, bear := mogisEngine(t, reg)
 	ask := seekUnlessPay(t, e, 60)
@@ -232,6 +236,7 @@ func isolationCellEngine(t *testing.T, reg *cards.Registry) (*Engine, state.ObjI
 }
 
 func TestUnlessPayLoseLifeIsolationCellPayDrainsThePool(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, mn := isolationCellEngine(t, reg)
 	ask := seekUnlessPay(t, e, 60)
@@ -270,6 +275,7 @@ func TestUnlessPayLoseLifeIsolationCellPayDrainsThePool(t *testing.T) {
 }
 
 func TestUnlessPayLoseLifeIsolationCellDeclineLosesTwo(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := isolationCellEngine(t, reg)
 	ask := seekUnlessPay(t, e, 60)
@@ -291,6 +297,7 @@ func TestUnlessPayLoseLifeIsolationCellDeclineLosesTwo(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestUnlessPayChangeZoneMeathookPayKeepsTheCardInTheGraveyard(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 751)
 	onBoardCard(t, e, 0, choiceCorpusCard(t, "Meathook Massacre II"))
 	bear := onBoard(t, e, 1, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -324,6 +331,7 @@ func TestUnlessPayChangeZoneMeathookPayKeepsTheCardInTheGraveyard(t *testing.T) 
 }
 
 func TestUnlessPayChangeZoneMeathookDeclineReturnsItWithFinality(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 752)
 	onBoardCard(t, e, 0, choiceCorpusCard(t, "Meathook Massacre II"))
 	bear := onBoard(t, e, 1, "Name:Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

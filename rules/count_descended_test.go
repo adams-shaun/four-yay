@@ -179,6 +179,7 @@ func TestMoltenCollapseCharmNumResolvesDescents(t *testing.T) {
 // that can't block, and after two descents exactly two (two different N so a
 // silent zero cannot pass).
 func TestMycotyrantTokensEqualDescentsThisTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	for _, descents := range []int{1, 2} {

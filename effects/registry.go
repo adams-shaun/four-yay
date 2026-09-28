@@ -1294,6 +1294,11 @@ type Ctx struct {
 	// (never matches), the documented unresolvable-RHS contract. Not
 	// event-backed, not state: resolution-scratch like Targets or SVars.
 	resolvingRHS bool
+	// ExcludeFromBattlefieldCount is the entrant of a battlefield MoveZone
+	// replacement. Count$Valid bodies evaluating the Updated entry must use
+	// the pre-entry battlefield population (CR 614.12), even though the move
+	// has already been folded before the body runs. Zero outside that context.
+	ExcludeFromBattlefieldCount state.ObjID
 	// Replaced is the object the replaced event was about (Defined$ ReplacedCard):
 	// the card a "would go to the graveyard from anywhere, exile it instead"
 	// replacement is acting ON. Set by rules/replacement.go on the context it

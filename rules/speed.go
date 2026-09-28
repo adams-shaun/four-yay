@@ -9,113 +9,93 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// speed.go implements the "Start your engines!" mechanic (CR 702.163; 47
-// corpus files carry the keyword). Speed is a per-seat count
-// (state.Player.Speed) that never resets; max speed is 4. Two engine rules:
-//
-//   - CR 702.163a: while a player controls a permanent with "Start your
-//     engines!", if they have no speed (0), it becomes 1. Emitted from the
-//     one emit path when such a permanent ENTERS the battlefield under them
-//     (checkSpeedStart, called from Engine.emit's MoveZone fold).
-//   - CR 702.163b: a player's speed increases once each turn when an
-//     opponent loses life, up to max speed -- including another player's
-//     turn. A player with NO speed (0 -- no Start your engines! permanent
-//     yet) does not gain: the increase rule is speed's own, and it applies
-//     to players who have speed. Emitted after the folded LifeChange loss
-//     (checkSpeedGain).
-//
-// The once-per-turn gate is derived from the event log (the SpeedChange
-// events already emitted this turn), never from a live counter, so a replay
-// re-executes to the same gains. Max speed is a cap: a seat at 4 gains
-// nothing further, and events.Apply clamps defensively too.
+// speed.go implements Start your engines! (CR 702.179). The static ability
+// sets speed to 1 (702.179a); a player with speed has a source-less inherent
+// trigger on opponents' life loss DURING THEIR TURN (702.179d). The trigger
+// uses the ordinary APNAP queue and stack, and can trigger only once a turn.
+// Speed 4 is max speed (702.179e).
 
-// maxSpeed is CR 702.163b: speed cannot go above 4.
+const speedTrigger = "__speed_increase"
+
+// maxSpeed is CR 702.179e.
 const maxSpeed = 4
 
-// checkSpeedGain is called from Engine.emit after every folded LifeChange
-// with a negative Amount (a loss) and after every positive player-D Damage
-// event (combat and spell/ability damage fold straight to the life total,
-// and a Damage event that reaches emit has already been through prevention
-// -- a prevented hit is a Note, never a Damage -- so a positive player-arm
-// Damage event IS a landed loss). Every living player WITH speed gains one
-// speed when an opponent of theirs lost the life (any other seat -- CR
-// 800.4k: in a free-for-all every other player is an opponent); at most one
-// gain per turn, and never past max speed. More than one player may qualify
-// for the same loss on another player's turn. The gain itself is an ordinary
-// event (re-entrant emit: a SpeedChange triggers nothing).
+// checkSpeedGain queues the inherent trigger after a folded opponent life
+// loss. Both the pending queue and the logged push count as having triggered:
+// countering the stack ability cannot permit another trigger this turn.
 func (e *Engine) checkSpeedGain(ev events.Event) {
 	if e.G.Over {
 		return
 	}
-	loser := ev.Player
-	for _, p := range e.G.AliveFrom(0) {
-		if p == loser {
-			// The active player losing their own life is not "an opponent
-			// loses life".
-			continue
-		}
-		if e.G.Players[p].Speed == 0 {
-			// CR 702.163a: a player with NO speed (no Start your engines!
-			// permanent yet) does not take the increase; the increase rule
-			// governs speed a player HAS.
-			continue
-		}
-		if e.G.Players[p].Speed >= maxSpeed {
-			continue
-		}
-		if e.speedGainedThisTurn(p) {
-			continue
-		}
-		e.emit(events.Event{Kind: events.SpeedChange, Player: p, Amount: 1,
-			Text: "speed"})
+	p := e.G.Active
+	if int(p) >= len(e.G.Players) || e.G.Players[p].Lost || p == ev.Player ||
+		e.G.Players[p].Speed == 0 || e.G.Players[p].Speed >= maxSpeed ||
+		e.speedTriggeredThisTurn(p) {
+		return
 	}
+	e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Controller: p, SpeedIncrease: true})
 }
 
-// checkSpeedStart is called from Engine.emit after a battlefield-entry Move
-// whose object carries kw:Start your engines: if its controller has no speed,
-// it becomes 1 (CR 702.163a). A controller at speed 1..4 is untouched.
-func (e *Engine) checkSpeedStart(id state.ObjID) {
+// checkSpeedStart is the permanent half of the Start your engines! grant:
+// called from Engine.emit's post-fold hook on every battlefield entry
+// (MoveZone), token mint (TokenCreate, CardToken) and control transfer
+// (ControlChange) -- the same hook shape checkBlessingGrants uses. For each
+// still-alive speed-less seat it checks CR 702.179a's gate directly off the
+// FOLDED state: the seat controls at least one permanent whose derived
+// keywords include Start your engines!. It then emits the one-way
+// SpeedChange latch to 1. Running after the fold means a permanent's own
+// arrival grants its controller, and the recursive emit the scan makes sees
+// a seat that now has speed, so the scan terminates. A control transfer of a
+// permanent already on the battlefield is exactly the case a battlefield-
+// entry-only hook cannot see, which is why ControlChange is in the set.
+func (e *Engine) checkSpeedStart() {
 	if e.G.Over {
 		return
 	}
-	o := e.G.Obj(id)
-	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
-		return
+	for _, p := range e.G.AliveFrom(0) {
+		if int(p) >= len(e.G.Players) || e.G.Players[p].Lost || e.G.Players[p].Speed != 0 {
+			continue
+		}
+		started := false
+		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			o := e.G.Obj(id)
+			if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
+				continue
+			}
+			if e.hasKeywordH(id, kwhStartYourEngines) {
+				started = true
+				break
+			}
+		}
+		if started {
+			e.emit(events.Event{Kind: events.SpeedChange, Player: p, Amount: 1,
+				Text: "start your engines"})
+		}
 	}
-	if !e.HasKeyword(id, "Start your engines") {
-		return
-	}
-	p := o.Controller
-	if int(p) >= len(e.G.Players) || e.G.Players[p].Lost || e.G.Players[p].Speed != 0 {
-		return
-	}
-	e.emit(events.Event{Kind: events.SpeedChange, Player: p, Amount: 1,
-		Text: "start your engines"})
 }
 
-// speedGainedThisTurn reports whether p already took the TURN'S INCREASE
-// since the turn began: the latest TurnChange in the log bounds the scan,
-// exactly the way castThisTurn and drawsThisTurn derive their per-turn
-// counts. Only gains with Text "speed" count: the "start your engines"
-// grant (CR 702.163a, speed starting at 1 when a first Start your engines!
-// permanent enters) is a distinct rule from the turn's increase (CR
-// 702.163b), so the turn the first permanent enters still earns its
-// increase when an opponent loses life -- two events, both SpeedChange,
-// distinguished by the Text the two emit sites write.
-func (e *Engine) speedGainedThisTurn(p state.PlayerID) bool {
+// speedTriggeredThisTurn counts the trigger, not its resolution. A queued
+// trigger has not yet been logged; once pushed its DelayedPush records it even
+// if countered. TurnChange bounds the scan without replay-only live counters.
+func (e *Engine) speedTriggeredThisTurn(p state.PlayerID) bool {
+	for _, pt := range e.pendingTriggers {
+		if pt.SpeedIncrease && pt.Controller == p {
+			return true
+		}
+	}
 	for i := len(e.L.Events) - 1; i >= 0; i-- {
 		ev := e.L.Events[i]
 		if ev.Kind == events.TurnChange {
-			return false
+			break
 		}
-		if ev.Kind == events.SpeedChange && ev.Player == p && ev.Amount > 0 && ev.Text == "speed" {
+		if ev.Kind == events.DelayedPush && ev.Player == p && ev.Counter == speedTrigger {
 			return true
 		}
 	}
 	return false
 }
 
-// maxSpeedAbilities collects the abilities a max-speed static (CR 702.163c,
+// maxSpeedAbilities collects the abilities a max-speed static (CR 702.179e,
 // "Max speed — ...") grants a permanent whose controller HAS max speed. The
 // shape is `S:Mode$ Continuous | Affected$ Card.Self | Condition$ MaxSpeed |
 // AddAbility$ <svar>` (Amonkhet Raceway): the granted ability is the SVar the

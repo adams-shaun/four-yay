@@ -59,6 +59,7 @@ func attackTaxManaSourceSeat(t *testing.T, counters int32, others int) (*Engine,
 // a payable subset Submit accepts, and both a Ritualist-free declaration and
 // one where the Ritualist attacks with enough OTHER mana must be legal.
 func TestAttackTaxAttackingManaSourceBotAnswer(t *testing.T) {
+	t.Parallel()
 	// Board A: seven {C} lands + Ritualist's two units == the published
 	// budget 9 that the buggy MaxSum handed the bot.
 	e, myr, ritualist, bear := attackTaxManaSourceSeat(t, 9, 7)
@@ -142,6 +143,7 @@ func TestAttackTaxAttackingManaSourceBotAnswer(t *testing.T) {
 // declaration Myr (9) + Ritualist (2) is exactly affordable and must Submit.
 // This proves the fix does not blanket-ban a mana creature from attacking.
 func TestAttackTaxAttackingManaSourceWithOtherManaIsLegal(t *testing.T) {
+	t.Parallel()
 	e, myr, ritualist, _ := attackTaxManaSourceSeat(t, 9, 9)
 	if o := e.G.Obj(myr); o == nil || o.Counter("P1P1") != 9 {
 		t.Fatal("precondition: Myr Prototype is not a 9-counter battlefield creature")
@@ -185,6 +187,7 @@ func TestAttackTaxAttackingManaSourceWithOtherManaIsLegal(t *testing.T) {
 // no counters Myr's charge resolves to free, no mana tax exists, so no fold
 // applies and the mana creature attacks at Value 0 with MaxSum 0 (omitted).
 func TestAttackTaxZeroTaxManaSourceAttacksFree(t *testing.T) {
+	t.Parallel()
 	e, myr, ritualist, _ := attackTaxManaSourceSeat(t, 0, 2)
 	if o := e.G.Obj(myr); o == nil || o.Counter("P1P1") != 0 {
 		t.Fatal("precondition: Myr Prototype must be a 0-counter battlefield creature")

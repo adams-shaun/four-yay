@@ -98,6 +98,7 @@ func submitStop(t *testing.T, e *Engine, d *decision.Decision) {
 // this process?" election after its first reveal, and answering no resolves
 // after exactly that one iteration (one card taken, no second).
 func TestAdNauseamOptionalRepeatElectionStopsOnNo(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := corpusCardConfig(t, 6101, "Ad Nauseam")
 	addMana(t, e, caster, "BBBCC") // {3}{B}{B}
 
@@ -144,6 +145,7 @@ func TestAdNauseamOptionalRepeatElectionStopsOnNo(t *testing.T) {
 // taken), so the loop is a real do/while and the "no" test above is not
 // passing because iteration is impossible.
 func TestAdNauseamOptionalRepeatYesIterates(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := corpusCardConfig(t, 6102, "Ad Nauseam")
 	addMana(t, e, caster, "BBBCC")
 
@@ -236,6 +238,7 @@ func forbiddenRitualFixture(t *testing.T, seed uint64) (*Engine, Config, state.O
 // very next decision is the election, and that exactly one iteration's
 // sacrifice happened before it.
 func TestForbiddenRitualBodyAskResumesToRepeatElection(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := forbiddenRitualFixture(t, 6201)
 	addMana(t, e, 0, "BBCC") // {2}{B}{B}
 
@@ -315,6 +318,7 @@ func TestForbiddenRitualBodyAskResumesToRepeatElection(t *testing.T) {
 // shape: one iteration that DOES sacrifice (so the election is offered and
 // answered yes), then the no-op iteration, after which no election follows.
 func TestForbiddenRitualNoProgressIterationEndsTheLoop(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := forbiddenRitualFixture(t, 6203)
 	// Leave exactly one nontoken permanent on seat 0's battlefield.
 	bf := append([]state.ObjID(nil), e.G.Zone(state.ZBattlefield, 0)...)

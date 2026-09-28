@@ -133,6 +133,7 @@ func drainCharm(t *testing.T, e *Engine) (extraPicks, degradedResumes int) {
 // on the pick, and the answer's resume must run ONLY MLife -- the pick is not
 // re-posed and the LoseLife lands exactly once.
 func TestGenericCharmModesSurviveTheMidModeSuspension(t *testing.T) {
+	t.Parallel()
 	e, life0 := genericCharmAtPick(t, 6411, 0, 1) // MReturn, MLife
 	d := e.Pending()
 	submitChoices(t, e, d.Options[0].Index)
@@ -163,6 +164,7 @@ func TestGenericCharmModesSurviveTheMidModeSuspension(t *testing.T) {
 // one, with no "no sub-ability recorded" degradation Note either (the empty
 // remainder is reported at the Charm level through SuspendCharmRest).
 func TestGenericCharmSuspendsAfterAnEarlierModeAlreadyRan(t *testing.T) {
+	t.Parallel()
 	e, lifeBefore := genericCharmAtPick(t, 6412, 1, 0) // MLife, MReturn
 	d := e.Pending()
 	lifeAfterFirstMode := e.G.Players[0].Life
@@ -202,6 +204,7 @@ func TestGenericCharmSuspendsAfterAnEarlierModeAlreadyRan(t *testing.T) {
 // Without this the tests could silently exercise the cross-mode runner and
 // leave the row they exist to close untested.
 func TestGenericCharmCarrierIsNotCrossMode(t *testing.T) {
+	t.Parallel()
 	gen := card(t, genericCharmScript())
 	svars := gen.Faces[0].SVars
 	trig := cards.ResolveSVar(svars, "TrigCharm")

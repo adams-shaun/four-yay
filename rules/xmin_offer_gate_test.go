@@ -55,6 +55,7 @@ func xMinOfferGatePrecondition(t *testing.T, e *Engine, srcID state.ObjID, wantP
 // the parameter floor 4 is above the cost's XMin3 token and must withhold the
 // activation until the fourth generic mana is available.
 func TestXMinParamOfferGateKeepsHigherCostFloor(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 97, xMinOfferGateParamHiSrc, xMinOfferGateBearSrc)
 	relicID := moveSeeded(t, e, 0, xMinOfferGateParamHiSrc, state.ZBattlefield)
 	e.pending = nil

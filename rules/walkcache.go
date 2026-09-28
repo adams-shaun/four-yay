@@ -228,7 +228,7 @@ func (e *Engine) scanBoardStatics() boardStatics {
 							continue
 						}
 						out.manaConv = append(out.manaConv, manaConvSource{sv: staticView{Source: id,
-							Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars}})
+							Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars}})
 						continue
 					default:
 						continue
@@ -236,7 +236,7 @@ func (e *Engine) scanBoardStatics() boardStatics {
 					if zoneGated && !effectZoneOK(st.Params["EffectZone"], o.Zone) {
 						continue
 					}
-					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, SVars: pst.Face.SVars})
+					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 				}
 			}
 		}
@@ -247,6 +247,14 @@ func (e *Engine) scanBoardStatics() boardStatics {
 }
 
 func (e *Engine) verifyBoardStatics(got boardStatics) {
+	// The three scans below are one pure read: each zone summary's own
+	// verification runs once for the call, not once per scan
+	// (staticZoneSkipVerifyOnce).
+	if !e.staticZoneVerifyScope {
+		e.staticZoneVerifyScope = true
+		clear(e.staticZoneVerified)
+		defer func() { e.staticZoneVerifyScope = false }()
+	}
 	cost, action, mc := e.scanCostStatics(), e.scanActionStatics(), e.scanManaConvSources(nil)
 	same := got.cost.validTarget == cost.validTarget && staticViewsSame(got.cost.raise, cost.raise) && staticViewsSame(got.cost.reduce, cost.reduce) &&
 		staticViewsSame(got.cost.set, cost.set) && staticViewsSame(got.cost.optional, cost.optional) &&

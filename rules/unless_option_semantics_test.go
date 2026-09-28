@@ -11,6 +11,7 @@ import (
 // A decline-only offer stays a decline even if its cost becomes payable after
 // it was posed. Index 0 is only the selection identifier, not payment meaning.
 func TestUnlessPayDeclineRemainsDeclineWhenCostBecomesPayable(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, bearID := counterFixture(t, reg, "Mana Leak", "Grizzly Bears")
 	e.G.Players[0].Pool = state.Mana{}

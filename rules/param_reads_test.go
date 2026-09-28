@@ -62,6 +62,7 @@ func moveOwnerCard(t *testing.T, e *Engine, owner state.PlayerID, c *cards.Card,
 // named effect is declined with a "not stacked" Note (Forge's
 // EffectEffect.createEffect skip) instead of stacking a second instance.
 func TestEffectStackableFalseDoesNotStack(t *testing.T) {
+	t.Parallel()
 	src := "Name:PicEmblem\nManaCost:1\nTypes:Enchantment\n" +
 		"A:AB$ Effect | Cost$ R | Name$ PicEmblem | Stackable$ False | StaticAbilities$ STpic | Duration$ Permanent | SpellDescription$ x\n" +
 		"SVar:STpic:Mode$ CantTarget | ValidTarget$ Creature | Description$ x\nOracle:x\n"
@@ -103,6 +104,7 @@ func TestEffectStackableFalseDoesNotStack(t *testing.T) {
 // registry instances and no not-stacked Note is emitted (the en-Kor
 // "en-Kor Redirection" shape, where stacking is the card's whole point).
 func TestEffectStackableDefaultStacks(t *testing.T) {
+	t.Parallel()
 	src := "Name:PicStackEffect\nManaCost:1\nTypes:Enchantment\n" +
 		"A:AB$ Effect | Cost$ R | Name$ PicStackEffect | StaticAbilities$ STpic | Duration$ Permanent | SpellDescription$ x\n" +
 		"SVar:STpic:Mode$ CantTarget | ValidTarget$ Creature | Description$ x\nOracle:x\n"
@@ -142,6 +144,7 @@ func TestEffectStackableDefaultStacks(t *testing.T) {
 // observable half of the read is pinned by
 // TestChangeZoneAllLibraryPositionZeroPinsTopOfOwnerLibrary below.
 func TestTerminusChangeZoneAllLibraryPositionBottom(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	terminus := mustCorpusCard(t, reg, "Terminus")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -176,6 +179,7 @@ func TestTerminusChangeZoneAllLibraryPositionBottom(t *testing.T) {
 // act on the OWNER's library the MoveZone actually landed the card in, not
 // the source-zone scan's controller.
 func TestChangeZoneAllLibraryPositionZeroPinsTopOfOwnerLibrary(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pin := card(t, "Name:PicMassPin\nManaCost:2 U\nTypes:Sorcery\n"+
 		"A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | Destination$ Library | LibraryPosition$ 0\nOracle:x\n")
@@ -220,6 +224,7 @@ func TestChangeZoneAllLibraryPositionZeroPinsTopOfOwnerLibrary(t *testing.T) {
 // shuffles every destination library that received a card, after the moves
 // land (the Gomazoa "put on top ..., then those players shuffle" order).
 func TestChangeZoneAllShufflesDestinationLibraries(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bounce := card(t, "Name:PicMassBounce\nManaCost:2 U\nTypes:Sorcery\n"+
 		"A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | Destination$ Library | Shuffle$ True\nOracle:x\n")
@@ -256,6 +261,7 @@ func TestChangeZoneAllShufflesDestinationLibraries(t *testing.T) {
 // (the ChangeZoneAll GainControl$ read, Karn Liberated's ReturnFromExile
 // shape).
 func TestChangeZoneAllGainControl(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	rise := mustCorpusCard(t, reg, "Rise of the Dark Realms")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -291,6 +297,7 @@ func TestChangeZoneAllGainControl(t *testing.T) {
 // engine's documented RestartGame degradation; a real restart needs
 // game-loop machinery the engine does not have).
 func TestRestartGameRestrictFromNotesTheKeepSet(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	karn := mustCorpusCard(t, reg, "Karn Liberated")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -352,6 +359,7 @@ func TestRestartGameRestrictFromNotesTheKeepSet(t *testing.T) {
 // it to the battlefield with Transformed$ True, so it enters as its OTHER
 // face (Temple of Power, FaceIdx 1) — the CR 711.10a transformed entry.
 func TestChangeZoneTransformedEntersFlipped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ojer := mustCorpusCard(t, reg, "Ojer Axonil, Deepest Might")
 	e, cfg := censusEngine(t, 8181, []*cards.Card{ojer}, nil)
@@ -386,6 +394,7 @@ func TestChangeZoneTransformedEntersFlipped(t *testing.T) {
 // battlefield-to-graveyard move is replaced: the bear is EXILED, and the
 // continuous registry carries the Moved replacement that did it.
 func TestDealDamageReplaceDyingDefinedExilesInstead(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	wilt := mustCorpusCard(t, reg, "Wilt in the Heat")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")

@@ -82,6 +82,7 @@ func playerTargetOptions(t *testing.T, d *decision.Decision) []state.PlayerID {
 // offered every living seat (the controller was option 0) and the recheck
 // accepted any of them, so the Opponent qualifier was never enforced.
 func TestSleeperAgentTargetAskExcludesTheController(t *testing.T) {
+	t.Parallel()
 	e, sleeper := etbTriggerEngine(t, 2, nil, choiceCorpusCard(t, "Sleeper Agent"))
 	d := e.Pending()
 	if got := playerTargetOptions(t, d); len(got) != 1 || got[0] != 1 {
@@ -105,6 +106,7 @@ func TestSleeperAgentTargetAskExcludesTheController(t *testing.T) {
 // TestSleeperAgentTargetAskOffersOnlyOpponentsAtThreeSeats: with three seats
 // the Opponent ask offers exactly the two non-controllers, never seat 0.
 func TestSleeperAgentTargetAskOffersOnlyOpponentsAtThreeSeats(t *testing.T) {
+	t.Parallel()
 	e, _ := etbTriggerEngine(t, 3, nil, choiceCorpusCard(t, "Sleeper Agent"))
 	d := e.Pending()
 	got := playerTargetOptions(t, d)
@@ -117,6 +119,7 @@ func TestSleeperAgentTargetAskOffersOnlyOpponentsAtThreeSeats(t *testing.T) {
 // TestPlayerTargetAskYouSpecOffersOnlyTheController: ValidTgts$ You (the one
 // raw corpus line's shape) offers only the asker, never an opponent.
 func TestPlayerTargetAskYouSpecOffersOnlyTheController(t *testing.T) {
+	t.Parallel()
 	e, you := etbTriggerEngine(t, 2, nil, etbGainControlCard(t, "YouAgent", "You"))
 	d := e.Pending()
 	if got := playerTargetOptions(t, d); len(got) != 1 || got[0] != 0 {
@@ -138,6 +141,7 @@ func TestPlayerTargetAskYouSpecOffersOnlyTheController(t *testing.T) {
 // comma-split must preserve the object half (Creature) while the player half
 // (Opponent) excludes the asker.
 func TestPlayerTargetAskMixedSpecOffersCreatureAndOpponentNotTheController(t *testing.T) {
+	t.Parallel()
 	bear := card(t, "Name:Bear\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	e, mix := etbTriggerEngine(t, 2, []*cards.Card{bear}, etbGainControlCard(t, "MixedAgent", "Creature,Opponent"))
 	var bearID state.ObjID
@@ -175,6 +179,7 @@ func TestPlayerTargetAskMixedSpecOffersCreatureAndOpponentNotTheController(t *te
 // seat, a You spec drops every other seat, and the recognized qualified forms
 // keep working.
 func TestLegalTargetsRecheckAppliesThePlayerSpec(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	both := []state.Target{{IsPlayer: true, Player: 0}, {IsPlayer: true, Player: 1}}
 	zones := []state.Zone{state.ZBattlefield}
@@ -219,6 +224,7 @@ var censusTest struct {
 
 // TestValidTgtsPurePlayerCensusPinsThePlayerQualifierSets is the census.
 func TestValidTgtsPurePlayerCensusPinsThePlayerQualifierSets(t *testing.T) {
+	t.Parallel()
 	censusTest.Lock()
 	defer censusTest.Unlock()
 	if censusTest.reg == nil {
@@ -365,6 +371,7 @@ func equalStrings(a, b []string) bool {
 // (The Lord of Pain's real corpus shape is pinned end to end by
 // TestSpellCastActivatorThisTurnCastGatesTheTrigger).
 func TestPlayerTargetAskTriggerRoleExcludesTheRolePlayer(t *testing.T) {
+	t.Parallel()
 	e, self := etbTriggerEngine(t, 2, nil, etbGainControlCard(t, "NotControllerAgent", "Player.!TriggeredCardController"))
 	d := e.Pending()
 	if got := playerTargetOptions(t, d); len(got) != 1 || got[0] != 1 {
@@ -387,6 +394,7 @@ func TestPlayerTargetAskTriggerRoleExcludesTheRolePlayer(t *testing.T) {
 // binding absent the qualifier fails closed (the pg2 absent-binding
 // contract) and drops every seat.
 func TestLegalTargetsRecheckAppliesTheTriggerRoleQualifier(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	both := []state.Target{{IsPlayer: true, Player: 0}, {IsPlayer: true, Player: 1}}
 	zones := []state.Zone{state.ZBattlefield}

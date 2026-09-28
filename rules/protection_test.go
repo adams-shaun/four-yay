@@ -120,6 +120,7 @@ func TestProtectionFromBlueBlocksTargetingBlockingAndDamage(t *testing.T) {
 // life gain (CR 702.15a: lifelink triggers only on damage actually dealt) --
 // must be skipped too.
 func TestProtectedBlockerTakesNoDeathtouchAndGivesNoLifelink(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	atk := onBoardReady(t, e, 0, "Name:Merfolk\nManaCost:1 U\nTypes:Creature Merfolk\nPT:2/2\nK:Lifelink\nK:Deathtouch\nOracle:x\n")
 	blk := onBoard(t, e, 1, "Name:Piledriver\nManaCost:1 R\nTypes:Creature Goblin\nPT:1/2\nK:Protection from blue\nOracle:x\n")
@@ -160,6 +161,7 @@ func TestProtectedBlockerTakesNoDeathtouchAndGivesNoLifelink(t *testing.T) {
 // the ability fizzles to exile (CR 608.2b, CR 702.16c) without ever running
 // its damage script.
 func TestAbilityFizzlesWhenTargetGainsProtectionBeforeResolving(t *testing.T) {
+	t.Parallel()
 	mountain := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	blessing := card(t, "Name:Ward Blessing\nManaCost:1 W\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | KW$ Protection from artifacts\nOracle:x\n")
 	e := handEngine(t, mountain, blessing)

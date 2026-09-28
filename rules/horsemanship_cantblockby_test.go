@@ -29,6 +29,7 @@ func horsemanshipCard(t *testing.T, name, path string) *cards.Card {
 // ValidBlocker$ spec failed closed and the static was inert. The Mystic
 // attacks; a horsemanship creature cannot block it, a plain creature can.
 func TestCantBlockByHorsemanshipStaticRestrictsBlocking(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	mystic := onBoardCard(t, e, 1, horsemanshipCard(t, "Taoist Mystic", "t/taoist_mystic.txt"))
 	e.G.Obj(mystic).IsAttacking, e.G.Obj(mystic).Attacking = true, 0

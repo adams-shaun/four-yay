@@ -13,6 +13,7 @@ import (
 // the Affinity keyword, not a card type (CR 702.41), so each real affinity
 // permanent on the controller's battlefield lowers the generic cost by one.
 func TestSojournersEnforcermiteAffinityCountsAffinityPermanents(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	enforcermiteCard := lookup(t, reg, "Sojourner's Enforcermite")
 	frogmiteCard := lookup(t, reg, "Frogmite")

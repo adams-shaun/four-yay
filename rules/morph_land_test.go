@@ -102,6 +102,7 @@ func morphLandFaceDownCast(t *testing.T, e *Engine, name, mode, symbols string, 
 }
 
 func TestMorphLandFaceDownCastDoesNotSpendLandPlay(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// Seat 0's hand: the morph land under test plus a Forest, so the
 	// land-drop assertion can be made behaviourally — after the face-down
@@ -157,6 +158,7 @@ func TestMorphLandFaceDownCastDoesNotSpendLandPlay(t *testing.T) {
 }
 
 func TestDisguiseLandFaceDownCastDoesNotSpendLandPlay(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Branch of Vitu-Ghazi", "Forest")
 	id := morphLandFaceDownCast(t, e, "Branch of Vitu-Ghazi", "disguised", "CCC", 0)
@@ -197,6 +199,7 @@ func findInHandByName(t *testing.T, e *Engine, name string) state.ObjID {
 // branch continues before the face-down offer, so this option never exists
 // regardless of the drop.
 func TestMorphLandFaceDownCastStillOfferedAfterLandDrop(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := manifestEngine(t, reg, "Zoetic Cavern")
 	id := searchMoveByName(t, e, "Zoetic Cavern", state.ZHand)
@@ -245,6 +248,7 @@ func TestMorphLandFaceDownCastStillOfferedAfterLandDrop(t *testing.T) {
 // the affordable offer never appears, so the test fails rather than passing
 // vacuously on an always-absent option.
 func TestMorphLandFaceDownCastWithheldWhenUnpayable(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Zoetic Cavern")
 	id := searchMoveByName(t, e, "Zoetic Cavern", state.ZHand)

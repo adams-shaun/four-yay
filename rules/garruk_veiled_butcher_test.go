@@ -14,6 +14,7 @@ import (
 // replacement is specifically a "would die" effect, not a from-anywhere
 // graveyard replacement.
 func TestGarrukVeiledButcherOnlyReplacesBattlefieldDeaths(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	garruk := lookup(t, reg, "Garruk, Veiled Butcher")
 	bear := lookup(t, reg, "Grizzly Bears")

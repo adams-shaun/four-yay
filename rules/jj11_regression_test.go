@@ -12,6 +12,7 @@ import (
 // The inactive-source conformance leaf cannot detect an inert replacement body.
 // Exercise the real compiled Origin$ All body without a stack-exit backstop.
 func TestActiveRestInPeaceReplacesGraveyardMove(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Rest in Peace"}, nil)
 	rip := crAbortMove(t, e, 0, "Rest in Peace", state.ZBattlefield)
 	target := crAbortMove(t, e, 0, "Delver of Secrets", state.ZBattlefield)
@@ -46,6 +47,7 @@ func TestActiveRestInPeaceReplacesGraveyardMove(t *testing.T) {
 
 // Exile reached by a spell is not a cessation tombstone (CR 704.5d).
 func TestSwordsTokenCeasesFromExile(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Raise the Alarm", "Swords to Plowshares"}, nil)
 	raise := crAbortMove(t, e, 0, "Raise the Alarm", state.ZHand)
 	f := e.G.Obj(raise).Face()
@@ -96,6 +98,7 @@ func TestSwordsTokenCeasesFromExile(t *testing.T) {
 // contract they always certified (the shuffle arm itself is pinned in
 // rules/ponder_test.go).
 func TestPonderArrangeResumesDrawExactlyOnce(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Ponder"}, nil)
 	id := crAbortMove(t, e, 0, "Ponder", state.ZHand)
 	sa := e.G.Obj(id).Face().SpellAbility()

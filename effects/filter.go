@@ -1500,6 +1500,7 @@ const (
 	// an opponent of the evaluating controller (sc.You), the object-side twin
 	// of the player grammar's `Opponent` base.
 	wordDealtDamageThisTurn
+	wordDamagedBy
 	wordImprinted
 	wordDefenderCtrl
 	wordNotDefinedTargeted
@@ -1559,6 +1560,19 @@ const (
 // unrecognised word is wordUnknown: both sides must fail closed on it, never
 // turn it into an always-true predicate.
 func wordPredicate(p string) (wordKind, string) {
+	if suffix, ok := strings.CutPrefix(p, "DamagedBy"); ok {
+		if suffix == "" {
+			return wordDamagedBy, ""
+		}
+		base := strings.TrimSuffix(suffix, ".YouCtrl")
+		if base != "Card" && base != "Giant" && base != "Spider" {
+			return wordUnknown, suffix
+		}
+		if suffix != base && suffix != base+".YouCtrl" {
+			return wordUnknown, suffix
+		}
+		return wordDamagedBy, suffix
+	}
 	if l, is := colorLetter[p]; is {
 		return wordColor, l
 	}
@@ -2141,6 +2155,26 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// source. Source==0 is the unbound case and fails closed
 		// (contextPredicateBound refuses to invert it beneath '!').
 		return damageGameRecordHas(o.DamageTakenByGame, source)
+	case wordDamagedBy:
+		if key == "" {
+			return damageGameRecordHas(o.DamageTakenThisTurnBy, source)
+		}
+		base := strings.TrimSuffix(key, ".YouCtrl")
+		spec := base
+		if strings.HasSuffix(key, ".YouCtrl") {
+			if base == "Card" {
+				spec += ".YouCtrl"
+			} else {
+				spec = "Creature." + base + "+YouCtrl"
+			}
+		}
+		for _, srcID := range o.DamageTakenThisTurnBy {
+			srcObj := g.Obj(srcID)
+			if srcObj != nil && MatchesObjectCtx(g, spec, srcObj, sc) {
+				return true
+			}
+		}
+		return false
 	case wordDealtDamageThisGameBy:
 		// Forge's wasDealtDamageThisGameBy <ref> (the_fallen's walker half
 		// Planeswalker.wasDealtDamageByThisGame-by-Self is the bare sibling
@@ -2390,11 +2424,15 @@ func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecCont
 	case wordImprinted, wordChosenColor:
 		return sc.Source != 0
 	case wordDealtDamageByThisGame:
-		// The bare word names the bound source; with no source (a direct
-		// MatchesPlayerSpec/MatchesSpecCtx caller) the body would test the
-		// record against 0 and, beneath '!', invert that absence into a
-		// match. Refuse it.
+		// The bare word names the bound source; without one it must not
+		// invert an absent referent beneath '!'.
 		return sc.Source != 0
+	case wordDamagedBy:
+		if key == "" {
+			return sc.Source != 0
+		}
+		base := strings.TrimSuffix(key, ".YouCtrl")
+		return base == "Card" || base == "Giant" || base == "Spider"
 	case wordDealtDamageThisGameBy:
 		// The argument form binds through <ref>; an unresolvable ref names no
 		// source at all, so both the positive and the '!'-negated spelling
@@ -3733,8 +3771,12 @@ func canReceiveCounter(kind string, o *state.Object) bool {
 // rules package supplies SpecContext.Types when a layer-derived type list is
 // available; this fallback remains deliberately useful to effects, which sits
 // below rules and cannot import the layer engine.
-func hasType(o *state.Object, t string) bool {
-	d, f := hasTypePrinted(o, t)
+func hasType(o *state.Object, t string) bool { return hasTypeID(o, t, 0) }
+
+// hasTypeID is hasType with t's precompiled cards.InternTypeWord ordinal (0 =
+// none): the printed type-line test is one bit test when the face is bound.
+func hasTypeID(o *state.Object, t string, id cards.TypeWordID) bool {
+	d, f := hasTypePrinted(o, t, id)
 	if d != typeUndecided {
 		return d == typeYes
 	}
@@ -3744,19 +3786,19 @@ func hasType(o *state.Object, t string) bool {
 	// the positive subtype vocabulary, so a non-creature word (Arcane,
 	// Alara, Ajani) can never leak, and neither materialises subtypes into
 	// the derived type list.
-	return (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA()) && changelingType(t)
+	return (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA()) && changelingType(t)
 }
 
 // hasTypeSub is hasType with changelingType(t) supplied precomputed as sub
 // (the compiled filter form classifies its type words once). Every function
 // involved is pure, so reading sub first only skips the keyword probe for a
 // word no Changeling can grant.
-func hasTypeSub(o *state.Object, t string, sub bool) bool {
-	d, f := hasTypePrinted(o, t)
+func hasTypeSub(o *state.Object, t string, id cards.TypeWordID, sub bool) bool {
+	d, f := hasTypePrinted(o, t, id)
 	if d != typeUndecided {
 		return d == typeYes
 	}
-	return sub && (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA())
+	return sub && (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA())
 }
 
 type typeDecision uint8
@@ -3770,7 +3812,7 @@ const (
 // hasTypePrinted is hasType up to (not including) its intrinsic-CDA tail:
 // the bestow/reconfigure switches and the printed type line. Undecided means
 // the answer is the CDA tail's, read off the returned face.
-func hasTypePrinted(o *state.Object, t string) (typeDecision, *cards.Face) {
+func hasTypePrinted(o *state.Object, t string, id cards.TypeWordID) (typeDecision, *cards.Face) {
 	f := o.Face()
 	if f == nil {
 		return typeNo, nil
@@ -3805,10 +3847,8 @@ func hasTypePrinted(o *state.Object, t string) (typeDecision, *cards.Face) {
 			return typeNo, f
 		}
 	}
-	for _, x := range f.Types {
-		if strings.EqualFold(x, t) {
-			return typeYes, f
-		}
+	if f.TypeLineHas(t, id) {
+		return typeYes, f
 	}
 	return typeUndecided, f
 }
@@ -3890,6 +3930,12 @@ func hasTypeCtx(o *state.Object, t string, sc SpecContext) bool {
 // compiled predicate paths that already hold a *SpecContext do not copy the
 // whole context per type test (see hasEffectiveNamePtr).
 func hasTypeCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
+	return hasTypeCtxPtrID(o, t, 0, sc)
+}
+
+// hasTypeCtxPtrID is hasTypeCtxPtr with t's precompiled type-word ordinal
+// (0 = none), which only the printed-face fallback reads.
+func hasTypeCtxPtrID(o *state.Object, t string, id cards.TypeWordID, sc *SpecContext) bool {
 	// ExtraTypes is the layer walk's accumulating type list for the ONE
 	// object being matched: a plain value slice, deliberately not a callable
 	// resolver. Any call made through a SpecContext field makes escape
@@ -3910,7 +3956,7 @@ func hasTypeCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
 	// clears sc.DerivedTypes for the same reason, but this guard keeps the
 	// contract even for a caller that sets ExtraTypes without clearing it).
 	if sc.ExtraTypes != nil {
-		return hasType(o, t)
+		return hasTypeID(o, t, id)
 	}
 	// Outside the walk a published layer-4 entry makes the object's DERIVED
 	// type list authoritative for type words: it already carries the printed
@@ -3929,19 +3975,19 @@ func hasTypeCtxPtr(o *state.Object, t string, sc *SpecContext) bool {
 		return intrinsicCDAType(o, t)
 	}
 	// No derived entry: the printed face plus intrinsic CDAs, as before.
-	return hasType(o, t)
+	return hasTypeID(o, t, id)
 }
 
 // hasTypeCtxSub is hasTypeCtx with changelingType(t) precomputed as sub: the
 // same reads in the same order, the intrinsic-CDA tails taking sub.
-func hasTypeCtxSub(o *state.Object, t string, sub bool, sc *SpecContext) bool {
+func hasTypeCtxSub(o *state.Object, t string, id cards.TypeWordID, sub bool, sc *SpecContext) bool {
 	for _, x := range sc.ExtraTypes {
 		if strings.EqualFold(x, t) {
 			return true
 		}
 	}
 	if sc.ExtraTypes != nil {
-		return hasTypeSub(o, t, sub)
+		return hasTypeSub(o, t, id, sub)
 	}
 	for _, d := range sc.DerivedTypes {
 		if d.ID != o.ID {
@@ -3957,9 +4003,9 @@ func hasTypeCtxSub(o *state.Object, t string, sub bool, sc *SpecContext) bool {
 			return false
 		}
 		f := o.Face()
-		return f != nil && (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA())
+		return f != nil && (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA())
 	}
-	return hasTypeSub(o, t, sub)
+	return hasTypeSub(o, t, id, sub)
 }
 
 // changelingType reports whether t is an actual creature subtype. This uses
@@ -3980,8 +4026,11 @@ func intrinsicCDAType(o *state.Object, t string) bool {
 	if f == nil {
 		return false
 	}
-	return (f.HasKeyword("Changeling") || f.AllCreatureTypesCDA()) && changelingType(t)
+	return (f.HasKeywordID("Changeling", kwChangeling) || f.AllCreatureTypesCDA()) && changelingType(t)
 }
+
+// kwChangeling is Changeling's interned keyword head (cards.InternKeywordHead).
+var kwChangeling = cards.InternKeywordHead("Changeling")
 
 func isBlocking(g *state.Game, id state.ObjID) bool {
 	for i := range g.Objs {
@@ -4458,6 +4507,11 @@ type SpecContext struct {
 	// making `Creature.faceDown+...` specs match the entry they name. Like
 	// AsStack it is absent from every other evaluation.
 	AsFaceDown bool
+	// ExcludeFromBattlefieldCount is the object that is being evaluated by
+	// an Updated battlefield-entry replacement body. Its entry has been
+	// folded by then, but CR 614.12 counts the battlefield as it would be
+	// immediately before the permanent enters.
+	ExcludeFromBattlefieldCount state.ObjID
 	// Remembered is the resolving spell or ability's Remembered set (a
 	// RepeatEach iteration binds its subject here). Like ResolutionTargets it
 	// is meaningful only while Resolving. It is also the Remembered.* base
@@ -4732,15 +4786,16 @@ func matchesObjectPtr(g *state.Game, spec string, o *state.Object, sc *SpecConte
 	// Goblin type test would silently miss the derived characteristic. The same
 	// discipline the layer walk keeps for ExtraTypes (rules/layers.go), scoped
 	// here to the one object that actually carries a change.
+	cs := compiledSpecFor(spec)
 	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveNamePtr(o, sc) && !hasDerivedTypeEntryPtr(o, sc) {
-		switch ps.evaluate(spec, g, o, sc) {
+		switch ps.evaluateCS(cs, spec, g, o, sc) {
 		case PredicateYes:
 			return true
 		case PredicateNo:
 			return false
 		}
 	}
-	return compiledMatch(compiledSpecFor(spec), g, o, sc)
+	return compiledMatch(cs, g, o, sc)
 }
 
 // matchesObjectText is the original textual filter evaluator. It remains the

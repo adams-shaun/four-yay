@@ -58,6 +58,7 @@ func beginCharmCombat(e *Engine) {
 }
 
 func TestCharmChoiceRestrictionYourLastCombatByElspethsCommand(t *testing.T) {
+	t.Parallel()
 	e, cfg, source, sa := charmScopeFixture(t, "By Elspeth's Command")
 	if got := sa.Params["ChoiceRestriction"]; got != state.ModeScopeYourLastCombat {
 		t.Fatalf("compiled ChoiceRestriction$ = %q", got)
@@ -113,6 +114,7 @@ func TestCharmChoiceRestrictionYourLastCombatByElspethsCommand(t *testing.T) {
 }
 
 func TestCharmChoiceRestrictionYourLastCombatPicklessCombatReleasesPick(t *testing.T) {
+	t.Parallel()
 	e, _, source, sa := charmScopeFixture(t, "By Elspeth's Command")
 	all := []string{"PumpField", "PumpHand", "Token"}
 	beginCharmCombat(e)
@@ -128,6 +130,7 @@ func TestCharmChoiceRestrictionYourLastCombatPicklessCombatReleasesPick(t *testi
 }
 
 func TestCharmChoiceRestrictionYourLastCombatYotianCourier(t *testing.T) {
+	t.Parallel()
 	e, _, source, sa := charmScopeFixture(t, "Yotian Courier")
 	if sa.Params["ChoiceRestriction"] != state.ModeScopeYourLastCombat {
 		t.Fatalf("compiled ChoiceRestriction$ = %q", sa.Params["ChoiceRestriction"])
@@ -145,6 +148,7 @@ func TestCharmChoiceRestrictionYourLastCombatYotianCourier(t *testing.T) {
 }
 
 func TestCharmChoiceRestrictionThisGamePersists(t *testing.T) {
+	t.Parallel()
 	e, _, source, sa := charmScopeFixture(t, "Silent Hallcreeper")
 	if sa.Params["ChoiceRestriction"] != state.ModeScopeThisGame {
 		t.Fatalf("compiled ChoiceRestriction$ = %q", sa.Params["ChoiceRestriction"])
@@ -191,6 +195,7 @@ func TestCharmChoiceRestrictionThisGamePersists(t *testing.T) {
 }
 
 func TestCharmChoiceRestrictionUnknownScopeNotesAndFailsOpen(t *testing.T) {
+	t.Parallel()
 	e, _, source, _ := charmScopeFixture(t, "By Elspeth's Command")
 	sa := &cards.SA{Params: map[string]string{"ChoiceRestriction": "FutureScope"}}
 	modes := []string{"A", "B"}
@@ -203,6 +208,7 @@ func TestCharmChoiceRestrictionUnknownScopeNotesAndFailsOpen(t *testing.T) {
 }
 
 func TestCharmChoiceRestrictionYourLastCombatObjectEnteredAfterBeginCombat(t *testing.T) {
+	t.Parallel()
 	// A permanent that enters the battlefield AFTER this combat's BeginCombat
 	// rotation (a blink, a flash creature, a reanimation) was not in the
 	// rotation loop, so its CurCombat* stamp is zero/stale. A pick it makes in

@@ -69,6 +69,7 @@ func hellcatOnBattlefield(t *testing.T, e *Engine) state.ObjID {
 }
 
 func TestHellcatReturnedKeepsTheGrantedHaste(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := hellcatEngine(t, reg)
 	id := hellcatOnBattlefield(t, e)

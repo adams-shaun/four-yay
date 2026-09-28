@@ -35,6 +35,7 @@ const smallBeastSrc = "Name:Small Beast\nManaCost:1 G\nTypes:Creature Beast\nPT:
 // when the Beast is pumped by +2/+2 counters), so a value hard-coded to a
 // single board cannot pass.
 func TestOrcishSiegemasterAttackPumpSizesFromGreatestPower(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		extras   []string

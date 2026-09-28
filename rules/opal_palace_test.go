@@ -140,6 +140,7 @@ func opalCastCommander(t *testing.T, e *Engine, id state.ObjID) {
 // (2: both command-zone casts so far). The two different values prove the
 // grant is driven by the rider plus the count, not by a constant.
 func TestOpalPalaceRiderCountsCommandZoneCasts(t *testing.T) {
+	t.Parallel()
 	e, cfg, opal := opalPalaceGame(t, 401)
 	cmd := e.G.Players[0].Commanders[0]
 
@@ -216,6 +217,7 @@ func TestOpalPalaceRiderCountsCommandZoneCasts(t *testing.T) {
 // commander grants nothing, and mana spent on a different creature spell
 // grants nothing to that creature.
 func TestOpalPalaceRiderScopesToTheCommittedCommanderSpend(t *testing.T) {
+	t.Parallel()
 	e, cfg, opal := opalPalaceGame(t, 402)
 	cmd := e.G.Players[0].Commanders[0]
 	bystander := moveSeededToHand(t, e, 0, "Mountain Goat")
@@ -277,6 +279,7 @@ func TestOpalPalaceRiderScopesToTheCommittedCommanderSpend(t *testing.T) {
 // TestParseAddsCounters pins the rider grammar so a malformed value fails
 // closed rather than inventing a counter.
 func TestParseAddsCounters(t *testing.T) {
+	t.Parallel()
 	filter, kind, amount, ok := parseAddsCounters("Card.YouOwn+IsCommander_P1P1_ManaAddsCounterNum")
 	if !ok || filter != "Card.YouOwn+IsCommander" || kind != "P1P1" || amount != "ManaAddsCounterNum" {
 		t.Fatalf("opal parse = (%q,%q,%q,%v)", filter, kind, amount, ok)

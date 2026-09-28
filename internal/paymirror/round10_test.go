@@ -33,10 +33,11 @@ import (
 //     longer offered there, so the game moves; the pin is that no planned
 //     cast in it falls back or mismatches. (The report's control route was
 //     equivalent: the source_changed was run A's fallback, not the clone.)
-//   - 12603 seq 2300 (Mana Vault), commander4 a_witness:unexecuted_activation:
-//     Treasonous Ogre's "Pay 3 life: Add {R}" logged life -3, an opponent's
-//     inline speed gain, then R; the witness required the mana to follow the
-//     payment immediately (harness gap, lifePaymentConsequences).
+//   - 12603 seq 2298 (Mana Vault), commander4: Treasonous Ogre's "Pay 3
+//     life: Add {R}" cast plan remains equivalent after the speed gain moved
+//     to its triggered-ability timing (CR 702.179d), shifting the cast
+//     earlier; the lifePaymentConsequences harness gap is fixed in
+//     paymirror.go, so the witness no longer trips on it.
 //   - 10877 seq 2873 (Infernal Plunge), commander4-r9 a_witness:wrong_production:
 //     the plan's Ogre paid life for R and was then the creature sacrificed
 //     for the spell's additional cost (CR 601.2h); the witness read that
@@ -47,6 +48,10 @@ import (
 // command zone now gets a plan, the auto-pay bots cast it through one, and
 // those games move. 10877 keeps the same Infernal Plunge pin at its new seq;
 // the other three already carry empty or unchanged pins.
+//
+// The speed-trigger fix (CR 702.179d) then moved 12603's Ogre cast to seq
+// 2298 and fixed the lifePaymentConsequences harness gap in paymirror.go;
+// the merged tree was re-measured to that seq, verdict equivalent.
 func TestRoundTenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -77,7 +82,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
 		12468: {7211: ""},
 		11828: {},
-		12603: {2300: ""},
+		12603: {2298: ""},
 		10877: {2834: ""},
 	}
 	for _, spec := range specs {

@@ -50,6 +50,7 @@ func nextCopyElection(t *testing.T, e *Engine, pickTarget func(*decision.Decisio
 // so two bots cannot hand the chain back and forth forever (cardfuzz batch1
 // lines 13/15/20: 20000 intents of Chain of Smog on empty hands).
 func TestChainOfSmogMarksCopyOfCopyElection(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := edrBoard(t, reg, 83, map[string]state.Zone{"Chain of Smog": state.ZHand})
 	addMana(t, e, 0, "B1")
@@ -99,6 +100,7 @@ func TestChainOfSmogMarksCopyOfCopyElection(t *testing.T) {
 // offered its own copy, and each copy's copy, forever (cardfuzz batch1
 // line 1). The election belongs to the next seat.
 func TestBarroomBrawlCopyGoesToNextOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := edrBoard(t, reg, 89, map[string]state.Zone{
 		"Barroom Brawl": state.ZHand,

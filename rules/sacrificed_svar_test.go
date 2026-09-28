@@ -101,6 +101,7 @@ const sacMorbidCuriosity = "Name:Morbid Curiosity\nManaCost:1 B B\nTypes:Sorcery
 // TestSacrificedCardManaCostDrawsMatchingCards pins the CardManaCost head:
 // a mana-value-3 creature (1 G G) makes the spell draw exactly 3 cards.
 func TestSacrificedCardManaCostDrawsMatchingCards(t *testing.T) {
+	t.Parallel()
 	const grizzly = "Name:Grizzly\nManaCost:1 G G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n" // mana value 3
 	e, cfg, spell := newFixtureDeck(t, 971, sacMorbidCuriosity, grizzly)
 	creature := moveSeeded(t, e, 0, grizzly, state.ZBattlefield)
@@ -141,6 +142,7 @@ const sacAmountDraw = "Name:Flesh Feast\nManaCost:1 B\nTypes:Sorcery\n" +
 // TestSacrificedAmountCountsSacrificedObjects: sacrificing two creatures
 // makes Sacrificed$Amount read 2, so the spell draws exactly two cards.
 func TestSacrificedAmountCountsSacrificedObjects(t *testing.T) {
+	t.Parallel()
 	const cub = "Name:Cub\nManaCost:G\nTypes:Creature Wolf\nPT:2/2\nOracle:x\n"
 	const rat = "Name:Rat\nManaCost:B\nTypes:Creature Rat\nPT:1/1\nOracle:x\n"
 	e, cfg, spell := newFixtureDeck(t, 214, sacAmountDraw, cub, rat)

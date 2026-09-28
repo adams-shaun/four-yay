@@ -75,6 +75,7 @@ func battlesphereTrigger(t *testing.T, e *Engine, sphere state.ObjID) {
 }
 
 func TestMyrBattlesphereAttackTriggerAsksAndPaysTheTapXCost(t *testing.T) {
+	t.Parallel()
 	e, sphere, myr1, myr2, tappedMyr := battlesphereFixture(t)
 	battlesphereTrigger(t, e, sphere)
 	d := e.Pending()
@@ -121,6 +122,7 @@ func TestMyrBattlesphereAttackTriggerAsksAndPaysTheTapXCost(t *testing.T) {
 }
 
 func TestMyrBattlesphereTapXEmptyElectionDeclines(t *testing.T) {
+	t.Parallel()
 	e, sphere, myr1, myr2, _ := battlesphereFixture(t)
 	battlesphereTrigger(t, e, sphere)
 	d := e.Pending()
@@ -154,6 +156,7 @@ func TestMyrBattlesphereTapXEmptyElectionDeclines(t *testing.T) {
 // with the taps. The offered-and-paid direction is pinned in
 // crew_test.go's TestMossbridgeTrollPaysWhenTotalPowerReachesTheFloor.
 func TestMossbridgeTrollFloorWithholdsWhenPowerFallsShort(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	troll := onBoard(t, e, 0, "Name:Mossbridge Troll\nManaCost:5 G G\nTypes:Creature Troll\nPT:5/5\nOracle:x\n")
 	other := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -171,6 +174,7 @@ func TestMossbridgeTrollFloorWithholdsWhenPowerFallsShort(t *testing.T) {
 // the paid count binds Count$xPaid through the pay-time CastInfo, so
 // NumAtt$ +X reads the tapped count.
 func TestTapXTypeCastFlowElectionAnnouncesX(t *testing.T) {
+	t.Parallel()
 	src := "Name:Forge Adept\nManaCost:2\nTypes:Artifact Creature Myr\nPT:1/1\n" +
 		"A:AB$ Pump | Cost$ T tapXType<X/Artifact> | Defined$ Self | NumAtt$ +X | SorcerySpeed$ True\nSVar:X:Count$xPaid\nOracle:x\n"
 	e := handEngine(t)
@@ -199,6 +203,7 @@ func TestTapXTypeCastFlowElectionAnnouncesX(t *testing.T) {
 // first (xAsk, bounded by the artifact count), the tap settle asks exactly
 // that many, and the same X drives the body.
 func TestTapXTypeCastFlowDefersToThePrintedX(t *testing.T) {
+	t.Parallel()
 	src := "Name:Overlord Adept\nManaCost:4\nTypes:Artifact Creature\nPT:2/2\n" +
 		"A:AB$ LoseLife | Cost$ X T tapXType<X/Artifact> | ValidTgts$ Opponent | LifeAmount$ X | TgtPrompt$ Select target opponent\nSVar:X:Count$xPaid\nOracle:x\n"
 	e := handEngine(t)
@@ -252,6 +257,7 @@ func TestTapXTypeCastFlowDefersToThePrintedX(t *testing.T) {
 // are TapPermanent parts with the Dyn token, no Unknown label, and the
 // Mandatory marker is not a payment.
 func TestParseCostModelsDynamicTapXType(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("tapXType<X/Myr>")
 	if len(c.TapPermanent) != 1 || c.TapPermanent[0].Dyn != "X" || c.TapPermanent[0].Spec != "Myr" {
 		t.Fatalf("X form parsed %+v", c.TapPermanent)
@@ -318,6 +324,7 @@ func TestParseCostModelsDynamicTapXType(t *testing.T) {
 // panics rules/engine.go's ask, so the X=0 announcement must resolve
 // silently (mirroring rules/cumulative.go's triggeredTapAsk decline).
 func TestTapXTypeXFormZeroCandidatesActivationResolvesXZero(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	forge := onBoardCard(t, e, 0, corpusAlternativeCard(t, "Secluded Starforge"))
 	e.G.Obj(forge).SummonSick = false
@@ -362,6 +369,7 @@ func TestTapXTypeXFormZeroCandidatesActivationResolvesXZero(t *testing.T) {
 // control" -- with no creatures on board the spell is castable at X=0 (the
 // announcement), and selecting the cast must not panic.
 func TestTapXTypeXFormZeroCandidatesCastResolvesXZero(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Burn at the Stake"))
 	spell := e.G.Zone(state.ZHand, 0)[0]
 	addMana(t, e, 0, "RRRRR")

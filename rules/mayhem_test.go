@@ -67,6 +67,7 @@ func backToHand(t *testing.T, e *Engine, id state.ObjID) {
 // offered a graveyard cast for the mayhem cost, the cast charges {4}{R} (not
 // the printed {7}{R}), and the resolved spell enters the battlefield.
 func TestAbominationWorldRavagerMayhemOfferedAndCasts(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Abomination, World Ravager"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 
@@ -113,6 +114,7 @@ func TestAbominationWorldRavagerMayhemOfferedAndCasts(t *testing.T) {
 // this turn DOES, proving the first assertions are about the provenance and
 // not about some other gate.
 func TestMayhemNotOfferedWithoutThisTurnDiscard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Chameleon, Master of Disguise"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	if _, ok := e.G.Obj(id).Face().KeywordParam("Mayhem"); !ok {
@@ -157,6 +159,7 @@ func TestMayhemNotOfferedWithoutThisTurnDiscard(t *testing.T) {
 // discarded AS A COST (events.DiscardCost, which carries no Player field --
 // the payer is the owner, CR 118.2a) opens the same window.
 func TestMayhemCostDiscardCounts(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Chameleon, Master of Disguise"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.DiscardCost(id))
@@ -179,6 +182,7 @@ func TestMayhemCostDiscardCounts(t *testing.T) {
 // whose graveyard entry was a mill move rather than a discard -- both on the
 // same card, so the discriminator is the gate, not the card.
 func TestMayhemNotOfferedUnfundedOrMilled(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Chameleon, Master of Disguise"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	discardToGraveyard(t, e, id, 0)

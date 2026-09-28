@@ -28,6 +28,7 @@ import (
 // candidate shares none and is withheld; the recheck drops the non-sharing
 // target from a recorded set.
 func TestTargetSetSharedCardType(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Permanent", map[string]string{"TargetsWithSharedCardType": "ParentTarget"})
 	if sharedCardTypeRef(sa) != "ParentTarget" {
 		t.Fatal("precondition: fixture lost TargetsWithSharedCardType$")
@@ -76,6 +77,7 @@ func TestTargetSetSharedCardType(t *testing.T) {
 // Creature type and is withheld even though it does share a type with the
 // reference.
 func TestTargetSetSharedTypes(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Permanent", map[string]string{
 		"TargetsWithSharedCardType": "ParentTarget",
 		"TargetsWithSharedTypes":    "Artifact,Land",
@@ -125,6 +127,7 @@ func TestTargetSetSharedTypes(t *testing.T) {
 // non-sharing object is narrowed to the objects that share a card type with
 // the parent's chosen target. It fails if only the census filter is wired.
 func TestTargetSetSharedCardTypeRecheck(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Permanent", map[string]string{"TargetsWithSharedCardType": "ParentTarget"})
 	if sharedCardTypeRef(sa) != "ParentTarget" {
 		t.Fatal("precondition: fixture lost TargetsWithSharedCardType$")
@@ -154,6 +157,7 @@ func TestTargetSetSharedCardTypeRecheck(t *testing.T) {
 // TriggerCard binding the census offer reads. A candidate sharing a card type
 // with the triggering card is kept; one sharing none is dropped.
 func TestTargetSetSharedCardTypeTriggered(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Permanent", map[string]string{"TargetsWithSharedCardType": "TriggeredCard"})
 	if sharedCardTypeRef(sa) != "TriggeredCard" {
 		t.Fatal("precondition: fixture lost TargetsWithSharedCardType$ TriggeredCard")
@@ -192,6 +196,7 @@ func TestTargetSetSharedCardTypeTriggered(t *testing.T) {
 // touch). The key rides an SVar-referenced sub-ability (DB$ ExchangeControl),
 // so each SVar body is resolved and scanned, not just the root Abilities.
 func TestTargetSetSharedCardTypeRealIR(t *testing.T) {
+	t.Parallel()
 	reg := freshCorpusRegistry(t, "d/daring_thief.txt", "l/legerdemain.txt")
 
 	carries := func(cardName string) (ref, sharedTypes string, ok bool) {

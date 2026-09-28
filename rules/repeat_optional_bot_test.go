@@ -17,6 +17,7 @@ import (
 // 1000-iteration cap. Repeating with an empty library is legal but makes no
 // progress, so the bot must stop once the library is empty.
 func TestBotAdNauseamStopsOnEmptyLibrary(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := corpusCardConfig(t, 6103, "Ad Nauseam")
 	addMana(t, e, caster, "BBBCC")
 	lib := len(e.G.Zone(state.ZLibrary, caster))

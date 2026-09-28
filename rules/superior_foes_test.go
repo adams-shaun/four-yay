@@ -36,6 +36,7 @@ const sfExiledBear = "Name:Exiled Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/
 // the second big spell's trigger exiles the imprinted FIRST effect (the
 // grant ends), digs bear, and the new Effect grants only bear.
 func TestSuperiorFoesSecondDigExilesTheFirstEffect(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	sf := choiceCorpusCard(t, "Superior Foes of Spider-Man")
 	bigA := card(t, "Name:Big Spell A\nManaCost:3 G\nTypes:Instant\nOracle:x\n")
@@ -123,6 +124,7 @@ func TestSuperiorFoesSecondDigExilesTheFirstEffect(t *testing.T) {
 // trigger is OptionalDecider$ You, so a declined election runs NOTHING --
 // the old effect's grant stays live and the first dug card stays playable.
 func TestSuperiorFoesDeclinedDigKeepsTheOldEffect(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	sf := choiceCorpusCard(t, "Superior Foes of Spider-Man")
 	bigA := card(t, "Name:Big Spell A\nManaCost:3 G\nTypes:Instant\nOracle:x\n")

@@ -14,6 +14,7 @@ const gameLimitedPhaseTrigger = "Name:OncePhase\nManaCost:0\nTypes:Creature\nPT:
 	"SVar:TrigDraw:DB$ Draw | NumCards$ 1\nOracle:x\n"
 
 func TestTriggerGameActivationLimitPhaseSurvivesTurnAndClone(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 71, gameLimitedPhaseTrigger)
 	moveByName(t, e, 0, "OncePhase", state.ZBattlefield)
 	tr := crTriggerFixture(t, e, id, "Phase", "Draw")
@@ -56,6 +57,7 @@ func TestTriggerGameActivationLimitPhaseSurvivesTurnAndClone(t *testing.T) {
 }
 
 func TestTriggerGameActivationLimitRealCorpusAcrobaticCheerleader(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Acrobatic Cheerleader")
 	if !ok {
@@ -104,6 +106,7 @@ const gameLimitedBlocksTrigger = "Name:OnceBlocker\nManaCost:0\nTypes:Creature\n
 // count untouched -- otherwise the first no-candidate combat would exhaust a
 // GameActivationLimit$ 1 line before it ever fired.
 func TestTriggerGameActivationLimitBlocksEmptyEventDoesNotConsumeUse(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 73, gameLimitedBlocksTrigger,
 		"Name:PairAttacker\nManaCost:0\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	blk := moveByName(t, e, 0, "OnceBlocker", state.ZBattlefield)
@@ -160,6 +163,7 @@ const gameAndTurnLimitedTapsTrigger = "Name:TwiceTap\nManaCost:0\nTypes:Creature
 // GameActivationLimit$ count, so the line still has its second game use on
 // the next turn.
 func TestTriggerGameActivationLimitWithPerTurnLimitKeepsGameUseAcrossTurn(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 74, gameAndTurnLimitedTapsTrigger)
 	moveByName(t, e, 0, "TwiceTap", state.ZBattlefield)
 	tr := crTriggerFixture(t, e, id, "Taps", "Draw")

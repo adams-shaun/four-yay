@@ -52,6 +52,7 @@ func cdaMoveTo(t *testing.T, e *Engine, p state.PlayerID, name string, to state.
 // read "" (a colourless artifact with no colour indicator), turning
 // five-coloured only when it entered.
 func TestTransguildCourierIsAllColoursInEveryZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Transguild Courier")}, []*cards.Card{})
 
@@ -98,6 +99,7 @@ func TestTransguildCourierIsAllColoursInEveryZone(t *testing.T) {
 // ("" -- the scan-emitted CDA already overwrote it there; the withheld scan
 // now leaves the base claim as the single application).
 func TestGhostfireIsColourlessInEveryZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Ghostfire")}, []*cards.Card{})
 
@@ -140,6 +142,7 @@ func TestGhostfireIsColourlessInEveryZone(t *testing.T) {
 // Ghostfire on the stack is NOT -- Ghostfire is colourless, not monocolored,
 // which the pre-fix "R" off-battlefield read got wrong.
 func TestSphinxOfTheGuildpactHexproofGateReadsTheFullSet(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Sphinx of the Guildpact"), lookup(t, reg, "Shock"), lookup(t, reg, "Ghostfire")},
@@ -178,6 +181,7 @@ func TestSphinxOfTheGuildpactHexproofGateReadsTheFullSet(t *testing.T) {
 // battlefield) shows the fail-closed direction positively: the printed green
 // is kept, not overwritten away.
 func TestFacelessOneChosenColorFailsClosedOffBattlefield(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	const src = "Name:Chosen Hue Bearer\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\n" +
 		"S:Mode$ Continuous | Affected$ Card.Self | CharacteristicDefining$ True | SetColor$ ChosenColor | Description$ CARDNAME is the chosen color.\n" +
@@ -203,6 +207,7 @@ func TestFacelessOneChosenColorFailsClosedOffBattlefield(t *testing.T) {
 // later-timestamp overwrite still wins over the base claim -- Imprisoned in
 // the Moon on an enchanted Transguild Courier makes it colourless.
 func TestCDAColoursScanWithholdsResolvableSelfCDA(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	imprisoned := lookup(t, reg, "Imprisoned in the Moon")
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Transguild Courier"), imprisoned}, []*cards.Card{})

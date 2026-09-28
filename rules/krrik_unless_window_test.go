@@ -133,6 +133,7 @@ func windowOption(d *decision.Decision, kind string, obj state.ObjID) int {
 // was silently charged as 2 life. The window must now be posed, offer the
 // Swamp, and tapping it must pay the {B} with no life loss.
 func TestKrrikGrantPosesUnlessManaWindowWhenSourceCanPay(t *testing.T) {
+	t.Parallel()
 	e, _, _, swamp := krrikMixedUnlessFixture(t, true)
 	pay := driveToUnlessPay(t, e)
 	if pay.Player != 0 {
@@ -171,6 +172,7 @@ func TestKrrikGrantPosesUnlessManaWindowWhenSourceCanPay(t *testing.T) {
 // no untapped source the window cannot open, and the granted 2 life must still
 // pay the {B} through advanceUnlessPayment's retained grant-bearing check.
 func TestKrrikGrantPaysLifeFromUnlessWindowWhenNoSourceCan(t *testing.T) {
+	t.Parallel()
 	e, _, _, _ := krrikMixedUnlessFixture(t, false)
 	pay := driveToUnlessPay(t, e)
 	submitChoices(t, e, pay.Options[0].Index) // Pay
@@ -231,6 +233,7 @@ func krrikZombieFixture(t *testing.T) (*Engine, state.ObjID, state.ObjID) {
 // now ask whether the POOL ALONE pays: the window opens, the Swamp is offered,
 // and tapping it pays the {B} without life loss.
 func TestKrrikGrantPosesWardManaWindowWhenSourceCanPay(t *testing.T) {
+	t.Parallel()
 	e, zombie, swamp := krrikZombieFixture(t)
 	pay := driveToUnlessPay(t, e)
 	submitChoices(t, e, pay.Options[0].Index) // Pay
@@ -273,6 +276,7 @@ func TestKrrikGrantPosesWardManaWindowWhenSourceCanPay(t *testing.T) {
 // payUnlessCost (answerWardMana's Done arm), proving the window did not remove
 // the life route. The Swamp stays untapped and the Zombie survives.
 func TestKrrikGrantPaysLifeFromWardWindowWhenNoSourceCan(t *testing.T) {
+	t.Parallel()
 	e, zombie, swamp := krrikZombieFixture(t)
 	pay := driveToUnlessPay(t, e)
 	submitChoices(t, e, pay.Options[0].Index) // Pay

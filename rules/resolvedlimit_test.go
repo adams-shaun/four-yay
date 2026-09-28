@@ -121,6 +121,7 @@ func drainQueuedTrigger(t *testing.T, e *Engine, source state.ObjID) int {
 // YES), a SECOND Villain in the same turn must queue no second trigger, and a
 // third Villain after the turn changes queues again.
 func TestResolvedLimitBaronStruckerOnlyOncePerTurn(t *testing.T) {
+	t.Parallel()
 	e, baron := baronStruckerFixture(t)
 
 	first := enterCreature(t, e, 0, card(t, resolvedLimitVillain))
@@ -153,6 +154,7 @@ func TestResolvedLimitBaronStruckerOnlyOncePerTurn(t *testing.T) {
 // Villain in the same turn must still be offered. This is the leaf that fails
 // if the increment is wrongly placed on the queue path.
 func TestResolvedLimitDeclinedOptionalDoesNotConsume(t *testing.T) {
+	t.Parallel()
 	e, baron := baronStruckerFixture(t)
 
 	enterCreature(t, e, 0, card(t, resolvedLimitVillain))
@@ -183,6 +185,7 @@ func TestResolvedLimitDeclinedOptionalDoesNotConsume(t *testing.T) {
 // its resolution reaches resolveTop's mandatory tail and must consume the
 // limit there. The second eligibility in the same turn queues nothing.
 func TestResolvedLimitMandatoryCarrierCounts(t *testing.T) {
+	t.Parallel()
 	gremlin := mshCorpusCardPath(t, "Irreverent Gremlin", "i/irreverent_gremlin.txt")
 	e := combatEngine(t)
 	src := onBoardCard(t, e, 0, gremlin)
@@ -219,6 +222,7 @@ func TestResolvedLimitMandatoryCarrierCounts(t *testing.T) {
 // trigger was dead EVERY turn, because the Main1 trigger resolved at the start
 // of every turn. After an ACCEPTED line-2 resolution the limit binds normally.
 func TestResolvedLimitMixedLineOtherTriggerDoesNotConsume(t *testing.T) {
+	t.Parallel()
 	crucible := mshCorpusCardPath(t, "Cosmic Crucible", "c/cosmic_crucible.txt")
 	e := combatEngine(t)
 	src := onBoardCard(t, e, 0, crucible)
@@ -277,6 +281,7 @@ func TestResolvedLimitMixedLineOtherTriggerDoesNotConsume(t *testing.T) {
 // turn from firing the cheer again. Two separate combat damage events in one
 // turn must yield exactly one cheer resolution; the turn change re-arms it.
 func TestResolvedLimitTidusCheerOncePerTurn(t *testing.T) {
+	t.Parallel()
 	tidus := mshCorpusCardPath(t, "Tidus, Yuna's Guardian", "t/tidus_yunas_guardian.txt")
 	e := combatEngine(t)
 	src := onBoardCard(t, e, 0, tidus)
@@ -349,6 +354,7 @@ func TestResolvedLimitTidusCheerOncePerTurn(t *testing.T) {
 // catches a missing Engine.Clone copy of triggerTurnResolved (the clone would
 // re-fire where the original is silent).
 func TestResolvedLimitReplaysExactly(t *testing.T) {
+	t.Parallel()
 	e, baron := baronStruckerFixture(t)
 	enterCreature(t, e, 0, card(t, resolvedLimitVillain))
 	drainQueuedTrigger(t, e, baron)

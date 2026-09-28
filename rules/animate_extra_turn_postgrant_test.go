@@ -25,6 +25,7 @@ import (
 // turn is turn 2 and IS Karn's next turn, so the animation ends at turn 1's
 // cleanup and must not be active during it.
 func TestKarnAnimateDropsBeforeLateKarnExtraTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		lookup(t, reg, "Karn, the Great Creator"), lookup(t, reg, "Sol Ring"),
@@ -65,6 +66,7 @@ func TestKarnAnimateDropsBeforeLateKarnExtraTurn(t *testing.T) {
 // (opponent extra, opponent normal) precede Karn's next turn, so the
 // animation must stay active through both and end only before Karn's turn 4.
 func TestKarnAnimateOutlivesLateOpponentExtraTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		lookup(t, reg, "Karn, the Great Creator"), lookup(t, reg, "Sol Ring"),
@@ -128,6 +130,7 @@ func boundaryOf(t *testing.T, e *Engine, ring state.ObjID) int32 {
 // registration gate does not admit), so this is a synthetic unit on
 // rescheduleNextTurnBoundaries itself.
 func TestRescheduleNextTurnBoundariesEndSpellingCurrentTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, nil, nil)
 	e.continuous = append(e.continuous,

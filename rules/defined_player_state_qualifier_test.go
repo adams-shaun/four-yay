@@ -208,6 +208,7 @@ func TestDefinedPlayerStateQualifierShatterTheSkyNoQualifyingPlayer(t *testing.T
 // gain-life mode, and the seat at exactly 13 life loses the game while the
 // seat at 20 does not.
 func TestDefinedPlayerStateQualifierTriskaidekaphobia(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := qualifierEngine(t, reg, "Triskaidekaphobia")
 
@@ -236,6 +237,7 @@ func TestDefinedPlayerStateQualifierTriskaidekaphobia(t *testing.T) {
 // TestDefinedPlayerStateQualifierTriskaidekaphobiaNotAt13 is the negative
 // half: no seat at exactly 13 life and nobody loses.
 func TestDefinedPlayerStateQualifierTriskaidekaphobiaNotAt13(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := qualifierEngine(t, reg, "Triskaidekaphobia")
 
@@ -260,6 +262,7 @@ func TestDefinedPlayerStateQualifierTriskaidekaphobiaNotAt13(t *testing.T) {
 // draws for each player who CONTROLS a permanent named Bonder's Ornament --
 // seat 0 does (draws one), seat 1 does not (hand unchanged).
 func TestDefinedPlayerStateQualifierBondersOrnament(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := qualifierEngine(t, reg, "Bonder's Ornament")
 

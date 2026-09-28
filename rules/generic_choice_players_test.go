@@ -99,6 +99,7 @@ func submitSeizeCast(t *testing.T, e *Engine, id state.ObjID) {
 // its own chooser. Distinct answers (opponent 1 Fame, opponent 2 Fortune)
 // then split the card's own DBFame/DBFortune loops.
 func TestSeizeTheSpotlightAsksEachOpponentOnce(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := seizeBoard(t)
 
 	// Opponent 1's ask.
@@ -179,6 +180,7 @@ func TestSeizeTheSpotlightAsksEachOpponentOnce(t *testing.T) {
 // is still not the resolving controller, so the per-player path must take it
 // rather than asking seat 0.
 func TestSeizeTheSpotlightSingleOpponentAsksThatOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	seize := mustCorpusCard(t, reg, "Seize the Spotlight")
 	cfg := seatZeroStart(Config{Seed: 78, Names: []string{"a", "b"}, Tokens: reg.Tokens,
@@ -224,6 +226,7 @@ const genericChoiceEmptyDefined = "Name:Empty Trial\nManaCost:R\nTypes:Sorcery\n
 // accidental fallback), and neither branch may run. The Note is asserted so
 // the test fails if the handler never ran at all (a vacuous green).
 func TestGenericChoiceEmptyDefinedDoesNotAskTheController(t *testing.T) {
+	t.Parallel()
 	empty := card(t, genericChoiceEmptyDefined)
 	cfg := seatZeroStart(Config{Seed: 80, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{
@@ -280,6 +283,7 @@ const genericChoiceNested = "Name:Trial of Choices\nManaCost:R\nTypes:Sorcery\n"
 // once that nested ask's chain completes. Without SuspendGenericChoiceRest the
 // cursor is lost and opponent 2 is never asked.
 func TestGenericChoiceNestedAskResumesRemainingChoosers(t *testing.T) {
+	t.Parallel()
 	trial := card(t, genericChoiceNested)
 	cfg := seatZeroStart(Config{Seed: 79, Names: []string{"a", "b", "c"},
 		Decks: [][]*cards.Card{
@@ -360,6 +364,7 @@ func TestGenericChoiceNestedAskResumesRemainingChoosers(t *testing.T) {
 // completes both choosers exactly once instead of resetting to the first
 // chooser or dropping the rest. This is the search/host snapshot path.
 func TestSeizeTheSpotlightCloneKeepsChooserCursor(t *testing.T) {
+	t.Parallel()
 	e, _, id := seizeBoard(t)
 	d := castSeize(t, e, id)
 	if d.Player != 1 {

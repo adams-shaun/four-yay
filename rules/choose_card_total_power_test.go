@@ -132,6 +132,7 @@ func sttAskOptions(d *decision.Decision) ([]state.ObjID, []int) {
 }
 
 func TestSlaughterTheStrongTotalPowerCapNarrowsThePool(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	spell := lookup(t, reg, "Slaughter the Strong")
 	// Seat 0: a 5/5 (alone over the cap), a 3/3, a 2/2 and a 1/1. Seat 1
@@ -200,6 +201,7 @@ func TestSlaughterTheStrongTotalPowerCapNarrowsThePool(t *testing.T) {
 }
 
 func TestChooseCardTotalPowerMandatoryTwoPickValidatesTheSum(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, board := sttEngine(t, reg, card(t, sttMandSrc),
 		[][2]string{{"Stt Giant", "5/5"}, {"Stt Three", "3/3"}, {"Stt Two A", "2/2"}, {"Stt Two B", "2/2"}, {"Stt One", "1/1"}},
@@ -249,6 +251,7 @@ func TestChooseCardTotalPowerMandatoryTwoPickValidatesTheSum(t *testing.T) {
 }
 
 func TestChooseCardTotalPowerLowensAnImpossibleMandatoryMin(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, board := sttEngine(t, reg, card(t, sttMand3Src),
 		[][2]string{{"Stt Giant", "5/5"}, {"Stt Three", "3/3"}, {"Stt One", "1/1"}}, nil)

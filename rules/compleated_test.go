@@ -97,6 +97,7 @@ func compleatedCast(t *testing.T, reg *cards.Registry, name, mana string, lifePa
 }
 
 func TestCompleatedLoyaltyFollowsPhyrexianLifePaid(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	t.Run("Vraska life", func(t *testing.T) {
 		compleatedCast(t, reg, "Vraska, Betrayal's Sting", "CCCCB", 2, 4)

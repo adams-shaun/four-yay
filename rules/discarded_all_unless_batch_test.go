@@ -33,6 +33,7 @@ import (
 // observer is active in its battlefield trigger zone, exactly ONE trigger is
 // pushed, and its TriggerCount$Amount causes two damage rather than one.
 func TestDiscardedAllMultiCardUnlessPaymentIsOneBatch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := edrBoard(t, reg, 6301, map[string]state.Zone{
 		"Thrilling Discovery":  state.ZHand,
@@ -155,6 +156,7 @@ func TestDiscardedAllMultiCardUnlessPaymentIsOneBatch(t *testing.T) {
 // unless cost still fires the observer exactly once with amount 1, so the
 // multi-card bracket neither inflates nor merges a single-card payment.
 func TestDiscardedAllSingleCardUnlessPaymentIsOneBatch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := edrBoard(t, reg, 6302, map[string]state.Zone{
 		"Witch's Mark":         state.ZHand,

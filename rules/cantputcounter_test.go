@@ -32,6 +32,7 @@ func philaReplGame(t *testing.T, seed uint64) (*Engine, Config) {
 // before any replacement), while a DIFFERENT counter kind on the same player
 // places normally -- the kind-scoped fail-closed direction.
 func TestCantPutCounterPhilaBlocksPoisonOnly(t *testing.T) {
+	t.Parallel()
 	e, cfg := philaReplGame(t, 211)
 	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 0, Counter: "POISON", Amount: 2})
 	if got := e.G.Players[0].Counter("POISON"); got != 0 {
@@ -56,6 +57,7 @@ func TestCantPutCounterPhilaBlocksPoisonOnly(t *testing.T) {
 // (and another player) place normally -- the object-scope fail-closed
 // direction.
 func TestCantPutCounterMelirasKeepersBlocksSelfOnly(t *testing.T) {
+	t.Parallel()
 	keepers := tokenReplCorpusCard(t, "Melira's Keepers")
 	other := card(t, "Name:Other Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 213, keepers, other)
@@ -86,6 +88,7 @@ func TestCantPutCounterMelirasKeepersBlocksSelfOnly(t *testing.T) {
 // OppCtrl), while its controller's own creature and a different kind on the
 // opponent's creature place normally.
 func TestCantPutCounterBlightbeetleScopesOpponentsP1P1(t *testing.T) {
+	t.Parallel()
 	beetle := tokenReplCorpusCard(t, "Blightbeetle")
 	mine := card(t, "Name:My Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	theirs := card(t, "Name:Their Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -120,6 +123,7 @@ func TestCantPutCounterBlightbeetleScopesOpponentsP1P1(t *testing.T) {
 // Melira's own R:Event$ AddCounter replacement (2 -> 1) forever, the
 // non-permissive direction for a restriction.
 func TestMeliraLockExpiresAndTheReplacementRestarts(t *testing.T) {
+	t.Parallel()
 	melira := tokenReplCorpusCard(t, "Melira, the Living Cure")
 	e, cfg := tokenReplGame(t, 105, melira)
 	moveSeededCard(t, e, 0, melira, state.ZBattlefield)
@@ -155,6 +159,7 @@ func TestMeliraLockExpiresAndTheReplacementRestarts(t *testing.T) {
 // marker bookkeeping and strip a permanent of regeneration under any
 // "counters can't be put on it" static.
 func TestCantPutCounterDoesNotBlockRemovalOrShield(t *testing.T) {
+	t.Parallel()
 	keepers := tokenReplCorpusCard(t, "Melira's Keepers")
 	e, cfg := tokenReplGame(t, 219, keepers)
 	keepersID := moveSeededCard(t, e, 0, keepers, state.ZBattlefield)
@@ -179,6 +184,7 @@ func TestCantPutCounterDoesNotBlockRemovalOrShield(t *testing.T) {
 // CounterType$): every player's every counter kind is blocked, so no
 // ValidCounterType$ key silently widens the reading back to nothing.
 func TestCantPutCounterUnscopedPlayerStaticBlocksEveryKind(t *testing.T) {
+	t.Parallel()
 	solemnity := tokenReplCorpusCard(t, "Solemnity")
 	e, cfg := tokenReplGame(t, 217, solemnity)
 	moveSeededCard(t, e, 0, solemnity, state.ZBattlefield)

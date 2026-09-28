@@ -70,6 +70,7 @@ func adaptFixture(t *testing.T, seed uint64) (*Engine, Config, state.ObjID) {
 // (precondition), and a build that ignores Adapt$ resolves placing one
 // counter instead of four.
 func TestPteramanderAdaptFourWithGraveyardDiscount(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := adaptFixture(t, 931)
 	if got := len(e.G.Zone(state.ZGraveyard, 0)); got != 2 {
 		t.Fatalf("precondition: graveyard holds %d cards, want 2", got)
@@ -101,6 +102,7 @@ func TestPteramanderAdaptFourWithGraveyardDiscount(t *testing.T) {
 // +1/+1 counter -- here after its own first Adapt resolved, so the gate
 // blocks the SECOND activation with a fresh pool in hand.
 func TestPteramanderAdaptGateBlocksActivationWithCounters(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := adaptFixture(t, 933)
 	if got := len(e.G.Zone(state.ZGraveyard, 0)); got != 2 {
 		t.Fatalf("precondition: graveyard holds %d cards, want 2", got)

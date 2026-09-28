@@ -52,6 +52,7 @@ func selfSacrificeBoard(t *testing.T, c *cards.Card) (*Engine, Config, state.Obj
 }
 
 func TestCardnameSacrificeAbilityOfferedAndPaid(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Flooded Strand", "Mogg Fanatic", "Wasteland", "Expedition Map", "Executioner's Capsule", "Moth Herb Elixir"} {
 		t.Run(name, func(t *testing.T) {
@@ -117,6 +118,7 @@ func TestCardnameSacrificeAbilityOfferedAndPaid(t *testing.T) {
 }
 
 func TestCardnameSacrificeCostCannotUseAnotherCopy(t *testing.T) {
+	t.Parallel()
 	c := card(t, "Name:Self payer\nTypes:Artifact\nA:AB$ GainLife | Cost$ Sac<1/CARDNAME/this artifact> | ActivationZone$ Graveyard | Defined$ You | LifeAmount$ 1\nOracle:x\n")
 	e, _, source, _ := selfSacrificeBoard(t, c)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: source, From: state.ZBattlefield, To: state.ZGraveyard})

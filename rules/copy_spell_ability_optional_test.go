@@ -176,6 +176,7 @@ func driveSevinneResolutionToEnd(t *testing.T, e *Engine, limit int) int {
 // (the returned Bear reaches the battlefield), so the decline skipped only the
 // copy, not the whole sub-chain.
 func TestSevinnesReclamationMayCopyElectionDeclineMakesNoCopy(t *testing.T) {
+	t.Parallel()
 	eng, cfg, _, bear0, bear1 := sevinneCopyElectionSetup(t, 211)
 	// Answer "no" (option 1).
 	d := eng.Pending()
@@ -205,6 +206,7 @@ func TestSevinnesReclamationMayCopyElectionDeclineMakesNoCopy(t *testing.T) {
 // answering "yes" places a real copy (CR 707.10) on the stack, and the
 // MayChooseTarget$ election lets it retarget the second graveyard Bear.
 func TestSevinnesReclamationMayCopyElectionAcceptMakesCopy(t *testing.T) {
+	t.Parallel()
 	eng, cfg, _, bear0, bear1 := sevinneCopyElectionSetup(t, 223)
 	// Answer "yes" (option 0).
 	d := eng.Pending()

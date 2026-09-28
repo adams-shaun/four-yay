@@ -11,6 +11,7 @@ import (
 // Retrace: it is offered from its graveyard with mana and a land to discard,
 // then the additional cost is paid and the spell reaches the stack.
 func TestFormlessGenesisRetraceFromGraveyard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Formless Genesis"))
 	cardID := graveyardCorpus(t, e)
 	if got := e.G.Obj(cardID).Zone; got != state.ZGraveyard {

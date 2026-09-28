@@ -23,6 +23,7 @@ func sVarHasToken(t *testing.T, raw, key, want string) {
 }
 
 func TestAlhammarretNameCardChooseFromDefinedCards(t *testing.T) {
+	t.Parallel()
 	e, reg := nameCardEngine(t, "Alhammarret, High Arbiter")
 	// Script precondition (the ticket's coverage target): the ETB reveal
 	// remembers the revealed cards and chains into a NameCard sub-ability
@@ -114,6 +115,7 @@ func TestAlhammarretNameCardChooseFromDefinedCards(t *testing.T) {
 }
 
 func TestAlhammarretNameCardEmptyDefinedSetDoesNotBroaden(t *testing.T) {
+	t.Parallel()
 	e, reg := nameCardEngine(t, "Alhammarret, High Arbiter")
 	arbiter := e.G.Zone(state.ZHand, 0)[0]
 	forest, ok := reg.Lookup("Forest")

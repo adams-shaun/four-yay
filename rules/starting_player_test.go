@@ -62,6 +62,7 @@ func seatZeroStart(cfg Config) Config {
 // certainty at 64 draws of p=1/2 -- the assertion is "both observed", never
 // an exact split, which would over-pin the rng).
 func TestTossDeterminesTheStartingPlayerNotAlwaysSeatZero(t *testing.T) {
+	t.Parallel()
 	for _, seats := range []int{2, 4} {
 		census := map[state.PlayerID]int{}
 		for seed := uint64(1); seed <= 64; seed++ {
@@ -94,6 +95,7 @@ func TestTossDeterminesTheStartingPlayerNotAlwaysSeatZero(t *testing.T) {
 // the winner as its Player; its application supplies the pregame active
 // seat, while TurnChange records the resolved first turn.
 func TestTossNoteIsEmittedExactlyOnceAndNamesTheStartingPlayer(t *testing.T) {
+	t.Parallel()
 	for _, seed := range []uint64{1, 2, 42} {
 		cfg := tossedTwoSeat(t, seed, 0)
 		e := New(cfg)
@@ -118,6 +120,7 @@ func TestTossNoteIsEmittedExactlyOnceAndNamesTheStartingPlayer(t *testing.T) {
 // the keep/mulligan decisions are made with the toss already read. The old
 // engine emitted the Note after the last opening draw.
 func TestTossNotePrecedesTheFirstShuffle(t *testing.T) {
+	t.Parallel()
 	for _, mulligans := range []int{0, 1} {
 		cfg := tossedTwoSeat(t, 1, mulligans)
 		e := New(cfg)
@@ -147,6 +150,7 @@ func TestTossNotePrecedesTheFirstShuffle(t *testing.T) {
 // truthfully, before the deal). It is the only genesis Note; GameOver remains
 // the burst's final event for host persistence.
 func TestTossNoteIsEmittedWhenOpeningDealEndsTheGame(t *testing.T) {
+	t.Parallel()
 	for _, shortSeat := range []int{0, 1} {
 		decks := [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}
 		decks[shortSeat] = mountainDeck(t, 3)
@@ -176,6 +180,7 @@ func TestTossNoteIsEmittedWhenOpeningDealEndsTheGame(t *testing.T) {
 // become starting player. The toss is the only Note, and CR 104.4a's GameOver
 // remains the final event.
 func TestTossNoteSurvivesWhenEveryOpeningDeckIsUndersized(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 1, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 3), mountainDeck(t, 3)}})
 	if !e.G.Over || !e.G.Draw || e.G.Turn != 0 || e.G.AliveCount() != 0 {
@@ -199,6 +204,7 @@ func TestTossNoteSurvivesWhenEveryOpeningDeckIsUndersized(t *testing.T) {
 // winner is NOT seat 0 replays byte-identically through the logged intents --
 // same chain head, same RNGDraws count (Ruling P5's replay contract).
 func TestTossedGameReplaysByteIdentically(t *testing.T) {
+	t.Parallel()
 	cfg := tossedTwoSeat(t, 1, 0) // measured: seed 1 tosses to seat 1
 	e := New(cfg)
 	if e.G.Active != 1 {
@@ -224,6 +230,7 @@ func TestTossedGameReplaysByteIdentically(t *testing.T) {
 // first keep/mulligan ask goes to seat 1 and the second to seat 0 -- the
 // pre-toss engine asked seat 0 first unconditionally.
 func TestMulliganRoundAsksTheTossWinnerFirst(t *testing.T) {
+	t.Parallel()
 	cfg := tossedTwoSeat(t, 1, 1) // measured: seed 1 tosses to seat 1
 	e := New(cfg)
 	// PregameStarter exposes the resolved seat to a view while the round's
@@ -268,6 +275,7 @@ func TestMulliganRoundAsksTheTossWinnerFirst(t *testing.T) {
 // drives rules.New through its real Toss and mulligan ask rather than
 // handcrafting the prompt the web receives.
 func TestMulliganPromptNamesTheDisplayPlayerWithDuplicateDecks(t *testing.T) {
+	t.Parallel()
 	cfg := tossedTwoSeat(t, 1, 1) // seed 1 starts seat 1
 	cfg.Names = []string{"same-deck", "same-deck"}
 	cfg.PlayerNames = []string{"Alice", "Bob"}
@@ -297,6 +305,7 @@ func TestMulliganPromptNamesTheDisplayPlayerWithDuplicateDecks(t *testing.T) {
 // sits ~5 sigma below the mean (failure probability ~1e-6), while the biased
 // 1/3 mapping (minority ~200) fails it overwhelmingly.
 func TestTossIsUniformOverGenesisSurvivors(t *testing.T) {
+	t.Parallel()
 	census := map[state.PlayerID]int{}
 	for seed := uint64(1); seed <= 600; seed++ {
 		e := New(Config{Seed: seed, Mulligans: 1, Names: []string{"a", "b", "c"},

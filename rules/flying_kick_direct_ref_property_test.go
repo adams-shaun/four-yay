@@ -13,6 +13,7 @@ import (
 // direct NumDmg$ ref/property body. The parent creature is deliberately grown
 // to 5 power, so a silent zero (or the default 1) is distinguishable.
 func TestFlyingKickDirectParentTargetPower(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	kick := searchCorpusCard(t, reg, "Flying Kick")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")

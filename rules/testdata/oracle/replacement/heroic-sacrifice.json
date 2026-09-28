@@ -1,0 +1,24 @@
+{
+  "card": "Heroic Sacrifice",
+  "family": "replacement",
+  "oracle_sha": "d3361fd21f9d",
+  "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "damage-to-you-is-redirected-to-chosen-creature",
+      "cr": ["614.1a", "614.6", "120.3a"],
+      "why": "Until end of turn, damage that would be dealt to the caster is dealt to the chosen creature instead; three damage is marked on the 4/4 Thor, which survives, while the caster's life total remains unchanged.",
+      "setup": {"p0": {"battlefield": ["Thor, Asgard's Avenger"], "hand": ["Heroic Sacrifice", "Lightning Bolt"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Heroic Sacrifice", "mana": "WW", "targets": ["p0:Thor, Asgard's Avenger"]}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 20, "p1": 20}}, {"card": "p0:Thor, Asgard's Avenger", "zone": "battlefield", "damage": 3}]
+    },
+    {
+      "name": "damage-to-opponent-is-not-redirected",
+      "cr": ["614.1a", "120.3a"],
+      "why": "Only damage to the caster and their creatures is redirected; Bolt aimed at the opponent still deals its normal three damage to that player.",
+      "setup": {"p0": {"battlefield": ["Centaur Courser"], "hand": ["Heroic Sacrifice", "Lightning Bolt"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Heroic Sacrifice", "mana": "WW", "targets": ["p0:Centaur Courser"]}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 20, "p1": 17}}, {"card": "p0:Centaur Courser", "zone": "battlefield", "damage": 0}]
+    }
+  ]
+}

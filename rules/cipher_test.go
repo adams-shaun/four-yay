@@ -289,6 +289,7 @@ func zoneOf(o *state.Object) any {
 // TestCipherKeywordRegistration keeps the coverage declaration pinned to the
 // tested implementation: reverting either expander or registration fails.
 func TestCipherKeywordRegistration(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	c := mustCorpusCard(t, reg, "Paranoid Delusions")
 	if !cipherHasResolutionTail(c) {
@@ -308,6 +309,7 @@ func TestCipherKeywordRegistration(t *testing.T) {
 // with none the spell fizzles (CR 608.2b) and never reaches its encode tail,
 // which would make the assertion below vacuous.
 func TestCipherArcaneHeistEncodesOntoCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	heist := mustCorpusCard(t, reg, "Arcane Heist")
 	if !cipherHasResolutionTail(heist) {
@@ -342,6 +344,7 @@ func TestCipherArcaneHeistEncodesOntoCreature(t *testing.T) {
 // observe the copy put on the stack. The original card stays exiled and
 // encoded.
 func TestCipherEncodedCombatDamageOffersCopyCast(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	delusions := mustCorpusCard(t, reg, "Paranoid Delusions")
 	if !cipherHasResolutionTail(delusions) {
@@ -405,6 +408,7 @@ func TestCipherEncodedCombatDamageOffersCopyCast(t *testing.T) {
 // offer puts nothing on the stack. The trigger still fired, and its handler
 // still ran, which the answered offer proves.
 func TestCipherCopyDeclineCastsNothing(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, cipherID, creatures := cipherBoard(t, reg, card(t, cipherProbeSrc), cipherBeanSrc)
 	creature := creatures[0]
@@ -432,6 +436,7 @@ func TestCipherCopyDeclineCastsNothing(t *testing.T) {
 // TestCipherEncodeDeclineLeavesCardInGraveyard exercises the optional
 // decision with a legal creature present and an empty (decline) answer.
 func TestCipherEncodeDeclineLeavesCardInGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherProbeSrc)
 	if !cipherHasResolutionTail(probe) {
@@ -455,6 +460,7 @@ func TestCipherEncodeDeclineLeavesCardInGraveyard(t *testing.T) {
 // encode clause has no legal host, so the card stays in the graveyard and no
 // creature carries an association.
 func TestCipherNoCreatureDoesNotEncode(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherProbeSrc)
 	if !cipherHasResolutionTail(probe) {
@@ -484,6 +490,7 @@ func TestCipherNoCreatureDoesNotEncode(t *testing.T) {
 // predicate honest: a creature on the board controlled by an opponent must
 // not become a fallback option when the caster controls none.
 func TestCipherOpponentCreatureIsNotAnEncodeHost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherProbeSrc)
 	if !cipherHasResolutionTail(probe) {
@@ -512,6 +519,7 @@ func TestCipherOpponentCreatureIsNotAnEncodeHost(t *testing.T) {
 // leaves exile (cast, blinked, moved), the association is gone -- events.Move
 // prunes it -- so a later combat hit by the same creature fires nothing.
 func TestCipherEncodedCardLeavingExileClearsAssociation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, cipherID, creatures := cipherBoard(t, reg, card(t, cipherProbeSrc), cipherBeanSrc)
 	creature := creatures[0]
@@ -539,6 +547,7 @@ func TestCipherEncodedCardLeavingExileClearsAssociation(t *testing.T) {
 // leaves the battlefield, its encoded links are battlefield-stint state and
 // are dropped.
 func TestCipherEncodedCardLeavesBattlefieldClearsAssociation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, cipherID, creatures := cipherBoard(t, reg, card(t, cipherProbeSrc), cipherBeanSrc)
 	creature := creatures[0]

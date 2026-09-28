@@ -48,6 +48,7 @@ func enchantersBaneFixture(t *testing.T) (*Engine, Config, state.ObjID, state.Ob
 }
 
 func TestEnchantersBaneDamageLegReachesImprintController(t *testing.T) {
+	t.Parallel()
 	e, cfg, baneID, auraID := enchantersBaneFixture(t)
 
 	// Preconditions the damage leg reads: the imprinted target stands on the

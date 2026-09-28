@@ -17,6 +17,7 @@ import (
 // corpus .txt in a test, and the kicker is irrelevant to the CantTarget
 // registration so it is dropped to keep the fixture minimal).
 func TestVinesOfVastwoodCantTargetBitesOpponent(t *testing.T) {
+	t.Parallel()
 	vines := card(t, "Name:Vines of Vastwood\nManaCost:G\nTypes:Instant\n"+
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +4 | NumDef$ +4 | SubAbility$ DBEffect\n"+
 		"SVar:DBEffect:DB$ Effect | Defined$ Targeted | StaticAbilities$ STCantTarget | RememberObjects$ Targeted\n"+
@@ -78,6 +79,7 @@ func TestVinesOfVastwoodCantTargetBitesOpponent(t *testing.T) {
 // are untouched, so seat 0 can still target the creature it just granted the
 // restriction to.
 func TestVinesOfVastwoodCantTargetStillAllowsTheCaster(t *testing.T) {
+	t.Parallel()
 	vines := card(t, "Name:Vines of Vastwood\nManaCost:G\nTypes:Instant\n"+
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +4 | NumDef$ +4 | SubAbility$ DBEffect\n"+
 		"SVar:DBEffect:DB$ Effect | Defined$ Targeted | StaticAbilities$ STCantTarget | RememberObjects$ Targeted\n"+

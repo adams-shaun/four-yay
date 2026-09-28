@@ -60,6 +60,7 @@ func interferenceTier(t *testing.T, e *Engine, src state.ObjID) (paymentAbilityT
 // taxes an untargeted spell (Syr Elenora's ValidTarget$ RaiseCost) leaves
 // seat 0's Island plan for an untargeted {U} instant exactly as it was.
 func TestPaymentPlanInterferenceOpponentPermanentsLeaveIslandPlan(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"Mana Vault", "City of Brass", "Claustrophobia", "Engineered Explosives", "Syr Elenora, the Discerning", "Grim Monolith"} {
 		t.Run(name, func(t *testing.T) {
 			e, _, spell := newFixtureDeck(t, 9901, interferenceBlueInstant)
@@ -91,6 +92,7 @@ func TestPaymentPlanInterferenceOpponentPermanentsLeaveIslandPlan(t *testing.T) 
 // by name, while a non-land source of seat 0 still funds the plan: the
 // trigger's filter, not its presence, decides.
 func TestPaymentPlanInterferenceManabarbsDefersOnlyWhatItMatches(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9902, interferenceBlueInstant)
 	island := onBoard(t, e, 0, interferenceIsland)
 	onBoardCard(t, e, 1, corpusCard(t, "Manabarbs"))
@@ -115,6 +117,7 @@ func TestPaymentPlanInterferenceManabarbsDefersOnlyWhatItMatches(t *testing.T) {
 // Card.AttachedBy matches only A, so A is deferred and the {U} plan uses the
 // untouched Island B.
 func TestPaymentPlanInterferenceWildGrowthDefersOnlyEnchantedLand(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9903, interferenceBlueInstant)
 	islandA := onBoard(t, e, 0, interferenceIsland)
 	islandB := onBoard(t, e, 0, interferenceIsland)
@@ -143,6 +146,7 @@ func TestPaymentPlanInterferenceWildGrowthDefersOnlyEnchantedLand(t *testing.T) 
 // Swamps are deferred, seat 0's Island still pays, and an opponent's Crypt
 // Ghast leaves seat 0's Swamp alone.
 func TestPaymentPlanInterferenceCryptGhastScopesByActivator(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9904, interferenceOneInstant)
 	swamp := onBoard(t, e, 0, interferenceSwamp)
 	island := onBoard(t, e, 0, interferenceIsland)
@@ -179,6 +183,7 @@ func interferenceRemoveID(ids []state.ObjID, id state.ObjID) []state.ObjID {
 // another seat-0 source still funds one, and alone they fund a plan that
 // discloses the cheaper consequence (City's damage 1 = 3 < Vault's 25).
 func TestPaymentPlanInterferenceOwnCityAndVaultAreLastResort(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9905, interferenceOneInstant)
 	city := onBoardCard(t, e, 0, corpusCard(t, "City of Brass"))
 	vault := onBoardCard(t, e, 0, corpusCard(t, "Mana Vault"))
@@ -210,6 +215,7 @@ func TestPaymentPlanInterferenceOwnCityAndVaultAreLastResort(t *testing.T) {
 // defers every source its controller could tap -- seat 0 has no plan, and the
 // diagnostic names it -- while seat 1's sources are outside its filter.
 func TestPaymentPlanInterferenceManaReflectionDefersControllerSources(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9906, interferenceBlueInstant)
 	island := onBoard(t, e, 0, interferenceIsland)
 	onBoardCard(t, e, 0, corpusCard(t, "Mana Reflection"))
@@ -235,6 +241,7 @@ func TestPaymentPlanInterferenceManaReflectionDefersControllerSources(t *testing
 // shape) is the one printed global effect: the ordinary solver does not
 // apply the conversion, so no plan is offered and the reason names it.
 func TestPaymentPlanInterferenceCelestialDawnIsGlobal(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9907, "Name:Green Instant Test\nManaCost:G\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Dawn Test\nTypes:Enchantment\nS:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ White->AnyColor nonWhite<-C | Description$ Fixture: white as any colour, other mana only as colorless.\nOracle:x\n")
 	elf := onBoard(t, e, 0, "Name:Elf Test\nTypes:Creature Elf\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ Add G.\nOracle:x\n")
@@ -261,6 +268,7 @@ func TestPaymentPlanInterferenceCelestialDawnIsGlobal(t *testing.T) {
 // form is TestPaymentPlanDeclinesEffectCreatedProduceManaReplacement's global
 // decline.)
 func TestPaymentPlanInterferenceScopedEffectCreatedReplacementDefersItsCard(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9908, interferenceBlueInstant)
 	islandA := onBoard(t, e, 0, interferenceIsland)
 	islandB := onBoard(t, e, 0, interferenceIsland)
@@ -282,6 +290,7 @@ func TestPaymentPlanInterferenceScopedEffectCreatedReplacementDefersItsCard(t *t
 // The unscoped effect-created replacement still declines every plan, now
 // with the global diagnostic.
 func TestPaymentPlanInterferenceUnscopedEffectCreatedReplacementIsGlobal(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9909, interferenceBlueInstant)
 	source := onBoard(t, e, 0, interferenceIsland)
 	e.AddContinuous(state.ContinuousEffect{Source: source, Controller: 0,
@@ -299,6 +308,7 @@ func TestPaymentPlanInterferenceUnscopedEffectCreatedReplacementIsGlobal(t *test
 // depends on the target chosen at CR 601.2c. An untargeted one does not
 // (TestPaymentPlanInterferenceOpponentPermanentsLeaveIslandPlan).
 func TestPaymentPlanInterferenceTargetedSpellUnderSyrElenoraDeclines(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9910, "Name:Blue Pump\nManaCost:U\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | SpellDescription$ x\nOracle:x\n")
 	onBoard(t, e, 0, interferenceIsland)
 	onBoard(t, e, 0, interferenceIsland)
@@ -314,6 +324,7 @@ func TestPaymentPlanInterferenceTargetedSpellUnderSyrElenoraDeclines(t *testing.
 // Sunburst) still withholds the plan; merely printing Sunburst does not
 // (Engineered Explosives, above).
 func TestPaymentPlanInterferenceSunburstGrantStillDeclines(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9911, interferenceBlueInstant)
 	onBoard(t, e, 0, interferenceIsland)
 	onBoardCard(t, e, 0, corpusCard(t, "Solar Array"))
@@ -336,6 +347,7 @@ func TestPaymentPlanInterferenceSunburstGrantStillDeclines(t *testing.T) {
 // is activated and the manual window names the plan with source_changed (no
 // V1 ability is left under the step's identity).
 func TestPaymentPlanInterferenceArrivingAfterOfferStopsBeforeTapping(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9912, paymentPlanBlast)
 	m1 := onBoard(t, e, 0, paymentPlanMountain)
 	m2 := onBoard(t, e, 0, paymentPlanMountain)
@@ -361,6 +373,7 @@ func TestPaymentPlanInterferenceArrivingAfterOfferStopsBeforeTapping(t *testing.
 // (the corpus Celestial Dawn: other mana only as colorless) stays global, and
 // with both on the battlefield the diagnostic names the restricting one.
 func TestPaymentPlanInterferenceWideningManaConvertIsNotGlobal(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9913, interferenceBlueInstant)
 	island := onBoard(t, e, 0, interferenceIsland)
 	onBoardCard(t, e, 1, corpusCard(t, "Mycosynth Lattice"))
@@ -388,6 +401,7 @@ func TestPaymentPlanInterferenceWideningManaConvertIsNotGlobal(t *testing.T) {
 }
 
 func TestPaymentPlanInterferenceRestrictingManaConvertIsGlobal(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9914, interferenceBlueInstant)
 	onBoard(t, e, 0, interferenceIsland)
 	onBoardCard(t, e, 0, corpusCard(t, "Mycosynth Lattice"))
@@ -410,6 +424,7 @@ func TestPaymentPlanInterferenceRestrictingManaConvertIsGlobal(t *testing.T) {
 // planner priced the Swamp at {B} while its tap added {B}{B} (round-5
 // cardfuzz mirror seed 14886721532440673633, wrong_production).
 func TestPaymentPlanInterferenceDelayedTapTriggerDefersItsSources(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9915, interferenceOneInstant)
 	swamp := onBoard(t, e, 0, interferenceSwamp)
 	island := onBoard(t, e, 0, interferenceIsland)

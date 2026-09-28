@@ -190,6 +190,7 @@ func driveToAttackers(t *testing.T, e *Engine) {
 // The resolution must create exactly the two Spiders -- not zero (the
 // reported defect) and not three (a seat-blind IsAttacking read).
 func TestArachnogenesisCreatesTokensForAttackersAtYou(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, id, raiders := arachFixture(t, reg)
 

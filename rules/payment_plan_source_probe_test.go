@@ -29,6 +29,7 @@ import (
 // (the spell included) the gate g = n holds only in hand (withheld); g = n-1
 // holds on the stack as well (offered).
 func TestPaymentPlanWithholdsCastWhoseSourceGateLeavesWithTheCard(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		slack int // the gate is powerGE n-slack

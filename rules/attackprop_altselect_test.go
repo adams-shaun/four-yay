@@ -51,6 +51,7 @@ func attackPropSeatUnequal(t *testing.T, propName string) (*Engine, state.ObjID)
 // alternative sharing the Obj ({C}), the payer came up short, the window found
 // no source left (the land is tapped) and ABORTED the declaration.
 func TestAttackPropPaysTheSelectedAlternative(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeatUnequal(t, "Ghostly Prison")
 
 	// PRECONDITION: the one land offers two alternatives with UNEQUAL units,
@@ -109,6 +110,7 @@ func TestAttackPropPaysTheSelectedAlternative(t *testing.T) {
 // first alternative ({C}), the window found no source left, cleared itself
 // silently, and the block never committed.
 func TestBlockPropPaysTheSelectedAlternative(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	qal := onBoardCard(t, e, 0, mshCorpusCard(t, "Qal Sisma Behemoth"))
 	land := onBoardCard(t, e, 0, unequalDualLandScript(t))

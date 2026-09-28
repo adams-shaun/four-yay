@@ -46,6 +46,7 @@ func addHexproofCardToHand(t *testing.T, e *Engine, p state.PlayerID, src string
 // legal target — the one way hexproof differs from shroud, whose own-
 // controller case is pinned the other way in shroud_test.go.
 func TestPrintedHexproofWithholdsOpponentButNotController(t *testing.T) {
+	t.Parallel()
 	hexed := "Name:Hexed Elf\nManaCost:G\nTypes:Creature Elf\nK:Hexproof\nPT:2/2\nOracle:x\n"
 	e := handEngine(t)
 	hexID := onBoard(t, e, 1, hexed)
@@ -94,6 +95,7 @@ func TestPrintedHexproofWithholdsOpponentButNotController(t *testing.T) {
 // Elf and never the hexproof one — the same offer/recheck agreement shroud's
 // TestPrintedShroudExcludedFromTargetOptions pins, on the asymmetric keyword.
 func TestPrintedHexproofExcludedFromTargetOptions(t *testing.T) {
+	t.Parallel()
 	hexed := "Name:Hexed Elf\nManaCost:G\nTypes:Creature Elf\nK:Hexproof\nPT:2/2\nOracle:x\n"
 	e := handEngine(t)
 	hexID := onBoard(t, e, 1, hexed)
@@ -131,6 +133,7 @@ func TestPrintedHexproofExcludedFromTargetOptions(t *testing.T) {
 // quality is matched against the TARGETING SOURCE, not the hexproof card.
 // Two independent engines keep the black and red pools from sharing state.
 func TestHexproofFromBlackIsQualityAware(t *testing.T) {
+	t.Parallel()
 	black := handEngine(t)
 	grace := corpusCard(t, "Knight of Grace")
 	onBoardCard(t, black, 1, grace)
@@ -171,6 +174,7 @@ func TestHexproofFromBlackIsQualityAware(t *testing.T) {
 // may target it. This is the card-level ratchet proof the coverage table
 // requires before kw:Hexproof may count as supported.
 func TestCorpusLotusFieldHexproofWithholdsOpponent(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	lotus := corpusCard(t, "Lotus Field")
 	lotusID := onBoardCard(t, e, 1, lotus)
@@ -194,6 +198,7 @@ func TestCorpusLotusFieldHexproofWithholdsOpponent(t *testing.T) {
 // needs the keyword to exist before AddKeyword$ can convey it" is covered
 // here.
 func TestGrantedHexproofBlocksOpponentNotController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Shalai, Voice of Plenty", "Grizzly Bears"}, []string{"Hill Giant"})
 	bear := findOnBoard(t, e, 0, "Grizzly Bears")
@@ -268,6 +273,7 @@ func TestGrantedHexproofBlocksOpponentNotController(t *testing.T) {
 // the two deck cards must still carry a K:Hexproof line. A future corpus pin
 // that dropped it would silently make the tests above vacuous.
 func TestHexproofReparseFromCorpusScript(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"Lotus Field", "Tectonic Split"} {
 		c := corpusCard(t, name)
 		found := false

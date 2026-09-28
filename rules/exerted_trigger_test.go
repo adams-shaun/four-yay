@@ -81,6 +81,7 @@ func driveToExertTurn(t *testing.T, e *Engine) {
 // opponent controls, and the answered target is tapped. The whole game
 // replays byte-identically.
 func TestVizierOfTheTrueExertedTriggerTapsAnOpponentCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := exertedEngine(t, reg, lookup(t, reg, "Vizier of the True"))
 	viz := moveByName(t, e, 0, "Vizier of the True", state.ZBattlefield)
@@ -141,6 +142,7 @@ func TestVizierOfTheTrueExertedTriggerTapsAnOpponentCreature(t *testing.T) {
 // Exerted line's DB$ PumpAll gives creatures you control +1/+0 until end of
 // turn, so the Twins' derived power rises by one.
 func TestTrueheartTwinsExertedTriggerPumpsYourTeam(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := exertedEngine(t, reg, lookup(t, reg, "Trueheart Twins"))
 	tt := moveByName(t, e, 0, "Trueheart Twins", state.ZBattlefield)
@@ -166,6 +168,7 @@ func TestTrueheartTwinsExertedTriggerPumpsYourTeam(t *testing.T) {
 // marker (Amount == -1) does not. The marker is the same events.Exert Kind,
 // so no other gate distinguishes it; this is the one that must.
 func TestExertedMatchesRejectsTheConsumeMarker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := exertedEngine(t, reg, lookup(t, reg, "Vizier of the True"))
 	viz := moveByName(t, e, 0, "Vizier of the True", state.ZBattlefield)
@@ -193,6 +196,7 @@ func TestExertedMatchesRejectsTheConsumeMarker(t *testing.T) {
 // compiled-interest prefilter must admit the event, but the mode's own mask
 // stays exact).
 func TestExertedModeEligibilityMask(t *testing.T) {
+	t.Parallel()
 	m := triggerModeEvents("Exerted")
 	if !m.allows(events.Exert) {
 		t.Fatal("triggerModeEvents(Exerted) does not allow events.Exert")
@@ -212,6 +216,7 @@ func TestExertedModeEligibilityMask(t *testing.T) {
 // adds a manifest this list forgets is silently undercounted -- this is that
 // list's own pin for Exerted.
 func TestExertedPrimitiveIsDeclaredSupported(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:Exerted"] {
 		t.Fatal(`effects.Supported() is missing "trig:Exerted"`)
 	}

@@ -17,6 +17,7 @@ import (
 // changes: Count$StartingPlayer answers the player designation, not an object
 // property or a hard-coded seat number.
 func TestCountStartingPlayerUsesTheRecordedToss(t *testing.T) {
+	t.Parallel()
 	e := New(tossedTwoSeat(t, 1, 0)) // seed 1 starts seat 1
 	if !e.G.IsStartingPlayer(1) || e.G.IsStartingPlayer(0) {
 		t.Fatalf("recorded starter = %t/%t, want only seat 1", e.G.IsStartingPlayer(0), e.G.IsStartingPlayer(1))
@@ -52,6 +53,7 @@ func TestCountStartingPlayerUsesTheRecordedToss(t *testing.T) {
 // records the designation in state.Game (Count$StartingPlayer reads it) and
 // rotates turn one to the accepting seat.
 func TestImpatientIguanaOpeningEffectBecomesStartingPlayer(t *testing.T) {
+	t.Parallel()
 	iguana := corpusCard(t, "Impatient Iguana")
 	var e *Engine
 	var openingAsk *decision.Decision
@@ -111,6 +113,7 @@ func TestImpatientIguanaOpeningEffectBecomesStartingPlayer(t *testing.T) {
 // recorded starting player and hands turn one to seat 1. The seed search is
 // the acceptance test's, with the opposite answer.
 func TestDeclinedImpatientIguanaKeepsTheRecordedStarter(t *testing.T) {
+	t.Parallel()
 	iguana := corpusCard(t, "Impatient Iguana")
 	var e *Engine
 	var openingAsk *decision.Decision
@@ -152,6 +155,7 @@ func TestDeclinedImpatientIguanaKeepsTheRecordedStarter(t *testing.T) {
 }
 
 func TestMulliganDeclarationsPassRoundTheTable(t *testing.T) {
+	t.Parallel()
 	for _, seats := range []int{2, 3} {
 		names := make([]string, seats)
 		decks := make([][]*cards.Card, seats)

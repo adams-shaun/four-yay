@@ -165,6 +165,7 @@ func castChainOfSilenceAtSeat1Target(t *testing.T, e *Engine, cos state.ObjID) *
 // copy's controller (seat 1), and the answered election's no/yes arms make
 // 0/1 copies.
 func TestChainOfSilenceCopyOptionalUnlessComposition(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// --- Declined switched gate: no body, so no election and no copy. ---

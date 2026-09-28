@@ -187,7 +187,15 @@ func (s *chanceState) record(n, value int) int {
 // starts empty, so it is not replayable from Config; it is a search world,
 // never a match. e itself is not changed.
 func (e *Engine) CloneHypothetical(seed uint64) *Engine {
-	c := e.Clone()
+	return e.CloneHypotheticalInto(seed, nil)
+}
+
+// CloneHypotheticalInto is CloneHypothetical drawing the copy's arrays from
+// *sp exactly as CloneInto does (nil or a zero Spare: plain
+// CloneHypothetical). The search loop releases each simulation's world back
+// into the Spare the next one is built from.
+func (e *Engine) CloneHypotheticalInto(seed uint64, sp *Spare) *Engine {
+	c := e.CloneInto(sp)
 	r := newRNG(seed)
 	r.chance = &chanceState{}
 	c.rng = r

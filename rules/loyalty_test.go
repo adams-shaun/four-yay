@@ -159,6 +159,7 @@ func loyaltyAbilityOffered(e *Engine, p state.PlayerID, obj state.ObjID, ability
 }
 
 func TestPlaneswalkerEntersWithStartingLoyalty(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name string
@@ -188,6 +189,7 @@ func TestPlaneswalkerEntersWithStartingLoyalty(t *testing.T) {
 // a 3-loyalty Jace dies to Lightning Bolt, and the damage arrives as loyalty
 // removal, never as marked damage.
 func TestLightningBoltKillsAThreeLoyaltyJace(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bolt := mustCorpusCard(t, reg, "Lightning Bolt")
 	e, cfg, jace := walkerBoard(t, reg, "Jace, the Mind Sculptor", bolt)
@@ -234,6 +236,7 @@ func TestLightningBoltKillsAThreeLoyaltyJace(t *testing.T) {
 // TestFireboltRemovesLoyaltyWithoutKilling: 2 damage to a 3-loyalty Jace
 // leaves it alive at 1 loyalty, still not damage-marked.
 func TestFireboltRemovesLoyaltyWithoutKilling(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	firebolt := mustCorpusCard(t, reg, "Firebolt")
 	e, cfg, jace := walkerBoard(t, reg, "Jace, the Mind Sculptor", firebolt)
@@ -253,6 +256,7 @@ func TestFireboltRemovesLoyaltyWithoutKilling(t *testing.T) {
 // from an EMPTY pool (AddCounter is a free cost component, never the
 // one-generic fallback), pays nothing, and moves loyalty 3 -> 5.
 func TestJacePlusTwoCostsNoMana(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	plusTwo := jaceAbility(t, jaceCard, "AddCounter", 2)
@@ -280,6 +284,7 @@ func TestJacePlusTwoCostsNoMana(t *testing.T) {
 // PERMANENT (CR 606.3), not per ability index -- and off the controller's own
 // turn no loyalty ability is offered at all; the next own turn re-offers.
 func TestJaceLoyaltyAbilityOncePerTurnAndOwnTurnOnly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	plusTwo := jaceAbility(t, jaceCard, "AddCounter", 2)
@@ -322,6 +327,7 @@ func TestJaceLoyaltyAbilityOncePerTurnAndOwnTurnOnly(t *testing.T) {
 // turn. The re-entry also re-grants starting loyalty (CR 306.5b), so the
 // cost is payable again.
 func TestWalkerLeaveAndReturnMayActivateAgain(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	plusTwo := jaceAbility(t, jaceCard, "AddCounter", 2)
@@ -374,6 +380,7 @@ func recordLoyaltyPush(e *Engine, walker state.ObjID, ability int) {
 // current face. The back face deliberately places its loyalty ability at a
 // different index, the shape a current-face lookup would lose after FlipFace.
 func TestLoyaltyActivationUsesFaceAtPush(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, walker := walkerBoard(t, reg, "Jace, the Mind Sculptor")
 	e.G.Obj(walker).Card = &cards.Card{Faces: []*cards.Face{
@@ -401,6 +408,7 @@ func TestLoyaltyActivationUsesFaceAtPush(t *testing.T) {
 // gate, while a real leave/re-entry must reset it even when both From fields
 // claim the opposite.
 func TestLoyaltyStintUsesFoldedZoneHistory(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	plusTwo := jaceAbility(t, jaceCard, "AddCounter", 2)
@@ -440,6 +448,7 @@ func TestLoyaltyStintUsesFoldedZoneHistory(t *testing.T) {
 // after a hostile logged AbilityPush. Apply rejects a negative ability index;
 // the historical gate must also bounds-check it rather than panicking.
 func TestLoyaltyGateIgnoresRejectedNegativeAbilityPush(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	plusTwo := jaceAbility(t, jaceCard, "AddCounter", 2)
@@ -456,6 +465,7 @@ func TestLoyaltyGateIgnoresRejectedNegativeAbilityPush(t *testing.T) {
 // out-of-range player must not create a new activation window while the real
 // turn and active player remain unchanged.
 func TestRejectedTurnChangeDoesNotResetLoyaltyGate(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	plusTwo := jaceAbility(t, jaceCard, "AddCounter", 2)
@@ -482,6 +492,7 @@ func TestRejectedTurnChangeDoesNotResetLoyaltyGate(t *testing.T) {
 // the same ability twice (Urza, Lord Protector's reminder text is explicit
 // that this is allowed) -- and a third activation is withheld.
 func TestOathOfTeferiGrantsASecondLoyaltyActivation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	oathCard := mustCorpusCard(t, reg, "Oath of Teferi")
@@ -527,6 +538,7 @@ func TestOathOfTeferiGrantsASecondLoyaltyActivation(t *testing.T) {
 // combination rule for NumLoyaltyAct: Twice raises the base to two and
 // Additional adds on top, regardless of deterministic battlefield scan order.
 func TestLoyaltyAbilityLimitCombinesGrantsIndependentOfOrder(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	grant := func(name string, params map[string]string) *cards.Card {
 		return &cards.Card{Faces: []*cards.Face{{
@@ -563,6 +575,7 @@ func TestLoyaltyAbilityLimitCombinesGrantsIndependentOfOrder(t *testing.T) {
 // reaches 0 -- the offer gate is Counter >= N, so the gate fires only below
 // the cost), and spending the last loyalty feeds the CR 704.5i sweep.
 func TestJaceMinusOneAtOneLoyaltyIsOfferedAndKills(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	jaceCard := mustCorpusCard(t, reg, "Jace, the Mind Sculptor")
 	minusOne := jaceAbility(t, jaceCard, "SubCounter", 1)
@@ -603,6 +616,7 @@ func bearObjID(t *testing.T, e *Engine, bear *cards.Card) state.ObjID {
 // lethal-damage SBA then removes) and removes 3 loyalty from Jace (which the
 // zero-loyalty SBA then removes), through one resolution.
 func TestBrotherhoodsEndDamageAllRemovesWalkerLoyalty(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	endCard := mustCorpusCard(t, reg, "Brotherhood's End")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -649,6 +663,7 @@ func TestBrotherhoodsEndDamageAllRemovesWalkerLoyalty(t *testing.T) {
 // SubCounter form keeps its existing part, and a NON-loyalty AddCounter token
 // keeps the pre-loyalty one-generic fallback.
 func TestParseCostLoyaltyTokens(t *testing.T) {
+	t.Parallel()
 	plus := ParseCost("AddCounter<2/LOYALTY>")
 	if len(plus.AddCounter) != 1 || plus.AddCounter[0].N != 2 || plus.AddCounter[0].Spec != "LOYALTY" {
 		t.Fatalf("AddCounter<2/LOYALTY> = %+v", plus)

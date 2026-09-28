@@ -206,6 +206,7 @@ loop:
 // was asked exactly once -- the cursor-drift regression the option-derived
 // snapshot caused -- then replays the whole log.
 func TestRotatingFireplaceTimeTravelAddsAndRemoves(t *testing.T) {
+	t.Parallel()
 	e, cfg, rf, caster := timeTravelBoard(t, 71, "Rotating Fireplace", timeTravelClockSrc, suspendedSorcerySrc)
 	// Rotating Fireplace enters tapped with a TIME counter through its own
 	// Moved replacement; untap it so its {4},{T} cost is payable, then assert
@@ -250,6 +251,7 @@ func TestRotatingFireplaceTimeTravelAddsAndRemoves(t *testing.T) {
 // cursor re-derived from the shrinking live eligible set would skip the
 // third or double-ask the first.
 func TestTimeTravelMultipleObjectsRemovedToZeroEachAskedOnce(t *testing.T) {
+	t.Parallel()
 	e, cfg, rf, caster := timeTravelBoard(t, 72, "Rotating Fireplace", timeTravelClockSrc, timeTravelClockSrc, timeTravelClockSrc, suspendedSorcerySrc)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: rf, From: state.ZHand, To: state.ZBattlefield, Player: caster})
 	e.emit(events.Event{Kind: events.Untap, Obj: rf})
@@ -284,6 +286,7 @@ func TestTimeTravelMultipleObjectsRemovedToZeroEachAskedOnce(t *testing.T) {
 // removal-to-zero re-evaluation half of the rule is
 // TestTimeTravelMultipleObjectsRemovedToZeroEachAskedOnce.
 func TestTenthDoctorTimeyWimeySorcerySpeedOnly(t *testing.T) {
+	t.Parallel()
 	e, cfg, doc, caster := timeTravelBoard(t, 73, "The Tenth Doctor", timeTravelClockSrc, timeTravelInstantSrc)
 	// The Doctor is a creature, but its ability costs no {T}, so summoning
 	// sickness is irrelevant; only the sorcery window gates it. Enter it on

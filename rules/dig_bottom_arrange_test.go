@@ -94,6 +94,7 @@ func assertBottomOrder(t *testing.T, libAfter, belowWindow, bottom []state.ObjID
 // untaken cards, the answer's order IS the bottom order, and the whole game
 // replays.
 func TestAncientStirringsBottomsTheRemainderInTheChosenOrder(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := stirringsEngine(t, 61)
 	libBefore := digReorder(t, e, "Bone Saw", "Bone Saw")
 	belowWindow := append([]state.ObjID(nil), libBefore[5:]...)
@@ -153,6 +154,7 @@ func TestAncientStirringsBottomsTheRemainderInTheChosenOrder(t *testing.T) {
 // on the corpus card: declining the optional take leaves all five window
 // cards for the ordered-bottom ask, and the answer's order bottoms them.
 func TestAncientStirringsDeclinedTakeStillOrdersTheBottom(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := stirringsEngine(t, 62)
 	libBefore := digReorder(t, e, "Bone Saw", "Bone Saw")
 	belowWindow := append([]state.ObjID(nil), libBefore[5:]...)
@@ -186,6 +188,7 @@ func TestAncientStirringsDeclinedTakeStillOrdersTheBottom(t *testing.T) {
 // clean, so the deterministic bot can never re-submit a rejected answer.
 // The board binds (five untaken cards, Min == Max == 5).
 func TestAncientStirringsBotAnswerValidates(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := stirringsEngine(t, 63)
 	digReorder(t, e, "Bone Saw", "Bone Saw")
 

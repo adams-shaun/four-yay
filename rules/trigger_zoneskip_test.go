@@ -15,6 +15,7 @@ import (
 // itself a summarized zone (trigger_zoneskip.go) so a battlefield-default
 // trigger sets its bit rather than reading cold everywhere.
 func TestFaceTriggerZonesIsZoneGatesSpec(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	const lib, hand, bf, gy, ex = 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4
 	for _, tc := range []struct {
@@ -39,6 +40,7 @@ func TestFaceTriggerZonesIsZoneGatesSpec(t *testing.T) {
 // skipped, while a graveyard holding a TriggerZones$ Graveyard card is hot
 // and still fires (the skip never hides a live trigger).
 func TestTrigZoneSkipLibrariesColdGraveyardHot(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, `Name:Ghoul
 ManaCost:B
@@ -69,6 +71,7 @@ Oracle:x
 // event's own object -- zoneGate's source == ev.Obj admissions (here a
 // "when you discard this card" with no TriggerZones$) live there.
 func TestTrigZoneSkipWalksReferentInColdZone(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	c := e.G.AddObject(card(t, `Name:Orvarish
 ManaCost:B
@@ -104,6 +107,7 @@ Oracle:x
 // of a library card (every such Apply write names the object in the event)
 // drops the library's cold summary, so the now-live trigger fires.
 func TestTrigZoneSkipSeesInPlaceChangeThroughReferent(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDraw})
 	lib := e.G.Zone(state.ZLibrary, 0)
@@ -125,6 +129,7 @@ func TestTrigZoneSkipSeesInPlaceChangeThroughReferent(t *testing.T) {
 // one input the summary argument cannot see -- trips it rather than
 // silently dropping the trigger.
 func TestTrigZoneSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
+	t.Parallel()
 	if !trigZoneSkipVerify {
 		t.Fatal("trigger zone skip verify mode is off in the rules test binary")
 	}

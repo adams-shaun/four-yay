@@ -22,6 +22,7 @@ func manaConvertCard(t *testing.T, reg *cards.Registry, name string) *cards.Card
 }
 
 func TestEffectManaConvertReachesPayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{manaConvertCard(t, reg, "North Star"), manaConvertCard(t, reg, "Ancestral Recall")}, nil)
@@ -54,6 +55,7 @@ func TestEffectManaConvertReachesPayment(t *testing.T) {
 }
 
 func TestCommandManaConvertReachesPayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{manaConvertCard(t, reg, "Emissary's Ploy"), manaConvertCard(t, reg, "Grizzly Bears")}, nil)
@@ -73,6 +75,7 @@ func TestCommandManaConvertReachesPayment(t *testing.T) {
 }
 
 func TestOptionalManaConvertIsAskedBeforePayment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{manaConvertCard(t, reg, "North Star"), manaConvertCard(t, reg, "Ancestral Recall")}, nil)

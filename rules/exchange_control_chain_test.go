@@ -20,6 +20,7 @@ import (
 // exchange the two permanents, and the same walk WITHOUT the record must be a
 // no-op rather than swapping a duplicated parent target.
 func TestExchangeControlChainPreAskCarriesSecondSide(t *testing.T) {
+	t.Parallel()
 	card := corpusCard(t, "Gauntlets of Chaos")
 	face := card.Faces[0]
 	root := face.Abilities[0]

@@ -16,6 +16,7 @@ import (
 // participant order with the owner's own answer applied to the owner's own
 // library, here reversed (controller bottom, opponent top).
 func TestClashPlacementOneCardAndReverseChoices(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	marvo := onBoardCard(t, e, 0, unblockedCorpusCard(t, "m/marvo_deep_operative.txt"))
 	e.G.Obj(marvo).SummonSick = false

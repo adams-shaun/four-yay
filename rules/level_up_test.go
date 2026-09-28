@@ -20,6 +20,7 @@ import (
 // "unplayable" in make report / the acceptance ratchet regardless of the
 // expansion working.
 func TestLevelUpKeywordIsSupported(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:Level up"] {
 		t.Fatal("effects.Supported() lacks kw:Level up")
 	}
@@ -52,6 +53,7 @@ const coralhelmMerfolkSrc = "Name:Test Merfolk\nManaCost:1\nTypes:Creature Merfo
 // counters_GE/LE_LEVEL-gated SetPower/SetToughness/AddKeyword machinery --
 // this test is what proves the synthesized ability feeds it.
 func TestCoralhelmCommanderLevelsIntoThe23Band(t *testing.T) {
+	t.Parallel()
 	src := corpusCardText(t, "c/coralhelm_commander.txt")
 	e, cfg, _ := newFixtureDeck(t, 907, src, coralhelmMerfolkSrc)
 	id := putCreature(t, e, 0, src)

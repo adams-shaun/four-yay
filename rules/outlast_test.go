@@ -22,6 +22,7 @@ import (
 // "unplayable" in make report / the acceptance ratchet regardless of the
 // expansion working.
 func TestOutlastKeywordIsSupported(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:Outlast"] {
 		t.Fatal("effects.Supported() lacks kw:Outlast")
 	}
@@ -55,6 +56,7 @@ func outlastSetup(t *testing.T, seed uint64, src string, extras ...string) (*Eng
 // payoff static (every creature you control with a +1/+1 counter has
 // lifelink -- here Abzan Battle Priest itself).
 func TestAbzanBattlePriestOutlastPutsCounterAndTaps(t *testing.T) {
+	t.Parallel()
 	src := corpusCardText(t, "a/abzan_battle_priest.txt")
 	e, cfg, id := outlastSetup(t, 1301, src)
 
@@ -96,6 +98,7 @@ func TestAbzanBattlePriestOutlastPutsCounterAndTaps(t *testing.T) {
 // spell sits on the stack and on an opponent's turn, with mana funded in
 // each case so the negative is the timing gate and not an empty pool.
 func TestAbzanBattlePriestOutlastIsSorcerySpeedOnly(t *testing.T) {
+	t.Parallel()
 	src := corpusCardText(t, "a/abzan_battle_priest.txt")
 	boltSrc := "Name:Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n"
 
@@ -168,6 +171,7 @@ func TestAbzanBattlePriestOutlastIsSorcerySpeedOnly(t *testing.T) {
 // between activations and the mana is there. The creature is untapped
 // through a logged events.Untap, so replayCheck reconstructs the same board.
 func TestAbzanBattlePriestOutlastIsRepeatable(t *testing.T) {
+	t.Parallel()
 	src := corpusCardText(t, "a/abzan_battle_priest.txt")
 	e, cfg, id := outlastSetup(t, 1304, src)
 

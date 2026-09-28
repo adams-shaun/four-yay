@@ -141,6 +141,7 @@ func chainUniqueScript() string {
 // chain chose. Without Ctx.TargetsUnique accumulation the second rider offers
 // both players again.
 func TestTargetUniqueAccumulatesAcrossTheChain(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7002, chainUniqueScript())
 	addMana(t, e, 0, "C")
 	castFirst(t, e, "cast")
@@ -320,6 +321,7 @@ const venomBlastScript = "Name:Venom Blast\nManaCost:4\nTypes:Instant\n" +
 // the pump, so the pre-fix self-hit is lethal and the assertion cannot pass
 // vacuously.
 func TestVenomBlastNoOtherTargetDealsNoDamage(t *testing.T) {
+	t.Parallel()
 	bear := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, _ := newFixtureDeck(t, 7004, venomBlastScript, bear)
 	id := putCreature(t, e, 0, bear)
@@ -379,6 +381,7 @@ const withdrawScript = "Name:Withdraw\nManaCost:U U\nTypes:Instant\n" +
 // the second creature never moved. With the shared ask the sub poses its own
 // question and the second creature is bounced.
 func TestWithdrawChangeZoneSubAsksAnotherTarget(t *testing.T) {
+	t.Parallel()
 	bear := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, _ := newFixtureDeck(t, 7005, withdrawScript, bear, bear)
 	ida := putCreature(t, e, 0, bear)
@@ -479,6 +482,7 @@ const withdrawPumpRootScript = "Name:Withdraw Shape\nManaCost:2\nTypes:Instant\n
 // against a parent target that is still a legal candidate: the ChangeZone sub
 // must not offer the root's own creature.
 func TestWithdrawShapedSubExcludesTheBattlefieldParent(t *testing.T) {
+	t.Parallel()
 	bear := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, _ := newFixtureDeck(t, 7006, withdrawPumpRootScript, bear, bear)
 	ida := putCreature(t, e, 0, bear)
@@ -568,6 +572,7 @@ func suspensionRiderScript() string {
 // third rider offered BOTH players again (its filter saw an empty
 // accumulator).
 func TestTargetUniqueSurvivesASuspensionBetweenRiders(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7007, suspensionRiderScript())
 	addMana(t, e, 0, "C")
 	castFirst(t, e, "cast")
