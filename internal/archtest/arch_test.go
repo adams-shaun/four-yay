@@ -97,6 +97,10 @@ func set(s string) map[string]bool {
 // CLI's own budget truncated (Err "truncated: budget"), never something the
 // library's clock changed; elapsed time cannot affect engine choices, events,
 // replays or verdicts.
+// cmd/sbagent (the SpellBench v2 agent) reads it to report each shadow
+// policy decision's wall milliseconds in its -stats line and for the
+// search's per-decision clock guard (counted when it fires); cmd/sbv2local
+// (the in-process v2 runner) only reports latency.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 	allowed := map[string]bool{
 		module + "/host":              true,
@@ -112,6 +116,8 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/traindash":     true,
 		module + "/cmd/hindsight":     true,
 		module + "/cmd/paymirror":     true,
+		module + "/cmd/sbagent":       true,
+		module + "/cmd/sbv2local":     true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {
