@@ -162,3 +162,39 @@ func TestPotentialPaymentPlansUnsupportedShapes(t *testing.T) {
 		}
 	}
 }
+
+// TestPotentialPaymentPlansReservesTapCostCandidates: Heap Gate's
+// "{1}, {T}, tap an untapped Gate you control" beside a second Gate and a
+// Plains. Tapping the other Gate for the {1} would leave no Gate to tap for
+// the cost; the witness must pay the {1} from the Plains.
+func TestPotentialPaymentPlansReservesTapCostCandidates(t *testing.T) {
+	t.Parallel()
+	e, _, _ := newFixtureDeck(t, 9405, ppFiller)
+	heap := onBoardCard(t, e, 0, corpusCard(t, "Heap Gate"))
+	other := onBoardCard(t, e, 0, corpusCard(t, "Heap Gate"))
+	plains := onBoard(t, e, 0, lrPlains)
+	ppPriority(t, e)
+	for _, pp := range e.PotentialPaymentPlans(0) {
+		if pp.Action.Kind != "ability" || (pp.Action.Obj != heap && pp.Action.Obj != other) || pp.Plan == nil {
+			continue
+		}
+		for _, a := range pp.Plan.Activations {
+			if a.Source != plains {
+				t.Fatalf("%q planned from %d, want the Plains only: %s", pp.Action.Label, a.Source, lrPlanString(pp.Plan.Activations))
+			}
+		}
+	}
+	pp := PotentialPlan{}
+	for _, c := range e.PotentialPaymentPlans(0) {
+		if c.Action.Kind == "ability" && c.Action.Obj == heap && c.Plan != nil {
+			pp = c
+		}
+	}
+	if pp.Plan == nil {
+		t.Fatal("no witness for Heap Gate's Treasure ability")
+	}
+	ppChoose(t, e, func(o decision.Option) bool { return o.Kind == "activate" && o.Obj == plains })
+	ppChoose(t, e, func(o decision.Option) bool {
+		return o.Kind == "ability" && o.Obj == heap && o.Ability == pp.Action.Ability
+	})
+}

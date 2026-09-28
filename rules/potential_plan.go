@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"slices"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -175,16 +177,99 @@ func (e *Engine) planAbilityPayment(p state.PlayerID, id state.ObjID, ability in
 	if global, detail := e.paymentPlanGlobalManaEffect(p, id); global {
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: detail}
 	}
-	var exclude state.ObjID
-	if composed.Tap || composed.Untap {
-		exclude = id
-	}
+	var exclude []state.ObjID
+	self := composed.Tap || composed.Untap
 	for _, part := range composed.Sac {
 		if paymentPlanSelfCost(part, id) {
-			exclude = id
+			self = true
 		}
 	}
-	return e.planPaymentCostExcluding(p, decision.PlannedCast{}, Cost{Colored: mana.Colored, Generic: mana.Generic}, exclude)
+	if self {
+		exclude = append(exclude, id)
+	}
+	manaOnly := Cost{Colored: mana.Colored, Generic: mana.Generic}
+	got := e.planPaymentCostExcluding(p, decision.PlannedCast{}, manaOnly, exclude)
+	if got.Plan == nil || e.planLeavesCostPayable(p, id, composed, *got.Plan) {
+		// No plan even with every other source is a proof; a plan that leaves
+		// the non-mana cost payable is the witness.
+		return got
+	}
+	// The plan spends a permanent the cost itself must tap or sacrifice
+	// (Heap Gate's "{1}, {T}, tap an untapped Gate": the other Gate tapped
+	// for the {1}). Reserve the cost's candidates first, then plan the mana
+	// from what is left.
+	reserved := e.planCostReservations(p, id, composed)
+	retry := e.planPaymentCostExcluding(p, decision.PlannedCast{}, manaOnly, append(exclude, reserved...))
+	if retry.Plan != nil && e.planLeavesCostPayable(p, id, composed, *retry.Plan) {
+		return retry
+	}
+	return PaymentPlanOutcome{Reason: "unsupported", Detail: "cost:reserved_sources"}
+}
+
+// planCostReservations lists, in zone order, the permanents a fixed-count
+// tap or sacrifice part of cost would claim first (never id itself when the
+// cost taps it), the ones a mana plan must leave alone.
+func (e *Engine) planCostReservations(p state.PlayerID, id state.ObjID, cost Cost) []state.ObjID {
+	var out []state.ObjID
+	claim := func(cands []state.ObjID, n int32) {
+		for _, oid := range cands {
+			if n <= 0 {
+				return
+			}
+			if oid == id || slices.Contains(out, oid) {
+				continue
+			}
+			out = append(out, oid)
+			n--
+		}
+	}
+	for _, part := range cost.TapPermanent {
+		if part.Dyn == "" && part.N > 0 {
+			claim(e.costCandidates(p, id, state.ZBattlefield, part.Spec, false, true), part.N)
+		}
+	}
+	for _, part := range cost.Sac {
+		if !part.Announced && part.N > 0 && !paymentPlanSelfCost(part, id) {
+			claim(e.sacrificeCostCandidates(p, id, part, true), part.N)
+		}
+	}
+	return out
+}
+
+// planLeavesCostPayable reports whether cost's fixed-count tap and
+// sacrifice parts still have enough candidates once plan's sources are
+// spent (a planned source is tapped, a last-resort one maybe sacrificed).
+func (e *Engine) planLeavesCostPayable(p state.PlayerID, id state.ObjID, cost Cost, plan decision.PaymentPlan) bool {
+	spent := make(map[state.ObjID]bool, len(plan.Activations)) // lookup only
+	for _, a := range plan.Activations {
+		spent[a.Source] = true
+	}
+	claimed := map[state.ObjID]bool{} // lookup only
+	enough := func(cands []state.ObjID, n int32) bool {
+		for _, oid := range cands {
+			if n <= 0 {
+				break
+			}
+			if spent[oid] || claimed[oid] || (cost.Tap && oid == id) {
+				continue
+			}
+			claimed[oid] = true
+			n--
+		}
+		return n <= 0
+	}
+	for _, part := range cost.TapPermanent {
+		if part.Dyn == "" && part.N > 0 && !enough(e.costCandidates(p, id, state.ZBattlefield, part.Spec, false, true), part.N) {
+			return false
+		}
+	}
+	for _, part := range cost.Sac {
+		if !part.Announced && part.N > 0 && !paymentPlanSelfCost(part, id) &&
+			!enough(e.sacrificeCostCandidates(p, id, part, true), part.N) {
+			return false
+		}
+	}
+	return true
 }
 
 // paymentPlanCensusComplete reports whether the planner's source census

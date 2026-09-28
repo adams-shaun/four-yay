@@ -725,23 +725,23 @@ type plannedManaActivation struct {
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
-	return e.planPaymentCostExcluding(p, cast, cost, 0)
+	return e.planPaymentCostExcluding(p, cast, cost, nil)
 }
 
-// planPaymentCostExcluding is planPaymentCost over the census with the source
-// exclude (0 = none) left out: an activated ability whose own cost taps or
-// sacrifices its source must not have that source planned for mana
-// (PotentialPaymentPlans). With exclude 0 it is planPaymentCost exactly,
+// planPaymentCostExcluding is planPaymentCost over the census with the
+// sources in exclude left out: an activated ability whose own cost taps or
+// sacrifices its source, or taps another permanent, must not have those
+// planned for mana (PotentialPaymentPlans). With none it is planPaymentCost exactly,
 // cached classes included; an excluded census groups its own classes,
 // because the query cache's classes are keyed by payer and phase only.
-func (e *Engine) planPaymentCostExcluding(p state.PlayerID, cast decision.PlannedCast, cost Cost, exclude state.ObjID) PaymentPlanOutcome {
+func (e *Engine) planPaymentCostExcluding(p state.PlayerID, cast decision.PlannedCast, cost Cost, exclude []state.ObjID) PaymentPlanOutcome {
 	defer e.paymentPlanQueryScope()()
 	units := e.paymentPlanQueryUnits(p)
 	queryClasses := e.paymentPlanQueryClasses
-	if exclude != 0 {
+	if len(exclude) != 0 {
 		kept := make([]windowManaUnit, 0, len(units))
 		for _, u := range units {
-			if u.id != exclude {
+			if !slices.Contains(exclude, u.id) {
 				kept = append(kept, u)
 			}
 		}
