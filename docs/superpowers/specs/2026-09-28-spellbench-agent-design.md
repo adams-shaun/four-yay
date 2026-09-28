@@ -88,10 +88,31 @@ Decision: the v1 path is a **candidate-semantics policy** (priorities over
 where a name resolves), sized as W1's minimal workup. Its purpose is a
 leaderboard presence and a floor, not strength.
 
-- **TBD(W1):** gorge-native v1 leaderboard on the pauper-kernel decks
-  (`cmd/botbench` + `internal/spellbench`): gorge `bot`, `lethal-pressure`,
-  L10 seat, ports of `uniform`/`first`/`heuristic`, with Bradley-Terry
-  ratings anchored on `uniform` = 1000. Paste the table here.
+- **Measured (W1, 2026-09-28, commit `50adc8999`).** gorge-native round
+  robin on the 8 pauper-kernel decks as seat-swapped mirrors
+  (`botbench -spellbench`, SpellBench's seed and schedule formulas, rated
+  with SpellBench's own leaderboard code: anchored Bradley-Terry, paired
+  bootstrap). Benchmark-shaped, 4 pairs per deck, 64 games per bot pair:
+
+  | Bot | Elo | CI95 | W-L |
+  |---|---|---|---|
+  | az-clairvoyant-sims25 (reference, NOT a fair entry) | 1436 | [1361, 1522] | 229-27 |
+  | bot (gorge default) | 1238 | [1178, 1308] | 174-82 |
+  | sb-heuristic (port) | 1080 | [1019, 1140] | 122-134 |
+  | sb-uniform (port, anchor) | 1000 | anchor | 96-160 |
+  | sb-first (port) | 708 | [602, 797] | 19-237 |
+
+  At 8 pairs: az 1443, bot 1256, sb-heuristic 1094, sb-first 671. The
+  heuristic-over-uniform gap (+80 at 4 pairs, +94 at 8) overlaps
+  mtg-kernel's published +102, but head to head it is weaker (59% vs 70%).
+  The main cause is payment granularity: gorge's auto-pay lets the uniform
+  anchor cast whatever it picks, while mtg-kernel offers mana taps as
+  candidates. The `-manual` variants, which expose every mana ability,
+  drop about 190 Elo each. gorge also poses about 770 decisions per game
+  against mtg-kernel's about 218. 2688 games, 0 truncated, 0 halted,
+  0 draws; 9m25s on 4 CPUs (96% of it az). `lethal-pressure` and the L10
+  seat were not in this run. Rerun: `scripts/spellbench-rate.py` and the
+  commit message of `50adc8999`.
 
 ### 3.2 v2: the real path
 
@@ -432,7 +453,7 @@ H2 and H3 are the load-bearing ones; H1 unblocks the most people.
 
 | M | Where | Question | Result slot |
 |---|---|---|---|
-| M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | TBD(W1) |
+| M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | done (D§3.1): bot +238, clairvoyant az +436 over the uniform port |
 | M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | — |
 | M2 | v2 mocked backend (W2) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); shadow fidelity open |
 | M3 | v2 on Jack's adapter, `pauper-gorge` (5 decks: Wildfire, Rally, Spy, Burn, CawGates; plan Task 7) | strength vs `gorge-bot`, `gorge-lethal-pressure`, builtins; neutral vs xview entry | — |
