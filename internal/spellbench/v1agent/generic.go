@@ -573,6 +573,9 @@ func (t *Tactical) playScore(b *Board, p *profile, pl *play, fromGrave, instant,
 		}
 		return -5
 	case RoleDraw:
+		if libraryLow(b) && pl.eff != nil && pl.eff.API != "Discard" {
+			return -5 // do not deck ourselves
+		}
 		if p.looter && !(flooded(b) || handHasMadness(b)) {
 			return -5
 		}
@@ -781,6 +784,9 @@ func (t *Tactical) abilityScoreG(d *Decision, b *Board, i int) float64 {
 	if !ok {
 		u = p.ab
 	}
+	if e := p.abEff[srcZone(src)]; e != nil && libraryLow(b) && hasAPI(e, "Draw") {
+		return -5 // do not deck ourselves
+	}
 	if u == abMain2 {
 		if b.MyTurn && b.Phase == "main2" && len(b.Stack) == 0 {
 			return 12
@@ -884,3 +890,54 @@ func (t *Tactical) observeOwnCards(b *Board) {
 	}
 	t.style = styleOf(counts)
 }
+
+// burnReach is the face damage our hand can still deal this turn: burn
+// we can pay for from untapped mana (cheapest first), plus burn whose
+// alternative cost sacrifices lands we have.
+func (t *Tactical) burnReach(b *Board) int {
+	type burn struct{ dmg, cost int }
+	var bs []burn
+	lands := Lands(b.Mine)
+	free := 0
+	for _, h := range b.Hand {
+		p := profileFor(h.Name)
+		for i := range p.plays {
+			pl := &p.plays[i]
+			if pl.role != RoleBurn || !pl.face {
+				continue
+			}
+			d := playDamage(pl, b, true)
+			if d <= 0 {
+				break
+			}
+			if p.altSacLands > 0 && lands >= p.altSacLands {
+				free += d
+				lands -= p.altSacLands
+				break
+			}
+			cost := 0
+			if p.kc != nil {
+				cost = p.kc.MV
+			}
+			bs = append(bs, burn{d, cost})
+			break
+		}
+	}
+	// cheapest first; ties by damage
+	for i := 1; i < len(bs); i++ {
+		for j := i; j > 0 && (bs[j].cost < bs[j-1].cost || bs[j].cost == bs[j-1].cost && bs[j].dmg > bs[j-1].dmg); j-- {
+			bs[j], bs[j-1] = bs[j-1], bs[j]
+		}
+	}
+	mana, n := manaSources(b), free
+	for _, x := range bs {
+		if x.cost <= mana {
+			mana -= x.cost
+			n += x.dmg
+		}
+	}
+	return n
+}
+
+// libraryLow: drawing more would deck us soon.
+func libraryLow(b *Board) bool { return !b.Thin && b.LibCount[b.Me] <= 3 }

@@ -426,6 +426,12 @@ func (t *Tactical) score(d *Decision, b *Board, i int) float64 {
 	case "play_land":
 		return t.landScore(b, srcName(c))
 	case "cast_spell":
+		// mtg-kernel's policy schema v5 cannot represent a staged Escape
+		// graveyard-exile cost: escaping halts the game (measured, Terror
+		// mirrors), and a halted game is unrated
+		if src := c.Semantic.Source(); src != nil && src.Zone == "graveyard" && FactN(srcName(c)).HasKeyword("Escape") {
+			return -100
+		}
 		return t.castScore(d, b, i)
 	case "activate_mana_ability":
 		return -50
@@ -1552,7 +1558,11 @@ func (t *Tactical) planAttack(b *Board, cands []*KCard) map[uint32]bool {
 	for j := 0; j < len(blockers) && j < len(powers); j++ {
 		stopped += powers[j]
 	}
-	if total-stopped >= oppLife && len(attackers) > 0 {
+	reach := 0
+	if t.gen {
+		reach = t.burnReach(b)
+	}
+	if total-stopped+reach >= oppLife && len(attackers) > 0 {
 		for _, a := range attackers {
 			plan[a.Stable.ArenaID] = true
 		}

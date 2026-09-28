@@ -229,3 +229,26 @@ func TestGenericReadsNoHints(t *testing.T) {
 		}
 	}
 }
+
+// TestBurnReach: the face damage castable this turn counts affordable
+// burn and a land-sacrifice alternative cost.
+func TestBurnReach(t *testing.T) {
+	g := NewGeneric(TacticalOptions{})
+	b := &Board{Seat: "p0", OppSeat: "p1", Me: 0, Opp: 1, Life: [2]int{20, 6}, byArena: map[uint32]*KCard{}}
+	mountain := func(tapped bool) *KCard {
+		c := &KCard{Name: "Mountain", Tapped: tapped}
+		c.Characteristics.Types.Land = true
+		return c
+	}
+	b.Mine = []*KCard{mountain(true), mountain(true), mountain(false)}
+	b.Hand = []KHandCard{{Name: "Fireblast"}, {Name: "Lightning Bolt"}, {Name: "Lightning Bolt"}}
+	// Fireblast by sacrificing two Mountains (4), one Bolt from the one
+	// untapped Mountain (3)
+	if got := g.burnReach(b); got != 7 {
+		t.Fatalf("reach %d, want 7", got)
+	}
+	b.Mine = b.Mine[2:]
+	if got := g.burnReach(b); got != 3 {
+		t.Fatalf("reach with one land %d, want 3", got)
+	}
+}
