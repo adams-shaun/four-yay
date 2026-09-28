@@ -878,12 +878,21 @@ func replayFromLog(t *testing.T, cfg Config, log []events.Event) *state.Game {
 			}
 		}
 	}
+	// events.Apply's CmdDamage case resolves a dense index from Commanders
+	// and folds into CmdDamage, so both must exist before applying the log.
+	for p := range g.Players {
+		if len(cmdIDs[p]) > 0 {
+			g.Players[p].Commanders = append([]state.ObjID(nil), cmdIDs[p]...)
+		}
+		if totalCmd > 0 {
+			g.Players[p].CmdDamage = make([]int32, totalCmd)
+		}
+	}
 	for _, ev := range log {
 		events.Apply(g, ev)
 	}
 	for p := range g.Players {
 		if len(cmdIDs[p]) > 0 {
-			g.Players[p].Commanders = append([]state.ObjID(nil), cmdIDs[p]...)
 			g.Players[p].CmdCasts = make([]int32, len(cmdIDs[p]))
 			for _, ev := range log {
 				if ev.Kind != events.PutOnStack || ev.Player != state.PlayerID(p) || ev.From != state.ZCommand {
@@ -896,9 +905,6 @@ func replayFromLog(t *testing.T, cfg Config, log []events.Event) *state.Game {
 					}
 				}
 			}
-		}
-		if totalCmd > 0 {
-			g.Players[p].CmdDamage = make([]int32, totalCmd)
 		}
 	}
 	return g
