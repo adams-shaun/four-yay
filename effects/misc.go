@@ -4281,14 +4281,9 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 			ResumeVillainousIndex:   c.VillainousIndex,
 			Prompt:                  "Choose a villainous option"}
 		for i, name := range choices {
-			label := name
-			if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
-				if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-					label = desc
-				}
-			}
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
-				Label: label, Obj: c.Source, Player: victim.Player})
+				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
+				Obj:   c.Source, Player: victim.Player})
 		}
 		if Ask(h, d) == AskAsked {
 			return
@@ -4548,14 +4543,9 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			ResumeGenericChooserIndex: c.GenericChooserIndex,
 			Prompt:                    "Choose 1 to 1 mode(s)"}
 		for i, name := range available {
-			label := name
-			if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
-				if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-					label = desc
-				}
-			}
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
-				Label: label, Obj: c.Source, Player: chooser.Player})
+				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
+				Obj:   c.Source, Player: chooser.Player})
 		}
 		if Ask(h, d) == AskAsked {
 			return true
@@ -4789,14 +4779,9 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 		ResumeKind: "modes", ResumeSA: sa,
 		Prompt: "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)"}
 	for i, name := range choices {
-		label := name
-		if subs[i] != nil {
-			if d := strings.TrimSpace(subs[i].Params["SpellDescription"]); d != "" {
-				label = d
-			}
-		}
 		d.Options = append(d.Options, decision.Option{
-			Index: i, Kind: "mode", Label: label, Obj: c.Source, Player: c.Controller})
+			Index: i, Kind: "mode", Label: CharmModeLabel(subs[i], name),
+			Obj: c.Source, Player: c.Controller})
 	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters this effect with Ctx.Modes set.
@@ -4851,20 +4836,44 @@ func CharmRandomChosen(h Host, c *Ctx, sa *cards.SA) bool {
 	return false
 }
 
-// charmModeLabel is the display label of choice slot idx: the mode body's
-// SpellDescription$ when it carries one, else the SVar name -- the same
-// label the KModes decision's options carry, so the random-pick Note names
-// the mode exactly as an answered ask would.
+// CharmModeLabel is the printed display label of one Charm mode whose
+// resolved body is sub: the mode body's own SpellDescription$ when it
+// carries one, else the first SpellDescription$ found walking the body's
+// SubAbility$ chain, else fallback -- the raw SVar name. In the corpus the
+// chain-only shape is exactly the printed bullet text of the card's Oracle
+// line: What Must Be Done's Release Juno mode carries its description one
+// hop down (on DBChangeZone), and Varchild's War-Riders' two upkeep modes
+// carry theirs on SurvivorDistribution and Sacrifice, so a mode whose
+// SpellDescription$ rides a sub is still labelled by the card's printed
+// words, not its SVar name. Body-first precedence keeps every mode that
+// already labelled by its own SpellDescription$ byte-identical. The chain
+// is linked by cards' resolver (ResolveSVar/link, depth-capped at
+// maxSVarDepth), so the walk is a plain pointer walk: no re-resolution and
+// no new cycle risk. A nil sub returns the fallback.
+func CharmModeLabel(sub *cards.SA, fallback string) string {
+	if sub == nil {
+		return fallback
+	}
+	if d := strings.TrimSpace(sub.Params["SpellDescription"]); d != "" {
+		return d
+	}
+	for s := sub.Sub; s != nil; s = s.Sub {
+		if d := strings.TrimSpace(s.Params["SpellDescription"]); d != "" {
+			return d
+		}
+	}
+	return fallback
+}
+
+// charmModeLabel is the display label of choice slot idx: CharmModeLabel of
+// the slot's resolved body, falling back to the SVar name -- the same label
+// the KModes decision's options carry, so the random-pick Note names the
+// mode exactly as an answered ask would.
 func charmModeLabel(choices []string, subs []*cards.SA, idx int) string {
 	if idx < 0 || idx >= len(choices) {
 		return ""
 	}
-	if subs[idx] != nil {
-		if d := strings.TrimSpace(subs[idx].Params["SpellDescription"]); d != "" {
-			return d
-		}
-	}
-	return choices[idx]
+	return CharmModeLabel(subs[idx], choices[idx])
 }
 
 // effVote records one Note per voting player. Two shapes:

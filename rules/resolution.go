@@ -4568,14 +4568,9 @@ func modeDecisionForChoices(p state.PlayerID, source state.ObjID, sa *cards.SA, 
 		ResumeModes: append([]string(nil), choices...),
 		Prompt:      "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)"}
 	for i, name := range choices {
-		label := name
-		if sub := cards.ResolveSVar(svars, name); sub != nil {
-			if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-				label = desc
-			}
-		}
 		d.Options = append(d.Options, decision.Option{
-			Index: i, Kind: "mode", Label: label, Obj: source, Player: p})
+			Index: i, Kind: "mode", Label: effects.CharmModeLabel(cards.ResolveSVar(svars, name), name),
+			Obj: source, Player: p})
 	}
 	return d
 }
@@ -4586,13 +4581,7 @@ func modeDecisionForChoices(p state.PlayerID, source state.ObjID, sa *cards.SA, 
 func modeLabels(sa *cards.SA, svars map[string]string, names []string) []string {
 	labels := make([]string, 0, len(names))
 	for _, name := range names {
-		label := name
-		if sub := cards.ResolveSVar(svars, name); sub != nil {
-			if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-				label = desc
-			}
-		}
-		labels = append(labels, label)
+		labels = append(labels, effects.CharmModeLabel(cards.ResolveSVar(svars, name), name))
 	}
 	return labels
 }

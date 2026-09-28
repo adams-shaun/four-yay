@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -222,15 +223,15 @@ func TestWhatMustBeDoneReturnsHistoricCreatureWithTwoCounters(t *testing.T) {
 	submitChoices(t, e, cast)
 
 	// The Charm asks its two modes; pick Release Juno (the DBConditionEffect
-	// ChangeZone mode, labelled by its SVar name since it carries no
-	// mode-level SpellDescription$).
+	// ChangeZone mode, labelled by the SpellDescription$ that rides its
+	// DBChangeZone sub, one hop down -- the printed "Release Juno —" bullet).
 	d = e.Pending()
 	if d == nil || d.Kind != decision.KModes {
 		t.Fatalf("pending = %+v, want the Charm mode ask", d)
 	}
 	juno := -1
 	for _, option := range d.Options {
-		if option.Label == "DBConditionEffect" {
+		if strings.HasPrefix(option.Label, "Release Juno") {
 			juno = option.Index
 		}
 	}
