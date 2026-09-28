@@ -4,6 +4,8 @@
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
   import OptionPicker from './OptionPicker.svelte';
+  import { ACTION_GLYPHS } from '../lib/cardoptions';
+  import { SICK_TAP_REASON, sickUntappableManaSource } from '../lib/sicktap';
 
   /**
    * CardTile is the battlefield/stack/strip face of one object. It has no
@@ -128,6 +130,16 @@
   const isCreature = $derived(card.types.includes('Creature'));
   const showStats = $derived((isCreature || card.damage > 0) && !isPlaneswalker);
 
+  // The muted tap affordance (fb-20260928T161557Z-2d23d432). The engine
+  // withholds the tap-for-mana option from a summoning-sick non-haste
+  // creature (rules/mana_activation.go tapFlagsSick, CR 302.6), so the
+  // client has no option to badge and must not invent one (R-E4-2). The
+  // player's only clue was the face dim and a hover-panel chip. This is a
+  // DISPLAY-ONLY card-state annotation: it renders the SAME tap glyph the
+  // live option shows, disabled, with the reason — it never posts, carries
+  // no option index, and is never indexed into optionsByObj/TileOptions.
+  const showSickTap = $derived(sickUntappableManaSource(card));
+
   // One hover state per tile: pointer dwell or keyboard focus opens the
   // detail; leave/blur/Escape close it. onOpen captures this tile's rect so
   // the fixed panel anchors where the card is. The tile is a tooltip
@@ -211,6 +223,19 @@
       </div>
     {/if}
   </div>
+
+  {#if showSickTap}
+    <!-- A state annotation, not a control: aria-disabled, no click handler,
+         no role="button" of its own (the tile's is the hover trigger). It
+         reuses ACTION_GLYPHS.tap so the muted mark reads as the same tap
+         glyph the live option shows on the Forest beside it. -->
+    <span
+      class="sick-tap"
+      aria-disabled="true"
+      aria-label={SICK_TAP_REASON}
+      title={SICK_TAP_REASON}
+    ><span class="data" aria-hidden="true">{ACTION_GLYPHS.tap}</span></span>
+  {/if}
 
   {#if attachments.length}
     <div class="attached">
@@ -316,6 +341,26 @@
      pile's fresh lead would make the pile look different from its mates. */
   .card-tile.sick .face {
     opacity: 0.78;
+  }
+  /* The muted tap glyph: the same ↻ the live option draws, held at the
+     bottom-right, dimmed and non-interactive, so a player reaching for a
+     freshly-cast mana dork sees the affordance exist AND that it is not yet
+     available. aria-disabled + the reason tooltip carry the why; the span
+     remains pointer-targetable for the native title tooltip and has no click path. */
+  .sick-tap {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.35em;
+    background: color-mix(in srgb, var(--felt-sunk) 78%, transparent);
+    color: var(--ink-faint);
+    font-size: var(--t-11);
+    line-height: 1.35;
+    border-radius: 2px;
+    padding: 0 2px;
   }
   /* Attacking is a red rim on the permanent itself, the same relationship the
      red arrow draws (survey #16). */
