@@ -3273,16 +3273,18 @@ func (c Cost) Pay(p state.Mana) (state.Mana, bool) {
 // or PayEnergy<X> energy part, a Return<N/Spec> component, the
 // LifeTotalHalfUp token, a fixed Mill<N> component, a Sac<N/Spec>,
 // Discard<N/Spec>, SubCounter<N/Kind>,
-// Draw<N/Spec> or Reveal<N/Spec> component, or the Mandatory marker.
+// Draw<N/Spec>, Reveal<N/Spec> or Exile<N/Spec> (including the zone-headed
+// ExileFromGrave/ExileFromHand/ExileAnyGrave forms) component, or the
+// Mandatory marker.
 // Anything else — an unfolded X/Y/Z (UnlessCostResolved folds an announced X
 // and resolvable SVar bodies first; an unbound X never prices here),
-// DamageYou<N> (the Sacrifice arm's own path), ExileFromGrave<...>,
-// Behold<...>, tapXType<...>, CopyCost, or any prose —
+// DamageYou<N> (the Sacrifice arm's own path), Behold<...>, tapXType<...>,
+// CopyCost, or any prose —
 // reports ok=false, and the unless-pay arm treats that as a hard decline
 // (the conservative read: a payer who "pays" a cost the engine cannot price
 // has not paid it). A Reveal component is choice-bearing like Sac/Discard
 // and pays through the beginUnlessPayment continuation, never synchronously.
-// Return components are choice-bearing the same way.
+// Return and Exile components are choice-bearing the same way.
 func ParseUnlessCost(s string) (Cost, bool) {
 	s = strings.TrimSpace(s)
 	if s == "" || strings.EqualFold(s, "no cost") {
@@ -3416,6 +3418,34 @@ func ParseUnlessCost(s string) (Cost, bool) {
 					return Cost{}, false
 				}
 				c.Mill = append(c.Mill, CostPart{N: int32(n)})
+				continue
+			}
+			// Exile<N/Spec> / ExileFromGrave / ExileFromHand / ExileAnyGrave is
+			// the choice-bearing exile unless cost (Grip of Amnesia's
+			// ExileFromGrave<1/All>: "Counter target spell unless its
+			// controller exiles all cards from their graveyard"). The zone
+			// mapping is the SAME one the cast-cost parser applies: FromHand
+			// stays the hand (zone zero), every other exile head is the
+			// payer's graveyard. An unfolded X amount is never priceable
+			// (UnlessCostResolved folds an announced X first), so it declines
+			// exactly like every other dynamic token. The part PAYS through the
+			// beginUnlessPayment continuation (payUnlessCost refuses it, exactly
+			// like Sac/Discard): a whole-graveyard exile is choice-bearing, and
+			// the offer gate reads isWholeZoneExileSpec so the All spec names
+			// the whole zone rather than a filter no card matches.
+			if m := exileCost.FindStringSubmatch(sym); m != nil {
+				if m[2] == "X" {
+					return Cost{}, false
+				}
+				n, err := strconv.ParseInt(m[2], 10, 64)
+				if err != nil || n < 0 || n > int64(math.MaxInt32) {
+					return Cost{}, false
+				}
+				part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[3], ";", ","), Desc: m[4]}
+				if m[1] != "FromHand" {
+					part.Zone = state.ZGraveyard
+				}
+				c.Exile = append(c.Exile, part)
 				continue
 			}
 			// RevealChosen<Player>/<Type> is the no-ask designation reveal

@@ -38,6 +38,12 @@ type unlessPayment struct {
 	// its OWNER's hand (Forge CostReturn.moveToHand), one choice-bearing part
 	// exactly like a sacrifice.
 	returns []state.ObjID
+	// exiles holds the Exile<N/Spec> picks (the Grip of Amnesia family's
+	// "exile all cards from their graveyard"): cards exiled from the payer's
+	// own hand or graveyard as the cost. A whole-zone part
+	// (isWholeZoneExileSpec) takes EVERY candidate without asking; an
+	// ordinary part is a choice exactly like a sacrifice.
+	exiles []state.ObjID
 }
 
 func cloneUnlessCtx(in effects.Ctx) effects.Ctx {
@@ -268,7 +274,11 @@ func (e *Engine) unlessComponentsPayable(p state.PlayerID, cost Cost, ctx *effec
 
 // unlessChoiceComponentsPayable builds the per-sub-slot candidate lists for
 // the choice-bearing parts and runs a bipartite matching: feasible iff a
-// system of distinct representatives of the required size exists.
+// system of distinct representatives of the required size exists. A
+// whole-zone Exile part (isWholeZoneExileSpec) is not a pick at all -- the
+// payment takes EVERY matching candidate -- so it consumes its zone's
+// candidates before the ordinary parts are matched, exactly as
+// advanceUnlessPayment settles it.
 func (e *Engine) unlessChoiceComponentsPayable(p state.PlayerID, cost Cost, ctx *effects.Ctx) bool {
 	type slot struct {
 		zone state.Zone
@@ -287,12 +297,34 @@ func (e *Engine) unlessChoiceComponentsPayable(p state.PlayerID, cost Cost, ctx 
 	add(state.ZHand, "discard", cost.Discard)
 	add(state.ZHand, "revealcost", cost.Reveal)
 	add(state.ZBattlefield, "returncost", cost.Return)
+	// Whole-zone Exile parts take the entire zone, so they are validated and
+	// marked used first; an ordinary Exile part then joins the bipartite
+	// match like any other pick.
+	var used []state.ObjID
+	for _, part := range cost.Exile {
+		if !isWholeZoneExileSpec(part.Spec) {
+			continue
+		}
+		avail := e.unlessCandidatesFor(p, *ctx, unlessExileZone(part), "exilecost", part, used)
+		if int32(len(avail)) < part.N {
+			return false
+		}
+		used = append(used, avail...)
+	}
+	for _, part := range cost.Exile {
+		if isWholeZoneExileSpec(part.Spec) {
+			continue
+		}
+		for i := int32(0); i < part.N; i++ {
+			subs = append(subs, slot{zone: unlessExileZone(part), kind: "exilecost", part: part})
+		}
+	}
 	if len(subs) == 0 {
 		return true
 	}
 	cands := make([][]state.ObjID, len(subs))
 	for i, s := range subs {
-		cands[i] = e.unlessCandidatesFor(p, *ctx, s.zone, s.kind, s.part, nil)
+		cands[i] = e.unlessCandidatesFor(p, *ctx, s.zone, s.kind, s.part, used)
 	}
 	return maxBipartiteMatch(cands) == len(subs)
 }
@@ -352,12 +384,14 @@ func (e *Engine) beginUnlessPayment(payer state.PlayerID, cost Cost, ctx *effect
 }
 
 // unlessPartAt returns the cost component at flat index i across the
-// unlessPayment's Sac, Discard and Reveal lists, together with the zone its
-// candidates come from and the option kind the wire carries. The option kind
-// "revealcost" is the cast flow's own reveal-cost string (rules/cast.go), so
-// a client sees the same vocabulary for both paths.
+// unlessPayment's Sac, Discard, Reveal, Return and Exile lists, together with
+// the zone its candidates come from and the option kind the wire carries. The
+// option kind "revealcost" is the cast flow's own reveal-cost string
+// (rules/cast.go), and "exilecost" its exile-cost string, so a client sees
+// the same vocabulary for both paths.
 func unlessPartAt(cost Cost, i int) (CostPart, state.Zone, string) {
 	nSac, nDisc, nRev := len(cost.Sac), len(cost.Discard), len(cost.Reveal)
+	nRet := len(cost.Return)
 	switch {
 	case i < nSac:
 		return cost.Sac[i], state.ZBattlefield, "sacrifice"
@@ -365,16 +399,30 @@ func unlessPartAt(cost Cost, i int) (CostPart, state.Zone, string) {
 		return cost.Discard[i-nSac], state.ZHand, "discard"
 	case i < nSac+nDisc+nRev:
 		return cost.Reveal[i-nSac-nDisc], state.ZHand, "revealcost"
-	default:
+	case i < nSac+nDisc+nRev+nRet:
 		return cost.Return[i-nSac-nDisc-nRev], state.ZBattlefield, "returncost"
+	default:
+		part := cost.Exile[i-nSac-nDisc-nRev-nRet]
+		return part, unlessExileZone(part), "exilecost"
 	}
 }
 
+// unlessExileZone is the zone an Exile cost part draws from. CostPart.Zone's
+// zero value means the hand (the same reading the cast-cost parser's
+// FromHand arm leaves behind), so a FromGrave/AnyGrave part carries
+// state.ZGraveyard and a FromHand part reads as state.ZHand.
+func unlessExileZone(part CostPart) state.Zone {
+	if part.Zone == 0 {
+		return state.ZHand
+	}
+	return part.Zone
+}
+
 // paymentPartCount is the flat count of the choice-bearing components
-// (Sac, Discard, Reveal, Return) the continuation walks before it settles
-// the synchronous ones.
+// (Sac, Discard, Reveal, Return, Exile) the continuation walks before it
+// settles the synchronous ones.
 func (u *unlessPayment) paymentPartCount() int {
-	return len(u.cost.Sac) + len(u.cost.Discard) + len(u.cost.Reveal) + len(u.cost.Return)
+	return len(u.cost.Sac) + len(u.cost.Discard) + len(u.cost.Reveal) + len(u.cost.Return) + len(u.cost.Exile)
 }
 
 func (e *Engine) advanceUnlessPayment() {
@@ -415,6 +463,16 @@ func (e *Engine) advanceUnlessPayment() {
 			e.finishUnlessPayment(false)
 			return
 		}
+		if kind == "exilecost" && isWholeZoneExileSpec(part.Spec) {
+			// ExileFromGrave<1/All> names the WHOLE zone: every matching
+			// candidate is the payment, never a pick (the same
+			// isWholeZoneExileSpec reading the cast gate and the
+			// triggered-cost window take). The count check above still
+			// demands part.N cards, so an empty zone declines.
+			e.recordUnlessPaymentPick(u, kind, eligible)
+			u.part++
+			continue
+		}
 		if int32(len(eligible)) == part.N {
 			e.recordUnlessPaymentPick(u, kind, eligible)
 			u.part++
@@ -426,6 +484,13 @@ func (e *Engine) advanceUnlessPayment() {
 		}
 		if kind == "returncost" {
 			prompt = fmt.Sprintf("Return %d permanent(s) to their owner's hand to pay the cost", part.N)
+		}
+		if kind == "exilecost" {
+			zoneName := "hand"
+			if zone == state.ZGraveyard {
+				zoneName = "graveyard"
+			}
+			prompt = fmt.Sprintf("Exile %d card(s) from your %s to pay the cost", part.N, zoneName)
 		}
 		d := &decision.Decision{Player: u.payer, Kind: decision.KChoose,
 			Min: int(part.N), Max: int(part.N), Source: u.ctx.Source,
@@ -527,6 +592,14 @@ func (e *Engine) advanceUnlessPayment() {
 	for _, id := range u.returns {
 		if o := e.G.Obj(id); o != nil {
 			e.emit(events.ReturnCost(id, o.Zone))
+		}
+	}
+	// Exile parts: each chosen card moves from its own zone to exile, the
+	// same event shape the cast flow's settle emits for an Exile cost part
+	// (Forge CostExile.moveToExile).
+	for _, id := range u.exiles {
+		if o := e.G.Obj(id); o != nil {
+			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile, Text: "exiled as a cost"})
 		}
 	}
 	src := u.ctx.Source
@@ -669,6 +742,25 @@ func (e *Engine) unlessCandidatesFor(payer state.PlayerID, ctx effects.Ctx, zone
 			// Effect-registered CantSacrifice still apply.
 			continue
 		}
+		if kind == "exilecost" && zone == state.ZBattlefield && e.exileBlockedForCost(id, costCauseResolution) {
+			// The exile candidate guard the cast/activation gate applies,
+			// restricted to a battlefield source: a CantExile static whose
+			// ForCost$ True restricts cost payments withholds the candidate.
+			// A hand/graveyard ExileFromHand/FromGrave/AnyGrave part reads no
+			// zone restriction here, matching costCandidates' walk.
+			continue
+		}
+		// A whole-zone Exile part (ExileFromGrave<1/All>) names the WHOLE
+		// zone, not a filter: "All" matches no card through matchesSpec, so
+		// every still-available card in the zone is a candidate -- the same
+		// isWholeZoneExileSpec reading the cast gate and the triggered window
+		// take.
+		if kind == "exilecost" && isWholeZoneExileSpec(part.Spec) {
+			if !seen[id] {
+				out = append(out, id)
+			}
+			continue
+		}
 		if !seen[id] && e.matchesSpec(part.Spec, id, sc) {
 			out = append(out, id)
 		}
@@ -683,11 +775,12 @@ func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind
 	// removes an already-impossible candidate. Revealed cards are NOT
 	// removed from the hand, which is exactly why they need the explicit
 	// exclusion.
-	used := make([]state.ObjID, 0, len(u.sacs)+len(u.discards)+len(u.reveals)+len(u.returns))
+	used := make([]state.ObjID, 0, len(u.sacs)+len(u.discards)+len(u.reveals)+len(u.returns)+len(u.exiles))
 	used = append(used, u.sacs...)
 	used = append(used, u.discards...)
 	used = append(used, u.reveals...)
 	used = append(used, u.returns...)
+	used = append(used, u.exiles...)
 	return e.unlessCandidatesFor(u.payer, u.ctx, zone, kind, part, used)
 }
 
@@ -699,6 +792,8 @@ func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []st
 		u.reveals = append(u.reveals, ids...)
 	case "returncost":
 		u.returns = append(u.returns, ids...)
+	case "exilecost":
+		u.exiles = append(u.exiles, ids...)
 	default:
 		u.discards = append(u.discards, ids...)
 	}
