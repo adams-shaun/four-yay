@@ -1939,6 +1939,23 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	if head == "ValidSelf" {
 		return evalCountValidSelf(h, c, arg)
 	}
+	if head == "TotalDamageReceivedThisTurn" && arg == "" {
+		self := c.TriggerCard
+		if self == 0 {
+			self = c.Source
+		}
+		if self == 0 {
+			return 0, true
+		}
+		o := h.Game().Obj(self)
+		if c.LKI != nil && c.LKI.ID == self {
+			o = c.LKI
+		}
+		if o == nil {
+			return 0, true
+		}
+		return o.DamageReceivedThisTurn, true
+	}
 	if arg == "" {
 		// ONLY OptionalGenericCostPaid's space-less dotted <paid>.<unpaid>
 		// argument is split here. Every other dotted head (CardCounters.CHARGE,
@@ -3067,6 +3084,9 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	// Forge's getValidCards applies to the zone list. Gravelighter's "draw a
 	// card if a creature died this turn" is the corpus carrier.
 	if rest, ok := strings.CutPrefix(head, "ThisTurnEntered"); ok && strings.HasPrefix(rest, "_") {
+		if arg != "" {
+			rest += " " + arg
+		}
 		return evalThisTurnEntered(g, c, rest[1:])
 	}
 
@@ -3780,6 +3800,23 @@ func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, 
 	if valid == "" {
 		return 0, false
 	}
+	// The two CheckOnTriggeredCard carriers spell the event player's filter as
+	// `<base>.ControlledBy CardController`; peel that referent before the
+	// ordinary object matcher and constrain each historical entry by the
+	// entering object's controller. Unknown/unbound referents fail closed.
+	controlledByCardController := false
+	if base, ref, ok := strings.Cut(valid, ".ControlledBy "); ok && ref == "CardController" {
+		valid = base
+		controlledByCardController = true
+	}
+	var players []state.PlayerID
+	if controlledByCardController {
+		var ok bool
+		players, ok = controlReferentPlayers(g, c.SpecContext(you), "ControlledBy", "CardController")
+		if !ok {
+			return 0, true
+		}
+	}
 	var n int32
 	for _, e := range g.Entered {
 		if e.To != dest {
@@ -3797,6 +3834,21 @@ func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, 
 		// Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent needs.
 		if !matchesZoneSpecCtx(g, valid, e.Obj, c.SpecContext(you), e.To) {
 			continue
+		}
+		if controlledByCardController {
+			o := g.Obj(e.Obj)
+			controlled := false
+			if o != nil {
+				for _, p := range players {
+					if o.Controller == p {
+						controlled = true
+						break
+					}
+				}
+			}
+			if !controlled {
+				continue
+			}
 		}
 		// The plain count form, and the $<Property> sum form's per-entry
 		// contribution (CardPower's printed face plus its +1/+1 counters, the

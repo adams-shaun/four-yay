@@ -2483,11 +2483,10 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	// malformed or unresolved clause fail closed (Kraven the Hunter's
 	// greatest-power death condition).
 	//
-	// The event's LKI snapshot rides along so a card that LEFT the
-	// battlefield is judged as it last existed there (CR 603.10): the move
-	// resets a dying creature's controller to its owner and drops its
-	// counters, which would otherwise point a CardController predicate at the
-	// wrong player and mis-size the greatest-power comparison.
+	// The event's object snapshot rides along so ValidSelf evaluates a card as
+	// it existed when the event occurred, including its counters and
+	// characteristics. TriggerCardController separately records that event
+	// snapshot for filter referents asking for its controller.
 	if raw, ok := t.Params["CheckOnTriggeredCard"]; ok {
 		parts := strings.Fields(raw)
 		if len(parts) != 2 || ev.Obj == 0 {
@@ -2505,9 +2504,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 		var lkiObj *state.Object
 		if lki != nil && lki.ID == ev.Obj {
 			lkiObj = lki
-			if leftBattlefield(ev) {
-				tc.TriggerCardController = state.Target{Player: lki.Controller, IsPlayer: true}
-			}
+			tc.TriggerCardController = state.Target{Player: lki.Controller, IsPlayer: true}
 		}
 		ctx := &effects.Ctx{Source: ev.Obj, Controller: e.controllerOf(source), SVars: svars,
 			TriggerContext: tc, LKI: lkiObj}

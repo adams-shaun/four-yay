@@ -596,6 +596,10 @@ type Object struct {
 	EnteredThisTurn        bool
 	EnteredFrom            Zone
 	WasDealtDamageThisTurn bool
+	// DamageReceivedThisTurn is the total positive damage dealt to this object
+	// during the current turn, before damage is marked/cleared. Used by Forge's
+	// Count$TotalDamageReceivedThisTurn trigger conditions.
+	DamageReceivedThisTurn int32
 	// DamageTakenByGame lists, in append order, every damage SOURCE that has
 	// dealt this object damage this game (game-long; never cleared at
 	// TurnChange). Appended by events.Apply's DamageProvenance case with a
