@@ -3177,6 +3177,25 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if len(chosen) > 0 && chosen[0].Kind == "yes" {
 				ctx.EndTurnOpt = "yes"
 			}
+		case "venture_dungeon", "venture_room":
+			// An api:Venture choice was answered (CR 701.49a/49b). The chosen
+			// option's server-side Key names what the re-entered effVenture
+			// acts on: the dungeon token script a first venture enters
+			// ("venture_dungeon") or the room key the marker moves to
+			// ("venture_room"). The ask's cursor (Decision.ResumeTarget ->
+			// rp.target) rides back so a multi-player venture walk resumes
+			// after the answered player; the answer fields' emptiness
+			// distinguishes a fresh walk from a resumed one, so a malformed
+			// empty answer keeps the walk at its start (the conservative read
+			// the endturn_optional decline takes).
+			if len(chosen) > 0 {
+				if rp.kind == "venture_dungeon" {
+					ctx.VentureEnter = chosen[0].Key
+				} else {
+					ctx.VentureRoom = chosen[0].Key
+				}
+			}
+			ctx.VentureIdx = int32(rp.target)
 		case "setstate_optional":
 			// An Optional$ True SetState's yes/no election (Dowsing Dagger's
 			// "you may transform this Equipment", High Marshal Arguel's "you
