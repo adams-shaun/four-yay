@@ -128,6 +128,7 @@ type Policy struct {
 	Stats       Stats
 	Roll        RollStats
 	roll        RollConfig
+	ninjaTurn   int64
 	AZ          AZStats
 	look        builtins.CardLookup
 	lastRoll    string
@@ -195,6 +196,7 @@ func (p *Policy) GameStart(g *v1agent.GameStart) {
 	p.plan, p.attackPlan, p.blockPlan = nil, nil, nil
 	p.attackGroup, p.blockGroup = -1, -1
 	p.seq = 0
+	p.ninjaTurn = -1
 	p.setup = nil
 	if len(g.CatalogIDs) == 2 && g.CatalogIDs[0] != "" && g.CatalogIDs[1] != "" {
 		s, err := NewSetup(p.cfg.Reg, [2]string{g.CatalogIDs[0], g.CatalogIDs[1]})
@@ -235,6 +237,7 @@ func (p *Policy) Choose(d *v1agent.Decision) (pick int) {
 		if pick < 0 || pick >= len(d.Candidates) {
 			pick, src, why = fbPick, "fallback", "out of range"
 		}
+		p.noteNinjutsu(d, pick)
 		p.Stats.answered(class, src)
 		if src == "fallback" {
 			p.Stats.Reasons[class+": "+why]++
@@ -282,8 +285,44 @@ func (p *Policy) Choose(d *v1agent.Decision) (pick int) {
 		pick = fbPick
 		return
 	}
+	if h := p.kernelHazard(d, pick); h != "" {
+		pick, why = fbPick, "kernel hazard: "+h
+		return
+	}
 	src = "gorge"
 	return
+}
+
+// kernelHazard names a shadow answer that is legal but trips a known
+// mtg-kernel bug (spec D§3.5 "Protocol errors"): a second hand-activated
+// ability (ninjutsu) in one combat, whose resolution halts the game with
+// InvalidEffectContinuation; and a Journey to Nowhere cast with no
+// creature on either battlefield, after which the kernel offers no legal
+// action. The fallback (which avoids both) answers instead.
+func (p *Policy) kernelHazard(d *v1agent.Decision, k int) string {
+	c := &d.Candidates[k]
+	ka := kernelRef(d, k)
+	pr := &d.Kernel.Obs.Projection
+	switch c.Kind() {
+	case "activate_ability":
+		if ka != nil && ka.Source != nil && ka.Source.Zone == "Hand" && (pr.Phase == "declare_blockers" || pr.Phase == "declare_attackers") {
+			if p.ninjaTurn == int64(pr.Turn) {
+				return "second ninjutsu this combat"
+			}
+		}
+	case "cast_spell":
+		if src := c.Semantic.Source(); src != nil && fold(src.Name()) == fold("Journey to Nowhere") {
+			for side := 0; side < 2; side++ {
+				for i := range pr.Battlefield[side] {
+					if pr.Battlefield[side][i].IsCreature() {
+						return ""
+					}
+				}
+			}
+			return "Journey to Nowhere with no creature"
+		}
+	}
+	return ""
 }
 
 func (p *Policy) trace(d *v1agent.Decision, class, src, why string, pick, fb int) {
@@ -914,5 +953,18 @@ func (p *Policy) Summary() map[string]any {
 		"roll_searched": p.Roll.Searched, "roll_overrides": p.Roll.Overrides,
 		"roll_rollouts": p.Roll.Rollouts, "roll_failed": p.Roll.Failed, "roll_proposals": p.Roll.Proposals,
 		"az_decisions": p.AZ.Decisions, "az_searched": p.AZ.Searched, "az_overrides": p.AZ.Overrides,
+	}
+}
+
+// noteNinjutsu records a hand-activated ability played in combat (by
+// either policy), for kernelHazard.
+func (p *Policy) noteNinjutsu(d *v1agent.Decision, k int) {
+	if d.Kernel == nil || k < 0 || k >= len(d.Candidates) || d.Candidates[k].Kind() != "activate_ability" {
+		return
+	}
+	pr := &d.Kernel.Obs.Projection
+	if ka := kernelRef(d, k); ka != nil && ka.Source != nil && ka.Source.Zone == "Hand" &&
+		(pr.Phase == "declare_blockers" || pr.Phase == "declare_attackers") {
+		p.ninjaTurn = int64(pr.Turn)
 	}
 }
