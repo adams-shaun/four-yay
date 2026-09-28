@@ -195,7 +195,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop: newLivelockWatcherFromGuard(e.loop.guard),
+		loop: newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent),
 		// setname.go's layer-3 rename table and its genesis-time gate. The
 		// clone's board is identical at the clone boundary, so the table is
 		// carried with its (epoch, version) key rather than rebuilt -- but as

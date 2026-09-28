@@ -2135,6 +2135,11 @@ type Spare struct {
 	// the arena's size; cleared by Release, which is exactly the zeroed
 	// never-written state derivedMemoizedAt's growth relies on.
 	memo, memoStack []derivedMemoEntry
+	// The livelock watcher's signature and event windows (livelock.go):
+	// filled from empty by every engine, so a recycled pair saves their
+	// regrowth; the watcher reads only their length.
+	loopSigs   []uint64
+	loopRecent []events.Event
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -2164,12 +2169,17 @@ func (e *Engine) Release() Spare {
 		}
 	}
 	sp := Spare{
-		events:    evs,
-		objs:      e.G.Objs[:cap(e.G.Objs)],
-		intents:   ints,
-		memo:      e.derivedMemo[:cap(e.derivedMemo)],
-		memoStack: e.derivedMemoStack[:cap(e.derivedMemoStack)],
+		events:     evs,
+		objs:       e.G.Objs[:cap(e.G.Objs)],
+		intents:    ints,
+		memo:       e.derivedMemo[:cap(e.derivedMemo)],
+		memoStack:  e.derivedMemoStack[:cap(e.derivedMemoStack)],
+		loopSigs:   e.loop.sigs[:0],
+		loopRecent: e.loop.recent[:cap(e.loop.recent)],
 	}
+	clear(sp.loopRecent)
+	sp.loopRecent = sp.loopRecent[:0]
+	e.loop.sigs, e.loop.recent = nil, nil
 	clear(sp.events)
 	clear(sp.objs)
 	clear(sp.intents)
@@ -2239,7 +2249,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		L:             events.NewLogInto(cfg.Seed, spare.events),
 		format:        cfg.Format,
 		rng:           random,
-		loop:          newLivelockWatcher(cfg.LoopGuard),
+		loop:          newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
 		turnsTaken:    make([]int32, len(cfg.Names)),
 		compiledText:  newCompiledText(cfg),
 		landTypeWords: corpusLandTypeWords(cfg.NameUniverse),
