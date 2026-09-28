@@ -1770,10 +1770,14 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		// retry would re-ask the exact question that just failed: the target
 		// census (a pure read) is skipped, not changed.
 		var potential costMods
+		potentialOK := false
 		if statics.validTarget {
-			potential = e.costModifiersWithTargetsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), true)
+			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
+				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
+					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability)
+			})
 		}
-		if statics.validTarget && e.manaFeasiblePriced(p, id, ability, base, potential, tax, delve, hyp) {
+		if potentialOK {
 			mods = potential
 		} else if accepted, ok := e.offerSacXMods(p, id, ability, base, statics, scope, tax, delve, hyp); ok {
 			// The cost announces a Sac<X/Spec> count whose resulting X-dependent
@@ -1851,9 +1855,10 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 		if len(targets) == 0 {
 			continue
 		}
-		mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, targets, true, x)
-		if e.manaFeasiblePriced(p, id, ability, announced, mods, tax, delve, hyp) {
-			return mods, true
+		if candidateMods, ok := e.potentialCostModsUsing(statics, p, id, scope, targets, x, func(m costMods) bool {
+			return e.manaFeasiblePriced(p, id, ability, announced, m, tax, delve, hyp)
+		}); ok {
+			return candidateMods, true
 		}
 	}
 	return costMods{}, false

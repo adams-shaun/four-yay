@@ -2248,6 +2248,14 @@ func markCostValidTarget(out *costStaticViews) {
 				out.validTarget = true
 				return
 			}
+			// Not of This World/Bane's Contingency: Amount$ names a
+			// Compare SVar whose operand reads the cast's target's targets.
+			// An ordinary nil-target price cannot see that reduction.
+			if fields := strings.Fields(sv.SVars[sv.Params["Amount"]]); len(fields) >= 2 &&
+				fields[0] == "Count$Compare" && strings.HasPrefix(sv.SVars[fields[1]], "TargetedByTarget$") {
+				out.validTarget = true
+				return
+			}
 		}
 	}
 }
@@ -2323,47 +2331,6 @@ func (e *Engine) modAmountX(sv staticView, x int32, targets []state.Target) int3
 		return effects.EvalCount(e, ctx, body)
 	}
 	return effects.EvalCount(e, ctx, raw)
-}
-
-// modAmountPotential evaluates one ReduceCost static's Amount$ for the
-// OFFER gate, where the caller holds the list of every legal candidate target
-// rather than one announced selection. It prices ONE possible announcement --
-// the best single candidate -- never the union of all candidates: a
-// target-count Amount$ (Battlefield Thaumaturge's `Amount$ ReduceCost` over
-// `SVar:ReduceCost:TargetedObjectsDistinct$Valid Creature.inZoneBattlefield`,
-// "{1} less for each creature it targets") would otherwise sum across every
-// candidate and admit an offer that no single target choice can pay. The
-// per-candidate discipline is the SAME one affordableTargetCandidates applies
-// at the CR 601.2c target menu (each candidate tested as the sole selection),
-// so the offer and the menu cannot disagree about which targets are payable;
-// the multi-target case stays deliberately conservative, exactly like the
-// menu. With one candidate (the common single-target shape, and Not of This
-// World's single stack-spell candidate) this is the plain modAmountX, so the
-// fix cannot change a one-candidate price.
-func (e *Engine) modAmountPotential(sv staticView, x int32, targets []state.Target) int32 {
-	if len(targets) <= 1 {
-		return e.modAmountX(sv, x, targets)
-	}
-	best := e.modAmountX(sv, x, []state.Target{targets[0]})
-	for _, t := range targets[1:] {
-		if n := e.modAmountX(sv, x, []state.Target{t}); n > best {
-			best = n
-		}
-	}
-	return best
-}
-
-// modAmountReduce is the reduce loop's Amount$ read: the potential-target
-// offer gate must price one candidate announcement (modAmountPotential),
-// while the chosen-target and announced-X recomputations price the actual
-// selection (modAmountX). Keeping the choice here means every ReduceCost
-// branch -- generic, Color$, and the X-bound recomputation -- makes the same
-// one and cannot half-apply.
-func (e *Engine) modAmountReduce(sv staticView, x int32, targets []state.Target, potential bool) int32 {
-	if potential {
-		return e.modAmountPotential(sv, x, targets)
-	}
-	return e.modAmountX(sv, x, targets)
 }
 
 // raiseExtraFromCost parses a RaiseCost Cost$ that raiseFromCost does NOT
@@ -2522,16 +2489,25 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 	return mods
 }
 
-// costModifiersForPotentialTargets is the offer-side counterpart for a
-// target-conditional REDUCTION. It admits a spell whose base cost is
-// unaffordable only when at least one legal target can make the reduction
-// apply. Target-conditional raises and SetCost floors are intentionally not
-// assumed: they can only make an otherwise legal offer more expensive, so
-// charging them speculatively would incorrectly withhold a nonmatching
-// target choice. The selected target is always repriced by
-// costModifiersForTargets before payment.
-func (e *Engine) costModifiersForPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) costMods {
-	return e.costModifiersWithTargets(p, id, scope, targets, true)
+// potentialCostModsUsing prices a COMPLETE composition for each candidate,
+// accepting only when one announcement satisfies the caller's payment gate.
+// Combining independent best amounts from different statics can admit a cast
+// whose target menu contains no payable choice. Target-dependent raises/floors
+// remain excluded at offer time; the chosen target is repriced before payment.
+func (e *Engine) potentialCostModsUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, x int32, accept func(costMods) bool) (costMods, bool) {
+	for _, target := range targets {
+		one := []state.Target{target}
+		var mods costMods
+		if x != 0 {
+			mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, one, true, x)
+		} else {
+			mods = e.costModifiersWithTargetsUsing(statics, p, id, scope, one, true)
+		}
+		if accept(mods) {
+			return mods, true
+		}
+	}
+	return costMods{}, false
 }
 
 // costModifiersForTargetsX is costModifiersForTargets with the cast's
@@ -2620,7 +2596,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountReduce(sv, x, targets, potential)
+				amount := e.modAmountX(sv, x, targets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2636,7 +2612,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					}
 				}
 			} else {
-				red.generic = e.modAmountReduce(sv, x, targets, potential)
+				red.generic = e.modAmountX(sv, x, targets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2731,7 +2707,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountReduce(sv, 0, targets, potential)
+				amount := e.modAmountX(sv, 0, targets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2747,7 +2723,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 					}
 				}
 			} else {
-				red.generic = e.modAmountReduce(sv, 0, targets, potential)
+				red.generic = e.modAmountX(sv, 0, targets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2897,7 +2873,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// SVar:CostReduction:Count$Compare CheckTgt GE1.7.0 with
 		// SVar:CheckTgt:TargetedByTarget$Valid Card.powerGE7+YouCtrl reads
 		// its real {7}-or-0 from the targeted spell's own targets, at the
-		// offer gate (costModifiersForPotentialTargets' candidate list) and
+		// offer gate (potentialCostModsUsing's single candidate) and
 		// at the CR 601.2c reprice (the chosen targets) alike. The probe is
 		// the SAME evaluation modAmountX runs, so the gate and the amount
 		// cannot disagree; an amount that resolves to zero prices as no

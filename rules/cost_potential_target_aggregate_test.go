@@ -62,16 +62,20 @@ func TestPotentialTargetCostPricesOneCandidateNotTheUnion(t *testing.T) {
 	// The static is really active: one candidate alone earns exactly {1} of
 	// reduction ({3} -> {2}). This is the positive control -- the assertion
 	// below would also "pass" if the whole static were never applied.
-	single := e.costModifiersForPotentialTargets(0, spell, spellScope(""), cands[:1]).apply(base)
-	if single.Generic != 2 {
-		t.Fatalf("precondition/control: one candidate reduction wrong: {3} -> {%d}, want {2}", single.Generic)
+	statics := e.collectCostStatics()
+	for _, cand := range cands {
+		single := e.costModifiersWithTargetsUsing(statics, 0, spell, spellScope(""), []state.Target{cand}, true).apply(base)
+		if single.Generic != 2 {
+			t.Fatalf("precondition/control: one candidate reduction wrong: {3} -> {%d}, want {2}", single.Generic)
+		}
 	}
-	// The offer gate with the whole candidate list must equal the best single
-	// candidate, not the union. Before the fix this read {0} (the union of all
-	// three candidates), admitting an offer no single target can pay.
-	all := e.costModifiersForPotentialTargets(0, spell, spellScope(""), cands).apply(base)
-	if all.Generic != single.Generic {
-		t.Errorf("offer gate aggregated candidate targets: full list prices {%d}, one candidate prices {%d}; must price one announcement",
-			all.Generic, single.Generic)
+	// The offer gate must not admit an unaffordable cast by summing the
+	// three candidates' discounts. The per-candidate callback must never
+	// see a cost below {2}.
+	_, ok := e.potentialCostModsUsing(statics, 0, spell, spellScope(""), cands, 0, func(m costMods) bool {
+		return m.apply(base).Generic < 2
+	})
+	if ok {
+		t.Error("potential cost combined multiple target discounts")
 	}
 }
