@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"reflect"
+	"slices"
 	"sort"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -190,17 +191,24 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 		}
 		public[owner][name]++
 	}
+	// A token or a copy is never a deck-list card, even when it bears one's
+	// name (an embalmed Sacred Cat's token, a copied spell); whether an
+	// object is one is public, so the check reads nothing hidden.
+	minted := func(ref uint32) bool {
+		o := e.G.Obj(base.Observer.object(ref))
+		return o != nil && (o.IsToken || o.IsCopy)
+	}
 	for _, p := range board.Players {
 		for _, zone := range [][]knownCardID{p.Battlefield, p.Graveyard, p.Exile, p.Command} {
 			for _, c := range zone {
-				if identity, ok := names[c.ID]; ok {
+				if identity, ok := names[c.ID]; ok && !minted(c.ID) {
 					take(identity.Owner, identity.Name)
 				}
 			}
 		}
 	}
 	for _, s := range board.Stack {
-		if o := e.G.Obj(base.Observer.object(s.ID)); o != nil && o.Card != nil {
+		if o := e.G.Obj(base.Observer.object(s.ID)); o != nil && o.Card != nil && !o.IsToken && !o.IsCopy {
 			if identity, ok := names[s.ID]; ok {
 				take(identity.Owner, identity.Name)
 			}
@@ -268,15 +276,22 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 				return nil, fmt.Sprintf("player %d hidden object %d has no card", p, id)
 			}
 		}
+		// The first mismatch by name (sorted, so the reason is deterministic)
+		// names the card whose accounting is off.
+		var off []string
 		for name, count := range derivable {
 			if count != actual[name] {
-				return nil, fmt.Sprintf("player %d hidden pool is not derivable from public information", p)
+				off = append(off, name)
 			}
 		}
 		for name, count := range actual {
 			if derivable[name] != count {
-				return nil, fmt.Sprintf("player %d hidden pool is not derivable from public information", p)
+				off = append(off, name)
 			}
+		}
+		if len(off) > 0 {
+			sort.Strings(off)
+			return nil, fmt.Sprintf("player %d hidden pool is not derivable from public information (%s: derivable %d, hidden %d)", p, off[0], derivable[off[0]], actual[off[0]])
 		}
 		plans = append(plans, plan)
 	}
@@ -369,8 +384,11 @@ func redealPlayer(w *rules.Engine, plan redealPlan, r *rand.Rand) string {
 		}
 	}
 	events.Emit(w.G, w.L, events.Event{Kind: events.LibraryOrder, Player: plan.player, IDs: lib, Secret: true})
-	if len(w.G.Zone(state.ZHand, plan.player)) != len(plan.hand) || !reflect.DeepEqual(w.G.Zone(state.ZLibrary, plan.player), lib) {
-		return fmt.Sprintf("player %d redeal did not land", plan.player)
+	if got := w.G.Zone(state.ZHand, plan.player); len(got) != len(plan.hand) || !slices.Equal(w.G.Zone(state.ZLibrary, plan.player), lib) {
+		// slices.Equal, not reflect.DeepEqual: an empty library is a nil
+		// zone and a zero-length lib, which DeepEqual calls different.
+		gl := w.G.Zone(state.ZLibrary, plan.player)
+		return fmt.Sprintf("player %d redeal did not land (hand %d want %d, library %d want %d, pinned hand %d)", plan.player, len(got), len(plan.hand), len(gl), len(lib), len(plan.pinHand))
 	}
 	return ""
 }

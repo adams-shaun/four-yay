@@ -6,12 +6,18 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/searchseat"
+	"github.com/adams-shaun/gorge/internal/spellbench"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
+
+	gbench "github.com/adams-shaun/gorge/internal/bench"
 )
 
 // fedPosition is a real bot-vs-bot game stopped at a searchable seat-0
@@ -386,5 +392,51 @@ func TestNewSeatRejectsUnknownWorld(t *testing.T) {
 	sc.World = "sampled"
 	if _, err := NewSeat(1, nil, sc); err == nil {
 		t.Fatal("unknown world source accepted")
+	}
+}
+
+// Regression (M1 diagnosis): on the CawGates mirror an embalmed Sacred Cat's
+// token bears a deck card's name; counting it as a seen deck card made the
+// seat's derivable pool one short and refused the redeal. Tokens and copies
+// are not deck cards, so the seat never refuses (and never fails a deal).
+func TestRedealAccountsForNamedTokens(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	cg, err := spellbench.Deck(reg, spellbench.PauperKernel, "CawGates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc := DefaultSeatConfig()
+	sc.Search.Sims, sc.World = 2, WorldRedeal
+	var diags []Diag
+	prev := Watch
+	Watch = func(d Diag) { diags = append(diags, d) }
+	t.Cleanup(func() { Watch = prev })
+	embalmed := 0
+	for s := uint64(0); s < 6 && embalmed == 0; s++ {
+		cfg := rules.Config{Seed: 7700 + s, Names: []string{"CawGates", "CawGates"}, Decks: [][]*cards.Card{cg, cg}, Tokens: reg.Tokens}
+		az, err := NewSeat(cfg.Seed^1, nil, sc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, e, err := gbench.PlayGame(cfg, []seat.Seat{az, seat.NewBot(cfg.Seed ^ 2)}, 200, 6000, gbench.Hooks{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range e.G.Objs {
+			if o := &e.G.Objs[i]; o.IsToken && o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0].Name == "Sacred Cat" {
+				embalmed++
+			}
+		}
+	}
+	var total Stats
+	for _, d := range diags {
+		total.Add(d.Stats)
+		if d.Refused != "" || d.DealFailed != "" {
+			t.Errorf("refused %q, deal failed %q", d.Refused, d.DealFailed)
+		}
+	}
+	t.Logf("%d embalmed Sacred Cat tokens; %d searched, no-world %d", embalmed, total.Searched, total.NoWorld)
+	if embalmed == 0 {
+		t.Skip("no seed embalmed a Sacred Cat; the regression was not exercised")
 	}
 }

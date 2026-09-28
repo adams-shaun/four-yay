@@ -45,8 +45,9 @@ type Diag struct {
 	MS         float64 // wall ms of the whole decision (Millis); 0 when untimed
 	Stats      Stats
 	// Refused is the redeal source's refusal reason at this decision, "" when
-	// it prepared (or the source is clairvoyant).
-	Refused string
+	// it prepared (or the source is clairvoyant); DealFailed its first
+	// per-world deal failure (those simulations counted in Stats.NoWorld).
+	Refused, DealFailed string
 }
 
 // Millis is the monotonic elapsed-milliseconds clock the driving command
@@ -156,16 +157,17 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	if err != nil {
 		return decision.Intent{}, err
 	}
-	refused := ""
+	refused, dealFailed := "", ""
 	if redeal != nil && res.Stats.Searched == 1 {
 		if refused = redeal.Refused(); refused != "" {
 			res.Stats.RedealRefused = 1
 		}
+		dealFailed = redeal.DealFailed()
 	}
 	if res.Kind != "" && Watch != nil {
 		dg := Diag{
 			Turn: env.Engine.G.Turn, Kind: res.Kind, Searched: res.Stats.Searched == 1,
-			Candidates: len(res.Candidates), Choice: res.Choice, Stats: res.Stats, Refused: refused,
+			Candidates: len(res.Candidates), Choice: res.Choice, Stats: res.Stats, Refused: refused, DealFailed: dealFailed,
 		}
 		if Millis != nil {
 			dg.MS = Millis() - t0

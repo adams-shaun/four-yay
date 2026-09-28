@@ -67,6 +67,7 @@ type RedealSource struct {
 	prepared bool
 	r        *searchprobe.Redealer
 	refused  string
+	failed   string // the first Deal failure, "" when every deal landed
 	obs      *searchprobe.Collector
 	seed     uint64
 	k        int
@@ -104,6 +105,17 @@ func (s *RedealSource) Refused() string {
 	return s.refused
 }
 
+// DealFailed is the first reason a prepared redeal failed to deal a world
+// at this decision (each such simulation reported ErrNoWorld), or "".
+func (s *RedealSource) DealFailed() string { return s.failed }
+
+func (s *RedealSource) dealFailed(reason string) (World, error) {
+	if s.failed == "" {
+		s.failed = reason
+	}
+	return World{}, fmt.Errorf("%w: %s", ErrNoWorld, reason)
+}
+
 // RedealSeed is world i's deal seed under the per-decision seed: two
 // SplitMix64 words, independent of everything but (seed, i).
 func RedealSeed(seed uint64, i int) [2]uint64 {
@@ -126,7 +138,7 @@ func (s *RedealSource) World(sim int) (World, error) {
 	if s.k <= 0 {
 		var reason string
 		if w, reason = s.r.Deal(RedealSeed(s.seed, sim), &s.spare); reason != "" {
-			return World{}, fmt.Errorf("%w: %s", ErrNoWorld, reason)
+			return s.dealFailed(reason)
 		}
 	} else {
 		i := sim % s.k
@@ -136,7 +148,7 @@ func (s *RedealSource) World(sim int) (World, error) {
 		if s.worlds[i] == nil {
 			base, reason := s.r.Deal(RedealSeed(s.seed, i), nil)
 			if reason != "" {
-				return World{}, fmt.Errorf("%w: %s", ErrNoWorld, reason)
+				return s.dealFailed(reason)
 			}
 			s.worlds[i] = base
 		}

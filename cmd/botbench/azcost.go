@@ -213,21 +213,26 @@ func azCostReport(totalGames int) string {
 	fmt.Fprintf(&b, "counters: simulations %d, completed %d, chance-failures %d, panics %d, submit-errors %d, bad-worlds %d, no-world %d, all-failed %d, step-capped %d, terminal %d, expanded %d, unavailable %d, prior-fallbacks %d, skipped %d, feed-stopped %d, redeal-refused %d\n",
 		total.Simulations, total.Completed, total.ChanceFailures, total.Panics, total.SubmitErrors, total.BadWorlds, total.NoWorld,
 		total.AllFailed, total.StepCapped, total.Terminal, total.Expanded, total.Unavailable, total.PriorFallbacks, total.Skipped, total.FeedStopped, total.RedealRefused)
-	if total.RedealRefused > 0 {
+	if total.RedealRefused > 0 || total.NoWorld > 0 {
 		var reasons []string
 		count := make(map[string]int)
 		for _, dg := range diags {
-			if dg.Refused == "" {
-				continue
+			for _, r := range []string{dg.Refused, dg.DealFailed} {
+				if r == "" {
+					continue
+				}
+				if r == dg.DealFailed {
+					r = "deal failed: " + r
+				}
+				if count[r] == 0 {
+					reasons = append(reasons, r)
+				}
+				count[r]++
 			}
-			if count[dg.Refused] == 0 {
-				reasons = append(reasons, dg.Refused)
-			}
-			count[dg.Refused]++
 		}
 		sort.Strings(reasons)
 		for _, r := range reasons {
-			fmt.Fprintf(&b, "  redeal refused %d: %s\n", count[r], r)
+			fmt.Fprintf(&b, "  redeal %d: %s\n", count[r], r)
 		}
 	}
 	b.WriteString("searched by kind:")
