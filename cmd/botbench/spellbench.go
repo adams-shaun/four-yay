@@ -78,6 +78,12 @@ type sbOpts struct {
 	engineVersion string
 	catalog       string
 	format        string // the catalog's ledger format, set from catalog
+	// tacticalWeights / tacticalAlt name JSON weight files for sb-tactical
+	// and sb-tactical-alt.
+	tacticalWeights, tacticalAlt string
+	// trace names a directory where every sb-tactical seat writes its
+	// scored decisions, one file per game and seat (debugging).
+	trace string
 }
 
 var sbFlags sbOpts
@@ -91,6 +97,9 @@ func registerSpellbenchFlags(fs *flag.FlagSet) {
 	fs.Uint64Var(&sbFlags.baseSeed, "spellbench-base-seed", 20260926, "spellbench: tournament base seed (the benchmark's base_seed)")
 	fs.StringVar(&sbFlags.with, "spellbench-with", "", "spellbench: play only the matchups that include this policy (indices and seeds stay those of the full round robin)")
 	fs.StringVar(&sbFlags.without, "spellbench-without", "", "spellbench: skip the matchups that include this policy")
+	fs.StringVar(&sbFlags.tacticalWeights, "spellbench-tactical-weights", "", "spellbench: JSON file of builtins.TacticalWeights for the sb-tactical arms (default: the built-in weights; absent fields keep their defaults)")
+	fs.StringVar(&sbFlags.tacticalAlt, "spellbench-tactical-alt-weights", "", "spellbench: JSON file of builtins.TacticalWeights for sb-tactical-alt (weight-tuning A/B)")
+	fs.StringVar(&sbFlags.trace, "spellbench-trace", "", "spellbench: directory for sb-tactical decision traces (one file per game and seat)")
 	fs.StringVar(&sbFlags.engineVersion, "spellbench-engine-version", "dev", "spellbench: engine_version recorded in the ledger (e.g. the git commit)")
 }
 
@@ -216,6 +225,13 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	seats := make([]seat.Seat, 2)
 	for s := 0; s < 2; s++ {
 		seats[s] = policies[g.seats[s]](g.seed ^ uint64(s+1))
+		if b, ok := seats[s].(*builtins.Seat); ok && sbFlags.trace != "" && b.Policy() == builtins.Tactical {
+			f, err := os.Create(filepath.Join(sbFlags.trace, fmt.Sprintf("%s-%s-p%d.txt", g.id, g.deck, s)))
+			if err == nil {
+				defer f.Close()
+				b.SetTrace(f)
+			}
+		}
 	}
 	cfg := rules.Config{
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
@@ -342,6 +358,23 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 			return fail(fmt.Errorf("-spellbench-with/-without %q is not in the policy list", f))
 		}
 	}
+	for _, f := range []struct {
+		path string
+		dst  *builtins.TacticalWeights
+	}{{o.tacticalWeights, &tacticalWeights}, {o.tacticalAlt, &tacticalAltWeights}} {
+		if f.path == "" {
+			continue
+		}
+		raw, err := os.ReadFile(f.path)
+		if err != nil {
+			return fail(err)
+		}
+		w := builtins.DefaultTacticalWeights()
+		if err := json.Unmarshal(raw, &w); err != nil {
+			return fail(fmt.Errorf("%s: %w", f.path, err))
+		}
+		*f.dst = w
+	}
 	if o.pairs < 1 {
 		return fail(fmt.Errorf("-spellbench-pairs must be at least 1"))
 	}
@@ -382,6 +415,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if err != nil {
 		return fail(fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err))
 	}
+	setTacticalRegistry(reg)
 	decks := make(map[string][]*cards.Card, len(pool)) // lookup only
 	for _, id := range pool {
 		d, err := spellbench.Deck(reg, cat.Dir, id)
@@ -392,6 +426,11 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	if err := os.MkdirAll(o.out, 0o755); err != nil {
 		return fail(err)
+	}
+	if o.trace != "" {
+		if err := os.MkdirAll(o.trace, 0o755); err != nil {
+			return fail(err)
+		}
 	}
 
 	full := sbSchedule(bots, pool, o.pairs, o.baseSeed)

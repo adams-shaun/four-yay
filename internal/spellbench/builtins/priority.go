@@ -86,6 +86,8 @@ func (s *Seat) priority(v view.View, d *decision.Decision, depth int) decision.I
 		i = s.rng.Index(len(cands))
 	case Heuristic:
 		i = heuristicPick(cands)
+	case Tactical:
+		i = s.tac.pickPriority(v, d, cands)
 	}
 	c := cands[i]
 	switch {
@@ -193,6 +195,14 @@ func potential(v view.View, me state.PlayerID) []decision.PotentialAction {
 // the pursuit fails: the play joins the step's failed set and ok is false.
 func (s *Seat) pursue(v view.View, d *decision.Decision) (decision.Intent, bool) {
 	k := *s.pursuit
+	if s.tac != nil && s.tac.tapAll {
+		// sb-tactical pursuing an {X} spell: float every source first so X
+		// is as large as the board allows.
+		if i, ok := firstKind(d, "activate"); ok {
+			s.Stats.PursuitTaps++
+			return one(d, i), true
+		}
+	}
 	for i := range d.Options {
 		if optionKey(&d.Options[i]) == k {
 			s.pursuit = nil
