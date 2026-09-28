@@ -1,0 +1,34 @@
+{
+  "card": "Valkyrie Harbinger",
+  "family": "trigger-condition",
+  "oracle_sha": "16ca68a427ec",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "four-life-gained-creates-vigilant-angel",
+      "cr": ["603.4", "513.1"],
+      "why": "Gaining exactly four life during the turn meets the end-step condition and creates an Angel with flying and vigilance.",
+      "setup": {"p0": {"battlefield": ["Valkyrie Harbinger"]}, "p1": {}},
+      "steps": [
+        {"op": "life", "seat": 0, "amount": 4},
+        {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Valkyrie Harbinger", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Angel", "token": true}, "eq": 1},
+        {"card": "p0:token:Angel", "pt": "4/4", "keywords": ["Flying", "Vigilance"]}
+      ]
+    },
+    {
+      "name": "three-life-gained-no-trigger",
+      "cr": ["603.4", "513.1"],
+      "why": "Only three life was gained this turn, below the four-life condition, so the end-step ability does not trigger.",
+      "setup": {"p0": {"battlefield": ["Valkyrie Harbinger"]}, "p1": {}},
+      "steps": [
+        {"op": "life", "seat": 0, "amount": 3},
+        {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Valkyrie Harbinger", "want": false}]}
+      ],
+      "expect": [{"count": {"seat": 0, "zone": "battlefield", "name": "Angel", "token": true}, "eq": 0}]
+    }
+  ]
+}

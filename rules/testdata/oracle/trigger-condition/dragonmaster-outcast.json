@@ -1,0 +1,29 @@
+{
+  "card": "Dragonmaster Outcast",
+  "family": "trigger-condition",
+  "oracle_sha": "d6e1998d75f4",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "six-lands-creates-dragon-at-upkeep",
+      "cr": ["603.4", "503.1"],
+      "why": "With exactly six lands, the upkeep condition is true and Dragonmaster Outcast creates a 5/5 flying Dragon.",
+      "setup": {"p0": {"battlefield": ["Dragonmaster Outcast", "Forest", "Forest", "Forest", "Forest", "Forest", "Forest"]}, "p1": {}},
+      "steps": [],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Dragon", "token": true}, "eq": 1},
+        {"card": "p0:token:Dragon", "pt": "5/5", "keywords": ["Flying"]}
+      ]
+    },
+    {
+      "name": "five-lands-no-upkeep-trigger",
+      "cr": ["603.4", "503.1"],
+      "why": "Five lands are one short of the six-land condition, so no Dragonmaster Outcast trigger is created at upkeep.",
+      "setup": {"p0": {"battlefield": ["Dragonmaster Outcast", "Forest", "Forest", "Forest", "Forest", "Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "pass_to", "step": "upkeep", "active": "p0", "expect": [{"trigger_on_stack": "p0:Dragonmaster Outcast", "want": false}]}
+      ],
+      "expect": [{"count": {"seat": 0, "zone": "battlefield", "name": "Dragon", "token": true}, "eq": 0}]
+    }
+  ]
+}
