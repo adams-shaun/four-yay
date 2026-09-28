@@ -274,6 +274,12 @@ func TestCostTokenCensus(t *testing.T) {
 		case costNonFilterSpecs[spec] != "":
 			verdict = "table: " + costNonFilterSpecs[spec]
 			measured[spec] = true
+			// Couple the whole-hand verdict to the production predicate: a
+			// revert or rename of isWholeHandRevealSpec (the fix) must fail
+			// the census, not just the Land Grant behaviour test.
+			if spec == "Hand" && !isWholeHandRevealSpec(spec) {
+				t.Errorf("isWholeHandRevealSpec(%q) is false: the whole-hand reveal reading is gone", spec)
+			}
 		case base != spec && costNonFilterSpecs[base] != "":
 			// A predicate-carrying spec whose BASE is a table word (e.g.
 			// CARDNAME/this card): the base's verdict applies.
