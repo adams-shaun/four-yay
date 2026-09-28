@@ -25,7 +25,7 @@ import (
 //
 // Structure: seat-visible feature extraction (tactical_state.go: creatures
 // with derived P/T/keywords, the race clocks, the mana on hand) -> a score
-// per candidate, with every weight in TacticalWeights. Three idea groups,
+// per candidate, with every weight in TacticalWeights. Four idea groups,
 // each switchable for ablation:
 //
 //  1. EarlyGame: development and card advantage early (land every turn,
@@ -105,6 +105,13 @@ type TacticalWeights struct {
 	EarlyGame bool
 	Timing    bool
 	Race      bool
+	// Archetype is the fourth idea group: read the opponent's colours and
+	// playing style off public cards and re-weight the counters. It defaults
+	// false, so the plain sb-tactical arm is byte-identical.
+	Archetype bool
+	// The Archetype group's counter rows, each switchable for ablation. All
+	// default true and are read only when Archetype is on.
+	ArchBurn, ArchCounter, ArchEngine, ArchControl, ArchWide, ArchTempo bool
 
 	// Base values.
 	Land        float64 // a land drop (always first in a main phase)
@@ -150,6 +157,13 @@ type TacticalWeights struct {
 	FaceBehind float64 // ... when we lose it
 	ClockTurn  float64 // bonus when face damage takes a turn off our clock
 	Lethal     float64 // bonus for lethal damage
+
+	// Group 4: archetype. Multiplicative modulators (default 1.0) the
+	// classifier scales; a weight no existing field fits gets its own.
+	ArchLife       float64 // multiplier on OUR life value (burn spends it)
+	ArchBlock      float64 // multiplier on chumping early (aggro/burn)
+	ArchBait       float64 // how much to hold the best spell / bait a counter
+	ArchOverextend float64 // penalty for deploying an extra body when ahead
 }
 
 // DefaultTacticalWeights is sb-tactical's configuration.
@@ -167,17 +181,25 @@ func DefaultTacticalWeights() TacticalWeights {
 		HoldReactive: 8, WaitEOT: 4, KeepUp: 1.0, PostCombat: 0, KillAttacker: 3, OffWindow: 0.6,
 
 		FaceAhead: 1.3, FaceBehind: 0.6, ClockTurn: 4, Lethal: 1000,
+
+		ArchBurn: true, ArchCounter: true, ArchEngine: true,
+		ArchControl: true, ArchWide: true, ArchTempo: true,
+		ArchLife: 1.0, ArchBlock: 1.0, ArchBait: 1.0, ArchOverextend: 1.0,
 	}
 }
 
 // tactical is the per-seat state of a Tactical builtin.
 type tactical struct {
 	w      TacticalWeights
+	base   TacticalWeights // the seat's configured weights, unmodulated
 	lookup CardLookup
-	cache  map[string]*tProfile // lookup only
-	rng    *rand.Rand
-	sim    botpolicy.AttackSimParams
-	trace  io.Writer // debugging: nil in play
+	// archObs is the per-opponent public feature accumulation the Archetype
+	// group reads (lookup only; one small entry per other seat).
+	archObs map[state.PlayerID]*tArchObs
+	cache   map[string]*tProfile // lookup only
+	rng     *rand.Rand
+	sim     botpolicy.AttackSimParams
+	trace   io.Writer // debugging: nil in play
 
 	// tapAll marks a pursuit of an {X} spell (pursue taps every source).
 	tapAll bool
@@ -201,7 +223,7 @@ func (s *Seat) SetTrace(w io.Writer) {
 func NewTactical(m ManaMode, seed uint64, lookup CardLookup, w TacticalWeights) *Seat {
 	s := New(Tactical, m, seed)
 	s.tac = &tactical{
-		w: w, lookup: lookup, cache: map[string]*tProfile{},
+		w: w, base: w, lookup: lookup, cache: map[string]*tProfile{},
 		rng: rand.New(rand.NewPCG(seed, seed^0x7ac71ca1)),
 		sim: botpolicy.DefaultAttackSimParams(),
 	}
@@ -245,6 +267,14 @@ func (t *tactical) decide(s *Seat, v view.View, d *decision.Decision) decision.I
 
 func (t *tactical) decideKind(s *Seat, v view.View, d *decision.Decision) decision.Intent {
 	t.observe(v, d.Player)
+	t.observeArch(v)
+	if t.base.Archetype {
+		st := t.newState(&v, d.Player)
+		st.arch = t.classify(st.opp)
+		t.w = t.modulate(st)
+	} else if t.w != t.base {
+		t.w = t.base
+	}
 	if s.pursuit == nil {
 		t.tapAll = false
 	}
@@ -300,15 +330,19 @@ func (t *tactical) fallback(v view.View, d *decision.Decision) decision.Intent {
 // above it, ties to the earlier candidate.
 func (t *tactical) pickPriority(v view.View, d *decision.Decision, cands []cand) int {
 	st := t.newState(&v, d.Player)
-	best, bestScore := 0, -1e18
+	scores := make([]float64, len(cands))
 	var line []string
 	for i, c := range cands {
-		sc := t.scoreCand(st, d, c)
+		scores[i] = t.scoreCand(st, d, c)
+	}
+	t.archAdjustPriority(st, d, cands, scores)
+	best, bestScore := 0, -1e18
+	for i, sc := range scores {
 		if sc > bestScore {
 			best, bestScore = i, sc
 		}
 		if t.trace != nil {
-			line = append(line, fmt.Sprintf("%s=%.1f", t.candLabel(st, d, c), sc))
+			line = append(line, fmt.Sprintf("%s=%.1f", t.candLabel(st, d, cands[i]), sc))
 		}
 	}
 	if c := cands[best]; c.pot != nil && c.pot.kind == "cast" {
@@ -317,8 +351,9 @@ func (t *tactical) pickPriority(v view.View, d *decision.Decision, cands []cand)
 		}
 	}
 	if t.trace != nil && len(cands) > 1 {
-		fmt.Fprintf(t.trace, "T%d %s p%d life %d/%d lib %d/%d clock %.0f/%.0f | pick %s | %s\n", v.Turn, v.Step, d.Player,
-			st.myLife, st.oppLife, st.meP.LibrarySize, st.oppP.LibrarySize, st.myClock, st.oppClock, t.candLabel(st, d, cands[best]), strings.Join(line, " "))
+		fmt.Fprintf(t.trace, "T%d %s p%d life %d/%d lib %d/%d clock %.0f/%.0f %s | pick %s | %s\n", v.Turn, v.Step, d.Player,
+			st.myLife, st.oppLife, st.meP.LibrarySize, st.oppP.LibrarySize, st.myClock, st.oppClock, st.arch.traceLine(),
+			t.candLabel(st, d, cands[best]), strings.Join(line, " "))
 	}
 	return best
 }

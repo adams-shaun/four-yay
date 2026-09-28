@@ -244,6 +244,34 @@ trigger order, searches).
      only when the hit is lethal, drop chumps when we are ahead and the hit
      is safe, and double-block a big attacker that two free blockers kill
      profitably.
+  4. *Archetype* (`sb-tactical-arch`; off in plain `sb-tactical`) — read
+     the opponent's mana flavours from public cards
+     (`tactical_archetype.go`: printed mana costs and projected mana
+     production, never card names) and accumulate eight IR-derived features
+     over their public cards: curve and speed (creature mana values and cheap
+     early bodies), burn to face (`effDamage` targeting a player, `effDrain`),
+     counterspells (`effCounter`), removal density (`effRemoval`), mana
+     creatures and recurring engines (`manaSource` on a creature, `engine`),
+     artifacts and affinity, token makers (`effToken`) and small bodies,
+     evasion, card flow (draw/select/flashback/recursion) and self-mill. The
+     features start from colour priors (R aggro/burn, U tempo/control, G
+     ramp/midrange, W go-wide, B removal/drain) and produce a normalised
+     score over eight archetypes — aggro, burn, tempo, control, engine/combo,
+     ramp, go-wide, midrange — updated after every newly public card, blended
+     rather than switched on one top archetype. The role ("who's the
+     beatdown") comes from the Race group's clocks (`myClock` vs `oppClock`)
+     and re-evaluates every turn. The counter-rows are multiplicative
+     modulators of the existing weights, each behind its own ablation switch
+     (`ArchBurn`, `ArchCounter`, `ArchEngine`, `ArchControl`, `ArchWide`,
+     `ArchTempo`): against burn/aggro our life is worth more (`ArchLife`) and
+     we chump earlier (`ArchBlock`); with open counter mana or a counter
+     already seen we hold the best threat and bait with the lesser spell
+     (`ArchBait`) and keep up (`KeepUp`, `HoldReactive`); against an
+     engine/ramp deck removal on mana creatures and engines is worth more
+     (`KeyPiece`); against control we value card advantage up and do not
+     overextend (`ArchOverextend`); against go-wide we devalue one-for-one
+     removal; against tempo/fliers removal on evasive threats is worth more.
+     An unknown opponent leaves every weight exactly 1.0×.
 - **Also fixed while measuring** (each found in a decision trace,
   `botbench -spellbench-trace <dir>`): pursuits of unaffordable plays
   (colour-aware `canAfford`), card flow at the wrong time (treasure/cycling in

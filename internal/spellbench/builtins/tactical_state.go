@@ -104,6 +104,11 @@ type tstate struct {
 
 	myDmg, oppDmg     float64 // projected damage per attack
 	myClock, oppClock float64 // projected turns to kill (math.Inf when no damage)
+
+	// arch is the Archetype group's classification of the opponent; its zero
+	// value means "unsure" and leaves every weight at its default. It is
+	// populated only when the Archetype group is on.
+	arch tArchState
 }
 
 func (t *tactical) newState(v *view.View, me state.PlayerID) *tstate {
@@ -196,6 +201,9 @@ func (t *tactical) newState(v *view.View, me state.PlayerID) *tstate {
 	s.oppDmg = attackDamage(s.theirs, s.mine)
 	s.myClock = clock(s.oppLife, s.myDmg)
 	s.oppClock = clock(s.myLife, s.oppDmg)
+	if t.base.Archetype {
+		s.arch = t.classify(s.opp)
+	}
 	return s
 }
 
@@ -363,13 +371,21 @@ func (s *tstate) keyPiece(c *tcre) float64 {
 		k += s.w.KeyPiece
 	}
 	if c.flying && c.pow > 0 {
-		k += s.w.KeyPiece * 0.5
+		k += s.w.KeyPiece * (0.5 + s.arch.tempoRisk)
 	}
 	return k
 }
 
 // lifeValue is the worth of `amount` life at total `life` (points per life
 // rise as the total falls), plus the Lethal bonus when it kills.
+//
+// ownLifeValue is the worth of `amount` of OUR life, scaled by the Archetype
+// group's ArchLife against a burn opponent (life is a resource they spend,
+// so it is worth more). 1.0x when the group is off.
+func (s *tstate) ownLifeValue(amount int32) float64 {
+	return s.lifeValue(s.myLife, amount) * s.w.ArchLife
+}
+
 func (s *tstate) lifeValue(life, amount int32) float64 {
 	v := 0.0
 	for i := int32(0); i < amount; i++ {

@@ -65,6 +65,9 @@ func init() {
 		w.Race = false
 		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
 	})
+	registry.Register("sb-tactical-arch", func(seed uint64, _ builtins.ManaMode) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalArchW)
+	})
 	for i := 0; i < len(tacticalAltWeights); i++ {
 		i := i
 		name := "sb-tactical-alt"

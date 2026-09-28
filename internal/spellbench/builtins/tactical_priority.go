@@ -443,7 +443,7 @@ func (t *tactical) effValue(s *tstate, p *tProfile, e *tEffect, src state.ObjID)
 	case effPumpAll:
 		return t.pumpAllValue(s, e)
 	case effLifeGain:
-		return s.lifeValue(s.myLife, int32(amount)) * 0.8
+		return s.ownLifeValue(int32(amount)) * 0.8
 	case effDiscard:
 		if s.oppP.HandSize > 0 {
 			return w.Discard * amount
@@ -717,7 +717,7 @@ func (t *tactical) fogValue(s *tstate) float64 {
 			}
 		}
 	}
-	v += s.lifeValue(s.myLife, dmg)
+	v += s.ownLifeValue(dmg)
 	if dmg >= s.myLife {
 		v += t.w.Lethal
 	}
