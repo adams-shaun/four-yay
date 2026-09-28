@@ -49,10 +49,6 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: effects/play.go validSAOK rejects the Hero subtype
 	// when filtering a free cast, leaving no offered Hero despite X = 5.
 	"West Coast Expansion/x-five-may-cast-hero": "observed Hero stays in hand (6 cards after drawing five), expected free cast to battlefield (5 cards in hand)",
-	// Gray Merchant's drain resolves but its subsequent life-gain amount is
-	// zero: the life-loss total is not propagated to the gain (effects/life.go,
-	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
-	"Gray Merchant of Asphodel/self-devotion-two-life-gain": "observed p0 life 20, expected 22 after two life lost by p1",
 	// Mogis's creature-removal instruction is not interpreted by the
 	// continuous-effect type layer (rules/layers.go); the gate at seven
 	// devotion is therefore stuck on the printed creature type.
