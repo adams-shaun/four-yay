@@ -127,11 +127,17 @@ func UntappedLands(cs []*KCard) int {
 // Kw is c's effective keywords.
 func Kw(c *KCard) *KKeywords { return &c.Characteristics.Keywords }
 
-// CreatureValue scores a creature on the board (roughly "cards worth").
+// CreatureValue scores a creature on the board (roughly "cards worth")
+// with the hinted build's bonuses.
 func CreatureValue(c *KCard) float64 {
 	if c == nil || !c.IsCreature() {
 		return 0
 	}
+	return baseCreatureValue(c) + hintFor(c.Name).bonus
+}
+
+// baseCreatureValue values a creature from its observed stats alone.
+func baseCreatureValue(c *KCard) float64 {
 	k := Kw(c)
 	p, t := float64(c.Power()), float64(c.Toughness())
 	v := 1 + p + t/2
@@ -162,7 +168,6 @@ func CreatureValue(c *KCard) float64 {
 	if c.IsToken {
 		v -= 0.5
 	}
-	v += hintFor(c.Name).bonus
 	return v
 }
 
@@ -176,9 +181,6 @@ func CanBlock(blocker, attacker *KCard) bool {
 		return false
 	}
 	if ak.ProtMonocolored && popcount(blocker.Characteristics.ColorMask) == 1 {
-		return false
-	}
-	if hintFor(blocker.Name).cantBlock {
 		return false
 	}
 	return true
@@ -253,11 +255,11 @@ var normFacts = func() map[string]*CardFact {
 // FactN looks a card up by folded name.
 func FactN(name string) *CardFact { return normFacts[normName(name)] }
 
-// sortByValueDesc orders creatures by CreatureValue, highest first
-// (stable on arena id for determinism).
-func sortByValueDesc(cs []*KCard) {
+// sortByValueDesc orders creatures by value, highest first (stable on
+// arena id for determinism).
+func (t *Tactical) sortByValueDesc(cs []*KCard) {
 	sort.SliceStable(cs, func(i, j int) bool {
-		vi, vj := CreatureValue(cs[i]), CreatureValue(cs[j])
+		vi, vj := t.cv(cs[i]), t.cv(cs[j])
 		if vi != vj {
 			return vi > vj
 		}

@@ -3,13 +3,15 @@
 // internal/spellbench/v1agent. It answers hello, game_start, choose and
 // game_over as NDJSON over stdin/stdout until stdin closes.
 //
-//	sbv1agent -policy uniform|heuristic|first|tactical [-seed N] [-name NAME] [-version V] [-quiet]
+//	sbv1agent -policy uniform|heuristic|first|tactical|generic [-seed N] [-name NAME] [-version V] [-quiet]
 //
 // uniform, heuristic and first are the python arena builtins, choice for
 // choice (uniform with the same -seed as the builtin's "seed" makes the
 // same picks). tactical reads the decision's x_kernel_v5 board when the
 // engine attaches one (mtg-kernel's bridge does) and falls back to the
-// candidate references otherwise.
+// candidate references otherwise. generic is tactical with every card- and
+// deck-name rule (hints.go, the named branches) replaced by rules derived
+// from card data; tactical stays the hinted build so the two compare.
 //
 // A policy failure never becomes a wire error (that forfeits the game): it
 // is answered by the heuristic and counted; the counts go to stderr at EOF.
@@ -36,7 +38,7 @@ func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("sbv1agent", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	policyName := fs.String("policy", "tactical", "policy: uniform, heuristic, first or tactical")
+	policyName := fs.String("policy", "tactical", "policy: uniform, heuristic, first, tactical (hinted) or generic (hint-free)")
 	name := fs.String("name", "", `hello_ok bot name (default "sbv1-<policy>")`)
 	version := fs.String("version", Version, "hello_ok bot version")
 	seed := fs.Uint64("seed", 0, "uniform: the builtin's seed")
@@ -80,7 +82,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			"game_id": agent.LastGame, "seat": agent.LastSeat, "bot": *name,
 			"decisions": agent.Stats.Decisions, "fallbacks": agent.Stats.Fallbacks,
 			"kernel_missing": agent.Stats.KernelMissing, "wire_errors": agent.Stats.WireErrors,
-			"retries": agent.Stats.RetriesServed,
+			"retries": agent.Stats.RetriesServed, "hint_lookups": v1agent.HintLookups(),
 		})
 		if f, ferr := os.OpenFile(*stats, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); ferr == nil {
 			f.Write(append(rec, '\n'))
