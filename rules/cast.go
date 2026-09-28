@@ -1649,6 +1649,20 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 		if isWholeHandRevealSpec(part.Spec) {
 			continue
 		}
+		// Reveal<N/SameColor> (Illuminated Folio) is RELATIONAL: SameColor
+		// matches no card as a filter, so the candidates are every eligible
+		// hand card and the part is payable iff N DISTINCT ones share one
+		// colour (SetPropCapacity's largest shared class; a colourless
+		// card's empty token set shares nothing). The payment ask carries
+		// the same decision.SetPropShared rule, so offer and intake read
+		// one definition -- sameColorRevealSets in rules/setprops.go.
+		if isSameColorRevealSpec(part.Spec) {
+			_, sets := e.sameColorRevealSets(p, id, !ability)
+			if decision.SetPropCapacity(decision.SetPropShared, sets) < int(part.N) {
+				return false
+			}
+			continue
+		}
 		if len(e.costCandidates(p, id, state.ZHand, part.Spec, !ability, false)) < int(part.N) {
 			return false
 		}
@@ -3743,6 +3757,39 @@ func (e *Engine) revealCostAsk() bool {
 			}
 			pc.revealPart++
 			continue
+		}
+		// Relational SameColor (Illuminated Folio): SameColor matches no card
+		// as a filter, so the candidates are every eligible hand card and
+		// the ask itself carries the constraint -- decision.SetPropShared
+		// over each option's DERIVED colour tokens, so Decision.Validate
+		// (seats) and botpolicy's Clamp (the bot) reject a non-sharing
+		// answer through the same rule the offer gate measured. The exactly-N
+		// auto-settle sits behind the capacity check, so it can never pay an
+		// illegal reveal.
+		if isSameColorRevealSpec(part.Spec) {
+			cands, sets := e.sameColorRevealSets(pc.player, pc.card, !pc.isAbility())
+			if decision.SetPropCapacity(decision.SetPropShared, sets) < int(part.N) {
+				e.abortCast(pc, "reveal cost no longer payable; cast aborted", true)
+				return true
+			}
+			if len(cands) == int(part.N) {
+				pc.reveals = append(pc.reveals, cands...)
+				for range cands {
+					pc.revealHandArm = append(pc.revealHandArm, true)
+				}
+				pc.revealPart++
+				continue
+			}
+			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: int(part.N), Max: int(part.N),
+				Prompt: "Choose cards to reveal", Source: pc.card,
+				SetPropMode: decision.SetPropShared}
+			for _, id := range cands {
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "revealcost", Obj: id,
+					SetProps: e.setPropTokens("color", id), Label: e.targetName(id)})
+			}
+			e.choosing = chooseCast
+			e.ask(d)
+			return true
 		}
 		candidates := e.costCandidates(pc.player, pc.card, state.ZHand, part.Spec, !pc.isAbility(), false)
 		if len(candidates) < int(part.N) {
