@@ -69,6 +69,7 @@ type cand struct {
 	plan    *decision.PaymentAction
 	pot     *actionKey
 	witness *decision.PaymentPlan
+	script  []rules.ScriptStep
 }
 
 // priority answers a KPriority decision (package doc, 1). depth bounds the
@@ -100,8 +101,21 @@ func (s *Seat) priority(v view.View, d *decision.Decision, depth int) decision.I
 		return s.payWith(v, d, c.plan, depth)
 	case c.witness != nil:
 		return s.lowerPlay(v, d, *c.pot, *c.witness, depth)
+	case c.script != nil:
+		s.script, s.scriptAt, s.scriptKey, s.scriptWaits = c.script, 0, *c.pot, 0
+		s.Stats.Scripts++
+		if in, ok := s.stepScript(v, d); ok {
+			return in
+		}
+		return s.rechoose(v, d, depth, len(cands))
 	}
 	k := *c.pot
+	if in, ok, done := s.exactPlay(v, d, k); done {
+		if ok {
+			return in
+		}
+		return s.rechoose(v, d, depth, len(cands))
+	}
 	s.pursuit = &k
 	s.Stats.Pursuits++
 	s.pursuitVerdict, s.pursuitPriced = "no_planner", false
@@ -208,6 +222,8 @@ func (s *Seat) candidates(v view.View, d *decision.Decision) []cand {
 				continue
 			case pp.Plan != nil:
 				c.witness = pp.Plan
+			case len(pp.Script) > 0:
+				c.script = pp.Script
 			}
 		}
 		cands = append(cands, c)
@@ -345,6 +361,154 @@ func pursuitColour(v view.View, d *decision.Decision) (int, bool) {
 	return best, true
 }
 
+// stepScript answers d with the scripted prefix's next step: the options
+// whose identities the step names, which must all be offered in a decision
+// of the step's kind. After the last step the play itself is continued at
+// the next priority decision: taken when offered, else paid as any priced
+// play (the cast's payment action, the planner's witness). Any divergence
+// aborts the script (abortScript) and ok is false: the caller answers d.
+func (s *Seat) stepScript(v view.View, d *decision.Decision) (decision.Intent, bool) {
+	if s.scriptAt < len(s.script) {
+		st := s.script[s.scriptAt]
+		if d.Kind != st.Kind {
+			s.abortScript(v, fmt.Sprintf("step %d wants %s, posed %s", s.scriptAt, st.Kind, d.Kind))
+			return decision.Intent{}, false
+		}
+		var choices []int
+		for _, pk := range st.Picks {
+			i := -1
+			for j := range d.Options {
+				if pk.Matches(&d.Options[j]) {
+					i = d.Options[j].Index
+					break
+				}
+			}
+			if i < 0 {
+				s.abortScript(v, fmt.Sprintf("step %d: %q not offered", s.scriptAt, pk.Label))
+				return decision.Intent{}, false
+			}
+			choices = append(choices, i)
+		}
+		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
+		if err := d.Validate(in); err != nil {
+			s.abortScript(v, fmt.Sprintf("step %d: %v", s.scriptAt, err))
+			return decision.Intent{}, false
+		}
+		s.scriptAt++
+		s.Stats.ScriptSteps++
+		return in, true
+	}
+	k := s.scriptKey
+	if d.Kind != decision.KPriority {
+		// A decision the prefix caused (a trigger's target): the policy
+		// answers it, the continuation resumes at the next priority.
+		return decision.Intent{}, false
+	}
+	for i := range d.Options {
+		if optionKey(&d.Options[i]) == k {
+			s.script = nil
+			s.Stats.ScriptedPlays++
+			return one(d, d.Options[i].Index), true
+		}
+	}
+	if k.kind == "cast" && k.mode == "" {
+		for i := range d.PaymentActions {
+			if a := &d.PaymentActions[i]; a.Cast.Object == k.obj && len(a.Plans) > 0 {
+				s.script = nil
+				s.Stats.ScriptedPlays++
+				return s.payWith(v, d, a, maxAttempts), true
+			}
+		}
+	}
+	if pp := s.potentialPlan(d, k); pp != nil && pp.Plan != nil {
+		s.script = nil
+		s.Stats.ScriptedPlays++
+		return s.lowerPlay(v, d, k, *pp.Plan, maxAttempts), true
+	}
+	if len(v.Stack) > 0 && s.scriptWaits < maxScriptWaits {
+		// A trigger the prefix caused sits above a sorcery-speed play:
+		// pass, the pool floats, and the play is offered once it resolves
+		// (payexec's stack wait).
+		if i, ok := firstKind(d, "pass"); ok {
+			s.scriptWaits++
+			return one(d, i), true
+		}
+	}
+	s.script = nil
+	s.scriptLost(v, k, "after the script: the play is neither offered nor priced")
+	return decision.Intent{}, false
+}
+
+// maxScriptWaits bounds the stack passes a finished prefix makes waiting
+// for its play.
+const maxScriptWaits = 16
+
+// exactBudget bounds the clones one exact search (ScriptPlanner) makes.
+const exactBudget = 2000
+
+// ScriptPlanner is the exact fallback a Planner may also offer
+// (*rules.Engine.PotentialPlayScript): a search of the manual mana surface
+// for a play the planner left unpriced, answering a script that reaches it
+// or a proof that none does.
+type ScriptPlanner interface {
+	PotentialPlayScript(p state.PlayerID, a decision.PotentialAction, budget int) ([]rules.ScriptStep, string)
+}
+
+// exactPlay runs the exact search for chosen play k when the planner left
+// it unpriced. done reports that the search decided the play: a script
+// (ok: in answers d with its first step, or the play itself) or a proof
+// that it cannot be paid (not ok: the play is excluded for the step and
+// the caller chooses again). With no verdict (no ScriptPlanner, a priced
+// play, or the search's budget ran out) the caller pursues as before.
+func (s *Seat) exactPlay(v view.View, d *decision.Decision, k actionKey) (in decision.Intent, ok, done bool) {
+	sp, has := s.planner.(ScriptPlanner)
+	if !has {
+		return decision.Intent{}, false, false
+	}
+	pp := s.potentialPlan(d, k)
+	if pp == nil || (pp.Reason != "unsupported" && pp.Reason != "search_limit") {
+		return decision.Intent{}, false, false
+	}
+	script, reason := sp.PotentialPlayScript(d.Player, pp.Action, exactBudget)
+	switch reason {
+	case "":
+		s.Stats.ExactScripts++
+		s.Stats.Scripts++
+		s.script, s.scriptAt, s.scriptKey, s.scriptWaits = script, 0, k, 0
+		if s.script == nil {
+			s.script = []rules.ScriptStep{}
+		}
+		in, ok := s.stepScript(v, d)
+		return in, ok, true
+	case "insufficient":
+		s.Stats.ExactProofs++
+		s.failed[k] = true
+		return decision.Intent{}, false, true
+	}
+	s.Stats.ExactLimited++
+	return decision.Intent{}, false, false
+}
+
+// abortScript abandons the scripted prefix in progress: its play is lost
+// for the step.
+func (s *Seat) abortScript(v view.View, why string) {
+	k := s.scriptKey
+	s.script = nil
+	s.scriptLost(v, k, why)
+}
+
+func (s *Seat) scriptLost(v view.View, k actionKey, why string) {
+	s.Stats.ScriptAborts++
+	if len(s.Stats.AbortSamples) < maxAbortSamples {
+		s.Stats.AbortSamples = append(s.Stats.AbortSamples, fmt.Sprintf("turn %d %s: script for %s %d: %s", v.Turn, v.Step, k.kind, k.obj, why))
+	}
+	s.failed[k] = true
+	if !s.lost[k] {
+		s.lost[k] = true
+		s.Stats.LostPlays++
+	}
+}
+
 // maxAttempts bounds one play's lowerings in one step: a play whose second
 // lowering aborts too is excluded for the rest of the step.
 const maxAttempts = 2
@@ -366,9 +530,10 @@ func (s *Seat) payWith(v view.View, d *decision.Decision, a *decision.PaymentAct
 }
 
 // lowerPlay lowers witness, the planner's mana witness for potential play
-// k (an activated ability), in every mode that hides mana abilities.
+// k (an activated ability, a mode cast or an {X} cast), in every mode that
+// hides mana abilities.
 func (s *Seat) lowerPlay(v view.View, d *decision.Decision, k actionKey, witness decision.PaymentPlan, depth int) decision.Intent {
-	play := payexec.Play{Kind: k.kind, Obj: k.obj, Ability: k.ability}
+	play := payexec.Play{Kind: k.kind, Obj: k.obj, Ability: k.ability, Mode: k.mode}
 	s.exec = payexec.StartPlay(d.Player, play, witness, payexec.PoolFromView(v, d.Player))
 	s.execKey = k
 	s.execLabel = ""

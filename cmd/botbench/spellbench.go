@@ -763,5 +763,9 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 				fmt.Fprintf(w, "       %-22s   abort: %s\n", "", a)
 			}
 		}
+		if ps.Scripts+ps.ExactProofs+ps.ExactLimited > 0 {
+			fmt.Fprintf(w, "       %-22s scripts %4d (exact %d)  played %4d  aborted %3d  steps %5d  exact proofs %d  exact over budget %d\n", "",
+				ps.Scripts, ps.ExactScripts, ps.ScriptedPlays, ps.ScriptAborts, ps.ScriptSteps, ps.ExactProofs, ps.ExactLimited)
+		}
 	}
 }

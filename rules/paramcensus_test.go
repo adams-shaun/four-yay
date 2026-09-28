@@ -1547,6 +1547,11 @@ var apiSpecificRulesSA = map[string][]string{
 	// Sacrifice's unread Produced$/DealDamage's unread Produced$.
 	"addPotentialMana": {"Mana"},
 	"potentialAmount":  {"Mana"},
+	// The potential-play planner's relaxed census proof (rules/
+	// potential_plan.go): it reads a missed MANA ability's Cost$/Produced$/
+	// ActivationLimit$ (it returns at once for any other API), so its reads
+	// must not mask another API's unread Produced$.
+	"Engine.paymentPlanRelaxedAlternatives": {"Mana"},
 	// The ManaReflected activation gate: only a reflected-mana ability's
 	// offer consults IsPresent$/PresentCompare$ on the SA itself (Tazri's
 	// "another activated ability" condition). A plain AB$ Mana ability's

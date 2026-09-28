@@ -34,7 +34,14 @@ import (
 // the old policies map instead of registry.Build the digest is identical, so
 // the registry refactor is seat-identical and the move is prep's behaviour
 // alone.
-const smokeDigestGolden = "608689df2f02cfb4ad8f221d538a316155785b61128a4457ba57692a5e6bcf1e"
+//
+// Re-pinned again at sb-pursuit: the sb seats no longer pursue a play the
+// planner cannot price by naive tapping. rules.PotentialPaymentPlans now
+// witnesses mode, {X} and hybrid casts and answers scripted prefixes for
+// sources outside its census, the seat decides any other unpriced play with
+// the exact search (rules.Engine.PotentialPlayScript), and builtins.Stats,
+// which games.jsonl records per seat, gained the script counters.
+const smokeDigestGolden = "2ad777f7f86cca866afa0dc5cbc45231fc6cfe40cebb9c924f7ecab673c35d5a"
 
 // TestSpellbenchSmokeDigestIsStable plays the smoke run and compares its
 // games.jsonl digest against the golden above.

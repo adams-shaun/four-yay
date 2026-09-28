@@ -566,6 +566,18 @@ type Engine struct {
 	// installed for one query and validated against the log on every read.
 	// Pure per-query scratch: Clone copies none of it.
 	paymentPlanQuery *paymentPlanQuery
+	// paymentPlanRelaxed is PotentialPaymentPlans' transient proof mode
+	// (rules/potential_plan.go paymentPlanRelaxProof): relaxed, never
+	// executed alternatives for the mana abilities the planner census does
+	// not price, appended to every search while it is set. Pure per-query
+	// scratch: Clone copies none of it.
+	paymentPlanRelaxed [][]plannedManaActivation
+	// paymentPlanRelaxedFee is the generic the relaxed proof charges on top
+	// of every planned cost for the paid relaxed abilities it admits.
+	paymentPlanRelaxedFee int32
+	// paymentPlanPotentialPool marks a PotentialPaymentPlans query
+	// (paymentPlanPoolAccepted). Pure per-query scratch: Clone copies none.
+	paymentPlanPotentialPool bool
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7

@@ -74,8 +74,15 @@
 //     can pay is lowered from its witness exactly like a Planned cast, and a
 //     potential play the planner PROVES unpayable is not a candidate at all
 //     (it is not a legal action; the naive pursuit used to tap out for it).
-//     Without a Planner, or for a play the planner does not price (an X
-//     cost, a mode such as flashback, a granted ability), the naive pursuit
+//     The planner also witnesses mode casts (flashback, bestow ...), {X}
+//     and hybrid casts, and answers a scripted prefix (PotentialPlan.Script)
+//     for a play only a source its census cannot price pays (Saruli
+//     Caretaker, Wall of Roots, a filter land): the seat replays the
+//     prefix's answers, then pays the play as any priced play. A play the
+//     planner still leaves unpriced is decided when chosen by the exact
+//     search (ScriptPlanner, rules.Engine.PotentialPlayScript): a script
+//     that reaches it, or a proof that drops it for the step. Without a
+//     Planner, or when that search runs out of budget, the naive pursuit
 //     below stands.
 //
 //     Never losing a chosen play (every mode): a lowering hands back a
@@ -258,6 +265,21 @@ type Stats struct {
 	// RecoveredPlays counts the aborted plays a re-plan still completed.
 	LostPlays      int
 	RecoveredPlays int
+	// Scripted plays (rules.PotentialPlan.Script, package doc 1): started,
+	// completed (the prefix ran and the play was then paid and taken),
+	// aborted (a step's decision was not the searched one, or the play was
+	// not priced after the prefix), and the prefix answers given.
+	Scripts       int
+	ScriptedPlays int
+	ScriptAborts  int
+	ScriptSteps   int
+	// The exact fallback (ScriptPlanner) for a chosen unpriced play:
+	// scripts found (also counted in Scripts), proofs that the play cannot
+	// be paid (the play is dropped, like ExcludedUnpayable), and searches
+	// whose budget ran out (the play is then pursued).
+	ExactScripts int
+	ExactProofs  int
+	ExactLimited int
 	// Refusals counts answers the engine refused (Refused).
 	Refusals int
 	// AutoPayFallbacks counts decisions posed with a PaymentFallback: an
@@ -294,6 +316,13 @@ func (s *Stats) Add(o Stats) {
 	s.AbortPasses += o.AbortPasses
 	s.LostPlays += o.LostPlays
 	s.RecoveredPlays += o.RecoveredPlays
+	s.Scripts += o.Scripts
+	s.ScriptedPlays += o.ScriptedPlays
+	s.ScriptAborts += o.ScriptAborts
+	s.ScriptSteps += o.ScriptSteps
+	s.ExactScripts += o.ExactScripts
+	s.ExactProofs += o.ExactProofs
+	s.ExactLimited += o.ExactLimited
 	s.Refusals += o.Refusals
 	s.AutoPayFallbacks += o.AutoPayFallbacks
 	for _, a := range o.AbortSamples {
@@ -342,6 +371,14 @@ type Seat struct {
 	execLabel string // the play's label, for abort samples
 	attempts  map[actionKey]int
 	lost      map[actionKey]bool
+
+	// script is the scripted prefix in progress (rules.PotentialPlan.
+	// Script), nil when none; scriptAt is its next step and scriptKey its
+	// play.
+	script      []rules.ScriptStep
+	scriptAt    int
+	scriptKey   actionKey
+	scriptWaits int
 
 	// planner prices potential plays (nil: pursue naively); plans caches
 	// its answer for the decision planSeq (lookup only).
@@ -394,6 +431,12 @@ func (s *Seat) Decide(_ context.Context, v view.View, d decision.Decision) (deci
 	if d.PaymentFallback != nil {
 		s.Stats.AutoPayFallbacks++
 	}
+	if s.script != nil {
+		if in, ok := s.stepScript(v, &d); ok {
+			in.Seq, in.Player = d.Seq, d.Player
+			return in, nil
+		}
+	}
 	if s.exec != nil {
 		if in, ok := s.lower(v, &d, 0); ok {
 			in.Seq, in.Player = d.Seq, d.Player
@@ -415,6 +458,9 @@ func (s *Seat) Refused(v view.View, d decision.Decision, refused decision.Intent
 	s.Stats.Refusals++
 	if s.exec != nil {
 		s.abortLowering("refused")
+	}
+	if s.script != nil {
+		s.abortScript(v, "refused")
 	}
 	s.pursuit = nil
 	if d.Kind != decision.KPriority {
@@ -455,6 +501,9 @@ func (s *Seat) sync(v view.View) {
 	if s.exec != nil {
 		// The pool empties with the step: a lowering cannot span it.
 		s.abortLowering("step_changed")
+	}
+	if s.script != nil {
+		s.abortScript(v, "step changed")
 	}
 	clear(s.attempts)
 	clear(s.lost)

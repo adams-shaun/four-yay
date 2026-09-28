@@ -3088,7 +3088,10 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		if !e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			continue
 		}
-		if fc := e.flashbackCost(id); offerCastable(p, id, fc, spellScope("flashback"), false) {
+		// CR 702.34a/601.2f: the flashback cost replaces the mana cost only;
+		// the spell's own additional costs (withSpellAbilityExtras) are
+		// still paid, exactly as beginCast charges them.
+		if fc := withSpellAbilityExtras(f, e.flashbackCost(id)); offerCastable(p, id, fc, spellScope("flashback"), false) {
 			out = append(out, decision.Option{Index: len(out), Kind: "cast",
 				Label: "Cast " + f.Name + " (flashback)", Obj: id, Mode: "flashback"})
 		}
