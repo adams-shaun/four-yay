@@ -4928,19 +4928,21 @@ func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 // bottom ("-1" is the bottom). An SVar-resolved value (Quarry Colossus'
 // LibraryPosition$ X, read through the ordinary Num grammar) resolves at
 // resolution time; a value Num cannot resolve is LOUD -- one Note and the
-// MoveZone bottom append stands -- never a guessed placement. An absent
-// LibraryPosition$ places nothing: the bottom append stands, exactly as the
-// ChangeZoneAll path treats absence.
+// MoveZone bottom append stands -- never a guessed placement. An ABSENT
+// LibraryPosition$ is Forge's TOP default (golgari_thug2):
+// ChangeZoneEffect.changeKnownOriginResolve computes libPos = 0 when the
+// parameter is absent, the same default the hand path (handLibraryTail) and
+// the ChangeZoneAll path apply, so the absent spelling places at position 0.
 func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.ObjID) {
-	raw := strings.TrimSpace(sa.Params["LibraryPosition"])
-	if raw == "" {
-		return
-	}
-	position, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
-	if !ok {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "LibraryPosition$ " + raw + " is not implemented; the cards sit at the BOTTOM of their owners' libraries (the MoveZone append)"})
-		return
+	position := int32(0) // Forge's absent-LibraryPosition$ default is TOP
+	if raw := strings.TrimSpace(sa.Params["LibraryPosition"]); raw != "" {
+		p, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
+		if !ok {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "LibraryPosition$ " + raw + " is not implemented; the cards sit at the BOTTOM of their owners' libraries (the MoveZone append)"})
+			return
+		}
+		position = p
 	}
 	type ownerMoved struct {
 		owner state.PlayerID
@@ -5401,10 +5403,13 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		// destination library in settle order, so "-1" (Terminus) is exactly the
 		// move order and needs no extra event; "0" pins the moved cards on TOP
 		// via the one Secret LibraryOrder placement every library placement
-		// shares. Any other value is loud rather than silently inert.
+		// shares. The ABSENT spelling is also TOP (golgari_thug2):
+		// ChangeZoneAllEffect computes libPos = 0 when LibraryPosition$ is
+		// absent, the same default the hand path and the object-target path
+		// apply. Any other value is loud rather than silently inert.
 		switch position {
-		case "", "-1":
-		case "0":
+		case "-1":
+		case "", "0":
 			for _, pm := range placements {
 				libraryOrderPlacement(h, pm.owner, pm.ids, false)
 			}

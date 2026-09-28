@@ -314,8 +314,15 @@ func TestTolarianContemptBareInlineBoundAsksOnePerOpponent(t *testing.T) {
 	}
 	// One creature per opponent, answered; the sub-ability chain (DBRepeat's
 	// RepeatEach over the targeted) then moves each chosen creature to its
-	// OWNER's library at the alternate position -1 (bottom) -- the chain's
-	// deterministic no-host default for the owner's top-or-bottom election.
+	// OWNER's library. Tolarian Contempt's script writes NO LibraryPosition$
+	// on the primary move (Forge's absent default is 0 = TOP), and its
+	// top-or-bottom election rides AlternativeDecider$ RememberedOwner, a
+	// decider this engine does not recognise. The deterministic no-host
+	// fallback therefore takes the PRIMARY placement (top) -- the same
+	// primary-destination contract the Dream Cache DestinationAlternative$
+	// shape has -- and emits a Note naming the unrecognised decider. Before
+	// golgari_thug2 the absent spelling left the card at the MoveZone bottom
+	// append, which is what the old bottom assertion here was pinning.
 	pick := []int{indexOf(bearA), indexOf(bearC)}
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: pick}); err != nil {
 		t.Fatalf("submit one-per-opponent answer: %v", err)
@@ -332,10 +339,13 @@ func TestTolarianContemptBareInlineBoundAsksOnePerOpponent(t *testing.T) {
 	}
 	lib1 := e.G.Zone(state.ZLibrary, 1)
 	lib2 := e.G.Zone(state.ZLibrary, 2)
-	if lib1[len(lib1)-1] != bearA {
-		t.Fatalf("bear %d not at the bottom of its owner's library (tail %d)", bearA, lib1[len(lib1)-1])
+	if len(lib1) == 0 || len(lib2) == 0 {
+		t.Fatalf("precondition: owner libraries must hold the returned bears (lib1=%d lib2=%d)", len(lib1), len(lib2))
 	}
-	if lib2[len(lib2)-1] != bearC {
-		t.Fatalf("bear %d not at the bottom of its owner's library (tail %d)", bearC, lib2[len(lib2)-1])
+	if lib1[0] != bearA {
+		t.Fatalf("bear %d not on top of its owner's library (head %d)", bearA, lib1[0])
+	}
+	if lib2[0] != bearC {
+		t.Fatalf("bear %d not on top of its owner's library (head %d)", bearC, lib2[0])
 	}
 }

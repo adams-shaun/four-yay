@@ -177,7 +177,17 @@ func TestProposalLaterShuffleCreditsOpponentHand(t *testing.T) {
 
 func TestProposalLaterDrawsPreserveKnownDuplicateObjects(t *testing.T) {
 	land := syntheticCard(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:Fixture.\n")
-	spell := syntheticCard(t, "Name:Return Shuffle Draw\nManaCost:0\nTypes:Sorcery\nA:SP$ ChangeZoneAll | Origin$ Hand | Destination$ Library | ChangeType$ Card.YouOwn | SubAbility$ Mix\nSVar:Mix:DB$ Shuffle | Defined$ You | SubAbility$ Pull\nSVar:Pull:DB$ Draw | Defined$ You | NumCards$ 5\nOracle:Fixture.\n")
+	// LibraryPosition$ -1 (bottom) is pinned deliberately: this fixture is
+	// about the sampler preserving KNOWN DUPLICATE physical objects across a
+	// redraw, not about where the cards land before the shuffle. Without the
+	// param the ChangeZoneAll takes Forge's absent-position default (TOP,
+	// golgari_thug2) and emits a replacement LibraryOrder, which is a real
+	// placement but here is immediately shuffled away; pinning -1 keeps the
+	// fixture exercising exactly the pre-golgari_thug2 event shape it was
+	// written for. The sampler's handling of the TOP-placement-then-shuffle
+	// shape (the real Head Games / Jester's Mask script) is tracked by the
+	// follow-up ticket filed with this round.
+	spell := syntheticCard(t, "Name:Return Shuffle Draw\nManaCost:0\nTypes:Sorcery\nA:SP$ ChangeZoneAll | Origin$ Hand | Destination$ Library | ChangeType$ Card.YouOwn | LibraryPosition$ -1 | SubAbility$ Mix\nSVar:Mix:DB$ Shuffle | Defined$ You | SubAbility$ Pull\nSVar:Pull:DB$ Draw | Defined$ You | NumCards$ 5\nOracle:Fixture.\n")
 	decks := [][]*cards.Card{repeatCard(land, 12), repeatCard(land, 12)}
 	decks[0][0] = spell
 	setup, h := proposalHistory(t, decks, 0, func(e *rules.Engine) bool { return len(e.G.Zone(state.ZGraveyard, 0)) == 1 })
