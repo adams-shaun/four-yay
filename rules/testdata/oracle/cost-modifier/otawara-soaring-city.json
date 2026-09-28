@@ -8,9 +8,9 @@
       "name": "channel-discount-for-legendary-creature",
       "cr": ["602.2b", "118.7a"],
       "why": "Seat 0 controls one legendary creature, so the Channel ability's generic activation cost is reduced by one. Two generic and one blue mana pay the remaining cost.",
-      "setup": {"p0": {"battlefield": ["Otawara, Soaring City", "Syr Elenora, the Discerning"]}, "p1": {"battlefield": ["Grizzly Bears"]}},
+      "setup": {"p0": {"hand": ["Otawara, Soaring City"], "battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"battlefield": ["Grizzly Bears"]}},
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Otawara, Soaring City", "ability": "Channel", "mana": "2U", "targets": ["p1:Grizzly Bears"]},
+        {"op": "activate", "seat": 0, "card": "p0:Otawara, Soaring City", "ability": "Return target artifact", "mana": "CCU", "targets": ["p1:Grizzly Bears"]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p1:Grizzly Bears", "zone": "hand"}, {"card": "p0:Otawara, Soaring City", "zone": "graveyard"}]
@@ -19,9 +19,9 @@
       "name": "channel-without-legend-needs-full-cost",
       "cr": ["602.2b"],
       "why": "With no legendary creature controlled, Otawara's ability retains its full {3}{U} activation cost; {2}{U} is insufficient.",
-      "setup": {"p0": {"battlefield": ["Otawara, Soaring City"]}, "p1": {"battlefield": ["Grizzly Bears"]}},
-      "steps": [{"op": "mana", "seat": 0, "mana": "2U"}],
-      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Otawara, Soaring City", "label": "Channel"}, "want": false}]
+      "setup": {"p0": {"hand": ["Otawara, Soaring City"]}, "p1": {"battlefield": ["Grizzly Bears"]}},
+      "steps": [{"op": "mana", "seat": 0, "mana": "CCU"}],
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Otawara, Soaring City", "label": "Return target artifact"}, "want": false}]
     }
   ]
 }

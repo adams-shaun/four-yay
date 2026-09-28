@@ -10,7 +10,7 @@
       "why": "Thought-Knot Seer is colorless, so Ugin reduces its generic component by two. Its required colorless component remains, leaving {1}{C} to pay.",
       "setup": {"p0": {"hand": ["Thought-Knot Seer"], "battlefield": ["Ugin, the Ineffable"]}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Thought-Knot Seer", "mana": "1C", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "cast", "seat": 0, "card": "p0:Thought-Knot Seer", "mana": "CC", "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p0:Thought-Knot Seer", "zone": "battlefield"}]

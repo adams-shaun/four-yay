@@ -8,9 +8,9 @@
       "name": "channel-discount-for-legendary-creature",
       "cr": ["602.2b", "118.7a"],
       "why": "One legendary creature controlled reduces the Channel activation's generic component to nothing. Only {G} remains to pay, and the opposing artifact is a legal target.",
-      "setup": {"p0": {"battlefield": ["Boseiju, Who Endures", "Syr Elenora, the Discerning"]}, "p1": {"battlefield": ["Bonesplitter"]}},
+      "setup": {"p0": {"hand": ["Boseiju, Who Endures"], "battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"battlefield": ["Bonesplitter"]}},
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Boseiju, Who Endures", "ability": "Channel", "mana": "G", "targets": ["p1:Bonesplitter"]},
+        {"op": "activate", "seat": 0, "card": "p0:Boseiju, Who Endures", "ability": "Destroy target artifact", "mana": "G", "targets": ["p1:Bonesplitter"]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p1:Bonesplitter", "zone": "graveyard"}, {"card": "p0:Boseiju, Who Endures", "zone": "graveyard"}]
@@ -19,9 +19,9 @@
       "name": "channel-without-legend-needs-full-cost",
       "cr": ["602.2b"],
       "why": "Without a legendary creature, the ability costs {1}{G}; {G} alone cannot activate it.",
-      "setup": {"p0": {"battlefield": ["Boseiju, Who Endures"]}, "p1": {"battlefield": ["Bonesplitter"]}},
+      "setup": {"p0": {"hand": ["Boseiju, Who Endures"]}, "p1": {"battlefield": ["Bonesplitter"]}},
       "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
-      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Boseiju, Who Endures", "label": "Channel"}, "want": false}]
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Boseiju, Who Endures", "label": "Destroy target artifact"}, "want": false}]
     }
   ]
 }

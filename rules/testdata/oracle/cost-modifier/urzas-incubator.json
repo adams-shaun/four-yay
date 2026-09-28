@@ -19,11 +19,11 @@
     {
       "name": "nonmatching-creature-retains-generic-cost",
       "cr": ["601.2f"],
-      "why": "Grizzly Bears is not the chosen Goblin type, so {G} alone cannot pay its {1}{G} cost.",
-      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Urza's Incubator"]}},
-      "setup_answers": [{"kind": "any", "pick": ["Goblin"]}],
-      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
-      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+      "why": "Goblin Piledriver is not the chosen Bear type, so {R} alone cannot pay its {1}{R} cost.",
+      "setup": {"p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Urza's Incubator", "Grizzly Bears"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Bear"]}],
+      "steps": [{"op": "mana", "seat": 0, "mana": "R"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Goblin Piledriver"}, "want": false}]
     },
     {
       "name": "colored-component-is-not-reduced",

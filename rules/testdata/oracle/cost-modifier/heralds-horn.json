@@ -19,11 +19,11 @@
     {
       "name": "nonmatching-creature-not-reduced",
       "cr": ["601.2f"],
-      "why": "The chosen type is Goblin, not Bear. Grizzly Bears still needs its generic mana in addition to green mana.",
-      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Herald's Horn"]}},
-      "setup_answers": [{"kind": "any", "pick": ["Goblin"]}],
+      "why": "The chosen type is Bear, not Goblin. Goblin Piledriver retains its generic mana in addition to red mana.",
+      "setup": {"p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Herald's Horn", "Grizzly Bears"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Bear"]}],
       "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
-      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Goblin Piledriver"}, "want": false}]
     },
     {
       "name": "colored-mana-remains",

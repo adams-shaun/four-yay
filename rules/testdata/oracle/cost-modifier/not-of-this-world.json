@@ -5,26 +5,24 @@
   "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "free-when-targeting-power-seven-creature",
+      "name": "high-power-creature-target-enables-cost-reduction",
       "cr": ["601.2f", "118.7a"],
-      "why": "After seat 0 casts its first Bolt, Syr has seven cards in hand and power seven. Seat 1's Bolt targets it, so Not of This World targets that spell and its seven-generic cost is reduced to zero.",
-      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Not of This World", "Lightning Bolt", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "why": "Syr's power equals its controller's hand size. After the seven filler cards and the two spells are considered, Syr has power nine when Giant Growth targets it; Not of This World can target that spell and its generic cost is reduced to zero.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Not of This World", "Giant Growth", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
-        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "RRR", "targets": ["p0:Syr Elenora, the Discerning"]},
-        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "targets": ["p1:Lightning Bolt"], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "cast", "seat": 0, "card": "p0:Giant Growth", "mana": "G", "targets": ["p0:Syr Elenora, the Discerning"]},
+        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "targets": ["p0:Giant Growth"], "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
       "expect": [{"card": "p0:Syr Elenora, the Discerning", "zone": "battlefield"}]
     },
     {
-      "name": "not-free-below-seven-power",
+      "name": "low-power-creature-does-not-reduce-cost",
       "cr": ["601.2f"],
-      "why": "Here Syr has fewer than seven cards and power below seven when the opponent's spell targets it. Not of This World receives no reduction, so the zero-mana pool cannot cast it.",
-      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Not of This World", "Lightning Bolt"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "why": "With only two cards after casting Giant Growth, Syr's power is below seven. The spell targeting it does not qualify for the reduction, so Not of This World is not offered from an empty mana pool.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Not of This World", "Giant Growth"]}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
-        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "RRR", "targets": ["p0:Syr Elenora, the Discerning"]}
+        {"op": "cast", "seat": 0, "card": "p0:Giant Growth", "mana": "G", "targets": ["p0:Syr Elenora, the Discerning"]}
       ],
       "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Not of This World"}, "want": false}]
     }
