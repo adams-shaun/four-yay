@@ -2248,11 +2248,17 @@ func markCostValidTarget(out *costStaticViews) {
 				out.validTarget = true
 				return
 			}
-			// Not of This World/Bane's Contingency: Amount$ names a
-			// Compare SVar whose operand reads the cast's target's targets.
-			// An ordinary nil-target price cannot see that reduction.
+			// A target-relative Count$Compare amount reads the chosen targets
+			// (Not of This World/Bane's Contingency's `TargetedByTarget$Valid`,
+			// Lullmage's Domination's `TargetedController$CardsInGraveyard`).
+			// An ordinary nil-target price cannot see that reduction, so the
+			// whole `Targeted` ref family -- not just the one spelling a
+			// previous ticket hit -- marks the collection as target-conditional.
+			// The ref is read off the operand SVar (`fields[1]`), so a name
+			// that is not a target-relative head (a literal, a shared counter,
+			// a `Triggered*` read) stays nil-target priced.
 			if fields := strings.Fields(sv.SVars[sv.Params["Amount"]]); len(fields) >= 2 &&
-				fields[0] == "Count$Compare" && strings.HasPrefix(sv.SVars[fields[1]], "TargetedByTarget$") {
+				fields[0] == "Count$Compare" && strings.HasPrefix(sv.SVars[fields[1]], "Targeted") {
 				out.validTarget = true
 				return
 			}

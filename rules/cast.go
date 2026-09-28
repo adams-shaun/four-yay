@@ -4895,19 +4895,55 @@ func (e *Engine) xAsk() bool {
 	// cost keeps the early break (generic only grows with x, so nothing
 	// past the first unpayable x can be payable).
 	nonMonotonic := costAnnouncesPaidX(pc.cost)
+	// The target-dependent retry's statics are collected lazily, on the first
+	// candidate X the ordinary nil-target price cannot settle, and reused for
+	// the rest of the loop.
+	var xStatics costStaticViews
+	xStaticsLoaded := false
 	for x := min; x <= bound; x++ {
 		// The offer sweep and the announcement must agree on whether the
 		// SAME X can settle every Sac part without reusing an object.
 		if sacX && !e.sacrificeCostAssignable(pc.player, pc.card, pc.cost.Sac, pc.isAbility(), x) {
 			continue
 		}
+		var potentialMods costMods
+		usedPotential := false
 		wx := e.paymentManaX(pc, x)
 		wx.Generic -= e.delveCredit(pc.player, pc.card, wx.Generic)
 		// The descriptor carries the announced-X marker: WithX folded this
 		// payment's X into Generic, and a CostContainsX batch must still see
 		// an X payment here or every X announcement would be unpayable.
-		if !e.costPayableClass(pc.player, paymentForCast(pc, wx),
-			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, wx) {
+		payable := e.costPayableClass(pc.player, paymentForCast(pc, wx),
+			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, wx)
+		if !payable {
+			// A target-dependent reduction is absent from the nil-target
+			// composition pc.mods carries, so an X affordable only under it
+			// (Lullmage's Domination) would be withheld. Retry through the
+			// same potential-target composition the offer gate uses; the
+			// chosen target is repriced at CR 601.2c before payment, so this
+			// only widens the menu to X some legal target can pay.
+			if !xStaticsLoaded {
+				xStatics = e.collectCostStatics()
+				xStaticsLoaded = true
+				// A target-dependent reduction does not price monotonically in
+				// x: the candidate targets an X legalizes differ per X (a cmc-1
+				// creature may qualify where a cmc-2 one does not, and vice
+				// versa), so an unpayable X does not imply every larger X is
+				// unpayable. Suppress the early break for the rest of the loop
+				// exactly as costAnnouncesPaidX does for the Dargo shape.
+				if xStatics.validTarget {
+					nonMonotonic = true
+				}
+			}
+			if m, ok := e.xTargetPotentialMods(pc, x, xStatics); ok {
+				potentialMods = m
+				wx = e.paymentManaXUsing(pc, x, m)
+				wx.Generic -= e.delveCredit(pc.player, pc.card, wx.Generic)
+				payable = true
+				usedPotential = true
+			}
+		}
+		if !payable {
 			if !nonMonotonic {
 				break
 			}
@@ -4925,7 +4961,11 @@ func (e *Engine) xAsk() bool {
 		// breaking: absorption improves monotonically with x. Without
 		// announced contributions the absorb check is vacuously true, so
 		// the offer is exactly the old payable range.
-		if !e.convokeAbsorbs(pc, e.manaToPayX(pc, x), pc.convoke, false) {
+		convMana := e.manaToPayX(pc, x)
+		if usedPotential {
+			convMana = e.manaToPayXUsing(pc, x, potentialMods)
+		}
+		if !e.convokeAbsorbs(pc, convMana, pc.convoke, false) {
 			continue
 		}
 		legal = append(legal, x)
@@ -4964,6 +5004,48 @@ func (e *Engine) xAsk() bool {
 	e.choosing = chooseCast
 	e.ask(d)
 	return true
+}
+
+// xTargetPotentialMods prices candidate X through the potential-target retry
+// the offer gate uses: a ReduceCost static that reads the chosen targets
+// (ValidTarget$, a target-conditional ValidSpell$, or a target-relative
+// Count$Compare Amount$) is absent from pc.mods, which was priced with no
+// targets. Lullmage's Domination is the corpus carrier: its {3} reduction
+// hinges on the controller of the creature it targets, so with only {U}{U}{U}
+// available X=1 is payable only after a qualifying target is chosen. xAsk runs
+// before CR 601.2c, so without this the X menu offered only X=0 and the
+// reduction was unusable for nonzero X. The candidate X is bound while the
+// potential targets are enumerated so an X-dependent ValidTgts$ (cmcEQX)
+// resolves. ok=false means no potential-target composition made X payable, in
+// which case the caller keeps the ordinary fail-closed break. The final
+// selection is still repriced before payment (repriceForTargets and
+// affordableTargetCandidates), so this only widens the MENU to X values some
+// legal target choice can pay.
+func (e *Engine) xTargetPotentialMods(pc *pendingCast, x int32, statics costStaticViews) (costMods, bool) {
+	if !statics.validTarget {
+		return costMods{}, false
+	}
+	scope, ok := e.pendingCastScope(pc)
+	if !ok {
+		return costMods{}, false
+	}
+	// Bind the candidate X for the target census: targetSpecContext reads
+	// e.cast.x, so an X-bound ValidTgts$ (Creature.cmcEQX) enumerates exactly
+	// the targets X would legalize. Restored immediately; pc.x is only
+	// assigned the announcement after the decision is answered.
+	prevX := pc.x
+	pc.x = x
+	targets := e.costPotentialTargets(pc.player, pc.card, scope)
+	pc.x = prevX
+	if len(targets) == 0 {
+		return costMods{}, false
+	}
+	return e.potentialCostModsUsing(statics, pc.player, pc.card, scope, targets, x, func(m costMods) bool {
+		w := e.paymentManaXUsing(pc, x, m)
+		w.Generic -= e.delveCredit(pc.player, pc.card, w.Generic)
+		return e.costPayableClass(pc.player, paymentForCast(pc, w),
+			pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}, w)
+	})
 }
 
 // delveAsk offers exiling graveyard cards to pay for id's Delve, when id has
@@ -6954,7 +7036,15 @@ func (e *Engine) paymentMana(pc *pendingCast) Cost {
 // folded into the total. xAsk uses it so an X value funded by Convoke or
 // Harmonize is actually offered, not rejected before the payment is known.
 func (e *Engine) paymentManaX(pc *pendingCast, x int32) Cost {
-	return e.applyConvoke(pc, e.manaToPayX(pc, x))
+	return e.paymentManaXUsing(pc, x, e.manaToPayXMods(pc, x))
+}
+
+// paymentManaXUsing is paymentManaX with an explicit modifier composition
+// (xAsk's target-potential retry), so the announced Convoke/Harmonize
+// contributions are folded onto the alternatively-priced total exactly as
+// they are onto the ordinary one.
+func (e *Engine) paymentManaXUsing(pc *pendingCast, x int32, mods costMods) Cost {
+	return e.applyConvoke(pc, e.manaToPayXUsing(pc, x, mods))
 }
 
 func convokeManaSpent(pays []convokePayment) int32 {
@@ -7332,15 +7422,32 @@ func (e *Engine) convokeAsk() bool {
 }
 
 func (e *Engine) manaToPayX(pc *pendingCast, x int32) Cost {
-	m := pc.mods.apply(pc.resolvedManaX(x))
+	return e.manaToPayXUsing(pc, x, e.manaToPayXMods(pc, x))
+}
+
+// manaToPayXMods is the modifier composition manaToPayX applies to a
+// candidate X: pc.mods, except that a cost whose announced count feeds a
+// ReduceCost static reading the paid X (Dargo's {2}-less-per-sacrifice) is
+// re-priced with the X-bound targets, because the offer-time pc.mods snapshot
+// was bound to X=0. xAsk reads it so the convoke-absorption check and the
+// potential-target retry compose the SAME modifiers the payable check used.
+func (e *Engine) manaToPayXMods(pc *pendingCast, x int32) costMods {
 	if costAnnouncesPaidX(pc.cost) {
-		// The announced sacrifice count re-prices the ReduceCost statics that
-		// read the paid X (Dargo's {2}-less-per-sacrifice): the offer-time
-		// pc.mods snapshot was bound to X=0.
 		if scope, ok := e.pendingCastScope(pc); ok {
-			m = e.costModifiersForTargetsX(pc.player, pc.card, scope, pc.targets, x).apply(pc.resolvedManaX(x))
+			return e.costModifiersForTargetsX(pc.player, pc.card, scope, pc.targets, x)
 		}
 	}
+	return pc.mods
+}
+
+// manaToPayXUsing is manaToPayX with an explicit modifier composition.
+// xAsk's target-potential retry prices a candidate X under the reduction a
+// potential target would give (mods is then the potential composition); every
+// other caller passes manaToPayXMods. The commander tax is folded in the same
+// place as manaToPayX, so an alternative composition charges the identical
+// total.
+func (e *Engine) manaToPayXUsing(pc *pendingCast, x int32, mods costMods) Cost {
+	m := mods.apply(pc.resolvedManaX(x))
 	m.Generic += pc.taxGeneric
 	return m
 }

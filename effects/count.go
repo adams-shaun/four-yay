@@ -1481,17 +1481,22 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 }
 
 // evalPlayerRefProperty resolves one "TargetedPlayer$<Property>[...][/Op]"
-// (and the sibling "ThisTargetedPlayer$..." spelling) count body over the
-// PLAYERS a target reference names -- the <Ref>$<Property> family's
-// player-valued half, which evalRefProperty's object loop structurally
-// cannot serve (it `continue`s every IsPlayer target and its property
-// switch is object-only). The player list is the generic pre-ask's
-// answered set (Ctx.PickedTargets) when non-nil, else the resolution's own
-// Ctx.Targets, filtered to IsPlayer entries -- effects/context.go's
-// Defined$ Targeted precedence exactly, so the head answers the player the
-// resolving body acts on. The count of players can be several; Forge's own
-// Count sums over the referenced players the same way evalRefProperty sums
-// over referenced objects.
+// (and the siblings "ThisTargetedPlayer$..." and "TargetedController$...")
+// count body over the PLAYERS a target reference names -- the
+// <Ref>$<Property> family's player-valued half, which evalRefProperty's
+// object loop structurally cannot serve (it `continue`s every IsPlayer target
+// and its property switch is object-only). The player list is the generic
+// pre-ask's answered set (Ctx.PickedTargets) when non-nil, else the
+// resolution's own Ctx.Targets, filtered to IsPlayer entries --
+// effects/context.go's Defined$ Targeted precedence exactly, so the head
+// answers the player the resolving body acts on. The count of players can be
+// several; Forge's own Count sums over the referenced players the same way
+// evalRefProperty sums over referenced objects.
+//
+// TargetedController$<Property> is the same family read through the CONtroller
+// of the target list: its players are controllersOf(Ctx.Targets/PickedTargets)
+// -- the exact resolution effects/context.go's Defined$ TargetedController
+// case already uses -- so it shares this arm's whole property switch.
 //
 // A ref this arm does not special-case (TriggeredTarget, TriggeredPlayer,
 // TriggeredDefendingPlayer, ...) is resolved through effects/context.go's
@@ -1540,6 +1545,20 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		if c.PickedTargets != nil {
 			ts = c.PickedTargets
 		}
+	case "TargetedController":
+		// The target list read through its controllers: the same
+		// PickedTargets-else-Targets precedence as the TargetedPlayer arm,
+		// converted with the shared controllersOf helper the Defined$
+		// TargetedController case in effects/context.go also uses, so a
+		// count head and a Defined$ spelling of the ref cannot disagree.
+		// Lullmage's Domination's SVar:CheckTgt reads
+		// `TargetedController$CardsInGraveyard` through the ReduceCost
+		// static's Count$Compare (agent-20260928T043626Z-b7e271c1).
+		src := c.Targets
+		if c.PickedTargets != nil {
+			src = c.PickedTargets
+		}
+		ts = controllersOf(h.Game(), src)
 	case "TriggeredPlayersOpponentVotedDiff":
 		// The canonical vote-finished carrier's diff set (trig:Vote): the
 		// fire-time referent capture is the ONLY binding, so a count read
