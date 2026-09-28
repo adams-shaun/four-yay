@@ -116,7 +116,10 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 //     continuation report; rules fix, resolveReplacementBody/answerParked);
 //   - 2138: G.Stack reorder by a float-triggered ability (expected);
 //   - 4098: the float's sacrifice triggered Rakdos, the Muscle's target ask
-//     at priority (expected placement);
+//     at priority (expected placement). fb-20260927T212721Z-1f9fc4b0's
+//     restored post-resolution priority after as-enters choices moves this
+//     game's Master of Dark Rites cast from seq 7659 to 7685; reverting that
+//     continuation restores the old sequence.
 //   - 4139 seq 6761: damageSourceLKI on the Incubator's cast trigger
 //     (cost-move mask); the deferred speed trigger (CR 702.179d) and the
 //     command-zone payment-plan fix both shift the bot trajectory, but the
@@ -165,7 +168,7 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 		// control-equivalent (the round-10 convention, seed 11828).
 		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 0, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
-		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7659, ""},
+		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7685, ""},
 		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6763, ""},
 		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5797, ""},
 	} {

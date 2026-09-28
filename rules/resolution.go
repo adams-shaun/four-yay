@@ -1546,14 +1546,14 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 // resumeETBEntry is the resolution-owned continuation for an as-enters
 // choice. Keeping the e.resume write here preserves the structural invariant
 // that only resolution machinery consumes a suspended frame.
-func (e *Engine) resumeETBEntry(chosen []decision.Option) {
+func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 	// handleChoose owns clearing e.resume; this continuation only consumes the
 	// parked entry, keeping the archtest's single ownership rule intact.
 	if e.etbMove == nil || len(chosen) != 1 {
 		e.etbMove = nil
 		e.etbNext = 0
 		e.choosing = chooseNone
-		return
+		return 0
 	}
 	move := *e.etbMove
 	opt := chosen[0]
@@ -1618,6 +1618,7 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) {
 	// answer), settle the land play here rather than leaving the continuation
 	// armed for an unrelated later entry to consume.
 	e.settleLandPlayIfDone(move.Obj)
+	return move.Obj
 }
 
 // continueAfterETBEntry hands an as-enters entry choice's answer back to the
@@ -1630,13 +1631,19 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) {
 // object is finished, instead of being left on the stack for resolveTop to
 // resolve a second time.
 //
-// Three shapes deliberately continue nothing, because no interrupted stack
-// resolution exists to finish: a direct frame (a land play or any other entry
-// posed with an empty stack), a frame whose object is the ENTERING object
-// itself (a permanent spell's own stack->battlefield move -- resolveTop's tail
-// already moved it), and a frame whose object has since left the stack.
-func (e *Engine) continueAfterETBEntry(rp *resumePoint) {
+// Direct frames have no interrupted stack resolution, and frames whose object
+// has left the stack independently have no remaining resolution to finish. A
+// permanent spell's own entry is different: its parked move is re-emitted by
+// the answer, so resolveTop never reached its completion tail. Finish that
+// spell here, from the same resolution-owned continuation used by other
+// suspended resolutions.
+func (e *Engine) continueAfterETBEntry(rp *resumePoint, entry state.ObjID) {
 	if rp == nil || rp.direct || rp.obj == 0 || e.pending != nil {
+		return
+	}
+	if rp.obj == entry {
+		e.finishResumption(rp.obj)
+		e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
 		return
 	}
 	if o := e.G.Obj(rp.obj); o == nil || o.Zone != state.ZStack {
