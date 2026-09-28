@@ -3039,7 +3039,12 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		optionalCost = parts[opt.AltCostIndex-1]
 	}
 	if opt.AltCostIndex == 0 && (opt.Mode == "" || opt.Mode == "mayplay" || opt.Mode == "modal_spell" || opt.Mode == "room_alt" ||
-		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || opt.Mode == "casualty" || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart") {
+		opt.Mode == "adventure_alt" || opt.Mode == "aftermath" || opt.Mode == "split_alt" || opt.Mode == "conspired" || opt.Mode == "casualty" || opt.Mode == "mayflash" || opt.Mode == "retrace" || opt.Mode == "jumpstart" ||
+		// CR 702.34a/601.2f: flashback replaces only the mana cost; the
+		// spell's own additional cost (Eviscerator's Insight's sacrifice,
+		// Electric Revelation's discard) is still paid. The offer gate
+		// (legal.go's flashback walk) folds the same extras.
+		opt.Mode == "flashback") {
 		cost = withSpellAbilityExtras(f, cost)
 	}
 	// Convoke and Harmonize are announced only after X/mode/pip choices have

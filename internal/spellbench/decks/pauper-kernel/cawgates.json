@@ -1,0 +1,88 @@
+{
+ "name": "CawGates",
+ "format": "pauper",
+ "archetype": "cawgates",
+ "notes": "SpellBench pauper-kernel catalog deck CawGates (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Caw-Gates.dek.",
+ "cards": [
+  {
+   "name": "Azorius Guildgate",
+   "count": 2
+  },
+  {
+   "name": "Basilisk Gate",
+   "count": 4
+  },
+  {
+   "name": "Brainstorm",
+   "count": 3
+  },
+  {
+   "name": "Citadel Gate",
+   "count": 4
+  },
+  {
+   "name": "Counterspell",
+   "count": 4
+  },
+  {
+   "name": "Guardian of the Guildpact",
+   "count": 1
+  },
+  {
+   "name": "Heap Gate",
+   "count": 2
+  },
+  {
+   "name": "Idyllic Beachfront",
+   "count": 1
+  },
+  {
+   "name": "Island",
+   "count": 4
+  },
+  {
+   "name": "Journey to Nowhere",
+   "count": 4
+  },
+  {
+   "name": "Lórien Revealed",
+   "count": 3
+  },
+  {
+   "name": "Outlaw Medic",
+   "count": 2
+  },
+  {
+   "name": "Preordain",
+   "count": 2
+  },
+  {
+   "name": "Prismatic Strands",
+   "count": 4
+  },
+  {
+   "name": "Sacred Cat",
+   "count": 4
+  },
+  {
+   "name": "Sea Gate",
+   "count": 4
+  },
+  {
+   "name": "Spell Pierce",
+   "count": 2
+  },
+  {
+   "name": "Squadron Hawk",
+   "count": 4
+  },
+  {
+   "name": "The Modern Age",
+   "count": 4
+  },
+  {
+   "name": "Thraben Charm",
+   "count": 2
+  }
+ ]
+}

@@ -177,17 +177,19 @@ func TestProposalLaterShuffleCreditsOpponentHand(t *testing.T) {
 
 func TestProposalLaterDrawsPreserveKnownDuplicateObjects(t *testing.T) {
 	land := syntheticCard(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:Fixture.\n")
-	// LibraryPosition$ -1 (bottom) is pinned deliberately: this fixture is
-	// about the sampler preserving KNOWN DUPLICATE physical objects across a
-	// redraw, not about where the cards land before the shuffle. Without the
-	// param the ChangeZoneAll takes Forge's absent-position default (TOP,
-	// golgari_thug2) and emits a replacement LibraryOrder, which is a real
-	// placement but here is immediately shuffled away; pinning -1 keeps the
-	// fixture exercising exactly the pre-golgari_thug2 event shape it was
-	// written for. The sampler's handling of the TOP-placement-then-shuffle
-	// shape (the real Head Games / Jester's Mask script) is tracked by the
-	// follow-up ticket filed with this round.
-	spell := syntheticCard(t, "Name:Return Shuffle Draw\nManaCost:0\nTypes:Sorcery\nA:SP$ ChangeZoneAll | Origin$ Hand | Destination$ Library | ChangeType$ Card.YouOwn | LibraryPosition$ -1 | SubAbility$ Mix\nSVar:Mix:DB$ Shuffle | Defined$ You | SubAbility$ Pull\nSVar:Pull:DB$ Draw | Defined$ You | NumCards$ 5\nOracle:Fixture.\n")
+	// The spell has no LibraryPosition$: the ChangeZoneAll takes Forge's
+	// absent-position TOP default (golgari_thug2) and emits a LibraryOrder
+	// before the shuffle. The observed top five draws are 1 previously-known
+	// object + 4 NEVER-SEEN objects. Before the Unseen constraint
+	// (internal/searchprobe/constraints.go) the epoch model counted cards by
+	// NAME only, so a drawn unseen position could be filled by one of the
+	// known duplicates moved into the same library; the sampled replay then
+	// introduced fewer identities than the observed history and every such
+	// frame was rejected (accepted=3/16). The Unseen constraint now forces an
+	// unseen position to hold a physical card the attempt's own observer has
+	// not introduced, so the known duplicates cannot be drawn there and the
+	// history samples as the real Head Games / Jester's Mask shape did.
+	spell := syntheticCard(t, "Name:Return Shuffle Draw\nManaCost:0\nTypes:Sorcery\nA:SP$ ChangeZoneAll | Origin$ Hand | Destination$ Library | ChangeType$ Card.YouOwn | SubAbility$ Mix\nSVar:Mix:DB$ Shuffle | Defined$ You | SubAbility$ Pull\nSVar:Pull:DB$ Draw | Defined$ You | NumCards$ 5\nOracle:Fixture.\n")
 	decks := [][]*cards.Card{repeatCard(land, 12), repeatCard(land, 12)}
 	decks[0][0] = spell
 	setup, h := proposalHistory(t, decks, 0, func(e *rules.Engine) bool { return len(e.G.Zone(state.ZGraveyard, 0)) == 1 })
@@ -195,21 +197,31 @@ func TestProposalLaterDrawsPreserveKnownDuplicateObjects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	known := 0
+	known, unseen := 0, 0
 	for _, p := range epochs[epochKey{Player: 0, Ordinal: 1}].Positions {
 		if p.Ref != 0 {
 			known++
+		}
+		if p.Unseen {
+			unseen++
 		}
 	}
 	if known == 0 {
 		t.Fatal("fixture did not redraw a known object")
 	}
+	// The precondition the fix depends on: this history draws never-before-seen
+	// objects, so its epoch carries unseen positions that only the Unseen
+	// constraint solver can keep off known duplicates.
+	if unseen == 0 {
+		t.Fatal("fixture has no unseen draw position; the pin may still be in place")
+	}
 	result, err := Sample(setup, h, SampleOptions{Seed: 219, Attempts: 16, Worlds: 4, MaxSubmits: 500})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Previously-known objects are exact constraints; unseen-name constraints
-	// may still choose a different known duplicate and fail the full prefix.
+	// Previously-known objects are exact constraints and unseen positions now
+	// admit only never-introduced copies, so every attempt keeps all four
+	// previously-unseen introductions and the whole history is guided.
 	if len(result.Worlds) != 4 || result.GuidedLater != 16 {
 		t.Fatalf("known physical redraw not guided: accepted=%d later=%d rejected=%d first=%s", result.Accepted, result.GuidedLater, result.PrefixRejected, result.FirstRejection)
 	}

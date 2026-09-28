@@ -1,0 +1,120 @@
+{
+ "name": "FDN12-UGW",
+ "format": "limited",
+ "archetype": "UGW",
+ "notes": "SpellBench FDN Limited catalog deck FDN12-UGW (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=029dbe36636ab799, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Affectionate Indrik",
+   "count": 1
+  },
+  {
+   "name": "Ambush Wolf",
+   "count": 1
+  },
+  {
+   "name": "Beast-Kin Ranger",
+   "count": 1
+  },
+  {
+   "name": "Bite Down",
+   "count": 1
+  },
+  {
+   "name": "Brineborn Cutthroat",
+   "count": 1
+  },
+  {
+   "name": "Bushwhack",
+   "count": 2
+  },
+  {
+   "name": "Celestial Armor",
+   "count": 1
+  },
+  {
+   "name": "Elementalist Adept",
+   "count": 1
+  },
+  {
+   "name": "Elfsworn Giant",
+   "count": 1
+  },
+  {
+   "name": "Evolving Wilds",
+   "count": 2
+  },
+  {
+   "name": "Forest",
+   "count": 7
+  },
+  {
+   "name": "Giant Growth",
+   "count": 1
+  },
+  {
+   "name": "Gnarlid Colony",
+   "count": 1
+  },
+  {
+   "name": "Heraldic Banner",
+   "count": 1
+  },
+  {
+   "name": "Island",
+   "count": 4
+  },
+  {
+   "name": "Mischievous Mystic",
+   "count": 1
+  },
+  {
+   "name": "Needletooth Pack",
+   "count": 1
+  },
+  {
+   "name": "Plains",
+   "count": 1
+  },
+  {
+   "name": "Scrawling Crawler",
+   "count": 1
+  },
+  {
+   "name": "Skyship Buccaneer",
+   "count": 1
+  },
+  {
+   "name": "Spectral Sailor",
+   "count": 1
+  },
+  {
+   "name": "Spinner of Souls",
+   "count": 1
+  },
+  {
+   "name": "Sylvan Scavenging",
+   "count": 2
+  },
+  {
+   "name": "Thornwood Falls",
+   "count": 1
+  },
+  {
+   "name": "Tranquil Cove",
+   "count": 1
+  },
+  {
+   "name": "Treetop Snarespinner",
+   "count": 1
+  },
+  {
+   "name": "Uncharted Voyage",
+   "count": 1
+  },
+  {
+   "name": "Witness Protection",
+   "count": 1
+  }
+ ]
+}

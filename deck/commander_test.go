@@ -842,3 +842,28 @@ func TestFileCommanderIndex(t *testing.T) {
 		t.Fatalf("commander-less File index = %d, want 0 (never called by anyone who checked Commander first)", got)
 	}
 }
+
+// TestValidateCommanderAnyNumberKeyword pins CR 903.5b's exception: a card
+// that says "A deck can have any number of cards named CARDNAME." is exempt
+// from the singleton rule, and the exemption reads the keyword, not the name.
+func TestValidateCommanderAnyNumberKeyword(t *testing.T) {
+	r := commanderFixture(t)
+	for name, src := range map[string]string{
+		"Swarm Hare": "Name:Swarm Hare\nManaCost:1 W\nTypes:Creature Rabbit Soldier\nPT:1/1\nK:" + AnyNumberKeyword + "\n",
+	} {
+		c, diags := cards.ParseBytes("fixture.txt", []byte(src))
+		if len(diags) > 0 {
+			t.Fatalf("fixture %s parse: %v", name, diags)
+		}
+		r.Add(c)
+	}
+	f := legalMonoWhiteCommander()
+	f.Cards = []Entry{{"Amalia", 1}, {"Swarm Hare", 12}, {"Plains", 87}}
+	if err := f.ValidateCommander(r); err != nil {
+		t.Fatalf("any-number card rejected: %v", err)
+	}
+	f.Cards = []Entry{{"Amalia", 1}, {"Knight", 12}, {"Plains", 87}}
+	if err := f.ValidateCommander(r); err == nil || !strings.Contains(err.Error(), "singleton") {
+		t.Fatalf("want a Knight singleton error, got %v", err)
+	}
+}

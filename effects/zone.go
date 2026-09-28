@@ -3301,7 +3301,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 			}
 		}
 		shuffleLibrary(h, sa, f.owner)
-		placeLibraryObjects(h, sa, f.owner, moved, to)
+		placeLibraryObjects(h, c, sa, f.owner, moved, to)
 		// Explicit Reveal$ on a Defined$ fetch list (Forge reveals movedCards
 		// whenever Reveal$ names the effect, defined or not): the same public
 		// Note payload applyLibrarySearch emits -- no auto-reveal here, since
@@ -4877,12 +4877,12 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved
 		if ans == "yes" {
 			shuffleLibraryOrder(h, owner)
 		}
-		placeLibraryObjects(h, sa, owner, placed, to)
+		placeLibraryObjects(h, c, sa, owner, placed, to)
 		return false
 	}
 	if !strings.EqualFold(strings.TrimSpace(sa.Params["ShuffleNonMandatory"]), "True") {
 		shuffleLibrary(h, sa, owner)
-		placeLibraryObjects(h, sa, owner, moved, to)
+		placeLibraryObjects(h, c, sa, owner, moved, to)
 		return false
 	}
 	d := &decision.Decision{Player: owner, Kind: decision.KChoose, Min: 1, Max: 1,
@@ -4901,7 +4901,7 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved
 		return true // suspended; the answer re-enters with Ctx.SearchShuffle set.
 	}
 	// No-host stand-in (R-9): decline the shuffle, keep the order.
-	placeLibraryObjects(h, sa, owner, moved, to)
+	placeLibraryObjects(h, c, sa, owner, moved, to)
 	return false
 }
 
@@ -4979,7 +4979,7 @@ func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.Obj
 // placement order: the branch below pins the chosen cards on top in exactly
 // the order the player's answer carried them (libraryOrderPlacement), never
 // a re-sorted one.
-func placeLibraryObjects(h Host, sa *cards.SA, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
+func placeLibraryObjects(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
 	// An ABSENT LibraryPosition$ is Forge's TOP default on the searched-library
 	// path too (agent-20260928T191540Z): Forge computes libPos = 0 when the
 	// parameter is absent in BOTH resolvers -- changeKnownOriginResolve
@@ -4999,10 +4999,26 @@ func placeLibraryObjects(h Host, sa *cards.SA, owner state.PlayerID, moved []sta
 		}
 		return
 	}
-	if to != state.ZLibrary || len(moved) == 0 || (position != "0" && position != "-1") {
+	if to != state.ZLibrary || len(moved) == 0 {
 		return
 	}
-	libraryOrderPlacement(h, owner, moved, position == "-1")
+	if position == "0" || position == "-1" {
+		libraryOrderPlacement(h, owner, moved, position == "-1")
+		return
+	}
+	// A non-{0,-1} position (Long-Term Plans' "put that card third from the
+	// top", LibraryPosition$ 2) resolves through the same NumResolved grammar
+	// placeTargetedLibraryObjects applies and places via
+	// libraryOrderPlacementAt (positive = zero-based from the top, negative =
+	// from the bottom). An unresolvable value is LOUD -- one Note, the
+	// MoveZone bottom append stands -- never a guessed placement.
+	p, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
+	if !ok {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "LibraryPosition$ " + position + " is not implemented; the cards sit at the BOTTOM of the library (the MoveZone append)"})
+		return
+	}
+	libraryOrderPlacementAt(h, owner, moved, p)
 }
 
 // libraryOrderPlacement is the one LibraryPosition$ placement both
