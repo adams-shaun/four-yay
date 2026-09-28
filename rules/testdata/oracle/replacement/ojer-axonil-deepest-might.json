@@ -7,18 +7,26 @@
     {
       "name": "red-noncombat-damage-below-power-raised-to-four",
       "cr": ["614.1a", "614.6", "120.3a"],
-      "why": "A controlled red source would deal three noncombat damage to an opponent, less than Ojer's four power, so the modified amount is four.",
-      "setup": {"p0": {"hand": ["Lightning Bolt"], "battlefield": ["Ojer Axonil, Deepest Might"]}, "p1": {}},
+      "why": "The controlled red source would deal three noncombat damage to an opponent, less than Ojer Axonil's four power, so it deals four instead.",
+      "setup": {"p0": {"battlefield": ["Ojer Axonil, Deepest Might"], "hand": ["Lightning Bolt"]}, "p1": {}},
       "steps": [{"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
-      "expect": [{"life": {"p1": 16}}]
+      "expect": [{"life": {"p0": 20, "p1": 16}}]
     },
     {
-      "name": "damage-to-controller-is-not-raised",
+      "name": "exact-power-noncombat-damage-is-unchanged",
+      "cr": ["614.1a", "614.6", "120.3a"],
+      "why": "The red source deals exactly four noncombat damage to each player; the replacement applies only when damage to an opponent is less than Ojer's four power, so neither player's four damage changes.",
+      "setup": {"p0": {"battlefield": ["Ojer Axonil, Deepest Might"], "hand": ["Flame Rift"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Flame Rift", "mana": "RR"}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 16, "p1": 16}}]
+    },
+    {
+      "name": "exact-power-combat-damage-is-unchanged",
       "cr": ["614.1a", "120.3a"],
-      "why": "The recipient is not an opponent, so even a controlled red source's three noncombat damage remains three.",
-      "setup": {"p0": {"hand": ["Lightning Bolt"], "battlefield": ["Ojer Axonil, Deepest Might"]}, "p1": {}},
-      "steps": [{"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
-      "expect": [{"life": {"p0": 17}}]
+      "why": "Ojer's replacement is limited to noncombat damage; its own four combat damage is unchanged, at the exact value of its power.",
+      "setup": {"p0": {"battlefield": ["Ojer Axonil, Deepest Might"]}, "p1": {}},
+      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Ojer Axonil, Deepest Might"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
+      "expect": [{"life": {"p1": 16}}]
     }
   ]
 }

@@ -7,18 +7,18 @@
     {
       "name": "your-source-triples-damage-to-opponent",
       "cr": ["614.1a", "614.6", "120.3a"],
-      "why": "The source is controlled by the enchantment's controller, so its three damage is replaced by nine damage.",
-      "setup": {"p0": {"hand": ["Lightning Bolt"], "battlefield": ["Fiery Emancipation"]}, "p1": {}},
+      "why": "A source controlled by the enchantment's controller would deal three damage to an opponent, so the replacement makes it deal nine.",
+      "setup": {"p0": {"battlefield": ["Fiery Emancipation"], "hand": ["Lightning Bolt"]}, "p1": {}},
       "steps": [{"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
-      "expect": [{"life": {"p1": 11}}]
+      "expect": [{"life": {"p0": 20, "p1": 11}}]
     },
     {
-      "name": "opponents-source-is-not-yours",
+      "name": "opponents-source-is-not-modified",
       "cr": ["614.1a", "120.3a"],
-      "why": "The enchantment modifies only damage from a source its controller controls; the opponent's Bolt deals its normal three damage to seat 0.",
+      "why": "The enchantment modifies only sources its controller controls; seat 1's Bolt therefore deals its normal three damage to seat 0.",
       "setup": {"p0": {"battlefield": ["Fiery Emancipation"]}, "p1": {"hand": ["Lightning Bolt"]}},
       "steps": [{"op": "pass_to", "step": "main1", "active": "p1"}, {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
-      "expect": [{"life": {"p0": 17}}]
+      "expect": [{"life": {"p0": 17, "p1": 20}}]
     }
   ]
 }
