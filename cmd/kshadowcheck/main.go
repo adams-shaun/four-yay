@@ -89,6 +89,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		sc.Buffer(make([]byte, 1<<20), 1<<26)
 		var setup *kshadow.Setup
 		var game string
+		// hands[seat] is that seat's own_hand at its latest decision: the
+		// truth the shadow's opponent-hand deal is checked against (the
+		// shadow itself never reads it).
+		hands := map[string][]string{}
 		for sc.Scan() {
 			var r rec
 			if err := json.Unmarshal(sc.Bytes(), &r); err != nil {
@@ -117,6 +121,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 			sh := setup.Build(&d.Kernel.Obs, kshadow.Options{Seed: uint64(r.Step)*7919 + 1, NoPumps: *noPumps, Priority: class == kshadow.ClassPriority})
 			buildNS += time.Since(t0).Nanoseconds()
 			fid.Add(kshadow.Compare(sh, &d.Kernel.Obs))
+			var own []string
+			for _, h := range d.Kernel.Obs.OwnHand {
+				own = append(own, h.Name)
+			}
+			hands[r.Seat] = own
+			opp := "p1"
+			if r.Seat == "p1" {
+				opp = "p0"
+			}
+			if truth, ok := hands[opp]; ok && sh.Fatal == "" && len(truth) == d.Kernel.Obs.Projection.HandCounts[kshadow.SeatIndex(opp)] {
+				fid.Add(kshadow.CheckHiddenPool(sh, truth))
+			}
 			for _, l := range sh.Lossy {
 				lossy[l]++
 			}

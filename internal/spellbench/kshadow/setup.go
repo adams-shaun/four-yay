@@ -54,7 +54,7 @@ type Setup struct {
 // fold normalises a card name across the kernel's and gorge's spellings
 // (diacritics, punctuation, case, " Token" suffix).
 func fold(n string) string {
-	n = diacritics.Replace(n)
+	n = diacritics.Replace(tokenCardName(n))
 	n = cards.NormalizeName(n)
 	return strings.TrimSuffix(n, " token")
 }

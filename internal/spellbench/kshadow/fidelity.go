@@ -263,3 +263,38 @@ func sameU32(a, b []uint32) bool {
 	}
 	return true
 }
+
+// SeatIndex is 0 for p0, 1 for p1.
+func SeatIndex(seat string) int { return int(seatID(seat)) }
+
+// CheckHiddenPool checks the shadow's hidden-card belief against the
+// opponent's true hand (read from the opponent's own observation by the
+// offline checker only): every true hand card must be in the pool the
+// shadow deals the opponent's hand from (hand + library), and the pool's
+// size must equal the kernel's hand + library counts.
+func CheckHiddenPool(sh *Shadow, oppHand []string) *Fidelity {
+	f := newFidelity()
+	g := sh.E.G
+	opp := 1 - sh.Me
+	pool := map[string]int{}
+	n := 0
+	for _, z := range []state.Zone{state.ZHand, state.ZLibrary} {
+		for _, id := range g.Zone(z, opp) {
+			pool[fold(sh.E.Name(id))]++
+			n++
+		}
+	}
+	ok := true
+	missing := ""
+	for _, h := range oppHand {
+		k := fold(h)
+		if pool[k] == 0 {
+			ok = false
+			missing = h
+			continue
+		}
+		pool[k]--
+	}
+	f.cmp("hidden_opp_hand_in_pool", ok, func() string { return missing })
+	return f
+}

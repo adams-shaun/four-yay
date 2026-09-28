@@ -295,13 +295,18 @@ func (b *builder) enterPerms(perms []permEntry, fresh bool) {
 		c := pe.c
 		ctrl := seatID(c.Stable.Controller)
 		if c.IsToken {
-			stem, ok := b.s.TokenStem(c.Name)
-			if !ok {
+			before := len(b.g.Objs)
+			if stem, ok := b.s.TokenStem(c.Name); ok {
+				b.ev(events.Event{Kind: events.TokenCreate, Player: ctrl, Text: stem})
+			} else if src, ok := b.cardNamed(tokenCardName(c.Name)); ok {
+				// A token copy of a card (embalm, encore): mint it from
+				// any deck object of that name.
+				b.ev(events.Event{Kind: events.CardToken, Player: ctrl, Obj: src})
+				b.lossy("card-copy token %s", c.Name)
+			} else {
 				b.lossy("unknown token %s", c.Name)
 				continue
 			}
-			before := len(b.g.Objs)
-			b.ev(events.Event{Kind: events.TokenCreate, Player: ctrl, Text: stem})
 			if len(b.g.Objs) == before {
 				b.lossy("token %s not created", c.Name)
 				continue
@@ -745,6 +750,36 @@ func (b *builder) pickTrigger(f *cards.Face, o *state.Object) (int, bool) {
 	}
 	if o.Zone == state.ZBattlefield && len(enters) == 1 {
 		return enters[0], false
+	}
+	return 0, false
+}
+
+// tokenCardName strips a kernel card-copy token's suffix ("Sacred Cat
+// Embalmed Token" -> "Sacred Cat").
+func tokenCardName(n string) string {
+	for _, suf := range []string{" Embalmed Token", " Eternalized Token", " Encore Token", " Token"} {
+		if len(n) > len(suf) && n[len(n)-len(suf):] == suf {
+			return n[:len(n)-len(suf)]
+		}
+	}
+	return n
+}
+
+// cardNamed finds any deck object (either seat) with a face named name.
+func (b *builder) cardNamed(name string) (state.ObjID, bool) {
+	k := fold(name)
+	for p := 0; p < 2; p++ {
+		for _, id := range b.deckObj[p] {
+			o := b.g.Obj(id)
+			if o == nil || o.Card == nil {
+				continue
+			}
+			for _, f := range o.Card.Faces {
+				if f != nil && fold(f.Name) == k {
+					return id, true
+				}
+			}
+		}
 	}
 	return 0, false
 }

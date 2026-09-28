@@ -139,3 +139,46 @@ func TestRedealKeepsPublicAndSizes(t *testing.T) {
 		t.Fatal("the world is not at the root decision")
 	}
 }
+
+// TestPolicyModesAnswer drives every shadow mode through the three recorded
+// decisions: each answer is in range, nothing panics, and every decision is
+// counted under exactly one source.
+func TestPolicyModesAnswer(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	for _, mode := range []string{ModeTactical, ModeRoll, ModeAZ, ModeAZTac} {
+		t.Run(mode, func(t *testing.T) {
+			roll := DefaultRoll()
+			roll.Worlds = 2
+			p, err := New(Config{Reg: reg, Mode: mode, Sims: 4, Roll: roll, Seed: 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			p.GameStart(&v1agent.GameStart{GameID: "g", Seat: "p0", CatalogIDs: []string{"CawGates", "CawGates"}})
+			n := 0
+			for _, name := range []string{"priority", "attack", "block"} {
+				_, d := fixture(t, name)
+				p.seat = d.ActingSeat
+				k := p.Choose(d)
+				if k < 0 || k >= len(d.Candidates) {
+					t.Fatalf("%s: answer %d of %d", name, k, len(d.Candidates))
+				}
+				n++
+			}
+			if p.Stats.Panics != 0 {
+				t.Fatalf("%d panics (reasons %v)", p.Stats.Panics, p.Stats.Reasons)
+			}
+			total := 0
+			for _, m := range p.Stats.Answered {
+				for _, v := range m {
+					total += v
+				}
+			}
+			if total != n {
+				t.Fatalf("answered %d, want %d", total, n)
+			}
+			if p.Stats.Answered[ClassPriority]["gorge"] != 1 {
+				t.Errorf("priority not answered by the shadow: %v %v", p.Stats.Answered, p.Stats.Reasons)
+			}
+		})
+	}
+}

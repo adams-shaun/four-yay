@@ -109,6 +109,7 @@ type Policy struct {
 	assigned    map[uint32]state.ObjID
 	Stats       Stats
 	Roll        RollStats
+	AZ          AZStats
 	look        builtins.CardLookup
 	lastRoll    string
 	// LastErr is the last setup error (diagnostics).
@@ -360,6 +361,7 @@ func (p *Policy) priority(d *v1agent.Decision, fbPick int) (int, bool, string) {
 		}
 	default:
 		in, err = p.search(sh, d, fbPick)
+		pd = sh.E.Pending()
 	}
 	if err != nil {
 		return 0, false, "policy: " + err.Error()
@@ -771,17 +773,29 @@ func (p *Policy) combatAnswer(sh *Shadow, d *v1agent.Decision) (decision.Intent,
 // into the shadow, v1agent.Tactical's (ModeAZTac, priority only).
 func (p *Policy) search(sh *Shadow, d *v1agent.Decision, fbPick int) (decision.Intent, error) {
 	e := sh.E
-	pd := e.Pending()
-	brd := botpolicy.NewBoard(2)
-	b := botpolicy.BoardFromGameInto(e.G, e, sh.Me, &brd)
 	seed := p.decisionSeed(d)
-	botIn, err := seat.NewBot(seed^0x626f74).DecideBoard(context.Background(), b, *pd)
+	bot := seat.NewBot(seed ^ 0x626f74)
+	brd := botpolicy.NewBoard(2)
+	botAnswer := func() (decision.Intent, error) {
+		b := botpolicy.BoardFromGameInto(e.G, e, sh.Me, &brd)
+		return bot.DecideBoard(context.Background(), b, *e.Pending())
+	}
+	pd := e.Pending()
+	botIn, err := botAnswer()
 	if err != nil {
 		return decision.Intent{}, err
 	}
 	if p.cfg.Mode == ModeAZTac && fbPick >= 0 && pd.Kind == decision.KPriority {
 		if in, ok := gorgeIntentFor(sh, d, pd, fbPick); ok {
 			botIn = in
+		}
+	}
+	// gorge's bot pays mana by hand: play its mana activations on the
+	// shadow first, and search at the decision where the play is offered
+	// (the kernel pays that play automatically).
+	if pd.Kind == decision.KPriority {
+		if botIn, pd, err = throughMana(sh, botIn, botAnswer); err != nil {
+			return decision.Intent{}, err
 		}
 	}
 	opts := azmcts.DefaultOptions()
@@ -794,7 +808,22 @@ func (p *Policy) search(sh *Shadow, d *v1agent.Decision, fbPick int) (decision.I
 	if err != nil {
 		return botIn, err
 	}
+	p.AZ.Add(res.Stats.Searched == 1, res.Choice != 0)
 	return res.Intent, nil
+}
+
+// AZStats counts the az modes' searches.
+type AZStats struct{ Decisions, Searched, Overrides int }
+
+// Add folds one Search.
+func (a *AZStats) Add(searched, override bool) {
+	a.Decisions++
+	if searched {
+		a.Searched++
+	}
+	if override {
+		a.Overrides++
+	}
 }
 
 // gorgeIntentFor maps kernel candidate k onto the shadow's pending priority
@@ -821,5 +850,6 @@ func (p *Policy) Summary() map[string]any {
 		"agree_with_fallback": p.Stats.Agree, "panics": p.Stats.Panics,
 		"roll_searched": p.Roll.Searched, "roll_overrides": p.Roll.Overrides,
 		"roll_rollouts": p.Roll.Rollouts, "roll_failed": p.Roll.Failed,
+		"az_decisions": p.AZ.Decisions, "az_searched": p.AZ.Searched, "az_overrides": p.AZ.Overrides,
 	}
 }
