@@ -72,7 +72,7 @@ var oracleKnownDivergent = map[string]string{
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
 	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
-	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Courser damage 0; expected p0 life 20 and Courser damage 3",
+	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Thor damage 0; expected p0 life 20 and Thor damage 3",
 	// Engine primitive: entering Angel appears to be included in Giada's CountValid
 	// when pricing the replacement, rather than counting only Angels already controlled.
 	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
