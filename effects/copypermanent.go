@@ -664,10 +664,41 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
+	// AddStaticAbilities$ names static bodies on the same source table the
+	// copy gains ("except it has 'This Equipment's equip abilities cost {2}
+	// less to activate.'" -- Firion, Wild Rose Warrior). A cost-modifier body
+	// the cost chain can read is registered as a granted cost static bound
+	// to the copy (rules' appendGrantedCostStatic), the route the Animate
+	// staticAbilities$ and Continuous AddStaticAbility$ grants share; any
+	// other mode or an unread scoping key is one loud Note.
+	type costGrant struct {
+		mode   string
+		params map[string]string
+	}
+	var grantCostStatics []costGrant
+	var unreadStatics []string
+	for _, name := range strings.FieldsFunc(sa.Params["AddStaticAbilities"], func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n'
+	}) {
+		if _, ok := sourceSVars[name]; !ok {
+			continue // reported with the other unresolved grant names below
+		}
+		mode, params := parseStaticLine(sourceSVars, name)
+		if IsGrantableCostStaticMode(mode) && CostStaticParamsReadable(params) {
+			grantCostStatics = append(grantCostStatics, costGrant{mode: mode, params: params})
+			continue
+		}
+		unreadStatics = append(unreadStatics, name)
+	}
+	if len(unreadStatics) > 0 {
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "CopyPermanent AddStaticAbilities$ " + strings.Join(unreadStatics, ", ") +
+				" is not a static this engine grants; the copy does not gain it"})
+	}
 	// A grant name that does not resolve is one loud Note per call -- the
 	// AddKeywords$ precedent -- never a silent drop.
 	var lostGrants []string
-	for _, raw := range []string{sa.Params["AddTriggers"], sa.Params["AddSVars"], sa.Params["AddAbilities"]} {
+	for _, raw := range []string{sa.Params["AddTriggers"], sa.Params["AddSVars"], sa.Params["AddAbilities"], sa.Params["AddStaticAbilities"]} {
 		for name := range strings.SplitSeq(raw, ",") {
 			name = strings.TrimSpace(name)
 			if name == "" {
@@ -866,6 +897,14 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 						AddTrigger: &trCopy, TriggerGrantor: c.Source,
 						SVars: sourceSVars})
 				}
+			}
+			// The granted cost statics are the copy's own for as long as it
+			// exists: Permanent, Source the copy, bound to it at collection.
+			for _, cg := range grantCostStatics {
+				h.AddContinuous(state.ContinuousEffect{Source: want, Controller: owner,
+					Affects: "Card.Self", Permanent: true,
+					CostStaticMode: cg.mode, CostStaticParams: cg.params,
+					CostStaticSVars: sourceSVars, CostStaticGranted: true})
 			}
 			// The entry goes through EmitTokenCreate: the emit tail publishes
 			// the copy only once this MoveZone has actually folded onto the

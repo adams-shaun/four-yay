@@ -100,6 +100,21 @@ func (l *ccLocator) loc(rel, anchor string) string {
 	return rel + ":?(" + anchor + ")"
 }
 
+// ccGrantDelivered reports a carrier key whose grant rules' cost collector
+// reads (appendGrantedCostStatic): the Animate/AnimateAll staticAbilities$
+// registration, a printed Mode$ Continuous AddStaticAbility$, and
+// CopyPermanent's AddStaticAbilities$.
+func ccGrantDelivered(k string) bool {
+	switch {
+	case k == "stat:Continuous.AddStaticAbility", k == "api:CopyPermanent.AddStaticAbilities":
+		return true
+	case (strings.HasPrefix(k, "api:Animate.") || strings.HasPrefix(k, "api:AnimateAll.")) &&
+		strings.HasSuffix(strings.ToLower(k), ".staticabilities"):
+		return true
+	}
+	return false
+}
+
 func ccIsCostMode(m string) bool {
 	return m == "ReduceCost" || m == "RaiseCost" || m == "SetCost"
 }
@@ -369,8 +384,10 @@ func TestCostStaticCensus(t *testing.T) {
 		ty := strings.TrimSpace(p["Type"])
 		spellOnly := ty == "Spell"
 
-		// Collection: EffectZone$ (printed route only; the Effect route has no zone gate).
-		if delivery == "printed" || delivery == "keyword" {
+		// Collection: EffectZone$ (the printed route, and the grant route,
+		// which gates on the HOST's zone exactly as a printed static; the
+		// Effect route has no zone gate).
+		if delivery == "printed" || delivery == "keyword" || delivery == "granted" {
 			if v, ok := p["EffectZone"]; ok {
 				live := false
 				for _, z := range []state.Zone{state.ZBattlefield, state.ZStack, state.ZGraveyard, state.ZHand,
@@ -934,23 +951,49 @@ func TestCostStaticCensus(t *testing.T) {
 						fs = append(fs, ccFinding{ccBroken, "SVar cost static with no recognised carrier", "n/a"})
 					default:
 						kind := ""
+						// The grant routes rules' appendGrantedCostStatic
+						// collects (state.ContinuousEffect.CostStaticGranted):
+						// the body is registered through the Effect route's
+						// whitelist and then judged like a printed static on
+						// its host.
+						granted := false
+						for _, k := range cs {
+							if ccGrantDelivered(k) {
+								granted = true
+							}
+						}
+						if granted {
+							if !effects.CostStaticParamsReadable(st.Params) {
+								var bad []string
+								for k := range st.Params {
+									if !effects.CostStaticParamsReadable(map[string]string{k: ""}) {
+										bad = append(bad, k)
+									}
+								}
+								sort.Strings(bad)
+								fs = append(fs, ccFinding{ccBroken, "Grant-delivered: param(s) " + strings.Join(bad, ",") + " outside CostStaticParamsReadable (not registered)",
+									L.loc("effects/misc.go", "func CostStaticParamsReadable(")})
+							}
+							fs = append(fs, classify(c, f, st, "granted")...)
+						}
 						for _, k := range cs {
 							switch {
+							case ccGrantDelivered(k):
+								// delivered: judged above
 							case strings.HasSuffix(k, ".AddStaticAbility") || strings.HasSuffix(k, ".AddStaticAbilities"):
-								kind = "AddStaticAbility$ grant: layers.go queues only Mode$ Continuous inner statics; a granted cost static is never collected"
+								kind = "AddStaticAbility$ grant on a carrier the cost collector does not read (only a printed Mode$ Continuous static's and CopyPermanent's grants are registered)"
 								fs = append(fs, ccFinding{ccBroken, "delivery " + k + ": " + kind,
-									L.loc("rules/layers.go", "if inner.Mode == \"Continuous\" &&")})
-							case strings.HasPrefix(k, "api:Animate") && strings.HasSuffix(strings.ToLower(k), ".staticabilities"):
-								fs = append(fs, ccFinding{ccBroken, "delivery " + k + ": registerAnimateStaticAbilities accepts only CantSacrifice/CantBlockUnless/CantAttackUnless (loud Note)",
-									L.loc("effects/leavebattlefield.go", "if mode != \"CantSacrifice\" && mode != \"CantBlockUnless\" && mode != \"CantAttackUnless\" {")})
+									L.loc("rules/statics.go", "func (e *Engine) appendGrantedCostStatic(")})
 							default:
 								fs = append(fs, ccFinding{ccBroken, "delivery " + k + ": no cost-static registration on this carrier", "n/a"})
 							}
 						}
 						// also record what the body itself would hit if it were delivered
-						for _, inner := range classify(c, f, st, "svar") {
-							inner.reason = "(if delivered) " + inner.reason
-							fs = append(fs, inner)
+						if !granted {
+							for _, inner := range classify(c, f, st, "svar") {
+								inner.reason = "(if delivered) " + inner.reason
+								fs = append(fs, inner)
+							}
 						}
 					}
 					rows = append(rows, ccRow{card: name, playable: playable, mode: st.Mode, delivery: delivery, raw: raw, findings: fs})

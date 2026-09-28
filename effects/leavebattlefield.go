@@ -138,6 +138,29 @@ func registerAnimateStaticAbilities(h Host, c *Ctx, id state.ObjID, names []stri
 				Text: "Animate staticAbilities$ " + name + " has no static body; ignored"})
 			continue
 		}
+		if IsGrantableCostStaticMode(mode) {
+			// A granted cost-modifier static (Chronicler of Worship's "It
+			// perpetually gains 'This spell costs {1} less to cast.'",
+			// Teferi's Contingency's perpetual {2} raise): the animated object
+			// HAS the static, so it registers as a granted cost static bound
+			// to that object (rules' appendGrantedCostStatic) under the
+			// animation's own lifetime, read by the same cost chain as a
+			// printed one. The Effect route's whitelist gates it: a scoping
+			// key the chain does not evaluate must not register blanket.
+			if !CostStaticParamsReadable(params) {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+					Text: "Animate staticAbilities$ " + name + " mode " + mode + " carries a parameter the cost chain does not read; ignored"})
+				continue
+			}
+			h.AddContinuous(state.ContinuousEffect{
+				Source: id, Affects: "Card.Self", Controller: c.Controller,
+				UntilEOT: untilEOT, DurationSource: durSource, Duration: dur, Permanent: permanent,
+				ExileOnMoved: exileOn, ExileOnMovedAlso: exileAlso, Remembered: remembered,
+				CostStaticMode: mode, CostStaticParams: params, CostStaticSVars: c.SVars,
+				CostStaticGranted: true,
+			})
+			continue
+		}
 		if mode != "CantSacrifice" && mode != "CantBlockUnless" && mode != "CantAttackUnless" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "Animate staticAbilities$ " + name + " mode " + mode + " is not implemented; ignored"})
