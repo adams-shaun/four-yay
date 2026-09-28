@@ -26,6 +26,7 @@ const card = (over: Partial<CardView> = {}): CardView => ({
 // through on a public server while an omniscient one stayed fine.
 const spectatorPlayer = (seat: number, name: string, over: Partial<PlayerView> = {}): PlayerView => ({
   seat, name, life: 40, lost: false, library_size: 60, hand_size: 7, graveyard_size: 0,
+  completed_dungeons: 0,
   hand: null as unknown as CardView[],
   pool: null as unknown as Record<string, number>,
   battlefield: [], graveyard: [], exile: [], command: [], commanders: [], commander_casts: [],

@@ -92,7 +92,9 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.StoreSVar, events.GiftPromise, events.GiveGift, events.PhaseOut, events.RollDice,
 		events.DelayedForget, events.Cascade, events.Clash,
 		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
-		events.ChaosEnsues, events.ManaUndo, events.EndTurn:
+		events.ChaosEnsues, events.ManaUndo, events.EndTurn,
+		events.DungeonCreate, events.DungeonRoom, events.DungeonComplete,
+		events.DungeonRemove:
 		// ManaUndo is the announced payment window's CR 733.1 reversal of a
 		// mana activation: nothing triggers from an undone action, so it
 		// carries no interest bits.
@@ -210,6 +212,17 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		// through a T: line. It is the DelayedRemove shape (already zero-mapped
 		// above): bookkeeping about the delayed registry, not a game event a
 		// matcher consults.
+		//
+		// DungeonCreate/DungeonRoom/DungeonComplete/DungeonRemove are the CR
+		// 309 dungeon/venture lifecycle markers. No trigger mode fires on
+		// them today: a venture marker is a state fact the room choice reads
+		// back from state.Player, not an event a T: line consults (room
+		// triggers, when they arrive, will re-map DungeonRoom explicitly).
+		// All four ordinals sit past triggerMaskKindBits, so both classifiers
+		// fail open before this map is consulted; naming them keeps the audit
+		// complete if the bound ever widens and keeps them out of the
+		// catch-all default that would otherwise claim the kinds
+		// trigger-relevant.
 		return 0
 	case events.Attach:
 		return cards.TriggerInterestAttach

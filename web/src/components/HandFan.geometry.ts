@@ -96,6 +96,7 @@ const player: PlayerView = {
   library_size: 60,
   hand_size: hand.length,
   graveyard_size: 0,
+  completed_dungeons: 0,
   hand,
   battlefield: [],
   graveyard: [],

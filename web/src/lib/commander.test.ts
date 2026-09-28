@@ -16,6 +16,7 @@ function players(...ps: Partial<PlayerView>[]): PlayerView[] {
   return ps.map((p, i) => ({
     seat: p.seat ?? i, name: p.name ?? `P${i}`, life: 20, lost: false,
     library_size: 30, hand_size: 7, graveyard_size: 0,
+    completed_dungeons: 0,
     hand: p.hand ?? [], battlefield: p.battlefield ?? [], graveyard: p.graveyard ?? [],
     exile: p.exile ?? [], pool: {}, command: p.command ?? [], commanders: p.commanders ?? [],
     commander_casts: p.commander_casts ?? [], cmd_damage: p.cmd_damage,

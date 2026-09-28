@@ -5,6 +5,7 @@ import { promptContext, promptContextText, shapeOf, sourceCause, sourceNameOf } 
 const player = (hand: CardView[]): PlayerView => ({
   seat: 0, name: 'Ari', life: 20, lost: false, library_size: 40, hand_size: hand.length,
   graveyard_size: 0, hand, battlefield: [], graveyard: [], exile: [], pool: {},
+  completed_dungeons: 0,
   command: [], commanders: [], commander_casts: [],
 });
 const card = (id: number, name: string): CardView => ({

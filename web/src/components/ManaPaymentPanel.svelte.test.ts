@@ -27,6 +27,7 @@ const spell = (id: number, name: string): CardView => ({
 });
 const player = (seat: number, hand: CardView[], battlefield: CardView[]): PlayerView => ({
   seat, name: seats[seat].name, life: 20, lost: false, library_size: 40, hand_size: hand.length, graveyard_size: 0,
+  completed_dungeons: 0,
   hand, battlefield, graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
 });
 const view = (d: Decision | null, hand: CardView[] = []): View => ({
