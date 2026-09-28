@@ -571,6 +571,7 @@ func (s *scan) scanFuncBody(t *testing.T, fset *token.FileSet, fd *ast.FuncDecl,
 			}
 			return true
 		case *ast.CallExpr:
+			s.scanCompiledParamRead(t, fset, fi, name, v, pkg)
 			s.scanCall(t, fset, fi, name, v, pkg)
 			return true
 		case *ast.RangeStmt:
@@ -579,6 +580,36 @@ func (s *scan) scanFuncBody(t *testing.T, fset *token.FileSet, fd *ast.FuncDecl,
 		}
 		return true
 	})
+}
+
+// compiledParamReaders are the cards node methods that read one parameter
+// through its compiled ParamSet (cards/params.go): `x.Param(cards.PK<Key>)`,
+// `x.ParamStr(cards.PK<Key>)` and `x.HasParam(cards.PK<Key>)` are reads of
+// <Key> on base x, exactly like `x.Params["<Key>"]`.
+var compiledParamReaders = map[string]bool{"Param": true, "ParamStr": true, "HasParam": true}
+
+// scanCompiledParamRead records a compiled-ParamSet read (see
+// compiledParamReaders). The key argument must be a cards.PK<Key> constant;
+// anything else fails the rot guard, so a read cannot hide behind a
+// computed ParamKey.
+func (s *scan) scanCompiledParamRead(t *testing.T, fset *token.FileSet, fi *fnInfo, name string, ce *ast.CallExpr, pkg string) {
+	sel, ok := ce.Fun.(*ast.SelectorExpr)
+	if !ok || !compiledParamReaders[sel.Sel.Name] || len(ce.Args) != 1 {
+		return
+	}
+	arg, ok := ce.Args[0].(*ast.SelectorExpr)
+	if !ok {
+		return // not a ParamKey argument shape: some other Param method
+	}
+	if pk, ok := arg.X.(*ast.Ident); !ok || pk.Name != "cards" || !strings.HasPrefix(arg.Sel.Name, "PK") {
+		return
+	}
+	base := exprText(sel.X)
+	b, ok := s.bucketOf(t, fset, ce.Pos(), base, pkg)
+	if !ok {
+		return
+	}
+	s.addRead(fi, b, strings.TrimPrefix(arg.Sel.Name, "PK"))
 }
 
 // recordParamsRead records one `.Params[...]` (or alias) access on the given

@@ -284,6 +284,7 @@ func (f *Face) derive() {
 	f.colourIdentity = f.deriveColourIdentity()
 	f.deriveTypeStatics()
 	f.deriveWordSets()
+	f.deriveParamSets()
 }
 
 // deriveColourIdentity computes the face's colour identity the way CR 903.4

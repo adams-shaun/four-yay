@@ -21,12 +21,20 @@ type Trigger struct {
 	Mode   string
 	Params map[string]string
 	Effect *SA
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Static is an S: line: a continuous effect or a play restriction.
 type Static struct {
 	Mode   string
 	Params map[string]string
+
+	// ps is Params compiled against the ParamKey vocabulary (params.go),
+	// bound at load; not serialized.
+	ps *ParamSet
 }
 
 // Repl is an R: line: a replacement effect. ReplaceWith$ names an SVar.
