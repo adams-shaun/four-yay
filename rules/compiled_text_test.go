@@ -10,7 +10,16 @@ import (
 )
 
 func TestEngineCompiledTextSharesWithCloneAndFallsBack(t *testing.T) {
-	t.Parallel()
+	// Deliberately not t.Parallel(): the final assertion requires that the
+	// cache entry built for e survives until the equivalent New below. The
+	// memo drops its whole map on overflow (compiledTextCacheLimit, an
+	// intentional bound asserted by TestEngineCompiledTextCacheStaysBounded,
+	// which inserts 3*limit configurations), so a concurrent parallel test can
+	// wipe e's entry between the two New calls and fail this test for a
+	// documented eviction rather than a defect. Running sequentially makes the
+	// cache-identity check deterministic. Reported by the kw:Backup ticket
+	// (CR 702.165): adding one more configured card tipped the boundary and
+	// made this race fire on every full-suite run.
 	c := card(t, "Name:Cache Test\nManaCost:1 U\nTypes:Creature Test\nPT:1/1\nA:AB$ Draw | Cost$ GWP 2B Sac<1/Creature> | ValidTgts$ Creature.YouCtrl+untapped\nOracle:x\n")
 	e := New(Config{Names: []string{"you"}, Decks: [][]*cards.Card{{c}}})
 	if e.compiledText == nil || e.compiledText.predicates == nil {
@@ -58,7 +67,10 @@ func TestEngineCompiledTextCacheSeparatesCardLayouts(t *testing.T) {
 // miss: the memo must stay bounded instead of pinning each game's compiled
 // text (and every token script's) for the life of the process.
 func TestEngineCompiledTextCacheStaysBounded(t *testing.T) {
-	t.Parallel()
+	// Deliberately not t.Parallel(): the final check requires the entry built
+	// for a to survive until b, and this test itself floods the memo past
+	// compiledTextCacheLimit. Running sequentially keeps the identity check
+	// deterministic instead of racing the documented wholesale drop.
 	for i := 0; i < 3*compiledTextCacheLimit; i++ {
 		c := card(t, fmt.Sprintf("Name:Bound %d\nTypes:Creature Test\nPT:1/1\nOracle:x\n", i))
 		New(Config{Decks: [][]*cards.Card{{c}}})
