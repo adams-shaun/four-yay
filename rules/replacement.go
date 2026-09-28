@@ -5418,7 +5418,7 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 		// unchanged (fail closed).
 		for _, target := range e.replRemembered {
 			if target.IsPlayer {
-				if int(target.Player) < len(e.G.Players) {
+				if int(target.Player) < len(e.G.Players) && !e.G.Players[target.Player].Lost {
 					ev.Obj, ev.Player = 0, target.Player
 					break
 				}
