@@ -61,6 +61,14 @@ export interface HotkeyEvent {
   ctrlKey: boolean;
   shiftKey: boolean;
   metaKey: boolean;
+  /**
+   * code is the PHYSICAL key (`KeyboardEvent.code`, e.g. 'BracketRight'), so a
+   * binding survives Shift changing the printable `key`: on a US layout
+   * Ctrl+Shift+] reports key '}' but code 'BracketRight'. Optional because a
+   * synthetic event may omit it; brackets fall back to the shifted `key`
+   * values when it is absent.
+   */
+  code?: string;
   /** target is the event's original target; checked for interactive elements. */
   target?: EventTarget | null;
 }
@@ -75,9 +83,13 @@ export function hotkeyAction(
   const t = e.target as { closest?: (sel: string) => unknown } | null | undefined;
   if (t && typeof t.closest === 'function' && t.closest('button, a, input, textarea, select, [contenteditable]')) return null;
   if (e.ctrlKey && e.shiftKey && (e.key === 'f' || e.key === 'F')) return 'toggle-full-control';
-  if (e.ctrlKey && e.shiftKey && e.key === 'O') return 'toggle-options';
-  if (e.ctrlKey && e.shiftKey && e.key === ']') return 'next-profile';
-  if (e.ctrlKey && e.shiftKey && e.key === '[') return 'prev-profile';
+  if (e.ctrlKey && e.shiftKey && (e.key === 'O' || e.key === 'o')) return 'toggle-options';
+  // Brackets are matched by PHYSICAL code first: Shift changes ] and [ to }
+  // and { on a US layout, so `key` alone would never fire the shortcut. The
+  // shifted `key` values are accepted as a fallback for a synthetic event
+  // with no `code`.
+  if (e.ctrlKey && e.shiftKey && (e.code === 'BracketRight' || e.key === '}' || e.key === ']')) return 'next-profile';
+  if (e.ctrlKey && e.shiftKey && (e.code === 'BracketLeft' || e.key === '{' || e.key === '[')) return 'prev-profile';
   if (e.ctrlKey) return null;
   if (e.key === ' ') return 'pass';
   if (e.key === 'Enter') return e.shiftKey ? 'hard-skip' : 'end-turn';
