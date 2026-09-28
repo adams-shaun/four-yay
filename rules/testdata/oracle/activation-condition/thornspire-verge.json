@@ -1,0 +1,24 @@
+{
+  "card": "Thornspire Verge",
+  "family": "activation-condition",
+  "oracle_sha": "3d83166f5720",
+  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "restricted-green-mana-unavailable-without-forest-or-mountain",
+      "cr": ["602.5", "305.6"],
+      "why": "Without a land having the Forest or Mountain subtype, only the unrestricted red-producing ability is available.",
+      "setup": {"p0": {"battlefield": ["Thornspire Verge"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Thornspire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add G"]}]}],
+      "expect": [{"pool": {"p0": "R"}}]
+    },
+    {
+      "name": "restricted-green-mana-available-with-forest",
+      "cr": ["602.5", "305.6", "605.1a", "106.12"],
+      "why": "A Forest meets the restriction, so choosing the green-producing ability taps the Verge and adds green mana.",
+      "setup": {"p0": {"battlefield": ["Thornspire Verge", "Forest"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Thornspire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add G"]}]}],
+      "expect": [{"pool": {"p0": "G"}}]
+    }
+  ]
+}
