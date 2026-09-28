@@ -1185,7 +1185,11 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		if o == nil || o.Face() == nil || !hasType(o, "Creature") {
 			continue
 		}
-		t := int32(o.Face().Toughness()) + o.Counter("P1P1")
+		// The election reads the object's net toughness from its counters of
+		// EVERY P/T kind (CR 122.1a/613.7d): a -0/-1 or -1/-1 counter shrinks
+		// the candidate just as a +1/+1 one grows it.
+		_, dt := o.CounterPTTotals()
+		t := int32(o.Face().Toughness()) + dt
 		if len(cands) == 0 || t < best {
 			best, cands = t, []state.ObjID{id}
 			continue
