@@ -15,13 +15,18 @@ import (
 // the pending decision's own Options, instead of the pre-ticket N+2 walks
 // (the candidate walk, a duplicate legalActions for BaseOptionIndex, and one
 // huge-pool walk per candidate inside PlanCastPayment). The offers must be
-// byte-identical to the pre-ticket builder, which paymentActionsReference
-// keeps verbatim as the test-only oracle.
+// byte-identical to the shared-builder result, which paymentActionsReference
+// keeps as the test-only oracle.
 
-// paymentActionsReference is the pre-ticket PaymentActionsForPriority body,
-// kept verbatim as the equivalence oracle: every candidate goes through the
-// public PlanCastPayment (whose own huge-pool candidate walk is unchanged),
-// and BaseOptionIndex comes from a fresh legalActions walk.
+// paymentActionsReference is the equivalence oracle: an independent
+// re-implementation of the PaymentActionsForPriority body (originally kept
+// verbatim from the aph-offer-one-pass builder; updated in ticket
+// fb-20260927T163321Z-69285807 to derive each candidate's PlannedCast origin
+// from its object's zone, hand → "hand" and command zone → "command_zone",
+// exactly as the production builder does -- anything else is skipped). Every
+// candidate goes through the public PlanCastPayment (whose own huge-pool
+// candidate walk is unchanged), and BaseOptionIndex comes from a fresh
+// legalActions walk.
 func paymentActionsReference(e *Engine, p state.PlayerID, seq uint64) []decision.PaymentAction {
 	if e.G.Over {
 		return nil
@@ -34,7 +39,24 @@ func paymentActionsReference(e *Engine, p state.PlayerID, seq uint64) []decision
 		if opt.Kind != "cast" || opt.Mode != "" || opt.AltCostIndex != 0 {
 			continue
 		}
-		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: "hand"}
+		// The origin comes from the object's actual zone, mirroring the
+		// production builder: only a hand or command-zone object can ever
+		// carry a plain (Mode "" AltCostIndex 0) cast; anything else is
+		// skipped.
+		originObj := e.G.Obj(opt.Obj)
+		if originObj == nil {
+			continue
+		}
+		var origin string
+		switch originObj.Zone {
+		case state.ZHand:
+			origin = "hand"
+		case state.ZCommand:
+			origin = "command_zone"
+		default:
+			continue
+		}
+		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: origin}
 		got := e.PlanCastPayment(p, cast)
 		if got.Plan == nil {
 			continue
@@ -85,7 +107,7 @@ func onePassHugeRejects(e *Engine, p state.PlayerID) int {
 
 // onePassCompare builds the pending priority decision's extension through
 // the lazy consumer path and compares it, IDs and BaseOptionIndex included,
-// with the pre-ticket oracle computed at the same state. It returns the
+// with the reference oracle computed at the same state. It returns the
 // number of offered actions.
 func onePassCompare(t *testing.T, e *Engine, where string) int {
 	t.Helper()
@@ -99,14 +121,14 @@ func onePassCompare(t *testing.T, e *Engine, where string) int {
 	// EnsurePaymentActions stores a Decision.Clone of the builder's result
 	// (an empty, non-nil slice for no offers); compare like for like.
 	if published := (&decision.Decision{PaymentActions: want}).Clone().PaymentActions; !reflect.DeepEqual(got, published) {
-		t.Fatalf("%s: one-pass offers differ from the pre-ticket builder\n got %#v\nwant %#v", where, got, want)
+		t.Fatalf("%s: one-pass offers differ from the reference oracle\n got %#v\nwant %#v", where, got, want)
 	}
 	if e.L.Head() != head || len(e.L.Events) != n {
 		t.Fatalf("%s: building offers changed the log", where)
 	}
 	// The public, options-free entry must agree too.
 	if again := e.PaymentActionsForPriority(d.Player, d.Seq); !reflect.DeepEqual(again, want) {
-		t.Fatalf("%s: PaymentActionsForPriority differs from the pre-ticket builder\n got %#v\nwant %#v", where, again, want)
+		t.Fatalf("%s: PaymentActionsForPriority differs from the reference oracle\n got %#v\nwant %#v", where, again, want)
 	}
 	return len(got)
 }
@@ -269,7 +291,7 @@ type onePassGameStats struct {
 // onePassDriveGame plays one game to its end (or the intent cap) in which
 // every seat auto-pays -- a seat with any offer submits the first offered
 // plan unless its policy played a land -- comparing the one-pass offers with
-// the pre-ticket builder at EVERY priority decision.
+// the reference builder at EVERY priority decision.
 func onePassDriveGame(t *testing.T, cfg Config, botSeed uint64, st *onePassGameStats) {
 	t.Helper()
 	e := New(cfg)
@@ -287,7 +309,7 @@ func onePassDriveGame(t *testing.T, cfg Config, botSeed uint64, st *onePassGameS
 		st.hugeRejects += onePassHugeRejects(e, d.Player)
 		// A priority ask deferred behind a commander-zone choice keeps the
 		// Options it was built with; count any drift from a fresh walk (the
-		// pre-ticket builder read the fresh walk, the one-pass builder reads
+		// reference builder read the fresh walk, the one-pass builder reads
 		// the offered list).
 		if !reflect.DeepEqual(d.Options, e.legalActions(d.Player)) {
 			st.staleOptions++
@@ -318,7 +340,7 @@ func onePassDriveGame(t *testing.T, cfg Config, botSeed uint64, st *onePassGameS
 // TestPaymentPlanOnePassMatchesReferenceOverAutoPayGame drives fixed-seed
 // auto-pay games -- two-seat Legacy games and the repo's Commander pairings
 // (command zone, tax, 40 life) -- and at EVERY priority decision compares
-// the one-pass offers against the pre-ticket builder at the same state. It
+// the one-pass offers against the reference builder at the same state. It
 // demands at least 200 priority decisions and floors of offered and
 // planned casts, so the drive cannot pass vacuously.
 func TestPaymentPlanOnePassMatchesReferenceOverAutoPayGame(t *testing.T) {

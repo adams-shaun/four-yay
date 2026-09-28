@@ -56,8 +56,10 @@ func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, 
 	return decision.PaymentAction{}, false
 }
 
-// PlanCastPayment builds one V1 witness for an ordinary cast from hand.  It
-// does not change the game, log, pending decision, or RNG.  It runs its own
+// PlanCastPayment builds one V1 witness for an ordinary cast from the hand
+// or, in a Commander game, from the command zone (the plain taxed CR 903.8
+// cast; alternate-cost command-zone casts stay manual like every other Mode
+// cast).  It does not change the game, log, pending decision, or RNG.  It runs its own
 // candidate walk for this one cast (ValidateCastPayment, the audit tools and
 // tests call it for a single cast); the offer builder, which plans every
 // candidate of one decision, shares one walk and one cost-static collection
@@ -90,11 +92,26 @@ func (e *Engine) CastPaymentCost(p state.PlayerID, id state.ObjID) (cost decisio
 // answers every check exactly as a fresh collection and walk would. The
 // check order, and therefore every Reason and Detail, is PlanCastPayment's.
 func (e *Engine) planCastPaymentChecked(p state.PlayerID, cast decision.PlannedCast, statics *costStaticSource, candidates *paymentCastCandidates) PaymentPlanOutcome {
-	if cast.Origin != "hand" || cast.Face != 0 {
+	if cast.Face != 0 {
+		return PaymentPlanOutcome{Reason: "unsupported"}
+	}
+	// V1 plans exactly two ordinary-cast origins: the hand (the original
+	// shape) and the command zone (the CR 903.8 plain taxed cast; alternate
+	// command-zone casts -- dash, evoke, bestow, ... -- carry a Mode and are
+	// withheld, as everywhere else).  Any other origin fails closed, and the
+	// object must actually sit in its origin's zone: a mislabeled origin
+	// would compose a cost (and, from ZCommand, a commander tax) that
+	// beginCast would never charge.
+	originZone := state.ZHand
+	switch cast.Origin {
+	case "hand":
+	case "command_zone":
+		originZone = state.ZCommand
+	default:
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	o := e.G.Obj(cast.Object)
-	if o == nil || o.Zone != state.ZHand || o.Owner != p || o.Face() == nil || int(o.FaceIdx) != cast.Face {
+	if o == nil || o.Zone != originZone || o.Owner != p || o.Face() == nil || int(o.FaceIdx) != cast.Face {
 		return PaymentPlanOutcome{Reason: "unsupported"}
 	}
 	if detail := e.paymentPlanCastShapeDetailUsing(statics.get(), p, cast.Object); detail != "" {
@@ -467,7 +484,23 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 		if opt.Kind != "cast" || opt.Mode != "" || opt.AltCostIndex != 0 {
 			continue
 		}
-		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: "hand"}
+		// Derive the origin from the object's actual zone.  Only the hand and
+		// the command zone (Commander format) ever offer a plain cast
+		// (Mode "" AltCostIndex 0); anything else fails closed.
+		originObj := e.G.Obj(opt.Obj)
+		if originObj == nil {
+			continue
+		}
+		var origin string
+		switch originObj.Zone {
+		case state.ZHand:
+			origin = "hand"
+		case state.ZCommand:
+			origin = "command_zone"
+		default:
+			continue
+		}
+		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: origin}
 		got := e.planCastPaymentChecked(p, cast, &statics, &legal)
 		e.paymentStats.recordOutcome(got)
 		if got.Plan == nil {
