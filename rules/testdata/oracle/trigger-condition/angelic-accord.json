@@ -1,0 +1,31 @@
+{
+  "card": "Angelic Accord",
+  "family": "trigger-condition",
+  "oracle_sha": "d8e5af4d3aea",
+  "author": "cli-20260927T211250Z-892b171d (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "four-life-gained-creates-angel",
+      "cr": ["603.4", "513.1"],
+      "why": "Gaining four life during the turn makes the end-step condition true and creates one Angel token.",
+      "setup": {"p0": {"battlefield": ["Angelic Accord"]}, "p1": {}},
+      "steps": [
+        {"op": "life", "seat": 0, "amount": 4},
+        {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Angelic Accord", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"count": {"seat": 0, "zone": "battlefield", "name": "Angel", "token": true}, "eq": 1}]
+    },
+    {
+      "name": "three-life-gained-no-end-step-trigger",
+      "cr": ["603.4", "513.1"],
+      "why": "Three life gained this turn is below the stated four-life threshold, so no ability triggers at the end step.",
+      "setup": {"p0": {"battlefield": ["Angelic Accord"]}, "p1": {}},
+      "steps": [
+        {"op": "life", "seat": 0, "amount": 3},
+        {"op": "pass_to", "step": "end", "expect": [{"trigger_on_stack": "p0:Angelic Accord", "want": false}]}
+      ],
+      "expect": [{"count": {"seat": 0, "zone": "battlefield", "name": "Angel", "token": true}, "eq": 0}]
+    }
+  ]
+}
