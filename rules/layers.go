@@ -77,6 +77,11 @@ func (e *Engine) staticEffects(dst []ContinuousEffect) []ContinuousEffect {
 // which every object it leaves out would have been skipped at the
 // ContinuousStaticsMayFunctionOffBattlefield gate below anyway.
 func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []ContinuousEffect {
+	// This walk is a full rescan, so it is the place the per-build gate flag
+	// is recomputed. staticEffects calls no callbacks and cannot re-enter
+	// (see its doc), so reset/set ordering is safe. A verify-only second walk
+	// (staticZoneSkipVerify) resets it again below and sets it identically.
+	e.staticMemoGated = false
 	out := dst[:0]
 	for pi, p := range e.G.AliveFrom(0) {
 		// staticSourceZones (below) walks the battlefield FIRST so every
@@ -240,8 +245,17 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// (the shipped statics convention rules/statics.go's
 						// checkSVarHolds documents): the grant is withheld whole, never
 						// silently always-applied.
-						if st.MayHaveAnyParam(continuousGateKeys) && !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
-							continue
+						if st.MayHaveAnyParam(continuousGateKeys) {
+							// A gate-carrying static was ENCOUNTERED -- set the flag even
+							// when the gate holds, because a later battlefield-composition
+							// change can flip a passing gate off. layercache.go's
+							// staticSafeSince refuses a TokenCreate re-stamp whenever this
+							// is set, so the memo is only reused across a token entry on a
+							// board with no gate-carrying Continuous static anywhere.
+							e.staticMemoGated = true
+							if !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
+								continue
+							}
 						}
 						base := ContinuousEffect{
 							Source:     id,
