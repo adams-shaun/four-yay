@@ -619,6 +619,19 @@ type ContinuousEffect struct {
 	// other continuous-effect field.
 	CostStaticParams map[string]string
 
+	// CostStaticGranted marks a cost-modifier static the Affects objects
+	// HAVE -- an ability granted to them (Animate/AnimateAll staticAbilities$,
+	// a Mode$ Continuous AddStaticAbility$, CopyPermanent
+	// AddStaticAbilities$) -- rather than a static of the Effect itself.
+	// rules' cost collector binds each such static to its HOST exactly as a
+	// printed static is bound to the object printing it: the host is the
+	// static's source (so Card.Self names the host) and its current
+	// controller is the static's controller, EffectZone$ gates on the host's
+	// zone, and CostStaticSVars (the GRANTING face's table) resolves its
+	// SVars. Affects "Card.Self" names Source as the one host; any other
+	// spec is matched from Source against the objects in the grant's zone.
+	CostStaticGranted bool
+
 	// AdjustLandPlays marks an additional-land-drops grant (Azusa, Lost but
 	// Seeking's "You may play two additional lands on each of your turns",
 	// Oracle of Mul Daya, Exploration): the number of EXTRA land drops the

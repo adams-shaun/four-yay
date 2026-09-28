@@ -2579,6 +2579,14 @@ func ManaConvertParamsReadable(params map[string]string) bool {
 	return true
 }
 
+// IsGrantableCostStaticMode names the cost-modifier modes a GRANT delivers
+// (state.ContinuousEffect.CostStaticGranted): the three rules' cost
+// collector composes. AlternativeCost/OptionalCost grants are not collected
+// through that route and stay on each carrier's unimplemented path.
+func IsGrantableCostStaticMode(mode string) bool {
+	return mode == "ReduceCost" || mode == "RaiseCost" || mode == "SetCost"
+}
+
 // CostStaticParamsReadable is the parameter whitelist an Effect-delivered
 // cost-modifier static (Mode$ ReduceCost/RaiseCost/SetCost/AlternativeCost
 // behind an AB$ Effect's StaticAbilities$ entry, task
