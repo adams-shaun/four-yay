@@ -1279,6 +1279,124 @@ MemoryMax=4G env GOMEMLIMIT=2GiB GOMAXPROCS=8`. The matrix arms ran on
 `666cc2720`, which has the two bugs above. They never hit the Sacred Cat
 case (the matrix decks have no embalm), so their numbers stand.
 
+### 12.6 sb-search: sb-tactical under honest determinized search (measured 2026-09-28)
+
+**Verdict: search on top of sb-tactical is a clear win.** `sb-search-fast`
+beats the champion heuristic `sb-tactical` **321-191 (62.7%, about +90
+Elo)** over 512 seat-swapped mirror games (dev seed 777, 32 pairs x 8
+decks), winning on every deck, and holds on the held-out seed 99991:
+**315-197 (61.5%, +82)**. On the FDN catalog (4 pairs, 128 games) it is
+74-54 (57.8%). Searching the attack declaration as well
+(`sb-search-fast-atk`) adds more: **336-176 (65.6%, +112)** at seed 777 and
+**329-183 (64.3%, +102)** held out; under common random numbers the games
+the two arms split went 19-4 (seed 777) and 23-9 (99991) to the attack arm.
+The cheapest arm, `sb-search-lite-atk` (4 worlds, 2-turn horizon), keeps
+almost all of it -- **328-184 (64.1%)** -- at a 0.22 s mean searched
+decision. Four heuristic decorators on sb-tactical had all measured
+neutral; this is the first idea that moves it.
+
+**Design** (`internal/spellbench/sbsearch`, registered in
+`cmd/botbench/spellbench_registry.go`). The seat wraps an sb-tactical
+`builtins.Seat` and is a `searchseat.SearchSeat`, so `bench.PlayGame`
+hands it the live engine and its observation feed; `UnwrapSeat` exposes the
+sb-tactical seat so the runner's planner hand-off, refused-answer retry and
+stats reach it unchanged.
+
+1. *Candidates.* At a priority decision `builtins.Seat.TacticalPriority`
+   returns sb-tactical's scored candidate list exactly as its next `Decide`
+   would rank it (no pursuit or plan lowering in progress, at least two
+   candidates). The searched set is sb-tactical's pick, the next best by
+   score up to `TopK` = 3, plus pass. A land drop is never searched
+   (sb-tactical always plays it first; the next priority decision searches
+   the spells). With `Attack`, a KAttackers decision compares sb-tactical's
+   declaration with no attack and the alpha strike
+   (`builtins.AttackAlternatives`).
+2. *Worlds.* W worlds per decision, each a `searchprobe.Redealer` deal from
+   the seat's feed (its History and the incremental known-card projection,
+   `azmcts.KnownTracker`) and the declared game: in the mirror pool the
+   opponent's list is the seat's own (the spec's `visible` case). The real
+   engine is read for public state and zone sizes only; a refused redeal
+   plays sb-tactical's pick.
+3. *Rollouts.* Every candidate is applied in every world through a rollout
+   copy of the seat (`RolloutClone`, then `ForcePriority`, so a pursuit or a
+   lowered payment plays exactly as sb-tactical plays it) and the game is
+   rolled on with sb-tactical on BOTH sides -- to game end, or to `Horizon`
+   turns after the root's turn, scored by the frozen material leaf
+   (`searchprobe.LeafValue` on the seat's own view). All candidates of one
+   world share its deal, chance seed and rollout seeds (common random
+   numbers). Rollout seats share one profile cache, kept apart from the
+   real seat's.
+4. *Choice.* Mean value over the worlds every candidate completed; the best
+   candidate is played only if it beats sb-tactical's own pick by more than
+   `Margin` = 0.05. A failed world (deal refused, rollout panic, a candidate
+   not offered, every fallback answer refused) is dropped for all
+   candidates; no valid world, or any panic in the search, plays
+   sb-tactical's pick. The real seat's own state only ever sees the forced
+   pick (`ForcePriority`), which `Decide` clears.
+5. *Determinism.* Worlds, chance and rollout seats derive from
+   `azmcts.DecisionSeed(seat seed, decision seq)`; everything iterates in
+   slice order; the package reads no clock (`Millis` is injected for the
+   cost report only). Unit tests: W=0 plays the sb-tactical game event for
+   event (`TestZeroWorldsIsTactical`), a forced rollout failure at every
+   searched decision plays the sb-tactical game (`TestForcedErrorFalls
+   BackToTactical`), and the same seed repeats the same searched game
+   (`TestSearchIsDeterministic`).
+
+`sb-tactical` itself changed in one place: its reanimate value recursed
+without end (a stack overflow, fatal) when a creature whose own ETB
+reanimates sat in the graveyard. sb-search's rollouts reached it on the
+FDN catalog; a nested call is now worth 0, and every other state scores as
+before (the pauper-kernel runs never reached it).
+
+**Measured** (vs `sb-tactical`, pauper-kernel, seat-swapped mirrors; ms are
+wall per SEARCHED decision on a box at load 14-20, so real latency is
+lower; about 85 searched decisions per game per seat):
+
+| variant | W | horizon | games | result | ms mean / p50 / p90 / p99 | overrides |
+|---|---|---|---|---|---|---|
+| sb-search-fast | 8 | 3 turns + leaf | 512 (seed 777) | **321-191, 62.7%** | 502 / 343 / 1064 / 2519 | 4.8% |
+| sb-search-fast | 8 | 3 turns + leaf | 512 (seed 99991) | **315-197, 61.5%** | 470 / 325 / 1017 / 2291 | 4.9% |
+| sb-search-fast | 8 | 3 turns + leaf | 128 (FDN) | 74-54, 57.8% | 204 / 168 / 362 / 702 | 6.6% |
+| sb-search | 16 | game end | 256 (seed 777) | 147-109, 57.4% | 4172 / 2443 / 10630 / 21889 | 13.5% |
+| sb-search-fast-atk | 8 | 3 turns + leaf, attacks searched | 512 (seed 777) | **336-176, 65.6%** | 519 / 355 / 1097 / 2550 | 4.8% |
+| sb-search-fast-atk | 8 | 3 turns + leaf, attacks searched | 512 (seed 99991) | **329-183, 64.3%** | 520 / 357 / 1131 / 2450 | 5.1% |
+| sb-search-lite | 4 | 2 turns + leaf | 512 (seed 777) | **318-194, 62.1%** | 187 / 133 / 382 / 915 | 5.1% |
+| sb-search-lite-atk | 4 | 2 turns + leaf, attacks searched | 512 (seed 777) | **328-184, 64.1%** | 219 / 152 / 448 / 1108 | 5.2% |
+
+Per deck, seed 777, sb-search-fast: Wildfire 44-20, Rally 42-22, Affinity
+39-25, Elves 41-23, Spy 39-25, Burn 38-26, CawGates 39-25, Faeries 39-25.
+Held-out 99991: Wildfire 36-28, Rally 38-26, Affinity 43-21, Elves 42-22,
+Spy 34-30, Burn 36-28, CawGates 45-19, Faeries 41-23.
+
+Game-end rollouts are not better: on the same 128 pairs, `sb-search`
+(W=16 to game end) went 147-109 where `sb-search-fast` went 160-96, at 8x
+the cost. The full-game values are noisier (a 0/1 outcome per world), so
+the same 0.05 margin lets twice as many overrides through; the short
+horizon plus material leaf is both cheaper and a better estimator here.
+
+**Time.** SpellBench's per-decision limit is about 1 s. `sb-search-fast`'s
+median searched decision is ~0.33 s and its p90 ~1.0 s under load; its
+tail (p99 2.3-2.5 s) comes from the long-game decks (CawGates, Wildfire),
+where each rollout plays more decisions. `sb-search-lite-atk` (W=4,
+horizon 2) is the budget that stays under the limit -- mean 0.22 s, p90
+0.45 s, p99 1.1 s under load -- for 64.1%, so it is the recommended
+SpellBench arm. A deployed seat still wants a hard per-decision cap (stop
+dealing worlds once the budget is spent); a clock cut makes play depend on
+time, so it belongs in the live seat only, not in the reproducible bench.
+
+Existing policies are untouched: the sb-gauntlet smoke digest golden
+passes, and a 96-game sb-tactical / sb-tactical-noearly / bot round robin
+(seed 777, 2 pairs) is games.jsonl-identical (wall time dropped) between
+the base commit `ee26ea630` and this branch.
+
+```sh
+W=/mnt/sata/gorge-training/spellbench-work/search-tac
+$W/botbench -dir .cards -spellbench sb-tactical,sb-search-fast -spellbench-pairs 32 \
+    -spellbench-base-seed 777 -spellbench-out $W/h2h-fast-p32 -workers 8
+# the other arms swap the policy name (sb-search, -fast-atk, -lite, -lite-atk);
+# held-out: -spellbench-base-seed 99991; FDN: -spellbench-catalog fdn -spellbench-pairs 4
+```
+
 ## 13. Risks
 
 | Risk | Why it bites | Mitigation |
