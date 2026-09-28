@@ -139,3 +139,103 @@ func TestExchangeLifeSettlesAfterFirstSideSuspendsOnDredge(t *testing.T) {
 		t.Fatalf("Lich replacement drew %d cards, want 5", got)
 	}
 }
+
+// TestMisterNegativeExchangeSettlesOnStackWhenGainReplaced exercises the
+// suspended settle through the REAL card path: Mister Negative's ETB resolves
+// as a stack object, so the exchange's second side (the opponent's gain) is
+// emitted during resolution (e.resume != nil) -- the resumeResolution drain
+// arm, not the direct one the two synthetic tests above take. Lich replaces
+// that gain with draws whose dredge asks suspend it. The exchange must still
+// settle both sides afterwards.
+func TestMisterNegativeExchangeSettlesOnStackWhenGainReplaced(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	lich := mustCorpusCard(t, reg, "Lich")
+	thug := mustCorpusCard(t, reg, "Golgari Thug")
+	e, _ := searchEngine(t, reg, "Mister Negative")
+	// Seat 1 is the exchange opponent and the gaining side, so Lich must be on
+	// seat 1's battlefield and a dredger must sit in seat 1's graveyard.
+	lichID := onBoardCard(t, e, 1, lich)
+	if o := e.G.Obj(lichID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Lich not on seat 1's battlefield: %+v", o)
+	}
+	thugObj := e.G.AddObject(thug, 1)
+	e.emit(events.Event{Kind: events.MoveZone, Obj: thugObj.ID, From: thugObj.Zone, To: state.ZGraveyard})
+	if o := e.G.Obj(thugObj.ID); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("precondition: dredger not in graveyard: %+v", o)
+	}
+	e.emit(events.Event{Kind: events.LifeChange, Player: 1, Amount: -5})
+	if e.G.Players[0].Life != 20 || e.G.Players[1].Life != 15 {
+		t.Fatalf("precondition: lives = %d/%d, want distinct 20/15", e.G.Players[0].Life, e.G.Players[1].Life)
+	}
+	id := searchMoveByName(t, e, "Mister Negative", state.ZBattlefield)
+	if e.G.Obj(id).Zone != state.ZBattlefield {
+		t.Fatal("precondition: Mister Negative not on battlefield")
+	}
+	dredges, targetPosed := 0, false
+	for i := 0; i < 200; i++ {
+		d := e.Pending()
+		// The exchange settles the moment the ETB leaves the stack; stop at
+		// that first idle priority rather than driving on into later turns
+		// (whose draw steps pose their own dredge asks and whose cleanup poses
+		// a discard ask — both outside this test).
+		if targetPosed && len(e.G.Stack) == 0 && d != nil && d.Kind == decision.KPriority {
+			break
+		}
+		if d == nil {
+			e.Advance()
+			continue
+		}
+		switch d.Kind {
+		case decision.KTarget:
+			idx := indexOfPlayerOption(d, 1)
+			if idx < 0 {
+				t.Fatalf("opponent not offered: %+v", d.Options)
+			}
+			targetPosed = true
+			submitChoices(t, e, idx)
+		case decision.KTriggerOptional, decision.KChoose:
+			submitChoices(t, e, 0)
+		case decision.KModes:
+			if d.ResumeKind != "dredge" {
+				t.Fatalf("unexpected modal ask: %+v", d)
+			}
+			dredges++
+			if d.Player != 1 {
+				t.Fatalf("dredge ask player = %d, want the gaining seat 1", d.Player)
+			}
+			submitChoices(t, e, len(d.Options)-1)
+		case decision.KPriority:
+			idx := -1
+			for _, o := range d.Options {
+				if o.Kind == "pass" {
+					idx = o.Index
+					break
+				}
+			}
+			if idx < 0 {
+				t.Fatal("no pass")
+			}
+			submitChoices(t, e, idx)
+		default:
+			t.Fatalf("unexpected ask: %s %+v", d.Kind, d)
+		}
+	}
+	if !targetPosed {
+		t.Fatal("precondition: Mister Negative's ETB never posed its target ask")
+	}
+	if dredges != 5 {
+		t.Fatalf("Lich posed %d dredge asks for the replaced 5-point gain, want 5", dredges)
+	}
+	if got0, got1 := e.G.Players[0].Life, e.G.Players[1].Life; got0 != 15 || got1 != 15 {
+		t.Fatalf("lives after the stack exchange = %d/%d, want 15/15", got0, got1)
+	}
+	if got := len(e.G.Zone(state.ZHand, 1)) - 0; got == 0 {
+		t.Fatal("Lich replacement drew no cards for seat 1")
+	}
+	// The transaction settles, which is what this test is for. Mister
+	// Negative's RememberOwnLoss rider (SVar:X Count$RememberedNumber) is a
+	// SEPARATE, pre-existing defect when the exchange suspends: the resumed
+	// effect chain rebuilds a fresh Ctx, so ExchangeNumberBound is lost and X
+	// evaluates to 0. Filed as a follow-up; this test deliberately does not
+	// assert the rider value either way.
+}
