@@ -1,0 +1,24 @@
+{
+  "card": "Tainted Peak",
+  "family": "activation-condition",
+  "oracle_sha": "8671e8db6548",
+  "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "colored-mana-unavailable-without-swamp",
+      "cr": ["602.5", "305.6"],
+      "why": "Without a Swamp, the Peak's colored-mana ability is unavailable, while its colorless ability can still be activated.",
+      "setup": {"p0": {"battlefield": ["Tainted Peak", "Wastes"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Tainted Peak", "ability": "", "answers": [{"kind": "choose", "pick": ["Add C"]}]}],
+      "expect": [{"pool": {"p0": "C"}}]
+    },
+    {
+      "name": "colored-mana-available-with-swamp",
+      "cr": ["602.5", "305.6", "605.1a", "106.12"],
+      "why": "Controlling a Swamp meets the restriction; selecting the black choice taps the Peak and adds black mana.",
+      "setup": {"p0": {"battlefield": ["Tainted Peak", "Swamp"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Tainted Peak", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
+      "expect": [{"pool": {"p0": "B"}}]
+    }
+  ]
+}
