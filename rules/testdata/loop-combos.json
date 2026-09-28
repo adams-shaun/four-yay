@@ -1,0 +1,133 @@
+{
+  "schema": "gorge.combo-research.v1",
+  "revision": 1,
+  "source": "https://moxfield.com/decks/ev1ALilkekSHpx-D6bG6Og",
+  "status": "Curated research facts, not executable or certified scripts. See the companion spec for timing and variants.",
+  "combos": [
+    {
+      "id": "rakdos-miner-altar",
+      "pieces": [{"name":"Rakdos, the Muscle","role":"engine"},{"name":"Forsaken Miner","role":"fuel"},{"name":"Phyrexian Altar","role":"outlet"}],
+      "preconditions": ["All pieces on your battlefield", "An opponent is targetable", "Your priority", "No graveyard replacement or entry prohibition"],
+      "resources": "No seed mana; positive life",
+      "body": ["Sacrifice Miner to Altar for B", "Target opponent with Rakdos trigger", "Pass to Miner's crime trigger and pay B", "Resolve Rakdos and return to priority"],
+      "net": {"mana":0,"deaths":1,"enters":1,"storm":0,"opponent_library":"-min(1,remaining)"},
+      "payoff": "Empty opponents' libraries; needs failed draws or a separate drain payoff to win",
+      "breaks": ["Decline Miner payment", "Remove piece", "Graveyard hate", "Opponent intervenes"],
+      "bound": "Arbitrarily many finite repeats; library output saturates",
+      "test": "TestLoopPrototypeMiner"
+    },
+    {
+      "id": "miner-sephiroth-altar",
+      "pieces": [{"name":"Sephiroth, Fabled SOLDIER","role":"engine/payoff"},{"name":"Forsaken Miner","role":"fuel"},{"name":"Phyrexian Altar","role":"outlet"}],
+      "preconditions": ["All battlefield", "Targetable opponent", "Transform/emblem transition after fourth drain"],
+      "resources": "No seed mana",
+      "body": ["Sacrifice Miner for B", "Target opponent with death drain, committing a crime", "Pay B to return Miner", "Resolve drain; after fourth resolution continue with emblem"],
+      "net": {"mana":0,"your_life":1,"opponent_life":-1,"deaths":1,"storm":0},
+      "payoff": "Drain table",
+      "breaks": ["Decline payment", "Remove outlet or Miner", "Remove Sephiroth before emblem", "Prevent life gain does not stop Altar version"],
+      "bound": "Finite lethal; two phases, not one invariant across transformation",
+      "test": "TestLoopPrototypeSephiroth"
+    },
+    {
+      "id": "miner-soultrader",
+      "pieces": [{"name":"Rakdos, the Muscle","role":"engine"},{"name":"Forsaken Miner","role":"fuel"},{"name":"Warren Soultrader","role":"outlet"}],
+      "preconditions": ["All battlefield", "Targetable opponent"],
+      "resources": "One seed B, life greater than desired count",
+      "body": ["Pay 1 life and sacrifice Miner", "Target opponent with Rakdos", "Pay seed B to return Miner before Treasure exists", "Resolve Treasure ability and sacrifice Treasure for B"],
+      "net": {"mana":0,"your_life":-1,"opponent_library":"-min(1,remaining)","deaths":1,"treasures_created_and_spent":1},
+      "payoff": "Bounded library exile",
+      "breaks": ["Life budget exhausted", "Graveyard hate", "Remove piece"],
+      "bound": "Life-bounded without a gain engine",
+      "variants": ["Add Sephiroth for +1 life per death to offset cost and drain; Sephiroth can also replace Rakdos", "Sephiroth alone is NOT a repeatable sacrifice outlet"],
+      "test": "TestLoopPrototypeSoultrader"
+    },
+    {
+      "id": "rakdos-thug-ashnod",
+      "pieces": [{"name":"Rakdos, the Muscle","role":"engine"},{"name":"Golgari Thug","role":"fuel"},{"name":"Ashnod's Altar","role":"outlet"}],
+      "preconditions": ["All battlefield", "Your main phase", "Empty stack at cycle boundary", "Self can be targeted"],
+      "resources": "No seed mana; Rakdos permission allows colorless for Thug's B",
+      "body": ["Sacrifice Thug for CC", "Put Rakdos trigger below Thug trigger; target self and Thug respectively", "Put Thug on library top", "Exile top two with Rakdos", "Cast Thug from exile using CC"],
+      "net": {"mana":0,"storm":1,"deaths":1,"enters":1,"other_own_library":"-min(1,remaining)"},
+      "payoff": "Add Blood Artist or Mayhem Devil for a kill, or Poxwalkers for mana and opponent exile",
+      "breaks": ["Wrong trigger order", "Library placement bug", "Remove Rakdos", "Graveyard or exile-casting hate"],
+      "bound": "Can repeat after all other own library cards are exiled",
+      "variants": ["Poxwalkers returns on each exile cast; sacrifice it for net CC and Rakdos exile 3 from opponent", "Blood Artist drains 1 per Thug death", "Mayhem Devil damages 1 per sacrifice"],
+      "test": "TestLoopPrototypeThug (blocked; strict mode reproduces failure)"
+    },
+    {
+      "id": "dualcaster-molten",
+      "pieces": [{"name":"Dualcaster Mage","role":"engine"},{"name":"Molten Duplication","role":"engine"},{"filter":"another targetable creature or artifact you control","role":"seed"}],
+      "preconditions": ["Duplication cast with seed target; retain priority to cast Mage", "No effect stops tokens/ETBs"],
+      "resources": "1R plus 1RR bootstrap; no mana per copy",
+      "body": ["Resolve Mage; copy original Duplication", "Retarget copy to Mage", "Resolve token; its ETB copies original", "Repeat, then target seed to stop"],
+      "net": {"mage_tokens":1,"storm":0,"hasty_power":2},
+      "payoff": "Attack with hasty army or sacrifice for death/entry payoffs",
+      "breaks": ["Choose non-Mage target", "Counter original/copy trigger", "Remove only Mage before a copy resolves"],
+      "bound": "Arbitrary finite count; delayed sacrifices at next end step, NOT end of combat",
+      "test": "TestLoopPrototypeDualcaster/Molten_Duplication"
+    },
+    {
+      "id": "dualcaster-saw",
+      "pieces": [{"name":"Dualcaster Mage","role":"engine"},{"name":"Saw in Half","role":"engine"},{"filter":"another destructible creature","role":"seed"}],
+      "preconditions": ["Saw on stack with seed target; Mage enters above it", "Mage can die to destruction"],
+      "resources": "2B plus 1RR bootstrap",
+      "body": ["Copy original Saw targeting Mage", "Destroy Mage and create two smaller Mages", "Use one ETB to continue copying original Saw", "Use spare ETBs on a second spell or harmless seed target"],
+      "net": {"mage_tokens_net":1,"deaths":1,"enters":2,"spare_copy_trigger":1,"storm":0},
+      "payoff": "Arbitrary nonhasty 1/1 Mage tokens, or copies of a suitable other spell kept on stack",
+      "breaks": ["No creature dies", "Counter original", "Do not continue retargeting Mages"],
+      "bound": "Arbitrary finite count; original 2/2 halves to 1/1, copies keep mana value 3",
+      "test": "TestLoopPrototypeDualcaster/Saw_in_Half"
+    },
+    {
+      "id": "monk-offering-saw",
+      "pieces": [{"name":"Pinnacle Monk","role":"engine"},{"name":"Burnt Offering","role":"outlet"},{"name":"Saw in Half","role":"engine"}],
+      "preconditions": ["Steady boundary: two Monk tokens battlefield, both instants hand", "Monks can be destroyed"],
+      "resources": "One B at steady-state boundary; bootstrap requires first Saw and Offering graveyard",
+      "body": ["Cast Offering for B sacrificing Monk A, produce five black mana", "Cast Saw for 2B targeting Monk B", "New Monks return Offering and Saw separately"],
+      "net": {"mana":1,"storm":2,"deaths":2,"enters":2,"monks":0},
+      "payoff": "Arbitrary mana/storm; afterwards spend accumulated mana on repeated Saw to grow army, or use external payoff",
+      "breaks": ["Exile either instant", "Counter Saw", "Indestructible or death replacement"],
+      "bound": "Arbitrary finite repetitions; not net +1 Monk in the mana-building cycle",
+      "test": "TestLoopPrototypeMonk"
+    },
+    {
+      "id": "nightmare-mana-pair",
+      "pieces": [{"name":"Chthonian Nightmare","role":"engine/outlet"},{"filter":"mana creature A","role":"fuel"},{"filter":"distinct mana creature B","role":"fuel"}],
+      "preconditions": ["Nightmare plus A battlefield; B graveyard", "Your main phase", "Mana and energy prefix budgets both feasible"],
+      "resources": "Each round: two Nightmare casts cost 2BB, supply six energy; returned mana values must total at most six for indefinite repetition",
+      "body": ["Pay energy for B; sacrifice A and return Nightmare as costs", "Resolve B and its entry/death mana", "Recast Nightmare for 1B", "Pay energy for A; sacrifice B and return Nightmare", "Resolve A and recast Nightmare"],
+      "net": {"storm":2,"deaths":2,"enters":2,"energy":"6-MV(A)-MV(B)","mana":"production(A,B)-4"},
+      "payoff": "Rakdos library exile, Sephiroth drain, or positive mana for another outlet",
+      "breaks": ["Energy/mana deficit", "Graveyard exile", "Counter Nightmare", "Sorcery timing denied"],
+      "bound": "Pair-specific, never assume all mana creatures work",
+      "variants": ["Priest of Gix + Priest of Urabrask: +2 mana, energy neutral", "Priest of Gix + Charming Scoundrel: mana neutral, +1 energy", "Priest of Gix + Cathodion: +2 mana, energy neutral", "Atsushi + Charming Scoundrel: mana/energy neutral, Treasure modes", "Atsushi + Priest of Gix: +2 mana but -1 energy each round, bounded without extra energy"],
+      "test": "TestLoopPrototypeNightmare (Gix/Urabrask only)"
+    },
+    {
+      "id": "breach-dementia-pox-led",
+      "pieces": [{"name":"Underworld Breach","role":"engine"},{"name":"Altar of Dementia","role":"outlet"},{"name":"Poxwalkers","role":"fuel"},{"name":"Lion's Eye Diamond","role":"engine"}],
+      "preconditions": ["Breach and Altar battlefield, LED and Poxwalkers graveyard", "Three expendable graveyard cards", "Own library supplies future fuel"],
+      "resources": "No mana for LED escape; three other cards per escape",
+      "body": ["Escape LED, exiling three other graveyard cards", "Return Poxwalkers on cast trigger", "Resolve and sacrifice LED; discard hand and add three mana", "Sacrifice Poxwalkers to Altar, mill self three"],
+      "net": {"mana":3,"storm":1,"deaths":1,"own_library":-3,"exiled_fuel":3},
+      "payoff": "Finite mana/storm and access to deck; add external win condition",
+      "breaks": ["Run out of mill/escape fuel", "Exile Poxwalkers", "Remove Breach or Altar"],
+      "bound": "Library/yard bounded, NOT infinite",
+      "variants": ["Cathodion instead: escape Cathodion for 3, mill it for three and regain CCC; mana neutral, needs seed CCC, no free spell needed for this subcycle", "Rakdos is optional additional exile, not necessary; self-exile competes with future mill fuel"],
+      "test": "TestLoopPrototypeBreach (Poxwalkers/LED only)"
+    },
+    {
+      "id": "current-list-bounded-engines",
+      "pieces": [{"name":"Timeline Culler","role":"fuel"},{"name":"Phyrexian Altar","role":"outlet"},{"name":"Rakdos, the Muscle","role":"payoff"}],
+      "preconditions": ["Culler battlefield or graveyard", "Your main phase"],
+      "resources": "B seed if starting from graveyard; two life per warp cast",
+      "body": ["Sacrifice Culler for B", "Resolve Rakdos exile two", "Warp Culler from graveyard for B and two life before its delayed exile"],
+      "net": {"mana":0,"your_life":-2,"storm":1,"deaths":1,"library_exile":2},
+      "payoff": "Bounded value chain, not an infinite by itself",
+      "breaks": ["Life budget", "End step", "Graveyard hate"],
+      "bound": "Life bounded; Sephiroth only offsets one of two life per death",
+      "variants": ["Skittering Precursor added to Miner/Altar/Rakdos produces one Spawn each Miner sacrifice, enabling extra mana", "Breach/LED/Poxwalkers plus Umbral Collar Zealot replaces absent Dementia with surveil one, but consumes net two graveyard fuel per iteration", "Evoke creatures with Rakdos turn sacrifices into mana-value-sized library access; rituals and tutors make long, non-fixed storm chains"],
+      "test": "Not simulated: additional research candidates, not certified macros"
+    }
+  ]
+}
