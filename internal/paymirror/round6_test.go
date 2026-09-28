@@ -117,7 +117,9 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 //   - 2138: G.Stack reorder by a float-triggered ability (expected);
 //   - 4098: the float's sacrifice triggered Rakdos, the Muscle's target ask
 //     at priority (expected placement);
-//   - 4139: damageSourceLKI on the Incubator's cast trigger (cost-move mask);
+//   - 4139 seq 6785: damageSourceLKI on the Incubator's cast trigger
+//     (cost-move mask); deferring the speed trigger changes the bot trajectory
+//     but the same guarded cast remains equivalent.
 //   - 4129: Treasonous Ogre's pay-life-only activation (witness).
 //
 // fb-20260927T130632Z-d3600dd9 re-pinned seed 4129 from seq 4118 to 4231:
@@ -143,7 +145,7 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 7213, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 5592, "expected:float_then_cast:float_trigger_placement"},
-		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6752, ""},
+		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6785, ""},
 		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 4231, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: true, Policy: "bot"})

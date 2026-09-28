@@ -2176,16 +2176,11 @@ func lifeOnlyStarts(evs []events.Event, plan decision.PaymentPlan, payer state.P
 	return out
 }
 
-// lifePaymentConsequences is the index of the first event after evs[j] that
-// is not an inline consequence of that event: the SpeedChange gains the
-// engine emits straight after a life loss folds (rules/speed.go
-// checkSpeedGain: an opponent with speed gains one on the loss, inside the
-// same emit, before the activation's mana is added). Measured (round-10
-// paymirror commander4 seed 12603 seq 2300, Mana Vault): Treasonous Ogre's
-// "Pay 3 life: Add {R}" logged life -3, speed_change for an opponent, then
-// mana R, and the witness read the payment as no activation at all. Only
-// SpeedChange is skipped; any other event between the payment and the mana
-// still breaks the start.
+// lifePaymentConsequences returns the first event after evs[j] that is not a
+// SpeedChange. It preserves recognition of the historical/synthetic payment
+// stream shape; speed gains now queue as CR 702.179d triggers rather than being
+// emitted inline with life loss. Only SpeedChange is skipped; any other event
+// between the payment and mana still breaks the activation start.
 func lifePaymentConsequences(evs []events.Event, j int) int {
 	k := j + 1
 	for k < len(evs) && evs[k].Kind == events.SpeedChange {
@@ -2194,8 +2189,8 @@ func lifePaymentConsequences(evs []events.Event, j int) int {
 	return k
 }
 
-// manaRunAfter sums the positive ManaAdd run that follows evs[j] once its
-// inline consequences (lifePaymentConsequences) are passed.
+// manaRunAfter sums the positive ManaAdd run that follows evs[j] once the
+// intervening payment consequence events (lifePaymentConsequences) are passed.
 func manaRunAfter(evs []events.Event, j int) decision.ManaAmount {
 	var got decision.ManaAmount
 	for _, ev := range evs[lifePaymentConsequences(evs, j):] {

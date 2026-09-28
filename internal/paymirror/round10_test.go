@@ -33,10 +33,9 @@ import (
 //     longer offered there, so the game moves; the pin is that no planned
 //     cast in it falls back or mismatches. (The report's control route was
 //     equivalent: the source_changed was run A's fallback, not the clone.)
-//   - 12603 seq 2300 (Mana Vault), commander4 a_witness:unexecuted_activation:
-//     Treasonous Ogre's "Pay 3 life: Add {R}" logged life -3, an opponent's
-//     inline speed gain, then R; the witness required the mana to follow the
-//     payment immediately (harness gap, lifePaymentConsequences).
+//   - 12603 seq 2298 (Mana Vault), commander4: Treasonous Ogre's "Pay 3
+//     life: Add {R}" cast plan remains equivalent after the speed gain moved
+//     to its triggered-ability timing (CR 702.179d), shifting the cast earlier.
 //   - 10877 seq 2873 (Infernal Plunge), commander4-r9 a_witness:wrong_production:
 //     the plan's Ogre paid life for R and was then the creature sacrificed
 //     for the spell's additional cost (CR 601.2h); the witness read that
@@ -71,7 +70,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
 		12468: {7211: ""},
 		11828: {},
-		12603: {2300: ""},
+		12603: {2298: ""},
 		10877: {2873: ""},
 	}
 	for _, spec := range specs {
@@ -108,10 +107,9 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 	}
 }
 
-// TestWitnessReadsLifePaymentPastSpeedGain pins lifePaymentConsequences: an
-// opponent's speed gain the life payment folds inline sits between a
-// pay-life-only source's payment and its mana, and is passed over; any other
-// event there still breaks the start.
+// TestWitnessReadsLifePaymentPastSpeedGain pins lifePaymentConsequences on a
+// synthetic legacy event stream: a SpeedChange between a pay-life-only source's
+// payment and mana is passed over; any other event still breaks the start.
 func TestWitnessReadsLifePaymentPastSpeedGain(t *testing.T) {
 	const payer state.PlayerID = 1
 	ogre := decision.PaymentActivation{Source: 107, Produces: decision.ManaAmount{0, 0, 0, 1, 0, 0},
