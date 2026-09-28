@@ -341,6 +341,120 @@ func TestCompletedDungeonIsNotReentered(t *testing.T) {
 	replayHeadCheck(t, e, cfg)
 }
 
+// TestDungeonRoomAbilityTargetsAndResolves walks Lost Mine's other branch
+// (Cave Entrance -> Goblin Lair -> Storeroom) to prove a room ability that
+// TARGETS goes through the ordinary CR 603.3c target placement and resolves
+// with its printed effect. Goblin Lair's room ability creates a 1/1 Goblin
+// token; the next room, Storeroom (PutCounter P1P1 on target creature), must
+// then pose a target decision naming that token, and the answered ability must
+// put the counter. This is the "uses the stack, targets and resolution
+// normally" half of the brief.
+func TestDungeonRoomAbilityTargetsAndResolves(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, cfg, id := newVentureGame(t, reg, ventureFixtureSrc, 6)
+	if e.G.Players[0].DungeonObj != 0 {
+		t.Fatalf("precondition: seat 0 already owns dungeon %d", e.G.Players[0].DungeonObj)
+	}
+	var seen []decision.Kind
+
+	// Venture 1: enter Lost Mine, then resolve Cave Entrance's Scry 1.
+	d := castVenture(t, e, id)
+	if d == nil || d.ResumeKind != "venture_dungeon" {
+		t.Fatalf("first venture posed no dungeon choice: %+v", d)
+	}
+	submitChoices(t, e, slices.IndexFunc(d.Options, func(o decision.Option) bool { return o.Key == "lost_mine_of_phandelver" }))
+	dobj := e.G.Players[0].DungeonObj
+	driveRoomResolution(t, e, dobj, &seen)
+
+	// Venture 2: Cave Entrance's arrows; answer Goblin Lair (a 1/1 Goblin).
+	id2 := moveByName(t, e, 0, "Delve Deep", state.ZHand)
+	addMana(t, e, 0, "B")
+	d = castVenture(t, e, id2)
+	if d == nil || d.ResumeKind != "venture_room" {
+		t.Fatalf("Cave Entrance posed no room choice: %+v", d)
+	}
+	submitChoices(t, e, slices.IndexFunc(d.Options, func(o decision.Option) bool { return o.Key == "DBGoblinLair" }))
+	tokensBefore := battlefieldNameCount(e, "Goblin Token")
+	driveRoomResolution(t, e, dobj, &seen)
+	if battlefieldNameCount(e, "Goblin Token") != tokensBefore+1 {
+		t.Fatalf("precondition: Goblin Lair created no Goblin (before=%d after=%d)", tokensBefore, battlefieldNameCount(e, "Goblin Token"))
+	}
+
+	// Venture 3: Goblin Lair's arrows; answer Storeroom. Its PutCounter must
+	// pose a target decision (CR 603.3c) and put the +1/+1 counter on the
+	// chosen creature.
+	id3 := moveByName(t, e, 0, "Delve Deep", state.ZHand)
+	addMana(t, e, 0, "B")
+	d = castVenture(t, e, id3)
+	if d == nil || d.ResumeKind != "venture_room" {
+		t.Fatalf("Goblin Lair posed no room choice: %+v", d)
+	}
+	submitChoices(t, e, slices.IndexFunc(d.Options, func(o decision.Option) bool { return o.Key == "DBStoreroom" }))
+	// Storeroom's room ability is now queued. Drive it, capturing the target
+	// ask: the first non-priority decision must be a target with at least one
+	// legal creature.
+	var target *decision.Decision
+	for i := 0; i < 400; i++ {
+		d = e.Pending()
+		if d == nil {
+			t.Fatalf("no decision pending while driving Storeroom (stack=%v)", e.G.Stack)
+		}
+		if d.Kind == decision.KTarget {
+			target = d
+			break
+		}
+		if len(d.Options) == 0 {
+			t.Fatalf("unanswerable decision %v", d.Kind)
+		}
+		pick := 0
+		if d.Kind == decision.KPriority {
+			for _, o := range d.Options {
+				if o.Kind == "pass" {
+					pick = o.Index
+				}
+			}
+		}
+		if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{pick}}); err != nil {
+			t.Fatalf("submit %v: %v", d.Kind, err)
+		}
+	}
+	if target == nil {
+		t.Fatal("Storeroom's PutCounter posed no target decision")
+	}
+	if len(target.Options) == 0 {
+		t.Fatal("Storeroom's target decision offered no legal creature")
+	}
+	// Choose the Goblin token and finish the resolution. A permanent target
+	// option is offered as Kind "permanent" (not "target"), so match by the
+	// referenced object's printed name.
+	goblin := -1
+	for _, o := range target.Options {
+		if oo := e.G.Obj(o.Obj); oo != nil && oo.Face() != nil && oo.Face().Name == "Goblin Token" {
+			goblin = o.Index
+		}
+	}
+	if goblin < 0 {
+		t.Fatalf("Storeroom's target options carry no Goblin token: %+v", target.Options)
+	}
+	tokID := state.ObjID(0)
+	for _, o := range target.Options {
+		if o.Index == goblin {
+			tokID = o.Obj
+		}
+	}
+	if err := e.Submit(decision.Intent{Seq: target.Seq, Player: target.Player, Choices: []int{goblin}}); err != nil {
+		t.Fatalf("answer Storeroom target: %v", err)
+	}
+	seen = append(seen, decision.KTarget)
+	driveRoomResolution(t, e, dobj, &seen)
+	if n := e.G.Obj(tokID).Counter("P1P1"); n != 1 {
+		t.Fatalf("Storeroom put %d +1/+1 counters on the targeted Goblin, want 1", n)
+	}
+	replayCheck(t, e, cfg)
+	replayHeadCheck(t, e, cfg)
+}
+
 // TestEveryDungeonRoomAbilityIsSupported walks every room of all four corpus
 // dungeon token scripts and asserts the room's top-level SVar body (and every
 // chained SubAbility$) resolves to an API the effects registry supports,
