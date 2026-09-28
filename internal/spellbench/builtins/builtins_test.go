@@ -565,3 +565,52 @@ func TestRefusedRetriesTheNextChoice(t *testing.T) {
 		t.Fatalf("stats %+v", s.Stats)
 	}
 }
+
+// TestManaPaymentWindowTakesAutoFill: the manual payment window an AutoPay
+// witness fell back to is answered with the engine's auto-fill by every
+// policy (uniform included), never a random tap, undo or cancel.
+func TestManaPaymentWindowTakesAutoFill(t *testing.T) {
+	for _, pol := range []Policy{Uniform, Heuristic, First} {
+		s := New(pol, AutoPay, 7)
+		d := decision.Decision{Seq: 3, Kind: decision.KChoose, Min: 1, Max: 1,
+			ManaPayment:     &decision.ManaPaymentWindow{Card: 9},
+			PaymentFallback: &decision.PaymentFallback{PlanID: "p", Reason: "source_changed"},
+			Options: []decision.Option{
+				{Index: 0, Kind: "mana", Obj: 5, Label: "Add R"},
+				{Index: 1, Kind: decision.OptAutoFill, Label: "Auto-fill: tap Mountain"},
+				{Index: 2, Kind: decision.OptCancelCast, Label: "Cancel cast"},
+			}}
+		for i := 0; i < 8; i++ {
+			if in := decide(t, s, view.View{}, d); len(in.Choices) != 1 || in.Choices[0] != 1 {
+				t.Fatalf("%v: answered %v, want the auto-fill (1)", pol, in.Choices)
+			}
+		}
+	}
+}
+
+// TestManaPaymentWindowPaysOwedColour: with no auto-fill the window is paid
+// source by source, a colour still owed first; with no source left the cast
+// is cancelled, never undone.
+func TestManaPaymentWindowPaysOwedColour(t *testing.T) {
+	for _, pol := range []Policy{Uniform, Heuristic, First} {
+		s := New(pol, AutoPay, 7)
+		d := decision.Decision{Seq: 4, Kind: decision.KChoose, Min: 1, Max: 1,
+			ManaPayment: &decision.ManaPaymentWindow{Card: 9, Owed: decision.PaymentCost{Mana: decision.ManaAmount{0, 0, 0, 1, 0, 0}}},
+			Options: []decision.Option{
+				{Index: 0, Kind: "mana", Obj: 5, ManaSymbol: "G", Label: "Add G"},
+				{Index: 1, Kind: "mana", Obj: 6, ManaSymbol: "R", Label: "Add R"},
+				{Index: 2, Kind: decision.OptUndoTap, Label: "Undo"},
+				{Index: 3, Kind: decision.OptCancelCast, Label: "Cancel cast"},
+			}}
+		if in := decide(t, s, view.View{}, d); len(in.Choices) != 1 || in.Choices[0] != 1 {
+			t.Fatalf("%v: answered %v, want the owed R (1)", pol, in.Choices)
+		}
+		d.Options = []decision.Option{
+			{Index: 0, Kind: decision.OptUndoTap, Label: "Undo"},
+			{Index: 1, Kind: decision.OptCancelCast, Label: "Cancel cast"},
+		}
+		if in := decide(t, s, view.View{}, d); len(in.Choices) != 1 || in.Choices[0] != 1 {
+			t.Fatalf("%v: answered %v, want cancel (1)", pol, in.Choices)
+		}
+	}
+}

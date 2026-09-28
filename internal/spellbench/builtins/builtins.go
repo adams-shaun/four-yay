@@ -74,8 +74,15 @@
 //     can pay is lowered from its witness exactly like a Planned cast, and a
 //     potential play the planner PROVES unpayable is not a candidate at all
 //     (it is not a legal action; the naive pursuit used to tap out for it).
-//     Without a Planner, or for a play the planner does not price (an X
-//     cost, a mode such as flashback, a granted ability), the naive pursuit
+//     The planner also witnesses mode casts (flashback, bestow ...), {X}
+//     and hybrid casts, and answers a scripted prefix (PotentialPlan.Script)
+//     for a play only a source its census cannot price pays (Saruli
+//     Caretaker, Wall of Roots, a filter land): the seat replays the
+//     prefix's answers, then pays the play as any priced play. A play the
+//     planner still leaves unpriced is decided when chosen by the exact
+//     search (ScriptPlanner, rules.Engine.PotentialPlayScript): a script
+//     that reaches it, or a proof that drops it for the step. Without a
+//     Planner, or when that search runs out of budget, the naive pursuit
 //     below stands.
 //
 //     Never losing a chosen play (every mode): a lowering hands back a
@@ -153,6 +160,7 @@ package builtins
 
 import (
 	"context"
+	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
@@ -258,11 +266,30 @@ type Stats struct {
 	// RecoveredPlays counts the aborted plays a re-plan still completed.
 	LostPlays      int
 	RecoveredPlays int
+	// Scripted plays (rules.PotentialPlan.Script, package doc 1): started,
+	// completed (the prefix ran and the play was then paid and taken),
+	// aborted (a step's decision was not the searched one, or the play was
+	// not priced after the prefix), and the prefix answers given.
+	Scripts       int
+	ScriptedPlays int
+	ScriptAborts  int
+	ScriptSteps   int
+	// The exact fallback (ScriptPlanner) for a chosen unpriced play:
+	// scripts found (also counted in Scripts), proofs that the play cannot
+	// be paid (the play is dropped, like ExcludedUnpayable), and searches
+	// whose budget ran out (the play is then pursued).
+	ExactScripts int
+	ExactProofs  int
+	ExactLimited int
 	// Refusals counts answers the engine refused (Refused).
 	Refusals int
 	// AutoPayFallbacks counts decisions posed with a PaymentFallback: an
-	// AutoPay witness the engine stopped executing mid-cast.
+	// AutoPay witness the engine stopped executing mid-cast. AutoFills
+	// counts the manual payment windows answered with the engine's own
+	// auto-fill.
 	AutoPayFallbacks int
+	AutoFills        int
+	WindowTaps       int // sources a fallback window was paid with one by one
 }
 
 const maxAbortSamples = 4
@@ -294,8 +321,17 @@ func (s *Stats) Add(o Stats) {
 	s.AbortPasses += o.AbortPasses
 	s.LostPlays += o.LostPlays
 	s.RecoveredPlays += o.RecoveredPlays
+	s.Scripts += o.Scripts
+	s.ScriptedPlays += o.ScriptedPlays
+	s.ScriptAborts += o.ScriptAborts
+	s.ScriptSteps += o.ScriptSteps
+	s.ExactScripts += o.ExactScripts
+	s.ExactProofs += o.ExactProofs
+	s.ExactLimited += o.ExactLimited
 	s.Refusals += o.Refusals
 	s.AutoPayFallbacks += o.AutoPayFallbacks
+	s.AutoFills += o.AutoFills
+	s.WindowTaps += o.WindowTaps
 	for _, a := range o.AbortSamples {
 		if len(s.AbortSamples) < maxAbortSamples {
 			s.AbortSamples = append(s.AbortSamples, a)
@@ -342,6 +378,14 @@ type Seat struct {
 	execLabel string // the play's label, for abort samples
 	attempts  map[actionKey]int
 	lost      map[actionKey]bool
+
+	// script is the scripted prefix in progress (rules.PotentialPlan.
+	// Script), nil when none; scriptAt is its next step and scriptKey its
+	// play.
+	script      []rules.ScriptStep
+	scriptAt    int
+	scriptKey   actionKey
+	scriptWaits int
 
 	// planner prices potential plays (nil: pursue naively); plans caches
 	// its answer for the decision planSeq (lookup only).
@@ -394,6 +438,12 @@ func (s *Seat) Decide(_ context.Context, v view.View, d decision.Decision) (deci
 	if d.PaymentFallback != nil {
 		s.Stats.AutoPayFallbacks++
 	}
+	if s.script != nil {
+		if in, ok := s.stepScript(v, &d); ok {
+			in.Seq, in.Player = d.Seq, d.Player
+			return in, nil
+		}
+	}
 	if s.exec != nil {
 		if in, ok := s.lower(v, &d, 0); ok {
 			in.Seq, in.Player = d.Seq, d.Player
@@ -418,6 +468,9 @@ func (s *Seat) Refused(v view.View, d decision.Decision, refused decision.Intent
 	s.Stats.Refusals++
 	if s.exec != nil {
 		s.abortLowering("refused")
+	}
+	if s.script != nil {
+		s.abortScript(v, "refused")
 	}
 	s.pursuit = nil
 	if d.Kind != decision.KPriority {
@@ -459,6 +512,9 @@ func (s *Seat) sync(v view.View) {
 		// The pool empties with the step: a lowering cannot span it.
 		s.abortLowering("step_changed")
 	}
+	if s.script != nil {
+		s.abortScript(v, "step changed")
+	}
 	clear(s.attempts)
 	clear(s.lost)
 }
@@ -477,6 +533,11 @@ func (s *Seat) decide(v view.View, d *decision.Decision) decision.Intent {
 	case decision.KArrange:
 		return s.arrange(d)
 	case decision.KChoose:
+		if d.ManaPayment != nil {
+			if i, ok := s.payWindow(d); ok {
+				return one(d, i)
+			}
+		}
 		if s.pursuit != nil {
 			if i, ok := pursuitColour(v, d); ok {
 				return one(d, i)
@@ -498,6 +559,39 @@ func (s *Seat) decide(v view.View, d *decision.Decision) decision.Intent {
 		}
 	}
 	return s.sequential(d)
+}
+
+// payWindow answers the manual payment window an AutoPay witness fell back
+// to (Decision.PaymentFallback). Paying is the engine's job under
+// engine_autopay, not a policy choice, so every policy answers it the same
+// way: the engine's own auto-fill when offered; else a source making a
+// colour still owed, else any source (for the generic); only with no source
+// left, cancel -- never a random tap, and never an undo (which would loop).
+// ok is false for a window with none of these.
+func (s *Seat) payWindow(d *decision.Decision) (int, bool) {
+	if i, ok := firstKind(d, decision.OptAutoFill); ok {
+		s.Stats.AutoFills++
+		return i, true
+	}
+	owed := d.ManaPayment.Owed
+	anyMana := -1
+	for _, o := range d.Options {
+		if o.Kind != "mana" {
+			continue
+		}
+		if anyMana < 0 {
+			anyMana = o.Index
+		}
+		if c := strings.Index("WUBRGC", o.ManaSymbol); len(o.ManaSymbol) == 1 && c >= 0 && owed.Mana[c] > 0 {
+			s.Stats.WindowTaps++
+			return o.Index, true
+		}
+	}
+	if anyMana >= 0 {
+		s.Stats.WindowTaps++
+		return anyMana, true
+	}
+	return firstKind(d, decision.OptCancelCast)
 }
 
 // pick draws the candidate index for a list of n candidates: uniform draws,

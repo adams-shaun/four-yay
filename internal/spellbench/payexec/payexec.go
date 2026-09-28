@@ -56,8 +56,9 @@
 //
 // Scope: gorge's cast planner (Decision.PaymentActions) plans only ordinary
 // casts; rules.PotentialPaymentPlans adds witnesses for the mana part of
-// printed activated abilities (StartPlay). Anything else -- an X cost, a
-// mode, a granted ability -- has no witness to lower.
+// printed activated abilities, mode casts (flashback, bestow, kicker ...),
+// {X} and hybrid casts (StartPlay). A granted ability has no witness to
+// lower.
 //
 // Determinism: every answer is a pure function of the plan, the decisions
 // and the surfaces shown; option lists are scanned in engine order.
@@ -116,19 +117,21 @@ const (
 	ReasonFinished           = "already_finished" // Step after Done/Aborted
 )
 
-// Play names the option a lowering ends by selecting: an ordinary cast
-// (Kind "cast": Mode "" and AltCostIndex 0) or a printed activated ability
-// (Kind "ability": the pile index Ability, no SVar/Keyword/gained anchor, no
-// alternative cost).
+// Play names the option a lowering ends by selecting: a cast (Kind "cast":
+// the ordinary cast with Mode "", or a cast in Mode -- flashback, bestowed,
+// kicked ... -- never an alternative cost index) or a printed activated
+// ability (Kind "ability": the pile index Ability, no SVar/Keyword/gained
+// anchor, no alternative cost).
 type Play struct {
 	Kind    string
 	Obj     state.ObjID
 	Ability int
+	Mode    string
 }
 
 // Matches reports whether o is the play's own option.
 func (p Play) Matches(o *decision.Option) bool {
-	if o.Kind != p.Kind || o.Obj != p.Obj || o.Mode != "" || o.AltCostIndex != 0 {
+	if o.Kind != p.Kind || o.Obj != p.Obj || o.Mode != p.Mode || o.AltCostIndex != 0 {
 		return false
 	}
 	if p.Kind == "ability" {

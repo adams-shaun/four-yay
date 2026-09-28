@@ -845,9 +845,9 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 		sg := float64(seatGames[n])
 		fmt.Fprintf(w, "       %-22s game intents/game %7.1f  own decisions/game %7.1f\n", "", float64(seatIntents[n])/sg, float64(ps.Decisions)/sg)
 		if ps.Decisions > 0 {
-			fmt.Fprintf(w, "       %-22s LEGAL ACTIONS LOST %4d  (recovered %d; pursuit failures priced %d / unpriced %d; proven-unpayable plays skipped %d; refusals %d; autopay fallbacks %d)\n", "",
+			fmt.Fprintf(w, "       %-22s LEGAL ACTIONS LOST %4d  (recovered %d; pursuit failures priced %d / unpriced %d; proven-unpayable plays skipped %d; refusals %d; autopay fallbacks %d, auto-filled %d, window taps %d)\n", "",
 				ps.LostPlays, ps.RecoveredPlays, ps.PursuitFailuresPriced, ps.PursuitFailures-ps.PursuitFailuresPriced,
-				ps.ExcludedUnpayable, ps.Refusals, ps.AutoPayFallbacks)
+				ps.ExcludedUnpayable, ps.Refusals, ps.AutoPayFallbacks, ps.AutoFills, ps.WindowTaps)
 		}
 		if len(ps.PursuitFailuresByVerdict) > 0 {
 			var vs []string
@@ -877,6 +877,10 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 			for _, a := range ps.AbortSamples {
 				fmt.Fprintf(w, "       %-22s   abort: %s\n", "", a)
 			}
+		}
+		if ps.Scripts+ps.ExactProofs+ps.ExactLimited > 0 {
+			fmt.Fprintf(w, "       %-22s scripts %4d (exact %d)  played %4d  aborted %3d  steps %5d  exact proofs %d  exact over budget %d\n", "",
+				ps.Scripts, ps.ExactScripts, ps.ScriptedPlays, ps.ScriptAborts, ps.ScriptSteps, ps.ExactProofs, ps.ExactLimited)
 		}
 	}
 }
