@@ -27,6 +27,7 @@ const player = (over: Partial<PlayerView>): PlayerView =>
     library_size: 0,
     hand_size: 0,
     graveyard_size: 0,
+    completed_dungeons: 0,
     hand: [],
     battlefield: [],
     graveyard: [],

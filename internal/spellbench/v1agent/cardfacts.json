@@ -1,4 +1,21 @@
 {
+ "Annul": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Counter",
+   "target": "artifact_or_enchantment",
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "artifact",
+     "enchantment"
+    ]
+   }
+  }
+ },
  "Avenging Hunter": {
   "cmc": 5,
   "types": [
@@ -15,6 +32,10 @@
     "api": "TakeInitiative",
     "trigger": "ETB"
    }
+  ],
+  "subtypes": [
+   "dragon",
+   "ranger"
   ]
  },
  "Azorius Guildgate": {
@@ -22,7 +43,19 @@
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "gate"
+  ],
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Balustrade Spy": {
   "cmc": 4,
@@ -40,8 +73,24 @@
     "api": "DigUntil",
     "trigger": "ETB",
     "target": "player",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "player"
+     ]
+    },
+    "origin": "library",
+    "dest": "graveyard",
+    "until": {
+     "types": [
+      "land"
+     ]
+    }
    }
+  ],
+  "subtypes": [
+   "vampire",
+   "rogue"
   ]
  },
  "Basilisk Gate": {
@@ -53,8 +102,91 @@
   "abilities": [
    {
     "api": "Pump",
-    "target": "creature"
+    "target": "creature",
+    "pump_x": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "gate"
+      ],
+      "you": true
+     }
+    },
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "cost": {
+     "mana": 2,
+     "tap": true
+    },
+    "sorcery": true
    }
+  ],
+  "subtypes": [
+   "gate"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Bind the Monster": {
+  "cmc": 1,
+  "types": [
+   "enchantment"
+  ],
+  "spell": {
+   "api": "Attach",
+   "target": "creature",
+   "tgt": {
+    "types": [
+     "creature"
+    ]
+   }
+  },
+  "triggers": [
+   {
+    "api": "Tap",
+    "chain": [
+     "DealDamage"
+    ],
+    "trigger": "ETB",
+    "harmful": true,
+    "damage_x": {
+     "kind": "power"
+    },
+    "defined": "enchanted",
+    "tap": true
+   }
+  ],
+  "subtypes": [
+   "aura"
+  ]
+ },
+ "Bird Illusion Token": {
+  "cmc": 0,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "keywords": [
+   "Flying"
+  ],
+  "subtypes": [
+   "bird",
+   "illusion"
   ]
  },
  "Black Mage's Rod": {
@@ -68,7 +200,39 @@
   "abilities": [
    {
     "api": "Attach",
-    "target": "creature"
+    "target": "creature",
+    "tgt": {
+     "types": [
+      "creature"
+     ],
+     "you": true
+    },
+    "cost": {
+     "mana": 3
+    },
+    "sorcery": true
+   }
+  ],
+  "triggers": [
+   {
+    "api": "Token",
+    "chain": [
+     "Attach"
+    ],
+    "trigger": "ETB",
+    "defined": "remembered",
+    "tokens": 1,
+    "token": "Hero Token"
+   }
+  ],
+  "subtypes": [
+   "equipment"
+  ],
+  "statics": [
+   {
+    "mode": "continuous",
+    "affects": "equipped",
+    "power": 1
    }
   ]
  },
@@ -80,15 +244,89 @@
   "abilities": [
    {
     "api": "ChangeZone",
-    "target": "creature"
+    "target": "creature",
+    "tgt": {
+     "types": [
+      "creature"
+     ],
+     "you": true
+    },
+    "tgt_max": 2,
+    "origin": "graveyard",
+    "dest": "hand",
+    "cost": {
+     "mana": 4,
+     "tap": true,
+     "sac_self": true
+    }
    }
   ],
   "triggers": [
    {
     "api": "Token",
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "tokens": 1,
+    "token": "Blood Token"
    }
   ]
+ },
+ "Blood Token": {
+  "cmc": 0,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "Draw",
+    "cards": 1,
+    "cost": {
+     "mana": 1,
+     "tap": true,
+     "sac_self": true,
+     "discard": 1
+    }
+   }
+  ],
+  "subtypes": [
+   "blood"
+  ]
+ },
+ "Blue Elemental Blast": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "Counter",
+     "target": "spell",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "card"
+      ],
+      "colors": [
+       "red"
+      ]
+     }
+    },
+    {
+     "api": "Destroy",
+     "target": "permanent",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "permanent"
+      ],
+      "colors": [
+       "red"
+      ]
+     }
+    }
+   ]
+  }
  },
  "Brainstorm": {
   "cmc": 1,
@@ -100,7 +338,27 @@
    "chain": [
     "ChangeZone"
    ],
-   "cards": 3
+   "cards": 3,
+   "origin": "hand",
+   "dest": "library"
+  }
+ },
+ "Breath Weapon": {
+  "cmc": 3,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "DamageAll",
+   "damage": 2,
+   "each": {
+    "types": [
+     "creature"
+    ],
+    "non": [
+     "dragon"
+    ]
+   }
   }
  },
  "Burning-Tree Emissary": {
@@ -116,6 +374,10 @@
     "api": "Mana",
     "trigger": "ETB"
    }
+  ],
+  "subtypes": [
+   "human",
+   "shaman"
   ]
  },
  "Cast Down": {
@@ -126,7 +388,50 @@
   "spell": {
    "api": "Destroy",
    "target": "creature",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature"
+    ],
+    "non": [
+     "legendary"
+    ]
+   }
+  }
+ },
+ "Cast into the Fire": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "DealDamage",
+     "damage": 1,
+     "target": "creature",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "creature"
+      ]
+     },
+     "tgt_max": 2
+    },
+    {
+     "api": "ChangeZone",
+     "target": "artifact_or_enchantment",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "artifact"
+      ]
+     },
+     "origin": "battlefield",
+     "dest": "exile"
+    }
+   ]
   }
  },
  "Chain Lightning": {
@@ -141,7 +446,14 @@
    ],
    "damage": 3,
    "target": "any",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature",
+     "player"
+    ]
+   },
+   "defined": "targeted"
   }
  },
  "Citadel Gate": {
@@ -149,7 +461,19 @@
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "gate"
+  ],
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Cleansing Wildfire": {
   "cmc": 2,
@@ -163,7 +487,19 @@
     "Draw"
    ],
    "target": "other",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "land"
+    ]
+   },
+   "origin": "library",
+   "dest": "battlefield",
+   "search": {
+    "types": [
+     "land"
+    ]
+   }
   }
  },
  "Clockwork Percussionist": {
@@ -185,8 +521,34 @@
      "Effect",
      "Cleanup"
     ],
-    "trigger": "ChangesZone"
+    "trigger": "Dies",
+    "defined": "you",
+    "origin": "library",
+    "dest": "exile"
    }
+  ],
+  "subtypes": [
+   "monkey",
+   "toy"
+  ]
+ },
+ "Clue Token": {
+  "cmc": 0,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "Draw",
+    "cards": 1,
+    "cost": {
+     "mana": 2,
+     "sac_self": true
+    }
+   }
+  ],
+  "subtypes": [
+   "clue"
   ]
  },
  "Counterspell": {
@@ -197,7 +559,12 @@
   "spell": {
    "api": "Counter",
    "target": "spell",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "card"
+    ]
+   }
   }
  },
  "Cryogen Relic": {
@@ -208,7 +575,20 @@
   "abilities": [
    {
     "api": "PutCounter",
-    "target": "creature"
+    "target": "creature",
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "creature"
+     ],
+     "tapped": true
+    },
+    "cost": {
+     "mana": 2,
+     "sac_self": true
+    },
+    "counter": "stun",
+    "counter_n": 1
    }
   ],
   "triggers": [
@@ -218,7 +598,7 @@
    },
    {
     "api": "Draw",
-    "trigger": "ChangesZone"
+    "trigger": "LTB"
    }
   ]
  },
@@ -229,7 +609,26 @@
   ],
   "has_pt": true,
   "power": 6,
-  "toughness": 5
+  "toughness": 5,
+  "subtypes": [
+   "serpent"
+  ],
+  "statics": [
+   {
+    "mode": "reduce_cost",
+    "reduce": {
+     "kind": "count",
+     "zone": "graveyard",
+     "of": {
+      "types": [
+       "instant",
+       "sorcery"
+      ],
+      "you": true
+     }
+    }
+   }
+  ]
  },
  "Deem Inferior": {
   "cmc": 4,
@@ -238,8 +637,26 @@
   ],
   "spell": {
    "api": "ChangeZone",
-   "target": "permanent"
-  }
+   "target": "permanent",
+   "tgt": {
+    "types": [
+     "permanent"
+    ],
+    "non": [
+     "land"
+    ]
+   },
+   "origin": "battlefield",
+   "dest": "library"
+  },
+  "statics": [
+   {
+    "mode": "reduce_cost",
+    "reduce": {
+     "kind": "other"
+    }
+   }
+  ]
  },
  "Deep Analysis": {
   "cmc": 4,
@@ -252,7 +669,16 @@
   "spell": {
    "api": "Draw",
    "cards": 2,
-   "target": "player"
+   "target": "player",
+   "tgt": {
+    "types": [
+     "player"
+    ]
+   }
+  },
+  "flashback": {
+   "mana": 2,
+   "pay_life": 3
   }
  },
  "Dispel": {
@@ -263,7 +689,12 @@
   "spell": {
    "api": "Counter",
    "target": "other",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "instant"
+    ]
+   }
   }
  },
  "Dread Return": {
@@ -276,7 +707,23 @@
   ],
   "spell": {
    "api": "ChangeZone",
-   "target": "creature"
+   "target": "creature",
+   "tgt": {
+    "types": [
+     "creature"
+    ],
+    "you": true
+   },
+   "origin": "graveyard",
+   "dest": "battlefield"
+  },
+  "flashback": {
+   "sac": {
+    "types": [
+     "creature"
+    ]
+   },
+   "sac_n": 3
   }
  },
  "Drossforge Bridge": {
@@ -288,7 +735,78 @@
   "keywords": [
    "Indestructible"
   ],
-  "mana": true
+  "mana": true,
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Duress": {
+  "cmc": 1,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Discard",
+   "cards": 1,
+   "target": "opponent",
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "player"
+    ],
+    "opp": true
+   },
+   "discard_opp": true
+  }
+ },
+ "Dust to Dust": {
+  "cmc": 3,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "ChangeZone",
+   "target": "artifact_or_enchantment",
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "artifact"
+    ]
+   },
+   "tgt_max": 2,
+   "origin": "battlefield",
+   "dest": "exile"
+  }
+ },
+ "Eldrazi Spawn Token": {
+  "cmc": 0,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "toughness": 1,
+  "mana": true,
+  "subtypes": [
+   "eldrazi",
+   "spawn"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "sac_self": true
+    }
+   }
+  ]
  },
  "Elves of Deep Shadow": {
   "cmc": 1,
@@ -298,7 +816,24 @@
   "has_pt": true,
   "power": 1,
   "toughness": 1,
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "elf",
+   "druid"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "chain": [
+     "DealDamage"
+    ],
+    "damage": 1,
+    "defined": "you",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Elvish Mystic": {
   "cmc": 1,
@@ -308,7 +843,19 @@
   "has_pt": true,
   "power": 1,
   "toughness": 1,
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "elf",
+   "druid"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "End the Festivities": {
   "cmc": 1,
@@ -317,7 +864,31 @@
   ],
   "spell": {
    "api": "DamageAll",
-   "damage": 1
+   "damage": 1,
+   "each": {
+    "types": [
+     "creature",
+     "planeswalker"
+    ],
+    "opp": true
+   },
+   "each_player": "opp"
+  }
+ },
+ "Envelop": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Counter",
+   "target": "other",
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "sorcery"
+    ]
+   }
   }
  },
  "Eviscerator's Insight": {
@@ -330,7 +901,20 @@
   ],
   "spell": {
    "api": "Draw",
-   "cards": 2
+   "cards": 2,
+   "cost": {
+    "mana": 2,
+    "sac": {
+     "types": [
+      "artifact",
+      "creature"
+     ]
+    },
+    "sac_n": 1
+   }
+  },
+  "flashback": {
+   "mana": 5
   }
  },
  "Experimental Synthesizer": {
@@ -340,7 +924,14 @@
   ],
   "abilities": [
    {
-    "api": "Token"
+    "api": "Token",
+    "cost": {
+     "mana": 3,
+     "sac_self": true
+    },
+    "sorcery": true,
+    "tokens": 1,
+    "token": "Samurai Token"
    }
   ],
   "triggers": [
@@ -350,7 +941,9 @@
      "Effect",
      "Cleanup"
     ],
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "origin": "library",
+    "dest": "exile"
    },
    {
     "api": "Dig",
@@ -358,8 +951,73 @@
      "Effect",
      "Cleanup"
     ],
-    "trigger": "ChangesZone"
+    "trigger": "LTB",
+    "origin": "library",
+    "dest": "exile"
    }
+  ]
+ },
+ "Extract a Confession": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "Sacrifice",
+   "chain": [
+    "RepeatEach",
+    "SacrificeAll",
+    "Cleanup"
+   ],
+   "harmful": true,
+   "each": {
+    "types": [
+     "card"
+    ]
+   },
+   "defined": "opp"
+  },
+  "statics": [
+   {
+    "mode": "optional_cost",
+    "cost": {
+     "other": true
+    }
+   }
+  ]
+ },
+ "Faerie Macabre": {
+  "cmc": 3,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 2,
+  "keywords": [
+   "Flying"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZone",
+    "target": "spell",
+    "tgt": {
+     "types": [
+      "card"
+     ]
+    },
+    "tgt_max": 2,
+    "origin": "graveyard",
+    "dest": "exile",
+    "cost": {
+     "discard_self": true
+    },
+    "zone": "hand"
+   }
+  ],
+  "subtypes": [
+   "faerie",
+   "rogue"
   ]
  },
  "Faerie Miscreant": {
@@ -378,6 +1036,10 @@
     "api": "Draw",
     "trigger": "ETB"
    }
+  ],
+  "subtypes": [
+   "faerie",
+   "rogue"
   ]
  },
  "Faerie Seer": {
@@ -394,8 +1056,13 @@
   "triggers": [
    {
     "api": "Scry",
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "scry": true
    }
+  ],
+  "subtypes": [
+   "faerie",
+   "wizard"
   ]
  },
  "Faithless Looting": {
@@ -411,7 +1078,12 @@
    "chain": [
     "Discard"
    ],
-   "cards": 2
+   "cards": 2,
+   "defined": "you",
+   "discard": 2
+  },
+  "flashback": {
+   "mana": 3
   }
  },
  "Fanatical Offering": {
@@ -424,7 +1096,19 @@
    "chain": [
     "Token"
    ],
-   "cards": 2
+   "cards": 2,
+   "cost": {
+    "mana": 2,
+    "sac": {
+     "types": [
+      "artifact",
+      "creature"
+     ]
+    },
+    "sac_n": 1
+   },
+   "tokens": 1,
+   "token": "Map Token"
   }
  },
  "Fiery Temper": {
@@ -439,7 +1123,13 @@
    "api": "DealDamage",
    "damage": 3,
    "target": "any",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature",
+     "player"
+    ]
+   }
   }
  },
  "Fireblast": {
@@ -451,8 +1141,62 @@
    "api": "DealDamage",
    "damage": 4,
    "target": "any",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature",
+     "player"
+    ]
+   }
+  },
+  "statics": [
+   {
+    "mode": "alt_cost",
+    "cost": {
+     "sac": {
+      "types": [
+       "mountain"
+      ]
+     },
+     "sac_n": 2
+    }
+   }
+  ]
+ },
+ "Flaring Pain": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "keywords": [
+   "Flashback"
+  ],
+  "spell": {
+   "api": "Effect"
+  },
+  "flashback": {
+   "mana": 1
   }
+ },
+ "Food Token": {
+  "cmc": 0,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "GainLife",
+    "cost": {
+     "mana": 2,
+     "tap": true,
+     "sac_self": true
+    },
+    "life": 3
+   }
+  ],
+  "subtypes": [
+   "food"
+  ]
  },
  "Force Spike": {
   "cmc": 1,
@@ -462,7 +1206,13 @@
   "spell": {
    "api": "Counter",
    "target": "spell",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "card"
+    ]
+   },
+   "unless": 1
   }
  },
  "Forest": {
@@ -470,7 +1220,51 @@
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "forest"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Fume Spitter": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+   {
+    "api": "PutCounter",
+    "target": "creature",
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "cost": {
+     "sac_self": true
+    },
+    "counter": "m1m1",
+    "counter_n": 1
+   }
+  ],
+  "subtypes": [
+   "phyrexian",
+   "horror"
+  ]
  },
  "Fyndhorn Elves": {
   "cmc": 1,
@@ -480,7 +1274,19 @@
   "has_pt": true,
   "power": 1,
   "toughness": 1,
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "elf",
+   "druid"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Galvanic Blast": {
   "cmc": 1,
@@ -490,7 +1296,18 @@
   "spell": {
    "api": "DealDamage",
    "target": "any",
-   "harmful": true
+   "harmful": true,
+   "damage_x": {
+    "kind": "metalcraft",
+    "hi": 4,
+    "lo": 2
+   },
+   "tgt": {
+    "types": [
+     "creature",
+     "player"
+    ]
+   }
   }
  },
  "Gatecreeper Vine": {
@@ -506,8 +1323,19 @@
   "triggers": [
    {
     "api": "ChangeZone",
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "origin": "library",
+    "dest": "hand",
+    "search": {
+     "types": [
+      "land",
+      "card"
+     ]
+    }
    }
+  ],
+  "subtypes": [
+   "plant"
   ]
  },
  "Generous Ent": {
@@ -524,13 +1352,59 @@
   ],
   "abilities": [
    {
-    "api": "ChangeZone"
+    "api": "ChangeZone",
+    "origin": "library",
+    "dest": "hand",
+    "search": {
+     "types": [
+      "forest"
+     ]
+    },
+    "cost": {
+     "mana": 1,
+     "discard_self": true
+    },
+    "zone": "hand"
    }
   ],
   "triggers": [
    {
     "api": "Token",
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "tokens": 1,
+    "token": "Food Token"
+   }
+  ],
+  "subtypes": [
+   "treefolk"
+  ]
+ },
+ "Gingerbread Cabin": {
+  "cmc": 0,
+  "types": [
+   "land"
+  ],
+  "mana": true,
+  "triggers": [
+   {
+    "api": "Token",
+    "trigger": "ETB",
+    "tokens": 1,
+    "token": "Food Token"
+   }
+  ],
+  "subtypes": [
+   "forest"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
    }
   ]
  },
@@ -549,9 +1423,26 @@
    {
     "api": "PumpAll",
     "trigger": "ETB",
-    "pump_power": 1
+    "pump_power": 1,
+    "each": {
+     "types": [
+      "creature"
+     ],
+     "you": true
+    },
+    "kw": [
+     "Haste"
+    ],
+    "kicked": true
    }
-  ]
+  ],
+  "subtypes": [
+   "goblin",
+   "warrior"
+  ],
+  "kicker": {
+   "mana": 1
+  }
  },
  "Goblin Tomb Raider": {
   "cmc": 1,
@@ -560,7 +1451,57 @@
   ],
   "has_pt": true,
   "power": 1,
-  "toughness": 2
+  "toughness": 2,
+  "subtypes": [
+   "goblin",
+   "pirate"
+  ],
+  "statics": [
+   {
+    "mode": "continuous",
+    "affects": "self",
+    "power": 1,
+    "kw": [
+     "Haste"
+    ],
+    "cond": "present"
+   }
+  ]
+ },
+ "Gorilla Shaman": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+   {
+    "api": "Destroy",
+    "target": "artifact_or_enchantment",
+    "harmful": true,
+    "tgt_x": {
+     "kind": "x"
+    },
+    "tgt": {
+     "types": [
+      "artifact"
+     ],
+     "non": [
+      "creature"
+     ]
+    },
+    "cost": {
+     "mana": 1,
+     "x": true
+    }
+   }
+  ],
+  "subtypes": [
+   "ape",
+   "shaman"
+  ]
  },
  "Grab the Prize": {
   "cmc": 2,
@@ -572,7 +1513,15 @@
    "chain": [
     "DamageAll"
    ],
-   "cards": 2
+   "cards": 2,
+   "damage_x": {
+    "kind": "other"
+   },
+   "each_player": "opp",
+   "cost": {
+    "mana": 2,
+    "discard": 1
+   }
   }
  },
  "Great Furnace": {
@@ -581,7 +1530,15 @@
    "artifact",
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Guardian of the Guildpact": {
   "cmc": 4,
@@ -593,7 +1550,28 @@
   "toughness": 3,
   "keywords": [
    "Protection"
+  ],
+  "subtypes": [
+   "spirit"
   ]
+ },
+ "Gut Shot": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "damage": 1,
+   "target": "any",
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature",
+     "player"
+    ]
+   }
+  }
  },
  "Guttersnipe": {
   "cmc": 3,
@@ -608,8 +1586,13 @@
     "api": "DealDamage",
     "trigger": "SpellCast",
     "damage": 2,
-    "harmful": true
+    "harmful": true,
+    "defined": "opp"
    }
+  ],
+  "subtypes": [
+   "goblin",
+   "shaman"
   ]
  },
  "Harrier Strix": {
@@ -629,7 +1612,12 @@
     "chain": [
      "Discard"
     ],
-    "cards": 1
+    "cards": 1,
+    "defined": "you",
+    "cost": {
+     "mana": 3
+    },
+    "discard": 1
    }
   ],
   "triggers": [
@@ -637,8 +1625,36 @@
     "api": "Tap",
     "trigger": "ETB",
     "target": "permanent",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "permanent"
+     ]
+    },
+    "tap": true
    }
+  ],
+  "subtypes": [
+   "bird"
+  ]
+ },
+ "Healer of the Glade": {
+  "cmc": 1,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 2,
+  "triggers": [
+   {
+    "api": "GainLife",
+    "trigger": "ETB",
+    "life": 3
+   }
+  ],
+  "subtypes": [
+   "elemental"
   ]
  },
  "Heap Gate": {
@@ -649,8 +1665,48 @@
   "mana": true,
   "abilities": [
    {
-    "api": "Token"
+    "api": "Token",
+    "cost": {
+     "mana": 1,
+     "tap": true,
+     "tap_others": 1
+    },
+    "tokens": 1,
+    "token": "Treasure Token"
    }
+  ],
+  "subtypes": [
+   "gate"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   },
+   {
+    "api": "Mana",
+    "cost": {
+     "mana": 1,
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Hero Token": {
+  "cmc": 0,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "subtypes": [
+   "hero"
   ]
  },
  "Highway Robbery": {
@@ -662,8 +1718,51 @@
    "Plot"
   ],
   "spell": {
-   "api": "GenericChoice"
+   "api": "GenericChoice",
+   "modes": [
+    {
+     "api": "Draw",
+     "cards": 2,
+     "cost": {
+      "discard": 1
+     }
+    },
+    {
+     "api": "Draw",
+     "cards": 2,
+     "cost": {
+      "sac": {
+       "types": [
+        "land"
+       ]
+      },
+      "sac_n": 1
+     }
+    }
+   ]
   }
+ },
+ "Human Soldier Token": {
+  "cmc": 0,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "triggers": [
+   {
+    "api": "PutCounter",
+    "trigger": "Attacks",
+    "defined": "self",
+    "counter": "p1p1",
+    "counter_n": 1
+   }
+  ],
+  "subtypes": [
+   "human",
+   "soldier"
+  ]
  },
  "Humbling Elder": {
   "cmc": 1,
@@ -682,8 +1781,18 @@
     "trigger": "ETB",
     "pump_power": -2,
     "target": "opp_creature",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "creature"
+     ],
+     "opp": true
+    }
    }
+  ],
+  "subtypes": [
+   "human",
+   "monk"
   ]
  },
  "Hunter's Blowgun": {
@@ -697,9 +1806,81 @@
   "abilities": [
    {
     "api": "Attach",
-    "target": "creature"
+    "target": "creature",
+    "tgt": {
+     "types": [
+      "creature"
+     ],
+     "you": true
+    },
+    "cost": {
+     "mana": 2
+    },
+    "sorcery": true
+   }
+  ],
+  "subtypes": [
+   "equipment"
+  ],
+  "statics": [
+   {
+    "mode": "continuous",
+    "affects": "equipped",
+    "power": 1,
+    "toughness": 1
+   },
+   {
+    "mode": "continuous",
+    "affects": "equipped",
+    "kw": [
+     "Deathtouch"
+    ],
+    "cond": "playerturn"
+   },
+   {
+    "mode": "continuous",
+    "affects": "equipped",
+    "kw": [
+     "Reach"
+    ],
+    "cond": "notplayerturn"
    }
   ]
+ },
+ "Hydroblast": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "Counter",
+     "target": "spell",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "card"
+      ]
+     },
+     "cond": "targeted_color",
+     "cond_color": "red"
+    },
+    {
+     "api": "Destroy",
+     "target": "permanent",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "permanent"
+      ]
+     },
+     "cond": "targeted_color",
+     "cond_color": "red"
+    }
+   ]
+  }
  },
  "Ichor Wellspring": {
   "cmc": 2,
@@ -709,11 +1890,13 @@
   "triggers": [
    {
     "api": "Draw",
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "defined": "triggered"
    },
    {
     "api": "Draw",
-    "trigger": "ChangesZone"
+    "trigger": "Dies",
+    "defined": "triggered"
    }
   ]
  },
@@ -722,14 +1905,53 @@
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "plains",
+   "island"
+  ],
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   },
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Island": {
   "cmc": 0,
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "island"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Journey to Nowhere": {
   "cmc": 2,
@@ -741,11 +1963,21 @@
     "api": "ChangeZone",
     "trigger": "ETB",
     "target": "creature",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "origin": "battlefield",
+    "dest": "exile"
    },
    {
     "api": "ChangeZone",
-    "trigger": "ChangesZone"
+    "trigger": "LTB",
+    "defined": "remembered",
+    "origin": "exile",
+    "dest": "battlefield"
    }
   ]
  },
@@ -760,8 +1992,28 @@
   "abilities": [
    {
     "api": "DamageAll",
-    "damage": 1
+    "damage": 1,
+    "each": {
+     "types": [
+      "creature"
+     ],
+     "without": [
+      "flying"
+     ]
+    },
+    "cost": {
+     "sac": {
+      "types": [
+       "artifact"
+      ]
+     },
+     "sac_n": 1
+    }
    }
+  ],
+  "subtypes": [
+   "goblin",
+   "shaman"
   ]
  },
  "Land Grant": {
@@ -770,8 +2022,24 @@
    "sorcery"
   ],
   "spell": {
-   "api": "ChangeZone"
-  }
+   "api": "ChangeZone",
+   "origin": "library",
+   "dest": "hand",
+   "search": {
+    "types": [
+     "forest"
+    ]
+   }
+  },
+  "statics": [
+   {
+    "mode": "alt_cost",
+    "cost": {
+     "reveal": true
+    },
+    "cond": "conditional"
+   }
+  ]
  },
  "Lava Dart": {
   "cmc": 1,
@@ -785,7 +2053,21 @@
    "api": "DealDamage",
    "damage": 1,
    "target": "any",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature",
+     "player"
+    ]
+   }
+  },
+  "flashback": {
+   "sac": {
+    "types": [
+     "mountain"
+    ]
+   },
+   "sac_n": 1
   }
  },
  "Lead the Stampede": {
@@ -794,7 +2076,14 @@
    "sorcery"
   ],
   "spell": {
-   "api": "Dig"
+   "api": "Dig",
+   "origin": "library",
+   "dest": "hand",
+   "search": {
+    "types": [
+     "creature"
+    ]
+   }
   }
  },
  "Lembas": {
@@ -804,7 +2093,14 @@
   ],
   "abilities": [
    {
-    "api": "GainLife"
+    "api": "GainLife",
+    "defined": "you",
+    "cost": {
+     "mana": 2,
+     "tap": true,
+     "sac_self": true
+    },
+    "life": 3
    }
   ],
   "triggers": [
@@ -814,12 +2110,20 @@
      "Draw"
     ],
     "trigger": "ETB",
-    "cards": 1
+    "cards": 1,
+    "defined": "you",
+    "scry": true
    },
    {
     "api": "ChangeZone",
-    "trigger": "ChangesZone"
+    "trigger": "Dies",
+    "defined": "triggered",
+    "origin": "graveyard",
+    "dest": "library"
    }
+  ],
+  "subtypes": [
+   "food"
   ]
  },
  "Lightning Bolt": {
@@ -831,7 +2135,13 @@
    "api": "DealDamage",
    "damage": 3,
    "target": "any",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature",
+     "player"
+    ]
+   }
   }
  },
  "Llanowar Elves": {
@@ -842,7 +2152,19 @@
   "has_pt": true,
   "power": 1,
   "toughness": 1,
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "elf",
+   "druid"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Lotleth Giant": {
   "cmc": 7,
@@ -857,8 +2179,28 @@
     "api": "DealDamage",
     "trigger": "ETB",
     "target": "opponent",
-    "harmful": true
+    "harmful": true,
+    "damage_x": {
+     "kind": "count",
+     "zone": "graveyard",
+     "of": {
+      "types": [
+       "creature"
+      ],
+      "you": true
+     }
+    },
+    "tgt": {
+     "types": [
+      "player"
+     ],
+     "opp": true
+    }
    }
+  ],
+  "subtypes": [
+   "zombie",
+   "giant"
   ]
  },
  "Lotus Petal": {
@@ -866,7 +2208,16 @@
   "types": [
    "artifact"
   ],
-  "mana": true
+  "mana": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true,
+     "sac_self": true
+    }
+   }
+  ]
  },
  "Lórien Revealed": {
   "cmc": 5,
@@ -882,7 +2233,19 @@
   },
   "abilities": [
    {
-    "api": "ChangeZone"
+    "api": "ChangeZone",
+    "origin": "library",
+    "dest": "hand",
+    "search": {
+     "types": [
+      "island"
+     ]
+    },
+    "cost": {
+     "mana": 1,
+     "discard_self": true
+    },
+    "zone": "hand"
    }
   ]
  },
@@ -896,8 +2259,51 @@
     "api": "DealDamage",
     "damage": 1,
     "target": "any",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "creature",
+      "player"
+     ]
+    },
+    "cost": {
+     "mana": 1,
+     "sac": {
+      "types": [
+       "artifact",
+       "creature"
+      ]
+     },
+     "sac_n": 1
+    }
    }
+  ]
+ },
+ "Map Token": {
+  "cmc": 0,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "Explore",
+    "target": "creature",
+    "tgt": {
+     "types": [
+      "creature"
+     ],
+     "you": true
+    },
+    "cost": {
+     "mana": 1,
+     "tap": true,
+     "sac_self": true
+    },
+    "sorcery": true
+   }
+  ],
+  "subtypes": [
+   "map"
   ]
  },
  "Masked Meower": {
@@ -913,8 +2319,17 @@
   ],
   "abilities": [
    {
-    "api": "Draw"
+    "api": "Draw",
+    "cost": {
+     "sac_self": true,
+     "discard": 1
+    }
    }
+  ],
+  "subtypes": [
+   "spider",
+   "cat",
+   "hero"
   ]
  },
  "Masked Vandal": {
@@ -933,9 +2348,25 @@
     "api": "ChangeZone",
     "trigger": "ETB",
     "target": "artifact_or_enchantment",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "artifact",
+      "enchantment"
+     ],
+     "opp": true
+    },
+    "origin": "battlefield",
+    "dest": "exile",
+    "cost": {
+     "exile_grave": 1
+    }
    }
-  ]
+  ],
+  "subtypes": [
+   "shapeshifter"
+  ],
+  "changeling": true
  },
  "Mental Note": {
   "cmc": 1,
@@ -947,7 +2378,9 @@
    "chain": [
     "Draw"
    ],
-   "cards": 2
+   "cards": 2,
+   "defined": "you",
+   "mill": 2
   }
  },
  "Mesmeric Fiend": {
@@ -963,15 +2396,38 @@
     "api": "ChangeZone",
     "trigger": "ETB",
     "target": "opponent",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "player"
+     ],
+     "opp": true
+    },
+    "origin": "hand",
+    "dest": "exile",
+    "search": {
+     "types": [
+      "card"
+     ],
+     "non": [
+      "land"
+     ]
+    }
    },
    {
     "api": "ChangeZone",
     "chain": [
      "Cleanup"
     ],
-    "trigger": "ChangesZone"
+    "trigger": "LTB",
+    "defined": "remembered",
+    "origin": "exile",
+    "dest": "hand"
    }
+  ],
+  "subtypes": [
+   "nightmare",
+   "horror"
   ]
  },
  "Mistvault Bridge": {
@@ -983,7 +2439,39 @@
   "keywords": [
    "Indestructible"
   ],
-  "mana": true
+  "mana": true,
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Monstrous Emergence": {
+  "cmc": 2,
+  "types": [
+   "sorcery"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "target": "creature",
+   "harmful": true,
+   "damage_x": {
+    "kind": "power"
+   },
+   "tgt": {
+    "types": [
+     "creature"
+    ]
+   },
+   "cost": {
+    "mana": 2,
+    "reveal": true
+   }
+  }
  },
  "Moon-Circuit Hacker": {
   "cmc": 2,
@@ -999,22 +2487,60 @@
   ],
   "abilities": [
    {
-    "api": "ChangeZone"
+    "api": "ChangeZone",
+    "defined": "self",
+    "origin": "hand",
+    "dest": "battlefield",
+    "cost": {
+     "mana": 1,
+     "return": {
+      "types": [
+       "creature"
+      ],
+      "you": true,
+      "attacking": true
+     }
+    },
+    "zone": "hand"
    }
   ],
   "triggers": [
    {
     "api": "Discard",
-    "trigger": "DamageDone"
+    "trigger": "DamageDone",
+    "defined": "you",
+    "cost": {
+     "other": true
+    },
+    "discard": 1
    }
-  ]
+  ],
+  "subtypes": [
+   "human",
+   "ninja"
+  ],
+  "ninjutsu": true
  },
  "Mountain": {
   "cmc": 0,
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "mountain"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Murmuring Mystic": {
   "cmc": 4,
@@ -1027,8 +2553,14 @@
   "triggers": [
    {
     "api": "Token",
-    "trigger": "SpellCast"
+    "trigger": "SpellCast",
+    "tokens": 1,
+    "token": "Bird Illusion Token"
    }
+  ],
+  "subtypes": [
+   "human",
+   "wizard"
   ]
  },
  "Myr Enforcer": {
@@ -1042,6 +2574,24 @@
   "toughness": 4,
   "keywords": [
    "Affinity"
+  ],
+  "subtypes": [
+   "myr"
+  ],
+  "statics": [
+   {
+    "mode": "reduce_cost",
+    "reduce": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "artifact"
+      ],
+      "you": true
+     }
+    }
+   }
   ]
  },
  "Nihil Spellbomb": {
@@ -1052,14 +2602,33 @@
   "abilities": [
    {
     "api": "ChangeZoneAll",
-    "target": "player"
+    "target": "player",
+    "tgt": {
+     "types": [
+      "player"
+     ]
+    },
+    "origin": "graveyard",
+    "dest": "exile",
+    "search": {
+     "types": [
+      "card"
+     ]
+    },
+    "cost": {
+     "tap": true,
+     "sac_self": true
+    }
    }
   ],
   "triggers": [
    {
     "api": "Draw",
-    "trigger": "ChangesZone",
-    "cards": 1
+    "trigger": "Dies",
+    "cards": 1,
+    "cost": {
+     "mana": 1
+    }
    }
   ]
  },
@@ -1076,16 +2645,36 @@
   ],
   "abilities": [
    {
-    "api": "ChangeZone"
+    "api": "ChangeZone",
+    "defined": "self",
+    "origin": "hand",
+    "dest": "battlefield",
+    "cost": {
+     "mana": 2,
+     "return": {
+      "types": [
+       "creature"
+      ],
+      "you": true,
+      "attacking": true
+     }
+    },
+    "zone": "hand"
    }
   ],
   "triggers": [
    {
     "api": "Draw",
     "trigger": "DamageDone",
-    "cards": 1
+    "cards": 1,
+    "defined": "you"
    }
-  ]
+  ],
+  "subtypes": [
+   "human",
+   "ninja"
+  ],
+  "ninjutsu": true
  },
  "Nyxborn Hydra": {
   "cmc": 1,
@@ -1099,6 +2688,19 @@
    "Bestow",
    "Reach",
    "Trample"
+  ],
+  "subtypes": [
+   "hydra"
+  ],
+  "statics": [
+   {
+    "mode": "continuous",
+    "affects": "enchanted",
+    "kw": [
+     "Reach",
+     "Trample"
+    ]
+   }
   ]
  },
  "Of One Mind": {
@@ -1109,7 +2711,15 @@
   "spell": {
    "api": "Draw",
    "cards": 2
-  }
+  },
+  "statics": [
+   {
+    "mode": "reduce_cost",
+    "reduce": {
+     "n": 2
+    }
+   }
+  ]
  },
  "Outlaw Medic": {
   "cmc": 2,
@@ -1125,8 +2735,12 @@
   "triggers": [
    {
     "api": "Draw",
-    "trigger": "ChangesZone"
+    "trigger": "Dies"
    }
+  ],
+  "subtypes": [
+   "human",
+   "rogue"
   ]
  },
  "Overgrown Battlement": {
@@ -1139,7 +2753,78 @@
   "keywords": [
    "Defender"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "wall"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "creature"
+      ],
+      "with": [
+       "defender"
+      ],
+      "you": true
+     }
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Piracy Charm": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "Pump",
+     "target": "creature",
+     "tgt": {
+      "types": [
+       "creature"
+      ]
+     },
+     "kw": [
+      "Landwalk:Island"
+     ]
+    },
+    {
+     "api": "Pump",
+     "pump_power": 2,
+     "pump_toughness": -1,
+     "target": "creature",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "creature"
+      ]
+     }
+    },
+    {
+     "api": "Discard",
+     "cards": 1,
+     "target": "player",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "player"
+      ]
+     },
+     "discard_opp": true
+    }
+   ]
+  }
  },
  "Ponder": {
   "cmc": 1,
@@ -1151,7 +2836,9 @@
    "chain": [
     "Draw"
    ],
-   "cards": 3
+   "cards": 3,
+   "defined": "you",
+   "scry": true
   }
  },
  "Preordain": {
@@ -1163,7 +2850,8 @@
    "api": "Scry",
    "chain": [
     "Draw"
-   ]
+   ],
+   "scry": true
   }
  },
  "Priest of Titania": {
@@ -1174,7 +2862,28 @@
   "has_pt": true,
   "power": 1,
   "toughness": 1,
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "elf",
+   "druid"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "elf"
+      ]
+     }
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Prismatic Strands": {
   "cmc": 3,
@@ -1188,7 +2897,12 @@
    "api": "ChooseColor",
    "chain": [
     "Effect"
-   ]
+   ],
+   "defined": "you",
+   "prevent": true
+  },
+  "flashback": {
+   "tap_others": 1
   }
  },
  "Pulse of Murasa": {
@@ -1201,7 +2915,52 @@
    "chain": [
     "GainLife"
    ],
-   "target": "creature"
+   "target": "creature",
+   "tgt": {
+    "types": [
+     "creature",
+     "land"
+    ]
+   },
+   "defined": "you",
+   "origin": "graveyard",
+   "dest": "hand",
+   "life": 6
+  }
+ },
+ "Pyroblast": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "Counter",
+     "target": "spell",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "card"
+      ]
+     },
+     "cond": "targeted_color",
+     "cond_color": "blue"
+    },
+    {
+     "api": "Destroy",
+     "target": "permanent",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "permanent"
+      ]
+     },
+     "cond": "targeted_color",
+     "cond_color": "blue"
+    }
+   ]
   }
  },
  "Quirion Ranger": {
@@ -1215,8 +2974,25 @@
   "abilities": [
    {
     "api": "Untap",
-    "target": "creature"
+    "target": "creature",
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "cost": {
+     "return": {
+      "types": [
+       "forest"
+      ]
+     }
+    },
+    "untap": true
    }
+  ],
+  "subtypes": [
+   "elf",
+   "ranger"
   ]
  },
  "Rally at the Hornburg": {
@@ -1228,7 +3004,18 @@
    "api": "Token",
    "chain": [
     "PumpAll"
-   ]
+   ],
+   "each": {
+    "types": [
+     "human"
+    ],
+    "you": true
+   },
+   "kw": [
+    "Haste"
+   ],
+   "tokens": 2,
+   "token": "Human Soldier Token"
   }
  },
  "Reckless Impulse": {
@@ -1241,7 +3028,10 @@
    "chain": [
     "Effect",
     "Cleanup"
-   ]
+   ],
+   "defined": "you",
+   "origin": "library",
+   "dest": "exile"
   }
  },
  "Reckoner's Bargain": {
@@ -1254,7 +3044,54 @@
    "chain": [
     "Draw"
    ],
-   "cards": 2
+   "cards": 2,
+   "cost": {
+    "mana": 2,
+    "sac": {
+     "types": [
+      "artifact",
+      "creature"
+     ]
+    },
+    "sac_n": 1
+   }
+  }
+ },
+ "Red Elemental Blast": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "Counter",
+     "target": "spell",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "card"
+      ],
+      "colors": [
+       "blue"
+      ]
+     }
+    },
+    {
+     "api": "Destroy",
+     "target": "permanent",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "permanent"
+      ],
+      "colors": [
+       "blue"
+      ]
+     }
+    }
+   ]
   }
  },
  "Refurbished Familiar": {
@@ -1279,7 +3116,73 @@
     ],
     "trigger": "ETB",
     "cards": 1,
-    "harmful": true
+    "harmful": true,
+    "defined": "opp",
+    "discard_opp": true
+   }
+  ],
+  "subtypes": [
+   "zombie",
+   "rat"
+  ],
+  "statics": [
+   {
+    "mode": "reduce_cost",
+    "reduce": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "artifact"
+      ],
+      "you": true
+     }
+    }
+   }
+  ]
+ },
+ "Relic of Progenitus": {
+  "cmc": 1,
+  "types": [
+   "artifact"
+  ],
+  "abilities": [
+   {
+    "api": "ChangeZone",
+    "target": "player",
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "player"
+     ]
+    },
+    "origin": "graveyard",
+    "dest": "exile",
+    "search": {
+     "types": [
+      "card"
+     ]
+    },
+    "cost": {
+     "tap": true
+    }
+   },
+   {
+    "api": "ChangeZoneAll",
+    "chain": [
+     "Draw"
+    ],
+    "origin": "graveyard",
+    "dest": "exile",
+    "search": {
+     "types": [
+      "card"
+     ]
+    },
+    "cost": {
+     "mana": 1,
+     "exile_self": true
+    }
    }
   ]
  },
@@ -1297,8 +3200,18 @@
   ],
   "abilities": [
    {
-    "api": "CopyPermanent"
+    "api": "CopyPermanent",
+    "defined": "self",
+    "cost": {
+     "mana": 1,
+     "exile_self": true
+    },
+    "zone": "graveyard",
+    "sorcery": true
    }
+  ],
+  "subtypes": [
+   "cat"
   ]
  },
  "Sagu Wildling": {
@@ -1315,7 +3228,32 @@
   "triggers": [
    {
     "api": "GainLife",
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "life": 3
+   }
+  ],
+  "subtypes": [
+   "dragon"
+  ],
+  "faces": [
+   {
+    "cmc": 1,
+    "types": [
+     "sorcery"
+    ],
+    "spell": {
+     "api": "ChangeZone",
+     "origin": "library",
+     "dest": "hand",
+     "search": {
+      "types": [
+       "land"
+      ]
+     }
+    },
+    "subtypes": [
+     "omen"
+    ]
    }
   ]
  },
@@ -1338,8 +3276,38 @@
      "Pump"
     ],
     "trigger": "ETB",
-    "target": "creature"
+    "target": "creature",
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "defined": "targeted",
+    "kw": [
+     "Hexproof"
+    ],
+    "counter": "p1p1",
+    "counter_n": 1
    }
+  ],
+  "subtypes": [
+   "moonfolk",
+   "ninja"
+  ]
+ },
+ "Samurai Token": {
+  "cmc": 0,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 2,
+  "keywords": [
+   "Double Strike"
+  ],
+  "subtypes": [
+   "samurai"
   ]
  },
  "Saruli Caretaker": {
@@ -1352,14 +3320,64 @@
   "keywords": [
    "Defender"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "dryad"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true,
+     "tap_others": 1
+    }
+   }
+  ]
  },
  "Sea Gate": {
   "cmc": 0,
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "gate"
+  ],
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Searing Blaze": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "DealDamage",
+   "chain": [
+    "DealDamage",
+    "DamageResolve"
+   ],
+   "target": "other",
+   "harmful": true,
+   "damage_x": {
+    "kind": "landfall",
+    "hi": 3,
+    "lo": 1
+   },
+   "tgt": {
+    "types": [
+     "player",
+     "planeswalker"
+    ]
+   }
+  }
  },
  "Seat of the Synod": {
   "cmc": 0,
@@ -1367,7 +3385,15 @@
    "artifact",
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Silverbluff Bridge": {
   "cmc": 0,
@@ -1378,7 +3404,28 @@
   "keywords": [
    "Indestructible"
   ],
-  "mana": true
+  "mana": true,
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Skeleton Token": {
+  "cmc": 0,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 1,
+  "subtypes": [
+   "skeleton"
+  ]
  },
  "Slagwoods Bridge": {
   "cmc": 0,
@@ -1389,12 +3436,24 @@
   "keywords": [
    "Indestructible"
   ],
-  "mana": true
+  "mana": true,
+  "etb_tapped": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Sleep of the Dead": {
   "cmc": 1,
   "types": [
    "sorcery"
+  ],
+  "keywords": [
+   "Escape"
   ],
   "spell": {
    "api": "Tap",
@@ -1402,7 +3461,14 @@
     "Pump"
    ],
    "target": "creature",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature"
+    ]
+   },
+   "defined": "targeted",
+   "tap": true
   }
  },
  "Snap": {
@@ -1416,7 +3482,15 @@
     "Untap"
    ],
    "target": "creature",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "creature"
+    ]
+   },
+   "origin": "battlefield",
+   "dest": "hand",
+   "untap": true
   }
  },
  "Sneaky Snacker": {
@@ -1433,8 +3507,14 @@
   "triggers": [
    {
     "api": "ChangeZone",
-    "trigger": "Drawn"
+    "trigger": "Drawn",
+    "origin": "graveyard",
+    "dest": "battlefield"
    }
+  ],
+  "subtypes": [
+   "faerie",
+   "rogue"
   ]
  },
  "Snow-Covered Forest": {
@@ -1442,7 +3522,21 @@
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "forest"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "Spell Pierce": {
   "cmc": 1,
@@ -1452,7 +3546,16 @@
   "spell": {
    "api": "Counter",
    "target": "spell",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "card"
+    ],
+    "non": [
+     "creature"
+    ]
+   },
+   "unless": 2
   }
  },
  "Spellstutter Sprite": {
@@ -1472,8 +3575,52 @@
     "api": "Counter",
     "trigger": "ETB",
     "target": "spell",
-    "harmful": true
+    "harmful": true,
+    "tgt_x": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "faerie"
+      ],
+      "you": true
+     }
+    },
+    "tgt": {
+     "types": [
+      "card"
+     ],
+     "cmc_le_x": true
+    }
    }
+  ],
+  "subtypes": [
+   "faerie",
+   "wizard"
+  ]
+ },
+ "Spinewoods Paladin": {
+  "cmc": 5,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 5,
+  "toughness": 4,
+  "keywords": [
+   "Trample",
+   "Plot"
+  ],
+  "triggers": [
+   {
+    "api": "GainLife",
+    "trigger": "ETB",
+    "life": 3
+   }
+  ],
+  "subtypes": [
+   "human",
+   "knight"
   ]
  },
  "Squadron Hawk": {
@@ -1490,21 +3637,100 @@
   "triggers": [
    {
     "api": "ChangeZone",
-    "trigger": "ETB"
+    "trigger": "ETB",
+    "origin": "library",
+    "dest": "hand",
+    "search": {
+     "types": [
+      "card"
+     ],
+     "named": true
+    }
    }
+  ],
+  "subtypes": [
+   "bird"
   ]
+ },
+ "Steel Sabotage": {
+  "cmc": 1,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "Counter",
+     "target": "artifact_or_enchantment",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "artifact"
+      ]
+     }
+    },
+    {
+     "api": "ChangeZone",
+     "target": "artifact_or_enchantment",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "artifact"
+      ]
+     },
+     "origin": "battlefield",
+     "dest": "hand"
+    }
+   ]
+  }
  },
  "Swamp": {
   "cmc": 0,
   "types": [
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "swamp"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
  },
  "The Modern Age": {
   "cmc": 2,
   "types": [
    "enchantment"
+  ],
+  "subtypes": [
+   "saga"
+  ],
+  "faces": [
+   {
+    "cmc": 0,
+    "types": [
+     "enchantment",
+     "creature"
+    ],
+    "has_pt": true,
+    "power": 2,
+    "toughness": 3,
+    "keywords": [
+     "Flying"
+    ],
+    "subtypes": [
+     "spirit"
+    ]
+   }
   ]
  },
  "Thought Scour": {
@@ -1519,7 +3745,13 @@
    ],
    "cards": 2,
    "target": "player",
-   "harmful": true
+   "harmful": true,
+   "tgt": {
+    "types": [
+     "player"
+    ]
+   },
+   "mill": 2
   }
  },
  "Thoughtcast": {
@@ -1533,7 +3765,22 @@
   "spell": {
    "api": "Draw",
    "cards": 2
-  }
+  },
+  "statics": [
+   {
+    "mode": "reduce_cost",
+    "reduce": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "artifact"
+      ],
+      "you": true
+     }
+    }
+   }
+  ]
  },
  "Thraben Charm": {
   "cmc": 2,
@@ -1541,7 +3788,56 @@
    "instant"
   ],
   "spell": {
-   "api": "Charm"
+   "api": "Charm",
+   "modes": [
+    {
+     "api": "DealDamage",
+     "target": "creature",
+     "harmful": true,
+     "damage_x": {
+      "kind": "count",
+      "zone": "battlefield",
+      "of": {
+       "types": [
+        "creature"
+       ],
+       "you": true
+      },
+      "mul": 2
+     },
+     "tgt": {
+      "types": [
+       "creature"
+      ]
+     }
+    },
+    {
+     "api": "Destroy",
+     "target": "artifact_or_enchantment",
+     "harmful": true,
+     "tgt": {
+      "types": [
+       "enchantment"
+      ]
+     }
+    },
+    {
+     "api": "ChangeZoneAll",
+     "target": "player",
+     "tgt": {
+      "types": [
+       "player"
+      ]
+     },
+     "origin": "graveyard",
+     "dest": "exile",
+     "search": {
+      "types": [
+       "card"
+      ]
+     }
+    }
+   ]
   }
  },
  "Timberwatch Elf": {
@@ -1555,8 +3851,28 @@
   "abilities": [
    {
     "api": "Pump",
-    "target": "creature"
+    "target": "creature",
+    "pump_x": {
+     "kind": "count",
+     "zone": "battlefield",
+     "of": {
+      "types": [
+       "elf"
+      ]
+     }
+    },
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "cost": {
+     "tap": true
+    }
    }
+  ],
+  "subtypes": [
+   "elf"
   ]
  },
  "Tinder Wall": {
@@ -1575,7 +3891,31 @@
     "api": "DealDamage",
     "damage": 2,
     "target": "creature",
-    "harmful": true
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "cost": {
+     "mana": 1,
+     "sac_self": true
+    }
+   }
+  ],
+  "subtypes": [
+   "plant",
+   "wall"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 2
+    },
+    "cost": {
+     "sac_self": true
+    }
    }
   ]
  },
@@ -1587,10 +3927,32 @@
   "has_pt": true,
   "power": 5,
   "toughness": 5,
+  "keywords": [
+   "Ward"
+  ],
   "triggers": [
    {
     "api": "Ward",
     "trigger": "BecomesTarget"
+   }
+  ],
+  "subtypes": [
+   "serpent"
+  ],
+  "statics": [
+   {
+    "mode": "reduce_cost",
+    "reduce": {
+     "kind": "count",
+     "zone": "graveyard",
+     "of": {
+      "types": [
+       "instant",
+       "sorcery"
+      ],
+      "you": true
+     }
+    }
    }
   ]
  },
@@ -1604,8 +3966,41 @@
    "chain": [
     "Investigate"
    ],
-   "target": "creature"
+   "target": "creature",
+   "tgt": {
+    "types": [
+     "creature"
+    ]
+   },
+   "kw": [
+    "Deathtouch",
+    "Lifelink"
+   ],
+   "tokens": 1,
+   "token": "Clue"
   }
+ },
+ "Treasure Token": {
+  "cmc": 0,
+  "types": [
+   "artifact"
+  ],
+  "mana": true,
+  "subtypes": [
+   "treasure"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "mana_x": {
+     "n": 1
+    },
+    "cost": {
+     "tap": true,
+     "sac_self": true
+    }
+   }
+  ]
  },
  "Troll of Khazad-dûm": {
   "cmc": 6,
@@ -1620,8 +4015,55 @@
   ],
   "abilities": [
    {
-    "api": "ChangeZone"
+    "api": "ChangeZone",
+    "origin": "library",
+    "dest": "hand",
+    "search": {
+     "types": [
+      "swamp"
+     ]
+    },
+    "cost": {
+     "mana": 1,
+     "discard_self": true
+    },
+    "zone": "hand"
    }
+  ],
+  "subtypes": [
+   "troll"
+  ]
+ },
+ "Troublemaker Ouphe": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 2,
+  "toughness": 2,
+  "keywords": [
+   "Bargain"
+  ],
+  "triggers": [
+   {
+    "api": "ChangeZone",
+    "trigger": "ETB",
+    "target": "artifact_or_enchantment",
+    "harmful": true,
+    "tgt": {
+     "types": [
+      "artifact",
+      "enchantment"
+     ],
+     "opp": true
+    },
+    "origin": "battlefield",
+    "dest": "exile"
+   }
+  ],
+  "subtypes": [
+   "ouphe"
   ]
  },
  "Twisted Landscape": {
@@ -1635,13 +4077,55 @@
   "mana": true,
   "abilities": [
    {
-    "api": "ChangeZone"
+    "api": "ChangeZone",
+    "origin": "library",
+    "dest": "battlefield",
+    "search": {
+     "types": [
+      "swamp",
+      "mountain",
+      "forest"
+     ]
+    },
+    "cost": {
+     "tap": true,
+     "sac_self": true
+    }
    },
    {
     "api": "Draw",
-    "cards": 1
+    "cards": 1,
+    "cost": {
+     "mana": 3,
+     "discard_self": true
+    },
+    "zone": "hand"
+   }
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
    }
   ]
+ },
+ "Unexpected Fangs": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "spell": {
+   "api": "PutCounter",
+   "target": "creature",
+   "tgt": {
+    "types": [
+     "creature"
+    ]
+   },
+   "counter": "p1p1"
+  }
  },
  "Vault of Whispers": {
   "cmc": 0,
@@ -1649,7 +4133,57 @@
    "artifact",
    "land"
   ],
-  "mana": true
+  "mana": true,
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "tap": true
+    }
+   }
+  ]
+ },
+ "Vitu-Ghazi Inspector": {
+  "cmc": 2,
+  "types": [
+   "creature"
+  ],
+  "has_pt": true,
+  "power": 1,
+  "toughness": 3,
+  "keywords": [
+   "Reach"
+  ],
+  "triggers": [
+   {
+    "api": "PutCounter",
+    "chain": [
+     "GainLife"
+    ],
+    "trigger": "ETB",
+    "target": "creature",
+    "tgt": {
+     "types": [
+      "creature"
+     ]
+    },
+    "counter": "p1p1",
+    "counter_n": 1,
+    "life": 2
+   }
+  ],
+  "subtypes": [
+   "elf",
+   "detective"
+  ],
+  "statics": [
+   {
+    "mode": "optional_cost",
+    "cost": {
+     "other": true
+    }
+   }
+  ]
  },
  "Voldaren Epicure": {
   "cmc": 1,
@@ -1667,8 +4201,14 @@
     ],
     "trigger": "ETB",
     "damage": 1,
-    "harmful": true
+    "harmful": true,
+    "defined": "opp",
+    "tokens": 1,
+    "token": "Blood Token"
    }
+  ],
+  "subtypes": [
+   "vampire"
   ]
  },
  "Wall of Roots": {
@@ -1681,7 +4221,39 @@
   "keywords": [
    "Defender"
   ],
-  "mana": true
+  "mana": true,
+  "subtypes": [
+   "plant",
+   "wall"
+  ],
+  "mana_abilities": [
+   {
+    "api": "Mana",
+    "cost": {
+     "add_counter": true
+    }
+   }
+  ]
+ },
+ "Weather the Storm": {
+  "cmc": 2,
+  "types": [
+   "instant"
+  ],
+  "keywords": [
+   "Storm"
+  ],
+  "spell": {
+   "api": "GainLife",
+   "life": 3
+  },
+  "triggers": [
+   {
+    "api": "CopySpellAbility",
+    "trigger": "SpellCast",
+    "defined": "triggered"
+   }
+  ]
  },
  "Wellwisher": {
   "cmc": 2,
@@ -1693,8 +4265,14 @@
   "toughness": 1,
   "abilities": [
    {
-    "api": "GainLife"
+    "api": "GainLife",
+    "cost": {
+     "tap": true
+    }
    }
+  ],
+  "subtypes": [
+   "elf"
   ]
  },
  "Winding Way": {
@@ -1706,7 +4284,14 @@
    "api": "ChooseType",
    "chain": [
     "Dig"
-   ]
+   ],
+   "origin": "library",
+   "dest": "hand",
+   "search": {
+    "types": [
+     "card"
+    ]
+   }
   }
  },
  "Writhing Chrysalis": {
@@ -1724,12 +4309,20 @@
   "triggers": [
    {
     "api": "Token",
-    "trigger": "SpellCast"
+    "trigger": "SpellCast",
+    "tokens": 2,
+    "token": "Eldrazi Spawn Token"
    },
    {
     "api": "PutCounter",
-    "trigger": "Sacrificed"
+    "trigger": "Sacrificed",
+    "defined": "self",
+    "counter": "p1p1",
+    "counter_n": 1
    }
+  ],
+  "subtypes": [
+   "eldrazi"
   ]
  }
 }

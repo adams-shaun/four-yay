@@ -587,6 +587,30 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 										e.matchesSpecFrom(affects, id, o.Controller, id) {
 										grantQueue = append(grantQueue, staticWork{st: inner, depth: w.depth + 1})
 									}
+									// A granted COST-MODIFIER static (Jubilant
+									// Skybonder's "Creatures you control with
+									// flying have 'Spells your opponents cast that
+									// target this creature cost {2} more'",
+									// Acolyte of Bahamut's commander grant): the
+									// objects the OUTER Affected$ matches each HAVE
+									// the static while the outer one is live. It
+									// rides this scan as a granted cost static
+									// (state.ContinuousEffect.CostStaticGranted);
+									// rules' appendGrantedCostStatic binds it to
+									// every matching host at collection time, the
+									// same registry route the Animate and
+									// CopyPermanent grants take. The Effect route's
+									// whitelist gates it: an unread scoping key
+									// grants nothing rather than a blanket modifier.
+									if effects.IsGrantableCostStaticMode(inner.Mode) && effects.CostStaticParamsReadable(inner.Params) {
+										cg := base
+										cg.CostStaticMode = inner.Mode
+										cg.CostStaticParams = inner.Params
+										cg.CostStaticSVars = fc.SVars
+										cg.CostStaticGranted = true
+										cg.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
+										out = append(out, cg)
+									}
 								}
 							}
 						}
@@ -1148,7 +1172,7 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 	case "Metalcraft":
 		return e.metalcraftHolds(sv.Controller)
 	case "Threshold":
-		return len(e.G.Zone(state.ZGraveyard, sv.Controller)) >= 7
+		return e.thresholdHolds(sv.Controller)
 	case "Hellbent":
 		return len(e.G.Zone(state.ZHand, sv.Controller)) == 0
 	case "Blessing":

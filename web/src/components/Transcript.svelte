@@ -92,7 +92,17 @@
   let container: HTMLDivElement | undefined;
   let revealAll = $state(false);
   let revealSteps = $state(false);
+  let openSnapshots = $state<Record<number, boolean>>({});
   const lines = $derived(visibleLog(dvr.events, revealAll, revealSteps));
+  // The live tail-follow's trigger is the seq of the last RENDERED line, as
+  // a primitive: a `head` chit re-runs this derived (the dvr var changed)
+  // but yields the same number, so the scroll effect below stays put — the
+  // log must answer the backfill that appends rows, not the cursor move
+  // that announced them.
+  const tailSeq = $derived.by(() => {
+    const shown = visibleLog(dvr.events, revealAll, revealSteps);
+    return shown.length ? shown[shown.length - 1].event.seq : -1;
+  });
 
   // The panel's lifetime follows the objects the transcript currently shows:
   // a card that leaves every visible zone must close a panel opened for it,
@@ -118,12 +128,56 @@
 
   const resolveCard = (id: string): CardView | null => cardById(cards, id);
 
+  // The scroll effect's memo of the last tail it acted on (untracked plain
+  // state: it guards the scroll, it never renders).
+  let followedTail = -1;
+  let followedNotes = -1;
+
   $effect(() => {
-    // The cursor is always a valid DVR target, but if it landed on a hidden
-    // line there is no rendered row to bring into view, so the log simply
-    // stays put; revealing all brings that row back and the scroll resumes.
-    const seq = dvr.cursor;
-    container?.querySelector<HTMLElement>(`[data-seq="${seq}"]`)?.scrollIntoView({ block: 'nearest' });
+    // While the DVR is live the log is a TAIL follower (fb-20260928T043757Z,
+    // "it should automatically scroll to the most recent action"): it keeps
+    // the last RENDERED line in view — the newest visible row, or the seat's
+    // own auto-pass note when one sits under them — not the cursor row. The
+    // old cursor-keyed effect failed whenever the cursor named no rendered
+    // row: engine noise (priority, decision asks) is filtered out by
+    // default, so at every decision boundary the cursor sat on a seq with
+    // no [data-seq] row and the log stayed put while new lines collected
+    // below the fold — the effect's own old comment conceded exactly that —
+    // and the seat's client-local auto-pass notes render with no cursor
+    // relation at all. So the effect is keyed on `tailSeq` (the rendered tail) and the
+    // notes, which is what makes a backfill batch re-trigger it; a bare
+    // stream of `head` chits renders nothing and must not scroll.
+    // Following is UNCONDITIONAL while live: the DVR bar's ⏸/▶ control is
+    // the contract for "I want to read history"; a
+    // stick-only-if-near-the-bottom heuristic would re-introduce the
+    // reported bug the moment a backfill landed while the reader was
+    // mid-scroll.
+    // While paused the cursor follower stands: scrubbing/stepping keeps the
+    // highlighted row in view (block:'nearest'), and a cursor on a hidden
+    // line still has no row to bring into view — the reveal toggles bring
+    // that row back and the scroll resumes. The scrolling element is the
+    // ancestor wrapper (Table.svelte's .log), not this container;
+    // scrollIntoView walking the ancestors is what reaches it.
+    // The guard memoises the last tail this effect acted on (declared above): a `head` chit
+    // re-runs the effect with the rendered tail unchanged, and without the
+    // guard it would scroll the reader back to the (old) last row on every
+    // chit even though nothing new was rendered.
+    const tail = tailSeq;
+    const noteCount = notes.length;
+    void notes[noteCount - 1]?.id;
+    if (dvr.live) {
+      if (tail === followedTail && noteCount === followedNotes) return;
+      followedTail = tail;
+      followedNotes = noteCount;
+      // The tail is the last `.line` row: engine lines and auto-pass notes
+      // share the class, and a note renders under every engine line.
+      const rows = container?.querySelectorAll<HTMLElement>('.line');
+      rows?.[rows.length - 1]?.scrollIntoView({ block: 'end' });
+    } else {
+      followedTail = -1;
+      const seq = dvr.cursor;
+      container?.querySelector<HTMLElement>(`[data-seq="${seq}"]`)?.scrollIntoView({ block: 'nearest' });
+    }
   });
 </script>
 
@@ -184,6 +238,29 @@
       <div class="line local" data-auto-log>
         <span class="seq">auto</span>
         <span class="text">{n.text}</span>
+        {#if n.diagnostics}
+          {@const diagnostic = n.diagnostics}
+          <details class="auto-detail">
+            <summary>Advanced pass details</summary>
+            <dl>
+              <dt>Verdict</dt><dd>{diagnostic.verdict}</dd>
+              <dt>Option kinds</dt><dd>{diagnostic.optionKinds.join(', ') || 'none'}</dd>
+              <dt>Actionable options</dt><dd>{diagnostic.actionableOptions.join(', ') || 'none'}</dd>
+              <dt>Castable after tapping</dt><dd>{diagnostic.castableAfterTap.join(', ') || 'none'}</dd>
+              <dt>Respondable option / after tapping</dt><dd>{diagnostic.respondableOption} / {diagnostic.respondableAfterTap}</dd>
+              <dt>Yield matched</dt><dd>{diagnostic.yieldsHit}</dd>
+            </dl>
+            <details bind:open={openSnapshots[n.id]}>
+              <summary>Seat view snapshot</summary>
+              {#if openSnapshots[n.id]}
+                {@const snapshot = JSON.stringify(diagnostic.view, null, 2)}
+                <button type="button" onclick={() => void navigator.clipboard?.writeText(snapshot)}>Copy JSON</button>
+                <a href="data:application/json;charset=utf-8,{encodeURIComponent(snapshot)}" download="autopass-view.json">Export JSON</a>
+                <pre>{snapshot}</pre>
+              {/if}
+            </details>
+          </details>
+        {/if}
       </div>
     {/each}
   {/if}

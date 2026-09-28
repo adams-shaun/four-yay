@@ -83,8 +83,13 @@ const (
 	// CR 704.5j legend rule's survivor pick, posed from a state-based-action
 	// pass: one "keep" option per same-named legendary permanent under the
 	// asking controller, in battlefield order; the unchosen ones go to their
-	// owners' graveyards).
-	// The wire shape is the same as every other decision; only the vocabulary
+	// owners' graveyards), "dungeon" (an api:Venture first venture's CR
+	// 701.49a dungeon pick: one option per dungeon token script the game can
+	// enter, in token-key sort order, Label the dungeon's printed name), and
+	// "room" (an api:Venture advance's CR 701.49b next-room pick: one option
+	// per NextRoom$ arrow of the marker's current room, in the script's
+	// printed arrow order, Label the room's printed RoomName$). The wire
+	// shape is the same as every other decision; only the vocabulary
 	// of Option.Kind is new.
 	KChoose Kind = "choose"
 	// KReplacement is a choice about applying a replacement effect. For CR
@@ -316,6 +321,26 @@ type Option struct {
 	// parsing the label for a keyword. omitempty: an ordinary cast (Mode "")
 	// carries no field.
 	Mode string `json:"mode,omitempty"`
+	// MayPlayPerm names the may-play permission a "may-play" cast consumes
+	// (rules/mayplay.go): a MayPlayText$-typed static's limit is once per turn
+	// PER STATIC, so when one card matches several permissions (Muldrotha's
+	// artifact creature) the offer must say which one it plays through. The
+	// value is the rules-side key "<source-obj>:<MayPlayText>"; the empty
+	// string is an untyped grant (the historical per-card limit). It is never
+	// serialized -- the client answers by option index and the engine reads
+	// the field back off its own stored option list (Submit's firstChosen) --
+	// so every existing option list stays byte-identical on the wire.
+	MayPlayPerm string `json:"-"`
+	// Key is the server-side selection key for an option that names a thing
+	// no ObjID can express: api:Venture's "dungeon" options (the token-script
+	// key of the dungeon the answered first venture enters, CR 701.49a) and
+	// its "room" options (the room key the answered advance moves the
+	// venture marker to, CR 701.49b). The engine reads it back off its own
+	// stored option list, never the wire -- a client answers by index and
+	// renders Label (the dungeon's printed name, the room's printed
+	// RoomName$). json:"-" keeps every existing option list serialising
+	// byte-identically.
+	Key string `json:"-"`
 	// Amount is the X value an "x" choose option represents. The option's
 	// Index is its position in the list, not its value (see rules/cast.go's
 	// xAsk), so without this field a client could not tell "X = 4" from
@@ -535,6 +560,13 @@ type ClashResume struct {
 	Cursor   int
 }
 
+// WindowReason is a closed-vocabulary explanation for one withheld option.
+type WindowReason struct {
+	Obj    state.ObjID `json:"obj"`
+	Kind   string      `json:"kind"`
+	Reason string      `json:"reason"`
+}
+
 // Decision is the engine asking one player for one answer.
 type Decision struct {
 	Seq     uint64         `json:"seq"`
@@ -544,6 +576,10 @@ type Decision struct {
 	Min     int            `json:"min"`
 	Max     int            `json:"max"`
 	Options []Option       `json:"options"`
+	// WindowReasons is an opt-in diagnostic sidecar: the first gate that
+	// withheld each of this seat's candidates. Tokens only; never replay
+	// input. Nil when disabled, preserving every existing decision's bytes.
+	WindowReasons []WindowReason `json:"window_reasons,omitempty"`
 	// PaymentActions is an additive, separately indexed cast-payment
 	// extension. Keeping it outside Options preserves every legacy priority
 	// choice index. It remains empty until payplan-04 publishes executable

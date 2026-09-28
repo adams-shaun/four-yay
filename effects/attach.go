@@ -11,12 +11,13 @@ import (
 
 func init() {
 	Register("Attach", effAttach)
-	// kw:For Mirrodin (CR 702.159) expands to exactly the Living Weapon
-	// shape in cards/keywords.go -- an enters-the-battlefield trigger that
-	// mints a token, remembers it and chains the Attach above -- so it is
-	// supported by the same code paths and must be registered here or the
-	// report's coverage still counts every carrier as missing a primitive.
-	RegisterNonAPI("kw:Equip", "kw:Enchant", "kw:Living Weapon", "kw:For Mirrodin", "kw:Reconfigure", "kw:Fortify")
+	// kw:For Mirrodin (CR 702.159) and kw:Job select (CR 702.182) expand to
+	// exactly the Living Weapon shape in cards/kw_*.go -- an
+	// enters-the-battlefield trigger that mints a token, remembers it and
+	// chains the Attach above -- so they are supported by the same code
+	// paths and must be registered here or the report's coverage still
+	// counts every carrier as missing a primitive.
+	RegisterNonAPI("kw:Equip", "kw:Enchant", "kw:Living Weapon", "kw:For Mirrodin", "kw:Job select", "kw:Reconfigure", "kw:Fortify")
 }
 
 // emitAttach publishes "obj becomes attached to bearer" as events.Attach,

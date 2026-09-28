@@ -58,6 +58,7 @@
           },
           "command": null,
           "commanders": null,
+          "completed_dungeons": 0,
           "commander_casts": null
         }
       ],

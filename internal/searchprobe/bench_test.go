@@ -144,13 +144,17 @@ func TestSampleRealDeckGolden(t *testing.T) {
 		// emission block in rules/engine.go restores 857589... and 1dab03...
 		// byte-for-byte, so it is the sole mover; frames/attempts/accepted/
 		// worlds/ESS are unchanged.
-		{"pre-optimisation sampler", true, "cb006cbec90cdce865845e020c3b3732c9bdc0f76fc7d6480577497b5f508b30"},
+		// CR 309 dungeon state adds completed_dungeons: 0 to each public
+		// player view. The fixture's captured frames seed the sampler, so
+		// their changed bytes move the digest; frames 122, attempts 64,
+		// accepted 3 and worlds 8 remain unchanged.
+		{"pre-optimisation sampler", true, "7ce6af07c48a4c4a9ff2131072ed8aef53c0977128b31446db77de16047881d3"},
 		// With the declined-land-drop exclusion: different proposals (so
 		// different worlds for a seed), same target distribution -- see
 		// TestLandExclusionRemovesOnlyRejectedWorlds. Re-measured for the
 		// Mausoleum Wanderer unless-cost ask label (see the test comment) and
 		// again for the damage-provenance fact (see above).
-		{"land exclusion", false, "bc3e3c4a6653ed98c0327442b2f1f517882a1b7deb820e10b624c531042394f6"},
+		{"land exclusion", false, "d1c2f4ed11556677e03e11d0e9495a25e26b59e653b414464171025d5b3cdd7f"},
 	} {
 		opts := benchSampleOptions()
 		opts.MinESS = 1 // resample worlds from the thin pool so the digest covers them
@@ -309,7 +313,10 @@ func TestTeacherChoiceRealDeckGolden(t *testing.T) {
 	// Capped and the 8/8/8/8 wins split are unchanged (both new fields are
 	// [0,0,0,0] on this fixture, since it has no repeated world/candidate-0
 	// split to pair).
-	const want = "d97fc053f43294ee66e5f2dae4ebcd27cfdd46f6c5149b52a3d2762b594b30c3"
+	// CR 309's public completed_dungeons field changes the captured-frame
+	// seed and hence the sampled worlds. Index, Values, Rollouts 32,
+	// Terminal 32, Capped 0 and wins 8/8/8/8 are unchanged; Submits is 3878.
+	const want = "10e73f43e4ff38969a590eec20e33795f1e6737186fbdf88a4e416b80ed83c8d"
 	for _, parallelism := range []int{0, 4} {
 		res, err := TeacherChoice(worlds, cands, TeacherOptions{Seed: 99, MaxSubmits: 5000, Parallelism: parallelism})
 		if err != nil {

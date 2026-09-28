@@ -43,6 +43,7 @@
   const player = (seat: number): PlayerView => ({
     seat, name: seats[seat].name, life: seat === 0 ? 39 : 40, lost: false, library_size: 80,
     hand_size: seat === 0 ? hand.length : 6, graveyard_size: 0, hand: seat === 0 ? hand : null,
+    completed_dungeons: 0,
     battlefield: seat === 0 ? [card(46, 'Lord Windgrace', 'Legendary Planeswalker')] : [],
     graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
   } as unknown as PlayerView);

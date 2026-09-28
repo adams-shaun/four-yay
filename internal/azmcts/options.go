@@ -67,6 +67,10 @@ type Options struct {
 	// visits (tau = 1) instead of the argmax. Generation only, turns 1-4
 	// (the seat decides); eval leaves it false.
 	Sample bool
+	// HeuristicLeaf keeps the frozen heuristic leaf (searchprobe.LeafValue)
+	// even when a network supplies the prior: the network's value head is
+	// then unused (M1b's prior-only ablation).
+	HeuristicLeaf bool
 }
 
 // DefaultOptions are the spec's values (§2) and this plan's candidate and

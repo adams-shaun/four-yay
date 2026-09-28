@@ -102,6 +102,18 @@ func (e *Engine) finishEnteredStep() {
 		!e.G.Players[e.G.Active].Lost && e.G.Players[e.G.Active].Counter("RAD") > 0 {
 		e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Controller: e.G.Active, RadiationDrain: true})
 	}
+	// CR 726.2: at the beginning of the upkeep of the player who has the
+	// initiative, that player ventures into Undercity. It is a source-less
+	// inherent triggered ability, queued like the monarch's end-step draw and
+	// the rad drain; the ordinary drain places the synthetic venture body on
+	// the stack before priority.
+	if e.G.Step == state.StepUpkeep && e.G.HasInitiative &&
+		e.G.Initiative == e.G.Active &&
+		int(e.G.Initiative) < len(e.G.Players) && !e.G.Players[e.G.Initiative].Lost {
+		e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+			Controller: e.G.Initiative, InitiativeVenture: true,
+		})
+	}
 	// CR 724.2a: the monarch's draw is a triggered ability at the beginning
 	// of the end step, not an immediate turn-based action. Queue it here; the
 	// ordinary trigger drain places it on the stack before priority, preserving
@@ -911,15 +923,45 @@ func (e *Engine) resumeTriggerDrain() {
 }
 
 func (e *Engine) askPriority(p state.PlayerID) {
+	var window *windowCollector
+	if e.windowDiagnostics {
+		window = newWindowCollector(p)
+	}
 	d := &decision.Decision{
 		Player: p, Kind: decision.KPriority, Min: 1, Max: 1,
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
 		// ...) without fmt's boxing: every priority walk builds it.
 		Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + ", " + e.G.Step.String() + " — " +
 			seatFacingName(e.G, p) + " has priority",
-		Options: e.legalActions(p),
+		Options: e.legalActionsWithWindow(p, window),
+	}
+	if window != nil {
+		d.WindowReasons = window.finish(d.Options)
 	}
 	e.ask(d)
+}
+
+// finishEndTurn applies CR 723.1d/e after the EndTurn event has removed the
+// entire stack. The skipped steps/phases are never entered, so their
+// beginning-of-step triggers are never queued and the end step's own StepChange
+// never appears. Cleanup is entered through the ordinary step machinery, so
+// CR 514.1/514.2 (discard to hand size, damage wears off, "until end of turn"
+// effects end) and the CR 514.3a repeat run exactly as for a normal turn.
+//
+// The combat bookkeeping the engine holds OUTSIDE the event fold (the blocker
+// round's per-defender cursor and the combat-damage pass' deferred-tail flags)
+// is cleared here too: CR 723.1c removes every creature from combat, and the
+// turn never passes through the end-of-combat step whose ordinary boundary
+// reset (finishStepBoundary) would otherwise clear it, so a turn ended in the
+// middle of a split-attack blocker round must not leak that round into the
+// next turn.
+func (e *Engine) finishEndTurn() {
+	e.pendingTriggers = nil
+	e.orderedTriggers = 0
+	e.combatRound = combatRound{}
+	e.blockerRound = blockerRound{}
+	e.endTurnRequested = false
+	e.setStep(state.StepCleanup)
 }
 
 func (e *Engine) advanceStep() {

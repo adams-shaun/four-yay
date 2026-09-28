@@ -87,6 +87,12 @@ type CostPart struct {
 	// count the announcement fixes first would need re-pricing at settle --
 	// no corpus carrier combines them).
 	MinPower int32
+	// ThenExile marks a Behold part spelled BeholdExile<N/Spec> (the
+	// Lorwyn Champion cycle's "behold a Kithkin and exile it"): the beheld
+	// object -- a permanent the payer controls or a card revealed from their
+	// hand -- is then exiled as part of the same payment, linked to the
+	// paying source (ExiledWith) so "return the exiled card" reads it.
+	ThenExile bool
 }
 
 // ManaPair is one two-face hybrid symbol: each face is a WUBRGC mana symbol,
@@ -269,6 +275,14 @@ type Cost struct {
 	// rolls each die and publishes its canonical effects.DieRollNote; Dyn names
 	// the ability X binding (currently only X is modelled).
 	RollDice []CostPart
+	// Withheld lists the parts of a RaiseCost static's Cost$ that the
+	// payment machinery cannot pay (a head no stage settles, a named count
+	// with no resolvable reading). It is never produced by ParseCost: only
+	// the RaiseCost bridge (rules/raise_cost_extra.go) writes it, and
+	// nonManaCastable refuses any cost that carries it, so the spell or
+	// ability is withheld at the offer gate instead of being offered with
+	// the additional cost silently dropped.
+	Withheld []string
 	// Unknown lists the HEAD (the text before any "<...>") of every cost
 	// token this parse did not model, in order of appearance, deduplicated.
 	// A token lands here exactly when ParseCost could not give it real
@@ -379,7 +393,7 @@ var exertCost = regexp.MustCompile(`^Exert<1/(?:CARDNAME|NICKNAME)(?:/([^>]*))?>
 // has no source from which to resolve their value.
 var lifeCost = regexp.MustCompile(`^PayLife<(\d+)>$`)
 
-var choiceCost = regexp.MustCompile(`^(Reveal|Behold|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+var choiceCost = regexp.MustCompile(`^(Reveal|Behold|BeholdExile|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
 
 // choiceCostRevealOrChoose additionally recognises Forge's either-or
 // `RevealOrChoose<N/Spec>` cost (Monstrous Emergence, Dragon's Fire): reveal a
@@ -696,6 +710,10 @@ func ParseCost(s string) Cost {
 				case "Reveal":
 					c.Reveal = append(c.Reveal, part)
 				case "Behold":
+					c.Behold = append(c.Behold, part)
+				case "BeholdExile":
+					// Behold, then exile the beheld object (CostPart.ThenExile).
+					part.ThenExile = true
 					c.Behold = append(c.Behold, part)
 				default:
 					// A literal tapXType form may carry a group predicate too;
@@ -1462,6 +1480,9 @@ func (c Cost) Plus(d Cost) Cost {
 		c.DamageYou = append(append([]CostPart(nil), c.DamageYou...), d.DamageYou...)
 	}
 	c.Forage = c.Forage || d.Forage
+	if len(d.Withheld) > 0 {
+		c.Withheld = append(append([]string(nil), c.Withheld...), d.Withheld...)
+	}
 	return c
 }
 
@@ -1575,7 +1596,7 @@ func (e *Engine) offerCostForUsing(statics costStaticViews, p state.PlayerID, id
 // both the per-face enumeration and the composed castable check.
 func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, mods costMods, scope costScope) Cost {
 	c := mods.apply(base)
-	if scope.kind != "Ability" && scope.kind != "Foretell" {
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		c = e.commanderTaxFor(p, id, c)
 	}
 	return c
@@ -1748,8 +1769,9 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		}
 	}
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
+	mods = e.withWaterbendOfferCredit(p, id, mods)
 	tax := int32(0)
-	if scope.kind != "Ability" && scope.kind != "Foretell" {
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)
 	}
 	delve := int32(0)
@@ -1770,10 +1792,14 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		// retry would re-ask the exact question that just failed: the target
 		// census (a pure read) is skipped, not changed.
 		var potential costMods
+		potentialOK := false
 		if statics.validTarget {
-			potential = e.costModifiersWithTargetsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), true)
+			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
+				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
+					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability)
+			})
 		}
-		if statics.validTarget && e.manaFeasiblePriced(p, id, ability, base, potential, tax, delve, hyp) {
+		if potentialOK {
 			mods = potential
 		} else if accepted, ok := e.offerSacXMods(p, id, ability, base, statics, scope, tax, delve, hyp); ok {
 			// The cost announces a Sac<X/Spec> count whose resulting X-dependent
@@ -1783,6 +1809,13 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 			// SOME legal announcement is payable -- the same announced-X
 			// recomputation manaToPay makes after the announcement, applied at
 			// the gate so the offer and the charge agree.
+			mods = accepted
+		} else if accepted, ok := e.offerNamedMods(p, id, ability, base, mods, statics, scope, tax, delve, hyp); ok {
+			// A RaiseCost part counted by a named announcement (Explosive
+			// Singularity's "tap any number of untapped creatures ... costs
+			// {1} less for each creature tapped this way") can make the cast
+			// payable at a nonzero announcement the 0 snapshot misprices --
+			// the offerSacXMods sweep, for the named count.
 			mods = accepted
 		} else {
 			return false
@@ -1851,9 +1884,10 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 		if len(targets) == 0 {
 			continue
 		}
-		mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, targets, true, x)
-		if e.manaFeasiblePriced(p, id, ability, announced, mods, tax, delve, hyp) {
-			return mods, true
+		if candidateMods, ok := e.potentialCostModsUsing(statics, p, id, scope, targets, x, func(m costMods) bool {
+			return e.manaFeasiblePriced(p, id, ability, announced, m, tax, delve, hyp)
+		}); ok {
+			return candidateMods, true
 		}
 	}
 	return costMods{}, false
@@ -1865,12 +1899,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 // announcement exist" half of CR 601.2. Modal spells have no selected mode
 // yet and therefore conservatively contribute no potential discount.
 func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope) []state.Target {
-	var sa *cards.SA
-	if scope.kind == "Ability" {
-		sa = scope.ab
-	} else if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		sa = o.Face().SpellAbility()
-	}
+	sa := e.costTargetingSA(id, scope)
 	if sa == nil || sa.Params["ValidTgts"] == "" || sa.Params["Choices"] != "" {
 		return nil
 	}
@@ -1888,6 +1917,64 @@ func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope co
 		}
 	}
 	return out
+}
+
+// costTargetingSA returns the spell or activated ability whose ValidTgts$ and
+// TargetMin$/TargetMax$ a target-relative cost read shares. A spell's face
+// carries the declaration while it is in hand; an activated ability is the
+// scope's own SA. This is the ONE derivation costPotentialTargets and
+// costAmountTargets use, so the offer census and the amount's legal-assignment
+// size can never name different declarations.
+func (e *Engine) costTargetingSA(id state.ObjID, scope costScope) *cards.SA {
+	if scope.kind == "Static" {
+		// A special action (specialActionScope) announces no targets.
+		return nil
+	}
+	if scope.kind == "Ability" {
+		return scope.ab
+	}
+	if o := e.G.Obj(id); o != nil && o.Face() != nil {
+		return o.Face().SpellAbility()
+	}
+	return nil
+}
+
+// costAmountTargets trims a potential-target census to a COMPLETE LEGAL TARGET
+// ASSIGNMENT before a target-relative Amount$ reads it. The offer gate's
+// potential pass hands the whole costPotentialTargets census to the modifier
+// composition so every ValidTarget$/ValidSpell$ rule can match against SOME
+// candidate, but an Amount$ that counts the cast's targets (Battlefield
+// Thaumaturge's TargetedObjectsDistinct, "for each creature it targets") must
+// see only as many targets as the declaration actually announces -- pricing
+// every legal candidate at once would reduce the cost by the census size and
+// offer a cast the table can never complete. The size is resolvedTargetBounds'
+// own maximum (the most targets a reduction reading the count can see, and so
+// the reduction-favourable witness the existential offer gate wants), capped
+// at the census. A resolved maximum of 0 (the "instead" idiom) yields the
+// empty assignment, never a target the declaration may not announce. Only the
+// potential pass calls this: a non-potential composition already carries the
+// announced targets, which are a legal assignment by construction. The chosen
+// targets are always repriced at CR 601.2c/h.
+func (e *Engine) costAmountTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) []state.Target {
+	if len(targets) == 0 {
+		return targets
+	}
+	sa := e.costTargetingSA(id, scope)
+	if sa == nil {
+		return targets
+	}
+	_, max := e.resolvedTargetBounds(p, id, sa, 0)
+	// A resolved maximum of 0 (the "instead" idiom) must yield the empty
+	// assignment even when the census holds a single candidate: the bound is
+	// resolved BEFORE the size fast path so one candidate can never stand in
+	// for a target the declaration is not allowed to announce.
+	if max == 0 {
+		return nil
+	}
+	if max < 0 || max >= len(targets) {
+		return targets
+	}
+	return targets[:max]
 }
 
 // AbilityCosts returns id's non-mana activated-ability costs after the same

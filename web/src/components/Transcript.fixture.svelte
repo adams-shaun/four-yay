@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { CardView } from '../protocol';
+  import type { CardView, View } from '../protocol';
   import type { DvrState } from '../lib/dvr';
+  import type { AutoPassLog } from '../lib/autolog';
   import { buildCardOwnerColour } from '../lib/logrender';
   import Transcript from './Transcript.svelte';
 
@@ -37,6 +38,14 @@
     { name: 'Ann', colour: '#e5484d' },
     { name: 'Bob', colour: '#3b82f6' },
   ];
+  const notes: AutoPassLog[] = [{
+    id: 1, turn: 2, text: 'Auto-passed: your main 1',
+    diagnostics: {
+      verdict: 'pass', optionKinds: ['cast'], actionableOptions: [], castableAfterTap: [],
+      respondableOption: false, respondableAfterTap: false, yieldsHit: false,
+      view: { snapshot_marker: 'seat-redacted-view' } as unknown as View,
+    },
+  }];
 
   const dvr: DvrState = {
     match: 'm1', head: 2, cursor: 2, live: true, turnStarts: [], gap: false,
@@ -47,4 +56,4 @@
   };
 </script>
 
-<Transcript {dvr} {cards} {cardColour} {identities} onSeek={() => {}} />
+<Transcript {dvr} {cards} {cardColour} {identities} {notes} onSeek={() => {}} />

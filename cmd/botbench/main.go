@@ -128,6 +128,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/spellbench/registry"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -392,6 +393,11 @@ func init() {
 func setTacticalRegistry(reg *cards.Registry) {
 	if tacticalLookup == nil {
 		tacticalLookup = builtins.NewRegistryLookup(reg)
+		// The registry's card-fact decorators (lethal) read printed IR from
+		// the same corpus lookup: card names resolve identically for every
+		// seat, so one lookup serves both the tactical seats and the
+		// decorators.
+		registry.SetCardLookup(tacticalLookup)
 	}
 }
 
@@ -2452,6 +2458,10 @@ func main() {
 		// The SpellBench workup (spellbench.go): its own round-robin
 		// schedule over the -spellbench policies, not the -a/-b bench.
 		os.Exit(spellbenchExit(sbFlags, *dir, *workers, *maxTurns, *maxIntents, *checkpoint, os.Stdout, os.Stderr))
+	}
+	if azCorpusPath != "" {
+		fmt.Fprintln(os.Stderr, "botbench: -az-corpus is a -spellbench mode flag")
+		os.Exit(2)
 	}
 	os.Exit(mainExit(*a, *b, *games, *seed, *seats, *rotate, *pairs, *format, *out, *workers,
 		*maxTurns, *maxIntents, *dir, *profile, *decisionStats, *actionCoverage, *grind, *grindSeconds, *grindIters, *cpuprofile, *memprofile, *decisionTrace, *analyzeTrace, *checkpoint))

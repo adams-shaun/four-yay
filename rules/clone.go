@@ -165,9 +165,10 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// struct values, re-allocated like oppPicksMid so a clone taken
 		// between the answer and the CR 608.2b recheck still sees the seat
 		// that answered.
-		tpCtlChooser: cloneTpCtlChooser(e.tpCtlChooser),
-		mulligans:    e.mulligans,
-		startingLife: e.startingLife,
+		tpCtlChooser:      cloneTpCtlChooser(e.tpCtlChooser),
+		mulligans:         e.mulligans,
+		windowDiagnostics: e.windowDiagnostics,
+		startingLife:      e.startingLife,
 		// E2 held-out cast suppression (cast.go): the set of card ids whose
 		// cast option is held out of the current window after an unpayable
 		// decline. A clone taken at any intent boundary carries it forward so
@@ -844,6 +845,14 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		pc.cost.Phyrexian = append([]byte(nil), e.cast.cost.Phyrexian...)
 		pc.cost.Twobrid = append([]Twobrid(nil), e.cast.cost.Twobrid...)
 		pc.cost.HybridPhyrexian = append([]HybridPhyrexian(nil), e.cast.cost.HybridPhyrexian...)
+		pc.mayPlayHosts = append([]state.ObjID(nil), e.cast.mayPlayHosts...)
+		if e.cast.costRemembered != nil {
+			pc.costRemembered = make([]costRememberedEntry, len(e.cast.costRemembered))
+			for i, c := range e.cast.costRemembered {
+				pc.costRemembered[i] = costRememberedEntry{source: c.source, stamp: c.stamp,
+					ids: append([]state.ObjID(nil), c.ids...)}
+			}
+		}
 		pc.mods.reduces = append([]costMod(nil), e.cast.mods.reduces...)
 		pc.mods.raises = append([]int32(nil), e.cast.mods.raises...)
 		pc.delve = append([]state.ObjID(nil), e.cast.delve...)
@@ -918,6 +927,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		tp.discs = append([]state.ObjID(nil), e.turnUp.discs...)
 		tp.reveal = append([]state.ObjID(nil), e.turnUp.reveal...)
 		tp.returns = append([]state.ObjID(nil), e.turnUp.returns...)
+		tp.mods.reduces = append([]costMod(nil), e.turnUp.mods.reduces...)
+		tp.mods.raises = append([]int32(nil), e.turnUp.mods.raises...)
 		c.turnUp = &tp
 	}
 	if e.cmdZone != nil {
@@ -1189,6 +1200,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// The multi-player GenericChoice chooser cursor is likewise a sliced value
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
+	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
 	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat

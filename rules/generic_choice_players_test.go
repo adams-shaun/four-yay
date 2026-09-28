@@ -271,7 +271,7 @@ func TestGenericChoiceEmptyDefinedDoesNotAskTheController(t *testing.T) {
 // opponent chooses DoDiscard (a TgtChoose discard) or DoGain (a life gain);
 // the outer SubAbility$ DBTail must run once after the chooser sequence.
 const genericChoiceNested = "Name:Trial of Choices\nManaCost:R\nTypes:Sorcery\n" +
-	"A:SP$ GenericChoice | Defined$ Opponent | Choices$ DoDiscard,DoGain | SubAbility$ DBTail | SpellDescription$ Each opponent chooses.\n" +
+	"A:SP$ GenericChoice | Defined$ Opponent | TempRemember$ Chooser | Choices$ DoDiscard,DoGain | SubAbility$ DBTail | SpellDescription$ Each opponent chooses.\n" +
 	"SVar:DoDiscard:DB$ Discard | Defined$ Remembered | Mode$ TgtChoose | NumCards$ 1 | SpellDescription$ DoDiscard\n" +
 	"SVar:DoGain:DB$ GainLife | Defined$ Remembered | LifeAmount$ 5 | SpellDescription$ DoGain\n" +
 	"SVar:DBTail:DB$ LoseLife | Defined$ You | LifeAmount$ 1\n" +

@@ -773,6 +773,18 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 		e.G.Active != dt.Controller {
 		return false
 	}
+	// The delayed mirror of the printed gate's OpponentTurn$ clause
+	// (triggerMatches): an event-matched registration whose stored body
+	// carries OpponentTurn$ True fires only during an opponent's turn of its
+	// effect owner. No corpus registration carries it today (the 23 raw
+	// carriers are all printed T: lines), but the stored grammar mirrors
+	// spellCastMatches' clauses one for one so a future registration cannot
+	// widen silently, the same reason the target-shape mirror below exists.
+	if v, ok := t.Params["OpponentTurn"]; ok {
+		if !strings.EqualFold(strings.TrimSpace(v), "True") || e.G.Active == dt.Controller {
+			return false
+		}
+	}
 	if v, ok := t.Params["ValidCard"]; ok {
 		// The cast-provenance qualifiers (castprov1/2/3 — narset's
 		// `ValidCard$ Instant.wasCastFromYourHand,Sorcery.wasCastFromYourHand`)
