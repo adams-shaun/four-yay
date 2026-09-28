@@ -22,6 +22,7 @@ import (
 // phased in at first, it phases OUT at seat 0's next untap step before the
 // step's untap action, then phases back IN at the following one.
 func TestKatabaticWindsKeywordPhasesOutAndIn(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 407, "Katabatic Winds")
 	kw := moveSeededCard(t, e, 0, cr702corpusCard(t, "Katabatic Winds"), state.ZBattlefield)
 
@@ -89,6 +90,7 @@ func TestKatabaticWindsKeywordPhasesOutAndIn(t *testing.T) {
 // untap step's own Untap event for a tapped permanent, so the phased-out
 // status is set before the action that untaps everything.
 func TestKatabaticWindsPhasesOutBeforeUntapAction(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 408, "Katabatic Winds", "Grizzly Bears")
 	kw := moveSeededCard(t, e, 0, cr702corpusCard(t, "Katabatic Winds"), state.ZBattlefield)
 	bears := moveSeededCard(t, e, 0, cr702corpusCard(t, "Grizzly Bears"), state.ZBattlefield)
@@ -140,6 +142,7 @@ func TestKatabaticWindsPhasesOutBeforeUntapAction(t *testing.T) {
 // keyword fires only during its controller's untap step: during the OTHER
 // player's untap step nothing happens to the carrier.
 func TestPhasingKeywordOnNonactiveControllersUntapStepDoesNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 409, "Katabatic Winds")
 	kw := moveSeededCard(t, e, 0, cr702corpusCard(t, "Katabatic Winds"), state.ZBattlefield)
 	if o := e.G.Obj(kw); o == nil || o.Zone != state.ZBattlefield || o.PhasedOut {
@@ -163,6 +166,7 @@ func TestPhasingKeywordOnNonactiveControllersUntapStepDoesNothing(t *testing.T) 
 // step, and the keyword does not immediately phase it back out the same
 // step (one toggle per step).
 func TestPhasingKeywordDoesNotSuppressApiPhasesPhaseIn(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 410, "Katabatic Winds")
 	kw := moveSeededCard(t, e, 0, cr702corpusCard(t, "Katabatic Winds"), state.ZBattlefield)
 	if !e.HasKeyword(kw, "Phasing") {

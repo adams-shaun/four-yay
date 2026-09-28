@@ -10,6 +10,7 @@ import (
 )
 
 func TestMustAttackYouBindsRegistrationController(t *testing.T) {
+	t.Parallel()
 	deck := func() []*cards.Card {
 		out := make([]*cards.Card, 40)
 		for i := range out {
@@ -64,6 +65,7 @@ func TestMustAttackYouBindsRegistrationController(t *testing.T) {
 }
 
 func TestMustAttackYouStaticUsesSourceController(t *testing.T) {
+	t.Parallel()
 	deck := func() []*cards.Card {
 		out := make([]*cards.Card, 40)
 		for i := range out {
@@ -90,6 +92,7 @@ func TestMustAttackYouStaticUsesSourceController(t *testing.T) {
 }
 
 func TestMustAttackRememberedBindsUniqueCapturedPlayer(t *testing.T) {
+	t.Parallel()
 	deck := func() []*cards.Card {
 		out := make([]*cards.Card, 40)
 		for i := range out {

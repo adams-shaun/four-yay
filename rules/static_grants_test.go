@@ -27,6 +27,7 @@ import (
 // The value is the Count$Valid SVar, priced by the evaluator, NOT the
 // statInt("X") zero the old emission degraded to.
 func TestMasterOfEtheriumCDAIsItsArtifactCount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	moe := lookup(t, reg, "Master of Etherium")
 	thopter := lookup(t, reg, "Ornithopter")
@@ -59,6 +60,7 @@ func TestMasterOfEtheriumCDAIsItsArtifactCount(t *testing.T) {
 // exactly as long as the outer static's Affected$ matches the host. Below
 // three charge counters the grant is not live.
 func TestExplorationBroodshipGrantsItsStationStatic(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	brood := lookup(t, reg, "Exploration Broodship")
 	beast := card(t, "Name:BigBear\nManaCost:2 G\nTypes:Creature Bear\nPT:3/3\nOracle:x\n")
@@ -89,6 +91,7 @@ func TestExplorationBroodshipGrantsItsStationStatic(t *testing.T) {
 // whose stack ability is the Execute$ SVar body) and it resolves, costing
 // each opponent 2 life.
 func TestHearthhullGrantSacrificeTriggerFires(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	hh := lookup(t, reg, "Hearthhull, the Worldseed")
 	beast := card(t, "Name:BigBeast\nManaCost:4 G\nTypes:Creature Beast\nPT:8/8\nOracle:x\n")
@@ -124,6 +127,7 @@ func TestHearthhullGrantSacrificeTriggerFires(t *testing.T) {
 // from the GRANTOR (the Aura) and not the affected object. The Aura's own id
 // rides the event's Amount; the minted stack object's Source stays the bearer.
 func TestVerdantEmbraceGrantTriggerFires(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	embrace := lookup(t, reg, "Verdant Embrace")
 	bears := lookup(t, reg, "Grizzly Bears")
@@ -170,6 +174,7 @@ func TestVerdantEmbraceGrantTriggerFires(t *testing.T) {
 // Aura has left the battlefield its static no longer grants the trigger, so
 // the next upkeep produces neither a GrantTriggerPush nor a token.
 func TestVerdantEmbraceGrantEndsWhenAuraLeaves(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	embrace := lookup(t, reg, "Verdant Embrace")
 	bears := lookup(t, reg, "Grizzly Bears")
@@ -282,6 +287,7 @@ func driveToGrantTrigger(t *testing.T, e *Engine) events.Event {
 // nothing once the Equipment detaches. The corpus's granted SVars are
 // AI-evaluation hints, so the engine-side surface is Engine.GrantedSVar.
 func TestSwordOfFireAndIceGrantsSVarToEquipped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sword := lookup(t, reg, "Sword of Fire and Ice")
 	bears := lookup(t, reg, "Grizzly Bears")
@@ -320,6 +326,7 @@ func TestSwordOfFireAndIceGrantsSVarToEquipped(t *testing.T) {
 // seat's own projection carries LibraryTop, every other seat's carries
 // nothing (CR 400.2).
 func TestOracleOfMulDayaRevealsTopCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	oracle := lookup(t, reg, "Oracle of Mul Daya")
 	e := corpusEngine(t, reg, []*cards.Card{oracle}, nil)
@@ -349,6 +356,7 @@ func TestOracleOfMulDayaRevealsTopCard(t *testing.T) {
 // first): five, not the seven-card default. Necrodominance carries the
 // printed card shape.
 func TestNumericSetMaxHandSize(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Necrodominance\nManaCost:B B B\nTypes:Legendary Enchantment\n"+
 		"S:Mode$ Continuous | Affected$ You | SetMaxHandSize$ 5 | Description$ Your maximum hand size is five.\nOracle:x\n")
@@ -368,6 +376,7 @@ func TestNumericSetMaxHandSize(t *testing.T) {
 // discard, so a regression that made cleanupStep always skip (or always ask)
 // fails one half or the other rather than passing vacuously.
 func TestReliquaryTowerNoCleanupDiscard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Reliquary Tower"))
@@ -399,6 +408,7 @@ func TestReliquaryTowerNoCleanupDiscard(t *testing.T) {
 // no-maximum effect is asked to discard down to seven. Without this control
 // the Tower leaf could pass because cleanup stopped asking altogether.
 func TestCleanupStillAsksWithoutReliquaryTower(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Active = 0
 	e.G.Step = state.StepCleanup
@@ -425,6 +435,7 @@ func TestCleanupStillAsksWithoutReliquaryTower(t *testing.T) {
 // reaches the same gate (a fix that only widened activeStatics would leave
 // this red).
 func TestEffectDeliveredSetMaxHandSizeRead(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Finale of Revelation\nManaCost:X U U\nTypes:Sorcery\nOracle:x\n")
 	e.AddContinuous(ContinuousEffect{
@@ -460,6 +471,7 @@ func TestEffectDeliveredSetMaxHandSizeRead(t *testing.T) {
 // Unlimited constants are separate (neither package may import the other's)
 // so this is also the assertion that keeps them equal.
 func TestHandSizeValueGrammarIsShared(t *testing.T) {
+	t.Parallel()
 	if unlimitedHandSize != effects.UnlimitedHandSize {
 		t.Fatalf("unlimited constants diverged: rules %d, effects %d", unlimitedHandSize, effects.UnlimitedHandSize)
 	}

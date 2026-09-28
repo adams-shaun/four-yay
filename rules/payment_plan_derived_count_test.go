@@ -27,6 +27,7 @@ const planEveryTypeLand = "Name:Plan Every Type Land\nTypes:Land\n" +
 const planTwoSpell = "Name:Plan Two\nManaCost:2\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n"
 
 func TestPaymentPlanPricesCountAmountWithDerivedTypes(t *testing.T) {
+	t.Parallel()
 	spellCard, post, nexus := card(t, planTwoSpell), card(t, planLocusPost), card(t, planEveryTypeLand)
 	// NameUniverse carries the land-subtype vocabulary AllNonBasicLandType
 	// expands against (corpusLandTypeWords), as a hosted match's corpus does.

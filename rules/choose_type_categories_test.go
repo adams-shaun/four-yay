@@ -48,6 +48,7 @@ func containsLabel(labels []string, want string) bool {
 // asserts the entry ask offers the five basic land types, not creature
 // types.
 func TestETBBasicLandTypeChoiceOffersTheFiveBasicLandTypes(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Realmwright"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	labels := etbTypeChoiceLabels(t, e, id)
@@ -70,6 +71,7 @@ func TestETBBasicLandTypeChoiceOffersTheFiveBasicLandTypes(t *testing.T) {
 // and asserts the entry ask offers planeswalker subtypes, never a creature
 // type. It also asserts the answer is recorded on the entering object.
 func TestETBPlaneswalkerTypeChoiceOffersPlaneswalkerTypes(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Deification"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	labels := etbTypeChoiceLabels(t, e, id)

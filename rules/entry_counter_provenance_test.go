@@ -10,6 +10,7 @@ import (
 )
 
 func TestEntryCounterNoticePublishesAdder(t *testing.T) {
+	t.Parallel()
 	walker := entryCounterWalker(t)
 	e, cfg := tokenReplGame(t, 9401, walker)
 	id := moveSeededCard(t, e, 0, walker, state.ZHand)
@@ -43,6 +44,7 @@ func assertEntryCounterLedger(t *testing.T, e *Engine, id state.ObjID, kind stri
 // the Count$CountersAddedThisTurn ledger records the LOYALTY placement with
 // the entrant's controller as actor.
 func TestCastEntryCounterProvenanceNotifiesTriggerAndLedger(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	walker := entryCounterWalker(t)
 	patron := card(t, "Name:Entry Patron\nTypes:Creature\nPT:1/1\n"+
@@ -94,6 +96,7 @@ func TestCastEntryCounterProvenanceNotifiesTriggerAndLedger(t *testing.T) {
 // lore counter stays +1 -- it is a turn-based action with no stack cause, so
 // the AddCounter matcher's EffectOnly$ gate keeps Doubling Season off it.
 func TestDoublingSeasonSagaEntryAndProgressionCounts(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	// Three chapters so the doubled 2-lore entry (2 < 3) survives the CR
 	// 704.5v sacrifice long enough to measure the turn-based counter.
@@ -130,6 +133,7 @@ func TestDoublingSeasonSagaEntryAndProgressionCounts(t *testing.T) {
 }
 
 func TestEntryBodyCounterFinalEmitPublishesAdder(t *testing.T) {
+	t.Parallel()
 	creature := entryCounterEtbCreature(t)
 	e, cfg := tokenReplGame(t, 9403, creature)
 	id := moveSeededCard(t, e, 0, creature, state.ZHand)
@@ -153,6 +157,7 @@ func TestEntryBodyCounterFinalEmitPublishesAdder(t *testing.T) {
 // placement is attributed to nobody and no Count$CountersAddedThisTurn ledger
 // row appears (measured: empty ledger, patron silent).
 func TestEntryBodyRewrittenFinalEmitPublishesAdder(t *testing.T) {
+	t.Parallel()
 	hs := tokenReplCorpusCard(t, "Hardened Scales")
 	be := tokenReplCorpusCard(t, "Branching Evolution")
 	patron := card(t, "Name:Rewritten Patron\nTypes:Creature\nPT:1/1\n"+

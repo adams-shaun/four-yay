@@ -33,6 +33,7 @@ import (
 // gained 3 life (< 4), the trigger does not fire at all; after one more
 // gain (4 this turn), it fires, resolves and creates the Angel token.
 func TestPhaseTriggerCheckSVarLifeGainedGatesAngelicAccord(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Angelic Accord")
 	acc := crAbortMove(t, e, 0, "Angelic Accord", state.ZBattlefield)
@@ -84,6 +85,7 @@ func TestPhaseTriggerCheckSVarLifeGainedGatesAngelicAccord(t *testing.T) {
 // you, it fires, resolves, and its OptionalDecider$ ask and library search
 // run.
 func TestPhaseTriggerCheckSVarHighestValidGatesLandTax(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Land Tax")
 	tax := crAbortMove(t, e, 0, "Land Tax", state.ZBattlefield)

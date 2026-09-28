@@ -9,6 +9,7 @@ import (
 )
 
 func TestLlanowarRebornGraftEntersWithCounterAndMayMoveIt(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, answer := range []int{0, 1} {
 		answer := answer

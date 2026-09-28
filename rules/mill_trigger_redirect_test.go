@@ -10,6 +10,7 @@ import (
 // A graveyard replacement leaves mill provenance on the proposed move but
 // cannot turn the redirected exile move into a completed mill (CR 701.17a).
 func TestMillTriggerRedirectToExileDoesNotCount(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	glowing := searchCorpusCard(t, reg, "Glowing One")
 	mothman := searchCorpusCard(t, reg, "The Wise Mothman")
@@ -77,6 +78,7 @@ func TestMillTriggerRedirectToExileDoesNotCount(t *testing.T) {
 // The marker by itself is insufficient even if a replacement carries it
 // forward; non-library moves and redirected destinations are not mills.
 func TestMillTriggerRequiresCompletedLibraryToGraveyardMove(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		from, to state.Zone
 		want     bool

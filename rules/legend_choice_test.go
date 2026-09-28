@@ -115,6 +115,7 @@ func legendDepartureText(t *testing.T, e *Engine, id state.ObjID) string {
 // legend-rule departure. The pre-decision build binned the scan-order SECOND
 // unconditionally, so this fails with the fix reverted.
 func TestLegendRuleAsksControllerWhichDuplicateToKeep(t *testing.T) {
+	t.Parallel()
 	e, id1, id2 := legendPairGame(t, "Legend Twin")
 	e.checkStateBased()
 	d := legendPending(t, e, 0, id1, id2)
@@ -150,6 +151,7 @@ func TestLegendRuleAsksControllerWhichDuplicateToKeep(t *testing.T) {
 // the Submit tail's re-scan poses the second set's choice after the first is
 // settled. Both settles hold.
 func TestLegendRuleSettlesEachDuplicateSetInTurn(t *testing.T) {
+	t.Parallel()
 	src := func(name string) string {
 		return "Name:" + name + "\nManaCost:2 G\nTypes:Legendary Creature Bear\nPT:5/5\nOracle:x\n"
 	}
@@ -201,6 +203,7 @@ func TestLegendRuleSettlesEachDuplicateSetInTurn(t *testing.T) {
 // damage, matching the single-serialization discipline the ordinary batch
 // uses for a member that is both.
 func TestLegendRuleKeptSurvivorKeepsLethalDamagePath(t *testing.T) {
+	t.Parallel()
 	e, id1, id2 := legendPairGame(t, "Legend Twin")
 	// Mark the FIRST duplicate lethally damaged (5/5, six damage).
 	e.emit(events.Event{Kind: events.Damage, Obj: id1, Amount: 6})
@@ -229,6 +232,7 @@ func TestLegendRuleKeptSurvivorKeepsLethalDamagePath(t *testing.T) {
 // (no livelock: an illegal answer would re-submit forever) and the settle
 // must hold.
 func TestLegendRuleBotAnswerKeepsBattlefieldOrderFirst(t *testing.T) {
+	t.Parallel()
 	e, id1, id2 := legendPairGame(t, "Legend Twin")
 	e.checkStateBased()
 	d := legendPending(t, e, 0, id1, id2)

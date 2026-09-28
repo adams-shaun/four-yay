@@ -85,6 +85,7 @@ func turnUp(t *testing.T, e *Engine, probe state.ObjID) {
 // Panoptic Projektor on the battlefield, a permanent you control's
 // Mode$ TurnFaceUp trigger fires an additional time.
 func TestPanopticProjektorDoublesTurnFaceUpTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, probe, before := turnUpScenario(t, lookup(t, reg, "Panoptic Projektor"))
 
@@ -99,6 +100,7 @@ func TestPanopticProjektorDoublesTurnFaceUpTrigger(t *testing.T) {
 // static gains 1 life, so the test above is comparing a real +1, not a
 // no-op.
 func TestTurnFaceUpTriggerFiresOnceWithoutPanharmonicon(t *testing.T) {
+	t.Parallel()
 	e, probe, before := turnUpScenario(t)
 
 	turnUp(t, e, probe)
@@ -112,6 +114,7 @@ func TestTurnFaceUpTriggerFiresOnceWithoutPanharmonicon(t *testing.T) {
 // match the turned permanent must not double. Without the ValidTurned$ read
 // the doubling over-applies and this reads 2 life.
 func TestPanharmoniconValidTurnedScopesTheTurnedPermanent(t *testing.T) {
+	t.Parallel()
 	e, probe, before := turnUpScenario(t, card(t, turnedScopeProbeSrc))
 
 	turnUp(t, e, probe)
@@ -125,6 +128,7 @@ func TestPanharmoniconValidTurnedScopesTheTurnedPermanent(t *testing.T) {
 // triggers, so an unrelated ChangesZone trigger on the same board is never
 // doubled.
 func TestPanharmoniconTurnFaceUpModeDoesNotDoubleOtherTriggers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{card(t, watcherGolemSrc)}, nil)
 	onBoardCard(t, e, 0, lookup(t, reg, "Panoptic Projektor"))

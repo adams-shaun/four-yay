@@ -9,6 +9,7 @@ import (
 )
 
 func TestPutCounterPlacerDrivesPlayerScopedTrigger(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	watcher := func(name string) *cards.Card {
 		return card(t, "Name:"+name+"\nTypes:Creature\nPT:1/1\n"+

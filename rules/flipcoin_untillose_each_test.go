@@ -28,6 +28,7 @@ Oracle:x
 // retaining PlayerIndex with Iter+1 re-flips the loser because until-lose does
 // not use Iter as a bound.
 func TestFlipCoinEachUntilLoseLossResumeAdvancesFlipper(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	carrier := card(t, flipUntilLoseEachSrc)
 	mountain := lookup(t, reg, "Mountain")

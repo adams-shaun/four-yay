@@ -66,6 +66,7 @@ func cloneOptionFor(d *decision.Decision, obj state.ObjID) int {
 // whose TWO creature options are the two placed bears, and the copy follows
 // the answered pick (Beta, the second), not the deterministic-first Alpha.
 func TestCloneChoicesPosesRealAsk(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 930, clonePickMimic, clonePickAlpha, clonePickBeta)
 
 	mimic := searchMoveByName(t, e, "Fixture Picky Mimic", state.ZBattlefield)
@@ -131,6 +132,7 @@ func TestCloneChoicesPosesRealAsk(t *testing.T) {
 // consumed and re-poses the Choices$ ask (a wedge), so this test is the
 // regression pin for the carry.
 func TestCloneChoicesAnswerSurvivesOptionalAsk(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 931, clonePickOptionalMimic, clonePickAlpha, clonePickBeta)
 
 	mimic := searchMoveByName(t, e, "Fixture Dubious Mimic", state.ZBattlefield)

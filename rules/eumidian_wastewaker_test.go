@@ -199,6 +199,7 @@ func answerChoice(t *testing.T, e *Engine, p state.PlayerID, pick state.ObjID) {
 // sacrificed), and DBDraw's `Count$ValidGraveyard Land.ChosenCard` (Island +
 // Forest = 2 draws).
 func TestEumidianWastewakerChoosersPickDiscardOrSacrifice(t *testing.T) {
+	t.Parallel()
 	e, eumID, ids := wastewakerFixture(t, []string{"Forest"}, true)
 	islandID, forestID := ids[0], ids[0]
 	// wastewakerFixture lifts exactly one Forest; the Island is seat 1's
@@ -281,6 +282,7 @@ func TestEumidianWastewakerChoosersPickDiscardOrSacrifice(t *testing.T) {
 // trigger still resolves end to end — both choosers discard, and the draw
 // counts the two chosen lands that reached the graveyard.
 func TestEumidianWastewakerHandOnlyChoiceResolves(t *testing.T) {
+	t.Parallel()
 	e, eumID, ids := wastewakerFixture(t, []string{"Forest", "Island"}, false)
 	keep := map[state.ObjID]bool{eumID: true}
 	for _, id := range ids {

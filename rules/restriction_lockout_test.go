@@ -39,6 +39,7 @@ func castOptionNamed(e *Engine, id state.ObjID) *decision.Option {
 // controller (the abolisher's turn, never the restricted caster's), and
 // AffectedZone$ Battlefield admits a battlefield permanent's abilities.
 func TestGrandAbolisherLocksOpponentActionsToTheAbolisherTurn(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	onBoardCard(t, e, 0, corpusCard(t, "Grand Abolisher"))
 	onBoardCard(t, e, 1, card(t, "Name:Gear\nManaCost:2\nTypes:Artifact\n"+
@@ -63,6 +64,7 @@ func TestGrandAbolisherLocksOpponentActionsToTheAbolisherTurn(t *testing.T) {
 // castRestrictionSources), and CheckSVar$ X / SVarCompare$ EQ0 gates it on
 // Count$LifeOppsLostThisTurn (rules/stack.go LifeLostThisTurn).
 func TestRakdosSVarCastLockoutFollowsOpponentLifeLoss(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Rakdos, Lord of Riots"))
 	rakdos := e.G.Zone(state.ZHand, 0)[0]
 	addMana(t, e, 0, "BBRR")
@@ -89,6 +91,7 @@ func TestRakdosSVarCastLockoutFollowsOpponentLifeLoss(t *testing.T) {
 // fourth turn unlocks her (Caster$ Player.Active scopes the lockout to her
 // own turns, which is the only window a creature cast has anyway).
 func TestSerraAvengerSVarLocksHerFirstThreeTurns(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Serra Avenger"))
 	serra := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MW] = 2
@@ -136,6 +139,7 @@ func TestSerraAvengerSVarLocksHerFirstThreeTurns(t *testing.T) {
 // lifts a hand static whose EffectZone$ says it is live there (a static with
 // Forge's default battlefield EffectZone stays dead from the hand).
 func TestSelfCastLockoutConditionResolvesAgainstTheSourceTurn(t *testing.T) {
+	t.Parallel()
 	live := "Name:Selflock\nManaCost:1\nTypes:Instant\n" +
 		"S:Mode$ CantBeCast | ValidCard$ Card.Self | Condition$ PlayerTurn | EffectZone$ All\nOracle:x\n"
 	dead := "Name:BattlefieldOnly\nManaCost:1\nTypes:Instant\n" +

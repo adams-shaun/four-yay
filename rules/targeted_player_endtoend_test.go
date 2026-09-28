@@ -75,6 +75,7 @@ func moveGraveyardByName(t *testing.T, e *Engine, p state.PlayerID, name string)
 // Two different damage values across the cases: the defect was a silent
 // zero, so a single value could pass by coincidence.
 func TestKnollspineDragonDrawsTheDamageDealtToTargetOpponent(t *testing.T) {
+	t.Parallel()
 	for _, dmg := range []int32{4, 3} {
 		t.Run("damage", func(t *testing.T) {
 			reg := searchTestRegistry(t)
@@ -144,6 +145,7 @@ func TestKnollspineDragonDrawsTheDamageDealtToTargetOpponent(t *testing.T) {
 // the card's owner -- so the YouOwn filter's live discriminator is exactly
 // this perspective split.)
 func TestMouthOfSauronAmassCountsTheMilledPlayerGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := tgtplayerTestEngine(t, reg, "The Mouth of Sauron", "Shock", "Giant Growth", "Rampant Growth")
 	// Seat 1's graveyard: its own instant and sorcery. Seat 0's graveyard:
@@ -228,6 +230,7 @@ func moveLibraryCardToHand(t *testing.T, e *Engine, p state.PlayerID) {
 // at all. The caster's own hand is a different size, so a wrong perspective
 // (You = the resolving controller) reads a different number.
 func TestRousingRefrainAddsManaPerCardInTheTargetedOpponentsHand(t *testing.T) {
+	t.Parallel()
 	for _, want := range []int{10, 12} {
 		t.Run(fmt.Sprintf("opponentHand%d", want), func(t *testing.T) {
 			reg := searchTestRegistry(t)

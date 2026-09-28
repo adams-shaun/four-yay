@@ -61,6 +61,7 @@ func adelineTokenAttacks(t *testing.T) (*Engine, Config) {
 // the RepeatEach loop's current opponent is the token's defender, the token
 // enters tapped, and the selector's player half is what marked it.
 func TestAdelineTokenAttackingRememberedPlayerAttacksThatOpponent(t *testing.T) {
+	t.Parallel()
 	e, cfg := adelineTokenAttacks(t)
 
 	var humans []*state.Object

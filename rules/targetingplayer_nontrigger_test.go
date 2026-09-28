@@ -14,6 +14,7 @@ import (
 // Opponent specifications in non-triggered asks let the ability controller
 // select which living opponent answers when more than one is available.
 func TestTargetingPlayerOpponentSpellAndActivation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name, ability string
@@ -81,6 +82,7 @@ func TestTargetingPlayerOpponentSpellAndActivation(t *testing.T) {
 // TestTargetingPlayerOpponentMultiSeatIsDeterministic verifies a controller
 // selection when two opponents live and direct routing when only one remains.
 func TestTargetingPlayerOpponentMultiSeatIsDeterministic(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	evangelize := mustCorpusCard(t, reg, "Evangelize")
 	var sa *cards.SA

@@ -10,6 +10,7 @@ import (
 // Its payment allows BB or two generic mana, but neither a third colour nor
 // one generic mana; cumulative scaling must preserve that complete alternative.
 func TestTwobridCostParsingPaymentAndScaling(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	if _, ok := reg.Lookup("Beseech the Queen"); !ok {
 		t.Fatal("precondition: corpus card Beseech the Queen missing")

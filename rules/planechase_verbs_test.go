@@ -25,6 +25,7 @@ import (
 // emitted anywhere in the log. replayCheck certifies the whole chain still
 // replays byte-identically.
 func TestPathOfTheGhosthunterVoteResolvesTheChosenOutcome(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg, []string{"Path of the Ghosthunter"}, nil, nil, nil)
 	// {X}{1}{W} with X=2: three generic + one white.
@@ -88,6 +89,7 @@ func TestPathOfTheGhosthunterVoteResolvesTheChosenOutcome(t *testing.T) {
 // asserts only that api:ChaosEnsues is runnable from the corpus SVar, which
 // is what makes the registration real rather than dead.
 func TestPathOfTheGhosthunterChaosOutcomeIsRegistered(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	card := searchCorpusCard(t, reg, "Path of the Ghosthunter")
 	var chaos *string

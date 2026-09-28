@@ -77,6 +77,7 @@ func temptCorpusShape(t *testing.T, reg *cards.Registry) {
 // fix the count is unresolved (X defaults to 1) and the opponent's copy is
 // mis-owned by the caster; the two assertions below name both failures.
 func TestTemptWithMayhemCountsRememberedCopiers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	temptCorpusShape(t, reg)
 	e, cfg := miscHandsEngine(t, reg,

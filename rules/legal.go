@@ -513,6 +513,29 @@ func activationGameTypesOK(f Format, raw string) bool {
 // Activator$ offer gate, for Lightning Storm's "Any player may activate this
 // ability but only if CARDNAME is on the stack"); Command is not and
 // therefore never offers an option.
+// abilityZoneMask is abilityZoneOK(ab, z) for every z < 32, as bit z, from
+// a single ActivationZone$ read (buildManaSAFacts' zone mask: one map lookup
+// instead of one per zone).
+func abilityZoneMask(ab *cards.SA) uint32 {
+	az, ok := ab.Params["ActivationZone"]
+	if !ok {
+		return 1 << state.ZBattlefield
+	}
+	switch strings.TrimSpace(az) {
+	case "Battlefield":
+		return 1 << state.ZBattlefield
+	case "Graveyard":
+		return 1 << state.ZGraveyard
+	case "Hand":
+		return 1 << state.ZHand
+	case "Exile":
+		return 1 << state.ZExile
+	case "Stack":
+		return 1 << state.ZStack
+	}
+	return 0
+}
+
 func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
 	az, ok := ab.Params["ActivationZone"]
 	if !ok {

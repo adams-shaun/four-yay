@@ -60,6 +60,7 @@ func athreosShape(t *testing.T, athreos *cards.Card) string {
 // and one more white pip brings it to seven (the guard's boundary). Both reads
 // go through EvalCountOK with the corpus card's own SVar body.
 func TestAthreosShroudVeiledDevotionDual(t *testing.T) {
+	t.Parallel()
 	athreos := corpusCard(t, "Athreos, Shroud-Veiled")
 	body := athreosShape(t, athreos)
 

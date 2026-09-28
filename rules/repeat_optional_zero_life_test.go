@@ -17,6 +17,7 @@ import (
 // CR 732.2a's shortcut must end the do/while there instead of re-offering an
 // election whose yes can only loop until the livelock watcher aborts.
 func TestAdNauseamRepeatOverEmptyLibraryEndsTheLoop(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := corpusCardConfig(t, 6104, "Ad Nauseam")
 	addMana(t, e, caster, "BBBCC")
 	lib := len(e.G.Zone(state.ZLibrary, caster))

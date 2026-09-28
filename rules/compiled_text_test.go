@@ -10,6 +10,7 @@ import (
 )
 
 func TestEngineCompiledTextSharesWithCloneAndFallsBack(t *testing.T) {
+	t.Parallel()
 	c := card(t, "Name:Cache Test\nManaCost:1 U\nTypes:Creature Test\nPT:1/1\nA:AB$ Draw | Cost$ GWP 2B Sac<1/Creature> | ValidTgts$ Creature.YouCtrl+untapped\nOracle:x\n")
 	e := New(Config{Names: []string{"you"}, Decks: [][]*cards.Card{{c}}})
 	if e.compiledText == nil || e.compiledText.predicates == nil {
@@ -36,6 +37,7 @@ func TestEngineCompiledTextSharesWithCloneAndFallsBack(t *testing.T) {
 }
 
 func TestEngineCompiledTextCacheSeparatesCardLayouts(t *testing.T) {
+	t.Parallel()
 	deckA := card(t, "Name:Deck A\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
 	deckB := card(t, "Name:Deck B\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
 	tokenA := card(t, "Name:Token A\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
@@ -56,6 +58,7 @@ func TestEngineCompiledTextCacheSeparatesCardLayouts(t *testing.T) {
 // miss: the memo must stay bounded instead of pinning each game's compiled
 // text (and every token script's) for the life of the process.
 func TestEngineCompiledTextCacheStaysBounded(t *testing.T) {
+	t.Parallel()
 	for i := 0; i < 3*compiledTextCacheLimit; i++ {
 		c := card(t, fmt.Sprintf("Name:Bound %d\nTypes:Creature Test\nPT:1/1\nOracle:x\n", i))
 		New(Config{Decks: [][]*cards.Card{{c}}})
@@ -79,6 +82,7 @@ func TestEngineCompiledTextCacheStaysBounded(t *testing.T) {
 }
 
 func TestEngineMatchesSpecFromCarriesCompiledText(t *testing.T) {
+	t.Parallel()
 	c := card(t, "Name:Compiled Match\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
 	e := New(Config{Names: []string{"you"}, Decks: [][]*cards.Card{{c}}})
 	var id state.ObjID
@@ -97,6 +101,7 @@ func TestEngineMatchesSpecFromCarriesCompiledText(t *testing.T) {
 }
 
 func TestEngineLoyaltyAbilityUsesConfiguredCost(t *testing.T) {
+	t.Parallel()
 	c := card(t, "Name:Loyalty Cache\nTypes:Planeswalker Test\nLoyalty:3\nA:AB$ Pump | Cost$ AddCounter<1/LOYALTY>\nOracle:x\n")
 	e := New(Config{Names: []string{"you"}, Decks: [][]*cards.Card{{c}}})
 	if !e.isLoyaltyAbility(c.Faces[0].Abilities[0]) {

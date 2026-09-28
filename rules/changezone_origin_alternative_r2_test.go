@@ -26,6 +26,7 @@ import (
 // battlefield is a CR 704.5m SBA casualty -- the exact failure this pin
 // forbids.
 func TestChangeZoneOriginAlternativeGraveyardAuraEntersAttached(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Boonweaver Giant", "Arachnus Web")
 	web := searchMoveByName(t, e, "Arachnus Web", state.ZGraveyard)

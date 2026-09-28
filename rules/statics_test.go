@@ -11,6 +11,7 @@ import (
 // gates by who is doing the casting, not by whose battlefield the restrictor
 // sits on.
 func TestCantBeCastRemovesTheCastOption(t *testing.T) {
+	t.Parallel()
 	bear := card(t, "Name:Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	restrictor := card(t, "Name:Restrictor\nManaCost:1 W\nTypes:Artifact\n"+
 		"S:Mode$ CantBeCast | ValidCard$ Creature | Caster$ Opponent\nOracle:x\n")
@@ -39,6 +40,7 @@ func TestCantBeCastRemovesTheCastOption(t *testing.T) {
 
 // TestRaiseCostMakesASpellUnaffordable is row 2.
 func TestRaiseCostMakesASpellUnaffordable(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:1\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	tax := card(t, "Name:Tax\nManaCost:1\nTypes:Artifact\n"+
 		"S:Mode$ RaiseCost | ValidCard$ Instant | Amount$ 2\nOracle:x\n")
@@ -60,6 +62,7 @@ func TestRaiseCostMakesASpellUnaffordable(t *testing.T) {
 // TestReduceCostFloorsAtZero is row 3: CR 601.2f -- a reduction can eat the
 // generic component but must never spill into the coloured requirement.
 func TestReduceCostFloorsAtZero(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:1 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	discount := card(t, "Name:Discount\nManaCost:1\nTypes:Artifact\n"+
 		"S:Mode$ ReduceCost | ValidCard$ Instant | Amount$ 5\nOracle:x\n")
@@ -94,6 +97,7 @@ func TestReduceCostFloorsAtZero(t *testing.T) {
 // unpayable cost -- means the pool holding only the reduced amount would
 // leave the spell cast for free instead of for the reduced price.
 func TestReduceCostAffectsActualPayment(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:1 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	discount := card(t, "Name:Discount\nManaCost:1\nTypes:Artifact\n"+
 		"S:Mode$ ReduceCost | ValidCard$ Instant | Amount$ 1\nOracle:x\n")
@@ -128,6 +132,7 @@ func TestReduceCostAffectsActualPayment(t *testing.T) {
 // one) is a quieter bug than ReduceCost's free-cast case, since payMana
 // would still succeed, just for less than intended.
 func TestRaiseCostAffectsActualPayment(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:1\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	tax := card(t, "Name:Tax\nManaCost:1\nTypes:Artifact\n"+
 		"S:Mode$ RaiseCost | ValidCard$ Instant | Amount$ 2\nOracle:x\n")
@@ -153,6 +158,7 @@ func TestRaiseCostAffectsActualPayment(t *testing.T) {
 
 // TestAlternativeCostAddsASecondCastOption is row 4.
 func TestAlternativeCostAddsASecondCastOption(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:2 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\n"+
 		"S:Mode$ AlternativeCost | ValidCard$ Card.Self | Cost$ 1 U\nOracle:x\n")
 	e := handEngine(t, zap)
@@ -176,6 +182,7 @@ func TestAlternativeCostAddsASecondCastOption(t *testing.T) {
 
 // TestCantBeActivatedSuppressesManaAbilities is row 5.
 func TestCantBeActivatedSuppressesManaAbilities(t *testing.T) {
+	t.Parallel()
 	mtn := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	hatepiece := card(t, "Name:Hatepiece\nManaCost:1 W\nTypes:Artifact\n"+
 		"S:Mode$ CantBeActivated | ValidCard$ Land.OppCtrl\nOracle:x\n")
@@ -200,6 +207,7 @@ func TestCantBeActivatedSuppressesManaAbilities(t *testing.T) {
 // implemented and covered end-to-end elsewhere; this test is purely about
 // the static-restriction primitive the two of them call.
 func TestCantBlockRemovesEveryBlockOption(t *testing.T) {
+	t.Parallel()
 	blockerCard := card(t, "Name:Blocker\nManaCost:1 W\nTypes:Creature Human\nPT:1/1\nOracle:x\n")
 	attackerCard := card(t, "Name:Attacker\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\nOracle:x\n")
 	hex := card(t, "Name:Hex\nManaCost:1 U\nTypes:Enchantment\n"+
@@ -228,6 +236,7 @@ func TestCantBlockRemovesEveryBlockOption(t *testing.T) {
 
 // TestCantBlockByRemovesOnlyMatchingPairs is row 7.
 func TestCantBlockByRemovesOnlyMatchingPairs(t *testing.T) {
+	t.Parallel()
 	smallCard := card(t, "Name:Small\nManaCost:W\nTypes:Creature Human\nPT:1/1\nOracle:x\n")
 	bigCard := card(t, "Name:Big\nManaCost:2 W\nTypes:Creature Human\nPT:2/2\nOracle:x\n")
 	attackerCard := card(t, "Name:Menacing\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/2\n"+
@@ -253,6 +262,7 @@ func TestCantBlockByRemovesOnlyMatchingPairs(t *testing.T) {
 
 // TestStaticsFromNonBattlefieldZonesDoNotApply is row 8.
 func TestStaticsFromNonBattlefieldZonesDoNotApply(t *testing.T) {
+	t.Parallel()
 	restrictor := card(t, "Name:Restrictor\nManaCost:1 W\nTypes:Artifact\n"+
 		"S:Mode$ CantBeCast | ValidCard$ Creature\nOracle:x\n")
 	bear := card(t, "Name:Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -272,6 +282,7 @@ func TestStaticsFromNonBattlefieldZonesDoNotApply(t *testing.T) {
 // output order, since cost adjustment and the option list both depend on it
 // being stable run to run.
 func TestActiveStaticsIsDeterministicallyOrdered(t *testing.T) {
+	t.Parallel()
 	a := card(t, "Name:A\nManaCost:1\nTypes:Artifact\nS:Mode$ RaiseCost | ValidCard$ Creature | Amount$ 1\nOracle:x\n")
 	b := card(t, "Name:B\nManaCost:1\nTypes:Artifact\nS:Mode$ RaiseCost | ValidCard$ Creature | Amount$ 1\nOracle:x\n")
 
@@ -322,6 +333,7 @@ func TestActiveStaticsIsDeterministicallyOrdered(t *testing.T) {
 // choosing the alternative-cost option must charge exactly that cost, not
 // the (unpayable) base cost.
 func TestAlternativeCostChargesTheAlternativeAmount(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:4\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\n"+
 		"S:Mode$ AlternativeCost | ValidCard$ Card.Self | Cost$ U\nOracle:x\n")
 	e := handEngine(t, zap)
@@ -369,6 +381,7 @@ func TestAlternativeCostChargesTheAlternativeAmount(t *testing.T) {
 // would never offer an unpayable option) to exercise the failure path
 // deterministically.
 func TestUnpayableCastDoesNotReachTheStack(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:4\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	e := handEngine(t, zap)
 	// Empty pool: the cost cannot be paid at all.
@@ -399,6 +412,7 @@ func TestUnpayableCastDoesNotReachTheStack(t *testing.T) {
 // check across the cases the reviewer found, plus the ordinary and boundary
 // cases that must keep working.
 func TestParseAmountRejectsOutOfRangeAndNegativeValues(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		def  int32
@@ -424,6 +438,7 @@ func TestParseAmountRejectsOutOfRangeAndNegativeValues(t *testing.T) {
 // RaiseCost must not wrap into a negative adjustment that makes the spell
 // castable with an empty pool.
 func TestRaiseCostAmountOverflowDoesNotWrapNegative(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:1\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	tax := card(t, "Name:Tax\nManaCost:1\nTypes:Artifact\n"+
 		"S:Mode$ RaiseCost | ValidCard$ Instant | Amount$ 3000000000\nOracle:x\n")
@@ -441,6 +456,7 @@ func TestRaiseCostAmountOverflowDoesNotWrapNegative(t *testing.T) {
 // case: the same out-of-range value on a ReduceCost must not invert into a
 // cost increase.
 func TestReduceCostAmountOverflowDoesNotIncreaseCost(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:1\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	discount := card(t, "Name:Discount\nManaCost:1\nTypes:Artifact\n"+
 		"S:Mode$ ReduceCost | ValidCard$ Instant | Amount$ 3000000000\nOracle:x\n")
@@ -462,6 +478,7 @@ func TestReduceCostAmountOverflowDoesNotIncreaseCost(t *testing.T) {
 // negative amount to zero, the honest read of an amount the engine cannot
 // evaluate (the old parseAmount(...,1) fallback is gone with the rv2c task).
 func TestReduceCostNegativeAmountDoesNotBecomeARaise(t *testing.T) {
+	t.Parallel()
 	zap := card(t, "Name:Zap\nManaCost:1\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
 	discount := card(t, "Name:Discount\nManaCost:1\nTypes:Artifact\n"+
 		"S:Mode$ ReduceCost | ValidCard$ Instant | Amount$ -5\nOracle:x\n")

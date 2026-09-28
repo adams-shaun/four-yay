@@ -12,6 +12,7 @@ import (
 // registrations. This pins recognition of the corpus shape, not the separate
 // pregame choice or outside-the-game activation.
 func TestCompanionPrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	if !supported["kw:Companion"] {
 		t.Fatal(`effects.Supported() is missing "kw:Companion"`)
@@ -51,6 +52,7 @@ func TestCompanionPrimitiveIsRegistered(t *testing.T) {
 }
 
 func TestCompanionCarrierIsUnderstood(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	c, ok := reg.Lookup("Jegantha, the Wellspring")
 	if !ok {

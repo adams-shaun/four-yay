@@ -16,6 +16,7 @@ const multiLibrarySurveilSrc = "Name:Surveil Every Library\nManaCost:U\nTypes:So
 // that player's own library, then resume at the next Defined$ player instead
 // of re-starting (or ending) the walk.
 func TestSurveilMultiLibraryResumesEveryArrangement(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 731, multiLibrarySurveilSrc)
 	addMana(t, e, 0, "U")
 	before0 := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)

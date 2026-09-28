@@ -74,6 +74,7 @@ func kickerModes(t *testing.T, e *Engine) []string {
 }
 
 func TestTwoPartKickerOffersEachIndependentPart(t *testing.T) {
+	t.Parallel()
 	// {2} plus {G}: the plain cast and the first-kicker cast are affordable,
 	// the second-kicker ({1}{U}) and both-parts casts are not.
 	e, _, _ := newFixtureDeck(t, 44, twoPartKickerSrc)
@@ -119,6 +120,7 @@ func TestTwoPartKickerOffersEachIndependentPart(t *testing.T) {
 }
 
 func TestTwoPartKickerBothPartsPayBothTriggers(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 46, twoPartKickerSrc)
 	addMana(t, e, 0, "GGUUU")
 	opts := castOptions(t, e)
@@ -212,6 +214,7 @@ func altCostBoard(t *testing.T, seed uint64, grantorSrc string, spellSrcs ...str
 }
 
 func TestMayPlayAltManaCostIsACastOption(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostBoard(t, 47, altCostGrantorSrc, colorlessSpellSrc)
 	addMana(t, e, 0, "G")
 	opts := castOptions(t, e)
@@ -229,6 +232,7 @@ func TestMayPlayAltManaCostIsACastOption(t *testing.T) {
 }
 
 func TestMayPlayAltManaCostSparesNonColorlessSpells(t *testing.T) {
+	t.Parallel()
 	e, _, _ := altCostBoard(t, 48, altCostGrantorSrc, greenGiantSrc)
 	addMana(t, e, 0, "GGG")
 	opts := castOptions(t, e)
@@ -251,6 +255,7 @@ const onlyFirstSpellGrantorSrc = "Name:RuinHerald\nManaCost:5\nTypes:Creature Ni
 const beanSrc = "Name:Bean\nManaCost:4\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 
 func TestOnlyFirstSpellDiscountsOnce(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostBoard(t, 49, onlyFirstSpellGrantorSrc, beanSrc, beanSrc)
 	// Exactly the discounted {2}: the first creature spell this turn.
 	addMana(t, e, 0, "GG")
@@ -298,6 +303,7 @@ const greenCreatureSrc = "Name:Mossback\nManaCost:1 G\nTypes:Creature Beast\nPT:
 // restrictValidMatches evaluates the whole payment, never one pip -- and an
 // unrestricted pip keeps the ordinary path.
 func TestRestrictedFloatRefusesAColouredCast(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostBoard(t, 60, beanSrc, colorlessArtifactSrc, greenCreatureSrc)
 	// Three colourless, restricted to colorless spells only (the same
 	// emission effMana rides on every restricted ManaAdd; src 0 is the
@@ -327,6 +333,7 @@ func TestRestrictedFloatRefusesAColouredCast(t *testing.T) {
 }
 
 func TestTargetValidTargetingHoldsTheCounterToMatchingTargets(t *testing.T) {
+	t.Parallel()
 	decks := [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}
 	e := New(Config{Seed: 55, Names: []string{"a", "b"}, Decks: decks})
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})

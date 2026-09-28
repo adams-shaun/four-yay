@@ -230,6 +230,7 @@ func findInHand(e *Engine, p state.PlayerID, name string) state.ObjID {
 // cast in a live combat prevents every combat-damage assignment of the turn,
 // and a fresh combat the NEXT turn deals damage normally.
 func TestFogPreventsThisTurnsCombatDamageOnly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	// Seat 1 brings no creatures, so the auto-answers that drive to the test
@@ -300,6 +301,7 @@ func TestFogPreventsThisTurnsCombatDamageOnly(t *testing.T) {
 // the search resolves, the random discard runs, and the chained DB$ Shuffle
 // emits one Secret Shuffle event that leaves the library a real permutation.
 func TestGambleSearchesThenShuffles(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	e := corpusEngine(t, reg,
@@ -329,6 +331,7 @@ func TestGambleSearchesThenShuffles(t *testing.T) {
 // (real corpus All Is Dust): each player sacrifices exactly the permanents
 // that are one or more colors; colorless ones survive.
 func TestAllIsDustSacrificesColoredPermanentsOnly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	golem := card(t, "Name:Scrap Golem\nManaCost:3\nTypes:Artifact Creature Golem\nPT:3/3\nOracle:x\n")
@@ -368,6 +371,7 @@ func TestAllIsDustSacrificesColoredPermanentsOnly(t *testing.T) {
 // delayed end-step trigger of the granted turn costing its controller the
 // game. The whole game replays byte-identically.
 func TestFinalFortuneGrantsAndSpendsAnExtraTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Final Fortune")},
@@ -411,6 +415,7 @@ func TestFinalFortuneGrantsAndSpendsAnExtraTurn(t *testing.T) {
 // stay tapped when its granted turn begins, while the turn still proceeds to
 // upkeep and replays from its event log.
 func TestSavorTheMomentExtraTurnSkipsUntap(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Savor the Moment"), bear}, nil)
@@ -435,6 +440,7 @@ func TestSavorTheMomentExtraTurnSkipsUntap(t *testing.T) {
 }
 
 func TestTimeStretchQueuesEveryGrantedTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Time Stretch")}, nil)
 	moveByName(t, e, 0, "Time Stretch", state.ZHand)
@@ -463,6 +469,7 @@ func TestTimeStretchQueuesEveryGrantedTurn(t *testing.T) {
 // result's range sub adds the matching {R} amount, and the chained amass
 // creates the Orc Army.
 func TestNameStickerGoblinRollsAndFiresItsRanges(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, `"Name Sticker" Goblin`)},
@@ -490,6 +497,7 @@ func TestNameStickerGoblinRollsAndFiresItsRanges(t *testing.T) {
 // Orcish Bowmasters): the ETB trigger's damage target resolves, then the
 // chained amass puts one +1/+1 on an Army that is also an Orc.
 func TestOrcishBowmastersAmassesAnOrcArmy(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Orcish Bowmasters")},
@@ -544,6 +552,7 @@ func TestOrcishBowmastersAmassesAnOrcArmy(t *testing.T) {
 // Sac<X>/... additional-cost option (declined here) and the creature enters
 // with its printed 7/5.
 func TestDargoCastsAsACreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Dargo, the Shipwrecker")},
@@ -632,6 +641,7 @@ func answerQuiet(t *testing.T, e *Engine, limit int) {
 // tap-cost abilities, never from being tapped to pay another permanent's
 // activation cost -- the same reading crewing a Vehicle has.
 func TestStationTapsASummoningSickCreatureForChargeCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	e := corpusEngine(t, reg,
@@ -684,6 +694,7 @@ func TestStationTapsASummoningSickCreatureForChargeCounters(t *testing.T) {
 // characteristics requirement: a noncreature permanent animated by a live
 // type-layer effect is a legal station tap.
 func TestStationUsesDerivedCreatureType(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	artifact := card(t, "Name:Animated Relic\nTypes:Artifact\nOracle:x\n")
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Exploration Broodship"), artifact}, nil)
@@ -705,6 +716,7 @@ func TestStationUsesDerivedCreatureType(t *testing.T) {
 // casting Torture Pit first; unlocking Spiked Corridor must then select the
 // front face's trigger and create its three Devils.
 func TestRoomAlternateCastUnlocksFrontDoor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Spiked Corridor")}, nil)
 	moveByName(t, e, 0, "Spiked Corridor", state.ZHand)
@@ -754,6 +766,7 @@ func TestRoomAlternateCastUnlocksFrontDoor(t *testing.T) {
 // locked door's Execute$ SVar must receive its target ask while it is put on
 // the stack, just as an ordinary triggered ability does.
 func TestRoomUnlockTargetedTriggerPlacesTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Bottomless Pool")}, []*cards.Card{bear})
@@ -813,6 +826,7 @@ func TestRoomUnlockTargetedTriggerPlacesTarget(t *testing.T) {
 }
 
 func TestRoomUnlockCreatesTheDemon(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Unholy Annex")},
@@ -885,6 +899,7 @@ func TestRoomUnlockCreatesTheDemon(t *testing.T) {
 // ability). The chapter abilities are the real corpus SVars, minted through
 // the delayed-shape push.
 func TestUrzasSagaChaptersAndLoreCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Urza's Saga")},
@@ -966,6 +981,7 @@ func TestUrzasSagaChaptersAndLoreCounters(t *testing.T) {
 // multiplayer game; max speed 4 turns the "Max speed —" static's granted
 // ability on (163c), and activating it gives the target haste.
 func TestStartYourEnginesSpeedLifecycle(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	e := corpusEngineThree(t, reg,
@@ -1042,6 +1058,7 @@ func TestStartYourEnginesSpeedLifecycle(t *testing.T) {
 // time -- two placements, two resolutions, two +1/+1 counters -- where the
 // same entry alone triggers once.
 func TestPanharmoniconDoublesATriggerAnAdditionalTime(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	golem := card(t, watcherGolemSrc)
 	e := corpusEngine(t, reg,
@@ -1096,6 +1113,7 @@ func commanderConfig(t *testing.T, reg *cards.Registry, cmds []*cards.Card, indi
 // engine seats BOTH as seat 0's commanders in the command zone, and each is
 // castable from there (the command-zone cast offer).
 func TestPartnerSeatsTwoCommanders(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cfg := commanderConfig(t, reg,
 		[]*cards.Card{lookup(t, reg, "Vial Smasher the Fierce"), lookup(t, reg, "Dargo, the Shipwrecker")},
@@ -1135,6 +1153,7 @@ func TestPartnerSeatsTwoCommanders(t *testing.T) {
 // understood -- the card is seatable as a commander, reaches the command
 // zone, and is castable from there under the CR 903.8 tax.
 func TestLordWindgraceCanBeCommander(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cfg := commanderConfig(t, reg,
 		[]*cards.Card{lookup(t, reg, "Lord Windgrace")},
@@ -1169,6 +1188,7 @@ func TestLordWindgraceCanBeCommander(t *testing.T) {
 // with a Partner-with card (CR 903.13a/c: not a legal pair), and two
 // Partner-with cards whose named partners are not each other.
 func TestIllegalCommanderConfigurationIsRejected(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cases := []struct {
 		name string
@@ -1222,6 +1242,7 @@ func TestIllegalCommanderConfigurationIsRejected(t *testing.T) {
 // old engine predicate had no Spacecraft carve-out at all and rejected the
 // P/T half, so pro-shaper's commander never reached the command zone.
 func TestLegendarySpacecraftCommanderLegalityFollowsPTBox(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	craft := card(t, "Name:Legendary Test Craft\nTypes:Legendary Artifact Spacecraft\nPT:4/4\n")
 	if !commanderCardLegal(craft) {
@@ -1244,6 +1265,7 @@ func TestLegendarySpacecraftCommanderLegalityFollowsPTBox(t *testing.T) {
 // SEATED as seat 0's commander -- one Commanders entry, the object in the
 // command zone -- and the CR 903 rejection Note must be absent.
 func TestLegendarySpacecraftWithPTIsSeatedAsCommander(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	h := lookup(t, reg, "Hearthhull, the Worldseed")
 	if !commanderCardLegal(h) {
@@ -1275,6 +1297,7 @@ func TestLegendarySpacecraftWithPTIsSeatedAsCommander(t *testing.T) {
 // published name (Creature.powerGEX) while the chained Token reads the other
 // (TokenAmount$ Y).
 func TestValiantEndeavorEngineLevelChooseOneResult(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Valiant Endeavor"), lookup(t, reg, "Llanowar Elves"),

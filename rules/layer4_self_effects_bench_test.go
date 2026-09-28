@@ -43,6 +43,7 @@ func selfTypeEffectsBoard(t testing.TB, n int) (*Engine, state.ObjID, state.ObjI
 // panics on any disagreement). The counter is asserted so the shortcut cannot
 // be removed without a failure.
 func TestLayer4SelfTypeEffectRejectsNonSourceEarly(t *testing.T) {
+	t.Parallel()
 	e, car, token := selfTypeEffectsBoard(t, 8)
 	// Precondition: the source and the candidate are distinct, on the
 	// battlefield, and the candidate does not carry the granted type. A

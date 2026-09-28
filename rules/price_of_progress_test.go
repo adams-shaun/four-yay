@@ -50,6 +50,7 @@ func popEngine(t *testing.T, watcher bool) (*Engine, int) {
 // (2x each player's own nonbasic count) and the batch latch -- the watcher
 // draws exactly ONE card for the whole loop, not one per player.
 func TestPriceOfProgressDamageAndBatch(t *testing.T) {
+	t.Parallel()
 	e, hand := popEngine(t, true)
 	myLife := e.G.Players[0].Life
 	theirLife := e.G.Players[1].Life
@@ -79,6 +80,7 @@ const popDoneWatcherSrc = "Name:Done Watcher\nTypes:Creature\nPT:1/1\n" +
 	"SVar:TrigDraw:DB$ Draw | Defined$ You | NumCards$ 1\nOracle:x\n"
 
 func TestPriceOfProgressDoneOncePerReferent(t *testing.T) {
+	t.Parallel()
 	e, _ := popEngine(t, false)
 	onBoard(t, e, 0, popDoneWatcherSrc)
 	hand := len(e.G.Zone(state.ZHand, 0))

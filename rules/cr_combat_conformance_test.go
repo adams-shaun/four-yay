@@ -94,6 +94,7 @@ func TestCR508CorpusRequirementsUnderAttackRestriction(t *testing.T) {
 }
 
 func TestCR508PriorityAfterAttackDeclaration(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Memnite"}, []string{"Memnite"})
 	a := crAbortMove(t, e, 0, "Memnite", state.ZBattlefield)
 	crAbortMove(t, e, 1, "Memnite", state.ZBattlefield)
@@ -107,6 +108,7 @@ func TestCR508PriorityAfterAttackDeclaration(t *testing.T) {
 }
 
 func TestCR508EmptyAttackSkipsBlockersAndDamage(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Memnite"}, nil)
 	crAbortMove(t, e, 0, "Memnite", state.ZBattlefield)
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
@@ -121,6 +123,7 @@ func TestCR508EmptyAttackSkipsBlockersAndDamage(t *testing.T) {
 }
 
 func TestCR509OneBlockerCannotBlockTwoAttackers(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Memnite", "Memnite"}, []string{"Memnite"})
 	a := crAbortMove(t, e, 0, "Memnite", state.ZBattlefield)
 	b := crAbortMove(t, e, 0, "Memnite", state.ZBattlefield)
@@ -146,6 +149,7 @@ func TestCR509OneBlockerCannotBlockTwoAttackers(t *testing.T) {
 }
 
 func TestCR509PriorityAfterBlockDeclaration(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Memnite"}, []string{"Memnite"})
 	a := crAbortMove(t, e, 0, "Memnite", state.ZBattlefield)
 	b := crAbortMove(t, e, 1, "Memnite", state.ZBattlefield)
@@ -159,6 +163,7 @@ func TestCR509PriorityAfterBlockDeclaration(t *testing.T) {
 }
 
 func TestCR510ControllerChoosesMultiBlockDamageDivision(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Centaur Courser"}, []string{"Memnite", "Ornithopter"})
 	a := crAbortMove(t, e, 0, "Centaur Courser", state.ZBattlefield)
 	b := crAbortMove(t, e, 1, "Memnite", state.ZBattlefield)
@@ -184,6 +189,7 @@ func TestCR510ControllerChoosesMultiBlockDamageDivision(t *testing.T) {
 }
 
 func TestCR510PriorityBetweenDoubleStrikeDamageSteps(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Boros Swiftblade"}, nil)
 	a := crAbortMove(t, e, 0, "Boros Swiftblade", state.ZBattlefield)
 	if e.G.Obj(a).Face().PT != "1/2" || !e.HasKeyword(a, "Double Strike") {
@@ -199,6 +205,7 @@ func TestCR510PriorityBetweenDoubleStrikeDamageSteps(t *testing.T) {
 }
 
 func TestCR506ReturnedBlockerIsRemovedFromCombat(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Memnite"}, []string{"Memnite", "Ghostly Flicker"})
 	a := crAbortMove(t, e, 0, "Memnite", state.ZBattlefield)
 	b := crAbortMove(t, e, 1, "Memnite", state.ZBattlefield)
@@ -231,6 +238,7 @@ func TestCR506ReturnedBlockerIsRemovedFromCombat(t *testing.T) {
 }
 
 func TestCR511AttackerPersistsThroughEndCombatStep(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Memnite"}, nil)
 	a := crAbortMove(t, e, 0, "Memnite", state.ZBattlefield)
 	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 1, IDs: []state.ObjID{a}})
@@ -243,6 +251,7 @@ func TestCR511AttackerPersistsThroughEndCombatStep(t *testing.T) {
 }
 
 func TestCR511UntilEndCombatPumpExpiresBeforeMain(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	e := crResolutionEngine(t, []string{"Murk Dwellers"}, nil)
 	a := crAbortMove(t, e, 0, "Murk Dwellers", state.ZBattlefield)
@@ -271,6 +280,7 @@ func TestCR511UntilEndCombatPumpExpiresBeforeMain(t *testing.T) {
 // one. The engine's own option list is the source of the answer, and the
 // rejected intent leaves the pending decision intact.
 func TestCR509MinMaxBlockerCountRestriction(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	troll := searchCorpusCard(t, reg, "Troll of Khazad-dûm")
 	bear := card(t, staticBearFixture)

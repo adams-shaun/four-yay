@@ -12,6 +12,7 @@ import (
 // only from the earlier layer-6 effect, and expiry withdraws both the keyword
 // and the granted ability.
 func TestWithKeywordPredicateSeesLayer6GrantAddAbilities(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	grantor := onBoard(t, e, 0, "Name:Grantor\nManaCost:1 U\nTypes:Creature Wizard\nPT:1/1\nSVar:ABGranted:AB$ Untap | Cost$ 0 | Defined$ Self\nOracle:x\n")
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

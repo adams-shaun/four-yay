@@ -46,6 +46,7 @@ func mshCorpusCardPath(t *testing.T, name, path string) *cards.Card {
 // above the cycling ability (CR 117.5), sweeps artifacts and enchantments but
 // not creatures, and the cycle's own draw lands beneath it.
 func TestCycledTriggerFiresOnTheCycleCostDiscard(t *testing.T) {
+	t.Parallel()
 	wave := mshCorpusCard(t, "Dismantling Wave")
 	e := handEngine(t, wave)
 	ring := onBoard(t, e, 0, "Name:Sol Ring\nManaCost:1\nTypes:Artifact\nOracle:x\n")
@@ -99,6 +100,7 @@ func TestCycledTriggerFiresOnTheCycleCostDiscard(t *testing.T) {
 // Cycling. Synthetic fixtures isolate the event provenance from every other
 // mechanic.
 func TestCycledTriggerDistinguishesDiscardProvenance(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Cycle Watcher\nManaCost:U\nTypes:Creature\nPT:1/1\nK:Cycling:U\nOracle:x\nT:Mode$ Cycled | ValidCard$ Card.Self | Execute$ TrigDraw | TriggerDescription$ When you cycle CARDNAME, draw a card.\nSVar:TrigDraw:DB$ Draw | NumCards$ 1\n"
 	e := handEngine(t, card(t, src))
 	id := e.G.Zone(state.ZHand, 0)[0]
@@ -141,6 +143,7 @@ func TestCycledTriggerDistinguishesDiscardProvenance(t *testing.T) {
 // or three attackers never queue the trigger. The declared batch is the real
 // engine event shape handleAttackers emits (one per defender).
 func TestAttackersDeclaredFiresPerDefenderGroup(t *testing.T) {
+	t.Parallel()
 	love := mshCorpusCardPath(t, "Love on the Battlefield", "l/love_on_the_battlefield.txt")
 	for _, tc := range []struct {
 		name    string
@@ -186,6 +189,7 @@ func TestAttackersDeclaredFiresPerDefenderGroup(t *testing.T) {
 // through a Clone: the queued referents and the pump's grant order must be
 // byte-identical, the way every replayed trigger is.
 func TestAttackersDeclaredReplaysExactly(t *testing.T) {
+	t.Parallel()
 	love := mshCorpusCardPath(t, "Love on the Battlefield", "l/love_on_the_battlefield.txt")
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, love)
@@ -212,6 +216,7 @@ func TestAttackersDeclaredReplaysExactly(t *testing.T) {
 // draws five and gains 5 life; puts that do not cross (7+1), puts that start
 // past it (11+1), and later puts after the crossing, queue nothing.
 func TestCounterAddedTenthCounterFiresOnceOnCrossing(t *testing.T) {
+	t.Parallel()
 	shang := mshCorpusCard(t, "Shang-Chi and the Ten Rings")
 	e := combatEngine(t)
 	id := onBoardCard(t, e, 0, shang)
@@ -295,6 +300,7 @@ func TestCounterAddedTenthCounterFiresOnceOnCrossing(t *testing.T) {
 // queues once per blocked Hero with that Hero's own blocker count, and an
 // unblocked attacker queues nothing.
 func TestAttackerBlockedCountsEachBlockingCreature(t *testing.T) {
+	t.Parallel()
 	hulk := mshCorpusCardPath(t, "She-Hulk, Wallbreaker", "s/she_hulk_wallbreaker.txt")
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, hulk)

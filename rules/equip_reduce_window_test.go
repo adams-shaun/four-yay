@@ -11,6 +11,7 @@ import (
 // equip cost is payable. The Mountain can add only {1} to Belt's {6} pool;
 // the 2/2 would cost {8}, while the 4/4 costs {6}.
 func TestBeltOfGiantStrengthEquipWeakTargetWithInsufficientWindow(t *testing.T) {
+	t.Parallel()
 	e, cfg, beltID, bruteID, smallID := beltGame(t, 515)
 	if got := e.Power(bruteID); got != 4 {
 		t.Fatalf("brute power = %d, want 4", got)
@@ -64,6 +65,7 @@ func TestBeltOfGiantStrengthEquipWeakTargetWithInsufficientWindow(t *testing.T) 
 // A second Mountain covers the entire delta; target filtering must not
 // withhold the 2/2 just because its price exceeds the floating pool.
 func TestBeltOfGiantStrengthEquipWeakTargetWithPayableWindow(t *testing.T) {
+	t.Parallel()
 	e, cfg, beltID, bruteID, smallID := beltGame(t, 516)
 	if e.Power(bruteID) != 4 || e.Power(smallID) != 2 {
 		t.Fatalf("target powers must differ (4 vs 2): %d vs %d", e.Power(bruteID), e.Power(smallID))

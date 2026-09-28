@@ -94,6 +94,7 @@ func TestTargetingPlayerControls(t *testing.T) {
 }
 
 func TestTargetingPlayerControlsArenaChainedAsk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Arena", "Magus of the Arena"} {
 		t.Run(name, func(t *testing.T) {

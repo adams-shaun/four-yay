@@ -32,6 +32,7 @@ import (
 // ValidCard$ Card.Self | CounterType$ P1P1 line, so this is the shipped card
 // shape and not a synthetic one.
 func TestCounterAddedBatchAmountReferentOnRealCard(t *testing.T) {
+	t.Parallel()
 	hoplite := mshCorpusCard(t, "Bloodcrazed Hoplite")
 	e := combatEngine(t)
 	id := onBoardCard(t, e, 0, hoplite)
@@ -77,6 +78,7 @@ func TestCounterAddedBatchAmountReferentOnRealCard(t *testing.T) {
 // which the row holds separately -- but the trigger line is exactly the real
 // CounterAdded grammar these tests exercise.
 func TestCounterAddedBatchAmountIsReadByTheBody(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	// The engine deals opening hands; measure from the post-deal hand so the
 	// assertion compares a real delta.

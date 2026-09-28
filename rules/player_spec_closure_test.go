@@ -13,6 +13,7 @@ import (
 // The real Electryte filter names a combat defending player. A prevention
 // Note on a noncombat hit also has a recipient, but has no defending role.
 func TestPlayerSpecPreventedNoncombatHasNoDefender(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoard(t, reg, "Electryte")
 	source := ids["Electryte"]
@@ -40,6 +41,7 @@ func TestPlayerSpecPreventedNoncombatHasNoDefender(t *testing.T) {
 // Broodrage Mycoid's You.descended trigger reads a permanent CARD entering
 // its owner's graveyard, even when controlled by another player.
 func TestPlayerSpecBroodrageDescendedFromAnyZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoardWith(t, reg, mustCorpusCard(t, reg, "Grizzly Bears"), "Broodrage Mycoid", "Grizzly Bears", "Lightning Bolt")
 	mycoid := ids["Broodrage Mycoid"]
@@ -87,6 +89,7 @@ func TestPlayerSpecBroodrageDescendedFromAnyZone(t *testing.T) {
 // Curse of the Pierced Heart is a real Enchant:Player Aura: casting it must
 // create a replayable player attachment rather than an unattached Aura SBA.
 func TestPlayerSpecCurseEnchantPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	curse := mustCorpusCard(t, reg, "Curse of the Pierced Heart")
 	e := handEngine(t, curse)

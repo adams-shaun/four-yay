@@ -161,6 +161,7 @@ func drainThrough(t *testing.T, e *Engine, turn int32, active state.PlayerID, st
 // enchanted bear is required — Option.Required on the wire, and
 // validateAttackDeclaration rejects a declaration omitting it.
 func TestFealtyToTheRealmEnchantedMustAttackEachCombat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ft, ok := reg.Lookup("Fealty to the Realm")
 	if !ok {
@@ -208,6 +209,7 @@ func TestFealtyToTheRealmEnchantedMustAttackEachCombat(t *testing.T) {
 // against seat 0 — the "You" half of the comma list, with the unreadable
 // walker half matching nobody.
 func TestFealtyToTheRealmCantAttackScoping(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	vow, ok := reg.Lookup("Vow of Lightning")
 	if !ok {
@@ -250,6 +252,7 @@ func TestFealtyToTheRealmCantAttackScoping(t *testing.T) {
 // (Innocent Blood's "each player sacrifices a creature") — offers and takes
 // nothing.
 func TestCallForAidStolenCreaturesCantSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Call for Aid", "Ashnod's Altar", "Innocent Blood"} {
 		if _, ok := reg.Lookup(name); !ok {
@@ -316,6 +319,7 @@ func TestCallForAidStolenCreaturesCantSacrifice(t *testing.T) {
 // candidate while the grant is live; after Stilt-Man's controller's next turn
 // ends, control and the restriction both expire and it can be sacrificed.
 func TestStiltManAnimateCantSacrificeLastsThroughItsNextTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	stilt, ok := reg.Lookup("Stilt-Man, Towering Terror")
 	if !ok {
@@ -378,6 +382,7 @@ func TestStiltManAnimateCantSacrificeLastsThroughItsNextTurn(t *testing.T) {
 // any other defender; the UntilEOT registration expires at cleanup. Three
 // seats, so "another defender" exists.
 func TestCallForAidCantAttackRememberedPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	call, ok := reg.Lookup("Call for Aid")
 	if !ok {
@@ -429,6 +434,7 @@ func TestCallForAidCantAttackRememberedPlayer(t *testing.T) {
 // no Required option, no option for the dasher, an empty declaration accepted,
 // and the KAttackers decision does not wedge.
 func TestMustAttackIfAbleCantAttackBlocksRequirement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Call for Aid", "Valley Dasher"} {
 		if _, ok := reg.Lookup(name); !ok {

@@ -27,6 +27,7 @@ import (
 // this one drives the real printed trigger through the registered matcher and
 // the real dispatch, and pins the entering-zone contract alongside it.
 func TestKnowledgePoolImprintedDepartureLKI(t *testing.T) {
+	t.Parallel()
 	poolCard := corpusAlternativeCard(t, "Knowledge Pool")
 	bearsCard := corpusAlternativeCard(t, "Grizzly Bears")
 

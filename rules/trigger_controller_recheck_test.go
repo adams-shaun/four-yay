@@ -10,6 +10,7 @@ import (
 // CR 603.4 rechecks an ordinary trigger as the controller of the ability
 // already on the stack, even if its source changes hands before resolution.
 func TestOrdinaryTriggerRecheckKeepsAbilityControllerAfterSourceStolen(t *testing.T) {
+	t.Parallel()
 	watcher := card(t, "Name:Life Watcher\nManaCost:0\nTypes:Creature\nPT:1/1\n"+
 		"T:Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield | LifeTotal$ You | LifeAmount$ GE10 | Execute$ TrigDraw\n"+
 		"SVar:TrigDraw:DB$ Draw | Defined$ You\nOracle:x\n")

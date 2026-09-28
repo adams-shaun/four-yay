@@ -77,6 +77,7 @@ func assertWindowActivationLimit(t *testing.T, e *Engine, p state.PlayerID, id s
 // payment window. Its one source must pay Ghostly Prison's {2}, be pinned to
 // a colour it really can produce, and record the printed limit marker.
 func TestAttackManaWindowRetainsChosenAndLimitIdentity(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Ghostly Prison", 0)
 	land := onBoardCard(t, e, 1, card(t, limitedComboChosenLand))
 	recordChosenGreen(t, e, land)
@@ -104,6 +105,7 @@ func TestAttackManaWindowRetainsChosenAndLimitIdentity(t *testing.T) {
 // through the block payment path, so a future fix cannot preserve the attack
 // marker while dropping the blocker half.
 func TestBlockManaWindowRetainsChosenAndLimitIdentity(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	blocker := onBoardCard(t, e, 0, mshCorpusCard(t, "Qal Sisma Behemoth"))
 	land := onBoardCard(t, e, 0, card(t, limitedComboChosenLand))

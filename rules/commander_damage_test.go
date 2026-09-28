@@ -155,6 +155,7 @@ func swing(t *testing.T, e *Engine, attackers ...state.ObjID) {
 // threshold: 20 combat damage from a single commander is one short, so the
 // defender (health 40, 20 left) survives the state-based-action pass.
 func TestTwentyCommanderDamageDoesNotLose(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 40, [][]string{{cmdCreature(20)}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	swing(t, e, cmd)
@@ -172,6 +173,7 @@ func TestTwentyCommanderDamageDoesNotLose(t *testing.T) {
 // though their life total (19) is still positive -- commander damage is an
 // independent loss condition, not a proxy for life.
 func TestTwentyOneCommanderDamageLoses(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 40, [][]string{{cmdCreature(21)}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	swing(t, e, cmd)
@@ -195,6 +197,7 @@ func TestTwentyOneCommanderDamageLoses(t *testing.T) {
 // collapsing every commander onto slot 0 turns 11+11 into a single 22 and
 // fails this test by making the defender lose.
 func TestTwoCommandersElevenEachDoesNotLose(t *testing.T) {
+	t.Parallel()
 	// Two DIFFERENT legendary names: same-named legendaries under one
 	// controller are illegal (CR 704.5j) and the legend rule would bin one of
 	// them before either could deal its 11.
@@ -221,6 +224,7 @@ func TestTwoCommandersElevenEachDoesNotLose(t *testing.T) {
 // 11 across that zone round-trip, because state.ObjID is stable across a
 // commander's moves (m30 keeps one game object throughout).
 func TestSameCommanderTwiceCumulatesToTwentyTwoAndLoses(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 40, [][]string{{cmdCreature(11)}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 
@@ -269,6 +273,7 @@ func TestSameCommanderTwiceCumulatesToTwentyTwoAndLoses(t *testing.T) {
 // at zero (the defender's 19-life survival is the proof that the zero tally
 // was not masked by a life-loss death).
 func TestNonCombatCommanderDamageDoesNotTally(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 40, [][]string{{cmdCreature(1)}, {}})
 	fieldCommander(t, e, 0, 0)
 
@@ -299,6 +304,7 @@ func TestNonCombatCommanderDamageDoesNotTally(t *testing.T) {
 // exactly like the blocker branch does, so the moment such a prevention
 // exists this same guard declines the tally; see the report.)
 func TestPreventedCombatDamageDoesNotInflateTheTally(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 40, [][]string{{cmdCreature(10)}, {}})
 	atk := fieldCommander(t, e, 0, 0)
 
@@ -327,6 +333,7 @@ func TestPreventedCombatDamageDoesNotInflateTheTally(t *testing.T) {
 // leaves them alive and the tally untouched. Removing either gate lets the
 // defender lose here and fails this test by name.
 func TestNonCommanderGameIgnoresCommanderDamage(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatConstructed, 40, [][]string{{cmdCreature(21)}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	swing(t, e, cmd)
@@ -347,6 +354,7 @@ func TestNonCommanderGameIgnoresCommanderDamage(t *testing.T) {
 // written directly or re-derived from the existing Damage events (which do
 // not record which commander the source was).
 func TestCommanderDamageReplaysFromTheLogAlone(t *testing.T) {
+	t.Parallel()
 	e, cfg := commanderGame(t, commanderDamageSeed, FormatCommander, 40, [][]string{{cmdCreature(21)}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	swing(t, e, cmd)
@@ -363,6 +371,7 @@ func TestCommanderDamageReplaysFromTheLogAlone(t *testing.T) {
 // Engine.Clone (Game.Clone deep-copies CmdDamage; clone.go carries format),
 // so a cloned engine sees the identical tally and stays a Commander game.
 func TestCommanderDamageSurvivesClone(t *testing.T) {
+	t.Parallel()
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 40, [][]string{{cmdCreature(20)}, {}})
 	cmd := fieldCommander(t, e, 0, 0)
 	swing(t, e, cmd)

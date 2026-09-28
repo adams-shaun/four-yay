@@ -25,6 +25,7 @@ import (
 // own graveyard card, the ChoosePlayer ask names an opponent, and that
 // chosen opponent returns a card from their own graveyard to their hand.
 func TestSkullwinderETBReturnsCastersAndChosenOpponentsCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	skullwinder := mustCorpusCard(t, reg, "Skullwinder")
 	mine := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -121,6 +122,7 @@ func TestSkullwinderETBReturnsCastersAndChosenOpponentsCard(t *testing.T) {
 // whole predicate class -- not just Skullwinder's Card spelling -- is
 // pinned.
 func TestChosenCtrlPredicateMatchesOnlyTheChosenPlayersObjects(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	src := e.G.AddObject(card(t, "Name:Src\nTypes:Artifact\nOracle:x\n"), 0)
 	// Seat 0 owns a creature, a land and an artifact; seat 1 owns counterparts.

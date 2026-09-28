@@ -12,6 +12,7 @@ import (
 // TargetType$ Spell path. A spell already on the stack must be exposed as a
 // spell target, not as a battlefield permanent.
 func TestStackSpellTargetOptionUsesSpellKind(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Counterspell", "Lightning Bolt")
 	counter := searchMoveByName(t, e, "Counterspell", state.ZHand)

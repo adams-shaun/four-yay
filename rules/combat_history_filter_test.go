@@ -11,6 +11,7 @@ import (
 )
 
 func TestVengefulAncestorGoadedAttackerFilter(t *testing.T) {
+	t.Parallel()
 	e, ids := pcdrEngine(t, "Vengeful Ancestor", "Grizzly Bears")
 	ancestor, bear := ids["Vengeful Ancestor"], ids["Grizzly Bears"]
 	if e.G.Obj(ancestor).Zone != state.ZBattlefield || e.G.Obj(bear).Zone != state.ZBattlefield {
@@ -55,6 +56,7 @@ func TestVengefulAncestorGoadedAttackerFilter(t *testing.T) {
 }
 
 func TestSteelHellkiteCombatDamageControllerFilter(t *testing.T) {
+	t.Parallel()
 	e, ids := pcdrEngine(t, "Steel Hellkite", "Grizzly Bears", "Runeclaw Bear")
 	hellkite := ids["Steel Hellkite"]
 	victim := ids["Grizzly Bears"]

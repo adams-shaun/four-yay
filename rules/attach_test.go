@@ -9,6 +9,7 @@ import (
 )
 
 func TestEquipAttachesAndTheStaticFollowsTheBearer(t *testing.T) {
+	t.Parallel()
 	sword := "Name:Sword\nManaCost:3\nTypes:Artifact Equipment\nK:Equip:2\n" +
 		"S:Mode$ Continuous | Affected$ Creature.EquippedBy | AddPower$ 2 | AddToughness$ 2 | AddKeyword$ Vigilance | Description$ x\nOracle:x\n"
 	e, cfg, sw := newFixtureDeck(t, 61, sword, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -103,6 +104,7 @@ func TestAuraTargetsOnCastAttachesOnResolutionAndDiesWithItsBearer(t *testing.T)
 }
 
 func TestLivingWeaponCreatesAGermAndAttaches(t *testing.T) {
+	t.Parallel()
 	skull := "Name:Skull\nManaCost:5\nTypes:Artifact Equipment\nK:Living Weapon\nK:Equip:5\n" +
 		"S:Mode$ Continuous | Affected$ Creature.EquippedBy | AddPower$ 4 | AddToughness$ 4 | Description$ x\nOracle:x\n"
 	e, cfg, sk := newFixtureDeckWithTokens(t, 68, skull)
@@ -123,6 +125,7 @@ func TestLivingWeaponCreatesAGermAndAttaches(t *testing.T) {
 }
 
 func TestIllegalAttachmentsAreCleanedUp(t *testing.T) {
+	t.Parallel()
 	e, _, aura := newFixtureDeck(t, 64, "Name:Aura\nManaCost:G\nTypes:Enchantment Aura\nK:Enchant:Creature\nOracle:x\n")
 	e.emit(events.Event{Kind: events.MoveZone, Obj: aura, From: state.ZHand, To: state.ZBattlefield}) // attached to nothing
 	e.checkStateBased()

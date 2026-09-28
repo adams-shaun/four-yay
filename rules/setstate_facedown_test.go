@@ -11,6 +11,7 @@ import (
 )
 
 func TestCyberConversionTurnsCreatureFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownEngine(t, reg, "Cyber Conversion", "Llanowar Elves")
 	spell := searchMoveByName(t, e, "Cyber Conversion", state.ZHand)
@@ -79,6 +80,7 @@ func assertProjectedFaceDownIdentity(t *testing.T, projected view.View, id state
 }
 
 func TestSetStateTurnFaceUpRevealsFaceDownPermanent(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 881, "Name:Face Fixture\nTypes:Creature Bear\nPT:3/4\nOracle:x\n")
 	from := e.G.Obj(id).Zone
 	if from != state.ZHand && from != state.ZLibrary {

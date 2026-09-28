@@ -56,6 +56,7 @@ func istTargetOptionFor(d *decision.Decision, id state.ObjID) int {
 // controls is a legal target; the announcement offers only targets covered by
 // the permission, so a cast on a qualifying target completes.
 func TestIsTargetingFlashPhotography(t *testing.T) {
+	t.Parallel()
 	// No permanent you control: no qualifying target, no flash offer.
 	e, spell := offTurnFlashEngine(t, "Flash Photography", 2, 2)
 	theirBear := battlePerm(t, e, 1, "Name:Their Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -94,6 +95,7 @@ func TestIsTargetingFlashPhotography(t *testing.T) {
 // off-turn only while a commander is a legal target, and a non-commander
 // target is not enough.
 func TestIsTargetingTimelyWard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Timely Ward"))
 	e.format = FormatCommander
 	e.G.Active = 1
@@ -150,6 +152,7 @@ func TestIsTargetingTimelyWard(t *testing.T) {
 // applies only while the announced target is a creature, and only during your
 // own turn.
 func TestIsTargetingHeadOfTheClass(t *testing.T) {
+	t.Parallel()
 	spellSrc := "Name:Wounded Spell\nManaCost:W B\nTypes:Sorcery\n" +
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1 | NumDef$ +1\nOracle:x\n"
 	e := handEngine(t, card(t, spellSrc))

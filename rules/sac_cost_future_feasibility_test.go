@@ -16,6 +16,7 @@ import (
 // Sac<X/Artifact.orCreature> must offer ONLY the creature; the artifact is
 // the sole candidate the Sac<1/Artifact> part can pay with.
 func TestDargoSacChoicePreservesLaterArtifactPart(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 		"Name:Crab\nTypes:Creature\nPT:1/1\nOracle:x\n",
@@ -76,6 +77,7 @@ func TestDargoSacChoicePreservesLaterArtifactPart(t *testing.T) {
 // exists for). Two creatures give the first part a real choice; the artifact
 // is still excluded because it is the later part's only candidate.
 func TestDargoSacContinuationBotAnswerValidatesAndCompletes(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 		"Name:Crab\nTypes:Creature\nPT:1/1\nOracle:x\n",
@@ -188,6 +190,7 @@ func manaActivateOption(e *Engine, id state.ObjID) (decision.Option, bool) {
 // deterministic bot's answer passes Decision.Validate and Clamp, and the
 // ability settles both parts and produces its mana.
 func TestManaAbilitySacChoicePreservesLaterArtifactPart(t *testing.T) {
+	t.Parallel()
 	outlet := "Name:Outlet\nTypes:Enchantment\n" +
 		"A:AB$ Mana | Cost$ Sac<1/Artifact;Creature/artifact or creature> Sac<1/Artifact> | Produced$ R | SpellDescription$ Add {R}.\nOracle:x\n"
 	artifactCreature := "Name:Artifact Crab\nTypes:Artifact Creature\nPT:1/1\nOracle:x\n"
@@ -292,6 +295,7 @@ func TestManaAbilitySacChoicePreservesLaterArtifactPart(t *testing.T) {
 // both Sac parts can only be paid by the same object, so the activation must
 // not be offered at all.
 func TestManaAbilityOverlappingSacPartsNotOfferedWithoutAssignment(t *testing.T) {
+	t.Parallel()
 	outlet := "Name:Outlet\nTypes:Enchantment\n" +
 		"A:AB$ Mana | Cost$ Sac<1/Artifact;Creature/artifact or creature> Sac<1/Artifact> | Produced$ R | SpellDescription$ Add {R}.\nOracle:x\n"
 	artifactCreature := "Name:Artifact Crab\nTypes:Artifact Creature\nPT:1/1\nOracle:x\n"
@@ -327,6 +331,7 @@ func TestManaAbilityOverlappingSacPartsNotOfferedWithoutAssignment(t *testing.T)
 // three artifacts are offered three, then two, then the later part takes
 // the last one alone.
 func TestCastMultiUnitSacPartLeavesLaterPartItsOwnCandidate(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 		"Name:Anvil2\nTypes:Artifact\nOracle:x\n",

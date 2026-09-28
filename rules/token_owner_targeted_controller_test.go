@@ -27,6 +27,7 @@ import (
 // enough to tell the three apart. The inserted ChoosePlayer ask forces the
 // resolution to suspend, and the chained Token resolves only after the answer.
 func TestTokenOwnerTargetedControllerSurvivesSuspension(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := New(Config{Seed: 741, Names: []string{"a", "b"},
 		Decks:  [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)},

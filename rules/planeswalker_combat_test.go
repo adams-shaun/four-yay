@@ -34,6 +34,7 @@ func declareAtPlaneswalker(t *testing.T, e *Engine, attacker, pw state.ObjID) {
 }
 
 func TestCreatureCanAttackPlaneswalkerAndCombatDamageRemovesLoyalty(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	attacker := onBoardReady(t, e, 0, planeswalkerAttacker)
 	pw := onBoard(t, e, 1, combatPlaneswalker)
@@ -57,6 +58,7 @@ func TestCreatureCanAttackPlaneswalkerAndCombatDamageRemovesLoyalty(t *testing.T
 }
 
 func TestCombatDamageToPlaneswalkerAtZeroLoyaltyAppliesStateBasedAction(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	attacker := onBoardReady(t, e, 0, planeswalkerAttacker)
 	pw := onBoard(t, e, 1, combatPlaneswalker)

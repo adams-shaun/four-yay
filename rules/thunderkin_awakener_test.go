@@ -34,6 +34,7 @@ import (
 // and it deals its damage in that combat. It drives REAL combat from the
 // attackers declaration, exactly like the sibling Yore-Tiller carrier.
 func TestThunderkinAwakenerReturnsToughnessLessElementalTappedAndAttacking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Thunderkin Awakener"},
 		[]string{"Name:SparkElemental\nManaCost:1 R\nTypes:Creature Elemental\nPT:1/1\nOracle:x\n"},

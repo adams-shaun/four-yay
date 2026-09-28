@@ -17,6 +17,7 @@ import (
 // batch" contract is not a one-shot (a further batch triggers again), and the
 // Amount:2 case pins the size is read per event rather than hard-coded.
 func TestCounterAddedOncePutsThatManyGrowthCounters(t *testing.T) {
+	t.Parallel()
 	asc := mshCorpusCard(t, "Simic Ascendancy")
 	e := combatEngine(t)
 	id := onBoardCard(t, e, 0, asc)
@@ -60,6 +61,7 @@ func TestCounterAddedOncePutsThatManyGrowthCounters(t *testing.T) {
 // additive, so the "once per batch, not per counter" contract is observable
 // across the public event stream rather than only in one resolution.
 func TestCounterAddedOnceReplaysThePayoff(t *testing.T) {
+	t.Parallel()
 	asc := mshCorpusCard(t, "Simic Ascendancy")
 	e := combatEngine(t)
 	id := onBoardCard(t, e, 0, asc)
@@ -86,6 +88,7 @@ func TestCounterAddedOnceReplaysThePayoff(t *testing.T) {
 // TriggerCount$Amount reads the batch and any card/controller referent reads
 // the right object.
 func TestCounterAddedOnceReferentsCaptureTheBatch(t *testing.T) {
+	t.Parallel()
 	asc := mshCorpusCard(t, "Simic Ascendancy")
 	e := combatEngine(t)
 	id := onBoardCard(t, e, 0, asc)

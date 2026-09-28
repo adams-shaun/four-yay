@@ -141,6 +141,7 @@ func answerPaidCostAsk(t *testing.T, e *Engine, kind string, picks ...state.ObjI
 // creature. The fuel (Lightning Bolt, MV 1) is a different, nonzero value from
 // the spell's own (MV 4), so a reading of the source or of zero is caught.
 func TestDraconicInterventionPaidExileSizesDamage(t *testing.T) {
+	t.Parallel()
 	e, cfg := paidCostEngine(t, []string{"Draconic Intervention", "Lightning Bolt"}, []string{"Ancient Brontodon"})
 	fuel := paidCostMoveTo(t, e, 0, "Lightning Bolt", state.ZGraveyard)
 	spell := paidCostMoveTo(t, e, 0, "Draconic Intervention", state.ZHand)
@@ -175,6 +176,7 @@ func TestDraconicInterventionPaidExileSizesDamage(t *testing.T) {
 // power to each creature and planeswalker. Hill Giant (power 3, MV 4) differs
 // from the spell's own MV and from zero.
 func TestCorpseExplosionPaidExileSizesDamage(t *testing.T) {
+	t.Parallel()
 	e, cfg := paidCostEngine(t, []string{"Corpse Explosion", "Hill Giant"}, []string{"Ancient Brontodon"})
 	fuel := paidCostMoveTo(t, e, 0, "Hill Giant", state.ZGraveyard)
 	spell := paidCostMoveTo(t, e, 0, "Corpse Explosion", state.ZHand)
@@ -205,6 +207,7 @@ func TestCorpseExplosionPaidExileSizesDamage(t *testing.T) {
 // Grizzly Bears (MV 2) differs from the spell's own MV (7) and from zero, and
 // the revealed card STAYS IN HAND (a reveal is not a move).
 func TestDisasterRadiusPaidRevealSizesDamage(t *testing.T) {
+	t.Parallel()
 	e, cfg := paidCostEngine(t, []string{"Disaster Radius", "Grizzly Bears"}, []string{"Ancient Brontodon"})
 	fuel := paidCostMoveTo(t, e, 0, "Grizzly Bears", state.ZHand)
 	spell := paidCostMoveTo(t, e, 0, "Disaster Radius", state.ZHand)
@@ -236,6 +239,7 @@ func TestDisasterRadiusPaidRevealSizesDamage(t *testing.T) {
 // power. Grizzly Bears (power 2) differs from the spell's own power (a
 // sorcery has none) and from zero.
 func TestMonstrousEmergencePaidRevealSizesDamage(t *testing.T) {
+	t.Parallel()
 	e, cfg := paidCostEngine(t, []string{"Monstrous Emergence", "Grizzly Bears"}, []string{"Ancient Brontodon"})
 	fuel := paidCostMoveTo(t, e, 0, "Grizzly Bears", state.ZHand)
 	spell := paidCostMoveTo(t, e, 0, "Monstrous Emergence", state.ZHand)
@@ -275,6 +279,7 @@ func TestMonstrousEmergencePaidRevealSizesDamage(t *testing.T) {
 // only the copy resolves; the receiver's damage then proves the copy read
 // zero rather than inheriting the exiled Lightning Bolt's mana value.
 func TestCostPaidListsAreNotInheritedByAStackCopy(t *testing.T) {
+	t.Parallel()
 	e, _ := paidCostEngine(t, []string{"Draconic Intervention", "Lightning Bolt"}, []string{"Ancient Brontodon"})
 	fuel := paidCostMoveTo(t, e, 0, "Lightning Bolt", state.ZGraveyard)
 	spell := paidCostMoveTo(t, e, 0, "Draconic Intervention", state.ZHand)
@@ -313,6 +318,7 @@ func TestCostPaidListsAreNotInheritedByAStackCopy(t *testing.T) {
 // a cost, then poses a mid-resolution KChoose (DB$ ChooseCard) before the
 // damage body that reads Revealed$CardPower.
 func TestPaidCostListSurvivesASuspendedResolution(t *testing.T) {
+	t.Parallel()
 	src := "Name:PaidRevealProbe\nManaCost:R\nTypes:Sorcery\n" +
 		"A:SP$ LoseLife | Cost$ R Reveal<1/Creature> | Defined$ Opponent | LifeAmount$ 1 | SubAbility$ DBCharm\n" +
 		"SVar:DBCharm:DB$ Charm | Choices$ DBDeal,DBUnused\n" +
@@ -384,6 +390,7 @@ func TestPaidCostListSurvivesASuspendedResolution(t *testing.T) {
 // exiled nothing reads a legitimate zero, never the source's own or the
 // chosen targets. A synthetic no-cost probe exercises the empty paid list.
 func TestPaidCostRefFailsClosedWithoutAnExiledCost(t *testing.T) {
+	t.Parallel()
 	src := "Name:NoCostProbe\nManaCost:R\nTypes:Sorcery\n" +
 		"A:SP$ LoseLife | Defined$ Opponent | LifeAmount$ X\n" +
 		"SVar:X:Exiled$CardManaCost\nOracle:x\n"
@@ -408,6 +415,7 @@ func TestPaidCostRefFailsClosedWithoutAnExiledCost(t *testing.T) {
 // the exiled card's power through `X:Exiled$CardPower`. Same binding as the
 // spell branch; without it the ability loses no life.
 func TestDreadDefilerPaidExileSizesLifeLoss(t *testing.T) {
+	t.Parallel()
 	e, cfg := paidCostEngine(t, []string{"Dread Defiler", "Hill Giant"}, nil)
 	defiler := paidCostMoveTo(t, e, 0, "Dread Defiler", state.ZBattlefield)
 	fuel := paidCostMoveTo(t, e, 0, "Hill Giant", state.ZGraveyard)
@@ -441,6 +449,7 @@ func TestDreadDefilerPaidExileSizesLifeLoss(t *testing.T) {
 // A non-Thrull exiled creature would place zero counters, so the counter proves
 // the paid card was matched, not just counted.
 func TestSoulExchangePaidExileValidTracksThrull(t *testing.T) {
+	t.Parallel()
 	e, cfg := paidCostEngine(t, []string{"Soul Exchange", "Blood Pet", "Grizzly Bears"}, nil)
 	thrull := paidCostMoveTo(t, e, 0, "Blood Pet", state.ZBattlefield)
 	returned := paidCostMoveTo(t, e, 0, "Grizzly Bears", state.ZGraveyard)
@@ -485,6 +494,7 @@ func TestSoulExchangePaidExileValidTracksThrull(t *testing.T) {
 // plain Reveal list): the token is an either-or cost whose choose arm must
 // not be read as a hand reveal.
 func TestMonstrousEmergenceRevealOrChooseParsesAsARevealCost(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("1 G RevealOrChoose<1/Creature>")
 	if c.Generic != 1 {
 		t.Fatalf("ParseCost generic = %d, want 1", c.Generic)

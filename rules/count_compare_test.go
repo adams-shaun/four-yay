@@ -27,6 +27,7 @@ import (
 // the un-chosen Forests reach the hand without a further ask.
 
 func TestNissasPilgrimageSearchMaxFollowsSpellMastery(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	run := func(t *testing.T, e *Engine, cfg Config, mainMax, picks int) {
 		t.Helper()
@@ -96,6 +97,7 @@ func TestNissasPilgrimageSearchMaxFollowsSpellMastery(t *testing.T) {
 }
 
 func TestWillOfTheJeskaiCharmNumCountsACommander(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// No commander on the battlefield: the compared SVar counts 0, GE1
 	// fails, and the modal ask is the plain choose-one.
@@ -167,6 +169,7 @@ func commanderCharmCast(t *testing.T, reg *cards.Registry, spell, mana string, c
 }
 
 func TestKamahlsWillCanChooseOneLegalMode(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, id := commanderCharmCast(t, reg, "Kamahl's Will", "GGGG", true)
 	d := castFixture(t, e, id, -1)
@@ -179,6 +182,7 @@ func TestKamahlsWillCanChooseOneLegalMode(t *testing.T) {
 }
 
 func TestWailOfTheForgottenAllowsOneOfThreeModes(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Wail of the Forgotten")
 	// Make DBReturn target-legal too, so all three modes are eligible.
@@ -222,6 +226,7 @@ func TestWailOfTheForgottenAllowsOneOfThreeModes(t *testing.T) {
 }
 
 func TestTriggeredCharmMinCharmNumUsesCorpusScript(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Invasion of Fiora")
 	id := searchMoveByName(t, e, "Invasion of Fiora", state.ZBattlefield)

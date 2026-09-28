@@ -14,6 +14,7 @@ import (
 // sacrifice ask (fixed by 3946193d) instead of auto-sacrificing the
 // first-eligible creature.
 func TestAshnodsAltarPrioritySacrificeAsksWhichCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := realCardEngine(t, reg, 208, "Ashnod's Altar", "Gleaming Barrier", "Goblin Guide")
 	altar, creature, other := ids[0], ids[1], ids[2]
@@ -55,6 +56,7 @@ func TestAshnodsAltarPrioritySacrificeAsksWhichCreature(t *testing.T) {
 // legal <1/Creature> candidate the sacrifice is zero-information, so the
 // activation pays it without posing a sacrifice choice and re-poses priority.
 func TestAshnodsAltarSingleCreatureSkipsTheForcedAsk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := realCardEngine(t, reg, 209, "Ashnod's Altar", "Gleaming Barrier")
 	altar, creature := ids[0], ids[1]

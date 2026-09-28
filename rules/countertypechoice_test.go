@@ -22,6 +22,7 @@ func optionIndexByLabel(d *decision.Decision, label string) int {
 // remembered two-token chain. Every token gets its own choice; the first
 // answer must survive while the second ask is pending.
 func TestInvokeTheAncientsCounterTypePerDefinedChoice(t *testing.T) {
+	t.Parallel()
 	invoke := mustCorpusCardT(t, "Invoke the Ancients")
 	e, cfg := tokenReplGame(t, 917, invoke)
 	id := moveSeededCard(t, e, 0, invoke, state.ZHand)
@@ -68,6 +69,7 @@ func TestInvokeTheAncientsCounterTypePerDefinedChoice(t *testing.T) {
 // TestGrimdancerCounterTypeChoice drives its real ETB replacement. The one
 // answer must be two distinct individual kinds, never a composite kind.
 func TestGrimdancerCounterTypeChoice(t *testing.T) {
+	t.Parallel()
 	grim := mustCorpusCardT(t, "Grimdancer")
 	e, cfg := tokenReplGame(t, 919, grim)
 	toMain1(t, e)
@@ -118,6 +120,7 @@ func TestGrimdancerCounterTypeChoice(t *testing.T) {
 // regression: one resolved list answer must not suppress a later list ask in
 // the same Resolve chain.
 func TestCounterTypeChoiceDoesNotLeakIntoSubAbility(t *testing.T) {
+	t.Parallel()
 	chain := card(t, "Name:Counter Chain\nTypes:Artifact\n"+
 		"A:AB$ PutCounter | Cost$ T | Defined$ Self | CounterType$ P1P1,First Strike | SubAbility$ DBSecond | SpellDescription$ x\n"+
 		"SVar:DBSecond:DB$ PutCounter | Defined$ Self | CounterType$ Vigilance,Reach | SpellDescription$ x\nOracle:x\n")
@@ -143,6 +146,7 @@ func TestCounterTypeChoiceDoesNotLeakIntoSubAbility(t *testing.T) {
 }
 
 func TestCrystallineGiantCounterTypeChoice(t *testing.T) {
+	t.Parallel()
 	giant := mustCorpusCardT(t, "Crystalline Giant")
 	e, cfg := tokenReplGame(t, 921, giant)
 	id := moveSeededCard(t, e, 0, giant, state.ZBattlefield)
@@ -176,6 +180,7 @@ func TestCrystallineGiantCounterTypeChoice(t *testing.T) {
 // TestDismantleCounterTypeChoiceContinuesAfterDeterministicRecipient proves a
 // fixed Choices$ recipient does not suppress its subsequent list-kind choice.
 func TestDismantleCounterTypeChoiceContinuesAfterDeterministicRecipient(t *testing.T) {
+	t.Parallel()
 	dismantle := mustCorpusCardT(t, "Dismantle")
 	// Indestructible keeps the target's counters live for Dismantle's
 	// ConditionDefined$ Targeted check, while its opponent controller leaves

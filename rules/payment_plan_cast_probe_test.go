@@ -23,6 +23,7 @@ import (
 // a spell leaves the hand. "powerGE n" is feasible only in hand (withheld);
 // "powerGE n-1" stays feasible on the stack (offered).
 func TestPaymentPlanWithholdsCastWhoseTargetsLeaveWithTheCard(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 9630, "Name:Plains\nTypes:Basic Land Plains\nOracle:x\n")
 	for i := 0; i < 2; i++ {
 		onBoard(t, e, 0, "Name:Plains\nTypes:Basic Land Plains\nOracle:x\n")

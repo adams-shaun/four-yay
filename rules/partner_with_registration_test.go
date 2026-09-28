@@ -24,6 +24,7 @@ import (
 // api:ReplaceCounter/repl:AddCounter, Rory api:Investigate, Amy Pond
 // api:RemoveCounter/kw:Doctor's companion, Jenny Flint kw:Training).
 func TestPartnerWithPrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:Partner with"] {
 		t.Fatal(`effects.Supported() is missing "kw:Partner with"`)
 	}

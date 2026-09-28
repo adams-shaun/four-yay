@@ -185,6 +185,7 @@ func passOnceP(t *testing.T, e *Engine) {
 }
 
 func TestEvokeCastPaysTheEvokeCostAndSacrifices(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 911, []string{"Nulldrifter"}, nil, nil)
 	id := findCardObj(t, e, 0, "Nulldrifter", state.ZHand)
 	// The pool added here is exactly the EVOKE cost {2}{U}, not the printed
@@ -215,6 +216,7 @@ func TestEvokeCastPaysTheEvokeCostAndSacrifices(t *testing.T) {
 }
 
 func TestEvokeExileCostExilesTheChosenCard(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 912, []string{"Fury"}, []string{altRedSrc}, nil)
 	id := findCardObj(t, e, 0, "Fury", state.ZHand)
 	ember := findCardObj(t, e, 0, "Ember", state.ZHand)
@@ -260,6 +262,7 @@ func TestEvokeExileCostExilesTheChosenCard(t *testing.T) {
 }
 
 func TestDashCommanderPaysTaxFromTheCommandZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ragavan, ok := reg.Lookup("Ragavan, Nimble Pilferer")
 	if !ok {
@@ -296,6 +299,7 @@ func TestDashCommanderPaysTaxFromTheCommandZone(t *testing.T) {
 }
 
 func TestDashCastsGainHasteAndReturnAtTheEndStep(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 914, []string{"Ragavan, Nimble Pilferer"}, nil, nil)
 	id := findCardObj(t, e, 0, "Ragavan, Nimble Pilferer", state.ZHand)
 	addMana(t, e, 0, "CR")
@@ -321,6 +325,7 @@ func TestDashCastsGainHasteAndReturnAtTheEndStep(t *testing.T) {
 }
 
 func TestEncoreActivatesFromTheGraveyardIntoHastedTokenCopies(t *testing.T) {
+	t.Parallel()
 	reg := freshEncoreRegistry(t)
 	e, cfg, _ := altCostEngineReg(t, 915, reg, []string{"Impulsive Pilferer"}, nil, nil)
 	id := findCardObj(t, e, 0, "Impulsive Pilferer", state.ZGraveyard)
@@ -380,6 +385,7 @@ func TestEncoreActivatesFromTheGraveyardIntoHastedTokenCopies(t *testing.T) {
 }
 
 func TestEncoreCreatesOneDelayedTriggerForAllOpponentTokens(t *testing.T) {
+	t.Parallel()
 	reg := freshEncoreRegistry(t)
 	pilferer, ok := reg.Lookup("Impulsive Pilferer")
 	if !ok {
@@ -454,6 +460,7 @@ func TestEncoreCreatesOneDelayedTriggerForAllOpponentTokens(t *testing.T) {
 }
 
 func TestEncoreCleanupSurvivesSourceChangingIncarnation(t *testing.T) {
+	t.Parallel()
 	reg := freshEncoreRegistry(t)
 	pilferer, ok := reg.Lookup("Impulsive Pilferer")
 	if !ok {
@@ -506,6 +513,7 @@ func TestEncoreCleanupSurvivesSourceChangingIncarnation(t *testing.T) {
 }
 
 func TestOverloadedCastTargetsEachNotOne(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 916, []string{"Cyclonic Rift"}, nil, []string{altBearSrc, altProtectedBearSrc})
 	id := findCardObj(t, e, 0, "Cyclonic Rift", state.ZHand)
 	b1 := findCardObj(t, e, 1, "Bear", state.ZBattlefield)
@@ -538,6 +546,7 @@ func TestOverloadedCastTargetsEachNotOne(t *testing.T) {
 }
 
 func TestOverloadIsCastableWhenOnlyProtectedObjectsMatch(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 928, []string{"Cyclonic Rift"}, nil, []string{altProtectedBearSrc})
 	id := findCardObj(t, e, 0, "Cyclonic Rift", state.ZHand)
 	bear := findCardObj(t, e, 1, "Protected Bear", state.ZBattlefield)
@@ -551,6 +560,7 @@ func TestOverloadIsCastableWhenOnlyProtectedObjectsMatch(t *testing.T) {
 }
 
 func TestWarpCastsFromTheGraveyardExileAtEndStepAndRecastFromExile(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 917, []string{"Timeline Culler"}, nil, nil)
 	id := findCardObj(t, e, 0, "Timeline Culler", state.ZGraveyard)
 	addMana(t, e, 0, "B")
@@ -598,6 +608,7 @@ func TestWarpCastsFromTheGraveyardExileAtEndStepAndRecastFromExile(t *testing.T)
 }
 
 func TestMadnessEmrakulUsesOptionalReplacementAndRespondableTrigger(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 918, []string{"Emrakul, the World Anew", "Mind Rot"}, []string{altRedSrc}, nil)
 	emrakul := findCardObj(t, e, 0, "Emrakul, the World Anew", state.ZHand)
 	ember := findCardObj(t, e, 0, "Ember", state.ZHand)
@@ -675,6 +686,7 @@ func TestMadnessEmrakulUsesOptionalReplacementAndRespondableTrigger(t *testing.T
 }
 
 func TestMadnessTriggerCanBeStifled(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 937, []string{"Emrakul, the World Anew", "Stifle"}, nil, nil)
 	emrakul := findCardObj(t, e, 0, "Emrakul, the World Anew", state.ZHand)
 	stifle := findCardObj(t, e, 0, "Stifle", state.ZHand)
@@ -706,6 +718,7 @@ func TestMadnessTriggerCanBeStifled(t *testing.T) {
 }
 
 func TestMadnessReplacementMayBeDeclined(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 934, []string{"Emrakul, the World Anew"}, nil, nil)
 	id := findCardObj(t, e, 0, "Emrakul, the World Anew", state.ZHand)
 	// This is the event every discard implementation proposes; the real
@@ -729,6 +742,7 @@ func TestMadnessReplacementMayBeDeclined(t *testing.T) {
 }
 
 func TestMadnessExileByNonDiscardDoesNotOfferTheCast(t *testing.T) {
+	t.Parallel()
 	// CR 702.35a opens the cast window on a DISCARD only. Evoking Fury exiles
 	// a red card as a COST -- here the real madness card Fiery Temper -- and
 	// that exile must not offer the Temper's madness cast.
@@ -787,6 +801,7 @@ func TestMadnessExileByNonDiscardDoesNotOfferTheCast(t *testing.T) {
 }
 
 func TestEvokeSacrificeIsARespondableTriggeredAbility(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 923, []string{"Nulldrifter", "Stifle"}, nil, nil)
 	null := findCardObj(t, e, 0, "Nulldrifter", state.ZHand)
 	stifle := findCardObj(t, e, 0, "Stifle", state.ZHand)
@@ -846,6 +861,7 @@ func TestEvokeSacrificeIsARespondableTriggeredAbility(t *testing.T) {
 }
 
 func TestDashDelayedReturnDoesNotFollowABlinkedPermanent(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 924, []string{"Ragavan, Nimble Pilferer"}, nil, nil)
 	id := findCardObj(t, e, 0, "Ragavan, Nimble Pilferer", state.ZHand)
 	addMana(t, e, 0, "CR")
@@ -862,6 +878,7 @@ func TestDashDelayedReturnDoesNotFollowABlinkedPermanent(t *testing.T) {
 }
 
 func TestWarpDoesNotGrantEveryWarpCardGraveyardPermission(t *testing.T) {
+	t.Parallel()
 	e, _, _ := altCostEngine(t, 925, []string{"Network Marauder"}, nil, nil)
 	id := findCardObj(t, e, 0, "Network Marauder", state.ZGraveyard)
 	addMana(t, e, 0, "CU")
@@ -873,6 +890,7 @@ func TestWarpDoesNotGrantEveryWarpCardGraveyardPermission(t *testing.T) {
 }
 
 func TestSpiritGuideActivatesFromHandAndPaysItsExileCost(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 935, []string{"Elvish Spirit Guide"}, []string{altElfSrc}, nil)
 	guide := findCardObj(t, e, 0, "Elvish Spirit Guide", state.ZHand)
 	elf := findCardObj(t, e, 0, "Test Elf", state.ZHand)
@@ -901,6 +919,7 @@ func TestSpiritGuideActivatesFromHandAndPaysItsExileCost(t *testing.T) {
 }
 
 func TestManaAbilityExileCostIsPaid(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 926, []string{"Cadaverous Bloom"}, []string{altRedSrc}, nil)
 	bloom := findCardObj(t, e, 0, "Cadaverous Bloom", state.ZBattlefield)
 	if got := e.AvailableMana(0).Total(); got != 0 {
@@ -948,6 +967,7 @@ func TestManaAbilityExileCostIsPaid(t *testing.T) {
 }
 
 func TestAlternateAdditionalCostGrammarIsNotGenericMana(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		raw string
 		ok  func(Cost) bool
@@ -1063,6 +1083,7 @@ func TestAlternateAdditionalCostSpecialPayments(t *testing.T) {
 }
 
 func TestAlternateAdditionalCostRevealPaysWithARealCard(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 929, []string{"Wren's Run Vanquisher"}, []string{altElfSrc}, nil)
 	vanquisher := findCardObj(t, e, 0, "Wren's Run Vanquisher", state.ZHand)
 	elf := findCardObj(t, e, 0, "Test Elf", state.ZHand)
@@ -1100,6 +1121,7 @@ func TestAlternateAdditionalCostRevealPaysWithARealCard(t *testing.T) {
 }
 
 func TestAlternateAdditionalCostSinglePartIsMandatory(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 927, []string{"Dusk Rose Reliquary"}, []string{altBearSrc}, nil)
 	reliquary := findCardObj(t, e, 0, "Dusk Rose Reliquary", state.ZHand)
 	bear := findCardObj(t, e, 0, "Bear", state.ZBattlefield)
@@ -1122,6 +1144,7 @@ func TestAlternateAdditionalCostSinglePartIsMandatory(t *testing.T) {
 }
 
 func TestAlternateAdditionalCostAsksWhichAlternative(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 919, []string{"Redirect Lightning", "Shock"}, nil, []string{altBearSrc})
 	rl := findCardObj(t, e, 0, "Redirect Lightning", state.ZHand)
 	shock := findCardObj(t, e, 0, "Shock", state.ZHand)

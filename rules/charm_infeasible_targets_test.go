@@ -12,6 +12,7 @@ import (
 // A triggered Charm announces its modes before it asks for targets. Unlike a
 // cast, its mode announcement does not filter out modes without legal targets.
 func TestTriggeredDistinctCharmWithEmptyModeTargetFizzles(t *testing.T) {
+	t.Parallel()
 	charm := "Name:Infeasible Charm Bearer\nManaCost:1 B\nTypes:Creature Bear\nPT:2/2\n" +
 		"T:Mode$ Phase | Phase$ BeginCombat | ValidPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigCharm\n" +
 		"SVar:TrigCharm:DB$ Charm | CharmNum$ 2 | Choices$ PlayerMode,CreatureMode\n" +
@@ -55,6 +56,7 @@ func TestTriggeredDistinctCharmWithEmptyModeTargetFizzles(t *testing.T) {
 }
 
 func TestCastDistinctCharmWithEmptyModeTargetCannotAnnounceBoth(t *testing.T) {
+	t.Parallel()
 	charm := "Name:Infeasible Cast Charm\nManaCost:B\nTypes:Instant\n" +
 		"A:SP$ Charm | CharmNum$ 2 | Choices$ PlayerMode,CreatureMode\n" +
 		"SVar:PlayerMode:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ 2\n" +

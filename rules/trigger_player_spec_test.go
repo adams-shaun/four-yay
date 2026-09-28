@@ -9,6 +9,7 @@ import (
 )
 
 func TestMindsparkerSpellCastTriggerMatchesOpponentOnly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mindsparker, ok := reg.Lookup("Mindsparker")
 	if !ok {
@@ -57,6 +58,7 @@ func TestMindsparkerSpellCastTriggerMatchesOpponentOnly(t *testing.T) {
 }
 
 func TestSatyrFiredancerDamageTriggerMatchesOpponentOnly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	satyr, ok := reg.Lookup("Satyr Firedancer")
 	if !ok {
@@ -105,6 +107,7 @@ func TestSatyrFiredancerDamageTriggerMatchesOpponentOnly(t *testing.T) {
 }
 
 func TestMogisUpkeepTriggerMatchesOpponentOnly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mogis, ok := reg.Lookup("Mogis, God of Slaughter")
 	if !ok {

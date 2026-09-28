@@ -13,6 +13,7 @@ import (
 // three cases distinguish the remembered reveal from a Dragon already on the
 // battlefield; a direct EvalCount test cannot catch a broken ETB path.
 func TestTempleOfTheDragonQueenPlusSVarOperand(t *testing.T) {
+	t.Parallel()
 	// No reveal and no controlled Dragon: the land must enter tapped.
 	e, _, temple := templeDragonQueenGame(t, 9401, false, false)
 	playTempleLand(t, e, temple)

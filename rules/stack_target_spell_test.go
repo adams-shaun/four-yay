@@ -80,6 +80,7 @@ func passToCast(t *testing.T, e *Engine, castObj state.ObjID) int {
 // counterspell actually counters it end to end -- the targeted spell reaches
 // its owner's graveyard and its creature never arrives on the battlefield.
 func TestTargetTypeSpellOffersOnlyStackObjectsAndCounters(t *testing.T) {
+	t.Parallel()
 	e, leakID, bearID, gurmagID := targetSpellFixture(t)
 	e.G.Players[0].Pool[state.MU] = 5
 	e.G.Players[0].Pool[state.MG] = 5
@@ -148,6 +149,7 @@ func TestTargetTypeSpellOffersOnlyStackObjectsAndCounters(t *testing.T) {
 // name while reaching CR 608.2b legally: Mana Leak targets a spell, then that
 // spell leaves the stack in response. Leak must fizzle without a Resolve event.
 func TestCounterspellWithOnlyItselfOnStackFizzles(t *testing.T) {
+	t.Parallel()
 	e, leakID, bearID, _ := targetSpellFixture(t)
 	e.G.Players[0].Pool[state.MU] = 5
 	e.G.Players[0].Pool[state.MG] = 5
@@ -197,6 +199,7 @@ const graveRaisingSrc = "Name:Grave Raising\nManaCost:1 B\nTypes:Sorcery\n" +
 // and the effect really happens -- the card returns to its owner's hand. It
 // fails on the tree before the legalTargets zoneIn fix.
 func TestTgtZoneGraveyardTargetOfferedAndResolves(t *testing.T) {
+	t.Parallel()
 	raiseSrc := graveRaisingSrc
 	wastedSrc := "Name:Wasted\nManaCost:1\nTypes:Creature\nPT:1/1\nOracle:x\n"
 	e := handEngine(t, card(t, raiseSrc))
@@ -275,6 +278,7 @@ const hillSrc = "Name:Hill\nTypes:Land\nOracle:x\n"
 // tree before the origin-derived targetZones fallback (the census searched
 // the battlefield) and fails again if the fallback is removed.
 func TestOriginGraveyardAbilityTargetsGraveyardLand(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, wrennShapeSrc))
 	grave := e.G.AddObject(card(t, hillSrc), 0)
 	grave.Zone = state.ZGraveyard
@@ -363,6 +367,7 @@ const volcanicVisionShapeSrc = "Name:Vision Shape\nManaCost:1 B\nTypes:Sorcery\n
 // ValidTgts$ inference outrank the origin-implied zone, and fails again if the
 // origin route is removed entirely.
 func TestOriginGraveyardInstantSorceryTargetsGraveyard(t *testing.T) {
+	t.Parallel()
 	visionSrc := volcanicVisionShapeSrc
 	instSrc := "Name:Shock\nManaCost:R\nTypes:Instant\nOracle:x\n"
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -441,6 +446,7 @@ func TestOriginGraveyardInstantSorceryTargetsGraveyard(t *testing.T) {
 // the existing battlefield default -- including the player-targeted
 // ChangeZone route this task must not turn into an object-target decision.
 func TestTargetZonesChangeZoneOriginTable(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		sa   string

@@ -7,6 +7,7 @@ import (
 )
 
 func TestParseCostExileFromGraveX(t *testing.T) {
+	t.Parallel()
 	got := ParseCost("X T ExileFromGrave<X/Card>")
 	if got.X != 1 || !got.Tap || got.Generic != 0 || len(got.Unknown) != 0 || len(got.Exile) != 1 {
 		t.Fatalf("parsed cost = %+v", got)

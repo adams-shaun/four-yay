@@ -10,12 +10,18 @@ import (
 )
 
 // TestWashOutChosenColor is the requested corpus-backed card-behaviour leaf.
-func TestWashOutChosenColor(t *testing.T) { runWashOutChosenColor(t) }
+func TestWashOutChosenColor(t *testing.T) {
+	t.Parallel()
+	runWashOutChosenColor(t)
+}
 
 // TestCR608WashOutChosenColor places the same real-card case in the CR lane:
 // CR 608.2c resolves instructions in order, choosing the colour before the
 // chained ChangeZoneAll effect applies that answer.
-func TestCR608WashOutChosenColor(t *testing.T) { runWashOutChosenColor(t) }
+func TestCR608WashOutChosenColor(t *testing.T) {
+	t.Parallel()
+	runWashOutChosenColor(t)
+}
 
 func runWashOutChosenColor(t *testing.T) {
 	blue := "Name:Blue Test Creature\nManaCost:U\nTypes:Creature\nPT:2/2\nOracle:x\n"

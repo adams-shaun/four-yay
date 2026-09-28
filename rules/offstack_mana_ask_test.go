@@ -9,6 +9,7 @@ import (
 )
 
 func TestOffStackManaTargetAskDoesNotResolveTheStack(t *testing.T) {
+	t.Parallel()
 	e, _, bear := newFixtureDeck(t, 9340, "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	engine := onBoard(t, e, 0, "Name:Engine Test\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ B | Amount$ 4 | SubAbility$ DBGive | SpellDescription$ Engine fixture.\nSVar:DBGive:DB$ GainControl | Defined$ Self | ValidTgts$ Opponent | TgtPrompt$ Choose target\nOracle:x\n")
 	if e.G.Obj(engine).Zone != state.ZBattlefield {
@@ -72,6 +73,7 @@ func TestOffStackManaTargetAskDoesNotResolveTheStack(t *testing.T) {
 }
 
 func TestOffStackManaModesAskResumesManaRider(t *testing.T) {
+	t.Parallel()
 	e, _, bear := newFixtureDeck(t, 9341, "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	engine := onBoard(t, e, 0, "Name:Engine Charm\nTypes:Artifact\n"+
 		"A:AB$ Mana | Cost$ T | Produced$ B | Amount$ 4 | SubAbility$ DBPick | SpellDescription$ Engine fixture.\n"+
@@ -161,6 +163,7 @@ func TestOffStackManaModesAskResumesManaRider(t *testing.T) {
 // answerManaColor resumed the rider without that binding, and the resumed
 // NameCard saw an empty Ctx.NameChoice and asked again.
 func TestOffStackManaNameAskCommitsOnce(t *testing.T) {
+	t.Parallel()
 	e, _, bear := newFixtureDeck(t, 9343, "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	engine := onBoard(t, e, 0, "Name:Engine Namer\nTypes:Artifact\n"+
 		"A:AB$ Mana | Cost$ T | Produced$ B | Amount$ 4 | SubAbility$ DBName | SpellDescription$ Engine fixture.\n"+
@@ -242,6 +245,7 @@ func TestOffStackManaNameAskCommitsOnce(t *testing.T) {
 // KArrange routing at all, so the answer landed on the stack top; the fix
 // parks and re-enters the rider under the mana frame (rules/arrange.go).
 func TestOffStackManaArrangeAskResumesManaRider(t *testing.T) {
+	t.Parallel()
 	const bearSrc = "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, _, bear := newFixtureDeck(t, 9344, bearSrc)
 	engine := onBoard(t, e, 0, "Name:Engine Seer\nTypes:Artifact\n"+
@@ -328,6 +332,7 @@ func TestOffStackManaArrangeAskResumesManaRider(t *testing.T) {
 // one opponent, and the name ask offers real names. Without those a vacuous
 // setup would pass.
 func TestOffStackManaTargetThenNameAskCommitsOnce(t *testing.T) {
+	t.Parallel()
 	e, _, bear := newFixtureDeck(t, 9345, "Name:Stack Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	engine := onBoard(t, e, 0, "Name:Engine Namer\nTypes:Artifact\n"+
 		"A:AB$ Mana | Cost$ T | Produced$ B | Amount$ 4 | SubAbility$ DBName | SpellDescription$ Engine fixture.\n"+

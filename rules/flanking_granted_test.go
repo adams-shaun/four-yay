@@ -66,6 +66,7 @@ func resolveAll(t *testing.T, e *Engine) {
 // attacker debuffed nobody. Sidewinder Sliver has NO printed K:Flanking, so
 // the trigger reaches the stack through the synthesized __kwFlanking: payload.
 func TestFlankingGrantedAttackerDebuffsBlocker(t *testing.T) {
+	t.Parallel()
 	sliver := mshCorpusCard(t, "Sidewinder Sliver")
 	e := combatEngine(t)
 	attacker := onBoardCard(t, e, 0, sliver)
@@ -105,6 +106,7 @@ func TestFlankingGrantedAttackerDebuffsBlocker(t *testing.T) {
 // blocks as a 1/1 with granted flanking: if it were wrongly debuffed it would
 // die, so its survival is the assertion.
 func TestFlankingGrantedBlockerIsNotDebuffed(t *testing.T) {
+	t.Parallel()
 	nimbus := mshCorpusCard(t, "Knight of the Holy Nimbus")
 	sliverCard := mshCorpusCard(t, "Sidewinder Sliver")
 	e := combatEngine(t)
@@ -141,6 +143,7 @@ func TestFlankingGrantedBlockerIsNotDebuffed(t *testing.T) {
 // printed expansion supplied one trigger, so the blocker used to survive at
 // 1/1.
 func TestFlankingSecondInstanceTriggersSeparately(t *testing.T) {
+	t.Parallel()
 	master := mshCorpusCard(t, "Cavalry Master")
 	nimbus := mshCorpusCard(t, "Knight of the Holy Nimbus")
 	e := combatEngine(t)
@@ -170,6 +173,7 @@ func TestFlankingSecondInstanceTriggersSeparately(t *testing.T) {
 // through the same derived-keyword path Sidewinder Sliver exercises, so the
 // grant's SOURCE (Aura vs lord static) cannot hide a missed case.
 func TestFlankingAuraGrantedAttackerDebuffsBlocker(t *testing.T) {
+	t.Parallel()
 	agility := mshCorpusCard(t, "Agility")
 	e := combatEngine(t)
 	aura := onBoardCard(t, e, 0, agility)
@@ -204,6 +208,7 @@ func TestFlankingAuraGrantedAttackerDebuffsBlocker(t *testing.T) {
 // Cavalry Master's grant never matched the Sliver, and a 2/2 blocker survived
 // at 1/1 on one instance instead of dying to two.
 func TestFlankingChainedGrantsStackInstances(t *testing.T) {
+	t.Parallel()
 	sliverCard := mshCorpusCard(t, "Sidewinder Sliver")
 	master := mshCorpusCard(t, "Cavalry Master")
 	e := combatEngine(t)

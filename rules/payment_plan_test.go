@@ -18,6 +18,7 @@ func paymentCast(id state.ObjID) decision.PlannedCast {
 }
 
 func TestPaymentPlanBacktracksExclusiveSources(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9101, "Name:Plan Spell\nManaCost:U R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	dual := onBoard(t, e, 0, "Name:Volcanic Test\nTypes:Land Island Mountain\nOracle:x\n")
@@ -34,6 +35,7 @@ func TestPaymentPlanBacktracksExclusiveSources(t *testing.T) {
 }
 
 func TestPaymentPlanDoesNotDoubleCountDualAndKeepsColorlessDistinct(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9102, "Name:Double Pip\nManaCost:U R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Only Dual\nTypes:Land Island Mountain\nOracle:x\n")
 	if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan != nil || got.Reason != "insufficient" {
@@ -56,6 +58,7 @@ func TestPaymentPlanDoesNotDoubleCountDualAndKeepsColorlessDistinct(t *testing.T
 // an extra cost is still legal for manual payment, but must never appear in a
 // suggested plan because the witness cannot carry or execute that cost.
 func TestPaymentPlanExcludesManaAbilityWithMillCost(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9110, "Name:Colorless Plan Spell\nManaCost:C\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	source := onBoard(t, e, 0, "Name:Millikin Shape\nTypes:Artifact Creature Construct\nA:AB$ Mana | Cost$ T Mill<1> | Produced$ C\nOracle:x\n")
 	e.G.Obj(source).SummonSick = false
@@ -80,6 +83,7 @@ func TestPaymentPlanExcludesManaAbilityWithMillCost(t *testing.T) {
 }
 
 func TestPaymentPlanQueryIsPure(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9105, "Name:Planned Instant\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	beforeGame := e.G.Clone()
@@ -97,6 +101,7 @@ func TestPaymentPlanQueryIsPure(t *testing.T) {
 }
 
 func TestPaymentPlanPriorityAskLeavesExtensionLazy(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9108, "Name:Published Plan\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	// Re-ask as the live engine does after an eventless fixture change.
@@ -125,6 +130,7 @@ func TestPaymentPlanPriorityAskLeavesExtensionLazy(t *testing.T) {
 }
 
 func TestPaymentPlanActionsPreserveLegacyOptions(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9106, "Name:Plan Offer\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	withoutPool := e.PaymentActionsForPriority(0, 77)
@@ -147,6 +153,7 @@ func TestPaymentPlanActionsPreserveLegacyOptions(t *testing.T) {
 // PlannedCast. That duplicates the canonical payment-action ID and breaks
 // keyed clients. V1 supports only the ordinary printed-cost route.
 func TestPaymentPlanPriorityExcludesAlternativeCostCast(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9111, "Name:Two Costs\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nS:Mode$ AlternativeCost | ValidCard$ Card.Self | Cost$ U\nOracle:x\n")
 	toMain1(t, e)
 	e.G.Players[0].Pool[state.MU] = 1
@@ -174,6 +181,7 @@ func TestPaymentPlanPriorityExcludesAlternativeCostCast(t *testing.T) {
 }
 
 func TestPaymentPlanSubmitExecutesWitness(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9107, "Name:Planned Cast\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	d := e.Pending()
@@ -214,6 +222,7 @@ func TestPaymentPlanSubmitExecutesWitness(t *testing.T) {
 // tap all three sources; leaving either generic mana unpaid would let a
 // second such spell be cast from the same board.
 func TestPaymentPlanPaysGenericAndColoredCostInFull(t *testing.T) {
+	t.Parallel()
 	e, _, first := newFixtureDeck(t, 9109, "Name:First Wind Drake\nManaCost:2 U\nTypes:Creature Bird Drake\nPT:2/2\nOracle:x\n")
 	toMain1(t, e)
 	lands := []state.ObjID{
@@ -261,6 +270,7 @@ func TestPaymentPlanPaysGenericAndColoredCostInFull(t *testing.T) {
 }
 
 func TestPaymentPlanExecutesFiniteProducedAnyChoice(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9111, "Name:Blue Plan Spell\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	source := onBoard(t, e, 0, "Name:Any Land\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any\nOracle:x\n")
 	e.pending = nil
@@ -341,6 +351,7 @@ func producedManaSince(e *Engine, from int) []string {
 // W,U,B,R,G order: U then R) asked for R must activate its R ability, not the
 // first intrinsic ability whose identity matches.
 func TestPaymentPlanDualLandExecutesWitnessedColour(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9301, "Name:Red Plan Spell\nManaCost:R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	dual := onBoard(t, e, 0, "Name:Volcanic Test\nTypes:Land Island Mountain\nOracle:x\n")
 	d := paymentPlanReask(t, e)
@@ -367,6 +378,7 @@ func TestPaymentPlanDualLandExecutesWitnessedColour(t *testing.T) {
 // executed rather than only validated. The dual must supply the R its witness
 // step names.
 func TestPaymentPlanBacktrackedDualWitnessExecutes(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9302, "Name:Plan Spell\nManaCost:U R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	island := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	dual := onBoard(t, e, 0, "Name:Volcanic Test\nTypes:Land Island Mountain\nOracle:x\n")
@@ -395,6 +407,7 @@ func TestPaymentPlanBacktrackedDualWitnessExecutes(t *testing.T) {
 // planner's own witness is admitted onto the pending decision exactly as
 // PaymentActionsForPriority builds an action.
 func TestPaymentPlanGrantedLandTypeExecutesWitnessedColour(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9303, "Name:Black Plan Spell\nManaCost:B B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	// A live game derives this vocabulary from its NameUniverse; without it
 	// no granted basic land type adds its intrinsic ability.
@@ -438,6 +451,7 @@ func TestPaymentPlanGrantedLandTypeExecutesWitnessedColour(t *testing.T) {
 }
 
 func TestPaymentPlanDeclinesEffectCreatedProduceManaReplacement(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9112, "Name:Plan Spell\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	source := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	e.AddContinuous(state.ContinuousEffect{Source: source, Controller: 0,
@@ -560,6 +574,7 @@ func assertPlannedCastPaid(t *testing.T, e *Engine, spell state.ObjID, from int,
 // payment_plan_shape_gate_test.go. This test is the planner half of the audit
 // story aph-cast-shape-gate owns; autopay-exec-harden owns the executor half.
 func TestPaymentPlanAdditionalCostCastGetsNoPlan(t *testing.T) {
+	t.Parallel()
 	red := state.Mana{}
 	red[state.ManaIndex('R')] = 1
 	_ = red
@@ -745,6 +760,7 @@ const paymentPlanTappedContamination = "Name:Tapped Contamination\nTypes:Enchant
 // (The corpus's unconditional Contamination is now caught before the first
 // tap: TestPaymentPlanInterferenceArrivingAfterOfferStopsBeforeTapping.)
 func TestPaymentPlanProductionChangeStopsAutomation(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9303, paymentPlanBlast)
 	m1 := onBoard(t, e, 0, paymentPlanMountain)
 	m2 := onBoard(t, e, 0, paymentPlanMountain)
@@ -783,6 +799,7 @@ func TestPaymentPlanProductionChangeStopsAutomation(t *testing.T) {
 // stops before activating anything, never substitutes the other Mountain,
 // and the manual window names the selected plan with source_changed.
 func TestPaymentPlanTappedSourceFallsBackWithoutSubstitution(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9304, paymentPlanShock)
 	m1 := onBoard(t, e, 0, paymentPlanMountain)
 	m2 := onBoard(t, e, 0, paymentPlanMountain)
@@ -816,6 +833,7 @@ func TestPaymentPlanTappedSourceFallsBackWithoutSubstitution(t *testing.T) {
 // so the stale step never taps it and the manual window reports
 // source_changed.
 func TestPaymentPlanBlinkedSourceFallsBack(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9305, paymentPlanShock)
 	onBoard(t, e, 0, paymentPlanMountain)
 	onBoard(t, e, 0, paymentPlanMountain)
@@ -843,6 +861,7 @@ func TestPaymentPlanBlinkedSourceFallsBack(t *testing.T) {
 // before the first activation: nothing is tapped and the manual window
 // reports cost_changed.
 func TestPaymentPlanCostRaisedAfterOfferFallsBackBeforeTapping(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9306, paymentPlanShock)
 	m1 := onBoard(t, e, 0, paymentPlanMountain)
 	m2 := onBoard(t, e, 0, paymentPlanMountain)
@@ -869,6 +888,7 @@ func TestPaymentPlanCostRaisedAfterOfferFallsBackBeforeTapping(t *testing.T) {
 // tapped by itself, and once the choice is answered the manual window reports
 // choice_required.
 func TestPaymentPlanActivationInterruptionCancelsRemainingSteps(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9307, paymentPlanBlast)
 	m1 := onBoard(t, e, 0, paymentPlanMountain)
 	m2 := onBoard(t, e, 0, paymentPlanMountain)
@@ -916,6 +936,7 @@ func TestPaymentPlanActivationInterruptionCancelsRemainingSteps(t *testing.T) {
 // creature sacrificed, spell on the stack, pool empty, no cast proposal or
 // choose flow left open -- before the caster receives priority.
 func TestPaymentPlanExecutesAfterCastTimeChoice(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9302, "Name:Rite Test\nManaCost:B\nTypes:Instant\nA:SP$ Draw | Cost$ B Sac<1/Creature> | NumCards$ 2\nOracle:x\n")
 	swamp := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
 	victim := onBoard(t, e, 0, "Name:Victim Test\nManaCost:1\nTypes:Creature Test\nPT:1/1\nOracle:x\n")

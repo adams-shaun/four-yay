@@ -9,6 +9,7 @@ import (
 // TestRoomAltCantBeCastFrontRestricted ensures a restriction matching only a
 // Room's displayed front door does not withhold its legal alternate door.
 func TestRoomAltCantBeCastFrontRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Experimental Lab", "Gaddock Teeg")
 	id := searchMoveByName(t, e, "Experimental Lab", state.ZHand)
@@ -42,6 +43,7 @@ func TestRoomAltCantBeCastFrontRestricted(t *testing.T) {
 // TestRoomAltCantBeCastBackRestricted ensures a restriction matching only the
 // alternate Room door withholds that offer while leaving the front cast legal.
 func TestRoomAltCantBeCastBackRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Mirror Room", "Gaddock Teeg")
 	id := searchMoveByName(t, e, "Mirror Room", state.ZHand)

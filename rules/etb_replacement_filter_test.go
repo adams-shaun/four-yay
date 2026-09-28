@@ -30,6 +30,7 @@ import (
 //     provenance, task castprov3, evaluated through the Moved matcher),
 //   - an opponent's creature takes nothing (YouCtrl).
 func TestVenserVisionaryTravelerFilterGate(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t,
 		corpusAlternativeCard(t, "Venser, Visionary Traveler"),
 		corpusAlternativeCard(t, "Grizzly Bears"),
@@ -73,6 +74,7 @@ func TestVenserVisionaryTravelerFilterGate(t *testing.T) {
 // choosing a real creature type (Bear) gives a LATER creature of that type
 // its counter.
 func TestMetallicMimicChosenTypeOtherFilter(t *testing.T) {
+	t.Parallel()
 	t.Run("own entry of the chosen type is excluded", func(t *testing.T) {
 		e := handEngine(t, corpusAlternativeCard(t, "Metallic Mimic"))
 		id := e.G.Zone(state.ZHand, 0)[0]
@@ -132,6 +134,7 @@ func chooseETBType(t *testing.T, e *Engine, want string) {
 // now the plain cast enters bare, the {1}{U} kicker (part 1) takes the
 // Strength counters and the {B} kicker (part 2) the Pumped one.
 func TestVolverKickGatesEntryCounters(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t,
 		corpusAlternativeCard(t, "Anavolver"),
 		corpusAlternativeCard(t, "Anavolver"),
@@ -165,6 +168,7 @@ func TestVolverKickGatesEntryCounters(t *testing.T) {
 // Count$CardPower, a 2/4) gives each OTHER creature you control its power in
 // +1/+1 counters, and its own entry nothing.
 func TestMasterBiomancerOtherFilterXCounters(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t,
 		corpusAlternativeCard(t, "Master Biomancer"),
 		corpusAlternativeCard(t, "Grizzly Bears"))

@@ -52,6 +52,7 @@ func modalSpellOffersOf(t *testing.T, e *Engine, id state.ObjID) (front, back *d
 // for the same object at distinct indices, and the read-only walk leaves the
 // card front-up in hand.
 func TestModalSpellBackAndFrontOffersTogether(t *testing.T) {
+	t.Parallel()
 	// No sacrifice-reduction permanents: the back face's Cost$ 6 B R
 	// Sac<X/Creature> fold is priced with X=0, so the full printed {6}{B}{R}
 	// must be affordable. WWBBBBRRRR = {W}{W}{B}{B}{B}{B}{R}{R}{R}{R} covers

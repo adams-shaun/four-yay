@@ -45,6 +45,7 @@ func aftermathOption(t *testing.T, e *Engine, id state.ObjID) *decision.Option {
 // resolution must run the ALTERNATE face's spell (Dawn returns graveyard
 // creatures to hand, which the primary half's DestroyAll could never do).
 func TestAftermathCastsAlternateFaceFromGraveyardAndExiles(t *testing.T) {
+	t.Parallel()
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, dusk := newFixtureDeck(t, 60, duskDawnSrc, bearSrc)
 	bear := addToGraveyard(t, e, 0, bearSrc)
@@ -78,6 +79,7 @@ func TestAftermathCastsAlternateFaceFromGraveyardAndExiles(t *testing.T) {
 // every way the spell leaves the stack, including being countered (the
 // flashback convention TestFlashbackedSpellCounteredGoesToExile pins).
 func TestAftermathCounteredGoesToExile(t *testing.T) {
+	t.Parallel()
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, dusk := newFixtureDeck(t, 61, duskDawnSrc, bearSrc)
 	moveSeeded(t, e, 0, duskDawnSrc, state.ZGraveyard)
@@ -105,6 +107,7 @@ func TestAftermathCounteredGoesToExile(t *testing.T) {
 // and no aftermath option ever appears from the hand walk -- and a split card
 // not showing its front face is never aftermath-cast.
 func TestAftermathNotOfferedFromHandOrWhileFaceIdxNonzero(t *testing.T) {
+	t.Parallel()
 	e, _, dusk := newFixtureDeck(t, 62, duskDawnSrc)
 	addMana(t, e, 0, "WWWGG")
 	if am := aftermathOption(t, e, dusk); am != nil {
@@ -134,6 +137,7 @@ func TestAftermathNotOfferedFromHandOrWhileFaceIdxNonzero(t *testing.T) {
 // candidate exists (otherwise the cast flow would ask a sacrifice decision
 // with no options), and the creature is actually sacrificed.
 func TestAftermathAdditionalCostFoldsAndIsCharged(t *testing.T) {
+	t.Parallel()
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	// No creature on the battlefield: the Sac part is unpayable, no offer.
 	e1, _, card1 := newFixtureDeck(t, 63, finishShapeSrc)
@@ -183,6 +187,7 @@ func TestAftermathAdditionalCostFoldsAndIsCharged(t *testing.T) {
 // the offer off every other two-face Split card (Rooms must stay on the Room
 // path, plain splits stay on the ordinary paths).
 func TestAftermathNotOfferedWithoutKeyword(t *testing.T) {
+	t.Parallel()
 	src := "Name:Front\nManaCost:1 R\nTypes:Sorcery\n" +
 		"A:SP$ DealDamage | ValidTgts$ Creature | NumDmg$ 1 | SpellDescription$ x\n" +
 		"AlternateMode:Split\n" +

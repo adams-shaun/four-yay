@@ -44,6 +44,7 @@ func assertCybermanEntry(t *testing.T, e *Engine, id state.ObjID, name string) {
 }
 
 func TestDeathInHeavenChapterIIIReturnsFaceDownCyberman(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Death in Heaven")}, []*cards.Card{lookup(t, reg, "Llanowar Elves")})
 	saga := moveByName(t, e, 0, "Death in Heaven", state.ZBattlefield)
@@ -70,6 +71,7 @@ func TestDeathInHeavenChapterIIIReturnsFaceDownCyberman(t *testing.T) {
 }
 
 func TestCybershipCombatDigReturnsTwoFaceDownCybermen(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Cybership")}, []*cards.Card{})
 	ship := moveByName(t, e, 0, "Cybership", state.ZBattlefield)

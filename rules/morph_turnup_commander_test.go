@@ -13,6 +13,7 @@ import (
 // belongs to seat 1 but is controlled by seat 0, exercising owner-not-controller
 // choice and suspension across its CR 903.9 replacement.
 func TestMorphTurnFaceUpWaitsForSacrificedCommanderReplacement(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int

@@ -11,6 +11,7 @@ import (
 // path when the first represented controller cannot reach Min. The later
 // controller's legal pair must also obey its Group and budget constraints.
 func TestSameControllerClampFindsFeasibleLaterController(t *testing.T) {
+	t.Parallel()
 	d := &decision.Decision{
 		Seq:                       7,
 		Player:                    0,

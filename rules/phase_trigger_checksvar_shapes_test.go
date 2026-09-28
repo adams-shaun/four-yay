@@ -35,6 +35,7 @@ func probeGate(t *testing.T, e *Engine, id state.ObjID, mode, api string) (bool,
 // the gate fails (and the trigger stays silent) below the threshold and
 // holds at it, through the real compiled SVar table of the real corpus card.
 func TestPhaseTriggerCheckSVarRemainingShapes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Resplendent Angel: GE5 on life gained this turn.

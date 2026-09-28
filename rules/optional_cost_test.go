@@ -92,6 +92,7 @@ func choosePendingObject(t *testing.T, e *Engine, id state.ObjID) {
 // blight stage, the pay-time CastInfo stamps optionalcostpaid, and the Dig's
 // SVar:X (Count$OptionalGenericCostPaid.3.2) resolves to 3.
 func TestOptionalCostBurningCuriosityPaidBlightExilesThree(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 610, []string{"Burning Curiosity"},
 		[]string{altBearSrc, altBearSrc}, []string{altBearSrc})
 	spell := findCardObj(t, e, 0, "Burning Curiosity", state.ZHand)
@@ -128,6 +129,7 @@ func TestOptionalCostBurningCuriosityPaidBlightExilesThree(t *testing.T) {
 // plain cast is unaffected — no Blight ask, no optionalcostpaid provenance —
 // and the Dig's unpaid branch exiles 2.
 func TestOptionalCostBurningCuriosityPlainExilesTwo(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 611, []string{"Burning Curiosity"},
 		[]string{altBearSrc, altBearSrc}, []string{altBearSrc})
 	spell := findCardObj(t, e, 0, "Burning Curiosity", state.ZHand)
@@ -158,6 +160,7 @@ func TestOptionalCostBurningCuriosityPlainExilesTwo(t *testing.T) {
 // Count$OptionalGenericCostPaid.4.2 deals 4 to the target rather than 2 —
 // the count head read through the real resolution, not a unit stub.
 func TestOptionalCostVoltageSurgeSacrificeDealsFour(t *testing.T) {
+	t.Parallel()
 	giant := "Name:Giant\nManaCost:4 G\nTypes:Creature Giant\nPT:5/9\nOracle:x\n"
 	e, cfg, _ := altCostEngine(t, 612, []string{"Voltage Surge"},
 		[]string{altArtifactSrc}, []string{giant})
@@ -201,6 +204,7 @@ func TestOptionalCostVoltageSurgeSacrificeDealsFour(t *testing.T) {
 // TestOptionalCostVoltageSurgePlainDealsTwo pins the unpaid branch of the
 // same carrier: declining the optional sacrifice deals 2.
 func TestOptionalCostVoltageSurgePlainDealsTwo(t *testing.T) {
+	t.Parallel()
 	giant := "Name:Giant\nManaCost:4 G\nTypes:Creature Giant\nPT:5/9\nOracle:x\n"
 	e, _, _ := altCostEngine(t, 613, []string{"Voltage Surge"},
 		[]string{altArtifactSrc}, []string{giant})
@@ -246,6 +250,7 @@ func TestOptionalCostVoltageSurgePlainDealsTwo(t *testing.T) {
 // paid cast, absent on the plain one, which is exactly the gate's verdict
 // either way.
 func TestOptionalCostGravenArchfiendGateReadsTheCast(t *testing.T) {
+	t.Parallel()
 	t.Run("paid", func(t *testing.T) {
 		e, cfg, _ := altCostEngine(t, 614, []string{"Graven Archfiend"},
 			[]string{altBearSrc}, nil)
@@ -309,6 +314,7 @@ func TestOptionalCostGravenArchfiendGateReadsTheCast(t *testing.T) {
 // disagreement it guards is the exact livelock class (an offered option the
 // charge does not cover) the shared fold exists to prevent.
 func TestOptionalCostChargesTheSameCompositionTheOfferPriced(t *testing.T) {
+	t.Parallel()
 	envoy := "Name:Test Envoy\nManaCost:R\nTypes:Instant\n" +
 		"S:Mode$ OptionalCost | EffectZone$ All | ValidCard$ Card.Self | ValidSA$ Spell | Cost$ Blight<1> | Description$ x\n" +
 		"A:SP$ DealDamage | NumDmg$ 1 | ValidTgts$ Creature | Cost$ Sac<1/Artifact> | SpellDescription$ x\n" +

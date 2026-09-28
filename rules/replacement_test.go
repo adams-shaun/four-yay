@@ -60,6 +60,7 @@ Oracle:x
 // leaves the stack on its own, so ensureLeftTheStack's backstop never has
 // to fire (asserted via the absence of its "fully discarded" Note).
 func TestRestInPeaceShapedReplacementExilesTheReplacedCard(t *testing.T) {
+	t.Parallel()
 	e, cfg, peace := newFixtureDeck(t, 150, restInPeaceSrc, banishedBearSrc, quickBoltSrc)
 
 	e.emit(events.Event{Kind: events.MoveZone, Obj: peace, From: state.ZHand, To: state.ZBattlefield})
@@ -92,6 +93,7 @@ func TestRestInPeaceShapedReplacementExilesTheReplacedCard(t *testing.T) {
 // count grammar -- the negative clamp, because a replacement cannot deal,
 // gain or place a negative amount.
 func TestReplCountOpSharesTheCountGrammar(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		base int32
 		op   string

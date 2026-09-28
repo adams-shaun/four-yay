@@ -42,6 +42,7 @@ func gainLife(t *testing.T, e *Engine, p state.PlayerID, amount int32) {
 }
 
 func TestPrizePigRemovesThreeRibbonsAndUntaps(t *testing.T) {
+	t.Parallel()
 	e, cfg, pig := prizePigTable(t, 311)
 	// Tap the Pig first so the untap payoff is observable.
 	e.emit(events.Event{Kind: events.Tap, Obj: pig})
@@ -64,6 +65,7 @@ func TestPrizePigRemovesThreeRibbonsAndUntaps(t *testing.T) {
 // Below the threshold: 2 life puts 2 ribbon counters, the removal gate fails,
 // nothing is removed and the Pig stays tapped.
 func TestPrizePigBelowThresholdKeepsCountersAndTap(t *testing.T) {
+	t.Parallel()
 	e, _, pig := prizePigTable(t, 311)
 	e.emit(events.Event{Kind: events.Tap, Obj: pig})
 	gainLife(t, e, 0, 2)
@@ -78,6 +80,7 @@ func TestPrizePigBelowThresholdKeepsCountersAndTap(t *testing.T) {
 // The counters accumulate across triggers: 1 life then 2 life leaves three on
 // the second trigger, which removes them and untaps.
 func TestPrizePigAccumulatesAcrossTriggers(t *testing.T) {
+	t.Parallel()
 	e, _, pig := prizePigTable(t, 311)
 	e.emit(events.Event{Kind: events.Tap, Obj: pig})
 	gainLife(t, e, 0, 1)

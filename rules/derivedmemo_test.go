@@ -18,6 +18,7 @@ import (
 // event-backed change (and not a layer-inert Priority marker) is seen by the
 // next walk.
 func TestDerivedMemoScopedToOneWalk(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nK:Trample\nOracle:x\n")
 	angel := onBoard(t, e, 0, "Name:Angel\nManaCost:3 WW\nTypes:Creature Angel\nPT:4/4\nK:Flying\nOracle:x\n")
@@ -76,6 +77,7 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 // inputs (offerAsFace's face flip, the cost-composition exclusion) call
 // retireCrossWalkMemo. Tests may still write directly, and verify mode flags it.
 func TestDerivedMemoCrossWalkVerifyCatchesDirectWrite(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.beginDerivedMemo()
@@ -99,6 +101,7 @@ func TestDerivedMemoCrossWalkVerifyCatchesDirectWrite(t *testing.T) {
 // does cross-check every memo hit: a no-event write inside one walk -- the
 // thing the walk contract forbids -- must trip it.
 func TestDerivedMemoVerifyCatchesStaleness(t *testing.T) {
+	t.Parallel()
 	if !derivedMemoVerify {
 		t.Fatal("verify mode is off in the rules test binary")
 	}
@@ -120,6 +123,7 @@ func TestDerivedMemoVerifyCatchesStaleness(t *testing.T) {
 // TestDerivedMemoBypassesZoneOverride pins that the convoke zone-override
 // read (atStack != 0) never touches the memo.
 func TestDerivedMemoBypassesZoneOverride(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.beginDerivedMemo()
@@ -137,6 +141,7 @@ func TestDerivedMemoBypassesZoneOverride(t *testing.T) {
 // serves is recomputed and compared); at any other decision it must open a
 // fresh one.
 func TestBeginDerivedReadsResumesThePriorityWalk(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 7, Names: names, Decks: decks})
 	e.Advance()
@@ -183,6 +188,7 @@ func TestBeginDerivedReadsResumesThePriorityWalk(t *testing.T) {
 // TestBeginDerivedReadsDoesNotSurviveSubmit: once the priority decision is
 // answered the tail is dead, and a Submit inside an open scope panics.
 func TestBeginDerivedReadsDoesNotSurviveSubmit(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 7, Names: names, Decks: decks})
 	e.Advance()
@@ -221,6 +227,7 @@ func TestBeginDerivedReadsDoesNotSurviveSubmit(t *testing.T) {
 // scope's one blind spot -- a direct e.G write with no event between the ask
 // and the board build -- and proves verify mode flags it.
 func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 7, Names: names, Decks: decks})
 	e.Advance()
@@ -260,6 +267,7 @@ func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
 // never served after the probe, and a live-face entry from before the probe
 // is never served inside it.
 func TestDerivedMemoFaceProbeDoesNotLeak(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 7413, taxedAdventureSrc, taxWardenSrc)
 	o := e.G.Obj(id)
 	if o == nil || len(o.Card.Faces) < 2 {

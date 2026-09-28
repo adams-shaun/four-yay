@@ -13,6 +13,7 @@ const powerUpActivationsStatic = "Name:PowerUpGrant\nManaCost:0\nTypes:Enchantme
 	"S:Mode$ Activations | ValidCard$ Creature.YouCtrl | ValidSA$ Activated.PowerUp | MinLimit$ 2\nOracle:x\n"
 
 func TestAdditionalActivationsRaisesExhaustToFiniteLimit(t *testing.T) {
+	t.Parallel()
 	const source = "Name:ExhaustTarget\nManaCost:0\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ 1 | Defined$ Self | Power$ 1 | Exhaust$ True | SpellDescription$ Pump.\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 17, source, additionalActivationsStatic)
@@ -40,6 +41,7 @@ func TestAdditionalActivationsRaisesExhaustToFiniteLimit(t *testing.T) {
 }
 
 func TestAdditionalActivationsRaisesPowerUpToFiniteLimit(t *testing.T) {
+	t.Parallel()
 	const source = "Name:PowerUpTarget\nManaCost:0\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ 1 | Defined$ Self | Power$ 1 | PowerUp$ True | SpellDescription$ Pump.\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 18, source, powerUpActivationsStatic)
@@ -67,6 +69,7 @@ func TestAdditionalActivationsRaisesPowerUpToFiniteLimit(t *testing.T) {
 }
 
 func TestAdditionalActivationsRaisesGameActivationLimit(t *testing.T) {
+	t.Parallel()
 	const source = "Name:GameLimitedTarget\nManaCost:0\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ 1 | Defined$ Self | Power$ 1 | Exhaust$ True | GameActivationLimit$ 1 | SpellDescription$ Pump.\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 19, source, additionalActivationsStatic)

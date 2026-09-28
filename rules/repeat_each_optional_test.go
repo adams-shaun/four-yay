@@ -122,6 +122,7 @@ func countElementals(e *Engine, p state.PlayerID) int {
 // posed in loop order (opponent 1 then opponent 2), and the enclosing spell
 // still resolves off the stack.
 func TestRepeatEachOptionalForEachPlayerMixedAnswers(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := repeatEachCarrierFixture(t, 6301)
 	d := castTempt(t, e, id)
 
@@ -163,6 +164,7 @@ func TestRepeatEachOptionalForEachPlayerMixedAnswers(t *testing.T) {
 // path is a real skip for every subject and not "run the body anyway": both
 // opponents decline and neither creates an Elemental.
 func TestRepeatEachOptionalForEachPlayerDeclinesEverySubject(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := repeatEachCarrierFixture(t, 6302)
 	d := castTempt(t, e, id)
 
@@ -189,6 +191,7 @@ func TestRepeatEachOptionalForEachPlayerDeclinesEverySubject(t *testing.T) {
 // for every subject: both opponents accept, so each creates its own Elemental
 // (and each election's effect is attributed to its own player).
 func TestRepeatEachOptionalForEachPlayerAcceptsBoth(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := repeatEachCarrierFixture(t, 6303)
 	d := castTempt(t, e, id)
 
@@ -256,6 +259,7 @@ func repeatEachInlineFixture(t *testing.T, seed uint64, src string) (*Engine, Co
 // KArrange; answering that arrange must resume into seat 2's election (with
 // seat 2 free to decline, running no body of its own).
 func TestRepeatEachOptionalForEachPlayerSuspendedBody(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := repeatEachInlineFixture(t, 6310, suspendingRepeatEachScript())
 	addMana(t, e, 0, "R")
 	castFirst(t, e, "cast")

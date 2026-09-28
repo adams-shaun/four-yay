@@ -36,6 +36,7 @@ func phaseOutActivateOffered(e *Engine, p state.PlayerID, obj state.ObjID) bool 
 // its activated abilities is offered. The phased-in control on the SAME
 // object proves the offer walk is the thing under test, not an empty menu.
 func TestCR702PhasedOutPermanentActivatedAbilityNotOffered(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 501, phasedManaArtifact)
 	// Move the artifact itself onto the battlefield (newFixtureDeck returns
 	// the card in hand, and the offer walk only reads battlefield/permanent
@@ -64,6 +65,7 @@ func TestCR702PhasedOutPermanentActivatedAbilityNotOffered(t *testing.T) {
 // the PhaseOut fold, which must clear the attacker even though phasing is not
 // a zone change and no Move fold runs.
 func TestCR702PhasedOutAttackerIsRemovedFromCombat(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 502, "Grizzly Bears")
 	bears := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	o := e.G.Obj(bears)
@@ -94,6 +96,7 @@ func TestCR702PhasedOutAttackerIsRemovedFromCombat(t *testing.T) {
 // combat removal: a phased-out BLOCKER no longer absorbs damage, but the
 // attacker it blocked stays blocked (a zero tombstone, not a shortened list).
 func TestCR702PhasedOutBlockerLeavesZeroTombstone(t *testing.T) {
+	t.Parallel()
 	e, _ := phasesGame(t, 503, "Grizzly Bears", "Hill Giant")
 	attacker := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Grizzly Bears"), state.ZBattlefield)
 	blocker := moveSeededCard(t, e, 0, tokenReplCorpusCard(t, "Hill Giant"), state.ZBattlefield)
@@ -116,6 +119,7 @@ func TestCR702PhasedOutBlockerLeavesZeroTombstone(t *testing.T) {
 // guard against the fixture constant drifting out of the parser: an artifact
 // with no activated ability would make the offer test vacuous.
 func TestPhasedManaArtifactFixtureHasAnActivatedAbility(t *testing.T) {
+	t.Parallel()
 	c := card(t, phasedManaArtifact)
 	if len(c.Faces) == 0 || len(c.Faces[0].Abilities) == 0 {
 		t.Fatal("fixture Mana Rock parsed with no activated ability")

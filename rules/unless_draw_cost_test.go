@@ -52,6 +52,7 @@ func driveKurokiTrig(t *testing.T) (*Engine, state.ObjID) {
 // controller), and paying draws that opponent exactly four cards — the cost
 // the corpus spells as Draw<4/Player.targetedBy>.
 func TestUnlessDrawCostKurokiPay(t *testing.T) {
+	t.Parallel()
 	e, kuroki := driveKurokiTrig(t)
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KModes || d.ResumeKind != "unless_pay" {
@@ -73,6 +74,7 @@ func TestUnlessDrawCostKurokiPay(t *testing.T) {
 // TestUnlessDrawCostKurokiDecline is the mirror: the opponent declines, no
 // cards move, and the switched orientation skips the reveal/cast body.
 func TestUnlessDrawCostKurokiDecline(t *testing.T) {
+	t.Parallel()
 	e, _ := driveKurokiTrig(t)
 	before := countDraw(e)
 	answerUnlessPay(t, e, false)
@@ -87,6 +89,7 @@ func TestUnlessDrawCostKurokiDecline(t *testing.T) {
 // draw three cards. All three cost components must happen before Forge's
 // switched Sacrifice body resolves.
 func TestUnlessCostTresserhornPaysSacLifeAndDraw(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := stealEngine(t, 742)
 	lord := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Tresserhorn's Lord, Returned"))
@@ -152,6 +155,7 @@ func TestUnlessCostTresserhornPaysSacLifeAndDraw(t *testing.T) {
 // The mirror half pins that a resolvable role (You, the payer) still pays
 // and draws in one pass.
 func TestUnlessCostUnresolvableDrawerDeclinesWhole(t *testing.T) {
+	t.Parallel()
 	e := stealEngine(t, 743)
 	cost := Cost{Life: 2, Draw: []CostPart{{N: 1, Spec: "Player.NoSuchRole"}}}
 	life := e.G.Players[0].Life
@@ -192,6 +196,7 @@ func TestUnlessCostUnresolvableDrawerDeclinesWhole(t *testing.T) {
 // Draw<N/Spec> token is priceable (paid by drawing), a Draw<X/...> unfolded
 // amount is not, and every unmodelled verb still declines.
 func TestParseUnlessCostDrawComponents(t *testing.T) {
+	t.Parallel()
 	if c, ok := ParseUnlessCost("Draw<4/Player.targetedBy>"); !ok || len(c.Draw) != 1 ||
 		c.Draw[0].N != 4 || c.Draw[0].Spec != "Player.targetedBy" {
 		t.Fatalf("Draw<4/Player.targetedBy> = %+v ok=%v, want one 4-card targeted part", c, ok)

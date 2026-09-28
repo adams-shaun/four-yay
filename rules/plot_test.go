@@ -77,6 +77,7 @@ func plotEngine(t *testing.T) (*Engine, state.ObjID) {
 // counter count) -- is NOT castable for free on the turn it was plotted, and
 // is castable for free from turn 2's main phase, resolving to the graveyard.
 func TestPlotLockAndLoadPlotsThenCastsFreeOnALaterTurn(t *testing.T) {
+	t.Parallel()
 	e, lal := plotEngine(t)
 	castMode(t, e, lal, "plot")
 	o := e.G.Obj(lal)
@@ -153,6 +154,7 @@ func TestPlotLockAndLoadPlotsThenCastsFreeOnALaterTurn(t *testing.T) {
 // zero-mana-value plotted card carried zero counters and was castable the
 // same turn. The later-turn rule is mana-value independent.
 func TestPlotZeroManaValueStillWaitsForALaterTurn(t *testing.T) {
+	t.Parallel()
 	src := "Name:Free Plot\nManaCost:0\nTypes:Sorcery\nK:Plot:1 U\nOracle:x\n"
 	e := handEngine(t, card(t, src))
 	id := e.G.Zone(state.ZHand, 0)[0]
@@ -180,6 +182,7 @@ func TestPlotZeroManaValueStillWaitsForALaterTurn(t *testing.T) {
 }
 
 func TestPlotActionOnlyAtSorceryTiming(t *testing.T) {
+	t.Parallel()
 	fast := card(t, "Name:Fast Plot\nManaCost:1 U\nTypes:Instant\nK:Plot:1 U\nOracle:x\n")
 	e := handEngine(t, fast)
 	fastID := e.G.Zone(state.ZHand, 0)[0]
@@ -204,6 +207,7 @@ func TestPlotActionOnlyAtSorceryTiming(t *testing.T) {
 }
 
 func TestPlotFreeCastFollowsSorceryTimingWhateverTheFace(t *testing.T) {
+	t.Parallel()
 	// A plotted card's cast follows sorcery timing even for a face whose own
 	// type would allow instant-speed casting: drive the plotted synthetic
 	// instant to a later turn and confirm the offer only exists at main
@@ -228,6 +232,7 @@ func TestPlotFreeCastFollowsSorceryTimingWhateverTheFace(t *testing.T) {
 }
 
 func TestPlotProvenanceGateBlocksArbitraryExile(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Lock and Load"))
 	lal := e.G.Zone(state.ZHand, 0)[0]
 	// Exile the card by hand with no plot ACTION: no plotted designation and
@@ -258,6 +263,7 @@ func TestPlotProvenanceGateBlocksArbitraryExile(t *testing.T) {
 // models it) makes the free cast appear on a later turn, and clearing it
 // removes the permission.
 func TestPlotDesignationSharedAttributePath(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Lock and Load"))
 	lal := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.Event{Kind: events.MoveZone, Obj: lal, From: state.ZHand, To: state.ZExile})
@@ -284,6 +290,7 @@ func TestPlotDesignationSharedAttributePath(t *testing.T) {
 // the designation is dropped as the card leaves exile, so a later effect that
 // exiles the same card again does not revive the free-cast permission.
 func TestPlotDesignationClearedOnExileDeparture(t *testing.T) {
+	t.Parallel()
 	e, lal := plotEngine(t)
 	castMode(t, e, lal, "plot")
 	if got := e.G.Obj(lal).PlottedTurn; got == 0 {
@@ -304,6 +311,7 @@ func TestPlotDesignationClearedOnExileDeparture(t *testing.T) {
 }
 
 func TestPlotOfferNeedsPayableCost(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Lock and Load"))
 	// The pool is empty: CR 701.34a's action pays {3}{U}, so the offer must
 	// be withheld, not stranded into an unpayable cast.

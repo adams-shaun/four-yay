@@ -28,6 +28,7 @@ import (
 // DIFFERENT opponent of the Jailer's controller (seat 0) -- takes the crown.
 // The creature must return.
 func TestPalaceJailerReturnsToThirdSeatOpponentMonarch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := newSeats(t, 3)
 	jailer := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Palace Jailer"))
@@ -71,6 +72,7 @@ func TestPalaceJailerReturnsToThirdSeatOpponentMonarch(t *testing.T) {
 // must NOT return the creature when the Jailer's own controller takes the
 // crown. Without this the positive test would pass for a blanket return.
 func TestPalaceJailerStaysExiledWhenJailerControllerTakesCrown(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := newSeats(t, 3)
 	jailer := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Palace Jailer"))
@@ -101,6 +103,7 @@ func TestPalaceJailerStaysExiledWhenJailerControllerTakesCrown(t *testing.T) {
 // defect: the synthetic monarch-draw DelayedPush carries no card
 // registration, so it must not consume the first (ID 0) one.
 func TestMonarchEndStepDrawDoesNotConsumeDelayedRegistration(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := e.G.Zone(state.ZHand, 0)[0]
 

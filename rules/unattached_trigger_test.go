@@ -49,6 +49,7 @@ func equipOn(t *testing.T, e *Engine, equip, bear state.ObjID) {
 // the graveyard, so the sacrifice skips it LOUDLY (one Note naming the bear)
 // instead of sacrificing the Equipment or any other permanent.
 func TestGraftedExoskeletonFiresWhenTheBearerLeavesAndSkipsTheGoneLKI(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	exo := mustCorpusCard(t, reg, "Grafted Exoskeleton")
 	bearCard := card(t, attachedBearSrc)
@@ -144,6 +145,7 @@ func TestGraftedExoskeletonFiresWhenTheBearerLeavesAndSkipsTheGoneLKI(t *testing
 // the live sacrifice, not about which SBA arm produced it (the real SBA arm
 // is pinned by the bearer-left test above).
 func TestUnattachedLiveBearerIsSacrificed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	exo := mustCorpusCard(t, reg, "Grafted Exoskeleton")
 	bearCard := card(t, attachedBearSrc)
@@ -205,6 +207,7 @@ const unattachedPlainEquipSrc = "Name:Plain Sword\nManaCost:1\nTypes:Artifact Eq
 // source), so it always matched and the trigger sacrificed the unrelated
 // event's former bearer.
 func TestUnrelatedEquipmentDetachDoesNotFireTheExoskeleton(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	exo := mustCorpusCard(t, reg, "Grafted Exoskeleton")
 	bearCard := card(t, attachedBearSrc)
@@ -262,6 +265,7 @@ func TestUnrelatedEquipmentDetachDoesNotFireTheExoskeleton(t *testing.T) {
 // and overwrote AttachedTo, leaving the former bearer alive and the
 // Exoskeleton's trigger silent.
 func TestReequipFromOneLivingCreatureToAnotherFiresUnattached(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	exo := mustCorpusCard(t, reg, "Grafted Exoskeleton")
 	bearA := card(t, attachedBearSrc)

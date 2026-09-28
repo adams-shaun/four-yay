@@ -72,6 +72,7 @@ func synthFixture(t *testing.T) (*Engine, Config, state.ObjID, state.ObjID, *dec
 // accepted copy has the Bears 2/2 body with the Artifact/Creature/Synth
 // exceptions riding AddTypes$; and no self-source ClonePermanent is emitted.
 func TestSynthInfiltratorEntryCopyElectionCopiesTheBear(t *testing.T) {
+	t.Parallel()
 	e, cfg, synth, bear, d := synthFixture(t)
 
 	bearIdx, declineIdx := -1, -1
@@ -142,6 +143,7 @@ func TestSynthInfiltratorEntryCopyElectionCopiesTheBear(t *testing.T) {
 // SBA removes it to the graveyard, and the event stream shows the
 // self-entry and the SBA move with NO clone event manufactured.
 func TestSynthInfiltratorEntryCopyDeclineEntersAsItself(t *testing.T) {
+	t.Parallel()
 	e, cfg, synth, _, d := synthFixture(t)
 
 	declineIdx := -1

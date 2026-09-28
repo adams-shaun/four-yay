@@ -25,6 +25,7 @@ const dealDamageReplacementFixture = "Name:Fixture Damage Replacer\nManaCost:1 R
 	"SVar:DealThree:DB$ DealDamage | Defined$ Opponent | NumDmg$ 3\nOracle:x\n"
 
 func TestGoblinBowlingTeamDamagePlusRoll(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, seedTossSeat0(913), []string{goblinBowlingFixture}, nil)
 	attacker := putCreature(t, e, 0, goblinBowlingFixture)
 	if e.G.Obj(attacker) == nil || e.G.Obj(attacker).Zone != state.ZBattlefield {
@@ -68,6 +69,7 @@ func TestGoblinBowlingTeamDamagePlusRoll(t *testing.T) {
 }
 
 func TestDealDamageReplacementStillUsesItsEmissions(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, seedTossSeat0(914), []string{dealDamageReplacementFixture}, nil)
 	attacker := putCreature(t, e, 0, dealDamageReplacementFixture)
 	if e.G.Obj(attacker) == nil || e.G.Obj(attacker).Zone != state.ZBattlefield {
@@ -88,6 +90,7 @@ func TestDealDamageReplacementStillUsesItsEmissions(t *testing.T) {
 }
 
 func TestHawkeyePlusYOperandApplied(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, seedTossSeat0(915), []string{hawkeyePlusYFixture, wgBoltSrc}, nil)
 	hawkeye := putCreature(t, e, 0, hawkeyePlusYFixture)
 	if e.G.Obj(hawkeye) == nil || e.G.Obj(hawkeye).Zone != state.ZBattlefield {

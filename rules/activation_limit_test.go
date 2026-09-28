@@ -71,6 +71,7 @@ func witheringEngine(t *testing.T, reg *cards.Registry, swamps int) (*Engine, st
 // ZERO snow Swamps the computed limit is 0, so Withering Wisps' activated
 // ability must NOT be offered at all.
 func TestActivationLimitComputedZeroSnowSwampsWithholdsTheOffer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, id, swamps := witheringEngine(t, reg, 0)
 	if len(swamps) != 0 {
@@ -86,6 +87,7 @@ func TestActivationLimitComputedZeroSnowSwampsWithholdsTheOffer(t *testing.T) {
 // TWO snow Swamps the computed limit is 2, so the ability is offered twice
 // this turn and NOT a third time.
 func TestActivationLimitComputedTwoSnowSwampsOfferedTwiceNotThird(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, id, swamps := witheringEngine(t, reg, 2)
 	if len(swamps) != 2 {
@@ -117,6 +119,7 @@ func TestActivationLimitComputedTwoSnowSwampsOfferedTwiceNotThird(t *testing.T) 
 // shape (Basking Rootwalla's ActivationLimit$ 1) behaves exactly as it did
 // before -- offered once, withheld on the second activation the same turn.
 func TestActivationLimitLiteralStillEnforcedExactly(t *testing.T) {
+	t.Parallel()
 	src := "Name:LimitedBeast\nManaCost:1 G\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ 1 G | Defined$ Self | Power$ 1 | Toughness$ 1 | ActivationLimit$ 1 | SpellDescription$ CARDNAME gets +1/+1.\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 7, src)
@@ -147,6 +150,7 @@ func TestActivationLimitLiteralStillEnforcedExactly(t *testing.T) {
 // lookup, report ok=false, and silently leave the limit unenforced -- which is
 // exactly the divergence this task exists to remove.
 func TestActivationLimitInlineCountWithheldAtComputedCount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	src := "Name:InlineBeast\nManaCost:1 G\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ 1 G | Defined$ Self | Power$ 1 | Toughness$ 1 | ActivationLimit$ Count$Valid Swamp.Snow+YouCtrl | SpellDescription$ CARDNAME gets +1/+1.\nOracle:x\n"
@@ -212,6 +216,7 @@ func TestActivationLimitInlineCountWithheldAtComputedCount(t *testing.T) {
 // The log has exactly one ManaActivate marker and is replay-safe (the log
 // re-folds to the same chain head).
 func TestManaAbilityActivationLimitOfferedOnceThenWithheld(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	vivi, ok := reg.Lookup("Vivi Ornitier")
 	if !ok {
@@ -293,6 +298,7 @@ func TestManaAbilityActivationLimitOfferedOnceThenWithheld(t *testing.T) {
 // name absent from the face's table) stays unenforced, deliberately -- the
 // ability is offered exactly as it was before the fix.
 func TestActivationLimitUnresolvableItDegradesToUnenforced(t *testing.T) {
+	t.Parallel()
 	src := "Name:MysteryBeast\nManaCost:1 G\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ 1 G | Defined$ Self | Power$ 1 | Toughness$ 1 | ActivationLimit$ NoSuchSVar | SpellDescription$ CARDNAME gets +1/+1.\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 7, src)

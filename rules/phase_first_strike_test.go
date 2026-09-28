@@ -9,6 +9,7 @@ import (
 )
 
 func TestFirstStrikeDamagePhaseGate(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	e.G.Step = state.StepCombatDamage
 	tr := cards.Trigger{Params: map[string]string{"Phase": "First Strike Damage"}}

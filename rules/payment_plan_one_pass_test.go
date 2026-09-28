@@ -171,6 +171,7 @@ const (
 // and restricted pools, cost statics, cast prohibitions, the other seat, and
 // a board with no sources.
 func TestPaymentPlanOnePassMatchesReferenceOnFixtureBoards(t *testing.T) {
+	t.Parallel()
 	type board struct {
 		name  string
 		seat  state.PlayerID
@@ -388,6 +389,7 @@ func BenchmarkPriorityAskPaymentActions(b *testing.B) {
 // TestPaymentPlanOnePassBenchBoardMatchesReference keeps the benchmark board
 // honest: it is also an equivalence fixture.
 func TestPaymentPlanOnePassBenchBoardMatchesReference(t *testing.T) {
+	t.Parallel()
 	e := onePassBenchBoard(t)
 	if n := onePassCompare(t, e, "bench board"); n < 4 {
 		t.Fatalf("precondition: bench board offers %d actions, want >= 4", n)

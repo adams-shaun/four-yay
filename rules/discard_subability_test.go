@@ -32,6 +32,7 @@ func countLoseLife(e *Engine, p state.PlayerID) int {
 // The fix suspends the chain, so DBLoseLife fires exactly once, after the
 // chosen card is discarded, for exactly 2.
 func TestThoughtseizeLosesExactlyTwoLife(t *testing.T) {
+	t.Parallel()
 	ts := "Name:PiT\nManaCost:B\nTypes:Sorcery\n" +
 		"A:SP$ Discard | ValidTgts$ Player | NumCards$ 1 | Mode$ RevealYouChoose | DiscardValid$ Card.nonLand | SubAbility$ DBLoseLife\n" +
 		// No Defined$ -- this mirrors the real thoughtseize.txt verbatim
@@ -95,6 +96,7 @@ func TestThoughtseizeLosesExactlyTwoLife(t *testing.T) {
 // -5 (the mode) +1 (the SubAbility) = -4. The buggy build stacked a second
 // +1 on the first pass for a net -3.
 func TestCharmSubAbilityRunsOnce(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiC\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ Charm | Choices$ DoGain,DoLose | SubAbility$ DBLife\n" +
 		"SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life\n" +

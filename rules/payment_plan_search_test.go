@@ -178,6 +178,7 @@ func srchDuals(plan *decision.PaymentPlan, duals map[state.ObjID]bool) int {
 // Enough Islands exist every time, so the rank-best plan taps no dual; the
 // old walk hit the node limit and tapped 1, 3 and 4 duals.
 func TestPaymentPlanSearchBasicsBeforeDualsOnWideBoards(t *testing.T) {
+	t.Parallel()
 	for i, tc := range []struct {
 		basics int
 		cost   string
@@ -218,6 +219,7 @@ func TestPaymentPlanSearchBasicsBeforeDualsOnWideBoards(t *testing.T) {
 // Done-means 2 (the gaps audit's search-limit proof): a 12-generic spell over
 // 30 Mountains and 6 duals used to exhaust the budget with no plan at all.
 func TestPaymentPlanSearchThirtyMountainsTwelveGeneric(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9960, srchSpell("12"))
 	duals := map[state.ObjID]bool{}
 	for k := 0; k < 30; k++ {
@@ -325,6 +327,7 @@ func TestPaymentPlanSearchMatchesOracleOnMixedBoard(t *testing.T) {
 // where the witness must pick the lowest IDs, a floating pool, and seat
 // orders that put a class's members out of ID order.
 func TestPaymentPlanSearchMatchesOracleOnClassBoards(t *testing.T) {
+	t.Parallel()
 	boards := []struct {
 		name  string
 		srcs  []string
@@ -377,6 +380,7 @@ func TestPaymentPlanSearchMatchesOracleOnClassBoards(t *testing.T) {
 // seated first, and a three-colour board where every greedy first choice of
 // the Volcanic's colour fails.
 func TestPaymentPlanSearchBacktracksDualColours(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9990, srchSpell("U R"))
 	dual := onBoard(t, e, 0, srchVolcanic)
 	island := onBoard(t, e, 0, srchIsland)
@@ -399,6 +403,7 @@ func TestPaymentPlanSearchBacktracksDualColours(t *testing.T) {
 
 // A floating pool that already pays needs no activation at all.
 func TestPaymentPlanSearchPoolAlonePays(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9993, srchSpell("1 R"))
 	onBoard(t, e, 0, srchMountain)
 	e.G.Players[0].Pool[state.ManaIndex('R')] = 2
@@ -660,6 +665,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]plannedM
 // plan, including when a last-resort source is needed and when two Cities
 // (3+3) must be preferred to one Vault (25).
 func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 9996, srchSpell("U"))
 	onBoard(t, e, 0, srchIsland)
 	onBoardCard(t, e, 0, corpusCard(t, "City of Brass"))
@@ -742,6 +748,7 @@ func srchCheckAgainstOracle(t *testing.T, e *Engine, spell state.ObjID, cost Cos
 // hand the rank keeps every colour and taps a Forest. The search's key-6
 // bound (reserve) must not cut the winning branch.
 func TestPaymentPlanSearchHandReserveDecidesOnClassBoard(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9997, srchSpell("3 W"))
 	var forests []state.ObjID
 	for _, src := range []string{srchForest, srchIsland, srchPlains, srchForest, srchIsland, srchForest, srchIsland, srchPlains} {

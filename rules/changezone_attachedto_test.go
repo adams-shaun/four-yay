@@ -143,6 +143,7 @@ func attachDrain(t *testing.T, e *Engine, limit int) *decision.Decision {
 // SBA. Net zone outcome matches the oracle (graveyard); the event path
 // differs (attach + sweep instead of remain), which is observable in the log.
 func TestRetetherReturnsAurasAttached(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, ids := attachedToFixture(t, reg, 9311, []string{"Retether"}, []string{"Grizzly Bears"},
 		[]string{"Divine Favor", "Divine Favor", "Utopia Sprawl"})
@@ -214,6 +215,7 @@ func TestRetetherReturnsAurasAttached(t *testing.T) {
 // the battlefield ATTACHED to the enchanted creature (`AttachedTo$ Valid
 // Creature.EnchantedBy`), where it survives the CR 704.5m/n SBAs.
 func TestMantleOfTheAncientsEtbAttaches(t *testing.T) {
+	t.Parallel()
 	run := func(t *testing.T, grave []string, wantName string, wantStaysGrave string) {
 		t.Helper()
 		reg := searchTestRegistry(t)

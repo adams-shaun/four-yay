@@ -152,6 +152,7 @@ func rashmiTestEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, state
 // DBEffect's EQ0 gate registers the STPlay MayPlay static, and the
 // mana-costed cast of the exiled card is offered this turn (and castable).
 func TestRashmiDeclinedPlayOffersTheFallbackCast(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, rashmiID, oppOrni := rashmiTestEngine(t, reg)
 	d := e.Pending()
@@ -200,6 +201,7 @@ func TestRashmiDeclinedPlayOffersTheFallbackCast(t *testing.T) {
 // as imprinted on Rashmi (one events.Imprint), DBEffect's EQ0 gate denies
 // the MayPlay static, and the cleanup clears the imprint list.
 func TestRashmiAcceptedPlayImprintsAndDeniesTheFallback(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, rashmiID, oppOrni := rashmiTestEngine(t, reg)
 	submitChoices(t, e, 0) // play it

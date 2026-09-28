@@ -67,6 +67,7 @@ func rankSubmit(t *testing.T, e *Engine, spell state.ObjID) {
 // creature untapped when lands can pay; V1 used to tap Forest + the creature
 // because it ranked fewest sources first.
 func TestPaymentPlanRankCreatureAfterLands(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9901, "Name:Green Three\nManaCost:2 G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	construct := onBoardReady(t, e, 0, "Name:Twin Construct\nTypes:Artifact Creature Construct\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ C | Amount$ 2\nOracle:x\n")
 	f1 := onBoard(t, e, 0, rankForest)
@@ -89,6 +90,7 @@ func TestPaymentPlanRankCreatureAfterLands(t *testing.T) {
 // "T: add {C}". The painful ability is last resort, so the land's painless
 // {C} ability pays the generic.
 func TestPaymentPlanRankPainlessAbilityOfPainfulLand(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9902, "Name:Blue Two\nManaCost:1 U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	island := onBoard(t, e, 0, rankIsland)
 	land := onBoard(t, e, 0, "Name:Pain Test\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ Any | SubAbility$ DBPain | SpellDescription$ Any, pain.\nA:AB$ Mana | Cost$ T | Produced$ C | SpellDescription$ Colourless.\nSVar:DBPain:DB$ DealDamage | Defined$ You | NumDmg$ 3\nOracle:x\n")
@@ -107,6 +109,7 @@ func TestPaymentPlanRankPainlessAbilityOfPainfulLand(t *testing.T) {
 // Done-means 3 (probe P1): {2}{U} with three Islands and a "T: {C}{C}, 2
 // damage to you" land pays with the three Islands.
 func TestPaymentPlanRankDamageLandNotUsedWhenIslandsPay(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9903, "Name:Blue Three\nManaCost:2 U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	tomb := onBoard(t, e, 0, "Name:Tomb Test\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ C | Amount$ 2 | SubAbility$ DBHurt | SpellDescription$ x\nSVar:DBHurt:DB$ DealDamage | Defined$ You | NumDmg$ 2\nOracle:x\n")
 	i1 := onBoard(t, e, 0, rankIsland)
@@ -125,6 +128,7 @@ func TestPaymentPlanRankDamageLandNotUsedWhenIslandsPay(t *testing.T) {
 // leaves Island + Forest (two colours) rather than two Forests (one). The
 // Island is placed first so the old string tie-break would have picked it.
 func TestPaymentPlanRankRemainderDiversity(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9904, "Name:Green Two\nManaCost:1 G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	island := onBoard(t, e, 0, rankIsland)
 	f1 := onBoard(t, e, 0, rankForest)
@@ -142,6 +146,7 @@ func TestPaymentPlanRankRemainderDiversity(t *testing.T) {
 // flexibility is the number of DISTINCT mana types a source's eligible
 // alternatives produce, not the number of alternatives.
 func TestPaymentPlanRankFlexCountsDistinctTypes(t *testing.T) {
+	t.Parallel()
 	t.Run("PP-03 prefers the Mountain", func(t *testing.T) {
 		e, _, spell := newFixtureDeck(t, 9905, "Name:Grixis Plan\nManaCost:1 U B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		island := onBoard(t, e, 0, ppIsland)
@@ -194,6 +199,7 @@ func TestPaymentPlanRankFlexCountsDistinctTypes(t *testing.T) {
 // before 9); two identical Islands straddling a decimal boundary must use the
 // lower object ID. (The pure rank test below pins IDs 9 and 10 exactly.)
 func TestPaymentPlanRankNumericTieBreak(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9906, "Name:Blue One\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	boundary := state.ObjID(9)
 	for boundary < e.G.NextID {
@@ -214,6 +220,7 @@ func TestPaymentPlanRankNumericTieBreak(t *testing.T) {
 // query and cloning the engine yield identical plan (and action) IDs, on a
 // board where several keys tie.
 func TestPaymentPlanRankDeterministicAcrossRerunAndClone(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9908, "Name:Green Two\nManaCost:1 G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, rankIsland)
 	for i := 0; i < 4; i++ {
@@ -266,6 +273,7 @@ func rankRepeat(n int, s rankInputStep) []rankInputStep {
 // damage is cheaper than a sacrifice (Arena 2022.20.0 prefers tapping a
 // creature to a pain land's damage, and key 2 below key 1 encodes that too).
 func TestPaymentPlanRankIrreversibleCostKey(t *testing.T) {
+	t.Parallel()
 	ctx := paymentPlanRankContext{}
 	sac := rankInputStep{source: 1, consequence: paymentConsequence{sacrifice: true}}
 	vault := rankInputStep{source: 1, consequence: paymentConsequence{noUntap: true}}
@@ -313,6 +321,7 @@ func TestPaymentPlanRankIrreversibleCostKey(t *testing.T) {
 // Key order below the cost key, on constructed inputs: creatures, then
 // sources, then surplus.
 func TestPaymentPlanRankKeyOrder(t *testing.T) {
+	t.Parallel()
 	ctx := paymentPlanRankContext{}
 	land := rankInputStep{source: 1}
 	creature := rankInputStep{source: 1, creature: true}
@@ -333,6 +342,7 @@ func TestPaymentPlanRankKeyOrder(t *testing.T) {
 // Remainder diversity on constructed inputs: the plan's own sources are
 // removed from the per-query colour census.
 func TestPaymentPlanRankRemainderKey(t *testing.T) {
+	t.Parallel()
 	// Census: two green sources, one blue.
 	ctx := paymentPlanRankContext{}
 	ctx.colourSources[state.MG] = 2
@@ -364,6 +374,7 @@ func TestPaymentPlanRankRemainderKey(t *testing.T) {
 // Done-means 6 on exact object IDs 9 and 10: the typed compare is numeric
 // (the old fmt.Sprint key put "{10 ..." before "{9 ...").
 func TestPaymentPlanRankTypedWitnessCompare(t *testing.T) {
+	t.Parallel()
 	ctx := paymentPlanRankContext{}
 	nine := rankOf(ctx, state.Mana{}, rankInputStep{source: 9})
 	ten := rankOf(ctx, state.Mana{}, rankInputStep{source: 10})

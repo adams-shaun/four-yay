@@ -59,6 +59,7 @@ func fusedDownDirtyEngine(t *testing.T, reg *cards.Registry, seed uint64) (*Engi
 // after the answer -- the targeted graveyard card returns to hand -- instead
 // of being dropped behind the "fuse: alternate half not run" Note.
 func TestFusedDownDirtyAlternateHalfRunsAfterTheDiscardAsk(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, gyID := fusedDownDirtyEngine(t, reg, 8431)
 
@@ -200,6 +201,7 @@ func fusedFarAwayEngine(t *testing.T, reg *cards.Registry, seed uint64) (*Engine
 // completion, which the generic completion chain's fresh ctx used to trigger
 // by re-deriving the object's flat target list for the re-entered half.
 func TestFusedFarAwayAlternateHalfSuspensionAsksOnlyTheSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id := fusedFarAwayEngine(t, reg, 9412)
 
@@ -384,6 +386,7 @@ func fusedFleshBloodEngine(t *testing.T, reg *cards.Registry, seed uint64) (*Eng
 // frame that was not a half root, and fusedHalfTargets matched only the
 // halves' root SAs, so DBPutCounter read 4.
 func TestFusedFleshBloodSubAbilityReadsItsOwnHalfTargets(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, bearA, bearB, gyID := fusedFleshBloodEngine(t, reg, 7319)
 
@@ -532,6 +535,7 @@ func passUntilPendingKind(t *testing.T, e *Engine, kind decision.Kind, limit int
 // Ctx.Targets from the stack object's flat list for the sub-ability frame
 // (fusedHalfTargets matched only the halves' root SAs), so Blood dealt 4.
 func TestFusedBloodSubAbilityReadsItsOwnHalfTargets(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, bearA, bearB, gyID := fusedFleshBloodEngine(t, reg, 7319)
 

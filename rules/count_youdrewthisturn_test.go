@@ -87,6 +87,7 @@ func TestYouDrewThisTurnHeadFoldsTheTurnsDraws(t *testing.T) {
 // two more this turn must mint b+2 Vampire Knight tokens with lifelink, and
 // paying the cost must charge the 4 life.
 func TestElendaAndAzorTokensEqualCardsDrawnThisTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Elenda and Azor")
 	elenda := searchMoveByName(t, e, "Elenda and Azor", state.ZBattlefield)

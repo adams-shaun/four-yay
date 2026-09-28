@@ -94,6 +94,7 @@ func TestTrainingCounterOnAttackWithABiggerCreature(t *testing.T) {
 // requirement, and that the counter goes on the trainee, not the bigger
 // creature: two 2/1 Gryff Riders attack together and neither trains.
 func TestTrainingIgnoresAnEqualPowerAttacker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	rider := mustCorpusCard(t, reg, "Gryff Rider")
 	e, cfg := trainingDeck(t, 202, rider, rider)
@@ -220,6 +221,7 @@ func TestTrainingGrantAndPrintedKeywordDoNotStack(t *testing.T) {
 // test drives the REAL KAttackers intent (both attackers, one submission) so
 // it exercises the production population of the scratch, not a hand-set field.
 func TestTrainingSpansDefendersInOneDeclaration(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	rider := mustCorpusCard(t, reg, "Gryff Rider")
 	wurm := mustCorpusCard(t, reg, "Craw Wurm")

@@ -47,6 +47,7 @@ func resolveChooseSource(t *testing.T, e *Engine, spell state.ObjID, want state.
 // matches exactly that source, and the prevented amount is dealt to that
 // source's controller by the Defined$ ChosenCardController body.
 func TestDeflectingPalmPreventsChosenSourceAndReflects(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil
@@ -103,6 +104,7 @@ func TestDeflectingPalmPreventsChosenSourceAndReflects(t *testing.T) {
 // subsequent damage event from the chosen source -- the newly-live defect
 // this pins.
 func TestDeflectingPalmPreventsOnlyTheNextDamage(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil

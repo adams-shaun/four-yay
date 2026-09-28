@@ -24,6 +24,7 @@ import (
 // nothing. ValidTarget$ Player makes the assertion conditional only on the
 // damage event, so the OneOff read is the sole variable under test.
 func TestEffectOneOffDamageDoneConsumesOnFirstFiring(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:OneOffDamage\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigDamage\n"+
 		"SVar:TrigDamage:Mode$ DamageDone | ValidTarget$ Player | OneOff$ True | TriggerZones$ Command | Execute$ TrigPain\n"+
@@ -80,6 +81,7 @@ func TestEffectOneOffDamageDoneConsumesOnFirstFiring(t *testing.T) {
 // AttackersDeclared uses its own event matcher and consumes the registration
 // through the same non-repeat delayed path.
 func TestEffectOneOffAttackersDeclaredConsumesOnFirstFiring(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:OneOffAttackers\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigAttack\n"+
 		"SVar:TrigAttack:Mode$ AttackersDeclared | ValidAttackers$ Creature | OneOff$ True | TriggerZones$ Command | Execute$ TrigPain\n"+
@@ -120,6 +122,7 @@ func TestEffectOneOffAttackersDeclaredConsumesOnFirstFiring(t *testing.T) {
 // either way: the precondition asserts the one-shot shape, and the firing
 // asserts the registration is gone afterwards.
 func TestEffectOneOffPhaseIsOneShot(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:PhaseOneOff\nManaCost:U\nTypes:Sorcery\n"+
 		"SVar:Grant:DB$ Effect | Triggers$ TrigUpkeep\n"+
 		"SVar:TrigUpkeep:Mode$ Phase | Phase$ Upkeep | OneOff$ True | ValidPlayer$ You | Execute$ TrigPain\n"+

@@ -30,6 +30,7 @@ import (
 )
 
 func TestParseCostSubCounterTargetField(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("SubCounter<1/P1P1/Creature.YouCtrl/a creature you control>")
 	if len(c.SubCounter) != 1 {
 		t.Fatalf("digit form parsed %d SubCounter parts, want 1", len(c.SubCounter))
@@ -156,6 +157,7 @@ func castBallista(t *testing.T, e *Engine, p state.PlayerID, x int) state.ObjID 
 // from the CHOSEN artifact (not the silent no-op on the source), and the
 // Charm's X-funded mode puts X charge counters on the target artifact.
 func TestMoxiteRefineryAnyKindRemovesFromTheChosenArtifact(t *testing.T) {
+	t.Parallel()
 	e, cfg, p := subCounterConfig(t, 47, "Moxite Refinery", "Walking Ballista")
 	moxite := bridgeToHand(t, e, "Moxite Refinery")
 	placeOnBattlefield(t, e, moxite)
@@ -249,6 +251,7 @@ func TestMoxiteRefineryAnyKindRemovesFromTheChosenArtifact(t *testing.T) {
 // creature. Pre-fix the cost read the source's counters, posed no ask, and
 // silently removed from Ghave.
 func TestGhaveRemovesFromTheChosenCreature(t *testing.T) {
+	t.Parallel()
 	e, cfg, p := subCounterConfig(t, 91, "Ghave, Guru of Spores", "Walking Ballista")
 	ghave := bridgeToHand(t, e, "Ghave, Guru of Spores")
 	placeOnBattlefield(t, e, ghave)
@@ -322,6 +325,7 @@ func TestGhaveRemovesFromTheChosenCreature(t *testing.T) {
 // Gorgon is the carrier ({2}, no {T}, so no summoning-sickness lock on the
 // entry turn).
 func TestGorgonRemovalTargetIsNotTheSource(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := subCounterConfig(t, 173, "Korozda Gorgon", "Walking Ballista")
 	gorgon := bridgeToHand(t, e, "Korozda Gorgon")
 	placeOnBattlefield(t, e, gorgon)

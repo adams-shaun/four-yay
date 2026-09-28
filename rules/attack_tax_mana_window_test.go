@@ -85,6 +85,7 @@ const forestFixture = "Name:Test Forest\nTypes:Basic Land Forest\nOracle:x\n"
 // with every non-mana component zero and unpriceable false -- the shape the
 // recorded report misread as an unpriceable FREE charge.
 func TestManaSourceAttackersShrinkWindowWireBudget(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	golem := onBoardReadyCard(t, e, 0, card(t, flatAttackTaxFixture))
 	dorks := []state.ObjID{
@@ -217,6 +218,7 @@ func TestManaSourceAttackersShrinkWindowWireBudget(t *testing.T) {
 // affordable, and the rejection must name the mana and the fail-closed flag
 // instead of printing only the all-zero non-mana parts.
 func TestWholeDeclarationDiagnosticNamesMana(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	golem := onBoardReadyCard(t, e, 0, card(t, tapTaxFixture))
 	d1 := onBoardReadyCard(t, e, 0, card(t, manaDorkFixture))
@@ -299,6 +301,7 @@ func TestWholeDeclarationDiagnosticNamesMana(t *testing.T) {
 // the {9} is payable and Submit accepts. The diagnostic fix must not have
 // narrowed this.
 func TestFlatAttackTaxSingleAttackerIsPayable(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	golem := onBoardReadyCard(t, e, 0, card(t, flatAttackTaxFixture))
 	for i := 0; i < 10; i++ {
@@ -394,6 +397,7 @@ func attackWindowSeat(t *testing.T, counters int32, dorks, forests int) (*Engine
 // the declaration it leaves must still raise the {9} from the sources it did
 // NOT commit.
 func TestBotAttackDeclarationFitsManaWindowWithDeclaredAttackers(t *testing.T) {
+	t.Parallel()
 	e, myr, dorks := attackWindowSeat(t, 9, 3, 8)
 
 	// PRECONDITION the whole test depends on: Myr is a battlefield creature
@@ -565,6 +569,7 @@ func TestBotAttackDeclarationSingleTaxedAttackerNeedsOnlyItsOwnExclusion(t *test
 // from the other side: with zero counters Myr's charge is free, no mana tax
 // exists, so no fold applies and every option keeps Value 0 with MaxSum 0.
 func TestAttackWindowFoldIsInertWithoutAManaTax(t *testing.T) {
+	t.Parallel()
 	e, myr, _ := attackWindowSeat(t, 0, 3, 8)
 	if ch := e.attackPairCharge(myr, 1, 0); ch.unpriceable {
 		t.Fatal("precondition: the untaxed board must be priceable")

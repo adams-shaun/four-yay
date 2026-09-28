@@ -60,6 +60,7 @@ func spanManaReflected(e *Engine, start int) reflectedSpan {
 // was emitted -- so reverting the stamping hunk turns the pool assertion red
 // rather than silently passing.
 func TestTriggeredManaReflectedProduced(t *testing.T) {
+	t.Parallel()
 	t.Run("ManaFlareSeat0Forest", func(t *testing.T) {
 		e := handEngine(t)
 		flare := onBoard(t, e, 0, manaFlareScript)

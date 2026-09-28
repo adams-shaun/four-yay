@@ -33,6 +33,7 @@ import (
 // then the original -- requiring each to run every continuation and both to
 // land on the same chain head.
 func TestCloneResumeChainIndependence(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiNCLONE\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ Charm | Choices$ DoRepeat,DoGain | SubAbility$ Out\n" +
 		"SVar:DoRepeat:SP$ Repeat | RepeatSubAbility$ DoDiscard | RepeatNum$ 1 | SubAbility$ Mid\n" +
@@ -142,6 +143,7 @@ func TestCloneResumeChainIndependence(t *testing.T) {
 // it faults here in two independent ways: c.drainAwaitsModes reads false,
 // and answering on the clone records no ChosenModes.
 func TestCloneCarriesDrainAwaitsModes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Knight of Autumn")
 	crAbortMove(t, e, 0, "Knight of Autumn", state.ZBattlefield)
@@ -286,6 +288,7 @@ func seedInternalQueues(t *testing.T, e *Engine) state.ObjID {
 }
 
 func TestCloneStaysIndependentAndReplaysInLockstep(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 4)
 	e := New(Config{Seed: 7, Names: names, Decks: decks})
 	e.Advance()
@@ -492,6 +495,7 @@ func TestCloneOfAFinishedGameIsFinished(t *testing.T) {
 // window 500s with "viewAt(seq=N) panicked: index out of range [-1]" — a
 // spectator scrubbing the DVR into the opening hand gets a blank board.
 func TestCloneCarriesTheMulliganRound(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 4)
 	e := New(Config{Seed: 7, Names: names, Decks: decks, Mulligans: 1})
 	e.Advance()
@@ -559,6 +563,7 @@ func TestCloneCarriesTheMulliganRound(t *testing.T) {
 // clone re-asks an already-answered kind (the counterchoice1 round-2
 // finding) and its decision stream diverges from the original's.
 func TestCloneCopiesCounterAskCursors(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 5, Names: names, Decks: decks})
 	e.Advance()

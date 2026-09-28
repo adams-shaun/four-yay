@@ -132,6 +132,7 @@ func containsTargetObj(ts []state.Target, id state.ObjID) bool {
 // IsAttacking, CR 506.4) and the chained `DB$ Untap | Defined$ Targeted`
 // untaps it -- the card's own words, not the primitive's.
 func TestRemoveFromCombatActivatedReconnaissanceUntapsAttacker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := rfcEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Reconnaissance"), lookup(t, reg, "Grizzly Bears")},
@@ -214,6 +215,7 @@ func TestRemoveFromCombatActivatedReconnaissanceUntapsAttacker(t *testing.T) {
 // removes it while it STAYS tapped (the primitive never untaps -- a removed
 // attacker keeps its tapped state, CR 506.4).
 func TestRemoveFromCombatHollowhengeSpiritRemovesAttackerStillTapped(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := rfcEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Hollowhenge Spirit"), lookup(t, reg, "Grizzly Bears")},
@@ -339,6 +341,7 @@ func TestRemoveFromCombatHollowhengeSpiritRemovesAttackerStillTapped(t *testing.
 // | SubAbility$ DBRemoveCombat` untaps the remembered attacker and removes it
 // from combat -- the trigger-role capture feeding Defined$.
 func TestRemoveFromCombatGustcloakSaviorRemovesItsOwnAttacker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := rfcEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Gustcloak Savior")},
@@ -412,6 +415,7 @@ func TestRemoveFromCombatGustcloakSaviorRemovesItsOwnAttacker(t *testing.T) {
 // both halves of the remembered state, and the chained
 // `DB$ Untap | Defined$ Remembered` untaps exactly that set.
 func TestRemoveFromCombatIllusionistsGambitRemembersAndUntaps(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := rfcEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Illusionist's Gambit"), lookup(t, reg, "Grizzly Bears")},

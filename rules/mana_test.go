@@ -10,6 +10,7 @@ import (
 func pool(w, u, b, r, g, c int32) state.Mana { return state.Mana{w, u, b, r, g, c} }
 
 func TestParseCostForms(t *testing.T) {
+	t.Parallel()
 	for src, want := range map[string]Cost{
 		"R":       {Colored: pool(0, 0, 0, 1, 0, 0)},
 		"2 U U":   {Colored: pool(0, 2, 0, 0, 0, 0), Generic: 2},
@@ -39,6 +40,7 @@ func TestParseCostForms(t *testing.T) {
 // strip the trailing "/description" and fold the ";" alternation into the
 // "," MatchesSpec already understands.
 func TestParseCostCleansRealSacSpec(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("2 B Sac<1/Artifact;Creature/artifact or creature>")
 	if len(c.Sac) != 1 || c.Sac[0].N != 1 || c.Sac[0].Spec != "Artifact,Creature" {
 		t.Fatalf("Sac = %+v, want N=1 Spec=Artifact,Creature", c.Sac)
@@ -53,6 +55,7 @@ func TestParseCostCleansRealSacSpec(t *testing.T) {
 // but collectively overflowing values wrapped to a negative total. The sum
 // must be clamped at math.MaxInt32 across all tokens.
 func TestParseCostLifeCosts(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		src  string
@@ -78,12 +81,14 @@ func TestParseCostLifeCosts(t *testing.T) {
 }
 
 func TestParseCostClampsAbsurdGeneric(t *testing.T) {
+	t.Parallel()
 	if c := ParseCost("2147483647 2147483647"); c.Generic != math.MaxInt32 {
 		t.Fatalf("generic %d", c.Generic)
 	}
 }
 
 func TestCMCCountsColoredAndGeneric(t *testing.T) {
+	t.Parallel()
 	if got := ParseCost("2 U U").CMC(); got != 4 {
 		t.Errorf("CMC = %d, want 4", got)
 	}
@@ -93,6 +98,7 @@ func TestCMCCountsColoredAndGeneric(t *testing.T) {
 }
 
 func TestLifeCostPayability(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("PayLife<1>")
 	if !c.payable(state.Mana{}, state.Mana{}, [7]state.Mana{}, 1) {
 		t.Fatal("one life should pay PayLife<1> without mana")
@@ -109,6 +115,7 @@ func TestLifeCostPayability(t *testing.T) {
 }
 
 func TestCanPayRequiresTheRightColors(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("1 R")
 	if !c.CanPay(pool(0, 0, 0, 1, 0, 1)) {
 		t.Error("R + C should pay {1}{R}")
@@ -123,6 +130,7 @@ func TestCanPayRequiresTheRightColors(t *testing.T) {
 
 // Generic cost must not consume mana the coloured requirement still needs.
 func TestPaySpendsGenericLast(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("1 R R")
 	after, ok := c.Pay(pool(0, 0, 0, 3, 0, 0))
 	if !ok {
@@ -142,6 +150,7 @@ func TestPaySpendsGenericLast(t *testing.T) {
 }
 
 func TestPayFailsCleanly(t *testing.T) {
+	t.Parallel()
 	before := pool(0, 0, 0, 1, 0, 0)
 	after, ok := ParseCost("2 R").Pay(before)
 	if ok {
@@ -161,6 +170,7 @@ func TestPayFailsCleanly(t *testing.T) {
 // test used to document is exactly the defect the CR 601.2b/107.4e-f leaves
 // measure, so the corrected assertions below replace it.
 func TestHybridAndPhyrexianAlternativePayments(t *testing.T) {
+	t.Parallel()
 	// Forge spells colour hybrid as "GW" (Kitchen Finks), "RW" (Figure of Destiny).
 	gwCost := ParseCost("1 GW")
 	if gwCost.Generic != 1 || len(gwCost.Hybrid) != 1 || gwCost.Hybrid[0] != (ManaPair{A: 'G', B: 'W'}) || gwCost.Colored.Total() != 0 {
@@ -238,6 +248,7 @@ func TestHybridAndPhyrexianAlternativePayments(t *testing.T) {
 // This test pins the known numeric validation: negative and out-of-range
 // numeric tokens are treated as unrecognized symbols and contribute +1 generic.
 func TestNumericTokenValidation(t *testing.T) {
+	t.Parallel()
 	// Negative tokens should fall through to +1 generic.
 	negCost := ParseCost("-1")
 	if negCost.Generic != 1 || negCost.Colored.Total() != 0 {
@@ -266,6 +277,7 @@ func TestNumericTokenValidation(t *testing.T) {
 }
 
 func TestParseCostNonManaParts(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("2 C Sac<1/Land>")
 	if c.Generic != 2 || c.Colored[state.MC] != 1 || len(c.Sac) != 1 || c.Sac[0] != (CostPart{N: 1, Spec: "Land"}) {
 		t.Fatalf("%+v", c)

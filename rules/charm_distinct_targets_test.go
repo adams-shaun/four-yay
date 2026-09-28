@@ -11,6 +11,7 @@ import (
 // the target decision has one slot per selected mode, and resolution binds
 // those slots independently rather than handing both effects one flat list.
 func TestDistinctCharmModesKeepTheirOwnTargets(t *testing.T) {
+	t.Parallel()
 	charm := "Name:Distinct Charm\nManaCost:B\nTypes:Instant\n" +
 		"A:SP$ Charm | CharmNum$ 2 | Choices$ Lose,Gain\n" +
 		"SVar:Lose:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ 2 | SpellDescription$ Target player loses 2 life.\n" +

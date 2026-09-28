@@ -13,6 +13,7 @@ import (
 // lifetime remains active. The matcher must honor both the event's original
 // controller and the card filter; unrelated events cannot fire the body.
 func TestEffectChangesControllerTriggerRepeats(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:ControlPromise\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigControl\n"+
 		"SVar:TrigControl:Mode$ ChangesController | ValidCard$ Creature | ValidOriginalController$ You | TriggerZones$ Command | Execute$ TrigPain\n"+
@@ -72,6 +73,7 @@ func TestEffectChangesControllerTriggerRepeats(t *testing.T) {
 // captured objects. Exercise that capture through effEffect rather than a
 // hand-built DelayedRegister event.
 func TestEffectChangesControllerUsesRememberedCapture(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Remembering promise\nTypes:Enchantment\n"+
 		"SVar:TrigControl:Mode$ ChangesController | ValidCard$ Card.IsRemembered | ValidOriginalController$ You | TriggerZones$ Command | Execute$ TrigPain\n"+

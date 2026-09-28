@@ -10,6 +10,7 @@ import (
 )
 
 func TestMoggcatcherSearchFindsGoblinPermanentCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Moggcatcher", "Goblin Piker")
 	catcher := searchMoveByName(t, e, "Moggcatcher", state.ZBattlefield)

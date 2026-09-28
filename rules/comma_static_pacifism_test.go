@@ -26,6 +26,7 @@ import (
 )
 
 func TestPacifismCommaModeStaticSuppressesAttackAndBlock(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pac, ok := reg.Lookup("Pacifism")
 	if !ok {

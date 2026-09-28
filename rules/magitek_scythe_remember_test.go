@@ -19,6 +19,7 @@ import (
 // the same gate shape; unexpected_request's delayed Unattach and Breath of
 // Fury's UntapAll/AddPhase do too.
 func TestMagitekScytheRememberAttachedUnlocksThePump(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Magitek Scythe", "Grizzly Bears")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)

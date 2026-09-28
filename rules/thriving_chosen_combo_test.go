@@ -28,6 +28,7 @@ import (
 // enters tapped (its own ETBTapped replacement), so the test untaps it
 // before activating.
 func TestThrivingBluffEntryRecordsFallbackAndAsksFixedOrChosen(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{corpusCard(t, "Thriving Bluff")}, nil)
 	bluff := moveCorpusCard(t, e, "Thriving Bluff", 0, state.ZBattlefield)
@@ -63,6 +64,7 @@ func TestThrivingBluffEntryRecordsFallbackAndAsksFixedOrChosen(t *testing.T) {
 // decision nobody could answer differently, so the activation resolves
 // directly with no stage-2 ask and pools one red.
 func TestThrivingBluffChosenEqualsFixedResolvesDirectly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{corpusCard(t, "Thriving Bluff")}, nil)
 	bluff := moveCorpusCard(t, e, "Thriving Bluff", 0, state.ZBattlefield)
@@ -85,6 +87,7 @@ func TestThrivingBluffChosenEqualsFixedResolvesDirectly(t *testing.T) {
 // colour, rather than the old forbidden White. Its Combo W Chosen activation
 // then offers both distinct pips; the chosen Blue produces blue mana.
 func TestCitadelGateFallbackRespectsTheExcludedColour(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{corpusCard(t, "Citadel Gate")}, nil)
 	gate := moveCorpusCard(t, e, "Citadel Gate", 0, state.ZBattlefield)
@@ -120,6 +123,7 @@ const comboChosenSource = "Name:Chosen Land\nTypes:Land\n" +
 // label (the documented pre-fix behaviour, unchanged for this branch) and
 // the resolution emits the loud "unhandled Produced$" Note with NO ManaAdd.
 func TestThrivingChosenNothingRecordedKeepsRawLabelAndFailsClosed(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := manaSourceEngine(t, comboChosenSource)
 	activateMana(t, e, id)
 	d := e.Pending()
@@ -161,6 +165,7 @@ func TestThrivingChosenNothingRecordedKeepsRawLabelAndFailsClosed(t *testing.T) 
 // answering a pip resolves directly with the cost paid once and no stage-2
 // ask.
 func TestThrivingChosenWheelFlattensToFixedAndChosenPips(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := manaSourceEngine(t, comboChosenSource)
 	e.emit(events.Event{Kind: events.Choose, Obj: id, Counter: "color", Text: "W"})
 	addMana(t, e, 0, "")
@@ -192,6 +197,7 @@ func TestThrivingChosenWheelFlattensToFixedAndChosenPips(t *testing.T) {
 // the ability does not flatten and its label is the plain "Add R" pip, whose
 // answer resolves directly (no stage-2), pooling one red.
 func TestThrivingChosenWheelChosenEqualsFixedShowsAddLetter(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := manaSourceEngine(t, comboChosenSource)
 	e.emit(events.Event{Kind: events.Choose, Obj: id, Counter: "color", Text: "R"})
 	addMana(t, e, 0, "")

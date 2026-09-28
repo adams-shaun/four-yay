@@ -20,6 +20,7 @@ import (
 // come out of the abort byte-for-byte as they went in, with no Choose event
 // of the copy kind written by the proposal.
 func TestMalleableImpostorAbortLeavesCopyChoiceUntouched(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		priorValid bool

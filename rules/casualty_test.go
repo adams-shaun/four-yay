@@ -53,6 +53,7 @@ func casualtyChoice(t *testing.T, e *Engine, eligible, ineligible state.ObjID) {
 }
 
 func TestCasualtyPrintedSpellSacrificeCopiesTarget(t *testing.T) {
+	t.Parallel()
 	for _, pay := range []bool{false, true} {
 		name := "decline"
 		if pay {
@@ -144,6 +145,7 @@ func TestCasualtyPrintedSpellSacrificeCopiesTarget(t *testing.T) {
 }
 
 func TestCasualtyAshadGrantOnlyFirstArtifactPerTurn(t *testing.T) {
+	t.Parallel()
 	e, cfg, reg := casualtyEngine(t, "Sol Ring")
 	ashad := seedBattlefield(t, e, reg, "Ashad, the Lone Cyberman")
 	sacrifice := seedBattlefield(t, e, reg, "Grizzly Bears")

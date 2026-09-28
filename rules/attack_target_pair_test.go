@@ -9,6 +9,7 @@ import (
 )
 
 func TestOnakkeWalkerTaxSeparatesPlayerAndWalkerOffers(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	oathkeeper := onBoardCard(t, e, 1, corpusCard(t, "Onakke Oathkeeper"))
 	if o := e.G.Obj(oathkeeper); o == nil || o.Zone != state.ZBattlefield {
@@ -52,6 +53,7 @@ func TestOnakkeWalkerTaxSeparatesPlayerAndWalkerOffers(t *testing.T) {
 }
 
 func TestWalkerOnlyCantAttackBlocksWalkerPairOnly(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Walker Avenger\nTypes:Creature Ogre\nS:Mode$ CantAttack | ValidCard$ Creature | Target$ Planeswalker.YouCtrl\nOracle:x\n")
 	bear := onBoard(t, e, 1, "Name:Attacker Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -68,6 +70,7 @@ func TestWalkerOnlyCantAttackBlocksWalkerPairOnly(t *testing.T) {
 }
 
 func TestCantAttackUnlessCommaTargetChargesBothPairKinds(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Comma Tax\nTypes:Creature\nS:Mode$ CantAttackUnless | ValidCard$ Creature | Target$ You,Planeswalker.YouCtrl | Cost$ 1\nOracle:x\n")
 	bear := onBoard(t, e, 1, "Name:Attacker Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

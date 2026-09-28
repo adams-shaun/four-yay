@@ -57,6 +57,7 @@ func driveToCipherEncodeAsk(t *testing.T, e *Engine) *decision.Decision {
 // the stack, so opponents had a priority window in which to counter it while
 // the spell was gone.
 func TestCipherEncodeIsPartOfResolution(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherProbeSrc)
 	if !cipherHasResolutionTail(probe) {
@@ -118,6 +119,7 @@ const cipherSuspendProbeSrc = "Name:Cipher Suspend Probe\nManaCost:0\nTypes:Sorc
 // continuation chain and reached exactly once: the count assertion fails if a
 // resumed resolution re-appends or drops it.
 func TestCipherEncodeRunsAfterSuspendedBody(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherSuspendProbeSrc)
 	if !cipherHasResolutionTail(probe) {
@@ -196,6 +198,7 @@ func TestCipherEncodeRunsAfterSuspendedBody(t *testing.T) {
 // EXILE, so the accepted half below cannot pass because the spell would have
 // gone to the graveyard anyway.
 func TestCipherEncodeAppliesRegardlessOfRestZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, cipherProbeSrc)
 	if !cipherHasResolutionTail(probe) {

@@ -34,6 +34,7 @@
 package rules
 
 import (
+	"maps"
 	"strings"
 	"testing"
 
@@ -187,6 +188,7 @@ func drainTriggers(t *testing.T, e *Engine) {
 }
 
 func TestRepeatEachChangeZoneTableBatchesChangesZoneAll(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, organ, slaw, market, bears := zoneTableBoard(t, reg)
 
@@ -235,7 +237,13 @@ func TestRepeatEachWithoutChangeZoneTableKeepsPerMoveChangesZoneAll(t *testing.T
 	reg := testutil.CorpusRegistry(t)
 	e, _, organ, slaw, market, bears := zoneTableBoard(t, reg)
 
-	sa := corpusSA(t, reg, "Organ Harvest", "")
+	// Delete the parameter from a COPY of the compiled SA: the registry is
+	// shared by every test in the binary, and the batching test above reads
+	// the very same SA.
+	orig := corpusSA(t, reg, "Organ Harvest", "")
+	cp := *orig
+	cp.Params = maps.Clone(orig.Params)
+	sa := &cp
 	delete(sa.Params, "ChangeZoneTable")
 	if _, present := sa.Params["ChangeZoneTable"]; present {
 		t.Fatal("control precondition: ChangeZoneTable still present on the compiled SA")

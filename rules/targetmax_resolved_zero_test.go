@@ -48,6 +48,7 @@ const resolvedZeroGearSrc = "Name:Spare Gear\nManaCost:1\nTypes:Artifact\nOracle
 // placement ask. Without the max == 0 arm the engine panics ("decision target
 // ... posed with only the empty answer legal (Min 0 Max 0, 1 options)").
 func TestTriggerPlacementAskResolvedZeroPosesNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 9204, resolvedZeroTriggerSrc, resolvedZeroGearSrc)
 	// A pure artifact (not a creature) so the count is 0 but a target exists.
 	gear := putCreature(t, e, 0, resolvedZeroGearSrc)
@@ -88,6 +89,7 @@ func countType(t *testing.T, e *Engine, p state.PlayerID) int {
 // resolves to 0 must still clamp up to the default Min 1 -- pinned by
 // stack_test.go's "bare X zero clamps back to one" case.
 func TestResolvedTargetBoundsResolvedZeroIsHonoured(t *testing.T) {
+	t.Parallel()
 	zeroPair := card(t, "Name:Bound Zero Pair\nManaCost:R\nTypes:Instant\n"+
 		"A:SP$ Draw | Defined$ You | NumCards$ 1 | ValidTgts$ Creature | TargetMin$ X | TargetMax$ X\n"+
 		"SVar:X:Count$Valid Creature.YouCtrl\nOracle:x\n")
@@ -113,6 +115,7 @@ func TestResolvedTargetBoundsResolvedZeroIsHonoured(t *testing.T) {
 // exiled. Before the resolved-zero fix the main SA still demanded one, so the
 // kicked spell exiled two permanents.
 func TestTearAsunderKickedTakesOnlyTheSubTarget(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 9201, resolvedZeroTearSrc, resolvedZeroArtifactSrc, testBearSrc)
 	artifact := putCreature(t, e, 0, resolvedZeroArtifactSrc)
 	// A second, non-artifact nonland permanent for the sub to take, so the
@@ -184,6 +187,7 @@ func TestTearAsunderKickedTakesOnlyTheSubTarget(t *testing.T) {
 // the sub (Condition$ Kicked) is skipped. This pins that the resolved-zero
 // path did not widen into the ordinary case.
 func TestTearAsunderUnkickedStillTargetsArtifact(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 9202, resolvedZeroTearSrc, resolvedZeroArtifactSrc, testBearSrc)
 	artifact := putCreature(t, e, 0, resolvedZeroArtifactSrc)
 	putCreature(t, e, 0, testBearSrc)
@@ -225,6 +229,7 @@ func TestTearAsunderUnkickedStillTargetsArtifact(t *testing.T) {
 // Pest Infestation's TargetMin$ 0 | TargetMax$ X with X paid as 0 ("destroy up
 // to 0") poses no target ask at all, rather than the old clamp's up-to-1 ask.
 func TestPestInfestationZeroXAsksNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 9203, resolvedZeroPestSrc, resolvedZeroArtifactSrc)
 	putCreature(t, e, 0, resolvedZeroArtifactSrc)
 	addMana(t, e, 0, "G") // XXG with X = 0 costs one green.

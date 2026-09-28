@@ -29,6 +29,7 @@ import (
 // blocking; the attacking Bear and the source enchantment must never be
 // offered.
 func TestBangPredicateUnlocksTargeting(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	alliance := mustCorpusCard(t, reg, "Unlikely Alliance") // {1}{W}: target nonattacking, nonblocking creature
 	bearRest := mustCorpusCard(t, reg, "Grizzly Bears")

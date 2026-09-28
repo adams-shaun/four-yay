@@ -44,6 +44,7 @@ func manaOption(t *testing.T, d *decision.Decision, produced string) int {
 // basic-land abilities into one real choice. The source is not tapped until
 // that choice is answered, then exactly the selected mana reaches the pool.
 func TestManaActivationChoosesOneAbility(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	volcanic := onBoard(t, e, 0, volcanicIsland)
 	e.askPriority(0)
@@ -63,6 +64,7 @@ func TestManaActivationChoosesOneAbility(t *testing.T) {
 // TestCloneKeepsManaAbilityChoice proves a snapshot taken while the choice is
 // pending owns the same activation continuation instead of dropping it.
 func TestCloneKeepsManaAbilityChoice(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	volcanic := onBoard(t, e, 0, volcanicIsland)
 	e.askPriority(0)
@@ -79,6 +81,7 @@ func TestCloneKeepsManaAbilityChoice(t *testing.T) {
 // TestManaActivationSingletonDoesNotAsk pins the unchanged common path: a
 // Forest resolves directly from the priority action with no extra decision.
 func TestManaActivationSingletonDoesNotAsk(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	forest := onBoard(t, e, 0, "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n")
 	e.askPriority(0)
@@ -97,6 +100,7 @@ func TestManaActivationSingletonDoesNotAsk(t *testing.T) {
 // TestCastManaWindowChoosesOneAbility ensures the CR 601.2g call site shares
 // the same choice rather than returning to the old all-abilities bundle.
 func TestCastManaWindowChoosesOneAbility(t *testing.T) {
+	t.Parallel()
 	spell := "Name:Blue Spell\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Defined$ You | NumCards$ 1\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 901, spell)
 	volcanic := onBoard(t, e, 0, volcanicIsland)
@@ -126,6 +130,7 @@ func TestCastManaWindowChoosesOneAbility(t *testing.T) {
 }
 
 func TestManaActivationChoiceExcludesRestrictedMember(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	mint := onBoard(t, e, 0, "Name:Mint\nTypes:Artifact\n"+
 		"A:AB$ Mana | Cost$ T | Produced$ B\n"+
@@ -171,6 +176,7 @@ func manaSourceEngine(t *testing.T, src string) (*Engine, Config, state.ObjID) {
 }
 
 func TestLotusPetalPaysSacrificeAndChoosesColor(t *testing.T) {
+	t.Parallel()
 	const petal = "Name:Lotus Petal\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ Sac<1/CARDNAME> | Produced$ Any\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, petal)
@@ -205,6 +211,7 @@ func TestLotusPetalPaysSacrificeAndChoosesColor(t *testing.T) {
 }
 
 func TestCloneKeepsManaColorChoice(t *testing.T) {
+	t.Parallel()
 	const petal = "Name:Lotus Petal\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ Sac<1/CARDNAME> | Produced$ Any\nOracle:x\n"
 	e, _, id := manaSourceEngine(t, petal)
@@ -219,6 +226,7 @@ func TestCloneKeepsManaColorChoice(t *testing.T) {
 }
 
 func TestLionsEyeDiamondPaysTapAndSacrifice(t *testing.T) {
+	t.Parallel()
 	const led = "Name:Lion's Eye Diamond\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ T Sac<1/CARDNAME> | Produced$ C | Amount$ 3\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, led)
@@ -236,6 +244,7 @@ func TestLionsEyeDiamondPaysTapAndSacrifice(t *testing.T) {
 }
 
 func TestManaActivationTapOnlyStillTapsAndAddsMana(t *testing.T) {
+	t.Parallel()
 	const land = "Name:Plain Mana Land\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ U\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, land)
@@ -250,6 +259,7 @@ func TestManaActivationTapOnlyStillTapsAndAddsMana(t *testing.T) {
 }
 
 func TestManaAbilityChoiceOptionsMarkSource(t *testing.T) {
+	t.Parallel()
 	const source = "Name:Split Mana Rock\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ W\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ U\nOracle:x\n"
@@ -308,6 +318,7 @@ func TestManaColourPromptNamesDeterminateAmount(t *testing.T) {
 // both abilities share the tap cost, so activating is one real KChoose over
 // "Add B"/"Add R" and exactly the chosen colour reaches the pool.
 func TestVergeLandGatesColouredAbilityOnBasicTypeCount(t *testing.T) {
+	t.Parallel()
 	const verge = "Name:Blazemire Verge\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ B | SpellDescription$ Add {B}.\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ R | IsPresent$ Swamp.YouCtrl,Mountain.YouCtrl | SpellDescription$ Add {R}. Activate only if you control a Swamp or a Mountain.\nOracle:x\n"
@@ -350,6 +361,7 @@ func TestVergeLandGatesColouredAbilityOnBasicTypeCount(t *testing.T) {
 // withheld from the priority offer entirely; at five it is offered and the
 // singleton activation adds the full {C}{C}.
 func TestTempleOfTheFalseGodGatesOnLandCount(t *testing.T) {
+	t.Parallel()
 	const temple = "Name:Temple of the False God\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ C | Amount$ 2 | IsPresent$ Land.YouCtrl | PresentCompare$ GE5 | SpellDescription$ Add {C}{C}. Activate only if you control five or more lands.\nOracle:x\n"
 	const plain = "Name:Bare Land\nTypes:Land\nOracle:x\n"
@@ -389,6 +401,7 @@ func TestTempleOfTheFalseGodGatesOnLandCount(t *testing.T) {
 // colour ask whose prompt names the three, five colour options, and exactly
 // three of the single chosen colour in the pool.
 func TestLionsEyeDiamondAnyAddsThreeOfOneChosenColor(t *testing.T) {
+	t.Parallel()
 	const led = "Name:Lion's Eye Diamond\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ Sac<1/CARDNAME> Discard<0/Hand> | Produced$ Any | Amount$ 3 | InstantSpeed$ True\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, led)

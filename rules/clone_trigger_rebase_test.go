@@ -24,6 +24,7 @@ const triggerCloneFixture = "Name:Fixture Recurring Copy\nManaCost:2\nTypes:Arti
 	"Oracle:x\n"
 
 func TestSettleExpiredCloneRebasesOntoTriggerFormSurvivor(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 145, triggerCloneFixture, cloneOxSrc)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
 	ox := moveSeeded(t, e, 0, cloneOxSrc, state.ZBattlefield)
