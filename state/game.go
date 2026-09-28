@@ -610,7 +610,15 @@ const cloneObjectHeadroom = 8
 // and silently corrupt the other. Game.Clone is the hottest path in the
 // engine; three small copy() calls per seat (nil slices cost nothing) is the
 // whole price.
-func (g *Game) Clone() *Game {
+func (g *Game) Clone() *Game { return g.CloneInto(nil) }
+
+// CloneInto is Clone with the copied object arena written into objs, a
+// recycled arena (the rules engine's Release clears it), when objs can hold
+// every object plus cloneObjectHeadroom; otherwise it allocates exactly as
+// Clone does. Every slot up to len is overwritten here and AddObject
+// overwrites a slot before it is read, so objs' contents are never observed;
+// the caller must hold no other reference into it.
+func (g *Game) CloneInto(objs []Object) *Game {
 	c := *g
 	c.Players = make([]Player, len(g.Players))
 	for i := range g.Players {
@@ -629,7 +637,11 @@ func (g *Game) Clone() *Game {
 	// search clones a mid-game root once per simulation (measured: that
 	// regrow was 11% of all bytes the AlphaZero search allocated). Capacity
 	// only; AddObject's IDs and every reader's view of Objs are unchanged.
-	c.Objs = make([]Object, len(g.Objs), len(g.Objs)+cloneObjectHeadroom)
+	if cap(objs) >= len(g.Objs)+cloneObjectHeadroom {
+		c.Objs = objs[:len(g.Objs)]
+	} else {
+		c.Objs = make([]Object, len(g.Objs), len(g.Objs)+cloneObjectHeadroom)
+	}
 	for i := range g.Objs {
 		c.Objs[i] = g.Objs[i].CloneDeep()
 	}

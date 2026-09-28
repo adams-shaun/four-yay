@@ -48,10 +48,31 @@ func cloneCounterAddsThisTurn(in []counterAddedThisTurn) []counterAddedThisTurn 
 // auto-pay diagnostics sink (paymentStats, SetPaymentPlanStats) stay nil on
 // the copy, so no sink pointer is ever shared between engines (payment-plan
 // spec §7) and a clone's planning never counts into the original's sink.
-func (e *Engine) Clone() *Engine {
+func (e *Engine) Clone() *Engine { return e.cloneWith(Spare{}) }
+
+// CloneInto is Clone drawing the copy's event log, intent, object-arena and
+// Derived-memo arrays from *sp -- a spent clone's storage, handed back by its
+// Release -- and consuming it (*sp is left as the zero Spare), so a search
+// that clones one root per simulation recycles the same few arrays instead of
+// allocating and collecting a mid-game log and arena every simulation. The
+// loop is: c := root.CloneInto(&sp); play c; sp = c.Release(). The copy is
+// identical to Clone's in everything a caller can observe (same events,
+// intents, objects, chain, RNG; TestCloneIntoIsInvisible pins it): the
+// recycled arrays were cleared by Release, every slot is overwritten before
+// it is read, and an array too small for this root is dropped and the clone
+// allocates as Clone would. The zero Spare makes CloneInto exactly Clone.
+func (e *Engine) CloneInto(sp *Spare) *Engine {
+	var spare Spare
+	if sp != nil {
+		spare, *sp = *sp, Spare{}
+	}
+	return e.cloneWith(spare)
+}
+
+func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
-		G:               e.G.Clone(),
-		L:               e.L.Clone(),
+		G:               e.G.CloneInto(sp.objs),
+		L:               e.L.CloneInto(sp.events, sp.intents),
 		compiledText:    e.compiledText,
 		landTypeWords:   e.landTypeWords,
 		turnsTaken:      append([]int32(nil), e.turnsTaken...),
@@ -958,6 +979,12 @@ func (e *Engine) Clone() *Engine {
 	}
 	c.madnessChoices = append([]events.Event(nil), e.madnessChoices...)
 	c.madnessSuspended = e.madnessSuspended
+	// A clone's Derived memo starts empty (it is not copied above); recycled
+	// tables start empty over Release-cleared capacity, the same zeroed state
+	// derivedMemoizedAt's growth relies on for a Config.Spare game.
+	if sp.memo != nil || sp.memoStack != nil {
+		c.derivedMemo, c.derivedMemoStack = sp.memo[:0], sp.memoStack[:0]
+	}
 	return c
 }
 

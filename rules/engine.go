@@ -2138,11 +2138,29 @@ type Spare struct {
 // the Events prefix (events.Log.Clone) -- which is why only a batch runner
 // that owns the finished engine outright calls it. The arrays are cleared so
 // the Spare does not pin the finished game's cards, strings and slices.
+//
+// A clone (Clone, CloneInto) may be released too -- that is the search loop
+// CloneInto documents. A clone's Events and Intents start as its parent's
+// backing arrays with cap == len (events.Log.Clone) and become its own only
+// once an append regrows them, so a forked log's array with no spare
+// capacity is left alone rather than cleared: recycling it would zero the
+// parent's history. (An own array that happens to be exactly full is skipped
+// too, which only forgoes one reuse.) The object arena and memo tables are
+// always the clone's own.
 func (e *Engine) Release() Spare {
+	evs, ints := e.L.Events[:cap(e.L.Events)], e.L.Intents[:cap(e.L.Intents)]
+	if e.L.Forked() {
+		if cap(e.L.Events) == len(e.L.Events) {
+			evs = nil
+		}
+		if cap(e.L.Intents) == len(e.L.Intents) {
+			ints = nil
+		}
+	}
 	sp := Spare{
-		events:    e.L.Events[:cap(e.L.Events)],
+		events:    evs,
 		objs:      e.G.Objs[:cap(e.G.Objs)],
-		intents:   e.L.Intents[:cap(e.L.Intents)],
+		intents:   ints,
 		memo:      e.derivedMemo[:cap(e.derivedMemo)],
 		memoStack: e.derivedMemoStack[:cap(e.derivedMemoStack)],
 	}

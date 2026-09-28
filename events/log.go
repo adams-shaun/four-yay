@@ -167,6 +167,35 @@ func (l *Log) Clone() *Log {
 	return &c
 }
 
+// CloneInto is Clone with the copy's Events and Intents copied into the
+// caller's recycled arrays (a spent clone's, handed back through the rules
+// engine's Release) instead of shared with l, so a search that clones one
+// root per simulation stops allocating a fresh log per simulation. An array
+// too small to hold l's history plus forkMinSlack appends is ignored and the
+// copy shares l's prefix exactly as Clone does. The recycled arrays' contents
+// are never read (every slot up to len is overwritten here, and every slot
+// past it is overwritten by Append before it is read); the caller must hold
+// no other reference into them. Everything a reader can observe -- Events,
+// Intents, Seed, the chain -- is identical to Clone's.
+func (l *Log) CloneInto(events []Event, intents []decision.Intent) *Log {
+	c := l.Clone()
+	if cap(events) >= len(l.Events)+forkMinSlack {
+		c.Events = append(events[:0], l.Events...)
+	}
+	if len(l.Intents) > 0 && cap(intents) > len(l.Intents) {
+		c.Intents = append(intents[:0], l.Intents...)
+	}
+	return c
+}
+
+// Forked reports whether l was made by Clone or CloneInto. A forked log's
+// Events and Intents may still be its parent's backing arrays: they are the
+// fork's own only once an append has regrown them, and a shared prefix always
+// has cap == len (Clone's full-slice expressions), which is how the rules
+// engine's Release tells the two apart without ever recycling a parent's
+// history.
+func (l *Log) Forked() bool { return l.forked }
+
 // Reserve grows the Events backing array's CAPACITY to at least n events,
 // leaving length and every stored event untouched. It is an expected-size
 // hint: a caller who knows a real match runs to roughly n events (host caps

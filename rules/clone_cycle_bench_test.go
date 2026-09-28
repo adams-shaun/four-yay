@@ -46,6 +46,13 @@ const cloneCycleSteps = 40
 // root, then step the clone cloneCycleSteps intents with the default bot.
 // One op is one simulation.
 func benchCloneCycle(b *testing.B, opp string, minTurn int32, hypothetical bool) {
+	benchCloneCycleMode(b, opp, minTurn, hypothetical, false)
+}
+
+// benchCloneCycleMode is benchCloneCycle; recycle runs the search loop
+// CloneInto documents: each simulation's engine is built from the previous
+// one's Release.
+func benchCloneCycleMode(b *testing.B, opp string, minTurn int32, hypothetical, recycle bool) {
 	benchWithoutVerify(b)
 	root := cloneCycleRoot(b, opp, minTurn)
 	b.Logf("root: turn %d, %d events, %d objects", root.G.Turn, len(root.L.Events), len(root.G.Objs))
@@ -53,15 +60,21 @@ func benchCloneCycle(b *testing.B, opp string, minTurn int32, hypothetical bool)
 	b.ResetTimer()
 	appended, added := 0, 0
 	board := botpolicy.NewBoard(2)
+	var spare Spare
 	defer func() {
 		b.ReportMetric(float64(appended)/float64(b.N), "events/op")
 		b.ReportMetric(float64(added)/float64(b.N), "objs/op")
 	}()
 	for i := 0; i < b.N; i++ {
 		var c *Engine
-		if hypothetical {
+		switch {
+		case hypothetical && recycle:
+			c = root.CloneHypotheticalInto(uint64(i), &spare)
+		case hypothetical:
 			c = root.CloneHypothetical(uint64(i))
-		} else {
+		case recycle:
+			c = root.CloneInto(&spare)
+		default:
 			c = root.Clone()
 		}
 		r := rand.New(rand.NewPCG(uint64(i), 1))
@@ -82,6 +95,9 @@ func benchCloneCycle(b *testing.B, opp string, minTurn int32, hypothetical bool)
 		}
 		appended += len(c.L.Events) - len(root.L.Events)
 		added += len(c.G.Objs) - len(root.G.Objs)
+		if recycle {
+			spare = c.Release()
+		}
 	}
 }
 
@@ -97,6 +113,19 @@ var cloneCycleRoots = []struct {
 	opp  string
 	turn int32
 }{{"mono-white-equipment", 8}, {"mono-blue-tempo", 16}}
+
+// BenchmarkCloneCycleRecycled is BenchmarkCloneCycle on the CloneInto /
+// Release loop.
+func BenchmarkCloneCycleRecycled(b *testing.B) {
+	for _, c := range cloneCycleRoots {
+		b.Run(fmt.Sprintf("%s-t%d", c.opp, c.turn), func(b *testing.B) { benchCloneCycleMode(b, c.opp, c.turn, false, true) })
+	}
+}
+
+func BenchmarkCloneCycleHypotheticalRecycled(b *testing.B) {
+	c := cloneCycleRoots[len(cloneCycleRoots)-1]
+	benchCloneCycleMode(b, c.opp, c.turn, true, true)
+}
 
 func BenchmarkCloneCycleHypothetical(b *testing.B) {
 	c := cloneCycleRoots[len(cloneCycleRoots)-1]
