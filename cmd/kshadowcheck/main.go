@@ -45,6 +45,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	limit := fs.Int("limit", 0, "stop after N decisions (0: all)")
 	dumpFatal := fs.String("dump-fatal", "", "print the observation summary of decisions whose fatal staging reason contains this")
 	dumpUnmapped := fs.String("dump-unmapped", "", "dump decisions whose unmapped candidates contain this substring (with -dump N as the cap)")
+	trace := fs.String("trace", "", "write one TSV row per decision problem (file, step, seat, class, what, detail, example)")
 	savePool := fs.String("save-pool", "", "write the pool registry (pauper-kernel catalog cards + tokens) to this .gob.gz and exit")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -65,6 +66,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stdout, "pool registry: %d cards, %d tokens -> %s\n", len(pool.Cards), len(pool.Tokens), *savePool)
 		return 0
+	}
+	var tw *bufio.Writer
+	if *trace != "" {
+		tf, err := os.Create(*trace)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		defer tf.Close()
+		tw = bufio.NewWriter(tf)
+		defer tw.Flush()
 	}
 	files, _ := filepath.Glob(*glob)
 	sort.Strings(files)
@@ -121,7 +133,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 			t0 := time.Now()
 			sh := setup.Build(&d.Kernel.Obs, kshadow.Options{Seed: uint64(r.Step)*7919 + 1, NoPumps: *noPumps, Priority: class == kshadow.ClassPriority})
 			buildNS += time.Since(t0).Nanoseconds()
-			fid.Add(kshadow.Compare(sh, &d.Kernel.Obs))
+			cf := kshadow.Compare(sh, &d.Kernel.Obs)
+			fid.Add(cf)
 			var own []string
 			for _, h := range d.Kernel.Obs.OwnHand {
 				own = append(own, h.Name)
@@ -160,8 +173,34 @@ func run(args []string, stdout, stderr io.Writer) int {
 			for _, k := range m.UnmappedKinds {
 				unmapped[class+": "+k]++
 			}
-			for _, k := range m.UnusedKinds {
-				unused[k]++
+			if class == kshadow.ClassPriority {
+				// Like with like: at a target or other sub-decision gorge
+				// sits at priority, so all its options would count.
+				for _, k := range m.UnusedKinds {
+					unused[k]++
+				}
+			}
+			if tw != nil {
+				base := filepath.Base(fn)
+				for k, v := range cf.Mismatch {
+					if v > 0 {
+						fmt.Fprintf(tw, "%s\t%d\t%s\t%s\tmismatch\t%s\t%s\n", base, r.Step, r.Seat, class, k, cf.Examples[k])
+					}
+				}
+				for _, l := range sh.Lossy {
+					fmt.Fprintf(tw, "%s\t%d\t%s\t%s\tlossy\t%s\t\n", base, r.Step, r.Seat, class, l)
+				}
+				if sh.Fatal != "" {
+					fmt.Fprintf(tw, "%s\t%d\t%s\t%s\tfatal\t%s\t\n", base, r.Step, r.Seat, class, sh.Fatal)
+				}
+				for _, k := range m.UnmappedKinds {
+					fmt.Fprintf(tw, "%s\t%d\t%s\t%s\tunmapped\t%s\t\n", base, r.Step, r.Seat, class, k)
+				}
+				if class == kshadow.ClassPriority {
+					for _, k := range m.UnusedKinds {
+						fmt.Fprintf(tw, "%s\t%d\t%s\t%s\tunused\t%s\t\n", base, r.Step, r.Seat, class, k)
+					}
+				}
 			}
 			hit := *dumpUnmapped == ""
 			for _, k := range m.UnmappedKinds {
@@ -214,7 +253,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	printCounts(stdout, fatal)
 	fmt.Fprintln(stdout, "\nunmapped kernel candidates:")
 	printCounts(stdout, unmapped)
-	fmt.Fprintln(stdout, "\ngorge options with no kernel candidate:")
+	fmt.Fprintln(stdout, "\ngorge options with no kernel candidate (priority decisions):")
 	printCounts(stdout, unused)
 	fmt.Fprintln(stdout, "\nmapping coverage:")
 	cov.Print(stdout)

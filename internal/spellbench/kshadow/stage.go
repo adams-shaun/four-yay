@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
@@ -263,11 +264,11 @@ func (b *builder) stageZones() {
 	}
 	// Old permanents enter before the turn boundary (not summoning sick),
 	// this turn's after it.
+	// The kernel's summoning_sick flag decides (CR 302.6), for both seats:
+	// its turn field counts rounds (both seats play "turn N"), so
+	// entered_battlefield_turn == turn does not mean "entered this turn".
 	for i := range perms {
-		pe := &perms[i]
-		ctrl := seatID(pe.c.Stable.Controller)
-		pe.fresh = (pe.c.EnteredTurn != nil && *pe.c.EnteredTurn == p.Turn) ||
-			(pe.c.SummoningSick && ctrl == seatID(p.ActivePlayer))
+		perms[i].fresh = perms[i].c.SummoningSick
 	}
 	b.enterPerms(perms, false)
 	b.hiddenDeal()
@@ -284,6 +285,68 @@ func (b *builder) stageZones() {
 	b.ev(events.Event{Kind: events.TurnChange, Player: active, Amount: turn})
 	b.enterPerms(perms, true)
 	b.permState(perms)
+	b.stageExilePlay()
+}
+
+// stageAbilityUses records this turn's activations of c's abilities as
+// ManaActivate markers (Apply is inert for them) after the turn boundary:
+// gorge counts per-turn uses (activation limits, "activate only once each
+// turn") from AbilityPush/ManaActivate events since the last TurnChange.
+// The kernel indexes mana and other activated abilities separately; gorge
+// indexes the face's whole ability list.
+func (b *builder) stageAbilityUses(id state.ObjID, c *v1agent.KCard) {
+	if len(c.AbilityUses) == 0 {
+		return
+	}
+	o := b.g.Obj(id)
+	if o == nil || o.Face() == nil {
+		return
+	}
+	var mana, other []int
+	for i, sa := range o.Face().Abilities {
+		if sa == nil || sa.Kind != "AB" {
+			continue
+		}
+		if sa.API == "Mana" {
+			mana = append(mana, i)
+		} else {
+			other = append(other, i)
+		}
+	}
+	for _, u := range c.AbilityUses {
+		list := other
+		if u.Kind == "mana" {
+			list = mana
+		}
+		if u.Index < 0 || u.Index >= len(list) {
+			b.lossy("ability use of %s not mapped", c.Name)
+			continue
+		}
+		for k := 0; k < u.Uses; k++ {
+			b.ev(events.Event{Kind: events.ManaActivate, Obj: id, Player: o.Controller, Amount: int32(list[u.Index])})
+		}
+	}
+}
+
+// stageExilePlay grants each kernel exile play permission as gorge's
+// may-play effect over that one exiled card (the Effect-delivered
+// "Card.IsRemembered" grant impulse draws register).
+func (b *builder) stageExilePlay() {
+	for _, ep := range b.p.ExilePlay {
+		id, ok := b.sh.ArenaToObj[ep.Object.ArenaID]
+		if !ok {
+			b.lossy("exile play permission for an unstaged card")
+			continue
+		}
+		ce := state.ContinuousEffect{Source: id, Controller: seatID(ep.Holder), Affects: "Card.IsRemembered",
+			AffectedZone: "Exile", MayPlay: true, FromEffect: true, Remembered: []state.ObjID{id}}
+		if ep.Expiry.Kind == "end_of_turn" || ep.Expiry.Kind == "until_end_of_turn" {
+			ce.UntilEOT = true
+		} else {
+			ce.Permanent = true
+		}
+		b.e.AddContinuous(ce)
+	}
 }
 
 func (b *builder) enterPerms(perms []permEntry, fresh bool) {
@@ -362,6 +425,7 @@ func (b *builder) permState(perms []permEntry) {
 		if c.SkipNextUntap {
 			b.lossy("skip_next_untap not staged")
 		}
+		b.stageAbilityUses(pe.id, c)
 	}
 	// Attachments: attachments lists what is attached to the card.
 	for i := range perms {
@@ -513,15 +577,28 @@ func (b *builder) stageStack() {
 					}
 					b.ev(events.Event{Kind: events.DelayedPush, Player: ctrl, Obj: src, Amount: -1, Counter: names[lore-1]})
 				} else {
-					idx, sure := b.pickTrigger(f, o)
-					if idx < 0 {
+					idx, sure := b.pickTrigger(f, o, it.Source.Zone)
+					granted := false
+					if idx < 0 || !firesFrom(f.Triggers[idx], it.Source.Zone) {
+						// No printed trigger fits: a trigger granted by a
+						// static (an Equipment's AddTrigger$).
+						if grantor, exec, ok := b.grantedTrigger(src); ok {
+							b.ev(events.Event{Kind: events.GrantTriggerPush, Player: ctrl, Obj: src,
+								Amount: int32(grantor), Counter: exec, Text: "granted trigger"})
+							granted = true
+						}
+					}
+					switch {
+					case granted:
+					case idx < 0:
 						b.sh.Fatal = fmt.Sprintf("triggered ability of %s: %d triggers", f.Name, len(f.Triggers))
 						return
+					default:
+						if !sure {
+							b.lossy("ambiguous trigger of %s", f.Name)
+						}
+						b.ev(events.Event{Kind: events.TriggerPush, Player: ctrl, Obj: src, Amount: int32(idx)})
 					}
-					if !sure {
-						b.lossy("ambiguous trigger of %s", f.Name)
-					}
-					b.ev(events.Event{Kind: events.TriggerPush, Player: ctrl, Obj: src, Amount: int32(idx)})
 				}
 			} else {
 				idx := -1
@@ -692,6 +769,16 @@ func (b *builder) advance() {
 	if pp != seatID(b.p.ActivePlayer) {
 		passes = 1
 	}
+	if pr := b.p.EngineContext.PriorityPasses; len(pr) == 2 {
+		// The kernel's own pass record: consecutive passes since the last
+		// stack change (the priority holder has not passed yet).
+		passes = 0
+		for i, passed := range pr {
+			if passed && state.PlayerID(i) != pp {
+				passes++
+			}
+		}
+	}
 	b.ev(events.Event{Kind: events.Priority, Player: pp, Amount: passes})
 	func() {
 		defer func() {
@@ -723,12 +810,23 @@ func (b *builder) advance() {
 // trigger the source's position implies (an enters trigger for a permanent
 // that entered this turn, a leaves/dies trigger for a source no longer on
 // the battlefield); else the first (sure false).
-func (b *builder) pickTrigger(f *cards.Face, o *state.Object) (int, bool) {
+func (b *builder) pickTrigger(f *cards.Face, o *state.Object, kzone string) (int, bool) {
 	switch len(f.Triggers) {
 	case 0:
 		return -1, false
 	case 1:
 		return 0, true
+	}
+	// The kernel names the zone the source was in when the trigger was put
+	// on the stack; exactly one trigger able to fire from there is the one.
+	var fit []int
+	for i, tr := range f.Triggers {
+		if firesFrom(tr, kzone) {
+			fit = append(fit, i)
+		}
+	}
+	if len(fit) == 1 {
+		return fit[0], true
 	}
 	var enters, leaves []int
 	for i, tr := range f.Triggers {
@@ -782,4 +880,72 @@ func (b *builder) cardNamed(name string) (state.ObjID, bool) {
 		}
 	}
 	return 0, false
+}
+
+// firesFrom reports whether trigger tr can fire while its source is in the
+// kernel zone kzone ("Battlefield", "Stack", "Graveyard", ...): an explicit
+// TriggerZones$ list decides; otherwise a "when you cast this" trigger
+// fires from the stack, a leaves-the-battlefield trigger from wherever the
+// source went, and everything else from the battlefield.
+func firesFrom(tr cards.Trigger, kzone string) bool {
+	if kzone == "" {
+		return true
+	}
+	if tz := tr.Params["TriggerZones"]; tz != "" {
+		for _, z := range strings.Split(tz, ",") {
+			if strings.EqualFold(strings.TrimSpace(z), kzone) {
+				return true
+			}
+		}
+		return false
+	}
+	castSelf := tr.Mode == "SpellCast" && tr.Params["ValidCard"] == "Card.Self"
+	leaves := (tr.Mode == "ChangesZone" || tr.Mode == "ChangesZoneAll") && tr.Params["Origin"] == "Battlefield"
+	switch {
+	case strings.EqualFold(kzone, "Stack"):
+		return castSelf
+	case strings.EqualFold(kzone, "Battlefield"):
+		return !castSelf
+	}
+	return leaves
+}
+
+// grantedTrigger finds the one trigger a battlefield static grants src
+// (AddTrigger$ on a Mode$ Continuous static of src itself or of a permanent
+// attached to it): the grantor (0 for a self-grant) and the granted
+// trigger's Execute$ body.
+func (b *builder) grantedTrigger(src state.ObjID) (state.ObjID, string, bool) {
+	var grantor state.ObjID
+	exec, n := "", 0
+	for _, id := range append(append([]state.ObjID(nil), b.g.Zone(state.ZBattlefield, 0)...), b.g.Zone(state.ZBattlefield, 1)...) {
+		o := b.g.Obj(id)
+		if o == nil || o.Face() == nil || (id != src && o.AttachedTo != src) {
+			continue
+		}
+		f := o.Face()
+		for _, st := range f.Statics {
+			names := st.Params["AddTrigger"]
+			if names == "" {
+				continue
+			}
+			for _, nm := range strings.Split(names, ",") {
+				line := f.SVars[strings.TrimSpace(nm)]
+				i := strings.Index(line, "Execute$")
+				if i < 0 {
+					continue
+				}
+				rest := strings.TrimSpace(line[i+len("Execute$"):])
+				if j := strings.IndexAny(rest, " |"); j >= 0 {
+					rest = rest[:j]
+				}
+				n++
+				exec = rest
+				grantor = 0
+				if id != src {
+					grantor = id
+				}
+			}
+		}
+	}
+	return grantor, exec, n == 1
 }

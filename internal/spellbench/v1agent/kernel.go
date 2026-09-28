@@ -80,6 +80,28 @@ type KCard struct {
 	EnteredTurn     *int             `json:"entered_battlefield_turn"`
 	SkipNextUntap   bool             `json:"skip_next_untap"`
 	Characteristics KCharacteristics `json:"characteristics"`
+	// AbilityUses counts this turn's activations per ability.
+	AbilityUses []KAbilityUse `json:"ability_uses_this_turn"`
+}
+
+// KAbilityUse is one ability's activation count this turn; Kind is "mana"
+// or "activated", Index the ability's position among the card's abilities
+// of that kind.
+type KAbilityUse struct {
+	Kind  string `json:"ability_kind"`
+	Index int    `json:"ability_index"`
+	Uses  int    `json:"uses"`
+}
+
+// KExilePlay is ExilePlayPermission: Holder may play (or cast) Object from
+// exile until the expiry.
+type KExilePlay struct {
+	Object     KRef   `json:"object"`
+	Holder     string `json:"holder"`
+	PlayOrCast string `json:"play_or_cast"`
+	Expiry     struct {
+		Kind string `json:"expiry_kind"`
+	} `json:"expiry"`
 }
 
 // Power is the effective power (0 for a non-creature).
@@ -191,8 +213,12 @@ type KProjection struct {
 	Exile          []KCard          `json:"exile"`
 	Stack          []KStackItem     `json:"stack"`
 	Combat         KCombat          `json:"combat"`
+	ExilePlay      []KExilePlay     `json:"exile_play_permissions"`
 	EngineContext  struct {
-		PendingEffect *struct {
+		// PriorityPasses[i] is whether seat i passed priority since the
+		// last stack change (nil when the engine omits it).
+		PriorityPasses []bool `json:"priority_passes"`
+		PendingEffect  *struct {
 			Source *KRef `json:"source"`
 			Choice *struct {
 				Kind     string    `json:"choice_kind"`
