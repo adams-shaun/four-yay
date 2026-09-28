@@ -1218,7 +1218,8 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// publishTokenEntry land the minted id in that collector, so the
 		// waiting "token_rest" frame re-enters with the copy and applies its
 		// per-mint riders. 0 (or a spent collector) runs unchanged.
-		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
+		var entry state.ObjID
+		e.withMintSink(e.pendingMintSink, func() { entry = e.resumeETBEntry(chosen) })
 		if e.resume != nil {
 			// The re-emitted entry asked again (a second as-enters choice on
 			// the same object, or a replacement body of its own). Chain the
@@ -1230,7 +1231,7 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 			}
 			return
 		}
-		e.continueAfterETBEntry(rp)
+		e.continueAfterETBEntry(rp, entry)
 		return
 	}
 	if e.choosing == chooseOppPick {
