@@ -725,8 +725,31 @@ type plannedManaActivation struct {
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
+	return e.planPaymentCostExcluding(p, cast, cost, 0)
+}
+
+// planPaymentCostExcluding is planPaymentCost over the census with the source
+// exclude (0 = none) left out: an activated ability whose own cost taps or
+// sacrifices its source must not have that source planned for mana
+// (PotentialPaymentPlans). With exclude 0 it is planPaymentCost exactly,
+// cached classes included; an excluded census groups its own classes,
+// because the query cache's classes are keyed by payer and phase only.
+func (e *Engine) planPaymentCostExcluding(p state.PlayerID, cast decision.PlannedCast, cost Cost, exclude state.ObjID) PaymentPlanOutcome {
 	defer e.paymentPlanQueryScope()()
 	units := e.paymentPlanQueryUnits(p)
+	queryClasses := e.paymentPlanQueryClasses
+	if exclude != 0 {
+		kept := make([]windowManaUnit, 0, len(units))
+		for _, u := range units {
+			if u.id != exclude {
+				kept = append(kept, u)
+			}
+		}
+		units = kept
+		queryClasses = func(_ state.PlayerID, _ paymentAbilityTier, choices [][]plannedManaActivation) []paymentPlanClass {
+			return paymentPlanClasses(choices)
+		}
+	}
 	// V1 accepts only fixed production.  A permissive window unit is useful to
 	// manual payment, but not proof an automatic choice will remain exact.
 	choices := make([][]plannedManaActivation, len(units))
@@ -739,7 +762,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
 	rankCtx := newPaymentPlanRankContext(choices, e.paymentPlanHandDemand(p, cast.Object))
 	search := searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
-		phase1, e.paymentPlanQueryClasses(p, paymentTierNormal, phase1))
+		phase1, queryClasses(p, paymentTierNormal, phase1))
 	nodes := search.nodes
 	// Phase 2 runs only when phase 1 PROVES no plan exists (insufficient,
 	// not search_limit): normal plus last-resort alternatives, ranked by the
@@ -749,7 +772,7 @@ func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, co
 	if search.best == nil && !search.limited {
 		if phase2 := paymentPlanLastResortChoices(choices, life); phase2 != nil {
 			search = searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
-				phase2, e.paymentPlanQueryClasses(p, paymentTierLastResort, phase2))
+				phase2, queryClasses(p, paymentTierLastResort, phase2))
 			nodes += search.nodes
 		}
 	}
