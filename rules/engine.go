@@ -536,11 +536,11 @@ type Engine struct {
 	// memo for ONE legal-actions walk (rules/derivedmemo.go): derivedMemoDepth
 	// is the scope counter legalActionsPriced raises, derivedMemoGen is bumped
 	// on every outermost scope entry so no entry outlives the walk that built
-	// it, and derivedMemo (indexed by ObjID) owns each cached result's slices.
+	// it, and derivedMemo (keyed by ObjID) owns each cached result's slices.
 	// Pure per-walk scratch: Clone copies none of it (a clone starts with an
 	// empty memo and generation 0, which no entry ever matches).
-	derivedMemo      []derivedMemoEntry
-	derivedMemoStack []derivedMemoEntry
+	derivedMemo      derivedMemoTable
+	derivedMemoStack derivedMemoTable
 	derivedMemoDepth int
 	derivedMemoGen   uint64
 	// derivedMemoTail / derivedMemoAlias* carry the priority walk's memo
@@ -2125,10 +2125,10 @@ type Spare struct {
 	events  []events.Event
 	objs    []state.Object
 	intents []decision.Intent
-	// The Derived memo tables (derivedmemo.go): indexed by ObjID, grown to
-	// the arena's size; cleared by Release, which is exactly the zeroed
-	// never-written state derivedMemoizedAt's growth relies on.
-	memo, memoStack []derivedMemoEntry
+	// The Derived memo tables (derivedmemo.go): an ObjID index grown to the
+	// arena's size plus the slots; cleared by Release, which is exactly the
+	// zeroed never-written state derivedMemoTable.slot's growth relies on.
+	memo, memoStack derivedMemoTable
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -2143,16 +2143,14 @@ func (e *Engine) Release() Spare {
 		events:    e.L.Events[:cap(e.L.Events)],
 		objs:      e.G.Objs[:cap(e.G.Objs)],
 		intents:   e.L.Intents[:cap(e.L.Intents)],
-		memo:      e.derivedMemo[:cap(e.derivedMemo)],
-		memoStack: e.derivedMemoStack[:cap(e.derivedMemoStack)],
+		memo:      e.derivedMemo.release(),
+		memoStack: e.derivedMemoStack.release(),
 	}
 	clear(sp.events)
 	clear(sp.objs)
 	clear(sp.intents)
-	clear(sp.memo)
-	clear(sp.memoStack)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
-	e.derivedMemo, e.derivedMemoStack, e.intentBuf = nil, nil, nil
+	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
 	return sp
 }
 
@@ -2229,7 +2227,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	// arrays (derivedMemoizedAt only reslices up into zeroed capacity), and
 	// the intent array waits for the first Submit (the log's Intents stays
 	// nil until an intent exists, as it always has).
-	e.derivedMemo, e.derivedMemoStack = spare.memo[:0], spare.memoStack[:0]
+	e.derivedMemo, e.derivedMemoStack = spare.memo, spare.memoStack
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]
 	}

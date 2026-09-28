@@ -48,7 +48,10 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 		t.Fatalf("new walk served the previous walk's entry: power %d, want 3", p)
 	}
 	e.endDerivedMemo()
-	m := &e.derivedMemo[bear]
+	m := e.derivedMemo.at(bear)
+	if m == nil {
+		t.Fatal("no memo entry for the derived bear")
+	}
 	seq := m.seq
 	if seq == 0 || seq != e.activeBuildSeq {
 		t.Fatalf("entry not eligible for cross-walk reuse: seq %d, active %d", seq, e.activeBuildSeq)
@@ -61,7 +64,7 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 	if p := e.Derived(bear).Power; p != 3 {
 		t.Fatalf("reused entry power %d, want 3", p)
 	}
-	if m.gen != e.derivedMemoGen || m.seq != seq || e.activeBuildSeq != seq {
+	if m = e.derivedMemo.at(bear); m.gen != e.derivedMemoGen || m.seq != seq || e.activeBuildSeq != seq {
 		t.Fatalf("inert event did not keep the entry: gen %d/%d seq %d/%d active %d", m.gen, e.derivedMemoGen, m.seq, seq, e.activeBuildSeq)
 	}
 	e.endDerivedMemo()
@@ -122,7 +125,7 @@ func TestDerivedMemoBypassesZoneOverride(t *testing.T) {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	_ = e.derivedWith(bear, state.ZStack)
-	if len(e.derivedMemo) > int(bear) && e.derivedMemo[bear].gen != 0 {
+	if m := e.derivedMemo.at(bear); m != nil && m.gen != 0 {
 		t.Fatal("an atStack derive was memoized")
 	}
 }
@@ -155,8 +158,7 @@ func TestBeginDerivedReadsResumesThePriorityWalk(t *testing.T) {
 			}
 			resumed++
 			for _, id := range e.G.Zone(state.ZBattlefield, d.Player) {
-				m := e.derivedMemo
-				if int(id) < len(m) && m[id].gen == gen && m[id].ep == e.derivedMemoAliasFrom {
+				if m := e.derivedMemo.at(id); m != nil && m.gen == gen && m.ep == e.derivedMemoAliasFrom {
 					_ = e.Derived(id) // served via the alias; verify mode recomputes it
 					hitsServed++
 				}
@@ -226,8 +228,7 @@ func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
 		d := e.Pending()
 		if d.Kind == decision.KPriority && e.derivedMemoTailLive() {
 			for _, id := range e.G.Zone(state.ZBattlefield, d.Player) {
-				m := e.derivedMemo
-				if int(id) >= len(m) || m[id].gen != e.derivedMemoGen || e.Derived(id).Types == nil {
+				if m := e.derivedMemo.at(id); m == nil || m.gen != e.derivedMemoGen || e.Derived(id).Types == nil {
 					continue
 				}
 				if !slices.Contains(e.Derived(id).Types, "Creature") {
