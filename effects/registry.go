@@ -1641,6 +1641,17 @@ type Ctx struct {
 	// EndTurnOpt is the answer to Obeka's Optional$ EndTurn election. It is
 	// consumed on re-entry so another EndTurn in the chain asks independently.
 	EndTurnOpt string
+	// VentureEnter is the answered dungeon choice of an api:Venture first
+	// venture (CR 701.49a): the token-script key the re-entered effVenture
+	// puts into the answering player's command zone. VentureRoom is the
+	// answered room choice of an api:Venture advance (CR 701.49b): the room
+	// key the marker moves to. Both ride the ask with the walk cursor
+	// (VentureIdx, the actingPlayers index the ask was posed for), are
+	// consumed and cleared at the re-entry's top (fx42 scoping), and their
+	// emptiness distinguishes a fresh walk from a resumed one.
+	VentureEnter string
+	VentureRoom  string
+	VentureIdx   int32
 	// CounterKind is the answered kind for a comma-separated PutCounter list.
 	// CounterKindDone distinguishes an answered first-option fallback from the
 	// first pass; CounterKinds carries a ChooseDifferent$ multi-answer.
