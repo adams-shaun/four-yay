@@ -1893,6 +1893,12 @@ var handRoots = struct {
 		// mustAttackRequired has. staticPresentHolds (its IsPresent$/
 		// PresentCompare$ gate) is reached through it.
 		"UntapOtherPlayer": {"Engine.untapOtherStaticsMatch"},
+		// SpellCopyAllowed scans CantBeCopied statics directly over the
+		// pile's Statics slice (the stack-copy enforcement walk in
+		// statics.go), with no activeStatics call -- the same direct-scan
+		// shape mustAttackRequired has. Its reads are the shared
+		// EffectZone$/ValidCard$ static gate.
+		"CantBeCopied": {"Engine.SpellCopyAllowed"},
 	},
 	// The trigger-queue drain and the stack-resolution paths read trigger
 	// params (OptionalDecider$, TriggerDescription$, Static$, ValidCard$)
