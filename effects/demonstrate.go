@@ -73,7 +73,7 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 	// that already left it is a no-op, the same totality stance as every
 	// other effect primitive.
 	so := g.Obj(spell)
-	if so == nil || so.Zone != state.ZStack {
+	if so == nil || so.Zone != state.ZStack || !spellCopyAllowed(h, spell) {
 		return
 	}
 	name := ""
