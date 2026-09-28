@@ -489,20 +489,18 @@ func Apply(g *state.Game, e Event) {
 		g.Players[e.Player].DungeonRoom = ""
 
 	case DungeonRoom:
-		if validPlayer(g, e.Player) && e.Text != "" && g.Players[e.Player].DungeonObj == e.Obj {
+		if e.Text != "" && activeDungeon(g, e.Player, e.Obj) != nil {
 			g.Players[e.Player].DungeonRoom = e.Text
 		}
 
 	case DungeonComplete:
-		if validPlayer(g, e.Player) && g.Players[e.Player].DungeonObj == e.Obj {
+		if activeDungeon(g, e.Player, e.Obj) != nil {
 			g.Players[e.Player].CompletedDungeons++
 		}
 
 	case DungeonRemove:
-		if validPlayer(g, e.Player) && g.Players[e.Player].DungeonObj == e.Obj {
-			if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZCommand {
-				Move(g, o.ID, state.ZCommand, state.ZCeased)
-			}
+		if o := activeDungeon(g, e.Player, e.Obj); o != nil {
+			Move(g, o.ID, state.ZCommand, state.ZCeased)
 			g.Players[e.Player].DungeonObj = 0
 			g.Players[e.Player].DungeonRoom = ""
 		}
@@ -4202,6 +4200,19 @@ func changeControl(g *state.Game, o *state.Object, p state.PlayerID) {
 // validPlayer reports whether p indexes an existing seat.
 func validPlayer(g *state.Game, p state.PlayerID) bool {
 	return int(p) < len(g.Players)
+}
+
+// activeDungeon rejects malformed lifecycle events, including Obj 0 when no
+// dungeon is active. A departed dungeon cannot accrue completions or rooms.
+func activeDungeon(g *state.Game, p state.PlayerID, id state.ObjID) *state.Object {
+	if !validPlayer(g, p) || id == 0 || g.Players[p].DungeonObj != id {
+		return nil
+	}
+	o := g.Obj(id)
+	if o == nil || o.Owner != p || o.Zone != state.ZCommand {
+		return nil
+	}
+	return o
 }
 
 // manaClearKeepSlots parses the keep-mask Text the stat:UnspentMana emitter

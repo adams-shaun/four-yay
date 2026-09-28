@@ -156,6 +156,22 @@ type DungeonView struct {
 	Room string `json:"room"`
 }
 
+// dungeonRoomName resolves the marker's script key to the printed room label.
+// A missing or malformed RoomName$ falls back to the key rather than hiding
+// the marker; the venture logic owns validation of which key can be entered.
+func dungeonRoomName(face *cards.Face, key string) string {
+	if key == "" {
+		return ""
+	}
+	for _, field := range strings.Split(face.SVars[key], "|") {
+		name, value, ok := strings.Cut(strings.TrimSpace(field), "$")
+		if ok && name == "RoomName" && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return key
+}
+
 // PlayerView is one seat's own public state, plus (only when this is the
 // viewer's own seat) the private parts.
 //
@@ -580,7 +596,7 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 			CommanderCasts:    casts,
 		}
 		if dungeon := g.Obj(p.DungeonObj); dungeon != nil && dungeon.Zone == state.ZCommand && dungeon.Face() != nil {
-			pv.Dungeon = &DungeonView{Name: dungeon.Face().Name, Room: p.DungeonRoom}
+			pv.Dungeon = &DungeonView{Name: dungeon.Face().Name, Room: dungeonRoomName(dungeon.Face(), p.DungeonRoom)}
 		}
 		// Available is public (battlefield-derived) and so projected for
 		// every seat under every visibility, like Pool; only Hand (a CR 400.2
