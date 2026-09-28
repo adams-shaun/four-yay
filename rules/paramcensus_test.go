@@ -2968,11 +2968,15 @@ var knownUnsupportedParams = map[string][]string{
 	// param:api:Play.WithoutManaCost row retired with the same attribution
 	// fix (see the Spinerock Knoll note above).
 	"World Shaper": {"param:api:Mill.Optional"},
-	// Torment of Hailfire's FallbackAbility$/TempRemember$ are unread
-	// everywhere: its DB$ GenericChoice now resolves through effCharm's
-	// modal ask (effects/misc.go), but these two params ride the ask and
-	// neither is read by any code (pinned in rules/generic_choice_test.go).
-	"Torment of Hailfire": {"param:api:GenericChoice.FallbackAbility", "param:api:GenericChoice.TempRemember"},
+	// Torment of Hailfire and Hag of Ceaseless Torment carry
+	// api:GenericChoice's FallbackAbility$/TempRemember$ on the per-player
+	// path; both are read now (effects/misc.go charmGenericPlayersRun
+	// gates the chooser binding on TempRemember$ Chooser and filters the
+	// Choices$ to those the chooser can pay, resolving FallbackAbility$
+	// when none can), pinned end to end on the FDN carrier Perforating
+	// Artist in rules/perforating_artist_test.go. Their entries left this
+	// table with the read.
+	//
 	// The pro-shaper player-submitted Commander import (2026-09-18): the
 	// parameter reads its cards expose that this build does not implement.
 	// Each label is the unimplemented parameter on a fully-registered
