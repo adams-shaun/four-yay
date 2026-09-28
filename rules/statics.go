@@ -1801,6 +1801,10 @@ type costMods struct {
 	raiseLife int32
 	reduces   []costMod
 	setFloor  int32
+	// hasExtra records that extra was ever composed into (the only writes
+	// that can make it non-zero). While it is false extra is the zero Cost,
+	// which apply may then skip (see apply).
+	hasExtra bool
 }
 
 // empty reports whether the composition would change nothing, so a caller can
@@ -1817,7 +1821,13 @@ func (m costMods) empty() bool {
 // the SetCost floor raised to last (Trinisphere: total mana below 3 becomes
 // 3). Generic never dips below zero at any point.
 func (m costMods) apply(c Cost) Cost {
-	c = c.Plus(m.extra)
+	// Plus with the zero Cost is the identity on every field except the
+	// three it clamps or maxes at zero (Life, Snow, XMin), so the two
+	// 744-byte copies are skipped only when extra is provably zero and none
+	// of those three is negative.
+	if m.hasExtra || c.Life < 0 || c.Snow < 0 || c.XMin < 0 {
+		c = c.Plus(m.extra)
+	}
 	for _, r := range m.raises {
 		c.Generic = addClampedGeneric(c.Generic, int64(r))
 	}
@@ -2540,6 +2550,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
 					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
 						mods.extra = mods.extra.Plus(extra)
+						mods.hasExtra = true
 						continue
 					}
 				}
@@ -2650,6 +2661,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
 					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
 						mods.extra = mods.extra.Plus(extra)
+						mods.hasExtra = true
 						continue
 					}
 				}
