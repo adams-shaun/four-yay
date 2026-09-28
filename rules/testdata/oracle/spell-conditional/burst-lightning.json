@@ -1,0 +1,90 @@
+{
+  "card": "Burst Lightning",
+  "family": "spell-conditional",
+  "oracle_sha": "17dac5bb4f99",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "not-kicked-two-damage",
+      "cr": [
+        "702.33a",
+        "608.2c"
+      ],
+      "why": "Without the additional payment the spell deals two to its player target, leaving the opponent on 18.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Burst Lightning"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Burst Lightning",
+          "mana": "R",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 18
+          }
+        },
+        {
+          "card": "p0:Burst Lightning",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "kicked-four-damage",
+      "cr": [
+        "702.33a",
+        "702.33d",
+        "608.2c"
+      ],
+      "why": "The kicker cost was paid on casting, so the replacement amount is four damage and the opponent ends on 16.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Burst Lightning"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Burst Lightning",
+          "mana": "RRRRR",
+          "kicked": true,
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 16
+          }
+        },
+        {
+          "card": "p0:Burst Lightning",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

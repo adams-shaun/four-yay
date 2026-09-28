@@ -1,0 +1,160 @@
+{
+  "card": "Jhoira's Familiar",
+  "family": "cost-modifier",
+  "oracle_sha": "8cbbba50fa38",
+  "author": "cli-20260927T211250Z-9b48f4e3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "artifact-historic-free",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "An artifact is historic; the Familiar removes the single generic mana from Bonesplitter.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bonesplitter"
+          ],
+          "battlefield": [
+            "Jhoira's Familiar"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "legendary-historic-reduced",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A legendary enchantment is historic even though it is not an artifact; its generic unit is removed and white remains payable.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Folk Hero"
+          ],
+          "battlefield": [
+            "Jhoira's Familiar"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Folk Hero",
+          "mana": "W",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Folk Hero",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "ordinary-creature-not-historic",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Grizzly Bears is neither legendary, artifact, nor Saga, so green alone cannot pay its generic unit.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Jhoira's Familiar"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-artifact-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The Familiar discounts only its controller’s historic spells, not an opponent’s artifact.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Jhoira's Familiar"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Bonesplitter"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

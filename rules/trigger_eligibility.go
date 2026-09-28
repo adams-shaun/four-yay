@@ -92,7 +92,10 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.StoreSVar, events.GiftPromise, events.GiveGift, events.PhaseOut, events.RollDice,
 		events.DelayedForget, events.Cascade, events.Clash,
 		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
-		events.ChaosEnsues:
+		events.ChaosEnsues, events.ManaUndo:
+		// ManaUndo is the announced payment window's CR 733.1 reversal of a
+		// mana activation: nothing triggers from an undone action, so it
+		// carries no interest bits.
 		// Cascade is a never-emitted PROPOSAL (the cascade instruction's
 		// replacement boundary, events.Cascade): it is held out to the
 		// replacement matcher and logged nowhere, so no trigger mode can ever

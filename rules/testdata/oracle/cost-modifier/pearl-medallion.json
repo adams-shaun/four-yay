@@ -1,0 +1,161 @@
+{
+  "card": "Pearl Medallion",
+  "family": "cost-modifier",
+  "oracle_sha": "c51809541164",
+  "author": "cli-20260927T211250Z-9b48f4e3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "matching-spell-reduced",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The controller casts a spell with the named colour and one generic mana; the reduction removes that generic unit, not its coloured payment.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Pacifism"
+          ],
+          "battlefield": [
+            "Pearl Medallion"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Pacifism",
+          "mana": "W",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ],
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Pacifism",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "different-colour-stays-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The spell does not have the named colour, so one coloured mana without its generic unit does not pay its full cost.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Pearl Medallion"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponents-spell-not-reduced",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Only the controller receives the discount; the opponent casting the named-colour spell still needs the generic unit.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Pacifism"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Pearl Medallion"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "W"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Pacifism"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "coloured-symbol-is-not-generic",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "A spell with only one coloured mana symbol has no generic component to reduce; an empty pool cannot cast it.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Savannah Lions"
+          ],
+          "battlefield": [
+            "Pearl Medallion"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Savannah Lions"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

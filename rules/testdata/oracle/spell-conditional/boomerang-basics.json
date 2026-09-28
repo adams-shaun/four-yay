@@ -1,0 +1,110 @@
+{
+  "card": "Boomerang Basics",
+  "family": "spell-conditional",
+  "oracle_sha": "41ed3d2ed57f",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "own-permanent-return-draw",
+      "cr": [
+        "608.2c",
+        "608.2h"
+      ],
+      "why": "The returned creature was controlled by the caster when returned, so the caster draws a card after moving it to its owner\u2019s hand.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Boomerang Basics"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "library_top": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Boomerang Basics",
+          "mana": "U",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "hand"
+        },
+        {
+          "card": "p0:Forest",
+          "zone": "hand"
+        },
+        {
+          "hand_size": {
+            "p0": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "enemy-permanent-return-no-draw",
+      "cr": [
+        "608.2c",
+        "608.2h"
+      ],
+      "why": "A creature controlled by the opponent is returned to that opponent\u2019s hand; because it was not controlled by the caster there is no draw.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Boomerang Basics"
+          ],
+          "library_top": [
+            "Forest"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Boomerang Basics",
+          "mana": "U",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "hand"
+        },
+        {
+          "card": "p0:Forest",
+          "zone": "library"
+        },
+        {
+          "hand_size": {
+            "p0": 0
+          }
+        }
+      ]
+    }
+  ]
+}

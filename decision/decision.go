@@ -414,6 +414,21 @@ type Option struct {
 	// printed and SVar-granted ability). A human client never sees them.
 	GainedSource state.ObjID `json:"-"`
 	GainedIdx    int         `json:"-"`
+	// GrantStatics is server-side only (json:"-") and carries, on an
+	// "ability" option whose whole activation is an Effect granting
+	// continuous statics to its target, the resolved Mode$ values of those
+	// statics -- the same list the follow-up target decision publishes on
+	// TargetEffect.Statics (describeTargetEffect). It is the OFFER-TIME
+	// twin: the ability scorer reads it BEFORE the activation's costs are
+	// paid, so a bot can decline a one-way boon grant (Whirler Rogue's
+	// "target creature can't be blocked") when it has no own creature to
+	// receive it -- the offer loop itself cannot withhold the ability (a
+	// human seat may still want to aim a boon at an opponent's creature),
+	// so the polarity is bot-quality advice, never an engine gate. Filled
+	// by rules/legal.go from the ability's own face's SVar table, the same
+	// resolution staticModesFromSVars performs for the target ask; a human
+	// client never sees it.
+	GrantStatics []string `json:"-"`
 	// PlanBacked is server-side only (json:"-") and marks a "cast" option
 	// the seat's auto-pay adapter built as a plan-backed candidate: selecting
 	// it submits a decision.PaymentSelection whose V1 plan performs the mana
@@ -540,6 +555,11 @@ type Decision struct {
 	// PaymentFallback is populated only if execution falls back to the normal
 	// manual payment window.
 	PaymentFallback *PaymentFallback `json:"payment_fallback,omitempty"`
+	// ManaPayment is present only on the announced CR 601.2g window (the
+	// "select mana" prompt, announce-then-pay spec §4.1): total cost, what is
+	// still owed, the pool and the Auto-fill sources. Absent everywhere else,
+	// so every other decision serialises byte-identically.
+	ManaPayment *ManaPaymentWindow `json:"mana_payment,omitempty"`
 	// MaxSum, when > 0, is a cumulative budget over the chosen options' Value
 	// fields: the sum of the picked options' Value must not exceed MaxSum.
 	// The engine's first user is a Dig's WithTotalCMC$ ("put any number of
@@ -1127,6 +1147,10 @@ type Intent struct {
 	// Payment selects an offered payment action and exact plan witness. It is
 	// exclusive with Choices and Rest.
 	Payment *PaymentSelection `json:"payment,omitempty"`
+	// Announce begins an offered payment action's cast without a witness, so
+	// the caster pays in the CR 601.2g window (announce-then-pay spec §3). It
+	// is exclusive with Choices, Rest and Payment.
+	Announce *AnnounceSelection `json:"announce,omitempty"`
 }
 
 // Validate rejects anything the engine did not offer. Everything a client can
@@ -1137,6 +1161,9 @@ func (d *Decision) Validate(in Intent) error {
 	}
 	if in.Player != d.Player {
 		return fmt.Errorf("intent from player %d, decision is for player %d", in.Player, d.Player)
+	}
+	if in.Announce != nil {
+		return d.validateAnnounce(in)
 	}
 	if in.Payment != nil {
 		return d.validatePayment(in)
