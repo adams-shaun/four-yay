@@ -978,6 +978,117 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 	return false
 }
 
+// mayPlayGrantedBy reports whether a may-play permission HOSTED by host
+// covers card id for player p right now -- Forge's MayPlaySource property
+// (SpellAbilityProperty: sa.getMayPlay().getHostCard() equals the source),
+// read for "spells you cast this way" (Urianger Augurelt's ValidSpell$
+// Spell.MayPlaySource reduction, the CastSa Spell.MayPlaySource raises).
+// It walks the same three sources mayPlayGrant reads, keeping only the
+// permissions whose host is host, under the same gates:
+//
+//   - the card's own face statics (host == id, a self-grant);
+//   - a battlefield Continuous static whose source is host (only its
+//     controller benefits, mayPlayGrant's rule);
+//   - an Effect-delivered grant (plain or free) whose Source is host, with
+//     mayPlayEffectGrantsCast's controller / PlayerTurn / MayPlayLimit$ /
+//     AffectedZone$ / Affects gates.
+//
+// A may-play cast's own record of these hosts (pendingCast.mayPlayHosts,
+// captured at beginCast while the card still sat in the granted zone) is
+// what the cost chain reads once the card has moved to the stack -- the
+// permission's Affects$/ForgetOnMoved$ scope no longer covers it there.
+func (e *Engine) mayPlayGrantedBy(p state.PlayerID, id, host state.ObjID) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil || host == 0 {
+		return false
+	}
+	if host == id {
+		for _, st := range o.Face().Statics {
+			if st.Mode != "Continuous" {
+				continue
+			}
+			if _, grants, _, _, _, _ := e.mayPlayStatic(st.Params, id, o.Controller, id); grants {
+				return true
+			}
+		}
+	}
+	for _, sv := range e.activeStatics("Continuous") {
+		if sv.Controller != p || sv.Source != host {
+			continue
+		}
+		if _, grants, _, _, _, _ := e.mayPlayStatic(sv.Params, id, sv.Controller, sv.Source); grants {
+			return true
+		}
+	}
+	if o.Zone != state.ZGraveyard && o.Zone != state.ZExile {
+		return false
+	}
+	limited := lazyMayPlays{e: e, p: p}
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
+		if !ce.MayPlay || ce.Source != host || ce.Controller != p {
+			continue
+		}
+		if ce.MayPlayPlayerTurn && e.G.Active != p {
+			continue
+		}
+		if ce.MayPlayLimit > 0 && int32(limited.count()) >= ce.MayPlayLimit {
+			continue
+		}
+		zones, all, ok := effects.ParseZones(ce.AffectedZone)
+		if !ok && !all {
+			continue
+		}
+		if !all && !slices.Contains(zones, o.Zone) {
+			continue
+		}
+		if e.effectGrantMatches(*ce, o.ID) {
+			return true
+		}
+	}
+	return false
+}
+
+// mayPlayHostsCovering returns, in activeStatics/active() order, the hosts of
+// every may-play permission covering id for p (mayPlayGrantedBy's three
+// sources). beginCast records it for a "mayplay" cast so the cost chain can
+// still name the permission's host after CR 601.2a moves the card.
+func (e *Engine) mayPlayHostsCovering(p state.PlayerID, id state.ObjID) []state.ObjID {
+	var out []state.ObjID
+	seen := func(h state.ObjID) bool { return slices.Contains(out, h) }
+	if e.mayPlayGrantedBy(p, id, id) {
+		out = append(out, id)
+	}
+	for _, sv := range e.activeStatics("Continuous") {
+		if sv.Controller == p && !seen(sv.Source) && e.mayPlayGrantedBy(p, id, sv.Source) {
+			out = append(out, sv.Source)
+		}
+	}
+	ces := e.active()
+	for i := range ces {
+		if ces[i].MayPlay && !seen(ces[i].Source) && e.mayPlayGrantedBy(p, id, ces[i].Source) {
+			out = append(out, ces[i].Source)
+		}
+	}
+	return out
+}
+
+// castRidesMayPlayOf reports whether the cast being priced under scope is a
+// may-play cast whose permission host is host (Forge's MayPlaySource). Only
+// the "mayplay" cast mode rides a may-play permission. The pending cast of id
+// answers from the hosts it recorded at beginCast; the pre-cast offer walk
+// reads the live permissions.
+func (e *Engine) castRidesMayPlayOf(p state.PlayerID, id, host state.ObjID, scope costScope) bool {
+	if scope.kind != "Spell" || scope.mode != "mayplay" {
+		return false
+	}
+	if pc := e.cast; pc != nil && pc.card == id && pc.mayPlayHostsSet {
+		return slices.Contains(pc.mayPlayHosts, host)
+	}
+	return e.mayPlayGrantedBy(p, id, host)
+}
+
 // mayPlayValidSAKinds splits one may-play permission's ValidSA$ into its
 // ordinary-cast, mutate-cast and blitz-cast halves. An absent/empty value is an
 // ordinary permission. The mutate and blitz tokens are matched

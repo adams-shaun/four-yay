@@ -184,6 +184,21 @@ type pendingCast struct {
 	// it on the pay-time CastInfo (a "perm=<key>" token) so
 	// mayPlayTypedLimitReached can attribute the play to its static.
 	mayPlayPerm string
+	// mayPlayHosts records, at beginCast, the hosts of the may-play
+	// permissions that covered this "mayplay" cast's card while it still sat
+	// in the granted zone (mayPlayHostsCovering). The cost chain's
+	// MayPlaySource reads (castRidesMayPlayOf) consult it after CR 601.2a's
+	// push, when the permission no longer covers the card on the stack.
+	// mayPlayHostsSet marks a captured (possibly empty) record.
+	mayPlayHosts    []state.ObjID
+	mayPlayHostsSet bool
+	// costRemembered records, at beginCast, the captured Remembered set of
+	// every Effect-delivered cost-modifier static whose set held this card
+	// (costRememberedCapture): the "a spell cast this way" raise's
+	// Card.IsRemembered must keep naming the card after CR 601.2a moves it,
+	// although the Effect's ForgetOnMoved$ drops it from the live set at that
+	// move -- the mayPlayRemembered discipline, for cost statics.
+	costRemembered []costRememberedEntry
 
 	// replaceGraveyard is the Play SA's ReplaceGraveyard$ Exile rider
 	// (task replplay1): the played spell must not rest in the graveyard —
@@ -3053,6 +3068,11 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		e.cast.mayPlayIgnoreType = e.payerGrantsIgnoreType(p, id)
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)
 		e.cast.mayPlayPerm = opt.MayPlayPerm
+		e.cast.mayPlayHosts = e.mayPlayHostsCovering(p, id)
+		e.cast.mayPlayHostsSet = true
+	}
+	if e.cast != nil {
+		e.cast.costRemembered = e.costRememberedCapture(id)
 	}
 	if selection != nil && e.cast != nil {
 		e.cast.payment = &plannedCastPayment{actionID: selection.ActionID, plan: decision.ClonePaymentPlan(selection.Plan)}

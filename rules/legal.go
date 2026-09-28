@@ -3983,7 +3983,11 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 			// still locked may be unlocked as a sorcery by paying that half's own
 			// mana cost. The gate is the same castable total the cast options
 			// use, so an unpayable unlock is never offered (and the payment on
-			// the answer cannot disagree with the offer).
+			// the answer cannot disagree with the offer). The unlock is a
+			// special action, priced under specialActionScope("unlock") so a
+			// ValidSpell$ Static.Unlock modifier (Inquisitive Glimmer) reaches
+			// it and a Type$ Spell/Ability one does not; the payment composes
+			// the same modifiers (handlePriority's "unlock" case).
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) {
@@ -3998,7 +4002,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 				if !ok {
 					continue
 				}
-				if offerCastable(p, id, cost, costScope{kind: "Ability"}, true) {
+				if _, ok := e.unlockMods(p, id); ok && offerCastable(p, id, cost, specialActionScope("unlock"), true) {
 					add("unlock", "Unlock "+roomLockedFace(o).Name, id)
 				}
 			}
@@ -4085,7 +4089,8 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 			// action itself re-reads; the potential walk prices the same cost
 			// against its hypothetical bound, so a float-gated turn-up is a
 			// potential play like every other mana-costed offer.
-			if !e.morphTurnUpPayablePriced(p, id, mf.cost, hyp) {
+			mods, ok := e.morphTurnUpMods(p, id, mf)
+			if !ok || !e.morphTurnUpPayablePriced(p, id, mf.cost, mods, hyp) {
 				continue
 			}
 			if e.turnFaceUpCantHappen(id) {
@@ -4356,7 +4361,11 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if !ok {
 			return
 		}
-		if !e.payMana(in.Player, cost) {
+		mods, ok := e.unlockMods(in.Player, opt.Obj)
+		if !ok {
+			return
+		}
+		if !e.payMana(in.Player, mods.apply(cost)) {
 			return
 		}
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj})

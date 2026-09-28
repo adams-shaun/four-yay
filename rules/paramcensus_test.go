@@ -1637,8 +1637,8 @@ var apiSpecificRulesSA = map[string][]string{
 	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
 	"Engine.castModeAsk":     {"Charm"},
 	"modalTargetSA":          {"Charm"},
-	"modeDecision":    {"Charm"},
-	"modeChoiceNames": {"Charm"},
+	"modeDecision":           {"Charm"},
+	"modeChoiceNames":        {"Charm"},
 	"Engine.askTriggerModes": {"Charm"},
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
@@ -1785,6 +1785,12 @@ var apiSpecificRulesStat = map[string]string{
 	// plain and mutate halves encodes -- so its read is family-attributed
 	// exactly like the grant path's, never in the generic Continuous union.
 	"Engine.mayPlayKinds": "Continuous.MayPlay",
+	// The MayPlaySource host read (rules/mayplay.go's mayPlayGrantedBy, the
+	// cost chain's ValidSpell$ Spell.MayPlaySource / CastSa
+	// Spell.MayPlaySource answer): it walks the same MayPlay statics the
+	// grant path does, keeping the permissions a given host granted, so its
+	// read is family-attributed exactly like the grant path's.
+	"Engine.mayPlayGrantedBy": "Continuous.MayPlay",
 }
 
 // statFamilyInternal names the rules functions whose static reads are family

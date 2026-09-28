@@ -241,9 +241,11 @@ func TestCostStaticCensus(t *testing.T) {
 		if !baseKnown(base) {
 			return "unknown base word " + strconv.Quote(base), false
 		}
-		if spellOnly && (base == "Permanent") {
-			return "base Permanent matches only battlefield objects, never a spell", false
-		}
+		// A `Permanent` base on a spell-scoped static is live: costStaticApplies
+		// reads it as the printed permanent TYPE under a Spell scope
+		// (spellCastPermanentSpec), since the priced object is never on the
+		// battlefield. spellOnly is kept for the callers' signature.
+		_ = spellOnly
 		var unk []string
 		for _, u := range effects.UnknownPredicates(alt) {
 			if strings.Contains(u, "wasCast") {
@@ -275,10 +277,16 @@ func TestCostStaticCensus(t *testing.T) {
 	}
 	sort.Slice(probeSAs, func(i, j int) bool { return probeSAs[i].Params["Keyword"] < probeSAs[j].Params["Keyword"] })
 	var scopes []costScope
-	for _, m := range []string{"", "flashback", "kicked", "kicked1", "surged", "miracle", "blitzed", "foretold", "dashed", "evoked", "bargained", "buyback"} {
+	for _, m := range []string{"", "flashback", "kicked", "kicked1", "surged", "miracle", "blitzed", "foretold", "dashed", "evoked", "bargained", "buyback",
+		"morphed", "megamorphed", "disguised", "plot", "mayplay"} {
 		scopes = append(scopes, spellScope(m))
 	}
 	scopes = append(scopes, foretellScope())
+	// The special actions priced through specialActionScope: the Room unlock
+	// and the morph-family turn-face-up.
+	for _, m := range []string{"unlock", "morphup", "disguiseup"} {
+		scopes = append(scopes, specialActionScope(m))
+	}
 	for _, ab := range probeSAs {
 		scopes = append(scopes, abilityScope(ab))
 	}
@@ -298,6 +306,13 @@ func TestCostStaticCensus(t *testing.T) {
 		// live even when this fixture's targets do not satisfy it.
 		if c, ok := strings.CutPrefix(alt, "Spell."); ok && strings.HasPrefix(c, "IsTargeting") {
 			return len(effects.UnknownPredicates(alt)) == 0
+		}
+		// Spell.MayPlaySource is permission-conditional (the cast must ride a
+		// may-play permission the static's own host grants -- castRidesMayPlayOf,
+		// driven end to end by TestCostFilterUriangerReducesSpellsCastThroughItsPermission):
+		// the fixture board grants none, so the grammar is live without a match.
+		if alt == "Spell.MayPlaySource" {
+			return true
 		}
 		return false
 	}
@@ -453,7 +468,7 @@ func TestCostStaticCensus(t *testing.T) {
 					dead = append(dead, strings.TrimSpace(alt)+": "+why)
 				}
 			}
-			locVC := L.loc("rules/statics.go", "if !ok2 || !e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {")
+			locVC := L.loc("rules/statics.go", "spec, ok2 := e.castProvenanceAdmitsPending(spec, id, sv.Controller)")
 			if strings.Contains(strings.Join(dead, ";"), "base Permanent") {
 				locVC = L.loc("effects/filter.go", "func matchesBase(")
 			}
@@ -515,7 +530,7 @@ func TestCostStaticCensus(t *testing.T) {
 			}
 			if spellReachable {
 				add(ccWrong, "AffectedZone$ "+strings.TrimSpace(az)+" ignored for spells (read only for Type$ Ability; Forge gates the cast-from zone)",
-					L.loc("rules/statics.go", "if az, ok := sv.Param(cards.PKAffectedZone); ok && scope.kind == \"Ability\" {"))
+					L.loc("rules/statics.go", "if az, ok := sv.Param(cards.PKAffectedZone); ok && (scope.kind == \"Ability\" || scope.kind == \"Static\") {"))
 			}
 			if ty != "Spell" {
 				live := false

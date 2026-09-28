@@ -55,7 +55,7 @@ func TestMorphTurnFaceUpWaitsForSacrificedCommanderReplacement(t *testing.T) {
 				t.Fatalf("precondition: commander %d does not carry the CR 903.9 replacement", cmd)
 			}
 			mark := len(e.L.Events)
-			if !e.morphTurnUpPayable(0, id, mf.cost) {
+			if !e.morphTurnUpPayable(0, id, mf.cost, costMods{}) {
 				t.Fatal("precondition: turn-up cost is not payable")
 			}
 			e.priorityRound()

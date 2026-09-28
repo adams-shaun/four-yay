@@ -55,6 +55,67 @@ type staticView struct {
 	// static. It binds Card.IsRemembered in the same shared spec context as
 	// restriction registrations; printed statics leave it nil.
 	Remembered []state.ObjID
+	// effectStamp identifies the delivering Effect of an Effect-delivered
+	// cost-modifier view (its ContinuousEffect.Timestamp, unique per
+	// registration; 0 for every other view). The cost chain binds Remembered
+	// for such a view and finds a pending cast's captured set by it
+	// (costStaticSpecCtx).
+	effectStamp uint32
+}
+
+// costRememberedEntry is one Effect-delivered cost static's Remembered set
+// captured on a pending cast at beginCast (pendingCast.costRemembered).
+type costRememberedEntry struct {
+	source state.ObjID
+	stamp  uint32
+	ids    []state.ObjID
+}
+
+// costRememberedCapture returns the Remembered sets of the Effect-delivered
+// cost-modifier statics that hold card id right now, in e.active() order.
+func (e *Engine) costRememberedCapture(id state.ObjID) []costRememberedEntry {
+	var out []costRememberedEntry
+	for _, ce := range e.active() {
+		switch ce.CostStaticMode {
+		case "RaiseCost", "ReduceCost", "SetCost":
+		default:
+			continue
+		}
+		if ce.CostStaticGranted || !slices.Contains(ce.Remembered, id) {
+			continue
+		}
+		out = append(out, costRememberedEntry{source: ce.Source, stamp: ce.Timestamp,
+			ids: append([]state.ObjID(nil), ce.Remembered...)})
+	}
+	return out
+}
+
+// costStaticSpecCtx is the spec context a cost static's ValidCard$ matches
+// the priced object id under. An Effect-delivered view additionally binds
+// the delivering Effect's captured Remembered set, so Card.IsRemembered names
+// the card the Effect remembered (Soul Partition, Elite Spellbinder, Invasion
+// of Gobakhan -- whose source's own memory the Effect's DBCleanup cleared),
+// exactly as manaConvSpecCtx does for an Effect-delivered ManaConvert. For
+// the pending cast of id the set recorded at beginCast (costRemembered)
+// stands in for the live one.
+func (e *Engine) costStaticSpecCtx(sv staticView, id state.ObjID) effects.SpecContext {
+	sc := e.staticSpecCtx(sv)
+	if sv.effectStamp == 0 {
+		return sc
+	}
+	rem := sv.Remembered
+	if pc := e.cast; pc != nil && pc.card == id {
+		for _, c := range pc.costRemembered {
+			if c.stamp == sv.effectStamp && c.source == sv.Source {
+				rem = c.ids
+				break
+			}
+		}
+	}
+	if len(rem) > 0 {
+		sc.Remembered = rememberedTargets(rem)
+	}
+	return sc
 }
 
 // costStaticViews is one ordered snapshot of cost-modifier membership. The
@@ -1779,6 +1840,33 @@ func spellScope(mode string) costScope    { return costScope{kind: "Spell", mode
 func foretellScope() costScope            { return costScope{kind: "Foretell", mode: "foretell"} }
 func abilityScope(ab *cards.SA) costScope { return costScope{kind: "Ability", ab: ab} }
 
+// castSaMayPlaySource is the card-level MayPlaySource token a cost static's
+// ValidCard$ may carry (castSaTokens' flag entry of the same spelling).
+const castSaMayPlaySource = "CastSa Spell.MayPlaySource"
+
+// specialActionScope prices a CR 116.2 special action that is neither a
+// spell nor an activated ability but still has a cost the CR 601.2f
+// modifiers reach -- Forge prices these as static abilities (ValidSpell$
+// Static.<X>). The modes: "unlock" (CR 309.5 Room unlock), and the CR 708.6
+// turn-face-up actions "morphup" (Morph and Megamorph -- Forge's isMorphUp)
+// and "disguiseup" (Disguise). Kind "Static" is never Type$ Spell or Type$
+// Ability (Forge's Type$ gate requires isSpell / isActivatedAbility), carries
+// no commander tax and no targets.
+func specialActionScope(mode string) costScope { return costScope{kind: "Static", mode: mode} }
+
+// modeIsCastFaceDown reports whether a cast mode puts the spell on the stack
+// face down (CR 708.4): the morph family's {3} cast. It is the one reading of
+// Forge's SpellAbility.isCastFaceDown the ValidSpell$ Spell.isCastFaceDown
+// constraint shares with the cast flow's own faceDown mark (beginCast sets
+// pendingCast.faceDown for exactly these modes).
+func modeIsCastFaceDown(mode string) bool {
+	switch mode {
+	case "morphed", "megamorphed", "disguised":
+		return true
+	}
+	return false
+}
+
 // costMod is ONE evaluated ReduceCost static's contribution to a total cost.
 // generic is the literal/SVar-evaluated Amount$; colored carries a Color$
 // reduction (per colour slot, set only when the static names one);
@@ -1832,6 +1920,21 @@ type costMods struct {
 func (m costMods) empty() bool {
 	return len(m.raises) == 0 && !m.hasExtra && m.raiseGen == 0 && m.raiseLife == 0 &&
 		m.raiseCol.Total() == 0 && len(m.reduces) == 0 && m.setFloor == 0
+}
+
+// reduceTotal is the most generic mana the composition's reductions can take
+// off a cost: each reduction's generic amount plus its colour amounts (a
+// colour shortfall spills to generic). A caller bounding an {X} search adds
+// it to the ceiling, since a reduction only makes a larger X cheaper.
+func (m costMods) reduceTotal() int32 {
+	var n int64
+	for _, red := range m.reduces {
+		n += int64(red.generic) + int64(red.colored.Total())
+	}
+	if n > math.MaxInt32/2 {
+		n = math.MaxInt32 / 2
+	}
+	return int32(n)
 }
 
 // apply composes c with the modifiers, CR 601.2f: increases before
@@ -2325,7 +2428,8 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 			continue
 		}
 		*dst = append(*dst, staticView{Source: ce.Source, Controller: ce.Controller,
-			Params: ce.CostStaticParams, ChosenNumber: ce.ChosenNumber, chosenNumberBound: true})
+			Params: ce.CostStaticParams, ChosenNumber: ce.ChosenNumber, chosenNumberBound: true,
+			Remembered: ce.Remembered, effectStamp: ce.Timestamp})
 	}
 }
 
@@ -2852,8 +2956,36 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		if strings.Contains(spec, "wasCastFromYourHand") || strings.Contains(spec, "wasCastByYou") {
 			e.costProvenanceSeen = true
 		}
+		if strings.Contains(spec, castSaMayPlaySource) {
+			// Card.CastSa Spell.MayPlaySource (the "spell cast this way"
+			// raises: Elite Spellbinder, Soul Partition, Lightstall
+			// Inquisitor, Mavinda): the card-level form of the ValidSpell$
+			// Spell.MayPlaySource read, answered by the same one source of
+			// truth -- the cast being priced rides a may-play permission this
+			// static's host granted (castRidesMayPlayOf) -- at the pre-push
+			// offer and after the push alike, where the post-payment CastFlags
+			// the other CastSa readers use do not exist yet.
+			var alive bool
+			if spec, alive = admitProvenanceAlternatives(spec, castSaMayPlaySource,
+				e.castRidesMayPlayOf(p, id, sv.Source, scope)); !alive {
+				return false
+			}
+		}
 		spec, ok2 := e.castProvenanceAdmitsPending(spec, id, sv.Controller)
-		if !ok2 || !e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+		if !ok2 {
+			return false
+		}
+		if scope.kind == "Spell" && strings.Contains(spec, "Permanent") {
+			// The priced object is a SPELL -- in hand/graveyard/exile at the
+			// offer, on the stack at the charge -- never a battlefield
+			// permanent, so Forge's `Permanent` base (a permanent card by
+			// type, CR 110.4a's "permanent spell") reads the printed type,
+			// exactly as the "cast a permanent spell" trigger matcher reads
+			// it (spellCastPermanentSpec). Beluna Grandsquall's
+			// `Permanent.AdventureCard` was otherwise dead.
+			spec = spellCastPermanentSpec(spec)
+		}
+		if !e.matchesSpec(spec, id, e.costStaticSpecCtx(sv, id)) {
 			return false
 		}
 	}
@@ -2864,7 +2996,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 	if vs, ok := sv.Param(cards.PKValidSpell); ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
 		return false
 	}
-	if az, ok := sv.Param(cards.PKAffectedZone); ok && scope.kind == "Ability" {
+	if az, ok := sv.Param(cards.PKAffectedZone); ok && (scope.kind == "Ability" || scope.kind == "Static") {
 		o := e.G.Obj(id)
 		if o == nil {
 			return false
@@ -3136,12 +3268,11 @@ func affectedZoneOK(v string, z state.Zone) bool {
 // or ability is being paid for. Kind Spell matches a cast (constraint
 // checked against the cast variant and the face); Kind Activated matches an
 // activated ability (constraint checked against the ability's own keyword
-// tag, its API, or the loyalty-ability classifier); Kind Static (morph-up,
-// foretell, unlock — casting options this build does not model) never
-// matches, so a static naming one is inert rather than over-applied. A
-// constraint this build cannot evaluate denies — a discount that wrongly
-// applies is a wrong cost, the same fail-closed direction the ValidSA$
-// grammar takes.
+// tag, its API, or the loyalty-ability classifier); Kind Static matches the
+// special action being priced (staticConstraintMatches: foretelling,
+// plotting, unlocking, turning face up). A constraint this build cannot
+// evaluate denies — a discount that wrongly applies is a wrong cost, the
+// same fail-closed direction the ValidSA$ grammar takes.
 //
 // sv is the owning static (its source and controller bind the constraint's
 // spec context), p the caster and targets the cast's target list: the
@@ -3179,7 +3310,7 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 				return true
 			}
 		case "Static":
-			if scope.kind == "Foretell" && constraint == "Foretelling" {
+			if staticConstraintMatches(scope, constraint) {
 				return true
 			}
 		}
@@ -3193,13 +3324,13 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 // types Instant/Sorcery, and the target-conditional `IsTargeting <spec>` form
 // (Head of the Class's "the first spell you cast each turn that targets a
 // creature"), which rides effects' ONE `Spell.IsTargeting` grammar against
-// the same target list costTargetsMatch reads. Everything else — Bargain,
-// Buyback, the Dash alternative cast, isCastFaceDown, MayPlaySource —
-// is a casting option this function does not read, and denies.
-// (Blitz matches the blitzed cast mode: Henzie, Toolbox Torre's
-// "Blitz costs you pay cost {1} less" ReduceCost keys on ValidSpell$
-// Spell.Blitz, and its scope mode is exactly the mode legal.go offers and
-// beginCast charges. Dash is the remaining denied alternative cast.)
+// the same target list costTargetsMatch reads. The cast-option constraints
+// read the cast mode the offer walk named and beginCast charges -- the one
+// source of truth for "how is this spell being cast": Blitz (Henzie, Toolbox
+// Torre), Dash (Warbringer), Buyback (Memory Crystal), isCastFaceDown (Dream
+// Chisel) -- and MayPlaySource the may-play permission the "mayplay" cast
+// rides (castRidesMayPlayOf). Bargain denies: this build implements no
+// Bargain keyword, so no cast is ever bargained. Anything else denies.
 func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.PlayerID, id state.ObjID, constraint string, targets []state.Target) bool {
 	c := strings.TrimSpace(constraint)
 	if strings.HasPrefix(c, "IsTargeting") {
@@ -3229,6 +3360,24 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		return scope.mode == "miracle"
 	case "Blitz":
 		return scope.mode == "blitzed" || strings.HasPrefix(scope.mode, "blitzed_grant_")
+	case "Dash":
+		// Forge's isDash: the dash alternative cast, the "dashed" mode the
+		// hand walk offers and beginCast charges (Warbringer).
+		return scope.mode == "dashed"
+	case "Buyback":
+		// Forge's isBuyback: the cast that pays the Buyback additional cost,
+		// the "buyback" mode (Memory Crystal). Like Forge, the reduction
+		// applies to that cast's total cost.
+		return scope.mode == "buyback"
+	case "isCastFaceDown":
+		// Forge's isCastFaceDown: the morph family's face-down cast (Dream
+		// Chisel, Obscuring Aether).
+		return modeIsCastFaceDown(scope.mode)
+	case "MayPlaySource":
+		// Forge's MayPlaySource: the cast rides a may-play permission whose
+		// host is this static's own host (Urianger Augurelt's Play Arcanum
+		// effect grants the permission AND carries the reduction).
+		return e.castRidesMayPlayOf(p, id, sv.Source, scope)
 	case "Instant":
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()
@@ -3239,6 +3388,33 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 			return o.Face().IsSorcery()
 		}
 		return false
+	}
+	return false
+}
+
+// staticConstraintMatches checks one ValidSpell$ Static.* constraint: the
+// special action being priced (Forge's static-ability SpellAbility
+// properties). Foretelling is the foretell action (its own "Foretell" scope
+// kind, which predates specialActionScope); Plotting is the plot action,
+// which rides the cast flow under the "plot" mode (Doc Aurlock); Unlock is
+// the Room unlock (Inquisitive Glimmer); MorphUp is Forge's isMorphUp -- the
+// Morph and Megamorph turn-face-up (Exiled Doomsayer) -- and isTurnFaceUp its
+// union with the Disguise turn-up (Harrowing Swarm's granted reduction).
+// Forge's isTurnFaceUp also covers the manifest and cloak turn-ups; this
+// build models no turn-up action for either, so there is nothing more for it
+// to match. Anything else denies.
+func staticConstraintMatches(scope costScope, constraint string) bool {
+	switch strings.TrimSpace(constraint) {
+	case "Foretelling":
+		return scope.kind == "Foretell"
+	case "Plotting":
+		return scope.mode == "plot"
+	case "Unlock":
+		return scope.kind == "Static" && scope.mode == "unlock"
+	case "MorphUp":
+		return scope.kind == "Static" && scope.mode == "morphup"
+	case "isTurnFaceUp":
+		return scope.kind == "Static" && (scope.mode == "morphup" || scope.mode == "disguiseup")
 	}
 	return false
 }

@@ -1596,7 +1596,7 @@ func (e *Engine) offerCostForUsing(statics costStaticViews, p state.PlayerID, id
 // both the per-face enumeration and the composed castable check.
 func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, mods costMods, scope costScope) Cost {
 	c := mods.apply(base)
-	if scope.kind != "Ability" && scope.kind != "Foretell" {
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		c = e.commanderTaxFor(p, id, c)
 	}
 	return c
@@ -1771,7 +1771,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
 	mods = e.withWaterbendOfferCredit(p, id, mods)
 	tax := int32(0)
-	if scope.kind != "Ability" && scope.kind != "Foretell" {
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)
 	}
 	delve := int32(0)
@@ -1926,6 +1926,10 @@ func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope co
 // costAmountTargets use, so the offer census and the amount's legal-assignment
 // size can never name different declarations.
 func (e *Engine) costTargetingSA(id state.ObjID, scope costScope) *cards.SA {
+	if scope.kind == "Static" {
+		// A special action (specialActionScope) announces no targets.
+		return nil
+	}
 	if scope.kind == "Ability" {
 		return scope.ab
 	}

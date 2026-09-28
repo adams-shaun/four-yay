@@ -49,7 +49,7 @@ func keywordPredicateFor(p string) (keywordPredicate, bool) {
 	if kp, ok := keywordPredicates[p]; ok {
 		return kp, true
 	}
-	if strings.HasPrefix(p, "with") || strings.HasPrefix(p, "without") {
+	if strings.HasPrefix(p, "with") || strings.HasPrefix(p, "without") || strings.HasPrefix(p, "hasKeyword") {
 		compact := strings.ReplaceAll(p, " ", "")
 		kp, ok := keywordPredicates[compact]
 		return kp, ok
@@ -68,6 +68,33 @@ var predicates = map[string]predFn{
 		return o.Controller != you
 	},
 	"YouOwn": func(g *state.Game, o *state.Object, you state.PlayerID, _ state.ObjID) bool { return o.Owner == you },
+	// YouDontOwn is Forge's CardProperty YouDontOwn: the card's owner is not
+	// the evaluating controller (Gonti, Canny Acquisitor's "spells you cast
+	// but don't own").
+	"YouDontOwn": func(g *state.Game, o *state.Object, you state.PlayerID, _ state.ObjID) bool { return o.Owner != you },
+	// hasXCost is Forge's CardProperty hasXCost: the card's mana cost
+	// carries at least one {X} (ManaCost.countX > 0) -- Zimone, Infinite
+	// Analyst's "spell with {X} in its mana cost". A face-down object has no
+	// mana cost (CR 708.2), so it never matches.
+	"hasXCost": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		if o == nil || o.FaceDown || o.Face() == nil {
+			return false
+		}
+		for tok := range strings.FieldsSeq(o.Face().ManaCost) {
+			if tok == "X" {
+				return true
+			}
+		}
+		return false
+	},
+	// DrawnThisTurn is Forge's Card.getDrawnThisTurn (Captain Eberhart's
+	// "spells cast from among cards you drew this turn"): the object's last
+	// Draw is this turn's and it has since moved nowhere but the stack --
+	// state.Object.DrawnTurn, stamped by events.Apply's Draw fold and cleared
+	// by every other move (Forge keeps the flag only onto the stack).
+	"DrawnThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o != nil && o.DrawnTurn != 0 && o.DrawnTurn == g.Turn
+	},
 	"foretold": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagForetold != 0
 	},
@@ -401,17 +428,30 @@ func init() {
 	// a gap on every changeling carrier.
 	RegisterNonAPI("kw:Changeling")
 
+	// Flash and Mutate (task costfilter): Cunning Nightbonder's
+	// `Card.hasKeywordFlash` and Pollywog Symbiote's `Creature.withMutate`
+	// cost reductions, plus every other corpus withFlash/hasKeywordFlash
+	// filter. Forge's hasKeyword<X> is the exact-keyword spelling of the same
+	// test (CardProperty: card.hasKeyword(X), introduced so "withFlash" could
+	// not prefix-match Flashback); this matcher's KeywordHead comparison is
+	// already exact, so hasKeyword<X> registers as a plain alias of with<X>
+	// for every keyword in this list. Any other hasKeyword<X> (Landwalk,
+	// Enchant, ...) stays unknown and fails closed.
 	for _, kw := range [...]string{"Flying", "Trample", "Deathtouch", "Lifelink",
 		"Vigilance", "Reach", "Haste", "Indestructible", "First Strike", "Menace",
-		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion"} {
+		"Flanking", "Horsemanship", "Defender", "Foretell", "Shadow", "Doctor's companion",
+		"Flash", "Mutate"} {
 		k := kw
-		predicates["with"+strings.ReplaceAll(k, " ", "")] = func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		with := func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 			return objectHasKeyword(o, k)
 		}
+		predicates["with"+strings.ReplaceAll(k, " ", "")] = with
+		predicates["hasKeyword"+strings.ReplaceAll(k, " ", "")] = with
 		predicates["without"+strings.ReplaceAll(k, " ", "")] = func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 			return !objectHasKeyword(o, k)
 		}
 		keywordPredicates["with"+strings.ReplaceAll(k, " ", "")] = keywordPredicate{keyword: k}
+		keywordPredicates["hasKeyword"+strings.ReplaceAll(k, " ", "")] = keywordPredicate{keyword: k}
 		keywordPredicates["without"+strings.ReplaceAll(k, " ", "")] = keywordPredicate{keyword: k, negated: true}
 	}
 	// These read ColorsOf, not the face directly, so Devoid (effects.ColorsOf)
@@ -705,6 +745,11 @@ func sharesTypeArg(p string) (name, arg string, ok bool) {
 	case "RememberedCard", "Remembered", "RememberedLKI", "TriggeredCard",
 		"TriggeredCardLKICopy", "Targeted", "Self", "Commander", "Convoked":
 		return name, arg, true
+	case "Imprinted":
+		// Forge special-cases only sharesCardTypeWith Imprinted (Semblance
+		// Anvil); the other family members resolve Imprinted through
+		// getDefinedCards, which this referent answers the same way.
+		return name, arg, true
 	}
 	return "", "", false
 }
@@ -819,6 +864,16 @@ func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Targ
 	case "Self":
 		if sc.Source != 0 {
 			ts = append(ts, state.Target{Obj: sc.Source})
+		}
+	case "Imprinted":
+		// The SOURCE's live imprint association -- the same pile Defined$
+		// Imprinted resolves (imprintPileTargets: an exiled card only while
+		// it stays in exile, CR 607.2a). Forge reads the FIRST imprinted card
+		// (Iterables.getFirst(source.getImprintedCards())), so only that one
+		// is the referent. A source with nothing imprinted binds nothing and
+		// the predicate fails closed.
+		if pile := imprintPileTargets(g, &Ctx{Source: sc.Source}); len(pile) > 0 {
+			ts = append(ts, pile[0])
 		}
 	}
 	return ts
@@ -1697,13 +1752,15 @@ func wordPredicate(p string) (wordKind, string) {
 	// and the per-event walk in spellsCastThisTurnMatching;
 	// effects/conditions.go's castSaAdmitsFilter for the ConditionPresent
 	// gates), which remove the token before the filter runs; wordMatches'
-	// body fails closed. The still-unmodelled spelling (CastSa
-	// Spell.MayPlaySource -- the sibling ticket's scope) stays unknown and
-	// fails closed everywhere.
+	// body fails closed. CastSa Spell.MayPlaySource is stripped rules-side
+	// too: castSaAdmits reads the cast's FlagMayPlay after payment, and the
+	// cost-static chain answers it from the may-play permission the cast
+	// rides (rules' castRidesMayPlayOf) -- so it is recognised here as well;
+	// an effects-side read that no rules strip precedes still fails closed.
 	case "CastSa Spell.ManaFromTreasure", "CastSa Spell.ManaFromCave",
 		"CastSa Spell.ManaFromDesert", "CastSa Spell.ManaFromArtifact",
 		"CastSa Spell.ManaSpent EQ0",
-		"CastSa Spell.Mayhem", "CastSa Spell.Warp":
+		"CastSa Spell.Mayhem", "CastSa Spell.Warp", "CastSa Spell.MayPlaySource":
 		return wordCastProvenance, p
 	case "ActivePlayerCtrl":
 		return wordActivePlayerCtrl, ""
