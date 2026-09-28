@@ -111,7 +111,9 @@ func sbSearchCostReport(games int) string {
 	for k := range reasons {
 		keys = append(keys, k)
 	}
-	sort.Slice(keys, func(i, j int) bool { return reasons[keys[i]] > reasons[keys[j]] || (reasons[keys[i]] == reasons[keys[j]] && keys[i] < keys[j]) })
+	sort.Slice(keys, func(i, j int) bool {
+		return reasons[keys[i]] > reasons[keys[j]] || (reasons[keys[i]] == reasons[keys[j]] && keys[i] < keys[j])
+	})
 	for i, k := range keys {
 		if i >= 6 {
 			break
