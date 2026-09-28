@@ -94,7 +94,7 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
 		events.ChaosEnsues, events.ManaUndo, events.EndTurn,
 		events.DungeonCreate, events.DungeonRoom, events.DungeonComplete,
-		events.DungeonRemove:
+		events.DungeonRemove, events.InitiativeChange:
 		// ManaUndo is the announced payment window's CR 733.1 reversal of a
 		// mana activation: nothing triggers from an undone action, so it
 		// carries no interest bits.
@@ -223,6 +223,9 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		// complete if the bound ever widens and keeps them out of the
 		// catch-all default that would otherwise claim the kinds
 		// trigger-relevant.
+		// InitiativeChange is likewise a designation update read through
+		// IsInitiative by intervening-if predicates; no T: mode fires on
+		// the designation change itself.
 		return 0
 	case events.Attach:
 		return cards.TriggerInterestAttach

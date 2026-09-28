@@ -154,6 +154,12 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// class here, never the hidden-zone class this test guards.
 		"dungeon":            true,
 		"completed_dungeons": true,
+		// has_initiative (CR 726.1) is the initiative designation: a single
+		// public fact (which seat holds it), exactly like the monarch and the
+		// completed-dungeon count. It names no hidden zone and carries no card
+		// list, so it joins the public facts class here, never the hidden-zone
+		// class this test guards.
+		"has_initiative": true,
 	})
 	// StackView is public (R3) so it is a lesser leak surface, but the
 	// reflection is the same shape and cheap, so it is pinned too. The two

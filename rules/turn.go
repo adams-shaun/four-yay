@@ -102,6 +102,18 @@ func (e *Engine) finishEnteredStep() {
 		!e.G.Players[e.G.Active].Lost && e.G.Players[e.G.Active].Counter("RAD") > 0 {
 		e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Controller: e.G.Active, RadiationDrain: true})
 	}
+	// CR 726.2: at the beginning of the upkeep of the player who has the
+	// initiative, that player ventures into Undercity. It is a source-less
+	// inherent triggered ability, queued like the monarch's end-step draw and
+	// the rad drain; the ordinary drain places the synthetic venture body on
+	// the stack before priority.
+	if e.G.Step == state.StepUpkeep && e.G.HasInitiative &&
+		e.G.Initiative == e.G.Active &&
+		int(e.G.Initiative) < len(e.G.Players) && !e.G.Players[e.G.Initiative].Lost {
+		e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+			Controller: e.G.Initiative, InitiativeVenture: true,
+		})
+	}
 	// CR 724.2a: the monarch's draw is a triggered ability at the beginning
 	// of the end step, not an immediate turn-based action. Queue it here; the
 	// ordinary trigger drain places it on the stack before priority, preserving

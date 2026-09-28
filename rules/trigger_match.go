@@ -81,6 +81,12 @@ type pendingTrigger struct {
 	MonarchDraw    bool
 	RadiationDrain bool
 	SpeedIncrease  bool
+	// InitiativeVenture is the source-less CR 726.2 inherent ability that makes
+	// the initiative holder venture into Undercity: queued at the beginning of
+	// that player's upkeep, and after a combat-damage transfer of the
+	// designation. Like MonarchDraw it mints a real stack ability through the
+	// synthetic DelayedPush body, so the venture can be responded to.
+	InitiativeVenture bool
 	// Merged marks a mutated pile's under-card trigger (CR 702.140d): like
 	// a delayed trigger its Ability is the Execute$ SVar-named body, but the
 	// push must resolve that name against the UNDER-CARD's own face, never
