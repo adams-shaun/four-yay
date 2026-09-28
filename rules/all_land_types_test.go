@@ -34,6 +34,7 @@ func allLandTypesEngine(t *testing.T, reg *cards.Registry, names ...string) *Eng
 }
 
 func TestAllBasicAndNonbasicLandTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := allLandTypesEngine(t, reg, "Dryad of the Ilysian Grove", "Planar Nexus", "Omo, Queen of Vesuva")
 

@@ -71,6 +71,7 @@ func exileFromTopAbilityOption(t *testing.T, e *Engine, obj state.ObjID, want st
 // top-library cost slice, round-trips through formatCost, and a spec other than
 // the measured "Card" is left unmodelled (never a deeper-card filter).
 func TestExileFromTopCostParse(t *testing.T) {
+	t.Parallel()
 	c := ParseCost("U ExileFromTop<1/Card>")
 	if c.Colored[state.MU] != 1 || c.Generic != 0 {
 		t.Fatalf("ParseCost(\"U ExileFromTop<1/Card>\") = %+v, want one blue and no generic", c)
@@ -112,6 +113,7 @@ func TestExileFromTopCostParse(t *testing.T) {
 }
 
 func TestExileFromTopPartsUseOneCurrentPrefix(t *testing.T) {
+	t.Parallel()
 	parts := []CostPart{{N: 2, Spec: "Card"}, {N: 2, Spec: "Card"}}
 	old := []state.ObjID{6, 11, 8, 21}
 	got, ok := exileFromTopCards(old, parts)
@@ -135,6 +137,7 @@ func TestExileFromTopPartsUseOneCurrentPrefix(t *testing.T) {
 // and its body's `X:Exiled$Valid Land.Snow` gives +1/+1 exactly when that top
 // card is a snow land.
 func TestStormElementalExileFromTopCost(t *testing.T) {
+	t.Parallel()
 	// Snow case: the top of library is a snow land.
 	e, cfg := paidCostEngine(t, []string{"Storm Elemental", "Snow-Covered Island"}, nil)
 	storm := paidCostMoveTo(t, e, 0, "Storm Elemental", state.ZBattlefield)
@@ -197,6 +200,7 @@ func TestStormElementalExileFromTopCost(t *testing.T) {
 // order are paid, no chooser is posed, and an insufficient library withholds
 // the activation entirely.
 func TestExileFromTopMultiCardCost(t *testing.T) {
+	t.Parallel()
 	e, cfg := paidCostEngine(t, []string{"Whirling Catapult", "Grizzly Bears"}, nil)
 	cat := paidCostMoveTo(t, e, 0, "Whirling Catapult", state.ZBattlefield)
 	// Put two named cards on top in a known order.

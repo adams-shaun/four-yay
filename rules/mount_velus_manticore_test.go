@@ -128,6 +128,7 @@ func runManticoreCombat(t *testing.T, seed uint64, fodderSrc string) (eng *Engin
 }
 
 func TestMountVelusManticoreDealsCardTypeCountDamage(t *testing.T) {
+	t.Parallel()
 	e, felt, _, fodderID := runManticoreCombat(t, 9401, manticoreFodderSrc)
 	// The fixture really has two card types (Artifact + Creature; Golem is a
 	// creature type, not a card type). If this precondition failed, the
@@ -142,6 +143,7 @@ func TestMountVelusManticoreDealsCardTypeCountDamage(t *testing.T) {
 }
 
 func TestMountVelusManticoreSingleTypeDealsOne(t *testing.T) {
+	t.Parallel()
 	e, felt, _, fodderID := runManticoreCombat(t, 9402, manticoreSingleTypeSrc)
 	types := e.G.Obj(fodderID).Face().Types
 	if !containsAll(types, "Creature", "Bear") || len(types) != 2 {

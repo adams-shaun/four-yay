@@ -20,6 +20,7 @@ import (
 // depends on: a fixed Mill<N> is accepted, and every dynamic or malformed
 // spelling still fails closed.
 func TestParseUnlessCostMill(t *testing.T) {
+	t.Parallel()
 	cost, ok := ParseUnlessCost("Mill<2>")
 	if !ok {
 		t.Fatalf("ParseUnlessCost(Mill<2>) = !ok, want the fixed mill cost accepted")
@@ -114,6 +115,7 @@ func milledToGraveyard(e *Engine, lib []state.ObjID) []state.ObjID {
 // through real MoveZone events, and the 6/6 stays on the battlefield instead
 // of being sacrificed.
 func TestDeepSpawnUnlessMillCost(t *testing.T) {
+	t.Parallel()
 	e, spawn := deepSpawnEngine(t, 5)
 	lib := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
 	if len(lib) != 5 {
@@ -154,6 +156,7 @@ func TestDeepSpawnUnlessMillCost(t *testing.T) {
 // the unless path: a library of one still pays Mill<2> by milling the one
 // card available, so the cost is not a hard decline and Deep Spawn survives.
 func TestDeepSpawnUnlessMillCostShortLibrary(t *testing.T) {
+	t.Parallel()
 	e, spawn := deepSpawnEngine(t, 1)
 	lib := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
 	if len(lib) != 1 {
@@ -177,6 +180,7 @@ func TestDeepSpawnUnlessMillCostShortLibrary(t *testing.T) {
 // zero still pays, so the cost is never a hard decline and Deep Spawn
 // survives an empty library.
 func TestDeepSpawnUnlessMillCostEmptyLibrary(t *testing.T) {
+	t.Parallel()
 	e, spawn := deepSpawnEngine(t, 0)
 	if n := len(e.G.Zone(state.ZLibrary, 0)); n != 0 {
 		t.Fatalf("precondition: library has %d cards, want 0", n)

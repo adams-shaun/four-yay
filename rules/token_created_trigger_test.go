@@ -72,6 +72,7 @@ func indexOfObjOption(d *decision.Decision, id state.ObjID) int {
 // turn loses 1 more (per-token firing, NOT once-per-turn). Before the fix the
 // trigger never fired and no life moved.
 func TestTokenCreatedMirkwoodBatsLosesLifePerToken(t *testing.T) {
+	t.Parallel()
 	bats := tokenReplCorpusCard(t, "Mirkwood Bats")
 	maker := cardByName(t, tokenForgeSrc("c_a_food_sac"))
 	e, cfg := tokenReplGame(t, 41, bats, maker)
@@ -144,6 +145,7 @@ func answerTargetAsksWith(t *testing.T, e *Engine, opt, forbidden state.ObjID) i
 // poses the real target ask (ValidTgts$ Creature.YouCtrl+Other), and each
 // answered choice puts a +1/+1 counter on a creature other than Rosie.
 func TestTokenCreatedRosieCottonAsksCounterTarget(t *testing.T) {
+	t.Parallel()
 	rosie := tokenReplCorpusCard(t, "Rosie Cotton of South Lane")
 	maker := cardByName(t, tokenForgeSrc("c_a_food_sac"))
 	bear := card(t, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -187,6 +189,7 @@ func TestTokenCreatedRosieCottonAsksCounterTarget(t *testing.T) {
 // itself a TokenCreate event -- so without the latch the mode would
 // self-feed forever.)
 func TestTokenCreatedOnceFiresOnTheFirstMintOfEachTurn(t *testing.T) {
+	t.Parallel()
 	akim := tokenReplCorpusCard(t, "Akim, the Soaring Wind")
 	maker := cardByName(t, tokenForgeSrc("c_a_food_sac"))
 	e, cfg := tokenReplGame(t, 41, akim, maker)
@@ -219,6 +222,7 @@ func TestTokenCreatedOnceFiresOnTheFirstMintOfEachTurn(t *testing.T) {
 // evaluated at trigger time (the mint has already landed), so four Blood
 // tokens queue nothing and the FIFTH transforms CARDNAME.
 func TestTokenCreatedVoldarenBloodcasterFiveBloodGate(t *testing.T) {
+	t.Parallel()
 	vol := tokenReplCorpusCard(t, "Voldaren Bloodcaster")
 	maker := cardByName(t, tokenForgeSrc("c_a_blood_draw"))
 	e, cfg := tokenReplGame(t, 41, vol, maker)

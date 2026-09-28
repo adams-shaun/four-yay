@@ -92,6 +92,7 @@ func evolvedGame(t *testing.T, seed uint64, names ...string) (*Engine, Config, m
 // keyword puts the +1/+1 counter, and "whenever CARDNAME evolves" creates a
 // token that's a copy of the Radstag.
 func TestWatchfulRadstagEvolvesAndCopiesItself(t *testing.T) {
+	t.Parallel()
 	const radstagName, bigName = "Watchful Radstag", "Craw Wurm"
 	e, cfg, byName := evolvedGame(t, 43, radstagName, bigName)
 
@@ -136,6 +137,7 @@ func TestWatchfulRadstagEvolvesAndCopiesItself(t *testing.T) {
 // also gates the notification, so a same-size creature must place no counter,
 // emit no Evolved marker and create no token copy.
 func TestEvolvedDoesNotFireForAnEqualOrSmallerCreature(t *testing.T) {
+	t.Parallel()
 	const radstagName, equalName = "Watchful Radstag", "Grizzly Bears"
 	e, _, byName := evolvedGame(t, 44, radstagName, equalName)
 
@@ -177,6 +179,7 @@ func TestEvolvedDoesNotFireForAnEqualOrSmallerCreature(t *testing.T) {
 // counter, so it must have two after the evolve; the Krasis itself
 // (StrictlyOther) must have exactly its own evolve counter.
 func TestRenegadeKrasisGrowsEachOtherCounterBearerWhenItEvolves(t *testing.T) {
+	t.Parallel()
 	const krasisName, bearName, bigName = "Renegade Krasis", "Grizzly Bears", "Craw Wurm"
 	e, _, _ := evolvedGame(t, 45, krasisName, bearName, bigName)
 

@@ -25,6 +25,7 @@ import (
 // "the last locked door" is that door; the test asserts that precondition
 // (roomLockedFace non-nil, Unlocked false) before unlocking.
 func TestFearOfSleepParalysisFullyUnlockTapsOnceOnFinalDoor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	e := corpusEngine(t, reg,

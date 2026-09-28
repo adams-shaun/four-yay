@@ -15,6 +15,7 @@ import (
 // its controller, even when a malformed or redirected target supplies that
 // controller as the destination.
 func TestOrdinaryAttachRechecksEnchantOpponentForEachSeat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	archnemesis := mustCorpusCard(t, reg, "Archnemesis")
 	cfg := Config{Seed: 71, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{

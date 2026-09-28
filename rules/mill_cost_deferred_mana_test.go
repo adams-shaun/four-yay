@@ -14,6 +14,7 @@ import (
 // exile a card. Mill remains a cost on that deferred path and is paid before
 // the ability adds mana.
 func TestDeferredManaMillCostMillsAfterDiscardOrExile(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		cost   string

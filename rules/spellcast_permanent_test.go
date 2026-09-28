@@ -89,6 +89,7 @@ const delayedRegistrarSrc = "Name:Delayed SpellCast Registrar\nManaCost:3\nTypes
 // spell's printed face, so a red creature spell fires the trigger and a blue
 // one does not.
 func TestDefilerOfInstinctFiresOnRedPermanentSpells(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 53, []string{defilerOfInstinctSrc, redGoblinSrc, blueBirdSrc}, nil)
 	defiler := moveSeeded(t, e, 0, defilerOfInstinctSrc, state.ZBattlefield)
 	addMana(t, e, 0, "R")
@@ -111,6 +112,7 @@ func TestDefilerOfInstinctFiresOnRedPermanentSpells(t *testing.T) {
 // `Permanent.Faerie,Permanent.Wizard` fires on a Faerie Wizard spell -- each
 // alternative's own leading token is rewritten -- and not on a plain Beast.
 func TestArchmageOfEchoesCommaAlternativesFire(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 53, []string{archmageOfEchoesSrc, faerieWizardSrc, nonXBeastSrc}, nil)
 	archmage := moveSeeded(t, e, 0, archmageOfEchoesSrc, state.ZBattlefield)
 	addMana(t, e, 0, "UU")
@@ -136,6 +138,7 @@ func TestArchmageOfEchoesCommaAlternativesFire(t *testing.T) {
 // ValidCard$ fix -- on an X-cost permanent spell AND a plain one. Firing
 // them is a separate ticket, not this one.
 func TestSpellCastPermanentValidSACarriersStayInert(t *testing.T) {
+	t.Parallel()
 	for _, src := range []string{tecutlanSpellCastSrc, myriadPoolsSpellCastSrc} {
 		e, cfg, _ := etbConfig(t, 61, []string{src, xCostHydraSrc, nonXBeastSrc}, nil)
 		carrier := moveSeeded(t, e, 0, src, state.ZBattlefield)
@@ -164,6 +167,7 @@ func TestSpellCastPermanentValidSACarriersStayInert(t *testing.T) {
 // spellCastMatches' clause grammar, so a permanent spell cast after the
 // registration fires it exactly once and an instant does not.
 func TestSpellCastPermanentDelayedMirrorFires(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 71, []string{delayedRegistrarSrc, xCostHydraSrc, xBoltSrc}, nil)
 	registrar := moveSeeded(t, e, 0, delayedRegistrarSrc, state.ZBattlefield)
 	// Register: activate the artifact's DelayedTrigger ability (Cost$ T only).

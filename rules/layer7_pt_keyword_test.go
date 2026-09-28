@@ -18,6 +18,7 @@ import (
 // fell back to the printed face, missed the granted flying, and the bear sat
 // at its printed 2/2.
 func TestLayer7PTLordSeesGrantedKeyword(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	drake := onBoardCard(t, e, 0, corpusCard(t, "Windstorm Drake"))
 	levitation := onBoardCard(t, e, 0, corpusCard(t, "Levitation"))
@@ -77,6 +78,7 @@ func TestLayer7PTLordSeesGrantedKeyword(t *testing.T) {
 // `withoutFlying` must STOP matching a creature once a layer-6 grant gives
 // it flying (CR 613.8's test: applying the grant changes the match).
 func TestLayer7NegativeKeywordGateSeesGrant(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	grantor := onBoard(t, e, 0, "Name:Grantor\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	pumper := onBoard(t, e, 0, "Name:Pumper\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

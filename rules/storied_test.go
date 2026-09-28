@@ -43,6 +43,7 @@ func triggerStoriedGrant(t *testing.T, e *Engine, p state.PlayerID, id state.Obj
 // the Storied work the gate failed closed, so the tax silently never
 // appeared -- the reported symptom.
 func TestDainEnduringStoryPricesTheAttackTax(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Dáin, Lord of the Iron Hills", 0)
 
 	// Dáin himself is a legendary, so two artifacts complete CR 702.175a's
@@ -109,6 +110,7 @@ func TestDainEnduringStoryPricesTheAttackTax(t *testing.T) {
 // and, crucially, is still OFFERED, proving the tax is absent rather than the
 // attack being wrongly blocked.
 func TestDainAttackIsFreeWithoutEnduringStory(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeat(t, "Dáin, Lord of the Iron Hills", 0)
 	onBoard(t, e, 0, qualifyingArtifact) // two qualifying permanents, one short.
 	if e.G.Players[0].EnduringStory {
@@ -140,6 +142,7 @@ func TestDainAttackIsFreeWithoutEnduringStory(t *testing.T) {
 // AddToughness$ 1 | Condition$ EnduringStory`. The gate holds only once the
 // seat has the designation; before the granting event the pump is off.
 func TestFiliContinuousPumpNeedsEnduringStory(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// Fíli is Storied AND legendary, so it counts toward CR 702.175a itself.
 	fili := onBoardCard(t, e, 0, mshCorpusCard(t, "Fíli the Pathfinder"))
@@ -175,6 +178,7 @@ func TestFiliContinuousPumpNeedsEnduringStory(t *testing.T) {
 // replayCheck rebuilds the game from the log alone: an eventless onBoard
 // placement is invisible to that rebuild.
 func TestEnduringStoryLatchSurvivesThePermanents(t *testing.T) {
+	t.Parallel()
 	e, cfg, fili := newFixtureDeck(t, 719, "Name:Fili Probe\nManaCost:3 W\nTypes:Legendary Creature Dwarf Scout\nPT:2/2\n"+
 		"K:Storied\nOracle:x\n", qualifyingArtifact, qualifyingArtifact)
 	// The fixture card is bridged to hand; the two artifacts start in the

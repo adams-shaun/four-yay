@@ -89,6 +89,7 @@ func countPlayLand(e *Engine, want state.ObjID) int {
 // the graveyard to the battlefield and raises LandsPlayed (so the once-per-turn
 // gate holds for the next land).
 func TestConduitGrantsPlayingLandsFromGraveyard(t *testing.T) {
+	t.Parallel()
 	e := mayPlayBase(t)
 	onBoardGrant(t, e, 0, conduitGrantSrc)
 	grave := graveCard(e, card(t, landSrc("Mountain")), 0, 0)
@@ -122,6 +123,7 @@ func TestConduitGrantsPlayingLandsFromGraveyard(t *testing.T) {
 // live while its source is on the battlefield. Once Conduit leaves, the same
 // graveyard land is no longer offered.
 func TestConduitMayPlayExpiresWhenSourceLeaves(t *testing.T) {
+	t.Parallel()
 	e := mayPlayBase(t)
 	conduit := onBoardGrant(t, e, 0, conduitGrantSrc)
 	grave := graveCard(e, card(t, landSrc("Mountain")), 0, 0)
@@ -140,6 +142,7 @@ func TestConduitMayPlayExpiresWhenSourceLeaves(t *testing.T) {
 // grant: playing one graveyard land this turn leaves no further play_land for
 // the other graveyard land.
 func TestConduitMayPlayRespectsOncePerTurn(t *testing.T) {
+	t.Parallel()
 	e := mayPlayBase(t)
 	onBoardGrant(t, e, 0, conduitGrantSrc)
 	first := graveCard(e, card(t, landSrc("Mountain")), 0, 0)
@@ -173,6 +176,7 @@ func TestConduitMayPlayRespectsOncePerTurn(t *testing.T) {
 // is offered from the graveyard, asks its as-enters type choice, and enters
 // the battlefield From the graveyard with the choice recorded.
 func TestConduitGraveyardLandEtbChoicePlaysFromGraveyard(t *testing.T) {
+	t.Parallel()
 	e := mayPlayBase(t)
 	onBoardGrant(t, e, 0, conduitGrantSrc)
 	cavern := graveCard(e, card(t, "Name:Cavern\nManaCost:no cost\nTypes:Land\n"+
@@ -221,6 +225,7 @@ func TestConduitGraveyardLandEtbChoicePlaysFromGraveyard(t *testing.T) {
 // unimplemented CheckSVar$ gate fails closed. A CheckSVar$ may-play grant's
 // withholding is a recognition, not a consumption.
 func TestMayPlayRichGrantFailsClosed(t *testing.T) {
+	t.Parallel()
 	t.Run("MayPlayLimit grants once and then withholds", func(t *testing.T) {
 		e := mayPlayBase(t)
 		// Muldrotha's real uncapped-per-type land grant: MayPlay$ True,
@@ -291,6 +296,7 @@ func TestMayPlayRichGrantFailsClosed(t *testing.T) {
 // and a Land.YouCtrl grant must not offer a land its controller does not
 // control.
 func TestMayPlayFilterRespectsAffects(t *testing.T) {
+	t.Parallel()
 	t.Run("YouOwn excludes opponent's land and non-land", func(t *testing.T) {
 		e := mayPlayBase(t)
 		onBoardGrant(t, e, 0, conduitGrantSrc)

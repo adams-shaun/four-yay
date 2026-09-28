@@ -13,6 +13,7 @@ import (
 // A required lone block is illegal; a team including two ordinary blockers
 // is the maximum legal declaration and must be the bot's own answer.
 func TestMustBlockMinTeamBotAnswerNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	watchdog := onBoardCard(t, e, 0, mshCorpusCard(t, "Watchdog"))
 	bear := onBoardCard(t, e, 0, card(t, "Name:First Helper\nTypes:Creature Bear\nPT:1/2\nOracle:x\n"))
@@ -57,6 +58,7 @@ func TestMustBlockMinTeamBotAnswerNeverLivelocks(t *testing.T) {
 // Two MustBlock creatures can both block the same attacker. A pairwise
 // attacker-capacity matching counts only one and accepts an illegal omission.
 func TestMustBlockTwoWatchdogsShareAttacker(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	first := onBoardCard(t, e, 0, mshCorpusCard(t, "Watchdog"))
 	second := onBoardCard(t, e, 0, mshCorpusCard(t, "Watchdog"))
@@ -93,6 +95,7 @@ func TestMustBlockTwoWatchdogsShareAttacker(t *testing.T) {
 // either creature. The wire highlights one answer, but the other legal
 // maximum must be accepted as well.
 func TestMustBlockAlternateAffordableRequirement(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	priced := strings.Replace(pricedMustBlockSrc, "Cost$ 3", "Cost$ 2", 1)
 	first := onBoardCard(t, e, 0, card(t, priced))
@@ -123,6 +126,7 @@ func TestMustBlockAlternateAffordableRequirement(t *testing.T) {
 // A required blocker with a choice of attackers should use the unbounded
 // pair instead of forcing an illegal singleton onto a Min$ 3 attacker.
 func TestMustBlockPrefersLegalSingletonOverMinTeam(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	watchdog := onBoardCard(t, e, 0, mshCorpusCard(t, "Watchdog"))
 	bear := onBoardCard(t, e, 0, card(t, "Name:Helper 1\nTypes:Creature Bear\nPT:1/2\nOracle:x\n"))

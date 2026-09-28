@@ -113,6 +113,7 @@ func resolvePettyTheftFromHand(t *testing.T, e *Engine, id, oppBear state.ObjID)
 // survive (the old card-level gate withheld it) and casting it must select
 // the Petty Theft face.
 func TestAlternateFaceCantBeCastAdventureAltFrontRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, oppBear := adventureCorpusEngine(t, reg)
 	golem := addCorpusBattlefield(t, e, "Steel Golem")
@@ -172,6 +173,7 @@ func TestAlternateFaceCantBeCastAdventureAltFrontRestricted(t *testing.T) {
 // front, so the adventure_alt offer must be withheld even though the front is
 // unrestricted -- while the ordinary front cast stays offered.
 func TestAlternateFaceCantBeCastAdventureAltBackRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _, id, _ := adventureCorpusEngine(t, reg)
 	nikya := addCorpusBattlefield(t, e, "Nikya of the Old Ways")
@@ -213,6 +215,7 @@ func TestAlternateFaceCantBeCastAdventureAltBackRestricted(t *testing.T) {
 // must resolve at the creature face (the old !castRestricted gate read the
 // displayed Adventure face and withheld it).
 func TestAlternateFaceCantBeCastAdventureRecastFrontRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, oppBear := adventureCorpusEngine(t, reg)
 	resolvePettyTheftFromHand(t, e, id, oppBear)
@@ -263,6 +266,7 @@ func TestAlternateFaceCantBeCastAdventureRecastFrontRestricted(t *testing.T) {
 // !castRestricted gate read the unrestricted displayed face and offered the
 // prohibited creature cast).
 func TestAlternateFaceCantBeCastAdventureRecastBackRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, oppBear := adventureCorpusEngine(t, reg)
 	resolvePettyTheftFromHand(t, e, id, oppBear)
@@ -302,6 +306,7 @@ func TestAlternateFaceCantBeCastAdventureRecastBackRestricted(t *testing.T) {
 // survive the prohibited front half (the old card-level continue withheld
 // it), and casting it must select the Chaos face.
 func TestAlternateFaceCantBeCastSplitAltFrontRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Order", "Gaddock Teeg")
 	id := searchMoveByName(t, e, "Order", state.ZHand)
@@ -347,6 +352,7 @@ func TestAlternateFaceCantBeCastSplitAltFrontRestricted(t *testing.T) {
 // withheld while Beck's ordinary front cast stays offered (the old card-level
 // gate read the unrestricted front and offered Call).
 func TestAlternateFaceCantBeCastSplitAltBackRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Beck", "Gaddock Teeg")
 	id := searchMoveByName(t, e, "Beck", state.ZHand)
@@ -433,6 +439,7 @@ func leaveSpellOnStackAtOpponent(t *testing.T, e *Engine, bolt state.ObjID) {
 // without one its offer is withheld for a reason unrelated to the
 // restriction, which would make the test vacuous.
 func TestAlternateFaceCantBeCastAftermathFrontRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Refuse", "Gaddock Teeg", "Lightning Bolt")
 	id := searchMoveByName(t, e, "Refuse", state.ZGraveyard)
@@ -502,6 +509,7 @@ func TestAlternateFaceCantBeCastAftermathFrontRestricted(t *testing.T) {
 // graveyard must NOT offer the prohibited aftermath cast (the old card-level
 // gate read the unrestricted front and offered it).
 func TestAlternateFaceCantBeCastAftermathBackRestricted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Consign", "Gaddock Teeg")
 	id := searchMoveByName(t, e, "Consign", state.ZGraveyard)

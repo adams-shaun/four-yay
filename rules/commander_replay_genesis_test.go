@@ -10,6 +10,7 @@ import (
 )
 
 func TestCommanderCastReplayReconstructsGenesisBookkeeping(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ragavan, ok := reg.Lookup("Ragavan, Nimble Pilferer")
 	if !ok {

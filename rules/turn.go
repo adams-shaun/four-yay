@@ -183,7 +183,7 @@ func (e *Engine) finishUntapStep(next int) bool {
 					if !o.WontPhaseInNormal {
 						e.emit(events.Event{Kind: events.PhaseOut, Obj: id, Amount: -1})
 					}
-				} else if e.HasKeyword(id, "Phasing") {
+				} else if e.hasKeywordH(id, kwhPhasing) {
 					e.emit(events.Event{Kind: events.PhaseOut, Obj: id, Amount: 1})
 				}
 			}

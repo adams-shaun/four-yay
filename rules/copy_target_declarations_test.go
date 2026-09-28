@@ -22,6 +22,7 @@ import (
 // K:Fuse) cast and copied through Mirrorpool's MayChooseTarget$ ability. No
 // synthetic fixture card takes part.
 func TestCopyOfFusedSpellAsksPerDeclaration(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// PRECONDITION: the two halves really carry DIFFERENT declarations, so a
 	// single flat ask can only ever satisfy one of them.
@@ -195,6 +196,7 @@ func TestCopyOfFusedSpellAsksPerDeclaration(t *testing.T) {
 // carry Budgeted=true with MaxSum 10 on the copy ask, exactly as the cast
 // ask did.
 func TestCopyOfReunionKeepsThePowerBudget(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	reunion := searchCorpusCard(t, reg, "Reunion of the House")
 	// PRECONDITION: the copied card really carries the cap, so a budget-less
@@ -295,6 +297,7 @@ func TestCopyOfReunionKeepsThePowerBudget(t *testing.T) {
 // order and whose Min is the declaration's own requirement. It is the
 // byte-identical single-declaration path the fused case must not disturb.
 func TestCopyOfTwoTargetSpellAsksForBothTargetsKeepsFlatList(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	eng, _ := miscHandsEngine(t, reg,
 		[]string{"Reckless Spite"},

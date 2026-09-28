@@ -39,6 +39,7 @@ func handEngine(t *testing.T, hand ...*cards.Card) *Engine {
 }
 
 func TestLandIsPlayableOnceAtSorcerySpeed(t *testing.T) {
+	t.Parallel()
 	mtn := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	e := handEngine(t, mtn, mtn)
 	opts := e.legalActions(0)
@@ -57,6 +58,7 @@ func TestLandIsPlayableOnceAtSorcerySpeed(t *testing.T) {
 }
 
 func TestCastRequiresPayableManaAndRightTiming(t *testing.T) {
+	t.Parallel()
 	bolt := card(t, "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n")
 	bear := card(t, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e := handEngine(t, bolt, bear)
@@ -89,6 +91,7 @@ func hasCastOption(opts []decision.Option, id state.ObjID) bool {
 }
 
 func TestMandatoryStackTargetControlsCastOffer(t *testing.T) {
+	t.Parallel()
 	counter := card(t, "Name:Counter\nTypes:Instant\nA:SP$ Counter | TargetType$ Spell | ValidTgts$ Card\nOracle:x\n")
 	e := handEngine(t, counter)
 	counterID := e.G.Zone(state.ZHand, 0)[0]
@@ -106,6 +109,7 @@ func TestMandatoryStackTargetControlsCastOffer(t *testing.T) {
 }
 
 func TestUnsettledTargetRequirementsRemainCastable(t *testing.T) {
+	t.Parallel()
 	dynamic := card(t, "Name:Dynamic\nTypes:Instant\nA:SP$ Counter | TargetType$ Spell | ValidTgts$ Card | TargetMin$ X | TargetMax$ X\nOracle:x\n")
 	modal := card(t, "Name:Modal\nTypes:Instant\nA:SP$ Charm | Choices$ DBTarget,DBDraw\n"+
 		"SVar:DBTarget:DB$ Counter | TargetType$ Spell | ValidTgts$ Card\n"+
@@ -119,6 +123,7 @@ func TestUnsettledTargetRequirementsRemainCastable(t *testing.T) {
 }
 
 func TestFlashCreatureIsCastableOffTurn(t *testing.T) {
+	t.Parallel()
 	flash := card(t, "Name:Flashy\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nK:Flash\nOracle:x\n")
 	e := handEngine(t, flash)
 	e.G.Players[0].Pool[state.MG] = 1
@@ -135,6 +140,7 @@ func TestFlashCreatureIsCastableOffTurn(t *testing.T) {
 // continuous effect -- rather than printed on its own card -- is castable
 // off turn too.
 func TestFlashGrantedByAContinuousEffectIsCastableOffTurn(t *testing.T) {
+	t.Parallel()
 	bear := card(t, "Name:Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e := handEngine(t, bear)
 	e.G.Players[0].Pool[state.MG] = 1
@@ -157,6 +163,7 @@ func TestFlashGrantedByAContinuousEffectIsCastableOffTurn(t *testing.T) {
 }
 
 func TestUntappedLandOffersItsManaAbility(t *testing.T) {
+	t.Parallel()
 	mtn := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	e := handEngine(t)
 	o := e.G.AddObject(mtn, 0)
@@ -173,6 +180,7 @@ func TestUntappedLandOffersItsManaAbility(t *testing.T) {
 }
 
 func TestPassIsAlwaysOffered(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	if kinds(e.legalActions(0))["pass"] != 1 {
 		t.Fatal("pass must always be available")
@@ -189,6 +197,7 @@ func TestPassIsAlwaysOffered(t *testing.T) {
 }
 
 func TestOptionIndicesAreContiguous(t *testing.T) {
+	t.Parallel()
 	mtn := card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	e := handEngine(t, mtn, mtn, mtn)
 	opts := e.legalActions(0)

@@ -132,6 +132,7 @@ func etbCounterEntryChargeReader(t testing.TB) *cards.Card {
 // entry must not fold, and the counters must still be in the move once the
 // answer finalizes the amount.
 func TestEtbCounterNonP1P1KindFoldsIntoMove(t *testing.T) {
+	t.Parallel()
 	constrictor := tokenReplCorpusCard(t, "Winding Constrictor")
 	season := tokenReplCorpusCard(t, "Doubling Season")
 	scales := tokenReplCorpusCard(t, "Hardened Scales")
@@ -226,6 +227,7 @@ func TestEtbCounterNonP1P1KindFoldsIntoMove(t *testing.T) {
 // non-commuting CR 616.1 order choice (the body suspended behind the ask,
 // both answers), and the CantPutCounter (Solemnity) case.
 func TestEtbCounterEntryFoldsIntoMove(t *testing.T) {
+	t.Parallel()
 	scales := tokenReplCorpusCard(t, "Hardened Scales")
 	evolution := tokenReplCorpusCard(t, "Branching Evolution")
 	solemnity := tokenReplCorpusCard(t, "Solemnity")

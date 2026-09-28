@@ -313,6 +313,7 @@ func TestCastTotalManaSpentCaveBatColonyCreatesBatTokens(t *testing.T) {
 // order the pool was seeded in -- so the Treasure count reads 0 (the
 // deterministic contract); two Treasure units alone must read 2.
 func TestCastTotalManaSpentConsumesPlainBeforeTyped(t *testing.T) {
+	t.Parallel()
 	fixture := "Name:Treasure Counter\nManaCost:1 C\nTypes:Creature\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDraw | TriggerDescription$x\n" +
 		"SVar:TrigDraw:DB$ Draw | NumCards$ X\n" +
@@ -366,6 +367,7 @@ func TestCastTotalManaSpentConsumesPlainBeforeTyped(t *testing.T) {
 // is admitted for a Mount spell and withheld -- in pool and in the typed
 // tally -- from a non-Mount.
 func TestBucolicRanchRestrictedDesertManaKeepsItsRestriction(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	mountain := searchCorpusCard(t, reg, "Mountain")
 	forest := searchCorpusCard(t, reg, "Forest")
@@ -518,6 +520,7 @@ func TestRestrictedTaggedManaSpendIsNotDoubleCounted(t *testing.T) {
 // two-mana cost. The emitted spend events must sum to exactly the cost, and
 // the pay-time capture must agree with them (no Desert spend either way).
 func TestRestrictedTaggedManaSpendNeverOverSpends(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		counters []string // the Counter forms emitted, in order

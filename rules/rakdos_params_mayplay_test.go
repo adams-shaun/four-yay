@@ -46,6 +46,7 @@ func mayPlayOption(d *decision.Decision, id state.ObjID) *decision.Option {
 }
 
 func TestMisthollowGriffinCastsItselfFromExile(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Misthollow Griffin"))
 	griffin := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.Event{Kind: events.MoveZone, Obj: griffin, From: state.ZHand, To: state.ZExile})
@@ -73,6 +74,7 @@ func TestMisthollowGriffinCastsItselfFromExile(t *testing.T) {
 }
 
 func TestAtsushiEffectGrantOffersMayPlayCast(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Atsushi, the Blazing Sky"))
 	atsushi := e.G.Zone(state.ZHand, 0)[0]
 	// Two spell cards on top of the library: the dying charm's Dig exiles
@@ -121,6 +123,7 @@ func TestAtsushiEffectGrantOffersMayPlayCast(t *testing.T) {
 }
 
 func TestIntellectDevourerIgnoreColorPaysAnyColour(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Intellect Devourer"))
 	devourer := e.G.Zone(state.ZHand, 0)[0]
 	// The opponent's hand card the ETB exiles: a white spell.
@@ -153,6 +156,7 @@ func TestIntellectDevourerIgnoreColorPaysAnyColour(t *testing.T) {
 }
 
 func TestMayPlayLimitCapsOncePerTurn(t *testing.T) {
+	t.Parallel()
 	// Karador's S: static (Condition$ PlayerTurn, MayPlayLimit$ 1): after one
 	// may-play cast this turn, a second graveyard creature is not offered
 	// through the limited grant.
@@ -179,6 +183,7 @@ func TestMayPlayLimitCapsOncePerTurn(t *testing.T) {
 }
 
 func TestMayPlayNotOfferedWithoutTheGrant(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Misthollow Griffin"))
 	griffin := e.G.Zone(state.ZHand, 0)[0]
 	e.emit(events.Event{Kind: events.MoveZone, Obj: griffin, From: state.ZHand, To: state.ZGraveyard})

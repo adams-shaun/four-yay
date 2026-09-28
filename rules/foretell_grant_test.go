@@ -93,7 +93,6 @@ func driveToLaterTurnMain(t *testing.T, e *Engine) {
 }
 
 func TestWithoutForetellGrantOffersForetellActionAndCheapCast(t *testing.T) {
-	t.Parallel()
 	e := handEngine(t, card(t, grantedForetellBear))
 	dreamDevourerOut(t, e)
 	id := e.G.Zone(state.ZHand, 0)[0]
@@ -133,7 +132,6 @@ func TestWithoutForetellGrantOffersForetellActionAndCheapCast(t *testing.T) {
 }
 
 func TestForetellGrantExcludesPrintedForetellAndOpponentsCards(t *testing.T) {
-	t.Parallel()
 	// Haunting Voyage in seat 0's hand: printed K:Foretell:5 B B, beside a
 	// plain bear -- the positive half of the exclusion (the bear IS granted)
 	// is what makes the negatives below able to fail.
@@ -167,7 +165,6 @@ func TestForetellGrantExcludesPrintedForetellAndOpponentsCards(t *testing.T) {
 }
 
 func TestWithForetellDrivesGraveyardTargetSpec(t *testing.T) {
-	t.Parallel()
 	e := handEngine(t, card(t, grantedForetellBear))
 	niko := corpusAlternativeCard(t, "Niko Defies Destiny")
 	src := e.G.AddObject(niko, 0)
@@ -215,7 +212,6 @@ func seedGraveCard(t *testing.T, e *Engine, p state.PlayerID, src string) state.
 }
 
 func TestCosmosChargerWidensForetellToAnyPlayersTurn(t *testing.T) {
-	t.Parallel()
 	e := handEngine(t, card(t, anyTurnSeer))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	if _, ok := e.G.Obj(id).Face().KeywordParam("Foretell"); !ok {
@@ -265,7 +261,6 @@ func TestCosmosChargerWidensForetellToAnyPlayersTurn(t *testing.T) {
 }
 
 func TestEffectDeliveredFreeCastMayPlay(t *testing.T) {
-	t.Parallel()
 	e := handEngine(t, card(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n"))
 	dauthi := e.G.AddObject(corpusAlternativeCard(t, "Dauthi Voidwalker"), 0)
 	if d := dauthi.Card.Link(); len(d) != 0 {

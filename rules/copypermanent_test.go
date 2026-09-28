@@ -74,6 +74,7 @@ func exiledTo(t *testing.T, e *Engine, id state.ObjID) {
 // and the copy exists -- tapped, attacking the same defender, printed
 // characteristics of the copied bear -- and is exiled when the combat ends.
 func TestFlamerushRiderCopiesTheOtherAttackerExiledAtEndOfCombat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	rider, ok := reg.Lookup("Flamerush Rider")
 	if !ok {
@@ -158,6 +159,7 @@ func TestFlamerushRiderCopiesTheOtherAttackerExiledAtEndOfCombat(t *testing.T) {
 // WITH haste (PumpKeywords$ with no PumpDuration$ = for as long as the copy
 // exists) and no per-call skip note names the family.
 func TestMoltenEchoesCopiesEnteringCreatureExilesAtNextEndStep(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Molten Echoes")
 	molten := searchMoveByName(t, e, "Molten Echoes", state.ZBattlefield)
@@ -210,6 +212,7 @@ func TestMoltenEchoesCopiesEnteringCreatureExilesAtNextEndStep(t *testing.T) {
 // creature token you control. With exactly one eligible token the
 // deterministic candidate IS the answer, so no stand-in note is emitted.
 func TestGrowingRanksPopulatesTheCreatureTokenYouControl(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Growing Ranks")
 	searchMoveByName(t, e, "Growing Ranks", state.ZBattlefield)
@@ -272,6 +275,7 @@ func TestGrowingRanksPopulatesTheCreatureTokenYouControl(t *testing.T) {
 // the copies enter tapped and attacking the attacked seat, and the next end
 // step sacrifices exactly the copies while leaving the originals.
 func TestRedoubledStormsingerCopiesEachTokenThatEnteredThisTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Redoubled Stormsinger")
 	st := searchMoveByName(t, e, "Redoubled Stormsinger", state.ZBattlefield)

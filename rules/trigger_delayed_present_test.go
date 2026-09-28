@@ -48,6 +48,7 @@ func registerDelayedPresent(t *testing.T, e *Engine, src, captured state.ObjID) 
 }
 
 func TestDelayedPhasePresentGateFiresWhenRememberedInZone(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, delayedPresentSource)
 	captured := inZoneCard(t, e, 1, state.ZExile, "Name:Exiled card\nTypes:Sorcery\nOracle:x\n")
@@ -86,6 +87,7 @@ func TestDelayedPhasePresentGateFiresWhenRememberedInZone(t *testing.T) {
 }
 
 func TestDelayedPhasePresentGateSkipsWhenRememberedOutOfZone(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, delayedPresentSource)
 	// The remembered card is NOT in Exile; the condition must hold it back.
@@ -170,6 +172,7 @@ func TestDelayedPhasePresentGateWithValidPlayer(t *testing.T) {
 // pre-existing registration) decodes with an empty PresentSpec and fires
 // ungated, exactly as before.
 func TestDelayedPhasePresentGateLegacyRegistrationUngated(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, delayedPresentSource)
 	captured := inZoneCard(t, e, 1, state.ZExile, "Name:Exiled card\nTypes:Sorcery\nOracle:x\n")

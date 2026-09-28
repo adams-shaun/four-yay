@@ -17,6 +17,7 @@ import (
 // CR 601.2c/602.2b: an activation whose targets cannot be chosen is not
 // offered.
 func TestSharedSetPropCountsCandidatesNotTokens(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Creature.YouCtrl", map[string]string{
 		"TargetsWithSameCreatureType": "True",
 		"TargetMin":                   "2",

@@ -29,6 +29,7 @@ import (
 // attached to a land (a legal attachment, so it survives to be offered) and
 // the Harpist itself must never be offered.
 func TestAttachedToPredicateUnlocksCorpusTargeting(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	harpist := mustCorpusCard(t, reg, "Devout Harpist")       // {T}: Destroy target Aura attached to a creature.
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")           // a creature

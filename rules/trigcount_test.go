@@ -28,6 +28,7 @@ import (
 // fix under test is that the head resolves to the event's amount instead of
 // 0.
 func TestTriggerCountDamageAmountGainsThatMuchLife(t *testing.T) {
+	t.Parallel()
 	probe := card(t, `Name:Trigcount lifelink probe
 Types:Creature Vampire
 PT:3/3

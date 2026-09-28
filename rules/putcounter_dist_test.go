@@ -46,6 +46,7 @@ func castHydra(t *testing.T, e *Engine, id state.ObjID, x int) {
 // CounterNum$ Y counters land, divided one at a time round-robin in answer
 // order (the earlier-chosen recipient takes the extras).
 func TestVastwoodHydraDistributesCountersAsChosenOnDeath(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, 71, []string{vastwoodSrc, distBearSrc, distBearSrc}, []string{distBoltSrc})
 	b1 := putCreature(t, e, 0, distBearSrc)
 	b2 := putCreature(t, e, 0, distBearSrc)
@@ -120,6 +121,7 @@ func TestVastwoodHydraDistributesCountersAsChosenOnDeath(t *testing.T) {
 // recipient set is that creature, so no decision is posed and the whole
 // CounterNum$ total lands on it silently.
 func TestVastwoodHydraDistributionSkipsTheAskWhenOneCreatureIsEligible(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, 72, []string{vastwoodSrc, distBearSrc}, []string{distBoltSrc})
 	b1 := putCreature(t, e, 0, distBearSrc)
 	hydra := find("Vastwood Hydra", 0)
@@ -167,6 +169,7 @@ func TestVastwoodHydraDistributionSkipsTheAskWhenOneCreatureIsEligible(t *testin
 // makes the CounterNum$ total a split over the chosen targets, NOT the
 // pre-fix n-per-target misread -- 4 counters over two targets are 2 and 2.
 func TestPutCounterDividedAmongTargetsSplitsTheTotal(t *testing.T) {
+	t.Parallel()
 	src := "Name:Distributor\nManaCost:2 G\nTypes:Creature Elf Druid\nPT:1/1\n" +
 		"A:SP$ PutCounter | Cost$ 2 G | ValidTgts$ Creature.YouCtrl | TargetMax$ 2 | CounterType$ P1P1 | CounterNum$ 4 | DividedAsYouChoose$ 4 | SpellDescription$ Distribute four +1/+1 counters among up to two target creatures you control.\n" +
 		"Oracle:x\n"

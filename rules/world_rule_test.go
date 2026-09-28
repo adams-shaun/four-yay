@@ -78,6 +78,7 @@ const worldBatchWitness = "Name:Batch world\nManaCost:2 B\nTypes:World Enchantme
 // asserts the tie precondition (equal Timestamps) and the World supertype so
 // a vacuous setup fails loudly.
 func TestWorldRuleTieSendsAllUsesPreDepartureBoard(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	a := onBoard(t, e, 0, worldBatchWitness)
 	b := onBoard(t, e, 0, worldBatchWitness)
@@ -134,6 +135,7 @@ func TestWorldRuleTieSendsAllUsesPreDepartureBoard(t *testing.T) {
 //
 // It fails with the fix reverted: nothing is binned and both stay forever.
 func TestWorldRuleNewestSurvives(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 93, worldEnchantment("Nether Void"), worldEnchantment("Nether Void"))
 	older := moveWorldSeeded(t, e, 0, "Nether Void")
 	younger := moveWorldSeeded(t, e, 0, "Nether Void")
@@ -163,6 +165,7 @@ func TestWorldRuleNewestSurvives(t *testing.T) {
 // 0's older world permanent is put into its graveyard because seat 1's is
 // newer -- the case the false per-controller implementation left untouched.
 func TestWorldRuleGlobalAcrossControllers(t *testing.T) {
+	t.Parallel()
 	// Seat 0's deck: the fixture named Nether Void; seat 1's deck: Nether
 	// Void. Both are fielded and the rule applies across them.
 	e, _, _ := newFixtureDeckWithOpponentCard(t, 97,
@@ -195,6 +198,7 @@ func TestWorldRuleGlobalAcrossControllers(t *testing.T) {
 // supertype longer, and both must depart -- including the one a newest-wins
 // reading would have kept.
 func TestWorldRuleTieSendsAll(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 99, worldEnchantment("The Abyss"), worldEnchantment("The Abyss"))
 	a := moveWorldSeeded(t, e, 0, "The Abyss")
 	b := moveWorldSeeded(t, e, 0, "The Abyss")
@@ -227,6 +231,7 @@ func TestWorldRuleTieSendsAll(t *testing.T) {
 // rule then fires, so the absence assertions cannot pass with the world rule
 // unregistered.
 func TestWorldRuleSinglePermanentIsUntouched(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 94, worldEnchantment("Concordant Crossroads"), worldEnchantment("Concordant Crossroads"))
 	only := moveWorldSeeded(t, e, 0, "Concordant Crossroads")
 	// Precondition: it is the only world permanent.
@@ -259,6 +264,7 @@ func TestWorldRuleSinglePermanentIsUntouched(t *testing.T) {
 // precondition asserts the printed faces are NOT World while the derived lists
 // ARE, so a scan that read the printed face alone cannot pass.
 func TestWorldRuleReadsDerivedSupertype(t *testing.T) {
+	t.Parallel()
 	const grant = "Name:Worldmaker\nManaCost:2 U\nTypes:Artifact\n" +
 		"S:Mode$ Continuous | Affected$ Enchantment.YouCtrl | AddTypes$ World | Description$ x\nOracle:x\n"
 	plain := "Name:Gravity Sphere\nManaCost:2 R\nTypes:Enchantment\nOracle:x\n"
@@ -296,6 +302,7 @@ func TestWorldRuleReadsDerivedSupertype(t *testing.T) {
 // second ask). Each rule emits its own departure Text ("legend rule" / "world
 // rule") and neither is mistaken for the other.
 func TestWorldAndLegendRulesAreOrthogonal(t *testing.T) {
+	t.Parallel()
 	legend := "Name:Legend Twin\nManaCost:2 G\nTypes:Legendary Creature Bear\nPT:5/5\nOracle:x\n"
 	world := worldEnchantment("The Abyss")
 	e, _, _ := newFixtureDeck(t, 96, legend, legend, world, world)

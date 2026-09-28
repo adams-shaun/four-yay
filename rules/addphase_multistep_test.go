@@ -27,6 +27,7 @@ import (
 // completes when the walk leaves the range end (Draw), and the walk resumes
 // at the splice point's natural successor (Main1+1, the ordinary combat).
 func TestExtraPhaseMultiStepRangeWalksItsWholeRange(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg, []*cards.Card{card(t, bearSrc)}, nil)
 	moveByName(t, e, 0, "Bear", state.ZBattlefield)
@@ -83,6 +84,7 @@ func TestExtraPhaseMultiStepRangeWalksItsWholeRange(t *testing.T) {
 // splice point is combat damage is never seen -- the same blind spot the
 // row's design note records for declare-attackers and combat-damage splices.
 func TestExtraPhaseSpliceMidRangeContinuesTheOuterRange(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg,
 		[]*cards.Card{card(t, bearSrc), card(t, bearSrc)}, nil)
@@ -134,6 +136,7 @@ func TestExtraPhaseSpliceMidRangeContinuesTheOuterRange(t *testing.T) {
 // innermost one's (B's explicit FollowedBy$, the end step), not the outer
 // grant's default (Main1+1, which would re-enter a combat).
 func TestExtraPhaseMultiCompletionTakesTheLastResume(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg,
 		[]*cards.Card{card(t, bearSrc), card(t, bearSrc)}, nil)

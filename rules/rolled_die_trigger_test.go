@@ -97,6 +97,7 @@ func rolledDieScenario(t *testing.T, reg *cards.Registry, seed uint64) (*Engine,
 //     PLUS a Treasure -- proof that TriggerCount$Result reached the trigger
 //     body's own SVar resolution after the roll resolved.
 func TestRolledDieMrHouseTriggersAndBranchesOnTheResult(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	eLow, _, low := rolledDieScenario(t, reg, 6)
@@ -142,6 +143,7 @@ func TestRolledDieMrHouseTriggersAndBranchesOnTheResult(t *testing.T) {
 // two-die roll through effects.DieRollNote and checks the decoder the matcher
 // uses sees two independent results.
 func TestRolledDieFiresOncePerDie(t *testing.T) {
+	t.Parallel()
 	first := effects.DieRollNote(7, 1, 6, 3, 4)
 	if _, sides, natural, result, ok := effects.DieRollResult(first); !ok ||
 		sides != 6 || natural != 3 || result != 4 {
@@ -199,6 +201,7 @@ func rolledDieOnceScenario(t *testing.T, reg *cards.Registry, seed uint64) (*Eng
 // Dragons. Exactly one batch Note per roll action, carrying both dice, is the
 // boundary the Once matcher reads.
 func TestRolledDieOnceFiresOncePerMultiDieRoll(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, batches := rolledDieOnceScenario(t, reg, 3)
 	if batches != 1 {
@@ -239,6 +242,7 @@ func TestRolledDieOnceFiresOncePerMultiDieRoll(t *testing.T) {
 // the draw silent while the pump still applies, proving the condition is the
 // only thing gated and the trigger itself fired in both cases.
 func TestRolledDieOnceFaridehDrawsOnTheBatchMax(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	roll := func(t *testing.T, seed uint64, results []int32) (*Engine, Config, int, state.ObjID) {
@@ -298,6 +302,7 @@ func TestRolledDieOnceFaridehDrawsOnTheBatchMax(t *testing.T) {
 // ordinary trigger scan, so the whole matcher + queue-point gate is
 // exercised.
 func TestRolledDieNumberFiresOnlyOnTheThirdDieEachTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := flipEngine(t, reg, 5, []*cards.Card{lookup(t, reg, "Resolute Veggiesaur")}, nil)
 	id := moveByName(t, e, 0, "Resolute Veggiesaur", state.ZBattlefield)

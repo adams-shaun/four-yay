@@ -63,6 +63,7 @@ func activateCloneAbilityIdx(t *testing.T, e *Engine, mimic, target state.ObjID,
 // ClonePermanent{Obj: id} with no IDs (an unconditional CopyFace clear) and
 // dropped every effect whose CloneTarget was the object, modifiers included.
 func TestOverlappingClonesTemporaryExpiryKeepsThePermanentCopy(t *testing.T) {
+	t.Parallel()
 	// The first copy keeps only its resolving ability, not Twinmimic's
 	// second ability. The copied Ox supplies the temporary Clone instead.
 	const oxWithClone = "Name:Fixture Ox\nManaCost:2 G\nTypes:Creature Ox\nPT:2/3\n" +
@@ -122,6 +123,7 @@ func TestOverlappingClonesTemporaryExpiryKeepsThePermanentCopy(t *testing.T) {
 // UntilYourNextTurn copy made second. This turn's cleanup drops only the
 // first, and the longer copy must still be in force afterwards.
 func TestOverlappingClonesShortExpiryKeepsTheLongerCopy(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Twostep\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilEndOfTurn | GainThisAbility$ True | SpellDescription$ becomes a copy until end of turn.\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilYourNextTurn | SpellDescription$ becomes a copy until your next turn.\n" +
@@ -170,6 +172,7 @@ func TestOverlappingClonesShortExpiryKeepsTheLongerCopy(t *testing.T) {
 // "becomes a copy ... except it's colorless" a silent no-op. The copy must
 // come out colourless, not keep the copied face's green.
 func TestCloneSetColorColorlessOverwritesToColourless(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Devoidmimic\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilEndOfTurn | SetColor$ Colorless | SpellDescription$ becomes a colorless copy.\n" +
 		"Oracle:x\n"
@@ -195,6 +198,7 @@ func TestCloneSetColorColorlessOverwritesToColourless(t *testing.T) {
 // never charges. It must be recorded as unread (the loud combined Note) and
 // leave the permanent untapped.
 func TestCloneIntoPlayTappedIsUnreadOnTheStandaloneRoute(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Tapmimic\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilEndOfTurn | IntoPlayTapped$ True | SpellDescription$ becomes a copy.\n" +
 		"Oracle:x\n"
@@ -225,6 +229,7 @@ func TestCloneIntoPlayTappedIsUnreadOnTheStandaloneRoute(t *testing.T) {
 // end of turn" is a genuine STANDALONE A:AB$ Clone whose copy source lives in
 // a zone the battlefield sweep never reaches (TgtZone$ Graveyard).
 func TestShiftingWoodlandCopiesAGraveyardCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Shifting Woodland", "Grizzly Bears",
 		"Lightning Bolt", "Sol Ring", "Forest")

@@ -79,6 +79,7 @@ func revealNotes(e *Engine) []events.Event {
 // transform unconditionally. Now the peek asks, "no" reveals nothing, the
 // ConditionDefined$ Remembered gate finds nothing, and Delver stays a 1/1.
 func TestDelverWithALandOnTopAndARevealDeclinedDoesNotTransform(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, id, _ := delverFixture(t, reg, "Mountain")
 	submitChoices(t, e, 1) // "no"
@@ -102,6 +103,7 @@ func TestDelverWithALandOnTopAndARevealDeclinedDoesNotTransform(t *testing.T) {
 // approx row 33, an Omniscient spectator additionally carries a read-only
 // copy of the pending ask; it is not a seat.)
 func TestDelverRevealAskCarriesTheTopCardOnlyToThePeekingSeat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, d := delverFixture(t, reg, "Mountain")
 	top := e.G.Zone(state.ZLibrary, 0)[0]
@@ -139,6 +141,7 @@ func TestDelverRevealAskCarriesTheTopCardOnlyToThePeekingSeat(t *testing.T) {
 // Delver does not transform (the pre-fix build transformed every upkeep
 // regardless).
 func TestDelverWithALandOnTopAndARevealAnsweredYesDoesNotTransform(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, id, d := delverFixture(t, reg, "Mountain")
 	if len(d.Options) != 2 || d.Options[0].Kind != "yes" || d.Options[1].Kind != "no" {
@@ -162,6 +165,7 @@ func TestDelverWithALandOnTopAndARevealAnsweredYesDoesNotTransform(t *testing.T)
 // reveal answered yes) transforms Delver into Insectile Aberration exactly
 // once.
 func TestDelverWithAnInstantOnTopAndARevealAnsweredYesTransformsExactlyOnce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, id, _ := delverFixture(t, reg, "Lightning Bolt")
 	submitChoices(t, e, 0) // "yes"
@@ -182,6 +186,7 @@ func TestDelverWithAnInstantOnTopAndARevealAnsweredYesTransformsExactlyOnce(t *t
 // (the trigger is a every-upkeep Phase trigger) — and no re-ask of the
 // already-answered reveal leaks into it (the fx42 scoping of Ctx.RevealOpt).
 func TestDelverRevealAskIsDeterministicOnRepeatUpkeeps(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, id, _ := delverFixture(t, reg, "Mountain")
 	submitChoices(t, e, 0) // yes, land — no transform

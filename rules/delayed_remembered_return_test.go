@@ -70,6 +70,7 @@ func delayedRememberedFixture(t *testing.T) (*Engine, state.ObjID, state.ObjID) 
 // against the source's persistent list instead, so the exiled creature stayed
 // exiled forever.
 func TestDelayedDefinedRememberedIgnoresReplacedSourceMemory(t *testing.T) {
+	t.Parallel()
 	e, tg, src := delayedRememberedFixture(t)
 
 	// Precondition: the source genuinely remembers the exiled creature, and the

@@ -20,6 +20,7 @@ import (
 // without this the assertions below are vacuous) and that neither the deck nor
 // any of its carriers has been swept into the head-pinned pool.
 func TestFaceDownCarriersAreOutsideTheHeadPinnedPool(t *testing.T) {
+	t.Parallel()
 	// PRECONDITION: the imported deck really does carry at least one of the
 	// carriers the face-down head pins act on. If it stopped, this test would
 	// be proving nothing about the deck and must fail instead of pass.

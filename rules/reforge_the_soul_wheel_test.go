@@ -118,6 +118,7 @@ func wheelDiscards(e *Engine) []events.Event {
 // the chained DBEachDraw draws exactly seven per player, and the spell
 // finishes in the graveyard.
 func TestReforgeTheSoulWheelDiscardsWholeHandsAndDrawsSeven(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := wheelEngine(t, reg, "Reforge the Soul")
 
@@ -176,6 +177,7 @@ func TestReforgeTheSoulWheelDiscardsWholeHandsAndDrawsSeven(t *testing.T) {
 // WindfallCleanup (DB$ Cleanup | ClearRemembered$ True) clears the source's
 // persistent list AFTER the draw, so nothing durable is asserted on it here.
 func TestWindfallDiscardsWholeHandsAndRemembersThem(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := wheelEngine(t, reg, "Windfall")
 

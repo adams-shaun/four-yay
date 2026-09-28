@@ -168,6 +168,7 @@ func hasActiveDamageReplacement(e *Engine) bool {
 // unimplemented" Note, i.e. the bodyless line registered rather than falling
 // to effEffect's loud-Note arm.
 func TestTakeTheBaitPreventsCombatDamageNotNonCombat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, walker, aggressor := takeTheBaitBoard(t, reg)
 	fundTakeTheBait(t, e)

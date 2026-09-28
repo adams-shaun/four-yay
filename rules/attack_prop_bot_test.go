@@ -24,6 +24,7 @@ import (
 // Dashers attack, and the one pair the budget can carry keeps the bot's
 // preferred defender.
 func TestAttackPropRequiredBotAnswerNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	cfg := Config{Seed: 716, Names: []string{"a", "b", "c"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}}
 	e := New(cfg)

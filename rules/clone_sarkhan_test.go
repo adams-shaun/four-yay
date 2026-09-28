@@ -74,6 +74,7 @@ func optionIndexOf(t *testing.T, d *decision.Decision, kind string) int {
 // election half of the pin: the Dragon entry poses the real may-copy ask,
 // and the decline leaves Sarkhan exactly as it printed (no copy event).
 func TestSarkhanDragonEntryPosesTheMayCopyElectionAndDeclineKeepsSarkhan(t *testing.T) {
+	t.Parallel()
 	e, cfg, sark, _, d := sarkhanFixture(t)
 	no := optionIndexOf(t, d, "no")
 	submitChoices(t, e, no)
@@ -101,6 +102,7 @@ func TestSarkhanDragonEntryPosesTheMayCopyElectionAndDeclineKeepsSarkhan(t *test
 // answer does nothing is never asked; the resolution completes silently and
 // nothing is cloned.
 func TestSarkhanLeavesBeforeTheOptionalChoiceNeverAsks(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Sarkhan, Soul Aflame", "Dragon Hatchling", "Shock", "Shock")
 	sark := searchMoveByName(t, e, "Sarkhan, Soul Aflame", state.ZBattlefield)
@@ -230,6 +232,7 @@ func TestSarkhanLeavesBeforeTheOptionalChoiceNeverAsks(t *testing.T) {
 // name and the added Legendary type, and end-of-turn cleanup reverts it to
 // the printed 2/4 self.
 func TestSarkhanAcceptedCopyIsNamedLegendaryAndExpiresAtCleanup(t *testing.T) {
+	t.Parallel()
 	e, cfg, sark, drag, d := sarkhanFixture(t)
 	yes := optionIndexOf(t, d, "yes")
 	submitChoices(t, e, yes)

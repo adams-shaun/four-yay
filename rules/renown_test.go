@@ -20,6 +20,7 @@ func renownMarks(e *Engine, id state.ObjID) []events.Event {
 }
 
 func TestKnightOfThePilgrimsRoadRenownMarksOnCombatDamage(t *testing.T) {
+	t.Parallel()
 	e, _ := combatTriggerBoard(t, testutil.CorpusRegistry(t), []string{"Knight of the Pilgrim's Road"}, nil, nil, nil)
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDeclareAttackers})
@@ -44,6 +45,7 @@ func TestKnightOfThePilgrimsRoadRenownMarksOnCombatDamage(t *testing.T) {
 }
 
 func TestConstableOfTheRealmRenownPutsTwoCountersOnce(t *testing.T) {
+	t.Parallel()
 	e, cfg := combatTriggerBoard(t, testutil.CorpusRegistry(t), []string{"Constable of the Realm"}, nil, nil, nil)
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDeclareAttackers})
@@ -98,6 +100,7 @@ func TestConstableOfTheRealmRenownPutsTwoCountersOnce(t *testing.T) {
 // recipient loop is deliberately zone-agnostic (CR 122.1), so the gate must
 // live in the Renown$ arm (effects/counters.go).
 func TestRenownTriggerFizzesAfterSourceLeftBattlefield(t *testing.T) {
+	t.Parallel()
 	e, cfg := combatTriggerBoard(t, testutil.CorpusRegistry(t), []string{"Knight of the Pilgrim's Road"}, nil, nil, nil)
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDeclareAttackers})
@@ -140,6 +143,7 @@ func TestRenownTriggerFizzesAfterSourceLeftBattlefield(t *testing.T) {
 }
 
 func TestEnshroudingMistConditionPresentReadsRenowned(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name     string
@@ -173,6 +177,7 @@ func TestEnshroudingMistConditionPresentReadsRenowned(t *testing.T) {
 }
 
 func TestGoblinGloryChaserRenownedGainsMenace(t *testing.T) {
+	t.Parallel()
 	e, _ := combatTriggerBoard(t, testutil.CorpusRegistry(t), []string{"Goblin Glory Chaser"}, nil, nil, nil)
 	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDeclareAttackers})

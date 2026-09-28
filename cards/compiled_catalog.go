@@ -172,6 +172,7 @@ func (r *Registry) invalidateCatalog() {
 			face.compiledCatalog = nil
 			face.compiledID = 0
 			face.compiledTriggerInterests = 0
+			face.compiledTypeMask = 0
 		}
 	}
 	for _, sa := range old.abilityPointers {
@@ -242,6 +243,7 @@ func (r *Registry) CompileMetadata() error {
 		binding.face.compiledCatalog = &b.catalog
 		binding.face.compiledID = binding.id
 		binding.face.compiledTriggerInterests = b.catalog.Faces[binding.id-1].TriggerInterests
+		binding.face.compiledTypeMask = b.catalog.Faces[binding.id-1].TypeMask
 	}
 	for _, binding := range abilities {
 		binding.sa.compiledCatalog = &b.catalog

@@ -14,6 +14,7 @@ import (
 // sacrifice through a nested GainControl ask and its Tap/ChangeCombatants
 // continuation, not merely resolve the GainControl helper in isolation.
 func TestMidnightCrusaderShuttleVillainousChoiceGainControl(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	shuttle := mustCorpusCard(t, reg, "Midnight Crusader Shuttle")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")

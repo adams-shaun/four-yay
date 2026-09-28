@@ -97,6 +97,7 @@ func chooseObj(t *testing.T, e *Engine, kind string, obj state.ObjID) {
 // Ctx.Targets -- moves to the library, and the may-shuffle confirm appears
 // and is honoured on both branches.
 func TestPutAwaySubAsksGraveyardTarget(t *testing.T) {
+	t.Parallel()
 	for _, accept := range []bool{true, false} {
 		name := "decline keeps order, no shuffle"
 		if accept {
@@ -207,6 +208,7 @@ func TestPutAwaySubAsksGraveyardTarget(t *testing.T) {
 // your graveyard" ask still fires. Electing ZERO moves nothing and is
 // consumed once: no re-posed ask anywhere before the stack drains.
 func TestCatharticPartingSubAsksGraveyardTargetElectedZero(t *testing.T) {
+	t.Parallel()
 	catharticSrc := alltargetedCorpusText(t, "c/cathartic_parting.txt")
 	orbSrc := "Name:Orb\nManaCost:1\nTypes:Artifact\nOracle:x\n"
 	graveSrc := "Name:Grave Card\nManaCost:1\nTypes:Artifact\nOracle:x\n"

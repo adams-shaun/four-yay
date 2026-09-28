@@ -73,6 +73,7 @@ func mustMostCardName(t *testing.T, e *Engine, spec string) int32 {
 // greatest single-name count is 8, and a spec that matches nothing reads the
 // evaluated zero (not the unresolvable verdict).
 func TestCountMostCardNameReadsTheGreatestSameNameCount(t *testing.T) {
+	t.Parallel()
 	e, _ := winsGameEngine(t)
 	before := mustMostCardName(t, e, "Artifact.YouCtrl")
 	if before != 0 {
@@ -106,6 +107,7 @@ func TestCountMostCardNameReadsTheGreatestSameNameCount(t *testing.T) {
 // winner. Seat 1 is left alive, so this is the alt-win path (CR 104.2a), not
 // the last-seat-standing sweep.
 func TestMechanizedProductionWinsWithEightSameNamedArtifacts(t *testing.T) {
+	t.Parallel()
 	e, _ := winsGameEngine(t)
 	mp := onBoardCard(t, e, 0, corpusCardByName(t, "Mechanized Production"))
 	relics := make([]state.ObjID, 0, 8)
@@ -171,6 +173,7 @@ func TestMechanizedProductionWinsWithEightSameNamedArtifacts(t *testing.T) {
 // (seat 1's own WinsGame body) proves the event names the resolving
 // controller, not seat 0's zero value.
 func TestWinsGameEmitsTheGameOverWin(t *testing.T) {
+	t.Parallel()
 	e, _ := winsGameEngine(t)
 	watcher := onBoard(t, e, 0, `Name:Winnower
 Types:Creature

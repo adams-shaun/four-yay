@@ -22,6 +22,7 @@ import (
 // A live partial team (1 blocker on Menace, 1 or 2 on Min$ 3) is exactly what
 // the engine rejects, and a rejection would abort a bench run.
 func TestLegacyBlockAnswerPassesTheBlockValidator(t *testing.T) {
+	t.Parallel()
 	const menace = "Name:Goblin Glory Chaser\nManaCost:R\nTypes:Creature Goblin Warrior\nPT:1/1\nK:Menace\nOracle:x\n"
 	const minThree = "Name:Min Three\nManaCost:0\nTypes:Creature Bear\nPT:2/2\n" +
 		"S:Mode$ MinMaxBlocker | ValidCard$ Card.Self | Min$ 3 | Description$ x\nOracle:x\n"

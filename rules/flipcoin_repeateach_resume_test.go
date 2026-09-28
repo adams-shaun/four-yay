@@ -112,6 +112,7 @@ func drainCountingAsks(t *testing.T, e *Engine, limit int) int {
 // empty set. Observed here as the missing DamageAll damage on every flipper
 // whose coin came up heads.
 func TestFlipCoinRepeatEachPostLoopAskKeepsMemoryAcrossResume(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	asker := card(t, flipLoopAskerSrc)
 

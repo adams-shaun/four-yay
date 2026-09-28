@@ -228,6 +228,7 @@ func assertEarthbendReturned(t *testing.T, e *Engine, id state.ObjID, dest state
 // target asked, animation + counters applied, and the return-on-death
 // promise observed. Num$ 2 on this carrier.
 func TestEarthbendBaSingSeWholeOracleDestroy(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Ba Sing Se", "Grizzly Bears")
 	_, forest := earthbendActivateBaSingSe(t, e, "Forest")
@@ -240,6 +241,7 @@ func TestEarthbendBaSingSeWholeOracleDestroy(t *testing.T) {
 // promise, on a fresh engine (the one-shot registration is consumed at its
 // first fire, so this is a separate resolution).
 func TestEarthbendBaSingSeWholeOracleExile(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Ba Sing Se", "Grizzly Bears")
 	_, forest := earthbendActivateBaSingSe(t, e, "Forest")
@@ -252,6 +254,7 @@ func TestEarthbendBaSingSeWholeOracleExile(t *testing.T) {
 // A:SP$ spell shape, with its SubAbility$ continuation (DBPumpAll) still
 // running after the earthbend resolves.
 func TestEarthbendEarthshapeThree(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Earthshape", "Grizzly Bears")
 	forest := searchMoveByName(t, e, "Forest", state.ZBattlefield)
@@ -284,6 +287,7 @@ func TestEarthbendEarthshapeThree(t *testing.T) {
 // killed, so the count must be 6 -- a silent-zero or default bug cannot
 // produce it, and no literal in the corpus is 6.
 func TestEarthbendBeifongDynamicCountsDyingCreaturePower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Beifong's Bounty Hunters", "Craw Wurm", "Grizzly Bears")
 	forest := searchMoveByName(t, e, "Forest", state.ZBattlefield)
@@ -314,6 +318,7 @@ func TestEarthbendBeifongDynamicCountsDyingCreaturePower(t *testing.T) {
 // divergence (see the report's Issues) even though the census reads it as
 // supported.
 func TestEarthbendBadgermoleCubETBOne(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Badgermole Cub", "Grizzly Bears")
 	forest := searchMoveByName(t, e, "Forest", state.ZBattlefield)
@@ -352,6 +357,7 @@ func earthbendDepart(t *testing.T, e *Engine, id state.ObjID, dest state.Zone) {
 // creature, so an animated land is damage-immortal; a pre-existing
 // engine-wide gap, disclosed in the report's Issues, not introduced here.)
 func TestEarthbendBaSingSeRealDestroy(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Ba Sing Se", "Sinkhole", "Grizzly Bears")
 	_, forest := earthbendActivateBaSingSe(t, e, "Forest")
@@ -376,6 +382,7 @@ func TestEarthbendBaSingSeRealDestroy(t *testing.T) {
 // per-destination registration the un-fired sibling survives and returns the
 // land a second time.
 func TestEarthbendReturnIsOneShotAcrossDestinations(t *testing.T) {
+	t.Parallel()
 	t.Run("died-then-exiled-stays-exiled", func(t *testing.T) {
 		reg := testutil.CorpusRegistry(t)
 		e, cfg := searchEngine(t, reg, "Ba Sing Se", "Grizzly Bears")

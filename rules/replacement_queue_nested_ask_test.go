@@ -38,6 +38,7 @@ const shockLandSrc = "Name:Test Shock\nTypes:Land\n" +
 	"SVar:DBTap:DB$ Tap | ETB$ True | Defined$ Self | UnlessCost$ PayLife<2> | UnlessPayer$ You\nOracle:x\n"
 
 func TestReplacementQueueSurvivesNestedAskMidResolution(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		lands []string

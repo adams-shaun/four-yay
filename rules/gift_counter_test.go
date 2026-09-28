@@ -25,6 +25,7 @@ const lrpZapSrc = "Name:Test Zap\nManaCost:U\nTypes:Instant\nOracle:x\n"
 // spell on the stack. The elected X = 0/Y = 1 branches then let the chain
 // counter the noncreature spell. The promised opponent draws.
 func TestGiftLongRiversPullPromisedCountersAnySpell(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pull := mustCorpusCard(t, reg, "Long River's Pull")
 	zap := card(t, lrpZapSrc)
@@ -80,6 +81,7 @@ func TestGiftLongRiversPullPromisedCountersAnySpell(t *testing.T) {
 // counter any spell when promised can only answer a creature spell here, and
 // the opponent draws nothing.
 func TestGiftLongRiversPullDeclinedCountersOnlyACreatureSpell(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pull := mustCorpusCard(t, reg, "Long River's Pull")
 	bears := card(t, lrpBearsSrc)
@@ -130,6 +132,7 @@ func TestGiftLongRiversPullDeclinedCountersOnlyACreatureSpell(t *testing.T) {
 // StackCopy is emitted; the minted copy must read PromisedGift false, so
 // Card.PromisedGift and Count$PromisedGift cannot act on a copied spell.
 func TestGiftCopyCarriesNoPromise(t *testing.T) {
+	t.Parallel()
 	relic := card(t, lrpRelicSrc)
 	e, _ := tokenReplGame(t, 21, relic)
 	id := moveSeededCard(t, e, 0, relic, state.ZHand)

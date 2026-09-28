@@ -13,6 +13,7 @@ import (
 // not with whatever spell happens to top the stack (the old actionCause
 // fallback), and not with nobody at an empty-stack priority.
 func TestManaAbilityCounterIsPutByItsController(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	toMain1(t, e)
 	src := onBoard(t, e, 0, "Name:Charge Rock Test\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ C | SubAbility$ DBCharge | SpellDescription$ Add C.\nSVar:DBCharge:DB$ PutCounter | Defined$ Self | CounterType$ CHARGE | CounterNum$ 1\nOracle:x\n")

@@ -66,6 +66,7 @@ func assertNoReask(t *testing.T, e *Engine) {
 // cleared the answer, so every answered re-entry asked again forever. A
 // decline must sacrifice the creature and end the resolution.
 func TestFlashUnlessDeclineSacrificesOnce(t *testing.T) {
+	t.Parallel()
 	e, giant := flashSpellUnlessFixture(t)
 	answerUnlessPay(t, e, false)
 	assertNoReask(t, e)
@@ -78,6 +79,7 @@ func TestFlashUnlessDeclineSacrificesOnce(t *testing.T) {
 // TestFlashUnlessPayKeepsCreature: paying {1}{R} keeps the creature, charges
 // the pool, and poses no second ask.
 func TestFlashUnlessPayKeepsCreature(t *testing.T) {
+	t.Parallel()
 	e, giant := flashSpellUnlessFixture(t)
 	answerUnlessPay(t, e, true)
 	assertNoReask(t, e)

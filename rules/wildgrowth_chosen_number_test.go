@@ -109,6 +109,7 @@ func assertNoUnimplementedNote(t *testing.T, e *Engine) {
 // +1/+1 counter per Dog/Wolf you control -- one wolf vs three wolves, two
 // distinct values on purpose.
 func TestTorgalEntersWithDogWolfCounters(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		wolves int
@@ -154,6 +155,7 @@ func TestTorgalEntersWithDogWolfCounters(t *testing.T) {
 // the expired first effect must not linger in the registry to re-upgrade
 // anything (the ExileOnMoved$ Stack sweep is what ends it).
 func TestWildgrowthArchaicEntersWithConvergeCounters(t *testing.T) {
+	t.Parallel()
 	t.Run("one colour of mana", func(t *testing.T) {
 		e, cfg, find := etbConfig(t, seedTossSeat0(217), []string{wildgrowthSrc, wgElfSrc, wgWolfSrc}, nil)
 		putCreature(t, e, 0, wildgrowthSrc)
@@ -210,6 +212,7 @@ func TestWildgrowthArchaicEntersWithConvergeCounters(t *testing.T) {
 // binding: the number is read off the enchantment itself at trigger time --
 // one ingredient counter vs three, two distinct values on purpose.
 func TestCommunalBrewingEntersWithIngredientCounters(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		ing  int32
@@ -246,6 +249,7 @@ func TestCommunalBrewingEntersWithIngredientCounters(t *testing.T) {
 // replCountOp's numeric-only parser used to drop -- deals amount PLUS X. A
 // {X}=2 activation turns a 2-damage bolt into 4.
 func TestTaiiWakeenActivationAddsBoundX(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, seedTossSeat0(239), []string{taiiSrc, wgBoltSrc}, nil)
 	taiiID := putCreature(t, e, 0, taiiSrc)
 	e.priorityRound()
@@ -304,6 +308,7 @@ func TestTaiiWakeenActivationAddsBoundX(t *testing.T) {
 // the widened gate and keeps its loud "continuous replacement unimplemented"
 // Note -- the gate widened, it did not silence.
 func TestMysticReflectionShapeStaysLoud(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, seedTossSeat0(241), []string{mysticShapeSrc, wgBearSrc, wgWolfSrc}, nil)
 	putCreature(t, e, 0, wgBearSrc)
 	mysticID := findCardObj(t, e, 0, "Mystic Reflection Shape", state.ZHand)
@@ -345,6 +350,7 @@ const wgBaubleSrc = "Name:Fixture Bauble\nManaCost:0\nTypes:Artifact\nOracle:x\n
 // which killed every MV-0 permanent regardless of the answer). Choosing 1
 // spares the MV-0 board; choosing 0 destroys it, exactly as the oracle says.
 func TestVoidChooseNumberReadsTheLoggedChoice(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		answer   int
 		survives bool

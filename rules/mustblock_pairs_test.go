@@ -39,6 +39,7 @@ const pricedMustBlockSrc = "Name:Fixture Watchdog\nManaCost:3\n" +
 // so its requirement must not be counted -- declaring the free blocker is
 // legal and commits, not a "0 of 1" rejection.
 func TestMustBlockIgnoresUnaffordableBlockPrice(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	req := onBoardCard(t, e, 0, card(t, pricedMustBlockSrc))
 	bear := onBoardCard(t, e, 0, card(t, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:0/4\nOracle:x\n"))
@@ -90,6 +91,7 @@ func TestMustBlockIgnoresUnaffordableBlockPrice(t *testing.T) {
 // contributes nothing and the falcon's legal block declares, not a "0 of 1"
 // rejection of the only declaration anybody could make.
 func TestMustBlockIgnoresMinImpossibleAttacker(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	req := onBoardCard(t, e, 0, mshCorpusCard(t, "Watchdog"))
 	falcon := onBoardCard(t, e, 0, card(t, "Name:Runeclaw Falcon\nManaCost:2 W\nTypes:Creature Bird\nPT:1/1\nK:Flying\nOracle:x\n"))

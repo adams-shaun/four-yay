@@ -8,6 +8,7 @@ import (
 )
 
 func TestFeatherChoiceOmitsCreatureProtectedFromTriggeredSpell(t *testing.T) {
+	t.Parallel()
 	e, _, featherID, bear1, bear2, strikeID := featherGame(t, 912)
 	protected := onBoard(t, e, 1, "Name:Warded Bear\nManaCost:1G\nTypes:Creature Bear\nPT:2/2\nK:Protection from white\nOracle:x\n")
 	if e.G.Obj(protected).Zone != state.ZBattlefield || e.G.Obj(bear1).Zone != state.ZBattlefield {

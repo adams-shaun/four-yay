@@ -162,6 +162,7 @@ func splitFlashBoard(t *testing.T, e *Engine) (bear, theirGizmo state.ObjID) {
 // half off-turn, and a qualifying alternate-half target must not be withheld
 // because the front face is not a target.
 func TestSplitAltTargetConditionalFlash(t *testing.T) {
+	t.Parallel()
 	// --- the grant lives on the ALTERNATE face: a qualifying target must
 	// unlock the off-turn split_alt offer, and the announced target is policed.
 	e := handEngine(t, card(t, altGrantSplitSrc))
@@ -274,6 +275,7 @@ func TestSplitAltTargetConditionalFlash(t *testing.T) {
 // satisfy its grant -- the flat target list of a fused spell is never read
 // as either half's.
 func TestFuseTargetConditionalFlash(t *testing.T) {
+	t.Parallel()
 	// --- the grant lives on the ALTERNATE face; the front half is an Instant.
 	e := handEngine(t, card(t, altGrantFuseSrc))
 	e.G.Active = 1 // off-turn: the fused spell needs BOTH halves instant-speed

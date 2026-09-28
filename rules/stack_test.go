@@ -28,6 +28,7 @@ func castFirst(t *testing.T, e *Engine, kind string) {
 }
 
 func TestCastPutsSpellOnStackAndAsksForTargets(t *testing.T) {
+	t.Parallel()
 	bolt := card(t, "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n")
 	e := handEngine(t, bolt)
 	e.G.Players[0].Pool[state.MR] = 1
@@ -72,6 +73,7 @@ func TestCastPutsSpellOnStackAndAsksForTargets(t *testing.T) {
 }
 
 func TestSpellResolvesAndAppliesItsEffect(t *testing.T) {
+	t.Parallel()
 	bolt := card(t, "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n")
 	e := handEngine(t, bolt)
 	e.G.Players[0].Pool[state.MR] = 1
@@ -108,6 +110,7 @@ func TestSpellResolvesAndAppliesItsEffect(t *testing.T) {
 }
 
 func TestPermanentResolvesToTheBattlefield(t *testing.T) {
+	t.Parallel()
 	bear := card(t, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e := handEngine(t, bear)
 	e.G.Players[0].Pool[state.MG] = 3
@@ -126,6 +129,7 @@ func TestPermanentResolvesToTheBattlefield(t *testing.T) {
 }
 
 func TestLastInFirstOutResolution(t *testing.T) {
+	t.Parallel()
 	bolt := card(t, "Name:Lightning Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n")
 	shock := card(t, "Name:Shock\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\nOracle:x\n")
 	e := handEngine(t, bolt, shock)
@@ -166,6 +170,7 @@ func TestLastInFirstOutResolution(t *testing.T) {
 }
 
 func TestFizzleWhenNoLegalTargets(t *testing.T) {
+	t.Parallel()
 	// Announce with a legal target, then remove it before resolution. CR
 	// 608.2b counters the spell because all of its targets are now illegal.
 	kill := card(t, "Name:Kill\nManaCost:B\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature\nOracle:x\n")
@@ -215,6 +220,7 @@ func TestFizzleWhenNoLegalTargets(t *testing.T) {
 // chained onto it, which names no target of its own and so would otherwise
 // still fire even though CR 608.2b says the spell never resolves at all.
 func TestSpellFizzlesWhenAllTargetsBecomeIllegalBeforeResolution(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	victim := onBoard(t, e, 1, "Name:Goat\nManaCost:1 G\nTypes:Creature Goat\nPT:2/2\nOracle:x\n")
 	helix := card(t, "Name:Helix\nManaCost:R W\nTypes:Instant\n"+
@@ -248,6 +254,7 @@ func TestSpellFizzlesWhenAllTargetsBecomeIllegalBeforeResolution(t *testing.T) {
 // before resolution but the player target does not. CR 608.2b: the spell
 // still resolves, applying its effect to the target that is still legal.
 func TestResolveDoesAsMuchAsItCanWhenSomeTargetsAreStillLegal(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	dead := onBoard(t, e, 1, "Name:Goat\nManaCost:1 G\nTypes:Creature Goat\nPT:2/2\nOracle:x\n")
 	thunder := card(t, "Name:Thunder\nManaCost:2 R\nTypes:Sorcery\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n")
@@ -301,6 +308,7 @@ func TestResolveDoesAsMuchAsItCanWhenSomeTargetsAreStillLegal(t *testing.T) {
 // make (mana spent, the spell on the stack, its target recorded, the target
 // player's life reduced) and that the scalar half of that state replays.
 func TestCastReplayThroughSubmit(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 11, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}
@@ -412,6 +420,7 @@ func TestCastReplayThroughSubmit(t *testing.T) {
 // resolveAbility is no longer a stub -- plus the replay comparison for that
 // pool.
 func TestActivateManaAbilityProducesMana(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 12, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}
@@ -506,6 +515,7 @@ func passToPlayerOne(t *testing.T, e *Engine) {
 // e.G.Active (0), clobbering the correct value legal.go's "cast" case had
 // just emitted.
 func TestNonActiveCasterKeepsPriorityNoTarget(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 21, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}
@@ -555,6 +565,7 @@ func TestNonActiveCasterKeepsPriorityNoTarget(t *testing.T) {
 // T14-e, handleTarget's trailing Priority emit used e.G.Active (0) instead
 // of the submitting player.
 func TestNonActiveCasterKeepsPriorityWithTarget(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 22, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}
@@ -623,6 +634,7 @@ func TestNonActiveCasterKeepsPriorityWithTarget(t *testing.T) {
 // 117.5, unrelated to and unaffected by this fix) -- and that the scalar
 // half of that state replays.
 func TestNonActiveCasterReplayThroughSubmit(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	cfg := Config{Seed: 23, Names: names,
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}
@@ -738,6 +750,7 @@ func putLands(t *testing.T, e *Engine, p state.PlayerID, n int) []state.ObjID {
 // this task's file scope. Naming the Stack zone explicitly is what lets this
 // test drive the cast-trigger-takes-two-targets behaviour at all.
 func TestStackZoneCastTriggerAsksForTwoTargetsAndExilesBoth(t *testing.T) {
+	t.Parallel()
 	src := "Name:Titan\nManaCost:1\nTypes:Creature Eldrazi\nPT:10/10\n" +
 		"T:Mode$ SpellCast | TriggerZones$ Stack | ValidCard$ Card.Self | Execute$ TrigChange | TriggerDescription$ When you cast this spell, exile two target permanents.\n" +
 		"SVar:TrigChange:DB$ ChangeZone | ValidTgts$ Permanent | TargetMin$ 2 | TargetMax$ 2 | Origin$ Battlefield | Destination$ Exile\nOracle:x\n"
@@ -772,6 +785,7 @@ func TestStackZoneCastTriggerAsksForTwoTargetsAndExilesBoth(t *testing.T) {
 // untargeted and still resolves its untargeted rider (the draw). The hand
 // count is unchanged because casting took one card and the rider drew one.
 func TestTargetMinZeroResolvesWithNoTargets(t *testing.T) {
+	t.Parallel()
 	src := "Name:Optional\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ DealDamage | ValidTgts$ Creature | TargetMin$ 0 | TargetMax$ 1 | NumDmg$ 2 | SubAbility$ DBDraw | SpellDescription$ x\n" +
 		"SVar:DBDraw:DB$ Draw | Defined$ You | NumCards$ 1\nOracle:x\n"
@@ -795,6 +809,7 @@ func TestTargetMinZeroResolvesWithNoTargets(t *testing.T) {
 // contains the substring "You" that the coarse targetsPlayers heuristic keys
 // on. Routing to an off-board zone is what suppresses the player slots.
 func TestTgtZoneGraveyardOffersGraveyardCards(t *testing.T) {
+	t.Parallel()
 	boltSrc := "Name:Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n"
 	src := "Name:Mage\nManaCost:1 U\nTypes:Creature Human Wizard\nPT:2/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigPump | TriggerDescription$ x\n" +
@@ -819,6 +834,7 @@ func TestTgtZoneGraveyardOffersGraveyardCards(t *testing.T) {
 // this table pins the clamped behaviour (and the Min-0 untargeted stand-outs
 // that must NOT be clobbered).
 func TestTargetBoundsClampsTargetMaxNotDiscardsIt(t *testing.T) {
+	t.Parallel()
 	sa := func(params ...string) *cards.SA {
 		m := map[string]string{}
 		for _, p := range params {
@@ -863,6 +879,7 @@ func TestTargetBoundsClampsTargetMaxNotDiscardsIt(t *testing.T) {
 // ask behaviour is pinned in targetmax_x_test.go and the Mantle pin in
 // changezone_attachedto_test.go.
 func TestResolvedTargetBoundsDynamic(t *testing.T) {
+	t.Parallel()
 	xVolley := card(t, "Name:Bound Volley\nManaCost:R\nTypes:Instant\n"+
 		"A:SP$ Draw | Defined$ You | NumCards$ 1 | ValidTgts$ Creature | TargetMax$ X\n"+
 		"SVar:X:Count$Valid Creature.YouCtrl\nOracle:x\n")

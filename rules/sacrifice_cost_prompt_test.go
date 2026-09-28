@@ -12,6 +12,7 @@ import (
 // activations and casts without changing its candidate rules: tapping a
 // creature does not stop it paying a sacrifice-only cost.
 func TestSacrificeCostPrompt(t *testing.T) {
+	t.Parallel()
 	const abilitySrc = "Name:Sacrifice Source\nTypes:Artifact\n" +
 		"A:AB$ GainLife | Cost$ Sac<1/Creature> | Defined$ You | LifeAmount$ 1 | SpellDescription$ Gain 1 life.\nOracle:x\n"
 	const creatureSrc = "Name:Prompt Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"

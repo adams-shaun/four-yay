@@ -42,6 +42,7 @@ func effectContinuousUnimplementedNotes(e *Engine) []string {
 // keyword half: DB$ Effect | StaticAbilities$ STFly, whose body is
 // Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying.
 func TestEffectDeliveredContinuousGrantReachesLayerWalk(t *testing.T) {
+	t.Parallel()
 	grant := card(t, "Name:GrantFlight\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | StaticAbilities$ STFly\n"+
 		"SVar:STFly:Mode$ Continuous | Affected$ Creature.YouCtrl | AddKeyword$ Flying\n"+
@@ -84,6 +85,7 @@ func TestEffectDeliveredContinuousGrantReachesLayerWalk(t *testing.T) {
 // test asserts BOTH the chosen creature gained the keyword and the untargeted
 // one did not.
 func TestEffectDeliveredContinuousGrantScopesToRemembered(t *testing.T) {
+	t.Parallel()
 	grant := card(t, "Name:MarkPrey\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | ValidTgts$ Creature | StaticAbilities$ STMark | RememberObjects$ Targeted\n"+
 		"SVar:STMark:Mode$ Continuous | Affected$ Card.IsRemembered | AddKeyword$ Flying\n"+

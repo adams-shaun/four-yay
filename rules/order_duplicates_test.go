@@ -62,6 +62,7 @@ func pendingSources(e *Engine) []state.ObjID {
 // precondition asserts all three really queued and are controlled by seat 0,
 // so a vacuous setup (a trigger that never matched) fails loudly.
 func TestOrderDuplicatesGroupsDuplicateInstancesAdjacently(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, ordDupSrc, ordOtherSrc, ordDupSrc)
 	if len(e.pendingTriggers) != 3 {
 		t.Fatalf("queued %d triggers, want 3 (dup, other, dup): %+v",
@@ -108,6 +109,7 @@ func TestOrderDuplicatesGroupsDuplicateInstancesAdjacently(t *testing.T) {
 // grouping above is genuinely the flag's doing and not an artefact of the
 // queue.
 func TestOrderDuplicatesControlKeepsDiscoveryOrder(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, ordPlainSrc, ordOtherSrc, ordPlainSrc)
 	if len(e.pendingTriggers) != 3 {
 		t.Fatalf("queued %d triggers, want 3: %+v", len(e.pendingTriggers), pendingSources(e))
@@ -128,6 +130,7 @@ func TestOrderDuplicatesControlKeepsDiscoveryOrder(t *testing.T) {
 // nothing: one flagged trigger with no duplicate is left where it is (and,
 // with only one trigger, no ordering ask is posed at all).
 func TestOrderDuplicatesSingleInstanceIsUntouched(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, ordDupSrc)
 	if len(e.pendingTriggers) != 1 {
 		t.Fatalf("queued %d triggers, want 1: %+v", len(e.pendingTriggers), pendingSources(e))

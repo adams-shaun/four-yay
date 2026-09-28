@@ -43,6 +43,7 @@ func corpusDeck(t *testing.T, c *cards.Card, n int) []*cards.Card {
 // with the chosen creature (the second option) actually changing hands. The
 // whole match then replays from the log alone.
 func TestOrderOfSuccessionChainsDirectionAndPerRecipientChoices(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	order := searchCorpusCard(t, reg, "Order of Succession")
 	bears := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -139,6 +140,7 @@ func TestOrderOfSuccessionChainsDirectionAndPerRecipientChoices(t *testing.T) {
 // replays byte-identically from the log alone -- which is what proves the
 // random draws are the seeded host's and not ambient randomness.
 func TestScrambleverseRandomTransfersAndUntaps(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	scramble := searchCorpusCard(t, reg, "Scrambleverse")
 	bears := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -222,6 +224,7 @@ func orderSuccessionBoard(t *testing.T) (*Engine, Config, state.ObjID, [4]state.
 // the bot's answer, or the hosted bot would livelock re-submitting a rejected
 // intent. The whole match then replays from the log alone.
 func TestOrderOfSuccessionBotAnswersValidateAndResolve(t *testing.T) {
+	t.Parallel()
 	e, cfg, orderID, ids := orderSuccessionBoard(t)
 	d := passUntilAsk(t, e)
 	if d.Kind != decision.KChoose || d.ResumeKind != "choosedirection" {

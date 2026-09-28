@@ -12,6 +12,7 @@ import (
 // distribution for "any combination" rather than selecting one colour then
 // multiplying Amount$. The two selected colours deliberately differ.
 func TestComboAnyAllocatesEachManaUnit(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoard(t, e, 0, "Name:Archive Key\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Combo Any | Amount$ 2\nOracle:x\n")
 	if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield || o.Tapped {
@@ -53,6 +54,7 @@ func TestComboAnyAllocatesEachManaUnit(t *testing.T) {
 // TestComboRestrictedColoursAllocateEachManaUnit is the non-Any Combo form:
 // only its named colours are offerable, while their allocation may still split.
 func TestComboRestrictedColoursAllocateEachManaUnit(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoard(t, e, 0, "Name:Burnt Key\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ Combo U R | Amount$ 2\nOracle:x\n")
 	if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield || o.Tapped {
@@ -83,6 +85,7 @@ func TestComboRestrictedColoursAllocateEachManaUnit(t *testing.T) {
 }
 
 func TestAvailableManaChosenColorFailsClosedUntilRecorded(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoard(t, e, 0, "Name:Chosen Source\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ ChosenColor\nOracle:x\n")
 	if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield || o.Tapped {

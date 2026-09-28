@@ -17,6 +17,7 @@ import (
 // landing on the stripped base, the 0/1 base P/T and the Indestructible
 // keyword from the same static line.
 func TestDarksteelMutationStripsCardAndCreatureTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Darksteel Mutation"), lookup(t, reg, "Grizzly Bears")}, []*cards.Card{})
 	bear := moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield)
@@ -48,6 +49,7 @@ func TestDarksteelMutationStripsCardAndCreatureTypes(t *testing.T) {
 // and keeps only the supertypes, with the effect's own AddTypes landing after
 // the strip.
 func TestContinuousRemoveCardTypesKeepsOnlySupertypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Lyra Dawnbringer")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Lyra Dawnbringer", state.ZBattlefield)
@@ -65,6 +67,7 @@ func TestContinuousRemoveCardTypesKeepsOnlySupertypes(t *testing.T) {
 // still wipes an earlier grant, and an EARLIER removal does not touch a
 // later one -- CR 613.1f timestamp order otherwise.
 func TestAbilityRemovalTimestampStillDominates(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	build := func(grantTS, removalTS uint32) (*Engine, state.ObjID) {
 		e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Grizzly Bears")}, []*cards.Card{})

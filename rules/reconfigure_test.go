@@ -56,6 +56,7 @@ func addEnergy(t *testing.T, e *Engine, n int32) {
 // creature (CR 702.150c), the unattach half is withheld while unattached
 // and offered while attached, and unattaching restores creature-ness.
 func TestRazorfieldRipperReconfigureAttachAndUnattach(t *testing.T) {
+	t.Parallel()
 	e, ripper, bear, _ := ripperBoard(t)
 
 	// Preconditions the assertions below depend on: the unattached form IS a
@@ -126,6 +127,7 @@ func TestRazorfieldRipperReconfigureAttachAndUnattach(t *testing.T) {
 // pool (it is not a creature while attached, and effAttach excludes itself
 // besides).
 func TestReconfigureReattachToAnotherCreature(t *testing.T) {
+	t.Parallel()
 	e, ripper, bear, cub := ripperBoard(t)
 	addMana(t, e, 0, "CC")
 	opt, ok := findAbilityOption(e, ripper, 0)
@@ -167,6 +169,7 @@ func TestReconfigureReattachToAnotherCreature(t *testing.T) {
 // {E}), while the {2} half stays unavailable without mana, so the two are
 // alternatives, not a sum.
 func TestRazorfieldRipperEnergyAlternativeCost(t *testing.T) {
+	t.Parallel()
 	e, ripper, bear, _ := ripperBoard(t)
 
 	addEnergy(t, e, 2)
@@ -205,6 +208,7 @@ func TestRazorfieldRipperEnergyAlternativeCost(t *testing.T) {
 // damage marked on the attached form does not destroy it -- the
 // zero-toughness sweep skips non-creatures).
 func TestAttachedReconfigureIsNotACreature(t *testing.T) {
+	t.Parallel()
 	e, ripper, bear, _ := ripperBoard(t)
 	addMana(t, e, 0, "CC")
 	opt, ok := findAbilityOption(e, ripper, 0)
@@ -251,6 +255,7 @@ func TestAttachedReconfigureIsNotACreature(t *testing.T) {
 // offers it and the lone-creature board aborts BEFORE payment instead of
 // consuming the {2} for a refusal.
 func TestReconfigureUnattachedSelfNeverInItsOwnTargetPool(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// General board (reconfigurer + two other creatures): the pool holds the
@@ -318,6 +323,7 @@ func TestReconfigureUnattachedSelfNeverInItsOwnTargetPool(t *testing.T) {
 // -- the minted SAs carry SorcerySpeed$ True and the offer loop's sorcery
 // gate reads it.
 func TestReconfigureOnlyAsASorcery(t *testing.T) {
+	t.Parallel()
 	e, ripper, _, _ := ripperBoard(t)
 	addMana(t, e, 0, "CC")
 	driveToStep(t, e, e.G.Turn, e.G.Active, state.StepBeginCombat)

@@ -164,6 +164,7 @@ func resolveBlitzCasted(t *testing.T, e *Engine, id state.ObjID) {
 }
 
 func TestHenzieGrantedBlitzDiscount(t *testing.T) {
+	t.Parallel()
 	t.Run("zero commander casts charge the printed mana cost", func(t *testing.T) {
 		e, cfg, henzie, four, three := henzieBlitzGame(t, 9801, false, true)
 		assertHenzieStatics(t, e, henzie)

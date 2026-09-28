@@ -149,6 +149,11 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "intentBuf"}:   true,
 	{"rules.Engine", "sbaIDBuf"}:    true,
 	{"rules.Engine", "foreachBuf"}:  true,
+	// targetSpecContext's reusable Resolve records (trigger_referents.go),
+	// a stack that is free at every intent boundary; Clone starts a fresh
+	// one, so the recycled records a live engine keeps are not game state.
+	{"rules.Engine", "specEnvs"}:     true,
+	{"rules.Engine", "specEnvDepth"}: true,
 	// The DiscardedAll matcher's FirstTime$ scratch (rules/engine.go): written
 	// by discardedAllMatches on every match and read by the trigger dispatcher
 	// immediately after, never before a write; Clone copies it as false, so a

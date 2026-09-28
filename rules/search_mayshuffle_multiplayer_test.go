@@ -13,6 +13,7 @@ import (
 // may-shuffle confirm pending; it must not pose seat 1's search while that
 // decision is outstanding (CR 701.23).
 func TestMultiPlayerSearchStopsAtMayShuffleConfirm(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Veteran Explorer")
 	veteran := searchMoveByName(t, e, "Veteran Explorer", state.ZHand)

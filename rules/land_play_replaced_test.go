@@ -34,6 +34,7 @@ Oracle:x
 `
 
 func TestReplacedLandEntryStillUsesTheLandPlay(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 137, replacedLandEntrySrc)
 	driveToStep(t, e, 1, 0, state.StepMain1)
 

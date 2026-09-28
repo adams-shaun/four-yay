@@ -131,6 +131,7 @@ func moveNamedFromLibrary(t *testing.T, e *Engine, name string, to state.Zone, n
 // graveyard permanents to hand. The ETB'd source itself (the fire-time
 // capture) must NOT be counted, so Max is 2, never 3.
 func TestLoamcrafterFaunWhenYouDoReturnsThatMany(t *testing.T) {
+	t.Parallel()
 	const discarded = 2
 	e, hand, grave := loamcrafterEngine(t, discarded, 2)
 
@@ -233,6 +234,7 @@ func TestLoamcrafterFaunWhenYouDoReturnsThatMany(t *testing.T) {
 // permanents stay put -- and the chain does not wedge (the game keeps
 // advancing).
 func TestLoamcrafterFaunEmptyDiscardIsASilentNoOp(t *testing.T) {
+	t.Parallel()
 	e, _, grave := loamcrafterEngine(t, 2, 2)
 
 	d := passUntilAsk(t, e)

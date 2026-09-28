@@ -50,6 +50,7 @@ func castReviewed(t *testing.T, e *Engine, seat state.PlayerID, id state.ObjID, 
 // ~50 corpus carriers), ONE creature cast must fire BOTH without the
 // index-out-of-range panic the live-slice splice produced.
 func TestTwoStaticDelayedSpellCastPromisesBothFire(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Insist"), viviCard(t, reg, "Insist"), viviCard(t, reg, "Grizzly Bears")},
@@ -121,6 +122,7 @@ const randTwoSrc = "Name:Randtwo\nManaCost:B R\nTypes:Sorcery\n" +
 // discard acts on) TWO distinct cards — the pre-fix build narrowed the pool
 // to one card first and revealed one.
 func TestRandomRevealCountFollowsNumCards(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	opt := viviCard(t, reg, "Opt")
 	seat1 := make([]*cards.Card, 0, 40)
@@ -185,6 +187,7 @@ func TestRandomRevealCountFollowsNumCards(t *testing.T) {
 // TargetedController — asks the TARGETED spell's controller (seat 0), not
 // the counter's caster (seat 1, where the pre-fix read posed it).
 func TestOptionalDeciderAskResolvesTheNamedDecider(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := viviEngine(t, reg,
 		[]*cards.Card{viviCard(t, reg, "Opt")},
@@ -248,6 +251,7 @@ const unresolvableDeciderSrc = "Name:Optdec\nManaCost:U\nTypes:Instant\n" +
 // it neither poses a controller ask (the pre-fix wrong-seat behaviour) nor
 // wedges.
 func TestOptionalDeciderUnresolvableDrawsMandatory(t *testing.T) {
+	t.Parallel()
 	deck0 := append([]*cards.Card{card(t, unresolvableDeciderSrc)}, mountainDeck(t, 39)...)
 	cfg := seatZeroStart(Config{Seed: 42, Names: []string{"a", "b"},
 		Decks:  [][]*cards.Card{deck0, mountainDeck(t, 40)},

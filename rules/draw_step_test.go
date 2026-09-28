@@ -171,6 +171,7 @@ func assertDrawPrecedesPriorityInStep(t *testing.T, e *Engine, since int) {
 // RED measurement pasted into the Task 28 report for the actual pre-fix
 // number.
 func TestDrawTriggerResolvingInTheDrawStepDoesNotRedraw(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	onBoard(t, e, 1, drawTriggerSrc)
 	// Baseline is captured one step EARLY, at upkeep, not at the draw step
@@ -216,6 +217,7 @@ func TestDrawTriggerResolvingInTheDrawStepDoesNotRedraw(t *testing.T) {
 // but now three OTHER seats' own priority passes are interleaved with the
 // resolution round-trip.
 func TestDrawTriggerResolvingInTheDrawStepDoesNotRedrawAtFourSeats(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 4)
 	onBoard(t, e, 1, drawTriggerSrc)
 	driveToStep(t, e, 2, 1, state.StepUpkeep)
@@ -247,6 +249,7 @@ func TestDrawTriggerResolvingInTheDrawStepDoesNotRedrawAtFourSeats(t *testing.T)
 // decision before either resolves. Answering it must not itself cause a
 // second draw, and both copies must still resolve exactly once each.
 func TestDrawHappensOnceEvenWhenTwoDrawTriggersAreOrdered(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	onBoard(t, e, 1, drawTriggerSrc)
 	onBoard(t, e, 1, drawTriggerSrc)
@@ -286,6 +289,7 @@ func TestDrawHappensOnceEvenWhenTwoDrawTriggersAreOrdered(t *testing.T) {
 // e.G.Active after New -- never re-derived from the seed, which would make
 // the test compete with the implementation for the same rng stream.
 func TestStartingPlayerStillSkipsTheirFirstDraw(t *testing.T) {
+	t.Parallel()
 	names := []string{"a", "b"}
 	decks := [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}
 	e := New(Config{Seed: 1, Names: names, Decks: decks}) // measured: the toss gives seat 1
@@ -314,6 +318,7 @@ func TestStartingPlayerStillSkipsTheirFirstDraw(t *testing.T) {
 // advanceStep's trailing Priority emit runs, so a finished game never hands
 // out one more decision.
 func TestDrawStepDeckOutEndsTheGameBeforePriority(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	driveToStep(t, e, 2, 1, state.StepUpkeep)
 	e.G.SetZone(state.ZLibrary, 1, nil)
@@ -372,6 +377,7 @@ func TestDrawStepDeckOutEndsTheGameBeforePriority(t *testing.T) {
 // Priority event) but adds no new Kind and no new Event field, so a replay
 // built from nothing but L.Events must still reconstruct it exactly.
 func TestReplayFoldsADrawTriggerFaithfully(t *testing.T) {
+	t.Parallel()
 	deck1 := append([]*cards.Card{card(t, drawTriggerSrc)}, mountainDeck(t, 39)...)
 	cfg := Config{Seed: 5, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), deck1}}

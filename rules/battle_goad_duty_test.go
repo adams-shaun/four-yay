@@ -11,6 +11,7 @@ import (
 // CR 701.38b requires a goaded creature to attack a PLAYER, not a battle
 // protected by a non-goader. The battle remains attackable without the goad.
 func TestBattleDoesNotSatisfyGoadPlayerAttackDuty(t *testing.T) {
+	t.Parallel()
 	e, battle, attacker, protector := battleAttackBoard(t)
 	b := e.G.Obj(battle)
 	if b == nil || b.Zone != state.ZBattlefield || !b.ProtectorValid || b.Protector != protector {

@@ -9,6 +9,7 @@ import (
 )
 
 func TestManaExpendPlayerSpecAndSVarAmount(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Teapot Slinger"))
 	source := e.G.Zone(state.ZHand, 0)[0]
 	if got := e.G.Obj(source); got == nil || got.Face() == nil || got.Face().Name != "Teapot Slinger" {
@@ -37,6 +38,7 @@ func TestManaExpendPlayerSpecAndSVarAmount(t *testing.T) {
 }
 
 func TestManaExpendPlayerSpecDoesNotMatchWrongSeat(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Teapot Slinger"))
 	source := e.G.Zone(state.ZHand, 0)[0]
 	placeOnBattlefield(t, e, source)
@@ -60,6 +62,7 @@ func TestManaExpendPlayerSpecDoesNotMatchWrongSeat(t *testing.T) {
 // selector grammar introduced: an OMITTED Player$ must keep the historical
 // "whenever YOU expend" reading, so an opponent's payment must NOT match.
 func TestManaExpendAbsentPlayerSpecIsControllerOnly(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Teapot Slinger"))
 	source := e.G.Zone(state.ZHand, 0)[0]
 	placeOnBattlefield(t, e, source)

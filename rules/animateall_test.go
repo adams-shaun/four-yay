@@ -37,6 +37,7 @@ func animateAllNotes(e *Engine) []string {
 // (layer 7b SubSet) plus all creature types (layer 4 AddAllCreatureTypes) —
 // while the opponent's creature is untouched.
 func TestMirrorEntityAnimateAllGrantsBasePTAndAllCreatureTypes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	me, ok := reg.Lookup("Mirror Entity")
 	if !ok {
@@ -106,6 +107,7 @@ func TestMirrorEntityAnimateAllGrantsBasePTAndAllCreatureTypes(t *testing.T) {
 // opponent's creatures get base 1/1, and the unread RemoveAllAbilities$
 // parameter is LOUD — one note naming it — rather than silent.
 func TestVedalkenHumiliatorAnimateAllResolution(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	hum, ok := reg.Lookup("Vedalken Humiliator")
 	if !ok {
@@ -156,6 +158,7 @@ func TestVedalkenHumiliatorAnimateAllResolution(t *testing.T) {
 // Mirror Entity activation as the grant pin above, but reads the derived P/T
 // AFTER the cleanup rather than only before it.
 func TestMirrorEntityAnimateAllBasePTExpiresAtEndOfTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	me, ok := reg.Lookup("Mirror Entity")
 	if !ok {

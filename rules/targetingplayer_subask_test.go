@@ -72,6 +72,7 @@ func subaskChooserBoard(t *testing.T, reg *cards.Registry, carrier *cards.Card, 
 // so the resolution-time ask for the second, opponent-chosen land must be
 // posed to seat 1. Before this fix it was posed to the caster (seat 0).
 func TestVolcanicOfferingSubTargetAskGoesToOpponent(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	offering := searchCorpusCard(t, reg, "Volcanic Offering")
 	if !cardHasSubTargetingPlayer(offering, "Player.Opponent", "Land.nonBasic") {
@@ -151,6 +152,7 @@ const choiceProbeDeadSrc = "Name:Dead Bear\nManaCost:G\nTypes:Creature Bear\nPT:
 // because no real corpus carrier expresses this depth (Mausoleum Turnkey's
 // ChangeZone body is depth 1 and reaches the placement ask instead).
 func TestMausoleumTurnkeyChangeZoneAskGoesToOpponent(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 551, choiceProbeOuterSrc, choiceProbeDeadSrc)
 	gy := searchMoveByName(t, e, "Dead Bear", state.ZGraveyard)
 	if o := e.G.Obj(gy); o == nil || o.Zone != state.ZGraveyard || o.Controller != 0 {

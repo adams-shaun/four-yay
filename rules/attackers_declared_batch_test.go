@@ -89,6 +89,7 @@ func declareAttackersAt(t *testing.T, e *Engine, pairs [][2]int) {
 // (Defined$ TriggeredAttackers must name the whole declaration, not just the
 // first event's group).
 func TestAttackersDeclaredBatchFiresOnceOnSplitAttack(t *testing.T) {
+	t.Parallel()
 	e, _, a, b := attackersDeclaredBatchSeat(t)
 
 	e.askAttackers()
@@ -137,6 +138,7 @@ func TestAttackersDeclaredBatchFiresOnceOnSplitAttack(t *testing.T) {
 // attackers at ONE defender pushes the batch trigger exactly once too, so the
 // fix is not over-latching declarations that were already correct.
 func TestAttackersDeclaredBatchFiresOnceWhenBothAttackSameDefender(t *testing.T) {
+	t.Parallel()
 	e, _, a, b := attackersDeclaredBatchSeat(t)
 
 	e.askAttackers()
@@ -164,6 +166,7 @@ func TestAttackersDeclaredBatchFiresOnceWhenBothAttackSameDefender(t *testing.T)
 // Battlefield the old per-defender code queued it once for EACH defender's
 // event. A split attack must draw exactly one card, not two.
 func TestAttackersDeclaredBatchFiresOnceOnSplitAttackBard(t *testing.T) {
+	t.Parallel()
 	bard := mshCorpusCardPath(t, "Bard, Heir of Girion", "b/bard_heir_of_girion.txt")
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, bard)
@@ -215,6 +218,7 @@ func TestAttackersDeclaredBatchFiresOnceOnSplitAttackBard(t *testing.T) {
 // per-defender shape. Karazikar, the Eye Tyrant is the corpus carrier
 // ("Whenever you attack a player, tap target creature that player controls").
 func TestAttackersDeclaredOneTargetStillFiresPerDefender(t *testing.T) {
+	t.Parallel()
 	karazikar := mshCorpusCardPath(t, "Karazikar, the Eye Tyrant", "k/karazikar_the_eye_tyrant.txt")
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, karazikar)

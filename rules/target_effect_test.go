@@ -33,6 +33,7 @@ func targetEffectWire(t *testing.T, d *decision.Decision) map[string]any {
 }
 
 func TestTargetEffectCorpusDamage(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name   string
@@ -69,6 +70,7 @@ func TestTargetEffectCorpusDamage(t *testing.T) {
 }
 
 func TestTargetEffectUnknownIsNotZero(t *testing.T) {
+	t.Parallel()
 	for _, raw := range []string{"", "X", "UnresolvableSVar", "Count$Valid Creature", "999999999999999999999999", "-1", "0"} {
 		t.Run(raw, func(t *testing.T) {
 			sa := &cards.SA{API: "DealDamage", Params: map[string]string{"ValidTgts": "Player", "NumDmg": raw}}
@@ -101,6 +103,7 @@ func TestTargetEffectUnknownIsNotZero(t *testing.T) {
 }
 
 func TestTargetEffectNonDamage(t *testing.T) {
+	t.Parallel()
 	for _, api := range []string{"Draw", "Counter", "Destroy", "ChangeZone", "Unrecognised"} {
 		t.Run(api, func(t *testing.T) {
 			e := newSeats(t, 2)
@@ -114,6 +117,7 @@ func TestTargetEffectNonDamage(t *testing.T) {
 }
 
 func TestTargetEffectHostIndependent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	c, ok := reg.Lookup("Lightning Bolt")
 	if !ok {

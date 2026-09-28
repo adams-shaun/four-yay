@@ -10,6 +10,7 @@ import (
 )
 
 func TestBreenaAttackTriggerReadsLifeGTX(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	breena := searchCorpusCard(t, reg, "Breena, the Demagogue")
 	var trig cards.Trigger

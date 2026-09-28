@@ -40,6 +40,7 @@ func assertDamageCostLKI(t *testing.T, e *Engine, source state.ObjID, wantContro
 // source as the first non-mana cost, then DamageYou is paid from payCast's saved
 // pre-cost characteristics rather than a fabricated LKI value.
 func TestDamageYouCostUsesSourceDamageKeywordLKI(t *testing.T) {
+	t.Parallel()
 	// The source's own battlefield statics disappear when it leaves, so the
 	// live and captured keyword sets differ at damage payment.
 	src := card(t, "Name:Cost LKI Engine\nTypes:Artifact Creature\nPT:1/1\n"+

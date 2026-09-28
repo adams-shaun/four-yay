@@ -91,6 +91,7 @@ func assertLegendTwinPair(t *testing.T, e *Engine, p state.PlayerID, name string
 // battlefield. Without the fix legendGroups gathers them and parks a choice,
 // so this fails with the hunk reverted.
 func TestIgnoreLegendRuleExemptsMatchingCreatures(t *testing.T) {
+	t.Parallel()
 	e := ignoreLegendEngine(t)
 	council := onBoardCard(t, e, 0, corpusCard(t, "Council of Reeds"))
 	id1 := onBoard(t, e, 0, ignoreLegendTwin)
@@ -128,6 +129,7 @@ func TestIgnoreLegendRuleExemptsMatchingCreatures(t *testing.T) {
 // is not. The exempt pair makes this fail with the hunk reverted too (the
 // reverted build would ask over the creature pair first).
 func TestIgnoreLegendRuleDoesNotExemptNoncreatures(t *testing.T) {
+	t.Parallel()
 	e := ignoreLegendEngine(t)
 	council := onBoardCard(t, e, 0, corpusCard(t, "Council of Reeds"))
 	// An exempt creature pair is present first and must NOT be the set asked.
@@ -167,6 +169,7 @@ func TestIgnoreLegendRuleDoesNotExemptNoncreatures(t *testing.T) {
 // creature pair under seat 0 sits FIRST in battlefield order, so the reverted
 // build would ask over it and fail here too.
 func TestIgnoreLegendRuleDoesNotExemptOtherPlayersCreatures(t *testing.T) {
+	t.Parallel()
 	e := ignoreLegendEngine(t)
 	council := onBoardCard(t, e, 0, corpusCard(t, "Council of Reeds"))
 	c1 := onBoard(t, e, 0, ignoreLegendTwin)
@@ -205,6 +208,7 @@ func TestIgnoreLegendRuleDoesNotExemptOtherPlayersCreatures(t *testing.T) {
 // are exempt, so no duplicate set forms and no choice is posed. The fixture
 // asserts the gate actually evaluates true (not that the walk was empty).
 func TestIgnoreLegendRuleHonorsConditionTrue(t *testing.T) {
+	t.Parallel()
 	e := ignoreLegendEngine(t)
 	b1 := onBoardCard(t, e, 0, corpusCard(t, "Brothers Yamazaki"))
 	b2 := onBoardCard(t, e, 0, corpusCard(t, "Brothers Yamazaki"))
@@ -251,6 +255,7 @@ func TestIgnoreLegendRuleHonorsConditionTrue(t *testing.T) {
 // must be posed. Before the condition gate was wired the static exempted
 // unconditionally, so no choice appeared and all three survived.
 func TestIgnoreLegendRuleHonorsConditionFalse(t *testing.T) {
+	t.Parallel()
 	e := ignoreLegendEngine(t)
 	b1 := onBoardCard(t, e, 0, corpusCard(t, "Brothers Yamazaki"))
 	b2 := onBoardCard(t, e, 0, corpusCard(t, "Brothers Yamazaki"))
@@ -295,6 +300,7 @@ func TestIgnoreLegendRuleHonorsConditionFalse(t *testing.T) {
 // removes the static (asserted on the canonical walk) and the ordinary CR
 // 704.5j choice returns for the pair it had been exempting.
 func TestIgnoreLegendRuleExemptionEndsWhenSourceLeaves(t *testing.T) {
+	t.Parallel()
 	e := ignoreLegendEngine(t)
 	council := onBoardCard(t, e, 0, corpusCard(t, "Council of Reeds"))
 	id1 := onBoard(t, e, 0, ignoreLegendTwin)
@@ -335,6 +341,7 @@ func TestIgnoreLegendRuleExemptionEndsWhenSourceLeaves(t *testing.T) {
 // chain head and the event kind stream. Membership maps in legendGroups are
 // never iterated, so the exemption walk must not perturb the stream.
 func TestIgnoreLegendRuleEventStreamIsDeterministic(t *testing.T) {
+	t.Parallel()
 	run := func() (*Engine, []events.Kind) {
 		e := ignoreLegendEngine(t)
 		onBoardCard(t, e, 0, corpusCard(t, "Council of Reeds"))

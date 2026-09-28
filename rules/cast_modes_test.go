@@ -30,6 +30,7 @@ func modeOptionContaining(t *testing.T, d *decision.Decision, text string) int {
 // that answer is submitted; the failed payment must reverse both the stack move
 // and the mode cache maintained beside ModeChosen.
 func TestAbortedModalCastRestoresItsUnchosenState(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Azorius Charm")
 	id := crAbortMove(t, e, 0, "Azorius Charm", state.ZHand)
@@ -70,6 +71,7 @@ func TestAbortedModalCastRestoresItsUnchosenState(t *testing.T) {
 // creature and sorcery modes and offer the untargeted token mode, rather than
 // let a bot repeatedly propose and reverse an impossible cast.
 func TestModalCastOmitsModesWithNoLegalTargets(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "eldrazi-stompy")
 	id := crAbortMove(t, e, 0, "Warping Wail", state.ZHand)
@@ -95,6 +97,7 @@ func TestModalCastOmitsModesWithNoLegalTargets(t *testing.T) {
 // players, while choosing its creature mode must offer the creature and no
 // player. This pins that CR 601.2c reads the already-announced mode.
 func TestModalCastTargetsComeFromTheAnnouncedMode(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name       string

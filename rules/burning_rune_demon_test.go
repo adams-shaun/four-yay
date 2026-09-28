@@ -22,6 +22,7 @@ import (
 // coincidence (they also carry `DefinedPlayer$ ChosenPlayer`); Burning-Rune
 // Demon has no DefinedPlayer$, so it is the shape that exposes the bug.
 func TestBurningRuneDemonChosenOpponentPicksTheCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	demon := mustCorpusCard(t, reg, "Burning-Rune Demon")
 	bears := mustCorpusCard(t, reg, "Grizzly Bears")

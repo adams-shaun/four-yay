@@ -15,6 +15,7 @@ const phyrexianBlueWindowIsland = "Name:Window Island\nTypes:Basic Land Island\n
 // the CR 601.2g payment window.  The choice must consequently offer both
 // {U} and the two-life Phyrexian face while the Island is still untapped.
 func TestPhyrexianBlueFaceCanUseTheCastManaWindow(t *testing.T) {
+	t.Parallel()
 	e, cfg, probe := newFixtureDeck(t, 881, phyrexianBlueWindowProbe, phyrexianBlueWindowIsland)
 	island := putCreature(t, e, 0, phyrexianBlueWindowIsland)
 	e.priorityRound()

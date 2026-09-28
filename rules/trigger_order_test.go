@@ -107,6 +107,7 @@ func upkeepEngine(t *testing.T, srcs ...string) (*Engine, []state.ObjID) {
 // with a single legal answer is noise on the wire, and CR 603.3b gives the
 // player a choice only when there is one to make.
 func TestOneTriggerIsNeverAskedAbout(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, gainerSrc)
 	if e.putTriggersOnStack() {
 		t.Fatalf("a lone trigger asked a decision: %+v", e.Pending())
@@ -124,6 +125,7 @@ func TestOneTriggerIsNeverAskedAbout(t *testing.T) {
 // decision really is Min == Max == N over that controller's own N triggers,
 // so Decision.Validate's existing rules already mean "a permutation".
 func TestTwoSimultaneousTriggersAskTheirController(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, gainerSrc, drainerSrc)
 	if !e.putTriggersOnStack() {
 		t.Fatal("two simultaneous triggers did not ask their controller for an order")
@@ -167,6 +169,7 @@ func TestTwoSimultaneousTriggersAskTheirController(t *testing.T) {
 //	Gainer chosen first  -> Drainer resolves first -> 20-20 = 0, then +5 -> 5
 //	Drainer chosen first -> Gainer resolves first  -> 20+5 = 25, then -25 -> 0
 func TestTriggerOrderChoiceDecidesResolutionOrder(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		choices  []int
@@ -204,6 +207,7 @@ func TestTriggerOrderChoiceDecidesResolutionOrder(t *testing.T) {
 // requirement R2. CR 603.5 moved the choice to resolution: the ability goes
 // on the stack regardless, and the decider answers yes/no as it resolves.
 func TestOptionalTriggerNeedsAnExplicitYes(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, mayGainSrc)
 	// No yes/no at placement any more: putTriggersOnStack pushes the optional
 	// trigger unconditionally (CR 603.5), so it returns with nothing pending.
@@ -247,6 +251,7 @@ func TestOptionalTriggerNeedsAnExplicitYes(t *testing.T) {
 // because Ruling T20-d exists precisely because stack-depth assertions missed
 // real bugs: a "no" must emit nothing that changes state at all.
 func TestDecliningAnOptionalTriggerLeavesTheGameUntouched(t *testing.T) {
+	t.Parallel()
 	e, _ := upkeepEngine(t, mayGainSrc)
 	before := e.G.Clone()
 	// CR 603.5: the ability goes on the stack regardless, so putTriggersOnStack
@@ -303,6 +308,7 @@ func TestDecliningAnOptionalTriggerLeavesTheGameUntouched(t *testing.T) {
 // that carry it name a different player, and TriggeredCardController (40 of
 // them) is the commonest of those.
 func TestOptionalDeciderCanBeSomeoneOtherThanTheController(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	onBoard(t, e, 0, wardenSrc)
 	// A creature belonging to player 1 enters the battlefield, so the
@@ -348,6 +354,7 @@ func TestOptionalDeciderCanBeSomeoneOtherThanTheController(t *testing.T) {
 // order preserved across the interruption, the late arrival placed AFTER the
 // settled group, and the player NOT asked to order the same triggers again.
 func TestTriggerArrivingDuringADecisionCannotCorruptTheQueue(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	a := onBoard(t, e, 0, gainerSrc)
 	b := onBoard(t, e, 0, chooserSrc)
@@ -437,6 +444,7 @@ func TestTriggerArrivingDuringADecisionCannotCorruptTheQueue(t *testing.T) {
 // controlled by a player who has left the game ceases to exist. Before Task 27
 // these sorted after every living seat and went on the stack anyway.
 func TestTriggersOfADepartedControllerAreDropped(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	onBoard(t, e, 1, gainerSrc)
 	onBoard(t, e, 1, drainerSrc)
@@ -460,6 +468,7 @@ func TestTriggersOfADepartedControllerAreDropped(t *testing.T) {
 // e.pending is set, and only that player may Submit. Without
 // releasePendingDecisionOfDepartedPlayer this test hangs the match forever.
 func TestEliminationDuringATriggerDecisionDoesNotStrandTheEngine(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	onBoard(t, e, 1, gainerSrc)
 	onBoard(t, e, 1, mayGainSrc)
@@ -629,6 +638,7 @@ func driveTriggerGame(t *testing.T, e *Engine, limit int, orders [][]int, yesNo 
 // rather than trivially agreeing, and the second of them is aimed at exactly
 // that claim: swap two TriggerPush events and the replay must diverge.
 func TestReplayFromLogAloneReconstructsOrderedAndOptionalTriggers(t *testing.T) {
+	t.Parallel()
 	deck0 := append([]*cards.Card{card(t, scholarSrc), card(t, grinderSrc), card(t, mayGainSrc)},
 		mountainDeck(t, 37)...)
 	cfg := seatZeroStart(Config{Seed: 11, Names: []string{"a", "b"},
@@ -732,6 +742,7 @@ func TestReplayFromLogAloneReconstructsOrderedAndOptionalTriggers(t *testing.T) 
 // "point resumeTriggerDrain at priorityRound", no longer does, precisely
 // because priorityRound no longer draws at all).
 func TestOrderingDecisionInTheDrawStepDoesNotDrawTwice(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	onBoard(t, e, 1, drawTriggerSrc)
 	onBoard(t, e, 1, drawTriggerSrc)
@@ -780,6 +791,7 @@ func TestOrderingDecisionInTheDrawStepDoesNotDrawTwice(t *testing.T) {
 //
 // Before the fix: `stack when priority granted = 2, queued = 1`.
 func TestPriorityIsNeverGrantedWithTriggersStillQueued(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	a := onBoard(t, e, 0, gainerSrc)
 	b := onBoard(t, e, 0, drainerSrc)
@@ -827,6 +839,7 @@ func TestPriorityIsNeverGrantedWithTriggersStillQueued(t *testing.T) {
 // progress. One goroutine per match, so that is a leaked goroutine and a
 // dead game.
 func TestPriorityIsNeverGrantedToAPlayerAboutToBeSweptOut(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	onBoard(t, e, 0, gainerSrc)
 	onBoard(t, e, 0, drainerSrc)
@@ -870,6 +883,7 @@ func TestPriorityIsNeverGrantedToAPlayerAboutToBeSweptOut(t *testing.T) {
 // handle too, so a state-based action in Submit's tail can strand it exactly
 // the same way.
 func TestADecisionAgainstADepartedPlayerIsReleased(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	e.pending = nil
 	e.ask(&decision.Decision{Player: 1, Kind: decision.KTarget, Min: 1, Max: 1,
@@ -898,6 +912,7 @@ func TestADecisionAgainstADepartedPlayerIsReleased(t *testing.T) {
 // a reachable path puts a different entry at the front between an ask and its
 // answer -- and asserts the answer is honoured rather than re-asked.
 func TestAnsweredOptionalTriggerIsNeverAskedTwice(t *testing.T) {
+	t.Parallel()
 	// CR 603.5 moved the ordinary OptionalDecider$ trigger's yes/no to
 	// resolution, so the placement KTriggerOptional no longer exists for it.
 	// The one place a placement KTriggerOptional survives is a Miracle offer
@@ -952,6 +967,7 @@ func TestAnsweredOptionalTriggerIsNeverAskedTwice(t *testing.T) {
 // not Winner, Draw or NextID -- so a game that ended in a draw compared equal
 // to one seat 0 won.
 func TestDiffGamesSeesTheGameResult(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		mut  func(g *state.Game)
@@ -990,6 +1006,7 @@ func TestDiffGamesSeesTheGameResult(t *testing.T) {
 //	I4  No ordering decision is ever offered twice with the identical option
 //	    set and no TriggerPush in between — a re-offer of a settled group.
 func TestTriggerDrainInvariantsUnderRandomizedPlay(t *testing.T) {
+	t.Parallel()
 	const maxDecisions = 400
 	games, decisions, orders, optionals, eliminations := 0, 0, 0, 0, 0
 	for _, seats := range []int{2, 3, 4} {
@@ -1116,6 +1133,7 @@ func TestTriggerDrainInvariantsUnderRandomizedPlay(t *testing.T) {
 //
 // Before: resolveEvents=1, the eliminated caster's life 0 -> 7.
 func TestASpellWhoseTargetDecisionWasReleasedDoesNotResolve(t *testing.T) {
+	t.Parallel()
 	const riderboltSrc = `Name:Riderbolt
 ManaCost:R
 Types:Instant
@@ -1172,6 +1190,7 @@ Oracle:x
 // the ability ceases to exist then (ceaseDepartedObjects, CR 800.4a) rather
 // than being resolved for a departed controller.
 func TestATriggerWhoseControllerLeftIsNotPushedByItsDecider(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	e.pending = nil
 	onBoard(t, e, 0, wardenSrc)
@@ -1220,6 +1239,7 @@ func TestATriggerWhoseControllerLeftIsNotPushedByItsDecider(t *testing.T) {
 // trigger goes on the stack with a LIVING controller, the decider leaves the
 // game, and the ability resolves into exile rather than into the ask.
 func TestOptionalTriggerWhoseDeciderLeftTheGameCeasesToExist(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 3)
 	e.pending = nil // drop the turn-1 priority decision; the drain owns the queue below
 	onBoard(t, e, 0, wardenSrc)
@@ -1319,6 +1339,7 @@ func TestOptionalTriggerWhoseDeciderLeftTheGameCeasesToExist(t *testing.T) {
 // drain the queue and replace that decision with a fresh one, placing
 // triggers behind the answering player's back.
 func TestResumeTriggerDrainIsInertWhileADecisionIsPending(t *testing.T) {
+	t.Parallel()
 	e, _ := upkeepEngine(t, gainerSrc, drainerSrc)
 	if !e.putTriggersOnStack() {
 		t.Fatal("expected an ordering decision")
@@ -1348,6 +1369,7 @@ func TestResumeTriggerDrainIsInertWhileADecisionIsPending(t *testing.T) {
 // pendingTriggers/triggerLabel/optionalDecider machinery the drain itself
 // uses, and must not mutate any of it.
 func TestPendingTriggersReportsQueueOrderAndOptionality(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, gainerSrc, drainerSrc)
 	pts := e.PendingTriggers()
 	if len(pts) != 2 {
@@ -1378,6 +1400,7 @@ func TestPendingTriggersReportsQueueOrderAndOptionality(t *testing.T) {
 // TestPendingTriggersReportsOptionalDecider covers the Optional/Decider
 // fields against mayGainSrc's OptionalDecider$ You.
 func TestPendingTriggersReportsOptionalDecider(t *testing.T) {
+	t.Parallel()
 	e, ids := upkeepEngine(t, mayGainSrc)
 	pts := e.PendingTriggers()
 	if len(pts) != 1 {
@@ -1398,6 +1421,7 @@ func TestPendingTriggersReportsOptionalDecider(t *testing.T) {
 // rule: a caller mutating the returned slice must not corrupt the engine's
 // own queue, nor a slice returned by an earlier call.
 func TestPendingTriggersReturnsAFreshSlice(t *testing.T) {
+	t.Parallel()
 	e, _ := upkeepEngine(t, gainerSrc, drainerSrc)
 	pts := e.PendingTriggers()
 	pts[0].Label = "corrupted"
@@ -1410,6 +1434,7 @@ func TestPendingTriggersReturnsAFreshSlice(t *testing.T) {
 // TestPendingTriggersIsEmptyWithNoQueue is the boundary Project's totality
 // rules lean on: an idle engine reports no pending triggers at all.
 func TestPendingTriggersIsEmptyWithNoQueue(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	if pts := e.PendingTriggers(); len(pts) != 0 {
 		t.Fatalf("PendingTriggers = %v, want none", pts)
@@ -1436,6 +1461,7 @@ Oracle:x
 // mid-queue, the second trigger would sit unplaced behind the priority
 // decision (violating CR 117.5) and this test's stack count would be 1, not 2.
 func TestTriggerTargetAskResumesTheDrain(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// Two simultaneous, same-controller triggers: the first (hunter) takes a
 	// target, the second (gainer) is a plain life-gain.

@@ -55,6 +55,7 @@ const wanShiTongSrc = "Name:Wan Shi Tong, Librarian\nManaCost:X U U\nTypes:Legen
 // draw half X (2 cards) -- not 0 of either -- while the ETB counter
 // replacement keeps its pre-existing correct X=4.
 func TestHydroidKrasisSpellCastTriggerReadsThePaidX(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, 114, []string{hydroidKrasisSrc}, nil)
 	id := find("Hydroid Krasis", 0)
 	addMana(t, e, 0, "GGUUUU") // {4}{G}{U} from 2 G + 4 U
@@ -91,6 +92,7 @@ func TestHydroidKrasisSpellCastTriggerReadsThePaidX(t *testing.T) {
 // cast: Genesis Hydra enters with X +1/+1 counters (kw:etbCounter reading the
 // moving spell's X), so it is a 3/3.
 func TestGenesisHydraCastTriggerFiresAndEtbReadsThePaidX(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, 115, []string{genesisHydraSrc}, nil)
 	hydra := find("Genesis Hydra", 0)
 	addMana(t, e, 0, "GGGG") // {3}{G}
@@ -131,6 +133,7 @@ func TestGenesisHydraCastTriggerFiresAndEtbReadsThePaidX(t *testing.T) {
 // Battlefield): the permanent's trigger reads the X paid for the spell that
 // became it -- X=2 puts 2 +1/+1 counters on it and draws half X (1 card).
 func TestWanShiTongEtbTriggerReadsThePaidX(t *testing.T) {
+	t.Parallel()
 	e, cfg, find := etbConfig(t, 124, []string{wanShiTongSrc}, nil)
 	id := find("Wan Shi Tong, Librarian", 0)
 	addMana(t, e, 0, "UUUU") // {2}{U}{U}
@@ -162,6 +165,7 @@ func TestWanShiTongEtbTriggerReadsThePaidX(t *testing.T) {
 // cleared when the card left the stack for a non-battlefield zone, or the
 // reanimate would resurrect the dead cast's X.
 func TestReanimatedEtbXPaidCardResolvesWithXZero(t *testing.T) {
+	t.Parallel()
 	zombify := "Name:Rise\nManaCost:1 B\nTypes:Sorcery\n" +
 		"A:SP$ ChangeZone | Origin$ Graveyard | Destination$ Battlefield | TgtZone$ Graveyard | ValidTgts$ Creature.YouCtrl | SpellDescription$ Return target creature card from your graveyard to the battlefield.\nOracle:x\n"
 	bolt := "Name:Bolt\nManaCost:R\nTypes:Instant\nA:SP$ Destroy | ValidTgts$ Creature\nOracle:x\n"
@@ -284,6 +288,7 @@ func TestReanimatedEtbXPaidCardResolvesWithXZero(t *testing.T) {
 // the spell resolved and its trigger was placed on the stack; Move then clears
 // the card's live X, but the queued trigger must still draw X cards.
 func TestGadwickEtbKeepsPaidXAfterThePermanentLeaves(t *testing.T) {
+	t.Parallel()
 	// Gadwick's actual compiled corpus script is this exact ChangesZone,
 	// Card.Self, Count$xPaid shape, with a direct DB$ Draw observable.
 	reg := testutil.CorpusRegistry(t)
@@ -348,6 +353,7 @@ func TestGadwickEtbKeepsPaidXAfterThePermanentLeaves(t *testing.T) {
 // which the filter does not implement yet (unknown predicate fails closed), so
 // this pins the machinery behind a ValidCard$ the trigger CAN match today.
 func TestThirdPartyCastTriggerReadsTheTriggeringSpellsX(t *testing.T) {
+	t.Parallel()
 	muse := "Name:Hydra Muse\nManaCost:1 G\nTypes:Creature Nightmare Hydra\nPT:1/1\n" +
 		"T:Mode$ SpellCast | ValidCard$ Instant | ValidActivatingPlayer$ You | TriggerZones$ Battlefield | Execute$ TrigPut | TriggerDescription$ Whenever you cast an instant spell, put X +1/+1 counters on CARDNAME.\n" +
 		"SVar:TrigPut:DB$ PutCounter | Defined$ Self | CounterType$ P1P1 | CounterNum$ X\n" +

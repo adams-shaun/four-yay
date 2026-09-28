@@ -40,6 +40,7 @@ func countTargetsChosenOn(e *Engine, obj state.ObjID) int {
 // replaying byte-for-byte. This is the end-to-end peer of the corpus card,
 // not a synthetic fixture.
 func TestChainLightningMayChooseTargetUsesTheRealCorpus(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	sf := searchCorpusCard(t, reg, "Chain Lightning")
 	// PRECONDITION: this is the real corpus card and it really carries the
@@ -159,6 +160,7 @@ func TestChainLightningMayChooseTargetUsesTheRealCorpus(t *testing.T) {
 // option (the one drainToEnd takes). The copy must still resolve and the whole
 // log must replay: the default is a legal answer, not a dead end.
 func TestChainLightningCopyKeepsCurrentTargetIsDeterministic(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	eng, cfg := miscHandsEngine(t, reg,
 		[]string{"Chain Lightning"}, nil, nil, []string{"Grizzly Bears"})

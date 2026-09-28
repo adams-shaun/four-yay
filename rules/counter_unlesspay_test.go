@@ -113,6 +113,7 @@ func counterFixture(t *testing.T, reg *cards.Registry, counter, creature string)
 // the unless_pay ask at all, so drainUntilUnlessPay returns nil and the test
 // fails before any payment is attempted.
 func TestCounterUnlessCostEmptyPoolCannotPayAndCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, bearID := counterFixture(t, reg, "Mana Leak", "Grizzly Bears")
 
@@ -155,6 +156,7 @@ func TestCounterUnlessCostEmptyPoolCannotPayAndCounters(t *testing.T) {
 // tree effCounter ignores UnlessCost$, never suspends, so no unless_pay ask
 // is posed and the test fails at that check.
 func TestCounterWithSubAbilityRunsChainExactlyOnce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, branch := range []string{"decline", "pay"} {
 		t.Run(branch, func(t *testing.T) {

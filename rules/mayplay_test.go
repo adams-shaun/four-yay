@@ -81,6 +81,7 @@ func TestMayPlayStaticGrantsLandFromGraveyard(t *testing.T) {
 // seat 1's priority must not offer a play_land for a card in seat 1's own
 // graveyard (Affected$ Land.YouOwn resolves against the static's controller).
 func TestMayPlayGrantStaysWithItsController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	conduit, ok := reg.Lookup("Conduit of Worlds")
 	if !ok {
@@ -216,6 +217,7 @@ func TestMosswortBridgeAmountAllPlaysEveryExiledCard(t *testing.T) {
 // ask answered EMPTY plays nothing -- both exiled cards stay in exile, the
 // activation still resolves (it is consumed), and the game continues.
 func TestMosswortBridgePlayMayDecline(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bridge, ok := reg.Lookup("Mosswort Bridge")
 	if !ok {
@@ -460,6 +462,7 @@ func TestVergeRangersOffersTopLibraryLandWhenOpponentAhead(t *testing.T) {
 // body (or an unmodelled count head) must stay withheld, so the fix cannot
 // widen a gate this build cannot read.
 func TestVergeRangersUnreadableSVarGateStaysClosed(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 219, "Name:Blank\nTypes:Sorcery\nOracle:x\n")
 	// A synthetic static with the same shape as Verge Rangers' but a CheckSVar$
 	// naming an SVar the face does not define.
@@ -609,6 +612,7 @@ func TestKessGraveyardInstantCastsOnItsControllerTurn(t *testing.T) {
 // the card an instant so only the Condition gate can withhold it), the
 // graveyard instant must NOT be offered.
 func TestKessGraveyardInstantNotOfferedOnOpponentTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kess, ok := reg.Lookup("Kess, Dissident Mage")
 	if !ok {

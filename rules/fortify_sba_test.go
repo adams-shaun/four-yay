@@ -36,6 +36,7 @@ const fortifySBAAnimator = "Name:LandAnimator\nManaCost:2 R\nTypes:Enchantment\n
 	"S:Mode$ Continuous | Affected$ Land.YouCtrl | AddTypes$ Creature | Description$ x\nOracle:x\n"
 
 func TestFortificationDetachesWhenBearerStopsBeingALand(t *testing.T) {
+	t.Parallel()
 	e, cfg, fort := newFixtureDeck(t, 91, fortifySBABearer, fortifySBALand, fortifySBABear, fortifySBALandStripper)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: fort, From: state.ZHand, To: state.ZBattlefield})
 	land := moveSeeded(t, e, 0, fortifySBALand, state.ZBattlefield)
@@ -110,6 +111,7 @@ func TestFortificationDetachesWhenBearerStopsBeingALand(t *testing.T) {
 }
 
 func TestFortifiedLandThatGainsATypeStaysAttached(t *testing.T) {
+	t.Parallel()
 	e, cfg, fort := newFixtureDeck(t, 92, fortifySBABearer, fortifySBALand, fortifySBAAnimator)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: fort, From: state.ZHand, To: state.ZBattlefield})
 	land := moveSeeded(t, e, 0, fortifySBALand, state.ZBattlefield)

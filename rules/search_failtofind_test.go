@@ -19,6 +19,7 @@ import (
 // silently: the search still shuffles, the fail-to-find is legitimate under
 // CR 701.23b, and priority returns.
 func TestSquadronHawkFailToFindResolvesWithoutAsking(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	hawk, ok := reg.Lookup("Squadron Hawk")
 	if !ok {
@@ -137,6 +138,7 @@ func TestSquadronHawkFailToFindResolvesWithoutAsking(t *testing.T) {
 // asking primitive that bypasses effects.Ask and posts a decision whose only
 // legal answer is the empty one must fail loudly here, not wedge a seat.
 func TestAskBoundaryRejectsAnEmptyAnswerOnlyDecision(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 5, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 

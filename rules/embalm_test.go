@@ -40,6 +40,7 @@ func embalmAbilityOption(t *testing.T, e *Engine, id state.ObjID, keyword string
 // activate the ability, and assert the card exiles itself as the cost and a
 // token copy enters as a white Zombie Angel with the copied 3/4 body.
 func TestAngelOfSanctionsEmbalmExilesAndMintsAWhiteZombieCopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 1101, []string{"Angel of Sanctions"}, nil, nil)
 	id := findCardObj(t, e, 0, "Angel of Sanctions", state.ZGraveyard)
 	addMana(t, e, 0, "CCCCCW") // Embalm {5}{W}
@@ -70,6 +71,7 @@ func TestAngelOfSanctionsEmbalmExilesAndMintsAWhiteZombieCopy(t *testing.T) {
 // the real Timeless Dragon script: Eternalize {2}{W}{W} changes the copied
 // 5/5 white Dragon into a 4/4 black Zombie Dragon.
 func TestTimelessDragonEternalizeExilesAndMintsAFourFourBlackZombieCopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 1102, []string{"Timeless Dragon"}, nil, nil)
 	id := findCardObj(t, e, 0, "Timeless Dragon", state.ZGraveyard)
 	addMana(t, e, 0, "CCWW") // Eternalize {2}{W}{W}
@@ -96,6 +98,7 @@ func TestTimelessDragonEternalizeExilesAndMintsAFourFourBlackZombieCopy(t *testi
 // TestEmbalmOnlyOfferedFromTheGraveyard: the ability is a graveyard
 // activation, so the same card in hand must not offer it (CR 702.128a).
 func TestEmbalmOnlyOfferedFromTheGraveyard(t *testing.T) {
+	t.Parallel()
 	e, _, _ := altCostEngine(t, 1103, []string{"Angel of Sanctions"}, nil, nil)
 	id := findCardObj(t, e, 0, "Angel of Sanctions", state.ZHand)
 	addMana(t, e, 0, "CCCCCW")
@@ -146,6 +149,7 @@ func hasWord(words []string, want string) bool {
 // and the minted copy of the Bear is a Fractal Creature (plus its copied
 // Creature Bear types), NOT a single garbage "Creature & Fractal" word.
 func TestAppliedGeometryAddTypesMultiTypeToken(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 1103, []string{"Applied Geometry"}, []string{altBearSrc}, nil)
 	bear := findCardObj(t, e, 0, "Bear", state.ZBattlefield)
 	ag := findCardObj(t, e, 0, "Applied Geometry", state.ZHand)

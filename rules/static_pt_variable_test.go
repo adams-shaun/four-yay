@@ -20,6 +20,7 @@ func staticCorpusCard(t *testing.T, name string) *cards.Card {
 }
 
 func TestStaticPTVariablesUseLiveSourceSVars(t *testing.T) {
+	t.Parallel()
 	t.Run("Timberpack Wolf reads a live SVar", func(t *testing.T) {
 		e := layerEngine(t)
 		one := onBoardCard(t, e, 0, staticCorpusCard(t, "Timberpack Wolf"))
@@ -93,6 +94,7 @@ func TestStaticPTVariablesUseLiveSourceSVars(t *testing.T) {
 }
 
 func TestTypePredicatesSeeChangelingAndLayerFour(t *testing.T) {
+	t.Parallel()
 	t.Run("Goblin Piledriver counts Changeling Outcast", func(t *testing.T) {
 		e := layerEngine(t)
 		pile := onBoardCard(t, e, 0, staticCorpusCard(t, "Goblin Piledriver"))

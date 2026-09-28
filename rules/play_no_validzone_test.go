@@ -11,6 +11,7 @@ import (
 )
 
 func TestReversalOfFortuneAndPlayNoValidZone(t *testing.T) {
+	t.Parallel()
 	e, _, source := newFixtureDeckWithOpponentCard(t, 92341,
 		"Name:Play source\nManaCost:0\nTypes:Sorcery\nOracle:x\n",
 		"Name:Own probe\nManaCost:1 G\nTypes:Sorcery\nOracle:x\n",

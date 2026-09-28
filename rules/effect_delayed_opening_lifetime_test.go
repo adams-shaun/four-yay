@@ -34,6 +34,7 @@ import (
 // bit, survive a TurnChange (the bug removed it immediately), and then fire
 // its one-shot counter on the opponent's first cast.
 func TestEffectDelayedOpeningHandPermanentSurvives(t *testing.T) {
+	t.Parallel()
 	annex := corpusAlternativeCard(t, "Chancellor of the Annex")
 	e := handEngine(t, annex)
 	id := e.G.Zone(state.ZHand, 0)[0]
@@ -104,6 +105,7 @@ func TestEffectDelayedOpeningHandPermanentSurvives(t *testing.T) {
 // appended last and stripped first; a value-bearing suffix appended after it
 // would otherwise end up inside EffectDuration.
 func TestEffectDelayedPermanentRiderSuffixRoundTrip(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	moved := onBoard(t, e, 0, "Name:Subject\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	src := onBoard(t, e, 0, "Name:RiderSource\nTypes:Creature\nPT:2/2\nA:AB$ Effect | Triggers$ Hook | Duration$ Permanent | ForgetOnMoved$ Battlefield | RememberObjects$ Remembered\nSVar:Hook:Mode$ DamageDone | ValidTarget$ Player | Execute$ Pain\nSVar:Pain:DB$ LoseLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")
@@ -125,6 +127,7 @@ func TestEffectDelayedPermanentRiderSuffixRoundTrip(t *testing.T) {
 // source is NOT on the battlefield must never be killed by the battlefield
 // liveness rule, while a true battlefield source still is.
 func TestEffectDelayedNonBattlefieldPermanentStaysLive(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	// A source in hand (the emblem/opening-hand class: no battlefield
 	// incarnation to lose).
@@ -153,6 +156,7 @@ func TestEffectDelayedNonBattlefieldPermanentStaysLive(t *testing.T) {
 // EndImprintedEffects must retire the delayed registration through a logged
 // DelayedRemove.
 func TestEffectDelayedHostExileEndsRegistration(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	host := onBoard(t, e, 0, "Name:ImprintHost\nTypes:Creature\nPT:2/2\nA:AB$ Effect | Triggers$ Hook | ImprintOnHost$ True\nSVar:Hook:Mode$ DamageDone | ValidTarget$ Player | Execute$ Pain\nSVar:Pain:DB$ LoseLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")
 	face := e.G.Obj(host).Face()
@@ -186,6 +190,7 @@ func TestEffectDelayedHostExileEndsRegistration(t *testing.T) {
 // sweepEffectDelayedCast. A proposal that reaches the stack and is paid for
 // ends the grant.
 func TestEffectDelayedForgetOnCastRealCast(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:OneCast\nTypes:Creature\nPT:2/2\nA:AB$ Effect | Triggers$ Hook | ForgetOnCast$ Card\nSVar:Hook:Mode$ DamageDone | ValidTarget$ Player | Execute$ Pain\nSVar:Pain:DB$ LoseLife | Defined$ You | LifeAmount$ 2\nOracle:x\n")
 	face := e.G.Obj(src).Face()

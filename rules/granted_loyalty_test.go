@@ -35,6 +35,7 @@ func grantedRowanOption(e *Engine, pw state.ObjID) (decision.Option, bool) {
 // granted [+1] nor any printed loyalty ability of the same permanent is
 // offered again this turn.
 func TestGrantedLoyaltyAbilityIsOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := edrBoard(t, reg, 79, map[string]state.Zone{
 		"Jaya Ballard":   state.ZBattlefield,

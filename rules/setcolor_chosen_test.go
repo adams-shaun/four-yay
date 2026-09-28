@@ -48,6 +48,7 @@ func castCorpusCardToBattlefield(t *testing.T, e *Engine, p state.PlayerID, name
 // colour -- the printed colourless artifact-creature becomes Red, and stays
 // an artifact (the setter only replaces colours).
 func TestAlloyGolemBecomesTheChosenColor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Alloy Golem")}, nil)
 	addMana(t, e, 0, "CCCCCC")
@@ -71,6 +72,7 @@ func TestAlloyGolemBecomesTheChosenColor(t *testing.T) {
 // battlefield permanent AND a non-battlefield card both gain the chosen
 // colour in addition to their printed colours.
 func TestPaintersServantAddsTheChosenColorEverywhere(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Painter's Servant")}, nil)
 	// A battlefield creature (a second corpus creature) and a hand card.
@@ -94,6 +96,7 @@ func TestPaintersServantAddsTheChosenColorEverywhere(t *testing.T) {
 // overwritten to the chosen colour while a land keeps its (colourless)
 // printed colours.
 func TestShiftingSkyRecoloursNonlandPermanents(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Shifting Sky")}, nil)
 	land := moveCorpusCard(t, e, "Mountain", 0, state.ZBattlefield)
@@ -116,6 +119,7 @@ func TestShiftingSkyRecoloursNonlandPermanents(t *testing.T) {
 // enchanted land gains the chosen colour (an overwrite, and the land's own
 // printed colour is empty so it is simply the chosen colour).
 func TestShimmerwildsGrowthRecoloursTheEnchantedLand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Shimmerwilds Growth"), lookup(t, reg, "Forest")}, nil)
 	forest := moveByName(t, e, 0, "Forest", state.ZBattlefield)
@@ -161,6 +165,7 @@ func TestShimmerwildsGrowthRecoloursTheEnchantedLand(t *testing.T) {
 // SetColor$ ChosenColor static emits nothing and the object stays colourless
 // rather than guessing.
 func TestChosenColorStaticWithNoChoiceFailsClosed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Faceless One")}, nil)
 	id := moveByName(t, e, 0, "Faceless One", state.ZBattlefield)
@@ -248,6 +253,7 @@ func answerPregameColour(t *testing.T, e *Engine, p state.PlayerID, idx int) str
 // read into the commander's colour identity (the mana-ask path's source), and
 // -- once the commander is cast -- into its derived layer-5 colours.
 func TestCommanderPregameColourChoices(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cases := []struct {
 		name string
@@ -302,6 +308,7 @@ func TestCommanderPregameColourChoices(t *testing.T) {
 // seat 0, so seat 0 is asked first), and that each answer lands on that seat's
 // own commander.
 func TestPregameCommanderColourOneAskPerSeatInTurnOrder(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	a := lookup(t, reg, "Faceless One")
 	b := lookup(t, reg, "The Prismatic Piper")
@@ -336,6 +343,7 @@ func TestPregameCommanderColourOneAskPerSeatInTurnOrder(t *testing.T) {
 // stays colourless (the fail-closed guard for the layer-5 static once it is
 // on the battlefield with no recorded choice).
 func TestNonCommanderCDANoPregameAsk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Faceless One")}, nil)
 	if d := e.Pending(); d == nil || d.Kind != decision.KPriority {

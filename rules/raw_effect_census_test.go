@@ -7,6 +7,7 @@ import (
 )
 
 func TestParamCensusCatchesEffectSVarRawChildren(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	if !d.trig["ChangesZone"]["Destination"] || !d.stat["Continuous"]["Affected"] || !d.repl["Moved"]["Destination"] {
 		t.Fatal("fixture premise broken: expected derived reads are missing")

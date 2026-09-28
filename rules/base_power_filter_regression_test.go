@@ -11,6 +11,7 @@ import (
 )
 
 func TestBaseSwordCountValidUsesLayerSevenBPredicate(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Sword of the Squeak")
 	if !ok {
@@ -57,6 +58,7 @@ func TestBaseSwordCountValidUsesLayerSevenBPredicate(t *testing.T) {
 }
 
 func TestBaseLayerSevenAffectedPredicateUsesWalkValues(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	candidate := onBoard(t, e, 0, "Name:Earlier set\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	faceDown := onBoard(t, e, 0, "Name:Printed four three\nTypes:Creature\nPT:4/3\nOracle:x\n")

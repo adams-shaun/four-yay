@@ -46,6 +46,7 @@ func chiefEngineerEngine(t *testing.T, creatures int, engineerOnBattlefield bool
 }
 
 func TestEffectGrantedConvokeReachesTheCastSpell(t *testing.T) {
+	t.Parallel()
 	e, spell, creatures := chiefEngineerEngine(t, 2, true)
 	addMana(t, e, 0, "GG")
 	d := e.Pending()
@@ -90,6 +91,7 @@ func TestEffectGrantedConvokeReachesTheCastSpell(t *testing.T) {
 }
 
 func TestEffectGrantedConvokeDoesNotReachNonSpellsOrOtherCards(t *testing.T) {
+	t.Parallel()
 	// Without Chief Engineer on the battlefield, the same cast never poses a
 	// convoke ask.
 	e, spell, _ := chiefEngineerEngine(t, 0, false)

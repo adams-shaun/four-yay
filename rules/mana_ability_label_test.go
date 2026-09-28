@@ -31,6 +31,7 @@ import (
 // shape). This supersedes the pre-flattening "Add C" + "Add B or R" pin: the
 // feedback is the newer instruction.
 func TestTalismanOfIndulgenceStageOneFlattensIntoColourPips(t *testing.T) {
+	t.Parallel()
 	const talisman = "Name:Talisman of Indulgence\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ C\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ Combo B R | SubAbility$ DBPain\n" +
@@ -79,6 +80,7 @@ func TestTalismanOfIndulgenceStageOneFlattensIntoColourPips(t *testing.T) {
 // "Add B", "Add R", and the "Add B" answer taps once, lands one black and
 // opens no stage-2 ask.
 func TestTalismanOfIndulgenceRealCorpusFlattens(t *testing.T) {
+	t.Parallel()
 	tal, ok := testutil.CorpusRegistry(t).Lookup("Talisman of Indulgence")
 	if !ok {
 		t.Fatal("corpus missing Talisman of Indulgence")
@@ -120,6 +122,7 @@ func TestTalismanOfIndulgenceRealCorpusFlattens(t *testing.T) {
 // single "Add any color" option and the stage-2 five-colour ask still
 // follows it (task fb-20260917T232800Z's scope boundary).
 func TestManaProducedAnyStageOneLabel(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Any Source\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ C\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ Any\nOracle:x\n"
@@ -166,6 +169,7 @@ func TestManaProducedAnyStageOneLabel(t *testing.T) {
 // options before manaAbilityLabel is consulted, task fb-20260917T232800Z),
 // but its own output contract is unchanged.
 func TestManaAbilityLabelShapes(t *testing.T) {
+	t.Parallel()
 	cases := []struct{ produced, want string }{
 		{"Combo B R", "Add B or R"},
 		{"Combo R G", "Add R or G"},

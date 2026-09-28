@@ -128,6 +128,7 @@ func TestAttachedOpponentAuraAndNoSionaDoNotFire(t *testing.T) {
 // ValidTarget$ Card.Self reads "Self" as the trigger's source (the keeper),
 // so an Aura attaching to the keeper herself makes her controller's Dragon.
 func TestAttachedBroodKeeperCreatesDragonOnAuraAttach(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	keeper := mustCorpusCard(t, reg, "Brood Keeper")
 	rancor := mustCorpusCard(t, reg, "Rancor")
@@ -207,6 +208,7 @@ func TestAttachedEnormousEnergyBladeTapsTheBearer(t *testing.T) {
 // and Horobi would destroy HIMSELF whenever any other creature became
 // targeted -- the regression this pin forbids.
 func TestAttachedBearerCaptureDoesNotLeakIntoBecomesTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	horobi := mustCorpusCard(t, reg, "Horobi, Death's Wail")
 	bolt := card(t, "Name:Probe Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n")
@@ -238,6 +240,7 @@ func TestAttachedBearerCaptureDoesNotLeakIntoBecomesTarget(t *testing.T) {
 // Keeper made her Dragon off the real attach, the detach makes no second
 // Dragon.
 func TestAttachedDetachDoesNotFire(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	keeper := mustCorpusCard(t, reg, "Brood Keeper")
 	rancor := mustCorpusCard(t, reg, "Rancor")
@@ -279,6 +282,7 @@ func TestAttachedDetachDoesNotFire(t *testing.T) {
 // ValidTarget$ -- the matcher fails closed, so her trigger never fires and
 // an Aura you control attaching to an opponent's permanent gains nothing.
 func TestAttachedErietteStaysSilent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	eriette := mustCorpusCard(t, reg, "Eriette, the Beguiler")
 	rancor := mustCorpusCard(t, reg, "Rancor")

@@ -19,6 +19,7 @@ import (
 // within the turn. CR 400.7: the card that returns to the graveyard is a new
 // object the permission never named, so it is no longer castable.
 func TestReezugGraveyardCastDoesNotFollowTheCardBack(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Reezug, the Bonecobbler", "Blood Pet")
 	reezug := searchMoveByName(t, e, "Reezug, the Bonecobbler", state.ZBattlefield)
 	pet := searchMoveByName(t, e, "Blood Pet", state.ZGraveyard)

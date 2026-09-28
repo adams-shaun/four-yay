@@ -14,6 +14,7 @@ import (
 // TestSkirkProspectorOffersSacrificeChoiceWithExtraGoblin uses real corpus
 // cards. A second Goblin must widen activation into a legal choice.
 func TestSkirkProspectorOffersSacrificeChoiceWithExtraGoblin(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := realCardEngine(t, reg, 74, "Skirk Prospector", "Goblin Guide")
 	prospector, guide := ids[0], ids[1]
@@ -54,6 +55,7 @@ func passIndex(t *testing.T, d *decision.Decision) int {
 // window, activating Prospector there asks which Goblin dies, and answering
 // resumes the suspended ward payment so the spell is not countered.
 func TestSkirkProspectorPaysAWardFromItsPaymentWindow(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	var d0 []*cards.Card
 	for _, name := range []string{"Skirk Prospector", "Goblin Guide", "Gut Shot"} {
@@ -207,6 +209,7 @@ func TestSkirkProspectorPaysAWardFromItsPaymentWindow(t *testing.T) {
 // TestSkirkProspectorBotChoosesLeastValuableGoblin proves the new activation
 // ask is answered by the real bot policy with a legal choice.
 func TestSkirkProspectorBotChoosesLeastValuableGoblin(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := realCardEngine(t, reg, 75, "Skirk Prospector", "Goblin Guide")
 	prospector := ids[0]
@@ -233,6 +236,7 @@ func TestSkirkProspectorBotChoosesLeastValuableGoblin(t *testing.T) {
 // window takes the same route): gating the whole cost continuation on the
 // interactive flag silently skipped the discard there.
 func TestLionsEyeDiamondPaysItsWholeCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	handOf := func(e *Engine) []state.ObjID {
 		return append([]state.ObjID(nil), e.G.Zone(state.ZHand, 0)...)

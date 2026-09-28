@@ -40,6 +40,7 @@ func driveToTargetAsk(t *testing.T, e *Engine, obj state.ObjID) *decision.Decisi
 // of `MANDATORY Count$TimesKicked`: the kicked cast puts the searched Doctor
 // onto the battlefield, the unkicked cast puts it into hand.
 func TestTheFiveDoctorsDestAltKickedBattlefieldUnkickedHand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "The Five Doctors", "Doctor Strange, Surgeon")
 	id := searchMoveByName(t, e, "The Five Doctors", state.ZHand)
@@ -59,6 +60,7 @@ func TestTheFiveDoctorsDestAltKickedBattlefieldUnkickedHand(t *testing.T) {
 }
 
 func TestTheFiveDoctorsDestAltUnkickedGoesToHand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "The Five Doctors", "Doctor Strange, Surgeon")
 	id := searchMoveByName(t, e, "The Five Doctors", state.ZHand)
@@ -80,6 +82,7 @@ func TestTheFiveDoctorsDestAltUnkickedGoesToHand(t *testing.T) {
 // `MANDATORY X`/`Count$Kicked.1.0` shape and the Tapped$ True rider on the
 // alternate branch.
 func TestZukosConvictionDestAltKickedBattlefieldTappedUnkickedHand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Zuko's Conviction", "Grizzly Bears")
 	id := searchMoveByName(t, e, "Zuko's Conviction", state.ZHand)
@@ -98,6 +101,7 @@ func TestZukosConvictionDestAltKickedBattlefieldTappedUnkickedHand(t *testing.T)
 }
 
 func TestZukosConvictionDestAltUnkickedGoesToHand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Zuko's Conviction", "Grizzly Bears")
 	id := searchMoveByName(t, e, "Zuko's Conviction", state.ZHand)
@@ -118,6 +122,7 @@ func TestZukosConvictionDestAltUnkickedGoesToHand(t *testing.T) {
 // SVar-name `X = Count$wasCastFromGraveyard.1.0` through the flashback cast:
 // the searched Vehicle enters the battlefield instead of hand.
 func TestFromFatherToSonDestAltFlashbackBattlefield(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "From Father to Son", "Kylox's Voltstrider")
 	id := searchMoveByName(t, e, "From Father to Son", state.ZGraveyard)

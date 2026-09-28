@@ -41,12 +41,14 @@ func assertPowerUpOfferedOnce(t *testing.T, e *Engine, id state.ObjID, ability i
 }
 
 func TestPowerUpFixtureWithholdsSecondActivation(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 77, powerUpFixtureSrc)
 	moveByName(t, e, 0, "PowerUpBeast", state.ZBattlefield)
 	assertPowerUpOfferedOnce(t, e, id, 0)
 }
 
 func TestPowerUpRealCorpusBoldBiochemistWithholdsSecondActivation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Bold Biochemist")
 	if !ok {

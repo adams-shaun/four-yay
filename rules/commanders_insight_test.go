@@ -39,6 +39,7 @@ func castTargetCommanderAndReturn(t *testing.T, e *Engine, id state.ObjID) {
 }
 
 func TestCommandersInsightUsesTargetedPlayersCommanderCastCount(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	insight := searchCorpusCard(t, reg, "Commander's Insight")
 	commander := card(t, commandersInsightTestCommander)

@@ -169,6 +169,7 @@ func graveyardMoveStep(e *Engine, id state.ObjID) (state.Step, bool) {
 // offered, no FlagMayFlashSac is stamped, no cleanup registration is made,
 // and the permanent survives its own cleanup step.
 func TestMayFlashSacSorceryCastIsNotSacrificed(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 501, mayflashsacEnchantSrc, mayflashsacTargetSrc)
 	addMana(t, e, 0, "GC") // {1}{G}
 	// Precondition: the cast is offered at plain sorcery timing (Mode "") --
@@ -203,6 +204,7 @@ func TestMayFlashSacSorceryCastIsNotSacrificed(t *testing.T) {
 // stamped, the permanent's entry registers the cleanup-step delayed
 // sacrifice, and the permanent is gone by the time the next turn begins.
 func TestMayFlashSacInstantWindowCastSacrificedAtCleanup(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 502, mayflashsacEnchantSrc, mayflashsacTargetSrc)
 	// Stop in begin combat: seat 0 still has priority there, but it is not a
 	// main phase, so spellTimingOK withholds the card unless the MayFlashSac
@@ -267,6 +269,7 @@ func TestMayFlashSacInstantWindowCastSacrificedAtCleanup(t *testing.T) {
 // (cards/primitive.go's Primitives, which lists kw:MayFlashSac off the
 // K: line) would still count the carriers unsupported.
 func TestMayFlashSacIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["kw:MayFlashSac"] {
 		t.Fatal("effects.Supported() does not report kw:MayFlashSac")
 	}
@@ -291,6 +294,7 @@ func TestMayFlashSacIsRegistered(t *testing.T) {
 // creature and becoming an Aura), then the keyword's rider sacrifices it at
 // the next cleanup step.
 func TestNecromancyOffSorceryCastSacrificesItselfAtCleanup(t *testing.T) {
+	t.Parallel()
 	necro := corpusCardText(t, "n/necromancy.txt")
 	if !mayFlashSacFace(card(t, necro).Faces[0]) {
 		t.Fatal("setup: the corpus Necromancy script does not carry K:MayFlashSac")
@@ -409,6 +413,7 @@ func driveToStepAnsweringOrder(t *testing.T, e *Engine, turn int32, active state
 // no FlagMayFlashSac, registers no cleanup sacrifice, and survives its own
 // cleanup step into the next turn.
 func TestNecromancySorceryCastIsNotSacrificed(t *testing.T) {
+	t.Parallel()
 	necro := corpusCardText(t, "n/necromancy.txt")
 	if !mayFlashSacFace(card(t, necro).Faces[0]) {
 		t.Fatal("setup: the corpus Necromancy script does not carry K:MayFlashSac")
@@ -452,6 +457,7 @@ func TestNecromancySorceryCastIsNotSacrificed(t *testing.T) {
 // that cleanup is a new incarnation; the stale promise must expire without
 // acting on the returned permanent -- which stays on the battlefield.
 func TestMayFlashSacLeaveAndReturnIsNotSacrificed(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 504, mayflashsacEnchantSrc, mayflashsacTargetSrc)
 	e.askPriority(0)
 	driveToStep(t, e, e.G.Turn, 0, state.StepBeginCombat)
@@ -571,6 +577,7 @@ func passPriorityOption(t *testing.T, d *decision.Decision) int {
 // without it, handlePriority's pass advanced straight to the next turn and
 // the +3/+3 survived it.
 func TestMayFlashSacCleanupWindowPumpExpiresInRepeatedCleanup(t *testing.T) {
+	t.Parallel()
 	const pumpSrc = "Name:Cleanup Pump\nManaCost:0\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ +3 | NumTou$ +3\nOracle:x\n"
 
 	// Control, on its own engine: the fixture pump really applies its
@@ -682,6 +689,7 @@ func TestMayFlashSacCleanupWindowPumpExpiresInRepeatedCleanup(t *testing.T) {
 // oversized hand to discard. Without the repeat, the turn advanced with the
 // hand still over the limit and nothing was asked.
 func TestMayFlashSacCleanupWindowDrawTriggersRepeatedDiscard(t *testing.T) {
+	t.Parallel()
 	const drawSrc = "Name:Cleanup Probe\nManaCost:0\nTypes:Instant\nA:SP$ Draw | Defined$ You | NumCards$ 2\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 507, mayflashsacEnchantSrc, drawSrc)
 	probe := moveSeeded(t, e, 0, drawSrc, state.ZHand)
@@ -781,6 +789,7 @@ func TestMayFlashSacCleanupWindowDrawTriggersRepeatedDiscard(t *testing.T) {
 // advanceStep there instead, the pump survives into the next turn -- the
 // assertion below is what fails.
 func TestCleanupEmptyStackPassRepeatsCleanup(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	id := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.AddContinuous(ContinuousEffect{Source: id, Timestamp: 1, Layer: LPT, Sub: SubModify,
@@ -854,6 +863,7 @@ func countMayFlashSacRegisters(e *Engine) map[state.ObjID]int {
 // cast except the flags themselves. state.CastProvenanceFlags is stripped at
 // the mint for exactly that reason.
 func TestMayFlashSacCopiedSpellIsNotSacrificed(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 506, mayflashsacEnchantSrc, mayflashsacTargetSrc)
 	e.askPriority(0)
 	driveToStep(t, e, e.G.Turn, 0, state.StepBeginCombat)

@@ -56,6 +56,7 @@ func activateCloneAbility(t *testing.T, e *Engine, mirror, bear state.ObjID) {
 // come from the copied face -- and end-of-turn cleanup reverts it to the
 // printed 0/0 artifact.
 func TestMirageMirrorBecomesACopyOfTargetCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := searchEngine(t, reg, "Mirage Mirror", "Grizzly Bears")
 
@@ -122,6 +123,7 @@ func TestMirageMirrorBecomesACopyOfTargetCreature(t *testing.T) {
 // a synthetic-but-real-script-shape fixture (an inline Forge script, never a
 // .cards/ file) so every modifier path is exercised deterministically.
 func TestCloneModifiersApplyAtTheirOwnLayers(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Mimic\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilEndOfTurn | AddTypes$ Shapeshifter & Rogue | SetColor$ Blue | AddKeywords$ Flying | SetPower$ 4 | SetToughness$ 5 | SpellDescription$ becomes a copy.\n" +
 		"Oracle:x\n"
@@ -166,6 +168,7 @@ func TestCloneModifiersApplyAtTheirOwnLayers(t *testing.T) {
 // GainThisAbility$ True the original object's own abilities survive the copy
 // (so the copy can clone again).
 func TestCloneNewNameAndGainThisAbility(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Doppel\nManaCost:2 U\nTypes:Creature Shapeshifter\nPT:2/2\n" +
 		"A:AB$ Clone | Cost$ 2 U | ValidTgts$ Creature | TgtPrompt$ Choose target creature | NewName$ Fixture Doppel | GainThisAbility$ True | Duration$ UntilEndOfTurn | SpellDescription$ becomes a copy, except its name is Fixture Doppel.\n" +
 		"Oracle:x\n"
@@ -201,6 +204,7 @@ func TestCloneNewNameAndGainThisAbility(t *testing.T) {
 // than lingering -- the modifier-leak class where a re-entered object used to
 // still carry the cloned Flying.
 func TestPermanentCloneEndsWhenTheBecomeObjectLeaves(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Mimic\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | AddKeywords$ Flying | SpellDescription$ becomes a permanent copy.\n" +
 		"Oracle:x\n"
@@ -247,6 +251,7 @@ func TestPermanentCloneEndsWhenTheBecomeObjectLeaves(t *testing.T) {
 // UntilNextEndStep, so neither active() nor EndOfTurnCleanup ever dropped it.
 // The carrier is niko_light_of_hope.
 func TestCloneUntilNextEndStepExpiresAtCleanup(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Stepclone\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilNextEndStep | SpellDescription$ becomes a copy until your next end step.\n" +
 		"Oracle:x\n"
@@ -275,6 +280,7 @@ func TestCloneUntilNextEndStepExpiresAtCleanup(t *testing.T) {
 // NOT UntilEOT) and expires only at the controller's next turn's cleanup, via
 // the UntilTurn boundary AddContinuous computes.
 func TestCloneUntilYourNextTurnSurvivesCleanupThenExpires(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Fixture Turnclone\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ Clone | Cost$ 1 | ValidTgts$ Creature | Duration$ UntilYourNextTurn | AddKeywords$ Flying | SpellDescription$ becomes a copy until your next turn.\n" +
 		"Oracle:x\n"

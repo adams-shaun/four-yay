@@ -61,6 +61,7 @@ func passPriorityUntilNonPriority(t *testing.T, e *Engine) *decision.Decision {
 // carried no accumulator, so the resumed Ctx rebuilt it empty and the third
 // ask over-offered seat 0.
 func TestTargetUniqueSurvivesADifferentAskKindBetweenRiders(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7008, digBetweenRidersScript())
 	addMana(t, e, 0, "C")
 	castFirst(t, e, "cast")
@@ -131,6 +132,7 @@ func scryBetweenRidersScript() string {
 // TestTargetUniqueSurvivesAScryBetweenRiders is the arrange-kind twin of the
 // Dig test.
 func TestTargetUniqueSurvivesAScryBetweenRiders(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7009, scryBetweenRidersScript())
 	addMana(t, e, 0, "C")
 	castFirst(t, e, "cast")

@@ -67,6 +67,7 @@ func facedownLayer4Engine(t *testing.T, reg *cards.Registry, seat0, seat1 []*car
 // the same defect with the controller matching the brief's intent, and the
 // separate scoping control below covers the seat-1 shape.
 func TestMaskwoodNexusGrantsEveryCreatureTypeToAFaceDownCreature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownLayer4Engine(t, reg,
 		[]*cards.Card{
@@ -133,6 +134,7 @@ func TestMaskwoodNexusGrantsEveryCreatureTypeToAFaceDownCreature(t *testing.T) {
 // (Affected$ Creature.YouCtrl). The grant is real and controller-scoped, so
 // the positive test above is not "face-down objects get every type anyway".
 func TestMaskwoodDoesNotGrantToAnOpponentsFaceDownCreature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownLayer4Engine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Reality Shift"), lookup(t, reg, "Maskwood Nexus")},
@@ -163,6 +165,7 @@ func TestMaskwoodDoesNotGrantToAnOpponentsFaceDownCreature(t *testing.T) {
 // inline Land-scoped all-creature-types static reaches it, so the derived
 // list carries the base [Land Forest] plus every creature subtype.
 func TestFaceDownSetTypeBaseReceivesTheLayer4Walk(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownLayer4Engine(t, reg,
 		[]*cards.Card{
@@ -198,6 +201,7 @@ func TestFaceDownSetTypeBaseReceivesTheLayer4Walk(t *testing.T) {
 // [Creature] base, and this asserts the mirrored plain path -- a face-down
 // Forest with no layer-4 static -- is untouched by the fix.
 func TestFaceDownNoLayer4StaticStillDerivesTheBase(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := facedownLayer4Engine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Reality Shift"), lookup(t, reg, "Grizzly Bears")},

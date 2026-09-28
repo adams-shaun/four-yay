@@ -9,6 +9,7 @@ import (
 // A PutCounter emitted by an Updated Moved replacement body is a fresh
 // placement, even while the outer Moved replacement is resolving.
 func TestReplacementBodyCounterReceivesAddCounterReplacement(t *testing.T) {
+	t.Parallel()
 	cre := entryCounterEtbCreature(t)
 	e, cfg := tokenReplGame(t, 170, cre)
 	id := moveSeededCard(t, e, 0, cre, state.ZBattlefield)

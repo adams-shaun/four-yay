@@ -69,6 +69,7 @@ func kickedCorpusModeAsk(t *testing.T, kicked bool) *decision.Decision {
 // unkicked exactly one. This is the corpus-backed counterpart to
 // TestKickedCharmModeBoundsInTheRealCast's inline shape.
 func TestInscriptionOfAbundanceCorpusModeBounds(t *testing.T) {
+	t.Parallel()
 	if d := kickedCorpusModeAsk(t, true); d.Min != 0 || d.Max != 3 {
 		t.Fatalf("kicked mode bounds = %d..%d, want 0..3", d.Min, d.Max)
 	}

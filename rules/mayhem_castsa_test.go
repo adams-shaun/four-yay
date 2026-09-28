@@ -49,6 +49,7 @@ func quicksandBoard(t *testing.T, plainCast bool) (*Engine, state.ObjID, state.O
 // and ALL creatures get -2/-2 — the opponent's bear included, which is the
 // assertion that distinguishes this arm from the mayhem arm.
 func TestSandmansQuicksandPlainCastHitsAllCreatures(t *testing.T) {
+	t.Parallel()
 	e, qs, mine, theirs := quicksandBoard(t, true)
 	addMana(t, e, 0, "1BB")
 
@@ -82,6 +83,7 @@ func TestSandmansQuicksandPlainCastHitsAllCreatures(t *testing.T) {
 // opponent's bear drops by 2. The previous build ran BOTH pumps (the
 // unresolved gate fail-opened) and left the own bear at 1.
 func TestSandmansQuicksandMayhemCastHitsOnlyOpponentsCreatures(t *testing.T) {
+	t.Parallel()
 	e, qs, mine, theirs := quicksandBoard(t, false)
 	addMana(t, e, 0, "1BBB") // the {3}{B} mayhem cost, not the printed {1}{B}{B}
 

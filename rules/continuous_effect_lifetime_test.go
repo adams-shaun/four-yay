@@ -15,6 +15,7 @@ import (
 // AddContinuous) that do not exist on the base tree, so it is not part of the
 // fail-on-base per-card proof.
 func TestEffectContinuousExpiresAtEndOfTurn(t *testing.T) {
+	t.Parallel()
 	vines := card(t, "Name:Vines of Vastwood\nManaCost:G\nTypes:Instant\n"+
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +4 | NumDef$ +4 | SubAbility$ DBEffect\n"+
 		"SVar:DBEffect:DB$ Effect | Defined$ Targeted | StaticAbilities$ STCantTarget | RememberObjects$ Targeted\n"+

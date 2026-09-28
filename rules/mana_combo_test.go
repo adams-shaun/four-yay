@@ -16,6 +16,7 @@ const comboRGSource = "Name:Dual Land\nTypes:Land\n" +
 // mana of a colour the player chose, with no colourless in the pool, and the
 // ask must offer R and G only.
 func TestManaComboRGAsksOnlyRG(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := manaSourceEngine(t, comboRGSource)
 	activateMana(t, e, id)
 	d := e.Pending()
@@ -46,6 +47,7 @@ func TestManaComboRGAsksOnlyRG(t *testing.T) {
 // TestManaComboRGChoosingRedPoolsNoColourless proves the same leaf on the
 // other branch: choose R and the pool holds exactly one red.
 func TestManaComboRGChoosingRedPoolsNoColourless(t *testing.T) {
+	t.Parallel()
 	e, _, id := manaSourceEngine(t, comboRGSource)
 	activateMana(t, e, id)
 	submitChoices(t, e, manaOption(t, e.Pending(), "R"))
@@ -59,6 +61,7 @@ func TestManaComboRGChoosingRedPoolsNoColourless(t *testing.T) {
 // ask is the shape's own decision, not the five-colour Any ask: exactly two
 // options for "Combo R G".
 func TestManaComboTwoColoursOfferExactlyTwo(t *testing.T) {
+	t.Parallel()
 	e, _, id := manaSourceEngine(t, comboRGSource)
 	activateMana(t, e, id)
 	if d := e.Pending(); d == nil || d.Kind != decision.KChoose || len(d.Options) != 2 {
@@ -71,6 +74,7 @@ func TestManaComboTwoColoursOfferExactlyTwo(t *testing.T) {
 // "Combo U B R" shape, proving the arity is parsed rather than hard-coded to
 // two.
 func TestManaComboThreeColourAsk(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Tri Land\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ Combo U B R\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, src)
@@ -99,6 +103,7 @@ func TestManaComboThreeColourAsk(t *testing.T) {
 // TestManaProducedRRSameSymbolStillAddsTwoRed pins that the legitimate rune
 // walk is not collateral damage: a literal "RR" still adds exactly two red.
 func TestManaProducedRRSameSymbolStillAddsTwoRed(t *testing.T) {
+	t.Parallel()
 	const src = "Name:RR Land\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ RR\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, src)
@@ -116,6 +121,7 @@ func TestManaProducedRRSameSymbolStillAddsTwoRed(t *testing.T) {
 // TestManaProducedWUAddsOneOfEach pins the mixed-symbol literal walk too:
 // "W U" adds exactly one white and one blue.
 func TestManaProducedWUAddsOneOfEach(t *testing.T) {
+	t.Parallel()
 	const src = "Name:WU Land\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ W U\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, src)
@@ -130,6 +136,7 @@ func TestManaProducedWUAddsOneOfEach(t *testing.T) {
 // TestManaProducedAnyStillAsksAllFive pins that Produced$ Any keeps its
 // unchanged five-colour ask.
 func TestManaProducedAnyStillAsksAllFive(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Any Land\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ Any\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, src)
@@ -152,6 +159,7 @@ func TestManaProducedAnyStillAsksAllFive(t *testing.T) {
 // TestManaComboAnyStillAsksAllFive pins that "Combo Any" keeps its
 // unchanged five-colour ask (it is not treated as a restricted combo).
 func TestManaComboAnyStillAsksAllFive(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Combo Any Land\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ Combo Any\nOracle:x\n"
 	e, cfg, id := manaSourceEngine(t, src)
@@ -176,6 +184,7 @@ func TestManaComboAnyStillAsksAllFive(t *testing.T) {
 // mana of a colour the player chose AND still deal its 1 damage to the
 // controller, with no colourless from the combo.
 func TestKarplusanForestAddsOneChosenColourAndDealsOneDamage(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Karplusan Forest\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ C\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ Combo R G | SubAbility$ DBPain\n" +
@@ -223,6 +232,7 @@ func TestKarplusanForestAddsOneChosenColourAndDealsOneDamage(t *testing.T) {
 // TestKarplusanFirstAbilityStillAddsColourless pins the first Karplusan
 // ability is untouched: tapping for the plain "C" adds one colourless.
 func TestKarplusanFirstAbilityStillAddsColourless(t *testing.T) {
+	t.Parallel()
 	const src = "Name:Karplusan Forest\nTypes:Land\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ C\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ Combo R G | SubAbility$ DBPain\n" +

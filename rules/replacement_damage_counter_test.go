@@ -46,6 +46,7 @@ func sharedCorpus(t *testing.T) *cards.Registry {
 // the damaged creature's controller (the Battletide Alchemist round-2
 // finding; both corpus Optional$ DamageDone lines name "You").
 func TestBloodOfTheMartyrEffectCreatedOptionalReplacement(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil
@@ -82,6 +83,7 @@ func TestBloodOfTheMartyrEffectCreatedOptionalReplacement(t *testing.T) {
 // itself is a Cleric, so X is 1 here), and declining prevents nothing --
 // the unimplemented-body defect this closes made accepting erase ALL of it.
 func TestBattletideAlchemistAsksItsControllerAndPreventsClerics(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 
 	t.Run("decline prevents nothing", func(t *testing.T) {
@@ -158,6 +160,7 @@ func TestBattletideAlchemistAsksItsControllerAndPreventsClerics(t *testing.T) {
 // the rest standing, not erase the whole event (the pre-fix defect applied
 // every DB$ ReplaceDamage body as a silent full prevention).
 func TestThunderstaffPreventsExactlyItsAmount(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Thunderstaff"))
@@ -184,6 +187,7 @@ func TestThunderstaffPreventsExactlyItsAmount(t *testing.T) {
 // PaidAmount) is not a match, so the damage lands untouched instead of being
 // silently erased.
 func TestUnpriceableReplaceDamageBodyDoesNotMatch(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	onBoard(t, e, 0, "Name:Unpriceable Shield\nTypes:Enchantment\n"+
 		"R:Event$ DamageDone | ActiveZones$ Battlefield | ValidTarget$ You | ReplaceWith$ R\n"+
@@ -208,6 +212,7 @@ func TestUnpriceableReplaceDamageBodyDoesNotMatch(t *testing.T) {
 // rider fire and the spell leave the stack while the second recipient's
 // damage is still awaiting its order choice.
 func TestDamageAllParksEveryRecipientBeforeTheChainResumes(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil
@@ -277,6 +282,7 @@ func TestDamageAllParksEveryRecipientBeforeTheChainResumes(t *testing.T) {
 // modifiers must be asked of the NEW recipient's controller, not the original
 // one.
 func TestRecomputedDamageOrderChoiceGoesToTheNewAffectedPlayer(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil
@@ -333,6 +339,7 @@ func TestRecomputedDamageOrderChoiceGoesToTheNewAffectedPlayer(t *testing.T) {
 }
 
 func TestFieryEmancipationTriplesDamage(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Fiery Emancipation"))
@@ -355,6 +362,7 @@ func TestFieryEmancipationTriplesDamage(t *testing.T) {
 // Counterspell's real effect: the Counter primitive must ask the replacement
 // before it moves the target off the stack.
 func TestChandraCannotBeCountered(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	chandra := e.G.AddObject(mustCorpusCard(t, reg, "Chandra, Awakened Inferno"), 0)
@@ -376,6 +384,7 @@ func TestChandraCannotBeCountered(t *testing.T) {
 // CantPreventDamage static. Protection is the engine's current prevention
 // path, so the protected creature must still take the blue source's damage.
 func TestSpiderPunkStopsProtectionPrevention(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Spider-Punk"))
@@ -398,6 +407,7 @@ func TestSpiderPunkStopsProtectionPrevention(t *testing.T) {
 // path now classifies prevention through the one damageReplacementPrevents
 // predicate, so both shapes are excluded everywhere.
 func TestSpiderPunkStopsReplaceDamagePreventionBodies(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 
 	t.Run("single-match path: Thunderstaff", func(t *testing.T) {
@@ -441,6 +451,7 @@ func TestSpiderPunkStopsReplaceDamagePreventionBodies(t *testing.T) {
 // IsCombat$ False, and a VarValue$ X whose SVar is Count$CardPower. Noncombat
 // red damage below the power is raised to the power; combat damage is not.
 func TestOjerAxonilRaisesSmallNoncombatRedDamage(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Ojer Axonil, Deepest Might"))
@@ -469,6 +480,7 @@ func TestOjerAxonilRaisesSmallNoncombatRedDamage(t *testing.T) {
 // (VarValue$ ReplaceCount$DamageAmount/Twice, no SVar indirection) on the
 // enchanted creature's combat damage.
 func TestTheSoundOfDrumsDoublesCombatDamage(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	aura := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "The Sound of Drums"))
@@ -490,6 +502,7 @@ func TestTheSoundOfDrumsDoublesCombatDamage(t *testing.T) {
 // cannot counter a spell you control, while your own copy of the same
 // replacement does not shield the opponent's spells.
 func TestPalisadeGiantRedirectsDamageToItself(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	giant := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Palisade Giant"))
@@ -509,6 +522,7 @@ func TestPalisadeGiantRedirectsDamageToItself(t *testing.T) {
 }
 
 func TestDamageReplacementPropagatesAppliedAmountToLifelink(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Fiery Emancipation"))
@@ -526,6 +540,7 @@ func TestDamageReplacementPropagatesAppliedAmountToLifelink(t *testing.T) {
 }
 
 func TestPreventReplacementSuppressesLifelink(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 1, mustCorpusCard(t, reg, "Blessed Sanctuary"))
@@ -543,6 +558,7 @@ func TestPreventReplacementSuppressesLifelink(t *testing.T) {
 }
 
 func TestDamageReplacementPropagatesAppliedCommanderDamage(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e, _ := commanderGame(t, commanderDamageSeed, FormatCommander, 40,
 		[][]string{{cmdCreature(7)}, {}})
@@ -558,6 +574,7 @@ func TestDamageReplacementPropagatesAppliedCommanderDamage(t *testing.T) {
 }
 
 func TestConditionalCounterReplacementUsesPaidX(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	for _, tc := range []struct {
 		x             int32
@@ -582,6 +599,7 @@ func TestConditionalCounterReplacementUsesPaidX(t *testing.T) {
 }
 
 func TestGuileReplacesCounterWithExile(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Guile"))
@@ -601,6 +619,7 @@ func TestGuileReplacesCounterWithExile(t *testing.T) {
 }
 
 func TestInactiveDemonfireDoesNotForbidPrevention(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	demonfire := e.G.AddObject(mustCorpusCard(t, reg, "Demonfire"), 0)
@@ -622,6 +641,7 @@ func TestInactiveDemonfireDoesNotForbidPrevention(t *testing.T) {
 }
 
 func TestEffectCreatedCantPreventDamage(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	skullcrack := e.G.AddObject(mustCorpusCard(t, reg, "Skullcrack"), 0)
@@ -644,6 +664,7 @@ func TestEffectCreatedCantPreventDamage(t *testing.T) {
 }
 
 func TestCompetingDamageReplacementsAskAndRecompute(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	for _, tc := range []struct {
 		name        string
@@ -692,6 +713,7 @@ func TestCompetingDamageReplacementsAskAndRecompute(t *testing.T) {
 }
 
 func TestVigorUsesReplacedDamageAmountAndTarget(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Vigor"))
@@ -709,6 +731,7 @@ func TestVigorUsesReplacedDamageAmountAndTarget(t *testing.T) {
 }
 
 func TestDamageReplacementSupportedBodyFamilies(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 
 	t.Run("ChangeZone Weeping Angel", func(t *testing.T) {
@@ -823,6 +846,7 @@ func TestDamageReplacementSupportedBodyFamilies(t *testing.T) {
 }
 
 func TestFieryEmancipationModifiesPlaneswalkerDamageBeforeLoyaltyExchange(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Fiery Emancipation"))
@@ -841,6 +865,7 @@ func TestFieryEmancipationModifiesPlaneswalkerDamageBeforeLoyaltyExchange(t *tes
 }
 
 func TestDamageReplacementChoiceSuspendsRemainingAbilityChain(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil
@@ -884,6 +909,7 @@ func TestDamageReplacementChoiceSuspendsRemainingAbilityChain(t *testing.T) {
 }
 
 func TestCounterReplacementCompetitionLetsAffectedPlayerChoose(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	e.pending = nil
@@ -920,6 +946,7 @@ func TestCounterReplacementCompetitionLetsAffectedPlayerChoose(t *testing.T) {
 }
 
 func TestHexingSquelcherProtectsYourSpells(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := newSeats(t, 2)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Hexing Squelcher"))

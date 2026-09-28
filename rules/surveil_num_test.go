@@ -161,6 +161,7 @@ func TestEnhancedSurveillanceDeclinedKeepsTheBaseCount(t *testing.T) {
 // Surveil 1 with no static out poses no election and looks at exactly one
 // card, so the +2 above is the static's doing and not a general rig.
 func TestSurveilWithoutSurveilNumStaticLooksAtOne(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 603, surveilOneSrc)
 	addMana(t, e, 0, "U")
 	d := surveilDecision(t, e, id)
@@ -173,6 +174,7 @@ func TestSurveilWithoutSurveilNumStaticLooksAtOne(t *testing.T) {
 // TestSurveilNumStaticIsRegistered pins the census: effects.Supported reports
 // the mode, so a future deck (the ratchet's census card) can rely on it.
 func TestSurveilNumStaticIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["stat:SurveilNum"] {
 		t.Fatal("stat:SurveilNum not reported by effects.Supported()")
 	}
@@ -328,6 +330,7 @@ func TestEnhancedSurveillanceDeclinedArrangeCompletes(t *testing.T) {
 // to a three-card look with NO election posed at all, and the answered
 // KArrange completes the resolution.
 func TestSurveilNumMandatoryStaticAddsCountWithoutAsking(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := mandatoryStaticFixture(t, 606)
 	mark := len(e.L.Events)
 	d := castFixture(t, e, id, -1)
@@ -399,6 +402,7 @@ func twoOptionalFixture(t *testing.T, seed uint64, surveilSrc string) (*Engine, 
 // accepts both must look at 6 -- so neither election collapses into the
 // other's answer and no all-or-nothing yes/no decides the whole sum.
 func TestSurveilNumOptionalStaticsAreIndependentElections(t *testing.T) {
+	t.Parallel()
 	accept := func(t *testing.T, seed uint64, acceptBoth bool) (*Engine, *decision.Decision) {
 		t.Helper()
 		e, _, id := twoOptionalFixture(t, seed, surveilOneSrc)
@@ -480,6 +484,7 @@ func TestSurveilNumOptionalStaticsAreIndependentElections(t *testing.T) {
 // silently dropping that player's optional extra) with the answer applied to
 // that player's own count.
 func TestMultiPlayerSurveilAsksTheFirstOptionalCarrier(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := twoOptionalFixture(t, 610, surveilMultiPlayerSrc)
 	// Precondition: at least three cards in seat 0's library.
 	if n := len(e.G.Zone(state.ZLibrary, 0)); n < 3 {

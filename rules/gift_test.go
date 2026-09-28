@@ -76,6 +76,7 @@ func wearDownGame(t *testing.T, seed uint64) (*Engine, Config, state.ObjID, stat
 // both are destroyed, and the gift (DB$ Draw | Defined$ Promised) draws the
 // promised opponent a card before the spell's other effects.
 func TestGiftWearDownPromisedDestroysTwoAndDrawsForPromised(t *testing.T) {
+	t.Parallel()
 	e, cfg, wearID, a1, a2 := wearDownGame(t, 11)
 	oppHand := len(e.G.Zone(state.ZHand, 1))
 	// Precondition: both targets are really on the opponent's battlefield.
@@ -115,6 +116,7 @@ func TestGiftWearDownPromisedDestroysTwoAndDrawsForPromised(t *testing.T) {
 // TestGiftWearDownDeclinedDestroysOneAndNoDraw is the negative half: a
 // declined promise keeps X = 1 (destroy one), and no card is drawn.
 func TestGiftWearDownDeclinedDestroysOneAndNoDraw(t *testing.T) {
+	t.Parallel()
 	e, cfg, wearID, a1, a2 := wearDownGame(t, 12)
 	oppHand := len(e.G.Zone(state.ZHand, 1))
 	addMana(t, e, 0, "1G")
@@ -243,6 +245,7 @@ func TestGiftValleyRallyCreatesFoodForPromisedOpponent(t *testing.T) {
 // resolves onto the battlefield. The same cast's promise must survive the
 // stack->battlefield move (it is what the ETB half of the mechanic reads).
 func TestGiftOctomancerCreatesTokenForPromisedOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	octo := mustCorpusCard(t, reg, "Octomancer")
 	e, cfg := tokenReplGame(t, 14, octo)
@@ -470,6 +473,7 @@ func stunCountersOn(e *Engine, id state.ObjID) int32 {
 // was registered by main's agent-20260919T181525Z-3cba0676 merge, b81d636ef,
 // after this branch cut); its gift half works.
 func TestGiftPrimitivesRegistered(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	for _, p := range []string{"kw:Gift", "trig:GiveGift"} {
 		if !supported[p] {

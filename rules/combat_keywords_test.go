@@ -37,6 +37,7 @@ func corpusKeywordCard(t *testing.T, name string) *cards.Card {
 }
 
 func TestWardVeinRipperCountersAnUnpaidTargetingSpell(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Vein Ripper"))
 	cause := e.G.Zone(state.ZLibrary, 1)[0]
@@ -57,6 +58,7 @@ func TestWardVeinRipperCountersAnUnpaidTargetingSpell(t *testing.T) {
 }
 
 func TestWardVeinRipperAcceptsItsRealSacrificePayment(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Vein Ripper"))
 	sac := onBoard(t, e, 1, "Name:Payment\nTypes:Creature\nPT:1/1\nOracle:x\n")
@@ -84,6 +86,7 @@ func TestWardVeinRipperAcceptsItsRealSacrificePayment(t *testing.T) {
 }
 
 func TestWardKitesailLarcenistChargesTheNonzeroPayer(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Kitesail Larcenist"))
 	cause := e.G.Zone(state.ZLibrary, 1)[0]
@@ -108,6 +111,7 @@ func TestWardKitesailLarcenistChargesTheNonzeroPayer(t *testing.T) {
 }
 
 func TestWardBlightMayUseATappedCreatureAndPoisonLoses(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Auntie Ool, Cursewretch"))
 	blighted := onBoard(t, e, 1, "Name:Tapped payment\nTypes:Creature\nPT:3/3\nOracle:x\n")
@@ -152,6 +156,7 @@ func TestWardBlightMayUseATappedCreatureAndPoisonLoses(t *testing.T) {
 // the ability object on the stack. A later gain-control event can leave these
 // different; AbilityPush already records that controller independently.
 func TestWardUsesTargetingStackObjectsController(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Vein Ripper"))
 	source := onBoard(t, e, 0, "Name:Borrowed source\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ T\nOracle:x\n")
@@ -178,6 +183,7 @@ func TestWardUsesTargetingStackObjectsController(t *testing.T) {
 // object's controller differ here too, but the stack object is controlled by
 // Ward's controller. CR 702.21a must not trigger Ward in that case.
 func TestWardDoesNotTriggerForFriendlyTargetingStackObject(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Vein Ripper"))
 	source := onBoard(t, e, 1, "Name:Borrowed source\nTypes:Creature\nPT:1/1\nA:AB$ Draw | Cost$ T\nOracle:x\n")
@@ -196,6 +202,7 @@ func TestWardDoesNotTriggerForFriendlyTargetingStackObject(t *testing.T) {
 }
 
 func TestWardManaPaymentActivatesManaAbilities(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Kitesail Larcenist"))
 	land := onBoard(t, e, 1, "Name:Ward Island\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ U\nOracle:x\n")
@@ -227,6 +234,7 @@ func TestWardManaPaymentActivatesManaAbilities(t *testing.T) {
 }
 
 func TestAnnihilatorArtisanSacrificesThePrintedAmount(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	a := onBoardCard(t, e, 0, corpusKeywordCard(t, "Artisan of Kozilek"))
 	e.G.Obj(a).SummonSick = false
@@ -249,6 +257,7 @@ func TestAnnihilatorArtisanSacrificesThePrintedAmount(t *testing.T) {
 }
 
 func TestDoubleStrikeFearAndShadowUseCorpusCombatKeywords(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	fury := onBoardCard(t, e, 0, corpusKeywordCard(t, "Fury"))
 	fearBlocker := onBoard(t, e, 1, "Name:White\nManaCost:W\nTypes:Creature\nPT:1/1\nOracle:x\n")
@@ -269,6 +278,7 @@ func TestDoubleStrikeFearAndShadowUseCorpusCombatKeywords(t *testing.T) {
 }
 
 func TestHorsemanshipCanBlockOnlyHorsemanshipAttackers(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	// Herald of Hoofbeats is a real corpus carrier of the printed
 	// K:Horsemanship (CR 702.31). Seat 1 attacks seat 0, so seat 0's creatures
@@ -310,6 +320,7 @@ func TestHorsemanshipCanBlockOnlyHorsemanshipAttackers(t *testing.T) {
 }
 
 func TestProtectionUsesAllLiveColourQualities(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	emrakul := onBoardCard(t, e, 0, corpusKeywordCard(t, "Emrakul, the World Anew"))
 	spell := e.G.Zone(state.ZLibrary, 1)[0]
@@ -348,6 +359,7 @@ func TestProtectionUsesAllLiveColourQualities(t *testing.T) {
 }
 
 func TestGoadKarazikarEnforcesEveryGoaderAtDeclaration(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b", "c", "d"}, Decks: [][]*cards.Card{
 		mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40),
 	}}))
@@ -396,6 +408,7 @@ func TestGoadKarazikarEnforcesEveryGoaderAtDeclaration(t *testing.T) {
 }
 
 func TestGoadDurationsUseRealJonAndVislorScripts(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	victim := onBoardReady(t, e, 1, "Name:Victim\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	jon := onBoardCard(t, e, 0, corpusKeywordCard(t, "Jon Irenicus, Shattered One"))
@@ -439,6 +452,7 @@ func TestGoadDurationsUseRealJonAndVislorScripts(t *testing.T) {
 }
 
 func TestProtectionThisTurnCastIgnoresUncastEntries(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	emrakul := onBoardCard(t, e, 0, corpusKeywordCard(t, "Emrakul, the World Anew"))
 	lib := e.G.Zone(state.ZLibrary, 1)
@@ -481,6 +495,7 @@ func TestProtectionThisTurnCastIgnoresUncastEntries(t *testing.T) {
 // returns the int maximum and Max stays len(opts) (today's value, pinned
 // everywhere else by construction).
 func TestAttackersMaxExposesTheCeiling(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}}))
 	e.G.Active = 0
@@ -511,6 +526,7 @@ func TestAttackersMaxExposesTheCeiling(t *testing.T) {
 }
 
 func TestSkulkBlocksOnlyGreaterPowerBlockers(t *testing.T) {
+	t.Parallel()
 	// Gollum, Obsessed Stalker is a real corpus carrier of the printed
 	// K:Skulk (CR 702.110a: a creature with skulk can't be blocked by
 	// creatures with greater power). Seat 1 attacks seat 0, so seat 0's
@@ -557,6 +573,7 @@ func TestSkulkBlocksOnlyGreaterPowerBlockers(t *testing.T) {
 }
 
 func TestTimeBeetleSkulkEvadesBiggerBlocker(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	attacker := onBoardCard(t, e, 1, corpusKeywordCard(t, "Time Beetle"))
 	e.G.Obj(attacker).IsAttacking, e.G.Obj(attacker).Attacking = true, 0
@@ -573,6 +590,7 @@ func TestTimeBeetleSkulkEvadesBiggerBlocker(t *testing.T) {
 }
 
 func TestSkulkDoesNotBlockSmaller(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	attacker := onBoardCard(t, e, 1, corpusKeywordCard(t, "Time Beetle"))
 	e.G.Obj(attacker).IsAttacking, e.G.Obj(attacker).Attacking = true, 0
@@ -616,6 +634,7 @@ func TestSkulkDoesNotBlockSmaller(t *testing.T) {
 }
 
 func TestGrantedSkulkStaticBlocksGreaterPowerBlockers(t *testing.T) {
+	t.Parallel()
 	// Behind the Scenes is a real corpus carrier of the layer-7 grant
 	// (S:AddKeyword$ Skulk); HasKeyword reads the layer-derived keyword
 	// list, so a granted skulk needs no path of its own beyond canBlock.

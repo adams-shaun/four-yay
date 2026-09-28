@@ -52,6 +52,7 @@ func investigateClueIDs(t *testing.T, e *Engine, p state.PlayerID) []state.ObjID
 // `DB$ Investigate`, Num$ defaulting to 1) creates exactly one Clue token
 // owned by the controller.
 func TestMarthaJonesInvestigatesCreatesClue(t *testing.T) {
+	t.Parallel()
 	martha := tokenReplCorpusCard(t, "Martha Jones")
 	e, cfg := tokenReplGame(t, 73, martha)
 	moveSeededCard(t, e, 0, martha, state.ZBattlefield)
@@ -69,6 +70,7 @@ func TestMarthaJonesInvestigatesCreatesClue(t *testing.T) {
 // TestWavesifterInvestigatesTwice: Wavesifter's `DB$ Investigate | Num$ 2`
 // creates two Clue tokens.
 func TestWavesifterInvestigatesTwice(t *testing.T) {
+	t.Parallel()
 	wave := tokenReplCorpusCard(t, "Wavesifter")
 	e, cfg := tokenReplGame(t, 74, wave)
 	moveSeededCard(t, e, 0, wave, state.ZBattlefield)
@@ -84,6 +86,7 @@ func TestWavesifterInvestigatesTwice(t *testing.T) {
 // event, so Mirkwood Bats ("whenever you create a token, each opponent
 // loses 1 life") responds to an investigate with exactly one life loss.
 func TestInvestigateFiresTokenCreatedTrigger(t *testing.T) {
+	t.Parallel()
 	bats := tokenReplCorpusCard(t, "Mirkwood Bats")
 	martha := tokenReplCorpusCard(t, "Martha Jones")
 	e, cfg := tokenReplGame(t, 75, bats, martha)
@@ -105,6 +108,7 @@ func TestInvestigateFiresTokenCreatedTrigger(t *testing.T) {
 // "{2}, Sacrifice this token: Draw a card" ability, assert a card was drawn
 // and the Clue left the battlefield.
 func TestClueSacDraws(t *testing.T) {
+	t.Parallel()
 	martha := tokenReplCorpusCard(t, "Martha Jones")
 	e, cfg := tokenReplGame(t, 76, martha)
 	moveSeededCard(t, e, 0, martha, state.ZBattlefield)

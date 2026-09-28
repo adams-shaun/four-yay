@@ -801,6 +801,9 @@ func (e *Engine) blitzCosts(p state.PlayerID, id state.ObjID) []struct {
 	if o == nil || o.Face() == nil {
 		return nil
 	}
+	if !e.stackKeywordPossibleH(id, kwhBlitz) {
+		return nil
+	}
 	var out []struct {
 		mode string
 		cost Cost
@@ -1015,6 +1018,9 @@ type convokePayment struct {
 // the stack (derivedWith's override); a wasCast Affected$ predicate already
 // matches because it keys on the object being a cast spell, which it is.
 func (e *Engine) hasCastConvoke(id state.ObjID) bool {
+	if !e.stackKeywordPossibleH(id, kwhConvoke) {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Convoke") {
 			return true
@@ -1028,6 +1034,9 @@ func (e *Engine) hasCastConvoke(id state.ObjID) bool {
 // keyword or a layer-6 grant reaching the cast spell. Inspiring Statuary
 // grants Improvise to nonartifact spells, so the grant path is live.
 func (e *Engine) hasCastImprovise(id state.ObjID) bool {
+	if !e.stackKeywordPossibleH(id, kwhImprovise) {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Improvise") {
 			return true
@@ -1045,6 +1054,9 @@ func (e *Engine) hasCastImprovise(id state.ObjID) bool {
 // match). The offer gate and the provenance read share this one helper so
 // the two stages cannot disagree about whether the spell is conspirable.
 func (e *Engine) hasCastConspire(id state.ObjID) bool {
+	if !e.stackKeywordPossibleH(id, kwhConspire) {
+		return false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if strings.EqualFold(cardsKeywordHead(k), "Conspire") {
 			return true
@@ -1139,6 +1151,9 @@ type casualtyInfo struct {
 }
 
 func (e *Engine) casualtySpec(id state.ObjID) (casualtyInfo, bool) {
+	if !e.stackKeywordPossibleH(id, kwhCasualty) {
+		return casualtyInfo{}, false
+	}
 	for _, k := range e.derivedWith(id, state.ZStack).Keywords {
 		if !strings.EqualFold(cardsKeywordHead(k), "Casualty") {
 			continue
@@ -1316,7 +1331,7 @@ func (e *Engine) flashbackCost(id state.ObjID) Cost {
 // cost whose generic requirement is generic: the smaller of that and p's
 // graveyard size. Zero for a card without Delve.
 func (e *Engine) delveCredit(p state.PlayerID, id state.ObjID, generic int32) int32 {
-	if generic <= 0 || !e.HasKeyword(id, "Delve") {
+	if generic <= 0 || !e.hasKeywordH(id, kwhDelve) {
 		return 0
 	}
 	gy := int32(len(e.G.Zone(state.ZGraveyard, p)))
@@ -2665,7 +2680,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// graveyard have retrace") is not on the printed face, and reading
 		// f here offered the grant's cast but charged no discard -- a free
 		// graveyard recast loop (fuzz batch6 line 1, Jeweled Lotus).
-		if e.HasKeyword(id, "Retrace") {
+		if e.hasKeywordH(id, kwhRetrace) {
 			cost = cost.Plus(retraceExtra())
 		}
 	case "jumpstart":
@@ -2675,7 +2690,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// composition and proved a card payable; the same stale-option
 		// degradation applies (a jumpstart mode whose keyword is gone folds
 		// nothing rather than charging an unoffered discard).
-		if e.HasKeyword(id, "Jump-start") {
+		if e.hasKeywordH(id, kwhJumpStart) {
 			cost = cost.Plus(jumpstartExtra())
 		}
 	case "evoked", "dashed", "overloaded", "warped", "madness", "bestowed", "blitzed":
@@ -4963,7 +4978,7 @@ func (e *Engine) delveAsk() bool {
 		return false
 	}
 	pc.delveDone = true
-	if !e.HasKeyword(pc.card, "Delve") {
+	if !e.hasKeywordH(pc.card, kwhDelve) {
 		return false
 	}
 	gy := e.G.Zone(state.ZGraveyard, pc.player)

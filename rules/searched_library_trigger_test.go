@@ -13,6 +13,7 @@ import (
 // seat 1. The search marker is emitted once for the completed search, not once
 // per card moved or shuffled, and queues exactly one SearchedLibrary trigger.
 func TestRiverSongOpponentSearchFiresOnce(t *testing.T) {
+	t.Parallel()
 	wilds := tokenReplCorpusCard(t, "Evolving Wilds")
 	river := tokenReplCorpusCard(t, "River Song")
 	e, cfg := tokenReplGameSeats(t, 109, []*cards.Card{wilds}, []*cards.Card{river})

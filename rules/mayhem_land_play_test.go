@@ -49,6 +49,7 @@ func oscorpInHand(t *testing.T) (*Engine, state.ObjID) {
 // play_land option, submitting it moves the card from the graveyard to the
 // battlefield, and the play consumes the land drop.
 func TestMayhemLandPlayOfferedAfterThisTurnDiscard(t *testing.T) {
+	t.Parallel()
 	e, id := oscorpInHand(t)
 	discardToGraveyard(t, e, id, 0)
 	if got := e.G.Obj(id).Zone; got != state.ZGraveyard {
@@ -85,6 +86,7 @@ func TestMayhemLandPlayOfferedAfterThisTurnDiscard(t *testing.T) {
 // discard and a previous turn's discard -- each followed by the positive
 // case on the same card so the 0s are about provenance, not some other gate.
 func TestMayhemLandPlayNotOfferedWithoutThisTurnDiscard(t *testing.T) {
+	t.Parallel()
 	e, id := oscorpInHand(t)
 
 	// 1. Mill-shaped move: a plain MoveZone carries no discard marker.
@@ -126,6 +128,7 @@ func TestMayhemLandPlayNotOfferedWithoutThisTurnDiscard(t *testing.T) {
 // still bind: the offer vanishes when the land drop is spent or when it is not
 // the controller's main phase with an empty stack, and returns when both hold.
 func TestMayhemLandPlayNotOfferedWhenGated(t *testing.T) {
+	t.Parallel()
 	e, id := oscorpInHand(t)
 	discardToGraveyard(t, e, id, 0)
 
@@ -155,6 +158,7 @@ func TestMayhemLandPlayNotOfferedWhenGated(t *testing.T) {
 // cost-bearing mayhem card discarded this turn keeps its graveyard CAST
 // option and is never offered as a play_land.
 func TestMayhemParameterizedStillOffersCastNotLand(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Abomination, World Ravager"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	if raw, ok := e.G.Obj(id).Face().KeywordParam("Mayhem"); !ok || raw == "" {

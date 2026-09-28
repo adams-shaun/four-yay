@@ -32,6 +32,7 @@ const xBoundPickSrc = "Name:Bound Pick\nManaCost:X R\nTypes:Sorcery\n" +
 // Max 2), both bears are offered and selectable, and the spell then resolves
 // normally.
 func TestAnnouncementAskResolvesTargetMaxX(t *testing.T) {
+	t.Parallel()
 	e, cfg, volley := newFixtureDeck(t, 4101, xBoundVolleySrc, testBearSrc, testBearSrc)
 	putCreature(t, e, 0, testBearSrc)
 	putCreature(t, e, 0, testBearSrc)
@@ -65,6 +66,7 @@ func TestAnnouncementAskResolvesTargetMaxX(t *testing.T) {
 // for {X} with NO SVar:X whose TargetMax$ X is the paid X -- announced 3 ->
 // the target ask's Max is 3.
 func TestAnnouncementAskBareXReadsThePaidX(t *testing.T) {
+	t.Parallel()
 	e, cfg, pick := newFixtureDeck(t, 4102, xBoundPickSrc, testBearSrc, testBearSrc, testBearSrc)
 	for i := 0; i < 3; i++ {
 		putCreature(t, e, 0, testBearSrc)
@@ -114,6 +116,7 @@ func TestAnnouncementAskBareXReadsThePaidX(t *testing.T) {
 // single-target contract), never a Max-0 ask that could wedge or silently
 // resolve untargeted.
 func TestUnresolvableTargetMaxXKeepsTheDefault(t *testing.T) {
+	t.Parallel()
 	src := "Name:Bound Y\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ Draw | Defined$ You | NumCards$ 1 | ValidTgts$ Creature | TargetMax$ Y\nOracle:x\n"
 	e, cfg, volley := newFixtureDeck(t, 4103, src, testBearSrc, testBearSrc)

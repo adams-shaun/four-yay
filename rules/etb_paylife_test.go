@@ -76,6 +76,7 @@ func enterWithPayLife(t *testing.T, e *Engine, p state.PlayerID, c *cards.Card, 
 // defining P/T. Paying 5 must cost 5 life and make it a 5/5; the printed
 // default would make it a 0/0 (and the SBA would bin it).
 func TestMinionOfTheWastesEntersWithPaidLifePT(t *testing.T) {
+	t.Parallel()
 	pc := tokenReplCorpusCard(t, "Minion of the Wastes")
 	e := handEngine(t, pc)
 	id := e.G.Zone(state.ZHand, 0)[0]
@@ -117,6 +118,7 @@ func TestMinionOfTheWastesEntersWithPaidLifePT(t *testing.T) {
 // the entry and being read later: the Processor's {4},{T} token ability
 // creates an X/X Phyrexian Minion where X is the life paid as it entered.
 func TestPhyrexianProcessorTokenUsesPaidLife(t *testing.T) {
+	t.Parallel()
 	pc := tokenReplCorpusCard(t, "Phyrexian Processor")
 	e, _ := tokenReplGame(t, 3, pc)
 	toMain1(t, e)
@@ -162,6 +164,7 @@ func TestPhyrexianProcessorTokenUsesPaidLife(t *testing.T) {
 // a bound of 2, so the offered range is exactly 0..2 and paying 2 makes it
 // a 2/2.
 func TestNamelessRacePayLifeIsCappedByXMax(t *testing.T) {
+	t.Parallel()
 	nr := tokenReplCorpusCard(t, "Nameless Race")
 	e := handEngine(t, nr)
 	white := card(t, "Name:White Bear\nTypes:Creature Bear\nColors:White\nPT:2/2\nOracle:x\n")

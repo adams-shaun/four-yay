@@ -78,6 +78,7 @@ func passRound(t *testing.T, e *Engine, n int) {
 // creature suspected earlier, still suspected when the second attack
 // resolves. Creatures nobody suspected are not goaded.
 func TestNellyBorcaSuspectsTargetAndGoadsAllSuspected(t *testing.T) {
+	t.Parallel()
 	e, attacker, own, victim := nellyEngine(t)
 	if e.G.Obj(victim).Suspected || len(e.G.Obj(victim).Goads) != 0 {
 		t.Fatal("precondition: the victim must start unsuspcted and ungoaded")
@@ -197,6 +198,7 @@ func TestNellyBorcaSuspectsTargetAndGoadsAllSuspected(t *testing.T) {
 // the before-state load-bearing: the same creature CAN block before it is
 // suspected and cannot after.
 func TestSuspectedCreatureCannotBlock(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	blocker := onBoardCard(t, e, 1, card(t, "Name:Victim\nTypes:Creature\nPT:2/2\nOracle:synthetic\n"))
 	attacker := onBoardCard(t, e, 0, card(t, "Name:Raider\nTypes:Creature\nPT:2/2\nOracle:synthetic\n"))
@@ -226,6 +228,7 @@ func TestSuspectedCreatureCannotBlock(t *testing.T) {
 // battlefield, and another player gaining control (a same-controller
 // ControlChange is no change and keeps it).
 func TestSuspectedEndsOnLeaveBattlefieldAndControlChange(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	cre := onBoardCard(t, e, 0, card(t, "Name:Victim\nTypes:Creature\nPT:2/2\nOracle:synthetic\n"))
 	e.emit(events.Event{Kind: events.AlterAttribute, Obj: cre, Text: "Suspected", Amount: 1})
@@ -254,6 +257,7 @@ func TestSuspectedEndsOnLeaveBattlefieldAndControlChange(t *testing.T) {
 // suspected creatures (the union, in the deterministic scan), and the
 // control change itself clears the suspected designation (CR 702.157b).
 func TestGainControlAllValidSuspectedAndGoaded(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	watcher := onBoardCard(t, e, 0, card(t, `Name:Seizure
 Types:Enchantment
@@ -307,6 +311,7 @@ Oracle:synthetic AllValid probe
 // records the loud Note and moves nothing -- the Manifest/Cloak
 // out-of-shape convention.
 func TestAlterAttributeUnsupportedAttributeStaysLoud(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	watcher := onBoardCard(t, e, 0, card(t, `Name:Preparer
 Types:Creature

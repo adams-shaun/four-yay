@@ -13,6 +13,7 @@ import (
 // also lets Clamp repair a bot answer rather than repeatedly submitting a
 // mixed-controller set.
 func TestSameControllerTargetDecisionRejectsMixedControllers(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Barrin's Spite")
 	if !ok {

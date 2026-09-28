@@ -16,6 +16,7 @@ import (
 // gate) withholds them, so Pay was offered with no activation to complete it
 // and the payment necessarily declined.
 func TestUnlessCostOfferExcludesInstantSpeedSources(t *testing.T) {
+	t.Parallel()
 	// A bare-tap, single-ability U source that is ONLY activatable at priority.
 	led := card(t, "Name:Instant Lotus\nManaCost:0\nTypes:Artifact\n"+
 		"A:AB$ Mana | Cost$ T | Produced$ U | InstantSpeed$ True\nOracle:x\n")

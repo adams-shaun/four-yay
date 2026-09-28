@@ -144,6 +144,7 @@ func assertEnteredAttacking(t *testing.T, e *Engine, id state.ObjID, defender st
 // and ATTACKING, and the entered creature deals its damage in that combat
 // (defender's life drops by all four attackers' power).
 func TestElizabethTaggerdyEntersCardTappedAndAttacking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Paladin Elizabeth Taggerdy"},
 		[]string{
@@ -187,6 +188,7 @@ func TestElizabethTaggerdyEntersCardTappedAndAttacking(t *testing.T) {
 // hand mover: the Captain's Soldier (a real hand card matching
 // Creature.Soldier+YouCtrl) enters tapped and attacking and deals its damage.
 func TestPreeminentCaptainSoldierEntersAttacking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Preeminent Captain"},
 		[]string{"Name:FootSoldier\nManaCost:1 W\nTypes:Creature Soldier\nPT:1/1\nOracle:x\n"}, nil, nil)
@@ -238,6 +240,7 @@ func TestPreeminentCaptainSoldierEntersAttacking(t *testing.T) {
 // object-loop move with a literal spec and no cost, so the path under test is
 // identical.
 func TestYoreTillerNephilimReturnsCreatureTappedAndAttacking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Yore-Tiller Nephilim"},
 		[]string{"Name:GravBear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"},
@@ -292,6 +295,7 @@ func TestYoreTillerNephilimReturnsCreatureTappedAndAttacking(t *testing.T) {
 // AttackersDeclared trigger: the Phoenix returns ITSELF from the graveyard
 // tapped and attacking and deals its damage.
 func TestWarcryPhoenixReturnsSelfTappedAndAttacking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Warcry Phoenix"},
 		[]string{
@@ -336,6 +340,7 @@ func TestWarcryPhoenixReturnsSelfTappedAndAttacking(t *testing.T) {
 // attack trigger's DB$ Dig puts a creature from the top five TAPPED and
 // ATTACKING and it deals its damage.
 func TestJetRebelLeaderDigsACreatureTappedAndAttacking(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Jet, Rebel Leader"},
 		[]string{"Name:DigBear\nManaCost:2 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"}, nil, nil)

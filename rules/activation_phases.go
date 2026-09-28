@@ -39,6 +39,11 @@ func (e *Engine) activationPhasesOK(p state.PlayerID, sa *cards.SA) bool {
 	if sa == nil {
 		return true
 	}
+	// Every restriction below is keyed; an ability whose compiled set holds
+	// none of the keys passes them all.
+	if !sa.MayHaveAnyParam(activationPhaseKeys) {
+		return true
+	}
 	params := sa.Params
 
 	// ActivationPhases$ <spec>: the step set the offer is confined to. An
@@ -94,3 +99,7 @@ func (e *Engine) activationPhasesOK(p state.PlayerID, sa *cards.SA) bool {
 
 	return true
 }
+
+// activationPhaseKeys are the keys activationPhasesOK reads.
+var activationPhaseKeys = cards.ParamMaskOf(cards.PKActivationPhases, cards.PKActivationFirstCombat,
+	cards.PKActivationAfterBlockers, cards.PKPlayerTurn, cards.PKOpponentTurn)

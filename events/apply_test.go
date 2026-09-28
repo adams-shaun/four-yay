@@ -144,6 +144,7 @@ func TestMoveLeavingBattlefieldTombstonesBlockerReferences(t *testing.T) {
 	attacker.BlockedBy = []state.ObjID{blockerID}
 	blocker.BlockedBy = []state.ObjID{otherID}
 	other.BlockedBy = []state.ObjID{otherID}
+	g.NoteBlockers() // the lists above are written directly, not by DeclareBlockers
 
 	Emit(g, l, Event{Kind: MoveZone, Obj: blockerID, From: state.ZBattlefield, To: state.ZExile})
 
@@ -1024,6 +1025,7 @@ func TestEndCombatResetClearsIsAttackingAndBlockedBy(t *testing.T) {
 	blocker := g.Obj(g.Zone(state.ZLibrary, 1)[0])
 	blocker.Zone = state.ZBattlefield
 	attacker.BlockedBy = []state.ObjID{blocker.ID}
+	g.NoteBlockers() // written directly, not by DeclareBlockers
 
 	untouched := g.Obj(g.Zone(state.ZLibrary, 0)[1])
 	untouched.Zone = state.ZBattlefield
@@ -1080,6 +1082,7 @@ func TestMoveToCeasedRemovesMembershipAndResetsObject(t *testing.T) {
 	o.Counters = []state.Counter{{Kind: "P1P1", N: 1}}
 	o.AttachedTo = id
 	o.BlockedBy = []state.ObjID{id}
+	g.NoteBlockers() // written directly, not by DeclareBlockers
 
 	Move(g, id, state.ZBattlefield, state.ZCeased)
 	if o.Zone != state.ZCeased {

@@ -75,6 +75,7 @@ func windowPayDecline(t *testing.T, d *decision.Decision) (pay, decline int) {
 // BEFORE any draw, draws the cost's two cards plus the body's one, and the
 // body runs. The decline moves nothing.
 func TestAmbergrisStyleDiscardDrawCostPays(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, discardCostJunk), card(t, discardCostJunk))
 
 	d := etbCostWindow(t, e, discardCostLooter)
@@ -136,6 +137,7 @@ func TestAmbergrisStyleDiscardDrawCostPays(t *testing.T) {
 // TestAmbergrisStyleDiscardDrawCostDeclineMovesNothing pins the decline arm:
 // declining the pay election discards nothing and draws nothing.
 func TestAmbergrisStyleDiscardDrawCostDeclineMovesNothing(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t, discardCostJunk), card(t, discardCostJunk))
 
 	d := etbCostWindow(t, e, discardCostLooter)
@@ -159,6 +161,7 @@ func TestAmbergrisStyleDiscardDrawCostDeclineMovesNothing(t *testing.T) {
 // offers DECLINE ONLY -- the cost's draw half is never paid on an unpaid
 // component.
 func TestTriggerCostEmptyHandDeclinesNoHalfPayment(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 
 	d := etbCostWindow(t, e, discardCostLooter)
@@ -180,6 +183,7 @@ func TestTriggerCostEmptyHandDeclinesNoHalfPayment(t *testing.T) {
 // TestTriggerCostEmptyHandOrdinarySpecDeclines is the ordinary-spec twin: a
 // `Cost$ Discard<1/Card>` body with no hand card is decline-only too.
 func TestTriggerCostEmptyHandOrdinarySpecDeclines(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Ordinary Discarder\nManaCost:1 B\nTypes:Creature Zombie\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost | TriggerDescription$ When CARDNAME enters, you may discard a card. If you do, draw a card.\n" +
 		"SVar:TrigCost:AB$ Draw | Cost$ Discard<1/Card> | NumCards$ 1\n" +
@@ -207,6 +211,7 @@ func TestTriggerCostEmptyHandOrdinarySpecDeclines(t *testing.T) {
 // picked cards go to the graveyard as cost discards, the unpicked card
 // stays, and the body runs.
 func TestTriggerCostDiscardChoiceAsksAndSettles(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Choosy Discarder\nManaCost:1 B\nTypes:Creature Zombie\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost | TriggerDescription$ When CARDNAME enters, you may discard two cards. If you do, draw a card.\n" +
 		"SVar:TrigCost:AB$ Draw | Cost$ Discard<2/Card> | NumCards$ 1\n" +
@@ -253,6 +258,7 @@ func TestTriggerCostDiscardChoiceAsksAndSettles(t *testing.T) {
 // the settle needs no ask, the land is sacrificed by a real events.Sacrifice
 // before the body runs, and the body draws.
 func TestTriggerCostSacComponentPays(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Ramp Elf\nManaCost:1 G\nTypes:Creature Elf Druid\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost | TriggerDescription$ When CARDNAME enters, you may sacrifice a land. If you do, draw a card.\n" +
 		"SVar:TrigCost:AB$ Draw | Cost$ Sac<1/Land> | NumCards$ 1\n" +
@@ -297,6 +303,7 @@ func TestTriggerCostSacComponentPays(t *testing.T) {
 // two eligible lands the walk poses a real exact-1 KChoose and only the
 // picked land leaves.
 func TestTriggerCostSacComponentMultiCandidateAsks(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Ramp Elf\nManaCost:1 G\nTypes:Creature Elf Druid\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost | TriggerDescription$ When CARDNAME enters, you may sacrifice a land. If you do, draw a card.\n" +
 		"SVar:TrigCost:AB$ Draw | Cost$ Sac<1/Land> | NumCards$ 1\n" +
@@ -340,6 +347,7 @@ func TestTriggerCostSacComponentMultiCandidateAsks(t *testing.T) {
 // the battlefield keeps the decline-only ask (the cost's body never runs,
 // nothing is charged).
 func TestTriggerCostUnpayableSacComponentDeclinesOnly(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Ramp Elf\nManaCost:1 G\nTypes:Creature Elf Druid\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost | TriggerDescription$ When CARDNAME enters, you may sacrifice a land. If you do, draw a card.\n" +
 		"SVar:TrigCost:AB$ Draw | Cost$ Sac<1/Land> | NumCards$ 1\n" +
@@ -369,6 +377,7 @@ func TestTriggerCostUnpayableSacComponentDeclinesOnly(t *testing.T) {
 // the opponent takes one damage per discarded card. Without the count head
 // the X degraded to 0 and the body dealt nothing.
 func TestAmbergrisXCountsThePaidDiscard(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Ambergris Citadel Agent\nManaCost:2 U\nTypes:Creature Human Wizard\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDamage | TriggerDescription$ When CARDNAME enters, you may discard your hand. If you do, it deals damage to each opponent equal to the cards discarded this turn.\n" +
 		"SVar:TrigDamage:AB$ DamageAll | Cost$ Discard<1/Hand> Draw<2/You> | NumDmg$ X | ValidPlayers$ Opponent\n" +
@@ -414,6 +423,7 @@ func TestAmbergrisXCountsThePaidDiscard(t *testing.T) {
 // decline at the second part -- an offer that cannot be honoured must never
 // exist); with two hand cards the same cost is payable.
 func TestTriggerCostDiscardPartsReserveAcrossTheGate(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Twin Discarder\nManaCost:1 B\nTypes:Creature Zombie\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost | TriggerDescription$ When CARDNAME enters, you may discard a card and discard a card. If you do, draw a card.\n" +
 		"SVar:TrigCost:AB$ Draw | Cost$ Discard<1/Card> Discard<1/Card> | NumCards$ 1\n" +
@@ -473,6 +483,7 @@ func TestTriggerCostDiscardPartsReserveAcrossTheGate(t *testing.T) {
 // non-Planeswalker$ Cost$ AddCounter line is an activation/cast cost, never
 // a trigger body).
 func TestTriggerCostAddCounterComponentDeclinesOnly(t *testing.T) {
+	t.Parallel()
 	const script = "Name:Loyalty Sinker\nManaCost:1 B\nTypes:Creature Zombie\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCost | TriggerDescription$ When CARDNAME enters, you may sacrifice a land and add two loyalty counters. If you do, draw a card.\n" +
 		"SVar:TrigCost:AB$ Draw | Cost$ Sac<1/Land> AddCounter<2/LOYALTY> | NumCards$ 1\n" +
@@ -506,6 +517,7 @@ func TestTriggerCostAddCounterComponentDeclinesOnly(t *testing.T) {
 // "ev.Player == p" match counted every seat's cost discard toward seat 0.
 // Pinned live: seat 1 pays a window discard cost; seat 0's count stays 0.
 func TestCardsDiscardedThisTurnCostFormCountsTheOwnerOnly(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 
 	// Live half: seat 1 pays a Discard<1/Card> window cost.

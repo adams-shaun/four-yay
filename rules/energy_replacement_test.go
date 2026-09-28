@@ -72,6 +72,7 @@ func activateEnergySourceOn(t *testing.T, e *Engine, source state.ObjID, seat st
 // 3 -> 6), while the same placement on the OPPONENT does not (ValidPlayer$
 // You) and neither does a non-ENERGY kind (ValidCounterType$).
 func TestAetherRefineryDoublesEnergy(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		placed, want int32
 	}{
@@ -113,6 +114,7 @@ func TestAetherRefineryDoublesEnergy(t *testing.T) {
 // on its controller becomes that many plus one (1 -> 2), and the same
 // placement on the opponent does not (ValidPlayer$ You).
 func TestIzzetGeneratoriumAddsOneEnergy(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		placed, want int32
 	}{
@@ -145,6 +147,7 @@ func TestIzzetGeneratoriumAddsOneEnergy(t *testing.T) {
 // object-counter pins (TestAddCounterReplacementsComposeScanOrder) already
 // assert for Hardened Scales + Branching Evolution.
 func TestEnergyReplacementsComposeScanOrder(t *testing.T) {
+	t.Parallel()
 	refinery := tokenReplCorpusCard(t, "Aether Refinery")
 	generatorium := tokenReplCorpusCard(t, "Izzet Generatorium")
 	src := energyReplSource(t, 1)
@@ -165,6 +168,7 @@ func TestEnergyReplacementsComposeScanOrder(t *testing.T) {
 // activation drains to an empty stack and the pending decision is the plain
 // priority pass, not a KChoose/KModes a rewrite wrongly posed.
 func TestEnergyReplacementsPoseNoDecisionWhenTrivial(t *testing.T) {
+	t.Parallel()
 	for _, replName := range []string{"Aether Refinery", "Izzet Generatorium"} {
 		e, _, source := boardWithEnergyReplacement(t, 4108, replName, 1)
 		activateEnergySourceOn(t, e, source, 0)

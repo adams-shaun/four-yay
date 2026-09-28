@@ -36,6 +36,7 @@ func addShockToHand(t *testing.T, e *Engine, p state.PlayerID) state.ObjID {
 // 601.2c cast-withhold arm), and the SHROUD CARD'S OWN CONTROLLER is
 // withheld identically — shroud is symmetric, unlike hexproof.
 func TestPrintedShroudWithholdsCastWhenSoleTarget(t *testing.T) {
+	t.Parallel()
 	shrouded := "Name:Shrouded Elf\nManaCost:G\nTypes:Creature Elf\nK:Shroud\nPT:2/2\nOracle:x\n"
 	e := handEngine(t)
 	onBoard(t, e, 1, shrouded)
@@ -65,6 +66,7 @@ func TestPrintedShroudWithholdsCastWhenSoleTarget(t *testing.T) {
 // target exists) but the target decision offers the plain Elf and never the
 // shrouded one — for the opponent AND for the shroud card's own controller.
 func TestPrintedShroudExcludedFromTargetOptions(t *testing.T) {
+	t.Parallel()
 	shrouded := "Name:Shrouded Elf\nManaCost:G\nTypes:Creature Elf\nK:Shroud\nPT:2/2\nOracle:x\n"
 	e := handEngine(t)
 	shroudedID := onBoard(t, e, 1, shrouded)
@@ -126,6 +128,7 @@ func TestPrintedShroudExcludedFromTargetOptions(t *testing.T) {
 // one and the bear dies), and after the equip the bearer is offered to
 // NEITHER seat's Shock (engine B).
 func TestLightningGreavesGrantedShroudBlocksTargeting(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Engine A — pre-equip attribution: the bear is targetable and dies.
@@ -211,6 +214,7 @@ func TestLightningGreavesGrantedShroudBlocksTargeting(t *testing.T) {
 // effects/combatfx.go's registerPumpEffects), because equip is sorcery-speed
 // and cannot be activated while the Shock is on the stack.
 func TestShroudRecheckDropsTargetChosenBeforeTheGrant(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Grizzly Bears"}, []string{"Hill Giant"})
 	bear := findOnBoard(t, e, 0, "Grizzly Bears")
@@ -255,6 +259,7 @@ func TestShroudRecheckDropsTargetChosenBeforeTheGrant(t *testing.T) {
 // while the same spec through legalTargetCandidates (targeting=true)
 // withholds it.
 func TestAffectedCensusIgnoresShroud(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	shroudedID := onBoard(t, e, 1, "Name:Shrouded Elf\nManaCost:G\nTypes:Creature Elf\nK:Shroud\nPT:2/2\nOracle:x\n")
 	sa := card(t, "Name:Overload shape\nManaCost:2 R\nTypes:Instant\n"+
@@ -284,6 +289,7 @@ func TestAffectedCensusIgnoresShroud(t *testing.T) {
 // a TgtZone$ Graveyard spec) stays targetable — shroud functions only while
 // the object is a battlefield permanent.
 func TestShroudDoesNotBlockNonBattlefieldZones(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	cardScript := "Name:Shrouded Revenant\nManaCost:2 B\nTypes:Creature Zombie\nK:Shroud\nPT:2/2\nOracle:x\n"
 	o := e.G.AddObject(card(t, cardScript), 1)
@@ -310,6 +316,7 @@ func TestShroudDoesNotBlockNonBattlefieldZones(t *testing.T) {
 // guard: the helper must not see players (players have no ObjID — a zero id
 // is never shrouded, matching protectedFrom's contract).
 func TestShroudBlocksTargetZeroId(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	if e.shroudBlocksTarget(0) {
 		t.Fatal("zero id reported as shrouded")

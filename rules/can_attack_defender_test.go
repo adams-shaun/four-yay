@@ -31,6 +31,7 @@ import (
 )
 
 func TestCanAttackDefenderPrimitiveIsRegistered(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["stat:CanAttackDefender"] {
 		t.Fatal(`effects.Supported() is missing "stat:CanAttackDefender"`)
 	}
@@ -61,6 +62,7 @@ func attackerOption(t *testing.T, e *Engine, id state.ObjID, def state.PlayerID)
 // ValidCard$ Creature.YouCtrl`): an authored Defender wall on the same
 // battlefield is offered as an attacker, and the declaration commits.
 func TestFelotharLiftsTheWallForYourCreatures(t *testing.T) {
+	t.Parallel()
 	felothar, ok := testutil.CorpusRegistry(t).Lookup("Felothar the Steadfast")
 	if !ok {
 		t.Fatal("corpus fixture: Felothar the Steadfast missing")
@@ -102,6 +104,7 @@ func TestFelotharLiftsTheWallForYourCreatures(t *testing.T) {
 // route above: the same authored wall, no CanAttackDefender carrier on the
 // board, is not offered and both reads say walled.
 func TestDefenderWallStaysWalledWithoutTheStatic(t *testing.T) {
+	t.Parallel()
 	wall := card(t, wallFixture)
 	e, cfg := restrictionGame(t, 7202, [][]*cards.Card{nil, nil},
 		[][]*cards.Card{{wall}, nil})
@@ -132,6 +135,7 @@ func TestDefenderWallStaysWalledWithoutTheStatic(t *testing.T) {
 // registration binds the effect's own source and the activated grant lifts
 // the carrier's own wall until end of turn.
 func TestKrotiqNestguardEffectSourceGrant(t *testing.T) {
+	t.Parallel()
 	nestguard, ok := testutil.CorpusRegistry(t).Lookup("Krotiq Nestguard")
 	if !ok {
 		t.Fatal("corpus fixture: Krotiq Nestguard missing")
@@ -188,6 +192,7 @@ func TestKrotiqNestguardEffectSourceGrant(t *testing.T) {
 // only disappeared because the source left, this test could not observe the
 // defect.
 func TestKrotiqNestguardGrantExpiresAtEndOfTurn(t *testing.T) {
+	t.Parallel()
 	nestguard, ok := testutil.CorpusRegistry(t).Lookup("Krotiq Nestguard")
 	if !ok {
 		t.Fatal("corpus fixture: Krotiq Nestguard missing")
@@ -251,6 +256,7 @@ func TestKrotiqNestguardGrantExpiresAtEndOfTurn(t *testing.T) {
 // delivers `Mode$ CanAttackDefender | ValidCard$ Creature.IsRemembered`, so
 // the TARGETED Defender wall attacks this turn and an untargeted one does not.
 func TestAssaultFormationRememberedGrant(t *testing.T) {
+	t.Parallel()
 	af, ok := testutil.CorpusRegistry(t).Lookup("Assault Formation")
 	if !ok {
 		t.Fatal("corpus fixture: Assault Formation missing")
@@ -303,6 +309,7 @@ func TestAssaultFormationRememberedGrant(t *testing.T) {
 // corpus Drowsing Tyrannodon (`IsPresent$ Creature.powerGE4+YouCtrl`): the
 // wall holds while no qualifying creature exists and lifts once one does.
 func TestDrowsingTyrannodonGateScoping(t *testing.T) {
+	t.Parallel()
 	drowsing, ok := testutil.CorpusRegistry(t).Lookup("Drowsing Tyrannodon")
 	if !ok {
 		t.Fatal("corpus fixture: Drowsing Tyrannodon missing")
@@ -383,6 +390,7 @@ func submitEmptyAttackers(t *testing.T, e *Engine) {
 // during its last turn, so the Sentinels may attack seat 1 on seat 0's next
 // turn -- and NOT seat 2, whose last turn never attacked seat 0.
 func TestWeatheredSentinelsAttackedYouTheirLastTurn(t *testing.T) {
+	t.Parallel()
 	e, cfg, sentID := sentinelDrive(t, 7206, true)
 
 	if !e.playerAttackedYouTheirLastTurn(1, 0) {
@@ -419,6 +427,7 @@ func TestWeatheredSentinelsAttackedYouTheirLastTurn(t *testing.T) {
 // every defender -- the static's ValidAttacked$ gate is doing the work, not
 // the mode alone.
 func TestWeatheredSentinelsStaysWalledWithoutTheRecord(t *testing.T) {
+	t.Parallel()
 	e, _, sentID := sentinelDrive(t, 7207, false)
 	if e.playerAttackedYouTheirLastTurn(1, 0) || e.playerAttackedYouTheirLastTurn(2, 0) {
 		t.Fatal("precondition: the log records an attack nobody declared")

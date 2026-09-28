@@ -47,6 +47,7 @@ func giveSuspendThroughDoctor(t *testing.T, e *Engine, doctorID, targetID state.
 // asserts the card reaches the stack. A grant that only affected the layer-6
 // keyword view would never tick TIME and never reach the suspend cast queue.
 func TestTenthDoctorExileGainsSuspendAndCasts(t *testing.T) {
+	t.Parallel()
 	doctor := suspendCorpusCard(t, "The Tenth Doctor")
 	spell := suspendCorpusCard(t, "Grizzly Bears") // no printed Suspend
 	e := handEngine(t, doctor, spell)
@@ -110,6 +111,7 @@ func TestTenthDoctorExileGainsSuspendAndCasts(t *testing.T) {
 // compiled TrigPutCounter SVar, so Card.suspended is exercised end to end by
 // the grant's own consumer.
 func TestRoseTylerBadWolfCountsSuspendedCards(t *testing.T) {
+	t.Parallel()
 	doctor := suspendCorpusCard(t, "The Tenth Doctor")
 	rose := suspendCorpusCard(t, "Rose Tyler")
 	spell := suspendCorpusCard(t, "Grizzly Bears")
@@ -147,6 +149,7 @@ func TestRoseTylerBadWolfCountsSuspendedCards(t *testing.T) {
 // offered), the optional selection, and the SuspendCost transaction that
 // puts the chosen card on the stack without its printed mana cost.
 func TestFaceOfBoeCastsSuspendedSpellAtSuspendCost(t *testing.T) {
+	t.Parallel()
 	boe := suspendCorpusCard(t, "The Face of Boe")
 	spell := suspendCorpusCard(t, "Profane Tutor") // K:Suspend:2:1 B
 	nonSuspend := suspendCorpusCard(t, "Grizzly Bears")
@@ -222,6 +225,7 @@ func TestFaceOfBoeCastsSuspendedSpellAtSuspendCost(t *testing.T) {
 }
 
 func TestDynamicSuspendGrantIsDerivedAndFilterable(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	c := card(t, "Name:Grantable\nManaCost:2 U\nTypes:Creature\nPT:2/2\nOracle:x\n")
 	o := e.G.AddObject(c, 0)
@@ -241,6 +245,7 @@ func TestDynamicSuspendGrantIsDerivedAndFilterable(t *testing.T) {
 }
 
 func TestFaceOfBoeSuspendCostUsesChosenCardKeyword(t *testing.T) {
+	t.Parallel()
 	f := card(t, "Name:Suspended\nManaCost:5 R\nTypes:Sorcery\nK:Suspend:3:1 R\nOracle:x\n").Faces[0]
 	got, ok := pricePlayCost(f, "SuspendCost")
 	if !ok || got.Generic != 1 || got.Colored[state.MR] != 1 {

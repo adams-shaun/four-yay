@@ -307,6 +307,7 @@ func execMultisetMatches(t *testing.T, execs []flipTrig, flips []bool) {
 // card's ability across two pinned seeds whose first flips differ (measured:
 // seed 4 wins, seed 1 loses).
 func TestFlipCoinGoblinBangchuckers(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["api:FlipCoin"] {
 		t.Fatal("api:FlipCoin not registered in effects.Supported()")
 	}
@@ -346,6 +347,7 @@ func TestFlipCoinGoblinBangchuckers(t *testing.T) {
 // Swindler): {T}, Pay 3 life — win gains 6 life (net +3), lose gains nothing
 // (net -3). Two pinned seeds cover both sides of the one-branch ability.
 func TestFlipCoinTavernSwindler(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(seed uint64) (*Engine, bool) {
 		e, _ := flipEngine(t, reg, seed,
@@ -380,6 +382,7 @@ func TestFlipCoinTavernSwindler(t *testing.T) {
 // winning flip — and none on a losing flip. Two pinned seeds cover both
 // sides.
 func TestFlippedCoinTavernScoundrel(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(seed uint64) (*Engine, bool) {
 		e, _ := flipEngine(t, reg, seed,
@@ -522,6 +525,7 @@ func karplusanScenario(t *testing.T, reg *cards.Registry) (*Engine, Config) {
 // flips; each flip Note queues exactly one of the two ValidResult$ triggers
 // (Win → TrigYouDmg, Lose → TrigOppDmg), each resolving as one 1-damage hit.
 func TestFlippedCoinKarplusanMinotaur(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := karplusanScenario(t, reg)
 	wins, losses := 0, 0
@@ -542,6 +546,7 @@ func TestFlippedCoinKarplusanMinotaur(t *testing.T) {
 // DB$ FlipCoin | Defined$ You — a losing flip deals 3 to its controller, a
 // winning flip nothing.
 func TestFlipCoinManaCryptTriggerDriven(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := flipEngine(t, reg, 4,
 		[]*cards.Card{lookup(t, reg, "Mana Crypt")}, []*cards.Card{})
@@ -579,6 +584,7 @@ func TestFlipCoinManaCryptTriggerDriven(t *testing.T) {
 // remember-flip-count memory, so the counter is not the observable here --
 // the flips are).
 func TestFlipCoinUntilYouLoseCrazedFirecat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(seed uint64) []bool {
 		e, _ := flipEngine(t, reg, seed,
@@ -610,6 +616,7 @@ func TestFlipCoinUntilYouLoseCrazedFirecat(t *testing.T) {
 // same seed produces the same flip results, the same event chain and the same
 // RNG-draw count — and the recorded log alone replays byte-identically.
 func TestFlipCoinReplaysDeterministically(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e1, cfg := karplusanScenario(t, reg)
 	e2, _ := karplusanScenario(t, reg)
