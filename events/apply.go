@@ -105,6 +105,34 @@ func SVarAcrossFaces(src *state.Object, name string) string {
 // queue.
 const maxQueuedGrants int32 = 1 << 10
 
+// resetCombat removes permanent(s) from combat (CR 511.3). only == 0 is the
+// whole-combat reset EndCombatReset's Obj-zero form and CR 723.1c's "end the
+// turn" both need; a nonzero only removes that single permanent (the
+// regeneration shape) and leaves a zero tombstone in every attacker's blocker
+// list -- the attacker remains blocked (CR 509.1h) while liveBlockers ignores
+// the removed blocker, even if it lives. Shared so the two callers cannot
+// drift apart.
+func resetCombat(g *state.Game, only state.ObjID) {
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if only == 0 || o.ID == only {
+			o.IsAttacking = false
+			o.AttackingBattle = 0
+			o.BlockedBy = nil
+		} else {
+			for j, id := range o.BlockedBy {
+				if id == only {
+					o.BlockedBy[j] = 0
+				}
+			}
+		}
+	}
+	if only == 0 {
+		// Every BlockedBy list is now nil.
+		g.ClearBlockers()
+	}
+}
+
 func Apply(g *state.Game, e Event) {
 	switch e.Kind {
 	// RollDice is the proposal-only roll-action Kind (task rolldice-repl): it
@@ -116,6 +144,20 @@ func Apply(g *state.Game, e Event) {
 		// Apply writes nothing; the log lets replay re-derive the same branch.
 		// ManaActivate is the ActivationLimit$ scan marker (see the Kind's own
 		// comment): the mana itself lands through the nearby ManaAdd events.
+
+	case EndTurn:
+		// CR 723.1a/c: all spells and abilities on the stack cease to exist,
+		// and every creature/planeswalker is removed from combat. IDs is a
+		// snapshot of the stack taken by the effect before this fold.
+		for _, id := range e.IDs {
+			if o := g.Obj(id); o != nil && o.Zone == state.ZStack {
+				Move(g, id, state.ZStack, state.ZExile)
+			}
+		}
+		// CR 723.1c's removal from combat is exactly CR 511.3's whole-combat
+		// reset, so it shares EndCombatReset's own helper rather than
+		// restating the field clears.
+		resetCombat(g, 0)
 
 	case Resolve:
 		// The resolving object leaves the stack through its own MoveZone event,
@@ -1832,27 +1874,8 @@ func Apply(g *state.Game, e Event) {
 
 	case EndCombatReset:
 		// Obj zero retains the original whole-combat reset. A nonzero Obj
-		// removes only that permanent (regeneration). Keep a zero tombstone
-		// in attackers' blocker lists: they remain blocked (CR 509.1h),
-		// while liveBlockers ignores the removed blocker, even if it lives.
-		for i := range g.Objs {
-			o := &g.Objs[i]
-			if e.Obj == 0 || o.ID == e.Obj {
-				o.IsAttacking = false
-				o.AttackingBattle = 0
-				o.BlockedBy = nil
-			} else {
-				for j, id := range o.BlockedBy {
-					if id == e.Obj {
-						o.BlockedBy[j] = 0
-					}
-				}
-			}
-		}
-		if e.Obj == 0 {
-			// Every BlockedBy list is now nil.
-			g.ClearBlockers()
-		}
+		// removes only that permanent (regeneration).
+		resetCombat(g, e.Obj)
 
 	case CastInfo:
 		if o := g.Obj(e.Obj); o != nil {

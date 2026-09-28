@@ -92,7 +92,7 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.StoreSVar, events.GiftPromise, events.GiveGift, events.PhaseOut, events.RollDice,
 		events.DelayedForget, events.Cascade, events.Clash,
 		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
-		events.ChaosEnsues, events.ManaUndo,
+		events.ChaosEnsues, events.ManaUndo, events.EndTurn,
 		events.DungeonCreate, events.DungeonRoom, events.DungeonComplete,
 		events.DungeonRemove:
 		// ManaUndo is the announced payment window's CR 733.1 reversal of a

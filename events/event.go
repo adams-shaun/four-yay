@@ -1036,6 +1036,9 @@ const (
 	// triggers nor is replaced). Emitted only from the announced window, so no
 	// bot game and no golden replay contains it. Appended after ChaosEnsues.
 	ManaUndo
+	// EndTurn exiles the stack objects named by IDs and clears combat. It is
+	// the replayable CR 723.1a/c action proposed by api:EndTurn.
+	EndTurn
 	// DungeonCreate creates a dungeon token in its owner's command zone.
 	// Text is the immutable Game.Tokens script key.
 	DungeonCreate
@@ -1193,7 +1196,7 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"delayed_remove", "turn_face_up", "searched_library", "keyword_ability_push", "scry", "store_svar", "turn_face_down", "clone_static",
 	"damage_provenance", "enduring_story_change", "phase_out", "gift_promise", "give_gift", "roll_dice",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
-	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo",
+	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
 	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove"}
 
 func (k Kind) String() string {

@@ -177,6 +177,13 @@ type pendingCast struct {
 	// payment (CR 601.2h) -- the same recorded-at-beginCast discipline as
 	// mayPlayIgnore, and for the same reason. Nil for every ordinary cast.
 	mayPlayRemembered map[state.ObjID][]state.ObjID
+	// mayPlayPerm is the MayPlayText$-typed permission a may-play cast
+	// consumes (rules/mayplay.go's mayPlayPermKey). Empty for an untyped
+	// grant. beginCast copies it off the option, the "mayplay" cost case
+	// prices exactly that static's free/RaiseCost$ riders, and payCast stamps
+	// it on the pay-time CastInfo (a "perm=<key>" token) so
+	// mayPlayTypedLimitReached can attribute the play to its static.
+	mayPlayPerm string
 
 	// replaceGraveyard is the Play SA's ReplaceGraveyard$ Exile rider
 	// (task replplay1): the played spell must not rest in the graveyard —
@@ -2644,10 +2651,15 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// walk) used, so the offered cost and the charged cost structurally
 		// cannot disagree. A raise the helper could not price leaves
 		// mayPlayGrant withholding the card; the cast never reaches here.
-		if free, ok := e.mayPlayGrant(p, id); ok && free {
+		// A MayPlayText$-typed option names its permission, so a card cast
+		// through ONE of several matching statics pays exactly that
+		// static's riders (mayPlayPermFreeRaise); an untyped option keeps
+		// the aggregate read.
+		free, raise, hasRaise, priced := e.mayPlayPermFreeRaise(p, id, opt.MayPlayPerm)
+		if free {
 			cost = Cost{}
 		}
-		if raise, hasRaise, priced := e.mayPlayRaiseCost(p, id); hasRaise && priced {
+		if hasRaise && priced {
 			cost = cost.Plus(raise)
 		}
 	case "miracle":
@@ -3012,6 +3024,7 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		e.cast.mayPlayIgnore = e.payerGrantsIgnoreColor(p, id)
 		e.cast.mayPlayIgnoreType = e.payerGrantsIgnoreType(p, id)
 		e.cast.mayPlayRemembered = e.mayPlayManaConvertRemembered(p, id)
+		e.cast.mayPlayPerm = opt.MayPlayPerm
 	}
 	if selection != nil && e.cast != nil {
 		e.cast.payment = &plannedCastPayment{actionID: selection.ActionID, plan: decision.ClonePaymentPlan(selection.Plan)}
@@ -10544,6 +10557,18 @@ func (e *Engine) payCast() {
 	// pin, no K:Replicate carrier's mana value carries {X}, so the
 	// single-event shape below is the live path; the defensive two-event
 	// split keeps the two provenances distinct should one ever pair.
+	// A MayPlayText$-typed permission (rules/mayplay.go): stamp the
+	// permission token on the pay-time CastInfo so mayPlayTypedLimitReached
+	// can attribute the play to the static that granted it. The token rides
+	// the Counter as an extra comma-separated field, which FlagsFrom ignores
+	// (the CastFlags word is unaffected). It is appended ONLY to the main
+	// CastInfo emission below, so a face whose trailing provenance events
+	// (converge, mana spend) also carry `flags` cannot count the permission
+	// twice; an untyped cast (empty mayPlayPerm) is byte-identical.
+	permSuffix := ""
+	if pc.mayPlayPerm != "" {
+		permSuffix = ",perm=" + pc.mayPlayPerm
+	}
 	repCount := int32(0)
 	if pc.mode == "replicated" {
 		repCount = pc.replicateTimes
@@ -10553,14 +10578,14 @@ func (e *Engine) payCast() {
 	}
 	if repCount > 0 && pc.x != 0 {
 		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: pc.x,
-			Counter: events.FlagsString(events.FlagsFrom(flags) &^ state.FlagReplicated)})
+			Counter: events.FlagsString(events.FlagsFrom(flags)&^state.FlagReplicated) + permSuffix})
 		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: repCount, Counter: flags})
 	} else if pc.x != 0 || flags != "" {
 		amt := pc.x
 		if repCount > 0 {
 			amt = repCount
 		}
-		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: amt, Counter: flags})
+		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: amt, Counter: flags + permSuffix})
 	}
 	// Squad (CR 702.66): the payment count rides its own TRAILING pay-time
 	// CastInfo -- the flag routes the Amount into Object.SquadPaid (events.Apply's

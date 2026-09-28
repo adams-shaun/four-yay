@@ -125,6 +125,8 @@ type TableConfig struct {
 	// human seats. Disabled is the legacy human path: plans are never sent to
 	// a human client and only ordinary casts/manual mana are available.
 	AutoMana bool `json:"auto_mana"`
+	// WindowDiagnostics opts priority views into first-gate withholding reasons.
+	WindowDiagnostics bool `json:"window_diagnostics"`
 	// OnDemand marks a browser-created play-vs-bot table. These tables are
 	// deliberately process-scoped: their seat credentials live only in the
 	// gorged process, and a restart already aborts any game in progress. The

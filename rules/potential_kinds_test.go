@@ -39,11 +39,11 @@ var measuredLegalActionKinds = []string{
 }
 
 // legalActionsPricedKinds parses rules/legal.go and returns every option Kind
-// the legalActionsPriced body can emit: a `Kind: "<lit>"` field of a composite
-// literal, the literal first argument of the walk's local add(kind, ...)
-// closure, and any `<x>.Kind = "<lit>"` assignment. A Kind the walk computes
-// (anything but the add closure's own `kind` parameter) fails the test: the
-// ratchet only works while every emitted kind is a literal it can read.
+// the shared legalActionsWalkWithWindow body can emit: a `Kind: "<lit>"` field
+// of a composite literal, the literal first argument of the walk's local
+// add(kind, ...) closure, and any `<x>.Kind = "<lit>"` assignment. A Kind the
+// walk computes (anything but the add closure's own `kind` parameter) fails
+// the test: the ratchet only works while every emitted kind is a literal it can read.
 func legalActionsPricedKinds(t *testing.T) []string {
 	t.Helper()
 	fset := token.NewFileSet()
@@ -53,14 +53,15 @@ func legalActionsPricedKinds(t *testing.T) []string {
 	}
 	var body *ast.BlockStmt
 	for _, d := range f.Decls {
-		// legalActionsPriced delegates to legalActionsWalk, which holds
-		// the walk's body.
-		if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv != nil && fn.Name.Name == "legalActionsWalk" {
+		// legalActionsPriced delegates through legalActionsWalk to this
+		// shared body, which owns every emitted option kind.
+		if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv != nil &&
+			fn.Name.Name == "legalActionsWalkWithWindow" {
 			body = fn.Body
 		}
 	}
 	if body == nil {
-		t.Fatal("rules/legal.go has no (*Engine).legalActionsWalk")
+		t.Fatal("rules/legal.go has no (*Engine).legalActionsWalkWithWindow")
 	}
 	seen := map[string]bool{}
 	lit := func(n ast.Expr, where string) {

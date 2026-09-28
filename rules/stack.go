@@ -4466,9 +4466,14 @@ func (e *Engine) resolveTop() {
 		e.contChain = e.contChain[:0]
 		e.repeatReported = nil
 		e.contChainOwners++
+		e.endTurnRequested = false
 		effects.Resolve(e, ctx, o.Ability)
 		e.contChainOwners--
 		e.damaging = 0
+		if e.endTurnRequested {
+			e.finishEndTurn()
+			return
+		}
 		// CR 702.99b (task trig:Evolved): when this resolving ability is the
 		// Evolve keyword's own counter trigger (its line carries Evolve$ True)
 		// and it actually put the +1/+1 counter, announce the completed evolve
@@ -4717,9 +4722,14 @@ func (e *Engine) resolveTop() {
 		e.contChain = e.contChain[:0]
 		e.repeatReported = nil
 		e.contChainOwners++
+		e.endTurnRequested = false
 		effects.Resolve(e, ctx, resolveSA)
 		e.contChainOwners--
 		e.damaging = 0
+		if e.endTurnRequested {
+			e.finishEndTurn()
+			return
+		}
 		if e.resume != nil {
 			// The cast-announced outer mode may itself contain an asking effect.
 			// This is an initial resolution pass rather than a resume re-entry,
