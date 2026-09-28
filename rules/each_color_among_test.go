@@ -310,11 +310,13 @@ func TestEachColorAmongEmptySetIsSilentNoOp(t *testing.T) {
 }
 
 // TestEachColorAmongUnknownSelectorStaysLoud pins the fail-closed boundary:
-// a Special selector the executor does not resolve (here ExiledWith, the
-// sunbird_effigy shape) keeps the loud Note and adds no mana.
+// a Special selector the executor does not resolve (here
+// EachColoredManaSymbol_Milled, which nothing models) keeps the loud Note and
+// adds no mana. (EachColorAmong_ExiledWith used to be the example here; it is
+// now implemented -- see each_color_among_exiled_with_test.go.)
 func TestEachColorAmongUnknownSelectorStaysLoud(t *testing.T) {
 	t.Parallel()
-	e, _ := eachColorGame(t, 95, []*cards.Card{card(t, colorlessFixture("Special EachColorAmong_ExiledWith"))})
+	e, _ := eachColorGame(t, 95, []*cards.Card{card(t, colorlessFixture("Special EachColoredManaSymbol_Milled"))})
 	tapForManaAfterTurnClears(t, e, "Colorless Sifter")
 	if !noteContaining(t, e, "unhandled Produced$") {
 		t.Fatalf("unknown Special selector did not emit the loud Note: %v", notes(t, e))

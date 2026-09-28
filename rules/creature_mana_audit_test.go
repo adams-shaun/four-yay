@@ -104,7 +104,7 @@ var knownUnsupportedCreatureMana = map[string]string{
 	// is observed by the census; the ability itself is offered and resolves.
 	"The Warring Triad|A0": "add_to_target: Defined$ Targeted + ValidTgts$ Player; mana goes to the targeted player",
 	// Produced$ token the symbol grammar cannot read (fail-closed, loud Note).
-	"Sunbird Standard|A0": "selector: Produced$ Special EachColorAmong_ExiledWith is not modelled",
+	"Sunbird Standard|A0": "empty_set: the audit board has no cards exiled with the source, so EachColorAmong_ExiledWith is a no-op; the non-empty case is proven by each_color_among_exiled_with_test.go",
 }
 
 // creatureManaItems returns the activated/intrinsic mana items on a card's
