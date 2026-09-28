@@ -31,18 +31,21 @@ func (sh *Shadow) clone() *Shadow {
 
 // tacticalPick is sb-tactical's answer on a copy of the shadow, as a
 // kernel candidate index.
-func (p *Policy) tacticalPick(sh *Shadow, d *v1agent.Decision) (int, bool) {
+func (p *Policy) tacticalPick(sh *Shadow, d *v1agent.Decision) (int, *followPlan, bool) {
 	c := sh.clone()
 	in, err := p.tacticalAnswer(c)
 	if err != nil {
-		return 0, false
+		return 0, nil, false
 	}
 	in, pd, err := throughMana(c, in, func() (decision.Intent, error) { return p.tacticalAnswer(c) })
 	if err != nil {
-		return 0, false
+		return 0, nil, false
 	}
 	k, _ := kernelIndexPriority(c, d, pd, in)
-	return k, k >= 0
+	if k < 0 {
+		return k, nil, false
+	}
+	return k, p.makePlanWith(c, pd, in, p.decisionSeed(d), true), true
 }
 
 func (p *Policy) lookup() builtins.CardLookup {
@@ -81,7 +84,7 @@ func (p *Policy) rollPriority(sh *Shadow, d *v1agent.Decision, fbPick int) (int,
 		return 0, false, "roll: fallback pick not searchable"
 	}
 	if p.roll.Arbiter {
-		alt, ok := p.tacticalPick(sh, d)
+		alt, altPlan, ok := p.tacticalPick(sh, d)
 		if !ok || acts[alt] == nil {
 			return fbPick, true, ""
 		}
@@ -99,10 +102,13 @@ func (p *Policy) rollPriority(sh *Shadow, d *v1agent.Decision, fbPick int) (int,
 			best, summary := p.roll.choose(res, base)
 			if best != base {
 				p.Roll.Overrides++
+			} else {
+				p.plan = altPlan
 			}
 			p.lastRoll = summary
 			return idx[best], true, ""
 		}
+		p.altPlan = altPlan
 	} else {
 		var scores []float64
 		if t, ok := p.fb.(*v1agent.Tactical); ok {
@@ -127,6 +133,10 @@ func (p *Policy) rollPriority(sh *Shadow, d *v1agent.Decision, fbPick int) (int,
 	if best != base {
 		p.Roll.Overrides++
 	}
+	if p.roll.Arbiter && idx[best] != fbPick {
+		p.plan = p.altPlan
+	}
+	p.altPlan = nil
 	p.lastRoll = summary
 	return idx[best], true, ""
 }

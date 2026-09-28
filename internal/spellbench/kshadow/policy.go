@@ -129,6 +129,7 @@ type Policy struct {
 	Roll        RollStats
 	roll        RollConfig
 	ninjaTurn   int64
+	altPlan     *followPlan
 	AZ          AZStats
 	look        builtins.CardLookup
 	lastRoll    string
@@ -616,6 +617,12 @@ type planTarget struct {
 // decisions with the same policy until priority (or anything else) comes
 // back, recording targets, numbers and modes.
 func (p *Policy) makePlan(sh *Shadow, pd *decision.Decision, in decision.Intent, seed uint64) *followPlan {
+	return p.makePlanWith(sh, pd, in, seed, p.mode == ModeTactical || p.mode == ModeRoll)
+}
+
+// makePlanWith is makePlan answering the follow-ups with sb-tactical
+// (tactical) or the gorge bot.
+func (p *Policy) makePlanWith(sh *Shadow, pd *decision.Decision, in decision.Intent, seed uint64, tactical bool) *followPlan {
 	fp := &followPlan{}
 	if in.Payment != nil {
 		for i := range pd.PaymentActions {
@@ -649,7 +656,7 @@ func (p *Policy) makePlan(sh *Shadow, pd *decision.Decision, in decision.Intent,
 			}
 			var ans decision.Intent
 			var err error
-			if p.mode == ModeTactical {
+			if tactical {
 				ans, err = p.tacticalAnswer(sh)
 			} else {
 				b := botpolicy.BoardFromGameInto(e.G, e, sh.Me, &brd)
