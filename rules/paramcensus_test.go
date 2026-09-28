@@ -2474,18 +2474,12 @@ var ignoredParamKeys = map[string]string{
 	// gates no rules-side behaviour — the pay-or-decline ask the shared
 	// unless gate poses is the rules — so the census ignores it.
 	"UnlessAI": "AI copy-eligibility hint; forge-ai/src/main/java/forge/ai/ability/CopySpellAbilityAi.java",
-	// PumpZone$ on a DB$ Effect is INERT: Forge's EffectEffect (the
-	// api:Effect resolver) never reads it -- only PumpEffect does
-	// (forge-game/src/main/java/forge/game/ability/effects/PumpEffect.java:439,
-	// ZoneType.listValueOf) -- so Zul Ashur, Lich Lord's "you may cast target
-	// Zombie creature card from your graveyard this turn" is carried entirely
-	// by its StaticAbilities$ Play (Card.IsRemembered + MayPlay$) and
-	// ExileOnMoved$ Graveyard. The key is genuinely read by api:Pump/PumpAll,
-	// so suppressing it here hides no live gap.
-	"PumpZone": "inert on api:Effect (EffectEffect.java reads no PumpZone; only PumpEffect.java:439 does)",
 }
 
 // ignoredStatParams scopes a presentation key to individual stat modes.
+// ignoredAbilityParams scopes an inert key to one api primitive. PumpZone is
+// inert on api:Effect (Forge EffectEffect does not read it), but is read by
+// api:Pump and api:PumpAll, so it cannot be key-global.
 // ignoredParamKeys is consulted with the BARE key in every bucket, so a key
 // some primitives genuinely read can never go in it. Secondary$ is that
 // key: on a static it is Forge's card-text dedup marker --
@@ -2517,6 +2511,10 @@ var statPresentationSecondary = []string{
 	"CastWithFlash", "CantGainLife", "CantTarget", "Panharmonicon",
 }
 
+var ignoredAbilityParams = map[string]string{
+	"Effect.PumpZone": "inert on api:Effect (EffectEffect.java reads no PumpZone; only PumpEffect.java:439 does)",
+}
+
 var ignoredStatParams = func() map[string]string {
 	const cite = "static text-dedup marker; forge-game/src/main/java/forge/game/CardTraitBase.java:179 (Card.java getText callers only)"
 	m := make(map[string]string, len(statPresentationSecondary))
@@ -2527,11 +2525,13 @@ var ignoredStatParams = func() map[string]string {
 }()
 
 // ignoredParam is the census's single classification point for a parameter
-// key: the key-global ignoredParamKeys table, then the stat-mode-scoped
-// overlay (consulted only for a "stat:" primitive, so trigger, SA and
-// replacement reads stay measurable no matter what lands in the overlay).
+// key: the key-global table, then api- and stat-scoped overlays. Scoped
+// entries cannot suppress reads by sibling primitives or other buckets.
 func ignoredParam(prim, key string) bool {
 	if ignoredParamKeys[key] != "" {
+		return true
+	}
+	if api, ok := strings.CutPrefix(prim, "api:"); ok && ignoredAbilityParams[api+"."+key] != "" {
 		return true
 	}
 	if mode, ok := strings.CutPrefix(prim, "stat:"); ok {

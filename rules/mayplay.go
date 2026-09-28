@@ -250,7 +250,8 @@ func (e *Engine) mayPlayPermFreeRaise(p state.PlayerID, id state.ObjID, key stri
 			}
 		}
 	}
-	free, _ = e.mayPlayGrant(p, id)
+	free, granted := e.mayPlayGrant(p, id)
+	free = free && granted
 	raise, hasRaise, priced = e.mayPlayRaiseCost(p, id)
 	return free, raise, hasRaise, priced
 }

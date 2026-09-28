@@ -267,6 +267,19 @@ func TestZulAshurGraveyardCast(t *testing.T) {
 		t.Fatalf("zombie not offered after Zul Ashur's activation: %+v", e.legalActions(0))
 	}
 
+	// The live effect must carry the exact move-lifetime rider before the
+	// cast; this precondition makes the following removal assertion meaningful.
+	var lifetimeSource state.ObjID
+	for _, ce := range e.continuous {
+		if ce.FromEffect && ce.ExileOnMoved == "Graveyard" {
+			lifetimeSource = ce.Source
+			break
+		}
+	}
+	if lifetimeSource == 0 {
+		t.Fatalf("precondition: Zul Ashur effect with ExileOnMoved=Graveyard absent: %+v", e.continuous)
+	}
+
 	// Cast it: the card moves graveyard -> stack, so ExileOnMoved$ Graveyard
 	// ends the permission.
 	d = e.Pending()
@@ -289,10 +302,12 @@ func TestZulAshurGraveyardCast(t *testing.T) {
 	if o := e.G.Obj(zombie); o.Zone != state.ZStack {
 		t.Fatalf("zombie zone after cast = %s, want stack", o.Zone)
 	}
-	// The permission ended with the move out of the graveyard: the object on
-	// the stack is a new object (CR 700.4) and the Effect no longer covers
-	// its graveyard incarnation.
-	if e.mayPlayEffectGrantsCast(0, e.G.Obj(zombie)) {
-		t.Fatal("ExileOnMoved$ Graveyard did not end Zul Ashur's permission after the cast")
+	// The actual ExileOnMoved effect, not merely the object's new zone, must
+	// have ended. (A fresh stack object cannot satisfy the graveyard matcher
+	// even if the lifetime handler were missing.)
+	for _, ce := range e.continuous {
+		if ce.FromEffect && ce.Source == lifetimeSource && ce.ExileOnMoved == "Graveyard" {
+			t.Fatalf("ExileOnMoved$ Graveyard left Zul Ashur effect live: %+v", ce)
+		}
 	}
 }

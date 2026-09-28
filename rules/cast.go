@@ -10578,7 +10578,7 @@ func (e *Engine) payCast() {
 	}
 	if repCount > 0 && pc.x != 0 {
 		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: pc.x,
-			Counter: events.FlagsString(events.FlagsFrom(flags) &^ state.FlagReplicated)})
+			Counter: events.FlagsString(events.FlagsFrom(flags)&^state.FlagReplicated) + permSuffix})
 		e.emit(events.Event{Kind: events.CastInfo, Obj: pc.card, Amount: repCount, Counter: flags})
 	} else if pc.x != 0 || flags != "" {
 		amt := pc.x
