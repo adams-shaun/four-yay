@@ -323,3 +323,19 @@ describe('breakpoints (settings v3)', () => {
     expect(withWatch(full, 'one more')).toEqual(full);
   });
 });
+
+describe('withChange shares no arrays with its inputs (breakpoints.watchlist)', () => {
+  it('an untouched watchlist is copied, not shared with the caller’s settings', () => {
+    const s = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), watchlist: ['Oracle'] } });
+    const next = withChange(s, { autoPass: false });
+    s.breakpoints.watchlist.push('Mutated');
+    expect(next.breakpoints.watchlist).toEqual(['Oracle']);
+  });
+
+  it('a patched watchlist is copied, not the patch’s own array', () => {
+    const list = ['Oracle'];
+    const next = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), watchlist: list } });
+    list.push('Mutated');
+    expect(next.breakpoints.watchlist).toEqual(['Oracle']);
+  });
+});

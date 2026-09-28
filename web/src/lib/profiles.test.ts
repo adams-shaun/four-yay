@@ -12,7 +12,6 @@ import {
   storeSave,
   storeSetActive,
   validateStore,
-  type ProfileStore,
 } from './profiles';
 import { PRESETS, defaultSettings, noBreakpoints, validate, withChange, type PlaySettings } from './playsettings';
 

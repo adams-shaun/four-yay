@@ -274,22 +274,34 @@ function deepEqual(a: unknown, b: unknown): boolean {
 }
 
 /**
+ * cloneValue deep-copies a settings value: arrays and plain objects are
+ * rebuilt, primitives are returned as-is. Arrays (breakpoints.watchlist) are
+ * replaced wholesale by a patch, never merged element-wise.
+ */
+function cloneValue(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(cloneValue);
+  if (isPlainObject(v)) return deepMerge(v, {});
+  return v;
+}
+
+/**
  * deepMerge copies base with patch applied, recursively cloning every plain-
- * object value, so a nested patch (one step's rule, one pacing field) merges
- * field-wise, untouched siblings are deep copies (no shared references with
- * the caller's settings), and the result is safe to mutate.
+ * object and array value, so a nested patch (one step's rule, one pacing
+ * field) merges field-wise, untouched siblings are deep copies, a patched
+ * array is a copy of the patch's array (no shared references with the
+ * caller's settings or the caller's patch), and the result is safe to mutate.
  */
 function deepMerge(base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
   const out = { ...base };
   for (const [k, v] of Object.entries(patch)) {
     if (v === undefined) continue;
     const cur = out[k];
-    out[k] = isPlainObject(v) && isPlainObject(cur) ? deepMerge(cur as Record<string, unknown>, v) : v;
+    out[k] = isPlainObject(v) && isPlainObject(cur) ? deepMerge(cur as Record<string, unknown>, v) : cloneValue(v);
   }
   // Clone every branch the patch did not touch so nothing is shared with the
   // caller's settings.
   for (const k of Object.keys(out)) {
-    if (isPlainObject(out[k]) && out[k] === base[k]) out[k] = deepMerge(out[k] as Record<string, unknown>, {});
+    if (out[k] === base[k] && (isPlainObject(out[k]) || Array.isArray(out[k]))) out[k] = cloneValue(out[k]);
   }
   return out;
 }
