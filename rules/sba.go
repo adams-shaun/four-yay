@@ -1269,10 +1269,9 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 	var dead []tokenCasualty
 	for i := range e.G.Objs {
 		o := &e.G.Objs[i]
-		if tried.tokens[o.ID] {
-			continue
-		}
-		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
+		// The field test first: the attempt memory is only consulted for a
+		// token that would otherwise be ceased (the same set as before).
+		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased && !tried.tokens[o.ID] {
 			dead = append(dead, tokenCasualty{o.ID, o.Zone})
 		}
 	}

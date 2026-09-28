@@ -49,7 +49,14 @@ type manaSAFacts struct {
 var manaSAFactsVerify = derivedMemoVerifyFlag != ""
 
 func buildManaSAFacts(ab *cards.SA, costOf func(string) *compiledCost) *manaSAFacts {
-	f := &manaSAFacts{cost: costOf(ab.Params["Cost"])}
+	f := buildManaSAFactsValue(ab, costOf)
+	return &f
+}
+
+// buildManaSAFactsValue is buildManaSAFacts without the heap copy: the
+// verify-mode recompute in manaFactsOf only compares it.
+func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) manaSAFacts {
+	f := manaSAFacts{cost: costOf(ab.Params["Cost"])}
 	f.zoneOK = abilityZoneMask(ab)
 	raw := ab.Params["Cost"]
 	if containsLoyaltyFold(raw) {
@@ -87,9 +94,9 @@ func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
 	}
 	f := e.compiledText.saFacts[ab]
 	if f != nil && manaSAFactsVerify {
-		fresh := buildManaSAFacts(ab, e.compiledCostOf)
-		if fresh.cost != f.cost || !sameFactsIgnoringCost(*fresh, *f) {
-			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, *fresh))
+		fresh := buildManaSAFactsValue(ab, e.compiledCostOf)
+		if fresh.cost != f.cost || !sameFactsIgnoringCost(fresh, *f) {
+			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, fresh))
 		}
 	}
 	return f
