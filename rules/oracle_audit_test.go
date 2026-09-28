@@ -87,9 +87,8 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: Not of This World's conditional cost uses the
 	// TargetedByTarget$ count predicate, which is not registered in effects.
 	"Not of This World/high-power-creature-target-enables-cost-reduction": "spell remains unoffered for zero despite targeting a spell targeting a controlled 9/9; expected cost reduced from {7} to {0}",
-	// Engine primitive: entering Angel appears to be included in Giada's CountValid
-	// when pricing the replacement, rather than counting only Angels already controlled.
-	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
+	// (Giada row retired: main's 6f256c81e/b250fa68c excluded the entering
+	// permanent from replacement counts, so the scenario now passes.)
 	// Engine primitive: the Effect-created entry replacement from the attack
 	// trigger does not put its counter on the remembered Hero returned from the graveyard.
 	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",

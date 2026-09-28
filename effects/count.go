@@ -4498,6 +4498,9 @@ type zoneCountFold struct {
 // candidate's OWN zone, then the plain-count / extreme / sum /
 // distinct-set accumulation).
 func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecContext) {
+	if zone == state.ZBattlefield && id == specCtx.ExcludeFromBattlefieldCount && id != 0 {
+		return
+	}
 	matchSpec := f.spec
 	if f.hasBareHand {
 		s, ok := castFromHandAnyAdmitsFilter(f.h, f.spec, id)

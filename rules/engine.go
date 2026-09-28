@@ -3190,11 +3190,11 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.tappedTurn[ev.Obj] = e.G.Turn
 	}
 	e.finishSourceLifelinkLKI(ev, departingSource, departingSourceLifelink, departingSourceController)
-	// CR 702.163 ("Start your engines!", rules/speed.go): a loss may raise
-	// every eligible opponent's speed (if they have any), and a Start your
+	// CR 702.179 ("Start your engines!", rules/speed.go): a loss may queue
+	// the active player's speed trigger (if they have speed), and a Start your
 	// engines! permanent's battlefield entry starts a speed-less
 	// controller's speed at 1. Checked on the FOLDED event, after
-	// checkTriggers, so the gain event follows everything the loss itself
+	// checkTriggers, so the queued trigger follows everything the loss itself
 	// caused -- and both checks are inert for every other event. The loss
 	// reaches here two ways: an explicit LifeChange with a negative amount
 	// (life payment, "each player loses N life"), and a player D_DAMAGE --
