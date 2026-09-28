@@ -4773,7 +4773,7 @@ func (e *Engine) resolveTop() {
 // countered, so only this resolved-spell helper may return it to hand.
 func spellRestZone(o *state.Object) state.Zone {
 	if o != nil && (state.ExilesLeavingStack(o.CastFlags) ||
-		o.IsCopy || o.CastFlags&state.FlagAdventure != 0 ||
+		o.IsCopy || hasParadigm(o) || o.CastFlags&state.FlagAdventure != 0 ||
 		o.CastFlags&state.FlagReplaceGraveyard != 0 ||
 		o.CastFlags&state.FlagRebound != 0) {
 		return state.ZExile
