@@ -1680,6 +1680,7 @@ func (e *Engine) runReplaceWith(ctx *effects.Ctx, replaced state.ObjID, with *ca
 		// Affected rewrite resolves against (the Effect-created damage-magnet
 		// family: Heroic Sacrifice, Kor Chant, Shield Dancer...). Objects only:
 		// the player half of a capture is unreachable here and fails closed.
+		e.replRemembered = e.replRemembered[:0]
 		for _, tg := range ctx.Remembered {
 			if !tg.IsPlayer && tg.Obj != 0 {
 				e.replRemembered = append(e.replRemembered, tg.Obj)
@@ -5424,7 +5425,7 @@ func (e *Engine) ReplaceEvent(name, raw string, resolved int32) {
 		// remember (the VarType$ GameEntity carriers' player half) never
 		// reaches here -- the capture records objects only.
 		if len(e.replRemembered) > 0 {
-			if ref := e.G.Obj(e.replRemembered[0]); ref != nil {
+			if ref := e.G.Obj(e.replRemembered[0]); ref != nil && ref.Zone == state.ZBattlefield {
 				ev.Obj, ev.Player = e.replRemembered[0], 0
 			}
 		}

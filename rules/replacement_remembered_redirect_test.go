@@ -130,4 +130,29 @@ func TestHeroicSacrificeRedirectsDamageToRememberedCreature(t *testing.T) {
 			t.Fatalf("chosen creature damage = %d, want 0 (opponent damage is outside the magnet's class)", got)
 		}
 	})
+
+	t.Run("departed remembered creature is not a damage recipient", func(t *testing.T) {
+		t.Parallel()
+		e := newSeats(t, 2)
+		chosen := onBoard(t, e, 0, "Name:Chosen\nTypes:Creature\nPT:3/3\nOracle:x\n")
+		if obj := e.G.Obj(chosen); obj == nil || obj.Zone != state.ZBattlefield {
+			t.Fatalf("chosen creature = %+v, want battlefield precondition", obj)
+		}
+		e.emit(events.Event{Kind: events.MoveZone, Obj: chosen, From: state.ZBattlefield, To: state.ZGraveyard})
+		if obj := e.G.Obj(chosen); obj == nil || obj.Zone != state.ZGraveyard {
+			t.Fatalf("chosen creature after move = %+v, want graveyard", obj)
+		}
+
+		// Isolate the ReplaceEvent arm with the still-in-flight remembered
+		// binding: carriers without ExileOnMoved keep their replacement live
+		// after this move, so a departed object must not absorb later damage.
+		e.replRemembered = []state.ObjID{chosen}
+		ev := events.Event{Kind: events.Damage, Player: 0, Amount: 3}
+		e.replacingEvent = &ev
+		e.ReplaceEvent("Affected", "Remembered", 0)
+		e.replacingEvent = nil
+		if ev.Player != 0 || ev.Obj != 0 {
+			t.Fatalf("rewritten event = %+v, want original player recipient after remembered creature left battlefield", ev)
+		}
+	})
 }
