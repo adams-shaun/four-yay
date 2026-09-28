@@ -91,7 +91,8 @@ type Config struct {
 	Target  bool
 	TargetK int
 	// SkipGap, when positive, plays sb-tactical's priority pick unsearched
-	// when its score beats the runner-up's by SkipGap or more.
+	// when its score beats the runner-up's by SkipGap or more (unless a
+	// proposal added a root: then the search arbitrates).
 	SkipGap float64
 	// MinWorlds, when positive and below Worlds, stops a decision early once
 	// MinWorlds worlds are valid and no candidate's paired mean is within
@@ -160,7 +161,26 @@ type Seat struct {
 	spareBase, spareCand rules.Spare
 	// failRollout forces every rollout to fail (tests: the fallback path).
 	failRollout bool
+	// prop are the next searched decision's extra roots (Propose).
+	prop Proposals
+	// ProposalRoots counts proposed roots searched; ProposalWins those the
+	// search played.
+	ProposalRoots, ProposalWins int
 }
+
+// Proposals are one decision's extra root candidates from another policy
+// of a collection (spec D§8, arbitrated per decision instead of routed per
+// deck): priority plays named by key, whole attack or block answers. A
+// proposal is searched exactly like sb-tactical's own candidates and played
+// only when it beats sb-tactical's pick by the margin.
+type Proposals struct {
+	Priority []builtins.PriorityKey
+	Answers  []decision.Intent
+}
+
+// Propose sets the extra roots of the next decision searched through
+// DecideSearch or DecideWorlds; they are dropped after it either way.
+func (s *Seat) Propose(p Proposals) { s.prop = p }
 
 var (
 	_ seat.Seat                           = (*Seat)(nil)
@@ -217,26 +237,78 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	if e == nil {
 		return s.DecideBoard(ctx, env.Board, d)
 	}
-	pd := e.Pending()
-	if pd == nil || pd.Seq != d.Seq {
-		pd = &d
-	}
+	return s.decideOn(ctx, e, func() (dealer, string) {
+		rd, reason := s.redealer(env)
+		if reason != "" {
+			return nil, reason
+		}
+		return redealDealer{s: s, rd: rd}, ""
+	}, d)
+}
+
+// Dealer deals world w of a searched decision from its two seeds
+// (azmcts.RedealSeed of the decision seed): an engine positioned at the
+// root decision whose hidden cards the searching seat cannot see are
+// redealt. A non-empty reason refuses the world (it is dropped from every
+// mean, exactly like a refused redeal).
+type Dealer func(w int, seed [2]uint64) (*rules.Engine, string)
+
+// DecideWorlds is DecideSearch with an explicit world source instead of the
+// live observation feed: e is the engine at the decision (for a SpellBench
+// v2 seat, the shadow rebuilt from its observation, internal/spellbench/
+// v2shadow) and deal redeals its hidden zones. Everything else -- the
+// candidates, the rollouts, the margin -- is sb-search's own.
+func (s *Seat) DecideWorlds(ctx context.Context, e *rules.Engine, deal Dealer, d decision.Decision) (decision.Intent, error) {
+	return s.decideOn(ctx, e, func() (dealer, string) { return funcDealer(deal), "" }, d)
+}
+
+// dealer is a world source: the live feed's redeal or a caller's Dealer.
+type dealer interface {
+	deal(w int, dseed uint64) (*rules.Engine, string)
+	release(e *rules.Engine)
+}
+
+type redealDealer struct {
+	s  *Seat
+	rd *searchprobe.Redealer
+}
+
+func (r redealDealer) deal(w int, dseed uint64) (*rules.Engine, string) {
+	return r.rd.Deal(azmcts.RedealSeed(dseed, w), &r.s.spareBase)
+}
+
+func (r redealDealer) release(e *rules.Engine) { r.s.spareBase = e.Release() }
+
+type funcDealer Dealer
+
+func (f funcDealer) deal(w int, dseed uint64) (*rules.Engine, string) {
+	return f(w, azmcts.RedealSeed(dseed, w))
+}
+
+func (f funcDealer) release(*rules.Engine) {}
+
+// decideOn is the search at e's decision d; worlds come from mk, called
+// only when a search runs.
+func (s *Seat) decideOn(ctx context.Context, e *rules.Engine, mk func() (dealer, string), d decision.Decision) (decision.Intent, error) {
+	defer func() { s.prop = Proposals{} }()
 	// The view sb-tactical is shown in plain play (bench.PlayGame's
-	// View-seat branch builds exactly this).
-	v := view.Project(e.G, e, d.Player, pd)
+	// View-seat branch builds exactly this), projected with d itself: a
+	// caller may hand a reduced copy of the pending decision (DecideWorlds),
+	// and sb-tactical indexes the view's decision by d's option positions.
+	v := view.Project(e.G, e, d.Player, &d)
 	v.Round = view.RoundOf(e.G, e.L.Events)
 	if s.cfg.Worlds <= 0 || len(e.G.Players) != 2 {
 		return s.inner.Decide(ctx, v, d)
 	}
 	switch {
 	case d.Kind == decision.KPriority:
-		return s.priority(ctx, env, v, d)
+		return s.priority(ctx, e, mk, v, d)
 	case d.Kind == decision.KAttackers && s.cfg.Attack:
-		return s.attackers(ctx, env, v, d)
+		return s.attackers(ctx, e, mk, v, d)
 	case d.Kind == decision.KBlockers && s.cfg.Block:
-		return s.blockers(ctx, env, v, d)
+		return s.blockers(ctx, e, mk, v, d)
 	case d.Kind == decision.KTarget && s.cfg.Target:
-		return s.target(ctx, env, v, d)
+		return s.target(ctx, e, mk, v, d)
 	}
 	return s.inner.Decide(ctx, v, d)
 }
@@ -248,7 +320,7 @@ type root struct {
 	in  decision.Intent
 }
 
-func (s *Seat) priority(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+func (s *Seat) priority(ctx context.Context, e *rules.Engine, mk func() (dealer, string), v view.View, d decision.Decision) (decision.Intent, error) {
 	cands, best, ok := s.inner.TacticalPriority(v, d)
 	if !ok || cands[best].Key.IsLand() {
 		// No choice to search, or a land drop (sb-tactical always makes it
@@ -256,14 +328,53 @@ func (s *Seat) priority(ctx context.Context, env searchseat.Env, v view.View, d 
 		return s.inner.Decide(ctx, v, d)
 	}
 	roots, gap := pickRoots(cands, best, s.cfg.TopK)
-	if len(roots) < 2 || (s.cfg.SkipGap > 0 && gap >= s.cfg.SkipGap) {
+	own := len(roots)
+	for _, k := range s.prop.Priority {
+		dup, offered := false, false
+		for _, r := range roots {
+			dup = dup || *r.key == k
+		}
+		for _, c := range cands {
+			offered = offered || c.Key == k
+		}
+		if !dup && offered {
+			kk := k
+			roots = append(roots, root{key: &kk})
+			s.ProposalRoots++
+		}
+	}
+	if len(roots) < 2 || (s.cfg.SkipGap > 0 && gap >= s.cfg.SkipGap && len(roots) == own) {
 		return s.inner.Decide(ctx, v, d)
 	}
-	choice := s.search(env, d, "priority", roots, gap)
+	choice := s.search(e, mk, d, "priority", roots, gap, false)
 	if choice > 0 {
+		if choice >= own {
+			s.ProposalWins++
+		}
 		s.inner.ForcePriority(*roots[choice].key)
 	}
 	return s.inner.Decide(ctx, v, d)
+}
+
+// addProposed appends the proposed whole answers that validate and are not
+// already roots; it returns how many roots were there before.
+func (s *Seat) addProposed(d decision.Decision, roots []root) ([]root, int) {
+	own := len(roots)
+	for _, in := range s.prop.Answers {
+		in.Seq, in.Player = d.Seq, d.Player
+		if d.Validate(in) != nil {
+			continue
+		}
+		dup := false
+		for _, r := range roots {
+			dup = dup || builtins.SameChoices(r.in, in)
+		}
+		if !dup {
+			roots = append(roots, root{in: in})
+			s.ProposalRoots++
+		}
+	}
+	return roots, own
 }
 
 // pickRoots is sb-tactical's pick first, then the rest by score (ties to
@@ -302,7 +413,7 @@ func pickRoots(cands []builtins.ScoredCandidate, best, k int) (roots []root, gap
 	return roots, gap
 }
 
-func (s *Seat) attackers(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+func (s *Seat) attackers(ctx context.Context, e *rules.Engine, mk func() (dealer, string), v view.View, d decision.Decision) (decision.Intent, error) {
 	own, err := s.inner.Decide(ctx, v, d)
 	if err != nil {
 		return own, err
@@ -321,16 +432,21 @@ func (s *Seat) attackers(ctx context.Context, env searchseat.Env, v view.View, d
 			roots = append(roots, root{in: alt})
 		}
 	}
+	roots, first := s.addProposed(d, roots)
 	if len(roots) < 2 {
 		return own, nil
 	}
-	choice := s.search(env, d, "attackers", roots, 0)
+	choice := s.search(e, mk, d, "attackers", roots, 0, s.cfg.AttackWide > 0 || first < len(roots))
+	if choice >= first && first < len(roots) {
+		s.ProposalWins++
+	}
 	return roots[choice].in, nil
 }
 
-// blockers searches a KBlockers decision over sb-tactical's own blocks and
-// builtins.Seat.BlockAlternatives.
-func (s *Seat) blockers(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+// blockers searches a KBlockers decision over sb-tactical's own blocks,
+// builtins.Seat.BlockAlternatives (none, the value blocks, the maximal
+// blocks, the default bot's) and any proposed answers.
+func (s *Seat) blockers(ctx context.Context, e *rules.Engine, mk func() (dealer, string), v view.View, d decision.Decision) (decision.Intent, error) {
 	alts := s.inner.BlockAlternatives(v, d)
 	own, err := s.inner.Decide(ctx, v, d)
 	if err != nil {
@@ -338,20 +454,28 @@ func (s *Seat) blockers(ctx context.Context, env searchseat.Env, v view.View, d 
 	}
 	roots := []root{{in: own}}
 	for _, alt := range alts {
-		if !builtins.SameChoices(alt, own) {
+		dup := false
+		for _, r := range roots {
+			dup = dup || builtins.SameChoices(alt, r.in)
+		}
+		if !dup {
 			roots = append(roots, root{in: alt})
 		}
 	}
+	roots, first := s.addProposed(d, roots)
 	if len(roots) < 2 {
 		return own, nil
 	}
-	choice := s.search(env, d, "blockers", roots, 0)
+	choice := s.search(e, mk, d, "blockers", roots, 0, true)
+	if choice >= first && first < len(roots) {
+		s.ProposalWins++
+	}
 	return roots[choice].in, nil
 }
 
 // target searches a single-target KTarget decision over sb-tactical's own
 // target and its next best (builtins.Seat.TargetAlternatives).
-func (s *Seat) target(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+func (s *Seat) target(ctx context.Context, e *rules.Engine, mk func() (dealer, string), v view.View, d decision.Decision) (decision.Intent, error) {
 	k := s.cfg.TargetK
 	if k <= 0 {
 		k = 3
@@ -373,19 +497,22 @@ func (s *Seat) target(ctx context.Context, env searchseat.Env, v view.View, d de
 	if len(roots) < 2 {
 		return own, nil
 	}
-	choice := s.search(env, d, "target", roots, 0)
+	choice := s.search(e, mk, d, "target", roots, 0, true)
 	return roots[choice].in, nil
 }
 
 // search values every root over the configured worlds and returns the
 // index to play: 0 (sb-tactical's own answer) on any failure or when no
 // other candidate beats it by the margin.
-func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, roots []root, gap float64) (choice int) {
+//
+// perCand (whole-answer roots) drops a root the root decision refuses
+// instead of failing the world (evaluate).
+func (s *Seat) search(e *rules.Engine, mk func() (dealer, string), d decision.Decision, kind string, roots []root, gap float64, perCand bool) (choice int) {
 	var t0 float64
 	if Millis != nil {
 		t0 = Millis()
 	}
-	dg := Diag{Policy: s.cfg.Name, Turn: env.Engine.G.Turn, Kind: kind, Candidates: len(roots), Gap: gap}
+	dg := Diag{Policy: s.cfg.Name, Turn: e.G.Turn, Kind: kind, Candidates: len(roots), Gap: gap}
 	defer func() {
 		if p := recover(); p != nil {
 			// Never lose an action to the search: sb-tactical's pick.
@@ -405,7 +532,7 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 		rec = &dg.Values
 	}
 	dg.Lead = math.NaN()
-	means, valid, failed, rollouts, refused := s.evaluate(env, d, roots, kind == "blockers" || kind == "target" || (kind == "attackers" && s.cfg.AttackWide > 0), rec)
+	means, valid, failed, rollouts, refused := s.evaluate(e, mk, d, roots, perCand, rec)
 	dg.Worlds, dg.Failed, dg.Rollouts, dg.Refused = valid, failed, rollouts, refused
 	if valid == 0 {
 		return 0
@@ -434,8 +561,8 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 // root other than sb-tactical's), a root refused at the root decision is
 // dropped for good (its mean is NaN) instead of failing the world. The
 // world count adapts (Config.MinWorlds / MaxWorlds) on the paired leads.
-func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root, perCand bool, rec *[][]float64) (means []float64, valid, failed, rollouts int, refused string) {
-	rd, reason := s.redealer(env)
+func (s *Seat) evaluate(e *rules.Engine, mk func() (dealer, string), d decision.Decision, roots []root, perCand bool, rec *[][]float64) (means []float64, valid, failed, rollouts int, refused string) {
+	rd, reason := mk()
 	if reason != "" {
 		return nil, 0, s.cfg.Worlds, 0, reason
 	}
@@ -443,7 +570,7 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root, p
 	sums := make([]float64, len(roots))
 	vals := make([]float64, len(roots))
 	dead := make([]bool, len(roots))
-	rootTurn := env.Engine.G.Turn
+	rootTurn := e.G.Turn
 	maxW := max(s.cfg.Worlds, s.cfg.MaxWorlds)
 	// lead is the best live candidate's paired mean lead over root 0.
 	lead := func() float64 {
@@ -470,7 +597,7 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root, p
 		} else if w >= s.cfg.Worlds {
 			break
 		}
-		base, why := rd.Deal(azmcts.RedealSeed(dseed, w), &s.spareBase)
+		base, why := rd.deal(w, dseed)
 		if why != "" {
 			failed++
 			if refused == "" {
@@ -502,7 +629,7 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root, p
 			}
 			vals[c] = val
 		}
-		s.spareBase = base.Release()
+		rd.release(base)
 		if !ok {
 			failed++
 			continue

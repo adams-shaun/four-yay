@@ -595,7 +595,7 @@ func (t *tactical) archAdjustPriority(st *tstate, d *decision.Decision, cands []
 func castObj(d *decision.Decision, c cand) state.ObjID {
 	switch {
 	case c.opt >= 0:
-		if o := &d.Options[c.opt]; o.Kind == "cast" {
+		if o := optAt(d, c.opt); o.Kind == "cast" {
 			return o.Obj
 		}
 	case c.plan != nil:

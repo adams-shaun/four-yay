@@ -43,7 +43,7 @@ type PriorityKey struct {
 func candKey(d *decision.Decision, c cand) PriorityKey {
 	switch {
 	case c.opt >= 0:
-		o := &d.Options[c.opt]
+		o := optAt(d, c.opt)
 		return PriorityKey{Src: KeyOption, Opt: c.opt, Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Alt: o.AltCostIndex}
 	case c.plan != nil:
 		return PriorityKey{Src: KeyPlan, Opt: -1, Kind: "cast", Obj: c.plan.Cast.Object}

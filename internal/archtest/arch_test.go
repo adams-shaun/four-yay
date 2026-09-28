@@ -102,6 +102,10 @@ func set(s string) map[string]bool {
 // answer is a pure function of the decision stream and its seed.
 // cmd/kshadowcheck (the kernel-shadow fidelity tool) reads it only to report
 // staging cost; it plays no game.
+// cmd/sbagent (the SpellBench v2 agent) reads it to report each shadow
+// policy decision's wall milliseconds in its -stats line and for the
+// search's per-decision clock guard (counted when it fires); cmd/sbv2local
+// (the in-process v2 runner) only reports latency.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 	allowed := map[string]bool{
 		module + "/host":              true,
@@ -119,6 +123,8 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/paymirror":     true,
 		module + "/cmd/sbv1agent":     true,
 		module + "/cmd/kshadowcheck":  true,
+		module + "/cmd/sbagent":       true,
+		module + "/cmd/sbv2local":     true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {

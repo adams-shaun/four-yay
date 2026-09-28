@@ -452,7 +452,7 @@ func (s *Seat) lower(v view.View, d *decision.Decision, depth int) (decision.Int
 	}
 	s.failed[k] = true
 	in = s.rechoose(v, d, depth, len(d.Options)+len(d.PaymentActions))
-	if len(in.Choices) == 1 && in.Payment == nil && d.Options[in.Choices[0]].Kind == "pass" {
+	if len(in.Choices) == 1 && in.Payment == nil && optAt(d, in.Choices[0]).Kind == "pass" {
 		s.Stats.AbortPasses++
 	}
 	return in, true

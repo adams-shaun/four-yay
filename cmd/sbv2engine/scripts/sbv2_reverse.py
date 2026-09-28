@@ -52,13 +52,30 @@ from spellbench.host.game import GameSetup, play_game  # noqa: E402
 from spellbench.messages import DeckRow, Limits, Resources, Rules, TimeControl, WireDeck  # noqa: E402
 from spellbench.run_secret import RunSecret  # noqa: E402
 
-SECRET = RunSecret(bytes(range(32)))  # the spec 16 test-vector run secret
+SECRET = RunSecret(bytes(range(32)))  # the spec 16 test-vector run secret (--seed 0)
+
+
+def run_secret(seed):
+    """--seed 0 is the spec's test-vector secret; any other seed derives a fresh run secret (dev and held-out runs)."""
+    if not seed:
+        return RunSecret(bytes(range(32)))
+    import hashlib
+    return RunSecret(hashlib.sha256(f"sbv2-reverse-run-{seed}".encode()).digest())
 TIME_CONTROL = TimeControl(120000, 60000, 600000, 2000, 60000, 120000)
 LIMITS = Limits(10000, 100000, 500, 4999, 49999)
 RESOURCES = Resources(1, 4096, False, 1)
 PY_VERSION = "2.0.0"
 GO_VERSION = "0.1.0"
 GO_POLICY = {"sbagent-random": "random", "sbagent-heuristic": "heuristic", "sbagent-first": "first"}
+
+
+def go_policy(name):
+    """The sbagent -policy of a bot name: the builtins' ports, and sbagent-shadow-<name> (internal/spellbench/v2shadow)."""
+    if name in GO_POLICY:
+        return GO_POLICY[name]
+    if name.startswith("sbagent-shadow-"):
+        return name[len("sbagent-"):]
+    return None
 POOL = ("Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries")
 
 
@@ -126,8 +143,14 @@ class CapturingSubprocessDriver(SubprocessDriver):
 
 
 def make_driver(name, args, index, seat, captured):
-    if name in GO_POLICY:
-        command = [args.sbagent, "-policy", GO_POLICY[name], "-name", name, "-version", GO_VERSION, "-stats"]
+    if go_policy(name):
+        command = [args.sbagent, "-policy", go_policy(name), "-name", name, "-version", GO_VERSION, "-stats"]
+        if name.startswith("sbagent-shadow-"):
+            command += ["-cards", args.cards, "-budget-ms", str(args.budget_ms), "-quiet"]
+            if args.trace_dir:
+                tdir = Path(args.trace_dir)
+                tdir.mkdir(parents=True, exist_ok=True)
+                command += ["-trace", str(tdir / f"g{index}-{seat}.txt")]
         if args.truth:
             bdir = Path(args.out) / "belief"
             bdir.mkdir(parents=True, exist_ok=True)
@@ -139,7 +162,8 @@ def make_driver(name, args, index, seat, captured):
     return BuiltinDriver(BotSpec(name=name, version=PY_VERSION, type="builtin", seed=0))
 
 
-def game_setup(index, deck, catalog, domain):
+def game_setup(index, deck, catalog, domain, secret=None):
+    SECRET = secret or globals()["SECRET"]
     rows = catalog[deck]
     rules = Rules.from_json({"opponent_decklist": "visible", "mulligan": "none", "starting_player": "host_assigned",
                              "starting_seat": "p0", "card_name_domain": domain, "extensions": [], "probe": False})
@@ -159,7 +183,7 @@ def play_one(worker, job, catalog, domain):
     t0 = time.time()
     try:
         engine = worker.ensure()
-        result = play_game(game_setup(job["index"], job["deck"], catalog, domain), engine=engine, seats=seats)
+        result = play_game(game_setup(job["index"], job["deck"], catalog, domain, run_secret(args.seed)), engine=engine, seats=seats)
     finally:
         for d in seats.values():
             try:
@@ -274,8 +298,10 @@ def cmd_report(args):
         except (OSError, ValueError):
             pass
     board = leaderboard(rows, bots)
+    shadow = shadow_summary(rows)
     summary = {"games": len(rows), "classifications": classes, "halts": halts, "violations": violations,
                "forfeits": forfeits, "harness_errors": errors, "agent": agent, "engine": engine, "board": board,
+               "shadow": shadow,
                "mean_steps": round(sum(steps) / len(steps), 1) if steps else None,
                "mean_wall_s": round(sum(walls) / len(walls), 2) if walls else None}
     (out / "summary.json").write_text(json.dumps(summary, indent=1, sort_keys=True))
@@ -292,12 +318,68 @@ def cmd_report(args):
         if any(k.startswith(p) for p in keys):
             print(f"  {k:48} {engine[k]}")
     print_table(board, bots)
+    for bot, sm in sorted(shadow.items()):
+        lat = sm["latency"]
+        print(f"{bot}: {sm['games']} games, {sm['decisions']} decisions; shadow fallbacks {sm['fallbacks']} "
+              f"({100 * sm['fallbacks'] / max(1, sm['decisions']):.2f}%), agent fallbacks {sm['agent_fallbacks']}, errors sent {sm['errors']}, "
+              f"panics {sm['panics']}, clock-guard stops {sm['clock_stops']}")
+        print(f"  latency ms/decision: mean {lat['mean']:.1f}, per-game p50 median {lat['p50']:.1f}, p90 max {lat['p90max']:.1f}, "
+              f"p99 max {lat['p99max']:.1f}, max {lat['max']:.0f}; decisions over 1s {lat['over_1s']}, over 10s {lat['over_10s']}")
+        for k, v in sorted(sm["answered"].items()):
+            print(f"  answered {k:32} {v}")
+        for k, v in sorted(sm["reasons"].items(), key=lambda kv: -kv[1])[:15]:
+            print(f"  fallback {v:6} {k[:140]}")
     return 0
 
 
-def leaderboard(rows, bots):
+def shadow_summary(rows):
+    """Per shadow bot: decisions by who answered, fallback reasons, latency, recovery counts (sbagent -stats lines)."""
+    out = {}
+    for r in rows:
+        for s in r.get("agent_stats") or []:
+            bot = s.get("Bot")
+            if not bot or "Shadow" not in s:
+                continue
+            e = out.setdefault(bot, {"games": 0, "decisions": 0, "fallbacks": 0, "agent_fallbacks": 0, "errors": 0, "panics": 0,
+                                     "clock_stops": 0, "answered": {}, "reasons": {}, "p50": [], "p90": [], "p99": [],
+                                     "latency": {}, "_total": 0.0, "_max": 0.0, "_o1": 0, "_o10": 0})
+            e["games"] += 1
+            sh = s["Shadow"]["shadow"]
+            e["decisions"] += sh["decisions"]
+            e["fallbacks"] += s.get("ShadowFallbacks", 0)
+            e["agent_fallbacks"] += s.get("PolicyFallbacks", 0)
+            e["errors"] += sum((s.get("Errors") or {}).values())
+            e["panics"] += sh.get("panics", 0)
+            e["clock_stops"] += sh.get("clock_stops", 0)
+            for cls, m in (sh.get("answered") or {}).items():
+                for src, n in m.items():
+                    e["answered"][f"{cls}/{src}"] = e["answered"].get(f"{cls}/{src}", 0) + n
+            for k, v in (sh.get("fallback_reasons") or {}).items():
+                e["reasons"][k] = e["reasons"].get(k, 0) + v
+            lat = s.get("Latency") or {}
+            if lat.get("decisions"):
+                e["_total"] += lat["total_ms"]
+                e["_max"] = max(e["_max"], lat["max_ms"])
+                e["_o1"] += lat["over_1s"]
+                e["_o10"] += lat["over_10s"]
+                e["p50"].append(lat["p50_ms"])
+                e["p90"].append(lat["p90_ms"])
+                e["p99"].append(lat["p99_ms"])
+    for e in out.values():
+        p50 = sorted(e.pop("p50")) or [0]
+        p90 = e.pop("p90") or [0]
+        p99 = e.pop("p99") or [0]
+        e["latency"] = {"mean": e.pop("_total") / max(1, e["decisions"]), "p50": p50[len(p50) // 2], "p90max": max(p90),
+                        "p99max": max(p99), "max": e.pop("_max"), "over_1s": e.pop("_o1"), "over_10s": e.pop("_o10")}
+    return out
+
+
+def leaderboard(rows, bots, replicates=2000, seed=20260928):
+    """SpellBench's rating (arena/leaderboard.py): complete seat-swapped pairs only, one virtual drawn game per
+    matchup in the anchored Bradley-Terry fit and in every paired-bootstrap refit (CI95)."""
     table = {b: {"games": 0, "wins": 0, "draws": 0, "losses": 0, "forfeits": 0, "halted": 0, "truncated": 0} for b in bots}
     pairs = {}
+    units = {}  # (a, b, deck, pair) -> {seat_order: half-points of a}
     for row in rows:
         p0, p1 = row["p0"], row["p1"]
         if p0 == p1 or p0 not in table or p1 not in table:
@@ -326,29 +408,50 @@ def leaderboard(rows, bots):
                 rec[0] += 1
             else:
                 rec[1] += 1
+            half = 1 if winner is None else (2 if winner == a else 0)
+            units.setdefault((a, b, row.get("deck"), row.get("pair")), {})[p0] = half
     for entry in table.values():
         entry["score"] = entry["wins"] + entry["draws"] / 2
         entry["score_pct"] = round(100 * entry["score"] / entry["games"], 1) if entry["games"] else None
-    elo = None
     anchor = "uniform" if "uniform" in bots else ("sbagent-random" if "sbagent-random" in bots else bots[0])
+    matchups = {}
+    for (a, b, deck, pair), halves in sorted(units.items(), key=lambda kv: str(kv[0])):
+        if len(halves) == 2:
+            matchups.setdefault((a, b), []).append(sum(halves.values()))
+    elo, ci = None, {}
     try:
-        fit = ratings.fit_bt_ratings([ratings.PairRecord(a, b, w, l, d) for (a, b), (w, l, d) in pairs.items()],
-                                     reference_id=anchor)
+        recs = []
+        for (a, b), totals in sorted(matchups.items()):
+            games = 2 * len(totals)
+            # Pair totals are half-points; convert to wins/losses/draws counts via halves.
+            wins = sum(1 for (x, y, d, pr), h in units.items() if (x, y) == (a, b) and len(h) == 2 for v in h.values() if v == 2)
+            losses = sum(1 for (x, y, d, pr), h in units.items() if (x, y) == (a, b) and len(h) == 2 for v in h.values() if v == 0)
+            draws = games - wins - losses
+            recs.append(ratings.PairRecord(a, b, wins, losses, draws + 1))
+        fit = ratings.fit_bt_ratings(recs, reference_id=anchor)
         elo = {bot: round(ratings.elo_display(value), 1) for bot, value in fit.ratings_log_units}
+        boot = ratings.paired_rating_bootstrap(
+            [ratings.MatchupPairs(a, b, tuple(t)) for (a, b), t in sorted(matchups.items())], anchor,
+            bootstrap_seed=seed, bootstrap_replicates=replicates, virtual_draws=1)
+        ci = {bot: [round(ratings.elo_display(lo)), round(ratings.elo_display(hi))] for bot, lo, hi in boot.intervals}
     except Exception as exc:  # noqa: BLE001 - report the fit failure
         elo = {"error": str(exc)}
-    return {"table": table, "anchor": anchor, "bt_elo": elo,
+    return {"table": table, "anchor": anchor, "bt_elo": elo, "ci95": ci,
             "pairs": {f"{a} vs {b}": {"a_wins": w, "b_wins": l, "draws": d} for (a, b), (w, l, d) in sorted(pairs.items())}}
 
 
 def print_table(board, bots):
     elo = board["bt_elo"]
-    print(f"BT-Elo anchored {board['anchor']} = 1000")
-    print(f"{'bot':20} {'games':>5} {'W':>4} {'D':>4} {'L':>4} {'score%':>7} {'BT-Elo':>8}  halted/trunc/forfeit")
+    print(f"BT-Elo anchored {board['anchor']} = 1000 (complete pairs, 1 virtual draw per matchup, paired-bootstrap CI95)")
+    if isinstance(elo, dict) and "error" in elo:
+        print(f"  fit failed: {elo['error']}")
+    print(f"{'bot':34} {'games':>5} {'W':>4} {'D':>4} {'L':>4} {'score%':>7} {'BT-Elo':>8} {'CI95':>14}  halted/trunc/forfeit")
     for bot in sorted(bots, key=lambda b: -(board["table"][b]["score_pct"] or 0)):
         e = board["table"][bot]
         shown = elo.get(bot) if isinstance(elo, dict) and "error" not in elo else "-"
-        print(f"{bot:20} {e['games']:>5} {e['wins']:>4} {e['draws']:>4} {e['losses']:>4} {e['score_pct']!s:>7} {shown!s:>8}  "
+        ci = board.get("ci95", {}).get(bot)
+        cis = f"[{ci[0]}, {ci[1]}]" if ci else "-"
+        print(f"{bot:34} {e['games']:>5} {e['wins']:>4} {e['draws']:>4} {e['losses']:>4} {e['score_pct']!s:>7} {shown!s:>8} {cis:>14}  "
               f"{e['halted']}/{e['truncated']}/{e['forfeits']}")
     for k, v in board["pairs"].items():
         print(f"  {k:44} {v}")
@@ -370,6 +473,10 @@ def main(argv=None):
     a.add_argument("--mana", default="manual")
     a.add_argument("--mirrors", action="store_true")
     a.add_argument("--from", dest="from_index", type=int, default=0)
+    a.add_argument("--seed", type=int, default=0, help="run-secret seed (0: the spec test vector)")
+    a.add_argument("--cards", default="", help="sbagent-shadow-*: pool registry (.gob.gz) or corpus dir")
+    a.add_argument("--budget-ms", dest="budget_ms", type=float, default=10000)
+    a.add_argument("--trace-dir", dest="trace_dir", default="")
     a.add_argument("--to", dest="to_index", type=int)
     r = sub.add_parser("report")
     r.add_argument("--out", required=True)

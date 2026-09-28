@@ -15,7 +15,7 @@ func (t *tactical) scoreCand(s *tstate, d *decision.Decision, c cand) float64 {
 	kind, obj, mode, abil, alt := "", state.ObjID(0), "", 0, 0
 	switch {
 	case c.opt >= 0:
-		o := &d.Options[c.opt]
+		o := optAt(d, c.opt)
 		kind, obj, mode, abil, alt = o.Kind, o.Obj, o.Mode, o.Ability, o.AltCostIndex
 	case c.plan != nil:
 		kind, obj = "cast", c.plan.Cast.Object
