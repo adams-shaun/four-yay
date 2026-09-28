@@ -1,24 +1,10 @@
 {
-  "card": "Dark Fortress",
-  "family": "activation-condition",
-  "oracle_sha": "04353e305688",
+  "card": "Dark Fortress", "family": "activation-condition", "oracle_sha": "04353e305688",
   "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
   "scenarios": [
-    {
-      "name": "colored-mana-unavailable-without-basic-land-after-entry-turn",
-      "cr": ["602.5", "305.6"],
-      "why": "The Fortress is present before turn one, so its entry-turn alternative is false; with no basic land controlled, the colored ability is unavailable and colorless mana remains available.",
-      "setup": {"p0": {"battlefield": ["Dark Fortress"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Dark Fortress", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
-      "expect": [{"pool": {"p0": "C"}}]
-    },
-    {
-      "name": "colored-mana-available-with-basic-land",
-      "cr": ["602.5", "305.6", "605.1a", "106.12"],
-      "why": "A basic Swamp meets the alternative restriction; selecting the black choice taps the Fortress and adds black mana.",
-      "setup": {"p0": {"battlefield": ["Dark Fortress", "Swamp"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Dark Fortress", "ability": "", "answers": [{"kind": "choose", "pick": ["Add B"]}]}],
-      "expect": [{"pool": {"p0": "B"}}]
-    }
+    {"name": "colored-mana-unavailable-without-basic-land-or-entry-this-turn", "cr": ["602.5", "305.6"], "why": "The Fortress entered before turn one, and controlling only this nonbasic land does not satisfy the alternative basic-land condition.", "setup": {"p0": {"battlefield": ["Dark Fortress"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Dark Fortress", "label": "Add {B}"}, "want": false}]},
+    {"name": "colored-mana-offered-while-controlling-basic", "cr": ["602.5", "305.6"], "why": "The player controls a basic land, which satisfies the ability's second alternative condition.", "setup": {"p0": {"battlefield": ["Dark Fortress", "Swamp"]}}, "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Dark Fortress", "label": "Add {B}"}, "want": true}]},
+    {"name": "colored-mana-activates-with-basic-land", "cr": ["602.5", "305.6", "605.1a", "106.12"], "why": "With a basic Swamp under control, the restricted ability is legal and its activation adds black mana.", "setup": {"p0": {"battlefield": ["Dark Fortress", "Swamp"]}}, "steps": [{"op": "activate", "seat": 0, "card": "p0:Dark Fortress", "ability": "Add {B}"}], "expect": [{"pool": {"p0": "B"}}]},
+    {"name": "colorless-mana-activates-unrestricted", "cr": ["602.5", "605.1a", "106.12"], "why": "The colorless-producing ability carries no restriction; activating it taps the Fortress and adds colorless mana even with no basic land controlled.", "setup": {"p0": {"battlefield": ["Dark Fortress"]}}, "steps": [{"op": "activate", "seat": 0, "card": "p0:Dark Fortress", "ability": "Add {C}"}], "expect": [{"pool": {"p0": "C"}}]}
   ]
 }

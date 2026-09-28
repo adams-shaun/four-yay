@@ -1,0 +1,42 @@
+{
+  "card": "Sowing Mycospawn",
+  "family": "trigger-condition",
+  "oracle_sha": "31042f0ddca3",
+  "author": "agent-20260927T220741Z-13369c0b (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "kicked-exiles-opposing-land",
+      "cr": ["702.33a", "603.4", "603.2"],
+      "why": "Paying the extra kicker makes the second cast trigger's condition true, so it exiles the targeted opposing land while the unconditional search still finds a land.",
+      "setup": {
+        "p0": {"hand": ["Sowing Mycospawn"], "library": ["Plains"]},
+        "p1": {"battlefield": ["Swamp"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Sowing Mycospawn", "mana": "GGGGGC", "kicked": true},
+        {"op": "resolve", "targets": ["p1:Swamp"], "answers": [{"kind": "choose", "pick": ["Plains"]}]}
+      ],
+      "expect": [
+        {"card": "p1:Swamp", "zone": "exile"},
+        {"card": "p0:Plains", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "ordinary-cast-no-exile",
+      "cr": ["702.33a", "603.4"],
+      "why": "Without the kicker payment the second cast trigger's condition is false, so the opposing land is untouched while the unconditional search still finds a land.",
+      "setup": {
+        "p0": {"hand": ["Sowing Mycospawn"], "library": ["Plains"]},
+        "p1": {"battlefield": ["Swamp"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Sowing Mycospawn", "mana": "GGGG"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Plains"]}]}
+      ],
+      "expect": [
+        {"card": "p1:Swamp", "zone": "battlefield"},
+        {"card": "p0:Plains", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

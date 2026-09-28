@@ -5,20 +5,34 @@
   "author": "cli-20260927T211249Z-0d25a7f8 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "restricted-red-mana-unavailable-without-swamp-or-mountain",
+      "name": "red-mana-unavailable-without-mountain-or-swamp",
       "cr": ["602.5", "305.6"],
-      "why": "With no land having either named subtype, the restricted red ability cannot be selected; the unrestricted black ability remains available.",
+      "why": "The red-producing activated ability is restricted to controlling a land with the Mountain or Swamp subtype; the Verge alone has neither subtype.",
       "setup": {"p0": {"battlefield": ["Blazemire Verge"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add R"]}]}],
-      "expect": [{"pool": {"p0": "B"}}]
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Blazemire Verge", "label": "Add {R}"}, "want": false}]
     },
     {
-      "name": "restricted-red-mana-available-with-mountain",
-      "cr": ["602.5", "305.6", "605.1a", "106.12"],
-      "why": "A Mountain meets the restriction, so choosing the red-producing ability taps the Verge and adds red mana.",
+      "name": "red-mana-offered-with-mountain",
+      "cr": ["602.5", "305.6"],
+      "why": "A Mountain satisfies the stated land-type restriction, so the red-producing ability is available.",
       "setup": {"p0": {"battlefield": ["Blazemire Verge", "Mountain"]}},
-      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "", "answers": [{"kind": "choose", "pick": ["Add R"]}]}],
+      "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Blazemire Verge", "label": "Add {R}"}, "want": true}]
+    },
+    {
+      "name": "red-mana-activates-with-swamp",
+      "cr": ["602.5", "305.6", "605.1a", "106.12"],
+      "why": "Controlling a Swamp meets the restriction; activating the available mana ability taps the Verge and adds red mana.",
+      "setup": {"p0": {"battlefield": ["Blazemire Verge", "Swamp"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "Add {R}"}],
       "expect": [{"pool": {"p0": "R"}}]
+    },
+    {
+      "name": "black-mana-activates-unrestricted",
+      "cr": ["602.5", "605.1a", "106.12"],
+      "why": "The black-producing ability carries no restriction; activating it taps the Verge and adds black mana even with no Mountain or Swamp controlled.",
+      "setup": {"p0": {"battlefield": ["Blazemire Verge"]}},
+      "steps": [{"op": "activate", "seat": 0, "card": "p0:Blazemire Verge", "ability": "Add {B}"}],
+      "expect": [{"pool": {"p0": "B"}}]
     }
   ]
 }
