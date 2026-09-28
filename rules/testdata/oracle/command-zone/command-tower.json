@@ -1,0 +1,96 @@
+{
+  "card": "Command Tower",
+  "family": "command-zone",
+  "oracle_sha": "ef99a3cd50fa",
+  "author": "cli-20260927T211249Z-7acc6934 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "white-in-identity",
+      "cr": [
+        "903.3",
+        "903.4",
+        "605.1a"
+      ],
+      "why": "The designated commander has a white symbol; its identity is fixed even while it is in the command zone, so this mana ability can add white.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Isamaru, Hound of Konda"
+          ],
+          "battlefield": [
+            "Command Tower"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Command Tower",
+          "ability": "for mana",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "White"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "W"
+          }
+        }
+      ]
+    },
+    {
+      "name": "red-identity-produces-red",
+      "cr": [
+        "903.3",
+        "903.4",
+        "605.1a"
+      ],
+      "why": "Replacing the designated commander with a red-only commander changes the available mana colour: this source produces red while the commander remains in the command zone.",
+      "format": "commander",
+      "setup": {
+        "p0": {
+          "command": [
+            "Norin the Wary"
+          ],
+          "battlefield": [
+            "Command Tower"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Command Tower",
+          "ability": "for mana",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Red"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "R"
+          }
+        }
+      ]
+    }
+  ]
+}

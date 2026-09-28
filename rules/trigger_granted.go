@@ -830,6 +830,17 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 		if e.finishingLifeLossBatch && t.Mode != "LifeLostAll" {
 			continue
 		}
+		// The leaves-the-battlefield split, mirrored from the face walk and
+		// the GainedTriggerFaces loop above: a battlefield-origin ChangesZone
+		// grant (Relic Vial's "whenever a creature you control dies") looks
+		// back (CR 603.10a) and belongs to the look-back pass alone. Without
+		// the gate the same grant queued once per pass on every
+		// leaves-the-battlefield event -- once against the pre-departure board
+		// and once against the live one -- and each opponent lost 2 life
+		// where the card says 1.
+		if split && (t.Mode == "ChangesZone" && t.Params["Origin"] == "Battlefield") != leaving {
+			continue
+		}
 		// The live==replay gate: link the Execute$ body exactly the way
 		// events.Apply will (the GRANTOR's own table -- ce.Source carries the
 		// printed static; a self-grant degenerates to the affected object;

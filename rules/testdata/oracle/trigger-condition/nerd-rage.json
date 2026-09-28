@@ -1,0 +1,149 @@
+{
+  "card": "Nerd Rage",
+  "family": "trigger-condition",
+  "oracle_sha": "15ac8aee8a52",
+  "author": "cli-20260927T211250Z-844c6095 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "ten-cards-attack-buff",
+      "cr": [
+        "603.4",
+        "508.1m"
+      ],
+      "why": "After the Aura enters and draws two cards, the controller has exactly 10 cards. Ten meets the threshold; the enchanted creature gains ten power and toughness.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Nerd Rage",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Nerd Rage",
+          "mana": "UUU",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "hand_size": {
+                "p0": 10
+              }
+            }
+          ]
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grizzly Bears"
+          ],
+          "defender": "p1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Grizzly Bears",
+              "want": true
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "12/12"
+        }
+      ]
+    },
+    {
+      "name": "nine-cards-no-trigger",
+      "cr": [
+        "603.4",
+        "508.1m"
+      ],
+      "why": "After the Aura enters and draws two cards, the controller has exactly 9 cards. Nine is below ten, so attacking never puts the conditional ability on the stack.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Nerd Rage",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes",
+            "Wastes"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Nerd Rage",
+          "mana": "UUU",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "hand_size": {
+                "p0": 9
+              }
+            }
+          ]
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grizzly Bears"
+          ],
+          "defender": "p1",
+          "expect": [
+            {
+              "trigger_on_stack": "p0:Grizzly Bears",
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}

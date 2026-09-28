@@ -1,0 +1,117 @@
+{
+  "card": "Herald of Kozilek",
+  "family": "cost-modifier",
+  "oracle_sha": "fe930fc261d5",
+  "author": "cli-20260927T211250Z-9b48f4e3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "colourless-artifact-reduced-to-zero",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Bonesplitter has no colour and costs one generic; the Herald removes that unit for its controller.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bonesplitter"
+          ],
+          "battlefield": [
+            "Herald of Kozilek"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "expect": [
+            {
+              "pool": {
+                "p0": ""
+              }
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Bonesplitter",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "green-creature-not-colourless",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "Grizzly Bears has a green mana symbol and is green; one green mana still leaves its generic cost unpaid.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grizzly Bears"
+          ],
+          "battlefield": [
+            "Herald of Kozilek"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "opponent-colourless-cost-full",
+      "cr": [
+        "601.2f",
+        "118.7a"
+      ],
+      "why": "The Herald discounts only the spells its controller casts; the opponent cannot cast Bonesplitter without mana.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Bonesplitter"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Herald of Kozilek"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Bonesplitter"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

@@ -128,6 +128,17 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 // TestWitnessReadsPayLifeOnlySources; the seed still asserts a clean 34-turn
 // game (every verdict and control equivalent) and the guarded cast is the same
 // Demonic Tutor, now at seq 4231.
+//
+// fb-20260927T163321Z-69285807 re-pinned every commander seed here (4130,
+// 4098, 4139, 4129) after the command-zone payment-plan fix: a commander in
+// the command zone now gets a plan, so the auto-pay bots cast it through one
+// and every commander game moves. 4139/4129 keep the same card (Urza's
+// Incubator, Demonic Tutor) at their new seqs. 4098's Master of Dark Rites
+// cast survives but the float-sacrifice placement shape no longer occurs, so
+// its pin drops to equivalent. 4130's Firebird cast no longer occurs at all;
+// the seed keeps an empty pin (seq 0, the round-10 convention) and asserts the
+// whole game is mismatch-free and control-equivalent, which is the guarantee
+// its control finding (contChain.len) needed.
 func TestRoundSixFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -140,13 +151,19 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 		seq   uint64
 		want  string // the named cast's verdict key ("" = equivalent)
 	}{
-		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 7213, ""},
+		// seq 0 = the finding's own cast no longer occurs in the moved game;
+		// the empty pin still asserts the whole game is mismatch-free and
+		// control-equivalent (the round-10 convention, seed 11828).
+		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 0, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
-		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 5592, "expected:float_then_cast:float_trigger_placement"},
-		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6752, ""},
-		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 4231, ""},
+		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7659, ""},
+		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6728, ""},
+		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5788, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: true, Policy: "bot"})
+		if len(reports) == 0 {
+			t.Errorf("seed %d: no planned-cast reports; clean-game assertions would be vacuous", tc.seed)
+		}
 		found := false
 		for _, r := range reports {
 			st, key := r.Verdict()
@@ -164,7 +181,7 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 				t.Errorf("seed %d seq %d %q: verdict %s %q, want %q", tc.seed, r.Seq, r.Card, st, key, tc.want)
 			}
 		}
-		if !found {
+		if !found && tc.seq != 0 {
 			t.Errorf("seed %d: no planned cast at seq %d (the game no longer reaches the finding)", tc.seed, tc.seq)
 		}
 	}

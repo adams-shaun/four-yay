@@ -16,6 +16,8 @@
   import CardImage from './CardImage.svelte';
   import CardTile from './CardTile.svelte';
   import ManaPool from './ManaPool.svelte';
+  import ManaPaymentPanel from './ManaPaymentPanel.svelte';
+  import { announceActions, manaWindow } from '../lib/announcepay';
   import { CardHover } from '../lib/carddetail.svelte';
 
   /**
@@ -201,6 +203,13 @@
   // pays may need the mana, including one the engine offers only after the
   // mana floats. A costly activation (isPlainManualTap) is never hidden.
   const hideManualMana = $derived(manualManaHidden(decision, view, ctx.seat, logic.autoPayMana));
+  // Announce then pay (docs/superpowers/specs/2026-09-27-announce-then-pay.md
+  // §8): with Auto-pay OFF, a cast the planner can pay from the pool plus
+  // untapped sources but the pool alone cannot (no legacy option yet) is
+  // listed as a cast that opens the select-mana window; the announced window
+  // itself renders as ManaPaymentPanel.
+  const announceCasts = $derived(announceActions(decision, logic.autoManaAvailable, logic.autoPayMana));
+  const payWindow = $derived(manaWindow(decision));
 
   // holdPriority is the Ctrl modifier, exactly as on every other option
   // button: a Ctrl-held planned cast skips the pass-after-acting arming.
@@ -699,6 +708,8 @@
             {#if nameOpts.length === 0}<p class="search-empty">No card matches “{logic.searchFilter}”.</p>{/if}
           </div>
         </div>
+      {:else if payWindow !== null}
+        <ManaPaymentPanel decision={payWindow} {view} busy={logic.busy} onPick={(index) => logic.click(index)} />
       {:else}
         <div class="options" data-options>
           {#if paymentActions.length > 0}
@@ -763,6 +774,16 @@
             </div>
           {/if}
           <div class="list">
+            {#each announceCasts as action (action.id)}
+              <button
+                class="option"
+                type="button"
+                data-announce={action.id}
+                title="Cast, then choose the mana to pay with"
+                onclick={(e) => logic.submitAnnounce(action, e.ctrlKey)}
+                disabled={logic.busy}
+              ><span class="label">{action.label}</span></button>
+            {/each}
             {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index && !paymentBases.has(opt.index) && !(hideManualMana && isPlainManualTap(opt))) as opt (opt.index)}
               {@const pickedAt = logic.picked.indexOf(opt.index)}
               {@const pickedCount = decision.repeatable ? logic.picked.filter((i) => i === opt.index).length : 0}

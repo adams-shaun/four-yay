@@ -46,6 +46,9 @@ import (
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
 var oracleKnownDivergent = map[string]string{
+	// Script translation: effects/play.go validSAOK rejects the Hero subtype
+	// when filtering a free cast, leaving no offered Hero despite X = 5.
+	"West Coast Expansion/x-five-may-cast-hero": "observed Hero stays in hand (6 cards after drawing five), expected free cast to battlefield (5 cards in hand)",
 	// Gray Merchant's drain resolves but its subsequent life-gain amount is
 	// zero: the life-loss total is not propagated to the gain (effects/life.go,
 	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
@@ -65,12 +68,17 @@ var oracleKnownDivergent = map[string]string{
 	// that ends the grant's IsPresent$ condition loses its own trigger. The
 	// SBA path (only-cleric-dies-to-damage-looks-back) uses the pre-batch
 	// snapshot and passes.
-	"Relic Vial/only-cleric-dies-looks-back":              "destroying the only Cleric drains nobody (no look-back for an effect destroy)",
-	"Relic Vial/sacrifice-only-cleric-as-cost-looks-back": "sacrificing the only Cleric as a cost drains nobody (no look-back for a cost sacrifice)",
 	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
 	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
 	// so an Eminence trigger never fires from the command zone.
 	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
+	// Script translation: the once-per-turn permission is tracked per
+	// affected spell, so Darksteel Monolith's free-cast grant is available again.
+	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
+	// Engine primitive gap: the death trigger's damage-source filter has no
+	// DamagedBy matcher (40 corpus scripts use that qualifier). The script
+	// accurately encodes Hawkeye's printed condition.
+	"Hawkeye, Avenging Archer/damaged-victim-dies-draw": "observed no draw (hand 0), expected one draw (hand 1) after Hawkeye damaged the victim",
 	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
 	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Thor damage 0; expected p0 life 20 and Thor damage 3",
 	// Engine primitive: entering Angel appears to be included in Giada's CountValid
@@ -88,6 +96,13 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: Urza's Workshop's conditional Urza-land count is
 	// not reflected in its mana ability; the three-land board produces one C.
 	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
+	// Engine filter gap: Captain Marvel's script uses Creature...+nonKree,
+	// which the trigger matcher fails closed on (also noted in acceptance_test.go).
+	"Captain Marvel, Apex Avenger/non-kree-creature-counter-is-copied": "Experiment One gets a counter, but Captain Marvel stays 4/4 with none (nonKree filter fails closed)",
+	// Engine trigger-chain gap: Earthbender's script chains ImmediateTrigger
+	// with ConditionCheckSVar$ and ConditionPresent$; the mixed condition shape
+	// is unresolved in effects/conditions.go, and the fourth-counter follow-up is lost.
+	"Earthbender Ascension/fourth-landfall-reaches-quest-threshold": "4 quest counters reached, but target gets no +1/+1 counter or Trample (reflexive trigger chain lost)",
 }
 
 type oracleFile struct {
