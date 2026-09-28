@@ -177,24 +177,40 @@ type panicky struct{ First }
 
 func (panicky) Choose(*Decision) (int, error) { panic("boom") }
 
-// TestPolicyFailuresAnswerInternalError: a panicking or out-of-range policy
-// answers internal_error (spec 10.5) and the agent keeps serving.
-func TestPolicyFailuresAnswerInternalError(t *testing.T) {
-	a, err := New(panicky{}, Options{Name: "t", Version: "1"})
+// badIndex is a policy that answers an out-of-range index.
+type badIndex struct{ First }
+
+func (badIndex) Choose(d *Decision) (int, error) { return len(d.Candidates) + 3, nil }
+
+// TestPolicyFailuresFallBackToCandidateZero: a panicking or out-of-range
+// policy never answers an error -- an error answering choose is a forfeit
+// (spec 10.5) -- but candidate 0 (pass whenever legal), counted in Stats,
+// and the agent keeps serving.
+func TestPolicyFailuresFallBackToCandidateZero(t *testing.T) {
+	for _, p := range []Policy{panicky{}, badIndex{}} {
+		policyFailureFallsBack(t, p)
+	}
+}
+
+func policyFailureFallsBack(t *testing.T, p Policy) {
+	a, err := New(p, Options{Name: "t", Version: "1"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	start := `{"request_type":"game_start","protocol":"spellbench/v2","request_id":"r-1","game_id":"g","seat":"p0","agent_seed":1}`
-	choose := `{"request_type":"choose","protocol":"spellbench/v2","request_id":"r-2","game_id":"g","decision":{"candidates":[{"candidate_id":0,"semantic":{"kind":"pass"}}]}}`
+	choose := `{"request_type":"choose","protocol":"spellbench/v2","request_id":"r-2","game_id":"g","decision":{"candidates":[{"candidate_id":0,"semantic":{"kind":"pass"}},{"candidate_id":1,"semantic":{"kind":"play_land","source":null,"face":0}}]}}`
 	over := `{"request_type":"game_over","protocol":"spellbench/v2","request_id":"r-3","game_id":"g","terminal":{"outcome":"draw","classification":"natural","winner":null,"reason":"x","seat_step_count":1}}`
 	for _, step := range []struct{ line, want string }{
 		{start, `"response_type":"ack"`},
-		{choose, `"code":"internal_error"`},
+		{choose, `"selection":{"candidate_id":0`},
 		{over, `"response_type":"ack"`},
 	} {
 		if out := string(a.HandleLine([]byte(step.line))); !strings.Contains(out, step.want) {
-			t.Errorf("%s -> %s, want %s", step.line[:40], out, step.want)
+			t.Errorf("%T: %s -> %s, want %s", p, step.line[:40], out, step.want)
 		}
+	}
+	if a.Stats.PolicyFallbacks != 1 || len(a.Stats.Errors) != 0 || a.Stats.Chooses != 1 || a.Stats.Requests != 3 {
+		t.Errorf("%T: stats %+v, want 1 fallback, no errors, 1 choose, 3 requests", p, a.Stats)
 	}
 }
 

@@ -38,6 +38,22 @@ type Options struct {
 	// SkipStrictCheck turns off the second, strict decode that reports
 	// fields the typed structs do not know. Play is unaffected either way.
 	SkipStrictCheck bool
+	// BeliefLog, when non-nil, receives one JSON line per choose: the
+	// seat's reconstruction (Belief) keyed by game_id, seat and seat_step,
+	// for the reverse-adapter shadow check. Diagnostics only; never part of
+	// the protocol.
+	BeliefLog io.Writer
+}
+
+// Stats counts what the agent answered. Every protocol-visible failure is
+// here: errors it sent (by code), and the choose requests it answered with
+// a fallback instead of an error because the policy failed (a choose error
+// is a forfeit, spec 10.5, and never loses a legal action on our side).
+type Stats struct {
+	Requests        int
+	Chooses         int
+	Errors          map[string]int
+	PolicyFallbacks int
 }
 
 // Agent serves the agent role of spec Section 10 for one policy. It is not
@@ -59,6 +75,10 @@ type Agent struct {
 
 	logged   map[string]bool
 	logLines int
+
+	belief *Belief
+	// Stats counts the agent's answers (see Stats).
+	Stats Stats
 }
 
 // New returns an agent that answers with policy.
@@ -72,7 +92,7 @@ func New(policy Policy, opts Options) (*Agent, error) {
 	if opts.MaxLogLines == 0 {
 		opts.MaxLogLines = 64
 	}
-	return &Agent{policy: policy, opts: opts, logged: map[string]bool{}}, nil
+	return &Agent{policy: policy, opts: opts, logged: map[string]bool{}, Stats: Stats{Errors: map[string]int{}}}, nil
 }
 
 // Serve answers request lines from r on w until r reaches EOF (closing stdin
@@ -106,6 +126,18 @@ func (a *Agent) Serve(r io.Reader, w io.Writer) error {
 // HandleLine answers one request line (terminator optional) with one
 // canonical response line, "\n" included.
 func (a *Agent) HandleLine(line []byte) []byte {
+	a.Stats.Requests++
+	out := a.handleLine(line)
+	if bytes.HasPrefix(out, []byte(`{"error":{"code":"`)) {
+		code := out[len(`{"error":{"code":"`):]
+		if i := bytes.IndexByte(code, '"'); i >= 0 {
+			a.Stats.Errors[string(code[:i])]++
+		}
+	}
+	return out
+}
+
+func (a *Agent) handleLine(line []byte) []byte {
 	line = bytes.TrimRight(line, "\r\n")
 	if !json.Valid(line) {
 		return errorLine("", ErrMalformedJSON, "line is not valid JSON")
@@ -176,6 +208,9 @@ func (a *Agent) gameStart(requestID string, line []byte, top map[string]json.Raw
 	}
 	a.Game, a.gameID, a.active = gs, gameID, true
 	a.Observation, a.Decision = nil, nil
+	if a.opts.BeliefLog != nil {
+		a.belief = NewBelief(gs)
+	}
 	return responseLine("ack", requestID, nil)
 }
 
@@ -187,16 +222,26 @@ func (a *Agent) choose(requestID string, top map[string]json.RawMessage) []byte 
 	if err != nil {
 		return errorLine(requestID, ErrMalformedRequest, err.Error())
 	}
+	a.Stats.Chooses++
+	if a.belief != nil {
+		beliefWriter{a.opts.BeliefLog}.write(a.belief.Record(a.gameID, d))
+	}
 	index := -1
-	if err := a.call(func() error {
+	err = a.call(func() error {
 		var e error
 		index, e = a.policy.Choose(d)
 		return e
-	}); err != nil {
-		return errorLine(requestID, ErrInternal, "choose failed: "+err.Error())
+	})
+	if err == nil && (index < 0 || index >= len(d.Candidates)) {
+		err = fmt.Errorf("policy chose index %d of %d candidates", index, len(d.Candidates))
 	}
-	if index < 0 || index >= len(d.Candidates) {
-		return errorLine(requestID, ErrInternal, fmt.Sprintf("policy chose index %d of %d candidates", index, len(d.Candidates)))
+	if err != nil {
+		// An error answering choose is a forfeit (spec 10.5): answer the
+		// first candidate instead -- pass whenever passing is legal (spec
+		// 7.1) -- and count it.
+		a.Stats.PolicyFallbacks++
+		a.logf("choose: policy failed (%v); answering candidate 0", err)
+		index = 0
 	}
 	a.Decision, a.Observation = d, d.Observation()
 	chosen := &d.Candidates[index]
