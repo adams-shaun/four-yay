@@ -1161,6 +1161,10 @@ func cloneCombatRound(cr combatRound) combatRound {
 	// asunblk1: the as-unblocked election queues the same way.
 	cr.electQueue = append([]state.ObjID(nil), cr.electQueue...)
 	cr.doneElect = append([]state.ObjID(nil), cr.doneElect...)
+	// CR 726.2 pass adjudication state: the landed candidate list must not
+	// alias the original's (the holder snapshot and the bools are plain
+	// values, carried by the value copy).
+	cr.initCtrls = append([]state.PlayerID(nil), cr.initCtrls...)
 	// askElection is a plain bool, carried by the value copy.
 	return cr
 }

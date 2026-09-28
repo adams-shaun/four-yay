@@ -2132,6 +2132,17 @@ type combatRound struct {
 	// cannot run (nor can its SBA/regular pass) until that event settles.
 	assignments []assignment
 	damageNext  int
+	// initHad/initHolder/initCtrls carry the CR 726.2 simultaneous-pass
+	// adjudication across a replacement-order suspension the same way:
+	// initHolder is the initiative-holder snapshot taken when the pass began
+	// dealing (the designation must be matched against WHO HELD IT when the
+	// simultaneous pass began, not the live field, because this very block
+	// moves it), and initCtrls accumulates the distinct controllers of
+	// creatures whose hits LANDED on that snapshot holder. The one
+	// adjudication runs after the loop, once per completed pass.
+	initHad    bool
+	initHolder state.PlayerID
+	initCtrls  []state.PlayerID
 	// dealing marks a pass whose damage has started being dealt (damageStep's
 	// fresh path stored its assignments) and whose completeCombatPass tail
 	// has not run yet. A decision that is NOT a replacement-order ask can be
@@ -2903,6 +2914,17 @@ func (e *Engine) damageStep(firstStrike bool) {
 // assignment. A replacement-order ask returns immediately, keeping the next
 // index and every later assignment parked until handleReplacement resumes it.
 func (e *Engine) runCombatAssignments() {
+	// CR 726.2 snapshot, taken when the pass STARTS dealing (damageNext == 0;
+	// a replacement-order re-entry always resumes at damageNext >= 1, so this
+	// runs once per pass): the whole simultaneous pass is ONE adjudication, so
+	// who held the initiative is fixed when dealing begins, not re-read per
+	// hit -- this very pass moves it. Cleared here, accumulated in the loop,
+	// and judged once in this function's tail.
+	if e.combatRound.damageNext == 0 {
+		e.combatRound.initHad = e.G.HasInitiative
+		e.combatRound.initHolder = e.G.Initiative
+		e.combatRound.initCtrls = e.combatRound.initCtrls[:0]
+	}
 	for i := e.combatRound.damageNext; i < len(e.combatRound.assignments); i++ {
 		x := e.combatRound.assignments[i]
 		// e.damaging names the dealing creature for the whole of this
@@ -3027,23 +3049,36 @@ func (e *Engine) runCombatAssignments() {
 						e.emit(events.Event{Kind: events.MonarchChange,
 							Player: e.G.Obj(x.from).Controller})
 					}
-					// CR 726.2: when one or more creatures deal combat damage to
-					// the player who has the initiative, the controller of those
-					// creatures takes the initiative. The designation moves as one
-					// InitiativeChange (idempotent across simultaneous hits), and
-					// the inherent "whenever a player takes the initiative"
-					// ability makes the new holder venture into Undercity -- queued
-					// as the source-less synthetic trigger so it lands on the
-					// stack with the rest of the combat-damage triggers. Only the
-					// FIRST hit queues a venture: the fold has already moved the
-					// designation, so a later simultaneous hit by the same
-					// controller no longer matches ev.Player == e.G.Initiative.
-					if e.G.HasInitiative && ev.Player == e.G.Initiative &&
+					// CR 726.2: "Whenever one or more creatures a player controls
+					// deal combat damage to the player who has the initiative, the
+					// controller of those creatures takes the initiative." The
+					// whole simultaneous pass is ONE adjudication: this block only
+					// records the controllers of creatures whose hits LANDED on the
+					// holder SNAPSHOT (taken when dealing began -- the live field
+					// must not be re-read, because this very rule moves it), and
+					// runCombatAssignments' tail judges once: the candidate first in
+					// turn order takes the initiative, exactly one InitiativeChange
+					// folds and exactly one source-less "whenever a player takes
+					// the initiative" venture trigger (CR 726.2) is queued with the
+					// rest of the combat-damage triggers. Judging by turn order
+					// rather than event order is the rule's own reading (CR 726.2
+					// fires once for the pass, and "the controller of those
+					// creatures" is a single designation), and it matches 726.5:
+					// a controller who already holds the designation re-taking it
+					// folds an idempotent InitiativeChange and still ventures.
+					if e.combatRound.initHad && ev.Player == e.combatRound.initHolder &&
 						x.from != 0 && e.G.Obj(x.from) != nil {
 						ctrl := e.G.Obj(x.from).Controller
-						e.emit(events.Event{Kind: events.InitiativeChange, Player: ctrl})
-						e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
-							Controller: ctrl, InitiativeVenture: true})
+						known := false
+						for _, c := range e.combatRound.initCtrls {
+							if c == ctrl {
+								known = true
+								break
+							}
+						}
+						if !known {
+							e.combatRound.initCtrls = append(e.combatRound.initCtrls, ctrl)
+						}
 					}
 					// CR 702.164 (toxic): a player dealt combat damage by a source
 					// with toxic N ALSO gets N poison counters. Toxic modifies the
@@ -3072,6 +3107,38 @@ func (e *Engine) runCombatAssignments() {
 			e.combatRound.damageNext = i + 1
 			return
 		}
+	}
+	// CR 726.2, the one adjudication of this simultaneous pass (see the
+	// collection block above): among the distinct controllers whose creatures
+	// landed combat damage on the holder snapshot, the one FIRST IN TURN ORDER
+	// takes the initiative -- a turn-based action, not an event-order race.
+	// AliveFrom(e.G.Active) walks the surviving seats in APNAP order from the
+	// active player (the same "first in turn order" convention askBlockers
+	// uses for CR 802.4); the first walk entry that is a candidate wins. One
+	// InitiativeChange folds and one venture trigger is queued, no matter how
+	// many hits (or how many distinct controllers) the pass carried. A
+	// controller who already holds the designation wins cleanly: the fold is
+	// idempotent (CR 726.3) and the venture still fires (CR 726.5).
+	if e.combatRound.initHad && len(e.combatRound.initCtrls) > 0 {
+		order := e.G.AliveFrom(e.G.Active)
+		winner, found := state.PlayerID(0), false
+		for _, p := range order {
+			for _, c := range e.combatRound.initCtrls {
+				if c == p {
+					winner, found = p, true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if found {
+			e.emit(events.Event{Kind: events.InitiativeChange, Player: winner})
+			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+				Controller: winner, InitiativeVenture: true})
+		}
+		e.combatRound.initCtrls = e.combatRound.initCtrls[:0]
 	}
 	e.closeDamageBatch()
 	e.combatRound.assignments = nil
