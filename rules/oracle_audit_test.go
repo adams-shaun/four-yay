@@ -93,7 +93,6 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: Urza's Workshop's conditional Urza-land count is
 	// not reflected in its mana ability; the three-land board produces one C.
 	"Urza's Workshop/metalcraft-three-artifacts-three-urza-lands": "observed C, expected CCC for three Urza's lands",
-
 }
 
 type oracleFile struct {

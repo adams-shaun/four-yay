@@ -22,7 +22,7 @@
       "why": "The chosen type is Bear, not Goblin. Goblin Piledriver retains its generic mana in addition to red mana.",
       "setup": {"p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Herald's Horn", "Grizzly Bears"]}},
       "setup_answers": [{"kind": "any", "pick": ["Bear"]}],
-      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
+      "steps": [{"op": "mana", "seat": 0, "mana": "R"}],
       "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Goblin Piledriver"}, "want": false}]
     },
     {
