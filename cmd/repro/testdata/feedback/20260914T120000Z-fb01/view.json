@@ -17,7 +17,7 @@
       "life": 20,
       "lost": false,
       "library_size": 52,
-      "hand_size": 7,
+      "hand_size": 8,
       "graveyard_size": 0,
       "hand": [
         {
@@ -38,6 +38,35 @@
           "controller": 0,
           "owner": 0,
           "summon_sick": false
+        },
+        {
+          "id": 1,
+          "name": "Underground Sea",
+          "types": "Land Island Swamp",
+          "mana_cost": "no cost",
+          "printing": {
+            "name": "Underground Sea"
+          },
+          "token": "#1",
+          "tapped": false,
+          "power": 0,
+          "toughness": 0,
+          "damage": 0,
+          "attacking": false,
+          "controller": 0,
+          "owner": 0,
+          "summon_sick": false,
+          "produces": {
+            "colour": [
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            "any": false
+          }
         },
         {
           "id": 14,
@@ -175,55 +204,12 @@
           "summon_sick": false
         }
       ],
-      "battlefield": [
-        {
-          "id": 1,
-          "name": "Underground Sea",
-          "types": "Land Island Swamp",
-          "mana_cost": "no cost",
-          "printing": {
-            "name": "Underground Sea"
-          },
-          "token": "#1",
-          "tapped": false,
-          "power": 0,
-          "toughness": 0,
-          "damage": 0,
-          "attacking": false,
-          "controller": 0,
-          "owner": 0,
-          "summon_sick": true,
-          "produces": {
-            "colour": [
-              0,
-              1,
-              1,
-              0,
-              0,
-              0
-            ],
-            "any": false
-          }
-        }
-      ],
+      "battlefield": [],
       "graveyard": [],
       "exile": [],
       "pool": {},
-      "potential_actions": [
-        {
-          "kind": "cast",
-          "obj": 55,
-          "label": "Cast Cabal Therapy"
-        },
-        {
-          "kind": "cast",
-          "obj": 58,
-          "label": "Cast Dismember"
-        }
-      ],
       "command": [],
       "commanders": [],
-      "completed_dungeons": 0,
       "commander_casts": []
     },
     {
@@ -252,7 +238,7 @@
           "attacking": false,
           "controller": 1,
           "owner": 1,
-          "summon_sick": false,
+          "summon_sick": true,
           "produces": {
             "colour": [
               1,
@@ -281,7 +267,7 @@
           "attacking": false,
           "controller": 1,
           "owner": 1,
-          "summon_sick": false,
+          "summon_sick": true,
           "ability_costs": [
             "T"
           ]
@@ -292,14 +278,13 @@
       "pool": {},
       "command": [],
       "commanders": [],
-      "completed_dungeons": 0,
       "commander_casts": []
     }
   ],
   "stack": [],
   "pending": [],
   "decision": {
-    "seq": 151,
+    "seq": 143,
     "player": 0,
     "kind": "priority",
     "prompt": "turn 2, main1 — Player 1 has priority",
@@ -308,19 +293,33 @@
     "options": [
       {
         "index": 0,
-        "kind": "activate",
-        "label": "Activate Underground Sea for mana",
+        "kind": "play_land",
+        "label": "Play Underground Sea",
         "obj": 1,
         "player": 0
       },
       {
         "index": 1,
+        "kind": "play_land",
+        "label": "Play Misty Rainforest",
+        "obj": 14,
+        "player": 0
+      },
+      {
+        "index": 2,
+        "kind": "play_land",
+        "label": "Play Wasteland",
+        "obj": 17,
+        "player": 0
+      },
+      {
+        "index": 3,
         "kind": "pass",
         "label": "Pass priority",
         "player": 0
       },
       {
-        "index": 2,
+        "index": 4,
         "kind": "concede",
         "label": "Concede",
         "player": 0

@@ -1420,14 +1420,7 @@ func Apply(g *state.Game, e Event) {
 			g.Turn = e.Amount
 			g.Active = e.Player
 			g.Players[e.Player].LandsPlayed = 0
-			// CR 302.6: a creature's {T}/{Q} ability needs the creature to have
-			// been under its controller's control continuously "since their
-			// most recent turn began" -- and a turn begins for every player, so
-			// the start of ANY turn (not just the new active player's) ends
-			// summoning sickness everywhere. Clearing only the active player's
-			// battlefield left a creature cast on turn N sick through the
-			// opponent's turn N+1, refusing its mana ability one full turn late.
-			// g.Zone(ZBattlefield, p) can only ever hold IDs that Move
+			// g.Zone(ZBattlefield, e.Player) can only ever hold IDs that Move
 			// already confirmed are real objects, so this nil check is
 			// currently unreachable in practice -- but it is one line, it
 			// matches every other zone-walk in this switch (DeclareAttackers,
@@ -1435,11 +1428,9 @@ func Apply(g *state.Game, e Event) {
 			// stops that invariant from becoming a silent, easy-to-reopen
 			// panic if a future Kind ever populates a zone list some other
 			// way. Found in the same audit as Ruling T20-e.
-			for pi := range g.Players {
-				for _, id := range g.Zone(state.ZBattlefield, state.PlayerID(pi)) {
-					if o := g.Obj(id); o != nil {
-						o.SummonSick = false
-					}
+			for _, id := range g.Zone(state.ZBattlefield, e.Player) {
+				if o := g.Obj(id); o != nil {
+					o.SummonSick = false
 				}
 			}
 			// TurnChange is the existing per-turn reset boundary. Zone-entry

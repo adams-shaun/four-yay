@@ -47,7 +47,7 @@ func TestReproFixtureSummaryExitsZero(t *testing.T) {
 	}
 	for _, want := range []string{
 		"== feedback report " + fixtureID,
-		"replayed 26 of 26 recorded intents", // the fixture's own counts; regenerate both together
+		"replayed 24 of 24 recorded intents", // the fixture's own counts; regenerate both together
 		"recorded head",
 		"turn 2, round 1",
 		"active: seat 0, priority: seat 0",
@@ -160,10 +160,10 @@ func TestReproFixtureListPrintsTimeline(t *testing.T) {
 		t.Fatalf("exit %d, output:\n%s", code, out.String())
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 26 { // one line per intent; this fixture is not game over
-		t.Fatalf("timeline has %d lines, want 26:\n%s", len(lines), out.String())
+	if len(lines) != 24 { // one line per intent; this fixture is not game over
+		t.Fatalf("timeline has %d lines, want 24:\n%s", len(lines), out.String())
 	}
-	if !strings.Contains(out.String(), "  0  seat 1  starting_player") {
+	if !strings.Contains(out.String(), "  0  seat 1  priority") {
 		t.Errorf("timeline missing intent 0:\n%s", out.String())
 	}
 	if !strings.Contains(out.String(), "Play Plains") {
@@ -179,7 +179,7 @@ func TestReproFixtureAtReplaysToIntent(t *testing.T) {
 	if code := run([]string{"-at", "6", fixtureRel}, &out, io.Discard); code != 0 {
 		t.Fatalf("exit %d, output:\n%s", code, out.String())
 	}
-	for _, want := range []string{"replayed 6 of 26 recorded intents", "turn 1, round 1, main1", "pending: seat 1 priority"} {
+	for _, want := range []string{"replayed 6 of 24 recorded intents", "turn 1, round 1, main1", "pending: seat 1 priority"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("summary missing %q:\n%s", want, out.String())
 		}
@@ -214,7 +214,7 @@ func TestReproFixtureAtRejectsOutOfRange(t *testing.T) {
 	if code := run([]string{"-at", "999", fixtureRel}, io.Discard, &stderr); code != 2 {
 		t.Fatalf("exit %d, want usage exit 2; stderr:\n%s", code, stderr.String())
 	}
-	if !strings.Contains(stderr.String(), "between 0 and 26 (got 999)") {
+	if !strings.Contains(stderr.String(), "between 0 and 24 (got 999)") {
 		t.Errorf("range error missing actual bounds:\n%s", stderr.String())
 	}
 }
@@ -231,7 +231,7 @@ func TestReproFixtureIgnoresTamperedIntentCount(t *testing.T) {
 	if code := run([]string{dir}, &out, io.Discard); code != 0 {
 		t.Fatalf("exit %d, output:\n%s", code, out.String())
 	}
-	if !strings.Contains(out.String(), "replayed 26 of 26 recorded intents") {
+	if !strings.Contains(out.String(), "replayed 24 of 24 recorded intents") {
 		t.Errorf("summary trusted tampered intent_count:\n%s", out.String())
 	}
 }
@@ -330,17 +330,10 @@ func TestReproOnFreshSnapshot(t *testing.T) {
 	// toss-winner ask (rules.NewStartingPlayerChoice + AskStartingPlayer)
 	// adds one recorded intent at genesis on every hosted match — the
 	// DecisionAsk + DecisionMade pair before the pregame rounds open — so
-	// the same advance(12) gate count now captures 26 (152 events).
-	//
-	// The committed fixture (testdata/feedback/20260914T120000Z-fb01) was
-	// re-recorded on 2026-09-28 by fb-20260928T161506Z-2126f2de: the CR
-	// 302.6 summoning-sickness scope fix (events/apply.go's TurnChange now
-	// clears SummonSick on every seat's battlefield, not only the incoming
-	// active player's) changed what a creature in these decks may do on the
-	// opponent's turn, so the old recording diverged (`replay diverged at
-	// event 130: recorded step, replayed priority`) and was regenerated. It
-	// now carries the toss ask too (26 intents, head
-	// 7828342e4df16cd7), and every hardcoded count below moved with it.
+	// the same advance(12) gate count now captures 26 (152 events). The
+	// committed fixture stays at its own recorded 24 (its log predates the
+	// ask, so it still reconstructs through plain New); regenerate it and
+	// its assertions together if it is ever re-recorded (REPRO_REGEN_FIXTURE).
 	if !strings.Contains(out.String(), "replayed 26 of 26 recorded intents") {
 		t.Errorf("fresh snapshot summary unexpected:\n%s", out.String())
 	}

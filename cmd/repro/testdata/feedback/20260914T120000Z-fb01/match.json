@@ -1,5 +1,4 @@
 {
-  "bot_policy": "bot",
   "deck_cards": [
     [
       "Underground Sea",
@@ -130,7 +129,7 @@
     "dimir-tempo",
     "death-n-taxes"
   ],
-  "events": 152,
+  "events": 144,
   "match": 1,
   "names": [
     "dimir-tempo",
@@ -144,14 +143,12 @@
     {
       "name": "Player 1",
       "deck": "dimir-tempo",
-      "colour": "#e5484d",
-      "deck_id": "dimir-tempo"
+      "colour": "#e5484d"
     },
     {
       "name": "Player 2",
       "deck": "death-n-taxes",
-      "colour": "#3b82f6",
-      "deck_id": "death-n-taxes"
+      "colour": "#3b82f6"
     }
   ],
   "seed": 13679457532755275413,
