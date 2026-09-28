@@ -36,7 +36,7 @@ func (e *Engine) CompleteDungeon(player state.PlayerID) {
 		return
 	}
 	id := e.G.Players[player].DungeonObj
-	if id != 0 {
+	if id != 0 && !e.G.Players[player].DungeonCompleted {
 		e.emit(events.Event{Kind: events.DungeonComplete, Player: player, Obj: id})
 	}
 }

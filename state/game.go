@@ -90,9 +90,11 @@ type Player struct {
 
 	// DungeonObj and DungeonRoom are this seat's public CR 309 dungeon
 	// state. They are folded only by dungeon events; zero/empty means no
-	// active dungeon or no room has been entered yet.
+	// active dungeon or no room has been entered yet. DungeonCompleted
+	// latches completion for the current object until it is removed.
 	DungeonObj        ObjID
 	DungeonRoom       string
+	DungeonCompleted  bool
 	CompletedDungeons int32
 
 	// Speed is this seat's speed (CR 702.179, "Start your engines!"): it

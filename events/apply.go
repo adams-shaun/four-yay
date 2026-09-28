@@ -487,6 +487,7 @@ func Apply(g *state.Game, e Event) {
 		Move(g, o.ID, state.ZLibrary, state.ZCommand)
 		g.Players[e.Player].DungeonObj = o.ID
 		g.Players[e.Player].DungeonRoom = ""
+		g.Players[e.Player].DungeonCompleted = false
 
 	case DungeonRoom:
 		if e.Text != "" && activeDungeon(g, e.Player, e.Obj) != nil {
@@ -494,8 +495,9 @@ func Apply(g *state.Game, e Event) {
 		}
 
 	case DungeonComplete:
-		if activeDungeon(g, e.Player, e.Obj) != nil {
+		if activeDungeon(g, e.Player, e.Obj) != nil && !g.Players[e.Player].DungeonCompleted {
 			g.Players[e.Player].CompletedDungeons++
+			g.Players[e.Player].DungeonCompleted = true
 		}
 
 	case DungeonRemove:
@@ -503,6 +505,7 @@ func Apply(g *state.Game, e Event) {
 			Move(g, o.ID, state.ZCommand, state.ZCeased)
 			g.Players[e.Player].DungeonObj = 0
 			g.Players[e.Player].DungeonRoom = ""
+			g.Players[e.Player].DungeonCompleted = false
 		}
 
 	case ManaUndo:
