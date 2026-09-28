@@ -452,6 +452,21 @@ func isWholeHandRevealSpec(spec string) bool {
 	return strings.EqualFold(spec, "Hand")
 }
 
+// isWholeZoneExileSpec reports whether an Exile cost part's type slot names
+// the WHOLE zone rather than a card filter. Forge spells "exile your hand"
+// (Herigast, Erupting Nullkite) as ExileFromHand<N/All> and "exile all cards
+// from their graveyard" (Grip of Amnesia) as ExileFromGrave<N/All> -- the
+// count is display noise, the same reading isWholeHandRevealSpec gives
+// Reveal<N/Hand> and discardCandidates gives Discard<N/Hand>. No card ever
+// matches the bare word "All" as a filter, so reading it as one leaves the
+// cost permanently unpayable and every carrier's pay window decline-only.
+// Unlike the whole-hand reveal, an ALL-zone exile is NOT payable empty: the
+// token still demands part.N cards (the corpus writes 1), so a zone holding
+// fewer than part.N cards cannot pay.
+func isWholeZoneExileSpec(spec string) bool {
+	return strings.EqualFold(spec, "All")
+}
+
 // dynTapCost matches Forge's dynamic tap-any-number tapXType tokens -- the
 // heads the literal choiceCost regex above cannot read:
 //
