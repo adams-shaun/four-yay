@@ -1547,6 +1547,17 @@ func parseHiddenKeyword(k string) hiddenKeywordFlags {
 		return hiddenKeywordFlags{cantBlock: true}
 	case strings.EqualFold(head, "CARDNAME must be blocked if able."):
 		return hiddenKeywordFlags{mustBlock: true}
+	case strings.EqualFold(head, "MustBlock"):
+		// The canonical head cards/parse.go rewrites the sentence form to
+		// (cards/hiddenkeyword.go CanonicalKeywordLine). Both spellings must
+		// reach the reader: a printed K: line arrives here as "MustBlock",
+		// while a runtime Pump/PumpAll `KW$ HIDDEN CARDNAME must be blocked
+		// if able.` grant never passes through the parser and keeps the
+		// sentence form above. The head is distinct from the Mode$ MustBlock
+		// static (a BLOCKER's duty, mustBlockCandidates): a keyword head and a
+		// static mode are separate namespaces, so this arm cannot borrow the
+		// blocker-oriented meaning.
+		return hiddenKeywordFlags{mustBlock: true}
 	}
 	return hiddenKeywordFlags{}
 }
