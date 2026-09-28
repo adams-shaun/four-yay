@@ -115,9 +115,33 @@ leaderboard presence and a floor, not strength.
 - **Errors.** Never answer `choose` with an error (it is a forfeit,
   §10.5); every internal failure resolves to a fallback answer.
 
-**TBD(W2):** `cmd/sbagent` + `internal/spellbench/v2agent` status against
-the mocked v2 engine: protocol conformance, parity of the agent's answers
-with native gorge answers on the same games, and its leaderboard. Paste here.
+**Measured (W2, 2026-09-28, commit `bf425c60d`).** `cmd/sbagent` +
+`internal/spellbench/v2agent` play the v2 agent role (random, heuristic,
+first) against the reference fake v2 engine through the reference host's
+real seat drivers and live validator. The branch's `spellbench run` is still
+the v1 runner, so games were driven through `host/game.py` `play_game` from
+unmerged `protocol-v2-p23` plus `-p26` merged locally
+(`cmd/sbagent/scripts/sbv2_harness.py`).
+
+- **Parity:** all 927 games that seated a Go agent were replayed with the
+  python twin in its place; every game digest (which chains every
+  selection, §11.8) matched. heuristic/first reproduce the builtins exactly;
+  random reuses uniform's SplitMix64 derivation.
+- **Protocol:** 0 forfeits, 0 halts attributable to the agent, no unknown
+  observation field logged (typed decode) even with every observation flag
+  on. Go tests replay 7 recorded per-seat transcripts (70 decisions, all 30
+  v2.0 kinds) plus 27 malformed/out-of-order request lines against the
+  python answers.
+- **Leaderboard** (fake scoring game, 1260 games, BT anchored uniform =
+  1000): sbagent-heuristic 1338, heuristic 1336, uniform 1000,
+  sbagent-random 953, sbagent-first 616, first 608 (twins 60/60 draws
+  head to head; the random gap is seed noise).
+- **Spec ambiguities found:** §2 line limit and the newline; §10.5 vs §9.8
+  for valid-JSON non-object lines (the reference bot answers
+  `malformed_json`, we answer `malformed_request`); §7.3 mixed-type fields;
+  §10.1 hello mid-game; §10.6 stale.
+- **Not yet measured:** shadow fidelity (needs the shadow, D§4) and parity
+  with native gorge answers (needs Jack's gorge engine adapter).
 
 ## 4. (b) The shadow gorge state
 
@@ -410,7 +434,7 @@ H2 and H3 are the load-bearing ones; H1 unblocks the most people.
 |---|---|---|---|
 | M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | TBD(W1) |
 | M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | — |
-| M2 | v2 mocked backend (W2) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | TBD(W2) |
+| M2 | v2 mocked backend (W2) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); shadow fidelity open |
 | M3 | v2 on Jack's adapter, `pauper-gorge` (5 decks: Wildfire, Rally, Spy, Burn, CawGates; plan Task 7) | strength vs `gorge-bot`, `gorge-lethal-pressure`, builtins; neutral vs xview entry | — |
 | M4 | v2 on mtg-kernel (Annex A bridge), `pauper-kernel` | cross-engine: fidelity and candidate agreement on a foreign engine; rating vs g115 (1388), a48, c12, heuristic (1102) | — |
 | M5 | fixed-deck / hidden-list benchmark (§15, when enabled) | deck inference pays off | — |
