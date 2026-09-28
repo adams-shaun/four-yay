@@ -5090,9 +5090,27 @@ func zoneIn(z state.Zone, zones []state.Zone) bool {
 // which is what lets Num's SVar indirection and primitives like Charm and
 // Repeat -- which run a sub-ability named by SVar rather than the
 // auto-linked "SubAbility$" -- actually resolve something outside a test.
+// resolveAbility resolves one ability body off the stack or as a mana
+// ability's effect.
 func (e *Engine) resolveAbility(source state.ObjID, controller state.PlayerID,
 	targets []state.Target, sa *cards.SA, svars map[string]string) {
+	e.resolveAbilitySacrificing(source, controller, targets, sa, svars, nil)
+}
+
+// resolveAbilitySacrificing is resolveAbility with the permanents an
+// ABILITY'S OWN activation cost sacrificed (a <T>/Sac mana ability's
+// Sac<...>, the Phyrexian Altar shape). They are bound to Ctx.Sacrificed so
+// an Amount$/count SVar over Sacrificed$CardManaCost (Priest of Yawgmoth,
+// Soldevi Adnate, Furgul Quag Nurturer) prices the object it just paid away
+// rather than reading zero. Spell and triggered-ability callers bind the
+// same list from their own captured LKI (rules/stack.go, rules/resolution.go);
+// this is the mana ability path's one home for it.
+func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.PlayerID,
+	targets []state.Target, sa *cards.SA, svars map[string]string, sacs []state.ObjID) {
 	ctx := &effects.Ctx{Source: source, Controller: controller, Targets: targets}
+	for _, id := range sacs {
+		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
+	}
 	// Forge's Count$ResolvedThisTurn: the same (source, root Ability$ body)
 	// tally resolveTop's ability branch binds, so a DBTransform gated on the
 	// fourth resolution of the turn reads it here too. Zero for a synthetic

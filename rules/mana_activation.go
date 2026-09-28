@@ -2846,7 +2846,7 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	e.manaProducer = source
 	// A gained mana ability's body resolves its SVars (Amount$ X) against
 	// the FOREIGN face it was compiled on, never the recipient's.
-	e.resolveAbility(source, p, nil, &copy, gained.svars(o.Face().SVars))
+	e.resolveAbilitySacrificing(source, p, nil, &copy, gained.svars(o.Face().SVars), sacs)
 	e.manaFromTap, e.manaProducer = savedTap, savedProducer
 }
 
