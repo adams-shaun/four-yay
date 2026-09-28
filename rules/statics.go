@@ -1813,12 +1813,24 @@ type costMods struct {
 	// that can make it non-zero). While it is false extra is the zero Cost,
 	// which apply may then skip (see apply).
 	hasExtra bool
+	// waterbend / waterbendX / raiseX carry a RaiseCost Cost$ Waterbend<N>
+	// or Waterbend<X> (Water Whip, Crashing Wave; the keyword action "waterbend {N}":
+	// pay {N}, and each untapped artifact or creature you tap while paying
+	// it pays for {1}). The fixed {N} is already in raiseGen; waterbend is
+	// how much of the generic total those taps may cover. raiseX counts the
+	// Waterbend<X> parts: each adds an {X} to the pending cost (folded at the
+	// fold site, since xAsk reads pc.cost.X), and waterbendX lets the taps
+	// cover that announced X too. apply reads none of the three -- the {N}
+	// already rides raiseGen and an unannounced {X} prices at zero.
+	waterbend  int32
+	waterbendX bool
+	raiseX     int32
 }
 
 // empty reports whether the composition would change nothing, so a caller can
 // keep its old zero-value shorthand.
 func (m costMods) empty() bool {
-	return len(m.raises) == 0 && len(m.extra.Blight) == 0 && m.raiseGen == 0 && m.raiseLife == 0 &&
+	return len(m.raises) == 0 && !m.hasExtra && m.raiseGen == 0 && m.raiseLife == 0 &&
 		m.raiseCol.Total() == 0 && len(m.reduces) == 0 && m.setFloor == 0
 }
 
@@ -1834,7 +1846,7 @@ func (m costMods) apply(c Cost) Cost {
 	// 744-byte copies are skipped only when extra is provably zero and none
 	// of those three is negative.
 	if m.hasExtra || c.Life < 0 || c.Snow < 0 || c.XMin < 0 {
-		c = c.Plus(m.extra)
+		c = plusRaiseExtra(c, m.extra)
 	}
 	for _, r := range m.raises {
 		c.Generic = addClampedGeneric(c.Generic, int64(r))
@@ -2405,6 +2417,9 @@ func (e *Engine) modAmountX(sv staticView, x int32, targets []state.Target) int3
 	if svars == nil {
 		svars = o.Face().SVars
 	}
+	// A pending cast's named announcement (the March cycle's Exiled,
+	// Explosive Singularity's Tapped) binds the SVar its name spells.
+	svars = e.namedAnnounceSVars(sv.Source, svars)
 	// An Effect-delivered cost static carries its SetChosenNumber$ binding
 	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
 	// the source object's own logged choice.
@@ -2419,54 +2434,12 @@ func (e *Engine) modAmountX(sv staticView, x int32, targets []state.Target) int3
 	return effects.EvalCount(e, ctx, raw)
 }
 
-// raiseExtraFromCost parses a RaiseCost Cost$ that raiseFromCost does NOT
-// model as plain mana/life into the non-mana ADDITIONAL cost it names, which
-// the cast flow folds into the pending cost exactly like a SpellAbility's own
-// Cost$ (withSpellAbilityExtras). Only the Blight<X>/Blight<N> shape is
-// bridged here: Soul Immolation's `Cost$ Blight<X>` and Blighted Nightmare's
-// same-token ability cost are the corpus's two carriers, and the whole point
-// is that the announced X must survive into offer gating, the X ask, the
-// blight payment and the X-dependent effect with ONE representation
-// (costMods.extra, folded by costMods.apply and by the pending cast), never a
-// re-parse that could disagree.
-//
-// The Cost$ must parse into EXACTLY the blight part: a mixed token the parser
-// also leaves an Unknown for, or a mana/other non-mana part beside it, reports
-// false so the static degrades to the ordinary Amount$ fallback (fail closed,
-// the raiseFromCost convention for an unmodelled shape). Other non-mana
-// RaiseCost shapes (Waterbend, ExileFromHand, Sac<...>) remain unsupported and
-// are not bridged here.
-func raiseExtraFromCost(s string) (Cost, bool) {
-	if strings.TrimSpace(s) == "" {
-		return Cost{}, false
-	}
-	c := ParseCost(s)
-	if len(c.Blight) == 0 || len(c.Unknown) > 0 {
-		return Cost{}, false
-	}
-	// Reject anything beyond the blight part: bridging must not silently drop
-	// a mana or other non-mana component of a mixed Cost$.
-	if c.Colored.Total() != 0 || c.Generic != 0 || c.Life != 0 || c.X != 0 || c.XMin != 0 ||
-		c.Tap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 ||
-		len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.Reveal) > 0 ||
-		len(c.RevealOrChoose) > 0 ||
-		len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 ||
-		len(c.Energy) > 0 || len(c.Return) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 ||
-		len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Evidence) > 0 ||
-		len(c.Exert) > 0 || c.Forage {
-		return Cost{}, false
-	}
-	return Cost{Blight: c.Blight}, true
-}
-
 // raiseFromCost parses a RaiseCost Cost$ into its mana and life raise. Only
 // the plain shapes apply: single colour letters, numeric tokens, and the
 // fixed PayLife<N> token. Anything else — hybrid pips (none in the corpus's
-// cost raises), X/T, or a <...> component this build does not model as an
-// additional raise (Waterbend, ExileFromHand, BeholdExile, Sac<...>,
-// AddCounter, tapXType) — reports false, so the static degrades to the
-// Amount$ reading (absent → the zero raise) rather than silently pricing an
-// unmodelled cost as one generic mana.
+// cost raises), X/T, or a <...> component (Sac<...>, BeholdExile,
+// Waterbend, AddCounter, tapXType, a named count) — reports false and is
+// priced by the additional-cost bridge instead (composeRaiseCost).
 func raiseFromCost(s string) (col state.Mana, gen, life int32, ok bool) {
 	for toks := (costTokenIter{s: s}); ; {
 		sym, more := toks.next()
@@ -2655,35 +2628,16 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				continue
 			}
 			if mode == "RaiseCost" {
-				// A RaiseCost Cost$ names the whole additional cost (Forge
-				// CostAdjustment's RaiseCost branch): a plain mana/life cost
-				// is raised as-is, pips and life included. A Cost$ paired
-				// with an Amount$ ("you may pay {1}{G} any number of times")
-				// is an OPTIONAL additional-cost shape this build does not
-				// model -- the exotic Amount$ skips the static below, so only
-				// the plain raise applies. Cost$ shapes that are not plain
-				// mana/life (Waterbend, ExileFromHand, Sac<...>) parse
-				// nowhere and are skipped by raiseFromCost.
-				rc, rg, rl, costOK := raiseFromCost(sv.Params["Cost"])
-				if costOK {
-					if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-						for i := range rc {
-							mods.raiseCol[i] = addClampedGeneric(mods.raiseCol[i], int64(rc[i]))
-						}
-						mods.raiseGen = addClampedGeneric(mods.raiseGen, int64(rg))
-						mods.raiseLife = addClampedGeneric(mods.raiseLife, int64(rl))
-						continue
-					}
-				}
-				// A non-mana RaiseCost Cost$ the plain parser rejected (the
-				// Blight<X> bridge) is carried as an ADDITIONAL cost so its X
-				// announcement, offer gate and payment all price the same way.
-				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
-						mods.extra = mods.extra.Plus(extra)
-						mods.hasExtra = true
-						continue
-					}
+				// A RaiseCost Cost$ names the whole additional cost (Forge's
+				// CostAdjustment RaiseCost branch): a plain mana/life cost
+				// is raised as-is, and every other Cost$ is carried as an
+				// ADDITIONAL cost (composeRaiseCost, rules/raise_cost_extra.go)
+				// so the offer gate, the cast-flow stages and the settle all
+				// price the same parts. A Cost$ paired with an Amount$ ("you
+				// may pay {1}{G} any number of times") is an OPTIONAL shape
+				// this build prices only through its Amount$ below.
+				if e.composeRaiseCost(&mods, sv, id, scope, x, targets) {
+					continue
 				}
 				mods.raises = append(mods.raises, e.modAmountX(sv, x, amountTargets))
 				continue
@@ -2773,35 +2727,16 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				continue
 			}
 			if mode == "RaiseCost" {
-				// A RaiseCost Cost$ names the whole additional cost (Forge
-				// CostAdjustment's RaiseCost branch): a plain mana/life cost
-				// is raised as-is, pips and life included. A Cost$ paired
-				// with an Amount$ ("you may pay {1}{G} any number of times")
-				// is an OPTIONAL additional-cost shape this build does not
-				// model — the exotic Amount$ skips the static below, so only
-				// the plain raise applies. Cost$ shapes that are not plain
-				// mana/life (Waterbend, ExileFromHand, Sac<...>) parse
-				// nowhere and are skipped by raiseFromCost.
-				rc, rg, rl, costOK := raiseFromCost(sv.Params["Cost"])
-				if costOK {
-					if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-						for i := range rc {
-							mods.raiseCol[i] = addClampedGeneric(mods.raiseCol[i], int64(rc[i]))
-						}
-						mods.raiseGen = addClampedGeneric(mods.raiseGen, int64(rg))
-						mods.raiseLife = addClampedGeneric(mods.raiseLife, int64(rl))
-						continue
-					}
-				}
-				// A non-mana RaiseCost Cost$ the plain parser rejected (the
-				// Blight<X> bridge) is carried as an ADDITIONAL cost so its X
-				// announcement, offer gate and payment all price the same way.
-				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
-						mods.extra = mods.extra.Plus(extra)
-						mods.hasExtra = true
-						continue
-					}
+				// A RaiseCost Cost$ names the whole additional cost (Forge's
+				// CostAdjustment RaiseCost branch): a plain mana/life cost
+				// is raised as-is, and every other Cost$ is carried as an
+				// ADDITIONAL cost (composeRaiseCost, rules/raise_cost_extra.go)
+				// so the offer gate, the cast-flow stages and the settle all
+				// price the same parts. A Cost$ paired with an Amount$ ("you
+				// may pay {1}{G} any number of times") is an OPTIONAL shape
+				// this build prices only through its Amount$ below.
+				if e.composeRaiseCost(&mods, sv, id, scope, 0, targets) {
+					continue
 				}
 				mods.raises = append(mods.raises, e.modAmountX(sv, 0, amountTargets))
 				continue
