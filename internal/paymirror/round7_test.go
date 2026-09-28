@@ -33,6 +33,8 @@ import (
 // after the command-zone payment-plan fix: a commander in the command zone
 // now gets a plan, the auto-pay bots cast it through one, and those games
 // move. The same cards keep the same pins at their new seqs.
+// lifeLost1's replay-visible AFLifeLost publication moves seed 6191's
+// Roaming Throne cast from seq 9956 to 9966; its float-trigger verdict stays.
 func TestRoundSevenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -48,7 +50,7 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 	}{
 		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7684, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
-		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9956, "expected:float_then_cast:float_trigger_precedes_cast"},
+		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9966, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})

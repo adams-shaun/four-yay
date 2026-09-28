@@ -54,10 +54,6 @@ import (
 // file row naming a scenario of another family, fails the build. Rows here are
 // legacy and may be moved into the family files.
 var oracleKnownDivergent = map[string]string{
-	// Gray Merchant's drain resolves but its subsequent life-gain amount is
-	// zero: the life-loss total is not propagated to the gain (effects/life.go,
-	// effLoseLife/effGainLife; value evaluation of the follow-on amount).
-	"Gray Merchant of Asphodel/self-devotion-two-life-gain": "observed p0 life 20, expected 22 after two life lost by p1",
 	// Mogis's creature-removal instruction is not interpreted by the
 	// continuous-effect type layer (rules/layers.go); the gate at seven
 	// devotion is therefore stuck on the printed creature type.
