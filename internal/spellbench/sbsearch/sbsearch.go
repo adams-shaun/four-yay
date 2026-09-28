@@ -78,6 +78,10 @@ type Config struct {
 	Leaf int
 	// Attack searches KAttackers decisions too.
 	Attack bool
+	// AttackWide adds up to AttackWide one-creature neighbours of
+	// sb-tactical's declaration (builtins.AttackNeighbours) to the
+	// attack candidates.
+	AttackWide int
 	// Block searches KBlockers decisions too: sb-tactical's blocks, none,
 	// the value blocks, the maximal blocks and the default bot's
 	// (builtins.Seat.BlockAlternatives).
@@ -304,8 +308,16 @@ func (s *Seat) attackers(ctx context.Context, env searchseat.Env, v view.View, d
 		return own, err
 	}
 	roots := []root{{in: own}}
-	for _, alt := range builtins.AttackAlternatives(v, d) {
-		if !builtins.SameChoices(alt, own) {
+	alts := builtins.AttackAlternatives(v, d)
+	if s.cfg.AttackWide > 0 {
+		alts = append(alts, builtins.AttackNeighbours(v, d, own, s.cfg.AttackWide)...)
+	}
+	for _, alt := range alts {
+		dup := false
+		for _, r := range roots {
+			dup = dup || builtins.SameChoices(alt, r.in)
+		}
+		if !dup {
 			roots = append(roots, root{in: alt})
 		}
 	}
@@ -393,7 +405,7 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 		rec = &dg.Values
 	}
 	dg.Lead = math.NaN()
-	means, valid, failed, rollouts, refused := s.evaluate(env, d, roots, kind == "blockers" || kind == "target", rec)
+	means, valid, failed, rollouts, refused := s.evaluate(env, d, roots, kind == "blockers" || kind == "target" || (kind == "attackers" && s.cfg.AttackWide > 0), rec)
 	dg.Worlds, dg.Failed, dg.Rollouts, dg.Refused = valid, failed, rollouts, refused
 	if valid == 0 {
 		return 0

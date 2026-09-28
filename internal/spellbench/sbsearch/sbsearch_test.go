@@ -179,7 +179,7 @@ func TestCombatAndTargetSearch(t *testing.T) {
 	g := newTestGame(t)
 	ds := watch(t)
 	cfg := quick()
-	cfg.Attack, cfg.Block, cfg.Target = true, true, true
+	cfg.Attack, cfg.Block, cfg.Target, cfg.AttackWide = true, true, true, 3
 	mk := func(s uint64) seat.Seat { return New(g.tactical(s), s, cfg) }
 	kinds := map[string]int{}
 	valid := map[string]int{}

@@ -178,6 +178,76 @@ func AttackAlternatives(v view.View, d decision.Decision) []decision.Intent {
 	return out
 }
 
+// AttackNeighbours are the declarations one creature away from own at a
+// KAttackers decision: own without each attacker it names (unless that
+// attacker is required), and own plus each creature it leaves home that can
+// attack the opponent. Each is repaired to a valid answer and made legal
+// (botpolicy.LegalAttackChoices); duplicates of own and of one another are
+// dropped. At most max are returned, removals first.
+func AttackNeighbours(v view.View, d decision.Decision, own decision.Intent, max int) []decision.Intent {
+	if d.Kind != decision.KAttackers || own.Payment != nil || own.Announce != nil {
+		return nil
+	}
+	brd := seat.BoardFromView(v)
+	chosen := map[int]bool{} // lookup only
+	for _, c := range own.Choices {
+		chosen[c] = true
+	}
+	var out []decision.Intent
+	add := func(choices []int) {
+		in := repaired(&d, decision.Intent{Choices: botpolicy.LegalAttackChoices(brd, &d, choices)})
+		if SameChoices(in, own) {
+			return
+		}
+		for _, o := range out {
+			if SameChoices(o, in) {
+				return
+			}
+		}
+		out = append(out, in)
+	}
+	groups := groupByObj(&d)
+	for _, g := range groups {
+		if g.required || len(out) >= max {
+			continue
+		}
+		in := false
+		for _, i := range g.opts {
+			in = in || chosen[i]
+		}
+		if !in {
+			continue
+		}
+		var rest []int
+		for _, c := range own.Choices {
+			if d.Options[c].Obj != g.obj {
+				rest = append(rest, c)
+			}
+		}
+		add(rest)
+	}
+	for _, g := range groups {
+		if len(out) >= max {
+			break
+		}
+		in := false
+		for _, i := range g.opts {
+			in = in || chosen[i]
+		}
+		if in {
+			continue
+		}
+		for _, i := range g.opts {
+			o := &d.Options[i]
+			if o.Battle == 0 && o.Player != d.Player {
+				add(append(append([]int(nil), own.Choices...), i))
+				break
+			}
+		}
+	}
+	return out
+}
+
 // BlockAlternatives are the whole blocking declarations worth comparing
 // with sb-tactical's own answer at a KBlockers decision: no blocks; the
 // value blocks (each attacker, biggest first, met by the blocker that best
