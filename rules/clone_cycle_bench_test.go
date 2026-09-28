@@ -15,7 +15,7 @@ import (
 // bot from genesis to the first decision at turn >= minTurn and returns that
 // mid-game engine: the shape of an AlphaZero search root, whose event log and
 // object arena are thousands of entries long.
-func cloneCycleRoot(b *testing.B, opp string, minTurn int32) *Engine {
+func cloneCycleRoot(b testing.TB, opp string, minTurn int32) *Engine {
 	b.Helper()
 	reg := testutil.CorpusRegistry(b)
 	da := testutil.RepoDeck(b, reg, "uw-tempo")

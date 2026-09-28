@@ -47,6 +47,11 @@ func TestCloneIntoIsInvisible(t *testing.T) {
 			if err := c.Submit(botpolicy.Decide(botpolicy.BoardFromGame(c.G, c, d.Player), d, r)); err != nil {
 				t.Fatalf("sim %d step %d: %v", i, s, err)
 			}
+			// Every targetSpecContext env is released by the time an
+			// intent returns (acquireSpecEnv's contract).
+			if c.specEnvDepth != 0 {
+				t.Fatalf("sim %d step %d: %d spec envs still held", i, s, c.specEnvDepth)
+			}
 		}
 		if got, want := c.L.HeadAt(len(c.L.Events)), c.L.Head(); got != want {
 			t.Fatalf("sim %d: chain desynced: HeadAt %s, Head %s", i, got, want)
