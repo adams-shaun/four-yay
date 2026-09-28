@@ -1148,7 +1148,7 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 	case "Metalcraft":
 		return e.metalcraftHolds(sv.Controller)
 	case "Threshold":
-		return len(e.G.Zone(state.ZGraveyard, sv.Controller)) >= 7
+		return e.thresholdHolds(sv.Controller)
 	case "Hellbent":
 		return len(e.G.Zone(state.ZHand, sv.Controller)) == 0
 	case "Blessing":

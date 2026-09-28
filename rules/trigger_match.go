@@ -2411,6 +2411,25 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 		e.G.Active != e.controllerOf(source) {
 		return false
 	}
+	// OpponentTurn$ True: only during an OPPONENT's turn -- the mirror of the
+	// PlayerTurn$ gate above (Forge Trigger.requirementsCheck,
+	// Trigger.java's `controller.isOpponentOf(phaseHandler.getPlayerTurn())`).
+	// Applied to every mode rather than scoped to actionTriggerModes: unlike
+	// PlayerTurn$, whose gate had to be confined to avoid changing modes that
+	// never read it, OpponentTurn$ is used by no mode this build had gated
+	// before, and Forge honours it on every trigger mode. Measured over the
+	// corpus at this pin: 23 raw T: lines across 23 files, all on Mode$
+	// SpellCast (22: Brineborn Cutthroat and the "first spell during each
+	// opponent's turn" family) and Mode$ Drawn (1: Kiora's follower), so the
+	// unscoped gate changes only those. Before it the trigger fired on its
+	// controller's own turn too, the over-fire direction. A value this build
+	// cannot read as True is unreadable and fails closed, the convention the
+	// PlayerTurn$ gate and the condition clauses share.
+	if v, ok := t.Params["OpponentTurn"]; ok {
+		if !strings.EqualFold(strings.TrimSpace(v), "True") || e.G.Active == e.controllerOf(source) {
+			return false
+		}
+	}
 	// CR 603.4 intervening-if: a trigger whose condition is false at the
 	// moment the trigger event occurs does not trigger at all. This gate is
 	// applied uniformly to every mode so the same T: line grammar (a
