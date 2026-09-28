@@ -80,9 +80,8 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: the once-per-turn permission is tracked per
 	// affected spell, so Darksteel Monolith's free-cast grant is available again.
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
-	// Engine primitive: entering Angel appears to be included in Giada's CountValid
-	// when pricing the replacement, rather than counting only Angels already controlled.
-	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
+	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
+	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Thor damage 0; expected p0 life 20 and Thor damage 3",
 	// Engine primitive: the Effect-created entry replacement from the attack
 	// trigger does not put its counter on the remembered Hero returned from the graveyard.
 	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
@@ -502,6 +501,26 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	return nil
 }
 
+func oracleLabelMatches(label, want string) bool {
+	normalize := func(s string) string {
+		s = strings.ToLower(s)
+		s = strings.NewReplacer("{", "", "}", "").Replace(s)
+		return s
+	}
+	return strings.Contains(normalize(label), normalize(want))
+}
+
+// manaAbilityLabels returns the engine's currently available mana abilities,
+// which are the authoritative named candidates behind the generic priority option.
+func (r *oracleRun) manaAbilityLabels(seat state.PlayerID, id state.ObjID) []string {
+	abilities := r.e.availableManaAbilities(seat, id)
+	labels := make([]string, 0, len(abilities))
+	for _, ma := range abilities {
+		labels = append(labels, manaAbilityLabel(ma, r.e.chosenProducedColour(id)))
+	}
+	return labels
+}
+
 func optionDump(d *decision.Decision) string {
 	var b strings.Builder
 	for _, o := range d.Options {
@@ -719,10 +738,30 @@ func (r *oracleRun) do(st oracleStep) error {
 		// cast, an explicit cast_mode (flashback, evoke, ...) when given, and
 		// otherwise the plain cast -- or, when the card offers only a
 		// permission-mode cast (a graveyard "mayplay"), that one.
-		idx, fallback := -1, -1
+		idx, fallback, manaFallback := -1, -1, -1
 		wantMode := st.CastMode
 		if st.Kicked {
 			wantMode = "kicked"
+		}
+		// A named mana ability lives behind the generic "Activate <card> for
+		// mana" priority option: the engine asks a second-stage KChoose over
+		// the source's available mana abilities (or, when exactly one is
+		// available, resolves it with no ask at all). The generic option may
+		// stand in for a requested label only when that label names an ability
+		// the source can currently produce -- the same authoritative set the
+		// offer and the second stage are built from -- otherwise the step must
+		// fail loudly below instead of silently activating a different ability
+		// (or a mana ability when a non-mana label was requested).
+		manaLabels := []string(nil)
+		requestedManaAbility := false
+		if st.Op == "activate" && st.Ability != "" {
+			manaLabels = r.manaAbilityLabels(seat, id)
+			for _, label := range manaLabels {
+				if oracleLabelMatches(label, st.Ability) {
+					requestedManaAbility = true
+					break
+				}
+			}
 		}
 		for _, o := range d.Options {
 			if o.Obj != id {
@@ -737,20 +776,71 @@ func (r *oracleRun) do(st oracleStep) error {
 					fallback = o.Index
 				}
 			}
-			if st.Op == "activate" && (o.Kind == "ability" || o.Kind == "activate") &&
-				strings.Contains(strings.ToLower(o.Label), strings.ToLower(st.Ability)) {
-				idx = o.Index
-				break
+			if st.Op == "activate" && (o.Kind == "ability" || o.Kind == "activate") {
+				if st.Ability == "" || oracleLabelMatches(o.Label, st.Ability) {
+					idx = o.Index
+					break
+				}
+				if o.Kind == "activate" && requestedManaAbility && strings.Contains(strings.ToLower(o.Label), "for mana") && manaFallback < 0 {
+					manaFallback = o.Index
+				}
 			}
+		}
+		if idx < 0 {
+			idx = manaFallback
 		}
 		if idx < 0 {
 			idx = fallback
 		}
 		if idx < 0 {
-			return harnessf("%s %s not offered: %s", st.Op, st.Card, optionDump(d))
+			want := ""
+			if st.Ability != "" {
+				want = fmt.Sprintf(" (ability: %q)", st.Ability)
+			}
+			return harnessf("%s %s not offered%s: %s", st.Op, st.Card, want, optionDump(d))
 		}
 		if err := r.submit(d, []int{idx}, st.Op); err != nil {
 			return err
+		}
+		if st.Op == "activate" && st.Ability != "" && d.Options[idx].Kind == "activate" &&
+			!oracleLabelMatches(d.Options[idx].Label, st.Ability) {
+			// The generic mana option was submitted for a named ability. When
+			// the engine poses the second-stage wheel, the requested label must
+			// be among its options. When it does NOT -- exactly one ability was
+			// available and the engine resolved it with no ask -- the requested
+			// label must have been that single ability (checked above against
+			// the same set); a multi-ability source that never asks, or a single
+			// ability that does not match, is an error, never a silent
+			// different-ability activation.
+			choice := e.Pending()
+			if choice != nil && choice.Kind == decision.KChoose && choice.Source == id {
+				manaOptions := false
+				for _, o := range choice.Options {
+					if o.Kind == "mana" {
+						manaOptions = true
+						if oracleLabelMatches(o.Label, st.Ability) {
+							if err := r.submit(choice, []int{o.Index}, "mana ability"); err != nil {
+								return err
+							}
+							break
+						}
+					}
+				}
+				if manaOptions {
+					matched := false
+					for _, o := range choice.Options {
+						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
+							matched = true
+							break
+						}
+					}
+					if !matched {
+						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
+					}
+				}
+			} else if len(manaLabels) != 1 || !oracleLabelMatches(manaLabels[0], st.Ability) {
+				return harnessf("mana ability %q not offered (available: %v)", st.Ability, manaLabels)
+			}
 		}
 		return r.untilPriority(st.Op)
 	case "play":
@@ -1062,8 +1152,15 @@ func (r *oracleRun) check(x oracleExpect) []string {
 			found := false
 			for _, o := range d.Options {
 				kindOK := o.Kind == x.Offered.Kind || (x.Offered.Kind == "activate" && o.Kind == "ability")
-				if o.Obj == id && kindOK && strings.Contains(strings.ToLower(o.Label), strings.ToLower(x.Offered.Label)) {
+				if o.Obj == id && kindOK && oracleLabelMatches(o.Label, x.Offered.Label) {
 					found = true
+				}
+			}
+			if x.Offered.Kind == "activate" && x.Offered.Label != "" {
+				for _, label := range r.manaAbilityLabels(state.PlayerID(x.Offered.Seat), id) {
+					if oracleLabelMatches(label, x.Offered.Label) {
+						found = true
+					}
 				}
 			}
 			if found != r.wantBool(x) {
