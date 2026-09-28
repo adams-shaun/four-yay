@@ -45,6 +45,11 @@ type passguardSeat struct {
 	inner seat.Seat
 }
 
+// UnwrapSeat exposes the wrapped seat (the registry's Unwrapper contract):
+// a runner that inspects the seat underneath -- the refused-answer fallback
+// and stats collection in cmd/botbench -- sees through the decoration.
+func (s passguardSeat) UnwrapSeat() seat.Seat { return s.inner }
+
 func (s passguardSeat) Decide(ctx context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	in, err := s.inner.Decide(ctx, v, d)
 	if err != nil {

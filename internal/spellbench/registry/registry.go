@@ -38,7 +38,36 @@ type Factory func(seed uint64, mana builtins.ManaMode) seat.Seat
 // decision itself or delegate it to inner; seed is the seat's per-game seed
 // (the same seed the base factory got), for decorators that need their own
 // stream.
+//
+// A decorator that DELEGATES should implement Unwrapper (passguard does):
+// a runner that inspects the wrapped seat -- cmd/botbench's refused-answer
+// fallback and stats collection reach the *builtins.Seat underneath -- can
+// then see through the decoration instead of treating a decorated builtin
+// as some opaque seat the fallback does not cover.
 type Decorator func(inner seat.Seat, seed uint64) seat.Seat
+
+// Unwrapper is the seat contract a delegating decorator implements to
+// expose the seat it wraps.
+type Unwrapper interface {
+	UnwrapSeat() seat.Seat
+}
+
+// UnwrapSeat returns the base seat underneath a decorated one: it follows
+// Unwrapper seats until it reaches one that is not, guarding against a
+// decorator that wraps itself. An undecorated seat is returned as-is.
+func UnwrapSeat(s seat.Seat) seat.Seat {
+	for {
+		u, ok := s.(Unwrapper)
+		if !ok {
+			return s
+		}
+		inner := u.UnwrapSeat()
+		if inner == nil || inner == s {
+			return s
+		}
+		s = inner
+	}
+}
 
 var (
 	// factories and decorators share one namespace: a name registers as

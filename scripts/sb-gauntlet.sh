@@ -53,7 +53,9 @@
 # Resources. Every botbench invocation is wrapped in
 #   flock -o /mnt/sata/gorge-training/spellbench-work/heavy.lock \
 #     systemd-run --user --scope -q -p MemoryMax=4G \
-#     env GOMEMLIMIT=2GiB GOMAXPROCS=8 <botbench> ... -workers 8
+#     env GOMEMLIMIT=2GiB GOMAXPROCS=8 <botbench> ... -workers $WORKERS
+# with WORKERS defaulting to 8; SB_GAUNTLET_WORKERS overrides it (e.g.
+# SB_GAUNTLET_WORKERS=2 for a smoke-sized run).
 
 set -euo pipefail
 
@@ -63,6 +65,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GDIR=${SB_GAUNTLET_DIR:-/mnt/sata/gorge-training/spellbench-work/gauntlet}
 LOCK=/mnt/sata/gorge-training/spellbench-work/heavy.lock
 SBPY=/mnt/sata/gorge-training/sbvenv/bin
+WORKERS=${SB_GAUNTLET_WORKERS:-8}
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"
 
 CANDS_RAW=${1:?usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]}
@@ -112,6 +115,7 @@ REFS=(sb-uniform sb-heuristic bot)
 declare -A REFSET=()
 for r in "${REFS[@]}"; do REFSET[$r]=1; done
 if [ -f "$GDIR/champions.txt" ]; then
+	CHAMPKEY=$(sha256sum "$GDIR/champions.txt" | cut -c1-16)
 	while IFS= read -r line; do
 		line="${line%%#*}"
 		line="${line//[[:space:]]/}"
@@ -143,12 +147,16 @@ REFLIST=$(IFS=,; echo "${REFS[*]}")
 (cd "$ROOT" && go build -o "$WORK/botbench" ./cmd/botbench)
 
 # The cache key: HEAD tree hashes of everything that can change an outcome,
-# plus the shape of the schedule.
+# plus the shape of the schedule. The champions file's CONTENT is part of
+# the key too: with a ref cache already on disk, a new champion line must
+# get its own ref-vs-ref games, not ride a cache built without it.
 keysrc=""
 for p in rules effects cards decision botpolicy internal/spellbench cmd/botbench; do
 	keysrc+="$(git -C "$ROOT" rev-parse "HEAD:$p")
 "
 done
+keysrc+="${CHAMPKEY-}
+"
 KEY=$(printf '%s|%s|%s|%s' "$keysrc" "$PAIRS" "$DECKS" | sha256sum | cut -c1-16)
 CACHE="$GDIR/ref/$KEY"
 
@@ -157,7 +165,7 @@ run_bench() { # run_bench <botlist> <out> [extra -spellbench-* filters...]
 	shift 2
 	local -a cmd=("$WORK/botbench" -spellbench "$list" -spellbench-pairs "$PAIRS")
 	if [ -n "$DECKS" ]; then cmd+=(-spellbench-decks "$DECKS"); fi
-	cmd+=(-spellbench-out "$out" -workers 8 "$@")
+	cmd+=(-spellbench-out "$out" -workers "$WORKERS" "$@")
 	heavy "${cmd[@]}"
 }
 
@@ -205,13 +213,14 @@ fi
 # candidates' own games.
 git_head=$(git -C "$ROOT" rev-parse HEAD)
 ts=$(date -u +%FT%TZ)
-"$SBPY/python3" - "$WORK/rating" "$GDIR/results.jsonl" "$PAIRS" "${DECKS:-default-pool}" "$git_head" "$KEY" "$ts" "${CANDS[@]}" <<'PY'
+"$SBPY/python3" - "$WORK/rating" "$GDIR/results.jsonl" "$PAIRS" "${DECKS:-default-pool}" "$git_head" "$KEY" "$ts" "$REFLIST" "${CANDS[@]}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-rating, results_path, pairs, decks, git_head, key, ts = sys.argv[1:8]
-cands = sys.argv[8:]
+rating, results_path, pairs, decks, git_head, key, ts, refs_arg = sys.argv[1:9]
+cands = sys.argv[9:]
+refs = set(refs_arg.split(","))
 parent = Path(rating).parent
 doc = json.loads((Path(rating) / "leaderboard.json").read_text())
 rows = {r["name"]: r for r in doc["rows"]}
@@ -250,7 +259,9 @@ for cand in cands:
     ci = r.get("ci95_elo_milli") or [None, None]
     wl = f"{r.get('wins', 0)}-{r.get('losses', 0)}"
     vs = "  ".join(
-        f"{opp} {w}-{l}" for opp, (w, l) in sorted(h2h.get(cand, {}).items())
+        f"{opp} {w}-{l}"
+        for opp, (w, l) in sorted(h2h.get(cand, {}).items())
+        if opp in refs
     )
     print(
         f"{cand:<32} {fmt(r.get('elo_milli')):>7} "

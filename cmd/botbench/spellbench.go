@@ -162,12 +162,21 @@ type sbResult struct {
 // internal/spellbench/registry and the spec string is itself the ledger
 // name (a composed candidate shows up under its composed name), except az:
 // it carries its world and simulation count so a clairvoyant number can
-// never be read as a fair one.
+// never be read as a fair one -- and a COMPOSED az spec keeps that marker
+// ahead of its decorators ("az+passguard" is
+// "az-clairvoyant-sims<N>+passguard"), so scripts/spellbench-rate.py's
+// name tag (a leading "az-") still classifies it as a search agent and no
+// composed clairvoyant spec can be rated as a fair one.
 func sbDisplayName(policy string) string {
-	if policy == "az" {
-		return fmt.Sprintf("az-clairvoyant-sims%d", azCfg.Search.Sims)
+	base, rest, _ := strings.Cut(policy, "+")
+	if base != "az" {
+		return policy
 	}
-	return policy
+	name := fmt.Sprintf("az-clairvoyant-sims%d", azCfg.Search.Sims)
+	if rest != "" {
+		name += "+" + rest
+	}
+	return name
 }
 
 func sbBotID(name string) string {
@@ -176,14 +185,16 @@ func sbBotID(name string) string {
 }
 
 // sbSubmitWithFallback is the Hooks.Submit that keeps a builtin seat's
-// refused answer from halting the game (file comment).
+// refused answer from halting the game (file comment). The builtin is
+// found through the decoration (registry.UnwrapSeat), so a decorated sb-*
+// spec keeps the fallback exactly as the bare name has it.
 func sbSubmitWithFallback(seats []seat.Seat, res *sbResult) func(*rules.Engine, int, *decision.Decision, decision.Intent) (bool, error) {
 	return func(e *rules.Engine, seatIdx int, d *decision.Decision, in decision.Intent) (bool, error) {
 		err := e.Submit(in)
 		if err == nil {
 			return true, nil
 		}
-		if _, ok := seats[seatIdx].(*builtins.Seat); !ok {
+		if _, ok := registry.UnwrapSeat(seats[seatIdx]).(*builtins.Seat); !ok {
 			return true, err
 		}
 		res.fallbacks[seatIdx]++
@@ -240,7 +251,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	res.wall = time.Since(t0)
 	res.outcome, res.err = o, err
 	for s := 0; s < 2; s++ {
-		if b, ok := seats[s].(*builtins.Seat); ok {
+		if b, ok := registry.UnwrapSeat(seats[s]).(*builtins.Seat); ok {
 			res.stats[s] = b.Stats
 		}
 	}

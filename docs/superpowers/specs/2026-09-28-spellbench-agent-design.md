@@ -582,7 +582,14 @@ non-pass candidate only when the decision offers exactly one non-pass
 candidate that is a land play (the wrapper keeps the wrapped seat's
 BoardSeat-ness, so `bot+passguard` still answers from the board, and the
 inner is consulted exactly once per decision, so a seed-streamed inner
-draws the same numbers bare or wrapped).
+draws the same numbers bare or wrapped). A delegating decorator implements
+the registry's `Unwrapper` contract (`UnwrapSeat`), so the runner's
+refused-answer fallback and stats collection reach the seat underneath: a
+decorated `sb-*` spec keeps the builtin's fallback exactly as the bare
+name has it. And `sbDisplayName` marks the spec's BASE, so an `az`-composed
+spec keeps the clairvoyant ledger marker (`az+passguard` is recorded as
+`az-clairvoyant-sims<N>+passguard`) and rate.py's name tag (a leading
+`az-`) still classifies it as a search agent.
 
 **Gauntlet** (`scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]`).
 Rates candidate specs against a fixed reference set: `sb-uniform` (the Elo
@@ -593,7 +600,9 @@ exists. Candidates play the references through `-spellbench-with <spec>`
 are cached under `/mnt/sata/gorge-training/spellbench-work/gauntlet/ref/<key>/`,
 keyed by the `git rev-parse HEAD:` tree hashes of `rules effects cards
 decision botpolicy internal/spellbench cmd/botbench` plus pairs and decks,
-so any engine or policy change invalidates the cache. Every relevant ledger
+so any engine or policy change invalidates the cache, as does any change
+to the champions file's content (a new champion line must get its own
+ref-vs-ref games, not ride a cache built without it). Every relevant ledger
 is rated together with `scripts/spellbench-rate.py`
 (`/mnt/sata/gorge-training/sbvenv/bin` provides the interpreter); the run
 prints a per-candidate table (spec, Elo, CI95, W-L, head-to-head vs each
@@ -602,4 +611,5 @@ reference) and appends one JSON row per candidate to
 pairs, decks, git_head, key, ts`). Exit code 0 unless the run fails. Every
 botbench invocation runs under
 `flock -o .../heavy.lock systemd-run --user --scope -q -p MemoryMax=4G env
-GOMEMLIMIT=2GiB GOMAXPROCS=8` with `-workers 8`.
+GOMEMLIMIT=2GiB GOMAXPROCS=8` with `-workers 8` (SB_GAUNTLET_WORKERS
+overrides the worker count for a smoke-sized run).
