@@ -300,6 +300,15 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"sb-heuristic-manual": func(seed uint64) seat.Seat {
 		return builtins.New(builtins.Heuristic, builtins.Manual, seed)
 	},
+	// The -planned arms play the manual surface with the auto-pay choice
+	// logic: a chosen cast's payment plan is lowered into manual taps by
+	// internal/spellbench/payexec (builtins.Planned).
+	"sb-uniform-planned": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Uniform, builtins.Planned, seed^builtins.UniformSeed)
+	},
+	"sb-heuristic-planned": func(seed uint64) seat.Seat {
+		return builtins.New(builtins.Heuristic, builtins.Planned, seed)
+	},
 }
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {

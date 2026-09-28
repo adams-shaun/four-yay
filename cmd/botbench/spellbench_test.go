@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/internal/spellbench"
@@ -64,7 +65,8 @@ func TestSpellbenchBuiltinsPlayMirrors(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, pol := range []string{"sb-uniform", "sb-heuristic", "sb-first", "sb-uniform-manual", "sb-heuristic-manual"} {
+		for _, pol := range []string{"sb-uniform", "sb-heuristic", "sb-first", "sb-uniform-manual", "sb-heuristic-manual",
+			"sb-uniform-planned", "sb-heuristic-planned"} {
 			g := sbGame{id: "t", seed: sbGameSeed(20260926, 0, 0), deck: deckID, seats: [2]string{pol, "sb-heuristic"}}
 			a := sbPlay(g, deck, reg, 200, 20000)
 			b := sbPlay(g, deck, reg, 200, 20000)
@@ -73,6 +75,17 @@ func TestSpellbenchBuiltinsPlayMirrors(t *testing.T) {
 			}
 			if a.outcome != b.outcome {
 				t.Fatalf("%s on %s: not deterministic: %+v vs %+v", pol, deckID, a.outcome, b.outcome)
+			}
+			if !reflect.DeepEqual(a.stats, b.stats) {
+				t.Fatalf("%s on %s: seat stats not deterministic: %+v vs %+v", pol, deckID, a.stats, b.stats)
+			}
+			if strings.HasSuffix(pol, "-planned") {
+				// The planned seat (p0) casts through lowered plans, and
+				// almost every lowering reaches its cast.
+				st := a.stats[0]
+				if st.Lowerings == 0 || st.LoweredCasts*10 < st.Lowerings*9 {
+					t.Fatalf("%s on %s: lowerings %d, cast %d, aborts %v", pol, deckID, st.Lowerings, st.LoweredCasts, st.AbortsByCause)
+				}
 			}
 			if a.outcome.IsStalled() {
 				t.Fatalf("%s on %s: stalled %+v", pol, deckID, a.outcome)

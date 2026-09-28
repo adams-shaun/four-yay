@@ -532,6 +532,7 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 	fallbacks := map[string]int{}
 	seatGames := map[string]int{}
 	pursuits := map[string]*builtins.Stats{}
+	seatIntents := map[string]int64{} // both seats' intents, summed over the policy's games
 	for i, g := range sched {
 		r := results[i]
 		a, b := g.seats[0], g.seats[1]
@@ -566,10 +567,8 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 			if pursuits[g.seats[s]] == nil {
 				pursuits[g.seats[s]] = &builtins.Stats{}
 			}
-			ps := pursuits[g.seats[s]]
-			ps.Pursuits += r.stats[s].Pursuits
-			ps.PursuitTaps += r.stats[s].PursuitTaps
-			ps.PursuitFailures += r.stats[s].PursuitFailures
+			pursuits[g.seats[s]].Add(r.stats[s])
+			seatIntents[g.seats[s]] += int64(r.outcome.Intents)
 		}
 	}
 	fmt.Fprintf(w, "spellbench workup: %d games in %s wall\n", len(sched), elapsed.Round(time.Second))
@@ -588,5 +587,23 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 		ps := pursuits[n]
 		fmt.Fprintf(w, "policy %-22s seat-games %4d  refused-answer fallbacks %4d  pursuits %5d (taps %5d, failed %4d)\n",
 			n, seatGames[n], fallbacks[n], ps.Pursuits, ps.PursuitTaps, ps.PursuitFailures)
+		sg := float64(seatGames[n])
+		fmt.Fprintf(w, "       %-22s game intents/game %7.1f  own decisions/game %7.1f\n", "", float64(seatIntents[n])/sg, float64(ps.Decisions)/sg)
+		if ps.Lowerings > 0 {
+			var causes []string
+			for k := range ps.AbortsByCause {
+				causes = append(causes, k)
+			}
+			sort.Strings(causes)
+			var cs []string
+			for _, k := range causes {
+				cs = append(cs, fmt.Sprintf("%s=%d", k, ps.AbortsByCause[k]))
+			}
+			fmt.Fprintf(w, "       %-22s lowerings %5d  cast %5d  aborted %4d (passes %4d) [%s]  taps %5d  mana asks %4d\n", "",
+				ps.Lowerings, ps.LoweredCasts, ps.Aborts, ps.AbortPasses, strings.Join(cs, " "), ps.LoweringTaps, ps.LoweringAsks)
+			for _, a := range ps.AbortSamples {
+				fmt.Fprintf(w, "       %-22s   abort: %s\n", "", a)
+			}
+		}
 	}
 }

@@ -1,7 +1,10 @@
 package builtins
 
 import (
+	"fmt"
+
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/spellbench/payexec"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -69,7 +72,7 @@ type cand struct {
 // re-choice after a pursuit fails on the spot.
 func (s *Seat) priority(v view.View, d *decision.Decision, depth int) decision.Intent {
 	if s.pursuit != nil {
-		if in, ok := s.pursue(d); ok {
+		if in, ok := s.pursue(v, d); ok {
 			return in
 		}
 	}
@@ -89,14 +92,12 @@ func (s *Seat) priority(v view.View, d *decision.Decision, depth int) decision.I
 	case c.opt >= 0:
 		return one(d, c.opt)
 	case c.plan != nil:
-		return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
-			ActionID: c.plan.ID, Plan: decision.ClonePaymentPlan(c.plan.Plans[0]),
-		}}
+		return s.payWith(v, d, c.plan)
 	}
 	k := *c.pot
 	s.pursuit = &k
 	s.Stats.Pursuits++
-	if in, ok := s.pursue(d); ok {
+	if in, ok := s.pursue(v, d); ok {
 		return in
 	}
 	// No source to tap: the play is now in the failed set, so choose again
@@ -144,7 +145,7 @@ func (s *Seat) candidates(v view.View, d *decision.Decision) []cand {
 			continue
 		}
 		cls := classify(o.Kind, o.Mode)
-		if cls == clsMana && s.mana == AutoPay {
+		if cls == clsMana && s.mana != Manual {
 			continue
 		}
 		cands = append(cands, cand{cls: cls, opt: o.Index})
@@ -153,7 +154,7 @@ func (s *Seat) candidates(v view.View, d *decision.Decision) []cand {
 			ordinaryCast[o.Obj] = true
 		}
 	}
-	if s.mana != AutoPay {
+	if s.mana == Manual {
 		return cands
 	}
 	for i := range d.PaymentActions {
@@ -190,7 +191,7 @@ func potential(v view.View, me state.PlayerID) []decision.PotentialAction {
 // pursue advances the current pursuit: take the play once it is offered
 // (or planned), else tap the first offered mana source. With no source left
 // the pursuit fails: the play joins the step's failed set and ok is false.
-func (s *Seat) pursue(d *decision.Decision) (decision.Intent, bool) {
+func (s *Seat) pursue(v view.View, d *decision.Decision) (decision.Intent, bool) {
 	k := *s.pursuit
 	for i := range d.Options {
 		if optionKey(&d.Options[i]) == k {
@@ -203,9 +204,7 @@ func (s *Seat) pursue(d *decision.Decision) (decision.Intent, bool) {
 			a := &d.PaymentActions[i]
 			if a.Cast.Object == k.obj && len(a.Plans) > 0 {
 				s.pursuit = nil
-				return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
-					ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
-				}}, true
+				return s.payWith(v, d, a), true
 			}
 		}
 	}
@@ -268,4 +267,63 @@ func pursuitColour(v view.View, d *decision.Decision) (int, bool) {
 		}
 	}
 	return best, true
+}
+
+// payWith pays for a planner-offered cast. AutoPay submits the first plan
+// as the Intent.Payment witness. Planned lowers the plan onto the manual
+// surface through payexec, answering this decision with its first step.
+func (s *Seat) payWith(v view.View, d *decision.Decision, a *decision.PaymentAction) decision.Intent {
+	if s.mana != Planned {
+		return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{
+			ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0]),
+		}}
+	}
+	s.exec = payexec.Start(d.Player, a, payexec.PoolFromView(v, d.Player))
+	s.Stats.Lowerings++
+	if in, ok := s.lower(v, d); ok {
+		return in
+	}
+	// Unreachable: an abort at priority answers pass inside lower.
+	return repaired(d, decision.Intent{})
+}
+
+// lower feeds d to the lowering in progress. ok is false only when the
+// lowering aborted on a non-priority ask, which the policy then answers; an
+// abort at priority is answered with pass (counted).
+func (s *Seat) lower(v view.View, d *decision.Decision) (decision.Intent, bool) {
+	in, st := s.exec.Step(d, payexec.PoolFromView(v, d.Player))
+	switch st {
+	case payexec.InProgress:
+		return in, true
+	case payexec.Done:
+		s.Stats.LoweredCasts++
+		s.finishLowering()
+		return in, true
+	}
+	if len(s.Stats.AbortSamples) < maxAbortSamples {
+		s.Stats.AbortSamples = append(s.Stats.AbortSamples, fmt.Sprintf("turn %d %s: %s: %s", v.Turn, v.Step, s.exec.Reason, s.exec.Detail))
+	}
+	s.abortLowering(s.exec.Reason)
+	if d.Kind == decision.KPriority {
+		if i, ok := firstKind(d, "pass"); ok {
+			s.Stats.AbortPasses++
+			return one(d, i), true
+		}
+	}
+	return decision.Intent{}, false
+}
+
+func (s *Seat) finishLowering() {
+	s.Stats.LoweringTaps += s.exec.Taps
+	s.Stats.LoweringAsks += s.exec.Asks
+	s.exec = nil
+}
+
+func (s *Seat) abortLowering(reason string) {
+	s.Stats.Aborts++
+	if s.Stats.AbortsByCause == nil {
+		s.Stats.AbortsByCause = map[string]int{}
+	}
+	s.Stats.AbortsByCause[reason]++
+	s.finishLowering()
 }

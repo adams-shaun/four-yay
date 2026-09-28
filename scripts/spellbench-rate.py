@@ -36,6 +36,8 @@ _TAGS = {
     "sb-uniform-manual": ("baseline",),
     "sb-heuristic": ("heuristic",),
     "sb-heuristic-manual": ("heuristic",),
+    "sb-uniform-planned": ("baseline",),
+    "sb-heuristic-planned": ("heuristic",),
     "bot": ("heuristic",),
 }
 

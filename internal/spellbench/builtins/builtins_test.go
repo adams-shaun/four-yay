@@ -329,3 +329,111 @@ func TestPursuitColourCoversCost(t *testing.T) {
 		t.Fatalf("pursuitColour = %d, %v; want G (1)", i, ok)
 	}
 }
+
+// TestPlannedLowersTheChosenCast: a Planned heuristic chooses the plan-paid
+// cast exactly as AutoPay does, but answers with the plan's taps on the
+// manual surface (answering the dual's colour ask with the witness colour)
+// and then the ordinary cast option -- never a Payment witness, and never a
+// tap the policy picked.
+func TestPlannedLowersTheChosenCast(t *testing.T) {
+	v := view.View{Turn: 3, Step: "main1"}
+	p := me(&v)
+	w := decision.ManaAmount{1, 0, 0, 0, 0, 0}
+	g := decision.ManaAmount{0, 0, 0, 0, 1, 0}
+	plan := decision.PaymentPlan{Version: decision.PaymentPlanV1, Activations: []decision.PaymentActivation{
+		{Source: 21, Produces: g}, {Source: 22, Produces: w},
+	}}
+	d := prio(opt(0, "activate", 20), opt(1, "activate", 21), opt(2, "activate", 22), opt(3, "pass", 0))
+	d.PaymentActions = []decision.PaymentAction{{ID: "a1", Cast: decision.PlannedCast{Object: 10}, Plans: []decision.PaymentPlan{plan}}}
+	s := New(Heuristic, Planned, 1)
+	if !s.WantsPaymentActions() {
+		t.Fatal("an idle Planned seat wants plans")
+	}
+	in := decide(t, s, v, d)
+	if in.Payment != nil || len(in.Choices) != 1 || d.Options[in.Choices[0]].Obj != 21 {
+		t.Fatalf("first answer should tap source 21, got %+v", in)
+	}
+	if s.WantsPaymentActions() {
+		t.Fatal("a lowering seat needs no plans")
+	}
+	p.Pool = map[string]int32{"G": 1}
+	d2 := prio(opt(0, "activate", 20), opt(1, "activate", 22), opt(2, "pass", 0))
+	if in = decide(t, s, v, d2); len(in.Choices) != 1 || d2.Options[in.Choices[0]].Obj != 22 {
+		t.Fatalf("second answer should tap source 22, got %+v", in)
+	}
+	ask := decision.Decision{Seq: 7, Kind: decision.KChoose, Min: 1, Max: 1, Options: []decision.Option{
+		{Index: 0, Kind: "mana", Obj: 22, Label: "Add G", ManaSymbol: "G"},
+		{Index: 1, Kind: "mana", Obj: 22, Label: "Add W", ManaSymbol: "W"},
+	}}
+	if in = decide(t, s, v, ask); !reflect.DeepEqual(in.Choices, []int{1}) {
+		t.Fatalf("colour ask should name W, got %+v", in)
+	}
+	p.Pool = map[string]int32{"G": 1, "W": 1}
+	d3 := prio(opt(0, "cast", 10), opt(1, "activate", 20), opt(2, "pass", 0))
+	if in = decide(t, s, v, d3); !reflect.DeepEqual(in.Choices, []int{0}) {
+		t.Fatalf("final answer should cast, got %+v", in)
+	}
+	if s.Stats.Lowerings != 1 || s.Stats.LoweredCasts != 1 || s.Stats.LoweringTaps != 2 || s.Stats.Aborts != 0 {
+		t.Fatalf("stats %+v", s.Stats)
+	}
+
+	// Divergence: the second source is no longer offered. The seat passes
+	// (counted) instead of guessing another tap.
+	s = New(Heuristic, Planned, 1)
+	p.Pool = nil
+	decide(t, s, v, d)
+	p.Pool = map[string]int32{"G": 1}
+	bare := prio(opt(0, "activate", 20), opt(1, "pass", 0))
+	if in = decide(t, s, v, bare); !reflect.DeepEqual(in.Choices, []int{1}) {
+		t.Fatalf("abort should pass, got %+v", in)
+	}
+	if s.Stats.Aborts != 1 || s.Stats.AbortPasses != 1 || s.Stats.AbortsByCause["activate_not_offered"] != 1 {
+		t.Fatalf("stats %+v", s.Stats)
+	}
+	if !s.WantsPaymentActions() {
+		t.Fatal("after an abort the seat chooses again and wants plans")
+	}
+}
+
+// TestPlannedNeverTapsOnItsOwn: with no plan-paid cast on offer, a Planned
+// heuristic never picks a mana ability (the -manual heuristic's upkeep
+// tapping), and a Planned uniform never draws one.
+func TestPlannedNeverTapsOnItsOwn(t *testing.T) {
+	v := view.View{Turn: 2, Step: "upkeep"}
+	me(&v)
+	d := prio(opt(0, "activate", 20), opt(1, "activate", 21), opt(2, "pass", 0))
+	if in := decide(t, New(Heuristic, Planned, 1), v, d); d.Options[in.Choices[0]].Kind != "pass" {
+		t.Fatalf("heuristic chose %+v", in)
+	}
+	s := New(Uniform, Planned, 3)
+	for i := 0; i < 200; i++ {
+		if in := decide(t, s, v, d); d.Options[in.Choices[0]].Kind != "pass" {
+			t.Fatalf("uniform chose %+v", in)
+		}
+	}
+}
+
+// TestPlannedDeterminism: a Planned seat's answers are a pure function of
+// its seed, and its choices match the AutoPay twin's draw for draw on a
+// surface without plans.
+func TestPlannedDeterminism(t *testing.T) {
+	v := view.View{}
+	me(&v)
+	run := func(m ManaMode, seed uint64) []decision.Intent {
+		s := New(Uniform, m, seed)
+		var out []decision.Intent
+		for i := 0; i < 50; i++ {
+			out = append(out, decide(t, s, v, richPriority()))
+			out = append(out, decide(t, s, v, attackersDecision()))
+			out = append(out, decide(t, s, v, choose3()))
+		}
+		return out
+	}
+	a := run(Planned, 42)
+	if !reflect.DeepEqual(a, run(Planned, 42)) {
+		t.Fatal("same seed, different answers")
+	}
+	if !reflect.DeepEqual(a, run(AutoPay, 42)) {
+		t.Fatal("Planned and AutoPay choose differently on a plan-free surface")
+	}
+}

@@ -54,6 +54,21 @@
 //     over-bound, so some pursuits fail after tapping), which is the right
 //     strength class for these bots; the planner-paid casts are exact.
 //
+//     Planned (sb-uniform-planned, sb-heuristic-planned): the AutoPay
+//     candidate set and choice logic -- mana abilities hidden, planner-paid
+//     casts, pursuits -- played on the manual surface. A chosen
+//     planner-paid cast is not submitted as a witness; its plan (the first
+//     one with no last-resort step, internal/spellbench/payexec.SelectPlan)
+//     is LOWERED: the seat answers the following decisions by activating
+//     each plan source in order, answering any mana-ability or colour ask
+//     with the witness's production, and then selecting the ordinary cast
+//     option. payexec verifies every step (the option is offered, the pool
+//     is what the plan predicts); on a divergence the lowering aborts, the
+//     seat passes (at priority; any other ask goes to the policy) and the
+//     abort is counted in Stats. So the policy never sees or picks a raw
+//     tap: taps happen only inside a chosen cast's lowering (or, exactly as
+//     under AutoPay, a pursuit of a play the planner does not price).
+//
 //     Manual (sb-uniform-manual, sb-heuristic-manual): the literal protocol
 //     surface SpellBench's own mtg-kernel and gorge adapters expose, where
 //     every mana ability is a priority candidate (activate_mana_ability) and
@@ -120,6 +135,7 @@ import (
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/spellbench/payexec"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -156,6 +172,12 @@ const (
 	AutoPay ManaMode = iota
 	// Manual offers every mana ability as a priority candidate.
 	Manual
+	// Planned plays the manual surface with the AutoPay candidate set: mana
+	// abilities are hidden from the policy, and a chosen planner-paid cast
+	// is lowered onto the manual surface by internal/spellbench/payexec
+	// (activate each plan source, then cast) instead of being submitted as
+	// an Intent.Payment witness (package doc, 1).
+	Planned
 )
 
 // UniformSeed is the seed the pauper-kernel benchmark configures for its
@@ -163,11 +185,54 @@ const (
 // seed, mirroring v2's (agent_seed ^ seed).
 const UniformSeed uint64 = 11
 
-// Stats counts the seat's AutoPay pursuit activity (package doc, 1).
+// Stats counts the seat's AutoPay pursuit and Planned lowering activity
+// (package doc, 1).
 type Stats struct {
+	Decisions       int // decisions this seat answered
 	Pursuits        int // potential plays chosen
 	PursuitTaps     int // mana sources tapped while pursuing
 	PursuitFailures int // pursuits abandoned with no source left
+
+	// Planned only: plan lowerings started, completed (cast submitted) and
+	// aborted, the sources they activated, and the aborts by payexec
+	// reason. An abort met at priority is answered with pass
+	// (AbortPasses); one met at any other ask is answered by the policy.
+	Lowerings     int
+	LoweredCasts  int
+	LoweringTaps  int
+	LoweringAsks  int
+	Aborts        int
+	AbortPasses   int
+	AbortsByCause map[string]int
+	// AbortSamples keeps the first few aborts' payexec reason and detail.
+	AbortSamples []string
+}
+
+const maxAbortSamples = 4
+
+// Add accumulates o into s.
+func (s *Stats) Add(o Stats) {
+	s.Decisions += o.Decisions
+	s.Pursuits += o.Pursuits
+	s.PursuitTaps += o.PursuitTaps
+	s.PursuitFailures += o.PursuitFailures
+	s.Lowerings += o.Lowerings
+	s.LoweredCasts += o.LoweredCasts
+	s.LoweringTaps += o.LoweringTaps
+	s.LoweringAsks += o.LoweringAsks
+	s.Aborts += o.Aborts
+	s.AbortPasses += o.AbortPasses
+	for _, a := range o.AbortSamples {
+		if len(s.AbortSamples) < maxAbortSamples {
+			s.AbortSamples = append(s.AbortSamples, a)
+		}
+	}
+	for k, v := range o.AbortsByCause {
+		if s.AbortsByCause == nil {
+			s.AbortsByCause = map[string]int{}
+		}
+		s.AbortsByCause[k] += v
+	}
 }
 
 // Seat is one SpellBench builtin bot playing one seat of one game.
@@ -182,6 +247,9 @@ type Seat struct {
 	pursuit *actionKey
 	failed  map[actionKey]bool
 	window  stepWindow
+
+	// exec is the plan lowering in progress (Planned), nil when none.
+	exec *payexec.Execution
 
 	Stats Stats
 }
@@ -206,13 +274,24 @@ func New(p Policy, m ManaMode, seed uint64) *Seat {
 // Policy reports the seat's policy.
 func (s *Seat) Policy() Policy { return s.policy }
 
-// WantsPaymentActions opts an AutoPay seat into gorge's payment plans.
-func (s *Seat) WantsPaymentActions() bool { return s.mana == AutoPay }
+// WantsPaymentActions opts an AutoPay or Planned seat into gorge's payment
+// plans. A Planned seat mid-lowering needs none: it is following the plan it
+// already holds.
+func (s *Seat) WantsPaymentActions() bool {
+	return s.mana == AutoPay || (s.mana == Planned && s.exec == nil)
+}
 
 // Decide answers d. The View supplies the step (to scope a pursuit) and the
 // seat's own PotentialActions; nothing else of it is read.
 func (s *Seat) Decide(_ context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	s.sync(v)
+	s.Stats.Decisions++
+	if s.exec != nil {
+		if in, ok := s.lower(v, &d); ok {
+			in.Seq, in.Player = d.Seq, d.Player
+			return in, nil
+		}
+	}
 	in := s.decide(v, &d)
 	in.Seq, in.Player = d.Seq, d.Player
 	return in, nil
@@ -228,6 +307,10 @@ func (s *Seat) sync(v view.View) {
 	s.window = w
 	s.pursuit = nil
 	clear(s.failed)
+	if s.exec != nil {
+		// The pool empties with the step: a lowering cannot span it.
+		s.abortLowering("step_changed")
+	}
 }
 
 func (s *Seat) decide(v view.View, d *decision.Decision) decision.Intent {
