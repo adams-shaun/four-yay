@@ -264,7 +264,7 @@ const (
 	// checkTriggers), so this event is the whole state delta. Appended
 	// after ExtraTurn, same append-only precedent.
 	DoorUnlock
-	// SpeedChange records one increment of a seat's speed (CR 702.163,
+	// SpeedChange records one increment of a seat's speed (CR 702.179,
 	// "Start your engines!"). Player is the seat whose speed rises and
 	// Amount the delta (always +1 today; the engine caps the grant at max
 	// speed 4 and at once per turn before ever emitting). Folded into

@@ -88,7 +88,7 @@ type Player struct {
 	// aliases the live one's.
 	DamageTakenByGame []ObjID
 
-	// Speed is this seat's speed (CR 702.163, "Start your engines!"): it
+	// Speed is this seat's speed (CR 702.179, "Start your engines!"): it
 	// starts at 0 (or 1 the first time an engine grants speed), rises by one
 	// once on each of this seat's own turns when an opponent loses life,
 	// caps at 4 (max speed), and never resets. Written only by events.Apply's
