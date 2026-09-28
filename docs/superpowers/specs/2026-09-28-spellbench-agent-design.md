@@ -179,9 +179,29 @@ Planned variants sit inside their auto-pay twins' CIs (heuristic 1076 vs
 1064, uniform 1012 vs 1000) and roughly 230 Elo above the naive `-manual`
 variants (840, 788); head to head each planned bot is 65-63 against its
 auto-pay twin. Aborts: 0.5-0.9% of lowerings, all on plans that sacrifice a
-mana source whose trigger stacks before a sorcery-speed cast. Open: lowering
-for activated abilities (gorge plans casts only), and ordering sacrifice
-steps last.
+mana source whose trigger stacks before a sorcery-speed cast.
+
+Closed (branch `wt/sb-actions`): every one of those aborts was recoverable,
+and the seat now never loses a chosen, payable action. payexec runs
+last-resort steps after plain taps (Tinder Wall before Overgrown Battlement
+shrank the defender count), hands a foreign ask (a trigger order) back to the
+policy and resumes, and waits out a stack a sacrifice trigger filled (Eldrazi
+Spawn into Writhing Chrysalis) instead of aborting. `rules.Engine.
+PotentialPaymentPlans` gives each potential play the exact planner's verdict:
+a witness for a printed activated ability's mana part (its own and its
+cost's tap/sacrifice candidates withheld), and a proof when a play the
+over-bound walk offers cannot be paid. An aborted lowering re-plans the same
+play from the pool it holds; a refused answer is retried with the policy's
+next choice. Measured on the same 768-game workup (4 sb seats, 8 pairs):
+lowering aborts 59 -> 0; "legal actions lost" (chosen, planner-payable, not
+taken) 0 in every seat; about 1,600-2,000 activated abilities per seat are
+now lowered from a witness, and about 2,200-2,650 over-bound plays per seat
+are dropped as proven unpayable instead of being tapped out for. The
+remaining naive pursuit failures are plays no planner prices (a census with
+an unpriceable source, X costs, flashback), not proven-legal plays. The v2
+agent (`cmd/sbagent`) now answers every recoverable request instead of
+erroring (a host forfeit): policy failure, unknown or stale game, missing
+candidate ids, an echo that would not round-trip; `-stats` counts each.
 
 ## 4. (b) The shadow gorge state
 
