@@ -2248,22 +2248,33 @@ func markCostValidTarget(out *costStaticViews) {
 				out.validTarget = true
 				return
 			}
-			// A target-relative Count$Compare amount reads the chosen targets
-			// (Not of This World/Bane's Contingency's `TargetedByTarget$Valid`,
-			// Lullmage's Domination's `TargetedController$CardsInGraveyard`).
-			// An ordinary nil-target price cannot see that reduction, so the
-			// whole `Targeted` ref family -- not just the one spelling a
-			// previous ticket hit -- marks the collection as target-conditional.
-			// The ref is read off the operand SVar (`fields[1]`), so a name
-			// that is not a target-relative head (a literal, a shared counter,
-			// a `Triggered*` read) stays nil-target priced.
-			if fields := strings.Fields(sv.SVars[sv.Params["Amount"]]); len(fields) >= 2 &&
-				fields[0] == "Count$Compare" && strings.HasPrefix(sv.SVars[fields[1]], "Targeted") {
+			// Any computed Amount$ may read the chosen targets: Battlefield
+			// Thaumaturge's `TargetedObjectsDistinct$Valid Creature`, Not of
+			// This World's `Count$Compare` over `TargetedByTarget$`,
+			// Lullmage's Domination's `TargetedController$`, and whatever
+			// spelling the next card uses. Target-dependence is NOT inferred
+			// from spelling any more -- each spelling-matched rule here missed
+			// the next carrier. Only a plain integer literal is provably
+			// target-independent. A non-literal amount that turns out not to
+			// read targets composes the same modifiers on the retry, so the
+			// widening costs a target census on the already-failed path only.
+			if amountMayReadTargets(sv) {
 				out.validTarget = true
 				return
 			}
 		}
 	}
+}
+
+// amountMayReadTargets reports whether a cost-modifier static's Amount$ is
+// anything other than a plain integer literal (see markCostValidTarget).
+func amountMayReadTargets(sv staticView) bool {
+	raw := strings.TrimSpace(sv.Params["Amount"])
+	if raw == "" {
+		return false
+	}
+	_, err := strconv.ParseInt(raw, 10, 64)
+	return err != nil
 }
 
 // appendEffectCostStatics appends the Effect-delivered cost-modifier statics
