@@ -46,6 +46,10 @@
 #
 # Exit code. 0 always, unless the run fails.
 #
+# Work root. /mnt/sata/gorge-training/spellbench-work/gauntlet by default;
+# SB_GAUNTLET_DIR overrides it (cache, results.jsonl, champions.txt) -- e.g.
+# where the mount is not writable.
+#
 # Resources. Every botbench invocation is wrapped in
 #   flock -o /mnt/sata/gorge-training/spellbench-work/heavy.lock \
 #     systemd-run --user --scope -q -p MemoryMax=4G \
@@ -54,7 +58,9 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-GDIR=/mnt/sata/gorge-training/spellbench-work/gauntlet
+# SB_GAUNTLET_DIR overrides the gauntlet work root (cache, results.jsonl,
+# champions.txt); the default is the shared training mount.
+GDIR=${SB_GAUNTLET_DIR:-/mnt/sata/gorge-training/spellbench-work/gauntlet}
 LOCK=/mnt/sata/gorge-training/spellbench-work/heavy.lock
 SBPY=/mnt/sata/gorge-training/sbvenv/bin
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"
@@ -181,7 +187,8 @@ for cand in "${CANDS[@]}"; do
 	fi
 	if [ -n "${PLAYED[$cand]+x}" ]; then continue; fi
 	PLAYED[$cand]=1
-	out="$WORK/cand${#PLAYED[@]}"	echo "sb-gauntlet: playing $cand vs the references"
+	out="$WORK/cand${#PLAYED[@]}"
+	echo "sb-gauntlet: playing $cand vs the references"
 	run_bench "$BOTLIST" "$out" -spellbench-with "$cand"
 	RATEDIRS+=("$out")
 done
