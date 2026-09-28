@@ -1,0 +1,64 @@
+{
+ "name": "Terror",
+ "format": "pauper",
+ "archetype": "terror",
+ "notes": "SpellBench pauper-kernel catalog deck Terror (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Mono-Blue Terror.dek.",
+ "cards": [
+  {
+   "name": "Brainstorm",
+   "count": 4
+  },
+  {
+   "name": "Counterspell",
+   "count": 4
+  },
+  {
+   "name": "Cryptic Serpent",
+   "count": 4
+  },
+  {
+   "name": "Deem Inferior",
+   "count": 4
+  },
+  {
+   "name": "Deep Analysis",
+   "count": 2
+  },
+  {
+   "name": "Dispel",
+   "count": 2
+  },
+  {
+   "name": "Island",
+   "count": 16
+  },
+  {
+   "name": "Lórien Revealed",
+   "count": 4
+  },
+  {
+   "name": "Mental Note",
+   "count": 4
+  },
+  {
+   "name": "Murmuring Mystic",
+   "count": 2
+  },
+  {
+   "name": "Ponder",
+   "count": 4
+  },
+  {
+   "name": "Sleep of the Dead",
+   "count": 2
+  },
+  {
+   "name": "Thought Scour",
+   "count": 4
+  },
+  {
+   "name": "Tolarian Terror",
+   "count": 4
+  }
+ ]
+}

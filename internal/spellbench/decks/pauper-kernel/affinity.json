@@ -1,0 +1,96 @@
+{
+ "name": "Affinity",
+ "format": "pauper",
+ "archetype": "affinity",
+ "notes": "SpellBench pauper-kernel catalog deck Affinity (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Grixis Affinity.dek.",
+ "cards": [
+  {
+   "name": "Black Mage's Rod",
+   "count": 3
+  },
+  {
+   "name": "Blood Fountain",
+   "count": 2
+  },
+  {
+   "name": "Cryogen Relic",
+   "count": 1
+  },
+  {
+   "name": "Drossforge Bridge",
+   "count": 4
+  },
+  {
+   "name": "Fanatical Offering",
+   "count": 1
+  },
+  {
+   "name": "Galvanic Blast",
+   "count": 4
+  },
+  {
+   "name": "Great Furnace",
+   "count": 3
+  },
+  {
+   "name": "Hunter's Blowgun",
+   "count": 1
+  },
+  {
+   "name": "Ichor Wellspring",
+   "count": 4
+  },
+  {
+   "name": "Krark-Clan Shaman",
+   "count": 3
+  },
+  {
+   "name": "Makeshift Munitions",
+   "count": 1
+  },
+  {
+   "name": "Mistvault Bridge",
+   "count": 4
+  },
+  {
+   "name": "Myr Enforcer",
+   "count": 4
+  },
+  {
+   "name": "Nihil Spellbomb",
+   "count": 3
+  },
+  {
+   "name": "Reckoner's Bargain",
+   "count": 4
+  },
+  {
+   "name": "Refurbished Familiar",
+   "count": 4
+  },
+  {
+   "name": "Seat of the Synod",
+   "count": 2
+  },
+  {
+   "name": "Silverbluff Bridge",
+   "count": 2
+  },
+  {
+   "name": "Swamp",
+   "count": 1
+  },
+  {
+   "name": "Thoughtcast",
+   "count": 4
+  },
+  {
+   "name": "Toxin Analysis",
+   "count": 2
+  },
+  {
+   "name": "Vault of Whispers",
+   "count": 3
+  }
+ ]
+}

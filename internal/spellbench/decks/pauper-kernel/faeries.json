@@ -1,0 +1,64 @@
+{
+ "name": "Faeries",
+ "format": "pauper",
+ "archetype": "faeries",
+ "notes": "SpellBench pauper-kernel catalog deck Faeries (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Mono-Blue Faeries.dek.",
+ "cards": [
+  {
+   "name": "Counterspell",
+   "count": 4
+  },
+  {
+   "name": "Dispel",
+   "count": 2
+  },
+  {
+   "name": "Faerie Miscreant",
+   "count": 4
+  },
+  {
+   "name": "Faerie Seer",
+   "count": 4
+  },
+  {
+   "name": "Force Spike",
+   "count": 2
+  },
+  {
+   "name": "Harrier Strix",
+   "count": 2
+  },
+  {
+   "name": "Humbling Elder",
+   "count": 4
+  },
+  {
+   "name": "Island",
+   "count": 18
+  },
+  {
+   "name": "Moon-Circuit Hacker",
+   "count": 4
+  },
+  {
+   "name": "Ninja of the Deep Hours",
+   "count": 4
+  },
+  {
+   "name": "Of One Mind",
+   "count": 4
+  },
+  {
+   "name": "Saiba Cryptomancer",
+   "count": 1
+  },
+  {
+   "name": "Snap",
+   "count": 3
+  },
+  {
+   "name": "Spellstutter Sprite",
+   "count": 4
+  }
+ ]
+}
