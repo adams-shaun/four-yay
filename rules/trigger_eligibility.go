@@ -565,6 +565,11 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// allTriggerEvents default keeps a Mutates-only face's mask narrow
 		// for every other kind.
 		return 0
+	case "Transformed":
+		// CR 701.26: transform effects mark their FlipFace event with
+		// Text "Transformed". The matcher narrows that shared marker to this
+		// source permanent and the transform-specific event text.
+		return 1 << events.FlipFace
 	case "TurnFaceUp":
 		// CR 708.6/702.36e: the turn-up marker events.TurnFaceUp (task
 		// agent-20260919T183249Z-0fb8ed97). Its ordinal is past the 64-bit

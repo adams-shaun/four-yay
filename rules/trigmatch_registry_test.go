@@ -167,6 +167,10 @@ var addedAfterTheSplit = []string{
 	// ordinary library card moves cannot identify a search to the trigger.
 	// The marker Kind is new, so the pre-split switch could not dispatch it.
 	"SearchedLibrary",
+	// trig-transform: Mode$ Transformed matches the transform-specific
+	// events.FlipFace marker (CR 701.26); the pre-split switch did not dispatch
+	// this mode.
+	"Transformed",
 	// TurnFaceUp (task agent-20260919T183249Z-0fb8ed97): "When
 	// [this/that permanent] is turned face up" (CR 708.6 / CR 702.36e;
 	// Printlifter Ooze, Woolly Loxodon and the mode's 125 corpus carriers).
