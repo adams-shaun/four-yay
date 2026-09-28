@@ -511,6 +511,16 @@ export interface PlayerView {
    */
   completed_dungeons: number;
   /**
+   * HasInitiative is the CR 726.1 initiative designation: true for the one
+   * player who currently has it. Public for every seat -- like the monarch,
+   * the designation is open information and drives attacking decisions. It
+   * carries omitempty so a match with no initiative (the common case)
+   * serialises byte-identically to before this field existed; an absent key
+   * means "this seat does not have the initiative", the Available
+   * convention.
+   */
+  has_initiative?: boolean;
+  /**
    * CommanderCasts runs parallel to Commanders: entry k is how many times
    * Commanders[k] has been cast from the command zone, the CR 903.8 tax
    * base for its next command-zone cast (an additional {2} per prior

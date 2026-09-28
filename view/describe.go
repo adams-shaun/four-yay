@@ -89,6 +89,8 @@ func Describe(g *state.Game, ev events.Event) string {
 		return player(g, ev.Player) + " " + verb + " " + itoa(int64(n)) + " speed (speed " + itoa(int64(speed)) + ")"
 	case events.MonarchChange:
 		return player(g, ev.Player) + " becomes the monarch"
+	case events.InitiativeChange:
+		return player(g, ev.Player) + " takes the initiative"
 	case events.BlessingChange:
 		return player(g, ev.Player) + " gets the city's blessing"
 	case events.EnduringStoryChange:

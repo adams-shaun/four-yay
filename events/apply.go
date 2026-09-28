@@ -584,6 +584,14 @@ func Apply(g *state.Game, e Event) {
 			g.Monarch, g.HasMonarch = e.Player, true
 		}
 
+	case InitiativeChange:
+		// CR 726.3: only one player can have the initiative at a time; as a
+		// player takes it, the player who currently has it ceases to have it.
+		// Assigning the single holder covers both halves of that transition.
+		if validPlayer(g, e.Player) {
+			g.Initiative, g.HasInitiative = e.Player, true
+		}
+
 	case BlessingChange:
 		// CR 702.131: one-way designation latch.
 		if validPlayer(g, e.Player) {
@@ -3165,13 +3173,14 @@ func Apply(g *state.Game, e Event) {
 		monarchDraw := e.Counter == "__monarch_draw"
 		radiationDrain := e.Counter == "__radiation_drain"
 		speedIncrease := e.Counter == "__speed_increase"
+		initiativeVenture := e.Counter == "__initiative_venture"
 		// Consume the registration first, even when its tracked permanent has
 		// changed incarnation. A stale dash/warp promise expires once; it must
 		// neither act on the returned object nor be retried forever. Ordinary
 		// delayed triggers, including Encore's group cleanup, are independent
 		// of their source and still resolve.
 		var registration *state.DelayedTrigger
-		if !monarchDraw && !radiationDrain && !speedIncrease {
+		if !monarchDraw && !radiationDrain && !speedIncrease && !initiativeVenture {
 			for i := range g.Delayed {
 				if g.Delayed[i].ID == uint32(e.Amount) {
 					dt := g.Delayed[i]
@@ -3184,7 +3193,7 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 		src := g.Obj(e.Obj)
-		if !radiationDrain && !speedIncrease {
+		if !radiationDrain && !speedIncrease && !initiativeVenture {
 			if src == nil {
 				break
 			}
@@ -3203,6 +3212,14 @@ func Apply(g *state.Game, e Event) {
 			sa = &cards.SA{Kind: "DB", API: "RadiationDrain", Params: map[string]string{"Defined": "You"}}
 		} else if speedIncrease {
 			sa = &cards.SA{Kind: "DB", API: "SpeedIncrease"}
+		} else if initiativeVenture {
+			// CR 726.2: the inherent "whenever a player takes the initiative,
+			// that player ventures into Undercity" ability (the combat-damage
+			// path queues this). The body is the ordinary Venture primitive
+			// narrowed to the Undercity quality (CR 726.2 / 701.49d), resolved
+			// by effects/venture.go's effVenture exactly as a printed DB$
+			// Venture | Dungeon$ Undercity would be.
+			sa = &cards.SA{Kind: "DB", API: "Venture", Params: map[string]string{"Dungeon": "Undercity"}}
 		} else {
 			sa = ResolveSVarAcrossFaces(src, e.Counter)
 		}
@@ -3235,7 +3252,7 @@ func Apply(g *state.Game, e Event) {
 		Move(g, o.ID, state.ZLibrary, state.ZStack)
 		o.Ability = sa
 		o.StackKind, o.StackKindKnown = state.StackKindTriggered, true
-		if !radiationDrain && !speedIncrease {
+		if !radiationDrain && !speedIncrease && !initiativeVenture {
 			o.Source = e.Obj
 		}
 		if registration != nil && registration.TrackSource {

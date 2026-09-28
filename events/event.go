@@ -1049,10 +1049,16 @@ const (
 	DungeonComplete
 	// DungeonRemove moves the active dungeon token out of the command zone.
 	DungeonRemove
+	// InitiativeChange gives the initiative designation to Player (CR 726.1).
+	// Like MonarchChange it is a state transition, not a Note: CR 726.3 keeps
+	// at most one holder, so folding it on a replay re-derives the same
+	// designation the live match had. Appended after DungeonRemove so no
+	// earlier ordinal, hash chain or golden replay is affected.
+	InitiativeChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(DungeonRemove) + 1
+	NumKinds = int(InitiativeChange) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1197,7 +1203,8 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"damage_provenance", "enduring_story_change", "phase_out", "gift_promise", "give_gift", "roll_dice",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
 	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
-	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove"}
+	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
+	"initiative_change"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {
