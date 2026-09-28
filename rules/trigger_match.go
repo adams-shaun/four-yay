@@ -80,6 +80,7 @@ type pendingTrigger struct {
 	// push event, rather than as an immediate turn action.
 	MonarchDraw    bool
 	RadiationDrain bool
+	SpeedIncrease  bool
 	// Merged marks a mutated pile's under-card trigger (CR 702.140d): like
 	// a delayed trigger its Ability is the Execute$ SVar-named body, but the
 	// push must resolve that name against the UNDER-CARD's own face, never
