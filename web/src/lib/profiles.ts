@@ -103,12 +103,13 @@ export function validateStore(v: unknown): ProfileStore {
   return out;
 }
 
-/** deepClone returns an independent copy of settings (steps/pacing are the only nested objects). */
+/** deepClone returns an independent copy of settings (steps, pacing and breakpoints — with its watchlist array — are the only nested objects). */
 function deepClone(s: PlaySettings): PlaySettings {
   return {
     ...s,
     steps: { yours: { ...s.steps.yours }, opponents: { ...s.steps.opponents } },
     pacing: { ...s.pacing },
+    breakpoints: { ...s.breakpoints, watchlist: [...s.breakpoints.watchlist] },
   };
 }
 

@@ -57,8 +57,58 @@ export type StoppableStep =
   | 'upkeep' | 'draw' | 'main1' | 'begin-combat' | 'declare-attackers'
   | 'declare-blockers' | 'combat-damage' | 'end-combat' | 'main2' | 'end';
 
+/**
+ * Breakpoints are the player's "pause on X" rules (UI rework spec §1). They
+ * stop auto-pass even where the stack and step rules would pass. They belong
+ * to the PLAYER, not to a preset: every preset ships them off, applying a
+ * preset never touches them, and the preset label ignores them.
+ */
+export interface Breakpoints {
+  /** an opponent's object on top of the stack targets you or a permanent you control */
+  targetsMe: boolean;
+  /** an opponent's spell or ability from one of these card names is on top of the stack (case-insensitive exact name) */
+  watchlist: string[];
+  /** creatures are attacking you (first priority window of that combat) */
+  attacked: boolean;
+  /** the stack holds at least this many objects; 0 = off */
+  stackDepth: number;
+}
+
+export const MAX_WATCHLIST = 50;
+export const MAX_WATCH_NAME = 60;
+/** STACK_DEPTHS is every legal stackDepth: 0 (off) or 2..5. A depth of 1 would stop on every object, which is the 'always' stack rule's job. */
+export const STACK_DEPTHS: readonly number[] = [0, 2, 3, 4, 5];
+
+export function noBreakpoints(): Breakpoints {
+  return { targetsMe: false, watchlist: [], attacked: false, stackDepth: 0 };
+}
+
+/** normaliseWatchName trims a card name; empty or longer than MAX_WATCH_NAME is rejected. */
+export function normaliseWatchName(raw: string): string | null {
+  if (typeof raw !== 'string') return null;
+  const name = raw.trim();
+  return name.length === 0 || name.length > MAX_WATCH_NAME ? null : name;
+}
+
+/** withWatch returns the list with one more name: normalised, deduped case-insensitively, capped at MAX_WATCHLIST. */
+export function withWatch(list: readonly string[], raw: string): string[] {
+  const name = normaliseWatchName(raw);
+  if (name === null || list.length >= MAX_WATCHLIST) return [...list];
+  if (list.some((n) => n.toLowerCase() === name.toLowerCase())) return [...list];
+  return [...list, name];
+}
+
+/** withoutWatch drops one name, case-insensitively. */
+export function withoutWatch(list: readonly string[], name: string): string[] {
+  return list.filter((n) => n.toLowerCase() !== name.toLowerCase());
+}
+
+function cloneBreakpoints(b: Breakpoints): Breakpoints {
+  return { ...b, watchlist: [...b.watchlist] };
+}
+
 export interface PlaySettings {
-  version: 2;
+  version: 3;
   /** which named preset these settings match, or 'custom' after any edit */
   preset: Preset;
   /** master switch: false means decide() stops at every window (manual play) */
@@ -83,6 +133,8 @@ export interface PlaySettings {
   pacing: { stepMs: number; resolveMs: number };
   /** record auto-passes in the game log; consumed by prio5, not decide() */
   logAutoPasses: boolean;
+  /** the player's pause-on-X rules; never part of a preset (see Breakpoints) */
+  breakpoints: Breakpoints;
 }
 
 /** The ten stoppable step names, in engine order (autopilot.STOPPABLE_STEPS). */
@@ -99,8 +151,8 @@ function steps(yours: Partial<Record<StoppableStep, StepStop>>, opponents: Parti
   return { yours: full(yours), opponents: full(opponents) };
 }
 
-function mkSettings(p: Exclude<Preset, 'custom'>, fields: Omit<PlaySettings, 'version' | 'preset'>): PlaySettings {
-  return { version: 2, preset: p, ...fields };
+function mkSettings(p: Exclude<Preset, 'custom'>, fields: Omit<PlaySettings, 'version' | 'preset' | 'breakpoints'>): PlaySettings {
+  return { version: 3, preset: p, ...fields, breakpoints: noBreakpoints() };
 }
 
 /** allSteps builds a full Record<StoppableStep, StepStop> with one rule everywhere. */
@@ -206,6 +258,7 @@ function cloneSettings(s: PlaySettings): PlaySettings {
     ...s,
     steps: { yours: { ...s.steps.yours }, opponents: { ...s.steps.opponents } },
     pacing: { ...s.pacing },
+    breakpoints: cloneBreakpoints(s.breakpoints),
   };
 }
 
@@ -255,7 +308,7 @@ export function withChange(settings: PlaySettings, patch: Partial<PlaySettings>)
   for (const name of Object.keys(PRESETS) as Exclude<Preset, 'custom'>[]) {
     // Compare with the label normalised to the candidate's name: the RULES
     // decide which preset a configuration is, not the label it came in with.
-    if (deepEqual({ ...next, preset: name }, PRESETS[name])) {
+    if (deepEqual({ ...next, preset: name, breakpoints: PRESETS[name].breakpoints }, PRESETS[name])) {
       next.preset = name;
       return next;
     }
@@ -273,8 +326,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  * The KEY string stays `gorge.playsettings.v1` across the v1→v2 field bump
  * (fb-trigorder1): the version lives INSIDE the blob, so renaming the key
  * would orphan every existing player's settings — exactly the silent wipe
- * the version-2 migration exists to avoid. validate accepts both blob
- * versions; saveSettings writes v2 into the same key.
+ * the version-2 migration exists to avoid. The same holds for the v2→v3
+ * bump (breakpoints): validate accepts blob versions 1, 2 and 3;
+ * saveSettings writes v3 into the same key.
  * Migration: the legacy per-table keys (`gorge.stop.<table>.<seat>` from
  * stops.ts and the actpass key from actpass.ts) are NOT imported. They
  * encode the old mana-tap-era defaults — stop sets written when a mana tap
@@ -299,17 +353,23 @@ const OWN_RULES: readonly OwnObjectRule[] = ['never', 'if-respondable'];
  * existing player to casual — a silent settings wipe. A v1 blob is
  * migrated instead: every old field is preserved as-is and the new field
  * defaults to casual's value (true). Blob version 2 requires the field.
- * Both migrate to the in-memory version 2; the next save writes v2.
+ *
+ * Version 3 adds `breakpoints` (flow profiles). Blob versions 1 and 2
+ * predate it and migrate to the in-memory version 3 with breakpoints off
+ * (noBreakpoints) and every other field kept; a v3 blob requires a valid
+ * breakpoints block, and its watchlist is normalised (trimmed, empties
+ * dropped, deduped case-insensitively, capped). Every blob migrates to the
+ * in-memory version 3; the next save writes v3.
  */
 export function validate(v: unknown): PlaySettings | null {
   if (!isPlainObject(v)) return null;
-  if (v.version !== 1 && v.version !== 2) return null;
+  if (v.version !== 1 && v.version !== 2 && v.version !== 3) return null;
   if (!isRule(v.opponentSpell, OBJECT_RULES) || !isRule(v.opponentAbility, OBJECT_RULES)) return null;
   if (!isRule(v.opponentTrigger, TRIGGER_RULES) || !isRule(v.ownObjects, OWN_RULES)) return null;
   if (typeof v.autoPass !== 'boolean' || typeof v.passAfterAct !== 'boolean') return null;
   if (typeof v.autoOrderIdenticalTriggers !== 'boolean' || typeof v.logAutoPasses !== 'boolean') return null;
-  // Required at v2; defaulted (to casual's value) on a v1 blob.
-  if (v.version === 2 && typeof v.autoOrderAllTriggers !== 'boolean') return null;
+  // Required from v2; defaulted (to casual's value) on a v1 blob.
+  if (v.version >= 2 && typeof v.autoOrderAllTriggers !== 'boolean') return null;
   if (typeof v.pacing !== 'object' || v.pacing === null) return null;
   const pacing = v.pacing as Record<string, unknown>;
   if (typeof pacing.stepMs !== 'number' || typeof pacing.resolveMs !== 'number') return null;
@@ -331,8 +391,17 @@ export function validate(v: unknown): PlaySettings | null {
   // preset is a label, not a rule the engine obeys: accept any of the four
   // words but never trust the blob beyond that.
   if (typeof v.preset !== 'string' || !['casual', 'no-tells', 'full-control', 'custom'].includes(v.preset)) return null;
+  let breakpoints: Breakpoints;
+  if (v.version === 3) {
+    const b = readBreakpoints(v.breakpoints);
+    if (b === null) return null;
+    breakpoints = b;
+  } else {
+    // v1/v2 predate breakpoints: migrate with them off, keep everything else.
+    breakpoints = noBreakpoints();
+  }
   return {
-    version: 2,
+    version: 3,
     preset: v.preset as Preset,
     autoPass: v.autoPass,
     opponentSpell: v.opponentSpell as OpponentObjectRule,
@@ -348,11 +417,25 @@ export function validate(v: unknown): PlaySettings | null {
       typeof v.autoOrderAllTriggers === 'boolean' ? v.autoOrderAllTriggers : PRESETS.casual.autoOrderAllTriggers,
     pacing: { stepMs: pacing.stepMs, resolveMs: pacing.resolveMs },
     logAutoPasses: v.logAutoPasses,
+    breakpoints,
   };
 }
 
 function isRule<T extends string>(v: unknown, allowed: readonly T[]): v is T {
   return typeof v === 'string' && (allowed as readonly string[]).includes(v);
+}
+
+function readBreakpoints(v: unknown): Breakpoints | null {
+  if (!isPlainObject(v)) return null;
+  if (typeof v.targetsMe !== 'boolean' || typeof v.attacked !== 'boolean') return null;
+  if (typeof v.stackDepth !== 'number' || !STACK_DEPTHS.includes(v.stackDepth)) return null;
+  if (!Array.isArray(v.watchlist)) return null;
+  let watchlist: string[] = [];
+  for (const raw of v.watchlist) {
+    if (typeof raw !== 'string') return null;
+    watchlist = withWatch(watchlist, raw);
+  }
+  return { targetsMe: v.targetsMe, attacked: v.attacked, stackDepth: v.stackDepth, watchlist };
 }
 
 /**

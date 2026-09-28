@@ -14,7 +14,7 @@ import {
   validateStore,
   type ProfileStore,
 } from './profiles';
-import { PRESETS, defaultSettings, validate, type PlaySettings } from './playsettings';
+import { PRESETS, defaultSettings, noBreakpoints, validate, withChange, type PlaySettings } from './playsettings';
 
 /**
  * memStorage is the same in-memory Storage stub playsettings.test.ts uses,
@@ -157,7 +157,7 @@ describe('profiles — corrupt blob isolation', () => {
     delete v1.autoOrderAllTriggers;
     const store = validateStore({ version: 1, profiles: { Old: v1 }, order: ['Old'], lastActive: null });
     expect(listProfiles(store)).toEqual(['Old']);
-    expect(store.profiles.Old.version).toBe(2);
+    expect(store.profiles.Old.version).toBe(3);
     expect(validate(v1)).toEqual(store.profiles.Old);
   });
 });
@@ -230,5 +230,23 @@ describe('profiles — an active-profile settings edit is not auto-saved', () =>
     // Save rewrites it.
     expect(loadProfiles(storage).profiles.A.autoPass).toBe(false);
     expect(live.autoPass).toBe(true);
+  });
+});
+
+describe('profiles — breakpoints (settings v3)', () => {
+  it('a v2 profile store migrates: each saved profile gains default breakpoints', () => {
+    const v2 = { ...PRESETS.casual, version: 2 } as Record<string, unknown>;
+    delete v2.breakpoints;
+    const store = validateStore({ version: 1, profiles: { Mine: v2 }, order: ['Mine'], lastActive: 'Mine' });
+    expect(store.order).toEqual(['Mine']);
+    expect(store.profiles.Mine.breakpoints).toEqual(noBreakpoints());
+    expect(store.profiles.Mine.version).toBe(3);
+  });
+
+  it('a stored profile does not share its watchlist array with the caller', () => {
+    const s = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), watchlist: ['Oracle'] } });
+    const store = storeSave(emptyStore(), 'W', s);
+    s.breakpoints.watchlist.push('Mutated');
+    expect(store.profiles.W.breakpoints.watchlist).toEqual(['Oracle']);
   });
 });
