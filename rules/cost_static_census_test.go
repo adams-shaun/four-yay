@@ -694,14 +694,33 @@ func TestCostStaticCensus(t *testing.T) {
 		costRaw, hasCost := p["Cost"]
 		amountMatters := true
 		if mode == "RaiseCost" && hasCost {
+			// The engine's own additional-cost bridge (raiseExtraResolve)
+			// classifies the Cost$: a part it records as Withheld withholds
+			// the spell or ability, so the static can never be satisfied.
 			_, _, _, plain := raiseFromCost(costRaw)
-			_, blight := raiseExtraFromCost(costRaw)
+			var withheld []string
+			if !plain {
+				eval := func(body string) (int32, bool) {
+					var n int32
+					var ok bool
+					probe(func() {
+						n, ok = effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: f.SVars}, body)
+					})
+					return n, ok
+				}
+				withheld = raiseExtraResolve(costRaw, f.SVars, faceAnnounces(f.SpellAbility()), eval).extra.Withheld
+			}
+			if word, ok := p["ForEachShard"]; ok {
+				if _, known := e.forEachShardCount(word, instantID, spellScope("")); !known {
+					withheld = append(withheld, "ForEachShard$ "+word)
+				}
+			}
 			switch {
-			case !hasAmt && (plain || blight):
+			case !hasAmt && len(withheld) == 0:
 				amountMatters = false
 			case !hasAmt:
-				add(ccBroken, "RaiseCost Cost$ "+costRaw+" unmodelled (no plain mana/life, not Blight): raises nothing",
-					L.loc("rules/statics.go", "mods.raises = append(mods.raises, e.modAmountX(sv, 0, targets))"))
+				add(ccBroken, "RaiseCost Cost$ "+costRaw+" unmodelled ("+strings.Join(withheld, ", ")+" unpayable): the spell or ability is withheld",
+					L.loc("rules/raise_cost_extra.go", "func parseRaiseExtra("))
 				amountMatters = false
 			default:
 				add(ccWrong, "RaiseCost Cost$ "+costRaw+" with Amount$ "+amtRaw+": Cost$ ignored, Amount$ priced as generic",

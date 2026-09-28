@@ -87,6 +87,12 @@ type CostPart struct {
 	// count the announcement fixes first would need re-pricing at settle --
 	// no corpus carrier combines them).
 	MinPower int32
+	// ThenExile marks a Behold part spelled BeholdExile<N/Spec> (the
+	// Lorwyn Champion cycle's "behold a Kithkin and exile it"): the beheld
+	// object -- a permanent the payer controls or a card revealed from their
+	// hand -- is then exiled as part of the same payment, linked to the
+	// paying source (ExiledWith) so "return the exiled card" reads it.
+	ThenExile bool
 }
 
 // ManaPair is one two-face hybrid symbol: each face is a WUBRGC mana symbol,
@@ -269,6 +275,14 @@ type Cost struct {
 	// rolls each die and publishes its canonical effects.DieRollNote; Dyn names
 	// the ability X binding (currently only X is modelled).
 	RollDice []CostPart
+	// Withheld lists the parts of a RaiseCost static's Cost$ that the
+	// payment machinery cannot pay (a head no stage settles, a named count
+	// with no resolvable reading). It is never produced by ParseCost: only
+	// the RaiseCost bridge (rules/raise_cost_extra.go) writes it, and
+	// nonManaCastable refuses any cost that carries it, so the spell or
+	// ability is withheld at the offer gate instead of being offered with
+	// the additional cost silently dropped.
+	Withheld []string
 	// Unknown lists the HEAD (the text before any "<...>") of every cost
 	// token this parse did not model, in order of appearance, deduplicated.
 	// A token lands here exactly when ParseCost could not give it real
@@ -379,7 +393,7 @@ var exertCost = regexp.MustCompile(`^Exert<1/(?:CARDNAME|NICKNAME)(?:/([^>]*))?>
 // has no source from which to resolve their value.
 var lifeCost = regexp.MustCompile(`^PayLife<(\d+)>$`)
 
-var choiceCost = regexp.MustCompile(`^(Reveal|Behold|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
+var choiceCost = regexp.MustCompile(`^(Reveal|Behold|BeholdExile|tapXType)<(\d+)/([^/>]+)(?:/([^>]*))?>$`)
 
 // choiceCostRevealOrChoose additionally recognises Forge's either-or
 // `RevealOrChoose<N/Spec>` cost (Monstrous Emergence, Dragon's Fire): reveal a
@@ -696,6 +710,10 @@ func ParseCost(s string) Cost {
 				case "Reveal":
 					c.Reveal = append(c.Reveal, part)
 				case "Behold":
+					c.Behold = append(c.Behold, part)
+				case "BeholdExile":
+					// Behold, then exile the beheld object (CostPart.ThenExile).
+					part.ThenExile = true
 					c.Behold = append(c.Behold, part)
 				default:
 					// A literal tapXType form may carry a group predicate too;
@@ -1462,6 +1480,9 @@ func (c Cost) Plus(d Cost) Cost {
 		c.DamageYou = append(append([]CostPart(nil), c.DamageYou...), d.DamageYou...)
 	}
 	c.Forage = c.Forage || d.Forage
+	if len(d.Withheld) > 0 {
+		c.Withheld = append(append([]string(nil), c.Withheld...), d.Withheld...)
+	}
 	return c
 }
 
@@ -1748,6 +1769,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		}
 	}
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
+	mods = e.withWaterbendOfferCredit(p, id, mods)
 	tax := int32(0)
 	if scope.kind != "Ability" && scope.kind != "Foretell" {
 		tax = e.commanderTaxAmount(p, id)
@@ -1787,6 +1809,13 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 			// SOME legal announcement is payable -- the same announced-X
 			// recomputation manaToPay makes after the announcement, applied at
 			// the gate so the offer and the charge agree.
+			mods = accepted
+		} else if accepted, ok := e.offerNamedMods(p, id, ability, base, mods, statics, scope, tax, delve, hyp); ok {
+			// A RaiseCost part counted by a named announcement (Explosive
+			// Singularity's "tap any number of untapped creatures ... costs
+			// {1} less for each creature tapped this way") can make the cast
+			// payable at a nonzero announcement the 0 snapshot misprices --
+			// the offerSacXMods sweep, for the named count.
 			mods = accepted
 		} else {
 			return false

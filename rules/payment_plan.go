@@ -366,6 +366,8 @@ func paymentPlanCostDetail(c Cost) string {
 		return "cost:exert"
 	case len(c.Unknown) != 0:
 		return "cost:unknown"
+	case len(c.Withheld) != 0:
+		return "cost:withheld"
 	case !paymentPlanCostOK(c):
 		return "cost:other"
 	default:

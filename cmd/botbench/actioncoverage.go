@@ -514,7 +514,7 @@ var kindRows = map[string][]string{
 		"opening_exile", "suspend_cast_yes", "suspend_cast_no",
 		"cumulative_pay", "cumulative_sac", "cumulative_action_life",
 		"cumulative_action_grave", "mana", "pay_life",
-		"gift_decline", "gift_promise",
+		"gift_decline", "gift_promise", "named_announce", "waterbend_generic",
 	},
 	string(decision.KReplacement): {"replacement", "mana", "apply", "decline", "skip_replacement"},
 	string(decision.KArrange):     {"bottom", "graveyard", "exile", "hand", "dig_bottom"},

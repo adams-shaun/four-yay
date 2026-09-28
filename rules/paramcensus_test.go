@@ -1196,6 +1196,13 @@ func (s *scan) bucketOf(t *testing.T, fset *token.FileSet, pos token.Pos, base, 
 // each entry is "pkg:func:param" with its justification. Anything not listed
 // here AND not called with a `.Params`/alias argument fails the rot guard.
 var stringMapParams = map[string]string{
+	// rules/raise_cost_extra.go resolveRaiseCostText / raiseAnnounceName:
+	// svars is the RaiseCost static's source-face SVar table, read by the
+	// NAME a Cost$ token's count field spells (Sac<X/...>'s X, the March
+	// cycle's Y -> SVar$Exiled chain) -- an SVar-body lookup, not a card
+	// Params map.
+	"rules:resolveRaiseCostText:svars": "SVars table lookup by a RaiseCost Cost$ count name, not a card Params map",
+	"rules:raiseAnnounceName:svars":    "SVars table lookup along a RaiseCost count's SVar$ chain, not a card Params map",
 	// ETB choice option builders receive the source ability's selector map;
 	// the map is forwarded to type-choice enumeration, not consumed as card
 	// Params by the census.

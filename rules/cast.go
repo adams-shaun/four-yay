@@ -211,6 +211,18 @@ type pendingCast struct {
 	// announced value into that filter). Empty on every ordinary cast.
 	announceX string
 
+	// named / namedN / namedDone carry a NAMED announcement (Forge's
+	// Announce$ other than X) that a RaiseCost additional-cost part counts
+	// by (CostPart.Dyn "@<Name>"): the March cycle's "exile any number of
+	// red cards from your hand" (Announce$ Exiled) and Explosive
+	// Singularity's "tap any number of untapped creatures" (Announce$
+	// Tapped). namedAnnounceAsk poses it before any other cost stage, the
+	// part then pays exactly namedN, and the paired Relative$ ReduceCost
+	// reads the value through the SVar the name spells (namedAnnounceSVars).
+	named     string
+	namedN    int32
+	namedDone bool
+
 	// suspendTimeX makes the chosen cast X also set the number of TIME
 	// counters; suspendMinX is Forge's XMin<N> lower bound.
 	suspendTimeX bool
@@ -1015,6 +1027,10 @@ type convokePayment struct {
 	color      byte
 	power      int32
 	countsMana bool
+	// waterbend marks a tap that pays one generic of a RaiseCost
+	// Waterbend<N>/<X> additional cost (convokeAsk's waterbend_generic
+	// option); the count of such taps is capped at the waterbend amount.
+	waterbend bool
 }
 
 // hasCastConvoke reports whether the spell being cast carries Convoke once
@@ -1496,6 +1512,11 @@ func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool
 // one helper means that specialized offer logic cannot bypass Sac/Discard/
 // counter/tap legality.
 func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ability bool) bool {
+	// A RaiseCost Cost$ part no payment stage can settle (Cost.Withheld):
+	// the additional cost cannot be paid, so neither can the whole cost.
+	if len(cost.Withheld) > 0 {
+		return false
+	}
 	reserved := map[state.ObjID]bool{}
 	for _, part := range cost.Sac {
 		var avail []state.ObjID
@@ -2218,6 +2239,12 @@ func (e *Engine) discardCandidates(p state.PlayerID, source state.ObjID, part Co
 func (e *Engine) discardCostPayable(p state.PlayerID, source state.ObjID, parts []CostPart, casting bool) bool {
 	reserved := map[state.ObjID]bool{}
 	for _, part := range parts {
+		if part.Announced {
+			// An announced Discard<X/Spec> (the RaiseCost bridge's Aether
+			// Tide shape): X = 0 is a legal announcement, and xAsk caps the
+			// X by the matching cards, so the part never withholds an offer.
+			continue
+		}
 		candidates := e.discardCandidates(p, source, part, casting, reserved)
 		if strings.EqualFold(part.Spec, "Hand") {
 			for _, id := range candidates {
@@ -2888,16 +2915,17 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		return
 	}
 	cost = converted
-	// A RaiseCost static's non-mana Cost$ (Soul Immolation's `Cost$ Blight<X>`)
+	// A RaiseCost static's non-mana Cost$ (Soul Immolation's `Cost$ Blight<X>`,
+	// Grafted Identity's creature sacrifice, the Champion cycle's BeholdExile)
 	// is carried in mods.extra so the OFFER gate (composedOfferCost, which
 	// applies mods) enforces it and the CHARGE prices it. The pending cast's
 	// own cost must carry it too, because every non-mana cost stage -- xAsk's
-	// X announcement, blightCostAsk, the settle and costAnnouncesX -- reads
-	// pc.cost, not the composed charge. Fold it in here once and drop it from
-	// mods so manaToPay's mods.apply cannot count the same part twice.
-	if len(mods.extra.Blight) > 0 {
-		cost = foldAdditionalCost(cost, mods.extra)
-		mods.extra = Cost{}
+	// X announcement, sacAsk, blightCostAsk, the settle and costAnnouncesX --
+	// reads pc.cost, not the composed charge. Fold it in here once and drop
+	// it from mods so manaToPay's mods.apply cannot count the same part twice.
+	cost, ok = e.foldRaiseExtra(p, id, cost, &mods)
+	if !ok {
+		return
 	}
 	if opt.AltCostIndex == 0 && opt.Mode == "" {
 		pcAlt := altAddCostParts(f)
@@ -3180,9 +3208,9 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 	// A RaiseCost static's non-mana Cost$ rides mods.extra; fold it into the
 	// pending cost and drop it from mods so the charge cannot double it (the
 	// same agreement beginCast makes).
-	if len(mods.extra.Blight) > 0 {
-		cost = foldAdditionalCost(cost, mods.extra)
-		mods.extra = Cost{}
+	cost, ok = e.foldRaiseExtra(p, id, cost, &mods)
+	if !ok {
+		return
 	}
 	e.cast = &pendingCast{player: p, card: id, from: o.Zone, mode: "play", ability: -1,
 		cost: cost, mods: mods, replaceGraveyard: replaceGraveyard}
@@ -3259,6 +3287,13 @@ func (e *Engine) continueCast() {
 	// X bound of Count$PromisedGift.2.1 resolves when that ask is built -- a
 	// promise settled after targeting would be invisible to it.
 	if e.giftAsk() {
+		return
+	}
+	// A RaiseCost part counted by a named announcement (the March cycle,
+	// Explosive Singularity) announces its count before every stage that
+	// pays or prices it: the tap election below, xAsk's discounted X bound
+	// and the exile pick.
+	if e.namedAnnounceAsk() {
 		return
 	}
 	if e.forageAsk() || e.revealCostAsk() || e.revealCostOrChooseAsk() || e.beholdCostAsk() || e.tapPermanentCostAsk() || e.blightCostAsk() {
@@ -3702,6 +3737,33 @@ func (e *Engine) tapPermanentCostAsk() bool {
 			}
 			candidates = kept
 		}
+		if isNamedCountPart(part) {
+			// A named-announcement count (Explosive Singularity's Announce$
+			// Tapped): namedAnnounceAsk already fixed how many; tap exactly
+			// that many. A shrunken board is the unpayable abort.
+			n := int(pc.namedN)
+			if n > len(candidates) {
+				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
+				return true
+			}
+			if n == 0 {
+				pc.tapPart++
+				continue
+			}
+			if n == len(candidates) {
+				pc.taps = append(pc.taps, candidates...)
+				pc.tapPart++
+				continue
+			}
+			d := &decision.Decision{Player: pc.player, Kind: decision.KChoose, Min: n, Max: n,
+				Prompt: "Choose permanents to tap", Source: pc.card}
+			for _, id := range candidates {
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)})
+			}
+			e.choosing = chooseCast
+			e.ask(d)
+			return true
+		}
 		if part.Dyn != "" {
 			// The dynamic tapXType heads (dynTapCost's doc). An X-form part whose
 			// cost carries another announce-bearing part defers: xAsk (later in
@@ -3965,7 +4027,11 @@ func (e *Engine) exAsk() bool {
 		if part.Announced {
 			n = int(pc.x)
 		}
-		if n < 0 || n > len(candidates) || (!part.Announced && n == 0) {
+		named := isNamedCountPart(part)
+		if named {
+			n = int(pc.namedN)
+		}
+		if n < 0 || n > len(candidates) || (!part.Announced && !named && n == 0) {
 			e.abortCast(pc, "exile cost no longer payable; cast/activation aborted", true)
 			return true
 		}
@@ -4720,8 +4786,14 @@ func (e *Engine) xAsk() bool {
 			blightX = true
 		}
 	}
+	discardX := false
+	for _, part := range pc.cost.Discard {
+		if part.Announced {
+			discardX = true
+		}
+	}
 	lifeXCount := len(pc.cost.LifeX)
-	if pc.cost.X <= 0 && !energyX && !sacX && !exileX && !subCounterX && !blightX && lifeXCount == 0 {
+	if pc.cost.X <= 0 && !energyX && !sacX && !exileX && !subCounterX && !blightX && !discardX && lifeXCount == 0 {
 		return false
 	}
 	min := int32(0)
@@ -4763,6 +4835,15 @@ func (e *Engine) xAsk() bool {
 		}
 	}
 	bound := pool.Total() + gy + credit + 1
+	// A named-announcement discount (the March cycle's "{2} less for each
+	// card exiled this way") is a generic reduction the X can spend: the
+	// ceiling rises by the composed reduction at the announced count, or an
+	// X affordable only through it would never be offered.
+	if costHasNamedCount(pc.cost) {
+		for _, red := range e.manaToPayXMods(pc, 0).reduces {
+			bound = addClampedGeneric(bound, int64(red.generic))
+		}
+	}
 	// A PayEnergy<X> cost part pays the SAME announced X in energy counters
 	// (Forge CostPayEnergy.getMaxAmountX bounds a dynamic PayEnergy by the
 	// payer's energy total). When the energy part is the ONLY X the cost
@@ -4839,6 +4920,13 @@ func (e *Engine) xAsk() bool {
 	// mana X -- and when another announced X also exists each cap min-clamps
 	// the shared X (CR 601.2b's announcement must be one the payment can
 	// settle).
+	// An announced Discard<X/Spec> (Aether Tide) discards exactly X matching
+	// cards, so X is capped by the matching cards in hand.
+	for _, part := range pc.cost.Discard {
+		if part.Announced {
+			applyCap(int32(len(e.discardCandidates(pc.player, pc.card, part, !pc.isAbility(), nil))))
+		}
+	}
 	for _, part := range pc.cost.Exile {
 		if !part.Announced {
 			continue
@@ -4979,6 +5067,11 @@ func (e *Engine) xAsk() bool {
 			convMana = e.manaToPayXUsing(pc, x, potentialMods)
 		}
 		if !e.convokeAbsorbs(pc, convMana, pc.convoke, false) {
+			continue
+		}
+		// Waterbend taps pay only the waterbend amount, which a Waterbend<X>
+		// raise ties to this X.
+		if waterbendTaps(pc.convoke) > pc.mods.waterbend+pc.mods.raiseX*x {
 			continue
 		}
 		legal = append(legal, x)
@@ -5606,6 +5699,15 @@ func (e *Engine) discardAsk() bool {
 			continue
 		}
 		n := int(part.N)
+		if part.Announced {
+			// The announced Discard<X/Spec>: exactly the announced X, and
+			// X = 0 discards nothing.
+			n = int(pc.x)
+			if n == 0 {
+				pc.discardPart++
+				continue
+			}
+		}
 		if n <= 0 || n > len(candidates) {
 			e.abortCast(pc, "discard cost no longer payable; cast/activation aborted", true)
 			return true
@@ -6686,7 +6788,9 @@ func costAnnouncesPaidX(c Cost) bool {
 			return true
 		}
 	}
-	return false
+	// A named-announcement count (the March cycle's Exiled, Explosive
+	// Singularity's Tapped) feeds its Relative$ ReduceCost the same way.
+	return costHasNamedCount(c)
 }
 
 // manaToPayX is manaToPay with {X} folded to an explicit value.
@@ -7316,6 +7420,8 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 			pays = append(pays, convokePayment{id: o.Obj, power: int32(o.Amount)})
 		case o.Kind == "improvise_generic":
 			pays = append(pays, convokePayment{id: o.Obj})
+		case o.Kind == "waterbend_generic":
+			pays = append(pays, convokePayment{id: o.Obj, waterbend: true})
 		case strings.HasPrefix(o.Kind, "convoke_"):
 			color := byte(0)
 			if o.Kind != "convoke_generic" {
@@ -7329,6 +7435,12 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	all := append(append([]convokePayment(nil), pc.convoke...), pays...)
 	if !e.convokeAbsorbs(pc, e.manaToPay(pc), all, pc.cost.X > 0) {
 		return fmt.Errorf("announcement reduces nothing: the outstanding cost cannot absorb every chosen contribution")
+	}
+	// Waterbend taps pay only the waterbend amount. A Waterbend<X> cap is
+	// not known until X is announced; xAsk offers only the X values whose
+	// cap covers the announced taps.
+	if pc.mods.raiseX == 0 && waterbendTaps(all) > pc.mods.waterbend {
+		return fmt.Errorf("more permanents tapped than the waterbend cost allows")
 	}
 	return nil
 }
@@ -7345,7 +7457,11 @@ func (e *Engine) convokeAsk() bool {
 	isConvoke := e.hasCastConvoke(pc.card)
 	isHarmonize := pc.mode == "harmonize"
 	isImprovise := e.hasCastImprovise(pc.card)
-	if !isConvoke && !isHarmonize && !isImprovise {
+	// A RaiseCost Waterbend<N>/<X> additional cost (Water Whip, Crashing
+	// Wave): each untapped artifact or creature tapped while paying it pays
+	// for {1} of the waterbend amount.
+	isWaterbend := pc.mods.waterbend > 0 || pc.mods.waterbendX
+	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend {
 		return false
 	}
 	mana := e.manaToPay(pc)
@@ -7396,10 +7512,28 @@ func (e *Engine) convokeAsk() bool {
 		// pay one generic. The shared payment group makes the object's
 		// Convoke and Improvise options mutually exclusive, so one artifact
 		// can never be committed to both payments.
+		genericOffered := false
 		if isImprovise && o.EffectiveIsArtifact() && (mana.Generic > 0 || hasX) {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "improvise_generic", Obj: id,
 				Group: group, Label: "Tap " + o.Face().Name + " for 1"})
 			sawArtifact = true
+			genericOffered = true
+		}
+		if isConvoke && o.EffectiveIsCreature() && (mana.Generic > 0 || hasX) {
+			genericOffered = true
+		}
+		// Waterbend: an artifact or creature not already offered a generic
+		// payment by the spell's own Convoke/Improvise may tap for {1} of
+		// the waterbend amount (the same payment group keeps one object to
+		// one contribution).
+		if isWaterbend && !genericOffered && (o.EffectiveIsArtifact() || o.EffectiveIsCreature()) && (mana.Generic > 0 || hasX) {
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "waterbend_generic", Obj: id,
+				Group: group, Label: "Tap " + o.Face().Name + " to waterbend for 1"})
+			if o.EffectiveIsCreature() {
+				sawCreature = true
+			} else {
+				sawArtifact = true
+			}
 		}
 	}
 	if len(d.Options) == 0 {
@@ -7428,6 +7562,10 @@ func (e *Engine) convokeAsk() bool {
 		if slots := int(mana.Colored.Total() + mana.Generic); slots < d.Max {
 			d.Max = slots
 		}
+	}
+	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.raiseX == 0 && int(pc.mods.waterbend) < d.Max {
+		// Only waterbend taps are offered: at most the waterbend amount.
+		d.Max = int(pc.mods.waterbend)
 	}
 	e.choosing = chooseCast
 	e.ask(d)
@@ -7729,6 +7867,10 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 		// positional rather than label-based so a translated label cannot alter
 		// the payment semantics.
 		pc.manaConvertUse = len(chosen) > 0 && chosen[0].Index == 0
+	case "named_announce":
+		if len(chosen) > 0 {
+			pc.namedN = int32(chosen[0].Amount)
+		}
 	case "x":
 		if len(chosen) > 0 {
 			// The value rides on Option.Amount, not Option.Index: xAsk is the
@@ -7977,13 +8119,14 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			pc.payGeneric += int32(chosen[0].Amount)
 		}
 		pc.payIdx++
-	case "convoke_W", "convoke_U", "convoke_B", "convoke_R", "convoke_G", "convoke_generic", "improvise_generic":
+	case "convoke_W", "convoke_U", "convoke_B", "convoke_R", "convoke_G", "convoke_generic", "improvise_generic", "waterbend_generic":
 		for _, choice := range chosen {
 			color := byte(0)
-			if choice.Kind != "convoke_generic" && choice.Kind != "improvise_generic" {
+			if strings.HasPrefix(choice.Kind, "convoke_") && choice.Kind != "convoke_generic" {
 				color = choice.Kind[len("convoke_")]
 			}
-			pc.convoke = append(pc.convoke, convokePayment{id: choice.Obj, color: color, countsMana: strings.HasPrefix(choice.Kind, "convoke_")})
+			pc.convoke = append(pc.convoke, convokePayment{id: choice.Obj, color: color,
+				countsMana: strings.HasPrefix(choice.Kind, "convoke_"), waterbend: choice.Kind == "waterbend_generic"})
 		}
 	case "harmonize":
 		for _, choice := range chosen {
@@ -9821,6 +9964,28 @@ func (e *Engine) emitChoiceCosts(pc *pendingCast) {
 	if len(pc.beholds) > 0 {
 		e.emit(events.Event{Kind: events.Note, Player: pc.player, Obj: pc.card,
 			IDs: append([]state.ObjID(nil), pc.beholds...), Text: "beheld " + names(pc.beholds) + " as a cost"})
+		// BeholdExile<N/Spec> parts (CostPart.ThenExile): the beheld objects
+		// are exiled as the rest of the same payment. beholdCostAsk records
+		// each part's N objects in part order, so the paid list is sliced by
+		// part. The MoveZone carries the paying source in IDs, the event-
+		// derived ExiledWith provenance the Champion cycle's "return the
+		// exiled card to its owner's hand" (Defined$ ExiledWith) reads.
+		at := 0
+		for _, part := range pc.cost.Behold {
+			n := int(part.N)
+			if at+n > len(pc.beholds) {
+				break
+			}
+			if part.ThenExile {
+				for _, id := range pc.beholds[at : at+n] {
+					if o := e.G.Obj(id); o != nil && o.Zone != state.ZExile {
+						e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZExile,
+							IDs: []state.ObjID{pc.card}, Text: "exiled as a cost"})
+					}
+				}
+			}
+			at += n
+		}
 	}
 	for _, id := range pc.taps {
 		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
