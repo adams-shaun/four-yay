@@ -117,7 +117,10 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 //   - 2138: G.Stack reorder by a float-triggered ability (expected);
 //   - 4098: the float's sacrifice triggered Rakdos, the Muscle's target ask
 //     at priority (expected placement);
-//   - 4139: damageSourceLKI on the Incubator's cast trigger (cost-move mask);
+//   - 4139 seq 6761: damageSourceLKI on the Incubator's cast trigger
+//     (cost-move mask); the deferred speed trigger (CR 702.179d) and the
+//     command-zone payment-plan fix both shift the bot trajectory, but the
+//     same guarded cast remains equivalent.
 //   - 4129: Treasonous Ogre's pay-life-only activation (witness).
 //
 // fb-20260927T130632Z-d3600dd9 re-pinned seed 4129 from seq 4118 to 4231:
@@ -139,6 +142,9 @@ func round6Game(t *testing.T, d *Decks, spec GameSpec) []*Report {
 // the seed keeps an empty pin (seq 0, the round-10 convention) and asserts the
 // whole game is mismatch-free and control-equivalent, which is the guarantee
 // its control finding (contChain.len) needed.
+//
+// The speed-trigger fix (CR 702.179d) then moved 4139's Incubator cast to
+// seq 6761 on the merged tree; it was re-measured there, verdict equivalent.
 func TestRoundSixFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -157,7 +163,7 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 		{4130, []string{"vivi-ornitier-cedh", "foundations-reign-of-dragons", "avengers-assemble", "valgavoth-endless-punishment"}, 0, ""},
 		{2138, []string{"vivi-ornitier-cedh", "hearthhull-worldseed-landfall", "pro-shaper", "foundations-keen-engineering"}, 1488, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{4098, []string{"foundations-reign-of-dragons", "hearthhull-worldseed-landfall", "avengers-assemble", "rakdos-muscle-scam-exe"}, 7659, ""},
-		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6728, ""},
+		{4139, []string{"foundations-wretched-ranks", "deadly-disguise", "foundations-reign-of-dragons", "ulalek-eldrazi"}, 6761, ""},
 		{4129, []string{"rakdos-muscle-scam-exe", "pro-shaper", "foundations-reign-of-dragons", "foundations-wretched-ranks"}, 5788, ""},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: true, Policy: "bot"})

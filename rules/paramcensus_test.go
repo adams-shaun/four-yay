@@ -1844,7 +1844,7 @@ var handRoots = struct {
 			// collectActionStatics snapshot, instead of once per object.
 			"actionStaticSource.addAbilityContinuous"},
 		// maxSpeedAbilities scans Continuous AddAbility$/Condition$MaxSpeed
-		// statics directly over the face's Statics slice (CR 702.163c's
+		// statics directly over the face's Statics slice (CR 702.179e's
 		// max-speed grant), with no activeStatics call -- the same
 		// direct-scan shape.
 		// mustAttackRequired scans MustAttack statics directly, with no

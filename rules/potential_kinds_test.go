@@ -182,7 +182,7 @@ func TestPotentialActionsFloatGatedRoomUnlock(t *testing.T) {
 	assertFloatGated(t, e, "unlock", room, "")
 }
 
-// TestPotentialActionsFloatGatedGrantedAbility: a max-speed (CR 702.163c)
+// TestPotentialActionsFloatGatedGrantedAbility: a max-speed (CR 702.179e)
 // granted "{2}: Draw a card." on an artifact whose controller has speed 4,
 // with two untapped Plains and an empty pool. The granted offer is priced
 // against the floating pool; the projection must carry it as "granted".
