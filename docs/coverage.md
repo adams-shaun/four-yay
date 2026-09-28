@@ -9,7 +9,7 @@ one missing primitive makes the whole card unplayable, so this is a strict
 lower bound on what the engine can do.
 
 - Cards in the corpus: **33667**
-- Fully playable: **30981 (92.0%)**
+- Fully playable: **31005 (92.1%)**
 - Token scripts compiled: **839**
 - Corpus pin: `Card-Forge/forge@95f04e8a04c8925fa97cb226fc3341cabcc90a53`
 
@@ -26,14 +26,14 @@ engine subsystems are finished.
 
 | Card type | Cards | Playable | % |
 |---|---:|---:|---:|
-| Creature | 18544 | 17134 | 92.4% |
-| Instant | 3774 | 3533 | 93.6% |
-| Sorcery | 3519 | 3249 | 92.3% |
-| Enchantment | 3445 | 3245 | 94.2% |
-| Artifact | 2480 | 2257 | 91.0% |
+| Creature | 18544 | 17150 | 92.5% |
+| Instant | 3774 | 3535 | 93.7% |
+| Sorcery | 3519 | 3250 | 92.4% |
+| Enchantment | 3445 | 3247 | 94.3% |
+| Artifact | 2480 | 2259 | 91.1% |
 | Land | 1152 | 1132 | 98.3% |
 | Other | 384 | 101 | 26.3% |
-| Planeswalker | 332 | 296 | 89.2% |
+| Planeswalker | 332 | 297 | 89.5% |
 | Battle | 37 | 34 | 91.9% |
 
 ## By colour
@@ -43,13 +43,13 @@ colour indicator — not its Commander colour identity.
 
 | Colour | Cards | Playable | % |
 |---|---:|---:|---:|
-| White | 4977 | 4561 | 91.6% |
-| Red | 4975 | 4609 | 92.6% |
-| Black | 4946 | 4637 | 93.8% |
-| Green | 4864 | 4515 | 92.8% |
-| Blue | 4860 | 4531 | 93.2% |
-| Multicolour | 4708 | 4348 | 92.4% |
-| Colorless | 4337 | 3780 | 87.2% |
+| White | 4977 | 4563 | 91.7% |
+| Red | 4975 | 4614 | 92.7% |
+| Black | 4946 | 4638 | 93.8% |
+| Green | 4864 | 4519 | 92.9% |
+| Blue | 4860 | 4536 | 93.3% |
+| Multicolour | 4708 | 4353 | 92.5% |
+| Colorless | 4337 | 3782 | 87.2% |
 
 ## By mana value
 
@@ -57,12 +57,12 @@ colour indicator — not its Commander colour identity.
 |---|---:|---:|---:|
 | 0 | 1701 | 1324 | 77.8% |
 | 1 | 3250 | 3050 | 93.8% |
-| 2 | 7142 | 6699 | 93.8% |
-| 3 | 8035 | 7471 | 93.0% |
-| 4 | 6275 | 5782 | 92.1% |
-| 5 | 3925 | 3638 | 92.7% |
-| 6 | 2017 | 1839 | 91.2% |
-| 7+ | 1322 | 1178 | 89.1% |
+| 2 | 7142 | 6701 | 93.8% |
+| 3 | 8035 | 7474 | 93.0% |
+| 4 | 6275 | 5793 | 92.3% |
+| 5 | 3925 | 3642 | 92.8% |
+| 6 | 2017 | 1841 | 91.3% |
+| 7+ | 1322 | 1180 | 89.3% |
 
 ## What the gap is waiting on
 
