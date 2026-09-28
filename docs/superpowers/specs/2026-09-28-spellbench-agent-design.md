@@ -318,6 +318,230 @@ operator rules):
 
 Data: `/mnt/sata/gorge-training/spellbench-work/v1b/{final-bench,heldout-seed,heldout-fdn}`.
 
+### 3.4 Arena on mtg-kernel (v1)
+
+The public pauper-kernel leaderboard (g115 1388, a48 1238, c12 1226,
+heuristic 1102, uniform 1000, first 867;
+`spellbench/benchmarks/pauper-kernel/runs/2026-09-27`) is rated on
+mtg-kernel through protocol v1. This subsection puts gorge's bots on that
+engine, in that benchmark's shape, rated by SpellBench's own code.
+
+**What is and is not obtainable.**
+
+- *The engine bridge is private.* Jack's `agent_bridge_v1` (engine
+  `source_revision` `1ca8eb40` in the published manifest) is not in the
+  public `jackmaiorino/mtg-kernel` (main @ `2c5e72f`, none of its 145 refs
+  mention it, and `1ca8eb40` is not fetchable: "not our ref"). We rebuilt
+  it (below).
+- *g115 (and a48, c12) are not runnable.* The benchmark's own summary says
+  "the mtg-kernel engine build and the model checkpoints are private".
+  Running g115 needs four things, none public: the checkpoint
+  (`${G115_CHECKPOINT}`, model-state sha256 `8139016c…`), its scorer
+  config (`${G115_SCORER_CONFIG}`), the native `spellbench_scorer_v1`
+  scorer binary (absent from every public mtg-kernel ref we fetched,
+  including `lead/cp7-scorer-v5*` and `lead/phase1-*`), and the bridge's
+  `--x-kernel-flat-v4` extension (the Phase 1 model input, part of the
+  private bridge contract). Only the public client
+  (`spellbench/integrations/mtg_kernel/kernel_flat_bot.py`) exists. The
+  published ledger is the only g115 evidence we can use (below).
+- *sb-tactical (`wt/sb-v1b-heur` @ `c91a4d352`) cannot play here as is.*
+  It is a gorge-native seat policy: it reads gorge's `view.CardView` and
+  `state` ids, so on a foreign engine it needs the shadow state of D§4.
+  The mtg-kernel analogue is `v1agent.Tactical` (below); the two share
+  the approach (score candidates against the visible board) but no code.
+
+**Setup (local only; nothing pushed to any external repo).**
+
+- *Engine bridge rebuild,* `scripts/spellbench-arena/agent_bridge_v1.rs`:
+  one Rust bin over the public in-process `RlEpisodeSessionV1` (policy
+  surface V5, legal scan answers only). The kernel's `ActionSemanticV1`
+  maps one-to-one onto the v1 candidate kinds (the aggregate `declare_*`
+  and `ambiguous` actions never reach a V5 session; if one did, the bridge
+  would halt the game rather than guess). `state_summary` is projected from
+  `ObservationV5`; every decision carries `x_kernel_v5`
+  (`observation_json`, `legal_actions_json`) as spec §9 says the reference
+  bridge does (`--no-x-kernel-v5` omits it). A refused step or an
+  unmappable action becomes a `halted` terminal, never a guessed move. It
+  passes SpellBench's engine-conformance test on all eight decks (16/16).
+  Known differences from the published build: card DB `64c82a261e078f1a`
+  vs `064a7c989255ab3c` (card fixes merged since, e.g. PR #109's goad,
+  menace and linked-exile fixes), and our own `game_seed` → kernel seed
+  mapping (legacy reset, `env_seed = game_seed`), so no individual
+  published game replays; distributions are what compare.
+- *Build.* A user-local Rust 1.98 was already in `~/.rustup`; the repo pins
+  1.94.1, overridden with `RUSTUP_TOOLCHAIN`. With thin LTO off the
+  release build takes 38 s:
+
+      W=/mnt/sata/gorge-training/spellbench-work/arena/mtg-kernel
+      git -C /mnt/sata/gorge-training/mtg-kernel worktree add -b sb-arena-bridge $W HEAD
+      cp scripts/spellbench-arena/agent_bridge_v1.rs $W/mtg-kernel/src/bin/
+      cd $W && RUSTUP_TOOLCHAIN=1.98-x86_64-unknown-linux-gnu CARGO_BUILD_JOBS=6 \
+        CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 CARGO_PROFILE_RELEASE_LTO=false \
+        cargo build --release --locked --bin agent_bridge_v1
+      SPELLBENCH_ENGINE_BIN=$W/target/release/agent_bridge_v1 \
+        SPELLBENCH_ENGINE_DECKS=Wildfire,Rally,Affinity,Elves,Spy,Burn,CawGates,Faeries \
+        pytest spellbench/python/tests/test_engine_conformance.py
+
+- *Agent,* `cmd/sbv1agent` over `internal/spellbench/v1agent`: the v1 agent
+  role (hello, game_start, choose, game_over; single-entry idempotent
+  retry; the closed error-code set) for any Go `Policy`
+  (`GameStart`, `Choose(*Decision) int`, `GameOver`). A policy panic or
+  out-of-range answer never reaches the wire (a wire error forfeits the
+  game): the heuristic answers instead and the agent counts it; `-stats
+  FILE` appends one JSON line of counters per game. Policies: `uniform`,
+  `heuristic`, `first` (the python builtins ported choice for choice) and
+  `tactical`.
+- *Arena,* SpellBench's own runner and rating code: `spellbench run` on a
+  config from `scripts/spellbench-arena/mkcfg.py` (the benchmark's deck
+  pool, seat-swapped pairs per deck, caps, timeouts, 2000 bootstrap
+  replicates, uniform anchor), e.g.
+
+      python3 scripts/spellbench-arena/mkcfg.py pub.json RUN_DIR 4 20260926 \
+        builtin:uniform builtin:heuristic builtin:first go:sbv1-tactical:tactical
+      spellbench run pub.json          # every arena run under heavy2.lock
+
+  `scripts/spellbench-arena/rate.py` re-rates ledgers with
+  `leaderboard.build_leaderboard` when `spellbench run` refuses its final
+  write: a lopsided matchup (e.g. 125-3) gives the exact sign-test p-value
+  a denominator above 2^53, which the canonical-JSON writer rejects (an
+  upstream bug; the ratings are unaffected). `wl.py` and `view.sh`
+  summarise a ledger and a `-trace` file.
+
+**Correctness checks.**
+
+- *Builtins reproduced.* uniform/heuristic/first on the rebuilt bridge in
+  the benchmark shape (4 pairs per deck, base seed 20260926): heuristic
+  1112.7 [1037, 1197] vs the published 1101.6; first 810 vs 867;
+  heuristic vs uniform 45-19, the published count exactly. Within noise.
+- *Go ports exact.* The same 192-game config with the three Go ports
+  (subprocesses named like the builtins) gave 192/192 games identical to
+  the python bots (outcome, step count and decision count per game id).
+
+**Tactical.** v1's neutral observation is counts only, but on mtg-kernel
+every decision carries `x_kernel_v5`: the acting seat's own ObservationV5
+(both battlefields with effective power, toughness and keywords, tapped
+and sick state, damage, counters and attachments; graveyards; exile; the
+stack with targets; combat; its own hand; the pending effect's purpose;
+its dungeon room), observer-relative and licensed by spec §9 (g115's
+entry reads a kernel extension too). `NewBoard` reads it; without it the
+policy falls back to the wire references (and to the heuristic for
+combat). Card knowledge: `cardfacts.json`, generated from gorge's
+compiled IR for every catalog card (`TestCardFactsMatchIR` regenerates and
+diffs it; derived facts only: types, mana value, P/T, keyword heads,
+effect APIs, damage, target class, polarity); `kernelcards.json` (the
+kernel card DB, MIT: card ids for stack and hidden objects, costs, mana
+production); `hints.go` (roles, timing and target polarity for the pool).
+Every candidate is scored and the best taken:
+
+- lands first, tapped lands when no spell needs the mana this turn,
+  colours the hand lacks; creatures and sorcery-speed spells in main phase
+  only; flash creatures on the opponent's attack or end step; counters
+  only against an opposing spell worth it; burn at a creature it kills or
+  face (burn decks, or when in reach); removal only at a creature worth it;
+  X (posed by the kernel as a `choose_option` index) at maximum;
+- targets by polarity (harmful at the opponent, beneficial at us);
+  searches and reveals by card value; scry and Brainstorm by the pending
+  effect's `purpose` (`card_selection` bottoms the unwanted, a hand
+  `library_order` puts back the worst); Undercity rooms by the kernel's
+  room order (Forge, Trap, Catacombs) and room-aware target polarity;
+- attacks and blocks planned once per scan group (the kernel poses them as
+  include/exclude substeps) and every substep answered from the plan:
+  attack when no blocker eats the attacker for free, all-in when lethal
+  gets through, hold back what the crack-back (evasion-aware) needs unless
+  we win the race; blocks that kill and survive, double blocks that kill
+  a big attacker for at most one blocker, free blocks, even trades, chumps
+  when life gets low or the hit is lethal, all judged against the pump an
+  untapped Timberwatch Elf or Basilisk Gate could add; an in-game model
+  of the opponent (it passed up at least two chances to block) lets
+  attacks ignore its blockers. No state crosses games.
+
+**Results (2026-09-28).** Benchmark shape: the eight-deck pool, 4
+seat-swapped mirror pairs per deck, base seed 20260926 (the published
+run's), workers 8, our bridge with `x_kernel_v5`. Final build `tac9` =
+`sbv1agent` at the head of `wt/sb-arena` (md5 `451f5f7f…`), run
+`runs/final`:
+
+| Bot | Elo | CI95 | W-L |
+|---|---|---|---|
+| sbv1-tactical (tac9) | 1430 | [1362, 1521] | 176-16 |
+| heuristic | 1141 | [1070, 1218] | 109-83 |
+| uniform (anchor) | 1000 | anchor | 70-122 |
+| first | 841 | [756, 917] | 29-163 |
+
+Head to head: tactical beats heuristic 50-14, uniform 64-0, first 62-2.
+The previous build on the same seeds (`tac7`, run `runs/pub2`, pool also
+holding `tac6`): 1444 [1383, 1513], heuristic 57-7, uniform 62-2, first
+61-3; tac7 vs tac6 31-33, and tac7 vs tac9 64-64 at 8 pairs (`runs/dev9`,
+where tac9 went 107-21 / 124-4 / 124-4 against heuristic / uniform /
+first). The two builds are one policy within noise.
+
+*Against g115, on the public scale.* No g115 game can be played (above),
+so the comparison is through the common opponents. Against the three
+builtins on the same seed schedule, g115 went 173-19 (57-7 heuristic,
+55-9 uniform, 61-3 first) and sbv1-tactical 176-16 (tac7: 180-12). One
+Bradley-Terry fit over the published ledger plus `runs/final`
+(`rate.py`, builtins shared by bot id): **sbv1-tactical 1426 [1360,
+1509], g115 1399 [1335, 1476]**, a48 1248, c12 1237, heuristic 1133,
+first 841 (tac7 in the same fit: 1441 vs g115 1400). The CIs overlap; this
+is not a head-to-head result, and the two sides of it ran on different
+kernel builds (card DB `064a7c98…` vs `64c82a26…`). Per deck against the
+builtins: g115 is stronger with Affinity (24-0 vs 20-4) and Elves (24-0 vs
+21-3); tactical with CawGates (23-1 vs 15-9) and Spy (20-4 vs 18-6); the
+other four decks are even (23-1 each).
+
+**Protocol errors, rejections, timeouts.** Across every arena run (5,568
+games, 1,348 tactical agent processes with `-stats`, 164,659 decisions):
+0 forfeits, 0 timeouts, 0 truncated games, 0 refused steps and 0 bridge
+halts; the agent answered no request with an error and needed 0
+fallbacks, with `x_kernel_v5` present on every decision. 5 games were
+`halted` by the kernel itself, all Faeries mirrors, all
+`InvalidEffectContinuation` on the resolution of a ninjutsu activated in
+declare blockers (`dev2 m0000p0007g1` seed 1677312375586864, heuristic vs
+uniform: uniform activated Moon-Circuit Hacker's ninjutsu at step 176;
+`dev6 m0001p0023g0` seed 8790084201229895, uniform vs tac5; three more in
+`dev2`/`dev3`). They replay exactly with
+`scripts/spellbench-arena/replay.py SEED Faeries Faeries GAME_ID P0 P1 -1 /dev/null`. Recorded here as an
+mtg-kernel bug; nothing was reported upstream. The tactical policy
+ninjutsus at most once per combat and never returns a creature that
+entered this turn, which removed the halts its own play caused.
+
+**Gaps and what would raise the kernel rating most.**
+
+- *A real g115 measurement.* Everything above is transitive. The single
+  most useful next step is a g115 head-to-head: that needs Jack's scorer,
+  checkpoint and bridge (or him running our `sbv1agent` in his arena; it
+  needs only the v1 wire and `x_kernel_v5`).
+- *Play strength.* Tactical is one-ply. The losses that remain against the
+  builtins are mostly mana screw (the kernel has no mulligan), races
+  lost by a turn, and pump tricks after blocks. The biggest levers are
+  (1) combat lookahead (simulate the declared combat with the pumps and
+  instants the opponent can afford), (2) the Elves and Affinity lines g115
+  plays better (Priest of Titania mana for big turns, affinity
+  sequencing), (3) search: the kernel's session has `snapshot_v5` /
+  `restore_v5`, and both decklists are public in `game_start`, so a
+  determinized search over sampled hands is possible with an in-process
+  kernel (the agent cannot query the engine; it would need a kernel state
+  builder from `ObservationV5`, which the public API lacks).
+- *gorge-native vs mtg-kernel.* Gorge-native (W1): sb-heuristic 1080,
+  gorge `bot` 1238. On mtg-kernel the python heuristic rates 1100-1140 and
+  tactical 1430-1445. The engines differ in decision granularity (kernel:
+  ~200-500 decisions a game, mana auto-paid for casts, X as an option
+  index, combat as include/exclude scans) and in hidden-information
+  surface (the kernel extension shows the whole public board; v1's neutral
+  observation shows counts only).
+
+**Rerun.**
+
+    W=/mnt/sata/gorge-training/spellbench-work/arena
+    go build -o $W/bin/sbv1agent ./cmd/sbv1agent
+    go test ./internal/spellbench/v1agent/ ./cmd/sbv1agent/
+    python3 scripts/spellbench-arena/mkcfg.py final.json $W/runs/final 4 20260926 \
+      builtin:uniform builtin:heuristic builtin:first \
+      go:sbv1-tactical:tactical:-stats,$W/runs/final.stats
+    spellbench run final.json
+    python3 scripts/spellbench-arena/rate.py joint.md \
+      /mnt/sata/gorge-training/spellbench/benchmarks/pauper-kernel/runs/2026-09-27 $W/runs/final
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the
