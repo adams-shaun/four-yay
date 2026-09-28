@@ -271,7 +271,19 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	// not know the name, and internal/archtest forbids host, host/httpapi
 	// and cmd/gorged from linking azmcts at all.
 	"az": func(seed uint64) seat.Seat {
-		s, err := azmcts.NewSeat(seed, azNet, azCfg)
+		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az"))
+		if err != nil {
+			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
+		}
+		return s
+	},
+	// az-redeal is az on the honest world source (azmcts.RedealSource,
+	// SpellBench M1): every simulation walks a world that keeps what the
+	// seat sees and re-deals the hidden cards it cannot. It takes every
+	// -az-* knob but -az-world, so one run can seat it beside a
+	// clairvoyant az.
+	"az-redeal": func(seed uint64) seat.Seat {
+		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az-redeal"))
 		if err != nil {
 			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
 		}
@@ -309,6 +321,64 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"sb-heuristic-planned": func(seed uint64) seat.Seat {
 		return builtins.New(builtins.Heuristic, builtins.Planned, seed)
 	},
+	// sb-tactical is the scored seat-visible heuristic (internal/spellbench/
+	// builtins/tactical.go) on the auto-pay surface; -planned plays the
+	// manual surface through payexec. The -no<group> arms switch one of
+	// its three idea groups off (the ablation), and sb-tactical-alt plays
+	// -spellbench-tactical-alt-weights (weight tuning A/B). Card names
+	// resolve through the corpus registry the run opened (tacticalLookup).
+	"sb-tactical": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights)
+	},
+	"sb-tactical-planned": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.Planned, seed, tacticalLookup, tacticalWeights)
+	},
+	"sb-tactical-noearly": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.EarlyGame = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-notiming": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.Timing = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-norace": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.Race = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-alt": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[0])
+	},
+	"sb-tactical-alt2": tacticalAlt(1), "sb-tactical-alt3": tacticalAlt(2), "sb-tactical-alt4": tacticalAlt(3),
+	"sb-tactical-alt5": tacticalAlt(4), "sb-tactical-alt6": tacticalAlt(5), "sb-tactical-alt7": tacticalAlt(6),
+	"sb-tactical-alt8": tacticalAlt(7),
+}
+
+func tacticalAlt(i int) func(seed uint64) seat.Seat {
+	return func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[i])
+	}
+}
+
+// tacticalLookup resolves card names for the sb-tactical arms; set once from
+// the run's corpus registry (setTacticalRegistry) before any game starts and
+// read-only afterwards. tacticalWeights / tacticalAltWeights are the arms'
+// weights: the defaults unless -spellbench-tactical-weights /
+// -spellbench-tactical-alt-weights name a JSON file.
+var (
+	tacticalLookup     builtins.CardLookup
+	tacticalWeights    = builtins.DefaultTacticalWeights()
+	tacticalAltWeights = [8]builtins.TacticalWeights{builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights()}
+)
+
+func setTacticalRegistry(reg *cards.Registry) {
+	if tacticalLookup == nil {
+		tacticalLookup = builtins.NewRegistryLookup(reg)
+	}
 }
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
@@ -381,7 +451,7 @@ func parseOppMix(spec string) ([]oppMixEntry, error) {
 		if err != nil || f <= 0 || f > 1 {
 			return nil, fmt.Errorf("-opp-mix entry %q: fraction must be in (0,1]", part)
 		}
-		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" || name == "az" {
+		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" || isAZPolicy(name) {
 			return nil, fmt.Errorf("-opp-mix entry %q: %q is not a mixable built-in policy", part, name)
 		}
 		total += f
@@ -1888,6 +1958,7 @@ func runMatrixTraced(baseSeed uint64, games, seats int, aName, bName, dir, forma
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
 	}
+	setTacticalRegistry(reg)
 
 	// Resolve each distinct deck once; pairs share decks so one deck list
 	// maps to many pairs. The map is only looked up by key during play --
@@ -2120,6 +2191,7 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
 	}
+	setTacticalRegistry(reg)
 
 	// Decks are tied to seats for the whole run (seat 0 always holds the
 	// first deck of the pool), and seats trade policies every game, so each
@@ -2466,7 +2538,7 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	// no value head). A package-level policynetModel left by an earlier
 	// in-process run must never reach az, so only this run's checkpoint is
 	// passed on.
-	azSide := aName == "az" || bName == "az"
+	azSide := isAZPolicy(aName) || isAZPolicy(bName)
 	if !policynetSide && !azSide && checkpoint != "" {
 		return fail(fmt.Errorf("-checkpoint was given but neither side is policynet or az"))
 	}

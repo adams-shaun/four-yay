@@ -295,10 +295,11 @@ func TestDivergenceAbortsCleanly(t *testing.T) {
 		t.Fatalf("pool mismatch: %v %q", st, x.Reason)
 	}
 
-	// An unexpected decision kind, and another seat's decision.
+	// A decision that is not the lowering's yields (the caller answers it)
+	// and the lowering continues; another seat's decision aborts.
 	x = Start(0, &a, decision.ManaAmount{})
-	if _, st = x.Step(&decision.Decision{Player: 0, Kind: decision.KTarget}, decision.ManaAmount{}); st != Aborted || x.Reason != ReasonUnexpected {
-		t.Fatalf("unexpected: %v %q", st, x.Reason)
+	if in, st = x.Step(&decision.Decision{Player: 0, Kind: decision.KTarget}, decision.ManaAmount{}); st != Yield || in.Choices != nil || x.Status() != InProgress || x.Yields != 1 {
+		t.Fatalf("foreign decision: %v %q status %v", st, x.Reason, x.Status())
 	}
 	x = Start(0, &a, decision.ManaAmount{})
 	if _, st = x.Step(&decision.Decision{Player: 1, Kind: decision.KPriority}, decision.ManaAmount{}); st != Aborted || x.Reason != ReasonWrongPlayer {
@@ -356,3 +357,132 @@ func TestMatchManaLabels(t *testing.T) {
 		t.Fatalf("RG allocation: %v %v", c, ok)
 	}
 }
+
+// TestLastResortStepsRunLast: a plan listing a sacrifice before a plain tap
+// taps the plain source first.
+func TestLastResortStepsRunLast(t *testing.T) {
+	c := decision.ManaAmount{0, 0, 0, 0, 0, 1}
+	g := decision.ManaAmount{0, 0, 0, 0, 1, 0}
+	plan := decision.PaymentPlan{Activations: []decision.PaymentActivation{
+		{Source: 7, Produces: c, Consequence: &decision.PaymentConsequence{Sacrifice: true}},
+		{Source: 8, Produces: g},
+	}}
+	x := StartPlay(0, Play{Kind: "cast", Obj: 3}, plan, decision.ManaAmount{})
+	if got := sources(decision.PaymentPlan{Activations: x.Steps()}); len(got) != 2 || got[0] != 8 || got[1] != 7 {
+		t.Fatalf("execution order %v, want [8 7]", got)
+	}
+	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Options: []decision.Option{
+		{Index: 0, Kind: "activate", Obj: 7}, {Index: 1, Kind: "activate", Obj: 8}, {Index: 2, Kind: "pass"},
+	}}
+	if in, st := x.Step(d, decision.ManaAmount{}); st != InProgress || in.Choices[0] != 1 {
+		t.Fatalf("first step %v %+v, want the plain source (option 1)", st, in)
+	}
+}
+
+// TestWaitForTheStack: every source ran but the play is not offered while
+// the stack holds something (a trigger the sacrifice caused): the lowering
+// passes, keeps the pool, and casts once the play is offered; with an empty
+// stack the same surface aborts.
+func TestWaitForTheStack(t *testing.T) {
+	c := decision.ManaAmount{0, 0, 0, 0, 0, 1}
+	plan := decision.PaymentPlan{Activations: []decision.PaymentActivation{{Source: 7, Produces: c}}}
+	tap := &decision.Decision{Player: 0, Kind: decision.KPriority, Options: []decision.Option{{Index: 0, Kind: "activate", Obj: 7}, {Index: 1, Kind: "pass"}}}
+	blocked := &decision.Decision{Player: 0, Kind: decision.KPriority, Options: []decision.Option{{Index: 0, Kind: "pass"}}}
+	open := &decision.Decision{Player: 0, Kind: decision.KPriority, Options: []decision.Option{{Index: 0, Kind: "pass"}, {Index: 1, Kind: "cast", Obj: 3}}}
+	x := StartPlay(0, Play{Kind: "cast", Obj: 3}, plan, decision.ManaAmount{})
+	x.StepOn(tap, Surface{})
+	if in, st := x.StepOn(blocked, Surface{Pool: c, Stack: 1}); st != InProgress || in.Choices[0] != 0 || x.Waits != 1 {
+		t.Fatalf("wait: %v %+v waits %d", st, in, x.Waits)
+	}
+	if in, st := x.StepOn(open, Surface{Pool: c}); st != Done || in.Choices[0] != 1 {
+		t.Fatalf("after the stack resolved: %v %+v", st, in)
+	}
+	x = StartPlay(0, Play{Kind: "cast", Obj: 3}, plan, decision.ManaAmount{})
+	x.StepOn(tap, Surface{})
+	if _, st := x.StepOn(blocked, Surface{Pool: c}); st != Aborted || x.Reason != ReasonCastNotOffered {
+		t.Fatalf("empty stack: %v %q", st, x.Reason)
+	}
+}
+
+// TestAbilityPlayMatchesOnlyThePrintedOption: an ability lowering ends on
+// the printed ability's own option, never a granted one with the same index.
+func TestAbilityPlayMatchesOnlyThePrintedOption(t *testing.T) {
+	p := Play{Kind: "ability", Obj: 5, Ability: 1}
+	for _, c := range []struct {
+		o    decision.Option
+		want bool
+	}{
+		{decision.Option{Kind: "ability", Obj: 5, Ability: 1}, true},
+		{decision.Option{Kind: "ability", Obj: 5, Ability: 0}, false},
+		{decision.Option{Kind: "ability", Obj: 5, Ability: 1, SVar: "Grant"}, false},
+		{decision.Option{Kind: "ability", Obj: 5, Ability: 1, AltCostIndex: 1}, false},
+		{decision.Option{Kind: "cast", Obj: 5}, false},
+	} {
+		if got := p.Matches(&c.o); got != c.want {
+			t.Errorf("%+v: %v, want %v", c.o, got, c.want)
+		}
+	}
+}
+
+// TestSacrificeTriggerWaitsThenCasts: Grizzly Bears paid by a Forest and an
+// Eldrazi Spawn next to Writhing Chrysalis. The Spawn's sacrifice triggers
+// the Chrysalis, whose trigger holds the sorcery-speed cast off the stack;
+// the lowering waits (passes, the {C} floating), the trigger resolves, and
+// the Bears are cast. Before, this aborted cast_not_offered.
+func TestSacrificeTriggerWaitsThenCasts(t *testing.T) {
+	const spawn = "c_0_1_eldrazi_spawn_sac"
+	b := newBoard(t, "Grizzly Bears", []string{"Forest", "Writhing Chrysalis"}, []string{spawn})
+	x, err := Drive(b.e, Start(0, ptr(b.action(t)), PoolOf(b.e, 0)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x.Status() != Done || !b.onStack() {
+		t.Fatalf("status %v reason %s %s", x.Status(), x.Reason, x.Detail)
+	}
+	if x.Waits < 1 {
+		t.Fatalf("the Chrysalis trigger never held the cast (waits %d): fixture no longer exercises the wait", x.Waits)
+	}
+	if o := b.e.G.Obj(b.objs[spawn][0]); o != nil && o.Zone == state.ZBattlefield {
+		t.Fatal("the Spawn was not sacrificed")
+	}
+}
+
+// TestTwoTriggersYieldThenCast: with two Chrysalises the sacrifice asks
+// for a trigger order mid-lowering; the lowering yields it, waits out both
+// triggers and casts.
+func TestTwoTriggersYieldThenCast(t *testing.T) {
+	const spawn = "c_0_1_eldrazi_spawn_sac"
+	b := newBoard(t, "Grizzly Bears", []string{"Forest", "Writhing Chrysalis", "Writhing Chrysalis"}, []string{spawn})
+	x, err := Drive(b.e, Start(0, ptr(b.action(t)), PoolOf(b.e, 0)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x.Status() != Done || !b.onStack() {
+		t.Fatalf("status %v reason %s %s", x.Status(), x.Reason, x.Detail)
+	}
+	if x.Yields < 1 || x.Waits < 1 {
+		t.Fatalf("yields %d waits %d, want both", x.Yields, x.Waits)
+	}
+}
+
+// TestSacrificeLastKeepsTheDefenderCount: Juggernaut ({4}) from Overgrown
+// Battlement (G per defender) and Tinder Wall (sacrifice: RR). Tapping the
+// Battlement before the Wall is sacrificed counts both defenders; the
+// reverse order (the planner's witness order) makes one G too few.
+func TestSacrificeLastKeepsTheDefenderCount(t *testing.T) {
+	b := newBoard(t, "Juggernaut", []string{"Overgrown Battlement", "Tinder Wall"}, nil)
+	a := b.action(t)
+	plan, _ := SelectPlan(&a)
+	if len(plan.Activations) != 2 || plan.Activations[0].Source != b.objs["Tinder Wall"][0] {
+		t.Logf("witness order %v no longer puts the Wall first; the reorder is then untested here", sources(plan))
+	}
+	x, err := Drive(b.e, Start(0, ptr(b.action(t)), PoolOf(b.e, 0)), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x.Status() != Done || !b.onStack() {
+		t.Fatalf("status %v reason %s %s (plan %v)", x.Status(), x.Reason, x.Detail, sources(x.Plan))
+	}
+}
+
+func ptr[T any](v T) *T { return &v }

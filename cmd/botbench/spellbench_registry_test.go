@@ -28,6 +28,12 @@ func TestSpellbenchRegistryRoundTrip(t *testing.T) {
 		{"sb-heuristic-manual", wantBuiltin(builtins.Heuristic)},
 		{"sb-uniform-planned", wantBuiltin(builtins.Uniform)},
 		{"sb-heuristic-planned", wantBuiltin(builtins.Heuristic)},
+		// The sb-tactical arms prep added are registered by cmd/botbench
+		// (they read this package's weights/lookup), so prove they resolve
+		// through the registry the -spellbench path uses.
+		{"sb-tactical", wantBuiltin(builtins.Tactical)},
+		{"sb-tactical-planned", wantBuiltin(builtins.Tactical)},
+		{"sb-tactical-alt8", wantBuiltin(builtins.Tactical)},
 		{"bot", func(s seat.Seat) string {
 			if s == nil {
 				return "nil seat"
@@ -35,6 +41,12 @@ func TestSpellbenchRegistryRoundTrip(t *testing.T) {
 			return "" // the hosted policy seat's concrete type is host's to choose
 		}},
 		{"az", func(s seat.Seat) string {
+			if _, ok := s.(*azmcts.Seat); !ok {
+				return "not *azmcts.Seat"
+			}
+			return ""
+		}},
+		{"az-redeal", func(s seat.Seat) string {
 			if _, ok := s.(*azmcts.Seat); !ok {
 				return "not *azmcts.Seat"
 			}

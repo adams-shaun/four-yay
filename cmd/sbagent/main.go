@@ -2,7 +2,7 @@
 // spec/SPELLBENCH_PROTOCOL_V2.md, Section 10): it answers hello, game_start,
 // choose and game_over as NDJSON over stdin/stdout until stdin closes.
 //
-//	sbagent -policy random|heuristic|first [-name NAME] [-version V] [-seed N] [-no-echo] [-quiet]
+//	sbagent -policy random|heuristic|first [-name NAME] [-version V] [-seed N] [-no-echo] [-quiet] [-stats]
 //
 // Policies (internal/spellbench/v2agent):
 //
@@ -22,10 +22,18 @@
 // match that entry. Diagnostics (unknown observation fields, mistyped
 // fields) go to stderr, never stdout; -quiet drops them.
 //
+// The agent never forfeits a recoverable error (v2agent.Stats): a policy
+// failure is answered by the fallback policy, a choose for a game it is not
+// serving starts that game, a game_start over a stale game replaces it, and
+// candidates without ids are answered by position. -stats writes those
+// counts as one "sbagent-stats: {json}" line to stderr at exit (even with
+// -quiet).
+//
 // Exit status: 0 at stdin EOF, 1 on an I/O error, 2 for bad arguments.
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -50,6 +58,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	seed := fs.Uint64("seed", 0, "random policy: XORed into each game's agent_seed (the python uniform bot's --seed)")
 	noEcho := fs.Bool("no-echo", false, "omit the optional seat_step and semantic_echo from each choice")
 	quiet := fs.Bool("quiet", false, "write no diagnostics to stderr")
+	stats := fs.Bool("stats", false, `write the recovery counts as one "sbagent-stats: {json}" line to stderr at exit`)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -74,7 +83,13 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "sbagent: %v\n", err)
 		return 2
 	}
-	if err := agent.Serve(stdin, stdout); err != nil {
+	err = agent.Serve(stdin, stdout)
+	if *stats {
+		if raw, jerr := json.Marshal(agent.Stats); jerr == nil {
+			fmt.Fprintf(stderr, "sbagent-stats: %s\n", raw)
+		}
+	}
+	if err != nil {
 		fmt.Fprintf(stderr, "sbagent: %v\n", err)
 		return 1
 	}

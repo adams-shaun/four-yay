@@ -34,10 +34,19 @@ package main
 //
 // A builtin (sb-*) seat whose answer the engine refuses (a whole-declaration
 // constraint the wire does not publish, e.g. a lone blocker on a menace
-// attacker) is answered by a fallback instead of halting the game: the
-// minimal answer (pass, or the clamped empty answer), else the default bot's
-// answer. Every fallback is counted per policy and reported. Any other
-// seat's refused answer halts the game.
+// attacker) is asked again first (builtins.Seat.Refused: at priority the
+// policy's next choice with the refused option withdrawn, never a bare
+// pass); only if that is refused too does a fallback answer: the minimal
+// answer (pass, or the clamped empty answer), else the default bot's
+// answer. Every refusal and fallback is counted per policy and reported.
+// Any other seat's refused answer halts the game.
+//
+// Builtin seats get the engine as their potential-play planner
+// (builtins.Seat.SetPlanner, rules.Engine.PotentialPaymentPlans): a pure
+// read of the seat's own pool and sources at the decision it answers. The
+// summary reports, per policy, the plays lost (chosen, payable, not taken),
+// the lowering recoveries (re-plans, yields, stack waits) and the plays the
+// planner proved unpayable.
 
 import (
 	"crypto/sha256"
@@ -66,6 +75,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/view"
 )
 
 // sbOpts are the -spellbench-* flags.
@@ -79,6 +89,12 @@ type sbOpts struct {
 	engineVersion string
 	catalog       string
 	format        string // the catalog's ledger format, set from catalog
+	// tacticalWeights / tacticalAlt name JSON weight files for sb-tactical
+	// and sb-tactical-alt.
+	tacticalWeights, tacticalAlt string
+	// trace names a directory where every sb-tactical seat writes its
+	// scored decisions, one file per game and seat (debugging).
+	trace string
 }
 
 var sbFlags sbOpts
@@ -92,6 +108,9 @@ func registerSpellbenchFlags(fs *flag.FlagSet) {
 	fs.Uint64Var(&sbFlags.baseSeed, "spellbench-base-seed", 20260926, "spellbench: tournament base seed (the benchmark's base_seed)")
 	fs.StringVar(&sbFlags.with, "spellbench-with", "", "spellbench: play only the matchups that include this policy (indices and seeds stay those of the full round robin)")
 	fs.StringVar(&sbFlags.without, "spellbench-without", "", "spellbench: skip the matchups that include this policy")
+	fs.StringVar(&sbFlags.tacticalWeights, "spellbench-tactical-weights", "", "spellbench: JSON file of builtins.TacticalWeights for the sb-tactical arms (default: the built-in weights; absent fields keep their defaults)")
+	fs.StringVar(&sbFlags.tacticalAlt, "spellbench-tactical-alt-weights", "", "spellbench: comma list of JSON files of builtins.TacticalWeights for sb-tactical-alt, -alt2 ... -alt8 (weight-tuning A/B)")
+	fs.StringVar(&sbFlags.trace, "spellbench-trace", "", "spellbench: directory for sb-tactical decision traces (one file per game and seat)")
 	fs.StringVar(&sbFlags.engineVersion, "spellbench-engine-version", "dev", "spellbench: engine_version recorded in the ledger (e.g. the git commit)")
 }
 
@@ -168,15 +187,34 @@ type sbResult struct {
 // name tag (a leading "az-") still classifies it as a search agent and no
 // composed clairvoyant spec can be rated as a fair one.
 func sbDisplayName(policy string) string {
-	base, rest, _ := strings.Cut(policy, "+")
-	if base != "az" {
+	base := basePolicy(policy)
+	if !isAZPolicy(base) {
 		return policy
 	}
-	name := fmt.Sprintf("az-clairvoyant-sims%d", azCfg.Search.Sims)
-	if rest != "" {
-		name += "+" + rest
+	cfg := azSeatConfig(base)
+	world := cfg.World
+	if world == "" {
+		// azFrontDoor always sets azCfg.World before a run; the empty case
+		// is a bare sbDisplayName call (tests), where az's historical world
+		// is clairvoyant.
+		world = "clairvoyant"
+	}
+	name := fmt.Sprintf("az-%s-sims%d", world, cfg.Search.Sims)
+	if world == "redeal" && cfg.Worlds > 0 {
+		name += fmt.Sprintf("-k%d", cfg.Worlds)
+	}
+	if rest := strings.TrimPrefix(policy, base); rest != "" {
+		name += rest
 	}
 	return name
+}
+
+// basePolicy is a registry spec's base policy, dropping its decorators
+// ("az+passguard" -> "az"); az classification uses it so a decorated az
+// seat is still recognised as az.
+func basePolicy(spec string) string {
+	base, _, _ := strings.Cut(spec, "+")
+	return base
 }
 
 func sbBotID(name string) string {
@@ -194,13 +232,19 @@ func sbSubmitWithFallback(seats []seat.Seat, res *sbResult) func(*rules.Engine, 
 		if err == nil {
 			return true, nil
 		}
-		if _, ok := registry.UnwrapSeat(seats[seatIdx]).(*builtins.Seat); !ok {
+		b, ok := registry.UnwrapSeat(seats[seatIdx]).(*builtins.Seat)
+		if !ok {
 			return true, err
 		}
-		res.fallbacks[seatIdx]++
 		if res.rejects[seatIdx] == "" {
 			res.rejects[seatIdx] = fmt.Sprintf("%s: %v", d.Kind, err)
 		}
+		v := view.Project(e.G, e, d.Player, d)
+		v.Round = view.RoundOf(e.G, e.L.Events)
+		if e.Submit(b.Refused(v, *d, in)) == nil {
+			return true, nil
+		}
+		res.fallbacks[seatIdx]++
 		fb := decision.Intent{Seq: d.Seq, Player: d.Player}
 		if d.Kind == decision.KPriority {
 			for _, o := range d.Options {
@@ -237,12 +281,25 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 			panic("spellbench: " + err.Error())
 		}
 		seats[s] = s0
+		if b, ok := registry.UnwrapSeat(seats[s]).(*builtins.Seat); ok && sbFlags.trace != "" && b.Policy() == builtins.Tactical {
+			f, err := os.Create(filepath.Join(sbFlags.trace, fmt.Sprintf("%s-%s-p%d.txt", g.id, g.deck, s)))
+			if err == nil {
+				defer f.Close()
+				b.SetTrace(f)
+			}
+		}
 	}
 	cfg := rules.Config{
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
 		Tokens: reg.Tokens, NameUniverse: reg.Cards,
 	}
-	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res)}
+	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res), Setup: func(e *rules.Engine) {
+		for _, st := range seats {
+			if b, ok := registry.UnwrapSeat(st).(*builtins.Seat); ok {
+				b.SetPlanner(e)
+			}
+		}
+	}}
 	if maxTurnIntents > 0 {
 		hooks.Guard = turnIntentGuard(maxTurnIntents)
 	}
@@ -343,6 +400,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	seen := map[string]bool{}
 	azSide := false
+	azBases := map[string]bool{}
 	for _, b := range bots {
 		// Every name is a registry spec ("bot", "bot+passguard"); the
 		// error names the registered policies for an unknown base.
@@ -353,14 +411,43 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 			return fail(fmt.Errorf("policy %q listed twice", b))
 		}
 		seen[b] = true
-		if b == "az" || strings.HasPrefix(b, "az+") {
+		if base := basePolicy(b); isAZPolicy(base) {
 			azSide = true
+			azBases[base] = true
 		}
+	}
+	if azBases["az"] && azBases["az-redeal"] && azWorldArg == "redeal" {
+		return fail(fmt.Errorf("az with -az-world redeal and az-redeal are the same policy; list one"))
 	}
 	for _, f := range []string{o.with, o.without} {
 		if f != "" && !seen[f] {
 			return fail(fmt.Errorf("-spellbench-with/-without %q is not in the policy list", f))
 		}
+	}
+	type wfile struct {
+		path string
+		dst  *builtins.TacticalWeights
+	}
+	wfiles := []wfile{{o.tacticalWeights, &tacticalWeights}}
+	for i, pth := range sbSplit(o.tacticalAlt) {
+		if i >= len(tacticalAltWeights) {
+			return fail(fmt.Errorf("-spellbench-tactical-alt-weights: at most %d files", len(tacticalAltWeights)))
+		}
+		wfiles = append(wfiles, wfile{pth, &tacticalAltWeights[i]})
+	}
+	for _, f := range wfiles {
+		if f.path == "" {
+			continue
+		}
+		raw, err := os.ReadFile(f.path)
+		if err != nil {
+			return fail(err)
+		}
+		w := builtins.DefaultTacticalWeights()
+		if err := json.Unmarshal(raw, &w); err != nil {
+			return fail(fmt.Errorf("%s: %w", f.path, err))
+		}
+		*f.dst = w
 	}
 	if o.pairs < 1 {
 		return fail(fmt.Errorf("-spellbench-pairs must be at least 1"))
@@ -379,11 +466,14 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		}
 		ckModel = m
 	}
-	azA := ""
-	if azSide {
+	azA, azB := "", ""
+	if azBases["az"] {
 		azA = "az"
 	}
-	if err := azFrontDoor(azA, "", ckModel); err != nil {
+	if azBases["az-redeal"] {
+		azB = "az-redeal"
+	}
+	if err := azFrontDoor(azA, azB, ckModel); err != nil {
 		return fail(err)
 	}
 	if azSide {
@@ -402,6 +492,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if err != nil {
 		return fail(fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err))
 	}
+	setTacticalRegistry(reg)
 	decks := make(map[string][]*cards.Card, len(pool)) // lookup only
 	for _, id := range pool {
 		d, err := spellbench.Deck(reg, cat.Dir, id)
@@ -412,6 +503,11 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	if err := os.MkdirAll(o.out, 0o755); err != nil {
 		return fail(err)
+	}
+	if o.trace != "" {
+		if err := os.MkdirAll(o.trace, 0o755); err != nil {
+			return fail(err)
+		}
 	}
 
 	full := sbSchedule(bots, pool, o.pairs, o.baseSeed)
@@ -471,7 +567,9 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	sbWriteSummary(stdout, bots, sched, results, elapsed)
 	if azSide {
-		fmt.Fprint(stdout, azCostReport(sbCount(sched, "az")))
+		// Both az policies feed one cost report; its game count is the
+		// games either seated.
+		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")))
 	}
 	return 0
 }
@@ -480,6 +578,19 @@ func sbCount(sched []sbGame, policy string) int {
 	n := 0
 	for _, g := range sched {
 		if g.seats[0] == policy || g.seats[1] == policy {
+			n++
+		}
+	}
+	return n
+}
+
+// sbCountBase counts games either seat played a spec whose base policy is
+// the given name, so a decorated az spec ("az+passguard") still feeds the
+// az cost report.
+func sbCountBase(sched []sbGame, policy string) int {
+	n := 0
+	for _, g := range sched {
+		if basePolicy(g.seats[0]) == policy || basePolicy(g.seats[1]) == policy {
 			n++
 		}
 	}
@@ -538,7 +649,7 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 		"policies": bots, "display_names": names, "catalog": o.catalog, "decks": pool, "pairs_per_deck": o.pairs,
 		"base_seed": o.baseSeed, "with": o.with, "without": o.without, "games": len(sched),
 		"wall_seconds": elapsed.Seconds(), "workers": workers, "engine": engine,
-		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg},
+		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg, "worlds": azCfg.Worlds},
 		"max_turn_intents": maxTurnIntents,
 	}
 	raw, err := json.MarshalIndent(run, "", "  ")
@@ -618,6 +729,23 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 			n, seatGames[n], fallbacks[n], ps.Pursuits, ps.PursuitTaps, ps.PursuitFailures)
 		sg := float64(seatGames[n])
 		fmt.Fprintf(w, "       %-22s game intents/game %7.1f  own decisions/game %7.1f\n", "", float64(seatIntents[n])/sg, float64(ps.Decisions)/sg)
+		if ps.Decisions > 0 {
+			fmt.Fprintf(w, "       %-22s LEGAL ACTIONS LOST %4d  (recovered %d; pursuit failures priced %d / unpriced %d; proven-unpayable plays skipped %d; refusals %d; autopay fallbacks %d)\n", "",
+				ps.LostPlays, ps.RecoveredPlays, ps.PursuitFailuresPriced, ps.PursuitFailures-ps.PursuitFailuresPriced,
+				ps.ExcludedUnpayable, ps.Refusals, ps.AutoPayFallbacks)
+		}
+		if len(ps.PursuitFailuresByVerdict) > 0 {
+			var vs []string
+			for k := range ps.PursuitFailuresByVerdict {
+				vs = append(vs, k)
+			}
+			sort.Strings(vs)
+			var parts []string
+			for _, k := range vs {
+				parts = append(parts, fmt.Sprintf("%s=%d", k, ps.PursuitFailuresByVerdict[k]))
+			}
+			fmt.Fprintf(w, "       %-22s pursuit failures by play/verdict: %s\n", "", strings.Join(parts, ", "))
+		}
 		if ps.Lowerings > 0 {
 			var causes []string
 			for k := range ps.AbortsByCause {
@@ -628,8 +756,9 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 			for _, k := range causes {
 				cs = append(cs, fmt.Sprintf("%s=%d", k, ps.AbortsByCause[k]))
 			}
-			fmt.Fprintf(w, "       %-22s lowerings %5d  cast %5d  aborted %4d (passes %4d) [%s]  taps %5d  mana asks %4d\n", "",
-				ps.Lowerings, ps.LoweredCasts, ps.Aborts, ps.AbortPasses, strings.Join(cs, " "), ps.LoweringTaps, ps.LoweringAsks)
+			fmt.Fprintf(w, "       %-22s lowerings %5d (abilities %d)  cast %5d  abilities %4d  aborted %4d (re-planned %d, passes %4d) [%s]  taps %5d  mana asks %4d  yields %d  stack waits %d\n", "",
+				ps.Lowerings, ps.AbilityLowerings, ps.LoweredCasts, ps.LoweredAbilities, ps.Aborts, ps.Replans, ps.AbortPasses, strings.Join(cs, " "),
+				ps.LoweringTaps, ps.LoweringAsks, ps.LoweringYields, ps.LoweringWaits)
 			for _, a := range ps.AbortSamples {
 				fmt.Fprintf(w, "       %-22s   abort: %s\n", "", a)
 			}

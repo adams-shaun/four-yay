@@ -25,7 +25,16 @@ import (
 // (internal/spellbench/registry); the goldens were taken before that refactor,
 // so the test also proves the registry resolves the same seats the old
 // policies map did.
-const smokeDigestGolden = "24353ed4524330bf5eae65ea21beb933075a6a60bd6a995e7ebd50ba93767d30"
+//
+// The golden was re-pinned at the spellbench-prep merge (mrg1): prep's
+// builtins.Seat.Refused feature (commit 5f78dfd84, "builtins never lose a
+// chosen, payable play" and the sb-actions merge) asks a refused answer again
+// before falling back, which changes the per-game fallbacks/first_reject
+// extras this digest records. Measured: with sbPlay building seats through
+// the old policies map instead of registry.Build the digest is identical, so
+// the registry refactor is seat-identical and the move is prep's behaviour
+// alone.
+const smokeDigestGolden = "608689df2f02cfb4ad8f221d538a316155785b61128a4457ba57692a5e6bcf1e"
 
 // TestSpellbenchSmokeDigestIsStable plays the smoke run and compares its
 // games.jsonl digest against the golden above.

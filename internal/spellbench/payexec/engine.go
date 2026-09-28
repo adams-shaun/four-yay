@@ -62,16 +62,52 @@ func Run(e *rules.Engine, a decision.PaymentAction) (x *Execution, err error) {
 		x.abort(ReasonUnexpected, "no pending priority decision")
 		return x, nil
 	}
-	x = Start(d.Player, &a, PoolOf(e, d.Player))
+	return Drive(e, Start(d.Player, &a, PoolOf(e, d.Player)), nil)
+}
+
+// SurfaceOf is player p's surface in e: its floating pool and the stack.
+func SurfaceOf(e *rules.Engine, p state.PlayerID) Surface {
+	return Surface{Pool: PoolOf(e, p), Stack: len(e.G.Stack)}
+}
+
+// Drive runs x on e until Done or Aborted: each payer decision is Stepped
+// and submitted. A Yield is answered by yield (nil: the decision's first Min
+// options), and another seat's priority decision posed while the lowering
+// waits for the stack is answered with pass; any other decision for
+// another seat aborts (ReasonWrongPlayer). A test and tooling driver.
+func Drive(e *rules.Engine, x *Execution, yield func(*decision.Decision) decision.Intent) (*Execution, error) {
 	for x.Status() == InProgress {
-		d = e.Pending()
+		d := e.Pending()
 		if d == nil || e.G.Over {
 			x.abort(ReasonUnexpected, "no pending decision")
 			return x, nil
 		}
-		in, st := x.Step(d, PoolOf(e, d.Player))
-		if st == Aborted {
-			return x, nil
+		var in decision.Intent
+		if d.Player != x.Player && d.Kind == decision.KPriority && x.Waits > 0 {
+			in = decision.Intent{Seq: d.Seq, Player: d.Player}
+			for _, o := range d.Options {
+				if o.Kind == "pass" {
+					in.Choices = []int{o.Index}
+					break
+				}
+			}
+		} else {
+			var st Status
+			in, st = x.StepOn(d, SurfaceOf(e, d.Player))
+			switch st {
+			case Aborted:
+				return x, nil
+			case Yield:
+				if yield != nil {
+					in = yield(d)
+				} else {
+					in = decision.Intent{}
+					for j := 0; j < d.Min && j < len(d.Options); j++ {
+						in.Choices = append(in.Choices, d.Options[j].Index)
+					}
+				}
+				in.Seq, in.Player = d.Seq, d.Player
+			}
 		}
 		if err := e.Submit(in); err != nil {
 			x.abort(ReasonUnexpected, "refused: "+err.Error())
