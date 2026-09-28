@@ -80,8 +80,8 @@ var oracleKnownDivergent = map[string]string{
 	// Script translation: the once-per-turn permission is tracked per
 	// affected spell, so Darksteel Monolith's free-cast grant is available again.
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
-	// Engine primitive: ReplaceEvent's Damage/Affected rewrite handles fixed destinations but not the Remembered target used by this damage-redirection effect.
-	"Heroic Sacrifice/damage-to-you-is-redirected-to-chosen-creature": "observed p0 life 17 and Thor damage 0; expected p0 life 20 and Thor damage 3",
+	// (Giada row retired: main's 6f256c81e/b250fa68c excluded the entering
+	// permanent from replacement counts, so the scenario now passes.)
 	// Engine/script gap: max-speed-gated AddAbility is not offered after the
 	// three turn-specific speed increases (CR 702.179).
 	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",

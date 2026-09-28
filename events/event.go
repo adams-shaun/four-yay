@@ -432,8 +432,11 @@ const (
 	// controller and Amount is the entry-state rider bitmask the
 	// CopyToken* constants name; bit CopyTokenAttacking takes the defender
 	// it attacks from IDs[0] (a player number, the MyriadCopy/TokenAttacks
-	// precedent). Appended after ExtraPhase, still after every earlier
-	// Kind, so no earlier ordinal, hash chain or golden replay is affected.
+	// precedent). Counter is the AtEOTTrig$ copiable body the copy carries
+	// (Object.AtEOTTrigBody), or "" for the source object's own; see
+	// state.Object.AtEOTTrigBody. Appended after ExtraPhase, still after
+	// every earlier Kind, so no earlier ordinal, hash chain or golden replay
+	// is affected.
 	CopyToken
 	// Exert records CR 702.100's exert election (task exert1): Obj is the
 	// permanent the controller exerted and Player is the controller at exert

@@ -1,0 +1,38 @@
+{
+  "card": "Urza's Incubator",
+  "family": "cost-modifier",
+  "oracle_sha": "0f4b599dec65",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-goblin-reduced-by-two",
+      "cr": ["601.2f", "118.7a"],
+      "why": "Incubator chooses Goblin as it enters. The matching Goblin Piledriver's generic component is reduced by two, leaving only {R} to pay.",
+      "setup": {"p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Urza's Incubator"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Goblin"]}],
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Piledriver", "mana": "R", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Goblin Piledriver", "zone": "battlefield"}]
+    },
+    {
+      "name": "nonmatching-creature-retains-generic-cost",
+      "cr": ["601.2f"],
+      "why": "Goblin Piledriver is not the chosen Bear type, so {R} alone cannot pay its {1}{R} cost.",
+      "setup": {"p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Urza's Incubator", "Grizzly Bears"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Bear"]}],
+      "steps": [{"op": "mana", "seat": 0, "mana": "R"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Goblin Piledriver"}, "want": false}]
+    },
+    {
+      "name": "colored-component-is-not-reduced",
+      "cr": ["601.2f", "118.7a"],
+      "why": "The reduction applies only to generic mana. Even though Savannah Lions matches Cat, its white mana requirement remains and colorless mana cannot pay it.",
+      "setup": {"p0": {"hand": ["Savannah Lions"], "battlefield": ["Urza's Incubator"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Cat"]}],
+      "steps": [{"op": "mana", "seat": 0, "mana": "C"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Savannah Lions"}, "want": false}]
+    }
+  ]
+}

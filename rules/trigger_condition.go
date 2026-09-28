@@ -236,6 +236,25 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
+	if v, ok := t.Params["Threshold"]; ok {
+		// Threshold$ True (the CR 207.2c ability word, "seven or more cards
+		// in your graveyard"): the trigger-side gate, read through the SAME
+		// thresholdHolds census the Continuous static gate reads
+		// (rules/layers.go continuousConditionHolds' Condition$ Threshold
+		// arm), so the two spellings cannot drift apart. Measured over the
+		// corpus at this pin: 5 raw T: lines across 5 files -- Kiora, the
+		// Rising Tide and Crypt Feaster on Mode$ Attacks, Persistent
+		// Marshstalker on Mode$ AttackersDeclared, Tidecaller Mentor on
+		// Mode$ ChangesZone -- before this clause the trigger fired
+		// UNCONDITIONALLY, the over-fire direction. CR 603.4 makes it an
+		// intervening-if, so the same clause is re-evaluated at resolution
+		// through triggerResolvingCheckHolds. A value this build cannot
+		// read as True is an unreadable clause shape and fails closed like
+		// the Metalcraft$, Revolt$ and Delirium$ clauses above.
+		if !strings.EqualFold(strings.TrimSpace(v), "True") || !e.thresholdHolds(you) {
+			return false
+		}
+	}
 	if strings.EqualFold(strings.TrimSpace(t.Params["Condition"]), "AttackedPlayerWithMostLife") {
 		// Scourge of the Throne's intervening-if ("if it's attacking the
 		// player with the most life or tied for most life"): an

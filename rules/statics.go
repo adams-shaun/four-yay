@@ -2248,6 +2248,20 @@ func markCostValidTarget(out *costStaticViews) {
 				out.validTarget = true
 				return
 			}
+			// A target-relative Count$Compare amount reads the chosen targets
+			// (Not of This World/Bane's Contingency's `TargetedByTarget$Valid`,
+			// Lullmage's Domination's `TargetedController$CardsInGraveyard`).
+			// An ordinary nil-target price cannot see that reduction, so the
+			// whole `Targeted` ref family -- not just the one spelling a
+			// previous ticket hit -- marks the collection as target-conditional.
+			// The ref is read off the operand SVar (`fields[1]`), so a name
+			// that is not a target-relative head (a literal, a shared counter,
+			// a `Triggered*` read) stays nil-target priced.
+			if fields := strings.Fields(sv.SVars[sv.Params["Amount"]]); len(fields) >= 2 &&
+				fields[0] == "Count$Compare" && strings.HasPrefix(sv.SVars[fields[1]], "Targeted") {
+				out.validTarget = true
+				return
+			}
 		}
 	}
 }
@@ -2272,7 +2286,7 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 	}
 }
 
-// modAmount evaluates one cost-modifier static's Amount$: a plain literal
+// modAmountX evaluates one cost-modifier static's Amount$: a plain literal
 // stands as itself; anything else is an SVar name on the source's face or an
 // inline Count$ expression, resolved through effects.EvalCount against the
 // source and its SVar table. An unresolvable value degrades to ZERO, never
@@ -2280,16 +2294,19 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 // by exactly 1 whenever their SVar amount was genuinely 0, and a wrong
 // reduction is a wrong cost — 0 ("no reduction") is the honest read of an
 // amount the engine cannot evaluate.
-func (e *Engine) modAmount(sv staticView) int32 {
-	return e.modAmountX(sv, 0)
-}
-
-// modAmountX is modAmount with the cast's announced {X} bound into the
-// evaluation context, so an Amount$ chain that reads Count$xPaid (Dargo's
-// SVar:X:Count$xPaid over SVar:Y:SVar$X/Times.2) sees the announced value
-// during the in-cast recomputation manaToPay/manaToPayX run. x=0 is the
-// offer-time read (an unbound {X} prices as 0), identical to modAmount.
-func (e *Engine) modAmountX(sv staticView, x int32) int32 {
+//
+// x is the cast's announced {X}, bound into the evaluation context so an
+// Amount$ chain that reads Count$xPaid (Dargo's SVar:X:Count$xPaid over
+// SVar:Y:SVar$X/Times.2) sees the announced value during the in-cast
+// recomputation manaToPay/manaToPayX run; x=0 is the offer-time read (an
+// unbound {X} prices as 0). targets is the cast's chosen targets (or the
+// offer gate's cost-potential candidate list) — the same list
+// costStaticApplies already gates ValidTarget$ against — bound onto
+// effects.Ctx.Targets so a target-conditional Amount$ head such as Not of
+// This World's TargetedByTarget$Valid Count$Compare chain reads what the
+// spell is being cast at. The raise and set sites pass targets too, so one
+// composition path cannot half-apply a static with an unbound read.
+func (e *Engine) modAmountX(sv staticView, x int32, targets []state.Target) int32 {
 	raw := strings.TrimSpace(sv.Params["Amount"])
 	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
 		if n < 0 {
@@ -2312,7 +2329,8 @@ func (e *Engine) modAmountX(sv staticView, x int32) int32 {
 	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
 	// the source object's own logged choice.
 	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars, X: x,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound}
+		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound,
+		Targets: targets}
 	// An SVar NAME resolves through its body on the source's face; anything
 	// else is an inline Count$-class expression evaluated as written.
 	if body, ok := svars[raw]; ok {
@@ -2477,16 +2495,25 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 	return mods
 }
 
-// costModifiersForPotentialTargets is the offer-side counterpart for a
-// target-conditional REDUCTION. It admits a spell whose base cost is
-// unaffordable only when at least one legal target can make the reduction
-// apply. Target-conditional raises and SetCost floors are intentionally not
-// assumed: they can only make an otherwise legal offer more expensive, so
-// charging them speculatively would incorrectly withhold a nonmatching
-// target choice. The selected target is always repriced by
-// costModifiersForTargets before payment.
-func (e *Engine) costModifiersForPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) costMods {
-	return e.costModifiersWithTargets(p, id, scope, targets, true)
+// potentialCostModsUsing prices a COMPLETE composition for each candidate,
+// accepting only when one announcement satisfies the caller's payment gate.
+// Combining independent best amounts from different statics can admit a cast
+// whose target menu contains no payable choice. Target-dependent raises/floors
+// remain excluded at offer time; the chosen target is repriced before payment.
+func (e *Engine) potentialCostModsUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, x int32, accept func(costMods) bool) (costMods, bool) {
+	for _, target := range targets {
+		one := []state.Target{target}
+		var mods costMods
+		if x != 0 {
+			mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, one, true, x)
+		} else {
+			mods = e.costModifiersWithTargetsUsing(statics, p, id, scope, one, true)
+		}
+		if accept(mods) {
+			return mods, true
+		}
+	}
+	return costMods{}, false
 }
 
 // costModifiersForTargetsX is costModifiersForTargets with the cast's
@@ -2558,7 +2585,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmountX(sv, x))
+				mods.raises = append(mods.raises, e.modAmountX(sv, x, targets))
 				continue
 			}
 			red := costMod{
@@ -2575,7 +2602,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, x)
+				amount := e.modAmountX(sv, x, targets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2591,7 +2618,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, x)
+				red.generic = e.modAmountX(sv, x, targets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2605,7 +2632,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
 			continue
 		}
-		if n := e.modAmountX(sv, x); n > mods.setFloor {
+		if n := e.modAmountX(sv, x, targets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2669,7 +2696,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmount(sv))
+				mods.raises = append(mods.raises, e.modAmountX(sv, 0, targets))
 				continue
 			}
 			red := costMod{
@@ -2686,7 +2713,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmount(sv)
+				amount := e.modAmountX(sv, 0, targets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2702,7 +2729,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 					}
 				}
 			} else {
-				red.generic = e.modAmount(sv)
+				red.generic = e.modAmountX(sv, 0, targets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2716,7 +2743,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, false) {
 			continue
 		}
-		if n := e.modAmount(sv); n > mods.setFloor {
+		if n := e.modAmountX(sv, 0, targets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2843,9 +2870,57 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// evaluated with X bound. A Relative$ ReduceCost whose Amount$ is
 		// unresolvable still degrades to zero (the honest no-reduction),
 		// never to an invented discount.
-		return false
+		//
+		// SECOND EXCEPTION (notofthisworld1): with the cast's targets bound
+		// onto effects.Ctx.Targets (modAmountX now threads them), a Relative$
+		// REDUCE-cost whose Amount$ the bound context can actually EVALUATE
+		// is no longer a shape the composition point cannot price — Not of
+		// This World's Amount$ CostReduction over
+		// SVar:CostReduction:Count$Compare CheckTgt GE1.7.0 with
+		// SVar:CheckTgt:TargetedByTarget$Valid Card.powerGE7+YouCtrl reads
+		// its real {7}-or-0 from the targeted spell's own targets, at the
+		// offer gate (potentialCostModsUsing's single candidate) and
+		// at the CR 601.2c reprice (the chosen targets) alike. The probe is
+		// the SAME evaluation modAmountX runs, so the gate and the amount
+		// cannot disagree; an amount that resolves to zero prices as no
+		// reduction, exactly what the skip produced. Anything unresolvable
+		// (and every RaiseCost/SetCost Relative$) keeps the fail-closed skip.
+		if !(mode == "ReduceCost" && e.relativeAmountResolves(sv, targets)) {
+			return false
+		}
 	}
 	return true
+}
+
+// relativeAmountResolves reports whether a Relative$ cost-modifier static's
+// Amount$ evaluates under a context bound with the cast's targets — the
+// verdict (not the value) is what the costStaticApplies Relative$ exception
+// consumes, so the gate and the amount evaluation share one read. A plain
+// integer literal stands as itself. See the call site's SECOND EXCEPTION for
+// the measured blast radius (notofthisworld1).
+func (e *Engine) relativeAmountResolves(sv staticView, targets []state.Target) bool {
+	raw := strings.TrimSpace(sv.Params["Amount"])
+	if raw == "" {
+		return false
+	}
+	if _, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return true
+	}
+	o := e.G.Obj(sv.Source)
+	if o == nil || o.Face() == nil {
+		return false
+	}
+	svars := sv.SVars
+	if svars == nil {
+		svars = o.Face().SVars
+	}
+	body, ok := svars[raw]
+	if !ok {
+		body = raw
+	}
+	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars, Targets: targets}
+	_, ok = effects.EvalCountOK(e, ctx, body)
+	return ok
 }
 
 // costTargetsMatch reports whether at least one chosen target satisfies a

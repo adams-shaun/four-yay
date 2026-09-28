@@ -996,6 +996,13 @@ type Engine struct {
 	// cloned/replayed engine state.
 	replacingEvent  *events.Event
 	replacingSource state.ObjID
+	// replRemembered is the in-flight replacement body's remembered referents,
+	// visible to that one body and restored right after it, the same scratch
+	// pattern as replacingEvent. ReplaceEvent carries no Ctx, so the
+	// VarValue$ Remembered rewrite reads its binding here. Never part of
+	// cloned/replayed engine state: it lives only during the body run, before
+	// the held event is logged.
+	replRemembered []state.Target
 	// replAction is the action marker (events.ActionMarker) of the event the
 	// in-flight destination-changing replacement discarded: "sacrificed",
 	// "discarded" or "discarded as a cost". emit re-labels the replacement
@@ -2429,7 +2436,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 			for next := i + 1; next < len(cfg.Decks) && next < len(cfg.Names); next++ {
 				available := len(cfg.Decks[next]) - len(cfg.commandersFor(next, len(cfg.Decks[next])))
 				if available < openingHand && !e.G.Players[next].Lost {
-					e.emit(events.Event{Kind: events.PlayerLost, Player: state.PlayerID(next), Text: "drew from an empty library"})
+					e.playerLoses(state.PlayerID(next), loseReasonMilled, "drew from an empty library")
 				}
 			}
 			if e.finishTerminalGenesis() {

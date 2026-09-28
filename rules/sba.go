@@ -809,8 +809,9 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 	for i := range e.G.Players {
 		p := &e.G.Players[i]
 		if !p.Lost && p.Life <= 0 {
-			e.emit(events.Event{Kind: events.PlayerLost, Player: p.ID, Text: "life total is 0 or less"})
-			changed = true
+			if e.playerLoses(p.ID, loseReasonLifeReachedZero, "life total is 0 or less") {
+				changed = true
+			}
 		}
 	}
 	// CR 704.5b: a player with ten or more poison counters loses. Ward's
@@ -819,8 +820,9 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 	for i := range e.G.Players {
 		p := &e.G.Players[i]
 		if !p.Lost && p.Counter("POISON") >= 10 {
-			e.emit(events.Event{Kind: events.PlayerLost, Player: p.ID, Text: "ten or more poison counters"})
-			changed = true
+			if e.playerLoses(p.ID, loseReasonPoisoned, "ten or more poison counters") {
+				changed = true
+			}
 		}
 	}
 	// CR 903.10 (commander damage, Task m33): a player that has been dealt 21
@@ -843,9 +845,10 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 			}
 			for _, dmg := range p.CmdDamage {
 				if dmg >= 21 {
-					e.emit(events.Event{Kind: events.PlayerLost, Player: p.ID,
-						Text: "commander damage (21 or more from one commander)"})
-					changed = true
+					if e.playerLoses(p.ID, loseReasonCommanderDamage,
+						"commander damage (21 or more from one commander)") {
+						changed = true
+					}
 					break
 				}
 			}
@@ -1330,7 +1333,16 @@ func (e *Engine) checkGameOver() {
 	}
 	if len(alive) == 1 {
 		w := alive[0]
-		e.emit(events.Event{Kind: events.GameOver, Player: w, Text: e.G.Players[w].Name})
+		// The CR 104.2a last-player-standing win is a win like any other, so a
+		// live GameWin CantHappen replacement for the survivor stops it (CR
+		// 104.3's "can't win"; Herald of Eternal Dawn, Platinum Angel). This
+		// runs after checkLoseConditions has swept every departed seat's
+		// objects, so a replacement whose source has just left with its
+		// controller no longer applies -- which is why a concession still ends
+		// the game (the Angel leaves the game, then the survivor wins).
+		if !e.playerWins(w, e.G.Players[w].Name) {
+			return
+		}
 	} else {
 		e.emit(events.Event{Kind: events.GameOver, Amount: 1, Text: "draw"})
 	}

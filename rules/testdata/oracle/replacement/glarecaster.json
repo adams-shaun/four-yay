@@ -1,0 +1,22 @@
+{
+  "card": "Glarecaster",
+  "family": "replacement",
+  "oracle_sha": "2b96adc4df99",
+  "author": "agent-20260928T040936Z-a0658573 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "damage-to-you-is-redirected-to-chosen-player",
+      "cr": ["614.6", "120.3a"],
+      "why": "After Glarecaster's activated ability chooses an opposing player, the next damage that would be dealt to its controller is dealt to that player instead.",
+      "setup": {"p0": {"battlefield": ["Glarecaster"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "WWWWWR"},
+        {"op": "activate", "seat": 0, "card": "p0:Glarecaster", "ability": "Glarecaster: The next time damage would be dealt to CARDNAME and/or you this turn, that damage is dealt to any target instead.", "targets": ["p1"]},
+        {"op": "resolve", "seat": 0},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "resolve", "seat": 0}
+      ],
+      "expect": [{"life": {"p0": 20, "p1": 17}}]
+    }
+  ]
+}

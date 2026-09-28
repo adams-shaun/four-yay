@@ -10,7 +10,10 @@ import (
 )
 
 func TestEngineCompiledTextSharesWithCloneAndFallsBack(t *testing.T) {
-	t.Parallel()
+	// Deliberately not t.Parallel(): this identity assertion must not race the
+	// cache-flood test. FIFO makes one overflow preserve this entry, but 64
+	// newer inserts can still evict it, so keep the identity window sequential.
+	// Reported by the kw:Backup ticket (CR 702.165).
 	c := card(t, "Name:Cache Test\nManaCost:1 U\nTypes:Creature Test\nPT:1/1\nA:AB$ Draw | Cost$ GWP 2B Sac<1/Creature> | ValidTgts$ Creature.YouCtrl+untapped\nOracle:x\n")
 	e := New(Config{Names: []string{"you"}, Decks: [][]*cards.Card{{c}}})
 	if e.compiledText == nil || e.compiledText.predicates == nil {
@@ -58,7 +61,10 @@ func TestEngineCompiledTextCacheSeparatesCardLayouts(t *testing.T) {
 // miss: the memo must stay bounded instead of pinning each game's compiled
 // text (and every token script's) for the life of the process.
 func TestEngineCompiledTextCacheStaysBounded(t *testing.T) {
-	t.Parallel()
+	// Deliberately not t.Parallel(): this test floods the memo past its bound,
+	// while the other identity tests require entries to survive between New
+	// calls. FIFO preserves entries until their own turn, but concurrent flood
+	// inserts could still evict one during that identity window.
 	for i := 0; i < 3*compiledTextCacheLimit; i++ {
 		c := card(t, fmt.Sprintf("Name:Bound %d\nTypes:Creature Test\nPT:1/1\nOracle:x\n", i))
 		New(Config{Decks: [][]*cards.Card{{c}}})
@@ -72,7 +78,7 @@ func TestEngineCompiledTextCacheStaysBounded(t *testing.T) {
 			t.Fatalf("after %d distinct configurations: count %d, entries %d (limit %d)", i+1, n, total, compiledTextCacheLimit)
 		}
 	}
-	// A repeated configuration still hits after the wholesale drop.
+	// A repeated configuration still hits after FIFO eviction.
 	c := card(t, "Name:Bound Again\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
 	a := New(Config{Decks: [][]*cards.Card{{c}}})
 	b := New(Config{Decks: [][]*cards.Card{{c}}})

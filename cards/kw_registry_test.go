@@ -130,6 +130,12 @@ var expandedHeads = []string{
 	// printed mana), one P1P1 counter on Self (cards/kw_outlast.go). Added
 	// after the split; the pre-split switch never expanded it.
 	"Outlast",
+	// Job select (CR 702.182, task kw:Job select): the bare K:Job select line
+	// expanded into the For Mirrodin!/Living Weapon shape -- an ETB trigger
+	// that mints the c_1_1_hero token, remembers it and chains Attach
+	// (cards/kw_jobselect.go). Added after the split; the pre-split switch
+	// never expanded it.
+	"Job select",
 }
 
 func TestEveryExpandedKeywordHasAnExpander(t *testing.T) {

@@ -3321,7 +3321,7 @@ func init() {
 		// fold, driven by the infect marker rules/combat.go and effects/damage.go
 		// set on the event; rules need no keyword machinery of its own beyond
 		// the HasKeyword read the combat path already makes.
-		"kw:Infect", "kw:Wither",
+		"kw:Infect", "kw:Wither", "kw:Backup",
 		"kw:Flash", "kw:Indestructible", "kw:Devoid", "kw:Defender", "kw:Menace",
 		"kw:Fear", "kw:Shadow", "kw:Horsemanship", "kw:Skulk",
 		// kw:Intimidate (CR 702.13a): an Intimidate attacker is blocked only

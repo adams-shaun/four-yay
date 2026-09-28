@@ -21,6 +21,18 @@ import type { View } from '../protocol';
  * most AUTO_LOG_CAP lines to the log and can never flood it.
  */
 
+export interface AutoPassDiagnostics {
+  verdict: string;
+  optionKinds: string[];
+  actionableOptions: string[];
+  castableAfterTap: string[];
+  respondableOption: boolean;
+  respondableAfterTap: boolean;
+  yieldsHit: boolean;
+  /** The seat-redacted view captured at pass time; serialized only when expanded. */
+  view: View;
+}
+
 export interface AutoPassLog {
   /** monotonic local id, the transcript's each-key (notes have no seq). */
   id: number;
@@ -28,6 +40,8 @@ export interface AutoPassLog {
   turn: number;
   /** the rendered note, e.g. "Auto-passed: Ana's end step". */
   text: string;
+  /** Optional advanced detail for an automatic pass. */
+  diagnostics?: AutoPassDiagnostics;
 }
 
 /**
@@ -40,8 +54,8 @@ export const AUTO_LOG_CAP = 40;
 let nextId = 1;
 
 /** pushAutoPassLog appends one note (or replaces the list when empty) and caps it, dropping the OLDEST entries first. */
-export function pushAutoPassLog(notes: readonly AutoPassLog[], text: string, turn: number, cap = AUTO_LOG_CAP): AutoPassLog[] {
-  const out = [...notes, { id: nextId++, turn, text }];
+export function pushAutoPassLog(notes: readonly AutoPassLog[], text: string, turn: number, cap = AUTO_LOG_CAP, diagnostics?: AutoPassDiagnostics): AutoPassLog[] {
+  const out = [...notes, { id: nextId++, turn, text, ...(diagnostics ? { diagnostics } : {}) }];
   return out.length > cap ? out.slice(out.length - cap) : out;
 }
 

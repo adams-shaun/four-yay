@@ -1,0 +1,42 @@
+{
+  "card": "Defense Grid",
+  "family": "cost-modifier",
+  "oracle_sha": "5767a4a5b191",
+  "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "own-turn-spell-untaxed-even-with-opponents-grid",
+      "cr": ["601.2f"],
+      "why": "Seat 0 casts during its own turn. The artifact does not increase the cost merely because the opponent controls it; one red mana pays for Bolt.",
+      "setup": {"p0": {"hand": ["Lightning Bolt"]}, "p1": {"battlefield": ["Defense Grid"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"], "expect": [{"pool": {"p0": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p1": 17}}]
+    },
+    {
+      "name": "opponent-turn-spell-needs-three-extra",
+      "cr": ["601.2f"],
+      "why": "Seat 1 holds priority during seat 0's turn. Bolt costs three generic mana beyond its red symbol, so one red mana cannot pay for it.",
+      "setup": {"p0": {"battlefield": ["Defense Grid"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p0"},
+        {"op": "mana", "seat": 1, "mana": "R"}
+      ],
+      "expect": [{"offered": {"seat": 1, "kind": "cast", "card": "p1:Lightning Bolt"}, "want": false}]
+    },
+    {
+      "name": "opponent-turn-spell-castable-at-full-tax",
+      "cr": ["601.2f"],
+      "why": "Four red mana pays both the red symbol and all three generic mana of the off-turn increase, leaving the pool empty.",
+      "setup": {"p0": {"battlefield": ["Defense Grid"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p0"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "RRRR", "targets": ["p0"], "expect": [{"pool": {"p1": ""}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"life": {"p0": 17}}]
+    }
+  ]
+}

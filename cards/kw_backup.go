@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// kwBackup expands CR 702.70 Backup: "When this creature enters, put N +1/+1
+// kwBackup expands CR 702.165 Backup: "When this creature enters, put N +1/+1
 // counters on target creature. If that's another creature, it gains the
 // following abilities until end of turn." (The abilities themselves are the
 // keyword's second colon field, a named SVar -- Forge spells the whole rider
@@ -53,22 +53,34 @@ func kwBackup(f *Face, i int, k, head, param string, has func(kind, line string)
 	}
 	root := "__kwBackup" + strconv.Itoa(i)
 	put := "DB$ PutCounter | ValidTgts$ Creature | CounterType$ P1P1 | CounterNum$ " + n
-	if body := strings.TrimSpace(f.SVars[svarName]); body != "" {
-		grant := "__kwBackupGrant" + strconv.Itoa(i)
-		// A body that already names a Defined$ is left alone (no corpus
-		// carrier does), so an explicitly-scoped script cannot have its
-		// referent silently rewritten.
+	grantNames := strings.Split(svarName, ",")
+	firstGrant := ""
+	for j := len(grantNames) - 1; j >= 0; j-- {
+		name := strings.TrimSpace(grantNames[j])
+		body := strings.TrimSpace(f.SVars[name])
+		grant := "__kwBackupGrant" + strconv.Itoa(i) + "_" + strconv.Itoa(j)
+		if body == "" {
+			// Keep the unresolved reference in the ability chain so Link
+			// reports the missing SVar rather than silently dropping it.
+			firstGrant = name
+			continue
+		}
+		// A body that already names a Defined$ is left alone, so an
+		// explicitly-scoped script cannot have its referent rewritten.
 		if !strings.Contains(body, "Defined$") {
 			body += " | Defined$ Targeted"
 		}
 		body += " | ConditionDefined$ Targeted | ConditionPresent$ Creature.Other"
+		if firstGrant != "" {
+			body += " | SubAbility$ " + firstGrant
+		}
 		f.setSVar(grant, body)
-		f.setSVar(root, put+" | SubAbility$ "+grant)
+		firstGrant = grant
+	}
+	if firstGrant == "" {
+		f.setSVar(root, put)
 	} else {
-		// No body to copy: still a real counter trigger, and naming the
-		// missing SVar as the SubAbility makes Link report the unresolved
-		// reference loudly rather than dropping the copy silently.
-		f.setSVar(root, put+" | SubAbility$ "+svarName)
+		f.setSVar(root, put+" | SubAbility$ "+firstGrant)
 	}
 	p := parseParams("Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self" +
 		" | Execute$ " + root + " | Keyword$ Backup | TriggerDescription$ Backup " + n)

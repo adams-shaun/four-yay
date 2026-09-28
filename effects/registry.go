@@ -62,6 +62,20 @@ type Host interface {
 	// test double returns the printed face's keywords.
 	ObjectKeywords(*state.Object) []string
 	Emit(events.Event)
+	// EmitPlayerLost proposes a PlayerLost event for p, gated by any live
+	// `R:Event$ GameLoss | Layer$ CantHappen` replacement for that player and
+	// cause (CR 104.3 / 704.5a-c, task fdn-repl-cant-lose). reason is the
+	// Forge GameLossReason spelling the replacement's ValidLoseReason$
+	// discriminator compares ("Milled" for an empty-library draw, "Effect"
+	// for api:LosesGame); an unmodelled value fails closed in the rules gate.
+	// A loss the replacement stops emits nothing and the caller must not
+	// report the state change -- the deck-out draw and api:LosesGame both use
+	// this instead of Emit so neither can bypass the gate.
+	EmitPlayerLost(p state.PlayerID, reason, text string)
+	// EmitGameWin proposes a GameOver win for p (the api:WinsGame family),
+	// gated by any live `R:Event$ GameWin | Layer$ CantHappen` replacement for
+	// that player (task fdn-repl-cant-lose). A prevented win emits nothing.
+	EmitGameWin(p state.PlayerID, text string)
 	// EmitTokenCreate emits a token-creation event and returns every object
 	// it actually created, in mint order. A token-creation replacement may
 	// rewrite one would-be token into several mints (Divine Visitation's one
@@ -947,6 +961,9 @@ type Ctx struct {
 	PromisedGiftOverride *bool
 	// NameChoice carries a mid-resolution NameCard answer across re-entry.
 	NameChoice string
+	// ChangeZoneAlternative carries the owner's answered top/bottom choice
+	// across a suspended ChangeZone resolution. It is consumed by effChangeZone.
+	ChangeZoneAlternative string
 	// ChosenDirection carries a mid-resolution ChooseDirection answer across
 	// re-entry: the "left"/"right" pick (Aminatou's [-6], Order of
 	// Succession). It is resolution-scratch like NameChoice -- never
