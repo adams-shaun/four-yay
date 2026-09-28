@@ -1486,6 +1486,9 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 			vms := make([]int, 0, len(candidates))
 			for _, c := range candidates {
 				if c.kind == "player" {
+					// Players are valid members of a target set and contribute
+					// zero to its total mana value.
+					vms = append(vms, 0)
 					continue
 				}
 				if o := e.G.Obj(c.obj); o != nil && o.Face() != nil {

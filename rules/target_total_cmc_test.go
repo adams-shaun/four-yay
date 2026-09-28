@@ -77,6 +77,32 @@ func TestSetAudit_eoe_ScoutForSurvivors_TotalManaValueCap(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
+// TestMaxTotalTargetCMCMixedPlayerCreatureMinimum verifies that a player is a
+// legal zero-mana-value member of a mandatory target set. The feasibility
+// census must not reject a mixed Player,Creature declaration just because no
+// object target is present.
+func TestMaxTotalTargetCMCMixedPlayerCreatureMinimum(t *testing.T) {
+	t.Parallel()
+	e := newSeats(t, 2)
+	sa := setPropSA("Player,Creature", map[string]string{
+		"TargetMin":         "1",
+		"MaxTotalTargetCMC": "3",
+	})
+	candidates := e.legalTargetCandidates(0, 0, 0, sa)
+	players := 0
+	for _, candidate := range candidates {
+		if candidate.kind == "player" {
+			players++
+		}
+	}
+	if players == 0 {
+		t.Fatalf("precondition: mixed Player,Creature spec yielded no eligible player candidates: %+v", candidates)
+	}
+	if !e.targetSAAvailable(0, 0, 0, sa, 0, false) {
+		t.Fatal("mandatory mixed Player,Creature target set was judged infeasible under MaxTotalTargetCMC$ 3")
+	}
+}
+
 // TestMaxTotalTargetCMCCorpusCensus keeps the mechanism class visible and
 // names every current Forge script carrying the parameter.
 func TestMaxTotalTargetCMCCorpusCensus(t *testing.T) {
