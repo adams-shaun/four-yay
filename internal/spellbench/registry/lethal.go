@@ -19,22 +19,29 @@ package registry
 //     pessimistic by construction and may miss a kill, but it never claims
 //     one the opponent can prevent. Untapped opposing creatures block; an
 //     evasive attacker only connects when no blocker can block it (flying
-//     needs flying or reach; unblockable always connects; trample carries
-//     only the excess over the biggest soak); a menace attacker needs two
-//     blockers; a non-striking attacker the pool holds a first/double-striking
-//     (or deathtouch) killer for deals nothing; every other blocked attacker
-//     deals nothing.
+//     needs flying or reach; unblockable always connects; horsemanship,
+//     shadow and skulk exclude the blockers their keyword denies; a printed
+//     CantBlockBy static on the attacker itself excludes each blocker its
+//     ValidBlocker$ filter names, when that filter is one the decorator can
+//     decide -- the static is read from the attacker's card IR, whose name
+//     comes from the projected view or, on the Board surface, the engine's
+//     own "Attack with <name> at ..." attacker label; trample carries only
+//     the excess over the biggest soak); a
+//     menace attacker needs two blockers; a non-striking attacker the pool
+//     holds a first/double-striking (or deathtouch) killer for deals nothing;
+//     every other blocked attacker deals nothing.
 //
 //   - Burn and pump. At a main-phase priority decision the decorator reads
-//     the printed IR of each offered ordinary cast (registry.SetCardLookup)
-//     and prices a burn that can target a player and a pump that can target
-//     one of our own creatures, against the mana the engine already proved
-//     payable by offering the cast. A burn is cast when it reaches lethal on
-//     its own or together with the guaranteed attack; a pump is cast when it
-//     lifts the guaranteed attack to lethal. The following target decision
-//     (KTarget) aims the burn at the opponent or the pump at the chosen
-//     attacker, so the line's next step is taken without the wrapped seat
-//     redirecting it.
+//     the printed IR of each offered ordinary cast or non-mana activated
+//     ability (registry.SetCardLookup) and prices a burn that can target a
+//     player and a pump that can target one of our own creatures (or boost
+//     its own source through Defined$ Self), against the mana the engine
+//     already proved payable by offering the action. A burn is cast when it
+//     reaches lethal on its own or together with the guaranteed attack; a
+//     pump is cast when it lifts the guaranteed attack to lethal. The
+//     following target decision (KTarget) aims the burn at the opponent or
+//     the pump at the chosen attacker, so the line's next step is taken
+//     without the wrapped seat redirecting it.
 //
 // Everything else -- blockers, targets for spells the decorator did not
 // choose, a burn/pump that does not reach lethal, a combat whose guaranteed
@@ -142,6 +149,18 @@ type lethalCre struct {
 	doubleStrk  bool
 	deathtouch  bool
 	defender    bool
+
+	// Evasion beyond flying/menace/unblockable. horsemanship, shadow and
+	// skulk are whole keywords; cbb carries a printed CantBlockBy static that
+	// applies to this card itself, with cbbBlocks holding its ValidBlocker$
+	// filter (empty meaning nothing may block it, already folded into
+	// unblockable). Every restriction the decorator cannot decide from the
+	// public creature picture fails toward "may block" (see canBlock).
+	horsemanship bool
+	shadow       bool
+	skulk        bool
+	cbb          bool
+	cbbBlocks    string
 }
 
 func (c lethalCre) canAttack() bool { return !c.defender && c.power > 0 && !c.tapped && !c.sick }
@@ -196,7 +215,9 @@ func spaceFromView(v view.View, me state.PlayerID) lethalSpace {
 			if !isCreatureTypeLine(cv.Types) {
 				continue
 			}
-			w.put(creFromCardView(cv))
+			c := creFromCardView(cv)
+			applyPrintedCantBlockBy(cv.Name, &c)
+			w.put(c)
 		}
 		// Own cards in every zone the seat may read, for cast-name
 		// resolution (a burn's Obj names the hand card).
@@ -300,6 +321,12 @@ func (c *lethalCre) setKeyword(k string) {
 		c.trample = true
 	case "unblockable":
 		c.unblockable = true
+	case "horsemanship":
+		c.horsemanship = true
+	case "shadow":
+		c.shadow = true
+	case "skulk":
+		c.skulk = true
 	case "first strike":
 		c.firstStrk = true
 	case "double strike":
@@ -366,6 +393,7 @@ func (c *lethalCore) attackers(w lethalSpace, d *decision.Decision, in decision.
 	type group struct {
 		obj          state.ObjID
 		oppIdx       int
+		label        string
 		required     bool
 		reqElsewhere bool
 	}
@@ -378,7 +406,7 @@ func (c *lethalCore) attackers(w lethalSpace, d *decision.Decision, in decision.
 		}
 		g, ok := byObj[o.Obj]
 		if !ok {
-			g = &group{obj: o.Obj, oppIdx: -1}
+			g = &group{obj: o.Obj, oppIdx: -1, label: o.Label}
 			byObj[o.Obj] = g
 			gs = append(gs, g)
 		}
@@ -412,6 +440,15 @@ func (c *lethalCore) attackers(w lethalSpace, d *decision.Decision, in decision.
 			}
 			continue
 		}
+		// The Board path carries no creature names, so a printed CantBlockBy
+		// static on an attacker is resolved from the engine's own "Attack
+		// with <name> at ..." option label here (the View path already filled
+		// w.names). An unresolvable name leaves the attacker fully blockable.
+		if name := w.names[g.obj]; name != "" {
+			applyPrintedCantBlockBy(name, &cr)
+		} else {
+			applyPrintedCantBlockBy(attackerOptionName(g.label), &cr)
+		}
 		chosen = append(chosen, g.oppIdx)
 		atk = append(atk, cr)
 	}
@@ -444,21 +481,16 @@ func (c *lethalCore) priority(w lethalSpace, d *decision.Decision, in decision.I
 	if w.myTurn && w.firstMain {
 		projected = guaranteedDamage(atk, blockers)
 	}
-	// Burn: the best literal damage among offered ordinary casts that can
-	// target a player.
+	// Burn: the best literal damage among offered ordinary casts and non-mana
+	// activated abilities that can target a player.
 	burnIdx, burnDmg := -1, int32(0)
 	for i := range d.Options {
 		o := &d.Options[i]
-		if o.Kind != "cast" || o.Mode != "" {
+		n, ok := optionBurn(w, o)
+		if !ok || n <= burnDmg {
 			continue
 		}
-		cd := lookupCard(w, o)
-		if cd == nil {
-			continue
-		}
-		if n, ok := spellBurn(cd); ok && n > burnDmg {
-			burnDmg, burnIdx = n, o.Index
-		}
+		burnDmg, burnIdx = n, o.Index
 	}
 	if burnIdx >= 0 && (burnDmg >= w.oppLife || projected+burnDmg >= w.oppLife) {
 		c.pending = &lethalTarget{burn: true, seq: d.Seq}
@@ -468,31 +500,36 @@ func (c *lethalCore) priority(w lethalSpace, d *decision.Decision, in decision.I
 		}
 		c.pending = nil
 	}
-	// Pump: the best power boost among offered ordinary casts that target
-	// our own creature, priced by how much guaranteed attack it adds. It is
-	// only considered when our attack is still ahead this turn (our first
-	// main phase); otherwise a pump buys no damage the decorator can count.
+	// Pump: the best power boost among offered ordinary casts and non-mana
+	// activated abilities that boost one of our own creatures, priced by how
+	// much guaranteed attack it adds. It is only considered when our attack is
+	// still ahead this turn (our first main phase); otherwise a pump buys no
+	// damage the decorator can count. A "Defined$ Self" ability applies to its
+	// own source with no target ask, so it is priced on that attacker and
+	// arms no pending target; a targeted pump is armed at the chosen attacker.
 	if len(atk) > 0 && w.myTurn && w.firstMain {
-		pumpIdx, pumpGain, pumpObj := -1, int32(0), state.ObjID(0)
+		pumpIdx, pumpGain, pumpObj, pumpSelf := -1, int32(0), state.ObjID(0), false
 		for i := range d.Options {
 			o := &d.Options[i]
-			if o.Kind != "cast" || o.Mode != "" {
-				continue
-			}
-			cd := lookupCard(w, o)
-			if cd == nil {
-				continue
-			}
-			n, ok := spellPumpOwn(cd)
+			n, self, ok := optionPump(w, o)
 			if !ok || n <= 0 {
 				continue
 			}
+			if self {
+				g := pumpGainOn(atk, blockers, o.Obj, n)
+				if g > pumpGain {
+					pumpGain, pumpIdx, pumpObj, pumpSelf = g, o.Index, o.Obj, true
+				}
+				continue
+			}
 			if gain, obj := bestPump(atk, blockers, n); gain > pumpGain {
-				pumpGain, pumpIdx, pumpObj = gain, o.Index, obj
+				pumpGain, pumpIdx, pumpObj, pumpSelf = gain, o.Index, obj, false
 			}
 		}
 		if pumpIdx >= 0 && pumpGain > 0 && projected+pumpGain >= w.oppLife {
-			c.pending = &lethalTarget{attacker: pumpObj, seq: d.Seq}
+			if !pumpSelf {
+				c.pending = &lethalTarget{attacker: pumpObj, seq: d.Seq}
+			}
 			out := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{pumpIdx}}
 			if d.Validate(out) == nil {
 				return out
@@ -534,6 +571,23 @@ func (c *lethalCore) target(w lethalSpace, d *decision.Decision, in decision.Int
 		}
 	}
 	return in
+}
+
+// attackerOptionName extracts the creature name from an attacker option's
+// "Attack with <name> at <defender>" label (rules/combat.go). The Board path
+// carries no other name source, so this is how a printed CantBlockBy static
+// on an attacker is resolved there; a label without the prefix or the " at "
+// separator yields "" and the attacker stays fully blockable.
+func attackerOptionName(label string) string {
+	const pfx = "Attack with "
+	if !strings.HasPrefix(label, pfx) {
+		return ""
+	}
+	rest := strings.TrimPrefix(label, pfx)
+	if i := strings.Index(rest, " at "); i > 0 {
+		return rest[:i]
+	}
+	return ""
 }
 
 // guaranteedDamage is a lower bound on the combat damage a set of attackers
@@ -579,11 +633,10 @@ func minDamage(a lethalCre, blockers []lethalCre) int32 {
 	if a.unblockable {
 		return strikePower(a, false)
 	}
-	// Lane: only a flying/reach blocker can block a flyer; every blocker can
-	// block a ground attacker.
+	// Lane: a blocker the attacker's evasion shapes exclude cannot block it.
 	var pool []lethalCre
 	for _, b := range blockers {
-		if a.flying && !b.flying && !b.reach {
+		if !a.canBlock(b) {
 			continue
 		}
 		pool = append(pool, b)
@@ -624,6 +677,163 @@ func minDamage(a lethalCre, blockers []lethalCre) int32 {
 		return p - sum
 	}
 	return 0
+}
+
+// canBlock reports whether blocker b can legally block attacker a under the
+// evasion shapes the decorator models: flying/reach, menace (handled as a
+// blocker-count need), unblockable, horsemanship, shadow, skulk, and a printed
+// CantBlockBy static that applies to the attacker itself. Every restriction
+// the decorator cannot decide from the public creature picture (fear,
+// intimidate, protection, landwalk, a CantBlockBy ValidBlocker$ term it does
+// not read) leaves the blocker in the pool -- the conservative direction,
+// because a blocker wrongly kept can only lower the bound, never invent
+// damage (the file's header invariant).
+func (a lethalCre) canBlock(b lethalCre) bool {
+	if a.unblockable {
+		return false
+	}
+	if a.cbb {
+		if a.cbbBlocks == "" {
+			return false
+		}
+		if forbids, ok := cbbForbids(a.cbbBlocks, b); ok && forbids {
+			return false
+		}
+	}
+	if a.flying && !b.flying && !b.reach {
+		return false
+	}
+	if a.horsemanship && !b.horsemanship {
+		return false
+	}
+	if a.shadow && !b.shadow {
+		return false
+	}
+	if a.skulk && b.power > a.power {
+		return false
+	}
+	return true
+}
+
+// printedCantBlockBy reports whether card cd carries a printed CantBlockBy
+// static that applies to the card itself, and its ValidBlocker$ filter (""
+// meaning nothing may block it). A static whose ValidAttacker$ names anything
+// else -- a lord granting the restriction to other creatures, or a remembered
+// object -- is refused: the decorator only reads the restriction printed on
+// the attacker it prices, and everything else stays conservative.
+func printedCantBlockBy(cd *cards.Card) (string, bool) {
+	f := firstFace(cd)
+	if f == nil {
+		return "", false
+	}
+	for i := range f.Statics {
+		st := &f.Statics[i]
+		if st.Mode != "CantBlockBy" {
+			continue
+		}
+		switch strings.TrimSpace(st.Params["ValidAttacker"]) {
+		case "Creature.Self", "Card.Self":
+			return strings.TrimSpace(st.Params["ValidBlocker"]), true
+		}
+	}
+	return "", false
+}
+
+// applyPrintedCantBlockBy folds a creature's printed CantBlockBy static into
+// its evasion model. A card whose name or IR the decorator cannot resolve is
+// left fully blockable (conservative).
+func applyPrintedCantBlockBy(name string, c *lethalCre) {
+	if name == "" || cardLookup == nil {
+		return
+	}
+	cd := cardLookup(name)
+	if cd == nil {
+		return
+	}
+	vb, ok := printedCantBlockBy(cd)
+	if !ok {
+		return
+	}
+	if vb == "" {
+		c.unblockable = true
+		return
+	}
+	c.cbb = true
+	c.cbbBlocks = vb
+}
+
+// cbbForbids evaluates a CantBlockBy ValidBlocker$ filter against blocker b.
+// Forge filters are comma-separated alternatives of '+'-joined terms. It is
+// deliberately fail-closed: only terms the decorator can decide from the
+// public creature picture are read, and if no whole alternative is decidable
+// the second return is false -- the caller then keeps the blocker, the
+// direction that can only lower the bound.
+func cbbForbids(filter string, b lethalCre) (bool, bool) {
+	decidable := false
+	for _, alt := range strings.Split(filter, ",") {
+		matches, okAll := true, true
+		for _, t := range strings.Split(alt, "+") {
+			m, ok := cbbTerm(strings.TrimSpace(t), b)
+			if !ok {
+				okAll = false
+				break
+			}
+			if !m {
+				matches = false
+				break
+			}
+		}
+		if !okAll {
+			continue
+		}
+		decidable = true
+		if matches {
+			return true, true
+		}
+	}
+	return false, decidable
+}
+
+// cbbTerm decides one ValidBlocker$ term. The first return is the term's
+// truth for blocker b; the second is false when the term names a fact the
+// decorator does not carry (a colour, an artifact-ness, a creature type, a
+// bare 'Creature.Self'), which callers treat as undecidable.
+func cbbTerm(raw string, b lethalCre) (bool, bool) {
+	t := strings.TrimPrefix(strings.TrimSpace(raw), "Creature.")
+	t = strings.TrimPrefix(t, "Card.")
+	low := strings.ToLower(t)
+	switch low {
+	case "creature", "card":
+		return true, true
+	case "withflying":
+		return b.flying, true
+	case "withoutflying":
+		return !b.flying, true
+	case "withreach":
+		return b.reach, true
+	case "withoutreach":
+		return !b.reach, true
+	}
+	preds := []struct {
+		pfx  string
+		want func(int32) bool
+	}{
+		{"powerle", func(n int32) bool { return b.power <= n }},
+		{"powerlt", func(n int32) bool { return b.power < n }},
+		{"powerge", func(n int32) bool { return b.power >= n }},
+		{"powergt", func(n int32) bool { return b.power > n }},
+		{"powereq", func(n int32) bool { return b.power == n }},
+	}
+	for _, p := range preds {
+		if strings.HasPrefix(low, p.pfx) {
+			n, ok := literalInt(t[len(p.pfx):])
+			if !ok {
+				return false, false
+			}
+			return p.want(n), true
+		}
+	}
+	return false, false
 }
 
 // killerKills reports whether blocker b kills attacker a in the first-strike
@@ -672,6 +882,26 @@ func bestPump(atk, blockers []lethalCre, n int32) (int32, state.ObjID) {
 	return bestGain, bestID
 }
 
+// pumpGainOn is bestPump for a pump fixed to one object (a "Defined$ Self"
+// activated ability): it is the combined-attack delta of boosting obj, or 0
+// when obj is not one of the attackers this turn.
+func pumpGainOn(atk, blockers []lethalCre, obj state.ObjID, n int32) int32 {
+	base := guaranteedDamage(atk, blockers)
+	pumped := append([]lethalCre(nil), atk...)
+	found := false
+	for i := range pumped {
+		if pumped[i].obj == obj {
+			pumped[i].power += n
+			found = true
+			break
+		}
+	}
+	if !found {
+		return 0
+	}
+	return guaranteedDamage(pumped, blockers) - base
+}
+
 // lookupCard resolves an offered ordinary cast's card IR. The name comes
 // from the projected CardView when the surface carries one (the View path),
 // else from the option's own "Cast <name>" label (the Board path); a label
@@ -700,6 +930,98 @@ func lookupCard(w lethalSpace, o *decision.Option) *cards.Card {
 	return cardLookup(name)
 }
 
+// abilityCard resolves an offered "ability" option's source card IR. The
+// name comes from the projected CardView when the surface carries one (the
+// View path), else from the option's own "<CardName>: <description>" label
+// (the Board path, rules/legal.go's ability label).
+func abilityCard(w lethalSpace, o *decision.Option) *cards.Card {
+	if cardLookup == nil {
+		return nil
+	}
+	name := ""
+	if n, ok := w.names[o.Obj]; ok {
+		name = n
+	}
+	if name == "" {
+		if i := strings.Index(o.Label, ": "); i > 0 {
+			name = o.Label[:i]
+		}
+	}
+	if name == "" {
+		return nil
+	}
+	return cardLookup(name)
+}
+
+// abilitySA resolves an offered "ability" option to the activated ability it
+// anchors: Option.Ability is the flat pile index rules/legal.go offered from
+// and rules/activate.go re-resolves (PileAbilityAt). A non-mutated permanent's
+// pile is exactly its face's ability list, which is what the decorator
+// indexes here; an out-of-range or missing ability is refused.
+func abilitySA(w lethalSpace, o *decision.Option) (*cards.SA, bool) {
+	if o.Ability < 0 {
+		return nil, false
+	}
+	cd := abilityCard(w, o)
+	if cd == nil {
+		return nil, false
+	}
+	f := firstFace(cd)
+	if f == nil || o.Ability >= len(f.Abilities) || f.Abilities[o.Ability] == nil {
+		return nil, false
+	}
+	return f.Abilities[o.Ability], true
+}
+
+// optionBurn prices one offered burn -- an ordinary cast or a non-mana
+// activated ability -- as a guaranteed literal player burn.
+func optionBurn(w lethalSpace, o *decision.Option) (int32, bool) {
+	switch o.Kind {
+	case "cast":
+		if o.Mode != "" {
+			return 0, false
+		}
+		cd := lookupCard(w, o)
+		if cd == nil {
+			return 0, false
+		}
+		return spellBurn(cd)
+	case "ability":
+		sa, ok := abilitySA(w, o)
+		if !ok {
+			return 0, false
+		}
+		return burnFromSA(sa)
+	}
+	return 0, false
+}
+
+// optionPump prices one offered pump. The second return is true when the
+// pump applies to its own source through "Defined$ Self" (no target ask), in
+// which case the caller prices it on the option's own object.
+func optionPump(w lethalSpace, o *decision.Option) (int32, bool, bool) {
+	switch o.Kind {
+	case "cast":
+		if o.Mode != "" {
+			return 0, false, false
+		}
+		cd := lookupCard(w, o)
+		if cd == nil {
+			return 0, false, false
+		}
+		n, ok := spellPumpOwn(cd)
+		return n, false, ok
+	case "ability":
+		sa, ok := abilitySA(w, o)
+		if !ok {
+			return 0, false, false
+		}
+		n, self, ok := pumpFromSA(sa)
+		return n, self, ok
+	}
+	return 0, false, false
+}
+
 // spellBurn reports a spell's printed, literal damage to a player. It reads
 // the SP$ ability and its SubAbility chain for a DealDamage whose ValidTgts$
 // admits a player and whose NumDmg$ is a positive literal; a variable amount
@@ -713,17 +1035,27 @@ func spellBurn(c *cards.Card) (int32, bool) {
 		if a == nil || a.Kind != "SP" {
 			continue
 		}
-		for sa := a; sa != nil; sa = sa.Sub {
-			if sa.API != "DealDamage" {
-				continue
-			}
-			n, ok := literalInt(sa.Params["NumDmg"])
-			if !ok || n <= 0 {
-				continue
-			}
-			if admitsPlayer(sa.Params["ValidTgts"]) {
-				return n, true
-			}
+		if n, ok := burnFromSA(a); ok {
+			return n, true
+		}
+	}
+	return 0, false
+}
+
+// burnFromSA reports a literal player burn reachable through an effect's
+// SubAbility chain. It is shared by the spell (SP$) and activated-ability
+// (AB$) paths.
+func burnFromSA(root *cards.SA) (int32, bool) {
+	for sa := root; sa != nil; sa = sa.Sub {
+		if sa.API != "DealDamage" {
+			continue
+		}
+		n, ok := literalInt(sa.Params["NumDmg"])
+		if !ok || n <= 0 {
+			continue
+		}
+		if admitsPlayer(sa.Params["ValidTgts"]) {
+			return n, true
 		}
 	}
 	return 0, false
@@ -733,7 +1065,7 @@ func spellBurn(c *cards.Card) (int32, bool) {
 // creature the caster controls. Only an explicit own-creature target
 // ("Creature.YouCtrl") is accepted: a bare "Creature" could be aimed at an
 // opposing creature the caster cannot supply, and a "Defined$ Self" pump
-// gives the decorator no attacker to aim, so both are refused.
+// gives a spell no attacker to aim at, so both are refused.
 func spellPumpOwn(c *cards.Card) (int32, bool) {
 	f := firstFace(c)
 	if f == nil {
@@ -743,22 +1075,36 @@ func spellPumpOwn(c *cards.Card) (int32, bool) {
 		if a == nil || a.Kind != "SP" {
 			continue
 		}
-		for sa := a; sa != nil; sa = sa.Sub {
-			if sa.API != "Pump" && sa.API != "PumpAll" {
-				continue
-			}
-			v := sa.Params["ValidTgts"]
-			if !strings.Contains(v, "YouCtrl") {
-				continue
-			}
-			n, ok := literalInt(sa.Params["NumAtt"])
-			if !ok || n <= 0 {
-				continue
-			}
+		if n, self, ok := pumpFromSA(a); ok && !self {
 			return n, true
 		}
 	}
 	return 0, false
+}
+
+// pumpFromSA reports a literal positive power boost reachable through an
+// effect's SubAbility chain, and whether it applies to the ability's own
+// source ("Defined$ Self", no target ask) or targets a creature the caster
+// controls ("ValidTgts$ ...YouCtrl"). Any other target (a bare "Creature",
+// an opposing target, a variable amount) is refused -- the decorator never
+// prices a pump it cannot legally aim at one of its own attackers.
+func pumpFromSA(root *cards.SA) (int32, bool, bool) {
+	for sa := root; sa != nil; sa = sa.Sub {
+		if sa.API != "Pump" && sa.API != "PumpAll" {
+			continue
+		}
+		n, ok := literalInt(sa.Params["NumAtt"])
+		if !ok || n <= 0 {
+			continue
+		}
+		if strings.Contains(sa.Params["ValidTgts"], "YouCtrl") {
+			return n, false, true
+		}
+		if strings.TrimSpace(sa.Params["Defined"]) == "Self" {
+			return n, true, true
+		}
+	}
+	return 0, false, false
 }
 
 // admitsPlayer reports whether a ValidTgts$ string admits a player target.
