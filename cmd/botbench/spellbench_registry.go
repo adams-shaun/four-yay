@@ -120,6 +120,7 @@ var sbSearchVariants = func() []struct {
 		})},
 		// -rec8 is lite-atk at W=8 (its first 4 worlds are lite-atk's): the
 		// per-world values it records drive the offline budget study.
+		{"sb-search-lite-atk-fl", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack, c.Leaf = 4, 2, true, sbsearch.LeafFitted })},
 		{"sb-search-lite-atk-rec8", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 8, 2, true })},
 	}
 }()

@@ -1,6 +1,7 @@
 package sbsearch
 
 import (
+	"math"
 	"sync"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/view"
 )
 
 // testGame is one SpellBench-style mirror: the Rally deck in both seats,
@@ -223,5 +225,27 @@ func TestAdaptiveWorlds(t *testing.T) {
 	t.Logf("%d decisions, %d stopped early, %d extended", len(*ds), short, long)
 	if long == 0 {
 		t.Fatal("CloseBand 1 extends every decision whose lead is finite, yet none was")
+	}
+}
+
+// TestFittedLeafSymmetric: the fitted leaf is a zero-sum win probability,
+// the two seats' values of one view sum to 1, and more life is better.
+func TestFittedLeafSymmetric(t *testing.T) {
+	mk := func(l0, l1 int32) view.View {
+		return view.View{Active: 0, Players: []view.PlayerView{
+			{ID: 0, Life: l0, HandSize: 3, LibrarySize: 30, Battlefield: []view.CardView{{Types: "Land"}, {Types: "Creature", Power: 2, Toughness: 2}}},
+			{ID: 1, Life: l1, HandSize: 5, LibrarySize: 2, Battlefield: []view.CardView{{Types: "Creature", Power: 3, Toughness: 1, Keywords: []string{"Flying"}}}},
+		}}
+	}
+	v := mk(12, 7)
+	a, b := fittedLeaf(v, 0), fittedLeaf(v, 1)
+	if math.Abs(a+b-1) > 1e-12 || a <= 0 || a >= 1 {
+		t.Fatalf("leaf %v + %v != 1", a, b)
+	}
+	if fittedLeaf(mk(13, 7), 0) <= a || fittedLeaf(mk(12, 6), 0) <= a {
+		t.Fatal("more life (or less opposing life) did not raise the leaf")
+	}
+	if d := fittedLeaf(mk(400, 7), 0) - fittedLeaf(mk(300, 7), 0); d < 0 || d > 1e-3 {
+		t.Fatalf("life above the cap moved the leaf by %v (only the opposing clock term reads it)", d)
 	}
 }

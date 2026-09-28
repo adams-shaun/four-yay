@@ -74,6 +74,8 @@ type Config struct {
 	// Margin is how much a candidate's mean value must beat sb-tactical's
 	// own pick's before it is played instead.
 	Margin float64
+	// Leaf picks the cut-point evaluator (LeafMaterial, LeafFitted).
+	Leaf int
 	// Attack searches KAttackers decisions too.
 	Attack bool
 	// Block searches KBlockers decisions too: sb-tactical's blocks, none,
@@ -580,7 +582,11 @@ func (s *Seat) rollout(w *rules.Engine, d decision.Decision, rootTurn int32, r r
 			return 0, fmt.Errorf("%w: no pending decision", errRollout)
 		}
 		if steps > 0 && ((s.cfg.Horizon > 0 && g.Turn > rootTurn+s.cfg.Horizon) || steps >= s.cfg.MaxSteps) {
-			return searchprobe.LeafValue(view.Project(g, w, actor, pd), actor), nil
+			lv := view.Project(g, w, actor, pd)
+			if s.cfg.Leaf == LeafFitted {
+				return fittedLeaf(lv, actor), nil
+			}
+			return searchprobe.LeafValue(lv, actor), nil
 		}
 		if int(pd.Player) >= len(seats) {
 			return 0, fmt.Errorf("%w: player %d", errRollout, pd.Player)
