@@ -93,10 +93,10 @@ normalize_decks() {
 		for p in $POOL; do
 			if [ "${p,,}" = "${tok,,}" ]; then match="$p"; fi
 		done
-		if [ -z "$match" ]; then
-			echo "sb-gauntlet: unknown deck '$tok' (pool: $POOL)" >&2
-			exit 1
-		fi
+		# No pool match: pass the token through verbatim and let botbench
+		# validate it against the catalog (the pool list is not the whole
+		# catalog).
+		[ -z "$match" ] && match="$tok"
 		out+="${out:+,}$match"
 	done
 	printf '%s' "$out"
