@@ -87,6 +87,7 @@ const card = (id: number, name: string): CardView => ({
 const player: PlayerView = {
   seat: 0, name: 'Ari', life: 20, lost: false, library_size: 53, hand_size: 0,
   graveyard_size: 0, hand: [], battlefield: [], graveyard: [], exile: [], pool: {},
+  completed_dungeons: 0,
   command: [], commanders: [], commander_casts: [],
 };
 const seats: SeatInfo[] = [{ name: 'Ari', deck: 'deck', colour: '#e5484d', human: true }];

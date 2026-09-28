@@ -3027,6 +3027,24 @@ func (e *Engine) runCombatAssignments() {
 						e.emit(events.Event{Kind: events.MonarchChange,
 							Player: e.G.Obj(x.from).Controller})
 					}
+					// CR 726.2: when one or more creatures deal combat damage to
+					// the player who has the initiative, the controller of those
+					// creatures takes the initiative. The designation moves as one
+					// InitiativeChange (idempotent across simultaneous hits), and
+					// the inherent "whenever a player takes the initiative"
+					// ability makes the new holder venture into Undercity -- queued
+					// as the source-less synthetic trigger so it lands on the
+					// stack with the rest of the combat-damage triggers. Only the
+					// FIRST hit queues a venture: the fold has already moved the
+					// designation, so a later simultaneous hit by the same
+					// controller no longer matches ev.Player == e.G.Initiative.
+					if e.G.HasInitiative && ev.Player == e.G.Initiative &&
+						x.from != 0 && e.G.Obj(x.from) != nil {
+						ctrl := e.G.Obj(x.from).Controller
+						e.emit(events.Event{Kind: events.InitiativeChange, Player: ctrl})
+						e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+							Controller: ctrl, InitiativeVenture: true})
+					}
 					// CR 702.164 (toxic): a player dealt combat damage by a source
 					// with toxic N ALSO gets N poison counters. Toxic modifies the
 					// damage only by adding a second instruction, so it must not

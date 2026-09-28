@@ -34,6 +34,7 @@ const view = (stack: StackView[]): View => ({
   over: false, draw: false, winner: null, stack, pending: [],
   players: [{
     seat: 0, name: 'P0', life: 40, lost: false, library_size: 90, hand_size: 7, graveyard_size: 0,
+    completed_dungeons: 0,
     hand: [], battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
   }],
 });

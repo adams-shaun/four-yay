@@ -204,13 +204,17 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 // Mountain and from a Vivid Crag; the float route picked the Crag's while
 // run A activated the Mountain's, and the ManaActivate markers differed.
 //
-// Re-pinned to seq 0 (the round-10 convention) by the kw:Backup ticket
-// (CR 702.165): registering kw:Backup in effects' supported set made the
-// Backup carriers eligible for the random pool, so pool.Generate now returns
-// different decks for this seed and the moved game no longer casts Manascape
-// Refractor at all. The seed keeps an empty pin and asserts the whole game is
+// Re-pinned to seq 0 (the round-10 convention) twice, for the same reason:
+// first by the kw:Backup ticket (CR 702.165), then again by sb-job-select
+// (kw:Job select, CR 702.182). Each newly registered keyword made its corpus
+// carriers eligible for the random pool (NewRandomPool indexes only cards
+// with reg.Unsupported(c, sup) == nil), so pool.Generate returned different
+// decks for this seed and the moved game no longer casts Manascape Refractor
+// at all. The seed keeps an empty pin and asserts the whole game is
 // mismatch-free and control-equivalent; the finding's own shape stays pinned
-// by the marker unit tests above.
+// by the marker unit tests above, and the gained-member witness itself stays
+// live in paymirror.go (gainedMember/answerManaAsks) for the next game that
+// shows the shape.
 func TestRoundSixGainedMemberSeed3589(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)

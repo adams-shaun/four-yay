@@ -1057,6 +1057,7 @@ describe('gaps audit probe 3: a playable plan-only cast prevents an empty-window
   const player = (seat: number, hand: CardView[]): PlayerView => ({
     seat, name: seats[seat].name, life: 20, lost: false, library_size: 53,
     hand_size: hand.length, graveyard_size: 0, hand, battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
+    completed_dungeons: 0,
   });
   const auditView = (decision: Decision | null, hand: CardView[] = []): View => ({
     viewer: 1, visibility: 'seat', turn: 3, round: 3, step: 'main1', phase: 'precombat main',

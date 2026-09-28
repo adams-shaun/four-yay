@@ -192,6 +192,33 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			Text: "AtEOT$ " + atEOT + " is not implemented; the copy stays on the battlefield"})
 	}
 
+	// AtEOTTrig$ is NOT the AtEOT$ rider above: it is a triggered ability the
+	// copy carries as part of its copiable values ("except it has 'At the
+	// beginning of the end step, sacrifice this token'"), so unlike the
+	// one-shot delayed AtEOT$ registration a token COPY of the minted token
+	// inherits it (CR 707.2). The body name rides the CopyToken event's
+	// Counter; events.Apply stores it on the mint -- inheriting the source
+	// object's body when the spell carries none -- and rules'
+	// checkGrantedAtEOTTriggers puts the Phase/EndStep trigger on the stack for
+	// every battlefield object carrying one. `Sacrifice` and `Exile` are the
+	// two bodies the measured corpus uses; any other value (Gut Fanatical
+	// Priestess's `You_Sacrifice`, a "your next end step" DELAYED trigger this
+	// copiable-ability shape is not) stays LOUD -- one Note per call, never a
+	// silent drop.
+	atEOTTrigBody := ""
+	switch atEOTTrig := strings.TrimSpace(sa.Params["AtEOTTrig"]); atEOTTrig {
+	case "":
+		// No rider: a copy of the minted token still inherits the SOURCE
+		// object's copiable body (events.Apply's fallback).
+	case "Sacrifice":
+		atEOTTrigBody = "__cpAtEOTSacrifice"
+	case "Exile":
+		atEOTTrigBody = "__cpAtEOTExile"
+	default:
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "AtEOTTrig$ " + atEOTTrig + " is not implemented; the copy gets no end-step trigger"})
+	}
+
 	// Characteristic modifications (the Embalm/Eternalize family and the
 	// wider CopyPermanent mod census): AddTypes$, SetColor$, SetPower$ and
 	// SetToughness$. Each is applied as a tracked continuous effect sourced
@@ -637,10 +664,41 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
+	// AddStaticAbilities$ names static bodies on the same source table the
+	// copy gains ("except it has 'This Equipment's equip abilities cost {2}
+	// less to activate.'" -- Firion, Wild Rose Warrior). A cost-modifier body
+	// the cost chain can read is registered as a granted cost static bound
+	// to the copy (rules' appendGrantedCostStatic), the route the Animate
+	// staticAbilities$ and Continuous AddStaticAbility$ grants share; any
+	// other mode or an unread scoping key is one loud Note.
+	type costGrant struct {
+		mode   string
+		params map[string]string
+	}
+	var grantCostStatics []costGrant
+	var unreadStatics []string
+	for _, name := range strings.FieldsFunc(sa.Params["AddStaticAbilities"], func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n'
+	}) {
+		if _, ok := sourceSVars[name]; !ok {
+			continue // reported with the other unresolved grant names below
+		}
+		mode, params := parseStaticLine(sourceSVars, name)
+		if IsGrantableCostStaticMode(mode) && CostStaticParamsReadable(params) {
+			grantCostStatics = append(grantCostStatics, costGrant{mode: mode, params: params})
+			continue
+		}
+		unreadStatics = append(unreadStatics, name)
+	}
+	if len(unreadStatics) > 0 {
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "CopyPermanent AddStaticAbilities$ " + strings.Join(unreadStatics, ", ") +
+				" is not a static this engine grants; the copy does not gain it"})
+	}
 	// A grant name that does not resolve is one loud Note per call -- the
 	// AddKeywords$ precedent -- never a silent drop.
 	var lostGrants []string
-	for _, raw := range []string{sa.Params["AddTriggers"], sa.Params["AddSVars"], sa.Params["AddAbilities"]} {
+	for _, raw := range []string{sa.Params["AddTriggers"], sa.Params["AddSVars"], sa.Params["AddAbilities"], sa.Params["AddStaticAbilities"]} {
 		for name := range strings.SplitSeq(raw, ",") {
 			name = strings.TrimSpace(name)
 			if name == "" {
@@ -803,7 +861,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			// increments it) -- the effToken/effMyriad prediction pattern.
 			want := g.NextID
 			h.Emit(events.Event{Kind: events.CopyToken, Obj: t.Obj, Player: owner,
-				Amount: amount, IDs: ids})
+				Amount: amount, IDs: ids, Counter: atEOTTrigBody})
 			if g.Obj(want) == nil {
 				continue
 			}
@@ -839,6 +897,14 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 						AddTrigger: &trCopy, TriggerGrantor: c.Source,
 						SVars: sourceSVars})
 				}
+			}
+			// The granted cost statics are the copy's own for as long as it
+			// exists: Permanent, Source the copy, bound to it at collection.
+			for _, cg := range grantCostStatics {
+				h.AddContinuous(state.ContinuousEffect{Source: want, Controller: owner,
+					Affects: "Card.Self", Permanent: true,
+					CostStaticMode: cg.mode, CostStaticParams: cg.params,
+					CostStaticSVars: sourceSVars, CostStaticGranted: true})
 			}
 			// The entry goes through EmitTokenCreate: the emit tail publishes
 			// the copy only once this MoveZone has actually folded onto the

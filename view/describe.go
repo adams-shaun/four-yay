@@ -89,6 +89,8 @@ func Describe(g *state.Game, ev events.Event) string {
 		return player(g, ev.Player) + " " + verb + " " + itoa(int64(n)) + " speed (speed " + itoa(int64(speed)) + ")"
 	case events.MonarchChange:
 		return player(g, ev.Player) + " becomes the monarch"
+	case events.InitiativeChange:
+		return player(g, ev.Player) + " takes the initiative"
 	case events.BlessingChange:
 		return player(g, ev.Player) + " gets the city's blessing"
 	case events.EnduringStoryChange:
@@ -278,6 +280,30 @@ func Describe(g *state.Game, ev events.Event) string {
 			return obj(g, ev.Obj) + " erupts in chaos"
 		}
 		return "Chaos ensues"
+	case events.DungeonCreate:
+		// CR 309: Text is the dungeon's token-script key (Game.Tokens), and
+		// the dungeon card resolves through it. The Describe-coverage fuzz
+		// may carry an empty Text (and sometimes a nil game), so the bare
+		// form stays grammatical.
+		if g != nil && ev.Text != "" {
+			if c := g.Tokens[ev.Text]; c != nil && len(c.Faces) > 0 && c.Faces[0] != nil && c.Faces[0].Name != "" {
+				return player(g, ev.Player) + " puts " + c.Faces[0].Name + " into their command zone"
+			}
+		}
+		return player(g, ev.Player) + " puts a dungeon into their command zone"
+	case events.DungeonRoom:
+		// CR 309.5: Text is the room key the venture marker moved to; the
+		// coverage fuzz leaves it empty, so the bare form stays grammatical.
+		if ev.Text != "" {
+			return player(g, ev.Player) + " ventures into the " + ev.Text + " room"
+		}
+		return player(g, ev.Player) + " ventures into the dungeon"
+	case events.DungeonComplete:
+		// CR 309.4: the dungeon's last room was visited, so the count
+		// rises; the RemoveDungeon transition moves the token itself.
+		return player(g, ev.Player) + " completes the dungeon"
+	case events.DungeonRemove:
+		return obj(g, ev.Obj) + " is removed from the command zone"
 	case events.RollDice:
 		// The roll-action PROPOSAL (task rolldice-repl) is never logged -- the
 		// per-die Notes are the roll's transcript lines -- but the Describe-
@@ -559,6 +585,8 @@ func Describe(g *state.Game, ev events.Event) string {
 		return obj(g, ev.Obj) + " triggers"
 	case events.EndCombatReset:
 		return "Combat ends"
+	case events.EndTurn:
+		return "The turn ends"
 	case events.CastInfo:
 		// Records how a spell was cast, right before the PutOnStack line
 		// (Task 4): Amount is the value chosen for {X}, Counter the comma-

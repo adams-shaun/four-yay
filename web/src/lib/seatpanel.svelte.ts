@@ -2,7 +2,7 @@ import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelec
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
 import type { SeatCtx } from './seat';
-import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, type StopReason, type Stops, type TurnSide } from './autopilot';
+import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
 import {
   applyPreset,
   defaultSettings,
@@ -1727,7 +1727,16 @@ export class SeatPanelState {
     clientBreadcrumbs.record('auto_pass', { reason, mode: kind, seq: this.pending?.seq ?? null, choice: index });
     this.countPass(kind);
     if (this.settings.logAutoPasses) {
-      this.autoLog = pushAutoPassLog(this.autoLog, autoPassLogText(kind, view, this.ctx.seat), view.turn);
+      const decision = this.pending;
+      const diagnostics = decision?.kind === 'priority'
+        ? {
+            ...passDiagnostics(decision, view, this.ctx.seat, `${kind}: ${reason}`, this.yields, this.autoPayMana),
+            // View is the server's seat-redacted projection. Keep a bounded
+            // detached copy so later updates cannot rewrite this pass-time state.
+            view: JSON.parse(JSON.stringify(view)) as View,
+          }
+        : undefined;
+      this.autoLog = pushAutoPassLog(this.autoLog, autoPassLogText(kind, view, this.ctx.seat), view.turn, undefined, diagnostics);
     }
     void this.post([index]);
   }

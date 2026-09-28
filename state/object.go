@@ -538,6 +538,21 @@ type Object struct {
 	IsToken  bool
 	IsCopy   bool
 	Counters []Counter
+
+	// AtEOTTrigBody names the "at the beginning of the end step, <body> this
+	// token" triggered ability a DB$ CopyPermanent | AtEOTTrig$ grant puts on
+	// the copy it mints (Chandra, Flameshaper; Electroduplicate; Heat Shimmer).
+	// The value is the builtin SVar name of the body the trigger resolves
+	// ("__cpAtEOTSacrifice" / "__cpAtEOTExile"). Unlike the AtEOT$ rider --
+	// which registers a one-shot DELAYED trigger, not a copiable value -- this
+	// is part of the token's copiable values (CR 707.2), so a token copy of a
+	// token carrying it INHERITS it: events.Apply's CopyToken case sets the
+	// field from the mint's own body, falling back to the source object's, and
+	// rules' checkGrantedAtEOTTriggers synthesizes the Phase/EndStep trigger
+	// from it for every battlefield object that carries one. Nothing else
+	// writes it; it is re-derived identically on replay from the CopyToken
+	// fold.
+	AtEOTTrigBody string
 	// MergedCards holds the cards stacked BENEATH a mutated permanent's top
 	// card; see TimesMutated below for the full contract.
 	MergedCards []MergedCard
@@ -739,6 +754,14 @@ type Object struct {
 	// return to exile cannot revive the permission. A plain value copy in
 	// CloneDeep carries it.
 	PlottedTurn int32
+
+	// DrawnTurn stamps the turn this card was last DRAWN (0 = not drawn
+	// since it last moved): events.Apply's Draw fold sets it, and every other
+	// move clears it except a move onto the stack -- Forge's
+	// Card.drawnThisTurn, which GameAction carries onto the stack copy only.
+	// The DrawnThisTurn filter predicate compares it against Game.Turn
+	// (Captain Eberhart). A plain value copy in CloneDeep carries it.
+	DrawnTurn int32
 
 	// Timestamp orders continuous effects. Assigned from Game.Clock whenever
 	// the object enters the battlefield.

@@ -40,6 +40,7 @@ const view = (potential?: PotentialAction[], seat = 0): View =>
     over: false, draw: false, winner: null, stack: [], pending: [],
     players: [{
       seat, name: 'P', life: 20, lost: false, library_size: 40, hand_size: 0, graveyard_size: 0,
+      completed_dungeons: 0,
       hand: [], battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
       ...(potential ? { potential_actions: potential } : {}),
     }],

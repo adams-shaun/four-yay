@@ -13,6 +13,7 @@ const card = (id: number, name = `Card ${id}`): CardView => ({
 
 const player = (over: Partial<PlayerView> = {}): PlayerView => ({
   seat: 0, name: 'Ari', life: 40, lost: false, library_size: 52, hand_size: 2, graveyard_size: 1,
+  completed_dungeons: 0,
   hand: [card(1), card(2)], battlefield: [], graveyard: [card(3)], exile: [card(4)],
   pool: {}, command: [], commanders: [], commander_casts: [], ...over,
 });

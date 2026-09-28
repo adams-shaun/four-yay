@@ -88,6 +88,15 @@ type Player struct {
 	// aliases the live one's.
 	DamageTakenByGame []ObjID
 
+	// DungeonObj and DungeonRoom are this seat's public CR 309 dungeon
+	// state. They are folded only by dungeon events; zero/empty means no
+	// active dungeon or no room has been entered yet. DungeonCompleted
+	// latches completion for the current object until it is removed.
+	DungeonObj        ObjID
+	DungeonRoom       string
+	DungeonCompleted  bool
+	CompletedDungeons int32
+
 	// Speed is this seat's speed (CR 702.179, "Start your engines!"): it
 	// starts at 0 (or 1 the first time an engine grants speed), rises by one
 	// once on each of this seat's own turns when an opponent loses life,
@@ -338,6 +347,11 @@ type Game struct {
 	// the Black Rose.
 	TurnStartMonarch    PlayerID
 	HasTurnStartMonarch bool
+	// Initiative is the current initiative holder when HasInitiative is true
+	// (CR 726.1). At most one player has it (CR 726.3); the presence bit keeps
+	// seat zero distinct from no initiative, exactly like Monarch above.
+	Initiative    PlayerID
+	HasInitiative bool
 	// NextID hands out object ids one at a time, starting at 1 (see NewGame)
 	// and incrementing by exactly one per AddObject call below -- it can
 	// never reach playerRefBit (1<<31, ids.go): a single match would need
@@ -740,6 +754,10 @@ func (g *Game) AliveCount() int { return len(g.AliveFrom(0)) }
 
 // IsMonarch reports whether p currently holds the monarch designation.
 func (g *Game) IsMonarch(p PlayerID) bool { return g.HasMonarch && g.Monarch == p }
+
+// IsInitiative reports whether p currently holds the initiative designation
+// (CR 726.1).
+func (g *Game) IsInitiative(p PlayerID) bool { return g.HasInitiative && g.Initiative == p }
 
 // WasMonarchAtTurnStart reports whether p held the monarch designation when
 // the current turn began (the trig:BecomeMonarch BeginTurn$ intervening-if).

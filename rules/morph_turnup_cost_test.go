@@ -449,7 +449,7 @@ func TestMorphTurnFaceUpSacExcludesTheSource(t *testing.T) {
 	}
 	// The whole turn-up gate agrees: with only the source available for a
 	// Creature.Other sacrifice, the action is not offered.
-	if e.morphTurnUpPayable(0, id, Cost{Generic: 0, Sac: []CostPart{{N: 1, Spec: "Creature.Other"}}}) {
+	if e.morphTurnUpPayable(0, id, Cost{Generic: 0, Sac: []CostPart{{N: 1, Spec: "Creature.Other"}}}, costMods{}) {
 		t.Fatalf("morphTurnUpPayable accepted a Creature.Other sacrifice payable only by the source")
 	}
 }

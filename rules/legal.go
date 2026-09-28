@@ -305,22 +305,23 @@ func (e *Engine) scanMayPlaysThisTurn(p state.PlayerID) int {
 // Effect-delivered CantTarget/CantRegenerate. A MayPlayLimit$ grant whose
 // cap is already reached does not offer through itself; another grant
 // covering the same card still may.
-func (e *Engine) mayPlaySpellIds(p state.PlayerID) []state.ObjID {
+func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 	type offered struct {
 		zone state.Zone
 		id   state.ObjID
+		key  string
 	}
-	var out []state.ObjID
+	var out []mayPlaySpellOffer
 	var seen []offered
 	limited := lazyMayPlays{e: e, p: p}
-	consider := func(z state.Zone, id state.ObjID) bool {
+	consider := func(z state.Zone, id state.ObjID, key string) bool {
 		for _, s := range seen {
-			if s.zone == z && s.id == id {
+			if s.zone == z && s.id == id && s.key == key {
 				return false
 			}
 		}
-		seen = append(seen, offered{z, id})
-		out = append(out, id)
+		seen = append(seen, offered{z, id, key})
+		out = append(out, mayPlaySpellOffer{zone: z, id: id, key: key})
 		return true
 	}
 	// A card's OWN S: static can grant its cast from a public zone it sits
@@ -341,7 +342,44 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []state.ObjID {
 	// Whether any board-side grant source exists for p is one fact for the
 	// whole scan (mayPlayBoardGrantsOpen), so a board with none asks each
 	// card only its own statics.
+	//
+	// A MayPlayText$-typed permission (Muldrotha) is enumerated per static:
+	// mayPlayPermissions lists each still-unused typed permission, so an
+	// artifact creature is offered once per matching permission and the
+	// option carries the key the cast consumes. An untyped grant keeps its
+	// single historical offer, whose riders the caller reads through the
+	// aggregate mayPlayGrant/mayPlayRaiseCost helpers.
 	board := e.mayPlayBoardGrantsOpen(p)
+	addCard := func(z state.Zone, id state.ObjID) {
+		perms := e.mayPlayPermissions(p, id, board)
+		hasUntyped := false
+		for _, off := range perms {
+			if off.key == "" {
+				hasUntyped = true
+			}
+		}
+		// The untyped offer is the historical single offer. It is emitted
+		// when a printed/self/board untyped grant covers the card; when only
+		// typed permissions cover it, the typed offers below replace it (an
+		// untyped offer would bypass every permission's own limit). When no
+		// static covers it at all, mayPlayGrantScoped may still find a free
+		// effect-delivered grant (its ce walk arm below), preserving the
+		// historical effect-grant enumeration.
+		if hasUntyped || len(perms) == 0 {
+			if _, ok := e.mayPlayGrantScoped(p, id, board); ok {
+				consider(z, id, "")
+			}
+		}
+		for _, off := range perms {
+			if off.key == "" {
+				continue
+			}
+			if consider(z, id, off.key) {
+				off.zone = z
+				out[len(out)-1] = off
+			}
+		}
+	}
 	for _, z := range []state.Zone{state.ZGraveyard, state.ZExile} {
 		for _, q := range e.G.AliveFrom(0) {
 			for _, id := range e.G.Zone(z, q) {
@@ -349,17 +387,13 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []state.ObjID {
 				if o == nil || o.Controller != p || o.Face() == nil || o.Face().IsLand() {
 					continue
 				}
-				if _, ok := e.mayPlayGrantScoped(p, id, board); ok {
-					consider(z, id)
-				}
+				addCard(z, id)
 			}
 		}
 	}
 	if lib := e.G.Zone(state.ZLibrary, p); len(lib) > 0 {
 		if o := e.G.Obj(lib[0]); o != nil && o.Face() != nil && !o.Face().IsLand() && o.Controller == p {
-			if _, ok := e.mayPlayGrantScoped(p, lib[0], board); ok {
-				consider(state.ZLibrary, lib[0])
-			}
+			addCard(state.ZLibrary, lib[0])
 		}
 	}
 	for _, ce := range e.active() {
@@ -400,7 +434,7 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []state.ObjID {
 					if !e.effectGrantMatches(ce, id) {
 						continue
 					}
-					consider(z, id)
+					consider(z, id, "")
 				}
 			}
 		}
@@ -1981,6 +2015,10 @@ func (e *Engine) legalActions(p state.PlayerID) []decision.Option {
 	return e.legalActionsPriced(p, nil)
 }
 
+func (e *Engine) legalActionsWithWindow(p state.PlayerID, w *windowCollector) []decision.Option {
+	return e.legalActionsWalkWithWindow(p, nil, false, w)
+}
+
 // aftermathAlternateFace returns the Aftermath alternate face (face 1 --
 // ALTERNATE starts face 1 in cards/parse.go) of a two-face Split card whose
 // front face is current, or nil when the object is not a well-formed
@@ -2029,6 +2067,10 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 // on its own. The payment offer builder, which reads only plain casts, uses
 // it to avoid pricing every battlefield ability it would discard.
 func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
+	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil)
+}
+
+func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector) []decision.Option {
 	// Count the walk before anything can early-return. A test-visible
 	// diagnostic only: no event, no state mutation, no effect on replay or
 	// chain heads (legalActionWalks is not copied by Clone and never reaches
@@ -2801,7 +2843,8 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	// gate folds the card's own SpellAbility additional costs exactly like
 	// the hand walk does, so an offered may-play cast and the cost beginCast
 	// charges structurally cannot disagree.
-	for _, id := range e.mayPlaySpellIds(p) {
+	for _, off := range e.mayPlaySpellIds(p) {
+		id := off.id
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || f.IsLand() || castRestricted(p, id) || e.castSuppressed(p, id) {
@@ -2819,10 +2862,17 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		plain, mutate, blitz := e.mayPlayKinds(p, id)
 		if plain && e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			base := e.rawBaseCost(p, id)
-			if free, ok := e.mayPlayGrant(p, id); ok && free {
-				// MayPlayWithoutManaCost$ True (the kw-mayplay predicate): the
-				// mana part is free, exactly as beginCast's "mayplay" case will
-				// charge it; non-mana additional costs still apply (CR 118.9).
+			// A MayPlayText$-typed offer carries its own permission's riders
+			// (mayPlayPermissions); an untyped offer keeps the aggregate read
+			// every existing grant used.
+			if off.key == "" {
+				if free, ok := e.mayPlayGrant(p, id); ok && free {
+					// MayPlayWithoutManaCost$ True (the kw-mayplay predicate): the
+					// mana part is free, exactly as beginCast's "mayplay" case will
+					// charge it; non-mana additional costs still apply (CR 118.9).
+					base = Cost{}
+				}
+			} else if off.free {
 				base = Cost{}
 			}
 			// CR 118.3a: the granting static's RaiseCost$ surcharge is added on
@@ -2834,16 +2884,30 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 			// mayPlayStatic could not price never reaches here -- mayPlayGrant
 			// withholds the card -- but the defensive continue keeps the two
 			// sites agreeing if that ever changes.
-			if raise, hasRaise, priced := e.mayPlayRaiseCost(p, id); hasRaise {
-				if !priced {
+			if off.key == "" {
+				if raise, hasRaise, priced := e.mayPlayRaiseCost(p, id); hasRaise {
+					if !priced {
+						continue
+					}
+					base = base.Plus(raise)
+				}
+			} else if off.hasRaise {
+				if !off.priced {
 					continue
 				}
-				base = base.Plus(raise)
+				base = base.Plus(off.raise)
 			}
 			cost := withSpellAbilityExtras(f, offerCostFor(p, id, base, spellScope("mayplay")))
 			if affordable(p, id, cost, false) {
+				label := "Cast " + f.Name
+				if off.text != "" {
+					// MayPlayText$ is the permission's label, so a card matching
+					// several permissions offers one named option per still-unused
+					// permission (Muldrotha's artifact creature).
+					label = "Cast " + f.Name + " (" + off.text + ")"
+				}
 				out = append(out, decision.Option{Index: len(out), Kind: "cast",
-					Label: "Cast " + f.Name, Obj: id, Mode: "mayplay"})
+					Label: label, Obj: id, Mode: "mayplay", MayPlayPerm: off.key})
 			}
 		}
 		// Mutate half: the permission names the mutate cast. The mutate cast
@@ -2855,7 +2919,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		// cast from. A may-play mutate carries no printed-mana "free"
 		// exemption: MayPlayWithoutManaCost$ is a property of the permission,
 		// but the mutate cost IS the mana cost this cast pays.
-		if mutate {
+		if off.key == "" && mutate {
 			if mc, ok := mutateCost(f); ok && e.castTargetsAvailable(p, id, mutateTargetSA()) &&
 				offerCastable(p, id, mc, spellScope("mutated"), false) {
 				out = append(out, decision.Option{Index: len(out), Kind: "cast",
@@ -2869,7 +2933,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		// parameter (including its Discard<1/Card> part) through the same
 		// keywordAltCost the hand walk uses; beginCast's "blitzed" case charges
 		// exactly that cost, so offer and charge cannot drift.
-		if blitz {
+		if off.key == "" && blitz {
 			if bc, ok := keywordAltCost(f, "Blitz"); ok &&
 				e.castTargetsAvailable(p, id, f.SpellAbility()) &&
 				offerCastable(p, id, bc, spellScope("blitzed"), false) {
@@ -3919,7 +3983,11 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 			// still locked may be unlocked as a sorcery by paying that half's own
 			// mana cost. The gate is the same castable total the cast options
 			// use, so an unpayable unlock is never offered (and the payment on
-			// the answer cannot disagree with the offer).
+			// the answer cannot disagree with the offer). The unlock is a
+			// special action, priced under specialActionScope("unlock") so a
+			// ValidSpell$ Static.Unlock modifier (Inquisitive Glimmer) reaches
+			// it and a Type$ Spell/Ability one does not; the payment composes
+			// the same modifiers (handlePriority's "unlock" case).
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) {
@@ -3934,7 +4002,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 				if !ok {
 					continue
 				}
-				if offerCastable(p, id, cost, costScope{kind: "Ability"}, true) {
+				if _, ok := e.unlockMods(p, id); ok && offerCastable(p, id, cost, specialActionScope("unlock"), true) {
 					add("unlock", "Unlock "+roomLockedFace(o).Name, id)
 				}
 			}
@@ -4021,7 +4089,8 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 			// action itself re-reads; the potential walk prices the same cost
 			// against its hypothetical bound, so a float-gated turn-up is a
 			// potential play like every other mana-costed offer.
-			if !e.morphTurnUpPayablePriced(p, id, mf.cost, hyp) {
+			mods, ok := e.morphTurnUpMods(p, id, mf)
+			if !ok || !e.morphTurnUpPayablePriced(p, id, mf.cost, mods, hyp) {
 				continue
 			}
 			if e.turnFaceUpCantHappen(id) {
@@ -4093,6 +4162,13 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	add("concede", "Concede", 0)
 	res := make([]decision.Option, len(out))
 	copy(res, out)
+	if window != nil {
+		// Classify each of p's own visible candidates the walk did not
+		// offer, keeping the first gate in walk order that withheld it. The
+		// caller that owns the decision finishes (filters offered
+		// candidates and bounds) the collector.
+		e.windowClassify(p, res, window)
+	}
 	// Drop the scratch's string/Grant references so a retained buffer does
 	// not pin the last walk's labels, then keep the grown array.
 	clear(out)
@@ -4285,7 +4361,11 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if !ok {
 			return
 		}
-		if !e.payMana(in.Player, cost) {
+		mods, ok := e.unlockMods(in.Player, opt.Obj)
+		if !ok {
+			return
+		}
+		if !e.payMana(in.Player, mods.apply(cost)) {
 			return
 		}
 		e.emit(events.Event{Kind: events.DoorUnlock, Obj: opt.Obj})
