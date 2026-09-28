@@ -188,9 +188,6 @@ func expectedManaTotal(row censusRow) (int, bool) {
 
 // TestCreatureManaAbilityAudit is the always-on creature subset audit.
 func TestCreatureManaAbilityAudit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("creature mana audit needs the compiled corpus")
-	}
 	cz := newAutopayCensus(t)
 
 	type measured struct {
