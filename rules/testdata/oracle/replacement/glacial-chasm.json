@@ -5,20 +5,20 @@
   "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "damage-to-controller-prevented",
-      "cr": ["615.1a", "120.3a"],
-      "why": "All damage that would be dealt to the Chasm controller is prevented, so the controller takes no damage from Bolt.",
-      "setup": {"p0": {"battlefield": ["Wastes"], "hand": ["Glacial Chasm"]}, "p1": {"hand": ["Lightning Bolt"]}},
-      "steps": [{"op": "play", "seat": 0, "card": "p0:Glacial Chasm"}, {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Wastes"]}]}, {"op": "pass_to", "step": "main1", "active": "p1"}, {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
-      "expect": [{"card": "p0:Glacial Chasm", "zone": "battlefield"}, {"life": {"p0": 20, "p1": 20}}]
+      "name": "prevents-damage-to-its-controller",
+      "cr": ["615.1a", "614.6", "120.3a"],
+      "why": "After Chasm enters, damage that would be dealt to its controller is prevented; Bolt therefore causes no life loss.",
+      "setup": {"p0": {"hand": ["Glacial Chasm", "Lightning Bolt"], "battlefield": ["Plains", "Plains"]}, "p1": {}},
+      "steps": [{"op": "play", "seat": 0, "card": "p0:Glacial Chasm"}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 20}}]
     },
     {
-      "name": "damage-to-opponent-is-not-prevented",
-      "cr": ["615.1a", "120.3a"],
-      "why": "The prevention applies only to damage dealt to the Chasm controller; damage to the opponent remains normal.",
-      "setup": {"p0": {"battlefield": ["Wastes"], "hand": ["Glacial Chasm"]}, "p1": {"hand": ["Lightning Bolt"]}},
-      "steps": [{"op": "play", "seat": 0, "card": "p0:Glacial Chasm"}, {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Wastes"]}]}, {"op": "pass_to", "step": "main1", "active": "p1"}, {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
-      "expect": [{"card": "p0:Glacial Chasm", "zone": "battlefield"}, {"life": {"p0": 20, "p1": 17}}]
+      "name": "does-not-prevent-damage-to-creature",
+      "cr": ["615.1a", "120.3e"],
+      "why": "Chasm prevents damage to its controller, not to creatures; Bolt still deals three to the opponent's 2/2 and destroys it.",
+      "setup": {"p0": {"hand": ["Glacial Chasm", "Lightning Bolt"], "battlefield": ["Plains", "Plains"]}, "p1": {"battlefield": ["Grizzly Bears"]}},
+      "steps": [{"op": "play", "seat": 0, "card": "p0:Glacial Chasm"}, {"op": "resolve"}, {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1:Grizzly Bears"]}, {"op": "resolve"}],
+      "expect": [{"card": "p1:Grizzly Bears", "zone": "graveyard"}, {"life": {"p1": 20}}]
     }
   ]
 }

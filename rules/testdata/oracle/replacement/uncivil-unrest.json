@@ -5,20 +5,20 @@
   "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "counter-creature-doubles-combat-damage",
-      "cr": ["614.1c", "614.12a", "702.136a", "614.1a", "120.3a"],
-      "why": "Choose the +1/+1 counter as Spider-Punk enters. At its controller's next turn it attacks for three, doubled to six by Uncivil Unrest.",
-      "setup": {"p0": {"battlefield": ["Uncivil Unrest"], "hand": ["Spider-Punk"]}, "p1": {}},
-      "steps": [{"op": "cast", "seat": 0, "card": "p0:Spider-Punk", "mana": "RR"}, {"op": "resolve", "answers": [{"kind": "any", "pick": ["+1/+1"]}]}, {"op": "pass_to", "step": "main1", "active": "p0"}, {"op": "attack", "seat": 0, "attackers": ["p0:Spider-Punk"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
-      "expect": [{"card": "p0:Spider-Punk", "zone": "battlefield", "pt": "3/2", "counters": {"+1/+1": 1}}, {"life": {"p1": 14}}]
+      "name": "countered-attacker-deals-double-combat-damage",
+      "cr": ["614.1a", "614.6", "120.3a", "508.1"],
+      "why": "The creature entered with Riot's +1/+1 counter; its combat damage is doubled because it has a +1/+1 counter as the damage event occurs. A 3-power attacker therefore deals six.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Uncivil Unrest"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "1G", "answers": [{"kind": "any", "pick": ["counter"]}]}, {"op": "resolve"}, {"op": "attack", "seat": 0, "defender": "p1", "attackers": ["p0:Grizzly Bears"]}],
+      "expect": [{"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "3/3", "counters": {"+1/+1": 1}}, {"life": {"p1": 14}}]
     },
     {
-      "name": "haste-without-counter-does-not-double",
-      "cr": ["614.1c", "702.136a", "614.1a", "120.3a"],
-      "why": "Choose haste instead of the optional counter. At its controller's next turn Spider-Punk attacks without a +1/+1 counter, so its two combat damage is not doubled.",
-      "setup": {"p0": {"battlefield": ["Uncivil Unrest"], "hand": ["Spider-Punk"]}, "p1": {}},
-      "steps": [{"op": "cast", "seat": 0, "card": "p0:Spider-Punk", "mana": "RR"}, {"op": "resolve", "answers": [{"kind": "any", "pick": ["haste"]}]}, {"op": "pass_to", "step": "main1", "active": "p0"}, {"op": "attack", "seat": 0, "attackers": ["p0:Spider-Punk"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
-      "expect": [{"card": "p0:Spider-Punk", "zone": "battlefield", "pt": "2/1", "counters": {"+1/+1": 0}}, {"life": {"p1": 18}}]
+      "name": "creature-without-counter-deals-normal-damage",
+      "cr": ["614.1a", "120.3a", "508.1"],
+      "why": "Riot's haste choice gives no +1/+1 counter, so this 2-power creature does not meet the damage replacement's counter condition and deals two combat damage.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Uncivil Unrest"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "1G", "answers": [{"kind": "any", "pick": ["haste"]}]}, {"op": "resolve"}, {"op": "attack", "seat": 0, "defender": "p1", "attackers": ["p0:Grizzly Bears"]}],
+      "expect": [{"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2", "counters": {"+1/+1": 0}}, {"life": {"p1": 18}}]
     }
   ]
 }

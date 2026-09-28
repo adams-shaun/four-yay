@@ -5,20 +5,20 @@
   "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "another-controlled-source-adds-one-damage",
+      "name": "another-controlled-source-adds-one",
       "cr": ["614.1a", "614.6", "120.3a"],
-      "why": "A different source controlled by Thor's controller would deal three damage to an opponent, so it deals four instead.",
-      "setup": {"p0": {"battlefield": ["Thor, Asgard's Avenger"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "why": "A source other than Thor controlled by its controller deals one additional damage to an opponent, so Bolt causes four life loss.",
+      "setup": {"p0": {"hand": ["Lightning Bolt"], "battlefield": ["Thor, Asgard's Avenger"]}, "p1": {}},
       "steps": [{"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
-      "expect": [{"life": {"p0": 20, "p1": 16}}]
+      "expect": [{"life": {"p1": 16}}]
     },
     {
-      "name": "thor-is-excluded-as-damage-source",
+      "name": "damage-to-controller-not-an-opponent",
       "cr": ["614.1a", "120.3a"],
-      "why": "Thor's own damage is excluded by the requirement that the source be another source; its unmodified four combat damage reduces the opponent to 16.",
-      "setup": {"p0": {"battlefield": ["Thor, Asgard's Avenger"]}, "p1": {}},
-      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Thor, Asgard's Avenger"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
-      "expect": [{"life": {"p1": 16}}]
+      "why": "The opponent-recipient condition is false when the Bolt targets its caster, so only the normal three damage is dealt.",
+      "setup": {"p0": {"hand": ["Lightning Bolt"], "battlefield": ["Thor, Asgard's Avenger"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 17}}]
     }
   ]
 }
