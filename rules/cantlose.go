@@ -60,7 +60,44 @@ func (e *Engine) playerLoses(p state.PlayerID, reason, text string) bool {
 		return false
 	}
 	e.emit(events.Event{Kind: events.PlayerLost, Player: p, Text: text})
+	e.initiativeHandoffOnDeparture(p)
 	return true
+}
+
+// initiativeHandoffOnDeparture implements CR 726.4: "If the player who has
+// the initiative leaves the game, the active player takes the initiative at
+// the same time that player leaves the game. If the active player is leaving
+// the game or if there is no active player, the next player in turn order
+// takes the initiative." It runs immediately after the seat's PlayerLost has
+// been emitted (so the fold has already marked it Lost) from the ONE loss
+// gate below; the concede option calls it too, because CR 104.3a's
+// "a player may concede at any time" deliberately bypasses this gate while
+// still being a way a player leaves the game.
+//
+// The new holder "takes the initiative" -- the same action CR 726.2's
+// inherent ability listens for -- so the handoff also queues the CR 726.2
+// venture for the new holder, exactly as the combat-damage take does
+// (rules/combat.go). CR 726.5 confirms the reading: a designation move by an
+// already-holder still causes that trigger. When no other seat is alive the
+// handoff is skipped rather than emitting a designation naming a departed
+// seat. No game-state field is written here: the single-holder move is the
+// ordinary InitiativeChange fold (CR 726.3).
+func (e *Engine) initiativeHandoffOnDeparture(p state.PlayerID) {
+	if e.G.Over || !e.G.HasInitiative || e.G.Initiative != p {
+		return
+	}
+	next := e.G.Active
+	if !(int(next) >= 0 && int(next) < len(e.G.Players) && next != p && !e.G.Players[next].Lost) {
+		next = e.G.NextAlive(p) // next in turn order that is still in the game
+	}
+	if next == p || e.G.Players[next].Lost {
+		// No other seat can take the designation; leave it unset rather
+		// than hand it to a seat that has left the game.
+		return
+	}
+	e.emit(events.Event{Kind: events.InitiativeChange, Player: next})
+	e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
+		Controller: next, InitiativeVenture: true})
 }
 
 // playerWins is the one funnel for an alternate win ("you win the game", the

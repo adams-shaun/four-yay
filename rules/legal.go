@@ -4401,6 +4401,11 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		// tail Advance continues the match with the Lost seat skipped
 		// everywhere (grantPriority, NextAlive, beginTurn).
 		e.emit(events.Event{Kind: events.PlayerLost, Player: in.Player, Text: "conceded"})
+		// CR 726.4 (task ds4-cr726.4): a concession is a way a player leaves
+		// the game, so the initiative handoff runs here too -- the concede path
+		// deliberately bypasses the playerLoses gate (CR 104.3a), which is why
+		// this is its own call rather than one inside the gate.
+		e.initiativeHandoffOnDeparture(in.Player)
 		e.checkStateBased()
 
 	case "station":
