@@ -1,0 +1,408 @@
+{
+  "name": "Scam.EXE|| Rakdos the Muscle cEDH — Saitin",
+  "format": "commander",
+  "commander": "Rakdos, the Muscle",
+  "notes": "Moxfield ev1ALilkekSHpx-D6bG6Og; supplied snapshot updated 2026-01-07. Research only, not a supported repo deck.",
+  "cards": [
+    {
+      "name": "Rakdos, the Muscle",
+      "count": 1
+    },
+    {
+      "name": "\"Name Sticker\" Goblin",
+      "count": 1
+    },
+    {
+      "name": "Ancient Tomb",
+      "count": 1
+    },
+    {
+      "name": "Arcane Signet",
+      "count": 1
+    },
+    {
+      "name": "Arid Mesa",
+      "count": 1
+    },
+    {
+      "name": "Ashnod's Altar",
+      "count": 1
+    },
+    {
+      "name": "Atsushi, the Blazing Sky",
+      "count": 1
+    },
+    {
+      "name": "Badlands",
+      "count": 1
+    },
+    {
+      "name": "Blazemire Verge",
+      "count": 1
+    },
+    {
+      "name": "Blood Crypt",
+      "count": 1
+    },
+    {
+      "name": "Blood Pet",
+      "count": 1
+    },
+    {
+      "name": "Bloodstained Mire",
+      "count": 1
+    },
+    {
+      "name": "Boggart Trawler // Boggart Bog",
+      "count": 1
+    },
+    {
+      "name": "Buried Alive",
+      "count": 1
+    },
+    {
+      "name": "Burnt Offering",
+      "count": 1
+    },
+    {
+      "name": "Cabal Ritual",
+      "count": 1
+    },
+    {
+      "name": "Cabal Therapy",
+      "count": 1
+    },
+    {
+      "name": "Cavern of Souls",
+      "count": 1
+    },
+    {
+      "name": "Charming Scoundrel",
+      "count": 1
+    },
+    {
+      "name": "Chrome Mox",
+      "count": 1
+    },
+    {
+      "name": "Chthonian Nightmare",
+      "count": 1
+    },
+    {
+      "name": "City of Brass",
+      "count": 1
+    },
+    {
+      "name": "Command Tower",
+      "count": 1
+    },
+    {
+      "name": "Crystal Vein",
+      "count": 1
+    },
+    {
+      "name": "Culling the Weak",
+      "count": 1
+    },
+    {
+      "name": "Dargo, the Shipwrecker",
+      "count": 1
+    },
+    {
+      "name": "Dark Ritual",
+      "count": 1
+    },
+    {
+      "name": "Deflecting Swat",
+      "count": 1
+    },
+    {
+      "name": "Demonic Tutor",
+      "count": 1
+    },
+    {
+      "name": "Diabolic Intent",
+      "count": 1
+    },
+    {
+      "name": "Entomb",
+      "count": 1
+    },
+    {
+      "name": "Flamekin Harbinger",
+      "count": 1
+    },
+    {
+      "name": "Flare of Duplication",
+      "count": 1
+    },
+    {
+      "name": "Forsaken Miner",
+      "count": 1
+    },
+    {
+      "name": "Fury",
+      "count": 1
+    },
+    {
+      "name": "Gamble",
+      "count": 1
+    },
+    {
+      "name": "Gleaming Barrier",
+      "count": 1
+    },
+    {
+      "name": "Goblin Recruiter",
+      "count": 1
+    },
+    {
+      "name": "Golgari Thug",
+      "count": 1
+    },
+    {
+      "name": "Greedy Freebooter",
+      "count": 1
+    },
+    {
+      "name": "Grief",
+      "count": 1
+    },
+    {
+      "name": "Grim Monolith",
+      "count": 1
+    },
+    {
+      "name": "Hexing Squelcher",
+      "count": 1
+    },
+    {
+      "name": "Imperial Seal",
+      "count": 1
+    },
+    {
+      "name": "Impulsive Pilferer",
+      "count": 1
+    },
+    {
+      "name": "Infernal Plunge",
+      "count": 1
+    },
+    {
+      "name": "Ingot Chewer",
+      "count": 1
+    },
+    {
+      "name": "Jet Medallion",
+      "count": 1
+    },
+    {
+      "name": "K'rrik, Son of Yawgmoth",
+      "count": 1
+    },
+    {
+      "name": "Lion's Eye Diamond",
+      "count": 1
+    },
+    {
+      "name": "Lotus Petal",
+      "count": 1
+    },
+    {
+      "name": "Luxury Suite",
+      "count": 1
+    },
+    {
+      "name": "Mana Confluence",
+      "count": 1
+    },
+    {
+      "name": "Mana Vault",
+      "count": 1
+    },
+    {
+      "name": "Marsh Flats",
+      "count": 1
+    },
+    {
+      "name": "Master of Dark Rites",
+      "count": 1
+    },
+    {
+      "name": "Mount Doom",
+      "count": 1
+    },
+    {
+      "name": "Mountain",
+      "count": 1
+    },
+    {
+      "name": "Myr Moonvessel",
+      "count": 1
+    },
+    {
+      "name": "Opposition Agent",
+      "count": 1
+    },
+    {
+      "name": "Orcish Bowmasters",
+      "count": 1
+    },
+    {
+      "name": "Party Thrasher",
+      "count": 1
+    },
+    {
+      "name": "Phyrexian Altar",
+      "count": 1
+    },
+    {
+      "name": "Phyrexian Tower",
+      "count": 1
+    },
+    {
+      "name": "Pinnacle Monk // Mystic Peak",
+      "count": 1
+    },
+    {
+      "name": "Polluted Delta",
+      "count": 1
+    },
+    {
+      "name": "Poxwalkers",
+      "count": 1
+    },
+    {
+      "name": "Priest of Gix",
+      "count": 1
+    },
+    {
+      "name": "Priest of Urabrask",
+      "count": 1
+    },
+    {
+      "name": "Pyroblast",
+      "count": 1
+    },
+    {
+      "name": "Ragavan, Nimble Pilferer",
+      "count": 1
+    },
+    {
+      "name": "Reanimate",
+      "count": 1
+    },
+    {
+      "name": "Reckless Barbarian",
+      "count": 1
+    },
+    {
+      "name": "Red Elemental Blast",
+      "count": 1
+    },
+    {
+      "name": "Redirect Lightning",
+      "count": 1
+    },
+    {
+      "name": "Sacrifice",
+      "count": 1
+    },
+    {
+      "name": "Scalding Tarn",
+      "count": 1
+    },
+    {
+      "name": "Sephiroth, Fabled SOLDIER // Sephiroth, One-Winged Angel",
+      "count": 1
+    },
+    {
+      "name": "Shambling Ghast",
+      "count": 1
+    },
+    {
+      "name": "Shriekmaw",
+      "count": 1
+    },
+    {
+      "name": "Simian Spirit Guide",
+      "count": 1
+    },
+    {
+      "name": "Skirk Prospector",
+      "count": 1
+    },
+    {
+      "name": "Skittering Precursor",
+      "count": 1
+    },
+    {
+      "name": "Sol Ring",
+      "count": 1
+    },
+    {
+      "name": "Songs of the Damned",
+      "count": 1
+    },
+    {
+      "name": "Spider-Punk",
+      "count": 1
+    },
+    {
+      "name": "Starting Town",
+      "count": 1
+    },
+    {
+      "name": "Sulfurous Springs",
+      "count": 1
+    },
+    {
+      "name": "Swamp",
+      "count": 1
+    },
+    {
+      "name": "Talisman of Indulgence",
+      "count": 1
+    },
+    {
+      "name": "Timeline Culler",
+      "count": 1
+    },
+    {
+      "name": "Treasonous Ogre",
+      "count": 1
+    },
+    {
+      "name": "Umbral Collar Zealot",
+      "count": 1
+    },
+    {
+      "name": "Underworld Breach",
+      "count": 1
+    },
+    {
+      "name": "Vampiric Tutor",
+      "count": 1
+    },
+    {
+      "name": "Verdant Catacombs",
+      "count": 1
+    },
+    {
+      "name": "Viscera Seer",
+      "count": 1
+    },
+    {
+      "name": "Warren Soultrader",
+      "count": 1
+    },
+    {
+      "name": "Wishclaw Talisman",
+      "count": 1
+    },
+    {
+      "name": "Wooded Foothills",
+      "count": 1
+    }
+  ]
+}
