@@ -163,7 +163,7 @@ func DefaultTacticalWeights() TacticalWeights {
 
 		EarlyTurns: 4, EarlyDraw: 1.5, EarlyRamp: 2.5, KeyPiece: 3,
 
-		HoldReactive: 8, WaitEOT: 4, KeepUp: 1.0, PostCombat: 20, KillAttacker: 3,
+		HoldReactive: 8, WaitEOT: 4, KeepUp: 1.0, PostCombat: 0, KillAttacker: 3,
 
 		FaceAhead: 1.3, FaceBehind: 0.6, ClockTurn: 4, Lethal: 1000,
 	}
@@ -317,22 +317,6 @@ func (t *tactical) pickPriority(v view.View, d *decision.Decision, cands []cand)
 			st.myLife, st.oppLife, st.meP.LibrarySize, st.oppP.LibrarySize, st.myClock, st.oppClock, t.candLabel(st, d, cands[best]), strings.Join(line, " "))
 	}
 	return best
-}
-
-// hasTokenFodder reports whether we control a token-like permanent (a
-// clue, food, blood, treasure, map or spawn) to feed a sacrifice cost.
-func (s *tstate) hasTokenFodder() bool {
-	for i := range s.meP.Battlefield {
-		cv := &s.meP.Battlefield[i]
-		switch cv.Name {
-		case "Clue", "Food", "Blood", "Treasure", "Map", "Eldrazi Spawn", "Eldrazi Scion":
-			return true
-		}
-		if strings.HasSuffix(cv.Name, " Token") {
-			return true
-		}
-	}
-	return false
 }
 
 // zoneOf reports which of our zones holds obj ("hand", "graveyard",

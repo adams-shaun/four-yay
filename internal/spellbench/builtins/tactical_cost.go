@@ -106,9 +106,8 @@ func sacMatches(typ string, cv *view.CardView) bool {
 
 // permValue is what losing one of our permanents costs.
 func (t *tactical) permValue(s *tstate, cv *view.CardView) float64 {
-	switch cv.Name {
-	case "Clue", "Food", "Blood", "Treasure", "Map", "Eldrazi Spawn", "Eldrazi Scion", "Lotus Petal":
-		return t.w.SacToken
+	if t.profile(cv).consumable {
+		return t.w.SacToken // a permanent built to be sacrificed (clue, food, treasure, petal)
 	}
 	if c := s.cre[cv.ID]; c != nil {
 		return s.creValue(c)

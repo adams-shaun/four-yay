@@ -127,6 +127,7 @@ type tProfile struct {
 	flashbackCost                       string // the Flashback keyword's cost
 	affinity                            bool
 	xCost                               bool
+	consumable                          bool // a noncreature, nonland permanent with a sacrifice-itself ability
 }
 
 // reactive reports whether a card's natural use is on the opponent's turn or
@@ -248,8 +249,11 @@ func profileOf(c *cards.Card) *tProfile {
 			ab.fromGY = true
 		}
 		ab.ninjutsu = a.Params["Keyword"] == "Ninjutsu"
-		if ab.mana && p.permanent && !p.land {
+		if ab.mana && p.permanent && !p.land && !ab.sacSelf {
 			p.manaSource = true
+		}
+		if ab.sacSelf && p.permanent && !p.creature && !p.land {
+			p.consumable = true
 		}
 		p.abilities[i] = ab
 	}
@@ -308,6 +312,9 @@ func chainEffects(f *cards.Face, sa *cards.SA, kicked bool) []tEffect {
 					break
 				}
 			}
+		}
+		if strings.Contains(e.valid, "cmcLEX") {
+			e.xExpr = f.SVars["X"] // "mana value X or less": X is the card's own SVar
 		}
 		if e.class != effOther || sa.API != "" {
 			out = append(out, e)

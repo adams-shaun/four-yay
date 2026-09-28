@@ -487,9 +487,6 @@ func (t *tactical) damageAmount(s *tstate, e *tEffect, p *tProfile) int32 {
 	if n, ok := s.countExpr(e.xExpr); ok {
 		return n
 	}
-	if p != nil && p.name == "Galvanic Blast" && s.artifacts() >= 3 {
-		return 4
-	}
 	return 2
 }
 
@@ -510,7 +507,7 @@ func (t *tactical) counterValue(s *tstate, e *tEffect, src state.ObjID) float64 
 		return -50 // nothing of theirs to counter: never counter our own
 	}
 	cv := f.Card
-	if !counterAdmits(s, e.valid, cv) {
+	if !counterAdmits(s, e, cv, src) {
 		return -50
 	}
 	mv := float64(t.profile(cv).cmc)
@@ -528,20 +525,25 @@ func (t *tactical) counterValue(s *tstate, e *tEffect, src state.ObjID) float64 
 }
 
 // counterAdmits checks the few ValidTgts shapes counterspells print.
-func counterAdmits(s *tstate, valid string, cv *view.CardView) bool {
+func counterAdmits(s *tstate, e *tEffect, cv *view.CardView, src state.ObjID) bool {
+	valid := e.valid
 	switch {
 	case valid == "Instant":
 		return strings.Contains(cv.Types, "Instant")
 	case strings.Contains(valid, "nonCreature"):
 		return !isCreatureTypes(cv.Types)
 	case strings.Contains(valid, "cmcLEX"):
-		faeries := int32(1) // the Sprite itself
-		for _, c := range s.mine {
-			if strings.Contains(c.cv.Types, "Faerie") {
-				faeries++
-			}
+		// "mana value X or less", X the card's own count SVar (Spellstutter
+		// Sprite: Count$Valid Faerie.YouCtrl), counting the source itself
+		// when it is still being cast from hand.
+		x, ok := s.countExpr(e.xExpr)
+		if !ok {
+			return true
 		}
-		return botpolicyCMC(cv.ManaCost) <= faeries
+		if s.zoneOf(src) == "hand" {
+			x++
+		}
+		return botpolicyCMC(cv.ManaCost) <= x
 	}
 	return true
 }
