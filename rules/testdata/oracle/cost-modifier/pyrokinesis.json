@@ -1,0 +1,57 @@
+{
+  "card": "Pyrokinesis",
+  "family": "cost-modifier",
+  "oracle_sha": "b0fc3b04fa30",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "alt-cost-exiles-a-red-card",
+      "cr": ["118.9", "601.2b", "601.2d"],
+      "why": "Exiling a red card from hand is the alternative cost, so with no mana seat 0 exiles Lightning Bolt and Pyrokinesis deals all 4 damage to the single target Grizzly Bears, destroying it.",
+      "setup": {
+        "p0": {"hand": ["Pyrokinesis", "Lightning Bolt"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Pyrokinesis", "targets": ["p1:Grizzly Bears"],
+         "answers": [{"kind": "any", "pick": ["p0:Lightning Bolt"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "exile"},
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "alt-cost-needs-a-red-card",
+      "cr": ["118.9", "601.2b"],
+      "why": "No red card is in hand to exile and the pool is empty, so Pyrokinesis is not offered even with a legal creature target.",
+      "setup": {
+        "p0": {"hand": ["Pyrokinesis"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Pyrokinesis"}, "want": false}
+      ]
+    },
+    {
+      "name": "mana-cost-path-keeps-the-red-card",
+      "cr": ["118.9", "601.2f", "601.2d"],
+      "why": "With four generic and two red the {4}{R}{R} mana cost is paid instead: Lightning Bolt stays in hand and the 4 damage is dealt to the target.",
+      "setup": {
+        "p0": {"hand": ["Pyrokinesis", "Lightning Bolt"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "RRCCCC"},
+        {"op": "cast", "seat": 0, "card": "p0:Pyrokinesis", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "hand"},
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "card": "Mogg Salvage",
+  "family": "cost-modifier",
+  "oracle_sha": "1c1f44aff9d1",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "condition-true-cast-without-paying",
+      "cr": ["118.9", "118.9b", "601.2b"],
+      "why": "An opponent controls an Island (seat 1) and seat 0 controls a Mountain, so the condition holds and Mogg Salvage may be cast without paying its mana cost: with an empty pool it still resolves and destroys the artifact.",
+      "setup": {
+        "p0": {"hand": ["Mogg Salvage"], "battlefield": ["Mountain"]},
+        "p1": {"battlefield": ["Island", "Sol Ring"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Mogg Salvage", "targets": ["p1:Sol Ring"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Sol Ring", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "condition-false-opponent-has-no-island",
+      "cr": ["118.9", "118.9b", "601.2b"],
+      "why": "An opponent must control an Island; seat 1 controls none, so the free cast is unavailable and, with an empty pool, the spell is not offered.",
+      "setup": {
+        "p0": {"hand": ["Mogg Salvage"], "battlefield": ["Mountain"]},
+        "p1": {"battlefield": ["Sol Ring"]}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Mogg Salvage"}, "want": false}
+      ]
+    },
+    {
+      "name": "condition-false-no-own-mountain",
+      "cr": ["118.9", "118.9b", "601.2b"],
+      "why": "Seat 0 must control a Mountain; it controls none, so the free cast is unavailable and, with an empty pool, the spell is not offered.",
+      "setup": {
+        "p0": {"hand": ["Mogg Salvage"]},
+        "p1": {"battlefield": ["Island", "Sol Ring"]}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Mogg Salvage"}, "want": false}
+      ]
+    },
+    {
+      "name": "condition-false-still-castable-for-mana",
+      "cr": ["118.9", "601.2f"],
+      "why": "The free cast is conditional but the mana cost is not: without the opponent's Island, seat 0 pays {2}{R} and still destroys the artifact.",
+      "setup": {
+        "p0": {"hand": ["Mogg Salvage"], "battlefield": ["Mountain"]},
+        "p1": {"battlefield": ["Sol Ring"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "RCC"},
+        {"op": "cast", "seat": 0, "card": "p0:Mogg Salvage", "targets": ["p1:Sol Ring"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Sol Ring", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "card": "Thunderclap",
+  "family": "cost-modifier",
+  "oracle_sha": "e19e87dbc967",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "alt-cost-sacrifices-a-mountain",
+      "cr": ["118.9", "601.2b", "601.2h"],
+      "why": "Sacrificing a Mountain is the alternative cost, so with no mana seat 0 sacrifices its Mountain and Thunderclap deals 3 to the 3/3 Centaur Courser, destroying it.",
+      "setup": {
+        "p0": {"hand": ["Thunderclap"], "battlefield": ["Mountain"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Thunderclap", "targets": ["p1:Centaur Courser"],
+         "answers": [{"kind": "any", "pick": ["p0:Mountain"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Mountain", "zone": "graveyard"},
+        {"card": "p1:Centaur Courser", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "alt-cost-needs-a-mountain",
+      "cr": ["118.9", "601.2b"],
+      "why": "Seat 0 controls no Mountain to sacrifice and the pool is empty, so Thunderclap is not offered even with a creature to target.",
+      "setup": {
+        "p0": {"hand": ["Thunderclap"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Thunderclap"}, "want": false}
+      ]
+    },
+    {
+      "name": "mana-cost-path-keeps-the-mountain",
+      "cr": ["118.9", "601.2f"],
+      "why": "With two generic and one red the {2}{R} mana cost is paid instead, the Mountain stays on the battlefield, and the Courser still dies to 3 damage.",
+      "setup": {
+        "p0": {"hand": ["Thunderclap"], "battlefield": ["Mountain"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "RCC"},
+        {"op": "cast", "seat": 0, "card": "p0:Thunderclap", "targets": ["p1:Centaur Courser"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Mountain", "zone": "battlefield"},
+        {"card": "p1:Centaur Courser", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

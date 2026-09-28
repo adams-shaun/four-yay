@@ -1,0 +1,64 @@
+{
+  "card": "Commandeer",
+  "family": "cost-modifier",
+  "oracle_sha": "bb39819acd65",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "alt-cost-exiles-two-blue-cards",
+      "cr": ["118.9", "118.9a", "601.2b"],
+      "why": "The alternative cost is exiling two blue cards from hand. Seat 0 has Counterspell and Ponder, so with no mana Commandeer is payable: it takes control of seat 0's own Lightning Bolt (a noncreature spell), which then still resolves for 3.",
+      "setup": {
+        "p0": {"hand": ["Commandeer", "Counterspell", "Ponder", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "cast", "seat": 0, "card": "p0:Commandeer", "targets": ["p0:Lightning Bolt"],
+         "answers": [{"kind": "any", "pick": ["p0:Counterspell", "p0:Ponder"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Counterspell", "zone": "exile"},
+        {"card": "p0:Ponder", "zone": "exile"},
+        {"life": {"p0": 20}},
+        {"life": {"p1": 17}}
+      ]
+    },
+    {
+      "name": "alt-cost-needs-two-blue-cards",
+      "cr": ["118.9", "601.2b"],
+      "why": "One blue card (Counterspell) is not enough to exile two, and the pool is empty, so Commandeer cannot be cast at all even though a noncreature spell is on the stack to target.",
+      "setup": {
+        "p0": {"hand": ["Commandeer", "Counterspell", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Commandeer"}, "want": false}
+      ]
+    },
+    {
+      "name": "mana-cost-path-keeps-blue-cards",
+      "cr": ["118.9", "601.2f"],
+      "why": "With five generic and two blue mana the {5}{U}{U} mana cost is paid instead: no card is exiled, Commandeer takes control of the Bolt, and the Bolt still resolves for 3.",
+      "setup": {
+        "p0": {"hand": ["Commandeer", "Counterspell", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "mana", "seat": 0, "mana": "UUCCCCC"},
+        {"op": "cast", "seat": 0, "card": "p0:Commandeer", "targets": ["p0:Lightning Bolt"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Counterspell", "zone": "hand"},
+        {"life": {"p0": 20}},
+        {"life": {"p1": 17}}
+      ]
+    }
+  ]
+}
