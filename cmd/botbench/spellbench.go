@@ -34,10 +34,19 @@ package main
 //
 // A builtin (sb-*) seat whose answer the engine refuses (a whole-declaration
 // constraint the wire does not publish, e.g. a lone blocker on a menace
-// attacker) is answered by a fallback instead of halting the game: the
-// minimal answer (pass, or the clamped empty answer), else the default bot's
-// answer. Every fallback is counted per policy and reported. Any other
-// seat's refused answer halts the game.
+// attacker) is asked again first (builtins.Seat.Refused: at priority the
+// policy's next choice with the refused option withdrawn, never a bare
+// pass); only if that is refused too does a fallback answer: the minimal
+// answer (pass, or the clamped empty answer), else the default bot's
+// answer. Every refusal and fallback is counted per policy and reported.
+// Any other seat's refused answer halts the game.
+//
+// Builtin seats get the engine as their potential-play planner
+// (builtins.Seat.SetPlanner, rules.Engine.PotentialPaymentPlans): a pure
+// read of the seat's own pool and sources at the decision it answers. The
+// summary reports, per policy, the plays lost (chosen, payable, not taken),
+// the lowering recoveries (re-plans, yields, stack waits) and the plays the
+// planner proved unpayable.
 
 import (
 	"crypto/sha256"
@@ -65,6 +74,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/view"
 )
 
 // sbOpts are the -spellbench-* flags.
@@ -184,13 +194,19 @@ func sbSubmitWithFallback(seats []seat.Seat, res *sbResult) func(*rules.Engine, 
 		if err == nil {
 			return true, nil
 		}
-		if _, ok := seats[seatIdx].(*builtins.Seat); !ok {
+		b, ok := seats[seatIdx].(*builtins.Seat)
+		if !ok {
 			return true, err
 		}
-		res.fallbacks[seatIdx]++
 		if res.rejects[seatIdx] == "" {
 			res.rejects[seatIdx] = fmt.Sprintf("%s: %v", d.Kind, err)
 		}
+		v := view.Project(e.G, e, d.Player, d)
+		v.Round = view.RoundOf(e.G, e.L.Events)
+		if e.Submit(b.Refused(v, *d, in)) == nil {
+			return true, nil
+		}
+		res.fallbacks[seatIdx]++
 		fb := decision.Intent{Seq: d.Seq, Player: d.Player}
 		if d.Kind == decision.KPriority {
 			for _, o := range d.Options {
@@ -226,7 +242,13 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
 		Tokens: reg.Tokens, NameUniverse: reg.Cards,
 	}
-	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res)}
+	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res), Setup: func(e *rules.Engine) {
+		for _, st := range seats {
+			if b, ok := st.(*builtins.Seat); ok {
+				b.SetPlanner(e)
+			}
+		}
+	}}
 	if maxTurnIntents > 0 {
 		hooks.Guard = turnIntentGuard(maxTurnIntents)
 	}
@@ -611,6 +633,11 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 			n, seatGames[n], fallbacks[n], ps.Pursuits, ps.PursuitTaps, ps.PursuitFailures)
 		sg := float64(seatGames[n])
 		fmt.Fprintf(w, "       %-22s game intents/game %7.1f  own decisions/game %7.1f\n", "", float64(seatIntents[n])/sg, float64(ps.Decisions)/sg)
+		if ps.Decisions > 0 {
+			fmt.Fprintf(w, "       %-22s LEGAL ACTIONS LOST %4d  (recovered %d; pursuit failures priced %d / unpriced %d; proven-unpayable plays skipped %d; refusals %d; autopay fallbacks %d)\n", "",
+				ps.LostPlays, ps.RecoveredPlays, ps.PursuitFailuresPriced, ps.PursuitFailures-ps.PursuitFailuresPriced,
+				ps.ExcludedUnpayable, ps.Refusals, ps.AutoPayFallbacks)
+		}
 		if ps.Lowerings > 0 {
 			var causes []string
 			for k := range ps.AbortsByCause {
@@ -621,8 +648,9 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 			for _, k := range causes {
 				cs = append(cs, fmt.Sprintf("%s=%d", k, ps.AbortsByCause[k]))
 			}
-			fmt.Fprintf(w, "       %-22s lowerings %5d  cast %5d  aborted %4d (passes %4d) [%s]  taps %5d  mana asks %4d\n", "",
-				ps.Lowerings, ps.LoweredCasts, ps.Aborts, ps.AbortPasses, strings.Join(cs, " "), ps.LoweringTaps, ps.LoweringAsks)
+			fmt.Fprintf(w, "       %-22s lowerings %5d (abilities %d)  cast %5d  abilities %4d  aborted %4d (re-planned %d, passes %4d) [%s]  taps %5d  mana asks %4d  yields %d  stack waits %d\n", "",
+				ps.Lowerings, ps.AbilityLowerings, ps.LoweredCasts, ps.LoweredAbilities, ps.Aborts, ps.Replans, ps.AbortPasses, strings.Join(cs, " "),
+				ps.LoweringTaps, ps.LoweringAsks, ps.LoweringYields, ps.LoweringWaits)
 			for _, a := range ps.AbortSamples {
 				fmt.Fprintf(w, "       %-22s   abort: %s\n", "", a)
 			}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -353,8 +354,8 @@ func TestPlannedLowersTheChosenCast(t *testing.T) {
 	if in.Payment != nil || len(in.Choices) != 1 || d.Options[in.Choices[0]].Obj != 21 {
 		t.Fatalf("first answer should tap source 21, got %+v", in)
 	}
-	if s.WantsPaymentActions() {
-		t.Fatal("a lowering seat needs no plans")
+	if !s.WantsPaymentActions() {
+		t.Fatal("a lowering seat still wants plans (to re-plan on an abort)")
 	}
 	p.Pool = map[string]int32{"G": 1}
 	d2 := prio(opt(0, "activate", 20), opt(1, "activate", 22), opt(2, "pass", 0))
@@ -377,8 +378,9 @@ func TestPlannedLowersTheChosenCast(t *testing.T) {
 		t.Fatalf("stats %+v", s.Stats)
 	}
 
-	// Divergence: the second source is no longer offered. The seat passes
-	// (counted) instead of guessing another tap.
+	// Divergence: the second source is no longer offered and nothing
+	// re-plans the cast. The seat passes (counted, and the cast is a lost
+	// play) instead of guessing another tap.
 	s = New(Heuristic, Planned, 1)
 	p.Pool = nil
 	decide(t, s, v, d)
@@ -387,7 +389,7 @@ func TestPlannedLowersTheChosenCast(t *testing.T) {
 	if in = decide(t, s, v, bare); !reflect.DeepEqual(in.Choices, []int{1}) {
 		t.Fatalf("abort should pass, got %+v", in)
 	}
-	if s.Stats.Aborts != 1 || s.Stats.AbortPasses != 1 || s.Stats.AbortsByCause["activate_not_offered"] != 1 {
+	if s.Stats.Aborts != 1 || s.Stats.AbortPasses != 1 || s.Stats.AbortsByCause["activate_not_offered"] != 1 || s.Stats.LostPlays != 1 {
 		t.Fatalf("stats %+v", s.Stats)
 	}
 	if !s.WantsPaymentActions() {
@@ -435,5 +437,131 @@ func TestPlannedDeterminism(t *testing.T) {
 	}
 	if !reflect.DeepEqual(a, run(AutoPay, 42)) {
 		t.Fatal("Planned and AutoPay choose differently on a plan-free surface")
+	}
+}
+
+// TestPlannedReplansFromTheHeldPool: a lowering that aborts (a source no
+// longer offered) re-plans the same cast from the decision's fresh plan --
+// priced from the pool it now holds -- and completes it: the play is
+// recovered, not lost.
+func TestPlannedReplansFromTheHeldPool(t *testing.T) {
+	v := view.View{Turn: 3, Step: "main1"}
+	p := me(&v)
+	g := decision.ManaAmount{0, 0, 0, 0, 1, 0}
+	plan := decision.PaymentPlan{Activations: []decision.PaymentActivation{{Source: 21, Produces: g}, {Source: 22, Produces: g}}}
+	d := prio(opt(0, "activate", 21), opt(1, "activate", 22), opt(2, "activate", 23), opt(3, "pass", 0))
+	d.PaymentActions = []decision.PaymentAction{{ID: "a1", Cast: decision.PlannedCast{Object: 10}, Plans: []decision.PaymentPlan{plan}}}
+	s := New(Heuristic, Planned, 1)
+	decide(t, s, v, d)
+	// Source 22 vanished; the planner's fresh plan uses 23 on top of the
+	// floating G.
+	p.Pool = map[string]int32{"G": 1}
+	fresh := decision.PaymentPlan{Activations: []decision.PaymentActivation{{Source: 23, Produces: g}}}
+	d2 := prio(opt(0, "activate", 23), opt(1, "pass", 0))
+	d2.PaymentActions = []decision.PaymentAction{{ID: "a2", Cast: decision.PlannedCast{Object: 10}, Plans: []decision.PaymentPlan{fresh}}}
+	if in := decide(t, s, v, d2); !reflect.DeepEqual(in.Choices, []int{0}) {
+		t.Fatalf("re-plan should tap 23, got %+v", in)
+	}
+	p.Pool = map[string]int32{"G": 2}
+	d3 := prio(opt(0, "cast", 10), opt(1, "pass", 0))
+	if in := decide(t, s, v, d3); !reflect.DeepEqual(in.Choices, []int{0}) {
+		t.Fatalf("re-planned lowering should cast, got %+v", in)
+	}
+	if s.Stats.Replans != 1 || s.Stats.LoweredCasts != 1 || s.Stats.LostPlays != 0 || s.Stats.RecoveredPlays != 1 {
+		t.Fatalf("stats %+v", s.Stats)
+	}
+}
+
+// TestLoweringYieldsForeignAsks: a trigger-order ask mid-lowering goes to
+// the policy; the lowering resumes at the next priority decision.
+func TestLoweringYieldsForeignAsks(t *testing.T) {
+	v := view.View{Turn: 3, Step: "main1"}
+	p := me(&v)
+	c := decision.ManaAmount{0, 0, 0, 0, 0, 1}
+	plan := decision.PaymentPlan{Activations: []decision.PaymentActivation{{Source: 21, Produces: c, Consequence: &decision.PaymentConsequence{Sacrifice: true}}}}
+	d := prio(opt(0, "activate", 21), opt(1, "pass", 0))
+	d.PaymentActions = []decision.PaymentAction{{ID: "a1", Cast: decision.PlannedCast{Object: 10}, Plans: []decision.PaymentPlan{plan}}}
+	s := New(Heuristic, Planned, 1)
+	decide(t, s, v, d)
+	order := decision.Decision{Seq: 7, Kind: decision.KTriggerOrder, Min: 2, Max: 2, Options: []decision.Option{
+		{Index: 0, Kind: "trigger"}, {Index: 1, Kind: "trigger"},
+	}}
+	if in := decide(t, s, v, order); len(in.Choices) != 2 {
+		t.Fatalf("policy should order the triggers, got %+v", in)
+	}
+	// The triggers now hold the cast: the lowering waits, then casts.
+	p.Pool = map[string]int32{"C": 1}
+	v.Stack = []view.StackView{{Kind: "trigger"}, {Kind: "trigger"}}
+	if in := decide(t, s, v, prio(opt(0, "pass", 0))); !reflect.DeepEqual(in.Choices, []int{0}) {
+		t.Fatalf("waiting lowering should pass, got %+v", in)
+	}
+	v.Stack = nil
+	if in := decide(t, s, v, prio(opt(0, "pass", 0), opt(1, "cast", 10))); !reflect.DeepEqual(in.Choices, []int{1}) {
+		t.Fatalf("lowering should cast after the stack resolved, got %+v", in)
+	}
+	if s.Stats.LoweringYields != 1 || s.Stats.LoweringWaits != 1 || s.Stats.LoweredCasts != 1 || s.Stats.Aborts != 0 {
+		t.Fatalf("stats %+v", s.Stats)
+	}
+}
+
+// fakePlanner answers PotentialPaymentPlans from a fixed list.
+type fakePlanner struct {
+	plans []rules.PotentialPlan
+	calls int
+}
+
+func (f *fakePlanner) PotentialPaymentPlans(state.PlayerID) []rules.PotentialPlan {
+	f.calls++
+	return f.plans
+}
+
+// TestPlannerAbilityWitnessAndProof: with a planner, a potential ability it
+// can pay is lowered from its witness (no naive pursuit) in every
+// mana-hiding mode, and a play it proves unpayable is no candidate.
+func TestPlannerAbilityWitnessAndProof(t *testing.T) {
+	for _, m := range []ManaMode{AutoPay, Planned} {
+		v := view.View{Turn: 3, Step: "main1"}
+		p := me(&v)
+		w := decision.ManaAmount{1, 0, 0, 0, 0, 0}
+		p.PotentialActions = []decision.PotentialAction{{Kind: "ability", Obj: 40, Ability: 2}, {Kind: "cast", Obj: 50}}
+		fp := &fakePlanner{plans: []rules.PotentialPlan{
+			{Action: decision.PotentialAction{Kind: "ability", Obj: 40, Ability: 2},
+				Plan: &decision.PaymentPlan{Activations: []decision.PaymentActivation{{Source: 22, Produces: w}}}},
+			{Action: decision.PotentialAction{Kind: "cast", Obj: 50}, Reason: "insufficient"},
+		}}
+		s := New(Heuristic, m, 1)
+		s.SetPlanner(fp)
+		d := prio(opt(0, "activate", 21), opt(1, "activate", 22), opt(2, "pass", 0))
+		if in := decide(t, s, v, d); d.Options[in.Choices[0]].Obj != 22 {
+			t.Fatalf("%v: should tap the witness source 22, got %+v", m, in)
+		}
+		p.Pool = map[string]int32{"W": 1}
+		d2 := prio(decision.Option{Index: 0, Kind: "ability", Obj: 40, Ability: 2}, opt(1, "pass", 0))
+		if in := decide(t, s, v, d2); !reflect.DeepEqual(in.Choices, []int{0}) {
+			t.Fatalf("%v: should activate the ability, got %+v", m, in)
+		}
+		if s.Stats.Pursuits != 0 || s.Stats.LoweredAbilities != 1 || s.Stats.ExcludedUnpayable != 1 || fp.calls != 1 {
+			t.Fatalf("%v: stats %+v planner calls %d", m, s.Stats, fp.calls)
+		}
+	}
+}
+
+// TestRefusedRetriesTheNextChoice: a refused priority answer is answered
+// again with the policy's next choice, not a pass.
+func TestRefusedRetriesTheNextChoice(t *testing.T) {
+	v := view.View{}
+	me(&v)
+	d := prio(opt(0, "cast", 10), opt(1, "ability", 40), opt(2, "pass", 0))
+	s := New(Heuristic, AutoPay, 1)
+	in := decide(t, s, v, d)
+	if d.Options[in.Choices[0]].Kind != "cast" {
+		t.Fatalf("first choice %+v", in)
+	}
+	re := s.Refused(v, d, in)
+	if re.Seq != d.Seq || len(re.Choices) != 1 || d.Options[re.Choices[0]].Kind != "ability" {
+		t.Fatalf("retry %+v, want the ability", re)
+	}
+	if s.Stats.Refusals != 1 {
+		t.Fatalf("stats %+v", s.Stats)
 	}
 }
