@@ -633,6 +633,75 @@ published ledger's 7 halted games are a different, bridge-side cause:
     python3 scripts/spellbench-arena/rate.py joint.md \
       /mnt/sata/gorge-training/spellbench/benchmarks/pauper-kernel/runs/2026-09-27 $W/runs/final
 
+**Hint-free build (sb-generic, measured 2026-09-28).** `-policy generic`
+is `Tactical` with every `hints.go` lookup and every card- or deck-named
+branch replaced by a rule over card data; `-policy tactical` stays the
+hinted build (it replays the pre-change binary exactly: 16/16 seat-swapped
+pairs step-identical, `dev900`). What replaced what:
+
+- *Card facts.* `cardfacts.json` now covers all 161 kernel card-DB names
+  (sideboard cards and tokens included; tokens resolved through their
+  scripts) and carries amounts (`Count$` expressions, metalcraft,
+  landfall, X), costs (tap, sacrifice self/other, discard, return, pay
+  life), target/count filters, modal modes, statics (cost reduction,
+  alternative costs, continuous pumps), flashback/kicker costs, subtypes
+  and ETB-tapped -- derived facts only (`TestCardFactsMatchIR`).
+- *Hint fields.* `derive.go` computes `role`, `ab` (per activation zone),
+  `pol`, `bonus`, `tapped`, `dmg`, `flash`, `sacCost` and `selfLand` from
+  those facts; `TestDerivedHintsMatchTheTable` pins agreement with the
+  hand table on the pool (12 deliberate differences listed in the test).
+- *Named branches.* Counter restrictions (type, colour, unless-cost,
+  "mana value <= number of X you control") from the counter's target
+  filter; the Spy combo as "mill-until-land aimed at ourselves + a
+  creature-sacrifice-flashback reanimator + an ETB finisher scaling with
+  our graveyard"; opposing pumps from untapped activated `+X/+X` sources
+  the opponent can pay for; the Fireblast rule from "alternative cost:
+  sacrifice N lands"; charm modes valued by what each mode does now;
+  kicker, scry, initiative rooms, power-only shrink, looters, one-shot
+  mana, engines, graveyard synergy (aim a targeted mill at ourselves)
+  from facts; `aggro()`/`burnDeck()` from the decklist's power, face
+  damage, interaction and wall counts (reproduces the hand table on all
+  nine catalog decks), or from our cards seen so far when the catalog
+  does not list the deck.
+- *Enforced.* `derive.go`/`generic.go` name no card or deck
+  (`TestHintFreeFilesNameNoCard`); `-stats` records `hint_lookups` per
+  process: 0 in all 1,544 generic processes (163,158 decisions).
+- *Generic-only additions:* all-in attacks when unblocked damage plus
+  castable face burn is lethal; pump tricks after blocks; no voluntary
+  draws with <= 3 library cards. Both builds: never cast an Escape card
+  from the graveyard (the v5 policy schema cannot represent the staged
+  exile cost and halts the game; no pool card has Escape).
+
+*Unseen decks.* The kernel catalog has one deck outside the pool
+(Terror). For more, a private kernel clone (`remix_decks.py`; the arena
+checkout untouched) added seven 60-card decks built mostly from the
+card DB's sideboard-only and Terror-only cards: `Remix*` (Red, Green, UB,
+BG) as the development unseen set and `Remix2*` (Izzet, Golgari, MonoU)
+held out until the code was frozen.
+
+| run (seed) | decks | generic Elo | hinted Elo | generic v hinted |
+|---|---|---|---|---|
+| dev900 (900) | pool, 2 pairs | 1418 [1351, 1493] | 1418 [1346, 1498] | 17-15 |
+| dev901 (901) | pool, 4 pairs | 1409 [1348, 1482] | 1416 [1350, 1490] | 32-32 |
+| dev902 (902) | pool, 4 pairs | 1511 [1435, 1607] | 1490 [1412, 1586] | 35-29 |
+| **held-out (424242)** | pool, 4 pairs | **1443 [1371, 1529]** | **1425 [1359, 1504]** | **34-30** (53.1% [41.1, 64.8]) |
+| unseen-terror2 (904) | Terror, 32 pairs | 1587 [1479, 1749] | 1300 [1189, 1456] | 53-11 (82.8% [71.8, 90.1]) |
+| unseen-remix1 (905) | Remix x4, 8 pairs | 1450 [1378, 1538] | 1326 [1255, 1406] | 41-23 (64.1% [51.8, 74.7]) |
+| **held-out unseen (424243)** | Terror + Remix2 x3, 8 pairs | **1346 [1277, 1432]** | **1273 [1204, 1353]** | **36-28** (56.2% [44.1, 67.7]) |
+
+Held-out pool against the builtins: generic 54-10 / 61-2 / 62-2
+(heuristic / uniform / first), hinted 54-10 / 62-2 / 61-3. Held-out
+unseen per deck, generic v hinted: Terror 11-5, Remix2Golgari 9-7,
+Remix2Izzet 10-6, Remix2MonoU 6-10. Dev runs used `-stats` builds g2-g4;
+the held-out runs used the frozen `1278e429c` binary (md5 `1a52bc46…`).
+Across all eight runs (3,488 games): 0 fallbacks, 0 missing
+`x_kernel_v5`, 0 wire errors; 275 halted games, all kernel-side (Escape
+cost staging in Terror, zero legal actions in CawGates, two
+`InvalidEffectContinuation`). The first Terror run (seed 903, before the
+Escape rule) lost 16 generic-v-hinted games to our own escapes; after the
+rule, no generic-v-hinted game halted and every Escape halt has a builtin
+in the seat that escaped.
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the
