@@ -50,11 +50,7 @@ var manaSAFactsVerify = derivedMemoVerifyFlag != ""
 
 func buildManaSAFacts(ab *cards.SA, costOf func(string) *compiledCost) *manaSAFacts {
 	f := &manaSAFacts{cost: costOf(ab.Params["Cost"])}
-	for z := 0; z < 32; z++ {
-		if abilityZoneOK(ab, state.Zone(z)) {
-			f.zoneOK |= 1 << z
-		}
-	}
+	f.zoneOK = abilityZoneMask(ab)
 	raw := ab.Params["Cost"]
 	if containsLoyaltyFold(raw) {
 		f.loyalty = isLoyaltyAbilityRef(ab, &f.cost.Cost)
