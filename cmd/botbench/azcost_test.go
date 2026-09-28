@@ -37,9 +37,9 @@ func TestAZFrontDoor(t *testing.T) {
 	}
 	azFlagsGiven = false
 	for _, tc := range []struct{ world, want string }{
-		{"", "requires -az-world clairvoyant"},
-		{"sampled", "ticket 5"},
-		{"oracle", "want clairvoyant or sampled"},
+		{"", "requires -az-world clairvoyant or redeal"},
+		{"sampled", "not implemented"},
+		{"oracle", "want clairvoyant, redeal or sampled"},
 	} {
 		azWorldArg = tc.world
 		if err := azFrontDoor("az", "bot", nil); err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -63,6 +63,42 @@ func TestAZFrontDoor(t *testing.T) {
 	}
 	if azCfg.Search.Kinds != (azmcts.Kinds{Attackers: true}) || azNet != nil {
 		t.Fatalf("front door stored kinds %+v net %v", azCfg.Search.Kinds, azNet)
+	}
+}
+
+// az-redeal needs no -az-world, never opens the clairvoyant gate, and names
+// its world in the SpellBench ledger.
+func TestAZRedealFrontDoor(t *testing.T) {
+	saveAZ(t)
+	azWorldArg, azFlagsGiven, azKindsArg = "", false, "priority,attackers,blockers,target"
+	if err := azFrontDoor("az-redeal", "bot", nil); err != nil {
+		t.Fatalf("az-redeal without -az-world: %v", err)
+	}
+	if got := azSeatConfig("az-redeal").World; got != azmcts.WorldRedeal {
+		t.Fatalf("az-redeal world %q", got)
+	}
+	azCfg.Search.Sims, azCfg.Worlds = 25, 0
+	if got := sbDisplayName("az-redeal"); got != "az-redeal-sims25" {
+		t.Fatalf("display name %q", got)
+	}
+	azCfg.Worlds = 4
+	if got := sbDisplayName("az-redeal"); got != "az-redeal-sims25-k4" {
+		t.Fatalf("display name %q", got)
+	}
+	azWorldArg = "redeal"
+	if err := azFrontDoor("az", "bot", nil); err != nil {
+		t.Fatalf("az -az-world redeal: %v", err)
+	}
+	if got := azSeatConfig("az").World; got != azmcts.WorldRedeal {
+		t.Fatalf("az -az-world redeal seat world %q", got)
+	}
+	azCfg.Worlds = 0
+	azWorldArg = "clairvoyant"
+	if err := azFrontDoor("az", "az-redeal", nil); err != nil {
+		t.Fatal(err)
+	}
+	if sbDisplayName("az") != "az-clairvoyant-sims25" || sbDisplayName("az-redeal") != "az-redeal-sims25" {
+		t.Fatalf("names %q %q", sbDisplayName("az"), sbDisplayName("az-redeal"))
 	}
 }
 

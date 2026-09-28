@@ -473,7 +473,7 @@ H2 and H3 are the load-bearing ones; H1 unblocks the most people.
 | M | Where | Question | Result slot |
 |---|---|---|---|
 | M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | done (D§3.1): bot +238, clairvoyant az +436 over the uniform port |
-| M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | — |
+| M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | Q2 done (D§12.5): K1 passes, az25 +14.7pp, az100 +20.5pp over `bot`; Q1 open |
 | M2 | v2 mocked backend (W2) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); shadow fidelity open |
 | M3 | v2 on Jack's adapter, `pauper-gorge` (5 decks: Wildfire, Rally, Spy, Burn, CawGates; plan Task 7) | strength vs `gorge-bot`, `gorge-lethal-pressure`, builtins; neutral vs xview entry | — |
 | M4 | v2 on mtg-kernel (Annex A bridge), `pauper-kernel` | cross-engine: fidelity and candidate agreement on a foreign engine; rating vs g115 (1388), a48, c12, heuristic (1102) | — |
@@ -529,6 +529,120 @@ scored pointer-style over the v2 list. Policy targets come only from honest
 search, with Gumbel root selection. Stages S0-S5 carry kill criteria. S3
 (honest expert iteration) waits for M1 Q2. Its open questions (O1-O9) sit
 alongside D§14.
+
+### 12.5 M1 result (Q2, measured 2026-09-28)
+
+**Verdict: K1 PASSES.** Honest search beats `bot` by far more than 3pp at
+more than 2,000 games, CI clear of 0: az25 on redeal worlds wins **64.7%
+[63.2, 66.2]** over 4,000 games against a same-seed `bot`-vs-`bot` control
+of 50.0% [48.4, 51.5], a gain of **+14.7pp [12.6, 16.8]** (about +106 Elo).
+az100 gains **+20.5pp [18.0, 23.0]** (70.5%, 2,000 games). Search stays on
+the critical path; T1 (the gorge bot on the shadow) remains the fallback.
+
+**World source.** `azmcts.RedealSource` (`internal/azmcts/redeal.go`,
+`-az-world redeal` or policy `az-redeal` in botbench and `-spellbench`) is
+the D§5.2 v1 sampler with the list posterior a point mass: every simulation
+walks a `searchprobe.Redealer` deal (`internal/searchprobe/redeal.go`, the
+pn21 `RedealBase` redeal, now exported as prepare-once / deal-many). Public
+state, zone sizes, the seat's own hand and every card the known-card
+projection pins stay put. Each player's other hidden cards (the seat's own
+library order, the opponent's hand and library) are dealt uniformly from the
+pool the seat can derive: the declared list minus every card it has seen
+outside the hidden zones. Future chance is re-seeded, per-world seeds are
+SplitMix64 of the per-decision seed, and every change is a Secret event on
+the world's own log. A pool the list cannot account for (a face-down card, a
+wrong list) refuses: the refusal is counted (`redeal-refused`) and the bot's
+answer is played, never a clairvoyant world. The leak test
+(`TestRedealWorldsIgnoreTheRealHiddenCards`) swaps the opponent's real hand
+cards with library cards of other names and reverses both libraries, then
+checks that every seed deals name-identical worlds. `-az-worlds K` deals K
+worlds round-robin, each simulation with fresh chance.
+
+**Setting.** Main table: stage 0's matrix (`uw-tempo` against the five mono
+decks, seat-alternating, 5 pairs), chunked at 100 games per pair per chunk,
+seeds `91000000 + 1000·chunk` (50 per pair for the 100-simulation arms).
+The seat is given the true lists (the benchmark's `visible` case), and its
+known-card projection comes from the full gorge observation feed.
+`bot` is both the opponent and the search's environment model, which
+flatters every search arm equally; the round robin below also covers
+non-`bot` opponents. Gen 0 throughout: uniform prior, heuristic leaf, no
+network.
+
+| Arm | Games | Win % [CI95] | vs control | ms/searched decision mean (p95) | games/h (8 workers) |
+|---|---|---|---|---|---|
+| `bot` vs `bot` (control) | 4,000 | 50.0 [48.4, 51.5] | — | — | ~550k |
+| az25, redeal | 4,000 | 64.7 [63.2, 66.2] | +14.7 [12.6, 16.8] | 45 (107) | 15.6k |
+| az25, clairvoyant | 4,000 | 75.4 [74.1, 76.8] | +25.4 | 46 (112) | 14.6k |
+| az100, redeal | 2,000 | 70.5 [68.5, 72.5] | +20.5 [18.0, 23.0] | 216-278 uncontended (380-550) | 2.5k |
+| az100, clairvoyant | 1,000 | 81.1 [78.7, 83.5] | +31.1 | 230-261 (474-574) | 3.1k |
+| az25, redeal, K=1 world | 1,000 | 63.7 [60.7, 66.7] | +13.7 | 40 (90) | 18k |
+| az100, redeal, K=4 worlds | 500 | 68.8 [64.7, 72.9] | +18.8 | 192-219 (367-414) | 2.7k |
+
+- **Cost of honesty:** 10.7pp [8.7, 12.7] at 25 simulations and
+  10.6pp [7.5, 13.7] at 100. It does not shrink with budget: both sources
+  gain about 6pp from 4x the simulations (redeal +5.8 [3.3, 8.3]).
+- **Worlds per decision:** no measurable strategy-fusion effect at gen 0.
+  One deal per decision (K=1) is within noise of a fresh deal per
+  simulation (63.7 vs 65.0 on the same seeds, 1,000 games), and K=4 at 100
+  simulations equals the fresh-deal arm on the same 500 seeds (344 wins
+  each). The §6 K ≥ 16 default is therefore not measured to matter, and
+  cheaper K is free. Resolving this needs a network prior and value.
+- **Cost:** redeal is not measurably dearer than clairvoyant. The deal
+  (clone, secret moves, projection check, one capture) costs about as much
+  as the clone it replaces. ms/simulation is 1.8-1.9 at 25 and 2.2-2.8 at
+  100, because deeper trees take more env steps (35 vs 50). The
+  100-simulation timings shared the box with other jobs (load up to 45 on
+  32 cores), so their ranges are per uncontended chunk. Peak RSS was
+  0.9 GB per 8-worker run.
+- **Fallbacks:** 0 refusals and 0 failed deals in every matrix arm except
+  one decision (25 simulations lost to the empty-library bug below). On the
+  pauper-kernel round robin the first build refused 1.6% of searched
+  decisions (an embalmed Sacred Cat token counted as a seen deck card) and
+  failed deals once a library was empty (a nil zone compared with
+  `reflect.DeepEqual`). Both were fixed in `b87ab3d4c` with a regression
+  test. After the fix: 2 refusals in 15k decisions ("observed frame refers
+  to an unpinned hidden card").
+
+**SpellBench-shaped round robin** (8 pauper-kernel decks as mirrors, 4 pairs
+per deck, 64 games per matchup, 640 games, rated with
+`scripts/spellbench-rate.py`, anchor sb-uniform; `b87ab3d4c`):
+
+| Bot | Elo | CI95 | W-L |
+|---|---|---|---|
+| az-clairvoyant-sims25 (reference, NOT fair) | 1444 | [1377, 1521] | 201-55 |
+| **az-redeal-sims25** | **1382** | [1320, 1455] | 180-76 |
+| bot | 1264 | [1205, 1330] | 136-120 |
+| sb-heuristic | 1114 | [1056, 1177] | 80-176 |
+| sb-uniform (anchor) | 1000 | — | 43-213 |
+
+Head to head, az-redeal beats bot 43-21 and sb-heuristic 55-9, and loses to
+clairvoyant az 25-39. That is +118 Elo over `bot` on the benchmark's own
+fit, against +180 for the clairvoyant reference.
+
+**Not answered here:** Q1 (L10 on redeal-only worlds vs its rejection
+sampler) and hidden-list worlds (list posterior not a point mass).
+
+**Rerun** (worktree `wt/sb-m1-redeal`; outputs and the chunk runner are in
+`/mnt/sata/gorge-training/spellbench-work/m1/`: `run_chunk.sh`,
+`aggregate.py`, one directory per arm):
+
+```sh
+go build -o $M1/botbench ./cmd/botbench
+P=uw-tempo:mono-white-equipment,uw-tempo:mono-blue-tempo,uw-tempo:mono-black-aggro,uw-tempo:mono-red-prowess,uw-tempo:mono-green-stompy
+# chunk c (0..7): 500 games at seed 91000000+1000c
+$M1/botbench -pairs $P -games 100 -seed $((91000000+1000*c)) -workers 8 -a az-redeal -b bot -az-sims 25
+$M1/botbench ... -a bot -b bot                                           # control
+$M1/botbench ... -a az -b bot -az-world clairvoyant -az-sims 25          # clairvoyant
+$M1/botbench ... -games 50 -a az-redeal -b bot -az-sims 100 [-az-worlds 4]
+$M1/botbench -spellbench az,az-redeal,bot,sb-heuristic,sb-uniform -az-world clairvoyant \
+    -az-sims 25 -spellbench-pairs 4 -spellbench-out $M1/sb-rr2 -workers 8
+scripts/spellbench-rate.py --anchor sb-uniform --out $M1/sb-rr2-rated $M1/sb-rr2
+```
+
+Every heavy command ran under `flock heavy.lock systemd-run --scope -p
+MemoryMax=4G env GOMEMLIMIT=2GiB GOMAXPROCS=8`. The matrix arms ran on
+`666cc2720`, which has the two bugs above. They never hit the Sacred Cat
+case (the matrix decks have no embalm), so their numbers stand.
 
 ## 13. Risks
 

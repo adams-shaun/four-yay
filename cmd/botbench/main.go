@@ -271,7 +271,19 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	// not know the name, and internal/archtest forbids host, host/httpapi
 	// and cmd/gorged from linking azmcts at all.
 	"az": func(seed uint64) seat.Seat {
-		s, err := azmcts.NewSeat(seed, azNet, azCfg)
+		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az"))
+		if err != nil {
+			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
+		}
+		return s
+	},
+	// az-redeal is az on the honest world source (azmcts.RedealSource,
+	// SpellBench M1): every simulation walks a world that keeps what the
+	// seat sees and re-deals the hidden cards it cannot. It takes every
+	// -az-* knob but -az-world, so one run can seat it beside a
+	// clairvoyant az.
+	"az-redeal": func(seed uint64) seat.Seat {
+		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az-redeal"))
 		if err != nil {
 			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
 		}
@@ -381,7 +393,7 @@ func parseOppMix(spec string) ([]oppMixEntry, error) {
 		if err != nil || f <= 0 || f > 1 {
 			return nil, fmt.Errorf("-opp-mix entry %q: fraction must be in (0,1]", part)
 		}
-		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" || name == "az" {
+		if _, ok := policies[name]; !ok || name == "policynet" || name == "search" || isAZPolicy(name) {
 			return nil, fmt.Errorf("-opp-mix entry %q: %q is not a mixable built-in policy", part, name)
 		}
 		total += f
@@ -2466,7 +2478,7 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	// no value head). A package-level policynetModel left by an earlier
 	// in-process run must never reach az, so only this run's checkpoint is
 	// passed on.
-	azSide := aName == "az" || bName == "az"
+	azSide := isAZPolicy(aName) || isAZPolicy(bName)
 	if !policynetSide && !azSide && checkpoint != "" {
 		return fail(fmt.Errorf("-checkpoint was given but neither side is policynet or az"))
 	}

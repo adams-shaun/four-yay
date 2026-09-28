@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"reflect"
+	"slices"
 	"sort"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -72,7 +73,53 @@ type redealPlan struct {
 }
 
 func redealWorlds(setup PublicGame, h History, known KnownCards, base *RedealBase, n int, seed func(int) [2]uint64) ([]World, string) {
-	if base == nil || base.Engine == nil || base.Observer == nil || base.Observer.actor != h.Actor {
+	if base == nil {
+		return nil, "no base engine for this seat"
+	}
+	r, refused := NewRedealer(setup, h, known, *base)
+	if refused != "" {
+		return nil, refused
+	}
+	var worlds []World
+	for i := 0; i < n; i++ {
+		w, reason := r.Deal(seed(i), nil)
+		if reason != "" {
+			return nil, reason
+		}
+		worlds = append(worlds, World{Engine: w, Observer: base.Observer.Clone()})
+	}
+	return worlds, ""
+}
+
+// Redealer is the redeal prepared once at one decision boundary: the checks
+// that compare the seat's history, known-card projection and derivable pool
+// against the base engine run in NewRedealer, and each Deal is then one
+// uniform redeal (RedealBase documents what a redealt world keeps and what
+// it re-deals). It is the honest world source's building block (the SpellBench
+// M1 "redeal" worlds, internal/azmcts.RedealSource) as well as Sample's
+// starvation fallback, so both draw worlds the same way.
+//
+// A Redealer reads its base engine and observer and never modifies them;
+// Deal may be called any number of times, sequentially.
+type Redealer struct {
+	e     *rules.Engine
+	known KnownCards
+	obs   *Collector
+	probe *Collector
+	now   Frame
+	plans []redealPlan
+}
+
+// NewRedealer prepares the redeal of base.Engine for the seat whose History
+// h is, at h's last frame -- which must be base.Engine's current boundary as
+// base.Observer captures it. known is h's known-card projection
+// (ProjectKnownCards, or a KnownCardTracker folded through the same frames
+// and answers). setup.Decks are the deck lists the seat believes each player
+// holds (for the SpellBench mirror benchmark, its own list twice); a hidden
+// pool that list cannot account for refuses. A non-empty reason is the
+// fail-closed refusal and the Redealer is nil.
+func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase) (*Redealer, string) {
+	if base.Engine == nil || base.Observer == nil || base.Observer.actor != h.Actor || len(h.Frames) == 0 {
 		return nil, "no base engine for this seat"
 	}
 	e := base.Engine
@@ -144,17 +191,24 @@ func redealWorlds(setup PublicGame, h History, known KnownCards, base *RedealBas
 		}
 		public[owner][name]++
 	}
+	// A token or a copy is never a deck-list card, even when it bears one's
+	// name (an embalmed Sacred Cat's token, a copied spell); whether an
+	// object is one is public, so the check reads nothing hidden.
+	minted := func(ref uint32) bool {
+		o := e.G.Obj(base.Observer.object(ref))
+		return o != nil && (o.IsToken || o.IsCopy)
+	}
 	for _, p := range board.Players {
 		for _, zone := range [][]knownCardID{p.Battlefield, p.Graveyard, p.Exile, p.Command} {
 			for _, c := range zone {
-				if identity, ok := names[c.ID]; ok {
+				if identity, ok := names[c.ID]; ok && !minted(c.ID) {
 					take(identity.Owner, identity.Name)
 				}
 			}
 		}
 	}
 	for _, s := range board.Stack {
-		if o := e.G.Obj(base.Observer.object(s.ID)); o != nil && o.Card != nil {
+		if o := e.G.Obj(base.Observer.object(s.ID)); o != nil && o.Card != nil && !o.IsToken && !o.IsCopy {
 			if identity, ok := names[s.ID]; ok {
 				take(identity.Owner, identity.Name)
 			}
@@ -222,39 +276,53 @@ func redealWorlds(setup PublicGame, h History, known KnownCards, base *RedealBas
 				return nil, fmt.Sprintf("player %d hidden object %d has no card", p, id)
 			}
 		}
+		// The first mismatch by name (sorted, so the reason is deterministic)
+		// names the card whose accounting is off.
+		var off []string
 		for name, count := range derivable {
 			if count != actual[name] {
-				return nil, fmt.Sprintf("player %d hidden pool is not derivable from public information", p)
+				off = append(off, name)
 			}
 		}
 		for name, count := range actual {
 			if derivable[name] != count {
-				return nil, fmt.Sprintf("player %d hidden pool is not derivable from public information", p)
+				off = append(off, name)
 			}
+		}
+		if len(off) > 0 {
+			sort.Strings(off)
+			return nil, fmt.Sprintf("player %d hidden pool is not derivable from public information (%s: derivable %d, hidden %d)", p, off[0], derivable[off[0]], actual[off[0]])
 		}
 		plans = append(plans, plan)
 	}
-	probe := base.Observer.Clone()
-	var worlds []World
-	for i := 0; i < n; i++ {
-		s := seed(i)
-		r := rand.New(rand.NewPCG(s[0], s[1]))
-		w := e.CloneHypothetical(s[1])
-		for _, plan := range plans {
-			if reason := redealPlayer(w, plan, r); reason != "" {
-				return nil, reason
-			}
+	return &Redealer{e: e, known: known, obs: base.Observer, probe: base.Observer.Clone(), now: now, plans: plans}, ""
+}
+
+// Deal builds one redealt world from seed: a hypothetical clone of the base
+// engine (rules.Engine.CloneHypotheticalInto, drawing its arrays from *sp
+// when sp is non-nil) whose future chance is seeded by seed[1], with every
+// player's unknown hidden cards dealt uniformly by a PCG stream seeded by
+// seed, through Secret events on the world's own log. The world is checked
+// against the known-card projection and must capture exactly the observed
+// board and decision; any failure is a non-empty reason and a nil engine.
+// The world's objects keep the base engine's ids, so an observer of the base
+// boundary (a clone of it) maps the world's decision the same way.
+func (r *Redealer) Deal(seed [2]uint64, sp *rules.Spare) (*rules.Engine, string) {
+	rng := rand.New(rand.NewPCG(seed[0], seed[1]))
+	w := r.e.CloneHypotheticalInto(seed[1], sp)
+	for _, plan := range r.plans {
+		if reason := redealPlayer(w, plan, rng); reason != "" {
+			return nil, reason
 		}
-		if err := known.holds(w, base.Observer); err != nil {
-			return nil, "redealt world breaks the projection: " + err.Error()
-		}
-		frame, err := probe.Clone().Capture(w, nil)
-		if err != nil || string(frame.Board) != string(now.Board) || !reflect.DeepEqual(frame.Decision, now.Decision) {
-			return nil, "redealt world changes the observation"
-		}
-		worlds = append(worlds, World{Engine: w, Observer: base.Observer.Clone()})
 	}
-	return worlds, ""
+	if err := r.known.holds(w, r.obs); err != nil {
+		return nil, "redealt world breaks the projection: " + err.Error()
+	}
+	frame, err := r.probe.Clone().Capture(w, nil)
+	if err != nil || string(frame.Board) != string(r.now.Board) || !reflect.DeepEqual(frame.Decision, r.now.Decision) {
+		return nil, "redealt world changes the observation"
+	}
+	return w, ""
 }
 
 // redealPlayer deals one player's unknown hidden cards uniformly: into the
@@ -316,8 +384,11 @@ func redealPlayer(w *rules.Engine, plan redealPlan, r *rand.Rand) string {
 		}
 	}
 	events.Emit(w.G, w.L, events.Event{Kind: events.LibraryOrder, Player: plan.player, IDs: lib, Secret: true})
-	if len(w.G.Zone(state.ZHand, plan.player)) != len(plan.hand) || !reflect.DeepEqual(w.G.Zone(state.ZLibrary, plan.player), lib) {
-		return fmt.Sprintf("player %d redeal did not land", plan.player)
+	if got := w.G.Zone(state.ZHand, plan.player); len(got) != len(plan.hand) || !slices.Equal(w.G.Zone(state.ZLibrary, plan.player), lib) {
+		// slices.Equal, not reflect.DeepEqual: an empty library is a nil
+		// zone and a zero-length lib, which DeepEqual calls different.
+		gl := w.G.Zone(state.ZLibrary, plan.player)
+		return fmt.Sprintf("player %d redeal did not land (hand %d want %d, library %d want %d, pinned hand %d)", plan.player, len(got), len(plan.hand), len(gl), len(lib), len(plan.pinHand))
 	}
 	return ""
 }

@@ -2,6 +2,7 @@ package azmcts
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
@@ -23,6 +24,12 @@ type SeatConfig struct {
 	// argmax, no noise.
 	Explore      bool
 	ExploreTurns int32
+	// World is the world source: WorldClairvoyant ("" is clairvoyant, the
+	// stage-1 default) or WorldRedeal, the honest source.
+	World string
+	// Worlds is the redeal source's K (RedealSource): 0 deals a fresh world
+	// per simulation. Ignored by the clairvoyant source.
+	Worlds int
 }
 
 // DefaultSeatConfig is the eval seat with the spec's knobs.
@@ -37,6 +44,10 @@ type Diag struct {
 	Choice     int
 	MS         float64 // wall ms of the whole decision (Millis); 0 when untimed
 	Stats      Stats
+	// Refused is the redeal source's refusal reason at this decision, "" when
+	// it prepared (or the source is clairvoyant); DealFailed its first
+	// per-world deal failure (those simulations counted in Stats.NoWorld).
+	Refused, DealFailed string
 }
 
 // Millis is the monotonic elapsed-milliseconds clock the driving command
@@ -61,6 +72,9 @@ type Seat struct {
 	seed uint64
 	net  *policynet.Model
 	cfg  SeatConfig
+	// known is the redeal source's incremental known-card projection over
+	// this game's feed.
+	known KnownTracker
 }
 
 var (
@@ -74,6 +88,11 @@ var (
 func NewSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
 	if err := cfg.Search.Validate(net); err != nil {
 		return nil, err
+	}
+	switch cfg.World {
+	case "", WorldClairvoyant, WorldRedeal:
+	default:
+		return nil, fmt.Errorf("azmcts: world source %q: want %s or %s", cfg.World, WorldClairvoyant, WorldRedeal)
 	}
 	return &Seat{def: seat.NewBot(seed), seed: seed, net: net, cfg: cfg}, nil
 }
@@ -93,9 +112,12 @@ func (s *Seat) DecideBoard(ctx context.Context, b botpolicy.Board, d decision.De
 }
 
 // DecideSearch answers one of the seat's own decisions: the bot's answer
-// first (candidate 0 and every fallback), then Search over clairvoyant
-// clones of env.Engine. A refused clairvoyant source is an error: the game
-// fails loudly rather than playing an unsearched seat under the az name.
+// first (candidate 0 and every fallback), then Search over the configured
+// worlds: clairvoyant clones of env.Engine, or honest redeals built from the
+// driver's feed (SeatConfig.World). A refused clairvoyant source is an
+// error: the game fails loudly rather than playing an unsearched seat under
+// the az name. A refused redeal is counted (Stats.RedealRefused) and plays
+// the bot's answer -- it never falls back to the clairvoyant source.
 func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
 	botIn, err := s.def.DecideBoard(ctx, env.Board, d)
 	if err != nil {
@@ -109,12 +131,23 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		t0 = Millis()
 	}
 	obs := searchprobe.NewCollector(d.Player)
-	src, err := NewClairvoyant(env.Engine, obs)
-	if err != nil {
-		return decision.Intent{}, err
-	}
 	opts := s.cfg.Search
 	opts.Seed = DecisionSeed(s.seed, d.Seq)
+	var src WorldSource
+	var redeal *RedealSource
+	if s.cfg.World == WorldRedeal {
+		rs, err := s.redealSource(env, obs, opts.Seed)
+		if err != nil {
+			return decision.Intent{}, err
+		}
+		src, redeal = rs, rs
+	} else {
+		cs, err := NewClairvoyant(env.Engine, obs)
+		if err != nil {
+			return decision.Intent{}, err
+		}
+		src = cs
+	}
 	opts.Noise, opts.Sample = false, false
 	if s.cfg.Explore {
 		opts.Noise = true
@@ -124,10 +157,17 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	if err != nil {
 		return decision.Intent{}, err
 	}
+	refused, dealFailed := "", ""
+	if redeal != nil && res.Stats.Searched == 1 {
+		if refused = redeal.Refused(); refused != "" {
+			res.Stats.RedealRefused = 1
+		}
+		dealFailed = redeal.DealFailed()
+	}
 	if res.Kind != "" && Watch != nil {
 		dg := Diag{
 			Turn: env.Engine.G.Turn, Kind: res.Kind, Searched: res.Stats.Searched == 1,
-			Candidates: len(res.Candidates), Choice: res.Choice, Stats: res.Stats,
+			Candidates: len(res.Candidates), Choice: res.Choice, Stats: res.Stats, Refused: refused, DealFailed: dealFailed,
 		}
 		if Millis != nil {
 			dg.MS = Millis() - t0
@@ -135,4 +175,24 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		Watch(dg)
 	}
 	return res.Intent, nil
+}
+
+// redealSource builds the honest source at one of the seat's decisions from
+// the driver's feed: the seat's History, its known-card projection (folded
+// incrementally across the game) and the feed's collector. A feed that has
+// no frames, or a known-card fold that failed, is a refusal -- counted, and
+// the bot's answer is played -- never a clairvoyant fallback.
+func (s *Seat) redealSource(env searchseat.Env, obs *searchprobe.Collector, seed uint64) (*RedealSource, error) {
+	in := RedealInput{Setup: env.Setup}
+	if env.Feed != nil && env.Feed.Live() && env.Feed.Frames() > 0 {
+		in.History = env.Feed.History()
+		in.Base = searchprobe.RedealBase{Engine: env.Engine, Observer: env.Feed.Collector()}
+		known, err := s.known.Update(in.History)
+		if err != nil {
+			// A dead projection: the redealer refuses without a base.
+			in.Base = searchprobe.RedealBase{}
+		}
+		in.Known = known
+	}
+	return NewRedeal(in, obs, seed, s.cfg.Worlds)
 }
