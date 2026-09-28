@@ -85,8 +85,49 @@ func (e *Engine) setPropTokens(kind string, obj state.ObjID) []string {
 		return []string{strconv.Itoa(int(o.Face().Cmc()))}
 	case "name":
 		return []string{strings.ToLower(strings.TrimSpace(o.Face().Name))}
+	case "color":
+		// Reveal<N/SameColor>'s token family (Illuminated Folio): the card's
+		// DERIVED colours, one WUBRG letter per token -- effects.ColorsOf
+		// reads the mana cost, or an explicit Colors: line, and is
+		// Devoid-aware -- never Face().Colors, which is empty for every
+		// plain coloured card. A colourless card's empty set shares
+		// nothing, which is the rules read: two colourless cards do not
+		// share a colour (CR 106.1).
+		if s := effects.ColorsOf(o); s != "" {
+			return strings.Split(s, "")
+		}
+		return nil
 	}
 	return nil
+}
+
+// --- Reveal<N/SameColor> (Illuminated Folio) -------------------------------
+//
+// The relational reveal cost. SameColor is a relation BETWEEN the revealed
+// cards, not a card filter, so the offer gate cannot walk it through
+// costCandidates' ordinary spec match (nothing matches) and the payment ask
+// carries the set constraint itself. The reading: the cost is payable iff N
+// DISTINCT eligible hand cards share one colour, and the payment ask is a
+// decision.SetPropShared KChoose over each candidate's colour tokens, so
+// Decision.Validate (seat answers) and botpolicy's Clamp (the bot) enforce
+// the SAME rule the offer gate measured -- one home. The running-intersection
+// semantics of SetPropShared equal pairwise "share a colour" because the
+// corpus carrier's N is exactly 2.
+
+// sameColorRevealSets returns the eligible hand-card candidates for one
+// Reveal<N/SameColor> part and their per-card colour tokens. SameColor
+// matches no card as a filter, so the walk admits every card the ordinary
+// candidate walk admits (the "Card" base matches any card), with the same
+// excludeSource rule the filter path applies: a cast's own card is on the
+// stack and cannot pay its own reveal, an ability's source stays where it is
+// and can.
+func (e *Engine) sameColorRevealSets(p state.PlayerID, source state.ObjID, excludeSource bool) ([]state.ObjID, [][]string) {
+	cands := e.costCandidates(p, source, state.ZHand, "Card", excludeSource, false)
+	sets := make([][]string, 0, len(cands))
+	for _, id := range cands {
+		sets = append(sets, e.setPropTokens("color", id))
+	}
+	return cands, sets
 }
 
 // setPropTokensFor is setPropTokens over a candidate, returning nil for a
