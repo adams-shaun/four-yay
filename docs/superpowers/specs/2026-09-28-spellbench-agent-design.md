@@ -183,6 +183,117 @@ mana source whose trigger stacks before a sorcery-speed cast. Open: lowering
 for activated abilities (gorge plans casts only), and ordering sacrifice
 steps last.
 
+### 3.4 v1b: sb-tactical (measured)
+
+`sb-tactical` (`internal/spellbench/builtins/tactical*.go`, Policy
+`Tactical`) is a hand-written scored heuristic built for the v2 observation
+constraint: every answer is a function of the seat's projected `view.View`
+(public battlefields, stack, graveyards, life, library and hand *sizes*; its
+own hand and pool), the decision's options, and printed card facts its card
+names resolve to in gorge's IR. It never reads the opponent's hand or any
+library. It reuses gorge's seat-visible combat simulation
+(`botpolicy.AttackSimDecide` over `seat.BoardFromView`) and falls back to
+`botpolicy.Decide` on the same Board for asks it does not model (modes,
+trigger order, searches).
+
+- **Structure.** Feature extraction (`tactical_state.go`: derived P/T and
+  keywords, projected damage per attack and turns-to-kill both ways, mana on
+  hand) → one score per candidate (`scoreCand`), pass = 0, every weight in
+  `TacticalWeights`. Card IR is labelled with an effect *direction*
+  (`tactical_ir.go`: removal, damage, counter, pump, debuff, draw, ramp, mill,
+  fog...), so targets are scored as "the change to the target controller's
+  position, signed by whose it is" plus riders to the target's controller
+  (`tactical_target.go`). That one rule points harm at the opponent and help
+  at us, and also finds deliberate exceptions: Cleansing Wildfire on our own
+  indestructible Bridge (no loss, we get the land and the card).
+- **Idea groups** (each switchable, the ablation arms):
+  1. *EarlyGame* — land first, ramp and draw weighted up in the first four
+     own turns, removal bonus for key pieces (mana creatures, engines,
+     evasive threats).
+  2. *Timing* — instant-speed plays have windows: counters only at a foreign
+     spell, combat answers in combat, everything else at the opponent's end
+     step; outside its window a play loses `max(Hold|WaitEOT, 0.6·value)`;
+     proactive casts pay `KeepUp` for tapping below a held answer.
+  3. *Race* — burn face-vs-creature by the race state, an alpha strike when
+     the team is lethal through the best blocks (or when a never-blocking
+     opponent is out-raced), otherwise the combat simulation; blocks chump
+     only when the hit is lethal, drop chumps when we are ahead and the hit
+     is safe, and double-block a big attacker that two free blockers kill
+     profitably.
+- **Also fixed while measuring** (each found in a decision trace,
+  `botbench -spellbench-trace <dir>`): pursuits of unaffordable plays
+  (colour-aware `canAfford`), card flow at the wrong time (treasure/cycling in
+  upkeep), cost-aware sacrifice and discard choices, {X} spells tapped out
+  before casting, a counter *trigger* with no target, deck-out races (no
+  extra draws with a short library), hand-size overflow, milling ourselves.
+
+**Measured (commit `fd8c30e39`).** Benchmark-shaped round robin, 8 pairs per
+deck (128 games per pair of bots), rated with `scripts/spellbench-rate.py`;
+0 truncated, 0 halted, 0 refused-answer fallbacks for any sb-tactical seat.
+
+| Bot | pauper-kernel, benchmark seed 20260926 | held-out seed 99991 | held-out decks: FDN Limited, 4 pairs |
+|---|---|---|---|
+| sb-tactical | **1507** [1465, 1555] 527-113 | **1538** [1477, 1607] 348-36 | **1444** [1392, 1504] 318-66 |
+| sb-tactical-planned | 1509 [1465, 1561] 528-112 | — | — |
+| bot | 1242 [1204, 1284] 330-310 | 1277 [1226, 1331] 228-156 | 1315 [1268, 1373] 249-135 |
+| sb-heuristic-planned | 1094 [1057, 1132] | — | — |
+| sb-heuristic | 1078 [1041, 1116] 194-446 | 1073 [1021, 1125] 115-269 | 1114 [1073, 1161] 131-253 |
+| sb-uniform (anchor) | 1000 | 1000 | 1000 |
+
+Head to head sb-tactical vs bot: 110-18 (benchmark seed), 106-22 (seed
+99991), 87-41 (FDN); vs sb-heuristic 116-12, 116-12, 111-17. The edge over
+`bot` roughly halves on decks it was never looked at (+130 Elo on FDN vs
++260 on pauper-kernel). Mean wall time per game (8 workers): about 50 ms
+against sb-heuristic, 80 ms against bot (bot vs sb-heuristic is 50 ms).
+Pursuits failed 15% (684/4430) against sb-heuristic's 35%.
+
+**Ablation** (same run, all nine arms in one field): full 1506 [1473, 1543];
+no-EarlyGame 1522 [1487, 1560]; no-Timing 1511 [1476, 1548]; no-Race 1449
+[1415, 1487]. Only the Race group is a measured gain (+57); the early-game
+and timing groups are neutral within the CI. Every arm keeps the shared
+fixes above, which is where most of the strength is.
+
+**Tuning honesty.** Three runs on the benchmark seed (the first cut at
+1359, then 1401) drove the first round of fixes, including the Spy
+investigation; everything after that used dev seeds 777-781 and 5000+
+(about 25 runs, 128-512 games per pair). One weight change came from those
+runs: `PostCombat` 20 → 0, measured +4-5 points of win rate. A 42-iteration
+SPSA over 30 weights (log-space, seeds 5000-5041) moved no weight by more
+than 6% and was discarded, so the landscape near the defaults is flat and
+the weights are hand-set. Seed 99991 and the FDN catalog were each run once,
+after the code was frozen.
+
+**Card-specific knowledge**, and whether it generalises: `Count$Valid`,
+`Count$ValidGraveyard` and `Count$Metalcraft` amounts (Timberwatch Elf,
+Priest of Titania, Galvanic Blast, Lotleth Giant) use a small generic
+Forge-grammar evaluator. Spellstutter Sprite's "mana value X or less" reads
+the card's own SVar X. Consumables (clue, food, treasure, Lotus Petal) are
+derived from "sacrifice this" abilities, not names. A fog is any
+`Prevent$ True` replacement effect. The Forge AI hint `SVar:PlayMain1` is
+honoured. Three rules are generic in form but were written for a specific
+card or opponent: the mill value assumes "mill until a land" (Balustrade
+Spy; it over-values fixed-count mills); the dig amounts (a third of the
+cards when filtered, half for "all of a type") were set by eye on Lead the
+Stampede and Winding Way; and the never-blocks opponent model exploits
+sb-heuristic's fixed no-block rule. No card is named in the code.
+
+**Known weaknesses.** The Spy combo is not played: self-mill into Dread
+Return with Lotleth Giant needs plan knowledge, and the seat deliberately
+never mills itself. Spy is its weakest deck (10-6 against bot on the benchmark seed, against 13-3 to 16-0 elsewhere). There
+is no mulligan logic (the runner poses none). Plan choice is moot because
+gorge offers one plan per cast. The early-game and timing weights are
+unvalidated. On FDN the lead over `bot` is smaller, as expected from
+pauper-driven fixes.
+
+Rerun (worktree root, a built `botbench`, heavy-job wrapper per the
+operator rules):
+
+1. `botbench -dir .cards -workers 8 -spellbench sb-uniform,sb-heuristic,bot,sb-heuristic-planned,sb-tactical,sb-tactical-planned,sb-tactical-noearly,sb-tactical-notiming,sb-tactical-norace -spellbench-pairs 8 -spellbench-out <dir>`
+2. Rate with `scripts/spellbench-rate.py --anchor sb-uniform --out <dir>/rate <dir>`, adding `--bots sb-uniform,sb-heuristic,bot,sb-heuristic-planned,sb-tactical,sb-tactical-planned` for the main table.
+3. For the held-out runs, add `-spellbench-base-seed 99991` (and `--base-seed 99991` when rating), or use `-spellbench-catalog fdn -spellbench-pairs 4` (and `--format fdn-limited-bo1` when rating).
+
+Data: `/mnt/sata/gorge-training/spellbench-work/v1b/{final-bench,heldout-seed,heldout-fdn}`.
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the
