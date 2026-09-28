@@ -10,6 +10,7 @@ const card = (id: number, types: string): CardView => ({ id, name: `c${id}`, typ
 // that real shape for the test.
 const player = (hand: CardView[] | null): PlayerView => ({
   seat: 0, name: 'p', life: 20, lost: false, library_size: 0, hand_size: 0, graveyard_size: 0,
+  completed_dungeons: 0,
   hand: hand as CardView[], battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
 });
 
@@ -397,6 +398,7 @@ describe('everyVisibleCard — the public-spectator null zones', () => {
     ({
       seat: 0, name: 'Player 1', life: 40, lost: false,
       library_size: 90, hand_size: 7, graveyard_size: 0,
+      completed_dungeons: 0,
       hand: [], battlefield: [], graveyard: [], exile: [],
       pool: {}, command: [], commanders: [], commander_casts: [],
       ...over,

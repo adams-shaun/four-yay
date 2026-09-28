@@ -64,6 +64,7 @@ const stack: StackView[] = [
 const players: PlayerView[] = [0, 1].map((seat) => ({
   seat, name: `Player ${seat + 1}`, life: 20, lost: false, library_size: 60, hand_size: 7,
   graveyard_size: 0, hand: [], battlefield: [], graveyard: [], exile: [], pool: {},
+  completed_dungeons: 0,
   command: [], commanders: [], commander_casts: [],
 }));
 const seats: SeatInfo[] = players.map((p) => ({ name: p.name, deck: 'fixture', colour: p.seat === 0 ? '#e5484d' : '#22c55e' }));

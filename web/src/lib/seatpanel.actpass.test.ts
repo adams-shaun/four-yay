@@ -74,6 +74,7 @@ const floatReadyView = (step = 'main1'): View =>
     players: [{
       seat: 0, name: 'P0', life: 20, lost: false, library_size: 40, hand_size: 1,
       graveyard_size: 0, battlefield: [], graveyard: [], exile: [],
+      completed_dungeons: 0,
       pool: {},
       hand: [{ id: 7, name: 'Lava Spike', types: 'Instant', mana_cost: 'R', printing: {}, token: '' }],
       potential_actions: [{ kind: 'cast', obj: 7, label: 'Cast Lava Spike' }],
