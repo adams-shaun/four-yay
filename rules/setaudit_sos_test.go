@@ -639,13 +639,18 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // FINDING (census) — the cards cards.Registry.Unsupported still names. Each
-// entry here is a root-cause gap: kw:Increment (9 sos cards), kw:Paradigm
-// (5 sos cards), api:SkipTurn (Ral Zarek's [-7] "target opponent skips their
-// next X turns"), stat:CantBeCopied (Choreographed Sparks), and
+// entry here is a root-cause gap: kw:Increment (9 sos cards), api:SkipTurn
+// (Ral Zarek's [-7] "target opponent skips their next X turns"),
+// stat:CantBeCopied (Choreographed Sparks), and
 // count:PlayerCountRemembered$Valid (Pox Plague).
+//
+// kw:Paradigm (Restoration Seminar, Echocasting Symposium, Decorum
+// Dissertation, Improvisation Capstone, Germination Practicum) used to be a
+// row here; it is implemented now (rules/paradigm.go) and its census lives in
+// rules/paradigm_test.go's TestParadigmCensus.
 func TestSetAudit_sos_CensusLevelGaps(t *testing.T) {
 	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): 17 sos cards still name missing primitives (kw:Increment x9, kw:Paradigm x5, api:SkipTurn, stat:CantBeCopied, count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
+		t.Skip("set-audit finding (sos): 12 sos cards still name missing primitives (kw:Increment x9, api:SkipTurn, stat:CantBeCopied, count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
 	}
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
@@ -655,9 +660,6 @@ func TestSetAudit_sos_CensusLevelGaps(t *testing.T) {
 		"Pensive Professor", "Tester of the Tangential", "Textbook Tabulator",
 		"Ambitious Augmenter", "Hungry Graffalon", "Topiary Lecturer",
 		"Berta, Wise Extrapolator", "Cuboid Colony", "Fractal Tender",
-		// kw:Paradigm
-		"Restoration Seminar", "Echocasting Symposium", "Decorum Dissertation",
-		"Improvisation Capstone", "Germination Practicum",
 		// single-card gaps
 		"Ral Zarek, Guest Lecturer", "Choreographed Sparks", "Pox Plague",
 	}
