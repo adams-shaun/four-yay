@@ -70,6 +70,15 @@
     "api": "Attach",
     "target": "creature"
    }
+  ],
+  "triggers": [
+   {
+    "api": "Token",
+    "chain": [
+     "Attach"
+    ],
+    "trigger": "ETB"
+   }
   ]
  },
  "Blood Fountain": {
