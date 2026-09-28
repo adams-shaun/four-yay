@@ -1,0 +1,24 @@
+{
+  "card": "Bloodletter of Aclazotz",
+  "family": "replacement",
+  "oracle_sha": "95f198f54095",
+  "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-loses-life-on-your-turn-doubled",
+      "cr": ["614.1a", "614.6", "120.3a"],
+      "why": "During its controller's turn, the opponent's three life lost to Lightning Bolt is doubled to six.",
+      "setup": {"p0": {"battlefield": ["Bloodletter of Aclazotz"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 20, "p1": 14}}]
+    },
+    {
+      "name": "opponent-loses-life-on-opponents-turn-normal",
+      "cr": ["614.1a"],
+      "why": "The replacement applies only during Bloodletter controller's turn; a Bolt cast by seat 1 on its own turn deals its normal three damage.",
+      "setup": {"p0": {"battlefield": ["Bloodletter of Aclazotz"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [{"op": "pass_to", "step": "main1", "active": "p1"}, {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 17, "p1": 20}}]
+    }
+  ]
+}
