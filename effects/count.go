@@ -1728,8 +1728,10 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 
 // refPower/refToughness use rules' derived characteristics while a referenced
 // object is a battlefield permanent. A referred-to object that already left
-// keeps the LKI-compatible printed-plus-counters fallback: no live layer
-// applies in a graveyard, and asking Host for it would read a different state.
+// keeps the LKI-compatible printed-face-plus-P/T-counters fallback: no live
+// layer applies in a graveyard, and asking Host for it would read a different
+// state. The counter sum covers every P/T counter kind (CR 613.7d), not just
+// the +1/+1 / -1/-1 pair.
 // inProgressDerivedPTHost is implemented by rules.Engine so a Count$ read made
 // during layer 7 can consume the current walk's value instead of recursively
 // asking the host to derive the same object again. It is optional to preserve
@@ -1747,7 +1749,8 @@ func refPower(h Host, o *state.Object, snapshot bool) int32 {
 		}
 		return h.Power(o.ID)
 	}
-	return int32(o.Face().Power()) + o.Counter("P1P1") - o.Counter("M1M1")
+	dp, _ := o.CounterPTTotals()
+	return int32(o.Face().Power()) + dp
 }
 
 func refToughness(h Host, o *state.Object, snapshot bool) int32 {
@@ -1759,7 +1762,8 @@ func refToughness(h Host, o *state.Object, snapshot bool) int32 {
 		}
 		return h.Toughness(o.ID)
 	}
-	return int32(o.Face().Toughness()) + o.Counter("P1P1") - o.Counter("M1M1")
+	_, dt := o.CounterPTTotals()
+	return int32(o.Face().Toughness()) + dt
 }
 
 // EvalCountOnObject evaluates a Count$ expression with the count's source
@@ -3637,9 +3641,9 @@ func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, 
 }
 
 // objectProperty reads one Count$Valid-spec "$Property" aggregate term over
-// a single object: its face value plus +1/+1 counters for power/toughness,
-// the mana value for CardManaCost. An unknown property reads 0 — the same
-// conservative no-op every unmodelled head here takes.
+// a single object: its face value plus the summed P/T counter deltas for
+// power/toughness, the mana value for CardManaCost. An unknown property reads
+// 0 — the same conservative no-op every unmodelled head here takes.
 func objectProperty(g *state.Game, id state.ObjID, prop string) int32 {
 	o := g.Obj(id)
 	if o == nil || o.Face() == nil {
@@ -3647,9 +3651,11 @@ func objectProperty(g *state.Game, id state.ObjID, prop string) int32 {
 	}
 	switch strings.TrimSpace(prop) {
 	case "CardPower":
-		return int32(o.Face().Power()) + o.Counter("P1P1")
+		dp, _ := o.CounterPTTotals()
+		return int32(o.Face().Power()) + dp
 	case "CardToughness":
-		return int32(o.Face().Toughness()) + o.Counter("P1P1")
+		_, dt := o.CounterPTTotals()
+		return int32(o.Face().Toughness()) + dt
 	case "CardManaCost":
 		return o.Face().ManaValue()
 	}
@@ -4680,9 +4686,11 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 	}
 	switch f.prop {
 	case "CardPower":
-		f.n += int32(o.Face().Power()) + o.Counter("P1P1")
+		dp, _ := o.CounterPTTotals()
+		f.n += int32(o.Face().Power()) + dp
 	case "CardToughness":
-		f.n += int32(o.Face().Toughness()) + o.Counter("P1P1")
+		_, dt := o.CounterPTTotals()
+		f.n += int32(o.Face().Toughness()) + dt
 	case "CardManaCost":
 		f.n += o.Face().Cmc()
 	case "CardTypes", "CardTypesPermanent":

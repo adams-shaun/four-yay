@@ -4115,25 +4115,28 @@ func noResolve(string) (int32, bool) { return 0, false }
 // a filter spec is either a hard "no" or "not this predicate", never a
 // silent match.
 // objectPower is the one net-power read the filter grammar shares (face
-// power plus +1/+1 counters -- numericPred's power predicates and the
-// greatestPower classifier both use it). A continuous-effect power pump is
-// not visible from the filter path; the limitation is recorded in AGENTS.md.
+// power plus the summed P/T counter deltas of every counter kind --
+// numericPred's power predicates and the greatestPower classifier both use
+// it). A continuous-effect power pump is not visible from the filter path;
+// the limitation is recorded in AGENTS.md.
 func objectPower(o *state.Object) int {
 	f := o.Face()
 	if f == nil {
 		return 0
 	}
-	return f.Power() + int(o.Counter("P1P1"))
+	dp, _ := o.CounterPTTotals()
+	return f.Power() + int(dp)
 }
 
-// objectToughness is objectPower's counterpart, the same base-plus-P1P1 read
-// the toughness family uses.
+// objectToughness is objectPower's counterpart, the same face-plus-counter
+// read summed over every P/T counter kind the toughness family uses.
 func objectToughness(o *state.Object) int {
 	f := o.Face()
 	if f == nil {
 		return 0
 	}
-	return f.Toughness() + int(o.Counter("P1P1"))
+	_, dt := o.CounterPTTotals()
+	return f.Toughness() + int(dt)
 }
 
 // objectBasePower / objectBaseToughness are the object-alone BASE P/T read:
