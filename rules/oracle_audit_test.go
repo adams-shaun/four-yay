@@ -82,9 +82,6 @@ var oracleKnownDivergent = map[string]string{
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
 	// (Giada row retired: main's 6f256c81e/b250fa68c excluded the entering
 	// permanent from replacement counts, so the scenario now passes.)
-	// Engine primitive: the Effect-created entry replacement from the attack
-	// trigger does not put its counter on the remembered Hero returned from the graveyard.
-	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
 	// Engine/script gap: max-speed-gated AddAbility is not offered after the
 	// three turn-specific speed increases (CR 702.179).
 	"Amonkhet Raceway/max-speed-after-opponent-loses-life-on-three-turns": "max-speed haste activation is not offered after reaching speed four",

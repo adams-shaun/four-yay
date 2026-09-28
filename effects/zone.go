@@ -6034,6 +6034,11 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 		strings.TrimSpace(sa.Params["Defined"]) != "" {
 		return nil, false
 	}
+	if c.SubPreAsk != nil {
+		if ts, ok := c.SubPreAsk[sa.Line]; ok {
+			return ts, true
+		}
+	}
 	if c.TargetsOffered && (c.OfferedSA == nil || sa.Line == c.OfferedSA.Line) {
 		// The announcement/placement ask offered THIS SA's targeting (rules
 		// sets the marker exactly for the SA the ask covered, and OfferedSA

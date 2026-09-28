@@ -3466,6 +3466,14 @@ func (e *Engine) midChooserCore(c *effects.Ctx, sa *cards.SA) (state.PlayerID, b
 			return p, true, false
 		}
 	}
+	// A pre-captured ChangeZone target ask resumes at its enclosing Effect
+	// root. The answer is consequently keyed by that root's line, while the
+	// re-entered chooser lookup still receives the ChangeZone child SA.
+	if c != nil && c.TargetAskResume != nil && c.TargetAskResume.Line != "" {
+		if p, ok := e.oppPicksMid[c.TargetAskResume.Line]; ok {
+			return p, true, false
+		}
+	}
 	if c == nil {
 		return 0, false, false
 	}
@@ -3513,6 +3521,9 @@ func (e *Engine) OpponentPickAsk(c *effects.Ctx, sa *cards.SA) (state.PlayerID, 
 		if sa != nil && sa.Line != "" {
 			delete(e.oppPicksMid, sa.Line)
 		}
+		if c != nil && c.TargetAskResume != nil {
+			delete(e.oppPicksMid, c.TargetAskResume.Line)
+		}
 		if ok {
 			return who, false
 		}
@@ -3521,8 +3532,18 @@ func (e *Engine) OpponentPickAsk(c *effects.Ctx, sa *cards.SA) (state.PlayerID, 
 		}
 		return c.Controller, false
 	}
+	resumeSA := sa
+	if c.TargetAskResume != nil {
+		// An Effect may pre-capture the target of its following ChangeZone
+		// sub before registering a replacement scoped to that target. The
+		// opponent-selection ask is part of that same pre-capture: resume the
+		// Effect root so it registers with the chosen target before the child
+		// ChangeZone can move it. Keep `sa` for the chooser lookup above, which
+		// is specific to the ChangeZone target's TargetingPlayer$ parameter.
+		resumeSA = c.TargetAskResume
+	}
 	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
-		Source: c.Source, ResumeKind: "opp_pick", ResumeSA: sa,
+		Source: c.Source, ResumeKind: "opp_pick", ResumeSA: resumeSA,
 		Prompt: "Choose which opponent answers the target ask for " + e.targetName(c.Source)}
 	for _, p := range e.livingOpponents(c.Controller) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),

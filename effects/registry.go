@@ -1443,6 +1443,9 @@ type Ctx struct {
 	// body, the matching convention rules' charmModeTarget already
 	// established).
 	OfferedSA *cards.SA
+	// TargetAskResume overrides the SA that owns a target ask while an Effect
+	// pre-captures the target of its immediately following ChangeZone sub.
+	TargetAskResume *cards.SA
 	// ModesSeen names the chosen modes earlier passes of a CanRepeatModes$
 	// Charm's mode walk already ran (rules' charm_rest resume arm seeds it
 	// from the consumed prefix of the object's ChosenModes; a first pass has
@@ -2847,6 +2850,53 @@ type targetableObjectsHost interface {
 	TargetableObjects(triggerCard state.ObjID) []state.ObjID
 }
 
+func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool, bool) {
+	if c == nil || sa == nil || sa.API != "Effect" ||
+		strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
+		return nil, false, false
+	}
+	remembersTargeted := false
+	for _, member := range strings.Split(sa.Params["RememberObjects"], "&") {
+		member = strings.TrimSpace(member)
+		if member == "Targeted" || member == "ThisTargetedCard" {
+			remembersTargeted = true
+			break
+		}
+	}
+	if !remembersTargeted {
+		return nil, false, false
+	}
+	childName := strings.TrimSpace(sa.Params["SubAbility"])
+	child := cards.ResolveSVar(c.SVars, childName)
+	if child == nil || child.API != "ChangeZone" ||
+		strings.TrimSpace(child.Params["ValidTgts"]) == "" {
+		return nil, false, false
+	}
+	// The root Effect has no target of its own, so a generic placement marker
+	// cannot mean that this child was offered. Temporarily remove that marker
+	// while using ChangeZone's normal chooser and restore it before dispatch.
+	offeredSA, targetsOffered := c.OfferedSA, c.TargetsOffered
+	previousResume := c.TargetAskResume
+	answeredEmpty := c.ChoiceDone && len(c.Choice) == 0
+	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = nil, false, sa
+	ts, handled := changeZoneChosenTargets(h, c, child)
+	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = offeredSA, targetsOffered, previousResume
+	if !handled {
+		return nil, false, false
+	}
+	if ts == nil && !answeredEmpty {
+		return nil, false, true
+	}
+	if ts == nil {
+		ts = []state.Target{}
+	}
+	if c.SubPreAsk == nil {
+		c.SubPreAsk = make(map[string][]state.Target)
+	}
+	c.SubPreAsk[child.Line] = ts
+	return ts, true, false
+}
+
 func Resolve(h Host, c *Ctx, sa *cards.SA) {
 	// Publish this walk's Effect-created registration frame (set by rules'
 	// seedEffectReplCtx on an api:Effect replacement's body Ctx) for the whole
@@ -3098,6 +3148,17 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// before any skip could suppress it. API$ ChangeZone is left to
 		// effChangeZone's own mid-resolution ask (changeZoneChosenTargets),
 		// which the closed ChangeZone slice owns.
+		// An Effect that remembers Targeted may own a replacement whose
+		// referent is chosen by its immediately following ChangeZone sub.
+		// Capture that sub's answer before registering the replacement, then
+		// retain it for the sub so its ordinary ChangeZone path does not ask
+		// twice. Other Effect shapes keep their established ask timing.
+		rememberedSubTargets, prefetchedRememberedSub, suspendedForRememberedSub :=
+			prefetchRememberedChangeZoneTarget(h, c, sa)
+		if suspendedForRememberedSub {
+			h.SuspendContinuation(sa)
+			return
+		}
 		if ts, done := chosenTargetsFor(h, c, sa, d == 0); done {
 			if ts == nil {
 				// The ask was posed and suspended the resolution: stop here
@@ -3121,7 +3182,13 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			fn(h, c, sa)
 			c.PickedTargets = nil
 		} else {
+			if prefetchedRememberedSub {
+				c.PickedTargets = rememberedSubTargets
+			}
 			fn(h, c, sa)
+			if prefetchedRememberedSub {
+				c.PickedTargets = nil
+			}
 		}
 		// A DB$ Token whose mint parked has not finished: its Imprint/
 		// ClearImprinted tail belongs after the mints, so it runs on the
