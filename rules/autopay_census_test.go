@@ -107,6 +107,12 @@ type autopayCensus struct {
 	decks     map[*cards.Card][]string
 	tokenRefs map[string]map[*cards.Card]bool
 	support   map[string]*cards.Card
+	// fodder, set only by TestCreatureManaAbilityAudit, arms every audit
+	// board with the cost fodder the creature mana rows' costs name (token
+	// permanents, a tapped source for a {Q} cost). The corpus-wide env-gated
+	// census (TestAutopayManaCensus) leaves it false and its boards are
+	// untouched.
+	fodder bool
 }
 
 func censusChainHasMana(sa *cards.SA) bool {
@@ -209,6 +215,13 @@ func newAutopayCensus(t *testing.T) *autopayCensus {
 		"dork":   "Name:Census Dork\nManaCost:G\nTypes:Creature Elf\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ Add {G}.\nOracle:x\n",
 		"rock":   "Name:Census Rock\nManaCost:1\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ C | SpellDescription$ Add {C}.\nOracle:x\n",
 		"probe":  "Name:Census Probe\nManaCost:1\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n",
+		// Fodder supports: placed only by the audit's fodder hook, never on the
+		// base board. None of them has a mana ability, a trigger or a static.
+		"food":      "Name:Census Food\nTypes:Artifact Food\nOracle:x\n",
+		"goblin":    "Name:Census Goblin\nManaCost:R\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n",
+		"spirit":    "Name:Census Spirit\nManaCost:W\nTypes:Creature Spirit\nPT:1/1\nOracle:x\n",
+		"saproling": "Name:Census Saproling\nManaCost:G\nTypes:Creature Saproling\nPT:1/1\nOracle:x\n",
+		"wood":      "Name:Wood\nTypes:Creature Wall\nPT:0/1\nOracle:x\n",
 	} {
 		cz.support[name] = card(t, src)
 	}
@@ -397,6 +410,91 @@ func (cz *autopayCensus) board(c *cards.Card) *Engine {
 		e.setNameInPool = true
 	}
 	return e
+}
+
+// addFodder arms the manual board with the cost fodder the creature mana
+// audit's rows commonly name (the audit's own cz.fodder opt-in): token
+// permanents -- two Food, a Goblin, a Spirit, a Saproling and the token named
+// Wood, exactly the sacrifice/tap filters those costs read -- and, when the
+// probed ability's cost carries an untap component, the source itself tapped
+// (a {Q} cost is unpayable on an untapped source). Everything is in place
+// BEFORE askPriority offers the activation. Every object is written
+// eventlessly under the census's own censusStale precedent -- the fodder
+// board is a synthetic per-row clone that is never replayed, and an eventless
+// write keeps every logged event out of the tally.
+func (cz *autopayCensus) addFodder(e *Engine, id state.ObjID, ma *cards.SA) {
+	if ma == nil {
+		return
+	}
+	c := e.parseCost(ma.Params["Cost"])
+	need := map[string]bool{}
+	for _, part := range c.Sac {
+		if part.Announced {
+			continue
+		}
+		fodderNeed(part.Spec, need)
+	}
+	for _, part := range c.TapPermanent {
+		if part.Dyn != "" {
+			continue
+		}
+		fodderNeed(part.Spec, need)
+	}
+	for _, stem := range fodderStems {
+		if !need[stem.key] {
+			continue
+		}
+		// Two of each: a tapXType<2/...> part taps two, a Sac<1/...> part
+		// sacrifices one -- two covers every literal count the audit's rows
+		// name.
+		for i := 0; i < 2; i++ {
+			fid := censusPlace(e, cz.support[stem.key], 0, state.ZBattlefield, 0)
+			e.G.Obj(fid).IsToken = stem.tok
+		}
+	}
+	// {Q}: the untap cost needs the source already tapped at offer time
+	// (activationTapCostUnavailable refuses an untapped {Q} source).
+	if c.Untap {
+		if o := e.G.Obj(id); o != nil {
+			o.Tapped = true
+		}
+	}
+	censusStale(e)
+}
+
+// fodderNeed marks which fodder a cost spec needs. Only exact, well-known
+// fragments are matched ("namedWood" first, so a Wood filter is not mistaken
+// for a generic token filter). A spec that names none of the fragments gets
+// no fodder at all -- fail-closed, like every other filter read.
+func fodderNeed(spec string, need map[string]bool) {
+	switch {
+	case strings.Contains(spec, "namedWood"):
+		need["wood"] = true
+	case strings.Contains(spec, "Saproling"):
+		need["saproling"] = true
+	case strings.Contains(spec, "Spirit"):
+		need["spirit"] = true
+	case strings.Contains(spec, "Goblin"):
+		need["goblin"] = true
+	case strings.Contains(spec, "Food"):
+		need["food"] = true
+	case strings.Contains(spec, ".token"):
+		need["food"] = true // a token is a token: two Foods satisfy tapXType<2/Permanent.token>
+	}
+}
+
+// fodderStems is the audit's fodder table: which synthetic support card each
+// cost spec needs, and whether that support card is marked as a token.
+var fodderStems = []struct {
+	key  string
+	frag string
+	tok  bool
+}{
+	{"food", "Food", true},
+	{"goblin", "Goblin", false},
+	{"spirit", "Spirit", false},
+	{"saproling", "Saproling", false},
+	{"wood", "Wood", true},
 }
 
 // enrich turns a V1 board into the manual board: floating mana of every type,
@@ -1187,6 +1285,9 @@ func (cz *autopayCensus) evalActivated(row *censusRow) {
 	m.G.Obj(mid).IsToken = it.kind == "token"
 	cz.enrich(m, mid)
 	mma := censusFaceSA(m, mid, it)
+	if cz.fodder {
+		cz.addFodder(m, mid, mma)
+	}
 	row.manualOffered = yn(censusContains(m.availableManaAbilitiesForWindow(0, mid, true), mma))
 	if row.manualOffered == "N" {
 		row.manualOutcome = "not_offered"
