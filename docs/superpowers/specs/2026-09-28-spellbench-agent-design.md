@@ -784,6 +784,10 @@ shadow agent, ±1.96 SE):
 | routed: Affinity/Wildfire arbiter defaulting to sb-tactical, else arbiter, W16 H2 | 824-839 | 256 | 56.2 ±6.1 | 46 (3,033) |
 | routed, W32 H2 | 840-855 | 256 | 57.4 ±6.1 | 99 (7,574) |
 | routed, W24 H4 (`best1`) | 856-871 | 256 | 59.8 ±6.0 | 105 (5,346) |
+| **arbiter, sb-tactical rollouts, W32 H4, margin 0.02 (final)** | 856-871 | 256 | 57.8 ±6.0 | 199 (8,288) |
+
+Pooled over the three W32 arbiter runs (768 games, three seed sets):
+57.7% [54.2, 61.2] against tac9.
 
 Per deck, sb-tactical on the shadow is far from uniform against tac9 (512
 games): Affinity 73%, Wildfire 67%, Burn 52%, Faeries 44%, Elves 39%,
