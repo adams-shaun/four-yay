@@ -300,19 +300,19 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				var keywords []string
 				power, toughness, keywords = combined.Characteristics(id)
 				castable = z == state.ZHand || z == state.ZCommand || (z == state.ZGraveyard && hasFlashback(keywords))
-				instantSpeed = hasTypeWord(f.Types, "Instant") || hasFlash(keywords)
+				instantSpeed = f.TypeLineHas("Instant", twInstant) || hasFlash(keywords)
 			} else {
 				power = ch.Power(id)
 				toughness = ch.Toughness(id)
 				castable = z == state.ZHand || z == state.ZCommand || (z == state.ZGraveyard && hasFlashback(ch.Keywords(id)))
-				instantSpeed = hasTypeWord(f.Types, "Instant") || hasFlash(ch.Keywords(id))
+				instantSpeed = f.TypeLineHas("Instant", twInstant) || hasFlash(ch.Keywords(id))
 			}
 			b.Cards[id] = Card{
 				Creature:      f.IsCreature(),
 				Power:         power,
 				Toughness:     toughness,
 				CMC:           CmcOf(f.ManaCost),
-				Basic:         hasTypeWord(f.Types, "Basic"),
+				Basic:         f.TypeLineHas("Basic", twBasic),
 				AttachedTo:    o.AttachedTo,
 				Activated:     o.ActivatedThisTurn,
 				ManaCost:      f.ManaCost,
@@ -381,7 +381,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				Creature:  f.IsCreature(),
 				Power:     power,
 				CMC:       CmcOf(f.ManaCost),
-				Basic:     hasTypeWord(f.Types, "Basic"),
+				Basic:     f.TypeLineHas("Basic", twBasic),
 				ManaCost:  f.ManaCost,
 				Toughness: toughness,
 			}

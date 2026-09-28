@@ -316,6 +316,13 @@ func twobridManaValue(sym string) (int32, bool) {
 // a basic land (a basic Plains is "Types:Basic Land Plains"; a dual like
 // Underground Sea is "Types:Land Island Swamp" — subtypes "Island Swamp"
 // but no Basic, which is the whole point of the L1 rule).
+// twInstant/twBasic are the interned type words BoardFromGame's face reads
+// test (cards.Face.TypeLineHas: the same EqualFold answer as hasTypeWord).
+var (
+	twInstant = cards.InternTypeWord("Instant")
+	twBasic   = cards.InternTypeWord("Basic")
+)
+
 func hasTypeWord(words []string, want string) bool {
 	for _, w := range words {
 		if strings.EqualFold(w, want) {

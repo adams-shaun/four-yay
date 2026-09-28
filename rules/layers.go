@@ -3641,7 +3641,13 @@ func (e *Engine) Toughness(id state.ObjID) int32 {
 // case-insensitive comparison, so an exact-match Engine.HasKeyword would have
 // been a silent trap for the first caller with non-canonical-cased input.
 func (e *Engine) HasKeyword(id state.ObjID, kw string) bool {
-	if !e.mayHaveDerivedKeyword(id, kw) {
+	return e.hasKeywordH(id, kwHeadOf(kw))
+}
+
+// hasKeywordH is HasKeyword for a precompiled head (rules/keyword_heads.go).
+func (e *Engine) hasKeywordH(id state.ObjID, h kwHead) bool {
+	kw := h.s
+	if !e.mayHaveDerivedKeywordH(id, h) {
 		if derivedMemoVerify {
 			e.verifyKeywordPrecheck(id, kw)
 		}
@@ -3660,7 +3666,13 @@ func (e *Engine) HasKeyword(id state.ObjID, kw string) bool {
 // effect delivered (Underworld Breach's AddKeyword$ Escape grant, Snapcaster
 // Mage's Flashback) is readable exactly where the printed one would be.
 func (e *Engine) derivedKeywordParam(id state.ObjID, head string) (string, bool) {
-	if !e.mayHaveDerivedKeyword(id, head) {
+	return e.derivedKeywordParamH(id, kwHeadOf(head))
+}
+
+// derivedKeywordParamH is derivedKeywordParam for a precompiled head.
+func (e *Engine) derivedKeywordParamH(id state.ObjID, h kwHead) (string, bool) {
+	head := h.s
+	if !e.mayHaveDerivedKeywordH(id, h) {
 		if derivedMemoVerify {
 			e.verifyKeywordPrecheck(id, head)
 		}

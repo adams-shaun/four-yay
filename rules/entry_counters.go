@@ -204,10 +204,10 @@ func (e *Engine) entryBodyCandidates(ev events.Event) bool {
 	// dispatch rather than expanded onto the face (rules/replacement.go), so
 	// a granted or printed keyword carries no face Repl to scan.
 	if ev.Kind == events.MoveZone {
-		if _, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst"); ok {
+		if _, ok := e.derivedKeywordParamH(ev.Obj, kwhBloodthirst); ok {
 			return true
 		}
-		if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); ok {
+		if _, ok := e.derivedKeywordParamH(ev.Obj, kwhSunburst); ok {
 			return true
 		}
 	}

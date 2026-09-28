@@ -1204,7 +1204,7 @@ func (e *Engine) tapFlagsSick(source state.ObjID, tap, untap bool) bool {
 	if o == nil || (!tap && !untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
 		return false
 	}
-	return slices.Contains(e.Derived(source).Types, "Creature") && !e.HasKeyword(source, "Haste")
+	return slices.Contains(e.Derived(source).Types, "Creature") && !e.hasKeywordH(source, kwhHaste)
 }
 
 func activationTapCostUnavailable(o *state.Object, cost Cost) bool {

@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -49,6 +50,7 @@ const (
 type predicateBase struct {
 	kind    predicateBaseKind
 	arg     string
+	argID   cards.TypeWordID
 	negated bool
 }
 
@@ -75,8 +77,11 @@ const (
 )
 
 type predicateTerm struct {
-	kind    predicateTermKind
-	arg     string
+	kind predicateTermKind
+	arg  string
+	// argID is arg's interned type-word ordinal for a single-word type term
+	// (0 for a multi-word subtype, which splits at match time).
+	argID   cards.TypeWordID
 	negated bool
 	maybe   bool
 }
@@ -151,7 +156,7 @@ func compilePredicateBase(base string) (predicateBase, bool) {
 		return predicateBase{kind: kind, negated: negated}, true
 	}
 	if predicateTypeWords[base] {
-		return predicateBase{kind: predicateBaseType, arg: base, negated: negated}, true
+		return predicateBase{kind: predicateBaseType, arg: base, argID: cards.InternTypeWord(base), negated: negated}, true
 	}
 	return predicateBase{}, false
 }
@@ -209,17 +214,26 @@ func compilePredicateTerm(term string) predicateTerm {
 	default:
 		if wordKind, key, ok := nonPredicate(term); ok {
 			if kind, ok := predicateTermFromWord(wordKind); ok {
-				return predicateTerm{kind: kind, arg: key, negated: true}
+				return predicateTerm{kind: kind, arg: key, argID: typeTermID(kind, key), negated: true}
 			}
 		}
 		if wordKind, key := wordPredicate(term); wordKind != wordUnknown {
 			if kind, ok := predicateTermFromWord(wordKind); ok {
-				return predicateTerm{kind: kind, arg: key}
+				return predicateTerm{kind: kind, arg: key, argID: typeTermID(kind, key)}
 			}
 		}
 		return predicateTerm{maybe: true}
 	}
 	return predicateTerm{kind: kind}
+}
+
+// typeTermID interns a single-word type term's argument; a multi-word
+// subtype (Time Lord) keeps 0 and splits at match time.
+func typeTermID(kind predicateTermKind, arg string) cards.TypeWordID {
+	if kind != predicateTermType || arg == "" || strings.IndexByte(arg, ' ') >= 0 {
+		return 0
+	}
+	return cards.InternTypeWord(arg)
 }
 
 func predicateTermFromWord(kind wordKind) (predicateTermKind, bool) {
@@ -302,7 +316,7 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 	var matched bool
 	switch base.kind {
 	case predicateBaseAny:
-		matched = hasTypeCtxPtr(o, "Creature", sc) || hasTypeCtxPtr(o, "Planeswalker", sc) || hasTypeCtxPtr(o, "Battle", sc)
+		matched = hasTypeCtxPtrID(o, "Creature", twCreature, sc) || hasTypeCtxPtrID(o, "Planeswalker", twPlaneswalker, sc) || hasTypeCtxPtrID(o, "Battle", twBattle, sc)
 	case predicateBaseCard:
 		matched = true
 	case predicateBasePermanent:
@@ -322,7 +336,7 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 		// helper, so the compiled base cannot return a definite No for a
 		// derived type the text path grants (a manifested Forest under
 		// Maskwood Nexus, or an animated manland).
-		matched = hasTypeCtxPtr(o, base.arg, sc)
+		matched = hasTypeCtxPtrID(o, base.arg, base.argID, sc)
 	}
 	if base.negated {
 		return !matched
@@ -362,7 +376,13 @@ func matchesCompiledTerm(term predicateTerm, g *state.Game, o *state.Object, sc 
 	case predicateTermColor:
 		matched = strings.Contains(ColorsOf(o), term.arg)
 	case predicateTermType:
-		matched = hasTypePredicateCtxPtr(o, term.arg, sc)
+		if term.argID != 0 {
+			// A single ASCII word: hasTypePredicateCtxPtr's one-word walk is
+			// exactly hasTypeCtxPtr of that word.
+			matched = hasTypeCtxPtrID(o, term.arg, term.argID, sc)
+		} else {
+			matched = hasTypePredicateCtxPtr(o, term.arg, sc)
+		}
 	case predicateTermColorless:
 		matched = ColorsOf(o) == ""
 	case predicateTermAttachedBy:

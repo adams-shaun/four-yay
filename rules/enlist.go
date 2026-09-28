@@ -92,7 +92,7 @@ func (e *Engine) enlistOfferList(chosen []decision.Option) []state.ObjID {
 			continue
 		}
 		seen[id] = true
-		if e.HasKeyword(id, "Enlist") && len(e.enlistCandidates(id)) > 0 {
+		if e.hasKeywordH(id, kwhEnlist) && len(e.enlistCandidates(id)) > 0 {
 			out = append(out, id)
 		}
 	}

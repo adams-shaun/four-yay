@@ -134,7 +134,7 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 			return "the permanent cannot be specialized to that face"
 		}
 	case "station":
-		if o == nil || o.Zone != state.ZBattlefield || !e.HasKeyword(opt.Obj, "Station") {
+		if o == nil || o.Zone != state.ZBattlefield || !e.hasKeywordH(opt.Obj, kwhStation) {
 			return "the spacecraft cannot be stationed"
 		}
 		if len(e.stationCandidates(p, opt.Obj)) == 0 {

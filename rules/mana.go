@@ -1753,7 +1753,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		tax = e.commanderTaxAmount(p, id)
 	}
 	delve := int32(0)
-	if e.HasKeyword(id, "Delve") {
+	if e.hasKeywordH(id, kwhDelve) {
 		delve = int32(len(e.G.Zone(state.ZGraveyard, p)))
 	}
 	if !e.manaFeasiblePriced(p, id, ability, base, mods, tax, delve, hyp) {

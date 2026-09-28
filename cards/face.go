@@ -71,7 +71,12 @@ func SplitKeywordList(list string) []string {
 	return out
 }
 
-func (f *Face) HasKeyword(k string) bool {
+func (f *Face) HasKeyword(k string) bool { return f.HasKeywordID(k, 0) }
+
+// HasKeywordID is HasKeyword with k's precompiled InternKeywordHead ordinal:
+// the same compiled-mask gate, then the keyword-line scan answered from the
+// face's interned head bitset when id is nonzero.
+func (f *Face) HasKeywordID(k string, id KeywordHeadID) bool {
 	if f.compiledCatalog != nil && f.compiledID != 0 && int(f.compiledID) <= len(f.compiledCatalog.Faces) {
 		// No keyword lines and no compiled keyword bits: both paths below
 		// answer false, so skip the head's mask lookup.
@@ -82,12 +87,7 @@ func (f *Face) HasKeyword(k string) bool {
 			return f.compiledCatalog.Faces[f.compiledID-1].KeywordMask&mask != 0
 		}
 	}
-	for _, x := range f.Keywords {
-		if strings.EqualFold(KeywordHead(x), k) {
-			return true
-		}
-	}
-	return false
+	return f.KeywordLinesHaveHead(k, id)
 }
 
 // KeywordParam returns the text after the colon of a parameterised keyword
@@ -283,6 +283,7 @@ func (f *Face) derive() {
 	}
 	f.colourIdentity = f.deriveColourIdentity()
 	f.deriveTypeStatics()
+	f.deriveWordSets()
 }
 
 // deriveColourIdentity computes the face's colour identity the way CR 903.4

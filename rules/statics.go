@@ -896,7 +896,7 @@ func (e *Engine) hasTargetConditionalFlash(p state.PlayerID, id state.ObjID) boo
 // through castWithFlashAsFace, keeping offer and enforcement on one
 // interpretation.
 func (e *Engine) flashGrantCoversTargets(p state.PlayerID, id state.ObjID, f *cards.Face, targets []state.Target) bool {
-	if f == nil || f.IsInstant() || e.HasKeyword(id, "Flash") || mayFlashSacFace(f) {
+	if f == nil || f.IsInstant() || e.hasKeywordH(id, kwhFlash) || mayFlashSacFace(f) {
 		return true
 	}
 	return e.offerAsFace(id, f, func() bool {
@@ -1120,7 +1120,7 @@ func (e *Engine) spellTimingOK(p state.PlayerID, id state.ObjID, f *cards.Face, 
 	if !e.activationPhasesOK(p, f.SpellAbility()) {
 		return false
 	}
-	return sorcery || (f.IsInstant() || e.HasKeyword(id, "Flash") || mayFlashSacFace(f) || e.castWithFlash(p, id))
+	return sorcery || (f.IsInstant() || e.hasKeywordH(id, kwhFlash) || mayFlashSacFace(f) || e.castWithFlash(p, id))
 }
 
 // altCostView is one alternative-cost entry: the parsed cost plus the

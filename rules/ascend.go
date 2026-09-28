@@ -66,7 +66,7 @@ func (e *Engine) checkBlessingGrants() {
 			if granted == 1 && !baseMayHaveKeyword(e.G.Obj(id), "Ascend") {
 				continue
 			}
-			if e.HasKeyword(id, "Ascend") {
+			if e.hasKeywordH(id, kwhAscend) {
 				ascend = true
 				break
 			}

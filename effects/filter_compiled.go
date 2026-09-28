@@ -71,6 +71,8 @@ type compiledAlt struct {
 	baseNeg bool
 	kind    compiledBaseKind
 	typ     string
+	// typID is typ's interned type-word ordinal (cards.InternTypeWord).
+	typID cards.TypeWordID
 	// typSub is changelingType(typ), precomputed for hasTypeCtxSub.
 	typSub bool
 	// contextualSameName is sameNameContextBase(base, rest).
@@ -316,7 +318,7 @@ func compileSpec(spec string) *compiledSpec {
 		case "Spell", "SpellAbility":
 			a.kind = cbSpell
 		default:
-			a.kind, a.typ, a.typSub = cbType, b, changelingType(b)
+			a.kind, a.typ, a.typID, a.typSub = cbType, b, cards.InternTypeWord(b), changelingType(b)
 		}
 		// Forge's base-qualified Spell.IsTargeting form (and the SpellAbility
 		// spelling) is ONE alternative: the whole rest after `IsTargeting `
@@ -350,15 +352,15 @@ func compiledBaseMatch(a *compiledAlt, o *state.Object, sc *SpecContext, zone st
 	var m bool
 	switch a.kind {
 	case cbAny:
-		m = hasTypeCtxSub(o, "Creature", subCreature, sc) || hasTypeCtxSub(o, "Planeswalker", subPlaneswalker, sc) ||
-			hasTypeCtxSub(o, "Battle", subBattle, sc)
+		m = hasTypeCtxSub(o, "Creature", twCreature, subCreature, sc) || hasTypeCtxSub(o, "Planeswalker", twPlaneswalker, subPlaneswalker, sc) ||
+			hasTypeCtxSub(o, "Battle", twBattle, subBattle, sc)
 	case cbCard:
 		m = true
 	case cbPermanent:
 		if inZone && zone != state.ZBattlefield {
-			m = hasTypeCtxSub(o, "Artifact", subArtifact, sc) || hasTypeCtxSub(o, "Creature", subCreature, sc) ||
-				hasTypeCtxSub(o, "Enchantment", subEnchantment, sc) || hasTypeCtxSub(o, "Land", subLand, sc) ||
-				hasTypeCtxSub(o, "Planeswalker", subPlaneswalker, sc) || hasTypeCtxSub(o, "Battle", subBattle, sc)
+			m = hasTypeCtxSub(o, "Artifact", twArtifact, subArtifact, sc) || hasTypeCtxSub(o, "Creature", twCreature, subCreature, sc) ||
+				hasTypeCtxSub(o, "Enchantment", twEnchantment, subEnchantment, sc) || hasTypeCtxSub(o, "Land", twLand, subLand, sc) ||
+				hasTypeCtxSub(o, "Planeswalker", twPlaneswalker, subPlaneswalker, sc) || hasTypeCtxSub(o, "Battle", twBattle, subBattle, sc)
 		} else {
 			m = o.Zone == state.ZBattlefield
 		}
@@ -378,7 +380,7 @@ func compiledBaseMatch(a *compiledAlt, o *state.Object, sc *SpecContext, zone st
 	case cbSpell:
 		m = o.Zone == state.ZStack || (a.base == "Spell" && sc.AsStack)
 	default:
-		m = hasTypeCtxSub(o, a.typ, a.typSub, sc)
+		m = hasTypeCtxSub(o, a.typ, a.typID, a.typSub, sc)
 	}
 	if a.baseNeg {
 		return !m
@@ -394,6 +396,16 @@ var (
 	subArtifact     = changelingType("Artifact")
 	subEnchantment  = changelingType("Enchantment")
 	subLand         = changelingType("Land")
+)
+
+// The same fixed base words' interned type-word ordinals.
+var (
+	twCreature     = cards.InternTypeWord("Creature")
+	twPlaneswalker = cards.InternTypeWord("Planeswalker")
+	twBattle       = cards.InternTypeWord("Battle")
+	twArtifact     = cards.InternTypeWord("Artifact")
+	twEnchantment  = cards.InternTypeWord("Enchantment")
+	twLand         = cards.InternTypeWord("Land")
 )
 
 // compiledMatch is matchesObjectText(g, spec, o, sc) for the spec cs was compiled

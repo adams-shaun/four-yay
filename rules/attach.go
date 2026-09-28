@@ -190,7 +190,7 @@ func (e *Engine) auraStillMatchesEnchant(o, bearer *state.Object) bool {
 	if f == nil {
 		return false
 	}
-	param, ok := e.derivedKeywordParam(o.ID, "Enchant")
+	param, ok := e.derivedKeywordParamH(o.ID, kwhEnchant)
 	if !ok || strings.TrimSpace(param) == "" {
 		return true
 	}
@@ -204,7 +204,7 @@ func (e *Engine) auraStillMatchesEnchant(o, bearer *state.Object) bool {
 // attachmentSBAs for why the zone word is mandatory (a bare spec is
 // zone-blind and would exempt ordinary dead-bearer Auras too).
 func (e *Engine) auraEnchantZoneAdmits(o, bearer *state.Object) bool {
-	param, ok := e.derivedKeywordParam(o.ID, "Enchant")
+	param, ok := e.derivedKeywordParamH(o.ID, kwhEnchant)
 	if !ok || strings.TrimSpace(param) == "" {
 		return false
 	}

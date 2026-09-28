@@ -229,7 +229,7 @@ func (e *Engine) paymentPlanCastShapeDetailUsing(statics costStaticViews, p stat
 	if paymentPlanNonManaAdmissible(spellCost) != "" || paymentPlanNonManaAdmissible(withSpellAbilityExtras(f, Cost{})) != "" {
 		return "shape:additional_cost"
 	}
-	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.HasKeyword(id, "Delve") {
+	if e.hasCastConvoke(id) || e.hasCastImprovise(id) || e.hasKeywordH(id, kwhDelve) {
 		return "shape:contribution"
 	}
 	if f.HasKeyword("Gift") {

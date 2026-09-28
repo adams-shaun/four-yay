@@ -111,7 +111,7 @@ func (e *Engine) applyReplacements(ev events.Event) (events.Event, bool) {
 // corpus, all 23 printed lines spell <N> or X) fails closed to no match --
 // the conservative direction for a counter put.
 func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
-	param, ok := e.derivedKeywordParam(ev.Obj, "Bloodthirst")
+	param, ok := e.derivedKeywordParamH(ev.Obj, kwhBloodthirst)
 	if !ok {
 		return nil
 	}
@@ -167,7 +167,7 @@ func (e *Engine) bloodthirstEntryMatch(ev events.Event) *replMatch {
 // gate, widened to cover sunburst's cast faces). An inline Count body keeps
 // this a one-line body with no SVar minted on the face.
 func (e *Engine) sunburstEntryMatch(ev events.Event) *replMatch {
-	if _, ok := e.derivedKeywordParam(ev.Obj, "Sunburst"); !ok {
+	if _, ok := e.derivedKeywordParamH(ev.Obj, kwhSunburst); !ok {
 		return nil
 	}
 	o := e.G.Obj(ev.Obj)
@@ -5620,7 +5620,7 @@ func (e *Engine) replacementCauseMatches(spec string, replacementSource, cause s
 		if o.Source == 0 {
 			return false
 		}
-		return e.HasKeyword(o.Source, "Modular")
+		return e.hasKeywordH(o.Source, kwhModular)
 	}
 	return false
 }
@@ -6158,7 +6158,7 @@ func (e *Engine) poseDamageReplacementChoice(ev events.Event, matches []replMatc
 	e.replChoices = append(e.replChoices, replChoice{
 		kind: replChoiceDamage, ev: ev, cands: matches, before: e.triggerBefore, player: p,
 		damaging: source, combat: e.combatDamaging,
-		lifelink: e.HasKeyword(source, "Lifelink"), deadly: e.HasKeyword(source, "Deathtouch"),
+		lifelink: e.hasKeywordH(source, kwhLifelink), deadly: e.hasKeywordH(source, kwhDeathtouch),
 		toxic: e.ToxicValue(source),
 	})
 	if e.pending == nil {

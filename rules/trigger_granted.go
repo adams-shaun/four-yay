@@ -51,7 +51,7 @@ func (e *Engine) checkGrantedConspireTriggers(observer *Engine, id state.ObjID, 
 	if ev.Kind != events.PutOnStack || id != ev.Obj {
 		return
 	}
-	if !e.HasKeyword(id, "Conspire") || f.HasKeyword("Conspire") {
+	if !e.hasKeywordH(id, kwhConspire) || f.HasKeyword("Conspire") {
 		return
 	}
 	t := cards.Trigger{Mode: "SpellCast", Params: map[string]string{
@@ -116,7 +116,7 @@ func (e *Engine) checkGrantedDemonstrateTriggers(observer *Engine, id state.ObjI
 	if ev.Kind != events.PutOnStack || id != ev.Obj {
 		return
 	}
-	if !e.HasKeyword(id, "Demonstrate") || f.HasKeyword("Demonstrate") {
+	if !e.hasKeywordH(id, kwhDemonstrate) || f.HasKeyword("Demonstrate") {
 		return
 	}
 	t := cards.Trigger{Mode: "SpellCast", Params: map[string]string{
@@ -247,7 +247,7 @@ func (e *Engine) checkGrantedExploitTriggers(observer *Engine, id state.ObjID, o
 	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || id != ev.Obj || o.Zone != state.ZBattlefield {
 		return
 	}
-	if f.HasKeyword("Exploit") || !e.HasKeyword(id, "Exploit") {
+	if f.HasKeyword("Exploit") || !e.hasKeywordH(id, kwhExploit) {
 		return
 	}
 	t := cards.Trigger{Mode: "ChangesZone", Params: map[string]string{
@@ -364,10 +364,10 @@ func (e *Engine) checkGrantedDethroneTriggers(observer *Engine, id state.ObjID, 
 	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
 		return
 	}
-	if e.HasKeyword(id, "Dethrone") && f.HasKeyword("Dethrone") {
+	if e.hasKeywordH(id, kwhDethrone) && f.HasKeyword("Dethrone") {
 		return
 	}
-	if !e.HasKeyword(id, "Dethrone") || f.HasKeyword("Dethrone") {
+	if !e.hasKeywordH(id, kwhDethrone) || f.HasKeyword("Dethrone") {
 		return
 	}
 	t := cards.Trigger{Mode: "Attacks", Params: map[string]string{
@@ -412,7 +412,7 @@ func (e *Engine) checkGrantedTrainingTriggers(observer *Engine, id state.ObjID, 
 	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
 		return
 	}
-	if !e.HasKeyword(id, "Training") || f.HasKeyword("Training") {
+	if !e.hasKeywordH(id, kwhTraining) || f.HasKeyword("Training") {
 		return
 	}
 	t := cards.Trigger{Mode: "Attacks", Params: map[string]string{
@@ -457,7 +457,7 @@ func (e *Engine) checkGrantedMentorTriggers(observer *Engine, id state.ObjID, o 
 	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
 		return
 	}
-	if !e.HasKeyword(id, "Mentor") || f.HasKeyword("Mentor") {
+	if !e.hasKeywordH(id, kwhMentor) || f.HasKeyword("Mentor") {
 		return
 	}
 	t := cards.Trigger{Mode: "Attacks", Params: map[string]string{
@@ -522,7 +522,7 @@ func (e *Engine) checkGrantedAfflictTriggers(id state.ObjID, o *state.Object, f 
 	if !blocked {
 		return
 	}
-	if !e.HasKeyword(id, "Afflict") {
+	if !e.hasKeywordH(id, kwhAfflict) {
 		return
 	}
 	printed := map[string]bool{}

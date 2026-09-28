@@ -103,6 +103,18 @@ type Face struct {
 	// anyStaticEZ: some static (any Mode$) carries an EffectZone$ key (see
 	// StaticsMayNameEffectZone).
 	anyStaticEZ bool
+
+	// typeWords/kwHeads are the interned printed type-line words and keyword
+	// heads as bitsets (words.go), guarded by the identity of the slice they
+	// were derived over. Not serialized.
+	typeWords      TypeWordSet
+	typeWordsFirst *string
+	typeWordsLen   int
+	typeWordsBound bool
+	kwHeads        KeywordHeadSet
+	kwHeadsFirst   *string
+	kwHeadsLen     int
+	kwHeadsBound   bool
 }
 
 // typeStaticParams are the static parameter keys whose presence can make

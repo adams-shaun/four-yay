@@ -1968,10 +1968,10 @@ type damageKeywordLKI struct {
 
 func (e *Engine) damageKeywordsOf(id state.ObjID) damageKeywordLKI {
 	return damageKeywordLKI{
-		lifelink:   e.HasKeyword(id, "Lifelink"),
-		infect:     e.HasKeyword(id, "Infect"),
-		wither:     e.HasKeyword(id, "Wither"),
-		deathtouch: e.HasKeyword(id, "Deathtouch"),
+		lifelink:   e.hasKeywordH(id, kwhLifelink),
+		infect:     e.hasKeywordH(id, kwhInfect),
+		wither:     e.hasKeywordH(id, kwhWither),
+		deathtouch: e.hasKeywordH(id, kwhDeathtouch),
 	}
 }
 

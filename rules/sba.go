@@ -1025,7 +1025,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 			if o.Damage < e.Toughness(id) && dtMark == 0 {
 				continue
 			}
-			if e.HasKeyword(id, "Indestructible") {
+			if e.hasKeywordH(id, kwhIndestructible) {
 				continue
 			}
 			dead = append(dead, casualty{id, "lethal damage"})
