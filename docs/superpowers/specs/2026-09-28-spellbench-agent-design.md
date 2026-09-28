@@ -868,6 +868,44 @@ contested decisions (495 of 3,684 in the dev arena) and so inherits the
 better policy per position rather than per deck. Routing by deck adds
 nothing measurable on top (57.4 vs 57.8 on the same seeds).
 
+**Staging fixes after adjudication (2026-09-28, peer session gorge-2d
+read every disagreement against the kernel; the kernel was right in each).**
+S1 summoning sickness now comes from the kernel's `summoning_sick` flag for
+both seats (the kernel's `turn` counts rounds, so "entered this turn" cannot
+be read from it); S2 a triggered ability on the stack is matched to the
+source trigger that can fire from the zone the kernel names (Writhing
+Chrysalis's cast trigger); S3 this turn's `ability_uses_this_turn` are
+staged as inert `ManaActivate` markers (gorge counts per-turn activations
+from the log: Quirion Ranger's once per turn); S4 a trigger granted by a
+static (Black Mage's Rod's `AddTrigger$` on the Hero token) is staged as a
+`GrantTriggerPush`; S7 `exile_play_permissions` become gorge may-play
+grants (impulse draws); S8 an ability whose source has left (a token
+sacrificed for its cost, Lembas shuffled away, ninjutsu from hand) is staged
+from the kernel's card reference; S9 the kernel's `madness_offer` is
+gorge's madness keyword trigger; the kernel's `priority_passes` record is
+the staged pass count. Not done: S5 (pending triggers at an ordering
+decision), S6 (Snap's target mid-resolution), S10 (mid-resolution asks to
+the non-priority seat), S11 (a kernel projection bug, patched kernel-side
+by gorge-2d); all three staging gaps sit in decisions v1agent.Tactical
+answers anyway. Same corpus, before -> after:
+
+| | before | after |
+|---|---|---|
+| priority decisions staged | 99.4% | **100%** |
+| priority: kernel non-mana candidates mapped / fully mapped decisions | 99.5% / 98.6% | 99.7% / 99.1% |
+| priority: gorge options with no kernel candidate | 82 of 17,443 | 7 of 17,502 (Nyxborn Hydra's bestow) |
+| attack candidates mapped | 99.7% | 100% |
+| all decisions staged | 98.0% | 98.6% (185 left: mid-resolution asks, S10) |
+| summoning sickness mismatches | 32 | 0 |
+| ambiguous triggers / Hero-token and madness fatals / departed sources | 29 / 8+31 / 33 | 0 / 0 / 0 |
+
+The remaining unmapped priority candidates (0.3%) are offers gorge does
+not make at an empty pool: Highway Robbery's plot (47), Sagu Wildling's
+omen (26), Land Grant's alternative cost (11), Of One Mind (8). The
+unused-option table now counts priority decisions only (at a target or
+other sub-decision gorge sits at priority, so every option there would
+count). Staging now costs 0.7-1.0 ms.
+
 ## 4. (b) The shadow gorge state
 
 The agent's core data structure is a `*rules.Engine` positioned at the
