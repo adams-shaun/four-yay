@@ -149,19 +149,11 @@ func TestUnchartedVoyageAlternativeDeciderOwnerChoosesTopOrBottom(t *testing.T) 
 	}
 }
 
-// TestAlternativeDeciderSecondFromTopStaysLoudAndUnasked pins the boundary of
-// the new support: the 6 corpus AlternativeDecider cards whose PRIMARY
-// position is LibraryPosition$ 1 ("second from top") are NOT the top-or-
-// bottom shape this engine can place. They must stay loud -- a Note naming
-// the unsupported shape -- and must NOT pose the alternative ask, whose two
-// options (top/bottom) would offer a choice the card never printed.
-//
-// Deem Inferior is the representative: without the shape gate the ask is
-// posed (suspending on a KChoose this drain cannot answer) and the top/bottom
-// placement would be taken; with it, the resolution completes, the target
-// sits at the bottom (the engine's pre-existing placement for this path,
-// unchanged) and the owner is never asked.
-func TestAlternativeDeciderSecondFromTopStaysLoudAndUnasked(t *testing.T) {
+// TestAlternativeDeciderSecondFromTopChoice covers the six corpus carriers
+// whose primary position is LibraryPosition$ 1, including Deem Inferior. The
+// owner may choose that position or the -1 (bottom) alternative; this case
+// answers the primary choice and proves the card is placed second from top.
+func TestAlternativeDeciderSecondFromTopChoice(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	deem := mustCorpusCard(t, reg, "Deem Inferior")
@@ -190,30 +182,30 @@ func TestAlternativeDeciderSecondFromTopStaysLoudAndUnasked(t *testing.T) {
 	}
 	submitChoices(t, e, targetIdx)
 
-	// The whole resolution completes WITHOUT an alternative ask: a KChoose
-	// with ResumeKind changezone_alternative would fail here.
+	ask := passPriorityUntil(t, e, decision.KChoose)
+	if ask.Player != 1 || ask.ResumeKind != "changezone_alternative" {
+		t.Fatalf("alternative ask = %+v, want the target owner on changezone_alternative", ask)
+	}
+	primary := -1
+	for _, o := range ask.Options {
+		if o.Label == "second from top" {
+			primary = o.Index
+		}
+	}
+	if primary < 0 {
+		t.Fatalf("second-from-top primary option missing: %+v", ask.Options)
+	}
+	submitChoices(t, e, primary)
 	passUntilStackEmpty(t, e, 20)
 
-	// The handler ran (loud): the shape Note is in the log.
-	sawShapeNote := false
+	lib := e.G.Zone(state.ZLibrary, 1)
+	if len(lib) < 2 || lib[1] != bearID {
+		t.Fatalf("target not second from top of seat 1's library: %v", lib)
+	}
 	for _, ev := range e.L.Events {
 		if ev.Kind == events.Note && strings.Contains(ev.Text, "not the top-or-bottom library shape") {
-			sawShapeNote = true
+			t.Fatalf("supported second-from-top shape emitted a Note: %s", ev.Text)
 		}
-		if ev.Kind == events.DecisionAsk && ev.Text == string(decision.KChoose) {
-			t.Fatalf("the unsupported second-from-top shape posed the top/bottom ask: %+v", ev)
-		}
-	}
-	if !sawShapeNote {
-		t.Fatalf("no shape Note for the unsupported LibraryPosition$ 1 alternative: %+v", e.L.Events)
-	}
-
-	// The target moved (the effect still took its primary destination), at the
-	// bottom -- the pre-existing placement for a path that reads no
-	// LibraryPosition$.
-	lib := e.G.Zone(state.ZLibrary, 1)
-	if len(lib) == 0 || lib[len(lib)-1] != bearID {
-		t.Fatalf("target not at the bottom of seat 1's library: %v", lib)
 	}
 	replayCheck(t, e, cfg)
 }
