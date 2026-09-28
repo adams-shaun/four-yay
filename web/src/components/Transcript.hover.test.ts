@@ -39,14 +39,18 @@ describe('the transcript card-name hover preview (fb-20260927T154603Z)', () => {
     await page.goto(`${url}src/components/Transcript.fixture.html`);
     const details = page.locator('.auto-detail');
     await expect.poll(() => details.count()).toBe(1);
-    // Closed rows must not serialize/render the snapshot or retain an export URL.
+    // Closed rows must not serialize/render the snapshot or retain any of its
+    // controls: no <pre> dump, no export data URL, no copy button.
     expect(await page.locator('.auto-detail pre').count()).toBe(0);
     expect(await page.locator('.auto-detail a[download="autopass-view.json"]').count()).toBe(0);
+    expect(await details.getByRole('button', { name: 'Copy JSON' }).count()).toBe(0);
 
     await details.locator(':scope > summary').click();
     await details.locator('details > summary').click();
     const snapshot = details.locator('pre');
     await expect.poll(() => snapshot.textContent()).toContain('seat-redacted-view');
+    // opening is what materializes the snapshot control set
+    await expect.poll(() => details.getByRole('button', { name: 'Copy JSON' }).count()).toBe(1);
     const exportLink = details.locator('a[download="autopass-view.json"]');
     await expect.poll(() => exportLink.getAttribute('href')).toContain('data:application/json');
     expect(decodeURIComponent((await exportLink.getAttribute('href'))!.split(',')[1])).toContain('seat-redacted-view');
