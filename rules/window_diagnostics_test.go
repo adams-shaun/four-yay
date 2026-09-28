@@ -139,7 +139,7 @@ func TestWindowDiagnosticsLandDropExhausted(t *testing.T) {
 	forest := card(t, "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n")
 	second := card(t, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
 	decks := [][]*cards.Card{
-		{forest, second},
+		append([]*cards.Card{forest, second}, mountainDeck(t, 38)...),
 		mountainDeck(t, 40),
 	}
 	e := New(seatZeroStart(Config{Seed: 3, Names: []string{"a", "b"}, Decks: decks, WindowDiagnostics: true}))
@@ -235,7 +235,7 @@ func hasInHand(e *Engine, id state.ObjID) bool {
 func TestWindowDiagnosticsTimingNotMain(t *testing.T) {
 	t.Parallel()
 	sorcery := card(t, "Name:Expensive Sorcery\nManaCost:9 R\nTypes:Sorcery\nOracle:x\n")
-	decks := [][]*cards.Card{{sorcery}, mountainDeck(t, 40)}
+	decks := [][]*cards.Card{append([]*cards.Card{sorcery}, mountainDeck(t, 39)...), mountainDeck(t, 40)}
 	e := New(seatZeroStart(Config{Seed: 11, Names: []string{"a", "b"}, Decks: decks, WindowDiagnostics: true}))
 	e.Advance()
 	id := windowBridgeHand(t, e, "Expensive Sorcery")
@@ -272,7 +272,7 @@ func TestWindowDiagnosticsTimingNotMain(t *testing.T) {
 func TestWindowDiagnosticsInsufficientMana(t *testing.T) {
 	t.Parallel()
 	sorcery := card(t, "Name:Costly Spell\nManaCost:5 R\nTypes:Sorcery\nOracle:x\n")
-	decks := [][]*cards.Card{{sorcery}, mountainDeck(t, 40)}
+	decks := [][]*cards.Card{append([]*cards.Card{sorcery}, mountainDeck(t, 39)...), mountainDeck(t, 40)}
 	e := New(seatZeroStart(Config{Seed: 13, Names: []string{"a", "b"}, Decks: decks, WindowDiagnostics: true}))
 	e.Advance()
 	id := windowBridgeHand(t, e, "Costly Spell")
@@ -304,7 +304,7 @@ func TestWindowDiagnosticsInsufficientMana(t *testing.T) {
 func TestWindowDiagnosticsNoLegalTarget(t *testing.T) {
 	t.Parallel()
 	bolt := card(t, "Name:Test Bolt\nManaCost:R\nTypes:Sorcery\nA:SP$ DealDamage | Cost$ R | ValidTgts$ Creature | NumDmg$ 3 | SpellDescription$ x\nOracle:x\n")
-	decks := [][]*cards.Card{{bolt}, mountainDeck(t, 40)}
+	decks := [][]*cards.Card{append([]*cards.Card{bolt}, mountainDeck(t, 39)...), mountainDeck(t, 40)}
 	e := New(seatZeroStart(Config{Seed: 17, Names: []string{"a", "b"}, Decks: decks, WindowDiagnostics: true}))
 	e.Advance()
 	id := windowBridgeHand(t, e, "Test Bolt")
