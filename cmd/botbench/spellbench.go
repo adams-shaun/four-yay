@@ -638,6 +638,18 @@ func sbWriteSummary(w io.Writer, bots []string, sched []sbGame, results []sbResu
 				ps.LostPlays, ps.RecoveredPlays, ps.PursuitFailuresPriced, ps.PursuitFailures-ps.PursuitFailuresPriced,
 				ps.ExcludedUnpayable, ps.Refusals, ps.AutoPayFallbacks)
 		}
+		if len(ps.PursuitFailuresByVerdict) > 0 {
+			var vs []string
+			for k := range ps.PursuitFailuresByVerdict {
+				vs = append(vs, k)
+			}
+			sort.Strings(vs)
+			var parts []string
+			for _, k := range vs {
+				parts = append(parts, fmt.Sprintf("%s=%d", k, ps.PursuitFailuresByVerdict[k]))
+			}
+			fmt.Fprintf(w, "       %-22s pursuit failures by play/verdict: %s\n", "", strings.Join(parts, ", "))
+		}
 		if ps.Lowerings > 0 {
 			var causes []string
 			for k := range ps.AbortsByCause {

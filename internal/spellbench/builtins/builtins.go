@@ -218,6 +218,10 @@ type Stats struct {
 	// planner called payable (a cast it plans but does not offer as a
 	// witness); every other failure was of a play no planner prices.
 	PursuitFailuresPriced int
+	// PursuitFailuresByVerdict counts every pursuit failure by the
+	// planner's verdict on the play ("reason:detail", "unlisted" when the
+	// planner did not list it, "no_planner" without one).
+	PursuitFailuresByVerdict map[string]int
 	// ExcludedUnpayable counts potential plays dropped from a candidate
 	// list because the planner proved them unpayable (per decision).
 	ExcludedUnpayable int
@@ -265,6 +269,12 @@ func (s *Stats) Add(o Stats) {
 	s.PursuitTaps += o.PursuitTaps
 	s.PursuitFailures += o.PursuitFailures
 	s.PursuitFailuresPriced += o.PursuitFailuresPriced
+	for k, v := range o.PursuitFailuresByVerdict {
+		if s.PursuitFailuresByVerdict == nil {
+			s.PursuitFailuresByVerdict = map[string]int{}
+		}
+		s.PursuitFailuresByVerdict[k] += v
+	}
 	s.ExcludedUnpayable += o.ExcludedUnpayable
 	s.Lowerings += o.Lowerings
 	s.LoweredCasts += o.LoweredCasts
@@ -312,16 +322,21 @@ type Seat struct {
 	// for, nil when none. failed holds the plays a pursuit could not pay
 	// for in the current step (lookup only), and window names that step.
 	pursuit *actionKey
-	failed  map[actionKey]bool
-	window  stepWindow
+	// pursuitVerdict and pursuitPriced record the planner's verdict on the
+	// pursued play when it was chosen.
+	pursuitVerdict string
+	pursuitPriced  bool
+	failed         map[actionKey]bool
+	window         stepWindow
 
 	// exec is the plan lowering in progress, nil when none; execKey names
 	// its play. attempts counts each play's lowerings this step and lost
 	// the aborted ones not yet completed (both lookup only).
-	exec     *payexec.Execution
-	execKey  actionKey
-	attempts map[actionKey]int
-	lost     map[actionKey]bool
+	exec      *payexec.Execution
+	execKey   actionKey
+	execLabel string // the play's label, for abort samples
+	attempts  map[actionKey]int
+	lost      map[actionKey]bool
 
 	// planner prices potential plays (nil: pursue naively); plans caches
 	// its answer for the decision planSeq (lookup only).

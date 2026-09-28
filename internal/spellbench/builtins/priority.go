@@ -102,6 +102,14 @@ func (s *Seat) priority(v view.View, d *decision.Decision, depth int) decision.I
 	k := *c.pot
 	s.pursuit = &k
 	s.Stats.Pursuits++
+	s.pursuitVerdict, s.pursuitPriced = "no_planner", false
+	if s.planner != nil {
+		s.pursuitVerdict = "unlisted"
+		if pp := s.potentialPlan(d, k); pp != nil {
+			s.pursuitVerdict = pp.Reason + ":" + pp.Detail
+			s.pursuitPriced = pp.Reason == "" && (pp.Plan != nil || k.kind == "cast")
+		}
+	}
 	if in, ok := s.pursue(v, d); ok {
 		return in
 	}
@@ -263,11 +271,16 @@ func (s *Seat) pursue(v view.View, d *decision.Decision) (decision.Intent, bool)
 	s.failed[k] = true
 	s.pursuit = nil
 	s.Stats.PursuitFailures++
-	if pp := s.potentialPlan(d, k); pp != nil && pp.Reason == "" && (pp.Plan != nil || k.kind == "cast") {
-		// The planner could pay it: a lost play, not an over-bound.
+	if s.pursuitPriced {
+		// The planner could pay it when it was chosen: a lost play, not an
+		// over-bound.
 		s.Stats.PursuitFailuresPriced++
 		s.Stats.LostPlays++
 	}
+	if s.Stats.PursuitFailuresByVerdict == nil {
+		s.Stats.PursuitFailuresByVerdict = map[string]int{}
+	}
+	s.Stats.PursuitFailuresByVerdict[k.kind+"/"+k.mode+" "+s.pursuitVerdict]++
 	return decision.Intent{}, false
 }
 
@@ -337,6 +350,7 @@ func (s *Seat) payWith(v view.View, d *decision.Decision, a *decision.PaymentAct
 	}
 	s.exec = payexec.Start(d.Player, a, payexec.PoolFromView(v, d.Player))
 	s.execKey = actionKey{kind: "cast", obj: a.Cast.Object}
+	s.execLabel = a.Label
 	s.Stats.Lowerings++
 	return s.lowerFirst(v, d, depth)
 }
@@ -347,6 +361,10 @@ func (s *Seat) lowerPlay(v view.View, d *decision.Decision, k actionKey, witness
 	play := payexec.Play{Kind: k.kind, Obj: k.obj, Ability: k.ability}
 	s.exec = payexec.StartPlay(d.Player, play, witness, payexec.PoolFromView(v, d.Player))
 	s.execKey = k
+	s.execLabel = ""
+	if pp := s.potentialPlan(d, k); pp != nil {
+		s.execLabel = pp.Action.Label
+	}
 	s.Stats.Lowerings++
 	s.Stats.AbilityLowerings++
 	return s.lowerFirst(v, d, depth)
@@ -390,7 +408,7 @@ func (s *Seat) lower(v view.View, d *decision.Decision, depth int) (decision.Int
 		return in, true
 	}
 	if len(s.Stats.AbortSamples) < maxAbortSamples {
-		s.Stats.AbortSamples = append(s.Stats.AbortSamples, fmt.Sprintf("turn %d %s: %s %d: %s: %s", v.Turn, v.Step, s.exec.Play.Kind, s.exec.Play.Obj, s.exec.Reason, s.exec.Detail))
+		s.Stats.AbortSamples = append(s.Stats.AbortSamples, fmt.Sprintf("turn %d %s: %q: %s: %s", v.Turn, v.Step, s.execLabel, s.exec.Reason, s.exec.Detail))
 	}
 	k := s.execKey
 	s.abortLowering(s.exec.Reason)
