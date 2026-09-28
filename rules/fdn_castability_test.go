@@ -224,19 +224,25 @@ func TestFDNCastability(t *testing.T) {
 		}
 	})
 	t.Run("Joust Through", func(t *testing.T) {
-		e, id := fdnSetup(t, reg, "Joust Through", nil, []*cards.Card{bear})
-		victim := moveByName(t, e, 1, bear.Faces[0].Name, state.ZBattlefield)
-		e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{victim}})
-		if !e.G.Obj(victim).IsAttacking {
+		// The spell targets any attacking or blocking creature, so the legal
+		// fixture is player 0's OWN attacker (an opponent's creature cannot
+		// attack for player 0).
+		e, id := fdnSetup(t, reg, "Joust Through", []*cards.Card{bear}, nil)
+		attacker := moveByName(t, e, 0, bear.Faces[0].Name, state.ZBattlefield)
+		e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{attacker}})
+		if !e.G.Obj(attacker).IsAttacking {
 			t.Fatal("creature not attacking")
+		}
+		if e.G.Obj(attacker).Controller != 0 {
+			t.Fatal("attacker not controlled by the caster")
 		}
 		addMana(t, e, 0, "W")
 		life := e.G.Players[0].Life
 		fdnOffer(t, e, id)
-		fdnTarget(t, e, victim)
+		fdnTarget(t, e, attacker)
 		fdnResolve(t, e)
-		if e.G.Obj(victim).Zone != state.ZGraveyard || e.G.Players[0].Life != life+1 {
-			t.Fatalf("victim %s life %d", e.G.Obj(victim).Zone, e.G.Players[0].Life)
+		if e.G.Obj(attacker).Zone != state.ZGraveyard || e.G.Players[0].Life != life+1 {
+			t.Fatalf("attacker %s life %d", e.G.Obj(attacker).Zone, e.G.Players[0].Life)
 		}
 	})
 	t.Run("Refute", func(t *testing.T) {
