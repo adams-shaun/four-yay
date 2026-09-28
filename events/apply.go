@@ -1008,7 +1008,12 @@ func Apply(g *state.Game, e Event) {
 		// otherwise a blob return/re-entry reusing the same ObjID could keep a
 		// stale designation.
 		wasBattlefield := false
+		// The DrawnThisTurn stamp before the move: a CR 733.1 reversal
+		// ("reversed" stack->origin move) undoes the proposal, so the card is
+		// still the card that was drawn; Move's clear is reverted below.
+		drawnBefore := int32(0)
 		if o := g.Obj(e.Obj); o != nil {
+			drawnBefore = o.DrawnTurn
 			wasStack = o.Zone == state.ZStack
 			wasBattlefield = o.Zone == state.ZBattlefield
 			if e.To == state.ZStack {
@@ -1064,6 +1069,17 @@ func Apply(g *state.Game, e Event) {
 			MoveCountersRemain(g, e.Obj, e.From, e.To)
 		} else {
 			Move(g, e.Obj, e.From, e.To)
+		}
+		if e.Kind == Draw && e.To == state.ZHand {
+			// The DrawnThisTurn stamp (state.Object.DrawnTurn): the card
+			// was drawn on this turn.
+			if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZHand {
+				o.DrawnTurn = g.Turn
+			}
+		} else if wasStack && e.Text == "reversed" {
+			if o := g.Obj(e.Obj); o != nil {
+				o.DrawnTurn = drawnBefore
+			}
 		}
 		if sacrificed {
 			// Stamp the sacrifice onto this move's own zone entry (the
@@ -3678,6 +3694,12 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 	enteredFrom := o.Zone
 	wasBattlefield := enteredFrom == state.ZBattlefield
 	wasStack := enteredFrom == state.ZStack
+	// Forge's drawnThisTurn survives only the move onto the stack (a cast of
+	// the drawn card); any other move makes the card a new object that was
+	// not drawn. The Draw fold re-stamps it after this Move.
+	if to != state.ZStack {
+		o.DrawnTurn = 0
+	}
 	if enteredFrom == state.ZExile && to != state.ZExile {
 		// Forge's exiledCards association is a zone relationship, not an
 		// imprint. Once this object leaves exile it is a new object for that

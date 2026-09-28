@@ -755,6 +755,14 @@ type Object struct {
 	// CloneDeep carries it.
 	PlottedTurn int32
 
+	// DrawnTurn stamps the turn this card was last DRAWN (0 = not drawn
+	// since it last moved): events.Apply's Draw fold sets it, and every other
+	// move clears it except a move onto the stack -- Forge's
+	// Card.drawnThisTurn, which GameAction carries onto the stack copy only.
+	// The DrawnThisTurn filter predicate compares it against Game.Turn
+	// (Captain Eberhart). A plain value copy in CloneDeep carries it.
+	DrawnTurn int32
+
 	// Timestamp orders continuous effects. Assigned from Game.Clock whenever
 	// the object enters the battlefield.
 	Timestamp uint32

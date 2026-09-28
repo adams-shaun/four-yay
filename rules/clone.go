@@ -845,6 +845,14 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		pc.cost.Phyrexian = append([]byte(nil), e.cast.cost.Phyrexian...)
 		pc.cost.Twobrid = append([]Twobrid(nil), e.cast.cost.Twobrid...)
 		pc.cost.HybridPhyrexian = append([]HybridPhyrexian(nil), e.cast.cost.HybridPhyrexian...)
+		pc.mayPlayHosts = append([]state.ObjID(nil), e.cast.mayPlayHosts...)
+		if e.cast.costRemembered != nil {
+			pc.costRemembered = make([]costRememberedEntry, len(e.cast.costRemembered))
+			for i, c := range e.cast.costRemembered {
+				pc.costRemembered[i] = costRememberedEntry{source: c.source, stamp: c.stamp,
+					ids: append([]state.ObjID(nil), c.ids...)}
+			}
+		}
 		pc.mods.reduces = append([]costMod(nil), e.cast.mods.reduces...)
 		pc.mods.raises = append([]int32(nil), e.cast.mods.raises...)
 		pc.delve = append([]state.ObjID(nil), e.cast.delve...)
@@ -919,6 +927,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		tp.discs = append([]state.ObjID(nil), e.turnUp.discs...)
 		tp.reveal = append([]state.ObjID(nil), e.turnUp.reveal...)
 		tp.returns = append([]state.ObjID(nil), e.turnUp.returns...)
+		tp.mods.reduces = append([]costMod(nil), e.turnUp.mods.reduces...)
+		tp.mods.raises = append([]int32(nil), e.turnUp.mods.raises...)
 		c.turnUp = &tp
 	}
 	if e.cmdZone != nil {
