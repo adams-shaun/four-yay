@@ -316,6 +316,16 @@ type Option struct {
 	// parsing the label for a keyword. omitempty: an ordinary cast (Mode "")
 	// carries no field.
 	Mode string `json:"mode,omitempty"`
+	// MayPlayPerm names the may-play permission a "may-play" cast consumes
+	// (rules/mayplay.go): a MayPlayText$-typed static's limit is once per turn
+	// PER STATIC, so when one card matches several permissions (Muldrotha's
+	// artifact creature) the offer must say which one it plays through. The
+	// value is the rules-side key "<source-obj>:<MayPlayText>"; the empty
+	// string is an untyped grant (the historical per-card limit). It is never
+	// serialized -- the client answers by option index and the engine reads
+	// the field back off its own stored option list (Submit's firstChosen) --
+	// so every existing option list stays byte-identical on the wire.
+	MayPlayPerm string `json:"-"`
 	// Amount is the X value an "x" choose option represents. The option's
 	// Index is its position in the list, not its value (see rules/cast.go's
 	// xAsk), so without this field a client could not tell "X = 4" from

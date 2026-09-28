@@ -152,6 +152,109 @@ func (e *Engine) mayPlayGrantScoped(p state.PlayerID, id state.ObjID, board bool
 	return free, ok
 }
 
+// mayPlaySpellOffer is one cast offer a may-play permission produces for a
+// card: which card and zone, the permission's identity (key/text -- empty
+// for an untyped grant), and the permission's own free-cast / RaiseCost$
+// riders (populated only for typed permissions; an untyped offer's riders
+// are read by the caller's existing aggregate helpers).
+type mayPlaySpellOffer struct {
+	zone     state.Zone
+	id       state.ObjID
+	key      string
+	text     string
+	free     bool
+	raise    Cost
+	hasRaise bool
+	priced   bool
+}
+
+// mayPlayPermissions returns every usable printed/self/board MayPlay static
+// permission covering card id for player p, in deterministic order: the
+// card's own face statics, then battlefield statics in activeStatics' APNAP
+// order. board is mayPlayGrantScoped's board switch, so the verify-mode
+// scoping stays consistent. An untyped grant collapses to one entry with an
+// empty key (its limit is the historical per-card one); a MayPlayText$-typed
+// grant is its own entry keyed by (source, label), so an artifact creature
+// matching both Muldrotha's Artifact and Creature statics is offered once
+// per still-unused permission and the cast can say which one it consumes.
+// A static whose own limit is already reached reports applies=false inside
+// mayPlayStatic, so it is absent here.
+func (e *Engine) mayPlayPermissions(p state.PlayerID, id state.ObjID, board bool) []mayPlaySpellOffer {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return nil
+	}
+	var out []mayPlaySpellOffer
+	typed := map[string]bool{}
+	untyped := false
+	// ok records one static's permission (or the untyped collapse) after
+	// mayPlayStatic's gates. The callers below pass st.Params / sv.Params
+	// DIRECTLY so the parameter census traces each argument to a Params map
+	// (the same shape mayPlayRaiseCost uses).
+	ok := func(text string, source state.ObjID, free bool, raise Cost, hasRaise, priced bool) {
+		if text == "" {
+			untyped = true
+			return
+		}
+		key := mayPlayPermKey(source, text)
+		if typed[key] {
+			return
+		}
+		typed[key] = true
+		out = append(out, mayPlaySpellOffer{id: id, key: key, text: text,
+			free: free, raise: raise, hasRaise: hasRaise, priced: priced})
+	}
+	for _, st := range o.Face().Statics {
+		if st.Mode != "Continuous" {
+			continue
+		}
+		applies, grants, free, raise, hasRaise, priced := e.mayPlayStatic(st.Params, id, o.Controller, id)
+		if !applies || !grants {
+			continue
+		}
+		ok(strings.TrimSpace(st.Params["MayPlayText"]), id, free, raise, hasRaise, priced)
+	}
+	if board {
+		for _, sv := range e.activeStatics("Continuous") {
+			if sv.Controller != p {
+				continue
+			}
+			applies, grants, free, raise, hasRaise, priced := e.mayPlayStatic(sv.Params, id, sv.Controller, sv.Source)
+			if !applies || !grants {
+				continue
+			}
+			ok(strings.TrimSpace(sv.Params["MayPlayText"]), sv.Source, free, raise, hasRaise, priced)
+		}
+	}
+	if untyped {
+		// The untyped entry carries no riders: the caller reads them through
+		// the existing mayPlayGrant/mayPlayRaiseCost aggregate, exactly as it
+		// did before typed permissions existed.
+		out = append([]mayPlaySpellOffer{{id: id}}, out...)
+	}
+	return out
+}
+
+// mayPlayPermFreeRaise reports the free-cast and RaiseCost$ composition of a
+// CAST through the may-play permission named by key. The empty key is the
+// aggregate read every untyped grant uses (mayPlayGrant / mayPlayRaiseCost);
+// a typed key is looked up among the card's matching permissions so the cast
+// prices exactly the static it consumed. A stale or unmatched key falls back
+// to the aggregate -- the fail-closed direction beginCast already takes for
+// a grant that vanished between offer and payment.
+func (e *Engine) mayPlayPermFreeRaise(p state.PlayerID, id state.ObjID, key string) (free bool, raise Cost, hasRaise, priced bool) {
+	if key != "" {
+		for _, off := range e.mayPlayPermissions(p, id, true) {
+			if off.key == key {
+				return off.free, off.raise, off.hasRaise, off.priced
+			}
+		}
+	}
+	free, _ = e.mayPlayGrant(p, id)
+	raise, hasRaise, priced = e.mayPlayRaiseCost(p, id)
+	return free, raise, hasRaise, priced
+}
+
 // mayPlayRaiseCost reports the composition of the RaiseCost$ surcharge the
 // may-play permission over this card carries -- the cost the permission adds
 // on top of the printed cost, in addition to the ordinary cast cost (CR
@@ -470,13 +573,28 @@ func (e *Engine) mayPlayStatic(params map[string]string, id state.ObjID, you sta
 	if !e.matchesSpecFrom(targetSpecForZone(spec, o.Zone), id, you, source) {
 		return false, false, false, Cost{}, hasRaise, priced
 	}
+	// MayPlayText$ names the permission this static grants (Muldrotha, the
+	// Gravetide's six per-permanent-type grants: "you may ... cast a
+	// permanent spell of each permanent type from your graveyard"). It is
+	// both the option label and the permission's identity: a typed grant's
+	// MayPlayLimit$ is enforced once per turn PER STATIC
+	// (mayPlayTypedLimitReached), not per card, so Muldrotha allows one
+	// creature AND one artifact in the same turn while a second creature is
+	// withheld. An untyped grant keeps the historical per-card limit (Kess).
+	permissionText := strings.TrimSpace(params["MayPlayText"])
 	// MayPlayLimit$ (always the literal 1 in the corpus, 45 S: lines): the
 	// granted play is once per turn. An unresolvable value stays unenforced,
 	// the same convention activationLimitReached applies to a non-literal
 	// ActivationLimit$.
 	if raw := strings.TrimSpace(params["MayPlayLimit"]); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 && e.mayPlayLimitReached(id, n) {
-			return false, false, false, Cost{}, hasRaise, priced
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			if permissionText != "" {
+				if e.mayPlayTypedLimitReached(source, permissionText, n) {
+					return false, false, false, Cost{}, hasRaise, priced
+				}
+			} else if e.mayPlayLimitReached(id, n) {
+				return false, false, false, Cost{}, hasRaise, priced
+			}
 		}
 	}
 	grants = !strings.EqualFold(params["MayPlayDontGrantZonePermissions"], "True")
@@ -521,6 +639,42 @@ func (e *Engine) mayPlayLimitReached(id state.ObjID, limit int) bool {
 		}
 		if ev.Kind == events.PutOnStack ||
 			(ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && ev.From != state.ZHand && ev.From != state.ZStack) {
+			used++
+		}
+	}
+	return used >= limit
+}
+
+// mayPlayPermKey is a MayPlayText$-typed permission's stable identity: the
+// granting static's source object plus its MayPlayText$ label. Muldrotha's
+// six statics share one source and differ by label, so the pair names
+// exactly one permission; two different Muldrothas (or a second card
+// granting the same type name) never share a limit. Deterministic and
+// replay-stable.
+func mayPlayPermKey(source state.ObjID, text string) string {
+	return strconv.FormatInt(int64(source), 10) + ":" + text
+}
+
+// mayPlayTypedLimitReached reports whether a MayPlayText$-typed permission
+// has already been used `limit` times this turn. A cast through such a
+// permission stamps a "perm=<key>" token on its pay-time CastInfo (payCast),
+// so the scan mirrors mayPlayLimitReached's backward walk to the last
+// TurnChange but keys on the permission token rather than the card id. A
+// land played through a typed permission emits no CastInfo, so a typed LAND
+// permission's count is not tracked here; the once-per-turn land drop
+// (LandsPlayed) bounds it instead (Muldrotha's Land static).
+func (e *Engine) mayPlayTypedLimitReached(source state.ObjID, text string, limit int) bool {
+	token := "perm=" + mayPlayPermKey(source, text)
+	used := 0
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		ev := e.L.Events[i]
+		if ev.Kind == events.TurnChange {
+			break
+		}
+		if ev.Kind != events.CastInfo || ev.Counter == "" {
+			continue
+		}
+		if strings.Contains(ev.Counter, token) {
 			used++
 		}
 	}

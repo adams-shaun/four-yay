@@ -1751,6 +1751,13 @@ var apiSpecificRulesStat = map[string]string{
 	// (handRoots.stat), which masked ValidSA$/EffectZone$ for every plain
 	// Continuous static.
 	"Engine.mayPlayGrantScoped": "Continuous.MayPlay",
+	// The permission enumerator (rules/mayplay.go's mayPlayPermissions,
+	// called from legal.go's mayPlaySpellIds to list each still-unused
+	// MayPlayText$-typed permission) reads MayPlay statics directly through
+	// mayPlayStatic, so it is a family root exactly like the grant path --
+	// left generic it would mask a plain Continuous static's real unread
+	// keys.
+	"Engine.mayPlayPermissions": "Continuous.MayPlay",
 	"warpGraveyardAllowed":      "Continuous.MayPlay",
 	// The raise walk (rules/mayplay.go's mayPlayRaiseCost, called from
 	// legal.go's may-play spell word and land walks and cast.go's "mayplay"
@@ -2467,6 +2474,15 @@ var ignoredParamKeys = map[string]string{
 	// gates no rules-side behaviour — the pay-or-decline ask the shared
 	// unless gate poses is the rules — so the census ignores it.
 	"UnlessAI": "AI copy-eligibility hint; forge-ai/src/main/java/forge/ai/ability/CopySpellAbilityAi.java",
+	// PumpZone$ on a DB$ Effect is INERT: Forge's EffectEffect (the
+	// api:Effect resolver) never reads it -- only PumpEffect does
+	// (forge-game/src/main/java/forge/game/ability/effects/PumpEffect.java:439,
+	// ZoneType.listValueOf) -- so Zul Ashur, Lich Lord's "you may cast target
+	// Zombie creature card from your graveyard this turn" is carried entirely
+	// by its StaticAbilities$ Play (Card.IsRemembered + MayPlay$) and
+	// ExileOnMoved$ Graveyard. The key is genuinely read by api:Pump/PumpAll,
+	// so suppressing it here hides no live gap.
+	"PumpZone": "inert on api:Effect (EffectEffect.java reads no PumpZone; only PumpEffect.java:439 does)",
 }
 
 // ignoredStatParams scopes a presentation key to individual stat modes.
