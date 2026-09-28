@@ -96,6 +96,7 @@ func krrikFindWindowOption(t *testing.T, d *decision.Decision, kind string, obj 
 }
 
 func TestKrrikCumulativeUpkeepPosesManaWindowWhenSourceCanPay(t *testing.T) {
+	t.Parallel()
 	e, cfg, bear, swamp := krrikUpkeepWindowEngine(t, krrikCumulativeFixture)
 	krrikUpkeepPreconditions(t, e, bear, swamp, "Cumulative upkeep")
 	if c := ParseCost("B"); c.Colored[state.MB] != 1 || c.Generic != 0 || !c.Priceable() {
@@ -140,6 +141,7 @@ func TestKrrikCumulativeUpkeepPosesManaWindowWhenSourceCanPay(t *testing.T) {
 }
 
 func TestKrrikEchoPosesManaWindowWhenSourceCanPay(t *testing.T) {
+	t.Parallel()
 	e, cfg, bear, swamp := krrikUpkeepWindowEngine(t, krrikEchoFixture)
 	krrikUpkeepPreconditions(t, e, bear, swamp, "Echo")
 	if c := ParseCost("B"); c.Colored[state.MB] != 1 || c.Generic != 0 || !c.Priceable() {
@@ -182,6 +184,7 @@ func TestKrrikEchoPosesManaWindowWhenSourceCanPay(t *testing.T) {
 }
 
 func TestKrrikCumulativeUpkeepWindowDonePaysLife(t *testing.T) {
+	t.Parallel()
 	e, cfg, bear, swamp := krrikUpkeepWindowEngine(t, krrikCumulativeFixture)
 	krrikUpkeepPreconditions(t, e, bear, swamp, "Cumulative upkeep")
 
@@ -218,6 +221,7 @@ func TestKrrikCumulativeUpkeepWindowDonePaysLife(t *testing.T) {
 }
 
 func TestKrrikEchoWindowDonePaysLife(t *testing.T) {
+	t.Parallel()
 	e, cfg, bear, swamp := krrikUpkeepWindowEngine(t, krrikEchoFixture)
 	krrikUpkeepPreconditions(t, e, bear, swamp, "Echo")
 

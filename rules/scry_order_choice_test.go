@@ -9,6 +9,7 @@ import (
 )
 
 func TestScryReplacementOrderChangesDrawCount(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		first int
@@ -51,6 +52,7 @@ func TestScryReplacementOrderChangesDrawCount(t *testing.T) {
 // A spell's Scry instruction must produce the same completed-action marker
 // as a permanent's upkeep Scry, not a premature marker at the look.
 func TestScrySpellTemporalAnchorBottomChoice(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		bottom bool

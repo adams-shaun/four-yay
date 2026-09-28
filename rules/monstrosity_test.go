@@ -113,6 +113,7 @@ func monstrosityEngine(t *testing.T, name, mana string) (*Engine, Config, state.
 // Amount carries the count, and the CR 701.31b once-only gate withholds the
 // ability on the now-monstrous creature even with the pool re-funded.
 func TestGigglingSkitterspikeMonstrosityMarksOnceAndGateWithholds(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := monstrosityEngine(t, "Giggling Skitterspike", "CCCCC")
 	o := e.G.Obj(id)
 	idx := monstrosityAbilityIndex(t, e, id)
@@ -150,6 +151,7 @@ func TestGigglingSkitterspikeMonstrosityMarksOnceAndGateWithholds(t *testing.T) 
 // listener fires exactly once on the mark (the opponent loses exactly 2
 // life -- a second firing would be 4) and its DamageAll body runs.
 func TestWildfireCerberusBecomeMonstrousTriggerFiresOnce(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := monstrosityEngine(t, "Wildfire Cerberus", "RRCCCCC")
 	bear := crAbortMove(t, e, 1, "Grizzly Bears", state.ZBattlefield)
 	if e.G.Players[1].Life != 20 {
@@ -199,6 +201,7 @@ func bearDamage(e *Engine, id state.ObjID) int32 {
 // static grants only after the mark, never before.
 // TestFleecemaneLionIsMonstrousGrantsKeywords
 func TestFleecemaneLionIsMonstrousGrantsKeywords(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := monstrosityEngine(t, "Fleecemane Lion", "GGGGW")
 	idx := monstrosityAbilityIndex(t, e, id)
 	kws := e.Keywords(id)
@@ -234,6 +237,7 @@ func TestFleecemaneLionIsMonstrousGrantsKeywords(t *testing.T) {
 // `SVar:MaxTgts:TriggerCount$Amount` reads the mark Amount back as its
 // target bound (up to X creatures).
 func TestVitalityHunterAnnouncedXMonstrousMarksWithX(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := monstrosityEngine(t, "Vitality Hunter", "WWWW")
 	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
 	o := e.G.Obj(id)
@@ -301,6 +305,7 @@ func TestVitalityHunterAnnouncedXMonstrousMarksWithX(t *testing.T) {
 // the Move fold's leaving-battlefield block clears the mark (the Suspected
 // designation's own end shape; ControlChange deliberately does NOT clear).
 func TestMonstrosityClearsWhenItLeavesBattlefield(t *testing.T) {
+	t.Parallel()
 	e, _, id := monstrosityEngine(t, "Giggling Skitterspike", "CCCCC")
 	idx := monstrosityAbilityIndex(t, e, id)
 	opt := abilityOption(t, e, id, idx)
@@ -332,6 +337,7 @@ func TestMonstrosityClearsWhenItLeavesBattlefield(t *testing.T) {
 // none of the suite's carriers is in any repo deck (so the goldens are safe
 // by construction).
 func TestMonstrosityCorpusCarriersExistAndAreNotInRepoDecks(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	carriers := map[string]bool{}
 	for _, name := range []string{
@@ -363,6 +369,7 @@ func TestMonstrosityCorpusCarriersExistAndAreNotInRepoDecks(t *testing.T) {
 // to the number of cards in that player's hand.
 // (Ported from the parallel kw-monstrosity branch at the merge resolution.)
 func TestStormbreathDragonMonstrosityEndToEnd(t *testing.T) {
+	t.Parallel()
 	e, cfg, dragon := monstrosityEngine(t, "Stormbreath Dragon", "CCCCCRR")
 
 	// Preconditions the assertions below depend on.
@@ -432,6 +439,7 @@ func TestStormbreathDragonMonstrosityEndToEnd(t *testing.T) {
 // puts two counters, and the "as long as CARDNAME is monstrous, it has
 // trample" static turns on exactly when the designation lands.
 func TestDomesticatedHydraMonstrosityXAndStatic(t *testing.T) {
+	t.Parallel()
 	e, cfg, hydra := monstrosityEngine(t, "Domesticated Hydra", "CCGGG")
 
 	if e.HasKeyword(hydra, "Trample") {
@@ -479,6 +487,7 @@ func TestDomesticatedHydraMonstrosityXAndStatic(t *testing.T) {
 // what un-offers a returned activation and un-lights the IsMonstrous
 // statics.
 func TestMonstrousDesignationClearsOnBattlefieldExit(t *testing.T) {
+	t.Parallel()
 	e, cfg, dragon := monstrosityEngine(t, "Stormbreath Dragon", "CCCCCRR")
 
 	opt, ok := findAbilityOption(e, dragon, 0)

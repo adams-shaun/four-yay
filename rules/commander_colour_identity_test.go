@@ -97,6 +97,7 @@ func commanderReplayCheck(t *testing.T, e *Engine, cfg Config) {
 // WUBRG order — "Add B" then "Add R" — and the answered colour must be the
 // one mana that lands in the pool.
 func TestCommandTowerAsksCommanderIdentityColours(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	tower := corpusCommander(t, reg, "Command Tower")
 	valgavoth := corpusCommander(t, reg, "Valgavoth, Harrower of Souls")
@@ -133,6 +134,7 @@ func TestCommandTowerAsksCommanderIdentityColours(t *testing.T) {
 // WUBRG offer order (no map-range nondeterminism can reach the option list):
 // a full-WUBRG commander offers W U B R G in that order.
 func TestCommandTowerIdentityAsksWUBRGOrderOnSixColourCommander(t *testing.T) {
+	t.Parallel()
 	cmdr := card(t, "Name:Rainbow Commander\nManaCost:W U B R G\nTypes:Legendary Creature Avatar\nPT:5/5\nOracle:x\n")
 	reg := testutil.CorpusRegistry(t)
 	tower := corpusCommander(t, reg, "Command Tower")
@@ -153,6 +155,7 @@ func TestCommandTowerIdentityAsksWUBRGOrderOnSixColourCommander(t *testing.T) {
 // (an artifact rock, not a land) shares the branch: a 1-of ask over the
 // identity colours, and the answer adds the chosen colour.
 func TestArcaneSignetIdentityAskIsTheSameShape(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	signet := corpusCommander(t, reg, "Arcane Signet")
 	valgavoth := corpusCommander(t, reg, "Valgavoth, Harrower of Souls")
@@ -175,6 +178,7 @@ func TestArcaneSignetIdentityAskIsTheSameShape(t *testing.T) {
 // resolves directly (no decision is posed, a decision nobody could answer
 // differently must not be asked) and adds one mana of that colour.
 func TestCommandTowerSingleColourIdentityResolvesWithoutAsk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	tower := corpusCommander(t, reg, "Command Tower")
 	cmdr := card(t, "Name:Red Commander\nManaCost:1 R\nTypes:Legendary Creature Dragon\nPT:4/4\nOracle:x\n")
@@ -196,6 +200,7 @@ func TestCommandTowerSingleColourIdentityResolvesWithoutAsk(t *testing.T) {
 // so the tap keeps today's fail-closed shape: the unhandled-Produced$ Note,
 // no mana, no ask.
 func TestCommandTowerColourlessCommanderStaysFailClosed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	tower := corpusCommander(t, reg, "Command Tower")
 	cmdr := card(t, "Name:Colourless Commander\nManaCost:7\nTypes:Legendary Creature Eldrazi\nPT:7/7\nOracle:x\n")
@@ -217,6 +222,7 @@ func TestCommandTowerColourlessCommanderStaysFailClosed(t *testing.T) {
 // format (no commanders at all) the tap adds nothing and keeps the
 // fail-closed Note — the pre-fix behaviour, unchanged.
 func TestCommandTowerNonCommanderGameStaysFailClosed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	tower := corpusCommander(t, reg, "Command Tower")
 	e, _ := colourIdentityGame(t, 82, FormatConstructed, nil, nil, tower)

@@ -17,6 +17,7 @@ import (
 // a seat-1-owned non-creature stays put (AllValid$ Creature excludes it), and
 // the whole match replays byte-identically from the log alone.
 func TestAliciaMastersEndStepReturnsCreaturesToOwners(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	alicia := searchCorpusCard(t, reg, "Alicia Masters, Skilled Sculptor")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -130,6 +131,7 @@ func driveToSeat0EndStep(t *testing.T, e *Engine) {
 // expires; without the newer owner grant the older permanent steal becomes
 // the latest surviving effect and retakes the creature (controller 0).
 func TestGainControlVariantOwnerGrantOverridesOlderStealAtCleanup(t *testing.T) {
+	t.Parallel()
 	e := New(Config{Seed: 7331, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 	alicia := e.G.AddObject(choiceCorpusCard(t, "Alicia Masters, Skilled Sculptor"), 0)

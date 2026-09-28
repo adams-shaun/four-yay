@@ -24,6 +24,7 @@ import (
 // `Cost$ Sac<1/Creature.Other/another creature>`; reaching the trigger-cost
 // window must show the sacrifice in prose, not the raw token.
 func TestSephirothCostPrompt(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, _ := realCardEngine(t, reg, 47, "Sephiroth, Fabled SOLDIER", "Grizzly Bears")
 
@@ -65,6 +66,7 @@ func TestSephirothCostPrompt(t *testing.T) {
 // description-bearing shapes of costPhrase across heads, so the fallback is
 // shown to be whole-vocabulary rather than an accident of the reported card.
 func TestCostPhraseFallbacks(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		raw  string
 		want string

@@ -25,6 +25,7 @@ import (
 // EITHER of its colours, and must NOT make a two-pip tax payable (it taps for
 // one of its colours, never both).
 func TestUnlessCostPayableRealDualLandAlternatives(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Volcanic Island"))
 	e.G.Players[0].Pool = state.Mana{}
@@ -66,6 +67,7 @@ func TestUnlessCostPayableRealDualLandAlternatives(t *testing.T) {
 // pay Daze's {1}. Before the fix the dual was dropped from the window, the pay
 // option was suppressed, and the creature was countered.
 func TestCounterDazePaysFromRealDualLand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, bearID := counterFixture(t, reg, "Daze", "Grizzly Bears")
 	e.G.Players[0].Pool = state.Mana{}
@@ -144,6 +146,7 @@ func TestCounterDazePaysFromRealDualLand(t *testing.T) {
 // token (Kardur's Vicious Return) is unpayable; with a creature it is payable.
 // Before the fix the gate returned true for every parsed non-mana cost.
 func TestUnlessCostSacComponentUnpayableNotOffered(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kardur := mustCorpusCard(t, reg, "Kardur's Vicious Return")
 	raw := "Sac<1/Creature>"
@@ -187,6 +190,7 @@ func cardSVarCarries(c *cards.Card, token string) bool {
 // bot-policy-shaped answer (the first activate) passes Decision.Validate. This
 // is the no-livelock guarantee for the added options.
 func TestUnlessWindowOptionsAreBotLegal(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, _ := counterFixture(t, reg, "Daze", "Grizzly Bears")
 	e.G.Players[0].Pool = state.Mana{}

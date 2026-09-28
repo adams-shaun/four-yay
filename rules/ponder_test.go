@@ -25,6 +25,7 @@ const ponderSrc = "Name:Ponder\nManaCost:U\nTypes:Sorcery\n" +
 // arrange's LibraryOrder and the resolution's completion, and the chained
 // draw must still run after the shuffle.
 func TestPonderMayShuffleAsksAndShuffles(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 96, ponderSrc)
 	addMana(t, e, 0, "U")
 	before := len(e.G.Zone(state.ZHand, 0))
@@ -96,6 +97,7 @@ func TestPonderMayShuffleAsksAndShuffles(t *testing.T) {
 // TestPonderMayShuffleDeclineKeepsOrder answers the may-shuffle ask "no":
 // no Shuffle event is recorded, and the chained draw still runs.
 func TestPonderMayShuffleDeclineKeepsOrder(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 96, ponderSrc)
 	addMana(t, e, 0, "U")
 	logBefore := len(e.L.Events)

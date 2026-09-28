@@ -30,6 +30,7 @@ import (
 // matches" for every creature. Offering the election would present a list the
 // player can only decline. The carrier is withheld instead.
 func TestMockingbirdETBWithheld(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Mockingbird"))
 	bear := e.G.AddObject(corpusAlternativeCard(t, "Grizzly Bears"), 1)
 	bear.Zone = state.ZBattlefield
@@ -74,6 +75,7 @@ func TestMockingbirdETBWithheld(t *testing.T) {
 // conditional test, no vanishing ability and no entry time counters. The
 // carrier is withheld rather than offering a copy that silently drops it.
 func TestFleshDuplicateETBWithheld(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Flesh Duplicate"))
 	dread := e.G.AddObject(corpusAlternativeCard(t, "Colossal Dreadmaw"), 1)
 	dread.Zone = state.ZBattlefield

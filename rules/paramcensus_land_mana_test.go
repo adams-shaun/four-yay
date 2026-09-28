@@ -50,6 +50,7 @@ func wallopersDeck(t *testing.T, reg *cards.Registry, named ...string) [][]*card
 // pool alone while a plain {3} creature is not — the restricted batch stays
 // out of manaAvailableFor for it.
 func TestEldraziTempleRestrictValidGatesTheProducedMana(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	mountain := searchCorpusCard(t, reg, "Mountain")
 	forest := searchCorpusCard(t, reg, "Forest")
@@ -176,6 +177,7 @@ func TestEldraziTempleRestrictValidGatesTheProducedMana(t *testing.T) {
 // CR 601.2g cast-payment window (where the payer holds no priority) — its
 // source is not even offered there, while an ordinary land is.
 func TestLionEyeDiamondInstantSpeedWithholdsFromPaymentWindow(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	deck := wallopersDeck(t, reg, "Lion's Eye Diamond", "Grizzly Bears")
 	cfg := seatZeroStart(Config{Seed: 9211, Names: []string{"stormer", "opponent"},
@@ -237,6 +239,7 @@ func TestLionEyeDiamondInstantSpeedWithholdsFromPaymentWindow(t *testing.T) {
 // type. A disjoint pair is rejected at Submit (the decision survives for a
 // legal answer); a shared pair moves both to the battlefield tapped.
 func TestMyriadLandscapeSearchRequiresSharedLandType(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	deck := wallopersDeck(t, reg, "Myriad Landscape")
 	cfg := seatZeroStart(Config{Seed: 9212, Names: []string{"tutor", "opponent"},

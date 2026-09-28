@@ -70,6 +70,7 @@ func activateRaftTargeting(t *testing.T, e *Engine, raftID, target state.ObjID) 
 }
 
 func TestRaftSecurityOfficerReducesOnLowPowerTarget(t *testing.T) {
+	t.Parallel()
 	e, cfg, raftID, dorkID, _ := raftSecurityOfficerGame(t, 91)
 	activateRaftTargeting(t, e, raftID, dorkID)
 	if got := e.G.Players[0].Pool.Total(); got != 1 {
@@ -86,6 +87,7 @@ func TestRaftSecurityOfficerReducesOnLowPowerTarget(t *testing.T) {
 }
 
 func TestRaftSecurityOfficerNoReductionOnHighPowerTarget(t *testing.T) {
+	t.Parallel()
 	e, cfg, raftID, _, bruteID := raftSecurityOfficerGame(t, 92)
 	activateRaftTargeting(t, e, raftID, bruteID)
 	if got := e.G.Players[0].Pool.Total(); got != 0 {

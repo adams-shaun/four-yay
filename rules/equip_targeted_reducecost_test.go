@@ -62,6 +62,7 @@ func beltGame(t *testing.T, seed uint64) (*Engine, Config, state.ObjID, state.Ob
 }
 
 func TestBeltOfGiantStrengthEquipOfferedAtTargetDiscountedPrice(t *testing.T) {
+	t.Parallel()
 	e, cfg, beltID, bruteID, _ := beltGame(t, 511)
 	// Precondition: the fixture really is a 4-power creature and Belt's equip
 	// really is {10}, so the reduction ({10} -> {6}) is nonzero. A vacuous
@@ -89,6 +90,7 @@ func TestBeltOfGiantStrengthEquipOfferedAtTargetDiscountedPrice(t *testing.T) {
 }
 
 func TestBeltOfGiantStrengthEquipChargeFollowsChosenTarget(t *testing.T) {
+	t.Parallel()
 	e, cfg, beltID, bruteID, smallID := beltGame(t, 512)
 	if got := e.Power(bruteID); got != 4 {
 		t.Fatalf("brute fixture power = %d, want 4", got)
@@ -119,6 +121,7 @@ func TestBeltOfGiantStrengthEquipChargeFollowsChosenTarget(t *testing.T) {
 }
 
 func TestBeltOfGiantStrengthEquipWithheldWhenBestTargetStillTooSmall(t *testing.T) {
+	t.Parallel()
 	e, _, beltID, bruteID, _ := beltGame(t, 513)
 	if got := e.Power(bruteID); got != 4 {
 		t.Fatalf("fixture target power = %d, want 4 (the best legal reduction is {4})", got)
@@ -159,6 +162,7 @@ func TestBeltOfGiantStrengthEquipWithheldWhenBestTargetStillTooSmall(t *testing.
 // CR 601.2h after an apparently-legal choice. The 4-power target stays
 // offered and completing the activation still charges exactly {6}.
 func TestBeltOfGiantStrengthEquipWeakTargetNotOfferedAtBestOnlyPool(t *testing.T) {
+	t.Parallel()
 	e, cfg, beltID, bruteID, smallID := beltGame(t, 514)
 	// Preconditions: the two targets' powers really differ (so their repriced
 	// prices {6} and {8} really differ) and the board really has no untapped

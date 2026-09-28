@@ -89,6 +89,7 @@ func castFixture(t *testing.T, e *Engine, id state.ObjID, want int) *decision.De
 // what runs. The log records the DecisionAsk/DecisionMade pair plus the
 // ModeChosen event, and the whole game replays byte-for-byte from the log.
 func TestCharmAsksForItsModeAndRunsTheChoice(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiC\nManaCost:R\nTypes:Instant\nA:SP$ Charm | Choices$ DoGain,DoLose\n" +
 		"SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life\n" +
 		"SVar:DoLose:DB$ LoseLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Lose 5 life\nOracle:x\n"
@@ -128,6 +129,7 @@ func TestCharmAsksForItsModeAndRunsTheChoice(t *testing.T) {
 // too few (or too many) choices is rejected — a real enforcement point that
 // keeps a stray or partial modal answer from reaching the engine.
 func TestCharmCannotBeCastForNoMode(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiC\nManaCost:R\nTypes:Instant\nA:SP$ Charm | Choices$ DoGain,DoLose\n" +
 		"SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life\n" +
 		"SVar:DoLose:DB$ LoseLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Lose 5 life\nOracle:x\n"
@@ -212,6 +214,7 @@ func drainToEnd(t *testing.T, e *Engine, limit int) {
 // original engine would fail exactly here (the clone would resume into
 // nothing), which is the whole reason the field is structured this way.
 func TestSuspendedResolutionSurvivesAClone(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiC\nManaCost:R\nTypes:Instant\nA:SP$ Charm | Choices$ DoDiscard,DoGain\n" +
 		"SVar:DoDiscard:DB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 1 | SpellDescription$ Discard a card\n" +
 		"SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life\nOracle:x\n"

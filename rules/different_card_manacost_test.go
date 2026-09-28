@@ -61,6 +61,7 @@ func erisGame(t *testing.T, seed uint64) (*Engine, Config, state.ObjID) {
 // instants/sorceries is {6} off, and the graveyard creature does not add a
 // fourth.
 func TestErisRoarOfTheStormReducesTwoPerDistinctManaValue(t *testing.T) {
+	t.Parallel()
 	e, _, erisID := erisGame(t, 811)
 	// PRECONDITION: the four cards really are in seat 0's graveyard; without
 	// them a zero reduction would be read for the wrong reason.
@@ -75,6 +76,7 @@ func TestErisRoarOfTheStormReducesTwoPerDistinctManaValue(t *testing.T) {
 // TestErisRoarOfTheStormCastsForSixLess pins the reduction as real money: with
 // {2}{U}{R} floated, the discounted {8}{U}{R} is payable and the pool empties.
 func TestErisRoarOfTheStormCastsForSixLess(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := erisGame(t, 812)
 	addMana(t, e, 0, "CCUR")
 	opt := castByName(t, e, 0, "Eris, Roar of the Storm")
@@ -91,6 +93,7 @@ func TestErisRoarOfTheStormCastsForSixLess(t *testing.T) {
 // TestErisRoarOfTheStormNoGraveyardCostsFull pins the non-discounted side: an
 // empty graveyard leaves the reduction at 0 and the full {8}{U}{R} real.
 func TestErisRoarOfTheStormNoGraveyardCostsFull(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	eris, ok := reg.Lookup("Eris, Roar of the Storm")
 	if !ok {

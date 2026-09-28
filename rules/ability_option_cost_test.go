@@ -13,6 +13,7 @@ import (
 // planeswalker wheel showed "Jace, the Mind Sculptor: ..." on every button).
 // The cost is the same composed cost AbilityCosts projects onto the card.
 func TestAbilityOptionCarriesItsCost(t *testing.T) {
+	t.Parallel()
 	src := "Name:Sailor\nManaCost:U\nTypes:Creature Spirit\nPT:1/1\n" +
 		"A:AB$ Draw | Cost$ 3 U | NumCards$ 1 | Defined$ You | SpellDescription$ Draw a card.\n" +
 		"A:AB$ Draw | Cost$ 1 PayLife<2> | NumCards$ 1 | Defined$ You | SpellDescription$ Draw another card.\n" +

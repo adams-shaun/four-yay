@@ -173,6 +173,7 @@ const clockspinningFixtureBear = "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\n
 // target's counters (the suspended card carries only TIME, so no kind pick —
 // the strict-supersets rule), and the answered PUT election adds the counter.
 func TestClockspinningAddOrRemoveCounterChoice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	clock, _ := reg.Lookup("Clockspinning")
 	profane, _ := reg.Lookup("Profane Tutor")
@@ -247,6 +248,7 @@ func TestClockspinningAddOrRemoveCounterChoice(t *testing.T) {
 // (four options, ResumeKind "aor_elect"), the answered REMOVE-TIME option
 // removes a time counter, and the unpicked P1P1 kind is left alone.
 func TestClockspinningKindPickWhenSeveralCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	clock, _ := reg.Lookup("Clockspinning")
 	e, cfg := counterChoiceGame(t, 4712, card(t, clockspinningFixtureBear), clock)
@@ -409,6 +411,7 @@ func amyPondAttack(t *testing.T, e *Engine, amyID state.ObjID) *decision.Decisio
 // off; the other card keeps all three, and the NON-suspended exiled copy is
 // never offered.
 func TestAmyPondRemovesChosenSuspendedCounters(t *testing.T) {
+	t.Parallel()
 	e, cfg, amyID, suspended := amyPondGame(t, 4713, 2, 3)
 	d := amyPondAttack(t, e, amyID)
 	if d.Min != 1 || d.Max != 1 || d.Player != 0 {
@@ -442,6 +445,7 @@ func TestAmyPondRemovesChosenSuspendedCounters(t *testing.T) {
 // to be the only feeder of, which stranded a zero-TIME card in exile forever
 // when the removal came mid-resolution.
 func TestAmyPondFinalCounterOffersSuspendCast(t *testing.T) {
+	t.Parallel()
 	e, cfg, amyID, suspended := amyPondGame(t, 4714, 1, 2)
 	profaneID := suspended[0]
 	// Exactly one SUSPENDED card is eligible (the plain exiled copy is not),
@@ -489,6 +493,7 @@ func TestAmyPondFinalCounterOffersSuspendCast(t *testing.T) {
 // controller), so THREE defense counters are removed with no ask (the
 // condition IS the choice).
 func TestEtchedHostConditionRemovesDefenseFromAnOppProtectedBattle(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	host, _ := reg.Lookup("Etched Host Doombringer")
 	battle, _ := reg.Lookup("Invasion of Arcavios")
@@ -548,6 +553,7 @@ func TestEtchedHostConditionRemovesDefenseFromAnOppProtectedBattle(t *testing.T)
 // non-attacker's remove half is unreachable), pinned here so a silent
 // regression to a loud unimplemented note is caught.
 func TestShapeOfTheWiitigoConditionFalsePuts(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	wiitigo, _ := reg.Lookup("Shape of the Wiitigo")
 	e, cfg := counterChoiceGame(t, 4718, card(t, clockspinningFixtureBear), wiitigo)
@@ -587,6 +593,7 @@ func TestShapeOfTheWiitigoConditionFalsePuts(t *testing.T) {
 // already-answered PUT kind, whose count is still positive and therefore
 // still enumerates.
 func TestDramatistsPuppetElectsForEachKind(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	puppet, _ := reg.Lookup("Dramatist's Puppet")
 	e, cfg := counterChoiceGame(t, 4715, card(t, clockspinningFixtureBear), puppet)
@@ -635,6 +642,7 @@ func TestDramatistsPuppetElectsForEachKind(t *testing.T) {
 // the moment the second election is answered — a decision and event stream
 // the original never produces (counterchoice1 round 2).
 func TestDramatistsPuppetCloneKeepsTheAnsweredKindCursor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	puppet, _ := reg.Lookup("Dramatist's Puppet")
 	e, cfg := counterChoiceGame(t, 4715, card(t, clockspinningFixtureBear), puppet)
@@ -707,6 +715,7 @@ func TestDramatistsPuppetCloneKeepsTheAnsweredKindCursor(t *testing.T) {
 // condition, no Optional$): the {1}{B}{G} activation asks remove-or-put and
 // the answered PUT lands one plague counter.
 func TestPlagueBoilerElectionPuts(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	boilerCard, _ := reg.Lookup("Plague Boiler")
 	e, cfg := counterChoiceGame(t, 4716, boilerCard)

@@ -28,6 +28,7 @@ func hasActivateOptionFor(options []decision.Option, id state.ObjID) bool {
 // seat's own battlefield. The fixture is an opponent-only mana source
 // controlled by seat 0: the controller must NOT see it, the opponent must.
 func TestActivatorOfferManaAbility(t *testing.T) {
+	t.Parallel()
 	const src = `Name:Activator Mana Probe
 ManaCost:0
 Types:Artifact
@@ -69,6 +70,7 @@ Oracle:x
 // controller and the opponent are offered the source, so the gate admits
 // rather than only narrows.
 func TestActivatorOfferManaAbilityAnyPlayer(t *testing.T) {
+	t.Parallel()
 	const src = `Name:Activator Any-Mana Probe
 ManaCost:0
 Types:Artifact
@@ -95,6 +97,7 @@ Oracle:x
 // Player selector admits, not silently skipped because the source is not on
 // a battlefield.
 func TestActivatorOfferStackAbility(t *testing.T) {
+	t.Parallel()
 	const src = `Name:Activator Stack Probe
 ManaCost:2 R
 Types:Instant
@@ -132,6 +135,7 @@ Oracle:x
 // payment planner. Only the controller may activate it (CR 602.2). The
 // printed and non-mana granted walks already read the gate.
 func TestActivatorGatesGainedManaAbility(t *testing.T) {
+	t.Parallel()
 	const src = `Name:Safehouse Probe
 ManaCost:3
 Types:Artifact

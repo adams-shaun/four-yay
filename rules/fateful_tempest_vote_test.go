@@ -14,6 +14,7 @@ import (
 // both outcomes resolve according to their own tally rather than only the
 // most-voted option resolving.
 func TestFatefulTempestStoresEachOptionVoteCount(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	fateful := searchCorpusCard(t, reg, "Fateful Tempest")
 	mountain := searchCorpusCard(t, reg, "Mountain")

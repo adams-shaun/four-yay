@@ -149,6 +149,7 @@ func arrangeLibraryTop(t *testing.T, e *Engine, names ...string) []state.ObjID {
 // coverage census (make report) reads effects.Supported(), so a missing entry
 // would silently keep every carrier unplayable.
 func TestExploreSupported(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	for _, want := range []string{"api:Explore", "trig:Explores", "repl:Explore"} {
 		if !supported[want] {
@@ -165,6 +166,7 @@ func TestExploreSupported(t *testing.T) {
 // gets +1/+0 until end of turn and can't be blocked this turn" trigger fires
 // off that record and pumps it.
 func TestMerfolkCaveDiverPumpsOnAnExplore(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Merfolk Cave-Diver", "Enter the Unknown")
 	cd := searchMoveByName(t, e, "Merfolk Cave-Diver", state.ZBattlefield)
@@ -221,6 +223,7 @@ func TestMerfolkCaveDiverPumpsOnAnExplore(t *testing.T) {
 // explorer and the trigger carrier, so its own "Whenever a creature you
 // control explores" trigger also fires: a second +1/+1 counter and 3 life.
 func TestExploreNonlandAsksPutBackOrGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Wildgrowth Walker", "Enter the Unknown")
 
@@ -299,6 +302,7 @@ func TestExploreNonlandAsksPutBackOrGraveyard(t *testing.T) {
 // (option 0, what the no-host stand-in and botpolicy's clamp take) moves the
 // revealed card from the library to the graveyard after the counter.
 func TestExploreGraveyardAnswerMovesTheCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Wildgrowth Walker", "Enter the Unknown")
 	// Arrange a nonland on top of the library: the explore must pose the LCI
@@ -345,6 +349,7 @@ func TestExploreGraveyardAnswerMovesTheCard(t *testing.T) {
 // performs NOTHING (no reveal of its own), and the replacement body's two
 // fresh explores each reveal a land to the hand — two records, no counter.
 func TestTopographyTrackerExploresTwice(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Topography Tracker")
 	trk := searchMoveByName(t, e, "Topography Tracker", state.ZHand)
@@ -426,6 +431,7 @@ func TestTopographyTrackerExploresTwice(t *testing.T) {
 // explore is a fresh explore of the replaced card. The library top is arranged
 // to a land so the body's explore takes the land shape with no second ask.
 func TestTwistsAndTurnsScryThenExplore(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := chainAskDeck(t, reg, "Wildgrowth Walker", "Twists and Turns")
 	walker := searchMoveByName(t, e, "Wildgrowth Walker", state.ZHand)

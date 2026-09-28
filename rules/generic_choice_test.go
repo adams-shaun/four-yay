@@ -126,6 +126,7 @@ func TestTirelessProvisionerLandfallCreatesChosenTreasure(t *testing.T) {
 // effCharm and poses its KModes ask with the two Choices$ bodies' labels; it
 // must never hit the "unimplemented API GenericChoice" Note.
 func TestDayOfTheDoctorChapterIVAsks(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "The Day of the Doctor")},
@@ -190,6 +191,7 @@ func TestDayOfTheDoctorChapterIVAsks(t *testing.T) {
 // Charm-only and stays so (the recorded stand-in), but the resolution itself
 // is real.
 func TestGenericChoiceSpellAsksMidResolution(t *testing.T) {
+	t.Parallel()
 	const spellSrc = "Name:Rite of Flux\nManaCost:U\nTypes:Instant\n" +
 		"A:SP$ GenericChoice | Choices$ LoseIt,GainIt | SpellDescription$ Choose.\n" +
 		"SVar:LoseIt:DB$ LoseLife | Defined$ You | LifeAmount$ 1 | SpellDescription$ LoseIt\n" +

@@ -12,6 +12,7 @@ import (
 // exile permission through the RaiseCost$ RemoveAnyCounter payment, including
 // the payer's choice of which controlled creature loses the counters.
 func TestDawnhandDissidentRaiseCostRemoveAnyCounter(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t,
 		corpusAlternativeCard(t, "Dawnhand Dissident"),
 		corpusAlternativeCard(t, "Grizzly Bears"),

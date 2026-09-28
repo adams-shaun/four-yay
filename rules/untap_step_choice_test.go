@@ -14,6 +14,7 @@ import (
 // keyword. The permanent starts tapped and on the battlefield, so both the
 // ask and the retained tapped state are load-bearing assertions.
 func TestPandoricaStaysTappedByChoice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "The Pandorica"))
 	id := e.G.Zone(state.ZHand, 0)[0]

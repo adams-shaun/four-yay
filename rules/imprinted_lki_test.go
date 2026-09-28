@@ -20,6 +20,7 @@ import (
 // candidate; before the fix it re-read the live object, now in the destination
 // zone, and never matched.
 func TestImprintedChangesZoneLKIBranchMatchesLeavingExile(t *testing.T) {
+	t.Parallel()
 	e := goadGrantEngine(t)
 
 	// The imprinted card is the trigger's own source (a delayed/self

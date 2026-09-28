@@ -11,6 +11,7 @@ import (
 // artifact. The shared-X reduction makes the mana payable at X=1, not X=0;
 // a cast must not be offered unless both sacrifices can actually settle.
 func TestDargoOverlappingSacXPartsWithholdUnsettleableOffer(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 	}, "RRRRR")
@@ -70,6 +71,7 @@ func TestDargoOverlappingSacXPartsWithholdUnsettleableOffer(t *testing.T) {
 // X=1 if the only artifact would have to pay both parts. The bot sees the
 // same filtered announcement options as the human seat.
 func TestDargoOverlappingSacXPartsExcludeUnsettleableAnnouncement(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 	}, "RRRRRRR")

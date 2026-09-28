@@ -95,6 +95,7 @@ func drainPendingTargetThenResolve(t *testing.T, e *Engine, targets []state.ObjI
 // division stand-in (3 + 2), each shield depletes across events in its own
 // pool, and a spent shield prevents nothing and is gone from the registry.
 func TestAngelOfSalvationDividedPreventionShield(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := combatTriggerBoard(t, reg, []string{"Angel of Salvation"},
 		[]string{"Name:Bear A\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n",
@@ -158,6 +159,7 @@ func TestAngelOfSalvationDividedPreventionShield(t *testing.T) {
 // full Amount$ 3 pool, one partial application (3 of 4 prevented, 1 lands,
 // shield spent and dropped).
 func TestDawnflukeSingleTargetShield(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := combatTriggerBoard(t, reg, []string{"Dawnfluke"},
 		[]string{"Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"}, nil, nil)
@@ -195,6 +197,7 @@ func TestDawnflukeSingleTargetShield(t *testing.T) {
 // Defined$ ShieldEffectTarget | NumDmg$ PreventedDamage dealing what the
 // application prevented to the PARENT's target.
 func TestVengefulArchonShieldRiderDealsPrevented(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := newSeats(t, 2)
 	archon := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Vengeful Archon"))
@@ -231,6 +234,7 @@ func TestVengefulArchonShieldRiderDealsPrevented(t *testing.T) {
 // lifetime: an unspent shield is still active during the turn and gone after
 // the cleanup step's EndOfTurnCleanup.
 func TestPreventDamageShieldExpiresAtCleanup(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := combatTriggerBoard(t, reg, []string{"Dawnfluke"},
 		[]string{"Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"}, nil, nil)

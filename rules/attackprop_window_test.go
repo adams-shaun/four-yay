@@ -63,6 +63,7 @@ func findAttackOption(d *decision.Decision, obj state.ObjID, def state.PlayerID)
 // membership required exactly one free ability, so the land was excluded, the
 // budget was zero, and the pair was never offered.
 func TestAttackPropPaysWithAMultiAbilityManaSource(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeatDual(t, "Baird, Steward of Argive", 1)
 
 	// PRECONDITION: the payer has exactly one untapped land with two free,
@@ -124,6 +125,7 @@ func TestAttackPropPaysWithAMultiAbilityManaSource(t *testing.T) {
 // attackChoiceManaSources' domain; before the fix it required len(free) == 1
 // and dropped the land entirely.
 func TestAttackPropPaysWithAMultiAbilityChoiceSource(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeatDual(t, "Baird, Steward of Argive", 0)
 	anyLand := card(t, "Name:Dual Cavern\nTypes:Land\n"+
 		"A:AB$ Mana | Cost$ T | Produced$ Any | Oracle:x\n"+
@@ -175,6 +177,7 @@ func TestAttackPropPaysWithAMultiAbilityChoiceSource(t *testing.T) {
 // charges each attacking creature {X} where X is THAT creature's counters.
 // The representative must be priced at {1} and the counterless sibling at {0}.
 func TestNilsPricesPerAttackerCounters(t *testing.T) {
+	t.Parallel()
 	cfg := Config{Seed: 718, Names: []string{"a", "b", "c"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}}
 	e := New(cfg)
@@ -230,6 +233,7 @@ func TestNilsPricesPerAttackerCounters(t *testing.T) {
 // once (1 unit), find no source left, and ABORT the declaration -- the
 // stranding defect the wedge guard exists to prevent.
 func TestAttackPropSingleDualLandCannotStretchToTwo(t *testing.T) {
+	t.Parallel()
 	e, bear := attackPropSeatDual(t, "Ghostly Prison", 1)
 
 	// PRECONDITION: the land really offers two alternatives and the pool is

@@ -75,6 +75,7 @@ func hasCastOptionFor(e *Engine, id state.ObjID) bool {
 // blocks every creature. The control leaf (no Angel) proves the ability is
 // otherwise offered, so the absence is the restriction's doing.
 func TestCantSacrificeForCostWithholdsActivatedAbilityCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	angel := cantSacForCostCard(t, reg, "Angel of Jubilation")
 	seer := cantSacForCostCard(t, reg, "Viscera Seer")
@@ -122,6 +123,7 @@ func TestCantSacrificeForCostWithholdsActivatedAbilityCost(t *testing.T) {
 // castable -> nonManaCastable with ability=false, so the cause is Spell. The
 // control leaf proves the cast is otherwise offered.
 func TestCantSacrificeForCostWithholdsSpellCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	angel := cantSacForCostCard(t, reg, "Angel of Jubilation")
 	rites := cantSacForCostCard(t, reg, "Village Rites")
@@ -170,6 +172,7 @@ func TestCantSacrificeForCostWithholdsSpellCost(t *testing.T) {
 // sacrifices a creature") resolves through effSacrifice with forCost=false,
 // so the bear stays a legal candidate and is taken.
 func TestCantSacrificeForCostLeavesEffectSacrificeAlone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	angel := cantSacForCostCard(t, reg, "Angel of Jubilation")
 	fleshbag := cantSacForCostCard(t, reg, "Fleshbag Marauder")

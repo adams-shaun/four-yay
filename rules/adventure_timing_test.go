@@ -35,6 +35,7 @@ func adventureBonecrusherEngine(t *testing.T, reg *cards.Registry) (*Engine, Con
 // Adventure face gets its own timing check before the creature front can
 // suppress the card's hand offers.
 func TestAdventureInstantSpellFaceOfferedAtInstantTiming(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, id, oppBear := adventureBonecrusherEngine(t, reg)
 	front := e.G.Obj(id).Face()

@@ -81,6 +81,7 @@ func declineExerts(t *testing.T, e *Engine, never state.ObjID) {
 // offered again (the notExertedThisTurn gate), and the whole game replays
 // byte-identically.
 func TestCombatCelebrantExertUntapAllRiderAndExtraCombat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := exertEngine(t, reg, lookup(t, reg, "Combat Celebrant"), card(t, exertBearSrc))
 	cc := moveByName(t, e, 0, "Combat Celebrant", state.ZBattlefield)
@@ -135,6 +136,7 @@ func TestCombatCelebrantExertUntapAllRiderAndExtraCombat(t *testing.T) {
 // the ask is offered and declined, and nothing in the game state moves -- no
 // Exert event, no trigger, no flag, no extra combat.
 func TestCombatCelebrantExertDeclineLeavesStateUnchanged(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := exertEngine(t, reg, lookup(t, reg, "Combat Celebrant"), card(t, exertBearSrc))
 	cc := moveByName(t, e, 0, "Combat Celebrant", state.ZBattlefield)
@@ -173,6 +175,7 @@ func TestCombatCelebrantExertDeclineLeavesStateUnchanged(t *testing.T) {
 // names only the untap step, so effects.TryUntap is never gated), while the
 // controller's next untap step skips it and consumes the window exactly once.
 func TestExertedCreatureSkipsUntapStepButEffectsUntapIt(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	wand := card(t, "Name:Untap Wand\nManaCost:1\nTypes:Artifact\nOracle:x\n"+
 		"A:AB$ UntapAll | Cost$ 1 | ValidCards$ Creature.YouCtrl | SpellDescription$ Untap all creatures you control.\n")
@@ -252,6 +255,7 @@ func TestExertedCreatureSkipsUntapStepButEffectsUntapIt(t *testing.T) {
 // Trigger$ rider (DB$ Draw) fires on the exert it accepted in the first
 // combat.
 func TestUngatedExertCarrierOffersEveryCombat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := exertEngine(t, reg, lookup(t, reg, "Combat Celebrant"), lookup(t, reg, "Watchful Naga"))
 	cc := moveByName(t, e, 0, "Combat Celebrant", state.ZBattlefield)
@@ -304,6 +308,7 @@ func TestUngatedExertCarrierOffersEveryCombat(t *testing.T) {
 // classifier, so the gate spec's predicate is known to both and a bogus
 // sibling stays unknown (the fail-closed census).
 func TestNotExertedThisTurnPredicateIsRecognised(t *testing.T) {
+	t.Parallel()
 	if got := effects.UnknownPredicates("Creature.Self+notExertedThisTurn"); len(got) != 0 {
 		t.Fatalf("UnknownPredicates(Creature.Self+notExertedThisTurn) = %v, want none", got)
 	}

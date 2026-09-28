@@ -131,6 +131,7 @@ func lastMoveZoneText(e *Engine, obj state.ObjID) string {
 // battlefield entry, (b) the election is posed with a payable pay option
 // first (through the shared payment window), and (c) paying keeps the Angel.
 func TestEchoKarmicGuidePaysEchoOrIsSacrificed(t *testing.T) {
+	t.Parallel()
 	e, guide := echoEntryEngine(t, "Karmic Guide", 5)
 	// (a) drive through seat 0's next upkeep (turn 3): the echo election is
 	// asked mid-upkeep, before the drive can reach the draw step.
@@ -161,6 +162,7 @@ func TestEchoKarmicGuidePaysEchoOrIsSacrificed(t *testing.T) {
 // TestEchoKarmicGuideDeclineSacrificesWithEchoText covers (d): declining (or
 // not paying) sacrifices the guide, and the move carries the echo text.
 func TestEchoKarmicGuideDeclineSacrificesWithEchoText(t *testing.T) {
+	t.Parallel()
 	e, guide := echoEntryEngine(t, "Karmic Guide", 2)
 	// Two Plains only: the payment window can never float {3}{W}{W}, so
 	// "done" closes it and the election has NO pay option — sacrifice only.
@@ -190,6 +192,7 @@ func TestEchoKarmicGuideDeclineSacrificesWithEchoText(t *testing.T) {
 // after paying upkeep N owes nothing at N+1 — the intervening-if suppresses
 // the trigger before it stacks, so the election never appears again.
 func TestEchoKarmicGuideGateSuppressesLaterUpkeeps(t *testing.T) {
+	t.Parallel()
 	e, guide := echoEntryEngine(t, "Karmic Guide", 5)
 	driveEchoQuiet(t, e, guide, 3, 0, state.StepDraw)
 	d := tapUntilElection(t, e, guide, 8)
@@ -213,6 +216,7 @@ func TestEchoKarmicGuideGateSuppressesLaterUpkeeps(t *testing.T) {
 // holds the guide across their own upkeep, and at turn 5's upkeep the guide
 // is owed again.
 func TestEchoKarmicGuideControlChangeRearms(t *testing.T) {
+	t.Parallel()
 	e, guide := echoEntryEngine(t, "Karmic Guide", 5)
 	d := driveEchoQuiet(t, e, guide, 3, 0, state.StepDraw)
 	if d == nil {
@@ -247,6 +251,7 @@ func TestEchoKarmicGuideControlChangeRearms(t *testing.T) {
 // TestEchoShahOfNaarIsleFreePay pins the plain-mana `0` shape: the election
 // IS posed with a free pay arm (option 0), and paying it keeps the Shah.
 func TestEchoShahOfNaarIsleFreePay(t *testing.T) {
+	t.Parallel()
 	e, shah := echoEntryEngine(t, "Shah of Naar Isle", 0)
 	d := driveEchoQuiet(t, e, shah, 3, 0, state.StepDraw)
 	if d == nil {
@@ -266,6 +271,7 @@ func TestEchoShahOfNaarIsleFreePay(t *testing.T) {
 // election with ONE loud Note and the Hellion stays — never a silent
 // sacrifice, never a silent keep.
 func TestEchoUnresolvableCostStaysLoud(t *testing.T) {
+	t.Parallel()
 	e, hellion := echoEntryEngine(t, "Volcano Hellion", 0)
 	// The ETB trigger's chain (ChooseNumber -> DB$ DealDamage | ValidTgts$
 	// Creature) now asks for a number before the sub's target ask. Answer 0,
@@ -305,6 +311,7 @@ func TestEchoUnresolvableCostStaysLoud(t *testing.T) {
 // reuses the cumulative action vocabulary (parseCumulativeAction +
 // cumulativeObjects), and the answered discard keeps the Imp.
 func TestEchoDeepcavernImpPaysByDiscarding(t *testing.T) {
+	t.Parallel()
 	e, imp := echoEntryEngine(t, "Deepcavern Imp", 0)
 	d := driveEchoQuiet(t, e, imp, 3, 0, state.StepDraw)
 	if d == nil {
@@ -332,6 +339,7 @@ func TestEchoDeepcavernImpPaysByDiscarding(t *testing.T) {
 // (1 corpus file): two Plains on the battlefield make the pay arm payable and
 // the answered sacrifice of both keeps the Surger.
 func TestEchoSkizzikSurgerPaysBySacrificingLands(t *testing.T) {
+	t.Parallel()
 	e, surger := echoEntryEngine(t, "Skizzik Surger", 2)
 	d := driveEchoQuiet(t, e, surger, 3, 0, state.StepDraw)
 	if d == nil {

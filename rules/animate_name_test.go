@@ -45,6 +45,7 @@ func renameTableName(e *Engine, id state.ObjID) (string, bool) {
 // (`Creature.namedFenric`), which is what makes the derived characteristic
 // load-bearing.
 func TestCurseOfFenricChapterIIRenamesTargetToFenric(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	fenric := lookup(t, reg, "The Curse of Fenric")
 	bear := lookup(t, reg, "Grizzly Bears")
@@ -114,6 +115,7 @@ func TestCurseOfFenricChapterIIRenamesTargetToFenric(t *testing.T) {
 // LAND (not the animating source, and not another permanent) carries the new
 // name Vitu-Ghazi while a second, untouched land keeps its own.
 func TestAwakeningOfVituGhaziRenamesTargetedLand(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	awakening := lookup(t, reg, "Awakening of Vitu-Ghazi")
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{awakening}, []*cards.Card{})

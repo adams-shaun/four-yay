@@ -11,6 +11,7 @@ import (
 // the specified counters and makes the permanent monstrous, while another
 // attempt does not perform the action again (CR 701.34b).
 func TestCR70134MonstrosityDesignation(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := monstrosityEngine(t, "Giggling Skitterspike", "CCCCC")
 	if e.G.Obj(id).Zone != state.ZBattlefield || e.G.Obj(id).Monstrous {
 		t.Fatalf("precondition: source zone=%v monstrous=%v", e.G.Obj(id).Zone, e.G.Obj(id).Monstrous)
@@ -43,6 +44,7 @@ func TestCR70134MonstrosityDesignation(t *testing.T) {
 // Hydra Broodmaster path end to end, including TriggerCount$Amount flowing
 // through MonstrosityX into token count and token power/toughness.
 func TestHydraBroodmasterMonstrosityCreatesXTokens(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := monstrosityEngine(t, "Hydra Broodmaster", "CCCCCG")
 	if e.G.Obj(id).Zone != state.ZBattlefield || e.G.Obj(id).Monstrous {
 		t.Fatalf("precondition: source zone=%v monstrous=%v", e.G.Obj(id).Zone, e.G.Obj(id).Monstrous)
@@ -104,6 +106,7 @@ func TestHydraBroodmasterMonstrosityCreatesXTokens(t *testing.T) {
 // carrier: its BecomeMonstrous trigger's target/damage ask is bounded by the
 // X recorded on the designation event, rather than the ability's later frame.
 func TestPolukranosMonstrosityTriggerReadsX(t *testing.T) {
+	t.Parallel()
 	e, _, id := monstrosityEngine(t, "Polukranos, World Eater", "CCCCCG")
 	bear := crAbortMove(t, e, 1, "Grizzly Bears", state.ZBattlefield)
 	if e.G.Obj(id).Zone != state.ZBattlefield || e.G.Obj(id).Monstrous || e.G.Obj(bear).Zone != state.ZBattlefield {

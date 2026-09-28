@@ -29,6 +29,7 @@ func armEffectLifetime(t *testing.T, dur, rider, trigger string, remembered ...s
 }
 
 func TestEffectDelayedPermanentAndNextTurn(t *testing.T) {
+	t.Parallel()
 	trigger := "Mode$ DamageDone | ValidTarget$ Player | Execute$ Pain"
 	t.Run("permanent source leaves", func(t *testing.T) {
 		e, src := armEffectLifetime(t, "Permanent", "", trigger)
@@ -94,6 +95,7 @@ func TestEffectDelayedPermanentAndNextTurn(t *testing.T) {
 }
 
 func TestEffectDelayedMoveEndAndForget(t *testing.T) {
+	t.Parallel()
 	for _, rider := range []string{"ExileOnMoved", "ForgetOnMoved"} {
 		t.Run(rider, func(t *testing.T) {
 			// Assemble one board so the remembered objects and the source belong

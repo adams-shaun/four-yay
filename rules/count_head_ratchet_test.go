@@ -66,6 +66,7 @@ var knownUnmodelledCountHeads = map[string][]string{
 // Count$ body resolves unless knownUnmodelledCountHeads holds it, in both
 // directions.
 func TestEveryRepoDeckCountHeadResolves(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := newSeats(t, 2)
 	ctx := &effects.Ctx{Controller: 0, Source: 0}

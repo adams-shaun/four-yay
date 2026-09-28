@@ -52,6 +52,7 @@ func resolveBradTrigger(t *testing.T, e *Engine, brad state.ObjID) {
 // controller controls becomes 2 (that many plus one, the body's
 // ReplaceCount$CounterNum/Plus.1).
 func TestBradBoimlerEffectCreatedAddCounterReplacement(t *testing.T) {
+	t.Parallel()
 	e, cfg, bradID, targetID := bradBoard(t, 83)
 	resolveBradTrigger(t, e, bradID)
 	if hasNote(e, "continuous replacement unimplemented (CounterReplace)") {
@@ -73,6 +74,7 @@ func TestBradBoimlerEffectCreatedAddCounterReplacement(t *testing.T) {
 // counters are placed BEFORE the trigger resolves, so the removal is the only
 // event the Effect could see.
 func TestBradBoimlerEffectCreatedAddCounterKeepsTriggerController(t *testing.T) {
+	t.Parallel()
 	brad := tokenReplCorpusCard(t, "Brad Boimler, Eager Ensign")
 	seat0TargetCard := card(t, "Name:Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	seat1TargetCard := card(t, "Name:Opponent Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -103,6 +105,7 @@ func TestBradBoimlerEffectCreatedAddCounterKeepsTriggerController(t *testing.T) 
 }
 
 func TestBradBoimlerEffectCreatedAddCounterIgnoresRemoval(t *testing.T) {
+	t.Parallel()
 	e, cfg, bradID, targetID := bradBoard(t, 89)
 	e.emit(events.Event{Kind: events.CounterChange, Obj: targetID, Counter: "P1P1", Amount: 3})
 	if before := e.G.Obj(targetID).Counter("P1P1"); before != 3 {

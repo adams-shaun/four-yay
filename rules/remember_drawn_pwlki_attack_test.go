@@ -131,6 +131,7 @@ func resolveBrewingETB(t *testing.T, e *Engine, wantSeats []state.PlayerID) stat
 // phantom = 2 counters no matter how many opponents drew. The correct totals
 // are 1 base + the number of cards actually drawn.
 func TestCommunalBrewingIngredientCountersPerCardDrawn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	brew := mustCorpusCard(t, reg, "Communal Brewing")
 
@@ -167,6 +168,7 @@ func TestCommunalBrewingIngredientCountersPerCardDrawn(t *testing.T) {
 // resolves to the controllers of those remembered cards. The pre-fix read
 // left Remembered empty, so no player gained life at all.
 func TestKwainAllReplacedDrawGainsLifeForEachDrawer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	kwain := mustCorpusCard(t, reg, "Kwain, Itinerant Meddler")
 
@@ -330,6 +332,7 @@ func declareAttacks(t *testing.T, e *Engine, picks []int) (int, int) {
 // attackingYouOrYourPWLKI predicate did not exist, so the SVar count was 0 and
 // the GE2 gate never held.
 func TestMangaraDiplomatAttackTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// FIRES: one raider at seat 0 and one raider at seat 0's planeswalker --

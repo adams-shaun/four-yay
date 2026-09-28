@@ -670,7 +670,10 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	if statics == nil {
 		continuous = e.activeStatics("Continuous")
 	} else {
-		continuous = statics.get().continuous
+		// The walk's snapshot pre-filtered to AddAbility$ carriers: every
+		// other static fails the name test below, so the order and the
+		// answer are those of the full list.
+		continuous = statics.addAbilityContinuous()
 	}
 	var printed map[string]bool // allocated on the first printed grant
 	for _, sv := range continuous {

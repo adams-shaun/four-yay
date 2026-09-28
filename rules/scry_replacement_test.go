@@ -46,6 +46,7 @@ func scryUnimplementedNotes(e *Engine) []events.Event {
 // replacement applied after the look could not add a card to a window already
 // offered).
 func TestKenessosReplacesScryCountBeforeLooking(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 8212)
 	kenessos := onBoardCard(t, e, 0, corpusCard(t, "Kenessos, Priest of Thassa"))
 	if o := e.G.Obj(kenessos); o == nil || o.Zone != state.ZBattlefield ||
@@ -72,6 +73,7 @@ func TestKenessosReplacesScryCountBeforeLooking(t *testing.T) {
 // it a second time. Looked at 4 (Scry 3 + Kenessos), kept 1 on top, bottomed
 // 3: the record must read 3. Re-applying Kenessos would read 4.
 func TestKenessosDoesNotReplaceTheCompletedScryRecord(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 8215)
 	kenessos := onBoardCard(t, e, 0, corpusCard(t, "Kenessos, Priest of Thassa"))
 	if o := e.G.Obj(kenessos); o == nil || o.Zone != state.ZBattlefield ||
@@ -102,6 +104,7 @@ func TestKenessosDoesNotReplaceTheCompletedScryRecord(t *testing.T) {
 // (so no Mode$ Scry trigger can fire), and the three scried cards become three
 // drawn cards.
 func TestEligethDrawsInsteadOfScrying(t *testing.T) {
+	t.Parallel()
 	e, _, id := scryFixture(t, 8213)
 	eligeth := onBoardCard(t, e, 0, corpusCard(t, "Eligeth, Crossroads Augur"))
 	if o := e.G.Obj(eligeth); o == nil || o.Zone != state.ZBattlefield ||

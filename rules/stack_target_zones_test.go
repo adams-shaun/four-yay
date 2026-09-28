@@ -15,6 +15,7 @@ const validTgtsSpellNoTargetTypeSrc = "Name:Spell Filter\nManaCost:U\nTypes:Inst
 // TgtZone$. The stack spell and battlefield permanent are both present so a
 // battlefield-default implementation cannot pass vacuously.
 func TestValidTgtsSpellWithoutTargetTypeSearchesStack(t *testing.T) {
+	t.Parallel()
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	boardSrc := "Name:Board Creature\nTypes:Creature\nPT:2/2\nOracle:x\n"
 	e := handEngine(t, card(t, validTgtsSpellNoTargetTypeSrc), card(t, bearSrc))

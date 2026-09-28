@@ -54,6 +54,7 @@ func tidewalkerEngine(t *testing.T, islands int) (*Engine, state.ObjID) {
 // (three Islands), one controller upkeep removes one, and reaching zero
 // sacrifices it.
 func TestVanishingTidewalkerDynamicCountUpkeepAndLastCounter(t *testing.T) {
+	t.Parallel()
 	e, id := tidewalkerEngine(t, 3)
 	if got := e.G.Obj(id).Counter("TIME"); got != 3 {
 		t.Fatalf("precondition: Tidewalker entered with %d TIME counters, want 3 from its own script (3 Islands)", got)
@@ -165,6 +166,7 @@ func outOfTimeEngine(t *testing.T, creatures int) (*Engine, state.ObjID, []state
 // upkeep removes one of that dynamic count, and reaching zero queues the
 // last-counter sacrifice.
 func TestVanishingOutOfTimeDynamicCountUpkeepAndLastCounter(t *testing.T) {
+	t.Parallel()
 	e, id, bears := outOfTimeEngine(t, 2)
 	if got := e.G.Obj(id).Counter("TIME"); got != 2 {
 		t.Fatalf("precondition: Out of Time entered with %d TIME counters, want 2 from its printed count (2 creatures captured in fixture)", got)
@@ -235,6 +237,7 @@ func TestVanishingOutOfTimeDynamicCountUpkeepAndLastCounter(t *testing.T) {
 // through the event log and the single controller upkeep must remove it and
 // then sacrifice the enchantment.
 func TestVanishingOutOfTimeSeededCounterClock(t *testing.T) {
+	t.Parallel()
 	e, id, _ := outOfTimeEngine(t, 0)
 	if got := e.G.Obj(id).Counter("TIME"); got != 0 {
 		t.Fatalf("precondition: no creatures to count, Out of Time holds %d TIME counters, want 0", got)

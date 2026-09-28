@@ -52,6 +52,7 @@ func crTriggerPassRound(t *testing.T, e *Engine, name string) {
 }
 
 func TestCR603LegalActivationTriggersRings(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Azure Mage", "Rings of Brighthearth")
 	mage := crAbortMove(t, e, 0, "Azure Mage", state.ZBattlefield)
@@ -81,6 +82,7 @@ func TestCR603LegalActivationTriggersRings(t *testing.T) {
 
 // Graduated: passes with the conformance flag on; runs in the ordinary lane.
 func TestCR603OptionalEffectWaitsForResolution(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Stoneforge Mystic")
 	start := len(e.L.Events)
@@ -97,6 +99,7 @@ func TestCR603OptionalEffectWaitsForResolution(t *testing.T) {
 }
 
 func TestCR603TriggerModesChosenAtPlacement(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Knight of Autumn")
@@ -116,6 +119,7 @@ func TestCR603TriggerModesChosenAtPlacement(t *testing.T) {
 }
 
 func TestCR603InterveningIfCheckedAtTriggerTime(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Felidar Sovereign")
 	id := crAbortMove(t, e, 0, "Felidar Sovereign", state.ZBattlefield)
@@ -137,6 +141,7 @@ func TestCR603InterveningIfCheckedAtTriggerTime(t *testing.T) {
 }
 
 func TestCR603InterveningIfRecheckedAtResolution(t *testing.T) {
+	t.Parallel()
 	// Graduated: passes with the conformance flag on; runs in the ordinary lane.
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Scute Mob", "Beast Within", "Forest", "Forest", "Forest", "Forest", "Forest")
@@ -182,6 +187,7 @@ func TestCR603InterveningIfRecheckedAtResolution(t *testing.T) {
 }
 
 func TestCR603StateTriggerFiresWhenConditionBecomesTrue(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Emperor Crocodile")
 	if len(e.G.Zone(state.ZBattlefield, 0)) != 0 {

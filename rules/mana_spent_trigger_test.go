@@ -141,6 +141,7 @@ func drainUntilArrange(t *testing.T, e *Engine) *decision.Decision {
 // commander, so its TriggersWhenSpent$ TrigScry rider fires and poses scry 1's
 // KArrange ask.
 func TestPathOfAncestryScryOnMatchingCast(t *testing.T) {
+	t.Parallel()
 	e, cfg, pathID := pathManaGame(t, 91, "Wort, Boggart Auntie", "Goblin Guide")
 	guideID := moveSeededToHand(t, e, 0, "Goblin Guide")
 	tapPathAndChoose(t, e, pathID, "R")
@@ -172,6 +173,7 @@ func TestPathOfAncestryScryOnMatchingCast(t *testing.T) {
 // SAME matching creature cast paid from ordinary mana fires nothing -- the
 // rider needs the provenance batch, not merely a matching spell.
 func TestPathOfAncestrySpendGateNoPathMana(t *testing.T) {
+	t.Parallel()
 	e, _, _ := pathManaGame(t, 92, "Wort, Boggart Auntie", "Goblin Guide")
 	guideID := moveSeededToHand(t, e, 0, "Goblin Guide")
 	addMana(t, e, 0, "R") // ordinary pool mana, no provenance batch
@@ -186,6 +188,7 @@ func TestPathOfAncestrySpendGateNoPathMana(t *testing.T) {
 // AND the empty-Valid batch is still spendable anywhere (the cast succeeds and
 // the mana is not dead).
 func TestPathOfAncestrySpendGateNonMatchingCast(t *testing.T) {
+	t.Parallel()
 	e, cfg, pathID := pathManaGame(t, 93, "Wort, Boggart Auntie", "Monastery Swiftspear")
 	spID := moveSeededToHand(t, e, 0, "Monastery Swiftspear")
 	tapPathAndChoose(t, e, pathID, "R")

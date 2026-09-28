@@ -18,6 +18,7 @@ import (
 // unanswered. The second ask must be deferred behind the first, and both
 // bodies -- including the rest of each body's SubAbility$ chain -- must run.
 func TestCombatDamageReplacementAsksQueueInEventOrder(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Nefarious Lich"))

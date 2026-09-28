@@ -183,6 +183,7 @@ func handBears(t *testing.T, e *Engine) []state.ObjID {
 // enters (firing the trigger once); the trigger's Execute drops a SECOND
 // bear from hand; that placement must NOT queue another trigger instance.
 func TestKodamaNotThisAbilityPlacementDoesNotReFire(t *testing.T) {
+	t.Parallel()
 	e, cfg, kid := kodamaEngine(t)
 	bears := handBears(t, e)
 	if len(bears) < 3 {
@@ -225,6 +226,7 @@ func TestKodamaNotThisAbilityPlacementDoesNotReFire(t *testing.T) {
 // the trigger -- its Execute poses its own hand-move ask again, which the
 // test declines (Min 0).
 func TestKodamaNotThisAbilityLaterEntryStillFires(t *testing.T) {
+	t.Parallel()
 	e, cfg, kid := kodamaEngine(t)
 	bears := handBears(t, e)
 	if len(bears) < 3 {

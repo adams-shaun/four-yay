@@ -71,6 +71,7 @@ func indexOfPlayerOption(d *decision.Decision, p state.PlayerID) int {
 // cost is mana-only is offered as an "ability" option, pays into the pool,
 // pushes a real ability stack object, and its effect (a Draw) resolves.
 func TestManaCostAbilityGoesOnTheStackAndResolves(t *testing.T) {
+	t.Parallel()
 	src := "Name:Sailor\nManaCost:U\nTypes:Creature Spirit\nPT:1/1\nA:AB$ Draw | Cost$ 3 U | NumCards$ 1 | Defined$ You | SpellDescription$ Draw a card.\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 34, src)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
@@ -96,6 +97,7 @@ func TestManaCostAbilityGoesOnTheStackAndResolves(t *testing.T) {
 // before the ability is offered, removes the counter at activation, and the
 // ability targets and deals damage.
 func TestScaldingTarnPayLifeActivation(t *testing.T) {
+	t.Parallel()
 	const tarn = "Name:Scalding Tarn\nManaCost:no cost\nTypes:Land\n" +
 		"A:AB$ ChangeZone | Cost$ T PayLife<1> Sac<1/CARDNAME> | Origin$ Library | Destination$ Battlefield | ChangeType$ Island,Mountain | SpellDescription$ Search your library for a Island or Mountain card, put it onto the battlefield, then shuffle.\n" +
 		"Oracle:{T}, Pay 1 life, Sacrifice Scalding Tarn: Search your library for an Island or Mountain card, put it onto the battlefield, then shuffle.\n"
@@ -147,6 +149,7 @@ func TestScaldingTarnPayLifeActivation(t *testing.T) {
 }
 
 func TestRemoveCounterCostAndTargetedAbility(t *testing.T) {
+	t.Parallel()
 	src := "Name:Ballista\nManaCost:X X\nTypes:Artifact Creature Construct\nPT:0/0\n" +
 		"A:AB$ PutCounter | Cost$ 4 | CounterType$ P1P1 | CounterNum$ 1 | SpellDescription$ Put a +1/+1 counter on CARDNAME.\n" +
 		"A:AB$ DealDamage | Cost$ SubCounter<1/P1P1> | ValidTgts$ Any | NumDmg$ 1 | SpellDescription$ It deals 1 damage to any target.\nOracle:x\n"
@@ -176,6 +179,7 @@ func TestRemoveCounterCostAndTargetedAbility(t *testing.T) {
 // ability whose cost sacrifices a land is activatable from the graveyard,
 // asks the sacrifice as a cost, and returns the card to hand.
 func TestGraveyardActivationWithSacrificeCost(t *testing.T) {
+	t.Parallel()
 	src := "Name:Breaker\nManaCost:6 G\nTypes:Creature Eldrazi\nPT:5/7\nK:Devoid\n" +
 		"A:AB$ ChangeZone | Cost$ 2 C Sac<1/Land> | Origin$ Graveyard | Destination$ Hand | ActivationZone$ Graveyard | SpellDescription$ Return CARDNAME from your graveyard to your hand.\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 39, src)
@@ -206,6 +210,7 @@ func TestGraveyardActivationWithSacrificeCost(t *testing.T) {
 // {T} cost needs no summoning sickness unless the creature has Haste (CR
 // 302.6) -- here it does not, so a summoning-sick Tapper offers nothing.
 func TestSorcerySpeedAndSummoningSicknessGates(t *testing.T) {
+	t.Parallel()
 	src := "Name:Gear\nManaCost:1\nTypes:Artifact\n" +
 		"A:AB$ GainLife | Cost$ 1 | Defined$ You | LifeAmount$ 1 | SorcerySpeed$ True | SpellDescription$ x\nOracle:x\n"
 	boltSrc := "Name:Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3\nOracle:x\n"
@@ -258,6 +263,7 @@ func TestSorcerySpeedAndSummoningSicknessGates(t *testing.T) {
 // that cannot be paid never yields an "ability" option at all; once offered,
 // the sacrifice is asked as a cost and the card still returns to hand.
 func TestRealCorpusSacCostWithAlternationAndDescriptionPays(t *testing.T) {
+	t.Parallel()
 	src := "Name:Trawler\nManaCost:1 U\nTypes:Creature Whale\nPT:3/3\n" +
 		"A:AB$ ChangeZone | Cost$ 2 Sac<1/Artifact;Creature/artifact or creature> | Origin$ Graveyard | Destination$ Hand | ActivationZone$ Graveyard | SpellDescription$ Return CARDNAME from your graveyard to your hand.\nOracle:x\n"
 	bearSrc := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -285,6 +291,7 @@ func TestRealCorpusSacCostWithAlternationAndDescriptionPays(t *testing.T) {
 // named card's activated (non-mana) abilities but expressly spares its mana
 // abilities; once the source is renamed away the ability is activatable again.
 func TestCantBeActivatedValidSASparesManaAbilities(t *testing.T) {
+	t.Parallel()
 	needle := "Name:Needle\nManaCost:1\nTypes:Artifact\nS:Mode$ CantBeActivated | ValidCard$ Card.NamedCard | ValidSA$ Activated.!ManaAbility | Description$ x\nOracle:x\n"
 	ballista := "Name:Ballista\nManaCost:X X\nTypes:Artifact Creature Construct\nPT:0/0\nA:AB$ DealDamage | Cost$ SubCounter<1/P1P1> | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
 	e, _, n := newFixtureDeck(t, 36, needle, ballista)
@@ -315,6 +322,7 @@ func TestCantBeActivatedValidSASparesManaAbilities(t *testing.T) {
 // offered; two creatures make it offered, and BOTH are asked and sacrificed
 // before the ability resolves.
 func TestDoubleSacCostRequiresDistinctCandidates(t *testing.T) {
+	t.Parallel()
 	src := "Name:Feeder\nManaCost:2\nTypes:Artifact\n" +
 		"A:AB$ GainLife | Cost$ Sac<1/Creature> Sac<1/Creature> | Defined$ You | LifeAmount$ 2 | SpellDescription$ Sacrifice two creatures: you gain 2 life.\nOracle:x\n"
 	creatureSrc := "Name:Thrull\nManaCost:1\nTypes:Creature Thrull\nPT:1/1\nOracle:x\n"
@@ -373,6 +381,7 @@ func TestDoubleSacCostRequiresDistinctCandidates(t *testing.T) {
 // {U} ability is unrestricted, and activation must produce only {U}: gate
 // and activation agreeing is the fix.
 func TestActivateSkipsRestrictedManaAbility(t *testing.T) {
+	t.Parallel()
 	mint := "Name:Mint\nManaCost:C\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ B | SpellDescription$ Add {B}.\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ U | SpellDescription$ Add {U}.\nOracle:x\n"

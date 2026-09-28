@@ -81,6 +81,7 @@ func findSVarOption(t *testing.T, e *Engine, obj state.ObjID, svar string) (deci
 // granted body must resolve from the grantor's face, not the recipient's
 // (the recipient has no such SVar, which was the silent no-op).
 func TestPrintedContinuousAddAbilityCrossObjectGrant(t *testing.T) {
+	t.Parallel()
 	grantor := card(t, "Name:Grantor\nManaCost:0\nTypes:Artifact\n"+
 		"S:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddAbility$ Zap\n"+
 		"SVar:Zap:AB$ Draw | Cost$ T | NumCards$ 1 | Defined$ You | SpellDescription$ Draw a card.\nOracle:x\n")
@@ -119,6 +120,7 @@ func TestPrintedContinuousAddAbilityCrossObjectGrant(t *testing.T) {
 // and max-speed grant shares. It must stay on the DelayedPush identity and
 // resolve from the object itself.
 func TestPrintedContinuousAddAbilitySelfGrant(t *testing.T) {
+	t.Parallel()
 	self := card(t, "Name:Self Granter\nManaCost:0\nTypes:Artifact\n"+
 		"S:Mode$ Continuous | Affected$ Card.Self | AddAbility$ Draw\n"+
 		"SVar:Draw:AB$ Draw | Cost$ 0 | NumCards$ 1 | Defined$ You | SpellDescription$ Draw a card.\nOracle:x\n")
@@ -154,6 +156,7 @@ func TestPrintedContinuousAddAbilitySelfGrant(t *testing.T) {
 // `AddAbility$ A & B` multi-value form (6 corpus carriers) offers both
 // bodies.
 func TestPrintedContinuousAddAbilityMultiValue(t *testing.T) {
+	t.Parallel()
 	multi := card(t, "Name:Multi Granter\nManaCost:0\nTypes:Artifact\n"+
 		"S:Mode$ Continuous | Affected$ Card.Self | AddAbility$ Draw & Heal\n"+
 		"SVar:Draw:AB$ Draw | Cost$ 0 | NumCards$ 1 | Defined$ You | SpellDescription$ Draw a card.\n"+
@@ -186,6 +189,7 @@ func TestPrintedContinuousAddAbilityMultiValue(t *testing.T) {
 // member. The static holder is an Artifact granting the ability to ANOTHER
 // artifact, so the grant is genuinely cross-object.
 func TestPrintedContinuousAddAbilityManaGrantsExactlyOnce(t *testing.T) {
+	t.Parallel()
 	holder := card(t, "Name:Mana Holder\nManaCost:0\nTypes:Artifact\n"+
 		"S:Mode$ Continuous | Affected$ Artifact.Other+YouCtrl | AddAbility$ Rock\n"+
 		"SVar:Rock:AB$ Mana | Cost$ T | Produced$ C\nOracle:x\n")
@@ -208,6 +212,7 @@ func TestPrintedContinuousAddAbilityManaGrantsExactlyOnce(t *testing.T) {
 // real corpus Aura Barbed Field grants its enchanted LAND "{T}: This land
 // deals 1 damage to any target." The ability was inert before the fix.
 func TestPrintedContinuousAddAbilityCorpusBarbedField(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	barbed := mustCorpusCard(t, reg, "Barbed Field")
 	mountain := mustCorpusCard(t, reg, "Mountain")
@@ -252,6 +257,7 @@ func TestPrintedContinuousAddAbilityCorpusBarbedField(t *testing.T) {
 // resolve to the equipped creature (the ability's Source), never to the
 // Equipment -- the exact source-vs-recipient distinction the fix is about.
 func TestPrintedContinuousAddAbilityCorpusKusariGama(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	gama := mustCorpusCard(t, reg, "Kusari-Gama")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -292,6 +298,7 @@ func TestPrintedContinuousAddAbilityCorpusKusariGama(t *testing.T) {
 // error anywhere: the divergence this test pins end to end, activation
 // included (the T + sacrifice cost, the "any one color" ask, the two units).
 func TestPrintedContinuousAddAbilityCorpusGoldspanDragon(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	dragon := mustCorpusCard(t, reg, "Goldspan Dragon")
 

@@ -103,6 +103,26 @@ type actionStaticSource struct {
 	e     *Engine
 	views actionStaticViews
 	ready bool
+	// addAbility is views.continuous' subsequence carrying a non-blank
+	// AddAbility$, built on first use (addAbilityContinuous).
+	addAbility      []staticView
+	addAbilityReady bool
+}
+
+// addAbilityContinuous returns, in order, the Continuous statics of get()
+// whose AddAbility$ is non-blank: the only ones the mana walk's per-object
+// AddAbility$ scan (appendAvailableManaAbilitiesGate) does not skip at its
+// first test, filtered once per walk instead of once per object.
+func (s *actionStaticSource) addAbilityContinuous() []staticView {
+	if !s.addAbilityReady {
+		for _, sv := range s.get().continuous {
+			if strings.TrimSpace(sv.Params["AddAbility"]) != "" {
+				s.addAbility = append(s.addAbility, sv)
+			}
+		}
+		s.addAbilityReady = true
+	}
+	return s.addAbility
 }
 
 func (s *actionStaticSource) get() actionStaticViews {
@@ -1148,7 +1168,9 @@ func (e *Engine) alternativeCosts(p state.PlayerID, id state.ObjID) []altCostVie
 	// route above over the same e.active() source collectCostStatics' sibling
 	// walk feeds the Raise/Reduce/Set modes, so the two delivery routes
 	// cannot disagree about what applies or when it expires.
-	for _, ce := range e.active() {
+	ces := e.active()
+	for i := range ces {
+		ce := &ces[i]
 		if ce.CostStaticMode != "AlternativeCost" {
 			continue
 		}
@@ -1779,6 +1801,10 @@ type costMods struct {
 	raiseLife int32
 	reduces   []costMod
 	setFloor  int32
+	// hasExtra records that extra was ever composed into (the only writes
+	// that can make it non-zero). While it is false extra is the zero Cost,
+	// which apply may then skip (see apply).
+	hasExtra bool
 }
 
 // empty reports whether the composition would change nothing, so a caller can
@@ -1795,7 +1821,13 @@ func (m costMods) empty() bool {
 // the SetCost floor raised to last (Trinisphere: total mana below 3 becomes
 // 3). Generic never dips below zero at any point.
 func (m costMods) apply(c Cost) Cost {
-	c = c.Plus(m.extra)
+	// Plus with the zero Cost is the identity on every field except the
+	// three it clamps or maxes at zero (Life, Snow, XMin), so the two
+	// 744-byte copies are skipped only when extra is provably zero and none
+	// of those three is negative.
+	if m.hasExtra || c.Life < 0 || c.Snow < 0 || c.XMin < 0 {
+		c = c.Plus(m.extra)
+	}
 	for _, r := range m.raises {
 		c.Generic = addClampedGeneric(c.Generic, int64(r))
 	}
@@ -1863,6 +1895,54 @@ func (m costMods) hasFloor() bool {
 	return false
 }
 
+// composeFeasible is feasibleAny's leaf composition of the cost it prices:
+// the XMin announcement floor, the modifiers, the commander tax and the delve
+// credit, in that order.
+func (m costMods) composeFeasible(c Cost, taxGeneric, delve int32) Cost {
+	// A cost carrying an XMin<N> lower bound is priced at its smallest
+	// LEGAL announcement: "X can't be 0" means the offer must be able
+	// to pay {X}=XMin, never {X}=0 (Thieving Skydiver's kicked Kicker).
+	// The fold is on a LOCAL copy, so the payment descriptor's
+	// announced-X marker (set from the raw cost's own Cost.X by
+	// paymentFor) still reports CostContainsX. WithX clears XMin, so
+	// an already-announced cost (XMin==0) is untouched here.
+	if c.XMin > 0 {
+		c = c.WithX(c.XMin)
+	}
+	cc := m.apply(c)
+	cc.Generic = addClampedGeneric(cc.Generic, int64(taxGeneric))
+	if cc.Generic > delve {
+		cc.Generic -= delve
+	} else {
+		cc.Generic = 0
+	}
+	return cc
+}
+
+// poolUnitsFloor is a lower bound on the pool units every successful
+// resolveManaWith payment of c spends: its Generic plus one unit per strict
+// W/U/R/G/C pip. Each such pip is paid only by a colour alternative (the
+// anyColor/anyType riders and a conversion widen WHICH colour, never
+// whether a unit is taken), and takeUnit removes exactly one unit of the
+// remainder; the search then needs the remainder to cover a generic
+// requirement that only ever grows from c.Generic. A {B} pip is left out
+// (PayLifeInsteadOf:B may pay it with life), as is every hybrid, Phyrexian
+// and snow pip, so the bound holds whatever the payer's grants are. A pool
+// holding fewer units than this can pay nothing, which is exactly the
+// answer the search would give.
+func (c *Cost) poolUnitsFloor() int64 {
+	n := int64(c.Generic)
+	for _, letter := range pipLetters {
+		if letter == 'B' {
+			continue
+		}
+		if k := c.Colored[state.ManaIndex(letter)]; k > 0 {
+			n += int64(k)
+		}
+	}
+	return n
+}
+
 // feasibleAny is THE one shared mana-feasibility primitive of the cast flow.
 // It answers the CR 601.2b/601.2f question for a cost whose flexible pips may
 // still be unresolved — at the offer gate (offerCastable), at each CR 601.2b
@@ -1895,22 +1975,11 @@ func (m costMods) hasFloor() bool {
 // tree.
 func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana, life, taxGeneric, delve int32, bLifeOK bool, rider pipRider, conv *manaConv) bool {
 	composed := func(c Cost) bool {
-		// A cost carrying an XMin<N> lower bound is priced at its smallest
-		// LEGAL announcement: "X can't be 0" means the offer must be able
-		// to pay {X}=XMin, never {X}=0 (Thieving Skydiver's kicked Kicker).
-		// The fold is on a LOCAL copy, so the payment descriptor's
-		// announced-X marker (set from the raw cost's own Cost.X by
-		// paymentFor) still reports CostContainsX. WithX clears XMin, so
-		// an already-announced cost (XMin==0) is untouched here.
-		if c.XMin > 0 {
-			c = c.WithX(c.XMin)
-		}
-		cc := m.apply(c)
-		cc.Generic = addClampedGeneric(cc.Generic, int64(taxGeneric))
-		if cc.Generic > delve {
-			cc.Generic -= delve
-		} else {
-			cc.Generic = 0
+		cc := m.composeFeasible(c, taxGeneric, delve)
+		// The pool-unit floor is a necessary condition of resolveManaWith's
+		// own search (poolUnitsFloor), decided without building its pips.
+		if int64(pool.Total()) < cc.poolUnitsFloor() {
+			return false
 		}
 		_, ok := cc.resolveManaWith(pool, snow, typed, life, bLifeOK, rider, conv)
 		return ok
@@ -1994,6 +2063,14 @@ func (e *Engine) manaFeasibleGrant(p state.PlayerID, id state.ObjID, ability boo
 // modes, so a potential action and the offer the walk mirrors can never
 // disagree about what the pool may satisfy.
 func (e *Engine) manaFeasiblePool(p state.PlayerID, id state.ObjID, ability bool, c Cost, mods costMods, taxGeneric, delve int32, pool state.Mana, typed [7]state.Mana) bool {
+	// Without an announcement walk feasibleAny is exactly its composed leaf,
+	// whose first answer is the pool-unit floor (poolUnitsFloor): decide that
+	// here, before the payer's grant and conversion reads the search needs.
+	if !mods.hasFloor() || c.annPipCount() == 0 {
+		if cc := mods.composeFeasible(c, taxGeneric, delve); int64(pool.Total()) < cc.poolUnitsFloor() {
+			return false
+		}
+	}
 	pl := e.G.Players[p]
 	return mods.feasibleAny(c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
 		e.payerGrantsPayLifeInsteadOfB(p),
@@ -2473,6 +2550,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
 					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
 						mods.extra = mods.extra.Plus(extra)
+						mods.hasExtra = true
 						continue
 					}
 				}
@@ -2583,6 +2661,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
 					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
 						mods.extra = mods.extra.Plus(extra)
+						mods.hasExtra = true
 						continue
 					}
 				}

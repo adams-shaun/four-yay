@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -2750,7 +2751,7 @@ func (e *Engine) matchesWithCharsPT(ce *ContinuousEffect, id state.ObjID, types,
 	// self-only effect is covered too.
 	if ce.Affects == "Card.Self" && id != ce.Source {
 		if layer4PrecheckVerify {
-			selfRejectVerify++
+			selfRejectVerify.Add(1)
 			// Recompute through the full match and confirm the early-out
 			// agreed: a non-source Card.Self must never match. This is the
 			// empirical proof the shortcut is result-preserving.
@@ -2766,8 +2767,11 @@ func (e *Engine) matchesWithCharsPT(ce *ContinuousEffect, id state.ObjID, types,
 // selfRejectVerify counts the Card.Self early rejections the shortcut made
 // under verify mode; a test asserts it advances so the shortcut cannot be
 // silently removed. It is written only under the layer4PrecheckVerify branch,
-// so production pays one predictable branch and no store.
-var selfRejectVerify int
+// so production pays one predictable branch and no store. It is atomic
+// because the test binary turns verify mode on and runs engines on parallel
+// test goroutines (TestInvariantsUnderSeedFuzz's seed subtests), which all
+// bump this one counter.
+var selfRejectVerify atomic.Int64
 
 // matchesWithCharsPTSlow is matchesWithCharsPT with the Card.Self early
 // rejection removed. Verify mode calls it to prove the shortcut agrees with

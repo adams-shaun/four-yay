@@ -26,6 +26,7 @@ func registerInlineDelayed(t testing.TB, e *Engine, src state.ObjID, mode, claus
 }
 
 func TestDelayedTriggerExpiredRegistrationsCollectedOnTurnChange(t *testing.T) {
+	t.Parallel()
 	e, src := delayedModeWatcher(t)
 	if e.G.Turn < 1 {
 		t.Fatalf("precondition: turn = %d", e.G.Turn)
@@ -58,6 +59,7 @@ func TestDelayedTriggerExpiredRegistrationsCollectedOnTurnChange(t *testing.T) {
 }
 
 func TestDelayedTriggerDeadRegistrationIsCollected(t *testing.T) {
+	t.Parallel()
 	e, src := delayedModeWatcher(t)
 	e.emit(events.Event{Kind: events.DelayedRegister, Obj: src, Player: 0,
 		Step: e.G.Step, Counter: "MissingSVar"})
@@ -91,6 +93,7 @@ func TestDelayedTriggerDeadEventRegistrationCollectedBeforeMatch(t *testing.T) {
 }
 
 func TestDelayedControlChangeNewControllerGate(t *testing.T) {
+	t.Parallel()
 	e, src := delayedModeWatcher(t)
 	e.emit(events.Event{Kind: events.DelayedRegister, Obj: src, Player: 0, Step: e.G.Step,
 		Counter: "Trig", Text: "ChangesController:Mode$ ChangesController | ValidCard$ Creature | ValidNewController$ You"})
@@ -109,6 +112,7 @@ func TestDelayedControlChangeNewControllerGate(t *testing.T) {
 }
 
 func TestDelayedControlChangeExecuteUsesEventObject(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Delayed watcher\nTypes:Creature Wizard\nPT:2/2\nSVar:Trig:DB$ Tap | Defined$ TriggeredObjectLKICopy\nOracle:x\n")
 	captured := onBoard(t, e, 0, "Name:Captured\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -149,6 +153,7 @@ func TestDelayedControlChangeExecuteUsesEventObject(t *testing.T) {
 }
 
 func TestDelayedTriggerEventModesFire(t *testing.T) {
+	t.Parallel()
 	t.Run("ChangesZone", func(t *testing.T) {
 		e, src := delayedModeWatcher(t)
 		registerInlineDelayed(t, e, src, "ChangesZone", " | Origin$ Library | Destination$ Battlefield | ValidCard$ Creature")
@@ -212,6 +217,7 @@ func TestDelayedTriggerEventModesFire(t *testing.T) {
 // own capture through Defined$ DelayTriggerRemembered, while the ordinary
 // Triggered* spellings keep reading the firing event's object.
 func TestDelayedControlChangeExecuteReadsRegistrationCapture(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoard(t, e, 0, "Name:Delayed watcher\nTypes:Creature Wizard\nPT:2/2\n"+
 		"SVar:Trig:DB$ Tap | Defined$ DelayTriggerRemembered\nOracle:x\n")

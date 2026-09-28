@@ -96,6 +96,7 @@ func countPreventionNotes(e *Engine, amount int32) int {
 // (3 and 5) — a single-value pass would hide the silent-zero class bug where
 // CounterNum$ X resolves to 0.
 func TestSelflessSquirePreventionGrowsIt(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, n := range []int32{3, 5} {
 		t.Run("prevent", func(t *testing.T) {
@@ -132,6 +133,7 @@ func TestSelflessSquirePreventionGrowsIt(t *testing.T) {
 // "Once" is per prevention (one Damage event, one occurrence), NOT a
 // once-per-turn latch — combat batches damage but prevention does not.
 func TestDamagePreventedOnceFiresPerPrevention(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Selfless Squire"}, nil,
 		nil, []string{damagePreventedOnceAggressor})
@@ -166,6 +168,7 @@ func TestDamagePreventedOnceFiresPerPrevention(t *testing.T) {
 // prevention to seat 1 fires seat 1's Squire and never seat 0's (whose
 // replacement also cannot prevent seat 1's damage).
 func TestDamagePreventedOnceValidTargetYouOnly(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Selfless Squire"}, nil,
 		[]string{"Selfless Squire"}, []string{damagePreventedOnceAggressor})
@@ -220,6 +223,7 @@ func pickOption(t *testing.T, e *Engine, obj state.ObjID) {
 // bodyless "prevent all": Thunderstaff prevents 1, the Squire prevents the
 // remaining 2, life is untouched and the Squire grows +1 then +2 = +3.
 func TestSelflessSquireOrderedAfterPartialPrevention(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Selfless Squire", "Thunderstaff"}, nil,
 		nil, []string{damagePreventedOnceAggressor})
@@ -263,6 +267,7 @@ func TestSelflessSquireOrderedAfterPartialPrevention(t *testing.T) {
 // prevention Note is the occurrence's only log record: BOTH Squires grow +3
 // off it and no damage reaches life.
 func TestSelflessSquireOrderedPathStoresPrevention(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := combatTriggerBoard(t, reg, []string{"Selfless Squire", "Selfless Squire"}, nil,
 		nil, []string{damagePreventedOnceAggressor})
@@ -308,6 +313,7 @@ func TestSelflessSquireOrderedPathStoresPrevention(t *testing.T) {
 // too — a non-canonical `Prevent$ true` bodyless registration must classify
 // as full prevention, never fall through to the silent With==nil drop arm.
 func TestDamageReplacementPreventsCaseInsensitive(t *testing.T) {
+	t.Parallel()
 	for _, v := range []string{"True", "true", "TRUE"} {
 		r := cards.Repl{Event: "DamageDone", Params: map[string]string{"Prevent": v}}
 		if !damageReplacementPrevents(r) {
@@ -326,6 +332,7 @@ func TestDamageReplacementPreventsCaseInsensitive(t *testing.T) {
 // decision: a whole-turn statement is not "damage that would be dealt to you
 // is prevented").
 func TestDamagePreventedOnceIgnoresNonPreventionNotes(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := combatTriggerBoard(t, reg, []string{"Selfless Squire"}, nil,
 		nil, []string{damagePreventedOnceAggressor})

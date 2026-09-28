@@ -65,6 +65,7 @@ func runPaymentStatsScenario(t *testing.T, b paymentStatsBoard) []decision.Payme
 }
 
 func TestPaymentPlanStatsCountsOutcomesNodesAndFallbacks(t *testing.T) {
+	t.Parallel()
 	b := newPaymentStatsBoard(t)
 	// Attribute each outcome to its cast with the pure query (which records
 	// nothing), so the histograms below are exactly these four verdicts.
@@ -125,6 +126,7 @@ func TestPaymentPlanStatsCountsOutcomesNodesAndFallbacks(t *testing.T) {
 // The sink is an observer: the same scenario on a sinkless engine produces
 // the same events, chain head and offer.
 func TestPaymentPlanStatsSinkChangesNothing(t *testing.T) {
+	t.Parallel()
 	with := newPaymentStatsBoard(t)
 	with.e.SetPaymentPlanStats(&PaymentPlanStats{})
 	without := newPaymentStatsBoard(t)
@@ -147,6 +149,7 @@ func TestPaymentPlanStatsSinkChangesNothing(t *testing.T) {
 // Clone never carries the sink (spec §7), and planning on the clone never
 // counts into the original's.
 func TestPaymentPlanStatsNotCloned(t *testing.T) {
+	t.Parallel()
 	b := newPaymentStatsBoard(t)
 	stats := &PaymentPlanStats{}
 	b.e.SetPaymentPlanStats(stats)
@@ -171,6 +174,7 @@ func TestPaymentPlanStatsNotCloned(t *testing.T) {
 // candidate is walked: it counts once, as a pool-declined build, and adds no
 // per-cast outcome.
 func TestPaymentPlanStatsPoolDeclinedBuild(t *testing.T) {
+	t.Parallel()
 	b := newPaymentStatsBoard(t)
 	stats := &PaymentPlanStats{}
 	b.e.SetPaymentPlanStats(stats)
@@ -187,6 +191,7 @@ func TestPaymentPlanStatsPoolDeclinedBuild(t *testing.T) {
 // A nil sink is inert, Merge sums (max for MaxNodes), and the text report is
 // sorted so equal counters print identical bytes.
 func TestPaymentPlanStatsMergeAndReport(t *testing.T) {
+	t.Parallel()
 	var nilSink *PaymentPlanStats
 	nilSink.recordBuild(false)
 	nilSink.recordOutcome(PaymentPlanOutcome{Reason: "insufficient", Nodes: 3})

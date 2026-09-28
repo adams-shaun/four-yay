@@ -15,6 +15,7 @@ import (
 )
 
 func TestReanimateGainsControlOfGraveyardCreature(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Reanimate"))
 	// An opposing creature with a known mana value, in seat 1's graveyard.
 	victim := e.G.AddObject(card(t, "Name:Grave Titan\nManaCost:4 B B\nTypes:Creature Zombie Giant\nPT:6/6\nOracle:x\n"), 1)
@@ -42,6 +43,7 @@ func TestReanimateGainsControlOfGraveyardCreature(t *testing.T) {
 }
 
 func TestReanimateLifeIsPaidEvenWhenTargetLeaves(t *testing.T) {
+	t.Parallel()
 	// GainControl$ is a parameter of the movement, not a separate effect: a
 	// target that is gone at resolution fizzles the movement and the chained
 	// lose-life reads no remembered LKI (Reanimate's documented CR 608.2b

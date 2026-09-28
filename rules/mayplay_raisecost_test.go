@@ -47,6 +47,7 @@ func kotisGraveyardSetup(t *testing.T, creatureSrc string, fillers int) (*Engine
 // exiles exactly the three OTHER cards as the cost, and the cast card itself
 // resolves onto the battlefield rather than being exiled.
 func TestKotisMayPlayGraveyardCastChargesTheExileSurcharge(t *testing.T) {
+	t.Parallel()
 	e, bears, fodders := kotisGraveyardSetup(t, "Name:Grave Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n", 3)
 	addMana(t, e, 0, "GG")
 
@@ -107,6 +108,7 @@ func TestKotisMayPlayGraveyardCastChargesTheExileSurcharge(t *testing.T) {
 // on the raise: with only two other cards in the graveyard the cast is not
 // offered at all (an offer the engine cannot pay must not exist).
 func TestKotisMayPlayWithheldWithoutThreeOtherCards(t *testing.T) {
+	t.Parallel()
 	e, bears, _ := kotisGraveyardSetup(t, "Name:Grave Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n", 2)
 	addMana(t, e, 0, "GG")
 
@@ -132,6 +134,7 @@ func TestKotisMayPlayWithheldWithoutThreeOtherCards(t *testing.T) {
 // per-card reading is pinned instead on the SAME card, and the
 // under-enforcement is named in the report's Issues.
 func TestKotisMayPlayLimitOncePerTurn(t *testing.T) {
+	t.Parallel()
 	e, bears, fodders := kotisGraveyardSetup(t, "Name:Grave Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n", 3)
 	addMana(t, e, 0, "GG")
 
@@ -175,6 +178,7 @@ func TestKotisMayPlayLimitOncePerTurn(t *testing.T) {
 // withheld whole -- the card is never offered from the graveyard, never
 // granted with an uncharged surcharge.
 func TestMayPlayRaiseCostUnpriceableStaysWithheld(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	if _, ok := reg.Lookup("Risen Executioner"); !ok {
 		t.Fatal("Risen Executioner missing from corpus")
@@ -208,6 +212,7 @@ func TestMayPlayRaiseCostUnpriceableStaysWithheld(t *testing.T) {
 // encore pin (TestEncoreActivatesFromTheGraveyardIntoHastedTokenCopies) covers
 // the ability half; this test pins the cast half directly on the engine.
 func TestMayPlayRaiseCostSelfExclusionAtOffer(t *testing.T) {
+	t.Parallel()
 	e, bears, _ := kotisGraveyardSetup(t, "Name:Grave Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n", 2)
 	addMana(t, e, 0, "GG")
 

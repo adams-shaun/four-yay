@@ -14,6 +14,7 @@ import (
 // order; the engine's deterministic existing-order stand-in remains until a
 // seeded random bottom-order implementation is added.
 func TestCR70157DiscoverRandomBottomOrder(t *testing.T) {
+	t.Parallel()
 	// The CR conformance lane graduated before Discover landed; it has no
 	// known-red mechanism. Keep this historical probe out of that green lane
 	// until the deterministic bottom-order stand-in is replaced.

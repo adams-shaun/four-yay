@@ -11,6 +11,7 @@ import (
 )
 
 func TestMayPlaySourceCastProvenance(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	glimpse, ok := reg.Lookup("Glimpse the Cosmos")
 	if !ok {

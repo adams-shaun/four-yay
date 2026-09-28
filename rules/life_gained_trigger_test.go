@@ -53,6 +53,7 @@ func findPlayerOption(t *testing.T, e *Engine, p state.PlayerID) int {
 // once-per-turn contract is exactly one, so a second same-turn gain must not
 // queue a second trigger.
 func TestLifeGainedFirstTimeFiresOnceEachTurn(t *testing.T) {
+	t.Parallel()
 	e, src := lifeGainedFixture(t, "FirstTime$ True")
 	e.emit(events.Event{Kind: events.LifeChange, Player: 0, Amount: 2})
 	if len(e.pendingTriggers) != 1 || e.pendingTriggers[0].Source != src {
@@ -70,6 +71,7 @@ func TestLifeGainedFirstTimeFiresOnceEachTurn(t *testing.T) {
 // life for the first time each turn, create a 1/1 white Cat"). Two same-turn
 // gains queue one trigger, not two.
 func TestAttendedHealerFirstTimeLifeGainedQueuesOnce(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoardCard(t, e, 0, corpusCard(t, "Attended Healer"))
 	e.emit(events.Event{Kind: events.LifeChange, Player: 0, Amount: 3})
@@ -87,6 +89,7 @@ func TestAttendedHealerFirstTimeLifeGainedQueuesOnce(t *testing.T) {
 // queues exactly one. Real corpus carrier: Vampire Scrivener's LifeGained
 // line (its LifeLost twin shares the gate but does not match a gain).
 func TestVampireScrivenerLifeGainedPlayerTurnGate(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	src := onBoardCard(t, e, 0, corpusCard(t, "Vampire Scrivener"))
 	e.G.Active = 1
@@ -107,6 +110,7 @@ func TestVampireScrivenerLifeGainedPlayerTurnGate(t *testing.T) {
 // actionTriggerModes: "this ability triggers only once each turn" queues the
 // first activation and blocks the second.
 func TestLifeGainedActivationLimitCapsQueueTime(t *testing.T) {
+	t.Parallel()
 	e, src := lifeGainedFixture(t, "ActivationLimit$ 1")
 	e.emit(events.Event{Kind: events.LifeChange, Player: 0, Amount: 2})
 	if len(e.pendingTriggers) != 1 || e.pendingTriggers[0].Source != src {
@@ -121,6 +125,7 @@ func TestLifeGainedActivationLimitCapsQueueTime(t *testing.T) {
 }
 
 func TestTreebeardLifeGainedPutsThatManyCounters(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Treebeard, Gracious Host"))
 	if got := e.G.Obj(source).Face().Triggers[1].Mode; got != "LifeGained" {
@@ -161,6 +166,7 @@ func TestTreebeardLifeGainedPutsThatManyCounters(t *testing.T) {
 }
 
 func TestSanguineBondDrainsTheGainedAmount(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Sanguine Bond"))
 
@@ -190,6 +196,7 @@ func TestSanguineBondDrainsTheGainedAmount(t *testing.T) {
 }
 
 func TestVanguardSeraphFirstLifeGainOnly(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	source := onBoardCard(t, e, 0, corpusCard(t, "Vanguard Seraph"))
 	if got := e.G.Obj(source).Face().Triggers[0].Params["FirstTime"]; got != "True" {

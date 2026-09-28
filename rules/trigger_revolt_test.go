@@ -45,6 +45,7 @@ func leaveForRevolt(t *testing.T, e *Engine, id state.ObjID) {
 // the end-step trigger queues only after a permanent seat 0 controlled left
 // the battlefield this turn, and the window resets at the next TurnChange.
 func TestAidFromTheCowlRevoltGatesTheEndStepTrigger(t *testing.T) {
+	t.Parallel()
 	e, _, aid := gateFixture(t, 931, "Aid from the Cowl", revoltBearSrc)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: aid, From: state.ZHand, To: state.ZBattlefield})
 	bear := gateMoveFromLibrary(t, e, "Revolt Bear", state.ZBattlefield)
@@ -79,6 +80,7 @@ func TestAidFromTheCowlRevoltGatesTheEndStepTrigger(t *testing.T) {
 // ChangesZone mode (the corpus's other 12 Revolt$ carriers are ETBs): the
 // enters trigger fires only when revolt already held as it entered.
 func TestAirdropAeronautsRevoltGatesTheETBTrigger(t *testing.T) {
+	t.Parallel()
 	e, _, aero := gateFixture(t, 936, "Airdrop Aeronauts", revoltBearSrc)
 	bear := gateMoveFromLibrary(t, e, "Revolt Bear", state.ZBattlefield)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: aero, From: state.ZHand, To: state.ZBattlefield})
@@ -178,6 +180,7 @@ func castDecommissionAtTheKey(t *testing.T, e *Engine, dec, key state.ObjID) {
 // ControlChange) so the destroy's own zone change cannot turn revolt on for
 // the caster -- destroying one of your own permanents legitimately would.
 func TestDecommissionBareRevoltCondition(t *testing.T) {
+	t.Parallel()
 	t.Run("no revolt", func(t *testing.T) {
 		e, cfg, dec, key, _ := revoltCastFixture(t, 932)
 		castDecommissionAtTheKey(t, e, dec, key)
@@ -209,6 +212,7 @@ func TestDecommissionBareRevoltCondition(t *testing.T) {
 // none otherwise (the pre-fix read degraded the unimplemented head to a
 // fail-open gate that always applied both counters).
 func TestLifecraftCavalryCountRevoltGatesTheEtbCounters(t *testing.T) {
+	t.Parallel()
 	t.Run("no revolt", func(t *testing.T) {
 		e, cfg, cav := gateFixture(t, 934, "Lifecraft Cavalry")
 		e.emit(events.Event{Kind: events.MoveZone, Obj: cav, From: state.ZHand, To: state.ZBattlefield})

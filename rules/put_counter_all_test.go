@@ -74,6 +74,7 @@ func counterChanges(e *Engine, obj state.ObjID) []events.Event {
 // the fix the resolution emitted "unimplemented API PutCounterAll" and moved
 // nothing.
 func TestAronBenaliasRuinPutsCountersOnEachCreatureYouControl(t *testing.T) {
+	t.Parallel()
 	aronSrc := corpusCard(t, "Aron, Benalia's Ruin")
 	e, cfg := putCounterTable(t, 196,
 		[]*cards.Card{aronSrc, card(t, counterBear("Victim Bear")), card(t, counterBear("Kept Bear"))},
@@ -132,6 +133,7 @@ func TestAronBenaliasRuinPutsCountersOnEachCreatureYouControl(t *testing.T) {
 // effRemoveCounterAll shape), so the per-object CounterChange sequence must
 // be exactly the zone order -- never a map range.
 func TestPutCounterAllSweepFollowsBattlefieldZoneOrder(t *testing.T) {
+	t.Parallel()
 	aronSrc := corpusCard(t, "Aron, Benalia's Ruin")
 	e, cfg := putCounterTable(t, 197,
 		[]*cards.Card{aronSrc, card(t, counterBear("First Bear")), card(t, counterBear("Second Bear")), card(t, counterBear("Third Bear"))},
@@ -194,6 +196,7 @@ func TestPutCounterAllSweepFollowsBattlefieldZoneOrder(t *testing.T) {
 // put a +1/+1 counter on each creature target player controls"): the chosen
 // target player's creatures get the batch and nobody else's do.
 func TestPutCounterAllPlayerTargetedSweep(t *testing.T) {
+	t.Parallel()
 	meadow := corpusCard(t, "Meadowboon")
 	e, cfg := putCounterTable(t, 198,
 		[]*cards.Card{meadow, card(t, counterBear("Meadow Bear")), card(t, counterBear("Meadow Second"))},
@@ -230,6 +233,7 @@ func TestPutCounterAllPlayerTargetedSweep(t *testing.T) {
 // +1/+1 counter on each creature you control and a loyalty counter on each
 // planeswalker you control"): one resolution, two sweeps, two counter kinds.
 func TestPutCounterAllSecondBatchPlacesBothKinds(t *testing.T) {
+	t.Parallel()
 	brokers := corpusCard(t, "Brokers Ascendancy")
 	gideon := corpusCard(t, "Gideon, Ally of Zendikar")
 	e, cfg := putCounterTable(t, 199,
@@ -255,6 +259,7 @@ func TestPutCounterAllSecondBatchPlacesBothKinds(t *testing.T) {
 // the battlefield (the two suspended-TIME carriers) -- must emit an explicit
 // unimplemented-shape Note and place NOTHING, never go silent.
 func TestPutCounterAllExoticShapesStayLoud(t *testing.T) {
+	t.Parallel()
 	placerSrc := "Name:Placer\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n" +
 		"A:AB$ PutCounterAll | Cost$ 1 | Placer$ Controller | ValidCards$ Creature | CounterType$ P1P1 | CounterNum$ 1 | SpellDescription$ x\nOracle:x\n"
 	zoneSrc := "Name:Timekeeper\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n" +
@@ -303,6 +308,7 @@ func TestPutCounterAllExoticShapesStayLoud(t *testing.T) {
 // (messenger_jays' CounterNum$ VoteNum with no SVar on the face was the live
 // carrier).
 func TestPutCounterAllZeroCountEmitsNothing(t *testing.T) {
+	t.Parallel()
 	zeroer := "Name:Zeroer\nManaCost:2 U\nTypes:Creature Wizard\nPT:2/2\n" +
 		"A:AB$ PutCounterAll | Cost$ 1 | ValidCards$ Creature | CounterType$ P1P1 | CounterNum$ NoSuchSVar | SpellDescription$ x\nOracle:x\n"
 	e, cfg, _ := newFixtureDeck(t, 221, zeroer, counterBear("Zero Bear"))
@@ -325,6 +331,7 @@ func TestPutCounterAllZeroCountEmitsNothing(t *testing.T) {
 }
 
 func TestPutCounterAllValidTgtsOpponentStaysLoud(t *testing.T) {
+	t.Parallel()
 	corrosion := corpusCard(t, "Corrosion")
 	e, cfg := putCounterTable(t, 201,
 		[]*cards.Card{corrosion, card(t, counterBear("Rust Bear"))},
@@ -441,6 +448,7 @@ func TestPutCounterAllValidTgtsOpponentStaysLoud(t *testing.T) {
 // creatures take nothing, and the resolution stays silent (no unimplemented
 // Note).
 func TestShalaiVoiceOfPlentyPutsACounterOnEachCreatureYouControl(t *testing.T) {
+	t.Parallel()
 	shalai := corpusCard(t, "Shalai, Voice of Plenty")
 	e, cfg := putCounterTable(t, 202,
 		[]*cards.Card{shalai, card(t, counterBear("Shalai First Bear")), card(t, counterBear("Shalai Second Bear"))},
@@ -486,6 +494,7 @@ func TestShalaiVoiceOfPlentyPutsACounterOnEachCreatureYouControl(t *testing.T) {
 // real +1/+1 batch on every creature you control -- before the fix the mode
 // emitted the fallback Note and did nothing.
 func TestMethodsOfTheMightyCharmModePutsCounters(t *testing.T) {
+	t.Parallel()
 	methods := corpusCard(t, "Methods of the Mighty")
 	e, cfg := putCounterTable(t, 210,
 		[]*cards.Card{methods, card(t, counterBear("Charm Bear"))},

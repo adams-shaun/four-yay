@@ -158,6 +158,7 @@ func drainVillainousChoice(t *testing.T, e *Engine, limit int) []answeredDecisio
 // asks THAT opponent to pick one of THEIR creatures, and both picks land in
 // the graveyard while the controller's own board is untouched.
 func TestDalekEmperorVillainousChoiceAsksEachOpponentAndRunsTheirSacrifice(t *testing.T) {
+	t.Parallel()
 	e, cfg := villainousChoiceBoard(t)
 	// Fire the begin-combat trigger for seat 0. Drive to seat 0's main phase
 	// first (idempotent) so the step transition into combat is a real one,
@@ -284,6 +285,7 @@ func driveVillainousToMode(t *testing.T, e *Engine, nth int, limit int) *decisio
 // cursor to zero and ask that victim a second time. This is the search/host
 // snapshot path: a clone made at a pending decision must resume identically.
 func TestVillainousChoiceCloneKeepsTheVictimCursor(t *testing.T) {
+	t.Parallel()
 	e, _ := villainousChoiceBoard(t)
 	driveToStep(t, e, e.G.Turn, 0, state.StepMain1)
 	e.setStep(state.StepBeginCombat)
@@ -351,6 +353,7 @@ func TestVillainousChoiceCloneKeepsTheVictimCursor(t *testing.T) {
 // body reads Defined$ Remembered as that victim, and the victim's own
 // creature is sacrificed.
 func TestDamoclesBaseVillainousChoiceAsksTheDamagedPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	damocles := mustCorpusCard(t, reg, "Damocles Base, Sword of Kang")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")

@@ -145,6 +145,7 @@ func runNightmareUnmaking(t *testing.T, mode int) (*Engine, Config) {
 // Giant (the boundary is strict) and every creature at or below 3, on BOTH
 // battlefields -- and the answered game replays byte-identically.
 func TestNightmareUnmakingExilesAboveHandSize(t *testing.T) {
+	t.Parallel()
 	e, cfg := runNightmareUnmaking(t, 0)
 	got := exileNames(t, e)
 	want := []string{"Craw Wurm"}
@@ -165,6 +166,7 @@ func TestNightmareUnmakingExilesAboveHandSize(t *testing.T) {
 // Grizzly Bears) and keeps the power-3 Hill Giant and the power-6 Craw Wurm;
 // the answered game replays byte-identically.
 func TestNightmareUnmakingExilesBelowHandSize(t *testing.T) {
+	t.Parallel()
 	e, cfg := runNightmareUnmaking(t, 1)
 	got := exileNames(t, e)
 	want := []string{"Grizzly Bears", "Llanowar Elves", "Llanowar Elves"}
@@ -186,6 +188,7 @@ func TestNightmareUnmakingExilesBelowHandSize(t *testing.T) {
 // Wurmcoil Engine, and the answered pick (Sol Ring, the non-first eligible)
 // reaches the battlefield while both unchosen artifacts stay in the library.
 func TestWhirOfInventionSearchesUpToThePaidX(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Whir of Invention"), lookup(t, reg, "Sol Ring"),

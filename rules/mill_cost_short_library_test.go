@@ -12,6 +12,7 @@ import (
 // moves all remaining cards, including zero cards, rather than making a cost
 // unpayable when the library is shorter than N.
 func TestMillikinMillCostIsPayableWithEmptyLibrary(t *testing.T) {
+	t.Parallel()
 	millikin, ok := testutil.CorpusRegistry(t).Lookup("Millikin")
 	if !ok {
 		t.Fatal("corpus missing Millikin")

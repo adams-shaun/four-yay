@@ -163,6 +163,7 @@ func spiritSistersCallEngine(t *testing.T, reg *cards.Registry) (*Engine, Config
 // must NOT fire, and the replacement must be consumed by the departure so it
 // cannot re-arm on a later re-entry.
 func TestSpiritSistersCallGrantedReplacementExilesPermanent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, _, target := spiritSistersCallEngine(t, reg)
 

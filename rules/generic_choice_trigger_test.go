@@ -70,6 +70,7 @@ func hagBoard(t *testing.T) (*Engine, Config, state.ObjID) {
 // for the mode first, never seat 0, and the unless-pay must be posed to seat
 // 1 as well. Seat 0 must never be handed a mode decision at all.
 func TestHagOfCeaselessTormentTriggerNeverAsksTheController(t *testing.T) {
+	t.Parallel()
 	e, cfg, hagObj := hagBoard(t)
 
 	// Seat 0's next upkeep (turn 3 -- seat 1 takes turn 2 in between). The
@@ -164,6 +165,7 @@ func TestHagOfCeaselessTormentTriggerNeverAsksTheController(t *testing.T) {
 // chooser binding is not what proves this one -- the ask COUNT and the
 // absence of a controller ask are.
 func TestTormentOfScarabsTriggeredPlayerAskedOnce(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	scarabs := mustCorpusCard(t, reg, "Torment of Scarabs")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -245,6 +247,7 @@ const genericChoiceControllerBody = "Name:Trial of Self\nManaCost:R\nTypes:Encha
 // is the controller), so askTriggerModes must keep posing the placement ask
 // to seat 0 with ResumeKind "modes".
 func TestGenericChoiceControllerCarrierStillGetsPlacementAsk(t *testing.T) {
+	t.Parallel()
 	trial := card(t, genericChoiceControllerBody)
 	cfg := seatZeroStart(Config{Seed: 209, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{

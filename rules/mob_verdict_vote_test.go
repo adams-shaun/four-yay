@@ -94,6 +94,7 @@ func mobVerdictEngine(t *testing.T, reg *cards.Registry) (*Engine, Config) {
 // player ballot recorded a bare "votes for " Note per voter and resolved
 // nothing, so no damage or draw happened at all.
 func TestMobVerdictPlayerBallotDamageAndDrawPerVote(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := mobVerdictEngine(t, reg)
 

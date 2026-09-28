@@ -14,6 +14,7 @@ import (
 // its controller must be ASKED which one to add. Before the fix the effect
 // always emitted a Note and silently took the fixed first candidate.
 func TestStandaloneManaReflectedAsksForTheColour(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, card(t,
 		"Name:Reflect Test\nTypes:Artifact\n"+
 			"A:AB$ PutCounter | Cost$ 0 | CounterType$ P1P1 | Defined$ Self | SubAbility$ DBMana\n"+

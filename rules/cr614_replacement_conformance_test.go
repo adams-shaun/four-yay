@@ -15,6 +15,7 @@ import (
 )
 
 func TestCR614RestInPeaceInHandCannotReplace(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Rest in Peace"}, nil)
 	rip := crAbortMove(t, e, 0, "Rest in Peace", state.ZHand)
 	target := crAbortMove(t, e, 0, "Delver of Secrets", state.ZBattlefield)
@@ -37,6 +38,7 @@ func TestCR614RestInPeaceInHandCannotReplace(t *testing.T) {
 }
 
 func TestCR614AllApplicableEntryReplacementsApplyOnce(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Triskelion"}, []string{"Blind Obedience"})
 	orb := crAbortMove(t, e, 1, "Blind Obedience", state.ZBattlefield)
 	trisk := crAbortMove(t, e, 0, "Triskelion", state.ZHand)
@@ -74,6 +76,7 @@ func TestCR614AllApplicableEntryReplacementsApplyOnce(t *testing.T) {
 }
 
 func TestCR616AffectedControllerChoosesReplacement(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Rest in Peace", "Darksteel Colossus"}, nil)
 	rip := crAbortMove(t, e, 0, "Rest in Peace", state.ZBattlefield)
 	col := crAbortMove(t, e, 0, "Darksteel Colossus", state.ZBattlefield)
@@ -108,6 +111,7 @@ func TestCR616AffectedControllerChoosesReplacement(t *testing.T) {
 // parameter was unread and the replacement applied in every step of the
 // controller's turn.
 func TestCR614ActivePhasesRestrictsDrawReplacement(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Island Sanctuary"}, nil)
 	sanctuary := crAbortMove(t, e, 0, "Island Sanctuary", state.ZBattlefield)
 	guarded := false

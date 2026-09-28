@@ -201,6 +201,7 @@ func stackCopiesWithTargets(e *Engine) []events.Event {
 // payment drains the pool, and EACH paid copy targets its own creature --
 // both bears end up +1/+0, not one bear +6/+6 and the other untouched.
 func TestFeatherChosenCopyAskPricedAndTargets(t *testing.T) {
+	t.Parallel()
 	e, cfg, featherID, bear1, bear2, strikeID := featherGame(t, 771)
 
 	castStrikeAtFeather(t, e, featherID, strikeID)
@@ -290,6 +291,7 @@ func TestFeatherChosenCopyAskPricedAndTargets(t *testing.T) {
 // decline half: declining the {4} election copies nothing (and, with nothing
 // chosen, no pay election is posed at all).
 func TestFeatherChosenCopyDeclineCopiesNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, featherID, bear1, _, strikeID := featherGame(t, 772)
 
 	castStrikeAtFeather(t, e, featherID, strikeID)
@@ -317,6 +319,7 @@ func TestFeatherChosenCopyDeclineCopiesNothing(t *testing.T) {
 // eligible other creature the ChooseCard ask is never posted (its only legal
 // answer is empty) and the pay election is never posed either.
 func TestFeatherEmptyChoiceNeverAsksPay(t *testing.T) {
+	t.Parallel()
 	e, cfg, featherID, strikeID := featherBearlessGame(t, 773)
 	castStrikeAtFeather(t, e, featherID, strikeID)
 	// No eligible creatures -> no ChooseCard ask (the empty-answer shape) and

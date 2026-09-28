@@ -43,6 +43,7 @@ func resolveKnightsETB(t *testing.T, e *Engine) {
 // monarch -- the trigger fires, that opponent loses 2 life and seat 0 gains
 // 2.
 func TestKnightsOfTheBlackRoseDrainsWhenOpponentTakesTheCrownAfterYourTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Knights of the Black Rose"}, nil)
 
@@ -87,6 +88,7 @@ func TestKnightsOfTheBlackRoseDrainsWhenOpponentTakesTheCrownAfterYourTurn(t *te
 // that same turn -- the trigger must stay silent even though ValidPlayer$
 // Opponent is satisfied.
 func TestKnightsOfTheBlackRoseSilentWhenTurnBeganWithoutTheCrown(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Knights of the Black Rose"))
@@ -120,6 +122,7 @@ func TestKnightsOfTheBlackRoseSilentWhenTurnBeganWithoutTheCrown(t *testing.T) {
 // opponent-scoped trigger -- neither from the trigger's own controller nor
 // from the opponent's seat.
 func TestKnightsOfTheBlackRoseSilentWhenSelfBecomesMonarch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Knights of the Black Rose"}, nil)
 	resolveKnightsETB(t, e)
@@ -149,6 +152,7 @@ func TestKnightsOfTheBlackRoseSilentWhenSelfBecomesMonarch(t *testing.T) {
 // already the monarch, then the effect primitive is resolved on seat 0 a
 // second time and its ValidPlayer$ You trigger must not queue.
 func TestCustodiLichRepeatedBecomeMonarchDoesNotFireSelfTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	lich := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Custodi Lich"))
@@ -186,6 +190,7 @@ func TestCustodiLichRepeatedBecomeMonarchDoesNotFireSelfTrigger(t *testing.T) {
 // hold the crown, the same SA emits the event and queues the trigger. Without
 // this control the regression above would pass with the whole mode dead.
 func TestPalaceJailerComeBackRegistersAndFiresOnOpponentMonarch(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	jailer := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Palace Jailer"))
@@ -219,6 +224,7 @@ func TestPalaceJailerComeBackRegistersAndFiresOnOpponentMonarch(t *testing.T) {
 }
 
 func TestCustodiLichFirstBecomeMonarchFiresSelfTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	lich := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Custodi Lich"))
@@ -243,6 +249,7 @@ func TestCustodiLichFirstBecomeMonarchFiresSelfTrigger(t *testing.T) {
 // that just took the crown), not the trigger's controller -- so the 2 life is
 // taken from the opponent, and the gain goes to seat 0.
 func TestKnightsOfTheBlackRoseDrainReadsTriggeredPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Knights of the Black Rose"}, nil)
 	resolveKnightsETB(t, e)

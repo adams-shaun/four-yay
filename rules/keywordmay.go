@@ -32,6 +32,32 @@ func (e *Engine) mayHaveDerivedKeyword(id state.ObjID, head string) bool {
 	return e.mayHaveDerivedKeywordAny(id, head, "")
 }
 
+// stackKeywordPossible is mayHaveDerivedKeyword for the cast-keyword reads
+// that derive a proposed spell under the stack-zone override
+// (derivedWith(id, ZStack): hasCastConvoke, hasCastImprovise,
+// hasCastConspire, casualtySpec, blitzCosts, offspringRawParam). The override
+// changes only which zone an AffectedZone$ grant is judged against; the
+// keyword list it derives is still the same printed/intrinsic/counter/status
+// seeds plus the AddKeywords of the same active() list, so the precheck's
+// subset argument holds for it unchanged and a false answer means no entry of
+// that derivation has the head. The offer walk asks these for every hand
+// card, so the negative answer skips a whole layer walk per card. Verify
+// mode (derivedMemoVerify) runs the override derivation and panics on a
+// contradicted negative.
+func (e *Engine) stackKeywordPossible(id state.ObjID, head string) bool {
+	if e.mayHaveDerivedKeyword(id, head) {
+		return true
+	}
+	if derivedMemoVerify {
+		for _, k := range e.derivedWith(id, state.ZStack).Keywords {
+			if strings.EqualFold(cards.KeywordHead(k), head) {
+				panic(fmt.Sprintf("rules: stack keyword precheck ruled out %q on obj %d but the stack derivation carries %q", head, id, k))
+			}
+		}
+	}
+	return false
+}
+
 // headIs reports whether k's KeywordHead equals a or (when non-empty) b,
 // case-insensitively.
 func headIs(k, a, b string) bool {

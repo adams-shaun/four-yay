@@ -223,6 +223,7 @@ func testPuppeteerCliqueExilesTheReanimatedCreatureAtEOT(t *testing.T) {
 // through the shared reader, and at the beginning of the next end step all
 // three are exiled.
 func TestAtEOTFeralLightningTokensAreExiled(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := ateotEngine(t, reg, "Feral Lightning")
 	feral := ateotFind(t, e, "Feral Lightning", 0)
@@ -274,6 +275,7 @@ func TestAtEOTFeralLightningTokensAreExiled(t *testing.T) {
 // you control gains flying until end of turn. Sacrifice it at the beginning of
 // the next end step."
 func TestAtEOTKrovikanElementalistSacrifices(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := ateotEngine(t, reg, "Krovikan Elementalist")
 	el := ateotFind(t, e, "Krovikan Elementalist", 0)
@@ -334,6 +336,7 @@ func TestAtEOTKrovikanElementalistSacrifices(t *testing.T) {
 // trigger) records exactly one Note naming the value while the token is still
 // minted.
 func TestAtEOTOutOfScopeValueStaysLoud(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := ateotEngine(t, reg, "Kari Zev, Skyship Raider")
 	kari := ateotFind(t, e, "Kari Zev, Skyship Raider", 0)
@@ -379,6 +382,7 @@ func TestAtEOTOutOfScopeValueStaysLoud(t *testing.T) {
 // DelayedRegister is recorded for it, and the next end step sacrifices it
 // while Purphoros stays.
 func TestAtEOTPurphorosHandMoveIsSacrificedAtEOT(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := ateotEngine(t, reg, "Purphoros, Bronze-Blooded", "Goblin Piker")
 	purph := ateotFind(t, e, "Purphoros, Bronze-Blooded", 0)
@@ -461,6 +465,7 @@ func TestAtEOTPurphorosHandMoveIsSacrificedAtEOT(t *testing.T) {
 // Armodon's {G} ability pumps itself (Defined$ Self) and destroys it at the
 // beginning of the next end step.
 func TestAtEOTCrazedArmodonDestroysItself(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := ateotEngine(t, reg, "Crazed Armodon")
 	arm := ateotFind(t, e, "Crazed Armodon", 0)
@@ -502,6 +507,7 @@ func TestAtEOTCrazedArmodonDestroysItself(t *testing.T) {
 // and returned as a new incarnation is not destroyed by the stale promise),
 // while the encore sacrifice body keeps its untracked convention.
 func TestAtEOTDestroyRegistrationTracksIncarnation(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := ateotEngine(t, reg)
 	id := e.G.Zone(state.ZHand, 0)[0]

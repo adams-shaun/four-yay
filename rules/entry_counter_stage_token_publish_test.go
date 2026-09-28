@@ -56,6 +56,7 @@ func rememberedChooses(log []events.Event, id state.ObjID) int {
 // second creation then sees two candidates, the Bear and the first copy, and
 // elects.)
 func TestChosenCopyRidersWaitForItsStagedEntry(t *testing.T) {
+	t.Parallel()
 	mandatory := card(t, "Name:Mandatory Copier\nTypes:Enchantment\n"+
 		"R:Event$ CreateToken | ActiveZones$ Battlefield | ValidPlayer$ You | Layer$ Copy | ReplaceWith$ DBCopy | Description$ Create copies of the other creature instead.\n"+
 		"SVar:DBCopy:DB$ ReplaceToken | Type$ ReplaceToken | ValidChoices$ Creature.Other | TokenScript$ Chosen\nOracle:x\n")

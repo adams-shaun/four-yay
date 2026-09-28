@@ -209,6 +209,7 @@ func ajanisChosenGame(t *testing.T, seed uint64) (*Engine, Config, state.ObjID, 
 // the Cat token. Before the fix the ask never fired and the resolving source
 // attached itself to the Aura.
 func TestAjanisChosenMayAttachAskPosesAndYesAttachesTheAura(t *testing.T) {
+	t.Parallel()
 	e, cfg, ajaniID, rancorID, d := ajanisChosenGame(t, 901)
 	if d.Player != 0 {
 		t.Fatalf("ask player = %d, want 0 (the controller)", d.Player)
@@ -246,6 +247,7 @@ func TestAjanisChosenMayAttachAskPosesAndYesAttachesTheAura(t *testing.T) {
 // target) and the chained SubAbility$ DBCleanup still runs -- the trigger's
 // Remembered is cleared on the source object.
 func TestAjanisChosenMayAttachDeclineLeavesTheAuraAndRunsTheChain(t *testing.T) {
+	t.Parallel()
 	e, cfg, ajaniID, rancorID, d := ajanisChosenGame(t, 902)
 	if len(d.Options) != 2 || d.Options[1].Kind != "no" {
 		t.Fatalf("ask options = %+v, want yes then no", d.Options)
@@ -271,6 +273,7 @@ func TestAjanisChosenMayAttachDeclineLeavesTheAuraAndRunsTheChain(t *testing.T) 
 // still on the stack when the trigger resolves, so the token is the only
 // legal target).
 func TestCoriSteelCutterOptionalAttachAttachesTheEquipment(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	cutterCard, ok := reg.Lookup("Cori-Steel Cutter")
 	if !ok {

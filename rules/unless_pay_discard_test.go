@@ -123,6 +123,7 @@ func drainDiscardResolution(t *testing.T, e *Engine, limit int) {
 // ---------------------------------------------------------------------------
 
 func TestUnlessPayDiscardTyrannizePaySparesHand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Tyrannize"))
 	seeded := seedDiscardHand(t, e, 3)
@@ -156,6 +157,7 @@ func TestUnlessPayDiscardTyrannizePaySparesHand(t *testing.T) {
 }
 
 func TestUnlessPayDiscardTyrannizeDeclineDiscardsHand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Tyrannize"))
 	seedDiscardHand(t, e, 3)
@@ -187,6 +189,7 @@ func TestUnlessPayDiscardTyrannizeDeclineDiscardsHand(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestUnlessPayDiscardFlayPayPreventsTheSecondDiscard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Flay"))
 	seedDiscardHand(t, e, 2)
@@ -219,6 +222,7 @@ func TestUnlessPayDiscardFlayPayPreventsTheSecondDiscard(t *testing.T) {
 }
 
 func TestUnlessPayDiscardFlayDeclineDiscardsTwo(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Flay"))
 	seedDiscardHand(t, e, 2)

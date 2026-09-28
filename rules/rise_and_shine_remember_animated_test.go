@@ -15,6 +15,7 @@ import (
 // nothing, and no counters landed. The trailing DBCleanup (ClearRemembered$
 // True) must also leave the source's persistent list empty afterwards.
 func TestRiseAndShineRememberAnimatedPutsFourCounters(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Rise and Shine", "Sol Ring")
 	ring := searchMoveByName(t, e, "Sol Ring", state.ZBattlefield)

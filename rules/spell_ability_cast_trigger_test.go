@@ -20,6 +20,7 @@ import (
 // that matched every permanent spell would push on the non-X cast here and
 // the assertion below would fail -- the order matters, not just the counts.
 func TestGlavaFiveAdventsSpellAbilityCastSpellArm(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 131, []string{glavaSrc, xCostHydraSrc, nonXBeastSrc}, nil)
 	glava := moveSeeded(t, e, 0, glavaSrc, state.ZBattlefield)
 	if o := e.G.Obj(glava); o == nil || o.Zone != state.ZBattlefield {

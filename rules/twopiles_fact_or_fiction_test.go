@@ -124,6 +124,7 @@ func fofContainsID(ids []state.ObjID, want state.ObjID) bool {
 // "unimplemented API TwoPiles" Note; after it, pile A lands in the caster's
 // hand and pile B in the graveyard, and the log replays byte-identically.
 func TestFactOrFictionSplitsAndMovesThePiles(t *testing.T) {
+	t.Parallel()
 	e, cfg, revealIDs, fofID := fofTestEngine(t)
 	d := e.Pending()
 	if d.Player != 1 {
@@ -184,6 +185,7 @@ func TestFactOrFictionSplitsAndMovesThePiles(t *testing.T) {
 // TestFactOrFictionPickBGivesTheOtherPile pins the reversed pick on the real
 // card: the chooser takes pile B, so the OTHER pile's cards go to hand.
 func TestFactOrFictionPickBGivesTheOtherPile(t *testing.T) {
+	t.Parallel()
 	e, cfg, revealIDs, _ := fofTestEngine(t)
 	d := e.Pending()
 	submitChoices(t, e, d.Options[0].Index, d.Options[2].Index)

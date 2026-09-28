@@ -52,6 +52,7 @@ func declineTriggerCost(t *testing.T, e *Engine) {
 // `T:Mode$ RingTemptsYou | ValidCard$ Creature.YouCtrl` payoff trigger fires
 // on the designated bearer.
 func TestCR701RingTemptsYouCallOfTheRingUpkeep(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -105,6 +106,7 @@ func TestCR701RingTemptsYouCallOfTheRingUpkeep(t *testing.T) {
 // and does not fire when the source itself was designated (CR 701.54a — the
 // bearer choice excludes nothing, but the trigger's own intervening-if does).
 func TestRingTemptsYouTriggerValidCardOtherGatesOnTheBearer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Negative: Galadriel is first in zone order, so she IS the bearer the
@@ -133,6 +135,7 @@ func TestRingTemptsYouTriggerValidCardOtherGatesOnTheBearer(t *testing.T) {
 // (CR 701.54d — the trigger fires when the actions complete, even if some
 // were impossible).
 func TestRingTemptsYouTriggerValidPlayerYouGatesOnTheTemptedSeat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Nazgûl"))
@@ -151,6 +154,7 @@ func TestRingTemptsYouTriggerValidPlayerYouGatesOnTheTemptedSeat(t *testing.T) {
 // `SVar:X:Count$Valid Creature.YouCtrl+IsRingbearer$CardPower`, and Frodo,
 // Adventurous Hobbit's `SVar:NumRingTempted:PlayerCountPropertyYou$RingTemptedYou`.
 func TestRingBearerPredicateReadsThroughRealCorpusSVars(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	sauron := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Sauron, the Necromancer"))

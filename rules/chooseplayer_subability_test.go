@@ -92,6 +92,7 @@ func crossIntoBeginCombat(t *testing.T, e *Engine) {
 // declare-attackers offer list contains ONLY that defender for the dragon,
 // with the dragon marked Required.
 func TestTerritorialHellkiteChoosesAndBindsAttackDefender(t *testing.T) {
+	t.Parallel()
 	var cfg Config
 	e, hk := hellkiteEngine(t, &cfg)
 
@@ -162,6 +163,7 @@ func TestTerritorialHellkiteChoosesAndBindsAttackDefender(t *testing.T) {
 // excludes), CantChooseSubAbility$ DBTap runs, the dragon taps, and no
 // requirement is registered.
 func TestTerritorialHellkiteNoCandidateTaps(t *testing.T) {
+	t.Parallel()
 	var cfg Config
 	e, hk := hellkiteEngine(t, &cfg)
 
@@ -236,6 +238,7 @@ func (e *Engine) attackRequiresDefender(id state.ObjID, defender state.PlayerID)
 // offer list emptied, the dragon was reported as not required, and no legal
 // declaration existed that included it.
 func TestTerritorialHellkiteNamedRequirementVersusGoad(t *testing.T) {
+	t.Parallel()
 	var cfg Config
 	e, hk := hellkiteEngine(t, &cfg)
 	crossIntoBeginCombat(t, e)
@@ -319,6 +322,7 @@ func TestTerritorialHellkiteNamedRequirementVersusGoad(t *testing.T) {
 // registrations carry RememberedPlayer bindings, resolved against each
 // effect's own RememberedPlayers capture.
 func TestMustAttackTwoNamedRequirementsKeepBothDefenders(t *testing.T) {
+	t.Parallel()
 	// A bare 3-seat board parked directly at seat 0's declare-attackers step:
 	// no real trigger runs, so the only requirements are the two explicit ones
 	// below (the Hellkite fixture would resolve its own begin-combat choice and
@@ -399,6 +403,7 @@ func TestMustAttackTwoNamedRequirementsKeepBothDefenders(t *testing.T) {
 // effect-readable line is face-readable (the superset direction), and the
 // gate keys diverge in exactly that direction.
 func TestMustAttackFaceAndEffectWhitelistsAgree(t *testing.T) {
+	t.Parallel()
 	cases := []map[string]string{
 		{"Mode": "MustAttack", "ValidCreature": "Card.Self", "MustAttack": "ChosenPlayer", "Description": "x"},
 		{"Mode": "MustAttack", "ValidCreature": "Card.Self", "MustAttack": "ChosenPlayer", "Secondary": "True"},
@@ -437,6 +442,7 @@ func TestMustAttackFaceAndEffectWhitelistsAgree(t *testing.T) {
 // must come from effectRememberedPlayers reading the same
 // `RememberObjects$ Remembered` spelling the card writes.
 func TestMustAttackRememberedPlayerBindsThroughRealEffectRegistration(t *testing.T) {
+	t.Parallel()
 	deck := func() []*cards.Card {
 		out := make([]*cards.Card, 40)
 		for i := range out {
@@ -530,6 +536,7 @@ func TestMustAttackRememberedPlayerBindsThroughRealEffectRegistration(t *testing
 // asked only whether SOME pair survived, so it marked the player-2 pair
 // Required and the empty declaration was rejected.
 func TestMustAttackNamedDefenderBlockedLeavesAlternateOptional(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 3, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{
 		mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40),
 	}}))
@@ -606,6 +613,7 @@ func TestMustAttackNamedDefenderBlockedLeavesAlternateOptional(t *testing.T) {
 // alternate. This is what keeps the fix from turning every blocked named
 // duty into a blanket exemption.
 func TestMustAttackBlockedNamedDutyStillRequiredWhenBroad(t *testing.T) {
+	t.Parallel()
 	e := New(seatZeroStart(Config{Seed: 3, Names: []string{"a", "b", "c"}, Decks: [][]*cards.Card{
 		mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40),
 	}}))

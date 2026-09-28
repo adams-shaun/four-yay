@@ -210,6 +210,7 @@ func TestMutatesCountAccumulatesAcrossTwoMutations(t *testing.T) {
 // dies, EVERY card in it (the top card and each under-card) moves to the
 // graveyard, and the pile marker is cleared.
 func TestMutateMergedCardsLeaveWithThePile(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	phoenix := mustCorpusCard(t, reg, "Everquill Phoenix")
 	bears := mustCorpusCard(t, reg, "Grizzly Bears")
@@ -251,6 +252,7 @@ func TestMutateMergedCardsLeaveWithThePile(t *testing.T) {
 // mutate cost is paid instead of the mana cost) and the keyword/trigger pair
 // no longer reports as unsupported.
 func TestMutateCostAndCoverage(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	phoenix := mustCorpusCard(t, reg, "Everquill Phoenix")
 	cost, ok := mutateCost(phoenix.Faces[0])
@@ -372,6 +374,7 @@ func mutateDrain(t *testing.T, e *Engine, limit int) {
 //     makes 2 Cats, the under Phoenix's makes 1 Feather (pre-fix: 4 Cats, 0
 //     Feathers -- the under Phoenix ran the top Cubwarden's body twice).
 func TestMergedTriggerResolvesTheUnderCardsOwnBody(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	phoenix := mustCorpusCard(t, reg, "Everquill Phoenix")
 	cubwarden := mustCorpusCard(t, reg, "Cubwarden")

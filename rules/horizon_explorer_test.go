@@ -53,6 +53,7 @@ func horizonEngine(t *testing.T) *Engine {
 // tap body composes first and the ETB untap composes after it: the land is
 // on the battlefield and untapped.
 func TestHorizonExplorerLandsEnterUntapped(t *testing.T) {
+	t.Parallel()
 	e := horizonEngine(t)
 	onBoard(t, e, 0, horizonExplorerSrc)
 	land := e.G.AddObject(card(t, horizonTaplandSrc), 0)
@@ -78,6 +79,7 @@ func TestHorizonExplorerLandsEnterUntapped(t *testing.T) {
 // the same body without ETB$ goes through TryUntap and loses the untap to
 // the stun counter instead.
 func TestUntapETBClearsEntryStateWithoutStun(t *testing.T) {
+	t.Parallel()
 	e := horizonEngine(t)
 	src := func(etb bool) state.ObjID {
 		o := e.G.AddObject(card(t, "Name:Bear\nTypes:Creature\nPT:1/1\nOracle:x\n"), 0)

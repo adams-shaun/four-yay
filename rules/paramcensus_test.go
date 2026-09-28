@@ -1710,17 +1710,17 @@ var mayPlayStaticParamReads = map[string]bool{
 }
 
 var apiSpecificRulesStat = map[string]string{
-	// The MayPlay grant path: mayPlayGrant (the offer walk's per-card
-	// evaluation, over the card's own face statics and activeStatics
-	// "Continuous") carries the family's propagated reads (propagateKeyReads
+	// The MayPlay grant path: mayPlayGrantScoped (mayPlayGrant's body, the
+	// offer walk's per-card evaluation, over the card's own face statics and
+	// activeStatics "Continuous") carries the family's propagated reads (propagateKeyReads
 	// attributes mayPlayStatic's map indexes to it), and
 	// warpGraveyardAllowed scans Continuous MayPlay statics directly over
 	// the face's Statics slice (Timeline Culler's explicit graveyard-Warp
 	// permission) -- it was previously a generic Continuous root
 	// (handRoots.stat), which masked ValidSA$/EffectZone$ for every plain
 	// Continuous static.
-	"Engine.mayPlayGrant":  "Continuous.MayPlay",
-	"warpGraveyardAllowed": "Continuous.MayPlay",
+	"Engine.mayPlayGrantScoped": "Continuous.MayPlay",
+	"warpGraveyardAllowed":      "Continuous.MayPlay",
 	// The raise walk (rules/mayplay.go's mayPlayRaiseCost, called from
 	// legal.go's may-play spell word and land walks and cast.go's "mayplay"
 	// cost case): it carries mayPlayStatic's propagated reads (RaiseCost$
@@ -1807,7 +1807,11 @@ var handRoots = struct {
 			// through mayPlayGrant over the face's Statics slice -- the same
 			// direct-scan shape warpGraveyardAllowed has (mayPlaySpellIds also
 			// scans the exiled card's own EffectZone$ Exile self-grant).
-			"Engine.mayPlaySpellIds", "Engine.mayPlayLandIds"},
+			"Engine.mayPlaySpellIds", "Engine.mayPlayLandIds",
+			// The mana walk's AddAbility$ pre-filter reads the same
+			// Continuous statics' AddAbility$ once per offer walk, over the
+			// collectActionStatics snapshot, instead of once per object.
+			"actionStaticSource.addAbilityContinuous"},
 		// maxSpeedAbilities scans Continuous AddAbility$/Condition$MaxSpeed
 		// statics directly over the face's Statics slice (CR 702.163c's
 		// max-speed grant), with no activeStatics call -- the same
@@ -2536,9 +2540,12 @@ func measureParamCensus(t *testing.T, drop map[string]map[string]bool) (censusRe
 			censusBase = walkRepoDeckCensus(t, censusReads, nil)
 		})
 		if len(censusGuardErrs) > 0 {
-			sort.Strings(censusGuardErrs)
+			// Sort a copy: the memo is shared by every census test, which may
+			// run in parallel.
+			errs := append([]string(nil), censusGuardErrs...)
+			sort.Strings(errs)
 			t.Fatalf("paramcensus rot guard: %d findings:\n%s",
-				len(censusGuardErrs), strings.Join(censusGuardErrs, "\n"))
+				len(errs), strings.Join(errs, "\n"))
 		}
 		return censusBase, censusReads
 	}
@@ -2988,6 +2995,7 @@ func TestEveryRepoDeckParamsAreRead(t *testing.T) {
 // inside an attribution root. Called from measureParamCensus too; this
 // standalone form keeps the failure visible without a corpus present.
 func TestParamCensusScanIsComplete(t *testing.T) {
+	t.Parallel()
 	s := scanPackages(t)
 	s.rotGuard(t)
 	s.failGuard(t)
@@ -3191,6 +3199,7 @@ func TestParamCensusIgnoresValidCardsDesc(t *testing.T) {
 // not in any repo deck; the same label appears in the baseline on Meathook
 // Massacre II and retires the moment the read is implemented.)
 func TestParamCensusPinsTheImportReviewExamples(t *testing.T) {
+	t.Parallel()
 	res, _ := measureParamCensus(t, nil)
 	// Every cost example this pin once demanded PRESENT has retired with a
 	// real ParseCost model; they joined the gone-side assertions below. The
@@ -3227,6 +3236,7 @@ func TestParamCensusPinsTheImportReviewExamples(t *testing.T) {
 // TestParamCensusScanIsComplete. Both halves are pinned: the read is
 // attributed, and the unreachable consumer fails the rot guard by name.
 func TestParamCensusCatchesAliasedParamsReads(t *testing.T) {
+	t.Parallel()
 	s := newScan()
 	s.scanSource(t, "probe_alias.go", "effects", `package effects
 
@@ -3259,6 +3269,7 @@ func censusProbeAlias(sa *cards.SA) string {
 // read with the argument's bucket), and a call passing a non-Params map --
 // or no call at all -- fails the rot guard.
 func TestParamCensusCatchesHelperPassedMaps(t *testing.T) {
+	t.Parallel()
 	s := newScan()
 	s.scanSource(t, "probe_helper.go", "effects", `package effects
 
@@ -3335,6 +3346,7 @@ func censusProbeCaller2(sa *cards.SA) string {
 // like knownUnsupported retires once a primitive registers even though a
 // given card's shape is narrower than full coverage).
 func TestParamCensusAttributesSpecialisedRulesPaths(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	want := map[string]map[string]bool{
 		"Mana":             {"Amount": true, "Produced": true},
@@ -3376,6 +3388,7 @@ func TestParamCensusAttributesSpecialisedRulesPaths(t *testing.T) {
 // consumption, and no census label misreads it as a live gap the offer path
 // would honour.
 func TestParamCensusMayPlayRiderFixture(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	params := map[string]string{"MayPlay": "True", "Affected": "Card", "AffectedZone": "Graveyard", "MayPlayIgnoreColor": "True", "MayPlayIgnoreType": "True"}
 	if params["MayPlay"] == "" || params["MayPlayIgnoreColor"] == "" || params["MayPlayIgnoreType"] == "" {
@@ -3393,6 +3406,7 @@ func TestParamCensusMayPlayRiderFixture(t *testing.T) {
 }
 
 func TestParamCensusScopesTheMayPlayStaticFamily(t *testing.T) {
+	t.Parallel()
 	res, d := measureParamCensus(t, nil)
 	// The MayPlay family's read set: the generic Continuous union PLUS the
 	// genuinely evaluated MayPlay gates. MayPlayAltManaCost$ joined with the
@@ -3506,6 +3520,7 @@ func TestParamCensusScopesTheMayPlayStaticFamily(t *testing.T) {
 // production call makes this test fail even though no current repo-deck card
 // carries one of these unknown face-owned cost tokens.
 func TestParamCensusCatchesFaceOwnedCosts(t *testing.T) {
+	t.Parallel()
 	c := &cards.Card{Faces: []*cards.Face{
 		{
 			ManaCost: "Waterbend<X>",
@@ -3541,6 +3556,7 @@ func TestParamCensusCatchesFaceOwnedCosts(t *testing.T) {
 // and each expected label is reachable ONLY through the SVar body: remove
 // the face-SVar walk from cardCensusLabels and both labels disappear.
 func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
+	t.Parallel()
 	_, d := measureParamCensus(t, nil)
 	// Preconditions: the outer primitives' parameters the fixture carries are
 	// genuinely read (so the labels can only come from the bodies), and the
@@ -3592,6 +3608,7 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 }
 
 func TestParseCostReportsUnmodelledCostTokens(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		cost string
 		want []string

@@ -38,6 +38,7 @@ func metalcraftSpell(t *testing.T, seed uint64, name string, artifacts int) (*En
 }
 
 func TestDispatchBareMetalcraft(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name  string
 		count int
@@ -67,6 +68,7 @@ func TestDispatchBareMetalcraft(t *testing.T) {
 }
 
 func TestConcussiveBoltBareMetalcraft(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name    string
 		count   int

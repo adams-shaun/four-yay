@@ -23,6 +23,7 @@ import (
 // instant; SpecReadsPT (effects/filter.go) now skips the bind unless the
 // spec reads a P/T comparison field.
 func TestCountValidDerivationIsNotFactorial(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	first := onBoardCard(t, e, 0, corpusCard(t, "Master of Etherium"))
 	for i := 1; i < 8; i++ {

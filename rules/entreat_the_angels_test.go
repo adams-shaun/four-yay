@@ -128,6 +128,7 @@ func countAngelTokens(t *testing.T, e *Engine, p state.PlayerID) int {
 // which is what a Ctx without the binding made Entreat resolve to (the
 // user-reported live-demo defect).
 func TestEntreatTheAngelsCreatesItsChosenNumberOfAngels(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, entreat := entreatCorpusEngine(t, 111)
 	addMana(t, e, 0, "CCCCWWW") // X = 2: {X}{X} folds to {2}{2} generic + {W}{W}{W}
 	opts := castOptions(t, e)

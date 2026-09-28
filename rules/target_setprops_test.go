@@ -90,6 +90,7 @@ func setPropChoices(t *testing.T, d *decision.Decision, ids ...state.ObjID) []in
 // two permanents that share a printed card type are a legal pair, and the pair
 // that shares none is rejected by the SAME rule Validate enforces.
 func TestTargetSetSameCardType(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Permanent", map[string]string{"TargetsWithSameCardType": "True"})
 	if sa.Params["TargetsWithSameCardType"] != "True" {
 		t.Fatal("precondition: fixture lost TargetsWithSameCardType$")
@@ -133,6 +134,7 @@ func TestTargetSetSameCardType(t *testing.T) {
 // TestTargetSetSameCreatureType pins TargetsWithSameCreatureType$: two
 // creatures sharing a creature subtype are legal, two that share none are not.
 func TestTargetSetSameCreatureType(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Creature", map[string]string{"TargetsWithSameCreatureType": "True"})
 	if sa.Params["TargetsWithSameCreatureType"] != "True" {
 		t.Fatal("precondition: fixture lost TargetsWithSameCreatureType$")
@@ -168,6 +170,7 @@ func TestTargetSetSameCreatureType(t *testing.T) {
 // TestTargetSetEqualToughness pins TargetsWithEqualToughness$ (Vatz's "choose
 // any number of target creatures with equal toughness").
 func TestTargetSetEqualToughness(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Creature", map[string]string{"TargetsWithEqualToughness": "True"})
 	if sa.Params["TargetsWithEqualToughness"] != "True" {
 		t.Fatal("precondition: fixture lost TargetsWithEqualToughness$")
@@ -199,6 +202,7 @@ func TestTargetSetEqualToughness(t *testing.T) {
 // TestTargetSetDifferentCMC pins TargetsWithDifferentCMC$ (Long Rest's
 // "return X target cards with different mana values from your graveyard").
 func TestTargetSetDifferentCMC(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Card", map[string]string{
 		"TargetsWithDifferentCMC": "True",
 		"TgtZone":                 "Graveyard",
@@ -233,6 +237,7 @@ func TestTargetSetDifferentCMC(t *testing.T) {
 // TestTargetSetDifferentNames pins TargetsWithDifferentNames$ (Behold the
 // Sinister Six / Drover of the Swine: "creature cards with different names").
 func TestTargetSetDifferentNames(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Card", map[string]string{
 		"TargetsWithDifferentNames": "True",
 		"TgtZone":                   "Graveyard",
@@ -271,6 +276,7 @@ func TestTargetSetDifferentNames(t *testing.T) {
 // so the illegal candidate is never offered and is dropped by the resolution
 // recheck too.
 func TestTargetSetControllerProperty(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Creature", map[string]string{"TargetsWithControllerProperty": "cmcLECardsInGraveyard"})
 	if sa.Params["TargetsWithControllerProperty"] != "cmcLECardsInGraveyard" {
 		t.Fatal("precondition: fixture lost TargetsWithControllerProperty$")
@@ -320,6 +326,7 @@ func TestTargetSetControllerProperty(t *testing.T) {
 // cmc is deliberately 0 so a cmc comparison could not stand in for the power
 // one -- the precondition rejects that substitution.
 func TestTargetSetControllerPropertyPower(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Creature", map[string]string{"TargetsWithControllerProperty": "powerLECardsInGraveyard"})
 	if sa.Params["TargetsWithControllerProperty"] != "powerLECardsInGraveyard" {
 		t.Fatal("precondition: fixture lost TargetsWithControllerProperty$ power")
@@ -372,6 +379,7 @@ func TestTargetSetControllerPropertyPower(t *testing.T) {
 // empty-token option must not reset the running intersection, which would let
 // a typeless first pick re-admit a creature sharing nothing.
 func TestTargetSetSharedCreatureTypeIsPairwise(t *testing.T) {
+	t.Parallel()
 	mode := decision.SetPropShared
 	// A lone token-less pick is legal: one pick has no pair to violate.
 	if !decision.SetPropAdmits(mode, nil, nil) {
@@ -411,6 +419,7 @@ func TestTargetSetSharedCreatureTypeIsPairwise(t *testing.T) {
 // than posing a decision no answer can satisfy -- the same contract
 // sameControllerCapacity uses.
 func TestTargetSetMandatorySharedCapacityFizzles(t *testing.T) {
+	t.Parallel()
 	sa := setPropSA("Permanent", map[string]string{
 		"TargetsWithSameCardType": "True",
 		"TargetMin":               "2",
@@ -442,6 +451,7 @@ func TestTargetSetMandatorySharedCapacityFizzles(t *testing.T) {
 // preferred picks violate the distinct constraint. This is the livelock guard
 // -- the deterministic bot re-submitting a rejected answer forever.
 func TestTargetSetDistinctClampNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	d := &decision.Decision{
 		Seq: 3, Player: 0, Kind: decision.KTarget, Min: 2, Max: 2,
 		SetPropMode: decision.SetPropDistinct,
@@ -466,6 +476,7 @@ func TestTargetSetDistinctClampNeverLivelocks(t *testing.T) {
 // TestTargetSetSharedClampNeverLivelocks is the shared-constraint twin of the
 // distinct clamp test.
 func TestTargetSetSharedClampNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	d := &decision.Decision{
 		Seq: 4, Player: 0, Kind: decision.KTarget, Min: 2, Max: 2,
 		SetPropMode: decision.SetPropShared,
@@ -493,6 +504,7 @@ func TestTargetSetSharedClampNeverLivelocks(t *testing.T) {
 // passes through untouched. It is the set-property sibling of
 // narrowSameController/narrowDifferentControllers.
 func TestTargetSetResolutionRecheckNarrows(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	elf := putBattlefield(t, e, 0, "Name:Elf\nTypes:Creature Elf\nPT:2/2\nOracle:x\n")
 	goblin := putBattlefield(t, e, 0, "Name:Goblin\nTypes:Creature Goblin\nPT:2/2\nOracle:x\n")

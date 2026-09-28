@@ -77,6 +77,7 @@ func wantPlayerKeyword(t *testing.T, e *Engine, p state.PlayerID, head string) {
 // opponent-directed targeting no differently — but it must not BLEED to
 // seat 1, so that is asserted too.
 func TestTrueBelieverPlayerShroudWithholdsTargetOffer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	// Engine A — control: no grant, the player target is offered and bites.
@@ -161,6 +162,7 @@ func TestTrueBelieverPlayerShroudWithholdsTargetOffer(t *testing.T) {
 // precondition leg proves the static actually reached the player keyword
 // surface (an unregistered feature must fail here, not pass silently).
 func TestIvoryMaskPlayerShroudWithholdsTargetOffer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Ivory Mask"}, []string{"Hill Giant"})
 	mask := findOnBoard(t, e, 0, "Ivory Mask")
@@ -190,6 +192,7 @@ func TestIvoryMaskPlayerShroudWithholdsTargetOffer(t *testing.T) {
 // so seat 0's Player-targeting Spark still offers seat 0 itself and resolves
 // against them.
 func TestLeylineOfSanctityPlayerHexproof(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Leyline of Sanctity"}, []string{"Hill Giant"})
 	ley := findOnBoard(t, e, 0, "Leyline of Sanctity")
@@ -235,6 +238,7 @@ func TestLeylineOfSanctityPlayerHexproof(t *testing.T) {
 // control engine (no grant) keeps the same target. The direct legalTargets
 // call is the same shape hexproof_recheck_test.go uses for the object arm.
 func TestPlayerShroudRecheckDropsPlayerTarget(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	sa := card(t, sparkPlayerScript).Faces[0].Abilities[0]
 	targets := []state.Target{{Player: 0, IsPlayer: true}}
@@ -262,6 +266,7 @@ func TestPlayerShroudRecheckDropsPlayerTarget(t *testing.T) {
 // affected census (targeting=false) still ignores the player gates the way
 // it ignores a permanent's.
 func TestPlayerKeywordGatesGuardRails(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Grizzly Bears"}, []string{"Hill Giant"})
 	if e.playerShroudBlocksTarget(0) || e.playerShroudBlocksTarget(1) {

@@ -208,6 +208,7 @@ func drainTriggerAsks(t *testing.T, e *Engine, limit int) {
 // EVERY spell cast before the gate, the brief's over-firing symptom) fires
 // exactly once on an X-cost cast and not at all on a non-X cast.
 func TestHasXManaCostSpellCastGateOnBrassInfiniscope(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 131, []string{brassInfiniscopeSrc, xCostHydraSrc, nonXBeastSrc}, nil)
 	brass := moveSeeded(t, e, 0, brassInfiniscopeSrc, state.ZBattlefield)
 	if pushCount(e, brass) != 0 {
@@ -243,6 +244,7 @@ func TestHasXManaCostSpellCastGateOnBrassInfiniscope(t *testing.T) {
 // AbilityPush time, whatever value was announced -- X=0 here); activating a
 // non-X ability pushes nothing more.
 func TestUnboundFlourishingSpellAbilityCastGateFiresOnlyOnXAbilities(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 131, []string{unboundFlourishingSrc, xSifterSrc, plainSifterSrc}, nil)
 	uf := moveSeeded(t, e, 0, unboundFlourishingSrc, state.ZBattlefield)
 	xs := moveSeeded(t, e, 0, xSifterSrc, state.ZBattlefield)
@@ -279,6 +281,7 @@ func TestUnboundFlourishingSpellAbilityCastGateFiresOnlyOnXAbilities(t *testing.
 // real corpus carrier, its T:/SVar: lines copied verbatim, exercised on the
 // activation half of its Mode$ SpellAbilityCast trigger.
 func TestGlavaFiveAdventsSpellAbilityCastGateOnRealCorpusCarrier(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 131, []string{glavaSrc, xSifterSrc, plainSifterSrc}, nil)
 	glava := moveSeeded(t, e, 0, glavaSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, xSifterSrc, state.ZBattlefield)
@@ -310,6 +313,7 @@ func TestGlavaFiveAdventsSpellAbilityCastGateOnRealCorpusCarrier(t *testing.T) {
 // one not. The gated trigger fires only on the X-cost activation; the
 // paramless one fires on both.
 func TestHasXManaCostGateIsPerTrigger(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 131, []string{gatePairSrc, xSifterSrc, plainSifterSrc}, nil)
 	gp := moveSeeded(t, e, 0, gatePairSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, xSifterSrc, state.ZBattlefield)
@@ -360,6 +364,7 @@ func spellCastPushCount(e *Engine, id state.ObjID) int {
 // instant is not a permanent spell (CR 109.2). The SpellAbilityCast half's
 // behaviour is asserted unchanged by the tests above.
 func TestUnboundFlourishingFiresOnPermanentSpellCasts(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 131, []string{unboundFlourishingSrc, xCostHydraSrc, xBoltSrc}, nil)
 	uf := moveSeeded(t, e, 0, unboundFlourishingSrc, state.ZBattlefield)
 	addMana(t, e, 0, "GGG")

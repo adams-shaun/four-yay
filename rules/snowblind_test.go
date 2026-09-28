@@ -44,6 +44,7 @@ import (
 // min(1, toughness-1) = 1 measured against the in-progress 2/2, so the Bears
 // are 1/1.
 func TestSnowblindToughnessTerminates(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("GORGE_SNOWBLIND_CHILD") == "1" {
 		debug.SetMaxStack(64 << 20)
 		e := layerEngine(t)
@@ -96,6 +97,7 @@ func TestSnowblindToughnessTerminates(t *testing.T) {
 // The read runs in a child process so removing the guard fails by stack
 // overflow without taking the suite down.
 func TestSnowblindCounterExcludedFromAmount(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("GORGE_SNOWBLIND_COUNTER_CHILD") == "1" {
 		debug.SetMaxStack(64 << 20)
 		e := layerEngine(t)
@@ -156,6 +158,7 @@ func TestSnowblindCounterExcludedFromAmount(t *testing.T) {
 // derivedScalarFrom for the same object and overflows the stack; with it, the
 // 2/2 basis adds its own pre-counter toughness 2 and the body is 2/4.
 func TestSelfReferentialPTTerminates(t *testing.T) {
+	t.Parallel()
 	if os.Getenv("GORGE_SELFPTC_CHILD") == "1" {
 		debug.SetMaxStack(64 << 20)
 		// Self$ selector: a synthetic creature pumping its own toughness.

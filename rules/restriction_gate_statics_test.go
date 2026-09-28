@@ -11,6 +11,7 @@ import (
 // These pins deliberately use the real face statics and change the objects
 // the shared IsPresent$/PresentCompare$ grammar counts.
 func TestVeteranBrawlers(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	v := onBoardCard(t, e, 0, corpusCard(t, "Veteran Brawlers"))
 	blocker := onBoard(t, e, 0, "Name:Attacker\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -30,6 +31,7 @@ func TestVeteranBrawlers(t *testing.T) {
 }
 
 func TestVortexRunner(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	runner := onBoardCard(t, e, 0, corpusCard(t, "Vortex Runner"))
 	blocker := onBoard(t, e, 1, "Name:Blocker\nTypes:Creature\nPT:2/2\nOracle:x\n")
@@ -57,6 +59,7 @@ func TestVortexRunner(t *testing.T) {
 // is submitted the way a seat would -- with the fixture's replay check at
 // the end of each leaf (every fixture mutation rode an event).
 func TestMaraudingMaulhorn(t *testing.T) {
+	t.Parallel()
 	t.Run("no advocate: required", func(t *testing.T) {
 		maulhorn := corpusCard(t, "Marauding Maulhorn")
 		e, cfg := restrictionGame(t, 6112,
@@ -117,6 +120,7 @@ func TestMaraudingMaulhorn(t *testing.T) {
 }
 
 func TestBlizzard(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusCard(t, "Blizzard"))
 	blizzard := e.G.Zone(state.ZHand, 0)[0]
 	addMana(t, e, 0, "GGGG")

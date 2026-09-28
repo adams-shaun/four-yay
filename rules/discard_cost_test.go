@@ -11,6 +11,7 @@ import (
 const discardCostJunk = "Name:Discard Fodder\nManaCost:1\nTypes:Artifact\nOracle:x\n"
 
 func TestLionsEyeDiamondDiscardsWholeHandWithoutMana(t *testing.T) {
+	t.Parallel()
 	const led = "Name:Lion's Eye Diamond\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ Sac<1/CARDNAME> Discard<0/Hand> | Produced$ Any | Amount$ 3 | InstantSpeed$ True\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 701, led, discardCostJunk, discardCostJunk, discardCostJunk)
@@ -68,6 +69,7 @@ func TestLionsEyeDiamondDiscardsWholeHandWithoutMana(t *testing.T) {
 }
 
 func TestDiscardCardCostAsksPlayerAndCommitsChosenCards(t *testing.T) {
+	t.Parallel()
 	const source = "Name:Discard Engine\nTypes:Artifact\n" +
 		"A:AB$ Mana | Cost$ Discard<2/Card> | Produced$ B\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 702, source, discardCostJunk, discardCostJunk, discardCostJunk)
@@ -101,6 +103,7 @@ func TestDiscardCardCostAsksPlayerAndCommitsChosenCards(t *testing.T) {
 }
 
 func TestRandomDiscardCostUsesEngineRNGWithoutChoice(t *testing.T) {
+	t.Parallel()
 	const source = "Name:Random Discard Engine\nTypes:Artifact\n" +
 		"A:AB$ GainLife | Cost$ Discard<2/Random> | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 703, source, discardCostJunk, discardCostJunk, discardCostJunk)
@@ -132,6 +135,7 @@ func TestRandomDiscardCostUsesEngineRNGWithoutChoice(t *testing.T) {
 }
 
 func TestDiscardSelfReferencesMatchOnlyTheSourceInHand(t *testing.T) {
+	t.Parallel()
 	for _, spec := range []string{"CARDNAME", "NICKNAME"} {
 		t.Run(spec, func(t *testing.T) {
 			source := "Name:Channel Self " + spec + "\nTypes:Creature Spirit\nPT:1/1\nOracle:x\n"

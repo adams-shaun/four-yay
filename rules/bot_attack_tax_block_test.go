@@ -21,6 +21,7 @@ import (
 // which is not a legal declaration at all and which Submit rejects (turning
 // into a crashed table).
 func TestBotRequiredBlockTeamFitsCombinedPhyrexianTax(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	// A CantBlockUnless static that charges every blocker one Phyrexian pip.
 	onBoardCard(t, e, 0, card(t, blockPhyrexianFixture))

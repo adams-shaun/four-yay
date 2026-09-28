@@ -33,6 +33,7 @@ func moveToLibraryTop(t *testing.T, e *Engine, id state.ObjID) {
 		Text: "moved to library top for the miracle test"})
 }
 func TestMiracleOffersOnTheFirstDrawOnly(t *testing.T) {
+	t.Parallel()
 	terminus := "Name:Terminus\nManaCost:4 W W\nTypes:Sorcery\nK:Miracle:W\n" +
 		"A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Battlefield | Destination$ Library | LibraryPosition$ -1\n" +
 		"Oracle:x\n"
@@ -79,6 +80,7 @@ func TestMiracleOffersOnTheFirstDrawOnly(t *testing.T) {
 }
 
 func TestMiracleWithXAsksX(t *testing.T) {
+	t.Parallel()
 	// The REAL repo-deck card, from the corpus (see
 	// entreat_the_angels_test.go for why a name-sharing fixture would defend
 	// nothing): entreatCorpusCard asserts the compiled script carries

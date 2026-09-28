@@ -1440,6 +1440,7 @@ func Apply(g *state.Game, e Event) {
 				}
 			}
 			o.Goads = append(o.Goads, ge)
+			g.NoteGoad()
 			pruneGoads(g)
 		}
 
@@ -3642,7 +3643,10 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// the zone reset below.
 		for i := range g.Objs {
 			other := &g.Objs[i]
-			if other.ID == id {
+			// The empty-list test first: it is the common case, and it reads
+			// only the BlockedBy header instead of also touching the ID at
+			// the other end of the ~800-byte object on every arena entry.
+			if len(other.BlockedBy) == 0 || other.ID == id {
 				continue
 			}
 			for j, blocker := range other.BlockedBy {
@@ -4262,6 +4266,13 @@ func expireTurnGoads(in []state.GoadEffect, p state.PlayerID) []state.GoadEffect
 
 // pruneGoads enforces source/control conditions from replayable state.
 func pruneGoads(g *state.Game) {
+	if !g.GoadsSeen() {
+		// No object has ever gained a goad (the Goad fold above is the only
+		// place a goad is added), so every Goads list is nil: skip the
+		// whole-arena walk, which a mass departure otherwise ran once per
+		// moved object.
+		return
+	}
 	for i := range g.Objs {
 		o := &g.Objs[i]
 		if o.Goads == nil {

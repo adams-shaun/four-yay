@@ -22,6 +22,7 @@ import (
 // observable effect. Face up (the control): the grant is offered and
 // activating it adds {G}.
 func TestFaceDownGrantorOffersNoGrantedManaAbility(t *testing.T) {
+	t.Parallel()
 	for _, faceDown := range []bool{true, false} {
 		name := "face_up"
 		if faceDown {

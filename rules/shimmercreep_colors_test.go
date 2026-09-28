@@ -97,6 +97,7 @@ func castShimmercreep(t *testing.T, e *Engine, cfg Config) {
 }
 
 func TestShimmercreepVividColorsLifeSwing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	// Four colours on the board (W Savannah Lions, U Zephyr Sprite, G

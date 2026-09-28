@@ -63,6 +63,7 @@ func aleshaPipFaces(t *testing.T, d *decision.Decision) []string {
 // attacking. It also asserts the mana actually left the pool, so a "payment"
 // that silently skipped the charge cannot pass.
 func TestAleshaHybridTriggerPaysEitherFace(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, grav := aleshaTriggerBoard(t, reg)
 	alesha := findBattlefield(t, e, 0, "Alesha, Who Smiles at Death", 0)
@@ -153,6 +154,7 @@ func TestAleshaHybridTriggerPaysEitherFace(t *testing.T) {
 // only fail at the charge. The test asserts the option list is decline-only
 // and that the card stays in the graveyard with pool and life untouched.
 func TestAleshaHybridTriggerWillNotPayUnpayable(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, grav := aleshaTriggerBoard(t, reg)
 	alesha := findBattlefield(t, e, 0, "Alesha, Who Smiles at Death", 0)

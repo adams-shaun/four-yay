@@ -32,6 +32,7 @@ func findBlightedNightmareAbility(t *testing.T, reg *cards.Registry) int {
 // effect (return a creature card with mana value X or less) returns the
 // cmc-2 bear -- impossible at X < 2.
 func TestBlightXCostAnnouncesAndPaysX(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 2, "Blighted Nightmare")
 	nightmare := blightMove(t, e, 0, "Blighted Nightmare", state.ZBattlefield)
@@ -135,6 +136,7 @@ func TestBlightXCostAnnouncesAndPaysX(t *testing.T) {
 // TestBlightXNoManaCeiling guards the announcement bound when the only X
 // cost is blighting: the mana/graveyard ceiling must not cap a mana-free X.
 func TestBlightXNoManaCeiling(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := blightEngine(t, reg, 2)
 	bear := blightMove(t, e, 0, "Grizzly Bears", state.ZBattlefield)

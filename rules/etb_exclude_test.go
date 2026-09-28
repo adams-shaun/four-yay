@@ -19,6 +19,7 @@ import (
 // Before the fix this ask offered all five colours and a player could record
 // the forbidden Black.
 func TestBlackDragonGateExcludesBlackFromTheColourAsk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{corpusCard(t, "Black Dragon Gate")}, nil)
 	gate := moveCorpusCard(t, e, "Black Dragon Gate", 0, state.ZHand)
@@ -72,6 +73,7 @@ func TestBlackDragonGateExcludesBlackFromTheColourAsk(t *testing.T) {
 // totality rule). Corpus carriers never spell a token this shape cannot
 // resolve, so the fixture is inline.
 func TestETBColorExcludeFailOpenOnUnresolvableToken(t *testing.T) {
+	t.Parallel()
 	land := "Name:FailOpen\nManaCost:no cost\nTypes:Land\nK:ETBReplacement:Other:ChooseColor\n" +
 		"SVar:ChooseColor:DB$ ChooseColor | Defined$ You | Exclude$ nonsense | SpellDescription$ x\n" +
 		"A:AB$ Mana | Cost$ T | Produced$ C | SpellDescription$ Add {C}.\nOracle:x\n"

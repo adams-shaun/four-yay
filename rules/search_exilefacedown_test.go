@@ -86,6 +86,7 @@ func librarySearchExileFaceDown(t *testing.T, e *Engine) ([]events.Event, state.
 // marker and the exiling source, each object state FaceDown with its
 // ExiledWith recorded.
 func TestLibrarySearchExilesFoundCardsFaceDown(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Mangara's Tome")
 
@@ -142,6 +143,7 @@ func TestLibrarySearchExilesFoundCardsFaceDown(t *testing.T) {
 // zone, while its owner may still look at it. Without the FaceDown state the
 // opponent reads the found card's printed name out of exile.
 func TestLibrarySearchFaceDownExileIsHiddenFromOpponents(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Mangara's Tome")
 

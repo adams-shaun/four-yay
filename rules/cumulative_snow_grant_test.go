@@ -65,6 +65,7 @@ func resolveUpkeepCumulative(t *testing.T, e *Engine) {
 // counters the snow pip vanished, the cost was empty, and the permanent could
 // be kept for free with no mana at all.
 func TestCumulativeUpkeepSnowCostRequiresSnowAtEveryAgeCounter(t *testing.T) {
+	t.Parallel()
 	e, cover := coverOfWinterEngine(t)
 	// Precondition: the card is where the rule reads it and the printed
 	// keyword parsed to a real snow pip (not a generic substitute).
@@ -109,6 +110,7 @@ func TestCumulativeUpkeepSnowCostRequiresSnowAtEveryAgeCounter(t *testing.T) {
 // at the SAME two age counters, floating two snow mana units makes the cost
 // payable (the pay option appears) and paying consumes exactly that snow.
 func TestCumulativeUpkeepSnowCostIsPayableWithSnowMana(t *testing.T) {
+	t.Parallel()
 	e, cover := coverOfWinterEngine(t)
 	e.emit(events.Event{Kind: events.CounterChange, Obj: cover, Counter: "AGE", Amount: 1})
 	// Precondition: two snow-white mana units are in the pool and the
@@ -164,6 +166,7 @@ const cumulativeGrantPump = "Name:Cumulus Idol\nManaCost:0\nTypes:Artifact\n" +
 // keyword sat in the derived list with no Phase trigger to carry it, so the
 // upkeep simply passed.
 func TestGrantedCumulativeUpkeepStaticGrantTriggers(t *testing.T) {
+	t.Parallel()
 	const bear = "Name:Testbear\nManaCost:0\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e := handEngine(t)
 	_ = onBoard(t, e, 0, cumulativeGrantStatic)
@@ -195,6 +198,7 @@ func TestGrantedCumulativeUpkeepStaticGrantTriggers(t *testing.T) {
 // the permanent the keyword, and the next upkeep must run the ordinary
 // age-counter + pay/sacrifice window.
 func TestGrantedCumulativeUpkeepPumpGrantTriggers(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 11, cumulativeGrantPump)
 	idol := moveByName(t, e, 0, "Cumulus Idol", state.ZBattlefield)
 	e.G.Obj(idol).SummonSick = false

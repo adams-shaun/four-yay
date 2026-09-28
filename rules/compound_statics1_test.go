@@ -28,6 +28,7 @@ import (
 )
 
 func TestBastCompoundModeStaticGates(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bast, ok := reg.Lookup("Bast, Panther Goddess")
 	if !ok {

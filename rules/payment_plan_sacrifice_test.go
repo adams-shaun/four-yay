@@ -22,6 +22,7 @@ const boneSplintersShape = "Name:Bone Test\nManaCost:B\nTypes:Instant\nA:SP$ Dra
 // witness), so the whole route -- offer builder, ValidateCastPayment, execute,
 // sacrifice choose -- must settle exactly as the manual path does.
 func TestPaymentPlanSeeksSacrificeOffer(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9601, boneSplintersShape)
 	swamp := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
 	victim := onBoard(t, e, 0, "Name:Victim Test\nManaCost:1\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
@@ -88,6 +89,7 @@ func TestPaymentPlanSeeksSacrificeOffer(t *testing.T) {
 // ValidateCastPayment with a clear error and nothing half-executes -- no mana
 // produced, the spell still in hand.
 func TestPaymentPlanSacrificeStalenessRejectedAtSubmit(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9602, boneSplintersShape)
 	swamp := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
 	victim := onBoard(t, e, 0, "Name:Victim Test\nManaCost:1\nTypes:Creature Test\nPT:1/1\nOracle:x\n")
@@ -135,6 +137,7 @@ func TestPaymentPlanSacrificeStalenessRejectedAtSubmit(t *testing.T) {
 // Swamp and a sacrificeable creature are available. This is the direct
 // regression for the demo report.
 func TestPaymentPlanOffersCorpusBoneSplinters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Bone Splinters")
 	if !ok {
@@ -169,6 +172,7 @@ func TestPaymentPlanOffersCorpusBoneSplinters(t *testing.T) {
 // any OTHER non-mana part stay withheld. This is the "class, not the
 // instance" companion to the sacrifice offer above.
 func TestPaymentPlanSacrificeShapeStillDeclines(t *testing.T) {
+	t.Parallel()
 	for i, tc := range []struct {
 		name, face string
 	}{

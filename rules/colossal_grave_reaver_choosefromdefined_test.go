@@ -100,6 +100,7 @@ func graveReaverEngine(t *testing.T, seed uint64) (*Engine, state.ObjID, state.O
 // Memnite already in the graveyard is NOT -- and the answered pick puts the
 // Ornithopter onto the battlefield while the Memnite stays in the graveyard.
 func TestColossalGraveReaverChooseFromDefined(t *testing.T) {
+	t.Parallel()
 	e, rov, orn, mem := graveReaverEngine(t, 911)
 
 	// The triggering event, as a real logged move.

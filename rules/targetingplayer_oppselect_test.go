@@ -85,6 +85,7 @@ func oppPickOptions(t *testing.T, e *Engine, controller state.PlayerID, wantSeat
 // activation flow: seat 0's which-opponent selection ask is posed FIRST, the
 // controller answers seat 2, and ONLY seat 2 receives the target ask.
 func TestThreeSeatOpponentSelectionPreacher(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	carrier := mustCorpusCard(t, reg, "Preacher")
 	if sa := saWithTargetingPlayer(carrier, "AB", "Player.Opponent"); sa == nil {
@@ -157,6 +158,7 @@ func TestThreeSeatOpponentSelectionPreacher(t *testing.T) {
 // trigger drain through TriggerPush and verifies the controller selects the
 // answerer before the triggered ability's placement target ask.
 func TestThreeSeatOpponentSelectionTriggerPlacement(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card := mustCorpusCard(t, reg, "Karplusan Minotaur")
 	triggerIndex := -1
@@ -201,6 +203,7 @@ func TestThreeSeatOpponentSelectionTriggerPlacement(t *testing.T) {
 // living opponent remains and the selection ask is never posed -- seat 2
 // receives the target ask directly.
 func TestThreeSeatOpponentSelectionDeadSeatNoAsk(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := oppSelectBoard(t, reg, 3, "Preacher")
 	preacher := searchMoveByNameSeat(t, e, 0, "Preacher", state.ZBattlefield)
@@ -231,6 +234,7 @@ func TestThreeSeatOpponentSelectionDeadSeatNoAsk(t *testing.T) {
 // TestThreeSeatOpponentSelectionEvangelize drives the real corpus SPELL
 // Evangelize through the full cast flow on a three-seat table.
 func TestThreeSeatOpponentSelectionEvangelize(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	evangelize := searchCorpusCard(t, reg, "Evangelize")
 	if sa := saWithTargetingPlayer(evangelize, "SP", "Player.Opponent"); sa == nil {
@@ -298,6 +302,7 @@ func TestThreeSeatOpponentSelectionEvangelize(t *testing.T) {
 // depth-2 DB$DestroyLand sub carries `TargetingPlayer$ Player.Opponent`, so
 // the controller's selection ask fires before the sub's target ask.
 func TestThreeSeatVolcanicOfferingMidResolutionSelection(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	offering := searchCorpusCard(t, reg, "Volcanic Offering")
 	if !cardHasSubTargetingPlayer(offering, "Player.Opponent", "Land.nonBasic") {
@@ -375,6 +380,7 @@ func TestThreeSeatVolcanicOfferingMidResolutionSelection(t *testing.T) {
 // living opponent answers directly; a controller with no living opponent
 // fails closed (no stuck decision).
 func TestOpponentPickerResolverContract(t *testing.T) {
+	t.Parallel()
 	e, _ := combatTriggerBoard(t, testutil.CorpusRegistry(t), nil, nil, nil, nil)
 	const controller state.PlayerID = 0
 	if got := len(e.G.AliveFrom(0)); got != 2 {
@@ -394,6 +400,7 @@ func TestOpponentPickerResolverContract(t *testing.T) {
 // submits an answer the validator accepts, because every offered option is a
 // living opponent.
 func TestOpponentPickBotAnswerIsValidated(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := oppSelectBoard(t, reg, 3, "Preacher")
 	preacher := searchMoveByNameSeat(t, e, 0, "Preacher", state.ZBattlefield)

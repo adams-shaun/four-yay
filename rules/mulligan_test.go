@@ -61,6 +61,7 @@ func keepEverywhere(d *decision.Decision) decision.Intent {
 // hand, and -- because no one mulliganed -- must emit no Shuffle at all. The
 // mulligan round changes nothing when nobody takes one (R-Martin zero == today).
 func TestMulliganWithKeepsGoesStraightToTurnOne(t *testing.T) {
+	t.Parallel()
 	cfg := twoSeatConfig(t, 41, 1)
 	e := New(cfg)
 	playPregame(t, e, keepEverywhere)
@@ -93,6 +94,7 @@ func TestMulliganWithKeepsGoesStraightToTurnOne(t *testing.T) {
 // its seven), its library gained exactly the bottomed card at its bottom, and
 // the mulligan's re-shuffle is in the log (so the whole round is replayable).
 func TestABotThatMulligansKeepsSevenAndBottomsOne(t *testing.T) {
+	t.Parallel()
 	cfg := twoSeatConfig(t, 41, 1)
 	e := New(cfg)
 	var (
@@ -145,6 +147,7 @@ func TestABotThatMulligansKeepsSevenAndBottomsOne(t *testing.T) {
 // TestMultiplayerSecondMulliganBottomsOne proves CR 103.5b exempts only the
 // first mulligan's bottoming penalty in a game with three or more players.
 func TestMultiplayerSecondMulliganBottomsOne(t *testing.T) {
+	t.Parallel()
 	e := New(fourSeatConfig(t, 60, 2))
 	taken := 0
 	var (
@@ -190,6 +193,7 @@ func TestMultiplayerSecondMulliganBottomsOne(t *testing.T) {
 // TestTwoPlayerFirstMulliganStillBottomsOne proves the multiplayer exemption
 // does not leak into an ordinary two-player London mulligan round.
 func TestTwoPlayerFirstMulliganStillBottomsOne(t *testing.T) {
+	t.Parallel()
 	e := New(twoSeatConfig(t, 41, 1))
 	took := false
 	var bottomAsk *decision.Decision
@@ -229,6 +233,7 @@ func TestTwoPlayerFirstMulliganStillBottomsOne(t *testing.T) {
 // reject a duplicated index, because Validate's duplicate answer is not a
 // valid permutation of taken hand indices.
 func TestMulliganBottomIsDistinctIndices(t *testing.T) {
+	t.Parallel()
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KMulligan, Min: 2, Max: 2,
 		Options: []decision.Option{{Index: 0, Kind: "bottom"}, {Index: 1, Kind: "bottom"}, {Index: 2, Kind: "bottom"}}}
 	if d.Validate(decision.Intent{Seq: 1, Player: 0, Choices: []int{0, 0}}) == nil {
@@ -250,6 +255,7 @@ func TestMulliganBottomIsDistinctIndices(t *testing.T) {
 // The double-penalizing implementation this fix replaces drew 7 - taken each
 // time and would end at 7 - 2 - 2 = 3, so the 5 is the linearity proof.
 func TestTwoMulligansPenaltyIsLinear(t *testing.T) {
+	t.Parallel()
 	cfg := twoSeatConfig(t, 60, 2)
 	e := New(cfg)
 	mulligans := 0
@@ -299,6 +305,7 @@ func TestTwoMulligansPenaltyIsLinear(t *testing.T) {
 // New/Pending/Submit so it proves a real game state reaches the gate, not
 // that an if works; the round then still completes to turn 1.
 func TestLastMulliganThenOnlyKeepOffered(t *testing.T) {
+	t.Parallel()
 	cfg := twoSeatConfig(t, 41, 1)
 	e := New(cfg)
 	e.Advance() // first keep/mulligan ask
@@ -367,6 +374,7 @@ func TestLastMulliganThenOnlyKeepOffered(t *testing.T) {
 // R-8.4's determinism invariant: Config.Mulligans must travel with the
 // Config replay reads.
 func TestKeptPregameRoundReplaysExactly(t *testing.T) {
+	t.Parallel()
 	cfg := twoSeatConfig(t, 42, 1)
 	e := New(cfg)
 	var sawMulligan bool
@@ -447,6 +455,7 @@ func capturePrompts(t *testing.T, mulligans, take int) (keepPrompt, bottomPrompt
 // bottom of your library" for two -- never the engine-speak "bottoms 2
 // card(s)" it replaced.
 func TestBottomingPromptIsRealEnglish(t *testing.T) {
+	t.Parallel()
 	if got, want := bottomingPrompt(0), "Keep all seven cards"; got != want {
 		t.Errorf("zero-card bottom prompt = %q, want %q", got, want)
 	}
@@ -466,6 +475,7 @@ func TestBottomingPromptIsRealEnglish(t *testing.T) {
 // bottoms 1, or mulligans" -- and must no longer use "bottoms" as a verb or
 // the "(s)" shorthand.
 func TestKeepMulliganPromptHasNoEngineSpeak(t *testing.T) {
+	t.Parallel()
 	keep, _ := capturePrompts(t, 2, 1)
 	for _, bad := range []string{"bottoms", "card(s)", "London mulligan:", "mulligans"} {
 		if strings.Contains(keep, bad) {
@@ -481,6 +491,7 @@ func TestKeepMulliganPromptHasNoEngineSpeak(t *testing.T) {
 // that never sets Mulligans (the zero value) skips the round entirely and
 // behaves exactly as before -- the engine begins the first turn immediately.
 func TestPregameSkippedWhenMulligansZero(t *testing.T) {
+	t.Parallel()
 	cfg := twoSeatConfig(t, 40, 0)
 	e := New(cfg)
 	e.Advance()

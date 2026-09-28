@@ -18,6 +18,7 @@ import (
 // (it untaps only once its sixth sacrifice clears the last counter). The
 // report read the missing untap as an engine defect; it is the printed rule.
 func TestBalothPrimeSacrificeTriggerRemovesAStunCounterInsteadOfUntapping(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 
@@ -61,6 +62,7 @@ func TestBalothPrimeSacrificeTriggerRemovesAStunCounterInsteadOfUntapping(t *tes
 // Untap finally untaps the creature. Driven from the real script, six stun
 // counters placed the way the card's own ETB does.
 func TestBalothPrimeUntapsOnceTheLastStunCounterIsGone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 

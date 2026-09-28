@@ -92,6 +92,7 @@ func castStrikeAt(t *testing.T, e *Engine, strikeID, want state.ObjID, seat stat
 // but does not fire at all when its own controller's spell is the targeting
 // one.
 func TestBecomesTargetValidSourceGatesTheFiring(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, ids := targetingBoard(t, reg,
 		[]string{"Reality Smasher"},
@@ -146,6 +147,7 @@ func TestBecomesTargetValidSourceGatesTheFiring(t *testing.T) {
 // out 3 damage to that player -- and stays silent when the targeting spell
 // belongs to the Regent's own controller.
 func TestBecomesTargetValidSourceSpellAbilityOppCtrl(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, ids := targetingBoard(t, reg,
 		[]string{"Thunderbreak Regent", "Shivan Dragon"},
@@ -182,6 +184,7 @@ func TestBecomesTargetValidSourceSpellAbilityOppCtrl(t *testing.T) {
 // still fire on its own when the attack event is the one that matched -- the
 // ETB half did not fire for a DeclareAttackers.
 func TestAttacksSecondaryFiresAlone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	titan := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grave Titan"))
@@ -209,6 +212,7 @@ func TestAttacksSecondaryFiresAlone(t *testing.T) {
 // Zoraline shape -- and never yields; that contract is pinned on the real
 // corpus card below.
 func TestSecondaryYieldsToItsPairedPrimary(t *testing.T) {
+	t.Parallel()
 	pair := func(secondary bool) string {
 		mark := ""
 		if secondary {
@@ -263,6 +267,7 @@ func TestSecondaryYieldsToItsPairedPrimary(t *testing.T) {
 // controls) BOTH must fire. A Mode-equality pairing fallback suppressed the
 // marked half here because the printed trigger matched the same event.
 func TestSecondaryDoesNotSuppressAnIndependentCoFiringTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	zoraline := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Zoraline, Cosmos Caller"))
@@ -283,6 +288,7 @@ func TestSecondaryDoesNotSuppressAnIndependentCoFiringTrigger(t *testing.T) {
 // (ValidTarget$ Player.Chosen) reflects onto IsRemembered, the Secondary$
 // half onto Chosen, under ActiveZones$ Battlefield.
 func TestSowerOfDiscordChosenPairLosesLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Sower of Discord"))
 	e.G.Players[0].Pool[state.MB] = 6
@@ -340,6 +346,7 @@ func TestSowerOfDiscordChosenPairLosesLife(t *testing.T) {
 // graveyard fires under ActiveZones$ Graveyard and stays silent under the
 // battlefield default.
 func TestTriggerActiveZonesGate(t *testing.T) {
+	t.Parallel()
 	cardFor := func(zones string) string {
 		return "Name:Warden\nManaCost:1 W\nTypes:Creature Soldier\nPT:1/1\n" +
 			"T:Mode$ DamageDone | ActiveZones$ " + zones + " | ValidTarget$ Player | Execute$ TrigGain | TriggerDescription$ x\n" +

@@ -53,12 +53,14 @@ func triggerPushesFor(e *Engine, src state.ObjID) int {
 // report) reads effects.Supported(), so a missing entry would silently keep
 // every carrier unplayable.
 func TestDiscoverSupported(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:Discover"] {
 		t.Fatalf("effects.Supported() is missing trig:Discover")
 	}
 }
 
 func TestSeekAllSupported(t *testing.T) {
+	t.Parallel()
 	if !effects.Supported()["trig:SeekAll"] {
 		t.Fatalf("effects.Supported() is missing trig:SeekAll")
 	}
@@ -67,6 +69,7 @@ func TestSeekAllSupported(t *testing.T) {
 // TestDiscoverSeekTriggersAreRegistered pins both support declarations in one
 // place (the TestNumLoyaltyActPrimitiveIsRegistered shape).
 func TestDiscoverSeekTriggersAreRegistered(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	if !supported["trig:Discover"] || !supported["trig:SeekAll"] {
 		t.Fatalf("effects.Supported() is missing trig:Discover (%v) or trig:SeekAll (%v)",
@@ -78,6 +81,7 @@ func TestDiscoverSeekTriggersAreRegistered(t *testing.T) {
 // battlefield, one Discover marker fires the PRIMARY half -- 2 damage to each
 // opponent, 2 life to Val's controller -- replay-verified.
 func TestValMaroonedSurveyorDiscoverMarkerDealsDamageAndGainsLife(t *testing.T) {
+	t.Parallel()
 	val := tokenReplCorpusCard(t, "Val, Marooned Surveyor")
 	e, cfg := tokenReplGame(t, 91, val)
 	valID := moveSeededCard(t, e, 0, val, state.ZBattlefield)
@@ -102,6 +106,7 @@ func TestValMaroonedSurveyorDiscoverMarkerDealsDamageAndGainsLife(t *testing.T) 
 // secondary fires on its own -- the same body, 2 damage to each opponent + 2
 // life -- replay-verified.
 func TestValMaroonedSurveyorSeekMarkerFiresTheSecondaryHalfOnItsOwn(t *testing.T) {
+	t.Parallel()
 	val := tokenReplCorpusCard(t, "Val, Marooned Surveyor")
 	e, cfg := tokenReplGame(t, 92, val)
 	valID := moveSeededCard(t, e, 0, val, state.ZBattlefield)
@@ -120,6 +125,7 @@ func TestValMaroonedSurveyorSeekMarkerFiresTheSecondaryHalfOnItsOwn(t *testing.T
 // is matched against the marker's acting seat, so a Discover record named by
 // another player leaves Val silent (the non-matching-player pin).
 func TestValMaroonedSurveyorMarkerFromAnotherPlayerDoesNotFire(t *testing.T) {
+	t.Parallel()
 	val := tokenReplCorpusCard(t, "Val, Marooned Surveyor")
 	e, cfg := tokenReplGame(t, 93, val)
 	valID := moveSeededCard(t, e, 0, val, state.ZBattlefield)
@@ -141,6 +147,7 @@ func TestValMaroonedSurveyorMarkerFromAnotherPlayerDoesNotFire(t *testing.T) {
 // ActivationLimit$ 1 ("This ability triggers only once each turn") -- the
 // queue-time gate the actionTriggerModes membership makes apply.
 func TestCuratorOfSunsCreationDiscoverFiresOnceEachTurn(t *testing.T) {
+	t.Parallel()
 	curator := tokenReplCorpusCard(t, "Curator of Sun's Creation")
 	e, cfg := tokenReplGame(t, 94, curator)
 	cID := moveSeededCard(t, e, 0, curator, state.ZBattlefield)
@@ -164,6 +171,7 @@ func TestCuratorOfSunsCreationDiscoverFiresOnceEachTurn(t *testing.T) {
 // exactly one 3/3 colorless Phyrexian Golem artifact creature token (the real
 // c_3_3_a_phyrexian_golem token script), replay-verified.
 func TestVexyrSeekMarkerCreatesTheGolemToken(t *testing.T) {
+	t.Parallel()
 	vexyr := tokenReplCorpusCard(t, "Vexyr, Ich-Tekik's Heir")
 	e, cfg := tokenReplGame(t, 95, vexyr)
 	vID := moveSeededCard(t, e, 0, vexyr, state.ZBattlefield)

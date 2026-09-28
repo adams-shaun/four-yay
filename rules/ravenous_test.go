@@ -84,6 +84,7 @@ func castRavenous(t *testing.T, e *Engine, id state.ObjID, x int) int {
 // TestJackedRabbitRavenousX3CountersNoDraw is the brief's X=3 leg: the
 // creature enters with 3 +1/+1 counters and does NOT draw (3 < 5).
 func TestJackedRabbitRavenousX3CountersNoDraw(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := ravenousConfig(t, 131)
 	addMana(t, e, caster, "WWWWW") // {X}{1}{W} with X=3 -> {4}{W}
 	drawn := castRavenous(t, e, id, 3)
@@ -109,6 +110,7 @@ func TestJackedRabbitRavenousX3CountersNoDraw(t *testing.T) {
 // TestJackedRabbitRavenousX5CountersAndDraw is the brief's X=5 leg: 5
 // +1/+1 counters AND the entry draw.
 func TestJackedRabbitRavenousX5CountersAndDraw(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := ravenousConfig(t, 132)
 	addMana(t, e, caster, "WWWWWWW") // {X}{1}{W} with X=5 -> {6}{W}
 	drawn := castRavenous(t, e, id, 5)
@@ -133,6 +135,7 @@ func TestJackedRabbitRavenousX5CountersAndDraw(t *testing.T) {
 // reads the power the Ravenous counters raised, so an X=3 Rabbit attacks and
 // makes 4 Rabbits -- not the 1 it would make with no counters.
 func TestJackedRabbitRavenousAttackTokensReadTheCounters(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := ravenousConfig(t, 133)
 	addMana(t, e, caster, "WWWWW")
 	if drawn := castRavenous(t, e, id, 3); drawn != 0 {
@@ -235,6 +238,7 @@ func drainRavenous(t *testing.T, e *Engine, limit int) {
 // draw (the two simultaneous triggers must resolve without wedging), and the
 // card's own trigger must deal 5 to each player.
 func TestExocrineRavenousWithItsOwnEtbTrigger(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := corpusCardConfig(t, 134, "Exocrine")
 	addMana(t, e, caster, "RRRRRRRR") // {X}{2}{R} with X=5 -> {7}{R}
 	submitChoices(t, e, castOptionFor(t, e, id).Index)
@@ -273,6 +277,7 @@ func TestExocrineRavenousWithItsOwnEtbTrigger(t *testing.T) {
 // a 2/2 with 2 counters and no draw (2 < 5); X=5 -> a 5/5 with 5 counters and
 // one draw.
 func TestZoanthropeRavenousZeroToughnessCarrierSurvives(t *testing.T) {
+	t.Parallel()
 	e, _, id, caster := corpusCardConfig(t, 141, "Zoanthrope")
 	addMana(t, e, caster, "UURR") // {X}{U}{R} with X=2 -> {2}{U}{R}
 	submitChoices(t, e, castOptionFor(t, e, id).Index)

@@ -14,6 +14,7 @@ import (
 // prior remembered object proves ForgetOtherTargets clears both memory
 // representations before the destroy survivors are recorded.
 func TestSorinDestroyRememberTargetsReturnsDestroyedPermanents(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	sorin := choiceCorpusCard(t, "Sorin, Lord of Innistrad")
 	e := corpusEngine(t, reg, []*cards.Card{sorin}, nil)
@@ -56,6 +57,7 @@ func TestSorinDestroyRememberTargetsReturnsDestroyedPermanents(t *testing.T) {
 // boundary: a destroy redirected to exile was not actually put into a
 // graveyard and must therefore not be returned by Sorin's follower.
 func TestSorinDestroyRememberTargetsExcludesReplacedMoves(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	sorin := choiceCorpusCard(t, "Sorin, Lord of Innistrad")
 	e := corpusEngine(t, reg, []*cards.Card{sorin, card(t, restInPeaceSrc)}, []*cards.Card{card(t, "Name:Exiled Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")})

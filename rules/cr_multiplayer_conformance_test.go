@@ -59,6 +59,7 @@ func crProbeAnswerAsks(t *testing.T, e *Engine) {
 }
 
 func TestCR800DepartedOwnersCardsLeaveEveryZone(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	checked := 0
 	zones := []state.Zone{state.ZLibrary, state.ZHand, state.ZGraveyard, state.ZExile, state.ZBattlefield}
@@ -140,6 +141,7 @@ func TestCR800DepartedControllersStackObjectsCease(t *testing.T) {
 }
 
 func TestCR800NoCombatDamageToDepartedDefender(t *testing.T) {
+	t.Parallel()
 	e := crResolutionEngine(t, []string{"Vampire Nighthawk"}, nil, nil, nil)
 	id := crAbortMove(t, e, 0, "Vampire Nighthawk", state.ZBattlefield)
 	if e.G.Obj(id).Face().PT != "2/3" || !e.HasKeyword(id, "Lifelink") {
@@ -208,6 +210,7 @@ func TestCR802BlockDeclarationsFollowAPNAP(t *testing.T) {
 }
 
 func TestCR800MultiplayerFirstMulliganIsFree(t *testing.T) {
+	t.Parallel()
 	cfg := crMultiplayerConfig(t, testutil.CorpusRegistry(t), "ur-delver")
 	cfg.Mulligans = 2
 	e := New(cfg)
@@ -238,6 +241,7 @@ func TestCR800MultiplayerFirstMulliganIsFree(t *testing.T) {
 }
 
 func TestCR800StartingPlayerDrawsInMultiplayer(t *testing.T) {
+	t.Parallel()
 	e := New(crMultiplayerConfig(t, testutil.CorpusRegistry(t), "ur-delver"))
 	e.Advance()
 	before := len(e.G.Zone(state.ZHand, 0))

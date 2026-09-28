@@ -47,6 +47,7 @@ func attachedRulesBoard(t *testing.T, e *Engine) map[string]state.ObjID {
 // (the spoils card) and effGainControl's battlefield-only loop skipped it:
 // control of the Equipment was never gained.
 func TestMurderousSpoilsStealsEquipmentAttachedToDestroyedCreature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Murderous Spoils"), lookup(t, reg, "Grizzly Bears"), lookup(t, reg, "Unholy Strength")},
@@ -101,6 +102,7 @@ func TestMurderousSpoilsStealsEquipmentAttachedToDestroyedCreature(t *testing.T)
 // selector -> source fallback), and the attach-back leg attached the Fumble
 // card instead of the attachments.
 func TestFumbleGainsBothAndAttachesThemToAnotherCreature(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Fumble"), lookup(t, reg, "Grizzly Bears"), lookup(t, reg, "Unholy Strength")},
@@ -188,6 +190,7 @@ func TestFumbleGainsBothAndAttachesThemToAnotherCreature(t *testing.T) {
 // objects. The source fallback must NOT fire -- the Fumble instant must not
 // attach itself to the destination, and the attach-back leg must do nothing.
 func TestFumbleWithNoAttachmentsDoesNotAttachItself(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Fumble"), lookup(t, reg, "Grizzly Bears")},
@@ -242,6 +245,7 @@ func TestFumbleWithNoAttachmentsDoesNotAttachItself(t *testing.T) {
 // (`TriggeredCardLKICopy`), whose Equipment has already been detached by the
 // CR 704.5n sweep -- the LastBearer fold.
 func TestRhukAttachesWereAttachedEquipment(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Rhuk, Hexgold Nabber"), lookup(t, reg, "Grizzly Bears"), lookup(t, reg, "Bonesplitter"), lookup(t, reg, "Bonesplitter")},
@@ -309,6 +313,7 @@ func TestRhukAttachesWereAttachedEquipment(t *testing.T) {
 // must narrow the graveyard offer to the Aura that WAS attached to the dead
 // creature, and DBAttach must re-attach the were-attached Equipment.
 func TestCassHandOfVengeanceReturnsOnlyTheWereAttachedAuras(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	// setup builds a fresh Cass board: a seat-1 creature wearing a seat-1 Aura
 	// and Equipment, a second creature as the destination, and a decoy
@@ -480,6 +485,7 @@ func TestAttachedToSelectorChooseFromDefinedFailsClosed(t *testing.T) {
 // SBA path: a dying creature's Equipment detaches with LastBearer set, and an
 // object that re-attaches clears it.
 func TestAttachedToSelectorLastBearerFold(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Bonesplitter"), lookup(t, reg, "Grizzly Bears"), lookup(t, reg, "Grizzly Bears")},

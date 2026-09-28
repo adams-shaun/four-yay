@@ -28,6 +28,7 @@ const probeThreeSrc = "Name:Probe Three\nManaCost:2 R\nTypes:Instant\nOracle:x\n
 // three-mana cast (2/5 -> 5/5) and a one-mana cast (2/5 -> 3/5) -- because the
 // defect is a silent zero and a single-value test could pass by coincidence.
 func TestTriggeredCardCastTotalManaSpentPumpsEndToEnd(t *testing.T) {
+	t.Parallel()
 	t.Run("three mana spent", func(t *testing.T) {
 		wurmSrc := corpusCardText(t, "a/aberrant_manawurm.txt")
 		e, cfg, find := etbConfig(t, seedTossSeat0(161), []string{wurmSrc, probeThreeSrc}, nil)
@@ -75,6 +76,7 @@ func TestTriggeredCardCastTotalManaSpentPumpsEndToEnd(t *testing.T) {
 // have happened (the spell resolved to the graveyard), so the absent stamp is
 // meaningful rather than a skipped cast.
 func TestTriggeredCardCastTotalManaSpentNoReaderOutStampsNothing(t *testing.T) {
+	t.Parallel()
 	wurmSrc := corpusCardText(t, "a/aberrant_manawurm.txt")
 	e, cfg, find := etbConfig(t, seedTossSeat0(173), []string{wurmSrc, probeThreeSrc}, nil)
 	wurmID := find("Aberrant Manawurm", 0)

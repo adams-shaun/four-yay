@@ -54,6 +54,7 @@ func effectZoneEngine(t *testing.T, reg *cards.Registry, withMountain bool) (*En
 // The corpus Anger in the graveyard with a Mountain on the battlefield: its
 // graveyard-scoped haste grant reaches the bear through the layer walk.
 func TestAngerGraveyardStaticGrantsHasteFromTheGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, bear := effectZoneEngine(t, reg, true)
 	anger := searchMoveByName(t, e, "Anger", state.ZGraveyard)
@@ -69,6 +70,7 @@ func TestAngerGraveyardStaticGrantsHasteFromTheGraveyard(t *testing.T) {
 // The static's IsPresent$ Mountain.YouCtrl gate: with no Mountain on the
 // battlefield the same graveyard grant withholds.
 func TestAngerGraveyardStaticWithholdsWithoutMountain(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, bear := effectZoneEngine(t, reg, false)
 	anger := searchMoveByName(t, e, "Anger", state.ZGraveyard)
@@ -86,6 +88,7 @@ func TestAngerGraveyardStaticWithholdsWithoutMountain(t *testing.T) {
 // graveyard alone) -- a bear keeps no Haste grant, while Anger keeps only its
 // own printed K:Haste.
 func TestAngerBattlefieldPresenceDoesNotApplyTheGraveyardStatic(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, bear := effectZoneEngine(t, reg, true)
 	anger := searchMoveByName(t, e, "Anger", state.ZBattlefield)
@@ -105,6 +108,7 @@ func TestAngerBattlefieldPresenceDoesNotApplyTheGraveyardStatic(t *testing.T) {
 // membership walk reaches non-battlefield sources) and denied from the
 // battlefield.
 func TestActionStaticsCollectContinuousFromTheGraveyardOnly(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := effectZoneEngine(t, reg, true)
 	anger := searchMoveByName(t, e, "Anger", state.ZGraveyard)
@@ -135,6 +139,7 @@ func TestActionStaticsCollectContinuousFromTheGraveyardOnly(t *testing.T) {
 // with the graveyard source, and drops it the moment the source leaves the
 // named zone (the memo re-runs once per emitted event).
 func TestStaticEffectsCollectGraveyardContinuousAndDropItOnLeave(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := effectZoneEngine(t, reg, true)
 	anger := searchMoveByName(t, e, "Anger", state.ZGraveyard)

@@ -94,6 +94,7 @@ func tokenCount(e *Engine, p state.PlayerID) int {
 // spell's FlagFlashback CastInfo stamp), and both event streams replay
 // byte-identically from the log alone.
 func TestIncreasingDevotionResolvesCastOriginCounts(t *testing.T) {
+	t.Parallel()
 	// Hand cast: {3}{W}{W} -> the NO branch (5).
 	e, cfg, dev := devotionEngine(t, 31)
 	addMana(t, e, 0, "WWWWW")
@@ -157,6 +158,7 @@ const riteFixtureSrc = "Name:Rite\nManaCost:1 B\nTypes:Sorcery\n" +
 // Ash Zealot's "whenever a player casts a spell from a graveyard" (3 damage
 // to the caster), the same spell cast from the hand does not.
 func TestWasCastFromGraveyardFiresOnFlashbackOnly(t *testing.T) {
+	t.Parallel()
 	e, cfg, rite := newFixtureDeck(t, 33, riteFixtureSrc, riteFixtureSrc, zealotSrc)
 	putCreature(t, e, 0, zealotSrc)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: rite, From: state.ZHand, To: state.ZGraveyard})

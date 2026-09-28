@@ -56,6 +56,7 @@ func castTarget(t *testing.T, e *Engine, id state.ObjID, want state.PlayerID) {
 // a copy is a different object; CR 608.2m/111.7 settle a resolves-to-copy
 // spell there), while the original goes to the graveyard as a plain sorcery.
 func TestStormCopiesTheSpellOncePerSpellCastBefore(t *testing.T) {
+	t.Parallel()
 	tendrils := "Name:Tendrils\nManaCost:2 B B\nTypes:Sorcery\nK:Storm\nA:SP$ LoseLife | ValidTgts$ Player | LifeAmount$ 2 | SubAbility$ DBGainLife\nSVar:DBGainLife:DB$ GainLife | Defined$ You | LifeAmount$ 2\nOracle:x\n"
 	e, cfg, td := newFixtureDeck(t, 91, tendrils, boltSrc, boltSrc)
 	for i := 0; i < 2; i++ {
@@ -100,6 +101,7 @@ func TestStormCopiesTheSpellOncePerSpellCastBefore(t *testing.T) {
 // byte-for-byte (replayCheck), so the suspended resolution is event-sourced
 // like everything else.
 func TestChainLightningAsksForThePayAndMakesTheCopyWhenPaid(t *testing.T) {
+	t.Parallel()
 	chain := "Name:Chain\nManaCost:R\nTypes:Sorcery\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | SubAbility$ DBCopy1\n" +
 		"SVar:DBCopy1:DB$ CopySpellAbility | Defined$ Parent | Controller$ TargetedOrController | UnlessPayer$ TargetedOrController | UnlessCost$ R R | UnlessSwitched$ True | MayChooseTarget$ True\nOracle:x\n"
 	e, cfg, ch := newFixtureDeck(t, 92, chain)
@@ -182,6 +184,7 @@ func TestChainLightningAsksForThePayAndMakesTheCopyWhenPaid(t *testing.T) {
 // keep of the old R-8 decline behaviour, now via a real ask instead of a
 // blanket Note.
 func TestChainLightningDeclinesThePayWhenThePayerCannotAffordIt(t *testing.T) {
+	t.Parallel()
 	chain := "Name:Chain\nManaCost:R\nTypes:Sorcery\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 3 | SubAbility$ DBCopy1\n" +
 		"SVar:DBCopy1:DB$ CopySpellAbility | Defined$ Parent | Controller$ TargetedOrController | UnlessPayer$ TargetedOrController | UnlessCost$ R R | UnlessSwitched$ True | MayChooseTarget$ True\nOracle:x\n"
 	e, cfg, ch := newFixtureDeck(t, 93, chain)

@@ -23,6 +23,7 @@ func makeQSourceReadyAndTapped(t *testing.T, e *Engine, id state.ObjID) {
 }
 
 func TestTappedQManaSourceAcrossAvailabilityAndCastWindow(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	q := onBoard(t, e, 0, tappedQManaSource)
 	makeQSourceReadyAndTapped(t, e, q)
@@ -58,6 +59,7 @@ func TestTappedQManaSourceAcrossAvailabilityAndCastWindow(t *testing.T) {
 }
 
 func TestTappedQManaSourcePaysLiveCastWindow(t *testing.T) {
+	t.Parallel()
 	spellText := "Name:Live Q Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n"
 	e, _, spell := newFixtureDeck(t, 7731, spellText)
 	toMain1(t, e)
@@ -87,6 +89,7 @@ func TestTappedQManaSourcePaysLiveCastWindow(t *testing.T) {
 }
 
 func TestTappedQManaAbilityPaysCompositeDiscardCost(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	q := onBoard(t, e, 0, "Name:Discard Q Elf\nTypes:Creature Elf\nA:AB$ Mana | Cost$ Q Discard<1/Card> | Produced$ G\nOracle:x\n")
 	if cost := e.parseCost(e.G.Obj(q).Face().ManaAbilities()[0].Params["Cost"]); !cost.Untap || len(cost.Discard) != 1 {

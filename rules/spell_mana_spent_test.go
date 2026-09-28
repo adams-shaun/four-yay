@@ -60,6 +60,7 @@ func spellCastTriggerFires(e *Engine, from int) bool {
 }
 
 func TestAncientCellarspawnSpellManaSpentGate(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Vile Manifestation", "Grizzly Bears"}, nil,

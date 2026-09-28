@@ -44,6 +44,7 @@ func birdTokens(t *testing.T, e *Engine, p state.PlayerID) []*state.Object {
 // Player, TokenTapped$ True, RememberTokens$ True) -> DB$ Goad (Defined$
 // Remembered, Duration$ Permanent) -> DB$ Cleanup.
 func TestRendmawEachPlayerCreatesAGoadedBirdToken(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := rendmawEngine(t, reg)
 	src := e.G.AddObject(mustCorpusCard(t, reg, "Rendmaw, Creaking Nest"), 0)
@@ -113,6 +114,7 @@ func TestRendmawEachPlayerCreatesAGoadedBirdToken(t *testing.T) {
 // per-player arm. Put a two-card-type spell on the stack by seat 0 while
 // Rendmaw is out and every seat creates its Bird.
 func TestRendmawSpellCastTriggerAlsoGoadsPerPlayer(t *testing.T) {
+	t.Parallel()
 	reg := sharedCorpus(t)
 	e := rendmawEngine(t, reg)
 	src := e.G.AddObject(mustCorpusCard(t, reg, "Rendmaw, Creaking Nest"), 0)

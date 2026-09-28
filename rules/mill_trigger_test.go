@@ -114,6 +114,7 @@ func drainMillTrigger(t *testing.T, e *Engine, limit int) {
 // once, gaining its controller 1 life. ValidPlayer$ Player matches any
 // player's mill, so milling seat 0's own library still gains seat 0 life.
 func TestMillTriggerGlowingOneGainsLifePerNonlandMill(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	glowing := searchCorpusCard(t, reg, "Glowing One")
 	e, _ := millTriggerEngine(t, glowing)
@@ -166,6 +167,7 @@ func TestMillTriggerGlowingOneGainsLifePerNonlandMill(t *testing.T) {
 // "up to X target creatures" ask offers all three and each chosen target gets
 // one +1/+1 counter.
 func TestMillTriggerWiseMothmanBatchesAndCounts(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	mothman := searchCorpusCard(t, reg, "The Wise Mothman")
 	bear := searchCorpusCard(t, reg, "Grizzly Bears")
@@ -264,6 +266,7 @@ func TestMillTriggerWiseMothmanBatchesAndCounts(t *testing.T) {
 // (effects.RegisterNonAPI), so a revert of the registration -- not just the
 // matcher -- fails loudly rather than leaving the triggers silently inert.
 func TestMillTriggerModesAreRegistered(t *testing.T) {
+	t.Parallel()
 	sup := effects.Supported()
 	for _, p := range []string{"trig:Milled", "trig:MilledAll"} {
 		if !sup[p] {
@@ -278,6 +281,7 @@ func TestMillTriggerModesAreRegistered(t *testing.T) {
 // MilledAll line again. MilledAll must therefore be in actionTriggerModes,
 // which is the scope the trigger-level parameters ride.
 func TestMillTriggerMirelurkQueenActivationLimitOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	queen := searchCorpusCard(t, reg, "Mirelurk Queen")
 	e, _ := millTriggerEngine(t, queen)

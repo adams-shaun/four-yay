@@ -197,6 +197,7 @@ func playRendmawLand(t *testing.T, e *Engine, name string) {
 }
 
 func TestRendmawETBCreatesGoadedBirdsForEachPlayer(t *testing.T) {
+	t.Parallel()
 	e, cfg := rendmawGame(t)
 	rendmaw := moveSeededCard(t, e, 0, rendmawCorpusCard(t, "Rendmaw, Creaking Nest"), state.ZBattlefield)
 	if o := e.G.Obj(rendmaw); o == nil || o.Zone != state.ZBattlefield {
@@ -211,6 +212,7 @@ func TestRendmawETBCreatesGoadedBirdsForEachPlayer(t *testing.T) {
 }
 
 func TestRendmawSpellCastArmFiresOnATwoTypeCard(t *testing.T) {
+	t.Parallel()
 	e, cfg := rendmawGame(t)
 	moveSeededCard(t, e, 0, rendmawCorpusCard(t, "Rendmaw, Creaking Nest"), state.ZBattlefield)
 	settleTriggers(t, e, "Rendmaw ETB")
@@ -235,6 +237,7 @@ func TestRendmawSpellCastArmFiresOnATwoTypeCard(t *testing.T) {
 }
 
 func TestRendmawLandPlayedArmFiresOnATwoTypeLand(t *testing.T) {
+	t.Parallel()
 	e, cfg := rendmawGame(t)
 	moveSeededCard(t, e, 0, rendmawCorpusCard(t, "Rendmaw, Creaking Nest"), state.ZBattlefield)
 	settleTriggers(t, e, "Rendmaw ETB")

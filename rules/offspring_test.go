@@ -115,6 +115,7 @@ func offspringTokens(t *testing.T, e *Engine, src state.ObjID) []state.ObjID {
 // K:Offspring:1 R: the additional cost is offered, paying it stamps
 // FlagOffspringPaid, and the ETB trigger mints exactly one 1/1 token copy.
 func TestOffspringPrintedPayMintsOneOneTokenCopy(t *testing.T) {
+	t.Parallel()
 	agate := searchCorpusCard(t, searchTestRegistry(t), "Agate Instigator")
 	e, cfg, _ := offspringEngine(t, agate)
 	hero := searchMoveByName(t, e, "Agate Instigator", state.ZHand)
@@ -156,6 +157,7 @@ func TestOffspringPrintedPayMintsOneOneTokenCopy(t *testing.T) {
 // cast (no offspring option taken) leaves OffspringPaid false and mints no
 // token copy.
 func TestOffspringPrintedPlainCastMintsNothing(t *testing.T) {
+	t.Parallel()
 	agate := searchCorpusCard(t, searchTestRegistry(t), "Agate Instigator")
 	e, cfg, _ := offspringEngine(t, agate)
 	hero := searchMoveByName(t, e, "Agate Instigator", state.ZHand)
@@ -184,6 +186,7 @@ func TestOffspringPrintedPlainCastMintsNothing(t *testing.T) {
 // option is never offered (the layer-6 grant does not reach the cast), or no
 // token appears (the synthesised ETB trigger).
 func TestOffspringGrantedByZinniaReachesTheCast(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	zinnia := searchCorpusCard(t, reg, "Zinnia, Valley's Voice")
 	e, cfg, _ := offspringEngine(t, zinnia)
@@ -245,6 +248,7 @@ func TestOffspringGrantedByZinniaReachesTheCast(t *testing.T) {
 // optionality: without taking the offspring option the granted keyword stamps
 // nothing and mints nothing.
 func TestOffspringGrantedPlainCastMintsNothing(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	zinnia := searchCorpusCard(t, reg, "Zinnia, Valley's Voice")
 	e, cfg, _ := offspringEngine(t, zinnia)

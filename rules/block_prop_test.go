@@ -68,6 +68,7 @@ const memniteSrc = "Name:Memnite\nManaCost:0\nTypes:Artifact Creature Construct\
 // with an empty pool the {2} pair is never offered, with {2} floating it is
 // offered priced, and submitting it pays the pool and commits the block.
 func TestQalSismaBehemothBlockCharge(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	qal := onBoardCard(t, e, 0, mshCorpusCard(t, "Qal Sisma Behemoth"))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:0/4\nOracle:x\n")
@@ -124,6 +125,7 @@ func TestQalSismaBehemothBlockCharge(t *testing.T) {
 // the block commits exactly when the pool covers {2}, and no source is
 // over-tapped.
 func TestQalSismaBehemothBlockTapWindow(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	qal := onBoardCard(t, e, 0, mshCorpusCard(t, "Qal Sisma Behemoth"))
 	var mountains []state.ObjID
@@ -196,6 +198,7 @@ func TestQalSismaBehemothBlockTapWindow(t *testing.T) {
 // price rides. Before the fix the static was discarded before the Attacker$
 // match, so the enchanted attacker was blockable for free.
 func TestAwesomePresencePricesItsEnchantedAttacker(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:0/4\nOracle:x\n")
 	wurm := onBoardCard(t, e, 1, mshCorpusCard(t, "Craw Wurm"))
@@ -262,6 +265,7 @@ func TestAwesomePresencePricesItsEnchantedAttacker(t *testing.T) {
 // self-static: Hipparion's ValidCard$ Card.Self charges only against
 // power-3-or-greater attackers; the small one is always free.
 func TestHipparionPricesOnlyPowerGE3Attackers(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	hip := onBoardCard(t, e, 0, mshCorpusCard(t, "Hipparion"))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:0/4\nOracle:x\n")
@@ -321,6 +325,7 @@ func TestHipparionPricesOnlyPowerGE3Attackers(t *testing.T) {
 // own +1/+1 counters, so two counters charge {2} and zero counters block
 // free even with an empty pool.
 func TestMyrPrototypePricesPerCounter(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	counted := onBoardCard(t, e, 0, mshCorpusCard(t, "Myr Prototype"))
 	plain := onBoardCard(t, e, 0, mshCorpusCard(t, "Myr Prototype"))
@@ -383,6 +388,7 @@ func TestMyrPrototypePricesPerCounter(t *testing.T) {
 // static's controller: Cost$ Y with SVar:Y:Count$ValidHand Card.YouOwn reads
 // the enchanted creature's controller's hand, one generic per card.
 func TestCowedByWisdomPricesPerHandCard(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	blocker := onBoardCard(t, e, 0, card(t, memniteSrc))
 	aura := onBoardCard(t, e, 0, mshCorpusCard(t, "Cowed by Wisdom"))
@@ -437,6 +443,7 @@ func TestCowedByWisdomPricesPerHandCard(t *testing.T) {
 // declaration choosing both exceeds the affordable total and validateBlockers
 // rejects it while keeping the pending decision answerable with one block.
 func TestBlockPropDeclarationTotalBounded(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	first := onBoardCard(t, e, 0, mshCorpusCard(t, "Qal Sisma Behemoth"))
 	second := onBoardCard(t, e, 0, mshCorpusCard(t, "Qal Sisma Behemoth"))
@@ -484,6 +491,7 @@ func TestBlockPropDeclarationTotalBounded(t *testing.T) {
 // declaration validateBlockers accepts, the payment window must carry the
 // rest, and the pending decision must always be consumed.
 func TestBlockPropBotAnswerNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	var qals []state.ObjID
 	for i := 0; i < 2; i++ {

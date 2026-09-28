@@ -1263,6 +1263,7 @@ var oracleOps = map[string]bool{
 // the schema (unknown fields are rejected by the decoder), the family
 // directory, unique scenario names, the step vocabulary, and ref syntax.
 func TestOracleScenarioFilesWellFormed(t *testing.T) {
+	t.Parallel()
 	files := loadOracleFiles(t)
 	// The ratchet files are checked here too (shape, duplicates, family), so
 	// a triage edit gets feedback without the corpus.
@@ -1334,6 +1335,7 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 // TestOracleAudit runs every Oracle-text scenario against the real corpus.
 // Filter with -run 'TestOracleAudit/<Card>/<scenario>'.
 func TestOracleAudit(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	files := loadOracleFiles(t)
 	divergent := oracleDivergent(t)
