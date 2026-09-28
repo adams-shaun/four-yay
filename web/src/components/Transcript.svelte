@@ -92,6 +92,7 @@
   let container: HTMLDivElement | undefined;
   let revealAll = $state(false);
   let revealSteps = $state(false);
+  let openSnapshots = $state<Record<number, boolean>>({});
   const lines = $derived(visibleLog(dvr.events, revealAll, revealSteps));
 
   // The panel's lifetime follows the objects the transcript currently shows:
@@ -184,6 +185,29 @@
       <div class="line local" data-auto-log>
         <span class="seq">auto</span>
         <span class="text">{n.text}</span>
+        {#if n.diagnostics}
+          {@const diagnostic = n.diagnostics}
+          <details class="auto-detail">
+            <summary>Advanced pass details</summary>
+            <dl>
+              <dt>Verdict</dt><dd>{diagnostic.verdict}</dd>
+              <dt>Option kinds</dt><dd>{diagnostic.optionKinds.join(', ') || 'none'}</dd>
+              <dt>Actionable options</dt><dd>{diagnostic.actionableOptions.join(', ') || 'none'}</dd>
+              <dt>Castable after tapping</dt><dd>{diagnostic.castableAfterTap.join(', ') || 'none'}</dd>
+              <dt>Respondable option / after tapping</dt><dd>{diagnostic.respondableOption} / {diagnostic.respondableAfterTap}</dd>
+              <dt>Yield matched</dt><dd>{diagnostic.yieldsHit}</dd>
+            </dl>
+            <details bind:open={openSnapshots[n.id]}>
+              <summary>Seat view snapshot</summary>
+              {#if openSnapshots[n.id]}
+                {@const snapshot = JSON.stringify(diagnostic.view, null, 2)}
+                <button type="button" onclick={() => void navigator.clipboard?.writeText(snapshot)}>Copy JSON</button>
+                <a href="data:application/json;charset=utf-8,{encodeURIComponent(snapshot)}" download="autopass-view.json">Export JSON</a>
+                <pre>{snapshot}</pre>
+              {/if}
+            </details>
+          </details>
+        {/if}
       </div>
     {/each}
   {/if}

@@ -65,6 +65,20 @@ export type StopReason =
   | 'own-object'
   | 'stop-set';
 
+/** Client-side evidence captured alongside an automatic pass, not sent over the wire. */
+export function passDiagnostics(decision: Decision, view: View, seat: number, verdict: string, yields?: ReadonlySet<string>, autoPayMana = false) {
+  const top = view.stack.at(-1);
+  return {
+    verdict,
+    optionKinds: [...new Set(decision.options.map((option) => option.kind))].sort(),
+    actionableOptions: actionables(view, seat, decision, autoPayMana),
+    castableAfterTap: castablesAfterTap(view, seat, decision),
+    respondableOption: respondable(decision),
+    respondableAfterTap: respondableAfterTap(view, seat),
+    yieldsHit: !!top && !!yields?.has(stackYieldKey(top)),
+  };
+}
+
 /** STEPS is the wire's twelve step names in engine order (state/ids.go). */
 export const STEPS = [
   'untap', 'upkeep', 'draw', 'main1', 'begin-combat',

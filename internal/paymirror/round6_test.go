@@ -204,17 +204,17 @@ func TestRoundSixFindingsMirror(t *testing.T) {
 // Mountain and from a Vivid Crag; the float route picked the Crag's while
 // run A activated the Mountain's, and the ManaActivate markers differed.
 //
-// sb-job-select re-pinned the seed with an empty pin (the round-10
-// convention): registering kw:Job select (CR 702.182) made its 19 corpus
-// carriers fully supported, so they entered the RandomPool (NewRandomPool
-// indexes only cards with reg.Unsupported(c, sup) == nil) and every later
-// draw index shifted -- seed 3589's deck lists changed although neither
-// contains a Job select carrier. The moved game is clean end to end (28
-// planned casts, every verdict equivalent) and no Manascape Refractor
-// gained-member scenario occurs in it, so the finding's planned cast at
-// seq 1553 no longer reproduces; the gained-member witness itself stays
-// live in paymirror.go (gainedMember/answerManaAsks) for the next game
-// that shows the shape.
+// Re-pinned to seq 0 (the round-10 convention) twice, for the same reason:
+// first by the kw:Backup ticket (CR 702.165), then again by sb-job-select
+// (kw:Job select, CR 702.182). Each newly registered keyword made its corpus
+// carriers eligible for the random pool (NewRandomPool indexes only cards
+// with reg.Unsupported(c, sup) == nil), so pool.Generate returned different
+// decks for this seed and the moved game no longer casts Manascape Refractor
+// at all. The seed keeps an empty pin and asserts the whole game is
+// mismatch-free and control-equivalent; the finding's own shape stays pinned
+// by the marker unit tests above, and the gained-member witness itself stays
+// live in paymirror.go (gainedMember/answerManaAsks) for the next game that
+// shows the shape.
 func TestRoundSixGainedMemberSeed3589(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -234,8 +234,12 @@ func TestRoundSixGainedMemberSeed3589(t *testing.T) {
 		t.Fatal("no planned-cast reports; the clean-game assertions would be vacuous")
 	}
 	for _, r := range reports {
-		if st, key := r.Verdict(); st == Mismatch {
+		st, key := r.Verdict()
+		if st == Mismatch {
 			t.Errorf("seq %d %q: %s", r.Seq, r.Card, key)
+		}
+		if r.Control == nil || r.Control.Status != Equivalent {
+			t.Errorf("seq %d %q: control %+v", r.Seq, r.Card, r.Control)
 		}
 	}
 }
