@@ -2325,6 +2325,47 @@ func (e *Engine) modAmountX(sv staticView, x int32, targets []state.Target) int3
 	return effects.EvalCount(e, ctx, raw)
 }
 
+// modAmountPotential evaluates one ReduceCost static's Amount$ for the
+// OFFER gate, where the caller holds the list of every legal candidate target
+// rather than one announced selection. It prices ONE possible announcement --
+// the best single candidate -- never the union of all candidates: a
+// target-count Amount$ (Battlefield Thaumaturge's `Amount$ ReduceCost` over
+// `SVar:ReduceCost:TargetedObjectsDistinct$Valid Creature.inZoneBattlefield`,
+// "{1} less for each creature it targets") would otherwise sum across every
+// candidate and admit an offer that no single target choice can pay. The
+// per-candidate discipline is the SAME one affordableTargetCandidates applies
+// at the CR 601.2c target menu (each candidate tested as the sole selection),
+// so the offer and the menu cannot disagree about which targets are payable;
+// the multi-target case stays deliberately conservative, exactly like the
+// menu. With one candidate (the common single-target shape, and Not of This
+// World's single stack-spell candidate) this is the plain modAmountX, so the
+// fix cannot change a one-candidate price.
+func (e *Engine) modAmountPotential(sv staticView, x int32, targets []state.Target) int32 {
+	if len(targets) <= 1 {
+		return e.modAmountX(sv, x, targets)
+	}
+	best := e.modAmountX(sv, x, []state.Target{targets[0]})
+	for _, t := range targets[1:] {
+		if n := e.modAmountX(sv, x, []state.Target{t}); n > best {
+			best = n
+		}
+	}
+	return best
+}
+
+// modAmountReduce is the reduce loop's Amount$ read: the potential-target
+// offer gate must price one candidate announcement (modAmountPotential),
+// while the chosen-target and announced-X recomputations price the actual
+// selection (modAmountX). Keeping the choice here means every ReduceCost
+// branch -- generic, Color$, and the X-bound recomputation -- makes the same
+// one and cannot half-apply.
+func (e *Engine) modAmountReduce(sv staticView, x int32, targets []state.Target, potential bool) int32 {
+	if potential {
+		return e.modAmountPotential(sv, x, targets)
+	}
+	return e.modAmountX(sv, x, targets)
+}
+
 // raiseExtraFromCost parses a RaiseCost Cost$ that raiseFromCost does NOT
 // model as plain mana/life into the non-mana ADDITIONAL cost it names, which
 // the cast flow folds into the pending cost exactly like a SpellAbility's own
@@ -2579,7 +2620,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, x, targets)
+				amount := e.modAmountReduce(sv, x, targets, potential)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2595,7 +2636,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, x, targets)
+				red.generic = e.modAmountReduce(sv, x, targets, potential)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2690,7 +2731,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, 0, targets)
+				amount := e.modAmountReduce(sv, 0, targets, potential)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2706,7 +2747,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, 0, targets)
+				red.generic = e.modAmountReduce(sv, 0, targets, potential)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
