@@ -23,18 +23,13 @@ import (
 // sorted, so a deterministic replay cannot vary the sidecar's bytes.
 const windowReasonLimit = 24
 
-// The WindowReason.Kind vocabulary. The walk's Option kinds map onto it as:
-//
-//	"cast"       -> windowKindCard
-//	"play_land"  -> windowKindLand
-//	"ability"    -> windowKindActivation (a printed/granted activated ability)
-//	"activate"   -> windowKindAbility  (the legacy shared "Activate" option)
-//	"granted"    -> windowKindActivation
-//
-// A "card" is a card the seat may cast from any zone it can play from; a
-// "land" is a land play; an "activation" is an activated ability of a
-// permanent (the spec's example token `activation:limit_reached` names this
-// kind).
+// The WindowReason.Kind vocabulary. A "card" is a card the seat may cast
+// from a playable zone; a "land" is a land play; an "activation" is an
+// activated ability of a permanent. "ability" is reserved for a withheld
+// non-activation ability; the current classifier has no such producer.
+// Option kinds are deliberately NOT used to clear these entries: a single
+// object may be offered through another route (e.g. a Morph land is a cast
+// even after its land drop is spent), or through a new option kind.
 const (
 	windowKindCard       = "card"
 	windowKindLand       = "land"
@@ -68,8 +63,8 @@ const (
 	wrAbilityUnsupported    = "ability:unsupported"
 )
 
-// windowReasonTokens is the sorted list of every legal token, used by the
-// tests to prove the vocabulary is closed.
+// windowReasonTokens is the set of legal tokens, used by the tests to prove
+// the vocabulary is closed. It is only looked up, never iterated.
 var windowReasonTokens = map[string]bool{
 	wrTimingNotMain:         true,
 	wrTimingStackNotEmpty:   true,
@@ -133,21 +128,20 @@ func (w *windowCollector) record(id state.ObjID, kind, reason string) {
 	w.entries = append(w.entries, decision.WindowReason{Obj: id, Kind: kind, Reason: reason})
 }
 
-// remove drops any entry for (id, kind): the candidate produced an option
-// after all (an alternate face, a granted route), so it was not withheld.
-func (w *windowCollector) remove(id state.ObjID, kind string) {
-	if w == nil {
+// remove drops every entry for an object that produced ANY option, regardless
+// of route or kind. Otherwise a land offered as a face-down spell could still
+// report land:drop_exhausted, or a new special action could leave a stale
+// activation reason. Obj 0 is not an object and cannot clear a candidate.
+func (w *windowCollector) remove(id state.ObjID) {
+	if w == nil || id == 0 {
 		return
 	}
-	key := windowEntryKey{id, kind}
-	if !w.seen[key] {
-		return
-	}
-	delete(w.seen, key)
 	out := w.entries[:0]
-	for _, e := range w.entries {
-		if e.Obj != id || e.Kind != kind {
-			out = append(out, e)
+	for _, entry := range w.entries {
+		if entry.Obj == id {
+			delete(w.seen, windowEntryKey{entry.Obj, entry.Kind})
+		} else {
+			out = append(out, entry)
 		}
 	}
 	w.entries = out
@@ -161,16 +155,7 @@ func (w *windowCollector) finish(opts []decision.Option) []decision.WindowReason
 		return nil
 	}
 	for _, o := range opts {
-		switch o.Kind {
-		case "cast":
-			w.remove(o.Obj, windowKindCard)
-		case "play_land":
-			w.remove(o.Obj, windowKindLand)
-		case "ability", "granted":
-			w.remove(o.Obj, windowKindActivation)
-		case "activate":
-			w.remove(o.Obj, windowKindAbility)
-		}
+		w.remove(o.Obj)
 	}
 	if len(w.entries) == 0 {
 		return nil
@@ -226,8 +211,8 @@ func (e *Engine) windowClassify(p state.PlayerID, opts []decision.Option, w *win
 	e.classifyBattlefieldAbilities(p, w)
 	e.classifyCommandZone(p, w)
 	e.classifyGraveyardAndExile(p, w)
-	// Every OPTION the walk offered clears its candidate's entry in finish,
-	// so the entries that survive are exactly the withheld candidates.
+	// Every object offered by the walk clears all its entries in finish,
+	// including an alternate route with a different Option kind.
 }
 
 // classifyHand covers the primary "why can't I cast this?" case: a card in

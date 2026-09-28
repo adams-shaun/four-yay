@@ -220,6 +220,65 @@ func TestWindowDiagnosticsLandDropExhausted(t *testing.T) {
 	}
 }
 
+// TestWindowDiagnosticsOfferedMorphLandHasNoReason: playing a land spends the
+// land drop, but a Morph land remains castable face down. No withholding
+// reason may coexist with its cast option, even though the two routes have
+// different option kinds.
+func TestWindowDiagnosticsOfferedMorphLandHasNoReason(t *testing.T) {
+	t.Parallel()
+	cavern := card(t, "Name:Zoetic Cavern\nManaCost:no cost\nTypes:Land\nK:Morph:2\nA:AB$ Mana | Cost$ T | Produced$ C | SpellDescription$ Add {C}.\nOracle:{T}: Add {C}.\\nMorph {2}\n")
+	decks := [][]*cards.Card{
+		append([]*cards.Card{cavern}, mountainDeck(t, 39)...),
+		mountainDeck(t, 40),
+	}
+	e := New(seatZeroStart(Config{Seed: 3, Names: []string{"a", "b"}, Decks: decks, WindowDiagnostics: true}))
+	e.Advance()
+	id := windowBridgeHand(t, e, "Zoetic Cavern")
+	if id == 0 || !hasInHand(e, id) {
+		t.Fatal("precondition failed: Morph land not in hand")
+	}
+	toMain1(t, e)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority || d.Player != 0 {
+		t.Fatalf("precondition failed: no seat-0 priority in main: %+v", d)
+	}
+	var land *decision.Option
+	for i := range d.Options {
+		if d.Options[i].Kind == "play_land" && d.Options[i].Obj != id {
+			land = &d.Options[i]
+			break
+		}
+	}
+	if land == nil {
+		t.Fatalf("precondition failed: no other land to spend drop: %+v", d.Options)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 0, Choices: []int{land.Index}}); err != nil {
+		t.Fatalf("play land: %v", err)
+	}
+	if e.G.Players[0].LandsPlayed != 1 || !hasInHand(e, id) {
+		t.Fatalf("precondition failed: land drop=%d; cavern in hand=%v", e.G.Players[0].LandsPlayed, hasInHand(e, id))
+	}
+	addManaQuiet(t, e, 0, "CCCC")
+	d = e.Pending()
+	if d == nil || d.Kind != decision.KPriority || d.Player != 0 {
+		t.Fatalf("precondition failed: no seat-0 priority after mana: %+v", d)
+	}
+	castOffered := false
+	for _, o := range d.Options {
+		if o.Kind == "cast" && o.Obj == id && o.Mode == "morphed" {
+			castOffered = true
+		}
+	}
+	if !castOffered {
+		t.Fatalf("precondition failed: face-down cast not offered: %+v", d.Options)
+	}
+	for _, r := range d.WindowReasons {
+		if r.Obj == id {
+			t.Fatalf("offered Morph land %d retained withholding reason: %+v", id, r)
+		}
+	}
+}
+
 func hasInHand(e *Engine, id state.ObjID) bool {
 	for _, cand := range e.G.Zone(state.ZHand, 0) {
 		if cand == id {
@@ -452,11 +511,17 @@ func TestWindowDiagnosticsFirstGateWins(t *testing.T) {
 	if got[0].Reason != wrTimingNotMain {
 		t.Fatalf("reason=%q want %q", got[0].Reason, wrTimingNotMain)
 	}
-	// An offered candidate clears its entry.
-	w2 := newWindowCollector(0)
-	w2.record(5, windowKindCard, wrCostInsufficientMana)
-	if out := w2.finish([]decision.Option{{Kind: "cast", Obj: 5}}); out != nil {
-		t.Fatalf("offered candidate kept a reason: %+v", out)
+	// A different route for the same object clears all its entries, including
+	// kinds not mapped to any classifier (new special actions need no switch).
+	for _, offeredKind := range []string{"cast", "station", "unlock", "turn_face_up", "specialize"} {
+		w2 := newWindowCollector(0)
+		w2.record(5, windowKindLand, wrLandDropExhausted)
+		w2.record(5, windowKindCard, wrCostInsufficientMana)
+		w2.record(6, windowKindCard, wrCostUnpayable)
+		out := w2.finish([]decision.Option{{Kind: offeredKind, Obj: 5}, {Kind: "pass", Obj: 0}})
+		if len(out) != 1 || out[0].Obj != 6 {
+			t.Fatalf("offered %q object kept a reason or cleared another: %+v", offeredKind, out)
+		}
 	}
 }
 
@@ -466,7 +531,7 @@ func TestWindowDiagnosticsNilCollectorIsEmpty(t *testing.T) {
 	t.Parallel()
 	var w *windowCollector
 	w.record(1, windowKindCard, wrCostUnpayable)
-	w.remove(1, windowKindCard)
+	w.remove(1)
 	if got := w.finish([]decision.Option{{Kind: "pass"}}); got != nil {
 		t.Fatalf("nil collector returned %v", got)
 	}
