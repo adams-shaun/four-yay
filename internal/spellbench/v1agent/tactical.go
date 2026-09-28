@@ -24,6 +24,7 @@ type Tactical struct {
 	opts       TacticalOptions
 	seat       string
 	deck       string
+	deckList   map[string]int
 	attackGrp  int64
 	attackPlan map[uint32]bool
 	blockGrp   int64
@@ -33,6 +34,9 @@ type Tactical struct {
 	// those it did block in.
 	blockChances, blocksSeen int
 	lastBlockObs             int
+	// and turns where it could have attacked, and how many it did attack in
+	attackChances, attacksSeen int
+	lastAttackObs              int
 }
 
 // NewTactical builds the policy.
@@ -46,9 +50,35 @@ func (t *Tactical) GameStart(g *GameStart) {
 	if i := seatIndex(g.Seat); i < len(g.CatalogIDs) {
 		t.deck = g.CatalogIDs[i]
 	}
+	t.deckList = deckCounts(t.deck)
 	t.attackGrp, t.blockGrp = -1, -1
 	t.blockChances, t.blocksSeen, t.lastBlockObs = 0, 0, -1
+	t.attackChances, t.attacksSeen, t.lastAttackObs = 0, 0, -1
 }
+
+// observeAttacks records, once per opponent turn (seen from its second
+// main phase or end step, where this turn's combat is still on the
+// board), whether it attacked when it had an untapped, unsick creature.
+func (t *Tactical) observeAttacks(b *Board) {
+	if b.Thin || b.MyTurn || (b.Phase != "main2" && b.Phase != "end") || t.lastAttackObs == b.Turn {
+		return
+	}
+	t.lastAttackObs = b.Turn
+	if b.Combat.AttackersDeclared && len(b.Combat.Attackers) > 0 {
+		t.attackChances++
+		t.attacksSeen++
+		return
+	}
+	for _, c := range Creatures(b.Theirs) {
+		if !c.Tapped && !c.SummoningSick && c.Power() > 0 && !Kw(c).Defender {
+			t.attackChances++
+			return
+		}
+	}
+}
+
+// oppNeverAttacks: at least two turns with an attacker and no attack.
+func (t *Tactical) oppNeverAttacks() bool { return t.attackChances >= 2 && t.attacksSeen == 0 }
 
 // observeBlocks records, once per turn of ours, whether the opponent blocked
 // when it could have.
@@ -105,6 +135,7 @@ func (t *Tactical) burnDeck() bool { return t.deck == "Burn" || t.deck == "Rally
 func (t *Tactical) Choose(d *Decision) int {
 	b := NewBoard(d)
 	t.observeBlocks(b)
+	t.observeAttacks(b)
 	has := func(kind string) bool {
 		for i := range d.Candidates {
 			if d.Candidates[i].Kind() == kind {
@@ -797,6 +828,9 @@ func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
 			}
 			return -5
 		}
+		if name == "Dread Return" && t.giantLethal(b) {
+			return 170
+		}
 		if best >= 3 {
 			return 55 + best
 		}
@@ -811,6 +845,9 @@ func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
 		return -5
 	}
 	isCreature := k.IsType("Creature") || f.HasType("creature")
+	if name == "Balustrade Spy" && sorcerySpeed && t.spyCombo(b, false) {
+		return 180
+	}
 	if isCreature {
 		v := 3.0
 		if f != nil && f.HasPT {
@@ -883,6 +920,64 @@ func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
 		return 20
 	}
 	return -5
+}
+
+// spyCombo reports whether Balustrade Spy aimed at ourselves wins this
+// turn: our library holds no land (so the Spy mills all of it), Lotleth
+// Giant and Dread Return end up in the graveyard, Dread Return's flashback
+// (sacrifice three creatures) is payable from the board, and the Giant's
+// trigger (1 damage per creature card in our graveyard) is lethal.
+func (t *Tactical) spyCombo(b *Board, spyOnBoard bool) bool {
+	lib := libraryCounts(t.deckList, b)
+	if lib == nil || countWhere(lib, isLandCard) > 0 {
+		return false
+	}
+	inGrave := func(name string) bool {
+		for _, g := range b.MyGrave {
+			if g.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	if lib["Lotleth Giant"] == 0 && !inGrave("Lotleth Giant") {
+		return false
+	}
+	if lib["Dread Return"] == 0 && !inGrave("Dread Return") {
+		return false
+	}
+	creatures := len(Creatures(b.Mine))
+	if !spyOnBoard {
+		creatures++ // the Spy itself
+	}
+	if creatures < 3 {
+		return false
+	}
+	graveCreatures := countWhere(lib, isCreatureCard)
+	for _, g := range b.MyGrave {
+		if g.IsCreature() {
+			graveCreatures++
+		}
+	}
+	// three sacrificed creatures join the graveyard, the Giant leaves it
+	dmg := graveCreatures + 3 - 1
+	return dmg >= b.Life[b.Opp]
+}
+
+// giantLethal: Lotleth Giant is in our graveyard and its trigger (one
+// damage per creature card in our graveyard, the Giant itself excluded
+// once it returns) kills.
+func (t *Tactical) giantLethal(b *Board) bool {
+	giant, n := false, 0
+	for _, g := range b.MyGrave {
+		if g.Name == "Lotleth Giant" {
+			giant = true
+		}
+		if g.IsCreature() {
+			n++
+		}
+	}
+	return giant && n-1+3 >= b.Life[b.Opp]
 }
 
 func handHas(b *Board, name string) bool {
@@ -1083,6 +1178,12 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 		return 1
 	}
 	h := hintFor(name)
+	if kt.Kind == "player" && name == "Balustrade Spy" && t.spyCombo(b, true) {
+		if kt.Player == b.Seat {
+			return 500
+		}
+		return 0
+	}
 	if kt.Kind == "player" {
 		me := kt.Player == b.Seat
 		switch {
@@ -1137,6 +1238,11 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 			return v
 		}
 		return -v
+	}
+	if ref.Zone == "Graveyard" && name == "Dread Return" && ref.Owner == b.Seat {
+		if k := KernelCardByID(ref.CardDBID); k != nil && k.Name == "Lotleth Giant" && t.giantLethal(b) {
+			return 500
+		}
 	}
 	if ref.Zone == "Graveyard" {
 		k := KernelCardByID(ref.CardDBID)
@@ -1424,7 +1530,7 @@ func (t *Tactical) planAttack(b *Board, cands []*KCard) map[uint32]bool {
 		}
 		return dmg
 	}
-	for {
+	for !t.oppNeverAttacks() {
 		c := crack()
 		racing := b.Life[b.Opp]-ourHit() <= ourHit() && ourHit() > 0
 		if c < myLife && (racing || 2*c < myLife) {
@@ -1497,7 +1603,9 @@ func (t *Tactical) block(d *Decision, b *Board) int {
 		if ka == nil || ka.Attacker == nil || ka.Blocker == nil {
 			continue
 		}
-		want := t.blockPlan[ka.Blocker.ArenaID] == ka.Attacker.ArenaID && t.blockPlan[ka.Blocker.ArenaID] != 0
+		// arena id 0 is a real object (the first card of seat p0's deck)
+		target, planned := t.blockPlan[ka.Blocker.ArenaID]
+		want := planned && target == ka.Attacker.ArenaID
 		if d.Candidates[i].Semantic.Bool("include") == want {
 			t.trace(d, b, nil, i)
 			return i

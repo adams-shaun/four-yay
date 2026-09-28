@@ -20,6 +20,7 @@ type Board struct {
 	Mine, Theirs  []*KCard
 	MyGrave       []KCard
 	TheirGrave    []KCard
+	Exile         []KCard
 	Hand          []KHandCard
 	Stack         []KStackItem
 	Combat        KCombat
@@ -72,6 +73,7 @@ func NewBoard(d *Decision) *Board {
 		b.byArena[c.Stable.ArenaID] = c
 	}
 	b.MyGrave, b.TheirGrave = p.Graveyards[b.Me], p.Graveyards[b.Opp]
+	b.Exile = p.Exile
 	b.Hand = d.Kernel.Obs.OwnHand
 	b.Stack = p.Stack
 	b.Combat = p.Combat
