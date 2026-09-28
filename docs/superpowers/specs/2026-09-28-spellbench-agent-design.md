@@ -601,6 +601,191 @@ for the adapter to ship):
 
 H2 and H3 are the load-bearing ones; H1 unblocks the most people.
 
+### 11.1 v2 on gorge (reverse adapter)
+
+Operator direction (2026-09-28): host a v2 environment backed by gorge and
+run our agent "in reverse" against it, so the agent plays full games on
+real gorge rules through the reference host, with every decision checked by
+the host's live validator and the agent's reconstruction compared against
+engine truth. Branch `wt/sb-v2-reverse`.
+
+**Path taken: our own server, not Jack's adapter.** The newest adapter
+branch, `origin/gorge-adapter-g14` @ `62b17fa`, implements plan Tasks 1-14
+(framing, canonical JSON, secrets, v2 types, request decoding, catalog, game
+construction, the validator subset, identity, observation, the mapping
+framework and priority decisions). Mana abilities (T15), combat (T16),
+targets and costs (T17), selections (T18), ordering and arrangement (T19),
+simple choices (T20), resolution payments (T21), the game loop (T22) and the
+server binary (T23) do not exist yet, so the module cannot host one game;
+building it against this worktree would have given a library, not a
+server. We wrote a minimal environment server inside gorge instead:
+`internal/spellbench/v2engine` (mapping in its package doc) and
+`cmd/sbv2engine`, serving the nine pauper-kernel catalog decks (and
+decklist decks). It is a harness for agents, not a candidate rated engine
+(deviations below).
+
+| gorge decision | v2 wire decisions |
+|---|---|
+| `KPriority` | one priority decision: `pass` first, `play_land`, `cast_spell` (method from the option mode), `activate_mana_ability` (every mana ability; `mana_payment: null`), `activate_ability`, `special_action`; `concede` never. A kicked/buyback/entwined twin of a plain cast is the plain `cast_spell` plus an `optional_cost` decision |
+| `KAttackers` / `KBlockers` | `declare_attack` / `declare_block` groups, one substep per creature; each candidate is kept only if a greedy completion passes gorge's `Decision.Validate` |
+| `KTarget` | `choose_target` (fixed-count group) or `choose_target` + `finish_target_selection` (one group per decision) |
+| `KChoose` object picks | `select_object` / `choose_cost_target` (sacrifice, return, tap costs); library cards appear in `known` with fresh ids (`searching`, `looked_at`) in (name, id) order |
+| `KChoose` values | `choose_number` (X), `choose_color` (mana), `choose_boolean`, `choose_name` (card type) |
+| `KModes` | `choose_spell_mode`; unless-pay -> `optional_cost unless_payment` |
+| `KTriggerOrder` / `KTriggerOptional` | `order_pick triggers` (n-1 picks) / `choose_boolean optional_trigger` |
+| `KArrange` | the 2n-1 arrangement group (`arrange_card`, `order_pick arrangement`) |
+| anything else | one enumerated `choose_option` over every complete answer gorge accepts (§7.1) |
+
+Declared: `mulligan: ["none"]`, `starting_player: ["host_assigned"]` (gorge's
+CR 103.1 choice answered for the named seat), observation flags `keywords`
+and `full_name` only (`known_cards` false), `replacement_order` and
+`combat_damage_assignment` `engine_order`, no extensions, no probe.
+
+**Setup** (reference host = spellbench `protocol-v2` plus the unmerged game
+loop `protocol-v2-p23` and `-p26`, checked out at
+`/mnt/sata/gorge-training/spellbench-v2-harness`; venv `sbvenv2`):
+
+```sh
+W=/mnt/sata/gorge-training/spellbench-work/v2rev
+go build -o $W/bin/sbv2engine ./cmd/sbv2engine
+go build -o $W/bin/sbagent ./cmd/sbagent
+go build -o $W/bin/sbv2shadow ./cmd/sbv2shadow
+PATH=/mnt/sata/gorge-training/sbvenv2/bin:$PATH python cmd/sbv2engine/scripts/sbv2_reverse.py play \
+  --engine $W/bin/sbv2engine --dir $PWD/.cards --sbagent $W/bin/sbagent --out $W/r1 \
+  --bots uniform,heuristic,sbagent-random,sbagent-heuristic --pairs 4 --workers 3 --truth
+python cmd/sbv2engine/scripts/sbv2_reverse.py report --out $W/r1
+$W/bin/sbv2shadow -truth $W/r1/truth-w0.jsonl.gz,$W/r1/truth-w1.jsonl.gz,$W/r1/truth-w2.jsonl.gz -belief-dir $W/r1/belief
+```
+
+The schedule is the benchmark's shape (every bot pair, seat-swapped pairs,
+pair p on deck `pool[p % 8]` in both seats). `--truth` turns on the engine's
+test-mode side channel (one gzip JSON line per posed decision: gorge's own
+`view.Project` seat view, plus the exact own-library and opponent hand and
+library contents) and each Go agent's `-belief-out` log; nothing on it
+reaches an agent. Throughput: about 2.7 s per game with three workers
+(1,330 wire decisions per game) against 0.1 s for the same games in-process.
+
+**Games (all measured 2026-09-28).**
+
+| Run | Bots | Games | Result |
+|---|---|---|---|
+| smoke | heuristic, sbagent-heuristic, uniform, sbagent-random; Burn, Faeries | 8 | 8 natural |
+| R0 | uniform, heuristic, sbagent-random, sbagent-heuristic; 1 pair | 96 (+72 of an aborted twin run) | all natural |
+| before | same, with `sbagent` built at `a4898664a` | 96 | all natural; outcome and step count identical game for game to R0's current agent |
+| R1 | same 4 bots, 4 pairs | 384 | all natural |
+| R2 | + first, sbagent-first; 1 pair | 240 | all natural |
+
+896 host-driven games, 1,174,855 wire decisions; the Go agents answered
+511,532 of them (R1 254,498, R2 154,622; the before binary does not count
+its own).
+
+**Protocol errors, before and after.** Counted at the host (forfeits by
+cause, halts, validator violations), at the engine (error frames by code,
+retransmissions, gorge refusals of an assembled answer, legal options not
+offered, source-less degradations) and at the agent (error frames sent,
+policy fallbacks). Every count is 0 in every run, before and after: no
+error frame, no rejected selection (`invalid_selection`), no timeout, no
+resync (`expected_step_mismatch`) or retransmission, no validator violation,
+no halt, no truncation, no gorge refusal, no dropped legal option. The one
+latent loss path on our side -- a policy failure answered `internal_error`,
+which the host turns into an `agent_error` forfeit -- was closed by the
+agent's recovery paths (`v2agent.Stats`, `sbagent -stats`: the heuristic
+fallback answers a failed policy); these runs predate that merge and used a
+candidate-0 answer, which never fired either. Choice
+decisions posed as the enumerated fallback: 0.4% (R1: 2,216 of 509,841;
+mostly gorge's "Add C / Pay 1: Add any color" ability pick, trigger-cost
+pay/decline, madness exile/graveyard).
+
+**Shadow-state check.** The agent's reconstruction is the decoded
+observation plus a decklist-arithmetic belief (`v2agent.Belief`: own
+library = own list minus own cards seen; opponent hand + library = its list
+minus its cards seen). Joined on (game, seat, seat_step) with the truth
+channel; mismatch rate by field:
+
+| Field | R1a (91,248 decisions, first build) | R1b + R2 (317,872, final) |
+|---|---|---|
+| turn, phase, active seat | 0 | 0 |
+| life, hand/library/graveyard counts, mana pool (both seats) | 0 | 0 |
+| hand / battlefield / graveyard / exile objects: presence, name, controller, owner | 0 | 0 |
+| battlefield: tapped, P/T, damage, counters, summoning sick, attacking, token, keywords | 0 | 0 |
+| stack: presence, controller, owner | 0 | 0 |
+| stack: name | 0.50% | 0.010% (R1b), 0 (R2) |
+| hidden: own library multiset exact | 5.68% | 0 |
+| hidden: opponent hand + library multiset exact | 5.21% | 0 |
+| own library size consistent with `library_count` | 0 | 0 |
+
+The three first-build mismatches were real defects, all fixed: (1) the
+catalog named multi-face cards by the front face ("The Modern Age") while
+the battlefield showed the back ("Vector Glider"), so the agent could not
+match the object to its decklist entry; decklists now use Oracle full names
+("The Modern Age // Vector Glider", §4.4), the engine declares `full_name`,
+and the belief matches either face. (2) An ability whose source moved to a
+hidden zone after activation (Lembas's gain-life once its shuffle trigger
+resolved) lost its name; it now keeps the name the viewer already saw. (3)
+Ninjutsu activated from the other seat's hand was nameless; activation
+reveals the card (CR 602.2a). Caveat: the truth side is gorge's own seat
+projection, so this validates our projection and the agent's decode and
+belief against gorge, not against an independent rules engine.
+
+**Heuristic parity (exact).** The python heuristic's Go port playing through
+this server replays the in-process port of the same bot (`sb-heuristic-manual`,
+`internal/spellbench/builtins`) intent for intent in 15 of 16 games (2 seeds
+x 8 decks, same gorge seed and starting seat; `TestHeuristicParityWithInProcess`).
+The one divergence is spec-mandated: §7.1 orders candidates that reference
+hidden cards by (name, id), so a scry-2 "keep both" orders Humbling Elder
+above Island where the in-process bot keeps gorge's order.
+
+**Ratings: protocol vs in-process.** Pooled by policy (python builtin and Go
+twin together; each pair of twins is statistically the same bot:
+heuristic vs sbagent-heuristic 42-38, first vs sbagent-first 8-8):
+
+| Head to head | Protocol (R1 + R2) | In-process (`botbench -spellbench`, 64 pairs) |
+|---|---|---|
+| heuristic vs uniform | 55.3% (177-143, n 320), +37 Elo | 51.9% (531-493, n 1,024, `-manual`), +13 Elo |
+| heuristic vs first | 62.5% (40-24, n 64) | 65.7% (673-351) |
+| uniform vs first | 75.0% (48-16, n 64) | 76.0% (778-246) |
+
+All three agree within noise (the largest gap, 3.4pp on heuristic vs
+uniform, is 1.1 standard errors). Expected: the heuristic plays the same
+games; the uniform bot's candidate lists differ only where the protocol
+decomposes differently (the kicker follow-up, the completable-candidate
+filter, name-sorted hidden candidates), which changes its draw
+probabilities, not its strength class. On gorge's manual surface the
+heuristic is barely above uniform, as D§3.1 measured (its "first mana
+ability" preference taps lands for nothing).
+
+**Deviations of this server** (why it is a harness, not a rated engine):
+one gorge RNG stream for both seats (§11.6 asks per-seat streams; the
+adapter's `NewHypotheticalPlanned` planner solves it); `known_cards` false;
+`mulligan: none` only; a cast-time choice for an ability being activated
+names the permanent as `source` (gorge has no stack object until payment;
+the adapter's `ResolveSource` makes the same choice); no probe; the
+seat-private arrangement-order and search results are exact but the order
+of a pile-B remainder follows gorge's `Rest` convention unverified.
+
+**Notes for Jack's adapter** (for the operator to pass on; no contact made):
+
+- It cannot host a game yet (Tasks 15-23 missing); the pin `26257e0e` is
+  hundreds of commits behind gorge HEAD.
+- Multi-face names: the pauper-kernel catalog as mtg-kernel publishes it
+  names "The Modern Age" and "Sagu Wildling"; §4.4 wants "A // B". The
+  adapter's Task 7 already pins full names (good), but then the same
+  benchmark deck gets a different `deck_id` on the two engines.
+- `KChoose` vocabularies seen on the pauper pool that Annex B does not map:
+  a choice between two mana abilities after activation ("Add C" / "Pay 1:
+  Add any color", 1 in 250 decisions), `trigger_cost_pay`/`_decline`,
+  `graveyard`/`top`, `pay_R`/`pay_G`, `division`, `hand_move`, `returncost`,
+  `tapcost`, and `KReplacement` `madness_exile`/`madness_graveyard`. The
+  adapter returns `ErrUnmapped` (a halt) for an unknown cast mode; an
+  enumerated `choose_option` fallback kept every one of our games alive.
+- Ability names on the stack after the source leaves (Lembas) and ninjutsu
+  from a hand, above: the observation projector needs both rules.
+- Every decision of gorge's that carried `Source: 0` resolved to a source
+  through the last-priority-action rule (0 degradations in 896 games), so
+  the adapter's `MustSource` halt should not fire on this pool.
+- Throughput: about 30x the in-process cost with the python host; the
+  adapter's `x_gorge_view_v1` payload (about 14 KB per decision) adds to it.
+
 ## 12. Benching plan
 
 ### 12.1 Stages
@@ -609,7 +794,7 @@ H2 and H3 are the load-bearing ones; H1 unblocks the most people.
 |---|---|---|---|
 | M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | done (D§3.1): bot +238, clairvoyant az +436 over the uniform port |
 | M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | Q2 done (D§12.5): K1 passes, az25 +14.7pp, az100 +20.5pp over `bot`; Q1 open |
-| M2 | v2 mocked backend (W2) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); shadow fidelity open |
+| M2 | v2 mocked backend (W2), then v2 on gorge in reverse (D§11.1) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); on real gorge 896 games with 0 protocol errors, belief-level shadow 0 mismatches, heuristic intent parity 15/16 (D§11.1); staged-shadow (D§4) fidelity open |
 | M3 | v2 on Jack's adapter, `pauper-gorge` (5 decks: Wildfire, Rally, Spy, Burn, CawGates; plan Task 7) | strength vs `gorge-bot`, `gorge-lethal-pressure`, builtins; neutral vs xview entry | — |
 | M4 | v2 on mtg-kernel (Annex A bridge), `pauper-kernel` | cross-engine: fidelity and candidate agreement on a foreign engine; rating vs g115 (1388), a48, c12, heuristic (1102) | — |
 | M5 | fixed-deck / hidden-list benchmark (§15, when enabled) | deck inference pays off | — |

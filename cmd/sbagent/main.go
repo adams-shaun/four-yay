@@ -2,7 +2,7 @@
 // spec/SPELLBENCH_PROTOCOL_V2.md, Section 10): it answers hello, game_start,
 // choose and game_over as NDJSON over stdin/stdout until stdin closes.
 //
-//	sbagent -policy random|heuristic|first [-name NAME] [-version V] [-seed N] [-no-echo] [-quiet] [-stats]
+//	sbagent -policy random|heuristic|first [-name NAME] [-version V] [-seed N] [-no-echo] [-quiet] [-stats] [-belief-out FILE]
 //
 // Policies (internal/spellbench/v2agent):
 //
@@ -28,6 +28,10 @@
 // candidates without ids are answered by position. -stats writes those
 // counts as one "sbagent-stats: {json}" line to stderr at exit (even with
 // -quiet).
+//
+// -belief-out appends one JSON line per choose with the seat's
+// reconstruction (v2agent.Belief) for the reverse-adapter shadow check
+// (cmd/sbv2shadow); diagnostics only.
 //
 // Exit status: 0 at stdin EOF, 1 on an I/O error, 2 for bad arguments.
 package main
@@ -59,6 +63,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	noEcho := fs.Bool("no-echo", false, "omit the optional seat_step and semantic_echo from each choice")
 	quiet := fs.Bool("quiet", false, "write no diagnostics to stderr")
 	stats := fs.Bool("stats", false, `write the recovery counts as one "sbagent-stats: {json}" line to stderr at exit`)
+	beliefOut := fs.String("belief-out", "", "append the per-decision belief (shadow check) to this file as JSON lines")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -77,6 +82,15 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	opts := v2agent.Options{Name: *name, Version: *version, NoEcho: *noEcho, Log: stderr}
 	if *quiet {
 		opts.Log = nil
+	}
+	if *beliefOut != "" {
+		f, err := os.OpenFile(*beliefOut, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			fmt.Fprintf(stderr, "sbagent: %v\n", err)
+			return 2
+		}
+		defer f.Close()
+		opts.BeliefLog = f
 	}
 	agent, err := v2agent.New(policy, opts)
 	if err != nil {

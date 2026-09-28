@@ -40,6 +40,11 @@ type Options struct {
 	// SkipStrictCheck turns off the second, strict decode that reports
 	// fields the typed structs do not know. Play is unaffected either way.
 	SkipStrictCheck bool
+	// BeliefLog, when non-nil, receives one JSON line per choose: the
+	// seat's reconstruction (Belief) keyed by game_id, seat and seat_step,
+	// for the reverse-adapter shadow check. Diagnostics only; never part of
+	// the protocol.
+	BeliefLog io.Writer
 }
 
 // Agent serves the agent role of spec Section 10 for one policy. It is not
@@ -64,6 +69,10 @@ type Agent struct {
 
 	logged   map[string]bool
 	logLines int
+
+	// belief is the active game's reconstruction, kept only when
+	// Options.BeliefLog is set.
+	belief *Belief
 }
 
 // Stats counts every path on which the agent answered a request it could
@@ -102,7 +111,7 @@ func New(policy Policy, opts Options) (*Agent, error) {
 	if opts.MaxLogLines == 0 {
 		opts.MaxLogLines = 64
 	}
-	return &Agent{policy: policy, opts: opts, logged: map[string]bool{}}, nil
+	return &Agent{policy: policy, opts: opts, logged: map[string]bool{}, Stats: Stats{Errors: map[string]int{}}}, nil
 }
 
 // Serve answers request lines from r on w until r reaches EOF (closing stdin
@@ -211,6 +220,9 @@ func (a *Agent) gameStart(requestID string, line []byte, top map[string]json.Raw
 	}
 	a.Game, a.gameID, a.active = gs, gameID, true
 	a.Observation, a.Decision = nil, nil
+	if a.opts.BeliefLog != nil {
+		a.belief = NewBelief(gs)
+	}
 	return responseLine("ack", requestID, nil)
 }
 
@@ -233,6 +245,10 @@ func (a *Agent) adopt(gameID string, d *Decision) {
 	}
 	a.Game, a.gameID, a.active = gs, gameID, true
 	a.Observation, a.Decision = nil, nil
+	a.belief = nil
+	if a.opts.BeliefLog != nil {
+		a.belief = NewBelief(gs)
+	}
 }
 
 func (a *Agent) choose(requestID string, top map[string]json.RawMessage) []byte {
@@ -250,6 +266,9 @@ func (a *Agent) choose(requestID string, top map[string]json.RawMessage) []byte 
 	}
 	if err != nil {
 		return a.errorLine(requestID, ErrMalformedRequest, err.Error())
+	}
+	if a.belief != nil {
+		beliefWriter{a.opts.BeliefLog}.write(a.belief.Record(a.gameID, d))
 	}
 	index := -1
 	if err := a.call(func() error {
