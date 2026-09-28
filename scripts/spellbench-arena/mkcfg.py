@@ -7,7 +7,9 @@ BOT is one of
   go:NAME:POLICY[:ARG,ARG...]      sbv1agent -policy POLICY (binary: $SBV1AGENT)
   gobin:NAME:BINARY:POLICY[:ARGS]  a specific sbv1agent build (version A/B runs)
 
-The engine is $MTG_KERNEL_BRIDGE (our agent_bridge_v1 rebuild). The deck pool,
+The engine is $MTG_KERNEL_BRIDGE (our agent_bridge_v1 rebuild); $SB_DECKS
+(comma-separated catalog ids) replaces the benchmark pool, e.g. SB_DECKS=Terror
+for decks outside it, and $SB_WORKERS the worker count. The deck pool,
 seat-swapped mirror pairs, caps, timeouts and bootstrap match
 spellbench/benchmarks/pauper-kernel/benchmark.json; the rating anchor is the
 builtin uniform bot.
@@ -19,6 +21,8 @@ work = "/mnt/sata/gorge-training/spellbench-work/arena"
 S = os.environ.get("SBV1AGENT", f"{work}/bin/sbv1agent")
 B = os.environ.get("MTG_KERNEL_BRIDGE", f"{work}/mtg-kernel/target/release/agent_bridge_v1")
 pool = ["Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries"]
+if os.environ.get("SB_DECKS"):
+    pool = os.environ["SB_DECKS"].split(",")
 bots = []
 for spec in sys.argv[5:]:
     parts = spec.split(":")
@@ -40,5 +44,6 @@ cfg = {"schema": "spellbench-tournament-config/v1", "tournament_dir": run, "form
        "deck_pool": [{"catalog_id": d} for d in pool], "engine": {"command": [B], "timeout_ms": 120000},
        "bots": bots, "pairs_per_matchup": pairs * len(pool), "base_seed": seed, "include_self_play": False,
        "rating_anchor": "uniform", "bootstrap_replicates": 2000, "choose_timeout_ms": 30000,
-       "startup_timeout_ms": 120000, "max_decisions": 10000, "max_steps": 100000, "workers": 8}
+       "startup_timeout_ms": 120000, "max_decisions": 10000, "max_steps": 100000,
+       "workers": int(os.environ.get("SB_WORKERS", "8"))}
 json.dump(cfg, open(out, "w"), indent=1)

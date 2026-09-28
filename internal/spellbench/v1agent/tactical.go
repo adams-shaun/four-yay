@@ -37,6 +37,14 @@ type Tactical struct {
 	// and turns where it could have attacked, and how many it did attack in
 	attackChances, attacksSeen int
 	lastAttackObs              int
+	// gen selects hint-free card knowledge (derive.go, generic.go) over
+	// hints.go and the named branches.
+	gen      bool
+	style    deckStyle
+	lastMode map[string]int // generic: the mode last chosen, by source name
+	// seen holds our own cards observed so far, by arena id: the deck
+	// style falls back to them when the catalog does not know our deck.
+	seen map[uint32]string
 }
 
 // NewTactical builds the policy.
@@ -51,6 +59,9 @@ func (t *Tactical) GameStart(g *GameStart) {
 		t.deck = g.CatalogIDs[i]
 	}
 	t.deckList = deckCounts(t.deck)
+	t.style = styleOf(t.deckList)
+	t.lastMode = map[string]int{}
+	t.seen = map[uint32]string{}
 	t.attackGrp, t.blockGrp = -1, -1
 	t.blockChances, t.blocksSeen, t.lastBlockObs = 0, 0, -1
 	t.attackChances, t.attacksSeen, t.lastAttackObs = 0, 0, -1
@@ -122,6 +133,9 @@ func (t *Tactical) oppNeverBlocks() bool { return t.blockChances >= 2 && t.block
 func (t *Tactical) GameOver(*Terminal) {}
 
 func (t *Tactical) aggro() bool {
+	if t.gen {
+		return t.style.aggro
+	}
 	switch t.deck {
 	case "Burn", "Rally", "Affinity", "Elves":
 		return true
@@ -129,13 +143,21 @@ func (t *Tactical) aggro() bool {
 	return false
 }
 
-func (t *Tactical) burnDeck() bool { return t.deck == "Burn" || t.deck == "Rally" }
+func (t *Tactical) burnDeck() bool {
+	if t.gen {
+		return t.style.burn
+	}
+	return t.deck == "Burn" || t.deck == "Rally"
+}
 
 // Choose implements Policy.
 func (t *Tactical) Choose(d *Decision) int {
 	b := NewBoard(d)
 	t.observeBlocks(b)
 	t.observeAttacks(b)
+	if t.gen && t.deckList == nil {
+		t.observeOwnCards(b)
+	}
 	has := func(kind string) bool {
 		for i := range d.Candidates {
 			if d.Candidates[i].Kind() == kind {
@@ -158,6 +180,10 @@ func (t *Tactical) Choose(d *Decision) int {
 		if s > bestScore {
 			best, bestScore = i, s
 		}
+	}
+	if t.gen && d.Candidates[best].Kind() == "choose_spell_mode" && t.lastMode != nil {
+		c := &d.Candidates[best]
+		t.lastMode[normName(srcName(c))] = int(c.Semantic.Int("mode_index"))
 	}
 	t.trace(d, b, scores, best)
 	return best
@@ -264,7 +290,10 @@ func cardName(b *Board, r *KRef) string {
 }
 
 // burnDamage is the damage a burn spell named n deals now.
-func burnDamage(b *Board, n string) int {
+func (t *Tactical) burnDamage(b *Board, n string) int {
+	if t.gen {
+		return t.burnDamageG(b, n)
+	}
 	h := hintFor(n)
 	if n == "Galvanic Blast" {
 		arts := 0
@@ -288,11 +317,14 @@ func burnDamage(b *Board, n string) int {
 }
 
 // handBurn totals the burn damage in our hand (a lethal check).
-func handBurn(b *Board) int {
+func (t *Tactical) handBurn(b *Board) int {
+	if t.gen {
+		return t.handBurnG(b)
+	}
 	n := 0
 	for _, h := range b.Hand {
 		if hintFor(h.Name).role == RoleBurn {
-			n += burnDamage(b, h.Name)
+			n += t.burnDamage(b, h.Name)
 		}
 	}
 	return n
@@ -321,7 +353,7 @@ func (t *Tactical) bestBurnTarget(b *Board, dmg int) (score float64, face bool) 
 			continue
 		}
 		if c.Remaining() <= dmg {
-			v := CreatureValue(c)*1.2 + 0.5
+			v := t.cv(c)*1.2 + 0.5
 			if v > score {
 				score, face = v, false
 			}
@@ -331,13 +363,13 @@ func (t *Tactical) bestBurnTarget(b *Board, dmg int) (score float64, face bool) 
 }
 
 // bestRemovalTarget is the value of the best opposing creature.
-func bestRemovalTarget(b *Board) float64 {
+func (t *Tactical) bestRemovalTarget(b *Board) float64 {
 	best := 0.0
 	for _, c := range Creatures(b.Theirs) {
 		if Kw(c).Hexproof || Kw(c).ProtMonocolored {
 			continue
 		}
-		if v := CreatureValue(c); v > best {
+		if v := t.cv(c); v > best {
 			best = v
 		}
 	}
@@ -394,6 +426,12 @@ func (t *Tactical) score(d *Decision, b *Board, i int) float64 {
 	case "play_land":
 		return t.landScore(b, srcName(c))
 	case "cast_spell":
+		// mtg-kernel's policy schema v5 cannot represent a staged Escape
+		// graveyard-exile cost: escaping halts the game (measured, Terror
+		// mirrors), and a halted game is unrated
+		if src := c.Semantic.Source(); src != nil && src.Zone == "graveyard" && FactN(srcName(c)).HasKeyword("Escape") {
+			return -100
+		}
 		return t.castScore(d, b, i)
 	case "activate_mana_ability":
 		return -50
@@ -410,9 +448,18 @@ func (t *Tactical) score(d *Decision, b *Board, i int) float64 {
 	case "choose_cost_target":
 		return t.costTargetScore(d, b, i)
 	case "choose_cast_mode":
+		if t.gen {
+			return t.castModeScoreG(b, srcName(c), sem.Str("mode"))
+		}
 		return t.castModeScore(b, srcName(c), sem.Str("mode"))
 	case "choose_kicker":
 		if sem.Bool("pay") {
+			if t.gen {
+				if profileFor(srcName(c)).kickTeam && len(Creatures(b.Mine)) == 0 {
+					return -1
+				}
+				return 1
+			}
 			if srcName(c) == "Goblin Bushwhacker" && len(Creatures(b.Mine)) == 0 {
 				return -1
 			}
@@ -420,8 +467,14 @@ func (t *Tactical) score(d *Decision, b *Board, i int) float64 {
 		}
 		return 0
 	case "choose_spell_mode":
+		if t.gen {
+			return t.modeScoreG(b, srcName(c), int(sem.Int("mode_index")))
+		}
 		return t.modeScore(b, srcName(c), int(sem.Int("mode_index")))
 	case "choose_option":
+		if t.gen {
+			return t.optionScoreG(b, srcName(c), int(sem.Int("option_index")))
+		}
 		return t.optionScore(b, srcName(c), int(sem.Int("option_index")))
 	case "choose_number":
 		return float64(sem.Int("value")) // X: as large as allowed
@@ -534,7 +587,7 @@ func (t *Tactical) landScore(b *Board, name string) float64 {
 	}
 	s := 100.0
 	k := KernelCardByName(name)
-	h := hintFor(name)
+	h := t.kn(name)
 	tapped := h.tapped || k.Has("enters_tapped")
 	// would an untapped land let us cast something this turn?
 	untapped := UntappedLands(b.Mine)
@@ -566,7 +619,7 @@ func (t *Tactical) landScore(b *Board, name string) float64 {
 
 func (t *Tactical) castModeScore(b *Board, name, mode string) float64 {
 	if name == "Fireblast" && mode == "alternative" {
-		if b.Life[b.Opp] <= 4+handBurn(b)-4 || Lands(b.Mine) >= 6 {
+		if b.Life[b.Opp] <= 4+t.handBurn(b)-4 || Lands(b.Mine) >= 6 {
 			return 2
 		}
 		return -1
@@ -592,20 +645,26 @@ func (t *Tactical) optionScore(b *Board, name string, idx int) float64 {
 		return float64(idx) // the kernel poses X as an option index
 	}
 	if dungeonSource(name) {
-		// next-room choice, options in the kernel's printed order
-		switch b.Room {
-		case 0, roomSecretEntrance: // [Forge, Lost Well]
-			if len(Creatures(b.Mine)) > 0 {
-				return -float64(idx)
-			}
-			return float64(idx)
-		case roomForge: // [Trap, Arena]: 5 life
+		return roomOptionScore(b, idx)
+	}
+	return -float64(idx) * 0.01
+}
+
+// roomOptionScore scores an Undercity next-room choice, options in the
+// kernel's printed order (rules knowledge: the dungeon, not a card).
+func roomOptionScore(b *Board, idx int) float64 {
+	switch b.Room {
+	case 0, roomSecretEntrance: // [Forge, Lost Well]
+		if len(Creatures(b.Mine)) > 0 {
 			return -float64(idx)
-		case roomLostWell: // [Arena, Stash]
-			return -float64(idx)
-		case roomArena: // [Archives, Catacombs]: a 4/1
-			return float64(idx)
 		}
+		return float64(idx)
+	case roomForge: // [Trap, Arena]: 5 life
+		return -float64(idx)
+	case roomLostWell: // [Arena, Stash]
+		return -float64(idx)
+	case roomArena: // [Archives, Catacombs]: a 4/1
+		return float64(idx)
 	}
 	return -float64(idx) * 0.01
 }
@@ -640,7 +699,7 @@ func manaSources(b *Board) int {
 
 // hiddenZoneValue scores a card offered from a library, hand or exile
 // selection (searches, reveals, Mesmeric Fiend).
-func hiddenZoneValue(b *Board, k *KernelCard) float64 {
+func (t *Tactical) hiddenZoneValue(b *Board, k *KernelCard) float64 {
 	if k == nil {
 		return 1
 	}
@@ -654,7 +713,7 @@ func hiddenZoneValue(b *Board, k *KernelCard) float64 {
 	if k.MV > Lands(b.Mine)+3 {
 		v -= 1
 	}
-	switch hintFor(k.Name).role {
+	switch t.kn(k.Name).role {
 	case RoleBurn, RoleRemoval, RoleCounter:
 		v += 1
 	}
@@ -700,6 +759,9 @@ func colorBit(l byte) uint8 {
 
 // castScore scores casting the candidate's spell now.
 func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
+	if t.gen {
+		return t.castScoreG(d, b, i)
+	}
 	c := &d.Candidates[i]
 	name := srcName(c)
 	src := c.Semantic.Source()
@@ -748,12 +810,12 @@ func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
 		}
 		return 90
 	case RoleBurn:
-		dmg := burnDamage(b, name)
+		dmg := t.burnDamage(b, name)
 		score, face := t.bestBurnTarget(b, dmg)
 		if score >= 1000 {
 			return 200
 		}
-		if name == "Fireblast" && !(b.Life[b.Opp] <= 4+handBurn(b)-4 || Lands(b.Mine) >= 6) {
+		if name == "Fireblast" && !(b.Life[b.Opp] <= 4+t.handBurn(b)-4 || Lands(b.Mine) >= 6) {
 			return -5
 		}
 		if fromGrave && !(face && dmg >= b.Life[b.Opp]) && score < 3 {
@@ -762,7 +824,7 @@ func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
 		if face {
 			// face burn: at the opponent's end step, or main2 of our turn
 			// (burn decks), or when the opponent is in reach
-			if b.Life[b.Opp] <= handBurn(b)+2 {
+			if b.Life[b.Opp] <= t.handBurn(b)+2 {
 				return 60 + score
 			}
 			if !t.burnDeck() {
@@ -775,7 +837,7 @@ func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
 		}
 		return 45 + score*3
 	case RoleRemoval:
-		v := bestRemovalTarget(b)
+		v := t.bestRemovalTarget(b)
 		if v < 1.5 {
 			return -5
 		}
@@ -787,12 +849,12 @@ func (t *Tactical) castScore(d *Decision, b *Board, i int) float64 {
 		kills := 0.0
 		for _, cr := range Creatures(b.Theirs) {
 			if cr.Remaining() <= 1 {
-				kills += CreatureValue(cr)
+				kills += t.cv(cr)
 			}
 		}
 		for _, cr := range Creatures(b.Mine) {
 			if cr.Remaining() <= 1 && name != "End the Festivities" {
-				kills -= CreatureValue(cr)
+				kills -= t.cv(cr)
 			}
 		}
 		if kills >= 2 {
@@ -1000,11 +1062,17 @@ func hasSubtypeFaerie(name string) bool {
 // ---- activated abilities ----
 
 func (t *Tactical) abilityScore(d *Decision, b *Board, i int) float64 {
+	if t.gen {
+		return t.abilityScoreG(d, b, i)
+	}
+	return t.abilityScoreFor(d, b, i, hintFor(srcName(&d.Candidates[i])).ab)
+}
+
+// abilityScoreFor scores activating the candidate's ability used as u.
+func (t *Tactical) abilityScoreFor(d *Decision, b *Board, i int, u abUse) float64 {
 	c := &d.Candidates[i]
-	name := srcName(c)
 	src := c.Semantic.Source()
-	h := hintFor(name)
-	switch h.ab {
+	switch u {
 	case abNever:
 		return -10
 	case abEndStep:
@@ -1052,7 +1120,7 @@ func (t *Tactical) abilityScore(d *Decision, b *Board, i int) float64 {
 			}
 		}
 		for _, u := range t.unblockedAttackers(b) {
-			if hintFor(u.Name).ab != abNinjutsu {
+			if t.kn(u.Name).ab != abNinjutsu {
 				return 70
 			}
 		}
@@ -1066,12 +1134,12 @@ func (t *Tactical) abilityScore(d *Decision, b *Board, i int) float64 {
 		net := 0.0
 		for _, cr := range Creatures(b.Theirs) {
 			if !Kw(cr).Flying && cr.Remaining() <= 1 {
-				net += CreatureValue(cr)
+				net += t.cv(cr)
 			}
 		}
 		for _, cr := range Creatures(b.Mine) {
 			if !Kw(cr).Flying && cr.Remaining() <= 1 {
-				net -= CreatureValue(cr)
+				net -= t.cv(cr)
 			}
 		}
 		if net >= 2.5 {
@@ -1084,7 +1152,7 @@ func (t *Tactical) abilityScore(d *Decision, b *Board, i int) float64 {
 		}
 		return -5
 	case abStun:
-		if b.oppEndStep() && bestRemovalTarget(b) >= 3 {
+		if b.oppEndStep() && t.bestRemovalTarget(b) >= 3 {
 			return 12
 		}
 		return -5
@@ -1149,11 +1217,52 @@ const (
 
 func dungeonSource(name string) bool { return name == "Avenging Hunter" }
 
+// targetKnow is what target scoring needs to know about the source.
+type targetKnow struct {
+	pol       int
+	dungeon   bool // an initiative source: room-aware polarity
+	burn      bool
+	selfLand  bool
+	scry      bool
+	powerOnly bool
+	comboSelf func() bool            // aiming at ourselves wins now
+	finisher  func(*KernelCard) bool // returning this card wins now
+}
+
+func (t *Tactical) targetKnowFor(b *Board, name string) targetKnow {
+	if !t.gen {
+		h := hintFor(name)
+		return targetKnow{
+			pol: polarity(name), dungeon: dungeonSource(name), burn: h.role == RoleBurn,
+			selfLand: h.selfLand, scry: scrySources[name], powerOnly: name == "Humbling Elder",
+			comboSelf: func() bool { return name == "Balustrade Spy" && t.spyCombo(b, true) },
+			finisher: func(k *KernelCard) bool {
+				return name == "Dread Return" && k.Name == "Lotleth Giant" && t.giantLethal(b)
+			},
+		}
+	}
+	p := profileFor(name)
+	tk := targetKnow{pol: p.pol, dungeon: p.initiative, burn: p.role == RoleBurn, selfLand: p.selfLand,
+		scry: p.scry, powerOnly: p.powerOnly}
+	if pl := t.modePlay(name); pl != nil {
+		tk.pol, tk.burn = pl.pol, pl.role == RoleBurn
+	}
+	if p.millTarget && t.graveSynergy() {
+		tk.pol = 1 // fuel our own graveyard
+	}
+	tk.comboSelf = func() bool { return p.millUntil && t.comboG(b, true) }
+	tk.finisher = func(k *KernelCard) bool {
+		return p.role == RoleReanimate && !p.reanimHand && profileFor(k.Name).gyFinisher && t.finisherLethalG(b, p.flashSacN)
+	}
+	return tk
+}
+
 func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 	c := &d.Candidates[i]
 	name := srcName(c)
-	pol := polarity(name)
-	if dungeonSource(name) {
+	tkn := t.targetKnowFor(b, name)
+	pol := tkn.pol
+	if tkn.dungeon {
 		switch b.Room {
 		case roomForge:
 			pol = 1
@@ -1177,8 +1286,7 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 		}
 		return 1
 	}
-	h := hintFor(name)
-	if kt.Kind == "player" && name == "Balustrade Spy" && t.spyCombo(b, true) {
+	if kt.Kind == "player" && tkn.comboSelf() {
 		if kt.Player == b.Seat {
 			return 500
 		}
@@ -1190,8 +1298,8 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 		case pol < 0 && me:
 			return -100
 		case pol < 0:
-			if h.role == RoleBurn {
-				dmg := burnDamage(b, name)
+			if tkn.burn {
+				dmg := t.burnDamage(b, name)
 				if dmg >= b.Life[b.Opp] {
 					return 1000
 				}
@@ -1225,12 +1333,12 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 		return 0
 	}
 	if ref.Zone == "Library" || ref.Zone == "Hand" || ref.Zone == "Exile" {
-		v := hiddenZoneValue(b, KernelCardByID(ref.CardDBID))
+		v := t.hiddenZoneValue(b, KernelCardByID(ref.CardDBID))
 		if ref.Owner == b.Seat {
 			switch {
 			case b.Purpose == "library_order" && ref.Zone == "Hand":
 				return -v // Brainstorm: put the worst cards back
-			case b.Purpose == "card_selection" && scrySources[name]:
+			case b.Purpose == "card_selection" && tkn.scry:
 				return 2 - v // scry: bottom only what we do not want
 			}
 		}
@@ -1239,8 +1347,8 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 		}
 		return -v
 	}
-	if ref.Zone == "Graveyard" && name == "Dread Return" && ref.Owner == b.Seat {
-		if k := KernelCardByID(ref.CardDBID); k != nil && k.Name == "Lotleth Giant" && t.giantLethal(b) {
+	if ref.Zone == "Graveyard" && ref.Owner == b.Seat {
+		if k := KernelCardByID(ref.CardDBID); k != nil && tkn.finisher(k) {
 			return 500
 		}
 	}
@@ -1260,7 +1368,7 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 		return 0
 	}
 	mine := cd.Stable.Controller == b.Seat
-	if h.selfLand && cd.IsLand() {
+	if tkn.selfLand && cd.IsLand() {
 		if mine && Kw(cd).Indestructible {
 			return 10
 		}
@@ -1282,19 +1390,19 @@ func (t *Tactical) targetScore(d *Decision, b *Board, i int) float64 {
 		}
 		return -v
 	}
-	v := CreatureValue(cd)
+	v := t.cv(cd)
 	if pol < 0 {
 		if mine {
 			return -v*3 - 5
 		}
-		if h.role == RoleBurn {
-			dmg := burnDamage(b, name)
+		if tkn.burn {
+			dmg := t.burnDamage(b, name)
 			if !Kw(cd).Indestructible && cd.Remaining() <= dmg {
 				return v*1.2 + 0.5
 			}
 			return 0.1 * v
 		}
-		if name == "Humbling Elder" {
+		if tkn.powerOnly {
 			return float64(cd.Power()) + 0.1*v
 		}
 		return v
@@ -1333,7 +1441,7 @@ func (t *Tactical) keepValue(b *Board, name string) float64 {
 	if k.MV > lands+2 {
 		v -= 1.5
 	}
-	switch hintFor(name).role {
+	switch t.kn(name).role {
 	case RoleBurn, RoleRemoval, RoleCounter:
 		v += 1
 	case RoleNever:
@@ -1365,7 +1473,7 @@ func (t *Tactical) costTargetScore(d *Decision, b *Board, i int) float64 {
 		// ninjutsu: return the least valuable unblocked attacker
 		if cd := b.Card(ref.ArenaID); cd != nil {
 			if cd.IsCreature() {
-				return -CreatureValue(cd)
+				return -t.cv(cd)
 			}
 			if cd.IsLand() {
 				return -0.5
@@ -1379,7 +1487,7 @@ func (t *Tactical) costTargetScore(d *Decision, b *Board, i int) float64 {
 		return 0
 	}
 	if cd.IsCreature() {
-		return -CreatureValue(cd)
+		return -t.cv(cd)
 	}
 	if cd.IsToken {
 		return 0
@@ -1450,7 +1558,11 @@ func (t *Tactical) planAttack(b *Board, cands []*KCard) map[uint32]bool {
 	for j := 0; j < len(blockers) && j < len(powers); j++ {
 		stopped += powers[j]
 	}
-	if total-stopped >= oppLife && len(attackers) > 0 {
+	reach := 0
+	if t.gen {
+		reach = t.burnReach(b)
+	}
+	if total-stopped+reach >= oppLife && len(attackers) > 0 {
 		for _, a := range attackers {
 			plan[a.Stable.ArenaID] = true
 		}
@@ -1458,7 +1570,7 @@ func (t *Tactical) planAttack(b *Board, cands []*KCard) map[uint32]bool {
 	}
 	for _, a := range attackers {
 		ok, evasive := true, true
-		av := CreatureValue(a)
+		av := t.cv(a)
 		for _, bl := range blockers {
 			if !CanBlock(bl, a) {
 				continue
@@ -1472,7 +1584,7 @@ func (t *Tactical) planAttack(b *Board, cands []*KCard) map[uint32]bool {
 			case aDies && !bDies:
 				ok = false
 			case aDies && bDies:
-				if av > CreatureValue(bl)+0.5 && !t.aggro() {
+				if av > t.cv(bl)+0.5 && !t.aggro() {
 					ok = false
 				}
 			}
@@ -1559,7 +1671,10 @@ var elfNames = map[string]bool{
 
 // oppPump is the largest +X/+X the opponent can give one attacker from an
 // untapped on-board source.
-func oppPump(b *Board) int {
+func (t *Tactical) oppPump(b *Board) int {
+	if t.gen {
+		return t.oppPumpG(b)
+	}
 	best := 0
 	for _, c := range b.Theirs {
 		if c.Tapped {
@@ -1622,7 +1737,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 			attackers = append(attackers, c)
 		}
 	}
-	sortByValueDesc(attackers)
+	t.sortByValueDesc(attackers)
 	var mine []*KCard
 	for _, c := range Creatures(b.Mine) {
 		if !c.Tapped {
@@ -1633,7 +1748,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 	// or Basilisk Gate pumps one attacker after blocks. Judge blocker
 	// survival against the pumped attacker and count the pump once in the
 	// damage that gets through.
-	pump := oppPump(b)
+	pump := t.oppPump(b)
 	pumped := func(a *KCard) *KCard {
 		if pump == 0 {
 			return a
@@ -1663,7 +1778,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 			}
 			blDies, _ := Fight(bl, pumped(a))
 			_, aDies := Fight(bl, a)
-			if aDies && !blDies && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
+			if aDies && !blDies && (pick == nil || t.cv(bl) < t.cv(pick)) {
 				pick = bl
 			}
 		}
@@ -1673,7 +1788,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 	}
 	// 1b. double blocks that kill a big attacker for at most one blocker
 	for _, a := range attackers {
-		if blocked[a.Stable.ArenaID] || Kw(a).FirstStrike || Kw(a).DoubleStrike || Kw(a).Indestructible || CreatureValue(a) < 4 {
+		if blocked[a.Stable.ArenaID] || Kw(a).FirstStrike || Kw(a).DoubleStrike || Kw(a).Indestructible || t.cv(a) < 4 {
 			continue
 		}
 		pa := pumped(a)
@@ -1692,14 +1807,14 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 				lost := 0.0
 				power := strikeDamage(pa)
 				pair := []*KCard{x, y}
-				sort.SliceStable(pair, func(i, j int) bool { return CreatureValue(pair[i]) > CreatureValue(pair[j]) })
+				sort.SliceStable(pair, func(i, j int) bool { return t.cv(pair[i]) > t.cv(pair[j]) })
 				for _, bl := range pair {
 					if power >= bl.Remaining() || (Kw(pa).Deathtouch && power > 0) {
-						lost += CreatureValue(bl)
+						lost += t.cv(bl)
 						power -= bl.Remaining()
 					}
 				}
-				if gain := CreatureValue(a) - lost; gain > bestGain {
+				if gain := t.cv(a) - lost; gain > bestGain {
 					bestGain, bestPair = gain, [2]*KCard{x, y}
 				}
 			}
@@ -1719,7 +1834,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 			if !canBlock(bl, a) {
 				continue
 			}
-			if blDies, _ := Fight(bl, pumped(a)); !blDies && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
+			if blDies, _ := Fight(bl, pumped(a)); !blDies && (pick == nil || t.cv(bl) < t.cv(pick)) {
 				pick = bl
 			}
 		}
@@ -1738,7 +1853,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 				continue
 			}
 			blDies, aDies := Fight(bl, a)
-			if blDies && aDies && CreatureValue(a) >= CreatureValue(bl)-0.3 && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
+			if blDies && aDies && t.cv(a) >= t.cv(bl)-0.3 && (pick == nil || t.cv(bl) < t.cv(pick)) {
 				pick = bl
 			}
 		}
@@ -1776,7 +1891,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 		}
 		var pick *KCard
 		for _, bl := range mine {
-			if canBlock(bl, target) && CreatureValue(bl) <= 4 && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
+			if canBlock(bl, target) && t.cv(bl) <= 4 && (pick == nil || t.cv(bl) < t.cv(pick)) {
 				pick = bl
 			}
 		}
@@ -1797,7 +1912,7 @@ func (t *Tactical) planBlocks(b *Board) map[uint32]uint32 {
 		}
 		var pick *KCard
 		for _, bl := range mine {
-			if canBlock(bl, target) && (pick == nil || CreatureValue(bl) < CreatureValue(pick)) {
+			if canBlock(bl, target) && (pick == nil || t.cv(bl) < t.cv(pick)) {
 				pick = bl
 			}
 		}

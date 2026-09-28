@@ -34,19 +34,19 @@ const (
 	abShaman                // Krark-Clan Shaman sweep
 	abPing                  // 1 damage for a sacrifice (Makeshift Munitions)
 	abStun                  // Cryogen Relic: stun their best creature
+	abMain2                 // sorcery-speed value activation: our main2 with spare mana (derived only)
 )
 
 type hint struct {
-	role      Role
-	dmg       int     // burn damage
-	pol       int     // target polarity: -1 harmful (theirs), +1 beneficial (mine), 0 derive
-	tapped    bool    // land enters tapped
-	flash     bool    // prefer casting on the opponent's turn
-	bonus     float64 // creature value bonus (engines, key threats)
-	cantBlock bool
-	ab        abUse
-	sacCost   bool // the cast needs a sacrifice (only with fodder)
-	selfLand  bool // Cleansing Wildfire: target our own indestructible land
+	role     Role
+	dmg      int     // burn damage
+	pol      int     // target polarity: -1 harmful (theirs), +1 beneficial (mine), 0 derive
+	tapped   bool    // land enters tapped
+	flash    bool    // prefer casting on the opponent's turn
+	bonus    float64 // creature value bonus (engines, key threats)
+	ab       abUse
+	sacCost  bool // the cast needs a sacrifice (only with fodder)
+	selfLand bool // Cleansing Wildfire: target our own indestructible land
 }
 
 // hints is the hand-written play knowledge for the pauper-kernel pool.
@@ -172,4 +172,15 @@ var hints = map[string]hint{
 	"Eldrazi Spawn Token": {role: RoleCreature, bonus: -0.5},
 }
 
-func hintFor(name string) hint { return hints[normName(name)] }
+// hintLookups counts hint-table reads (tests assert the generic build
+// makes none).
+var hintLookups int
+
+// HintLookups reports how many times this process read the hint table (0
+// for the generic build).
+func HintLookups() int { return hintLookups }
+
+func hintFor(name string) hint {
+	hintLookups++
+	return hints[normName(name)]
+}
