@@ -81,10 +81,6 @@ var oracleKnownDivergent = map[string]string{
 	// conditional continuous may-play static; Haakon is present, but the
 	// Knight in its controller's graveyard is not offered.
 	"Haakon, Stromgald Scourge/haakon-on-battlefield-permits-knight-from-graveyard": "Knight of the Ebon Legion from the graveyard was not offered while Haakon was on the battlefield",
-	// Engine bug, ticket fb-20260927T160557Z-b958ef31: the trigger walk
-	// (Engine.forEachObject) visits ZLibrary..ZStack only, never ZCommand,
-	// so an Eminence trigger never fires from the command zone.
-	"Sidar Jabari of Zhalfir/eminence-from-command-zone-knight-attacks": "no Eminence trigger while the commander is in the command zone",
 	// Script translation: the once-per-turn permission is tracked per
 	// affected spell, so Darksteel Monolith's free-cast grant is available again.
 	"Darksteel Monolith/once-each-turn-second-colorless-pays": "cast p0:Runed Servitor offered=true, want false",
