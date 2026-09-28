@@ -1188,11 +1188,9 @@ type Engine struct {
 	trigFaceZones map[*cards.Face]uint8
 	// replZones / replZonesEp are the replacement-source walk's per-seat
 	// zone summaries (rules/repl_zoneskip.go): pure scratch validated on
-	// every use, so Clone copies neither. replFaceHot caches immutable face
-	// interest independently; cloned engines own their cache map.
+	// every use, so Clone copies neither.
 	replZones   []replZoneSummary
 	replZonesEp int
-	replFaceHot map[*cards.Face]bool
 	// staticZones / staticZonesEp are the off-battlefield static-source
 	// walks' per-seat zone summaries (rules/static_zoneskip.go): pure scratch
 	// validated on every use, so Clone copies neither.

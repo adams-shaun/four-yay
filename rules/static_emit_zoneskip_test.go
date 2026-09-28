@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/state"
@@ -47,4 +48,38 @@ func TestStaticEmitWalkVisitsOnlyStaticSources(t *testing.T) {
 	if len(ids) != 2 || ids[0] != static || ids[1] != added {
 		t.Fatalf("appended static source walk = %v, want [%d %d]", ids, static, added)
 	}
+}
+
+// TestStaticEmitSkipVerifyCatchesUnreferencedWrite proves the
+// static-zone-skip verifier is live in the rules test binary: a direct
+// in-place write no event names -- the one input the summary argument cannot
+// see -- must trip it rather than silently drop the newly-live static from
+// the walk.
+func TestStaticEmitSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
+	if !staticZoneSkipVerify {
+		t.Fatal("precondition: static-zone skip verifier is disabled")
+	}
+	e := layerEngine(t)
+	cold := onBoard(t, e, 0, "Name:Vanilla\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
+	if objectStaticHotOn(e.G.Obj(cold)) {
+		t.Fatal("precondition: vanilla object is not static-cold")
+	}
+	// Classify the battlefield summary with the object cold.
+	if ids := e.staticSourceIDs(0, state.ZBattlefield); len(ids) != 0 {
+		t.Fatalf("precondition: battlefield walk = %v, want empty", ids)
+	}
+	// Directly give the already-classified object a static-bearing copy face
+	// without emitting an event: the same bypass the trigger-walk verifier
+	// catches.
+	e.G.Obj(cold).CopyFace = card(t, "Name:Live\nTypes:Creature\nPT:1/1\n"+
+		"S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 1 | Description$ gets +1/+0\nOracle:x\n").Faces[0]
+	defer func() {
+		r := recover()
+		s, ok := r.(string)
+		if !ok || !strings.Contains(s, "static zone summary") {
+			t.Fatalf("verify did not flag the skipped live static: %v", r)
+		}
+	}()
+	e.staticSourceIDs(0, state.ZBattlefield)
+	t.Fatal("static skip served a stale cold summary without a verify panic")
 }

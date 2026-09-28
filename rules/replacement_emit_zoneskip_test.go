@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/state"
@@ -43,4 +44,40 @@ func TestReplacementEmitWalkVisitsOnlyReplacementSources(t *testing.T) {
 	if len(visited) != 2 || visited[0] != repl || visited[1] != rplToken {
 		t.Fatalf("replacement walk visited %v, want hot objects [%d %d] in order (battlefield %d)", visited, repl, rplToken, len(bf)+1)
 	}
+}
+
+// TestReplacementSkipVerifyCatchesUnreferencedWrite proves the
+// replacement-zone-skip verifier is live in the rules test binary: a direct
+// in-place write no event names -- the one input the summary argument cannot
+// see -- must trip it rather than silently drop the newly-live replacement
+// from the walk.
+func TestReplacementSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
+	if !replZoneSkipVerify {
+		t.Fatal("precondition: replacement-zone skip verifier is disabled")
+	}
+	e := layerEngine(t)
+	cold := onBoard(t, e, 0, "Name:Vanilla\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
+	if objectReplHot(e.G.Obj(cold)) {
+		t.Fatal("precondition: vanilla object is not replacement-cold")
+	}
+	// Classify the battlefield summary with the object cold.
+	var seen []state.ObjID
+	e.forEachReplacementSource(func(id state.ObjID) { seen = append(seen, id) })
+	if len(seen) != 0 {
+		t.Fatalf("precondition: replacement walk = %v, want empty", seen)
+	}
+	// Directly give the already-classified object an R:-bearing copy face
+	// without emitting an event: the same bypass the trigger-walk verifier
+	// catches.
+	e.G.Obj(cold).CopyFace = card(t, "Name:Live\nTypes:Creature\nPT:1/1\n"+
+		"R:Event$ CreateToken | ActiveZones$ Battlefield | ReplaceWith$ None | Description$ live replacement\nOracle:x\n").Faces[0]
+	defer func() {
+		r := recover()
+		s, ok := r.(string)
+		if !ok || !strings.Contains(s, "replacement zone summary") {
+			t.Fatalf("verify did not flag the skipped live replacement: %v", r)
+		}
+	}()
+	e.forEachReplacementSource(func(state.ObjID) {})
+	t.Fatal("replacement skip served a stale cold summary without a verify panic")
 }

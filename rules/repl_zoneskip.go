@@ -73,41 +73,6 @@ func objectReplHot(o *state.Object) bool {
 	return false
 }
 
-// replacementFaceHot caches immutable per-face replacement interest. A face's
-// R: lines are catalog data and never mutate after parsing; live object changes
-// are handled by invalidating the containing zone on the event referent.
-func (e *Engine) replacementFaceHot(f *cards.Face) bool {
-	if f == nil {
-		return false
-	}
-	if e.replFaceHot == nil {
-		e.replFaceHot = make(map[*cards.Face]bool)
-	}
-	if hot, ok := e.replFaceHot[f]; ok {
-		return hot
-	}
-	hot := faceReplHot(f)
-	e.replFaceHot[f] = hot
-	return hot
-}
-
-func (e *Engine) replacementObjectHot(o *state.Object) bool {
-	if o == nil {
-		return false
-	}
-	if e.replacementFaceHot(o.CopyFace) {
-		return true
-	}
-	if o.Card != nil {
-		for _, f := range o.Card.Faces {
-			if e.replacementFaceHot(f) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func (e *Engine) replZoneTouch(id state.ObjID) {
 	o := e.G.Obj(id)
 	if o == nil || int(o.Zone) >= replZoneCount {
@@ -171,7 +136,7 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 		}
 		if appendOnly && creates == len(cur)-len(s.ids) {
 			for _, id := range cur[len(s.ids):] {
-				if e.replacementObjectHot(e.G.Obj(id)) {
+				if objectReplHot(e.G.Obj(id)) {
 					s.hotIDs = append(s.hotIDs, id)
 				}
 			}
@@ -192,7 +157,7 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 		hot = s.hotIDs
 	}
 	for _, id := range cur[from:] {
-		if e.replacementObjectHot(e.G.Obj(id)) {
+		if objectReplHot(e.G.Obj(id)) {
 			hot = append(hot, id)
 		}
 	}
