@@ -313,3 +313,117 @@ func TestArchetypeRetargetsRemovalToEngine(t *testing.T) {
 		t.Fatalf("engine opponent: removal aimed at %d, want the mana creature %d", o.Obj, elf.ID)
 	}
 }
+
+// TestArchetypeDoesNotOverextendIntoControl: with three bodies already on
+// the board against a control read, the arch arm holds the fourth where the
+// plain arm deploys it into a sweeper.
+func TestArchetypeDoesNotOverextendIntoControl(t *testing.T) {
+	f := newTacticalFixture(t)
+	f.v.Viewer = 0
+	f.v.Active, f.v.Turn, f.v.Step, f.v.Phase = 0, 9, "main1", "main1"
+	f.battlefield(0, "Grizzly Bears")
+	f.battlefield(0, "Grizzly Bears")
+	f.battlefield(0, "Grizzly Bears")
+	f.battlefield(0, "Forest")
+	f.battlefield(0, "Forest")
+	f.battlefield(0, "Forest")
+	f.battlefield(0, "Forest")
+	// Control evidence in the public graveyard: removal and counters, no
+	// creatures.
+	for i := 0; i < 3; i++ {
+		c := f.card("Journey to Nowhere", 1)
+		f.v.Players[1].Graveyard = append(f.v.Players[1].Graveyard, c)
+	}
+	for i := 0; i < 2; i++ {
+		c := f.card("Counterspell", 1)
+		f.v.Players[1].Graveyard = append(f.v.Players[1].Graveyard, c)
+	}
+	fourth := f.hand("Centaur Courser")
+	d := prio(opt(0, "pass", 0), opt(1, "cast", fourth.ID))
+
+	plain := f.seat()
+	arch := f.archSeat()
+	arch.tac.observeArch(f.v)
+	a := arch.tac.classify(1)
+	if !a.known || a.controlRisk < 0.3 {
+		t.Fatalf("precondition: controlRisk %.2f, known %v", a.controlRisk, a.known)
+	}
+	if o := f.chose(decide(t, plain, f.v, d), d); o.Kind != "cast" {
+		t.Fatalf("precondition: plain arm answered %q, want the cast", o.Kind)
+	}
+	if o := f.chose(decide(t, arch, f.v, d), d); o.Kind != "pass" {
+		t.Fatalf("control opponent: arch arm answered %q, want it to hold the fourth body", o.Kind)
+	}
+}
+
+// TestArchetypeBlocksIntoGoWide: against a go-wide opponent the arch arm
+// chumps a non-lethal attacker, keeping life, where the plain arm declines.
+func TestArchetypeBlocksIntoGoWide(t *testing.T) {
+	f := newTacticalFixture(t)
+	f.v.Viewer = 0
+	f.v.Active, f.v.Turn, f.v.Step, f.v.Phase = 1, 10, "declare-blockers", "combat"
+	f.v.Players[0].Life = 20
+	atk := f.battlefield(1, "Myr Enforcer") // the big attacker
+	f.v.Players[1].Battlefield[0].Attacking = true
+	// Go-wide evidence: small bodies plus a token maker in the graveyard.
+	for i := 0; i < 3; i++ {
+		f.battlefield(1, "Grizzly Bears")
+	}
+	fodder := f.card("Dragon Fodder", 1)
+	f.v.Players[1].Graveyard = append(f.v.Players[1].Graveyard, fodder)
+	blk := f.battlefield(0, "Grizzly Bears")
+	d := decision.Decision{Seq: 4, Player: 0, Kind: decision.KBlockers, Min: 0, Max: 1,
+		Options: []decision.Option{{Index: 0, Kind: "block", Obj: blk.ID, Attacker: atk.ID}}}
+
+	plain := f.seat()
+	arch := f.archSeat()
+	arch.tac.observeArch(f.v)
+	a := arch.tac.classify(1)
+	if !a.known || a.wideRisk < 0.3 {
+		t.Fatalf("precondition: wideRisk %.2f, known %v", a.wideRisk, a.known)
+	}
+	if in := decide(t, plain, f.v, d); len(in.Choices) != 0 {
+		t.Fatalf("precondition: plain arm already blocks %v", in.Choices)
+	}
+	if in := decide(t, arch, f.v, d); len(in.Choices) != 1 {
+		t.Fatalf("go-wide opponent: arch arm answered %v, want the chump", in.Choices)
+	}
+}
+
+// TestArchetypeValuesEvasiveRemoval: against a tempo/fliers read, removal is
+// pointed at the evasive threat over a bigger ground body.
+func TestArchetypeValuesEvasiveRemoval(t *testing.T) {
+	f := newTacticalFixture(t)
+	f.v.Viewer = 0
+	f.v.Active, f.v.Turn, f.v.Step, f.v.Phase = 0, 9, "main1", "main1"
+	flier := f.battlefield(1, "Faerie Miscreant") // 1/1 flying
+	bear := f.battlefield(1, "Grizzly Bears")     // 2/2 ground
+	// Tempo evidence in the public graveyard: a counter and an evasive body.
+	cs := f.card("Counterspell", 1)
+	f.v.Players[1].Graveyard = append(f.v.Players[1].Graveyard, cs)
+	ev := f.card("Faerie Miscreant", 1)
+	f.v.Players[1].Graveyard = append(f.v.Players[1].Graveyard, ev)
+
+	bolt := f.hand("Lightning Bolt")
+	three := 3
+	d := decision.Decision{Seq: 3, Player: 0, Kind: decision.KTarget, Min: 1, Max: 1, Source: bolt.ID,
+		TargetEffect: &decision.TargetEffect{API: "DealDamage", Damage: &decision.DamageEffect{Amount: &three}},
+		Options: []decision.Option{
+			{Index: 0, Kind: "card", Obj: bear.ID, Player: 1, Controller: 1},
+			{Index: 1, Kind: "card", Obj: flier.ID, Player: 1, Controller: 1},
+		}}
+
+	plain := f.seat()
+	arch := f.archSeat()
+	arch.tac.observeArch(f.v)
+	a := arch.tac.classify(1)
+	if !a.known || a.tempoRisk < 0.3 {
+		t.Fatalf("precondition: tempoRisk %.2f, known %v", a.tempoRisk, a.known)
+	}
+	if o := f.chose(decide(t, plain, f.v, d), d); o.Obj != bear.ID {
+		t.Fatalf("precondition: plain arm targets %d, want the bigger ground body %d", o.Obj, bear.ID)
+	}
+	if o := f.chose(decide(t, arch, f.v, d), d); o.Obj != flier.ID {
+		t.Fatalf("tempo opponent: removal aimed at %d, want the evasive threat %d", o.Obj, flier.ID)
+	}
+}

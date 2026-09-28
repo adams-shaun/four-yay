@@ -371,7 +371,7 @@ func (s *tstate) keyPiece(c *tcre) float64 {
 		k += s.w.KeyPiece
 	}
 	if c.flying && c.pow > 0 {
-		k += s.w.KeyPiece * 0.5
+		k += s.w.KeyPiece * (0.5 + s.arch.tempoRisk)
 	}
 	return k
 }

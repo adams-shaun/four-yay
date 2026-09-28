@@ -215,7 +215,7 @@ func (t *tactical) blockers(v view.View, d *decision.Decision) decision.Intent {
 	// chump earlier than the pure race rules would: spend our least valuable
 	// free blocker on the biggest unblocked attacker even when the hit is not
 	// lethal. Scaled by ArchBlock, which is 1.0 when the group is off.
-	if s.arch.burnThreat > 0.15 && t.w.ArchBlock > 1 && incoming() < s.myLife {
+	if (s.arch.burnThreat > 0.15 || s.arch.wideRisk > 0.3) && t.w.ArchBlock > 1 && incoming() < s.myLife {
 		as := append([]*tcre(nil), attackers...)
 		sortCre(as, func(x, y *tcre) bool { return x.pow > y.pow || (x.pow == y.pow && x.id < y.id) })
 		for _, a := range as {

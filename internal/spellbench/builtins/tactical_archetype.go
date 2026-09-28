@@ -585,7 +585,7 @@ func (t *tactical) archAdjustPriority(st *tstate, d *decision.Decision, cands []
 				continue
 			}
 			if p := t.profile(st.objs[obj]); p.creature {
-				scores[i] -= extra * 0.25 * scores[i]
+				scores[i] -= extra * 0.5 * scores[i]
 			}
 		}
 	}
