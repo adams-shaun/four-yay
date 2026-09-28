@@ -104,7 +104,7 @@ func (s *Server) PlayLocal(lg LocalGame, agents [2]*v2agent.Agent) (LocalResult,
 	for i := 0; i < 2; i++ {
 		msg := map[string]any{"request_type": "game_start", "protocol": v2agent.Protocol,
 			"request_id": fmt.Sprintf("gs-%d", i), "game_id": lg.GameID, "seat": fmt.Sprintf("p%d", i),
-			"format": Format,
+			"format":        Format,
 			"own_deck":      map[string]any{"deck_id": "sha256:own", "name": decks[i], "decklist": rows[i]},
 			"opponent_deck": map[string]any{"deck_id": "sha256:opp", "name": decks[1-i], "decklist": rows[1-i]},
 			"rules":         rulesMsg, "engine": hello["engine"], "engine_profile": profile,
