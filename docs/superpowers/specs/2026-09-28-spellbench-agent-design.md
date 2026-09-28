@@ -202,6 +202,10 @@ an unpriceable source, X costs, flashback), not proven-legal plays. The v2
 agent (`cmd/sbagent`) now answers every recoverable request instead of
 erroring (a host forfeit): policy failure, unknown or stale game, missing
 candidate ids, an echo that would not round-trip; `-stats` counts each.
+On the v2 harness (`sbv2_harness.py tournament --pairs 2`, 84 games against
+the python bots): 0 forfeits, 0 halts, empty agent stderr, twin parity 0
+mismatches over 60 replays; sbagent-heuristic scored 90.0% (16-4-0), ahead
+of the python heuristic at 82.5%.
 
 ## 4. (b) The shadow gorge state
 
