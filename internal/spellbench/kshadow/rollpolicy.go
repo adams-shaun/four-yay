@@ -16,6 +16,33 @@ import (
 // RollStats counts the rollout search's work.
 type RollStats struct {
 	Searched, Overrides, Rollouts, Failed int
+	// Proposals counts the arbiter's second opinions (sb-tactical picks
+	// mapped to a kernel candidate); Searched those that disagreed.
+	Proposals int
+}
+
+// clone copies the shadow onto an independent engine (the policy's own
+// lookahead must not disturb the root the rollouts start from).
+func (sh *Shadow) clone() *Shadow {
+	c := *sh
+	c.E = sh.E.Clone()
+	return &c
+}
+
+// tacticalPick is sb-tactical's answer on a copy of the shadow, as a
+// kernel candidate index.
+func (p *Policy) tacticalPick(sh *Shadow, d *v1agent.Decision) (int, bool) {
+	c := sh.clone()
+	in, err := p.tacticalAnswer(c)
+	if err != nil {
+		return 0, false
+	}
+	in, pd, err := throughMana(c, in, func() (decision.Intent, error) { return p.tacticalAnswer(c) })
+	if err != nil {
+		return 0, false
+	}
+	k, _ := kernelIndexPriority(c, d, pd, in)
+	return k, k >= 0
 }
 
 func (p *Policy) lookup() builtins.CardLookup {
@@ -53,11 +80,36 @@ func (p *Policy) rollPriority(sh *Shadow, d *v1agent.Decision, fbPick int) (int,
 	if acts[fbPick] == nil {
 		return 0, false, "roll: fallback pick not searchable"
 	}
-	var scores []float64
-	if t, ok := p.fb.(*v1agent.Tactical); ok {
-		scores = t.Scores(d)
+	if p.roll.Arbiter {
+		alt, ok := p.tacticalPick(sh, d)
+		if !ok || acts[alt] == nil {
+			return fbPick, true, ""
+		}
+		p.Roll.Proposals++
+		if alt == fbPick {
+			return fbPick, true, ""
+		}
+		idx = []int{fbPick, alt}
+		if p.roll.BaseTactical {
+			idx = []int{alt, fbPick}
+			base := 0
+			list := []*action{acts[alt], acts[fbPick]}
+			res := p.roll.evaluate(sh, list, p.decisionSeed(d), p.lookup())
+			p.rollStats(res)
+			best, summary := p.roll.choose(res, base)
+			if best != base {
+				p.Roll.Overrides++
+			}
+			p.lastRoll = summary
+			return idx[best], true, ""
+		}
+	} else {
+		var scores []float64
+		if t, ok := p.fb.(*v1agent.Tactical); ok {
+			scores = t.Scores(d)
+		}
+		idx = topK(idx, scores, p.roll.TopK, fbPick)
 	}
-	idx = topK(idx, scores, p.cfg.Roll.TopK, fbPick)
 	if len(idx) < 2 {
 		return fbPick, true, ""
 	}
@@ -69,9 +121,9 @@ func (p *Policy) rollPriority(sh *Shadow, d *v1agent.Decision, fbPick int) (int,
 			base = j
 		}
 	}
-	res := p.cfg.Roll.evaluate(sh, list, p.decisionSeed(d), p.lookup())
+	res := p.roll.evaluate(sh, list, p.decisionSeed(d), p.lookup())
 	p.rollStats(res)
-	best, summary := p.cfg.Roll.choose(res, base)
+	best, summary := p.roll.choose(res, base)
 	if best != base {
 		p.Roll.Overrides++
 	}
@@ -82,8 +134,8 @@ func (p *Policy) rollPriority(sh *Shadow, d *v1agent.Decision, fbPick int) (int,
 func (p *Policy) rollStats(res []rollResult) {
 	p.Roll.Searched++
 	for _, r := range res {
-		p.Roll.Rollouts += p.cfg.Roll.Worlds
-		p.Roll.Failed += p.cfg.Roll.Worlds - r.n
+		p.Roll.Rollouts += p.roll.Worlds
+		p.Roll.Failed += p.roll.Worlds - r.n
 	}
 }
 
@@ -125,8 +177,10 @@ func (p *Policy) rollCombat(sh *Shadow, d *v1agent.Decision) (decision.Intent, e
 			}
 		}
 		add(tac)
-		add(nil)
-		add(all)
+		if !p.roll.Arbiter {
+			add(nil)
+			add(all)
+		}
 	} else {
 		kind = "blockers"
 		var tac []int
@@ -144,16 +198,28 @@ func (p *Policy) rollCombat(sh *Shadow, d *v1agent.Decision) (decision.Intent, e
 			}
 		}
 		add(tac)
-		add(nil)
+		if !p.roll.Arbiter {
+			add(nil)
+		}
 	}
 	// The gorge bot's and sb-tactical's declarations.
-	brd := botpolicy.NewBoard(2)
-	b := botpolicy.BoardFromGameInto(sh.E.G, sh.E, sh.Me, &brd)
-	if in, err := seat.NewBot(p.decisionSeed(d)^0xc0b).DecideBoard(context.Background(), b, *pd); err == nil {
-		add(in.Choices)
+	if !p.roll.Arbiter {
+		brd := botpolicy.NewBoard(2)
+		b := botpolicy.BoardFromGameInto(sh.E.G, sh.E, sh.Me, &brd)
+		if in, err := seat.NewBot(p.decisionSeed(d)^0xc0b).DecideBoard(context.Background(), b, *pd); err == nil {
+			add(in.Choices)
+		}
 	}
-	if in, err := p.tacticalAnswer(sh); err == nil && in.Payment == nil {
+	stBase := 0
+	if in, err := p.tacticalAnswer(sh.clone()); err == nil && in.Payment == nil {
 		add(in.Choices)
+		ch := append([]int(nil), in.Choices...)
+		sort.Ints(ch)
+		for i, q := range plans {
+			if equalInts(q, ch) {
+				stBase = i
+			}
+		}
 	}
 	acts := make([]*action, len(plans))
 	for i, pl := range plans {
@@ -162,14 +228,18 @@ func (p *Policy) rollCombat(sh *Shadow, d *v1agent.Decision) (decision.Intent, e
 	if len(acts) < 2 {
 		return decision.Intent{Seq: pd.Seq, Player: pd.Player, Choices: plans[0]}, nil
 	}
-	res := p.cfg.Roll.evaluate(sh, acts, p.decisionSeed(d), p.lookup())
+	res := p.roll.evaluate(sh, acts, p.decisionSeed(d), p.lookup())
 	p.rollStats(res)
-	best, summary := p.cfg.Roll.choose(res, 0)
-	if best != 0 {
+	base := 0
+	if p.roll.BaseTactical {
+		base = stBase
+	}
+	best, summary := p.roll.choose(res, base)
+	if best != base {
 		p.Roll.Overrides++
 	}
 	p.lastRoll = summary
-	if res[0].n*2 < p.cfg.Roll.Worlds && best == 0 {
+	if res[base].n*2 < p.roll.Worlds && best == base {
 		return decision.Intent{}, fmt.Errorf("roll: every declaration failed")
 	}
 	return decision.Intent{Seq: pd.Seq, Player: pd.Player, Choices: plans[best]}, nil

@@ -29,6 +29,13 @@ type RollConfig struct {
 	Margin   float64 // mean-value gain needed to override the fallback
 	TopK     int     // priority candidates kept, by the fallback's scores
 	Rollout  string  // "bot" (gorge bot, autopay) or "tactical" (sb-tactical)
+	// Arbiter restricts the candidates to v1agent.Tactical's pick and
+	// sb-tactical's (on the shadow): the search only arbitrates between
+	// the two policies where they disagree.
+	Arbiter bool
+	// BaseTactical makes sb-tactical's pick the default the search must
+	// beat (arbiter only), instead of v1agent.Tactical's.
+	BaseTactical bool
 }
 
 // DefaultRoll is the starting budget.

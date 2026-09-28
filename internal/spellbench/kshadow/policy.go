@@ -32,10 +32,21 @@ const (
 	// ModeAZTac is ModeAZ with v1agent.Tactical's own (kernel-native)
 	// answer, mapped into the shadow, as candidate 0.
 	ModeAZTac = "aztac"
+	// ModeKernel answers every decision with the fallback
+	// (v1agent.Tactical) itself: a routing target, not a shadow.
+	ModeKernel = "kernel"
+	// ModeRoute picks one of the other modes per game by our deck
+	// (Config.Route): the routed collection of spec D§8.
+	ModeRoute = "route"
 	// ModeRoll is the rollout search (RollConfig) over the kernel's own
 	// candidates, v1agent.Tactical's pick as the default that the search
 	// overrides only past a margin.
 	ModeRoll = "roll"
+	// ModeArb and ModeArbST are ModeRoll as an arbiter (RollConfig.Arbiter)
+	// with v1agent.Tactical's, respectively sb-tactical's, pick as the
+	// default (routing targets).
+	ModeArb   = "arb"
+	ModeArbST = "arbst"
 )
 
 // Config configures a Policy.
@@ -56,6 +67,9 @@ type Config struct {
 	Fallback v1agent.Policy
 	// Roll is ModeRoll's budget.
 	Roll RollConfig
+	// Route maps our deck's catalog id to the mode it plays (ModeRoute);
+	// the key "default" covers every other deck.
+	Route map[string]string
 }
 
 // Stats counts every decision by class and by who answered it; nothing is
@@ -73,6 +87,8 @@ type Stats struct {
 	// Build/decide wall time is measured by the caller (the agent binary);
 	// here only counts.
 	Panics int
+	// Refusals counts gorge plays the kernel did not offer (re-asked).
+	Refusals int
 }
 
 func newStats() Stats {
@@ -90,7 +106,9 @@ func (s *Stats) answered(class, src string) {
 
 // Policy is the kernel-shadow v1 policy.
 type Policy struct {
-	cfg   Config
+	cfg Config
+	// mode is this game's mode (Config.Mode, or the route of our deck).
+	mode  string
 	fb    v1agent.Policy
 	setup *Setup
 	seat  string
@@ -109,6 +127,7 @@ type Policy struct {
 	assigned    map[uint32]state.ObjID
 	Stats       Stats
 	Roll        RollStats
+	roll        RollConfig
 	AZ          AZStats
 	look        builtins.CardLookup
 	lastRoll    string
@@ -119,7 +138,15 @@ type Policy struct {
 // New builds a Policy.
 func New(cfg Config) (*Policy, error) {
 	switch cfg.Mode {
-	case ModeTactical, ModeAZ, ModeAZTac, ModeRoll:
+	case ModeTactical, ModeAZ, ModeAZTac, ModeRoll, ModeKernel, ModeArb, ModeArbST:
+	case ModeRoute:
+		for deck, m := range cfg.Route {
+			switch m {
+			case ModeTactical, ModeAZ, ModeAZTac, ModeRoll, ModeKernel, ModeArb, ModeArbST:
+			default:
+				return nil, fmt.Errorf("kshadow: route %s: unknown mode %q", deck, m)
+			}
+		}
 	default:
 		return nil, fmt.Errorf("kshadow: unknown mode %q", cfg.Mode)
 	}
@@ -144,6 +171,27 @@ func (p *Policy) GameStart(g *v1agent.GameStart) {
 	p.fb.GameStart(g)
 	p.seat, p.game = g.Seat, g.GameID
 	p.me = seatID(g.Seat)
+	p.mode = p.cfg.Mode
+	if p.mode == ModeRoute {
+		deck := ""
+		if i := int(p.me); i < len(g.CatalogIDs) {
+			deck = g.CatalogIDs[i]
+		}
+		m, ok := p.cfg.Route[deck]
+		if !ok {
+			m = p.cfg.Route["default"]
+		}
+		if m == "" {
+			m = ModeKernel
+		}
+		p.mode = m
+	}
+	p.roll = p.cfg.Roll
+	switch p.mode {
+	case ModeArb, ModeArbST:
+		p.roll.Arbiter, p.roll.BaseTactical = true, p.mode == ModeArbST
+		p.mode = ModeRoll
+	}
 	p.plan, p.attackPlan, p.blockPlan = nil, nil, nil
 	p.attackGroup, p.blockGroup = -1, -1
 	p.seq = 0
@@ -196,6 +244,10 @@ func (p *Policy) Choose(d *v1agent.Decision) (pick int) {
 		p.trace(d, class, src, why, pick, fbPick)
 	}()
 	pick = fbPick
+	if p.mode == ModeKernel {
+		src = "kernel"
+		return
+	}
 	if len(d.Candidates) == 1 {
 		why = "single candidate"
 		return
@@ -348,12 +400,12 @@ func (p *Policy) priority(d *v1agent.Decision, fbPick int) (int, bool, string) {
 	if pd.Kind != decision.KPriority {
 		return 0, false, "staged kind " + string(pd.Kind)
 	}
-	if p.cfg.Mode == ModeRoll {
+	if p.mode == ModeRoll {
 		return p.rollPriority(sh, d, fbPick)
 	}
 	var in decision.Intent
 	var err error
-	switch p.cfg.Mode {
+	switch p.mode {
 	case ModeTactical:
 		in, err = p.tacticalAnswer(sh)
 		if err == nil {
@@ -367,6 +419,17 @@ func (p *Policy) priority(d *v1agent.Decision, fbPick int) (int, bool, string) {
 		return 0, false, "policy: " + err.Error()
 	}
 	k, why := kernelIndexPriority(sh, d, pd, in)
+	// A play the kernel does not offer (its mana or timing rules differ):
+	// sb-tactical is told the play was refused and chooses again.
+	for tries := 0; k < 0 && p.mode == ModeTactical && tries < 4 && pd.Kind == decision.KPriority; tries++ {
+		p.Stats.Refusals++
+		in = p.gs.Refused(gorgeView(sh, pd), *pd, in)
+		in, pd, err = throughMana(sh, in, func() (decision.Intent, error) { return p.tacticalAnswer(sh) })
+		if err != nil {
+			return 0, false, "policy: " + err.Error()
+		}
+		k, why = kernelIndexPriority(sh, d, pd, in)
+	}
 	if k < 0 {
 		return 0, false, "unmapped: " + why
 	}
@@ -547,7 +610,7 @@ func (p *Policy) makePlan(sh *Shadow, pd *decision.Decision, in decision.Intent,
 			}
 			var ans decision.Intent
 			var err error
-			if p.cfg.Mode == ModeTactical {
+			if p.mode == ModeTactical {
 				ans, err = p.tacticalAnswer(sh)
 			} else {
 				b := botpolicy.BoardFromGameInto(e.G, e, sh.Me, &brd)
@@ -757,7 +820,7 @@ func (p *Policy) block(d *v1agent.Decision) (int, bool, string) {
 // combatAnswer is the combat declaration: sb-tactical, the search, or the
 // rollout search over candidate declarations.
 func (p *Policy) combatAnswer(sh *Shadow, d *v1agent.Decision) (decision.Intent, error) {
-	switch p.cfg.Mode {
+	switch p.mode {
 	case ModeTactical:
 		return p.tacticalAnswer(sh)
 	case ModeRoll:
@@ -785,7 +848,7 @@ func (p *Policy) search(sh *Shadow, d *v1agent.Decision, fbPick int) (decision.I
 	if err != nil {
 		return decision.Intent{}, err
 	}
-	if p.cfg.Mode == ModeAZTac && fbPick >= 0 && pd.Kind == decision.KPriority {
+	if p.mode == ModeAZTac && fbPick >= 0 && pd.Kind == decision.KPriority {
 		if in, ok := gorgeIntentFor(sh, d, pd, fbPick); ok {
 			botIn = in
 		}
@@ -846,10 +909,10 @@ func gorgeIntentFor(sh *Shadow, d *v1agent.Decision, pd *decision.Decision, k in
 // Summary renders the stats as one JSON object (the -stats line).
 func (p *Policy) Summary() map[string]any {
 	return map[string]any{
-		"shadow_decisions": p.Stats.Decisions, "answered": p.Stats.Answered, "fallback_reasons": p.Stats.Reasons,
-		"agree_with_fallback": p.Stats.Agree, "panics": p.Stats.Panics,
+		"shadow_decisions": p.Stats.Decisions, "mode": p.mode, "arbiter": p.roll.Arbiter, "base_tactical": p.roll.BaseTactical, "answered": p.Stats.Answered, "fallback_reasons": p.Stats.Reasons,
+		"agree_with_fallback": p.Stats.Agree, "panics": p.Stats.Panics, "refusals": p.Stats.Refusals,
 		"roll_searched": p.Roll.Searched, "roll_overrides": p.Roll.Overrides,
-		"roll_rollouts": p.Roll.Rollouts, "roll_failed": p.Roll.Failed,
+		"roll_rollouts": p.Roll.Rollouts, "roll_failed": p.Roll.Failed, "roll_proposals": p.Roll.Proposals,
 		"az_decisions": p.AZ.Decisions, "az_searched": p.AZ.Searched, "az_overrides": p.AZ.Overrides,
 	}
 }

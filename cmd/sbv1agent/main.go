@@ -63,6 +63,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	rollM := fs.Float64("roll-margin", -1, "shadow-roll: override margin (-1: default)")
 	rollK := fs.Int("roll-topk", 0, "shadow-roll: priority candidates kept (0: default)")
 	rollP := fs.String("roll-policy", "", "shadow-roll: rollout policy bot|tactical (default bot)")
+	rollArb := fs.Bool("roll-arbiter", false, "shadow-roll: search only v1agent.Tactical's pick against sb-tactical's, where they disagree")
+	route := fs.String("route", "", "shadow-route: DECK=MODE/.../default=MODE (, or / separated) (modes: kernel, tactical, roll, az, aztac)")
 	kinds := fs.String("kinds", "priority,attackers,blockers,target", "shadow-az*: searched decision kinds")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -111,7 +113,19 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if *rollP != "" {
 			roll.Rollout = *rollP
 		}
+		roll.Arbiter = *rollArb
 		cfg := kshadow.Config{Reg: reg, Mode: mode, Sims: *sims, Worlds: *worlds, Kinds: k, Seed: *seed, Roll: roll}
+		if *route != "" {
+			cfg.Route = map[string]string{}
+			for _, kv := range strings.FieldsFunc(*route, func(r rune) bool { return r == ',' || r == '/' }) {
+				deck, m, ok := strings.Cut(kv, "=")
+				if !ok {
+					fmt.Fprintf(stderr, "sbv1agent: bad -route entry %q\n", kv)
+					return 2
+				}
+				cfg.Route[deck] = m
+			}
+		}
 		if topts.Trace != nil {
 			cfg.Trace = topts.Trace
 		}

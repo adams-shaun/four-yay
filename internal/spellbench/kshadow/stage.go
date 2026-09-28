@@ -569,7 +569,7 @@ func (b *builder) stageTargets(id state.ObjID, it *v1agent.KStackItem) {
 
 func (b *builder) stageCombat() {
 	c := &b.p.Combat
-	if !c.AttackersDeclared || len(c.Attackers) == 0 {
+	if !c.AttackersDeclared {
 		return
 	}
 	st := b.g.Step

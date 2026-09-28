@@ -43,6 +43,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	noPumps := fs.Bool("nopumps", false, "do not stage unexplained P/T and keyword deltas")
 	dump := fs.Int("dump", 0, "print the first N decisions' candidates and staged options")
 	limit := fs.Int("limit", 0, "stop after N decisions (0: all)")
+	dumpFatal := fs.String("dump-fatal", "", "print the observation summary of decisions whose fatal staging reason contains this")
 	dumpUnmapped := fs.String("dump-unmapped", "", "dump decisions whose unmapped candidates contain this substring (with -dump N as the cap)")
 	savePool := fs.String("save-pool", "", "write the pool registry (pauper-kernel catalog cards + tokens) to this .gob.gz and exit")
 	if err := fs.Parse(args); err != nil {
@@ -145,6 +146,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 			cov.Add(class, m)
 			if sh.Fatal != "" {
 				fatal[class+": "+sh.Fatal]++
+				if *dumpFatal != "" && strings.Contains(sh.Fatal, *dumpFatal) && dumped < *dump {
+					dumped++
+					p := d.Kernel.Obs.Projection
+					fmt.Fprintf(stdout, "FATAL %s step %d seat %s: %s | turn %d phase %s active %s prio %s combat declared=%v/%v attackers=%d stack=%d cands:", game, r.Step, r.Seat, sh.Fatal,
+						p.Turn, p.Phase, p.ActivePlayer, p.PriorityPlayer, p.Combat.AttackersDeclared, p.Combat.BlockersDeclared, len(p.Combat.Attackers), len(p.Stack))
+					for _, c := range d.Candidates {
+						fmt.Fprintf(stdout, " %s", c.Kind())
+					}
+					fmt.Fprintln(stdout)
+				}
 			}
 			for _, k := range m.UnmappedKinds {
 				unmapped[class+": "+k]++
