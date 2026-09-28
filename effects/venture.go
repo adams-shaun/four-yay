@@ -44,11 +44,12 @@ func init() { Register("Venture", effVenture) }
 // the dungeon and marker, slice 1) updates publicly.
 //
 // CR 701.49c (venturing FROM the bottommost room completes the dungeon and
-// begins a new one) is the dungeon chain's slice 3, together with the room
-// abilities that trigger on entering a room; until it lands this primitive
-// says so with one loud Note and does nothing, rather than silently moving
-// nothing (the same loud-degradation contract AddPhase's unresolvable phase
-// values take).
+// begins a new one) is implemented below with the dungeon chain's slice 3:
+// the marker's room move is one DungeonRoom event, whose checkDungeonRoom-
+// Triggers walk (rules) queues that room's ability, and venturing from a
+// room with no NextRoom$ arrows completes the dungeon (DungeonComplete +
+// DungeonRemove) and then begins a new one through the ordinary CR 701.49a/d
+// choice path.
 //
 // Players: actingPlayers -- the shared "Defined$ else ValidTgts$-targeted
 // else the resolving controller" selector. All 37 carriers are single-player
@@ -101,6 +102,7 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 // ventureAdvance moves p's marker one room (CR 701.49b). It reports whether
 // the walk suspended (an ask was posted) so the caller can return.
 func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, id state.ObjID) bool {
+	quality := strings.TrimSpace(sa.Params["Dungeon"])
 	dungeon := g.Obj(id)
 	if dungeon == nil || dungeon.Face() == nil {
 		return false
@@ -118,16 +120,19 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: rooms[0]})
 		return false
 	}
-	nexts := ventureNextRooms(dungeon.Face(), room)
+	nexts := DungeonNextRooms(dungeon.Face(), room)
 	switch {
 	case len(nexts) == 0:
 		// CR 701.49c: the marker is on the bottommost room; venturing from it
-		// completes the dungeon and begins a new one. Dungeon completion is
-		// the dungeon chain's slice 3 (with the room abilities that trigger
-		// on entering a room); say so loudly and move nothing.
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "Venture: " + dungeon.Face().Name + "'s marker is on its bottommost room (" + room + "); dungeon completion is not yet implemented"})
-		return false
+		// completes the dungeon and begins a new one. The completion is two
+		// explicit transitions (the count increment, then the token leaves the
+		// command zone), and the new dungeon enters through the ordinary
+		// CR 701.49a/d choice path -- which may ask (the ask rides the walk's
+		// cursor) and whose DungeonCreate + DungeonRoom(top) events queue the
+		// new top room's ability exactly like any other marker entry.
+		h.Emit(events.Event{Kind: events.DungeonComplete, Player: p, Obj: id})
+		h.Emit(events.Event{Kind: events.DungeonRemove, Player: p, Obj: id})
+		return ventureChoose(h, g, c, sa, p, i, quality)
 	case len(nexts) == 1:
 		h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: nexts[0]})
 		return false
@@ -137,7 +142,7 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		Prompt: "Choose the next room"}
 	for j, nk := range nexts {
 		d.Options = append(d.Options, decision.Option{Index: j, Kind: "room",
-			Label: ventureRoomLabel(dungeon.Face(), nk), Key: nk, Player: p})
+			Label: DungeonRoomLabel(dungeon.Face(), nk), Key: nk, Player: p})
 	}
 	switch Ask(h, d) {
 	case AskAsked:
@@ -147,7 +152,7 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		// R-9 (AskNoHost; AskEmpty cannot happen over non-empty options):
 		// follow the first printed arrow, loudly.
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "Venture: room choice degraded to " + ventureRoomLabel(dungeon.Face(), nexts[0]) + " (no engine host to ask)"})
+			Text: "Venture: room choice degraded to " + DungeonRoomLabel(dungeon.Face(), nexts[0]) + " (no engine host to ask)"})
 		h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: nexts[0]})
 		return false
 	}
@@ -278,12 +283,16 @@ func dungeonRooms(f *cards.Face) []string {
 	return out
 }
 
-// ventureNextRooms reads the room's printed NextRoom$ arrows, in script
+// DungeonNextRooms reads the room's printed NextRoom$ arrows, in script
 // order. Every non-bottommost room of every dungeon script carries at least
-// one arrow, so an empty answer means the marker has nowhere to go -- the
-// bottommost room (whose venture is CR 701.49c, slice 3), or a room key the
-// script does not resolve. Both fail closed to the same loud no-move Note.
-func ventureNextRooms(f *cards.Face, room string) []string {
+// one arrow, so an empty answer means the marker has nowhere to go: the
+// bottommost room -- whose venture completes the dungeon (CR 701.49c) and
+// whose RESIDENCE, once its ability has left the stack, is CR 704.5t's
+// completion state-based action (rules/dungeon_room.go) -- or a room key the
+// script does not resolve, which fails closed to the loud no-move Note.
+// Exported for the rules side's CR 704.5t completion check, which reads the
+// same printed arrows.
+func DungeonNextRooms(f *cards.Face, room string) []string {
 	sa := cards.ResolveSVar(f.SVars, room)
 	if sa == nil {
 		return nil
@@ -297,10 +306,11 @@ func ventureNextRooms(f *cards.Face, room string) []string {
 	return out
 }
 
-// ventureRoomLabel resolves a room key to its printed RoomName$, the same
+// DungeonRoomLabel resolves a room key to its printed RoomName$, the same
 // fallback view's dungeon projection takes: a missing or malformed
-// RoomName$ falls back to the key rather than hiding the marker.
-func ventureRoomLabel(f *cards.Face, room string) string {
+// RoomName$ falls back to the key rather than hiding the marker. Exported
+// for rules' queue label of the room ability that just triggered.
+func DungeonRoomLabel(f *cards.Face, room string) string {
 	sa := cards.ResolveSVar(f.SVars, room)
 	if sa == nil {
 		return room
