@@ -321,6 +321,64 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"sb-heuristic-planned": func(seed uint64) seat.Seat {
 		return builtins.New(builtins.Heuristic, builtins.Planned, seed)
 	},
+	// sb-tactical is the scored seat-visible heuristic (internal/spellbench/
+	// builtins/tactical.go) on the auto-pay surface; -planned plays the
+	// manual surface through payexec. The -no<group> arms switch one of
+	// its three idea groups off (the ablation), and sb-tactical-alt plays
+	// -spellbench-tactical-alt-weights (weight tuning A/B). Card names
+	// resolve through the corpus registry the run opened (tacticalLookup).
+	"sb-tactical": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights)
+	},
+	"sb-tactical-planned": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.Planned, seed, tacticalLookup, tacticalWeights)
+	},
+	"sb-tactical-noearly": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.EarlyGame = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-notiming": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.Timing = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-norace": func(seed uint64) seat.Seat {
+		w := tacticalWeights
+		w.Race = false
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, w)
+	},
+	"sb-tactical-alt": func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[0])
+	},
+	"sb-tactical-alt2": tacticalAlt(1), "sb-tactical-alt3": tacticalAlt(2), "sb-tactical-alt4": tacticalAlt(3),
+	"sb-tactical-alt5": tacticalAlt(4), "sb-tactical-alt6": tacticalAlt(5), "sb-tactical-alt7": tacticalAlt(6),
+	"sb-tactical-alt8": tacticalAlt(7),
+}
+
+func tacticalAlt(i int) func(seed uint64) seat.Seat {
+	return func(seed uint64) seat.Seat {
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalAltWeights[i])
+	}
+}
+
+// tacticalLookup resolves card names for the sb-tactical arms; set once from
+// the run's corpus registry (setTacticalRegistry) before any game starts and
+// read-only afterwards. tacticalWeights / tacticalAltWeights are the arms'
+// weights: the defaults unless -spellbench-tactical-weights /
+// -spellbench-tactical-alt-weights name a JSON file.
+var (
+	tacticalLookup     builtins.CardLookup
+	tacticalWeights    = builtins.DefaultTacticalWeights()
+	tacticalAltWeights = [8]builtins.TacticalWeights{builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
+		builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights()}
+)
+
+func setTacticalRegistry(reg *cards.Registry) {
+	if tacticalLookup == nil {
+		tacticalLookup = builtins.NewRegistryLookup(reg)
+	}
 }
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
@@ -1900,6 +1958,7 @@ func runMatrixTraced(baseSeed uint64, games, seats int, aName, bName, dir, forma
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
 	}
+	setTacticalRegistry(reg)
 
 	// Resolve each distinct deck once; pairs share decks so one deck list
 	// maps to many pairs. The map is only looked up by key during play --
@@ -2132,6 +2191,7 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
 	}
+	setTacticalRegistry(reg)
 
 	// Decks are tied to seats for the whole run (seat 0 always holds the
 	// first deck of the pool), and seats trade policies every game, so each

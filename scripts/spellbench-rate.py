@@ -38,11 +38,19 @@ _TAGS = {
     "sb-heuristic-manual": ("heuristic",),
     "sb-uniform-planned": ("baseline",),
     "sb-heuristic-planned": ("heuristic",),
+    "sb-tactical": ("heuristic",),
+    "sb-tactical-planned": ("heuristic",),
+    "sb-tactical-noearly": ("heuristic",),
+    "sb-tactical-notiming": ("heuristic",),
+    "sb-tactical-norace": ("heuristic",),
+    "sb-tactical-alt": ("heuristic",),
     "bot": ("heuristic",),
 }
 
 
 def _tags(name: str) -> tuple[str, ...]:
+    if name.startswith("sb-tactical"):
+        return ("heuristic",)
     if name.startswith("az-"):
         return ("search",)
     return _TAGS.get(name, ())

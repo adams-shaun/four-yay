@@ -150,6 +150,9 @@ const (
 	Heuristic
 	// First always answers the first candidate.
 	First
+	// Tactical is sb-tactical, the scored seat-visible heuristic
+	// (tactical.go); construct it with NewTactical.
+	Tactical
 )
 
 func (p Policy) String() string {
@@ -160,6 +163,8 @@ func (p Policy) String() string {
 		return "heuristic"
 	case First:
 		return "first"
+	case Tactical:
+		return "tactical"
 	}
 	return "unknown"
 }
@@ -251,6 +256,9 @@ type Seat struct {
 	// exec is the plan lowering in progress (Planned), nil when none.
 	exec *payexec.Execution
 
+	// tac is the Tactical policy's state, nil for the SpellBench ports.
+	tac *tactical
+
 	Stats Stats
 }
 
@@ -314,6 +322,9 @@ func (s *Seat) sync(v view.View) {
 }
 
 func (s *Seat) decide(v view.View, d *decision.Decision) decision.Intent {
+	if s.tac != nil {
+		return s.tac.decide(s, v, d)
+	}
 	switch d.Kind {
 	case decision.KPriority:
 		return s.priority(v, d, 0)
