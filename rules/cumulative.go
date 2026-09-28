@@ -1143,6 +1143,23 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 	// settle walk itself reserves the same way through tc's component lists.
 	reserved := map[state.ObjID]bool{}
 	for i, part := range parts {
+		if triggeredPartIsExile(amt, i) && isWholeZoneExileSpec(part.Spec) {
+			// The Exile-All shape (ExileFromHand<1/All>, Herigast's "exile your
+			// hand") pays the WHOLE zone: every still-available candidate is the
+			// payment, and the token's count is satisfied when the zone holds at
+			// least that many (the corpus writes 1). Unlike the whole-hand
+			// reveal this is NOT payable empty -- a hand shorter than part.N
+			// cannot pay -- and the same reservation the whole-hand discard arm
+			// uses keeps two parts over one shared zone mutually payable.
+			cands := e.triggeredMandatoryCandidatesWith(tc, i, part, reserved)
+			if int32(len(cands)) < part.N {
+				return false
+			}
+			for _, id := range cands {
+				reserved[id] = true
+			}
+			continue
+		}
 		if triggeredPartIsDiscard(amt, i) && strings.EqualFold(part.Spec, "Hand") {
 			// The Hand shape pays the whole hand: every card the hand still
 			// holds is reserved and the token's count is satisfied whenever
@@ -1603,6 +1620,13 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 		// NICKNAME is the same bare self-reference as CARDNAME.
 		spec = sacrificeMatchSpec(spec)
 	}
+	// The Exile-All shape names the WHOLE zone rather than a card filter
+	// (ExileFromHand<1/All>, Herigast's "exile your hand"): every card the
+	// zone still holds is a candidate, so the spec is never consulted. This
+	// is the one home for candidate collection -- the offer gate and the
+	// settle walk both read it -- so the whole-zone reading cannot diverge
+	// between them.
+	wholeZone := !isSac && !triggeredPartIsDiscard(tc.amount, idx) && isWholeZoneExileSpec(spec)
 	// exg1: the window's trigger context rides the spec evaluation, so a
 	// cost spec naming a trigger referent (Card.TriggeredNewCard -- the
 	// "you may exile it" family) resolves the card the triggering event
@@ -1619,7 +1643,7 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 			// so the cause is costCauseTriggered (cantsac1 r2).
 			continue
 		}
-		if e.matchesSpec(spec, id, sc) {
+		if wholeZone || e.matchesSpec(spec, id, sc) {
 			out = append(out, id)
 		}
 	}
@@ -1631,6 +1655,13 @@ func (e *Engine) triggeredMandatoryCandidatesWith(tc *triggeredEffectCost, idx i
 // range, after Sac and Exile).
 func triggeredPartIsDiscard(c Cost, idx int) bool {
 	return idx >= len(c.Sac)+len(c.Exile)+len(c.MoveToGrave)
+}
+
+// triggeredPartIsExile reports whether the component at flat index idx of
+// c's triggeredMandatoryParts list is an Exile part (the list's second
+// range, after Sac and before MoveToGrave).
+func triggeredPartIsExile(c Cost, idx int) bool {
+	return idx >= len(c.Sac) && idx < len(c.Sac)+len(c.Exile)
 }
 
 // triggeredPartIsMoveToGrave reports whether the component at flat index idx
@@ -1671,6 +1702,16 @@ func (e *Engine) advanceTriggeredMandatory(tc *triggeredEffectCost) {
 		isSac := tc.part < len(tc.amount.Sac)
 		isDiscard := triggeredPartIsDiscard(tc.amount, tc.part)
 		eligible := e.triggeredMandatoryCandidates(tc, tc.part, part)
+		if triggeredPartIsExile(tc.amount, tc.part) && isWholeZoneExileSpec(part.Spec) {
+			// Forge's "exile your whole zone" shape (ExileFromHand<1/All>):
+			// every available card in the part's zone pays, whatever count the
+			// token spells (the corpus writes the ignored count as 1). The
+			// offer gate already refused the window when fewer than part.N
+			// candidates existed, so eligible is the whole zone here.
+			tc.recordMandatoryPick(tc.part, eligible)
+			tc.part++
+			continue
+		}
 		if isDiscard && strings.EqualFold(part.Spec, "Hand") {
 			// Forge's "discard your hand" shape: every hand card pays,
 			// whatever count the token spells (the corpus writes the ignored

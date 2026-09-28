@@ -1583,6 +1583,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			zone = state.ZHand
 		}
 		selfInZone := !ability && castObj != nil && castObj.Zone == zone
+		wholeZone := isWholeZoneExileSpec(part.Spec)
 		var avail []state.ObjID
 		for _, oid := range e.G.Zone(zone, p) {
 			if reserved[oid] || (selfInZone && oid == id) {
@@ -1598,12 +1599,23 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(ability)) {
 				continue
 			}
-			if e.matchesSpecFrom(part.Spec, oid, p, id) {
+			if wholeZone || e.matchesSpecFrom(part.Spec, oid, p, id) {
 				avail = append(avail, oid)
 			}
 		}
 		if int32(len(avail)) < part.N {
 			return false
+		}
+		if wholeZone {
+			// ExileFromHand<1/All> names the WHOLE zone, not a filter (the
+			// same isWholeZoneExileSpec reading the triggered window's arm
+			// takes): every still-available card pays, so reserve every
+			// candidate, not just part.N. No cast/activation corpus carrier
+			// exists today; the wiring keeps the two paths from diverging.
+			for _, oid := range avail {
+				reserved[oid] = true
+			}
+			continue
 		}
 		for i := int32(0); i < part.N; i++ {
 			reserved[avail[i]] = true
@@ -4070,8 +4082,9 @@ func (e *Engine) exAsk() bool {
 			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(pc.isAbility())) {
 				continue
 			}
-			match := e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card)
-			if sc != nil {
+			wholeZone := isWholeZoneExileSpec(part.Spec)
+			match := wholeZone || e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card)
+			if sc != nil && !wholeZone {
 				match = e.matchesSpec(part.Spec, oid, *sc)
 			}
 			if match {
@@ -4100,6 +4113,16 @@ func (e *Engine) exAsk() bool {
 			return true
 		}
 		if n == 0 {
+			pc.exilePart++
+			continue
+		}
+		if isWholeZoneExileSpec(part.Spec) {
+			// ExileFromHand<1/All> pays the WHOLE zone and never asks: every
+			// candidate is the payment (the isWholeZoneExileSpec reading the
+			// triggered window's arm takes). The count check above still
+			// demands part.N cards. No cast/activation corpus carrier exists
+			// today; the wiring keeps the paths from diverging.
+			pc.exiles = append(pc.exiles, candidates...)
 			pc.exilePart++
 			continue
 		}
