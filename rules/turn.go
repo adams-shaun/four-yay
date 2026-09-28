@@ -929,6 +929,29 @@ func (e *Engine) askPriority(p state.PlayerID) {
 	e.ask(d)
 }
 
+// finishEndTurn applies CR 723.1d/e after the EndTurn event has removed the
+// entire stack. The skipped steps/phases are never entered, so their
+// beginning-of-step triggers are never queued and the end step's own StepChange
+// never appears. Cleanup is entered through the ordinary step machinery, so
+// CR 514.1/514.2 (discard to hand size, damage wears off, "until end of turn"
+// effects end) and the CR 514.3a repeat run exactly as for a normal turn.
+//
+// The combat bookkeeping the engine holds OUTSIDE the event fold (the blocker
+// round's per-defender cursor and the combat-damage pass' deferred-tail flags)
+// is cleared here too: CR 723.1c removes every creature from combat, and the
+// turn never passes through the end-of-combat step whose ordinary boundary
+// reset (finishStepBoundary) would otherwise clear it, so a turn ended in the
+// middle of a split-attack blocker round must not leak that round into the
+// next turn.
+func (e *Engine) finishEndTurn() {
+	e.pendingTriggers = nil
+	e.orderedTriggers = 0
+	e.combatRound = combatRound{}
+	e.blockerRound = blockerRound{}
+	e.endTurnRequested = false
+	e.setStep(state.StepCleanup)
+}
+
 func (e *Engine) advanceStep() {
 	if e.G.Step == state.StepDeclareAttackers && e.declarationMadeThisStep(events.DeclareAttackers) {
 		attacked := false

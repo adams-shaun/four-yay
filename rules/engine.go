@@ -126,10 +126,11 @@ type counterAddedThisTurn struct {
 }
 
 type Engine struct {
-	G             *state.Game
-	L             *events.Log
-	compiledText  *compiledText
-	landTypeWords []string
+	G                *state.Game
+	endTurnRequested bool
+	L                *events.Log
+	compiledText     *compiledText
+	landTypeWords    []string
 
 	// ManaAbilityHook, when non-nil, is called once per mana ability
 	// activation the engine resolves (resolveManaAbilityRefOriginal, the one
@@ -2622,6 +2623,9 @@ func tossName(g *state.Game, p state.PlayerID) string {
 // logging. Otherwise the event is logged and folded into state exactly as
 // before, and checkTriggers then looks for anything it just made true.
 func (e *Engine) emit(ev events.Event) events.Event {
+	if ev.Kind == events.EndTurn {
+		e.endTurnRequested = true
+	}
 	// Task 15 protection (CR 702.16d/e): a Damage event dealt to a
 	// protection-bearer by a source it is protected from is prevented -- the
 	// damage never happens, reported as a Note rather than silently dropped.
