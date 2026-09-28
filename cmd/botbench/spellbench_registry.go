@@ -107,6 +107,9 @@ var sbSearchVariants = func() []struct {
 		{"sb-search-w32", with(func(c *sbsearch.Config) { c.Worlds = 32 })},
 		{"sb-search-h4", with(func(c *sbsearch.Config) { c.Horizon = 4 })},
 		{"sb-search-fast", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon = 8, 3 })},
+		{"sb-search-fast-atk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 8, 3, true })},
+		{"sb-search-lite", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon = 4, 2 })},
+		{"sb-search-lite-atk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 4, 2, true })},
 		{"sb-search-atk", with(func(c *sbsearch.Config) { c.Attack = true })},
 	}
 }()
