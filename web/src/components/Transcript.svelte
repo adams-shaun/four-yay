@@ -92,6 +92,7 @@
   let container: HTMLDivElement | undefined;
   let revealAll = $state(false);
   let revealSteps = $state(false);
+  let openSnapshots = $state<Record<number, boolean>>({});
   const lines = $derived(visibleLog(dvr.events, revealAll, revealSteps));
 
   // The panel's lifetime follows the objects the transcript currently shows:
@@ -186,7 +187,6 @@
         <span class="text">{n.text}</span>
         {#if n.diagnostics}
           {@const diagnostic = n.diagnostics}
-          {@const snapshot = JSON.stringify(diagnostic.view, null, 2)}
           <details class="auto-detail">
             <summary>Advanced pass details</summary>
             <dl>
@@ -197,11 +197,14 @@
               <dt>Respondable option / after tapping</dt><dd>{diagnostic.respondableOption} / {diagnostic.respondableAfterTap}</dd>
               <dt>Yield matched</dt><dd>{diagnostic.yieldsHit}</dd>
             </dl>
-            <details>
+            <details bind:open={openSnapshots[n.id]}>
               <summary>Seat view snapshot</summary>
-              <button type="button" onclick={() => void navigator.clipboard?.writeText(snapshot)}>Copy JSON</button>
-              <a href="data:application/json;charset=utf-8,{encodeURIComponent(snapshot)}" download="autopass-view.json">Export JSON</a>
-              <pre>{snapshot}</pre>
+              {#if openSnapshots[n.id]}
+                {@const snapshot = JSON.stringify(diagnostic.view, null, 2)}
+                <button type="button" onclick={() => void navigator.clipboard?.writeText(snapshot)}>Copy JSON</button>
+                <a href="data:application/json;charset=utf-8,{encodeURIComponent(snapshot)}" download="autopass-view.json">Export JSON</a>
+                <pre>{snapshot}</pre>
+              {/if}
             </details>
           </details>
         {/if}
