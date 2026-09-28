@@ -5637,6 +5637,16 @@ func (e *Engine) MetalcraftHolds(controller state.PlayerID) bool {
 	return e.metalcraftHolds(controller)
 }
 
+// thresholdHolds is the ONE census for the Threshold ability word's
+// "seven or more cards in your graveyard" clause, shared by the trigger-side
+// gate (triggerConditionHoldsWithSVars' Threshold$ clause) and the Continuous
+// static gate (layers.go continuousConditionHolds' Condition$ Threshold arm),
+// so the two spellings cannot drift apart. The count is every card in the
+// controller's graveyard zone; an out-of-range controller has no graveyard.
+func (e *Engine) thresholdHolds(controller state.PlayerID) bool {
+	return len(e.G.Zone(state.ZGraveyard, controller)) >= 7
+}
+
 func (e *Engine) graveyardCardTypeCount(controller state.PlayerID) int {
 	seen := map[string]bool{}
 	for _, id := range e.G.Zone(state.ZGraveyard, controller) {
