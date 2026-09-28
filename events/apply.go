@@ -514,6 +514,42 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 
+	case DungeonCreate:
+		if !validPlayer(g, e.Player) || g.Players[e.Player].DungeonObj != 0 {
+			break
+		}
+		def := g.Tokens[e.Text]
+		if def == nil {
+			break
+		}
+		o := g.AddObject(def, e.Player)
+		// A dungeon script is stored alongside token scripts, but the dungeon
+		// object itself is not a battlefield token and persists in the command
+		// zone until the dungeon is completed.
+		Move(g, o.ID, state.ZLibrary, state.ZCommand)
+		g.Players[e.Player].DungeonObj = o.ID
+		g.Players[e.Player].DungeonRoom = ""
+		g.Players[e.Player].DungeonCompleted = false
+
+	case DungeonRoom:
+		if e.Text != "" && activeDungeon(g, e.Player, e.Obj) != nil {
+			g.Players[e.Player].DungeonRoom = e.Text
+		}
+
+	case DungeonComplete:
+		if activeDungeon(g, e.Player, e.Obj) != nil && !g.Players[e.Player].DungeonCompleted {
+			g.Players[e.Player].CompletedDungeons++
+			g.Players[e.Player].DungeonCompleted = true
+		}
+
+	case DungeonRemove:
+		if o := activeDungeon(g, e.Player, e.Obj); o != nil {
+			Move(g, o.ID, state.ZCommand, state.ZCeased)
+			g.Players[e.Player].DungeonObj = 0
+			g.Players[e.Player].DungeonRoom = ""
+			g.Players[e.Player].DungeonCompleted = false
+		}
+
 	case ManaUndo:
 		// The announced payment window's reversal of one mana activation
 		// (CR 733.1, announce-then-pay spec §5): remove exactly the units one
@@ -4190,6 +4226,19 @@ func changeControl(g *state.Game, o *state.Object, p state.PlayerID) {
 // validPlayer reports whether p indexes an existing seat.
 func validPlayer(g *state.Game, p state.PlayerID) bool {
 	return int(p) < len(g.Players)
+}
+
+// activeDungeon rejects malformed lifecycle events, including Obj 0 when no
+// dungeon is active. A departed dungeon cannot accrue completions or rooms.
+func activeDungeon(g *state.Game, p state.PlayerID, id state.ObjID) *state.Object {
+	if !validPlayer(g, p) || id == 0 || g.Players[p].DungeonObj != id {
+		return nil
+	}
+	o := g.Obj(id)
+	if o == nil || o.Owner != p || o.Zone != state.ZCommand {
+		return nil
+	}
+	return o
 }
 
 // manaClearKeepSlots parses the keep-mask Text the stat:UnspentMana emitter

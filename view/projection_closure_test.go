@@ -144,6 +144,16 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// every visibility, never a hidden-zone carrier. It names a colour, an
 		// amount and a spend text; it never carries a card list.
 		"pool_restrictions": true,
+		// dungeon/completed_dungeons (CR 309) are the dungeon/venture facts:
+		// the active dungeon lives in its owner's command zone (already
+		// projected in full through the command key) and the venture marker's
+		// room, so the Dungeon payload carries only the dungeon's name and the
+		// current room key -- the completed-dungeon count is a public
+		// battlefield/command-zone-derived fact. Neither names a hidden zone,
+		// and neither carries a card list, so both join the public facts
+		// class here, never the hidden-zone class this test guards.
+		"dungeon":            true,
+		"completed_dungeons": true,
 	})
 	// StackView is public (R3) so it is a lesser leak surface, but the
 	// reflection is the same shape and cheap, so it is pinned too. The two

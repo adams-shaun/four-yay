@@ -36,6 +36,7 @@ import Table from './Table.svelte';
 
 const player = (seat: number): PlayerView => ({
   seat, name: `P${seat}`, life: 20, lost: false, library_size: 30, hand_size: 7, graveyard_size: 0,
+  completed_dungeons: 0,
   hand: [], battlefield: [], graveyard: [], exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
 });
 const view = (overrides: Partial<View> = {}): View => ({

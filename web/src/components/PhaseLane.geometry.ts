@@ -15,6 +15,7 @@ const players: PlayerView[] = Array.from({ length: count }, (_, seat) => {
   const commander = card(seat + 1, seat);
   return {
     seat, name: `Player ${seat + 1}`, life: 40, lost: false, library_size: 90, hand_size: 7, graveyard_size: 0,
+    completed_dungeons: 0,
     hand: [], battlefield: [], graveyard: [], exile: [], pool: {}, command: [commander], commanders: [commander], commander_casts: [],
   };
 });
