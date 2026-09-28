@@ -40,6 +40,41 @@ func TestSkipTurnReschedulesKarnNextTurnBoundary(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
+// Skipping the controller's own next slot delays its next ACTUAL turn.
+// The animation must outlive both opponent turns and expire before the
+// controller finally begins turn 4.
+func TestSkipTurnDelaysKarnNextTurnBoundary(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{
+		lookup(t, reg, "Karn, the Great Creator"), lookup(t, reg, "Sol Ring"),
+	}, nil)
+	ring := animateKarnRing(t, e)
+	if b := boundaryOf(t, e, ring); b != 2 {
+		t.Fatalf("precondition: registered animation boundary = %d, want 2", b)
+	}
+	e.emit(events.Event{Kind: events.SkipTurn, Player: 0, Amount: 1})
+	if e.G.SkipTurns[0] != 1 {
+		t.Fatal("precondition: controller's next turn was not marked for skipping")
+	}
+	if got := e.nextTurnFor(0); got != 4 {
+		t.Fatalf("Karn's next actual turn = %d, want 4", got)
+	}
+	driveToStep(t, e, 2, 1, state.StepMain1)
+	if !e.IsCreature(ring) {
+		t.Fatal("animation expired on the first opponent turn")
+	}
+	driveToStep(t, e, 3, 1, state.StepMain1)
+	if !e.IsCreature(ring) || e.G.SkipTurns[0] != 0 {
+		t.Fatal("animation expired before skipped controller turn or skip not consumed")
+	}
+	driveToStep(t, e, 4, 0, state.StepMain1)
+	if e.IsCreature(ring) {
+		t.Fatal("animation survived into the controller's actual next turn")
+	}
+	replayCheck(t, e, cfg)
+}
+
 // An end-boundary control grant registered before a late skip must also end
 // on its controller's next REAL turn, not the former numerical boundary.
 func TestSkipTurnReschedulesControlNextTurnBoundary(t *testing.T) {
