@@ -34,6 +34,7 @@ func fortifyCamp(t *testing.T, e *Engine, camp, land state.ObjID) {
 }
 
 func TestCAMPFortifyAttachesToLand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"C.A.M.P.", "Forest", "Grizzly Bears"}, nil)
 	camp := findOnBoard(t, e, 0, "C.A.M.P.")
@@ -84,6 +85,7 @@ func TestCAMPFortifyAttachesToLand(t *testing.T) {
 }
 
 func TestCAMPFortifiedLandTapsForManaFiresCounterTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"C.A.M.P.", "Forest", "Grizzly Bears"}, nil)
 	camp := findOnBoard(t, e, 0, "C.A.M.P.")
@@ -126,6 +128,7 @@ func TestCAMPFortifiedLandTapsForManaFiresCounterTrigger(t *testing.T) {
 }
 
 func TestDarksteelGarrisonFortifiedLandBecomesTappedFiresTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Darksteel Garrison", "Forest", "Grizzly Bears"}, nil)
 	garrison := findOnBoard(t, e, 0, "Darksteel Garrison")
@@ -153,6 +156,7 @@ func TestDarksteelGarrisonFortifiedLandBecomesTappedFiresTrigger(t *testing.T) {
 }
 
 func TestFortifyRegisteredMakesCarriersFullySupported(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	for _, name := range []string{"C.A.M.P.", "Darksteel Garrison"} {

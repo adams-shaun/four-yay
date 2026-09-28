@@ -19,6 +19,7 @@ import (
 // lifetime the separate lifetime ticket (agent-20260923T034553Z-5e9f663a)
 // still withholds.
 func TestEffectTriggerOwnerTriggeredTarget(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:BatriderPromise\nManaCost:U\nTypes:Sorcery\n"+
 		"SVar:Grant:DB$ Effect | Triggers$ Hook | EffectOwner$ TriggeredTarget\n"+
 		"SVar:Hook:Mode$ DamageDone | ValidTarget$ You | TriggerZones$ Command | Execute$ Pain\n"+
@@ -60,6 +61,7 @@ func TestEffectTriggerOwnerTriggeredTarget(t *testing.T) {
 // owner that differs from its controller, so a controller-derived read is
 // distinguishable from an owner-derived one.
 func TestEffectTriggerOwnerTargetedOwner(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:JailerPromise\nManaCost:U\nTypes:Sorcery\n"+
 		"SVar:Grant:DB$ Effect | Triggers$ Hook | EffectOwner$ TargetedOwner\n"+
 		"SVar:Hook:Mode$ DamageDone | ValidTarget$ You | TriggerZones$ Command | Execute$ Pain\n"+
@@ -90,6 +92,7 @@ func TestEffectTriggerOwnerTargetedOwner(t *testing.T) {
 // EffectOwner$ Targeted names the target itself when it is a player (Loch
 // Larent's "target opponent gets a one-time boon").
 func TestEffectTriggerOwnerTargetedPlayer(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:LarentPromise\nManaCost:U\nTypes:Sorcery\n"+
 		"SVar:Grant:DB$ Effect | Triggers$ Hook | EffectOwner$ Targeted\n"+
 		"SVar:Hook:Mode$ DamageDone | ValidTarget$ You | TriggerZones$ Command | Execute$ Pain\n"+
@@ -108,6 +111,7 @@ func TestEffectTriggerOwnerTargetedPlayer(t *testing.T) {
 // loudly: it must never fall back to the source controller, which would hand
 // the wrong seat the effect.
 func TestEffectTriggerOwnerUnresolvableFailsClosed(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:BadOwnerPromise\nManaCost:U\nTypes:Sorcery\n"+
 		"SVar:Grant:DB$ Effect | Triggers$ Hook | EffectOwner$ RememberedOwner.Opponent\n"+
 		"SVar:Hook:Mode$ DamageDone | ValidTarget$ You | TriggerZones$ Command | Execute$ Pain\n"+
@@ -131,6 +135,7 @@ func TestEffectTriggerOwnerUnresolvableFailsClosed(t *testing.T) {
 // recognises that live registration instead of minting a second one. A double
 // registration fires the body twice.
 func TestEffectOneOffDoesNotDoubleFireFromOpening(t *testing.T) {
+	t.Parallel()
 	opening := card(t, "Name:OpeningOneOff\nTypes:Sorcery\n"+
 		"SVar:Reveal:DB$ Reveal | RevealDefined$ Self | SubAbility$ DBEffect\n"+
 		"SVar:DBEffect:DB$ Effect | Triggers$ TrigCast | Duration$ UntilEndOfTurn\n"+
@@ -184,6 +189,7 @@ func TestEffectOneOffDoesNotDoubleFireFromOpening(t *testing.T) {
 // and rules/effect_frame_trigger_test.go (the one-shot self-exile frame); this
 // adds the corpus carrier the report named.
 func TestEffectGenericRegistrationHoldsOnCorpus(t *testing.T) {
+	t.Parallel()
 	bonus := corpusAlternativeCard(t, "Bonus Round")
 	e := handEngine(t, bonus)
 	id := e.G.Zone(state.ZHand, 0)[0]

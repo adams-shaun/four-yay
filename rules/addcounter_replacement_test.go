@@ -73,6 +73,7 @@ func activateCounterSource(t *testing.T, e *Engine, source, target state.ObjID) 
 // 2 and 4 (that many plus one), the real corpus R: line plus its
 // ReplaceCount$CounterNum/Plus.1 body.
 func TestHardenedScalesAddsOneCounter(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		placed, want int32
 	}{
@@ -91,6 +92,7 @@ func TestHardenedScalesAddsOneCounter(t *testing.T) {
 // TestBranchingEvolutionDoublesCounters pins the Twice body: a 1- and a
 // 3-counter placement doubles to 2 and 6.
 func TestBranchingEvolutionDoublesCounters(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		placed, want int32
 	}{
@@ -112,6 +114,7 @@ func TestBranchingEvolutionDoublesCounters(t *testing.T) {
 // placed BEFORE the replacement is on the battlefield, so the removal is the
 // only event either card could see.
 func TestCounterReplacementDoesNotTouchRemoval(t *testing.T) {
+	t.Parallel()
 	for _, replName := range []string{"Hardened Scales", "Branching Evolution"} {
 		repl := tokenReplCorpusCard(t, replName)
 		target := card(t, "Name:Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -131,6 +134,7 @@ func TestCounterReplacementDoesNotTouchRemoval(t *testing.T) {
 // gate: both cards name ValidCounterType$ P1P1, so an M1M1 placement is
 // untouched (5 stays 5, never 6 or 10).
 func TestCounterReplacementFailsClosedOnOtherCounterKinds(t *testing.T) {
+	t.Parallel()
 	for _, replName := range []string{"Hardened Scales", "Branching Evolution"} {
 		e, cfg, _, target := boardWithCounterReplacement(t, 79, replName, 1)
 		e.emit(events.Event{Kind: events.CounterChange, Obj: target, Counter: "M1M1", Amount: 5})
@@ -146,6 +150,7 @@ func TestCounterReplacementFailsClosedOnOtherCounterKinds(t *testing.T) {
 // (double) turns a 1-counter placement into 4 (1 -> 2 -> 4), each modifier
 // reading the amount the previous one produced.
 func TestAddCounterReplacementsComposeScanOrder(t *testing.T) {
+	t.Parallel()
 	hs := tokenReplCorpusCard(t, "Hardened Scales")
 	be := tokenReplCorpusCard(t, "Branching Evolution")
 	src := counterReplSource(t, 1)
@@ -177,6 +182,7 @@ func TestAddCounterReplacementsComposeScanOrder(t *testing.T) {
 // no ValidCard$, so a counter placed on the replacement's controller becomes
 // that many plus one, while a counter on the opponent is untouched.
 func TestWindingConstrictorPlayerCounters(t *testing.T) {
+	t.Parallel()
 	wc := tokenReplCorpusCard(t, "Winding Constrictor")
 	e, cfg := tokenReplGame(t, 89, wc)
 	moveSeededCard(t, e, 0, wc, state.ZBattlefield)
@@ -199,6 +205,7 @@ func TestWindingConstrictorPlayerCounters(t *testing.T) {
 // zero). A single +1/+1 counter on a creature it controls is that many plus
 // one = 2, never the 3 two overlapping matches would give.
 func TestWindingConstrictorObjectCounters(t *testing.T) {
+	t.Parallel()
 	wc := tokenReplCorpusCard(t, "Winding Constrictor")
 	target := card(t, "Name:Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 91, wc, target)
@@ -220,6 +227,7 @@ func TestWindingConstrictorObjectCounters(t *testing.T) {
 // the doubled result it must not produce is the exact regression here; the
 // resolving-effect positive control follows.
 func TestDoublingSeasonEffectOnlyIgnoresNonEffectPlacement(t *testing.T) {
+	t.Parallel()
 	ds := tokenReplCorpusCard(t, "Doubling Season")
 	target := card(t, "Name:Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 97, ds, target)
@@ -252,6 +260,7 @@ func TestDoublingSeasonEffectOnlyIgnoresNonEffectPlacement(t *testing.T) {
 // amount rewrite itself still happens on the first source (3 -> 1). No loud
 // rider Note may survive.
 func TestMeliraReplacementBodySubAbilityRunsTheLock(t *testing.T) {
+	t.Parallel()
 	melira := tokenReplCorpusCard(t, "Melira, the Living Cure")
 	e, cfg := tokenReplGame(t, 101, melira)
 	moveSeededCard(t, e, 0, melira, state.ZBattlefield)
@@ -280,6 +289,7 @@ func TestMeliraReplacementBodySubAbilityRunsTheLock(t *testing.T) {
 }
 
 func TestVizierOfRemediesReplacesToZero(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		placed, want int32
 	}{
@@ -320,6 +330,7 @@ func regenReplSource(t testing.TB) *cards.Card {
 // rules/combat.go consumes one shield per destruction. The shield must stay
 // at exactly 1 under either card.
 func TestCounterDoublerIgnoresRegenerationShield(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		seed uint64
@@ -348,6 +359,7 @@ func TestCounterDoublerIgnoresRegenerationShield(t *testing.T) {
 // Winding Constrictor's object line names no counter kind and carries no
 // EffectOnly$, so a bare emit is the exact shape combat produces.
 func TestCounterReplacementIgnoresDeathtouchedMarker(t *testing.T) {
+	t.Parallel()
 	wc := tokenReplCorpusCard(t, "Winding Constrictor")
 	target := card(t, "Name:Counter Target\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e, cfg := tokenReplGame(t, 107, wc, target)
@@ -366,6 +378,7 @@ func TestCounterReplacementIgnoresDeathtouchedMarker(t *testing.T) {
 // source the same turn still places nothing. No loud-rider Note may remain
 // (the chain now runs).
 func TestCounterReplacementBodySubAbilityNoOpStillLocks(t *testing.T) {
+	t.Parallel()
 	melira := tokenReplCorpusCard(t, "Melira, the Living Cure")
 	e, cfg := tokenReplGame(t, 109, melira)
 	moveSeededCard(t, e, 0, melira, state.ZBattlefield)

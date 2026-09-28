@@ -8,6 +8,7 @@ import (
 )
 
 func TestLargeEliminationSweepDoesNotTripLivelockWatcher(t *testing.T) {
+	t.Parallel()
 	const tokenCount = 60001
 	e := New(Config{Seed: 1, Names: []string{"departing", "survivor"}})
 	bear := card(t, "Name:Elimination Sweep Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

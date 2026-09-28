@@ -158,6 +158,7 @@ func mosswortEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, state.O
 // exiled Bears from exile onto the battlefield, and the printed {1}{G} is
 // never charged (the pool carries only what the activations spent).
 func TestMosswortBridgeGateAndCostedFreePlay(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, bridgeID, bearID, playIdx := mosswortEngine(t, reg)
 	if o := e.G.Obj(bearID); o == nil || o.Zone != state.ZExile {
@@ -416,6 +417,7 @@ func castDrain(t *testing.T, e *Engine, id state.ObjID) {
 // ForgetPlayed$ drops the played card, and the DBRestRandomOrder tail moves
 // only the unplayed Mountain to the library bottom.
 func TestSunbirdInvocationPlayThenRandomRemainder(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, bearCast, bearTop, mtnID := sunbirdEngine(t, reg)
 	addMana(t, e, 0, "RRRRRRGG")

@@ -27,6 +27,7 @@ import (
 // one run per combat: the stack keeps its single trigger across both aborts,
 // and the second identical abort holds the cast out of the window.
 func TestAbortedCastDoesNotRefireAttackerUnblocked(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	zones := []struct {
 		name string

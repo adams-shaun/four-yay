@@ -46,6 +46,7 @@ func resolveAttackPump(t *testing.T, e *Engine, src state.ObjID, others ...state
 // table under the sign-prefixed key and degraded to zero. With the sign
 // stripped the pump is +2/+0 per other attacking Goblin.
 func TestGoblinPiledriverPumpsForEachOtherAttackingGoblin(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pileCard, ok := reg.Lookup("Goblin Piledriver")
 	if !ok {
@@ -78,6 +79,7 @@ func TestGoblinPiledriverPumpsForEachOtherAttackingGoblin(t *testing.T) {
 // TestSignedPumpNegates pins the -X direction: Kagemaro, First to Suffer's
 // shape (`NumAtt$ -X`) must FLIP the resolved value, not resolve as 0.
 func TestSignedPumpNegates(t *testing.T) {
+	t.Parallel()
 	src := `Name:Dread Spirit
 ManaCost:2 B
 Types:Creature Spirit
@@ -100,6 +102,7 @@ Oracle:x
 // +Count$...`), where the sign sits directly on the expression rather than
 // on an SVar name.
 func TestSignedInlineCountPump(t *testing.T) {
+	t.Parallel()
 	src := `Name:Rally Goblin
 ManaCost:R
 Types:Creature Goblin
@@ -121,6 +124,7 @@ Oracle:x
 // signed literal through the same trigger harness (-2 must not be read as 0
 // or as +2).
 func TestSignedLiteralPumpEndToEnd(t *testing.T) {
+	t.Parallel()
 	src := `Name:Heavy Spirit
 ManaCost:2 B
 Types:Creature Spirit

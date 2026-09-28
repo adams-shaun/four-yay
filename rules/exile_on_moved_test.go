@@ -54,6 +54,7 @@ func mayPlayGrantOn(e *Engine, id state.ObjID) *state.ContinuousEffect {
 // outright (ExileOnMoved$), not merely forgotten (ForgetOnMoved$'s weaker
 // outcome).
 func TestAbbotOfKeralKeepEffectEndsWhenExileDeparts(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	abbot := choiceCorpusCard(t, "Abbot of Keral Keep")
 	e := corpusEngine(t, reg, []*cards.Card{abbot}, nil)
@@ -125,6 +126,7 @@ func vinesTargeter(e *Engine, id state.ObjID) *state.ContinuousEffect {
 // the restriction outright), and after it blinks back — a new object under
 // CR 400.7a — the opponent can target it again.
 func TestVinesOfVastwoodEffectEndsWhenBattlefieldDeparts(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	vines := choiceCorpusCard(t, "Vines of Vastwood")
 	e := corpusEngine(t, reg, []*cards.Card{vines}, nil)

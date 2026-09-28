@@ -11,6 +11,7 @@ import (
 // Only the colossus can pay {5}{U}{U} from two blue mana. The cheaper
 // sacrifice must not remain an answer to an offer priced with the colossus.
 func TestEmergeSacrificeAskPricesEachCreature(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 4250, []string{"Elder Deep-Fiend"}, []string{emergeFuelSrc, emergeColossusSrc}, nil)
 	deep := findCardObj(t, e, 0, "Elder Deep-Fiend", state.ZHand)
 	fuel := findCardObj(t, e, 0, "Emerge Fuel", state.ZBattlefield)
@@ -91,6 +92,7 @@ const emergeTinySrc = "Name:Emerge Tiny\nManaCost:1\nTypes:Creature Eldrazi\nPT:
 // SpellAbility costs follow the mandatory Emerge sacrifice. Their mana values
 // must never contribute to the Emerge reduction, even though both are paid.
 func TestEmergeAdditionalSacDoesNotIncreaseReduction(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 4251, nil, []string{emergeExtraSacSrc, emergeTinySrc, emergeColossusSrc}, nil)
 	spell := findCardObj(t, e, 0, "Emerge Double Sac", state.ZHand)
 	small := findCardObj(t, e, 0, "Emerge Tiny", state.ZBattlefield)
@@ -154,6 +156,7 @@ func TestEmergeAdditionalSacDoesNotIncreaseReduction(t *testing.T) {
 }
 
 func TestEmergeWithholdsUnsupportedCostShapes(t *testing.T) {
+	t.Parallel()
 	for _, cost := range []string{"5 WU", "5 UP", "5 2U", "5 S", "5 PayLife<2>", "5 Sac<1/Creature>",
 		"5 Draw<1/You>", "5 X", "5 Mandatory", "5 gibberish", "5 {U", ""} {
 		t.Run(cost, func(t *testing.T) {

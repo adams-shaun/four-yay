@@ -9,6 +9,7 @@ import (
 )
 
 func TestCardBasePowerStopsAtLayer7bAndDrivesCount(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	creature := onBoard(t, e, 0, "Name:Base Reader\nTypes:Creature Human\nPT:2/2\n"+
 		"S:Mode$ Continuous | Affected$ Card.Self | SetPower$ 5 | Description$ base set\n"+

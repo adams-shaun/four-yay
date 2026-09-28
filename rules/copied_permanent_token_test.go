@@ -37,6 +37,7 @@ const testBoltSrc = "Name:Test Bolt\nManaCost:R\nTypes:Instant\nOracle:x\n"
 // projections render it), same face and targets as the original, and the
 // original is a separate, un-tokened object.
 func TestCopiedPermanentSpellEntersAsToken(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 71, []string{archmageOfEchoesSrc, faerieWizardSrc, nonXBeastSrc}, nil)
 	moveSeeded(t, e, 0, archmageOfEchoesSrc, state.ZBattlefield)
 	moveSeeded(t, e, 0, faerieWizardSrc, state.ZHand)
@@ -94,6 +95,7 @@ func TestCopiedPermanentSpellEntersAsToken(t *testing.T) {
 // replay-byte-identical guard for every game that only copies
 // instants/sorceries.
 func TestCopiedInstantSpellStaysACopy(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := etbConfig(t, 73, []string{instantCopyRegistrarSrc, testBoltSrc}, nil)
 	moveSeeded(t, e, 0, instantCopyRegistrarSrc, state.ZBattlefield)
 	addMana(t, e, 0, "R")

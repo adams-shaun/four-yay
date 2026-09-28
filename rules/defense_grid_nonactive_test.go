@@ -13,6 +13,7 @@ import (
 // of the Player.NonActive predicate. Defense Grid's RaiseCost must tax a spell
 // cast by the non-active player, but not one cast by the active player.
 func TestDefenseGridNonActiveCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	grid, ok := reg.Lookup("Defense Grid")
 	if !ok {

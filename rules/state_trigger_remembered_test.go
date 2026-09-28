@@ -18,6 +18,7 @@ import (
 // on an event naming no object. Its Remembered is now its source whatever
 // event ran the check (stateTriggerRemembered).
 func TestStateTriggerRemembersItsSourceNotTheCheckingEvent(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		ev   func(land state.ObjID) events.Event

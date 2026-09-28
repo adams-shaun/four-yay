@@ -42,6 +42,7 @@ func shuffleCountFrom(e *Engine, start int, p state.PlayerID) int {
 // library and shuffles there. Before the fix the object path shuffled
 // nothing, so the card was silently appended without a shuffle.
 func TestTurnTheEarthObjectPathShufflesIntoLibrary(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Turn the Earth")
 	// The graveyard card: a creature card owned by seat 0.
@@ -108,6 +109,7 @@ func TestTurnTheEarthObjectPathShufflesIntoLibrary(t *testing.T) {
 // posed. Accepting shuffles exactly once; declining keeps the order and
 // shuffles not at all.
 func TestSquadronHawkFailToFindPosesMayShuffleConfirm(t *testing.T) {
+	t.Parallel()
 	for _, accept := range []bool{true, false} {
 		name := "decline keeps order"
 		if accept {

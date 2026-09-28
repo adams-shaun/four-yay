@@ -203,6 +203,7 @@ func voteFinishedNotes(e *Engine) int {
 // same-voting opponent, an empty diff set so scry 0 poses no KArrange
 // (AskEmpty), and the same two draws.
 func TestErestorVoteFinishedTreasureScryAndDraw(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(votes []int, wantSame [3]int, wantScry int) {
 		e, _ := voteCarrierEngine(t, reg, "Erestor of the Council")
@@ -247,6 +248,7 @@ func TestErestorVoteFinishedTreasureScryAndDraw(t *testing.T) {
 // goes to seat 0 (You), still two options -- the compound referent's You
 // half is exact.
 func TestModelOfUnityScrysTheLikeVotingOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(votes []int, wantPlayer state.PlayerID) {
 		e, _ := voteCarrierEngine(t, reg, "Model of Unity")
@@ -271,6 +273,7 @@ func TestModelOfUnityScrysTheLikeVotingOpponent(t *testing.T) {
 // only. Control [0,0,0] (all same): the diff set is empty and nobody loses
 // life.
 func TestGrudgeKeeperDiffVotersLoseLife(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(votes []int, wantLoss bool) {
 		e, _ := voteCarrierEngine(t, reg, "Grudge Keeper")
@@ -309,6 +312,7 @@ func TestGrudgeKeeperDiffVotersLoseLife(t *testing.T) {
 // opponent, so this leaf FAILS against it. Control: an all-option-1 vote
 // makes both opponents same (two Treasures, no scry).
 func TestErestorVoteReferentsAnchorOnCarrierController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	run := func(votes []int, wantTreasure [3]int, wantScry int) {
 		e, _ := voteCarrierEngine(t, reg, "Erestor of the Council")
@@ -343,6 +347,7 @@ func TestErestorVoteReferentsAnchorOnCarrierController(t *testing.T) {
 // loses 2 and nobody else does. The caster-relative bug drained seat 0 (the
 // controller) instead.
 func TestGrudgeKeeperVoteReferentsAnchorOnCarrierController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := voteCarrierEngine(t, reg, "Grudge Keeper")
 	carrier := enterCarrier(t, e, "Grudge Keeper")
@@ -374,6 +379,7 @@ func TestGrudgeKeeperVoteReferentsAnchorOnCarrierController(t *testing.T) {
 // Erestor entering turns the carrier on, and the same vote emits exactly one
 // Note whose trigger resolves (the like-voting opponent gets a Treasure).
 func TestVoteFinishedCarrierGatedOnVoteTriggerFaces(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Council's Judgment", "Council's Judgment", "Erestor of the Council"}, nil,
@@ -427,6 +433,7 @@ func TestVoteFinishedCarrierGatedOnVoteTriggerFaces(t *testing.T) {
 // no opponent loses life. Before the fix every voting opponent landed in the
 // diff set and each drained 2.
 func TestGrudgeKeeperEmptyBallotDrainsNobody(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Council's Judgment"}, nil,

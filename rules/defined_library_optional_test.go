@@ -15,6 +15,7 @@ import (
 // attaching the answer to an effects Ctx. The declined direct fetch leaves
 // its remembered card in place and does not shuffle it.
 func TestDefinedLibraryOptionalDeclineResumesTheRealEffect(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Kenessos, Priest of Thassa")
 	source := searchMoveByName(t, e, "Kenessos, Priest of Thassa", state.ZStack)

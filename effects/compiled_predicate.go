@@ -3,7 +3,9 @@ package effects
 import (
 	"sort"
 	"strings"
+	"sync/atomic"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -21,8 +23,22 @@ const (
 // original Forge text. It is built before a game begins and never changes
 // during matching, cloning, or replay.
 type PredicatePrograms struct {
-	byText map[string]predicateProgram
+	// texts is the member spec texts, sorted and deduplicated. A retained
+	// spec's program rides its compiledSpec; only a spec the process-wide
+	// compiled-spec cache did not retain (compiledSpec.id 0) is answered by
+	// binary search here, with its program compiled on the spot.
+	texts []string
+	// known/member are membership bitsets over compiledSpec.id, filled on a
+	// spec's first evaluation against this set: known marks an id whose
+	// membership was decided, member the ones that are members. Bits are
+	// only ever set (member before known), so a concurrent reader that sees
+	// known also sees member, and every answer is the texts search's.
+	known  [specIDWords]atomic.Uint64
+	member [specIDWords]atomic.Uint64
 }
+
+// specIDWords covers every compiledSpec.id (1..compiledSpecCacheMax).
+const specIDWords = (compiledSpecCacheMax + 64) / 64
 
 type predicateProgram struct {
 	alternatives []predicateAlternative
@@ -49,6 +65,7 @@ const (
 type predicateBase struct {
 	kind    predicateBaseKind
 	arg     string
+	argID   cards.TypeWordID
 	negated bool
 }
 
@@ -75,8 +92,11 @@ const (
 )
 
 type predicateTerm struct {
-	kind    predicateTermKind
-	arg     string
+	kind predicateTermKind
+	arg  string
+	// argID is arg's interned type-word ordinal for a single-word type term
+	// (0 for a multi-word subtype, which splits at match time).
+	argID   cards.TypeWordID
 	negated bool
 	maybe   bool
 }
@@ -87,17 +107,58 @@ type predicateTerm struct {
 func CompilePredicatePrograms(specs []string) *PredicatePrograms {
 	texts := append([]string(nil), specs...)
 	sort.Strings(texts)
-	programs := &PredicatePrograms{byText: make(map[string]predicateProgram, len(texts))}
+	programs := &PredicatePrograms{}
 	for _, spec := range texts {
 		if spec == "" {
 			continue
 		}
-		if _, exists := programs.byText[spec]; exists {
+		if n := len(programs.texts); n > 0 && programs.texts[n-1] == spec {
 			continue
 		}
-		programs.byText[spec] = compilePredicateProgram(spec)
+		programs.texts = append(programs.texts, spec)
 	}
 	return programs
+}
+
+// isMember is the text membership search.
+func (ps *PredicatePrograms) isMember(spec string) bool {
+	i := sort.SearchStrings(ps.texts, spec)
+	return i < len(ps.texts) && ps.texts[i] == spec
+}
+
+// lookup is isMember with the program: spec's program when it is a member
+// (compiled fresh: only the unretained-spec path asks).
+func (ps *PredicatePrograms) lookup(spec string) (*predicateProgram, bool) {
+	if !ps.isMember(spec) {
+		return nil, false
+	}
+	p := compilePredicateProgram(spec)
+	return &p, true
+}
+
+// programFor is lookup through the compiled spec's dense id: after the
+// first evaluation of a retained spec against this set, membership is two
+// bit tests and the program is the one the spec carries.
+func (ps *PredicatePrograms) programFor(cs *compiledSpec, spec string) (*predicateProgram, bool) {
+	if cs == nil || cs.id == 0 {
+		return ps.lookup(spec)
+	}
+	w, b := cs.id>>6, uint64(1)<<(cs.id&63)
+	if ps.known[w].Load()&b != 0 {
+		if ps.member[w].Load()&b != 0 {
+			return &cs.prog, true
+		}
+		return nil, false
+	}
+	ok := ps.isMember(spec)
+	if ok {
+		ps.member[w].Or(b)
+	}
+	ps.known[w].Or(b)
+	if ok {
+		return &cs.prog, true
+	}
+	return nil, false
 }
 
 func compilePredicateProgram(spec string) predicateProgram {
@@ -151,7 +212,7 @@ func compilePredicateBase(base string) (predicateBase, bool) {
 		return predicateBase{kind: kind, negated: negated}, true
 	}
 	if predicateTypeWords[base] {
-		return predicateBase{kind: predicateBaseType, arg: base, negated: negated}, true
+		return predicateBase{kind: predicateBaseType, arg: base, argID: cards.InternTypeWord(base), negated: negated}, true
 	}
 	return predicateBase{}, false
 }
@@ -209,17 +270,26 @@ func compilePredicateTerm(term string) predicateTerm {
 	default:
 		if wordKind, key, ok := nonPredicate(term); ok {
 			if kind, ok := predicateTermFromWord(wordKind); ok {
-				return predicateTerm{kind: kind, arg: key, negated: true}
+				return predicateTerm{kind: kind, arg: key, argID: typeTermID(kind, key), negated: true}
 			}
 		}
 		if wordKind, key := wordPredicate(term); wordKind != wordUnknown {
 			if kind, ok := predicateTermFromWord(wordKind); ok {
-				return predicateTerm{kind: kind, arg: key}
+				return predicateTerm{kind: kind, arg: key, argID: typeTermID(kind, key)}
 			}
 		}
 		return predicateTerm{maybe: true}
 	}
 	return predicateTerm{kind: kind}
+}
+
+// typeTermID interns a single-word type term's argument; a multi-word
+// subtype (Time Lord) keeps 0 and splits at match time.
+func typeTermID(kind predicateTermKind, arg string) cards.TypeWordID {
+	if kind != predicateTermType || arg == "" || strings.IndexByte(arg, ' ') >= 0 {
+		return 0
+	}
+	return cards.InternTypeWord(arg)
 }
 
 func predicateTermFromWord(kind wordKind) (predicateTermKind, bool) {
@@ -246,7 +316,15 @@ func (ps *PredicatePrograms) evaluate(spec string, g *state.Game, o *state.Objec
 	if ps == nil || o == nil {
 		return PredicateMaybe
 	}
-	p, ok := ps.byText[spec]
+	return ps.evaluateCS(compiledSpecFor(spec), spec, g, o, sc)
+}
+
+// evaluateCS is evaluate for a caller already holding spec's compiled form.
+func (ps *PredicatePrograms) evaluateCS(cs *compiledSpec, spec string, g *state.Game, o *state.Object, sc *SpecContext) PredicateResult {
+	if ps == nil || o == nil {
+		return PredicateMaybe
+	}
+	p, ok := ps.programFor(cs, spec)
 	if !ok {
 		return PredicateMaybe
 	}
@@ -302,7 +380,7 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 	var matched bool
 	switch base.kind {
 	case predicateBaseAny:
-		matched = hasTypeCtxPtr(o, "Creature", sc) || hasTypeCtxPtr(o, "Planeswalker", sc) || hasTypeCtxPtr(o, "Battle", sc)
+		matched = hasTypeCtxPtrID(o, "Creature", twCreature, sc) || hasTypeCtxPtrID(o, "Planeswalker", twPlaneswalker, sc) || hasTypeCtxPtrID(o, "Battle", twBattle, sc)
 	case predicateBaseCard:
 		matched = true
 	case predicateBasePermanent:
@@ -322,7 +400,7 @@ func matchesCompiledBase(base predicateBase, o *state.Object, sc *SpecContext) b
 		// helper, so the compiled base cannot return a definite No for a
 		// derived type the text path grants (a manifested Forest under
 		// Maskwood Nexus, or an animated manland).
-		matched = hasTypeCtxPtr(o, base.arg, sc)
+		matched = hasTypeCtxPtrID(o, base.arg, base.argID, sc)
 	}
 	if base.negated {
 		return !matched
@@ -362,7 +440,13 @@ func matchesCompiledTerm(term predicateTerm, g *state.Game, o *state.Object, sc 
 	case predicateTermColor:
 		matched = strings.Contains(ColorsOf(o), term.arg)
 	case predicateTermType:
-		matched = hasTypePredicateCtxPtr(o, term.arg, sc)
+		if term.argID != 0 {
+			// A single ASCII word: hasTypePredicateCtxPtr's one-word walk is
+			// exactly hasTypeCtxPtr of that word.
+			matched = hasTypeCtxPtrID(o, term.arg, term.argID, sc)
+		} else {
+			matched = hasTypePredicateCtxPtr(o, term.arg, sc)
+		}
 	case predicateTermColorless:
 		matched = ColorsOf(o) == ""
 	case predicateTermAttachedBy:
@@ -379,5 +463,5 @@ func (ps *PredicatePrograms) Len() int {
 	if ps == nil {
 		return 0
 	}
-	return len(ps.byText)
+	return len(ps.texts)
 }

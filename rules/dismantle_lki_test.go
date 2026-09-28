@@ -22,6 +22,7 @@ import (
 // live object) AND two counters of the chosen kind landed on the caster's
 // recipient -- i.e. the gate was met and the amount survived the move.
 func TestDismantleDestroysCounteredTargetAndPlacesCounters(t *testing.T) {
+	t.Parallel()
 	dismantle := mustCorpusCardT(t, "Dismantle")
 	// The target has NO indestructible: it is destroyed, so only LKI can
 	// carry its counters into the chained PutCounter.
@@ -98,6 +99,7 @@ func TestDismantleDestroysCounteredTargetAndPlacesCounters(t *testing.T) {
 // Targeted$CardCounters.ALL. The correct amount is THREE; the stale
 // resolution-start snapshot would size TWO.
 func TestChainReadsTargetCountersChangedEarlierInResolution(t *testing.T) {
+	t.Parallel()
 	probe := card(t, "Name:Counter Reap\nManaCost:0\nTypes:Sorcery\n"+
 		"A:SP$ PutCounter | ValidTgts$ Artifact.YouDontCtrl | CounterType$ P1P1 | CounterNum$ 1 | SubAbility$ DBDestroy\n"+
 		"SVar:DBDestroy:DB$ Destroy | Defined$ Targeted | SubAbility$ DBPut\n"+

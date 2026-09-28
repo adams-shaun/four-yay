@@ -11,6 +11,7 @@ import (
 const playerEnchantAuraScript = "Name:Test Player Aura\nTypes:Enchantment Aura\nK:Enchant:Player\nOracle:x\n"
 
 func TestPlayerProtectionDamage(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Absolute Virtue", "Grizzly Bears"}, []string{"Hill Giant"})
 	av := findOnBoard(t, e, 0, "Absolute Virtue")
@@ -40,6 +41,7 @@ func TestPlayerProtectionDamage(t *testing.T) {
 }
 
 func TestPlayerProtectionEnchant(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Absolute Virtue", "Grizzly Bears"}, []string{"Hill Giant"})
 	av := findOnBoard(t, e, 0, "Absolute Virtue")
@@ -64,6 +66,7 @@ func TestPlayerProtectionEnchant(t *testing.T) {
 }
 
 func TestPlayerProtectionExistingAura(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Absolute Virtue", "Grizzly Bears"}, []string{"Hill Giant"})
 	av := findOnBoard(t, e, 0, "Absolute Virtue")

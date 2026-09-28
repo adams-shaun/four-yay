@@ -11,6 +11,7 @@ import (
 // only X=1. An offer based on the broad part's capacity would abort when the
 // narrower part is settled, because neither X=0 nor X=1 reduces enough.
 func TestDargoMultipleSacXPartsWithholdUnsettleableOffer(t *testing.T) {
+	t.Parallel()
 	e, spell, ids := dargoEngine(t, []string{
 		"Name:Anvil\nTypes:Artifact\nOracle:x\n",
 		"Name:Crab\nTypes:Creature\nPT:1/1\nOracle:x\n",

@@ -109,6 +109,7 @@ func enteredTappedTaps(t *testing.T, e *Engine) []events.Event {
 // enter TAPPED, each through its own "entered tapped" Tap event, and the
 // log-only replay reproduces the whole board.
 func TestTokenTappedCreatesTappedTokens(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Army of the Damned")
 	d := castSpellNamed(t, e, reg, "Army of the Damned", "BBBBBBBB")
@@ -197,6 +198,7 @@ func skyclaveEngine(t *testing.T, reg *cards.Registry) (*Engine, Config, state.O
 // leave trigger creates a 2/2 blue Illusion token OWNED BY THE BEAR'S OWNER
 // (TokenOwner$ RememberedOwner) with the derived P/T of exactly 2/2.
 func TestTokenDynamicPTSkyclaveApparition(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, bearID := skyclaveEngine(t, reg)
 
@@ -300,6 +302,7 @@ func TestTokenDynamicPTSkyclaveApparition(t *testing.T) {
 // seat 0's graveyard to the battlefield TAPPED, each through its own
 // "entered tapped" Tap event.
 func TestChangeZoneAllTappedReturnsGraveyardLandsTapped(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Splendid Reclamation")
 	var grave []state.ObjID

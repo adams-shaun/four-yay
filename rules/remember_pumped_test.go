@@ -26,6 +26,7 @@ import (
 // WITHOUT its sub-chain, and the downstream half against the Effect's own
 // captured set (registered before the cleanup runs).
 func TestChemistersTrickRememberPumpedFeedsMustAttack(t *testing.T) {
+	t.Parallel()
 	reg := choiceCorpusRegistry(t)
 	trick := choiceCorpusCard(t, "Chemister's Trick")
 	pumpedSrc := "Name:Marked Bear\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
@@ -143,6 +144,7 @@ func TestChemistersTrickRememberPumpedFeedsMustAttack(t *testing.T) {
 // param:api:Pump.RememberPumped. TestParamCensusDetectsADeletedConsumer
 // proves the same derivation by pretending a consumer was deleted.
 func TestParamCensusReadsPumpRememberPumped(t *testing.T) {
+	t.Parallel()
 	base, d := measureParamCensus(t, nil)
 	if d == nil || !d.api["Pump"]["RememberPumped"] {
 		t.Fatalf("param census no longer derives the RememberPumped$ read for api:Pump -- the reader in effPump was deleted")

@@ -19,6 +19,7 @@ import (
 // growing (a livelock). The gained activation must count like any other
 // activation of the recipient.
 func TestGainedActivationCountsOnTheRecipientsCensus(t *testing.T) {
+	t.Parallel()
 	welder := tokenReplCorpusCard(t, "Myr Welder")
 	vault := tokenReplCorpusCard(t, "Knowledge Vault")
 	e, cfg := tokenReplGame(t, 9131, welder, vault)

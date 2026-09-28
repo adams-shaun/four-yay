@@ -14,6 +14,7 @@ import (
 // tier, the first deterministic reason detail and the exact consequence of one
 // corpus producer's ability.
 func TestPaymentPlanTiers(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name   string
 		tier   paymentAbilityTier
@@ -89,6 +90,7 @@ func TestPaymentPlanTiers(t *testing.T) {
 // (spec 3.2's Sac<1/CARDNAME> row: "with or without {T}"; the token spelling
 // is Sac<1/CARDNAME/this token>).
 func TestPaymentPlanTiersTokenAbilities(t *testing.T) {
+	t.Parallel()
 	for _, stem := range []string{"c_a_treasure_sac", "c_a_gold_sac"} {
 		t.Run(stem, func(t *testing.T) {
 			c, ok := testutil.CorpusRegistry(t).Token(stem)
@@ -119,6 +121,7 @@ func TestPaymentPlanTiersTokenAbilities(t *testing.T) {
 }
 
 func TestPaymentPlanDoesNotUseLastResortSources(t *testing.T) {
+	t.Parallel()
 	for _, basics := range []int{0, 2} {
 		e, _, spell := newFixtureDeck(t, uint64(9820+basics), "Name:Two Probe\nManaCost:2\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 		tomb := onBoardCard(t, e, 0, corpusTierFixture(t, "Ancient Tomb"))
@@ -150,6 +153,7 @@ func TestPaymentPlanDoesNotUseLastResortSources(t *testing.T) {
 }
 
 func TestPaymentPlanNormalSourceRejectsRider(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newFixtureDeck(t, 9811, "Name:Probe\nManaCost:1\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	id := onBoardCard(t, e, 0, corpusTierFixture(t, "Ancient Tomb"))
 	for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
@@ -223,6 +227,7 @@ func tierFillGraveyard(t *testing.T, e *Engine, n int) {
 // whose witness DISCLOSES the 2 damage (aph-last-resort-plans), and with two
 // Swamps the plan uses the Swamps and execution leaves life untouched.
 func TestPaymentPlanTiersFPAncientTomb(t *testing.T) {
+	t.Parallel()
 	// Tomb only: the damage is announced in the witness.
 	e, _, spell := newFixtureDeck(t, 9840, "Name:Two Probe\nManaCost:2\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	tomb := onBoardCard(t, e, 0, corpusTierFixture(t, "Ancient Tomb"))
@@ -283,6 +288,7 @@ func TestPaymentPlanTiersFPAncientTomb(t *testing.T) {
 // you, return to hand), planned only with that consequence disclosed in the
 // witness step (aph-last-resort-plans).
 func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"Tarnished Citadel", "Cryptolith Fragment", "Elves of Deep Shadow", "Mox Poison",
 		"Rainbow Vale", "Undiscovered Paradise", "Witch Engine", "Cabal Pit"} {
 		t.Run(name, func(t *testing.T) {
@@ -335,6 +341,7 @@ func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 // reversed when execution produced {B}. Now the conditional production is
 // never planned.
 func TestPaymentPlanTiersFPConditionalProduction(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9843, "Name:Blue Probe\nManaCost:U\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	if river := onBoardCard(t, e, 0, corpusTierFixture(t, "River of Tears")); river == 0 {
 		t.Fatal("precondition: River of Tears not on the battlefield")
@@ -352,6 +359,7 @@ func TestPaymentPlanTiersFPConditionalProduction(t *testing.T) {
 // TestPaymentPlanTiersFPTriggersWhenSpent (FP-5). Pyromancer's Goggles' mana
 // copies the red instant or sorcery it pays for; a plan must not spend it.
 func TestPaymentPlanTiersFPTriggersWhenSpent(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9844, "Name:Red Probe\nManaCost:R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	goggles := onBoardCard(t, e, 0, corpusTierFixture(t, "Pyromancer's Goggles"))
 	out := e.PlanCastPayment(0, paymentCast(spell))
@@ -371,6 +379,7 @@ func TestPaymentPlanTiersFPTriggersWhenSpent(t *testing.T) {
 // DBHurt next to two Swamps. The witness used to select the Tomb (fewest
 // sources); now it uses the Swamps.
 func TestPaymentPlanTiersMirrorTombFixture(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9845, "Name:Two Generic Test\nManaCost:2\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:x\n")
 	tomb := onBoard(t, e, 0, "Name:Tomb Test\nTypes:Land\nA:AB$ Mana | Cost$ T | Produced$ C | Amount$ 2 | SubAbility$ DBHurt | SpellDescription$ Tomb fixture.\nSVar:DBHurt:DB$ DealDamage | Defined$ You | NumDmg$ 2\nOracle:x\n")
 	onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
@@ -395,6 +404,7 @@ func TestPaymentPlanTiersMirrorTombFixture(t *testing.T) {
 // never in the plan, and the offered plan on the priority decision does not
 // use it either.
 func TestPaymentPlanTiersUnannouncedLifeAtOneLife(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9846, "Name:Black Probe\nManaCost:2 B\nTypes:Sorcery\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	toMain1(t, e)
 	tomb := onBoardCard(t, e, 0, corpusTierFixture(t, "Ancient Tomb"))
@@ -440,6 +450,7 @@ func TestPaymentPlanTiersUnannouncedLifeAtOneLife(t *testing.T) {
 // {C} and the cast asked a colour at execution. The conditional production is
 // never planned.
 func TestPaymentPlanTiersGemstoneCavernsLuck(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9847, "Name:Colorless Probe\nManaCost:C\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	toMain1(t, e)
 	caverns := onBoardCard(t, e, 0, corpusTierFixture(t, "Gemstone Caverns"))
@@ -457,6 +468,7 @@ func TestPaymentPlanTiersGemstoneCavernsLuck(t *testing.T) {
 // board that also holds an Ancient Tomb is built from the Mountains and its
 // execution leaves life and the Tomb untouched.
 func TestPaymentPlanTiersExecutedPlanSpendsOnlyAnnouncedSources(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9848, "Name:Two Generic\nManaCost:2\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	m1 := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
 	m2 := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")

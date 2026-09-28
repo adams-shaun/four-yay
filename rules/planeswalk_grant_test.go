@@ -100,6 +100,7 @@ func driveTardisToPlaneswalkElection(t *testing.T, e *Engine, tardis *cards.Card
 // TrigEffect -> SubAbility$ DBPlaneswalk linkage, the election resume, or the
 // chain continuation regresses.
 func TestTardisPlaneswalkAskResolvesChain(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	tardis := lookup(t, reg, "TARDIS")
 	timeLord := card(t, timeLordSrc)
@@ -172,6 +173,7 @@ func TestTardisPlaneswalkAskResolvesChain(t *testing.T) {
 // chained SubAbility after it are exercised independently of TARDIS's
 // unsupported Crew/attack mechanics.
 func TestPlaneswalkProbeAskResolvesChain(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	probe := card(t, "Name:Planeswalk Probe\nManaCost:G\nTypes:Sorcery\n"+
 		"A:SP$ Planeswalk | Optional$ True | SubAbility$ Next\n"+

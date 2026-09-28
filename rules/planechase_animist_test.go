@@ -29,6 +29,7 @@ import (
 // depends on it; replayCheck certifies the whole chain replays
 // byte-identically.
 func TestPathOfTheAnimistSearchThenVoteResolvesThePlaneswalkOutcome(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	card := searchCorpusCard(t, reg, "Path of the Animist")
 	var voteBody *string
@@ -170,6 +171,7 @@ func animistTestEngine(t *testing.T, reg *cards.Registry) (*Engine, Config) {
 // branch, so the assertion discriminates tie from non-tie rather than just
 // observing that some outcome ran.
 func TestPathOfTheAnimistTiedVoteRunsTheTiedBranch(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := animistTestEngine(t, reg)
 	card := searchCorpusCard(t, reg, "Path of the Animist")

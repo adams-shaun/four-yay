@@ -30,6 +30,7 @@ const combatAtomicFixture = "Name:Atomic Tax\nTypes:Enchantment\n" +
 // The pair must not be offered at all -- the round-1 read checked the generic
 // against the budget and the pip against the pool separately and admitted it.
 func TestAtomicallyUnpayableGenericAndPipPairIsNeverOffered(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatAtomicFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -72,6 +73,7 @@ func TestAtomicallyUnpayableGenericAndPipPairIsNeverOffered(t *testing.T) {
 // THREE white floating and no life for the pip, the payer pays both the two
 // generic and the pip's colour from the same pool, and the attack commits.
 func TestAtomicChargePaysGenericAndPipFromOnePool(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatAtomicFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:0/4\nOracle:x\n")
@@ -117,6 +119,7 @@ func TestAtomicChargePaysGenericAndPipFromOnePool(t *testing.T) {
 // the two white on the generic and two life on the pip. The pairing of a
 // branch to a pip is the payer's legal choice.
 func TestAtomicChargeLifeBranchWhenGenericIsShort(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatAtomicFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:0/4\nOracle:x\n")
@@ -162,6 +165,7 @@ func TestAtomicChargeLifeBranchWhenGenericIsShort(t *testing.T) {
 // both branches are legal, so the payment window must pose the real
 // CR 107.4f choice rather than settling inline.
 func TestNornsAnnexFloatingColourStillOffersTheLifeChoice(t *testing.T) {
+	t.Parallel()
 	e, bear := attackTaxSeat(t, "Norn's Annex")
 	e.G.Players[1].Life = 20
 	e.G.Players[1].Pool[state.MW] = 1
@@ -229,6 +233,7 @@ const combatUnpriceableFixture = "Name:Unpriceable Tax\nTypes:Enchantment\n" +
 // static whose Cost$ cannot be priced must NOT be skipped (which let the
 // creature attack for free); the pair is unpriceable and never offered.
 func TestUnpriceableAttackCostFailsClosed(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatUnpriceableFixture))
 	bear := onBoardReady(t, e, 1, "Name:Runeclaw Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
@@ -261,6 +266,7 @@ const blockUnpriceableFixture = "Name:Block Unpriceable Tax\nTypes:Enchantment\n
 
 // TestUnpriceableBlockCostFailsClosed is the block-direction sibling.
 func TestUnpriceableBlockCostFailsClosed(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, blockUnpriceableFixture))
 	blocker := onBoardReady(t, e, 0, memniteSrc)
@@ -295,6 +301,7 @@ const combatJointFixture = "Name:Joint Tax\nTypes:Enchantment\n" +
 // charge reads unpayable, even though tapping the non-artifact creature and
 // sacrificing the artifact is a valid payment.
 func TestJointTapSacrificeAssignmentPaysWhenAGreedyPlanWouldFail(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatJointFixture))
 	artifact := onBoardReady(t, e, 1, "Name:Test Golem\nManaCost:2\nTypes:Artifact Creature Golem\nPT:1/1\nOracle:x\n")
@@ -360,6 +367,7 @@ const combatTapVsManaFixture = "Name:Tap Versus Mana Tax\nTypes:Enchantment\n" +
 // and the only tapper cannot pay -- the round-1 code tapped it for mana and
 // then tapped it again as the cost.
 func TestTapObligationCannotAlsoPayTheMana(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	onBoardCard(t, e, 0, card(t, combatTapVsManaFixture))
 	creatureLand := onBoardReady(t, e, 1, "Name:Test Grove\nTypes:Land Creature\nPT:1/1\n"+
@@ -412,6 +420,7 @@ const combatBotTapFixture = "Name:Charged Warden\nManaCost:1 G\nTypes:Creature B
 // pair while a candidate remains and drops whatever would exhaust the pool --
 // so the answer it hands the engine is exactly one validateAttackers accepts.
 func TestAtomicTapChargedBotAnswerIsAccepted(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	charged := onBoardReady(t, e, 1, combatBotTapFixture)
 	free := onBoardReady(t, e, 1, "Name:Free Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")

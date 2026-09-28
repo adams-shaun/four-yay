@@ -108,6 +108,7 @@ func makeTokens(t *testing.T, e *Engine, alarm *cards.Card) (state.ObjID, state.
 // options entirely; the ask itself is still posed (The Master and the bear
 // remain legal candidates) and seat 0's answer is honoured.
 func TestMasterMultipliedTriggeredSacrificeBlocked(t *testing.T) {
+	t.Parallel()
 	master, alarm, fleshbag, _ := masterTestCards(t)
 	bear := card(t, staticBearFixture)
 	e, cfg := restrictionGame(t, 9301,
@@ -158,6 +159,7 @@ func TestMasterMultipliedTriggeredSacrificeBlocked(t *testing.T) {
 // whitelist-without-evaluation fix (the over-restriction the brief warns
 // about) would fail this leaf.
 func TestMasterMultipliedSpellCauseSacrificeAllowed(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	if _, ok := reg.Lookup("Innocent Blood"); !ok {
 		t.Fatal("corpus missing Innocent Blood")
@@ -203,6 +205,7 @@ const feederFixture = "Name:Feeder\nManaCost:2\nTypes:Artifact\n" +
 	"A:AB$ GainLife | Cost$ Sac<1/Creature> | Defined$ You | LifeAmount$ 2 | SpellDescription$ Sacrifice a creature: you gain 2 life.\nOracle:x\n"
 
 func TestMasterMultipliedCostSacrificeAllowed(t *testing.T) {
+	t.Parallel()
 	master, alarm, _, _ := masterTestCards(t)
 	feeder := card(t, feederFixture)
 	e, cfg := restrictionGame(t, 9303,
@@ -255,6 +258,7 @@ const gatekeeperFixture = "Name:Test Gatekeeper\nManaCost:2 B\nTypes:Creature Zo
 // qualifier) must NOT block the sacrifice -- no over-restriction from a
 // spec this build cannot read.
 func TestMasterMultipliedUnknownCauseFailsClosed(t *testing.T) {
+	t.Parallel()
 	_, alarm, fleshbag, _ := masterTestCards(t)
 	gatekeeper := card(t, gatekeeperFixture)
 	bear := card(t, staticBearFixture)

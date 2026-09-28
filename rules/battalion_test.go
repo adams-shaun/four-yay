@@ -14,6 +14,7 @@ import (
 // declaration satisfies GE2; after the trigger is queued, one supporting
 // attacker leaves, so a resolution-time recheck would fizzle the damage.
 func TestSentinelSarahLyonsBattalionSurvivesAttackerLeaving(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	sarah := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Sentinel Sarah Lyons"))

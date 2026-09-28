@@ -27,6 +27,7 @@ import (
 // ends when Karn's next turn starts, so the animated artifact must remain a
 // creature throughout the opponent's turn but revert before Karn's next main.
 func TestKarnAnimateUntilYourNextTurnSurvivesTheOpponentsTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		lookup(t, reg, "Karn, the Great Creator"), lookup(t, reg, "Sol Ring"),
@@ -63,6 +64,7 @@ func TestKarnAnimateUntilYourNextTurnSurvivesTheOpponentsTurn(t *testing.T) {
 }
 
 func TestAnimatePermanentDurationKeepsPTThroughCleanup(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Stalking Stones")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Stalking Stones", state.ZBattlefield)

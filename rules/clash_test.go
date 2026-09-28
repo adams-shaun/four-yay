@@ -41,6 +41,7 @@ func hasClashEvent(e *Engine, p state.PlayerID, won bool) bool {
 // libraries' tops are the cards the comparison is about; seat 1 is alive), so
 // a vacuous setup fails loudly.
 func TestMarvoDeepOperativeClashWinsDrawsAndOffersFreeCast(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	marvo := onBoardCard(t, e, 0, unblockedCorpusCard(t, "m/marvo_deep_operative.txt"))
 	e.G.Obj(marvo).SummonSick = false
@@ -168,6 +169,7 @@ func TestMarvoDeepOperativeClashWinsDrawsAndOffersFreeCast(t *testing.T) {
 // trig:Clashed corpus carriers as playable. Reverting either registration is a
 // silent coverage regression this fails on.
 func TestClashPrimitivesRegistered(t *testing.T) {
+	t.Parallel()
 	supported := effects.Supported()
 	for _, p := range []string{"api:Clash", "trig:Clashed"} {
 		if !supported[p] {
@@ -184,6 +186,7 @@ func TestClashPrimitivesRegistered(t *testing.T) {
 // answers too: a Won$ True line must reject a loss and a ValidPlayer$ You line
 // must reject the other seat.
 func TestClashTriggerModeReadsWonOrientation(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	const src = state.ObjID(1) // any id: controllerOf degrades to 0 for it
 

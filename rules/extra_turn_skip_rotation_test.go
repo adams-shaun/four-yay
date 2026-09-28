@@ -16,6 +16,7 @@ import (
 // normal turn have the same holder, which rotationBase cannot infer from an
 // unmarked -1 ExtraTurn event.
 func TestUginsNexusSkippedOpponentExtraTurnPreservesOrdinaryRotation(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Ugin's Nexus")}, nil)

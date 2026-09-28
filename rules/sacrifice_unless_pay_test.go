@@ -61,6 +61,7 @@ func countPlayerDamage(e *Engine, p state.PlayerID) int {
 // split the brief names: effects never emits the payment) and then
 // sacrifices the Devil.
 func TestEngineVexingDevilAcceptanceDealsDamageAndSacrifices(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, devil := devilToHand(t, reg, "Vexing Devil")
 	e.G.Players[0].Pool = state.Mana{state.MR: 1}
@@ -133,6 +134,7 @@ func devilToHand3(t *testing.T, reg *cards.Registry, name string) (*Engine, stat
 // 2 -- its own identical offer forever on the second decline; this test
 // asserts the second decline ends the ask and the game moves on.
 func TestEngineVexingDevilEveryOpponentDeclineEndsTheOffer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, devil := devilToHand3(t, reg, "Vexing Devil")
 	e.G.Players[0].Pool = state.Mana{state.MR: 1}
@@ -203,6 +205,7 @@ func TestEngineVexingDevilEveryOpponentDeclineEndsTheOffer(t *testing.T) {
 // TestEngineVexingDevilDeclineLeavesItInPlay pins the decline branch through
 // the engine: the opponent refuses and the 4/3 stays on the battlefield.
 func TestEngineVexingDevilDeclineLeavesItInPlay(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, devil := devilToHand(t, reg, "Vexing Devil")
 	e.G.Players[0].Pool = state.Mana{state.MR: 1}
@@ -230,6 +233,7 @@ func TestEngineVexingDevilDeclineLeavesItInPlay(t *testing.T) {
 // controller at upkeep, the paid answer (floating {B} in the pool) spares
 // the Zombie via the SHARED unless_pay arm, and a decline sacrifices it.
 func TestEngineUpkeepSacrificeUnlessPayThroughPayMana(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := New(Config{Seed: 1, Names: []string{"a", "b"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 	for p := state.PlayerID(0); p < 2; p++ {
@@ -281,6 +285,7 @@ func TestEngineUpkeepSacrificeUnlessPayThroughPayMana(t *testing.T) {
 // an empty pool cannot pay, so a "pay" answer degrades to a decline and the
 // Zombie is sacrificed.
 func TestEngineUpkeepSacrificeDeclineSacrifices(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := New(Config{Seed: 1, Names: []string{"a", "b"}, Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40)}})
 	for p := state.PlayerID(0); p < 2; p++ {
@@ -319,6 +324,7 @@ func TestEngineUpkeepSacrificeDeclineSacrifices(t *testing.T) {
 // TestEngineLonghornFirebeastFiveThroughEngine pins the second damage-offer
 // card end to end: N=5, acceptance deals 5 and sacrifices.
 func TestEngineLonghornFirebeastFiveThroughEngine(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, beast := devilToHand(t, reg, "Longhorn Firebeast")
 	e.G.Players[0].Pool = state.Mana{state.MR: 3}

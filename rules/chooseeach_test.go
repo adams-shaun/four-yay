@@ -61,6 +61,7 @@ func submitCardChoice(t *testing.T, e *Engine, d *decision.Decision, id state.Ob
 }
 
 func TestTragicArroganceChooseEachKeepsOnePerTypePerPlayer(t *testing.T) {
+	t.Parallel()
 	e, cfg, board := chooseEachBoard(t)
 	targ := moveByName(t, e, 0, "Tragic Arrogance", state.ZHand)
 	addMana(t, e, 0, "WWWWW")

@@ -16,6 +16,7 @@ import (
 // array and corrupt each other's Derived result. This runs both engines'
 // Derived in parallel goroutines so a shared buffer races, not just aliases.
 func TestDerivedScratchNotSharedWithClone(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, "Name:SerraAngel\nManaCost:3 WW\nTypes:Creature Angel\nPT:4/4\nK:Flying\nOracle:x\n")
 	want := []string{"Flying"}
@@ -68,6 +69,7 @@ func TestDerivedScratchNotSharedWithClone(t *testing.T) {
 // full Derived result (P/T + keywords) on an engine and on its clone must be
 // identical and read-only-stable, even though each owns separate scratch.
 func TestDerivedMatchesClone(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	id := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nK:Trample\nOracle:x\n")
 	e.G.Obj(id).AddCounter("P1P1", 1)

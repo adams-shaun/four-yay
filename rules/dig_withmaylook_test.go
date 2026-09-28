@@ -32,6 +32,7 @@ import (
 // corrupted_poison_readers_test.go pattern), asserts the exiled card's durable
 // state and both projections, and replay-checks the whole log.
 func TestIxhelFaceDownExileIsVisibleOnlyToTheDigController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	ixhel := mustCorpusCard(t, reg, "Ixhel, Scion of Atraxa")
 	fodder := mustCorpusCard(t, reg, "Lightning Bolt")

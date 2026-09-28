@@ -16,6 +16,7 @@ import (
 // legal answer (the same legacy stand-in effNameCard names mid-resolution),
 // and answering it must complete the entry.
 func TestETBNameCardWithNoVisibleMatchStillAnswerable(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Alpine Moon"))
 	moon := handIDsByFace(e)["Alpine Moon"]

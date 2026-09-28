@@ -167,6 +167,7 @@ func miscPass(t *testing.T, e *Engine) {
 // hand-off (with its SubAbility$ draw still running), and Force of Will's
 // explicit Graveyard spelling taking the ordinary path.
 func TestCounterDestinationMovesTheCounteredCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Grizzly Bears", "Grizzly Bears"},
@@ -252,6 +253,7 @@ func TestCounterDestinationMovesTheCounteredCard(t *testing.T) {
 // than the spell's resolving controller. The caster is the active seat (a
 // sorcery), so the payer/copy-owner under test is seat 1.
 func TestCopySpellAbilityControllerGivesTheCopyToThePayer(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Chain Lightning"}, nil, nil, []string{"Grizzly Bears"})
@@ -333,6 +335,7 @@ func TestCopySpellAbilityControllerGivesTheCopyToThePayer(t *testing.T) {
 // permanent with the most votes or tied for most -- here the only eligible
 // permanent, voted unanimously.
 func TestCouncilsJudgmentExilesTheMostVoted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Council's Judgment"}, nil,
@@ -388,6 +391,7 @@ func TestCouncilsJudgmentExilesTheMostVoted(t *testing.T) {
 // activator actually spent -- a zero-mana cast (Ornithopter) triggers the 5
 // damage, a mana-paid cast (Grizzly Bears) does not.
 func TestRoilingVortexFiresOnlyOnFreeCasts(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Grizzly Bears", "Ornithopter"}, nil, []string{"Roiling Vortex"}, nil)
@@ -425,6 +429,7 @@ func TestRoilingVortexFiresOnlyOnFreeCasts(t *testing.T) {
 // the count includes the triggering cast itself -- so the second spell the
 // same player casts that turn triggers nothing.
 func TestSpellCastActivatorThisTurnCastGatesTheTrigger(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := miscHandsEngine(t, reg,
 		[]string{"Grizzly Bears", "Grizzly Bears"}, nil,

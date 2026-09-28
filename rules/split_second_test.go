@@ -124,6 +124,7 @@ func hasOptionKind(opts []decision.Option, kind string) bool {
 }
 
 func TestVATSSplitSecondWithholdsCastsAndActivations(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, foundry := splitSecondEngine(t, reg, "V.A.T.S.", "Lightning Bolt")
 	bolt := searchMoveByName(t, e, "Lightning Bolt", state.ZHand)
@@ -191,6 +192,7 @@ func TestVATSSplitSecondWithholdsCastsAndActivations(t *testing.T) {
 }
 
 func TestMoltenDisasterKickedGrantWithholds(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	t.Run("kicked", func(t *testing.T) {
 		e, cfg, _ := splitSecondEngine(t, reg, "Molten Disaster", "Lightning Bolt")

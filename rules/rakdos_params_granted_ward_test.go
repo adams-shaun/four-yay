@@ -83,6 +83,7 @@ func opponentBoltAt(t *testing.T, e *Engine, target state.ObjID) {
 }
 
 func TestGrantedWardPayLifeAsksAndPays(t *testing.T) {
+	t.Parallel()
 	e, bear := hexingEngine(t)
 	e.G.Players[1].Life = 12
 	opponentBoltAt(t, e, bear)
@@ -104,6 +105,7 @@ func TestGrantedWardPayLifeAsksAndPays(t *testing.T) {
 }
 
 func TestGrantedWardDeclineCountersTheSpell(t *testing.T) {
+	t.Parallel()
 	e, bear := hexingEngine(t)
 	e.G.Players[1].Life = 12
 	opponentBoltAt(t, e, bear)
@@ -123,6 +125,7 @@ func TestGrantedWardDeclineCountersTheSpell(t *testing.T) {
 }
 
 func TestGrantedWardStaysScopedToTheGrantorsCreatures(t *testing.T) {
+	t.Parallel()
 	// Affects$ Creature.Other+YouCtrl: the grant belongs to the grantor's
 	// controller. A bear under seat 1's control never wards -- the bolt (seat
 	// 0's own, paid from its own pool) resolves with no ward ask.

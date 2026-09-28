@@ -8,6 +8,7 @@ import "testing"
 // have, and must start its own Draws counter from the position it was
 // cloned at, not from zero.
 func TestRngCloneContinuesFromTheSamePosition(t *testing.T) {
+	t.Parallel()
 	r := newRNG(5)
 	for i := 0; i < 17; i++ {
 		r.IntN(1000)

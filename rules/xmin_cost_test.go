@@ -19,6 +19,7 @@ import (
 // bound must land on Cost.XMin. A malformed instance (an overflowing N)
 // still takes the ordinary reported one-generic fallback.
 func TestParseCostModelsXMinLowerBound(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		cost                    string
 		wantGeneric             int32
@@ -93,6 +94,7 @@ func TestParseCostModelsXMinLowerBound(t *testing.T) {
 // would have made {2}{U} unpayable) must be gone. The object's stamped X is
 // the announced one.
 func TestThievingSkydiverKickedXMinOffersOnlyNonzeroX(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Thieving Skydiver"))
 	skydiver := e.G.Zone(state.ZHand, 0)[0]
 	if skydiver == 0 {
@@ -138,6 +140,7 @@ func TestThievingSkydiverKickedXMinOffersOnlyNonzeroX(t *testing.T) {
 // needs {2}{U}); with {2}{U} it must be offered. This pins the gate the
 // brief warns would otherwise price X as 0 and offer an illegal X = 0.
 func TestXMinKickerOfferGateWithholdsUnpayableMinimum(t *testing.T) {
+	t.Parallel()
 	// The fixture's own cost is {1}{U}; K:Kicker:XMin1 X with no effect body
 	// keeps it a pure cost-shape test (no target ask, no triggered ability).
 	src := "Name:Skydive Test\nManaCost:1 U\nTypes:Creature Merfolk Rogue\nPT:2/1\nK:Kicker:XMin1 X\nOracle:x\n"

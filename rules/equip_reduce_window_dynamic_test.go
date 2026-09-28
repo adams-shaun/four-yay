@@ -98,6 +98,7 @@ func equipWindowGame(t *testing.T, seed uint64, extra ...string) equipWindowBoar
 // is fundable in the CR 601.2g window, so the 2/2 must be offered as a target,
 // and completing the activation must charge exactly the 2/2's {8} price.
 func TestEquipReduceWindowFundedTargetIsOffered(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 517, equipWindowJoinerSrc)
 	e, cfg, beltID, bruteID, smallID, joinerID := b.engine, b.cfg, b.belt, b.brute, b.small, b.joiner
 
@@ -176,6 +177,7 @@ func TestEquipReduceWindowFundedTargetIsOffered(t *testing.T) {
 // manaWindowAsk would offer (battlefield/hand/graveyard, non-InstantSpeed,
 // not already committed to this cast).
 func TestCastWindowProvableSubsetOfManaWindowOffers(t *testing.T) {
+	t.Parallel()
 	b := equipWindowGame(t, 518,
 		equipWindowJoinerSrc, equipWindowPayLifeSrc, equipWindowGenericSrc,
 		equipWindowSelfSacSrc, equipWindowInstantSrc)

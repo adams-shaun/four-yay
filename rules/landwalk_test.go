@@ -41,6 +41,7 @@ func landwalkAttacker(t *testing.T, e *Engine, c *cards.Card) state.ObjID {
 // while the DEFENDING player controls an Island, and becomes ordinarily
 // blockable once that Island leaves.
 func TestLandwalkEvadesDefenderLands(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	whale := landwalkAttacker(t, e, landwalkCorpusCard(t, "c/colossal_whale.txt"))
 	// Precondition: the rule reads this exact keyword, and the defending
@@ -92,6 +93,7 @@ func TestLandwalkEvadesDefenderLands(t *testing.T) {
 // TestLandwalkBasicLandTypeForms covers the printed basic-type forms with a
 // positive and a negative land-control case apiece.
 func TestLandwalkBasicLandTypeForms(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name   string
 		path   string
@@ -136,6 +138,7 @@ func TestLandwalkBasicLandTypeForms(t *testing.T) {
 // Sophisticate): any land that is not basic confers the walk, and a board of
 // basics does not.
 func TestLandwalkNonbasicQualifier(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	a := landwalkAttacker(t, e, landwalkCorpusCard(t, "d/dryad_sophisticate.txt"))
 	if !e.HasKeyword(a, "Landwalk") {
@@ -161,6 +164,7 @@ func TestLandwalkNonbasicQualifier(t *testing.T) {
 // TestLandwalkLegendaryQualifier covers `K:Landwalk:Land.Legendary` (Livonya
 // Silone): a legendary land confers the walk, an ordinary land does not.
 func TestLandwalkLegendaryQualifier(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	a := landwalkAttacker(t, e, landwalkCorpusCard(t, "l/livonya_silone.txt"))
 	if !e.HasKeyword(a, "Landwalk") {
@@ -188,6 +192,7 @@ func TestLandwalkLegendaryQualifier(t *testing.T) {
 // (`Swamp.Snow`, Legions of Lim-Dûl). Each must need a SNOW land of the right
 // ordinary type, not merely any snow land or any Swamp.
 func TestLandwalkSnowQualifierForms(t *testing.T) {
+	t.Parallel()
 	t.Run("land_snow", func(t *testing.T) {
 		e := combatEngine(t)
 		a := landwalkAttacker(t, e, landwalkCorpusCard(t, "z/zombie_musher.txt"))
@@ -251,6 +256,7 @@ func TestLandwalkSnowQualifierForms(t *testing.T) {
 // rule. The engine here is combatEngine's construction with Yavimaya's real
 // parsed card in seat 0's deck.
 func TestLandwalkReadsGrantedLandType(t *testing.T) {
+	t.Parallel()
 	yavimaya := landwalkCorpusCard(t, "y/yavimaya_cradle_of_growth.txt")
 	deck := mountainDeck(t, 39)
 	deck = append(deck, yavimaya)
@@ -292,6 +298,7 @@ func TestLandwalkReadsGrantedLandType(t *testing.T) {
 // silently treated as a basic walk nor as a universal evasion: the creature
 // stays ordinarily blockable whatever the defender controls.
 func TestLandwalkUnknownParameterFailsClosed(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	// A synthetic carrier with a qualifier no land can satisfy. The keyword is
 	// still a Landwalk head, so the test proves the spec path, not the head.
@@ -320,6 +327,7 @@ func TestLandwalkUnknownParameterFailsClosed(t *testing.T) {
 // walk matches a snow land and does not match a land merely named like the
 // description.
 func TestLandwalkDescriptionSuffixIsNotPartOfSpec(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	a := landwalkAttacker(t, e, card(t, "Name:Desc\nManaCost:1\nTypes:Creature\nPT:2/2\nK:Landwalk:Island:This be islandwalk\nOracle:x\n"))
 	spec, ok := landwalkSpec("Landwalk:Island:This be islandwalk")
@@ -344,6 +352,7 @@ func TestLandwalkDescriptionSuffixIsNotPartOfSpec(t *testing.T) {
 // typed as a Desert does not confer forestwalk, and a land with an unrelated
 // name but the Forest type does.
 func TestLandwalkReadsLandTypeNotName(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	a := landwalkAttacker(t, e, landwalkCorpusCard(t, "k/koths_courier.txt"))
 	if !e.HasKeyword(a, "Landwalk") {

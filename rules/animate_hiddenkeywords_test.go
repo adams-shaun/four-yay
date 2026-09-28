@@ -95,6 +95,7 @@ func declareAttackersOnly(t *testing.T, e *Engine, active, defender state.Player
 // existed, and the Seat-1 attacker really was blockable by it once the
 // restriction lifted.
 func TestOpportunisticDragonHiddenKeywords(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Opportunistic Dragon"), card(t, "Name:Test SeatZero Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")},
@@ -220,6 +221,7 @@ func TestOpportunisticDragonHiddenKeywords(t *testing.T) {
 // TestCowardKillerHiddenKeywords: the real Coward Killer's simple spelling
 // forbids blocking but NOT attacking.
 func TestCowardKillerHiddenKeywords(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Coward"), card(t, "Name:Test SeatZero Attacker\nManaCost:1\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")},
@@ -254,6 +256,7 @@ func TestCowardKillerHiddenKeywords(t *testing.T) {
 // be blocked if able. One legal blocker exists, so the empty declaration is
 // illegal and a block is legal and commits.
 func TestElementalUprisingMustBeBlocked(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg,
 		[]*cards.Card{lookup(t, reg, "Elemental Uprising")},
@@ -318,6 +321,7 @@ func TestElementalUprisingMustBeBlocked(t *testing.T) {
 // a single blocker satisfies it by blocking THAT attacker. Blocking only the
 // ordinary attacker is illegal (0 of 1); blocking the required one is legal.
 func TestMustBeBlockedNotForcedOntoEveryBlocker(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	req := onBoardCard(t, e, 1, card(t, strings.Replace(printedMustBeBlockedSrc, "PT:2/2", "PT:4/4", 1)))
 	plain := onBoardCard(t, e, 1, card(t, "Name:Test Plain Attacker\nManaCost:1\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"))
@@ -374,6 +378,7 @@ func TestMustBeBlockedNotForcedOntoEveryBlocker(t *testing.T) {
 // validator accepts, so the deterministic bot cannot re-derive a rejected one
 // forever.
 func TestMustBeBlockedBotAnswerNeverLivelocks(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	req := onBoardCard(t, e, 1, card(t, strings.Replace(printedMustBeBlockedSrc, "PT:2/2", "PT:4/4", 1)))
 	plain := onBoardCard(t, e, 1, card(t, "Name:Test Plain Attacker\nManaCost:1\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"))
@@ -403,6 +408,7 @@ func TestMustBeBlockedBotAnswerNeverLivelocks(t *testing.T) {
 // the impossible half cannot pass vacuously if the wiring is reverted -- the
 // positive half fails in the same function.
 func TestMustBeBlockedReleasesWhenImpossible(t *testing.T) {
+	t.Parallel()
 	// Positive control: legal pair binds.
 	e := threeSeatEngine(t)
 	reqGround := onBoardCard(t, e, 1, card(t, printedMustBeBlockedSrc))
@@ -466,6 +472,7 @@ func TestMustBeBlockedReleasesWhenImpossible(t *testing.T) {
 // with the identical sentence reaches the same oracle (this is the shape 40
 // corpus files use, mostly through Pump/PumpAll `KW$`).
 func TestPrintedMustBeBlockedKeywordReadsThroughTheSameReader(t *testing.T) {
+	t.Parallel()
 	e := threeSeatEngine(t)
 	req := onBoardCard(t, e, 1, card(t, "Name:Printed Must Block\nManaCost:1\nTypes:Creature Bear\nPT:2/2\n"+
 		"K:CARDNAME must be blocked if able.\nOracle:x\n"))

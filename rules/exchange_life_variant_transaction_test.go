@@ -10,6 +10,7 @@ import (
 )
 
 func TestExchangeLifeVariantResumesAfterReplacementChoice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Evra, Halcyon Witness", "Alhammarret's Archive", "Cleric Class")
 	archive := searchMoveByName(t, e, "Alhammarret's Archive", state.ZBattlefield)

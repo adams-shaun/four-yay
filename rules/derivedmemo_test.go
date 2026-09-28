@@ -18,6 +18,7 @@ import (
 // event-backed change (and not a layer-inert Priority marker) is seen by the
 // next walk.
 func TestDerivedMemoScopedToOneWalk(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nK:Trample\nOracle:x\n")
 	angel := onBoard(t, e, 0, "Name:Angel\nManaCost:3 WW\nTypes:Creature Angel\nPT:4/4\nK:Flying\nOracle:x\n")
@@ -48,7 +49,10 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 		t.Fatalf("new walk served the previous walk's entry: power %d, want 3", p)
 	}
 	e.endDerivedMemo()
-	m := &e.derivedMemo[bear]
+	m := e.derivedMemo.at(bear)
+	if m == nil {
+		t.Fatal("no memo entry for the derived bear")
+	}
 	seq := m.seq
 	if seq == 0 || seq != e.activeBuildSeq {
 		t.Fatalf("entry not eligible for cross-walk reuse: seq %d, active %d", seq, e.activeBuildSeq)
@@ -61,7 +65,7 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 	if p := e.Derived(bear).Power; p != 3 {
 		t.Fatalf("reused entry power %d, want 3", p)
 	}
-	if m.gen != e.derivedMemoGen || m.seq != seq || e.activeBuildSeq != seq {
+	if m = e.derivedMemo.at(bear); m.gen != e.derivedMemoGen || m.seq != seq || e.activeBuildSeq != seq {
 		t.Fatalf("inert event did not keep the entry: gen %d/%d seq %d/%d active %d", m.gen, e.derivedMemoGen, m.seq, seq, e.activeBuildSeq)
 	}
 	e.endDerivedMemo()
@@ -73,6 +77,7 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 // inputs (offerAsFace's face flip, the cost-composition exclusion) call
 // retireCrossWalkMemo. Tests may still write directly, and verify mode flags it.
 func TestDerivedMemoCrossWalkVerifyCatchesDirectWrite(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.beginDerivedMemo()
@@ -96,6 +101,7 @@ func TestDerivedMemoCrossWalkVerifyCatchesDirectWrite(t *testing.T) {
 // does cross-check every memo hit: a no-event write inside one walk -- the
 // thing the walk contract forbids -- must trip it.
 func TestDerivedMemoVerifyCatchesStaleness(t *testing.T) {
+	t.Parallel()
 	if !derivedMemoVerify {
 		t.Fatal("verify mode is off in the rules test binary")
 	}
@@ -117,12 +123,13 @@ func TestDerivedMemoVerifyCatchesStaleness(t *testing.T) {
 // TestDerivedMemoBypassesZoneOverride pins that the convoke zone-override
 // read (atStack != 0) never touches the memo.
 func TestDerivedMemoBypassesZoneOverride(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	_ = e.derivedWith(bear, state.ZStack)
-	if len(e.derivedMemo) > int(bear) && e.derivedMemo[bear].gen != 0 {
+	if m := e.derivedMemo.at(bear); m != nil && m.gen != 0 {
 		t.Fatal("an atStack derive was memoized")
 	}
 }
@@ -134,6 +141,7 @@ func TestDerivedMemoBypassesZoneOverride(t *testing.T) {
 // serves is recomputed and compared); at any other decision it must open a
 // fresh one.
 func TestBeginDerivedReadsResumesThePriorityWalk(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 7, Names: names, Decks: decks})
 	e.Advance()
@@ -155,8 +163,7 @@ func TestBeginDerivedReadsResumesThePriorityWalk(t *testing.T) {
 			}
 			resumed++
 			for _, id := range e.G.Zone(state.ZBattlefield, d.Player) {
-				m := e.derivedMemo
-				if int(id) < len(m) && m[id].gen == gen && m[id].ep == e.derivedMemoAliasFrom {
+				if m := e.derivedMemo.at(id); m != nil && m.gen == gen && m.ep == e.derivedMemoAliasFrom {
 					_ = e.Derived(id) // served via the alias; verify mode recomputes it
 					hitsServed++
 				}
@@ -181,6 +188,7 @@ func TestBeginDerivedReadsResumesThePriorityWalk(t *testing.T) {
 // TestBeginDerivedReadsDoesNotSurviveSubmit: once the priority decision is
 // answered the tail is dead, and a Submit inside an open scope panics.
 func TestBeginDerivedReadsDoesNotSurviveSubmit(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 7, Names: names, Decks: decks})
 	e.Advance()
@@ -219,6 +227,7 @@ func TestBeginDerivedReadsDoesNotSurviveSubmit(t *testing.T) {
 // scope's one blind spot -- a direct e.G write with no event between the ask
 // and the board build -- and proves verify mode flags it.
 func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 7, Names: names, Decks: decks})
 	e.Advance()
@@ -226,8 +235,7 @@ func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
 		d := e.Pending()
 		if d.Kind == decision.KPriority && e.derivedMemoTailLive() {
 			for _, id := range e.G.Zone(state.ZBattlefield, d.Player) {
-				m := e.derivedMemo
-				if int(id) >= len(m) || m[id].gen != e.derivedMemoGen || e.Derived(id).Types == nil {
+				if m := e.derivedMemo.at(id); m == nil || m.gen != e.derivedMemoGen || e.Derived(id).Types == nil {
 					continue
 				}
 				if !slices.Contains(e.Derived(id).Types, "Creature") {
@@ -259,6 +267,7 @@ func TestBeginDerivedReadsVerifyCatchesDirectWrite(t *testing.T) {
 // never served after the probe, and a live-face entry from before the probe
 // is never served inside it.
 func TestDerivedMemoFaceProbeDoesNotLeak(t *testing.T) {
+	t.Parallel()
 	e, _, id := newFixtureDeck(t, 7413, taxedAdventureSrc, taxWardenSrc)
 	o := e.G.Obj(id)
 	if o == nil || len(o.Card.Faces) < 2 {

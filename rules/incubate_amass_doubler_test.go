@@ -55,6 +55,7 @@ func runIncubateUnder(t *testing.T, reg *cards.Registry, doubler string) (*Engin
 }
 
 func TestIncubateAnointedProcessionCountersEveryMint(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, toks := runIncubateUnder(t, reg, "Anointed Procession")
 	// Pre-fix: 2 tokens, counters on the first only (3/0). Procession
@@ -74,6 +75,7 @@ func TestIncubateAnointedProcessionCountersEveryMint(t *testing.T) {
 }
 
 func TestIncubateDoublingSeasonCountersEveryMint(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, toks := runIncubateUnder(t, reg, "Doubling Season")
 	// Pre-fix: 2 tokens, counters on the first only (6/0). Doubling Season
@@ -134,6 +136,7 @@ func runAmassUnder(t *testing.T, reg *cards.Registry, doubler string) (*Engine, 
 }
 
 func TestAmassAnointedProcessionCountersEveryMint(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, armies := runAmassUnder(t, reg, "Anointed Procession")
 	// Pre-fix: 1 surviving army, P1P1=1 (the second 0/0 mint was swept by
@@ -160,6 +163,7 @@ func TestAmassAnointedProcessionCountersEveryMint(t *testing.T) {
 }
 
 func TestAmassDoublingSeasonCountersEveryMint(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, armies := runAmassUnder(t, reg, "Doubling Season")
 	// Pre-fix: 1 surviving army, P1P1=2 (the second 0/0 mint swept).

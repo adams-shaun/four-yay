@@ -20,6 +20,7 @@ import (
 // decisive precondition (the offered target really sits in the expected zone)
 // so a vacuous board fails loudly.
 func TestNurturingPixieDeclinedReturnNoCounter(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	pixie := mustCorpusCard(t, reg, "Nurturing Pixie")
 	// A real non-Faerie nonland permanent to return, seeded in the deck so

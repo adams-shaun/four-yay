@@ -203,6 +203,7 @@ func TestShadrixTwoModesTargetDifferentPlayers(t *testing.T) {
 // on its own target rather than never running or running while the
 // suspension was live.
 func TestCrossModeCharmModesSurviveTheMidModeSuspension(t *testing.T) {
+	t.Parallel()
 	duo := duoCharmScript()
 	e, cfg := charmTwoSeatDeck(t, 6303, duo)
 	putCreature(t, e, 0, duo)
@@ -288,6 +289,7 @@ func TestCrossModeCharmModesSurviveTheMidModeSuspension(t *testing.T) {
 // per-mode target it would walk the WHOLE shared list and pose a second
 // sacrifice ask for the other mode's target.
 func TestCrossModeCharmSacrificeReentryKeepsItsOwnTarget(t *testing.T) {
+	t.Parallel()
 	lich := "Name:LichC\nManaCost:1 B\nTypes:Creature Zombie\nPT:2/2\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCharm | TriggerDescription$ When NICKNAME enter, ABILITY\n" +
 		"SVar:TrigCharm:DB$ Charm | CharmNum$ 2 | Choices$ MSac,MLife | AdditionalDescription$ Each mode must target a different player.\n" +
@@ -362,6 +364,7 @@ func TestCrossModeCharmSacrificeReentryKeepsItsOwnTarget(t *testing.T) {
 // first-target-bearing-mode narrowing and emits one loud Note naming the
 // shape — never silent, never the combined ask.
 func TestCrossModeUnsupportedShapeStaysLoudAndNarrow(t *testing.T) {
+	t.Parallel()
 	mixed := "Name:Mixed\nManaCost:1 U\nTypes:Creature Human\nPT:2/2\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigCharm | TriggerDescription$ When NICKNAME enter, ABILITY\n" +
 		"SVar:TrigCharm:DB$ Charm | CharmNum$ 2 | Choices$ MLife,MDrain | AdditionalDescription$ x\n" +
@@ -436,6 +439,7 @@ func charmTwoSeatDeck(t *testing.T, seed uint64, protagonist string) (*Engine, C
 // two-target-bearing-mode Charm shape (the 406-SVA population, Kolaghan's
 // Command's class): each selected mode gets its own target slot.
 func TestNonTargetUniqueCharmUsesDistinctModeTargets(t *testing.T) {
+	t.Parallel()
 	charm := "Name:Cmd\nManaCost:B\nTypes:Instant\n" +
 		"A:SP$ Charm | CharmNum$ 2 | Choices$ MLife,MDrain\n" +
 		"SVar:MLife:DB$ LoseLife | ValidTgts$ Player | LifeAmount$ 2 | SpellDescription$ Target player loses 2 life.\n" +

@@ -16,6 +16,7 @@ import (
 // ChangeZoneAll player-scope fix, effChangeZoneAll walked g.AliveFrom(0) and
 // exiled seat 0's graveyard too.
 func TestNihilSpellbombExilesOnlyTargetedGraveyard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bomb := corpusCard(t, "Nihil Spellbomb")
 	mtn := corpusCard(t, "Mountain")

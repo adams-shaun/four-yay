@@ -76,6 +76,7 @@ func addHandCard(t *testing.T, e *Engine, p state.PlayerID) state.ObjID {
 // only {B} floating the printed {2} is unpayable, so the alternate option must
 // be offered, and it must charge exactly the {B} and attach.
 func TestEquipAlternateCostManaOfferedAndChargedOnTransmograntsCrown(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := linkBoard(t, reg, []string{"Transmogrant's Crown", "Grizzly Bears"}, nil)
 	crown := findOnBoard(t, e, 0, "Transmogrant's Crown")
@@ -117,6 +118,7 @@ func TestEquipAlternateCostManaOfferedAndChargedOnTransmograntsCrown(t *testing.
 // discard alternate is unpayable from an empty hand, so NEITHER option may be
 // offered.
 func TestEquipAlternateCostWithheldWhenNeitherPayable(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Bloodthorn Flail", "Grizzly Bears"}, nil)
 	flail := findOnBoard(t, e, 0, "Bloodthorn Flail")
@@ -150,6 +152,7 @@ func TestEquipAlternateCostWithheldWhenNeitherPayable(t *testing.T) {
 // costs the shard must offer exactly its printed option and never an
 // alternate one.
 func TestActivatedAlternateCostNotOfferedOnNonEquipAbility(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _ := linkBoard(t, reg, []string{"Heartwood Shard", "Grizzly Bears"}, nil)
 	shard := findOnBoard(t, e, 0, "Heartwood Shard")
@@ -197,6 +200,7 @@ func TestActivatedAlternateCostNotOfferedOnNonEquipAbility(t *testing.T) {
 // no mana but a card in hand, the discard-priced option must be offered,
 // activate, discard the card, spend no mana, and attach.
 func TestEquipAlternateCostDiscardOfferedAndChargedOnBloodthornFlail(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := linkBoard(t, reg, []string{"Bloodthorn Flail", "Grizzly Bears"}, nil)
 	flail := findOnBoard(t, e, 0, "Bloodthorn Flail")

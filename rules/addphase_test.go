@@ -72,6 +72,7 @@ func countSteps(e *Engine, step state.Step) int {
 // end-of-combat step the turn resumes at Main2. The whole game replays
 // byte-identically.
 func TestAureliaExtraCombatSplicesASecondCombat(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Aurelia, the Warleader")}, []*cards.Card{})
@@ -141,6 +142,7 @@ func TestAureliaExtraCombatSplicesASecondCombat(t *testing.T) {
 // untapping the tapped Bear. Without the splice point the grant resolved in,
 // the ordinary combat follows the extra one.
 func TestMoraugExtraCombatUntapsAtItsBeginning(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Moraug, Fury of Akoum"), card(t, bearSrc)}, []*cards.Card{})
@@ -202,6 +204,7 @@ func TestMoraugExtraCombatUntapsAtItsBeginning(t *testing.T) {
 // ally attacks and dies in combat, Éomer's death trigger untaps the team and
 // grants the extra combat after the end-of-combat step.
 func TestEomerExtraCombatChainsThroughTheTrigger(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
 	e, cfg := addPhaseEngine(t, reg,
@@ -255,6 +258,7 @@ func TestEomerExtraCombatChainsThroughTheTrigger(t *testing.T) {
 // promised ADDITIONAL main phase is real: after the extra combat the turn
 // goes to Main2 AGAIN, not to the end step.
 func TestAggravatedAssaultExtraCombatFollowedByMain2(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Aggravated Assault"), card(t, bearSrc)}, []*cards.Card{})
@@ -341,6 +345,7 @@ func TestAggravatedAssaultExtraCombatFollowedByMain2(t *testing.T) {
 // grant again -- the gate reads the per-turn combat count, and without it
 // every extra combat Raiyuu attacks in would queue another one forever.
 func TestRaiyuuFirstCombatGateBlocksTheSecondGrant(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Raiyuu, Storm's Edge")}, []*cards.Card{})
@@ -391,6 +396,7 @@ func TestRaiyuuFirstCombatGateBlocksTheSecondGrant(t *testing.T) {
 // fold, so no later turn of the game ever runs a second combat because of
 // it.
 func TestExtraPhaseQueueDoesNotSurviveTheTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg, nil, nil)
 	for driveToTurn(t, e, 3, 0) {

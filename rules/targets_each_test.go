@@ -15,6 +15,7 @@ import (
 // setForEachPlayer contract on Blatant Thievery's real target shape: at most
 // one permanent per opposing controller, with one required from each.
 func TestTargetsForEachPlayerUsesDecisionGroups(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Blatant Thievery")
 	if !ok {
@@ -58,6 +59,7 @@ func TestTargetsForEachPlayerUsesDecisionGroups(t *testing.T) {
 // creatures in the resolution's Remembered so X +1/+1 counters, where X is
 // the total goaded power, actually land.
 func TestHavocEaterGoadsOneCreaturePerOpponentAndCountsThePower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	eater, ok := reg.Lookup("Havoc Eater")
 	if !ok {
@@ -175,6 +177,7 @@ func TestHavocEaterGoadsOneCreaturePerOpponentAndCountsThePower(t *testing.T) {
 // the CR 608.2c untargeted resolution (a Min 0 ask with no legal target
 // never wedges either).
 func TestHavocEaterElectedZeroGoadsNothingAndStillResolves(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	eater, ok := reg.Lookup("Havoc Eater")
 	if !ok {
@@ -248,6 +251,7 @@ func targetCounterN(o *state.Object, kind string) int {
 // they control" collapsed to a single target -- the exact symptom the ticket
 // was filed for, surviving on one of the three dynamic-bound carriers.
 func TestTolarianContemptBareInlineBoundAsksOnePerOpponent(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	contempt, ok := reg.Lookup("Tolarian Contempt")
 	if !ok {

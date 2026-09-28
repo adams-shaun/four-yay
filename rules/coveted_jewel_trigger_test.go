@@ -52,6 +52,7 @@ func declareUnblocked(t *testing.T, e *Engine) {
 // Jewel's controller fires the trigger; seat 0's hand grows by exactly three,
 // the Jewel is under seat 0's control and untapped.
 func TestCovetedJewelUnblockedAttackHandsItOver(t *testing.T) {
+	t.Parallel()
 	e, jewelID, attacker := jewelAttackFixture(t)
 	submitAttackersOnly(t, e, attacker)
 	drainCombatPriority(t, e)
@@ -90,6 +91,7 @@ func TestCovetedJewelUnblockedAttackHandsItOver(t *testing.T) {
 // unblocked attacker, so the hook queues nothing -- no stack entry, no draw,
 // and the Jewel stays with seat 1.
 func TestCovetedJewelBlockedAttackDoesNothing(t *testing.T) {
+	t.Parallel()
 	e, jewelID, attacker := jewelAttackFixture(t)
 	submitAttackersOnly(t, e, attacker)
 	drainCombatPriority(t, e)
@@ -126,6 +128,7 @@ func TestCovetedJewelBlockedAttackDoesNothing(t *testing.T) {
 // TestCovetedJewelOneTriggerPerCombatNotPerAttacker: two unblocked attackers
 // are ONE trigger instance -- 3 cards drawn, not 6 -- and one resolution.
 func TestCovetedJewelOneTriggerPerCombatNotPerAttacker(t *testing.T) {
+	t.Parallel()
 	jewel := mshCorpusCardPath(t, "Coveted Jewel", "c/coveted_jewel.txt")
 	e := combatEngine(t)
 	jewelID := onBoardCard(t, e, 1, jewel)
@@ -155,6 +158,7 @@ func TestCovetedJewelOneTriggerPerCombatNotPerAttacker(t *testing.T) {
 // re-running the round-complete hook in the SAME combat queues nothing; a new
 // (Turn, CombatsThisTurn) stamp re-arms it.
 func TestCovetedJewelOncePerCombatNotAgainThisCombat(t *testing.T) {
+	t.Parallel()
 	e, jewelID, attacker := jewelAttackFixture(t)
 	submitAttackersOnly(t, e, attacker)
 	drainCombatPriority(t, e)
@@ -187,6 +191,7 @@ func TestCovetedJewelOncePerCombatNotAgainThisCombat(t *testing.T) {
 // attacks a DIFFERENT defender, so ValidDefenders$ You fails and nothing
 // queues.
 func TestCovetedJewelValidDefendersGate(t *testing.T) {
+	t.Parallel()
 	jewel := mshCorpusCardPath(t, "Coveted Jewel", "c/coveted_jewel.txt")
 	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b", "c"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}}))
@@ -219,6 +224,7 @@ func TestCovetedJewelValidDefendersGate(t *testing.T) {
 // satisfied but the attacker's controller is the trigger's controller, not an
 // opponent, so nothing queues.
 func TestCovetedJewelValidAttackingPlayerGate(t *testing.T) {
+	t.Parallel()
 	e := combatEngine(t)
 	onBoard(t, e, 1, "Name:Watcher\nManaCost:2\nTypes:Artifact\n"+
 		"T:Mode$ AttackerUnblockedOnce | ValidAttackingPlayer$ Player.Opponent | ValidDefenders$ Player | TriggerZones$ Battlefield | Execute$ X | TriggerDescription$ x.\n"+

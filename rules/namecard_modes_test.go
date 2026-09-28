@@ -11,6 +11,7 @@ import (
 )
 
 func TestReallyCharmingPrinceNameCardRandomUsesListedCorpusChoices(t *testing.T) {
+	t.Parallel()
 	e, reg := nameCardEngine(t)
 	prince, ok := reg.Lookup("Really Charming Prince")
 	if !ok {

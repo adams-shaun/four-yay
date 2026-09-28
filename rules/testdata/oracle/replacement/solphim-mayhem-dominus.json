@@ -1,0 +1,24 @@
+{
+  "card": "Solphim, Mayhem Dominus",
+  "family": "replacement",
+  "oracle_sha": "499638e6ced6",
+  "author": "cli-20260927T211250Z-5422ad8a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "noncombat-damage-to-opponent-doubled",
+      "cr": ["614.1a", "614.6", "120.3a"],
+      "why": "A source the Solphim controller controls deals noncombat damage to an opponent, so three damage is doubled to six.",
+      "setup": {"p0": {"battlefield": ["Solphim, Mayhem Dominus"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "steps": [{"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}, {"op": "resolve"}],
+      "expect": [{"life": {"p0": 20, "p1": 14}}]
+    },
+    {
+      "name": "combat-damage-is-not-doubled",
+      "cr": ["614.1a", "120.3a"],
+      "why": "Solphim changes only noncombat damage; the unmodified two-power Bear deals two combat damage to the opponent.",
+      "setup": {"p0": {"battlefield": ["Solphim, Mayhem Dominus", "Grizzly Bears"]}, "p1": {}},
+      "steps": [{"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"}, {"op": "pass_to", "step": "main2", "active": "p0"}],
+      "expect": [{"life": {"p1": 18}}]
+    }
+  ]
+}

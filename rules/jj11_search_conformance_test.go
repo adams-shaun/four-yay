@@ -12,6 +12,7 @@ import (
 // A stated-quality search may fail to find (701.23b); a quantity-only
 // search may not (701.23d). The Evolving Wilds control cannot catch this.
 func TestCR701QuantityOnlyTutorMustFindAvailableCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Vampiric Tutor")
 	_, d := castSearchSpell(t, e, "Vampiric Tutor")
@@ -34,6 +35,7 @@ func TestCR701QuantityOnlyTutorMustFindAvailableCard(t *testing.T) {
 // present, and declining is honoured without moving anything but still
 // shuffles. Forcing Min up to Max for every search makes this leaf red.
 func TestCR701StatedQualitySearchMayFailToFind(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Evolving Wilds")
 	wilds := searchMoveByName(t, e, "Evolving Wilds", state.ZBattlefield)
@@ -80,6 +82,7 @@ func TestCR701StatedQualitySearchMayFailToFind(t *testing.T) {
 // Enchantment 7, Dragon 6, ...); without this leaf every one of them would
 // silently become a mandatory search.
 func TestCR701BareTypeSearchStatesAQuality(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Worldly Tutor")
 	_, d := castSearchSpell(t, e, "Worldly Tutor")

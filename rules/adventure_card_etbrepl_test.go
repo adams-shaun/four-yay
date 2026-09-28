@@ -8,6 +8,7 @@ import (
 )
 
 func TestETBReplacementFilterMysteriousPathlighter(t *testing.T) {
+	t.Parallel()
 	reg := freshCorpusRegistry(t, "m/mysterious_pathlighter.txt", "b/bonecrusher_giant_stomp.txt", "g/grizzly_bears.txt", "f/forest.txt", "m/mountain.txt", "p/plains.txt")
 	e, cfg := etbreplEngine(t, reg, "Mysterious Pathlighter", "Bonecrusher Giant", "Grizzly Bears")
 	pathlighterInHand := searchMoveByName(t, e, "Mysterious Pathlighter", state.ZLibrary)

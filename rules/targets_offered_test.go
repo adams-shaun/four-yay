@@ -99,6 +99,7 @@ func drivePastResolution(t *testing.T, e *Engine, wantTurn int32) {
 // chain's DBGainLife tail anyway, and pose no second "Select target card in
 // a graveyard to exile" ask at resolution.
 func TestWreckRemoverElectedZeroIsNotReasked(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := targetsOfferedDeck(t, reg, "Wreck Remover", "Divine Favor")
 	grave := searchMoveByName(t, e, "Divine Favor", state.ZGraveyard)
@@ -141,6 +142,7 @@ func TestWreckRemoverElectedZeroIsNotReasked(t *testing.T) {
 // the outer Charm SA never carries. Electing zero of the mode's target must
 // not re-pose the identical question when the answered Charm resolves.
 func TestKamiOfRestlessShadowsModalElectedZeroIsNotReasked(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := targetsOfferedDeck(t, reg, "Kami of Restless Shadows", "Thieves' Guild Enforcer")
 	grave := searchMoveByName(t, e, "Thieves' Guild Enforcer", state.ZGraveyard)

@@ -70,6 +70,7 @@ func gainsBoard(t *testing.T) (*Engine, Config, state.ObjID, state.ObjID) {
 // next upkeep, and its activated ability is offered on Idris (once Idris is
 // no longer summoning-sick) and draws a card when activated.
 func TestIdrisGainsTheExiledArtifactAbilities(t *testing.T) {
+	t.Parallel()
 	e, cfg, idrisID, _ := gainsBoard(t)
 
 	// Precondition: Idris is on the battlefield and owns the gains static.
@@ -141,6 +142,7 @@ func TestIdrisGainsTheExiledArtifactAbilities(t *testing.T) {
 // offering its abilities, because the static scan re-derives the named set on
 // every event.
 func TestIdrisGainedAbilitiesEndWhenTheExiledCardLeaves(t *testing.T) {
+	t.Parallel()
 	e, cfg, idrisID, artifactID := gainsBoard(t)
 	// Advance past summoning sickness so the granted tap ability is offerable
 	// (otherwise this precondition would pass vacuously via the tap gate).
@@ -161,6 +163,7 @@ func TestIdrisGainedAbilitiesEndWhenTheExiledCardLeaves(t *testing.T) {
 // TestIdrisDoesNotGainUnrelatedExiledCards pins the Card.ExiledWithSource
 // scoping: a card exiled by something ELSE is not gained.
 func TestIdrisDoesNotGainUnrelatedExiledCards(t *testing.T) {
+	t.Parallel()
 	e, cfg, idrisID, artifactID := gainsBoard(t)
 	gainsDriveToStep(t, e, 3, 0, state.StepMain1)
 	if !hasGainedAbility(e, idrisID) {
@@ -195,6 +198,7 @@ func gainsManaArtifactSrc(t testing.TB) *cards.Card {
 // artifact's mana ability is offered on Idris as an "activate" option and
 // produces mana when activated.
 func TestIdrisGainsTheExiledArtifactManaAbility(t *testing.T) {
+	t.Parallel()
 	idris := tokenReplCorpusCard(t, "Idris, Soul of the TARDIS")
 	artifact := gainsManaArtifactSrc(t)
 	e, cfg := tokenReplGame(t, 9108, idris, artifact)
@@ -289,6 +293,7 @@ func gainsForgeSrc(t *testing.T) *cards.Card {
 // without the GainedTriggerFaces split the foreign trigger fired from the
 // gains static alone.
 func TestGainsAbilitiesOnlyNeverFiresForeignTriggers(t *testing.T) {
+	t.Parallel()
 	forge := gainsForgeSrc(t)
 	artifact := gainsArtifactSrc(t)
 	e, cfg := tokenReplGame(t, 9109, forge, artifact)
@@ -340,6 +345,7 @@ func gainsTriggerOnlySrc(t testing.TB) *cards.Card {
 // fires the foreign card's upkeep trigger (precondition, so the grant is
 // live) but never offers its activated ability.
 func TestGainsTriggerAbsOnlyNeverGrantsForeignActivatedAbilities(t *testing.T) {
+	t.Parallel()
 	carrier := gainsTriggerOnlySrc(t)
 	artifact := gainsArtifactSrc(t)
 	e, cfg := tokenReplGame(t, 9110, carrier, artifact)
@@ -390,6 +396,7 @@ func gainsRivalLandSrc(t testing.TB) *cards.Card {
 // neither on the ability offer nor in the mana-ability collector the payment
 // window reads.
 func TestGainsValidAbilitiesExcludesForeignManaAbilities(t *testing.T) {
+	t.Parallel()
 	sharkey := tokenReplCorpusCard(t, "Sharkey, Tyrant of the Shire")
 	land := gainsRivalLandSrc(t)
 	e, cfg := tokenReplGameSeats(t, 9111, []*cards.Card{sharkey}, []*cards.Card{land})
@@ -440,6 +447,7 @@ func gainsRivalWalkerSrc(t testing.TB) *cards.Card {
 // GainsValidAbilities$ Activated.Loyalty`): of the foreign walker's two
 // activated abilities exactly the loyalty one is gained.
 func TestGainsValidAbilitiesLoyaltyOnlyAdmitsOnlyLoyalty(t *testing.T) {
+	t.Parallel()
 	bolas := tokenReplCorpusCard(t, "Nicol Bolas, Dragon-God")
 	walker := gainsRivalWalkerSrc(t)
 	e, cfg := tokenReplGame(t, 9112, bolas, walker)
@@ -585,6 +593,7 @@ func gainsDriveToStep(t *testing.T, e *Engine, turn int32, active state.PlayerID
 // again the NEXT turn after the reset, and withheld for the rest of the turn
 // it was activated in.
 func TestGainsLimitPerTurnCapsEachForeignAbilityPerTurn(t *testing.T) {
+	t.Parallel()
 	warden := gainsMairsilFixtureSrc(t)
 	caged := gainsCagedCardSrc(t)
 	e, cfg := tokenReplGame(t, 9113, warden, caged)
@@ -812,6 +821,7 @@ func activateWiperOn(t *testing.T, e *Engine, wiperID, foreignID state.ObjID) {
 // `Defined$ Remembered` (the Custodi Squire return shape) resolves the
 // remembered referent, not an empty set that acts on nobody.
 func TestGainedTriggerCarriesItsRememberedReferent(t *testing.T) {
+	t.Parallel()
 	returner := gainsReturnerSrc(t)
 	victim := gainsVictimSrc(t)
 	e, cfg, carrierID, foreignID, ids := gainsBoardWith(t, returner, victim)
@@ -852,6 +862,7 @@ func TestGainedTriggerCarriesItsRememberedReferent(t *testing.T) {
 // must still resolve X from ITS OWN face's table (+1/+1 on the carrier), not
 // from the recipient's (empty) table, which pumps by zero.
 func TestGainedTriggerKeepsItsOwnSVarsAfterTheGrantEnds(t *testing.T) {
+	t.Parallel()
 	reaper := gainsReaperSrc(t)
 	wiper := gainsWiperSrc(t)
 	victim := gainsVictimSrc(t)
@@ -898,6 +909,7 @@ func TestGainedTriggerKeepsItsOwnSVarsAfterTheGrantEnds(t *testing.T) {
 // resolves from ITS OWN face's SVar table (artifacts you control = 2), not
 // from the recipient's (empty) table, which loses zero life.
 func TestGainedActivationKeepsItsOwnSVarsAfterTheGrantEnds(t *testing.T) {
+	t.Parallel()
 	bleeder := gainsBleederSrc(t)
 	wiper := gainsWiperSrc(t)
 	e, cfg, carrierID, foreignID, ids := gainsBoardWith(t, bleeder, wiper)
@@ -972,6 +984,7 @@ func gainedManaOption(e *Engine, obj state.ObjID) (decision.Option, bool) {
 // resolves X there (two artifacts: the carrier and a spare cog -> {B}{B}),
 // not against the recipient's SVar-less face (which would add nothing).
 func TestGainedManaAbilityResolvesItsOwnSVars(t *testing.T) {
+	t.Parallel()
 	e, cfg, carrierID, _, _ := gainsBoardWith(t, gainsSVarManaSrc(t), gainsSpareArtifactSrc(t))
 	if n := len(e.G.Zone(state.ZBattlefield, 0)); n != 2 {
 		t.Fatalf("precondition: seat 0 battlefield holds %d objects, want the carrier and the cog", n)
@@ -1007,6 +1020,7 @@ func gainsCagedManaSrc(t testing.TB) *cards.Card {
 // ManaActivate identity marker (IDs[0] = foreign card), and with {1} floating
 // again the ability is withheld for the rest of the turn.
 func TestGainsLimitPerTurnCapsAGainedManaAbility(t *testing.T) {
+	t.Parallel()
 	warden := gainsMairsilFixtureSrc(t)
 	caged := gainsCagedManaSrc(t)
 	e, cfg := tokenReplGame(t, 9114, warden, caged)

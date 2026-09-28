@@ -384,6 +384,7 @@ func TestRestrictValidDotlessActivated(t *testing.T) {
 // flashback cast), and CumulativeUpkeep (Adarkar Unicorn, paying Mystic
 // Remora's real upkeep window but no ordinary payment).
 func TestRestrictValidDotlessPaymentTerms(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	t.Run("CostContainsC comma tail", func(t *testing.T) {

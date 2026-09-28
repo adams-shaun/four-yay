@@ -8,6 +8,7 @@ import (
 )
 
 func TestAutopayFPSummoningSickRealFlow(t *testing.T) {
+	t.Parallel()
 	elfSrc := "Name:Real Elf\nManaCost:G\nTypes:Creature Elf Druid\nPT:1/1\nA:AB$ Mana | Cost$ T | Produced$ G | SpellDescription$ Add {G}.\nOracle:x\n"
 	e, _, elf := newFixtureDeck(t, 9821, elfSrc)
 	forest := onBoard(t, e, 0, "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n")
@@ -61,6 +62,7 @@ func TestAutopayFPSummoningSickRealFlow(t *testing.T) {
 }
 
 func TestAutopayFPSummoningSickCreatureIsNotASource(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	elf := onBoard(t, e, 0, "Name:Sick Elf\nTypes:Creature Elf\nA:AB$ Mana | Cost$ T | Produced$ G\nOracle:x\n")
 	spell := e.G.AddObject(card(t, "Name:Green Probe\nManaCost:G\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n"), 0)
@@ -79,6 +81,7 @@ func TestAutopayFPSummoningSickCreatureIsNotASource(t *testing.T) {
 }
 
 func TestManaAbilitySummoningSickness(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		source     string

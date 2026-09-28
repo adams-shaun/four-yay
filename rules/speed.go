@@ -62,7 +62,7 @@ func (e *Engine) checkSpeedStart() {
 			if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 				continue
 			}
-			if e.HasKeyword(id, "Start your engines") {
+			if e.hasKeywordH(id, kwhStartYourEngines) {
 				started = true
 				break
 			}

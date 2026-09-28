@@ -35,6 +35,7 @@ Oracle:Sacrifice a creature: Add one mana of any color.
 // commander-zone ask) waits for it, and resolves its mana effect -- the
 // colour choice -- once that answer lands.
 func TestManaAbilitySacrificingCommanderWaitsForCommandZoneChoice(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		choice int

@@ -78,6 +78,7 @@ func pcTreasureTokens(e *Engine, p state.PlayerID) []state.ObjID {
 // resolution draws two cards and mints two Treasures. The one-opponent
 // control on the same card proves the per-member scoping.
 func TestSmugglersShareCountsOpponentsByDrawAndLandEntry(t *testing.T) {
+	t.Parallel()
 	e := pcCondEngine(t, 3)
 	share := onBoardCard(t, e, 0, corpusCard(t, "Smuggler's Share"))
 	face := e.G.Obj(share).Face()
@@ -134,6 +135,7 @@ func TestSmugglersShareCountsOpponentsByDrawAndLandEntry(t *testing.T) {
 // opponent contributes nothing while the above-threshold one is counted
 // per member — the pair of tests together pins both directions.
 func TestSmugglersShareOneOpponentMeetsCountsOnlyThatOne(t *testing.T) {
+	t.Parallel()
 	e := pcCondEngine(t, 3)
 	share := onBoardCard(t, e, 0, corpusCard(t, "Smuggler's Share"))
 	face := e.G.Obj(share).Face()
@@ -166,6 +168,7 @@ func TestSmugglersShareOneOpponentMeetsCountsOnlyThatOne(t *testing.T) {
 // every opponent below both thresholds neither leg fires (X = Y = 0), so no
 // card is drawn and no Treasure is created.
 func TestSmugglersShareNoOpponentMeetsEitherThreshold(t *testing.T) {
+	t.Parallel()
 	e := pcCondEngine(t, 3)
 	share := onBoardCard(t, e, 0, corpusCard(t, "Smuggler's Share"))
 	face := e.G.Obj(share).Face()
@@ -194,6 +197,7 @@ func TestSmugglersShareNoOpponentMeetsEitherThreshold(t *testing.T) {
 // failed closed before the suffix split, so the Frogantua stayed its
 // printed 3/3 however many seats had lost.
 func TestRampantFrogantuaHasLostTimesSuffix(t *testing.T) {
+	t.Parallel()
 	e := pcCondEngine(t, 2)
 	frog := onBoardCard(t, e, 0, corpusCard(t, "Rampant Frogantua"))
 	face := e.G.Obj(frog).Face()
@@ -214,6 +218,7 @@ func TestRampantFrogantuaHasLostTimesSuffix(t *testing.T) {
 // 4/4 with no Indestructible; once an opponent drops to 9 (< 10) Y = 1, so
 // she is a 7/7 and indestructible.
 func TestAnyaMercilessAngelHalvesStartingLifeThreshold(t *testing.T) {
+	t.Parallel()
 	e := pcCondEngine(t, 2)
 	anya := onBoardCard(t, e, 0, corpusCard(t, "Anya, Merciless Angel"))
 	face := e.G.Obj(anya).Face()
@@ -258,6 +263,7 @@ func TestAnyaMercilessAngelHalvesStartingLifeThreshold(t *testing.T) {
 // `PlayerCountHasLost$Amount` now resolves, so the begin-combat gain-control
 // trigger fires with two players lost and stays silent with one.
 func TestHotPursuitGateFiresOnlyAtTwoLosses(t *testing.T) {
+	t.Parallel()
 	e := pcCondEngine(t, 4)
 	pursuit := onBoardCard(t, e, 0, corpusCard(t, "Hot Pursuit"))
 	face := e.G.Obj(pursuit).Face()

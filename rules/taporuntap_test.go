@@ -107,6 +107,7 @@ func taporuntapOption(t *testing.T, d *decision.Decision, kind string) int {
 // battlefield). The election is replay-stable: a clone answered identically
 // produces a byte-identical event stream.
 func TestMerrowReejereyTapOrUntapPosesTheChoice(t *testing.T) {
+	t.Parallel()
 	e, _, bear, mfst := taporuntapSetup(t, true)
 	if !e.G.Obj(bear).Tapped {
 		t.Fatal("pre-setup: the bear should be tapped")
@@ -144,6 +145,7 @@ func TestMerrowReejereyTapOrUntapPosesTheChoice(t *testing.T) {
 // TestTapOrUntapElectionTapsTheUntappedTarget is the tap shape: the bear is
 // untapped, option 0 is the state-changing "tap", answering it taps the bear.
 func TestTapOrUntapElectionTapsTheUntappedTarget(t *testing.T) {
+	t.Parallel()
 	e, _, bear, mfst := taporuntapSetup(t, false)
 	de := taporuntapCast(t, e, mfst, bear)
 	if de.Options[0].Kind != "tap" {

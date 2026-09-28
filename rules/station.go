@@ -82,7 +82,7 @@ func (e *Engine) stationCandidates(p state.PlayerID, station state.ObjID) []stat
 func (e *Engine) askStation(p state.PlayerID, opt decision.Option) {
 	e.stationing = opt.Obj
 	o := e.G.Obj(opt.Obj)
-	if o == nil || o.Zone != state.ZBattlefield || !e.HasKeyword(opt.Obj, "Station") {
+	if o == nil || o.Zone != state.ZBattlefield || !e.hasKeywordH(opt.Obj, kwhStation) {
 		return
 	}
 	cands := e.stationCandidates(p, opt.Obj)

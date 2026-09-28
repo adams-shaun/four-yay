@@ -44,6 +44,7 @@ func comebackEffectRegistrations(e *Engine, source state.ObjID) int {
 // controller's untap step, and phases the creatures back in from its
 // comeback trigger when Out of Time leaves the battlefield.
 func TestOutOfTimeComebackPhasesCreaturesBackIn(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 501, "Out of Time", "Grizzly Bears", "Grizzly Bears")
 	toMain1(t, e)
 	bears := make([]state.ObjID, 0, 2)
@@ -131,6 +132,7 @@ func TestOutOfTimeComebackPhasesCreaturesBackIn(t *testing.T) {
 // leaves, the creature phases back in TAPPED (`Tapped$ True` on the printed
 // TrigPhaseIn body).
 func TestOublietteComebackPhasesTargetInTapped(t *testing.T) {
+	t.Parallel()
 	e, cfg := phasesGame(t, 502, "Oubliette", "Grizzly Bears")
 	toMain1(t, e)
 	bear := moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield)

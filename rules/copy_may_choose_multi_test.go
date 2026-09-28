@@ -22,6 +22,7 @@ import (
 // The keep-current answer must reproduce the ORIGINAL two targets, so the
 // assertion is on the copy's target list after answering, not merely on d.Min.
 func TestCopyOfTwoTargetSpellAsksForBothTargets(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	eng, cfg := miscHandsEngine(t, reg,
 		[]string{"Reckless Spite"},

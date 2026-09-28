@@ -29,6 +29,7 @@ const chaosWarpOwnerDigSrc = "Name:Digw\nManaCost:R\nTypes:Instant\n" +
 // dig cannot hide behind an interchangeable mountain: without the fix it
 // would dig the Digr Bear onto seat 0's battlefield.
 func TestDigTargetedOwnerDigsTheTargetOwnersLibrary(t *testing.T) {
+	t.Parallel()
 	oppBear := "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 	e, cfg, id := newFixtureDeckWithOpponentCard(t, 4117, chaosWarpOwnerDigSrc, digBear, oppBear)
 	bear := moveSeeded(t, e, 1, oppBear, state.ZBattlefield)

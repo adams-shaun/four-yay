@@ -53,6 +53,7 @@ func assertLegendaryOnBoard(t *testing.T, e *Engine, ids ...state.ObjID) {
 }
 
 func TestLegendRuleUsesDerivedName(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	fenric := lookup(t, reg, "The Curse of Fenric")
 	isamaru := lookup(t, reg, "Isamaru, Hound of Konda")
@@ -111,6 +112,7 @@ func TestLegendRuleUsesDerivedName(t *testing.T) {
 }
 
 func TestLegendRuleDistinctDerivedNames(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	fenric := lookup(t, reg, "The Curse of Fenric")
 	isamaru := lookup(t, reg, "Isamaru, Hound of Konda")

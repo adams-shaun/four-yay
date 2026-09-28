@@ -62,6 +62,7 @@ func asksOfKind(e *Engine, n0 int, kind decision.Kind) int {
 // makes this leaf fail on the second `choose` ask (and, driven further, the
 // livelock watcher panics) -- it is not a leaf that passes against a no-op.
 func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
+	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7401, scryPreAskScript)
 	n0 := len(e.L.Events)
 	id := putCreature(t, e, 0, scryPreAskScript)
@@ -121,6 +122,7 @@ func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
 // answered pre-ask forward AND own its own storage, or the clone re-poses
 // the pre-ask and its decision stream diverges from the original's.
 func TestCloneCopiesTargetsPickCursor(t *testing.T) {
+	t.Parallel()
 	names, decks := testutil.SampleDecks(t, 2)
 	e := New(Config{Seed: 5, Names: names, Decks: decks})
 	e.Advance()

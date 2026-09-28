@@ -79,6 +79,7 @@ func legateEngine(t *testing.T, reg *cards.Registry, opponentCreatures int) *Eng
 // divergence: eleven opponent creatures must sacrifice ceil(11/10) = 2, not
 // the whole eleven the pre-fix undivided count produced.
 func TestLegateLaniusSacrificesATenthRoundedUp(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := legateEngine(t, reg, 11)
 
@@ -142,6 +143,7 @@ func TestLegateLaniusSacrificesATenthRoundedUp(t *testing.T) {
 // is a Min == Max == 1 KChoose -- not the whole ten the pre-fix undivided
 // count would have taken (eligible 10 == amount 10: no ask, all ten gone).
 func TestLegateLaniusRoundsATenthUp(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := legateEngine(t, reg, 10)
 

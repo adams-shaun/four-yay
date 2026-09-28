@@ -45,6 +45,7 @@ const leakProbeCard = "Name:Leak Probe\nTypes:Creature Human Soldier\nPT:1/1\n" 
 // still fire with its ordinary LKI semantics when the permanent is stolen
 // and destroyed.
 func TestEffectMatchScopeDoesNotLeakPastDelayedWalk(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	e.pending = nil
 	src := onBoard(t, e, 0, leakProbeCard)

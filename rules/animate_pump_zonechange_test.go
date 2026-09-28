@@ -25,6 +25,7 @@ import (
 // turn-1 end-of-turn cleanup, the control), ends on the departure move, and
 // does NOT re-apply on re-entry.
 func TestPermanentAnimateGrantEndsOnZoneChange(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Stalking Stones")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Stalking Stones", state.ZBattlefield)
@@ -83,6 +84,7 @@ func TestPermanentAnimateGrantEndsOnZoneChange(t *testing.T) {
 // the control), ends on the departure move, and does not re-apply on
 // re-entry. The printed ability itself stays -- only the swept grant is gone.
 func TestPermanentPumpGrantEndsOnZoneChange(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := corpusEngineCfg(t, reg, []*cards.Card{lookup(t, reg, "Mist Dragon")}, []*cards.Card{})
 	id := moveByName(t, e, 0, "Mist Dragon", state.ZBattlefield)

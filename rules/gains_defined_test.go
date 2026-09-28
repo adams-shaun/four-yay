@@ -148,6 +148,7 @@ func gainsDefinedUnimplementedNotes(e *Engine) int {
 // you control gain Kasmina's own loyalty abilities, offered with Kasmina as
 // the GainedSource anchor and resolvable through GainedAbilityPush.
 func TestKasminaGainsSelfDefinedLoyaltyAbility(t *testing.T) {
+	t.Parallel()
 	kasmina := tokenReplCorpusCard(t, "Kasmina, Enigma Sage")
 	walker := card(t, gainsDefinedWalker())
 	e, cfg := tokenReplGame(t, 9109, kasmina, walker)
@@ -278,6 +279,7 @@ func gainsDefinedForeignArtifact() string {
 // deterministic parameter order, and the card-filter-only foreign activation
 // is offered and resolves through the ordinary gained-ability path.
 func TestMixedGainsAbilitySpellingsAppendFaces(t *testing.T) {
+	t.Parallel()
 	carrier := card(t, gainsDefinedMixedCarrier())
 	foreign := card(t, gainsDefinedForeignArtifact())
 	e, cfg := tokenReplGame(t, 9111, carrier, foreign)
@@ -339,6 +341,7 @@ func TestMixedGainsAbilitySpellingsAppendFaces(t *testing.T) {
 // STSteal static (DB$ Effect | StaticAbilities$) grants Quicksilver all
 // activated abilities of the RememberedLKI target until end of turn.
 func TestQuicksilverGainsRememberedDefinedAbility(t *testing.T) {
+	t.Parallel()
 	quick := tokenReplCorpusCard(t, "Quicksilver Elemental")
 	target := card(t, gainsDefinedTarget())
 	e, cfg := tokenReplGame(t, 9110, quick, target)

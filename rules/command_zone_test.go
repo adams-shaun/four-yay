@@ -46,6 +46,7 @@ func zoneHas(ids []state.ObjID, want state.ObjID) bool {
 // configured starting life takes effect, and a replay folded from the same
 // (Config, Log) reproduces the identical command zone.
 func TestCommanderGenesisPlacesCommandersBeforeTheDeal(t *testing.T) {
+	t.Parallel()
 	deck0, deck1 := commanderDeckPair(t)
 	cfg := Config{
 		Seed: 11, Names: []string{"a", "b"},
@@ -119,6 +120,7 @@ func TestCommanderGenesisPlacesCommandersBeforeTheDeal(t *testing.T) {
 // sets StartingLife (zero value) keeps the existing 20, and that commander
 // placement is keyed off Config.Commanders alone.
 func TestCommanderGenesisDefaultsToTwentyLife(t *testing.T) {
+	t.Parallel()
 	deck0, deck1 := commanderDeckPair(t)
 	cfg := Config{Seed: 12, Names: []string{"a", "b"},
 		Decks:      [][]*cards.Card{deck0, deck1},
@@ -138,6 +140,7 @@ func TestCommanderGenesisDefaultsToTwentyLife(t *testing.T) {
 // degraded (skipped), never a panic -- the same degrade-don't-crash stance
 // New already takes for more decks than seats.
 func TestCommanderIndexOutOfRangeDegrades(t *testing.T) {
+	t.Parallel()
 	deck0, deck1 := commanderDeckPair(t)
 	// seat 0 names index 5 (valid, < 40); seat 1 names index 99 (out of range).
 	cfg := Config{Seed: 13, Names: []string{"a", "b"},
@@ -165,6 +168,7 @@ func TestCommanderIndexOutOfRangeDegrades(t *testing.T) {
 // zone is public information, visible to every seat -- a change that makes
 // it Hidden redacts it from every other viewer.
 func TestCommandZoneIsPublic(t *testing.T) {
+	t.Parallel()
 	if state.ZCommand.Hidden() {
 		t.Fatal("ZCommand must not be Hidden: the command zone is public information")
 	}

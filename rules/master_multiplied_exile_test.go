@@ -138,6 +138,7 @@ func driveToResolution(t *testing.T, e *Engine, want state.ObjID) bool {
 // battlefield, no MoveZone to Exile is emitted for it, and the exile-return
 // trigger Fiend Hunter carries finds nothing.
 func TestMasterMultipliedTriggeredExileBlocked(t *testing.T) {
+	t.Parallel()
 	master, alarm, hunter, _ := masterExileCards(t)
 	bear := card(t, staticBearFixture)
 	e, cfg := restrictionGame(t, 9311,
@@ -184,6 +185,7 @@ func TestMasterMultipliedTriggeredExileBlocked(t *testing.T) {
 // resolving as a spell) still takes the token -- the over-restriction a
 // whitelist-without-evaluation fix would produce.
 func TestMasterMultipliedSpellCauseExileAllowed(t *testing.T) {
+	t.Parallel()
 	master, alarm, _, swords := masterExileCards(t)
 	bear := card(t, staticBearFixture)
 	e, cfg := restrictionGame(t, 9312,

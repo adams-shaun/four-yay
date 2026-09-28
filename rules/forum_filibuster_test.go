@@ -133,6 +133,7 @@ func passUntilAsk(t *testing.T, e *Engine) *decision.Decision {
 // (the AttachedTo$ DelayTriggerRememberedLKI leg), after which the DBCleanup
 // tail cleared the remembered set.
 func TestForumFilibusterUpkeepAsksAndAttaches(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := whenYouDoEngine(t, reg, "Forum Filibuster", "Divine Favor")
 	aura := searchMoveByName(t, e, "Divine Favor", state.ZGraveyard)
@@ -209,6 +210,7 @@ func TestForumFilibusterUpkeepAsksAndAttaches(t *testing.T) {
 // The ETB trigger fires when the Horde enters, so the ask is pending right
 // after the placement. The answered exile moves the chosen graveyard card.
 func TestDiregrafHordeDividesTokensIntoOneInstance(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := whenYouDoEngine(t, reg, "Diregraf Horde", "Divine Favor")
 	grave := searchMoveByName(t, e, "Divine Favor", state.ZGraveyard)
@@ -252,6 +254,7 @@ func TestDiregrafHordeDividesTokensIntoOneInstance(t *testing.T) {
 // pay subtest now asserts instead of the old note); a decline (asserted on
 // the second game) executes nothing.
 func TestSpeedYoungAvengerImmediateTrigger(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	run := func(t *testing.T, shouldPay bool) {

@@ -63,6 +63,7 @@ func revealChooseHasType(f *cards.Face, want string) bool {
 // leaves the creature on the battlefield, announces a choice (not a reveal),
 // and never touches a hand card.
 func TestMonstrousEmergenceChooseCreatureSizesDamage(t *testing.T) {
+	t.Parallel()
 	e, cfg := revealChooseEngine(t, []string{"Monstrous Emergence", "Hill Giant"}, []string{"Ancient Brontodon"})
 	chosen := paidCostMoveTo(t, e, 0, "Hill Giant", state.ZBattlefield)
 	spell := paidCostMoveTo(t, e, 0, "Monstrous Emergence", state.ZHand)
@@ -121,6 +122,7 @@ func TestMonstrousEmergenceChooseCreatureSizesDamage(t *testing.T) {
 // arm, kind "choosecost"), and electing the choose arm sizes the damage from
 // the chosen creature while the hand card stays in hand.
 func TestMonstrousEmergenceOffersRevealAndChoose(t *testing.T) {
+	t.Parallel()
 	e, cfg := revealChooseEngine(t, []string{"Monstrous Emergence", "Grizzly Bears", "Hill Giant"}, []string{"Ancient Brontodon"})
 	handCard := paidCostMoveTo(t, e, 0, "Grizzly Bears", state.ZHand)
 	chosen := paidCostMoveTo(t, e, 0, "Hill Giant", state.ZBattlefield)
@@ -188,6 +190,7 @@ func TestMonstrousEmergenceOffersRevealAndChoose(t *testing.T) {
 // must be preserved), sizes from its power, and leaves the controlled
 // creature untouched.
 func TestMonstrousEmergenceChooseArmLeavesHandCardRevealDistinct(t *testing.T) {
+	t.Parallel()
 	e, cfg := revealChooseEngine(t, []string{"Monstrous Emergence", "Grizzly Bears", "Hill Giant"}, []string{"Ancient Brontodon"})
 	handCard := paidCostMoveTo(t, e, 0, "Grizzly Bears", state.ZHand)
 	chosen := paidCostMoveTo(t, e, 0, "Hill Giant", state.ZBattlefield)
@@ -242,6 +245,7 @@ func TestMonstrousEmergenceChooseArmLeavesHandCardRevealDistinct(t *testing.T) {
 // SVar:X:Revealed$CardPower) sizes from the chosen Dragon's power instead of
 // the plain 3.
 func TestDragonsFireChooseDragonSizesDamage(t *testing.T) {
+	t.Parallel()
 	e, cfg := revealChooseEngine(t, []string{"Dragon's Fire", "Shivan Dragon"}, []string{"Ancient Brontodon"})
 	spell := paidCostMoveTo(t, e, 0, "Dragon's Fire", state.ZHand)
 	dragon := paidCostMoveTo(t, e, 0, "Shivan Dragon", state.ZBattlefield)
@@ -289,6 +293,7 @@ func TestDragonsFireChooseDragonSizesDamage(t *testing.T) {
 // Dragon card in hand (and the plain cast declined for the optional one), the
 // revealed Dragon sizes the damage.
 func TestDragonsFireRevealDragonSizesDamage(t *testing.T) {
+	t.Parallel()
 	e, cfg := revealChooseEngine(t, []string{"Dragon's Fire", "Shivan Dragon"}, []string{"Ancient Brontodon"})
 	spell := paidCostMoveTo(t, e, 0, "Dragon's Fire", state.ZHand)
 	dragon := paidCostMoveTo(t, e, 0, "Shivan Dragon", state.ZHand)
@@ -340,6 +345,7 @@ func TestDragonsFireRevealDragonSizesDamage(t *testing.T) {
 // the optional cost deals exactly 3 (Count$OptionalGenericCostPaid.X.3's
 // unpaid branch), and stamps no optionalcostpaid CastInfo.
 func TestDragonsFirePlainDealsThree(t *testing.T) {
+	t.Parallel()
 	e, cfg := revealChooseEngine(t, []string{"Dragon's Fire"}, []string{"Ancient Brontodon"})
 	spell := paidCostMoveTo(t, e, 0, "Dragon's Fire", state.ZHand)
 	receiver := paidCostMoveTo(t, e, 1, "Ancient Brontodon", state.ZBattlefield)
@@ -376,6 +382,7 @@ func TestDragonsFirePlainDealsThree(t *testing.T) {
 // arm's existing copy test. The original is moved off the stack first so only
 // the copy resolves.
 func TestRevealOrChooseChooseArmIsNotInheritedByAStackCopy(t *testing.T) {
+	t.Parallel()
 	e, _ := revealChooseEngine(t, []string{"Monstrous Emergence", "Hill Giant"}, []string{"Ancient Brontodon"})
 	chosen := paidCostMoveTo(t, e, 0, "Hill Giant", state.ZBattlefield)
 	spell := paidCostMoveTo(t, e, 0, "Monstrous Emergence", state.ZHand)
@@ -415,6 +422,7 @@ func TestRevealOrChooseChooseArmIsNotInheritedByAStackCopy(t *testing.T) {
 // pc.revealOrChoosePart and pc.revealHandArm, so answering the election on the
 // clone resolves the same cast and sizes the damage from the chosen arm.
 func TestRevealOrChooseAskSurvivesAClone(t *testing.T) {
+	t.Parallel()
 	e, _ := revealChooseEngine(t, []string{"Monstrous Emergence", "Grizzly Bears", "Hill Giant"}, []string{"Ancient Brontodon"})
 	handCard := paidCostMoveTo(t, e, 0, "Grizzly Bears", state.ZHand)
 	chosen := paidCostMoveTo(t, e, 0, "Hill Giant", state.ZBattlefield)

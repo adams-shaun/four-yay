@@ -39,6 +39,7 @@ func loneClassDecision() *decision.Decision {
 // Validate rejects. The precondition asserts the trap really exists -- option
 // 0 shares its token with no other option, while {1,2} is a legal pair.
 func TestTargetSetSharedClampReanchorsLoneClass(t *testing.T) {
+	t.Parallel()
 	d := loneClassDecision()
 	// Preconditions: the lone anchor really is alone, and {1,2} really is a
 	// legal completion, so a correct repair has somewhere to land.
@@ -66,6 +67,7 @@ func TestTargetSetSharedClampReanchorsLoneClass(t *testing.T) {
 // Decision.Validate accepts, so the deterministic bot is not left
 // re-deriving a rejected intent (the livelock class).
 func TestTargetSetSharedDecideReanchorsLoneClass(t *testing.T) {
+	t.Parallel()
 	d := loneClassDecision()
 	// Precondition: the raw pick loop is offered this shape and there is a
 	// legal completion, so the test cannot pass merely by accident.
@@ -85,6 +87,7 @@ func TestTargetSetSharedDecideReanchorsLoneClass(t *testing.T) {
 // behaviour change for an already-valid answer: the clamp of a conforming
 // input stays byte-identical, so no repo deck's bot pick moves.
 func TestTargetSetSharedClampKeepsValidAnswer(t *testing.T) {
+	t.Parallel()
 	d := loneClassDecision()
 	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{1, 2}}
 	if err := d.Validate(in); err != nil {

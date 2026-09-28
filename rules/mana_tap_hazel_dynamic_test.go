@@ -81,6 +81,7 @@ func reprioritize(t *testing.T, e *Engine) {
 // election's own acceptance: offer, election bounds, exact tapped set,
 // life payment, X-bound Combo Any allocation and replay identity.
 func TestManaTapPermanentCostHazelDynamicX(t *testing.T) {
+	t.Parallel()
 	t.Run("X=2 taps both tokens and allocates two distinct colours", func(t *testing.T) {
 		e, cfg, hazel, nontoken := hazelDynamicBoard(t, 2026092701)
 		tokA := mintToken(t, e, 0, "g_1_1_squirrel")

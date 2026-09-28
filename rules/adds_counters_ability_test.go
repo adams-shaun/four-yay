@@ -136,6 +136,7 @@ func untapRider(t *testing.T, e *Engine, obj state.ObjID) {
 // after one grant, so the creature entered with one counter instead of two;
 // the brief's own finding spells this out for Biophagus and for Opal Palace.
 func TestAddsCountersRiderTwoUnitsOneSource(t *testing.T) {
+	t.Parallel()
 	e, cfg := riderGame(t, 501, card(t, riderShamanSrc), card(t, riderDoubleSrc))
 	shaman := moveToBattlefieldByName(t, e, 0, "Rider Shaman")
 	// A raw SummonSick write would clear CR 302.6 sickness off the log the
@@ -199,6 +200,7 @@ func TestAddsCountersRiderTwoUnitsOneSource(t *testing.T) {
 // {R} rider ability's mana and DOES award the counter, proving the distinction
 // is ability-level rather than a blanket suppression.
 func TestAddsCountersRiderIsTheProducingAbilityNotTheFace(t *testing.T) {
+	t.Parallel()
 	e, cfg := riderGame(t, 502, card(t, riderTotemSrc), card(t, riderGenericSrc), card(t, riderGenericSrc))
 	totem := moveToBattlefieldByName(t, e, 0, "Dual Totem")
 	beast := moveSeededToHand(t, e, 0, "Generic Beast")

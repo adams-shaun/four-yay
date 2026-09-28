@@ -136,6 +136,7 @@ func castCommanderOnce(t *testing.T, e *Engine, id state.ObjID) {
 // cost actually lands in the legality gate (an unfunded {2}-taxed cast is not
 // offered at all).
 func TestCommanderCastTaxesEveryCastBeyondTheFirst(t *testing.T) {
+	t.Parallel()
 	e, _, cmd0 := commanderTaxGame(t, 31)
 
 	// First cast: untaxed (CmdCasts[0] == 0), offered with an empty pool.
@@ -202,6 +203,7 @@ func TestCommanderCastTaxesEveryCastBeyondTheFirst(t *testing.T) {
 // `cost = e.commanderTaxFor(p, id, cost)` line in beginCast and this fails by
 // name -- the tax function still returns {2}/{4}, but commitCast pays {0}.
 func TestCommanderCastPathActuallyPaysTheTax(t *testing.T) {
+	t.Parallel()
 	e, _, cmd0 := commanderTaxGame(t, 38)
 
 	// First cast from the command zone: {0} base cost, tax {0}. The option is
@@ -247,6 +249,7 @@ func TestCommanderCastPathActuallyPaysTheTax(t *testing.T) {
 // put on the stack, so a commander spell that is countered before it resolves
 // still pushes the next cast's tax up by {2}.
 func TestCommanderCounteredSpellStillRaisesTheTax(t *testing.T) {
+	t.Parallel()
 	e, _, cmd0 := commanderTaxGame(t, 33)
 
 	opt := commanderCastOption(e, cmd0)
@@ -280,6 +283,7 @@ func TestCommanderCounteredSpellStillRaisesTheTax(t *testing.T) {
 // only condition: casting the commander from the hand is a plain cast -- no
 // tax, and no increment.
 func TestCommanderCastFromHandIsNeitherTaxedNorCounted(t *testing.T) {
+	t.Parallel()
 	e, _, cmd0 := commanderTaxGame(t, 34)
 
 	// The commander is in the command zone; move it to the hand (a fixture --
@@ -320,6 +324,7 @@ func TestCommanderCastFromHandIsNeitherTaxedNorCounted(t *testing.T) {
 // to bound -- is structurally impossible here because both sides derive from
 // commanderTaxFor.
 func TestCommanderNoOfferWithoutPayableTax(t *testing.T) {
+	t.Parallel()
 	e, _, cmd0 := commanderTaxGame(t, 35)
 
 	// Get the tax to {2} through a real cast+return.
@@ -352,6 +357,7 @@ func TestCommanderNoOfferWithoutPayableTax(t *testing.T) {
 // MoveZone between them, so every event the live game emitted is one the
 // replay re-produces; the replayed engine's CmdCasts must equal the live one's.
 func TestCommanderCastCountReplaysExactlyFromTheEventStream(t *testing.T) {
+	t.Parallel()
 	deck0 := twoCommanderDeck(t, commanderBeatstickSrc, commanderBattleGolemSrc)
 	deck1 := twoCommanderDeck(t, commanderBeatstickSrc, commanderBattleGolemSrc)
 	cfg := Config{Seed: 36, Names: []string{"a", "b"},
@@ -394,6 +400,7 @@ func TestCommanderCastCountReplaysExactlyFromTheEventStream(t *testing.T) {
 // but because the format gate says so. All three enforcement points are
 // covered: the offer walk, the tax composition and the counter increment.
 func TestCommanderTaxGatedOffOutsideCommanderFormat(t *testing.T) {
+	t.Parallel()
 	deck0, deck1 := commanderDeck(t, commanderBeatstickSrc), commanderDeck(t, commanderBeatstickSrc)
 	cfg := Config{Seed: 37, Names: []string{"a", "b"},
 		Decks:      [][]*cards.Card{deck0, deck1},

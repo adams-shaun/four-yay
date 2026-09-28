@@ -37,6 +37,7 @@ func selfOnlyBoard(t testing.TB, n int) (*Engine, state.ObjID) {
 // alone -- the rest of the board is never walked through the layer-4 match
 // -- and must equal the full walk's table exactly.
 func TestLayer4SelfOnlyTableVisitsOnlyItsSources(t *testing.T) {
+	t.Parallel()
 	e, car := selfOnlyBoard(t, 200)
 	// A face-down goblin: its CR 708.5 base {Creature} differs from the
 	// printed "Creature Goblin", so the full walk lists it and the fast path

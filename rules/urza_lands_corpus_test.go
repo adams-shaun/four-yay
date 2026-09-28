@@ -101,6 +101,7 @@ func urzaCorpusEngine(t *testing.T, place map[string]bool) (*Engine, Config, map
 // seat controls all of them: Mine 2, Tower 3, Power Plant 2 (the assembled
 // amounts of each card's own Count$UrzaLands.<assembled>.<not assembled>).
 func TestUrzaLandsCorpusPoolAllThree(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := urzaCorpusEngine(t, map[string]bool{"mine": true, "tower": true, "plant": true})
 	activateMana(t, e, ids["mine"])
 	if got := e.G.Players[0].Pool[state.MC]; got != 2 {
@@ -123,6 +124,7 @@ func TestUrzaLandsCorpusPoolAllThree(t *testing.T) {
 // whose absence the Mine's own condition does not name, so a count that
 // reported assembled for "any two Urza lands" would wrongly return 2 here.
 func TestUrzaLandsCorpusPoolUnassembled(t *testing.T) {
+	t.Parallel()
 	e, cfg, ids := urzaCorpusEngine(t, map[string]bool{"mine": true, "plant": true})
 	activateMana(t, e, ids["mine"])
 	if got := e.G.Players[0].Pool[state.MC]; got != 1 {

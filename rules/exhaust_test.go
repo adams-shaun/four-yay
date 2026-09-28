@@ -32,6 +32,7 @@ func exhaustBattlefield(t *testing.T, e *Engine, id state.ObjID) {
 // With no other limit or target, the {1} ability must be withheld after one
 // use, even after the per-turn ActivationLimit$ window resets.
 func TestExhaustInlineWithheldSameTurnAndLaterTurn(t *testing.T) {
+	t.Parallel()
 	const src = "Name:ExhaustBeast\nManaCost:0\nTypes:Creature Beast\nPT:2/2\n" +
 		"A:AB$ Pump | Cost$ 1 | Defined$ Self | Power$ 1 | Toughness$ 1 | Exhaust$ True | SpellDescription$ CARDNAME gets +1/+1. Activate each exhaust ability only once.\nOracle:x\n"
 	e, _, id := newFixtureDeck(t, 11, src)
@@ -68,6 +69,7 @@ func TestExhaustInlineWithheldSameTurnAndLaterTurn(t *testing.T) {
 
 // The real {3} PutCounter leaf must pass the same gate as the inline Pump.
 func TestExhaustMaiJadedEdgeWithheldAfterOneUse(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	mai, ok := reg.Lookup("Mai, Jaded Edge")
 	if !ok {

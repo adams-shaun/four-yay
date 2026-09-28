@@ -12,6 +12,7 @@ import (
 const firstSpellTargetedProbe = "Name:First Spell Probe\nManaCost:1 R\nTypes:Sorcery\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1\nOracle:x\n"
 
 func TestTargetedFirstSpellNotDiscountedAsSecond(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9320, firstSpellTargetedProbe)
 	toMain1(t, e)
 	mouse := onBoardCard(t, e, 0, corpusCard(t, "Raging Battle Mouse"))
@@ -67,6 +68,7 @@ func TestTargetedFirstSpellNotDiscountedAsSecond(t *testing.T) {
 }
 
 func TestTargetedFirstSpellNotDiscountedAsSecond_SecondSpellStillGetsDiscount(t *testing.T) {
+	t.Parallel()
 	first := "Name:First Probe\nManaCost:R\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:x\n"
 	targeted := "Name:Second Probe\nManaCost:1 R\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1\nOracle:x\n"
 	e, _, firstID := newFixtureDeck(t, 9321, first, targeted)
@@ -113,6 +115,7 @@ func TestTargetedFirstSpellNotDiscountedAsSecond_SecondSpellStillGetsDiscount(t 
 }
 
 func TestCostCompositionExcludesOnlyCurrentPushForAnnouncedX(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9322, firstSpellTargetedProbe)
 	toMain1(t, e)
 	mouse := onBoardCard(t, e, 0, corpusCard(t, "Raging Battle Mouse"))
@@ -142,6 +145,7 @@ func TestCostCompositionExcludesOnlyCurrentPushForAnnouncedX(t *testing.T) {
 }
 
 func TestSplitCardFirstSpellPaysFullCost(t *testing.T) {
+	t.Parallel()
 	coward := corpusCard(t, "Coward")
 	cfg := seatZeroStart(Config{Seed: 9330, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{append([]*cards.Card{coward}, mountainDeck(t, 39)...), mountainDeck(t, 40)}, Tokens: map[string]*cards.Card{}})

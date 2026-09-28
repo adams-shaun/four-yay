@@ -98,6 +98,7 @@ func targetOptionIdx(t *testing.T, e *Engine, obj state.ObjID) int {
 // dispatchable matcher and effects.Supported reports the primitive, so the
 // coverage census can stop counting it a gap.
 func TestBecomesTargetOnceIsRegistered(t *testing.T) {
+	t.Parallel()
 	if trigMatchers["BecomesTargetOnce"] == nil {
 		t.Fatal("Mode$ BecomesTargetOnce has no registered matcher")
 	}
@@ -111,6 +112,7 @@ func TestBecomesTargetOnceIsRegistered(t *testing.T) {
 // controls draws a card, and the second activation the same turn draws nothing
 // because the line's ActivationLimit$ 1 was consumed.
 func TestProfessorHojoBecomesTargetOnceDrawsOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	hojoCard := mustCorpusCard(t, reg, "Professor Hojo")
 	trig := corpusTriggerMode(t, hojoCard, "BecomesTargetOnce")
@@ -175,6 +177,7 @@ func TestProfessorHojoBecomesTargetOnceDrawsOncePerTurn(t *testing.T) {
 // targets Hojo is not "an activated ability", so the trigger must not fire
 // even though the target matches.
 func TestProfessorHojoBecomesTargetOnceIgnoresASpell(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, ids := targetingBoard(t, reg,
 		[]string{"Professor Hojo"},
@@ -211,6 +214,7 @@ func TestProfessorHojoBecomesTargetOnceIgnoresASpell(t *testing.T) {
 // (the targeting ability's controller), so the whole batch costs the OPPONENT
 // exactly 2 life, and Leyline's controller none.
 func TestLeylineOfCombustionBecomesTargetOnceIsOnePerAction(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	lcard := mustCorpusCard(t, reg, "Leyline of Combustion")
 	trig := corpusTriggerMode(t, lcard, "BecomesTargetOnce")

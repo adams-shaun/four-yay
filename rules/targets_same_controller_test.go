@@ -14,6 +14,7 @@ import (
 // being offered as an ordinary target decision; the ask must fizzle instead
 // of handing a bot an answer that the submit gate rejects forever.
 func TestBarrinsSpiteSameControllerCapacity(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Barrin's Spite")
 	if !ok {

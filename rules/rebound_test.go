@@ -123,6 +123,7 @@ func reboundEngine(t *testing.T, seed uint64, src string) (*Engine, Config, stat
 // controller's next upkeep offers the card from exile for free; the re-bound
 // cast does not rebound again.
 func TestReboundHandCastExilesAndOffersFreeRecast(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := reboundEngine(t, 71, reboundBoltSrc)
 
 	// Precondition: the card starts in hand, so "cast from hand" is the rule
@@ -204,6 +205,7 @@ func TestReboundHandCastExilesAndOffersFreeRecast(t *testing.T) {
 // the next-upkeep ask with the empty choice leaves the card exiled and grants
 // no later permission.
 func TestReboundDeclineLeavesCardExiled(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := reboundEngine(t, 72, reboundBoltSrc)
 	addMana(t, e, 0, "R")
 	submitChoices(t, e, castOptionFor(t, e, id).Index)
@@ -283,6 +285,7 @@ func TestReboundDeclineLeavesCardExiled(t *testing.T) {
 // CastInfo carries no FlagRebound -- so the positive tests above are not
 // measuring a blanket exile.
 func TestNonReboundSpellStaysInGraveyard(t *testing.T) {
+	t.Parallel()
 	e, _, id := reboundEngine(t, 73, reboundPlainSrc)
 	addMana(t, e, 0, "R")
 	submitChoices(t, e, castOptionFor(t, e, id).Index)
@@ -305,6 +308,7 @@ func TestNonReboundSpellStaysInGraveyard(t *testing.T) {
 // Terramorph end to end: hand cast -> exile + promise -> free recast from
 // exile -> graveyard, replaying byte-identically.
 func TestReboundCorpusCarrierExilesAndOffers(t *testing.T) {
+	t.Parallel()
 	e, cfg, id, caster := corpusCardConfig(t, 74, "Terramorph")
 	// Precondition: the real carrier is in hand and carries the keyword.
 	if got := e.G.Obj(id).Zone; got != state.ZHand {
@@ -352,6 +356,7 @@ func TestReboundCorpusCarrierExilesAndOffers(t *testing.T) {
 // the stack, never cast, so the StackCopy mint must strip the provenance bit
 // -- and the resolving copy leaves no delayed promise of its own.
 func TestReboundCopiedSpellRegistersNothing(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := reboundEngine(t, 75, reboundBoltSrc)
 	addMana(t, e, 0, "R")
 	submitChoices(t, e, castOptionFor(t, e, id).Index)

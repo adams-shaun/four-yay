@@ -18,6 +18,7 @@ import (
 // it into the game-long (recipient, source) membership record. A negative or
 // zero amount (a cleanup hit, a prevented hit) emits nothing.
 func TestEmitRecordsGameLongDamageProvenance(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	src := e.G.Zone(state.ZLibrary, 0)[0]
 	// Precondition: the source object exists and the recipient seat is
@@ -74,6 +75,7 @@ func TestEmitRecordsGameLongDamageProvenance(t *testing.T) {
 // damage dealt to a permanent records the source on the OBJECT's game-long
 // record (the record The Fallen's ValidCards$ Planeswalker half reads).
 func TestEmitRecordsObjectDamageProvenance(t *testing.T) {
+	t.Parallel()
 	e := newSeats(t, 2)
 	src := e.G.Zone(state.ZLibrary, 0)[0]
 	victim := e.G.Zone(state.ZLibrary, 1)[0]
@@ -108,6 +110,7 @@ func TestEmitRecordsObjectDamageProvenance(t *testing.T) {
 // must not be offered, and the controller's own seat is excluded by the
 // Opponent base as always.
 func TestDiseasedVerminAskOffersOnlyPreviouslyDamagedOpponents(t *testing.T) {
+	t.Parallel()
 	// Precondition on the corpus: Diseased Vermin's real spec is the shape
 	// this test drives (through an equivalent GainControl card so the ask is
 	// reachable in the ETB harness).

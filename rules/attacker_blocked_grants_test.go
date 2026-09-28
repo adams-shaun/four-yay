@@ -22,6 +22,7 @@ import (
 // becomes blocked by a creature, this creature gets +1/+1 until end of turn."
 // A granted creature that becomes blocked must pump.
 func TestGrantedAttackerBlockedByCreaturePumps(t *testing.T) {
+	t.Parallel()
 	retaliation := mshCorpusCardPath(t, "Retaliation", "r/retaliation.txt")
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, retaliation) // the grant's source; never attacks here
@@ -78,6 +79,7 @@ func TestGrantedAttackerBlockedByCreaturePumps(t *testing.T) {
 // The granted AttackerBlocked instance must fire once for the blocked Kraken
 // and resolve its SVar body.
 func TestGrantedAttackerBlockedDraws(t *testing.T) {
+	t.Parallel()
 	kraken := mshCorpusCardPath(t, "Stormsurge Kraken", "s/stormsurge_kraken.txt")
 	e := combatEngine(t)
 	krakenID := onBoardCard(t, e, 0, kraken)

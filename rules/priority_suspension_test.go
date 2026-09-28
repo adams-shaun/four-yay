@@ -28,6 +28,7 @@ import (
 // object's completion move rather than counting Priority events (the two-event
 // convention is the same for an unsuspended resolution, pinned elsewhere).
 func TestSuspendedResolutionLogsPriorityOnlyAtCompletion(t *testing.T) {
+	t.Parallel()
 	charm := "Name:PiC\nManaCost:R\nTypes:Instant\nA:SP$ Charm | Choices$ DoGain,DoLose\n" +
 		"SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life\n" +
 		"SVar:DoLose:DB$ LoseLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Lose 5 life\nOracle:x\n"
@@ -145,6 +146,7 @@ func TestSuspendedResolutionLogsPriorityOnlyAtCompletion(t *testing.T) {
 // empty pool, and an untapped Mountain on the battlefield is the shape that
 // parks payCast on the window after the target is chosen.
 func TestMidCastManaWindowLogsNoPriorityBetweenAskAndAnswer(t *testing.T) {
+	t.Parallel()
 	// A targeted instant whose single red pip the empty pool cannot pay, but
 	// an untapped Mountain can -- so the 601.2g window must pose after the
 	// target choice; the mid-cast ask is a KChoose, not a mid-resolution KModes.

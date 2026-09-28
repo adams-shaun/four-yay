@@ -34,6 +34,7 @@ const manaArtifactSrc = "Name:Mana Gear\nTypes:Artifact\nA:AB$ Mana | Cost$ T | 
 // as the payment, and the pool paid exactly its {W}{W} -- the artifacts
 // contributed no mana.
 func TestImproviseOrganicExtinctionAnnouncesArtifactsAndPays(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Organic Extinction"))
 	ids := addArtifacts(t, e, 8, plainArtifactSrc)
 	// A tapped artifact is never an Improvise candidate (CR 702.66a).
@@ -100,6 +101,7 @@ func TestImproviseOrganicExtinctionAnnouncesArtifactsAndPays(t *testing.T) {
 // Improvise is reserved (convokeCommitted) and is NOT offered again in the
 // CR 601.2g mana window; an unannounced mana source still is.
 func TestImproviseCommittedArtifactExcludedFromManaWindow(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Organic Extinction"))
 	ids := addArtifacts(t, e, 8, plainArtifactSrc)
 	manaGear := addArtifacts(t, e, 1, manaArtifactSrc)[0]
@@ -178,6 +180,7 @@ func TestImproviseCommittedArtifactExcludedFromManaWindow(t *testing.T) {
 // created (ExcessSVar$ Excess -> DBToken's TokenAmount$ Excess,
 // TokenTapped$ True).
 func TestImproviseBottleCapBlastTapsTwoArtifactsPaysFullPrice(t *testing.T) {
+	t.Parallel()
 	e := handEngineTokens(t, corpusAlternativeCard(t, "Bottle-Cap Blast"))
 	bear := e.G.AddObject(card(t, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"), 1)
 	bear.Zone = state.ZBattlefield
@@ -261,6 +264,7 @@ func TestImproviseBottleCapBlastTapsTwoArtifactsPaysFullPrice(t *testing.T) {
 // Proves the token count is driven by the CR 120.10 excess, not a
 // constant.
 func TestImproviseBottleCapBlastPlayerTargetCreatesNoExcess(t *testing.T) {
+	t.Parallel()
 	e := handEngineTokens(t, corpusAlternativeCard(t, "Bottle-Cap Blast"))
 	ids := addArtifacts(t, e, 4, plainArtifactSrc)
 	spell := e.G.Zone(state.ZHand, 0)[0]
@@ -302,6 +306,7 @@ func TestImproviseBottleCapBlastPlayerTargetCreatesNoExcess(t *testing.T) {
 // artifacts the announcement is never posed (convokeAsk's empty-options
 // early return) and a pool-paid cast completes without any decision.
 func TestImproviseNoArtifactsNoAnnouncement(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Organic Extinction"))
 	spell := e.G.Zone(state.ZHand, 0)[0]
 	e.G.Players[0].Pool[state.MC], e.G.Players[0].Pool[state.MW] = 8, 2
@@ -317,6 +322,7 @@ func TestImproviseNoArtifactsNoAnnouncement(t *testing.T) {
 // TestImproviseArtifactCreatureQualifies: CR 702.66a says "artifact", and
 // an artifact creature is an artifact independently of being a creature.
 func TestImproviseArtifactCreatureQualifies(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Organic Extinction"))
 	addArtifacts(t, e, 7, plainArtifactSrc)
 	creature := e.G.AddObject(card(t, "Name:Gear Golem\nManaCost:4\nTypes:Artifact Creature Golem\nPT:4/4\nOracle:x\n"), 0)

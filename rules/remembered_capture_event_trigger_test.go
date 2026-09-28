@@ -37,6 +37,7 @@ const eventCaptureVictim = "Name:EventVictim\nTypes:Creature Bear\nPT:2/2\nOracl
 // source), so unlike the Phase probe this one is a live discriminator for the
 // effects-side exclusion on current main.
 func TestRememberedEventCaptureExcludedInTriggerBody(t *testing.T) {
+	t.Parallel()
 	probeCard := card(t, eventCaptureProbe)
 	victimCard := card(t, eventCaptureVictim)
 	cfg := seatZeroStart(Config{Seed: 917, Names: []string{"a", "b"},

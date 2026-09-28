@@ -103,6 +103,7 @@ func newFixtureDeckWithOpponentCard(t *testing.T, seed uint64, fixtureSrc, extra
 // reduction applies exactly when the union carries two you-control
 // creatures.
 func TestWaytaPreasksFightTargetAndReduces(t *testing.T) {
+	t.Parallel()
 	waytaSrc := alltargetedCorpusText(t, "w/wayta_trainer_prodigy.txt")
 
 	t.Run("two_creatures_you_control_reduces_two", func(t *testing.T) {
@@ -239,6 +240,7 @@ func TestWaytaPreasksFightTargetAndReduces(t *testing.T) {
 // reduction and asks nothing beyond the ordinary single target ask. Retained
 // as a regression test; the Wayta and Urgent Necropsy cases prove this change.
 func TestRaftSecurityOfficerReduction(t *testing.T) {
+	t.Parallel()
 	raftSrc := alltargetedCorpusText(t, "r/raft_security_officer.txt")
 	e, cfg, _ := newFixtureDeck(t, 73, raftSrc, atBearSrc)
 	raft := moveSeeded(t, e, 0, raftSrc, state.ZBattlefield)
@@ -299,6 +301,7 @@ func TestRaftSecurityOfficerReduction(t *testing.T) {
 // as the payment. With every target elected zero, X = 0 and no evidence is
 // owed or asked.
 func TestUrgentNecropsyCollectsEvidenceOnTheTargetUnion(t *testing.T) {
+	t.Parallel()
 	necropsySrc := alltargetedCorpusText(t, "u/urgent_necropsy.txt")
 	artifactSrc := "Name:Gold Myr\nManaCost:2\nTypes:Artifact Creature Myr\nPT:1/1\nOracle:x\n"
 	grave3Src := "Name:Big Bones\nManaCost:3\nTypes:Artifact\nOracle:x\n"
@@ -413,6 +416,7 @@ func TestUrgentNecropsyCollectsEvidenceOnTheTargetUnion(t *testing.T) {
 // mid-resolution ask (the general CR 601.2c pre-announcement is a separate
 // ticket). The bodies are the real corpus spellings.
 func TestBodyReadsAllTargetedScopeGate(t *testing.T) {
+	t.Parallel()
 	// Wayta's ReduceCost$ X -> Count$Compare Y EQ2.2.0 -> Y:AllTargeted$...
 	wayta := map[string]string{
 		"X": "Count$Compare Y EQ2.2.0",

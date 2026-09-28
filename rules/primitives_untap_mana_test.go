@@ -115,6 +115,7 @@ func (e *Engine) hasEvent(kind events.Kind, obj state.ObjID) bool {
 // A stun counter replaces its paid untap, just as it replaces an untap-step
 // untap (CR 122.1d); after it is consumed the ability untaps normally.
 func TestBasaltMonolithUntap(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	basalt := onBoard(t, e, 0, basaltMonolithScript)
 	e.emit(events.Event{Kind: events.Tap, Obj: basalt})
@@ -156,6 +157,7 @@ func TestBasaltMonolithUntap(t *testing.T) {
 }
 
 func TestCloudOfFaeriesUntapUpToSelection(t *testing.T) {
+	t.Parallel()
 	const cloud = "Name:Cloud of Faeries\nManaCost:1 U\nTypes:Creature Faerie\nPT:1/1\n" +
 		"T:Mode$ ChangesZone | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigUntap\n" +
 		"SVar:TrigUntap:DB$ Untap | UntapUpTo$ True | UntapType$ Land | Amount$ 2\nOracle:x\n"
@@ -189,6 +191,7 @@ func TestCloudOfFaeriesUntapUpToSelection(t *testing.T) {
 // OTHER player's untap step (and a neighbouring permanent without the static
 // does not), and during its own controller's untap step it untaps normally.
 func TestEndbringerUntapsDuringOtherPlayersUntapSteps(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	endbringer := onBoard(t, e, 1, endbringerScript)
 	plain := onBoard(t, e, 1, mountainScript())
@@ -226,6 +229,7 @@ func TestEndbringerUntapsDuringOtherPlayersUntapSteps(t *testing.T) {
 // Defined.Imprinted one, so one test covers the primitive's three real
 // forms.
 func TestExoticOrchardReflectedMana(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	orchard := onBoard(t, e, 0, exoticOrchardScript)
 	e.priorityRound()
@@ -274,6 +278,7 @@ func TestExoticOrchardReflectedMana(t *testing.T) {
 // not offered at all (an ability that can only resolve into a Note must not
 // be offered).
 func TestReflectingPoolTypeReflectsOnlyProducedColourless(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	pool := onBoard(t, e, 0, "Name:Reflecting Pool\nManaCost:no cost\nTypes:Land\n"+
 		"A:AB$ ManaReflected | Cost$ T | ColorOrType$ Type | Valid$ Land.YouCtrl | ReflectProperty$ Produce | SpellDescription$ Add one mana of any type that a land you control could produce.\nOracle:x\n")
@@ -320,6 +325,7 @@ func TestReflectingPoolTypeReflectsOnlyProducedColourless(t *testing.T) {
 }
 
 func TestFellwarStoneAndChromeMoxReflectedShapes(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	onBoard(t, e, 0, "Name:Fellwar Stone\nManaCost:2\nTypes:Artifact\n"+
 		"A:AB$ ManaReflected | Cost$ T | ColorOrType$ Color | Valid$ Land.OppCtrl | ReflectProperty$ Produce | SpellDescription$ Add one mana of any color that a land an opponent controls could produce.\nOracle:x\n")
@@ -401,6 +407,7 @@ func TestFellwarStoneAndChromeMoxReflectedShapes(t *testing.T) {
 // TestIncubationDruidReflectedManaAmount proves Amount$ is evaluated on a
 // ManaReflected ability, rather than every reflected activation adding one.
 func TestIncubationDruidReflectedManaAmount(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	druid := onBoard(t, e, 0, incubationDruidScript)
 	e.G.Obj(druid).SummonSick = false
@@ -419,6 +426,7 @@ func TestIncubationDruidReflectedManaAmount(t *testing.T) {
 // activation. The restriction is event-backed, so the successful payment also
 // proves a cloned/replayed game retains its provenance.
 func TestTazriReflectedManaGateAndRestriction(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	tazri := onBoard(t, e, 0, tazriStalwartSurvivorScript)
 	ma := cards.ResolveSVar(e.G.Obj(tazri).Face().SVars, "Mana")
@@ -480,6 +488,7 @@ func TestTazriReflectedManaGateAndRestriction(t *testing.T) {
 }
 
 func TestManaFlareReflectsTheProducedManaType(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	flare := onBoard(t, e, 0, manaFlareScript)
 	sa := cards.ResolveSVar(e.G.Obj(flare).Face().SVars, "TrigMana")
@@ -568,6 +577,7 @@ func TestChromaticOrreryManaConvert(t *testing.T) {
 // ValidCard$ Creature.YouCtrl untaps EVERY creature its controller controls
 // during each other player's untap step, and nothing else.
 func TestFabledPassageUntapsOnlyAtFourLands(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	passage := onBoard(t, e, 0, "Name:Fabled Passage\nManaCost:no cost\nTypes:Land\n"+
 		"A:AB$ ChangeZone | Cost$ T Sac<1/CARDNAME> | Origin$ Library | Destination$ Battlefield | Tapped$ True | ChangeType$ Land.Basic | RememberChanged$ True | SubAbility$ DBUntap\n"+
@@ -589,6 +599,7 @@ func TestFabledPassageUntapsOnlyAtFourLands(t *testing.T) {
 }
 
 func TestQuestForRenewalNeedsFourQuestCounters(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	quest := onBoard(t, e, 1, "Name:Quest for Renewal\nManaCost:1 G\nTypes:Enchantment\n"+
 		"S:Mode$ UntapOtherPlayer | ValidCard$ Creature.YouCtrl | IsPresent$ Card.Self+counters_GE4_QUEST | Description$ As long as there are four or more quest counters on CARDNAME, untap all creatures you control during each other player's untap step.\nOracle:x\n")
@@ -608,6 +619,7 @@ func TestQuestForRenewalNeedsFourQuestCounters(t *testing.T) {
 }
 
 func TestDrumbellowerUntapsItsCreaturesForEachOtherPlayer(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	drum := onBoard(t, e, 1, "Name:Drumbellower\nManaCost:2 W\nTypes:Creature Spirit\nPT:2/1\nK:Flying\n"+
 		"S:Mode$ UntapOtherPlayer | ValidCard$ Creature.YouCtrl | Description$ Untap all creatures you control during each other player's untap step.\nOracle:x\n")
@@ -630,6 +642,7 @@ func TestDrumbellowerUntapsItsCreaturesForEachOtherPlayer(t *testing.T) {
 // trigger. Its age counter is absent while the ability waits on the stack;
 // only resolution places it, then opens the mana-only payment window.
 func TestMysticRemoraCumulativeUpkeep(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	remora := onBoard(t, e, 0, mysticRemoraScript)
 	_ = onBoard(t, e, 0, mountainScript())
@@ -672,6 +685,7 @@ func TestMysticRemoraCumulativeUpkeep(t *testing.T) {
 // response that steals Mystic Remora does not steal the already-triggered
 // upkeep's pay-or-sacrifice decision (CR 113.8).
 func TestCumulativeUpkeepKeepsItsTriggerControllerAfterControlChanges(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	remora := onBoard(t, e, 0, mysticRemoraScript)
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepUpkeep})
@@ -694,6 +708,7 @@ func TestCumulativeUpkeepKeepsItsTriggerControllerAfterControlChanges(t *testing
 // the ordinary trigger first still leaves AGE at zero; resolving cumulative
 // upkeep second places it.
 func TestCumulativeUpkeepOrdersWithOrdinaryUpkeepTriggers(t *testing.T) {
+	t.Parallel()
 	const watcher = "Name:Upkeep Watcher\nManaCost:1\nTypes:Artifact\n" +
 		"T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | Execute$ TrigLife\n" +
 		"SVar:TrigLife:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
@@ -725,6 +740,7 @@ func TestCumulativeUpkeepOrdersWithOrdinaryUpkeepTriggers(t *testing.T) {
 }
 
 func TestCumulativeUpkeepRecognizesEveryCorpusActionCost(t *testing.T) {
+	t.Parallel()
 	labels := []string{
 		"AddCounter<1/M1M1>",
 		"AddCounter<1/P1P1/Creature.OppCtrl/creature an opponent controls>",
@@ -754,6 +770,7 @@ func TestCumulativeUpkeepRecognizesEveryCorpusActionCost(t *testing.T) {
 // a scaled object choice; choosing another creature keeps Soulgorger rather
 // than treating the non-mana token as an unpriceable generic cost.
 func TestPhyrexianSoulgorgerPaysCumulativeUpkeepWithAChosenCreature(t *testing.T) {
+	t.Parallel()
 	const soulgorgerScript = "Name:Phyrexian Soulgorger\nManaCost:3\nTypes:Snow Artifact Creature Phyrexian Construct\nPT:8/8\n" +
 		"K:Cumulative upkeep:Sac<1/Creature>:Sacrifice a creature.\nOracle:x\n"
 	e := handEngine(t)
@@ -830,6 +847,7 @@ func TestPhyrexianSoulgorgerPaysCumulativeUpkeepWithAChosenCreature(t *testing.T
 // DECLINE-ONLY ask (never a free execution, never a zero-amount payment),
 // and the decline leaves the body unexecuted (no draw, no discard).
 func TestTriggerBodyCostDeclineOnlyOnMandatoryTrigger(t *testing.T) {
+	t.Parallel()
 	const keldonRaiderScript = "Name:Keldon Raider\nManaCost:2 R R\nTypes:Creature Human Warrior\nPT:4/3\n" +
 		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigDiscard | TriggerDescription$ When CARDNAME enters, you may discard a card. If you do, draw a card.\n" +
 		"SVar:TrigDiscard:AB$ Draw | Cost$ Discard<1/Card>\nOracle:x\n"
@@ -869,6 +887,7 @@ func TestTriggerBodyCostDeclineOnlyOnMandatoryTrigger(t *testing.T) {
 // pinned by TestMonstrosityOfTheLakeUnpayableIsDeclinedAtSettle and
 // TestAleshaHybridTriggerWillNotPayUnpayable.)
 func TestManaVaultTriggerChargesItsRealCost(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	vault := onBoard(t, e, 0, "Name:Mana Vault\nManaCost:1\nTypes:Artifact\n"+
 		"T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | OptionalDecider$ You | Execute$ TrigUntap\n"+
@@ -900,6 +919,7 @@ func TestManaVaultTriggerChargesItsRealCost(t *testing.T) {
 }
 
 func TestManaVaultTriggerCanActivateManaAndPay(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	vault := onBoard(t, e, 0, "Name:Mana Vault\nManaCost:1\nTypes:Artifact\n"+
 		"T:Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | OptionalDecider$ You | Execute$ TrigUntap\n"+

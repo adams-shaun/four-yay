@@ -92,6 +92,7 @@ func countPlayerDamageAmount(t *testing.T, e *Engine, p state.PlayerID, amount i
 // the opponent takes three separate 1-point hits. Pre-fix the rider took the
 // first resolved source only: one hit, the opponent two life richer.
 func TestValidDamageSourceDealsFromEachSource(t *testing.T) {
+	t.Parallel()
 	conduit := "Name:Sweep Conduit\nManaCost:3\nTypes:Creature Elemental\nPT:1/1\n" +
 		"A:AB$ DealDamage | Cost$ T | DamageSource$ Valid Creature.YouCtrl | Defined$ Opponent | " +
 		"NumDmg$ 1 | SpellDescription$ Each creature you control deals 1 damage to each opponent.\nOracle:x\n"
@@ -134,6 +135,7 @@ func TestValidDamageSourceDealsFromEachSource(t *testing.T) {
 // controller. Pre-fix CardController did not resolve and the Valid walk's
 // first match was the only damager, so the opponent took nothing.
 func TestRelativeTargetDamagePairsEachSource(t *testing.T) {
+	t.Parallel()
 	spell := "Name:Pairing Bolt\nManaCost:2 R\nTypes:Instant\n" +
 		"A:SP$ DealDamage | NumDmg$ 2 | DamageSource$ Valid Enchantment | Defined$ CardController | " +
 		"RelativeTarget$ True | SpellDescription$ Each enchantment deals 2 damage to its controller.\nOracle:x\n"
@@ -177,6 +179,7 @@ func TestRelativeTargetDamagePairsEachSource(t *testing.T) {
 // damage. Pre-fix the resolving source (the probe, no wither) dealt the
 // damage: two marked, no counters.
 func TestImprintedDamageSourceReadsTheRawAssociation(t *testing.T) {
+	t.Parallel()
 	probe := "Name:Imprint Probe\nManaCost:2 R\nTypes:Creature Goblin Shaman\nPT:1/3\n" +
 		"A:AB$ Effect | Cost$ T | ValidTgts$ Creature | RememberObjects$ Targeted | ImprintCards$ Targeted | " +
 		"SpellDescription$ Imprint target creature.\n" +
@@ -247,6 +250,7 @@ func hasKeyword(e *Engine, id state.ObjID, kw string) bool {
 // unresolvable (loud fail-closed now) and X evaluated to zero, so nothing
 // happened at all.
 func TestSpawnerDamageSourceDealsFromTheEnteringCreature(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Halana, Kessig Ranger", "Kinscaer Sentry", "Bear Cub")
 	sentry := ids["Kinscaer Sentry"]
@@ -298,6 +302,7 @@ func TestSpawnerDamageSourceDealsFromTheEnteringCreature(t *testing.T) {
 // to its own lethality. Pre-fix the ChosenCard count ref did not resolve
 // (zero damage): the Giant survived and nobody gained life.
 func TestChosenCardDamageSourceDealsFromTheChosenCard(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg, ids := dsBoard(t, reg, "Crush Underfoot", "Kroxa and Kunoros")
 	crush := ids["Crush Underfoot"]

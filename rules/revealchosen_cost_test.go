@@ -23,6 +23,7 @@ import (
 // parse to a RevealChosen component with the right Spec, and neither
 // contributes generic mana nor an Unknown census entry.
 func TestRevealChosenCostHeadsParse(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		src  string
 		spec string
@@ -173,6 +174,7 @@ func drainChoices(t *testing.T, e *Engine, limit int) {
 // TestStalkingLeoninChosenPlayerGateDiscriminates, which fails if the gate is
 // removed; this positive leaf alone cannot detect that.
 func TestStalkingLeoninRevealChosenPlayerExilesAttacker(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t)
 	leonin := battlefieldCorpus(t, e, reg, 0, "Stalking Leonin")
@@ -216,6 +218,7 @@ func TestStalkingLeoninRevealChosenPlayerExilesAttacker(t *testing.T) {
 // attacker alone. A first version of this feature asserted only the positive
 // direction, so the predicate could be deleted with the test still passing.
 func TestStalkingLeoninChosenPlayerGateDiscriminates(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	for _, tc := range []struct {
 		name         string
@@ -276,6 +279,7 @@ func TestStalkingLeoninChosenPlayerGateDiscriminates(t *testing.T) {
 // designation, emitted on the paid path only. The gate is
 // hasRevealChosenDesignation on the source: no designation declines.
 func TestRevealChosenUnlessCostParsesAndPays(t *testing.T) {
+	t.Parallel()
 	// Grammar half: both spellings parse to a RevealChosen part with no
 	// generic mana and no decline.
 	for _, spec := range []string{"RevealChosen<Player>", "RevealChosen<Type/creature type>"} {
@@ -396,6 +400,7 @@ func answerChoosePlayer(t *testing.T, e *Engine, p state.PlayerID) {
 // the ability is not offered (rather than being offered and revealing
 // nothing).
 func TestStalkingLeoninNotOfferedWithoutAChosenPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t)
 	leonin := battlefieldCorpus(t, e, reg, 0, "Stalking Leonin")
@@ -418,6 +423,7 @@ func TestStalkingLeoninNotOfferedWithoutAChosenPlayer(t *testing.T) {
 // Object.ChosenType, the ability is offered at zero mana, and the reveal Note
 // names the type.
 func TestRevealChosenTypeAbilityRevealsAndResolves(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	c := e.G.AddObject(card(t, "Name:Type Revealer\nTypes:Creature Human\nPT:2/2\n"+
 		"A:AB$ GainLife | Cost$ RevealChosen<Type/creature type> | LifeAmount$ 3 | SpellDescription$ x\nOracle:x\n"), 0)
@@ -442,6 +448,7 @@ func TestRevealChosenTypeAbilityRevealsAndResolves(t *testing.T) {
 // TestRevealChosenTypeAbilityNotOfferedWithoutAChosenType is the Type half of
 // the fail-closed guard.
 func TestRevealChosenTypeAbilityNotOfferedWithoutAChosenType(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t)
 	c := e.G.AddObject(card(t, "Name:Type Revealer\nTypes:Creature Human\nPT:2/2\n"+
 		"A:AB$ GainLife | Cost$ RevealChosen<Type/creature type> | LifeAmount$ 3 | SpellDescription$ x\nOracle:x\n"), 0)
@@ -460,6 +467,7 @@ func TestRevealChosenTypeAbilityNotOfferedWithoutAChosenType(t *testing.T) {
 // else does not, and the Watchdog continuous-static spelling
 // (`Affected$ Creature.attackingYou`) reads the same predicate.
 func TestAttackingYouScopesToTheSourcesController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := New(Config{Seed: 11, Names: []string{"a", "b", "c"},
 		Decks: [][]*cards.Card{mountainDeck(t, 40), mountainDeck(t, 40), mountainDeck(t, 40)}})

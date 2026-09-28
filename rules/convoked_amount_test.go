@@ -106,6 +106,7 @@ func castWithConvokeAt(t *testing.T, e *Engine, spell state.ObjID, mana string, 
 // composition end-to-end: two creatures convoke the cast, so the ETB places
 // FOUR +1/+1 counters (two each), not zero (the reported bug) and not two.
 func TestAncientImperiosaurEntersWithTwoCountersPerConvoker(t *testing.T) {
+	t.Parallel()
 	e, _ := convokedCorpusEngine(t, []string{"Ancient Imperiosaur", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"})
 	bearA := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield)
 	bearB := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield, bearA)
@@ -140,6 +141,7 @@ func TestAncientImperiosaurEntersWithTwoCountersPerConvoker(t *testing.T) {
 // resolved permanent's preserved Object.Convoked makes the card's own
 // `SVar:X:Convoked$Amount` read the number of convoking creatures.
 func TestKnightErrantOfEosXCountsConvokers(t *testing.T) {
+	t.Parallel()
 	e, _ := convokedCorpusEngine(t, []string{"Knight-Errant of Eos", "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Ornithopter", "Hill Giant", "Serra Angel"})
 	bearA := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield)
 	bearB := conniveMoveTo(t, e, 0, "Grizzly Bears", state.ZBattlefield, bearA)

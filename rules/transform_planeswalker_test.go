@@ -25,6 +25,7 @@ import (
 // the modal-land play path already uses (rules/legal.go) -- makes Move grant
 // the back face's loyalty.
 func TestTransformEntryPlaneswalkerGetsBackFaceLoyalty(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	liliana := mustCorpusCard(t, reg, "Liliana, Heretical Healer")
 	bear := mustCorpusCard(t, reg, "Grizzly Bears")

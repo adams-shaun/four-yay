@@ -13,6 +13,7 @@ import (
 // the object must still be in the hand while the mid-resolution-style ask is
 // pending; only the answered move may put it on the battlefield.
 func TestETBChoiceIsAskedAtTheEntryBoundary(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Cavern of Souls"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	if e.G.Obj(id).Zone != state.ZHand {
@@ -47,6 +48,7 @@ func TestETBChoiceIsAskedAtTheEntryBoundary(t *testing.T) {
 // resolveTop is suspended, and only the answered MoveZone reaches the
 // battlefield.
 func TestETBChoiceSuspendsAResolvingPermanent(t *testing.T) {
+	t.Parallel()
 	e := handEngine(t, corpusAlternativeCard(t, "Sanctum Prelate"))
 	id := e.G.Zone(state.ZHand, 0)[0]
 	if e.G.Obj(id).Zone != state.ZHand {

@@ -56,6 +56,7 @@ func clearHand(t *testing.T, e *Engine, p state.PlayerID) {
 // emblem has no level, so the same attack draws nothing; once Call of the Ring
 // has tempted seat 0 the bearer attacking draws exactly one card.
 func TestRingEmblemLevel1DrawsWhenRingBearerAttacks(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -103,6 +104,7 @@ func TestRingEmblemLevel1DrawsWhenRingBearerAttacks(t *testing.T) {
 // Ring-bearer, not "a creature you control": a second attacker that is not the
 // bearer does not draw, and the bearer must be the one in the attacker list.
 func TestRingEmblemLevel1IgnoresNonBearerAttacks(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -125,6 +127,7 @@ func TestRingEmblemLevel1IgnoresNonBearerAttacks(t *testing.T) {
 // discards one (the ask answered), and because a card WAS discarded the
 // "if you can't, sacrifice it" chain does not run -- the bearer survives.
 func TestRingEmblemLevel2DiscardsThenDoesNotSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -159,6 +162,7 @@ func TestRingEmblemLevel2DiscardsThenDoesNotSacrifice(t *testing.T) {
 // can't" arm: with an empty hand nothing is discarded and no ask is posed, so
 // the chained sacrifice runs and the Ring-bearer is sacrificed.
 func TestRingEmblemLevel2SacrificesOnEmptyHand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -187,6 +191,7 @@ func TestRingEmblemLevel2SacrificesOnEmptyHand(t *testing.T) {
 // The combat flag pair (e.damaging/e.combatDamaging) is set exactly as
 // dealCombatDamage sets it for each assignment.
 func TestRingEmblemLevel3SacrificesBearerOnCombatDamage(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -213,6 +218,7 @@ func TestRingEmblemLevel3SacrificesBearerOnCombatDamage(t *testing.T) {
 // COMBAT damage: the identical Damage event with the combat flag unset (an
 // ordinary burn spell) fires nothing.
 func TestRingEmblemLevel3NonCombatDamageDoesNotSacrifice(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -238,6 +244,7 @@ func TestRingEmblemLevel3NonCombatDamageDoesNotSacrifice(t *testing.T) {
 // folded BEFORE checkTriggers runs, so the 4th temptation itself fires it
 // (post-fold count 4) and the 3rd does not (post-fold count 3).
 func TestRingEmblemLevel4DrainsOnFourthTemptationNotThird(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -282,6 +289,7 @@ func TestRingEmblemLevel4DrainsOnFourthTemptationNotThird(t *testing.T) {
 // counts even when no creature could become the Ring-bearer, and level 4 --
 // which names the temptation itself, not the bearer -- still fires.
 func TestRingEmblemLevel4DrainsWithNoBearer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	_ = reg
@@ -316,6 +324,7 @@ func TestRingEmblemLevel4DrainsWithNoBearer(t *testing.T) {
 // genesis would not carry it and every object id would shift. Cloning keeps
 // the ids the log was written against, which is the property under test.
 func TestRingEmblemAbilitiesReplayByteIdentically(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -377,6 +386,7 @@ func TestRingEmblemAbilitiesReplayByteIdentically(t *testing.T) {
 // Ring-bearer": a seat tempted with no creature (Obj 0, CR 701.54d) has a
 // count but no bearer, so attacking/blocked/combat-damage fire nothing.
 func TestRingEmblemLevelsRequireALiveBearer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -408,6 +418,7 @@ func TestRingEmblemLevelsRequireALiveBearer(t *testing.T) {
 // but the SacValid$ set is empty (the designation was cleared when it left
 // the battlefield), so there is no ask and no sacrifice.
 func TestRingEmblemLevel3BearerDiedInCombatIsANoop(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	bear := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Grizzly Bears"))
@@ -444,6 +455,7 @@ func TestRingEmblemLevel3BearerDiedInCombatIsANoop(t *testing.T) {
 // (CR 701.54c's "whenever" abilities have no OptionalDecider$ and no face for
 // triggerOf to walk). A coexistence ordering ask is therefore safe.
 func TestRingEmblemPendingTriggerIntegration(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	for _, lvl := range []int{1, 2, 3, 4} {
 		pt := pendingTrigger{RingEmblem: lvl}

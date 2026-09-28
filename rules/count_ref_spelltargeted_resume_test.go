@@ -37,6 +37,7 @@ func spellMVResumeProbeSrc() string {
 // targeted spell is countered BEFORE the ChooseColor suspension and read only
 // AFTER the resume, so the counters placed prove the snapshot crossed the ask.
 func TestSpellTargetedSurvivesMidResolutionAsk(t *testing.T) {
+	t.Parallel()
 	probe := card(t, spellMVResumeProbeSrc())
 	artifact := card(t, "Name:Charge Catcher\nTypes:Artifact\nOracle:x\n")
 	enemy := card(t, "Name:Enemy Bomb\nManaCost:3 R\nTypes:Sorcery\nOracle:x\n")

@@ -15,6 +15,7 @@ import "testing"
 // its own engines (two seats, decks just big enough to deck out in a handful
 // of turns) and never touches rules/heads_test.go or acceptanceHeads.
 func TestPlayerNamesDoNotReachTheChain(t *testing.T) {
+	t.Parallel()
 	// smallDeckGame returns a played (Advanced) engine plus the Config that
 	// produced it; reusing that Config guarantees the two runs differ in
 	// nothing but PlayerNames.

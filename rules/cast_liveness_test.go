@@ -162,6 +162,7 @@ func driveDeclinedSpin(t *testing.T, e *Engine, angler state.ObjID) (asks int, a
 // F05-2 the FIRST decline leaves the option offered (the legal retry), and
 // only the SECOND identical one holds it out.
 func TestDeclineThenOtherLegalPlayDoesNotEndTheMatch(t *testing.T) {
+	t.Parallel()
 	e, cfg, angler := newFixtureDeck(t, 50, livenessAngler, livenessJunk, livenessJunk, livenessJunk, livenessJunk)
 	fundDeclinedDelve(t, e)
 
@@ -219,6 +220,7 @@ func TestDeclineThenOtherLegalPlayDoesNotEndTheMatch(t *testing.T) {
 // nothing -- neither is held out (a single strike is never enough), and the
 // two counts never add up.
 func TestDeclinesOnDifferentCardsDoNotEndTheMatch(t *testing.T) {
+	t.Parallel()
 	e, cfg, angler := newFixtureDeck(t, 54, livenessAngler, livenessGurmag, livenessJunk, livenessJunk, livenessJunk, livenessJunk)
 	var gurmag state.ObjID
 	for _, id := range e.G.Zone(state.ZHand, 0) {
@@ -282,6 +284,7 @@ func TestDeclinesOnDifferentCardsDoNotEndTheMatch(t *testing.T) {
 // holds it out -- so a seat can ask the delve ask exactly twice before the
 // engine no longer re-offers the card. No match dies and no card moves.
 func TestDeclinedDelveSpinIsBounded(t *testing.T) {
+	t.Parallel()
 	e, cfg, angler := newFixtureDeck(t, 55, livenessAngler, livenessJunk, livenessJunk, livenessJunk, livenessJunk)
 	fundDeclinedDelve(t, e)
 
@@ -309,6 +312,7 @@ func TestDeclinedDelveSpinIsBounded(t *testing.T) {
 // answers the brief calls out still work after the liveness fix, and that
 // none of them leaves any card held out of future windows.
 func TestAuthorizedDelveAnswersStayLegal(t *testing.T) {
+	t.Parallel()
 	// (1) Paying the full shortfall still casts, and a successful cast leaves
 	// nothing suppressed.
 	t.Run("full payment casts", func(t *testing.T) {
@@ -421,6 +425,7 @@ const livenessTaxer = "Name:Taxer\nManaCost:2\nTypes:Creature\nPT:1/1\n" +
 // The FIRST abort leaves the ability offered (CR 733.2 retry); the SECOND
 // holds it out; a state-changing land play brings it back.
 func TestAbilityNoProgressAbortHoldsTheAbilityOut(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := newFixtureDeck(t, 52, livenessPhyrexianDrawer, livenessTaxer)
 	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
 	putCreature(t, e, 0, livenessTaxer)
@@ -499,6 +504,7 @@ const livenessShelter = "Name:Shelter\nManaCost:1 W\nTypes:Instant\n" +
 // TestTargetlessCastAbortCannotSpinTheWindow pins the CR 601.2c offer gate:
 // a mandatory targetless cast is withheld before it can enter the stack.
 func TestTargetlessCastAbortCannotSpinTheWindow(t *testing.T) {
+	t.Parallel()
 	e, _, shelter := newFixtureDeck(t, 51, livenessShelter)
 	addMana(t, e, 0, "WW")
 	if e.G.Obj(shelter) == nil || e.G.Obj(shelter).Zone != state.ZHand {

@@ -96,6 +96,7 @@ func ifcastCastByName(t *testing.T, e *Engine, name, mana string) *decision.Deci
 // bound degraded to a resolved 0, clamped to Max 1 -- the second permanent
 // could never be chosen.
 func TestReturnToDustMainPhaseExilesTwoTargets(t *testing.T) {
+	t.Parallel()
 	e, cfg := ifcastDeck(t, 9301, "Return to Dust")
 	relics := ifcastRelics(t, e)
 	relicA, relicB := relics[0], relics[1]
@@ -125,6 +126,7 @@ func TestReturnToDustMainPhaseExilesTwoTargets(t *testing.T) {
 // not a main phase and the head takes the not-main branch (1) -- Max=1, and
 // only one permanent can be chosen.
 func TestReturnToDustOutsideMainPhaseCapsOne(t *testing.T) {
+	t.Parallel()
 	e, cfg := ifcastDeck(t, 9301, "Return to Dust")
 	relics := ifcastRelics(t, e)
 	relicA, relicB := relics[0], relics[1]
@@ -155,6 +157,7 @@ func TestReturnToDustOutsideMainPhaseCapsOne(t *testing.T) {
 // reads Count$IfCastInOwnMainPhase.3.2, so in seat 0's own Main1 the spell
 // deals 3 to each creature and each player (both life totals fall by 3).
 func TestSulfurousBlastMainPhaseDealsThree(t *testing.T) {
+	t.Parallel()
 	e, cfg := ifcastDeck(t, 9302, "Sulfurous Blast")
 	toMain1(t, e)
 	before := [2]int32{e.G.Players[0].Life, e.G.Players[1].Life}
@@ -171,6 +174,7 @@ func TestSulfurousBlastMainPhaseDealsThree(t *testing.T) {
 // TestSulfurousBlastOutsideMainPhaseDealsTwo is the not-main twin: same card,
 // cast in seat 0's own end step -- the head selects 2, so each player loses 2.
 func TestSulfurousBlastOutsideMainPhaseDealsTwo(t *testing.T) {
+	t.Parallel()
 	e, cfg := ifcastDeck(t, 9302, "Sulfurous Blast")
 	driveToStepAll(t, e, 1, 0, state.StepEnd)
 	before := [2]int32{e.G.Players[0].Life, e.G.Players[1].Life}

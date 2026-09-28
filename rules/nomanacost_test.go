@@ -25,6 +25,7 @@ func castOptionsFor(e *Engine, id state.ObjID) []decision.Option {
 }
 
 func TestNoManaCostCardIsNotCastFromHand(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	// Gaea's Will (Suspend 4--{G}) and Lotus Bloom (Suspend 3--{0}): neither
 	// may be offered as a plain cast; Lotus Bloom's free Suspend (a special
@@ -52,6 +53,7 @@ func TestNoManaCostCardIsNotCastFromHand(t *testing.T) {
 }
 
 func TestNoManaCostCardIsNotCastFromGraveyardByPaying(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	will, ok := reg.Lookup("Gaea's Will")
 	if !ok {
@@ -67,6 +69,7 @@ func TestNoManaCostCardIsNotCastFromGraveyardByPaying(t *testing.T) {
 }
 
 func TestNoManaCostCardIsCastWithoutPayingItsManaCost(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	will, ok := reg.Lookup("Gaea's Will")
 	if !ok {

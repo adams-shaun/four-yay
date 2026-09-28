@@ -16,12 +16,14 @@ import (
 // chain head, RNG consumption, or clone state while preserving a superficial
 // final library order.
 func TestOrdinaryGenesisShuffleLibraryParity(t *testing.T) {
+	t.Parallel()
 	normal, hypothetical := ordinaryShuffleParityEngines(t, chanceConfig(t))
 	assertOrdinaryShuffleParity(t, "genesis", normal, hypothetical)
 	assertOrdinaryShuffleCloneParity(t, "genesis", normal, hypothetical)
 }
 
 func TestOrdinaryMulliganShuffleLibraryParity(t *testing.T) {
+	t.Parallel()
 	cfg := chanceConfig(t)
 	cfg.Mulligans = 1
 	normal, hypothetical := ordinaryShuffleParityEngines(t, cfg)
@@ -35,6 +37,7 @@ func TestOrdinaryMulliganShuffleLibraryParity(t *testing.T) {
 }
 
 func TestOrdinaryEffectShuffleLibraryParity(t *testing.T) {
+	t.Parallel()
 	shuffle := card(t, "Name:Ordinary Shuffle\nManaCost:0\nTypes:Sorcery\nA:SP$ Shuffle | Defined$ You\nOracle:Test shuffle.\n")
 	normal, hypothetical := ordinaryShuffleParityEngines(t, shuffleRouteConfig(t, shuffle))
 	driveCastToShuffleParity(t, normal, hypothetical)
@@ -43,6 +46,7 @@ func TestOrdinaryEffectShuffleLibraryParity(t *testing.T) {
 }
 
 func TestOrdinarySearchShuffleLibraryParity(t *testing.T) {
+	t.Parallel()
 	search := card(t, "Name:Ordinary Search\nManaCost:0\nTypes:Sorcery\nA:SP$ ChangeZone | Origin$ Library | Destination$ Hand | ChangeType$ Card | ChangeNum$ 1\nOracle:Test search.\n")
 	normal, hypothetical := ordinaryShuffleParityEngines(t, shuffleRouteConfig(t, search))
 	driveCastToShuffleParity(t, normal, hypothetical)

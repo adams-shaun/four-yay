@@ -53,6 +53,7 @@ func effectNotesContaining(e *Engine, sub string) []string {
 // layers. Before the fix only the keyword registration survived, so a 2/2
 // creature stayed 2/2.
 func TestEffectDeliveredContinuousGrantAppliesAddPower(t *testing.T) {
+	t.Parallel()
 	grant := card(t, "Name:EmblemOfMight\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | StaticAbilities$ STMight\n"+
 		"SVar:STMight:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ +2 | AddToughness$ +2 | AddKeyword$ Vigilance\n"+
@@ -98,6 +99,7 @@ func TestEffectDeliveredContinuousGrantAppliesAddPower(t *testing.T) {
 // affected creature gets +2; the two-value precondition (one vs two
 // creatures) makes a hard-coded +1 or +2 fail.
 func TestEffectDeliveredContinuousGrantAppliesDynamicPTExpression(t *testing.T) {
+	t.Parallel()
 	grant := card(t, "Name:EmblemOfBeasts\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | StaticAbilities$ STBeasts\n"+
 		"SVar:STBeasts:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ Might | AddToughness$ Might\n"+
@@ -141,6 +143,7 @@ func TestEffectDeliveredContinuousGrantAppliesDynamicPTExpression(t *testing.T) 
 // unambiguous observable, and the test also asserts the registration exists
 // (the precondition the fire depends on).
 func TestEffectDeliveredChangesZoneTriggerFires(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:CallTheHunt\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigEnter\n"+
 		"SVar:TrigEnter:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | TriggerZones$ Command | Execute$ TrigPain\n"+
@@ -192,6 +195,7 @@ func TestEffectDeliveredChangesZoneTriggerFires(t *testing.T) {
 // Round / swiftspear shape): the Effect arms "whenever you cast a spell", and
 // a later cast fires it.
 func TestEffectDeliveredSpellCastTriggerFires(t *testing.T) {
+	t.Parallel()
 	promise := card(t, "Name:ArcaneEcho\nManaCost:U\nTypes:Sorcery\n"+
 		"A:SP$ Effect | Triggers$ TrigCast\n"+
 		"SVar:TrigCast:Mode$ SpellCast | ValidCard$ Instant,Sorcery | ValidActivatingPlayer$ You | TriggerZones$ Command | Execute$ TrigPain\n"+

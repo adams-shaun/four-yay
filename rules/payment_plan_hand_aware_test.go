@@ -74,6 +74,7 @@ func oppHand(t *testing.T, e *Engine, src string) state.ObjID {
 // object-ID compare picked Forest+Plains (Forest holds the lowest id) and
 // stranded the green card. Hand reserve must keep the Forest's green.
 func TestPaymentPlanHandAwareKeepsHandGreenCastable(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9721, "Name:White Two\nManaCost:1 W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	forest := onBoard(t, e, 0, rankForest)
 	island := onBoard(t, e, 0, rankIsland)
@@ -105,6 +106,7 @@ func TestPaymentPlanHandAwareKeepsHandGreenCastable(t *testing.T) {
 // Done-means 2: the same board with a {U} instant in hand instead. Now the
 // Island's blue is the demanded colour, and the Forest must pay.
 func TestPaymentPlanHandAwareKeepsHandBlueCastable(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9722, "Name:White Two\nManaCost:1 W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	forest := onBoard(t, e, 0, rankForest)
 	onBoard(t, e, 0, rankIsland)
@@ -124,6 +126,7 @@ func TestPaymentPlanHandAwareKeepsHandBlueCastable(t *testing.T) {
 // was false — so this board pins the composed outcome, and the decisive key-6
 // behaviour is pinned by the two P5 boards above and the rank unit test.)
 func TestPaymentPlanHandAwareBriefBoard(t *testing.T) {
+	t.Parallel()
 	e, _, artifact := newFixtureDeck(t, 9723, "Name:Gray Artifact\nManaCost:2\nTypes:Artifact\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	toMain1(t, e)
 	f1 := onBoard(t, e, 0, rankForest)
@@ -158,6 +161,7 @@ func TestPaymentPlanHandAwareBriefBoard(t *testing.T) {
 // key existed. The offer must be a pure function of the position: identical
 // across a rerun and an engine clone.
 func TestPaymentPlanHandAwareWithoutHandDemandIsUnchanged(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9724, "Name:White Two\nManaCost:1 W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	forest := onBoard(t, e, 0, rankForest)
 	onBoard(t, e, 0, rankIsland)
@@ -183,6 +187,7 @@ func TestPaymentPlanHandAwareWithoutHandDemandIsUnchanged(t *testing.T) {
 // Done-means 4: the demand reads only the acting player's OWN hand. Adding a
 // {G}{G} card to the OPPONENT's hand changes neither the plan nor its ID.
 func TestPaymentPlanHandAwareIgnoresOpponentHand(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9725, "Name:White Two\nManaCost:1 W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	onBoard(t, e, 0, rankForest)
 	island := onBoard(t, e, 0, rankIsland)
@@ -206,6 +211,7 @@ func TestPaymentPlanHandAwareIgnoresOpponentHand(t *testing.T) {
 // rock+Plains plan would cover the demand (the Forest's green stays), but it
 // taps a creature, so the creature key refuses it and Forest+Plains pays.
 func TestPaymentPlanHandAwareCostKeysDominate(t *testing.T) {
+	t.Parallel()
 	e, _, spell := newFixtureDeck(t, 9726, "Name:White Two\nManaCost:1 W\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	forest := onBoard(t, e, 0, rankForest)
 	plains := onBoard(t, e, 0, handAwarePlains)
@@ -227,6 +233,7 @@ func TestPaymentPlanHandAwareCostKeysDominate(t *testing.T) {
 // in descending demand order (WUBRG ties), the packed value orders MORE
 // first, and key 1 still dominates it.
 func TestPaymentPlanHandAwareRankKeyUnit(t *testing.T) {
+	t.Parallel()
 	// Demand {R:2, G:1}: demand order [R, G], digit base 3.
 	ctx := newPaymentPlanRankContext(nil, [5]int{state.MR: 2, state.MG: 1})
 	if ctx.demandOrder != [5]int{state.MR, state.MG, state.MW, state.MU, state.MB} {
@@ -293,6 +300,7 @@ func TestPaymentPlanHandAwareRankKeyUnit(t *testing.T) {
 // colour, twobrid for its coloured face, hybrid-Phyrexian for both; generic,
 // {X} and {C} for nothing.
 func TestPaymentPlanManaPips(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name string
 		cost Cost

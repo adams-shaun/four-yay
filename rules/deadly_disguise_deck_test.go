@@ -38,6 +38,7 @@ func morphHeadOn(f interface {
 // or an unresolvable card name fails here before either ratchet's own
 // message can be misread as a card-behaviour gap.
 func TestDeadlyDisguiseDeckIsSeatedByTheRatchet(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
 	found := false
@@ -80,6 +81,7 @@ func TestDeadlyDisguiseDeckIsSeatedByTheRatchet(t *testing.T) {
 // The count is asserted non-zero first so the per-card loop cannot pass
 // vacuously over an empty set.
 func TestDeadlyDisguiseMorphCarriersAreFullySupported(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 

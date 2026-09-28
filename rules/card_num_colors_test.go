@@ -12,6 +12,7 @@ import (
 )
 
 func TestJaredCarthalionMinus3UsesDerivedColorCount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		mustCorpusCard(t, reg, "Jared Carthalion"),
@@ -55,6 +56,7 @@ func TestJaredCarthalionMinus3UsesDerivedColorCount(t *testing.T) {
 }
 
 func TestKnightOfNewAlaraUsesDerivedColorCount(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		mustCorpusCard(t, reg, "Knight of New Alara"),
@@ -85,6 +87,7 @@ func TestKnightOfNewAlaraUsesDerivedColorCount(t *testing.T) {
 // (power 5) rather than +3 (power 6). The Leyline test above cannot see the
 // difference because it makes every permanent all five colours.
 func TestAdversarialKnightCountsAffectedObjectNotSource(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		mustCorpusCard(t, reg, "Knight of New Alara"),
@@ -122,6 +125,7 @@ func TestAdversarialKnightCountsAffectedObjectNotSource(t *testing.T) {
 // another static SVar expression. Mace's X must count its own charge counters,
 // rather than the equipped bear's counters.
 func TestOrdinaryStaticPumpKeepsGrantorCountAnchor(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		mustCorpusCard(t, reg, "Mace of the Valiant"),
@@ -155,6 +159,7 @@ func TestOrdinaryStaticPumpKeepsGrantorCountAnchor(t *testing.T) {
 }
 
 func TestCardNumColorsOffBattlefieldUsesFace(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		mustCorpusCard(t, reg, "Leyline of the Guildpact"),

@@ -31,6 +31,7 @@ func TestTriggerTargetSpecContextResolvesSourceXShapes(t *testing.T) {
 }
 
 func TestHammerheadTyrantTargetsAtMostTheCausingSpellManaValue(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		spellName string
 		manaValue int

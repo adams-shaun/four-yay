@@ -301,6 +301,7 @@ func TestDamageResolveFlushesAllMarksInOneBatch(t *testing.T) {
 // rebuilt Ctx was owed. Without the ride the resumed Ctx starts with no marks
 // and the flush silently deals nothing.
 func TestDamageMapMarksSurviveAMidChainSuspension(t *testing.T) {
+	t.Parallel()
 	src := "Name:Deferred Lash\nManaCost:R\nTypes:Sorcery\n" +
 		"A:SP$ DealDamage | Defined$ Player.Opponent | NumDmg$ 2 | DamageMap$ True | SubAbility$ Modes\n" +
 		"SVar:Modes:DB$ Charm | Choices$ M1,M2 | SubAbility$ Flush\n" +

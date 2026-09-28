@@ -53,6 +53,7 @@ func putToLibAbilityIndex(t *testing.T, e *Engine, id state.ObjID) int {
 // TestParseCostModelsPutCardToLibTokens pins the grammar on the exact corpus
 // strings and asserts Cost.Unknown no longer names any of the three heads.
 func TestParseCostModelsPutCardToLibTokens(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		src  string
 		n    int32
@@ -112,6 +113,7 @@ func TestParseCostModelsPutCardToLibTokens(t *testing.T) {
 // the gate is a separate, known concern, and the COST path is what this test
 // owns.
 func TestPutCardToLibFromBattlefieldMovesSourceToBottom(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Timestream Navigator")
 	id := searchMoveByName(t, e, "Timestream Navigator", state.ZBattlefield)
@@ -148,6 +150,7 @@ func TestPutCardToLibFromBattlefieldMovesSourceToBottom(t *testing.T) {
 // arm does not clear Tapped, a direct put-onto-battlefield later re-entered
 // the permanent TAPPED.
 func TestPutCardToLibSelfCostLeavesNoStaleTap(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Timestream Navigator")
 	id := searchMoveByName(t, e, "Timestream Navigator", state.ZBattlefield)
@@ -180,6 +183,7 @@ func TestPutCardToLibSelfCostLeavesNoStaleTap(t *testing.T) {
 // offered, the player picks a hand card, and that card goes on TOP of the
 // library while Leashling returns to hand on resolution.
 func TestPutCardToLibFromHandChoosesCardAndPutsItOnTop(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Leashling")
 	id := searchMoveByName(t, e, "Leashling", state.ZBattlefield)
@@ -230,6 +234,7 @@ func TestPutCardToLibFromHandChoosesCardAndPutsItOnTop(t *testing.T) {
 // THREE-card graveyard pick (Min=Max=N over more candidates than N, so a real
 // choice is posed) goes to the bottom of the library.
 func TestPutCardToLibFromGraveChoosesAndPutsOnBottom(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := searchEngine(t, reg, "Battlefield Scrounger")
 	id := searchMoveByName(t, e, "Battlefield Scrounger", state.ZBattlefield)
@@ -298,6 +303,7 @@ func resolveAndReplay(t *testing.T, e *Engine, cfg Config) {
 // abort at payment time (an illegal game action, the direction the engine's
 // offer gate exists to prevent).
 func TestPutCardToLibOfferGateRequiresCandidates(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Battlefield Scrounger")
 	id := searchMoveByName(t, e, "Battlefield Scrounger", state.ZBattlefield)

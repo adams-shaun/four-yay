@@ -65,6 +65,7 @@ func valiantChangelingGame(t *testing.T, seed uint64, creatures []string) (*Engi
 // /LimitMax.5 clamp holds the reduction at {5}, and three distinct types read
 // 3 uncapped.
 func TestValiantChangelingReducesPerCreatureTypeCapped(t *testing.T) {
+	t.Parallel()
 	seven := []string{
 		vcTypeCreature("Bear"), vcTypeCreature("Elf"), vcTypeCreature("Goblin"),
 		vcTypeCreature("Cat"), vcTypeCreature("Bird"), vcTypeCreature("Dragon"),
@@ -97,6 +98,7 @@ func TestValiantChangelingReducesPerCreatureTypeCapped(t *testing.T) {
 // money: with seven creature types out the capped {5} reduction makes the
 // {5}{W}{W} spell castable for {W}{W} alone, and the pool empties.
 func TestValiantChangelingCastsForTheCappedDiscount(t *testing.T) {
+	t.Parallel()
 	seven := []string{
 		vcTypeCreature("Bear"), vcTypeCreature("Elf"), vcTypeCreature("Goblin"),
 		vcTypeCreature("Cat"), vcTypeCreature("Bird"), vcTypeCreature("Dragon"),

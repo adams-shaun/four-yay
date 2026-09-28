@@ -66,6 +66,7 @@ func digFixture(t *testing.T, seed uint64) (*Engine, Config, state.ObjID) {
 // (proving the answer, not a first-eligible default, is honoured), and
 // replays the whole log byte-for-byte.
 func TestDigAskEndToEndSuspendsAndHonoursTheAnswer(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := digFixture(t, 61)
 	libBefore := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
 
@@ -137,6 +138,7 @@ func TestDigAskEndToEndSuspendsAndHonoursTheAnswer(t *testing.T) {
 // still resolves, and the whole window goes to the library's BOTTOM in its
 // existing relative order (the default remainder destination).
 func TestDigAskDeclineEndToEnd(t *testing.T) {
+	t.Parallel()
 	e, cfg, id := digFixture(t, 62)
 	libBefore := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
 

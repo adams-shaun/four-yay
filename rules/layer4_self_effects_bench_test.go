@@ -43,6 +43,7 @@ func selfTypeEffectsBoard(t testing.TB, n int) (*Engine, state.ObjID, state.ObjI
 // panics on any disagreement). The counter is asserted so the shortcut cannot
 // be removed without a failure.
 func TestLayer4SelfTypeEffectRejectsNonSourceEarly(t *testing.T) {
+	t.Parallel()
 	e, car, token := selfTypeEffectsBoard(t, 8)
 	// Precondition: the source and the candidate are distinct, on the
 	// battlefield, and the candidate does not carry the granted type. A
@@ -81,10 +82,10 @@ func TestLayer4SelfTypeEffectRejectsNonSourceEarly(t *testing.T) {
 
 	// Run a Derived read on the non-source token: the early rejection fires
 	// for each self effect whose source is not the token.
-	before := selfRejectVerify
+	before := selfRejectVerify.Load()
 	_ = e.Derived(token)
-	if selfRejectVerify <= before {
-		t.Fatalf("the Card.Self early rejection did not fire for a non-source Derived read (%d -> %d)", before, selfRejectVerify)
+	if after := selfRejectVerify.Load(); after <= before {
+		t.Fatalf("the Card.Self early rejection did not fire for a non-source Derived read (%d -> %d)", before, after)
 	}
 	// The shortcut must not have leaked a type onto the non-source token.
 	if tk := e.typeCharacteristics(token, 0); containsFold(tk, "Construct") || containsFold(tk, "Vehicle") {

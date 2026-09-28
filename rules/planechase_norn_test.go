@@ -122,6 +122,7 @@ func drainPlaneTriggers(t *testing.T, e *Engine, limit int) {
 // current plane is planes[0] and whose named destination is planes[2], a
 // rotation would land on planes[1]; the defined walk must land on planes[2].
 func TestDefinedPlaneswalkLandsOnTheRememberedPlane(t *testing.T) {
+	t.Parallel()
 	p0 := planeWalkedToProbe(t, "Probe Zero")
 	p1 := planeWalkedToProbe(t, "Probe One")
 	p2 := planeWalkedToProbe(t, "Probe Two")
@@ -200,6 +201,7 @@ func TestDefinedPlaneswalkLandsOnTheRememberedPlane(t *testing.T) {
 // otherwise, so the test distinguishes suppression from a trigger that never
 // worked.
 func TestDontPlaneswalkAwaySuppressesTheFromTrigger(t *testing.T) {
+	t.Parallel()
 	away := planeWalkedFromProbe(t, "Probe Away")
 	// The destination is PLAIN: only the departed plane's PlaneswalkedFrom
 	// ability can produce a Draw, so the count isolates the ability under
@@ -256,6 +258,7 @@ func TestDontPlaneswalkAwaySuppressesTheFromTrigger(t *testing.T) {
 // Remembered names a plane. That is exactly the shape the deleted AGENTS row
 // documented as inert, so this is the end-to-end pin on the finding.
 func TestNornsSeedcoreVerbLandsOnRememberedAndSuppressesAwayWalk(t *testing.T) {
+	t.Parallel()
 	seedcore := tokenReplCorpusCard(t, "Norn's Seedcore")
 	away := planeWalkedFromProbe(t, "Probe Away")
 	// Plain destination: the only possible Draw is the departed plane's
@@ -338,6 +341,7 @@ func nornsSeedcorePlaneswalkSA(t *testing.T) *cards.SA {
 //   - a plain `DB$ ChaosEnsues` (no Defined$) with the same Remembered set
 //     falls back to the current plane, so the two paths are distinguishable.
 func TestDefinedChaosEnsuesEruptsTheRememberedPlane(t *testing.T) {
+	t.Parallel()
 	cur := planeChaosProbe(t, "Probe Current")
 	low := plainProbePlane(t, "Probe Lower")
 	cfg := twoDeckConfig(t, 83031, []*cards.Card{cur, low}, nil)
@@ -450,6 +454,7 @@ func mustParseVerb(t *testing.T, src string) *cards.SA {
 // plane. A positive control on seat 0's real current plane proves the scan
 // still fires for a valid marker.
 func TestChaosScanRejectsAnotherSeatsPlaneMarker(t *testing.T) {
+	t.Parallel()
 	mine := planeChaosProbe(t, "Probe Mine")
 	theirs := planeChaosProbe(t, "Probe Theirs")
 	cfg := twoDeckConfig(t, 83041, []*cards.Card{mine}, []*cards.Card{theirs})
@@ -516,6 +521,7 @@ func TestChaosScanRejectsAnotherSeatsPlaneMarker(t *testing.T) {
 // (loud-unimplemented by design); draining it would enter that remainder, not
 // the arrival path under test.
 func TestNornsSeedcorePlaneswalkedToEruptsChaos(t *testing.T) {
+	t.Parallel()
 	seedcore := tokenReplCorpusCard(t, "Norn's Seedcore")
 	other := plainProbePlane(t, "Probe Other")
 	cfg := twoDeckConfig(t, 83051, []*cards.Card{seedcore, other}, nil)

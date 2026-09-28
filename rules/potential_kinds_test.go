@@ -113,6 +113,7 @@ func legalActionsPricedKinds(t *testing.T) []string {
 // of them is either projected by PotentialActions or one of the three
 // never-a-play kinds -- never both, never neither.
 func TestPotentialActionsProjectsEveryPlayKind(t *testing.T) {
+	t.Parallel()
 	got := legalActionsPricedKinds(t)
 	if !slices.Equal(got, measuredLegalActionKinds) {
 		t.Fatalf("legalActionsPriced emits kinds %v, measured %v: classify the new kind (potentialPlayKind or notAPlayKinds) and update the list", got, measuredLegalActionKinds)
@@ -167,6 +168,7 @@ func assertFloatGated(t *testing.T, e *Engine, kind string, obj state.ObjID, mod
 // Plains and an empty pool in main 1. The unlock is priced against the
 // floating pool, so it is not offered yet; the projection must carry it.
 func TestPotentialActionsFloatGatedRoomUnlock(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "Dazzling Theater")}, nil)
 	room := moveByName(t, e, 0, "Dazzling Theater", state.ZBattlefield)
@@ -185,6 +187,7 @@ func TestPotentialActionsFloatGatedRoomUnlock(t *testing.T) {
 // with two untapped Plains and an empty pool. The granted offer is priced
 // against the floating pool; the projection must carry it as "granted".
 func TestPotentialActionsFloatGatedGrantedAbility(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	e.G.Step = state.StepMain1
 	e.G.SetZone(state.ZHand, 0, nil)
@@ -206,6 +209,7 @@ func TestPotentialActionsFloatGatedGrantedAbility(t *testing.T) {
 // against the floating pool; the projection must carry it once the
 // hypothetical pool can pay the {G}.
 func TestPotentialActionsFloatGatedTurnFaceUp(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, _ := manifestEngine(t, reg, "Kin-Tree Warden")
 	id := morphDownCast(t, e, "Kin-Tree Warden", "morphed", "CCCG", 1)
@@ -223,6 +227,7 @@ func TestPotentialActionsFloatGatedTurnFaceUp(t *testing.T) {
 // against the floating pool; the projection must carry it, face index as its
 // Mode exactly like the option.
 func TestPotentialActionsFloatGatedSpecialize(t *testing.T) {
+	t.Parallel()
 	c, diags := cards.ParseBytes("specialize.txt", []byte("Name:Front\nAlternateMode:Specialize\nTypes:Creature Druid\n"+
 		"K:Specialize:1\nSPECIALIZE:WHITE\nName:White Form\nManaCost:W\nTypes:Creature\n"))
 	if len(diags) != 0 {
@@ -237,6 +242,7 @@ func TestPotentialActionsFloatGatedSpecialize(t *testing.T) {
 // offered and projected (the web's "already offered" identity check relies on
 // the projection naming what the decision offers).
 func TestPotentialActionsOfferedPlaysStayProjected(t *testing.T) {
+	t.Parallel()
 	c, diags := cards.ParseBytes("specialize.txt", []byte("Name:Front\nAlternateMode:Specialize\nTypes:Creature Druid\n"+
 		"K:Specialize:1\nSPECIALIZE:WHITE\nName:White Form\nManaCost:W\nTypes:Creature\n"))
 	if len(diags) != 0 {

@@ -13,6 +13,7 @@ import (
 // attacker dies trigger evaluates IsGoaded against the creature's last-known
 // battlefield state, even though the object has already moved to the graveyard.
 func TestStaticGoadSurvivesInDiesTriggerLKI(t *testing.T) {
+	t.Parallel()
 	e := goadGrantEngine(t)
 	baelothCard := corpusAlternativeCard(t, "Baeloth Barrityl, Entertainer")
 	baeloth := onBoardCard(t, e, 0, baelothCard)

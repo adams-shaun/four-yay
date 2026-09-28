@@ -27,6 +27,7 @@ func slowSpellCard(t *testing.T) *cards.Card {
 }
 
 func TestChancellorOfTheAnnexRegistersOneSpellCastTriggerPerOpponent(t *testing.T) {
+	t.Parallel()
 	annex := corpusAlternativeCard(t, "Chancellor of the Annex")
 
 	e := handEngine(t, annex)
@@ -65,6 +66,7 @@ func TestChancellorOfTheAnnexRegistersOneSpellCastTriggerPerOpponent(t *testing.
 }
 
 func TestChancellorOfTheAnnexCountersOnlyEachOpponentsFirstSpell(t *testing.T) {
+	t.Parallel()
 	annex := corpusAlternativeCard(t, "Chancellor of the Annex")
 	e := handEngine(t, annex)
 	id := e.G.Zone(state.ZHand, 0)[0]
@@ -170,6 +172,7 @@ func TestChancellorOfTheAnnexCountersOnlyEachOpponentsFirstSpell(t *testing.T) {
 // and the opponent (the registration's effect owner) above it, so the
 // trigger fires only if "you" is read as the effect owner.
 func TestEventDelayedTriggerInterveningIfUsesEffectOwnersLife(t *testing.T) {
+	t.Parallel()
 	watcher := card(t, "Name:Test Watcher\nManaCost:0\nTypes:Creature\nPT:1/1\n"+
 		"K:MayEffectFromOpeningHand:RevealCard\n"+
 		"SVar:RevealCard:DB$ Effect | Triggers$ TrigWatch | EffectOwner$ Opponent | Duration$ Permanent\n"+
@@ -213,6 +216,7 @@ func TestEventDelayedTriggerInterveningIfUsesEffectOwnersLife(t *testing.T) {
 // out of the actual reveal, and the opponent's first spell is countered
 // through the ordinary stack.
 func TestChancellorOfTheAnnexOpeningRevealDrivesTheCounter(t *testing.T) {
+	t.Parallel()
 	annex := corpusAlternativeCard(t, "Chancellor of the Annex")
 	fill := card(t, "Name:Filler\nTypes:Basic Land\nOracle:x\n")
 	slow := slowSpellCard(t)
@@ -300,6 +304,7 @@ func TestChancellorOfTheAnnexOpeningRevealDrivesTheCounter(t *testing.T) {
 // the legend-rule SBA gate, and was measured by the A/B payment-plan mirror
 // at the first priority of games that took an opening-hand effect.
 func TestOpeningHandRoundClearsItsChooseFlow(t *testing.T) {
+	t.Parallel()
 	leyline := card(t, "Name:Leyline Test\nManaCost:2 G G\nTypes:Enchantment\nK:MayEffectFromOpeningHand:FromHand\nSVar:FromHand:DB$ ChangeZone | Defined$ Self | Origin$ Hand | Destination$ Battlefield | SpellDescription$ Begin the game with it on the battlefield.\nOracle:x\n")
 	deck := func() []*cards.Card {
 		out := mountainDeck(t, 20)

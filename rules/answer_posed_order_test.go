@@ -74,6 +74,7 @@ func answerPosedAddCounterBoard(t *testing.T, seed uint64) (*Engine, Config, sta
 // replChoiceAddCounter during the answer. Answering the inner ask must resume
 // the suspended sorcery exactly once and replay. Both inner answer orders.
 func TestAnswerPosedAddCounterOrderResumesTheResolution(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int
@@ -178,6 +179,7 @@ func tokenRewriterSrc(name, script string) string {
 // answer. Answering the inner ask must resume the suspended sorcery exactly
 // once. Both inner answer orders.
 func TestAnswerPosedTokenOrderResumesTheResolution(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int
@@ -280,6 +282,7 @@ func lifeReplSrc(name, op string) string {
 // answer. Answering the inner ask must resume the suspended sorcery exactly
 // once. Both inner answer orders.
 func TestAnswerPosedLifeOrderResumesTheResolution(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int
@@ -368,6 +371,7 @@ func entryReplSrc(name, body string) string {
 // replChoiceUpdated from inside the answer. Answering the inner ask must
 // resume the suspended creature spell exactly once. Both inner answer orders.
 func TestAnswerPosedUpdatedOrderResumesTheResolution(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		pick int

@@ -53,6 +53,7 @@ func fx20BattlefieldByName(t *testing.T, e *Engine, p state.PlayerID, name strin
 // 0 and enchants seat 1's creature, so Player.EnchantedController must name
 // seat 1 -- a fallback to the source's own controller would name seat 0.
 func TestPlayerSpecFx20MindWhipEnchantedController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoardWith(t, reg, mustCorpusCard(t, reg, "Grizzly Bears"), "Mind Whip")
 	aura := ids["Mind Whip"]
@@ -86,6 +87,7 @@ func TestPlayerSpecFx20MindWhipEnchantedController(t *testing.T) {
 // recipient's live player-counter state: seat 1 with no contract counter
 // matches, and adding one flips the answer.
 func TestPlayerSpecFx20MissHighwaterPlayerCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoard(t, reg, "Miss Highwater")
 	mhw := ids["Miss Highwater"]
@@ -114,6 +116,7 @@ func TestPlayerSpecFx20MissHighwaterPlayerCounters(t *testing.T) {
 // defending player the clause names, and the attached bearer is the damage
 // source the ValidSource$ half requires.
 func TestPlayerSpecFx20LatullasOrdersDefendingPlayer(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoardWith(t, reg, mustCorpusCard(t, reg, "Grizzly Bears"), "Latulla's Orders")
 	aura := ids["Latulla's Orders"]
@@ -138,6 +141,7 @@ func TestPlayerSpecFx20LatullasOrdersDefendingPlayer(t *testing.T) {
 // scoped caster is the controller of the enchanted creature (seat 1), not the
 // aura's own controller (seat 0).
 func TestPlayerSpecFx20BrandCasterEnchantedController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, _, ids := dsBoardWith(t, reg, mustCorpusCard(t, reg, "Grizzly Bears"), "Brand of Ill Omen")
 	aura := ids["Brand of Ill Omen"]

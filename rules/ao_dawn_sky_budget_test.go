@@ -123,6 +123,7 @@ func aoWindowEngine(t *testing.T, reg *cards.Registry, seed uint64) (*Engine, Co
 // exclude the 5- and 6-MV permanents, an over-budget answer is rejected on
 // the wire, and the answered (in-budget) take lands exactly the chosen card.
 func TestAoTheDawnSkyBudgetDigEndToEnd(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, window := aoWindowEngine(t, reg, 9137)
 	// Kill Ao: Battlefield -> Graveyard fires the death trigger.

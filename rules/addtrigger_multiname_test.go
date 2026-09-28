@@ -34,6 +34,7 @@ func addTriggerGrantsOn(e *Engine, id state.ObjID) []ContinuousEffect {
 // live grants (the primary and its Secondary$ mirror), both
 // AttackerBlockedByCreature. A one-name fix yields one grant and fails.
 func TestMirrorShieldMultiNameAddTriggerRegisters(t *testing.T) {
+	t.Parallel()
 	shield := mshCorpusCardPath(t, "Mirror Shield", "m/mirror_shield.txt")
 	e := combatEngine(t)
 	shieldID := onBoardCard(t, e, 0, shield)
@@ -85,6 +86,7 @@ func TestMirrorShieldMultiNameAddTriggerRegisters(t *testing.T) {
 // blocked by a deathtouch creature; the granted AttackerBlockedByCreature
 // trigger destroys that blocker.
 func TestMirrorShieldGrantDestroysDeathtouchBlocker(t *testing.T) {
+	t.Parallel()
 	shield := mshCorpusCardPath(t, "Mirror Shield", "m/mirror_shield.txt")
 	e := combatEngine(t)
 	shieldID := onBoardCard(t, e, 0, shield)
@@ -131,6 +133,7 @@ func TestMirrorShieldGrantDestroysDeathtouchBlocker(t *testing.T) {
 // Armaments grants "HeroAttack & HeroBlock" (Attacks + Blocks), and the
 // granted Attacks half must pump the equipped attacker.
 func TestVeteransArmamentsMultiNameAddTriggerFires(t *testing.T) {
+	t.Parallel()
 	arm := mshCorpusCardPath(t, "Veteran's Armaments", "v/veterans_armaments.txt")
 	e := combatEngine(t)
 	armID := onBoardCard(t, e, 0, arm)

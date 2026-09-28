@@ -13,6 +13,7 @@ import (
 // Remembered$Amount gate false. Once that body answer resumes, Repeat must
 // stop rather than offer the optional election or run a second sacrifice.
 func TestRepeatOptionalSuspendedBodyChecksFalseGateBeforeElection(t *testing.T) {
+	t.Parallel()
 	const repeat = "Name:Gated Repeat\nManaCost:R\nTypes:Sorcery\n" +
 		"A:SP$ Repeat | RepeatSubAbility$ Body | RepeatOptional$ True | RepeatCheckSVar$ Gate | RepeatSVarCompare$ GE3\n" +
 		"SVar:Gate:Remembered$Amount\n" +

@@ -25,6 +25,7 @@ import (
 // untap, no second grant); it fires again on the NEXT turn's first combat.
 // The whole game replays byte-identically.
 func TestFinestHourFirstCombatTriggerFiresOncePerTurn(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e, cfg := addPhaseEngine(t, reg,
 		[]*cards.Card{lookup(t, reg, "Finest Hour"), card(t, bearSrc)}, []*cards.Card{})

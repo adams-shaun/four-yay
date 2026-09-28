@@ -20,6 +20,7 @@ import (
 // return order differ" is observable. Heirloom Blade is in NO repo deck and NO
 // legacy golden deck, so no chain head depends on it.
 func TestDigUntilRevealRandomOrderShuffledAndDeterministic(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, _, _, _, giantID := heirloomTestEngine(t, reg, false)
 	d := heirloomMurderBearer(t, e, findHandCard(t, e, "Murder"), mustBearer(t, e))

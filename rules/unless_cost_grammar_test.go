@@ -16,6 +16,7 @@ import (
 // token. Power Sink and Thassa's Intervention are the real corpus spell
 // shapes, and the direct resolution contexts model their recorded X.
 func TestUnlessCostResolvedUsesTheAnnouncedX(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, mustCorpusCard(t, reg, "Power Sink"), mustCorpusCard(t, reg, "Thassa's Intervention"))
 	for _, tc := range []struct {
@@ -53,6 +54,7 @@ func TestUnlessCostResolvedUsesTheAnnouncedX(t *testing.T) {
 // creatures are deliberately put on the controller's battlefield, so the
 // count is a proved nonzero value rather than a vacuous zero.
 func TestUnlessCostResolvedFoldsDynamicSVarForEveryAPI(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	fetter := mustCorpusCard(t, reg, "Fettergeist")
 	e := handEngine(t, fetter)

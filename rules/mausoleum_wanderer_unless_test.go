@@ -16,6 +16,7 @@ import (
 // mana spent. The counter source is the compiled corpus card; only the target
 // spell is authored.
 func TestMausoleumWandererUnlessDeclineCounters(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	wanderer := mustCorpusCard(t, reg, "Mausoleum Wanderer")
 	bolt := card(t, "Name:Test Instant\nManaCost:0\nTypes:Instant\nA:SP$ Draw | NumCards$ 1\nOracle:test\n")
@@ -107,6 +108,7 @@ func TestMausoleumWandererUnlessDeclineCounters(t *testing.T) {
 // target spell is a small authored instant; the counter source itself is the
 // compiled Mausoleum Wanderer card.
 func TestMausoleumWandererUnlessPayUsesSacrificedPower(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	wanderer := mustCorpusCard(t, reg, "Mausoleum Wanderer")
 	bolt := card(t, "Name:Test Instant\nManaCost:0\nTypes:Instant\nA:SP$ Draw | NumCards$ 0\nOracle:test\n")

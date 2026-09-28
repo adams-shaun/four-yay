@@ -44,6 +44,7 @@ const targetWalkerFixture = "Name:Target Walker\nTypes:Planeswalker\nPT:0\nOracl
 // and attached the (attacker, vow-controller) pair is blocked through
 // attackBlocked while the uninvolved defender is not.
 func TestCantAttackTargetPlaneswalkerController(t *testing.T) {
+	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	vow, ok := reg.Lookup("Vow of Lightning")
 	if !ok {
@@ -118,6 +119,7 @@ func TestCantAttackTargetPlaneswalkerController(t *testing.T) {
 // planeswalker's presence is what blocks the pair, and a defender who
 // controls no such walker stays unblocked.
 func TestCantAttackWalkerOnlyTargetBindsThroughAttackBlocked(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	avenger := onBoard(t, e, 0, "Name:Walker Avenger\nManaCost:1 W\nTypes:Creature Ogre Spirit\n"+
 		"S:Mode$ CantAttack | ValidCard$ Creature | Target$ Planeswalker.YouCtrl"+
@@ -162,6 +164,7 @@ func TestCantAttackWalkerOnlyTargetBindsThroughAttackBlocked(t *testing.T) {
 // with one, attacking the oathkeeper's controller costs {1}; the defender
 // who controls no such walker is charged nothing.
 func TestCantAttackUnlessWalkerTargetPricesAttackCharge(t *testing.T) {
+	t.Parallel()
 	e := layerEngine(t)
 	oathkeeper := onBoardCard(t, e, 0, corpusCard(t, "Onakke Oathkeeper"))
 	if o := e.G.Obj(oathkeeper); o == nil || o.Zone != state.ZBattlefield {

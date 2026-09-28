@@ -133,6 +133,7 @@ func reunionCastOption(t *testing.T, e *Engine, id state.ObjID) decision.Option 
 // boundary answer summing to exactly 10 resolves and returns exactly those
 // creatures while the untouched ones stay in the graveyard.
 func TestReunionOfTheHouseTotalPowerCap(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, reunion, grave := reunionEngine(t, reg, 5501, nil,
 		"Reunion of the House", "Polar Kraken", "Craw Wurm", "Serra Angel", "Hill Giant", "Grizzly Bears")
@@ -242,6 +243,7 @@ func TestReunionOfTheHouseTotalPowerCap(t *testing.T) {
 // "any number" includes zero -- with no target decision posed at all
 // (Min 0's totality rule, targetAsk's len==0 exit).
 func TestReunionNoLegalTargetWithinCapResolvesUntargeted(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, reunion, grave := reunionEngine(t, reg, 5502, nil,
 		"Reunion of the House", "Polar Kraken", "Craw Wurm", "Serra Angel", "Hill Giant", "Grizzly Bears")
@@ -288,6 +290,7 @@ func TestReunionNoLegalTargetWithinCapResolvesUntargeted(t *testing.T) {
 // the compensated pair must validate and resolve. A candidate no offset can
 // ever save (Kraken beside only positive creatures) is still pruned.
 func TestTotalPowerCapNegativePowerCompensates(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, reunion, grave := reunionEngine(t, reg, 5506, nil,
 		"Reunion of the House", "Polar Kraken", "Scourge of the Skyclaves", "Grizzly Bears")
@@ -382,6 +385,7 @@ func TestTotalPowerCapNegativePowerCompensates(t *testing.T) {
 // pruned exactly as before -- the fix widens the offer only when an offset
 // genuinely exists.
 func TestTotalPowerCapNegativeOffsetCannotSaveAnOverCapCandidate(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, reunion, grave := reunionEngine(t, reg, 5507, nil,
 		"Reunion of the House", "Polar Kraken", "Craw Wurm", "Serra Angel")
@@ -417,6 +421,7 @@ func TestTotalPowerCapNegativeOffsetCannotSaveAnOverCapCandidate(t *testing.T) {
 // shape (TargetMin$ 0 | TargetMax$ X | ValidTgts$ Creature.YouOwn |
 // MaxTotalTargetPower$ 10) so the two ask sites cannot drift.
 func TestTotalPowerCapOnAnAbilityTargetAsk(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	fixture := card(t, "Name:PowerReclaimer\nManaCost:2\nTypes:Creature\n"+
 		"A:AB$ ChangeZone | Cost$ 0 | Origin$ Graveyard | Destination$ Battlefield | "+
@@ -500,6 +505,7 @@ func TestTotalPowerCapOnAnAbilityTargetAsk(t *testing.T) {
 // offered. The first cut pruned on Face().Power(), read Lord as a free
 // 0-power target and let it through (findings-r2 MAJOR 1).
 func TestTotalPowerCapReadsDerivedPowerInEveryZone(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg, reunion, grave := reunionEngine(t, reg, 5503, nil,
 		"Reunion of the House", "Lord of Extinction", "Craw Wurm", "Serra Angel")
@@ -590,6 +596,7 @@ func TestTotalPowerCapReadsDerivedPowerInEveryZone(t *testing.T) {
 // pruned on its DERIVED power -- the first cut offered it as a free target
 // because its printed read was 0.
 func TestTotalPowerCapOfZeroIsEnforced(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	fixture := card(t, "Name:PowerReclaimerZero\nManaCost:2\nTypes:Creature\n"+
 		"A:AB$ ChangeZone | Cost$ 0 | Origin$ Graveyard | Destination$ Battlefield | "+
@@ -692,6 +699,7 @@ func TestTotalPowerCapOfZeroIsEnforced(t *testing.T) {
 // -- the one-home rule that keeps the offer, the engine check and the bot
 // from ever disagreeing into a livelock.
 func TestTotalPowerCapOfZeroKeepsANegativeOffsetSelection(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	fixture := card(t, "Name:PowerReclaimerZeroOffset\nManaCost:2\nTypes:Creature\n"+
 		"A:AB$ ChangeZone | Cost$ 0 | Origin$ Graveyard | Destination$ Battlefield | "+

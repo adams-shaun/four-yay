@@ -63,6 +63,7 @@ func gainedAbilityOffered(d *decision.Decision, obj state.ObjID) bool {
 // A second creature makes the Equip legal again, and a held-out (F05-2
 // suppressed) source withholds the gained activation like a printed one.
 func TestGainedEquipNotOfferedWithoutAnotherCreature(t *testing.T) {
+	t.Parallel()
 	e, _ := b5Engine(t, "Trazyn the Infinite", "Bonesplitter", "Grizzly Bears")
 	searchMoveByName(t, e, "Bonesplitter", state.ZGraveyard)
 	trazyn := searchMoveByName(t, e, "Trazyn the Infinite", state.ZBattlefield)
@@ -91,6 +92,7 @@ func TestGainedEquipNotOfferedWithoutAnotherCreature(t *testing.T) {
 // is now registered: the recast spell rests in exile and is not offered
 // again.
 func TestMavindaExilesTheRecastSpell(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Mavinda, Students' Advocate", "Indicate")
 	ind := searchMoveByName(t, e, "Indicate", state.ZGraveyard)
 	mav := searchMoveByName(t, e, "Mavinda, Students' Advocate", state.ZBattlefield)
@@ -135,6 +137,7 @@ func TestMavindaExilesTheRecastSpell(t *testing.T) {
 // carries a castable mana cost where Gaea's Will is suspend-only, so it is
 // the fixture.
 func TestYawgmothsWillExilesCardsPutIntoTheGraveyard(t *testing.T) {
+	t.Parallel()
 	e, cfg := b5Engine(t, "Yawgmoth's Will", "Urza's Bauble")
 	will := searchMoveByName(t, e, "Yawgmoth's Will", state.ZHand)
 	bauble := searchMoveByName(t, e, "Urza's Bauble", state.ZGraveyard)
@@ -187,6 +190,7 @@ func TestYawgmothsWillExilesCardsPutIntoTheGraveyard(t *testing.T) {
 // (re-dealing the Bears' damage, re-asking the order, forever). The pass now
 // completes exactly once and combat moves on.
 func TestCombatDamageReplacementBodyAskDoesNotRedealThePass(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := combatEngine(t)
 	vind := onBoardCard(t, e, 1, searchCorpusCard(t, reg, "Phyrexian Vindicator"))
@@ -236,6 +240,7 @@ func TestCombatDamageReplacementBodyAskDoesNotRedealThePass(t *testing.T) {
 // run is not a loop, so the period detector must not trip on it; the runaway
 // backstop still bounds a genuine effect-registration loop.
 func TestLivelockWatcherIgnoresClockTickRuns(t *testing.T) {
+	t.Parallel()
 	e := livelockTestEngine(t, &LoopGuard{CycleEvents: 30, MaxPeriod: 8, RunawayEvents: 5000})
 	if lle := drivePattern(t, e, func(int) events.Event {
 		return events.Event{Kind: events.ClockTick}
@@ -267,6 +272,7 @@ func TestLivelockWatcherIgnoresClockTickRuns(t *testing.T) {
 // ClockTick carve-out: Overrun over 450 creatures registers 900 continuous
 // effects inside one resolution and must resolve.
 func TestPumpAllOverAHugeBoardIsNotALivelock(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e := combatEngine(t)
 	var last state.ObjID

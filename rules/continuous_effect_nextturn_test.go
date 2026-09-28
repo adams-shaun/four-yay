@@ -24,6 +24,7 @@ import (
 // fail-on-base proof that the restriction is real at all is the Vines test
 // (same Duration$ shape, Permanent); the new thing here is the boundary.
 func TestEffectContinuousExpiresAtEndOfNextTurn(t *testing.T) {
+	t.Parallel()
 	guard := card(t, "Name:Guard\nManaCost:G\nTypes:Instant\n"+
 		"A:SP$ Pump | ValidTgts$ Creature | NumAtt$ +2 | NumDef$ +2 | SubAbility$ DBEffect\n"+
 		"SVar:DBEffect:DB$ Effect | Defined$ Targeted | Duration$ UntilTheEndOfYourNextTurn | StaticAbilities$ Guard | RememberObjects$ Targeted\n"+

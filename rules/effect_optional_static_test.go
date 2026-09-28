@@ -22,6 +22,7 @@ import (
 // OptionalDecider$ must be withheld with the loud withhold Note and must not
 // reach the delayed set (where the static arm would run it mandatorily).
 func TestEffectOptionalStaticTriggerIsWithheld(t *testing.T) {
+	t.Parallel()
 	staticOD := card(t, "Name:Static OD Effect\nManaCost:0\nTypes:Enchantment\n"+
 		"A:SP$ Effect | Triggers$ TrigStaticOD | SpellDescription$ x\n"+
 		"SVar:TrigStaticOD:Mode$ ChangesZone | ValidCard$ Creature | Origin$ Any | "+
@@ -63,6 +64,7 @@ func TestEffectOptionalStaticTriggerIsWithheld(t *testing.T) {
 // must not execute its body inline -- the guard Note fires, the one-shot is
 // spent, and nothing is drawn.
 func TestOptionalStaticDelayedTriggerIsNotExecutedInline(t *testing.T) {
+	t.Parallel()
 	src := card(t, "Name:Static OD Source\nManaCost:0\nTypes:Enchantment\n"+
 		"SVar:TrigStaticOD:Mode$ SpellCast | OptionalDecider$ You | Static$ True | Execute$ TrigStaticODBody\n"+
 		"SVar:TrigStaticODBody:DB$ Draw | Defined$ You | NumCards$ 1\n"+

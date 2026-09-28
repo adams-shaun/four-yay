@@ -47,6 +47,7 @@ func partnerWithFaceTrigger(c *cards.Card) (cards.Trigger, bool) {
 //  4. taking it moves Laurine to hand and shuffles exactly once (CR 701.23:
 //     "then shuffle").
 func TestPartnerWithETBOffersNamedPartnerSearch(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	kamberCard := searchCorpusCard(t, reg, "Kamber, the Plunderer")
 	if _, ok := partnerWithFaceTrigger(kamberCard); !ok {
@@ -155,6 +156,7 @@ func TestPartnerWithETBOffersNamedPartnerSearch(t *testing.T) {
 // library holds the named partner Laurine -- a library seat 0 has no legal
 // look at, so the ask must arrive with Player 1 and offer only Laurine.
 func TestPartnerWithTargetedOpponentAnswersTheSearch(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	kamberCard := searchCorpusCard(t, reg, "Kamber, the Plunderer")
 	if _, ok := partnerWithFaceTrigger(kamberCard); !ok {
@@ -298,6 +300,7 @@ func TestPartnerWithTargetedOpponentAnswersTheSearch(t *testing.T) {
 // searched the short alias or mis-split the name would fail every carrier row
 // here, not just Kamber's proof leaf.
 func TestPartnerWithExpansionSearchesTheFullPartnerName(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	g := state.NewGame([]string{"you", "them"})
 	checked := 0

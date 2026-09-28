@@ -62,6 +62,7 @@ func peacekeeperUnlessFixture(t *testing.T, plains int) (*Engine, state.ObjID, s
 // offer carries, so an answerer can tell the Priest's non-tapping "{1}" from
 // a Plains' tap.
 func TestUnlessManaWindowClosesOncePayable(t *testing.T) {
+	t.Parallel()
 	e, pk, priest := peacekeeperUnlessFixture(t, 3)
 	tapPlains := func() {
 		t.Helper()
@@ -117,6 +118,7 @@ func TestUnlessManaWindowClosesOncePayable(t *testing.T) {
 // forever (the cardfuzz batch3 lines 9/11 cycle). It must never activate the
 // Priest, tap both Plains and pay: Peacekeeper survives.
 func TestBotNeverLoopsAConverterInAPaymentWindow(t *testing.T) {
+	t.Parallel()
 	e, pk, priest := peacekeeperUnlessFixture(t, 2)
 	r := newTestBot(1).r
 	for i := 0; e.Pending() != nil && e.Pending().ResumeKind == "unless_mana"; i++ {

@@ -122,6 +122,7 @@ func gddDrive(t *testing.T, e *Engine, boltID state.ObjID, final state.Zone) {
 // carried no CastFlags bit at all and spellRestZone fell to its
 // ZGraveyard default.
 func TestGoblinDarkDwellersExilesThePlayedCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	e, cfg := gddEngine(t, reg)
 	boltID := searchMoveByName(t, e, "Lightning Bolt", state.ZGraveyard)
@@ -153,6 +154,7 @@ func TestGoblinDarkDwellersExilesThePlayedCard(t *testing.T) {
 // spellFizzleZone reads the same flag. The played Bolt is aimed at a creature,
 // which leaves the battlefield before the Bolt resolves.
 func TestGoblinDarkDwellersFizzleExilesThePlayedCard(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 	gdd := searchCorpusCard(t, reg, "Goblin Dark-Dwellers")
 	bolt := searchCorpusCard(t, reg, "Lightning Bolt")
@@ -234,6 +236,7 @@ func TestGoblinDarkDwellersFizzleExilesThePlayedCard(t *testing.T) {
 //     negative half used Jace's Mindseeker, whose RememberMilled$
 //     dependency is unimplemented, so its Play was never offered at all).
 func TestPlayReplaceGraveyardDoesNotLeak(t *testing.T) {
+	t.Parallel()
 	reg := searchTestRegistry(t)
 
 	// (1) the ordinary hand cast: funded {R}, cast at seat 1, resolves, and

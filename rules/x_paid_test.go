@@ -23,6 +23,7 @@ import (
 // Amount (the ability index) was the only thing on the wire and o.X stayed
 // 0 through resolution.
 func TestActivatedAbilityWithXInCostResolvesItsPaidX(t *testing.T) {
+	t.Parallel()
 	src := "Name:Ballista\nManaCost:X X\nTypes:Artifact Creature Construct\nPT:2/2\n" +
 		"A:AB$ PutCounter | Cost$ X G | CounterType$ P1P1 | CounterNum$ X | Defined$ Self | SpellDescription$ Put X +1/+1 counters on CARDNAME.\nOracle:x\n"
 	e, cfg, id := newFixtureDeck(t, 113, src)
@@ -63,6 +64,7 @@ func TestActivatedAbilityWithXInCostResolvesItsPaidX(t *testing.T) {
 // SubAbility, creates TokenAmount$ X Angels -- so the token count proves the
 // resumed Ctx still carries X = 2.
 func TestPaidXSurvivesAMidResolutionSuspension(t *testing.T) {
+	t.Parallel()
 	src := "Name:Torment\nManaCost:X B\nTypes:Sorcery\n" +
 		"A:SP$ Discard | Mode$ TgtChoose | NumCards$ 1 | ValidTgts$ Opponent | SubAbility$ Angels | SpellDescription$ x\n" +
 		"SVar:Angels:DB$ Token | TokenAmount$ X | TokenScript$ w_4_4_angel_flying | TokenOwner$ You\n" +
