@@ -4980,14 +4980,25 @@ func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.Obj
 // the order the player's answer carried them (libraryOrderPlacement), never
 // a re-sorted one.
 func placeLibraryObjects(h Host, sa *cards.SA, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
+	// An ABSENT LibraryPosition$ is Forge's TOP default on the searched-library
+	// path too (agent-20260928T191540Z): Forge computes libPos = 0 when the
+	// parameter is absent in BOTH resolvers -- changeKnownOriginResolve
+	// (ChangeZoneEffect.java:484) and changeHiddenOriginResolve (:994) -- the
+	// same default the object-target and ChangeZoneAll paths apply
+	// (golgari_thug2), so this helper treats "" exactly like the explicit "0"
+	// in both of its branches. Without it a searched card put back into its
+	// library (Knowledge Exploitation, the Kodama's Reach/Cultivate family)
+	// stayed at the MoveZone bottom append.
+	position := strings.TrimSpace(sa.Params["LibraryPosition"])
+	if position == "" {
+		position = "0"
+	}
 	if strings.EqualFold(strings.TrimSpace(sa.Params["Reorder"]), "True") && to == state.ZLibrary {
-		position := strings.TrimSpace(sa.Params["LibraryPosition"])
 		if len(moved) > 0 && (position == "0" || position == "-1") {
 			libraryOrderPlacement(h, owner, moved, position == "-1")
 		}
 		return
 	}
-	position := strings.TrimSpace(sa.Params["LibraryPosition"])
 	if to != state.ZLibrary || len(moved) == 0 || (position != "0" && position != "-1") {
 		return
 	}
