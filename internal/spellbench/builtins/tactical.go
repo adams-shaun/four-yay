@@ -206,6 +206,9 @@ type tactical struct {
 	// force is the pick a searching wrapper imposed on the next fresh
 	// priority choice (ForcePriority), nil in plain play.
 	force *PriorityKey
+	// reanimating guards reanimateValue against a creature whose own ETB
+	// reanimates (it would recurse without end).
+	reanimating bool
 	// The opponent's observed blocking: our attacks it could have blocked
 	// (one per turn) and how many it did block. A seat that never blocks
 	// is raced, not simulated (tactical_combat.go).

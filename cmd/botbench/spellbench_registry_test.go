@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/registry"
+	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/seat"
 )
 
@@ -34,6 +35,9 @@ func TestSpellbenchRegistryRoundTrip(t *testing.T) {
 		{"sb-tactical", wantBuiltin(builtins.Tactical)},
 		{"sb-tactical-planned", wantBuiltin(builtins.Tactical)},
 		{"sb-tactical-alt8", wantBuiltin(builtins.Tactical)},
+		{"sb-search", wantSBSearch},
+		{"sb-search-fast", wantSBSearch},
+		{"sb-search-w0", wantSBSearch},
 		{"bot", func(s seat.Seat) string {
 			if s == nil {
 				return "nil seat"
@@ -102,4 +106,16 @@ func TestSpellbenchUnknownNameListsRegistered(t *testing.T) {
 			t.Fatalf("stderr %q does not list registered policy %q", msg, name)
 		}
 	}
+}
+
+// wantSBSearch checks an sb-search seat: the search wrapper, with an
+// sb-tactical seat underneath for the runner's fallback and stats.
+func wantSBSearch(s seat.Seat) string {
+	if _, ok := s.(*sbsearch.Seat); !ok {
+		return "not *sbsearch.Seat"
+	}
+	if b, ok := registry.UnwrapSeat(s).(*builtins.Seat); !ok || b.Policy() != builtins.Tactical {
+		return "does not unwrap to sb-tactical"
+	}
+	return ""
 }

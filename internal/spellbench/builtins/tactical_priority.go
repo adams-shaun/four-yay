@@ -639,7 +639,16 @@ func botpolicyCMC(mc string) int32 { return botpolicy.CmcOf(mc) }
 // reanimateValue is the best creature card in our graveyard put onto the
 // battlefield: its body plus its enter-the-battlefield effects (Lotleth
 // Giant's damage per creature card in our graveyard).
+//
+// A creature whose own ETB reanimates would value itself without end (every
+// nested call scans the same graveyard), so a nested call is worth nothing:
+// only states that used to overflow the stack are scored differently.
 func (t *tactical) reanimateValue(s *tstate) float64 {
+	if t.reanimating {
+		return 0
+	}
+	t.reanimating = true
+	defer func() { t.reanimating = false }()
 	best := 0.0
 	for i := range s.meP.Graveyard {
 		cv := &s.meP.Graveyard[i]
