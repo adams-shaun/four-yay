@@ -8,6 +8,7 @@ import SeatPills from './SeatPills.svelte';
 const player = (seat: number, name: string, more: Partial<PlayerView> = {}): PlayerView => ({
   seat, name, life: seat ? 17 : 20, lost: false, library_size: 52, hand_size: 7,
   graveyard_size: 2, hand: [], battlefield: [], graveyard: [], exile: [],
+  completed_dungeons: 0,
   pool: {}, available: {}, command: [], commanders: [], commander_casts: [], ...more,
 });
 const view = (players: PlayerView[]): View => ({

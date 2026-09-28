@@ -16,6 +16,7 @@ const card = (id: number, name: string): CardView => ({
 const player = (gy: CardView[] | null, ex: CardView[] | null, size = 2): PlayerView => ({
   seat: 0, name: 'p', life: 20, lost: false, library_size: 30, hand_size: 7,
   graveyard_size: size,
+  completed_dungeons: 0,
   hand: [], battlefield: [], graveyard: gy as CardView[], exile: ex as CardView[], pool: {}, command: [], commanders: [], commander_casts: [],
 });
 

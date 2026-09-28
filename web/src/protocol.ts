@@ -364,6 +364,14 @@ export interface PotentialAction {
 }
 
   /**
+   * DungeonView is the public projection of one active dungeon.
+   */
+export interface DungeonView {
+  name: string;
+  room: string;
+}
+
+  /**
    * PlayerView is one seat's own public state, plus (only when this is the
    * viewer's own seat) the private parts.
    *
@@ -494,6 +502,24 @@ export interface PlayerView {
    * identity of a player's commanders is the premise of the format.
    */
   commanders: CardView[];
+  /**
+   * Dungeon is this player's active public dungeon and venture room.
+   */
+  dungeon?: DungeonView | null;
+  /**
+   * CompletedDungeons is the number of dungeons this seat has completed.
+   */
+  completed_dungeons: number;
+  /**
+   * HasInitiative is the CR 726.1 initiative designation: true for the one
+   * player who currently has it. Public for every seat -- like the monarch,
+   * the designation is open information and drives attacking decisions. It
+   * carries omitempty so a match with no initiative (the common case)
+   * serialises byte-identically to before this field existed; an absent key
+   * means "this seat does not have the initiative", the Available
+   * convention.
+   */
+  has_initiative?: boolean;
   /**
    * CommanderCasts runs parallel to Commanders: entry k is how many times
    * Commanders[k] has been cast from the command zone, the CR 903.8 tax
@@ -798,6 +824,15 @@ export interface Option {
 }
 
   /**
+   * WindowReason is a closed-vocabulary explanation for one withheld option.
+   */
+export interface WindowReason {
+  obj: number;
+  kind: string;
+  reason: string;
+}
+
+  /**
    * PlannedCast is the exact cast identity a payment action authorizes.
    */
 export interface PlannedCast {
@@ -999,6 +1034,12 @@ export interface Decision {
   min: number;
   max: number;
   options: Option[];
+  /**
+   * WindowReasons is an opt-in diagnostic sidecar: the first gate that
+   * withheld each of this seat's candidates. Tokens only; never replay
+   * input. Nil when disabled, preserving every existing decision's bytes.
+   */
+  window_reasons?: WindowReason[];
   /**
    * PaymentActions is an additive, separately indexed cast-payment
    * extension. Keeping it outside Options preserves every legacy priority

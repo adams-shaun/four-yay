@@ -52,6 +52,7 @@ const land = (id: number, name: string): CardView => ({
 });
 const view = (d: Decision | null): View => {
   const me: PlayerView = { seat: 0, name: 'You', life: 20, lost: false, library_size: 40, hand_size: 0, graveyard_size: 0,
+  completed_dungeons: 0,
     hand: [], battlefield: [land(41, 'Swamp'), land(42, 'Badlands'), land(43, 'Horizon Test')], graveyard: [], exile: [],
     pool: {}, command: [], commanders: [], commander_casts: [] };
   return { viewer: 0, visibility: 'seat', turn: 3, round: 3, step: 'main1', phase: 'main1', active: 0, priority: 0,

@@ -155,6 +155,17 @@ func (h *fakeHost) Emit(e events.Event) {
 	events.Apply(h.g, e)
 }
 
+// EmitPlayerLost / EmitGameWin mirror rules.Engine's one loss/win gate. The
+// effects double has no replacement machinery, so nothing is ever prevented:
+// the proposal is emitted exactly as a plain Emit would.
+func (h *fakeHost) EmitPlayerLost(p state.PlayerID, _, text string) {
+	h.Emit(events.Event{Kind: events.PlayerLost, Player: p, Text: text})
+}
+
+func (h *fakeHost) EmitGameWin(p state.PlayerID, text string) {
+	h.Emit(events.Event{Kind: events.GameOver, Player: p, Text: text})
+}
+
 // EmitTokenCreate mirrors rules.Engine's: the effects double has no token
 // replacement pipeline, so the emit creates at most the one token the event
 // names and that id is the whole return.

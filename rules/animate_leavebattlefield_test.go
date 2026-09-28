@@ -266,6 +266,17 @@ func TestFromTheCatacombsLeaveBattlefieldExilesOnBounce(t *testing.T) {
 		t.Fatalf("graveyard specter %d not offered: %+v", sid, d.Options)
 	}
 	submitChoices(t, e, idx)
+	// From the Catacombs also takes the initiative. Its venture into
+	// Undercity poses Secret Entrance's basic-land search while the room
+	// ability resolves; answer it before asserting the ChangeZone rider.
+	search := passUntilNonPriority(t, e, 40)
+	if search == nil || search.Kind != decision.KChoose || search.ResumeKind != "search" || search.Player != 0 || len(search.Options) == 0 {
+		t.Fatalf("expected Secret Entrance search for the caster, got %+v", search)
+	}
+	if !e.G.IsInitiative(0) {
+		t.Fatal("From the Catacombs did not take the initiative before its room search")
+	}
+	submitChoices(t, e, search.Options[0].Index)
 	resolveCast(t, e)
 
 	// PRECONDITION: the specter really returned to the battlefield under

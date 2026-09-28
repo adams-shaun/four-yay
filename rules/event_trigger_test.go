@@ -831,18 +831,31 @@ func TestCommitCrimeTargetingExileIsNotACrime(t *testing.T) {
 	requireOneEventTrigger(t, e, "Forsaken Miner")
 }
 
-// TestUnsupportedSelectorsKeepOtherModesFiring pins the scope of this
-// ticket's fail-closed reads. Rasaad yn Bashir's Attacks trigger carries a
-// CheckDefinedPlayer$ predicate this build cannot evaluate (hasInitiative);
-// it keeps firing as it did before the parameter was read. Mutiny's
-// TargetsWithDefinedController$ ParentTargetedController is unsupported and
-// leaves the target offer as it was rather than emptying it.
+// TestUnsupportedSelectorsKeepOtherModesFiring pins the supported initiative
+// intervening-if on Rasaad yn Bashir's Attacks trigger: it only fires when
+// its controller has the designation. Mutiny's
+// TargetsWithDefinedController$ ParentTargetedController remains unsupported
+// and leaves the target offer as it was rather than emptying it.
 func TestUnsupportedSelectorsKeepOtherModesFiring(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := layerEngine(t)
 	rasaad := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Rasaad yn Bashir"))
-	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 1, IDs: []state.ObjID{rasaad}})
+	if o := e.G.Obj(rasaad); o == nil || o.Zone != state.ZBattlefield || o.Controller != 0 {
+		t.Fatalf("precondition: Rasaad must be controlled by seat 0 on the battlefield: %+v", o)
+	}
+	if e.G.HasInitiative {
+		t.Fatal("precondition: the game already has an initiative holder")
+	}
+	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{rasaad}})
+	if got := observedTriggerCount(e, rasaad); got != 0 {
+		t.Fatalf("Rasaad without initiative queued %d triggers, want 0", got)
+	}
+	e.emit(events.Event{Kind: events.InitiativeChange, Player: 0})
+	if !e.G.IsInitiative(0) {
+		t.Fatal("precondition: seat 0 did not take the initiative")
+	}
+	e.emit(events.Event{Kind: events.DeclareAttackers, Player: 0, IDs: []state.ObjID{rasaad}})
 	requireOneEventTrigger(t, e, "Rasaad yn Bashir")
 
 	e = layerEngine(t)

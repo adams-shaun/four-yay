@@ -748,9 +748,23 @@ func TestConstructedDefaultIsByteIdentical(t *testing.T) {
 	// explore policy's X1 promoted), so an attached Equipment's own
 	// non-attach abilities and a creatureless seat's non-attach abilities are
 	// activated. The base commit measures 7/13; this change alone moves it.
+	// fdn-dig-rest-random-order then re-measured 6/14 to 5/15: in the
+	// avengers-assemble deck Squad Rallier's RestRandomOrder$ Dig now consumes
+	// the seeded RNG to randomize the three unchosen cards at the bottom of
+	// the library, changing the later deterministic game path. Reverting
+	// effects/cardflow.go alone restores 6/14; the new Dig regression test
+	// independently pins the random bottom order and replay.
+	// The Winter Soldier entry-counter fix (ticket
+	// agent-20260927T212826Z-4ef285af) then re-measured 5/15 to 6/14: the
+	// Effect root now pre-captures its ChangeZone sub's target and remembers
+	// it, so avengers-assemble's Winter Soldier, Reborn Avenger returns a Hero
+	// from the graveyard WITH its additional +1/+1 counter instead of none.
+	// Measured on the fix merged with main at a58faab6c: reverting ONLY the
+	// fix's effects/registry.go, effects/targets_ask.go, effects/zone.go and
+	// rules/stack.go restores 5/15; with them the split is 6/14.
 	const wantSeat0, wantSeat1 = 6, 14
 	if seat0, seat1 := atoi(m[8]), atoi(m[9]); seat0 != wantSeat0 || seat1 != wantSeat1 {
-		t.Errorf("constructed default split = %d/%d, want %d/%d after scoping A1 to attach abilities (%s vs %s at seed 0, games 20)", seat0, seat1, wantSeat0, wantSeat1, testutil.RepoDeckNames()[0], testutil.RepoDeckNames()[1])
+		t.Errorf("constructed default split = %d/%d, want %d/%d after Winter Soldier's remembered-target entry counter (%s vs %s at seed 0, games 20)", seat0, seat1, wantSeat0, wantSeat1, testutil.RepoDeckNames()[0], testutil.RepoDeckNames()[1])
 	}
 	if strings.Contains(buf.String(), "STALLED") {
 		t.Errorf("constructed default (no stalls) must not print a stall line")

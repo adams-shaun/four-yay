@@ -16,6 +16,7 @@ const hand = Array.from({ length: handCount }, (_, i) => card(100 + i));
 const player: PlayerView = {
   seat: 0, name: 'Player 1', life: 20, lost: false, library_size: 53,
   hand_size: hand.length, graveyard_size: 0, hand, battlefield: [], graveyard: [],
+  completed_dungeons: 0,
   exile: [], pool: {}, command: [], commanders: [], commander_casts: [],
 };
 const seats: SeatInfo[] = [{ name: 'Player 1', deck: 'fixture', colour: '#e5484d' }];

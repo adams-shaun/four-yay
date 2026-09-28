@@ -55,6 +55,67 @@ type staticView struct {
 	// static. It binds Card.IsRemembered in the same shared spec context as
 	// restriction registrations; printed statics leave it nil.
 	Remembered []state.ObjID
+	// effectStamp identifies the delivering Effect of an Effect-delivered
+	// cost-modifier view (its ContinuousEffect.Timestamp, unique per
+	// registration; 0 for every other view). The cost chain binds Remembered
+	// for such a view and finds a pending cast's captured set by it
+	// (costStaticSpecCtx).
+	effectStamp uint32
+}
+
+// costRememberedEntry is one Effect-delivered cost static's Remembered set
+// captured on a pending cast at beginCast (pendingCast.costRemembered).
+type costRememberedEntry struct {
+	source state.ObjID
+	stamp  uint32
+	ids    []state.ObjID
+}
+
+// costRememberedCapture returns the Remembered sets of the Effect-delivered
+// cost-modifier statics that hold card id right now, in e.active() order.
+func (e *Engine) costRememberedCapture(id state.ObjID) []costRememberedEntry {
+	var out []costRememberedEntry
+	for _, ce := range e.active() {
+		switch ce.CostStaticMode {
+		case "RaiseCost", "ReduceCost", "SetCost":
+		default:
+			continue
+		}
+		if ce.CostStaticGranted || !slices.Contains(ce.Remembered, id) {
+			continue
+		}
+		out = append(out, costRememberedEntry{source: ce.Source, stamp: ce.Timestamp,
+			ids: append([]state.ObjID(nil), ce.Remembered...)})
+	}
+	return out
+}
+
+// costStaticSpecCtx is the spec context a cost static's ValidCard$ matches
+// the priced object id under. An Effect-delivered view additionally binds
+// the delivering Effect's captured Remembered set, so Card.IsRemembered names
+// the card the Effect remembered (Soul Partition, Elite Spellbinder, Invasion
+// of Gobakhan -- whose source's own memory the Effect's DBCleanup cleared),
+// exactly as manaConvSpecCtx does for an Effect-delivered ManaConvert. For
+// the pending cast of id the set recorded at beginCast (costRemembered)
+// stands in for the live one.
+func (e *Engine) costStaticSpecCtx(sv staticView, id state.ObjID) effects.SpecContext {
+	sc := e.staticSpecCtx(sv)
+	if sv.effectStamp == 0 {
+		return sc
+	}
+	rem := sv.Remembered
+	if pc := e.cast; pc != nil && pc.card == id {
+		for _, c := range pc.costRemembered {
+			if c.stamp == sv.effectStamp && c.source == sv.Source {
+				rem = c.ids
+				break
+			}
+		}
+	}
+	if len(rem) > 0 {
+		sc.Remembered = rememberedTargets(rem)
+	}
+	return sc
 }
 
 // costStaticViews is one ordered snapshot of cost-modifier membership. The
@@ -923,8 +984,11 @@ func validSpellHasTargeting(raw string) bool {
 	return false
 }
 
-// presentGate evaluates one IsPresent spec against PresentCompare (default
-// GE1); staticTimingGate fails closed when either present gate does not hold.
+// presentGate evaluates one IsPresent spec, counted over PresentZone$
+// (default battlefield, countStaticPresent), against PresentCompare$
+// (default GE1). The ONE static IsPresent$ gate: staticTimingGate, the
+// Continuous gate and costStaticApplies all read it, so an EQ0/GEn threshold
+// or a hand/graveyard zone cannot mean different things on different paths.
 func (e *Engine) presentGate(sv staticView, spec string) bool {
 	n := e.countStaticPresent(sv, spec)
 	cmp := sv.Params["PresentCompare"]
@@ -1006,13 +1070,14 @@ func (e *Engine) countStaticPresent(sv staticView, spec string) int {
 	if !ok {
 		return 0
 	}
+	sc := e.staticSpecCtx(sv)
 	if zone == state.ZBattlefield {
-		return e.countPresent(spec, sv.Source, sv.Controller)
+		return e.countPresentCtx(spec, sv.Source, sv.Controller, sc)
 	}
 	n := 0
 	e.forEachObject(func(id state.ObjID) {
 		o := e.G.Obj(id)
-		if o != nil && o.Zone == zone && e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+		if o != nil && o.Zone == zone && e.matchesSpec(spec, id, sc) {
 			n++
 		}
 	})
@@ -1775,6 +1840,33 @@ func spellScope(mode string) costScope    { return costScope{kind: "Spell", mode
 func foretellScope() costScope            { return costScope{kind: "Foretell", mode: "foretell"} }
 func abilityScope(ab *cards.SA) costScope { return costScope{kind: "Ability", ab: ab} }
 
+// castSaMayPlaySource is the card-level MayPlaySource token a cost static's
+// ValidCard$ may carry (castSaTokens' flag entry of the same spelling).
+const castSaMayPlaySource = "CastSa Spell.MayPlaySource"
+
+// specialActionScope prices a CR 116.2 special action that is neither a
+// spell nor an activated ability but still has a cost the CR 601.2f
+// modifiers reach -- Forge prices these as static abilities (ValidSpell$
+// Static.<X>). The modes: "unlock" (CR 309.5 Room unlock), and the CR 708.6
+// turn-face-up actions "morphup" (Morph and Megamorph -- Forge's isMorphUp)
+// and "disguiseup" (Disguise). Kind "Static" is never Type$ Spell or Type$
+// Ability (Forge's Type$ gate requires isSpell / isActivatedAbility), carries
+// no commander tax and no targets.
+func specialActionScope(mode string) costScope { return costScope{kind: "Static", mode: mode} }
+
+// modeIsCastFaceDown reports whether a cast mode puts the spell on the stack
+// face down (CR 708.4): the morph family's {3} cast. It is the one reading of
+// Forge's SpellAbility.isCastFaceDown the ValidSpell$ Spell.isCastFaceDown
+// constraint shares with the cast flow's own faceDown mark (beginCast sets
+// pendingCast.faceDown for exactly these modes).
+func modeIsCastFaceDown(mode string) bool {
+	switch mode {
+	case "morphed", "megamorphed", "disguised":
+		return true
+	}
+	return false
+}
+
 // costMod is ONE evaluated ReduceCost static's contribution to a total cost.
 // generic is the literal/SVar-evaluated Amount$; colored carries a Color$
 // reduction (per colour slot, set only when the static names one);
@@ -1809,13 +1901,40 @@ type costMods struct {
 	// that can make it non-zero). While it is false extra is the zero Cost,
 	// which apply may then skip (see apply).
 	hasExtra bool
+	// waterbend / waterbendX / raiseX carry a RaiseCost Cost$ Waterbend<N>
+	// or Waterbend<X> (Water Whip, Crashing Wave; the keyword action "waterbend {N}":
+	// pay {N}, and each untapped artifact or creature you tap while paying
+	// it pays for {1}). The fixed {N} is already in raiseGen; waterbend is
+	// how much of the generic total those taps may cover. raiseX counts the
+	// Waterbend<X> parts: each adds an {X} to the pending cost (folded at the
+	// fold site, since xAsk reads pc.cost.X), and waterbendX lets the taps
+	// cover that announced X too. apply reads none of the three -- the {N}
+	// already rides raiseGen and an unannounced {X} prices at zero.
+	waterbend  int32
+	waterbendX bool
+	raiseX     int32
 }
 
 // empty reports whether the composition would change nothing, so a caller can
 // keep its old zero-value shorthand.
 func (m costMods) empty() bool {
-	return len(m.raises) == 0 && len(m.extra.Blight) == 0 && m.raiseGen == 0 && m.raiseLife == 0 &&
+	return len(m.raises) == 0 && !m.hasExtra && m.raiseGen == 0 && m.raiseLife == 0 &&
 		m.raiseCol.Total() == 0 && len(m.reduces) == 0 && m.setFloor == 0
+}
+
+// reduceTotal is the most generic mana the composition's reductions can take
+// off a cost: each reduction's generic amount plus its colour amounts (a
+// colour shortfall spills to generic). A caller bounding an {X} search adds
+// it to the ceiling, since a reduction only makes a larger X cheaper.
+func (m costMods) reduceTotal() int32 {
+	var n int64
+	for _, red := range m.reduces {
+		n += int64(red.generic) + int64(red.colored.Total())
+	}
+	if n > math.MaxInt32/2 {
+		n = math.MaxInt32 / 2
+	}
+	return int32(n)
 }
 
 // apply composes c with the modifiers, CR 601.2f: increases before
@@ -1830,7 +1949,7 @@ func (m costMods) apply(c Cost) Cost {
 	// 744-byte copies are skipped only when extra is provably zero and none
 	// of those three is negative.
 	if m.hasExtra || c.Life < 0 || c.Snow < 0 || c.XMin < 0 {
-		c = c.Plus(m.extra)
+		c = plusRaiseExtra(c, m.extra)
 	}
 	for _, r := range m.raises {
 		c.Generic = addClampedGeneric(c.Generic, int64(r))
@@ -2234,17 +2353,34 @@ func (e *Engine) scanCostStatics() costStaticViews {
 
 // markCostValidTarget sets out.validTarget from the collected members.
 func markCostValidTarget(out *costStaticViews) {
-	for _, views := range [...][]staticView{out.raise, out.reduce, out.set} {
-		for _, sv := range views {
+	for _, group := range [...]struct {
+		mode  string
+		views []staticView
+	}{{"RaiseCost", out.raise}, {"ReduceCost", out.reduce}, {"SetCost", out.set}} {
+		for _, sv := range group.views {
 			if _, ok := sv.Params["ValidTarget"]; ok {
 				out.validTarget = true
 				return
 			}
-			// A target-conditional ValidSpell$ (Head of the Class's
-			// `Spell.IsTargeting Valid Creature` reduction) reads the chosen
-			// targets exactly as ValidTarget$ does, so the offer gate's
-			// potential-target retry must run for it too.
-			if validSpellHasTargeting(sv.Params["ValidSpell"]) {
+			// Target-conditional ValidSpell$ and target-relative ReduceCost$
+			// amounts read chosen targets, so the offer gate must retry with
+			// potential targets for either shape.
+			if validSpellHasTargeting(sv.Params["ValidSpell"]) ||
+				(group.mode == "ReduceCost" && sv.Params["Relative"] == "True") {
+				out.validTarget = true
+				return
+			}
+			// Any computed Amount$ may read the chosen targets: Battlefield
+			// Thaumaturge's `TargetedObjectsDistinct$Valid Creature`, Not of
+			// This World's `Count$Compare` over `TargetedByTarget$`,
+			// Lullmage's Domination's `TargetedController$`, and whatever
+			// spelling the next card uses. Target-dependence is NOT inferred
+			// from spelling any more -- each spelling-matched rule here missed
+			// the next carrier. Only a plain integer literal is provably
+			// target-independent. A non-literal amount that turns out not to
+			// read targets composes the same modifiers on the retry, so the
+			// widening costs a target census on the already-failed path only.
+			if amountMayReadTargets(sv) {
 				out.validTarget = true
 				return
 			}
@@ -2252,8 +2388,28 @@ func markCostValidTarget(out *costStaticViews) {
 	}
 }
 
-// appendEffectCostStatics appends the Effect-delivered cost-modifier statics
-// (see scanCostStatics) after the printed ones.
+// amountMayReadTargets reports whether a cost-modifier static's Amount$ is
+// anything other than a plain integer literal (see markCostValidTarget).
+func amountMayReadTargets(sv staticView) bool {
+	raw := strings.TrimSpace(sv.Params["Amount"])
+	if raw == "" {
+		return false
+	}
+	_, err := strconv.ParseInt(raw, 10, 64)
+	return err != nil
+}
+
+// appendEffectCostStatics appends the registry-delivered cost-modifier
+// statics (see scanCostStatics) after the printed ones: the Effect-delivered
+// ones, and every GRANTED one (state.ContinuousEffect.CostStaticGranted --
+// Animate/AnimateAll staticAbilities$, Mode$ Continuous AddStaticAbility$,
+// CopyPermanent AddStaticAbilities$). Both read e.active(), so a grant's
+// lifetime is exactly the lifetime the layer walk honours for its siblings:
+// cleanup drops an UntilEOT grant, the move sweep ends a zone-scoped one, a
+// static-derived grant exists only while its granting static is live (the
+// staticContinuous scan re-runs per event). Order is active()'s CR 613
+// layer/timestamp order, then each spec-scoped grant's hosts in the
+// deterministic zone walk grantedCostStaticHosts takes.
 func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 	for _, ce := range e.active() {
 		var dst *[]staticView
@@ -2267,12 +2423,66 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 		default:
 			continue
 		}
+		if ce.CostStaticGranted {
+			e.appendGrantedCostStatic(dst, &ce)
+			continue
+		}
 		*dst = append(*dst, staticView{Source: ce.Source, Controller: ce.Controller,
-			Params: ce.CostStaticParams, ChosenNumber: ce.ChosenNumber, chosenNumberBound: true})
+			Params: ce.CostStaticParams, ChosenNumber: ce.ChosenNumber, chosenNumberBound: true,
+			Remembered: ce.Remembered, effectStamp: ce.Timestamp})
 	}
 }
 
-// modAmount evaluates one cost-modifier static's Amount$: a plain literal
+// appendGrantedCostStatic binds one granted cost-modifier static to each of
+// its hosts exactly as scanCostStatics binds a printed static to the object
+// printing it: the host is the view's Source (ValidCard$/ValidTarget$
+// Card.Self name the host, not the grantor), the host's CURRENT controller is
+// its Controller (Activator$ You/Opponent read the object that has the
+// ability), EffectZone$ gates on the host's zone (default the battlefield),
+// and the granting face's SVar table resolves Amount$/CheckSVar$ names.
+func (e *Engine) appendGrantedCostStatic(dst *[]staticView, ce *ContinuousEffect) {
+	add := func(id state.ObjID) {
+		o := e.G.Obj(id)
+		if o == nil || (o.Zone == state.ZBattlefield && o.PhasedOut) ||
+			!effectZoneOK(ce.CostStaticParams["EffectZone"], o.Zone) {
+			return
+		}
+		*dst = append(*dst, staticView{Source: id, Controller: o.Controller,
+			Params: ce.CostStaticParams, SVars: ce.CostStaticSVars})
+	}
+	affects := strings.TrimSpace(ce.Affects)
+	if affects == "" || affects == "Card.Self" {
+		add(ce.Source)
+		return
+	}
+	for pi, p := range e.G.AliveFrom(0) {
+		for _, z := range staticSourceZones {
+			if z == state.ZStack && pi > 0 {
+				continue
+			}
+			if !grantedHostZone(ce.AffectedZone, z) {
+				continue
+			}
+			for _, id := range e.G.Zone(z, p) {
+				if e.matchesSpecFrom(affects, id, ce.Controller, ce.Source) {
+					add(id)
+				}
+			}
+		}
+	}
+}
+
+// grantedHostZone reports whether a spec-scoped grant reaches objects in z:
+// the battlefield by default (Forge's Affected$ default), otherwise the
+// grant's own AffectedZone$ list.
+func grantedHostZone(affectedZone string, z state.Zone) bool {
+	if strings.TrimSpace(affectedZone) == "" {
+		return z == state.ZBattlefield
+	}
+	return affectedZoneOK(affectedZone, z)
+}
+
+// modAmountX evaluates one cost-modifier static's Amount$: a plain literal
 // stands as itself; anything else is an SVar name on the source's face or an
 // inline Count$ expression, resolved through effects.EvalCount against the
 // source and its SVar table. An unresolvable value degrades to ZERO, never
@@ -2280,16 +2490,19 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 // by exactly 1 whenever their SVar amount was genuinely 0, and a wrong
 // reduction is a wrong cost — 0 ("no reduction") is the honest read of an
 // amount the engine cannot evaluate.
-func (e *Engine) modAmount(sv staticView) int32 {
-	return e.modAmountX(sv, 0)
-}
-
-// modAmountX is modAmount with the cast's announced {X} bound into the
-// evaluation context, so an Amount$ chain that reads Count$xPaid (Dargo's
-// SVar:X:Count$xPaid over SVar:Y:SVar$X/Times.2) sees the announced value
-// during the in-cast recomputation manaToPay/manaToPayX run. x=0 is the
-// offer-time read (an unbound {X} prices as 0), identical to modAmount.
-func (e *Engine) modAmountX(sv staticView, x int32) int32 {
+//
+// x is the cast's announced {X}, bound into the evaluation context so an
+// Amount$ chain that reads Count$xPaid (Dargo's SVar:X:Count$xPaid over
+// SVar:Y:SVar$X/Times.2) sees the announced value during the in-cast
+// recomputation manaToPay/manaToPayX run; x=0 is the offer-time read (an
+// unbound {X} prices as 0). targets is the cast's chosen targets (or the
+// offer gate's cost-potential candidate list) — the same list
+// costStaticApplies already gates ValidTarget$ against — bound onto
+// effects.Ctx.Targets so a target-conditional Amount$ head such as Not of
+// This World's TargetedByTarget$Valid Count$Compare chain reads what the
+// spell is being cast at. The raise and set sites pass targets too, so one
+// composition path cannot half-apply a static with an unbound read.
+func (e *Engine) modAmountX(sv staticView, x int32, targets []state.Target) int32 {
 	raw := strings.TrimSpace(sv.Params["Amount"])
 	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
 		if n < 0 {
@@ -2308,11 +2521,15 @@ func (e *Engine) modAmountX(sv staticView, x int32) int32 {
 	if svars == nil {
 		svars = o.Face().SVars
 	}
+	// A pending cast's named announcement (the March cycle's Exiled,
+	// Explosive Singularity's Tapped) binds the SVar its name spells.
+	svars = e.namedAnnounceSVars(sv.Source, svars)
 	// An Effect-delivered cost static carries its SetChosenNumber$ binding
 	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
 	// the source object's own logged choice.
 	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars, X: x,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound}
+		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound,
+		Targets: targets}
 	// An SVar NAME resolves through its body on the source's face; anything
 	// else is an inline Count$-class expression evaluated as written.
 	if body, ok := svars[raw]; ok {
@@ -2321,54 +2538,12 @@ func (e *Engine) modAmountX(sv staticView, x int32) int32 {
 	return effects.EvalCount(e, ctx, raw)
 }
 
-// raiseExtraFromCost parses a RaiseCost Cost$ that raiseFromCost does NOT
-// model as plain mana/life into the non-mana ADDITIONAL cost it names, which
-// the cast flow folds into the pending cost exactly like a SpellAbility's own
-// Cost$ (withSpellAbilityExtras). Only the Blight<X>/Blight<N> shape is
-// bridged here: Soul Immolation's `Cost$ Blight<X>` and Blighted Nightmare's
-// same-token ability cost are the corpus's two carriers, and the whole point
-// is that the announced X must survive into offer gating, the X ask, the
-// blight payment and the X-dependent effect with ONE representation
-// (costMods.extra, folded by costMods.apply and by the pending cast), never a
-// re-parse that could disagree.
-//
-// The Cost$ must parse into EXACTLY the blight part: a mixed token the parser
-// also leaves an Unknown for, or a mana/other non-mana part beside it, reports
-// false so the static degrades to the ordinary Amount$ fallback (fail closed,
-// the raiseFromCost convention for an unmodelled shape). Other non-mana
-// RaiseCost shapes (Waterbend, ExileFromHand, Sac<...>) remain unsupported and
-// are not bridged here.
-func raiseExtraFromCost(s string) (Cost, bool) {
-	if strings.TrimSpace(s) == "" {
-		return Cost{}, false
-	}
-	c := ParseCost(s)
-	if len(c.Blight) == 0 || len(c.Unknown) > 0 {
-		return Cost{}, false
-	}
-	// Reject anything beyond the blight part: bridging must not silently drop
-	// a mana or other non-mana component of a mixed Cost$.
-	if c.Colored.Total() != 0 || c.Generic != 0 || c.Life != 0 || c.X != 0 || c.XMin != 0 ||
-		c.Tap || len(c.Sac) > 0 || len(c.Discard) > 0 || len(c.SubCounter) > 0 ||
-		len(c.AddCounter) > 0 || len(c.Exile) > 0 || len(c.Reveal) > 0 ||
-		len(c.RevealOrChoose) > 0 ||
-		len(c.RevealChosen) > 0 || len(c.Behold) > 0 || len(c.TapPermanent) > 0 ||
-		len(c.Energy) > 0 || len(c.Return) > 0 || len(c.Draw) > 0 || len(c.LifeX) > 0 ||
-		len(c.DamageYou) > 0 || len(c.MoveToGrave) > 0 || len(c.Mill) > 0 || len(c.Evidence) > 0 ||
-		len(c.Exert) > 0 || c.Forage {
-		return Cost{}, false
-	}
-	return Cost{Blight: c.Blight}, true
-}
-
 // raiseFromCost parses a RaiseCost Cost$ into its mana and life raise. Only
 // the plain shapes apply: single colour letters, numeric tokens, and the
 // fixed PayLife<N> token. Anything else — hybrid pips (none in the corpus's
-// cost raises), X/T, or a <...> component this build does not model as an
-// additional raise (Waterbend, ExileFromHand, BeholdExile, Sac<...>,
-// AddCounter, tapXType) — reports false, so the static degrades to the
-// Amount$ reading (absent → the zero raise) rather than silently pricing an
-// unmodelled cost as one generic mana.
+// cost raises), X/T, or a <...> component (Sac<...>, BeholdExile,
+// Waterbend, AddCounter, tapXType, a named count) — reports false and is
+// priced by the additional-cost bridge instead (composeRaiseCost).
 func raiseFromCost(s string) (col state.Mana, gen, life int32, ok bool) {
 	for toks := (costTokenIter{s: s}); ; {
 		sym, more := toks.next()
@@ -2477,16 +2652,38 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 	return mods
 }
 
-// costModifiersForPotentialTargets is the offer-side counterpart for a
-// target-conditional REDUCTION. It admits a spell whose base cost is
-// unaffordable only when at least one legal target can make the reduction
-// apply. Target-conditional raises and SetCost floors are intentionally not
-// assumed: they can only make an otherwise legal offer more expensive, so
-// charging them speculatively would incorrectly withhold a nonmatching
-// target choice. The selected target is always repriced by
-// costModifiersForTargets before payment.
-func (e *Engine) costModifiersForPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) costMods {
-	return e.costModifiersWithTargets(p, id, scope, targets, true)
+// potentialCostModsUsing prices a COMPLETE composition for one legal target
+// assignment at a time, accepting only when an announcement satisfies the
+// caller's payment gate. A target-count amount must see at most TargetMax$
+// targets, while independent conditional statics must not combine reductions
+// from different, mutually exclusive single-target choices. Target-dependent
+// raises/floors remain excluded; chosen targets are repriced before payment.
+func (e *Engine) potentialCostModsUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, x int32, accept func(costMods) bool) (costMods, bool) {
+	max := len(e.costAmountTargets(p, id, scope, targets))
+	for i, target := range targets {
+		if max == 0 {
+			break
+		}
+		assignment := []state.Target{target}
+		for j, other := range targets {
+			if len(assignment) == max {
+				break
+			}
+			if i != j {
+				assignment = append(assignment, other)
+			}
+		}
+		var mods costMods
+		if x != 0 {
+			mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, assignment, true, x)
+		} else {
+			mods = e.costModifiersWithTargetsUsing(statics, p, id, scope, assignment, true)
+		}
+		if accept(mods) {
+			return mods, true
+		}
+	}
+	return costMods{}, false
 }
 
 // costModifiersForTargetsX is costModifiersForTargets with the cast's
@@ -2508,6 +2705,13 @@ func (e *Engine) costModifiersWithTargetsX(p state.PlayerID, id state.ObjID, sco
 func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
 	// The same per-pass provenance capture costModifiersWithTargetsUsing owns.
 	e.costProvenanceSeen = false
+	// The same census-vs-assignment split costModifiersWithTargetsUsing makes:
+	// matching reads every candidate, a target-relative amount reads only a
+	// complete legal assignment.
+	amountTargets := targets
+	if potential {
+		amountTargets = e.costAmountTargets(p, id, scope, targets)
+	}
 	var mods costMods
 	xBound := x != 0
 	for _, group := range []struct {
@@ -2528,37 +2732,18 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				continue
 			}
 			if mode == "RaiseCost" {
-				// A RaiseCost Cost$ names the whole additional cost (Forge
-				// CostAdjustment's RaiseCost branch): a plain mana/life cost
-				// is raised as-is, pips and life included. A Cost$ paired
-				// with an Amount$ ("you may pay {1}{G} any number of times")
-				// is an OPTIONAL additional-cost shape this build does not
-				// model -- the exotic Amount$ skips the static below, so only
-				// the plain raise applies. Cost$ shapes that are not plain
-				// mana/life (Waterbend, ExileFromHand, Sac<...>) parse
-				// nowhere and are skipped by raiseFromCost.
-				rc, rg, rl, costOK := raiseFromCost(sv.Params["Cost"])
-				if costOK {
-					if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-						for i := range rc {
-							mods.raiseCol[i] = addClampedGeneric(mods.raiseCol[i], int64(rc[i]))
-						}
-						mods.raiseGen = addClampedGeneric(mods.raiseGen, int64(rg))
-						mods.raiseLife = addClampedGeneric(mods.raiseLife, int64(rl))
-						continue
-					}
+				// A RaiseCost Cost$ names the whole additional cost (Forge's
+				// CostAdjustment RaiseCost branch): a plain mana/life cost
+				// is raised as-is, and every other Cost$ is carried as an
+				// ADDITIONAL cost (composeRaiseCost, rules/raise_cost_extra.go)
+				// so the offer gate, the cast-flow stages and the settle all
+				// price the same parts. A Cost$ paired with an Amount$ ("you
+				// may pay {1}{G} any number of times") is an OPTIONAL shape
+				// this build prices only through its Amount$ below.
+				if e.composeRaiseCost(&mods, sv, id, scope, x, targets) {
+					continue
 				}
-				// A non-mana RaiseCost Cost$ the plain parser rejected (the
-				// Blight<X> bridge) is carried as an ADDITIONAL cost so its X
-				// announcement, offer gate and payment all price the same way.
-				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
-						mods.extra = mods.extra.Plus(extra)
-						mods.hasExtra = true
-						continue
-					}
-				}
-				mods.raises = append(mods.raises, e.modAmountX(sv, x))
+				mods.raises = append(mods.raises, e.modAmountX(sv, x, amountTargets))
 				continue
 			}
 			red := costMod{
@@ -2575,7 +2760,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, x)
+				amount := e.modAmountX(sv, x, amountTargets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2591,7 +2776,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, x)
+				red.generic = e.modAmountX(sv, x, amountTargets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2605,7 +2790,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
 			continue
 		}
-		if n := e.modAmountX(sv, x); n > mods.setFloor {
+		if n := e.modAmountX(sv, x, amountTargets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2620,6 +2805,13 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 	// Each pass owns the provenance capture: cleared here, set by
 	// costStaticApplies when a ValidCard$ carries a cast-provenance token.
 	e.costProvenanceSeen = false
+	// The potential pass hands the whole candidate census to the gate chain
+	// (so ValidTarget$/ValidSpell$ can match ANY candidate) but a target-relative
+	// Amount$ reads only a complete legal assignment (costAmountTargets).
+	amountTargets := targets
+	if potential {
+		amountTargets = e.costAmountTargets(p, id, scope, targets)
+	}
 	var mods costMods
 	for _, group := range []struct {
 		mode  string
@@ -2639,37 +2831,18 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				continue
 			}
 			if mode == "RaiseCost" {
-				// A RaiseCost Cost$ names the whole additional cost (Forge
-				// CostAdjustment's RaiseCost branch): a plain mana/life cost
-				// is raised as-is, pips and life included. A Cost$ paired
-				// with an Amount$ ("you may pay {1}{G} any number of times")
-				// is an OPTIONAL additional-cost shape this build does not
-				// model — the exotic Amount$ skips the static below, so only
-				// the plain raise applies. Cost$ shapes that are not plain
-				// mana/life (Waterbend, ExileFromHand, Sac<...>) parse
-				// nowhere and are skipped by raiseFromCost.
-				rc, rg, rl, costOK := raiseFromCost(sv.Params["Cost"])
-				if costOK {
-					if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-						for i := range rc {
-							mods.raiseCol[i] = addClampedGeneric(mods.raiseCol[i], int64(rc[i]))
-						}
-						mods.raiseGen = addClampedGeneric(mods.raiseGen, int64(rg))
-						mods.raiseLife = addClampedGeneric(mods.raiseLife, int64(rl))
-						continue
-					}
+				// A RaiseCost Cost$ names the whole additional cost (Forge's
+				// CostAdjustment RaiseCost branch): a plain mana/life cost
+				// is raised as-is, and every other Cost$ is carried as an
+				// ADDITIONAL cost (composeRaiseCost, rules/raise_cost_extra.go)
+				// so the offer gate, the cast-flow stages and the settle all
+				// price the same parts. A Cost$ paired with an Amount$ ("you
+				// may pay {1}{G} any number of times") is an OPTIONAL shape
+				// this build prices only through its Amount$ below.
+				if e.composeRaiseCost(&mods, sv, id, scope, 0, targets) {
+					continue
 				}
-				// A non-mana RaiseCost Cost$ the plain parser rejected (the
-				// Blight<X> bridge) is carried as an ADDITIONAL cost so its X
-				// announcement, offer gate and payment all price the same way.
-				if _, hasAmt := sv.Params["Amount"]; !hasAmt {
-					if extra, ok := raiseExtraFromCost(sv.Params["Cost"]); ok {
-						mods.extra = mods.extra.Plus(extra)
-						mods.hasExtra = true
-						continue
-					}
-				}
-				mods.raises = append(mods.raises, e.modAmount(sv))
+				mods.raises = append(mods.raises, e.modAmountX(sv, 0, amountTargets))
 				continue
 			}
 			red := costMod{
@@ -2686,7 +2859,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmount(sv)
+				amount := e.modAmountX(sv, 0, amountTargets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2702,7 +2875,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 					}
 				}
 			} else {
-				red.generic = e.modAmount(sv)
+				red.generic = e.modAmountX(sv, 0, amountTargets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2716,7 +2889,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, false) {
 			continue
 		}
-		if n := e.modAmount(sv); n > mods.setFloor {
+		if n := e.modAmountX(sv, 0, amountTargets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2783,8 +2956,36 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		if strings.Contains(spec, "wasCastFromYourHand") || strings.Contains(spec, "wasCastByYou") {
 			e.costProvenanceSeen = true
 		}
+		if strings.Contains(spec, castSaMayPlaySource) {
+			// Card.CastSa Spell.MayPlaySource (the "spell cast this way"
+			// raises: Elite Spellbinder, Soul Partition, Lightstall
+			// Inquisitor, Mavinda): the card-level form of the ValidSpell$
+			// Spell.MayPlaySource read, answered by the same one source of
+			// truth -- the cast being priced rides a may-play permission this
+			// static's host granted (castRidesMayPlayOf) -- at the pre-push
+			// offer and after the push alike, where the post-payment CastFlags
+			// the other CastSa readers use do not exist yet.
+			var alive bool
+			if spec, alive = admitProvenanceAlternatives(spec, castSaMayPlaySource,
+				e.castRidesMayPlayOf(p, id, sv.Source, scope)); !alive {
+				return false
+			}
+		}
 		spec, ok2 := e.castProvenanceAdmitsPending(spec, id, sv.Controller)
-		if !ok2 || !e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+		if !ok2 {
+			return false
+		}
+		if scope.kind == "Spell" && strings.Contains(spec, "Permanent") {
+			// The priced object is a SPELL -- in hand/graveyard/exile at the
+			// offer, on the stack at the charge -- never a battlefield
+			// permanent, so Forge's `Permanent` base (a permanent card by
+			// type, CR 110.4a's "permanent spell") reads the printed type,
+			// exactly as the "cast a permanent spell" trigger matcher reads
+			// it (spellCastPermanentSpec). Beluna Grandsquall's
+			// `Permanent.AdventureCard` was otherwise dead.
+			spec = spellCastPermanentSpec(spec)
+		}
+		if !e.matchesSpec(spec, id, e.costStaticSpecCtx(sv, id)) {
 			return false
 		}
 	}
@@ -2795,7 +2996,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 	if vs, ok := sv.Param(cards.PKValidSpell); ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
 		return false
 	}
-	if az, ok := sv.Param(cards.PKAffectedZone); ok && scope.kind == "Ability" {
+	if az, ok := sv.Param(cards.PKAffectedZone); ok && (scope.kind == "Ability" || scope.kind == "Static") {
 		o := e.G.Obj(id)
 		if o == nil {
 			return false
@@ -2804,7 +3005,11 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 			return false
 		}
 	}
-	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.isPresent(spec, sv) {
+	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.presentGate(sv, spec) {
+		// The shared IsPresent$ gate: PresentZone$ picks the zone counted
+		// (Igneous Elemental's graveyard, Forceful Cultivator's hand) and
+		// PresentCompare$ the threshold (default GE1; Hour of Revelation's
+		// GE10, Saiba Syphoner's EQ0 "no ... cards in your hand").
 		return false
 	}
 	if !e.costConditionHolds(sv, p) {
@@ -2822,13 +3027,14 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// must not silently floor the cost.
 		return false
 	}
-	if sv.Params["Secondary"] == "True" {
-		// Forge's Secondary$ marks a static that duplicates another one's
-		// effect under a different wording; applying both would double the
-		// modifier (the paired pair of "spells that target ... cost {2} more"
-		// lines). Skipping the secondary applies the primary only.
-		return false
-	}
+	// Secondary$ True is NOT a gate: Forge reads CardTraitBase.isSecondary
+	// only while building card text (Card.java's description walks), and
+	// StaticAbilityCostChange applies a secondary cost static like any other.
+	// The marker only says "this line's text is folded into another trait's
+	// description" -- Assassin's Ink's enchantment half, Nahiri's equip
+	// discount under its first-strike Continuous, a Class level's granted
+	// reduction. No corpus cost static marked Secondary$ duplicates an
+	// identically gated sibling, so applying it never double-counts.
 	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && xBound) {
 		// Relative$ Amount$ scales with something the composition point does
 		// not yet know (IncreaseCost per target beyond the first, or a game
@@ -2843,9 +3049,57 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// evaluated with X bound. A Relative$ ReduceCost whose Amount$ is
 		// unresolvable still degrades to zero (the honest no-reduction),
 		// never to an invented discount.
-		return false
+		//
+		// SECOND EXCEPTION (notofthisworld1): with the cast's targets bound
+		// onto effects.Ctx.Targets (modAmountX now threads them), a Relative$
+		// REDUCE-cost whose Amount$ the bound context can actually EVALUATE
+		// is no longer a shape the composition point cannot price — Not of
+		// This World's Amount$ CostReduction over
+		// SVar:CostReduction:Count$Compare CheckTgt GE1.7.0 with
+		// SVar:CheckTgt:TargetedByTarget$Valid Card.powerGE7+YouCtrl reads
+		// its real {7}-or-0 from the targeted spell's own targets, at the
+		// offer gate (potentialCostModsUsing's single candidate) and
+		// at the CR 601.2c reprice (the chosen targets) alike. The probe is
+		// the SAME evaluation modAmountX runs, so the gate and the amount
+		// cannot disagree; an amount that resolves to zero prices as no
+		// reduction, exactly what the skip produced. Anything unresolvable
+		// (and every RaiseCost/SetCost Relative$) keeps the fail-closed skip.
+		if !(mode == "ReduceCost" && e.relativeAmountResolves(sv, targets)) {
+			return false
+		}
 	}
 	return true
+}
+
+// relativeAmountResolves reports whether a Relative$ cost-modifier static's
+// Amount$ evaluates under a context bound with the cast's targets — the
+// verdict (not the value) is what the target-bound costStaticApplies Relative$
+// exception consumes, so the gate and the amount evaluation share one read. A plain
+// integer literal stands as itself. See the call site's SECOND EXCEPTION for
+// the measured blast radius (notofthisworld1).
+func (e *Engine) relativeAmountResolves(sv staticView, targets []state.Target) bool {
+	raw := strings.TrimSpace(sv.Params["Amount"])
+	if raw == "" {
+		return false
+	}
+	if _, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		return true
+	}
+	o := e.G.Obj(sv.Source)
+	if o == nil || o.Face() == nil {
+		return false
+	}
+	svars := sv.SVars
+	if svars == nil {
+		svars = o.Face().SVars
+	}
+	body, ok := svars[raw]
+	if !ok {
+		body = raw
+	}
+	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars, Targets: targets}
+	_, ok = effects.EvalCountOK(e, ctx, body)
+	return ok
 }
 
 // costTargetsMatch reports whether at least one chosen target satisfies a
@@ -2964,22 +3218,6 @@ func (e *Engine) checkSVarHolds(sv staticView) bool {
 	return holds
 }
 
-// isPresent evaluates the IsPresent$ intervening-if: an object matching the
-// spec exists on any battlefield (Trinisphere's `Card.Self+untapped` matches
-// the trinisphere itself while untapped). Resolved against the static's
-// source so Self-class predicates bind.
-func (e *Engine) isPresent(spec string, sv staticView) bool {
-	ctx := e.staticSpecCtx(sv)
-	for _, p := range e.G.AliveFrom(0) {
-		for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-			if e.matchesSpec(spec, oid, ctx) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // affectedZoneOK reports whether zone z is named in an AffectedZone$ list
 // (Forge's comma-separated zone words; an unrecognised word denies, the same
 // direction effectZoneOK takes).
@@ -3030,12 +3268,11 @@ func affectedZoneOK(v string, z state.Zone) bool {
 // or ability is being paid for. Kind Spell matches a cast (constraint
 // checked against the cast variant and the face); Kind Activated matches an
 // activated ability (constraint checked against the ability's own keyword
-// tag, its API, or the loyalty-ability classifier); Kind Static (morph-up,
-// foretell, unlock — casting options this build does not model) never
-// matches, so a static naming one is inert rather than over-applied. A
-// constraint this build cannot evaluate denies — a discount that wrongly
-// applies is a wrong cost, the same fail-closed direction the ValidSA$
-// grammar takes.
+// tag, its API, or the loyalty-ability classifier); Kind Static matches the
+// special action being priced (staticConstraintMatches: foretelling,
+// plotting, unlocking, turning face up). A constraint this build cannot
+// evaluate denies — a discount that wrongly applies is a wrong cost, the
+// same fail-closed direction the ValidSA$ grammar takes.
 //
 // sv is the owning static (its source and controller bind the constraint's
 // spec context), p the caster and targets the cast's target list: the
@@ -3073,7 +3310,7 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 				return true
 			}
 		case "Static":
-			if scope.kind == "Foretell" && constraint == "Foretelling" {
+			if staticConstraintMatches(scope, constraint) {
 				return true
 			}
 		}
@@ -3087,13 +3324,13 @@ func (e *Engine) validSpellMatches(sv staticView, scope costScope, p state.Playe
 // types Instant/Sorcery, and the target-conditional `IsTargeting <spec>` form
 // (Head of the Class's "the first spell you cast each turn that targets a
 // creature"), which rides effects' ONE `Spell.IsTargeting` grammar against
-// the same target list costTargetsMatch reads. Everything else — Bargain,
-// Buyback, the Dash alternative cast, isCastFaceDown, MayPlaySource —
-// is a casting option this function does not read, and denies.
-// (Blitz matches the blitzed cast mode: Henzie, Toolbox Torre's
-// "Blitz costs you pay cost {1} less" ReduceCost keys on ValidSpell$
-// Spell.Blitz, and its scope mode is exactly the mode legal.go offers and
-// beginCast charges. Dash is the remaining denied alternative cast.)
+// the same target list costTargetsMatch reads. The cast-option constraints
+// read the cast mode the offer walk named and beginCast charges -- the one
+// source of truth for "how is this spell being cast": Blitz (Henzie, Toolbox
+// Torre), Dash (Warbringer), Buyback (Memory Crystal), isCastFaceDown (Dream
+// Chisel) -- and MayPlaySource the may-play permission the "mayplay" cast
+// rides (castRidesMayPlayOf). Bargain denies: this build implements no
+// Bargain keyword, so no cast is ever bargained. Anything else denies.
 func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.PlayerID, id state.ObjID, constraint string, targets []state.Target) bool {
 	c := strings.TrimSpace(constraint)
 	if strings.HasPrefix(c, "IsTargeting") {
@@ -3123,6 +3360,24 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 		return scope.mode == "miracle"
 	case "Blitz":
 		return scope.mode == "blitzed" || strings.HasPrefix(scope.mode, "blitzed_grant_")
+	case "Dash":
+		// Forge's isDash: the dash alternative cast, the "dashed" mode the
+		// hand walk offers and beginCast charges (Warbringer).
+		return scope.mode == "dashed"
+	case "Buyback":
+		// Forge's isBuyback: the cast that pays the Buyback additional cost,
+		// the "buyback" mode (Memory Crystal). Like Forge, the reduction
+		// applies to that cast's total cost.
+		return scope.mode == "buyback"
+	case "isCastFaceDown":
+		// Forge's isCastFaceDown: the morph family's face-down cast (Dream
+		// Chisel, Obscuring Aether).
+		return modeIsCastFaceDown(scope.mode)
+	case "MayPlaySource":
+		// Forge's MayPlaySource: the cast rides a may-play permission whose
+		// host is this static's own host (Urianger Augurelt's Play Arcanum
+		// effect grants the permission AND carries the reduction).
+		return e.castRidesMayPlayOf(p, id, sv.Source, scope)
 	case "Instant":
 		if o := e.G.Obj(id); o != nil && o.Face() != nil {
 			return o.Face().IsInstant()
@@ -3137,10 +3392,39 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 	return false
 }
 
+// staticConstraintMatches checks one ValidSpell$ Static.* constraint: the
+// special action being priced (Forge's static-ability SpellAbility
+// properties). Foretelling is the foretell action (its own "Foretell" scope
+// kind, which predates specialActionScope); Plotting is the plot action,
+// which rides the cast flow under the "plot" mode (Doc Aurlock); Unlock is
+// the Room unlock (Inquisitive Glimmer); MorphUp is Forge's isMorphUp -- the
+// Morph and Megamorph turn-face-up (Exiled Doomsayer) -- and isTurnFaceUp its
+// union with the Disguise turn-up (Harrowing Swarm's granted reduction).
+// Forge's isTurnFaceUp also covers the manifest and cloak turn-ups; this
+// build models no turn-up action for either, so there is nothing more for it
+// to match. Anything else denies.
+func staticConstraintMatches(scope costScope, constraint string) bool {
+	switch strings.TrimSpace(constraint) {
+	case "Foretelling":
+		return scope.kind == "Foretell"
+	case "Plotting":
+		return scope.mode == "plot"
+	case "Unlock":
+		return scope.kind == "Static" && scope.mode == "unlock"
+	case "MorphUp":
+		return scope.kind == "Static" && scope.mode == "morphup"
+	case "isTurnFaceUp":
+		return scope.kind == "Static" && (scope.mode == "morphup" || scope.mode == "disguiseup")
+	}
+	return false
+}
+
 // abilityConstraintMatches checks one ValidSpell$ Activated.* constraint
 // against an activated ability. Keyword-derived constraints (Equip, Ninjutsu,
-// Cycling, Boast, Exhaust, ...) match the Keyword$ tag every keyword
-// expansion carries (cards/keywords.go); ManaAbility/!ManaAbility read the
+// Cycling, ...) match the Keyword$ tag every keyword expansion carries
+// (cards/keywords.go); the param-backed flags (Exhaust, PowerUp, Boast,
+// Monstrosity) match the SA's own `<Name>$ True` (saFlagProperty);
+// ManaAbility/!ManaAbility read the
 // SA API; Loyalty reuses the loyalty-ability classifier; YouCtrl reads the
 // ability source's controller. An unevaluable constraint denies.
 func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id state.ObjID, constraint string) bool {
@@ -3162,6 +3446,9 @@ func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id 
 		o := e.G.Obj(id)
 		return o != nil && o.Controller != p
 	}
+	if saFlagProperty(ab, constraint) {
+		return true
+	}
 	// Keyword-derived: the expansion's Keyword$ tag (comma list).
 	for kw := range strings.SplitSeq(ab.Params["Keyword"], ",") {
 		if strings.EqualFold(strings.TrimSpace(kw), constraint) {
@@ -3169,6 +3456,40 @@ func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id 
 		}
 	}
 	return false
+}
+
+// saParamFlagProperties are the Forge SpellAbility properties that are a
+// parameter ON the ability, not a keyword the ability was expanded from:
+// SpellAbility.isBoast/isExhaust/isPowerUp/isMonstrosity are each
+// hasParam("<Name>") (SpellAbilityProperty's "Boast"/"Exhaust"/"PowerUp"/
+// "Monstrosity" branches). A script writes them as `<Name>$ True` on the A:
+// line itself (Prowcatcher Specialist's Exhaust$ True, Serpent Specialist's
+// PowerUp$ True), so no keyword expansion stamps a Keyword$ tag for them.
+var saParamFlagProperties = [...]string{"Boast", "Exhaust", "PowerUp", "Monstrosity"}
+
+// saFlagProperty reports whether property names one of the param-backed SA
+// flags and ab carries it. Forge tests presence (hasParam); every corpus
+// carrier spells the value True, and an explicit False is read as absent so
+// a script can never switch the flag on by naming it off.
+func saFlagProperty(ab *cards.SA, property string) bool {
+	if ab == nil {
+		return false
+	}
+	var v string
+	var ok bool
+	// Literal keys (one per saParamFlagProperties entry) so the param
+	// census attributes each read.
+	switch property {
+	case "Boast":
+		v, ok = ab.Params["Boast"]
+	case "Exhaust":
+		v, ok = ab.Params["Exhaust"]
+	case "PowerUp":
+		v, ok = ab.Params["PowerUp"]
+	case "Monstrosity":
+		v, ok = ab.Params["Monstrosity"]
+	}
+	return ok && !strings.EqualFold(strings.TrimSpace(v), "False")
 }
 
 // parseAmount reads an Amount$ parameter, falling back to def for anything
