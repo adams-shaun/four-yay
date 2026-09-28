@@ -657,8 +657,8 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 // budget's per-card price. On a battlefield permanent it reads the rules'
 // derived characteristics through Host.Power (the same read
 // effects/count.go's refPower shares); away from the battlefield (a library
-// or graveyard pool) it falls back to face power plus P1P1 minus M1M1
-// counters, refPower's LKI-compatible fallback.
+// or graveyard pool) it falls back to face power plus the summed P/T counter
+// deltas (refPower's LKI-compatible fallback).
 func chooseCardPower(h Host, id state.ObjID) int {
 	o := h.Game().Obj(id)
 	if o == nil {
@@ -671,7 +671,8 @@ func chooseCardPower(h Host, id state.ObjID) int {
 	if f == nil {
 		return 0
 	}
-	return int(f.Power()) + int(o.Counter("P1P1")) - int(o.Counter("M1M1"))
+	dp, _ := o.CounterPTTotals()
+	return int(f.Power()) + int(dp)
 }
 
 // budgetGreedyTake is the deterministic forced take under a WithTotalPower$

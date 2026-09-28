@@ -1852,6 +1852,17 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			}
 		}
 	}
+	// GainLife<N/Player...> cost parts: the payment needs at least one alive
+	// player the part's spec names relative to the payer (a player has to be
+	// there to gain the life). A part whose spec matches nobody -- the only
+	// payer alive, or an unevaluable spec -- leaves the cost unpayable and
+	// therefore unoffered, the fail-closed direction. The same helper the
+	// payment uses resolves the candidates, so gate and settlement agree.
+	for _, part := range cost.GainLife {
+		if len(e.gainLifeCostPlayers(p, part)) == 0 {
+			return false
+		}
+	}
 	if o := e.G.Obj(id); o != nil {
 		for _, part := range cost.SubCounter {
 			// An announced SubCounter<X/Kind> part's count is the cast's X,
@@ -2072,6 +2083,50 @@ func (e *Engine) putLibPicksOnTop(picks []state.ObjID) {
 	}
 }
 
+// gainLifeCostPlayers lists the seats a GainLife cost part's Spec names
+// relative to the payer, in APNAP order starting at the payer (the same walk
+// every multi-player effect uses). Spec is Forge's raw player word
+// (Player.Opponent / Player.Other); both mean "a player other than the
+// payer", and the engine evaluates them through the ONE shared player-spec
+// evaluator (effects.MatchesPlayerSpec) so this can never disagree with the
+// ValidPlayer$ rider arm that reads the same call. The payer is never its
+// own gain-life target ("an opponent"/"each other player"), so a part that
+// somehow matched the payer is skipped -- harmless for the corpus spellings,
+// and it keeps the payer's own life out of a cost payment.
+func (e *Engine) gainLifeCostPlayers(payer state.PlayerID, part CostPart) []state.PlayerID {
+	var out []state.PlayerID
+	for _, p := range e.G.AliveFrom(payer) {
+		if p == payer {
+			continue
+		}
+		if effects.MatchesPlayerSpec(e.G, part.Spec, p, payer) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// payGainLifeCost settles the payer's GainLife<N/Player...> cost parts
+// (Forge CostGainLife; Invigorate/Reverent Silence/Skyshroud Cutter): each
+// part has every player its Spec names relative to the payer gain N life as
+// one POSITIVE LifeChange per player. That is exactly the oracle for the
+// /* "each other player" spelling and exact in the two-seat game for the
+// bare Player.Opponent spelling; in a larger pod the bare spelling pays
+// EVERY opponent rather than one chosen opponent (a documented deviation --
+// the alternative-cost route has no mid-cast choose-an-opponent ask). The
+// emit routes through applyReplacements/applyLifeReplacements, so a CR 616
+// GainLife replacement and the CantGainLife static apply for free.
+func (e *Engine) payGainLifeCost(payer state.PlayerID, parts []CostPart) {
+	for _, part := range parts {
+		if part.N <= 0 {
+			continue
+		}
+		for _, p := range e.gainLifeCostPlayers(payer, part) {
+			e.emit(events.Event{Kind: events.LifeChange, Player: p, Amount: part.N})
+		}
+	}
+}
+
 // payDamageCost makes the payer take n damage from the source -- the
 // DamageYou<N> cost payment (Forge CostDamage). The event shape is the one
 // payUnlessDamageCost emits: the Damage event names the payer, the engine's
@@ -2252,10 +2307,30 @@ func (e *Engine) sacrificeCostAssignable(p state.PlayerID, source state.ObjID, p
 	return true
 }
 
+// lastDrawnThisTurn returns the card player p most recently DREW this turn
+// (the last events.Draw naming p since the most recent TurnChange), or 0 if p
+// drew nothing this turn. Derived from the event log exactly like
+// CardsDrawnThisTurn, so a replay derives it identically; it is NOT a filter.
+// Discard<1/LastDrawn> (Jandor's Ring) is the corpus's only carrier.
+func (e *Engine) lastDrawnThisTurn(p state.PlayerID) state.ObjID {
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		ev := e.L.Events[i]
+		if ev.Kind == events.TurnChange {
+			break
+		}
+		if ev.Kind == events.Draw && ev.Player == p {
+			return ev.Obj
+		}
+	}
+	return 0
+}
+
 // discardCandidates returns the still-available cards that can pay one
 // Discard cost part. Random names a selection method rather than a card
 // characteristic, and a Hand spec is Forge's "discard your hand" shape
-// (the corpus spells its ignored count as both 0 and 1).
+// (the corpus spells its ignored count as both 0 and 1). LastDrawn is the
+// other history-keyed slot: "the last card you drew this turn", one specific
+// card, unpayable when p drew nothing or that card has left the hand.
 // A spell being announced is excluded because it will be on the stack when
 // costs are paid; an activated ability's source may remain in hand and can
 // therefore pay CARDNAME/NICKNAME costs such as channel and bloodrush.
@@ -2266,6 +2341,19 @@ func (e *Engine) discardCandidates(p state.PlayerID, source state.ObjID, part Co
 		// Forge uses NICKNAME as the same self-reference as CARDNAME in the
 		// four discard-cost lines that carry it.
 		matchSpec = "CARDNAME"
+	}
+	if strings.EqualFold(matchSpec, "LastDrawn") {
+		// The single candidate is the last card p drew this turn, and only if
+		// it is still in p's hand. If p drew nothing, or that card has left
+		// the hand, the cost is unpayable -- do not skip back to an earlier
+		// draw.
+		last := e.lastDrawnThisTurn(p)
+		if last != 0 && !reserved[last] && !(casting && last == source) {
+			if o := e.G.Obj(last); o != nil && o.Zone == state.ZHand {
+				return []state.ObjID{last}
+			}
+		}
+		return nil
 	}
 	var out []state.ObjID
 	for _, id := range e.G.Zone(state.ZHand, p) {
@@ -2423,6 +2511,9 @@ func foldAdditionalCost(cost, extra Cost) Cost {
 	}
 	if len(extra.DamageYou) > 0 {
 		cost.DamageYou = append(append([]CostPart(nil), cost.DamageYou...), extra.DamageYou...)
+	}
+	if len(extra.GainLife) > 0 {
+		cost.GainLife = append(append([]CostPart(nil), cost.GainLife...), extra.GainLife...)
 	}
 	if len(extra.Mill) > 0 {
 		cost.Mill = append(append([]CostPart(nil), cost.Mill...), extra.Mill...)
@@ -10377,6 +10468,9 @@ func (e *Engine) payCast() {
 		for _, part := range pc.cost.DamageYou {
 			e.payDamageCost(pc.player, part.N, pc.card, sourceKeywordLKI, sourceControllerLKI)
 		}
+		// GainLife<N/Player...> cost parts (see payGainLifeCost): every player
+		// the part names relative to the payer gains N life.
+		e.payGainLifeCost(pc.player, pc.cost.GainLife)
 		// Mill cost parts (Mill<N>): the payer mills the summed requirement
 		// from the top of their library as part of the payment.
 		e.payMillCostParts(pc)
@@ -10637,6 +10731,7 @@ func (e *Engine) payCast() {
 	for _, part := range pc.cost.DamageYou {
 		e.payDamageCost(pc.player, part.N, pc.card, sourceKeywordLKI, sourceControllerLKI)
 	}
+	e.payGainLifeCost(pc.player, pc.cost.GainLife)
 	e.payDrawCostParts(pc)
 	// Return cost parts (see the ability branch above for the why).
 	for _, id := range pc.returns {
@@ -11851,6 +11946,7 @@ func castWindowOtherPartsAbsent(c Cost) bool {
 		len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.Blight) == 0 &&
 		len(c.Exert) == 0 && !c.Forage && !c.LifeHalfUp && len(c.Draw) == 0 &&
 		len(c.Energy) == 0 && len(c.LifeX) == 0 && len(c.DamageYou) == 0 &&
+		len(c.GainLife) == 0 &&
 		len(c.Return) == 0 && len(c.PutToLib) == 0 && len(c.MoveToGrave) == 0 &&
 		len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 &&
 		len(c.Unknown) == 0 && len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 &&
