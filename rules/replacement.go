@@ -6014,13 +6014,19 @@ const (
 )
 
 type lifeExchangeTransaction struct {
-	source       state.ObjID
-	controller   state.PlayerID
-	oldLife      int32
-	player       state.PlayerID
-	lifeBefore   int32
-	setPower     bool
-	setToughness bool
+	source         state.ObjID
+	controller     state.PlayerID
+	oldLife        int32
+	player         state.PlayerID
+	lifeBefore     int32
+	setPower       bool
+	setToughness   bool
+	second         events.Event
+	stage          uint8
+	rememberLoss   bool
+	rememberCtx    *effects.Ctx
+	controllerLife int32
+	staged         []events.Event
 }
 
 type replChoice struct {
@@ -7211,6 +7217,9 @@ func (e *Engine) continueLifeReplacements(ev events.Event, applied []replMatch) 
 	for {
 		cands := e.lifeReplacementCandidates(ev, applied)
 		if len(cands) == 0 {
+			if e.lifeExchange != nil && e.lifeExchange.second.Kind != 0 {
+				return e.stageExchangeLife(ev), true
+			}
 			if len(applied) == 0 {
 				return ev, false
 			}
@@ -7465,6 +7474,9 @@ func (e *Engine) lifeReplacementDraw(p state.PlayerID, n int32) {
 // replacement pass: every applicable replacement has had its one opportunity.
 // A gain reduced to nothing (LimitMax of zero) is no event at all.
 func (e *Engine) emitLifeReplacement(ev events.Event) (events.Event, bool) {
+	if e.lifeExchange != nil && e.lifeExchange.second.Kind != 0 {
+		return e.stageExchangeLife(ev), true
+	}
 	if ev.Kind == events.LifeChange && ev.Amount == 0 {
 		return ev, true
 	}

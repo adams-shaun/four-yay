@@ -5277,6 +5277,34 @@ func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 	if tx == nil {
 		return
 	}
+	if tx.second.Kind != 0 && tx.stage == 0 {
+		tx.stage = 1
+		prior := e.lifeExchange
+		e.lifeExchange = tx
+		e.emit(tx.second)
+		e.lifeExchange = prior
+		if e.pending == nil && len(e.replChoices) == 0 {
+			e.finishLifeExchange(tx)
+		}
+		return
+	}
+	if tx.second.Kind != 0 {
+		if len(tx.staged) != 2 {
+			return
+		}
+		prior, applying := e.lifeExchange, e.applyingReplacement
+		e.lifeExchange, e.applyingReplacement = nil, true
+		for _, ev := range tx.staged {
+			e.emit(ev)
+		}
+		e.lifeExchange, e.applyingReplacement = prior, applying
+		if tx.rememberLoss && tx.rememberCtx != nil && int(tx.controller) < len(e.G.Players) {
+			if loss := tx.controllerLife - e.G.Players[tx.controller].Life; loss > 0 {
+				tx.rememberCtx.ExchangeNumber = loss
+			}
+		}
+		return
+	}
 	if int(tx.player) >= len(e.G.Players) || e.G.Players[tx.player].Life == tx.lifeBefore {
 		e.emit(events.Event{Kind: events.Note, Obj: tx.source, Player: tx.player, Text: "ExchangeLifeVariant abandoned: life did not change"})
 		return
@@ -5285,6 +5313,29 @@ func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 		Layer: state.LPT, Sub: state.SubSet, HasSet: true, SetPower: tx.oldLife, SetToughness: tx.oldLife,
 		SetPowerPresent: tx.setPower, SetToughnessPresent: tx.setToughness, StaticSet: true}
 	e.AddContinuous(ce)
+}
+
+func (e *Engine) stageExchangeLife(ev events.Event) events.Event {
+	tx := e.lifeExchange
+	if tx != nil {
+		tx.staged = append(tx.staged, ev)
+	}
+	return ev
+}
+
+// ExchangeLife carries both life changes through the replacement machinery as
+// one continuation. Neither event is applied until both replacement paths,
+// including any suspended CR 616 choices, have settled.
+func (e *Engine) ExchangeLife(first, second events.Event, controller state.PlayerID, oldControllerLife int32, ctx *effects.Ctx, rememberLoss bool) {
+	tx := &lifeExchangeTransaction{source: first.Obj, controller: controller, player: first.Player,
+		lifeBefore: e.G.Players[first.Player].Life, second: second, rememberLoss: rememberLoss,
+		rememberCtx: ctx, controllerLife: oldControllerLife}
+	e.lifeExchange = tx
+	e.emit(first)
+	e.lifeExchange = nil
+	if e.pending == nil && len(e.replChoices) == 0 {
+		e.finishLifeExchange(tx)
+	}
 }
 func (e *Engine) Rand(n int) int { return e.rng.IntN(n) }
 

@@ -50,19 +50,27 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 	if sa.Params["RememberOwnLoss"] == "True" || sa.Params["RememberDifference"] == "True" {
 		c.ExchangeNumber, c.ExchangeNumberBound = 0, true
 	}
-	// Both changes pass through the host's ordinary replacement/event boundary.
 	if oldA == oldB {
 		return
 	}
-	h.Emit(events.Event{Kind: events.LifeChange, Player: a, Amount: oldB - oldA})
-	h.Emit(events.Event{Kind: events.LifeChange, Player: b, Amount: oldA - oldB})
-	if sa.Params["RememberOwnLoss"] == "True" && (c.Controller == a || c.Controller == b) {
-		before := oldA
-		if c.Controller == b {
-			before = oldB
-		}
-		if loss := before - h.Game().Players[c.Controller].Life; loss > 0 {
-			c.ExchangeNumber = loss
+	first := events.Event{Kind: events.LifeChange, Player: a, Amount: oldB - oldA}
+	second := events.Event{Kind: events.LifeChange, Player: b, Amount: oldA - oldB}
+	if exchange, ok := h.(interface {
+		ExchangeLife(events.Event, events.Event, state.PlayerID, int32, *Ctx, bool)
+	}); ok {
+		beforeController := h.Game().Players[c.Controller].Life
+		exchange.ExchangeLife(first, second, c.Controller, beforeController, c, sa.Params["RememberOwnLoss"] == "True")
+	} else {
+		h.Emit(first)
+		h.Emit(second)
+		if sa.Params["RememberOwnLoss"] == "True" && (c.Controller == a || c.Controller == b) {
+			before := oldA
+			if c.Controller == b {
+				before = oldB
+			}
+			if loss := before - h.Game().Players[c.Controller].Life; loss > 0 {
+				c.ExchangeNumber = loss
+			}
 		}
 	}
 	if sa.Params["RememberDifference"] == "True" {
