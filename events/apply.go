@@ -1,6 +1,7 @@
 package events
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -1638,6 +1639,7 @@ func Apply(g *state.Game, e Event) {
 				continue
 			}
 			a.BlockedBy = append(a.BlockedBy, pr[1])
+			g.NoteBlockers()
 		}
 
 	case CombatRetarget:
@@ -1906,6 +1908,10 @@ func Apply(g *state.Game, e Event) {
 					}
 				}
 			}
+		}
+		if e.Obj == 0 {
+			// Every BlockedBy list is now nil.
+			g.ClearBlockers()
 		}
 
 	case CastInfo:
@@ -3725,13 +3731,17 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			o.SuspendGranted = false
 		}
 	}
-	if wasBattlefield && to != state.ZBattlefield {
+	if wasBattlefield && to != state.ZBattlefield && (g.BlockersLive() || ArenaSkipVerify) {
 		// Leaving combat removes this permanent as a blocker, but does not
 		// make creatures it blocked unblocked (CR 506.4, 509.1h). Preserve
 		// each attacker's blocker-list length with the same zero tombstone
 		// EndCombatReset uses for regeneration. Dense arena order keeps this
 		// deterministic, and the departing object's own state is cleared by
-		// the zone reset below.
+		// the zone reset below. With no blocker recorded since the last
+		// whole-combat reset (state.Game.BlockersLive) every list is empty
+		// and the arena walk is skipped: without it a mass departure of N
+		// permanents walked the arena N times.
+		live := g.BlockersLive()
 		for i := range g.Objs {
 			other := &g.Objs[i]
 			// The empty-list test first: it is the common case, and it reads
@@ -3739,6 +3749,9 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			// the other end of the ~800-byte object on every arena entry.
 			if len(other.BlockedBy) == 0 || other.ID == id {
 				continue
+			}
+			if !live {
+				panic(fmt.Sprintf("events: obj %d has BlockedBy %v while no blocker is live (a BlockedBy write skipped state.Game.NoteBlockers)", other.ID, other.BlockedBy))
 			}
 			for j, blocker := range other.BlockedBy {
 				if blocker == id {
@@ -4199,14 +4212,21 @@ func changeControl(g *state.Game, o *state.Object, p state.PlayerID) {
 	if o.Zone == state.ZBattlefield {
 		remove(g, o.ID, state.ZBattlefield, o.Controller)
 		g.SetZone(state.ZBattlefield, p, append(g.Zone(state.ZBattlefield, p), o.ID))
-		for i := range g.Objs {
-			other := &g.Objs[i]
-			if other.ID == o.ID {
-				continue
-			}
-			for j, blocker := range other.BlockedBy {
-				if blocker == o.ID {
-					other.BlockedBy[j] = 0
+		// The same tombstone walk as move's, skipped the same way while no
+		// blocker is live (state.Game.BlockersLive).
+		if live := g.BlockersLive(); live || ArenaSkipVerify {
+			for i := range g.Objs {
+				other := &g.Objs[i]
+				if len(other.BlockedBy) == 0 || other.ID == o.ID {
+					continue
+				}
+				if !live {
+					panic(fmt.Sprintf("events: obj %d has BlockedBy %v while no blocker is live (a BlockedBy write skipped state.Game.NoteBlockers)", other.ID, other.BlockedBy))
+				}
+				for j, blocker := range other.BlockedBy {
+					if blocker == o.ID {
+						other.BlockedBy[j] = 0
+					}
 				}
 			}
 		}
@@ -4356,12 +4376,27 @@ func expireTurnGoads(in []state.GoadEffect, p state.PlayerID) []state.GoadEffect
 }
 
 // pruneGoads enforces source/control conditions from replayable state.
+// ArenaSkipVerify makes the arena walks the flags skip run anyway and panic
+// on anything they would have had to do: the blocker-tombstone walks while no
+// blocker is live (state.Game.BlockersLive) panic on any non-empty BlockedBy,
+// and pruneGoads before any goad was seen (state.Game.GoadsSeen) panics on
+// any non-nil Goads -- the empirical check that every write sets its flag. The events and rules test binaries set it; production leaves it
+// false.
+var ArenaSkipVerify bool
+
 func pruneGoads(g *state.Game) {
 	if !g.GoadsSeen() {
 		// No object has ever gained a goad (the Goad fold above is the only
 		// place a goad is added), so every Goads list is nil: skip the
 		// whole-arena walk, which a mass departure otherwise ran once per
 		// moved object.
+		if ArenaSkipVerify {
+			for i := range g.Objs {
+				if g.Objs[i].Goads != nil {
+					panic(fmt.Sprintf("events: obj %d has Goads %v before any goad was seen (a Goads write skipped state.Game.NoteGoad)", g.Objs[i].ID, g.Objs[i].Goads))
+				}
+			}
+		}
 		return
 	}
 	for i := range g.Objs {

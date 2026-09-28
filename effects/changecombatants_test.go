@@ -47,6 +47,7 @@ func attackingBoard(t *testing.T) (*fakeHost, *state.Object) {
 	h.g.Obj(attacker.ID).IsAttacking = true
 	h.g.Obj(attacker.ID).Attacking = 1
 	h.g.Obj(attacker.ID).BlockedBy = []state.ObjID{blocker.ID}
+	h.g.NoteBlockers() // written directly, not by DeclareBlockers
 	return h, h.g.Obj(attacker.ID)
 }
 

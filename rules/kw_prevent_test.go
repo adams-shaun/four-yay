@@ -53,6 +53,7 @@ func attackerBlockedBy(t *testing.T, e *Engine, atk, blocker state.ObjID) {
 	o.Attacking = 1
 	o.SummonSick = false
 	o.BlockedBy = append(o.BlockedBy, blocker)
+	e.G.NoteBlockers() // written directly, not by DeclareBlockers
 }
 
 // TestFogBankKeywordPreventsCombatDamageToIt: the real Fog Bank script

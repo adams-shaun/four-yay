@@ -106,6 +106,7 @@ func TestCR702PhasedOutBlockerLeavesZeroTombstone(t *testing.T) {
 	}
 	a.IsAttacking = true
 	a.BlockedBy = []state.ObjID{blocker}
+	e.G.NoteBlockers() // written directly, not by DeclareBlockers
 	e.emit(events.Event{Kind: events.PhaseOut, Obj: blocker, Amount: 1})
 	if b := e.G.Obj(blocker); b == nil || !b.PhasedOut {
 		t.Fatal("precondition: blocker was not phased out")

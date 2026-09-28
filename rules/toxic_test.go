@@ -96,6 +96,7 @@ func TestToxicDoesNotPoisonOnCreatureDamage(t *testing.T) {
 	e.G.Obj(ixhel).Attacking = 1
 	e.G.Obj(ixhel).SummonSick = false
 	e.G.Obj(ixhel).BlockedBy = []state.ObjID{blocker}
+	e.G.NoteBlockers() // written directly, not by DeclareBlockers
 
 	lifeBefore := e.G.Players[1].Life
 	e.dealCombatDamage()
