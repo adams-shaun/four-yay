@@ -883,8 +883,22 @@ func (t *Tactical) abilityScore(d *Decision, b *Board, i int) float64 {
 		}
 		return -5
 	case abNinjutsu:
-		if b.MyTurn && (b.Phase == "declare_blockers") && len(t.unblockedAttackers(b)) > 0 {
-			return 70
+		// One ninjutsu per combat, never returning a creature that entered
+		// this turn: chaining a second ninjutsu onto a just-ninjutsued
+		// attacker halts mtg-kernel (InvalidEffectContinuation, measured in
+		// four Faeries mirrors) and a halted game is unrated.
+		if !b.MyTurn || b.Phase != "declare_blockers" {
+			return -5
+		}
+		for _, u := range t.unblockedAttackers(b) {
+			if u.EnteredTurn != nil && *u.EnteredTurn == b.Turn {
+				return -5
+			}
+		}
+		for _, u := range t.unblockedAttackers(b) {
+			if hintFor(u.Name).ab != abNinjutsu {
+				return 70
+			}
 		}
 		return -5
 	case abCombat:
