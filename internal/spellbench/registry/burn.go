@@ -138,10 +138,14 @@ func burnGuard(f burnFacts, factsOK bool, d decision.Decision, rng *builtins.Spl
 	}
 	me := d.Player
 	// Classify the offered options into the faces and creatures the policy
-	// models. Our own face and our own creatures are never picked
-	// (harmful damage); an option whose object is not a creature on some
-	// battlefield (a planeswalker, a non-permanent) is unmodelled and
-	// skipped.
+	// models. Candidates the policy may score are OPPONENT-side only: our own
+	// face and our own creatures are never picked (harmful damage, the
+	// brief's Never rule), and this single gate at classification is what
+	// keeps them out of every scoring class below -- own creatures can never
+	// enter `cre`, so `me` can never enter oppOrder and the per-opponent loop
+	// never scores our own board. An option whose object is not a creature
+	// on some battlefield (a planeswalker, a non-permanent) is unmodelled
+	// and skipped.
 	face := map[state.PlayerID]int{}  // opponent seat -> option index
 	cre := map[int]state.ObjID{}      // option index -> opponent creature id
 	opps := map[state.PlayerID]bool{} // seats named by a modelled candidate
@@ -163,11 +167,12 @@ func burnGuard(f burnFacts, factsOK bool, d decision.Decision, rng *builtins.Spl
 				addOpp(o.Player)
 			}
 		case "permanent":
-			if _, ok := f.cre[o.Obj]; !ok {
+			c, ok := f.cre[o.Obj]
+			if !ok || c.ctl == me {
 				continue
 			}
 			cre[o.Index] = o.Obj
-			addOpp(f.cre[o.Obj].ctl)
+			addOpp(c.ctl)
 		}
 	}
 	if len(face) == 0 && len(cre) == 0 {

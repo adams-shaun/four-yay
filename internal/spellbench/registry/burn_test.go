@@ -237,15 +237,22 @@ func TestBurnDelegatesWhenUseless(t *testing.T) {
 }
 
 func TestBurnNeverTargetsOwn(t *testing.T) {
-	// The only offered candidates are our own face, our own creature, and an
-	// unkillable opponent creature on a deadlocked board: nothing the policy
-	// models is taken, and the inner's answer stands.
+	// Every kind of own-side candidate is offered -- our face, our own
+	// 2/2, an unkillable opponent creature on a deadlocked board -- and the
+	// inner answers the OPPONENT'S face. Nothing the policy models is
+	// taken, and the inner's answer stands unchanged: the decorator must
+	// not replace a legal face answer with our own creature (its inner's
+	// own-creature index would make the assertion vacuous, so the canned
+	// answer deliberately differs from every own-side option).
 	v := burnView(20, 20,
 		[]view.CardView{burnCV(10, "Creature", 2, 2, 0, 0, false)},
 		[]view.CardView{burnCV(20, "Creature", 8, 8, 0, 1, false)})
 	d := burnD(intp(3),
 		burnFaceOpt(0, 0), burnFaceOpt(1, 1), burnCreOpt(2, 10), burnCreOpt(3, 20))
 	f := burnViewBoard(t, v, d)
+	if c := f.cre[10]; c.ctl != 0 {
+		t.Fatal("fixture: option 2's object is not our own creature")
+	}
 	if conn := f.connect(0, 1, 0); conn != 0 {
 		t.Fatalf("fixture: our connectable power = %d, want 0", conn)
 	}
@@ -255,10 +262,44 @@ func TestBurnNeverTargetsOwn(t *testing.T) {
 	if rem := int32(8) - 3; rem <= 3 {
 		t.Fatal("fixture: the 8/8 must not be killable by 3")
 	}
-	inner := &stubSeat{answer: decision.Intent{Seq: 7, Choices: []int{2}}}
+	if best := f.bestCreatureScore(0); best != 2 {
+		t.Fatalf("fixture: our own best-creature score = %d, want 2", best)
+	}
+	inner := &stubSeat{answer: decision.Intent{Seq: 7, Choices: []int{1}}}
 	got, pick := burnDecide(t, inner, v, d)
-	if pick != 2 || got.Choices[0] != 2 {
-		t.Fatalf("choices = %v, want the inner's [2] unchanged", got.Choices)
+	if pick != 1 || got.Choices[0] != 1 {
+		t.Fatalf("choices = %v, want the inner's [1] (opponent face) unchanged", got.Choices)
+	}
+}
+
+func TestBurnNeverBoltsOwnCreatureOnARaceBoard(t *testing.T) {
+	// A winning race where our own 4/3 happens to be our board's best
+	// evasion-weighted creature: the opponent is at 5 and the bolt for 3
+	// leaves them within reach of our next attack, so the face is taken --
+	// never our own creature, however good its class-2 score would be.
+	v := burnView(20, 5,
+		[]view.CardView{burnCV(10, "Creature", 2, 2, 0, 0, false, "Flying"),
+			burnCV(11, "Creature", 4, 3, 0, 0, false)},
+		nil)
+	d := burnD(intp(3), burnFaceOpt(0, 1), burnCreOpt(1, 11))
+	f := burnViewBoard(t, v, d)
+	if c := f.cre[11]; c.ctl != 0 || c.power != 4 || c.toughness != 3 {
+		t.Fatal("fixture: option 1 is not our own 4/3")
+	}
+	if conn := f.connect(0, 1, 0); conn != 6 {
+		t.Fatalf("fixture: our connectable power = %d, want 6 (no blockers)", conn)
+	}
+	if reach := 5 - 3; reach > 6 {
+		t.Fatalf("fixture: opponent not within reach (%d left)", reach)
+	}
+	if best := f.bestCreatureScore(0); best != 4 || f.cre[11].evScore() != 4 {
+		t.Fatalf("fixture: own best score = %d, own 4/3 evScore = %d, want 4/4",
+			best, f.cre[11].evScore())
+	}
+	inner := &stubSeat{answer: decision.Intent{Seq: 7, Choices: []int{0}}}
+	_, pick := burnDecide(t, inner, v, d)
+	if pick != 0 {
+		t.Fatalf("pick = option %d, want the opponent's face (option 0), never our own creature", pick)
 	}
 }
 
