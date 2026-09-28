@@ -1036,10 +1036,20 @@ const (
 	// triggers nor is replaced). Emitted only from the announced window, so no
 	// bot game and no golden replay contains it. Appended after ChaosEnsues.
 	ManaUndo
+	// DungeonCreate creates a dungeon token in its owner's command zone.
+	// Text is the immutable Game.Tokens script key.
+	DungeonCreate
+	// DungeonRoom moves a player's venture marker to the named room key.
+	// Obj identifies the active dungeon object; Player owns the marker.
+	DungeonRoom
+	// DungeonComplete increments the player's completed-dungeon count.
+	DungeonComplete
+	// DungeonRemove moves the active dungeon token out of the command zone.
+	DungeonRemove
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(ManaUndo) + 1
+	NumKinds = int(DungeonRemove) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1183,7 +1193,8 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"delayed_remove", "turn_face_up", "searched_library", "keyword_ability_push", "scry", "store_svar", "turn_face_down", "clone_static",
 	"damage_provenance", "enduring_story_change", "phase_out", "gift_promise", "give_gift", "roll_dice",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
-	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo"}
+	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo",
+	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

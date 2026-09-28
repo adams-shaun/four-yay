@@ -472,6 +472,41 @@ func Apply(g *state.Game, e Event) {
 			}
 		}
 
+	case DungeonCreate:
+		if !validPlayer(g, e.Player) || g.Players[e.Player].DungeonObj != 0 {
+			break
+		}
+		def := g.Tokens[e.Text]
+		if def == nil {
+			break
+		}
+		o := g.AddObject(def, e.Player)
+		// A dungeon script is stored alongside token scripts, but the dungeon
+		// object itself is not a battlefield token and persists in the command
+		// zone until the dungeon is completed.
+		Move(g, o.ID, state.ZLibrary, state.ZCommand)
+		g.Players[e.Player].DungeonObj = o.ID
+		g.Players[e.Player].DungeonRoom = ""
+
+	case DungeonRoom:
+		if validPlayer(g, e.Player) && e.Text != "" && g.Players[e.Player].DungeonObj == e.Obj {
+			g.Players[e.Player].DungeonRoom = e.Text
+		}
+
+	case DungeonComplete:
+		if validPlayer(g, e.Player) && g.Players[e.Player].DungeonObj == e.Obj {
+			g.Players[e.Player].CompletedDungeons++
+		}
+
+	case DungeonRemove:
+		if validPlayer(g, e.Player) && g.Players[e.Player].DungeonObj == e.Obj {
+			if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZCommand {
+				Move(g, o.ID, state.ZCommand, state.ZCeased)
+			}
+			g.Players[e.Player].DungeonObj = 0
+			g.Players[e.Player].DungeonRoom = ""
+		}
+
 	case ManaUndo:
 		// The announced payment window's reversal of one mana activation
 		// (CR 733.1, announce-then-pay spec §5): remove exactly the units one

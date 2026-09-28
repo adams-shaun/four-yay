@@ -150,6 +150,12 @@ func commanderViews(g *state.Game, ch Chars, ids []state.ObjID, casts []int32) (
 	return cmds, cs
 }
 
+// DungeonView is the public projection of one active dungeon.
+type DungeonView struct {
+	Name string `json:"name"`
+	Room string `json:"room"`
+}
+
 // PlayerView is one seat's own public state, plus (only when this is the
 // viewer's own seat) the private parts.
 //
@@ -263,6 +269,10 @@ type PlayerView struct {
 	// command zone and not yet dealt damage. Public for every seat: the
 	// identity of a player's commanders is the premise of the format.
 	Commanders []CardView `json:"commanders"`
+	// Dungeon is this player's active public dungeon and venture room.
+	Dungeon *DungeonView `json:"dungeon,omitempty"`
+	// CompletedDungeons is the number of dungeons this seat has completed.
+	CompletedDungeons int32 `json:"completed_dungeons"`
 	// CommanderCasts runs parallel to Commanders: entry k is how many times
 	// Commanders[k] has been cast from the command zone, the CR 903.8 tax
 	// base for its next command-zone cast (an additional {2} per prior
@@ -557,16 +567,20 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		roster, casts := commanderViews(g, ch, p.Commanders, p.CmdCasts)
 		pv := PlayerView{
 			ID: p.ID, Name: displayName(p), Life: p.Life, Lost: p.Lost,
-			LibrarySize:    len(g.Zone(state.ZLibrary, p.ID)),
-			HandSize:       len(g.Zone(state.ZHand, p.ID)),
-			PlanarDeck:     cardViews(g, ch, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, viewer, false),
-			GraveyardSize:  len(g.Zone(state.ZGraveyard, p.ID)),
-			Battlefield:    cardViews(g, ch, g.Zone(state.ZBattlefield, p.ID), true, p.ID, viewer, false),
-			Graveyard:      cardViews(g, ch, g.Zone(state.ZGraveyard, p.ID), false, p.ID, viewer, false),
-			Exile:          cardViews(g, ch, g.Zone(state.ZExile, p.ID), false, p.ID, viewer, false),
-			Command:        cardViews(g, ch, g.Zone(state.ZCommand, p.ID), false, p.ID, viewer, false),
-			Commanders:     roster,
-			CommanderCasts: casts,
+			LibrarySize:       len(g.Zone(state.ZLibrary, p.ID)),
+			HandSize:          len(g.Zone(state.ZHand, p.ID)),
+			PlanarDeck:        cardViews(g, ch, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, viewer, false),
+			GraveyardSize:     len(g.Zone(state.ZGraveyard, p.ID)),
+			Battlefield:       cardViews(g, ch, g.Zone(state.ZBattlefield, p.ID), true, p.ID, viewer, false),
+			Graveyard:         cardViews(g, ch, g.Zone(state.ZGraveyard, p.ID), false, p.ID, viewer, false),
+			Exile:             cardViews(g, ch, g.Zone(state.ZExile, p.ID), false, p.ID, viewer, false),
+			Command:           cardViews(g, ch, g.Zone(state.ZCommand, p.ID), false, p.ID, viewer, false),
+			Commanders:        roster,
+			CompletedDungeons: p.CompletedDungeons,
+			CommanderCasts:    casts,
+		}
+		if dungeon := g.Obj(p.DungeonObj); dungeon != nil && dungeon.Zone == state.ZCommand && dungeon.Face() != nil {
+			pv.Dungeon = &DungeonView{Name: dungeon.Face().Name, Room: p.DungeonRoom}
 		}
 		// Available is public (battlefield-derived) and so projected for
 		// every seat under every visibility, like Pool; only Hand (a CR 400.2

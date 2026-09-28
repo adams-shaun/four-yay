@@ -364,6 +364,14 @@ export interface PotentialAction {
 }
 
   /**
+   * DungeonView is the public projection of one active dungeon.
+   */
+export interface DungeonView {
+  name: string;
+  room: string;
+}
+
+  /**
    * PlayerView is one seat's own public state, plus (only when this is the
    * viewer's own seat) the private parts.
    *
@@ -494,6 +502,14 @@ export interface PlayerView {
    * identity of a player's commanders is the premise of the format.
    */
   commanders: CardView[];
+  /**
+   * Dungeon is this player's active public dungeon and venture room.
+   */
+  dungeon?: DungeonView | null;
+  /**
+   * CompletedDungeons is the number of dungeons this seat has completed.
+   */
+  completed_dungeons: number;
   /**
    * CommanderCasts runs parallel to Commanders: entry k is how many times
    * Commanders[k] has been cast from the command zone, the CR 903.8 tax
