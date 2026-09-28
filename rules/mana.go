@@ -1528,7 +1528,7 @@ func (e *Engine) rawBaseCost(p state.PlayerID, id state.ObjID) Cost {
 	if o == nil || o.Face() == nil {
 		return Cost{}
 	}
-	return e.parseCost(o.Face().ManaCost)
+	return e.faceCost(o.Face())
 }
 
 // castOfferBase is the composed RAW base every ordinary cast offer is gated on:

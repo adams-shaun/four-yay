@@ -17,7 +17,7 @@ func (e *Engine) splitCastTargetsAvailable(p state.PlayerID, id state.ObjID, f *
 	if f == nil {
 		return false
 	}
-	xPending := costAnnouncesX(e.parseCost(f.ManaCost))
+	xPending := costAnnouncesX(e.faceCost(f))
 	if ab := f.SpellAbility(); ab != nil {
 		xPending = xPending || costAnnouncesX(e.parseCost(ab.Params["Cost"]))
 	}
@@ -53,7 +53,7 @@ func (e *Engine) fusedTimingOK(p state.PlayerID, id state.ObjID, front, alt *car
 // of 17 files), so the extras term contributes nothing today but keeps the
 // cost shape honest if a later set prints one.
 func (e *Engine) fuseCost(front, alt *cards.Face) Cost {
-	c := e.parseCost(front.ManaCost).Plus(e.parseCost(alt.ManaCost))
+	c := e.faceCost(front).Plus(e.faceCost(alt))
 	return withSpellAbilityExtras(front, withSpellAbilityExtras(alt, c))
 }
 

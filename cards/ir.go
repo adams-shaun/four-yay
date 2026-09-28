@@ -131,6 +131,9 @@ type Face struct {
 	// guard). Not serialized.
 	cmcSrc   string
 	cmcBound bool
+	// manaCostSlot holds a downstream compiled form of ManaCost (slot.go),
+	// allocated at load. Not serialized.
+	manaCostSlot *Slot
 }
 
 // typeStaticParams are the static parameter keys whose presence can make

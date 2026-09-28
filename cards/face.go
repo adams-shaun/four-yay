@@ -285,6 +285,9 @@ func (f *Face) derive() {
 	f.allCreatureTypesCDA = cdaAllCreatureTypes(f.Statics)
 	f.cmc = cmcFromManaCost(f.ManaCost)
 	f.cmcSrc, f.cmcBound = f.ManaCost, true
+	if f.manaCostSlot == nil {
+		f.manaCostSlot = &Slot{}
+	}
 	f.manaProduction = ManaProduction{}
 	for _, a := range f.ManaAbilities() {
 		f.manaProduction.add(a)

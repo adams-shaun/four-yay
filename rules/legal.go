@@ -1550,7 +1550,7 @@ func (e *Engine) castTargetsAvailable(p state.PlayerID, id state.ObjID, sa *card
 		return e.targetsAvailable(p, id, id, sa, false)
 	}
 	if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		xPending = costAnnouncesX(e.parseCost(o.Face().ManaCost))
+		xPending = costAnnouncesX(e.faceCost(o.Face()))
 		if ab := o.Face().SpellAbility(); ab != nil {
 			xPending = xPending || costAnnouncesX(e.parseCost(ab.Params["Cost"]))
 		}
@@ -2177,7 +2177,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 		if mf := modalSpellBack(o); mf != nil && e.spellTimingOK(p, id, mf, sorcery) &&
 			e.castTargetsAvailable(p, id, mf.SpellAbility()) &&
 			!castRestrictedAsFace(p, id, mf) {
-			if offerCastableAsFace(p, id, mf, withSpellAbilityExtras(mf, e.parseCost(mf.ManaCost)), spellScope("")) {
+			if offerCastableAsFace(p, id, mf, withSpellAbilityExtras(mf, e.faceCost(mf)), spellScope("")) {
 				out = append(out, decision.Option{Index: len(out), Kind: "cast",
 					Label: "Cast " + mf.Name, Obj: id, Mode: "modal_spell"})
 			}
@@ -2217,7 +2217,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 			instant := sf.IsInstant() || e.hasKeywordH(id, kwhFlash) || e.castWithFlashAsFace(p, id, sf)
 			if (instant || sorcery) && e.splitCastTargetsAvailable(p, id, sf) &&
 				!castRestrictedAsFace(p, id, sf) {
-				if offerCastableAsFace(p, id, sf, withSpellAbilityExtras(sf, e.parseCost(sf.ManaCost)), spellScope("")) {
+				if offerCastableAsFace(p, id, sf, withSpellAbilityExtras(sf, e.faceCost(sf)), spellScope("")) {
 					out = append(out, decision.Option{Index: len(out), Kind: "cast",
 						Label: "Cast " + sf.Name, Obj: id, Mode: "split_alt"})
 				}
@@ -2249,7 +2249,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 			instant := rf.IsInstant() || e.hasKeywordH(id, kwhFlash)
 			if (instant || sorcery) && e.castTargetsAvailable(p, id, rf.SpellAbility()) &&
 				!castRestrictedAsFace(p, id, rf) {
-				if offerCastableAsFace(p, id, rf, withSpellAbilityExtras(rf, e.parseCost(rf.ManaCost)), spellScope("")) {
+				if offerCastableAsFace(p, id, rf, withSpellAbilityExtras(rf, e.faceCost(rf)), spellScope("")) {
 					out = append(out, decision.Option{Index: len(out), Kind: "cast",
 						Label: "Cast " + rf.Name, Obj: id, Mode: "room_alt"})
 				}

@@ -297,6 +297,27 @@ func (e *Engine) parseCost(raw string) Cost {
 	return ParseCost(raw)
 }
 
+// faceCost is parseCost(f.ManaCost) through the face's ManaCost slot: the
+// compiled cost (the configured frozen parse, or a fresh one for a face
+// outside the configured set -- the same content) is hung on the face at
+// first use, so later reads follow a pointer instead of hashing the text.
+// Like parseCost it hands out a value copy.
+func (e *Engine) faceCost(f *cards.Face) Cost {
+	return e.faceCompiledCost(f).Cost
+}
+
+func (e *Engine) faceCompiledCost(f *cards.Face) *compiledCost {
+	slot := f.ManaCostSlot()
+	if v, ok := slot.Load(f.ManaCost); ok {
+		return v.(*compiledCost)
+	}
+	c := e.compiledCostOf(f.ManaCost)
+	if slot == nil {
+		return c
+	}
+	return slot.Store(f.ManaCost, c).(*compiledCost)
+}
+
 // freeCost is the parse of an empty cost text, shared read-only by costRef.
 var freeCost compiledCost
 

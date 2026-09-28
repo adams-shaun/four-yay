@@ -764,7 +764,7 @@ func (e *Engine) adjustedCost(p state.PlayerID, id state.ObjID) Cost {
 	if o == nil || o.Face() == nil {
 		return Cost{}
 	}
-	return e.costModifiers(p, id, spellScope("")).apply(e.parseCost(o.Face().ManaCost))
+	return e.costModifiers(p, id, spellScope("")).apply(e.faceCost(o.Face()))
 }
 
 // castWithFlash reports whether an active CastWithFlash static gives p
