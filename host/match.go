@@ -150,7 +150,7 @@ func (r *Registry) newMatch(t *table, k int) (*match, error) {
 			}
 		}
 	}
-	cfg := rules.Config{Seed: seed, Names: names, PlayerNames: playerNames, Decks: decks, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, NameUniverse: r.opts.NameUniverse, Mulligans: c.Mulligans}
+	cfg := rules.Config{Seed: seed, Names: names, PlayerNames: playerNames, Decks: decks, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, NameUniverse: r.opts.NameUniverse, Mulligans: c.Mulligans, WindowDiagnostics: c.WindowDiagnostics}
 	// The engine's own livelock watcher (rules/livelock.go) is the same
 	// non-terminating-loop protection as this file's per-turn decision
 	// guard, one level down: an embedder that opted out of the host guard

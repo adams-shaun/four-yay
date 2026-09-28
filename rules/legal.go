@@ -2015,6 +2015,10 @@ func (e *Engine) legalActions(p state.PlayerID) []decision.Option {
 	return e.legalActionsPriced(p, nil)
 }
 
+func (e *Engine) legalActionsWithWindow(p state.PlayerID, w *windowCollector) []decision.Option {
+	return e.legalActionsWalkWithWindow(p, nil, false, w)
+}
+
 // aftermathAlternateFace returns the Aftermath alternate face (face 1 --
 // ALTERNATE starts face 1 in cards/parse.go) of a two-face Split card whose
 // front face is current, or nil when the object is not a well-formed
@@ -2063,6 +2067,10 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 // on its own. The payment offer builder, which reads only plain casts, uses
 // it to avoid pricing every battlefield ability it would discard.
 func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
+	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil)
+}
+
+func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector) []decision.Option {
 	// Count the walk before anything can early-return. A test-visible
 	// diagnostic only: no event, no state mutation, no effect on replay or
 	// chain heads (legalActionWalks is not copied by Clone and never reaches
@@ -4149,6 +4157,13 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 	add("concede", "Concede", 0)
 	res := make([]decision.Option, len(out))
 	copy(res, out)
+	if window != nil {
+		// Classify each of p's own visible candidates the walk did not
+		// offer, keeping the first gate in walk order that withheld it. The
+		// caller that owns the decision finishes (filters offered
+		// candidates and bounds) the collector.
+		e.windowClassify(p, res, window)
+	}
 	// Drop the scratch's string/Grant references so a retained buffer does
 	// not pin the last walk's labels, then keep the grown array.
 	clear(out)

@@ -545,6 +545,13 @@ type ClashResume struct {
 	Cursor   int
 }
 
+// WindowReason is a closed-vocabulary explanation for one withheld option.
+type WindowReason struct {
+	Obj    state.ObjID `json:"obj"`
+	Kind   string      `json:"kind"`
+	Reason string      `json:"reason"`
+}
+
 // Decision is the engine asking one player for one answer.
 type Decision struct {
 	Seq     uint64         `json:"seq"`
@@ -554,6 +561,10 @@ type Decision struct {
 	Min     int            `json:"min"`
 	Max     int            `json:"max"`
 	Options []Option       `json:"options"`
+	// WindowReasons is an opt-in diagnostic sidecar: the first gate that
+	// withheld each of this seat's candidates. Tokens only; never replay
+	// input. Nil when disabled, preserving every existing decision's bytes.
+	WindowReasons []WindowReason `json:"window_reasons,omitempty"`
 	// PaymentActions is an additive, separately indexed cast-payment
 	// extension. Keeping it outside Options preserves every legacy priority
 	// choice index. It remains empty until payplan-04 publishes executable
