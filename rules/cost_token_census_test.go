@@ -110,7 +110,7 @@ var costNonFilterSpecs = map[string]string{
 	// them visible, not to silently treat them as filters. (Filed per the
 	// dispatch's new-ticket process.)
 	"SameColor": "LEFT: Reveal<2/SameColor> (Illuminated Folio) -- 'two cards sharing a color' is relational; an unmatched filter makes the ability unoffered",
-	"LastDrawn": "LEFT: Discard<1/LastDrawn> (Jandor's Ring) -- 'the last card drawn this turn' is history-keyed; an unmatched filter makes the ability unoffered",
+	"LastDrawn": "implemented (history-keyed): Discard<1/LastDrawn> (Jandor's Ring) reads the last events.Draw this turn through lastDrawnThisTurn; discardCandidates returns that one card only while it is still in hand, so a no-draw or left-hand cost is withheld",
 	"All":       "LEFT: ExileFromHand<1/All> (Herigast, Erupting Nullkite) -- the whole hand, on the Exile path",
 }
 
