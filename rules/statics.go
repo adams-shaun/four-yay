@@ -923,8 +923,11 @@ func validSpellHasTargeting(raw string) bool {
 	return false
 }
 
-// presentGate evaluates one IsPresent spec against PresentCompare (default
-// GE1); staticTimingGate fails closed when either present gate does not hold.
+// presentGate evaluates one IsPresent spec, counted over PresentZone$
+// (default battlefield, countStaticPresent), against PresentCompare$
+// (default GE1). The ONE static IsPresent$ gate: staticTimingGate, the
+// Continuous gate and costStaticApplies all read it, so an EQ0/GEn threshold
+// or a hand/graveyard zone cannot mean different things on different paths.
 func (e *Engine) presentGate(sv staticView, spec string) bool {
 	n := e.countStaticPresent(sv, spec)
 	cmp := sv.Params["PresentCompare"]
@@ -1006,13 +1009,14 @@ func (e *Engine) countStaticPresent(sv staticView, spec string) int {
 	if !ok {
 		return 0
 	}
+	sc := e.staticSpecCtx(sv)
 	if zone == state.ZBattlefield {
-		return e.countPresent(spec, sv.Source, sv.Controller)
+		return e.countPresentCtx(spec, sv.Source, sv.Controller, sc)
 	}
 	n := 0
 	e.forEachObject(func(id state.ObjID) {
 		o := e.G.Obj(id)
-		if o != nil && o.Zone == zone && e.matchesSpec(spec, id, e.staticSpecCtx(sv)) {
+		if o != nil && o.Zone == zone && e.matchesSpec(spec, id, sc) {
 			n++
 		}
 	})
@@ -2842,7 +2846,11 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 			return false
 		}
 	}
-	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.isPresent(spec, sv) {
+	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.presentGate(sv, spec) {
+		// The shared IsPresent$ gate: PresentZone$ picks the zone counted
+		// (Igneous Elemental's graveyard, Forceful Cultivator's hand) and
+		// PresentCompare$ the threshold (default GE1; Hour of Revelation's
+		// GE10, Saiba Syphoner's EQ0 "no ... cards in your hand").
 		return false
 	}
 	if !e.costConditionHolds(sv, p) {
@@ -2860,13 +2868,14 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// must not silently floor the cost.
 		return false
 	}
-	if sv.Params["Secondary"] == "True" {
-		// Forge's Secondary$ marks a static that duplicates another one's
-		// effect under a different wording; applying both would double the
-		// modifier (the paired pair of "spells that target ... cost {2} more"
-		// lines). Skipping the secondary applies the primary only.
-		return false
-	}
+	// Secondary$ True is NOT a gate: Forge reads CardTraitBase.isSecondary
+	// only while building card text (Card.java's description walks), and
+	// StaticAbilityCostChange applies a secondary cost static like any other.
+	// The marker only says "this line's text is folded into another trait's
+	// description" -- Assassin's Ink's enchantment half, Nahiri's equip
+	// discount under its first-strike Continuous, a Class level's granted
+	// reduction. No corpus cost static marked Secondary$ duplicates an
+	// identically gated sibling, so applying it never double-counts.
 	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && xBound) {
 		// Relative$ Amount$ scales with something the composition point does
 		// not yet know (IncreaseCost per target beyond the first, or a game
@@ -3050,22 +3059,6 @@ func (e *Engine) checkSVarHolds(sv staticView) bool {
 	return holds
 }
 
-// isPresent evaluates the IsPresent$ intervening-if: an object matching the
-// spec exists on any battlefield (Trinisphere's `Card.Self+untapped` matches
-// the trinisphere itself while untapped). Resolved against the static's
-// source so Self-class predicates bind.
-func (e *Engine) isPresent(spec string, sv staticView) bool {
-	ctx := e.staticSpecCtx(sv)
-	for _, p := range e.G.AliveFrom(0) {
-		for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-			if e.matchesSpec(spec, oid, ctx) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // affectedZoneOK reports whether zone z is named in an AffectedZone$ list
 // (Forge's comma-separated zone words; an unrecognised word denies, the same
 // direction effectZoneOK takes).
@@ -3225,8 +3218,10 @@ func (e *Engine) spellConstraintMatches(sv staticView, scope costScope, p state.
 
 // abilityConstraintMatches checks one ValidSpell$ Activated.* constraint
 // against an activated ability. Keyword-derived constraints (Equip, Ninjutsu,
-// Cycling, Boast, Exhaust, ...) match the Keyword$ tag every keyword
-// expansion carries (cards/keywords.go); ManaAbility/!ManaAbility read the
+// Cycling, ...) match the Keyword$ tag every keyword expansion carries
+// (cards/keywords.go); the param-backed flags (Exhaust, PowerUp, Boast,
+// Monstrosity) match the SA's own `<Name>$ True` (saFlagProperty);
+// ManaAbility/!ManaAbility read the
 // SA API; Loyalty reuses the loyalty-ability classifier; YouCtrl reads the
 // ability source's controller. An unevaluable constraint denies.
 func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id state.ObjID, constraint string) bool {
@@ -3248,6 +3243,9 @@ func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id 
 		o := e.G.Obj(id)
 		return o != nil && o.Controller != p
 	}
+	if saFlagProperty(ab, constraint) {
+		return true
+	}
 	// Keyword-derived: the expansion's Keyword$ tag (comma list).
 	for kw := range strings.SplitSeq(ab.Params["Keyword"], ",") {
 		if strings.EqualFold(strings.TrimSpace(kw), constraint) {
@@ -3255,6 +3253,40 @@ func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id 
 		}
 	}
 	return false
+}
+
+// saParamFlagProperties are the Forge SpellAbility properties that are a
+// parameter ON the ability, not a keyword the ability was expanded from:
+// SpellAbility.isBoast/isExhaust/isPowerUp/isMonstrosity are each
+// hasParam("<Name>") (SpellAbilityProperty's "Boast"/"Exhaust"/"PowerUp"/
+// "Monstrosity" branches). A script writes them as `<Name>$ True` on the A:
+// line itself (Prowcatcher Specialist's Exhaust$ True, Serpent Specialist's
+// PowerUp$ True), so no keyword expansion stamps a Keyword$ tag for them.
+var saParamFlagProperties = [...]string{"Boast", "Exhaust", "PowerUp", "Monstrosity"}
+
+// saFlagProperty reports whether property names one of the param-backed SA
+// flags and ab carries it. Forge tests presence (hasParam); every corpus
+// carrier spells the value True, and an explicit False is read as absent so
+// a script can never switch the flag on by naming it off.
+func saFlagProperty(ab *cards.SA, property string) bool {
+	if ab == nil {
+		return false
+	}
+	var v string
+	var ok bool
+	// Literal keys (one per saParamFlagProperties entry) so the param
+	// census attributes each read.
+	switch property {
+	case "Boast":
+		v, ok = ab.Params["Boast"]
+	case "Exhaust":
+		v, ok = ab.Params["Exhaust"]
+	case "PowerUp":
+		v, ok = ab.Params["PowerUp"]
+	case "Monstrosity":
+		v, ok = ab.Params["Monstrosity"]
+	}
+	return ok && !strings.EqualFold(strings.TrimSpace(v), "False")
 }
 
 // parseAmount reads an Amount$ parameter, falling back to def for anything

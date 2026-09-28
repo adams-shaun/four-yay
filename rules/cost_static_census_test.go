@@ -252,6 +252,12 @@ func TestCostStaticCensus(t *testing.T) {
 	for kw := range kwTags {
 		probeSAs = append(probeSAs, &cards.SA{Kind: "AB", API: "Pump", Params: map[string]string{"Keyword": kw}})
 	}
+	// The param-backed SA flags (Exhaust$/PowerUp$/Boast$/Monstrosity$ True
+	// on the A: line itself): a real carrier's ability has no Keyword$ tag, so
+	// the probe offers the flag the way the script spells it.
+	for _, flag := range saParamFlagProperties {
+		probeSAs = append(probeSAs, &cards.SA{Kind: "AB", API: "Pump", Params: map[string]string{flag: "True"}})
+	}
 	sort.Slice(probeSAs, func(i, j int) bool { return probeSAs[i].Params["Keyword"] < probeSAs[j].Params["Keyword"] })
 	var scopes []costScope
 	for _, m := range []string{"", "flashback", "kicked", "kicked1", "surged", "miracle", "blitzed", "foretold", "dashed", "evoked", "bargained", "buyback"} {
@@ -280,6 +286,20 @@ func TestCostStaticCensus(t *testing.T) {
 		}
 		return false
 	}
+
+	// secondarySkipped asks the real gate chain whether a Secondary$ True
+	// marker alone denies a cost static: the same trivially-live ReduceCost
+	// with and without the marker, on the fixture's instant.
+	secondarySkipped := func() bool {
+		plain := map[string]string{"Mode": "ReduceCost", "ValidCard": "Card", "Type": "Spell", "Amount": "1"}
+		marked := map[string]string{"Mode": "ReduceCost", "ValidCard": "Card", "Type": "Spell", "Amount": "1", "Secondary": "True"}
+		base := e.costStaticApplies(staticView{Source: src, Controller: 0, Params: plain}, "ReduceCost", 0, instantID, spellScope(""), nil, false)
+		withMark := e.costStaticApplies(staticView{Source: src, Controller: 0, Params: marked}, "ReduceCost", 0, instantID, spellScope(""), nil, false)
+		if !base {
+			t.Fatalf("fixture: a plain ReduceCost does not apply to the fixture instant; the Secondary$ probe is meaningless")
+		}
+		return !withMark
+	}()
 
 	// svarChainMentions reports whether an Amount$ body (following SVar
 	// references transitively) mentions needle.
@@ -506,17 +526,25 @@ func TestCostStaticCensus(t *testing.T) {
 					dead = append(dead, strings.TrimSpace(alt)+": "+why)
 				}
 			}
-			locIP := L.loc("rules/statics.go", "if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.isPresent(spec, sv) {")
+			locIP := L.loc("rules/statics.go", "if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.presentGate(sv, spec) {")
 			if n > 0 && len(dead) == n {
 				add(ccBroken, "IsPresent$ dead: "+strings.Join(dead, "; "), locIP)
 			} else if len(dead) > 0 {
 				add(ccWrong, "IsPresent$ partially dead: "+strings.Join(dead, "; "), locIP)
 			}
-			if pc := strings.TrimSpace(p["PresentCompare"]); pc != "" && pc != "GE1" {
-				add(ccWrong, "PresentCompare$ "+pc+" unread: isPresent tests existence (GE1)", L.loc("rules/statics.go", "func (e *Engine) isPresent("))
+			// The cost gate is the shared presentGate: PresentZone$ through
+			// presentZoneFromParam, PresentCompare$ through presentCompareFor
+			// + splitCompare. Ask those engine helpers whether this static's
+			// spelling is one they read.
+			if pz := p["PresentZone"]; strings.TrimSpace(pz) != "" {
+				if _, ok := presentZoneFromParam(pz); !ok {
+					add(ccBroken, "PresentZone$ "+strings.TrimSpace(pz)+" unrecognised", L.loc("rules/statics.go", "func presentZoneFromParam("))
+				}
 			}
-			if pz := strings.TrimSpace(p["PresentZone"]); pz != "" && pz != "Battlefield" {
-				add(ccWrong, "PresentZone$ "+pz+" unread: isPresent scans the battlefield only", L.loc("rules/statics.go", "func (e *Engine) isPresent("))
+			if pc := strings.TrimSpace(p["PresentCompare"]); pc != "" {
+				if _, _, ok := splitCompare(e.presentCompareFor(pc, sv.Source, sv.Controller)); !ok {
+					add(ccBroken, "PresentCompare$ "+pc+" unevaluable", L.loc("rules/statics.go", "func (e *Engine) presentGate("))
+				}
 			}
 		}
 		// Condition$
@@ -584,7 +612,9 @@ func TestCostStaticCensus(t *testing.T) {
 		if mode == "SetCost" && p["RaiseTo"] != "True" {
 			add(ccBroken, "SetCost without RaiseTo$ True", L.loc("rules/statics.go", "if mode == \"SetCost\" && sv.Params[\"RaiseTo\"] != \"True\" {"))
 		}
-		// Secondary$
+		// Secondary$: probe the engine rather than assume. Forge reads
+		// Secondary$ for card text only; if costStaticApplies ever skips it
+		// again the probe below reports the skip exactly as before.
 		if p["Secondary"] == "True" {
 			// Is there a primary on the same face with the same gating?
 			gate := func(q map[string]string) string {
@@ -608,14 +638,16 @@ func TestCostStaticCensus(t *testing.T) {
 					}
 				}
 			}
-			locSec := L.loc("rules/statics.go", "if sv.Params[\"Secondary\"] == \"True\" {")
+			locSec := L.loc("rules/statics.go", "// Secondary$ True is NOT a gate")
 			switch {
-			case !primary:
+			case secondarySkipped && !primary:
 				add(ccBroken, "Secondary$ True skipped (Forge reads Secondary$ for card text only); no primary "+mode+" on the face", locSec)
-			case !samegate:
+			case secondarySkipped && !samegate:
 				add(ccBroken, "Secondary$ True skipped (Forge reads Secondary$ for card text only); its gates differ from the primary", locSec)
-			default:
+			case secondarySkipped:
 				add(ccNote, "Secondary$ True skipped; an identically-gated primary exists (a genuine duplicate)", locSec)
+			case samegate:
+				add(ccNote, "Secondary$ True applied beside an identically-gated primary (Forge applies both too)", locSec)
 			}
 		}
 		// Relative$
