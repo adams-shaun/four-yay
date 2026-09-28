@@ -1635,6 +1635,9 @@ type Ctx struct {
 	// consumed and cleared at the re-entry's top (fx42 scoping), so a nested
 	// SetState poses its own ask.
 	SetStateOpt string
+	// EndTurnOpt is the answer to Obeka's Optional$ EndTurn election. It is
+	// consumed on re-entry so another EndTurn in the chain asks independently.
+	EndTurnOpt string
 	// CounterKind is the answered kind for a comma-separated PutCounter list.
 	// CounterKindDone distinguishes an answered first-option fallback from the
 	// first pass; CounterKinds carries a ChooseDifferent$ multi-answer.

@@ -1,7 +1,10 @@
 package effects
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -28,15 +31,38 @@ func init() { Register("EndTurn", effEndTurn) }
 // resolving after a MoveZone (or after an intervening replacement) would exile
 // a different set.
 //
-// Known deviation (reported, not closed here): Obeka's ability carries
-// `Defined$ ActivePlayer | Optional$ True` ("the player whose turn it is MAY
-// end the turn") and this effect ends the turn unconditionally, ignoring both
-// parameters. The other carriers' parameters are handled elsewhere
-// (ConditionPlayerTurn$ by the shared condition gate in conditions.go;
-// Sundial's PlayerTurn$ True is an activation restriction outside this
-// primitive's scope).
-func effEndTurn(h Host, _ *Ctx, _ *cards.SA) {
+// Obeka's Defined$ ActivePlayer | Optional$ True lets the player whose turn
+// it is decide, even when another player controls Obeka. A declined election
+// leaves the resolving ability to finish normally; an accepted one exiles it.
+// ConditionPlayerTurn$ is handled by the shared condition gate; Sundial's
+// PlayerTurn$ True is an activation restriction outside this primitive.
+func effEndTurn(h Host, c *Ctx, sa *cards.SA) {
+	answer := c.EndTurnOpt
+	c.EndTurnOpt = "" // a chained EndTurn must pose its own election
 	g := h.Game()
+	if strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+		if answer == "" {
+			chooser := c.Controller
+			if strings.TrimSpace(sa.Params["Defined"]) == "ActivePlayer" {
+				chooser = g.Active
+			}
+			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
+				Source: c.Source, ResumeKind: "endturn_optional", ResumeSA: sa,
+				ResumeRemembered: append([]state.Target(nil), c.Remembered...),
+				Prompt:           "End the turn?", Options: []decision.Option{
+					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
+					{Index: 1, Kind: "no", Label: "No", Player: chooser},
+				}}
+			// Without an askable host, take the conservative R-9 decline.
+			if Ask(h, d) == AskNoHost {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "EndTurn Optional$ declined (no engine host to ask)"})
+			}
+			return
+		}
+		if answer != "yes" {
+			return
+		}
+	}
 	ids := append([]state.ObjID(nil), g.Stack...)
 	h.Emit(events.Event{Kind: events.EndTurn, IDs: ids})
 }
