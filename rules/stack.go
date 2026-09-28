@@ -1945,13 +1945,18 @@ zoneLoop:
 // the candidate stack object QUALIFIES only when its own chosen targets
 // include an object matching the spec, evaluated from the targeting
 // ability's controller (the counter's "you" is its controller, not the
-// countered spell's). Only permanent-kind candidates carry targets to
-// check; a player candidate or a stack object without recorded targets --
-// the ability-object shapes whose per-stack target bindings live in the
-// trigger/activation roles this filter cannot see -- fails the filter, the
-// narrower direction (Not of This World can still counter every spell that
-// visibly targeted a matching permanent; an ability it cannot verify is
-// never offered, never wrongly offered).
+// countered spell's). Every OBJECT candidate carries its targets the same
+// way -- the census labels a stack spell kind "spell", not "permanent", but
+// its chosen targets are recorded on the same Object.Targets (notofthisworld1:
+// before this admission the filter dropped every stack candidate, so a
+// TargetValidTargeting$ counter offered no target at all and, through
+// costPotentialTargets, no potential-target cost reduction either; 31 corpus
+// files carry the parameter, every one a counter or retarget of a spell).
+// A player candidate has no targets to check, and an object candidate with
+// no recorded targets matches nothing -- both fail the filter, the narrower
+// direction (an ability whose per-stack target bindings live in the
+// trigger/activation roles this filter cannot see is never offered, never
+// wrongly offered).
 func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, sc effects.SpecContext) []targetCandidate {
 	spec := strings.TrimSpace(sa.Params["TargetValidTargeting"])
 	if spec == "" {
@@ -1959,7 +1964,7 @@ func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, 
 	}
 	out := make([]targetCandidate, 0, len(in))
 	for _, cand := range in {
-		if cand.kind != "permanent" {
+		if cand.kind == "player" {
 			continue
 		}
 		o := e.G.Obj(cand.obj)

@@ -6337,12 +6337,14 @@ func (e *Engine) targetDependentCostMayPay(pc *pendingCast) bool {
 	if !ok {
 		return false
 	}
-	mods := e.costModifiersForPotentialTargets(pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope))
 	delve := int32(0)
 	if !pc.isAbility() {
 		delve = int32(len(pc.delve))
 	}
-	return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType})
+	_, ok = e.potentialCostModsUsing(e.collectCostStatics(), pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope), 0, func(mods costMods) bool {
+		return e.manaFeasibleDescriptor(pc.player, paymentForCast(pc, pc.resolvedMana()), pc.resolvedMana(), mods, pc.taxGeneric, delve, pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType})
+	})
+	return ok
 }
 
 // pendingCastScope returns the exact spell or ability scope whose modifiers

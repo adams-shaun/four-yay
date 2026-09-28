@@ -116,10 +116,13 @@ func (e *Engine) modeCostFeasible(pc *pendingCast, extra Cost, pot state.Mana) b
 		// A target-dependent reducer cannot be in the pre-target snapshot, but
 		// it may make one legal target choice payable; retry with exactly the
 		// potential reductions (offerCastableUsing's own fallback).
-		potential := e.costModifiersForPotentialTargets(pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope))
-		if !e.manaFeasiblePool(pc.player, pc.card, pc.isAbility(), base, potential, tax, delve, pot, typed) {
+		potential, ok := e.potentialCostModsUsing(e.collectCostStatics(), pc.player, pc.card, scope, e.costPotentialTargets(pc.player, pc.card, scope), 0, func(m costMods) bool {
+			return e.manaFeasiblePool(pc.player, pc.card, pc.isAbility(), base, m, tax, delve, pot, typed)
+		})
+		if !ok {
 			return false
 		}
+		mods = potential
 	}
 	return e.nonManaCastable(pc.player, pc.card, e.composedOfferCost(pc.player, pc.card, base, mods, scope), pc.isAbility())
 }
