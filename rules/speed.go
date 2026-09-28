@@ -2,6 +2,7 @@ package rules
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -36,26 +37,120 @@ func (e *Engine) checkSpeedGain(ev events.Event) {
 	e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Controller: p, SpeedIncrease: true})
 }
 
-// checkSpeedStart is called from Engine.emit after a battlefield-entry Move
-// whose object carries kw:Start your engines: if its controller has no speed,
-// it becomes 1 (CR 702.179a). A controller at speed 1..4 is untouched.
-func (e *Engine) checkSpeedStart(id state.ObjID) {
+// checkSpeedStart is the permanent half of the Start your engines! grant:
+// called from Engine.emit's post-fold hook on every battlefield entry
+// (MoveZone), token mint (TokenCreate, CardToken) and control transfer
+// (ControlChange) -- the same hook shape checkBlessingGrants uses. For each
+// still-alive speed-less seat it checks CR 702.179a's gate directly off the
+// FOLDED state: the seat controls at least one permanent whose derived
+// keywords include Start your engines!. It then emits the one-way
+// SpeedChange latch to 1. Running after the fold means a permanent's own
+// arrival grants its controller, and the recursive emit the scan makes sees
+// a seat that now has speed, so the scan terminates. A control transfer of a
+// permanent already on the battlefield is exactly the case a battlefield-
+// entry-only hook cannot see, which is why ControlChange is in the set.
+func (e *Engine) checkSpeedStart() {
 	if e.G.Over {
 		return
 	}
-	o := e.G.Obj(id)
-	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
+	if !e.speedPossible() {
 		return
 	}
-	if !e.HasKeyword(id, "Start your engines") {
-		return
+	for _, p := range e.G.AliveFrom(0) {
+		if int(p) >= len(e.G.Players) || e.G.Players[p].Lost || e.G.Players[p].Speed != 0 {
+			continue
+		}
+		started := false
+		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			o := e.G.Obj(id)
+			if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
+				continue
+			}
+			if e.HasKeyword(id, "Start your engines") {
+				started = true
+				break
+			}
+		}
+		if started {
+			e.emit(events.Event{Kind: events.SpeedChange, Player: p, Amount: 1,
+				Text: "start your engines"})
+		}
 	}
-	p := o.Controller
-	if int(p) >= len(e.G.Players) || e.G.Players[p].Lost || e.G.Players[p].Speed != 0 {
-		return
+}
+
+// speedPossible is checkSpeedStart's amortised pre-filter, the exact shape of
+// ascendPossible (rules/ascend.go): the scan reads every permanent's DERIVED
+// keywords, and the post-fold hook runs it on every battlefield entry, token
+// mint and control transfer, so a game with no Start your engines! card in
+// its arena pays a full derived walk per event for nothing. No object can
+// carry the keyword unless some card in the game's object arena mentions it
+// (printed K:Start your engines!, or an AddKeyword$/KW$ grant naming it), so
+// the arena is scanned once, incrementally (objects are only ever appended),
+// and the per-seat walk runs only once such a card exists. It is a pure cache
+// over state and emits nothing.
+type speedScan struct {
+	game    *state.Game
+	scanned int
+	seen    bool
+}
+
+func (e *Engine) speedPossible() bool {
+	s := &e.speed
+	if s.game != e.G || s.scanned > len(e.G.Objs) {
+		*s = speedScan{game: e.G}
 	}
-	e.emit(events.Event{Kind: events.SpeedChange, Player: p, Amount: 1,
-		Text: "start your engines"})
+	for ; !s.seen && s.scanned < len(e.G.Objs); s.scanned++ {
+		if cardMentionsStartYourEngines(e.G.Objs[s.scanned].Card) {
+			s.seen = true
+		}
+	}
+	return s.seen
+}
+
+// cardMentionsStartYourEngines reports whether any face of c prints Start
+// your engines! or names it in any parameter or SVar (a grant). Deliberately
+// over-inclusive: a false positive only costs the full scan.
+func cardMentionsStartYourEngines(c *cards.Card) bool {
+	if c == nil {
+		return false
+	}
+	params := func(m map[string]string) bool {
+		for _, v := range m { // membership test only; order cannot matter.
+			if strings.Contains(v, "Start your engines") {
+				return true
+			}
+		}
+		return false
+	}
+	for _, f := range c.Faces {
+		if f == nil {
+			continue
+		}
+		for _, k := range f.Keywords {
+			if strings.Contains(k, "Start your engines") {
+				return true
+			}
+		}
+		if params(f.SVars) {
+			return true
+		}
+		for _, st := range f.Statics {
+			if params(st.Params) {
+				return true
+			}
+		}
+		for _, a := range f.Abilities {
+			if a != nil && params(a.Params) {
+				return true
+			}
+		}
+		for _, tr := range f.Triggers {
+			if params(tr.Params) || (tr.Effect != nil && params(tr.Effect.Params)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // speedTriggeredThisTurn counts the trigger, not its resolution. A queued
