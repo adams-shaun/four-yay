@@ -1,0 +1,34 @@
+{
+  "card": "Baloth Prime",
+  "family": "replacement",
+  "oracle_sha": "8585420df52d",
+  "author": "cli-20260927T211250Z-08ce17a4 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-with-six-stun-counters-tapped",
+      "cr": ["614.1c", "614.12a"],
+      "why": "When Baloth Prime enters, it has six stun counters and is tapped.",
+      "setup": {"p0": {"hand": ["Baloth Prime"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Baloth Prime", "mana": "3G"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Baloth Prime", "zone": "battlefield", "counters": {"stun": 6}, "tapped": true}
+      ]
+    },
+    {
+      "name": "other-creature-enters-without-stun-counters",
+      "cr": ["614.1c"],
+      "why": "The entry modification applies to Baloth Prime itself, not another creature entering under the same player's control.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"]}, "p1": {}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "1G"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "counters": {"stun": 0}, "tapped": false}
+      ]
+    }
+  ]
+}
