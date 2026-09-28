@@ -17,7 +17,7 @@ import (
 // script text) end to end: no cast is a mismatch, the live-vs-clone control
 // is equivalent, and each named cast gets its root-caused verdict.
 //
-//   - 10860 seq 8057 (Three Visits) and 10012 (Worldly Tutor), commander4
+//   - 10860 seq 8083 (Three Visits) and 10141 (Worldly Tutor), commander4
 //     production_differs "Command Tower planned G, manual GGG": Command
 //     Tower's Produced$ Combo ColorIdentity reaches the wheel as the raw
 //     "Add Combo ColorIdentity", which no label class parses, so the
@@ -25,8 +25,15 @@ import (
 //     any one color" on the same land. The plan was right (the tower makes
 //     one mana); the float now proves the option on a clone
 //     (verifiedProductions) and rejects an any-colour label naming another
-//     amount (anyLabelFits).
-//   - 11056 seq 6387 (Artisan of Kozilek), commander4 mirror_missing_decision:
+//     amount (anyLabelFits). After both command-zone fixes merged (the
+//     trigger walk of fb-20260927T160557Z-b958ef31 plus the payment plan of
+//     fb-20260927T163321Z-69285807) the Three Visits cast no longer occurs
+//     and Worldly Tutor lands at seq 3239, now pinned equivalent.
+//   - 11056's former seq 6387 (Artisan of Kozilek) finding is no longer reached
+//     after fb-20260927T160557Z-b958ef31 correctly fires Sidar Jabari's
+//     command-zone Eminence trigger; the added draw/discard changes the game
+//     trajectory. The seed remains a full-game clean-mirror check.
+//     Before that behavior change it was a commander4 mirror_missing_decision:
 //     run A's window queued Syr Konrad's two dies triggers (two sacrificed
 //     Eldrazi Spawn) under one CR 603.3b order ask; the float put each on the
 //     stack as it triggered, with no ask (floatOnlyTriggerOrder). The end
@@ -45,6 +52,20 @@ import (
 //     on "targets_chosen" naming the permuted trigger ObjID -- a mask gap in
 //     the harness, not an engine difference. It surfaced with 87586f456,
 //     which made Sacrifice (fixed-count mandatory sacrifice) plannable at all.
+//
+// fb-20260927T163321Z-69285807 moved the commander seeds here (10860, 11056,
+// 8175) with the command-zone payment-plan fix: a commander in the command
+// zone now gets a plan, the auto-pay bots cast it through one, and those games
+// move. 11056's Artisan of Kozilek finding is no longer reached once the
+// merged trigger-walk fix fires Sidar Jabari's command-zone Eminence trigger,
+// so the seed keeps an empty pin (the round-10 convention, seed 11828) and
+// asserts the whole game is mismatch-free and control-equivalent. 8175's
+// Sacrifice cast no longer occurs, but the same float_trigger_precedes_cast
+// shape now surfaces on Songs of the Damned, so that seed keeps a pin.
+// 10860's Three Visits cast no longer occurs and Worldly Tutor moves to
+// seq 3239, so the seed pins that cast as equivalent; its Command Tower
+// production root cause stays pinned by
+// TestMatchProductionsRespectsAnyColourAmount.
 func TestRoundNineFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -74,13 +95,16 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 	}
 	const precedes = "expected:float_then_cast:float_trigger_precedes_cast"
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		10860: {8057: "", 10012: ""},
-		11056: {6387: precedes},
+		10860: {3239: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
+		11056: {},         // the Artisan finding is no longer reached; assert a clean, control-equivalent game
 		10056: {6108: ""},
-		8175:  {5587: precedes},
+		8175:  {3691: precedes},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)
+		if len(reports) == 0 {
+			t.Errorf("seed %d: no planned-cast reports; clean-game assertions would be vacuous", spec.Seed)
+		}
 		seen := map[uint64]bool{}
 		for _, r := range reports {
 			st, key := r.Verdict()

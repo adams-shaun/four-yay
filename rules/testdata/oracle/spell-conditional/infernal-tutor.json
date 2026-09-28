@@ -1,0 +1,111 @@
+{
+  "card": "Infernal Tutor",
+  "family": "spell-conditional",
+  "oracle_sha": "a405d7a57894",
+  "author": "cli-20260927T211250Z-fe1d2df2 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "hellbent-search-any-name",
+      "cr": [
+        "608.2c",
+        "608.2h",
+        "701.23d"
+      ],
+      "why": "Casting the tutor leaves the hand empty. At resolution the empty-hand alternative finds the one Forest even though it shares no name with the cast card.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Infernal Tutor"
+          ],
+          "library": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Infernal Tutor",
+          "mana": "BB"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Forest"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Forest",
+          "zone": "hand"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "card-in-hand-search-matching-name",
+      "cr": [
+        "608.2c",
+        "608.2h",
+        "701.23b"
+      ],
+      "why": "The Bear remains in hand after the tutor moves to the stack; without hellbent a matching Bear can be found, not an arbitrary Forest.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Infernal Tutor",
+            "Grizzly Bears"
+          ],
+          "library": [
+            "Grizzly Bears",
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Infernal Tutor",
+          "mana": "BB"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Grizzly Bears"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "hand",
+            "name": "Grizzly Bears"
+          },
+          "eq": 2
+        },
+        {
+          "card": "p0:Forest",
+          "zone": "library"
+        }
+      ]
+    }
+  ]
+}

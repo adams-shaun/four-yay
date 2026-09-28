@@ -28,6 +28,11 @@ import (
 //   - 5108 (constructed): Warping Wail's exile mode's only target is the
 //     Eldrazi Scion paying for it (follow_up_unmappable on the modes ask,
 //     now expected float_removed_every_target, CR 700.2a).
+//
+// fb-20260927T163321Z-69285807 re-pinned the commander seeds (4038, 6191)
+// after the command-zone payment-plan fix: a commander in the command zone
+// now gets a plan, the auto-pay bots cast it through one, and those games
+// move. The same cards keep the same pins at their new seqs.
 func TestRoundSevenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -41,9 +46,9 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 		seq       uint64
 		want      string // the named cast's verdict key ("" = equivalent)
 	}{
-		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7682, ""},
+		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7684, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
-		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9976, "expected:float_then_cast:float_trigger_precedes_cast"},
+		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9956, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})

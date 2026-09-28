@@ -1,0 +1,42 @@
+{
+  "card": "Earthbender Ascension",
+  "family": "trigger-condition",
+  "oracle_sha": "9457a2bed073",
+  "author": "cli-20260927T211250Z-fb1ba634 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "fourth-landfall-reaches-quest-threshold",
+      "cr": ["603.2", "603.4"],
+      "why": "The fourth landfall adds the fourth quest counter. The conditional ability it generates sees four counters and puts a +1/+1 counter on the targeted creature, granting trample for the turn.",
+      "setup": {"p0": {"battlefield": ["Earthbender Ascension", "Experiment One"], "hand": ["Plains", "Island", "Mountain", "Forest"]}, "p1": {}},
+      "steps": [
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Plains", "to": "battlefield"},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Island", "to": "battlefield"},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Mountain", "to": "battlefield"},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Forest", "to": "battlefield", "targets": ["p0:Experiment One"]},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Earthbender Ascension", "counters": {"quest": 4}}, {"card": "p0:Experiment One", "counters": {"+1/+1": 1}, "keywords": ["Trample"]}]
+    },
+    {
+      "name": "third-landfall-below-four-counter-threshold",
+      "cr": ["603.2", "603.4"],
+      "why": "Only three landfall events have added quest counters, so the follow-up condition is false; no +1/+1 counter is put on the creature.",
+      "setup": {"p0": {"battlefield": ["Earthbender Ascension", "Experiment One"], "hand": ["Plains", "Island", "Mountain"]}, "p1": {}},
+      "steps": [
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Plains", "to": "battlefield"},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Island", "to": "battlefield"},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Mountain", "to": "battlefield"},
+        {"op": "resolve", "expect": [{"trigger_on_stack": "p0:Earthbender Ascension", "want": false}]}
+      ],
+      "expect": [{"card": "p0:Earthbender Ascension", "counters": {"quest": 3}}, {"card": "p0:Experiment One", "counters": {"+1/+1": 0}}]
+    }
+  ]
+}
