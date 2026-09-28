@@ -181,7 +181,10 @@ func ParamMaskOf(keys ...ParamKey) ParamMask {
 // was built from (src, n): a node copy whose Params was replaced or resized
 // falls back to the map read.
 type ParamSet struct {
-	src  unsafe.Pointer
+	// src is the map the set was built from. Held as the map itself (not
+	// its address) so two identically parsed nodes stay reflect.DeepEqual;
+	// bound compares identities.
+	src  map[string]string
 	n    int
 	has  ParamMask
 	vals []string
@@ -195,7 +198,7 @@ func newParamSet(m map[string]string) *ParamSet {
 	if m == nil {
 		return nil
 	}
-	ps := &ParamSet{src: mapIdentity(m), n: len(m)}
+	ps := &ParamSet{src: m, n: len(m)}
 	for key := range m {
 		if k, ok := paramKeyByName[key]; ok {
 			ps.has[k>>6] |= 1 << (k & 63)
@@ -211,7 +214,7 @@ func newParamSet(m map[string]string) *ParamSet {
 }
 
 func (ps *ParamSet) bound(m map[string]string) bool {
-	return ps != nil && ps.src == mapIdentity(m) && ps.n == len(m)
+	return ps != nil && ps.n == len(m) && mapIdentity(ps.src) == mapIdentity(m)
 }
 
 func (ps *ParamSet) get(k ParamKey) (string, bool) {
