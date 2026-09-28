@@ -193,6 +193,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			}
 			m["ms_total"], m["ms_max"] = timed.total, timed.max
 			m["ms_over_1s"], m["ms_over_10s"] = timed.over1s, timed.over10s
+			m["ms_hist_edges"], m["ms_hist"] = histEdges, timed.hist
 		}
 		rec, _ := json.Marshal(m)
 		if f, ferr := os.OpenFile(*stats, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); ferr == nil {
@@ -212,7 +213,13 @@ type timedPolicy struct {
 	p               *kshadow.Policy
 	total, max      float64
 	over1s, over10s int
+	// hist counts decisions by wall ms, bucket i holding those below
+	// histEdges[i] (the last: at or above the last edge).
+	hist [len(histEdges) + 1]int
 }
+
+// histEdges are the latency histogram's bucket bounds in ms.
+var histEdges = [...]float64{1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000, 10000, 20000}
 
 func (t *timedPolicy) GameStart(g *v1agent.GameStart) { t.p.GameStart(g) }
 func (t *timedPolicy) GameOver(g *v1agent.Terminal)   { t.p.GameOver(g) }
@@ -230,6 +237,14 @@ func (t *timedPolicy) Choose(d *v1agent.Decision) int {
 		if ms > 10000 {
 			t.over10s++
 		}
+		b := len(histEdges)
+		for i, edge := range histEdges {
+			if ms < edge {
+				b = i
+				break
+			}
+		}
+		t.hist[b]++
 	}()
 	return t.p.Choose(d)
 }
