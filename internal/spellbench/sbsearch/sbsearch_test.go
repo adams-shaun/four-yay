@@ -169,3 +169,59 @@ func TestPickRoots(t *testing.T) {
 		t.Fatalf("roots %+v %+v %+v", roots[0].key, roots[1].key, roots[2].key)
 	}
 }
+
+// TestCombatAndTargetSearch: blockers and single-target decisions are
+// searched (Block, Target), deterministically, and every searched kind
+// completes worlds.
+func TestCombatAndTargetSearch(t *testing.T) {
+	g := newTestGame(t)
+	ds := watch(t)
+	cfg := quick()
+	cfg.Attack, cfg.Block, cfg.Target = true, true, true
+	mk := func(s uint64) seat.Seat { return New(g.tactical(s), s, cfg) }
+	kinds := map[string]int{}
+	valid := map[string]int{}
+	for _, seed := range []uint64{testSeed, testSeed + 1, testSeed + 2} {
+		*ds = nil
+		a, oa := g.play(t, seed, mk)
+		n := len(*ds)
+		for _, d := range (*ds)[:n] {
+			kinds[d.Kind]++
+			valid[d.Kind] += d.Worlds
+		}
+		b, ob := g.play(t, seed, mk)
+		if a != b || oa != ob || len(*ds) != 2*n {
+			t.Fatalf("seed %d: two runs differ: %s %+v vs %s %+v (%d/%d searched)", seed, a, oa, b, ob, n, len(*ds)-n)
+		}
+	}
+	t.Logf("searched %v, valid worlds %v", kinds, valid)
+	if kinds["blockers"] == 0 || valid["blockers"] == 0 {
+		t.Fatalf("no blockers decision searched: %v %v", kinds, valid)
+	}
+}
+
+// TestAdaptiveWorlds: a decision stops early only after MinWorlds valid
+// worlds and extends past Worlds only up to MaxWorlds.
+func TestAdaptiveWorlds(t *testing.T) {
+	g := newTestGame(t)
+	ds := watch(t)
+	cfg := quick()
+	cfg.Worlds, cfg.MinWorlds, cfg.StopBelow, cfg.MaxWorlds, cfg.CloseBand = 3, 1, 0, 5, 1
+	g.play(t, testSeed, func(s uint64) seat.Seat { return New(g.tactical(s), s, cfg) })
+	short, long := 0, 0
+	for _, d := range *ds {
+		if d.Worlds+d.Failed > 5 || (d.Worlds < 1 && d.Failed == 0) {
+			t.Fatalf("world count out of bounds: %+v", d)
+		}
+		if d.Worlds < 3 && d.Failed == 0 {
+			short++
+		}
+		if d.Worlds > 3 {
+			long++
+		}
+	}
+	t.Logf("%d decisions, %d stopped early, %d extended", len(*ds), short, long)
+	if long == 0 {
+		t.Fatal("CloseBand 1 extends every decision whose lead is finite, yet none was")
+	}
+}

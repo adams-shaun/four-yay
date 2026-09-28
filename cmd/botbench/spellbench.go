@@ -669,13 +669,15 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")))
 	}
 	if sbSearchSide {
-		n := 0
+		var ps []string
+		var ns []int
 		for _, b := range bots {
 			if isSBSearchPolicy(b) {
-				n += sbCount(sched, b)
+				ps = append(ps, b)
+				ns = append(ns, sbCount(sched, b))
 			}
 		}
-		fmt.Fprint(stdout, sbSearchCostReport(n))
+		fmt.Fprint(stdout, sbSearchCostReports(ps, ns))
 	}
 	if azCorpusPath != "" {
 		n, err := sbWriteCorpus(azCorpusPath, results)
