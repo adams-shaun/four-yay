@@ -871,7 +871,16 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	2: "a991478b3edb213c",
+	// fb-20260928T161506Z-2126f2de (CR 302.6 opponent-turn scope) moved ALL FOUR
+	// heads: events/apply.go's TurnChange now clears SummonSick on every seat's
+	// battlefield, not only the incoming active player's, so every creature's
+	// {T}/{Q} ability is offered from the start of the next turn (any player's).
+	// Verified by reverting the events/apply.go loop: the four old heads return
+	// byte-identically, so the movement is exactly this one rule. 2 seats: the
+	// first divergence is event 155, a seat-0 priority on turn 2 where
+	// death-n-taxes' Mother of Runes {T} protection ability is newly legal and
+	// the bot takes it; the same newly-offered {T} abilities move 4/6/8 seats.
+	2: "a20760c7b58c2349",
 	// 4 seats moved to c232a4aca592e0f8 (autonomous orchestrator): resolving fb-20260914T033246Z-3f1cc033 (delver of secrets was played, but I was not prompted ... "you MAY reveal"... ...)
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
@@ -1082,7 +1091,9 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	4: "d4876057e0477830",
+	// 4 seats moved to a4c237c20b7b1aa2 by fb-20260928T161506Z-2126f2de (CR 302.6
+	// opponent-turn scope, see the 2-seat note; revert restores d4876057e0477830).
+	4: "a4c237c20b7b1aa2",
 	// 6 seats moved to c8c36b87e598c090 (autonomous orchestrator): resolving fb-20260914T033246Z-3f1cc033 (delver of secrets was played, but I was not prompted ... "you MAY reveal"... ...)
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
@@ -1238,7 +1249,9 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	6: "b4a5d33f302e6bfc",
+	// 6 seats moved to 34a38597c8d6eb46 by fb-20260928T161506Z-2126f2de (CR 302.6
+	// opponent-turn scope, see the 2-seat note; revert restores b4a5d33f302e6bfc).
+	6: "34a38597c8d6eb46",
 	// 8 seats moved to cc022f9ba9f2bf39 with task mana2 (fix(rules): pay mana
 	// ability costs and choose colors): mana abilities that spend a Sac cost
 	// are now gated on a payable, deterministic sacrifice candidate existing,
@@ -1446,7 +1459,9 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	8: "b73492c5ccdaadca",
+	// 8 seats moved to d3ba54c306d19cad by fb-20260928T161506Z-2126f2de (CR 302.6
+	// opponent-turn scope, see the 2-seat note; revert restores b73492c5ccdaadca).
+	8: "d3ba54c306d19cad",
 }
 
 func TestHeads(t *testing.T) {
