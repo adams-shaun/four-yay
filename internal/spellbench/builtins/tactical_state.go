@@ -563,3 +563,9 @@ func (s *tstate) canAfford(cost string, extra int32) bool {
 func (s *tstate) handPressure() float64 {
 	return 1 + 0.25*float64(max(0, s.meP.HandSize-4))
 }
+
+// deckingRisk reports a library low enough, and no longer than the
+// opponent's, that drawing extra cards loses the deck-out race of a stall.
+func (s *tstate) deckingRisk() bool {
+	return s.meP.LibrarySize < 12 && s.meP.LibrarySize <= s.oppP.LibrarySize+2
+}

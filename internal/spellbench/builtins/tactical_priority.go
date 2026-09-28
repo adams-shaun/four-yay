@@ -395,6 +395,9 @@ func (t *tactical) effValue(s *tstate, p *tProfile, e *tEffect, src state.ObjID)
 	}
 	switch e.class {
 	case effDraw:
+		if s.deckingRisk() {
+			return -w.Card * amount // a stall is a deck-out race: do not draw
+		}
 		// Cards past the hand-size limit are discarded at cleanup: they
 		// are worth only the selection.
 		room := float64(max(0, 8-s.meP.HandSize))
@@ -403,6 +406,9 @@ func (t *tactical) effValue(s *tstate, p *tProfile, e *tEffect, src state.ObjID)
 	case effSelect:
 		return w.Select * earlyDraw
 	case effTutor:
+		if s.deckingRisk() {
+			return 0
+		}
 		return w.Card * 0.8 * amount * earlyDraw
 	case effRamp:
 		if e.api == "Mana" {
