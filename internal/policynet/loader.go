@@ -120,6 +120,10 @@ type Example struct {
 	// makes the example train the PPO objective instead of the supervised
 	// loss. nil for every label-corpus example.
 	PPO *PPOTarget
+	// Visits is the visit-distribution target (M1b, LoadVisits): non-nil
+	// makes the example train the soft candidate cross-entropy against the
+	// search's visits instead of the supervised loss. nil otherwise.
+	Visits *VisitTarget
 	// JointCard is the joint (card, target) action encoding's option map
 	// (pn12, LoadWith with Joint): JointCard[k] is the index in the RECORD's
 	// option list of the card Options[k] casts. nil for the split encoding,

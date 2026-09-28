@@ -128,7 +128,7 @@ func Search(root Root, src WorldSource, net *policynet.Model, opts Options) (Res
 	}
 	rootPt := &Point{Keys: res.Keys, Prior: treePrior}
 	cfg := &walkConfig{
-		net: net, kinds: opts.Kinds, limit: opts.Limit, maxSteps: opts.MaxSteps,
+		net: net, heuristicLeaf: opts.HeuristicLeaf, kinds: opts.Kinds, limit: opts.Limit, maxSteps: opts.MaxSteps,
 		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player,
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 	}

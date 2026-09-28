@@ -49,6 +49,8 @@ package main
 // planner proved unpayable.
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -67,6 +69,7 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/azmcts"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/spellbench"
@@ -175,6 +178,11 @@ type sbResult struct {
 	fallbacks [2]int
 	rejects   [2]string // first refused answer per seat
 	stats     [2]builtins.Stats
+	// corpus is this game's -az-corpus records as one gzip member (nil when
+	// off or when no az seat searched): members concatenate into the file.
+	corpus []byte
+	// visits counts the records in corpus.
+	visits int
 }
 
 // sbDisplayName is the ledger name for a policy. A spec resolves through
@@ -191,7 +199,13 @@ func sbDisplayName(policy string) string {
 	if !isAZPolicy(base) {
 		return policy
 	}
+	if azLabel != "" {
+		return azLabel
+	}
 	cfg := azSeatConfig(base)
+	if cfg.PriorOnly && base == "az" {
+		return "az-prior" + strings.TrimPrefix(policy, base)
+	}
 	world := cfg.World
 	if world == "" {
 		// azFrontDoor always sets azCfg.World before a run; the empty case
@@ -293,6 +307,20 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
 		Tokens: reg.Tokens, NameUniverse: reg.Cards,
 	}
+	var recs []policynet.VisitRecord
+	if azCorpusPath != "" {
+		for s := 0; s < 2; s++ {
+			az, ok := registry.UnwrapSeat(seats[s]).(*azmcts.Seat)
+			if !ok {
+				continue
+			}
+			opp := g.seats[1-s]
+			az.SetRecorder(func(r policynet.VisitRecord) {
+				r.GameID, r.Deck, r.Seed, r.Opponent = g.id, g.deck, g.seed, opp
+				recs = append(recs, r)
+			})
+		}
+	}
 	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res), Setup: func(e *rules.Engine) {
 		for _, st := range seats {
 			if b, ok := registry.UnwrapSeat(st).(*builtins.Seat); ok {
@@ -307,12 +335,66 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	o, _, err := gbench.PlayGame(cfg, seats, maxTurns, maxIntents, hooks)
 	res.wall = time.Since(t0)
 	res.outcome, res.err = o, err
+	if len(recs) > 0 {
+		res.corpus, res.visits = sbCorpusMember(recs, o, err)
+	}
 	for s := 0; s < 2; s++ {
 		if b, ok := registry.UnwrapSeat(seats[s]).(*builtins.Seat); ok {
 			res.stats[s] = b.Stats
 		}
 	}
 	return res
+}
+
+// sbCorpusMember stamps each record with the recording seat's outcome and
+// encodes the game's records as one gzip member. A halted or truncated game's
+// records keep outcome_known false.
+func sbCorpusMember(recs []policynet.VisitRecord, o gbench.Outcome, err error) ([]byte, int) {
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	enc := json.NewEncoder(zw)
+	for i := range recs {
+		r := &recs[i]
+		switch {
+		case err != nil || gbench.IsAbort(o.StallOn) || o.IsStalled():
+		case o.Draw:
+			r.Outcome, r.OutcomeKnown = 0.5, true
+		case o.WinnerSeat == r.Seat:
+			r.Outcome, r.OutcomeKnown = 1, true
+		default:
+			r.Outcome, r.OutcomeKnown = 0, true
+		}
+		if e := enc.Encode(r); e != nil {
+			panic("botbench: encoding a visit record: " + e.Error()) // plain data; cannot fail
+		}
+	}
+	if e := zw.Close(); e != nil {
+		panic("botbench: closing a visit corpus member: " + e.Error())
+	}
+	return buf.Bytes(), len(recs)
+}
+
+// sbWriteCorpus writes the games' corpus members in schedule order to a
+// temporary file renamed onto -az-corpus, so the file is a pure function of
+// the run's flags and a failed run leaves no partial corpus.
+func sbWriteCorpus(path string, results []sbResult) (int, error) {
+	tmp := path + ".tmp"
+	f, err := os.Create(tmp)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, r := range results {
+		if _, err := f.Write(r.corpus); err != nil {
+			f.Close()
+			return 0, err
+		}
+		n += r.visits
+	}
+	if err := f.Close(); err != nil {
+		return 0, err
+	}
+	return n, os.Rename(tmp, path)
 }
 
 // sbLedgerRow renders one game as a spellbench-match-ledger/v1 row.
@@ -455,6 +537,14 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if o.out == "" {
 		return fail(fmt.Errorf("-spellbench-out is required"))
 	}
+	if azCorpusPath != "" {
+		if !azSide {
+			return fail(fmt.Errorf("-az-corpus needs an az policy"))
+		}
+		if _, err := os.Stat(azCorpusPath); err == nil {
+			return fail(fmt.Errorf("-az-corpus %s already exists", azCorpusPath))
+		}
+	}
 	var ckModel *policynet.Model
 	if checkpoint != "" {
 		if !azSide {
@@ -570,6 +660,13 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		// Both az policies feed one cost report; its game count is the
 		// games either seated.
 		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")))
+	}
+	if azCorpusPath != "" {
+		n, err := sbWriteCorpus(azCorpusPath, results)
+		if err != nil {
+			return fail(fmt.Errorf("-az-corpus: %w", err))
+		}
+		fmt.Fprintf(stdout, "az visit corpus %s: %d records\n", azCorpusPath, n)
 	}
 	return 0
 }

@@ -2453,6 +2453,10 @@ func main() {
 		// schedule over the -spellbench policies, not the -a/-b bench.
 		os.Exit(spellbenchExit(sbFlags, *dir, *workers, *maxTurns, *maxIntents, *checkpoint, os.Stdout, os.Stderr))
 	}
+	if azCorpusPath != "" {
+		fmt.Fprintln(os.Stderr, "botbench: -az-corpus is a -spellbench mode flag")
+		os.Exit(2)
+	}
 	os.Exit(mainExit(*a, *b, *games, *seed, *seats, *rotate, *pairs, *format, *out, *workers,
 		*maxTurns, *maxIntents, *dir, *profile, *decisionStats, *actionCoverage, *grind, *grindSeconds, *grindIters, *cpuprofile, *memprofile, *decisionTrace, *analyzeTrace, *checkpoint))
 }

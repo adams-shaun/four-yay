@@ -1109,6 +1109,7 @@ of a pile-B remainder follows gorge's `Rest` convention unverified.
 |---|---|---|---|
 | M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | done (D§3.1): bot +238, clairvoyant az +436 over the uniform port |
 | M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | Q2 done (D§12.5): K1 passes, az25 +14.7pp, az100 +20.5pp over `bot`; Q1 open |
+| M1b | gorge-native botbench + policytrain | does a CLAIRVOYANT search teacher distil into a seat-visible student as well as (or better than) an honest one? | done (D§16): no -- both teachers' students are statistically indistinguishable, and neither helps honest search or beats `bot` alone |
 | M2 | v2 mocked backend (W2), then v2 on gorge in reverse (D§11.1) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); on real gorge 896 games with 0 protocol errors, belief-level shadow 0 mismatches, heuristic intent parity 15/16 (D§11.1); staged-shadow (D§4) fidelity open |
 | M3 | v2 on Jack's adapter, `pauper-gorge` (5 decks: Wildfire, Rally, Spy, Burn, CawGates; plan Task 7) | strength vs `gorge-bot`, `gorge-lethal-pressure`, builtins; neutral vs xview entry | — |
 | M4 | v2 on mtg-kernel (Annex A bridge), `pauper-kernel` | cross-engine: fidelity and candidate agreement on a foreign engine; rating vs g115 (1388), a48, c12, heuristic (1102) | — |
@@ -1362,3 +1363,203 @@ botbench invocation runs under
 `flock -o .../heavy.lock systemd-run --user --scope -q -p MemoryMax=4G env
 GOMEMLIMIT=2GiB GOMAXPROCS=8` with `-workers 8` (SB_GAUNTLET_WORKERS
 overrides the worker count for a smoke-sized run).
+
+## 16. M1b: clairvoyant vs honest teacher (measured 2026-09-28)
+
+**Question.** Clairvoyant `az` cheats, so it cannot be entered, but it can
+TEACH: record its visit distributions and outcomes, and train a student whose
+inputs are seat-visible only (privileged-teacher distillation: Suphx oracle
+guiding, Learning by Cheating). Does that student beat one taught by the
+honest search (`az-redeal`, M1), and plain behaviour cloning of `bot`? The
+risk to measure: a clairvoyant target can depend on what the student cannot
+see ("attack, their hand is empty"), so the student learns an average over
+hidden states (strategy-fusion-like bias).
+
+**Verdict.** No. The clairvoyant teacher's student is statistically
+indistinguishable from the honest teacher's on every readout (offline
+agreement, value AUC, play alone, prior inside honest search), and neither
+student beats `bot` alone or improves honest search over its no-network
+control. The reason is not strategy fusion: visit targets at this budget are
+almost entirely unpredictable from EITHER the seat view or the seat view plus
+the opponent's hand (the student closes 0.005 of the 0.023 nats between
+uniform and the teacher's own entropy, and opponent-hand features add 0.0000
+nats), so there is little signal to distil in the first place. This
+reproduces pn12 (§8c of the training summary: "hidden information is not the
+whole story; the override labels are close to noise") with soft MCTS visit
+targets in place of argmax PIMC labels, and extends it: the clairvoyant
+targets are no more predictable with the hidden information than without it.
+Do not build the clairvoyant-distillation arm further; the honest search seat
+itself (M1 K1 pass) is the asset.
+
+### 16.1 Setup
+
+- **Teachers.** `az` over clairvoyant clones (`-az-world clairvoyant`) and
+  `az-redeal` (honest: every simulation walks a fresh redeal, M1), 50
+  simulations, PUCT c 1.5, moves sampled ∝ visits on turns ≤ 4, **no** root
+  Dirichlet noise (at 50 simulations the noise would be a large share of every
+  target; `-az-no-noise`), vs `bot`, on the SpellBench 8-deck pauper-kernel
+  pool as seat-swapped mirrors (`botbench -spellbench`).
+- **Corpus** (`botbench -az-corpus`, `policynet.VisitRecord` schema
+  `azvisits-v1`): per searched decision, the redacted `mz` state, the options
+  any candidate references, the candidates as option sets (candidate 0 = the
+  bot's answer), visits, prior, Q, root value, the played candidate, the game
+  outcome, plus the opponent's hand as diagnostic `mz-opphand` rows (read only
+  by the measurement-only `-visits-diag` student, never checkpointed).
+  Recording is observational (`TestRecorderLeavesTheGameUnchanged`,
+  `TestAZCorpusRecordsWithoutChangingTheGame`).
+
+| Corpus | Games | Teacher W-L vs bot | Records | ms / searched decision (mean, p95) |
+|---|---|---|---|---|
+| clairvoyant train (c1+c2) | 2,560 | 2,023-537 (79.0%) | 202,081 | 104, 250 |
+| honest train (h1+h2) | 2,560 | 1,707-853 (66.7%) | 195,757 | 119, 290 |
+| clairvoyant held out | 160 | 124-36 (77.5%) | 11,478 | 101, 243 |
+| honest held out | 160 | 100-60 (62.5%) | 11,166 | 150, 364 |
+
+  Targets are soft: mean visit entropy 1.042 nats (clairvoyant) and 1.032
+  (honest) against 1.065 / 1.055 for uniform over the same candidates; the
+  teacher's argmax differs from the bot's answer on 39% / 43% of decisions, a
+  median Q gap of 0.042 / 0.045 over the bot's candidate.
+- **Students** (`policytrain -visits-corpus`): identical architecture (the `mz`
+  per-option scorer, embed 128, hidden 128, value head 32), seed, optimiser
+  (12 epochs, lr 0.1, clip 5; 6 epochs at clip 1 measurably undertrained),
+  and game budget (the first 2,500 games of each list: 199,350 clairvoyant /
+  193,666 honest records). Policy loss: soft cross-entropy of the candidate
+  softmax against the visits (`policynet.lossVisits`; its logits are exactly
+  the search prior's, `TestVisitRecordReproducesTheSearchPrior`). Value target
+  0.95·outcome + 0.05·root value. Holdout by game pair.
+  - `clair`, `honest`: the two teachers' visit distributions.
+  - `bc`: one-hot on the bot's answer over the SAME clairvoyant states and
+    candidates (behaviour cloning with only the target changed).
+  - `*-r2`: the same three with `-residual-init 2` (the bot's own options
+    score +2, so the head learns only deviations from the bot). Needed
+    because the option encoding cannot see which candidate is the bot's
+    (BotPick reaches the score only through the residual): a residual-0
+    student cannot even imitate the bot (`bc` picks it 87%).
+- **Play arms** (all vs `bot`, same seeds per arm, CI95 normal over games;
+  arm-vs-arm differences are paired over identical games, `scripts/m1b-paired.py`):
+  - *student alone*: `-az-world prior` (no simulation; at every decision the
+    search would search, the argmax of the student's prior over the same
+    candidates; no network = exactly `bot`,
+    `TestPriorOnlySeatWithoutANetworkIsTheBot`); 800 games vs `bot` and 800 vs
+    `sb-heuristic`, base seed 29001.
+  - *student inside honest search*: `az-redeal` at 25 simulations with the
+    student as prior and leaf, vs the same search with no network (uniform
+    prior, heuristic leaf); `-az-heuristic-leaf` keeps the heuristic leaf and
+    uses the student as the prior only; 1,200 games each, base seed 39001.
+
+### 16.2 Training curves
+
+Held-out (by game pair) top-1 against the teacher's argmax, epochs 1 / 4 / 8 / 12,
+and value log loss vs the base rate:
+
+| Student | Top-1 held out | Value log loss, epoch 12 (base rate) | Wall, peak RSS |
+|---|---|---|---|
+| clair | 0.580 / 0.617 / 0.650 / 0.660 | 0.497 (0.631) | 31 min, 1.8 GB |
+| honest | 0.542 / 0.581 / 0.616 / 0.632 | 0.587 (0.653) | 24 min, 1.7 GB |
+| bc | 0.621 / 0.618 / 0.575 / 0.577 (vs the teacher; it learns the bot) | 0.485 (0.631) | 15 min, 1.7 GB |
+
+### 16.3 Offline readouts (both held-out corpora, teacher visits as the target)
+
+| Student | Eval corpus | CE (uniform / teacher entropy) | Top-1 vs teacher | Picks bot (teacher keeps bot) | Override top-1 | Value AUC | Within-deck AUC | Teacher root-value AUC (within-deck) |
+|---|---|---|---|---|---|---|---|---|
+| clair | clair | 1.0599 (1.0651 / 1.0423) | 0.679 | 0.490 (0.615) | 0.693 | 0.762 | 0.708 | 0.583 (0.552) |
+| honest | clair | 1.0602 | 0.667 | 0.470 | 0.702 | 0.756 | 0.739 | |
+| bc | clair | 2.4646 | 0.568 | 0.873 | 0.065 | 0.761 | 0.699 | |
+| clair | honest | 1.0489 (1.0547 / 1.0320) | 0.665 | 0.474 (0.562) | 0.658 | 0.837 | 0.775 | 0.734 (0.749) |
+| honest | honest | 1.0491 | 0.660 | 0.459 | 0.666 | 0.852 | 0.792 | |
+| bc | honest | 2.5461 | 0.526 | 0.877 | 0.066 | 0.844 | 0.779 | |
+| clair-r2 | clair / honest | 1.2017 / 1.1971 | 0.602 / 0.559 | 0.823 / 0.807 | 0.191 / 0.185 | 0.773 / 0.848 | 0.720 / 0.781 | |
+| honest-r2 | clair / honest | 1.2257 / 1.2194 | 0.595 / 0.555 | 0.856 / 0.844 | 0.144 / 0.144 | 0.749 / 0.855 | 0.721 / 0.790 | |
+| bc-r2 | clair / honest | 2.0467 / 2.0842 | 0.610 / 0.561 | 0.988 / 0.989 | 0.005 / 0.009 | 0.776 / 0.845 | 0.721 / 0.778 | |
+
+- Each student predicts the OTHER teacher as well as its own: the clairvoyant
+  student matches the honest teacher's argmax 0.665 vs the honest student's
+  0.660. The two teachers' targets are, to a seat-visible student, the same
+  signal.
+- Value: the honest-data student has the better within-deck AUC on both
+  corpora (0.739 vs 0.708 on the clairvoyant one, 0.792 vs 0.775 on the
+  honest one); the clairvoyant games are more one-sided (79% wins), so their
+  outcomes carry less state information. The student's value head beats the
+  teacher's own root value as an outcome predictor on the clairvoyant corpus
+  (0.708 vs 0.552 within deck).
+
+**Hidden-information measurement (pn12, the strategy-fusion risk).** One
+chunk each (c1 / h1, ~100k records, identical settings), `mz` student vs the
+diagnostic student that also reads the opponent's hand:
+
+| Teacher | Student features | Held-out CE (uniform / teacher entropy) | Top-1 | Override top-1 | Value within-deck AUC |
+|---|---|---|---|---|---|
+| clairvoyant | mz | 1.0610 (1.0651 / 1.0423) | 0.644 | 0.704 | 0.746 |
+| clairvoyant | mz + opponent hand | 1.0611 | 0.642 | 0.706 | 0.740 |
+| honest | mz | 1.0502 (1.0547 / 1.0320) | 0.622 | 0.693 | 0.789 |
+| honest | mz + opponent hand | 1.0503 | 0.620 | 0.694 | 0.789 |
+
+Seeing the opponent's hand buys nothing, for either teacher's targets. The
+irreducible part of the clairvoyant target is not "the part that depends on
+the hidden hand" (a student that sees the hand would recover it); it is
+near-tie noise that no feature set here predicts. Strategy fusion is
+therefore not measurable at this signal level: there is no hidden-information
+signal in the targets for the student to average over.
+
+### 16.4 Play
+
+| Arm | vs bot, CI95 (games) | vs sb-heuristic | Paired difference |
+|---|---|---|---|
+| student alone, `clair` | 26.9% [23.8, 29.9] (800) | 63.0% [59.7, 66.3] | clair − honest −0.4pp [−2.9, +2.2]; clair − bc −8.1pp [−11.9, −4.4] |
+| student alone, `honest` | 27.3% [24.2, 30.3] (800) | 65.0% [61.7, 68.3] | honest − bc −7.8pp [−11.5, −4.0] |
+| student alone, `bc` | 35.0% [31.7, 38.3] (800) | 60.0% [56.6, 63.4] | |
+| student alone, `clair-r2` | 43.9% [40.4, 47.3] (800) | 69.0% [65.8, 72.2] | clair-r2 − honest-r2 −2.4pp [−5.3, +0.5]; clair-r2 − bc-r2 −4.8pp [−8.1, −1.4] |
+| student alone, `honest-r2` | 46.2% [42.8, 49.7] (800) | 69.5% [66.3, 72.7] | honest-r2 − bc-r2 −2.4pp [−5.4, +0.6] |
+| student alone, `bc-r2` | 48.6% [45.2, 52.1] (800) | 71.0% [67.9, 74.1] | (≈ `bot`: picks the bot's answer 98.8%) |
+| student alone, no network (control) | = `bot` by construction (50%) | | |
+| honest search, no network (control) | 63.2% [60.5, 66.0] (1,200) | | |
+| honest search + `clair` (prior + leaf) | 65.2% [62.5, 67.9] | | vs control +1.9pp [−1.1, +4.9]; vs + `honest` +1.8pp [−1.0, +4.6] |
+| honest search + `honest` (prior + leaf) | 63.3% [60.6, 66.1] | | vs control +0.1pp [−2.8, +3.0] |
+| honest search + `bc` (prior + leaf) | 41.6% [38.8, 44.4] | | vs control −21.7pp [−24.9, −18.5] |
+| honest search + `clair`, heuristic leaf | 62.8% [60.1, 65.6] | | vs control −0.4pp [−3.2, +2.4]; value head's share (clair − clair-hl) +2.3pp [−0.5, +5.2] |
+| honest search + `honest`, heuristic leaf | 63.2% [60.4, 65.9] | | vs control −0.1pp [−2.8, +2.6] |
+| honest search + `bc`, heuristic leaf | 41.9% [39.1, 44.7] | | vs control −21.3pp [−24.4, −18.2] |
+
+Latency (25 simulations, 8 workers): control 44 ms mean / 108 ms p95 per
+searched decision; with a student leaf 77-79 ms / 160-171 ms; `bc` prior
+202 ms / 513 ms (a sharp prior drives the tree deep down one line).
+
+- A student alone is worse than `bot` in every arm, and worse the MORE it
+  deviates from `bot`: a teacher student's deviations cost 4-6pp even with the
+  residual anchor. Distilling either teacher's visit distribution does not
+  produce a policy better than `bot`.
+- As a search prior the soft students are harmless (±0 vs uniform); a sharp
+  bot-cloning prior is catastrophic (−21pp: it starves the alternatives the
+  search exists to compare). The only positive point estimate is the
+  clairvoyant student's VALUE head as the leaf (+2.3pp over the same prior
+  with the heuristic leaf, +1.9pp over the control), and its CI covers 0.
+- Clairvoyant vs honest teacher: indistinguishable wherever measured (−0.4pp
+  alone, −2.4pp with the residual, +1.8pp as prior+leaf; every CI covers 0).
+
+### 16.5 Next step
+
+- Stop distilling visit distributions at this budget: the target is near-tie
+  noise to any seat-visible (or opponent-hand) student. If distillation is
+  revisited, it needs a sharper teacher signal first (pn12's own conclusion:
+  margin-filtered targets or regressing Q differences, or several hundred
+  simulations per decision), and the value leaf is the part worth pursuing:
+  a leaf-only experiment (student value, uniform prior) at ≥ 4,000 games
+  would decide whether the +2pp value-head estimate is real, and whether a
+  full-sampled-world leaf head (the PerfectDou-style two-headed value the v1c
+  survey recommends) does better.
+- The agent's decision core stays honest search with no network (M1 K1 pass).
+
+### 16.6 Rerun
+
+```sh
+scripts/m1b-distill.sh build   # botbench + policytrain into $M/bin
+scripts/m1b-distill.sh gen     # teacher corpora (one lock hold per 1,280-game chunk)
+scripts/m1b-distill.sh train   # students and the opp-hand diagnostic pairs
+scripts/m1b-distill.sh eval    # student alone; student inside honest search
+python3 scripts/m1b-paired.py $M/evals/search-clair/sb/matches.jsonl $M/evals/search-none/sb/matches.jsonl
+```
+
+`M` defaults to `/mnt/sata/gorge-training/spellbench-work/m1b` (the run
+recorded here: corpora under `clair/` and `honest/`, students and their
+`*.json` readouts under `students/`, ledgers under `evals/`). Every step runs
+under `heavy.lock` in a 4 GB scope with 8 cores.
