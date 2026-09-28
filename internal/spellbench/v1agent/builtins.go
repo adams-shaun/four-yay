@@ -109,6 +109,8 @@ func NewPolicyWith(name string, seed uint64, topts TacticalOptions) (Policy, err
 		return &Uniform{Seed: seed}, nil
 	case "tactical":
 		return NewTactical(topts), nil
+	case "generic":
+		return NewGeneric(topts), nil
 	}
-	return nil, fmt.Errorf("unknown policy %q (first, heuristic, uniform, tactical)", name)
+	return nil, fmt.Errorf("unknown policy %q (first, heuristic, uniform, tactical, generic)", name)
 }

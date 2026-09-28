@@ -24,6 +24,20 @@ type SeatConfig struct {
 	// argmax, no noise.
 	Explore      bool
 	ExploreTurns int32
+	// NoNoise drops the root Dirichlet noise from Explore: moves are still
+	// sampled proportional to visits on turns <= ExploreTurns, but the
+	// recorded visit distribution is the search's own (M1b distillation: at a
+	// small budget the root noise would be a large share of every target).
+	NoNoise bool
+	// PriorOnly is the STUDENT seat (M1b): no simulation at all; at every
+	// decision Search would search, play the argmax of the network prior
+	// over the same candidates (ties on the lowest index, the bot's answer).
+	// It reads only the seat's own decision and redacted view, never a
+	// world, so it is honest. With no network the prior is uniform and the
+	// seat is exactly the bot it wraps (the same-seed control).
+	PriorOnly bool
+	// RecordFeatures is the feature set SetRecorder's records encode under.
+	RecordFeatures policynet.FeatureSet
 	// World is the world source: WorldClairvoyant ("" is clairvoyant, the
 	// stage-1 default) or WorldRedeal, the honest source.
 	World string
@@ -33,7 +47,9 @@ type SeatConfig struct {
 }
 
 // DefaultSeatConfig is the eval seat with the spec's knobs.
-func DefaultSeatConfig() SeatConfig { return SeatConfig{Search: DefaultOptions(), ExploreTurns: 4} }
+func DefaultSeatConfig() SeatConfig {
+	return SeatConfig{Search: DefaultOptions(), ExploreTurns: 4, RecordFeatures: policynet.FeaturesMZ}
+}
 
 // Diag is one decision of a searched kind as the cost report sees it.
 type Diag struct {
@@ -72,9 +88,22 @@ type Seat struct {
 	seed uint64
 	net  *policynet.Model
 	cfg  SeatConfig
+	// record, when set (SetRecorder), receives one visit-corpus record per
+	// decision this seat searched to completion. nil records nothing.
+	record func(policynet.VisitRecord)
 	// known is the redeal source's incremental known-card projection over
 	// this game's feed.
 	known KnownTracker
+}
+
+// SetRecorder installs the visit-corpus recorder (M1b; cmd/botbench
+// -az-corpus). The records carry the searched decision (redacted state,
+// the candidates' options, visits, prior, Q, root value, the played
+// candidate) and the diagnostic opponent-hand rows; the driver fills the
+// game fields and the outcome. world is the world source's name. Recording
+// only reads: the seat's answers are unchanged.
+func (s *Seat) SetRecorder(fn func(policynet.VisitRecord)) {
+	s.record = fn
 }
 
 var (
@@ -123,6 +152,9 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	if err != nil {
 		return decision.Intent{}, err
 	}
+	if s.cfg.PriorOnly && env.Engine != nil {
+		return s.decidePrior(env, d, botIn)
+	}
 	if s.cfg.Search.Sims <= 0 || env.Engine == nil {
 		return botIn, nil
 	}
@@ -150,7 +182,7 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	}
 	opts.Noise, opts.Sample = false, false
 	if s.cfg.Explore {
-		opts.Noise = true
+		opts.Noise = !s.cfg.NoNoise
 		opts.Sample = env.Engine.G.Turn <= s.cfg.ExploreTurns
 	}
 	res, err := Search(Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, src, s.net, opts)
@@ -164,6 +196,9 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		}
 		dealFailed = redeal.DealFailed()
 	}
+	if s.record != nil && res.Stats.Searched == 1 && res.Stats.AllFailed == 0 && refused == "" {
+		s.record(visitRecord(env.Engine, &d, res, s.cfg.RecordFeatures, s.worldName(), opts.Sims))
+	}
 	if res.Kind != "" && Watch != nil {
 		dg := Diag{
 			Turn: env.Engine.G.Turn, Kind: res.Kind, Searched: res.Stats.Searched == 1,
@@ -175,6 +210,36 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		Watch(dg)
 	}
 	return res.Intent, nil
+}
+
+// decidePrior is the PriorOnly seat's decision: the candidates Search would
+// build, answered by the argmax of the network prior (ties on the lowest
+// index). A decision Search would not search is the bot's.
+func (s *Seat) decidePrior(env searchseat.Env, d decision.Decision, botIn decision.Intent) (decision.Intent, error) {
+	obs := searchprobe.NewCollector(d.Player)
+	opts := s.cfg.Search
+	opts.Sims, opts.Noise, opts.Sample = 0, false, false
+	opts.Seed = DecisionSeed(s.seed, d.Seq)
+	res, err := Search(Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, nil, s.net, opts)
+	if err != nil {
+		return decision.Intent{}, err
+	}
+	if len(res.Candidates) < 2 {
+		return botIn, nil
+	}
+	best := 0
+	for i, p := range res.Prior {
+		if p > res.Prior[best] {
+			best = i
+		}
+	}
+	if Watch != nil {
+		Watch(Diag{Turn: env.Engine.G.Turn, Kind: res.Kind, Candidates: len(res.Candidates), Choice: best, Stats: res.Stats})
+	}
+	if best == 0 {
+		return botIn, nil
+	}
+	return res.Candidates[best], nil
 }
 
 // redealSource builds the honest source at one of the seat's decisions from
@@ -195,4 +260,12 @@ func (s *Seat) redealSource(env searchseat.Env, obs *searchprobe.Collector, seed
 		in.Known = known
 	}
 	return NewRedeal(in, obs, seed, s.cfg.Worlds)
+}
+
+// worldName is the record's world source name.
+func (s *Seat) worldName() string {
+	if s.cfg.World == "" {
+		return WorldClairvoyant
+	}
+	return s.cfg.World
 }

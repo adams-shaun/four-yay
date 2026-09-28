@@ -203,6 +203,12 @@ type tactical struct {
 
 	// tapAll marks a pursuit of an {X} spell (pursue taps every source).
 	tapAll bool
+	// force is the pick a searching wrapper imposed on the next fresh
+	// priority choice (ForcePriority), nil in plain play.
+	force *PriorityKey
+	// reanimating guards reanimateValue against a creature whose own ETB
+	// reanimates (it would recurse without end).
+	reanimating bool
 	// The opponent's observed blocking: our attacks it could have blocked
 	// (one per turn) and how many it did block. A seat that never blocks
 	// is raced, not simulated (tactical_combat.go).
@@ -329,13 +335,8 @@ func (t *tactical) fallback(v view.View, d *decision.Decision) decision.Intent {
 // list: the highest-scoring candidate, pass (score 0) when nothing scores
 // above it, ties to the earlier candidate.
 func (t *tactical) pickPriority(v view.View, d *decision.Decision, cands []cand) int {
-	st := t.newState(&v, d.Player)
-	scores := make([]float64, len(cands))
+	st, scores := t.scorePriority(v, d, cands)
 	var line []string
-	for i, c := range cands {
-		scores[i] = t.scoreCand(st, d, c)
-	}
-	t.archAdjustPriority(st, d, cands, scores)
 	best, bestScore := 0, -1e18
 	for i, sc := range scores {
 		if sc > bestScore {
@@ -343,6 +344,18 @@ func (t *tactical) pickPriority(v view.View, d *decision.Decision, cands []cand)
 		}
 		if t.trace != nil {
 			line = append(line, fmt.Sprintf("%s=%.1f", t.candLabel(st, d, cands[i]), sc))
+		}
+	}
+	if t.force != nil {
+		// A searching wrapper (ForcePriority) named this decision's pick;
+		// a key no candidate carries leaves the scored pick standing.
+		k := *t.force
+		t.force = nil
+		for i, c := range cands {
+			if candKey(d, c) == k {
+				best = i
+				break
+			}
 		}
 	}
 	if c := cands[best]; c.pot != nil && c.pot.kind == "cast" {
@@ -356,6 +369,18 @@ func (t *tactical) pickPriority(v view.View, d *decision.Decision, cands []cand)
 			t.candLabel(st, d, cands[best]), strings.Join(line, " "))
 	}
 	return best
+}
+
+// scorePriority is the tactical score of every candidate (pickPriority's
+// ranking; TacticalPriority exposes it).
+func (t *tactical) scorePriority(v view.View, d *decision.Decision, cands []cand) (*tstate, []float64) {
+	st := t.newState(&v, d.Player)
+	scores := make([]float64, len(cands))
+	for i, c := range cands {
+		scores[i] = t.scoreCand(st, d, c)
+	}
+	t.archAdjustPriority(st, d, cands, scores)
+	return st, scores
 }
 
 // zoneOf reports which of our zones holds obj ("hand", "graveyard",

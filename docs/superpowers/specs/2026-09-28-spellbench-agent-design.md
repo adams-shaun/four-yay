@@ -633,6 +633,75 @@ published ledger's 7 halted games are a different, bridge-side cause:
     python3 scripts/spellbench-arena/rate.py joint.md \
       /mnt/sata/gorge-training/spellbench/benchmarks/pauper-kernel/runs/2026-09-27 $W/runs/final
 
+**Hint-free build (sb-generic, measured 2026-09-28).** `-policy generic`
+is `Tactical` with every `hints.go` lookup and every card- or deck-named
+branch replaced by a rule over card data; `-policy tactical` stays the
+hinted build (it replays the pre-change binary exactly: 16/16 seat-swapped
+pairs step-identical, `dev900`). What replaced what:
+
+- *Card facts.* `cardfacts.json` now covers all 161 kernel card-DB names
+  (sideboard cards and tokens included; tokens resolved through their
+  scripts) and carries amounts (`Count$` expressions, metalcraft,
+  landfall, X), costs (tap, sacrifice self/other, discard, return, pay
+  life), target/count filters, modal modes, statics (cost reduction,
+  alternative costs, continuous pumps), flashback/kicker costs, subtypes
+  and ETB-tapped -- derived facts only (`TestCardFactsMatchIR`).
+- *Hint fields.* `derive.go` computes `role`, `ab` (per activation zone),
+  `pol`, `bonus`, `tapped`, `dmg`, `flash`, `sacCost` and `selfLand` from
+  those facts; `TestDerivedHintsMatchTheTable` pins agreement with the
+  hand table on the pool (12 deliberate differences listed in the test).
+- *Named branches.* Counter restrictions (type, colour, unless-cost,
+  "mana value <= number of X you control") from the counter's target
+  filter; the Spy combo as "mill-until-land aimed at ourselves + a
+  creature-sacrifice-flashback reanimator + an ETB finisher scaling with
+  our graveyard"; opposing pumps from untapped activated `+X/+X` sources
+  the opponent can pay for; the Fireblast rule from "alternative cost:
+  sacrifice N lands"; charm modes valued by what each mode does now;
+  kicker, scry, initiative rooms, power-only shrink, looters, one-shot
+  mana, engines, graveyard synergy (aim a targeted mill at ourselves)
+  from facts; `aggro()`/`burnDeck()` from the decklist's power, face
+  damage, interaction and wall counts (reproduces the hand table on all
+  nine catalog decks), or from our cards seen so far when the catalog
+  does not list the deck.
+- *Enforced.* `derive.go`/`generic.go` name no card or deck
+  (`TestHintFreeFilesNameNoCard`); `-stats` records `hint_lookups` per
+  process: 0 in all 1,544 generic processes (163,158 decisions).
+- *Generic-only additions:* all-in attacks when unblocked damage plus
+  castable face burn is lethal; pump tricks after blocks; no voluntary
+  draws with <= 3 library cards. Both builds: never cast an Escape card
+  from the graveyard (the v5 policy schema cannot represent the staged
+  exile cost and halts the game; no pool card has Escape).
+
+*Unseen decks.* The kernel catalog has one deck outside the pool
+(Terror). For more, a private kernel clone (`remix_decks.py`; the arena
+checkout untouched) added seven 60-card decks built mostly from the
+card DB's sideboard-only and Terror-only cards: `Remix*` (Red, Green, UB,
+BG) as the development unseen set and `Remix2*` (Izzet, Golgari, MonoU)
+held out until the code was frozen.
+
+| run (seed) | decks | generic Elo | hinted Elo | generic v hinted |
+|---|---|---|---|---|
+| dev900 (900) | pool, 2 pairs | 1418 [1351, 1493] | 1418 [1346, 1498] | 17-15 |
+| dev901 (901) | pool, 4 pairs | 1409 [1348, 1482] | 1416 [1350, 1490] | 32-32 |
+| dev902 (902) | pool, 4 pairs | 1511 [1435, 1607] | 1490 [1412, 1586] | 35-29 |
+| **held-out (424242)** | pool, 4 pairs | **1443 [1371, 1529]** | **1425 [1359, 1504]** | **34-30** (53.1% [41.1, 64.8]) |
+| unseen-terror2 (904) | Terror, 32 pairs | 1587 [1479, 1749] | 1300 [1189, 1456] | 53-11 (82.8% [71.8, 90.1]) |
+| unseen-remix1 (905) | Remix x4, 8 pairs | 1450 [1378, 1538] | 1326 [1255, 1406] | 41-23 (64.1% [51.8, 74.7]) |
+| **held-out unseen (424243)** | Terror + Remix2 x3, 8 pairs | **1346 [1277, 1432]** | **1273 [1204, 1353]** | **36-28** (56.2% [44.1, 67.7]) |
+
+Held-out pool against the builtins: generic 54-10 / 61-2 / 62-2
+(heuristic / uniform / first), hinted 54-10 / 62-2 / 61-3. Held-out
+unseen per deck, generic v hinted: Terror 11-5, Remix2Golgari 9-7,
+Remix2Izzet 10-6, Remix2MonoU 6-10. Dev runs used `-stats` builds g2-g4;
+the held-out runs used the frozen `1278e429c` binary (md5 `1a52bc46…`).
+Across all eight runs (3,488 games): 0 fallbacks, 0 missing
+`x_kernel_v5`, 0 wire errors; 275 halted games, all kernel-side (Escape
+cost staging in Terror, zero legal actions in CawGates, two
+`InvalidEffectContinuation`). The first Terror run (seed 903, before the
+Escape rule) lost 16 generic-v-hinted games to our own escapes; after the
+rule, no generic-v-hinted game halted and every Escape halt has a builtin
+in the seat that escaped.
+
 ### 3.6 Kernel shadow: gorge policies on mtg-kernel (v1, lane B)
 
 Goal: play gorge's strongest policies (sb-tactical, the az-redeal search,
@@ -1275,6 +1344,7 @@ of a pile-B remainder follows gorge's `Rest` convention unverified.
 |---|---|---|---|
 | M0 | v1 gorge-native (W1) | where do gorge bots and ports of the builtins land on the pauper-kernel decks? | done (D§3.1): bot +238, clairvoyant az +436 over the uniform port |
 | M1 | gorge-native botbench | (Q1) L10 with redeal-only worlds vs full sampler; (Q2) honest az25/az100 with the D§5.2 world source vs `bot` | Q2 done (D§12.5): K1 passes, az25 +14.7pp, az100 +20.5pp over `bot`; Q1 open |
+| M1b | gorge-native botbench + policytrain | does a CLAIRVOYANT search teacher distil into a seat-visible student as well as (or better than) an honest one? | done (D§16): no -- both teachers' students are statistically indistinguishable, and neither helps honest search or beats `bot` alone |
 | M2 | v2 mocked backend (W2), then v2 on gorge in reverse (D§11.1) | protocol correctness; shadow fidelity; parity with native answers; leaderboard incl. our agent | protocol + builtin parity done (D§3.2, 927/927 digests); on real gorge 896 games with 0 protocol errors, belief-level shadow 0 mismatches, heuristic intent parity 15/16 (D§11.1); staged-shadow (D§4) fidelity open |
 | M3 | v2 on Jack's adapter, `pauper-gorge` (5 decks: Wildfire, Rally, Spy, Burn, CawGates; plan Task 7) | strength vs `gorge-bot`, `gorge-lethal-pressure`, builtins; neutral vs xview entry | — |
 | M4 | v2 on mtg-kernel (Annex A bridge), `pauper-kernel` | cross-engine: fidelity and candidate agreement on a foreign engine; rating vs g115 (1388), a48, c12, heuristic (1102) | — |
@@ -1445,6 +1515,124 @@ MemoryMax=4G env GOMEMLIMIT=2GiB GOMAXPROCS=8`. The matrix arms ran on
 `666cc2720`, which has the two bugs above. They never hit the Sacred Cat
 case (the matrix decks have no embalm), so their numbers stand.
 
+### 12.6 sb-search: sb-tactical under honest determinized search (measured 2026-09-28)
+
+**Verdict: search on top of sb-tactical is a clear win.** `sb-search-fast`
+beats the champion heuristic `sb-tactical` **321-191 (62.7%, about +90
+Elo)** over 512 seat-swapped mirror games (dev seed 777, 32 pairs x 8
+decks), winning on every deck, and holds on the held-out seed 99991:
+**315-197 (61.5%, +82)**. On the FDN catalog (4 pairs, 128 games) it is
+74-54 (57.8%). Searching the attack declaration as well
+(`sb-search-fast-atk`) adds more: **336-176 (65.6%, +112)** at seed 777 and
+**329-183 (64.3%, +102)** held out; under common random numbers the games
+the two arms split went 19-4 (seed 777) and 23-9 (99991) to the attack arm.
+The cheapest arm, `sb-search-lite-atk` (4 worlds, 2-turn horizon), keeps
+almost all of it -- **328-184 (64.1%)** -- at a 0.22 s mean searched
+decision. Four heuristic decorators on sb-tactical had all measured
+neutral; this is the first idea that moves it.
+
+**Design** (`internal/spellbench/sbsearch`, registered in
+`cmd/botbench/spellbench_registry.go`). The seat wraps an sb-tactical
+`builtins.Seat` and is a `searchseat.SearchSeat`, so `bench.PlayGame`
+hands it the live engine and its observation feed; `UnwrapSeat` exposes the
+sb-tactical seat so the runner's planner hand-off, refused-answer retry and
+stats reach it unchanged.
+
+1. *Candidates.* At a priority decision `builtins.Seat.TacticalPriority`
+   returns sb-tactical's scored candidate list exactly as its next `Decide`
+   would rank it (no pursuit or plan lowering in progress, at least two
+   candidates). The searched set is sb-tactical's pick, the next best by
+   score up to `TopK` = 3, plus pass. A land drop is never searched
+   (sb-tactical always plays it first; the next priority decision searches
+   the spells). With `Attack`, a KAttackers decision compares sb-tactical's
+   declaration with no attack and the alpha strike
+   (`builtins.AttackAlternatives`).
+2. *Worlds.* W worlds per decision, each a `searchprobe.Redealer` deal from
+   the seat's feed (its History and the incremental known-card projection,
+   `azmcts.KnownTracker`) and the declared game: in the mirror pool the
+   opponent's list is the seat's own (the spec's `visible` case). The real
+   engine is read for public state and zone sizes only; a refused redeal
+   plays sb-tactical's pick.
+3. *Rollouts.* Every candidate is applied in every world through a rollout
+   copy of the seat (`RolloutClone`, then `ForcePriority`, so a pursuit or a
+   lowered payment plays exactly as sb-tactical plays it) and the game is
+   rolled on with sb-tactical on BOTH sides -- to game end, or to `Horizon`
+   turns after the root's turn, scored by the frozen material leaf
+   (`searchprobe.LeafValue` on the seat's own view). All candidates of one
+   world share its deal, chance seed and rollout seeds (common random
+   numbers). Rollout seats share one profile cache, kept apart from the
+   real seat's.
+4. *Choice.* Mean value over the worlds every candidate completed; the best
+   candidate is played only if it beats sb-tactical's own pick by more than
+   `Margin` = 0.05. A failed world (deal refused, rollout panic, a candidate
+   not offered, every fallback answer refused) is dropped for all
+   candidates; no valid world, or any panic in the search, plays
+   sb-tactical's pick. The real seat's own state only ever sees the forced
+   pick (`ForcePriority`), which `Decide` clears.
+5. *Determinism.* Worlds, chance and rollout seats derive from
+   `azmcts.DecisionSeed(seat seed, decision seq)`; everything iterates in
+   slice order; the package reads no clock (`Millis` is injected for the
+   cost report only). Unit tests: W=0 plays the sb-tactical game event for
+   event (`TestZeroWorldsIsTactical`), a forced rollout failure at every
+   searched decision plays the sb-tactical game (`TestForcedErrorFalls
+   BackToTactical`), and the same seed repeats the same searched game
+   (`TestSearchIsDeterministic`).
+
+`sb-tactical` itself changed in one place: its reanimate value recursed
+without end (a stack overflow, fatal) when a creature whose own ETB
+reanimates sat in the graveyard. sb-search's rollouts reached it on the
+FDN catalog; a nested call is now worth 0, and every other state scores as
+before (the pauper-kernel runs never reached it).
+
+**Measured** (vs `sb-tactical`, pauper-kernel, seat-swapped mirrors; ms are
+wall per SEARCHED decision on a box at load 14-20, so real latency is
+lower; about 85 searched decisions per game per seat):
+
+| variant | W | horizon | games | result | ms mean / p50 / p90 / p99 | overrides |
+|---|---|---|---|---|---|---|
+| sb-search-fast | 8 | 3 turns + leaf | 512 (seed 777) | **321-191, 62.7%** | 502 / 343 / 1064 / 2519 | 4.8% |
+| sb-search-fast | 8 | 3 turns + leaf | 512 (seed 99991) | **315-197, 61.5%** | 470 / 325 / 1017 / 2291 | 4.9% |
+| sb-search-fast | 8 | 3 turns + leaf | 128 (FDN) | 74-54, 57.8% | 204 / 168 / 362 / 702 | 6.6% |
+| sb-search | 16 | game end | 256 (seed 777) | 147-109, 57.4% | 4172 / 2443 / 10630 / 21889 | 13.5% |
+| sb-search-fast-atk | 8 | 3 turns + leaf, attacks searched | 512 (seed 777) | **336-176, 65.6%** | 519 / 355 / 1097 / 2550 | 4.8% |
+| sb-search-fast-atk | 8 | 3 turns + leaf, attacks searched | 512 (seed 99991) | **329-183, 64.3%** | 520 / 357 / 1131 / 2450 | 5.1% |
+| sb-search-lite | 4 | 2 turns + leaf | 512 (seed 777) | **318-194, 62.1%** | 187 / 133 / 382 / 915 | 5.1% |
+| sb-search-lite-atk | 4 | 2 turns + leaf, attacks searched | 512 (seed 777) | **328-184, 64.1%** | 219 / 152 / 448 / 1108 | 5.2% |
+
+Per deck, seed 777, sb-search-fast: Wildfire 44-20, Rally 42-22, Affinity
+39-25, Elves 41-23, Spy 39-25, Burn 38-26, CawGates 39-25, Faeries 39-25.
+Held-out 99991: Wildfire 36-28, Rally 38-26, Affinity 43-21, Elves 42-22,
+Spy 34-30, Burn 36-28, CawGates 45-19, Faeries 41-23.
+
+Game-end rollouts are not better: on the same 128 pairs, `sb-search`
+(W=16 to game end) went 147-109 where `sb-search-fast` went 160-96, at 8x
+the cost. The full-game values are noisier (a 0/1 outcome per world), so
+the same 0.05 margin lets twice as many overrides through; the short
+horizon plus material leaf is both cheaper and a better estimator here.
+
+**Time.** SpellBench's per-decision limit is about 1 s. `sb-search-fast`'s
+median searched decision is ~0.33 s and its p90 ~1.0 s under load; its
+tail (p99 2.3-2.5 s) comes from the long-game decks (CawGates, Wildfire),
+where each rollout plays more decisions. `sb-search-lite-atk` (W=4,
+horizon 2) is the budget that stays under the limit -- mean 0.22 s, p90
+0.45 s, p99 1.1 s under load -- for 64.1%, so it is the recommended
+SpellBench arm. A deployed seat still wants a hard per-decision cap (stop
+dealing worlds once the budget is spent); a clock cut makes play depend on
+time, so it belongs in the live seat only, not in the reproducible bench.
+
+Existing policies are untouched: the sb-gauntlet smoke digest golden
+passes, and a 96-game sb-tactical / sb-tactical-noearly / bot round robin
+(seed 777, 2 pairs) is games.jsonl-identical (wall time dropped) between
+the base commit `ee26ea630` and this branch.
+
+```sh
+W=/mnt/sata/gorge-training/spellbench-work/search-tac
+$W/botbench -dir .cards -spellbench sb-tactical,sb-search-fast -spellbench-pairs 32 \
+    -spellbench-base-seed 777 -spellbench-out $W/h2h-fast-p32 -workers 8
+# the other arms swap the policy name (sb-search, -fast-atk, -lite, -lite-atk);
+# held-out: -spellbench-base-seed 99991; FDN: -spellbench-catalog fdn -spellbench-pairs 4
+```
+
 ## 13. Risks
 
 | Risk | Why it bites | Mitigation |
@@ -1528,3 +1716,203 @@ botbench invocation runs under
 `flock -o .../heavy.lock systemd-run --user --scope -q -p MemoryMax=4G env
 GOMEMLIMIT=2GiB GOMAXPROCS=8` with `-workers 8` (SB_GAUNTLET_WORKERS
 overrides the worker count for a smoke-sized run).
+
+## 16. M1b: clairvoyant vs honest teacher (measured 2026-09-28)
+
+**Question.** Clairvoyant `az` cheats, so it cannot be entered, but it can
+TEACH: record its visit distributions and outcomes, and train a student whose
+inputs are seat-visible only (privileged-teacher distillation: Suphx oracle
+guiding, Learning by Cheating). Does that student beat one taught by the
+honest search (`az-redeal`, M1), and plain behaviour cloning of `bot`? The
+risk to measure: a clairvoyant target can depend on what the student cannot
+see ("attack, their hand is empty"), so the student learns an average over
+hidden states (strategy-fusion-like bias).
+
+**Verdict.** No. The clairvoyant teacher's student is statistically
+indistinguishable from the honest teacher's on every readout (offline
+agreement, value AUC, play alone, prior inside honest search), and neither
+student beats `bot` alone or improves honest search over its no-network
+control. The reason is not strategy fusion: visit targets at this budget are
+almost entirely unpredictable from EITHER the seat view or the seat view plus
+the opponent's hand (the student closes 0.005 of the 0.023 nats between
+uniform and the teacher's own entropy, and opponent-hand features add 0.0000
+nats), so there is little signal to distil in the first place. This
+reproduces pn12 (§8c of the training summary: "hidden information is not the
+whole story; the override labels are close to noise") with soft MCTS visit
+targets in place of argmax PIMC labels, and extends it: the clairvoyant
+targets are no more predictable with the hidden information than without it.
+Do not build the clairvoyant-distillation arm further; the honest search seat
+itself (M1 K1 pass) is the asset.
+
+### 16.1 Setup
+
+- **Teachers.** `az` over clairvoyant clones (`-az-world clairvoyant`) and
+  `az-redeal` (honest: every simulation walks a fresh redeal, M1), 50
+  simulations, PUCT c 1.5, moves sampled ∝ visits on turns ≤ 4, **no** root
+  Dirichlet noise (at 50 simulations the noise would be a large share of every
+  target; `-az-no-noise`), vs `bot`, on the SpellBench 8-deck pauper-kernel
+  pool as seat-swapped mirrors (`botbench -spellbench`).
+- **Corpus** (`botbench -az-corpus`, `policynet.VisitRecord` schema
+  `azvisits-v1`): per searched decision, the redacted `mz` state, the options
+  any candidate references, the candidates as option sets (candidate 0 = the
+  bot's answer), visits, prior, Q, root value, the played candidate, the game
+  outcome, plus the opponent's hand as diagnostic `mz-opphand` rows (read only
+  by the measurement-only `-visits-diag` student, never checkpointed).
+  Recording is observational (`TestRecorderLeavesTheGameUnchanged`,
+  `TestAZCorpusRecordsWithoutChangingTheGame`).
+
+| Corpus | Games | Teacher W-L vs bot | Records | ms / searched decision (mean, p95) |
+|---|---|---|---|---|
+| clairvoyant train (c1+c2) | 2,560 | 2,023-537 (79.0%) | 202,081 | 104, 250 |
+| honest train (h1+h2) | 2,560 | 1,707-853 (66.7%) | 195,757 | 119, 290 |
+| clairvoyant held out | 160 | 124-36 (77.5%) | 11,478 | 101, 243 |
+| honest held out | 160 | 100-60 (62.5%) | 11,166 | 150, 364 |
+
+  Targets are soft: mean visit entropy 1.042 nats (clairvoyant) and 1.032
+  (honest) against 1.065 / 1.055 for uniform over the same candidates; the
+  teacher's argmax differs from the bot's answer on 39% / 43% of decisions, a
+  median Q gap of 0.042 / 0.045 over the bot's candidate.
+- **Students** (`policytrain -visits-corpus`): identical architecture (the `mz`
+  per-option scorer, embed 128, hidden 128, value head 32), seed, optimiser
+  (12 epochs, lr 0.1, clip 5; 6 epochs at clip 1 measurably undertrained),
+  and game budget (the first 2,500 games of each list: 199,350 clairvoyant /
+  193,666 honest records). Policy loss: soft cross-entropy of the candidate
+  softmax against the visits (`policynet.lossVisits`; its logits are exactly
+  the search prior's, `TestVisitRecordReproducesTheSearchPrior`). Value target
+  0.95·outcome + 0.05·root value. Holdout by game pair.
+  - `clair`, `honest`: the two teachers' visit distributions.
+  - `bc`: one-hot on the bot's answer over the SAME clairvoyant states and
+    candidates (behaviour cloning with only the target changed).
+  - `*-r2`: the same three with `-residual-init 2` (the bot's own options
+    score +2, so the head learns only deviations from the bot). Needed
+    because the option encoding cannot see which candidate is the bot's
+    (BotPick reaches the score only through the residual): a residual-0
+    student cannot even imitate the bot (`bc` picks it 87%).
+- **Play arms** (all vs `bot`, same seeds per arm, CI95 normal over games;
+  arm-vs-arm differences are paired over identical games, `scripts/m1b-paired.py`):
+  - *student alone*: `-az-world prior` (no simulation; at every decision the
+    search would search, the argmax of the student's prior over the same
+    candidates; no network = exactly `bot`,
+    `TestPriorOnlySeatWithoutANetworkIsTheBot`); 800 games vs `bot` and 800 vs
+    `sb-heuristic`, base seed 29001.
+  - *student inside honest search*: `az-redeal` at 25 simulations with the
+    student as prior and leaf, vs the same search with no network (uniform
+    prior, heuristic leaf); `-az-heuristic-leaf` keeps the heuristic leaf and
+    uses the student as the prior only; 1,200 games each, base seed 39001.
+
+### 16.2 Training curves
+
+Held-out (by game pair) top-1 against the teacher's argmax, epochs 1 / 4 / 8 / 12,
+and value log loss vs the base rate:
+
+| Student | Top-1 held out | Value log loss, epoch 12 (base rate) | Wall, peak RSS |
+|---|---|---|---|
+| clair | 0.580 / 0.617 / 0.650 / 0.660 | 0.497 (0.631) | 31 min, 1.8 GB |
+| honest | 0.542 / 0.581 / 0.616 / 0.632 | 0.587 (0.653) | 24 min, 1.7 GB |
+| bc | 0.621 / 0.618 / 0.575 / 0.577 (vs the teacher; it learns the bot) | 0.485 (0.631) | 15 min, 1.7 GB |
+
+### 16.3 Offline readouts (both held-out corpora, teacher visits as the target)
+
+| Student | Eval corpus | CE (uniform / teacher entropy) | Top-1 vs teacher | Picks bot (teacher keeps bot) | Override top-1 | Value AUC | Within-deck AUC | Teacher root-value AUC (within-deck) |
+|---|---|---|---|---|---|---|---|---|
+| clair | clair | 1.0599 (1.0651 / 1.0423) | 0.679 | 0.490 (0.615) | 0.693 | 0.762 | 0.708 | 0.583 (0.552) |
+| honest | clair | 1.0602 | 0.667 | 0.470 | 0.702 | 0.756 | 0.739 | |
+| bc | clair | 2.4646 | 0.568 | 0.873 | 0.065 | 0.761 | 0.699 | |
+| clair | honest | 1.0489 (1.0547 / 1.0320) | 0.665 | 0.474 (0.562) | 0.658 | 0.837 | 0.775 | 0.734 (0.749) |
+| honest | honest | 1.0491 | 0.660 | 0.459 | 0.666 | 0.852 | 0.792 | |
+| bc | honest | 2.5461 | 0.526 | 0.877 | 0.066 | 0.844 | 0.779 | |
+| clair-r2 | clair / honest | 1.2017 / 1.1971 | 0.602 / 0.559 | 0.823 / 0.807 | 0.191 / 0.185 | 0.773 / 0.848 | 0.720 / 0.781 | |
+| honest-r2 | clair / honest | 1.2257 / 1.2194 | 0.595 / 0.555 | 0.856 / 0.844 | 0.144 / 0.144 | 0.749 / 0.855 | 0.721 / 0.790 | |
+| bc-r2 | clair / honest | 2.0467 / 2.0842 | 0.610 / 0.561 | 0.988 / 0.989 | 0.005 / 0.009 | 0.776 / 0.845 | 0.721 / 0.778 | |
+
+- Each student predicts the OTHER teacher as well as its own: the clairvoyant
+  student matches the honest teacher's argmax 0.665 vs the honest student's
+  0.660. The two teachers' targets are, to a seat-visible student, the same
+  signal.
+- Value: the honest-data student has the better within-deck AUC on both
+  corpora (0.739 vs 0.708 on the clairvoyant one, 0.792 vs 0.775 on the
+  honest one); the clairvoyant games are more one-sided (79% wins), so their
+  outcomes carry less state information. The student's value head beats the
+  teacher's own root value as an outcome predictor on the clairvoyant corpus
+  (0.708 vs 0.552 within deck).
+
+**Hidden-information measurement (pn12, the strategy-fusion risk).** One
+chunk each (c1 / h1, ~100k records, identical settings), `mz` student vs the
+diagnostic student that also reads the opponent's hand:
+
+| Teacher | Student features | Held-out CE (uniform / teacher entropy) | Top-1 | Override top-1 | Value within-deck AUC |
+|---|---|---|---|---|---|
+| clairvoyant | mz | 1.0610 (1.0651 / 1.0423) | 0.644 | 0.704 | 0.746 |
+| clairvoyant | mz + opponent hand | 1.0611 | 0.642 | 0.706 | 0.740 |
+| honest | mz | 1.0502 (1.0547 / 1.0320) | 0.622 | 0.693 | 0.789 |
+| honest | mz + opponent hand | 1.0503 | 0.620 | 0.694 | 0.789 |
+
+Seeing the opponent's hand buys nothing, for either teacher's targets. The
+irreducible part of the clairvoyant target is not "the part that depends on
+the hidden hand" (a student that sees the hand would recover it); it is
+near-tie noise that no feature set here predicts. Strategy fusion is
+therefore not measurable at this signal level: there is no hidden-information
+signal in the targets for the student to average over.
+
+### 16.4 Play
+
+| Arm | vs bot, CI95 (games) | vs sb-heuristic | Paired difference |
+|---|---|---|---|
+| student alone, `clair` | 26.9% [23.8, 29.9] (800) | 63.0% [59.7, 66.3] | clair − honest −0.4pp [−2.9, +2.2]; clair − bc −8.1pp [−11.9, −4.4] |
+| student alone, `honest` | 27.3% [24.2, 30.3] (800) | 65.0% [61.7, 68.3] | honest − bc −7.8pp [−11.5, −4.0] |
+| student alone, `bc` | 35.0% [31.7, 38.3] (800) | 60.0% [56.6, 63.4] | |
+| student alone, `clair-r2` | 43.9% [40.4, 47.3] (800) | 69.0% [65.8, 72.2] | clair-r2 − honest-r2 −2.4pp [−5.3, +0.5]; clair-r2 − bc-r2 −4.8pp [−8.1, −1.4] |
+| student alone, `honest-r2` | 46.2% [42.8, 49.7] (800) | 69.5% [66.3, 72.7] | honest-r2 − bc-r2 −2.4pp [−5.4, +0.6] |
+| student alone, `bc-r2` | 48.6% [45.2, 52.1] (800) | 71.0% [67.9, 74.1] | (≈ `bot`: picks the bot's answer 98.8%) |
+| student alone, no network (control) | = `bot` by construction (50%) | | |
+| honest search, no network (control) | 63.2% [60.5, 66.0] (1,200) | | |
+| honest search + `clair` (prior + leaf) | 65.2% [62.5, 67.9] | | vs control +1.9pp [−1.1, +4.9]; vs + `honest` +1.8pp [−1.0, +4.6] |
+| honest search + `honest` (prior + leaf) | 63.3% [60.6, 66.1] | | vs control +0.1pp [−2.8, +3.0] |
+| honest search + `bc` (prior + leaf) | 41.6% [38.8, 44.4] | | vs control −21.7pp [−24.9, −18.5] |
+| honest search + `clair`, heuristic leaf | 62.8% [60.1, 65.6] | | vs control −0.4pp [−3.2, +2.4]; value head's share (clair − clair-hl) +2.3pp [−0.5, +5.2] |
+| honest search + `honest`, heuristic leaf | 63.2% [60.4, 65.9] | | vs control −0.1pp [−2.8, +2.6] |
+| honest search + `bc`, heuristic leaf | 41.9% [39.1, 44.7] | | vs control −21.3pp [−24.4, −18.2] |
+
+Latency (25 simulations, 8 workers): control 44 ms mean / 108 ms p95 per
+searched decision; with a student leaf 77-79 ms / 160-171 ms; `bc` prior
+202 ms / 513 ms (a sharp prior drives the tree deep down one line).
+
+- A student alone is worse than `bot` in every arm, and worse the MORE it
+  deviates from `bot`: a teacher student's deviations cost 4-6pp even with the
+  residual anchor. Distilling either teacher's visit distribution does not
+  produce a policy better than `bot`.
+- As a search prior the soft students are harmless (±0 vs uniform); a sharp
+  bot-cloning prior is catastrophic (−21pp: it starves the alternatives the
+  search exists to compare). The only positive point estimate is the
+  clairvoyant student's VALUE head as the leaf (+2.3pp over the same prior
+  with the heuristic leaf, +1.9pp over the control), and its CI covers 0.
+- Clairvoyant vs honest teacher: indistinguishable wherever measured (−0.4pp
+  alone, −2.4pp with the residual, +1.8pp as prior+leaf; every CI covers 0).
+
+### 16.5 Next step
+
+- Stop distilling visit distributions at this budget: the target is near-tie
+  noise to any seat-visible (or opponent-hand) student. If distillation is
+  revisited, it needs a sharper teacher signal first (pn12's own conclusion:
+  margin-filtered targets or regressing Q differences, or several hundred
+  simulations per decision), and the value leaf is the part worth pursuing:
+  a leaf-only experiment (student value, uniform prior) at ≥ 4,000 games
+  would decide whether the +2pp value-head estimate is real, and whether a
+  full-sampled-world leaf head (the PerfectDou-style two-headed value the v1c
+  survey recommends) does better.
+- The agent's decision core stays honest search with no network (M1 K1 pass).
+
+### 16.6 Rerun
+
+```sh
+scripts/m1b-distill.sh build   # botbench + policytrain into $M/bin
+scripts/m1b-distill.sh gen     # teacher corpora (one lock hold per 1,280-game chunk)
+scripts/m1b-distill.sh train   # students and the opp-hand diagnostic pairs
+scripts/m1b-distill.sh eval    # student alone; student inside honest search
+python3 scripts/m1b-paired.py $M/evals/search-clair/sb/matches.jsonl $M/evals/search-none/sb/matches.jsonl
+```
+
+`M` defaults to `/mnt/sata/gorge-training/spellbench-work/m1b` (the run
+recorded here: corpora under `clair/` and `honest/`, students and their
+`*.json` readouts under `students/`, ledgers under `evals/`). Every step runs
+under `heavy.lock` in a 4 GB scope with 8 cores.

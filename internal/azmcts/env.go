@@ -16,16 +16,19 @@ import (
 
 // walkConfig is what every simulation of one Search shares.
 type walkConfig struct {
-	net       *policynet.Model
-	kinds     Kinds
-	limit     int
-	maxSteps  int
-	envSeed   uint64
-	actor     state.PlayerID
-	root      *Point
-	rootCands []cand
-	rootDec   *decision.Decision
-	stats     *Stats
+	net *policynet.Model
+	// heuristicLeaf evaluates leaves with the frozen heuristic even when net
+	// supplies the prior (Options.HeuristicLeaf).
+	heuristicLeaf bool
+	kinds         Kinds
+	limit         int
+	maxSteps      int
+	envSeed       uint64
+	actor         state.PlayerID
+	root          *Point
+	rootCands     []cand
+	rootDec       *decision.Decision
+	stats         *Stats
 }
 
 // worldEnvs adapts a WorldSource to the tree's EnvSource.
@@ -206,7 +209,11 @@ func (e *engineEnv) Leaf() (l Leaf) {
 		}
 		return Leaf{V: v, Terminal: true}
 	}
-	return Leaf{V: leafValue(e.cfg.net, e.e, e.cfg.actor), Capped: e.capped}
+	leafNet := e.cfg.net
+	if e.cfg.heuristicLeaf {
+		leafNet = nil
+	}
+	return Leaf{V: leafValue(leafNet, e.e, e.cfg.actor), Capped: e.capped}
 }
 
 // leafValue is spec §1's leaf: the value head on the actor's REDACTED view

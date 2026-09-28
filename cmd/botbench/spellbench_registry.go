@@ -14,6 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/registry"
+	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/seat"
 )
 
@@ -68,6 +69,15 @@ func init() {
 	registry.Register("sb-tactical-arch", func(seed uint64, _ builtins.ManaMode) seat.Seat {
 		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalArchW)
 	})
+	// sb-search (internal/spellbench/sbsearch): determinized search over
+	// honest redealt worlds, sb-tactical as the candidate prior and as both
+	// sides' rollout policy. The variants differ in budget only.
+	for _, v := range sbSearchVariants {
+		cfg := v.cfg
+		registry.Register(v.name, func(seed uint64, _ builtins.ManaMode) seat.Seat {
+			return sbsearch.New(builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights), seed, cfg)
+		})
+	}
 	for i := 0; i < len(tacticalAltWeights); i++ {
 		i := i
 		name := "sb-tactical-alt"
@@ -79,3 +89,27 @@ func init() {
 		})
 	}
 }
+
+// sbSearchVariants are the registered sb-search budgets.
+var sbSearchVariants = func() []struct {
+	name string
+	cfg  sbsearch.Config
+} {
+	d := sbsearch.DefaultConfig()
+	with := func(f func(*sbsearch.Config)) sbsearch.Config { c := d; f(&c); return c }
+	return []struct {
+		name string
+		cfg  sbsearch.Config
+	}{
+		{"sb-search", d},
+		{"sb-search-w0", with(func(c *sbsearch.Config) { c.Worlds = 0 })},
+		{"sb-search-w8", with(func(c *sbsearch.Config) { c.Worlds = 8 })},
+		{"sb-search-w32", with(func(c *sbsearch.Config) { c.Worlds = 32 })},
+		{"sb-search-h4", with(func(c *sbsearch.Config) { c.Horizon = 4 })},
+		{"sb-search-fast", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon = 8, 3 })},
+		{"sb-search-fast-atk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 8, 3, true })},
+		{"sb-search-lite", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon = 4, 2 })},
+		{"sb-search-lite-atk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 4, 2, true })},
+		{"sb-search-atk", with(func(c *sbsearch.Config) { c.Attack = true })},
+	}
+}()

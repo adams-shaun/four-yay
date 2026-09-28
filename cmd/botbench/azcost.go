@@ -23,18 +23,33 @@ import (
 // read-only afterwards (the searchKnobs pattern). azNet is the -checkpoint
 // model when one was given (nil = generation 0).
 var (
-	azCfg        = azmcts.DefaultSeatConfig()
-	azNet        *policynet.Model
-	azWorldArg   string
-	azKindsArg   = "priority,attackers,blockers,target"
-	azFlagsGiven bool
+	azCfg          = azmcts.DefaultSeatConfig()
+	azNet          *policynet.Model
+	azWorldArg     string
+	azKindsArg     = "priority,attackers,blockers,target"
+	azExploreTurns = 4
+	azFlagsGiven   bool
+	// M1b: -az-corpus (the visit corpus path, spellbench mode only) and
+	// -az-label (the ledger display name).
+	azCorpusPath string
+	// azWorldPrior is -az-world prior, M1b's search-free student seat.
+	azWorldPrior = "prior"
+	azLabel      string
+	azRecordArg  = "mz"
 )
 
 // registerAZFlags defines the -az-* flags on fs, bound to azCfg.
 func registerAZFlags(fs *flag.FlagSet) {
 	d := azmcts.DefaultOptions()
 	fs.IntVar(&azCfg.Search.Sims, "az-sims", d.Sims, "az policy: simulations per searched decision (spec default 100; 0 plays the bot)")
-	fs.StringVar(&azWorldArg, "az-world", "", "az policy, required: clairvoyant (every simulation walks a clone of the REAL engine, hidden zones and future chance included -- bench and training only) or redeal (honest: every simulation walks a world that keeps what the seat can see and re-deals the hidden cards it cannot, azmcts.RedealSource). The az-redeal policy is az with -az-world redeal fixed")
+	fs.StringVar(&azWorldArg, "az-world", "", "az policy, required: clairvoyant (every simulation walks a clone of the REAL engine, hidden zones and future chance included -- bench and training only), redeal (honest: every simulation walks a world that keeps what the seat can see and re-deals the hidden cards it cannot, azmcts.RedealSource; the az-redeal policy is az with -az-world redeal fixed), or prior (M1b's student seat: no simulation, play the argmax of the -checkpoint prior over the candidates the search would build; honest; no checkpoint = the bot).")
+	fs.BoolVar(&azCfg.Explore, "az-explore", false, "az policy, generation only: sample moves proportional to visits on turns <= -az-explore-turns, with root Dirichlet noise unless -az-no-noise")
+	fs.IntVar(&azExploreTurns, "az-explore-turns", 4, "az policy with -az-explore: the last turn whose moves are sampled")
+	fs.BoolVar(&azCfg.NoNoise, "az-no-noise", false, "az policy with -az-explore: no root Dirichlet noise (the recorded visits are the search's own)")
+	fs.StringVar(&azCorpusPath, "az-corpus", "", "M1b, -spellbench mode only: write every decision an az seat searched (redacted mz state, the candidates' options, visits, prior, Q, root value, outcome) as a gzip visit corpus (policynet.VisitRecord) to this new file. Observational: the games are unchanged")
+	fs.StringVar(&azRecordArg, "az-corpus-features", azRecordArg, "M1b: the checkpointable feature set -az-corpus records encode under (mz or entity)")
+	fs.BoolVar(&azCfg.Search.HeuristicLeaf, "az-heuristic-leaf", false, "az policy with -checkpoint: use the network only as the prior; the leaf stays the frozen heuristic")
+	fs.StringVar(&azLabel, "az-label", "", "the az policy's ledger display name (default az-clairvoyant-simsN, or az-prior)")
 	fs.IntVar(&azCfg.Worlds, "az-worlds", 0, "az policy, redeal world only: K distinct deals per searched decision, simulation i walking deal i mod K (0 = a fresh deal per simulation)")
 	fs.Float64Var(&azCfg.Search.CPUCT, "az-cpuct", d.CPUCT, "az policy: PUCT exploration constant c")
 	fs.Float64Var(&azCfg.Search.FPU, "az-fpu", d.FPU, "az policy: first-play urgency (an unvisited child's Q is its parent's Q minus this)")
@@ -56,8 +71,20 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 		return nil
 	}
 	plainAZ := aName == "az" || bName == "az"
+	azCfg.ExploreTurns = int32(azExploreTurns)
+	fsRec, err := policynet.ParseFeatureSet(azRecordArg)
+	if err != nil || fsRec.Diagnostic() || fsRec == policynet.FeaturesV1 {
+		return fmt.Errorf("-az-corpus-features %q: want mz or entity", azRecordArg)
+	}
+	azCfg.RecordFeatures = fsRec
+	azCfg.PriorOnly = false
 	switch azWorldArg {
 	case azmcts.WorldClairvoyant, azmcts.WorldRedeal:
+	case azWorldPrior:
+		azCfg.PriorOnly = true
+		if azCorpusPath != "" {
+			return fmt.Errorf("-az-corpus records searched decisions; -az-world prior searches none")
+		}
 	case "sampled":
 		return fmt.Errorf("-az-world sampled (the behaviour-consistent rejection sampler) is not implemented; use -az-world redeal (honest) or clairvoyant")
 	case "":
@@ -77,6 +104,9 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 	cfg := azCfg
 	cfg.Search.Kinds = kinds
 	cfg.World = azWorldArg
+	if cfg.PriorOnly {
+		cfg.World = "" // the student never asks for a world
+	}
 	if err := cfg.Search.Validate(m); err != nil {
 		return fmt.Errorf("policy az: %w", err)
 	}
@@ -95,7 +125,8 @@ func isAZPolicy(name string) bool { return name == "az" || name == "az-redeal" }
 func azSeatConfig(policy string) azmcts.SeatConfig {
 	cfg := azCfg
 	if policy == "az-redeal" {
-		cfg.World = azmcts.WorldRedeal
+		// az-redeal always searches: -az-world prior is the plain az seat's.
+		cfg.World, cfg.PriorOnly = azmcts.WorldRedeal, false
 	}
 	return cfg
 }
