@@ -4,6 +4,14 @@
 Companion: [Scam.EXE measurements](2026-09-28-scam-exe-combo-lines.md).
 No production rule, protocol, event ordinal, bot, or client changes accompany this spec.
 
+> **v1 as built (2026-09-28):** the operator chose a client-driven v1 instead:
+> MTGO-style sticky choices plus "Repeat ×N" on an activation, with every
+> action an ordinary intent and every opponent priority window kept. See
+> [the implementation spec](2026-09-28-loop-shortcuts-implementation.md).
+> §5 (negotiation/sidecar) and §6 (certificate/batch executor) below are
+> deferred until ×1,000,000 counts, opponent-consented skips or tournament
+> adjudication are needed.
+
 ## 1. Rules authority, checked rather than remembered
 
 Downloaded from the [official rules page](https://magic.wizards.com/en/rules)
