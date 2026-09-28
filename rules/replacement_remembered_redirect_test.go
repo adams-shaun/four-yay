@@ -73,7 +73,7 @@ func heroSacrificeBoard(t *testing.T, e *Engine, reg *cards.Registry) (chosen, f
 	return chosen, friend, source
 }
 
-func TestHeroicSacrificeRedirectsDamageToRememberedCreature(t *testing.T) {
+func TestCR614RememberedDamageRedirectToObject(t *testing.T) {
 	t.Parallel()
 	reg := sharedCorpus(t)
 
@@ -146,7 +146,7 @@ func TestHeroicSacrificeRedirectsDamageToRememberedCreature(t *testing.T) {
 		// Isolate the ReplaceEvent arm with the still-in-flight remembered
 		// binding: carriers without ExileOnMoved keep their replacement live
 		// after this move, so a departed object must not absorb later damage.
-		e.replRemembered = []state.ObjID{chosen}
+		e.replRemembered = []state.Target{{Obj: chosen}}
 		ev := events.Event{Kind: events.Damage, Player: 0, Amount: 3}
 		e.replacingEvent = &ev
 		e.ReplaceEvent("Affected", "Remembered", 0)

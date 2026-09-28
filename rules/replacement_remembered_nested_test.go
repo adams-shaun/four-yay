@@ -23,8 +23,8 @@ func TestHeroicSacrificeNestedRememberedBindingRestored(t *testing.T) {
 	// runReplaceWith: the saved slice has its own backing array (and spare
 	// capacity), as it does after the outer body's Remembered walk. The
 	// outer held event is restored after the nested invocation.
-	e.replRemembered = make([]state.ObjID, 1, 2)
-	e.replRemembered[0] = outer
+	e.replRemembered = make([]state.Target, 1, 2)
+	e.replRemembered[0] = state.Target{Obj: outer}
 	outerHeld := events.Event{Kind: events.Damage, Player: 1, Amount: 2}
 	e.replacingEvent = &outerHeld
 	innerHeld := events.Event{Kind: events.Damage, Player: 0, Amount: 1}

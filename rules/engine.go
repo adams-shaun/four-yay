@@ -996,18 +996,13 @@ type Engine struct {
 	// cloned/replayed engine state.
 	replacingEvent  *events.Event
 	replacingSource state.ObjID
-	// replRemembered is the in-flight replacement body's remembered object
-	// referents (the object half of the body ctx's Remembered list), visible
-	// to that one body and restored right after it, the same scratch pattern
-	// as replacingEvent. A DB$ ReplaceEffect body's VarName$ Affected |
-	// VarValue$ Remembered rewrite (Heroic Sacrifice's damage magnet, CR 614.6
-	// + CR 120.3a) names the Effect's remembered creature as the damage's new
-	// recipient, and ReplaceEvent -- a Host method carrying no Ctx -- can only
-	// reach that binding through engine state. Nil whenever the body runs
-	// without a remembered binding (a printed replacement's Ctx deliberately
-	// starts empty), and never part of cloned/replayed engine state: it lives
-	// only during the body run, before the held event is logged.
-	replRemembered []state.ObjID
+	// replRemembered is the in-flight replacement body's remembered referents,
+	// visible to that one body and restored right after it, the same scratch
+	// pattern as replacingEvent. ReplaceEvent carries no Ctx, so the
+	// VarValue$ Remembered rewrite reads its binding here. Never part of
+	// cloned/replayed engine state: it lives only during the body run, before
+	// the held event is logged.
+	replRemembered []state.Target
 	// replAction is the action marker (events.ActionMarker) of the event the
 	// in-flight destination-changing replacement discarded: "sacrificed",
 	// "discarded" or "discarded as a cost". emit re-labels the replacement

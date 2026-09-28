@@ -732,14 +732,15 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			effectContinuous(h, state.ContinuousEffect{
 				Source: c.Source, Controller: c.Controller,
 				UntilEOT: effectUntilEOT(h, c.Source, rawDur), Duration: dur,
-				Name:             effectName,
-				Remembered:       remembered,
-				ForgetOnMoved:    forgetOn,
-				ExileOnMoved:     exileOn,
-				ForgetCounter:    forgetCounter,
-				ImprintOnHost:    imprintOnHost,
-				ChosenNumber:     chosenNumber,
-				ReplacementEvent: event, ReplacementParams: params, ReplacementBody: body,
+				Name:              effectName,
+				Remembered:        remembered,
+				ForgetOnMoved:     forgetOn,
+				ExileOnMoved:      exileOn,
+				ForgetCounter:     forgetCounter,
+				ImprintOnHost:     imprintOnHost,
+				ChosenNumber:      chosenNumber,
+				RememberedPlayers: effectRememberedPlayers(h, c, sa),
+				ReplacementEvent:  event, ReplacementParams: params, ReplacementBody: body,
 			})
 			registered = true
 		} else if event != "" && body == "" && (replacementLineCantHappen(params) ||
