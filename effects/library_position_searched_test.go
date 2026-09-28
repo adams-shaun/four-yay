@@ -52,7 +52,7 @@ func TestPlaceLibraryObjectsNonZeroPosition(t *testing.T) {
 	}
 	// Mimic the post-Move state: the card is already in its owner's library
 	// (MoveZone appended it at the bottom) and the helper places it.
-	h.g.SetZone(state.ZLibrary, 0, append([]state.ObjID{fillers[0], fillers[1], fillers[2], fillers[3], searched}))
+	h.g.SetZone(state.ZLibrary, 0, []state.ObjID{fillers[0], fillers[1], fillers[2], fillers[3], searched})
 	h.g.Obj(searched).Zone = state.ZLibrary
 	lib := h.g.Zone(state.ZLibrary, 0)
 	if len(lib) != 5 || lib[len(lib)-1] != searched {
