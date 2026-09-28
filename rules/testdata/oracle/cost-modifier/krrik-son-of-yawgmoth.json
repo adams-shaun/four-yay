@@ -1,0 +1,62 @@
+{
+  "card": "K'rrik, Son of Yawgmoth",
+  "family": "cost-modifier",
+  "oracle_sha": "a2e3e61c8c2a",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "phyrexian-symbols-paid-with-life",
+      "cr": ["107.4f", "601.2b", "601.2h"],
+      "why": "Each {B/P} in K'rrik's own cost may be paid with 2 life, so with only the four generic paid by mana, seat 0 pays 6 life and K'rrik enters on 14 life.",
+      "setup": {
+        "p0": {"hand": ["K'rrik, Son of Yawgmoth"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "CCCC"},
+        {"op": "cast", "seat": 0, "card": "p0:K'rrik, Son of Yawgmoth",
+         "answers": [{"kind": "any", "pick": ["life"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:K'rrik, Son of Yawgmoth", "zone": "battlefield", "pt": "2/2"},
+        {"life": {"p0": 14}}
+      ]
+    },
+    {
+      "name": "static-pays-life-for-a-black-spell",
+      "cr": ["118.9", "118.7f", "601.2h"],
+      "why": "While K'rrik is on the battlefield its static lets seat 0 pay 2 life for each {B} in a cost, so Doom Blade's {B} is paid with 2 life and the black spell cast also puts a +1/+1 counter on K'rrik.",
+      "setup": {
+        "p0": {"hand": ["Doom Blade"], "battlefield": ["K'rrik, Son of Yawgmoth"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "C"},
+        {"op": "cast", "seat": 0, "card": "p0:Doom Blade", "targets": ["p1:Centaur Courser"],
+         "answers": [{"kind": "any", "pick": ["life"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "graveyard"},
+        {"life": {"p0": 18}},
+        {"card": "p0:K'rrik, Son of Yawgmoth", "counters": {"+1/+1": 1}}
+      ]
+    },
+    {
+      "name": "static-does-not-pay-for-nonblack",
+      "cr": ["118.9", "118.7f"],
+      "why": "Only {B} symbols can be paid with life, so Lightning Bolt's {R} cannot be covered by K'rrik's static and, with only generic mana in the pool, the Bolt is not offered.",
+      "setup": {
+        "p0": {"hand": ["Lightning Bolt"], "battlefield": ["K'rrik, Son of Yawgmoth"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "C"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Lightning Bolt"}, "want": false}
+      ]
+    }
+  ]
+}

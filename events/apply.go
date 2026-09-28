@@ -1336,6 +1336,7 @@ func Apply(g *state.Game, e Event) {
 			for i := range g.Objs {
 				g.Objs[i].EnteredThisTurn = false
 				g.Objs[i].WasDealtDamageThisTurn = false
+				g.Objs[i].DamageTakenThisTurnBy = nil
 				g.Objs[i].ActivatedThisTurn = 0
 				g.Objs[i].AttacksThisTurn = 0
 				// CR 702.100a: exerted is a per-turn fact. ExertSkipUntap is
@@ -3453,6 +3454,9 @@ func Apply(g *state.Game, e Event) {
 		if o := g.Obj(e.IDs[0]); o != nil {
 			if !containsObjID(o.DamageTakenByGame, src) {
 				o.DamageTakenByGame = append(o.DamageTakenByGame, src)
+			}
+			if !containsObjID(o.DamageTakenThisTurnBy, src) {
+				o.DamageTakenThisTurnBy = append(o.DamageTakenThisTurnBy, src)
 			}
 		}
 	}

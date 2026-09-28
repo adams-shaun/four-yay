@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // Layer-inert cache reuse.
@@ -69,16 +70,50 @@ func (e *Engine) layerInertSince(epoch int) bool {
 	return true
 }
 
+// staticSafeSince admits the ordinary layer-inert run plus TokenCreate events
+// that each appended exactly one battlefield object with no printed or copied
+// static. TokenCreate's event has no Obj referent, so object growth is matched
+// by the suffix count and every appended object is classified directly. This
+// is safe only for the staticEffects memo: a static-carrying token, an
+// unaccounted object append, or any other event forces the full rebuild.
+func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
+	n := len(e.L.Events)
+	if epoch <= 0 || epoch > n || oldObjs < 0 || oldObjs > len(e.G.Objs) {
+		return false
+	}
+	creates := 0
+	for i := epoch; i < n; i++ {
+		switch e.L.Events[i].Kind {
+		case events.DecisionAsk, events.DecisionMade, events.Priority:
+		case events.TokenCreate:
+			creates++
+		default:
+			return false
+		}
+	}
+	if len(e.G.Objs)-oldObjs != creates {
+		return false
+	}
+	for i := oldObjs; i < len(e.G.Objs); i++ {
+		o := &e.G.Objs[i]
+		if o.Zone != state.ZBattlefield || objectStaticHotOn(o) {
+			return false
+		}
+	}
+	return true
+}
+
 // refreshStaticContinuous brings the staticEffects memo up to the current log
-// head: a no-op on an exact hit, a re-stamp across a layer-inert run, a full
+// head: a no-op on an exact hit, a re-stamp across a layer-safe run, a full
 // rescan otherwise. active() and staticControlWants share it.
 func (e *Engine) refreshStaticContinuous() {
 	n := len(e.L.Events)
 	if e.staticEpoch == n {
 		return
 	}
-	if e.staticVersion == e.continuousVersion && e.staticObjs == len(e.G.Objs) && e.layerInertSince(e.staticEpoch) {
+	if e.staticVersion == e.continuousVersion && e.staticSafeSince(e.staticEpoch, e.staticObjs) {
 		e.staticEpoch = n
+		e.staticObjs = len(e.G.Objs)
 		if layerInertVerify {
 			if fresh := e.staticEffects(nil); !reflect.DeepEqual(fresh, e.staticContinuous[:len(e.staticContinuous):len(e.staticContinuous)]) && !(len(fresh) == 0 && len(e.staticContinuous) == 0) {
 				panic(fmt.Sprintf("rules: layer-inert static memo reuse at log %d disagrees with a rescan (%d vs %d effects)", n, len(e.staticContinuous), len(fresh)))

@@ -35,11 +35,23 @@ import (
 //     equivalent: the source_changed was run A's fallback, not the clone.)
 //   - 12603 seq 2298 (Mana Vault), commander4: Treasonous Ogre's "Pay 3
 //     life: Add {R}" cast plan remains equivalent after the speed gain moved
-//     to its triggered-ability timing (CR 702.179d), shifting the cast earlier.
+//     to its triggered-ability timing (CR 702.179d), shifting the cast
+//     earlier; the lifePaymentConsequences harness gap is fixed in
+//     paymirror.go, so the witness no longer trips on it.
 //   - 10877 seq 2873 (Infernal Plunge), commander4-r9 a_witness:wrong_production:
 //     the plan's Ogre paid life for R and was then the creature sacrificed
 //     for the spell's additional cost (CR 601.2h); the witness read that
 //     sacrifice as its activation (harness gap, activationProduction).
+//
+// fb-20260927T163321Z-69285807 moved the commander seeds here (12468, 11828,
+// 12603, 10877) with the command-zone payment-plan fix: a commander in the
+// command zone now gets a plan, the auto-pay bots cast it through one, and
+// those games move. 10877 keeps the same Infernal Plunge pin at its new seq;
+// the other three already carry empty or unchanged pins.
+//
+// The speed-trigger fix (CR 702.179d) then moved 12603's Ogre cast to seq
+// 2298 and fixed the lifePaymentConsequences harness gap in paymirror.go;
+// the merged tree was re-measured to that seq, verdict equivalent.
 func TestRoundTenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -71,7 +83,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 		12468: {7211: ""},
 		11828: {},
 		12603: {2298: ""},
-		10877: {2873: ""},
+		10877: {2834: ""},
 	}
 	for _, spec := range specs {
 		reports := round6Game(t, d, spec)
@@ -107,9 +119,10 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 	}
 }
 
-// TestWitnessReadsLifePaymentPastSpeedGain pins lifePaymentConsequences on a
-// synthetic legacy event stream: a SpeedChange between a pay-life-only source's
-// payment and mana is passed over; any other event still breaks the start.
+// TestWitnessReadsLifePaymentPastSpeedGain pins lifePaymentConsequences: an
+// opponent's speed gain the life payment folds inline sits between a
+// pay-life-only source's payment and its mana, and is passed over; any other
+// event there still breaks the start.
 func TestWitnessReadsLifePaymentPastSpeedGain(t *testing.T) {
 	const payer state.PlayerID = 1
 	ogre := decision.PaymentActivation{Source: 107, Produces: decision.ManaAmount{0, 0, 0, 1, 0, 0},

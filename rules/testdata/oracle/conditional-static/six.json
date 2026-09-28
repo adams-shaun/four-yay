@@ -1,0 +1,50 @@
+{
+  "card": "Six",
+  "family": "conditional-static",
+  "oracle_sha": "a4a08382f6bc",
+  "author": "cli-20260927T211250Z-95557374 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "your-turn-grants-retrace-to-graveyard-permanent",
+      "cr": ["611.3a", "702.81a", "601.2"],
+      "why": "During Six's controller's turn, the nonland permanent in the graveyard has retrace, so it can be cast from there by discarding a land card.",
+      "setup": {
+        "p0": {"hand": ["Forest"], "battlefield": ["Six"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"card": "p0:Grizzly Bears", "keywords": ["Retrace"]}, {"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": true}]}
+      ],
+      "expect": []
+    },
+    {
+      "name": "opponent-turn-graveyard-permanent-has-no-retrace",
+      "cr": ["611.3a", "702.81a", "500.1"],
+      "why": "The grant is limited to its controller's turn. Six is still on the battlefield, but on the opponent's turn the graveyard permanent carries no retrace, so the turn scope—not the source—is what removes the ability.",
+      "setup": {
+        "p0": {"hand": ["Forest"], "battlefield": ["Six"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "main1", "active": "p1"},
+        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"card": "p0:Grizzly Bears", "no_keywords": ["Retrace"]}]}
+      ],
+      "expect": [{"card": "p0:Six", "zone": "battlefield"}]
+    },
+    {
+      "name": "source-removed-does-not-grant-retrace",
+      "cr": ["611.3a", "601.2"],
+      "why": "During its controller's turn Six would grant retrace, but removing Six from the battlefield makes that static permission inactive.",
+      "setup": {
+        "p0": {"hand": ["Forest"], "battlefield": ["Six"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Six", "to": "graveyard"},
+        {"op": "mana", "seat": 0, "mana": "GG", "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]}
+      ],
+      "expect": []
+    }
+  ]
+}

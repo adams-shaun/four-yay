@@ -1,0 +1,64 @@
+{
+  "card": "Force of Will",
+  "family": "cost-modifier",
+  "oracle_sha": "ef4bc3cbd197",
+  "author": "cli-20260927T211250Z-281df4fa (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "alt-cost-life-and-blue-card-counters",
+      "cr": ["118.9", "118.9a", "601.2b", "601.2h"],
+      "why": "The alternative cost is paying 1 life and exiling a blue card from hand. Seat 0 has Counterspell (blue) to exile, so with no mana the alternative is payable: it counters seat 0's own Lightning Bolt, seat 0 drops to 19, the Bolt is countered.",
+      "setup": {
+        "p0": {"hand": ["Force of Will", "Counterspell", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "cast", "seat": 0, "card": "p0:Force of Will", "targets": ["p0:Lightning Bolt"],
+         "answers": [{"kind": "any", "pick": ["p0:Counterspell"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Counterspell", "zone": "exile"},
+        {"card": "p0:Lightning Bolt", "zone": "graveyard"},
+        {"life": {"p0": 19}},
+        {"life": {"p1": 20}}
+      ]
+    },
+    {
+      "name": "alt-cost-needs-a-blue-card",
+      "cr": ["118.9", "601.2b", "601.2c"],
+      "why": "Only Force of Will itself is blue and it is the spell being cast, not a card in hand: with no other blue card to exile and no mana in the pool, neither the alternative nor the mana cost is payable, so the cast is not offered.",
+      "setup": {
+        "p0": {"hand": ["Force of Will", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Force of Will"}, "want": false}
+      ]
+    },
+    {
+      "name": "mana-cost-path-counters-without-paying-life",
+      "cr": ["118.9", "601.2c", "601.2f"],
+      "why": "The mana cost {3}{U}{U} can be paid instead of the alternative: with two blue and three generic in the pool, Force of Will counters the Bolt without exiling a card or paying life.",
+      "setup": {
+        "p0": {"hand": ["Force of Will", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "mana", "seat": 0, "mana": "UUCCC"},
+        {"op": "cast", "seat": 0, "card": "p0:Force of Will", "targets": ["p0:Lightning Bolt"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "graveyard"},
+        {"life": {"p0": 20}},
+        {"life": {"p1": 20}}
+      ]
+    }
+  ]
+}

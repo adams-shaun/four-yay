@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -35,7 +37,9 @@ import (
 // well and panics if a skipped object is hot now or has a replacement face
 // with R: lines.
 
-var replZoneSkipVerify = derivedMemoVerifyFlag != ""
+var replZoneSkipVerifyFlag string
+
+var replZoneSkipVerify = derivedMemoVerifyFlag != "" || replZoneSkipVerifyFlag != ""
 
 // replZoneCount is the number of summarized zones per seat: ZLibrary ..
 // ZStack, the zones forEachObject walks.
@@ -44,21 +48,24 @@ const replZoneCount = int(state.ZStack) + 1
 type replZoneSummary struct {
 	ids    []state.ObjID
 	hotIDs []state.ObjID
+	epoch  int
 	valid  bool
 }
 
 // objectReplHot reports whether any face replacementFace could return for o
 // carries an R: line.
+func faceReplHot(f *cards.Face) bool { return f != nil && len(f.Repls) > 0 }
+
 func objectReplHot(o *state.Object) bool {
 	if o == nil {
 		return false
 	}
-	if o.CopyFace != nil && len(o.CopyFace.Repls) > 0 {
+	if faceReplHot(o.CopyFace) {
 		return true
 	}
 	if o.Card != nil {
 		for _, f := range o.Card.Faces {
-			if f != nil && len(f.Repls) > 0 {
+			if faceReplHot(f) {
 				return true
 			}
 		}
@@ -112,7 +119,34 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 		e.replZones = append(e.replZones, make([]replZoneSummary, i+1-len(e.replZones))...)
 	}
 	s := &e.replZones[i]
+	n := len(e.L.Events)
+	if s.valid && len(cur) > len(s.ids) && s.epoch > 0 && s.epoch <= n && z == state.ZBattlefield {
+		// TokenCreate appends exactly one object to the event player's
+		// battlefield and names no Obj referent. The event suffix therefore
+		// proves the old list is an unchanged prefix without comparing its
+		// thousands of IDs; classify only the newly appended tail.
+		creates := 0
+		appendOnly := true
+		for _, ev := range e.L.Events[s.epoch:] {
+			if ev.Kind != events.TokenCreate || ev.Player != p {
+				appendOnly = false
+				break
+			}
+			creates++
+		}
+		if appendOnly && creates == len(cur)-len(s.ids) {
+			for _, id := range cur[len(s.ids):] {
+				if objectReplHot(e.G.Obj(id)) {
+					s.hotIDs = append(s.hotIDs, id)
+				}
+			}
+			s.ids = append(s.ids, cur[len(s.ids):]...)
+			s.epoch, s.valid = n, true
+			return s.hotIDs
+		}
+	}
 	if s.valid && slices.Equal(s.ids, cur) {
+		s.epoch = n
 		return s.hotIDs
 	}
 	from := 0
@@ -128,7 +162,7 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 		}
 	}
 	s.ids = append(s.ids[:0], cur...)
-	s.hotIDs, s.valid = hot, true
+	s.hotIDs, s.epoch, s.valid = hot, len(e.L.Events), true
 	return hot
 }
 
