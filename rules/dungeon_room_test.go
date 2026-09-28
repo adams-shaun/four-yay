@@ -105,6 +105,31 @@ func drawsAfterRoom(e *Engine, dungeonID state.ObjID, room string) int {
 	return n
 }
 
+// replayHeadCheck rebuilds the game from e's log through events.Emit and
+// asserts the recomputed chain head equals the live log's head -- the
+// byte-identical replay obligation. replayCheck (cast_test.go) asserts the
+// reconstructed STATE; this adds the hash-chain equal it does not compare.
+func replayHeadCheck(t *testing.T, e *Engine, cfg Config) {
+	t.Helper()
+	lg := events.NewLog(cfg.Seed)
+	g := state.NewGameLife(cfg.Names, 20)
+	g.Tokens = cfg.Tokens
+	for i := range cfg.Decks {
+		p := state.PlayerID(i)
+		ids := make([]state.ObjID, 0, len(cfg.Decks[i]))
+		for _, c := range cfg.Decks[i] {
+			ids = append(ids, g.AddObject(c, p).ID)
+		}
+		g.SetZone(state.ZLibrary, p, ids)
+	}
+	for _, ev := range e.L.Events {
+		events.Emit(g, lg, ev)
+	}
+	if lg.Head() != e.L.Head() {
+		t.Fatalf("chain head %s, log replay %s", e.L.Head(), lg.Head())
+	}
+}
+
 // tokenCount counts battlefield permanents whose printed name matches.
 func battlefieldNameCount(e *Engine, name string) int {
 	n := 0
@@ -249,7 +274,9 @@ func TestDungeonRoomAbilitiesTriggerResolveAndComplete(t *testing.T) {
 	if startLife0 != 20 || startLife1 != 20 {
 		t.Fatalf("precondition: starting life %d/%d, want 20/20", startLife0, startLife1)
 	}
+	// The whole dungeon walk replays byte-identically: state and chain head.
 	replayCheck(t, e, cfg)
+	replayHeadCheck(t, e, cfg)
 }
 
 // TestCompletedDungeonIsNotReentered is the brief's second test: after
@@ -311,18 +338,23 @@ func TestCompletedDungeonIsNotReentered(t *testing.T) {
 		t.Fatalf("CompletedDungeons=%d, want still 1", e.G.Players[0].CompletedDungeons)
 	}
 	replayCheck(t, e, cfg)
+	replayHeadCheck(t, e, cfg)
 }
 
 // TestEveryDungeonRoomAbilityIsSupported walks every room of all four corpus
-// dungeon token scripts and asserts the room's top-level SVar body resolves
-// to an API the effects registry supports, naming any room that is not. It
-// also asserts the room's SVar carries a NextRoom$ or is the bottommost room
-// -- the completion check's premise.
+// dungeon token scripts and asserts the room's top-level SVar body (and every
+// chained SubAbility$) resolves to an API the effects registry supports,
+// naming any room that is not. The room and dungeon counts are pinned so a
+// corpus-pin change to a dungeon script is noticed rather than silently
+// skipped. It also asserts the brief's named room APIs really do occur, so
+// the walk cannot pass by finding no rooms at all.
 func TestEveryDungeonRoomAbilityIsSupported(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	dungeons := 0
+	rooms := 0
+	apis := map[string]bool{}
 	for _, def := range reg.Tokens {
 		if def == nil || len(def.Faces) == 0 {
 			continue
@@ -342,24 +374,46 @@ func TestEveryDungeonRoomAbilityIsSupported(t *testing.T) {
 			if room == "" {
 				continue
 			}
+			rooms++
 			sa := cards.ResolveSVar(f.SVars, room)
 			if sa == nil {
 				t.Errorf("dungeon %q room %q resolves no SVar", f.Name, room)
 				continue
 			}
-			if sa.Kind == "DB" && sa.API != "" && !supported["api:"+sa.API] {
-				t.Errorf("dungeon %q room %q uses unsupported api:%s", f.Name, room, sa.API)
+			// Every room body is a DB$ ability; a room resolving to any other
+			// kind is not a room ability at all and must be named.
+			if sa.Kind != "DB" {
+				t.Errorf("dungeon %q room %q SVar kind %q, want DB", f.Name, room, sa.Kind)
+			}
+			if sa.API != "" {
+				apis[sa.API] = true
+				if !supported["api:"+sa.API] {
+					t.Errorf("dungeon %q room %q uses unsupported api:%s", f.Name, room, sa.API)
+				}
 			}
 			for sub := sa.Sub; sub != nil; sub = sub.Sub {
 				// A room ability may chain sub-abilities; each must also be
 				// supported (they resolve through the same registry).
-				if sub.API != "" && !supported["api:"+sub.API] {
-					t.Errorf("dungeon %q room %q sub-ability uses unsupported api:%s", f.Name, room, sub.API)
+				if sub.API != "" {
+					apis[sub.API] = true
+					if !supported["api:"+sub.API] {
+						t.Errorf("dungeon %q room %q sub-ability uses unsupported api:%s", f.Name, room, sub.API)
+					}
 				}
 			}
 		}
 	}
 	if dungeons != 4 {
 		t.Fatalf("corpus dungeon scripts = %d, want 4", dungeons)
+	}
+	if rooms != 30 {
+		t.Fatalf("corpus dungeon rooms = %d, want 30 (7+9+5+9)", rooms)
+	}
+	// The brief's named room APIs: each must genuinely occur, or this test
+	// could pass while walking nothing.
+	for _, api := range []string{"ChangeZone", "PutCounter", "Scry", "LoseLife", "Goad", "Token", "Draw", "Dig", "Pump"} {
+		if !apis[api] {
+			t.Errorf("no dungeon room uses api:%s; the walk is missing it", api)
+		}
 	}
 }
