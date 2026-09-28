@@ -15,6 +15,7 @@ import { layoutStore } from '../lib/layoutsettings.svelte';
 const player = (seat: number): PlayerView => ({
   seat, name: `P${seat}`, life: 40, lost: false, library_size: 60, hand_size: 7,
   graveyard_size: 0, hand: [], battlefield: [], graveyard: [], exile: [], pool: {},
+  completed_dungeons: 0,
   command: [], commanders: [], commander_casts: [],
 });
 

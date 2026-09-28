@@ -279,7 +279,7 @@ func (r *Registry) matchForLog(t *table, sc sidecar, l *events.Log) (*match, err
 		decks[i] = d.Cards
 		sideboards[i] = d.Sideboard
 	}
-	cfg := rules.Config{Seed: sc.Seed, Names: sc.Names, PlayerNames: sc.PlayerNames, Decks: decks, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, Mulligans: sc.Mulligans}
+	cfg := rules.Config{Seed: sc.Seed, Names: sc.Names, PlayerNames: sc.PlayerNames, Decks: decks, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, Mulligans: sc.Mulligans, WindowDiagnostics: t.cfg.WindowDiagnostics}
 	// NameUniverse is a match MODE, not just data, and NameUniverseNames pins
 	// the exact ordered labels it offered. A pre-feature sidecar (no field)
 	// gets neither and therefore takes the legacy no-universe path, so a log

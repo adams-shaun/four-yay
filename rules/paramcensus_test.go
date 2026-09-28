@@ -1630,10 +1630,8 @@ var apiSpecificRulesSA = map[string][]string{
 	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
 	"Engine.castModeAsk":     {"Charm"},
 	"modalTargetSA":          {"Charm"},
-	"modeDecision":           {"Charm"},
-	"modeDecisionForChoices": {"Charm"},
-	"modeLabels":             {"Charm"},
-	"modeChoiceNames":        {"Charm"},
+	"modeDecision":    {"Charm"},
+	"modeChoiceNames": {"Charm"},
 	"Engine.askTriggerModes": {"Charm"},
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
@@ -1751,6 +1749,13 @@ var apiSpecificRulesStat = map[string]string{
 	// (handRoots.stat), which masked ValidSA$/EffectZone$ for every plain
 	// Continuous static.
 	"Engine.mayPlayGrantScoped": "Continuous.MayPlay",
+	// The permission enumerator (rules/mayplay.go's mayPlayPermissions,
+	// called from legal.go's mayPlaySpellIds to list each still-unused
+	// MayPlayText$-typed permission) reads MayPlay statics directly through
+	// mayPlayStatic, so it is a family root exactly like the grant path --
+	// left generic it would mask a plain Continuous static's real unread
+	// keys.
+	"Engine.mayPlayPermissions": "Continuous.MayPlay",
 	"warpGraveyardAllowed":      "Continuous.MayPlay",
 	// The raise walk (rules/mayplay.go's mayPlayRaiseCost, called from
 	// legal.go's may-play spell word and land walks and cast.go's "mayplay"
@@ -2470,6 +2475,9 @@ var ignoredParamKeys = map[string]string{
 }
 
 // ignoredStatParams scopes a presentation key to individual stat modes.
+// ignoredAbilityParams scopes an inert key to one api primitive. PumpZone is
+// inert on api:Effect (Forge EffectEffect does not read it), but is read by
+// api:Pump and api:PumpAll, so it cannot be key-global.
 // ignoredParamKeys is consulted with the BARE key in every bucket, so a key
 // some primitives genuinely read can never go in it. Secondary$ is that
 // key: on a static it is Forge's card-text dedup marker --
@@ -2501,6 +2509,10 @@ var statPresentationSecondary = []string{
 	"CastWithFlash", "CantGainLife", "CantTarget", "Panharmonicon",
 }
 
+var ignoredAbilityParams = map[string]string{
+	"Effect.PumpZone": "inert on api:Effect (EffectEffect.java reads no PumpZone; only PumpEffect.java:439 does)",
+}
+
 var ignoredStatParams = func() map[string]string {
 	const cite = "static text-dedup marker; forge-game/src/main/java/forge/game/CardTraitBase.java:179 (Card.java getText callers only)"
 	m := make(map[string]string, len(statPresentationSecondary))
@@ -2511,11 +2523,13 @@ var ignoredStatParams = func() map[string]string {
 }()
 
 // ignoredParam is the census's single classification point for a parameter
-// key: the key-global ignoredParamKeys table, then the stat-mode-scoped
-// overlay (consulted only for a "stat:" primitive, so trigger, SA and
-// replacement reads stay measurable no matter what lands in the overlay).
+// key: the key-global table, then api- and stat-scoped overlays. Scoped
+// entries cannot suppress reads by sibling primitives or other buckets.
 func ignoredParam(prim, key string) bool {
 	if ignoredParamKeys[key] != "" {
+		return true
+	}
+	if api, ok := strings.CutPrefix(prim, "api:"); ok && ignoredAbilityParams[api+"."+key] != "" {
 		return true
 	}
 	if mode, ok := strings.CutPrefix(prim, "stat:"); ok {
@@ -2885,9 +2899,12 @@ var knownUnsupportedParams = map[string][]string{
 	// a real per-target "draw up to N" ask (task mordorparams1,
 	// effects/cardflow.go effDraw's upto branch, rules' draw_upto resume
 	// arm) — pinned by TestArcaneDenialSlowtripDrawsUpToTwo.
-	"Arcane Denial":       {"param:api:Counter.RememberTargets"},
-	"Avengers Quinjet":    {"param:api:ChangeZone.ValidTgtsDesc"},
-	"Acclaimed Contender": {"param:api:Dig.RestRandomOrder"},
+	"Arcane Denial":    {"param:api:Counter.RememberTargets"},
+	"Avengers Quinjet": {"param:api:ChangeZone.ValidTgtsDesc"},
+	// Acclaimed Contender's param:api:Dig.RestRandomOrder entry was deleted
+	// when RestRandomOrder$ became a real read (task
+	// fdn-dig-rest-random-order): effDig shuffles the untaken remainder into
+	// the library bottom from the seeded generator and poses no ask.
 	// Adeline, Resplendent Cathar's param:api:RepeatEach.ChangeZoneTable entry
 	// was deleted when the parameter became read (task agent-20260922T090929Z-
 	// 07378594): effRepeatEach opens the zone batch the parameter asks for, so
@@ -2902,8 +2919,6 @@ var knownUnsupportedParams = map[string][]string{
 	// election is pinned end to end in rules/putcounter_optional_test.go.
 	"Captain Marvel, Apex Avenger": {"param:api:PutCounter.TriggeredCounterMap"},
 	"Conduit of Worlds":            {"param:api:Play.RememberPlayed"},
-	"Conjurer's Mantle":            {"param:api:Dig.RestRandomOrder"},
-	"Director Nick Fury":           {"param:api:Dig.RestRandomOrder"},
 	// Gift of Immortality's param:api:ChangeZone.ForgetOtherRemembered label
 	// (and the whole entry) was deleted when the ForgetOtherRemembered read
 	// landed (ticket agent-20260919T181318Z-316d7b2a): effChangeZone and
@@ -2967,11 +2982,15 @@ var knownUnsupportedParams = map[string][]string{
 	// param:api:Play.WithoutManaCost row retired with the same attribution
 	// fix (see the Spinerock Knoll note above).
 	"World Shaper": {"param:api:Mill.Optional"},
-	// Torment of Hailfire's FallbackAbility$/TempRemember$ are unread
-	// everywhere: its DB$ GenericChoice now resolves through effCharm's
-	// modal ask (effects/misc.go), but these two params ride the ask and
-	// neither is read by any code (pinned in rules/generic_choice_test.go).
-	"Torment of Hailfire": {"param:api:GenericChoice.FallbackAbility", "param:api:GenericChoice.TempRemember"},
+	// Torment of Hailfire and Hag of Ceaseless Torment carry
+	// api:GenericChoice's FallbackAbility$/TempRemember$ on the per-player
+	// path; both are read now (effects/misc.go charmGenericPlayersRun
+	// gates the chooser binding on TempRemember$ Chooser and filters the
+	// Choices$ to those the chooser can pay, resolving FallbackAbility$
+	// when none can), pinned end to end on the FDN carrier Perforating
+	// Artist in rules/perforating_artist_test.go. Their entries left this
+	// table with the read.
+	//
 	// The pro-shaper player-submitted Commander import (2026-09-18): the
 	// parameter reads its cards expose that this build does not implement.
 	// Each label is the unimplemented parameter on a fully-registered
@@ -3595,10 +3614,16 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 	// LoseLife's UnlessCost$ WAS the fixture's unread body key until the
 	// shared unless gate made every API's UnlessCost$ a read (the
 	// unlessProceed dispatch reads the parameter before any primitive
-	// dispatch); the body key below moved to RememberObjects$, which no
-	// LoseLife reader touches. (It was TargetingPlayer$ until the shared
-	// target-ask read made that parameter read for every API; the
-	// SVar-body-gap fixture is only meaningful while its key stays unread.)
+	// dispatch); it then moved to RememberObjects$ until the Effect
+	// root's pre-captured ChangeZone target read (prefetchRemembered-
+	// ChangeZoneTarget, which runs before any primitive dispatch) made that
+	// parameter read for every API too. The body key below is now
+	// RememberTargets$ -- the Laquatus's Champion / Soul Scourge LoseLife
+	// spelling -- which only the ChangeZone/combat readers touch, never a
+	// LoseLife or generic path. (It was TargetingPlayer$ before all of
+	// these, until the shared target-ask read made that parameter read for
+	// every API; the SVar-body-gap fixture is only meaningful while its key
+	// stays unread.)
 	// PayEnergy<X> WAS the fixture's unmodelled
 	// cost token until ParseCost gained a real Energy field; the body cost
 	// below moved to the fictional Waterbend<X>, which ParseCost can never
@@ -3606,15 +3631,15 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 	if !d.api["Charm"]["Choices"] || !d.api["Repeat"]["RepeatSubAbility"] {
 		t.Fatalf("outer Choices$/RepeatSubAbility$ reads lost -- fixture premise broken")
 	}
-	if d.api["LoseLife"]["RememberObjects"] {
-		t.Fatalf("api:LoseLife now reads RememberObjects$ -- re-point the fixture at a genuinely unread key")
+	if d.api["LoseLife"]["RememberTargets"] {
+		t.Fatalf("api:LoseLife now reads RememberTargets$ -- re-point the fixture at a genuinely unread key")
 	}
 	c := &cards.Card{Faces: []*cards.Face{{
-		// A modal spell whose one mode loses life for the player who targeted
-		// its source (the RememberObjects$ spelling no LoseLife reader
-		// touches -- TargetingPlayer$ WAS this fixture's unread body key
-		// until this ticket's shared target-ask read made it read for every
-		// API), and a repeat whose body carries an energy cost ParseCost
+		// A modal spell whose one mode loses life and remembers its target
+		// (the RememberTargets$ spelling no LoseLife reader touches --
+		// RememberObjects$ and, before it, TargetingPlayer$ WERE this
+		// fixture's unread body key until generic reads claimed them), and
+		// a repeat whose body carries an energy cost ParseCost
 		// does not model (the Chthonian Nightmare shape, reached through
 		// RepeatSubAbility$).
 		Abilities: []*cards.SA{
@@ -3622,18 +3647,18 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 			{Kind: "SP", API: "Repeat", Params: map[string]string{"RepeatNum": "2", "RepeatSubAbility": "DBMoney"}},
 		},
 		SVars: map[string]string{
-			"DBMode":  "DB$ LoseLife | RememberObjects$ True | Defined$ Remembered",
+			"DBMode":  "DB$ LoseLife | RememberTargets$ True | Defined$ Remembered",
 			"DBMoney": "DB$ LoseLife | Cost$ Waterbend<X>",
 		},
 	}}}
-	want := []string{"param:api:LoseLife.RememberObjects", "cost:Waterbend"}
+	want := []string{"param:api:LoseLife.RememberTargets", "cost:Waterbend"}
 	if got := cardCensusLabels(c, d, nil); !sameSet(got, want) {
 		t.Errorf("SVar-body census = %v, want %v -- an unread key or unmodelled token inside a Choices$/RepeatSubAbility$ body is not being reported", got, want)
 	}
 	// The drop plumbing reaches the bodies too: pretending the LoseLife
-	// RememberObjects$ read existed (it does not) must not un-report the
+	// RememberTargets$ read existed (it does not) must not un-report the
 	// body's gap through some other path.
-	if got := cardCensusLabels(c, d, map[string]map[string]bool{"api:LoseLife": {"RememberObjects": true}}); !sameSet(got, want) {
+	if got := cardCensusLabels(c, d, map[string]map[string]bool{"api:LoseLife": {"RememberTargets": true}}); !sameSet(got, want) {
 		t.Errorf("drop-simulated census = %v, want %v", got, want)
 	}
 }

@@ -4281,14 +4281,9 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 			ResumeVillainousIndex:   c.VillainousIndex,
 			Prompt:                  "Choose a villainous option"}
 		for i, name := range choices {
-			label := name
-			if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
-				if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-					label = desc
-				}
-			}
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
-				Label: label, Obj: c.Source, Player: victim.Player})
+				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
+				Obj:   c.Source, Player: victim.Player})
 		}
 		if Ask(h, d) == AskAsked {
 			return
@@ -4351,10 +4346,15 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 }
 
 // charmGenericPlayers is the per-Defined$-player api:GenericChoice path: each
-// player the SA's Defined$ names chooses one of the same Choices$ in turn, and
-// each chosen body runs with THAT chooser bound as Ctx.Remembered (the binding
-// Seize the Spotlight's Fame/Fortune bodies read as Defined$ Remembered). The
-// outer SubAbility$ runs once, after every chooser has answered.
+// player the SA's Defined$ names chooses one of the same Choices$ in turn.
+// With TempRemember$ Chooser the chooser is bound as Ctx.Remembered for ITS
+// chosen body (the binding Seize the Spotlight's Fame/Fortune bodies read as
+// Defined$ Remembered) and unbound once that body finishes; without the param
+// Remembered is left untouched, as Forge leaves it. A choice whose
+// UnlessCost$ the chooser cannot presently pay is not offered, and when no
+// choice is payable FallbackAbility$ is resolved for that chooser instead of
+// asking (Forge ChooseGenericEffect). The outer SubAbility$ runs once, after
+// every chooser has answered.
 //
 // It returns true when it owns the resolution. It deliberately declines the
 // shapes the existing controller ask already serves correctly:
@@ -4453,72 +4453,158 @@ func playerRoleDefined(defined string) bool {
 // (cleared around Resolve, the fx41 discipline) and resolves its own Defined$
 // rather than inheriting this one.
 func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool {
+	// TempRemember$ (Forge ChooseGenericEffect): when present, the chooser is
+	// the Remembered object for ITS chosen body (Defined$/UnlessPayer$
+	// Remembered name that player), and the binding is dropped after the
+	// chooser's body finishes so it does not leak to the next chooser or the
+	// outer SubAbility$. Without the param Forge leaves Remembered untouched,
+	// so a body that did not ask for the binding must not get one.
+	tempRemember := strings.TrimSpace(sa.Params["TempRemember"]) != ""
+	baselineRemembered := append([]state.Target(nil), c.Remembered...)
+	// FallbackAbility$ (Forge ChooseGenericEffect): the ability resolved for a
+	// chooser when NONE of the Choices$ is payable RIGHT NOW -- Forge drops a
+	// choice whose UnlessCost$ the chooser cannot pay, and when that empties
+	// the list it runs the fallback instead of asking.
+	fallback := strings.TrimSpace(sa.Params["FallbackAbility"])
+	// runBody runs one chosen SVar with the chooser cursor cleared (a nested
+	// GenericChoice resolves its own Defined$, never inheriting this cursor).
+	// It reports whether the body suspended on a nested ask.
+	runBody := func(name string) bool {
+		sub := cards.ResolveSVar(c.SVars, name)
+		if sub == nil {
+			return false
+		}
+		savedChoosers, savedIndex := c.GenericChoosers, c.GenericChooserIndex
+		c.GenericChoosers, c.GenericChooserIndex = nil, 0
+		Resolve(h, c, sub)
+		c.GenericChoosers, c.GenericChooserIndex = savedChoosers, savedIndex
+		return h.Suspended()
+	}
 	if c.Modes != nil {
 		names := c.Modes
 		c.Modes = nil
+		chooser := c.GenericChoosers[c.GenericChooserIndex-1]
 		for _, name := range names {
-			sub := cards.ResolveSVar(c.SVars, name)
-			if sub == nil {
+			if tempRemember {
+				c.Remembered = []state.Target{chooser}
+			}
+			suspended := runBody(name)
+			c.Remembered = append([]state.Target(nil), baselineRemembered...)
+			if !suspended {
 				continue
 			}
-			savedChoosers, savedIndex := c.GenericChoosers, c.GenericChooserIndex
-			c.GenericChoosers, c.GenericChooserIndex = nil, 0
-			Resolve(h, c, sub)
-			c.GenericChoosers, c.GenericChooserIndex = savedChoosers, savedIndex
-			if h.Suspended() {
-				// The chosen body posed a nested mid-resolution ask. Record the
-				// cursor so the remaining choosers are still asked once that ask's
-				// chain completes, instead of being stranded.
-				h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-					Choosers: append([]state.Target(nil), c.GenericChoosers...),
-					Next:     c.GenericChooserIndex})
-				return true
-			}
+			// Preserve the enclosing remembered set as well as the chooser
+			// cursor while the chosen body's nested ask is suspended.
+			h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
+				Choosers:   append([]state.Target(nil), c.GenericChoosers...),
+				Next:       c.GenericChooserIndex,
+				Remembered: append([]state.Target(nil), baselineRemembered...)})
+			return true
 		}
 	}
 	for c.GenericChooserIndex < len(c.GenericChoosers) {
 		chooser := c.GenericChoosers[c.GenericChooserIndex]
-		// The chosen body reads Defined$ Remembered as THIS chooser.
-		c.Remembered = []state.Target{chooser}
+		// The chosen body reads Defined$ Remembered as THIS chooser, and only
+		// when TempRemember$ asked for that binding.
+		if tempRemember {
+			c.Remembered = []state.Target{chooser}
+		}
+		available := genericChoiceAvailable(h, c, chooser.Player, choices)
+		c.Remembered = append([]state.Target(nil), baselineRemembered...)
+		if len(available) == 0 {
+			// No choice is payable. Forge runs FallbackAbility$ instead of
+			// asking; with the chooser still bound (TempRemember$) its body
+			// reads Defined$ Remembered as that player.
+			if fallback != "" {
+				if tempRemember {
+					c.Remembered = []state.Target{chooser}
+				}
+				suspended := runBody(fallback)
+				c.Remembered = append([]state.Target(nil), baselineRemembered...)
+				if suspended {
+					h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
+						Choosers:   append([]state.Target(nil), c.GenericChoosers...),
+						Next:       c.GenericChooserIndex + 1,
+						Remembered: append([]state.Target(nil), baselineRemembered...)})
+					return true
+				}
+			} else {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+					Text: "GenericChoice no payable choice and no FallbackAbility"})
+			}
+			c.GenericChooserIndex++
+			continue
+		}
 		d := &decision.Decision{Player: chooser.Player, Kind: decision.KModes,
 			Min: 1, Max: 1, Source: c.Source, ResumeKind: "generic_players", ResumeSA: sa,
-			ResumeModes:               append([]string(nil), choices...),
+			ResumeModes:               append([]string(nil), available...),
 			ResumeRemembered:          append([]state.Target(nil), c.Remembered...),
 			ResumeGenericChoosers:     append([]state.Target(nil), c.GenericChoosers...),
 			ResumeGenericChooserIndex: c.GenericChooserIndex,
 			Prompt:                    "Choose 1 to 1 mode(s)"}
-		for i, name := range choices {
-			label := name
-			if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
-				if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-					label = desc
-				}
-			}
+		for i, name := range available {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
-				Label: label, Obj: c.Source, Player: chooser.Player})
+				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
+				Obj:   c.Source, Player: chooser.Player})
 		}
 		if Ask(h, d) == AskAsked {
 			return true
 		}
 		// R-9: an effects-only host has no chooser, so deterministically take
 		// the first option for this chooser and continue to the next.
-		if sub := cards.ResolveSVar(c.SVars, choices[0]); sub != nil {
-			savedChoosers, savedIndex := c.GenericChoosers, c.GenericChooserIndex
-			c.GenericChoosers, c.GenericChooserIndex = nil, 0
-			Resolve(h, c, sub)
-			c.GenericChoosers, c.GenericChooserIndex = savedChoosers, savedIndex
-			if h.Suspended() {
-				// The deterministic body posed its own ask: preserve the cursor
-				// exactly as the answered branch above does.
-				h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-					Choosers: append([]state.Target(nil), c.GenericChoosers...),
-					Next:     c.GenericChooserIndex + 1})
-				return true
-			}
+		if tempRemember {
+			c.Remembered = []state.Target{chooser}
+		}
+		suspended := runBody(available[0])
+		c.Remembered = append([]state.Target(nil), baselineRemembered...)
+		if suspended {
+			// Preserve both cursor and outer remembered set across the nested ask.
+			h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
+				Choosers:   append([]state.Target(nil), c.GenericChoosers...),
+				Next:       c.GenericChooserIndex + 1,
+				Remembered: append([]state.Target(nil), baselineRemembered...)})
+			return true
 		}
 		c.GenericChooserIndex++
 	}
+	if tempRemember {
+		// Forge restores the complete remembered set that preceded the
+		// temporary chooser binding, including any enclosing player remembers.
+		c.Remembered = append([]state.Target(nil), baselineRemembered...)
+	}
 	return true
+}
+
+// genericChoiceAvailable filters a GenericChoice's Choices$ to the names the
+// chooser can actually select, per Forge ChooseGenericEffect: a choice whose
+// UnlessCost$ the chooser cannot presently pay is not offered (the same
+// reachability gate the unless ask itself uses, so the option list and the pay
+// decision cannot disagree). A choice with no UnlessCost$ is always available;
+// a host that cannot price costs (an effects-only embedder) keeps the historic
+// full list, so R-9 still degrades deterministically rather than silently
+// dropping choices. FORGE ALSO drops a choice failing getRestrictions(); the
+// engine's cards.SA carries no such field, and no corpus GenericChoice choice
+// uses Restrictions$ today.
+func genericChoiceAvailable(h Host, c *Ctx, payer state.PlayerID, choices []string) []string {
+	checker, priced := h.(interface {
+		UnlessCostPayableFromCtx(state.PlayerID, string, *Ctx) bool
+	})
+	out := make([]string, 0, len(choices))
+	for _, name := range choices {
+		sub := cards.ResolveSVar(c.SVars, name)
+		if sub == nil {
+			continue
+		}
+		if !priced {
+			out = append(out, name)
+			continue
+		}
+		raw := strings.TrimSpace(sub.Params["UnlessCost"])
+		if raw == "" || checker.UnlessCostPayableFromCtx(payer, raw, c) {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // effCharm runs the selected Choices$ sub-abilities in chosen order.
@@ -4693,14 +4779,9 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 		ResumeKind: "modes", ResumeSA: sa,
 		Prompt: "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)"}
 	for i, name := range choices {
-		label := name
-		if subs[i] != nil {
-			if d := strings.TrimSpace(subs[i].Params["SpellDescription"]); d != "" {
-				label = d
-			}
-		}
 		d.Options = append(d.Options, decision.Option{
-			Index: i, Kind: "mode", Label: label, Obj: c.Source, Player: c.Controller})
+			Index: i, Kind: "mode", Label: CharmModeLabel(subs[i], name),
+			Obj: c.Source, Player: c.Controller})
 	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters this effect with Ctx.Modes set.
@@ -4755,20 +4836,44 @@ func CharmRandomChosen(h Host, c *Ctx, sa *cards.SA) bool {
 	return false
 }
 
-// charmModeLabel is the display label of choice slot idx: the mode body's
-// SpellDescription$ when it carries one, else the SVar name -- the same
-// label the KModes decision's options carry, so the random-pick Note names
-// the mode exactly as an answered ask would.
+// CharmModeLabel is the printed display label of one Charm mode whose
+// resolved body is sub: the mode body's own SpellDescription$ when it
+// carries one, else the first SpellDescription$ found walking the body's
+// SubAbility$ chain, else fallback -- the raw SVar name. In the corpus the
+// chain-only shape is exactly the printed bullet text of the card's Oracle
+// line: What Must Be Done's Release Juno mode carries its description one
+// hop down (on DBChangeZone), and Varchild's War-Riders' two upkeep modes
+// carry theirs on SurvivorDistribution and Sacrifice, so a mode whose
+// SpellDescription$ rides a sub is still labelled by the card's printed
+// words, not its SVar name. Body-first precedence keeps every mode that
+// already labelled by its own SpellDescription$ byte-identical. The chain
+// is linked by cards' resolver (ResolveSVar/link, depth-capped at
+// maxSVarDepth), so the walk is a plain pointer walk: no re-resolution and
+// no new cycle risk. A nil sub returns the fallback.
+func CharmModeLabel(sub *cards.SA, fallback string) string {
+	if sub == nil {
+		return fallback
+	}
+	if d := strings.TrimSpace(sub.Params["SpellDescription"]); d != "" {
+		return d
+	}
+	for s := sub.Sub; s != nil; s = s.Sub {
+		if d := strings.TrimSpace(s.Params["SpellDescription"]); d != "" {
+			return d
+		}
+	}
+	return fallback
+}
+
+// charmModeLabel is the display label of choice slot idx: CharmModeLabel of
+// the slot's resolved body, falling back to the SVar name -- the same label
+// the KModes decision's options carry, so the random-pick Note names the
+// mode exactly as an answered ask would.
 func charmModeLabel(choices []string, subs []*cards.SA, idx int) string {
 	if idx < 0 || idx >= len(choices) {
 		return ""
 	}
-	if subs[idx] != nil {
-		if d := strings.TrimSpace(subs[idx].Params["SpellDescription"]); d != "" {
-			return d
-		}
-	}
-	return choices[idx]
+	return CharmModeLabel(subs[idx], choices[idx])
 }
 
 // effVote records one Note per voting player. Two shapes:

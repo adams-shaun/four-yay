@@ -23,6 +23,7 @@
   const player = $state<PlayerView>({
     seat: 0, name: 'P0', life: 20, lost: false, library_size: 60, hand_size: 7,
     graveyard_size: 0, hand: [], battlefield: [bear()], graveyard: [], exile: [],
+    completed_dungeons: 0,
     pool: {}, command: [], commanders: [], commander_casts: [],
   });
 

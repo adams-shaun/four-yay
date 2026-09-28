@@ -221,6 +221,7 @@ type resumePoint struct {
 	// for its chooser and the remaining choosers are still asked.
 	genericChoosers     []state.Target
 	genericChooserIndex int
+	genericRemembered   []state.Target
 	genericChoice       string
 	// flipCursor is the DB$ FlipCoin loop position a kind "flip_rest" frame
 	// re-enters with (the remaining flips a per-flip sub-ability's nested ask
@@ -486,6 +487,7 @@ type contFrame struct {
 	genericChoiceRest   bool
 	genericChoosers     []state.Target
 	genericChooserIndex int
+	genericRemembered   []state.Target
 	// flipRest marks a frame that re-enters a DB$ FlipCoin's own SA (not
 	// sa.Sub) with the flip cursor below, continuing the flips a per-flip
 	// sub-ability's nested ask left unrun. The reported sa IS the FlipCoin SA,
@@ -1095,7 +1097,8 @@ func (e *Engine) SuspendGenericChoiceRest(sa *cards.SA, rest effects.GenericChoi
 	}
 	e.contChain = append(e.contChain, contFrame{sa: sa, genericChoiceRest: true,
 		genericChoosers:     append([]state.Target(nil), rest.Choosers...),
-		genericChooserIndex: rest.Next})
+		genericChooserIndex: rest.Next,
+		genericRemembered:   append([]state.Target(nil), rest.Remembered...)})
 	e.repeatReported = sa
 }
 
@@ -2836,6 +2839,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if len(chosen) > 0 {
 				ctx.ClonePick = chosen[0].Obj
 			}
+		case "changezone_alternative":
+			// The card owner chose the primary or alternative library position.
+			// Carry the offered label through the re-entered ChangeZone body.
+			if len(chosen) > 0 {
+				ctx.ChangeZoneAlternative = chosen[0].Label
+			}
 		case "choosedirection":
 			// A mid-resolution ChooseDirection ask (Aminatou's [-6], Order of
 			// Succession) was answered. The chosen option's Label is the
@@ -3163,6 +3172,30 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if len(chosen) > 0 && chosen[0].Kind == "yes" {
 				ctx.PutOpt = "yes"
 			}
+		case "endturn_optional":
+			ctx.EndTurnOpt = "no"
+			if len(chosen) > 0 && chosen[0].Kind == "yes" {
+				ctx.EndTurnOpt = "yes"
+			}
+		case "venture_dungeon", "venture_room":
+			// An api:Venture choice was answered (CR 701.49a/49b). The chosen
+			// option's server-side Key names what the re-entered effVenture
+			// acts on: the dungeon token script a first venture enters
+			// ("venture_dungeon") or the room key the marker moves to
+			// ("venture_room"). The ask's cursor (Decision.ResumeTarget ->
+			// rp.target) rides back so a multi-player venture walk resumes
+			// after the answered player; the answer fields' emptiness
+			// distinguishes a fresh walk from a resumed one, so a malformed
+			// empty answer keeps the walk at its start (the conservative read
+			// the endturn_optional decline takes).
+			if len(chosen) > 0 {
+				if rp.kind == "venture_dungeon" {
+					ctx.VentureEnter = chosen[0].Key
+				} else {
+					ctx.VentureRoom = chosen[0].Key
+				}
+			}
+			ctx.VentureIdx = int32(rp.target)
 		case "setstate_optional":
 			// An Optional$ True SetState's yes/no election (Dowsing Dagger's
 			// "you may transform this Equipment", High Marshal Arguel's "you
@@ -3956,14 +3989,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			ctx.GenericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 			ctx.GenericChooserIndex = rp.genericChooserIndex + 1
 		case "generic_players_rest":
-			// A multi-player GenericChoice's chosen body suspended on its own
-			// nested ask and that ask's chain has completed: re-enter the
-			// primitive with the chooser cursor restored to ask the remaining
-			// Defined$ choosers. Ctx.Modes is cleared — this frame carries no
-			// answered mode (it was consumed by the body that suspended).
+			// Re-enter after the chosen body's nested ask, restoring both the
+			// remaining chooser cursor and the enclosing remembered set.
 			ctx.Modes = nil
 			ctx.GenericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 			ctx.GenericChooserIndex = rp.genericChooserIndex
+			ctx.Remembered = append([]state.Target(nil), rp.genericRemembered...)
 		case "token_rest":
 			// A DB$ Token's mint parked behind a replacement-order ask and
 			// the answer has minted it: re-enter the Token with its frozen
@@ -4149,6 +4180,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		e.replRedirect = savedRedirect
 		e.applyingReplacement = savedReplacement
 		e.damaging = 0
+		// A resumed EndTurn has already exiled the stack, including the
+		// resolving ability. Do not continue its Sub chain or grant priority
+		// in the skipped step; enter cleanup just as resolveTop does.
+		if e.endTurnRequested {
+			e.finishEndTurn()
+			return
+		}
 		// A resolution is still suspended when EITHER the ordinary
 		// mid-resolution ask (e.resume) or an off-stack mana rider ask is
 		// pending. The latter parks on the mana activation and sets
@@ -4434,6 +4472,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			f.kind, f.sa = "generic_players_rest", sa
 			f.genericChoosers = append([]state.Target(nil), cf.genericChoosers...)
 			f.genericChooserIndex = cf.genericChooserIndex
+			f.genericRemembered = append([]state.Target(nil), cf.genericRemembered...)
 		} else if cf.flipRest {
 			// The FlipCoin re-enters ITSELF (rp.sa = the FlipCoin SA, not
 			// sa.Sub — a FlipCoin body has no SubAbility$ chain of its own to
@@ -4529,14 +4568,9 @@ func modeDecisionForChoices(p state.PlayerID, source state.ObjID, sa *cards.SA, 
 		ResumeModes: append([]string(nil), choices...),
 		Prompt:      "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)"}
 	for i, name := range choices {
-		label := name
-		if sub := cards.ResolveSVar(svars, name); sub != nil {
-			if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-				label = desc
-			}
-		}
 		d.Options = append(d.Options, decision.Option{
-			Index: i, Kind: "mode", Label: label, Obj: source, Player: p})
+			Index: i, Kind: "mode", Label: effects.CharmModeLabel(cards.ResolveSVar(svars, name), name),
+			Obj: source, Player: p})
 	}
 	return d
 }
@@ -4547,13 +4581,7 @@ func modeDecisionForChoices(p state.PlayerID, source state.ObjID, sa *cards.SA, 
 func modeLabels(sa *cards.SA, svars map[string]string, names []string) []string {
 	labels := make([]string, 0, len(names))
 	for _, name := range names {
-		label := name
-		if sub := cards.ResolveSVar(svars, name); sub != nil {
-			if desc := strings.TrimSpace(sub.Params["SpellDescription"]); desc != "" {
-				label = desc
-			}
-		}
-		labels = append(labels, label)
+		labels = append(labels, effects.CharmModeLabel(cards.ResolveSVar(svars, name), name))
 	}
 	return labels
 }

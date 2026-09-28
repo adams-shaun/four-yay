@@ -105,6 +105,34 @@ func SVarAcrossFaces(src *state.Object, name string) string {
 // queue.
 const maxQueuedGrants int32 = 1 << 10
 
+// resetCombat removes permanent(s) from combat (CR 511.3). only == 0 is the
+// whole-combat reset EndCombatReset's Obj-zero form and CR 723.1c's "end the
+// turn" both need; a nonzero only removes that single permanent (the
+// regeneration shape) and leaves a zero tombstone in every attacker's blocker
+// list -- the attacker remains blocked (CR 509.1h) while liveBlockers ignores
+// the removed blocker, even if it lives. Shared so the two callers cannot
+// drift apart.
+func resetCombat(g *state.Game, only state.ObjID) {
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if only == 0 || o.ID == only {
+			o.IsAttacking = false
+			o.AttackingBattle = 0
+			o.BlockedBy = nil
+		} else {
+			for j, id := range o.BlockedBy {
+				if id == only {
+					o.BlockedBy[j] = 0
+				}
+			}
+		}
+	}
+	if only == 0 {
+		// Every BlockedBy list is now nil.
+		g.ClearBlockers()
+	}
+}
+
 func Apply(g *state.Game, e Event) {
 	switch e.Kind {
 	// RollDice is the proposal-only roll-action Kind (task rolldice-repl): it
@@ -116,6 +144,20 @@ func Apply(g *state.Game, e Event) {
 		// Apply writes nothing; the log lets replay re-derive the same branch.
 		// ManaActivate is the ActivationLimit$ scan marker (see the Kind's own
 		// comment): the mana itself lands through the nearby ManaAdd events.
+
+	case EndTurn:
+		// CR 723.1a/c: all spells and abilities on the stack cease to exist,
+		// and every creature/planeswalker is removed from combat. IDs is a
+		// snapshot of the stack taken by the effect before this fold.
+		for _, id := range e.IDs {
+			if o := g.Obj(id); o != nil && o.Zone == state.ZStack {
+				Move(g, id, state.ZStack, state.ZExile)
+			}
+		}
+		// CR 723.1c's removal from combat is exactly CR 511.3's whole-combat
+		// reset, so it shares EndCombatReset's own helper rather than
+		// restating the field clears.
+		resetCombat(g, 0)
 
 	case Resolve:
 		// The resolving object leaves the stack through its own MoveZone event,
@@ -470,6 +512,42 @@ func Apply(g *state.Game, e Event) {
 				}
 				g.SetZone(state.ZPlanarDeck, e.Player, ids)
 			}
+		}
+
+	case DungeonCreate:
+		if !validPlayer(g, e.Player) || g.Players[e.Player].DungeonObj != 0 {
+			break
+		}
+		def := g.Tokens[e.Text]
+		if def == nil {
+			break
+		}
+		o := g.AddObject(def, e.Player)
+		// A dungeon script is stored alongside token scripts, but the dungeon
+		// object itself is not a battlefield token and persists in the command
+		// zone until the dungeon is completed.
+		Move(g, o.ID, state.ZLibrary, state.ZCommand)
+		g.Players[e.Player].DungeonObj = o.ID
+		g.Players[e.Player].DungeonRoom = ""
+		g.Players[e.Player].DungeonCompleted = false
+
+	case DungeonRoom:
+		if e.Text != "" && activeDungeon(g, e.Player, e.Obj) != nil {
+			g.Players[e.Player].DungeonRoom = e.Text
+		}
+
+	case DungeonComplete:
+		if activeDungeon(g, e.Player, e.Obj) != nil && !g.Players[e.Player].DungeonCompleted {
+			g.Players[e.Player].CompletedDungeons++
+			g.Players[e.Player].DungeonCompleted = true
+		}
+
+	case DungeonRemove:
+		if o := activeDungeon(g, e.Player, e.Obj); o != nil {
+			Move(g, o.ID, state.ZCommand, state.ZCeased)
+			g.Players[e.Player].DungeonObj = 0
+			g.Players[e.Player].DungeonRoom = ""
+			g.Players[e.Player].DungeonCompleted = false
 		}
 
 	case ManaUndo:
@@ -1796,27 +1874,8 @@ func Apply(g *state.Game, e Event) {
 
 	case EndCombatReset:
 		// Obj zero retains the original whole-combat reset. A nonzero Obj
-		// removes only that permanent (regeneration). Keep a zero tombstone
-		// in attackers' blocker lists: they remain blocked (CR 509.1h),
-		// while liveBlockers ignores the removed blocker, even if it lives.
-		for i := range g.Objs {
-			o := &g.Objs[i]
-			if e.Obj == 0 || o.ID == e.Obj {
-				o.IsAttacking = false
-				o.AttackingBattle = 0
-				o.BlockedBy = nil
-			} else {
-				for j, id := range o.BlockedBy {
-					if id == e.Obj {
-						o.BlockedBy[j] = 0
-					}
-				}
-			}
-		}
-		if e.Obj == 0 {
-			// Every BlockedBy list is now nil.
-			g.ClearBlockers()
-		}
+		// removes only that permanent (regeneration).
+		resetCombat(g, e.Obj)
 
 	case CastInfo:
 		if o := g.Obj(e.Obj); o != nil {
@@ -2263,6 +2322,14 @@ func Apply(g *state.Game, e Event) {
 		o.IsToken = true
 		o.IsCopy = true
 		o.FaceIdx = faceIdx
+		// AtEOTTrig$ is a copiable value (CR 707.2): the mint's own body when
+		// the copying spell carries one (Counter), else the source object's --
+		// a token copy of an AtEOTTrig$ token still sacrifices itself at the
+		// end step. See state.Object.AtEOTTrigBody.
+		o.AtEOTTrigBody = e.Counter
+		if o.AtEOTTrigBody == "" {
+			o.AtEOTTrigBody = src.AtEOTTrigBody
+		}
 		if e.Amount&CopyTokenTapped != 0 {
 			o.Tapped = true
 		}
@@ -4159,6 +4226,19 @@ func changeControl(g *state.Game, o *state.Object, p state.PlayerID) {
 // validPlayer reports whether p indexes an existing seat.
 func validPlayer(g *state.Game, p state.PlayerID) bool {
 	return int(p) < len(g.Players)
+}
+
+// activeDungeon rejects malformed lifecycle events, including Obj 0 when no
+// dungeon is active. A departed dungeon cannot accrue completions or rooms.
+func activeDungeon(g *state.Game, p state.PlayerID, id state.ObjID) *state.Object {
+	if !validPlayer(g, p) || id == 0 || g.Players[p].DungeonObj != id {
+		return nil
+	}
+	o := g.Obj(id)
+	if o == nil || o.Owner != p || o.Zone != state.ZCommand {
+		return nil
+	}
+	return o
 }
 
 // manaClearKeepSlots parses the keep-mask Text the stat:UnspentMana emitter

@@ -105,6 +105,16 @@ var builtinSVars = map[string]string{
 	// Each token registers its own delayed trigger, so Self is that token.
 	"__kwEncoreSacrifice":      "DB$ Sacrifice | Defined$ Self",
 	"__kwEncoreSacrificeGroup": "DB$ Sacrifice | Defined$ DelayTriggerRememberedLKI",
+	// CopyPermanent AtEOTTrig$ (Chandra, Flameshaper; Electroduplicate; Heat
+	// Shimmer): the copy token's own "At the beginning of the end step,
+	// sacrifice/exile this token" triggered ability, part of its copiable
+	// values for a token copy to inherit. rules' checkGrantedAtEOTTriggers
+	// synthesizes the Phase/EndStep trigger for an object carrying the body
+	// name (Object.AtEOTTrigBody), and the synthesized trigger's Defined$ Self
+	// names the token itself -- exactly the __kwEncoreSacrifice shape, whose
+	// body is likewise the token's own one-shot end-step promise.
+	"__cpAtEOTSacrifice": "DB$ Sacrifice | Defined$ Self",
+	"__cpAtEOTExile":     "DB$ ChangeZone | Defined$ Self | Origin$ Battlefield | Destination$ Exile",
 	// AtEOT$ Destroy (the end-of-turn rider's destroy arm, read by the shared
 	// effects.scheduleAtEOT helper on Animate/Pump/PumpAll/Token/ChangeZone
 	// bodies): the registered source is the affected permanent itself.

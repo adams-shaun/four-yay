@@ -584,6 +584,69 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
+	// AlternativeDecider$ chooses which library position receives the
+	// targeted card. The owner, not the spell's controller, answers (the
+	// referent may be the OPPONENT of the caster, and the ask goes to that
+	// seat). Keep the ask after target resolution so TargetedOwner is bound to
+	// the actual referent, and before any move so replay re-entry cannot
+	// partially apply. The one shape modelled is the corpus's uniform
+	// AlternativeDecider shape: ONE targeted card moving to a library whose
+	// primary position is the TOP (or second from top) and whose alternative
+	// position is `-1` (bottom). Other shapes stay LOUD and take the
+	// pre-existing deterministic placement rather than silently offering a
+	// choice the script never posed.
+	altDecider := strings.TrimSpace(sa.Params["AlternativeDecider"])
+	altAnswer := c.ChangeZoneAlternative
+	c.ChangeZoneAlternative = ""
+	altBottom := false
+	altEngaged := false
+	if altDecider != "" && len(targets) > 0 {
+		primaryPosition := strings.TrimSpace(sa.Params["LibraryPosition"])
+		altPosition := strings.TrimSpace(sa.Params["LibraryPositionAlternative"])
+		shapeOK := to == state.ZLibrary && len(targets) == 1 && !targets[0].IsPlayer &&
+			altPosition == "-1" && (primaryPosition == "" || primaryPosition == "0" || primaryPosition == "1")
+		switch {
+		case !shapeOK:
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "AlternativeDecider$ " + altDecider + " is not the top-or-bottom library shape this engine can ask; the primary destination is taken"})
+		default:
+			target := h.Game().Obj(targets[0].Obj)
+			var chooser state.PlayerID
+			chooserOK := false
+			switch altDecider {
+			case "TargetedOwner":
+				if target != nil {
+					chooser, chooserOK = target.Owner, true
+				}
+			}
+			if !chooserOK || int(chooser) >= len(h.Game().Players) {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+					Text: "AlternativeDecider$ " + altDecider + " cannot resolve an object owner"})
+			} else if altAnswer == "" {
+				primaryLabel := "top"
+				if primaryPosition == "1" {
+					primaryLabel = "second from top"
+				}
+				d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
+					Source: c.Source, ResumeKind: "changezone_alternative", ResumeSA: sa,
+					Prompt: "Choose your library position",
+					Options: []decision.Option{
+						{Index: 0, Kind: "primary", Label: primaryLabel},
+						{Index: 1, Kind: "bottom", Label: "bottom"},
+					}}
+				if Ask(h, d) == AskAsked {
+					return
+				}
+				// R-9 no-ask host: the primary placement, deterministically.
+				altAnswer = "top"
+				altBottom = false
+				altEngaged = true
+			} else {
+				altBottom = altAnswer == "bottom"
+				altEngaged = true
+			}
+		}
+	}
 	forgetOtherRemembered(h, c, sa)
 	// ForgetOtherTargets$ True (Journey to Nowhere, Leonin Relic-Warder):
 	// Forge's ChangeZoneEffect.forgetOtherTargets -- forget every previously
@@ -872,6 +935,15 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if objectPathShuffleTail(h, c, sa, moved) {
 			return
 		}
+	}
+	if altEngaged && len(moved) > 0 {
+		position := int32(0)
+		if altBottom {
+			position = -1
+		} else if strings.TrimSpace(sa.Params["LibraryPosition"]) == "1" {
+			position = 1
+		}
+		libraryOrderPlacementAt(h, h.Game().Obj(moved[0]).Owner, moved, position)
 	}
 }
 
@@ -4886,6 +4958,44 @@ func libraryOrderPlacement(h Host, owner state.PlayerID, moved []state.ObjID, bo
 	h.Emit(events.Event{Kind: events.LibraryOrder, Player: owner, IDs: order, Secret: true})
 }
 
+// libraryOrderPlacementAt places an already-moved subset at an exact library
+// position. Negative positions count from the bottom (-1 is the bottom); a
+// positive position is a zero-based offset from the top. AlternativeDecider
+// uses position 1 for the corpus's second-from-top vs bottom choices.
+func libraryOrderPlacementAt(h Host, owner state.PlayerID, moved []state.ObjID, position int32) {
+	selected := make(map[state.ObjID]bool, len(moved))
+	for _, id := range moved {
+		selected[id] = true
+	}
+	lib := h.Game().Zone(state.ZLibrary, owner)
+	rest := make([]state.ObjID, 0, len(lib)-len(moved))
+	placed := make([]state.ObjID, 0, len(moved))
+	for _, id := range moved {
+		if containsID(lib, id) {
+			placed = append(placed, id)
+		}
+	}
+	for _, id := range lib {
+		if !selected[id] {
+			rest = append(rest, id)
+		}
+	}
+	order := make([]state.ObjID, 0, len(lib))
+	if position < 0 {
+		order = append(order, rest...)
+		order = append(order, placed...)
+	} else {
+		offset := int(position)
+		if offset > len(rest) {
+			offset = len(rest)
+		}
+		order = append(order, rest[:offset]...)
+		order = append(order, placed...)
+		order = append(order, rest[offset:]...)
+	}
+	h.Emit(events.Event{Kind: events.LibraryOrder, Player: owner, IDs: order, Secret: true})
+}
+
 // changeZoneAllPlayers resolves the player scope Forge's ChangeZoneAllEffect
 // applies. A card that says "exile all cards from target player's graveyard"
 // (Bojuka Bog, Tormod's Crypt, Nihil Spellbomb, ...) names ONE player and must
@@ -5923,6 +6033,11 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 	if _, targeted := sa.Params["ValidTgts"]; !targeted ||
 		strings.TrimSpace(sa.Params["Defined"]) != "" {
 		return nil, false
+	}
+	if c.SubPreAsk != nil {
+		if ts, ok := c.SubPreAsk[sa.Line]; ok {
+			return ts, true
+		}
 	}
 	if c.TargetsOffered && (c.OfferedSA == nil || sa.Line == c.OfferedSA.Line) {
 		// The announcement/placement ask offered THIS SA's targeting (rules

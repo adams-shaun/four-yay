@@ -165,9 +165,10 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// struct values, re-allocated like oppPicksMid so a clone taken
 		// between the answer and the CR 608.2b recheck still sees the seat
 		// that answered.
-		tpCtlChooser: cloneTpCtlChooser(e.tpCtlChooser),
-		mulligans:    e.mulligans,
-		startingLife: e.startingLife,
+		tpCtlChooser:      cloneTpCtlChooser(e.tpCtlChooser),
+		mulligans:         e.mulligans,
+		windowDiagnostics: e.windowDiagnostics,
+		startingLife:      e.startingLife,
 		// E2 held-out cast suppression (cast.go): the set of card ids whose
 		// cast option is held out of the current window after an unpayable
 		// decline. A clone taken at any intent boundary carries it forward so
@@ -1189,6 +1190,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// The multi-player GenericChoice chooser cursor is likewise a sliced value
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
+	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
 	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat

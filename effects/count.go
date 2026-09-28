@@ -1481,17 +1481,22 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 }
 
 // evalPlayerRefProperty resolves one "TargetedPlayer$<Property>[...][/Op]"
-// (and the sibling "ThisTargetedPlayer$..." spelling) count body over the
-// PLAYERS a target reference names -- the <Ref>$<Property> family's
-// player-valued half, which evalRefProperty's object loop structurally
-// cannot serve (it `continue`s every IsPlayer target and its property
-// switch is object-only). The player list is the generic pre-ask's
-// answered set (Ctx.PickedTargets) when non-nil, else the resolution's own
-// Ctx.Targets, filtered to IsPlayer entries -- effects/context.go's
-// Defined$ Targeted precedence exactly, so the head answers the player the
-// resolving body acts on. The count of players can be several; Forge's own
-// Count sums over the referenced players the same way evalRefProperty sums
-// over referenced objects.
+// (and the siblings "ThisTargetedPlayer$..." and "TargetedController$...")
+// count body over the PLAYERS a target reference names -- the
+// <Ref>$<Property> family's player-valued half, which evalRefProperty's
+// object loop structurally cannot serve (it `continue`s every IsPlayer target
+// and its property switch is object-only). The player list is the generic
+// pre-ask's answered set (Ctx.PickedTargets) when non-nil, else the
+// resolution's own Ctx.Targets, filtered to IsPlayer entries --
+// effects/context.go's Defined$ Targeted precedence exactly, so the head
+// answers the player the resolving body acts on. The count of players can be
+// several; Forge's own Count sums over the referenced players the same way
+// evalRefProperty sums over referenced objects.
+//
+// TargetedController$<Property> is the same family read through the CONtroller
+// of the target list: its players are controllersOf(Ctx.Targets/PickedTargets)
+// -- the exact resolution effects/context.go's Defined$ TargetedController
+// case already uses -- so it shares this arm's whole property switch.
 //
 // A ref this arm does not special-case (TriggeredTarget, TriggeredPlayer,
 // TriggeredDefendingPlayer, ...) is resolved through effects/context.go's
@@ -1540,6 +1545,20 @@ func evalPlayerRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 		if c.PickedTargets != nil {
 			ts = c.PickedTargets
 		}
+	case "TargetedController":
+		// The target list read through its controllers: the same
+		// PickedTargets-else-Targets precedence as the TargetedPlayer arm,
+		// converted with the shared controllersOf helper the Defined$
+		// TargetedController case in effects/context.go also uses, so a
+		// count head and a Defined$ spelling of the ref cannot disagree.
+		// Lullmage's Domination's SVar:CheckTgt reads
+		// `TargetedController$CardsInGraveyard` through the ReduceCost
+		// static's Count$Compare (agent-20260928T043626Z-b7e271c1).
+		src := c.Targets
+		if c.PickedTargets != nil {
+			src = c.PickedTargets
+		}
+		ts = controllersOf(h.Game(), src)
 	case "TriggeredPlayersOpponentVotedDiff":
 		// The canonical vote-finished carrier's diff set (trig:Vote): the
 		// fire-time referent capture is the ONLY binding, so a count read
@@ -1849,6 +1868,67 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		}
 		if hasOp {
 			n = applyCountOp(n, op)
+		}
+		return n, true
+	}
+
+	// TargetedByTarget$Valid <spec> (Forge; 2 corpus carriers -- Not of This
+	// World's SVar:CheckTgt:TargetedByTarget$Valid Card.powerGE7+YouCtrl and
+	// Bane's Contingency's ...IsCommander+YouCtrl+inZoneBattlefield): the
+	// number of objects, among the targets of the spell/ability(ies) that the
+	// resolving source targets, that match <spec> -- the NESTED read one
+	// level past spellIsTargetingMatches' own .Targets walk. The resolving
+	// source's targets are Ctx.Targets (registry.go), the same binding the
+	// Targeted ref reads; the cost-modifier static path binds the cast's
+	// chosen or potential targets onto it (rules' modAmountX), so Not of This
+	// World's Amount$ Compare gate sees Giant Growth's chosen target both at
+	// the offer gate and at the CR 601.2c reprice. Object targets of each
+	// targeted spell are matched through MatchesSpecCtx with the resolving
+	// context's SpecContext (You/Source/Remembered bound as everywhere else);
+	// player targets cannot match a Card... spec and are skipped. An absent
+	// or empty Ctx.Targets is a legitimate zero -- a MODELLED head, not the
+	// unresolvable verdict -- so the Compare gate fails closed at 0 (no
+	// reduction) instead of erroring. A property other than Valid (the only
+	// form either carrier uses) and an empty spec fail closed per the
+	// unmodelled-property convention.
+	if rest, ok := strings.CutPrefix(head, "TargetedByTarget$"); ok {
+		if strings.TrimSpace(rest) != "Valid" || arg == "" {
+			return 0, false
+		}
+		n := int32(0)
+		sc := c.SpecContext(c.Controller)
+		for _, t := range c.Targets {
+			if t.IsPlayer || t.Obj == 0 {
+				continue
+			}
+			inner := g.Obj(t.Obj)
+			if inner == nil {
+				continue
+			}
+			for _, it := range inner.Targets {
+				if it.IsPlayer || it.Obj == 0 {
+					continue
+				}
+				isc := sc
+				// The zone-count fold's derived-PT bind (zoneCountFold.visit):
+				// a battlefield inner target's numeric filter must read rules'
+				// layer-derived characteristics (Syr Elenora's power-equals-hand
+				// size), not the printed face -- skip the bind entirely unless
+				// the spec reads a P/T field, the same dependency guard.
+				if io := g.Obj(it.Obj); io != nil && io.Zone == state.ZBattlefield && SpecReadsPT(arg) {
+					if provider, ok := h.(interface {
+						FilterDerivedPT(state.ObjID) (power, toughness, basePower, baseToughness int32, ok bool)
+					}); ok {
+						if power, toughness, basePower, baseToughness, found := provider.FilterDerivedPT(it.Obj); found {
+							isc.DerivedPower, isc.DerivedToughness, isc.HasDerivedPT = power, toughness, true
+							isc.BasePower, isc.BaseToughness, isc.HasBasePT = basePower, baseToughness, true
+						}
+					}
+				}
+				if MatchesSpecCtx(g, arg, it.Obj, isc) {
+					n++
+				}
+			}
 		}
 		return n, true
 	}

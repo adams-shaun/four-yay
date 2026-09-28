@@ -192,6 +192,33 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			Text: "AtEOT$ " + atEOT + " is not implemented; the copy stays on the battlefield"})
 	}
 
+	// AtEOTTrig$ is NOT the AtEOT$ rider above: it is a triggered ability the
+	// copy carries as part of its copiable values ("except it has 'At the
+	// beginning of the end step, sacrifice this token'"), so unlike the
+	// one-shot delayed AtEOT$ registration a token COPY of the minted token
+	// inherits it (CR 707.2). The body name rides the CopyToken event's
+	// Counter; events.Apply stores it on the mint -- inheriting the source
+	// object's body when the spell carries none -- and rules'
+	// checkGrantedAtEOTTriggers puts the Phase/EndStep trigger on the stack for
+	// every battlefield object carrying one. `Sacrifice` and `Exile` are the
+	// two bodies the measured corpus uses; any other value (Gut Fanatical
+	// Priestess's `You_Sacrifice`, a "your next end step" DELAYED trigger this
+	// copiable-ability shape is not) stays LOUD -- one Note per call, never a
+	// silent drop.
+	atEOTTrigBody := ""
+	switch atEOTTrig := strings.TrimSpace(sa.Params["AtEOTTrig"]); atEOTTrig {
+	case "":
+		// No rider: a copy of the minted token still inherits the SOURCE
+		// object's copiable body (events.Apply's fallback).
+	case "Sacrifice":
+		atEOTTrigBody = "__cpAtEOTSacrifice"
+	case "Exile":
+		atEOTTrigBody = "__cpAtEOTExile"
+	default:
+		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "AtEOTTrig$ " + atEOTTrig + " is not implemented; the copy gets no end-step trigger"})
+	}
+
 	// Characteristic modifications (the Embalm/Eternalize family and the
 	// wider CopyPermanent mod census): AddTypes$, SetColor$, SetPower$ and
 	// SetToughness$. Each is applied as a tracked continuous effect sourced
@@ -803,7 +830,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			// increments it) -- the effToken/effMyriad prediction pattern.
 			want := g.NextID
 			h.Emit(events.Event{Kind: events.CopyToken, Obj: t.Obj, Player: owner,
-				Amount: amount, IDs: ids})
+				Amount: amount, IDs: ids, Counter: atEOTTrigBody})
 			if g.Obj(want) == nil {
 				continue
 			}
