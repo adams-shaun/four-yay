@@ -15,7 +15,6 @@ package rules
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -503,23 +502,56 @@ func tlaAnswerTargetsAndPass(t *testing.T, e *Engine, p state.PlayerID, limit in
 }
 
 // ---------------------------------------------------------------------------
-// (c) Scry trigger on a library look -- Planetarium of Wan Shi Tong (regression)
+// (c) Scry trigger on a library look -- Planetarium of Wan Shi Tong (finding)
 // ---------------------------------------------------------------------------
+
+// tlaTriggerPushes counts the trigger pushes whose source is id: the direct
+// "did this permanent's triggered ability reach the stack" observable, the
+// same one anchorTriggerPushes (temporal_anchor_test.go) uses. A bare Scry
+// never emits a TriggerPush, so unlike a Note this cannot be satisfied by the
+// scry primitive itself.
+func tlaTriggerPushes(e *Engine, id state.ObjID) int {
+	n := 0
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.TriggerPush && ev.Obj == id {
+			n++
+		}
+	}
+	return n
+}
 
 // TestSetAudit_tla_Planetarium_ScryTriggerLooksAtTop pins the library half of
 // "Whenever you scry or surveil, look at the top card of your library. You may
 // cast that card without paying its mana cost. Do this only once each turn."
-// Planetarium of Wan Shi Tong carries the trigger as `T:Mode$ Scry`; activating
-// its `{1},{T}: Scry 2` ability must fire it, and the fired handler must record
-// the look (the "looks at the top of the library" Note). This leaf is expected
-// to PASS -- regression coverage for the scry/surveil trigger family in the
-// set (10 Scry cards), not a finding.
+// Planetarium of Wan Shi Tong carries the trigger as `T:Mode$ Scry` conditioned
+// on `PresentDefined$ Remembered | IsPresent$ Card | PresentCompare$ EQ0`;
+// activating its `{1},{T}: Scry 2` ability must fire it. The observable is the
+// trigger's own TriggerPush -- a bare scry (effLookAndArrange) emits only its
+// own "looks at the top of the library" Note and no TriggerPush, so asserting
+// that Note (the earlier revision of this leaf) made the test vacuous. The
+// engine's trigger present-clause reader accepts only `PresentDefined$ Self`
+// and fails every other defined group closed (rules/trigger_condition.go
+// presentClauseHolds), so `PresentDefined$ Remembered` suppresses the trigger
+// and the whole card is a no-op: a finding.
 func TestSetAudit_tla_Planetarium_ScryTriggerLooksAtTop(t *testing.T) {
+	tlaSkip(t, "a trigger present clause with PresentDefined$ Remembered fails closed, so Planetarium's Mode$ Scry trigger never fires. Follow-up: tla-trigger-present-defined-remembered")
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Planetarium of Wan Shi Tong")
 	p := searchMoveByName(t, e, "Planetarium of Wan Shi Tong", state.ZBattlefield)
-	if o := e.G.Obj(p); o == nil || o.Zone != state.ZBattlefield {
+	o := e.G.Obj(p)
+	if o == nil || o.Zone != state.ZBattlefield {
 		t.Fatalf("precondition: Planetarium must be on the battlefield: %+v", o)
+	}
+	// Precondition: the card really carries the Mode$ Scry trigger with the
+	// Remembered present clause this leaf blames.
+	sawScry := false
+	for _, tr := range o.Face().Triggers {
+		if tr.Mode == "Scry" && tr.Params["PresentDefined"] == "Remembered" {
+			sawScry = true
+		}
+	}
+	if !sawScry {
+		t.Fatalf("precondition: Planetarium lost its Mode$ Scry/PresentDefined$ Remembered trigger: %+v", o.Face().Triggers)
 	}
 	addMana(t, e, 0, "CC")
 	opt := abilityOption(t, e, p, 0)
@@ -554,13 +586,14 @@ func TestSetAudit_tla_Planetarium_ScryTriggerLooksAtTop(t *testing.T) {
 	if !sawArrange {
 		t.Fatal("precondition: Scry 2 must pose a KArrange decision")
 	}
-	fired := false
-	for _, ev := range e.L.Events {
-		if ev.Kind == events.Note && strings.Contains(ev.Text, "looks at the top of the library") {
-			fired = true
-		}
+	// Precondition: the scry completed and emitted its own marker, so the
+	// Mode$ Scry match had a real event to match against.
+	if n := len(scryMarkers(e)); n == 0 {
+		t.Fatal("precondition: the scry completed without emitting an events.Scry marker")
 	}
-	if !fired {
-		t.Fatalf("Mode$ Scry trigger handler never ran after a scry (no 'looks at the top of the library' Note)")
+	// The trigger-only observable: the trigger must reach the stack. A bare
+	// scry never emits a TriggerPush for the activating permanent.
+	if n := tlaTriggerPushes(e, p); n == 0 {
+		t.Fatalf("Planetarium's Mode$ Scry trigger never fired after a real scry (TriggerPush count = 0; the scry's own Note is not proof): its PresentDefined$ Remembered condition fails closed (CR 603.4)")
 	}
 }
