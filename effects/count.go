@@ -1853,6 +1853,67 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		return n, true
 	}
 
+	// TargetedByTarget$Valid <spec> (Forge; 2 corpus carriers -- Not of This
+	// World's SVar:CheckTgt:TargetedByTarget$Valid Card.powerGE7+YouCtrl and
+	// Bane's Contingency's ...IsCommander+YouCtrl+inZoneBattlefield): the
+	// number of objects, among the targets of the spell/ability(ies) that the
+	// resolving source targets, that match <spec> -- the NESTED read one
+	// level past spellIsTargetingMatches' own .Targets walk. The resolving
+	// source's targets are Ctx.Targets (registry.go), the same binding the
+	// Targeted ref reads; the cost-modifier static path binds the cast's
+	// chosen or potential targets onto it (rules' modAmountX), so Not of This
+	// World's Amount$ Compare gate sees Giant Growth's chosen target both at
+	// the offer gate and at the CR 601.2c reprice. Object targets of each
+	// targeted spell are matched through MatchesSpecCtx with the resolving
+	// context's SpecContext (You/Source/Remembered bound as everywhere else);
+	// player targets cannot match a Card... spec and are skipped. An absent
+	// or empty Ctx.Targets is a legitimate zero -- a MODELLED head, not the
+	// unresolvable verdict -- so the Compare gate fails closed at 0 (no
+	// reduction) instead of erroring. A property other than Valid (the only
+	// form either carrier uses) and an empty spec fail closed per the
+	// unmodelled-property convention.
+	if rest, ok := strings.CutPrefix(head, "TargetedByTarget$"); ok {
+		if strings.TrimSpace(rest) != "Valid" || arg == "" {
+			return 0, false
+		}
+		n := int32(0)
+		sc := c.SpecContext(c.Controller)
+		for _, t := range c.Targets {
+			if t.IsPlayer || t.Obj == 0 {
+				continue
+			}
+			inner := g.Obj(t.Obj)
+			if inner == nil {
+				continue
+			}
+			for _, it := range inner.Targets {
+				if it.IsPlayer || it.Obj == 0 {
+					continue
+				}
+				isc := sc
+				// The zone-count fold's derived-PT bind (zoneCountFold.visit):
+				// a battlefield inner target's numeric filter must read rules'
+				// layer-derived characteristics (Syr Elenora's power-equals-hand
+				// size), not the printed face -- skip the bind entirely unless
+				// the spec reads a P/T field, the same dependency guard.
+				if io := g.Obj(it.Obj); io != nil && io.Zone == state.ZBattlefield && SpecReadsPT(arg) {
+					if provider, ok := h.(interface {
+						FilterDerivedPT(state.ObjID) (power, toughness, basePower, baseToughness int32, ok bool)
+					}); ok {
+						if power, toughness, basePower, baseToughness, found := provider.FilterDerivedPT(it.Obj); found {
+							isc.DerivedPower, isc.DerivedToughness, isc.HasDerivedPT = power, toughness, true
+							isc.BasePower, isc.BaseToughness, isc.HasBasePT = basePower, baseToughness, true
+						}
+					}
+				}
+				if MatchesSpecCtx(g, arg, it.Obj, isc) {
+					n++
+				}
+			}
+		}
+		return n, true
+	}
+
 	// The fuzz-cov3 heads (effects/count_cov3.go): heads that previously
 	// matched nothing below, so consulting them first changes no verdict
 	// another arm gave.
