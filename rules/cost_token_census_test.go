@@ -123,10 +123,11 @@ var costNonFilterSpecs = map[string]string{
 	// same reading Discard<1/Hand> and Reveal<1/Hand> get. Unlike the
 	// whole-hand reveal it is NOT payable empty -- the token still demands
 	// part.N (written 1) cards. Read by isWholeZoneExileSpec at the triggered
-	// offer gate, the triggered settle walk, and the cast/activation gate and
-	// payment. The census walks Cost$ params only, so Herigast is its only
-	// measured carrier (Grip of Amnesia's ExileFromGrave<1/All> is an
-	// UnlessCost$ and is out of scope).
+	// offer gate, the triggered settle walk, the cast/activation gate and
+	// payment, and (task exil1) the unless-pay gate and continuation
+	// (Grip of Amnesia's ExileFromGrave<1/All>, an UnlessCost$ the census's
+	// own Cost$ walk does not visit). The census walks Cost$ params only, so
+	// Herigast is its only measured carrier.
 	"All": "whole zone (ExileFromHand<1/All>) -- isWholeZoneExileSpec; needs part.N cards (CR 118.8-family)",
 }
 

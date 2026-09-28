@@ -366,32 +366,38 @@ func strictUnpriceableCards(reg *cards.Registry) []string {
 // TestUnlessCostStrictParsePopulation pins the corpus population whose
 // UnlessCost$ the strict unless-pay parser declines. It is the executable
 // boundary of the payment grammar this task built: mana symbols, fixed
-// PayLife<N>, and Sac/Discard/SubCounter/Draw/Reveal components are
-// chargeable mid-resolution (Sac/Discard/Reveal through the payer-choice
-// continuation); everything else is a hard decline (a decline-only ask is
-// still posed and recorded), except the Sacrifice arm's DamageYou<N> payment.
+// PayLife<N>, and Sac/Discard/SubCounter/Draw/Reveal/Return/Exile components
+// are chargeable mid-resolution (Sac/Discard/Reveal/Return/Exile through the
+// payer-choice continuation); everything else is a hard decline (a
+// decline-only ask is still posed and recorded), except the Sacrifice arm's
+// DamageYou<N> payment.
 // A corpus or grammar change that
 // adds or removes a name here is a real scope change that must be
 // understood, not silently absorbed.
+// Task exil1 removed the 15 ExileFromGrave/AnyGrave carriers (Egon, God of
+// Death through Web of Inertia): the Exile head is now a priceable
+// choice-bearing component, so those cards left this list. Dragon's Approach
+// (ExileFromStack<1/Card.Self>) and The War Games (Exile<1/Creature.!token>)
+// stay: their spellings are outside the exileCost grammar.
 func TestUnlessCostStrictParsePopulation(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	got := strictUnpriceableCards(reg)
 	want := []string{"A-Karn, Living Legacy", "Aether Spike", "Alliance of Arms",
 		"Anurid Scavenger", "Archfiend of Spite", "Arcum's Whistle", "Armor Wars", "Barbarian Bully",
-		"Barrow Ghoul", "Blazing Salvo", "Book Burning", "Breaking Point", "Brine Seer",
-		"Broken Ambitions", "Browbeat", "Carrion Rats", "Carrion Wurm", "Cephalid Shrine",
+		"Blazing Salvo", "Book Burning", "Breaking Point", "Brine Seer",
+		"Broken Ambitions", "Browbeat", "Cephalid Shrine",
 		"Champions of Minas Tirith", "Charismatic Conqueror", "Cheering Crowd",
-		"Chisei, Heart of Oceans", "Circling Vultures", "Circular Logic", "Clash of Wills",
+		"Chisei, Heart of Oceans", "Circular Logic", "Clash of Wills",
 		"Collective Voyage", "Combustion Man", "Command Bridge", "Concerted Defense", "Condescend",
 		"Countervailing Winds", "Court of Ambition", "Craig Boone, Novac Guard", "Cyclone",
 		"Dazzling Denial", "Dispelling Exhale", "Disruption Aura", "Draco",
-		"Dragon's Approach", "Dwarven Driller", "Dwarven Scorcher", "Egon, God of Death",
+		"Dragon's Approach", "Dwarven Driller", "Dwarven Scorcher",
 		"Elven Passage", "Energy Vortex", "Errant Minion", "Esper Sentinel", "Essence Leak",
 		"Essence Vortex", "Evasive Action", "Excise", "Extravagant Spirit",
-		"Feather, Radiant Arbiter", "Fettergeist", "Flash", "Flitting Guerrilla", "Grip of Amnesia",
-		"Gurzigost", "Gutsplitter Gang", "Heated Argument", "Hungry Hungry Heifer", "Ice Cave",
-		"In the Eye of Chaos", "Insatiable Frugivore", "Invoke Prejudice", "Ixidor's Will",
+		"Feather, Radiant Arbiter", "Fettergeist", "Flash",
+		"Gurzigost", "Gutsplitter Gang", "Hungry Hungry Heifer", "Ice Cave",
+		"In the Eye of Chaos", "Invoke Prejudice", "Ixidor's Will",
 		"Karn, Living Legacy", "Killing Wave", "Koskun Falls", "Lava Blister",
 		"Liege of the Hollows", "Lilting Refrain", "Lofty Denial", "Logic Knot",
 		"Longhorn Firebeast", "Mana-Charged Dragon", "Martyr of Frost", "Mausoleum Wanderer",
@@ -401,15 +407,15 @@ func TestUnlessCostStrictParsePopulation(t *testing.T) {
 		"Power Leak", "Power Sink", "Primordial Ooze", "Protect the Negotiators",
 		"Protection Racket", "Public Thoroughfare", "Rakshasa's Disdain", "Rampaging Aetherhood",
 		"Rent Is Due", "Repulsive Mutation", "Reservoir Kraken", "Rethink", "Risk Factor",
-		"Rites of Refusal", "Rogue Skycaptain", "Rose Room Treasurer", "Rotting Giant", "Rune Snag",
+		"Rites of Refusal", "Rogue Skycaptain", "Rose Room Treasurer", "Rune Snag",
 		"Saheeli, Filigree Master", "Sanctuary Wall", "Scent of Brine", "Shared Trauma",
 		"Skullscorch", "Soul Strings", "Soul Tithe", "Spectral Denial", "Spell Rupture",
 		"Spell Stutter", "Spell Syphon", "Swallowed by Leviathan", "Syncopate", "Tainted Specter",
 		"Tariff", "Thassa's Intervention", "Thassa's Rebuff", "The War Games", "Thelon's Chant",
-		"Tibalt, Wicked Tormentor", "Tourach's Chant", "Transmute Artifact", "Treacherous Vampire",
-		"Trystan, Penitent Culler", "Tymaret Calls the Dead", "Urza's Tome", "Vexing Devil",
+		"Tibalt, Wicked Tormentor", "Tourach's Chant", "Transmute Artifact",
+		"Vexing Devil",
 		"Volatile Stormdrake", "Wand of Ith", "Waterbending Lesson", "We Say Thee Nay!",
-		"Web of Inertia", "Well of Lost Dreams", "Worms of the Earth", "Wrath of the Skies"}
+		"Well of Lost Dreams", "Worms of the Earth", "Wrath of the Skies"}
 	sort.Strings(want)
 	if len(got) != len(want) {
 		t.Fatalf("strict-unpriceable card population = %d, want %d\ngot:  %v\nwant: %v",
