@@ -81,10 +81,10 @@ func TestLayer4SelfTypeEffectRejectsNonSourceEarly(t *testing.T) {
 
 	// Run a Derived read on the non-source token: the early rejection fires
 	// for each self effect whose source is not the token.
-	before := selfRejectVerify
+	before := selfRejectVerify.Load()
 	_ = e.Derived(token)
-	if selfRejectVerify <= before {
-		t.Fatalf("the Card.Self early rejection did not fire for a non-source Derived read (%d -> %d)", before, selfRejectVerify)
+	if after := selfRejectVerify.Load(); after <= before {
+		t.Fatalf("the Card.Self early rejection did not fire for a non-source Derived read (%d -> %d)", before, after)
 	}
 	// The shortcut must not have leaked a type onto the non-source token.
 	if tk := e.typeCharacteristics(token, 0); containsFold(tk, "Construct") || containsFold(tk, "Vehicle") {
