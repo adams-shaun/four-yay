@@ -305,19 +305,25 @@ func costShardsOf(c Cost, letter byte) int {
 	return n
 }
 
-// composeRaiseCost folds one RaiseCost static's Cost$ into mods. It reports
-// false when the static carries no Cost$ or pairs it with an Amount$ (the
-// "pay {1}{G} any number of times" optional shape this build prices only
-// through Amount$), leaving the caller's Amount$ fallback in charge.
-func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID, scope costScope, x int32, targets []state.Target) bool {
+// composeRaiseCost folds one RaiseCost static's Cost$ into mods, once per
+// unit of amount when the static pairs it with an Amount$ (the caller's
+// evaluated read). It reports false when the static carries no Cost$,
+// leaving the caller's Amount$-as-generic raise in charge.
+func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID, scope costScope, x int32, targets []state.Target, amount int32) bool {
 	raw, hasCost := sv.Params["Cost"]
 	if !hasCost {
 		return false
 	}
-	if _, hasAmt := sv.Params["Amount"]; hasAmt {
-		return false
-	}
 	times := 1
+	if _, hasAmt := sv.Params["Amount"]; hasAmt {
+		// Cost$ with Amount$ is Forge's "that cost, Amount$ times"
+		// (CostAdjustment's RaiseCost branch adds the Cost$ once per unit):
+		// Officious Interrogation's {W}{U} per target beyond the first, the
+		// "pay {1}{G} any number of times" family (Taste of Paradise,
+		// Primitive Justice) at its announced count. The amount is the
+		// caller's modAmountX read, never priced as generic mana.
+		times = int(amount)
+	}
 	if word, ok := sv.Params["ForEachShard"]; ok {
 		n, known := e.forEachShardCount(word, id, scope)
 		if !known {
@@ -325,9 +331,9 @@ func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID,
 			mods.hasExtra = true
 			return true
 		}
-		times = n
+		times *= n
 	}
-	if times == 0 {
+	if times <= 0 {
 		return true
 	}
 	if rc, rg, rl, ok := raiseFromCost(raw); ok {

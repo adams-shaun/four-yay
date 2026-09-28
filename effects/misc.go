@@ -2614,6 +2614,7 @@ func CostStaticParamsReadable(params map[string]string) bool {
 			"IsPresent", "PresentZone", "PresentCompare", "CheckSVar", "SVarCompare",
 			"CheckSecondSVar", "SecondSVarCompare", "Condition", "EffectZone",
 			"AffectedZone", "Secondary", "Relative", "ClassBand",
+			"UnlessValidTarget", "PlayerTurn", "Phases",
 			"Description", "SpellDescription":
 		default:
 			return false

@@ -216,7 +216,10 @@ func TestPlayerCountDefinedRegisteredUnknownPropertyFailsClosed(t *testing.T) {
 		"Count$PlayerCountDefinedRememberedOwner$HasPropertyLostLifeThisTurn",
 		"Count$PlayerCountDefinedNonTriggeredTarget$HasPropertyLostLifeThisTurn",
 		"Count$PlayerCountDefinedActivePlayer$HighestLifeLostThisTurn",
-		"Count$PlayerCountRegisteredOpponents$NonCombatDamageDealtThisTurn",
+		// (NonCombatDamageDealtThisTurn, this list's old example, is now
+		// modelled -- Chandra's Incinerator -- so an unmodelled property on
+		// the same group stands in for it.)
+		"Count$PlayerCountRegisteredOpponents$SomeUnmodelledProperty",
 		// The life-TOTAL extremes resolve on the Players$/Opponents$ arms but
 		// are NOT among the three properties this head offers — they stay
 		// (0, false) here (no corpus carrier reads one through this group).

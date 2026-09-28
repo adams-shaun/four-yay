@@ -364,7 +364,9 @@ func TestCostStaticCensus(t *testing.T) {
 		}
 		panicked = probe(func() {
 			ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: sv.SVars, X: x,
-				ChosenNumber: 3, ChosenNumberBound: sv.chosenNumberBound, Targets: tg}
+				ChosenNumber: 3, ChosenNumberBound: sv.chosenNumberBound, Targets: tg,
+				// The priced object, exactly as modAmountX binds it.
+				AffectedObj: instantID}
 			n, ok = effects.EvalCountOK(e, ctx, body)
 		})
 		return
@@ -515,34 +517,19 @@ func TestCostStaticCensus(t *testing.T) {
 			}
 		}
 		// AffectedZone$
+		// The gate reads a spell's cast-from zone and an ability's source
+		// zone alike (costAffectedZone): only an unrecognised word is a
+		// finding.
 		if az, ok := p["AffectedZone"]; ok {
-			spellReachable := ty == "Spell"
-			if ty == "" {
-				spellReachable = true
-				if vs := strings.TrimSpace(p["ValidSpell"]); vs != "" {
-					spellReachable = false
-					for alt := range strings.SplitSeq(vs, ",") {
-						if strings.HasPrefix(strings.TrimSpace(alt), "Spell") {
-							spellReachable = true
-						}
-					}
+			live := false
+			for _, z := range []state.Zone{state.ZBattlefield, state.ZStack, state.ZGraveyard, state.ZHand,
+				state.ZLibrary, state.ZExile, state.ZCommand} {
+				if affectedZoneOK(az, z) {
+					live = true
 				}
 			}
-			if spellReachable {
-				add(ccWrong, "AffectedZone$ "+strings.TrimSpace(az)+" ignored for spells (read only for Type$ Ability; Forge gates the cast-from zone)",
-					L.loc("rules/statics.go", "if az, ok := sv.Param(cards.PKAffectedZone); ok && (scope.kind == \"Ability\" || scope.kind == \"Static\") {"))
-			}
-			if ty != "Spell" {
-				live := false
-				for _, z := range []state.Zone{state.ZBattlefield, state.ZStack, state.ZGraveyard, state.ZHand,
-					state.ZLibrary, state.ZExile, state.ZCommand} {
-					if affectedZoneOK(az, z) {
-						live = true
-					}
-				}
-				if !live {
-					add(ccBroken, "AffectedZone$ "+az+" unrecognised", L.loc("rules/statics.go", "func affectedZoneOK("))
-				}
+			if !live {
+				add(ccBroken, "AffectedZone$ "+az+" unrecognised", L.loc("rules/statics.go", "func affectedZoneOK("))
 			}
 		}
 		// IsPresent$
@@ -636,8 +623,8 @@ func TestCostStaticCensus(t *testing.T) {
 			} else if len(dead) > 0 {
 				add(ccWrong, "ValidTarget$ partially dead: "+strings.Join(dead, "; "), locVT)
 			}
-			if _, ok := p["UnlessValidTarget"]; ok {
-				add(ccWrong, "UnlessValidTarget$ unread: the ValidTarget$ test is applied un-inverted", locVT)
+			if v, ok := p["UnlessValidTarget"]; ok && strings.TrimSpace(v) != "True" {
+				add(ccWrong, "UnlessValidTarget$ "+v+" unrecognised: only True inverts the ValidTarget$ test", locVT)
 			}
 		}
 		// SetCost
@@ -684,18 +671,21 @@ func TestCostStaticCensus(t *testing.T) {
 		}
 		// Relative$
 		if p["Relative"] == "True" {
-			locRel := L.loc("rules/statics.go", "if !(mode == \"ReduceCost\" && e.relativeAmountResolves(sv, targets)) {")
-			if mode != "ReduceCost" {
-				add(ccBroken, "Relative$ True on "+mode+" (only ReduceCost has an exception)", locRel)
+			locRel := L.loc("rules/statics.go", "if mode == \"SetCost\" || !e.relativeAmountResolves(")
+			if mode == "SetCost" {
+				add(ccBroken, "Relative$ True on SetCost (no exception)", locRel)
 			} else {
 				var rNil, rT bool
+				sub := costSubject{p: 0, id: instantID}
 				pn := probe(func() {
-					rNil = e.relativeAmountResolves(sv, nil)
-					rT = e.relativeAmountResolves(sv, targets)
+					rNil = e.relativeAmountResolves(sv, sub, nil)
+					rT = e.relativeAmountResolves(sv, sub, targets)
 				})
 				switch {
 				case pn != "":
 					add(ccBroken, "Relative$ amount probe panicked: "+pn, locRel)
+				case !rNil && !rT && mode == "RaiseCost":
+					add(ccBroken, "Relative$ RaiseCost amount "+p["Amount"]+" unresolvable", locRel)
 				case !rNil && !rT && !faceHasX(f):
 					add(ccBroken, "Relative$ ReduceCost amount "+p["Amount"]+" unresolvable and no {X} to bind", locRel)
 				case !rNil && !rT:
@@ -731,15 +721,14 @@ func TestCostStaticCensus(t *testing.T) {
 				}
 			}
 			switch {
-			case !hasAmt && len(withheld) == 0:
-				amountMatters = false
-			case !hasAmt:
+			case len(withheld) == 0:
+				// A Cost$ paired with an Amount$ is composed Amount$ times
+				// (composeRaiseCost); the Amount$ itself is judged below.
+				amountMatters = hasAmt
+			default:
 				add(ccBroken, "RaiseCost Cost$ "+costRaw+" unmodelled ("+strings.Join(withheld, ", ")+" unpayable): the spell or ability is withheld",
 					L.loc("rules/raise_cost_extra.go", "func parseRaiseExtra("))
 				amountMatters = false
-			default:
-				add(ccWrong, "RaiseCost Cost$ "+costRaw+" with Amount$ "+amtRaw+": Cost$ ignored, Amount$ priced as generic",
-					L.loc("rules/statics.go", "mods.raises = append(mods.raises, e.modAmountX(sv, 0, targets))"))
 			}
 		}
 		if amountMatters {
@@ -1045,7 +1034,8 @@ func TestCostStaticCensus(t *testing.T) {
 				v = strings.TrimSpace(v)
 				var fs []ccFinding
 				locSA := L.loc("rules/legal.go", "if n, ok := effects.EvalCountOK(e, ctx, body); ok && n > 0 {")
-				if _, err := strconv.Atoi(v); err != nil {
+				_, _, manaShape := ownReduceManaShape(v)
+				if _, err := strconv.Atoi(v); err != nil && !manaShape {
 					body := v
 					if b, ok := f.SVars[v]; ok {
 						body = b
@@ -1059,8 +1049,26 @@ func TestCostStaticCensus(t *testing.T) {
 					}
 				}
 				if ra, ok := sa.Params["ReduceAmount"]; ok {
-					fs = append(fs, ccFinding{ccBroken, "ReduceAmount$ " + ra + " unread: ReduceCost$ " + v + " is a mana cost repeated ReduceAmount times in Forge",
-						L.loc("rules/legal.go", "func (e *Engine) ownReduceCost(")})
+					switch {
+					case !manaShape:
+						fs = append(fs, ccFinding{ccBroken, "ReduceAmount$ " + ra + " unread: ReduceCost$ " + v + " is not a mana cost ownManaReduction repeats",
+							L.loc("rules/legal.go", "func (e *Engine) ownManaReduction(")})
+					default:
+						body := strings.TrimSpace(ra)
+						if b, ok := f.SVars[body]; ok {
+							body = b
+						}
+						if _, err := strconv.Atoi(body); err != nil {
+							var okRA bool
+							pn := probe(func() {
+								_, okRA = effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: f.SVars, Targets: targets}, body)
+							})
+							if pn != "" || !okRA {
+								fs = append(fs, ccFinding{ccBroken, "ReduceAmount$ " + ra + " unevaluable (" + body + "): ownManaReduction reduces nothing",
+									L.loc("rules/legal.go", "func (e *Engine) ownManaReduction(")})
+							}
+						}
+					}
 				}
 				rows = append(rows, ccRow{card: name, playable: playable, mode: "SA.ReduceCost$", delivery: "api:" + sa.API,
 					raw: sa.Line, findings: fs})
@@ -1114,18 +1122,18 @@ func TestCostStaticCensus(t *testing.T) {
 			return "ValidTarget$ dead"
 		case strings.HasPrefix(r, "IsPresent$ dead"):
 			return "IsPresent$ dead"
-		case strings.HasPrefix(r, "AffectedZone$") && strings.Contains(r, "ignored for spells"):
-			return "AffectedZone$ ignored for spells"
 		case strings.HasPrefix(r, "RaiseCost Cost$") && strings.Contains(r, "unmodelled"):
 			return "RaiseCost Cost$ unmodelled"
-		case strings.HasPrefix(r, "RaiseCost Cost$"):
-			return "RaiseCost Cost$+Amount$: Cost$ ignored"
 		case strings.HasPrefix(r, "Effect-delivered: param"):
 			return "Effect-delivered: param outside whitelist"
 		case strings.HasPrefix(r, "Activator$"):
 			return strings.SplitN(r, " matches", 2)[0]
+		case strings.HasPrefix(r, "ReduceAmount$") && strings.Contains(r, "unevaluable"):
+			return "SA ReduceAmount$ unevaluable"
 		case strings.HasPrefix(r, "ReduceAmount$"):
-			return "SA ReduceAmount$ unread (ReduceCost$ is a mana cost)"
+			return "SA ReduceAmount$ unread (ReduceCost$ is not a mana cost)"
+		case strings.HasPrefix(r, "Relative$ RaiseCost amount"):
+			return "Relative$ RaiseCost amount unresolvable"
 		case strings.HasPrefix(r, "Relative$ ReduceCost amount"):
 			return "Relative$ ReduceCost amount unresolvable, no {X}"
 		case strings.HasPrefix(r, "Secondary$ True skipped") && strings.Contains(r, "no primary"):
