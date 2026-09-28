@@ -30,6 +30,12 @@ type Log struct {
 	// noHashSet records NoHash's value on the first Append to pin it from
 	// changing (see the check in Append).
 	noHashSet bool
+	// forked marks a log made by Clone. Its Events arrive with cap == len
+	// (the shared prefix), so its first append must copy the whole prefix;
+	// growEvents then grows it by a modest slack instead of doubling the
+	// copied prefix (see forkGrowth). Capacity only: no reader of Events can
+	// observe it.
+	forked bool
 }
 
 const expectedEventsPerGame = 4096
@@ -84,7 +90,7 @@ func (l *Log) Append(e Event) Event {
 	e.IDs = append([]state.ObjID(nil), e.IDs...)
 	e.Pairs = append([][2]state.ObjID(nil), e.Pairs...)
 
-	l.Events = growEvents(l.Events, len(l.Events)+1)
+	l.Events = growEvents(l.Events, len(l.Events)+1, l.forked)
 	l.Events[len(l.Events)-1] = e
 	if l.NoHash {
 		return e
@@ -154,6 +160,7 @@ func (l *Log) Clone() *Log {
 	c.Events = l.Events[:len(l.Events):len(l.Events)]
 	c.Intents = l.Intents[:len(l.Intents):len(l.Intents)]
 	c.buf = nil
+	c.forked = true
 	// headHash is mutable scratch Append reuses; two appended-to logs must not
 	// share it, exactly as they must not share buf. A clone gets its own.
 	c.headHash = sha256.New()
@@ -207,15 +214,34 @@ func (l *Log) Reserve(n int) {
 // already fixed a clone's cap == len, so the first append on either side
 // arrives here with no spare capacity, allocates a fresh array, and the two
 // logs diverge cleanly (pinned by TestLogCloneAppendsDiverge).
+//
+// A forked log (one Clone made) grows differently: its first append arrives
+// with cap == len == L, the shared prefix, and the ordinary rule would copy L
+// events into a 2L array (L < growTaperAt) -- half of it never written, since
+// the clone is typically a search world or a time-travel replay that lands a
+// few hundred events past L. So a forked log grows by need + forkSlack(need)
+// instead: an eighth of the length, at least forkMinSlack events. That is the
+// measured AlphaZero-search case -- every simulation clones a mid-game root
+// and plays ~40 intents (~200-300 events) -- where the doubled copy was 28% of
+// all bytes allocated. Later growths of the same forked log use the same rule,
+// which stays geometric (1.125x), so a long replay still costs amortised O(1)
+// per append. Capacity only: contents, Seq and the chain are untouched.
 const (
 	growMinCap   = 16
 	growTaperAt  = 4096 // double below this many elements, taper above
 	growTaperDiv = 4    // past growTaperAt, grow by (1 + 1/growTaperDiv) = 1.25x
+	forkMinSlack = 256  // a forked log's growth adds at least this many slots
+	forkSlackDiv = 8    // ... or need/forkSlackDiv, whichever is larger
 )
 
-func growEvents(s []Event, need int) []Event {
+func growEvents(s []Event, need int, forked bool) []Event {
 	if need <= cap(s) {
 		return s[:need]
+	}
+	if forked {
+		out := make([]Event, need, need+max(forkMinSlack, need/forkSlackDiv))
+		copy(out, s)
+		return out
 	}
 	newCap := cap(s)
 	if newCap < growMinCap {

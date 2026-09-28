@@ -599,6 +599,9 @@ func (g *Game) AddObject(card *cards.Card, owner PlayerID) *Object {
 	return &g.Objs[len(g.Objs)-1]
 }
 
+// cloneObjectHeadroom is the spare Objs capacity Clone gives a copy.
+const cloneObjectHeadroom = 8
+
 // Clone deep-copies the game. Everything is slices of value types, so this is
 // a handful of copy() calls rather than a graph walk. Player's Commander
 // bookkeeping slices (Commanders/CmdCasts/CmdDamage) are deep-copied as well
@@ -620,7 +623,13 @@ func (g *Game) Clone() *Game {
 		c.Players[i].RestrictedMana = append([]ManaRestriction(nil), g.Players[i].RestrictedMana...)
 		c.Players[i].Notes = append([]string(nil), g.Players[i].Notes...)
 	}
-	c.Objs = make([]Object, len(g.Objs))
+	// A little spare capacity: a clone that mints even one object (a token,
+	// a copy on the stack) would otherwise regrow the whole arena through
+	// append -- a second copy of every ~1 KB Object, double-sized -- and the
+	// search clones a mid-game root once per simulation (measured: that
+	// regrow was 11% of all bytes the AlphaZero search allocated). Capacity
+	// only; AddObject's IDs and every reader's view of Objs are unchanged.
+	c.Objs = make([]Object, len(g.Objs), len(g.Objs)+cloneObjectHeadroom)
 	for i := range g.Objs {
 		c.Objs[i] = g.Objs[i].CloneDeep()
 	}
