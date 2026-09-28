@@ -34,6 +34,17 @@ const chooseManaSacrifice chooseFor = 31
 // highest taken literal (47 is chooseOppPick, rules/stack.go).
 const chooseManaTap chooseFor = 48
 
+// chooseManaSubCounter is the mana ability's announced-SubCounter<X/...>
+// election: the X announcement and, for a part anchored to another
+// permanent, the removal target. 49 is the next free literal after
+// chooseManaTap. chooseManaForage is the Forage cost's two-arm election and
+// chooseManaUntap the untapYType<N/Spec> permanent pick (50/51).
+const (
+	chooseManaSubCounter chooseFor = 49
+	chooseManaForage     chooseFor = 50
+	chooseManaUntap      chooseFor = 51
+)
+
 // manaCostChoicePending reports whether the engine is parked on one of the
 // mana ability's own cost sub-elections -- a discard, exile, sacrifice or
 // tap pick -- or its Produced$ colour choice. Every caller that must not
@@ -42,7 +53,8 @@ const chooseManaTap chooseFor = 48
 // recent) cannot be forgotten at one guard and livelock a bot game.
 func (e *Engine) manaCostChoicePending() bool {
 	switch e.choosing {
-	case chooseManaColor, chooseManaDiscard, chooseManaExile, chooseManaSacrifice, chooseManaTap:
+	case chooseManaColor, chooseManaDiscard, chooseManaExile, chooseManaSacrifice, chooseManaTap,
+		chooseManaSubCounter, chooseManaForage, chooseManaUntap:
 		return true
 	}
 	return false
@@ -325,6 +337,31 @@ type manaDiscardActivation struct {
 	cast       bool
 	cumulative bool
 	gained     gainedManaRef
+	// The announced SubCounter cost parts. subX is the announced X, set
+	// once by manaSubCounterAsk's first decision (the cast path's pc.x) and
+	// shared by every announced part; subCounterPays records the removal
+	// picks exactly like the cast path's pc.subCounterPays (one entry per
+	// counter unit for an "Any" part, one entry for a fixed-kind part).
+	subX           int32
+	subXAnnounced  bool
+	subCounterPays []subCounterPay
+	subPart        int
+	// forageDone marks the Forage election already posed; forageFood is the
+	// object sacrificed for it (zero when the exile-three arm paid, or for a
+	// non-interactive caller that took the deterministic arm).
+	forageDone bool
+	forageFood state.ObjID
+	foragePay  bool
+	// untapPart walks the untapYType<N/Spec> parts and untaps the elected
+	// permanents (the source's own {Q} untap is cost.Untap and stays
+	// separate).
+	untapPart int
+	untaps    []state.ObjID
+	// interactive records whether the caller could pose asks. A caller that
+	// cannot (the attack-cost tap window, direct-resolve tests) settles the
+	// announced SubCounter, Forage and untapYType parts with deterministic
+	// R-9 picks instead of posing an election.
+	interactive bool
 }
 
 // manaUnlessActivation parks an off-stack mana ability while its payer
@@ -623,7 +660,27 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
-		return len(effects.ManaReflectedCandidates(e, ctx(), ma)) > 0
+		// Face contexts are shared across abilities; never let one cost's
+		// elected candidates leak into a sibling ManaReflected ability.
+		c := *ctx()
+		cost := e.parseCost(ma.Params["Cost"])
+		if len(cost.UntapPermanent) > 0 {
+			claimed := map[state.ObjID]bool{}
+			if cost.Tap {
+				claimed[id] = true
+			}
+			for _, part := range cost.UntapPermanent {
+				candidates := e.manaUntapCandidates(p, id, part.Spec, claimed)
+				if int32(len(candidates)) < part.N {
+					return false
+				}
+				for i := int32(0); i < part.N; i++ {
+					c.CostUntapped = append(c.CostUntapped, candidates[i])
+					claimed[candidates[i]] = true
+				}
+			}
+		}
+		return len(effects.ManaReflectedCandidates(e, &c, ma)) > 0
 	}
 	// A ManaReflected ability may sit on the top face or any under-card; each
 	// resolves its own face's table.
@@ -1288,23 +1345,50 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 		typed = e.G.Players[p].ManaUnits()
 	}
 	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
-		len(cost.Blight) > 0 || cost.Forage || activationTapCostUnavailable(o, cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
+		len(cost.Blight) > 0 || activationTapCostUnavailable(o, cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
 		return false
 	}
-	// The mana-activation path has no X ask and no mid-payment suspension, so
-	// an announced PayLife<X> or SubCounter<X/Kind> component could never be
-	// settled here: the ability is not offered rather than paid for free.
+	// A Forage cost is payable when the payer's graveyard holds three cards OR
+	// they control a Food; the settle poses the two-arm election (the cast
+	// path's nonManaCastable read).
+	if cost.Forage && !e.manaForagePayable(p, source) {
+		return false
+	}
+	// untapYType<N/Spec> parts (Benthic Explorers): enough distinct TAPPED
+	// matching permanents exist (an untap cost needs a tapped permanent).
+	if !e.manaUntapPayable(p, source, cost) {
+		return false
+	}
+	// The mana-activation path announces its own X for an announced
+	// SubCounter<X/...> part and settles it off the continuation; a PayLife<X>
+	// part still has no ask here, so the ability is not offered rather than
+	// paid for free.
 	if len(cost.LifeX) > 0 {
 		return false
 	}
 	if !manaCostPartsSettleable(cost) {
 		return false
 	}
+	// Announced SubCounter<X/...> parts: the mana path announces X (the cast
+	// path's xAsk shape) and settles the removal, so the offer gate prices
+	// the announcement instead of refusing it. XMin floors X (Rasputin and
+	// Jetfire carry XMin$ 1), so a board that cannot settle at least XMin is
+	// unpayable -- the fail-closed direction. A fixed part still needs its
+	// counters: source-anchored from the source, anchored from any candidate.
+	if bound, any := e.manaSubCounterXBound(p, o, source, cost); any && bound < cost.XMin {
+		return false
+	}
 	for _, part := range cost.SubCounter {
 		if part.Announced {
-			return false
+			continue
 		}
-		if o.Counter(part.Spec) < part.N {
+		if subCounterTargetsSource(part.Target) {
+			if o.Counter(part.Spec) < part.N {
+				return false
+			}
+			continue
+		}
+		if len(e.subCounterRemovalCandidates(p, source, part, part.N, nil)) == 0 {
 			return false
 		}
 	}
@@ -1653,6 +1737,21 @@ func (e *Engine) continueManaDiscard() {
 		e.ask(d)
 		return
 	}
+	// The announced-SubCounter X announcement and removal election, then the
+	// Forage election, then the untapYType election. Each may pause on an ask
+	// or drop the payment when the board changed under the offer.
+	if e.manaSubCounterStage(md) {
+		return
+	}
+	if e.manaDiscardActivation == nil {
+		return
+	}
+	if e.manaForageStage(md) {
+		return
+	}
+	if e.manaDiscardActivation == nil {
+		return
+	}
 	for md.sacPart < len(md.cost.Sac) {
 		part := md.cost.Sac[md.sacPart]
 		reserved := make(map[state.ObjID]bool, len(md.sacs)+len(md.taps))
@@ -1807,6 +1906,12 @@ func (e *Engine) continueManaDiscard() {
 		e.ask(d)
 		return
 	}
+	if e.manaUntapStage(md) {
+		return
+	}
+	if e.manaDiscardActivation == nil {
+		return
+	}
 	e.commitManaDiscard()
 }
 
@@ -1843,9 +1948,12 @@ func (e *Engine) commitManaDiscard() {
 		e.emit(events.Event{Kind: events.Untap, Obj: md.source, Player: md.player, Text: "untapped as a cost"})
 	}
 	e.payManaSourceParts(md.player, md.source, md.cost)
+	e.settleManaSubCounter(md)
 	for _, id := range md.sacs {
 		e.emit(events.Sacrifice(id))
 	}
+	e.settleManaForage(md)
+	e.settleManaUntap(md)
 	e.manaDiscardActivation = nil
 	e.choosing = chooseNone
 	if !posedBefore && e.pending != nil {
@@ -1862,7 +1970,7 @@ func (e *Engine) commitManaDiscard() {
 			sacs: append([]state.ObjID(nil), md.sacs...), gained: md.gained}
 		return
 	}
-	e.resolveManaEffect(md.player, md.source, md.ability, md.cast, md.cumulative, manaTriggers, md.sacs, md.gained)
+	e.resolveManaEffect(md.player, md.source, md.ability, md.cast, md.cumulative, manaTriggers, md.sacs, md.gained, md.untaps)
 	e.continueManaPaymentWindow(md.cumulative)
 }
 
@@ -1888,7 +1996,7 @@ type manaAfterCost struct {
 func (e *Engine) resumeManaAfterCost() {
 	r := e.manaAfterCost
 	e.manaAfterCost = nil
-	e.resolveManaEffect(r.player, r.source, r.ability, r.cast, r.cumulative, r.triggers, r.sacs, r.gained)
+	e.resolveManaEffect(r.player, r.source, r.ability, r.cast, r.cumulative, r.triggers, r.sacs, r.gained, nil)
 	if r.cumulative && e.choosing == chooseNone {
 		e.paymentWindowAsk()
 	}
@@ -2442,9 +2550,15 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	// gated: such a caller keeps the R-9 deterministic first-eligible set
 	// manaSacrifices/manaTapsPicked picked and skips straight past those
 	// parts.
-	if len(cost.Sac) > 0 || len(cost.Discard) > 0 || len(cost.Exile) > 0 || len(cost.TapPermanent) > 0 {
+	// Announced SubCounter parts need the X ask (and a filtered part its
+	// removal-target election); a Forage cost needs its two-arm election; an
+	// untapYType<N/Spec> part needs its tapped-permanent election. All three
+	// ride the continuation beside the sacrifice/discard/exile/tap parts.
+	needsContinuation := len(cost.Sac) > 0 || len(cost.Discard) > 0 || len(cost.Exile) > 0 ||
+		len(cost.TapPermanent) > 0 || manaSubCounterNeedsAsk(cost) || cost.Forage || len(cost.UntapPermanent) > 0
+	if needsContinuation {
 		md := &manaDiscardActivation{player: p, source: source,
-			ability: ma, cost: cost, cast: cast, cumulative: payment, gained: gained}
+			ability: ma, cost: cost, cast: cast, cumulative: payment, gained: gained, interactive: interactive}
 		if !interactive {
 			md.sacs = sacs
 			md.sacPart = len(cost.Sac)
@@ -2479,7 +2593,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 			e.emit(events.Event{Kind: events.MoveZone, Obj: source, From: o.Zone, To: state.ZHand, Text: "returned to hand as a cost"})
 		}
 	}
-	e.resolveManaEffect(p, source, ma, cast, payment, manaTriggers, sacs, gained)
+	e.resolveManaEffect(p, source, ma, cast, payment, manaTriggers, sacs, gained, nil)
 }
 
 // manaReturnCostSupported reports whether a mana ability's Return<N/Spec>
@@ -2502,7 +2616,7 @@ func manaReturnCostSupported(cost Cost) bool {
 // the permanents the ability's Sac<...> cost sacrificed, so a ManaReflected
 // Valid$ "Defined.Sacrificed" selector (Squandered Resources) can read them
 // through the resolution context's Remembered list.
-func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef) {
+func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef, untaps []state.ObjID) {
 	if strings.TrimSpace(ma.Params["UnlessCost"]) != "" {
 		e.askManaUnless(p, source, ma, cast, cumulative, triggers, sacs, gained)
 		return
@@ -2537,7 +2651,8 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 			}
 			return nil
 		}()
-		ctx := &effects.Ctx{Source: source, Controller: p, SVars: svars}
+		ctx := &effects.Ctx{Source: source, Controller: p, SVars: svars,
+			CostUntapped: append([]state.ObjID(nil), untaps...)}
 		for _, id := range sacs {
 			ctx.Remembered = append(ctx.Remembered, state.Target{Obj: id})
 		}
@@ -2706,7 +2821,7 @@ func (e *Engine) finishManaUnlessPayment(paid bool) {
 			delete(cp.Params, "UnlessCost")
 			delete(cp.Params, "UnlessPayer")
 			delete(cp.Params, "UnlessSwitched")
-			e.resolveManaEffect(m.player, m.source, &cp, m.cast, m.cumulative, m.triggers, m.sacs, m.gained)
+			e.resolveManaEffect(m.player, m.source, &cp, m.cast, m.cumulative, m.triggers, m.sacs, m.gained, nil)
 		} else {
 			e.resolveTriggeredManaAbilities(m.triggers, m.cast, m.cumulative)
 			e.continueManaPaymentWindow(m.cumulative)
@@ -3074,12 +3189,50 @@ func manaCostPartsSettleable(cost Cost) bool {
 			return false
 		}
 	}
-	for _, part := range cost.SubCounter {
-		if !subCounterTargetsSource(part.Target) {
-			return false
-		}
-	}
 	return true
+}
+
+// manaSubCounterXBound returns the largest X a cost's announced
+// SubCounter<X/Kind> parts can settle, and whether the cost carries any. It
+// mirrors the cast path's xAsk SubCounter bound exactly (the largest
+// candidate's counter count for a filtered part, the source's count for a
+// source-anchored part, the aggregate for the "Any" kind), and takes the
+// MIN across parts so a composed cost announces only what every part can
+// settle. The offer gate and the X ask both read it, so the count an
+// activation is priced on and the count the payer may announce cannot
+// diverge.
+func (e *Engine) manaSubCounterXBound(p state.PlayerID, o *state.Object, source state.ObjID, cost Cost) (int32, bool) {
+	bound := int32(0)
+	any := false
+	for _, part := range cost.SubCounter {
+		if !part.Announced {
+			continue
+		}
+		have := int32(0)
+		if subCounterTargetsSource(part.Target) {
+			if o != nil {
+				have = subCounterAvailable(o, part.Spec)
+			}
+		} else {
+			for _, oid := range e.subCounterRemovalCandidates(p, source, part, 1, nil) {
+				co := e.G.Obj(oid)
+				if co == nil {
+					continue
+				}
+				n := subCounterAvailable(co, part.Spec)
+				if strings.EqualFold(part.Spec, "Any") {
+					have += n
+				} else if n > have {
+					have = n
+				}
+			}
+		}
+		if !any || have < bound {
+			bound = have
+		}
+		any = true
+	}
+	return bound, any
 }
 
 // payManaSourceParts settles a mana ability's source-anchored non-mana cost
@@ -3092,6 +3245,12 @@ func manaCostPartsSettleable(cost Cost) bool {
 // manaAbilityPayablePool gated each one, so every part here is payable.
 func (e *Engine) payManaSourceParts(p state.PlayerID, source state.ObjID, cost Cost) {
 	for _, part := range cost.SubCounter {
+		if part.Announced || !subCounterTargetsSource(part.Target) {
+			// An announced part (its amount is the announced X) or a part
+			// anchored to another permanent is settled by
+			// settleManaSubCounter off the continuation's picks, never here.
+			continue
+		}
 		e.emit(events.Event{Kind: events.CounterChange, Obj: source, Counter: part.Spec, Amount: -part.N})
 	}
 	e.chargeEnergyCost(p, cost, 0)

@@ -459,6 +459,21 @@ func (cz *autopayCensus) addFodder(e *Engine, id state.ObjID, ma *cards.SA) {
 			o.Tapped = true
 		}
 	}
+	// untapYType<N/Spec> (Benthic Explorers): the cost untaps a TAPPED
+	// matching permanent, so the board needs one. A Land.OppCtrl spec needs
+	// it on an opponent's battlefield; any other spec gets it for the payer.
+	// A basic Island matches the corpus's Land specs and produces every
+	// colour, so a ManaReflected read of it is non-empty.
+	for _, part := range c.UntapPermanent {
+		seat := state.PlayerID(0)
+		if strings.Contains(part.Spec, "OppCtrl") {
+			seat = 1
+		}
+		fid := censusPlace(e, cz.support["island"], seat, state.ZBattlefield, 0)
+		if o := e.G.Obj(fid); o != nil {
+			o.Tapped = true
+		}
+	}
 	censusStale(e)
 }
 

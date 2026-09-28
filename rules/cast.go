@@ -1538,6 +1538,14 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 	if len(cost.Withheld) > 0 {
 		return false
 	}
+	// untapYType<N/Spec> parts have a settle only on the mana-activation path
+	// (manaUntapStage). The cast / non-mana activated-ability path has none,
+	// so a cost carrying one is refused rather than offered with the untap
+	// silently unpaid (the head now parses to a real part, no longer
+	// Cost.Unknown).
+	if len(cost.UntapPermanent) > 0 {
+		return false
+	}
 	reserved := map[state.ObjID]bool{}
 	for _, part := range cost.Sac {
 		var avail []state.ObjID

@@ -73,24 +73,16 @@ var knownUnsupportedCreatureMana = map[string]string{
 	// their entries are deleted; the rows that remain are the ones a measured
 	// engine refusal keeps off the offer regardless of fodder.
 	//
-	// NOT board fodder, re-measured with the fodder hook armed:
-	//   - Thornvault Forager|A1: the mana-activation path refuses a Forage
-	//     cost outright (rules/mana_activation.go manaCostPayableFull's
-	//     refusal list: cost.Forage -> not offered) -- no fodder reaches it.
-	//   - Benthic Explorers|A0: untapYType<N/...> is an unmodelled cost
-	//     token (rules/mana.go's dynTapCost regex only reads
-	//     tapXType<(X|Any)/...>), so the cost parses into Cost.Unknown and
-	//     manaCostPartsSettleable refuses it -- no fodder reaches it.
-	//   - Haruspex/Petalmane Baku/Rasputin/Jetfire: the mana path has no X
-	//     ask, so every Announced SubCounter part is refused at the offer
-	//     gate (manaCostPayableFull; Jetfire additionally fails the
-	//     subCounterTargetsSource whitelist) -- no fodder reaches them.
-	"Benthic Explorers|A0":            "engine: untapYType<1/Land.OppCtrl/land> parses into Cost.Unknown (rules/mana.go dynTapCost only reads tapXType<(X|Any)/...>), so manaCostPartsSettleable refuses the cost before any payer looks for a tapped opponent land",
-	"Haruspex|A0":                     "engine: SubCounter<X/P1P1> is Announced and the mana-activation path has no X ask -- manaCostPayableFull refuses every announced SubCounter part at the offer gate (rules/mana_activation.go)",
-	"Petalmane Baku|A0":               "engine: SubCounter<X/KI> is Announced and the mana-activation path has no X ask -- manaCostPayableFull refuses every announced SubCounter part at the offer gate (rules/mana_activation.go)",
-	"Rasputin, the Oneiromancer|A0":   "engine: SubCounter<X1+/DREAM/NICKNAME> is Announced and the mana-activation path has no X ask -- manaCostPayableFull refuses every announced SubCounter part at the offer gate (rules/mana_activation.go)",
-	"Jetfire, Ingenious Scientist|A0": "engine: RemoveAnyCounter<X1+/P1P1/Artifact> is an announced SubCounter anchored to another permanent -- refused both by the subCounterTargetsSource whitelist and by manaCostPayableFull's announced-SubCounter gate (rules/mana_activation.go)",
-	"Thornvault Forager|A1":           "engine: the Forage cost is in manaCostPayableFull's outright refusal list (rules/mana_activation.go: cost.Forage -> not offered) -- forage fodder on the board cannot reach the offer",
+	// The creature-face SubCounter<X/...>, Forage and untapYType cost work is
+	// LIVE as of the mana-announced-cost ticket: the mana-activation path
+	// announces their X, settles the removal, poses the Forage election and
+	// elects the untapYType permanent. Haruspex, Petalmane Baku, Rasputin,
+	// Jetfire, Thornvault Forager and Benthic Explorers all went live and
+	// their rows were deleted from this table in the same commit.
+	//
+	// Benthic Explorers' `Defined.Untapped` reflection is bound to the exact
+	// permanent(s) paid through untapYType by effects.Ctx.CostUntapped, so its
+	// produced mana comes from the opponent land it actually untapped.
 	// Board-dependent activation gates that are false on a bare board.
 	"Circle of Elders|A0":            "gate: CheckSVar FormidableTest (total power >= 8) is false",
 	"Fanatic of Rhonas|A1":           "gate: IsPresent$ Creature.YouCtrl+powerGE4 (ferocious) is false",

@@ -507,7 +507,7 @@ var kindRows = map[string][]string{
 		"roll", "mode", "modes", "bottom", "hand_move", "reveal_optional",
 		"defined_library_optional", "unless_pay", "ward_mana", "ward_discard",
 		"ward_alt", "tapcost", "revealcost", "returncost", "exilecost",
-		"altaddcost", "beholdcost", "blightcost", "skip_replacement",
+		"altaddcost", "beholdcost", "blightcost", "subcounter", "untapcost", "skip_replacement",
 		"division", "trigger_cost_pay", "trigger_cost_decline", "harmonize",
 		"granted", "station", "forage_food", "forage_exile", "madness",
 		"madness_exile", "madness_graveyard", "opening_yes", "opening_no",

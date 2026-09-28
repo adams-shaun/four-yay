@@ -1616,6 +1616,14 @@ var apiSpecificRulesSA = map[string][]string{
 	// api:ChangeZone/api:Sacrifice/api:DealDamage).
 	"Engine.castWindowProbeUnits": {"Mana"},
 	"Engine.castWindowAmount":     {"Mana"},
+	// manaAbilityWithSubX (rules/mana_cost_extra.go) rewrites the activated
+	// mana ability's production Amount$ to the announced SubCounter X -- the
+	// mana twin of manaAbilityWithPaidX's copy-on-write (which only WRITES
+	// Amount$ and so never counted as a read). Its ma.Params["Amount"] read
+	// recognises the literal "X" before delegating, so it belongs to
+	// api:Mana alone -- left in the generic union it would mask every other
+	// API's unread Amount$ (measured: api:ChangeZone).
+	"manaAbilityWithSubX": {"Mana"},
 	// The payment-plan offer is another mana-only source walk.  It obtains
 	// windowManaUnit alternatives exclusively from AB$ Mana abilities, then
 	// reads Produced$/RestrictValid$/Cost$ (and the Amount$ helper) to build a
