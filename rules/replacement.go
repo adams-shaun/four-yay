@@ -6678,6 +6678,8 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		if next, consumed := e.applyLifeReplacement(rc.ev, m); !consumed {
 			applied := append(append([]replMatch(nil), rc.appliedRepls...), m)
 			e.continueLifeReplacements(next, applied)
+		} else {
+			e.consumeExchangeLifeSide(rc.ev)
 		}
 		if rc.exchange != nil && e.pending == nil && len(e.replChoices) == 0 {
 			e.finishLifeExchange(rc.exchange)
@@ -7205,6 +7207,7 @@ func (e *Engine) finishChosenDamage(rc replChoice) {
 // all "plus N", all prevention), where every order produces the same event.
 func (e *Engine) applyLifeReplacements(ev events.Event) (events.Event, bool) {
 	if ev.Kind == events.LifeChange && ev.Amount > 0 && e.lifeGainForbidden(ev.Player) {
+		e.consumeExchangeLifeSide(ev)
 		return e.emit(events.Event{Kind: events.Note, Player: ev.Player, Text: "prevented: cannot gain life"}), true
 	}
 	return e.continueLifeReplacements(ev, nil)
@@ -7231,6 +7234,7 @@ func (e *Engine) continueLifeReplacements(ev events.Event, applied []replMatch) 
 		m := cands[0]
 		next, consumed := e.applyLifeReplacement(ev, m)
 		if consumed {
+			e.consumeExchangeLifeSide(ev)
 			return ev, true
 		}
 		ev = next

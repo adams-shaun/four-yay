@@ -5290,7 +5290,8 @@ func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 	}
 	if tx.second.Kind != 0 {
 		if len(tx.staged) != 2 {
-			return
+			e.emit(events.Event{Kind: events.Note, Obj: tx.source, Player: tx.controller,
+				Text: "ExchangeLife settled with a replaced life-change side"})
 		}
 		prior, applying := e.lifeExchange, e.applyingReplacement
 		e.lifeExchange, e.applyingReplacement = nil, true
@@ -5321,6 +5322,15 @@ func (e *Engine) stageExchangeLife(ev events.Event) events.Event {
 		tx.staged = append(tx.staged, ev)
 	}
 	return ev
+}
+
+func (e *Engine) consumeExchangeLifeSide(ev events.Event) {
+	if e.lifeExchange == nil || e.lifeExchange.second.Kind == 0 {
+		return
+	}
+	e.emit(events.Event{Kind: events.Note, Obj: e.lifeExchange.source, Player: ev.Player,
+		Text: "ExchangeLife settled with a replaced life-change side"})
+	e.lifeExchange.staged = append(e.lifeExchange.staged, events.Event{Kind: events.LifeChange, Player: ev.Player})
 }
 
 // ExchangeLife carries both life changes through the replacement machinery as
