@@ -760,6 +760,13 @@ func Apply(g *state.Game, e Event) {
 			g.SetZone(state.ZLibrary, e.Player, append([]state.ObjID(nil), e.IDs...))
 		}
 
+	case SkipTurn:
+		if validPlayer(g, e.Player) && e.Amount != 0 {
+			if g.SkipTurns == nil {
+				g.SkipTurns = map[state.PlayerID]int{}
+			}
+			g.SkipTurns[e.Player] = max(0, g.SkipTurns[e.Player]+int(e.Amount))
+		}
 	case ExtraTurn:
 		// One grant or consumption of an extra turn (CR 500.7). The count and
 		// the ordered pending queue are game state folded here so a log-only

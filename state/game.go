@@ -293,6 +293,8 @@ type Game struct {
 	// repeats the same seat) -- so a log-only reconstruction folds the same
 	// grants and consumptions to the same totals.
 	ExtraTurns map[PlayerID]int
+	// SkipTurns counts each player's pending skipped turns, folded from SkipTurn events.
+	SkipTurns map[PlayerID]int
 	// ExtraTurnQueue is the ORDERED pending extra turns, in creation order:
 	// one entry per un-consumed ExtraTurn grant (+Amount event), appended on
 	// the grant and removed (the seat's LAST entry) on the -1 consumption.
@@ -714,6 +716,12 @@ func (g *Game) CloneInto(objs []Object) *Game {
 	for i, z := range g.zones {
 		if z != nil {
 			c.zones[i] = append([]ObjID(nil), z...)
+		}
+	}
+	if g.SkipTurns != nil {
+		c.SkipTurns = make(map[PlayerID]int, len(g.SkipTurns))
+		for p, n := range g.SkipTurns {
+			c.SkipTurns[p] = n
 		}
 	}
 	if g.ExtraTurns != nil {

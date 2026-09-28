@@ -175,8 +175,12 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 // Parameters read:
 //   - WinSubAbility$ (heads) / LoseSubAbility$ (tails), and the NoCall$
 //     lines' spellings HeadsSubAbility$ / TailsSubAbility$ — same heads/tails
-//     mapping, NoCall$ itself is cosmetic (Forge uses it to suppress the
-//     "calls heads" announcement this build never makes).
+//     mapping. A NoCall$ True line defers its branches to the END of the
+//     whole flip loop: each fires at most once, with X the total flips of
+//     its side. Forge's own NoCall scripts depend on that (R:AB$ FlipCoin
+//     NoCall$ True HeadsSubAbility$ DBAddTurn NumTurns$ X, Ral Zarek's "take
+//     an extra turn for each coin that comes up heads", is ONE X-turn grant,
+//     not 1+2+…+heads grants), so a per-flip call would over-grant.
 //   - Amount$ (default 1): that many independent flips, each running its own
 //     branch (TrigFlipCoins' "flip three coins" shape). An unresolvable value
 //     degrades to one flip, the RollDice convention — a flip that happened
@@ -246,6 +250,11 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		players, playerIndex, iter = rest.Players, rest.PlayerIndex, rest.Iter
 		amount, untilLose = rest.Amount, rest.UntilLose
 	} else {
+		// X for a coin-flip resolution: the per-flip outcome branches see the
+		// heads tally so far (reset here, one win each). A NoCall$ True branch
+		// ignores this running tally — its deferred call below sets X to the
+		// side's final total before it fires.
+		c.X = 0
 		if spec := strings.TrimSpace(sa.Params["ForEachPlayer"]); forEach {
 			ps, ok := forEachPlayerFlippers(h, c, spec)
 			if !ok {
@@ -272,6 +281,8 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
+	wins, losses := int32(0), int32(0)
+	noCall := strings.EqualFold(sa.Params["NoCall"], "True")
 	for pi := playerIndex; pi < len(players); pi++ {
 		p := players[pi]
 		if int(p) < 0 || int(p) >= len(g.Players) || g.Players[p].Lost {
@@ -285,6 +296,12 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			win := h.Rand(2) == 0
 			h.Emit(FlipCoinNote(c.Source, p, win))
 			flipRecord(h, c, p, win, rememberResult, rememberKind)
+			if win {
+				c.X++
+				wins++
+			} else {
+				losses++
+			}
 			if forEach || rememberLoser {
 				// The per-player loop binds the current flipper for the chained
 				// sub; RememberLoser$ remembers only the losing flipper, so a win
@@ -297,7 +314,7 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			if win {
 				name = winName
 			}
-			if name != "" && c.SVars != nil {
+			if !noCall && name != "" && c.SVars != nil {
 				Resolve(h, c, cards.ResolveSVar(c.SVars, name))
 				if h.Suspended() {
 					// Only a suspension with flips still owed needs a cursor. A
@@ -329,6 +346,27 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			}
 			if untilLose && !win {
 				break
+			}
+		}
+	}
+	// NoCall$ True's deferred outcome branches (see the parameter comment):
+	// each side fires at most once, after every flip is done, with X the
+	// total flips of that side. A branch that asks suspends as an ordinary
+	// chained resolution — the flips already happened, so no FlipRest cursor
+	// is owed and the ask's completion resumes the chain in place.
+	if noCall && c.SVars != nil {
+		if winName != "" && wins > 0 {
+			c.X = wins
+			Resolve(h, c, cards.ResolveSVar(c.SVars, winName))
+			if h.Suspended() {
+				return
+			}
+		}
+		if loseName != "" && losses > 0 {
+			c.X = losses
+			Resolve(h, c, cards.ResolveSVar(c.SVars, loseName))
+			if h.Suspended() {
+				return
 			}
 		}
 	}

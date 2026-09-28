@@ -13,6 +13,7 @@ import (
 
 func init() {
 	Register("AddTurn", effAddTurn)
+	Register("SkipTurn", effSkipTurn)
 	Register("LosesGame", effLosesGame)
 	Register("WinsGame", effWinsGame)
 	Register("RollDice", effRollDice)
@@ -118,6 +119,39 @@ func DieRollBatchResult(ev events.Event) (roller state.PlayerID, count, maxResul
 // granted turn. Alchemist's Gambit's "during that turn, damage can't be
 // prevented" static is NOT modelled (the CantPreventDamage static mode is an
 // unimplemented Effect static -- the Note its Effect body emits says so).
+//
+// effSkipTurn implements DB$ SkipTurn (13 corpus files): grant the player N
+// skipped turns (CR 500.9 — a turn that passes with no untap, upkeep, draw
+// or priority for that player). Amount is NumTurns$ (default 1); the bare X
+// resolves to the FlipCoin resolution's heads tally, so Ral Zarek, Guest
+// Lecturer's "skips their next X turns, where X is the number of heads"
+// reads the count its NoCall$ True branch defers to (effects/flipcoin.go).
+// Defined$ names the skipped player(s) — Ral Zarek's Targeted opponent; the
+// default is the resolving controller (Eater of Days' "you skip your next
+// turn"). The grant is one SkipTurn event folded into state.SkipTurns; the
+// turn structure consumes one at each would-be turn boundary
+// (rules/turn.go's beginTurn).
+func effSkipTurn(h Host, c *Ctx, sa *cards.SA) {
+	n := Num(h, c, sa, "NumTurns", 1)
+	if n <= 0 {
+		return
+	}
+	players := []state.PlayerID{c.Controller}
+	if strings.TrimSpace(sa.Params["Defined"]) != "" {
+		players = nil
+		for _, target := range Defined(h, c, sa) {
+			if target.IsPlayer {
+				players = append(players, target.Player)
+			}
+		}
+	}
+	for _, player := range players {
+		if int(player) >= 0 && int(player) < len(h.Game().Players) && !h.Game().Players[player].Lost {
+			h.Emit(events.Event{Kind: events.SkipTurn, Player: player, Amount: n, Obj: c.Source})
+		}
+	}
+}
+
 func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 	n := Num(h, c, sa, "NumTurns", 1)
 	if n <= 0 {
