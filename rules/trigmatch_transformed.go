@@ -1,9 +1,9 @@
 // Mode$ Transformed: "Whenever this permanent transforms into [this face]"
-// (CR 701.26). Transform effects mark their FlipFace event with Text
-// "Transformed"; other face changes, including alternate-face casting, do not
-// satisfy this trigger. The object must be the source and remain on the
-// battlefield, while ValidCard$/ValidPlayer$ are evaluated by the shared
-// action-trigger matcher against the post-transform object.
+// (CR 701.26). SetState Mode$ Transform on the battlefield marks its
+// FlipFace event with Text "Transformed". Flip, alternate-face casting, and
+// ChangeZone Transformed$ True (which flips before entry) do not satisfy this
+// trigger. The object must be the source and remain on the battlefield;
+// ValidCard$/ValidPlayer$ see its destination face.
 package rules
 
 import (

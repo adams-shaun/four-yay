@@ -3071,9 +3071,10 @@ func hasChosenPlayers(ts []state.Target) bool {
 	return false
 }
 
-// effSetState flips a double-faced target to its other face. M1 does not
-// model Mode$'s vocabulary (Transform/Flip/Meld all behave the same here):
-// it just advances to the next face, wrapping to 0, which is correct for the
+// effSetState flips a double-faced target to its other face. Mode$ Transform
+// marks the FlipFace event for CR 701.26 triggers; Flip/Meld still change faces
+// without transforming. The face walk advances to the next face, wrapping to
+// 0, which is correct for the
 // overwhelmingly common two-face case and a no-op for anything with fewer
 // than two faces (a token, or a single-faced card).
 //
@@ -3186,7 +3187,11 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 		next := (int(o.FaceIdx) + 1) % len(o.Card.Faces)
 		h.Emit(events.Event{Kind: events.Note, Obj: o.ID,
 			Text: "flips to face " + strconv.Itoa(next) + " (" + mode + ")"})
-		h.Emit(events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: int32(next)})
+		flip := events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: int32(next)}
+		if strings.EqualFold(strings.TrimSpace(mode), "Transform") && o.Zone == state.ZBattlefield {
+			flip.Text = "Transformed"
+		}
+		h.Emit(flip)
 		setstateRememberChanged(c, sa, o.ID)
 	}
 }

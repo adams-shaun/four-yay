@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -13,27 +14,59 @@ import (
 func TestSetAudit_ecl_Brigid_TransformTriggerFires(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	e := layerEngine(t)
-	id := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Brigid, Clachan's Heart"))
+	brigid := mustCorpusCard(t, reg, "Brigid, Clachan's Heart")
+	if reg.Tokens["gw_1_1_kithkin"] == nil {
+		t.Fatal("precondition: Kithkin token script missing")
+	}
+	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b"},
+		Decks:  [][]*cards.Card{append([]*cards.Card{brigid}, mountainDeck(t, 39)...), mountainDeck(t, 40)},
+		Tokens: reg.Tokens}))
+	id := moveByName(t, e, 0, "Brigid, Clachan's Heart", state.ZBattlefield)
 	o := e.G.Obj(id)
 	if o == nil || o.Zone != state.ZBattlefield || o.FaceIdx != 0 {
 		t.Fatalf("precondition: Brigid = %+v; want front face on battlefield", o)
 	}
-
-	// Put Brigid on the back face first. Transforming back into the front
-	// face is the event that its ValidCard$ Card.Self trigger observes.
-	e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 1, Text: "Transformed"})
-	if got := e.G.Obj(id).FaceIdx; got != 1 {
-		t.Fatalf("setup transform: face index = %d, want back face 1", got)
+	kithkins := func() int {
+		n := 0
+		for _, ev := range e.L.Events {
+			if ev.Kind == events.TokenCreate && ev.Text == "gw_1_1_kithkin" {
+				n++
+			}
+		}
+		return n
+	}
+	if len(e.pendingTriggers) != 1 {
+		t.Fatalf("entry queued %d triggers, want one", len(e.pendingTriggers))
+	}
+	zallDrain(t, e)
+	if got := kithkins(); got != 1 {
+		t.Fatalf("entry Kithkin TokenCreate = %d, want 1", got)
 	}
 
-	// This is the marker emitted by the real transform effect after applying
-	// the face change. Its source is still on the battlefield.
-	e.emit(events.Event{Kind: events.FlipFace, Obj: id, Amount: 0, Text: "Transformed"})
-	if got := e.G.Obj(id).FaceIdx; got != 0 {
-		t.Fatalf("transform precondition: face index = %d, want front face 0", got)
+	// Drive the real SVar on each face, not a fabricated FlipFace. The back
+	// face does not carry the trigger; transforming INTO the front does.
+	for _, want := range []uint8{1, 0} {
+		o = e.G.Obj(id)
+		sa := cards.ResolveSVar(o.Face().SVars, "TrigTransform")
+		if sa == nil || sa.Params["Mode"] != "Transform" {
+			t.Fatalf("precondition: face %d TrigTransform = %+v", o.FaceIdx, sa)
+		}
+		e.resolveAbility(id, 0, nil, sa, o.Face().SVars)
+		if got := e.G.Obj(id).FaceIdx; got != want {
+			t.Fatalf("transform face = %d, want %d", got, want)
+		}
+		if e.G.Obj(id).Zone != state.ZBattlefield {
+			t.Fatal("transform source left battlefield")
+		}
+		if want == 1 && len(e.pendingTriggers) != 0 {
+			t.Fatalf("back face queued %d triggers, want zero", len(e.pendingTriggers))
+		}
 	}
-	requireOneEventTrigger(t, e, "Brigid transform")
+	requireOneEventTrigger(t, e, "Brigid transforms into front face")
+	zallDrain(t, e)
+	if got := kithkins(); got != 2 {
+		t.Fatalf("Kithkin TokenCreate events after the transform = %d, want 2", got)
+	}
 }
 
 func TestTransformedTriggerCorpusCarriers(t *testing.T) {
