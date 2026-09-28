@@ -240,6 +240,13 @@ func (p Player) ManaUnits() [7]Mana {
 // Game is the complete authoritative state. Everything a client sees is a
 // projection of this. Only the events package may mutate it.
 type Game struct {
+	// goadsSeen is set the first time any object gains a goad (events.Apply's
+	// Goad fold calls NoteGoad) and is never cleared, so while it is false no
+	// object carries a goad and a goad prune has nothing to visit. It is a
+	// pure function of the applied events, so replay rebuilds it; Clone
+	// copies it with the struct.
+	goadsSeen bool
+
 	Players []Player
 	// Objs is a dense arena: Objs[i] has ID i+1, so ObjID 0 is "no object".
 	Objs     []Object
@@ -591,6 +598,12 @@ func (g *Game) Obj(id ObjID) *Object {
 	}
 	return &g.Objs[id-1]
 }
+
+// NoteGoad records that an object has gained a goad (see goadsSeen).
+func (g *Game) NoteGoad() { g.goadsSeen = true }
+
+// GoadsSeen reports whether any object has ever gained a goad in this game.
+func (g *Game) GoadsSeen() bool { return g.goadsSeen }
 
 func (g *Game) AddObject(card *cards.Card, owner PlayerID) *Object {
 	o := Object{ID: g.NextID, Card: card, Owner: owner, Controller: owner, Zone: ZLibrary}
