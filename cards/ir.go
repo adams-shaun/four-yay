@@ -483,7 +483,15 @@ type Card struct {
 	Path          string
 	AlternateMode string
 	Faces         []*Face
+
+	// compiledSlot holds a downstream compiled summary of the card's text
+	// (slot.go), allocated at Link. Not serialized.
+	compiledSlot *Slot
 }
+
+// CompiledSlot is the card's slot for a downstream compiled summary of its
+// text (nil on a card never linked).
+func (c *Card) CompiledSlot() *Slot { return c.compiledSlot }
 
 // Diag is a non-fatal parse complaint. The whole corpus is expected to produce
 // under ten of these; a jump means either a parser regression or an upstream

@@ -13,6 +13,9 @@ const maxSVarDepth = 32
 // Link resolves SVar-named sub-abilities into a tree. Call it once, after
 // Parse, before the card is used.
 func (c *Card) Link() []Diag {
+	if c.compiledSlot == nil {
+		c.compiledSlot = &Slot{}
+	}
 	var diags []Diag
 	for _, f := range c.Faces {
 		diags = append(diags, f.link(c.Path)...)

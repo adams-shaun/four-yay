@@ -23,11 +23,11 @@ const (
 // original Forge text. It is built before a game begins and never changes
 // during matching, cloning, or replay.
 type PredicatePrograms struct {
-	// texts is the member spec texts, sorted and deduplicated; progs[i] is
-	// texts[i]'s program. Only a spec the process-wide compiled-spec cache
-	// did not retain (compiledSpec.id 0) is answered by binary search here.
+	// texts is the member spec texts, sorted and deduplicated. A retained
+	// spec's program rides its compiledSpec; only a spec the process-wide
+	// compiled-spec cache did not retain (compiledSpec.id 0) is answered by
+	// binary search here, with its program compiled on the spot.
 	texts []string
-	progs []predicateProgram
 	// known/member are membership bitsets over compiledSpec.id, filled on a
 	// spec's first evaluation against this set: known marks an id whose
 	// membership was decided, member the ones that are members. Bits are
@@ -116,18 +116,24 @@ func CompilePredicatePrograms(specs []string) *PredicatePrograms {
 			continue
 		}
 		programs.texts = append(programs.texts, spec)
-		programs.progs = append(programs.progs, compilePredicateProgram(spec))
 	}
 	return programs
 }
 
-// lookup is the text membership search: spec's program when it is a member.
-func (ps *PredicatePrograms) lookup(spec string) (*predicateProgram, bool) {
+// isMember is the text membership search.
+func (ps *PredicatePrograms) isMember(spec string) bool {
 	i := sort.SearchStrings(ps.texts, spec)
-	if i < len(ps.texts) && ps.texts[i] == spec {
-		return &ps.progs[i], true
+	return i < len(ps.texts) && ps.texts[i] == spec
+}
+
+// lookup is isMember with the program: spec's program when it is a member
+// (compiled fresh: only the unretained-spec path asks).
+func (ps *PredicatePrograms) lookup(spec string) (*predicateProgram, bool) {
+	if !ps.isMember(spec) {
+		return nil, false
 	}
-	return nil, false
+	p := compilePredicateProgram(spec)
+	return &p, true
 }
 
 // programFor is lookup through the compiled spec's dense id: after the
@@ -144,7 +150,7 @@ func (ps *PredicatePrograms) programFor(cs *compiledSpec, spec string) (*predica
 		}
 		return nil, false
 	}
-	_, ok := ps.lookup(spec)
+	ok := ps.isMember(spec)
 	if ok {
 		ps.member[w].Or(b)
 	}
