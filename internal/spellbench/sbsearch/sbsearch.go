@@ -178,6 +178,59 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	if e == nil {
 		return s.DecideBoard(ctx, env.Board, d)
 	}
+	return s.decideOn(ctx, e, func() (dealer, string) {
+		rd, reason := s.redealer(env)
+		if reason != "" {
+			return nil, reason
+		}
+		return redealDealer{s: s, rd: rd}, ""
+	}, d)
+}
+
+// Dealer deals world w of a searched decision from its two seeds
+// (azmcts.RedealSeed of the decision seed): an engine positioned at the
+// root decision whose hidden cards the searching seat cannot see are
+// redealt. A non-empty reason refuses the world (it is dropped from every
+// mean, exactly like a refused redeal).
+type Dealer func(w int, seed [2]uint64) (*rules.Engine, string)
+
+// DecideWorlds is DecideSearch with an explicit world source instead of the
+// live observation feed: e is the engine at the decision (for a SpellBench
+// v2 seat, the shadow rebuilt from its observation, internal/spellbench/
+// v2shadow) and deal redeals its hidden zones. Everything else -- the
+// candidates, the rollouts, the margin -- is sb-search's own.
+func (s *Seat) DecideWorlds(ctx context.Context, e *rules.Engine, deal Dealer, d decision.Decision) (decision.Intent, error) {
+	return s.decideOn(ctx, e, func() (dealer, string) { return funcDealer(deal), "" }, d)
+}
+
+// dealer is a world source: the live feed's redeal or a caller's Dealer.
+type dealer interface {
+	deal(w int, dseed uint64) (*rules.Engine, string)
+	release(e *rules.Engine)
+}
+
+type redealDealer struct {
+	s  *Seat
+	rd *searchprobe.Redealer
+}
+
+func (r redealDealer) deal(w int, dseed uint64) (*rules.Engine, string) {
+	return r.rd.Deal(azmcts.RedealSeed(dseed, w), &r.s.spareBase)
+}
+
+func (r redealDealer) release(e *rules.Engine) { r.s.spareBase = e.Release() }
+
+type funcDealer Dealer
+
+func (f funcDealer) deal(w int, dseed uint64) (*rules.Engine, string) {
+	return f(w, azmcts.RedealSeed(dseed, w))
+}
+
+func (f funcDealer) release(*rules.Engine) {}
+
+// decideOn is the search at e's decision d; worlds come from mk, called
+// only when a search runs.
+func (s *Seat) decideOn(ctx context.Context, e *rules.Engine, mk func() (dealer, string), d decision.Decision) (decision.Intent, error) {
 	pd := e.Pending()
 	if pd == nil || pd.Seq != d.Seq {
 		pd = &d
@@ -191,9 +244,9 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	}
 	switch {
 	case d.Kind == decision.KPriority:
-		return s.priority(ctx, env, v, d)
+		return s.priority(ctx, e, mk, v, d)
 	case d.Kind == decision.KAttackers && s.cfg.Attack:
-		return s.attackers(ctx, env, v, d)
+		return s.attackers(ctx, e, mk, v, d)
 	}
 	return s.inner.Decide(ctx, v, d)
 }
@@ -205,7 +258,7 @@ type root struct {
 	in  decision.Intent
 }
 
-func (s *Seat) priority(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+func (s *Seat) priority(ctx context.Context, e *rules.Engine, mk func() (dealer, string), v view.View, d decision.Decision) (decision.Intent, error) {
 	cands, best, ok := s.inner.TacticalPriority(v, d)
 	if !ok || cands[best].Key.IsLand() {
 		// No choice to search, or a land drop (sb-tactical always makes it
@@ -216,7 +269,7 @@ func (s *Seat) priority(ctx context.Context, env searchseat.Env, v view.View, d 
 	if len(roots) < 2 {
 		return s.inner.Decide(ctx, v, d)
 	}
-	choice := s.search(env, d, "priority", roots, gap)
+	choice := s.search(e, mk, d, "priority", roots, gap)
 	if choice > 0 {
 		s.inner.ForcePriority(*roots[choice].key)
 	}
@@ -259,7 +312,7 @@ func pickRoots(cands []builtins.ScoredCandidate, best, k int) (roots []root, gap
 	return roots, gap
 }
 
-func (s *Seat) attackers(ctx context.Context, env searchseat.Env, v view.View, d decision.Decision) (decision.Intent, error) {
+func (s *Seat) attackers(ctx context.Context, e *rules.Engine, mk func() (dealer, string), v view.View, d decision.Decision) (decision.Intent, error) {
 	own, err := s.inner.Decide(ctx, v, d)
 	if err != nil {
 		return own, err
@@ -273,19 +326,19 @@ func (s *Seat) attackers(ctx context.Context, env searchseat.Env, v view.View, d
 	if len(roots) < 2 {
 		return own, nil
 	}
-	choice := s.search(env, d, "attackers", roots, 0)
+	choice := s.search(e, mk, d, "attackers", roots, 0)
 	return roots[choice].in, nil
 }
 
 // search values every root over the configured worlds and returns the
 // index to play: 0 (sb-tactical's own answer) on any failure or when no
 // other candidate beats it by the margin.
-func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, roots []root, gap float64) (choice int) {
+func (s *Seat) search(e *rules.Engine, mk func() (dealer, string), d decision.Decision, kind string, roots []root, gap float64) (choice int) {
 	var t0 float64
 	if Millis != nil {
 		t0 = Millis()
 	}
-	dg := Diag{Turn: env.Engine.G.Turn, Kind: kind, Candidates: len(roots), Gap: gap}
+	dg := Diag{Turn: e.G.Turn, Kind: kind, Candidates: len(roots), Gap: gap}
 	defer func() {
 		if p := recover(); p != nil {
 			// Never lose an action to the search: sb-tactical's pick.
@@ -300,7 +353,7 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 			Watch(dg)
 		}
 	}()
-	means, valid, failed, rollouts, refused := s.evaluate(env, d, roots)
+	means, valid, failed, rollouts, refused := s.evaluate(e, mk, d, roots)
 	dg.Worlds, dg.Failed, dg.Rollouts, dg.Refused = valid, failed, rollouts, refused
 	if valid == 0 {
 		return 0
@@ -320,17 +373,17 @@ func (s *Seat) search(env searchseat.Env, d decision.Decision, kind string, root
 
 // evaluate plays every root on every world and returns each root's mean
 // value over the worlds every root completed.
-func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root) (means []float64, valid, failed, rollouts int, refused string) {
-	rd, reason := s.redealer(env)
+func (s *Seat) evaluate(e *rules.Engine, mk func() (dealer, string), d decision.Decision, roots []root) (means []float64, valid, failed, rollouts int, refused string) {
+	rd, reason := mk()
 	if reason != "" {
 		return nil, 0, s.cfg.Worlds, 0, reason
 	}
 	dseed := azmcts.DecisionSeed(s.seed, d.Seq)
 	sums := make([]float64, len(roots))
 	vals := make([]float64, len(roots))
-	rootTurn := env.Engine.G.Turn
+	rootTurn := e.G.Turn
 	for w := 0; w < s.cfg.Worlds; w++ {
-		base, why := rd.Deal(azmcts.RedealSeed(dseed, w), &s.spareBase)
+		base, why := rd.deal(w, dseed)
 		if why != "" {
 			failed++
 			if refused == "" {
@@ -355,7 +408,7 @@ func (s *Seat) evaluate(env searchseat.Env, d decision.Decision, roots []root) (
 			}
 			vals[c] = val
 		}
-		s.spareBase = base.Release()
+		rd.release(base)
 		if !ok {
 			failed++
 			continue
