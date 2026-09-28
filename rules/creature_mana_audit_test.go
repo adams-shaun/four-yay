@@ -67,23 +67,30 @@ var knownUnsupportedCreatureMana = map[string]string{
 	// token, a token named Wood, two Food/tokens, a second Goblin, an
 	// untapped opponent land, an untapped source for a {Q} cost). These are
 	// board limitations, not engine debt: the card is not refused, its cost
-	// simply has no legal payer on the synthetic board.
-	"Baylen, the Haymaker|A0": "fodder: needs two token permanents to tap (tapXType<2/Permanent.token/token>)",
-	"Benthic Explorers|A0":    "fodder: untaps an opponent's land (untapYType<1/Land.OppCtrl/land>)",
-	"Bolg's Company|A0":       "fodder: needs another Goblin to sacrifice",
-	"Gilded Goose|A1":         "fodder: needs a Food to sacrifice",
-	"Jungle Patrol|A1":        "fodder: needs a token named Wood to sacrifice",
-	"Kykar, Wind's Fury|A0":   "fodder: needs a Spirit to sacrifice",
-	"The Cabbage Merchant|A0": "fodder: needs two Food to tap (tapXType<2/Food>)",
-	"Thornvault Forager|A1":   "fodder: needs Forage fodder (3 Food or a Food plus a graveyard card)",
-	"Utopia Mycon|A1":         "fodder: needs a Saproling to sacrifice",
-	"Pili-Pala|A0":            "fodder: {Q} untap cost needs the source already tapped",
-	// Counter-removal costs whose counters the shared board does not seed on
-	// the source (the board seeds only the source's own SubCounter cost).
-	"Haruspex|A0":                     "fodder: Amount$ X over SubCounter<X/P1P1>; the board seeds no +1/+1 counters",
-	"Petalmane Baku|A0":               "fodder: Amount$ X over SubCounter<X/KI>; the board seeds no ki counters",
-	"Rasputin, the Oneiromancer|A0":   "fodder: Amount$ X over SubCounter<X1+/DREAM>; the board seeds no dream counters",
-	"Jetfire, Ingenious Scientist|A0": "fodder: SubCounter cost; the board seeds no counters on the source",
+	// simply has no legal payer on the synthetic board. The audit's fodder
+	// hook (autopayCensus.fodder) supplies exactly these, so the rows below
+	// that measured "manaAbilityPayable" on the bare board are LIVE here and
+	// their entries are deleted; the rows that remain are the ones a measured
+	// engine refusal keeps off the offer regardless of fodder.
+	//
+	// NOT board fodder, re-measured with the fodder hook armed:
+	//   - Thornvault Forager|A1: the mana-activation path refuses a Forage
+	//     cost outright (rules/mana_activation.go manaCostPayableFull's
+	//     refusal list: cost.Forage -> not offered) -- no fodder reaches it.
+	//   - Benthic Explorers|A0: untapYType<N/...> is an unmodelled cost
+	//     token (rules/mana.go's dynTapCost regex only reads
+	//     tapXType<(X|Any)/...>), so the cost parses into Cost.Unknown and
+	//     manaCostPartsSettleable refuses it -- no fodder reaches it.
+	//   - Haruspex/Petalmane Baku/Rasputin/Jetfire: the mana path has no X
+	//     ask, so every Announced SubCounter part is refused at the offer
+	//     gate (manaCostPayableFull; Jetfire additionally fails the
+	//     subCounterTargetsSource whitelist) -- no fodder reaches them.
+	"Benthic Explorers|A0":            "engine: untapYType<1/Land.OppCtrl/land> parses into Cost.Unknown (rules/mana.go dynTapCost only reads tapXType<(X|Any)/...>), so manaCostPartsSettleable refuses the cost before any payer looks for a tapped opponent land",
+	"Haruspex|A0":                     "engine: SubCounter<X/P1P1> is Announced and the mana-activation path has no X ask -- manaCostPayableFull refuses every announced SubCounter part at the offer gate (rules/mana_activation.go)",
+	"Petalmane Baku|A0":               "engine: SubCounter<X/KI> is Announced and the mana-activation path has no X ask -- manaCostPayableFull refuses every announced SubCounter part at the offer gate (rules/mana_activation.go)",
+	"Rasputin, the Oneiromancer|A0":   "engine: SubCounter<X1+/DREAM/NICKNAME> is Announced and the mana-activation path has no X ask -- manaCostPayableFull refuses every announced SubCounter part at the offer gate (rules/mana_activation.go)",
+	"Jetfire, Ingenious Scientist|A0": "engine: RemoveAnyCounter<X1+/P1P1/Artifact> is an announced SubCounter anchored to another permanent -- refused both by the subCounterTargetsSource whitelist and by manaCostPayableFull's announced-SubCounter gate (rules/mana_activation.go)",
+	"Thornvault Forager|A1":           "engine: the Forage cost is in manaCostPayableFull's outright refusal list (rules/mana_activation.go: cost.Forage -> not offered) -- forage fodder on the board cannot reach the offer",
 	// Board-dependent activation gates that are false on a bare board.
 	"Circle of Elders|A0":            "gate: CheckSVar FormidableTest (total power >= 8) is false",
 	"Fanatic of Rhonas|A1":           "gate: IsPresent$ Creature.YouCtrl+powerGE4 (ferocious) is false",
@@ -189,6 +196,10 @@ func expectedManaTotal(row censusRow) (int, bool) {
 // TestCreatureManaAbilityAudit is the always-on creature subset audit.
 func TestCreatureManaAbilityAudit(t *testing.T) {
 	cz := newAutopayCensus(t)
+	// The audit boards carry the cost fodder its rows' costs name (token
+	// permanents, a tapped source for a {Q} cost); the corpus-wide env-gated
+	// census keeps its own boards untouched.
+	cz.fodder = true
 
 	type measured struct {
 		key, reason string
