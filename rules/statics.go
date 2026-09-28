@@ -2234,17 +2234,20 @@ func (e *Engine) scanCostStatics() costStaticViews {
 
 // markCostValidTarget sets out.validTarget from the collected members.
 func markCostValidTarget(out *costStaticViews) {
-	for _, views := range [...][]staticView{out.raise, out.reduce, out.set} {
-		for _, sv := range views {
+	for _, group := range [...]struct {
+		mode  string
+		views []staticView
+	}{{"RaiseCost", out.raise}, {"ReduceCost", out.reduce}, {"SetCost", out.set}} {
+		for _, sv := range group.views {
 			if _, ok := sv.Params["ValidTarget"]; ok {
 				out.validTarget = true
 				return
 			}
-			// A target-conditional ValidSpell$ (Head of the Class's
-			// `Spell.IsTargeting Valid Creature` reduction) reads the chosen
-			// targets exactly as ValidTarget$ does, so the offer gate's
-			// potential-target retry must run for it too.
-			if validSpellHasTargeting(sv.Params["ValidSpell"]) {
+			// Target-conditional ValidSpell$ and target-relative ReduceCost$
+			// amounts read chosen targets, so the offer gate must retry with
+			// potential targets for either shape.
+			if validSpellHasTargeting(sv.Params["ValidSpell"]) ||
+				(group.mode == "ReduceCost" && sv.Params["Relative"] == "True") {
 				out.validTarget = true
 				return
 			}
@@ -2280,8 +2283,8 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 // by exactly 1 whenever their SVar amount was genuinely 0, and a wrong
 // reduction is a wrong cost — 0 ("no reduction") is the honest read of an
 // amount the engine cannot evaluate.
-func (e *Engine) modAmount(sv staticView) int32 {
-	return e.modAmountX(sv, 0)
+func (e *Engine) modAmount(sv staticView, targets []state.Target) int32 {
+	return e.modAmountX(sv, 0, targets)
 }
 
 // modAmountX is modAmount with the cast's announced {X} bound into the
@@ -2289,7 +2292,7 @@ func (e *Engine) modAmount(sv staticView) int32 {
 // SVar:X:Count$xPaid over SVar:Y:SVar$X/Times.2) sees the announced value
 // during the in-cast recomputation manaToPay/manaToPayX run. x=0 is the
 // offer-time read (an unbound {X} prices as 0), identical to modAmount.
-func (e *Engine) modAmountX(sv staticView, x int32) int32 {
+func (e *Engine) modAmountX(sv staticView, x int32, targets []state.Target) int32 {
 	raw := strings.TrimSpace(sv.Params["Amount"])
 	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
 		if n < 0 {
@@ -2311,7 +2314,7 @@ func (e *Engine) modAmountX(sv staticView, x int32) int32 {
 	// An Effect-delivered cost static carries its SetChosenNumber$ binding
 	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
 	// the source object's own logged choice.
-	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars, X: x,
+	ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars, X: x, Targets: targets,
 		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound}
 	// An SVar NAME resolves through its body on the source's face; anything
 	// else is an inline Count$-class expression evaluated as written.
@@ -2558,7 +2561,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmountX(sv, x))
+				mods.raises = append(mods.raises, e.modAmountX(sv, x, targets))
 				continue
 			}
 			red := costMod{
@@ -2575,7 +2578,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, x)
+				amount := e.modAmountX(sv, x, targets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2591,7 +2594,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, x)
+				red.generic = e.modAmountX(sv, x, targets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2605,7 +2608,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
 			continue
 		}
-		if n := e.modAmountX(sv, x); n > mods.setFloor {
+		if n := e.modAmountX(sv, x, targets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2669,7 +2672,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmount(sv))
+				mods.raises = append(mods.raises, e.modAmount(sv, targets))
 				continue
 			}
 			red := costMod{
@@ -2686,7 +2689,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmount(sv)
+				amount := e.modAmount(sv, targets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2702,7 +2705,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 					}
 				}
 			} else {
-				red.generic = e.modAmount(sv)
+				red.generic = e.modAmount(sv, targets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2716,7 +2719,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, false) {
 			continue
 		}
-		if n := e.modAmount(sv); n > mods.setFloor {
+		if n := e.modAmount(sv, targets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2829,20 +2832,13 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// lines). Skipping the secondary applies the primary only.
 		return false
 	}
-	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && xBound) {
-		// Relative$ Amount$ scales with something the composition point does
-		// not yet know (IncreaseCost per target beyond the first, or a game
-		// state the offer-time read cannot price) — a per-target shape no
-		// offer-time composition knows. Skipping, like ValidTarget$.
-		// EXCEPTION: the announced-X recomputation (costModifiersForTargetsX,
-		// manaToPay/manaToPayX) is exactly the caller whose composition point
-		// DOES know the variable a "costs {2} less for each permanent
-		// sacrificed this way" amount scales with — Dargo's Relative$ True
-		// static reads Amount$ Y over SVar:Y:SVar$X/Times.2 with X the
-		// announced sacrifice count, and at that point the amount is
-		// evaluated with X bound. A Relative$ ReduceCost whose Amount$ is
-		// unresolvable still degrades to zero (the honest no-reduction),
-		// never to an invented discount.
+	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && (xBound || len(targets) > 0)) {
+		// Relative$ Amount$ scales with a value the composition point does
+		// not yet know. A target-bound ReduceCost is priceable when its chosen
+		// targets are present (including the offer retry's potential targets);
+		// announced-X reductions are priceable when X is bound. Other relative
+		// shapes remain skipped rather than applying an amount without its
+		// defining context. An unresolvable amount still degrades to zero.
 		return false
 	}
 	return true
