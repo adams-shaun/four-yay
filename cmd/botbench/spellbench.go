@@ -1,9 +1,10 @@
 package main
 
 // -spellbench: a gorge-native SpellBench workup. It plays a round robin of
-// bot policies on the SpellBench pauper-kernel catalog decks exactly the way
-// SpellBench's arena schedules its benchmark (python/spellbench/arena/
-// runner.py, "spellbench-arena-seed-v1"):
+// bot policies on a SpellBench catalog's decks (-spellbench-catalog:
+// pauper-kernel, the default, or fdn-limited) exactly the way SpellBench's
+// arena schedules its benchmark (python/spellbench/arena/runner.py,
+// "spellbench-arena-seed-v1"):
 //
 //   - matchups are the unordered bot pairs (i < j) in -spellbench order,
 //     self-play excluded (the benchmark's include_self_play false);
@@ -75,14 +76,17 @@ type sbOpts struct {
 	baseSeed      uint64
 	with, without string
 	engineVersion string
+	catalog       string
+	format        string // the catalog's ledger format, set from catalog
 }
 
 var sbFlags sbOpts
 
 func registerSpellbenchFlags(fs *flag.FlagSet) {
-	fs.StringVar(&sbFlags.bots, "spellbench", "", "SpellBench workup mode: comma list of policies to round-robin (e.g. sb-uniform,sb-heuristic,sb-first,bot,az) on the pauper-kernel catalog decks as mirrors; writes a SpellBench match ledger to -spellbench-out")
+	fs.StringVar(&sbFlags.bots, "spellbench", "", "SpellBench workup mode: comma list of policies to round-robin (e.g. sb-uniform,sb-heuristic,sb-first,bot,az) on the -spellbench-catalog decks as mirrors; writes a SpellBench match ledger to -spellbench-out")
 	fs.IntVar(&sbFlags.pairs, "spellbench-pairs", 4, "spellbench: seat-swapped pairs per deck per matchup (the benchmark's pairs_per_deck)")
-	fs.StringVar(&sbFlags.decks, "spellbench-decks", "", "spellbench: comma list of catalog deck ids (default: the benchmark's 8-deck pool)")
+	fs.StringVar(&sbFlags.decks, "spellbench-decks", "", "spellbench: comma list of catalog deck ids (default: the catalog's benchmark pool)")
+	fs.StringVar(&sbFlags.catalog, "spellbench-catalog", "pauper-kernel", "spellbench: deck catalog, pauper-kernel or fdn-limited (alias fdn)")
 	fs.StringVar(&sbFlags.out, "spellbench-out", "", "spellbench: output directory (created; matches.jsonl, games.jsonl, run.json are written there)")
 	fs.Uint64Var(&sbFlags.baseSeed, "spellbench-base-seed", 20260926, "spellbench: tournament base seed (the benchmark's base_seed)")
 	fs.StringVar(&sbFlags.with, "spellbench-with", "", "spellbench: play only the matchups that include this policy (indices and seeds stay those of the full round robin)")
@@ -234,7 +238,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 }
 
 // sbLedgerRow renders one game as a spellbench-match-ledger/v1 row.
-func sbLedgerRow(g sbGame, r sbResult, engine map[string]string) map[string]any {
+func sbLedgerRow(g sbGame, r sbResult, engine map[string]string, format string) map[string]any {
 	seatRows := make([]map[string]any, 2)
 	ids := [2]string{}
 	for s := 0; s < 2; s++ {
@@ -244,7 +248,7 @@ func sbLedgerRow(g sbGame, r sbResult, engine map[string]string) map[string]any 
 	}
 	row := map[string]any{
 		"schema": sbLedgerSchema, "game_id": g.id, "matchup_index": g.matchup, "pair_index": g.pair,
-		"game_index": g.game, "format": "pauper-bo1", "game_seed": g.seed, "seats": seatRows,
+		"game_index": g.game, "format": format, "game_seed": g.seed, "seats": seatRows,
 		"decks":      []map[string]string{{"catalog_id": g.deck}, {"catalog_id": g.deck}},
 		"step_count": r.outcome.Intents, "decision_count": r.outcome.Intents, "engine": engine,
 		"winner": nil, "winner_bot_id": nil, "adjudication": nil,
@@ -283,17 +287,17 @@ func sbTrim(s string) string {
 }
 
 // sbCardPool reads the corpus pin for the ledger's card_pool_identity.
-func sbCardPool(dir string) string {
+func sbCardPool(dir, catalog string) string {
 	raw, err := os.ReadFile(filepath.Join(dir, "cards.lock"))
 	if err == nil {
 		var lock struct {
 			Commit string `json:"commit"`
 		}
 		if json.Unmarshal(raw, &lock) == nil && lock.Commit != "" {
-			return "spellbench-pauper-kernel-catalog/forge@" + lock.Commit
+			return "spellbench-" + catalog + "-catalog/forge@" + lock.Commit
 		}
 	}
-	return "spellbench-pauper-kernel-catalog/forge@unknown"
+	return "spellbench-" + catalog + "-catalog/forge@unknown"
 }
 
 func sbSplit(s string) []string {
@@ -365,7 +369,12 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if azSide {
 		installAZCostStats()
 	}
-	pool := spellbench.BenchmarkPool
+	cat, err := spellbench.CatalogByID(o.catalog)
+	if err != nil {
+		return fail(err)
+	}
+	o.catalog, o.format = cat.ID, cat.Format
+	pool := cat.Pool
 	if o.decks != "" {
 		pool = sbSplit(o.decks)
 	}
@@ -375,7 +384,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	decks := make(map[string][]*cards.Card, len(pool)) // lookup only
 	for _, id := range pool {
-		d, err := spellbench.Deck(reg, spellbench.PauperKernel, id)
+		d, err := spellbench.Deck(reg, cat.Dir, id)
 		if err != nil {
 			return fail(err)
 		}
@@ -402,7 +411,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	engine := map[string]string{
 		"engine_name": "gorge", "engine_version": o.engineVersion,
-		"rules_snapshot_id": "gorge/" + o.engineVersion, "card_pool_identity": sbCardPool(dir),
+		"rules_snapshot_id": "gorge/" + o.engineVersion, "card_pool_identity": sbCardPool(dir, cat.ID),
 	}
 
 	fmt.Fprintf(stderr, "spellbench: %d policies, %d decks, %d pairs/deck -> %d games (%d scheduled here), %d workers\n",
@@ -485,7 +494,7 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 	le, ge := json.NewEncoder(lf), json.NewEncoder(gf)
 	for i, g := range sched {
 		r := results[i]
-		if err := le.Encode(sbLedgerRow(g, r, engine)); err != nil {
+		if err := le.Encode(sbLedgerRow(g, r, engine, o.format)); err != nil {
 			return err
 		}
 		extra := map[string]any{
@@ -506,7 +515,7 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 		names[i] = sbDisplayName(b)
 	}
 	run := map[string]any{
-		"policies": bots, "display_names": names, "decks": pool, "pairs_per_deck": o.pairs,
+		"policies": bots, "display_names": names, "catalog": o.catalog, "decks": pool, "pairs_per_deck": o.pairs,
 		"base_seed": o.baseSeed, "with": o.with, "without": o.without, "games": len(sched),
 		"wall_seconds": elapsed.Seconds(), "workers": workers, "engine": engine,
 		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg},

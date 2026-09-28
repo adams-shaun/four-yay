@@ -1,0 +1,104 @@
+{
+ "name": "FDN06-RG",
+ "format": "limited",
+ "archetype": "RG",
+ "notes": "SpellBench FDN Limited catalog deck FDN06-RG (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=0163800689a223a5, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Abrade",
+   "count": 1
+  },
+  {
+   "name": "Affectionate Indrik",
+   "count": 1
+  },
+  {
+   "name": "Ashroot Animist",
+   "count": 1
+  },
+  {
+   "name": "Battlesong Berserker",
+   "count": 1
+  },
+  {
+   "name": "Bite Down",
+   "count": 1
+  },
+  {
+   "name": "Bushwhack",
+   "count": 2
+  },
+  {
+   "name": "Dragon Trainer",
+   "count": 1
+  },
+  {
+   "name": "Eager Trufflesnout",
+   "count": 2
+  },
+  {
+   "name": "Felling Blow",
+   "count": 1
+  },
+  {
+   "name": "Forest",
+   "count": 8
+  },
+  {
+   "name": "Gnarlid Colony",
+   "count": 2
+  },
+  {
+   "name": "Gorehorn Raider",
+   "count": 1
+  },
+  {
+   "name": "Heartfire Immolator",
+   "count": 1
+  },
+  {
+   "name": "Llanowar Elves",
+   "count": 1
+  },
+  {
+   "name": "Loot, Exuberant Explorer",
+   "count": 1
+  },
+  {
+   "name": "Mountain",
+   "count": 7
+  },
+  {
+   "name": "Nessian Hornbeetle",
+   "count": 1
+  },
+  {
+   "name": "Ruby, Daring Tracker",
+   "count": 1
+  },
+  {
+   "name": "Rugged Highlands",
+   "count": 1
+  },
+  {
+   "name": "Shivan Dragon",
+   "count": 1
+  },
+  {
+   "name": "Slagstorm",
+   "count": 1
+  },
+  {
+   "name": "Slumbering Cerberus",
+   "count": 1
+  },
+  {
+   "name": "Solemn Simulacrum",
+   "count": 1
+  },
+  {
+   "name": "Wary Thespian",
+   "count": 1
+  }
+ ]
+}

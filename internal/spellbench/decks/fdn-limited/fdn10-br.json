@@ -1,0 +1,88 @@
+{
+ "name": "FDN10-BR",
+ "format": "limited",
+ "archetype": "BR",
+ "notes": "SpellBench FDN Limited catalog deck FDN10-BR (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=0232e3994501891e, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Battlesong Berserker",
+   "count": 1
+  },
+  {
+   "name": "Billowing Shriekmass",
+   "count": 1
+  },
+  {
+   "name": "Bloodfell Caves",
+   "count": 1
+  },
+  {
+   "name": "Burglar Rat",
+   "count": 2
+  },
+  {
+   "name": "Burst Lightning",
+   "count": 2
+  },
+  {
+   "name": "Drakuseth, Maw of Flames",
+   "count": 1
+  },
+  {
+   "name": "Eaten Alive",
+   "count": 3
+  },
+  {
+   "name": "Etali, Primal Storm",
+   "count": 1
+  },
+  {
+   "name": "Evolving Wilds",
+   "count": 1
+  },
+  {
+   "name": "Fiery Annihilation",
+   "count": 1
+  },
+  {
+   "name": "Gutless Plunderer",
+   "count": 2
+  },
+  {
+   "name": "Hungry Ghoul",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 1
+  },
+  {
+   "name": "Involuntary Employment",
+   "count": 3
+  },
+  {
+   "name": "Macabre Waltz",
+   "count": 1
+  },
+  {
+   "name": "Mountain",
+   "count": 7
+  },
+  {
+   "name": "Reassembling Skeleton",
+   "count": 1
+  },
+  {
+   "name": "Solemn Simulacrum",
+   "count": 1
+  },
+  {
+   "name": "Stab",
+   "count": 1
+  },
+  {
+   "name": "Swamp",
+   "count": 8
+  }
+ ]
+}

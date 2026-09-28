@@ -94,3 +94,33 @@ func TestSpellbenchBuiltinsPlayMirrors(t *testing.T) {
 		}
 	}
 }
+
+// TestSpellbenchFDNCatalogMirrors plays two FDN Limited catalog mirrors
+// (sb-first against sb-uniform) and checks each finishes without an engine
+// halt and records the fdn-limited ledger format.
+func TestSpellbenchFDNCatalogMirrors(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	cat, err := spellbench.CatalogByID("fdn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := cat.Pool[:2]
+	for _, g := range sbSchedule([]string{"sb-first", "sb-uniform"}, pool, 1, 20260928) {
+		if g.game != 0 {
+			continue // one game per deck
+		}
+		deck, err := spellbench.Deck(reg, cat.Dir, g.deck)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := sbPlay(g, deck, reg, 60, 20000)
+		if r.err != nil {
+			t.Fatalf("%s %s: %v", g.id, g.deck, r.err)
+		}
+		row := sbLedgerRow(g, r, map[string]string{}, cat.Format)
+		if row["format"] != "fdn-limited-bo1" {
+			t.Fatalf("format %v", row["format"])
+		}
+		t.Logf("%s %s: %s turns=%d intents=%d", g.id, g.deck, sbResultLabel(r), r.outcome.Turns, r.outcome.Intents)
+	}
+}

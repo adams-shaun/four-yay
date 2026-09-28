@@ -1,0 +1,100 @@
+{
+ "name": "FDN05-UG",
+ "format": "limited",
+ "archetype": "UG",
+ "notes": "SpellBench FDN Limited catalog deck FDN05-UG (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=00f989345987ace8, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Affectionate Indrik",
+   "count": 2
+  },
+  {
+   "name": "Beast-Kin Ranger",
+   "count": 1
+  },
+  {
+   "name": "Bigfin Bouncer",
+   "count": 1
+  },
+  {
+   "name": "Bite Down",
+   "count": 1
+  },
+  {
+   "name": "Dwynen's Elite",
+   "count": 1
+  },
+  {
+   "name": "Elvish Regrower",
+   "count": 1
+  },
+  {
+   "name": "Essence Scatter",
+   "count": 1
+  },
+  {
+   "name": "Forest",
+   "count": 9
+  },
+  {
+   "name": "Giant Growth",
+   "count": 1
+  },
+  {
+   "name": "Gnarlid Colony",
+   "count": 1
+  },
+  {
+   "name": "Goldvein Pick",
+   "count": 1
+  },
+  {
+   "name": "Grow from the Ashes",
+   "count": 1
+  },
+  {
+   "name": "Island",
+   "count": 8
+  },
+  {
+   "name": "Needletooth Pack",
+   "count": 1
+  },
+  {
+   "name": "Quilled Greatwurm",
+   "count": 1
+  },
+  {
+   "name": "Reclamation Sage",
+   "count": 1
+  },
+  {
+   "name": "Skyship Buccaneer",
+   "count": 1
+  },
+  {
+   "name": "Snakeskin Veil",
+   "count": 1
+  },
+  {
+   "name": "Spinner of Souls",
+   "count": 1
+  },
+  {
+   "name": "Strix Lookout",
+   "count": 1
+  },
+  {
+   "name": "Treetop Snarespinner",
+   "count": 1
+  },
+  {
+   "name": "Wary Thespian",
+   "count": 2
+  },
+  {
+   "name": "Zimone, Paradox Sculptor",
+   "count": 1
+  }
+ ]
+}

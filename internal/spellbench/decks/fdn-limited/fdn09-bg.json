@@ -1,0 +1,88 @@
+{
+ "name": "FDN09-BG",
+ "format": "limited",
+ "archetype": "BG",
+ "notes": "SpellBench FDN Limited catalog deck FDN09-BG (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=021c7f9293c99ca5, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Ambush Wolf",
+   "count": 1
+  },
+  {
+   "name": "Bake into a Pie",
+   "count": 1
+  },
+  {
+   "name": "Bite Down",
+   "count": 2
+  },
+  {
+   "name": "Cackling Prowler",
+   "count": 2
+  },
+  {
+   "name": "Elfsworn Giant",
+   "count": 1
+  },
+  {
+   "name": "Felling Blow",
+   "count": 1
+  },
+  {
+   "name": "Forest",
+   "count": 8
+  },
+  {
+   "name": "Gnarlid Colony",
+   "count": 1
+  },
+  {
+   "name": "Gutless Plunderer",
+   "count": 1
+  },
+  {
+   "name": "High-Society Hunter",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 1
+  },
+  {
+   "name": "Jungle Hollow",
+   "count": 1
+  },
+  {
+   "name": "Loot, Exuberant Explorer",
+   "count": 1
+  },
+  {
+   "name": "Mossborn Hydra",
+   "count": 1
+  },
+  {
+   "name": "Nessian Hornbeetle",
+   "count": 4
+  },
+  {
+   "name": "Phyrexian Arena",
+   "count": 1
+  },
+  {
+   "name": "Swamp",
+   "count": 8
+  },
+  {
+   "name": "Tragic Banshee",
+   "count": 1
+  },
+  {
+   "name": "Vampire Soulcaller",
+   "count": 2
+  },
+  {
+   "name": "Wardens of the Cycle",
+   "count": 1
+  }
+ ]
+}

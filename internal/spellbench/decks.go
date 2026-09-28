@@ -14,7 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/deck"
 )
 
-//go:embed decks/pauper-kernel/*.json
+//go:embed decks/pauper-kernel/*.json decks/fdn-limited/*.json
 var decksFS embed.FS
 
 // PauperKernel is the pauper-kernel catalog directory.
