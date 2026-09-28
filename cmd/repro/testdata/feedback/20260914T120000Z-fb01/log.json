@@ -254,210 +254,222 @@
     },
     {
       "seq": 18,
+      "kind": 20,
+      "player": 1,
+      "text": "starting_player"
+    },
+    {
+      "seq": 19,
+      "kind": 21,
+      "player": 1,
+      "text": "starting_player:[1]"
+    },
+    {
+      "seq": 20,
       "kind": 9,
       "player": 1,
       "amount": 1
     },
     {
-      "seq": 19,
+      "seq": 21,
       "kind": 8
     },
     {
-      "seq": 20,
+      "seq": 22,
       "kind": 8,
       "step": 1
     },
     {
-      "seq": 21,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 22,
-      "kind": 10,
-      "player": 1
-    },
-    {
       "seq": 23,
-      "kind": 20,
-      "player": 1,
-      "text": "priority"
+      "kind": 10,
+      "player": 1
     },
     {
       "seq": 24,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 25,
+      "kind": 20,
+      "player": 1,
+      "text": "priority"
+    },
+    {
+      "seq": 26,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 25,
-      "kind": 10,
-      "amount": 1
-    },
-    {
-      "seq": 26,
-      "kind": 10,
-      "amount": 1
-    },
-    {
       "seq": 27,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 28,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 29,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 28,
+      "seq": 30,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 29,
+      "seq": 31,
       "kind": 8,
       "step": 2
     },
     {
-      "seq": 30,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 31,
-      "kind": 10,
-      "player": 1
-    },
-    {
       "seq": 32,
-      "kind": 20,
-      "player": 1,
-      "text": "priority"
+      "kind": 10,
+      "player": 1
     },
     {
       "seq": 33,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 34,
+      "kind": 20,
+      "player": 1,
+      "text": "priority"
+    },
+    {
+      "seq": 35,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 34,
-      "kind": 10,
-      "amount": 1
-    },
-    {
-      "seq": 35,
-      "kind": 10,
-      "amount": 1
-    },
-    {
       "seq": 36,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 37,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 38,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 37,
+      "seq": 39,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 38,
+      "seq": 40,
       "kind": 8,
       "step": 3
     },
     {
-      "seq": 39,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 40,
-      "kind": 10,
-      "player": 1
-    },
-    {
       "seq": 41,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 42,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 43,
       "kind": 20,
       "player": 1,
       "text": "priority"
     },
     {
-      "seq": 42,
+      "seq": 44,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 43,
+      "seq": 45,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 44,
+      "seq": 46,
       "kind": 2,
       "obj": 72,
       "from": 1,
       "to": 2
     },
     {
-      "seq": 45,
+      "seq": 47,
       "kind": 23,
       "player": 1
     },
     {
-      "seq": 46,
+      "seq": 48,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 47,
+      "seq": 49,
       "kind": 20,
       "player": 1,
       "text": "priority"
     },
     {
-      "seq": 48,
+      "seq": 50,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 49,
+      "seq": 51,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 50,
+      "seq": 52,
       "kind": 6,
       "obj": 72
     },
     {
-      "seq": 51,
+      "seq": 53,
       "kind": 13,
       "player": 1,
       "amount": 1,
       "counter": "W"
     },
     {
-      "seq": 52,
+      "seq": 54,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 53,
+      "seq": 55,
       "kind": 20,
       "player": 1,
       "text": "priority"
     },
     {
-      "seq": 54,
+      "seq": 56,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 55,
+      "seq": 57,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 56,
+      "seq": 58,
       "kind": 11,
       "player": 1,
       "obj": 85,
@@ -466,164 +478,155 @@
       "text": "Mother of Runes"
     },
     {
-      "seq": 57,
+      "seq": 59,
       "kind": 13,
       "player": 1,
       "amount": -1,
       "counter": "W"
     },
     {
-      "seq": 58,
+      "seq": 60,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 59,
+      "seq": 61,
       "kind": 20,
       "player": 1,
       "text": "priority"
-    },
-    {
-      "seq": 60,
-      "kind": 21,
-      "player": 1,
-      "text": "priority:[0]"
-    },
-    {
-      "seq": 61,
-      "kind": 10,
-      "amount": 1
     },
     {
       "seq": 62,
+      "kind": 21,
+      "player": 1,
+      "text": "priority:[0]"
+    },
+    {
+      "seq": 63,
       "kind": 10,
       "amount": 1
     },
     {
-      "seq": 63,
+      "seq": 64,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 65,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 64,
+      "seq": 66,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 65,
+      "seq": 67,
       "kind": 12,
       "obj": 85,
       "text": "Mother of Runes"
     },
     {
-      "seq": 66,
+      "seq": 68,
       "kind": 2,
       "obj": 85,
       "from": 5,
       "to": 2
     },
     {
-      "seq": 67,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 68,
-      "kind": 10,
-      "player": 1
-    },
-    {
       "seq": 69,
-      "kind": 20,
-      "player": 1,
-      "text": "priority"
+      "kind": 10,
+      "player": 1
     },
     {
       "seq": 70,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 71,
+      "kind": 20,
+      "player": 1,
+      "text": "priority"
+    },
+    {
+      "seq": 72,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 71,
-      "kind": 10,
-      "amount": 1
-    },
-    {
-      "seq": 72,
-      "kind": 10,
-      "amount": 1
-    },
-    {
       "seq": 73,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 74,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 75,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 74,
+      "seq": 76,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 75,
+      "seq": 77,
       "kind": 8,
       "step": 4
     },
     {
-      "seq": 76,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 77,
-      "kind": 10,
-      "player": 1
-    },
-    {
       "seq": 78,
-      "kind": 20,
-      "player": 1,
-      "text": "priority"
+      "kind": 10,
+      "player": 1
     },
     {
       "seq": 79,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 80,
+      "kind": 20,
+      "player": 1,
+      "text": "priority"
+    },
+    {
+      "seq": 81,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 80,
-      "kind": 10,
-      "amount": 1
-    },
-    {
-      "seq": 81,
-      "kind": 10,
-      "amount": 1
-    },
-    {
       "seq": 82,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 83,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 84,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 83,
+      "seq": 85,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 84,
+      "seq": 86,
       "kind": 8,
       "step": 5
-    },
-    {
-      "seq": 85,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 86,
-      "kind": 16
     },
     {
       "seq": 87,
@@ -632,465 +635,517 @@
     },
     {
       "seq": 88,
-      "kind": 20,
-      "player": 1,
-      "text": "priority"
+      "kind": 16
     },
     {
       "seq": 89,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 90,
+      "kind": 20,
+      "player": 1,
+      "text": "priority"
+    },
+    {
+      "seq": 91,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 90,
-      "kind": 10,
-      "amount": 1
-    },
-    {
-      "seq": 91,
-      "kind": 10,
-      "amount": 1
-    },
-    {
       "seq": 92,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 93,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 94,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 93,
+      "seq": 95,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 94,
+      "seq": 96,
       "kind": 8,
       "step": 8
     },
     {
-      "seq": 95,
+      "seq": 97,
       "kind": 10,
       "amount": 1
     },
     {
-      "seq": 96,
+      "seq": 98,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 97,
+      "seq": 99,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 98,
+      "seq": 100,
       "kind": 8,
       "step": 9
     },
     {
-      "seq": 99,
+      "seq": 101,
       "kind": 28
     },
     {
-      "seq": 100,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 101,
-      "kind": 10,
-      "player": 1
-    },
-    {
       "seq": 102,
-      "kind": 20,
-      "player": 1,
-      "text": "priority"
+      "kind": 10,
+      "player": 1
     },
     {
       "seq": 103,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 104,
+      "kind": 20,
+      "player": 1,
+      "text": "priority"
+    },
+    {
+      "seq": 105,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 104,
-      "kind": 10,
-      "amount": 1
-    },
-    {
-      "seq": 105,
-      "kind": 10,
-      "amount": 1
-    },
-    {
       "seq": 106,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 107,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 108,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 107,
+      "seq": 109,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 108,
+      "seq": 110,
       "kind": 8,
       "step": 10
     },
     {
-      "seq": 109,
-      "kind": 10,
-      "player": 1
-    },
-    {
-      "seq": 110,
-      "kind": 10,
-      "player": 1
-    },
-    {
       "seq": 111,
-      "kind": 20,
-      "player": 1,
-      "text": "priority"
+      "kind": 10,
+      "player": 1
     },
     {
       "seq": 112,
+      "kind": 10,
+      "player": 1
+    },
+    {
+      "seq": 113,
+      "kind": 20,
+      "player": 1,
+      "text": "priority"
+    },
+    {
+      "seq": 114,
       "kind": 21,
       "player": 1,
       "text": "priority:[0]"
     },
     {
-      "seq": 113,
-      "kind": 10,
-      "amount": 1
-    },
-    {
-      "seq": 114,
-      "kind": 10,
-      "amount": 1
-    },
-    {
       "seq": 115,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 116,
+      "kind": 10,
+      "amount": 1
+    },
+    {
+      "seq": 117,
       "kind": 20,
       "text": "priority"
     },
     {
-      "seq": 116,
+      "seq": 118,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 117,
+      "seq": 119,
       "kind": 8,
       "step": 11
     },
     {
-      "seq": 118,
+      "seq": 120,
       "kind": 10,
       "player": 1
     },
     {
-      "seq": 119,
+      "seq": 121,
       "kind": 9,
       "amount": 2
     },
     {
-      "seq": 120,
+      "seq": 122,
       "kind": 8
     },
     {
-      "seq": 121,
+      "seq": 123,
       "kind": 8,
       "step": 1
     },
     {
-      "seq": 122,
-      "kind": 10
-    },
-    {
-      "seq": 123,
-      "kind": 10
-    },
-    {
       "seq": 124,
-      "kind": 20,
-      "text": "priority"
+      "kind": 10
     },
     {
       "seq": 125,
+      "kind": 10
+    },
+    {
+      "seq": 126,
+      "kind": 20,
+      "text": "priority"
+    },
+    {
+      "seq": 127,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 126,
-      "kind": 10,
-      "player": 1,
-      "amount": 1
-    },
-    {
-      "seq": 127,
-      "kind": 10,
-      "player": 1,
-      "amount": 1
-    },
-    {
       "seq": 128,
+      "kind": 10,
+      "player": 1,
+      "amount": 1
+    },
+    {
+      "seq": 129,
+      "kind": 10,
+      "player": 1,
+      "amount": 1
+    },
+    {
+      "seq": 130,
       "kind": 20,
       "player": 1,
       "text": "priority"
     },
     {
-      "seq": 129,
+      "seq": 131,
       "kind": 21,
       "player": 1,
-      "text": "priority:[0]"
+      "text": "priority:[1]"
     },
     {
-      "seq": 130,
+      "seq": 132,
       "kind": 8,
       "step": 2
     },
     {
-      "seq": 131,
+      "seq": 133,
       "kind": 3,
       "obj": 34,
       "to": 1,
       "secret": true
     },
     {
-      "seq": 132,
-      "kind": 10
-    },
-    {
-      "seq": 133,
-      "kind": 10
-    },
-    {
       "seq": 134,
-      "kind": 20,
-      "text": "priority"
+      "kind": 10
     },
     {
       "seq": 135,
+      "kind": 10
+    },
+    {
+      "seq": 136,
+      "kind": 20,
+      "text": "priority"
+    },
+    {
+      "seq": 137,
       "kind": 21,
       "text": "priority:[0]"
     },
     {
-      "seq": 136,
-      "kind": 10,
-      "player": 1,
-      "amount": 1
-    },
-    {
-      "seq": 137,
-      "kind": 10,
-      "player": 1,
-      "amount": 1
-    },
-    {
       "seq": 138,
+      "kind": 10,
+      "player": 1,
+      "amount": 1
+    },
+    {
+      "seq": 139,
+      "kind": 10,
+      "player": 1,
+      "amount": 1
+    },
+    {
+      "seq": 140,
       "kind": 20,
       "player": 1,
       "text": "priority"
     },
     {
-      "seq": 139,
+      "seq": 141,
       "kind": 21,
       "player": 1,
-      "text": "priority:[0]"
+      "text": "priority:[1]"
     },
     {
-      "seq": 140,
+      "seq": 142,
       "kind": 8,
       "step": 3
     },
     {
-      "seq": 141,
-      "kind": 10
-    },
-    {
-      "seq": 142,
-      "kind": 10
-    },
-    {
       "seq": 143,
+      "kind": 10
+    },
+    {
+      "seq": 144,
+      "kind": 10
+    },
+    {
+      "seq": 145,
+      "kind": 20,
+      "text": "priority"
+    },
+    {
+      "seq": 146,
+      "kind": 21,
+      "text": "priority:[0]"
+    },
+    {
+      "seq": 147,
+      "kind": 10
+    },
+    {
+      "seq": 148,
+      "kind": 2,
+      "obj": 1,
+      "from": 1,
+      "to": 2
+    },
+    {
+      "seq": 149,
+      "kind": 23
+    },
+    {
+      "seq": 150,
+      "kind": 10
+    },
+    {
+      "seq": 151,
       "kind": 20,
       "text": "priority"
     }
   ],
   "intents": [
     {
-      "seq": 23,
+      "seq": 18,
+      "player": 1,
+      "choices": [
+        1
+      ]
+    },
+    {
+      "seq": 25,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 27,
+      "seq": 29,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 32,
+      "seq": 34,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 36,
+      "seq": 38,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 41,
+      "seq": 43,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 47,
+      "seq": 49,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 53,
+      "seq": 55,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 59,
+      "seq": 61,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 63,
+      "seq": 65,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 69,
+      "seq": 71,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 73,
+      "seq": 75,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 78,
+      "seq": 80,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 82,
+      "seq": 84,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 88,
+      "seq": 90,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 92,
+      "seq": 94,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 96,
+      "seq": 98,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 102,
+      "seq": 104,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 106,
+      "seq": 108,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 111,
+      "seq": 113,
       "player": 1,
       "choices": [
         0
       ]
     },
     {
-      "seq": 115,
+      "seq": 117,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 124,
+      "seq": 126,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 128,
+      "seq": 130,
       "player": 1,
       "choices": [
-        0
+        1
       ]
     },
     {
-      "seq": 134,
+      "seq": 136,
       "player": 0,
       "choices": [
         0
       ]
     },
     {
-      "seq": 138,
+      "seq": 140,
       "player": 1,
+      "choices": [
+        1
+      ]
+    },
+    {
+      "seq": 145,
+      "player": 0,
       "choices": [
         0
       ]
     }
   ],
-  "head": "6fd99d488a84b680",
-  "intent_count": 24,
+  "head": "7828342e4df16cd7",
+  "intent_count": 26,
   "turn": 2,
   "step": "main1",
   "priority": 0,
