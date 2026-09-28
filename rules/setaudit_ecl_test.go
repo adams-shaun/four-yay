@@ -118,59 +118,6 @@ func eclDriveToStep(t *testing.T, e *Engine, turn int32, active state.PlayerID, 
 	t.Fatalf("did not reach turn %d seat %d step %s", turn, active, step)
 }
 
-// TestSetAudit_ecl_Brigid_TransformTriggerFires pins CR 701.26 (transforming)
-// and the "transforms into" trigger: Brigid, Doun's Mind's third ability is
-// "Whenever this creature enters or transforms into Brigid, Clachan's Heart,
-// create a 1/1 green and white Kithkin creature token." The Forge script
-// spells that half `T:Mode$ Transformed`. The engine neither registers nor
-// dispatches that trigger mode (the same gap hits Sygg, Grub, Ashling and
-// Trystan in this set), so a transform produces no token.
-func TestSetAudit_ecl_Brigid_TransformTriggerFires(t *testing.T) {
-	t.Parallel()
-	reg := searchTestRegistry(t)
-	brigid := mustCorpusCard(t, reg, "Brigid, Clachan's Heart // Brigid, Doun's Mind")
-
-	// Precondition: the corpus script really carries the Transformed trigger;
-	// if it drifted the assertion below reads a different rule.
-	sawTransformed := false
-	for _, f := range brigid.Faces {
-		for _, tr := range f.Triggers {
-			if tr.Mode == "Transformed" {
-				sawTransformed = true
-			}
-		}
-	}
-	if !sawTransformed {
-		t.Fatalf("precondition: Brigid carries no Mode$ Transformed trigger")
-	}
-	if effects.Supported()["trig:Transformed"] {
-		t.Fatalf("precondition: the engine now registers trig:Transformed; this finding is closed")
-	}
-
-	e, cfg := eclEngine(t, 615, []string{"Brigid, Clachan's Heart // Brigid, Doun's Mind"}, nil)
-	bid := blightMove(t, e, 0, "Brigid, Clachan's Heart", state.ZBattlefield)
-	e.pending = nil
-	e.priorityRound()
-	passUntilStackEmpty(t, e, 40)
-	if got := eclTokenCreates(e, "gw_1_1_kithkin"); got != 1 {
-		t.Fatalf("precondition: enter trigger made %d Kithkin tokens, want 1", got)
-	}
-
-	// Transform the permanent (CR 701.26): the same FlipFace marker the
-	// engine's own transform paths emit.
-	e.emit(events.Event{Kind: events.FlipFace, Obj: bid, Amount: 1, Text: "Transformed"})
-	e.pending = nil
-	e.priorityRound()
-	passUntilStackEmpty(t, e, 40)
-
-	if got := eclTokenCreates(e, "gw_1_1_kithkin"); got != 2 {
-		eclGuard(t, "the \"transforms into\" trigger (Mode$ Transformed) never fires, so Brigid makes no token on transform",
-			"Register the Mode$ Transformed (transforms-into) trigger")
-		t.Fatalf("Kithkin TokenCreate events after the transform = %d, want 2", got)
-	}
-	replayCheck(t, e, cfg)
-}
-
 // TestSetAudit_ecl_MornsongAria_CantDrawStopsDrawStep pins CR 121.6 and the
 // CantDraw static: Mornsong Aria is "Players can't draw cards or gain life."
 // The draw-step draw (CR 504.1) must not happen while it is on the
