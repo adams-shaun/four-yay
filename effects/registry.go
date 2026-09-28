@@ -957,6 +957,9 @@ type Ctx struct {
 	ClashTop          bool
 	Source            state.ObjID
 	Controller        state.PlayerID
+	// CostUntapped carries permanents untapped as an activation cost into
+	// effects whose Defined.Untapped selector refers to that paid target.
+	CostUntapped []state.ObjID
 	// AffectedObj is the object a static ability is being evaluated FOR --
 	// Forge's "affected" card, whose AffectedX amount a static reads relative
 	// to it. rules binds it on a cost-modifier static's Amount$ evaluation

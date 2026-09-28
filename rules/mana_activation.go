@@ -660,7 +660,27 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		if ma.Kind != "AB" || ma.API != "ManaReflected" || !abilityZoneOK(ma, o.Zone) || !e.activatorAllows(p, id, ma) || e.manaAbilityTapSick(id, ma) || abilityRestricted(ma) || !e.manaAbilityPayable(p, id, ma) || !e.manaReflectedPresentHolds(p, id, ma) {
 			return false
 		}
-		return len(effects.ManaReflectedCandidates(e, ctx(), ma)) > 0
+		// Face contexts are shared across abilities; never let one cost's
+		// elected candidates leak into a sibling ManaReflected ability.
+		c := *ctx()
+		cost := e.parseCost(ma.Params["Cost"])
+		if len(cost.UntapPermanent) > 0 {
+			claimed := map[state.ObjID]bool{}
+			if cost.Tap {
+				claimed[id] = true
+			}
+			for _, part := range cost.UntapPermanent {
+				candidates := e.manaUntapCandidates(p, id, part.Spec, claimed)
+				if int32(len(candidates)) < part.N {
+					return false
+				}
+				for i := int32(0); i < part.N; i++ {
+					c.CostUntapped = append(c.CostUntapped, candidates[i])
+					claimed[candidates[i]] = true
+				}
+			}
+		}
+		return len(effects.ManaReflectedCandidates(e, &c, ma)) > 0
 	}
 	// A ManaReflected ability may sit on the top face or any under-card; each
 	// resolves its own face's table.
@@ -1950,7 +1970,7 @@ func (e *Engine) commitManaDiscard() {
 			sacs: append([]state.ObjID(nil), md.sacs...), gained: md.gained}
 		return
 	}
-	e.resolveManaEffect(md.player, md.source, md.ability, md.cast, md.cumulative, manaTriggers, md.sacs, md.gained)
+	e.resolveManaEffect(md.player, md.source, md.ability, md.cast, md.cumulative, manaTriggers, md.sacs, md.gained, md.untaps)
 	e.continueManaPaymentWindow(md.cumulative)
 }
 
@@ -1976,7 +1996,7 @@ type manaAfterCost struct {
 func (e *Engine) resumeManaAfterCost() {
 	r := e.manaAfterCost
 	e.manaAfterCost = nil
-	e.resolveManaEffect(r.player, r.source, r.ability, r.cast, r.cumulative, r.triggers, r.sacs, r.gained)
+	e.resolveManaEffect(r.player, r.source, r.ability, r.cast, r.cumulative, r.triggers, r.sacs, r.gained, nil)
 	if r.cumulative && e.choosing == chooseNone {
 		e.paymentWindowAsk()
 	}
@@ -2573,7 +2593,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 			e.emit(events.Event{Kind: events.MoveZone, Obj: source, From: o.Zone, To: state.ZHand, Text: "returned to hand as a cost"})
 		}
 	}
-	e.resolveManaEffect(p, source, ma, cast, payment, manaTriggers, sacs, gained)
+	e.resolveManaEffect(p, source, ma, cast, payment, manaTriggers, sacs, gained, nil)
 }
 
 // manaReturnCostSupported reports whether a mana ability's Return<N/Spec>
@@ -2596,7 +2616,7 @@ func manaReturnCostSupported(cost Cost) bool {
 // the permanents the ability's Sac<...> cost sacrificed, so a ManaReflected
 // Valid$ "Defined.Sacrificed" selector (Squandered Resources) can read them
 // through the resolution context's Remembered list.
-func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef) {
+func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef, untaps []state.ObjID) {
 	if strings.TrimSpace(ma.Params["UnlessCost"]) != "" {
 		e.askManaUnless(p, source, ma, cast, cumulative, triggers, sacs, gained)
 		return
@@ -2631,7 +2651,8 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 			}
 			return nil
 		}()
-		ctx := &effects.Ctx{Source: source, Controller: p, SVars: svars}
+		ctx := &effects.Ctx{Source: source, Controller: p, SVars: svars,
+			CostUntapped: append([]state.ObjID(nil), untaps...)}
 		for _, id := range sacs {
 			ctx.Remembered = append(ctx.Remembered, state.Target{Obj: id})
 		}
@@ -2800,7 +2821,7 @@ func (e *Engine) finishManaUnlessPayment(paid bool) {
 			delete(cp.Params, "UnlessCost")
 			delete(cp.Params, "UnlessPayer")
 			delete(cp.Params, "UnlessSwitched")
-			e.resolveManaEffect(m.player, m.source, &cp, m.cast, m.cumulative, m.triggers, m.sacs, m.gained)
+			e.resolveManaEffect(m.player, m.source, &cp, m.cast, m.cumulative, m.triggers, m.sacs, m.gained, nil)
 		} else {
 			e.resolveTriggeredManaAbilities(m.triggers, m.cast, m.cumulative)
 			e.continueManaPaymentWindow(m.cumulative)

@@ -206,6 +206,15 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 		}
 		return out, true
 	case "Untapped":
+		if len(c.CostUntapped) > 0 {
+			var out []state.ObjID
+			for _, id := range c.CostUntapped {
+				if o := g.Obj(id); o != nil && o.Zone == state.ZBattlefield {
+					out = append(out, id)
+				}
+			}
+			return out, true
+		}
 		var out []state.ObjID
 		for _, q := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZBattlefield, q) {

@@ -68,25 +68,26 @@ func (e *Engine) manaSubCounterStage(md *manaDiscardActivation) bool {
 			// No choice: a single legal value needs no zero-information ask
 			// (the cast path's own convention), and a non-interactive caller
 			// takes the maximum the board can settle so a silent activation
-			// still produces all the mana it can.
+			// still produces all the mana it can. Do not return here: the
+			// removal-parts loop below must still record the mandatory payment.
 			md.subX = bound
 			md.subXAnnounced = true
 			md.ability = manaAbilityWithSubX(md.ability, md.subX)
-			return false
+		} else {
+			d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: 1, Max: 1,
+				Prompt: "Choose a value for X", Source: md.source}
+			// Descending, maximum first: the deterministic driver's first answer
+			// (the audit's drive, the bot's first-legal arm) then takes the whole
+			// amount the board can settle, which is what a mana ability is for.
+			// Every lower value down to the floor stays legal.
+			for x := bound; x >= min; x-- {
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "x",
+					Label: fmt.Sprintf("X = %d", x), Amount: int(x)})
+			}
+			e.choosing = chooseManaSubCounter
+			e.ask(d)
+			return true
 		}
-		d := &decision.Decision{Player: md.player, Kind: decision.KChoose, Min: 1, Max: 1,
-			Prompt: "Choose a value for X", Source: md.source}
-		// Descending, maximum first: the deterministic driver's first answer
-		// (the audit's drive, the bot's first-legal arm) then takes the whole
-		// amount the board can settle, which is what a mana ability is for.
-		// Every lower value down to the floor stays legal.
-		for x := bound; x >= min; x-- {
-			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "x",
-				Label: fmt.Sprintf("X = %d", x), Amount: int(x)})
-		}
-		e.choosing = chooseManaSubCounter
-		e.ask(d)
-		return true
 	}
 	for md.subPart < len(md.cost.SubCounter) {
 		part := md.cost.SubCounter[md.subPart]

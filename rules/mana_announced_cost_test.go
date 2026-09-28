@@ -138,6 +138,30 @@ func TestManaAnnouncedSubCounterXMinFloor(t *testing.T) {
 	}
 }
 
+// TestManaAnnouncedSubCounterXMinAutoPays covers the single-value XMin path:
+// Rasputin with exactly one dream counter must remove it when X=1 is implied.
+func TestManaAnnouncedSubCounterXMinAutoPays(t *testing.T) {
+	t.Parallel()
+	e, cfg, ids := manaTapBoard(t, 7806, "Rasputin, the Oneiromancer")
+	r := ids["Rasputin, the Oneiromancer"]
+	e.emit(events.Event{Kind: events.CounterChange, Obj: r, Counter: "DREAM", Amount: 1})
+	reprioritize(t, e)
+	if o := e.G.Obj(r); o == nil || o.Zone != state.ZBattlefield || o.Counter("DREAM") != 1 {
+		t.Fatalf("fixture: Rasputin must be on the battlefield with exactly one dream counter: %+v", o)
+	}
+	if !hasActivateOption(e, r) {
+		t.Fatalf("Rasputin not offered with its XMin payment available: %+v", e.Pending().Options)
+	}
+	submitChoices(t, e, activateOption(t, e, r))
+	if got := e.G.Obj(r).Counter("DREAM"); got != 0 {
+		t.Fatalf("after implied X=1 activation, Rasputin has %d dream counters, want 0", got)
+	}
+	if got := e.G.Players[0].Pool.Total(); got != 1 {
+		t.Fatalf("after implied X=1 activation, pool total = %d, want 1", got)
+	}
+	replayCheck(t, e, cfg)
+}
+
 // TestManaForageCost is Thornvault Forager's "{T}, Forage: Add two mana in
 // any combination of colors": with a Food on the battlefield the ability is
 // offered, the forage ask offers the sacrifice arm, and answering it
@@ -221,14 +245,9 @@ func TestManaForageCost(t *testing.T) {
 }
 
 // TestManaUntapYTypeCost is Benthic Explorers' "{T}, Untap a tapped land an
-// opponent controls: Add one mana of any type that land could produce". The
-// landed machinery is the parse, the offer-gate read (manaUntapPayable) and
-// the settle's candidate walk (manaUntapCandidates), all asserted here. The
-// Produced$ body reads Valid$ Defined.Untapped, which the reflected-mana
-// resolver reads as the CONTROLLER's own untapped permanents -- on this board
-// (seat 0 controls no land) the ability is withheld; on the audit board (seat
-// 0's five basics) it is offered and reflects the WRONG land. See the filed
-// reflected-selector ticket.
+// opponent controls: Add one mana of any type that land could produce". It
+// asserts the offer, the exact elected target, and the full untap/reflection
+// settle end to end.
 func TestManaUntapYTypeCost(t *testing.T) {
 	t.Parallel()
 	e, cfg, ids := manaTapBoard(t, 7804, "Benthic Explorers")
@@ -255,6 +274,19 @@ func TestManaUntapYTypeCost(t *testing.T) {
 	if e.G.Obj(b).Tapped {
 		t.Fatal("fixture: Benthic must start untapped")
 	}
+	// Precondition for a NON-VACUOUS reflection assertion: seat 0 controls no
+	// untapped permanents of its own, so reflected mana can only come from the
+	// elected opponent land. Without this, the old controller-untapped fallback
+	// (effects/mana_reflected.go reflectedDefinedExtras "Untapped") could
+	// satisfy the pool check from the wrong permanent.
+	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+		if id == b { // the source is necessarily untapped before activation, then taps as a cost.
+			continue
+		}
+		if o := e.G.Obj(id); o != nil && !o.Tapped {
+			t.Fatalf("fixture: seat 0 controls untapped permanent %d (%s); the reflection assertion would be ambiguous", id, o.Face().Name)
+		}
+	}
 	// The landed machinery: the cost parses (no Cost.Unknown), the offer-gate
 	// read finds the tapped opponent land, and the settle's candidate walk
 	// offers exactly it.
@@ -269,18 +301,22 @@ func TestManaUntapYTypeCost(t *testing.T) {
 	if len(cands) != 1 || cands[0] != mnt {
 		t.Fatalf("manaUntapCandidates = %v, want exactly the tapped Mountain %d", cands, mnt)
 	}
-	// The remaining blocker is outside this cost's scope and board-dependent:
-	// the Produced$ body reads Valid$ Defined.Untapped, which reflects the
-	// CONTROLLER's own untapped permanents. Seat 0 controls no land here, so
-	// the candidate set is empty and the ability is withheld. On a board where
-	// seat 0 does control an untapped permanent it would be offered and
-	// reflect THAT permanent, not the untapYType target. Assert the gap
-	// explicitly so the behaviour is measured, not assumed.
-	if hasActivateOption(e, b) {
-		t.Fatalf("Benthic Explorers offered on a board where seat 0 controls no untapped permanent: the Defined.Untapped reflection gap changed")
+	if !hasActivateOption(e, b) {
+		t.Fatalf("Benthic Explorers not offered with tapped opponent Mountain: %+v", e.Pending().Options)
 	}
-	if abs := e.availableManaAbilities(0, b); len(abs) != 0 {
-		t.Fatalf("availableManaAbilities = %d, want 0 on a board where seat 0 controls no untapped permanent", len(abs))
+	submitChoices(t, e, activateOption(t, e, b))
+	if o := e.G.Obj(mnt); o == nil || o.Tapped {
+		t.Fatalf("elected opponent Mountain was not untapped as the cost: %+v", o)
+	}
+	if got := e.G.Players[0].Pool.Total(); got != 1 {
+		t.Fatalf("Benthic reflected mana pool total = %d, want 1 from elected Mountain", got)
+	}
+	// The opponent Mountain produces R, so binding the reflection to the
+	// ELECTED permanent (Ctx.CostUntapped) adds a red unit; the pre-fix
+	// fallback read the controller's own untapped permanents (none here) and
+	// withheld the ability entirely.
+	if got := e.G.Players[0].Pool[state.ManaIndex('R')]; got != 1 {
+		t.Fatalf("Benthic reflected mana red slot = %d, want 1 (the elected Mountain's colour)", got)
 	}
 	replayCheck(t, e, cfg)
 }

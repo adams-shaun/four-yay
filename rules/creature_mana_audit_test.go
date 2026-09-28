@@ -80,16 +80,9 @@ var knownUnsupportedCreatureMana = map[string]string{
 	// Jetfire, Thornvault Forager and Benthic Explorers all went live and
 	// their rows were deleted from this table in the same commit.
 	//
-	// KNOWN SEPARATE BUG (filed, NOT this table): Benthic Explorers'
-	// Produced$ body reads `Valid$ Defined.Untapped`, and the reflected-mana
-	// resolver reads that selector as the CONTROLLER's own untapped
-	// permanents (effects/mana_reflected.go reflectedDefinedExtras
-	// "Untapped"), never the untapYType target an opponent controls. On a
-	// board where the controller has no untapped permanent the ability is
-	// still withheld; where they do, it reflects the WRONG land. The audit
-	// board carries the controller's five basics, so it measures the ability
-	// live. Fixing the selector semantics is a reflected-selector design
-	// change, out of the cost-support ticket. See the .ds4 ticket.
+	// Benthic Explorers' `Defined.Untapped` reflection is bound to the exact
+	// permanent(s) paid through untapYType by effects.Ctx.CostUntapped, so its
+	// produced mana comes from the opponent land it actually untapped.
 	// Board-dependent activation gates that are false on a bare board.
 	"Circle of Elders|A0":            "gate: CheckSVar FormidableTest (total power >= 8) is false",
 	"Fanatic of Rhonas|A1":           "gate: IsPresent$ Creature.YouCtrl+powerGE4 (ferocious) is false",
