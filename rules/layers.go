@@ -2605,6 +2605,9 @@ func removedSubtype(word, removedType string, current []string, universe []*card
 		return false
 	}
 	if len(universe) == 0 {
+		if knownCreatureSubtype && hasRemainingKindredOwner(current) {
+			return false
+		}
 		return knownCreatureSubtype || noOtherCardType(current, removedType)
 	}
 	key := landTypeWordsKey{first: &universe[0], n: len(universe)}
@@ -2633,8 +2636,13 @@ func removedSubtype(word, removedType string, current []string, universe []*card
 	_, knownSubtype := byType[strings.ToLower(removedType)][strings.ToLower(word)]
 	knownSubtype = knownSubtype || knownCreatureSubtype
 	for _, typ := range current {
-		if isCardType(typ) && !strings.EqualFold(typ, removedType) {
+		if (isCardType(typ) || isKindredType(typ)) && !strings.EqualFold(typ, removedType) {
 			if _, shared := byType[strings.ToLower(typ)][strings.ToLower(word)]; shared {
+				return false
+			}
+			// Kindred (formerly Tribal) makes the creature subtype part of
+			// the surviving Kindred type line even when a face also has Creature.
+			if isKindredType(typ) && effects.CreatureTypeWords(word) {
 				return false
 			}
 		}
@@ -2645,13 +2653,26 @@ func removedSubtype(word, removedType string, current []string, universe []*card
 	return knownSubtype || noOtherCardType(current, removedType)
 }
 
+func hasRemainingKindredOwner(types []string) bool {
+	for _, typ := range types {
+		if isKindredType(typ) {
+			return true
+		}
+	}
+	return false
+}
+
 func noOtherCardType(types []string, removedType string) bool {
 	for _, typ := range types {
-		if isCardType(typ) && !strings.EqualFold(typ, removedType) {
+		if (isCardType(typ) || isKindredType(typ)) && !strings.EqualFold(typ, removedType) {
 			return false
 		}
 	}
 	return true
+}
+
+func isKindredType(t string) bool {
+	return strings.EqualFold(t, "Kindred") || strings.EqualFold(t, "Tribal")
 }
 
 func buildRemovedSubtypeMap(universe []*cards.Card) map[string]map[string]struct{} {
@@ -2679,17 +2700,30 @@ func buildRemovedSubtypeMap(universe []*cards.Card) map[string]map[string]struct
 			var onlyType string
 			count := 0
 			for _, word := range face.Types {
-				if isCardType(word) {
+				if isCardType(word) || isKindredType(word) {
 					count++
 					onlyType = word
 				}
 			}
-			if count != 1 {
-				continue
+			if count == 1 {
+				for _, word := range face.Types {
+					if !isCardType(word) && !isKindredType(word) && !isSupertype(word) {
+						addOwner(word, onlyType)
+					}
+				}
 			}
-			for _, word := range face.Types {
-				if !isCardType(word) && !isSupertype(word) {
-					addOwner(word, onlyType)
+			// A Kindred/Tribal subtype is owned by that card type even when
+			// the face also has Creature (or another card type). Keep this
+			// ownership alongside Creature so shared creature subtypes survive
+			// removal of Creature while Kindred/Tribal remains.
+			for _, typ := range face.Types {
+				if !isKindredType(typ) {
+					continue
+				}
+				for _, word := range face.Types {
+					if !isCardType(word) && !isKindredType(word) && !isSupertype(word) {
+						addOwner(word, typ)
+					}
 				}
 			}
 		}
