@@ -247,6 +247,20 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 		return 0, false
 	}
 	expr = strings.TrimSpace(expr)
+	// PlayerCountRemembered$Valid carries its /Op on the bare Valid filter
+	// argument in Forge SVars (Pox, Pox Plague and Fraying Omnipotence). Peel
+	// that suffix before the head dispatch: evalCountBody otherwise passes it
+	// to the zone matcher as part of the filter and gets an evaluated zero,
+	// preventing the generic bare-expression operator fallback from running.
+	// Keep this scoped to the one head and to modeled operators so player-head
+	// and unknown-operator behavior remains unchanged.
+	if strings.HasPrefix(expr, "PlayerCountRemembered$Valid ") {
+		if body, op, hasOp := strings.Cut(expr, "/"); hasOp && modelledCountOp(c, op) {
+			if n, ok := evalCountBody(h, c, strings.TrimSpace(body), depth); ok {
+				return applyCountOpOperand(h, c, n, strings.TrimSpace(op), depth), true
+			}
+		}
+	}
 	// A Remembered$... expression answers a question about the objects this
 	// resolving spell/ability has remembered so far -- Forge's host remembered
 	// list, which never contains the event object the trigger fired on. It is
@@ -1975,7 +1989,7 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	if n, ok := evalCov3Head(h, c, head, arg, depth); ok {
 		return n, true
 	}
-	if n, ok := evalCov3PlayerHead(h, c, head, arg); ok {
+	if n, ok := evalCov3PlayerHead(h, c, head, arg, depth); ok {
 		return n, true
 	}
 
@@ -4946,7 +4960,7 @@ func modelledCountOp(c *Ctx, op string) bool {
 
 func validConvokedCountOp(op string) bool {
 	switch op {
-	case "Twice", "Thrice", "HalfDown", "HalfUp", "Negative":
+	case "Twice", "Thrice", "HalfDown", "HalfUp", "ThirdUp", "Negative":
 		return true
 	}
 	for _, prefix := range []string{"Plus.", "Minus.", "NMinus.", "Times.", "Divide.", "DivideEvenly.", "DivideEvenlyUp.", "DivideEvenlyDown."} {
@@ -5003,6 +5017,8 @@ func applyCountOp(n int32, op string) int32 {
 		v /= 2
 	case op == "HalfUp":
 		v = (v + 1) / 2
+	case op == "ThirdUp":
+		v = (v + 2) / 3
 	case op == "Negative":
 		v = -v
 	case strings.HasPrefix(op, "Divide"):
