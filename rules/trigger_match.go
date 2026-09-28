@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -2733,6 +2734,11 @@ func init() {
 		// shape is understood; the chosen-companion pregame pick and the
 		// outside-the-game activation are separate play-side work.
 		"kw:Companion",
+		// "A deck can have any number of cards named CARDNAME." (Relentless
+		// Rats, Hare Apparent) is DECK CONSTRUCTION too (CR 100.2a /
+		// 903.5b): deck.AnyNumberAllowed exempts it from the Commander
+		// singleton check, and nothing in play reads it.
+		"kw:"+deck.AnyNumberKeyword,
 		// Graft (CR 702.57): the optional move-counter trigger is expanded
 		// from the keyword line in cards/kw_graft.go.
 		"kw:Graft",

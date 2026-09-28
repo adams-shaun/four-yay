@@ -1,0 +1,88 @@
+{
+ "name": "FDN04-WB",
+ "format": "limited",
+ "archetype": "WB",
+ "notes": "SpellBench FDN Limited catalog deck FDN04-WB (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=00eb39d15f1f1e61, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Cat Collector",
+   "count": 1
+  },
+  {
+   "name": "Dazzling Angel",
+   "count": 1
+  },
+  {
+   "name": "Eaten Alive",
+   "count": 1
+  },
+  {
+   "name": "Elenda, Saint of Dusk",
+   "count": 1
+  },
+  {
+   "name": "Evolving Wilds",
+   "count": 2
+  },
+  {
+   "name": "Exemplar of Light",
+   "count": 1
+  },
+  {
+   "name": "Fake Your Own Death",
+   "count": 2
+  },
+  {
+   "name": "Felidar Savior",
+   "count": 1
+  },
+  {
+   "name": "Goldvein Pick",
+   "count": 1
+  },
+  {
+   "name": "Healer's Hawk",
+   "count": 1
+  },
+  {
+   "name": "Hungry Ghoul",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 1
+  },
+  {
+   "name": "Inspiring Paladin",
+   "count": 2
+  },
+  {
+   "name": "Plains",
+   "count": 8
+  },
+  {
+   "name": "Skyknight Squire",
+   "count": 1
+  },
+  {
+   "name": "Solemn Simulacrum",
+   "count": 1
+  },
+  {
+   "name": "Soul-Shackled Zombie",
+   "count": 3
+  },
+  {
+   "name": "Stab",
+   "count": 2
+  },
+  {
+   "name": "Swamp",
+   "count": 7
+  },
+  {
+   "name": "Zul Ashur, Lich Lord",
+   "count": 2
+  }
+ ]
+}

@@ -1,0 +1,108 @@
+{
+ "name": "FDN16-UG",
+ "format": "limited",
+ "archetype": "UG",
+ "notes": "SpellBench FDN Limited catalog deck FDN16-UG (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=03109abf65106d79, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Archmage of Runes",
+   "count": 1
+  },
+  {
+   "name": "Beast-Kin Ranger",
+   "count": 2
+  },
+  {
+   "name": "Bite Down",
+   "count": 1
+  },
+  {
+   "name": "Bushwhack",
+   "count": 1
+  },
+  {
+   "name": "Cackling Prowler",
+   "count": 1
+  },
+  {
+   "name": "Dwynen's Elite",
+   "count": 3
+  },
+  {
+   "name": "Dwynen, Gilt-Leaf Daen",
+   "count": 1
+  },
+  {
+   "name": "Evolving Wilds",
+   "count": 1
+  },
+  {
+   "name": "Forest",
+   "count": 8
+  },
+  {
+   "name": "Island",
+   "count": 6
+  },
+  {
+   "name": "Llanowar Elves",
+   "count": 1
+  },
+  {
+   "name": "Lunar Insight",
+   "count": 1
+  },
+  {
+   "name": "Meteor Golem",
+   "count": 1
+  },
+  {
+   "name": "Micromancer",
+   "count": 1
+  },
+  {
+   "name": "Mild-Mannered Librarian",
+   "count": 1
+  },
+  {
+   "name": "Needletooth Pack",
+   "count": 1
+  },
+  {
+   "name": "Nessian Hornbeetle",
+   "count": 1
+  },
+  {
+   "name": "Reclamation Sage",
+   "count": 1
+  },
+  {
+   "name": "Spinner of Souls",
+   "count": 1
+  },
+  {
+   "name": "Think Twice",
+   "count": 1
+  },
+  {
+   "name": "Thornwood Falls",
+   "count": 1
+  },
+  {
+   "name": "Treetop Snarespinner",
+   "count": 1
+  },
+  {
+   "name": "Uncharted Voyage",
+   "count": 1
+  },
+  {
+   "name": "Vivien Reid",
+   "count": 1
+  },
+  {
+   "name": "Wary Thespian",
+   "count": 1
+  }
+ ]
+}

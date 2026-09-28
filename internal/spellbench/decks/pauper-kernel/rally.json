@@ -1,0 +1,64 @@
+{
+ "name": "Rally",
+ "format": "pauper",
+ "archetype": "rally",
+ "notes": "SpellBench pauper-kernel catalog deck Rally (mainboard, bo1). Source: jackmaiorino/mtg-kernel data/pauper_pool_v1.json (MIT), from oracle/xmage/decks/Pauper/Deck - Mono Red Rally.dek.",
+ "cards": [
+  {
+   "name": "Burning-Tree Emissary",
+   "count": 4
+  },
+  {
+   "name": "Chain Lightning",
+   "count": 2
+  },
+  {
+   "name": "Clockwork Percussionist",
+   "count": 4
+  },
+  {
+   "name": "End the Festivities",
+   "count": 1
+  },
+  {
+   "name": "Experimental Synthesizer",
+   "count": 3
+  },
+  {
+   "name": "Galvanic Blast",
+   "count": 4
+  },
+  {
+   "name": "Goblin Bushwhacker",
+   "count": 4
+  },
+  {
+   "name": "Goblin Tomb Raider",
+   "count": 4
+  },
+  {
+   "name": "Great Furnace",
+   "count": 4
+  },
+  {
+   "name": "Lightning Bolt",
+   "count": 4
+  },
+  {
+   "name": "Mountain",
+   "count": 14
+  },
+  {
+   "name": "Rally at the Hornburg",
+   "count": 4
+  },
+  {
+   "name": "Reckless Impulse",
+   "count": 4
+  },
+  {
+   "name": "Voldaren Epicure",
+   "count": 4
+  }
+ ]
+}

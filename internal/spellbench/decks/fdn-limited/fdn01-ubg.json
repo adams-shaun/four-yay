@@ -1,0 +1,112 @@
+{
+ "name": "FDN01-UBG",
+ "format": "limited",
+ "archetype": "UBG",
+ "notes": "SpellBench FDN Limited catalog deck FDN01-UBG (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=000487ebdcd5d591, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Arcane Epiphany",
+   "count": 1
+  },
+  {
+   "name": "Archmage of Runes",
+   "count": 1
+  },
+  {
+   "name": "Bigfin Bouncer",
+   "count": 1
+  },
+  {
+   "name": "Blasphemous Edict",
+   "count": 1
+  },
+  {
+   "name": "Burglar Rat",
+   "count": 1
+  },
+  {
+   "name": "Cephalid Inkmage",
+   "count": 1
+  },
+  {
+   "name": "Dismal Backwater",
+   "count": 1
+  },
+  {
+   "name": "Erudite Wizard",
+   "count": 2
+  },
+  {
+   "name": "Essence Scatter",
+   "count": 1
+  },
+  {
+   "name": "Extravagant Replication",
+   "count": 1
+  },
+  {
+   "name": "Fake Your Own Death",
+   "count": 1
+  },
+  {
+   "name": "Forest",
+   "count": 1
+  },
+  {
+   "name": "Gleaming Barrier",
+   "count": 1
+  },
+  {
+   "name": "Grappling Kraken",
+   "count": 1
+  },
+  {
+   "name": "Island",
+   "count": 6
+  },
+  {
+   "name": "Jungle Hollow",
+   "count": 2
+  },
+  {
+   "name": "Liliana, Dreadhorde General",
+   "count": 1
+  },
+  {
+   "name": "Micromancer",
+   "count": 1
+  },
+  {
+   "name": "Refute",
+   "count": 1
+  },
+  {
+   "name": "Solemn Simulacrum",
+   "count": 1
+  },
+  {
+   "name": "Stab",
+   "count": 2
+  },
+  {
+   "name": "Strix Lookout",
+   "count": 1
+  },
+  {
+   "name": "Swamp",
+   "count": 6
+  },
+  {
+   "name": "Tatyova, Benthic Druid",
+   "count": 1
+  },
+  {
+   "name": "Think Twice",
+   "count": 2
+  },
+  {
+   "name": "Thornwood Falls",
+   "count": 1
+  }
+ ]
+}

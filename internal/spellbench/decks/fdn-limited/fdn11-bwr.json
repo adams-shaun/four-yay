@@ -1,0 +1,88 @@
+{
+ "name": "FDN11-BWR",
+ "format": "limited",
+ "archetype": "BWR",
+ "notes": "SpellBench FDN Limited catalog deck FDN11-BWR (mainboard, bo1). Source: 17lands FDN PremierDraft replay data (CC BY 4.0), deck sha256(draft_id:build_index)=02680aa74074a4ca, player in the >= 0.60 game-win-rate bucket (the DraftZero FDN pool definition).",
+ "cards": [
+  {
+   "name": "Campus Guide",
+   "count": 1
+  },
+  {
+   "name": "Chandra, Flameshaper",
+   "count": 1
+  },
+  {
+   "name": "Eaten Alive",
+   "count": 2
+  },
+  {
+   "name": "Elenda, Saint of Dusk",
+   "count": 1
+  },
+  {
+   "name": "Fiery Annihilation",
+   "count": 1
+  },
+  {
+   "name": "Gorehorn Raider",
+   "count": 1
+  },
+  {
+   "name": "Hero's Downfall",
+   "count": 3
+  },
+  {
+   "name": "Hungry Ghoul",
+   "count": 3
+  },
+  {
+   "name": "Infernal Vessel",
+   "count": 1
+  },
+  {
+   "name": "Infestation Sage",
+   "count": 1
+  },
+  {
+   "name": "Mountain",
+   "count": 6
+  },
+  {
+   "name": "Pilfer",
+   "count": 1
+  },
+  {
+   "name": "Plains",
+   "count": 1
+  },
+  {
+   "name": "Slagstorm",
+   "count": 1
+  },
+  {
+   "name": "Soul-Shackled Zombie",
+   "count": 1
+  },
+  {
+   "name": "Stab",
+   "count": 2
+  },
+  {
+   "name": "Swamp",
+   "count": 10
+  },
+  {
+   "name": "Tragic Banshee",
+   "count": 1
+  },
+  {
+   "name": "Vampire Soulcaller",
+   "count": 1
+  },
+  {
+   "name": "Vengeful Bloodwitch",
+   "count": 1
+  }
+ ]
+}

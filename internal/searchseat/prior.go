@@ -1,7 +1,6 @@
 package searchseat
 
 import (
-	"math"
 	"sort"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -147,39 +146,12 @@ func priorOrder(m *policynet.Model, v view.View, d *decision.Decision, bot decis
 	return keep, changed
 }
 
-// candidateScore is the head's opinion of one candidate. Attackers are
-// trained with a per-option binary (BCE) loss, so a declared subset's
-// log-likelihood is sum log sigmoid(s_i) over the included options plus
-// sum log(1 - sigmoid(s_j)) over the excluded ones. Priority is a softmax
-// (CE) head: a single option's score ranks it.
+// candidateScore is the head's opinion of one candidate: the attackers head
+// is a per-option BCE head (subset log-likelihood), every other kind this
+// prior ranks is a single-option softmax head. The definition lives in
+// policynet.CandidateScore, shared with the AlphaZero search; the pn10 prior
+// has never ranked blockers, so kind == "attackers" is exactly the pre-move
+// behaviour (pinned by TestCandidateScoreMoveIsBitIdentical).
 func candidateScore(kind string, scores []float32, choices []int) float64 {
-	if kind != "attackers" {
-		if len(choices) != 1 || choices[0] < 0 || choices[0] >= len(scores) {
-			return math.Inf(-1)
-		}
-		return float64(scores[choices[0]])
-	}
-	in := make([]bool, len(scores))
-	for _, c := range choices {
-		if c >= 0 && c < len(in) {
-			in[c] = true
-		}
-	}
-	ll := 0.0
-	for i, s := range scores {
-		if in[i] {
-			ll -= softplus(-float64(s)) // log sigmoid(s)
-		} else {
-			ll -= softplus(float64(s)) // log(1 - sigmoid(s))
-		}
-	}
-	return ll
-}
-
-// softplus is log(1 + e^z), computed without overflow.
-func softplus(z float64) float64 {
-	if z > 0 {
-		return z + math.Log1p(math.Exp(-z))
-	}
-	return math.Log1p(math.Exp(z))
+	return policynet.CandidateScore(kind == "attackers", scores, choices)
 }
