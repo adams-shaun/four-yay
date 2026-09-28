@@ -87,9 +87,6 @@ var oracleKnownDivergent = map[string]string{
 	// DamagedBy matcher (40 corpus scripts use that qualifier). The script
 	// accurately encodes Hawkeye's printed condition.
 	"Hawkeye, Avenging Archer/damaged-victim-dies-draw": "observed no draw (hand 0), expected one draw (hand 1) after Hawkeye damaged the victim",
-	// Engine primitive: entering Angel appears to be included in Giada's CountValid
-	// when pricing the replacement, rather than counting only Angels already controlled.
-	"Giada, Font of Hope/another-angel-enters-with-one": "Serra Angel enters 6/6 with two counters, expected 5/5 with one",
 	// Engine primitive: the Effect-created entry replacement from the attack
 	// trigger does not put its counter on the remembered Hero returned from the graveyard.
 	"Winter Soldier, Reborn Avenger/eligible-hero-returns-with-counter": "Captain America returns 3/4 with zero counters, expected 4/5 with one",
