@@ -80,6 +80,7 @@ type pendingTrigger struct {
 	// push event, rather than as an immediate turn action.
 	MonarchDraw    bool
 	RadiationDrain bool
+	SpeedIncrease  bool
 	// Merged marks a mutated pile's under-card trigger (CR 702.140d): like
 	// a delayed trigger its Ability is the Execute$ SVar-named body, but the
 	// push must resolve that name against the UNDER-CARD's own face, never
@@ -750,15 +751,31 @@ func (e *Engine) noteTriggerResolved(source state.ObjID) {
 // runs dry instead of running forever.
 const maxTriggerFires = 256
 
+// objectWalkZones is the deterministic per-seat zone order forEachObject and
+// the trigger walk visit. It is the historical library..stack order with the
+// command zone appended after the stack, matching ZCommand's own
+// append-after-stack definition (state/ids.go) while touching no existing
+// zone ordinal. ZCeased is deliberately absent: it is an inert tombstone with
+// no membership list, not a game zone. ZSideboard and ZPlanarDeck are private
+// zones outside the ordinary walk.
+var objectWalkZones = [...]state.Zone{
+	state.ZLibrary, state.ZHand, state.ZBattlefield,
+	state.ZGraveyard, state.ZExile, state.ZStack, state.ZCommand,
+}
+
 // forEachObject walks every object currently in the game exactly once, in a
 // fixed, deterministic order: living seats in ascending order from seat 0,
-// then zone in Zone's own declared order (library, hand, battlefield,
-// graveyard, exile, stack), then position within that zone's slice.
+// then zone in objectWalkZones' declared order (library, hand, battlefield,
+// graveyard, exile, stack, command), then position within that zone's slice.
 // checkTriggers and applyReplacements both need this same walk for their own
 // discovery to be deterministic, so it is factored out here rather than
 // duplicated. Game.Zone ignores its player argument for ZStack (the stack is
 // shared across controllers, not per-seat), so that zone is visited only
-// once, on the first living seat, rather than once per living player.
+// once, on the first living seat, rather than once per living player. The
+// command zone joined the walk so a printed trigger that functions from it
+// (Sidar Jabari of Zhalfir's Eminence, and the three other Eminence cards) is
+// scanned at all; printed replacements reached through this walk are held to
+// their declared zone by commandReplZoneAdmits.
 //
 // Memory: the live zone slice is copied into e.foreachBuf (engine.go) before
 // the walk, because fn can move objects between zones (a trigger match
@@ -788,7 +805,7 @@ func (e *Engine) forEachObject(fn func(id state.ObjID)) {
 		buf = nil
 	}
 	for si, p := range e.G.AliveFrom(0) {
-		for z := state.ZLibrary; z <= state.ZStack; z++ {
+		for _, z := range objectWalkZones {
 			if z == state.ZStack && si != 0 {
 				continue
 			}

@@ -961,10 +961,9 @@ func TestUrzasSagaChaptersAndLoreCounters(t *testing.T) {
 
 // TestStartYourEnginesSpeedLifecycle is kw:Start your engines' leaf (real
 // corpus Amonkhet Raceway): entry starts a speed-less controller at 1 (CR
-// 702.163a); an opponent losing life takes the turn's ONE increase (163b),
-// including on another seat's turn and for every eligible player in a
-// multiplayer game; max speed 4 turns the "Max speed —" static's granted
-// ability on (163c), and activating it gives the target haste.
+// 702.179a); an opponent losing life during the active player's turn queues
+// that player's once-per-turn trigger (702.179d); max speed 4 turns on the
+// granted ability, and activating it gives the target haste.
 func TestStartYourEnginesSpeedLifecycle(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, bearSrc)
@@ -983,31 +982,42 @@ func TestStartYourEnginesSpeedLifecycle(t *testing.T) {
 	}
 	// The turn's increase: one opponent loss, once.
 	e.emit(events.Event{Kind: events.LifeChange, Player: 1, Amount: -1})
+	e.priorityRound()
+	passUntilStackEmpty(t, e, 30)
 	if got := e.G.Players[0].Speed; got != 2 {
-		t.Fatalf("speed after an opponent lost life: %d, want 2", got)
+		t.Fatalf("speed after the trigger resolved: %d, want 2", got)
 	}
 	e.emit(events.Event{Kind: events.LifeChange, Player: 1, Amount: -1})
 	if got := e.G.Players[0].Speed; got != 2 {
 		t.Fatalf("a second loss the same turn raised speed to %d, want 2 (once per turn)", got)
 	}
-	// On seat 1's turn, seat 2 is an opponent of BOTH speed-holding seats.
-	// CR 702.163b has no active-player restriction: both must gain.
 	for driveToTurn(t, e, 2, 1) {
 	}
 	e.emit(events.Event{Kind: events.LifeChange, Player: 2, Amount: -1})
-	if got := e.G.Players[0].Speed; got != 3 {
-		t.Fatalf("non-active seat 0 speed after seat 2 lost life: %d, want 3", got)
+	e.priorityRound()
+	passUntilStackEmpty(t, e, 30)
+	if got := e.G.Players[0].Speed; got != 2 {
+		t.Fatalf("non-active seat 0 speed after seat 2 lost life: %d, want 2", got)
 	}
 	if got := e.G.Players[1].Speed; got != 2 {
 		t.Fatalf("active seat 1 speed after seat 2 lost life: %d, want 2", got)
 	}
-	// A later opponent loss reaches max speed 4 for seat 0. Its next turn
-	// also clears summoning sickness from Raceway before activating Max speed.
 	for driveToTurn(t, e, 4, 0) {
 	}
 	e.emit(events.Event{Kind: events.LifeChange, Player: 1, Amount: -1})
+	e.priorityRound()
+	passUntilStackEmpty(t, e, 30)
+	for driveToTurn(t, e, 7, 0) {
+	}
+	e.emit(events.Event{Kind: events.LifeChange, Player: 1, Amount: -1})
+	e.priorityRound()
+	passUntilStackEmpty(t, e, 30)
 	if got := e.G.Players[0].Speed; got != 4 {
 		t.Fatalf("speed at max: %d, want 4", got)
+	}
+	e.emit(events.Event{Kind: events.LifeChange, Player: 1, Amount: -1})
+	if len(e.pendingTriggers) != 0 || e.G.Players[0].Speed != 4 {
+		t.Fatalf("max speed queued a trigger: pending=%d speed=%d", len(e.pendingTriggers), e.G.Players[0].Speed)
 	}
 	// The max-speed static's granted ability is offered; activating it gives
 	// the Bear haste.
