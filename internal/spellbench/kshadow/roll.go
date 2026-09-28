@@ -46,6 +46,23 @@ type RollConfig struct {
 	Clock    func() float64
 	BudgetMS float64
 	stopped  int
+	early    int
+}
+
+// decided reports that every evaluated candidate's mean is above 0.95 or
+// every one below 0.05.
+func decided(res []rollResult) bool {
+	hi, lo, n := true, true, 0
+	for _, x := range res {
+		if x.n == 0 {
+			continue
+		}
+		n++
+		m := x.mean()
+		hi = hi && m > 0.95
+		lo = lo && m < 0.05
+	}
+	return n > 0 && (hi || lo)
 }
 
 // DefaultRoll is the starting budget.
@@ -222,6 +239,12 @@ func (r *RollConfig) evaluate(sh *Shadow, acts []*action, seed uint64, look buil
 	for w := 0; w < r.Worlds; w++ {
 		if r.Clock != nil && r.BudgetMS > 0 && w >= 2 && r.Clock()-t0 > r.BudgetMS {
 			r.stopped++
+			break
+		}
+		if w >= 8 && decided(res) {
+			// Every candidate already wins (or loses) nearly every world:
+			// more worlds cannot change the choice's outcome.
+			r.early++
 			break
 		}
 		ws := mix(seed ^ mix(uint64(w)+0x77))
