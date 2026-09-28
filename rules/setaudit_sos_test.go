@@ -432,9 +432,6 @@ func TestSetAudit_sos_EliteInterceptor_PreparedAttribute(t *testing.T) {
 // a +1/+1 counter on this creature." kw:Increment is unsupported
 // (cards.Registry.Unsupported: kw:Increment).
 func TestSetAudit_sos_PensiveProfessor_IncrementOnExpensiveCast(t *testing.T) {
-	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): kw:Increment is unimplemented -- casts never add counters. Follow-up: implement the Increment keyword")
-	}
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 910, []string{"Pensive Professor"}, []string{sosInsightSrc}, nil)
 	prof := findAndMoveToHand(t, e, 0, "Pensive Professor")
@@ -639,10 +636,19 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // FINDING (census) — the cards cards.Registry.Unsupported still names. Each
-// entry here is a root-cause gap: kw:Increment (9 sos cards), api:SkipTurn
-// (Ral Zarek's [-7] "target opponent skips their next X turns"),
-// stat:CantBeCopied (Choreographed Sparks), and
+// entry here is a root-cause gap: api:SkipTurn (Ral Zarek's [-7] "target
+// opponent skips their next X turns"), and
 // count:PlayerCountRemembered$Valid (Pox Plague).
+//
+// stat:CantBeCopied (Choreographed Sparks) used to be a row here; it is
+// implemented now (effects/copy.go enforces it on stack copies) and its
+// behaviour lives in rules/cantbecopied_test.go.
+//
+// kw:Increment (Pensive Professor, Tester of the Tangential, Textbook
+// Tabulator, Ambitious Augmenter, Hungry Graffalon, Topiary Lecturer, Berta
+// Wise Extrapolator, Cuboid Colony, Fractal Tender) used to be a row here; it
+// is implemented now (cards/kw_increment.go, a spellcast counter trigger) and
+// its behaviour lives in rules/increment_test.go.
 //
 // kw:Paradigm (Restoration Seminar, Echocasting Symposium, Decorum
 // Dissertation, Improvisation Capstone, Germination Practicum) used to be a
@@ -650,18 +656,14 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 // rules/paradigm_test.go's TestParadigmCensus.
 func TestSetAudit_sos_CensusLevelGaps(t *testing.T) {
 	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): 12 sos cards still name missing primitives (kw:Increment x9, api:SkipTurn, stat:CantBeCopied, count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
+		t.Skip("set-audit finding (sos): 2 sos cards still name missing primitives (api:SkipTurn, count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
 	}
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	names := []string{
-		// kw:Increment
-		"Pensive Professor", "Tester of the Tangential", "Textbook Tabulator",
-		"Ambitious Augmenter", "Hungry Graffalon", "Topiary Lecturer",
-		"Berta, Wise Extrapolator", "Cuboid Colony", "Fractal Tender",
 		// single-card gaps
-		"Ral Zarek, Guest Lecturer", "Choreographed Sparks", "Pox Plague",
+		"Ral Zarek, Guest Lecturer", "Pox Plague",
 	}
 	for _, name := range names {
 		c := sosCard(t, name)
