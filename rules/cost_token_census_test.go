@@ -117,8 +117,17 @@ var costNonFilterSpecs = map[string]string{
 	// (setPropTokens "color"), so Decision.Validate and botpolicy's Clamp
 	// enforce the same pair rule the offer gate measured.
 	"SameColor": "relational same-colour reveal (Reveal<2/SameColor>, Illuminated Folio) -- isSameColorRevealSpec; SetPropShared over derived colours",
-	"LastDrawn": "LEFT: Discard<1/LastDrawn> (Jandor's Ring) -- 'the last card drawn this turn' is history-keyed; an unmatched filter makes the ability unoffered",
-	"All":       "LEFT: ExileFromHand<1/All> (Herigast, Erupting Nullkite) -- the whole hand, on the Exile path",
+	"LastDrawn": "implemented (history-keyed): Discard<1/LastDrawn> (Jandor's Ring) reads the last events.Draw this turn through lastDrawnThisTurn; discardCandidates returns that one card only while it is still in hand, so a no-draw or left-hand cost is withheld",
+	// ExileFromHand<1/All> (Herigast, Erupting Nullkite): "exile your whole
+	// hand". The count is display noise; the whole zone is the payment, the
+	// same reading Discard<1/Hand> and Reveal<1/Hand> get. Unlike the
+	// whole-hand reveal it is NOT payable empty -- the token still demands
+	// part.N (written 1) cards. Read by isWholeZoneExileSpec at the triggered
+	// offer gate, the triggered settle walk, and the cast/activation gate and
+	// payment. The census walks Cost$ params only, so Herigast is its only
+	// measured carrier (Grip of Amnesia's ExileFromGrave<1/All> is an
+	// UnlessCost$ and is out of scope).
+	"All": "whole zone (ExileFromHand<1/All>) -- isWholeZoneExileSpec; needs part.N cards (CR 118.8-family)",
 }
 
 // walkCostParams visits every Cost$ parameter a face carries: printed and
@@ -293,6 +302,12 @@ func TestCostTokenCensus(t *testing.T) {
 			// card's behaviour test.
 			if spec == "SameColor" && !isSameColorRevealSpec(spec) {
 				t.Errorf("isSameColorRevealSpec(%q) is false: the same-colour reveal reading is gone", spec)
+			}
+			// The whole-zone exile verdict is coupled the same way: a revert or
+			// rename of isWholeZoneExileSpec must fail the census, not just the
+			// Herigast behaviour test.
+			if spec == "All" && !isWholeZoneExileSpec(spec) {
+				t.Errorf("isWholeZoneExileSpec(%q) is false: the whole-zone exile reading is gone", spec)
 			}
 		case base != spec && costNonFilterSpecs[base] != "":
 			// A predicate-carrying spec whose BASE is a table word (e.g.
