@@ -1630,10 +1630,8 @@ var apiSpecificRulesSA = map[string][]string{
 	// decisions/labels, and the modal-trigger placement ask (CharmNum$).
 	"Engine.castModeAsk":     {"Charm"},
 	"modalTargetSA":          {"Charm"},
-	"modeDecision":           {"Charm"},
-	"modeDecisionForChoices": {"Charm"},
-	"modeLabels":             {"Charm"},
-	"modeChoiceNames":        {"Charm"},
+	"modeDecision":    {"Charm"},
+	"modeChoiceNames": {"Charm"},
 	"Engine.askTriggerModes": {"Charm"},
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
