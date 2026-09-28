@@ -5,28 +5,39 @@
   "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "opponent-targeting-syr-pays-two-extra",
+      "name": "opponent-targeting-spell-costs-two-more",
       "cr": ["601.2f"],
-      "why": "Seat 1 is Syr Elenora's opponent and targets her with a spell, so the spell's red mana plus two generic mana pays the increased total cost.",
-      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "why": "Seat 1's Bolt targets Syr, an opposing permanent, so its cost includes two additional generic mana. With only {R}{R}, the spell is unavailable.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Lightning Bolt"]}, "p1": {"hand": ["Lightning Bolt"]}},
       "steps": [
-        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "mana", "seat": 1, "mana": "RR"}
+      ],
+      "expect": [{"offered": {"seat": 1, "kind": "cast", "card": "p1:Lightning Bolt"}, "want": false}]
+    },
+    {
+      "name": "opponent-targeting-spell-cast-with-tax",
+      "cr": ["601.2f", "601.2g"],
+      "why": "The opponent's Bolt targeting Syr is castable with its red mana and the two additional generic mana; the payment empties the pool.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Lightning Bolt"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
         {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "RRR", "targets": ["p0:Syr Elenora, the Discerning"], "expect": [{"pool": {"p1": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p0:Syr Elenora, the Discerning", "zone": "battlefield", "damage": 3}]
+      "expect": [{"card": "p0:Syr Elenora, the Discerning", "zone": "battlefield"}]
     },
     {
-      "name": "spell-not-targeting-syr-is-untaxed",
+      "name": "spell-not-targeting-syr-untaxed",
       "cr": ["601.2f"],
-      "why": "The opponent's Bolt targets seat 0 rather than Syr Elenora, so this spell does not meet the targeting condition and its printed red cost is sufficient.",
-      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"]}, "p1": {"hand": ["Lightning Bolt"]}},
+      "why": "The tax applies only to opposing spells that target Syr. Seat 1's Bolt targets a player instead and remains payable for {R}.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Lightning Bolt"]}, "p1": {"hand": ["Lightning Bolt"]}},
       "steps": [
-        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
         {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"], "expect": [{"pool": {"p1": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"life": {"p0": 17}}]
+      "expect": [{"life": {"p0": 17, "p1": 17}}]
     }
   ]
 }

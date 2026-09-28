@@ -5,23 +5,34 @@
   "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "colorless-eldrazi-spell-costs-two-less",
+      "name": "your-colorless-eldrazi-spell-reduced",
       "cr": ["601.2f", "118.7a"],
-      "why": "Eldrazi Devastator is a colorless Eldrazi spell cast by Eye's controller; its eight generic mana cost falls to six, which exactly six colorless mana pays.",
-      "setup": {"p0": {"hand": ["Eldrazi Devastator"], "battlefield": ["Eye of Ugin"]}},
+      "why": "Thought-Knot Seer is a colorless Eldrazi spell seat 0 casts. Eye reduces its generic component by two, leaving {1}{C}; paying those symbols casts it.",
+      "setup": {"p0": {"hand": ["Thought-Knot Seer"], "battlefield": ["Eye of Ugin"]}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Eldrazi Devastator", "mana": "CCCCCC", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "cast", "seat": 0, "card": "p0:Thought-Knot Seer", "mana": "1C", "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p0:Eldrazi Devastator", "zone": "battlefield"}]
+      "expect": [{"card": "p0:Thought-Knot Seer", "zone": "battlefield"}]
     },
     {
-      "name": "colored-spell-does-not-receive-colorless-eldrazi-reduction",
-      "cr": ["601.2f", "118.7a"],
-      "why": "Grizzly Bears is green rather than a colorless Eldrazi spell, so the Eye's reduction does not apply and green alone cannot pay its generic component.",
-      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Eye of Ugin"]}},
-      "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
-      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+      "name": "your-colorless-noneldrazi-spell-not-reduced",
+      "cr": ["601.2f"],
+      "why": "Bonesplitter is a colorless artifact spell, not an Eldrazi spell. Eye's reduction does not apply, so the zero-mana pool cannot pay its generic cost.",
+      "setup": {"p0": {"hand": ["Bonesplitter"], "battlefield": ["Eye of Ugin"]}},
+      "steps": [],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Bonesplitter"}, "want": false}]
+    },
+    {
+      "name": "opponent-colorless-eldrazi-not-reduced",
+      "cr": ["601.2f"],
+      "why": "Eye reduces only colorless Eldrazi spells its controller casts. Seat 1's Thought-Knot Seer still costs {3}{C}, and three generic plus colorless mana cannot be replaced by only {2}{C}.",
+      "setup": {"p0": {"hand": ["Lightning Bolt"], "battlefield": ["Eye of Ugin"]}, "p1": {"hand": ["Thought-Knot Seer"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "mana", "seat": 1, "mana": "2C"}
+      ],
+      "expect": [{"offered": {"seat": 1, "kind": "cast", "card": "p1:Thought-Knot Seer"}, "want": false}]
     }
   ]
 }

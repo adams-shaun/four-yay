@@ -5,25 +5,34 @@
   "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "chosen-bear-spell-costs-one-less",
+      "name": "chosen-goblin-reduced",
       "cr": ["601.2f", "118.7a"],
-      "why": "The chosen creature type matches Grizzly Bears, so its generic component is reduced by one and green mana alone pays the remaining colored component.",
-      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Herald's Horn"]}},
-      "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
+      "why": "The entering Horn chooses Goblin. Goblin Piledriver is a creature spell of that type and its generic component is reduced by one, so {R} alone pays its remaining cost.",
+      "setup": {"p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Herald's Horn"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Goblin"]}],
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "G", "expect": [{"pool": {"p0": ""}}]},
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Piledriver", "mana": "R", "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p0:Grizzly Bears", "zone": "battlefield"}]
+      "expect": [{"card": "p0:Goblin Piledriver", "zone": "battlefield"}]
     },
     {
-      "name": "nonmatching-creature-stays-full-price",
-      "cr": ["601.2f", "118.7a"],
-      "why": "Centaur Courser is a Centaur, not the chosen Bear type; its two generic mana remain, so green alone cannot cast it.",
-      "setup": {"p0": {"hand": ["Grizzly Bears", "Centaur Courser"], "battlefield": ["Herald's Horn"]}},
-      "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
+      "name": "nonmatching-creature-not-reduced",
+      "cr": ["601.2f"],
+      "why": "The chosen type is Goblin, not Bear. Grizzly Bears still needs its generic mana in addition to green mana.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Herald's Horn"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Goblin"]}],
       "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
-      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Centaur Courser"}, "want": false}]
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+    },
+    {
+      "name": "colored-mana-remains",
+      "cr": ["601.2f", "118.7a"],
+      "why": "A generic reduction cannot remove the colored part of Savannah Lions's cost; {C} alone cannot pay its {W} requirement.",
+      "setup": {"p0": {"hand": ["Savannah Lions"], "battlefield": ["Herald's Horn"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Cat"]}],
+      "steps": [{"op": "mana", "seat": 0, "mana": "C"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Savannah Lions"}, "want": false}]
     }
   ]
 }

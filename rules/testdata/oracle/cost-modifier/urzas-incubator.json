@@ -5,26 +5,34 @@
   "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "chosen-type-reduction-also-applies-to-opponent",
+      "name": "chosen-goblin-reduced-by-two",
       "cr": ["601.2f", "118.7a"],
-      "why": "Incubator does not restrict the reducer to its controller's spells: seat 1's Bear spell costs only its green component, even though seat 0 controls the artifact.",
-      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Urza's Incubator"]}, "p1": {"hand": ["Grizzly Bears"]}},
-      "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
+      "why": "Incubator chooses Goblin as it enters. The matching Goblin Piledriver's generic component is reduced by two, leaving only {R} to pay.",
+      "setup": {"p0": {"hand": ["Goblin Piledriver"], "battlefield": ["Urza's Incubator"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Goblin"]}],
       "steps": [
-        {"op": "pass_to", "step": "main1", "active": "p1"},
-        {"op": "cast", "seat": 1, "card": "p1:Grizzly Bears", "mana": "G", "expect": [{"pool": {"p1": ""}}]},
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Piledriver", "mana": "R", "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p1:Grizzly Bears", "zone": "battlefield"}]
+      "expect": [{"card": "p0:Goblin Piledriver", "zone": "battlefield"}]
     },
     {
-      "name": "nonmatching-creature-type-is-not-reduced",
-      "cr": ["601.2f", "118.7a"],
-      "why": "Centaur Courser is not a Bear, so choosing Bear does not remove its generic component; green mana alone is insufficient.",
-      "setup": {"p0": {"hand": ["Grizzly Bears", "Centaur Courser"], "battlefield": ["Urza's Incubator"]}},
-      "setup_answers": [{"kind": "choose", "pick": ["Bear"]}],
+      "name": "nonmatching-creature-retains-generic-cost",
+      "cr": ["601.2f"],
+      "why": "Grizzly Bears is not the chosen Goblin type, so {G} alone cannot pay its {1}{G} cost.",
+      "setup": {"p0": {"hand": ["Grizzly Bears"], "battlefield": ["Urza's Incubator"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Goblin"]}],
       "steps": [{"op": "mana", "seat": 0, "mana": "G"}],
-      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Centaur Courser"}, "want": false}]
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Grizzly Bears"}, "want": false}]
+    },
+    {
+      "name": "colored-component-is-not-reduced",
+      "cr": ["601.2f", "118.7a"],
+      "why": "The reduction applies only to generic mana. Even though Savannah Lions matches Cat, its white mana requirement remains and colorless mana cannot pay it.",
+      "setup": {"p0": {"hand": ["Savannah Lions"], "battlefield": ["Urza's Incubator"]}},
+      "setup_answers": [{"kind": "any", "pick": ["Cat"]}],
+      "steps": [{"op": "mana", "seat": 0, "mana": "C"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Savannah Lions"}, "want": false}]
     }
   ]
 }

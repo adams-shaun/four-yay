@@ -5,25 +5,26 @@
   "author": "cli-20260927T211250Z-f547dec3 (Oracle + CR only)",
   "scenarios": [
     {
-      "name": "high-power-creature-target-enables-cost-reduction",
-      "cr": ["601.2b", "601.2f", "118.7"],
-      "why": "The spell targets a spell that targets a creature controlled by seat 0 with power at least seven; the stated reduction makes this seven-generic spell cost zero.",
-      "setup": {"p0": {"hand": ["Lightning Bolt", "Not of This World"], "battlefield": ["Colossus of Sardia"]}},
+      "name": "free-when-targeting-power-seven-creature",
+      "cr": ["601.2f", "118.7a"],
+      "why": "After seat 0 casts its first Bolt, Syr has seven cards in hand and power seven. Seat 1's Bolt targets it, so Not of This World targets that spell and its seven-generic cost is reduced to zero.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Not of This World", "Lightning Bolt", "Wastes", "Wastes", "Wastes", "Wastes", "Wastes"]}, "p1": {"hand": ["Lightning Bolt"]}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Colossus of Sardia"]},
-        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "targets": ["p0:Lightning Bolt"]},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "RRR", "targets": ["p0:Syr Elenora, the Discerning"]},
+        {"op": "cast", "seat": 0, "card": "p0:Not of This World", "targets": ["p1:Lightning Bolt"], "expect": [{"pool": {"p0": ""}}]},
         {"op": "resolve"}
       ],
-      "expect": [{"card": "p0:Lightning Bolt", "zone": "graveyard"}, {"card": "p0:Colossus of Sardia", "zone": "battlefield", "damage": 0}]
+      "expect": [{"card": "p0:Syr Elenora, the Discerning", "zone": "battlefield"}]
     },
     {
-      "name": "low-power-creature-does-not-enable-cost-reduction",
-      "cr": ["601.2f", "118.7"],
-      "why": "The spell targets a spell that targets a two-power creature, below the card's threshold; six generic mana cannot pay its seven-generic cost.",
-      "setup": {"p0": {"hand": ["Lightning Bolt", "Not of This World"], "battlefield": ["Grizzly Bears"]}},
+      "name": "not-free-below-seven-power",
+      "cr": ["601.2f"],
+      "why": "Here Syr has fewer than seven cards and power below seven when the opponent's spell targets it. Not of This World receives no reduction, so the zero-mana pool cannot cast it.",
+      "setup": {"p0": {"battlefield": ["Syr Elenora, the Discerning"], "hand": ["Not of This World", "Lightning Bolt"]}, "p1": {"hand": ["Lightning Bolt"]}},
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Grizzly Bears"]},
-        {"op": "mana", "seat": 0, "mana": "CCCCCC"}
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "RRR", "targets": ["p0:Syr Elenora, the Discerning"]}
       ],
       "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Not of This World"}, "want": false}]
     }
