@@ -2238,17 +2238,20 @@ func (e *Engine) scanCostStatics() costStaticViews {
 
 // markCostValidTarget sets out.validTarget from the collected members.
 func markCostValidTarget(out *costStaticViews) {
-	for _, views := range [...][]staticView{out.raise, out.reduce, out.set} {
-		for _, sv := range views {
+	for _, group := range [...]struct {
+		mode  string
+		views []staticView
+	}{{"RaiseCost", out.raise}, {"ReduceCost", out.reduce}, {"SetCost", out.set}} {
+		for _, sv := range group.views {
 			if _, ok := sv.Params["ValidTarget"]; ok {
 				out.validTarget = true
 				return
 			}
-			// A target-conditional ValidSpell$ (Head of the Class's
-			// `Spell.IsTargeting Valid Creature` reduction) reads the chosen
-			// targets exactly as ValidTarget$ does, so the offer gate's
-			// potential-target retry must run for it too.
-			if validSpellHasTargeting(sv.Params["ValidSpell"]) {
+			// Target-conditional ValidSpell$ and target-relative ReduceCost$
+			// amounts read chosen targets, so the offer gate must retry with
+			// potential targets for either shape.
+			if validSpellHasTargeting(sv.Params["ValidSpell"]) ||
+				(group.mode == "ReduceCost" && sv.Params["Relative"] == "True") {
 				out.validTarget = true
 				return
 			}
@@ -2572,19 +2575,32 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 	return mods
 }
 
-// potentialCostModsUsing prices a COMPLETE composition for each candidate,
-// accepting only when one announcement satisfies the caller's payment gate.
-// Combining independent best amounts from different statics can admit a cast
-// whose target menu contains no payable choice. Target-dependent raises/floors
-// remain excluded at offer time; the chosen target is repriced before payment.
+// potentialCostModsUsing prices a COMPLETE composition for one legal target
+// assignment at a time, accepting only when an announcement satisfies the
+// caller's payment gate. A target-count amount must see at most TargetMax$
+// targets, while independent conditional statics must not combine reductions
+// from different, mutually exclusive single-target choices. Target-dependent
+// raises/floors remain excluded; chosen targets are repriced before payment.
 func (e *Engine) potentialCostModsUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, x int32, accept func(costMods) bool) (costMods, bool) {
-	for _, target := range targets {
-		one := []state.Target{target}
+	max := len(e.costAmountTargets(p, id, scope, targets))
+	for i, target := range targets {
+		if max == 0 {
+			break
+		}
+		assignment := []state.Target{target}
+		for j, other := range targets {
+			if len(assignment) == max {
+				break
+			}
+			if i != j {
+				assignment = append(assignment, other)
+			}
+		}
 		var mods costMods
 		if x != 0 {
-			mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, one, true, x)
+			mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, assignment, true, x)
 		} else {
-			mods = e.costModifiersWithTargetsUsing(statics, p, id, scope, one, true)
+			mods = e.costModifiersWithTargetsUsing(statics, p, id, scope, assignment, true)
 		}
 		if accept(mods) {
 			return mods, true
@@ -2612,6 +2628,13 @@ func (e *Engine) costModifiersWithTargetsX(p state.PlayerID, id state.ObjID, sco
 func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
 	// The same per-pass provenance capture costModifiersWithTargetsUsing owns.
 	e.costProvenanceSeen = false
+	// The same census-vs-assignment split costModifiersWithTargetsUsing makes:
+	// matching reads every candidate, a target-relative amount reads only a
+	// complete legal assignment.
+	amountTargets := targets
+	if potential {
+		amountTargets = e.costAmountTargets(p, id, scope, targets)
+	}
 	var mods costMods
 	xBound := x != 0
 	for _, group := range []struct {
@@ -2662,7 +2685,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmountX(sv, x, targets))
+				mods.raises = append(mods.raises, e.modAmountX(sv, x, amountTargets))
 				continue
 			}
 			red := costMod{
@@ -2679,7 +2702,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, x, targets)
+				amount := e.modAmountX(sv, x, amountTargets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2695,7 +2718,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, x, targets)
+				red.generic = e.modAmountX(sv, x, amountTargets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2709,7 +2732,7 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
 			continue
 		}
-		if n := e.modAmountX(sv, x, targets); n > mods.setFloor {
+		if n := e.modAmountX(sv, x, amountTargets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2724,6 +2747,13 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 	// Each pass owns the provenance capture: cleared here, set by
 	// costStaticApplies when a ValidCard$ carries a cast-provenance token.
 	e.costProvenanceSeen = false
+	// The potential pass hands the whole candidate census to the gate chain
+	// (so ValidTarget$/ValidSpell$ can match ANY candidate) but a target-relative
+	// Amount$ reads only a complete legal assignment (costAmountTargets).
+	amountTargets := targets
+	if potential {
+		amountTargets = e.costAmountTargets(p, id, scope, targets)
+	}
 	var mods costMods
 	for _, group := range []struct {
 		mode  string
@@ -2773,7 +2803,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 						continue
 					}
 				}
-				mods.raises = append(mods.raises, e.modAmountX(sv, 0, targets))
+				mods.raises = append(mods.raises, e.modAmountX(sv, 0, amountTargets))
 				continue
 			}
 			red := costMod{
@@ -2790,7 +2820,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 				// colourless pip instead.  Amount$ applies to every token, so
 				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
 				red.hasColor = true
-				amount := e.modAmountX(sv, 0, targets)
+				amount := e.modAmountX(sv, 0, amountTargets)
 				for tok := range strings.FieldsSeq(col) {
 					if isDigitRun(tok) {
 						n, err := strconv.ParseInt(tok, 10, 64)
@@ -2806,7 +2836,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 					}
 				}
 			} else {
-				red.generic = e.modAmountX(sv, 0, targets)
+				red.generic = e.modAmountX(sv, 0, amountTargets)
 			}
 			mods.reduces = append(mods.reduces, red)
 		}
@@ -2820,7 +2850,7 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, false) {
 			continue
 		}
-		if n := e.modAmountX(sv, 0, targets); n > mods.setFloor {
+		if n := e.modAmountX(sv, 0, amountTargets); n > mods.setFloor {
 			mods.setFloor = n
 		}
 	}
@@ -2976,8 +3006,8 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 
 // relativeAmountResolves reports whether a Relative$ cost-modifier static's
 // Amount$ evaluates under a context bound with the cast's targets — the
-// verdict (not the value) is what the costStaticApplies Relative$ exception
-// consumes, so the gate and the amount evaluation share one read. A plain
+// verdict (not the value) is what the target-bound costStaticApplies Relative$
+// exception consumes, so the gate and the amount evaluation share one read. A plain
 // integer literal stands as itself. See the call site's SECOND EXCEPTION for
 // the measured blast radius (notofthisworld1).
 func (e *Engine) relativeAmountResolves(sv staticView, targets []state.Target) bool {

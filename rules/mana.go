@@ -1870,12 +1870,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 // announcement exist" half of CR 601.2. Modal spells have no selected mode
 // yet and therefore conservatively contribute no potential discount.
 func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope) []state.Target {
-	var sa *cards.SA
-	if scope.kind == "Ability" {
-		sa = scope.ab
-	} else if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		sa = o.Face().SpellAbility()
-	}
+	sa := e.costTargetingSA(id, scope)
 	if sa == nil || sa.Params["ValidTgts"] == "" || sa.Params["Choices"] != "" {
 		return nil
 	}
@@ -1893,6 +1888,60 @@ func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope co
 		}
 	}
 	return out
+}
+
+// costTargetingSA returns the spell or activated ability whose ValidTgts$ and
+// TargetMin$/TargetMax$ a target-relative cost read shares. A spell's face
+// carries the declaration while it is in hand; an activated ability is the
+// scope's own SA. This is the ONE derivation costPotentialTargets and
+// costAmountTargets use, so the offer census and the amount's legal-assignment
+// size can never name different declarations.
+func (e *Engine) costTargetingSA(id state.ObjID, scope costScope) *cards.SA {
+	if scope.kind == "Ability" {
+		return scope.ab
+	}
+	if o := e.G.Obj(id); o != nil && o.Face() != nil {
+		return o.Face().SpellAbility()
+	}
+	return nil
+}
+
+// costAmountTargets trims a potential-target census to a COMPLETE LEGAL TARGET
+// ASSIGNMENT before a target-relative Amount$ reads it. The offer gate's
+// potential pass hands the whole costPotentialTargets census to the modifier
+// composition so every ValidTarget$/ValidSpell$ rule can match against SOME
+// candidate, but an Amount$ that counts the cast's targets (Battlefield
+// Thaumaturge's TargetedObjectsDistinct, "for each creature it targets") must
+// see only as many targets as the declaration actually announces -- pricing
+// every legal candidate at once would reduce the cost by the census size and
+// offer a cast the table can never complete. The size is resolvedTargetBounds'
+// own maximum (the most targets a reduction reading the count can see, and so
+// the reduction-favourable witness the existential offer gate wants), capped
+// at the census. A resolved maximum of 0 (the "instead" idiom) yields the
+// empty assignment, never a target the declaration may not announce. Only the
+// potential pass calls this: a non-potential composition already carries the
+// announced targets, which are a legal assignment by construction. The chosen
+// targets are always repriced at CR 601.2c/h.
+func (e *Engine) costAmountTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) []state.Target {
+	if len(targets) == 0 {
+		return targets
+	}
+	sa := e.costTargetingSA(id, scope)
+	if sa == nil {
+		return targets
+	}
+	_, max := e.resolvedTargetBounds(p, id, sa, 0)
+	// A resolved maximum of 0 (the "instead" idiom) must yield the empty
+	// assignment even when the census holds a single candidate: the bound is
+	// resolved BEFORE the size fast path so one candidate can never stand in
+	// for a target the declaration is not allowed to announce.
+	if max == 0 {
+		return nil
+	}
+	if max < 0 || max >= len(targets) {
+		return targets
+	}
+	return targets[:max]
 }
 
 // AbilityCosts returns id's non-mana activated-ability costs after the same
