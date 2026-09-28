@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/seat"
 )
@@ -45,6 +46,23 @@ type Factory func(seed uint64, mana builtins.ManaMode) seat.Seat
 // then see through the decoration instead of treating a decorated builtin
 // as some opaque seat the fallback does not cover.
 type Decorator func(inner seat.Seat, seed uint64) seat.Seat
+
+// cardLookup resolves a card name to its compiled IR, for decorators that
+// read printed card facts (lethal's burn and pump classification). It is
+// nil until the host wires the run's corpus (SetCardLookup); a decorator
+// that needs it treats nil as "card unknown" and delegates. It is written
+// once before any seat is built and read-only afterwards, the same
+// write-once package-scope pattern as cmd/botbench's own registries.
+var cardLookup func(name string) *cards.Card
+
+// SetCardLookup installs the process-wide card lookup. cmd/botbench wires
+// the run's corpus once before any seat is built; a test may install its
+// own lookup (the last writer wins) since package tests run sequentially.
+// The value is read-only once games start. A decorator sees nil until a
+// caller wires it and must treat nil as "card unknown".
+func SetCardLookup(l func(name string) *cards.Card) {
+	cardLookup = l
+}
 
 // Unwrapper is the seat contract a delegating decorator implements to
 // expose the seat it wraps.
