@@ -944,6 +944,15 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	if ev.Kind == events.DoorUnlock {
 		e.checkUnlockTriggers(ev)
 	}
+	// Dungeon rooms (CR 309.4c, the dungeon chain's slice 3): the room
+	// ability of the room a player just entered. The dungeon object lives in
+	// the command zone, which the per-face walk above never visits, and the
+	// room bodies are SVars on the dungeon token script's face, not face
+	// Triggers lines -- the same synthetic-scan shape as the Ring emblem
+	// above, keyed off the DungeonRoom event itself.
+	if ev.Kind == events.DungeonRoom {
+		e.checkDungeonRoomTriggers(ev)
+	}
 	// Exert's Trigger$ rider (task exert1, CR 702.100a): the static's named
 	// SVar body queues off the Exert event itself, with Source = the
 	// exerted permanent. The Amount -1 consume marker fires nothing: it is

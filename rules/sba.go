@@ -60,11 +60,12 @@ const maxSBAPasses = 32
 // LethalDamage had already touched. alive is Ruling T22-p's re-arm
 // watermark, described on checkStateBased below.
 type sbaAttempts struct {
-	objs    map[state.ObjID]bool
-	tokens  map[state.ObjID]bool
-	players map[state.PlayerID]bool
-	sagas   map[state.ObjID]bool
-	alive   int
+	objs     map[state.ObjID]bool
+	tokens   map[state.ObjID]bool
+	players  map[state.PlayerID]bool
+	sagas    map[state.ObjID]bool
+	dungeons map[state.ObjID]bool
+	alive    int
 }
 
 // rearm forgets every memory when the alive-player set has shrunk since it
@@ -250,11 +251,12 @@ func (e *Engine) checkStateBased() {
 	}
 	stable := false
 	tried := &sbaAttempts{
-		objs:    map[state.ObjID]bool{},
-		tokens:  map[state.ObjID]bool{},
-		players: map[state.PlayerID]bool{},
-		sagas:   map[state.ObjID]bool{},
-		alive:   e.G.AliveCount(),
+		objs:     map[state.ObjID]bool{},
+		tokens:   map[state.ObjID]bool{},
+		players:  map[state.PlayerID]bool{},
+		sagas:    map[state.ObjID]bool{},
+		dungeons: map[state.ObjID]bool{},
+		alive:    e.G.AliveCount(),
 	}
 	// Safety net for a duration-ending change folded outside Engine.emit
 	// (the Updated replacement paths call events.Emit directly).
@@ -315,6 +317,13 @@ func (e *Engine) checkStateBased() {
 			changed = true
 		}
 		if e.checkSagas(tried) {
+			changed = true
+		}
+		// CR 704.5t: a dungeon whose marker sits on its bottommost room and
+		// whose room ability has left the stack is completed. It runs after
+		// checkSagas in the pass, both are deterministic scans that pose no
+		// choice, and neither reads the other's writes.
+		if e.dungeonCompletion(tried) {
 			changed = true
 		}
 		if !changed {
