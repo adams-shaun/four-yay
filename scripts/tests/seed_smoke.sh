@@ -240,5 +240,34 @@ check "the stale candidate is marked stale" $? "$(cat "$TMP/stale.err")"
 ! grep -q 'stale: rate is 99' "$STUB/filed.txt"
 check "the stale candidate was never filed" $? "$(cat "$STUB/filed.txt" | tr '\n' '|')"
 
+# --- 10. failure rows with NO provider probe every configured tier instead of
+#         filing a ticket that names no tier at all.
+printf '[policy]\nhold_new_while_parked = false\n\n[[tiers]]\nname = "t"\nprovider = "test-tier"\nmodel = "m"\n' \
+	>"$TARGET/.agentctl/config.toml"
+# A journal holding ONLY unattributed failures, so the fallback is what runs.
+{
+	for _ in $(seq 4); do
+		printf '{"ts":"%s","kind":"transition","issue_id":"m1","evidence":{"to":"merged"}}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	done
+	for _ in $(seq 12); do
+		printf '{"ts":"%s","kind":"provider_failure","evidence":{}}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	done
+} >"$TARGET/.ds4/orchestrator/journal.jsonl"
+rm -rf "$GORGE_REWARD_DIR/markers"
+stub_curl 200
+before=$(wc -l <"$STUB/filed.txt")
+PATH="$TMP/curl-stub:$PATH" PI_MODELS_JSON="$TMP/models.json" \
+	"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/cycle11.log" 2>&1
+grep -q 'name no provider' "$TMP/cycle11.log"
+check "unattributed failures fall back to probing every tier" $? "$(tail -6 "$TMP/cycle11.log")"
+! grep -q 'Seat tier  is failing' "$STUB/filed.txt"
+check "no ticket is filed naming an empty tier" $? "$(cat "$STUB/filed.txt" | tr '\n' '|')"
+stub_curl 503
+rm -rf "$GORGE_REWARD_DIR/markers"
+PATH="$TMP/curl-stub:$PATH" PI_MODELS_JSON="$TMP/models.json" \
+	"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/cycle12.log" 2>&1
+grep -q 'Seat tier test-tier' "$STUB/filed.txt"
+check "the down tier found by the fallback probe IS named" $? "$(tail -6 "$TMP/cycle12.log")"
+
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]
