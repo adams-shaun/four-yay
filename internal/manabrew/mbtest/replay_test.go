@@ -5,7 +5,10 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/internal/bench"
+	manabrew "github.com/adams-shaun/gorge/internal/manabrew"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/protocol"
+	mb "github.com/adams-shaun/gorge/protocol/manabrew"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -59,6 +62,52 @@ func TestManaBrewReplayEquivalent(t *testing.T) {
 		if e2.L.Head() != e1.L.Head() {
 			t.Fatalf("seed %d: second in-process playthrough head %s != first playthrough head %s (the adapter is not reproducible at a fixed seed)",
 				seed, e2.L.Head(), e1.L.Head())
+		}
+
+		// MB-14: the synthetic reveal/dice ack prompts are read-only over the
+		// log -- Synthetic never feeds anything back to the engine, so
+		// exercising it here, after replay equivalence is already proven for
+		// the ordinary decision mapping, cannot itself change e1/e2's heads.
+		// It is exercised against a REAL game's log (not a hand-built
+		// fixture, which synthetic_test.go already covers) so a shape
+		// mismatch against what a genuine game emits would fail here.
+		assertSyntheticRoundTrips(t, e1, seed)
+	}
+}
+
+// assertSyntheticRoundTrips converts e's whole log to the wire Event shape
+// (protocol.EventFrom, the same conversion host/viewat.go's EventsSeat
+// applies) and feeds it through a fresh Translator's Synthetic. Every prompt
+// it mints must be a well-formed revealCards or diceRolled prompt whose
+// matching acknowledgement AcknowledgeSynthetic accepts -- the round trip a
+// real transport would perform once per prompt, without ever reaching
+// SubmitIntent.
+func assertSyntheticRoundTrips(t *testing.T, e *rules.Engine, seed uint64) {
+	t.Helper()
+	evs := make([]protocol.EventBody, len(e.L.Events))
+	for i, ev := range e.L.Events {
+		evs[i] = protocol.EventBody{Event: protocol.EventFrom(ev)}
+	}
+	tr := manabrew.New("replay", int64(seed), nil)
+	msgs := tr.Synthetic(evs, nil)
+	for _, msg := range msgs {
+		pm, ok := msg.Value.(mb.PromptMessage)
+		if !ok {
+			t.Fatalf("seed %d: synthetic message type = %T, want PromptMessage", seed, msg.Value)
+		}
+		var ack mb.PromptOutputValue
+		switch pm.Input.Value.(type) {
+		case mb.RevealCardsInput:
+			ack = mb.RevealCardsAcknowledged{}
+		case mb.DiceRolledInput:
+			ack = mb.DiceRolledAcknowledged{}
+		default:
+			t.Fatalf("seed %d: synthetic prompt type = %s, want revealCards or diceRolled", seed, pm.Input.Value.PromptType())
+		}
+		resp := mb.ClientMessage{Value: mb.ClientResponse{Kind: "response", PromptID: pm.PromptID,
+			Action: mb.PromptOutput{Type: pm.Input.Value.PromptType(), Output: mb.PromptOutputData{Value: ack}}}}
+		if err := manabrew.AcknowledgeSynthetic(resp, pm); err != nil {
+			t.Fatalf("seed %d: AcknowledgeSynthetic(%s) = %v, want nil", seed, pm.Input.Value.PromptType(), err)
 		}
 	}
 }
