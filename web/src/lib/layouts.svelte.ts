@@ -20,6 +20,9 @@ import {
   cloneProfile,
   compactRows,
   defaultSplit,
+  defaultRailWidth,
+  RAIL_MAX,
+  RAIL_MIN,
   SPLIT_MAX,
   SPLIT_MIN,
   type LayoutProfile,
@@ -94,6 +97,16 @@ export class LayoutStore {
 
   resetSplit(seats: number): void {
     this.setSplit(defaultSplit(seats));
+  }
+
+  setRailWidth(width: number): void {
+    this.edit((p) => {
+      p.panels.railWidth = Math.round(clamp(width, RAIL_MIN, RAIL_MAX) * 100) / 100;
+    });
+  }
+
+  resetRailWidth(seats: number): void {
+    this.setRailWidth(defaultRailWidth(seats));
   }
 
   toggleStacking(): void {

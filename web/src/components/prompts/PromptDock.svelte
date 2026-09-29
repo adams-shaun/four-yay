@@ -5,7 +5,7 @@
   import { promptAnatomy } from '../../lib/prompts/anatomy';
   import { dockAnswers } from '../../lib/prompts/renderer';
   import { promptHover, type HoverEnd } from '../../lib/prompts/hover.svelte';
-  import { clampPosition, dockFromProfile, fractionOf, nextPlacement, profilePlacement, tableAnchor, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
+  import { clampPosition, dockFromProfile, effectivePlacement, fractionOf, nextPlacement, profilePlacement, tableAnchor, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
   import { layoutStore } from '../../lib/layouts.svelte';
   import ArtCrop from './ArtCrop.svelte';
   import PromptBody from './PromptBody.svelte';
@@ -16,10 +16,10 @@
    * serif title that asks the question, one plain-language line, the
    * decision's renderer (numbered options), and the renderer's footer.
    *
-   * Placement: near the table by default -- pinned just above the gilt
-   * action button, growing up over the board, so answering never means a
-   * trip to the screen's top edge (operator feedback 2026-09-29). Docked at
-   * the top of the rail and floating (dragged by its grip) are settings. The layout profile owns both (`layoutStore.prompt`: the
+   * Placement: rail top by default, rail bottom, near-table or floating
+   * (dragged by its grip). For older saved layouts with near-table selected,
+   * payment decisions still dock in the rail to leave the board unobscured.
+   * The layout profile owns placement (`layoutStore.prompt`: the
    * placement, and the floating spot as viewport fractions, saved on drag);
    * the `placement`/`position` props override it for fixtures and tests.
    * Client-side only, never posted.
@@ -39,8 +39,9 @@
     onPositionChange?: (p: DockPoint) => void;
   } = $props();
 
+  const decision = $derived(dockAnswers(logic.active) ? logic.active : null);
   const fromProfile = $derived(dockFromProfile(layoutStore.prompt, typeof window === 'undefined' ? { w: 0, h: 0 } : viewport()));
-  const placement = $derived(placementProp ?? fromProfile.placement);
+  const placement = $derived(placementProp ?? effectivePlacement(layoutStore.prompt, decision));
   const saved = $derived(positionProp !== undefined ? positionProp : fromProfile.position);
   function setPlacement(p: DockPlacement): void {
     if (onPlacementChange) onPlacementChange(p);
@@ -62,7 +63,6 @@
     };
   });
 
-  const decision = $derived(dockAnswers(logic.active) ? logic.active : null);
   const anatomy = $derived(decision ? promptAnatomy(decision, view) : null);
 
   // A hover belongs to the decision it was made on.
@@ -172,7 +172,7 @@
         : undefined,
   );
   const toggleTitle = $derived(
-    { table: 'Dock the prompt in the rail', rail: 'Float the prompt over the board', floating: 'Pin the prompt above the action button' }[placement],
+    { table: 'Dock the prompt at the top of the rail', rail: 'Dock the prompt at the bottom of the rail', 'rail-bottom': 'Float the prompt over the board', floating: 'Pin the prompt above the action button' }[placement],
   );
 </script>
 
@@ -212,7 +212,7 @@
           title={toggleTitle}
           aria-label={toggleTitle}
           onclick={() => setPlacement(nextPlacement(placement))}
-        >{placement === 'table' ? '⇥' : placement === 'rail' ? '⧉' : '⤓'}</button>
+        >{placement === 'table' ? '⇥' : placement === 'rail' ? '⇩' : placement === 'rail-bottom' ? '⧉' : '⤓'}</button>
       </div>
       {#if anatomy.source}<p class="src" data-prompt-source>{anatomy.source.line}</p>{/if}
       <h2 class="title" class:long={anatomy.title.length > 32} data-prompt-title>{anatomy.title}</h2>
@@ -261,21 +261,26 @@
     .prompt-dock { animation: none; }
   }
   /* Docked: the art is a banner across the top, the body overlaps its fade. */
-  .prompt-dock.rail {
+  .prompt-dock.rail,
+  .prompt-dock.rail-bottom {
     grid-template-rows: 5.5rem auto;
     padding: 0;
     border-bottom: 1px solid var(--edge-inst);
     max-height: 70vh;
     overflow-y: auto;
   }
-  .rail .art { position: relative; min-height: 0; }
-  .rail .art::after {
+  .prompt-dock.rail-bottom { border-top: 1px solid var(--edge-inst); border-bottom: 0; }
+  .rail .art,
+  .rail-bottom .art { position: relative; min-height: 0; }
+  .rail .art::after,
+  .rail-bottom .art::after {
     content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg, rgba(29, 33, 41, 0.1) 30%, #1d2129);
   }
-  .rail .body { padding: 0 var(--sp-4) var(--sp-3); margin-top: -1.6rem; position: relative; min-width: 0; }
+  .rail .body,
+  .rail-bottom .body { padding: 0 var(--sp-4) var(--sp-3); margin-top: -1.6rem; position: relative; min-width: 0; }
   /* Floating: the art is a spine down the left edge. */
   .prompt-dock.floating {
     position: fixed;

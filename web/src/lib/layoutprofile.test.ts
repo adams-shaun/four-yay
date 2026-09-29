@@ -83,6 +83,19 @@ describe('layout profile model', () => {
     expect(a.panels.prompt.x).not.toBe(0.1);
   });
 
+  it('defaults payment prompts to the rail and round-trips rail width while accepting old profiles', () => {
+    const p = defaultProfile();
+    expect(p.panels.prompt.placement).toBe('dock');
+    expect(p.panels.prompt.placement).not.toBe('table');
+    p.panels.railWidth = 0.32;
+    expect(p.panels.railWidth).not.toBe(defaultProfile().panels.railWidth);
+    const roundTrip = validate(JSON.parse(JSON.stringify(p)));
+    expect(roundTrip?.panels.railWidth).toBe(0.32);
+    const old = JSON.parse(JSON.stringify(p));
+    delete old.panels.railWidth;
+    expect(validate(old)?.panels.railWidth).toBe(defaultProfile().panels.railWidth);
+  });
+
   it('the splitter reset follows the seat count', () => {
     expect(defaultSplit(2)).toBe(0.4);
     expect(defaultSplit(4)).toBe(0.46);
