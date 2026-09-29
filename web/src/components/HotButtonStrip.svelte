@@ -11,6 +11,7 @@
   import { autoNoteText, isConcede, toneOf, type SeatPanelState } from '../lib/seatpanel.svelte';
   import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { announceActions } from '../lib/announcepay';
+  import { blurAfterPointer } from '../lib/pointer';
   import SeatPanel from './SeatPanel.svelte';
   import { dockAnswers } from '../lib/prompts/renderer';
   import KeyCheatSheet from './KeyCheatSheet.svelte';
@@ -204,6 +205,7 @@
     if (e.shiftKey) logic.startHardSkip(view);
     else logic.startEndTurn(view);
     logic.considerAuto(view);
+    blurAfterPointer(e);
   }
 
   /**
@@ -341,7 +343,7 @@
       aria-live="polite"
       aria-label={autoStatus}
       title={autoStatus}
-      onclick={() => logic.pressAuto()}
+      onclick={(e) => { logic.pressAuto(); blurAfterPointer(e); }}
     ><span aria-hidden="true">AUTO</span></button>
   {:else}
     <span
@@ -365,11 +367,11 @@
     aria-label="Auto-pay mana"
     title="Use a suggested mana plan when casting"
     data-auto-pay-toggle
-    onclick={() => logic.setAutoPayMana(!logic.autoPayMana)}
+    onclick={(e) => { logic.setAutoPayMana(!logic.autoPayMana); blurAfterPointer(e); }}
   >AUTO MANA</button>
   {/if}
   <div class="hot-tab" role="presentation" onpointerenter={() => show('actions')} onpointerleave={scheduleClose} onfocusin={() => show('actions')} onfocusout={scheduleClose}>
-    <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actionCount === 0} onclick={() => show('actions')}>
+    <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actionCount === 0} onclick={(e) => { show('actions'); blurAfterPointer(e); }}>
       <span class="full">ACTIONS</span><span class="compact" aria-hidden="true">A</span>
     </button>
     <div class="drop actions" class:open={open === 'actions'} id="hot-panel-actions" data-hot-panel="actions" role="group" aria-label="Available actions">
@@ -398,7 +400,7 @@
       aria-disabled={!passAvailable}
       disabled={!passAvailable}
       title={logic.passOption?.label ?? 'Pass is not offered by this decision'}
-      onclick={() => logic.passClick()}
+      onclick={(e) => { logic.passClick(); blurAfterPointer(e); }}
     >
       <span class="full">PASS</span><span class="compact" aria-hidden="true">&gt;</span>
     </button>
@@ -438,10 +440,11 @@
         title={resolveAllAvailable
           ? 'Resolve All: pass until the stack is empty — a new opponent play or a decision that needs you stops it'
           : 'Resolve All needs a pass option'}
-        onclick={() => {
+        onclick={(e) => {
           if (!resolveAllAvailable) return;
           logic.startResolveAll(view);
           logic.considerAuto(view);
+          blurAfterPointer(e);
         }}
       >
         <span class="full">RESOLVE ALL</span><span class="compact" aria-hidden="true">RA</span>
@@ -458,7 +461,7 @@
       aria-disabled={!undoAllowed}
       disabled={!undoAllowed}
       title={undoAllowed ? 'Undo my last action' : 'Undo is available only when you are the table’s sole human player'}
-      onclick={() => void undo()}
+      onclick={(e) => { void undo(); blurAfterPointer(e); }}
     >
       <span class="full">UNDO</span><span class="compact" aria-hidden="true">↶</span>
     </button>
@@ -479,7 +482,7 @@
       aria-disabled={!doneAvailable}
       disabled={!doneAvailable}
       title={doneShown ? doneFull : 'This decision does not need a separate selection submit'}
-      onclick={(e) => logic.submit(e.ctrlKey)}
+      onclick={(e) => { logic.submit(e.ctrlKey); blurAfterPointer(e); }}
     >
       <span>DONE</span>
     </button>

@@ -34,6 +34,76 @@ const undoPosts = (page: import('playwright').Page): Promise<UndoPosts> =>
   page.evaluate(() => (window as unknown as { __undos: UndoPosts }).__undos);
 
 describe('the hotkey guard against an open modal — mounted', () => {
+  it('Space passes after a pointer click on the real hot-strip PASS button', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    const pass = page.locator('#fixture [data-hot-tab="pass"]');
+    expect(await pass.isEnabled()).toBe(true);
+    await pass.evaluate((el) => {
+      el.addEventListener('click', () => {
+        (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick = document.activeElement === el;
+      }, { capture: true, once: true });
+      const original = HTMLElement.prototype.blur;
+      HTMLElement.prototype.blur = function () {
+        if (this === el) (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled = true;
+        original.call(this);
+      };
+    });
+    await pass.click();
+    expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
+    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1);
+    const first = await posts(page);
+    expect(first).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
+
+    // The previous decision was answered; offer a fresh one so a second post
+    // actually tests focus management rather than the seat's postedSeq latch.
+    await page.evaluate(() => (window as unknown as { __newDecision: () => void }).__newDecision());
+    await expect.poll(() => pass.isEnabled()).toBe(true);
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 2);
+    const after = await posts(page);
+    expect(after.length).toBeGreaterThan(first.length);
+    expect(after).toEqual([...first, { seq: 8, player: 0, choices: [9] }]);
+    await page.close();
+  });
+
+  it('Space passes after a pointer click on the ACTIONS tab', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    const actions = page.locator('#fixture [data-hot-tab="actions"]');
+    await actions.evaluate((el) => el.addEventListener('click', () => {
+      (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick = document.activeElement === el;
+    }, { capture: true, once: true }));
+    await actions.click();
+    expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
+    const first = await posts(page);
+    expect(first).toEqual([]);
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1, null, { timeout: 2000 });
+    const after = await posts(page);
+    expect(after.length).toBeGreaterThan(first.length);
+    expect(after).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    await page.close();
+  });
+
+  it('keyboard Enter still natively activates a focused strip button without blurring it', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    const actions = page.locator('#fixture [data-hot-tab="actions"]');
+    await actions.focus();
+    expect(await actions.evaluate((el) => document.activeElement === el)).toBe(true);
+    await actions.evaluate((el) => el.addEventListener('click', (e) => {
+      (window as unknown as { __keyboardClickDetail: number }).__keyboardClickDetail = (e as MouseEvent).detail;
+    }, { once: true }));
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => (window as unknown as { __keyboardClickDetail: number }).__keyboardClickDetail)).toBe(0);
+    expect(await actions.getAttribute('aria-expanded')).toBe('true');
+    expect(await actions.evaluate((el) => document.activeElement === el)).toBe(true);
+    await page.close();
+  });
+
   it('the real UNDO button invokes postUndo, while the multi-human button cannot', async () => {
     const page = await browser.newPage();
     await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
