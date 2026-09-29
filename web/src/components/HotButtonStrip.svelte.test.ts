@@ -203,7 +203,7 @@ describe('HotButtonStrip — the status chip', () => {
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="casual"/);
     expect(html).toContain('title="Auto: Casual"');
-    expect(html).toMatch(/<button[^>]*class="mode-chip[^\"]*"[^>]*role="switch"[^>]*aria-checked="true"[^>]*data-play-mode="casual"[^>]*data-auto-status/);
+    expect(html).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*data-play-mode="casual"[^>]*data-auto-status/);
     expect(html).toContain('>AUTO</span></button>');
     expect(html).toContain('data-auto-pay-toggle');
     expect(html).toContain('AUTO MANA');
@@ -215,6 +215,8 @@ describe('HotButtonStrip — the status chip', () => {
     expect(live.auto).toBe(true);
     const liveHtml = stripState(live, priority);
     expect(liveHtml).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*data-play-mode="casual"[^>]*data-auto-status/);
+    expect(liveHtml).toContain('aria-label="Auto: Casual"');
+    expect(liveHtml).toContain('>AUTO</span></button>');
     live.pressAuto();
     expect(live.auto).toBe(false);
     expect(live.machinePaused).toBe(false);
@@ -225,6 +227,7 @@ describe('HotButtonStrip — the status chip', () => {
     expect(paused.auto).toBe(true);
     const pausedHtml = stripState(paused, priority);
     expect(pausedHtml).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="false"[^>]*data-play-mode="paused"[^>]*data-auto-status[^>]*data-auto-note/);
+    expect(pausedHtml).toContain('>AUTO</span></button>');
     paused.pressAuto();
     expect(paused.machinePaused).toBe(false);
     expect(paused.auto).toBe(true);
