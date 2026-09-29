@@ -9,7 +9,7 @@ one missing primitive makes the whole card unplayable, so this is a strict
 lower bound on what the engine can do.
 
 - Cards in the corpus: **33667**
-- Fully playable: **31265 (92.9%)**
+- Fully playable: **31292 (92.9%)**
 - Token scripts compiled: **839**
 - Corpus pin: `Card-Forge/forge@95f04e8a04c8925fa97cb226fc3341cabcc90a53`
 
@@ -26,9 +26,9 @@ engine subsystems are finished.
 
 | Card type | Cards | Playable | % |
 |---|---:|---:|---:|
-| Creature | 18544 | 17303 | 93.3% |
-| Instant | 3774 | 3562 | 94.4% |
-| Sorcery | 3519 | 3290 | 93.5% |
+| Creature | 18544 | 17319 | 93.4% |
+| Instant | 3774 | 3566 | 94.5% |
+| Sorcery | 3519 | 3297 | 93.7% |
 | Enchantment | 3445 | 3264 | 94.7% |
 | Artifact | 2480 | 2274 | 91.7% |
 | Land | 1152 | 1135 | 98.5% |
@@ -43,12 +43,12 @@ colour indicator — not its Commander colour identity.
 
 | Colour | Cards | Playable | % |
 |---|---:|---:|---:|
-| White | 4977 | 4612 | 92.7% |
-| Red | 4975 | 4651 | 93.5% |
-| Black | 4946 | 4676 | 94.5% |
-| Green | 4864 | 4549 | 93.5% |
-| Blue | 4860 | 4565 | 93.9% |
-| Multicolour | 4708 | 4411 | 93.7% |
+| White | 4977 | 4619 | 92.8% |
+| Red | 4975 | 4654 | 93.5% |
+| Black | 4946 | 4683 | 94.7% |
+| Green | 4864 | 4552 | 93.6% |
+| Blue | 4860 | 4568 | 94.0% |
+| Multicolour | 4708 | 4415 | 93.8% |
 | Colorless | 4337 | 3801 | 87.6% |
 
 ## By mana value
@@ -56,12 +56,12 @@ colour indicator — not its Commander colour identity.
 | Mana value | Cards | Playable | % |
 |---|---:|---:|---:|
 | 0 | 1701 | 1328 | 78.1% |
-| 1 | 3250 | 3065 | 94.3% |
-| 2 | 7142 | 6745 | 94.4% |
-| 3 | 8035 | 7537 | 93.8% |
-| 4 | 6275 | 5843 | 93.1% |
-| 5 | 3925 | 3679 | 93.7% |
-| 6 | 2017 | 1860 | 92.2% |
+| 1 | 3250 | 3066 | 94.3% |
+| 2 | 7142 | 6748 | 94.5% |
+| 3 | 8035 | 7546 | 93.9% |
+| 4 | 6275 | 5852 | 93.3% |
+| 5 | 3925 | 3681 | 93.8% |
+| 6 | 2017 | 1863 | 92.4% |
 | 7+ | 1322 | 1208 | 91.4% |
 
 ## What the gap is waiting on
@@ -90,6 +90,6 @@ it alone blocks. Implementing the top row unlocks that many cards at once.
 | `kw:Saddle` | 32 |
 | `stat:CantTarget` | 32 |
 | `kw:Splice` | 30 |
-| `kw:Sneak` | 27 |
+| `stat:MustBlock` | 27 |
 
 Regenerate this file with `make coverage`.
