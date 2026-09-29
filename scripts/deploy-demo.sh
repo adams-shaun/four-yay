@@ -17,7 +17,15 @@ set -euo pipefail
 
 BIN=${BIN:-bin/gorged}
 DECKS=${DECKS:-internal/testutil/decks}
-TABLES=${TABLES:-4}
+# 2026-09-29 (later): 1, down from 4. az-redeal's 100-sim MCTS search runs on
+# EVERY table concurrently, and all of them restart fresh trees the instant
+# their match ends -- with 4 tables on :8080 plus 4 duplicated on :8081
+# (MB_PORT), that is 8 concurrent search trees that occasionally piled up
+# right at match-end and froze the box the operator was observing on
+# (load average 10.6 -> 6.9 just from dropping :8081; cutting :8080 to 1
+# table is the rest of that fix). Override with TABLES=4 to get the old
+# density back once az-redeal's per-decision cost is tuned down.
+TABLES=${TABLES:-1}
 # 2026-09-29: 2, tied to BOT_POLICY below. az-redeal's Info.MaxSeats is 2
 # (bots/azredeal/azredeal.go) -- it is only measured and only safe at 2
 # seats. Override both together (SEATS=4 BOT_POLICY=lethal-pressure) to get
@@ -55,7 +63,7 @@ BOT_POLICY=${BOT_POLICY:-az-redeal}
 # commander half of the old "two commander, two constructed" split; restore
 # it with FORMATS=commander,commander,constructed,constructed alongside a
 # SEATS=4 BOT_POLICY=lethal-pressure override.
-FORMATS=${FORMATS:-constructed,constructed,constructed,constructed}
+FORMATS=${FORMATS:-constructed}
 # Deterministic across deploys: the same seed deals the same opening tables,
 # so a UI change is the only thing that differs between two screenshots.
 SEED=${SEED:-1}
@@ -70,7 +78,10 @@ DEMO_GOMEMLIMIT=${DEMO_GOMEMLIMIT:-8GiB}
 PUB_PORT=${PUB_PORT:-8080}
 # OMNI_PORT empty (the default) runs no second server.
 OMNI_PORT=${OMNI_PORT-}
-MB_PORT=${MB_PORT-8081}
+# 2026-09-29 (later): off by default -- it duplicated every table's az-redeal
+# search load onto a second port, and that's the load that froze the box.
+# MB_PORT=8081 to bring the ManaBrew wire back once the search cost is tuned.
+MB_PORT=${MB_PORT-}
 MB_DIR=${MB_DIR:-/tmp/gorge-demo-mb}
 MB_LOG=${MB_LOG:-/tmp/gorge-demo-mb.log}
 # Ports a previous demo layout served on. The sweep stops a gorged still
