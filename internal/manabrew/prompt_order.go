@@ -27,7 +27,8 @@ import (
 func (t *Translator) promptOrder(d *decision.Decision, v *view.View) (mb.PromptMessage, error) {
 	items := make([]mb.ReorderItem, len(d.Options))
 	for i, opt := range d.Options {
-		items[i] = mb.ReorderItem{ID: actionID(opt.Index), Card: t.sourceCard(v, opt.Obj), Oracle: opt.Label}
+		card := t.optionCard(v, opt)
+		items[i] = mb.ReorderItem{ID: actionID(opt.Index), Card: &card, Oracle: opt.Label}
 	}
 	in := mb.ReorderInput{
 		PromptBase: mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Targets: []mb.TargetRef{}}},
