@@ -69,10 +69,23 @@
   // mounted, so ACTIONS stays shut instead of opening a second copy over
   // the board). Otherwise it stays open until the answer changes it.
   const pinned = $derived(awaiting === 'initiative' && !(logic.dockCount > 0 && dockAnswers(decision)));
+  // pinnedOpened records that the panel is open because `pinned` opened it,
+  // not because the player hovered or clicked the tab. The prompt dock mounts
+  // a beat AFTER the decision lands (its dockCount is set in onMount), so on
+  // a fresh mount into a live non-priority decision the first effect run sees
+  // pinned=true and the second sees pinned=false; without this latch the
+  // panel would pop open over the board and stay open forever, which is
+  // exactly the state the contract above forbids while a dock is mounted. A
+  // player-opened panel is left untouched.
+  let pinnedOpened = $state(false);
   $effect(() => {
     if (pinned) {
       clearClose();
+      pinnedOpened = true;
       open = 'actions';
+    } else if (pinnedOpened) {
+      pinnedOpened = false;
+      if (open === 'actions') open = null;
     }
   });
   // Suggested payment plans replace their ordinary cast affordance while
