@@ -66,6 +66,23 @@ describe('PromptDock', () => {
     expect(body).toContain('4/5');
   });
 
+  it('renders flat mana production as coloured pips but leaves other labels raw', () => {
+    const mana: Decision = {
+      seq: 20, player: 0, kind: 'choose', prompt: 'Choose a mana ability of Volcanic Island', min: 1, max: 1, source: 3,
+      options: [opt(0, 'mana', 'Add U', { obj: 3 }), opt(1, 'mana', 'Add R', { obj: 3 }), opt(2, 'mana', 'Add any color', { obj: 3 }), opt(3, 'mana', 'Sacrifice a creature: Add B', { obj: 3 })],
+    } as Decision;
+    const logic = seatState(mana);
+    const { body } = render(PromptDock, { props: { view: view(mana), logic, seat: 0, placement: 'rail' } });
+
+    expect(body).toContain('data-option="0"');
+    expect(body).toMatch(/data-option="0"[^]*?Add [^]*?class="pip p-u[^"]*">U<\/span>/);
+    expect(body).toMatch(/data-option="1"[^]*?Add [^]*?class="pip p-r[^"]*">R<\/span>/);
+    expect(body).toContain('Add any color');
+    expect(body).toContain('Sacrifice a creature: Add B');
+    expect(body).not.toMatch(/data-option="2"[^]*?mana-symbols/);
+    expect(body).not.toMatch(/data-option="3"[^]*?mana-symbols/);
+  });
+
   it('floats with a grip when placed floating', () => {
     const logic = seatState(target);
     const { body } = render(PromptDock, { props: { view: view(target), logic, seat: 0, placement: 'floating' } });
