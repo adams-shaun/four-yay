@@ -311,6 +311,13 @@ func (e *Engine) scanManaConvSources(out []manaConvSource) []manaConvSource {
 					offBattlefieldStaticsInert(z, o) {
 					continue
 				}
+				// CR 702.25b/d: a phased-out permanent is treated as though it
+				// does not exist, so its ManaConvert static does not function --
+				// the same object-level gate scanActiveStatics and the fused
+				// scanBoardStatics run.
+				if z == state.ZBattlefield && o.PhasedOut {
+					continue
+				}
 				for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
 					pst, ok := o.PileStaticAt(si)
 					if !ok || pst.Static.Mode != "ManaConvert" || !effectZoneOK(pst.Static.Params["EffectZone"], o.Zone) {

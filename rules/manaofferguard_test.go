@@ -12,7 +12,7 @@ import (
 // activated ability through S:Mode$ Continuous | AddAbility$. It returns the
 // engine and the recipient/grantor ids.
 //
-// The briefs's exact repro (cardfuzz seed 12345, MBX-6 ManaBrew lane) is a
+// The brief's exact repro (cardfuzz seed 12345, MBX-6 ManaBrew lane) is a
 // phased-out permanent whose Continuous AddAbility$ grant stayed in the offer
 // walk's pass-scoped statics snapshot while the guard/handler's fresh walk
 // dropped it, so the seat was offered "Activate ... for mana" and Submit
@@ -147,4 +147,71 @@ func TestPhasedOutManaGrantorCannotDisagreeWithGuard(t *testing.T) {
 		t.Fatalf("fresh guard membership = %d, want 0 for a phased-out grantor", n)
 	}
 	assertGuardAgreesWithOffer(false)
+}
+
+// TestPhasedOutHolderCostAndManaConvStaticsAgreeAcrossWalks pins the class,
+// not just the mana-grant instance: the fused board-statics scan
+// (scanBoardStatics, which serves the memoised collectCostStatics /
+// manaConvPrintedSources inside a walk scope) and the standalone
+// scanCostStatics / scanManaConvSources it is compared against must give the
+// same CR 702.25b answer for a phased-out battlefield permanent. Before the
+// object-level gate reached those two standalone scans, verifyBoardStatics
+// (always on for this test binary) panicked on the divergence, and the
+// memoised and unmemoised production paths honoured the phased-out cost
+// modifier differently.
+func TestPhasedOutHolderCostAndManaConvStaticsAgreeAcrossWalks(t *testing.T) {
+	costHolder := card(t, "Name:Cost holder\nTypes:Enchantment\n"+
+		"S:Mode$ ReduceCost | ValidCard$ Creature | Color$ W | Amount$ 1\nOracle:x\n")
+	convHolder := card(t, "Name:Conv holder\nTypes:Enchantment\n"+
+		"S:Mode$ ManaConvert | ValidPlayer$ You | ManaConversion$ AnyType->AnyColor\nOracle:x\n")
+	e := handEngine(t, costHolder, convHolder)
+	ids := append([]state.ObjID(nil), e.G.Zone(state.ZHand, 0)...)
+	for _, id := range ids {
+		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
+	}
+	for _, id := range ids {
+		e.emit(events.Event{Kind: events.PhaseOut, Obj: id, Amount: 1})
+		if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield || !o.PhasedOut {
+			t.Fatalf("precondition: %v not a phased-out battlefield permanent: %+v", id, o)
+		}
+	}
+
+	// Precondition: the two statics really exist and are visible while phased
+	// in, so the empty membership asserted below is meaningful.
+	e.emit(events.Event{Kind: events.PhaseOut, Obj: ids[0], Amount: -1})
+	e.emit(events.Event{Kind: events.PhaseOut, Obj: ids[1], Amount: -1})
+	e.BeginDerivedReads()
+	if n := len(e.scanCostStatics().reduce); n == 0 {
+		t.Fatal("precondition: the phased-in ReduceCost holder contributed no cost static")
+	}
+	if n := len(e.scanManaConvSources(nil)); n == 0 {
+		t.Fatal("precondition: the phased-in ManaConvert holder contributed no source")
+	}
+	e.EndDerivedReads()
+
+	for _, id := range ids {
+		e.emit(events.Event{Kind: events.PhaseOut, Obj: id, Amount: 1})
+	}
+
+	// Inside a walk scope the fused cache serves both accessors; the second
+	// call is a cache hit whose verifyBoardStatics recomputation panics if the
+	// standalone scans disagree. Outside a scope the accessors call the
+	// standalone scans directly, so the equality is checked on both paths.
+	e.BeginDerivedReads()
+	gotFusedCost, gotFusedConv := e.collectCostStatics(), e.manaConvPrintedSources()
+	_ = e.collectCostStatics()
+	_ = e.manaConvPrintedSources()
+	e.EndDerivedReads()
+	if n := len(gotFusedCost.reduce); n != 0 {
+		t.Fatalf("phased-out ReduceCost holder still in fused cost membership: %d", n)
+	}
+	if n := len(gotFusedConv); n != 0 {
+		t.Fatalf("phased-out ManaConvert holder still in fused conv membership: %d", n)
+	}
+	if n := len(e.scanCostStatics().reduce); n != 0 {
+		t.Fatalf("phased-out ReduceCost holder still in standalone cost membership: %d", n)
+	}
+	if n := len(e.scanManaConvSources(nil)); n != 0 {
+		t.Fatalf("phased-out ManaConvert holder still in standalone conv membership: %d", n)
+	}
 }

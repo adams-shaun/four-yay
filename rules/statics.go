@@ -2353,6 +2353,15 @@ func (e *Engine) scanCostStatics() costStaticViews {
 		if f == nil {
 			return
 		}
+		// CR 702.25b/d: a phased-out permanent is treated as though it does
+		// not exist, so its cost statics do not function -- the same
+		// object-level gate scanActiveStatics, scanActionStatics and the
+		// fused scanBoardStatics run. Without it this standalone scan
+		// diverges from the fused scan (verifyBoardStatics recomputes both)
+		// and from the memoised path, which serves the fused arm.
+		if o.Zone == state.ZBattlefield && o.PhasedOut {
+			return
+		}
 		// CR 708.8: a face-down permanent has no printed cost statics
 		// (scanActionStatics' and scanActiveStatics' gate).
 		if e.faceDownPrintedHides(o) {
