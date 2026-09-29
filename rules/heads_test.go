@@ -1082,7 +1082,17 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	4: "d4876057e0477830",
+	// 4 seats moved to a773fbb9fe06d201 (agent-20260928T214958Z-8421ac45):
+	// registering Mode$ Transformed marks the battlefield SetState Mode$
+	// Transform FlipFace with Text "Transformed" (CR 701.26), which changes
+	// the event bytes for the one transform the golden 4-seat game performs --
+	// Delver of Secrets flips once (dimir-tempo), via AB$ SetState | Mode$
+	// Transform. Measured as a PURE HASH change, not a behaviour change: the
+	// 4-seat event count is identical (5446) with and without the marker, the
+	// single FlipFace is Delver's, and only Text differs; 2/6/8 seats are
+	// unchanged (they perform no Mode$ Transform transform). Delver carries no
+	// Mode$ Transformed trigger, so no trigger fires either way.
+	4: "a773fbb9fe06d201",
 	// 6 seats moved to c8c36b87e598c090 (autonomous orchestrator): resolving fb-20260914T033246Z-3f1cc033 (delver of secrets was played, but I was not prompted ... "you MAY reveal"... ...)
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
