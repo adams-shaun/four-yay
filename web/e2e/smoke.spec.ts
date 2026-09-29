@@ -356,6 +356,33 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
   throw new Error(`matchOfTable: ${table} has no live match`);
 }
 
+/**
+ * dockPromptInRail moves the prompt dock out of the near-table placement and
+ * into the rail, so the board and its menus are not covered. The near-table
+ * dock is `position: fixed; z-index: 40` and grows up over the board (the
+ * default since the ui-promptdock merge), which at the fixture tests'
+ * viewports covers the board's own card badges and — sitting above the radial
+ * picker's z-index 20 — the mana wheel itself. A player repositions the
+ * prompt the same way, with the dock's own toggle button; these tests assert
+ * board interactions, so they first ask for the board-first layout.
+ *
+ * The toggle cycles table -> rail -> floating -> table, so step to 'rail'
+ * (bounded) rather than assuming one press. A page with no prompt to answer
+ * has no dock to move, and returns.
+ */
+async function dockPromptInRail(page: Page, label: string): Promise<void> {
+  const dock = page.locator('[data-prompt-dock]');
+  const present = await dock.waitFor({ state: 'attached', timeout: 3_000 }).then(() => true, () => false);
+  if (!present) return;
+  for (let i = 0; i < 4; i++) {
+    const placement = await dock.getAttribute('data-placement');
+    if (placement === 'rail') return;
+    await page.locator('[data-dock-placement-toggle]').click({ timeout: WAIT_MS });
+    await page.waitForTimeout(30);
+  }
+  expect(await dock.getAttribute('data-placement'), `${label}: the prompt dock should reach the rail`).toBe('rail');
+}
+
 async function driveFixtureUntil(
   request: APIRequestContext,
   base: string,
@@ -1134,6 +1161,7 @@ test.describe('gorged [wheel1] Underground Sea fixture', () => {
       await page.goto(`${b}/t/t1?seat=0&token=${tokens[0]}`, { waitUntil: 'domcontentloaded' });
       const tile = page.locator(`.quadrant[data-seat="0"] [data-obj="${source}"]`);
       await tile.waitFor({ state: 'visible', timeout: WAIT_MS });
+      await dockPromptInRail(page, '[wheel1]');
       const action = tile.locator('xpath=..').locator('[data-single-action]');
       await action.waitFor({ state: 'visible', timeout: WAIT_MS });
 
@@ -1144,6 +1172,10 @@ test.describe('gorged [wheel1] Underground Sea fixture', () => {
       await action.click();
       const wheel = page.locator('body > [data-radial-picker]');
       await expect(wheel).toBeVisible({ timeout: WAIT_MS });
+      // The wheel's decision also mounts the near-table prompt dock, which at
+      // z-index 40 sits above the picker (z-index 20); move it to the rail
+      // before reaching for the wheel's own buttons.
+      await dockPromptInRail(page, '[wheel1]');
       const blue = wheel.locator('[data-mana-option="U"]');
       await expect(blue).toBeVisible();
       await expect(wheel.locator('[data-mana-option="B"]')).toBeVisible();
@@ -1250,6 +1282,7 @@ test.describe('gorged [talisman] two-stage mana continuation fixture', () => {
       await page.goto(`${b}/t/t1?seat=0&token=${talismanToken(0)}`, { waitUntil: 'domcontentloaded' });
       const tile = page.locator(`.quadrant[data-seat="0"] [data-obj="${activation.obj}"]`);
       await tile.waitFor({ state: 'visible', timeout: WAIT_MS });
+      await dockPromptInRail(page, '[talisman]');
       const action = tile.locator('xpath=..').locator('[data-single-action]');
       await action.waitFor({ state: 'visible', timeout: WAIT_MS });
 
@@ -1260,6 +1293,10 @@ test.describe('gorged [talisman] two-stage mana continuation fixture', () => {
       await action.click();
       const stageOne = page.locator('body > [data-radial-picker]');
       await expect(stageOne).toBeVisible({ timeout: WAIT_MS });
+      // The ability-choose decision also mounts the near-table prompt dock
+      // (z-index 40), which sits above the picker (z-index 20): move it to the
+      // rail so the wheel's buttons are reachable.
+      await dockPromptInRail(page, '[talisman]');
       const black = stageOne.locator('button[aria-label="Add B"]');
       await expect(black).toBeVisible();
       await expect(stageOne.locator('button[aria-label="Add C"]')).toBeVisible();
@@ -1300,6 +1337,7 @@ test.describe('gorged [ui24] constructed board fixture', () => {
     try {
       await page.goto(`${b}/t/t1?seat=0&token=${fixtureToken(0)}`, { waitUntil: 'domcontentloaded' });
       await page.locator('.quadrant[data-seat="0"] .card-tile[data-options]').first().waitFor({ state: 'visible', timeout: WAIT_MS });
+      await dockPromptInRail(page, '[ui24]');
 
       // The collapsed pile aggregates one attacker option per member. Pick a
       // NON-ZERO wire option from its seven-row menu; using the menu position
