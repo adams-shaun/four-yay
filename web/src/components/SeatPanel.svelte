@@ -7,6 +7,7 @@
   import { modalPickerOpen } from '../lib/modals';
   import ManaPool from './ManaPool.svelte';
   import PromptBody from './prompts/PromptBody.svelte';
+  import { dockAnswers } from '../lib/prompts/renderer';
 
   /**
    * SeatPanel is a human seat's decision surface: the status readout,
@@ -176,7 +177,7 @@
   // answers every non-priority decision, and the ACTIONS strip only points
   // at it (a second copy of the same options would be a second place to
   // click the same answer).
-  const deferred = $derived(decision !== null && placement === 'strip' && logic.dockCount > 0 && decision.kind !== 'priority');
+  const deferred = $derived(placement === 'strip' && logic.dockCount > 0 && dockAnswers(decision));
 
   // The prompt context line (brief Job 3): who the prompt is from and what
   // shape the answer takes, from fields already on the wire (source,

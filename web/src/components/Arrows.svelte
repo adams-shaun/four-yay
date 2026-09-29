@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { View } from '../protocol';
   import type { CardOptions } from '../lib/cardoptions';
-  import { arrowsFor, previewArrowsFor } from '../lib/arrows';
+  import { arrowsFor, hoverArrowFor, previewArrowsFor } from '../lib/arrows';
+  import { promptHover } from '../lib/prompts/hover.svelte';
   import type { Arrow, End } from '../lib/arrows';
 
   /**
@@ -47,7 +48,8 @@
     if (!root) return;
     const base = root.getBoundingClientRect();
     const next: Line[] = [];
-    for (const arrow of [...arrowsFor(view), ...previewArrowsFor(options)]) {
+    const hover = hoverArrowFor(options, promptHover.link);
+    for (const arrow of [...arrowsFor(view), ...previewArrowsFor(options), ...(hover ? [hover] : [])]) {
       const from = anchorEl(arrow.from);
       const to = anchorEl(arrow.to);
       if (!from || !to) continue;
@@ -64,6 +66,7 @@
   $effect(() => {
     void view;
     void options;
+    void promptHover.link;
     const id = requestAnimationFrame(recompute);
     return () => cancelAnimationFrame(id);
   });
@@ -102,12 +105,15 @@
       <marker id="arrow-attack" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path class="head head--attack" d="M0,0 L10,5 L0,10 z" />
       </marker>
+      <marker id="arrow-target-hover" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path class="head head--target-hover" d="M0,0 L10,5 L0,10 z" />
+      </marker>
       <marker id="arrow-block" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path class="head head--block" d="M0,0 L10,5 L0,10 z" />
       </marker>
     </defs>
     {#each lines as l, i (i)}
-      <line class="line line--{l.kind}" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke-width="2" stroke-linecap="round" marker-end={`url(#arrow-${l.kind === 'target-preview' ? 'target' : l.kind})`} />
+      <line class="line line--{l.kind}" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke-width={l.kind === 'target-hover' ? 3 : 2} stroke-linecap="round" marker-end={`url(#arrow-${l.kind === 'target-preview' ? 'target' : l.kind})`} />
     {/each}
   </svg>
 </div>
@@ -121,6 +127,10 @@
     stroke-dasharray: 7 6;
     opacity: 0.58;
   }
+  /* The hovered prompt option's arrow: verdigris, "a choice being made"
+     (UI rework spec §3), solid and a step heavier than the dashed previews. */
+  .line--target-hover { stroke: var(--verdigris, #6fb7ae); }
+  .head--target-hover { fill: var(--verdigris, #6fb7ae); }
   .line--attack { stroke: var(--danger); }
   .line--block { stroke: var(--mana-u); }
   .head--target { fill: var(--initiative); }

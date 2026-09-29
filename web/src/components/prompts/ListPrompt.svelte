@@ -5,7 +5,7 @@
   import { digitMap, orderedOptions } from '../../lib/prompts/order';
   import { primaryOf } from '../../lib/prompts/decision';
   import { selectionStatus, submitLabel } from '../../lib/prompts/anatomy';
-  import { hoverEndOf, promptHover } from '../../lib/prompts/hover.svelte';
+  import { hoverLinkOf, promptHover } from '../../lib/prompts/hover.svelte';
   import Digit from './Digit.svelte';
   import PromptFooter, { type FooterButton } from './PromptFooter.svelte';
 
@@ -87,7 +87,7 @@
     {#each rows as opt (opt.index)}
       {@const at = logic.picked.indexOf(opt.index)}
       {@const count = decision.repeatable ? logic.picked.filter((i) => i === opt.index).length : 0}
-      {@const end = hoverEndOf(opt)}
+      {@const link = hoverLinkOf(opt)}
       <button
         class="row"
         class:picked={at >= 0}
@@ -96,7 +96,7 @@
         data-option={opt.index}
         aria-pressed={multi ? at >= 0 : undefined}
         onclick={(e) => logic.click(opt.index, { holdPriority: e.ctrlKey })}
-        onpointerenter={() => end && promptHover.set(end)}
+        onpointerenter={() => link && promptHover.set(link)}
         onpointerleave={() => promptHover.clear()}
         disabled={logic.busy || (full && at < 0)}
       >

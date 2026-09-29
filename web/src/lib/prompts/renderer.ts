@@ -50,3 +50,16 @@ export function rendererFor(d: Decision): RendererKind {
  * panel, the ACTIONS strip/flyout, or the prompt dock (rail or floating).
  */
 export type Placement = 'board' | 'flyout' | 'strip' | 'dock';
+
+/**
+ * dockAnswers reports whether the prompt dock is the answer surface for a
+ * decision: every kind except priority (the action button, spec §4) and the
+ * London mulligan (it keeps the board-centred panel: the opening hand needs
+ * the board's width). While a dock is mounted, the ACTIONS strip defers
+ * exactly these decisions to it.
+ */
+export function dockAnswers(d: Decision | null): boolean {
+  if (d === null) return false;
+  const r = rendererFor(d);
+  return r !== 'priority' && r !== 'mulligan';
+}
