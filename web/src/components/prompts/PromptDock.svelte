@@ -5,7 +5,7 @@
   import { promptAnatomy } from '../../lib/prompts/anatomy';
   import { dockAnswers } from '../../lib/prompts/renderer';
   import { promptHover, type HoverEnd } from '../../lib/prompts/hover.svelte';
-  import { clampPosition, dockFromProfile, effectivePlacement, fractionOf, nextPlacement, profilePlacement, tableAnchor, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
+  import { clampPosition, dockFromProfile, dockYields, effectivePlacement, fractionOf, nextPlacement, profilePlacement, tableAnchor, type Box, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
   import { layoutStore } from '../../lib/layouts.svelte';
   import ArtCrop from './ArtCrop.svelte';
   import PromptBody from './PromptBody.svelte';
@@ -146,13 +146,70 @@
   // Pinned above the action button ([data-action-cluster]) inside the board;
   // re-measured whenever either resizes or the window does.
   let anchor = $state<TableAnchor | null>(null);
+  // The near-table auto-yield (promptdock2): if the dock's own interactive
+  // controls would FULLY cover a board option carrier, no click aimed at that
+  // carrier can reach the board, so the dock falls back to the rail. It is a
+  // per-question latch, not a live derivation: once yielded it stays yielded
+  // until the decision changes, so re-measuring the (now rail-mounted) dock
+  // can never flip it back and flap. The user's chosen placement is untouched
+  // — this only changes where the question is DRAWN.
+  let yielded = $state(false);
+  const renderedPlacement = $derived(yielded ? 'rail' : placement);
+
+  /**
+   * dockControls are the dock's own interactive surfaces: exactly the
+   * elements `.table` keeps `pointer-events: auto` on (the tools buttons,
+   * and every control inside the body). These are the rects that can swallow
+   * a click; everything else in the dock passes it through to the board.
+   */
+  function dockControls(): Box[] {
+    if (root === null) return [];
+    const out: Box[] = [];
+    for (const el of root.querySelectorAll<HTMLElement>('.tool, .body button, .body input, .body select, .body textarea')) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) out.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+    }
+    return out;
+  }
+
+  /**
+   * boardCarriers are the board elements that afford options: the option-
+   * bearing tiles ([data-options]) and the picker affordances a player clicks
+   * to reach a card's options (the OptionPicker badge / single-action icon).
+   * Selecting by role rather than a hand-built list means a new affordance is
+   * covered the moment it renders one of these.
+   */
+  function boardCarriers(board: Element): Box[] {
+    const out: Box[] = [];
+    const add = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) out.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+    };
+    for (const el of board.querySelectorAll('[data-options], [data-single-action], button.badge[aria-haspopup="menu"]')) add(el);
+    return out;
+  }
+
   $effect(() => {
-    if (placement !== 'table' || decision === null || typeof document === 'undefined') return;
+    if (placement !== 'table' || decision === null || typeof document === 'undefined') {
+      yielded = false;
+      return;
+    }
+    // A new question re-measures from the table layout: the yield is decided
+    // once per decision, when it is posed.
+    yielded = false;
     const measure = () => {
       const board = document.querySelector('.board');
       if (board === null) return;
       const action = document.querySelector('[data-action-cluster]');
       anchor = tableAnchor(action?.getBoundingClientRect() ?? null, board.getBoundingClientRect(), viewport());
+      // The anchor is applied by Svelte's flush after this effect; read the
+      // dock's rects on the next frame, when they reflect the table layout.
+      requestAnimationFrame(() => {
+        if (yielded) return;
+        const carriers = boardCarriers(board);
+        if (carriers.length === 0) return;
+        if (dockYields(dockControls(), carriers)) yielded = true;
+      });
     };
     measure();
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
@@ -165,25 +222,25 @@
   });
 
   const floatStyle = $derived(
-    placement === 'floating' && pos !== null
+    renderedPlacement === 'floating' && pos !== null
       ? `left:${pos.x}px;top:${pos.y}px`
-      : placement === 'table' && anchor !== null
+      : renderedPlacement === 'table' && anchor !== null
         ? `right:${anchor.right}px;bottom:${anchor.bottom}px;max-height:${anchor.maxHeight}px`
         : undefined,
   );
   const toggleTitle = $derived(
-    { table: 'Dock the prompt at the top of the rail', rail: 'Dock the prompt at the bottom of the rail', 'rail-bottom': 'Float the prompt over the board', floating: 'Pin the prompt above the action button' }[placement],
+    { table: 'Dock the prompt at the top of the rail', rail: 'Dock the prompt at the bottom of the rail', 'rail-bottom': 'Float the prompt over the board', floating: 'Pin the prompt above the action button' }[renderedPlacement],
   );
 </script>
 
 {#if decision && anatomy}
   {#key decision.seq}
   <section
-    class="prompt-dock {placement}"
+    class="prompt-dock {renderedPlacement}"
     bind:this={root}
     style={floatStyle}
     data-prompt-dock
-    data-placement={placement}
+    data-placement={renderedPlacement}
     data-renderer={anatomy.renderer}
     data-answer-surface="true"
     aria-label={anatomy.title}
@@ -191,7 +248,7 @@
     <div class="art"><ArtCrop card={anatomy.source?.card ?? null} shape="banner" /></div>
     <div class="body">
       <div class="tools">
-        {#if placement === 'floating'}
+        {#if renderedPlacement === 'floating'}
           <button
             class="tool grip"
             type="button"
@@ -211,8 +268,8 @@
           data-dock-placement-toggle
           title={toggleTitle}
           aria-label={toggleTitle}
-          onclick={() => setPlacement(nextPlacement(placement))}
-        >{placement === 'table' ? '⇥' : placement === 'rail' ? '⇩' : placement === 'rail-bottom' ? '⧉' : '⤓'}</button>
+          onclick={() => setPlacement(nextPlacement(renderedPlacement))}
+        >{renderedPlacement === 'table' ? '⇥' : renderedPlacement === 'rail' ? '⇩' : renderedPlacement === 'rail-bottom' ? '⧉' : '⤓'}</button>
       </div>
       {#if anatomy.source}<p class="src" data-prompt-source>{anatomy.source.line}</p>{/if}
       <h2 class="title" class:long={anatomy.title.length > 32} data-prompt-title>{anatomy.title}</h2>
