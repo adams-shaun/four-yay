@@ -406,6 +406,18 @@ func projectNext(m *match, seats []seat.Seat, brd *botpolicy.Board) *parkedData 
 	// makes the live feed the exact mirror of searchseat.RebuildFeed, which
 	// visits once at n as well (§5.2 Observe; BP-07's TestHostFeedEqualsRebuildFeed).
 	m.feeds.observe(m.e)
+	return projectNextData(m, seats, brd)
+}
+
+// projectNextData is projectNext without the feed observe — the rewind
+// path's entry (BP-09): the feeds the rewind just rebuilt (host/undo.go)
+// already carry the rewound decision's boundary frame — RebuildFeed's visit
+// at n IS that frame, pinned equal to the live feed truncated to the
+// boundary (§5.2) — so projecting it again would append a duplicate empty
+// burst and shift every later frame index off RebuildFeed's by one, forever.
+// Everything below the observe is shared with the ordinary path unchanged:
+// one body, two entries. Call on the match goroutine, under m.mu.
+func projectNextData(m *match, seats []seat.Seat, brd *botpolicy.Board) *parkedData {
 	d := m.e.Pending()
 	if d == nil {
 		return nil
