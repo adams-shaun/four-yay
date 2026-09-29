@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -267,12 +268,13 @@ func Apply(g *state.Game, e Event) {
 		// AbilityPush (Ruling T20-a) so a log-only replay creates the same
 		// object a live game did, but the body is not a face index -- it is
 		// SYNTHESIZED from the derived keyword line Counter carries
-		// ("Cycling:1 U", "TypeCycling:Sliver:3"), exactly the synthesis the
-		// offer loop and pcAbility re-derive, so live game and replay mint the
-		// identical ability. Obj is the activating card and the minted
-		// object's Source (`Defined$ Self`/`CARDNAME` names it); no
-		// registration is consumed, a grant lives exactly as long as its
-		// granting static. A line no synthesizer can model, an invalid
+		// ("Cycling:1 U", "TypeCycling:Sliver:3", "Saddle:2", "Crew:1"),
+		// exactly the synthesis the offer loop and pcAbility re-derive, so live
+		// game and replay mint the identical ability. Obj is the activating
+		// card and the minted object's Source (`Defined$ Self`/`CARDNAME`
+		// names it); no registration is consumed, a grant lives exactly as
+		// long as its granting static. A line no synthesizer can model, an
+		// invalid
 		// controller or a missing source mints nothing (the totality stance
 		// every case here takes).
 		if !validPlayer(g, e.Player) {
@@ -1824,6 +1826,30 @@ func Apply(g *state.Game, e Event) {
 	case PlayerLost:
 		if validPlayer(g, e.Player) {
 			g.Players[e.Player].Lost = true
+			// CR 723.4/723.5: a player-controlling effect ends when either
+			// participant leaves the game, so a lost seat's control folds are
+			// cleared here, in the one fold that observes the loss. Clear both
+			// directions: the lost seat as the CONTROLLED player (its own
+			// entry) and the lost seat as the CONTROLLER (every entry naming
+			// it). Leaving the controller half behind would rewrite the still-
+			// active controlled seat's decisions to a departed seat (see
+			// rules/engine.go controlPlayerRedirect); leaving the controlled
+			// half behind would strand a dead seat's fold. Collected and sorted
+			// so the clear is deterministic, exactly like every other map walk
+			// that can reach a projected fact.
+			delete(g.ControlledBy, e.Player)
+			delete(g.ControlArmedTurn, e.Player)
+			var orphaned []state.PlayerID
+			for subj, ctl := range g.ControlledBy {
+				if ctl == e.Player {
+					orphaned = append(orphaned, subj)
+				}
+			}
+			sort.Slice(orphaned, func(i, j int) bool { return orphaned[i] < orphaned[j] })
+			for _, subj := range orphaned {
+				delete(g.ControlledBy, subj)
+				delete(g.ControlArmedTurn, subj)
+			}
 		}
 
 	case GameOver:

@@ -54,8 +54,8 @@ func passToAsk(t *testing.T, e *Engine, limit int) *decision.Decision {
 // its power"). Tapestry Warden's second static replaces that with the
 // creature's TOUGHNESS ("Each creature you control with toughness greater
 // than its power stations permanents using its toughness rather than its
-// power."). The engine never reads the `stat:TapPowerValue` static, so a
-// 0/4 wall charges ZERO.
+// power."). The engine reads the `stat:TapPowerValue` static through
+// Engine.tapPowerValue, so a 0/4 wall stations using its TOUGHNESS (4).
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_TapestryWarden_StationUsesToughness(t *testing.T) {

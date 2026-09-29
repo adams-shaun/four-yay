@@ -80,27 +80,43 @@ const NoSeat state.PlayerID = 255
 // pending decision for read-only replay/spectate, including private search
 // options; only Public remains decision-free.
 func ProjectFor(g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, d *decision.Decision) View {
+	return ProjectForControlledFor(g, ch, viewer, vis, nil, d)
+}
+
+// ProjectForControlledFor is the full projection entry point: ProjectFor plus
+// the CR 723.4 alsoVisible widening set (see ProjectForControlled in
+// view/view.go). ProjectFor passes nil, so every existing caller keeps the
+// exact pre-widening projection and only a caller that has resolved control
+// relationships (the host, from state.Game.ControlledBy) passes a set.
+func ProjectForControlledFor(g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, alsoVisible []state.PlayerID, d *decision.Decision) View {
+	visSet := make(map[state.PlayerID]bool, len(alsoVisible))
+	for _, p := range alsoVisible {
+		visSet[p] = true
+	}
+	if len(visSet) == 0 {
+		visSet = nil
+	}
 	switch vis {
 	case Public:
-		v := project(g, ch, NoSeat, nil, false)
+		v := project(g, ch, NoSeat, nil, false, nil)
 		v.Viewer = viewer
 		v.Visibility = vis.String()
 		return v
 	case Omniscient:
-		v := project(g, ch, viewer, nil, true)
+		v := project(g, ch, viewer, nil, true, nil)
 		if g != nil {
 			for i := range v.Players {
 				p := &g.Players[i]
 				// An omniscient spectator can read this hand, but cannot act from it:
 				// ability costs are only needed on a viewer's own hand.
-				v.Players[i].Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), false, p.ID, viewer, true)
+				v.Players[i].Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), false, p.ID, viewer, true, nil)
 			}
 		}
 		v.Decision = copyDecision(d)
 		v.Visibility = vis.String()
 		return v
 	default:
-		v := project(g, ch, viewer, d, false)
+		v := project(g, ch, viewer, d, false, visSet)
 		v.Visibility = Seat.String()
 		return v
 	}

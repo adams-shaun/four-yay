@@ -115,6 +115,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/tabwriter"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -131,6 +132,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/registry"
+	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -293,6 +295,19 @@ var policies = map[string]func(seed uint64) seat.Seat{
 			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
 		}
 		return s
+	},
+	// sb-search-lite-atk is spellbench_registry's honest determinized-search
+	// arm (W4, 2-turn horizon, attack search), made bench-seatable for BP-05's
+	// hosted-root parity smoke over a repo-deck pair (the -spellbench mode
+	// has no -pairs, and the registry package has no Lookup). The wiring
+	// mirrors that registry's entry exactly; its tactical weights and card
+	// lookup are this package's (setTacticalRegistry wires them before any
+	// game starts, as for the sb-tactical arms above).
+	"sb-search-lite-atk": func(seed uint64) seat.Seat {
+		c := sbsearch.DefaultConfig()
+		c.Worlds, c.Horizon, c.Attack = 4, 2, true
+		c.Name = "sb-search-lite-atk"
+		return sbsearch.New(builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights), seed, c)
 	},
 	// sb-* are SpellBench's three builtin bots (uniform, heuristic, first)
 	// ported onto gorge's decision model (internal/spellbench/builtins, whose
@@ -859,6 +874,18 @@ func playMatchOnce(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns,
 // is no second copy of the watchdog/livelock loop to keep in step.
 func playMatchOnceTraced(cfg rules.Config, pols []string, seats []seat.Seat, maxTurns, maxIntents int, collect *decisionStats, cov *actionCoverage, trace *gameTrace, meta traceDecisionMeta) (gameOutcome, *rules.Engine, error) {
 	hooks := gbench.Hooks{NeedBoard: trace != nil}
+	if hostedRootEnabled {
+		// BP-05: the -hosted-root flag is the bench's honest-root mode.
+		// Every search seat's engine handle is the redeal of the live
+		// position; a refused redeal plays the wrapped bot and is counted
+		// (the run's notice prints the count). The deal seed is derived
+		// per decision inside the bench, so the flag carries no state
+		// beyond the switch itself.
+		hooks.HonestRoot = true
+		hooks.RootRefused = func(seatIdx int, d *decision.Decision, reason string) {
+			hostedRootRefusals.Add(1)
+		}
+	}
 	if maxTurnIntents > 0 {
 		hooks.Guard = turnIntentGuard(maxTurnIntents)
 	}
@@ -1273,6 +1300,9 @@ func benchWithPool(baseSeed uint64, games, seats int, aName, bName string, play 
 		// A run with any stalls must say so loudly -- a line that cannot be
 		// mistaken for a clean run. Nothing is printed when there are no
 		// stalls, so the constructed default report is unchanged.
+		fmt.Fprint(out, notice)
+	}
+	if notice := hostedRootNotice(hostedRootRefusals.Load()); notice != "" {
 		fmt.Fprint(out, notice)
 	}
 	if livelocks > 0 {
@@ -1787,6 +1817,9 @@ func writeMatrixText(out io.Writer, aName, bName string, baseSeed uint64, games 
 	fmt.Fprintf(out, "pairs whose A-win interval excludes 50%%: A loses on %d, A wins on %d, undecided on %d\n", below, above, undecided)
 	if notice := stallNotice(m.stallTurns, m.stallIntents, m.livelocks, mEff); notice != "" {
 		// A matrix with any stalls says so loudly, like the single-pair run.
+		fmt.Fprint(out, notice)
+	}
+	if notice := hostedRootNotice(hostedRootRefusals.Load()); notice != "" {
 		fmt.Fprint(out, notice)
 	}
 	if m.firstLivelock != "" {
@@ -2360,6 +2393,29 @@ func deckKind(commander bool) string {
 	return "repo"
 }
 
+// hostedRootEnabled is -hosted-root: set once in main before any game starts
+// and read by playMatchOnceTraced when it builds its hooks (the same
+// package-scope pattern as decisionStatsEnabled).
+var hostedRootEnabled bool
+
+// hostedRootRefusals counts the honest-root refusals across the run, printed
+// in the run's hosted-root notice (a refusing seat played its wrapped bot at
+// those decisions, so the count is part of reading the run).
+var hostedRootRefusals atomic.Uint64
+
+// hostedRootNotice is the loud summary line a -hosted-root run with any
+// refused redeal prints beside its win rates: the refusing decisions played
+// the wrapped bot, so a reader cannot mistake the run for one whose seats
+// always searched from a root. A run with no refusals prints nothing, so the
+// flag's clean shape is a report byte-identical to the ordinary one plus the
+// games.
+func hostedRootNotice(refusals uint64) string {
+	if refusals == 0 {
+		return ""
+	}
+	return fmt.Sprintf("hosted-root: %d honest-root refusal(s) -- those decisions played the wrapped bot path\n", refusals)
+}
+
 func main() {
 	a := flag.String("a", "bot", "policy name on side A")
 	b := flag.String("b", "bot", "policy name on side B (same as -a is a valid, expected run)")
@@ -2395,6 +2451,7 @@ func main() {
 	autopayMirror := flag.Bool("autopay-mirror", false, "mirror each auto-pay planned cast against float-then-cast and print verdict counts")
 	paymentStats := flag.Bool("payment-stats", false, "append the aggregated auto-pay planner diagnostics (offer builds, cast outcomes by reason and detail, search nodes, offered actions, planned submissions, fallbacks by reason; sorted) after the run, for any policy; written to stderr under -out json so stdout stays machine-readable; default off so the normal report is unchanged")
 	decisionTrace := flag.String("decision-trace", "", "write an opt-in atomic JSONL decision trace to a new file (matrix mode only; parent must exist and destination must not)")
+	hostedRoot := flag.Bool("hosted-root", false, "honest-root mode (spec 2026-09-28 hosted-bot-packages §5.3): every search seat (search, az, az-redeal, sb-search*) answers from a redeal of the live position, built from its own observation feed (searchseat.HonestRoot), instead of the live engine; a refused redeal plays the wrapped bot and is counted in the run's hosted-root notice. The deal seed is derived per decision (bots.RootSeed), so a hosted run is a pure function of its seeds like any other run")
 	analyzeTrace := flag.String("analyze-trace", "", "read a decision trace and write deterministic diagnostic-proxy JSON; no games are played")
 	grind := flag.String("grind", "", "grind mode: pin one repo deck to one goroutine and play it against itself as many games as the budget allows; a deck name, or \"all\" for every deck in the format's pool (one goroutine each); mutually exclusive with -pairs; -workers is ignored (the one-goroutine-per-deck shape IS the mode)")
 	grindSeconds := flag.Float64("grind-seconds", 0, "grind wall-clock budget in seconds (checked between games, so at least one game always plays); 0 with -grind-iters 0 means the 30s default")
@@ -2441,6 +2498,8 @@ func main() {
 	actionCoverageEnabled = *actionCoverage
 	autopayMirrorEnabled = *autopayMirror
 	paymentStatsEnabled = *paymentStats
+	hostedRootEnabled = *hostedRoot
+	hostedRootRefusals.Store(0)
 	autopayMirrorCounts.Lock()
 	autopayMirrorCounts.counts = map[string]int{}
 	autopayMirrorCounts.Unlock()

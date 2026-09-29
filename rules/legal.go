@@ -1898,25 +1898,28 @@ func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbi
 
 // gainsValidAbilitiesAdmits reports whether the gained activated ability ab is
 
-// grantedKeywordLines returns the DERIVED activated-keyword lines (Cycling,
-// TypeCycling, Saddle, or Crew) id carries right now that no compiled face of
-// its pile already expands. A printed K: line is expanded at
-// link time into the pile's own abilities (the pile walk offers that one); a
-// layer-6 AddKeyword$ grant (CR 613.1f) exists only in the derived keyword
-// list and needs the synthesis the offer's keyword-granted block runs. Coverage is
-// decided against the pile's compiled facts in both directions -- a face whose
-// own keyword list holds the line (the expansion the link built, or one the
+// grantedKeywordLines returns the DERIVED granted-keyword lines id carries
+// right now that no compiled face of its pile already expands, restricted to
+// the four heads that mint an activated ability (cards.GrantedKeywordAbility:
+// Cycling, TypeCycling, Saddle, Crew). A printed K: line is expanded at link
+// time into the pile's own abilities (the pile walk offers that one); a
+// layer-6 AddKeyword$ grant (CR 613.1f -- Tectonic Reformation, Rhet-Tomb
+// Mystic, Jo Grant, Homing Sliver, Jandor, Kotori, Astor, Swift
+// Reconfiguration) exists only in the derived keyword list and needs the
+// synthesis the offer's granted-keyword block runs. Coverage is decided
+// against the pile's compiled facts in both directions -- a face whose own
+// keyword list holds the line (the expansion the link built, or one the
 // printed-A:-line guard suppressed) and a compiled ability tagged
-// KeywordLine = the line -- so a card that both prints and is granted the same
-// line is offered once. Duplicate derived entries (two identical grants)
+// KeywordLine = the line -- so a card that both prints and is granted the
+// same line is offered once. Duplicate derived entries (two identical grants)
 // collapse to one; distinct lines (Cycling:2 and Cycling:R) each offer, the
 // way two distinct printed K:Cycling lines would. Deterministic: Derived's
 // slice order, dedup by first occurrence -- no map range reaches the list.
 func (e *Engine) grantedKeywordLines(id state.ObjID) []string {
-	if !e.mayDeriveKeywordAbilityLine(id) {
+	if !e.mayDeriveKeywordLine(id) {
 		if derivedMemoVerify {
 			if got := e.grantedKeywordLinesFull(id); len(got) != 0 {
-				panic(fmt.Sprintf("rules: activated-keyword precheck skipped obj %d but the derived walk grants %q", id, got))
+				panic(fmt.Sprintf("rules: granted-keyword precheck skipped obj %d but the derived walk grants %q", id, got))
 			}
 		}
 		return nil
@@ -1924,13 +1927,12 @@ func (e *Engine) grantedKeywordLines(id state.ObjID) []string {
 	return e.grantedKeywordLinesFull(id)
 }
 
-// mayDeriveKeywordAbilityLine is grantedKeywordLines' exact precheck
-// (keywordmay.go): without a possible modeled activated-keyword head in the
-// derived list the answer is nil, and the offer walk skips the full layer walk it
-// otherwise paid for every card in every offered zone.
-func (e *Engine) mayDeriveKeywordAbilityLine(id state.ObjID) bool {
-	return e.mayHaveDerivedKeywordAnyH(id, kwhCycling, kwhTypeCycling) ||
-		e.mayHaveDerivedKeywordAnyH(id, kwhSaddle, kwhCrew)
+// mayDeriveKeywordLine is grantedKeywordLines' exact precheck
+// (keywordmay.go): without a possible Cycling/TypeCycling/Saddle/Crew head in
+// the derived list the answer is nil, and the offer walk skips the full layer
+// walk it otherwise paid for every card in every offered zone.
+func (e *Engine) mayDeriveKeywordLine(id state.ObjID) bool {
+	return e.mayHaveDerivedKeywordAnyH(id, kwhCycling, kwhTypeCycling, kwhSaddle, kwhCrew)
 }
 
 // grantedKeywordLinesFull is grantedKeywordLines without the precheck.
@@ -1949,7 +1951,7 @@ func (e *Engine) grantedKeywordLinesFull(id state.ObjID) []string {
 				break
 			}
 		}
-		if dup || e.printedKeywordAbilityCovered(id, k) || cards.GrantedKeywordAbility(k) == nil {
+		if dup || e.printedKeywordCovered(id, k) || cards.GrantedKeywordAbility(k) == nil {
 			continue
 		}
 		out = append(out, k)
@@ -1957,12 +1959,12 @@ func (e *Engine) grantedKeywordLinesFull(id state.ObjID) []string {
 	return out
 }
 
-// printedKeywordAbilityCovered reports whether a compiled face of id's pile
-// already carries the keyword line -- either as a keyword entry of its own
+// printedKeywordCovered reports whether a compiled face of id's pile already
+// carries the granted keyword line -- either as a keyword entry of its own
 // (the printed K: line the link expanded, or one the printed-A:-line guard
 // suppressed) or as a compiled ability tagged KeywordLine = line. A stale
 // object reads covered (withhold), the offer walk's degradation direction.
-func (e *Engine) printedKeywordAbilityCovered(id state.ObjID, line string) bool {
+func (e *Engine) printedKeywordCovered(id state.ObjID, line string) bool {
 	o := e.G.Obj(id)
 	if o == nil {
 		return true
@@ -3983,46 +3985,47 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 								GrantStatics: staticModesFromSVars(ab, abFace.SVars)})
 						}
 					}
-					// Keyword-granted activated ability (CR 613.1f): an AddKeyword$
-					// grant can give an object an activated ability NO printed face
-					// carries, so the pile walk above never offers it. Synthesize the
-					// same body the printed expansion builds
-					// (cards.GrantedKeywordAbility) and offer it through the same gates,
-					// anchored on the derived keyword line beginActivation resolves --
-					// exactly the SVar-anchor shape with the line standing in for the
-					// name. A line the printed face (or a pile under-card) already
-					// expands is skipped -- the printed offer exists -- and a shape the
-					// synthesizer cannot model is skipped whole (fail closed). The
-					// synthesized body carries no Tap/Loyalty/CheckSVar$
-					// rider and no ReduceCost$ (its Discard-only cost is the whole
-					// non-mana half), so the pile walk's rider gates have no twin here;
-					// the offer gate prices the discard's satisfiability exactly as the
-					// printed cycling offer does. Two gates DO apply to every body
-					// regardless of riders and are NOT skipped here: the SorcerySpeed$
-					// window -- the synthesized Saddle body carries `SorcerySpeed$ True`
-					// (CR 702.171a), so a granted Saddle is withheld outside a sorcery
-					// window exactly as a printed one is -- and CR 602.2a's
-					// Activator$/controller gate, so the battlefield walk never offers a
-					// permanent's granted ability to a player who may not activate it.
+					// Keyword-granted abilities (CR 613.1f): a layer-6 AddKeyword$
+					// grant of an EXPANDED keyword (Cycling, TypeCycling, Saddle,
+					// Crew) gives a card an activated ability NO printed face
+					// carries, so the pile walk above never offers it. Synthesize
+					// the same body the printed expansion builds
+					// (cards.GrantedKeywordAbility) and offer it through the same
+					// gates, anchored on the derived keyword line beginActivation
+					// resolves -- exactly the SVar-anchor shape with the line
+					// standing in for the name. A line the printed face (or a pile
+					// under-card) already expands is skipped -- the printed offer
+					// exists -- and a shape the synthesizer cannot model is
+					// skipped whole (fail closed).
 					//
-					// Cycling bodies carry ActivationZone$ Hand; Saddle and Crew
-					// default to the battlefield. abilityZoneOK below is the zone
-					// authority for each synthesized ability.
+					// ZONE: the body's own ActivationZone$ decides (abilityZoneOK
+					// below). The cycling bodies carry ActivationZone$ Hand; the
+					// Saddle/Crew bodies carry no rider and are battlefield
+					// abilities, so this block reads every zone, not just the hand.
+					//
+					// The pile walk's rider gates that a synthesized body can
+					// carry are replicated here: SorcerySpeed$ (Saddle's body is
+					// CR 702.171a sorcery-only), the tap-cost availability gates
+					// (crew/saddle both pay a tapXType cost) and the offer-time
+					// CheckSVar$/IsPresent$ funnels.
 					for _, line := range e.grantedKeywordLines(id) {
 						ab := cards.GrantedKeywordAbility(line)
 						if ab == nil || !abilityZoneOK(ab, z) {
 							continue
 						}
-						// The two every-ability gates the printed walk applies (block
-						// comment above): a synthesized body is gated on its OWN rider
-						// params exactly as a printed ability is.
 						if ab.Params["SorcerySpeed"] == "True" && !sorcery {
 							continue
 						}
 						if !e.activatorAllows(p, id, ab) {
 							continue
 						}
+						if !e.activationPhasesOK(p, ab) {
+							continue
+						}
 						if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
+							continue
+						}
+						if !e.activationConditionOK(p, ab) {
 							continue
 						}
 						if e.activationLimitBlocked(p, id, ab, -1, line, 0) {
@@ -4035,10 +4038,19 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 							cost.Generic = 0
 						}
 						cost = e.powerUpReducedCost(id, ab, cost)
+						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+							continue
+						}
 						if !offerCastable(p, id, cost, abilityScope(ab), true) {
 							continue
 						}
 						if !e.abilityTargetsAvailable(p, id, ab) {
+							continue
+						}
+						if !e.sVarGateOK(p, id, ab, 0) {
+							continue
+						}
+						if !e.abilityPresentHolds(p, id, ab) {
 							continue
 						}
 						out = append(out, decision.Option{Index: len(out), Kind: "ability",

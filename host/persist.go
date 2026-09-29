@@ -71,6 +71,12 @@ type sidecar struct {
 	// choice's label on replay.
 	NameUniverseNames []string `json:"name_universe_names,omitempty"`
 	BotPolicy         string   `json:"bot_policy"`
+	// Refusals and Fallbacks are BP-06 ladder diagnostics: how many Submits
+	// the engine refused and how many times the fallback rungs ran. They are
+	// counters only and never reach an event, so a sidecar written without
+	// them (omitempty) loads byte-identically and replays unchanged.
+	Refusals  int `json:"refusals,omitempty"`
+	Fallbacks int `json:"fallbacks,omitempty"`
 }
 
 func (sc sidecar) info() protocol.MatchInfo {

@@ -252,9 +252,10 @@ func (e *Engine) beginGrantedActivation(p state.PlayerID, opt decision.Option) {
 // abSVarName returns the SVar table key whose raw body is exactly the line
 
 // beginKeywordGrantedActivation activates a keyword-GRANTED ability (CR
-// 613.1f): the layer-6 AddKeyword$ option (rules/legal.go's keyword-granted
-// offer) anchors the DERIVED keyword line rather than a face index or SVar
-// name -- a granted keyword lives in no face's SVar table. The body is
+// 613.1f): the layer-6 AddKeyword$ option (rules/legal.go's granted-keyword
+// offer) anchors the DERIVED keyword line ("Cycling:1 U",
+// "TypeCycling:Sliver:3", "Saddle:2", "Crew:1") rather than a face index or
+// SVar name -- a granted keyword lives in no face's SVar table. The body is
 // synthesized from the line (cards.GrantedKeywordAbility, the same synthesis
 // the offer gate priced), the pendingCast carries the line as its
 // grantKeyword anchor, and payCast's ability branch mints through

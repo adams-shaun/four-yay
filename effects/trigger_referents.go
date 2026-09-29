@@ -22,6 +22,14 @@ type TriggerContext struct {
 	// because Ward must counter that stack object itself.
 	TriggerStack    state.ObjID
 	DefendingPlayer state.Target
+	// DefendingBattle is the planeswalker or battle object a
+	// K:Ninjutsu permanent (CR 702.49b) enters attacking, when the returned
+	// creature was attacking a non-player defender. It rides beside
+	// DefendingPlayer, which remains the defending player (the object's
+	// controller) -- the Attacking$ True entry rider emits both, and the
+	// TokenAttacks event's IDs[1] slot carries the object. Zero when the
+	// defender was a player, which is every non-ninjutsu binding.
+	DefendingBattle state.ObjID
 	TriggerPlayer   state.Target
 	TriggerCard     state.ObjID
 	// DelayedObject is the causing event's object for a delayed trigger:
