@@ -34,7 +34,7 @@ func (e *Engine) mayHaveDerivedKeyword(id state.ObjID, head string) bool {
 
 // mayHaveDerivedKeywordH is mayHaveDerivedKeyword for a precompiled head.
 func (e *Engine) mayHaveDerivedKeywordH(id state.ObjID, head kwHead) bool {
-	return e.mayHaveDerivedKeywordAnyH(id, head, kwHead{})
+	return e.mayHaveDerivedKeywordAnyH(id, head)
 }
 
 // stackKeywordPossible is mayHaveDerivedKeyword for the cast-keyword reads
@@ -64,13 +64,6 @@ func (e *Engine) stackKeywordPossibleH(id state.ObjID, h kwHead) bool {
 	return false
 }
 
-// headIs reports whether k's KeywordHead equals a or (when non-empty) b,
-// case-insensitively.
-func headIs(k, a, b string) bool {
-	h := cards.KeywordHead(k)
-	return strings.EqualFold(h, a) || (b != "" && strings.EqualFold(h, b))
-}
-
 // mayHaveDerivedKeywordAny is mayHaveDerivedKeyword for either of two heads
 // in one pass (b empty: head a alone).
 func (e *Engine) mayHaveDerivedKeywordAny(id state.ObjID, a, b string) bool {
@@ -82,9 +75,10 @@ func (e *Engine) mayHaveDerivedKeywordAny(id state.ObjID, a, b string) bool {
 }
 
 // mayHaveDerivedKeywordAnyH is mayHaveDerivedKeywordAny over precompiled
-// heads (b.s empty: head a alone).
-func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, ha, hb kwHead) bool {
-	a, b := ha.s, hb.s
+// heads; a head whose s is empty is skipped. It takes any number of heads so
+// one precheck can cover a whole set (the four granted-expanded-keyword heads
+// Cycling/TypeCycling/Saddle/Crew) in a single pass over the derived seeds.
+func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, heads ...kwHead) bool {
 	o := e.G.Obj(id)
 	if o == nil {
 		return false
@@ -97,17 +91,28 @@ func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, ha, hb kwHead) bool {
 		return true
 	}
 	// The printed keyword lines through the face's interned head bitset
-	// (cards.Face.KeywordLinesHaveHead: headIs's EqualFold answer per head).
-	if f.KeywordLinesHaveHead(a, ha.id) || (b != "" && f.KeywordLinesHaveHead(b, hb.id)) {
-		return true
+	// (cards.Face.KeywordLinesHaveHead: the EqualFold answer per head).
+	for _, h := range heads {
+		if h.s != "" && f.KeywordLinesHaveHead(h.s, h.id) {
+			return true
+		}
+	}
+	matchHead := func(k string) bool {
+		head := cards.KeywordHead(k)
+		for _, h := range heads {
+			if h.s != "" && strings.EqualFold(head, h.s) {
+				return true
+			}
+		}
+		return false
 	}
 	for _, k := range o.IntrinsicKeywords {
-		if headIs(k, a, b) {
+		if matchHead(k) {
 			return true
 		}
 	}
 	for _, c := range o.Counters {
-		if kwName, ok := cards.CounterKeyword(c.Kind); ok && c.N > 0 && headIs(kwName, a, b) {
+		if kwName, ok := cards.CounterKeyword(c.Kind); ok && c.N > 0 && matchHead(kwName) {
 			return true
 		}
 	}
@@ -115,15 +120,17 @@ func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, ha, hb kwHead) bool {
 	active := e.active()
 	if outer {
 		for _, h := range e.activeKWHeads {
-			if strings.EqualFold(h, a) || (b != "" && strings.EqualFold(h, b)) {
-				return true
+			for _, hd := range heads {
+				if hd.s != "" && strings.EqualFold(h, hd.s) {
+					return true
+				}
 			}
 		}
 		return false
 	}
 	for i := range active {
 		for _, k := range active[i].AddKeywords {
-			if headIs(k, a, b) {
+			if matchHead(k) {
 				return true
 			}
 		}

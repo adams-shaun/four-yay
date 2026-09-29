@@ -6708,7 +6708,7 @@ func (e *Engine) pcAbility(pc *pendingCast) *cards.SA {
 		// the string -- no state read, so every read site and a replay re-derive
 		// the identical SA. A line no synthesizer can model resolves nil and the
 		// caller degrades the way a stale option always has.
-		return cards.GrantedCyclingAbility(pc.grantKeyword)
+		return cards.GrantedKeywordAbility(pc.grantKeyword)
 	}
 	if pc.gainedFrom != 0 {
 		// A has-all-abilities-of body: the SA is the named foreign face's

@@ -268,12 +268,13 @@ func Apply(g *state.Game, e Event) {
 		// AbilityPush (Ruling T20-a) so a log-only replay creates the same
 		// object a live game did, but the body is not a face index -- it is
 		// SYNTHESIZED from the derived keyword line Counter carries
-		// ("Cycling:1 U", "TypeCycling:Sliver:3"), exactly the synthesis the
-		// offer loop and pcAbility re-derive, so live game and replay mint the
-		// identical ability. Obj is the activating card and the minted
-		// object's Source (`Defined$ Self`/`CARDNAME` names it); no
-		// registration is consumed, a grant lives exactly as long as its
-		// granting static. A line no synthesizer can model, an invalid
+		// ("Cycling:1 U", "TypeCycling:Sliver:3", "Saddle:2", "Crew:1"),
+		// exactly the synthesis the offer loop and pcAbility re-derive, so live
+		// game and replay mint the identical ability. Obj is the activating
+		// card and the minted object's Source (`Defined$ Self`/`CARDNAME`
+		// names it); no registration is consumed, a grant lives exactly as
+		// long as its granting static. A line no synthesizer can model, an
+		// invalid
 		// controller or a missing source mints nothing (the totality stance
 		// every case here takes).
 		if !validPlayer(g, e.Player) {
@@ -283,7 +284,7 @@ func Apply(g *state.Game, e Event) {
 		if src == nil {
 			break
 		}
-		sa := cards.GrantedCyclingAbility(e.Counter)
+		sa := cards.GrantedKeywordAbility(e.Counter)
 		if sa == nil {
 			break
 		}
