@@ -43,6 +43,13 @@ func kwCrew(f *Face, i int, k, head, param string, has func(kind, line string) b
 	if has("A", k) {
 		return
 	}
+	if sa := crewAbilitySA(param); sa != nil {
+		sa.Params["KeywordLine"] = k
+		f.Abilities = append(f.Abilities, sa)
+	}
+}
+
+func crewAbilitySA(param string) *SA {
 	fields := strings.Split(param, ":")
 	n := strings.TrimSpace(fields[0])
 	if n == "" {
@@ -67,10 +74,24 @@ func kwCrew(f *Face, i int, k, head, param string, has func(kind, line string) b
 	for _, r := range riders {
 		saStr += " | " + r
 	}
-	if sa, _ := parseSA("", saStr); sa != nil {
-		sa.Params["KeywordLine"] = k
-		f.Abilities = append(f.Abilities, sa)
+	sa, _ := parseSA("", saStr)
+	return sa
+}
+
+// GrantedCrewAbility synthesizes the activated ability for a derived Crew line.
+func GrantedCrewAbility(line string) *SA {
+	if KeywordHead(line) != "Crew" {
+		return nil
 	}
+	param := ""
+	if j := strings.IndexByte(line, ':'); j >= 0 {
+		param = strings.TrimSpace(line[j+1:])
+	}
+	sa := crewAbilitySA(param)
+	if sa != nil {
+		sa.Params["KeywordLine"] = line
+	}
+	return sa
 }
 
 func init() { registerKeyword(kwCrew, "Crew") }

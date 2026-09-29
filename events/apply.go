@@ -282,7 +282,7 @@ func Apply(g *state.Game, e Event) {
 		if src == nil {
 			break
 		}
-		sa := cards.GrantedCyclingAbility(e.Counter)
+		sa := cards.GrantedKeywordAbility(e.Counter)
 		if sa == nil {
 			break
 		}

@@ -15,13 +15,38 @@ func kwSaddle(f *Face, _ int, k, _, param string, has func(kind, line string) bo
 	if n == "" {
 		n = "1"
 	}
-	saStr := "AB$ AlterAttribute | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + n +
-		"> | Defined$ Self | Attributes$ Saddled | SorcerySpeed$ True | Keyword$ Saddle" +
-		" | SpellDescription$ Saddle " + n + " (Tap any number of other untapped creatures you control with total power " + n + " or greater: This creature becomes saddled until end of turn.)"
-	if sa, _ := parseSA("", saStr); sa != nil {
+	if sa := saddleAbilitySA(n); sa != nil {
 		sa.Params["KeywordLine"] = k
 		f.Abilities = append(f.Abilities, sa)
 	}
+}
+
+func saddleAbilitySA(n string) *SA {
+	saStr := "AB$ AlterAttribute | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + n +
+		"> | Defined$ Self | Attributes$ Saddled | SorcerySpeed$ True | Keyword$ Saddle" +
+		" | SpellDescription$ Saddle " + n + " (Tap any number of other untapped creatures you control with total power " + n + " or greater: This creature becomes saddled until end of turn.)"
+	sa, _ := parseSA("", saStr)
+	return sa
+}
+
+// GrantedSaddleAbility synthesizes the activated ability for a derived Saddle line.
+func GrantedSaddleAbility(line string) *SA {
+	if KeywordHead(line) != "Saddle" {
+		return nil
+	}
+	param := ""
+	if j := strings.IndexByte(line, ':'); j >= 0 {
+		param = strings.TrimSpace(line[j+1:])
+	}
+	n := strings.TrimSpace(strings.Split(param, ":")[0])
+	if n == "" {
+		n = "1"
+	}
+	sa := saddleAbilitySA(n)
+	if sa != nil {
+		sa.Params["KeywordLine"] = line
+	}
+	return sa
 }
 
 func init() { registerKeyword(kwSaddle, "Saddle") }
