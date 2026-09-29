@@ -254,8 +254,28 @@ if [ "${STORM_N:-0}" -ge 10 ] && [ "$STORM_LIVE" = 1 ]; then
 fi
 if [ "${HUMAN:-0}" -gt 0 ]; then
 	saw "$HUMAN ticket(s) in human_needed"
-	QUIET=1
-	skipped "no new tickets: $HUMAN parked ticket(s) come first (drain before growing the queue)"
+	# Whether a parked ticket holds new work is the REPO's decision, not the
+	# seed's: gorge set policy.hold_new_while_parked = false deliberately after
+	# measuring 686 of 1440 minutes on hold in a day. The seed shipped with a
+	# stricter rule of its own and promptly held every reward ticket behind
+	# three parked ones -- an orchestrator that overrides a measured operator
+	# decision is not steering, it is guessing.
+	HOLD_PARKED=$(python3 - "$TARGET/.agentctl/config.toml" <<'PY' 2>/dev/null
+import sys, tomllib
+try:
+    cfg = tomllib.load(open(sys.argv[1], "rb"))
+except (OSError, ValueError):
+    print("true")  # no config to read: keep the cautious behaviour
+else:
+    print("true" if (cfg.get("policy") or {}).get("hold_new_while_parked", True) else "false")
+PY
+	)
+	if [ "${HOLD_PARKED:-true}" = true ]; then
+		QUIET=1
+		skipped "no new tickets: $HUMAN parked ticket(s) come first (policy.hold_new_while_parked)"
+	else
+		skipped "$HUMAN parked ticket(s) noted but NOT holding new work (policy.hold_new_while_parked = false)"
+	fi
 fi
 
 # --------------------------------------------------- 3 & 4. regressions + work

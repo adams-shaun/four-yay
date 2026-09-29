@@ -54,6 +54,14 @@ the cycle runs until this step has acted.
 - `waiting` over the configured hold threshold: the queue is already draining;
   the seed adds nothing that cycle.
 
+Whether a parked ticket holds new work is the REPO's decision, read from
+`policy.hold_new_while_parked` in `.agentctl/config.toml` -- gorge sets it false
+after measuring 686 of 1440 minutes on hold in one day. The seed shipped with a
+stricter rule of its own and held every reward ticket behind three parked ones;
+an orchestrator that overrides a measured operator decision is guessing, not
+steering. A live provider storm still withholds, because that is a fact about
+right now rather than a policy.
+
 ### 3. Reward regression
 
 For each axis with a measured delta, a move in the wrong direction past its own
