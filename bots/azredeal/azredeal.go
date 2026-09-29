@@ -123,9 +123,10 @@ type hostedSeat struct {
 }
 
 var (
-	_ bots.EnvSeat      = (*hostedSeat)(nil)
-	_ bots.BudgetedSeat = (*hostedSeat)(nil)
-	_ seat.BoardSeat    = (*hostedSeat)(nil)
+	_ bots.EnvSeat          = (*hostedSeat)(nil)
+	_ bots.BudgetedSeat     = (*hostedSeat)(nil)
+	_ seat.BoardSeat        = (*hostedSeat)(nil)
+	_ searchseat.SearchSeat = (*hostedSeat)(nil)
 )
 
 // Decide is the plain Seat half: the wrapped bot. Decisions where WantsEnv is

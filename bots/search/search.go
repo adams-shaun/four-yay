@@ -83,6 +83,13 @@ type hostedSeat struct {
 var (
 	_ bots.EnvSeat   = (*hostedSeat)(nil)
 	_ seat.BoardSeat = (*hostedSeat)(nil)
+	// The bench driver's SearchSeat contract (BP-16): internal/bench.PlayGame
+	// builds an observation feed for a SearchSeat and hands the decision's Env
+	// to it — the live engine with -hosted-root off (the bench keeps the real
+	// engine), the honest root with it on. The host never calls it; its Env
+	// dispatch routes the same wrapped call through DecideEnv, gated on
+	// WantsEnv.
+	_ searchseat.SearchSeat = (*hostedSeat)(nil)
 )
 
 // Decide is the plain Seat half: the wrapped bot. Decisions where WantsEnv is

@@ -31,6 +31,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/bots/sbtactical"
 	"github.com/adams-shaun/gorge/decision"
@@ -135,6 +136,13 @@ var (
 	_ bots.RefusalAnswerer     = (*hostedSeat)(nil)
 	_ seat.PaymentPlanConsumer = (*hostedSeat)(nil)
 	_ seat.Seat                = (*hostedSeat)(nil)
+	// The bench driver's SearchSeat contract (BP-16): internal/bench.PlayGame
+	// builds an observation feed for a SearchSeat and answers its own
+	// decisions from DecideSearch — the live engine with -hosted-root off
+	// (the bench keeps the real engine), the honest root with it on. The host
+	// never calls it; its Env dispatch routes the same wrapped call through
+	// DecideEnv, gated on WantsEnv.
+	_ searchseat.SearchSeat = (*hostedSeat)(nil)
 )
 
 // wantsEnvFor is WantsEnv's one home, kept off the seat so it is a pure
@@ -170,11 +178,31 @@ func (s *hostedSeat) DecideEnv(ctx context.Context, env bots.Env, d decision.Dec
 // projected. Every non-Env decision comes here, plus any caller holding the
 // seat only as a Seat. The planner is cleared first so a plain-path answer
 // can never price a play from an engine this adapter did not build.
-// DecideSearch keeps the hosted adapter usable by botbench's engine-owning driver.
+//
+// DecideSearch is the bench driver's SearchSeat contract (BP-16):
+// internal/bench.PlayGame answers the adapter's own decisions from its
+// observation feed — the live engine with -hosted-root off (the bench keeps
+// the real engine), the honest root with it on. The host never calls it; its
+// Env dispatch routes the same wrapped call through DecideEnv, gated on
+// WantsEnv.
 func (s *hostedSeat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
 	return s.bot.DecideSearch(ctx, env, d)
 }
 
+// DecideBoard is the bench driver's other SearchSeat half: the wrapped search
+// seat's own board fallback, exactly as the bare *sbsearch.Seat answered a
+// non-live feed before BP-16. The host never calls this (its Env dispatch
+// plays the inner sb-tactical on env.View with a nil planner through
+// DecideEnv); this method exists so botbench's existing SearchSeat branch
+// drives the same wrapped seat with the real engine the bench keeps.
+func (s *hostedSeat) DecideBoard(ctx context.Context, b botpolicy.Board, d decision.Decision) (decision.Intent, error) {
+	return s.bot.DecideBoard(ctx, b, d)
+}
+
+// Decide is the plain Seat half: the wrapped heuristic on the View the host
+// projected. Every non-Env decision comes here, plus any caller holding the
+// seat only as a Seat. The planner is cleared first so a plain-path answer
+// can never price a play from an engine this adapter did not build.
 func (s *hostedSeat) Decide(ctx context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	s.inner.SetPlanner(nil)
 	return s.bot.Decide(ctx, v, d)
@@ -183,6 +211,14 @@ func (s *hostedSeat) Decide(ctx context.Context, v view.View, d decision.Decisio
 // WantsPaymentActions is the wrapped seat's (AutoPay: yes): the inner
 // sb-tactical reads the host's payment plans, so the host must offer them.
 func (s *hostedSeat) WantsPaymentActions() bool { return s.bot.WantsPaymentActions() }
+
+// UnwrapSeat exposes the wrapped search seat: botbench's existing SpellBench
+// hooks (the planner hand-off, the fallback's sb-tactical assertion, the
+// stats read) reach the inner seat through registry.UnwrapSeat's chain,
+// exactly as they reached the bare *sbsearch.Seat the bench registered
+// before BP-16. Without it the bench's SetPlanner(e) silently misses the
+// inner seat and its decisions change under it.
+func (s *hostedSeat) UnwrapSeat() seat.Seat { return s.bot }
 
 // AnswerRefused is the refusal ladder's rung 1: the inner sb-tactical's own
 // refusal answer, reached through UnwrapSeat (spec §11 BP-14) so the ladder

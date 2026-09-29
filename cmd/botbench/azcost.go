@@ -73,6 +73,15 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 		return nil
 	}
 	plainAZ := aName == "az" || bName == "az"
+	// BP-16 seats az-redeal through bots/azredeal.New, which builds the az
+	// seat with a nil net: the hosted entry is generation 0 by construction
+	// ("New: net is always nil"). A -checkpoint model can no longer drive it;
+	// refuse loudly instead of silently benching a different bot than
+	// -checkpoint names. Policy az with -az-world redeal is the checkpointed
+	// honest-world shape.
+	if m != nil && !plainAZ {
+		return fmt.Errorf("-checkpoint with az-redeal: the hosted az-redeal seat is generation 0 (bots/azredeal); use policy az with -az-world redeal for a checkpointed honest-world search")
+	}
 	azCfg.ExploreTurns = int32(azExploreTurns)
 	fsRec, err := policynet.ParseFeatureSet(azRecordArg)
 	if err != nil || fsRec.Diagnostic() || fsRec == policynet.FeaturesV1 {

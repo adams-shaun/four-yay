@@ -11,7 +11,6 @@ import (
 	"fmt"
 
 	"github.com/adams-shaun/gorge/bots"
-	"github.com/adams-shaun/gorge/bots/azredeal"
 	hostedsbsearch "github.com/adams-shaun/gorge/bots/sbsearch"
 	"github.com/adams-shaun/gorge/bots/sbtactical"
 	"github.com/adams-shaun/gorge/internal/azmcts"
@@ -35,11 +34,15 @@ func init() {
 	// az-redeal is az on the honest world source (azmcts.RedealSource): every
 	// simulation walks a world that keeps what the seat sees and re-deals the
 	// hidden cards it cannot. It takes every -az-* knob but -az-world, so one
-	// run can seat it beside a clairvoyant az.
+	// run can seat it beside a clairvoyant az. Built on the hosted config
+	// (bots/azredeal.Hosted); the bench reaches the concrete *azmcts.Seat
+	// through registry.UnwrapSeat for the -az-corpus recorder and the
+	// searchseat feed, which is why the hosted EnvSeat wrapper (bots/azredeal.New)
+	// is the host's entry point, not this one.
 	registry.Register("az-redeal", func(seed uint64, _ builtins.ManaMode) seat.Seat {
-		s, err := azredeal.New(benchBotOptions(seed), azRedealOverlay())
+		s, err := azmcts.NewSeat(seed, azNet, azRedealOverlay())
 		if err != nil {
-			panic("botbench: " + err.Error())
+			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
 		}
 		return s
 	})
@@ -47,13 +50,13 @@ func init() {
 	// heuristic; they read this package's tactical weights and card lookup,
 	// so like az they are registered here. The -manual/-planned arms force
 	// their mana surface; the -no<group> arms switch one idea group off and
-	// the -alt arms play -spellbench-tactical-alt-weights (A/B tuning).
+	// the -alt arms play -spellbench-tactical-alt-weights (A/B tuning). Built
+	// on the hosted weights (bots/sbtactical.Hosted) so the bench default and
+	// the host cannot drift; the bench uses the inner *builtins.Seat (the
+	// planner is installed by sbPlay's Setup hook), so the hosted EnvSeat
+	// wrapper (bots/sbtactical.New) is the host's entry point.
 	registry.Register("sb-tactical", func(seed uint64, _ builtins.ManaMode) seat.Seat {
-		s, err := sbtactical.New(benchBotOptions(seed), tacticalOverlay(sbtactical.Hosted()))
-		if err != nil {
-			panic("botbench: " + err.Error())
-		}
-		return s
+		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalOverlay(sbtactical.Hosted()))
 	})
 	registry.Register("sb-tactical-planned", func(seed uint64, _ builtins.ManaMode) seat.Seat {
 		return builtins.NewTactical(builtins.Planned, seed, tacticalLookup, tacticalWeights)
@@ -83,14 +86,6 @@ func init() {
 		cfg := v.cfg
 		cfg.Name = v.name
 		registry.Register(v.name, func(seed uint64, _ builtins.ManaMode) seat.Seat {
-			if v.name == hostedsbsearch.Policy {
-				var err error
-				seat, err := hostedsbsearch.New(benchBotOptions(seed), sbSearchOverlay(hostedsbsearch.LiteAtk()))
-				if err != nil {
-					panic("botbench: " + err.Error())
-				}
-				return seat
-			}
 			return sbsearch.New(builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights), seed, cfg)
 		})
 	}
