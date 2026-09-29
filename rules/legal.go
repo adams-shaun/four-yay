@@ -2742,6 +2742,28 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 			out = append(out, decision.Option{Index: len(out), Kind: "cast",
 				Label: "Cast " + f.Name + " (" + ka.mode + ")", Obj: id, Mode: ka.mode})
 		}
+		// Web-slinging (CR 702.186a-family, Marvel's Spider-Man): the printed
+		// (or granted) web-slinging cost replaces the mana cost, and the cast
+		// carries the mandatory additional cost of returning a tapped creature
+		// you control to its owner's hand -- the composed Cost the shared
+		// reader (webslinging.go's webSlingingCosts) prices for BOTH this offer
+		// and beginCast's charge, so the two stages cannot drift. The same
+		// timing/restriction gates the plain cast above ran apply unchanged
+		// (the keyword adds no timing rider), and offerCastable's shared tail
+		// (nonManaCastable) censuses the Return part's candidates: an option
+		// whose return cannot be paid must never be offered (the offerCastable
+		// ruling).
+		for _, wc := range e.webSlingingCosts(p, id) {
+			if !targetsAvailable() || !offerCastable(p, id, wc.cost, spellScope(wc.mode), false) {
+				continue
+			}
+			label := "web-slinging"
+			if wc.mode != "web-slinging" {
+				label = "web-slinging (granted)"
+			}
+			out = append(out, decision.Option{Index: len(out), Kind: "cast",
+				Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: wc.mode})
+		}
 		if blitzes := e.blitzCosts(p, id); len(blitzes) > 0 && targetsAvailable() {
 			for _, blitz := range blitzes {
 				if !offerCastable(p, id, blitz.cost, spellScope(blitz.mode), false) {

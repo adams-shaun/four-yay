@@ -1,9 +1,12 @@
 package rules
 
-// Set audit: Marvel's Spider-Man (spm). This file is AUDIT-only: it records
-// defects found in the set, one test per card/mechanic, each guarded by
-// GORGE_SET_AUDIT so a failing finding does not break the gates. Findings are
-// filed as tickets under .ds4/new-tickets/. See .ds4/report-t0.md.
+// Set audit: Marvel's Spider-Man (spm). Most of this file is AUDIT-only: it
+// records defects found in the set, one test per card/mechanic, each guarded
+// by GORGE_SET_AUDIT so a failing finding does not break the gates. Findings
+// are filed as tickets under .ds4/new-tickets/. See .ds4/report-t0.md. The
+// Web-slinging finding is the exception: the alternative cost was implemented
+// in rules/webslinging.go, so its test is a permanent green regression guard
+// without the skip guard.
 
 import (
 	"os"
@@ -41,11 +44,11 @@ func castOptionsWithMode(e *Engine, p state.PlayerID, obj state.ObjID, mode stri
 // web-slinging cost if you also return a tapped creature you control to its
 // owner's hand." Spider-Man, Web-Slinger ({2}{W}, web-slinging {W}) must be
 // castable for {W} while a tapped creature is available to return, even with
-// no {2}{W} in the pool. The engine has no web-slinging path at all, so the
-// {W} offer never appears.
+// no {2}{W} in the pool. The finding is implemented (rules/webslinging.go),
+// so this is a permanent green regression guard without the skip guard.
 func TestSetAudit_spm_WebSlinging_AlternativeCostOffered(t *testing.T) {
 	t.Parallel()
-	requireSetAudit(t, "set-audit finding (spm): Web-slinging (CR 702.186) is unimplemented; the alternative cost is never offered. Follow-up: implement Web-slinging alternative cost")
+
 	e := handEngine(t, corpusCard(t, "Spider-Man, Web-Slinger"))
 	spidey := e.G.Zone(state.ZHand, 0)[0]
 	if got := e.G.Obj(spidey).Face().Name; got != "Spider-Man, Web-Slinger" {
@@ -59,7 +62,7 @@ func TestSetAudit_spm_WebSlinging_AlternativeCostOffered(t *testing.T) {
 	}
 	// A tapped creature of seat 0's, the return cost's fuel.
 	bear := onBoard(t, e, 0, "Name:Test Tapped Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
-	e.G.Obj(bear).Tapped = true
+	e.emit(events.Event{Kind: events.Tap, Obj: bear})
 	if !e.G.Obj(bear).Tapped {
 		t.Fatal("setup: bear must be tapped to pay the return cost")
 	}
