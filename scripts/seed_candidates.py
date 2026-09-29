@@ -88,17 +88,34 @@ def generate(repo: Path, state_dir: Path, ledger_path: Path) -> list[dict]:
     out: list[dict] = []
 
     # ---- flow (1000x): contended files, and the merge_fix rate they cause.
-    hs = rc.hotspots(repo)
-    for f, branches in hs[:5]:
+    # Group by the SET of contending branches, not by file. Five files held by
+    # the same three branches are ONE root cause and one ticket; the first
+    # version filed one ticket per file and sent five briefs about the same
+    # three idle branches, which is the whack-a-mole this repo has a rule
+    # against. Branches that are idle are excluded here: the idle-branch
+    # candidate below owns them, and a ticket to "split a file" cannot fix a
+    # file whose real problem is that nobody is finishing the branch.
+    idle_names = {b for b, _, _ in rc.idle_branches(repo)}
+    groups: dict[tuple[str, ...], list[str]] = {}
+    for f, branches in rc.hotspots(repo):
+        live = tuple(sorted(b for b in branches if b not in idle_names))
+        if len(live) < rc.HOTSPOT_BRANCHES:
+            continue
+        groups.setdefault(live, []).append(f)
+    for branches, files in sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:3]:
+        flist = "\n".join(f"- `{f}`" for f in sorted(files))
         out.append(
             cand(
-                f"flow-hotspot-{slug(f)}",
+                "flow-hotspot-" + slug("-".join(branches)),
                 "flow",
-                f"Remove the merge hot spot in {f} ({len(branches)} live branches)",
-                f"""# {f} is a merge hot spot
+                f"{len(files)} file(s) contended by {len(branches)} live branches: {', '.join(branches)}",
+                f"""# {len(branches)} live branches are editing the same {len(files)} file(s)
 
-{len(branches)} live task branches are editing this file right now:
-{", ".join("`" + b + "`" for b in branches)}.
+Branches: {", ".join("`" + b + "`" for b in branches)}
+
+Files they all touch:
+
+{flist}
 
 Measured by `scripts/reward_collect.py hotspots --repo .`, which lists every
 file two or more live branches change against `main`. Each such file is where
@@ -106,29 +123,33 @@ the fleet loses whole paid rounds to `merge_fix` instead of to the work.
 
 ## Goal
 
-Remove the contention, not one conflict. Either:
+Remove the contention for the whole group, not one conflict. Either:
 
-- split the file along the seam the branches are pulling apart, so two tickets
-  touch two files (preferred when the seam is real), or
-- if the file cannot be split honestly, record it as a hot file in the repo
-  context (`.superpowers/ds4/gorge-context.md`) so briefs that touch it are
-  sequenced rather than run in parallel.
+- sequence them: chain the tickets behind each other (`--depends`) so the second
+  starts from the first's landing, which costs nothing and is right whenever the
+  branches are all still moving, or
+- split the files along the seam the branches are pulling apart, so two tickets
+  touch two files (preferred when the seam is real and durable), or
+- if a file cannot be split honestly, record it in the hot-file table in
+  `.superpowers/ds4/gorge-context.md` so future briefs keep their changes to it
+  small.
 
 ## Out of scope
 
 Resolving the current conflicts; the daemon's merge_fix lane does that. This
-ticket is about the file never being contended again.
+ticket is about these files never being contended again. Do not touch the
+branches' own work.
 
 ## Done means
 
-`scripts/reward_collect.py hotspots --repo .` no longer lists this path, and
-`go build ./... && go test ./...` is green. If the resolution is sequencing
-rather than splitting, the context file names the file and the reason, and the
-commit message says why a split was not honest.
+`scripts/reward_collect.py hotspots --repo .` no longer lists these paths for
+this branch set, and `go build ./... && go test ./...` is green. If the
+resolution is sequencing or the hot-file table rather than a split, the commit
+message says why a split was not honest.
 """,
-                est_delta=float(len(branches)),
+                est_delta=float(len(files) * len(branches)),
                 est_cost=COST_SPLIT_FILE,
-                evidence=f"{len(branches)} branches: {', '.join(branches)}",
+                evidence=f"{len(branches)} branches on {len(files)} files: {', '.join(branches)}",
             )
         )
 
@@ -568,6 +589,29 @@ def selftest() -> int:
         (state / "defects.jsonl").write_text(
             json.dumps({"card": "Lightning Bolt", "validated_set": True, "status": "open"}) + "\n"
         )
+        # Hot spots group by branch SET: three files held by the same two live
+        # branches are one ticket, and files held by an IDLE branch belong to the
+        # idle-branch candidate instead.
+        real_hot, real_idle = rc.hotspots, rc.idle_branches
+        rc.hotspots = lambda _r: [
+            ("a.go", ["br1", "br2"]),
+            ("b.go", ["br1", "br2"]),
+            ("c.go", ["br1", "br2"]),
+            ("d.go", ["br3", "br4"]),
+            ("e.go", ["sleepy1", "sleepy2"]),
+        ]
+        rc.idle_branches = lambda _r, hours=12: [("sleepy1", 1, 40.0), ("sleepy2", 1, 40.0)]
+        try:
+            grouped = [c for c in generate(repo, state, ledger) if c["id"].startswith("flow-hotspot-")]
+        finally:
+            rc.hotspots, rc.idle_branches = real_hot, real_idle
+        check("one ticket per contending branch SET, not per file", len(grouped) == 2, [c["id"] for c in grouped])
+        big = next((c for c in grouped if "br1" in c["id"]), None)
+        check("the group's ticket lists every file it holds",
+              big and all(f in big["body"] for f in ("a.go", "b.go", "c.go")), big and big["id"])
+        check("a group held by idle branches is left to the idle-branch candidate",
+              not any("sleepy" in c["id"] for c in grouped), [c["id"] for c in grouped])
+
         cands = generate(repo, state, ledger)
         ids = [c["id"] for c in cands]
         check("a high merge_fix rate makes a flow candidate", any(i.startswith("flow-mergefix") for i in ids), ids)
