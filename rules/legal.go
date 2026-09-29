@@ -3993,11 +3993,17 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 					// name. A line the printed face (or a pile under-card) already
 					// expands is skipped -- the printed offer exists -- and a shape the
 					// synthesizer cannot model is skipped whole (fail closed). The
-					// synthesized body carries no SorcerySpeed$/Tap/Loyalty/CheckSVar$
+					// synthesized body carries no Tap/Loyalty/CheckSVar$
 					// rider and no ReduceCost$ (its Discard-only cost is the whole
 					// non-mana half), so the pile walk's rider gates have no twin here;
 					// the offer gate prices the discard's satisfiability exactly as the
-					// printed cycling offer does.
+					// printed cycling offer does. Two gates DO apply to every body
+					// regardless of riders and are NOT skipped here: the SorcerySpeed$
+					// window -- the synthesized Saddle body carries `SorcerySpeed$ True`
+					// (CR 702.171a), so a granted Saddle is withheld outside a sorcery
+					// window exactly as a printed one is -- and CR 602.2a's
+					// Activator$/controller gate, so the battlefield walk never offers a
+					// permanent's granted ability to a player who may not activate it.
 					//
 					// Cycling bodies carry ActivationZone$ Hand; Saddle and Crew
 					// default to the battlefield. abilityZoneOK below is the zone
@@ -4005,6 +4011,15 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 					for _, line := range e.grantedKeywordLines(id) {
 						ab := cards.GrantedKeywordAbility(line)
 						if ab == nil || !abilityZoneOK(ab, z) {
+							continue
+						}
+						// The two every-ability gates the printed walk applies (block
+						// comment above): a synthesized body is gated on its OWN rider
+						// params exactly as a printed ability is.
+						if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+							continue
+						}
+						if !e.activatorAllows(p, id, ab) {
 							continue
 						}
 						if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {

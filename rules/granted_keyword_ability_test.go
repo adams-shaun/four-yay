@@ -175,3 +175,175 @@ func TestGrantedCrewAbilityIsOffered(t *testing.T) {
 		t.Fatal("the granted Crew ability did not animate the vehicle into a creature")
 	}
 }
+
+// TestGrantedSaddleAbilitySorcerySpeedGate pins CR 702.171a for the GRANTED
+// form of Saddle: the synthesized body carries `SorcerySpeed$ True`
+// (cards/kw_saddle.go), so Jandor's `AddKeyword$ Saddle:2` grant is offered
+// on the empty-stack main phase but withheld while a spell is on the stack
+// -- exactly as the printed `K:Saddle` offer is (TestSaddleSorcerySpeedGate).
+// Preconditions are asserted separately: the option is offered before the
+// Bolt is cast, so the negative assertion cannot pass because the option was
+// never synthesized.
+func TestGrantedSaddleAbilitySorcerySpeedGate(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	jandor := lookup(t, reg, "Jandor, Fortuned Traveler")
+	bolt := lookup(t, reg, "Lightning Bolt")
+	beast, diags := cards.ParseBytes("fixture", []byte("Name:Test Beast\nTypes:Creature Beast\nPT:2/2\nOracle:x\n"))
+	if len(diags) != 0 {
+		t.Fatalf("fixture parse: %+v", diags)
+	}
+	e := corpusEngine(t, reg, append([]*cards.Card{jandor, beast, bolt}, saddleExtraCards(t, reg)...), nil)
+	jid := moveByName(t, e, 0, "Jandor, Fortuned Traveler", state.ZBattlefield)
+	bid := moveByName(t, e, 0, "Test Beast", state.ZBattlefield)
+	saddleBears(t, e)
+	if e.G.Obj(jid).Zone != state.ZBattlefield || e.G.Obj(bid).Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Jandor/Beast zones %v/%v, want both battlefield",
+			e.G.Obj(jid).Zone, e.G.Obj(bid).Zone)
+	}
+	if e.G.Obj(bid).Face().HasKeyword("Saddle") {
+		t.Fatal("precondition: the Beast must print no Saddle, else the offered ability is not the granted one")
+	}
+	if param, ok := e.derivedKeywordParam(bid, "Saddle"); !ok || param != "2" {
+		t.Fatalf("precondition: derived Saddle grant = (%q, %v), want (\"2\", true)", param, ok)
+	}
+
+	grantedSaddleOptions := func() int {
+		n := 0
+		for _, o := range e.Pending().Options {
+			if o.Obj == bid && o.Keyword == "Saddle:2" {
+				n++
+			}
+		}
+		return n
+	}
+
+	// Offered on the empty-stack sorcery-speed window.
+	e.pending = nil
+	e.priorityRound()
+	if n := grantedSaddleOptions(); n != 1 {
+		t.Fatalf("precondition: granted Saddle options on the empty stack = %d, want 1", n)
+	}
+
+	// Put Lightning Bolt on the stack and confirm the granted Saddle is
+	// withheld with it there.
+	boltID := moveByName(t, e, 0, "Lightning Bolt", state.ZHand)
+	addMana(t, e, 0, "R")
+	idx := -1
+	for _, o := range e.Pending().Options {
+		if o.Kind == "cast" && o.Obj == boltID {
+			idx = o.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("no cast option for Lightning Bolt: %+v", e.Pending().Options)
+	}
+	submitChoices(t, e, idx)
+	if d := e.Pending(); d != nil && d.Kind == decision.KTarget && len(d.Options) > 0 {
+		submitChoices(t, e, d.Options[0].Index)
+	}
+	if len(e.G.Stack) == 0 {
+		t.Fatal("precondition: Lightning Bolt did not reach the stack")
+	}
+	if n := grantedSaddleOptions(); n != 0 {
+		t.Fatalf("granted Saddle was offered %d time(s) with a spell on the stack; CR 702.171a says only as a sorcery", n)
+	}
+}
+
+// TestGrantedKeywordAbilityActivatorGate pins CR 602.2a for a GRANTED
+// keyword ability: the battlefield is walked for every seat's priority, so
+// the activator gate -- no Activator$ means the source's controller, and
+// only them -- must withhold the option from anyone who does not control
+// the permanent carrying the derived keyword. The probe uses granted Crew
+// rather than granted Saddle because Crew carries no `SorcerySpeed$`
+// (cards/kw_crew.go): seat 1, the Vehicle's controller, holds priority
+// during seat 0's main phase, so the positive control -- the controller IS
+// offered the option -- is legal in the same scenario where the opponent
+// must be withheld. (A Saddle probe cannot carry that control: Saddle is
+// sorcery-speed, so a non-active seat is withheld by the CR 302.1/602.5a
+// window, not by the activator gate.) Seat 0 is the active player and holds
+// the bears the seat-0 election would pay with, so the cost-satisfiability
+// gate cannot mask the gap.
+func TestGrantedKeywordAbilityActivatorGate(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	kotori := lookup(t, reg, "Kotori, Pilot Prodigy")
+	vehicle, diags := cards.ParseBytes("fixture", []byte("Name:Test Vehicle\nTypes:Artifact Vehicle\nPT:3/3\nOracle:x\n"))
+	if len(diags) != 0 {
+		t.Fatalf("fixture parse: %+v", diags)
+	}
+	bear := lookup(t, reg, "Runeclaw Bear")
+	e := corpusEngine(t, reg, []*cards.Card{bear, bear}, []*cards.Card{kotori, vehicle, bear, bear})
+	kid := moveByName(t, e, 1, "Kotori, Pilot Prodigy", state.ZBattlefield)
+	vid := moveByName(t, e, 1, "Test Vehicle", state.ZBattlefield)
+	for _, p := range []state.PlayerID{0, 1} {
+		for n := 0; n < 2; n++ {
+			id := moveByName(t, e, p, "Runeclaw Bear", state.ZBattlefield)
+			if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
+				t.Fatalf("precondition: seat %d's bear %d is not on the battlefield", p, id)
+			}
+			e.G.Obj(id).SummonSick = false
+		}
+	}
+	// Preconditions, each its own failure: Kotori (the granter) and the
+	// Vehicle are on seat 1's battlefield, where the source-zone default
+	// makes the static live; the Vehicle prints no Crew, so the offered
+	// ability can only be the granted one; the grant really reached the
+	// Vehicle's derived keyword list; and the controller is where the
+	// activator gate reads it.
+	if o := e.G.Obj(kid); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Kotori = %+v, want on seat 1's battlefield", o)
+	}
+	if o := e.G.Obj(vid); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: vehicle = %+v, want on seat 1's battlefield", o)
+	}
+	if e.G.Obj(vid).Face().HasKeyword("Crew") {
+		t.Fatal("precondition: the vehicle must print no Crew, else the offered ability is not the granted one")
+	}
+	if param, ok := e.derivedKeywordParam(vid, "Crew"); !ok || param != "2" {
+		t.Fatalf("precondition: derived Crew grant = (%q, %v), want (\"2\", true)", param, ok)
+	}
+	if e.controllerOf(vid) != 1 {
+		t.Fatalf("precondition: vehicle controller = %d, want 1", e.controllerOf(vid))
+	}
+
+	// Seat 0 (the active player, an opponent of the Vehicle's controller)
+	// holds priority first. The granted Crew option must be withheld from it.
+	e.pending = nil
+	e.priorityRound()
+	d := e.Pending()
+	if d == nil || d.Player != 0 {
+		t.Fatalf("precondition: pending decision %+v, want seat 0's priority", d)
+	}
+	for _, o := range d.Options {
+		if o.Obj == vid && o.Keyword == "Crew:2" {
+			t.Fatalf("CR 602.2a: seat 0 was offered the granted Crew option on seat 1's Vehicle: %+v", o)
+		}
+	}
+	// Positive control: seat 1, the Vehicle's controller, IS offered the
+	// granted Crew, so the withholding above is the activator gate and not a
+	// blanket suppression of the synthesized option.
+	idx := -1
+	for _, o := range d.Options {
+		if o.Kind == "pass" {
+			idx = o.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("seat 0's priority decision has no pass option: %+v", d.Options)
+	}
+	submitChoices(t, e, idx)
+	d1 := e.Pending()
+	if d1 == nil || d1.Player != 1 {
+		t.Fatalf("precondition: after seat 0 passes, pending = %+v, want seat 1's priority", d1)
+	}
+	n := 0
+	for _, o := range d1.Options {
+		if o.Obj == vid && o.Keyword == "Crew:2" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("positive control: seat 1 was offered %d granted Crew option(s), want 1", n)
+	}
+}
