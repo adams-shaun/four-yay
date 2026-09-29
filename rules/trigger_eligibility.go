@@ -94,7 +94,8 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
 		events.ChaosEnsues, events.ManaUndo, events.EndTurn,
 		events.DungeonCreate, events.DungeonRoom, events.DungeonComplete,
-		events.DungeonRemove, events.InitiativeChange, events.SkipTurn:
+		events.DungeonRemove, events.InitiativeChange, events.SkipTurn,
+		events.ControlPlayerChange:
 		// ManaUndo is the announced payment window's CR 733.1 reversal of a
 		// mana activation: nothing triggers from an undone action, so it
 		// carries no interest bits.
@@ -237,6 +238,18 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		// the audit complete if the bound ever widens and keeps it out of the
 		// catch-all default that would otherwise claim the kind
 		// trigger-relevant.
+		//
+		// ControlPlayerChange (CR 720, api:ControlPlayer) records the grant
+		// and expiry of one player's control by another, the SkipTurn shape
+		// exactly: the interval is read back through state.Game.ControlledBy/
+		// ControlArmedTurn by the decision redirect and the turn-boundary
+		// arithmetic, never through a trigger mode -- no T: line in the corpus
+		// fires on a control designation being granted or ending. Its ordinal
+		// sits past triggerMaskKindBits, so both classifiers fail open before
+		// this map is consulted; naming it keeps the audit complete if the
+		// bound ever widens and keeps it out of the catch-all default that
+		// would otherwise claim the kind trigger-relevant and run a full
+		// trigger scan on every control grant and expiry.
 		return 0
 	case events.Attach:
 		return cards.TriggerInterestAttach

@@ -3612,6 +3612,20 @@ func (e *Engine) controlPlayerRedirect(d *decision.Decision) {
 	if !ok || ctl == d.Player {
 		return
 	}
+	// CR 720.2 scopes the control to the controlled player's NEXT turn: the
+	// controller answers only decisions that seat would be offered DURING
+	// that turn, never a response priority on a turn that passes before it
+	// begins (the controller's own turn the grant resolved on, or another
+	// opponent's turn in between). This mirrors expirePlayerControl's
+	// arithmetic exactly: the grant armed on turn T is live only while the
+	// controlled seat is active on a strictly later turn (Turn > armed), the
+	// same Turn > armed test that expires it at that turn's end. Without this
+	// the redirect spilled across the whole interval -- the controlled seat's
+	// on-controller-turn response priority was handed to the controller before
+	// their controlled turn (findings-t2 MAJOR).
+	if e.G.Active != d.Player || e.G.Turn <= e.G.ControlArmedTurn[d.Player] {
+		return
+	}
 	// CR 720.6 keeps control acyclic; a corrupt or hand-built fold naming a
 	// cycle must not move the decision back onto the controlled seat.
 	if _, loop := e.G.ControlledBy[ctl]; loop {
