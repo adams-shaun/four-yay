@@ -462,19 +462,19 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	if int(i) < len(payers) && payers[i].IsPlayer {
 		payer = payers[i].Player
 	}
-	shown := unlessCostLabel(cost)
-	prompt, payLabel, declineLabel := "Pay "+shown+", or decline", "Pay "+shown, "Don't pay"
+	pay := unlessPayPhrase(cost)
+	prompt, payLabel, declineLabel := pay+", or decline", pay, "Don't pay"
 	switch sa.API {
 	case "Counter":
-		prompt = "Pay " + shown + " to save the spell, or decline"
-		payLabel = "Pay " + shown + " — don't counter"
+		prompt = pay + " to save the spell, or decline"
+		payLabel = pay + " — don't counter"
 	case "CopySpellAbility":
 		if strings.EqualFold(strings.TrimSpace(sa.Params["UnlessSwitched"]), "True") {
-			prompt = "Pay " + cost + " to copy the spell, or decline"
-			payLabel = "Pay " + cost + " — make a copy"
+			prompt = pay + " to copy the spell, or decline"
+			payLabel = pay + " — make a copy"
 		} else {
-			prompt = "Pay " + cost + " to stop the copy, or decline to copy"
-			payLabel = "Pay " + cost + " — no copy"
+			prompt = pay + " to stop the copy, or decline to copy"
+			payLabel = pay + " — no copy"
 			declineLabel = "Don't pay — make a copy"
 		}
 	default:
@@ -794,6 +794,47 @@ func sortTargets(ts []state.Target, rank map[state.PlayerID]int) {
 			ts[j], ts[j-1] = ts[j-1], ts[j]
 		}
 	}
+}
+
+// unlessPayPhrase is the imperative a player-facing unless ask leads with:
+// "Pay <unlessCostLabel>", except for a single-object sacrifice, which reads
+// as the action itself ("Sacrifice a land", Chain of Silence's switched copy
+// gate; "Sacrifice another creature" from Forge's own /description) rather
+// than degrading to "Pay the cost". Display only, like unlessCostLabel: raw
+// cost syntax (Sac<1/Land>) must never reach a prompt or label.
+func unlessPayPhrase(cost string) string {
+	if what, ok := sacrificeOneLabel(cost); ok {
+		return "Sacrifice " + what
+	}
+	return "Pay " + unlessCostLabel(cost)
+}
+
+// sacrificeOneLabel renders a lone Sac<1/Type> or Sac<1/Filter/description>
+// token: the description verbatim when Forge supplies one, otherwise an
+// article plus a plain one-word type ("a land", "an artifact"). Any other
+// shape (a count above one, a dotted filter with no description, a mixed
+// cost) reports false.
+func sacrificeOneLabel(cost string) (string, bool) {
+	inner, ok := strings.CutPrefix(strings.TrimSpace(cost), "Sac<1/")
+	if !ok || !strings.HasSuffix(inner, ">") {
+		return "", false
+	}
+	inner = strings.TrimSuffix(inner, ">")
+	if strings.ContainsAny(inner, "<>") {
+		return "", false
+	}
+	if _, desc, found := strings.Cut(inner, "/"); found {
+		desc = strings.TrimSpace(desc)
+		return desc, desc != ""
+	}
+	if inner == "" || strings.Trim(inner, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz") != "" || inner == "CARDNAME" {
+		return "", false
+	}
+	article := "a "
+	if strings.ContainsRune("AEIOUaeiou", rune(inner[0])) {
+		article = "an "
+	}
+	return article + strings.ToLower(inner), true
 }
 
 // unlessCostLabel renders an UnlessCost$ value for the humans a

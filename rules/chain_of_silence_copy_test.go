@@ -153,7 +153,7 @@ func castChainOfSilenceAtSeat1Target(t *testing.T, e *Engine, cos state.ObjID) *
 	if pay.Player != 1 {
 		t.Fatalf("unless_pay payer = seat %d, want seat 1 (the targeted creature's controller)", pay.Player)
 	}
-	if len(pay.Options) < 2 || pay.Options[0].Label != "Pay Sac<1/Land> — make a copy" {
+	if len(pay.Options) < 2 || pay.Options[0].Label != "Sacrifice a land — make a copy" {
 		t.Fatalf("unless_pay options = %+v, want the switched pay/decline pair headed by the copy label", pay.Options)
 	}
 	return pay
@@ -227,7 +227,7 @@ func TestChainOfSilenceCopyOptionalUnlessComposition(t *testing.T) {
 		if copiesOnStack(e) != 0 {
 			t.Fatalf("copy before the gate was answered = %d, want 0", copiesOnStack(e))
 		}
-		submitChoices(t, e, pay.Options[0].Index) // "Pay Sac<1/Land> — make a copy"
+		submitChoices(t, e, pay.Options[0].Index) // "Sacrifice a land — make a copy"
 		// The two eligible lands force the intermediate sacrifice picker: the
 		// payment continuation must ask WHICH land, not auto-record it.
 		sac := e.Pending()

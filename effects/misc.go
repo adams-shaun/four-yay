@@ -146,10 +146,13 @@ func effWard(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	if c.UnlessPay == "" {
-		cost := sa.Params["UnlessCost"]
+		// The prompt is player-facing text: render the raw UnlessCost$
+		// (PayLife<2>, Sac<1/Creature>) through unlessPayPhrase, never
+		// verbatim. Display only; the charge is rules' unless-payment path.
+		pay := unlessPayPhrase(sa.Params["UnlessCost"])
 		d := &decision.Decision{Player: o.Controller, Kind: decision.KModes, Min: 1, Max: 1,
-			Prompt: "Pay " + cost + " for ward?", ResumeKind: "unless_pay", ResumeSA: sa,
-			Options: []decision.Option{{Index: 0, Kind: "mode", Label: "Pay " + cost, Player: o.Controller, Mode: decision.ModeUnlessPay}, {Index: 1, Kind: "mode", Label: "Don't pay", Player: o.Controller, Mode: decision.ModeUnlessDecline}}}
+			Prompt: pay + " for ward?", ResumeKind: "unless_pay", ResumeSA: sa,
+			Options: []decision.Option{{Index: 0, Kind: "mode", Label: pay, Player: o.Controller, Mode: decision.ModeUnlessPay}, {Index: 1, Kind: "mode", Label: "Don't pay", Player: o.Controller, Mode: decision.ModeUnlessDecline}}}
 		h.Ask(d)
 		return
 	}
