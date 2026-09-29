@@ -192,5 +192,33 @@ else
 	check "tier-probe still fails a 503" 0
 fi
 
+# --- 8. the parked-ticket hold follows the REPO's policy, not the seed's taste
+mkdir -p "$TARGET/.agentctl"
+cat >"$STUB/agentctl/__main__.py" <<'PY'
+import sys, pathlib
+args = sys.argv[1:]
+rec = pathlib.Path(__file__).parent.parent / "filed.txt"
+if args and args[0] == "status":
+    print("daemon: running  paused: no  fleet stop: no  paid seats: on")
+    print("queue: new=0 briefed=0 merged=10  (depth 0, human_needed 2)")
+elif args and args[0] == "issue" and args[1] == "add":
+    title = args[args.index("--title") + 1]
+    with rec.open("a") as f:
+        f.write(title + "\n")
+    print("filed stub")
+else:
+    print("")
+PY
+printf 'hold_new_while_parked = true\n' >"$TARGET/.agentctl/config.toml"
+sed -i '1i [policy]' "$TARGET/.agentctl/config.toml"
+rm -rf "$GORGE_REWARD_DIR/markers"
+"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/cycle8.log" 2>&1
+grep -q 'parked ticket(s) come first' "$TMP/cycle8.log"
+check "hold_new_while_parked=true holds new work" $? "$(tail -4 "$TMP/cycle8.log")"
+printf '[policy]\nhold_new_while_parked = false\n' >"$TARGET/.agentctl/config.toml"
+"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/cycle9.log" 2>&1
+grep -q 'NOT holding new work' "$TMP/cycle9.log"
+check "hold_new_while_parked=false does not hold new work" $? "$(tail -4 "$TMP/cycle9.log")"
+
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]
