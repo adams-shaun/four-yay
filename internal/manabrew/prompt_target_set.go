@@ -1,6 +1,7 @@
 package manabrew
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -24,6 +25,13 @@ import (
 // that ignores it is fenced by Validate and counted in the census. An
 // unconstrained ask builds no sentence and keeps its offered order, so every
 // existing prompt serialises byte-identically.
+//
+// The group constraint is the per-Group CAP, not bare exclusivity:
+// orderTargetOptions walks Decision.GroupAdmits (Decision.GroupCapFor's cap), so
+// at a raised cap (Decision.GroupLimit / Decision.GroupLimits) several options of
+// one group are legal together -- and targetSetSentences names that cap in its
+// wording, derived from GroupCapFor over the distinct groups present, so the
+// description can never claim exclusivity a raised cap permits.
 //
 // The greedy prefix walks the SAME incremental rules Decision.Validate
 // walks -- decision.SetPropAdmits/SetPropMerge for the set-property
@@ -49,9 +57,56 @@ func targetSetSentences(d *decision.Decision) string {
 		parts = append(parts, "No two chosen targets may share a property.")
 	}
 	if optionsHaveGroups(d.Options) {
-		parts = append(parts, "Options that share a group are mutually exclusive.")
+		parts = append(parts, groupCapSentence(d))
 	}
 	return strings.Join(parts, " ")
+}
+
+// groupCapSentence renders the per-Group selection rule from the effective caps
+// Decision.GroupCapFor reports for the distinct non-empty groups present among
+// the options (cap values sorted ascending -- deterministic; the group ids
+// themselves are opaque tokens meaningless to a player and are never rendered).
+// Every present group at the default cap of 1 -- the historical universe -- keeps
+// the historical mutual-exclusion sentence byte-identically; one uniform raised
+// cap N names the count; mixed cap values name the spread ascending.
+func groupCapSentence(d *decision.Decision) string {
+	caps := distinctGroupCaps(d)
+	if len(caps) == 1 && caps[0] == 1 {
+		return "Options that share a group are mutually exclusive."
+	}
+	if len(caps) == 1 {
+		return fmt.Sprintf("At most %d options of each group may be chosen together.", caps[0])
+	}
+	var b strings.Builder
+	b.WriteString("Options of a group may be chosen together up to the group's cap: ")
+	for i, n := range caps {
+		if i == 0 {
+			b.WriteString(fmt.Sprintf("at most %d for some groups", n))
+		} else {
+			b.WriteString(fmt.Sprintf(", at most %d for others", n))
+		}
+	}
+	b.WriteString(".")
+	return b.String()
+}
+
+// distinctGroupCaps returns the sorted distinct effective per-Group caps
+// Decision.GroupCapFor reports over the non-empty groups present among the
+// options. The cap comes from GroupCapFor -- the one home -- never from a
+// parallel count.
+func distinctGroupCaps(d *decision.Decision) []int {
+	seen := map[int]bool{}
+	for _, o := range d.Options {
+		if o.Group != "" {
+			seen[d.GroupCapFor(o.Group)] = true
+		}
+	}
+	caps := make([]int, 0, len(seen))
+	for n := range seen {
+		caps = append(caps, n)
+	}
+	sort.Ints(caps)
+	return caps
 }
 
 // orderTargetOptions reorders d's options so the first d.Min options are one
