@@ -27,7 +27,6 @@ func stagePosition(b *testing.B, minTurn int32) (*rules.Engine, *decision.Decisi
 // plus -benchmem's allocations per searched decision (one op = one Search of
 // 25 simulations, heuristic leaf, clairvoyant).
 func benchSearch(b *testing.B, minTurn int32) {
-	allowClairvoyantForTest(b)
 	e, d, bot := stagePosition(b, minTurn)
 	opts := DefaultOptions()
 	opts.Sims, opts.Seed = 25, 1
@@ -36,7 +35,7 @@ func benchSearch(b *testing.B, minTurn int32) {
 	sims := 0
 	for i := 0; i < b.N; i++ {
 		obs := searchprobe.NewCollector(d.Player)
-		src, err := NewClairvoyant(e, obs)
+		src, err := newTestClairvoyant(e, obs)
 		if err != nil {
 			b.Fatal(err)
 		}

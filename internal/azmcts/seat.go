@@ -2,6 +2,7 @@ package azmcts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -39,8 +40,16 @@ type SeatConfig struct {
 	// RecordFeatures is the feature set SetRecorder's records encode under.
 	RecordFeatures policynet.FeatureSet
 	// World is the world source: WorldClairvoyant ("" is clairvoyant, the
-	// stage-1 default) or WorldRedeal, the honest source.
+	// stage-1 default), whose source is injected as Source, or WorldRedeal,
+	// the honest source.
 	World string
+	// Source is the clairvoyant world source, required when World is "" or
+	// WorldClairvoyant: at each searched decision it builds the source
+	// (internal/azmcts/clairvoyant's NewClairvoyant under that package's
+	// AllowClairvoyant). azmcts never links the real-engine clone itself, so
+	// only a bench or training command injects it; NewSeat refuses a
+	// clairvoyant world with a nil Source.
+	Source func(searchseat.Env, *searchprobe.Collector) (WorldSource, error)
 	// Worlds is the redeal source's K (RedealSource): 0 deals a fresh world
 	// per simulation. Ignored by the clairvoyant source.
 	Worlds int
@@ -119,7 +128,11 @@ func NewSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
 		return nil, err
 	}
 	switch cfg.World {
-	case "", WorldClairvoyant, WorldRedeal:
+	case WorldRedeal:
+	case "", WorldClairvoyant:
+		if cfg.Source == nil {
+			return nil, errors.New("azmcts: the clairvoyant world is not linked (internal/azmcts/clairvoyant)")
+		}
 	default:
 		return nil, fmt.Errorf("azmcts: world source %q: want %s or %s", cfg.World, WorldClairvoyant, WorldRedeal)
 	}
@@ -142,11 +155,12 @@ func (s *Seat) DecideBoard(ctx context.Context, b botpolicy.Board, d decision.De
 
 // DecideSearch answers one of the seat's own decisions: the bot's answer
 // first (candidate 0 and every fallback), then Search over the configured
-// worlds: clairvoyant clones of env.Engine, or honest redeals built from the
-// driver's feed (SeatConfig.World). A refused clairvoyant source is an
-// error: the game fails loudly rather than playing an unsearched seat under
-// the az name. A refused redeal is counted (Stats.RedealRefused) and plays
-// the bot's answer -- it never falls back to the clairvoyant source.
+// worlds: the injected source's (SeatConfig.Source, the clairvoyant clone),
+// or honest redeals built from the driver's feed (SeatConfig.World). A
+// source that refuses is an error: the game fails loudly rather than playing
+// an unsearched seat under the az name. A refused redeal is counted
+// (Stats.RedealRefused) and plays the bot's answer -- it never falls back to
+// the clairvoyant source.
 func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
 	botIn, err := s.def.DecideBoard(ctx, env.Board, d)
 	if err != nil {
@@ -174,7 +188,7 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		}
 		src, redeal = rs, rs
 	} else {
-		cs, err := NewClairvoyant(env.Engine, obs)
+		cs, err := s.cfg.Source(env, obs)
 		if err != nil {
 			return decision.Intent{}, err
 		}

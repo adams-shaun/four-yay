@@ -17,7 +17,6 @@ import (
 // candidate softmax, computed from the RECORD alone, is exactly the prior
 // the search computed on the live engine.
 func TestVisitRecordReproducesTheSearchPrior(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	m := policynet.NewModel(policynet.TableRows, 4, 3, rand.New(rand.NewPCG(21, 22)))
 	m.InitValue(2, rand.New(rand.NewPCG(23, 24)))
@@ -57,10 +56,10 @@ func TestVisitRecordReproducesTheSearchPrior(t *testing.T) {
 // Recording only reads: a recorded game replays the unrecorded one byte for
 // byte, and records every searched decision.
 func TestRecorderLeavesTheGameUnchanged(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	sc := DefaultSeatConfig()
 	sc.Search.Sims = 3
+	sc.Source = testSeatSource
 	plain, err := NewSeat(cfg.Seed^1, nil, sc)
 	if err != nil {
 		t.Fatal(err)
@@ -88,12 +87,13 @@ func TestRecorderLeavesTheGameUnchanged(t *testing.T) {
 
 // The PriorOnly student with no network argmaxes a uniform prior, whose tie
 // goes to candidate 0 -- the bot's answer -- so it is exactly the bot (the
-// student arm's same-seed control). It never asks for a world, so it needs
-// no AllowClairvoyant.
+// student arm's same-seed control). It never asks for a world: the Source
+// NewSeat requires is never called.
 func TestPriorOnlySeatWithoutANetworkIsTheBot(t *testing.T) {
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	sc := DefaultSeatConfig()
 	sc.PriorOnly = true
+	sc.Source = testSeatSource
 	az, err := NewSeat(cfg.Seed^1, nil, sc)
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +120,7 @@ func TestPriorOnlySeatFollowsItsNetwork(t *testing.T) {
 	m.Features = policynet.FeaturesMZ
 	sc := DefaultSeatConfig()
 	sc.PriorOnly = true
+	sc.Source = testSeatSource
 	var picks, nonBot int
 	prev := Watch
 	Watch = func(d Diag) {
@@ -148,7 +149,6 @@ func TestPriorOnlySeatFollowsItsNetwork(t *testing.T) {
 // read, so perturbing it leaves the search byte-identical, while the same
 // perturbation moves a network-leaf search.
 func TestHeuristicLeafIgnoresTheValueHead(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	e, d, bot := botPosition(t, cfg, decision.KAttackers, 0, 3000)
 	m := policynet.NewModel(policynet.TableRows, 4, 3, rand.New(rand.NewPCG(41, 42)))

@@ -1,7 +1,7 @@
 package azmcts
 
 import (
-	"errors"
+	"strings"
 	"testing"
 
 	gbench "github.com/adams-shaun/gorge/internal/bench"
@@ -24,6 +24,9 @@ func TestSeatWithoutSimulationsIsTheBot(t *testing.T) {
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	sc := DefaultSeatConfig()
 	sc.Search.Sims = 0
+	// NewSeat requires a source for the clairvoyant world; with 0 sims the
+	// seat never asks it for a world (the delegation contract below).
+	sc.Source = testSeatSource
 	az, err := NewSeat(cfg.Seed^1, nil, sc)
 	if err != nil {
 		t.Fatal(err)
@@ -44,10 +47,12 @@ func TestSeatWithoutSimulationsIsTheBot(t *testing.T) {
 // Spec §4 determinism, end to end: the same seeds replay the same game, and
 // the search did run.
 func TestSeatSearchesAndReplaysExactly(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	sc := DefaultSeatConfig()
 	sc.Search.Sims = 4
+	// The test clairvoyant source (clairvoyant_helper_test.go): the real
+	// package's clone source, which azmcts no longer links.
+	sc.Source = testSeatSource
 	var diags []Diag
 	prev := Watch
 	Watch = func(d Diag) { diags = append(diags, d) }
@@ -80,19 +85,14 @@ func TestSeatSearchesAndReplaysExactly(t *testing.T) {
 	}
 }
 
-func TestSeatRefusesClairvoyantByDefault(t *testing.T) {
-	prev := clairvoyantAllowed.Load()
-	clairvoyantAllowed.Store(false)
-	t.Cleanup(func() { clairvoyantAllowed.Store(prev) })
+// NewSeat refuses a clairvoyant world whose Source is nil: azmcts never
+// links the real-engine clone (internal/azmcts/clairvoyant), so an az seat
+// without an injected source is refused before any game starts.
+func TestSeatRefusesClairvoyantWhenSourceIsNil(t *testing.T) {
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	sc := DefaultSeatConfig()
-	sc.Search.Sims = 4
-	az, err := NewSeat(cfg.Seed^1, nil, sc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := playAZ(t, cfg, az, 300); !errors.Is(err, ErrClairvoyantRefused) {
-		t.Fatalf("game error %v, want ErrClairvoyantRefused", err)
+	if _, err := NewSeat(cfg.Seed^1, nil, sc); err == nil || !strings.Contains(err.Error(), "internal/azmcts/clairvoyant") {
+		t.Fatalf("NewSeat with no Source: %v, want the clairvoyant-world-not-linked error", err)
 	}
 }
 

@@ -155,16 +155,22 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/cards", module + "/state"},
 		{module + "/deck", module + "/rules"},
 		// The az search seat's clairvoyant world clones the REAL engine,
-		// hidden zones and future chance included (spec 2026-09-27 §1): it
-		// is bench and training only, so nothing that seats a non-bench
-		// opponent may link it.
-		{module + "/host", module + "/internal/azmcts"},
-		{module + "/host/httpapi", module + "/internal/azmcts"},
-		{module + "/cmd/gorged", module + "/internal/azmcts"},
+		// hidden zones and future chance included (spec 2026-09-27 §1). It
+		// lives in internal/azmcts/clairvoyant and is bench and training only
+		// (botbench injects it as azmcts.SeatConfig.Source), so nothing that
+		// seats a non-bench opponent may link it. The honest azmcts core
+		// never pulls the clone back in, and neither do the hosted search
+		// packages or any bots/ entry.
+		{module + "/host", module + "/internal/azmcts/clairvoyant"},
+		{module + "/host/httpapi", module + "/internal/azmcts/clairvoyant"},
+		{module + "/cmd/gorged", module + "/internal/azmcts/clairvoyant"},
+		{module + "/internal/azmcts", module + "/internal/azmcts/clairvoyant"},
+		{module + "/internal/spellbench/sbsearch", module + "/internal/azmcts/clairvoyant"},
+		{module + "/internal/searchseat", module + "/internal/azmcts/clairvoyant"},
 	}
 	for path, p := range pkgs {
 		if strings.HasPrefix(path, module+"/bots") {
-			for _, target := range []string{module + "/host", module + "/internal/testutil"} {
+			for _, target := range []string{module + "/host", module + "/internal/testutil", module + "/internal/azmcts/clairvoyant"} {
 				if p.deps[target] {
 					t.Errorf("%s depends on %s (transitively); bots packages may not", path, target)
 				}

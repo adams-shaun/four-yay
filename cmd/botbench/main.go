@@ -270,9 +270,11 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	// from the driver's engine feed (internal/bench.PlayGame's
 	// searchseat.SearchSeat branch). -az-world clairvoyant searches clones
 	// of the REAL engine, so it is bench and training only: azFrontDoor is
-	// the only azmcts.AllowClairvoyant caller, host.NormalizeBotPolicy does
-	// not know the name, and internal/archtest forbids host, host/httpapi
-	// and cmd/gorged from linking azmcts at all.
+	// the only clairvoyant.AllowClairvoyant caller, host.NormalizeBotPolicy
+	// does not know the name, and internal/archtest forbids host,
+	// host/httpapi and cmd/gorged from linking internal/azmcts/clairvoyant
+	// at all (the honest azmcts core is linkable; botbench injects the
+	// clone as azmcts.SeatConfig.Source).
 	"az": func(seed uint64) seat.Seat {
 		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az"))
 		if err != nil {
