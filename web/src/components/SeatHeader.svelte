@@ -2,6 +2,7 @@
   import type { PlayerView } from '../protocol';
   import type { CardOptions } from '../lib/cardoptions';
   import type { SeatGlow } from '../lib/seatglow';
+  import { pointerRelease } from '../lib/pointer';
   import Avatar from './Avatar.svelte';
   import SeatCounts from './SeatCounts.svelte';
   import TickNumber from './TickNumber.svelte';
@@ -51,7 +52,7 @@
   aria-label={label}
 >
   {#if onFocus}
-    <button type="button" class="focus-hit" aria-label={`Focus ${name}'s board`} onclick={onFocus}></button>
+    <button type="button" class="focus-hit" aria-label={`Focus ${name}'s board`} use:pointerRelease onclick={onFocus}></button>
   {/if}
   <Avatar {name} {colour} {art} size={24} />
   <span class="name" title={name}>{name}</span>

@@ -8,6 +8,7 @@
   import { cardById } from '../lib/board';
   import { CardHover } from '../lib/carddetail.svelte';
   import CardDetail from './CardDetail.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import ManaSymbols from './ManaSymbols.svelte';
   import { moveChip } from '../lib/clientmodel/events';
 
@@ -189,6 +190,7 @@
       class="toggle"
       aria-pressed={revealSteps}
       title='Phase/step lines ("Step: main-1") are clock noise; they are hidden unless this is on. Independent of the engine-noise toggle.'
+      use:pointerRelease
       onclick={() => (revealSteps = !revealSteps)}
     >
       {revealSteps ? 'Hide step lines' : 'Show step lines'}
@@ -198,6 +200,7 @@
       class="toggle"
       aria-pressed={revealAll}
       title="Priority, decision asks and decision answers are engine bookkeeping; they are hidden unless this is on."
+      use:pointerRelease
       onclick={() => (revealAll = !revealAll)}
     >
       {revealAll ? 'Hide engine noise' : 'Show engine noise'}
@@ -209,6 +212,7 @@
       class="line"
       class:current={e.event.seq === dvr.cursor}
       data-seq={e.event.seq}
+      use:pointerRelease
       onclick={() => onSeek(e.event.seq)}
     >
       <span class="seq">{e.event.seq}</span>
@@ -229,6 +233,7 @@
             onfocus={(ev) => hover.open(c, ev.currentTarget)}
             onblur={() => hover.blur(c)}
             onkeydown={(ev) => hover.keydown(ev)}
+            use:pointerRelease
           >{p.name}</span>{:else}<span class="obj card" style:color={p.colour ?? undefined} title="{p.name} #{p.id}">{p.name}</span>{/if}
         {:else if p.kind === 'ability'}<span class="obj ability" title="{p.name} #{p.id}">{p.name}</span>{/if}
       {/each}</span>
@@ -243,7 +248,7 @@
         {#if n.diagnostics}
           {@const diagnostic = n.diagnostics}
           <details class="auto-detail">
-            <summary>Advanced pass details</summary>
+            <summary use:pointerRelease>Advanced pass details</summary>
             <dl>
               <dt>Verdict</dt><dd>{diagnostic.verdict}</dd>
               <dt>Option kinds</dt><dd>{diagnostic.optionKinds.join(', ') || 'none'}</dd>
@@ -253,10 +258,10 @@
               <dt>Yield matched</dt><dd>{diagnostic.yieldsHit}</dd>
             </dl>
             <details bind:open={openSnapshots[n.id]}>
-              <summary>Seat view snapshot</summary>
+              <summary use:pointerRelease>Seat view snapshot</summary>
               {#if openSnapshots[n.id]}
                 {@const snapshot = JSON.stringify(diagnostic.view, null, 2)}
-                <button type="button" onclick={() => void navigator.clipboard?.writeText(snapshot)}>Copy JSON</button>
+                <button type="button" use:pointerRelease onclick={() => void navigator.clipboard?.writeText(snapshot)}>Copy JSON</button>
                 <a href="data:application/json;charset=utf-8,{encodeURIComponent(snapshot)}" download="autopass-view.json">Export JSON</a>
                 <pre>{snapshot}</pre>
               {/if}

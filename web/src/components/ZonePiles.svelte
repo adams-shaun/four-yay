@@ -3,6 +3,7 @@
   import type { CardOptions } from '../lib/cardoptions';
   import { pileTone } from '../lib/cardoptions';
   import { pileLabel, pileOpener } from '../lib/pileopener.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import { zonesFor } from '../lib/zones';
   import CardImage from './CardImage.svelte';
 
@@ -35,7 +36,8 @@
         data-tone={tone === 'idle' ? undefined : tone}
         aria-label={pileLabel(who, z.zone, z.count)}
         title={pileLabel(who, z.zone, z.count)}
-        onclick={(e) => pileOpener.open(player.seat, z.zone, e.currentTarget as HTMLElement)}
+        use:pointerRelease
+        onclick={(e) => pileOpener.open(player.seat, z.zone, e.currentTarget as HTMLElement, e.detail > 0)}
       >
         <CardImage card={z.cards[0]} pt={false} />
         <span class="n">{z.count}</span>

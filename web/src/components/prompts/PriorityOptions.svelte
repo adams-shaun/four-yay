@@ -5,6 +5,7 @@
   import { genericListOptions, paymentPlanSummary, primaryOf } from '../../lib/prompts/decision';
   import { manualManaHidden } from '../../lib/manualmana';
   import { announceActions } from '../../lib/announcepay';
+  import { pointerRelease } from '../../lib/pointer';
 
   /**
    * PriorityOptions is the priority window's action list under the ACTIONS
@@ -54,6 +55,7 @@
                 class:primary={logic.autoPayMana && i === 0}
                 type="button"
                 data-payment-plan={plan.id}
+                use:pointerRelease
                 title={paymentPlanSummary(plan)}
                 onclick={(e) => castSuggested(action, plan.id, e.ctrlKey)}
                 disabled={logic.busy}
@@ -66,31 +68,31 @@
                  is the action's only control and its only data-announce
                  node; under Auto-pay OFF the payment block does not render
                  at all (announceActions serves the button instead). -->
-            <button class="option payment-plan" type="button" data-announce={action.id} title="Cast, then choose the mana to pay with" onclick={(e) => logic.submitAnnounce(action, e.ctrlKey)} disabled={logic.busy}>Cast — choose mana</button>
+            <button class="option payment-plan" type="button" data-announce={action.id} use:pointerRelease title="Cast, then choose the mana to pay with" onclick={(e) => logic.submitAnnounce(action, e.ctrlKey)} disabled={logic.busy}>Cast — choose mana</button>
           {/if}
         </div>
       {/each}
     </div>
   {/if}
   {#if primary && !((placement === 'flyout' || placement === 'strip') && primary.kind === 'pass')}
-    <button class="primary" type="button" data-primary onclick={(e) => logic.primaryClick(e.ctrlKey)} disabled={logic.busy}>
+    <button class="primary" type="button" data-primary use:pointerRelease onclick={(e) => logic.primaryClick(e.ctrlKey)} disabled={logic.busy}>
       {primary.label}
     </button>
   {/if}
   <div class="list">
     {#each announceCasts as action (action.id)}
-      <button class="option" type="button" data-announce={action.id} title="Cast, then choose the mana to pay with" onclick={(e) => logic.submitAnnounce(action, e.ctrlKey)} disabled={logic.busy}><span class="label">{action.label}</span></button>
+      <button class="option" type="button" data-announce={action.id} use:pointerRelease title="Cast, then choose the mana to pay with" onclick={(e) => logic.submitAnnounce(action, e.ctrlKey)} disabled={logic.busy}><span class="label">{action.label}</span></button>
     {/each}
     {#each genericListOptions(decision, primary, paymentBases, hideManualMana) as opt (opt.index)}
       {@const pickedAt = logic.picked.indexOf(opt.index)}
-      <button class="option" class:picked={pickedAt >= 0} type="button" data-option={opt.index} onclick={(e) => logic.click(opt.index, { holdPriority: e.ctrlKey })} disabled={logic.busy}>
+      <button class="option" class:picked={pickedAt >= 0} type="button" data-option={opt.index} use:pointerRelease onclick={(e) => logic.click(opt.index, { holdPriority: e.ctrlKey })} disabled={logic.busy}>
         {#if pickedAt >= 0 && decision.max > 1}<span class="order">{pickedAt + 1}</span>{/if}
         <span class="label">{opt.label}</span>
       </button>
     {/each}
   </div>
   {#if logic.showSubmit}
-    <button class="submit" type="button" data-submit onclick={(e) => logic.submit(e.ctrlKey)} disabled={!logic.canSubmit || logic.busy}>
+    <button class="submit" type="button" data-submit use:pointerRelease onclick={(e) => logic.submit(e.ctrlKey)} disabled={!logic.canSubmit || logic.busy}>
       {decision.min === 0 ? 'Confirm' : decision.min === decision.max ? `Choose ${decision.min}` : `Choose ${decision.min}–${decision.max}`}
     </button>
   {/if}

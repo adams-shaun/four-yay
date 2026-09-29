@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ACTION_GROUPS, ACTION_LABELS, bindingLabel, matchKeymap, type Keymap } from '../lib/keymap';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * The `?` sheet: every bound action by group with its current chords. It
@@ -48,7 +49,7 @@
         </div>
       {/each}
     </div>
-    <button type="button" onclick={onClose}>Close</button>
+    <button type="button" use:pointerRelease onclick={onClose}>Close</button>
   </div>
 {/if}
 

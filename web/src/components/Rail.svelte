@@ -6,6 +6,7 @@
   import { visibleHand } from '../lib/board';
   import { seatColour } from '../lib/colours';
   import SeatTable from './SeatTable.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import HandList from './HandList.svelte';
   import ManaPool from './ManaPool.svelte';
   import StackTile from './StackTile.svelte';
@@ -141,6 +142,7 @@
         aria-checked={showLog}
         aria-label="Show the game log"
         data-log-toggle
+        use:pointerRelease
         onclick={() => onToggleLog()}
       >
         <span class="dot" aria-hidden="true"></span>

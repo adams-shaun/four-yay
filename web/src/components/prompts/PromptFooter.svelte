@@ -11,6 +11,7 @@
 </script>
 
 <script lang="ts">
+  import { pointerRelease } from '../../lib/pointer';
   /**
    * PromptFooter is the anatomy's last row (UI rework spec §4): the live
    * state on the left ("2 of 2 chosen", "you'd take 5 (17 → 12)") and the
@@ -24,7 +25,7 @@
   <div class="foot" data-prompt-footer>
     <span class="status" data-prompt-status>{status ?? ''}</span>
     {#each buttons as b (b.label)}
-      <button class="btn" class:primary={b.primary} type="button" title={b.title} disabled={b.disabled} onclick={b.onclick} {...b.data}>{b.label}</button>
+      <button class="btn" class:primary={b.primary} type="button" title={b.title} disabled={b.disabled} use:pointerRelease onclick={b.onclick} {...b.data}>{b.label}</button>
     {/each}
   </div>
 {/if}

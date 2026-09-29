@@ -5,6 +5,7 @@
   import CardImage from './CardImage.svelte';
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * StackTile is one stack entry: a band coloured by kind, its card face
@@ -146,6 +147,7 @@
       bind:this={root}
       tabindex="0"
       role="button"
+      use:pointerRelease
       onpointerenter={() => hover.arm(card.id, capture)}
       onpointerleave={() => hover.close()}
       onfocus={() => hover.open(card.id, capture)}
@@ -170,11 +172,12 @@
             aria-haspopup="true"
             aria-expanded={menuOpen}
             data-yield-menu
+            use:pointerRelease
             onclick={() => (menuOpen = !menuOpen)}
           >⋯</button>
           {#if menuOpen}
             <span class="yield-menu" role="menu" data-yield-popover>
-              <button role="menuitem" type="button" data-yield-action onclick={yieldThis}>
+              <button role="menuitem" type="button" data-yield-action use:pointerRelease onclick={yieldThis}>
                 Always pass for {stack.name}: {stack.text || stack.kind}
               </button>
             </span>

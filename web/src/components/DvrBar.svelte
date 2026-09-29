@@ -1,18 +1,19 @@
 <script lang="ts">
   import type { DvrAction, DvrState } from '../lib/dvr';
   import { behindLive, turnOf } from '../lib/dvr';
+  import { pointerRelease } from '../lib/pointer';
   let { dvr, onAction, finished = false }: { dvr: DvrState; onAction: (a: DvrAction) => void; finished?: boolean } = $props();
   const turn = $derived(turnOf(dvr, dvr.cursor));
 </script>
 
 <div class="dvr" data-cursor={dvr.cursor} data-live={dvr.live}>
-  <button onclick={() => onAction({ type: 'step', by: -1 })} aria-label="step back">⏮</button>
+  <button onclick={() => onAction({ type: 'step', by: -1 })} aria-label="step back" use:pointerRelease>⏮</button>
   {#if dvr.live && !finished}
-    <button onclick={() => onAction({ type: 'pause' })} aria-label="pause">⏸</button>
+    <button onclick={() => onAction({ type: 'pause' })} aria-label="pause" use:pointerRelease>⏸</button>
   {:else if !finished}
-    <button onclick={() => onAction({ type: 'live' })} aria-label="return to live">▶ live</button>
+    <button onclick={() => onAction({ type: 'live' })} aria-label="return to live" use:pointerRelease>▶ live</button>
   {/if}
-  <button onclick={() => onAction({ type: 'step', by: 1 })} aria-label="step forward">⏭</button>
+  <button onclick={() => onAction({ type: 'step', by: 1 })} aria-label="step forward" use:pointerRelease>⏭</button>
   <input type="range" min="0" max={dvr.head} value={dvr.cursor} list="turn-ticks"
     oninput={(e) => onAction({ type: 'scrub', seq: Number((e.target as HTMLInputElement).value) })} aria-label="scrub" />
   <datalist id="turn-ticks">{#each dvr.turnStarts as t (t)}<option value={t}></option>{/each}</datalist>

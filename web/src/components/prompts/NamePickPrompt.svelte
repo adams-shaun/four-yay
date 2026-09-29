@@ -5,6 +5,7 @@
   import { digitMap } from '../../lib/prompts/order';
   import Digit from './Digit.svelte';
   import FilterInput from './FilterInput.svelte';
+  import { pointerRelease } from '../../lib/pointer';
 
   /**
    * NamePickPrompt is the "name a card" ask: a filter over the whole name
@@ -24,7 +25,7 @@
   <p class="count" data-name-count>{logic.searchFilter.trim() === '' ? `${opts.length.toLocaleString()} cards — type to filter` : `Showing first ${Math.min(opts.length, NAME_PICK_RENDER_LIMIT)} of ${opts.length.toLocaleString()} matches`}</p>
   <div class="list" data-name-list data-options>
     {#each shown as opt (opt.index)}
-      <button class="option" type="button" data-option={opt.index} onclick={(e) => logic.click(opt.index, { holdPriority: e.ctrlKey })} disabled={logic.busy}><Digit n={digits.get(opt.index)} /><span class="label">{opt.label}</span></button>
+      <button class="option" type="button" data-option={opt.index} use:pointerRelease onclick={(e) => logic.click(opt.index, { holdPriority: e.ctrlKey })} disabled={logic.busy}><Digit n={digits.get(opt.index)} /><span class="label">{opt.label}</span></button>
     {/each}
     {#if opts.length === 0}<p class="empty">No card matches “{logic.searchFilter}”.</p>{/if}
   </div>

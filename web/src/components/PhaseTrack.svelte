@@ -3,6 +3,7 @@
   import { STEPS, type Stops, type TurnSide } from '../lib/autopilot';
   import { PHASE_GROUPS } from '../lib/phases';
   import { seatColour } from '../lib/colours';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * PhaseTrack is the board's clock: which round of the table and where in
@@ -107,6 +108,7 @@
                 aria-pressed={on}
                 aria-current={pos === 'now' ? 'step' : undefined}
                 title={`${c.label} — ${on ? 'stop set' : 'no stop'} on ${yours ? 'your' : 'this'} turn. Shift-click for the other side.`}
+                use:pointerRelease
                 onclick={(e) => onToggle?.(c.step, e.shiftKey ? other : side)}
               >
                 <span class="label">{c.label}</span>

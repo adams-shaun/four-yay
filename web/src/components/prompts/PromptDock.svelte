@@ -7,6 +7,7 @@
   import { promptHover, type HoverEnd } from '../../lib/prompts/hover.svelte';
   import { clampPosition, dockFromProfile, dockYields, effectivePlacement, fractionOf, nextPlacement, profilePlacement, tableAnchor, type Box, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
   import { layoutStore } from '../../lib/layouts.svelte';
+  import { pointerRelease } from '../../lib/pointer';
   import ArtCrop from './ArtCrop.svelte';
   import PromptBody from './PromptBody.svelte';
 
@@ -255,6 +256,7 @@
             title="Drag to move (arrow keys nudge)"
             aria-label="Move the prompt"
             data-dock-grip
+            use:pointerRelease
             onpointerdown={gripDown}
             onpointermove={gripMove}
             onpointerup={gripUp}
@@ -266,6 +268,7 @@
           class="tool"
           type="button"
           data-dock-placement-toggle
+          use:pointerRelease
           title={toggleTitle}
           aria-label={toggleTitle}
           onclick={() => setPlacement(nextPlacement(renderedPlacement))}

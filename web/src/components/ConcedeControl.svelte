@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pointerRelease } from '../lib/pointer';
   /**
    * The seated player's page-level concede control: the ARM-then-CONFIRM
    * two-step (R-E4-1). Presentational only — the state (SeatPanelState:
@@ -36,11 +37,11 @@
 
 <div class="concede-control">
   {#if confirming}
-    <button class="confirm" type="button" data-confirm-concede onclick={onConfirm} disabled={busy}>
+    <button class="confirm" type="button" data-confirm-concede use:pointerRelease onclick={onConfirm} disabled={busy}>
       Concede — confirm
     </button>
   {:else}
-    <button type="button" data-concede-control onclick={onArm} disabled={busy}>
+    <button type="button" data-concede-control use:pointerRelease onclick={onArm} disabled={busy}>
       Concede
     </button>
   {/if}
