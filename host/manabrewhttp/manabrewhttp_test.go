@@ -256,8 +256,8 @@ func TestStreamSendsStateThenPrompt(t *testing.T) {
 	if pm.PromptID != int64(d.Seq) {
 		t.Fatalf("promptId = %d, want %d (the parked decision's Seq)", pm.PromptID, d.Seq)
 	}
-	if _, ok := pm.Input.Value.(mb.ChooseActionInput); !ok {
-		t.Fatalf("priority prompt input is %T, want ChooseActionInput", pm.Input.Value)
+	if _, ok := pm.Input.Value.(*mb.ChooseActionInput); !ok {
+		t.Fatalf("priority prompt input is %T, want *ChooseActionInput", pm.Input.Value)
 	}
 }
 
