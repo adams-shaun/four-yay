@@ -543,9 +543,6 @@ func TestSetAudit_sos_PensiveProfessor_IncrementOnExpensiveCast(t *testing.T) {
 // phases." kw:Paradigm is unsupported (cards.Registry.Unsupported:
 // kw:Paradigm).
 func TestSetAudit_sos_RestorationSeminar_ParadigmExileAndCopy(t *testing.T) {
-	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): kw:Paradigm is unimplemented -- no exile-after-resolve and no copy castable from exile. Follow-up: implement the Paradigm mechanic")
-	}
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 911, []string{"Restoration Seminar"}, []string{sosRelicSrc}, nil)
 	relic := addToGraveyard(t, e, 0, sosRelicSrc)
@@ -640,29 +637,42 @@ func TestSetAudit_sos_RestorationSeminar_ParadigmNextMainCopyCast(t *testing.T) 
 }
 
 // ---------------------------------------------------------------------------
-// (b) Preparation-card corner case (CR 722.3): the inset prepare spell is
-// NOT a castable MDFC back face. It can only be cast as a copy made in exile
-// by the prepared permanent (tested above).
-func TestSetAudit_sos_TamObservantSequencer_PrepareSpellNotCastableFromHand(t *testing.T) {
+// (b) MDFC corner case: casting the BACK face of a modal double-faced card.
+// Tam, Observant Sequencer // Deep Sight: the back face is a sorcery
+// ("You draw a card and gain 1 life"), so a hand cast must resolve the back
+// face and never put a permanent onto the battlefield (CR 712.3a).
+func TestSetAudit_sos_TamObservantSequencer_CastBackFace(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 912, []string{"Tam, Observant Sequencer // Deep Sight"}, nil, nil)
 	tam := findAndMoveToHand(t, e, 0, "Tam, Observant Sequencer")
 	if tam == 0 {
 		t.Fatal("Tam, Observant Sequencer not in hand")
 	}
-	addMana(t, e, 0, "GGUU") // enough for both printed mana costs
-	frontOffered := false
+	libBefore := len(e.G.Zone(state.ZLibrary, 0))
+	addMana(t, e, 0, "GGUU") // enough for BOTH faces: front {2}{G}{U}, back {G}{U}
+	// Pick the BACK-face cast option explicitly; if only the front face is
+	// offered, that is itself the finding.
+	backIdx := -1
+	var offered []decision.Option
 	for _, o := range castOptions(t, e) {
 		if o.Obj != tam {
 			continue
 		}
-		if strings.Contains(o.Mode, "Deep Sight") || strings.Contains(o.Label, "Deep Sight") {
-			t.Errorf("prepare spell: Deep Sight offered from hand: %+v (CR 722.3)", o)
+		offered = append(offered, o)
+		if strings.Contains(o.Label, "Deep Sight") {
+			backIdx = o.Index
 		}
-		frontOffered = true
 	}
-	if !frontOffered {
-		t.Fatal("precondition: Tam's ordinary front-face cast was not offered")
+	if backIdx < 0 {
+		t.Fatalf("mdfc: no back-face (Deep Sight) cast option offered; options: %+v", offered)
+	}
+	submitChoices(t, e, backIdx)
+	passUntilStackEmpty(t, e, 20)
+	if life := e.G.Players[0].Life; life != 21 {
+		t.Errorf("mdfc back face: life = %d, want 21 (Deep Sight gained 1 life)", life)
+	}
+	if got, want := len(e.G.Zone(state.ZLibrary, 0)), libBefore-1; got != want {
+		t.Errorf("mdfc back face: library = %d, want %d (Deep Sight drew one card)", got, want)
 	}
 	replayCheck(t, e, cfg)
 }
@@ -772,29 +782,33 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Census ONLY (not a behavioural test): cards.Registry.Unsupported still
-// names these missing primitives. The corresponding game outcomes for the
-// single-card gaps remain untested in this audit: kw:Increment (9 sos cards), kw:Paradigm
-// (5 sos cards), stat:CantBeCopied (Choreographed Sparks), and
-// count:PlayerCountRemembered$Valid (Pox Plague). Ral Zarek, Guest
-// Lecturer's api:SkipTurn entry was removed when the skipped-turn primitive
-// landed.
+// names these missing primitives. Each entry here is a root-cause gap:
+// count:PlayerCountRemembered$Valid (Pox Plague).
+//
+// stat:CantBeCopied (Choreographed Sparks) used to be a row here; it is
+// implemented now (effects/copy.go enforces it on stack copies) and its
+// behaviour lives in rules/cantbecopied_test.go.
+//
+// kw:Increment (Pensive Professor, Tester of the Tangential, Textbook
+// Tabulator, Ambitious Augmenter, Hungry Graffalon, Topiary Lecturer, Berta
+// Wise Extrapolator, Cuboid Colony, Fractal Tender) used to be a row here; it
+// is implemented now (cards/kw_increment.go, a spellcast counter trigger) and
+// its behaviour lives in rules/increment_test.go.
+//
+// kw:Paradigm (Restoration Seminar, Echocasting Symposium, Decorum
+// Dissertation, Improvisation Capstone, Germination Practicum) used to be a
+// row here; it is implemented now (rules/paradigm.go) and its census lives in
+// rules/paradigm_test.go's TestParadigmCensus.
 func TestSetAudit_sos_CensusLevelGaps(t *testing.T) {
 	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): 16 sos cards still name missing primitives (kw:Increment x9, kw:Paradigm x5, stat:CantBeCopied, count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
+		t.Skip("set-audit finding (sos): 1 sos card still names a missing primitive (count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
 	}
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	names := []string{
-		// kw:Increment
-		"Pensive Professor", "Tester of the Tangential", "Textbook Tabulator",
-		"Ambitious Augmenter", "Hungry Graffalon", "Topiary Lecturer",
-		"Berta, Wise Extrapolator", "Cuboid Colony", "Fractal Tender",
-		// kw:Paradigm
-		"Restoration Seminar", "Echocasting Symposium", "Decorum Dissertation",
-		"Improvisation Capstone", "Germination Practicum",
-		// single-card gaps
-		"Choreographed Sparks", "Pox Plague",
+		// single-card gap
+		"Pox Plague",
 	}
 	for _, name := range names {
 		c := sosCard(t, name)

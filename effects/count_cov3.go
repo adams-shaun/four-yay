@@ -304,7 +304,7 @@ func sacrificedThisTurn(g *state.Game, c *Ctx, players []state.PlayerID, spec st
 // PlayerCountPropertyYou$ (the resolving controller), PlayerCount$ and
 // PlayerCountPlayers$ (every living player) and PlayerCountOpponents$.
 // ok=false for anything else.
-func evalCov3PlayerHead(h Host, c *Ctx, head, arg string) (int32, bool) {
+func evalCov3PlayerHead(h Host, c *Ctx, head, arg string, depth int) (int32, bool) {
 	g := h.Game()
 	group, prop, found := strings.Cut(head, "$")
 	if !found {
@@ -343,6 +343,26 @@ func evalCov3PlayerHead(h Host, c *Ctx, head, arg string) (int32, bool) {
 		switch prop {
 		case "Amount":
 			return int32(len(players)), true
+		case "Valid":
+			// Forge's PlayerCountRemembered$Valid <spec> is a CARD count, not
+			// a player count: every corpus carrier (Pox's
+			// `Valid Creature.RememberedPlayerCtrl/ThirdUp`, Pox Plague's
+			// `Valid Permanent.RememberedPlayerCtrl/HalfDown`, Fraying
+			// Omnipotence's `Valid Creature.RememberedPlayerCtrl/HalfUp`,
+			// Batwing Brume's `Valid Creature.YouCtrl+attacking`) carries a
+			// filter and sizes a per-iteration sacrifice/life-loss amount.
+			// It is exactly the `Valid <spec>` zone-count fold the plain
+			// Count$Valid head answers, so route the trailing spec there
+			// rather than re-implementing it: the /Op suffix was already
+			// peeled by evalCountExprOK, and the fold's per-candidate match
+			// reads the RememberedPlayerCtrl predicate off Ctx.Remembered
+			// (the same binding Count$Valid uses for Legate Lanius). The
+			// Count$ path peels /Op before dispatch; the bare SVar path does
+			// that in evalCountExprOK before this Valid arm is reached.
+			if arg == "" {
+				return 0, false
+			}
+			return evalCountBody(h, c, "Valid "+arg, depth+1)
 		case "LifeLostThisTurn":
 			var n int32
 			for _, p := range players {
