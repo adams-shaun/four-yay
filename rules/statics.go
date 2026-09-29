@@ -3620,7 +3620,7 @@ func parseAmount(s string, def int32) int32 {
 
 func init() {
 	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:CantBeCopied", "stat:RaiseCost", "stat:CastWithFlash",
-		"stat:ReduceCost", "stat:AlternativeCost", "stat:CantBlock", "stat:CantBlockBy",
+		"stat:ReduceCost", "stat:AlternativeCost", "stat:OptionalCost", "stat:CantBlock", "stat:CantBlockBy",
 		"stat:CantGainLife", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
 		// cantdraw1 / cantdraw-drawlimit-cap: CR 121.6 CantDraw statics
 		// (rules/replacement.go drawForbidden, consulted by applyReplacements
