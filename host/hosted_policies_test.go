@@ -11,12 +11,19 @@ package host
 //     logs and intents, each of which replays cleanly.
 //   - One row per Env entry of the seat-level leak test (§5.3): the REAL
 //     adapter through the REAL host Env path, with the swap fixture applied
-//     to one match's live engine, answers the swapped decision identically
-//     from two honest roots whose hidden worlds are name-identical.
+//     to one match's live engine at the first decision the adapter wants an
+//     Env for, answers the asserted decision identically from two honest
+//     roots whose hidden worlds are name-identical. For the search entry the
+//     asserted decision is the swap boundary itself; for az-redeal it is the
+//     first decision AT OR AFTER the swap that the seat actually SEARCHED in
+//     both matches (the az search skips a decision with fewer than two
+//     candidates without asking its world source at all, so a swap boundary
+//     there would never exercise the adapter's search forwarding).
 
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -24,6 +31,7 @@ import (
 	_ "github.com/adams-shaun/gorge/bots/all"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/protocol"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/seat"
@@ -41,6 +49,11 @@ const searchPolicy = "search"
 // azRedealPolicy is the az-redeal entry's registry key, spelled out for the
 // same reason searchPolicy is: bots/all links the package once, above.
 const azRedealPolicy = "az-redeal"
+
+// envLeakSeed is the seed every leak row (and the az row's pre-pass) drives:
+// one fixed seed is what makes the pre-pass's found boundary valid for the
+// row's matches — the drive is deterministic from it.
+const envLeakSeed = uint64(20260928)
 
 // detSearchIntentsCap is the intent cap a search entry plays (§8): a whole
 // game of searches would take minutes, and 150 intents already covers the
@@ -239,7 +252,7 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSearch(t *testing.T) {
 			t.Fatalf("the search policy is not linked into this binary: %v", err)
 		}
 		return s
-	})
+	}, nil)
 }
 
 // TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal is the az-redeal row of
@@ -250,19 +263,206 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSearch(t *testing.T) {
 // the kind set, not a per-decision eligibility). The az seat's whole world
 // source is a redeal over the honest root, so a root that depended on the
 // real hidden cards would deal different worlds — and search them to
-// different answers — in the two matches. The decision played at the swapped
-// boundary must be answered identically from two roots whose hidden worlds
-// are name-identical. The spy row of the same property lives in
-// botenv_test.go.
+// different answers — in the two matches.
+//
+// The swap boundary must be a decision the seat actually SEARCHED: the az
+// search skips a decision with fewer than two candidates without asking its
+// world source at all (internal/azmcts/search.go: the bot's intent is played
+// and no world is built), so a swap boundary there would exercise only the
+// host's HonestRoot and never the adapter's DecideSearch forwarding. A
+// decision only reveals it is searched by being searched — which the swap
+// must precede — so azFirstSearched pre-passes one unswapped match (the
+// row's seed, the row's seats: the drive is deterministic) and the row
+// places the swap at the decision it found; the asserted boundary is that
+// swap boundary, and the two games are never compared past it (the swapped
+// hand makes the opponent bot diverge legitimately). azmcts.Watch (one Diag
+// per decision of a searched kind; a test-only link — the archtest scans
+// non-test imports — and this row is the only az driver in the binary's
+// parallel set, so the package-level hook belongs to it alone) then
+// re-verifies, after the row's own assertions, that both matches actually
+// searched the asserted boundary: without that check a regression that stops
+// the search would make this row vacuous. The spy row of the same property
+// lives in botenv_test.go.
 func TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal(t *testing.T) {
 	t.Parallel()
-	hostedEnvLeakRow(t, azRedealPolicy, func(actor uint64) seat.Seat {
+	swapSeq, pre := azFirstSearched(t, func(actor uint64) seat.Seat {
 		s, err := bots.New(azRedealPolicy, bots.Options{Seed: actor})
 		if err != nil {
 			t.Fatalf("the az-redeal policy is not linked into this binary: %v", err)
 		}
 		return s
 	})
+	var mu sync.Mutex
+	var diags []azmcts.Diag
+	// searched[m][seq] holds the Diag of the decision seq that match m's az
+	// seat actually searched (Stats.Searched == 1) — the check that keeps
+	// this row from ever being vacuous again.
+	searched := [3]map[uint64]azmcts.Diag{{}, {}, {}} // indexed by match 1|2
+	prev := azmcts.Watch
+	azmcts.Watch = func(dg azmcts.Diag) {
+		mu.Lock()
+		defer mu.Unlock()
+		diags = append(diags, dg)
+	}
+	defer func() { azmcts.Watch = prev }()
+	probe := &leakProbe{
+		diagCount: func() int {
+			mu.Lock()
+			defer mu.Unlock()
+			return len(diags)
+		},
+		onDecided: func(m int, seq uint64, n int) {
+			mu.Lock()
+			defer mu.Unlock()
+			for _, dg := range diags[len(diags)-n:] {
+				if dg.Kind != "" && dg.Stats.Searched == 1 {
+					searched[m][seq] = dg
+				}
+			}
+		},
+		// The fixture fires at, and the row asserts on, the pre-pass's found
+		// decision — the only boundary at which the az seat is known to
+		// search (and the last boundary before the swapped hand makes the
+		// two games legitimately diverge).
+		swapAt: func(d *decision.Decision) bool { return d.Seq == swapSeq },
+		target: func(spy1, spy2 *envSpySeat, boundary uint64) uint64 {
+			r1, r2 := spy1.recorded(boundary), spy2.recorded(boundary)
+			if r1 == nil || r2 == nil || r1.engine == nil || r2.engine == nil {
+				return 0
+			}
+			return boundary
+		},
+	}
+	hostedEnvLeakRow(t, azRedealPolicy, func(actor uint64) seat.Seat {
+		s, err := bots.New(azRedealPolicy, bots.Options{Seed: actor})
+		if err != nil {
+			t.Fatalf("the az-redeal policy is not linked into this binary: %v", err)
+		}
+		return s
+	}, probe)
+	// The asserted boundary is a decision the seat actually SEARCHED in both
+	// matches. The pre-pass picked it under the same seed and seats, and the
+	// drive is deterministic — but that is a claim, not a proof: a regression
+	// that stops the search (the adapter no longer forwarding env.Search, a
+	// config that drops the kind), or any divergence between the matches
+	// before the boundary, would otherwise pass the row silently.
+	mu.Lock()
+	d1, ok1 := searched[1][swapSeq]
+	d2, ok2 := searched[2][swapSeq]
+	mu.Unlock()
+	if !ok1 || !ok2 {
+		t.Fatalf("the asserted boundary (seq %d, %s, %d candidates in the pre-pass) was not SEARCHED in both matches (searched %v/%v): the az adapter's DecideSearch forwarding is not exercised at the boundary and this row would be vacuous",
+			swapSeq, pre.Kind, pre.Candidates, ok1, ok2)
+	}
+	t.Logf("asserted boundary: seq %d %s searched, %d candidates (match 2: %d) , %d simulations", swapSeq, d1.Kind, d1.Candidates, d2.Candidates, d1.Stats.Simulations)
+}
+
+// azFirstSearched is the AZ leak row's pre-pass: one unswapped match of the
+// policy, driven through the REAL host Env path from the row's seed and the
+// row's seats, until the az seat's own search actually runs once
+// (azmcts.Watch, Stats.Searched == 1). It returns that decision's seq and
+// diag. The row's swap must fire AT a searched decision — the asserted
+// boundary is the same decision, and a decision only reveals it is searched
+// by being searched, which the swap must precede. The drive is deterministic
+// from the seed, so the seq found here is searched in the row's matches too;
+// the row re-verifies that through the same hook rather than trusting it.
+func azFirstSearched(t *testing.T, policyNew func(actor uint64) seat.Seat) (uint64, azmcts.Diag) {
+	t.Helper()
+	var mu sync.Mutex
+	var diags []azmcts.Diag
+	prev := azmcts.Watch
+	azmcts.Watch = func(dg azmcts.Diag) {
+		mu.Lock()
+		defer mu.Unlock()
+		diags = append(diags, dg)
+	}
+	defer func() { azmcts.Watch = prev }()
+	r, err := New(testOptions(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if err := r.AddTable(envTestTable("t1", envLeakSeed)); err != nil {
+		t.Fatal(err)
+	}
+	r.mu.RLock()
+	tbl := r.tables["t1"]
+	r.mu.RUnlock()
+	// The row's seats exactly: the spy wrapper the row builds delegates
+	// identically and consumes the same RNG stream, so the decision stream —
+	// and with it the first searched decision's seq — matches the row's.
+	seats := []seat.Seat{policyNew(envLeakSeed ^ 1), seat.NewBot(envLeakSeed ^ 1)}
+	m, err := r.newMatch(tbl, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.mu.Lock()
+	m.slots = seats
+	m.feeds = newMatchFeeds(seats)
+	m.mu.Unlock()
+	brd := botpolicy.NewBoard(2)
+	for steps := 0; steps < 20000; steps++ {
+		mu.Lock()
+		n0 := len(diags)
+		mu.Unlock()
+		_, pd := driveEnvStep(t, m, seats, &brd, nil)
+		if pd == nil {
+			t.Fatal("pre-pass: the match ended without the az seat ever searching a decision")
+		}
+		mu.Lock()
+		var seq uint64
+		var dg azmcts.Diag
+		for _, d := range diags[n0:] {
+			if d.Kind != "" && d.Stats.Searched == 1 && seq == 0 {
+				seq, dg = pd.in.Seq, d
+			}
+		}
+		mu.Unlock()
+		submitEnvStep(t, r, tbl, m, pd)
+		if seq != 0 {
+			return seq, dg
+		}
+	}
+	t.Fatal("pre-pass: the step cap was reached without the az seat ever searching a decision")
+	return 0, azmcts.Diag{}
+}
+
+// leakProbe is the optional extension point of hostedEnvLeakRow: the search
+// row passes a nil probe and gets the shared body verbatim. A probe row (the
+// az-redeal row) uses it to attribute the policy's own search diagnostics to
+// the parked Env decisions and to move the asserted boundary off the swap
+// boundary — the az search skips a decision with fewer than two candidates
+// without asking its world source, so the first Env decision is not
+// necessarily one the seat searched to.
+type leakProbe struct {
+	// diagCount returns the number of the policy's search diagnostics
+	// observed so far. The helper calls it immediately before and after each
+	// parkSeat; with the two matches driven synchronously one step at a
+	// time, the diagnostics that appeared during match m's park belong to
+	// that match's decision exactly.
+	diagCount func() int
+	// onDecided is called after each parked decision of match m (1 or 2) at
+	// seq with the number of diagnostics that arrived during its park (the
+	// probe reads its own slice tail; none of the helper's business).
+	onDecided func(m int, seq uint64, n int)
+	// swapAt, when non-nil, replaces the swap gate: the fixture fires when it
+	// returns true (instead of at the first Env-eligible decision). A probe
+	// row uses it to place the swap at a decision its pre-pass proved is
+	// searched — the asserted boundary is the same decision.
+	swapAt func(d *decision.Decision) bool
+	// target, when non-nil, moves the asserted boundary: called after each
+	// full drive round once the swap is in place, it returns the seq to
+	// assert on (>0) or 0 to keep driving; the drive then fails loudly if a
+	// match ends or the step cap is reached without one.
+	target func(spy1, spy2 *envSpySeat, swapSeq uint64) uint64
+}
+
+// probeDiags is diagCount for a possibly nil probe.
+func probeDiags(p *leakProbe) int {
+	if p == nil || p.diagCount == nil {
+		return 0
+	}
+	return p.diagCount()
 }
 
 // hostedEnvLeakRow is the shared body of the leak-test rows: two live matches
@@ -271,9 +471,11 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal(t *testing.T) {
 // applied to the second match's live engine at the first decision the policy
 // wants an Env for. policyNew builds a FRESH seat per match: a hosted bot
 // carries its own RNG state, so sharing one seat between the two driven
-// matches would couple them.
-func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) seat.Seat) {
-	const seed = uint64(20260928)
+// matches would couple them. probe, when non-nil, attributes the policy's
+// search diagnostics to the parked decisions and may move the asserted
+// boundary off the swap boundary (see leakProbe).
+func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) seat.Seat, probe *leakProbe) {
+	const seed = envLeakSeed
 	r, err := New(testOptions(t))
 	if err != nil {
 		t.Fatal(err)
@@ -315,7 +517,14 @@ func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) 
 	var swapped bool
 	var targetSeq uint64
 	swapFn := func(m *match, d *decision.Decision) {
-		if swapped || !seats2[0].(bots.EnvSeat).WantsEnv(d) {
+		if swapped {
+			return
+		}
+		if probe != nil && probe.swapAt != nil {
+			if !probe.swapAt(d) {
+				return
+			}
+		} else if !seats2[0].(bots.EnvSeat).WantsEnv(d) {
 			return
 		}
 		if n := swapOpponentHidden(t, m.e, m.feeds.bySlot[0]); n > 0 {
@@ -325,32 +534,58 @@ func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) 
 	}
 
 	brd1, brd2 := botpolicy.NewBoard(2), botpolicy.NewBoard(2)
+	assertSeq := uint64(0)
 	for steps := 0; steps < 20000; steps++ {
+		before1 := probeDiags(probe)
 		_, pd1 := driveEnvStep(t, m1, seats1, &brd1, nil)
+		after1 := probeDiags(probe)
 		if pd1 == nil {
-			t.Fatal("match 1 ended before the swapped decision was reached")
+			t.Fatal("match 1 ended before the asserted boundary was reached")
 		}
+		if probe != nil && probe.onDecided != nil {
+			probe.onDecided(1, pd1.in.Seq, after1-before1)
+		}
+		before2 := probeDiags(probe)
 		_, pd2 := driveEnvStep(t, m2, seats2, &brd2, swapFn)
+		after2 := probeDiags(probe)
 		if pd2 == nil {
-			t.Fatal("match 2 ended before the swapped decision was reached")
+			t.Fatal("match 2 ended before the asserted boundary was reached")
+		}
+		if probe != nil && probe.onDecided != nil {
+			probe.onDecided(2, pd2.in.Seq, after2-before2)
 		}
 		submitEnvStep(t, r, tbl, m1, pd1)
 		submitEnvStep(t, r, tbl, m2, pd2)
+		if probe != nil && probe.target != nil && swapped {
+			// A probe row keeps driving until it has the boundary it wants.
+			if want := probe.target(spy1, spy2, targetSeq); want != 0 {
+				assertSeq = want
+				break
+			}
+			continue
+		}
 		if rec1, rec2 := spy1.recorded(targetSeq), spy2.recorded(targetSeq); swapped && rec1 != nil && rec2 != nil {
+			assertSeq = targetSeq
 			break
 		}
 	}
 	if !swapped {
-		t.Fatal("fixture: no opponent hand card could be swapped at any decision the search adapter wants an Env for")
+		t.Fatal("fixture: no opponent hand card could be swapped at any decision the policy wants an Env for")
 	}
-	t.Logf("swap target: seq %d (an Env-eligible decision)", targetSeq)
-	rec1, rec2 := spy1.recorded(targetSeq), spy2.recorded(targetSeq)
+	if assertSeq == 0 && probe != nil && probe.target != nil {
+		t.Fatalf("fixture: %s: the asserted boundary (swap seq %d) never reached both DecideEnv records: the two matches diverged before it or the drive hit its cap, and the leak claim cannot be asserted", policy, targetSeq)
+	}
+	if assertSeq == 0 {
+		assertSeq = targetSeq
+	}
+	t.Logf("swap target: seq %d (an Env-eligible decision); asserted boundary: seq %d", targetSeq, assertSeq)
+	rec1, rec2 := spy1.recorded(assertSeq), spy2.recorded(assertSeq)
 	if rec1 == nil || rec2 == nil {
-		t.Fatalf("the swapped decision (seq %d) was never parked on DecideEnv (records %d/%d)",
-			targetSeq, len(spy1.envs), len(spy2.envs))
+		t.Fatalf("the asserted decision (seq %d) was never parked on DecideEnv (records %d/%d)",
+			assertSeq, len(spy1.envs), len(spy2.envs))
 	}
 	if rec1.engine == nil || rec2.engine == nil {
-		t.Fatalf("an honest root was refused at the swapped boundary (%q / %q): the search adapter was never handed a world",
+		t.Fatalf("an honest root was refused at the asserted boundary (%q / %q): the adapter was never handed a world",
 			rec1.rootRef, rec2.rootRef)
 	}
 
@@ -361,6 +596,8 @@ func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) 
 	}
 	// Central claim: the two roots are name-identical in every hidden zone,
 	// and the decision the real adapter answered is identical in both worlds.
+	// The swap happened BEFORE the asserted boundary, so a root that read the
+	// real hidden cards would differ here.
 	if !hiddenWorldsEqual(rec1.engine, rec2.engine) {
 		t.Fatalf("two roots for the same seed and feed depend on the real hidden cards:\nreal hand %v swapped %v\nreal lib %v swapped %v",
 			rec1.oppHand, rec2.oppHand, rec1.oppLib, rec2.oppLib)
