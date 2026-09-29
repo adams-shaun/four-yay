@@ -52,7 +52,7 @@
       </ul>
     {/if}
     <form class="add" onsubmit={(e) => { e.preventDefault(); add(); }}>
-      <input type="text" data-watch-input placeholder="Card name" maxlength="60" bind:value={draft} disabled={bp.watchlist.length >= MAX_WATCHLIST} />
+      <input type="text" data-watch-input aria-label="Card name to watch" placeholder="Card name" maxlength="60" bind:value={draft} disabled={bp.watchlist.length >= MAX_WATCHLIST} />
       <button type="submit" data-watch-add disabled={draft.trim() === '' || bp.watchlist.length >= MAX_WATCHLIST}>Add</button>
     </form>
   </div>

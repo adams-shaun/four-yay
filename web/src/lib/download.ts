@@ -5,5 +5,6 @@ export function downloadText(filename: string, text: string): void {
   a.href = url;
   a.download = filename;
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  // Revoke late: Firefox can still be starting the download when a 0 ms timer fires.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

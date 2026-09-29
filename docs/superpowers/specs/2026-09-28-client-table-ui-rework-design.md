@@ -173,8 +173,10 @@ replace them.
     mulligan, arrange, discard, and generic lists that show every option.
     Library search, name pick and the payment window refuse the digit until
     sub-project 4 numbers options by rendered order.
-  - Numpad Enter counts as Enter, and Shift+Space also passes. Alt-modified
-    chords are not hotkeys. Escape can be bound only to cancel-run.
+  - Numpad Enter counts as Enter, and Shift+Space also passes. Alt variants
+    of the default Space/Enter chords are dropped, since they are OS and
+    browser chords; Alt remains a usable modifier for bindings the player
+    defines. Escape can be bound only to cancel-run.
 - **Storage and migration**:
   - The existing keys are kept, not renamed. `gorge.playsettings.v1` and
     `gorge.playsettings.profiles.v1` move to settings blob version 3, in

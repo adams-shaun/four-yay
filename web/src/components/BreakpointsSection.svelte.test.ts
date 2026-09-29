@@ -26,4 +26,8 @@ describe('BreakpointsSection', () => {
     expect((h.match(/data-watch-item/g) ?? []).length).toBe(2);
     expect(h).toContain('aria-label="Remove Cyclonic Rift from watchlist"');
   });
+
+  it('the watchlist input has an accessible name', () => {
+    expect(html(new SeatPanelState('t', 1, ctx, null))).toMatch(/<input[^>]*data-watch-input[^>]*aria-label="Card name to watch"|<input[^>]*aria-label="Card name to watch"[^>]*data-watch-input/);
+  });
 });
