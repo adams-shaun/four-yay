@@ -62,8 +62,20 @@ func (t *Translator) State(v view.View) mb.EngineMessage {
 // ErrUnmapped. Later tickets edit only their own stub files, never
 // dispatch.go.
 func (t *Translator) Prompt(d *decision.Decision, v *view.View) (mb.PromptMessage, error) {
+	msg, _, err := t.PromptFlagged(d, v)
+	return msg, err
+}
+
+// PromptFlagged is Prompt plus the MBX-7 fallback flag: fellBack is true
+// exactly when the returned prompt is the generic chooseFromSelection
+// fallback -- an ask this package has no specific mapping for, answered by
+// native option index -- rather than a kind-specific prompt. The mbtest
+// census counts the two separately (fallback vs unmapped); a prompt that is
+// neither specific nor fallback is an error (ErrUnmapped), which no live
+// KChoose reaches any more (prompt_choose.go's fallbackChoose).
+func (t *Translator) PromptFlagged(d *decision.Decision, v *view.View) (mb.PromptMessage, bool, error) {
 	if d == nil {
-		return mb.PromptMessage{}, errNilDecision
+		return mb.PromptMessage{}, false, errNilDecision
 	}
 	return t.dispatch(d, v)
 }
