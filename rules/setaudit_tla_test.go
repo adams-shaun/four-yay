@@ -125,7 +125,6 @@ func TestSetAudit_tla_FirebendingStudent_DynamicPowerAddsMana(t *testing.T) {
 // NOT list it unsupported for the keyword action alone in this leaf's shape),
 // so the defect is a rules-level no-op, not a parse gap.
 func TestSetAudit_tla_AirbendingLesson_ExilesTarget(t *testing.T) {
-	tlaSkip(t, "api:Airbend is unregistered, so the 10 tla Airbend cards exile nothing. Follow-up: tla-airbend-unimplemented")
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Airbending Lesson")
 	bear := onBoardCard(t, e, 1, tlaCorpusCard(t, reg, "Grizzly Bears"))

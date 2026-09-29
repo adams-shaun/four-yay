@@ -3529,6 +3529,24 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 					Label: "Cast " + f.Name + " (plotted)", Obj: id, Mode: "plot_cast"})
 			}
 		}
+		// Airbend recast (CR 701.65a): a card airbent into exile may be cast
+		// by its OWNER for {2} rather than its mana cost, for as long as it
+		// remains exiled. The provenance is log-derived (airbendCastAvailable:
+		// the exile move's effects.AirbendExileCounter marker), the same shape
+		// the warp and foretell offers in this walk take; the offer rides the
+		// card's own timing and targets exactly like warp_recast. The block
+		// sits BEFORE the warp gate's continue: a non-warp card (every airbent
+		// card) would otherwise never reach it.
+		if e.airbendCastAvailable(id) && !castRestricted(p, id) && !e.castSuppressed(p, id) {
+			instantSpeed := f.IsInstant() || e.hasKeywordH(id, kwhFlash)
+			if (instantSpeed || sorcery) && e.spellTimingOK(p, id, f, sorcery) &&
+				e.castTargetsAvailable(p, id, f.SpellAbility()) {
+				if offerCastable(p, id, Cost{Generic: 2}, spellScope("airbend_cast"), false) {
+					out = append(out, decision.Option{Index: len(out), Kind: "cast",
+						Label: "Cast " + f.Name + " (airbent)", Obj: id, Mode: "airbend_cast"})
+				}
+			}
+		}
 		_, ok := keywordAltCost(f, "Warp")
 		if !ok || !e.warpRecastAvailable(id) || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
