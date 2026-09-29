@@ -99,7 +99,9 @@ func TestDeployStartsTheServersWhenTheArtFillFails(t *testing.T) {
 			cmd.Dir = tmp
 			cmd.Stdout, cmd.Stderr = outFile, outFile
 			cmd.Env = append(os.Environ(),
-				"BIN="+stub, "DECKS="+filepath.Join(tmp, "decks"), "ART_DIR="+artDir, "SWEEP=ports",
+				// RETIRED_PORTS= keeps the sweep off the live demo's retired
+				// :8081 -- its default would stop a real gorged there.
+				"BIN="+stub, "DECKS="+filepath.Join(tmp, "decks"), "ART_DIR="+artDir, "SWEEP=ports", "RETIRED_PORTS=",
 				fmt.Sprintf("PUB_PORT=%d", ports[0]), fmt.Sprintf("OMNI_PORT=%d", ports[1]),
 				"PUB_DIR="+filepath.Join(tmp, "pub"), "OMNI_DIR="+filepath.Join(tmp, "omni"),
 				"PUB_LOG="+filepath.Join(tmp, "pub.log"), "OMNI_LOG="+filepath.Join(tmp, "omni.log"))
@@ -169,6 +171,20 @@ func TestDeployStartsTheServersWhenTheArtFillFails(t *testing.T) {
 			}
 			if c.prewarmArtMaxConsecutiveFailures <= 0 {
 				t.Errorf("-prewarm-art-max-consecutive-failures = %d, want a positive streak limit", c.prewarmArtMaxConsecutiveFailures)
+			}
+
+			// The demo server's arguments too: the real flag set must accept
+			// them, and the demo's defaults must be the ones it serves --
+			// bot tables omniscient, a person's vs-bot table public.
+			fs, c = serveFlags()
+			fs.Init(fs.Name(), flag.ContinueOnError)
+			fs.SetOutput(io.Discard)
+			if err := fs.Parse(calls[1][1:]); err != nil {
+				t.Fatalf("real gorged rejects the deploy's serve arguments %q: %v", calls[1][1:], err)
+			}
+			if c.spectator != "omniscient" || c.vsbotSpectator != "public" || c.botPolicy != "lethal-pressure" || c.pace != 50*time.Millisecond {
+				t.Errorf("demo server: spectator %q vsbot-spectator %q bot-policy %q pace %v, want omniscient/public/lethal-pressure/50ms",
+					c.spectator, c.vsbotSpectator, c.botPolicy, c.pace)
 			}
 		})
 	}

@@ -367,6 +367,8 @@ type CreateGameOptions struct {
 	Format    host.Format
 	HumanDeck string
 	BotDeck   string
+	// BotPolicy is a validated hosted policy name, or empty when the request
+	// named none: the builder applies its server default (gorged -bot-policy).
 	BotPolicy string
 	// Mulligans is the validated mulligan allowance; nil keeps the builder's
 	// server-side default.
@@ -421,13 +423,17 @@ func (h *handler) games(w http.ResponseWriter, r *http.Request) {
 			"mulligans must be between 0 and 6")
 		return
 	}
-	policy, err := host.NormalizeBotPolicy(req.BotPolicy)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
+	// Validate a named policy here (400 on an unknown one) but pass an
+	// omitted one through EMPTY: normalizing it to "bot" would hide the
+	// omission from the builder and override the server's -bot-policy.
+	if req.BotPolicy != "" {
+		if _, err := host.NormalizeBotPolicy(req.BotPolicy); err != nil {
+			writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+			return
+		}
 	}
 	resp, err := h.opts.CreateGame(CreateGameOptions{
-		Format: format, HumanDeck: req.HumanDeck, BotDeck: req.BotDeck, BotPolicy: policy, Mulligans: req.Mulligans,
+		Format: format, HumanDeck: req.HumanDeck, BotDeck: req.BotDeck, BotPolicy: req.BotPolicy, Mulligans: req.Mulligans,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
