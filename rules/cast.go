@@ -1539,6 +1539,35 @@ func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool
 	return append([]state.ObjID(nil), lib[:int(n)]...), true
 }
 
+// exileCostCandidates is the zone scan both the offerability walk
+// (nonManaCastable) and the payment chooser (exAsk) use for one Exile cost
+// part. A bound referent (a granted ability's OriginalHost -- The Dominion
+// Bracelet) names the GRANTOR permanent, which need not be controlled by the
+// activating player: control of the creature carrying the granted ability
+// can change hands while the grant stays, and its new controller may still
+// activate it. Such a referent is therefore appended to the payer's own zone
+// list whenever it sits in the required zone, regardless of controller; the
+// ordinary filter path below stays payer-only. One helper means offer and
+// payment can never disagree about which objects can pay.
+func (e *Engine) exileCostCandidates(zone state.Zone, p state.PlayerID, part CostPart) []state.ObjID {
+	cands := e.G.Zone(zone, p)
+	if part.Referent == 0 {
+		return cands
+	}
+	o := e.G.Obj(part.Referent)
+	if o == nil || o.Zone != zone {
+		return cands
+	}
+	for _, oid := range cands {
+		if oid == part.Referent {
+			return cands
+		}
+	}
+	out := make([]state.ObjID, 0, len(cands)+1)
+	out = append(out, cands...)
+	return append(out, part.Referent)
+}
+
 // nonManaCastable is castable's payment-independent tail. Cost-modifier
 // offer checks use it after their flexible-pip walk has established a payable
 // resolved mana face: applying Color$ before that walk would otherwise see a
@@ -1607,7 +1636,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 		selfInZone := !ability && castObj != nil && castObj.Zone == zone
 		wholeZone := isWholeZoneExileSpec(part.Spec)
 		var avail []state.ObjID
-		for _, oid := range e.G.Zone(zone, p) {
+		for _, oid := range e.exileCostCandidates(zone, p, part) {
 			if reserved[oid] || (selfInZone && oid == id) {
 				continue
 			}
@@ -1621,7 +1650,8 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(ability)) {
 				continue
 			}
-			if wholeZone || e.matchesSpecFrom(part.Spec, oid, p, id) {
+			if wholeZone || (part.Referent != 0 && oid == part.Referent) ||
+				(part.Referent == 0 && e.matchesSpecFrom(part.Spec, oid, p, id)) {
 				avail = append(avail, oid)
 			}
 		}
@@ -4291,7 +4321,7 @@ func (e *Engine) exAsk() bool {
 			sc = &bound
 		}
 		var candidates []state.ObjID
-		for _, oid := range e.G.Zone(zone, pc.player) {
+		for _, oid := range e.exileCostCandidates(zone, pc.player, part) {
 			// A CAST (pc.ability < 0) can never exile the card it is casting:
 			// the card sits in this zone until pushCast runs (CR 601.2a pushes
 			// AFTER the cost asks), so without this skip a `Card` spec would
@@ -4313,8 +4343,9 @@ func (e *Engine) exAsk() bool {
 				continue
 			}
 			wholeZone := isWholeZoneExileSpec(part.Spec)
-			match := wholeZone || e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card)
-			if sc != nil && !wholeZone {
+			match := wholeZone || (part.Referent != 0 && oid == part.Referent) ||
+				(part.Referent == 0 && e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card))
+			if sc != nil && !wholeZone && part.Referent == 0 {
 				match = e.matchesSpec(part.Spec, oid, *sc)
 			}
 			if match {

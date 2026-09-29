@@ -3,7 +3,7 @@
   import type { CardView } from '../protocol';
   import { CardHover } from '../lib/carddetail.svelte';
   import type { CardOptions } from '../lib/cardoptions';
-  import { ACTION_GLYPHS, actionAccessibleLabel, postSingleAction, singleActionIcon, tileScenario, tileOptions } from '../lib/cardoptions';
+  import { ACTION_GLYPHS, actionAccessibleLabel, laterLabel, postSingleAction, singleActionIcon, tileScenario, tileOptions } from '../lib/cardoptions';
   import CardDetail from './CardDetail.svelte';
   import CardImage from './CardImage.svelte';
 
@@ -158,6 +158,8 @@
                nested inside one), anchored to the card's top edge. Every
                menu item posts the option's own wire index, R-E4-1. -->
           {@const opt = options ? tileOptions(options, card.id) : null}
+          {@const later = opt?.later ?? []}
+          {@const total = (opt?.list.length ?? 0) + later.length}
           <li data-obj={card.id} class:marked={!!opt}>
             <button
               type="button"
@@ -175,7 +177,7 @@
             </button>
             {#if opt}
               <div class="tile-actions">
-                {#if opt.list.length === 1}
+                {#if opt.list.length === 1 && later.length === 0}
                   {@const action = opt.list[0]}
                   {@const icon = singleActionIcon(action)}
                   <button
@@ -195,9 +197,9 @@
                     type="button"
                     aria-haspopup="menu"
                     aria-expanded={openCard === card.id}
-                    aria-label={tileScenario(opt)
+                    aria-label={tileScenario(opt) && later.length === 0
                       ? `${opt.list.length} ${tileScenario(opt)!.noun} for ${card.name}`
-                      : `${opt.list.length} actions for ${card.name}`}
+                      : `${total} ${total === 1 ? 'action' : 'actions'} for ${card.name}`}
                     title="Options for {card.name}"
                     data-action-icon={tileScenario(opt)?.icon}
                     onclick={() => toggleCard(card.id)}
@@ -205,15 +207,22 @@
                     {#if tileScenario(opt)}
                       <span class="badge__icon" aria-hidden="true">{ACTION_GLYPHS[tileScenario(opt)!.icon]}</span>
                     {/if}
-                    <span class="badge__n data">{opt.list.length}</span>
+                    <span class="badge__n data">{total}</span>
                   </button>
                 {/if}
-                {#if opt.list.length > 1 && openCard === card.id}
+                {#if (total > 1 || later.length > 0) && openCard === card.id}
                   <ul class="menu" role="menu" aria-label="Options for {card.name}">
                     {#each opt.list as o (o.index)}
                       <li role="none">
                         <button class="menu__item" type="button" role="menuitem" onclick={(event) => opt.post(o.index, false, event.ctrlKey)}>
                           {o.label}
+                        </button>
+                      </li>
+                    {/each}
+                    {#each later as action, i (`${action.ability ?? 0}:${i}`)}
+                      <li role="none">
+                        <button class="menu__item menu__item--later" type="button" role="menuitem" disabled aria-disabled="true" data-later-ability>
+                          {laterLabel(action)}
                         </button>
                       </li>
                     {/each}

@@ -548,22 +548,21 @@ func waterbendCap(mods costMods, x int32) int32 {
 	return mods.waterbend + mods.raiseX*x + mods.waterbendPartX*x
 }
 
-// withWaterbendOfferCredit is the offer gate's credit for a RaiseCost
-// Waterbend<N> additional cost: each untapped artifact or creature the
-// payer controls may pay {1} of the N (convokeAsk's waterbend_generic
-// announcement), so a cast affordable only with that help is offered. The
-// credit is CONSERVATIVE -- a permanent that is itself an untapped mana
-// source is not counted, since the offer's mana walk may already be
-// spending it -- so the gate can only withhold a legal cast, never offer
-// one the payment cannot settle. A Waterbend<X> part prices at X = 0 here
-// and needs no credit.
-func (e *Engine) withWaterbendOfferCredit(p state.PlayerID, id state.ObjID, mods costMods) costMods {
-	if mods.waterbend <= 0 {
+// withWaterbendOfferCredit credits the offer gate for Waterbend cost parts:
+// fixed amounts and the cost's own Waterbend<X> at the smallest legal X.
+// Each eligible untapped artifact or creature may pay {1} of that generic.
+// Do not credit raiseX: costMods.apply does not price RaiseCost's X at this
+// gate. The credit is conservative -- an untapped mana source is excluded
+// because the offer's mana walk may already be spending it -- so the gate
+// can withhold a legal cast but cannot offer one payment cannot settle.
+func (e *Engine) withWaterbendOfferCredit(p state.PlayerID, id state.ObjID, xMin int32, mods costMods) costMods {
+	want := addClampedGeneric(mods.waterbend, int64(mods.waterbendPartX)*int64(xMin))
+	if want <= 0 {
 		return mods
 	}
 	var credit int32
 	for _, oid := range e.G.Zone(state.ZBattlefield, p) {
-		if credit >= mods.waterbend {
+		if credit >= want {
 			break
 		}
 		o := e.G.Obj(oid)

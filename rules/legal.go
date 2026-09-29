@@ -1806,6 +1806,17 @@ type grantedAbility struct {
 // a name whose body is missing or is not an AB degrades to no grant (the
 // same totality stance every SVar resolution takes). Order: active()'s own
 // stable layer/timestamp sort, names in the grant's own order.
+func bindGrantedCostReferents(cost *Cost, grantor state.ObjID) {
+	if cost == nil || grantor == 0 {
+		return
+	}
+	for i := range cost.Exile {
+		if strings.EqualFold(strings.TrimSpace(cost.Exile[i].Spec), "OriginalHost") {
+			cost.Exile[i].Referent = grantor
+		}
+	}
+}
+
 func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbility {
 	var out []grantedAbility
 	ces := e.active()
@@ -4122,6 +4133,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 						continue
 					}
 					cost := e.parseCost(ab.Params["Cost"])
+					bindGrantedCostReferents(&cost, ga.source)
 					// The granted twin of the printed loop's own ReduceCost$ fold.
 					if n := e.ownReduceCostOffer(p, id, ab, 0); n > 0 && cost.Generic >= n {
 						cost.Generic -= n

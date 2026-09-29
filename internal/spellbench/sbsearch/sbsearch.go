@@ -154,7 +154,6 @@ type Seat struct {
 	inner *builtins.Seat
 	seed  uint64
 	cfg   Config
-	known azmcts.KnownTracker
 	cache *builtins.ProfileCache
 	// spareBase recycles each spent world's arrays into the next deal,
 	// spareCand each spent rollout's into the next candidate clone.
@@ -672,7 +671,7 @@ func (s *Seat) redealer(env searchseat.Env) (*searchprobe.Redealer, string) {
 		return nil, "no live observation feed"
 	}
 	h := env.Feed.History()
-	known, err := s.known.Update(h)
+	known, err := env.Feed.Known()
 	if err != nil {
 		return nil, "known-card projection: " + err.Error()
 	}

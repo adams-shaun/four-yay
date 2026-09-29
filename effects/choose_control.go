@@ -18,6 +18,7 @@ func init() {
 	Register("GainControlVariant", effGainControlVariant)
 	Register("ExchangeControl", effExchangeControl)
 	Register("ControlSpell", effControlSpell)
+	Register("ControlPlayer", effControlPlayer)
 	Register("ChangeTargets", effChangeTargets)
 	Register("RepeatEach", effRepeatEach)
 	Register("Branch", effBranch)
@@ -1543,6 +1544,38 @@ func effControlSpell(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
+}
+
+// effControlPlayer implements CR 720's "you control target opponent during
+// their next turn" (Mindslaver, Sorin Markov, The Dominion Bracelet's granted
+// ability; `api:ControlPlayer`). The target player is the CONTROLLED seat and
+// the resolving ability's controller is the seat controlling them. The grant
+// is one ControlPlayerChange event folded into state.Game.ControlledBy; the
+// engine redirects that player's decisions to their controller while the
+// grant is live (rules/engine.go ask) and expires it at the end of that
+// player's next turn (rules/turn.go beginTurn). The duration is Forge's fixed
+// "next turn" reading -- none of the corpus carriers carries a Duration$.
+func effControlPlayer(h Host, c *Ctx, sa *cards.SA) {
+	subj, ok := playerTargetIn(c.Targets)
+	if !ok {
+		subj, ok = playerTargetIn(c.PickedTargets)
+	}
+	if !ok {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "ControlPlayer has no opponent target player"})
+		return
+	}
+	if subj == c.Controller {
+		// CR 720.6: a player cannot control themselves. The one corpus shape
+		// that could read this way is an unrestricted ValidTgts$ whose answer
+		// is the controller; fail closed with no grant rather than no-op
+		// silently.
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "ControlPlayer target is the source's own controller"})
+		return
+	}
+	h.Emit(events.Event{Kind: events.ControlPlayerChange, Player: c.Controller,
+		IDs: []state.ObjID{state.PlayerRef(subj)}, Amount: 1})
 }
 
 func effectSA(o *state.Object) *cards.SA {

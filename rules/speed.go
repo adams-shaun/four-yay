@@ -226,6 +226,7 @@ func (e *Engine) beginGrantedActivation(p state.PlayerID, opt decision.Option) {
 	if !ok {
 		return
 	}
+	bindGrantedCostReferents(&cost, grantor)
 	// The granted twin of the printed loop's own ReduceCost$ fold (the offer
 	// gate composed the same reduction): Targets do not exist yet (CR 601.2c
 	// runs later), so a target-dependent body reads 0 here and

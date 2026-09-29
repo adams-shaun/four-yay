@@ -187,19 +187,30 @@ func TestDependencyOrderHolds(t *testing.T) {
 		}
 	}
 
-	// ManaBrew's translator and transport remain above the engine boundary.
-	// These package paths are intentionally listed before those packages exist;
-	// the checks bind automatically as go list begins reporting each package.
-	//
-	// The from-manabrew rows check DIRECT imports only, deliberately. The
-	// translator is allowed to import view, decision and state (spec §5.1),
-	// and view imports events; the transport is allowed to import host, and
-	// host imports rules. A transitive check on those rows would therefore
-	// forbid the imports §5.1 requires, and note that host/manabrewhttp
-	// cannot avoid host. What the boundary actually forbids is the adapter
-	// reaching an engine package ITSELF — a direct edge — which is what
-	// p.imports reports. The reverse rows below stay transitive: nothing on
-	// the engine side may depend on the adapter even indirectly.
+	for _, msg := range manabrewBoundaryViolations(pkgs) {
+		t.Error(msg)
+	}
+}
+
+// manabrewBoundaryViolations returns one message per ManaBrew dependency
+// boundary violation, for the synthetic or live package map pkgs.
+//
+// The from-manabrew rows check DIRECT imports only, deliberately. The
+// translator is allowed to import view, decision and state (spec §5.1), and
+// view imports events; the transport is allowed to import host, and host
+// imports rules. A transitive check on those rows would therefore forbid the
+// imports §5.1 requires, and note that host/manabrewhttp cannot avoid host.
+// What the boundary actually forbids is the adapter reaching an engine
+// package ITSELF — a direct edge — which is what p.imports reports. The
+// reverse rows stay transitive: nothing on the engine side may depend on the
+// adapter even indirectly.
+//
+// A row whose from package is absent from pkgs is skipped: these package
+// paths are intentionally listed before those packages exist, and the checks
+// bind automatically as go list begins reporting each package.
+//
+// The returned slice is sorted so the helper is deterministic.
+func manabrewBoundaryViolations(pkgs map[string]pkg) []string {
 	forbiddenManaBrewDirect := []struct{ from, to string }{
 		{module + "/internal/manabrew", module + "/rules"},
 		{module + "/internal/manabrew", module + "/effects"},
@@ -213,13 +224,14 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/host/manabrewhttp", module + "/internal/testutil"},
 		{module + "/host/manabrewhttp", module + "/internal/azmcts"},
 	}
+	var msgs []string
 	for _, f := range forbiddenManaBrewDirect {
 		p, ok := pkgs[f.from]
 		if !ok {
 			continue
 		}
 		if p.imports[f.to] {
-			t.Errorf("%s imports %s; the ManaBrew dependency boundary forbids it", f.from, f.to)
+			msgs = append(msgs, fmt.Sprintf("%s imports %s; the ManaBrew dependency boundary forbids it", f.from, f.to))
 		}
 	}
 	var forbiddenManaBrewReverse []struct{ from, to string }
@@ -237,9 +249,11 @@ func TestDependencyOrderHolds(t *testing.T) {
 			continue
 		}
 		if p.deps[f.to] {
-			t.Errorf("%s depends on %s (transitively); the ManaBrew dependency boundary forbids it", f.from, f.to)
+			msgs = append(msgs, fmt.Sprintf("%s depends on %s (transitively); the ManaBrew dependency boundary forbids it", f.from, f.to))
 		}
 	}
+	sort.Strings(msgs)
+	return msgs
 }
 
 // TestManaBrewWireIsStdlibOnly keeps the protocol's public wire types free of

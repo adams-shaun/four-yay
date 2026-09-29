@@ -370,6 +370,19 @@ type Game struct {
 	// seat zero distinct from no initiative, exactly like Monarch above.
 	Initiative    PlayerID
 	HasInitiative bool
+	// ControlledBy maps each CR 720 controlled player to the seat controlling
+	// them ("you control target opponent during their next turn"). It is
+	// folded from ControlPlayerChange events, so a log-only reconstruction
+	// re-derives the same control.
+	ControlledBy map[PlayerID]PlayerID
+	// ControlArmedTurn maps each controlled player to the turn number at which
+	// the control began. The control lasts through that player's NEXT turn and
+	// expires when that turn ends (CR 720.2): the engine's turn boundary
+	// expires a control whose armed turn is strictly before the ending turn,
+	// so a control granted during the player's own current turn waits for
+	// their next one. Folded from the same event, keyed by g.Turn at grant
+	// time, so no new event field carries it.
+	ControlArmedTurn map[PlayerID]int32
 	// NextID hands out object ids one at a time, starting at 1 (see NewGame)
 	// and incrementing by exactly one per AddObject call below -- it can
 	// never reach playerRefBit (1<<31, ids.go): a single match would need
@@ -754,6 +767,18 @@ func (g *Game) CloneInto(objs []Object) *Game {
 		c.ResolvedThisTurn = make(map[string]int32, len(g.ResolvedThisTurn))
 		for k, n := range g.ResolvedThisTurn {
 			c.ResolvedThisTurn[k] = n
+		}
+	}
+	if g.ControlledBy != nil {
+		c.ControlledBy = make(map[PlayerID]PlayerID, len(g.ControlledBy))
+		for p, ctl := range g.ControlledBy {
+			c.ControlledBy[p] = ctl
+		}
+	}
+	if g.ControlArmedTurn != nil {
+		c.ControlArmedTurn = make(map[PlayerID]int32, len(g.ControlArmedTurn))
+		for p, t := range g.ControlArmedTurn {
+			c.ControlArmedTurn[p] = t
 		}
 	}
 	c.ExtraTurnQueue = append([]ExtraTurn(nil), g.ExtraTurnQueue...)
