@@ -33,6 +33,25 @@ func init() {
 	Register("ChooseType", effChooseType)
 	Register("ChooseNumber", effChooseNumber)
 	Register("ChooseColor", effChooseColor)
+	Register("ChooseEvenOdd", effChooseEvenOdd)
+}
+
+// effChooseEvenOdd asks at resolution for the quality used by the
+// cmcChosenEvenOdd filter. Its answer is recorded as the source's chosen type,
+// keeping the answer replayable through the existing Choose event.
+func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
+	if answer := c.ChosenType; answer == "odd" || answer == "even" {
+		c.ChosenType = ""
+		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: answer})
+		return
+	}
+	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
+		ResumeKind: "chooseevenodd", ResumeSA: sa, Prompt: "Choose odd or even", Source: c.Source,
+		Options: []decision.Option{{Index: 0, Kind: "odd", Label: "odd"}, {Index: 1, Kind: "even", Label: "even"}}}
+	if Ask(h, d) == AskAsked {
+		return
+	}
+	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: "odd"})
 }
 
 // effChooseColor records a colour choice. The ONE invocation that is a
