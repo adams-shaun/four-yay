@@ -35,6 +35,7 @@ import (
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	sbspkg "github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/protocol"
 	"github.com/adams-shaun/gorge/replay"
@@ -54,6 +55,10 @@ const searchPolicy = "search"
 // azRedealPolicy is the az-redeal entry's registry key, spelled out for the
 // same reason searchPolicy is: bots/all links the package once, above.
 const azRedealPolicy = "az-redeal"
+
+// sbSearchPolicy is the sb-search-lite-atk entry's registry key, spelled out
+// for the same reason: bots/all links the package once, above.
+const sbSearchPolicy = "sb-search-lite-atk"
 
 // envLeakSeed is the seed every leak row (and the az row's pre-pass) drives:
 // one fixed seed is what makes the pre-pass's found boundary valid for the
@@ -393,6 +398,132 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBTactical(t *testing.T) {
 			return boundary
 		},
 	}, func(s seat.Seat) envSpy { return &envViewSpySeat{inner: s} })
+}
+
+// TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBSearch is the
+// sb-search-lite-atk row of the same property (BP-14, §5.3): the REAL adapter
+// at slot 0, through the REAL host Env path, with the swap fixture applied to
+// the second match's live engine at a decision the adapter actually SEARCHED.
+// The search redeals its worlds from the honest root, so a root that depended
+// on the real hidden cards would search to a different answer in the two
+// matches.
+//
+// The asserted boundary must be a decision the search really ran on: the
+// sb-search priority path plays sb-tactical's own pick without dealing a
+// world when the pick is a land or there is no choice (sbsearch.Seat.priority),
+// so the first Env-eligible decision is not necessarily searched. Like the az
+// row's pre-pass, sbSearchFirstSearched drives one unswapped match from the
+// row's seed and seats and returns the first searched decision's seq; the row
+// places the swap there and then re-verifies through sbsearch.Watch that both
+// matches actually searched the asserted boundary. Without that check a
+// regression that stopped the search would make this row vacuous (the
+// fallback answers from the same roots and Views, so the equality would hold
+// anyway). The forwarding itself is pinned by
+// bots/sbsearch.TestSBSearchDecideEnvForwardsToTheSearch.
+func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBSearch(t *testing.T) {
+	t.Parallel()
+	newSeat := func(actor uint64) seat.Seat {
+		s, err := bots.New(sbSearchPolicy, bots.Options{Seed: actor, Deps: sampleBotDeps(t)})
+		if err != nil {
+			t.Fatalf("the sb-search-lite-atk policy is not linked into this binary: %v", err)
+		}
+		return s
+	}
+	swapSeq := sbSearchFirstSearched(t, newSeat)
+	var mu sync.Mutex
+	var diags []sbspkg.Diag
+	searched := [3]bool{} // indexed by match 1|2
+	prev := sbspkg.Watch
+	sbspkg.Watch = func(dg sbspkg.Diag) {
+		mu.Lock()
+		defer mu.Unlock()
+		diags = append(diags, dg)
+	}
+	defer func() { sbspkg.Watch = prev }()
+	probe := &leakProbe{
+		diagCount: func() int {
+			mu.Lock()
+			defer mu.Unlock()
+			return len(diags)
+		},
+		onDecided: func(m int, seq uint64, n int) {
+			if seq == swapSeq && n > 0 {
+				searched[m] = true
+			}
+		},
+		swapAt: func(d *decision.Decision) bool { return d.Seq == swapSeq },
+		target: func(spy1, spy2 envSpy, boundary uint64) uint64 {
+			r1, r2 := spy1.recorded(boundary), spy2.recorded(boundary)
+			if r1 == nil || r2 == nil || r1.engine == nil || r2.engine == nil {
+				return 0
+			}
+			return boundary
+		},
+	}
+	hostedEnvLeakRowSpy(t, sbSearchPolicy, newSeat, probe, func(s seat.Seat) envSpy { return &envViewSpySeat{inner: s} })
+	if !searched[1] || !searched[2] {
+		t.Fatalf("the asserted boundary (seq %d) was not SEARCHED in both matches (searched %v/%v): the adapter's env.Search forwarding is not exercised and this row would be vacuous",
+			swapSeq, searched[1], searched[2])
+	}
+	t.Logf("asserted boundary seq %d was searched in both matches", swapSeq)
+}
+
+// sbSearchFirstSearched is the sb-search leak row's pre-pass: one unswapped
+// match of the policy, driven through the REAL host Env path from the row's
+// seed and the row's seats, until the search actually runs once (sbsearch.Watch
+// emits a Diag). It returns that decision's seq. The drive is deterministic
+// from the seed, so the seq found here is searched in the row's matches too;
+// the row re-verifies that through the same hook rather than trusting it.
+func sbSearchFirstSearched(t *testing.T, policyNew func(actor uint64) seat.Seat) uint64 {
+	t.Helper()
+	var mu sync.Mutex
+	var diags []sbspkg.Diag
+	prev := sbspkg.Watch
+	sbspkg.Watch = func(dg sbspkg.Diag) {
+		mu.Lock()
+		defer mu.Unlock()
+		diags = append(diags, dg)
+	}
+	defer func() { sbspkg.Watch = prev }()
+	r, err := New(testOptions(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if err := r.AddTable(envTestTable("t1", envLeakSeed)); err != nil {
+		t.Fatal(err)
+	}
+	r.mu.RLock()
+	tbl := r.tables["t1"]
+	r.mu.RUnlock()
+	seats := []seat.Seat{policyNew(envLeakSeed ^ 1), seat.NewBot(envLeakSeed ^ 1)}
+	m, err := r.newMatch(tbl, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.mu.Lock()
+	m.slots = seats
+	m.feeds = newMatchFeeds(seats)
+	m.mu.Unlock()
+	brd := botpolicy.NewBoard(2)
+	for steps := 0; steps < 20000; steps++ {
+		mu.Lock()
+		n0 := len(diags)
+		mu.Unlock()
+		_, pd := driveEnvStep(t, m, seats, &brd, nil)
+		if pd == nil {
+			t.Fatal("pre-pass: the match ended without the sb-search seat ever searching a decision")
+		}
+		mu.Lock()
+		n1 := len(diags)
+		mu.Unlock()
+		submitEnvStep(t, r, tbl, m, pd)
+		if n1 > n0 {
+			return pd.in.Seq
+		}
+	}
+	t.Fatal("pre-pass: the step cap was reached without the sb-search seat ever searching a decision")
+	return 0
 }
 
 // TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal is the az-redeal row of
