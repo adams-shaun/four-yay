@@ -1368,7 +1368,16 @@ test.describe('gorged [ui24] constructed board fixture', () => {
     } catch (error) {
       const ms = Date.now() - readinessStartedAt;
       console.log(`UI24_READINESS ${JSON.stringify({ ms })}`);
-      throw new Error(`fixture server readiness GET took ${ms}ms — box starvation, rerun before treating this as a product bug (server ${b})`, { cause: error });
+      // A connection-level failure that returns in milliseconds is NOT
+      // starvation: the fixture server is not listening (killed under OOM,
+      // lost the bind race, wrong port). Only a request that burned its whole
+      // transport budget is the starved farm this probe exists to name, so
+      // keep the two diagnoses apart rather than blaming load for a dead farm.
+      const starved = ms >= UI24_READINESS_TIMEOUT_MS * 0.8;
+      const diagnosis = starved
+        ? `fixture server readiness GET took ${ms}ms — box starvation, rerun before treating this as a product bug`
+        : `fixture server refused the readiness GET after ${ms}ms — the fixture server is not listening (killed/wedged farm), not a product bug`;
+      throw new Error(`${diagnosis} (server ${b})`, { cause: error });
     }
     const readinessMs = Date.now() - readinessStartedAt;
     console.log(`UI24_READINESS ${JSON.stringify({ ms: readinessMs })}`);
