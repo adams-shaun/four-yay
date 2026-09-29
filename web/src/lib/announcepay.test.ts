@@ -60,12 +60,12 @@ const view = (d: Decision | null): View => {
 };
 
 describe('announce-then-pay helpers', () => {
-  it('lists only plan-payable, pool-short casts while Auto-pay is off on an auto-mana table', () => {
+  it('lists offered pool-short casts while Auto-pay is off on an auto-mana table', () => {
     const d = priority(5, [action('plan-only', null), action('pooled', 7), action('planless', null, [])]);
-    expect(announceActions(d, true, false).map((a) => a.id)).toEqual(['plan-only']);
+    expect(announceActions(d, true, false).map((a) => a.id)).toEqual(['plan-only', 'planless']);
     expect(announceActions(d, true, true)).toEqual([]);
     expect(announceActions(d, false, false)).toEqual([]);
-    expect(castableActions(d, true).map((a) => a.id)).toEqual(['plan-only', 'pooled']);
+    expect(castableActions(d, true).map((a) => a.id)).toEqual(['plan-only', 'pooled', 'planless']);
     expect(announceActions(windowDecision(), true, false)).toEqual([]);
   });
 
@@ -168,18 +168,23 @@ describe('announce-then-pay seat routing', () => {
     expect(postIntentMock.mock.calls[0][2].announce).toBeUndefined();
   });
 
-  it('a stale or planless announce button is inert, and double clicks post once', async () => {
+  it('a stale announce button is inert; planless announces post and double clicks post once', async () => {
     const p = new SeatPanelState('table', 1, ctx, null);
     p.setAutoManaAvailable(true);
     const old = priority(20, [action('plan-only', null)]);
     p.adoptView(old);
     p.adoptView(priority(21, [action('plan-only', null)]));
     p.submitAnnounce(old.payment_actions![0]);
-    const planless = priority(22, [action('planless', null, [])]);
-    p.adoptView(planless);
-    p.submitAnnounce(planless.payment_actions![0]);
     await Promise.resolve();
     expect(postIntentMock).not.toHaveBeenCalled();
+    const planless = priority(22, [action('planless', null, [])]);
+    expect(planless.payment_actions![0].plans).toEqual([]);
+    p.adoptView(planless);
+    expect(postIntentMock).not.toHaveBeenCalled();
+    p.submitAnnounce(planless.payment_actions![0]);
+    await Promise.resolve();
+    expect(postIntentMock.mock.calls[0][2]).toEqual({ seq: 22, player: 0, choices: [], announce: { action_id: 'planless' } });
+    postIntentMock.mockClear();
     const d = priority(23, [action('plan-only', null)]);
     p.adoptView(d);
     p.submitAnnounce(d.payment_actions![0]);

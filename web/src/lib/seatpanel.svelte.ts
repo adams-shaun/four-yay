@@ -2088,8 +2088,8 @@ export class SeatPanelState {
     this.submit();
   }
 
-  /** submitAnnounce posts the announce-then-pay selector for one offered,
-   * plan-payable cast (docs/superpowers/specs/2026-09-27-announce-then-pay.md
+  /** submitAnnounce posts the announce-then-pay selector for one offered cast
+   * (docs/superpowers/specs/2026-09-27-announce-then-pay.md
    * §3): the engine begins the cast and poses the "select mana" window. Like
    * submitPayment it re-resolves the action on the current decision, so a
    * stale button is inert after a seq swap. */
@@ -2097,12 +2097,12 @@ export class SeatPanelState {
     const d = this.pending;
     if (d === null || d.seq === this.postedSeq || this.busy || d.kind !== 'priority') return;
     const offered = d.payment_actions?.find((candidate) => candidate.id === action.id);
-    if (offered === undefined || offered !== action || offered.plans.length === 0) return;
+    if (offered === undefined || offered !== action) return;
     this.handAnswer();
     void this.post([], holdPriority, undefined, true, undefined, { action_id: offered.id });
   }
 
-  /** castAction is the one CAST route for a plan-payable cast (a hand card's
+  /** castAction is the one CAST route for an offered cast (a hand card's
    * CAST shortcut, the panel's cast row): Auto-pay ON submits the suggested
    * plan, as before; OFF posts the legacy cast when the pool already pays
    * (base_option_index) and otherwise announces the cast so the player picks
@@ -2117,6 +2117,8 @@ export class SeatPanelState {
       this.click(action.base_option_index, { holdPriority });
       return;
     }
+    // ManaBrew carries no payment plan; announce is its supported route to
+    // the select-mana window when Auto-pay is off.
     this.submitAnnounce(action, holdPriority);
   }
 

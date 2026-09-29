@@ -14,20 +14,20 @@ import { findCardAnywhere } from './board';
 
 const SLOTS = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
 
-/** announceActions are the plan-payable casts a seat with Auto-pay OFF
- *  announces: a priority decision's payment actions that carry a plan and
- *  have no legacy cast option (the pool alone cannot pay yet). A cast the
- *  pool already pays keeps its legacy option, exactly as today. */
+/** announceActions are casts a seat with Auto-pay OFF may announce: priority
+ *  payment actions with no legacy cast option. Plan-less actions are used by
+ *  ManaBrew, whose wire cannot carry payment plans; announcing opens the
+ *  select-mana window. A cast the pool already pays keeps its legacy option. */
 export function announceActions(d: Decision | null, autoManaAvailable: boolean, autoPayMana: boolean): PaymentAction[] {
   if (d === null || d.kind !== 'priority' || !autoManaAvailable || autoPayMana) return [];
-  return (d.payment_actions ?? []).filter((a) => a.plans.length > 0 && (a.base_option_index === undefined || a.base_option_index === null));
+  return (d.payment_actions ?? []).filter((a) => a.base_option_index === undefined || a.base_option_index === null);
 }
 
-/** castableActions are every payment action CAST can reach from a hand card
- *  (a plan exists), whichever route the click takes. */
+/** castableActions are every offered payment action CAST can reach from a hand
+ *  card, including plan-less ManaBrew actions that use announce-then-pay. */
 export function castableActions(d: Decision | null, autoManaAvailable: boolean): PaymentAction[] {
   if (d === null || d.kind !== 'priority' || !autoManaAvailable) return [];
-  return (d.payment_actions ?? []).filter((a) => a.plans.length > 0);
+  return d.payment_actions ?? [];
 }
 
 /** manaWindow is the announced window, or null for any other decision. */
