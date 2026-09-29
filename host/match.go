@@ -97,6 +97,14 @@ type match struct {
 	// each rewind until the queue is empty. Created at match build, never
 	// reassigned, and dies with the match.
 	undo *undoQueue
+	// feeds owns the live observation feed of every non-human bots.EnvSeat on
+	// this match (host/botenv.go, spec §5.2 Create/Observe/Record). Nil when
+	// no seat implements bots.EnvSeat — the allocation-free fast path every
+	// pure-bot table takes today. Installed once at the top of play, after
+	// the seats are final, and never reassigned. The match goroutine is its
+	// only writer; every read (projectNext's Observe, the Submit section's
+	// Record, and the tests' post-match inspection) is under m.mu.
+	feeds *matchFeeds
 }
 
 // snapshot is a cloned engine at an intent boundary that began a turn.
@@ -373,6 +381,12 @@ type parkedData struct {
 // Returns nil when there is no pending decision (game over, or a stall the
 // caller resolves via G.Over). Call on the match goroutine, under m.mu.
 func projectNext(m *match, seats []seat.Seat, brd *botpolicy.Board) *parkedData {
+	// Observe before the pending-decision nil check: a feed captures one frame
+	// at every decision boundary, including the final one after the last
+	// Submit where the engine has no pending decision left (game over). That
+	// makes the live feed the exact mirror of searchseat.RebuildFeed, which
+	// visits once at n as well (§5.2 Observe; BP-07's TestHostFeedEqualsRebuildFeed).
+	m.feeds.observe(m.e)
 	d := m.e.Pending()
 	if d == nil {
 		return nil
@@ -517,6 +531,11 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	}
 	m.mu.Lock()
 	m.slots = seats
+	// Create the per-seat observation feeds once the seats are final (after
+	// the Humans replacement above, which can swap a bot for a HumanSeat and
+	// so must precede the EnvSeat scan). A table with no EnvSeat gets nil, and
+	// every Observe/Record below is a nil-receiver no-op (§5.2 Create).
+	m.feeds = newMatchFeeds(seats)
 	m.mu.Unlock()
 	// Task M2b-3: arm every human seat with its think budget and its
 	// deterministic caretaker bot — the one defaultSeats would have built
@@ -665,11 +684,20 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 		attempt := func(in decision.Intent) (refused bool, err error) {
 			err = m.locked(func() error {
 				before = len(m.e.L.Events)
+				// d is the decision this intent answers. It is read before the
+				// Submit because a successful Submit consumes it; on a refusal
+				// the pending decision survives and the ladder's next rung
+				// answers the same d.
+				d := m.e.Pending()
 				if e := m.e.Submit(in); e != nil {
 					refused = true
 					return e
 				}
 				m.afterSubmit(before)
+				// Record the ACCEPTED intent (which may be a refusal-ladder
+				// rung, not the seat's first answer) on the actor's feed, after
+				// the Submit that took it (§5.2 Record).
+				m.feeds.record(d, in)
 				if e := r.afterBurst(t, m, before); e != nil { // Tasks 11, 12
 					return fmt.Errorf("persist: %w", e)
 				}
