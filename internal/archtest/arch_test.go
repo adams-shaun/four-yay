@@ -184,7 +184,17 @@ func TestDependencyOrderHolds(t *testing.T) {
 	// ManaBrew's translator and transport remain above the engine boundary.
 	// These package paths are intentionally listed before those packages exist;
 	// the checks bind automatically as go list begins reporting each package.
-	forbiddenManaBrew := []struct{ from, to string }{
+	//
+	// The from-manabrew rows check DIRECT imports only, deliberately. The
+	// translator is allowed to import view, decision and state (spec §5.1),
+	// and view imports events; the transport is allowed to import host, and
+	// host imports rules. A transitive check on those rows would therefore
+	// forbid the imports §5.1 requires, and note that host/manabrewhttp
+	// cannot avoid host. What the boundary actually forbids is the adapter
+	// reaching an engine package ITSELF — a direct edge — which is what
+	// p.imports reports. The reverse rows below stay transitive: nothing on
+	// the engine side may depend on the adapter even indirectly.
+	forbiddenManaBrewDirect := []struct{ from, to string }{
 		{module + "/internal/manabrew", module + "/rules"},
 		{module + "/internal/manabrew", module + "/effects"},
 		{module + "/internal/manabrew", module + "/events"},
@@ -197,15 +207,25 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/host/manabrewhttp", module + "/internal/testutil"},
 		{module + "/host/manabrewhttp", module + "/internal/azmcts"},
 	}
+	for _, f := range forbiddenManaBrewDirect {
+		p, ok := pkgs[f.from]
+		if !ok {
+			continue
+		}
+		if p.imports[f.to] {
+			t.Errorf("%s imports %s; the ManaBrew dependency boundary forbids it", f.from, f.to)
+		}
+	}
+	var forbiddenManaBrewReverse []struct{ from, to string }
 	for _, from := range []string{
 		"cards", "state", "decision", "events", "effects", "botpolicy",
 		"rules", "view", "seat", "replay", "protocol", "host", "host/httpapi",
 	} {
 		for _, to := range []string{"protocol/manabrew", "internal/manabrew", "host/manabrewhttp"} {
-			forbiddenManaBrew = append(forbiddenManaBrew, struct{ from, to string }{module + "/" + from, module + "/" + to})
+			forbiddenManaBrewReverse = append(forbiddenManaBrewReverse, struct{ from, to string }{module + "/" + from, module + "/" + to})
 		}
 	}
-	for _, f := range forbiddenManaBrew {
+	for _, f := range forbiddenManaBrewReverse {
 		p, ok := pkgs[f.from]
 		if !ok {
 			continue
