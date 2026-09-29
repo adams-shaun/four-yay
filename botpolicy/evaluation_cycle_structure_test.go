@@ -35,17 +35,27 @@ type policyCallGraph struct {
 //   - Every call is attributed to its innermost enclosing node (a named
 //     function/method, or the function literal itself).
 //   - A call to a same-package named function/method is a direct edge.
-//   - A call through a function-typed value (a parameter, local or struct
-//     field of signature type) is INDIRECT: it edges to every function VALUE
-//     that flowed into that value, tracked by the assignment and
-//     argument-binding passes. Passing a value to a SAME-PACKAGE callee is
-//     not itself a call: the callee invokes it only where its own body calls
-//     the parameter, which the indirect pass records.
-//   - FAIL CLOSED on higher-order calls that cannot be resolved: a named
-//     same-package function or method value passed as an ARGUMENT to an
-//     external or value callee may be invoked by it, so the caller gets an
-//     edge to it. A function literal passed as an argument is already an edge
-//     from the node that defines it.
+//   - A call through a function-typed value (a parameter, local, struct
+//     field or package-level var of signature type) is INDIRECT: it edges to
+//     every function VALUE that flowed into that value. Slots are keyed on
+//     the OBJECT, so a value stored in one function and invoked from another
+//     (a struct field or package var) resolves, and value flows propagate
+//     slot-to-slot to a fixpoint, so a callback passed through a CHAIN of
+//     parameters is visible at the slot the innermost function calls.
+//     Passing a value to a SAME-PACKAGE callee is not itself a call: the
+//     callee invokes it only where its own body calls the parameter, which
+//     the indirect pass records.
+//   - FAIL CLOSED on higher-order calls that cannot be resolved, in TWO ways:
+//     (a) a named same-package function or method value passed as an ARGUMENT
+//     to an external or value callee may be invoked by it, so the caller gets
+//     an edge to it; (b) an indirect call through a slot that may hold an
+//     untraceable value -- assigned from a map lookup, type assertion or
+//     external call, taint-propagated through parameter chains, or never
+//     bound in-package at all -- edges to every same-package function value
+//     whose signature is assignable to the slot. A function literal passed as
+//     an argument is already an edge from the node that defines it.
+//   - A method selection (x.M) is a DIRECT call to M, never a func-typed slot,
+//     so an external method call is not mistaken for an indirect call.
 //   - A function value assigned to a func-typed local is tracked; when the
 //     local is called, the node edges to the value. A func-typed local
 //     initialised from a call expression (the ranker factories
@@ -67,6 +77,10 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 		}
 		g.edges[a][b] = true
 	}
+	// valueTypes records each function-value node's callable signature (a
+	// method value's without its receiver) so the fail-closed resolution below
+	// can edge only to values that could actually occupy a slot.
+	valueTypes := map[string]types.Type{}
 	litName := func(pos token.Pos) string {
 		return "lit@" + fset.Position(pos).String()
 	}
@@ -98,11 +112,17 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 		switch v := e.(type) {
 		case *ast.Ident:
 			if n, ok := funcObjName(info.Uses[v]); ok {
+				if t := info.TypeOf(v); t != nil {
+					valueTypes[n] = t
+				}
 				return n, true
 			}
 		case *ast.SelectorExpr:
 			if sel, ok := info.Selections[v]; ok && sel.Obj() != nil {
 				if n, ok := funcObjName(sel.Obj()); ok {
+					if t := info.TypeOf(v); t != nil {
+						valueTypes[n] = t
+					}
 					return n, true
 				}
 			}
@@ -134,23 +154,114 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 		}
 		return nil
 	}
-	// slotOf builds the flow key for a func-typed var/param object.
-	slotOf := func(owner string, o types.Object) (string, bool) {
+	// slotOf returns a stable flow key for a func-typed object. It keys on the
+	// OBJECT itself, not the enclosing function: a struct field or
+	// package-level var assigned in one function and called from another still
+	// shares one slot, and a call site resolves to exactly the slot its
+	// caller bound. The object's declared type is recorded for the
+	// assignability-filtered fail-closed below.
+	slotIDs := map[types.Object]string{}
+	slotType := map[string]types.Type{}
+	slotCount := 0
+	slotOf := func(_ string, o types.Object) (string, bool) {
 		if o == nil {
 			return "", false
 		}
 		if _, ok := o.Type().Underlying().(*types.Signature); !ok {
 			return "", false
 		}
-		return owner + "\x00" + o.Name(), true
+		if id, ok := slotIDs[o]; ok {
+			return id, true
+		}
+		slotCount++
+		id := fmt.Sprintf("slot#%d:%s", slotCount, o.Name())
+		slotIDs[o] = id
+		slotType[id] = o.Type()
+		return id, true
 	}
-	flows := map[string]map[string]bool{}
-	indirect := map[string]map[string]bool{}
+	// slotOfExpr resolves an expression that IS a func-typed variable, field
+	// or parameter to its slot key. A method selection (x.M) is a DIRECT call
+	// to M, not a value sitting in a func-typed slot, so it is excluded: only a
+	// bare variable/parameter or a struct FIELD access is an indirect call
+	// target.
+	slotOfExpr := func(e ast.Expr) (string, bool) {
+		switch v := e.(type) {
+		case *ast.Ident:
+			return slotOf("", info.Uses[v])
+		case *ast.SelectorExpr:
+			if sel, ok := info.Selections[v]; ok && sel.Obj() != nil {
+				if sel.Kind() != types.FieldVal {
+					return "", false
+				}
+				return slotOf("", sel.Obj())
+			}
+			return "", false
+		}
+		return "", false
+	}
+	// isFuncLit reports whether e is a function literal. A literal is already
+	// an edge from the node that defines it, so it is not also treated as a
+	// flowed value at an argument or assignment site.
+	isFuncLit := func(e ast.Expr) bool {
+		_, ok := e.(*ast.FuncLit)
+		return ok
+	}
+	// assignSlot resolves the destination of an assignment to a func-typed
+	// slot: a bare variable/parameter or a struct field.
+	assignSlot := func(lhs ast.Expr, enclosing string) (string, bool) {
+		switch v := lhs.(type) {
+		case *ast.Ident:
+			o := info.Defs[v]
+			if o == nil {
+				o = info.Uses[v]
+			}
+			return slotOf(enclosing, o)
+		case *ast.SelectorExpr:
+			if sel, ok := info.Selections[v]; ok && sel.Obj() != nil {
+				return slotOf(enclosing, sel.Obj())
+			}
+		}
+		return "", false
+	}
+	flows := map[string]map[string]bool{}    // slot -> function values assigned to it
+	slotFrom := map[string]map[string]bool{} // slot -> other slots whose values it may receive
+	tainted := map[string]bool{}             // slot may hold a value we could not trace
+	indirect := map[string]map[string]bool{} // owner -> slot called indirectly
 	recordFlow := func(slot, target string) {
 		if flows[slot] == nil {
 			flows[slot] = map[string]bool{}
 		}
 		flows[slot][target] = true
+	}
+	recordSlotFlow := func(dest, src string) {
+		if slotFrom[dest] == nil {
+			slotFrom[dest] = map[string]bool{}
+		}
+		slotFrom[dest][src] = true
+	}
+	// bindArg records how a call argument feeds a callee parameter slot: a
+	// function value, another slot, or an untraceable source.
+	bindArg := func(paramSlot string, arg ast.Expr) {
+		if isFuncLit(arg) {
+			return
+		}
+		if vn, ok := valueNode(arg); ok {
+			recordFlow(paramSlot, vn)
+			return
+		}
+		if src, ok := slotOfExpr(arg); ok {
+			recordSlotFlow(paramSlot, src)
+			return
+		}
+		if call, ok := arg.(*ast.CallExpr); ok {
+			if fn := calleeObj(call.Fun); fn != nil {
+				if vn, ok := funcObjName(fn); ok {
+					recordFlow(paramSlot, vn)
+					return
+				}
+			}
+		}
+		tainted[paramSlot] = true
 	}
 
 	var walkNode func(nodeName string, body *ast.BlockStmt)
@@ -160,6 +271,7 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 			case *ast.FuncLit:
 				ln := litName(x.Pos())
 				add(nodeName, ln)
+				valueTypes[ln] = info.TypeOf(x)
 				walkNode(ln, x.Body)
 				return false
 			case *ast.AssignStmt:
@@ -167,20 +279,16 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 					if i >= len(x.Lhs) {
 						continue
 					}
-					id, ok := x.Lhs[i].(*ast.Ident)
-					if !ok {
-						continue
-					}
-					o := info.Defs[id]
-					if o == nil {
-						o = info.Uses[id]
-					}
-					slot, ok := slotOf(nodeName, o)
+					slot, ok := assignSlot(x.Lhs[i], nodeName)
 					if !ok {
 						continue
 					}
 					if vn, ok := valueNode(rhs); ok {
 						recordFlow(slot, vn)
+						continue
+					}
+					if src, ok := slotOfExpr(rhs); ok {
+						recordSlotFlow(slot, src)
 						continue
 					}
 					// A call result assigned to a func-typed slot: attribute
@@ -190,13 +298,17 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 						if fn := calleeObj(call.Fun); fn != nil {
 							if vn, ok := funcObjName(fn); ok {
 								recordFlow(slot, vn)
+								continue
 							}
 						}
 					}
+					// Untraceable source (map lookup, type assertion, external
+					// call) -- the slot may hold anything of its type.
+					tainted[slot] = true
 				}
 			case *ast.CallExpr:
-				// The callee may be a direct same-package call or an indirect
-				// call through a function-typed value.
+				// The callee may be a direct same-package call, an indirect
+				// call through a function-typed value, or an external call.
 				if fn := calleeObj(x.Fun); fn != nil {
 					if vn, ok := funcObjName(fn); ok {
 						add(nodeName, vn)
@@ -210,13 +322,11 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 								if i >= sig.Params().Len() {
 									break
 								}
-								slot, ok := slotOf(vn, sig.Params().At(i))
+								paramSlot, ok := slotOf(vn, sig.Params().At(i))
 								if !ok {
 									continue
 								}
-								if av, ok := valueNode(arg); ok {
-									recordFlow(slot, av)
-								}
+								bindArg(paramSlot, arg)
 							}
 						}
 					}
@@ -226,33 +336,20 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 					// to an external or value callee may be invoked by it. (A
 					// literal is already an edge from this node.)
 					for _, arg := range x.Args {
-						if _, isLit := arg.(*ast.FuncLit); isLit {
+						if isFuncLit(arg) {
 							continue
 						}
 						if av, ok := valueNode(arg); ok {
 							add(nodeName, av)
 						}
 					}
-					if id, ok := x.Fun.(*ast.Ident); ok {
-						// Indirect call through a func-typed parameter or local.
-						if o := info.Uses[id]; o != nil {
-							if slot, ok := slotOf(nodeName, o); ok {
-								if indirect[nodeName] == nil {
-									indirect[nodeName] = map[string]bool{}
-								}
-								indirect[nodeName][slot] = true
-							}
+					// An indirect call through a func-typed value: a parameter,
+					// local or struct field.
+					if slot, ok := slotOfExpr(x.Fun); ok {
+						if indirect[nodeName] == nil {
+							indirect[nodeName] = map[string]bool{}
 						}
-					} else if sel, ok := x.Fun.(*ast.SelectorExpr); ok {
-						// Indirect call through a func-typed struct field.
-						if o := info.Uses[sel.Sel]; o != nil {
-							if slot, ok := slotOf(nodeName, o); ok {
-								if indirect[nodeName] == nil {
-									indirect[nodeName] = map[string]bool{}
-								}
-								indirect[nodeName][slot] = true
-							}
-						}
+						indirect[nodeName][slot] = true
 					}
 				}
 			}
@@ -283,14 +380,61 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 			if g.edges[name] == nil {
 				g.edges[name] = map[string]bool{}
 			}
+			valueTypes[name] = callableType(info.Defs[fd.Name])
 			walkNode(name, fd.Body)
 		}
 	}
+	// Propagate slot-to-slot value flows to a fixpoint, so a function value
+	// passed through a chain of callback parameters is visible at the slot
+	// the innermost function actually calls. Taint propagates the same way: a
+	// parameter fed an untraceable value taints everything downstream.
+	changed := true
+	for changed {
+		changed = false
+		for dest, srcs := range slotFrom {
+			for src := range srcs {
+				for target := range flows[src] {
+					if flows[dest] == nil {
+						flows[dest] = map[string]bool{}
+					}
+					if !flows[dest][target] {
+						flows[dest][target] = true
+						changed = true
+					}
+				}
+				if tainted[src] && !tainted[dest] {
+					tainted[dest] = true
+					changed = true
+				}
+				for through := range slotFrom[src] {
+					if slotFrom[dest] == nil {
+						slotFrom[dest] = map[string]bool{}
+					}
+					if !slotFrom[dest][through] {
+						slotFrom[dest][through] = true
+						changed = true
+					}
+				}
+			}
+		}
+	}
 	// Resolve indirect calls: edge to every value that flowed into the slot.
+	// FAIL CLOSED when the slot may hold an untraceable value, or has no
+	// tracked flow at all (a parameter whose caller is outside the package,
+	// or a field never assigned in-package): edge to every same-package
+	// function value, so no recursion can hide behind a source the flow
+	// analysis could not see.
 	for owner, slots := range indirect {
 		for slot := range slots {
 			for target := range flows[slot] {
 				add(owner, target)
+			}
+			if tainted[slot] || len(flows[slot]) == 0 {
+				for fn, ft := range valueTypes {
+					if st := slotType[slot]; st != nil && ft != nil && types.AssignableTo(ft, st) {
+						add(owner, fn)
+					}
+				}
 			}
 		}
 	}
@@ -351,6 +495,24 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 		}
 	}
 	return g
+}
+
+// callableType returns the callable signature of a function object, stripping
+// a method receiver so a method value compares assignable to a plain
+// func-typed slot.
+func callableType(o types.Object) types.Type {
+	fn, ok := o.(*types.Func)
+	if !ok {
+		return nil
+	}
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok {
+		return nil
+	}
+	if sig.Recv() == nil {
+		return sig
+	}
+	return types.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())
 }
 
 func sortedBoolKeys(m map[string]bool) []string {
@@ -419,15 +581,18 @@ func typeCheckPolicy(t *testing.T, fset *token.FileSet, paths []string, pkgPath 
 //     (the Clamp entry names its three-frame projection bound).
 //
 // Soundness limits, stated plainly: the walk follows direct syntactic calls
-// and function-value flows (arguments, method values, func-typed locals and
-// struct fields) and conservatively resolves an unknown local receiver by
-// matching the method name across the package, so it can add false edges but
-// never miss a same-package name or a value-mediated callback. It still does
-// NOT follow a function value that escapes through a package-level variable
-// assigned in one function and called in another, through goroutines
-// (botpolicy starts none) or through reflection (botpolicy uses none); the
-// regression probe TestPolicyCallGraphCatchesFunctionValueRecursion pins the
-// callback hole this guard closes.
+// and function-value flows (arguments, method values, func-typed locals,
+// struct fields and package-level vars), propagating value flows and taint
+// slot-to-slot to a fixpoint, and fails closed to the assignable same-package
+// function values for any indirect call through a slot it could not fully
+// trace. It can add false edges but never miss a same-package name or a
+// value-mediated callback. It still does NOT follow a function value that
+// escapes through goroutines (botpolicy starts none), reflection (botpolicy
+// uses none), or an interface/map it cannot see into -- those are covered by
+// the fail-closed arm instead. The regression probes
+// TestPolicyCallGraphCatchesFunctionValueRecursion and
+// TestPolicyCallGraphCatchesIndirectEvaluatorRecursion pin the callback
+// holes this guard closes.
 func TestNoUnguardedRecursionInPolicyCallGraph(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
@@ -472,17 +637,11 @@ func TestNoUnguardedRecursionInPolicyCallGraph(t *testing.T) {
 // closes the cycle. The control below (a callback that does NOT call back)
 // must stay acyclic, proving the probe detects recursion rather than any
 // callback.
-func TestPolicyCallGraphCatchesFunctionValueRecursion(t *testing.T) {
-	const src = `package probe
-
-func walk(f func()) { f() }
-
-func score() { walk(score) }
-
-func leaf() {}
-
-func run() { walk(leaf) }
-`
+// buildProbeGraph type-checks one probe source file and returns its call
+// graph. The probes share the source importer so the package of each probe is
+// self-contained.
+func buildProbeGraph(t *testing.T, src string) policyCallGraph {
+	t.Helper()
 	fset := token.NewFileSet()
 	af, err := parser.ParseFile(fset, "probe.go", src, 0)
 	if err != nil {
@@ -498,7 +657,21 @@ func run() { walk(leaf) }
 	if _, err := conf.Check("probe", fset, []*ast.File{af}, info); err != nil {
 		t.Fatalf("type-check probe: %v", err)
 	}
-	g := buildPolicyCallGraph(fset, []*ast.File{af}, info, "probe")
+	return buildPolicyCallGraph(fset, []*ast.File{af}, info, "probe")
+}
+
+func TestPolicyCallGraphCatchesFunctionValueRecursion(t *testing.T) {
+	const src = `package probe
+
+func walk(f func()) { f() }
+
+func score() { walk(score) }
+
+func leaf() {}
+
+func run() { walk(leaf) }
+`
+	g := buildProbeGraph(t, src)
 
 	// Precondition: the two shapes are genuinely different -- score calls
 	// walk, and walk reaches score only through walk's parameter.
@@ -525,6 +698,140 @@ func run() { walk(leaf) }
 	}
 	if len(g.selfLoops) != 0 {
 		t.Fatalf("probe gained self-recursion: %v", g.selfLoops)
+	}
+}
+
+// TestPolicyCallGraphCatchesIndirectEvaluatorRecursion covers the CLASS the
+// one-hop callback probe left open: recursion reached through an indirect call
+// whose value flow passes through more than one function or through storage
+// the one-hop pass did not follow. Each case must yield an SCC containing
+// score, and its acyclic control must not.
+func TestPolicyCallGraphCatchesIndirectEvaluatorRecursion(t *testing.T) {
+	cyclic := map[string]struct {
+		src  string
+		want []string
+	}{
+		"two-callback chain": {
+			src: `package probe
+func a(f func()) { f() }
+func b(f func()) { a(f) }
+func score() { b(score) }
+`,
+			want: []string{"a", "b", "score"},
+		},
+		"struct field": {
+			src: `package probe
+
+type holder struct{ f func() }
+
+func (h holder) run() { h.f() }
+
+func score() {
+	var h holder
+	h.f = score
+	h.run()
+}
+`,
+			want: []string{"holder.run", "score"},
+		},
+		"package var": {
+			src: `package probe
+
+var g func()
+
+func walk() { g() }
+
+func score() {
+	g = score
+	walk()
+}
+`,
+			want: []string{"score", "walk"},
+		},
+		"method value": {
+			src: `package probe
+
+type h struct{}
+
+func (h) walk(f func()) { f() }
+
+func score() {
+	var x h
+	x.walk(score)
+}
+`,
+			want: []string{"h.walk", "score"},
+		},
+	}
+	acyclic := map[string]string{
+		"two-callback no callback": `package probe
+func a(f func()) {}
+func b(f func()) { a(f) }
+func run() { b(leaf) }
+func leaf() {}
+`,
+		"struct field never called back": `package probe
+
+type holder struct{ f func() }
+
+func (h holder) run() { h.f() }
+
+func score() {
+	var h holder
+	h.f = leaf
+	h.run()
+}
+func leaf() {}
+`,
+		"package var no callback": `package probe
+
+var g func()
+
+func walk() { g() }
+
+func score() {
+	g = leaf
+	walk()
+}
+func leaf() {}
+`,
+	}
+
+	for name, tc := range cyclic {
+		t.Run("cycle/"+name, func(t *testing.T) {
+			g := buildProbeGraph(t, tc.src)
+			want := fmt.Sprint(tc.want)
+			var found bool
+			for _, scc := range g.sccs {
+				if fmt.Sprint(scc) == want {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("indirect recursion %s not detected: sccs=%s self=%v edges=%v", want, formatSCCs(g.sccs), g.selfLoops, g.edges)
+			}
+		})
+	}
+	for name, src := range acyclic {
+		t.Run("acyclic/"+name, func(t *testing.T) {
+			g := buildProbeGraph(t, src)
+			// Precondition: the probe is non-trivial -- there is at least one
+			// closure/indirect call path to follow. run or score must be a
+			// caller of something.
+			if len(g.edges) == 0 {
+				t.Fatalf("probe produced no edges; precondition failed: %v", g.edges)
+			}
+			for _, scc := range g.sccs {
+				for _, n := range scc {
+					if strings.Contains(n, "score") || n == "run" || strings.Contains(n, "walk") {
+						t.Fatalf("false cycle on the acyclic control: %s", formatSCCs(g.sccs))
+					}
+				}
+			}
+			if len(g.selfLoops) != 0 {
+				t.Fatalf("acyclic control gained self-recursion: %v", g.selfLoops)
+			}
+		})
 	}
 }
 
