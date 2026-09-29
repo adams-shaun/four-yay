@@ -379,6 +379,9 @@ func strictUnpriceableCards(reg *cards.Registry) []string {
 // choice-bearing component, so those cards left this list. Dragon's Approach
 // (ExileFromStack<1/Card.Self>) and The War Games (Exile<1/Creature.!token>)
 // stay: their spellings are outside the exileCost grammar.
+// Task hob-elven-passage-behold removed Elven Passage: its UnlessCost$
+// Behold<1/Elf> is now a priceable CR 702.176 choice part, so it no longer
+// belongs in the strict-decline population.
 func TestUnlessCostStrictParsePopulation(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
@@ -393,7 +396,7 @@ func TestUnlessCostStrictParsePopulation(t *testing.T) {
 		"Countervailing Winds", "Court of Ambition", "Craig Boone, Novac Guard", "Cyclone",
 		"Dazzling Denial", "Dispelling Exhale", "Disruption Aura", "Draco",
 		"Dragon's Approach", "Dwarven Driller", "Dwarven Scorcher",
-		"Elven Passage", "Energy Vortex", "Errant Minion", "Esper Sentinel", "Essence Leak",
+		"Energy Vortex", "Errant Minion", "Esper Sentinel", "Essence Leak",
 		"Essence Vortex", "Evasive Action", "Excise", "Extravagant Spirit",
 		"Feather, Radiant Arbiter", "Fettergeist", "Flash",
 		"Gurzigost", "Gutsplitter Gang", "Hungry Hungry Heifer", "Ice Cave",
