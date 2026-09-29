@@ -782,6 +782,39 @@ func Apply(g *state.Game, e Event) {
 			}
 			g.SkipTurns[e.Player] = max(0, g.SkipTurns[e.Player]+int(e.Amount))
 		}
+	case ControlPlayerChange:
+		// CR 720: Player is the controlling seat and IDs[0] the controlled
+		// seat. +1 grants (and stamps g.Turn as the armed turn), -1 expires at
+		// the end of the controlled player's next turn. Both are folded so a
+		// log-only reconstruction re-derives the same interval.
+		if !validPlayer(g, e.Player) || len(e.IDs) == 0 {
+			break
+		}
+		subj, isPlayer := e.IDs[0].PlayerRef()
+		if !isPlayer || !validPlayer(g, subj) {
+			break
+		}
+		ctl := e.Player
+		switch {
+		case e.Amount > 0:
+			// CR 720.6: a player cannot control themselves, and control of
+			// one player by another is not a chain the rules build. Keeping
+			// the payer's own seat out of the map is the fail-closed guard.
+			if ctl == subj {
+				break
+			}
+			if g.ControlledBy == nil {
+				g.ControlledBy = map[state.PlayerID]state.PlayerID{}
+			}
+			if g.ControlArmedTurn == nil {
+				g.ControlArmedTurn = map[state.PlayerID]int32{}
+			}
+			g.ControlledBy[subj] = ctl
+			g.ControlArmedTurn[subj] = g.Turn
+		case e.Amount < 0:
+			delete(g.ControlledBy, subj)
+			delete(g.ControlArmedTurn, subj)
+		}
 	case ExtraTurn:
 		// One grant or consumption of an extra turn (CR 500.7). The count and
 		// the ordered pending queue are game state folded here so a log-only

@@ -1058,10 +1058,19 @@ const (
 	// SkipTurn records grants and consumption of skipped turns (CR 500.9).
 	// Appended to preserve every earlier event ordinal.
 	SkipTurn
+	// ControlPlayerChange grants or ends CR 720's control of one player by
+	// another. Player is the controlling seat and IDs[0] the controlled seat.
+	// Amount is +1 for a grant and -1 for the expiry at the end of the
+	// controlled player's next turn. Apply folds it into
+	// state.Game.ControlledBy/ControlArmedTurn, so a log-only reconstruction
+	// re-derives the same control interval the live match held. Appended after
+	// SkipTurn, following every prior Kind's append-only precedent, so no
+	// earlier ordinal, hash chain or golden replay is affected.
+	ControlPlayerChange
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(SkipTurn) + 1
+	NumKinds = int(ControlPlayerChange) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1207,7 +1216,7 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
 	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
 	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
-	"initiative_change", "skip_turn"}
+	"initiative_change", "skip_turn", "control_player_change"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

@@ -10,6 +10,15 @@ import (
 )
 
 func (e *Engine) beginTurn(active state.PlayerID, skipUntap ...bool) {
+	// CR 720.2: control of a player lasts through that player's NEXT turn and
+	// ends when it does. The turn now ending belongs to e.G.Active (still the
+	// outgoing seat -- TurnChange below is what moves it). A control whose
+	// armed turn is strictly before the ending turn has already had its
+	// controlled turn and expires here; one granted during the seat's own
+	// current turn (armed == e.G.Turn) waits for that seat's next turn. emit
+	// applies synchronously, so the recursion below (a skipped turn) sees the
+	// grant already gone and cannot expire it twice.
+	e.expirePlayerControl(e.G.Active)
 	if e.G.SkipTurns[active] > 0 {
 		e.emit(events.Event{Kind: events.SkipTurn, Player: active, Amount: -1})
 		e.beginTurn(e.G.NextAlive(active))
@@ -34,6 +43,22 @@ func (e *Engine) beginTurn(active state.PlayerID, skipUntap ...bool) {
 		return
 	}
 	e.finishEnteredStep()
+}
+
+// expirePlayerControl ends the CR 720 control of outgoing, if any, at the end
+// of a turn that seat took after the grant was armed. It emits the -1
+// ControlPlayerChange the state fold consumes; the engine's decision redirect
+// (controlPlayerRedirect) reads the same folded map, so the two stay in step.
+func (e *Engine) expirePlayerControl(outgoing state.PlayerID) {
+	ctl, ok := e.G.ControlledBy[outgoing]
+	if !ok {
+		return
+	}
+	if e.G.Turn <= e.G.ControlArmedTurn[outgoing] {
+		return
+	}
+	e.emit(events.Event{Kind: events.ControlPlayerChange, Player: ctl,
+		IDs: []state.ObjID{state.PlayerRef(outgoing)}, Amount: -1})
 }
 
 // finishEnteredStep performs the turn-based action owed by the step that a
