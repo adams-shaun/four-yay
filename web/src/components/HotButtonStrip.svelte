@@ -2,7 +2,9 @@
   import { onDestroy, onMount } from 'svelte';
   import type { SeatInfo, View } from '../protocol';
   import type { SeatCtx } from '../lib/seat';
-  import { hotkeyAction } from '../lib/hotkeys';
+  import { hotkeyAction, focusOwnership } from '../lib/hotkeys';
+  import { eventCode } from '../lib/keymap';
+  import { hotkeyHinter } from '../lib/hotkeyhint.svelte';
   import { keymapStore } from '../lib/keymap.svelte';
   import { modalPickerOpen } from '../lib/modals';
   import { postUndo } from '../lib/api';
@@ -15,6 +17,7 @@
   import SeatPanel from './SeatPanel.svelte';
   import { dockAnswers } from '../lib/prompts/renderer';
   import KeyCheatSheet from './KeyCheatSheet.svelte';
+  import HotkeyHint from './HotkeyHint.svelte';
 
   /**
    * PRESET_CYCLE is the hotkey cycle's leading entries: the three shipped
@@ -255,7 +258,19 @@
       // The Keys editor is recording a chord: that chord must not also fire.
       if (keymapStore.capturing) return;
       const action = hotkeyAction(e, modalPickerOpen, keymapStore.current);
-      if (action === null) return;
+      if (action === null) {
+        // The key was suppressed because a focused activatable control owns
+        // Space/Enter (fb-20260929T080219Z). Say why — but only for that
+        // reason: a keystroke that correctly went into a text field is no
+        // surprise, and noting it would flood the 50-entry breadcrumb ring
+        // while typing. A held key must not spam either.
+        const owned = focusOwnership(e);
+        if (owned === 'activatable-space-enter' && !e.repeat) {
+          hotkeyHinter.note(owned);
+          clientBreadcrumbs.record('hotkey-suppressed', { key: e.key, code: eventCode(e), reason: owned });
+        }
+        return;
+      }
       // A held key auto-repeats. Only pass (holding Space passes window after
       // window, as before the keymap) and cancel-run act on a repeat: a held
       // digit would answer the next prompt before the player has seen it, a
@@ -331,6 +346,7 @@
           break;
       }
       e.preventDefault();
+      hotkeyHinter.clear();
       clientBreadcrumbs.record('hotkey', { key: e.key, action });
     };
     window.addEventListener('keydown', onKey, true);
@@ -374,6 +390,12 @@
     onclick={(e) => { logic.setAutoPayMana(!logic.autoPayMana); blurAfterPointer(e); }}
   >AUTO MANA</button>
   {/if}
+  <!-- The suppression cue: visible only while the last keystroke was
+       suppressed by a focused control. It sits in the strip row beside the
+       mode chips and is deliberately non-interactive (a <span>, never a
+       button) so it can never itself become the focused activatable whose
+       Space it is explaining. -->
+  <HotkeyHint />
   <div class="hot-tab" role="presentation" onpointerenter={() => show('actions')} onpointerleave={scheduleClose} onfocusin={() => show('actions')} onfocusout={closeOnFocusOut}>
     <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actionCount === 0} onclick={(e) => { show('actions'); blurAfterPointer(e); }}>
       <span class="full">ACTIONS</span><span class="compact" aria-hidden="true">A</span>
