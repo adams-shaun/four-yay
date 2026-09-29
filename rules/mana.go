@@ -2140,6 +2140,7 @@ func (e *Engine) abilityOfferCost(p state.PlayerID, id state.ObjID, ab *cards.SA
 	} else if n > 0 {
 		cost.Generic = 0
 	}
+	cost = e.powerUpReducedCost(id, ab, cost)
 	return formatCost(e.offerCostFor(p, id, cost, abilityScope(ab)))
 }
 

@@ -850,6 +850,48 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 	return red, true
 }
 
+// powerUpReducedCost applies CR 702.193b to an activated Power-up ability.
+// The reduction is computed from the permanent's own face mana cost and is
+// active only during the turn it entered. This helper is shared by the offer
+// and activation paths so the displayed/validated cost equals the charge.
+func (e *Engine) powerUpReducedCost(id state.ObjID, ab *cards.SA, cost Cost) Cost {
+	if ab == nil || !strings.EqualFold(strings.TrimSpace(ab.Params["PowerUp"]), "True") {
+		return cost
+	}
+	o := e.G.Obj(id)
+	if o == nil || !o.EnteredThisTurn || o.Face() == nil {
+		return cost
+	}
+	reduction := e.parseCost(o.Face().ManaCost)
+	// Generic mana reduces only generic mana. Each colored/colorless symbol
+	// reduces its matching symbol first; any excess of that symbol reduces
+	// generic mana (CR 118.7).
+	if reduction.Generic > 0 {
+		n := reduction.Generic
+		if n > cost.Generic {
+			n = cost.Generic
+		}
+		cost.Generic -= n
+	}
+	for i := range reduction.Colored {
+		n := reduction.Colored[i]
+		if n <= 0 {
+			continue
+		}
+		matched := n
+		if matched > cost.Colored[i] {
+			matched = cost.Colored[i]
+		}
+		cost.Colored[i] -= matched
+		left := n - matched
+		if left > cost.Generic {
+			left = cost.Generic
+		}
+		cost.Generic -= left
+	}
+	return cost
+}
+
 // ownReduceCostOffer is ownReduceCost's offer-time reading for a body that
 // reads a ROOT target ref (Targeted$CardPower, CR 702.6's equip target). The
 // ability's own targets do not exist until CR 601.2c, so a plain nil-target
@@ -3834,6 +3876,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 						} else if n > 0 {
 							cost.Generic = 0
 						}
+						cost = e.powerUpReducedCost(id, ab, cost)
 						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 							continue
 						}
@@ -3959,6 +4002,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 						} else if n > 0 {
 							cost.Generic = 0
 						}
+						cost = e.powerUpReducedCost(id, ab, cost)
 						if !offerCastable(p, id, cost, abilityScope(ab), true) {
 							continue
 						}
