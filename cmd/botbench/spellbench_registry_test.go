@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/registry"
 	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/seat"
 )
 
@@ -18,6 +19,7 @@ import (
 // (hosted policy) and "az" (azmcts wiring) are registered; the sb-* names
 // are registered by the registry package itself.
 func TestSpellbenchRegistryRoundTrip(t *testing.T) {
+	setTacticalRegistry(testutil.CorpusRegistry(t))
 	for _, tc := range []struct {
 		name  string
 		check func(seat.Seat) string
@@ -45,13 +47,13 @@ func TestSpellbenchRegistryRoundTrip(t *testing.T) {
 			return "" // the hosted policy seat's concrete type is host's to choose
 		}},
 		{"az", func(s seat.Seat) string {
-			if _, ok := s.(*azmcts.Seat); !ok {
+			if _, ok := registry.UnwrapSeat(s).(*azmcts.Seat); !ok {
 				return "not *azmcts.Seat"
 			}
 			return ""
 		}},
 		{"az-redeal", func(s seat.Seat) string {
-			if _, ok := s.(*azmcts.Seat); !ok {
+			if _, ok := registry.UnwrapSeat(s).(*azmcts.Seat); !ok {
 				return "not *azmcts.Seat"
 			}
 			return ""
@@ -77,7 +79,7 @@ func TestSpellbenchRegistryRoundTrip(t *testing.T) {
 // the named policy.
 func wantBuiltin(p builtins.Policy) func(seat.Seat) string {
 	return func(s seat.Seat) string {
-		bs, ok := s.(*builtins.Seat)
+		bs, ok := registry.UnwrapSeat(s).(*builtins.Seat)
 		if !ok {
 			return "not *builtins.Seat"
 		}

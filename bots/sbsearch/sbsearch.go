@@ -34,6 +34,7 @@ import (
 	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/bots/sbtactical"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/seat"
@@ -169,6 +170,11 @@ func (s *hostedSeat) DecideEnv(ctx context.Context, env bots.Env, d decision.Dec
 // projected. Every non-Env decision comes here, plus any caller holding the
 // seat only as a Seat. The planner is cleared first so a plain-path answer
 // can never price a play from an engine this adapter did not build.
+// DecideSearch keeps the hosted adapter usable by botbench's engine-owning driver.
+func (s *hostedSeat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
+	return s.bot.DecideSearch(ctx, env, d)
+}
+
 func (s *hostedSeat) Decide(ctx context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	s.inner.SetPlanner(nil)
 	return s.bot.Decide(ctx, v, d)

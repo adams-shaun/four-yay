@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adams-shaun/gorge/bots/azredeal"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/azmcts/clairvoyant"
 	"github.com/adams-shaun/gorge/internal/policynet"
@@ -123,6 +124,18 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 func isAZPolicy(name string) bool { return name == "az" || name == "az-redeal" }
 
 // azSeatConfig is the configuration the named az policy's seat runs with.
+func azRedealOverlay() azmcts.SeatConfig {
+	cfg := azredeal.Hosted()
+	// Preserve the bench's -az-* search tuning while keeping the hosted
+	// entry's honest world and generation-0 policy invariants.
+	cfg.Search = azCfg.Search
+	cfg.ExploreTurns = azCfg.ExploreTurns
+	cfg.Explore, cfg.NoNoise, cfg.PriorOnly = azCfg.Explore, azCfg.NoNoise, false
+	cfg.Worlds = azCfg.Worlds
+	cfg.RecordFeatures = azCfg.RecordFeatures
+	return cfg
+}
+
 func azSeatConfig(policy string) azmcts.SeatConfig {
 	cfg := azCfg
 	if policy == "az-redeal" {

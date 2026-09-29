@@ -57,7 +57,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"sort"
@@ -67,6 +66,7 @@ import (
 	"time"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/azmcts"
@@ -284,26 +284,13 @@ func sbSubmitWithFallback(seats []seat.Seat, res *sbResult) func(*rules.Engine, 
 			return true, nil
 		}
 		res.fallbacks[seatIdx]++
-		fb := decision.Intent{Seq: d.Seq, Player: d.Player}
-		if d.Kind == decision.KPriority {
-			for _, o := range d.Options {
-				if o.Kind == "pass" {
-					fb.Choices = []int{o.Index}
-					break
-				}
-			}
-		} else {
-			fb = botpolicy.Clamp(d, fb)
-		}
-		if e.Submit(fb) == nil {
-			return true, nil
-		}
 		brd := botpolicy.BoardFromGame(e.G, e, d.Player)
-		fb = botpolicy.Decide(brd, d, rand.New(rand.NewPCG(d.Seq, uint64(seatIdx)+1)))
-		fb.Seq, fb.Player = d.Seq, d.Player
-		err3 := e.Submit(fb)
-		if err3 == nil {
-			return true, nil
+		fallbacks := bots.Fallbacks(d, brd, seatIdx)
+		var err3 error
+		for _, fb := range fallbacks {
+			if err3 = e.Submit(fb); err3 == nil {
+				return true, nil
+			}
 		}
 		return true, fmt.Errorf("answer refused (%v); fallbacks refused (%v)", err, err3)
 	}

@@ -99,6 +99,11 @@ func (s *hostedSeat) DecideBoard(ctx context.Context, b botpolicy.Board, d decis
 	return s.bot.DecideBoard(ctx, b, d)
 }
 
+// DecideSearch keeps the hosted adapter usable by botbench's engine-owning driver.
+func (s *hostedSeat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
+	return s.bot.DecideSearch(ctx, env, d)
+}
+
 // WantsEnv reports whether this decision is one the teacher would attempt:
 // searchseat.Eligible, deliberately the same test Choose applies, so the host
 // never pays a redeal for a decision the teacher would delegate anyway. It is

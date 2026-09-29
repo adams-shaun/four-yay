@@ -10,7 +10,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/adams-shaun/gorge/host"
+	"github.com/adams-shaun/gorge/bots"
+	"github.com/adams-shaun/gorge/bots/azredeal"
+	hostedsbsearch "github.com/adams-shaun/gorge/bots/sbsearch"
+	"github.com/adams-shaun/gorge/bots/sbtactical"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/registry"
@@ -20,7 +23,7 @@ import (
 
 func init() {
 	registry.Register("bot", func(seed uint64, _ builtins.ManaMode) seat.Seat {
-		return hostedPolicy(host.BotPolicy)(seed)
+		return hostedPolicy(bots.Default)(seed)
 	})
 	registry.Register("az", func(seed uint64, _ builtins.ManaMode) seat.Seat {
 		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az"))
@@ -34,9 +37,9 @@ func init() {
 	// hidden cards it cannot. It takes every -az-* knob but -az-world, so one
 	// run can seat it beside a clairvoyant az.
 	registry.Register("az-redeal", func(seed uint64, _ builtins.ManaMode) seat.Seat {
-		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az-redeal"))
+		s, err := azredeal.New(benchBotOptions(seed), azRedealOverlay())
 		if err != nil {
-			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
+			panic("botbench: " + err.Error())
 		}
 		return s
 	})
@@ -46,7 +49,11 @@ func init() {
 	// their mana surface; the -no<group> arms switch one idea group off and
 	// the -alt arms play -spellbench-tactical-alt-weights (A/B tuning).
 	registry.Register("sb-tactical", func(seed uint64, _ builtins.ManaMode) seat.Seat {
-		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights)
+		s, err := sbtactical.New(benchBotOptions(seed), tacticalOverlay(sbtactical.Hosted()))
+		if err != nil {
+			panic("botbench: " + err.Error())
+		}
+		return s
 	})
 	registry.Register("sb-tactical-planned", func(seed uint64, _ builtins.ManaMode) seat.Seat {
 		return builtins.NewTactical(builtins.Planned, seed, tacticalLookup, tacticalWeights)
@@ -76,6 +83,14 @@ func init() {
 		cfg := v.cfg
 		cfg.Name = v.name
 		registry.Register(v.name, func(seed uint64, _ builtins.ManaMode) seat.Seat {
+			if v.name == hostedsbsearch.Policy {
+				var err error
+				seat, err := hostedsbsearch.New(benchBotOptions(seed), sbSearchOverlay(hostedsbsearch.LiteAtk()))
+				if err != nil {
+					panic("botbench: " + err.Error())
+				}
+				return seat
+			}
 			return sbsearch.New(builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights), seed, cfg)
 		})
 	}
@@ -110,7 +125,7 @@ var sbSearchVariants = func() []struct {
 		{"sb-search-fast", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon = 8, 3 })},
 		{"sb-search-fast-atk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 8, 3, true })},
 		{"sb-search-lite", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon = 4, 2 })},
-		{"sb-search-lite-atk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack = 4, 2, true })},
+		{"sb-search-lite-atk", hostedsbsearch.LiteAtk()},
 		{"sb-search-atk", with(func(c *sbsearch.Config) { c.Attack = true })},
 		// sb-search2: more decision kinds and adaptive budgets on lite-atk.
 		{"sb-search-lite-atk-blk", with(func(c *sbsearch.Config) { c.Worlds, c.Horizon, c.Attack, c.Block = 4, 2, true, true })},

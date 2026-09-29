@@ -121,10 +121,13 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/bots"
 	_ "github.com/adams-shaun/gorge/bots/all"
+	"github.com/adams-shaun/gorge/bots/azredeal"
+	hostedsbsearch "github.com/adams-shaun/gorge/bots/sbsearch"
+	"github.com/adams-shaun/gorge/bots/sbtactical"
+	"github.com/adams-shaun/gorge/bots/search"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
-	"github.com/adams-shaun/gorge/host"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/paymirror"
@@ -150,7 +153,7 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	// covariance: a func returning *Bot is not assignable to one returning
 	// seat.Seat, and the wrapper keeps a future policy free to return any
 	// Seat implementation.
-	"bot": hostedPolicy(host.BotPolicy),
+	"bot": hostedPolicy(bots.Default),
 	// bot-auto-pay is the hosted default policy with the payment-plan
 	// adapter enabled.  It is deliberately a separate bench name: comparing
 	// it with "bot" measures the distribution change from atomic mana
@@ -158,7 +161,7 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"bot-auto-pay": func(seed uint64) seat.Seat {
 		return seat.NewBot(seed).EnableAutoPayMana()
 	},
-	"lethal-pressure": hostedPolicy(host.LethalPressurePolicy),
+	"lethal-pressure": hostedPolicy(bots.LethalPressurePolicy),
 	// attack-sim / attack-sim-auto-pay are the opt-in combat-simulation
 	// attacker (botpolicy.AttackSimDecide): the default policy with
 	// KAttackers answered by a whole-attacking-set search -- predicted
@@ -395,6 +398,7 @@ func tacticalAlt(i int) func(seed uint64) seat.Seat {
 // -spellbench-tactical-alt-weights name a JSON file.
 var (
 	tacticalLookup     builtins.CardLookup
+	tacticalCards      *cards.Registry
 	tacticalWeights    = builtins.DefaultTacticalWeights()
 	tacticalArchW      = builtins.DefaultTacticalWeights()
 	tacticalAltWeights = [8]builtins.TacticalWeights{builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
@@ -410,6 +414,7 @@ func init() {
 }
 
 func setTacticalRegistry(reg *cards.Registry) {
+	tacticalCards = reg
 	if tacticalLookup == nil {
 		tacticalLookup = builtins.NewRegistryLookup(reg)
 		// The registry's card-fact decorators (lethal) read printed IR from
@@ -422,9 +427,55 @@ func setTacticalRegistry(reg *cards.Registry) {
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
 	return func(seed uint64) seat.Seat {
-		s, err := bots.New(name, bots.Options{Seed: seed})
+		s, err := bots.New(name, benchBotOptions(seed))
 		if err != nil {
 			panic(err) // constants above are the closed hosted-policy vocabulary.
+		}
+		return s
+	}
+}
+
+func benchBotOptions(seed uint64) bots.Options {
+	return bots.Options{Seed: seed, Deps: bots.Deps{Cards: tacticalCards}}
+}
+
+// These overlays begin at the registry's hosted configuration; the bench's
+// parsed tuning values replace it only where the corresponding flags apply.
+func searchOverlay(base searchseat.Options) searchseat.Options { return searchKnobs }
+
+func tacticalOverlay(_ builtins.TacticalWeights) builtins.TacticalWeights { return tacticalWeights }
+
+func sbSearchOverlay(base sbsearch.Config) sbsearch.Config { return base }
+
+func init() {
+	for _, name := range bots.Names() {
+		policies[name] = hostedPolicy(name)
+	}
+	policies[search.Policy] = func(seed uint64) seat.Seat {
+		s, err := search.New(benchBotOptions(seed), searchOverlay(search.Hosted()))
+		if err != nil {
+			panic("botbench: " + err.Error())
+		}
+		return s
+	}
+	policies[azredeal.Policy] = func(seed uint64) seat.Seat {
+		s, err := azredeal.New(benchBotOptions(seed), azRedealOverlay())
+		if err != nil {
+			panic("botbench: " + err.Error())
+		}
+		return s
+	}
+	policies[sbtactical.Policy] = func(seed uint64) seat.Seat {
+		s, err := sbtactical.New(benchBotOptions(seed), tacticalOverlay(sbtactical.Hosted()))
+		if err != nil {
+			panic("botbench: " + err.Error())
+		}
+		return s
+	}
+	policies[hostedsbsearch.Policy] = func(seed uint64) seat.Seat {
+		s, err := hostedsbsearch.New(benchBotOptions(seed), sbSearchOverlay(hostedsbsearch.LiteAtk()))
+		if err != nil {
+			panic("botbench: " + err.Error())
 		}
 		return s
 	}
