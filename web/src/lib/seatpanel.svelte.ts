@@ -383,6 +383,7 @@ const WAITING_TEXT: Record<StopReason, string> = {
   'stop-set': 'Auto stopped here: you set a stop on this step.',
   'opponent-object': "Auto stopped here: an opponent's object is on the stack and you can respond.",
   'own-object': 'Auto stopped here: your own object is on the stack and you can respond.',
+  'breakpoint': 'Auto paused here: a pause you set fired.',
 };
 
 const OFF_TEXT: Record<AutoOffReason, string> = {
@@ -402,6 +403,7 @@ const RUN_WAITING_TEXT: Record<StopReason, string> = {
   'stop-set': 'you set a stop on this step.',
   'opponent-object': "an opponent's object is on the stack and you can respond.",
   'own-object': 'your own object is on the stack and you can respond.',
+  'breakpoint': 'a pause you set fired.',
 };
 const RUN_OFF_TEXT: Record<AutoOffReason, string> = {
   'loop': 'the same decision came back after it answered.',
