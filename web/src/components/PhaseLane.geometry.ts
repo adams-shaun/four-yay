@@ -3,9 +3,18 @@ import type { CardView, Decision, PlayerView, SeatInfo, View } from '../protocol
 import { SeatPanelState } from '../lib/seatpanel.svelte';
 import '../app.css';
 import BoardStage from './BoardStage.svelte';
+import { layoutStore } from '../lib/layouts.svelte';
+import { emptyLibrary } from '../lib/layoutlibrary';
+import { PRESET_IDS, type PresetId } from '../lib/layoutprofile';
 
-const count = new URLSearchParams(location.search).get('seats') === '4' ? 4 : 2;
-const colours = ['#e5484d', '#30a46c', '#4a8fd4', '#d8a24a'];
+const params = new URLSearchParams(location.search);
+const count = Math.min(8, Math.max(2, Number(params.get('seats') ?? '2') || 2));
+// Each page starts from the shipped layout (the shared browser keeps
+// localStorage between pages), then applies ?preset= when given.
+layoutStore.replace(emptyLibrary());
+const preset = params.get('preset');
+if (preset !== null && (PRESET_IDS as readonly string[]).includes(preset)) layoutStore.applyPreset(preset as PresetId);
+const colours = ['#e5484d', '#30a46c', '#4a8fd4', '#d8a24a', '#a855f7', '#f97316', '#14b8a6', '#ec4899'];
 const card = (id: number, seat: number): CardView => ({
   id, name: `Commander ${seat + 1}`, types: 'Legendary Creature', mana_cost: '2 W',
   tapped: false, power: 2, toughness: 2, damage: 0, attacking: false,
@@ -53,7 +62,8 @@ mount(BoardStage, {
     view, seats, seat: 0, controlsLive: true,
     stops: { yours: new Set<string>(), opponents: new Set<string>() },
     onToggle: () => {},
-    controls: { state: panel, ctx: { seat: 0, token: 'geometry' }, table: 'fixture', match: 1, showLog: true, onToggleLog: () => {} },
+    controls: { state: panel, ctx: { seat: 0, token: 'geometry' }, table: 'fixture', match: 1 },
+    hand: null,
   },
 });
 

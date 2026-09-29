@@ -15,22 +15,24 @@
 :root {
   /* Felt — the board. Warm near-black with a green-brown cast, like a card
      table under low light. Not a tinted black standing in for #000. */
-  --felt: #17150f;
-  --felt-raised: #1f1c15;
-  --felt-sunk: #100e0a;
-  --edge-felt: #3a362e;
+  --felt: #1c1915;
+  /* the felt is lit toward the centre of the table */
+  --felt-lit: #25211b;
+  --felt-raised: #221e19;
+  --felt-sunk: #110f0c;
+  --edge-felt: #3a352d;
 
   /* Instrument — the rails. Cooler and bluer than the felt; the temperature
      difference is the register marker and should be felt without being read. */
-  --instrument: #14161a;
-  --instrument-raised: #1a1d22;
+  --instrument: #14171c;
+  --instrument-raised: #1b1f26;
   --edge-inst: #353a43;
   --edge-w: 2px;
 
-  --ink: #e8e4da;
-  --ink-inst: #c9cfd6;
-  --ink-dim: #8a8579;
-  --ink-faint: #5d594f;
+  --ink: #ece6da;
+  --ink-inst: #cfd3d8;
+  --ink-dim: #a8a195;
+  --ink-faint: #6f695f;
 
   /* Mana keeps its conventional identities: colour is the sport's native
      language and a player reads it faster than any label. */
@@ -41,11 +43,21 @@
   --mana-g: #4a9e63;
   --mana-c: #9a958c;
 
+  /* The UI rework's three state colours (spec "Visual language"). Every
+     other hue comes from cards, mana symbols and seat colours.
+       gilt       you: your seat, your priority, the primary action, a
+                  selected option;
+       verdigris  a legal choice: an offered target, a playable card, a
+                  blocker candidate;
+       ember      attacking, damage. */
+  --gilt: #d4ad62;
+  --verdigris: #6fb7ae;
+  --ember: #e0533f;
   /* State. Warm when the initiative is yours, cool when you are merely being
-     offered a window (survey #5). */
-  --initiative: #d8a24a;
-  --offered: #5b7f9e;
-  --danger: #d0473e;
+     offered a window (survey #5) — now spoken in gilt and verdigris. */
+  --initiative: var(--gilt);
+  --offered: var(--verdigris);
+  --danger: var(--ember);
 
   --sp-1: 0.25rem;
   --sp-2: 0.5rem;
@@ -61,7 +73,7 @@
      visible row-to-bar gap is this token plus Quadrant's own content padding
      and the cell padding, and fb-20260916T200757Z halved that gap (37px per
      side measured -> 17px) after the player called the old band wasted. */
-  --phase-track-row-h: 2rem;
+  --phase-track-row-h: 1.9rem;
   --hot-strip-h: 2.25rem;
   --phase-instrument-h: calc(var(--phase-track-row-h) + var(--hot-strip-h));
   --phase-card-clearance: var(--sp-1);
@@ -77,6 +89,8 @@
      decorative small labels. */
   --font-ui: 'IBM Plex Sans', ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-data: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* The game's voice: prompt titles, seat names, life totals, the turn label. */
+  --font-serif: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
 
   /* 10 and 11 exist for one reason: the board tile is a 90px box and the
      scale's smallest step does not fit inside it. Three components had each

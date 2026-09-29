@@ -3,49 +3,6 @@ import { visibleHand } from './board';
 import { countsFor } from './zones';
 
 /**
- * A seat's position on the felt, as the corner the quadrant and the identity
- * bar anchor to. `top` / `bottom` are the two 1v1 corners (full-width halves
- * of the table) and are what seatCorner produces for a 2-seat table;
- * `tl`/`tr`/`bl`/`br` are the 3- and 4-seat table corners. `l`/`r` are kept
- * in the type only so the rendering maps (Board CELL, Quadrant OUTER/FACING,
- * IdentityBar CORNER) that still carry them keep working — seatCorner no
- * longer produces them, because 1v1 is now top-vs-bottom.
- */
-export type SeatCorner = 'tl' | 'tr' | 'bl' | 'br' | 'l' | 'r' | 'top' | 'bottom';
-
-/**
- * seatCorner is the seat→position mapping, the one pure function that decides
- * where on the felt a seat's board sits. It is relative to the VIEWER, not to
- * the seat number, because a table is always drawn from where you are standing:
- *
- *  - 1v1 (seats ≤ 2): the viewer sits at the BOTTOM and their opponent at the
- *    TOP — the universal convention (Arena, MTGO, XMage, Cockatrice, every
- *    paper table). This is relative, not absolute: seat 1 viewing a 1v1 sees
- *    THEMSELVES at the bottom and seat 0 at the top, and vice versa. A
- *    spectator (view.NoSeat 255, or any viewer not present at the table) has
- *    no horse in the race, so the arrangement is deterministic by seat
- *    number: seat 0 at the bottom, seat 1 at the top — the same default a
- *    client that had no idea who you were would pick.
- *
- *  - 3 and 4 seats are re-anchored to the viewer the same way, by ROTATING the
- *    bottom-left-then-clockwise cycle so the viewer lands at `bl`. The index
- *    is `(seat - viewer + seats) % seats` into the same `bl, tl, tr, br`
- *    cycle, so turn order around the table is preserved — a player still
- *    reads "who is to my left" off the felt. A spectator (view.NoSeat 255, or
- *    any viewer not present at the table) has no horse in the race, so the
- *    layout stays deterministic by seat number: seat 0 at `bl`, then
- *    clockwise, exactly as {@link quadrantFor}'s historic layout drew it.
- */
-export function seatCorner(seat: number, seats: number, viewer: number): SeatCorner {
-  if (seats <= 2) {
-    const mine = viewer >= 0 && viewer < seats ? viewer : 0;
-    return seat === mine ? 'bottom' : 'top';
-  }
-  const mine = viewer >= 0 && viewer < seats ? viewer : 0;
-  return (['bl', 'tl', 'tr', 'br'] as const)[(seat - mine + seats) % seats];
-}
-
-/**
  * seattable.ts is the projection behind the rail's one compact seat summary.
  * Rows are seats and the five icon/count cells are life, hand, library,
  * graveyard and exile. The three card-list zones are disclosed from that same

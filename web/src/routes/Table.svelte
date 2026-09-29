@@ -6,7 +6,6 @@
   import BoardStage from '../components/BoardStage.svelte';
   import Arrows from '../components/Arrows.svelte';
   import Rail from '../components/Rail.svelte';
-  import SeatPills from '../components/SeatPills.svelte';
   import PileHost from '../components/PileHost.svelte';
   import Transcript from '../components/Transcript.svelte';
   import DvrBar from '../components/DvrBar.svelte';
@@ -16,6 +15,9 @@
   import SeatPanel from '../components/SeatPanel.svelte';
   import HandFan from '../components/HandFan.svelte';
   import PlaySettingsPanel from '../components/PlaySettingsPanel.svelte';
+  import LayoutDrawer from '../components/LayoutDrawer.svelte';
+  import ViewHotkeys from '../components/ViewHotkeys.svelte';
+  import { layoutStore } from '../lib/layouts.svelte';
   import {
     SeatPanelState,
     mulliganPhase,
@@ -63,11 +65,20 @@
   // the spectator default.)
   const liveSeated = seated && !finished;
   const logScope: LogScope = liveSeated ? 'seat' : 'spectator';
-  let showLog = $state(!liveSeated);
+  // The layout profile can pin the log shown or hidden; its default,
+  // 'remember', is exactly the per-table memory above.
+  let logChoice = $state(!liveSeated);
+  const logMode = $derived(layoutStore.profile.panels.log);
+  const showLog = $derived(logMode === 'show' ? true : logMode === 'hide' ? false : logChoice);
   function toggleLog() {
-    showLog = !showLog;
-    saveLogShown(safeStorage(), table, logScope, showLog);
+    if (logMode !== 'remember') {
+      layoutStore.edit((p) => (p.panels.log = showLog ? 'hide' : 'show'));
+      return;
+    }
+    logChoice = !logChoice;
+    saveLogShown(safeStorage(), table, logScope, logChoice);
   }
+  const railSide = $derived(layoutStore.profile.panels.rail);
   // svelte-ignore state_referenced_locally
   const m = new MatchState(table, seatCtx ?? undefined);
 
@@ -397,7 +408,7 @@
   // view-specific default in place.
   onMount(() => {
     const saved = loadLogShown(safeStorage(), table, logScope);
-    if (saved !== null) showLog = saved;
+    if (saved !== null) logChoice = saved;
   });
 </script>
 
@@ -408,7 +419,7 @@
     <MatchList {table} />
   </main>
 {:else}
-  <main class="table" class:log-hidden={!showLog}>
+  <main class="table rail-{railSide}" class:log-hidden={!showLog} class:rail-peek={optionsOpen}>
     {#if m.halted}<div class="halted">Table halted: {m.halted}</div>{/if}
     {#if m.view}
       <section class="board">
@@ -427,24 +438,9 @@
           mulligan={mulligan !== null}
           {controls}
           {controlsLive}
+          onOpenFlow={optionsReachable ? () => toggleOptions() : null}
+          hand={seated && seatCtx && ownPlayer ? handFan : null}
         />
-        {#if m.view.players.length <= 2}
-          <!-- A seated player's own pill docks in their own half (the hand
-               strip's identity bay) and the opponent's in theirs, so neither
-               lands on the viewer's hand. A spectator keeps the absolute
-               seat-0/seat-1 anchors. -->
-          {@const own = seatCtx?.seat ?? null}
-          <div class="seat-pill-dock" class:seat-zero={own === null} class:near={own === 0} class:far={own !== null && own !== 0} data-seat-pill-dock="seat-0">
-            <SeatPills view={m.view} seats={m.seats} options={boardOptions} seat={0} />
-          </div>
-          <div class="seat-pill-dock" class:seat-one={own === null} class:near={own === 1} class:far={own !== null && own !== 1} data-seat-pill-dock="seat-1">
-            <SeatPills view={m.view} seats={m.seats} options={boardOptions} seat={1} />
-          </div>
-        {:else}
-          <div class="seat-pill-dock seat-many" data-seat-pill-dock="all">
-            <SeatPills view={m.view} seats={m.seats} options={boardOptions} />
-          </div>
-        {/if}
         <!-- The last resolved card's artwork lives in the rail's stack
              section now (fb-20260916T225456Z): Rail renders ResolvedCard
              from the same m.dvr.events it already receives, and the old
@@ -464,20 +460,23 @@
             <SeatPanel view={m.view} seats={m.seats} ctx={seatCtx} table={table} match={m.match} state={panel} />
           {/key}
         {/if}
-        <!-- The seated player's own hand, as real cards along the bottom edge
-             (Task ui17). Only the viewer's own seat ever mounts it; it never
-             covers the seat panel's decision UI (panel at the board's TOP,
-             hand at the BOTTOM) and only the card faces claim the pointer. -->
-        {#if seated && seatCtx && ownPlayer}
-          <!-- ui23: the hand gets the same card-options index the board does,
-               so a hand card the pending decision offers something to is
-               marked and carries the same options menu (one mechanism, one
-               index, one post path). boardOptions is null for a spectator /
-               when nothing is pending, so no hand card is marked. -->
-          <HandFan player={ownPlayer} options={boardOptions} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
-        {/if}
       </section>
-      <aside class="rail">
+      {#snippet handFan({ cardWidth, visible, raise }: { cardWidth: number; visible: number; raise: boolean })}
+        <!-- The seated player's own hand (Task ui17), in the hand row the
+             layout sizes from its row unit. ui23: the hand gets the same
+             card-options index the board does (one mechanism, one index, one
+             post path). -->
+        {#if ownPlayer}
+          <HandFan player={ownPlayer} {cardWidth} {visible} {raise} options={boardOptions} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
+        {/if}
+      {/snippet}
+      <aside class="rail" data-rail-side={railSide}>
+        <!-- The prompt dock's mount point (UI rework §4, lane C): the
+             decision prompt docks at the top of the rail, next to the stack
+             it concerns, unless the layout profile floats it
+             (layoutStore.prompt). Empty until the prompt renderers move in. -->
+        <div class="prompt-dock" data-prompt-dock data-placement={layoutStore.prompt.placement}></div>
+        <div class="rail-main">
         <!-- The concede control (when a concede option is pending) is passed
              to Rail as a logbar snippet: it renders inside the rail's own
              LOGS row, in normal flex flow at the row's right edge. fb-53bd45b9:
@@ -555,13 +554,20 @@
             {/if}
           {/snippet}
         </Rail>
+        </div>
+        <!-- The log lives in the rail beneath the stack (the v3 layout),
+             shown or hidden by the per-table choice or the layout profile. -->
+        <section class="transcript" class:hidden={!showLog} aria-label="Game log">
+          {#if !seated}
+            <DvrBar dvr={m.dvr} onAction={(a) => m.dispatch(a)} {finished} />
+          {/if}
+          <div class="log"><Transcript dvr={m.dvr} identities={logIdentities} cardColour={logCardColour} cards={logCards} notes={panel?.autoLog ?? []} onSeek={seated ? () => {} : (seq) => m.dispatch({ type: 'scrub', seq })} /></div>
+        </section>
       </aside>
-      <footer class="transcript" class:hidden={!showLog}>
-        {#if !seated}
-          <DvrBar dvr={m.dvr} onAction={(a) => m.dispatch(a)} {finished} />
-        {/if}
-        <div class="log"><Transcript dvr={m.dvr} identities={logIdentities} cardColour={logCardColour} cards={logCards} notes={panel?.autoLog ?? []} onSeek={seated ? () => {} : (seq) => m.dispatch({ type: 'scrub', seq })} /></div>
-      </footer>
+      <ViewHotkeys view={m.view} onToggleLog={toggleLog} />
+      {#if layoutStore.drawerOpen}
+        <LayoutDrawer />
+      {/if}
       <!-- fb-20260914T121642Z: the one arrows overlay lives HERE, at the
            table root, not inside the felt subtree. section.board clips its
            own content (overflow: hidden bounds the felt/cards), so an overlay
@@ -629,80 +635,71 @@
        every window narrower than ~1510px (18% of the viewport fell below the
        floor), so typical laptops saw the full 17rem whatever the content
        needed. */
-    grid-template-columns: 1fr minmax(11rem, 15%);
-    grid-template-rows: 1fr 10rem;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 21%);
+    grid-template-rows: minmax(0, 1fr);
     height: 100vh;
-    background: var(--felt);
+    background: radial-gradient(ellipse at 50% 50%, var(--felt-lit) 0%, var(--felt) 70%);
   }
-  /* With the log hidden the last row collapses to nothing and the board takes
-     the room, rather than leaving a 10rem empty band across the bottom. */
-  .table.log-hidden {
-    grid-template-rows: 1fr 0;
+  /* The rail's side is the layout profile's (panels.rail). Left swaps the
+     columns; hidden turns the rail into an edge drawer that slides in on
+     hover or focus (and while the Options popover it hosts is open), so the
+     stack, the Options control and concede are never out of reach. */
+  .table.rail-left {
+    grid-template-columns: minmax(15rem, 21%) minmax(0, 1fr);
+  }
+  .table.rail-left .rail {
+    grid-column: 1;
+    grid-row: 1;
+    border-left: 0;
+    border-right: 1px solid var(--edge-inst);
+  }
+  .table.rail-left .board {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .table.rail-hidden {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .table.rail-hidden .rail {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    width: min(22rem, 85vw);
+    transform: translateX(calc(100% - 8px));
+    transition: transform 0.15s ease-out;
+    box-shadow: -10px 0 28px rgb(0 0 0 / 0.4);
+  }
+  .table.rail-hidden .rail:hover,
+  .table.rail-hidden .rail:focus-within,
+  .table.rail-hidden.rail-peek .rail {
+    transform: none;
   }
   .board {
     position: relative;
     overflow: hidden;
-    /* --own-hand-h is the height of the seated player's own hand fan along
-       the bottom edge: one card face at HandFan's CARD_W (128px) in the
-       63:88 card ratio. It is published here, on the box both the fan and the
-       identity bar live in, so "how tall is the hand" is stated once rather
-       than duplicated into whatever else needs to keep clear of it. Only the
-       seated player's identity bar reads it today (IdentityBar's `bottom`
-       corner); a spectator mounts no fan and the fallback is 0. */
-    --own-hand-h: calc(128px * 88 / 63);
-    /* The player's identity and hand are one bottom seat strip. The fixed
-       identity bay is consumed by HandFan rather than overlaid on it. */
-    --own-seat-w: 12rem;
-  }
-
-  /* Player identity belongs to its seat, never to the centre instrument.
-     Seat 0 (red in the standard palette) is a quiet top-left pill. Seat 1
-     (blue) sits at the lower-right edge of the enemy half, immediately above
-     the reserved phase lane. These anchors leave the phase/action strip free
-     of overlays and pointer interception. */
-  .seat-pill-dock {
-    position: absolute;
-    z-index: 6;
-    pointer-events: none;
-  }
-  .seat-pill-dock.seat-zero {
-    top: var(--sp-3);
-    left: var(--sp-3);
-  }
-  .seat-pill-dock.seat-one {
-    top: calc(50% - var(--phase-lane-h) / 2 - 2rem);
-    right: var(--sp-3);
-    transform: translateY(-100%);
-  }
-  /* Seated 1v1: the viewer's pill is flush to the board's bottom-left, in
-     the --own-seat-w bay HandFan's track already leaves free (the retired
-     IdentityBar's own-seat corner); the opponent's sits top-left of the
-     enemy half, the Arena/MTGO convention. */
-  .seat-pill-dock.near {
-    bottom: 0;
-    left: 0;
-    width: var(--own-seat-w, 12rem);
-  }
-  .seat-pill-dock.far {
-    top: var(--sp-3);
-    left: var(--sp-3);
-  }
-  .seat-pill-dock.seat-many {
-    top: var(--sp-3);
-    right: var(--sp-3);
-    max-width: min(70%, 48rem);
-  }
-  @media (max-width: 70rem) {
-    .seat-pill-dock.seat-one { right: var(--sp-2); }
+    min-width: 0;
+    min-height: 0;
   }
 
   .rail {
     position: relative;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     background: var(--instrument);
     border-left: 1px solid var(--edge-inst);
     overflow: visible;
     color: var(--ink-inst);
+  }
+  .prompt-dock:empty {
+    display: none;
+  }
+  .rail-main {
+    flex: 1 1 0;
+    min-height: 0;
   }
   /* Concede lives INSIDE the logbar row (passed to Rail as a snippet), at
      the row's right edge in normal flex flow — the row is its anchor, so it
@@ -715,7 +712,8 @@
      (SeatTable.svelte.test.ts measures it there). */
 
   .transcript {
-    grid-column: 1 / -1;
+    flex: 0 0 38%;
+    min-height: 0;
     background: var(--instrument);
     border-top: 1px solid var(--edge-inst);
     display: flex;

@@ -11,143 +11,101 @@ beforeAll(async () => {
 });
 
 type Rect = { top: number; bottom: number; height: number; left: number; right: number; width: number };
-type Geometry = {
-  viewport: string;
-  seats: number;
-  stage: Rect;
-  band: Rect;
-  clock: Rect;
-  strip: Rect;
-  above: Rect;
-  below: Rect;
-  clearanceAbove: number;
-  clearanceBelow: number;
-  minimum: number;
-};
 
-async function geometry(width: number, height: number, seats: number): Promise<Geometry> {
+async function table(width: number, height: number, query: string) {
   const page = await browser.newPage({ viewport: { width, height } });
-  await page.goto(`${url}src/components/PhaseLane.geometry.html?seats=${seats}`);
-  // goto resolves on the document load event, not on the Svelte mount: under
-  // box load Vite's cold transform can take tens of seconds, and measuring
-  // before the fixture mounts reads a null [data-board-stage]. Wait for every
-  // element the measurement dereferences.
-  for (const sel of ['[data-board-stage]', '[data-centre-instrument]', '[data-phase-track]', '[data-hot-strip]']) {
+  await page.goto(`${url}src/components/PhaseLane.geometry.html?${query}`);
+  // goto resolves before the Svelte mount; under load Vite's cold transform
+  // can take tens of seconds. Wait for everything the measurement reads.
+  for (const sel of ['[data-board-stage]', '[data-centre-strip]', '[data-phase-track]', '[data-own-board] .quadrant']) {
     await page.waitForSelector(sel, { state: 'attached', timeout: 60_000 });
   }
-  const measured = await page.evaluate(({ width, height, seats }) => {
-    const compact = (r: DOMRect) => ({
-      top: r.top, bottom: r.bottom, height: r.height,
-      left: r.left, right: r.right, width: r.width,
-    });
-    const stage = document.querySelector<HTMLElement>('[data-board-stage]')!.getBoundingClientRect();
-    const band = document.querySelector<HTMLElement>('[data-centre-instrument]')!.getBoundingClientRect();
-    const clock = document.querySelector<HTMLElement>('[data-phase-track]')!.getBoundingClientRect();
-    const strip = document.querySelector<HTMLElement>('[data-hot-strip]')!.getBoundingClientRect();
-    const rows = [...document.querySelectorAll<HTMLElement>('.quadrant .row.creatures')]
-      .map((row) => row.getBoundingClientRect());
-    const middle = band.top + band.height / 2;
-    const above = rows.filter((r) => r.top + r.height / 2 < middle)
-      .sort((a, b) => b.bottom - a.bottom)[0];
-    const below = rows.filter((r) => r.top + r.height / 2 > middle)
-      .sort((a, b) => a.top - b.top)[0];
-
-    // Resolve the design-system minimum independently of the reservation.
-    // Reading --phase-card-clearance here would mutate the oracle when that
-    // implementation token is accidentally set to zero.
-    const probe = document.createElement('i');
-    probe.style.cssText = 'position:fixed;width:var(--sp-1);height:0';
-    document.body.append(probe);
-    const minimum = probe.getBoundingClientRect().width;
-    probe.remove();
-
-    return {
-      viewport: `${width}x${height}`,
-      seats,
-      stage: compact(stage),
-      band: compact(band),
-      clock: compact(clock),
-      strip: compact(strip),
-      above: compact(above),
-      below: compact(below),
-      clearanceAbove: band.top - above.bottom,
-      clearanceBelow: below.top - band.bottom,
-      minimum,
-      commanders: document.querySelectorAll('[data-cmd-state="command"]').length,
-    };
-  }, { width, height, seats });
-  await page.close();
-
-  expect(measured.commanders).toBe(seats);
-  const result: Omit<typeof measured, 'commanders'> = { ...measured };
-  delete (result as { commanders?: number }).commanders;
-  return result;
+  return page;
 }
 
-describe('BoardStage — the phase band is a reserved lane', () => {
-  // The visible row-to-bar gap is the clearance token plus Quadrant's own
-  // content padding (--sp-3, 12px) and the 1px cell padding. It measured
-  // 37px per side at every acceptance viewport and seat count before
-  // fb-20260916T200757Z; the player asked for half of that, so the band may
-  // not regrow past half the measured baseline plus a 3px tolerance
-  // (18.5 + 3 = 21.5px). The lower bound stays the design-system minimum:
-  // the bar must never overlap a card or its clickable area.
-  const HALF_GAP_MAX = 21.5;
+async function measure(width: number, height: number, query: string) {
+  const page = await table(width, height, query);
+  const m = await page.evaluate(() => {
+    const r = (el: Element): Rect => {
+      const b = el.getBoundingClientRect();
+      return { top: b.top, bottom: b.bottom, height: b.height, left: b.left, right: b.right, width: b.width };
+    };
+    const stage = r(document.querySelector('[data-board-stage]')!);
+    const strip = r(document.querySelector('[data-centre-strip]')!);
+    const opps = [...document.querySelectorAll('[data-opponents] .quadrant')].map(r);
+    const own = r(document.querySelector('[data-own-board] .quadrant')!);
+    // every card tile drawn on the table (not the piles column)
+    const tiles = [...document.querySelectorAll('.quadrant .card-tile, .quadrant [data-cmd-state]')].map(r);
+    return {
+      stage, strip, opps, own, tiles,
+      headers: document.querySelectorAll('[data-seat-header]').length,
+      commanders: document.querySelectorAll('[data-cmd-state="command"]').length,
+      cells: [...document.querySelectorAll('[data-cell-seat]')].map((e) => Number(e.getAttribute('data-cell-seat'))),
+    };
+  });
+  await page.close();
+  return m;
+}
 
-  // This one measures four (viewport, seat count) pairs, each a fresh page
-  // navigation through the shared browser and Vite's transform; under full
-  // suite load that is far past the 5000ms default `it` budget the test
-  // silently inherited (measured: transform alone 140s+ across 100 files, and
-  // geometry.js waits up to 60s per selector for the fixture to mount). The
-  // explicit budget matches the `waitForSelector` timeout below, as the
-  // sibling geometry tests do (HandFan 20s, PromptSurface 30s, Arrows 120s).
-  it('keeps the named clearance from command-card rows in two- and four-seat layouts at every acceptance viewport', { timeout: 60_000 }, async () => {
-    const results: Geometry[] = [];
-    for (const [width, height] of [[1440, 900], [1000, 900], [650, 700]]) {
-      for (const seats of [2, 4]) results.push(await geometry(width, height, seats));
-    }
-
-    for (const result of results) {
-      expect.soft(result.band.left, `${result.viewport}, ${result.seats} seats: felt left edge`).toBe(result.stage.left);
-      expect.soft(result.band.right, `${result.viewport}, ${result.seats} seats: felt right edge`).toBe(result.stage.right);
-      expect.soft(result.band.top + result.band.height / 2, `${result.viewport}, ${result.seats} seats: centred`).toBe(result.stage.top + result.stage.height / 2);
-      expect.soft(result.clock.bottom, `${result.viewport}, ${result.seats} seats: tabs attach to clock`).toBe(result.strip.top);
-      expect.soft(result.band.height, `${result.viewport}, ${result.seats} seats: reservation includes clock and tabs`).toBe(result.clock.height + result.strip.height);
-      expect.soft(result.clearanceAbove, `${result.viewport}, ${result.seats} seats: above, at least the spacing floor`).toBeGreaterThanOrEqual(result.minimum);
-      expect.soft(result.clearanceBelow, `${result.viewport}, ${result.seats} seats: below, at least the spacing floor`).toBeGreaterThanOrEqual(result.minimum);
-      expect.soft(result.clearanceAbove, `${result.viewport}, ${result.seats} seats: above, at most half the measured 37px gap`).toBeLessThanOrEqual(HALF_GAP_MAX);
-      expect.soft(result.clearanceBelow, `${result.viewport}, ${result.seats} seats: below, at most half the measured 37px gap`).toBeLessThanOrEqual(HALF_GAP_MAX);
+describe('BoardStage — the table is arranged, and the centre strip is a real lane', () => {
+  it('every seat is placed at 2, 4, 6 and 8 seats, and no card crosses the centre strip', { timeout: 120_000 }, async () => {
+    // [width, height, seats, query, commander tiles drawn]: a focus side
+    // strip draws no command zone (its header stands in), so 8-seat focus
+    // shows the focused opponent's and the viewer's only.
+    const cases: [number, number, number, string, number][] = [
+      [1440, 900, 2, 'seats=2', 2],
+      [1000, 900, 4, 'seats=4&preset=cmd4', 4],
+      [1440, 900, 6, 'seats=6&preset=grid6', 6],
+      [1440, 900, 8, 'seats=8&preset=focus8', 2],
+      [650, 700, 4, 'seats=4', 4],
+    ];
+    for (const [w, h, seats, q, cmds] of cases) {
+      const m = await measure(w, h, q);
+      const at = `${w}x${h}, ${q}`;
+      expect.soft(m.cells.length + 1, `${at}: every seat placed`).toBe(seats);
+      expect.soft(m.commanders, `${at}: commander tiles`).toBe(cmds);
+      expect.soft(m.headers, `${at}: every opponent named`).toBe(seats - 1);
+      expect.soft(m.strip.left, `${at}: strip spans the felt`).toBe(m.stage.left);
+      expect.soft(m.strip.right, `${at}: strip spans the felt`).toBe(m.stage.right);
+      for (const o of m.opps) expect.soft(o.bottom, `${at}: opponents end above the strip`).toBeLessThanOrEqual(m.strip.top + 0.5);
+      expect.soft(m.own.top, `${at}: your board starts below the strip`).toBeGreaterThanOrEqual(m.strip.bottom - 0.5);
+      for (const t of m.tiles) {
+        const crosses = t.top < m.strip.bottom && t.bottom > m.strip.top;
+        expect.soft(crosses, `${at}: a card crosses the centre strip`).toBe(false);
+      }
     }
   });
 
-  it('keeps every tab keyboard reachable, opens on focus, closes on Escape, and has a contiguous pointer path', async () => {
-    const page = await browser.newPage({ viewport: { width: 1000, height: 900 } });
-    await page.goto(`${url}src/components/PhaseLane.geometry.html?seats=2`);
-    const tabs = page.locator('[data-hot-tab]');
-    // Six fixed tabs: ACTIONS, PASS, END TURN, RESOLVE ALL, UNDO and DONE.
-    // RESOLVE ALL owns its slot unconditionally since 7022042e6 (disabled
-    // outside a live-stack priority window), so it is counted here even
-    // though the fixture carries an empty stack.
-    await expect.poll(() => tabs.count()).toBe(6);
-    const count = await tabs.count();
-    for (let i = 0; i < count; i++) await expect.soft(tabs.nth(i).getAttribute('aria-label')).resolves.toBeTruthy();
-    await expect.soft(page.locator('[data-undo]').getAttribute('aria-label')).resolves.toBe('Undo my last action');
-
+  it('the ACTIONS tab stays keyboard reachable in the strip, opens on focus and closes on Escape', async () => {
+    const page = await table(1000, 900, 'seats=2');
+    // The strip keeps ACTIONS and DONE; Pass, End turn and Undo live in the gilt action cluster.
+    await expect.poll(() => page.locator('[data-hot-tab]').count()).toBe(2);
+    await expect.poll(() => page.locator('[data-action-cluster]').count()).toBe(1);
     const actions = page.locator('[data-hot-tab="actions"]');
     const panel = page.locator('[data-hot-panel="actions"]');
     await actions.focus();
     await expect.poll(() => panel.evaluate((e) => getComputedStyle(e).visibility)).toBe('visible');
     await page.keyboard.press('Escape');
     await expect.poll(() => panel.evaluate((e) => getComputedStyle(e).visibility)).toBe('hidden');
+    await page.close();
+  });
 
-    await actions.hover();
-    const [tabRect, panelRect] = await Promise.all([actions.boundingBox(), panel.boundingBox()]);
-    expect(tabRect).not.toBeNull();
-    expect(panelRect).not.toBeNull();
-    expect.soft(panelRect!.y).toBe(tabRect!.y + tabRect!.height);
-    await page.mouse.move(panelRect!.x + panelRect!.width / 2, panelRect!.y + 2);
-    await new Promise((resolve) => setTimeout(resolve, 220));
-    await expect.poll(() => panel.evaluate((e) => getComputedStyle(e).visibility)).toBe('visible');
+  it('dragging the centre bar moves the split and saves it; a double-click resets it', async () => {
+    const page = await table(1200, 900, 'seats=2');
+    const before = await page.locator('[data-opponents]').boundingBox();
+    const strip = await page.locator('[data-centre-strip] [data-turn-label]').boundingBox();
+    // grab the strip's empty felt just right of the turn label
+    const x = strip!.x + strip!.width + 4;
+    const y = strip!.y + strip!.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 120, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => (await page.locator('[data-opponents]').boundingBox())!.height).toBeGreaterThan(before!.height + 60);
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gorge.layouts.v1') ?? '{}').current?.table?.split);
+    expect(saved).toBeGreaterThan(0.45);
+    await page.mouse.dblclick(x, y + 120);
+    await expect.poll(async () => (await page.locator('[data-opponents]').boundingBox())!.height).toBeCloseTo(before!.height, 0);
     await page.close();
   });
 
@@ -231,15 +189,11 @@ describe('BoardStage — the phase band is a reserved lane', () => {
     await page.close();
   });
 
-  it('PASS is unavailable without a pass option and posts a non-positional pass by its wire index', async () => {
-    const unavailable = await browser.newPage({ viewport: { width: 1000, height: 900 } });
-    await unavailable.goto(`${url}src/components/PhaseLane.geometry.html?decision=choose`);
-    // Pass is a transport control now, not a menu: the button is always
-    // there, and "the wire did not offer a pass" shows as DISABLED rather
-    // than as an absent panel. R-E4-2 is unchanged -- a disabled button
-    // posts nothing.
-    await expect.poll(() => unavailable.locator('[data-hot-tab="pass"]').getAttribute('aria-disabled')).toBe('true');
-    expect(await unavailable.locator('[data-pass-action]:not([disabled])').count()).toBe(0);
+  it('the gilt Pass is Waiting without a pass option and posts a non-positional pass by its wire index', async () => {
+    const unavailable = await table(1000, 900, 'decision=choose');
+    // No pass on the wire: the button names the wait and posts nothing (R-E4-2).
+    await expect.poll(() => unavailable.locator('[data-pass-action]').getAttribute('disabled')).not.toBeNull();
+    expect(await unavailable.locator('[data-pass-action]').textContent()).toContain('Waiting');
     await unavailable.close();
 
     const page = await browser.newPage({ viewport: { width: 1000, height: 900 } });
@@ -249,8 +203,9 @@ describe('BoardStage — the phase band is a reserved lane', () => {
       await route.fulfill({ status: 204, body: '' });
     });
     await page.goto(`${url}src/components/PhaseLane.geometry.html`);
-    // One click, not two: the glyph IS the action.
-    await page.locator('[data-hot-tab="pass"]').click();
+    const pass = page.locator('[data-pass-action]');
+    await expect.poll(() => pass.textContent()).toContain('Move to Beginning of combat');
+    await pass.click();
     await expect.poll(() => intent?.choices).toEqual([42]);
     await page.close();
   });

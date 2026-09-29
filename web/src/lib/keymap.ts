@@ -13,17 +13,20 @@ export type KeyAction =
   | 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'undo' | 'resolve-all'
   | 'confirm' | `pick-${Nine}`
   | 'toggle-full-control' | 'next-profile' | 'prev-profile' | `profile-${Nine}`
-  | 'toggle-options' | 'show-keys';
+  | 'next-layout' | 'prev-layout' | `layout-${Nine}`
+  | 'toggle-options' | 'show-keys'
+  | 'toggle-log' | 'toggle-stacking' | 'zoom-card' | 'open-grave' | 'open-exile';
 
 const NINE: Nine[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const PICKS = NINE.map((n) => `pick-${n}` as const);
 const PROFILES = NINE.map((n) => `profile-${n}` as const);
+const LAYOUTS = NINE.map((n) => `layout-${n}` as const);
 
 export const ACTION_GROUPS: readonly { title: string; actions: readonly KeyAction[] }[] = [
   { title: 'Priority', actions: ['pass', 'end-turn', 'hard-skip', 'cancel-run', 'undo', 'resolve-all'] },
   { title: 'Decisions', actions: ['confirm', ...PICKS] },
-  { title: 'Profiles', actions: ['toggle-full-control', 'next-profile', 'prev-profile', ...PROFILES] },
-  { title: 'View', actions: ['toggle-options', 'show-keys'] },
+  { title: 'Profiles', actions: ['toggle-full-control', 'next-profile', 'prev-profile', ...PROFILES, 'next-layout', 'prev-layout', ...LAYOUTS] },
+  { title: 'View', actions: ['toggle-options', 'show-keys', 'toggle-log', 'toggle-stacking', 'zoom-card', 'open-grave', 'open-exile'] },
 ];
 export const KEY_ACTIONS: readonly KeyAction[] = ACTION_GROUPS.flatMap((g) => g.actions);
 
@@ -40,8 +43,16 @@ export const ACTION_LABELS: Record<KeyAction, string> = {
   'next-profile': 'Next flow profile',
   'prev-profile': 'Previous flow profile',
   ...Object.fromEntries(PROFILES.map((a, i) => [a, `Switch to flow profile ${i + 1}`])),
+  'next-layout': 'Next layout profile',
+  'prev-layout': 'Previous layout profile',
+  ...Object.fromEntries(LAYOUTS.map((a, i) => [a, `Switch to layout profile ${i + 1}`])),
   'toggle-options': 'Open or close game options',
   'show-keys': 'Show the keyboard shortcuts',
+  'toggle-log': 'Show or hide the game log',
+  'toggle-stacking': 'Stack identical permanents on or off',
+  'zoom-card': 'Zoom the card under the pointer',
+  'open-grave': 'Open the graveyard of the seat under the pointer',
+  'open-exile': 'Open the exile of the seat under the pointer',
 } as Record<KeyAction, string>;
 
 export interface Binding {
@@ -70,6 +81,13 @@ export function defaultKeymap(): Keymap {
   k['next-profile'] = [b('BracketRight', CS)];
   k['prev-profile'] = [b('BracketLeft', CS)];
   k['show-keys'] = [b('Slash', { shift: true })];
+  k['next-layout'] = [b('Period', CS)];
+  k['prev-layout'] = [b('Comma', CS)];
+  k['toggle-log'] = [b('KeyL')];
+  k['toggle-stacking'] = [b('KeyS')];
+  k['zoom-card'] = [b('KeyZ')];
+  k['open-grave'] = [b('KeyG')];
+  k['open-exile'] = [b('KeyX')];
   NINE.forEach((n) => {
     k[`pick-${n}`] = [b(`Digit${n}`)];
     k[`profile-${n}`] = [b(`Digit${n}`, CS)];

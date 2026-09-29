@@ -45,6 +45,7 @@ describe('layout profile model', () => {
 
   it('rejects corrupt blobs rather than half-applying them', () => {
     const good = JSON.parse(JSON.stringify(defaultProfile()));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a deliberately malformed blob
     const bad = (mut: (o: Record<string, any>) => void) => {
       const o = JSON.parse(JSON.stringify(good));
       mut(o);

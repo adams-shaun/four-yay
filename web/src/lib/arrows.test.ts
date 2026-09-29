@@ -143,3 +143,19 @@ describe('previewArrowsFor', () => {
     expect(previewArrowsFor(onlySelf)).toEqual([]);
   });
 });
+
+describe('arrowsFor — stack targets only for the hovered item (UI rework §3)', () => {
+  it('draws one stack item\'s targets when named, none for null, and combat always', async () => {
+    const { arrowsFor } = await import('./arrows');
+    const v = {
+      stack: [
+        { id: 1, targets: [{ is_player: true, player: 1 }] },
+        { id: 2, targets: [{ is_player: false, obj: 9 }] },
+      ],
+      players: [{ battlefield: [{ id: 5, attacking: true, attacking_player: 1, blocked_by: [] }] }],
+    } as unknown as import('../protocol').View;
+    expect(arrowsFor(v).filter((a) => a.kind === 'target')).toHaveLength(2);
+    expect(arrowsFor(v, 2).filter((a) => a.kind === 'target')).toEqual([{ from: { obj: 2 }, to: { obj: 9 }, kind: 'target' }]);
+    expect(arrowsFor(v, null).map((a) => a.kind)).toEqual(['attack']);
+  });
+});

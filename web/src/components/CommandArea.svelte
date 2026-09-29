@@ -3,7 +3,6 @@
   import { commandZoneOf, stackIdsOf } from '../lib/commander';
   import type { CardOptions } from '../lib/cardoptions';
   import { tileOptions } from '../lib/cardoptions';
-  import { layoutStore } from '../lib/layoutsettings.svelte';
   import CommanderTile from './CommanderTile.svelte';
 
   /**
@@ -72,18 +71,13 @@
 </script>
 
 {#if commanders.length > 0}
-  <!-- The command pack: the seat's command zone laid out by its OWN layout
-       settings (fb-20260917T232202Z), rendered as the creatures row's first
-       flex item. Conditional on a non-empty roster so a constructed seat (or
-       a moment when every commander is on the battlefield) still renders
-       literally nothing — an empty wrapper would insert a stray row gap. -->
-  <div
-    class="cmd-pack"
-    class:zone-outline={layoutStore.flash.command}
-    style:--cmd-scale={layoutStore.scale('command')}
-    data-align={layoutStore.align('command')}
-    data-cmd-pack=""
-  >
+  <!-- The command pack: the seat's command zone, rendered as the creatures
+       region's first flex item at the region's own card size (the layout
+       profile's sizing rules replaced the zone's separate scale). Conditional
+       on a non-empty roster so a constructed seat (or a moment when every
+       commander is on the battlefield) still renders literally nothing — an
+       empty wrapper would insert a stray row gap. -->
+  <div class="cmd-pack" data-cmd-pack="">
     {#each commanders as c (c.commander.id)}
       <CommanderTile status={c} player={player.name} seat={player.seat} tileOptions={options ? tileOptions(options, c.commander.id) : null} />
     {/each}
@@ -91,31 +85,13 @@
 {/if}
 
 <style>
-  /* The command pack mirrors a Quadrant row's geometry exactly, one level
-     down: a flex-wrap row with the row gap, its own card scale and its own
-     main-axis packing. --card-w is resolved HERE (the creatures row's
-     resolution of --card-w has already happened on the .row element, so a
-     scale set on a tile could not reach its children) from --cmd-scale,
-     which the template sets from layoutStore.scale('command'); the tiles
-     inside read the ambient --card-w exactly as they read the creatures
-     row's before. With the defaults (scale 1, left) the computed width and
-     packing are identical to the pre-pack rendering. */
+  /* The command pack is one flex item at the front of the creatures region:
+     a sub-row of commander tiles reading the region's ambient --card-w. */
   .cmd-pack {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--sp-3);
+    flex: none;
+    gap: var(--sp-2);
     align-items: flex-start;
-    align-content: flex-start;
     min-width: 0;
-    --card-w: calc(var(--play-card-w) * var(--cmd-scale, 1));
-  }
-  .cmd-pack[data-align='center'] { justify-content: center; }
-  .cmd-pack[data-align='right'] { justify-content: flex-end; }
-  /* The dotted outline the layout store pulses for FLASH_MS after a Command
-     zone row adjustment lands in the panel (this zone has no on-board
-     stepper, so no hover-held outline). Same look as the Quadrant rows'. */
-  .cmd-pack.zone-outline {
-    outline: 2px dashed var(--ink-dim);
-    outline-offset: 3px;
   }
 </style>

@@ -35,6 +35,10 @@ export const GAP = 6;
 export const ROW_PAD = 8;
 /** an opponent's header bar */
 export const HEADER_H = 34;
+/** a focus side strip is denser: a slimmer bar, a hairline of padding, smaller cards allowed */
+export const STRIP_HEADER_H = 28;
+export const STRIP_PAD = 2;
+export const STRIP_CARD_H_MIN = 16;
 /** piles narrower than this are not worth drawing */
 export const PILE_MIN_W = 24;
 export const PILE_MAX_W = 64;
@@ -79,12 +83,16 @@ export interface SeatBoxInput {
   rowsW: number;
   rowsH: number;
   rows: RegionDemand[][];
+  /** vertical room per row for overhanging pills (default ROW_PAD) */
+  rowPad?: number;
+  /** the smallest card height allowed (default CARD_H_MIN) */
+  minH?: number;
 }
 
 /** seatCardHeight is one seat's card height from its rows box, capped by its fullest region. */
 export function seatCardHeight(i: SeatBoxInput): number {
   const n = Math.max(1, i.rows.length);
-  let h = (i.rowsH - (n - 1) * GAP) / n - ROW_PAD;
+  let h = (i.rowsH - (n - 1) * GAP) / n - (i.rowPad ?? ROW_PAD);
   for (const row of i.rows) {
     const total = row.reduce((s, r) => s + r.weight, 0) || 1;
     const regionGaps = (row.length - 1) * GAP;
@@ -96,7 +104,7 @@ export function seatCardHeight(i: SeatBoxInput): number {
       h = Math.min(h, cw / CARD_RATIO);
     }
   }
-  return Math.round(Math.min(CARD_H_MAX, Math.max(CARD_H_MIN, h)));
+  return Math.round(Math.min(CARD_H_MAX, Math.max(i.minH ?? CARD_H_MIN, h)));
 }
 
 /** pileWidth sizes one zone pile from the panel body's height; 0 means the column is hidden. */
@@ -136,10 +144,13 @@ export interface SeatSize {
  * re-sizes the rows with that width back.
  */
 export function seatSize(i: SeatPanelInput): SeatSize {
-  const bodyH = Math.max(0, i.panelH - (i.header ? HEADER_H : 0) - GAP * 2);
+  const pad = i.strip ? STRIP_PAD : GAP;
+  const bodyH = Math.max(0, i.panelH - (i.header ? (i.strip ? STRIP_HEADER_H : HEADER_H) : 0) - pad * 2);
   const size = (pileW: number): SeatSize => {
-    const rowsW = Math.max(0, i.panelW - pilesColumnWidth(pileW) - GAP * 2);
-    const cardH = seatCardHeight({ rowsW, rowsH: bodyH, rows: i.rows });
+    const rowsW = Math.max(0, i.panelW - pilesColumnWidth(pileW) - pad * 2);
+    const cardH = i.strip
+      ? seatCardHeight({ rowsW, rowsH: bodyH, rows: i.rows, rowPad: STRIP_PAD, minH: STRIP_CARD_H_MIN })
+      : seatCardHeight({ rowsW, rowsH: bodyH, rows: i.rows });
     const cardW = Math.round(cardH * CARD_RATIO);
     return { cardH, cardW, compact: cardW < i.artBelow, pileW, rowsW };
   };

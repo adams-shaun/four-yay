@@ -35,7 +35,7 @@
    * the group's every member id is on `data-obj-group` so a later task can
    * draw arrows to each member of a stacked tile.
    */
-  let { group, size = 'tile', attachments = [], options = null }: { group: CardStackGroup; size?: 'tile' | 'large'; attachments?: CardView[]; options?: CardOptions | null } = $props();
+  let { group, size = 'tile', attachments = [], options = null, art = false }: { group: CardStackGroup; size?: 'tile' | 'large'; attachments?: CardView[]; options?: CardOptions | null; /** render every face as an art tile (CardTile's `art`) */ art?: boolean } = $props();
 
   let expanded = $state(false);
   const faces = $derived(stackFaces(group, expanded));
@@ -111,7 +111,7 @@
 </script>
 
 {#if group.cards.length === 1}
-  <CardTile card={group.cards[0]} {size} {attachments} tileOptions={singleOptions} />
+  <CardTile card={group.cards[0]} {size} {attachments} {art} tileOptions={singleOptions} />
 {:else}
   <button
     type="button"
@@ -129,7 +129,7 @@
       <span class="ghost ghost--1" aria-hidden="true"></span>
     {/if}
     {#each faces as c (c.id)}
-      <CardTile card={c} {size} faceTapped={expanded ? undefined : collapsedFaceTapped} tileOptions={expanded ? memberOptions(c.id) : collapsedOptions} />
+      <CardTile card={c} {size} {art} faceTapped={expanded ? undefined : collapsedFaceTapped} tileOptions={expanded ? memberOptions(c.id) : collapsedOptions} />
     {/each}
     {#if !expanded && tappedRep}
       <!-- fb-20260918T010805Z: the collapsed mixed pile's tapped member, shown
@@ -137,10 +137,10 @@
            representative carries no options affordance of its own (the pile's
            union lives on the lead tile) and the lead face stays the anchor. -->
       <span class="tapped-rep">
-        <CardTile card={tappedRep} {size} faceTapped={true} tileOptions={null} />
+        <CardTile card={tappedRep} {size} {art} faceTapped={true} tileOptions={null} />
       </span>
     {/if}
-    <span class="count" data-stack-count aria-hidden="true">x{group.cards.length}</span>
+    <span class="count" data-stack-count aria-hidden="true">×{group.cards.length}</span>
     {#if !expanded && mixedTapped}
       <span class="count ready" data-stack-ready aria-hidden="true">{readyCount} ready</span>
     {/if}
@@ -219,9 +219,9 @@
     bottom: var(--sp-2);
     transform: translateX(-100%);
     background: var(--felt-sunk);
-    color: var(--ink);
-    border: var(--edge-w) solid var(--edge-felt);
-    border-radius: 2px;
+    color: var(--gilt);
+    border: 1px solid var(--gilt);
+    border-radius: 999px;
     font-family: var(--font-data);
     font-variant-numeric: tabular-nums;
     font-size: var(--t-11);

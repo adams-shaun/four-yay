@@ -25,7 +25,12 @@
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
   const HOT_STRIP_CLOSE_DELAY_MS = 180;
 
-  let { view, seats, state: logic, ctx, table, match, onToggleOptions = null }: {
+  let { view, seats, state: logic, ctx, table, match, onToggleOptions = null, transport = true }: {
+    /** transport draws the PASS / END TURN / RESOLVE ALL / UNDO tabs. The
+     *  table turns it off because the gilt action cluster (ActionCluster)
+     *  offers those moves in its fixed corner; the hotkeys stay here either
+     *  way. */
+    transport?: boolean;
     view: View;
     seats: SeatInfo[];
     state: SeatPanelState;
@@ -352,6 +357,7 @@
     </div>
   </div>
 
+  {#if transport}
   <!-- A transport control, not a menu: one action behind it, so one click.
        A dropdown here made the commonest move on the board cost two. The
        title carries the wire option's own label so the glyph is never the
@@ -431,6 +437,8 @@
       <span class="full">UNDO</span><span class="compact" aria-hidden="true">↶</span>
     </button>
   </div>
+
+  {/if}
 
   <!-- Done is one action too, so it follows Pass, End Turn and Undo. Ctrl held
        while submitting a cast/ability holds priority: passAfterAct is

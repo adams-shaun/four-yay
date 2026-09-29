@@ -3,6 +3,7 @@
   import type { CardOptions } from '../lib/cardoptions';
   import { arrowsFor, previewArrowsFor } from '../lib/arrows';
   import type { Arrow, End } from '../lib/arrows';
+  import { hovered } from '../lib/hovered.svelte';
 
   /**
    * Arrows overlays the board with one line per arrowsFor(view) result. It
@@ -33,9 +34,11 @@
     // corner instead of the player's own name plate. `.identity` is
     // IdentityBar's own root and is the only element this arrow should ever
     // point at.
+    // A player end lands on the seat's header bar or seat box (their
+    // [data-seat-anchor] root); `.identity` is the retired identity bar's.
     return 'obj' in end
       ? document.querySelector(`[data-obj="${end.obj}"]`)
-      : document.querySelector(`.identity[data-seat="${end.seat}"]`);
+      : document.querySelector(`[data-seat-anchor="${end.seat}"]`) ?? document.querySelector(`.identity[data-seat="${end.seat}"]`);
   }
 
   function centre(el: Element, base: DOMRect): { x: number; y: number } {
@@ -47,7 +50,7 @@
     if (!root) return;
     const base = root.getBoundingClientRect();
     const next: Line[] = [];
-    for (const arrow of [...arrowsFor(view), ...previewArrowsFor(options)]) {
+    for (const arrow of [...arrowsFor(view, hoveredStack), ...previewArrowsFor(options)]) {
       const from = anchorEl(arrow.from);
       const to = anchorEl(arrow.to);
       if (!from || !to) continue;
@@ -61,9 +64,13 @@
   // Redraw whenever the view changes. requestAnimationFrame defers the
   // measurement past this tick's DOM update so the new frame's tiles have
   // laid out before we read their positions.
+  // Stack target arrows follow the pointer: only the hovered stack item's.
+  const hoveredStack = $derived(hovered.obj !== null && view.stack.some((s) => s.id === hovered.obj) ? hovered.obj : null);
+
   $effect(() => {
     void view;
     void options;
+    void hoveredStack;
     const id = requestAnimationFrame(recompute);
     return () => cancelAnimationFrame(id);
   });
@@ -115,15 +122,16 @@
 <style>
   .arrows { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
   svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  .line--target { stroke: var(--initiative); }
+  /* Verdigris for a choice being made, ember for attacks (spec §3). */
+  .line--target { stroke: var(--verdigris); }
   .line--target-preview {
-    stroke: var(--initiative);
+    stroke: var(--verdigris);
     stroke-dasharray: 7 6;
     opacity: 0.58;
   }
-  .line--attack { stroke: var(--danger); }
-  .line--block { stroke: var(--mana-u); }
-  .head--target { fill: var(--initiative); }
-  .head--attack { fill: var(--danger); }
-  .head--block { fill: var(--mana-u); }
+  .line--attack { stroke: var(--ember); }
+  .line--block { stroke: var(--ink-dim); }
+  .head--target { fill: var(--verdigris); }
+  .head--attack { fill: var(--ember); }
+  .head--block { fill: var(--ink-dim); }
 </style>

@@ -32,7 +32,7 @@ describe('CardStack', () => {
   it('a count badge appears only for N>1', () => {
     const { html } = render(CardStack, { props: { group: stackIdentical([zombie(1), zombie(2), zombie(3)])[0] } });
     expect(html).toContain('data-stack-count');
-    expect(html).toContain('>x3<');
+    expect(html).toContain('>×3<');
   });
 
   it('collapsed stack shows exactly one face, two ghosts, and keeps every member addressable', () => {
@@ -74,7 +74,7 @@ describe('CardStack', () => {
     const { html } = render(CardStack, { props: { group: mixed } });
     expect(html).toContain('data-stack-ready');
     expect(html).toContain('>2 ready<');
-    expect(html).toContain('>x3<');
+    expect(html).toContain('>×3<');
   });
 
   it('a uniform pile tab is unchanged: no readiness plate whether all untapped or all tapped', () => {
@@ -82,7 +82,7 @@ describe('CardStack', () => {
     expect(render(CardStack, { props: { group: allUntapped } }).html).not.toContain('data-stack-ready');
     const allTapped = stackIdentical([tz(1), tz(2)], { ignoreTapped: true })[0];
     expect(render(CardStack, { props: { group: allTapped } }).html).not.toContain('data-stack-ready');
-    expect(render(CardStack, { props: { group: allTapped } }).html).toContain('>x2<');
+    expect(render(CardStack, { props: { group: allTapped } }).html).toContain('>×2<');
   });
 
   it('a group of one never carries a readiness plate', () => {
@@ -132,7 +132,7 @@ describe('CardStack', () => {
     expect(tiles[1]).toContain('tapped'); // the tapped member is shown IN the pile
     expect(html).toContain('data-stack-ready'); // the ready plate carries the counts
     expect(html).toContain('>1 ready<');
-    expect(html).toContain('>x2<');
+    expect(html).toContain('>×2<');
     // the lead member stays the face and the anchor: presentation only
     expect(html).toContain('data-obj-group="1,2"');
   });
@@ -152,7 +152,7 @@ describe('CardStack', () => {
     expect(html).toContain('data-obj-group="1,2,3"');
     // the ready plate and count stay exactly as they were
     expect(html).toContain('>2 ready<');
-    expect(html).toContain('>x3<');
+    expect(html).toContain('>×3<');
   });
 
   it('the representative is the lowest-id tapped member when several are tapped', () => {

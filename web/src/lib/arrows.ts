@@ -21,10 +21,19 @@ export function previewArrowsFor(options: CardOptions | null): Arrow[] {
   return out;
 }
 
-/** arrowsFor reads relationships the server already resolved; it decides nothing about legality. */
-export function arrowsFor(view: View): Arrow[] {
+/**
+ * arrowsFor reads relationships the server already resolved; it decides
+ * nothing about legality. Declared combat (attacks, blocks) is always drawn.
+ * A stack item's targets are drawn for `stackTargets`: every item ('all',
+ * the historic behaviour), only the item with that id (the table passes the
+ * HOVERED stack item — UI rework spec §3: arrows only for the pending
+ * decision, the hovered stack item or declared combat, never XMage's
+ * spaghetti), or none (null).
+ */
+export function arrowsFor(view: View, stackTargets: 'all' | number | null = 'all'): Arrow[] {
   const out: Arrow[] = [];
   for (const s of view.stack) {
+    if (stackTargets !== 'all' && stackTargets !== s.id) continue;
     for (const t of s.targets) out.push({ from: { obj: s.id }, to: t.is_player ? { seat: t.player } : { obj: t.obj ?? 0 }, kind: 'target' });
   }
   for (const p of view.players) {

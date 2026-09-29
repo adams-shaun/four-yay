@@ -4,7 +4,7 @@ import { optionsByObj, optionsByPlayer, type CardOptions } from '../lib/cardopti
 import { toneOf } from '../lib/seatpanel.svelte';
 import '../app.css';
 import PileFixture from './PileModal.fixture.svelte';
-import IdentityBar from './IdentityBar.svelte';
+import SeatHeader from './SeatHeader.svelte';
 import PileHost from './PileHost.svelte';
 import SeatTable from './SeatTable.svelte';
 
@@ -83,13 +83,20 @@ if (new URLSearchParams(location.search).get('case') === 'shrink') {
     },
   };
   const target = document.querySelector('#fixture')!;
-  mount(IdentityBar, {
-    target,
-    props: { player: alice, seat: bothSeats[0], colour: bothSeats[0].colour, active: true, priority: false, corner: 'tl', players: both.players, options: bundle },
+  // Each opponent header bar sits in its seat's panel ([data-seat]), as on the board.
+  const panel = (seat: number) => {
+    const el = document.createElement('div');
+    el.setAttribute('data-seat', String(seat));
+    target.appendChild(el);
+    return el;
+  };
+  mount(SeatHeader, {
+    target: panel(0),
+    props: { player: alice, name: bothSeats[0].name, colour: bothSeats[0].colour, active: true, options: bundle },
   });
-  mount(IdentityBar, {
-    target,
-    props: { player: bob, seat: bothSeats[1], colour: bothSeats[1].colour, active: false, priority: false, corner: 'tr', players: both.players, options: bundle },
+  mount(SeatHeader, {
+    target: panel(1),
+    props: { player: bob, name: bothSeats[1].name, colour: bothSeats[1].colour, options: bundle },
   });
   mount(PileHost, { target, props: { view: both, seats: bothSeats, options: bundle } });
 } else {

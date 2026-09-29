@@ -5,7 +5,7 @@ import { render } from 'svelte/server';
 import { SeatPanelState } from '../lib/seatpanel.svelte';
 import { presetPatch, type StoppableStep } from '../lib/playsettings';
 import PlaySettingsPanel, { clampMs, nextStop, stopPatch, stopWord } from './PlaySettingsPanel.svelte';
-import { layoutStore } from '../lib/layoutsettings.svelte';
+import { layoutStore } from '../lib/layouts.svelte';
 
 // Two layers, because the editor has two halves to defend:
 //
@@ -678,78 +678,13 @@ describe('PlaySettingsPanel — real clicks in a real browser (PlaySettingsPanel
   });
 });
 
-describe('PlaySettingsPanel — Layout section (fb-20260916T182801Z)', () => {
-  it('renders a row per zone with a size stepper, a live readout and an alignment select', () => {
+describe('PlaySettingsPanel — Layout section', () => {
+  it('points at the layout drawer, naming the active layout profile', () => {
     const html = panel(new SeatPanelState('yt-layout', 1, ctx, null));
     expect(html).toContain('data-layout-section');
-    for (const zone of ['creatures', 'others', 'lands', 'command', 'hand'] as const) {
-      const row = elem(html, `data-layout-zone="${zone}"`);
-      expect(row).not.toBe('');
-      expect(row).toContain('data-layout-smaller');
-      expect(row).toContain('data-layout-larger');
-      expect(elem(html, `data-layout-scale="${zone}"`)).toContain('100%');
-      expect(row).toContain('<select');
-      expect(row).toContain('data-layout-align');
-    }
-    // fb-20260917T232202Z: the command zone has its own row, labelled, ordered
-    // between the lands row and the hand row (the seat's rim zone, not a
-    // battlefield row).
-    const cmdRow = elem(html, 'data-layout-zone="command"');
-    expect(cmdRow).toContain('Command zone');
-    expect(html.indexOf('data-layout-zone="lands"')).toBeLessThan(html.indexOf('data-layout-zone="command"'));
-    expect(html.indexOf('data-layout-zone="command"')).toBeLessThan(html.indexOf('data-layout-zone="hand"'));
-    expect(html).toContain('data-peek-picker');
-    expect(html).toContain('data-layout-reset');
-    // the hand's peek segmented control marks the shipped default
-    expect(tag(html, 'data-peek="hover"')).toContain('aria-pressed="true"');
-  });
-
-  it('the size readout follows the shared layout store, and Reset returns it', () => {
-    // The layout section edits the SEPARATE layoutsettings store, not the
-    // seat state: bumping it here is exactly what the panel's + button does,
-    // and the readout must show the new number (and Reset restore it).
-    const store = layoutStore;
-    store.bump('creatures', 0.1);
-    const html = panel(new SeatPanelState('yt-layout2', 1, ctx, null));
-    expect(elem(html, 'data-layout-scale="creatures"')).toContain('110%');
-    store.reset();
-    store.dispose();
-    const calm = panel(new SeatPanelState('yt-layout3', 1, ctx, null));
-    expect(elem(calm, 'data-layout-scale="creatures"')).toContain('100%');
-  });
-
-  it('the on-board steppers show/hide toggle reads Hidden by default and flips the store (fb-20260917T004304Z default flip)', () => {
-    const store = layoutStore;
-    try {
-      const html = panel(new SeatPanelState('yt-toggle1', 1, ctx, null));
-      expect(html).toContain('data-layout-steppers-toggle');
-      // a role="switch" row like the other toggles, OFF at the shipped default
-      expect(tag(html, 'data-toggle="steppers-on-board"')).toContain('role="switch"');
-      expect(tag(html, 'data-layout-steppers-toggle')).toContain('aria-checked="false"');
-      expect(elem(html, 'data-layout-steppers-toggle')).toContain('Hidden');
-
-      // the exact call the toggle's onclick makes; aria-checked follows
-      store.setSteppersOnBoard(true);
-      const on = panel(new SeatPanelState('yt-toggle2', 1, ctx, null));
-      expect(tag(on, 'data-layout-steppers-toggle')).toContain('aria-checked="true"');
-      expect(elem(on, 'data-layout-steppers-toggle')).toContain('Shown');
-
-      // ...and the panel's OWN per-zone steppers/alignment rows stay mounted
-      // regardless of the toggle: they are the way back once the board marks
-      // are hidden.
-      for (const zone of ['creatures', 'others', 'lands', 'command', 'hand'] as const) {
-        const row = elem(on, `data-layout-zone="${zone}"`);
-        expect(row).not.toBe('');
-        expect(row).toContain('data-layout-smaller');
-        expect(row).toContain('data-layout-larger');
-        expect(row).toContain('data-layout-align');
-      }
-      expect(on).toContain('data-peek-picker');
-      expect(on).toContain('data-layout-reset');
-    } finally {
-      store.reset();
-      store.dispose();
-    }
+    expect(elem(html, 'data-open-layout-drawer')).toContain(layoutStore.label);
+    // the per-zone size steppers are gone: the sizing rules replaced per-zone scale
+    expect(html).not.toContain('data-layout-zone');
   });
 
   // fb-20260917T231628Z: the transcript's show/hide switch moved into the
