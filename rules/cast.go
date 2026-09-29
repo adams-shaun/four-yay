@@ -9085,7 +9085,11 @@ func (e *Engine) targetAsk() bool {
 		}
 		if cmcCapped && candidate.kind != "player" {
 			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
-				o.Value = int(co.Face().ManaValue())
+				if powerCapped {
+					o.Value2 = int(co.Face().ManaValue())
+				} else {
+					o.Value = int(co.Face().ManaValue())
+				}
 			}
 		}
 		d.Options = append(d.Options, o)
@@ -9094,7 +9098,13 @@ func (e *Engine) targetAsk() bool {
 		d.MaxSum, d.Budgeted = powerCap, true
 	}
 	if cmcCapped {
-		d.MaxSum, d.Budgeted = cmcCap, true
+		// Preserve the historical Value/MaxSum wire for CMC-only asks.
+		// On dual asks power owns the first currency and CMC the second.
+		if powerCapped {
+			d.MaxSum2, d.Budgeted2 = cmcCap, true
+		} else {
+			d.MaxSum, d.Budgeted = cmcCap, true
+		}
 	}
 	if pickOwed {
 		// The multi-opponent Opponent form (agent-20260925T085158Z-c861188d):

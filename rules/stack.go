@@ -2418,7 +2418,11 @@ func (e *Engine) askCrossModeCharmTargets(p state.PlayerID, source state.ObjID, 
 		}
 		if cmcCapped && candidate.kind != "player" {
 			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
-				o.Value = int(co.Face().ManaValue())
+				if powerCapped {
+					o.Value2 = int(co.Face().ManaValue())
+				} else {
+					o.Value = int(co.Face().ManaValue())
+				}
 			}
 		}
 		d.Options = append(d.Options, o)
@@ -2427,7 +2431,11 @@ func (e *Engine) askCrossModeCharmTargets(p state.PlayerID, source state.ObjID, 
 		d.MaxSum, d.Budgeted = powerCap, true
 	}
 	if cmcCapped {
-		d.MaxSum, d.Budgeted = cmcCap, true
+		if powerCapped {
+			d.MaxSum2, d.Budgeted2 = cmcCap, true
+		} else {
+			d.MaxSum, d.Budgeted = cmcCap, true
+		}
 	}
 	e.ask(d)
 	return true
@@ -2989,7 +2997,11 @@ func (e *Engine) AskCopyTargets() bool {
 		}
 		if cmcCapped && candidate.kind != "player" {
 			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
-				opt.Value = int(co.Face().ManaValue())
+				if powerCapped {
+					opt.Value2 = int(co.Face().ManaValue())
+				} else {
+					opt.Value = int(co.Face().ManaValue())
+				}
 			}
 		}
 		d.Options = append(d.Options, opt)
@@ -2998,7 +3010,11 @@ func (e *Engine) AskCopyTargets() bool {
 		d.MaxSum, d.Budgeted = powerCap, true
 	}
 	if cmcCapped {
-		d.MaxSum, d.Budgeted = cmcCap, true
+		if powerCapped {
+			d.MaxSum2, d.Budgeted2 = cmcCap, true
+		} else {
+			d.MaxSum, d.Budgeted = cmcCap, true
+		}
 	}
 	// Record the stage BEFORE the ask is answered: the answer's TargetsChosen
 	// clears the one-shot flag, so the resolveTop re-entry learns from this
@@ -3668,7 +3684,11 @@ func (e *Engine) askTarget(p state.PlayerID, source state.ObjID, sa *cards.SA) {
 		}
 		if cmcCapped && candidate.kind != "player" {
 			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
-				o.Value = int(co.Face().ManaValue())
+				if powerCapped {
+					o.Value2 = int(co.Face().ManaValue())
+				} else {
+					o.Value = int(co.Face().ManaValue())
+				}
 			}
 		}
 		d.Options = append(d.Options, o)
@@ -3677,7 +3697,11 @@ func (e *Engine) askTarget(p state.PlayerID, source state.ObjID, sa *cards.SA) {
 		d.MaxSum, d.Budgeted = powerCap, true
 	}
 	if cmcCapped {
-		d.MaxSum, d.Budgeted = cmcCap, true
+		if powerCapped {
+			d.MaxSum2, d.Budgeted2 = cmcCap, true
+		} else {
+			d.MaxSum, d.Budgeted = cmcCap, true
+		}
 	}
 	if min == 0 {
 		// Requirement N2 / totality: a target-hungry subject whose minimum
