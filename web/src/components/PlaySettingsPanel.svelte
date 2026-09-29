@@ -73,6 +73,8 @@
   } from '../lib/playsettings';
   import type { SeatPanelState } from '../lib/seatpanel.svelte';
   import BreakpointsSection from './BreakpointsSection.svelte';
+  import KeymapEditor from './KeymapEditor.svelte';
+  import { keymapStore } from '../lib/keymap.svelte';
 
   /**
    * The GAME OPTIONS editor for the whole play-settings model
@@ -397,6 +399,8 @@
   </section>
 
   <BreakpointsSection state={logic} />
+
+  <KeymapEditor store={keymapStore} />
 
   <section class="sec">
     <h3>Step stops</h3>

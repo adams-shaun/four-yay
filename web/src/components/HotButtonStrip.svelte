@@ -12,6 +12,7 @@
   import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { announceActions } from '../lib/announcepay';
   import SeatPanel from './SeatPanel.svelte';
+  import KeyCheatSheet from './KeyCheatSheet.svelte';
 
   /**
    * PRESET_CYCLE is the hotkey cycle's leading entries: the three shipped
@@ -445,6 +446,10 @@
   </div>
 
 </div>
+
+<!-- Outside the strip, so the strip's own Escape handler never sees the
+     sheet's keys; the sheet focuses itself on open and closes on Escape or ?. -->
+<KeyCheatSheet open={showKeys} keymap={keymapStore.current} onClose={() => (showKeys = false)} />
 
 <style>
   /* Tabs share an edge with the phase row above: this is one instrument. Each
