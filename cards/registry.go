@@ -90,6 +90,113 @@ func (r *Registry) Lookup(name string) (*Card, bool) {
 	return c, ok
 }
 
+// rebuildNameIndex rebuilds byName from Cards with natively-named faces taking
+// priority over derived and back faces. A card's identity is its own printed
+// front-face name (Forge names the file "Front // Back" and NormalizeName
+// already folds such a name to the front), so a face whose name came from a
+// CopyFaceFrom directive -- or a back face -- must never shadow the real card
+// that natively prints that name. That matters once CopyFaceFrom resolves: a
+// Prepare inset spell face carries the REAL referenced spell's name
+// ("Lightning Bolt"), a Split card's halves carry standalone cards' names
+// ("Bind", "Liberate"), and the referring card can sort before the referenced
+// one (e/emeritus_of_conflict before l/lightning_bolt), so a plain sorted-order
+// index would make Lookup return the stub and break every decklist naming the
+// real card.
+//
+// Tier 1 is every natively-named front face; tier 2 is every other face
+// (native or derived backs, and CopyFaceFrom-derived fronts, which a Split card
+// has). Within a tier the first card wins, Add's rule; back names are still
+// indexed when no native front claims them, preserving the pre-existing lookup
+// of a transforming or split back face.
+func (r *Registry) rebuildNameIndex() {
+	r.byName = map[string]*Card{}
+	index := func(f *Face, c *Card) {
+		if k := NormalizeName(f.Name); k != "" {
+			if _, exists := r.byName[k]; !exists {
+				r.byName[k] = c
+			}
+		}
+		for _, a := range f.Aliases {
+			if k := NormalizeName(a); k != "" {
+				if _, exists := r.byName[k]; !exists {
+					r.byName[k] = c
+				}
+			}
+		}
+	}
+	for _, c := range r.Cards {
+		if len(c.Faces) > 0 && c.Faces[0] != nil && c.Faces[0].CopyFaceFrom == "" {
+			index(c.Faces[0], c)
+		}
+	}
+	for _, c := range r.Cards {
+		for i := range c.Faces {
+			f := c.Faces[i]
+			if f == nil || (i == 0 && f.CopyFaceFrom == "") {
+				continue
+			}
+			index(f, c)
+		}
+	}
+}
+
+// resolveCopyFaces resolves every face carrying a `CopyFaceFrom:<Card>`
+// directive by copying the named card's front-face printed characteristics
+// onto it, then re-deriving and re-linking the face so its cmc, power/
+// toughness, colour identity, word sets and keyword expansions match a face
+// compiled from that text directly. A face that already has a Name is left
+// alone, so the pass is idempotent and an inline ALTERNATE back is never
+// overwritten. An unresolvable reference (no card by that name in this
+// registry) leaves the face nameless -- CompileDir's caller diagnoses that
+// case; it is never a hard error.
+//
+// It MUST run after every card has been Add-ed: compileScripts sorts paths,
+// so the referenced card can compile later than the referring one (e.g.
+// start_fire.txt sorts after bind_liberate.txt but not necessarily after the
+// card it names). It runs in BOTH construction routes -- CompileDir and
+// LoadRegistry -- so a decoded cache that still held stub faces ends with the
+// same resolved faces a fresh compile builds.
+func (r *Registry) resolveCopyFaces() {
+	resolved := map[*Card]bool{}
+	changed := false
+	var resolveCard func(c *Card)
+	resolveCard = func(c *Card) {
+		if c == nil || resolved[c] {
+			return
+		}
+		// Mark before recursing: a cyclic reference (A's back copies B, B's
+		// back copies A) then terminates, leaving at most one face unresolved
+		// rather than looping forever.
+		resolved[c] = true
+		for _, f := range c.Faces {
+			if f == nil || f.CopyFaceFrom == "" || f.Name != "" {
+				continue
+			}
+			src, ok := r.byName[NormalizeName(f.CopyFaceFrom)]
+			if !ok || src == nil || len(src.Faces) == 0 || src.Faces[0] == nil {
+				continue
+			}
+			// The referenced card may itself carry an unresolved
+			// CopyFaceFrom face; resolve it first so the copy sees real
+			// characteristics rather than another stub.
+			resolveCard(src)
+			f.copyPrintedFrom(src.Faces[0])
+			// derive before link for the same reason both construction routes
+			// do it: link's keyword expansion reads cmc (Transmute).
+			f.derive()
+			f.link(c.Path)
+			f.ApplyIntrinsics()
+			changed = true
+		}
+	}
+	for _, c := range r.Cards {
+		resolveCard(c)
+	}
+	if changed {
+		r.invalidateCatalog()
+	}
+}
+
 // cacheFile is the on-disk shape. Only Cards and Tokens are encoded; the
 // byName index is rebuilt on load so it can never disagree with Cards.
 type cacheFile struct {
@@ -238,6 +345,14 @@ func LoadRegistry(path string) (*Registry, error) {
 		c.Link()
 		r.Add(c)
 	}
+	// Resolve CopyFaceFrom references after every card is indexed: a decoded
+	// cache produced before this pass existed holds stub faces whose raw
+	// directive the pre-pass parser dropped, so this is the second construction
+	// route that must end with the same resolved faces CompileDir builds. A
+	// face already named (a cache saved after resolution) is skipped, so the
+	// pass is idempotent.
+	r.resolveCopyFaces()
+	r.rebuildNameIndex()
 	if cf.Tokens != nil {
 		r.Tokens = cf.Tokens
 		for _, c := range r.Tokens {
@@ -273,17 +388,29 @@ func CompileDir(dir string) (*Registry, []Diag, error) {
 
 	r := NewRegistry()
 	for _, c := range parsed {
+		r.Add(c)
+	}
+	// Resolve CopyFaceFrom references only after every card is Add-ed: the
+	// referenced card may compile later in sorted path order. The nameless-face
+	// diagnostic below runs afterward so a card whose only identity comes from
+	// a resolvable reference is not flagged as a defect.
+	r.resolveCopyFaces()
+	// Rebuild the name index with front faces taking priority over back faces
+	// (see rebuildNameIndex): a resolved CopyFaceFrom inset or a Split half
+	// must not shadow the real card it names. Unconditional, because a decoded
+	// cache may already carry resolved faces.
+	r.rebuildNameIndex()
+	for _, c := range parsed {
 		// A card with no named face parsed without error but carries no
-		// identity — e.g. a script whose only content is a directive like
-		// CopyFaceFrom that this parser doesn't resolve. That is worth a
-		// diagnostic per card, not per face: an ALTERNATE face alone being
-		// nameless is normal (legitimate CopyFaceFrom usage on a second
-		// face), but a card with no named face at all silently drops out of
-		// Coverage, and a human should be told which file did that.
+		// identity — e.g. a script whose only content is a directive the parser
+		// cannot resolve. That is worth a diagnostic per card, not per face: an
+		// ALTERNATE face alone being nameless is normal (a legitimate
+		// CopyFaceFrom whose reference is absent, or an inline back), but a card
+		// with no named face at all silently drops out of Coverage, and a human
+		// should be told which file did that.
 		if !c.named() {
 			diags = append(diags, Diag{c.Path, "card has no named face on any face; excluded from coverage (likely an unresolved CopyFaceFrom or similar directive)"})
 		}
-		r.Add(c)
 	}
 
 	if err := compileTokens(r, dir, &diags); err != nil {

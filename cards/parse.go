@@ -57,6 +57,11 @@ func ParseBytes(path string, src []byte) (*Card, []Diag) {
 			c.AlternateMode = val
 		case "Name":
 			cur.Name = val
+		case "CopyFaceFrom":
+			// A per-face directive: this face takes the named card's front-face
+			// characteristics. Retained raw here and resolved by the registry
+			// once every card has been Add-ed (see Registry.resolveCopyFaces).
+			cur.CopyFaceFrom = strings.TrimSpace(val)
 		case "Variant":
 			// Only the Universes-Within flavour-name alias carries a
 			// decklist-visible name. Every other Variant: value (Attraction

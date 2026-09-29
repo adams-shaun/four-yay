@@ -56,21 +56,27 @@ type Repl struct {
 // another.
 type Face struct {
 	SpecializeColor string // color token from a SPECIALIZE:<COLOR> boundary, if any
-	Name            string
-	ManaCost        string
-	Types           []string
-	PT              string
-	Loyalty         string
-	Defense         string
-	Colors          string
-	Oracle          string
-	Keywords        []string
-	Aliases         []string // Universes-Within flavour names a decklist may use
-	Abilities       []*SA
-	Triggers        []Trigger
-	Statics         []Static
-	Repls           []Repl
-	SVars           map[string]string
+	// CopyFaceFrom is the raw name on a `CopyFaceFrom:<Card>` directive: the
+	// face's printed characteristics are those of the named card's front face.
+	// It is resolved by Registry.resolveCopyFaces after every card is Add-ed,
+	// because the referenced card can compile later in sorted path order. An
+	// unresolved reference leaves the face nameless (never a hard error).
+	CopyFaceFrom string
+	Name         string
+	ManaCost     string
+	Types        []string
+	PT           string
+	Loyalty      string
+	Defense      string
+	Colors       string
+	Oracle       string
+	Keywords     []string
+	Aliases      []string // Universes-Within flavour names a decklist may use
+	Abilities    []*SA
+	Triggers     []Trigger
+	Statics      []Static
+	Repls        []Repl
+	SVars        map[string]string
 
 	// Derived values, computed once at load (Face.derive), never written
 	// into the gob cache: a stale cache decodes these as zero and derive
