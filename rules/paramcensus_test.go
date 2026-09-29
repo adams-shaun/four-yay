@@ -3605,9 +3605,17 @@ func TestParamCensusScopesTheMayPlayStaticFamily(t *testing.T) {
 // carries one of these unknown face-owned cost tokens.
 func TestParamCensusCatchesFaceOwnedCosts(t *testing.T) {
 	t.Parallel()
+	// Precondition: the ManaCost fixture token is genuinely unmodelled, so its
+	// cost:Mana label can only come from the face-owned walk. If a future
+	// ticket models Mana<...>, re-point the fixture (Waterbend<X> held this
+	// slot until ParseCost learned the Waterbend head) rather than
+	// deleting the label.
+	if got := ParseCost("Mana<1>").Unknown; !sameSet(got, []string{"Mana"}) {
+		t.Fatalf("fixture token Mana<1> now parses to Unknown %v -- re-point this fixture at a genuinely unmodelled cost token", got)
+	}
 	c := &cards.Card{Faces: []*cards.Face{
 		{
-			ManaCost: "Waterbend<X>",
+			ManaCost: "Mana<1>",
 			Keywords: []string{
 				"Kicker:ChooseCard<1/CARDNAME>",
 				"Surge:PaySurge<1>",
@@ -3619,7 +3627,7 @@ func TestParamCensusCatchesFaceOwnedCosts(t *testing.T) {
 		}},
 	}}
 	want := []string{
-		"cost:Waterbend", "cost:ChooseCard", "cost:PaySurge",
+		"cost:Mana", "cost:ChooseCard", "cost:PaySurge",
 		"cost:PayMiracle",
 	}
 	d := &derivedReads{api: map[string]map[string]bool{}, trig: map[string]map[string]bool{}, stat: map[string]map[string]bool{}, repl: map[string]map[string]bool{}}
@@ -3659,33 +3667,40 @@ func TestParamCensusCatchesSVarBodyGaps(t *testing.T) {
 	// every API; the SVar-body-gap fixture is only meaningful while its key
 	// stays unread.)
 	// PayEnergy<X> WAS the fixture's unmodelled
-	// cost token until ParseCost gained a real Energy field; the body cost
-	// below moved to the fictional Waterbend<X>, which ParseCost can never
-	// model.
+	// cost token until ParseCost gained a real Energy field, and Waterbend<X>
+	// followed it when ParseCost learned the Waterbend head (task tla-waterbend-
+	// ability-cost); the body cost below is now Mana<1>, a corpus-attested
+	// ability-cost head (`Cost$ Mana<2 R\NumTimes>`, bloodthirsty_adversary and
+	// 8 more) ParseCost still does not model.
 	if !d.api["Charm"]["Choices"] || !d.api["Repeat"]["RepeatSubAbility"] {
 		t.Fatalf("outer Choices$/RepeatSubAbility$ reads lost -- fixture premise broken")
 	}
 	if d.api["LoseLife"]["RememberTargets"] {
 		t.Fatalf("api:LoseLife now reads RememberTargets$ -- re-point the fixture at a genuinely unread key")
 	}
+	// The body's cost token is genuinely unmodelled (CR 701.67a's Waterbend<X>
+	// held this slot until ParseCost learned the Waterbend head); re-point it
+	// if a future ticket models Mana<...>.
+	if got := ParseCost("Mana<1>").Unknown; !sameSet(got, []string{"Mana"}) {
+		t.Fatalf("fixture token Mana<1> now parses to Unknown %v -- re-point this fixture at a genuinely unmodelled cost token", got)
+	}
 	c := &cards.Card{Faces: []*cards.Face{{
 		// A modal spell whose one mode loses life and remembers its target
 		// (the RememberTargets$ spelling no LoseLife reader touches --
 		// RememberObjects$ and, before it, TargetingPlayer$ WERE this
 		// fixture's unread body key until generic reads claimed them), and
-		// a repeat whose body carries an energy cost ParseCost
-		// does not model (the Chthonian Nightmare shape, reached through
-		// RepeatSubAbility$).
+		// a repeat whose body carries a cost token ParseCost does not model
+		// (Mana<1>, reached through RepeatSubAbility$).
 		Abilities: []*cards.SA{
 			{Kind: "SP", API: "Charm", Params: map[string]string{"Choices": "DBMode,DBMoney", "CharmNum": "1"}},
 			{Kind: "SP", API: "Repeat", Params: map[string]string{"RepeatNum": "2", "RepeatSubAbility": "DBMoney"}},
 		},
 		SVars: map[string]string{
 			"DBMode":  "DB$ LoseLife | RememberTargets$ True | Defined$ Remembered",
-			"DBMoney": "DB$ LoseLife | Cost$ Waterbend<X>",
+			"DBMoney": "DB$ LoseLife | Cost$ Mana<1>",
 		},
 	}}}
-	want := []string{"param:api:LoseLife.RememberTargets", "cost:Waterbend"}
+	want := []string{"param:api:LoseLife.RememberTargets", "cost:Mana"}
 	if got := cardCensusLabels(c, d, nil); !sameSet(got, want) {
 		t.Errorf("SVar-body census = %v, want %v -- an unread key or unmodelled token inside a Choices$/RepeatSubAbility$ body is not being reported", got, want)
 	}
@@ -3708,8 +3723,10 @@ func TestParseCostReportsUnmodelledCostTokens(t *testing.T) {
 		// the source returned to its owner's hand), so nothing is degraded.
 		{"PayEnergy<X> Sac<1/Creature> Return<1/CARDNAME>", nil},
 		// A head ParseCost still does not model keeps reporting (the census
-		// fixture's own token: Waterbend, Kor Bladewhirl's ability cost).
-		{"Waterbend<X>", []string{"Waterbend"}},
+		// fixture's own token: Mana<1>, the `Cost$ Mana<2 R\NumTimes>` ability
+		// head bloodthirsty_adversary and 8 more carry -- Waterbend<X> was
+		// this case until ParseCost learned the Waterbend head).
+		{"Mana<1>", []string{"Mana"}},
 		{"PayLife<5>", nil},
 		// The announced PayLife<X> form is now MODELLED (the cast announces X,
 		// bounded by the payer's life; the settle pays it), so nothing is
