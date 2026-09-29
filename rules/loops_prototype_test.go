@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -623,9 +624,66 @@ func TestLoopPrototypeSoultrader(t *testing.T) {
 	}
 }
 
+// loopProfileN returns the iteration counts TestLoopPrototypeMiner runs. The
+// default is the historical fixed set; GORGE_LOOP_MINER_N overrides it with a
+// comma-separated list so a profile run can target one N.
+func loopProfileN() []int {
+	if s := os.Getenv("GORGE_LOOP_MINER_N"); s != "" {
+		var out []int
+		for _, f := range strings.Split(s, ",") {
+			n, err := strconv.Atoi(strings.TrimSpace(f))
+			if err != nil || n <= 0 {
+				panic("bad GORGE_LOOP_MINER_N: " + s)
+			}
+			out = append(out, n)
+		}
+		return out
+	}
+	return []int{1, 20, 100}
+}
+
+// loopProfileDisableVerify turns off the rules test binary's verification-only
+// checks for one profile run and returns a restore func. The verify modes only
+// add re-derivations and panics; they never change the engine's emitted events
+// or answers, so turning them off for a profile yields the production cost
+// shape instead of the instrumented one. Gated by env, so the default run is
+// byte-for-byte unchanged.
+//
+// The restore MUST be registered with t.Cleanup rather than deferred:
+// loopBegin registers a cleanup that replays every recorded intent on a
+// clone, and t.Cleanup runs LIFO (the last registered runs first). A deferred
+// restore would run before that replay and re-enable verify for it, which is
+// most of the loop's second pass and would swamp the profile. Registering the
+// restore first keeps verify off through loopBegin's replay too.
+func loopProfileDisableVerify() func() {
+	if os.Getenv("GORGE_LOOP_NO_VERIFY") != "1" {
+		return func() {}
+	}
+	ptrs := []*bool{
+		&layerInertVerify, &layer4PrecheckVerify, &derivedMemoVerify,
+		&sacrificeCardnameVerify, &pricedCandidatesVerify, &castsOnlyWalkVerify,
+		&potentialMembersVerify, &walkCacheVerify, &trigZoneSkipVerify,
+		&manaPayFastVerify, &activeSummaryVerify, &manaSAFactsVerify,
+		&faceScanVerify, &livelockCandVerify, &priorityFlowVerify,
+		&replZoneSkipVerify, &sbaQuietVerify, &provenanceGateVerify,
+		&specDerivedVerify, &staticZoneSkipVerify,
+	}
+	old := make([]bool, len(ptrs))
+	for i, p := range ptrs {
+		old[i] = *p
+		*p = false
+	}
+	return func() {
+		for i, p := range ptrs {
+			*p = old[i]
+		}
+	}
+}
+
 func TestLoopPrototypeMiner(t *testing.T) {
-	for _, n := range []int{1, 20, 100} {
+	for _, n := range loopProfileN() {
 		t.Run(fmt.Sprint(n), func(t *testing.T) {
+			t.Cleanup(loopProfileDisableVerify())
 			var previous *events.Log
 			for run := 0; run < 2; run++ {
 				e, ids := loopBoard(t, []string{"Rakdos, the Muscle", "Phyrexian Altar", "Forsaken Miner"}, []state.Zone{state.ZBattlefield, state.ZBattlefield, state.ZBattlefield})
