@@ -48,8 +48,8 @@ func TestManabrewCardTextServesTheBackFaceOfADFCByItsOwnName(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if *hits != 1 {
-		t.Fatalf("want exactly 1 Scryfall named hit, got %d", *hits)
+	if hits.Load() != 1 {
+		t.Fatalf("want exactly 1 Scryfall named hit, got %d", hits.Load())
 	}
 
 	// The FRONT face's own name is a separate cache key: still a miss until
@@ -91,8 +91,8 @@ func TestManabrewCardTextMissNeverBlocksAndIsNotRefetched(t *testing.T) {
 		t.Fatalf("repeated miss: want (\"\", false), got (%q, %v)", text, ok)
 	}
 	time.Sleep(50 * time.Millisecond) // let any wrongly-queued fetch fire
-	if *hits != 1 {
-		t.Fatalf("want exactly 1 Scryfall named hit for the repeated miss, got %d", *hits)
+	if hits.Load() != 1 {
+		t.Fatalf("want exactly 1 Scryfall named hit for the repeated miss, got %d", hits.Load())
 	}
 }
 
@@ -120,8 +120,8 @@ func TestManabrewCardTextNilCacheAndEmptyNameAreMisses(t *testing.T) {
 		t.Fatalf("empty name: want (\"\", false), got (%q, %v)", text, ok)
 	}
 	time.Sleep(50 * time.Millisecond)
-	if *hits != 0 {
-		t.Fatalf("empty name must never reach Scryfall, got %d hits", *hits)
+	if hits.Load() != 0 {
+		t.Fatalf("empty name must never reach Scryfall, got %d hits", hits.Load())
 	}
 }
 
