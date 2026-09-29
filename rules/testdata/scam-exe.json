@@ -158,7 +158,8 @@
     },
     {
       "name": "Golgari Thug",
-      "count": 1
+      "count": 1,
+      "status": "Measured repeatable line: TestLoopPrototypeThug passes at N=1 and N=20"
     },
     {
       "name": "Greedy Freebooter",

@@ -275,8 +275,8 @@ func loopRecord(t *testing.T, e *Engine, label string, n, start int) {
 	}
 }
 
-// GORGE_LOOP_STRICT=1 exposes known failures as red regression reproducers;
-// the ordinary research run reports a blocked line, never calls it a success.
+// GORGE_LOOP_STRICT=1 exposes known failures in other prototype lines as red
+// regression reproducers; the Thug line is asserted directly in both modes.
 func loopBlocked(t *testing.T, message string) {
 	t.Helper()
 	if os.Getenv("GORGE_LOOP_STRICT") == "1" {
@@ -296,9 +296,7 @@ func TestLoopPrototypeThug(t *testing.T) {
 				loopAction(t, e, ids[1], "activate")
 				loopDrain(t, e, ids[2], ids[2], 0)
 				if e.G.Obj(ids[2]).Zone != state.ZExile {
-					loopRecord(t, e, "thug-blocked", 0, start)
-					loopBlocked(t, "Golgari Thug remains in library after Rakdos resolves: targeted ChangeZone omitted top placement")
-					return
+					t.Fatalf("Golgari Thug should be exiled by Rakdos after its death trigger; got zone %s", e.G.Obj(ids[2]).Zone)
 				}
 				loopAction(t, e, ids[2], "cast")
 				loopDrain(t, e, 0, 0, 0)
@@ -310,6 +308,20 @@ func TestLoopPrototypeThug(t *testing.T) {
 				if e.G.Obj(ids[2]).Zone != state.ZBattlefield || e.G.Obj(ids[3]).Zone != state.ZGraveyard {
 					t.Fatal("cycle zones not restored")
 				}
+			}
+			wantEvents, wantIntents := 101, 23
+			if n == 20 {
+				wantEvents, wantIntents = 2020, 384
+			}
+			if got := len(e.L.Events) - start; got != wantEvents {
+				t.Errorf("events=%d, want %d", got, wantEvents)
+			}
+			if got := len(e.L.Intents); got != wantIntents {
+				t.Errorf("intents=%d, want %d", got, wantIntents)
+			}
+			wantPool := state.Mana{state.MC: int32(2 * n)}
+			if got := e.G.Players[0].Pool; got != wantPool {
+				t.Errorf("pool=%v, want %v", got, wantPool)
 			}
 			loopRecord(t, e, "thug-"+fmt.Sprint(n), n, start)
 			t.Logf("ms/iteration=%.3f", float64(time.Since(clock).Microseconds())/1000/float64(n))

@@ -49,10 +49,10 @@
       "body": ["Sacrifice Thug for CC", "Put Rakdos trigger below Thug trigger; target self and Thug respectively", "Put Thug on library top", "Exile top two with Rakdos", "Cast Thug from exile using CC"],
       "net": {"mana":0,"storm":1,"deaths":1,"enters":1,"other_own_library":"-min(1,remaining)"},
       "payoff": "Add Blood Artist or Mayhem Devil for a kill, or Poxwalkers for mana and opponent exile",
-      "breaks": ["Wrong trigger order", "Library placement bug", "Remove Rakdos", "Graveyard or exile-casting hate"],
+      "breaks": ["Wrong trigger order", "Remove Rakdos", "Graveyard or exile-casting hate"],
       "bound": "Can repeat after all other own library cards are exiled",
       "variants": ["Poxwalkers returns on each exile cast; sacrifice it for net CC and Rakdos exile 3 from opponent", "Blood Artist drains 1 per Thug death", "Mayhem Devil damages 1 per sacrifice"],
-      "test": "TestLoopPrototypeThug (blocked; strict mode reproduces failure)"
+      "test": "TestLoopPrototypeThug (measured: N=1 and N=20 pass)"
     },
     {
       "id": "dualcaster-molten",
