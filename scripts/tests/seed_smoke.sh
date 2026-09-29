@@ -137,5 +137,45 @@ check "--dry-run files nothing" $? "before=$before after=$after"
 grep -q 'DRY-RUN would file' "$TMP/cycle5.log"
 check "--dry-run says what it would have filed" $?
 
+# --- 6. a storm whose endpoint answers NOW does not suppress work
+# A models.json whose provider points at a URL that answers 200 makes the probe
+# succeed; the storm rows are still in the journal from step 4.
+printf '{"providers":{"test-tier":{"baseUrl":"http://stubbed.invalid/v1"}}}\n' >"$TMP/models.json"
+mkdir -p "$TMP/curl-stub"
+# A curl stub, so the probe's own logic is under test rather than the network.
+stub_curl() {
+	printf '#!/usr/bin/env bash\necho %s\n' "$1" >"$TMP/curl-stub/curl"
+	chmod +x "$TMP/curl-stub/curl"
+}
+stub_curl 200
+rm -rf "$GORGE_REWARD_DIR/markers"
+before=$(wc -l <"$STUB/filed.txt")
+PATH="$TMP/curl-stub:$PATH" PI_MODELS_JSON="$TMP/models.json" \
+	"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/cycle6.log" 2>&1
+after=$(wc -l <"$STUB/filed.txt")
+grep -q 'is historical' "$TMP/cycle6.log"
+check "a storm whose endpoint answers now is called historical" $? "$(tail -6 "$TMP/cycle6.log")"
+# Every candidate has already been filed by the earlier cycles (and marked
+# queued), so the assertion is that the cycle does not WITHHOLD for the storm,
+# not that it finds fresh work to file.
+if grep -q 'no new tickets: .* provider failures' "$TMP/cycle6.log"; then
+	check "the historical storm does not withhold work" 1 "$(grep 'no new tickets' "$TMP/cycle6.log")"
+else
+	check "the historical storm does not withhold work" 0
+fi
+
+# --- 7. tier-probe itself: healthy, unreachable, unknown provider
+PATH="$TMP/curl-stub:$PATH" PI_MODELS_JSON="$TMP/models.json" "$ROOT/scripts/tier-probe.sh" test-tier >/dev/null 2>&1
+check "tier-probe reports a 200 endpoint healthy" $?
+stub_curl 000
+if PATH="$TMP/curl-stub:$PATH" PI_MODELS_JSON="$TMP/models.json" "$ROOT/scripts/tier-probe.sh" test-tier >/dev/null 2>&1; then
+	check "tier-probe reports an unreachable endpoint" 1 "it claimed healthy"
+else
+	check "tier-probe reports an unreachable endpoint" 0
+fi
+PI_MODELS_JSON="$TMP/models.json" "$ROOT/scripts/tier-probe.sh" no-such-tier >/dev/null 2>&1
+[ $? = 2 ]
+check "tier-probe exits 2 on an unknown provider" $?
+
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]

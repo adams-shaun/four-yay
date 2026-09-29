@@ -169,6 +169,21 @@ HUMAN=$(printf '%s' "$ST" | sed -n 's/.*human_needed \([0-9]*\)).*/\1/p' | head 
 HUMAN=${HUMAN:-0}
 [ "$DAEMON" != running ] && saw "DAEMON IS $DAEMON -- the pipeline is not dispatching"
 
+# A paid-off marker outlives the outage that caused it: the window is hours long
+# and nothing re-checks the endpoint. When the marker names a provider whose
+# endpoint now answers, the fleet is holding a healthy tier idle. Clearing the
+# marker is the operator's action (the permission classifier blocks an agent
+# from moving it), so the seed's job is to say so every cycle until it is gone.
+PAID_OFF=$(printf '%s' "$ST" | sed -n 's/.*paid seats: OFF for \([^ ]*\) until \([0-9:]*\).*/\1 \2/p' | head -1)
+if [ -n "$PAID_OFF" ]; then
+	PO_PROV=${PAID_OFF%% *}
+	PO_UNTIL=${PAID_OFF##* }
+	saw "paid-off marker: $PO_PROV held until $PO_UNTIL"
+	if "$ROOT/scripts/tier-probe.sh" "$PO_PROV" >/dev/null 2>&1; then
+		skipped "OPERATOR ACTION: $PO_PROV answers now but its paid-off marker holds it until $PO_UNTIL; clearing .ds4/orchestrator/paid-off is yours, not the seed's"
+	fi
+fi
+
 PROVIDER_STORM=$(python3 - "$TARGET" <<'PY'
 import json, sys
 from datetime import datetime, timedelta, timezone
@@ -200,7 +215,21 @@ STORM_P=$(printf '%s' "$PROVIDER_STORM" | cut -f2)
 [ "${STORM_N:-0}" -gt 0 ] && saw "provider failures in the last 30min: $STORM_N ($STORM_P)"
 
 QUIET=0 # queue new work this cycle?
-if [ "${STORM_N:-0}" -ge 10 ]; then
+# A storm in the journal is HISTORY. Believe it only when a live probe agrees:
+# on 2026-09-29 the free tier came back during a redeploy window and this cycle
+# still read 87 failures from the previous half hour, suppressed new work and
+# filed a P1 about a tier that was already answering. One curl settles it.
+STORM_LIVE=1
+if [ "${STORM_N:-0}" -ge 10 ] && [ -n "$STORM_P" ]; then
+	PROBE_OUT=$("$ROOT/scripts/tier-probe.sh" "${STORM_P%%,*}" 2>&1)
+	PROBE_RC=$?
+	saw "tier probe: $PROBE_OUT"
+	if [ "$PROBE_RC" = 0 ]; then
+		STORM_LIVE=0
+		skipped "the storm on $STORM_P is historical -- its endpoint answers now, so work is NOT withheld for it"
+	fi
+fi
+if [ "${STORM_N:-0}" -ge 10 ] && [ "$STORM_LIVE" = 1 ]; then
 	QUIET=1
 	skipped "no new tickets: $STORM_N provider failures in 30min on $STORM_P -- queueing into a dead tier only grows the backlog"
 	if marker_new "storm-$STORM_P"; then
