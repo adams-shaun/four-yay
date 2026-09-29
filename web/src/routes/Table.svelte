@@ -23,6 +23,7 @@
   import ViewHotkeys from '../components/ViewHotkeys.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
   import PromptDock from '../components/prompts/PromptDock.svelte';
+  import { effectivePlacement, profilePlacement } from '../lib/prompts/dock';
   import RailResizer from '../components/RailResizer.svelte';
   import {
     SeatPanelState,
@@ -137,6 +138,10 @@
     }
     return panelCache.state;
   });
+
+  // The slot and shell use the same effective placement: a payment with an
+  // older persisted near-table layout occupies the rail instead of the board.
+  const promptPlacement = $derived(profilePlacement(effectivePlacement(layoutStore.prompt, panel?.active ?? null)));
 
   // The seated player's own player view — the one whose hand is never
   // redacted (view.go fills Hand for the viewer's seat under every
@@ -527,8 +532,8 @@
              it concerns, unless the layout profile floats it
              (layoutStore.prompt, which PromptDock reads). ONE dock: priority
              stays with the ACTIONS / gilt action button. -->
-        {#if layoutStore.prompt.placement !== 'dock-bottom'}
-          <div class="prompt-dock" data-prompt-dock-slot data-placement={layoutStore.prompt.placement}>
+        {#if promptPlacement !== 'dock-bottom'}
+          <div class="prompt-dock" data-prompt-dock-slot data-placement={promptPlacement}>
             {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
           </div>
         {/if}
@@ -619,8 +624,8 @@
           {/if}
           <div class="log"><Transcript dvr={m.dvr} identities={logIdentities} cardColour={logCardColour} cards={logCards} notes={panel?.autoLog ?? []} onSeek={seated ? () => {} : (seq) => m.dispatch({ type: 'scrub', seq })} /></div>
         </section>
-        {#if layoutStore.prompt.placement === 'dock-bottom'}
-          <div class="prompt-dock bottom" data-prompt-dock-slot data-placement={layoutStore.prompt.placement}>
+        {#if promptPlacement === 'dock-bottom'}
+          <div class="prompt-dock bottom" data-prompt-dock-slot data-placement={promptPlacement}>
             {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
           </div>
         {/if}

@@ -1,12 +1,14 @@
+import type { Decision } from '../../protocol';
+import { rendererFor } from './renderer';
+
 /**
  * dock.ts is the prompt dock's placement (UI rework spec §4: "docked at the
  * top of the rail by default … Floating is a layout setting; the prompt is
  * dragged by its grip, and the position is saved in the layout profile").
- * The near-table placement ('table', the default since the operator's
- * 2026-09-29 feedback: the rail's top was a long mouse trip from the board)
- * pins the dock just above the gilt action button, where the eye and the
- * pointer already are, and grows it upward over the board.
- * The layout profile (lib/layoutprofile.ts `panels.prompt`) owns all three; this
+ * The optional near-table placement ('table') pins question prompts just
+ * above the gilt action button. Payment decisions use the rail even when
+ * an older layout library still selects table. The layout profile
+ * (lib/layoutprofile.ts `panels.prompt`) owns all four placements; this
  * module only converts between the profile's viewport fractions and the
  * dock's pixels, and keeps a dragged dock reachable. Client-side only.
  */
@@ -39,6 +41,19 @@ export function dockFromProfile(p: ProfilePrompt, vp: Viewport): DockLayout {
 /** profilePlacement is the profile's word for a dock placement. */
 export function profilePlacement(p: DockPlacement): ProfilePrompt['placement'] {
   return p === 'floating' ? 'float' : p === 'table' ? 'table' : p === 'rail-bottom' ? 'dock-bottom' : 'dock';
+}
+
+/**
+ * Upgrade the shipped near-table default at the presentation boundary, not
+ * by rewriting gorge.layouts.v1: old saved defaults and deliberate table
+ * choices are indistinguishable in storage. A payment always uses the rail
+ * when table is selected; other questions and explicit rail-bottom/float
+ * choices keep their placement. Both the route's slot and the dock shell
+ * must use this one resolver so the payment is mounted only once.
+ */
+export function effectivePlacement(p: ProfilePrompt, decision: Decision | null): DockPlacement {
+  const placement = dockFromProfile(p, { w: 0, h: 0 }).placement;
+  return placement === 'table' && decision !== null && rendererFor(decision) === 'payment' ? 'rail' : placement;
 }
 
 /** nextPlacement cycles through table, both rail slots, and floating. */
