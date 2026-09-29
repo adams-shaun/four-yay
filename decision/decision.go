@@ -915,6 +915,16 @@ func (d *Decision) HasBudget() bool { return d.MaxSum > 0 || d.Budgeted }
 // HasBudget2 reports whether the decision carries its second cumulative budget.
 func (d *Decision) HasBudget2() bool { return d.MaxSum2 > 0 || d.Budgeted2 }
 
+// BudgetsFit reports whether a running total of sum under the first budget and
+// sum2 under the second is within every budget the decision publishes. It is
+// the one home of the per-currency admission rule: Validate, FitRequired's
+// fold and the bot's Clamp top-up all read it, so a repaired answer can never
+// be one Validate rejects (the dual-budget livelock).
+func (d *Decision) BudgetsFit(sum, sum2 int) bool {
+	return (!d.HasBudget() || sum <= d.MaxSum) &&
+		(!d.HasBudget2() || sum2 <= d.MaxSum2)
+}
+
 // PayerLifeBound reports the decision's published non-mana charge bound: the
 // acting player's life total when a combat charge is on the wire, or -1 when
 // the decision published none (the bound is then inert, exactly as

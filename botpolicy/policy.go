@@ -1314,6 +1314,7 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 		// byte-identical.
 		groups := make(map[string]int) // picked options per Group.
 		sum := 0                       // running MaxSum budget over the chosen set.
+		sum2 := 0                      // running MaxSum2 budget over the chosen set.
 		setAcc := d.SetPropsOf(in.Choices)
 		for _, c := range in.Choices {
 			have[c] = true
@@ -1322,20 +1323,23 @@ func Clamp(d *decision.Decision, in decision.Intent) decision.Intent {
 					groups[d.Options[c].Group]++
 				}
 				sum += d.Options[c].Value
+				sum2 += d.Options[c].Value2
 			}
 		}
-		// fits reports whether topping up with o keeps the intent within
-		// Decision.MaxSum. The budget applies only when MaxSum > 0; a budget-less
-		// decision keeps byte-identical top-up. This is the general fix for the
-		// livelock where a mandatory budget dig's Clamp padding ignored the cap
-		// and produced an intent Decision.Validate rejects.
-		fits := func(o decision.Option) bool { return !d.HasBudget() || sum+o.Value <= d.MaxSum }
+		// fits reports whether topping up with o keeps the intent within the
+		// decision's cumulative budgets. Both currencies go through Decision's
+		// one admission rule (BudgetsFit), so a dual-budget target ask (power
+		// in MaxSum, mana value in MaxSum2) can never be topped up into an
+		// intent Decision.Validate rejects. A budget-less decision keeps the
+		// byte-identical top-up.
+		fits := func(o decision.Option) bool { return d.BudgetsFit(sum+o.Value, sum2+o.Value2) }
 		add := func(o decision.Option) {
 			if d.TargetsWithSameController && !haveTargetController {
 				targetController, haveTargetController = o.Controller, true
 			}
 			have[o.Index] = true
 			sum += o.Value
+			sum2 += o.Value2
 			setAcc = decision.SetPropMerge(d.SetPropMode, setAcc, o.SetProps)
 			in.Choices = append(in.Choices, o.Index)
 		}

@@ -298,10 +298,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 	// SetPropAdmits/SetPropMerge rule Validate enforces), so the fold can
 	// never append an option the set constraint refuses.
 	setAcc := d.setPropAccumulator(out)
-	fits := func(delta, delta2 int) bool {
-		return (!d.HasBudget() || sum+delta <= d.MaxSum) &&
-			(!d.HasBudget2() || sum2+delta2 <= d.MaxSum2)
-	}
+	fits := func(delta, delta2 int) bool { return d.BudgetsFit(sum+delta, sum2+delta2) }
 	// chargeFits reports whether folding option `add` in while removing
 	// `remove` (an option already in out, or -1 for an append) keeps the
 	// combined non-mana charge within the published bound -- the same rule
