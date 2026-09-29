@@ -256,8 +256,6 @@ func TestSetAudit_msh_CaptainMarVell_CosmicAwarenessBareCheckSVar(t *testing.T) 
 	// seat 0 can cast its creature while responding to seat 1's spell
 	// (CR 601.3). With the bare CheckSVar$ gate disabled, it is not offered.
 	if !offered {
-		setAuditGuard(t, "Cosmic Awareness never grants flash: staticTimingGate treats a bare CheckSVar$ (no SVarCompare$) as always-false instead of 'nonzero', so Captain Mar-Vell's CastWithFlash gate is disabled even after an opponent casts a spell",
-			"Honour the bare CheckSVar$ 'nonzero' default in staticTimingGate")
 		t.Fatal("seat 0 was NOT offered a Grizzly Bears cast while responding to seat 1's spell (CR 601.3)")
 	}
 	replayCheck(t, e, cfg)
@@ -295,16 +293,9 @@ func TestSetAudit_msh_BraveBrawler_PowerUpOnlyOnce(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (b) Pump stat ops: NumAtt$/NumDef$ "Double" is a no-op.
-//
-// Wolverine, Claws Out: "Whenever a Mutant you control attacks, double its
-// power until end of turn." Forge: DB$ Pump | Defined$ ... | NumAtt$ Double.
-// A "Double" op must read the creature's CURRENT power and add that much
-// again (CR 107.3 / the pump's own definition). effects.NumResolved resolves
-// a signed literal, an SVar name or a Count$ head; "Double" is none of those,
-// so it degrades to 0 and the pump adds +0/+0 -- the trigger resolves and does
-// nothing. 36 corpus files carry NumAtt$/NumDef$ Double (three in msh: Epic
-// Fight, World War Hulk III, Wolverine Claws Out).
+// (b) Pump stat ops: NumAtt$/NumDef$ Double reads the affected object's
+// current characteristic when the continuous effect applies in layer 7c.
+// Wolverine, Claws Out exercises the trigger-driven power-only case.
 // ---------------------------------------------------------------------------
 func TestSetAudit_msh_WolverineClawsOut_DoublePower(t *testing.T) {
 	reg := searchTestRegistry(t)
@@ -332,8 +323,6 @@ func TestSetAudit_msh_WolverineClawsOut_DoublePower(t *testing.T) {
 	// The trigger resolved (it was pushed above) but must actually double the
 	// power: 2 -> 4.
 	if got := e.Derived(w).Power; got != 4 {
-		setAuditGuard(t, "Pump's NumAtt$/NumDef$ \"Double\" op is unimplemented and degrades to +0, so Wolverine, Claws Out's attack trigger (and Epic Fight's and World War Hulk III's doubling) do nothing",
-			"Implement the pump stat op \"Double\"")
 		t.Fatalf("Wolverine power after its doubling trigger = %d, want 4", got)
 	}
 	replayCheck(t, e, cfg)

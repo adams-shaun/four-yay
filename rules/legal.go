@@ -32,31 +32,18 @@ func modalLandBack(o *state.Object) *cards.Face {
 	return o.Card.Faces[1]
 }
 
-// modalSpellFacePair reports whether mode names an AlternateMode whose two
-// faces are each independently castable from hand as a modal double-faced card
-// (CR 712): the ordinary "Modal" MDFC and the Secrets of Strixhaven "Prepare"
-// pair (a permanent front -- which enters prepared and can cast a copy of its
-// back-face spell while prepared -- and a nonland spell back). Both faces
-// compose their own cost, timing, targets and restriction, and a resolved back
-// face goes to the graveyard exactly like a Modal DFC's nonland back (CR
-// 712.3a). The hand-zone modal-LAND action (modalLandBack) deliberately keeps
-// the narrower "Modal" gate: no Prepare card prints a land back, so widening
-// it there would only widen a land-play gate with no carrier.
-func modalSpellFacePair(mode string) bool {
-	return mode == "Modal" || mode == "Prepare"
-}
-
 // modalSpellBack identifies a modal DFC's nonland back face when it is in
-// hand. AlternateMode "Modal" and "Prepare" are both modal face pairs
-// (modalSpellFacePair). A "Prepare" pair may carry an unresolved
-// CopyFaceFrom stub as its back (cards/parse.go does not resolve that
-// directive), which parses to a nameless face with no types or cost;
-// offering it would put a free, empty-named cast on the stack, so a nameless
-// back is rejected here. Every real Modal back is named, so the guard changes
-// nothing for "Modal".
+// hand. This is the ordinary CR 712 "Modal" MDFC only. A Secrets of
+// Strixhaven "Prepare" pair is NOT a modal DFC: CR 722.3 says preparation
+// cards "can't be cast using the alternative characteristics found within
+// their inset frames", so the inset prepare spell is never offered from hand
+// (the only way to cast it is the CR 722.3c copy made in exile by the
+// prepared permanent; rules/legal.go's "prepared_copy" mode). A nameless back
+// is rejected so an unresolved stub can never put an empty-named cast on the
+// stack; every real Modal back is named.
 func modalSpellBack(o *state.Object) *cards.Face {
 	if o == nil || o.Card == nil || o.FaceIdx != 0 ||
-		!modalSpellFacePair(o.Card.AlternateMode) || len(o.Card.Faces) != 2 ||
+		o.Card.AlternateMode != "Modal" || len(o.Card.Faces) != 2 ||
 		o.Card.Faces[0] == nil || o.Card.Faces[1] == nil ||
 		o.Zone != state.ZHand || o.Card.Faces[1].IsLand() ||
 		o.Card.Faces[1].Name == "" {
@@ -1482,6 +1469,49 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 		return true
 	}
 	if xPending && specNamesXBound(sa.Params["ValidTgts"]) {
+		return true
+	}
+	if capCMC, capped := e.maxTotalTargetCMC(p, id, sa, x); capped {
+		candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
+		candidates, _, _ = e.totalCMCCappedCandidates(candidates, p, id, sa, x)
+		if !e.targetChoiceFeasible(sa, candidates, min) {
+			return false
+		}
+		// A subset-sum cap binds even when enough individually legal
+		// candidates exist: the cheapest `min` of them is the minimal-sum
+		// subset of that size (mana values are nonnegative), so if it busts
+		// the cap no legal subset does. Every current corpus carrier has
+		// TargetMin$ 0, so this arm is prophylactic. Derive the effective
+		// minimum the same way targetChoiceFeasible does (the OneEach/
+		// same-controller/set-property bounds can lower min) so both readers
+		// reason about the same count.
+		eff := min
+		eff, _, _, _ = e.oneEachTargetBounds(sa, candidates, eff, 0)
+		eff, _, _, _ = e.sameControllerTargetBounds(sa, candidates, eff, 0)
+		eff, _, _, _, _ = e.setPropTargetBounds(sa, candidates, eff, 0)
+		if eff > 0 {
+			vms := make([]int, 0, len(candidates))
+			for _, c := range candidates {
+				if c.kind == "player" {
+					// Players are valid members of a target set and contribute
+					// zero to its total mana value.
+					vms = append(vms, 0)
+					continue
+				}
+				if o := e.G.Obj(c.obj); o != nil && o.Face() != nil {
+					vms = append(vms, int(o.Face().ManaValue()))
+				}
+			}
+			if len(vms) < eff {
+				return false
+			}
+			slices.Sort(vms)
+			total := 0
+			for _, mv := range vms[:eff] {
+				total += mv
+			}
+			return total <= capCMC
+		}
 		return true
 	}
 	if !targetCrossConstrained(sa) {

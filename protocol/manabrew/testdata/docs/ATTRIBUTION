@@ -1,0 +1,12 @@
+ManaBrew Protocol Specification
+https://docs.manabrew.app/protocol/ and its linked protocol pages
+
+The JSON examples in this directory are reconstructed from the ManaBrew
+protocol specification, which is licensed under the Creative Commons
+Attribution 4.0 International License (CC BY 4.0):
+https://creativecommons.org/licenses/by/4.0/
+
+They were rewritten as compact single-line fixtures for round-trip tests, so
+they are adapted from, not byte-identical to, the published examples.
+
+No source code from the ManaBrew reference implementation is included.

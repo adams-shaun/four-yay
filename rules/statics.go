@@ -1050,23 +1050,8 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	if spec, ok := sv.Params["IsPresent2"]; ok && !e.presentGate(sv, spec) {
 		return false
 	}
-	if name, ok := sv.Params["CheckSVar"]; ok {
-		o := e.G.Obj(sv.Source)
-		if o == nil || o.Face() == nil {
-			return false
-		}
-		svars := sv.SVars
-		if svars == nil {
-			svars = o.Face().SVars
-		}
-		body, ok := svars[name]
-		if !ok {
-			return false
-		}
-		cmp := sv.Params["SVarCompare"]
-		if cmp == "" || !comparePresent(int(effects.EvalCount(e, &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars}, body)), cmp) {
-			return false
-		}
+	if !e.checkSVarHolds(sv) {
+		return false
 	}
 	switch strings.TrimSpace(sv.Params["Condition"]) {
 	case "", "PlayerTurn":
@@ -1584,6 +1569,17 @@ func parseHiddenKeyword(k string) hiddenKeywordFlags {
 	case strings.EqualFold(head, "CARDNAME can't block."):
 		return hiddenKeywordFlags{cantBlock: true}
 	case strings.EqualFold(head, "CARDNAME must be blocked if able."):
+		return hiddenKeywordFlags{mustBlock: true}
+	case strings.EqualFold(head, "MustBlock"):
+		// The canonical head cards/parse.go rewrites the sentence form to
+		// (cards/hiddenkeyword.go CanonicalKeywordLine). Both spellings must
+		// reach the reader: a printed K: line arrives here as "MustBlock",
+		// while a runtime Pump/PumpAll `KW$ HIDDEN CARDNAME must be blocked
+		// if able.` grant never passes through the parser and keeps the
+		// sentence form above. The head is distinct from the Mode$ MustBlock
+		// static (a BLOCKER's duty, mustBlockCandidates): a keyword head and a
+		// static mode are separate namespaces, so this arm cannot borrow the
+		// blocker-oriented meaning.
 		return hiddenKeywordFlags{mustBlock: true}
 	}
 	return hiddenKeywordFlags{}
@@ -3726,6 +3722,21 @@ func init() {
 		// CombatDamageToughness body) is the same Effect-registration gap
 		// AssignCombatDamageAsUnblocked carries and stays ledgered.
 		"stat:CombatDamageToughness", "stat:CountersRemain")
+	// kw:MustBlock -- CR 509.1a, the ATTACKER's requirement "CARDNAME must be
+	// blocked if able.", read by hasMustBeBlockedKeyword (derivedHiddenFlags /
+	// parseHiddenKeyword in this file) and enforced by rules/combat.go
+	// askBlockers/validateBlockers. The printed sentence spelling is
+	// canonicalised to this head by cards/parse.go (cards/hiddenkeyword.go), so
+	// the coverage walk interns a real registered keyword head instead of a
+	// phantom `kw:CARDNAME must be blocked if able.` primitive. It is a
+	// keyword head, a separate namespace from the blocker-oriented Mode$
+	// MustBlock static; the corpus spells the attacker requirement only as the
+	// sentence, never as a bare `K:MustBlock` or `KW$ MustBlock` (0 occurrences
+	// at the pin), so the head cannot be confused with a native Forge keyword.
+	// The obvious alternative spelling MustBeBlocked is already taken by an
+	// unrelated Forge AI-hint SVar name (rules/layers.go GrantedSVar, 41
+	// corpus files), so it is deliberately NOT used here.
+	effects.RegisterNonAPI("kw:MustBlock")
 }
 
 // asUnblockedStaticMatches reports whether any battlefield
@@ -3884,6 +3895,89 @@ func (e *Engine) combatDamageToughnessMatches(id state.ObjID) bool {
 func (e *Engine) combatDamageAmount(id state.ObjID) int32 {
 	if e.combatDamageToughnessMatches(id) {
 		return e.Toughness(id)
+	}
+	return e.Power(id)
+}
+
+// tapPowerValueStatics collects every printed TapPowerValue static on the
+// battlefield (the mode's carriers are all ordinary permanents), honouring
+// each static's own EffectZone$ through activeStatics exactly as the
+// continuous walk does. The assignment family's broader zone walk
+// (assignmentStatics) is not needed: no corpus TapPowerValue source
+// functions from outside the battlefield, and admitting one would be a new
+// ticket, not this read.
+func (e *Engine) tapPowerValueStatics() []staticView {
+	return e.activeStatics("TapPowerValue")
+}
+
+// tapPowerSAScopeMatches reports whether a TapPowerValue static's ValidSA$
+// admits the activated-action kind saKind ("Station", "Crew", "Saddle").
+// Forge spells the value as a comma-separated OR list of
+// "Activated.<kind>[+<qualifier>]" ("Activated.Station",
+// "Activated.Crew+Vehicle,Activated.Saddle+Mount"); the first
+// '+'-separated token after the "Activated." prefix is the action kind. An
+// empty ValidSA$ admits every activated action; any other shape (a Spell
+// scope, a kind this build cannot classify) fails closed, so a static the
+// engine cannot scope never silently replaces a value.
+func tapPowerSAScopeMatches(validSA, saKind string) bool {
+	v := strings.TrimSpace(validSA)
+	if v == "" {
+		return true
+	}
+	for alt := range strings.SplitSeq(v, ",") {
+		alt = strings.TrimSpace(alt)
+		kind, rest, ok := strings.Cut(alt, ".")
+		if !ok || kind != "Activated" {
+			continue
+		}
+		token, _, _ := strings.Cut(rest, "+")
+		if strings.TrimSpace(token) == saKind {
+			return true
+		}
+	}
+	return false
+}
+
+// tapPowerValue returns the value a creature id contributes when it is
+// tapped to pay an activated action's tap-power amount -- CR 702.150a's
+// Station ("charge counters equal to its power"), Crew's "total power N or
+// greater" and Saddle's count. It honours any stat:TapPowerValue static
+// whose ValidSA$ scopes that action kind and whose ValidCard$ matches the
+// candidate: Tapestry Warden makes the controller's toughness>power
+// creatures station using their TOUGHNESS, and the Pilot family makes its
+// bearer act as though its power were N greater (Value$ <N>). The default is
+// the creature's layer-derived power.
+//
+// This is the ONE read of that value, so the Station offer label, the
+// affordability sum and the effect amount cannot disagree (the repo rule
+// that a read rule has one home). It goes through the shared
+// restriction/condition/ClassLevel gates, so an unmodelled gate fails closed
+// to plain power rather than replacing the value blanket.
+func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
+	for _, sv := range e.tapPowerValueStatics() {
+		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
+			continue
+		}
+		if !e.classBandGateHolds(sv.Params, sv.Source) {
+			continue
+		}
+		if !tapPowerSAScopeMatches(sv.Params["ValidSA"], saKind) {
+			continue
+		}
+		if !e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+			continue
+		}
+		switch v := strings.TrimSpace(sv.Params["Value"]); v {
+		case "Toughness":
+			return e.Toughness(id)
+		default:
+			// A numeric Value$ is Forge's additive "as though its power were
+			// N greater" (every numeric corpus carrier's Description says
+			// exactly that), not a replacement with the literal number.
+			if n, err := strconv.Atoi(v); err == nil {
+				return e.Power(id) + int32(n)
+			}
+		}
 	}
 	return e.Power(id)
 }

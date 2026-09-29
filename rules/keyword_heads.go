@@ -37,6 +37,7 @@ var (
 	kwhEscape           = newKWHead("Escape")
 	kwhExploit          = newKWHead("Exploit")
 	kwhFear             = newKWHead("Fear")
+	kwhFirebending      = newKWHead("Firebending")
 	kwhFirstStrike      = newKWHead("First Strike")
 	kwhFlash            = newKWHead("Flash")
 	kwhFlashback        = newKWHead("Flashback")

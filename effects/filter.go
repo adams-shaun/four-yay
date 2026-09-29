@@ -4223,6 +4223,17 @@ func cmcSetMember(o *state.Object, prop string) bool {
 }
 
 func numericPred(name string, g *state.Game, o *state.Object, sc SpecContext) (result, ok bool) {
+	if name == "cmcChosenEvenOdd" {
+		if g == nil || o == nil {
+			return false, true
+		}
+		source := g.Obj(sc.Source)
+		if source == nil || (source.ChosenType != "odd" && source.ChosenType != "even") {
+			return false, true
+		}
+		odd := objectManaValue(o)%2 == 1
+		return (source.ChosenType == "odd") == odd, true
+	}
 	resolve := sc.Resolve
 	if resolve == nil {
 		resolve = noResolve

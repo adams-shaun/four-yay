@@ -44,6 +44,12 @@ const chooseStation chooseFor = iota + 13
 // is the cast flow's; no handler exists, by design.
 const chooseUnlock chooseFor = iota + 14
 
+// stationSAKind is the TapPowerValue ValidSA$ action token a Station static
+// scopes to (Tapestry Warden's `ValidSA$ Activated.Station`). It is the
+// saKind every Station power read passes to tapPowerValue, so the offer
+// label and the counter amount agree.
+const stationSAKind = "Station"
+
 func hasCreatureType(types []string) bool {
 	for _, typ := range types {
 		if typ == "Creature" {
@@ -96,7 +102,7 @@ func (e *Engine) askStation(p state.PlayerID, opt decision.Option) {
 			name = co.Face().Name
 		}
 		opts = append(opts, decision.Option{Index: len(opts), Kind: "station",
-			Label: fmt.Sprintf("Tap %s (power %d) to station", name, e.Power(id)),
+			Label: fmt.Sprintf("Tap %s (power %d) to station", name, e.tapPowerValue(id, stationSAKind)),
 			Obj:   id, Player: p})
 	}
 	e.choosing = chooseStation
@@ -107,8 +113,10 @@ func (e *Engine) askStation(p state.PlayerID, opt decision.Option) {
 
 // handleStation applies the answered Station pick: the Tap is the cost (one
 // event), the CHARGE counters the effect, its amount the tapped creature's
-// layer-derived power read at answer time. A stale answer (the creature left
-// play, or is already tapped) degrades to a no-op rather than wedging.
+// tap-power value read at answer time (CR 702.150a's power, or the toughness
+// a stat:TapPowerValue static like Tapestry Warden's substitutes). A stale
+// answer (the creature left play, or is already tapped) degrades to a no-op
+// rather than wedging.
 func (e *Engine) handleStation(spacecraft state.ObjID, chosen []decision.Option) {
 	e.stationing = 0
 	if len(chosen) == 0 {
@@ -124,7 +132,7 @@ func (e *Engine) handleStation(spacecraft state.ObjID, chosen []decision.Option)
 	// explicitly (chosen[0].Player is the station ask's own player).
 	prevAdder := e.SetCounterAdder(chosen[0].Player)
 	defer e.SetCounterAdder(prevAdder)
-	n := e.Power(id)
+	n := e.tapPowerValue(id, stationSAKind)
 	e.emit(events.Event{Kind: events.Tap, Obj: id})
 	if n > 0 {
 		e.emit(events.Event{Kind: events.CounterChange, Obj: spacecraft,

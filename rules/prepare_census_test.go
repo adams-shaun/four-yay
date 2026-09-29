@@ -1,27 +1,32 @@
 package rules
 
-// Prepare-mode modal pair census (ticket agent-20260928T214048Z-a90202e9).
+// Prepare-mode modal pair census (ticket agent-20260928T214048Z-a90202e9,
+// corrected by agent-20260928T215803Z-ddee4eed).
 //
 // Forge encodes the Secrets of Strixhaven "prepared spell" pairs with a
 // card-level `AlternateMode:Prepare`: a permanent front (which enters
-// prepared and may cast a copy of its back-face spell while prepared) and a
-// spell back. rules/legal.go's modalSpellBack now treats a Prepare pair like
-// a Modal DFC (modalSpellFacePair), so the back-face spell is offered from
-// hand with its own cost, timing, targets and restriction and resolves to the
-// graveyard (CR 712.3a).
+// prepared and may cast a COPY of its back-face spell while prepared) and a
+// spell back. A Prepare pair is NOT a modal DFC: CR 722.3 says preparation
+// cards "can't be cast using the alternative characteristics found within
+// their inset frames", so rules/legal.go's modalSpellBack must NOT offer the
+// inset spell from hand. The only way to cast it is CR 722.3c's copy made in
+// exile while the front permanent is prepared (rules/legal.go mode
+// "prepared_copy", pinned by rules/prepared_test.go).
 //
 // The census below is the class-wide ledger for that shape. It pins the exact
 // set of Prepare cards in the corpus, in both directions, and it pins the two
-// sub-classes the offer has to distinguish:
+// sub-classes a hand-walk gate would otherwise have to distinguish:
 //
-//   - inline backs: the ALTERNATE block names a real Instant/Sorcery face, so
-//     modalSpellBack must return it (33 corpus cards today);
+//   - inline backs: the ALTERNATE block names a real Instant/Sorcery face
+//     (33 corpus cards today);
 //   - `CopyFaceFrom` stubs: the ALTERNATE block is only a directive this
 //     parser does not resolve, so the back face parses nameless with no types
-//     or cost. modalSpellBack must return nil for those, or the offer would
-//     put a free, empty-named cast on the stack (21 corpus cards today;
-//     resolving CopyFaceFrom is a separate parser ticket, reported in the
-//     ticket report's Issues section).
+//     or cost (21 corpus cards today; resolving CopyFaceFrom is a separate
+//     parser ticket).
+//
+// BOTH sub-classes must be refused by modalSpellBack (CR 722.3), so the
+// 33/21 split is a corpus measurement only -- it does not imply any inline
+// back is castable from hand.
 //
 // A counted census is a ratchet: a Prepare card added to the corpus, an inline
 // back turning into a stub (or the reverse), or the helper's classification
@@ -154,11 +159,12 @@ func TestPrepareCensusMatchesCorpus(t *testing.T) {
 }
 
 // TestPrepareBackFaceHelperCensus pins modalSpellBack's classification over
-// every Prepare card: an inline Instant/Sorcery back must be returned (the
-// offer's precondition), and an unresolved CopyFaceFrom stub must be rejected
-// (otherwise the hand walk would offer a free, empty-named cast). This is the
-// class-wide assertion behind TestSetAudit_sos_TamObservantSequencer_CastBackFace;
-// it fails for any inline back the fix does not reach, not just Tam.
+// every Prepare card: CR 722.3 makes the inset prepare spell uncasteable from
+// hand in BOTH sub-classes, so the helper must return nil for every inline
+// back (33) and every unresolved CopyFaceFrom stub (21). This is the
+// class-wide assertion behind
+// TestSetAudit_sos_TamObservantSequencer_PrepareSpellNotCastableFromHand; it
+// fails for any prepare spell the hand walk would wrongly offer, not just Tam.
 func TestPrepareBackFaceHelperCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
@@ -172,24 +178,20 @@ func TestPrepareBackFaceHelperCensus(t *testing.T) {
 		got := modalSpellBack(o)
 		back := c.Faces[1]
 		if back.Name == "" {
-			// Unresolved CopyFaceFrom stub: the helper must reject it. If it
-			// does not, the hand walk offers "Cast " with a free cost.
+			// Unresolved CopyFaceFrom stub. If the helper returned it, the hand
+			// walk would offer "Cast " with a free cost.
 			stubs++
-			if got != nil {
-				t.Errorf("prepare helper: %q stub back %+v was returned by modalSpellBack, want nil",
-					c.Faces[0].Name, back)
+		} else {
+			// Inline back: a real named Instant/Sorcery face. CR 722.3 still
+			// forbids casting it from hand.
+			inline++
+			if !back.IsInstant() && !back.IsSorcery() {
+				t.Errorf("prepare helper: %q inline back %q is neither Instant nor Sorcery", c.Faces[0].Name, back.Name)
 			}
-			continue
 		}
-		// Inline back: a real named face, so the helper must return exactly
-		// the back face and the card must be a spell half (Instant/Sorcery).
-		inline++
-		if got == nil || got.Name != back.Name {
-			t.Errorf("prepare helper: %q back = %+v, want %q", c.Faces[0].Name, got, back.Name)
-			continue
-		}
-		if !back.IsInstant() && !back.IsSorcery() {
-			t.Errorf("prepare helper: %q inline back %q is neither Instant nor Sorcery", c.Faces[0].Name, back.Name)
+		if got != nil {
+			t.Errorf("prepare helper: %q back %+v was returned by modalSpellBack, want nil (CR 722.3)",
+				c.Faces[0].Name, back)
 		}
 	}
 	if inline != 33 || stubs != 21 {

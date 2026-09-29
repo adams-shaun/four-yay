@@ -94,7 +94,7 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
 		events.ChaosEnsues, events.ManaUndo, events.EndTurn,
 		events.DungeonCreate, events.DungeonRoom, events.DungeonComplete,
-		events.DungeonRemove, events.InitiativeChange:
+		events.DungeonRemove, events.InitiativeChange, events.SkipTurn:
 		// ManaUndo is the announced payment window's CR 733.1 reversal of a
 		// mana activation: nothing triggers from an undone action, so it
 		// carries no interest bits.
@@ -226,6 +226,17 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		// InitiativeChange is likewise a designation update read through
 		// IsInitiative by intervening-if predicates; no T: mode fires on
 		// the designation change itself.
+		//
+		// SkipTurn (CR 500.9) records the grant and the consumption of a
+		// skipped turn (rules/turn.go's boundary arithmetic, effects/dice.go's
+		// SkipTurn NumTurns$ grants): the pool is read back through
+		// state.Game.SkipTurns by the turn-boundary logic, never through a
+		// trigger mode -- no T: line in the corpus fires on a turn being
+		// skipped. Its ordinal (117) sits past triggerMaskKindBits, so both
+		// classifiers fail open before this map is consulted; naming it keeps
+		// the audit complete if the bound ever widens and keeps it out of the
+		// catch-all default that would otherwise claim the kind
+		// trigger-relevant.
 		return 0
 	case events.Attach:
 		return cards.TriggerInterestAttach

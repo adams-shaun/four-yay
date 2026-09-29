@@ -631,42 +631,29 @@ func TestSetAudit_sos_RestorationSeminar_ParadigmNextMainCopyCast(t *testing.T) 
 }
 
 // ---------------------------------------------------------------------------
-// (b) MDFC corner case: casting the BACK face of a modal double-faced card.
-// Tam, Observant Sequencer // Deep Sight: the back face is a sorcery
-// ("You draw a card and gain 1 life"), so a hand cast must resolve the back
-// face and never put a permanent onto the battlefield (CR 712.3a).
-func TestSetAudit_sos_TamObservantSequencer_CastBackFace(t *testing.T) {
+// (b) Preparation-card corner case (CR 722.3): the inset prepare spell is
+// NOT a castable MDFC back face. It can only be cast as a copy made in exile
+// by the prepared permanent (tested above).
+func TestSetAudit_sos_TamObservantSequencer_PrepareSpellNotCastableFromHand(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 912, []string{"Tam, Observant Sequencer // Deep Sight"}, nil, nil)
 	tam := findAndMoveToHand(t, e, 0, "Tam, Observant Sequencer")
 	if tam == 0 {
 		t.Fatal("Tam, Observant Sequencer not in hand")
 	}
-	libBefore := len(e.G.Zone(state.ZLibrary, 0))
-	addMana(t, e, 0, "GGUU") // enough for BOTH faces: front {2}{G}{U}, back {G}{U}
-	// Pick the BACK-face cast option explicitly; if only the front face is
-	// offered, that is itself the finding.
-	backIdx := -1
-	var offered []decision.Option
+	addMana(t, e, 0, "GGUU") // enough for both printed mana costs
+	frontOffered := false
 	for _, o := range castOptions(t, e) {
 		if o.Obj != tam {
 			continue
 		}
-		offered = append(offered, o)
-		if strings.Contains(o.Label, "Deep Sight") {
-			backIdx = o.Index
+		if strings.Contains(o.Mode, "Deep Sight") || strings.Contains(o.Label, "Deep Sight") {
+			t.Errorf("prepare spell: Deep Sight offered from hand: %+v (CR 722.3)", o)
 		}
+		frontOffered = true
 	}
-	if backIdx < 0 {
-		t.Fatalf("mdfc: no back-face (Deep Sight) cast option offered; options: %+v", offered)
-	}
-	submitChoices(t, e, backIdx)
-	passUntilStackEmpty(t, e, 20)
-	if life := e.G.Players[0].Life; life != 21 {
-		t.Errorf("mdfc back face: life = %d, want 21 (Deep Sight gained 1 life)", life)
-	}
-	if got, want := len(e.G.Zone(state.ZLibrary, 0)), libBefore-1; got != want {
-		t.Errorf("mdfc back face: library = %d, want %d (Deep Sight drew one card)", got, want)
+	if !frontOffered {
+		t.Fatal("precondition: Tam's ordinary front-face cast was not offered")
 	}
 	replayCheck(t, e, cfg)
 }
@@ -777,8 +764,6 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Census ONLY (not a behavioural test): cards.Registry.Unsupported still
 // names these missing primitives. Each entry here is a root-cause gap:
-// api:SkipTurn (Ral Zarek's [-7] "target opponent skips their next X
-// turns"), and
 // count:PlayerCountRemembered$Valid (Pox Plague).
 //
 // stat:CantBeCopied (Choreographed Sparks) used to be a row here; it is
@@ -797,14 +782,14 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 // rules/paradigm_test.go's TestParadigmCensus.
 func TestSetAudit_sos_CensusLevelGaps(t *testing.T) {
 	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): 2 sos cards still name missing primitives (api:SkipTurn, count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
+		t.Skip("set-audit finding (sos): 1 sos card still names a missing primitive (count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
 	}
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	names := []string{
-		// single-card gaps
-		"Ral Zarek, Guest Lecturer", "Pox Plague",
+		// single-card gap
+		"Pox Plague",
 	}
 	for _, name := range names {
 		c := sosCard(t, name)

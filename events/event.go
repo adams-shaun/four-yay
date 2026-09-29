@@ -1055,6 +1055,9 @@ const (
 	// designation the live match had. Appended after DungeonRemove so no
 	// earlier ordinal, hash chain or golden replay is affected.
 	InitiativeChange
+	// SkipTurn records grants and consumption of skipped turns (CR 500.9).
+	// Appended to preserve every earlier event ordinal.
+	SkipTurn
 	// Crew records one CR 702.122 crew action (the `K:Crew` keyword, task
 	// crewedthisturn1): Obj is the CREWING creature (one of the creatures the
 	// crew cost tapped), Player its controller, and IDs[0] the Vehicle that
@@ -1064,9 +1067,9 @@ const (
 	// source-relative filter reads. Apply folds the (CrewedTurn, CrewedVehicles)
 	// pairing into state.Object; TurnChange and the leaving-the-battlefield
 	// Move clear it. One event per crewing creature, so a Crew N action emits
-	// N of them. Appended here, after InitiativeChange, following every prior
-	// Kind's own append-only precedent, so no earlier ordinal, hash chain or
-	// golden replay is affected.
+	// N of them. Appended here, after SkipTurn, following every prior Kind's
+	// own append-only precedent, so no earlier ordinal, hash chain or golden
+	// replay is affected.
 	Crew
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
@@ -1217,7 +1220,7 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
 	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
 	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
-	"initiative_change", "crew"}
+	"initiative_change", "skip_turn", "crew"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {
@@ -1322,6 +1325,27 @@ const manaPersistentSuffix = " pm"
 // marker is meaningless — the consumed batch's own Persistent flag is
 // authoritative.
 func ManaPersistentText(text string) string { return text + manaPersistentSuffix }
+
+// manaCombatPersistentSuffix marks a ManaAdd event whose added mana carries
+// the "until end of combat, you don't lose this mana as steps and phases
+// end" exception (CR 702.189a Firebending). It is manaPersistentSuffix's
+// strictly-shorter companion: the units are persistent (they survive the
+// step boundaries within the combat phase) AND also counted in
+// Player.CombatMana, the subset events.Apply's StepChange fold demotes as the
+// end-of-combat step is left, so the same boundary's ManaClear empties them.
+// It rides Text after every other encoding exactly like the persistent
+// suffix, so it composes with a restriction batch, and ordinary historical
+// ManaAdd events never carry it. A spend consumes the units through the
+// ordinary persistent attribution (the payment path emits the plain " pm"
+// marker and the fold moves both tallies), so this marker never appears on a
+// negative event the engine itself writes.
+const manaCombatPersistentSuffix = " pmc"
+
+// ManaCombatPersistentText appends the until-end-of-combat marker to a
+// ManaAdd event's Text encoding (which may already carry the restriction
+// encoding). On a positive add the marker raises Player.PersistentMana AND
+// Player.CombatMana with the pool unit.
+func ManaCombatPersistentText(text string) string { return text + manaCombatPersistentSuffix }
 
 // ManaRestrictionFromText returns the constraint carried by a restricted
 // ManaAdd event, with the producing source id when the encoding carries one

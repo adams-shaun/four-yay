@@ -88,7 +88,6 @@ func tlaCastByName(t *testing.T, e *Engine, name, mana string) (state.ObjID, boo
 // add N {R}. Until end of combat, you don't lose this mana as steps and phases
 // end." Fire Sages prints K:Firebending:1, so attacking must add one red mana.
 func TestSetAudit_tla_FireSages_FirebendingAddsManaOnAttack(t *testing.T) {
-	tlaSkip(t, "K:Firebending has no cards/kw_firebending.go expander and no rules handler, so the 21 tla Firebending cards are silent no-ops. Follow-up: tla-firebending-unimplemented")
 	reg := testutil.CorpusRegistry(t)
 	e, _, _ := newFixtureDeck(t, 17, "Name:Placeholder\nManaCost:0\nTypes:Creature Bear\nPT:1/1\nOracle:x\n")
 	fireSages := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Fire Sages"))
@@ -103,7 +102,6 @@ func TestSetAudit_tla_FireSages_FirebendingAddsManaOnAttack(t *testing.T) {
 // SVar X:Count$CardPower): a 1/2 student attacking adds one red mana, not a
 // fixed amount. CR 702.189a.
 func TestSetAudit_tla_FirebendingStudent_DynamicPowerAddsMana(t *testing.T) {
-	tlaSkip(t, "K:Firebending has no expander, so the dynamic power count never adds mana. Follow-up: tla-firebending-unimplemented")
 	reg := testutil.CorpusRegistry(t)
 	e, _, _ := newFixtureDeck(t, 18, "Name:Placeholder\nManaCost:0\nTypes:Creature Bear\nPT:1/1\nOracle:x\n")
 	student := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Firebending Student"))
@@ -407,16 +405,19 @@ func TestSetAudit_tla_RuinousWaterbending_OptionalCostOffered(t *testing.T) {
 // TestSetAudit_tla_DiligentZookeeper_CountsCreatureTypes pins the continuous
 // bonus "Each non-Human creature you control gets +1/+1 for each of its
 // creature types, to a maximum of 10." A Cat Soldier is two creature types, so
-// it must be +2/+2; a Human creature gets nothing. Count$ValidSelf
-// (Card$CreatureType/LimitMax.10) is unread, so the static is a no-op and the
-// card is counted supported while its whole rules text does nothing.
+// it must be +2/+2; a Human creature gets nothing; and a creature with more
+// than ten creature types is capped at +10/+10.
 func TestSetAudit_tla_DiligentZookeeper_CountsCreatureTypes(t *testing.T) {
-	tlaSkip(t, "Count$ValidSelf (Card$CreatureType/LimitMax.10) is unread, so Diligent Zookeeper's +1/+1-per-type bonus is a no-op. Follow-up: tla-diligent-zookeeper-validself-count")
 	reg := testutil.CorpusRegistry(t)
 	e := combatEngine(t)
 	onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Diligent Zookeeper"))
 	cat := onBoard(t, e, 0, "Name:Feline Warrior\nManaCost:0\nTypes:Creature Cat Soldier\nPT:2/2\nOracle:x\n")
 	human := onBoard(t, e, 0, "Name:Village Guard\nManaCost:0\nTypes:Creature Human Soldier\nPT:2/2\nOracle:x\n")
+	// Eleven creature types, so the +1/+1-per-type bonus would be +11/+11
+	// without the LimitMax.10 cap. This is the cap's precondition: the raw
+	// distinct-type count (11) must EXCEED the cap (10), or the assertion
+	// below could not fail on a missing cap.
+	many := onBoard(t, e, 0, "Name:Chimera of Many Forms\nManaCost:0\nTypes:Creature Cat Soldier Warrior Wizard Cleric Rogue Druid Shaman Knight Ranger Barbarian Scout\nPT:1/1\nOracle:x\n")
 	dc := e.Derived(cat)
 	if dc.Power != 4 || dc.Toughness != 4 {
 		t.Fatalf("Cat Soldier P/T = %d/%d, want 4/4 (2 creature types, +2/+2)", dc.Power, dc.Toughness)
@@ -424,6 +425,10 @@ func TestSetAudit_tla_DiligentZookeeper_CountsCreatureTypes(t *testing.T) {
 	dh := e.Derived(human)
 	if dh.Power != 2 || dh.Toughness != 2 {
 		t.Fatalf("Human Soldier P/T = %d/%d, want 2/2 (non-Human filter excludes it)", dh.Power, dh.Toughness)
+	}
+	dm := e.Derived(many)
+	if dm.Power != 11 || dm.Toughness != 11 {
+		t.Fatalf("11-type creature P/T = %d/%d, want 11/11 (base 1/1 + capped 10/+10)", dm.Power, dm.Toughness)
 	}
 }
 

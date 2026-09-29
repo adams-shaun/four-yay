@@ -142,6 +142,11 @@ var expandedHeads = []string{
 	// (cards/kw_jobselect.go). Added after the split; the pre-split switch
 	// never expanded it.
 	"Job select",
+	// Firebending (CR 702.189): an Attacks self-trigger whose body adds N red
+	// mana that does not empty until end of combat (cards/kw_firebending.go,
+	// the PersistentUntilEndOfCombat$ form). Added after the split; the
+	// pre-split switch never expanded it.
+	"Firebending",
 }
 
 func TestEveryExpandedKeywordHasAnExpander(t *testing.T) {
