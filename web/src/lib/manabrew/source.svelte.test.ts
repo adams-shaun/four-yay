@@ -34,14 +34,49 @@ function fake(first: EngineMessage[], opts: { stateError?: MbError; sendError?: 
 
 const recordMsgs = (run: string, i: number) => runs.find((r) => r.run === run)!.records[i].manabrew;
 
-async function started(run: string, opts: Parameters<typeof fake>[1] = {}) {
+async function started(run: string, opts: Parameters<typeof fake>[1] & { compat?: boolean } = {}) {
   const f = fake(recordMsgs(run, 0), opts);
-  const m = new ManaBrewMatch('g1', { seat: 0, token: 'tok' }, { transport: f.transport, fetchMatches: async () => [info] });
+  const m = new ManaBrewMatch('g1', { seat: 0, token: 'tok' }, { transport: f.transport, fetchMatches: async () => [info], compat: opts.compat ?? false });
   const events: ModelEvent[] = [];
   m.onModel((e) => events.push(e));
   const res = await m.start();
   return { m, f, events, res };
 }
+
+describe('ManaBrewMatch compat auto-pass', () => {
+  const prompt = (promptId: number, actions: unknown[]): EngineMessage => ({ kind: 'prompt', promptId, decidingPlayerId: 'p0', input: { type: 'chooseAction', actions } }) as EngineMessage;
+  const mana = { id: 'm1', type: 'activateAbility', cardId: 'c1', isManaAbility: true };
+
+  it('passes a priority ask with nothing to do but make mana, without showing it', async () => {
+    const { m, f } = await started('cast', { compat: true });
+    f.emit(prompt(9000, []));
+    f.emit(prompt(9001, [mana]));
+    await Promise.resolve();
+    expect(f.sent).toEqual([9000, 9001].map((promptId) => ({ kind: 'response', promptId, action: { type: 'chooseAction', output: { type: 'pass', exhaustStack: false } } })));
+    expect(m.openPrompt).toBeNull();
+    expect(m.view?.decision ?? null).toBeNull();
+    expect(m.autoPassed).toBe(2);
+  });
+
+  it('shows an ask with a real play, and every ask when the setting is off', async () => {
+    const on = await started('cast', { compat: true });
+    on.f.emit(prompt(9000, [mana, { id: 'pay-5', type: 'cast', cardId: 'c5' }]));
+    expect(on.f.sent).toEqual([]);
+    expect(on.m.openPrompt?.promptId).toBe(9000);
+    const off = await started('cast');
+    off.f.emit(prompt(9000, []));
+    expect(off.f.sent).toEqual([]);
+    expect(off.m.openPrompt?.promptId).toBe(9000);
+  });
+
+  it('shows a rewound (undo) ask even when it has nothing to do', async () => {
+    const { m, f } = await started('cast', { compat: true });
+    f.emit(prompt(9005, [{ id: 'pay-5', type: 'cast', cardId: 'c5' }]));
+    f.emit(prompt(9002, [mana]));
+    expect(f.sent).toEqual([]);
+    expect(m.openPrompt?.promptId).toBe(9002);
+  });
+});
 
 describe('ManaBrewMatch', () => {
   it('starts from the probe, opens the stream with the seat token, and poses the open prompt', async () => {
