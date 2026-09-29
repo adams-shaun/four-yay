@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1186,7 +1187,10 @@ func TestServeFlagAutoManaDefaultsOnAndFalseRestoresLegacyTables(t *testing.T) {
 // TestServeFlagBotPolicyReachesStartupAndOnDemandTables pins -bot-policy:
 // the production bot by default, the named policy on every startup table,
 // and the on-demand default when a POST /api/games names none -- while an
-// explicit request still wins.
+// explicit request still wins. The on-demand half goes through the real
+// httpapi handler with the lobby's own body (no bot_policy): the handler
+// once normalized an omitted policy to "bot" before the builder saw it,
+// which a direct createGame call could not observe.
 func TestServeFlagBotPolicyReachesStartupAndOnDemandTables(t *testing.T) {
 	fs, c := serveFlags()
 	if err := fs.Parse(nil); err != nil {
@@ -1206,19 +1210,24 @@ func TestServeFlagBotPolicyReachesStartupAndOnDemandTables(t *testing.T) {
 	}
 	r, gate := freshGameLock(t)
 	c.mulligans = 0
-	create := c.createGame(r, gate, []string{"a", "b"}, []string{"c", "d"}, view.Public)
-	resp, err := create(httpapi.CreateGameOptions{Format: host.FormatConstructed})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.BotPolicy != host.LethalPressurePolicy {
-		t.Fatalf("omitted policy served %q, want the server's %q", resp.BotPolicy, host.LethalPressurePolicy)
-	}
-	resp, err = create(httpapi.CreateGameOptions{Format: host.FormatConstructed, BotPolicy: host.BotPolicy})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.BotPolicy != host.BotPolicy {
-		t.Fatalf("explicit policy served %q, want %q", resp.BotPolicy, host.BotPolicy)
+	srv := httptest.NewServer(httpapi.NewHandler(r, httpapi.Options{
+		CreateGame: c.createGame(r, gate, []string{"a", "b"}, []string{"c", "d"}, view.Public),
+		Seat:       gate.resolve,
+	}))
+	defer srv.Close()
+	for _, tc := range []struct{ body, want string }{
+		{`{"format":"constructed","mulligans":0}`, host.LethalPressurePolicy},
+		{`{"format":"constructed","mulligans":0,"bot_policy":"bot"}`, host.BotPolicy},
+	} {
+		table, _ := createVsBotGame(t, srv.URL, tc.body)
+		var got string
+		for _, info := range r.Tables() {
+			if string(info.ID) == table {
+				got = info.BotPolicy
+			}
+		}
+		if got != tc.want {
+			t.Fatalf("POST %s: table %s bot policy %q, want %q", tc.body, table, got, tc.want)
+		}
 	}
 }

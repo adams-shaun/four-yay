@@ -134,7 +134,9 @@ func TestCreateGameBotPolicyDecodeAndRejectsDiagnostic(t *testing.T) {
 			t.Fatalf("%s returned %d", body, status)
 		}
 	}
-	if len(got) != 2 || got[0].BotPolicy != host.BotPolicy || got[1].BotPolicy != host.LethalPressurePolicy {
+	// An omitted policy reaches the builder empty, so the builder's server
+	// default applies; a named one arrives as named.
+	if len(got) != 2 || got[0].BotPolicy != "" || got[1].BotPolicy != host.LethalPressurePolicy {
 		t.Fatalf("builder options = %+v", got)
 	}
 	for _, body := range []string{`{"bot_policy":"legacy"}`, `{"bot_policy":"random"}`, `{"bot_policy":"az"}`} {
