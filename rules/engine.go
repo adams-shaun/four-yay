@@ -816,6 +816,16 @@ type Engine struct {
 	// every flip performed before the suspension. Transient scratch: rebuilt
 	// identically by replay, nil outside a chain or before any flip.
 	resolvingFlipMemory *effects.FlipMemory
+	// resolvingExchangeMemory is the ExchangeLife rider memory of the Resolve
+	// chain whose effect is CURRENTLY running, published by effects.Resolve
+	// (and by effExchangeLife when it lazily allocates the memory) through
+	// the optional Host.SetResolutionExchangeMemory seam and restored on
+	// return. Ask captures it onto the pending resumePoint, so a resumed
+	// continuation re-attaches the SAME pointer and a chained
+	// Count$RememberedNumber reader keeps the value the exchange transaction
+	// settled after the suspension. Transient scratch: rebuilt identically by
+	// replay, nil outside a chain or before any exchange rider.
+	resolvingExchangeMemory *effects.ExchangeMemory
 	// villainousRemembered is the victim of the VillainousChoice whose chosen
 	// body is CURRENTLY resolving, kept as ambient engine state for the
 	// duration of that body's effects.Resolve — the fusedResolving pattern.

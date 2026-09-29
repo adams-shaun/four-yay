@@ -2432,8 +2432,13 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		// number and the same provenance read the CR 903.8 commander tax.
 		return h.CommanderCastsFromCommandZone(c.Controller), true
 	case "RememberedNumber":
-		if c.ExchangeNumberBound {
-			return c.ExchangeNumber, true
+		// The chain's shared ExchangeLife rider (RememberOwnLoss$/
+		// RememberDifference$) takes precedence: the pointer is re-attached to
+		// every Ctx a suspension rebuilds, so the chained SubAbility$ reader
+		// keeps the value the exchange transaction settled (Mister Negative's
+		// draw count under a Lich suspension).
+		if c.ExchangeMemory != nil && c.ExchangeMemory.Bound {
+			return c.ExchangeMemory.Number, true
 		}
 		// Forge's Count$RememberedNumber is the executing ability's remembered
 		// count -- the same list evalRememberedOK's Amount head reads, so it

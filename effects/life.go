@@ -49,7 +49,20 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 	}
 	oldA, oldB := h.Game().Players[a].Life, h.Game().Players[b].Life
 	if sa.Params["RememberOwnLoss"] == "True" || sa.Params["RememberDifference"] == "True" {
-		c.ExchangeNumber, c.ExchangeNumberBound = 0, true
+		// Lazily allocate the chain's shared ExchangeMemory (and re-publish it
+		// through the seam, the way effFlipCoin publishes a lazily allocated
+		// FlipMemory) so an ask this exchange's own walk poses LATER — a
+		// replacement body's draw parking a Dredge ask — captures the pointer
+		// onto its resume point, and the SubAbility$ continuation a resume
+		// rebuilds still shares this same memory.
+		m := c.ExchangeMemory
+		if m == nil {
+			m = &ExchangeMemory{Bound: true}
+			c.ExchangeMemory = m
+			if emh, ok := h.(exchangeMemoryHost); ok {
+				emh.SetResolutionExchangeMemory(m)
+			}
+		}
 	}
 	if oldA == oldB {
 		return
@@ -70,7 +83,7 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 				before = oldB
 			}
 			if loss := before - h.Game().Players[c.Controller].Life; loss > 0 {
-				c.ExchangeNumber = loss
+				c.ExchangeMemory.Number = loss
 			}
 		}
 	}
@@ -79,8 +92,7 @@ func effExchangeLife(h Host, c *Ctx, sa *cards.SA) {
 		if diff < 0 {
 			diff = -diff
 		}
-		c.ExchangeNumber = diff
-		c.ExchangeNumberBound = true
+		c.ExchangeMemory.Number = diff
 	}
 }
 
