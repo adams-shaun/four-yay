@@ -1,0 +1,6 @@
+ManaBrew Protocol Specification
+https://docs.manabrew.app/protocol/ and linked protocol pages
+
+The protocol-derived wire type definitions in this package are based on the ManaBrew protocol specification, licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/.
+
+No source code from the ManaBrew reference implementation is included.
