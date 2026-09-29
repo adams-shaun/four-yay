@@ -356,10 +356,10 @@
   .handfan[data-peek='never'] .card:hover {
     transform: translateY(0);
   }
-  /* Each face is absolutely positioned by the layout's step, then that step
-     is also the negative margin so a face slides UNDER the one ahead of it
-     when the fan overlaps: the first card is front-most (highest stacking),
-     the last is behind it. Hovering raises the face. */
+  /* Cards are positioned by the layout's step. At rest their faces paint in
+     DOM order: the later card covers the earlier face in the shared band.
+     Keep the resting card free of stacking contexts (including transform and
+     filter), so its z-indexed controls can rise above neighbouring faces. */
   .card {
     position: absolute;
     top: 0;
@@ -367,9 +367,7 @@
     aspect-ratio: 63 / 88;
     pointer-events: auto;
     cursor: pointer;
-    transition: transform 0.12s ease-out, filter 0.12s ease-out;
-    transform: translateY(0);
-    filter: brightness(0.92);
+    transition: transform 0.12s ease-out;
   }
   /* The hovered / focused face lifts off the row, the competitive raise, and
      the faces behind it go under rather than over it. The raise is the same
@@ -402,8 +400,11 @@
   .card:hover,
   .card:has(:focus-visible) {
     transform: translateY(calc(var(--peek, 0.5) * -100%));
-    filter: brightness(1);
     z-index: 10;
+  }
+  .card:hover .face,
+  .card:has(:focus-visible) .face {
+    filter: brightness(1);
   }
   .face:focus-visible {
     outline: 2px solid var(--initiative);
@@ -441,6 +442,8 @@
      HandFan.geometry.test.ts. */
   .face {
     scroll-margin-bottom: calc(var(--card-w) * -50 / 63);
+    filter: brightness(0.92);
+    transition: filter 0.12s ease-out;
   }
   .face[data-selected] {
     box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--felt-sunk);
@@ -457,9 +460,9 @@
      tile, a bare face has no corner that already means something (no keyword
      marks, no state band), and the hand must OPEN UPWARD — it sits at the
      board's bottom, so a menu that opened down would leave the felt. The
-     badge clears the card in front of it (the overlap fan's front-most card
-     is the lowest index; the cards ahead are behind it), so it is never
-     covered. */
+     later faces cover earlier faces in the shared band, but this z-indexed
+     affordance paints above every resting face, not inside its face's
+     stacking context. */
   .tile-actions {
     position: absolute;
     top: 1px;

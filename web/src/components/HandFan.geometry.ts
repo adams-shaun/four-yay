@@ -25,8 +25,8 @@ import HandFan from './HandFan.svelte';
  * The blank does not affect the geometry — the .card box sizes itself from
  * width + aspect-ratio 63/88, and that box is what is measured.
  *
- * Seven cards over a 600px room engages the horizontal overlap (natural width
- * 788 > 600, step ≈ 82.7 < 104): the fan genuinely overlaps, so the hovered
+ * Seven cards over a 560px room engages the horizontal overlap (natural width
+ * 788 > 560, step ≈ 76 < 104): the fan genuinely overlaps, so the hovered
  * card's z-order over its neighbours is observable through elementFromPoint
  * in the band two cards share. The first card is the one driven, because
  * sibling painting order puts its RIGHT neighbour on top of it at rest —
@@ -65,9 +65,9 @@ const hand: CardView[] = names.map((name, i) => ({
   summon_sick: false,
 }));
 
-// Card 1 carries ONE option (a direct `.action-icon` affordance) and card 2
+// Card 1 carries ONE option (a direct `.action-icon` affordance), card 2
 // THREE (a count badge whose menu must be opened before its `.menu__item`
-// controls exist), so the keyboard fixture can Tab from a focused face onto
+// controls exist), and card 3 a payment shortcut. The keyboard fixture can Tab from a focused face onto
 // BOTH kinds of action control and measure that the card STAYS raised — the
 // raise must follow any focused descendant of the card, not just the face
 // (fb-20260916T024357Z-9005ad6a). The bundle is hand-built, not derived from
@@ -109,5 +109,12 @@ const player: PlayerView = {
 
 mount(HandFan, {
   target: document.querySelector('#stage')!,
-  props: { player, width: 600, options },
+  props: {
+    player, width: 560, options,
+    paymentActions: [{
+      id: 'pay-bearscape', cast: { object: 3, face: 0, origin: 'hand' },
+      label: 'Cast Bearscape',
+      plans: [{ id: 'plan', version: 1, cost: { generic: 0, mana: [0, 0, 0, 0, 0, 0] }, activations: [], pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0] }],
+    }],
+  },
 });

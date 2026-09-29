@@ -10,7 +10,7 @@ beforeAll(async () => {
   browser = await sharedBrowser();
 });
 
-// The stage is fixed 600x420 (see HandFan.geometry.html), smaller than every
+// The stage is fixed 560x420 (see HandFan.geometry.html), smaller than every
 // supported test viewport, so the geometry measured is the stage's clip, not
 // the viewport's.
 const VIEWPORTS = [
@@ -222,6 +222,58 @@ describe('HandFan — the hand-card peek (fb-20260916T024357Z-9005ad6a)', () => 
       expect(await hitAt(band.x, band.y)).toBe('1');
 
       await page.close();
+    }
+  });
+
+  it('at rest the fanned icon, badge and CAST shortcut hit their own buttons over the next face', async () => {
+    for (const { width, height } of VIEWPORTS) {
+      const page = await browser.newPage({ viewport: { width, height } });
+      try {
+        await page.goto(`${url}src/components/HandFan.geometry.html`);
+        await page.waitForSelector('[data-obj="3"] .payment-shortcut', { timeout: 5000 });
+        await page.waitForTimeout(120); // ResizeObserver layout has settled; no pointer/focus enters the fan.
+        const hitAt = (x: number, y: number) =>
+          page.evaluate(([px, py]) => {
+            const el = document.elementFromPoint(px, py);
+            const button = el?.closest('button'); // glyph spans inside buttons can receive the hit
+            return {
+              obj: el?.closest('[data-obj]')?.getAttribute('data-obj') ?? null,
+              button: !!button,
+              icon: button?.hasAttribute('data-single-action') ?? false,
+              badge: button?.matches('.badge') ?? false,
+              payment: button?.matches('.payment-shortcut') ?? false,
+            };
+          }, [x, y]);
+        for (const { obj, selector, kind } of [
+          { obj: '1', selector: '.action-icon', kind: 'icon' },
+          { obj: '2', selector: '.badge', kind: 'badge' },
+          { obj: '3', selector: '.payment-shortcut', kind: 'payment' },
+        ] as const) {
+          const geometry = await page.evaluate(({ obj, selector }) => {
+            const button = document.querySelector(`[data-obj="${obj}"] ${selector}`)!;
+            const next = document.querySelector(`[data-obj="${Number(obj) + 1}"] .face`)!;
+            const stage = document.querySelector('#stage')!;
+            const b = button.getBoundingClientRect();
+            const n = next.getBoundingClientRect();
+            const s = stage.getBoundingClientRect();
+            const x = b.left + b.width / 2;
+            const y = b.top + b.height / 2;
+            return { x, y, buttonWidth: b.width, overlap: n.left < x && x < n.right && n.top < y && y < n.bottom,
+              visible: s.left < x && x < s.right && s.top < y && y < s.bottom, nextLeft: n.left };
+          }, { obj, selector });
+          // Without real overlap this test would pass even with the stacking bug.
+          expect(geometry.buttonWidth).toBeGreaterThan(0);
+          expect(geometry.visible).toBe(true);
+          expect(geometry.overlap).toBe(true);
+          expect(geometry.x).toBeGreaterThan(geometry.nextLeft);
+          const hit = await hitAt(geometry.x, geometry.y);
+          expect(hit.obj).toBe(obj);
+          expect(hit.button, `${obj}: ${JSON.stringify(hit)}`).toBe(true);
+          expect(hit[kind]).toBe(true);
+        }
+      } finally {
+        await page.close();
+      }
     }
   });
 

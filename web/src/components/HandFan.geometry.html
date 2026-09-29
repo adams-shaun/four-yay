@@ -9,7 +9,7 @@
          .board gives the real fan (fb-20260916T024357Z-9005ad6a). It is the
          ONLY box on the page; HandFan's .handtrack anchors to it (absolute,
          bottom: 0) and the stage's overflow is what clips the fan's lowered
-         half. Fixed 600x420 so the stage is smaller than every supported test
+         half. Fixed 560x420 so the stage is smaller than every supported test
          viewport (1440x900, 1000x900, 650x700) and the geometry measured is
          the stage's, not the viewport's. */
       body {
@@ -18,7 +18,7 @@
       #stage {
         position: relative;
         overflow: hidden;
-        width: 600px;
+        width: 560px;
         height: 420px;
         background: #233;
       }
