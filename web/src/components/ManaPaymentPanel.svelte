@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Decision, ManaPaymentWindow, View } from '../protocol';
   import ManaSymbols from './ManaSymbols.svelte';
+  import Digit from './prompts/Digit.svelte';
   import {
     manaAmountText, manaOptionAccessibleName, manaOptionPips, manaSourceRows, owesNothing, paymentCostText, windowAction,
   } from '../lib/announcepay';
@@ -20,11 +21,13 @@
    * It sits inside the seat panel's instrument register: hairline sections,
    * the raised option rows, mana pips in their own identity colours.
    */
-  let { decision, view, busy = false, onPick }: {
+  let { decision, view, busy = false, onPick, digits = null }: {
     decision: Decision & { mana_payment: ManaPaymentWindow };
     view: View | null;
     busy?: boolean;
     onPick: (index: number) => void;
+    /** digits numbers the buttons by the window's rendered order (lib/prompts/order.ts), the keys the pick hotkeys answer; null draws no key caps. */
+    digits?: ReadonlyMap<number, number> | null;
   } = $props();
 
   const mp = $derived(decision.mana_payment);
@@ -71,7 +74,7 @@
                 title={o.label}
                 disabled={busy}
                 onclick={() => onPick(o.index)}
-              >{#if pips !== null}<ManaSymbols cost={pips} />{:else}{o.label}{/if}</button>
+              ><Digit n={digits?.get(o.index)} />{#if pips !== null}<ManaSymbols cost={pips} />{:else}{o.label}{/if}</button>
             {/each}
           </span>
         </li>
@@ -83,16 +86,16 @@
 
   <div class="mp-actions">
     {#if autofill}
-      <button class="mp-act mp-fill" type="button" data-mp-autofill={autofill.index} title={autofill.label} disabled={busy} onclick={() => onPick(autofill.index)}>{autofill.label}</button>
+      <button class="mp-act mp-fill" type="button" data-mp-autofill={autofill.index} title={autofill.label} disabled={busy} onclick={() => onPick(autofill.index)}><Digit n={digits?.get(autofill.index)} />{autofill.label}</button>
     {/if}
     {#if pay}
-      <button class="mp-act mp-fill" type="button" data-mp-pay={pay.index} disabled={busy} onclick={() => onPick(pay.index)}>{pay.label}</button>
+      <button class="mp-act mp-fill" type="button" data-mp-pay={pay.index} disabled={busy} onclick={() => onPick(pay.index)}><Digit n={digits?.get(pay.index)} />{pay.label}</button>
     {/if}
     {#if undo}
-      <button class="mp-act" type="button" data-mp-undo={undo.index} title={undo.label} disabled={busy} onclick={() => onPick(undo.index)}>Undo last tap</button>
+      <button class="mp-act" type="button" data-mp-undo={undo.index} title={undo.label} disabled={busy} onclick={() => onPick(undo.index)}><Digit n={digits?.get(undo.index)} />Undo last tap</button>
     {/if}
     {#if cancel}
-      <button class="mp-act mp-cancel" type="button" data-mp-cancel={cancel.index} disabled={busy} onclick={() => onPick(cancel.index)}>Cancel cast</button>
+      <button class="mp-act mp-cancel" type="button" data-mp-cancel={cancel.index} disabled={busy} onclick={() => onPick(cancel.index)}><Digit n={digits?.get(cancel.index)} />Cancel cast</button>
     {/if}
   </div>
   {#if decision.payment_fallback}
@@ -182,6 +185,7 @@
   }
   .mp-ability {
     display: inline-flex;
+    gap: 0.3rem;
     align-items: center;
     min-width: 1.75rem;
     min-height: 1.75rem;
@@ -217,6 +221,10 @@
   }
   .mp-act {
     flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
     background: var(--instrument-raised);
     color: var(--ink-inst);
     border: 1px solid var(--edge-inst);

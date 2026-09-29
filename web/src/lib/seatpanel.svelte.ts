@@ -1,14 +1,9 @@
-import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelection, View } from '../protocol';
+import type { Decision, Intent, Option, PaymentAction, PaymentPlan, View } from '../protocol';
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
-import { isSearchPick } from './search';
-import { isNamePick } from './name-pick';
-import { isDiscardPick } from './discard';
-import { manaWindow } from './announcepay';
-import { isPlainManualTap } from './manualmana';
 import type { SeatCtx } from './seat';
 import { checkBreakpoints, type BreakpointHit } from './breakpoints';
-import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
+import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
 import {
   applyPreset,
   cloneBreakpoints,
@@ -53,528 +48,18 @@ import {
   type RememberedStore,
 } from './remembered';
 
-/**
- * actedOption reports whether the posted `choices` (wire indices) contain at
- * least one real action on a priority decision — an option whose kind
- * passes isActionKind (autopilot.ts): neither pass, nor concede, nor
- * activate. The kind comes off the wire option itself, resolved by index; a
- * choice that names no option on the decision is not an action. This is the
- * arming test for pass-after-acting, and it is the per-choice counterpart of
- * `actionable`'s per-decision test — the SAME shared predicate (isActionKind),
- * so the two cannot drift apart again. The activate exclusion is the fix for
- * fb-3ab6d9da. The wire fact it rests on: in a PRIORITY decision, Kind
- * "activate" is only ever the tap-for-mana option (rules/legal.go's
- * availableManaAbilities loop — `add("activate", "Tap <name> for mana", id)`);
- * non-mana activated abilities are offered as Kind "ability" (legal.go's
- * ability loop), and the one other "activate" on the wire (cast.go's mid-cast
- * mana-source ask) sits on a non-priority decision, which the kind test above
- * already refuses. A mana tap therefore arms nothing: it is not "I am done
- * acting" — it is the prelude to acting in the NEXT window, the one where the
- * freshly floated mana makes the held spell affordable and the engine offers
- * the cast. Counting the tap as an action machine-passed exactly that window,
- * so the player never saw the spell become playable. An earlier version of
- * this comment claimed to mirror `actionable`'s kind test while inlining a
- * test that did not — now both call the one shared predicate.
- * (Moved here from actpass.ts, which prio3 deleted with the per-table keys.)
- * A planned cast posts no choices at all; its arming twin is actedPayment.
- */
-export function actedOption(d: Decision, choices: number[]): boolean {
-  if (d.kind !== 'priority') return false;
-  return choices.some((i) => {
-    const o = d.options.find((opt) => opt.index === i);
-    return o !== undefined && isActionKind(o.kind);
-  });
-}
+import { actedOption, actedPayment, answersByToggle, followUpArm, identicalTriggerOrder, isConcede, optionAt, paymentActionForBase, pickOption, primaryOf, triggerOrderPermutation, unpickOption } from './prompts/decision';
+import { MAX_DIGIT, renderedOrder } from './prompts/order';
+import { attackAllPicks, noAttackAllowed, noBlocksAllowed } from './prompts/combat';
+import { manaWindow, windowAction } from './announcepay';
+import { AUTO_PASS_CAP, type AutoNote, type AutoOffReason, runStopNote } from './prompts/autonote';
 
-/**
- * actedPayment is actedOption's twin for the payment selector (spec §8:
- * "Auto-pay changes which witness an explicit cast uses; it does not
- * otherwise change Auto/Manual policy"). A planned cast posts `choices: []`
- * plus a payment selection, so actedOption alone never saw it and a cast paid
- * by its plan never armed pass-after-acting while the same cast clicked
- * through its legacy option did. The selection counts as an action exactly
- * when it resolves, by identity, to a payment action offered on this
- * priority decision and to one of that action's offered plans — the same
- * resolution submitPayment makes before it posts. Every payment action is a
- * cast, which isActionKind always counts, so no kind test is needed here.
- */
-export function actedPayment(d: Decision, payment: PaymentSelection | null | undefined): boolean {
-  if (d.kind !== 'priority' || !payment) return false;
-  const action = d.payment_actions?.find((candidate) => candidate.id === payment.action_id);
-  return action !== undefined && action.plans.some((plan) => plan.id === payment.plan.id);
-}
+// The pure decision helpers and the Auto note vocabulary live in
+// lib/prompts/ (UI rework sub-project 4); they are re-exported here so every
+// existing importer of this module keeps working.
+export * from './prompts/decision';
+export * from './prompts/autonote';
 
-/**
- * SeatPanelState is everything a human seat answers with. It holds the
- * pending decision (adopted from view.decision, refreshed from /pending),
- * the user's picked options, the concede-confirmation and posted states,
- * and posts the intent. It is deliberately rules-ignorant (R-E4-2): the
- * options are the server's verbatim, the only selection constraints are the
- * decision's own min/max, and no option is ever chosen by position — the
- * primary button resolves its option by kind, never by index (R-E4-1), and
- * the concede option is the LAST one on the wire precisely so that a client
- * which defaulted to the last option would concede on the very first
- * priority window. This module never does that: nothing selects, preselects
- * or auto-submits an option it was not explicitly handed by a user click.
- */
-
-/**
- * pickOption is the pure heart of the seat's selection logic: it applies one
- * click identified by the option's wire index to the current picked index set and returns the
- * resulting set. It is expressed ONLY in terms of the decision's own min/max
- * (applied elsewhere) and the option Group field, never in terms of what a
- * Group's members are (R-E4-2) — the panel never learns what a blocker is.
- *
- *  - A repeatable decision (`d.repeatable` — a CanRepeatModes$ Charm,
- *    CR 601.2b) is an ORDERED MULTISET over the distinct options: clicking an
- *    already-picked option appends another instance instead of toggling it
- *    off, so with CharmNum$ 3 over 2 legal modes the same mode can fill all
- *    three slots (the ask's Min may exceed the option count — exactly the
- *    shape where toggle-off would make the submit gate unreachable). The max
- *    is the only cap; a picked instance is removed through unpickOption.
- *  - Otherwise, if the clicked option is already picked, it is removed (toggle
- *    off).
- *  - Otherwise, if it carries a non-empty Group already represented in
- *    `picked`, that previously-picked group member is REPLACED by the new
- *    option: moving one blocker from attacker A to attacker B just works,
- *    and at most one option of a Group is ever held.
- *  - Otherwise it is appended.
- */
-export function pickOption(d: Decision, index: number, picked: number[]): number[] {
-  const opt = optionAt(d, index);
-  if (opt === undefined) return [...picked];
-  if (d.repeatable) {
-    if (picked.length >= d.max) return [...picked];
-    return [...picked, index];
-  }
-  const at = picked.indexOf(index);
-  if (at >= 0) return picked.filter((i) => i !== index);
-  const g = opt.group;
-  if (g) {
-    // The per-Group cap: groupLimit raises the exclusivity marker from "at
-    // most one" to "at most N" (Decision.GroupLimit, Forge's EACH per-type
-    // ChangeNum), and groupLimits raises ONE named group above even that
-    // (Decision.GroupLimits, a per-defender attack ceiling). At the default
-    // cap the group is already represented, so the pick REPLACES that member;
-    // above it the pick appends until the cap is full, then replaces the
-    // oldest member.
-    const cap =
-      d.groupLimits?.[g] ?? (d.groupLimit && d.groupLimit > 1 ? d.groupLimit : 1);
-    const members = picked.filter((i) => optionAt(d, i)?.group === g);
-    if (members.length >= cap) {
-      // Replace: drop the oldest group member, keep the rest's click order,
-      // and put the freshly picked option at the end.
-      return picked.filter((i) => i !== members[0]).concat(index);
-    }
-  }
-  return [...picked, index];
-}
-
-/**
- * unpickOption removes ONE instance of an option from a repeatable pick
- * multiset — the picked-so-far chips' remove affordance. The LAST occurrence
- * in click order goes (the click that added it is the most recent intent),
- * the other instances keep their order; an unpicked index is a no-op.
- */
-export function unpickOption(index: number, picked: number[]): number[] {
-  const at = picked.lastIndexOf(index);
-  if (at < 0) return [...picked];
-  return picked.filter((_, i) => i !== at);
-}
-
-/** primaryOf resolves the "primary" option by kind — pass/resolve — never by position (R-E4-1). */
-export function primaryOf(d: Decision): Option | null {
-  for (const o of d.options) {
-    if (o.kind === 'pass' || o.kind === 'resolve') return o;
-  }
-  return null;
-}
-
-export function isConcede(o: Option): boolean {
-  return o.kind === 'concede';
-}
-
-/** paymentActionForBase keeps the additive payment offer attached to its
- * legacy cast.  It deliberately compares the wire index, never display text:
- * labels are presentation and may change without changing the action. */
-export function paymentActionForBase(d: Decision, index: number): PaymentAction | undefined {
-  return d.payment_actions?.find((action) => action.base_option_index === index);
-}
-
-/** paymentPlanSummary is presentation only.  The offered witness remains the
- * value sent to the server; this string never participates in selection. */
-export function paymentPlanSummary(plan: PaymentPlan): string {
-  if (plan.activations.length === 0) return 'Use floating mana';
-  const produced = plan.activations.flatMap((step) => step.produces.map((n, i) => n > 0 ? `${n > 1 ? n : ''}${['W', 'U', 'B', 'R', 'G', 'C'][i]}` : '').filter(Boolean));
-  return `Tap ${plan.activations.length} ${plan.activations.length === 1 ? 'source' : 'sources'} for ${produced.join(' + ') || 'mana'}`;
-}
-
-/** optionAt resolves a wire option by its own index, never by array position (R-E4-1). */
-function optionAt(d: Decision, index: number): Option | undefined {
-  return d.options.find((o) => o.index === index);
-}
-
-/**
- * MANA_FOLLOW_UP_KINDS is the one eligibility rule for arming the card
- * follow-up expectation, measured from the engine: the only decision
- * resolveCardFollowUp can open (2-6 all-'mana' options on one object) is
- * posed by rules/mana_activation.go, and only two answers lead straight
- * into it for the SAME object:
- *
- * - `activate` -- activateManaFor, entered only from an `activate` option,
- *   whatever decision carries it: the priority window (rules/legal.go), the
- *   CR 601.2g mid-cast mana window, and the ward, cumulative-upkeep and
- *   unless-payment windows (all `choose` decisions). It poses the stage-1
- *   ability pick (`mana` options on the source) or goes straight to
- *   askManaColor (a Treasure's colour ask on the source).
- * - `mana` -- the stage-1 ability pick; answering an Any / Combo Any /
- *   Chosen ability poses askManaColor's stage-2 wheel on the same source
- *   (fb-e079def5: Talisman, Vivid Marsh).
- *
- * The rule reads option kinds, never the decision kind, because the same
- * `activate` shape appears on priority and on choose windows. Nothing else
- * reaches a same-object mana ask: an `ability` option goes on the stack (mana
- * abilities are offered only as `activate`), and target (`permanent`/
- * `player`), arrange (`card`), cast, sacrifice and mode answers do not arm.
- */
-const MANA_FOLLOW_UP_KINDS: ReadonlySet<string> = new Set(['activate', 'mana']);
-
-/**
- * followUpArm returns the expectation a hand post arms: the first answered
- * option whose kind can hand back a same-object mana ask
- * (MANA_FOLLOW_UP_KINDS) and that carries an obj. The obj is read from the
- * answered option itself (R-E4-1), never rebuilt from position. Anything
- * else returns null, which disarms.
- */
-export function followUpArm(d: Decision, choices: number[]): { seq: number; obj: number } | null {
-  for (const index of choices) {
-    const option = optionAt(d, index);
-    if (option !== undefined && MANA_FOLLOW_UP_KINDS.has(option.kind) && option.obj !== undefined) {
-      return { seq: d.seq, obj: option.obj };
-    }
-  }
-  return null;
-}
-
-/**
- * Tone is how loudly the panel presents its state, and it is resolved from
- * option KINDS alone — never a label, never a position (R-E4-1).
- *
- * `offered` is a window this seat may decline: the decision carries a `pass`
- * option, so doing nothing is a legal answer and the game moves on without
- * you. `initiative` is a decision the game is blocked on — a target, a
- * mulligan, a block assignment, a mode — where there is no pass and nothing
- * happens anywhere at the table until this seat answers. Those two deserve
- * different colours because they demand different things of the player, and
- * painting them alike is what made the old panel unreadable across a room.
- */
-export type Tone = 'initiative' | 'offered' | 'idle';
-
-export function toneOf(d: Decision | null): Tone {
-  if (d === null) return 'idle';
-  return d.options.some((o) => o.kind === 'pass') ? 'offered' : 'initiative';
-}
-
-/**
- * triggerOrderPermutation is the SHAPE contract every auto-order path shares
- * (fb-trigorder1 generalised the prio6 check): a trigger_order decision whose
- * min == max == options.length (the engine's permutation contract, Ruling U2)
- * with at least two options — a one-trigger ask is never posed. The check is
- * grounded in the real wire shape, measured on a live decision
- * (rules/trigger_queue.go's askTriggerOrder): each option is `kind: "trigger"`
- * with `label: "<source name>: <TriggerDescription>"`.
- */
-export function triggerOrderPermutation(d: Decision): boolean {
-  if (d.kind !== 'trigger_order') return false;
-  if (d.min !== d.max || d.max !== d.options.length) return false;
-  return d.options.length >= 2;
-}
-
-/**
- * identicalTriggerOrder reports whether a trigger_order decision's EVERY
- * option describes the same trigger — the same source name and the same
- * text (prio6) — on top of the shared triggerOrderPermutation shape
- * contract.
- *
- * Caveat, measured rather than assumed away: the label carries no target
- * information, so two identical-name/text triggers aimed at DIFFERENT
- * targets also read as identical. That is the brief's definition
- * deliberately — between two copies of the same trigger the order is
- * immaterial — and it is stated here so nobody mistakes the test for a
- * target-aware one.
- */
-export function identicalTriggerOrder(d: Decision): boolean {
-  if (!triggerOrderPermutation(d)) return false;
-  const first = d.options[0].label;
-  return d.options.every((o) => o.label === first);
-}
-
-/**
- * MulliganPhase names which half of the London round a `mulligan` decision is
- * in, so the seat panel can lay it out. The two halves are told apart by their
- * option KINDS — `keep`/`mulligan` in the first, `bottom` in the second — and
- * never by option count, position or label text (FL-101).
- *
- * A mulligan decision carrying any other kind returns null and falls back to
- * the generic option list, so an option this layout does not understand is
- * still reachable rather than silently dropped.
- */
-export type MulliganPhase =
-  | { phase: 'keep'; choices: Option[] }
-  | { phase: 'bottom'; cards: Option[] }
-  | null;
-
-export function mulliganPhase(d: Decision | null): MulliganPhase {
-  if (d === null || d.kind !== 'mulligan' || d.options.length === 0) return null;
-  if (d.options.every((o) => o.kind === 'keep' || o.kind === 'mulligan')) {
-    return { phase: 'keep', choices: d.options };
-  }
-  if (d.options.every((o) => o.kind === 'bottom')) {
-    return { phase: 'bottom', cards: d.options };
-  }
-  return null;
-}
-
-/**
- * answersByToggle reports whether the panel answers this decision's options
- * by TOGGLING them into `picked` (committed with Submit) rather than through
- * click(): the mulligan BOTTOM half and the arrange ask, SeatPanel.svelte's
- * `mull.phase === 'bottom'` and `arrange !== null` branches. Both can be
- * min==max==1, where click() would post the first pick irreversibly (see
- * toggle()). Every non-panel answer path — the pick-N hotkeys — routes
- * through this one predicate so it can never answer differently.
- */
-export function answersByToggle(d: Decision | null): boolean {
-  return d !== null && (d.kind === 'arrange' || mulliganPhase(d)?.phase === 'bottom');
-}
-
-/**
- * genericListOptions is the generic option list's rows, in order: SeatPanel's
- * fallback layout draws exactly these as option buttons. It leaves out what
- * the panel draws elsewhere or hides — concede, the pass/resolve `primary`
- * (its own button), a cast whose payment action stands in for it
- * (`paymentBases`), and plain manual taps while Auto Mana hides them.
- */
-export function genericListOptions(
-  d: Decision,
-  primary: Option | null,
-  paymentBases: ReadonlySet<number>,
-  hideManualMana: boolean,
-): Option[] {
-  return d.options.filter((opt) =>
-    !isConcede(opt)
-    && opt.index !== primary?.index
-    && !paymentBases.has(opt.index)
-    && !(hideManualMana && isPlainManualTap(opt)));
-}
-
-/** NO_PAYMENT_BASES is the empty paymentBases a non-priority decision always has. */
-const NO_PAYMENT_BASES: ReadonlySet<number> = new Set<number>();
-
-/**
- * pickableInOrder is the pick-N hotkeys' ALLOWLIST: true only when the
- * decision renders through a SeatPanel layout whose on-screen order is
- * exactly d.options with nothing drawn elsewhere, so digit N names the Nth
- * option the player sees. It mirrors the panel's layout chain, in the
- * panel's precedence order:
- *
- * - the mulligan keep and bottom rows (mulliganPhase non-null): both iterate
- *   d.options unchanged;
- * - the arrange row (kind 'arrange'): iterates d.options unchanged;
- * - the discard row (isDiscardPick): iterates d.options unchanged;
- * - the library-search grid (isSearchPick), the name pick (isNamePick) and
- *   the announced mana-payment window (manaWindow): REFUSED — the first two
- *   render a filtered, A→Z-sorted list and the third its own panel;
- * - the generic option list: allowed only when genericListOptions keeps
- *   EVERY option, i.e. no pass/resolve primary, concede or hidden option is
- *   drawn apart from the list. paymentBases and hideManualMana are the
- *   panel's priority-only inputs and are empty/false here, because a
- *   priority decision is refused outright (its pass, concede and payment
- *   actions all sit outside the list).
- *
- * Anything else is refused, so a layout added later fails safe until it is
- * named here.
- */
-export function pickableInOrder(d: Decision | null): boolean {
-  if (d === null || d.kind === 'priority') return false;
-  if (mulliganPhase(d) !== null) return true;
-  if (d.kind === 'arrange') return true;
-  if (isDiscardPick(d)) return true;
-  if (isSearchPick(d) || isNamePick(d) || manaWindow(d) !== null) return false;
-  return genericListOptions(d, primaryOf(d), NO_PAYMENT_BASES, false).length === d.options.length;
-}
-
-/**
- * AUTO_PASS_CAP bounds how many priority windows auto may pass in an
- * unbroken run before it switches itself off. A runaway autopasser is not a
- * cosmetic bug: it hammers the server and it passes the game away in
- * silence. Forty is roughly two turn cycles of an uneventful four-seat
- * game — long enough that a normal quiet stretch never trips it, short
- * enough that a stuck loop is caught in seconds.
- */
-export const AUTO_PASS_CAP = 40;
-
-/**
- * AutoOffReason is why auto is no longer running, as distinct from
- * StopReason (why auto declined THIS window but stays armed). The two are
- * separate vocabularies because they need separate words on screen: one is
- * "waiting for you here", the other is "auto is off now".
- */
-export type AutoOffReason = 'loop' | 'cap';
-
-/**
- * AutoNote is the one line the panel shows about what auto is doing. It is
- * an enum-shaped value, never a string to print: autoNoteText turns it into
- * words, so no StopReason identifier can reach the screen.
- */
-export type AutoNote =
-  | { kind: 'off' }
-  | { kind: 'paused' }
-  | { kind: 'skip-off'; reason: AutoOffReason }
-  | { kind: 'skipped'; count: number }
-  | { kind: 'armed' }
-  | { kind: 'passing'; count: number }
-  /**
-   * detail (fb-20260916T225211Z) carries the actionable option labels that
-   * made a stop-set window stop-worthy — autoNoteText folds it into the
-   * note text, so the player reads WHAT the window offered, not just that a
-   * stop they set fired. Absent (or empty) for every other reason and for a
-   * 'forced' stop with nothing to do — the base wording is complete there.
-   */
-  | { kind: 'waiting'; reason: StopReason; detail?: string }
-  | { kind: 'stopped'; reason: AutoOffReason }
-  | { kind: 'end-turn-armed' }
-  | { kind: 'end-turn-passing'; count: number }
-  | { kind: 'end-turn-stopped'; reason: StopReason | AutoOffReason }
-  | { kind: 'skip-turn-armed' }
-  | { kind: 'skip-turn-passing'; count: number }
-  | { kind: 'skip-turn-stopped'; reason: StopReason | AutoOffReason }
-  | { kind: 'resolve-all-armed' }
-  | { kind: 'resolve-all-passing'; count: number }
-  | { kind: 'resolve-all-stopped'; reason: StopReason | AutoOffReason }
-  | { kind: 'act-passed'; count: number };
-
-const WAITING_TEXT: Record<StopReason, string> = {
-  'disabled': 'Auto is off.',
-  'not-priority': 'Auto is waiting: this decision needs you, not a pass.',
-  'unexpected-shape': 'Auto is waiting: it does not recognise this window.',
-  'stop-set': 'Auto stopped here: you set a stop on this step.',
-  'opponent-object': "Auto stopped here: an opponent's object is on the stack and you can respond.",
-  'own-object': 'Auto stopped here: your own object is on the stack and you can respond.',
-  'breakpoint': 'Auto paused here: a pause you set fired.',
-};
-
-const OFF_TEXT: Record<AutoOffReason, string> = {
-  'loop': 'Auto switched itself off: the same decision came back after it answered. Press the Auto switch to rearm it.',
-  'cap': `Auto switched itself off after ${AUTO_PASS_CAP} passes in a row. Press the Auto switch to rearm it.`,
-};
-
-/**
- * RUN_*_TEXT re-words a stop reason for the one-shot runs, which are not
- * "waiting" — a stop ENDS an End Turn / hard-skip run. The wording is
- * reason-loyal (the same fact the Auto wording states), only re-anchored.
- */
-const RUN_WAITING_TEXT: Record<StopReason, string> = {
-  'disabled': 'the Auto switch is off.',
-  'not-priority': 'this decision needs you, not a pass.',
-  'unexpected-shape': 'it does not recognise this window.',
-  'stop-set': 'you set a stop on this step.',
-  'opponent-object': "an opponent's object is on the stack and you can respond.",
-  'own-object': 'your own object is on the stack and you can respond.',
-  'breakpoint': 'a pause you set fired.',
-};
-const RUN_OFF_TEXT: Record<AutoOffReason, string> = {
-  'loop': 'the same decision came back after it answered.',
-  'cap': `it passed ${AUTO_PASS_CAP} windows in a row.`,
-};
-
-/** autoNoteText renders an AutoNote as plain words. No enum identifier ever reaches the screen. */
-export function autoNoteText(note: AutoNote): string {
-  switch (note.kind) {
-    case 'off':
-      return 'Auto is off. You answer every window that offers you something to do.';
-    case 'paused':
-      return 'Undo paused automatic passing so it cannot re-answer the window you rewound to. Press the Auto switch (or apply a preset) to start it again.';
-    case 'skip-off':
-      return `${OFF_TEXT[note.reason]} Empty windows are no longer skipped either.`;
-    case 'skipped':
-      return note.count === 1
-        ? 'Passed 1 window where you had nothing to do.'
-        : `Passed ${note.count} windows where you had nothing to do.`;
-    case 'armed':
-      return 'Auto is on. It passes windows where you have nothing to do, and stops at your stops.';
-    case 'passing':
-      return note.count === 1
-        ? 'Auto passed 1 priority window.'
-        : `Auto passed ${note.count} priority windows.`;
-    case 'waiting':
-      // stop-set with actionable labels (fb-20260916T225211Z): the base line
-      // alone read "you set a stop" without saying WHY the window was worth
-      // stopping at — the exact gap the Deadly Rollick free-cast report is
-      // about. The labels come from actionables(), the same predicate the
-      // smart step rule consulted, so the note cannot name something the
-      // stop did not actually stop for. Derived from the base string (the
-      // trailing full stop is dropped, the clause spliced in) so the wording
-      // stays in one place.
-      if (note.reason === 'breakpoint' && note.detail) return `Auto paused here: ${note.detail}.`;
-      if (note.reason === 'stop-set' && note.detail) {
-        return `${WAITING_TEXT[note.reason].replace(/\.$/, '')} and you can act — ${note.detail}.`;
-      }
-      return WAITING_TEXT[note.reason];
-    case 'stopped':
-      return OFF_TEXT[note.reason];
-    case 'end-turn-armed':
-      return 'End Turn: passing the rest of this turn — it still stops for opponent plays. Esc cancels.';
-    case 'end-turn-passing':
-      return note.count === 1
-        ? 'End Turn passed 1 priority window.'
-        : `End Turn passed ${note.count} priority windows.`;
-    case 'end-turn-stopped':
-      return `End Turn stopped: ${
-        note.reason in RUN_WAITING_TEXT
-          ? RUN_WAITING_TEXT[note.reason as StopReason]
-          : RUN_OFF_TEXT[note.reason as AutoOffReason]
-      }`;
-    case 'skip-turn-armed':
-      return 'Skipping turn — Esc to stop.';
-    case 'skip-turn-passing':
-      return note.count === 1
-        ? 'Skipping turn: passed 1 priority window.'
-        : `Skipping turn: passed ${note.count} priority windows.`;
-    case 'skip-turn-stopped':
-      return `Skipping turn stopped: ${
-        note.reason in RUN_WAITING_TEXT
-          ? RUN_WAITING_TEXT[note.reason as StopReason]
-          : RUN_OFF_TEXT[note.reason as AutoOffReason]
-      }`;
-    case 'resolve-all-armed':
-      return 'Resolve All: passing the stack as it stands — a NEW opponent play or a decision that needs you stops it. Esc cancels.';
-    case 'resolve-all-passing':
-      return note.count === 1
-        ? 'Resolve All passed 1 priority window.'
-        : `Resolve All passed ${note.count} priority windows.`;
-    case 'resolve-all-stopped':
-      return `Resolve All stopped: ${
-        note.reason in RUN_WAITING_TEXT
-          ? RUN_WAITING_TEXT[note.reason as StopReason]
-          : RUN_OFF_TEXT[note.reason as AutoOffReason]
-      }`;
-    case 'act-passed':
-      return note.count === 1
-        ? 'Passed 1 priority window after your action.'
-        : `Passed ${note.count} priority windows after your action.`;
-  }
-}
-
-/** runStopNote is a one-shot run's stopped note, worded in that run's own register. */
-function runStopNote(mode: 'end-turn' | 'hard-skip' | 'resolve-all', reason: StopReason | AutoOffReason): AutoNote {
-  const kind = mode === 'end-turn'
-    ? 'end-turn-stopped'
-    : mode === 'resolve-all'
-    ? 'resolve-all-stopped'
-    : 'skip-turn-stopped';
-  return { kind, reason } as AutoNote;
-}
 
 /**
  * safeSessionStorage is sessionStorage under the same guard — the handle for
@@ -592,6 +77,19 @@ function safeSessionStorage(): Storage | null {
   }
 }
 
+/**
+ * SeatPanelState is everything a human seat answers with. It holds the
+ * pending decision (adopted from view.decision, refreshed from /pending),
+ * the user's picked options, the concede-confirmation and posted states,
+ * and posts the intent. It is deliberately rules-ignorant (R-E4-2): the
+ * options are the server's verbatim, the only selection constraints are the
+ * decision's own min/max, and no option is ever chosen by position — the
+ * primary button resolves its option by kind, never by index (R-E4-1), and
+ * the concede option is the LAST one on the wire precisely so that a client
+ * which defaulted to the last option would concede on the very first
+ * priority window. This module never does that: nothing selects, preselects
+ * or auto-submits an option it was not explicitly handed by a user click.
+ */
 export class SeatPanelState {
   readonly table: string;
   readonly ctx: SeatCtx;
@@ -888,6 +386,13 @@ export class SeatPanelState {
    * list (the same adopt-reset contract as rememberChoice).
    */
   searchFilter = $state('');
+  /**
+   * dockCount is how many prompt docks are mounted against this seat (UI
+   * rework spec §4). While one is, it is the answer surface for every
+   * non-priority decision: the ACTIONS strip points at it instead of drawing
+   * a second copy, and does not pop open for it. Display-only.
+   */
+  dockCount = $state(0);
 
   /**
    * rememberedSeq is the seq the remembered-answer auto-reply last posted
@@ -1274,23 +779,73 @@ export class SeatPanelState {
 
   /**
    * pickHotkey answers option n (1-based) of a pending decision exactly as
-   * clicking it in the panel would (the pick-N hotkeys): a toggle on the
-   * layouts that answer by toggle-then-Submit (answersByToggle), a click()
-   * everywhere else. It acts only where pickableInOrder allows — layouts
-   * whose on-screen order is d.options with nothing drawn elsewhere — and
-   * refuses (returns false, so the key is not consumed) everywhere else:
-   * priority windows, library search, name pick, the mana-payment window, a
-   * generic list with a separately drawn pass/resolve or concede, and any
-   * layout not named there. Numbering the filtered/sorted layouts by their
-   * rendered order is deferred to a later sub-project.
+   * clicking the row numbered n would (the pick-N hotkeys): a toggle on the
+   * layouts that answer by toggle-then-commit (answersByToggle), a click()
+   * everywhere else. The row is resolved through renderedOrder
+   * (lib/prompts/order.ts) — the same list every renderer numbers its rows
+   * from — so the digit on screen and the key always name the same option,
+   * including the sorted/filtered library search, the name pick and the
+   * select-mana window. It refuses (returns false, so the key is not
+   * consumed) where nothing is numbered: priority windows, a digit past the
+   * rendered rows, a posted or in-flight answer.
    */
   pickHotkey(n: number): boolean {
     const d = this.pending;
-    if (d === null || !pickableInOrder(d) || d.seq === this.postedSeq || this.busy) return false;
-    const o = d.options[n - 1];
-    if (o === undefined) return false;
-    if (answersByToggle(d)) this.toggle(o.index);
-    else this.click(o.index);
+    if (d === null || d.seq === this.postedSeq || this.busy) return false;
+    const order = renderedOrder(d, { filter: this.searchFilter });
+    if (order === null || n < 1 || n > MAX_DIGIT) return false;
+    const index = order[n - 1];
+    if (index === undefined) return false;
+    if (answersByToggle(d)) this.toggle(index);
+    else this.click(index);
+    return true;
+  }
+
+  /**
+   * attackWithAll is the "attack with all" answer (keymap action and the
+   * attackers prompt's button): it SELECTS one pairing per creature that can
+   * attack (attackAllPicks) and leaves the commit to the player. False when
+   * the pending decision is not a declare-attackers ask.
+   */
+  attackWithAll(): boolean {
+    const d = this.pending;
+    if (d === null || d.kind !== 'attackers' || d.seq === this.postedSeq || this.busy) return false;
+    const picks = attackAllPicks(d);
+    if (picks.length === 0) return false;
+    this.setPicked(picks);
+    return true;
+  }
+
+  /**
+   * declareNone commits the empty combat declaration ("No blocks", "No
+   * attack") straight away. It refuses when the empty answer is not one the
+   * client may send: a forced block or attack, or a positive min.
+   */
+  declareNone(): boolean {
+    const d = this.pending;
+    if (d === null || d.seq === this.postedSeq || this.busy) return false;
+    if (!noBlocksAllowed(d) && !noAttackAllowed(d)) return false;
+    this.setPicked([]);
+    this.submit();
+    return true;
+  }
+
+  /** noBlocks is the keymap's "no blocks": declareNone on a declare-blockers ask only. */
+  noBlocks(): boolean {
+    return this.pending?.kind === 'blockers' && this.declareNone();
+  }
+
+  /**
+   * autoPay is the keymap's "auto-pay": the select-mana window's Auto-fill
+   * option (announce-then-pay §4), posted through the ordinary click path.
+   * False outside that window, so the key is not consumed.
+   */
+  autoPay(): boolean {
+    const d = this.pending;
+    if (d === null || d.seq === this.postedSeq || this.busy || manaWindow(d) === null) return false;
+    const fill = windowAction(d, 'autofill');
+    if (fill === null) return false;
+    this.click(fill.index);
     return true;
   }
 

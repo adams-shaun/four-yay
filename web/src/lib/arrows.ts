@@ -2,7 +2,7 @@ import type { View } from '../protocol';
 import type { CardOptions } from './cardoptions';
 
 export type End = { obj: number } | { seat: number };
-export interface Arrow { from: End; to: End; kind: 'target' | 'target-preview' | 'attack' | 'block' }
+export interface Arrow { from: End; to: End; kind: 'target' | 'target-preview' | 'target-hover' | 'attack' | 'block' }
 
 /** Pending decisions name legal candidates but have not resolved a target
  * relationship yet. Expose those board anchors as proposed arrows; the DOM
@@ -47,4 +47,18 @@ export function arrowsFor(view: View, stackTargets: 'all' | number | null = 'all
     }
   }
   return out;
+}
+
+/**
+ * hoverArrowFor is the prompt dock's one hover arrow (UI rework spec §3/§4:
+ * arrows are drawn for the pending decision, and a hovered option draws its
+ * own): from the hovered option's own start (a blocker, an attacker) or else
+ * the decision's source, to what it points at. Null when nothing is hovered
+ * or the arrow has no start.
+ */
+export function hoverArrowFor(options: CardOptions | null, link: { from: End | null; to: End } | null): Arrow | null {
+  if (link === null) return null;
+  const from = link.from ?? (options?.source !== undefined && options.source !== 0 ? { obj: options.source } : null);
+  if (from === null) return null;
+  return { from, to: link.to, kind: 'target-hover' };
 }

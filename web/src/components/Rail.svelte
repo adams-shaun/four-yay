@@ -51,6 +51,7 @@
     showLog = true,
     onToggleLog = null,
     logbar = null,
+    dock = null,
     yields = null,
     onYield = null,
     viewerSeat = null,
@@ -84,6 +85,10 @@
      *  SeatPanelState wiring); Rail only hosts the markup in the one row
      *  that had spare room. */
     logbar?: Snippet | null;
+    /** dock is the prompt dock (UI rework spec §4), rendered at the very top
+     *  of the rail, above the stack it concerns. A snippet so the route owns
+     *  the seat wiring, as it does for logbar; absent renders nothing. */
+    dock?: Snippet | null;
     /** yields is the seated player's game-scoped always-pass set (prio6); null (spectator) renders no marker and no menu. */
     yields?: ReadonlySet<string> | null;
     /** onYield is the stack tile menu's write path into the seat panel's yield set. */
@@ -131,6 +136,7 @@
 </script>
 
 <div class="rail-inner">
+  {#if dock}{@render dock()}{/if}
   <div class="logbar">
     {#if onToggleLog}
       <button

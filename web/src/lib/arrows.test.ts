@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowsFor, previewArrowsFor } from './arrows';
+import { arrowsFor, hoverArrowFor, previewArrowsFor } from './arrows';
 import type { CardView, View } from '../protocol';
 import type { CardOptions } from './cardoptions';
 
@@ -157,5 +157,17 @@ describe('arrowsFor — stack targets only for the hovered item (UI rework §3)'
     expect(arrowsFor(v).filter((a) => a.kind === 'target')).toHaveLength(2);
     expect(arrowsFor(v, 2).filter((a) => a.kind === 'target')).toEqual([{ from: { obj: 2 }, to: { obj: 9 }, kind: 'target' }]);
     expect(arrowsFor(v, null).map((a) => a.kind)).toEqual(['attack']);
+  });
+});
+
+describe('hoverArrowFor', () => {
+  const opts = { source: 7, byObj: new Map(), byPlayer: new Map(), picked: [], tone: 'initiative', post: () => {} } as unknown as CardOptions;
+  it('draws from the decision source to the hovered end, or from the option\'s own start', () => {
+    expect(hoverArrowFor(opts, { from: null, to: { obj: 9 } })).toEqual({ from: { obj: 7 }, to: { obj: 9 }, kind: 'target-hover' });
+    expect(hoverArrowFor(null, { from: { obj: 3 }, to: { seat: 1 } })).toEqual({ from: { obj: 3 }, to: { seat: 1 }, kind: 'target-hover' });
+  });
+  it('draws nothing with no hover or no start', () => {
+    expect(hoverArrowFor(opts, null)).toBeNull();
+    expect(hoverArrowFor(null, { from: null, to: { obj: 9 } })).toBeNull();
   });
 });

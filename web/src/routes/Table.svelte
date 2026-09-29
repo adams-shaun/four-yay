@@ -18,6 +18,7 @@
   import LayoutDrawer from '../components/LayoutDrawer.svelte';
   import ViewHotkeys from '../components/ViewHotkeys.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
+  import PromptDock from '../components/prompts/PromptDock.svelte';
   import {
     SeatPanelState,
     mulliganPhase,
@@ -510,6 +511,11 @@
           viewerSeat={seated ? (seatCtx?.seat ?? null) : null}
           options={boardOptions}
         >
+          {#snippet dock()}
+            <!-- The prompt dock (UI rework spec §4). Lane B's layout
+                 profiles will pass placement/position here. -->
+            {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
+          {/snippet}
           {#snippet logbar()}
             {#if restartable}
               <RestartControl

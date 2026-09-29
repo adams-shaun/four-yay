@@ -11,7 +11,7 @@ import type { HotkeyEvent } from './hotkeys';
 type Nine = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export type KeyAction =
   | 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'undo' | 'resolve-all'
-  | 'confirm' | `pick-${Nine}`
+  | 'confirm' | `pick-${Nine}` | 'attack-all' | 'no-blocks' | 'auto-pay'
   | 'toggle-full-control' | 'next-profile' | 'prev-profile' | `profile-${Nine}`
   | 'next-layout' | 'prev-layout' | `layout-${Nine}`
   | 'toggle-options' | 'show-keys'
@@ -24,7 +24,7 @@ const LAYOUTS = NINE.map((n) => `layout-${n}` as const);
 
 export const ACTION_GROUPS: readonly { title: string; actions: readonly KeyAction[] }[] = [
   { title: 'Priority', actions: ['pass', 'end-turn', 'hard-skip', 'cancel-run', 'undo', 'resolve-all'] },
-  { title: 'Decisions', actions: ['confirm', ...PICKS] },
+  { title: 'Decisions', actions: ['confirm', ...PICKS, 'attack-all', 'no-blocks', 'auto-pay'] },
   { title: 'Profiles', actions: ['toggle-full-control', 'next-profile', 'prev-profile', ...PROFILES, 'next-layout', 'prev-layout', ...LAYOUTS] },
   { title: 'View', actions: ['toggle-options', 'show-keys', 'toggle-log', 'toggle-stacking', 'zoom-card', 'open-grave', 'open-exile'] },
 ];
@@ -39,6 +39,9 @@ export const ACTION_LABELS: Record<KeyAction, string> = {
   'resolve-all': 'Resolve the whole stack',
   'confirm': 'Confirm the current choice (Done)',
   ...Object.fromEntries(PICKS.map((a, i) => [a, `Pick option ${i + 1}`])),
+  'attack-all': 'Attack with all (select every creature that can attack)',
+  'no-blocks': 'Declare no blocks',
+  'auto-pay': 'Auto-pay (Auto-fill the mana being paid)',
   'toggle-full-control': 'Toggle full control',
   'next-profile': 'Next flow profile',
   'prev-profile': 'Previous flow profile',
@@ -88,6 +91,11 @@ export function defaultKeymap(): Keymap {
   k['zoom-card'] = [b('KeyZ')];
   k['open-grave'] = [b('KeyG')];
   k['open-exile'] = [b('KeyX')];
+  // The prompt system's quick answers (UI rework spec §1/§4). Shifted, so
+  // ordinary typing is still never a hotkey; bare letters stay free.
+  k['attack-all'] = [b('KeyA', { shift: true })];
+  k['no-blocks'] = [b('KeyN', { shift: true })];
+  k['auto-pay'] = [b('KeyP', { shift: true })];
   NINE.forEach((n) => {
     k[`pick-${n}`] = [b(`Digit${n}`)];
     k[`profile-${n}`] = [b(`Digit${n}`, CS)];
