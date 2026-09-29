@@ -2,7 +2,7 @@ import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelec
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
 import type { SeatCtx } from './seat';
-import type { BreakpointHit } from './breakpoints';
+import { checkBreakpoints, type BreakpointHit } from './breakpoints';
 import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
 import {
   applyPreset,
@@ -17,7 +17,7 @@ import {
   type StoppableStep,
 } from './playsettings';
 import { autoPassLogText, pushAutoPassLog, type AutoPassKind, type AutoPassLog } from './autolog';
-import { loadYields, saveYields } from './yields';
+import { loadYields, saveYields, stackYieldKey } from './yields';
 import {
   emptyStore,
   listProfiles,
@@ -895,6 +895,8 @@ export class SeatPanelState {
    * bpFired maps a breakpoint key (lib/breakpoints) to the decision seq it
    * first stopped at. decide() re-stops that same seq on every re-derive and
    * passes later windows for the same key. Session-scoped: begin() clears it.
+   * Only the first live hit per window is recorded; a second matching key
+   * pauses the next window.
    */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- private loop bookkeeping decide() reads, never rendered; the note is the reactive surface
   private bpFired = new Map<string, number>();
@@ -1334,6 +1336,16 @@ export class SeatPanelState {
     // on screen: an armed run chip would overwrite it with a note claiming
     // the machine is passing when the pause holds it back.
     if (this.busy || this.machinePaused) return;
+    // Arming a run on the window a breakpoint stopped is the player's
+    // acknowledgement of that pause. decide() keeps a hit live for the seq
+    // it fired at, so without this the run would stop again on the very
+    // window it was pressed on and the button would look dead. Re-mark
+    // every hit fired at the pending seq as fired one seq earlier: decide()
+    // then reads it as already fired, and later windows stay passed too.
+    const seq = this.pending?.seq;
+    if (seq !== undefined) {
+      for (const [key, at] of this.bpFired) if (at === seq) this.bpFired.set(key, seq - 1);
+    }
     // Starting a run is the player taking the controls: any paced pass the
     // AUTO paths had pending dies here (r2 finding — the old auto wait used
     // to survive, post at its old deadline and count as autoPassed). The
@@ -1630,7 +1642,21 @@ export class SeatPanelState {
     // decide() owns the same shape and classifies it under Auto's counter.
     if (!autoOn && this.oneShot === 'none') {
       const index = this.skipEmpty ? emptyPriorityWindow(d, view, this.ctx.seat, this.autoPayMana) : null;
-      return index === null ? null : { act: 'pass', index, kind: 'empty', reason: 'empty-window' };
+      if (index === null) return null;
+      // The floor honours breakpoints too: a pause the player set outranks
+      // a window that merely asks nothing. Same inputs decide() uses (no run
+      // baseline here — no run is armed — so only a yield skips the top).
+      const top = view.stack.length > 0 ? view.stack[view.stack.length - 1] : null;
+      const hit = checkBreakpoints({
+        view,
+        seat: this.ctx.seat,
+        bp: this.settings.breakpoints,
+        fired: this.bpFired,
+        seq: d.seq,
+        skipTop: top !== null && this.yields.has(stackYieldKey(top)),
+      });
+      if (hit !== null) return { act: 'stop', reason: 'breakpoint', hit };
+      return { act: 'pass', index, kind: 'empty', reason: 'empty-window' };
     }
 
     // A one-shot run feeds decide() its OWN settings: autoPass forced on,

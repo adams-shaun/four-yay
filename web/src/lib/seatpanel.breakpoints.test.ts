@@ -91,4 +91,53 @@ describe('SeatPanelState breakpoints', () => {
     p.considerAuto(deep());
     expect(postIntentMock).not.toHaveBeenCalled();
   });
+
+  it('arming End Turn on the window a breakpoint stopped passes that window', async () => {
+    const p = seat();
+    p.adoptView(quiet(1));
+    p.considerAuto(deep());
+    expect(postIntentMock).not.toHaveBeenCalled();
+    // As HotButtonStrip does: arm the run, then re-derive the same window.
+    p.startEndTurn(deep());
+    p.considerAuto(deep());
+    await settle(() => p.postedSeq === 1);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('a one-shot run stopped by a breakpoint records the hit and says so in its own wording', async () => {
+    const p = seat();
+    p.setAuto(false);
+    p.adoptView(quiet(1));
+    p.startEndTurn(deep());
+    p.considerAuto(deep());
+    expect(postIntentMock).not.toHaveBeenCalled();
+    expect(autoNoteText(p.note)).toBe('End Turn stopped: a pause you set fired.');
+    // Recorded: the next window for the same stack passes under Auto.
+    p.setAuto(true);
+    p.adoptView(quiet(2));
+    p.considerAuto(deep());
+    await settle(() => p.postedSeq === 2);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('the Manual empty-window floor honours a breakpoint', () => {
+    const p = seat();
+    p.setAuto(false);
+    p.setSkipEmpty(true);
+    p.adoptView(quiet(1));
+    p.considerAuto(deep());
+    expect(postIntentMock).not.toHaveBeenCalled();
+    expect(autoNoteText(p.note)).toBe('Auto paused here: 2 objects are on the stack.');
+  });
+
+  it('with the breakpoint off, the Manual floor passes the same window (today)', async () => {
+    const p = seat();
+    p.setAuto(false);
+    p.setSkipEmpty(true);
+    p.settings = { ...p.settings, breakpoints: noBreakpoints() };
+    p.adoptView(quiet(1));
+    p.considerAuto(deep());
+    await settle(() => p.postedSeq === 1);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+  });
 });
