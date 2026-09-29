@@ -115,16 +115,11 @@ func TestSetAudit_eoe_TapestryWarden_StationUsesToughness(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (a) Mutinous Massacre — "Choose odd or even. Destroy each creature with
-// mana value of the chosen quality." (CR 601.2b's choice during casting /
-// CR 608.2d's resolution choice.) `api:ChooseEvenOdd` is not registered, so
-// the whole spell is a Note and nothing is destroyed.
+// (a) Mutinous Massacre — CR 608.2d's odd/even resolution choice controls
+// which creature mana values its spell destroys.
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_MutinousMassacre_ChooseEvenOdd(t *testing.T) {
-	eoeGuard(t, "api:ChooseEvenOdd is unregistered, so Mutinous Massacre is a no-op Note "+
-		"and destroys nothing",
-		"Register api:ChooseEvenOdd and its cmcChosenEvenOdd filter")
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, lookup(t, reg, "Mutinous Massacre"))
 	// CR 202.3: mana value 2 (even) and mana value 3 (odd).

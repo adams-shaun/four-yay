@@ -2673,6 +2673,10 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				ctx.DiscardVote = "yes"
 			}
 			ctx.DiscardTarget = rp.target
+		case "chooseevenodd":
+			if len(chosen) > 0 {
+				ctx.ChosenType = chosen[0].Label
+			}
 		case "choosetype":
 			// A mid-resolution ChooseType ask (task ct1: SP$/AB$/DB$ ChooseType
 			// resolving outside the cast-time "as this enters" choice —
