@@ -39,42 +39,35 @@ describe('the hotkey guard against an open modal — mounted', () => {
     await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
     const pass = page.locator('#fixture [data-hot-tab="pass"]');
     expect(await pass.isEnabled()).toBe(true);
+    await page.evaluate(() => {
+      const w = window as unknown as { __state: { passClick: () => void }; __restorePass: () => void };
+      const original = w.__state.passClick.bind(w.__state);
+      w.__state.passClick = () => {}; // keep the decision available for the hotkey under test
+      w.__restorePass = () => { w.__state.passClick = original; };
+    });
     await pass.evaluate((el) => {
       el.addEventListener('click', () => {
-        (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick = document.activeElement === el;
+        (window as unknown as { __focusedAtPointerClick: boolean }).__focusedAtPointerClick = document.activeElement === el;
       }, { capture: true, once: true });
-      const original = HTMLElement.prototype.blur;
-      HTMLElement.prototype.blur = function () {
-        if (this === el) (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled = true;
-        original.call(this);
-      };
+      // If focus was retained, suppress native Space activation to isolate
+      // whether the window hotkey ran.
+      el.addEventListener('click', (e) => {
+        if ((e as MouseEvent).detail === 0) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
     });
     await pass.click();
-    expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
-    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1);
-    const first = await posts(page);
-    expect(first).toEqual([{ seq: 7, player: 0, choices: [9] }]);
-
-    // The previous decision was answered; offer a fresh one so a second post
-    // actually tests focus management rather than the seat's postedSeq latch.
-    // This behavioural wait runs before the wiring spies below so a revert
-    // fails on behaviour, not on the spy. Measured caveat: the fixture's busy
-    // post disables this button and the browser already blurs it to body, so
-    // this particular pass succeeds on the unfixed parent too; the ACTIONS
-    // and secondary-Undo tests are the behavioural revert proof (they keep
-    // focus, so they time out without the fix).
-    await page.evaluate(() => (window as unknown as { __newDecision: () => void }).__newDecision());
-    await expect.poll(() => pass.isEnabled()).toBe(true);
-    await page.keyboard.press('Space');
-    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 2, null, { timeout: 2000 });
-    const after = await posts(page);
-    expect(after.length).toBeGreaterThan(first.length);
-    expect(after).toEqual([...first, { seq: 8, player: 0, choices: [9] }]);
-
-    // Preconditions, now proven: the pointer click DID focus the button, and
-    // the focus wiring ran so the next Space reached the table.
-    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
+    expect(await page.evaluate(() => (window as unknown as { __focusedAtPointerClick: boolean }).__focusedAtPointerClick)).toBe(true);
     expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
+    expect(await posts(page)).toEqual([]);
+    await page.evaluate(() => (window as unknown as { __restorePass: () => void }).__restorePass());
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1, null, { timeout: 2000 });
+    const after = await posts(page);
+    expect(after.length).toBeGreaterThan(0);
+    expect(after).toEqual([{ seq: 7, player: 0, choices: [9] }]);
     await page.close();
   });
 

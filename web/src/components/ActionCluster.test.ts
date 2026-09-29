@@ -13,10 +13,24 @@ describe('ActionCluster pointer focus', () => {
     await page.goto(`${browserURL}src/components/HotkeyGuard.fixture.html`);
     const pass = page.locator('#cluster [data-pass-action]');
     expect(await pass.isEnabled()).toBe(true);
+    await page.evaluate(() => {
+      const w = window as unknown as { __state: { passClick: () => void }; __restorePass: () => void };
+      const original = w.__state.passClick.bind(w.__state);
+      w.__state.passClick = () => {}; // keep the same decision answerable after the pointer click
+      w.__restorePass = () => { w.__state.passClick = original; };
+    });
     await pass.evaluate((el) => {
       el.addEventListener('click', () => {
         (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick = document.activeElement === el;
       }, { capture: true, once: true });
+      // A focused button also gets native Space activation. Suppress it so
+      // only the global hotkey can produce the post under test.
+      el.addEventListener('click', (e) => {
+        if ((e as MouseEvent).detail === 0) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
       const original = HTMLElement.prototype.blur;
       HTMLElement.prototype.blur = function () {
         if (this === el) (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled = true;
@@ -25,24 +39,33 @@ describe('ActionCluster pointer focus', () => {
     });
     await pass.click();
     expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
-    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 1);
-    const first = await posts(page);
-    expect(first).toEqual([{ seq: 7, player: 0, choices: [9] }]);
-    // Behavioural assertion first: this is the pass that proves the hotkey
-    // survived the click. Measured caveat: the busy post disables this button
-    // and the browser blurs it to body before the next decision, so this
-    // assertion also passes on the unfixed parent; the secondary-Undo test
-    // below (focus retained) is the behavioural revert proof.
-    await page.evaluate(() => (window as unknown as { __newDecision: () => void }).__newDecision());
-    await expect.poll(() => pass.isEnabled()).toBe(true);
-    await page.keyboard.press('Space');
-    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 2, null, { timeout: 2000 });
-    const after = await posts(page);
-    expect(after.length).toBeGreaterThan(first.length);
-    expect(after).toEqual([...first, { seq: 8, player: 0, choices: [9] }]);
-    // Preconditions, now proven.
-    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
     expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
+    expect(await posts(page)).toEqual([]);
+    await page.evaluate(() => (window as unknown as { __restorePass: () => void }).__restorePass());
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 1, null, { timeout: 2000 });
+    const after = await posts(page);
+    expect(after.length).toBeGreaterThan(0);
+    expect(after).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
+    await page.close();
+  });
+
+  it('keyboard Enter on secondary Undo keeps native activation and focus', async () => {
+    const browser = await sharedBrowser();
+    const page = await browser.newPage();
+    await page.goto(`${browserURL}src/components/HotkeyGuard.fixture.html`);
+    const undo = page.locator('#cluster [data-cluster-undo]');
+    expect(await undo.isEnabled()).toBe(true);
+    await undo.focus();
+    expect(await undo.evaluate((el) => document.activeElement === el)).toBe(true);
+    await undo.evaluate((el) => el.addEventListener('click', (e) => {
+      (window as unknown as { __keyboardClickDetail: number }).__keyboardClickDetail = (e as MouseEvent).detail;
+    }, { once: true }));
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => (window as unknown as { __keyboardClickDetail: number }).__keyboardClickDetail)).toBe(0);
+    expect(await page.evaluate(() => (window as unknown as { __undos: unknown[] }).__undos.length)).toBe(1);
+    expect(await undo.evaluate((el) => document.activeElement === el)).toBe(true);
     await page.close();
   });
 
