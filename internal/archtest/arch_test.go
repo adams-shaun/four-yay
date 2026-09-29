@@ -148,6 +148,7 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/botpolicy", module + "/rules"},
 		{module + "/botpolicy", module + "/seat"},
 		{module + "/protocol", module + "/rules"},
+		{module + "/protocol", module + "/bots"},
 		{module + "/host", module + "/internal/testutil"},
 		{module + "/host/httpapi", module + "/internal/testutil"},
 		{module + "/cmd/gorged", module + "/internal/testutil"},
@@ -160,6 +161,15 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/host", module + "/internal/azmcts"},
 		{module + "/host/httpapi", module + "/internal/azmcts"},
 		{module + "/cmd/gorged", module + "/internal/azmcts"},
+	}
+	for path, p := range pkgs {
+		if strings.HasPrefix(path, module+"/bots") {
+			for _, target := range []string{module + "/host", module + "/internal/testutil"} {
+				if p.deps[target] {
+					t.Errorf("%s depends on %s (transitively); bots packages may not", path, target)
+				}
+			}
+		}
 	}
 	for _, f := range forbidden {
 		p, ok := pkgs[f.from]
