@@ -160,10 +160,10 @@ func TestSetAudit_hob_ElvenPassage_BeholdUntapsSearchedLand(t *testing.T) {
 // Human Soldier if the discarded card was nonland. The ETB trigger on
 // Celebrate the Mountain-king must execute the draw and reach the discard ask.
 func TestSetAudit_hob_GreatGildedBoat_RecruitDrawsThenAsksDiscard(t *testing.T) {
-	hobGuard(t, "Recruit does not draw then ask for a discard when its ETB trigger resolves", "hob-recruit-keyword")
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	e := handEngine(t, hobCard(t, reg, "Celebrate the Mountain-king"))
+	e := handEngine(t, hobCard(t, reg, "Celebrate the Mountain-king"),
+		card(t, "Name:Recruit Hand Filler\nTypes:Instant\nOracle:x\n"))
 	var recruit state.ObjID
 	for _, id := range e.G.Zone(state.ZHand, 0) {
 		if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == "Celebrate the Mountain-king" {

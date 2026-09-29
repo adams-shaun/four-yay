@@ -1394,15 +1394,18 @@ type Ctx struct {
 	// has already been emitted by rules' resume arm — payment events belong
 	// to rules, never to the effects layer.
 	UnlessPay string
-	// Discard is the answered "Mode$ RevealYouChoose" discard choice on a
-	// re-entered mid-resolution resolution: the object(s) the caster named
-	// to be discarded from the target's hand. rules' resumeResolution sets
-	// it from the recorded answer before re-running the suspended sub-ability,
-	// so effDiscard's re-entry discards exactly the chosen cards instead of
-	// asking again. Nil on the first pass and on any non-discard resume. The
-	// ask itself carries the caster as the chooser and the target as the
-	// discarder, which is why a plain ObjID is not enough state to rebuild:
-	// the two player roles are re-derived from Ctx on re-entry.
+	// Discard is the answered mid-resolution discard choice on a re-entered
+	// resolution: the object(s) chosen to be discarded. rules'
+	// resumeResolution sets it from the recorded answer before re-running the
+	// suspended sub-ability, so the asking primitive's re-entry discards
+	// exactly the chosen cards instead of asking again. Its readers are
+	// effDiscard (the "Mode$ RevealYouChoose"/TgtChoose asks) and effRecruit
+	// (api:Recruit's one-card discard); each captures and clears it at the top
+	// of its walk so a nested discard poses its own ask (fx42 scoping). Nil on
+	// the first pass and on any non-discard resume. The ask itself carries the
+	// chooser and the discarder as Option/Ctx roles, which is why a plain
+	// ObjID is not enough state to rebuild: the player roles are re-derived
+	// from Ctx on re-entry.
 	Discard []state.ObjID
 	// DiscardTarget is the per-target cursor for a mid-resolution discard
 	// whose asking walk covers several acting players: the index (into the
