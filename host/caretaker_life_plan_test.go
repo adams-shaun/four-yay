@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/view"
@@ -24,7 +25,7 @@ func TestCaretakerNeverSelectsLifePayingPlan(t *testing.T) {
 		Players: []view.PlayerView{{ID: 0, Hand: []view.CardView{{ID: 9, Types: "Creature", Power: 3, ManaCost: "2 G"}}}}}
 	for _, policy := range []string{BotPolicy, LethalPressurePolicy, CastProfilePolicy} {
 		t.Run(policy, func(t *testing.T) {
-			caretaker, err := newCaretakerSeat(policy, 19, true)
+			caretaker, err := newCaretakerSeat(policy, 19, true, bots.Deps{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -52,7 +53,7 @@ func TestCaretakerNeverSelectsLifePayingPlan(t *testing.T) {
 		})
 	}
 	// Without auto-pay the caretaker is the plain policy bot.
-	s, err := newCaretakerSeat(BotPolicy, 19, false)
+	s, err := newCaretakerSeat(BotPolicy, 19, false, bots.Deps{})
 	if err != nil {
 		t.Fatal(err)
 	}

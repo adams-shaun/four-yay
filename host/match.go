@@ -304,23 +304,26 @@ func (m *match) sidecar() sidecar {
 
 // defaultSeats is PL-14: one bot per seat, seeded from the match seed.
 func defaultSeats(policy string, names []string, seed uint64) []seat.Seat {
-	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0)
+	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0, bots.Deps{})
 }
 
 // defaultSeatsWithAutoPayMana builds every table bot with the persisted
-// auto-payment setting and the registry's search parallelism. Keeping the
+// auto-payment setting, the registry's search parallelism and the embedder's
+// card dependency (BP-13: deps rides bots.Options.Deps into every factory,
+// so a policy that reads card facts builds on a served table). Keeping the
 // legacy wrapper preserves embedders and tests that intentionally exercise
 // the historical manual-mana policy.
-func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int) []seat.Seat {
+func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int, deps bots.Deps) []seat.Seat {
 	out := make([]seat.Seat, len(names))
 	for i := range names {
 		// BP-10: BotSearchParallelism rides bots.Options.SearchParallelism so a
 		// search entry folds its parallel worlds with the embedder's flag. The
-		// policy wrapper (bot_policy.go NewBotPolicySeatWithAutoPayMana) is
-		// exactly bots.New with Seed and AutoPayMana and stays untouched — its
-		// public signature is used by cmd/cardfuzz and the tests, and the
-		// caretaker below never seats a search policy.
-		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism})
+		// policy wrapper (bot_policy.go NewBotPolicySeatWithAutoPayMana) stays
+		// untouched — its public signature is used by cmd/cardfuzz and the
+		// tests; the table path builds through bots.New with Seed,
+		// AutoPayMana, SearchParallelism and BotDeps, exactly what the
+		// wrapper would thread.
+		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps})
 		if err != nil {
 			panic(err) // policy was normalized before the table was registered.
 		}
@@ -611,7 +614,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// human's timeout caretaker; -bot-auto-mana only takes effect when the
 	// feature itself is enabled for the table.
 	autoPayMana := t.cfg.autoPayManaEnabled()
-	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism)
+	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism, r.opts.BotDeps)
 	if r.opts.Seats != nil {
 		seats = r.opts.Seats(m.cfg.Names, m.seed)
 	}
@@ -644,7 +647,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// never races a Decide.
 	for i, s := range seats {
 		if hs, ok := s.(*HumanSeat); ok {
-			caretaker, err := newCaretakerSeat(t.cfg.BotPolicy, m.seed^uint64(i+1), autoPayMana)
+			caretaker, err := newCaretakerSeat(t.cfg.BotPolicy, m.seed^uint64(i+1), autoPayMana, r.opts.BotDeps)
 			if err != nil {
 				return r.crash(t, m, err)
 			}
