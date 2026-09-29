@@ -9,8 +9,18 @@ import (
 // dependencyKey identifies an evaluation, not merely a card. Re-entering a
 // card from a different zone, target, ability or evaluation context is a
 // distinct visit. Callers must give equal keys the same dependencies/value.
-// This is the shared guard for dependency-following evaluators; today's
-// cast/ability/target scorers read only the current Board, not other scores.
+//
+// Scope (the L1 premise, resolved — see the report inventory and
+// evaluation_cycle_structure_test.go): NO production evaluator in botpolicy
+// follows spell/ETB/recursion dependencies today — every scorer (castScore,
+// abilityScore, rankOption, the combat arms) reads only the current Board,
+// and the one recursive cycle in the package's call graph is Clamp's
+// constraint repair, bounded at three frames by its projections. So this
+// walker is NOT on any live policy path; it is the package's ONLY sanctioned
+// recursion entry: a future dependency-following evaluator must express its
+// graph as []dependencyNode and call evaluateDependencies instead of
+// recursing, because the structural test rejects any other cycle or
+// self-recursion reachable in the package's call graph.
 type dependencyKey struct {
 	card, target           state.ObjID
 	ability, zone, context string

@@ -18,28 +18,13 @@ func TestEvaluationCycleBudget(t *testing.T) {
 			t.Fatalf("self-reanimation = %+v; want unknown, not an unbounded score", got)
 		}
 	})
-	t.Run("mutual recursion has a legal deterministic fallback", func(t *testing.T) {
+	t.Run("mutual recursion returns unknown, never a score", func(t *testing.T) {
 		nodes := []dependencyNode{
 			{key: key(1), value: 10, deps: []int{1}},
 			{key: key(2), value: 20, deps: []int{0}},
 		}
 		if got := evaluateDependencies(nodes, 0); got.known || got.value != 0 {
 			t.Fatalf("mutual recursion = %+v; want unknown", got)
-		}
-		// The existing default policy, which does not consume dependency
-		// scores, must still submit a legal deterministic answer on this board.
-		d := decision.Decision{Seq: 3, Kind: decision.KPriority, Min: 1, Max: 1, Options: []decision.Option{
-			{Index: 0, Kind: "pass"}, {Index: 1, Kind: "concede"},
-		}}
-		first := Decide(Board{}, &d, rng(1))
-		if err := d.Validate(first); err != nil {
-			t.Fatalf("fallback rejected: %v", err)
-		}
-		if !reflect.DeepEqual(first.Choices, []int{0}) {
-			t.Fatalf("fallback = %v, want pass", first.Choices)
-		}
-		if again := Decide(Board{}, &d, rng(1)); !reflect.DeepEqual(first, again) {
-			t.Fatalf("fallback differs: %v versus %v", first, again)
 		}
 	})
 	t.Run("long acyclic chain", func(t *testing.T) {
@@ -98,6 +83,77 @@ func TestEvaluationCycleBudget(t *testing.T) {
 		}
 		if got := evaluateDependencies(nodes, 0); got.known || got.value != 0 {
 			t.Fatalf("over budget = %+v; want unknown", got)
+		}
+	})
+	t.Run("production boundary: default policy answers a mutual-reanimation decision legally and deterministically", func(t *testing.T) {
+		// The L1 acceptance at the ACTUAL boundary: today no botpolicy
+		// evaluator follows spell/ETB dependencies (the premise the
+		// structural test enforces), so the production answer to a decision
+		// whose option set spells out a self-reanimation and a two-card
+		// mutual recursion must be a legal, deterministic, terminating
+		// answer — never a recursion, a crash or an infinite score. This
+		// exercises the production entries, not the helper above.
+		d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: []decision.Option{
+			// Self-reanimation shape: one card whose only value is casting
+			// itself again (zero board facts, C5). Mutual recursion shape:
+			// two cards whose value each depends on the other.
+			{Index: 0, Kind: "cast", Obj: 101, Label: "Nexus of Self-Reanimation"},
+			{Index: 1, Kind: "cast", Obj: 102, Label: "Dread Return A"},
+			{Index: 2, Kind: "cast", Obj: 103, Label: "Dread Return B"},
+			{Index: 3, Kind: "pass"},
+		}}
+		if len(d.Options) != 4 || d.Min != 1 {
+			t.Fatalf("bad precondition: %d options, Min %d", len(d.Options), d.Min)
+		}
+		first := Decide(Board{}, &d, rng(1))
+		if err := d.Validate(first); err != nil {
+			t.Fatalf("default policy rejected on the mutual-reanimation shape: %v", err)
+		}
+		again := Decide(Board{}, &d, rng(1))
+		if !reflect.DeepEqual(first, again) {
+			t.Fatalf("default policy nondeterministic on the mutual-reanimation shape: %v versus %v", first, again)
+		}
+		// And through the one LIVE recursion in the package's call graph:
+		// Clamp's constraint repair (allowlisted by the structural test as
+		// bounded at three frames by its projections). Both repair entries
+		// must return an answer Decision.Validate accepts, deterministically.
+		same := decision.Decision{Seq: 9, Player: 0, Kind: decision.KTarget, Min: 2, Max: 2, TargetsWithSameController: true, Options: []decision.Option{
+			{Index: 0, Kind: "creature", Obj: 11, Player: 0, Controller: 0}, // mine: cannot reach Min 2 alone
+			{Index: 1, Kind: "creature", Obj: 12, Player: 1, Controller: 1},
+			{Index: 2, Kind: "creature", Obj: 13, Player: 1, Controller: 1},
+		}}
+		if len(same.Options) != 3 {
+			t.Fatalf("bad precondition: %d same-controller options", len(same.Options))
+		}
+		in := decision.Intent{Seq: 9, Player: 0, Choices: []int{0}}
+		out := Clamp(&same, in)
+		if err := same.Validate(out); err != nil {
+			t.Fatalf("same-controller repair rejected: %v", err)
+		}
+		if !reflect.DeepEqual(out.Choices, []int{1, 2}) {
+			t.Fatalf("same-controller repair = %v, want the two opposing picks", out.Choices)
+		}
+		if out2 := Clamp(&same, in); !reflect.DeepEqual(out, out2) {
+			t.Fatalf("same-controller repair nondeterministic: %v versus %v", out, out2)
+		}
+		shared := decision.Decision{Seq: 11, Player: 0, Kind: decision.KTarget, Min: 2, Max: 2, SetPropMode: decision.SetPropShared, Options: []decision.Option{
+			{Index: 0, Kind: "creature", Obj: 21, Player: 1, SetProps: []string{"cleric"}},
+			{Index: 1, Kind: "creature", Obj: 22, Player: 1, SetProps: []string{"cleric"}},
+			{Index: 2, Kind: "creature", Obj: 23, Player: 1, SetProps: []string{"wizard"}},
+		}}
+		if len(shared.Options) != 3 {
+			t.Fatalf("bad precondition: %d shared-class options", len(shared.Options))
+		}
+		in = decision.Intent{Seq: 11, Player: 0, Choices: []int{2}}
+		out = Clamp(&shared, in)
+		if err := shared.Validate(out); err != nil {
+			t.Fatalf("shared-class repair rejected: %v", err)
+		}
+		if !reflect.DeepEqual(out.Choices, []int{0, 1}) {
+			t.Fatalf("shared-class repair = %v, want the two cleric picks", out.Choices)
+		}
+		if out2 := Clamp(&shared, in); !reflect.DeepEqual(out, out2) {
+			t.Fatalf("shared-class repair nondeterministic: %v versus %v", out, out2)
 		}
 	})
 }
