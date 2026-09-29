@@ -188,6 +188,14 @@ func (e *Engine) scanBoardStatics() boardStatics {
 				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) {
 					continue
 				}
+				// CR 702.25b/d: a phased-out permanent is treated as though it
+				// does not exist, so its statics do not function. Every arm
+				// shares this object-level gate, which is the same one
+				// scanActiveStatics runs -- so the pass-scoped snapshot and the
+				// fresh activeStatics walk cannot disagree on a grantor.
+				if z == state.ZBattlefield && o.PhasedOut {
+					continue
+				}
 				// CR 708.8: a face-down battlefield permanent's printed
 				// statics do not exist -- every arm, the scanActionStatics /
 				// scanCostStatics / scanManaConvSources gate alike.

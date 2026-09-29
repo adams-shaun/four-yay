@@ -723,9 +723,15 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// produce -- an Animate's Abilities$ member such as Wrenn and One's
 	// "{T}: Add {G}" -- so a printed AddAbility$ is never offered twice (the
 	// duplicate-offer trap: staticEffects now emits it into AddAbilities too).
+	//
+	// Both branches read ONE collector: a missing pass-scoped snapshot falls
+	// back to collectActionStatics, not to the battlefield-only activeStatics,
+	// so the offer walk and the handler/guard walk share a membership by
+	// construction. They cannot disagree on a grantor (a phased-out one
+	// included) that one walk sees and the other does not.
 	var continuous []staticView
 	if statics == nil {
-		continuous = e.activeStatics("Continuous")
+		continuous = addAbilityCarriers(e.collectActionStatics().continuous)
 	} else {
 		// The walk's snapshot pre-filtered to AddAbility$ carriers: every
 		// other static fails the name test below, so the order and the
