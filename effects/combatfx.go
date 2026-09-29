@@ -354,8 +354,6 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 			chosenKW = choices[:1]
 		}
 	}
-	att, doublePower := pumpStatAmount(h, c, sa, "NumAtt")
-	def, doubleToughness := pumpStatAmount(h, c, sa, "NumDef")
 	zone := strings.TrimSpace(sa.Params["PumpZone"])
 	var ateotIDs []state.ObjID
 	for _, t := range Defined(h, c, sa) {
@@ -407,7 +405,12 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, t)
 			eventRemember(h, c, t.Obj)
 		}
-		registerPumpEffects(h, c, o.ID, att, def, doublePower, doubleToughness, sa, zone, chosenKW)
+		// Resolve amounts PER OBJECT: Double reads this object's own
+		// layer-derived power/toughness, so a multi-object Defined$ must not
+		// apply one creature's stat to every creature.
+		att := NumForObject(h, c, sa, "NumAtt", 0, o.ID)
+		def := NumForObject(h, c, sa, "NumDef", 0, o.ID)
+		registerPumpEffects(h, c, o.ID, att, def, false, false, sa, zone, chosenKW)
 		if atEOTInclude(h, c, sa, o.ID) {
 			ateotIDs = append(ateotIDs, o.ID)
 		}
@@ -443,8 +446,6 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 // filter-based effect that Derived would re-evaluate against the battlefield
 // forever.
 func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
-	att, doublePower := pumpStatAmount(h, c, sa, "NumAtt")
-	def, doubleToughness := pumpStatAmount(h, c, sa, "NumDef")
 	spec := sa.Params["ValidCards"]
 	if spec == "" {
 		spec = "Creature"
@@ -491,7 +492,9 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 							c.Remembered = append(c.Remembered, state.Target{Obj: id})
 							eventRemember(h, c, id)
 						}
-						registerPumpEffects(h, c, id, att, def, doublePower, doubleToughness, sa, zone, nil)
+						att := NumForObject(h, c, sa, "NumAtt", 0, id)
+						def := NumForObject(h, c, sa, "NumDef", 0, id)
+						registerPumpEffects(h, c, id, att, def, false, false, sa, zone, nil)
 						ateotIDs = append(ateotIDs, id)
 					}
 				}
@@ -504,7 +507,9 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 					c.Remembered = append(c.Remembered, state.Target{Obj: id})
 					eventRemember(h, c, id)
 				}
-				registerPumpEffects(h, c, id, att, def, doublePower, doubleToughness, sa, "", nil)
+				att := NumForObject(h, c, sa, "NumAtt", 0, id)
+				def := NumForObject(h, c, sa, "NumDef", 0, id)
+				registerPumpEffects(h, c, id, att, def, false, false, sa, "", nil)
 				ateotIDs = append(ateotIDs, id)
 			}
 		}

@@ -27,6 +27,61 @@ func Num(h Host, c *Ctx, sa *cards.SA, key string, def int32) int32 {
 	return def
 }
 
+// NumForObject is NumResolved for an amount that depends on WHICH object it
+// is applied to. Forge's bare "Double" P/T amount (NumAtt$ Double, NumDef$
+// Double) is the whole reason: it means "add this object's current
+// characteristic back to itself", so a scalar resolver that reads the first
+// Defined object (or any one object) is wrong the moment the effect affects
+// more than one creature -- the corpus's dominant carriers are
+// `Defined$ Valid Creature.YouCtrl` (Double Trouble, Unnatural Growth,
+// Zopandrel, Roar of Endless Song, ...), where one hoisted amount would be
+// applied to every affected creature. Resolving per object, at resolution
+// time, through Host's LAYER-DERIVED value (CR 613, CR 608.2h) keeps a
+// creature that itself grew this turn doubling its grown power, and keeps two
+// differently-sized creatures each doubling their own.
+//
+// This is the ONE home for the "Double" token: the token and the key->
+// characteristic mapping live once, in statIsPowerKey, rather than re-spelled
+// per primitive. Pump and PumpAll -- the corpus's only carriers -- resolve
+// their amounts per affected object through here. Any other Num consumer that
+// later needs a per-object amount names its P/T key in statIsPowerKey and
+// calls NumForObject instead of Num; until it does, its scalar read of
+// "Double" degrades to zero via Num below (fail-closed), never to another
+// object's stat. Every non-Double value falls through to Num, so NumForObject
+// is a drop-in superset: a literal, an SVar reference or a Count$ body behaves
+// identically whether or not the caller has an object to hand, including Num's
+// degrade-to-zero for an unmodelled body.
+func NumForObject(h Host, c *Ctx, sa *cards.SA, key string, def int32, obj state.ObjID) int32 {
+	if raw := strings.TrimSpace(sa.Params[key]); raw == "Double" && obj != 0 {
+		if p, ok := statIsPowerKey(key); ok {
+			if !p {
+				return h.Toughness(obj)
+			}
+			return h.Power(obj)
+		}
+	}
+	return Num(h, c, sa, key, def)
+}
+
+// statIsPowerKey maps a P/T amount parameter to the characteristic it names:
+// ok reports whether the key is a modelled P/T amount at all, and the bool is
+// true for power and false for toughness. It is the single key table the
+// "Double" resolution reads, so a new P/T primitive that resolves through
+// NumForObject is covered by naming its parameter here, not by re-spelling
+// the token at the call site. The keys are the real P/T amount parameters the
+// Num family is handed: Pump/PumpAll's NumAtt/NumDef (the only wired callers),
+// Animate's Power/Toughness, SetPower$/SetToughness$-style base-sets, and the
+// token / face-down families.
+func statIsPowerKey(key string) (power, ok bool) {
+	switch key {
+	case "NumAtt", "Power", "SetPower", "TokenPower", "FaceDownPower":
+		return true, true
+	case "NumDef", "Toughness", "SetToughness", "TokenToughness", "FaceDownToughness":
+		return false, true
+	}
+	return false, false
+}
+
 // NumResolved is Num plus a resolvability verdict: it answers whether the
 // parameter RESOLVED under the same grammar Num reads -- a signed literal, an
 // SVar name present in the context's table, a recognised inline expression
@@ -140,6 +195,14 @@ func NumResolved(h Host, c *Ctx, sa *cards.SA, key string, def int32) (int32, bo
 		n, ok := evalCountExprOK(h, c, raw, 0)
 		return sign * n, ok
 	}
+	// Forge's bare P/T amount token "Double" (NumAtt$/NumDef$, the Mightform
+	// Harmonizer / Wolverine / Zopandrel family) is NOT a scalar: it means the
+	// affected object's OWN current characteristic added back to itself, so it
+	// cannot be resolved here without naming that object. A caller that
+	// genuinely has one object reads it through NumForObject; a scalar caller
+	// falls through to the degrade-to-zero path below, exactly as any other
+	// unmodelled body does -- never another object's stat. See NumForObject
+	// for why the resolution is per-object and at resolution time.
 	if raw == "X" {
 		return sign * c.X, true
 	}

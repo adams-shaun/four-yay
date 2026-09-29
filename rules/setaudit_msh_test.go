@@ -291,9 +291,14 @@ func TestSetAudit_msh_BraveBrawler_PowerUpOnlyOnce(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (b) Pump stat ops: NumAtt$/NumDef$ Double reads the affected object's
-// current characteristic when the continuous effect applies in layer 7c.
-// Wolverine, Claws Out exercises the trigger-driven power-only case.
+// (b) Pump stat ops: NumAtt$/NumDef$ "Double" is implemented.
+//
+// Wolverine, Claws Out: "Whenever a Mutant you control attacks, double its
+// power until end of turn." Forge: DB$ Pump | Defined$ ... | NumAtt$ Double.
+// A "Double" op reads the creature's CURRENT layer-derived power and adds
+// that much again (CR 107.3), resolved per affected object at resolution time
+// (effects.NumForObject). 36 corpus files carry NumAtt$/NumDef$ Double (three
+// in msh: Epic Fight, World War Hulk III, Wolverine Claws Out).
 // ---------------------------------------------------------------------------
 func TestSetAudit_msh_WolverineClawsOut_DoublePower(t *testing.T) {
 	reg := searchTestRegistry(t)
