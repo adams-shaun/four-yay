@@ -105,7 +105,10 @@ func set(s string) map[string]bool {
 // cmd/sbagent (the SpellBench v2 agent) reads it to report each shadow
 // policy decision's wall milliseconds in its -stats line and for the
 // search's per-decision clock guard (counted when it fires); cmd/sbv2local
-// (the in-process v2 runner) only reports latency.
+// (the in-process v2 runner) only reports latency. host/manabrewhttp uses
+// time only for SSE keep-alive and write deadlines. No game, event, view or
+// replay reads the clock, and intents reach the engine only through
+// SubmitIntent.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 	allowed := map[string]bool{
 		module + "/host":              true,
@@ -125,6 +128,7 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/kshadowcheck":  true,
 		module + "/cmd/sbagent":       true,
 		module + "/cmd/sbv2local":     true,
+		module + "/host/manabrewhttp": true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {
@@ -164,6 +168,61 @@ func TestDependencyOrderHolds(t *testing.T) {
 		}
 		if p.deps[f.to] {
 			t.Errorf("%s depends on %s (transitively); the dependency order forbids it", f.from, f.to)
+		}
+	}
+
+	// ManaBrew's translator and transport remain above the engine boundary.
+	// These package paths are intentionally listed before those packages exist;
+	// the checks bind automatically as go list begins reporting each package.
+	forbiddenManaBrew := []struct{ from, to string }{
+		{module + "/internal/manabrew", module + "/rules"},
+		{module + "/internal/manabrew", module + "/effects"},
+		{module + "/internal/manabrew", module + "/events"},
+		{module + "/internal/manabrew", module + "/host"},
+		{module + "/internal/manabrew", module + "/host/httpapi"},
+		{module + "/internal/manabrew", module + "/internal/azmcts"},
+		{module + "/internal/manabrew", module + "/internal/testutil"},
+		{module + "/host/manabrewhttp", module + "/rules"},
+		{module + "/host/manabrewhttp", module + "/effects"},
+		{module + "/host/manabrewhttp", module + "/internal/testutil"},
+		{module + "/host/manabrewhttp", module + "/internal/azmcts"},
+	}
+	for _, from := range []string{
+		"cards", "state", "decision", "events", "effects", "botpolicy",
+		"rules", "view", "seat", "replay", "protocol", "host", "host/httpapi",
+	} {
+		for _, to := range []string{"protocol/manabrew", "internal/manabrew", "host/manabrewhttp"} {
+			forbiddenManaBrew = append(forbiddenManaBrew, struct{ from, to string }{module + "/" + from, module + "/" + to})
+		}
+	}
+	for _, f := range forbiddenManaBrew {
+		p, ok := pkgs[f.from]
+		if !ok {
+			continue
+		}
+		if p.deps[f.to] {
+			t.Errorf("%s depends on %s (transitively); the ManaBrew dependency boundary forbids it", f.from, f.to)
+		}
+	}
+}
+
+// TestManaBrewWireIsStdlibOnly keeps the protocol's public wire types free of
+// gorge package dependencies. The row is in place before protocol/manabrew
+// exists and starts enforcing the boundary as soon as it is added.
+func TestManaBrewWireIsStdlibOnly(t *testing.T) {
+	const wire = module + "/protocol/manabrew"
+	p, ok := packages(t)[wire]
+	if !ok {
+		t.Skip("protocol/manabrew is not built yet")
+	}
+	for imp := range p.imports {
+		out, err := exec.Command("go", "list", "-f", "{{.Standard}}", imp).Output()
+		if err != nil {
+			t.Errorf("inspect %s import %s: %v", wire, imp, err)
+			continue
+		}
+		if strings.TrimSpace(string(out)) != "true" {
+			t.Errorf("%s imports %s; ManaBrew wire types must be stdlib-only", wire, imp)
 		}
 	}
 }
