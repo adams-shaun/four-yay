@@ -4333,6 +4333,19 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				next.loopRemembered = append([]state.Target(nil), ctx.Remembered...)
 			}
 		}
+		if parkedDraws {
+			// CR 608.2c: a resolution's SubAbility$ continuation runs only after
+			// the effect that named it — including every replacement application
+			// — completes. An exchange transaction the parked draw interrupted
+			// (Lich's GainLife→Draw body under Mister Negative's exchange) is
+			// still pending here, and rp.outer is that exchange's OWN SubAbility$
+			// continuation: settle the transaction FIRST, or the rider reads the
+			// transaction's pre-settle state (RememberOwnLoss evaluated to 0
+			// because the controller's loss had not been finalised yet). A settle
+			// that itself suspends re-parks the transaction (the existing drain
+			// contract); the continuation below then runs as before.
+			e.settlePendingLifeExchange()
+		}
 		e.resumeResolution(rp.outer, nil)
 		if parkedDraws {
 			e.askNextReplacementChoice()
