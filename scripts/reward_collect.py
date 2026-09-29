@@ -133,24 +133,46 @@ def collect_flow(repo: Path) -> list[str]:
             note="; ".join(f"{f}({len(bs)})" for f, bs in hs[:8]),
         )
     ]
+    # DISTINCT TICKETS, not transitions. One ticket in merge_fix emits several
+    # journal rows (queued, dispatched, each overflow retry), and counting rows
+    # made the rate read 0.769 when the true figure was 0.248 -- measured
+    # 2026-09-29, where 619 transitions belonged to 199 tickets and one ticket
+    # alone accounted for 48 of them.
     j = journal_rows(repo)
-    merge_fix = sum(
-        1 for d in j if (d.get("evidence") or {}).get("to") == "merge_fix"
-    )
-    merged = sum(
-        1
-        for d in j
-        if (d.get("evidence") or {}).get("to") == "merged"
-        or (d.get("evidence") or {}).get("final_status") == "merged"
-    )
-    rate = (merge_fix / merged) if merged else 0.0
+    merge_fix: set[str] = set()
+    merged: set[str] = set()
+    worst: collections.Counter[str] = collections.Counter()
+    for d in j:
+        iid = d.get("issue_id")
+        if not iid:
+            continue
+        ev = d.get("evidence") or {}
+        if ev.get("to") == "merge_fix":
+            merge_fix.add(str(iid))
+            worst[str(iid)] += 1
+        if ev.get("to") == "merged" or ev.get("final_status") == "merged":
+            merged.add(str(iid))
+    rate = (len(merge_fix) / len(merged)) if merged else 0.0
+    top = ", ".join(f"{i}({n})" for i, n in worst.most_common(3))
     rows.append(
         row(
             repo,
             "flow",
             "merge_fix_rate",
             round(rate, 4),
-            note=f"{merge_fix} merge_fix / {merged} merged in {WINDOW_DAYS}d",
+            note=f"{len(merge_fix)} tickets in merge_fix / {len(merged)} merged in {WINDOW_DAYS}d"
+            + (f"; most rounds: {top}" if top else ""),
+        )
+    )
+    # The repeat offenders are the actionable half: a ticket that needed a dozen
+    # resolver rounds names a file the fleet cannot land in parallel.
+    rows.append(
+        row(
+            repo,
+            "flow",
+            "merge_fix_rounds_max",
+            max(worst.values()) if worst else 0,
+            note=top,
         )
     )
     return rows
@@ -462,17 +484,25 @@ def selftest() -> int:
         # A journal with two merge_fix transitions and four merges.
         j = repo / ".ds4" / "orchestrator" / "journal.jsonl"
         lines = []
-        for i in range(2):
-            lines.append(json.dumps({"ts": now_iso(), "kind": "transition", "evidence": {"to": "merge_fix"}}))
+        # Two DISTINCT tickets in merge_fix, but five transitions between them:
+        # the rate must read 2/4, not 5/4.
+        for iid, times in (("t-1", 4), ("t-2", 1)):
+            for _ in range(times):
+                lines.append(json.dumps({"ts": now_iso(), "kind": "transition",
+                                         "issue_id": iid, "evidence": {"to": "merge_fix"}}))
         for i in range(4):
-            lines.append(json.dumps({"ts": now_iso(), "kind": "transition", "evidence": {"to": "merged"}}))
+            lines.append(json.dumps({"ts": now_iso(), "kind": "transition",
+                                     "issue_id": f"m-{i}", "evidence": {"to": "merged"}}))
         lines.append(json.dumps({"ts": now_iso(), "kind": "gate_fail", "msg": "gate timeout after 900s"}))
         lines.append(json.dumps({"ts": "not-a-date", "kind": "transition", "evidence": {"to": "merged"}}))
         j.write_text("\n".join(lines) + "\n")
 
         flow = [json.loads(r) for r in collect_flow(repo)]
         rate = next(r for r in flow if r["metric"] == "merge_fix_rate")
-        check("merge_fix_rate is merge_fix/merged", abs(rate["value"] - 0.5) < 1e-9, rate)
+        check("merge_fix_rate counts DISTINCT tickets, not transitions",
+              abs(rate["value"] - 0.5) < 1e-9, rate)
+        rounds = next(r for r in flow if r["metric"] == "merge_fix_rounds_max")
+        check("the worst ticket's round count is reported", rounds["value"] == 4, rounds)
         check("a malformed journal ts is skipped, not fatal", True)
 
         st = repo / ".ds4" / "reward" / "stability.json"

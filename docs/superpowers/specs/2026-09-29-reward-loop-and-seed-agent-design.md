@@ -66,7 +66,7 @@ and every axis except `eff` costs under a second to measure.
 | axis | metrics | source | weight |
 |---|---|---|---|
 | `correct` | `validated_defects_found_cum`, `validated_defects_closed_cum`, `validated_cards` | `.ds4/reward/defects.jsonl`, the two ratchet tables, `internal/testutil/decks/*.json` | **1000x (summed)** |
-| `flow` | `conflict_hotspots`, `merge_fix_rate` | `git worktree list` + `git diff main...<branch>`, `.ds4/orchestrator/journal.jsonl` | **1000x (summed)** |
+| `flow` | `conflict_hotspots`, `merge_fix_rate`, `merge_fix_rounds_max` | `git worktree list` + `git diff main...<branch>`, `.ds4/orchestrator/journal.jsonl` | **1000x (summed)** |
 | `stability` | `oom_kills`, `gate_timeouts`, `gate_starved_minutes`, `broker_kills`, `swap_in_pages`, `provider_failures_24h` | `/proc/vmstat` deltas, the journal, `broker.sh`'s own interventions | **veto (100x)** |
 | `steward` | `gate_wall_s`, `agent_context_bytes`, `oversized_files` | gate log mtimes under `.ds4/orchestrator/gates/`, `AGENTS.md` + the dispatch context file, a line count over tracked `*.go` | **100x (summed)** |
 | `eff` | `elo_per_ms`, `ms_per_searched_decision_p50/p90`, `ms_per_game`, `sim_games_per_s` | `botbench -grind` (throughput), `sbsearchcost.go`, `decisioncost.go`, pprof | **10x** |
@@ -253,7 +253,7 @@ installed on a timer:
 
 | axis | measurement | reading |
 |---|---|---|
-| `flow` | `merge_fix_rate` 0.769 (626 merge_fix / 814 merged, 7d) | the pipeline spends more rounds on merge conflicts than on merges |
+| `flow` | `merge_fix_rate` 0.248 (199 tickets / 802 merged, 7d); worst ticket 48 resolver rounds | one merge in four needs a resolver round. The loop's first reading said 0.769 because it counted journal TRANSITIONS, not distinct tickets; corrected the same day, and the alarm threshold (0.25) is now right at the true figure |
 | `flow` | `conflict_hotspots` 6 | six files edited by 2+ live branches right now |
 | `steward` | `gate_wall_s` 137, `agent_context_bytes` 46273, `oversized_files` 89 (largest `rules/cast.go`, 12515 lines) | every landing pays 137s; every seat turn pays 46KB |
 | `eff` | 124.4 games/s, 8.04 ms/game (`botbench -grind mono-red-prowess`) | the throughput baseline the 10x axis moves against |
@@ -262,7 +262,9 @@ installed on a timer:
 | `stability` | clean | no OOM, no gate timeout, but 137 provider failures in 24h |
 
 The `flow` number is why that axis exists: it was not visible anywhere before
-the loop measured it.
+the loop measured it. It is also why a measured number gets checked before it
+gets acted on -- the first version of this metric was 3x too high, and the
+hand pass that verified it is what found the 48-round ticket worth naming.
 
 ## 5. Why this shape
 
