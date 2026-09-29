@@ -959,6 +959,17 @@ func (d *Decision) GroupCapFor(group string) int {
 	return d.GroupCap()
 }
 
+// GroupAdmits reports whether adding an option of Group g is legal given
+// used[g] options of that group already chosen: used[g] < GroupCapFor(g).
+// The ONE incremental per-Group rule -- Decision.Validate's group branch,
+// groupCapExceeded's fast path and manabrew's orderTargetOptions prefix
+// walks all call it, so a walk can never front a set the validator rejects
+// (and the validator cannot drift from the walk). An empty g (an option
+// with no Group) always admits.
+func (d *Decision) GroupAdmits(used map[string]int, g string) bool {
+	return g == "" || used[g] < d.GroupCapFor(g)
+}
+
 // SetPropMode selects one of Forge's target-SET property constraints, read
 // over each option's SetProps. The zero value is no constraint, so every
 // existing decision is unaffected.
@@ -1173,7 +1184,7 @@ func (d *Decision) groupCapExceeded(choices []int) bool {
 			continue
 		}
 		counts[g]++
-		if counts[g] > d.GroupCapFor(g) {
+		if !d.GroupAdmits(counts, g) {
 			return true
 		}
 	}
@@ -1282,9 +1293,12 @@ func (d *Decision) Validate(in Intent) error {
 			// The per-Group cap: at most GroupCapFor(g) options of one Group may
 			// be selected together. At the default cap of 1 this is the historical
 			// mutual-exclusion rule with its historical message; a raised cap
-			// (EACH's per-type ChangeNum) reports the count it refused.
-			limit := d.GroupCapFor(g)
-			if groupCount[g] >= limit {
+			// (EACH's per-type ChangeNum) reports the count it refused. The
+			// incremental admission test is decision.GroupAdmits, the same rule
+			// orderTargetOptions' prefix walks apply, so the offered prefix and
+			// this fence cannot drift.
+			if !d.GroupAdmits(groupCount, g) {
+				limit := d.GroupCapFor(g)
 				if limit == 1 {
 					return fmt.Errorf("choices %d and %d are mutually exclusive (group %q)", seenGroups[g], c, g)
 				}
