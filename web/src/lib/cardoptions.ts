@@ -75,9 +75,11 @@ export interface CardOptions {
    *  card action posted the preceding decision. */
   autoOpenObj?: number;
   /** later indexes the seat's potential actions (laterByObj) by object: the
-   *  abilities the engine WOULD offer on a card once mana floats, for the
-   *  cards this decision already offers something. Absent when there are
-   *  none. */
+   *  abilities the engine WOULD offer on a card once mana floats — indexed
+   *  for every permanent that carries one, whether or not the decision also
+   *  offers that permanent a live option (fb-20260928T230741Z: an Equipment
+   *  at a mana-taps-only window still gets its Equip badge). Absent when
+   *  there are none. */
   later?: Map<number, PotentialAction[]>;
   post: (index: number, expectFollowUp?: boolean, holdPriority?: boolean) => void;
 }
@@ -88,6 +90,10 @@ export interface CardOptions {
  * `{pickedAt + 1}` idiom), the tone, and the post callback. It is null when
  * the pending decision offers this object nothing — which is exactly the
  * "no badge, no mark" state, so the tile never learns a rule to decide it.
+ * A later-only tile (list empty, later rows present — fb-20260928T230741Z's
+ * Equipment at a mana-taps-only window) is NOT null: it renders the count
+ * badge, and opening it shows the not-yet-payable rows as disabled, so the
+ * affordance is visible whatever the mana mode.
  */
 export interface TileOptions {
   list: Option[];
@@ -117,10 +123,25 @@ const LATER_KINDS: ReadonlySet<string> = new Set(['ability', 'granted', 'unlock'
 /**
  * laterByObj indexes the seat's own potential actions (PlayerView.
  * potential_actions, rules.PotentialActions: the engine's own offer walk
- * priced against the mana the seat could float) by object, for exactly the
- * objects the pending PRIORITY decision already offers something and only
- * the LATER_KINDS entries that decision does not already offer
- * (castable.offersPotential).
+ * priced against the mana the seat could float) by object, for every
+ * permanent that carries a LATER_KINDS entry the decision does not already
+ * offer live (castable.offersPotential).
+ *
+ * fb-20260928T230741Z widened the index from "the objects this decision
+ * already offers something" to EVERY permanent with a float-gated
+ * LATER_KINDS action. The reporter's ask — "equipment should have a cast
+ * button, e.g. equip, in both manual and auto mana mode" — is exactly the
+ * shape the old guard refused: at a mana-taps-only window an Equipment's
+ * live options are none, so it rendered no affordance at all, and the only
+ * way to discover the Equip was to float mana first and look again. The
+ * boundary the old guard drew (pinned then in laterabilities.test.ts) was
+ * drawn for Mount Doom — whose mana tap IS a live option — and for a
+ * face-down morph / locked Room; this request supersedes it: the badge now
+ * appears on the permanent with the disabled "tap other mana first" row,
+ * whatever the mana mode (the row is a function of potential_actions, which
+ * carries no mana-mode dependence). A cast, a land drop and a station stay
+ * out (LATER_KINDS), so a hand card's potential cast is still only the
+ * auto-pass stop note.
  *
  * Why (fb-20260923T033148Z-877b8f8f, "mount doom -- can only play tap for
  * mana, not the other abilities"): the engine offers a mana-costed ability
@@ -148,9 +169,11 @@ export function laterByObj(
   let m: Map<number, PotentialAction[]> | undefined;
   for (const a of potential) {
     if (!LATER_KINDS.has(a.kind) || a.obj === undefined) continue;
+    // fb-20260928T230741Z: an object with no live option is indexed too —
+    // that is the Equipment case. An entry the decision already offers live
+    // (its mana floated) is still not repeated (offersPotential).
     const offered = live.get(a.obj);
-    if (offered === undefined) continue;
-    if (offersPotential(offered, a)) continue;
+    if (offered !== undefined && offersPotential(offered, a)) continue;
     m ??= new Map();
     const list = m.get(a.obj);
     if (list === undefined) m.set(a.obj, [a]);
@@ -528,14 +551,20 @@ export function optionSetForMany(
 }
 
 /** tileOptions hands a single tile its rendered option set plus the tone and
- *  the post callback — or null when the decision offers this object nothing. */
+ *  the post callback — or null when the decision offers this object nothing.
+ *  A later-only object (fb-20260928T230741Z: an Equipment whose Equip is
+ *  gated behind floating mana, with no live option at this window) is NOT
+ *  null: `list: []` / `pickedOrder: []` is a valid shape — OptionPicker's
+ *  direct is false with an empty list, total counts the later rows, and
+ *  hasLater already suppresses direct actions — so the tile renders the
+ *  count badge and the picker opens to the disabled rows. */
 export function tileOptions(bundle: CardOptions, obj: number): TileOptions | null {
   const set = optionSetFor(bundle.byObj, obj, bundle.picked);
-  if (set === null) return null;
   const later = bundle.later?.get(obj);
+  if (set === null && !(later && later.length > 0)) return null;
   return {
-    list: set.list,
-    pickedOrder: set.pickedOrder,
+    list: set?.list ?? [],
+    pickedOrder: set?.pickedOrder ?? [],
     tone: bundle.tone,
     autoOpen: bundle.autoOpenObj === obj,
     ...(later ? { later } : {}),
@@ -544,10 +573,11 @@ export function tileOptions(bundle: CardOptions, obj: number): TileOptions | nul
 }
 
 /** tileOptionsMany hands a collapsed-stack tile the pile's combined option
- *  set — or null when no member is offered anything. */
+ *  set — or null when no member is offered anything and no member carries a
+ *  later row (fb-20260928T230741Z: a pile of float-gated Equipment still
+ *  gets its badge, as a later-only tile). */
 export function tileOptionsMany(bundle: CardOptions, objs: readonly number[]): TileOptions | null {
   const set = optionSetForMany(bundle.byObj, objs, bundle.picked);
-  if (set === null) return null;
   // Interchangeable members carry identical later rows; show each once.
   const seen = new Set<string>();
   const later = objs.flatMap((obj) => bundle.later?.get(obj) ?? []).filter((a) => {
@@ -556,9 +586,10 @@ export function tileOptionsMany(bundle: CardOptions, objs: readonly number[]): T
     seen.add(key);
     return true;
   });
+  if (set === null && later.length === 0) return null;
   return {
-    list: set.list,
-    pickedOrder: set.pickedOrder,
+    list: set?.list ?? [],
+    pickedOrder: set?.pickedOrder ?? [],
     tone: bundle.tone,
     autoOpen: bundle.autoOpenObj !== undefined && objs.includes(bundle.autoOpenObj),
     ...(later.length > 0 ? { later } : {}),

@@ -111,7 +111,7 @@
 </script>
 
 {#if group.cards.length === 1}
-  <CardTile card={group.cards[0]} {size} {attachments} tileOptions={singleOptions} />
+  <CardTile card={group.cards[0]} {size} {attachments} {options} tileOptions={singleOptions} />
 {:else}
   <button
     type="button"

@@ -4,7 +4,7 @@
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
   import OptionPicker from './OptionPicker.svelte';
-  import { ACTION_GLYPHS } from '../lib/cardoptions';
+  import { ACTION_GLYPHS, tileOptions as tileOptionsOf, type CardOptions } from '../lib/cardoptions';
   import { SICK_TAP_REASON, sickUntappableManaSource } from '../lib/sicktap';
 
   /**
@@ -50,7 +50,7 @@
   // no pointer events, no $effect) can drive the panel's lifecycle through
   // the same HoverCard the component owns; production renders never pass them
   // and the defaults are exactly what the component built for itself before.
-  let { card, size = 'tile', attachments = [], hover = new HoverCard(), anchor: anchorProp = null, tileOptions = null, open0 = false, faceTapped = undefined }: {
+  let { card, size = 'tile', attachments = [], hover = new HoverCard(), anchor: anchorProp = null, tileOptions = null, options = null, open0 = false, faceTapped = undefined }: {
     card: CardView;
     size?: 'tile' | 'large';
     attachments?: CardView[];
@@ -63,6 +63,14 @@
      *  'highlight valid targets', so a card that is a valid target and a card
      *  you may cast both get it — no kind is special-cased (R-E4-2). */
     tileOptions?: import('../lib/cardoptions').TileOptions | null;
+    /** options is the whole pending bundle (cardoptions.CardOptions), handed
+     *  down so each ATTACHMENT rider can look up its OWN object's offers
+     *  (fb-20260928T230741Z): an attached Equipment is rendered as a rider
+     *  under its host, so even when the Equip is on the wire as a
+     *  potential action the rider had no affordance of its own. Each rider
+     *  that carries options (live or float-gated later rows) renders its own
+     *  OptionPicker beside its name. */
+    options?: CardOptions | null;
     /** faceTapped overrides the face's ROTATION presentation (and the slot
      *  shape that follows it) regardless of card.tapped — undefined keeps the
      *  card's own tapped state. CardStack's collapsed pile passes it: the pile
@@ -129,6 +137,13 @@
 
   const isCreature = $derived(card.types.includes('Creature'));
   const showStats = $derived((isCreature || card.damage > 0) && !isPlaneswalker);
+
+  // Each attachment rider's own offers (fb-20260928T230741Z): looked up by
+  // the rider's id in the same bundle the tile itself reads, so an attached
+  // Equipment with a float-gated Equip renders the same count badge +
+  // disabled row an unattached one does. Null for riders the pending
+  // decision says nothing about — no badge, no mark.
+  const riderOptions = $derived(attachments.map((a) => (options ? tileOptionsOf(options, a.id) : null)));
 
   // The muted tap affordance (fb-20260928T161557Z-2d23d432). The engine
   // withholds the tap-for-mana option from a summoning-sick non-haste
@@ -237,19 +252,28 @@
     ><span class="data" aria-hidden="true">{ACTION_GLYPHS.tap}</span></span>
   {/if}
 
-  {#if attachments.length}
-    <div class="attached">
-      {#each attachments as a (a.id)}
-        <span class="rider" data-obj={a.id} title={a.name}>{a.name}</span>
-      {/each}
-    </div>
-  {/if}
 </div>
 
 {#if tileOptions}
   <!-- Outside the role=button tile: OptionPicker owns the one shared direct /
        radial / long-list affordance used by every board anchor. -->
   <OptionPicker {tileOptions} subject="for {card.name}" {open0} collapseTapActions />
+{/if}
+
+{#if attachments.length}
+  <!-- The riders sit in the .tile-wrap alongside the tile, NOT inside the
+       role="button" tile div (the same reason the tile's own picker is
+       outside it): a rider whose object the pending decision says something
+       about renders its own OptionPicker — a real button nested inside a
+       role="button" ancestor would be the exact nesting the picker exists
+       to avoid. fb-20260928T230741Z: an attached Equipment (two of the
+       reporter's three) now carries the same affordance an unattached one
+       does. -->
+  <div class="attached">
+    {#each attachments as a, i (a.id)}
+      <span class="rider" data-obj={a.id} title={a.name}>{a.name}{#if riderOptions[i]}<OptionPicker tileOptions={riderOptions[i]!} subject="for {a.name}" collapseTapActions />{/if}</span>
+    {/each}
+  </div>
 {/if}
 </div>
 
@@ -472,7 +496,10 @@
   }
 
   /* An attachment rides UNDER its host, overlapping slightly, so the pair
-     reads as one object without hiding either. */
+     reads as one object without hiding either. The rider is positioned so
+     its own OptionPicker badge (fb-20260928T230741Z) anchors to the rider
+     chip, not to the wrapper's top edge where the host tile's own picker
+     lives. */
   .attached {
     display: flex;
     flex-direction: column;
@@ -481,6 +508,7 @@
     padding-left: var(--sp-2);
   }
   .rider {
+    position: relative;
     background: var(--felt-sunk);
     border-left: 2px solid var(--edge-felt);
     color: var(--ink-dim);
