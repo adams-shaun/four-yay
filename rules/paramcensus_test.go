@@ -132,7 +132,7 @@ func (b bucket) String() string {
 //	cp, copy, targetSA, SA, Ability, With, head, ma *cards.SA locals;
 //	pt.SA   the pendingTrigger's effect SA.
 var baseBuckets = map[string]bucket{
-	"": bSA, // f.SpellAbility() in SpellEffectiveCost is a *cards.SA; its Params are spell-ability parameters.
+	"":  bSA, // f.SpellAbility() in SpellEffectiveCost is a *cards.SA; its Params are spell-ability parameters.
 	"t": bTrig,
 	// sib is the paired sibling trigger secondaryYields (checkFaceTriggers'
 	// Secondary$ walk) scans the same face for: a cards.Trigger like t.
