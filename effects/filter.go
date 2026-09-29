@@ -3603,10 +3603,9 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 		// every creature at the maximum is "the greatest". The candidate must
 		// itself be in the set (Forge's non-LKI contains check), so a creature
 		// not controlled by the named players never matches even if its power
-		// is the greatest on the battlefield. Net power is read the same way
-		// numericPred's power predicates read it (face power plus +1/+1
-		// counters); a continuous-effect power pump is not visible from here
-		// -- recorded as a known limitation in AGENTS.md.
+		// is the greatest on the battlefield. Bound callers supply layer-derived
+		// power for the entire comparison set; direct calls retain objectPower's
+		// printed-plus-counter fallback.
 		var players []state.PlayerID
 		if ref, is := strings.CutPrefix(rest, "ControlledBy"); is {
 			var ok bool
@@ -3630,7 +3629,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 		if !inSet {
 			return false, true
 		}
-		mine := objectPower(o)
+		mine := objectPowerInContext(o, sc)
 		for i := range g.Objs {
 			other := &g.Objs[i]
 			if other.Zone != state.ZBattlefield || !hasType(other, "Creature") || other.ID == o.ID {
@@ -3647,7 +3646,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 					continue
 				}
 			}
-			if objectPower(other) > mine {
+			if objectPowerInContext(other, sc) > mine {
 				return false, true
 			}
 		}
@@ -4160,11 +4159,22 @@ func noResolve(string) (int32, bool) { return 0, false }
 // result=false when the shape is recognised but the RHS did not resolve, so
 // a filter spec is either a hard "no" or "not this predicate", never a
 // silent match.
-// objectPower is the one net-power read the filter grammar shares (face
-// power plus the summed P/T counter deltas of every counter kind --
-// numericPred's power predicates and the greatestPower classifier both use
-// it). A continuous-effect power pump is not visible from the filter path;
-// the limitation is recorded in AGENTS.md.
+// objectPowerInContext reads a bound layer-derived power when available and
+// otherwise preserves the direct filter matcher’s printed-plus-counter
+// fallback. greatestPower uses the full per-object table when its caller can
+// supply one; numeric predicates use the candidate-only DerivedPower bind.
+func objectPowerInContext(o *state.Object, sc SpecContext) int {
+	for _, d := range sc.DerivedPTs {
+		if d.ID == o.ID {
+			return int(d.Power)
+		}
+	}
+	if sc.HasDerivedPT {
+		return int(sc.DerivedPower)
+	}
+	return objectPower(o)
+}
+
 func objectPower(o *state.Object) int {
 	f := o.Face()
 	if f == nil {
@@ -4710,6 +4720,10 @@ type SpecContext struct {
 	// overwhelmingly common board), so the linear scan below is cheaper than
 	// building a map.
 	DerivedTypes []ObjectTypes
+	// DerivedPTs optionally supplies layer-derived current power for all
+	// objects participating in a greatestPower comparison. Like DerivedTypes,
+	// this is an immutable value table, never a rules back-pointer or resolver.
+	DerivedPTs []ObjectPower
 	// DerivedPower/DerivedToughness optionally supply the candidate object's
 	// CURRENT derived power/toughness (printed plus every applied continuous
 	// effect in layer order, then 7d counters) and BasePower/BaseToughness its
@@ -4755,6 +4769,12 @@ func (sc *SpecContext) ResolutionStateBound() bool {
 type ObjectTypes struct {
 	ID    state.ObjID
 	Types []string
+}
+
+// ObjectPower binds one object's layer-derived current power.
+type ObjectPower struct {
+	ID    state.ObjID
+	Power int32
 }
 
 // hasEffectiveName reports whether the context binds a layer-3 name for o.

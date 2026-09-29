@@ -851,6 +851,14 @@ func conditionMetBattlefield(h Host, c *Ctx, present, compare string) (met, reso
 	}
 	g := h.Game()
 	sc := c.SpecContext(c.Controller)
+	if strings.Contains(present, "greatestPower") {
+		for i := range g.Objs {
+			o := &g.Objs[i]
+			if o.Zone == state.ZBattlefield {
+				sc.DerivedPTs = append(sc.DerivedPTs, ObjectPower{ID: o.ID, Power: h.Power(o.ID)})
+			}
+		}
+	}
 	count := 0
 	for i := range g.Objs {
 		o := &g.Objs[i]

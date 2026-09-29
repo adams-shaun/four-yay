@@ -3674,7 +3674,16 @@ func evalCountValidSelf(h Host, c *Ctx, arg string) (int32, bool) {
 	if o == nil {
 		return 0, true
 	}
-	if MatchesObjectCtx(g, arg, o, c.SpecContext(c.Controller)) {
+	sc := c.SpecContext(c.Controller)
+	if strings.Contains(arg, "greatestPower") {
+		for i := range g.Objs {
+			other := &g.Objs[i]
+			if other.Zone == state.ZBattlefield {
+				sc.DerivedPTs = append(sc.DerivedPTs, ObjectPower{ID: other.ID, Power: h.Power(other.ID)})
+			}
+		}
+	}
+	if MatchesObjectCtx(g, arg, o, sc) {
 		return 1, true
 	}
 	return 0, true
@@ -4872,6 +4881,14 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 			if power, toughness, basePower, baseToughness, found := provider.FilterDerivedPT(id); found {
 				specCtx.DerivedPower, specCtx.DerivedToughness, specCtx.HasDerivedPT = power, toughness, true
 				specCtx.BasePower, specCtx.BaseToughness, specCtx.HasBasePT = basePower, baseToughness, true
+			}
+		}
+	}
+	if strings.Contains(matchSpec, "greatestPower") {
+		for i := range f.g.Objs {
+			o := &f.g.Objs[i]
+			if o.Zone == state.ZBattlefield {
+				specCtx.DerivedPTs = append(specCtx.DerivedPTs, ObjectPower{ID: o.ID, Power: f.h.Power(o.ID)})
 			}
 		}
 	}
