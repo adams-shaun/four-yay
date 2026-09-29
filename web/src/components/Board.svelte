@@ -201,7 +201,10 @@
     width: 100%;
     height: 100%;
     min-width: 0;
-    overflow: hidden;
+    /* clip, not hidden: a hidden box is still a scroll container, and a
+       raised hand card taking focus scrolled the whole board up under the
+       top seat's header bar. */
+    overflow: clip;
   }
   .opps {
     display: grid;

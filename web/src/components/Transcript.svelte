@@ -352,6 +352,9 @@
     font-size: 0.85em;
     white-space: nowrap;
     flex: none;
+    /* a flex item of the line: without this it stretches to the wrapped
+       line's full height and reads as an empty box */
+    align-self: flex-start;
   }
   .text {
     overflow-wrap: anywhere;

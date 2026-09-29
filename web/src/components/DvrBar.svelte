@@ -24,7 +24,9 @@
 
 <style>
   .dvr { display: flex; gap: .5rem; align-items: center; padding: .25rem .5rem; background: #111; color: #ddd; }
-  input[type=range] { flex: 1; }
+  input[type=range] { flex: 1; min-width: 3rem; }
+  /* The rail is narrow: the counter stays one line and never squeezes into a column. */
+  .seq { white-space: nowrap; font-size: .8em; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .badge { font-weight: 700; color: #f66; }
   .badge.live { color: #6f6; }
 </style>
