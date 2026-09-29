@@ -1,3 +1,10 @@
+<script module lang="ts">
+  export function railWidthAfterArrow(side: 'left' | 'right', key: string, width: number): number {
+    const wider = side === 'left' ? key === 'ArrowRight' : key === 'ArrowLeft';
+    return width + (wider ? 0.02 : -0.02);
+  }
+</script>
+
 <script lang="ts">
   import { RAIL_MAX, RAIL_MIN } from '../lib/layoutprofile';
 
@@ -43,8 +50,7 @@
   }
   function key(e: KeyboardEvent): void {
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      const wider = side === 'left' ? e.key === 'ArrowLeft' : e.key === 'ArrowRight';
-      onWidth(width + (wider ? 0.02 : -0.02));
+      onWidth(railWidthAfterArrow(side, e.key, width));
       e.preventDefault();
     } else if (e.key === 'Home') {
       onReset();
