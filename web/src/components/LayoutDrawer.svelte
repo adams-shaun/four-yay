@@ -10,6 +10,8 @@
     ART_MAX,
     HAND_MAX,
     HAND_MIN,
+    HAND_SCALE_MAX,
+    HAND_SCALE_MIN,
     LOG_LABELS,
     LOG_MODES,
     ORDER_LABELS,
@@ -169,6 +171,10 @@
     <div class="f">
       <label class="lbl" for="lay-hand">Hand visible <b>{pct(p.hand.visible)}</b></label>
       <input id="lay-hand" type="range" min={HAND_MIN} max={HAND_MAX} step="0.01" value={p.hand.visible} oninput={(e) => layoutStore.edit((q) => (q.hand.visible = Number(e.currentTarget.value)))} />
+    </div>
+    <div class="f">
+      <label class="lbl" for="lay-hand-scale">Hand card size <b>{p.hand.scale.toFixed(2)}×</b></label>
+      <input id="lay-hand-scale" type="range" min={HAND_SCALE_MIN} max={HAND_SCALE_MAX} step="0.01" value={p.hand.scale} oninput={(e) => layoutStore.edit((q) => (q.hand.scale = Number(e.currentTarget.value)))} />
     </div>
     {@render seg('Hand rises on hover', ['yes', 'no'] as const, { yes: 'Yes', no: 'No' }, p.hand.raise ? 'yes' : 'no', (v) => layoutStore.edit((q) => (q.hand.raise = v === 'yes')), 'raise')}
 

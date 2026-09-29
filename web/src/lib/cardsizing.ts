@@ -1,4 +1,4 @@
-import type { Overflow } from './layoutprofile';
+import { HAND_SCALE_DEFAULT, type Overflow } from './layoutprofile';
 
 /**
  * cardsizing is the pure maths behind the table's card sizes (UI rework spec
@@ -50,6 +50,7 @@ export interface SplitInput {
   ownRows: number;
   hand: boolean;
   handVisible: number;
+  handScale?: number;
 }
 
 export interface SplitHeights {
@@ -66,8 +67,10 @@ export function splitHeights(i: SplitInput): SplitHeights {
   const oppH = Math.round(avail * i.split);
   const rest = avail - oppH;
   if (!i.hand) return { oppH, ownH: rest, handH: 0, handCardH: 0 };
-  const unit = (rest - GAP * 2) / (i.ownRows + i.handVisible * HAND_K);
-  const handCardH = Math.max(60, unit * HAND_K);
+  const handScale = i.handScale ?? HAND_SCALE_DEFAULT;
+  const handUnit = HAND_K * handScale;
+  const unit = (rest - GAP * 2) / (i.ownRows + i.handVisible * handUnit);
+  const handCardH = Math.max(60, unit * handUnit);
   const handH = Math.min(rest, Math.max(HAND_ROW_MIN, Math.round(handCardH * i.handVisible)));
   return { oppH, ownH: rest - handH, handH, handCardH };
 }

@@ -10,6 +10,20 @@ describe('splitHeights — the board is one split plus one row unit', () => {
     expect(s.handH).toBe(Math.round(s.handCardH * 0.72));
   });
 
+  it('hand scale changes card and hand heights within its bounded range without losing board height', () => {
+    const baseInput = { boardH: 1000, stripH: 40, split: 0.4, ownRows: 2, hand: true, handVisible: 0.72 };
+    const minScale = splitHeights({ ...baseInput, handScale: 0.6 });
+    const base = splitHeights({ ...baseInput, handScale: 1 });
+    const maxScale = splitHeights({ ...baseInput, handScale: 1.6 });
+    const rest = 1000 - 40 - 384;
+
+    expect(minScale.handCardH).toBeLessThan(base.handCardH);
+    expect(maxScale.handCardH).toBeGreaterThan(base.handCardH);
+    expect(minScale.handH).toBeLessThan(base.handH);
+    expect(maxScale.handH).toBeGreaterThan(base.handH);
+    for (const s of [minScale, base, maxScale]) expect(s.ownH + s.handH).toBe(rest);
+  });
+
   it('no hand (a spectator) gives the viewer side all of the rest', () => {
     const s = splitHeights({ boardH: 800, stripH: 40, split: 0.5, ownRows: 2, hand: false, handVisible: 0.72 });
     expect(s).toEqual({ oppH: 380, ownH: 380, handH: 0, handCardH: 0 });

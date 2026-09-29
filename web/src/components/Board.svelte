@@ -75,6 +75,7 @@
     ownRows: rowCount(profile),
     hand: hand && !mulligan,
     handVisible: profile.hand.visible,
+    handScale: profile.hand.scale,
   }));
 
   // While the centre bar is dragged only the grid rows move (the spec's
@@ -86,6 +87,7 @@
     ownRows: rowCount(profile),
     hand: hand && !mulligan,
     handVisible: profile.hand.visible,
+    handScale: profile.hand.scale,
   }));
 
   const OPP_GAP = 8;
