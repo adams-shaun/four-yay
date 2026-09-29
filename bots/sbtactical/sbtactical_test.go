@@ -352,39 +352,3 @@ func TestSBTacticalPlannerIsReadAtPriorityOnly(t *testing.T) {
 		t.Logf("seat %d planner reads by kind: %v (asks by kind: %v)", i, counters[i].calls, kindAsks[i])
 	}
 }
-
-// TestDebugPlannerNotRead is scratch scaffolding: it prints the wrapped
-// seats' Stats for the same smoke game so a zero planner-read run can be
-// diagnosed (what the seats actually did). Delete once the count test is
-// understood.
-func TestDebugPlannerNotRead(t *testing.T) {
-	reg := sampleRegistry(t)
-	cfg := smokeConfig(t, 20260928)
-	seats := []seat.Seat{
-		mustNew(t, testOptions(1, reg), Hosted()),
-		mustNew(t, testOptions(2, reg), Hosted()),
-	}
-	kindAsks := [2]map[decision.Kind]int{{}, {}}
-	hooks := gbench.Hooks{
-		Setup: func(e *rules.Engine) {
-			for i, s := range seats {
-				_ = i
-				s.(*hostedSeat).Seat().SetPlanner(e)
-			}
-		},
-		Decision: func(seatIdx int, d *decision.Decision, _ decision.Intent, _ *botpolicy.Board) error {
-			kindAsks[seatIdx][d.Kind]++
-			return nil
-		},
-	}
-	o, _, err := gbench.PlayGame(cfg, seats, 0, 800, hooks)
-	if err != nil {
-		t.Fatalf("smoke game: %v", err)
-	}
-	t.Logf("outcome: %+v", o)
-	for i, s := range seats {
-		st := s.(*hostedSeat).Seat().Stats
-		t.Logf("seat %d stats: %+v", i, st)
-		t.Logf("seat %d asks: %v", i, kindAsks[i])
-	}
-}
