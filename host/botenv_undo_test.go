@@ -10,10 +10,32 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/view"
 )
+
+// snapshotHistory copies a live feed's History for comparison after the lock
+// is dropped. Feed.History returns the struct by value, which freezes the
+// Frames slice header (appends land past the snapshot's len and cannot touch
+// it, and a non-scratch capture's Board is a fresh json.Marshal copy), but
+// the Answers map is STILL SHARED with the live feed: RecordAnswer keeps
+// inserting entries into it after the lock is released, so DeepEqual over
+// that map races the play loop (measured: -count=3 failed "answers 7/5" with
+// an extra entry on the pending-decision frame, identical frame decision
+// sequences — a shared-map growth, not a log divergence). Rebuild the map
+// into a fresh one; the []Action values may be shared because RecordAnswer
+// replaces whole slices, never mutates one in place.
+func snapshotHistory(f *searchseat.Feed) searchprobe.History {
+	h := f.History()
+	answers := make(map[int][]searchprobe.Action, len(h.Answers))
+	for k, v := range h.Answers {
+		answers[k] = v
+	}
+	h.Answers = answers
+	return h
+}
 
 func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	t.Parallel()
@@ -98,7 +120,7 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	// play loop is parked on the rewound decision here, but reading a live
 	// feed outside m.mu is the race this test must not have (the final block
 	// below was caught racing it — the 2026-09-29 module gate failure).
-	aHist := feedAfter.History()
+	aHist := snapshotHistory(feedAfter)
 	aColl := feedAfter.Collector().Clone()
 	m.mu.RUnlock()
 	if feedAfter == nil {
@@ -157,8 +179,10 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	// (frames 10/9, answers 7/6 — exactly one extra trailing frame+answer).
 	// Under m.mu the real submit path is consistent by construction (Submit,
 	// feeds.record and projectNext's observe are one locked section), so the
-	// snapshot is a valid prefix boundary at ANY quiescent-or-not instant.
-	fHist := finalFeed.History()
+	// snapshot is a valid prefix boundary at ANY quiescent-or-not instant;
+	// snapshotHistory freezes the answers map too, which a bare History()
+	// value copy would still share with the live feed.
+	fHist := snapshotHistory(finalFeed)
 	fColl := finalFeed.Collector().Clone()
 	m.mu.RUnlock()
 	if finalFeed == nil {
