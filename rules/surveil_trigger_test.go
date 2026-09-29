@@ -15,10 +15,12 @@ import (
 // instruction is what the mode matches. The corpus population is 12 files /
 // 12 raw `T:Mode$ Surveil` lines (Mirko, Obsessive Theorist; Dimir Spybug;
 // Thoughtbound Phantasm; Whispering Snitch; Copy Catchers; Disinformation
-// Campaign; Blood Operative; and the five Secondary$ lines paired with an
-// unfired T:Mode$ Scry sibling -- Matoya, Archon Elder; Planetarium of Wan
-// Shi Tong; Prudent Fateseer; River Song; Val, Marooned Surveyor, whose
-// scry/discover/seek halves are other tickets' scopes).
+// Campaign; Blood Operative; and the five Secondary$ lines paired with a
+// T:Mode$ Scry sibling -- Matoya, Archon Elder; Planetarium of Wan Shi Tong
+// (its Remembered present-clause gate is covered by
+// tla-trigger-present-defined-remembered); Prudent Fateseer; River Song; and
+// Val, Marooned Surveyor, whose scry/discover/seek halves are other tickets'
+// scopes).
 //
 // The harness is the investigate/token-replacement one: corpus cards by
 // name, a 2-seat engine, real activations driving real effSurveil bodies
