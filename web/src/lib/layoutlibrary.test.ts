@@ -16,7 +16,7 @@ import {
   saveLibrary,
   withCurrent,
 } from './layoutlibrary';
-import { defaultProfile, LEGACY_LAYOUT_KEY, PRESET_IDS } from './layoutprofile';
+import { defaultProfile, HAND_SCALE_DEFAULT, HAND_SCALE_MAX, HAND_SCALE_MIN, LEGACY_LAYOUT_KEY, PRESET_IDS, validate } from './layoutprofile';
 
 function memStorage(init: Record<string, string> = {}): Storage {
   const m = new Map(Object.entries(init));
@@ -33,9 +33,22 @@ function memStorage(init: Record<string, string> = {}): Storage {
 }
 
 const LEGACY =
-  '{"version":1,"scale":{"creatures":1,"others":1,"lands":1,"command":1,"hand":1},"align":{"creatures":"right","others":"left","lands":"center","command":"left","hand":"center"},"handPeek":"hover","steppersOnBoard":false}';
+  '{"version":1,"scale":{"creatures":1,"others":1,"lands":1,"command":1,"hand":1.4},"align":{"creatures":"right","others":"left","lands":"center","command":"left","hand":"center"},"handPeek":"hover","steppersOnBoard":false}';
 
 describe('layout library storage', () => {
+  it('validates optional hand scale compatibly and rejects values outside the declared bounds', () => {
+    const profile = defaultProfile();
+    expect(HAND_SCALE_MIN).toBe(0.6);
+    expect(HAND_SCALE_MAX).toBe(1.6);
+    expect(HAND_SCALE_DEFAULT).toBe(1);
+    const old = structuredClone(profile) as Record<string, any>;
+    delete old.hand.scale;
+    expect(validate(old)?.hand.scale).toBe(HAND_SCALE_DEFAULT);
+    expect(validate({ ...profile, hand: { ...profile.hand, scale: HAND_SCALE_MIN } })?.hand.scale).toBe(HAND_SCALE_MIN);
+    expect(validate({ ...profile, hand: { ...profile.hand, scale: HAND_SCALE_MAX } })?.hand.scale).toBe(HAND_SCALE_MAX);
+    expect(validate({ ...profile, hand: { ...profile.hand, scale: HAND_SCALE_MIN - 0.01 } })).toBeNull();
+    expect(validate({ ...profile, hand: { ...profile.hand, scale: HAND_SCALE_MAX + 0.01 } })).toBeNull();
+  });
   it('an empty browser gets the default working copy and no saves', () => {
     const lib = loadLibrary(memStorage());
     expect(lib.current).toEqual(defaultProfile());
@@ -48,7 +61,7 @@ describe('layout library storage', () => {
     const lib = loadLibrary(s);
     expect(lib.current.regions.creatures.anchor).toBe('end');
     expect(lib.current.regions.lands.anchor).toBe('center');
-    expect(lib.current.hand).toEqual({ visible: 0.5, raise: true });
+    expect(lib.current.hand).toEqual({ visible: 0.5, scale: 1.4, raise: true });
     saveLibrary(s, lib);
     expect(s.getItem(LEGACY_LAYOUT_KEY)).toBe(LEGACY);
     // Once the library key exists the legacy blob is never read again.
@@ -66,7 +79,7 @@ describe('layout library storage', () => {
   it('round-trips saves, order and the active name; a bad saved profile drops alone', () => {
     const s = memStorage();
     let lib = loadLibrary(s);
-    lib = withCurrent(lib, { ...lib.current, cards: { ...lib.current.cards, overflow: 'scroll' } });
+    lib = withCurrent(lib, { ...lib.current, cards: { ...lib.current.cards, overflow: 'scroll' }, hand: { ...lib.current.hand, scale: 1.35 } });
     lib = saveAs(lib, 'Mine');
     lib = saveAs(applyPreset(lib, 'grid6'), 'Pod');
     saveLibrary(s, lib);
@@ -78,6 +91,7 @@ describe('layout library storage', () => {
     expect(back.order).toEqual(['Mine', 'Pod']);
     expect(back.active).toBe('Pod');
     expect(back.profiles.Mine.cards.overflow).toBe('scroll');
+    expect(back.profiles.Mine.hand.scale).toBe(1.35);
   });
 });
 

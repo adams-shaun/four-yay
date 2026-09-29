@@ -122,7 +122,8 @@ describe('migrating the legacy gorge.layoutsettings.v1 blob', () => {
     expect(p.regions.creatures.anchor).toBe('center');
     expect(p.regions.others.anchor).toBe('end');
     expect(p.regions.lands.anchor).toBe('start');
-    expect(p.hand).toEqual({ visible: 1, raise: true });
+    // The legacy hand scale (1.1) is carried into the new bounded hand-card size.
+    expect(p.hand).toEqual({ visible: 1, scale: 1.1, raise: true });
     // The result is a valid profile in its own right.
     expect(validate(JSON.parse(JSON.stringify(p)))).toEqual(p);
   });
@@ -131,12 +132,13 @@ describe('migrating the legacy gorge.layoutsettings.v1 blob', () => {
     const p = migrateLegacy(JSON.parse(PRE_COMMAND_BLOB))!;
     expect(p.regions.creatures.anchor).toBe('start');
     expect(p.regions.lands.anchor).toBe('end');
-    expect(p.hand).toEqual({ visible: 0.5, raise: false });
+    // A legacy blob without a hand scale keeps the default.
+    expect(p.hand).toEqual({ visible: 0.5, scale: 1, raise: false });
   });
 
   it('hover peek is today\'s half-visible, rising hand', () => {
     const p = migrateLegacy({ ...JSON.parse(SHIPPED_BLOB), handPeek: 'hover' })!;
-    expect(p.hand).toEqual({ visible: 0.5, raise: true });
+    expect(p.hand).toEqual({ visible: 0.5, scale: 1.1, raise: true });
   });
 
   it('something that is not a v1 layout blob does not migrate', () => {
