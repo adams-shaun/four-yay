@@ -33,6 +33,7 @@
   (window as unknown as { __posts: () => unknown[] }).__posts = () => JSON.parse(JSON.stringify(posts)) as unknown[];
   (window as unknown as { __state: () => Record<string, unknown> }).__state = () => ({
     error: logic.error, busy: logic.busy, pending: logic.pending?.seq ?? null, postedSeq: logic.postedSeq,
+    paymentPlanCounts: logic.pending?.payment_actions?.map((action) => action.plans.length) ?? [],
   });
 
   const planless: PaymentAction = {

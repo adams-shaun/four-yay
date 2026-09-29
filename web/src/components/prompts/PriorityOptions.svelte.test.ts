@@ -20,16 +20,17 @@ beforeAll(async () => {
   browser = await sharedBrowser();
 });
 
-type FixtureWindow = { __posts: () => unknown[]; __state: () => { pending: number | null; postedSeq: number | null } };
+type FixtureWindow = { __posts: () => unknown[]; __state: () => { pending: number | null; postedSeq: number | null; paymentPlanCounts: number[] } };
 const posts = (page: Page) => page.evaluate(() => (window as unknown as FixtureWindow).__posts());
 const state = (page: Page) => page.evaluate(() => (window as unknown as FixtureWindow).__state());
 
 async function open(surface: 'manabrew' | 'manabrew-autopay'): Promise<Page> {
   const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
   await page.goto(`${url}src/components/prompts/PriorityOptions.fixture.html?case=${surface}`);
-  // Precondition: the panel adopted the decision, so the rendered button is
-  // answering seq 109 rather than a null pending.
+  // Preconditions: the panel adopted seq 109, and its sole offered payment
+  // action is plan-less (the ManaBrew wire shape under test).
   await expect.poll(async () => (await state(page)).pending).toBe(109);
+  await expect.poll(async () => (await state(page)).paymentPlanCounts).toEqual([0]);
   return page;
 }
 
