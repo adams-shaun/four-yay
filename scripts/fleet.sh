@@ -138,10 +138,29 @@ count_state() {
 # `pgrep -f` matches this script's own cmdline. comm is the BINARY name, so an
 # agent's `gorged-after` build does not read as "gorged" -- which is why the
 # port, not the name, is the index.
+# port_listening answers "is anything LISTENing on this port at all", which
+# is a different question from "which process owns it". Inside the agent
+# sandbox `ss -lptn` emits the LISTEN rows with no `pid=` field, so deciding
+# occupancy from pid visibility reported occupied ports as free and handed
+# the same port to two seats. The socket row itself is the source of truth;
+# the pid is only ever a display detail.
+port_listening() {
+	# The `:$1<space>` tail anchors on the port number: the colon must sit
+	# immediately before the digits, so it cannot match a longer port like
+	# 18090, and a LISTEN row's peer address is always `*`/`0.0.0.0:*`, so it
+	# can never carry a numeric port. Only the address column carries a
+	# `host:port` shape. Local shapes covered: 127.0.0.1:<p>, *:<p>,
+	# 0.0.0.0:<p>, [::]:<p>, [::ffff:...]:<p>.
+	if ss -lptn 2>/dev/null | grep -qE "^LISTEN.*:$1[[:space:]]"; then
+		return 0
+	fi
+	return 1
+}
+
 port_owner() {
 	# `|| true`: grep exits 1 on no match, and under `set -o pipefail` +
 	# `set -e` that kills the caller from inside a command substitution. A
-	# port with nothing on it is the ordinary case here.
+	# port with no visible owner is the ordinary case in the sandbox.
 	ss -lptn 2>/dev/null | grep -E "127.0.0.1:$1[[:space:]]|\*:$1[[:space:]]" |
 		grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u || true
 	return 0
@@ -262,9 +281,18 @@ cmd_status() {
 
 cmd_ports() {
 	echo "== ports (8080-8099)"
-	local p pid
+	local p pid pids
 	for p in $(seq 8080 8099); do
-		for pid in $(port_owner "$p"); do
+		# One row per LISTENING port, decided by the socket (see
+		# port_listening): an occupied port must never be silently omitted.
+		port_listening "$p" || continue
+		pids=$(port_owner "$p")
+		if [ -z "$pids" ]; then
+			# The sandbox hides the pid; show the port with a `?` owner.
+			printf '  %-6s pid %-8s %-16s %s\n' "$p" '?' '?' '?'
+			continue
+		fi
+		for pid in $pids; do
 			printf '  %-6s pid %-8s %-16s %s\n' "$p" "$pid" \
 				"$(cat "/proc/$pid/comm" 2>/dev/null || echo '?')" \
 				"$(basename "$(readlink "/proc/$pid/cwd" 2>/dev/null || echo '?')")"
@@ -280,7 +308,7 @@ cmd_port() {
 	[ "$THREAD" = distill ] && { lo=8082; hi=8089; }
 	local p
 	for p in $(seq "$lo" "$hi"); do
-		[ -z "$(port_owner "$p")" ] && { echo "$p"; return 0; }
+		port_listening "$p" || { echo "$p"; return 0; }
 	done
 	die "no free port in $lo-$hi for the $THREAD thread"
 }
