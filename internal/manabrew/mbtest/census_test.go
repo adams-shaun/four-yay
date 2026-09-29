@@ -47,7 +47,7 @@ func playCensusGame(t *testing.T, reg *cards.Registry, seats int, seed uint64, c
 	if err != nil {
 		t.Fatalf("seats=%d seed=%d: PlayGame: %v", seats, seed, err)
 	}
-	census.addGame()
+	census.AddGame()
 	if bench.IsAbort(outcome.StallOn) {
 		t.Fatalf("seats=%d seed=%d: engine abort (%s): %s", seats, seed, outcome.StallOn, outcome.Livelock)
 	}

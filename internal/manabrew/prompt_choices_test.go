@@ -28,7 +28,11 @@ func TestChooseKinds(t *testing.T) {
 		{"color", "color", "", []decision.Option{{Index: 0, Kind: "color", Label: "White"}}, "chooseColor"},
 		{"mana color", "mana", "", []decision.Option{{Index: 0, Kind: "mana", Label: "Add W", ManaSymbol: "W"}}, "chooseColor"},
 		{"yes no", "yes", "", []decision.Option{{Index: 0, Kind: "yes", Label: "Yes"}, {Index: 1, Kind: "no", Label: "No"}}, "chooseBoolean"},
-		{"unblocked", "asunblocked", "", []decision.Option{{Index: 0, Kind: "asunblocked", Label: "Unblocked"}}, "chooseBoolean"},
+		// MBX-6: a ONE-option election goes out as a one-option
+		// chooseFromSelection, never a chooseBoolean -- a boolean prompt
+		// would advertise a confirm side the decision does not offer
+		// (booleanElection's contract).
+		{"unblocked", "asunblocked", "", []decision.Option{{Index: 0, Kind: "asunblocked", Label: "Unblocked"}}, "chooseFromSelection"},
 		{"card pick", "discard", "", []decision.Option{{Index: 0, Kind: "discard", Label: "Card", Obj: 9}}, "chooseCards"},
 		{"exile", "exile", "", []decision.Option{{Index: 0, Kind: "exile", Label: "Card", Obj: 9}}, "chooseCards"},
 		{"sacrifice", "sacrifice", "", []decision.Option{{Index: 0, Kind: "sacrifice", Label: "Card", Obj: 9}}, "chooseCards"},

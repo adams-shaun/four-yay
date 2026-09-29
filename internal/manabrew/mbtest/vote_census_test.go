@@ -167,7 +167,7 @@ func playVoteGame(t *testing.T, cfg rules.Config, census *Census, reach *Reach, 
 		t.Fatalf("engine abort (%s): %s", outcome.StallOn, outcome.Livelock)
 	}
 	if census != nil {
-		census.addGame()
+		census.AddGame()
 	}
 	return e
 }

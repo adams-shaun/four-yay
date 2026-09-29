@@ -71,21 +71,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	// 8004, ResumeKind "tgts").
 	if isTargetRefOptions(d.Options) {
 		intent, hostile := targetingIntent(d.TargetEffect)
-		cands := make([]mb.TargetRef, 0, len(d.Options))
-		for _, opt := range d.Options {
-			cands = append(cands, mb.TargetRef{Kind: targetRefKind(opt.Kind), ID: targetRefID(opt),
-				Intent: intent, Oracle: opt.Label})
-		}
-		in := mb.ChooseBoardTargetsInput{
-			PromptBase:    mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Targets: cands}},
-			Candidates:    cands,
-			Hostile:       hostile,
-			Intent:        intent,
-			MinTargets:    d.Min,
-			MaxTargets:    d.Max,
-			ChosenTargets: []mb.TargetRef{},
-			Cancellable:   false,
-		}
+		in := boardTargetInput(d, intent, hostile)
 		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 	}
 	// The flexible-pip announcement ask (rules/cumulative.go's pipAnnounceAsk,
@@ -96,6 +82,25 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	// reject, even though it is always Min==Max==1 over plain labelled
 	// alternatives (never a card or player), so it maps onto
 	// chooseFromSelection exactly like the other label-only asks below.
+	// The Convoke/Harmonize/Improvise/Waterbend announcement ask
+	// (rules/cast.go convokeAsk): one option per legal contribution ("Tap
+	// <creature> for W", "... for 1", ...), mixed Kinds, Min 0 up to the
+	// cost's outstanding slot count, each battlefield object's options in
+	// one payment Group so one object is committed to at most one payment.
+	// The payment GROUPS are not expressible on the wire (spec G-4:
+	// Validate is the fence, rejections counted in the census), but the ask
+	// itself is a plain multi-select over labelled alternatives:
+	// chooseFromSelection by index (chooseCards would be ambiguous -- the
+	// same creature carries several options), the engine's own
+	// validateCastContributions gating the answer.
+	if isCastContributionOptions(d.Options) {
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
+		}
+		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
+	}
 	if allPayPipOptions(d.Options) {
 		options := make([]mb.SelectionOption, 0, len(d.Options))
 		for _, o := range d.Options {
@@ -104,11 +109,30 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
 		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 	}
+	// The api:ChangeText word ask (effects/changetext.go effChangeText,
+	// ResumeKind "changetext"): one option per word candidate, Kind
+	// "changetext_from"/"changetext_to" freely mixed (a two-half ask names
+	// one candidate list per half, Min==Max==2; a one-half ask is uniform
+	// and Min==Max==1). Every option is a plain labelled alternative and
+	// the engine reads each answered option's Kind off the answer itself
+	// (rules/resolution.go's changetext resume arm), so any d.Min distinct
+	// picks is a well-formed answer and a lopsided one (two candidates
+	// from the same half) falls back deterministically engine-side
+	// instead of re-asking (the effect's documented malformed-answer
+	// contract).
+	if changetextOptions(d.Options) {
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
+		}
+		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
+	}
 	kind := d.Options[0].Kind
-	mixedYesNo := kind == "yes" || kind == "no"
+	election := electionKinds[kind]
 	uniform := true
 	for _, o := range d.Options {
-		if o.Kind != kind && !(mixedYesNo && (o.Kind == "yes" || o.Kind == "no")) {
+		if o.Kind != kind && !(election && electionKinds[o.Kind]) {
 			uniform = false
 			break
 		}
@@ -161,22 +185,27 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			}
 			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 		}
-	case "yes", "no", "asunblocked":
-		if d.ResumeKind == "look_ack" || (len(d.Options) == 1 && kind == "yes") {
-			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: []mb.SelectionOption{{Label: d.Options[0].Label, Weight: 1}}, MinTotal: 1, MaxTotal: 1}
-			break
-		}
+	case "yes", "no", "asunblocked", "trigger_cost_pay", "trigger_cost_decline":
+		// trigger_cost_pay/trigger_cost_decline are rules/cumulative.go's
+		// optional triggered-cost election ("pay <cost label>?" -- pay or
+		// decline), the same two-sided shape.
 		confirm, deny := "Yes", "No"
 		for _, o := range d.Options {
-			if o.Kind == "yes" {
+			if o.Kind == "yes" || o.Kind == "trigger_cost_pay" {
 				confirm = o.Label
 			}
-			if o.Kind == "no" {
+			if o.Kind == "no" || o.Kind == "trigger_cost_decline" {
 				deny = o.Label
 			}
 		}
-		in = mb.ChooseBooleanInput{PromptBase: pres, ConfirmLabel: confirm, DenyLabel: deny}
-	case "x", "number":
+		in = booleanElection(pres, d, confirm, deny)
+	case "x", "number", "move_counter":
+		// "move_counter" is effects/counters.go MoveCounter's CounterNum$ Any
+		// amount pick (ResumeKind "move_counter"): one option per legal
+		// amount, 0..max, each carrying the number in Amount -- the same
+		// value-pick shape as the x/number asks, mapped onto chooseNumber
+		// (parseChooseNumber reads the answer back off the option whose
+		// Amount equals the chosen value).
 		vals := make([]int, 0, len(d.Options))
 		for _, o := range d.Options {
 			vals = append(vals, o.Amount)
@@ -226,6 +255,25 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1, CanRepeat: d.Repeatable})
 		}
 		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
+	case "enlist", "proliferate":
+		// rules/enlist.go askNextEnlist's CR 702.160a may-election (Min 0,
+		// Max 1) and effects/counters.go effProliferate's CR 701.27
+		// any-number recipient pick (Min 0, Max len(eligible)): both are a
+		// labelled multi-select whose options are NOT uniformly objects
+		// (proliferate mixes permanent options carrying Obj with player
+		// options carrying only Player, and enlist's decline option carries
+		// no Obj), so neither the object pick (the default arm's
+		// allOptionsHaveObjects) nor the Min==1 labelled fallback
+		// (labelledAlternatives) reaches them. They map onto
+		// chooseFromSelection by index -- an empty answer IS the decline
+		// (Min is 0), which is exactly what the mock answers, and the
+		// engine's resume reads each chosen option's own Obj/Player. The
+		// legal-answer rule stays Decision.Validate, the one home.
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
+		}
+		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 	case "name", "type", "dungeon", "room", "roll", "look_ack", "choice", "vote":
 		// "vote" is api:Vote's fixed-list ballot (effects/misc.go's
 		// askFixedVote, MBX-7): one option per named choice (the SVar names a
@@ -240,7 +288,26 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 		}
 		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 	default:
-		return t.fallbackChoose(d, v, true)
+		// The object-pick fallback (MBX-6): a uniform-kind pick this switch
+		// has no kind-specific shape for whose options all carry an object
+		// reference is a card-selection over those objects
+		// (effects/counters.go putCounterChoose's "counter_pick": pick
+		// Min..Max battlefield objects, each takes the full CounterNum$) ->
+		// chooseCards, answered by object identity so same-named creatures
+		// stay distinct. Every other unmapped shape -- plain labelled
+		// alternatives such as rules/cast.go's additional-cost pick (kind
+		// "altaddcost"), or any option shape this package does not know --
+		// falls back to MBX-7's generic label selection, which is
+		// always-answerable and cannot widen what Decision.Validate accepts.
+		if allOptionsHaveObjects(d.Options) {
+			cards := make([]mb.CardDto, 0, len(d.Options))
+			for _, o := range d.Options {
+				cards = append(cards, t.optionCard(v, o))
+			}
+			in = mb.ChooseCardsInput{PromptBase: pres, Cards: cards, Min: d.Min, Max: d.Max}
+		} else {
+			return t.fallbackChoose(d, v, true)
+		}
 	}
 	return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 }
@@ -392,10 +459,12 @@ func (t *Translator) parseChooseBoolean(out mb.PromptOutputValue, p *Pending) Ou
 // booleanOptionIndex mirrors the confirm/deny discovery every chooseBoolean
 // builder (promptChoose, promptModes, promptMisc) uses, so a boolean answer
 // resolves to exactly the option each builder's own label promised:
-//   - an explicit Kind "yes"/"command_zone"/"apply", or Option.Mode
-//     ModeUnlessPay, is the confirm (true) side;
-//   - an explicit Kind "no"/"leave"/"decline", or Option.Mode
-//     ModeUnlessDecline, is the deny (false) side;
+//   - an explicit Kind "yes"/"command_zone"/"apply"/"madness_exile"/
+//     "trigger_cost_pay", or Option.Mode ModeUnlessPay, is the confirm
+//     (true) side;
+//   - an explicit Kind "no"/"leave"/"decline"/"madness_graveyard"/
+//     "trigger_cost_decline", or Option.Mode ModeUnlessDecline, is the deny
+//     (false) side;
 //   - a plain two-option list that carries none of those (the KChoose
 //     "asunblocked" election, rules/combat.go's askNextCombatAsk, whose two
 //     options are both literally Kind "asunblocked" and carry no marker of
@@ -406,9 +475,9 @@ func booleanOptionIndex(d *decision.Decision, value bool) (int, error) {
 	confirm, deny := -1, -1
 	for _, o := range d.Options {
 		switch {
-		case o.Kind == "yes", o.Kind == "command_zone", o.Kind == "apply", o.Mode == decision.ModeUnlessPay:
+		case o.Kind == "yes", o.Kind == "command_zone", o.Kind == "apply", o.Kind == "madness_exile", o.Kind == "trigger_cost_pay", o.Mode == decision.ModeUnlessPay:
 			confirm = o.Index
-		case o.Kind == "no", o.Kind == "leave", o.Kind == "decline", o.Mode == decision.ModeUnlessDecline:
+		case o.Kind == "no", o.Kind == "leave", o.Kind == "decline", o.Kind == "madness_graveyard", o.Kind == "trigger_cost_decline", o.Mode == decision.ModeUnlessDecline:
 			deny = o.Index
 		}
 	}
@@ -449,6 +518,111 @@ func (t *Translator) parseChooseFromSelection(out mb.PromptOutputValue, p *Pendi
 	return Outcome{Intent: &in}
 }
 
+// electionKinds are the option kinds that pair as a two-sided election
+// (confirm/deny) and may appear MIXED in one option list: the plain
+// yes/no optional election, and rules/cumulative.go's triggered-cost ask
+// (trigger_cost_pay / trigger_cost_decline). The uniform-kind gate lets
+// these kinds mix; the switch's election case maps the pair onto
+// booleanElection, whose confirm/deny discovery booleanOptionIndex mirrors
+// on the response side.
+var electionKinds = map[string]bool{
+	"yes": true, "no": true,
+	"trigger_cost_pay": true, "trigger_cost_decline": true,
+}
+
+// isCastContributionOptions reports whether every option of the ask is a
+// Convoke/Harmonize/Improvise/Waterbend payment contribution (rules/cast.go
+// convokeAsk's option vocabulary). The gate for promptChoose's
+// cast-contribution branch.
+func isCastContributionOptions(opts []decision.Option) bool {
+	if len(opts) == 0 {
+		return false
+	}
+	for _, o := range opts {
+		if !strings.HasPrefix(o.Kind, "convoke_") &&
+			o.Kind != "harmonize" && o.Kind != "improvise_generic" && o.Kind != "waterbend_generic" {
+			return false
+		}
+	}
+	return true
+}
+
+// changetextOptions reports whether every option of the ask is an
+// api:ChangeText word candidate (effects/changetext.go's
+// "changetext_from"/"changetext_to" vocabulary, both halves mixed). The
+// gate for promptChoose's routed changetext branch, which also covers a
+// uniform one-half list the switch would otherwise see first.
+func changetextOptions(opts []decision.Option) bool {
+	if len(opts) == 0 {
+		return false
+	}
+	for _, o := range opts {
+		if o.Kind != "changetext_from" && o.Kind != "changetext_to" {
+			return false
+		}
+	}
+	return true
+}
+
+// allOptionsHaveObjects reports whether every option carries an object
+// reference (Obj != 0) -- the gate for promptChoose's default-arm
+// object-pick fallback (chooseCards by object identity).
+func allOptionsHaveObjects(opts []decision.Option) bool {
+	if len(opts) == 0 {
+		return false
+	}
+	for _, o := range opts {
+		if o.Obj == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// labelledAlternatives reports whether d is a pick-one ask (Min == Max == 1,
+// not repeatable) whose options are plain labelled alternatives: every one
+// carries a label and no ManaSymbol. It is the gate for promptChoose's
+// labelled-alternatives fallback (see the !uniform branch there).
+func labelledAlternatives(d *decision.Decision) bool {
+	if d.Min != 1 || d.Max != 1 || d.Repeatable {
+		return false
+	}
+	for _, o := range d.Options {
+		if o.Label == "" || o.ManaSymbol != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// booleanElection poses a two-sided election (yes/no, apply/decline, pay/
+// decline, madness cast/discard) as a chooseBoolean only when BOTH sides are
+// actually offered. rules/altcast.go's madness cast ask offers just the
+// decline side whenever casting is not legal (offerCastable fails), and any
+// future single-sided election would do the same; a boolean prompt that
+// advertises a confirm label the decision does not carry would invite a
+// client to answer true into a guaranteed rejection (booleanOptionIndex has
+// no confirm to map it to). A one-sided ask goes out as a one-option
+// chooseFromSelection instead (MinTotal=MaxTotal=1) -- the same shape the
+// single-option branches of prompt_choose and prompt_modes already use -- so
+// parseChooseFromSelection maps the only legal answer back by option index.
+// Builders discover the two labels the same way booleanOptionIndex discovers
+// the two option kinds, so prompt and parser cannot drift apart.
+func booleanElection(pres mb.PromptBase, d *decision.Decision, confirm, deny string) mb.PromptInputData {
+	if len(d.Options) < 2 {
+		opts := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			label := o.Label
+			if label == "" {
+				label = o.Kind
+			}
+			opts = append(opts, mb.SelectionOption{Label: label, Weight: 1})
+		}
+		return mb.ChooseFromSelectionInput{PromptBase: pres, Options: opts, MinTotal: 1, MaxTotal: 1}
+	}
+	return mb.ChooseBooleanInput{PromptBase: pres, ConfirmLabel: confirm, DenyLabel: deny}
+}
+
 func colorCode(symbol, label string) string {
 	switch symbol {
 	case "W", "U", "B", "R", "G", "C":
@@ -471,6 +645,12 @@ func colorCode(symbol, label string) string {
 	return ""
 }
 
+// chooseConstraint renders the decision's legal-answer bounds as the
+// presentation description every ManaBrew client sees. The wording is a
+// CONTRACT: mbtest's MockClient parses "Total value must be at least N."
+// and "Total value must not exceed N." to honour a Decision.MinSum/MaxSum
+// the wire shape itself cannot express (spec gap G-4), so rewording these
+// sentences changes what the mock can answer.
 func chooseConstraint(d *decision.Decision) string {
 	if d == nil {
 		return ""
