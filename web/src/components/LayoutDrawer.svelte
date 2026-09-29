@@ -1,5 +1,6 @@
 <script lang="ts">
-  import MotionSpeedControl from './MotionSpeedControl.svelte';
+  import { MOTION_SPEEDS, MOTION_SPEED_LABELS } from '../lib/motion/settings';
+  import { motionStore } from '../lib/motion/settings.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
   import {
     ANCHOR_LABELS,
@@ -179,7 +180,10 @@
     <h3>Motion</h3>
     <!-- Animation speed is a per-browser view setting (lib/motion), not part
          of a layout profile: switching boards never changes it. -->
-    <MotionSpeedControl />
+    {@render seg('Animations', MOTION_SPEEDS, MOTION_SPEED_LABELS, motionStore.speed, (v) => motionStore.setSpeed(v), 'motion')}
+    {#if motionStore.reduced}
+      <p class="note" data-motion-reduced>Your system asks for reduced motion, so animations are off.</p>
+    {/if}
 
     <h3>Profiles</h3>
     <div class="f">
