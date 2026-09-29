@@ -1871,3 +1871,289 @@ func sosHandCardByName(e *Engine, p state.PlayerID, name string) state.ObjID {
 	}
 	return 0
 }
+
+// ---------------------------------------------------------------- Pass B --
+
+// (b) X cost read on resolution (CR 601.2b, CR 107.3f), Molten Note: the
+// damage is "the amount of mana spent to cast this spell"
+// (SVar:Y:Count$CastTotalManaSpent), NOT the announced X — X=2 plus {R}{W}
+// spent is 4 damage, which is what kills the 2/2. The discriminating
+// assertion: if the engine read Count$xPaid instead, the bear survives.
+func TestSetAudit_sos_MoltenNote_XTotalManaSpentDamage(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 943, []string{"Molten Note"}, []string{sosBearSrc}, nil)
+	toMain1(t, e)
+	note := findAndMoveToHand(t, e, 0, "Molten Note")
+	bear := putCreature(t, e, 0, sosBearSrc)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("precondition: the bear is not on the battlefield")
+	}
+	e.priorityRound()
+	addMana(t, e, 0, "RRWW")
+	submitChoices(t, e, castOptionFor(t, e, note).Index)
+	// The CR 601.2b X announcement: pick X=2.
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "x" {
+		t.Fatalf("want the announced-X ask, got %+v", d)
+	}
+	xIdx := -1
+	for _, o := range d.Options {
+		if o.Amount == 2 {
+			xIdx = o.Index
+		}
+	}
+	if xIdx < 0 {
+		t.Fatalf("precondition: X=2 not offered: %+v", d.Options)
+	}
+	submitChoices(t, e, xIdx)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	sosPassPriority(t, e)
+	sosPassPriority(t, e)
+	passUntilStackEmpty(t, e, 20)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("x cost: the bear was not dealt the 4 mana-spent damage (zone %v, want the graveyard)", zoneName(o))
+	}
+	if life := e.G.Players[1].Life; life != 20 {
+		t.Errorf("x cost: opponent life %d, want 20 (the Note targeted a creature, CR 601.2b)", life)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// (b) X into counters (CR 601.2b / CR 122.1d), Procrastinate: "Put twice X
+// stun counters on it" (SVar:Y:SVar$X/Twice) — X=1 puts TWO stun counters
+// and taps the creature.
+func TestSetAudit_sos_Procrastinate_TwiceXStunCounters(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 946, []string{"Procrastinate"}, []string{sosBearSrc}, nil)
+	toMain1(t, e)
+	proc := findAndMoveToHand(t, e, 0, "Procrastinate")
+	bear := putCreature(t, e, 0, sosBearSrc)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield || o.Tapped {
+		t.Fatalf("precondition: the bear must be an untapped battlefield permanent, got %v/%v", zoneName(o), o.Tapped)
+	}
+	e.priorityRound()
+	addMana(t, e, 0, "UU")
+	submitChoices(t, e, castOptionFor(t, e, proc).Index)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "x" {
+		t.Fatalf("want the announced-X ask, got %+v", d)
+	}
+	xIdx := -1
+	for _, o := range d.Options {
+		if o.Amount == 1 {
+			xIdx = o.Index
+		}
+	}
+	if xIdx < 0 {
+		t.Fatalf("precondition: X=1 not offered: %+v", d.Options)
+	}
+	submitChoices(t, e, xIdx)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	sosPassPriority(t, e)
+	sosPassPriority(t, e)
+	passUntilStackEmpty(t, e, 20)
+	o := e.G.Obj(bear)
+	if o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: the bear left the battlefield: %v", zoneName(o))
+	}
+	if !o.Tapped {
+		t.Errorf("x cost: the target was not tapped (A:SP$ Tap, CR 601.2 resolution)")
+	}
+	if got := o.Counter("STUN"); got != 2 {
+		t.Errorf("x cost: stun counters = %d, want 2 (\"twice X\" with X=1, SVar Y: SVar$X/Twice)", got)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// (b) Multiplayer (CR 800.4), three seats: a real sos carrier casts and
+// resolves in a 3-seat game and the whole game replays byte-identically
+// (replayCheck). Seize the Spoils is the carrier: its additional-cost
+// discard ask and its Treasure token exercise the full cast round beyond
+// the two-seat shape every other test here uses.
+func TestSetAudit_sos_ThreeSeatSeizeTheSpoilsReplay(t *testing.T) {
+	t.Parallel()
+	reg := testutil.CorpusRegistry(t)
+	spoils, ok := reg.Lookup("Seize the Spoils")
+	if !ok {
+		t.Fatal("corpus missing \"Seize the Spoils\"")
+	}
+	fill := func(extras []*cards.Card) []*cards.Card {
+		deck := append([]*cards.Card{}, extras...)
+		for len(deck) < 40 {
+			deck = append(deck, mountainDeck(t, 1)[0])
+		}
+		return deck
+	}
+	cfg := seatZeroStart(Config{Seed: 947, Names: []string{"a", "b", "c"},
+		Decks:  [][]*cards.Card{fill([]*cards.Card{spoils}), fill(nil), fill(nil)},
+		Tokens: reg.Tokens})
+	e := New(cfg)
+	e.Advance()
+	toMain1(t, e)
+	spoilsID := findAndMoveToHand(t, e, 0, "Seize the Spoils")
+	if spoilsID == 0 {
+		t.Fatal("precondition: Seize the Spoils not in hand")
+	}
+	handBefore := len(e.G.Zone(state.ZHand, 0))
+	addMana(t, e, 0, "RRR")
+	submitChoices(t, e, castOptionFor(t, e, spoilsID).Index)
+	// The additional-cost discard ask (Cost$ 2 R Discard<1/Card/card>) takes
+	// its first option; then the round drains.
+	sosDrain(t, e, 0, 20)
+	if sosFindTokenBy(t, e, "Treasure Token") == 0 {
+		t.Errorf("multiplayer: no Treasure token minted in the 3-seat game (CR 111.10)")
+	}
+	if got := len(e.G.Zone(state.ZHand, 0)); got != handBefore {
+		t.Errorf("multiplayer: hand size %d, want %d (the cast card and one discard leave the hand; two cards are drawn)", got, handBefore)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// sosKillSrc is a local kill fixture for the response test: a plain
+// 5-damage instant (sosBoltSrc/sosBombSrc's NumDmg$ 1 would leave the 2/2
+// bear alive).
+const sosKillSrc = "Name:Test Killer\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 5\nOracle:x\n"
+
+// (b) Illegal target mid-stack (CR 608.2b): Chelonian Tackle targets my
+// bear; the OPPONENT's killer spell kills the bear in response; the tackle's
+// target is illegal when it would resolve, so it does NOTHING — no pump, no
+// fight, no damage — and is put into its owner's graveyard. The
+// distinguishing assertion: the ogre (the fight's available target) takes
+// zero damage and no fight tgts ask is ever posed.
+func TestSetAudit_sos_ChelonianTackle_TargetDiesInResponse(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 948, []string{"Chelonian Tackle"}, []string{sosBearSrc}, []string{sosKillSrc, sosOgreSrc})
+	toMain1(t, e)
+	tackle := findAndMoveToHand(t, e, 0, "Chelonian Tackle")
+	bear := putCreature(t, e, 0, sosBearSrc)
+	ogre := putCreature(t, e, 1, sosOgreSrc)
+	// The opponent's responder must actually be in its opening hand (the
+	// deck is shuffled; a fixture deep in the library is not a legal cast).
+	foeBolt := findAndMoveToHand(t, e, 1, "Test Killer")
+	if o := e.G.Obj(foeBolt); o == nil || o.Zone != state.ZHand {
+		t.Fatalf("precondition: the opponent's killer spell is not in hand (%v)", zoneName(o))
+	}
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield || e.Derived(bear).Toughness != 2 {
+		t.Fatalf("precondition: bear zone/toughness %v/%d, want battlefield/2", zoneName(o), e.Derived(bear).Toughness)
+	}
+	e.priorityRound()
+	addMana(t, e, 0, "GGG")
+	addMana(t, e, 1, "R")
+	submitChoices(t, e, castOptionFor(t, e, tackle).Index)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	// I hold priority after my cast; pass so the opponent can respond.
+	sosPassPriority(t, e)
+	d := e.Pending()
+	if d == nil || d.Player != 1 || d.Kind != decision.KPriority {
+		t.Fatalf("precondition: expected the opponent's priority ask, got %+v", d)
+	}
+	foeBoltIdx := -1
+	for _, o := range d.Options {
+		if o.Kind == "cast" {
+			if o.Obj != foeBolt {
+				t.Fatalf("precondition: unexpected cast option %+v", o)
+			}
+			foeBoltIdx = o.Index
+		}
+	}
+	if foeBoltIdx < 0 {
+		t.Fatalf("precondition: the opponent's bolt cast was not offered (pool %d): %+v",
+			e.G.Players[1].Pool.Total(), d.Options)
+	}
+	submitChoices(t, e, foeBoltIdx)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	passUntilStackEmpty(t, e, 20)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("precondition: the bear did not die to the bolt (zone %v)", zoneName(o))
+	}
+	if o := e.G.Obj(tackle); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("illegal target: the fizzled tackle is not in the graveyard (zone %v, CR 608.2b)", zoneName(o))
+	}
+	if o := e.G.Obj(ogre); o == nil || o.Damage != 0 || o.Zone != state.ZBattlefield {
+		t.Errorf("illegal target: the spell did something (ogre %v/%d) — a fizzled spell must do nothing (CR 608.2b)",
+			zoneName(o), pageDamage(o))
+	}
+	if got := e.Derived(ogre).Toughness; got != 3 {
+		t.Errorf("illegal target: the ogre was pumped, want the raw 3/3 (got toughness %d)", got)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// (b) Control change (CR 800.4a), inline fixture — the sos set has NO
+// gain-control carrier (checked against .superpowers/set-audit/sos.json's
+// 271 oracles): a sorcery `A:SP$ GainControl | ValidTgts$ Creature` takes
+// an sos-flavoured creature. The object KEEPS ITS IDENTITY: same state.ObjID,
+// same card, same zone, only the controller moved — a control change never
+// re-enters the battlefield (CR 800.4a/304.2 contrast with CR 613.6).
+const sosSeizeSrc = "Name:Test Seize\nManaCost:2 R\nTypes:Sorcery\nA:SP$ GainControl | ValidTgts$ Creature | SpellDescription$ Gain control of target creature.\nOracle:x\n"
+
+func TestSetAudit_sos_ControlChangeKeepsIdentity(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 949, nil, []string{sosSeizeSrc}, []string{sosBearSrc})
+	toMain1(t, e)
+	seize := findAndMoveToHand(t, e, 0, "Test Seize")
+	bear := putCreature(t, e, 1, sosBearSrc)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
+		t.Fatalf("precondition: the bear must be seat 1's battlefield permanent, got %v/%d", zoneName(o), o.Controller)
+	}
+	e.priorityRound()
+	addMana(t, e, 0, "RRR")
+	submitChoices(t, e, castOptionFor(t, e, seize).Index)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	sosPassPriority(t, e)
+	sosPassPriority(t, e)
+	passUntilStackEmpty(t, e, 20)
+	o := e.G.Obj(bear)
+	if o == nil {
+		t.Fatal("identity: the control change destroyed the object (a new object id would violate CR 800.4a)")
+	}
+	if o.Zone != state.ZBattlefield || o.Controller != 0 {
+		t.Errorf("control change: the bear is %s under controller %d, want battlefield/0", zoneName(o), o.Controller)
+	}
+	if o.Face().Name != "Test Bear" {
+		t.Errorf("control change: the object's card identity moved (face %q, want \"Test Bear\")", o.Face().Name)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// ---------------------------------------------------------------- Pass C --
+
+// (c) Face-down exile (CR 708.4 / the FaceDown$ exile encoding the
+// Hideaway family uses): an exiled card's state.Object.FaceDown bit is
+// folded by events, so a later "look at it" projection has something to
+// redact. The sos set has NO face-down-exile carrier (checked against
+// sos.json — no Hideaway, no Foretell); the inline fixture is the same
+// encoding effects/zone.go's applyFaceDownMarker writes for the real
+// carriers. The seat-view redaction half of this boundary is pinned by
+// view/look_redaction_test.go and view/visibility_pin_test.go (view
+// imports rules, so a rules-package test cannot also drive the projection).
+const sosFDExileSrc = "Name:Test FD Exile\nManaCost:1 U\nTypes:Instant\nA:SP$ ChangeZone | ValidTgts$ Creature | Origin$ Battlefield | Destination$ Exile | FaceDown$ True\nOracle:x\n"
+
+func TestSetAudit_sos_FaceDownExileFoldsTheBit(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 950, nil, []string{sosFDExileSrc}, []string{sosBearSrc})
+	toMain1(t, e)
+	fd := findAndMoveToHand(t, e, 0, "Test FD Exile")
+	bear := putCreature(t, e, 1, sosBearSrc)
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield || o.FaceDown {
+		t.Fatalf("precondition: the bear must be face-up on the battlefield, got %v/%v", zoneName(o), o.FaceDown)
+	}
+	e.priorityRound()
+	addMana(t, e, 0, "UU")
+	submitChoices(t, e, castOptionFor(t, e, fd).Index)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	sosPassPriority(t, e)
+	sosPassPriority(t, e)
+	passUntilStackEmpty(t, e, 20)
+	o := e.G.Obj(bear)
+	if o == nil || o.Zone != state.ZExile {
+		t.Fatalf("precondition: the bear was not exiled (zone %v)", zoneName(o))
+	}
+	if !o.FaceDown {
+		t.Errorf("face-down exile: the exiled bear is face up; CR 708.4's face_down encoding never folded Object.FaceDown")
+	}
+	if o.Face().Name != "Test Bear" {
+		t.Errorf("face-down exile: the card identity moved (face %q, want \"Test Bear\")", o.Face().Name)
+	}
+	replayCheck(t, e, cfg)
+}
