@@ -51,21 +51,30 @@ describe('the hotkey guard against an open modal — mounted', () => {
     });
     await pass.click();
     expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
-    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
     await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1);
     const first = await posts(page);
     expect(first).toEqual([{ seq: 7, player: 0, choices: [9] }]);
-    expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
 
     // The previous decision was answered; offer a fresh one so a second post
     // actually tests focus management rather than the seat's postedSeq latch.
+    // This behavioural wait runs before the wiring spies below so a revert
+    // fails on behaviour, not on the spy. Measured caveat: the fixture's busy
+    // post disables this button and the browser already blurs it to body, so
+    // this particular pass succeeds on the unfixed parent too; the ACTIONS
+    // and secondary-Undo tests are the behavioural revert proof (they keep
+    // focus, so they time out without the fix).
     await page.evaluate(() => (window as unknown as { __newDecision: () => void }).__newDecision());
     await expect.poll(() => pass.isEnabled()).toBe(true);
     await page.keyboard.press('Space');
-    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 2);
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 2, null, { timeout: 2000 });
     const after = await posts(page);
     expect(after.length).toBeGreaterThan(first.length);
     expect(after).toEqual([...first, { seq: 8, player: 0, choices: [9] }]);
+
+    // Preconditions, now proven: the pointer click DID focus the button, and
+    // the focus wiring ran so the next Space reached the table.
+    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
+    expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
     await page.close();
   });
 
@@ -80,6 +89,13 @@ describe('the hotkey guard against an open modal — mounted', () => {
     expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
     const first = await posts(page);
     expect(first).toEqual([]);
+    // The click opened the panel AND released focus (so the next Space is a
+    // pass, not a native re-activation). Releasing focus must not arm the
+    // wrapper's close timer: the pointer is still over the tab, so the panel
+    // stays open past HOT_STRIP_CLOSE_DELAY_MS (180ms).
+    expect(await actions.getAttribute('aria-expanded')).toBe('true');
+    await page.waitForTimeout(350);
+    expect(await actions.getAttribute('aria-expanded')).toBe('true');
     await page.keyboard.press('Space');
     await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1, null, { timeout: 2000 });
     const after = await posts(page);

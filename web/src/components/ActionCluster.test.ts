@@ -25,18 +25,24 @@ describe('ActionCluster pointer focus', () => {
     });
     await pass.click();
     expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
-    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
     await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 1);
     const first = await posts(page);
     expect(first).toEqual([{ seq: 7, player: 0, choices: [9] }]);
-    expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
+    // Behavioural assertion first: this is the pass that proves the hotkey
+    // survived the click. Measured caveat: the busy post disables this button
+    // and the browser blurs it to body before the next decision, so this
+    // assertion also passes on the unfixed parent; the secondary-Undo test
+    // below (focus retained) is the behavioural revert proof.
     await page.evaluate(() => (window as unknown as { __newDecision: () => void }).__newDecision());
     await expect.poll(() => pass.isEnabled()).toBe(true);
     await page.keyboard.press('Space');
-    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 2);
+    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 2, null, { timeout: 2000 });
     const after = await posts(page);
     expect(after.length).toBeGreaterThan(first.length);
     expect(after).toEqual([...first, { seq: 8, player: 0, choices: [9] }]);
+    // Preconditions, now proven.
+    expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
+    expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
     await page.close();
   });
 

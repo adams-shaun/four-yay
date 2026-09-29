@@ -166,6 +166,16 @@
     clearClose();
     open = tab;
   }
+  function closeOnFocusOut(e: FocusEvent): void {
+    // A pointer click releases focus with a null relatedTarget (see
+    // blurAfterPointer) but leaves the pointer inside the wrapper, where
+    // onpointerenter already ran and only onpointerleave may close. Arming the
+    // timer here would shut the panel under a stationary mouse, so a blur is
+    // not a departure. A Tab or click to another control names it, though, and
+    // that is a real leave.
+    if (e.relatedTarget === null) return;
+    scheduleClose();
+  }
   function scheduleClose(): void {
     // A decision the game is waiting on must remain attached to ACTIONS.
     // Hover is only a convenience for offered priority windows; it must never
@@ -370,7 +380,7 @@
     onclick={(e) => { logic.setAutoPayMana(!logic.autoPayMana); blurAfterPointer(e); }}
   >AUTO MANA</button>
   {/if}
-  <div class="hot-tab" role="presentation" onpointerenter={() => show('actions')} onpointerleave={scheduleClose} onfocusin={() => show('actions')} onfocusout={scheduleClose}>
+  <div class="hot-tab" role="presentation" onpointerenter={() => show('actions')} onpointerleave={scheduleClose} onfocusin={() => show('actions')} onfocusout={closeOnFocusOut}>
     <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actionCount === 0} onclick={(e) => { show('actions'); blurAfterPointer(e); }}>
       <span class="full">ACTIONS</span><span class="compact" aria-hidden="true">A</span>
     </button>
