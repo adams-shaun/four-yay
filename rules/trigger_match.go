@@ -247,6 +247,20 @@ type pendingTrigger struct {
 	// ordinary target ask (unlike Ward/Afflict the body is targeted). Idx and
 	// SA are unset for it.
 	Mentor bool
+	// Firebending is a GRANTED firebending keyword (CR 702.189 via a layer-6
+	// AddKeyword$ Firebending:<N> -- Sozin's Comet's "Each creature you
+	// control gains firebending 5 until end of turn", Fire Nation Palace's
+	// targeted grant, Iroh, Dragon of the West's counter-gated grant): the
+	// Ward/Afflict/Flanking shape. A creature granted firebending has no
+	// printed K:Firebending trigger to carry the attack body, so
+	// checkGrantedFirebendingTriggers synthesizes the ordinary Attacks trigger
+	// and the drain pushes a KeywordTriggerPush whose
+	// __kwFirebendingGranted:<N> payload events.Apply rebuilds into the same
+	// DB$ Mana | Produced$ R | Amount$ <N> | PersistentUntilEndOfCombat$ True
+	// body the printed expansion carries. The field is the derived keyword's
+	// parameter text (the literal N or an SVar name), never empty for a real
+	// instance; Idx and SA are unset for it.
+	Firebending string
 	// Cumulative is a GRANTED cumulative-upkeep cost (CR 702.24 via a layer-6
 	// AddKeyword$ Cumulative upkeep:<cost> -- Breath of Dreams, Mana Chains,
 	// Decomposition -- or an A:AB$ Pump's KW$ Cumulative upkeep:<cost> --
@@ -1212,6 +1226,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 					e.checkGrantedTrainingTriggers(observer, id, o, f, ev, objLKI)
 					e.checkGrantedMeleeTriggers(observer, id, o, f, ev, objLKI)
 					e.checkGrantedMentorTriggers(observer, id, o, f, ev, objLKI)
+					e.checkGrantedFirebendingTriggers(observer, id, o, f, ev, objLKI)
 				case events.DeclareBlockers:
 					e.checkGrantedAfflictTriggers(id, o, f, ev)
 				case events.PutOnStack:
@@ -1802,6 +1817,10 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 		// triggers are live for this event -- the same both-paths rule
 		// Afflict, Conspire, Exploit, Offspring and Training follow.
 		e.checkGrantedMentorTriggers(observer, id, o, f, ev, objLKI)
+		// A granted Firebending must fire even when the object's own printed
+		// triggers are live for this event -- the same both-paths rule
+		// Afflict, Conspire, Exploit, Offspring, Training and Mentor follow.
+		e.checkGrantedFirebendingTriggers(observer, id, o, f, ev, objLKI)
 		// A granted cumulative upkeep must fire at the beginning of the
 		// controller's upkeep even when the object's own printed triggers are
 		// live for this step change -- the same both-paths rule Afflict,
@@ -2614,7 +2633,7 @@ func init() {
 		// effSetState's Mode$ TurnFaceUp arm emit; proved by
 		// rules/turnup_replacement_test.go's
 		// TestMasterOfPearlsTurnFaceUpSelfTriggerFiresOnce.
-		"trig:TurnFaceUp",
+		"trig:TurnFaceUp", "trig:Transformed",
 		"trig:ManaExpend",
 		"trig:Connives",
 		"trig:Discover", "trig:SeekAll",
@@ -2671,6 +2690,13 @@ func init() {
 		// granted-keyword synthesis (checkGrantedMentorTriggers) for the
 		// layer-6 grant.
 		"kw:Mentor",
+		// CR 702.189 Firebending: an Attacks trigger (cards/kw_firebending.go)
+		// whose body adds N red with the until-end-of-combat exception
+		// (PersistentUntilEndOfCombat$), with a granted-keyword synthesis
+		// (checkGrantedFirebendingTriggers) for the layer-6 grant. Registered
+		// here so the coverage walk stops naming kw:Firebending as a gap now
+		// that the expansion and the granted walk supply the whole rule.
+		"kw:Firebending",
 		// Task 17: Storm's expansion (cards/keywords.go) is a SpellCast
 		// trigger whose effect is CopySpellAbility -- the expansion existed
 		// since Task 11; registering the keyword here completes its

@@ -332,6 +332,21 @@ func Apply(g *state.Game, e Event) {
 			switch e.Text {
 			case "Suspected":
 				o.Suspected = e.Amount >= 1
+			case "Prepared":
+				// CR 722.3a: the prepared designation may only be granted to a
+				// permanent that has a prepare spell, and a permanent already
+				// prepared cannot gain it again; the false->true transition is
+				// what mints CR 722.3c's exile copy. Amount -1 removes it (an
+				// unprepare effect or the copy's cast). The copy is minted here,
+				// inside Apply, so a log-only replay mints the identical object.
+				if e.Amount >= 1 {
+					if !o.Prepared && o.HasPrepareSpell() {
+						o.Prepared = true
+						grantPreparedCopy(g, o)
+					}
+				} else {
+					o.Prepared = false
+				}
 			case "Monstrous":
 				// CR 701.31b's monstrous designation (Giggling Skitterspike's
 				// `{5}: Monstrosity 5`, task agent-20260919T190014Z): Amount is
@@ -1247,6 +1262,10 @@ func Apply(g *state.Game, e Event) {
 				o.Monstrous = false
 				o.Renowned = false
 				o.PlottedTurn = 0
+				// CR 722.3a: the prepared designation lives on a battlefield
+				// permanent; the exempted exile copy (CR 722.3c) ceases to be
+				// castable because its PreparedSource no longer answers true.
+				o.Prepared = false
 			}
 		}
 
@@ -1378,6 +1397,34 @@ func Apply(g *state.Game, e Event) {
 		}
 
 	case StepChange:
+		// "Until end of combat, you don't lose this mana as steps and phases
+		// end" (CR 702.189a Firebending) expires as the combat phase ends. The
+		// step being LEFT is g.Step, read before the assignment below; the
+		// demotion subtracts each seat's CombatMana from its PersistentMana so
+		// the very same boundary's ManaClear (rules.setStep calls
+		// finishStepBoundary after emitting this event) empties the demoted
+		// units with the ordinary share. Doing it here, rather than in the
+		// later EndCombatReset, is what keeps the units in the pool through the
+		// end-of-combat STEP (a player may still spend them there) while
+		// emptying them when it ends. A game with no combat-persistent mana
+		// (every game before this keyword, and every legacy deck) has all-zero
+		// tallies, so this fold is inert and its event stream is unchanged.
+		if g.Step == state.StepEndCombat && e.Step != state.StepEndCombat {
+			for i := range g.Players {
+				p := &g.Players[i]
+				for j := range p.CombatMana {
+					if p.CombatMana[j] == 0 {
+						continue
+					}
+					d := p.CombatMana[j]
+					if p.PersistentMana[j] < d {
+						d = p.PersistentMana[j]
+					}
+					p.PersistentMana[j] -= d
+					p.CombatMana[j] = 0
+				}
+			}
+		}
 		g.Step = e.Step
 		// The per-turn combat-phase count (CR 500.6: a turn has exactly one
 		// combat phase -- except the additional ones an api:AddPhase grant
@@ -1515,6 +1562,11 @@ func Apply(g *state.Game, e Event) {
 		// the next boundary's ManaClear empties them with the batch.
 		for i := range g.Players {
 			g.Players[i].PersistentMana = state.Mana{}
+			// The combat-persistent subset can never outlive the turn either:
+			// it expires at end of combat, but a TurnChange that somehow
+			// arrived first (an extra turn boundary) must not leave the tally
+			// naming units the pool no longer holds.
+			g.Players[i].CombatMana = state.Mana{}
 			for j := range g.Players[i].RestrictedMana {
 				g.Players[i].RestrictedMana[j].Persistent = false
 			}
@@ -2629,6 +2681,22 @@ func Apply(g *state.Game, e Event) {
 					Params: map[string]string{"Defined": "TriggeredBlockerLKICopy", "NumAtt": "-1", "NumDef": "-1"}}
 				flanking = ok
 			}
+			// A granted Firebending (rules.pushTrigger's
+			// __kwFirebendingGranted:<N> payload) has no SVar either: rebuilt
+			// structurally into the same DB$ Mana | Produced$ R | Amount$ <N>
+			// | PersistentUntilEndOfCombat$ True body the printed K:Firebending
+			// expansion carries (cards/kw_firebending.go), so the live game and
+			// the replay mint identical objects from the event text alone.
+			// The trigger has no target roles; the mana goes to the trigger's
+			// controller (the KeywordTriggerPush's Player). The "Granted"
+			// suffix keeps the payload from aliasing the "__kwFirebending:<N>"
+			// SVar a printed K:Firebending line mints (the Exploit/Offspring
+			// rule).
+			if rest, ok := strings.CutPrefix(e.Counter, "__kwFirebendingGranted:"); ok {
+				sa = &cards.SA{Kind: "DB", API: "Mana", Params: map[string]string{
+					"Produced": "R", "Amount": rest, "PersistentUntilEndOfCombat": "True",
+				}}
+			}
 			// A granted cumulative upkeep (rules.pushTrigger's
 			// __kwCumulativeUpkeepGranted:<cost> payload) has no SVar either:
 			// rebuilt structurally into the same DB$ CumulativeUpkeep |
@@ -3681,6 +3749,32 @@ func ringEmblemAbility(level int) *cards.SA {
 	return nil
 }
 
+// grantPreparedCopy implements CR 722.3c's prepared grant: the battlefield
+// permanent o gains the prepared designation (folded by the AlterAttribute
+// case above) and its controller creates, in exile, a copy that carries only
+// its prepare-spell face's characteristics. The copy is minted here, inside
+// Apply, so a log-only replay mints the identical object from the same
+// event; it is IsCopy (a spell copy, never a card) and PreparedSource names
+// o so the cast offer and the cast-time unprepare can find the permanent.
+//
+// Any earlier copy still linked to o is invalidated (PreparedSource = 0)
+// before the new one is minted, so a permanent that becomes prepared a second
+// time never offers a stale copy. Every read from o is snapshotted BEFORE
+// AddObject, which may reallocate g.Objs under the pointer.
+func grantPreparedCopy(g *state.Game, o *state.Object) {
+	src, card, ctrl := o.ID, o.Card, o.Controller
+	for i := range g.Objs {
+		if cp := &g.Objs[i]; cp.PreparedSource == src {
+			cp.PreparedSource = 0
+		}
+	}
+	cp := g.AddObject(card, ctrl)
+	cp.IsCopy = true
+	cp.FaceIdx = 1
+	cp.PreparedSource = src
+	Move(g, cp.ID, state.ZLibrary, state.ZExile)
+}
+
 // Move relocates an object between zones, preserving zone order and the
 // one-object-one-zone invariant.
 //
@@ -4306,10 +4400,17 @@ func manaClearKeepSlots(text string) [6]bool {
 // cutManaPersistent splits a ManaAdd event's Text encoding into the
 // restriction encoding it may also carry and whether the mana is persistent
 // (PersistentMana$ True — the trailing " pm" suffix ManaPersistentText
-// appends). Ordinary historical events never carry the suffix.
-func cutManaPersistent(text string) (string, bool) {
+// appends) and, for the shorter-lived CR 702.189a Firebending form, whether
+// it also expires at end of combat (the trailing " pmc" suffix
+// ManaCombatPersistentText appends). The combat suffix is checked FIRST
+// because it ends in neither the plain suffix nor the empty string it would
+// otherwise be mistaken for. Ordinary historical events never carry either.
+func cutManaPersistent(text string) (rest string, persistent, combat bool) {
+	if rest, ok := strings.CutSuffix(text, manaCombatPersistentSuffix); ok {
+		return rest, true, true
+	}
 	rest, ok := strings.CutSuffix(text, manaPersistentSuffix)
-	return rest, ok
+	return rest, ok, false
 }
 
 // clearNonPersistent drains n ordinary (non-persistent) units from slot i of
@@ -4546,7 +4647,7 @@ func applyManaAdd(g *state.Game, e Event) {
 		// PersistentMana$ True (task persistentmana): the suffix rides Text
 		// after every other encoding, so cut it before the restriction
 		// parse and mark the tally/batch below.
-		rest, persistent := cutManaPersistent(e.Text)
+		rest, persistent, combat := cutManaPersistent(e.Text)
 		// One event moves the pool and its parallel producer tally, so a
 		// tally can never drift from the pool it partitions. Three counter
 		// forms exist, and all three land in the colour's pool slot:
@@ -4566,6 +4667,9 @@ func applyManaAdd(g *state.Game, e Event) {
 		player.Pool[idx] += e.Amount
 		if e.Amount > 0 && persistent {
 			player.PersistentMana[idx] += e.Amount
+			if combat {
+				player.CombatMana[idx] += e.Amount
+			}
 		}
 		if len(e.Counter) == 2 && e.Counter[0] == 'S' {
 			player.Snow[idx] += e.Amount
@@ -4650,6 +4754,19 @@ func applyManaAdd(g *state.Game, e Event) {
 				d = player.PersistentMana[idx]
 			}
 			player.PersistentMana[idx] -= d
+			// The combat-persistent subset is consumed by the same attribution:
+			// the payment cannot distinguish a combat unit from an ordinary
+			// persistent one (they are interchangeable in the pool), so a spend
+			// that reduced the persistent tally reduces the combat tally too,
+			// bounded by what it still holds. The convention only decides WHICH
+			// surviving units are emptied at end of combat when both classes are
+			// simultaneously in the pool; the CR draws no such distinction.
+			if cd := player.CombatMana[idx]; cd > 0 {
+				if cd > d {
+					cd = d
+				}
+				player.CombatMana[idx] -= cd
+			}
 		}
 	}
 }

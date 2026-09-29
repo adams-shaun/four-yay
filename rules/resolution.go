@@ -2637,7 +2637,8 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// list is read straight off them — the one place a
 			// mid-resolution answer moves an object by identity rather than
 			// an SVar name, which is why Ctx carries a Discard []ObjID
-			// rather than a Modes []string.
+			// rather than a Modes []string. api:Recruit's one-card discard ask
+			// (effects/recruit.go) shares this exact answer channel.
 			// Counter's UnlessCost$ and RearrangeTopOfLibrary (Ponder) can
 			// both reuse this same answer-shape and resume retrofitted onto
 			// their own asking primitive — see task-dc1-brief scope.
@@ -2672,6 +2673,10 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				ctx.DiscardVote = "yes"
 			}
 			ctx.DiscardTarget = rp.target
+		case "chooseevenodd":
+			if len(chosen) > 0 {
+				ctx.ChosenType = chosen[0].Label
+			}
 		case "choosetype":
 			// A mid-resolution ChooseType ask (task ct1: SP$/AB$/DB$ ChooseType
 			// resolving outside the cast-time "as this enters" choice —

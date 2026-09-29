@@ -256,8 +256,6 @@ func TestSetAudit_msh_CaptainMarVell_CosmicAwarenessBareCheckSVar(t *testing.T) 
 	// seat 0 can cast its creature while responding to seat 1's spell
 	// (CR 601.3). With the bare CheckSVar$ gate disabled, it is not offered.
 	if !offered {
-		setAuditGuard(t, "Cosmic Awareness never grants flash: staticTimingGate treats a bare CheckSVar$ (no SVarCompare$) as always-false instead of 'nonzero', so Captain Mar-Vell's CastWithFlash gate is disabled even after an opponent casts a spell",
-			"Honour the bare CheckSVar$ 'nonzero' default in staticTimingGate")
 		t.Fatal("seat 0 was NOT offered a Grizzly Bears cast while responding to seat 1's spell (CR 601.3)")
 	}
 	replayCheck(t, e, cfg)

@@ -83,7 +83,11 @@ func ParseBytes(path string, src []byte) (*Card, []Diag) {
 		case "Oracle":
 			cur.Oracle = val
 		case "K":
-			cur.Keywords = append(cur.Keywords, val)
+			// Forge spells a few combat keywords as a full sentence (a bare
+			// head with no colon); canonicalise those to the head the engine
+			// reads so the coverage walk interns a real symbol, not the
+			// sentence. See cards/hiddenkeyword.go.
+			cur.Keywords = append(cur.Keywords, CanonicalKeywordLine(val))
 			if strings.HasPrefix(val, "Specialize:") &&
 				(strings.Contains(val, "AdditionalActivationZone$") || strings.Contains(val, "ReduceCost$")) {
 				rider := "AdditionalActivationZone$"

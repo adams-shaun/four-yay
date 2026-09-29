@@ -565,7 +565,7 @@ func applyCountOpOperandOK(h Host, c *Ctx, n int32, op string, depth int) (int32
 // stands) means an unclamped spelling cannot silently lose its cap.
 func countDistinctLimitMax(body, op string, n int32) (int32, bool) {
 	head, arg, _ := strings.Cut(body, " ")
-	if _, ok := countZone(head); !ok {
+	if _, ok := countZone(head); !ok && head != "ValidSelf" {
 		return n, false
 	}
 	_, prop, hasProp := strings.Cut(strings.TrimSpace(arg), "$")
@@ -2034,6 +2034,50 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 			return int32(len(h.ObjectColors(o))), true
 		}
 		return 0, true
+	case "ValidSelf":
+		// Forge's Count$ValidSelf <Card$property> reads a property of the
+		// source object ITSELF rather than of a scanned zone set (Diligent
+		// Zookeeper's `SVar:AffectedX:Count$ValidSelf
+		// Card$CreatureType/LimitMax.10`, whose AffectedX
+		// AddPower$/AddToughness$ the layer-7c modify walk anchors on each
+		// affected creature). c.Source is that object: for an AffectedX
+		// static rules.staticAmountOn binds the recipient's id as the
+		// anchor, and the /LimitMax.<n> cap arrives as the Count$ /Op
+		// suffix (clamped by countDistinctLimitMax above, which admits this
+		// head for the bounded CreatureType property). The corpus's other
+		// ValidSelf argument shapes -- Card.!IsPrepared (the prepared
+		// mechanic), Card.IsSuspected, and the unprefixed
+		// Creature.greatestPowerControlledByCardController -- are NOT this
+		// distinct-creature-type read, so they keep failing closed to the
+		// unresolvable verdict (0, false) rather than silently reading the
+		// wrong property as zero. Counted over the object's effective layer-4
+		// types (falling back to the printed face when no derived entry exists),
+		// with the SAME subtype vocabulary the sibling Count$Valid
+		// <spec>$CreatureType distinct-set read uses (creatureSubtypeWords).
+		// AffectedX P/T reads run in layer 7, after layer 4 establishes these
+		// characteristics. The seen set is read only through len, so no map
+		// ordering reaches an event or view.
+		if strings.TrimSpace(arg) != "Card$CreatureType" {
+			return 0, false
+		}
+		o := g.Obj(c.Source)
+		if o == nil || o.Face() == nil {
+			return 0, true
+		}
+		types := o.Face().Types
+		for _, derived := range c.EffectiveTypes {
+			if derived.ID == o.ID {
+				types = derived.Types
+				break
+			}
+		}
+		seen := make(map[string]bool)
+		for _, typ := range types {
+			if creatureSubtypeWords[typ] {
+				seen[typ] = true
+			}
+		}
+		return int32(len(seen)), true
 	case "CardNumAttacksThisTurn":
 		// Forge's Count$CardNumAttacksThisTurn: how many times THIS object has
 		// attacked this turn (Moraug, Fury of Akoum's "+1/+0 for each time it
@@ -2305,6 +2349,9 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		// number and the same provenance read the CR 903.8 commander tax.
 		return h.CommanderCastsFromCommandZone(c.Controller), true
 	case "RememberedNumber":
+		if c.ExchangeNumberBound {
+			return c.ExchangeNumber, true
+		}
 		// Forge's Count$RememberedNumber is the executing ability's remembered
 		// count -- the same list evalRememberedOK's Amount head reads, so it
 		// applies the same capture exclusion: Forge's host remembered list is

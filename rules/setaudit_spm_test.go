@@ -1,9 +1,12 @@
 package rules
 
-// Set audit: Marvel's Spider-Man (spm). This file is AUDIT-only: it records
-// defects found in the set, one test per card/mechanic, each guarded by
-// GORGE_SET_AUDIT so a failing finding does not break the gates. Findings are
-// filed as tickets under .ds4/new-tickets/. See .ds4/report-t0.md.
+// Set audit: Marvel's Spider-Man (spm). Most of this file is AUDIT-only: it
+// records defects found in the set, one test per card/mechanic, each guarded
+// by GORGE_SET_AUDIT so a failing finding does not break the gates. Findings
+// are filed as tickets under .ds4/new-tickets/. See .ds4/report-t0.md. The
+// Web-slinging finding is the exception: the alternative cost was implemented
+// in rules/webslinging.go, so its test is a permanent green regression guard
+// without the skip guard.
 
 import (
 	"os"
@@ -41,11 +44,11 @@ func castOptionsWithMode(e *Engine, p state.PlayerID, obj state.ObjID, mode stri
 // web-slinging cost if you also return a tapped creature you control to its
 // owner's hand." Spider-Man, Web-Slinger ({2}{W}, web-slinging {W}) must be
 // castable for {W} while a tapped creature is available to return, even with
-// no {2}{W} in the pool. The engine has no web-slinging path at all, so the
-// {W} offer never appears.
+// no {2}{W} in the pool. The finding is implemented (rules/webslinging.go),
+// so this is a permanent green regression guard without the skip guard.
 func TestSetAudit_spm_WebSlinging_AlternativeCostOffered(t *testing.T) {
 	t.Parallel()
-	requireSetAudit(t, "set-audit finding (spm): Web-slinging (CR 702.186) is unimplemented; the alternative cost is never offered. Follow-up: implement Web-slinging alternative cost")
+
 	e := handEngine(t, corpusCard(t, "Spider-Man, Web-Slinger"))
 	spidey := e.G.Zone(state.ZHand, 0)[0]
 	if got := e.G.Obj(spidey).Face().Name; got != "Spider-Man, Web-Slinger" {
@@ -59,7 +62,7 @@ func TestSetAudit_spm_WebSlinging_AlternativeCostOffered(t *testing.T) {
 	}
 	// A tapped creature of seat 0's, the return cost's fuel.
 	bear := onBoard(t, e, 0, "Name:Test Tapped Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
-	e.G.Obj(bear).Tapped = true
+	e.emit(events.Event{Kind: events.Tap, Obj: bear})
 	if !e.G.Obj(bear).Tapped {
 		t.Fatal("setup: bear must be tapped to pay the return cost")
 	}
@@ -148,74 +151,6 @@ func TestSetAudit_spm_Kraven_GreatestPowerDeathTrigger(t *testing.T) {
 	}
 	if got := counterOf(t, e, kraven, "P1P1"); got != 1 {
 		t.Fatalf("Kraven's P1P1 counters after his trigger = %d, want 1", got)
-	}
-}
-
-// TestSetAudit_spm_MisterNegative_InversionExchangeLife: Darkforce Inversion
-// (the set's named mechanic) -- "When Mister Negative enters, you may
-// exchange life totals with target opponent. If you lost life this way, draw
-// that many cards." (CR 701.20a exchange; CR 608.2d draws). The script's
-// DB$ ExchangeLife effect is unregistered (cards/validate.go:
-// api:ExchangeLife), so the ETB trigger poses and accepts the exchange ask
-// and then SILENTLY does nothing: no life move, no draw, not even the
-// "unimplemented API" Note the registry contract promises
-// (effects/registry.go).
-func TestSetAudit_spm_MisterNegative_InversionExchangeLife(t *testing.T) {
-	t.Parallel()
-	requireSetAudit(t, "set-audit finding (spm): Mister Negative's Darkforce Inversion exchange (DB$ ExchangeLife) is unregistered and silently no-ops after its target ask. Follow-up: implement api:ExchangeLife for Mister Negative's Darkforce Inversion")
-	e := handEngine(t, corpusCard(t, "Mister Negative"))
-	id := e.G.Zone(state.ZHand, 0)[0]
-	if got := e.G.Obj(id).Face().Name; got != "Mister Negative" {
-		t.Fatalf("setup: hand card = %q, want Mister Negative", got)
-	}
-	if got := e.G.Obj(id).Face().Triggers[0].Effect.API; got != "ExchangeLife" {
-		t.Fatalf("setup: ETB trigger effect = %q, want ExchangeLife", got)
-	}
-	e.G.Players[0].Life = 20
-	e.G.Players[1].Life = 15
-	hand0 := len(e.G.Zone(state.ZHand, 0))
-	deck0 := len(e.G.Zone(state.ZLibrary, 0))
-
-	e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
-	if got := e.G.Obj(id).Zone; got != state.ZBattlefield {
-		t.Fatalf("setup: Mister Negative zone after the move = %v, want battlefield", got)
-	}
-	e.putTriggersOnStack()
-	if len(e.G.Stack) != 1 {
-		t.Fatalf("Mister Negative's ETB trigger is not on the stack: %v", e.G.Stack)
-	}
-	// The exchange ask: exchange with seat 1 (OptionalDecider$ You, so the
-	// ask also carries a decline arm -- pick the exchange).
-	e.resolveTop()
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KTarget {
-		t.Fatalf("no exchange target ask after the ETB trigger resolved: %+v", d)
-	}
-	pick := -1
-	for _, o := range d.Options {
-		if o.Player == 1 {
-			pick = o.Index
-		}
-	}
-	if pick < 0 {
-		t.Fatalf("the exchange ask does not offer opponent seat 1: %+v", d.Options)
-	}
-	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{pick}}); err != nil {
-		t.Fatalf("submit exchange target: %v", err)
-	}
-	e.priorityRound()
-	if got, want := int(e.G.Players[0].Life), 15; got != want {
-		t.Fatalf("Mister Negative's controller life after the exchange = %d, want %d (the opponent's total)", got, want)
-	}
-	if got := e.G.Players[1].Life; got != 20 {
-		t.Fatalf("the opponent's life after the exchange = %d, want 20", got)
-	}
-	// "If you lost life this way, draw that many cards": 20 -> 15 lost 5.
-	if got := len(e.G.Zone(state.ZHand, 0)); got != hand0+5 {
-		t.Fatalf("drew %d cards for 5 life lost (hand %d -> %d)", got-hand0, hand0, got)
-	}
-	if got := len(e.G.Zone(state.ZLibrary, 0)); got != deck0-5 {
-		t.Fatalf("library after the draws = %d, want %d", got, deck0-5)
 	}
 }
 

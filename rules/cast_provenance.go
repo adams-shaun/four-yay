@@ -322,6 +322,9 @@ func (e *Engine) castProvenanceAdmitsChain(spec string, objID state.ObjID, you s
 	if s, ok = e.castOriginAdmits(s, objID, you); !ok {
 		return "", false
 	}
+	if s, ok = e.webSlingedAdmits(s, objID); !ok {
+		return "", false
+	}
 	return e.castSaAdmits(s, objID)
 }
 
@@ -368,6 +371,12 @@ func (e *Engine) castProvenanceAdmitsMasked(spec string, gate provGate, objID st
 	if gate.origin {
 		s, ok = e.castOriginAdmits(s, objID, you)
 		if !ok {
+			return "", false
+		}
+		changed = true
+	}
+	if changed || gate.stages&provWebSlinged != 0 {
+		if s, ok = e.webSlingedAdmits(s, objID); !ok {
 			return "", false
 		}
 		changed = true
@@ -681,6 +690,29 @@ func (e *Engine) castOriginAdmitsAtZone(spec string, objID state.ObjID, from sta
 	return spec, true
 }
 
+// webSlingedAdmits evaluates the Web-slinging cast-provenance predicate
+// (kw:Web-slinging, CR 702.186a-family): the object's LATEST cast was paid
+// for with its web-slinging cost -- state.FlagWebSlinged, stamped by the
+// pay-time CastInfo (modeFlags). The flag is a CastProvenanceFlag
+// (state/object.go), so a stack copy (put on the stack, never cast --
+// CR 707.10) reads false without a separate guard, and a card never put on
+// the stack (cheated into play) carries no bit either. There is no pre-push
+// OFFER-window fallback here, exactly like the CastSa family: the flag does
+// not exist until the payment has run, and the only corpus readers
+// (Spiders-Man, Heroic Horde's ETB trigger; Scarlet Spider, Ben Reilly's
+// Sensational Save replacement) evaluate it at battlefield entry, after the
+// push.
+func (e *Engine) webSlingedAdmits(spec string, objID state.ObjID) (string, bool) {
+	if !strings.Contains(spec, "webSlinged") {
+		return spec, true
+	}
+	holds := false
+	if o := e.G.Obj(objID); o != nil {
+		holds = o.CastFlags&state.FlagWebSlinged != 0
+	}
+	return admitProvenanceAlternatives(spec, "webSlinged", holds)
+}
+
 // castProvenanceAdmitsPending is castProvenanceAdmits with the pending-cast
 // guard the two COST paths need (the ReduceCost/RaiseCost statics'
 // ValidCard$, and the RestrictValid$ mana-restriction read): a
@@ -759,6 +791,13 @@ func specProvenanceGate(spec string) provGate {
 // own guard, evaluated on the unrewritten spec.
 func computeProvenanceGate(spec string) provGate {
 	var g provGate
+	// webSlinged is the one token in this chain that does NOT carry the
+	// substring "Cast" (kw:Web-slinging, the CastSa sibling without the word:
+	// `Card.Self+wasCast+webSlinged`), so its probe sits before the early-out
+	// below.
+	if strings.Contains(spec, "webSlinged") {
+		g.stages |= provWebSlinged
+	}
 	if !strings.Contains(spec, "Cast") {
 		return g
 	}
@@ -791,6 +830,7 @@ const (
 	provBare
 	provHandAny
 	provCastSa
+	provWebSlinged
 )
 
 type provGate struct {

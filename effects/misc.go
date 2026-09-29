@@ -77,15 +77,19 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 // from the trigger's placement ask, Hot Pursuit's ETB the same way, and a
 // deeper sub (the DBDebuff family) through Resolve's generic pre-ask.
 //
-// The engine models exactly ONE attribute: Suspected (CR 702.157, the
-// Blame Game precon family), whose designation lives on state.Object
-// behind the events.AlterAttribute fold and whose two end conditions
-// (leaves the battlefield, another player gains control) are events.Apply's
-// Move/ControlChange clears. A body naming any other attribute (Prepared,
-// Solved, Plotted, Saddled, Commander, Harnessed -- the corpus's remaining
-// populations) emits the loud unsupported-attribute Note and moves nothing,
-// exactly like the Manifest/Cloak out-of-scope shapes: registration claims
-// the API, the Note claims the gap.
+// The engine models TWO attributes: Suspected (CR 702.157, the Blame Game
+// precon family) and Prepared (CR 722.3a, the Secrets of Strixhaven
+// preparation cards). Both designations live on state.Object behind the
+// events.AlterAttribute fold; Suspected's two end conditions (leaves the
+// battlefield, another player gains control) and Prepared's (leaves the
+// battlefield, or an unprepare effect) are events.Apply's folds -- Prepared
+// deliberately keeps its designation across a control change, because CR
+// 722.3c ties the copy to the permanent, not to a controller.
+// A body naming any other attribute (Solved, Plotted, Saddled, Commander,
+// Harnessed -- the corpus's remaining populations) emits the loud
+// unsupported-attribute Note and moves nothing, exactly like the
+// Manifest/Cloak out-of-scope shapes: registration claims the API, the Note
+// claims the gap.
 //
 // Activate$ False is Forge's removal spelling ("becomes unprepared"); for
 // Suspected it removes the designation (the DBDebuff family's
@@ -98,7 +102,8 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 	}
 	activate := !strings.EqualFold(strings.TrimSpace(sa.Params["Activate"]), "False")
 	for _, name := range strings.FieldsFunc(attr, func(r rune) bool { return r == ',' || r == ' ' }) {
-		if !strings.EqualFold(name, "Suspected") {
+		prepared := strings.EqualFold(name, "Prepared")
+		if !strings.EqualFold(name, "Suspected") && !prepared {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "AlterAttribute: attribute " + name + " not modelled"})
 			continue
@@ -111,10 +116,22 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 			if t.IsPlayer {
 				continue
 			}
-			if o := h.Game().Obj(t.Obj); o != nil && o.Zone == state.ZBattlefield {
-				h.Emit(events.Event{Kind: events.AlterAttribute, Obj: o.ID,
-					Text: "Suspected", Amount: amount})
+			o := h.Game().Obj(t.Obj)
+			if o == nil || o.Zone != state.ZBattlefield {
+				continue
 			}
+			// CR 722.3a: only a permanent that HAS a prepare spell can gain
+			// the prepared designation; an unprepare (Activate$ False) always
+			// applies, exactly like Suspected's removal.
+			if prepared && activate && !o.HasPrepareSpell() {
+				continue
+			}
+			text := "Suspected"
+			if prepared {
+				text = "Prepared"
+			}
+			h.Emit(events.Event{Kind: events.AlterAttribute, Obj: o.ID,
+				Text: text, Amount: amount})
 		}
 	}
 }
@@ -3054,9 +3071,10 @@ func hasChosenPlayers(ts []state.Target) bool {
 	return false
 }
 
-// effSetState flips a double-faced target to its other face. M1 does not
-// model Mode$'s vocabulary (Transform/Flip/Meld all behave the same here):
-// it just advances to the next face, wrapping to 0, which is correct for the
+// effSetState flips a double-faced target to its other face. Mode$ Transform
+// marks the FlipFace event for CR 701.26 triggers; Flip/Meld still change faces
+// without transforming. The face walk advances to the next face, wrapping to
+// 0, which is correct for the
 // overwhelmingly common two-face case and a no-op for anything with fewer
 // than two faces (a token, or a single-faced card).
 //
@@ -3169,7 +3187,11 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 		next := (int(o.FaceIdx) + 1) % len(o.Card.Faces)
 		h.Emit(events.Event{Kind: events.Note, Obj: o.ID,
 			Text: "flips to face " + strconv.Itoa(next) + " (" + mode + ")"})
-		h.Emit(events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: int32(next)})
+		flip := events.Event{Kind: events.FlipFace, Obj: o.ID, Amount: int32(next)}
+		if strings.EqualFold(strings.TrimSpace(mode), "Transform") && o.Zone == state.ZBattlefield {
+			flip.Text = "Transformed"
+		}
+		h.Emit(flip)
 		setstateRememberChanged(c, sa, o.ID)
 	}
 }
@@ -5805,6 +5827,22 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unhandled PersistentMana$ " + strings.TrimSpace(sa.Params["PersistentMana"]) + "; the mana is ordinary"})
 	}
+	// PersistentUntilEndOfCombat$ True is the CR 702.189a Firebending
+	// exception ("Until end of combat, you don't lose this mana as steps and
+	// phases end"): the units are persistent (they survive the step
+	// boundaries within the combat phase) AND carry the combat tally that
+	// events.Apply demotes as the end-of-combat step is left. It is implied
+	// by, and composes with, the printed keyword expansion (cards/
+	// kw_firebending.go); any other value is a loud Note and ordinary mana.
+	combat := false
+	switch strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"]) {
+	case "":
+	case "True":
+		combat, persistent = true, true
+	default:
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "unhandled PersistentUntilEndOfCombat$ " + strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"]) + "; the mana is ordinary"})
+	}
 	// CR 107.4h: mana produced by a SNOW permanent is snow mana. A snow unit
 	// is tagged in the pool event itself — Counter "S<colour>" — so the pool
 	// slot and the parallel snow tally move through one event and a replay
@@ -5878,7 +5916,9 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 			// Composes with a restriction and with AddsNoCounter$; empty for
 			// every non-rider ability, keeping those events byte-identical.
 			ev.Text = events.ManaAddsCountersText(ev.Text, addsCounters)
-			if persistent {
+			if combat {
+				ev.Text = events.ManaCombatPersistentText(ev.Text)
+			} else if persistent {
 				ev.Text = events.ManaPersistentText(ev.Text)
 			}
 			h.Emit(ev)
