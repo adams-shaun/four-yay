@@ -1295,7 +1295,12 @@ func (e *Engine) staticAmountOn(ce ContinuousEffect, expr string, anchor state.O
 		svars = src.Face().SVars
 	}
 	sa := &cards.SA{Params: map[string]string{"Amount": expr}}
-	return effects.Num(e, &effects.Ctx{Source: anchor, Controller: ce.Controller, SVars: svars}, sa, "Amount", 0)
+	ctx := &effects.Ctx{Source: anchor, Controller: ce.Controller, SVars: svars}
+	if strings.Contains(expr, "Count$ValidSelf Card$CreatureType") || strings.Contains(svars[expr], "Count$ValidSelf Card$CreatureType") {
+		e.refreshDerivedTypes()
+		ctx.EffectiveTypes = e.EffectiveTypes()
+	}
+	return effects.Num(e, ctx, sa, "Amount", 0)
 }
 
 // addPT saturates instead of allowing a large static expression to wrap a

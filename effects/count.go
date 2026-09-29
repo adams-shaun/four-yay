@@ -2050,12 +2050,13 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		// Creature.greatestPowerControlledByCardController -- are NOT this
 		// distinct-creature-type read, so they keep failing closed to the
 		// unresolvable verdict (0, false) rather than silently reading the
-		// wrong property as zero. Counted over the printed face types with
-		// the SAME subtype vocabulary the sibling
-		// Count$Valid <spec>$CreatureType distinct-set read uses
-		// (creatureSubtypeWords), so the two spellings cannot disagree
-		// about what a creature type is. The seen set is read only through
-		// len, so no map ordering ever reaches an event or a view.
+		// wrong property as zero. Counted over the object's effective layer-4
+		// types (falling back to the printed face when no derived entry exists),
+		// with the SAME subtype vocabulary the sibling Count$Valid
+		// <spec>$CreatureType distinct-set read uses (creatureSubtypeWords).
+		// AffectedX P/T reads run in layer 7, after layer 4 establishes these
+		// characteristics. The seen set is read only through len, so no map
+		// ordering reaches an event or view.
 		if strings.TrimSpace(arg) != "Card$CreatureType" {
 			return 0, false
 		}
@@ -2063,8 +2064,15 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		if o == nil || o.Face() == nil {
 			return 0, true
 		}
+		types := o.Face().Types
+		for _, derived := range c.EffectiveTypes {
+			if derived.ID == o.ID {
+				types = derived.Types
+				break
+			}
+		}
 		seen := make(map[string]bool)
-		for _, typ := range o.Face().Types {
+		for _, typ := range types {
 			if creatureSubtypeWords[typ] {
 				seen[typ] = true
 			}
