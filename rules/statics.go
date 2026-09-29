@@ -3988,6 +3988,22 @@ func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
 	return e.Power(id)
 }
 
+// tapCostSAKind names the activated-action kind an ability's tap-power cost
+// belongs to, for the TapPowerValue ValidSA$ scope. The keyword expansions
+// stamp the minted tap-cost ability with `Keyword$ <kw>` (cards/kw_crew.go
+// sets Keyword$ Crew; the Saddle expansion the same way), so the keyword is
+// the action kind a static like Giant Ox's `ValidSA$ Activated.Crew+Vehicle`
+// scopes to. A hand-written tapXType ability (Mossbridge Troll) and every
+// non-tap-cost ability read as "", which only an empty ValidSA$ admits. The
+// read is the SA's own keyword, so an ability can never be scoped by another
+// action's static.
+func tapCostSAKind(ab *cards.SA) string {
+	if ab == nil {
+		return ""
+	}
+	return strings.TrimSpace(ab.Params["Keyword"])
+}
+
 // altCostLabel names the nth (0-indexed) alternative-cost option for a
 // spell, distinct from the base "Cast <name>" label and from each other when
 // a card somehow offers more than one alternative.

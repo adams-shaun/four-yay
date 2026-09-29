@@ -32,7 +32,7 @@ func TestMorphTurnUpRejectsParsedButUnpaidCostParts(t *testing.T) {
 		if len(c.Unknown) != 0 || len(c.Exile) != 1 {
 			t.Fatalf("precondition: expected recognized Exile cost, got %+v", c)
 		}
-		if !e.nonManaCastable(0, id, c, false) {
+		if !e.nonManaCastable(0, id, c, false, "") {
 			t.Fatalf("precondition: graveyard candidate does not make parsed Exile cost payable: %+v", c.Exile[0])
 		}
 		if _, ok := morphFaceUpCost(e.G.Obj(id)); ok {
@@ -71,7 +71,7 @@ func TestMorphTurnUpRejectsParsedButUnpaidCostParts(t *testing.T) {
 		if len(c.Unknown) != 0 || len(c.SubCounter) != 1 {
 			t.Fatalf("precondition: expected recognized SubCounter cost, got %+v", c)
 		}
-		if !e.nonManaCastable(0, id, c, false) {
+		if !e.nonManaCastable(0, id, c, false, "") {
 			t.Fatalf("precondition: source counter does not make parsed SubCounter cost payable: %+v", c.SubCounter[0])
 		}
 		if _, ok := morphFaceUpCost(e.G.Obj(id)); ok {

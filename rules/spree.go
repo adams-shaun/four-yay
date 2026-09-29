@@ -124,5 +124,5 @@ func (e *Engine) modeCostFeasible(pc *pendingCast, extra Cost, pot state.Mana) b
 		}
 		mods = potential
 	}
-	return e.nonManaCastable(pc.player, pc.card, e.composedOfferCost(pc.player, pc.card, base, mods, scope), pc.isAbility())
+	return e.nonManaCastable(pc.player, pc.card, e.composedOfferCost(pc.player, pc.card, base, mods, scope), pc.isAbility(), tapCostSAKind(scope.ab))
 }
