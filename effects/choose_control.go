@@ -115,7 +115,7 @@ func definedCardPool(g *state.Game, c *Ctx, raw string) ([]state.Target, string)
 	}
 }
 
-func definedCardQualifierMatches(g *state.Game, c *Ctx, qualifier string, o *state.Object) bool {
+func definedCardQualifierMatches(h Host, g *state.Game, c *Ctx, qualifier string, o *state.Object) bool {
 	if qualifier == "" {
 		return true
 	}
@@ -127,7 +127,7 @@ func definedCardQualifierMatches(g *state.Game, c *Ctx, qualifier string, o *sta
 		}
 		return false
 	}
-	return choiceMatches(g, c, "Card."+qualifier, o)
+	return choiceMatches(h, g, c, "Card."+qualifier, o)
 }
 
 // chooseCardControl is the effective ControlledByPlayer$ a cardChoices walk
@@ -175,7 +175,7 @@ func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.T
 		out := candidates[:0]
 		for _, t := range candidates {
 			o := g.Obj(t.Obj)
-			if o != nil && definedCardQualifierMatches(g, c, qualifier, o) {
+			if o != nil && definedCardQualifierMatches(h, g, c, qualifier, o) {
 				out = append(out, t)
 			}
 		}
@@ -227,7 +227,7 @@ const canBeSacrificedByToken = "CanBeSacrificedBy"
 
 func choiceSpecAdmits(h Host, g *state.Game, c *Ctx, spec string, o *state.Object) bool {
 	if !strings.Contains(spec, canBeSacrificedByToken) {
-		return choiceMatches(g, c, spec, o)
+		return choiceMatches(h, g, c, spec, o)
 	}
 	matched := false
 	for alt := range filterAlternatives(spec) {
@@ -239,7 +239,7 @@ func choiceSpecAdmits(h Host, g *state.Game, c *Ctx, spec string, o *state.Objec
 			matched = matched || admits
 			continue
 		}
-		matched = matched || choiceMatches(g, c, alt, o)
+		matched = matched || choiceMatches(h, g, c, alt, o)
 	}
 	return matched
 }
@@ -274,7 +274,7 @@ func sacrificeableAlternative(h Host, g *state.Game, c *Ctx, alt string, o *stat
 	if len(kept) > 0 {
 		stripped = base + "." + strings.Join(kept, "+")
 	}
-	return !h.SacrificeBlocked(o.ID, false) && choiceMatches(g, c, stripped, o), true
+	return !h.SacrificeBlocked(o.ID, false) && choiceMatches(h, g, c, stripped, o), true
 }
 
 // controlledByChoicePlayer applies ChooseCard's ControlledByPlayer$ (or the
@@ -324,8 +324,14 @@ func randomChoices(h Host, choices []state.Target, n int) []state.Target {
 // filter implements it against the resolution's Remembered set (plus the
 // source's event-backed list), which is exactly the binding a choice's
 // "a card you remembered earlier" filter wants.
-func choiceMatches(g *state.Game, c *Ctx, spec string, o *state.Object) bool {
-	return MatchesObjectCtx(g, spec, o, c.SpecContext(c.Controller))
+// A spec that consults greatestPower binds the battlefield-wide derived-power
+// table through the ONE shared helper (GreatestPowerDerivedPTs), so a
+// Choices$ pool sees a pumped creature at its derived power -- the seam the
+// Myrkul's Edict family reaches through DBChooseCard.
+func choiceMatches(h Host, g *state.Game, c *Ctx, spec string, o *state.Object) bool {
+	sc := c.SpecContext(c.Controller)
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
+	return MatchesObjectCtx(g, spec, o, sc)
 }
 
 func choiceChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
@@ -469,7 +475,7 @@ func chooseEachGroups(sa *cards.SA) []string {
 // additional conjunct over cardChoices' already-filtered pool, evaluated
 // from the same chooser's perspective cardChoices evaluates Choices$ with
 // (Choices$ Card.YouOwn means the chooser's card).
-func chooseEachPool(g *state.Game, c *Ctx, pool []state.Target, chooser state.PlayerID, group string) []state.Target {
+func chooseEachPool(h Host, g *state.Game, c *Ctx, pool []state.Target, chooser state.PlayerID, group string) []state.Target {
 	out := make([]state.Target, 0, len(pool))
 	for _, t := range pool {
 		o := g.Obj(t.Obj)
@@ -478,7 +484,7 @@ func chooseEachPool(g *state.Game, c *Ctx, pool []state.Target, chooser state.Pl
 		}
 		cc := *c
 		cc.Controller = chooser
-		if choiceMatches(g, &cc, group, o) {
+		if choiceMatches(h, g, &cc, group, o) {
 			out = append(out, t)
 		}
 	}
@@ -560,7 +566,7 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 		chooser := choosers[i/groups]
 		choices := cardChoices(h, &selection, sa, chooser)
 		if each != nil {
-			choices = chooseEachPool(h.Game(), &selection, choices, chooser, each[i%groups])
+			choices = chooseEachPool(h, h.Game(), &selection, choices, chooser, each[i%groups])
 		}
 		// A card whose own power exceeds the budget can never be picked,
 		// however few are taken (effDig's `affordable` rule): narrow the pool
@@ -718,7 +724,7 @@ func sourceChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state
 		}
 		cc := *c
 		cc.Controller = chooser
-		if spec == "" || choiceMatches(g, &cc, spec, o) {
+		if spec == "" || choiceMatches(h, g, &cc, spec, o) {
 			out = append(out, state.Target{Obj: o.ID})
 		}
 	}
@@ -1875,7 +1881,7 @@ func repeatedCards(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		}
 		for _, p := range players {
 			for _, id := range h.Game().Zone(z, p) {
-				if o := h.Game().Obj(id); o != nil && choiceMatches(h.Game(), c, spec, o) {
+				if o := h.Game().Obj(id); o != nil && choiceMatches(h, h.Game(), c, spec, o) {
 					out = append(out, state.Target{Obj: id})
 				}
 			}

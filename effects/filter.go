@@ -4184,6 +4184,40 @@ func objectPower(o *state.Object) int {
 	return f.Power() + int(dp)
 }
 
+// GreatestPowerDerivedPTs returns every battlefield object's CURRENT
+// layer-derived power (the reader's Power) when spec consults the
+// greatestPower predicate, and nil otherwise; callers append the return onto
+// their SpecContext's DerivedPTs (an append of nil is a no-op). It is the ONE
+// bind every seam that can reach a greatestPower spec goes through -- rules'
+// matchesSpec (ValidTgts$/static specs), Count$ValidSelf, Count$Valid,
+// ConditionPresent$/IsPresent$, Defined$ Valid (the battlefield sweep and the
+// zone-suffixed family), the AttachedTo qualifier words and the Choices$
+// matcher -- so the WHOLE comparison set reads derived power, not only the
+// candidate: a pump on any creature in the set must be able to displace every
+// printed-greatest peer. A caller that cannot supply a reader (nil, or a spec
+// without greatestPower) keeps objectPower's printed-plus-counter fallback,
+// which is what a direct or census call wants.
+//
+// The value-table return, not a bind-into-pointer helper, is deliberate: a
+// &sc argument escapes the caller's SpecContext to the heap on every call,
+// and the hot Count$Valid scan is pinned allocation-free
+// (TestEvalCountValidZoneScanIsAllocationFree). The reader is an interface
+// value, deliberately not a func parameter: a seam passes its Host (or rules'
+// *Engine) without constructing a bound-method closure per call.
+func GreatestPowerDerivedPTs(g *state.Game, spec string, reader interface{ Power(state.ObjID) int32 }) []ObjectPower {
+	if reader == nil || !strings.Contains(spec, "greatestPower") {
+		return nil
+	}
+	var out []ObjectPower
+	for i := range g.Objs {
+		o := &g.Objs[i]
+		if o.Zone == state.ZBattlefield {
+			out = append(out, ObjectPower{ID: o.ID, Power: reader.Power(o.ID)})
+		}
+	}
+	return out
+}
+
 // objectToughness is objectPower's counterpart, the same face-plus-counter
 // read summed over every P/T counter kind the toughness family uses.
 func objectToughness(o *state.Object) int {

@@ -520,14 +520,10 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 			sc.DerivedPower, sc.DerivedToughness, sc.HasDerivedPT = d.Power, d.Toughness, true
 			sc.BasePower, sc.BaseToughness, sc.HasBasePT = d.BasePower, d.BaseToughness, true
 		}
-		if strings.Contains(spec, "greatestPower") {
-			for i := range e.G.Objs {
-				o := &e.G.Objs[i]
-				if o.Zone == state.ZBattlefield {
-					sc.DerivedPTs = append(sc.DerivedPTs, effects.ObjectPower{ID: o.ID, Power: e.Power(o.ID)})
-				}
-			}
-		}
+		// The one shared bind every seam that can reach greatestPower goes
+		// through: the whole comparison set reads layer-derived power, not
+		// only the candidate's DerivedPower above.
+		sc.DerivedPTs = append(sc.DerivedPTs, effects.GreatestPowerDerivedPTs(e.G, spec, e)...)
 		// The IsGoaded predicate's static route (staticgoad1): a spec that
 		// consults IsGoaded binds the live static-goad table, so EVERY
 		// rules-side read (trigger ValidCard$/ValidSource$, a CantBlock

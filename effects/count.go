@@ -1470,8 +1470,10 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			n++
 		case prop == "Valid" || strings.HasPrefix(prop, "Valid "):
 			spec := strings.TrimSpace(strings.TrimPrefix(prop, "Valid"))
-			if (lki && MatchesObjectCtx(g, spec, o, c.SpecContext(c.Controller))) ||
-				(!lki && MatchesSpecCtx(g, spec, t.Obj, c.SpecContext(c.Controller))) {
+			sc := c.SpecContext(c.Controller)
+			sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
+			if (lki && MatchesObjectCtx(g, spec, o, sc)) ||
+				(!lki && MatchesSpecCtx(g, spec, t.Obj, sc)) {
 				n++
 			}
 		case prop == "Converge":
@@ -3675,14 +3677,7 @@ func evalCountValidSelf(h Host, c *Ctx, arg string) (int32, bool) {
 		return 0, true
 	}
 	sc := c.SpecContext(c.Controller)
-	if strings.Contains(arg, "greatestPower") {
-		for i := range g.Objs {
-			other := &g.Objs[i]
-			if other.Zone == state.ZBattlefield {
-				sc.DerivedPTs = append(sc.DerivedPTs, ObjectPower{ID: other.ID, Power: h.Power(other.ID)})
-			}
-		}
-	}
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, arg, h)...)
 	if MatchesObjectCtx(g, arg, o, sc) {
 		return 1, true
 	}
@@ -4884,14 +4879,7 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 			}
 		}
 	}
-	if strings.Contains(matchSpec, "greatestPower") {
-		for i := range f.g.Objs {
-			o := &f.g.Objs[i]
-			if o.Zone == state.ZBattlefield {
-				specCtx.DerivedPTs = append(specCtx.DerivedPTs, ObjectPower{ID: o.ID, Power: f.h.Power(o.ID)})
-			}
-		}
-	}
+	specCtx.DerivedPTs = append(specCtx.DerivedPTs, GreatestPowerDerivedPTs(f.g, matchSpec, f.h)...)
 	if !matchesZoneSpecCtx(f.g, matchSpec, id, specCtx, zone) {
 		return
 	}
