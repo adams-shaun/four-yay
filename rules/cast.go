@@ -6024,6 +6024,8 @@ func etbChoiceKind(api string) string {
 		return "number"
 	case "ChooseColor":
 		return "color"
+	case "ChooseEvenOdd":
+		return "evenodd"
 	case "Clone":
 		return "copy"
 	}
@@ -6328,6 +6330,8 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 		// params); the ETB dispatch passes the whole parameter map to
 		// typeChoiceOptions instead.
 		return e.typeChoiceOptions(you, card, map[string]string{"Type": typeCategory})
+	case "evenodd":
+		return []decision.Option{{Index: 0, Kind: "evenodd", Label: "Odd"}, {Index: 1, Kind: "evenodd", Label: "Even"}}
 	default: // "number"
 		// The shared 0..N list (task cli-20260923T060000Z-choose-number:
 		// effects/number_choices.go is the ONE home), so the as-enters ask
@@ -6479,6 +6483,8 @@ func etbChoicePrompt(kind string) string {
 		return " a card name"
 	case "type":
 		return " a creature type"
+	case "evenodd":
+		return " odd or even"
 	case "color":
 		return " a color"
 	case "riot":

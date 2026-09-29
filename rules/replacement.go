@@ -1586,6 +1586,9 @@ func (e *Engine) replCtx(m replMatch, ev events.Event) *effects.Ctx {
 	if o != nil && m.repl != nil && m.repl.Params["Keyword"] == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseNumber" {
 		ctx.ETBNumberRecorded = true
 	}
+	if o != nil && m.repl != nil && m.repl.Params["Keyword"] == "ETBReplacement" && m.repl.With != nil && m.repl.With.API == "ChooseEvenOdd" {
+		ctx.ETBEvenOddRecorded = true
+	}
 	e.seedEffectReplCtx(ctx, m)
 	return ctx
 }

@@ -1571,6 +1571,11 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 		if letter := etbColourLetter(opt.Label); letter != "" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "color", Text: letter})
 		}
+	case "evenodd":
+		quality := strings.ToLower(opt.Label)
+		if quality == "odd" || quality == "even" {
+			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "type", Text: quality})
+		}
 	case "riot":
 		choice := "haste"
 		if opt.Index == 0 {
