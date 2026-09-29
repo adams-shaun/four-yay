@@ -1,0 +1,17 @@
+[Unit]
+Description=Run the gorge reward-loop seed agent every 20 minutes
+
+[Timer]
+# Every 20 minutes, offset off the hour so the cycle does not land on the
+# minute every other scheduled job on this box also picks.
+OnCalendar=*:03/20
+# Catch up after a suspend or a reboot instead of silently skipping the window.
+Persistent=true
+# The box runs seats and gates; a 90s jitter keeps the cycle from landing on a
+# gate's start every single time.
+RandomizedDelaySec=90
+AccuracySec=30s
+Unit=gorge-seed.service
+
+[Install]
+WantedBy=timers.target

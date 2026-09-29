@@ -183,12 +183,36 @@ func TestDeployStartsTheServersWhenTheArtFillFails(t *testing.T) {
 			if err := fs.Parse(calls[1][1:]); err != nil {
 				t.Fatalf("real gorged rejects the deploy's serve arguments %q: %v", calls[1][1:], err)
 			}
-			if c.spectator != "omniscient" || c.vsbotSpectator != "public" || c.botPolicy != "lethal-pressure" || c.pace != 50*time.Millisecond {
-				t.Errorf("demo server: spectator %q vsbot-spectator %q bot-policy %q pace %v, want omniscient/public/lethal-pressure/50ms",
-					c.spectator, c.vsbotSpectator, c.botPolicy, c.pace)
+			// The bot policy is read from the script rather than pinned here.
+			// Pinning it made this test fail on 2026-09-29 for a deploy-demo
+			// default change that was entirely deliberate (lethal-pressure ->
+			// az-redeal -> sb-search-lite-atk in one day): what this test is
+			// for is that the REAL flag set accepts what the script passes, not
+			// which policy the operator picked today.
+			wantPolicy := deployScriptDefault(t, "BOT_POLICY")
+			if c.spectator != "omniscient" || c.vsbotSpectator != "public" || c.botPolicy != wantPolicy || c.pace != 50*time.Millisecond {
+				t.Errorf("demo server: spectator %q vsbot-spectator %q bot-policy %q pace %v, want omniscient/public/%s/50ms",
+					c.spectator, c.vsbotSpectator, c.botPolicy, c.pace, wantPolicy)
 			}
 		})
 	}
+}
+
+// deployScriptDefault reads one `NAME=${NAME:-value}` default out of
+// scripts/deploy-demo.sh, so a test asserting what the deploy passes tracks the
+// script instead of duplicating a value the operator changes by hand.
+func deployScriptDefault(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "scripts", "deploy-demo.sh"))
+	if err != nil {
+		t.Fatalf("read deploy-demo.sh: %v", err)
+	}
+	re := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(name) + `=\$\{` + regexp.QuoteMeta(name) + `:-([^}]*)\}`)
+	m := re.FindSubmatch(b)
+	if m == nil {
+		t.Fatalf("scripts/deploy-demo.sh has no %s=${%s:-...} default", name, name)
+	}
+	return string(m[1])
 }
 
 // demoTestPorts reserves every IPv4 candidate while it scans the task range,

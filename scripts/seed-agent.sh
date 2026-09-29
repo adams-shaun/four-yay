@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# seed-agent.sh — one cycle of the reward loop's caretaker.
+#
+# Rubric: docs/agents/seed-rubric.md (that file is the judgement; this file is
+# the mechanism). Design:
+# docs/superpowers/specs/2026-09-29-reward-loop-and-seed-agent-design.md §4.
+#
+#   scripts/seed-agent.sh [--dry-run] [--cap N] [--no-probe]
+#
+# It runs read-only against the main checkout: it never switches branches,
+# never commits there, and writes only under .ds4/reward/ and through
+# agentctl's CLI. Nothing in it waits on a model — a ticket that needs prose is
+# filed with --triage so the pipeline's own triage seat writes the brief. That
+# is deliberate: the loop has to survive its seat tier being down, which it was
+# on the day this was written.
+set -uo pipefail
+
+ROOT=${GORGE_ROOT:-$(git rev-parse --show-toplevel)}
+TARGET=${GORGE_TARGET_REPO:-/home/sadams/projects/gorge}
+STATE=${GORGE_REWARD_DIR:-$TARGET/.ds4/reward}
+AGENTCTL=${AGENTCTL_DIR:-/home/sadams/projects/agentctl}
+JOURNAL=$STATE/seed-journal.jsonl
+MARKERS=$STATE/markers
+CAP=${SEED_TICKET_CAP:-3}
+DRY=0
+PROBE=1
+while [ $# -gt 0 ]; do
+	case $1 in
+	--dry-run) DRY=1 ;;
+	--no-probe) PROBE=0 ;;
+	--cap)
+		CAP=${2:?--cap needs a number}
+		shift
+		;;
+	--cap=*) CAP=${1#--cap=} ;;
+	*)
+		printf 'seed-agent: unknown option %s\n' "$1" >&2
+		exit 2
+		;;
+	esac
+	shift
+done
+case $CAP in
+'' | *[!0-9]*)
+	printf 'seed-agent: --cap must be a number, got %s\n' "$CAP" >&2
+	exit 2
+	;;
+esac
+
+mkdir -p "$STATE" "$MARKERS"
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+say() { printf '[seed %s] %s\n' "$(date -u +%H:%M:%SZ)" "$*"; }
+
+HEAD_SHA=$(git -C "$TARGET" rev-parse --short HEAD 2>/dev/null || echo unknown)
+SAW=()   # facts, one string each
+DID=()   # actions taken
+SKIPPED=() # judgement calls NOT to act, with the reason
+
+saw() { SAW+=("$1"); say "saw: $1"; }
+did() { DID+=("$1"); say "did: $1"; }
+skipped() { SKIPPED+=("$1"); say "skipped: $1"; }
+
+json_array() { # json_array "${arr[@]}" -> ["a","b"]
+	local first=1 x
+	printf '['
+	for x in "$@"; do
+		[ $first = 1 ] || printf ','
+		first=0
+		printf '%s' "$(printf '%s' "$x" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
+	done
+	printf ']'
+}
+
+# marker_new <key> is true the FIRST time a key is seen for this head, so one
+# event files one ticket however many cycles observe it.
+marker_new() {
+	local f=$MARKERS/$HEAD_SHA-$1
+	[ -e "$f" ] && return 1
+	: >"$f"
+	return 0
+}
+
+# file_ticket <priority> <title> <brief-body-file>.
+#
+# Deliberately NOT --triage. Every brief this script files is already complete
+# (goal, out of scope, and a "Done means" naming a real command), so routing it
+# through the triage tier would add a round and a dependency on a seat tier that
+# can be down -- it was down, on bm-llms-glm, during the first live cycle. A
+# ticket filed with a complete brief starts at `briefed` and goes straight to an
+# implementer.
+file_ticket() {
+	local prio=$1 title=$2 body=$3
+	if [ "$DRY" = 1 ]; then
+		did "DRY-RUN would file P$prio: $title"
+		return 0
+	fi
+	local out
+	if out=$(cd "$AGENTCTL" && python3 -m agentctl issue add "$TARGET" \
+		--title "$title" --brief-file "$body" --priority "$prio" 2>&1); then
+		did "filed P$prio: $title ($(printf '%s' "$out" | tail -1))"
+	else
+		did "FAILED to file P$prio: $title -- $(printf '%s' "$out" | tail -1)"
+	fi
+}
+
+brief_file() { mktemp "${TMPDIR:-/tmp}/seed-brief.XXXXXX.md"; }
+
+# ---------------------------------------------------------------- 1. stability
+"$ROOT/scripts/broker.sh" enforce >/dev/null 2>&1
+BSTATUS=$("$ROOT/scripts/broker.sh" status 2>/dev/null | head -1)
+saw "broker: $BSTATUS"
+
+if [ "$PROBE" = 1 ]; then
+	GORGE_REWARD_DIR=$STATE GORGE_TARGET_REPO=$TARGET "$ROOT/scripts/reward-probe.sh" free >/dev/null 2>&1 &&
+		saw "free axes measured" || saw "free probe FAILED"
+fi
+
+SCORE_JSON=$(python3 "$ROOT/scripts/reward.py" --ledger "$STATE/scoreboard.jsonl" --json 2>/dev/null)
+read_score() { printf '%s' "$SCORE_JSON" | python3 -c "
+import json,sys
+d=json.load(sys.stdin) if sys.stdin.isatty() is False else {}
+k=sys.argv[1]
+cur=d
+for part in k.split('.'):
+    cur=(cur or {}).get(part) if isinstance(cur,dict) else None
+print('' if cur is None else cur)" "$1" 2>/dev/null; }
+
+BLOCKED=$(read_score blocked_by_stability)
+SCORE=$(read_score score)
+saw "reward score ${SCORE:-n/a} (stability veto: ${BLOCKED:-n/a})"
+
+if [ "$BLOCKED" = "True" ]; then
+	"$ROOT/scripts/broker.sh" pause-all heavy >/dev/null 2>&1
+	did "paused every heavy lease (stability veto active)"
+	if marker_new stability; then
+		b=$(brief_file)
+		{
+			printf '# A stability event is vetoing the reward score\n\n'
+			printf 'The reward scorer reports a stability veto at head `%s`.\n\n' "$HEAD_SHA"
+			printf 'Evidence (scripts/reward.py --md):\n\n```\n'
+			python3 "$ROOT/scripts/reward.py" --ledger "$STATE/scoreboard.jsonl" --md 2>/dev/null
+			printf '```\n\n## Goal\n\nFind the cause of the recorded stability event and remove it.\n'
+			printf '\n## Out of scope\n\nAny strength, efficiency or coverage work.\n'
+			printf '\n## Done means\n\n`scripts/reward.py --md` reports no stability veto on a later head, and\n'
+			printf 'the cause is named in the commit message. Heavy leases must be pausable\n'
+			printf 'throughout: `scripts/tests/broker_smoke.sh` passes.\n'
+		} >"$b"
+		file_ticket 1 "Stability veto active at $HEAD_SHA: OOM/gate-timeout in the reward window" "$b"
+		rm -f "$b"
+	else
+		skipped "stability ticket already filed for $HEAD_SHA"
+	fi
+fi
+
+# ------------------------------------------------------------------- 2. stalls
+ST=$(cd "$AGENTCTL" && python3 -m agentctl status "$TARGET" 2>/dev/null)
+saw "agentctl: $(printf '%s' "$ST" | sed -n 's/^queue: //p' | head -1)"
+DAEMON=$(printf '%s' "$ST" | sed -n 's/^daemon: \([a-z]*\).*/\1/p' | head -1)
+HUMAN=$(printf '%s' "$ST" | sed -n 's/.*human_needed \([0-9]*\)).*/\1/p' | head -1)
+HUMAN=${HUMAN:-0}
+[ "$DAEMON" != running ] && saw "DAEMON IS $DAEMON -- the pipeline is not dispatching"
+
+PROVIDER_STORM=$(python3 - "$TARGET" <<'PY'
+import json, sys
+from datetime import datetime, timedelta, timezone
+p = f"{sys.argv[1]}/.ds4/orchestrator/journal.jsonl"
+cut = datetime.now(timezone.utc) - timedelta(minutes=30)
+n, providers = 0, set()
+try:
+    with open(p) as f:
+        for line in f:
+            try:
+                d = json.loads(line)
+                ts = datetime.fromisoformat(str(d.get("ts", "")).replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            if ts >= cut and d.get("kind") in ("provider_failure", "endpoint_down"):
+                n += 1
+                pr = (d.get("evidence") or {}).get("provider")
+                if pr:
+                    providers.add(pr)
+except FileNotFoundError:
+    pass
+print(f"{n}\t{','.join(sorted(providers))}")
+PY
+)
+STORM_N=$(printf '%s' "$PROVIDER_STORM" | cut -f1)
+STORM_P=$(printf '%s' "$PROVIDER_STORM" | cut -f2)
+[ "${STORM_N:-0}" -gt 0 ] && saw "provider failures in the last 30min: $STORM_N ($STORM_P)"
+
+QUIET=0 # queue new work this cycle?
+if [ "${STORM_N:-0}" -ge 10 ]; then
+	QUIET=1
+	skipped "no new tickets: $STORM_N provider failures in 30min on $STORM_P -- queueing into a dead tier only grows the backlog"
+	if marker_new "storm-$STORM_P"; then
+		b=$(brief_file)
+		{
+			printf '# The %s seat tier is failing every launch\n\n' "$STORM_P"
+			printf '%s provider_failure/endpoint_down entries in the last 30 minutes at head `%s`.\n\n' "$STORM_N" "$HEAD_SHA"
+			printf 'Known cause class (memory, 2026-09-26): a vLLM model-id rename makes every\n'
+			printf 'launch return no output while auth still reads ready. Check the served id\n'
+			printf 'first: `curl -s $endpoint/v1/models`, then compare with the TOML tier model.\n'
+			printf '\n## Done means\n\nA launched seat produces an assistant turn with output, and the journal\n'
+			printf 'stops appending provider_failure for this provider.\n'
+		} >"$b"
+		file_ticket 1 "Seat tier $STORM_P is failing every launch ($STORM_N failures/30min)" "$b"
+		rm -f "$b"
+	fi
+fi
+if [ "${HUMAN:-0}" -gt 0 ]; then
+	saw "$HUMAN ticket(s) in human_needed"
+	QUIET=1
+	skipped "no new tickets: $HUMAN parked ticket(s) come first (drain before growing the queue)"
+fi
+
+# --------------------------------------------------- 3 & 4. regressions + work
+CANDS=$STATE/candidates.jsonl
+python3 "$ROOT/scripts/seed_candidates.py" --repo "$TARGET" --state-dir "$STATE" \
+	--ledger "$STATE/scoreboard.jsonl" >"$STATE/.candidates.new" 2>/dev/null
+NEW=0
+if [ -s "$STATE/.candidates.new" ]; then
+	while IFS= read -r line; do
+		id=$(printf '%s' "$line" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' 2>/dev/null) || continue
+		if ! grep -qF "\"id\": \"$id\"" "$CANDS" 2>/dev/null && ! grep -qF "\"id\":\"$id\"" "$CANDS" 2>/dev/null; then
+			printf '%s\n' "$line" >>"$CANDS"
+			NEW=$((NEW + 1))
+		fi
+	done <"$STATE/.candidates.new"
+fi
+rm -f "$STATE/.candidates.new"
+saw "candidate backlog: $(wc -l <"$CANDS" 2>/dev/null || echo 0) total, $NEW new this cycle"
+
+if [ "$QUIET" = 1 ]; then
+	skipped "opportunity step skipped this cycle (see the reason above)"
+else
+	filed=0
+	while IFS=$'\t' read -r cid caxis ctitle cbody; do
+		[ "$filed" -ge "$CAP" ] && {
+			skipped "ticket cap $CAP reached; $cid and the rest stay in the backlog"
+			break
+		}
+		marker_new "cand-$cid" || {
+			skipped "$cid already filed"
+			continue
+		}
+		b=$(brief_file)
+		printf '%b' "$cbody" >"$b"
+		# 1000x axes outrank the rest, which is the whole point of the weights.
+		case $caxis in
+		correct | flow) prio=1 ;;
+		steward) prio=2 ;;
+		eff) prio=3 ;;
+		*) prio=4 ;;
+		esac
+		file_ticket "$prio" "$ctitle" "$b"
+		rm -f "$b"
+		filed=$((filed + 1))
+		# Mark the candidate queued so it is never ranked again.
+		python3 - "$CANDS" "$cid" <<'PY'
+import json, sys
+p, cid = sys.argv[1], sys.argv[2]
+out = []
+for line in open(p):
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        d = json.loads(line)
+    except ValueError:
+        continue
+    if d.get("id") == cid:
+        d["status"] = "queued"
+    out.append(json.dumps(d))
+open(p, "w").write("\n".join(out) + "\n")
+PY
+		# A generator that cannot produce ticket rows is a defect in the loop
+		# itself, so its stderr is kept and reported rather than swallowed --
+		# a silently empty candidate list looks exactly like "nothing to do"
+		# and hid a real argument bug here once.
+	done < <(python3 "$ROOT/scripts/seed_candidates.py" --repo "$TARGET" --state-dir "$STATE" \
+		--ledger "$STATE/scoreboard.jsonl" --emit-tickets --top "$CAP" 2>"$STATE/.emit.err")
+	if [ -s "$STATE/.emit.err" ]; then
+		saw "candidate generator wrote errors: $(head -c 200 "$STATE/.emit.err" | tr '\n' ' ')"
+	fi
+	[ "$filed" = 0 ] && [ ! -s "$STATE/.emit.err" ] &&
+		skipped "no candidate cleared the bar this cycle"
+fi
+
+# ------------------------------------------------------------------ 5. journal
+{
+	printf '{"ts":"%s","git_head":"%s","score":%s,"blocked_by_stability":%s,' \
+		"$(now)" "$HEAD_SHA" "${SCORE:-0}" "$([ "$BLOCKED" = True ] && echo true || echo false)"
+	printf '"saw":%s,"did":%s,"skipped":%s}\n' \
+		"$(json_array "${SAW[@]+"${SAW[@]}"}")" \
+		"$(json_array "${DID[@]+"${DID[@]}"}")" \
+		"$(json_array "${SKIPPED[@]+"${SKIPPED[@]}"}")"
+} >>"$JOURNAL"
+
+{
+	printf '# seed agent — last cycle %s (head %s)\n\n' "$(now)" "$HEAD_SHA"
+	printf 'Rubric: docs/agents/seed-rubric.md\n\n'
+	python3 "$ROOT/scripts/reward.py" --ledger "$STATE/scoreboard.jsonl" --md 2>/dev/null
+	printf '\n## Saw\n\n'
+	for x in "${SAW[@]+"${SAW[@]}"}"; do printf -- '- %s\n' "$x"; done
+	printf '\n## Did\n\n'
+	if [ ${#DID[@]} -eq 0 ]; then printf -- '- nothing: no action was warranted\n'; else
+		for x in "${DID[@]}"; do printf -- '- %s\n' "$x"; done
+	fi
+	printf '\n## Decided not to\n\n'
+	if [ ${#SKIPPED[@]} -eq 0 ]; then printf -- '- nothing withheld\n'; else
+		for x in "${SKIPPED[@]}"; do printf -- '- %s\n' "$x"; done
+	fi
+	printf '\n## Top of the candidate backlog\n\n```\n'
+	python3 "$ROOT/scripts/reward.py" rank --candidates "$STATE/candidates.jsonl" \
+		--ledger "$STATE/scoreboard.jsonl" --top 10 2>/dev/null
+	printf '```\n'
+} >"$STATE/SEED.md"
+
+say "cycle complete: ${#SAW[@]} fact(s), ${#DID[@]} action(s), ${#SKIPPED[@]} withheld -> $STATE/SEED.md"
