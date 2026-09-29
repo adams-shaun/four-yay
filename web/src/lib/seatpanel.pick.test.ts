@@ -169,3 +169,16 @@ describe('SeatPanelState — a repeatable modal ask is answerable', () => {
     expect(p.picked).toEqual([1]);
   });
 });
+
+describe('SeatPanelState — the pick-N hotkeys', () => {
+  it('pickHotkey answers option n of a non-priority decision and ignores priority windows', () => {
+    const p = new SeatPanelState('t', 1, ctx, null);
+    p.adoptView(d); // the blockers decision above: min 0, max 4, so a pick toggles, never posts
+    expect(p.pickHotkey(1)).toBe(true);
+    expect(p.picked).toEqual([0]);
+    expect(p.pickHotkey(9)).toBe(false); // no ninth option
+    const prio: Decision = { seq: 4, player: 0, kind: 'priority', prompt: 'p', min: 1, max: 1, options: [{ index: 0, kind: 'pass', label: 'Pass', player: 0 }] };
+    p.adoptView(prio);
+    expect(p.pickHotkey(1)).toBe(false);
+  });
+});

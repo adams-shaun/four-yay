@@ -3,6 +3,7 @@
   import type { SeatInfo, View } from '../protocol';
   import type { SeatCtx } from '../lib/seat';
   import { hotkeyAction } from '../lib/hotkeys';
+  import { keymapStore } from '../lib/keymap.svelte';
   import { modalPickerOpen } from '../lib/modals';
   import { postUndo } from '../lib/api';
   import { clientBreadcrumbs } from '../lib/breadcrumbs';
@@ -45,6 +46,9 @@
   let open = $state<Tab | null>(null);
   let closeTimer: ReturnType<typeof setTimeout> | null = null;
   let undoPosting = $state(false);
+  // The `?` cheat sheet's open state (show-keys hotkey); the sheet itself
+  // mounts in the next step of the keymap work.
+  let showKeys = $state(false);
 
   const decision = $derived(logic.active);
   // The ACTIONS tab projects the seat panel's own tone (R-E4-1: resolved from
@@ -210,11 +214,14 @@
     // phase so the probe is evaluated before any bubble-phase handler —
     // OptionPicker's and PileModal's own Escape-close — can close the modal
     // and make the guard see a closed modal a few ticks later.
+    // A key whose action is unavailable right now `return`s out of the
+    // switch WITHOUT preventDefault, so it is not swallowed from the page;
+    // only a key the strip actually acted on is consumed and breadcrumbed.
     const onKey = (e: KeyboardEvent): void => {
-      const action = hotkeyAction(e, modalPickerOpen);
+      // The Keys editor is recording a chord: that chord must not also fire.
+      if (keymapStore.capturing) return;
+      const action = hotkeyAction(e, modalPickerOpen, keymapStore.current);
       if (action === null) return;
-      e.preventDefault();
-      clientBreadcrumbs.record('hotkey', { key: e.key, action });
       switch (action) {
         case 'pass':
           logic.passClick();
@@ -245,7 +252,34 @@
           if (onToggleOptions === null) return;
           onToggleOptions();
           break;
+        case 'undo':
+          if (!undoAllowed) return;
+          void undo();
+          break;
+        case 'resolve-all':
+          if (!resolveAllAvailable) return;
+          logic.startResolveAll(view);
+          logic.considerAuto(view);
+          break;
+        case 'confirm':
+          if (!doneAvailable) return;
+          logic.submit(false);
+          break;
+        case 'show-keys':
+          showKeys = !showKeys;
+          break;
+        default:
+          if (action.startsWith('pick-')) {
+            if (!logic.pickHotkey(Number(action.slice(5)))) return;
+          } else if (action.startsWith('profile-')) {
+            if (logic.applyProfileAt(Number(action.slice(8)) - 1, PRESET_CYCLE) === null) return;
+          } else {
+            return;
+          }
+          break;
       }
+      e.preventDefault();
+      clientBreadcrumbs.record('hotkey', { key: e.key, action });
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);

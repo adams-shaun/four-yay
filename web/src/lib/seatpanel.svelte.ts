@@ -1167,6 +1167,33 @@ export class SeatPanelState {
     return name;
   }
 
+  /** applyProfileAt applies entry i (0-based) of the cycle's list — presets first, then saved profiles — for the profile-N hotkeys. */
+  applyProfileAt(i: number, presetIds: readonly PresetName[]): string | null {
+    const saved = listProfiles(this.profiles);
+    if (i < 0 || i >= presetIds.length + saved.length) return null;
+    if (i < presetIds.length) {
+      this.applyNamedPreset(presetIds[i]);
+      return presetIds[i];
+    }
+    const name = saved[i - presetIds.length];
+    this.applyProfile(name);
+    return name;
+  }
+
+  /**
+   * pickHotkey answers option n (1-based) of a pending NON-priority decision,
+   * exactly as clicking it would (the pick-N hotkeys). Options are numbered in
+   * d.options order, which is the order the panel's option list renders them.
+   */
+  pickHotkey(n: number): boolean {
+    const d = this.pending;
+    if (d === null || d.kind === 'priority' || d.seq === this.postedSeq || this.busy) return false;
+    const o = d.options[n - 1];
+    if (o === undefined) return false;
+    this.click(o.index);
+    return true;
+  }
+
   /**
    * pressAuto is the Auto switch's click path — every rendered Auto switch
    * (the seat panel's Auto/Manual toggle, GAME OPTIONS' Auto pass switch and
