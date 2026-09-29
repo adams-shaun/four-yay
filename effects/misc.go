@@ -103,7 +103,8 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 	activate := !strings.EqualFold(strings.TrimSpace(sa.Params["Activate"]), "False")
 	for _, name := range strings.FieldsFunc(attr, func(r rune) bool { return r == ',' || r == ' ' }) {
 		prepared := strings.EqualFold(name, "Prepared")
-		if !strings.EqualFold(name, "Suspected") && !prepared {
+		saddled := strings.EqualFold(name, "Saddled")
+		if !strings.EqualFold(name, "Suspected") && !prepared && !saddled {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "AlterAttribute: attribute " + name + " not modelled"})
 			continue
@@ -129,6 +130,8 @@ func effAlterAttribute(h Host, c *Ctx, sa *cards.SA) {
 			text := "Suspected"
 			if prepared {
 				text = "Prepared"
+			} else if saddled {
+				text = "Saddled"
 			}
 			h.Emit(events.Event{Kind: events.AlterAttribute, Obj: o.ID,
 				Text: text, Amount: amount})

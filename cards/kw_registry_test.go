@@ -121,6 +121,10 @@ var expandedHeads = []string{
 	// Animate to artifact creature (cards/kw_crew.go). Added after the split;
 	// the pre-split switch never had it.
 	"Crew",
+	// Saddle (CR 702.171, task agent-20260929T014717Z-0f0a84be): the printed
+	// K:Saddle:<N> line expands into an AlterAttribute designation ability.
+	// Added after the split; the pre-split switch never expanded it.
+	"Saddle",
 	// Cipher: printed spell encode appended as the resolving spell's own tail
 	// instruction, plus a runtime encoded-creature trigger.
 	"Cipher",

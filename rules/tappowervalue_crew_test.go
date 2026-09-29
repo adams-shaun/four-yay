@@ -36,12 +36,12 @@ const crewPVVehicleSrc = "Name:Test Hauler\nManaCost:3\nTypes:Artifact Vehicle\n
 	"K:Crew:3\nOracle:Crew 3\n"
 
 // saddlePVMountSrc is a freely-authored Mount whose Saddle cost is spelled
-// the way the Saddle keyword will spell it once it lands: the corpus's own
-// tap-any-number group-predicate cost, tagged Keyword$ Saddle. The Saddle
-// keyword itself is not implemented (kw:Saddle is a known-unsupported
-// primitive), so the tag is written by hand here -- the engine only ever
-// reads it through the ability being activated, which is what this test
-// exercises.
+// the way the Saddle keyword spells it now that it lands (CR 702.171,
+// cards/kw_saddle.go): the corpus's own tap-any-number group-predicate cost,
+// tagged Keyword$ Saddle. The Saddle keyword is implemented, but this fixture
+// hand-writes the SA rather than printing K:Saddle:2 so the ability-level
+// threading is pinned independently of the keyword expansion (Saddle is
+// registered, so this file exercises only tapCostSAKind).
 const saddlePVMountSrc = "Name:Test Saddler\nManaCost:2\nTypes:Creature Beast Mount\nPT:2/2\n" +
 	"A:AB$ Animate | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE2> | Defined$ Self | Types$ Artifact,Creature | Keyword$ Saddle | SpellDescription$ Saddle 2\n"
 
@@ -190,9 +190,10 @@ func TestTapPowerValueCrewAndStationScopesDoNotLeak(t *testing.T) {
 }
 
 // TestTapPowerValueSaddleReadsItsOwnKind pins the Saddle half of the
-// threading at the ability level (the Saddle KEYWORD is a separate
-// unimplemented primitive, so the tag is hand-written on the synthetic
-// ability exactly as the keyword will stamp it). Two real corpus carriers
+// threading at the ability level. Saddle is now implemented (CR 702.171,
+// cards/kw_saddle.go), but this fixture hand-writes the tag on a synthetic
+// ability rather than printing K:Saddle:2, pinning tapCostSAKind's own kind
+// read independently of the keyword expansion. Two real corpus carriers
 // sit on the battlefield: Cloudspire Captain scopes Saddle AND Crew (Value$
 // 2, "saddles Mounts and crews Vehicles as though its power were 2
 // greater"), Giant Ox scopes Crew only (Value$ Toughness). On a Saddle
