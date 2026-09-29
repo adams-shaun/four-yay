@@ -65,7 +65,9 @@ type policyCallGraph struct {
 //     so an escaping or immediately-invoked closure remains reachable.
 //
 // This can add false edges (sound, never misses a same-package call), which
-// is why the allowlist in the caller names the one real cycle.
+// is why the allowlist in the caller names the one real cycle. Indexed
+// function values, interface dispatch, and factory-produced values fail
+// closed to signature-compatible local functions.
 func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.Info, pkgPath string) policyCallGraph {
 	g := policyCallGraph{edges: map[string]map[string]bool{}}
 	add := func(a, b string) {
@@ -223,10 +225,11 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 		}
 		return "", false
 	}
-	flows := map[string]map[string]bool{}    // slot -> function values assigned to it
-	slotFrom := map[string]map[string]bool{} // slot -> other slots whose values it may receive
-	tainted := map[string]bool{}             // slot may hold a value we could not trace
-	indirect := map[string]map[string]bool{} // owner -> slot called indirectly
+	flows := map[string]map[string]bool{}     // slot -> function values assigned to it
+	slotFrom := map[string]map[string]bool{}  // slot -> other slots whose values it may receive
+	tainted := map[string]bool{}              // slot may hold a value we could not trace
+	indirect := map[string]map[string]bool{}  // owner -> slot called indirectly
+	dynamicCalls := map[string][]types.Type{} // unresolved callable signatures
 	recordFlow := func(slot, target string) {
 		if flows[slot] == nil {
 			flows[slot] = map[string]bool{}
@@ -298,6 +301,10 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 						if fn := calleeObj(call.Fun); fn != nil {
 							if vn, ok := funcObjName(fn); ok {
 								recordFlow(slot, vn)
+								// A factory may return any function value compatible
+								// with this slot. Keep the producer edge, but force
+								// the eventual indirect call to fail closed too.
+								tainted[slot] = true
 								continue
 							}
 						}
@@ -307,6 +314,29 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 					tainted[slot] = true
 				}
 			case *ast.CallExpr:
+				// Indexed function values (map/slice elements) have no object
+				// slot to resolve. Conservatively include signature-compatible
+				// same-package function values.
+				if _, indexed := x.Fun.(*ast.IndexExpr); indexed {
+					if funType := info.TypeOf(x.Fun); funType != nil {
+						if _, ok := funType.Underlying().(*types.Signature); ok {
+							dynamicCalls[nodeName] = append(dynamicCalls[nodeName], funType)
+						}
+					}
+				}
+				// Interface dispatch is not represented by the interface method
+				// declaration edge alone: add compatible concrete methods.
+				if sel, ok := x.Fun.(*ast.SelectorExpr); ok {
+					if selection := info.Selections[sel]; selection != nil && selection.Kind() == types.MethodVal {
+						if _, isInterface := selection.Recv().Underlying().(*types.Interface); isInterface {
+							if funType := info.TypeOf(x.Fun); funType != nil {
+								if _, ok := funType.Underlying().(*types.Signature); ok {
+									dynamicCalls[nodeName] = append(dynamicCalls[nodeName], funType)
+								}
+							}
+						}
+					}
+				}
 				// The callee may be a direct same-package call, an indirect
 				// call through a function-typed value, or an external call.
 				if fn := calleeObj(x.Fun); fn != nil {
@@ -434,6 +464,18 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 					if st := slotType[slot]; st != nil && ft != nil && types.AssignableTo(ft, st) {
 						add(owner, fn)
 					}
+				}
+			}
+		}
+	}
+
+	// Resolve dynamic indexed/interface calls after every local function and
+	// literal has contributed its callable type.
+	for owner, signatures := range dynamicCalls {
+		for _, sig := range signatures {
+			for fn, ft := range valueTypes {
+				if ft != nil && types.AssignableTo(ft, sig) {
+					add(owner, fn)
 				}
 			}
 		}
@@ -586,10 +628,10 @@ func typeCheckPolicy(t *testing.T, fset *token.FileSet, paths []string, pkgPath 
 // slot-to-slot to a fixpoint, and fails closed to the assignable same-package
 // function values for any indirect call through a slot it could not fully
 // trace. It can add false edges but never miss a same-package name or a
-// value-mediated callback. It still does NOT follow a function value that
-// escapes through goroutines (botpolicy starts none), reflection (botpolicy
-// uses none), or an interface/map it cannot see into -- those are covered by
-// the fail-closed arm instead. The regression probes
+// value-mediated callback, including indexed map/slice values, interface
+// dispatch, and factory-returned values. It still does NOT follow a function
+// value that escapes through goroutines (botpolicy starts none) or reflection
+// (botpolicy uses none). The regression probes
 // TestPolicyCallGraphCatchesFunctionValueRecursion and
 // TestPolicyCallGraphCatchesIndirectEvaluatorRecursion pin the callback
 // holes this guard closes.
