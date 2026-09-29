@@ -86,10 +86,13 @@ type ContinuousEffect struct {
 	SVars map[string]string
 
 	AddPower, AddToughness int32
-	SetPower, SetToughness int32
-	HasSet                 bool
-	AddKeywords            []string
-	AddTypes               []string
+	// DoublePower/DoubleToughness implement Pump's Double stat op in layer 7c:
+	// the current value at this effect's timestamp is added again.
+	DoublePower, DoubleToughness bool
+	SetPower, SetToughness       int32
+	HasSet                       bool
+	AddKeywords                  []string
+	AddTypes                     []string
 
 	// SetName is a layer-3 name overwrite (SetName$), resolved by rules' layer walk.
 	SetName string
