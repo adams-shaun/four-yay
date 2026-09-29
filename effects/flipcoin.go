@@ -175,12 +175,10 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 // Parameters read:
 //   - WinSubAbility$ (heads) / LoseSubAbility$ (tails), and the NoCall$
 //     lines' spellings HeadsSubAbility$ / TailsSubAbility$ — same heads/tails
-//     mapping. A NoCall$ True line defers its branches to the END of the
-//     whole flip loop: each fires at most once, with X the total flips of
-//     its side. Forge's own NoCall scripts depend on that (R:AB$ FlipCoin
-//     NoCall$ True HeadsSubAbility$ DBAddTurn NumTurns$ X, Ral Zarek's "take
-//     an extra turn for each coin that comes up heads", is ONE X-turn grant,
-//     not 1+2+…+heads grants), so a per-flip call would over-grant.
+//     mapping. A NoCall$ True line defers its branches until the flip loop is
+//     complete. Branches that reference X run once with the total for their
+//     side; branches independent of X run once per matching flip (Urza
+//     Academy Headmaster's literal one-extra-turn grant per head).
 //   - Amount$ (default 1): that many independent flips, each running its own
 //     branch (TrigFlipCoins' "flip three coins" shape). An unresolvable value
 //     degrades to one flip, the RollDice convention — a flip that happened
@@ -212,6 +210,22 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 //     the losing flip. A win branch that suspends on an ask does NOT abandon
 //     the loop: the remaining cursor rides SuspendFlipRest and the host
 //     re-enters this primitive once the answered ask's chain completes.
+func abilityReferencesX(sa *cards.SA) bool {
+	for cur := sa; cur != nil; cur = cur.Sub {
+		for _, value := range cur.Params {
+			for _, token := range strings.FieldsFunc(value, func(r rune) bool {
+				return !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') ||
+					(r >= '0' && r <= '9') || r == '_')
+			}) {
+				if token == "X" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	untilLose := strings.EqualFold(sa.Params["FlipUntilYouLose"], "True")
@@ -349,25 +363,39 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	// NoCall$ True's deferred outcome branches (see the parameter comment):
-	// each side fires at most once, after every flip is done, with X the
-	// total flips of that side. A branch that asks suspends as an ordinary
-	// chained resolution — the flips already happened, so no FlipRest cursor
-	// is owed and the ask's completion resumes the chain in place.
+	// NoCall$ True defers its outcome branches until all flips are known.
+	// X-dependent branches need one call with the final tally (e.g. Ral
+	// Zarek's NumTurns$ X); branches independent of X are still per-outcome
+	// effects (e.g. Urza Academy Headmaster grants one extra turn per head).
+	// A suspended branch resumes as an ordinary chained resolution: all flips
+	// already happened, so no FlipRest cursor is owed.
 	if noCall && c.SVars != nil {
-		if winName != "" && wins > 0 {
-			c.X = wins
-			Resolve(h, c, cards.ResolveSVar(c.SVars, winName))
-			if h.Suspended() {
-				return
+		resolveOutcome := func(name string, count int32) bool {
+			if name == "" || count == 0 {
+				return false
 			}
+			branch := cards.ResolveSVar(c.SVars, name)
+			if branch == nil {
+				return false
+			}
+			calls := count
+			if abilityReferencesX(branch) {
+				calls = 1
+				c.X = count
+			}
+			for i := int32(0); i < calls; i++ {
+				Resolve(h, c, branch)
+				if h.Suspended() {
+					return true
+				}
+			}
+			return false
 		}
-		if loseName != "" && losses > 0 {
-			c.X = losses
-			Resolve(h, c, cards.ResolveSVar(c.SVars, loseName))
-			if h.Suspended() {
-				return
-			}
+		if resolveOutcome(winName, wins) {
+			return
+		}
+		if resolveOutcome(loseName, losses) {
+			return
 		}
 	}
 }
