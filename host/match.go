@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -543,7 +544,7 @@ func controlledSeats(g *state.Game, viewer state.PlayerID) []state.PlayerID {
 // stays closed. The decision's owner seat is stable, so the BoardSeat/HumanSeat
 // assertions here match projectNext's, and exactly the field that was built is
 // consumed.
-func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-chan state.PlayerID, gate *searchSlots) *parkedDecision {
+func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-chan state.PlayerID, gate *searchSlots, stop <-chan struct{}) *parkedDecision {
 	if hs, ok := seats[pd.p].(*HumanSeat); ok {
 		return &parkedDecision{p: pd.p, hs: hs.park(ctx, pd.v, pd.dc, undo)}
 	}
@@ -564,7 +565,7 @@ func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-cha
 			// crashing (a table being closed is not a crash). defer releases
 			// the slot on every path, panics included.
 			if pd.wantsSearchSlot && gate != nil {
-				if aerr := gate.acquire(ctx); aerr != nil {
+				if aerr := gate.acquire(ctx, stop); aerr != nil {
 					return &parkedDecision{p: pd.p, err: aerr, searchSlot: true}
 				}
 				defer gate.release()
@@ -755,7 +756,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 			if data == nil {
 				return r.crash(t, m, fmt.Errorf("engine stalled: game not over and no decision pending"))
 			}
-			parked = parkSeat(ctx, seats, data, m.undo.signal, gate)
+			parked = parkSeat(ctx, seats, data, m.undo.signal, gate, t.stop)
 		}
 		// Await the answer to the parked decision (parked at the first live
 		// iteration or at the end of the previous one). A bot seat resolved
@@ -783,7 +784,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 			// aborts the match instead of crashing it: a table being closed is
 			// not a crash. Every other seat keeps the historical crash contract
 			// (Ruling FL-17): a cancelled plain seat crashes the match.
-			if ctx.Err() != nil && parked.searchSlot {
+			if parked.searchSlot && (ctx.Err() != nil || errors.Is(err, errTableClosed)) {
 				return r.abort(m)
 			}
 			return r.crash(t, m, fmt.Errorf("seat %d: %w", parked.p, err))
@@ -917,7 +918,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 		// match mutex must never be held across one. Publishing happens only
 		// after this, so the park-before-publish ordering still holds.
 		if nextData != nil {
-			next = parkSeat(ctx, seats, nextData, m.undo.signal, gate)
+			next = parkSeat(ctx, seats, nextData, m.undo.signal, gate, t.stop)
 		}
 		// Park the engine's NEXT decision BEFORE publishing it: the seat that
 		// owns it is now accept-ready, so the fan-out below cannot expose a
