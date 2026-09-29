@@ -7606,22 +7606,23 @@ func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 // battlefield-static collector, the same ValidPlayer$ scope read in the
 // static's own parameter bucket, consulted by the same replacement pass.
 //
-// One parameter is deliberately not read: DrawLimit$ N ("each opponent can't
-// draw more than one card each turn", Leovold / Narset, Parter of Veils /
-// Spirit of the Labyrinth -- 3 of the class's 7 corpus carriers) is a per-turn
-// COUNT CAP, not a total prohibition: the draws at or below N still happen,
-// so enforcing it as "cannot draw at all" would over-block. The unread shape
-// is skipped in the permissive direction, matching every other unwhitelisted
-// static parameter in this file (see cantRestrictionParamsReadable): a
-// static carrying it prohibits nothing this build enforces, rather than
-// prohibiting everything.
+// DrawLimit$ N is a per-turn count cap (CR 121.6): draws below N are allowed,
+// while the next draw is prevented. Invalid count values fail closed by
+// skipping that static, as with other unread static parameters in this file.
 func (e *Engine) drawForbidden(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("CantDraw") {
 		if spec := sv.Params["ValidPlayer"]; spec != "" &&
 			!effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
 			continue
 		}
-		if _, hasLimit := sv.Params["DrawLimit"]; hasLimit {
+		if limit, hasLimit := sv.Params["DrawLimit"]; hasLimit {
+			n, err := strconv.ParseInt(strings.TrimSpace(limit), 10, 32)
+			if err != nil || n < 0 {
+				continue
+			}
+			if e.CardsDrawnThisTurn(p) >= int32(n) {
+				return true
+			}
 			continue
 		}
 		return true

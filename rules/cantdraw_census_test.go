@@ -21,8 +21,7 @@ import (
 //
 // The first four are total prohibitions ("players can't draw cards"); the
 // last three carry `DrawLimit$ 1` ("can't draw more than one card each
-// turn"), the per-turn count cap rules.drawForbidden deliberately leaves
-// unread (skipped in the permissive direction; see its own comment).
+// turn"), the per-turn count caps enforced by rules.drawForbidden.
 var cantDrawCarriers = []string{
 	"Mornsong Aria",
 	"Maralen of the Mornsong",
@@ -35,7 +34,7 @@ var cantDrawCarriers = []string{
 
 // TestCantDrawCensus pins the class: the primitive is registered in
 // effects.Supported(), and each of the seven corpus carriers still carries
-// the static. Four are total prohibitions and three carry the unread
+// the static. Four are total prohibitions and three carry the
 // DrawLimit$ cap; both directions are asserted so neither a dropped
 // registration nor a carrier that changed shape goes unnoticed.
 func TestCantDrawCensus(t *testing.T) {
