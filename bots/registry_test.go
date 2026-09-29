@@ -8,7 +8,7 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-	for _, name := range []string{"bot", "lethal-pressure", "cast-profile", "search"} {
+	for _, name := range []string{"bot", "lethal-pressure", "cast-profile", "search", "az-redeal"} {
 		if _, ok := bots.Lookup(name); !ok {
 			t.Fatalf("built-in %q was not registered", name)
 		}
@@ -16,7 +16,7 @@ func TestRegister(t *testing.T) {
 }
 
 func TestNormalize(t *testing.T) {
-	for _, tc := range []struct{ in, want string }{{"", "bot"}, {"bot", "bot"}, {"lethal-pressure", "lethal-pressure"}, {"cast-profile", "cast-profile"}, {"search", "search"}} {
+	for _, tc := range []struct{ in, want string }{{"", "bot"}, {"bot", "bot"}, {"lethal-pressure", "lethal-pressure"}, {"cast-profile", "cast-profile"}, {"search", "search"}, {"az-redeal", "az-redeal"}} {
 		got, err := bots.Normalize(tc.in)
 		if err != nil || got != tc.want {
 			t.Errorf("Normalize(%q) = %q, %v; want %q", tc.in, got, err, tc.want)
@@ -29,8 +29,11 @@ func TestNormalize(t *testing.T) {
 
 func TestEntries(t *testing.T) {
 	entries := bots.Entries()
-	if len(entries) != 4 {
-		t.Fatalf("Entries() has %d entries, want 4", len(entries))
+	// BP-12: az-redeal is the registry's second experimental Env/search entry.
+	// The count pin and the name-based blocks below both move together with
+	// the built-in set; update this test deliberately on the next policy.
+	if len(entries) != 5 {
+		t.Fatalf("Entries() has %d entries, want 5", len(entries))
 	}
 	if entries[0].Name != "bot" || entries[0].Tier != bots.Production {
 		t.Fatalf("production entry is not first: %+v", entries[0])
@@ -49,6 +52,18 @@ func TestEntries(t *testing.T) {
 	}
 	if searchEntry.Tier != bots.Experimental || !searchEntry.Env || !searchEntry.Search {
 		t.Errorf("search entry is not the experimental Env policy: %+v", searchEntry.Info)
+	}
+	var azEntry *bots.Entry
+	for i := range entries {
+		if entries[i].Name == "az-redeal" {
+			azEntry = &entries[i]
+		}
+	}
+	if azEntry == nil {
+		t.Fatal("no az-redeal entry in Entries()")
+	}
+	if azEntry.Tier != bots.Experimental || !azEntry.Env || !azEntry.Search {
+		t.Errorf("az-redeal entry is not the experimental Env policy: %+v", azEntry.Info)
 	}
 	for _, e := range entries {
 		if e.Label == "" || e.Description == "" || len(e.Strength) == 0 || e.Cost.Note == "" || len(e.Formats) == 0 {
