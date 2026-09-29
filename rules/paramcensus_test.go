@@ -1023,6 +1023,15 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "saMentionsGoaded" {
 			return
 		}
+		// abilityReferencesX (effects/flipcoin.go) recognizes the standalone
+		// token "X" in any parameter value along an ability's Sub chain, so a
+		// NoCall$ True coin-flip outcome branch fires once with the total
+		// (Ral Zarek, Guest Lecturer's NumTurns$ X) instead of once per
+		// matching flip. Recognition only; it reads no key and consumes no SA
+		// parameter.
+		if pkg == "effects" && fname == "abilityReferencesX" {
+			return
+		}
 		// A copy loop (`for k, v := range src.Params { dst.Params[k] = v }`)
 		// is not a read: every use of the key sits in a write-position index.
 		if rangeKeyIsWriteOnly(rs, keyIdent.Name, writes) {
