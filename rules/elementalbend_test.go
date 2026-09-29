@@ -73,6 +73,106 @@ func TestElementalBendAvatarAangTriggerAndTransform(t *testing.T) {
 	}
 }
 
+func TestElementalBendAvatarAangRealActions(t *testing.T) {
+	for _, nBends := range []int{3, 4} {
+		t.Run(map[int]string{3: "three-real-bends", 4: "four-real-bends"}[nBends], func(t *testing.T) {
+			reg := testutil.CorpusRegistry(t)
+			e, _ := searchEngine(t, reg, "Avatar Aang", "Water Whip", "Fire Sages", "Airbending Lesson", "Ba Sing Se")
+			aang := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Avatar Aang"))
+			if o := e.G.Obj(aang); o == nil || o.Zone != state.ZBattlefield || o.Face().Name != "Avatar Aang" {
+				t.Fatalf("precondition: Avatar Aang must start on the battlefield/front face: %+v", o)
+			}
+			settle := func() { airbendSettle(t, e, 0, 100) }
+
+			// Real waterbend payment: Water Whip's additional cost taps five
+			// creatures via the cast payment path, not a synthetic marker.
+			whip := searchMoveByName(t, e, "Water Whip", state.ZHand)
+			for i := 0; i < 5; i++ {
+				onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Grizzly Bears"))
+			}
+			addMana(t, e, 0, "UU")
+			if !raiseCastOffered(e, whip) {
+				t.Fatal("precondition: Water Whip cast not offered")
+			}
+			raiseCast(t, e, whip)
+			raiseDrive(t, e, func(d *decision.Decision) []int {
+				var picks []int
+				for _, o := range d.Options {
+					if o.Kind == "waterbend_generic" && len(picks) < 5 {
+						picks = append(picks, o.Index)
+					}
+				}
+				return picks
+			})
+			if bendMarkerCount(e, "water", 0) != 1 {
+				t.Fatalf("precondition: real waterbend marker count = %d", bendMarkerCount(e, "water", 0))
+			}
+			settle()
+
+			// Firebending is the attack trigger's mana-add resolution.
+			fire := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Fire Sages"))
+			tlaAttackTriggerPump(t, e, fire)
+			settle()
+			if bendMarkerCount(e, "fire", 0) != 1 {
+				t.Fatalf("precondition: Firebending trigger did not emit marker")
+			}
+
+			// Airbend resolves Airbending Lesson on a real opposing creature.
+			bear := onBoardCard(t, e, 1, tlaCorpusCard(t, reg, "Grizzly Bears"))
+			if _, ok := tlaCastByName(t, e, "Airbending Lesson", "WWW"); !ok {
+				t.Fatal("precondition: Airbending Lesson not castable")
+			}
+			if d := e.Pending(); d != nil && d.Kind == decision.KTarget {
+				picked := false
+				for _, o := range d.Options {
+					if o.Obj == bear {
+						submitChoices(t, e, o.Index)
+						picked = true
+						break
+					}
+				}
+				if !picked {
+					t.Fatalf("precondition: airbend target missing: %+v", d.Options)
+				}
+			}
+			settle()
+			if bendMarkerCount(e, "air", 0) != 1 {
+				t.Fatalf("precondition: real airbend marker count = %d", bendMarkerCount(e, "air", 0))
+			}
+			if nBends == 4 {
+				// Earthbend Ba Sing Se's activated ability on a Forest.
+				land := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Forest"))
+				bss := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Ba Sing Se"))
+				addMana(t, e, 0, "GGG")
+				opt := abilityOption(t, e, bss, 1)
+				submitChoices(t, e, opt.Index)
+				submitChoices(t, e, earthbendTargetOption(t, e, land))
+				passUntilStackEmpty(t, e, 40)
+				settle()
+				if bendMarkerCount(e, "earth", 0) != 1 {
+					t.Fatalf("precondition: real earthbend marker count = %d", bendMarkerCount(e, "earth", 0))
+				}
+			}
+			draws := 0
+			for _, ev := range e.L.Events {
+				if ev.Kind == events.Draw && ev.Player == 0 {
+					draws++
+				}
+			}
+			if draws < nBends {
+				t.Fatalf("real bends produced %d draw events, want at least %d", draws, nBends)
+			}
+			want := "Avatar Aang"
+			if nBends == 4 {
+				want = "Aang, Master of Elements"
+			}
+			if got := e.G.Obj(aang).Face().Name; got != want {
+				t.Fatalf("face after %d real bends = %q, want %q", nBends, got, want)
+			}
+		})
+	}
+}
+
 func TestElementalBendCorpusCensusAndSupport(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	card, ok := reg.Lookup("Avatar Aang")
