@@ -396,6 +396,34 @@ func Apply(g *state.Game, e Event) {
 		o.EnlistedTurn = g.Turn
 		o.EnlistedCombat = g.CombatsThisTurn
 
+	case Crew:
+		// CR 702.122's crew action (the `K:Crew` keyword): Obj is the CREWING
+		// creature and IDs[0] the Vehicle it crewed. The fold records the
+		// source-relative pairing the Creature.CrewedThisTurn filter reads:
+		// the turn and the crewed Vehicle. A creature that crews the same
+		// Vehicle twice in one turn (it untapped in between) records one
+		// entry, and one that crews a second Vehicle appends it, so the list
+		// is a set with last-write-wins duplicates dropped. Totality: a
+		// missing object or an absent Vehicle id is a no-op, never a panic.
+		o := g.Obj(e.Obj)
+		if o == nil || len(e.IDs) == 0 || e.IDs[0] == 0 {
+			break
+		}
+		if o.CrewedTurn != g.Turn {
+			o.CrewedTurn = g.Turn
+			o.CrewedVehicles = o.CrewedVehicles[:0]
+		}
+		found := false
+		for _, v := range o.CrewedVehicles {
+			if v == e.IDs[0] {
+				found = true
+				break
+			}
+		}
+		if !found {
+			o.CrewedVehicles = append(o.CrewedVehicles, e.IDs[0])
+		}
+
 	case Connive:
 		// The connive record (CR 702.59, task connive1) is a pure marker,
 		// exactly like Explore: the connive's own state changes (the draws,
@@ -1474,6 +1502,13 @@ func Apply(g *state.Game, e Event) {
 				// reset).
 				g.Objs[i].EnlistedTurn = 0
 				g.Objs[i].EnlistedCombat = 0
+				// CR 702.122: crew is a per-turn fact. The Vehicles crewed this
+				// turn are dropped at the turn boundary so a creature does not
+				// read as a crewer in a later turn (which a fresh CrewedTurn
+				// stamp already ensures, but the slice must not leak the stale
+				// ids into a much later same-numbered turn).
+				g.Objs[i].CrewedVehicles = nil
+				g.Objs[i].CrewedTurn = 0
 				// Only default-duration goads expire at the goader's next turn.
 				g.Objs[i].Goads = expireTurnGoads(g.Objs[i].Goads, e.Player)
 				// ChoiceRestriction$ ThisTurn is the only per-turn scope. Keep
@@ -4128,6 +4163,9 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			// CR 702.160: enlist is the old permanent's fact, not the new
 			// object's -- a re-entering creature carries no enlist stamp.
 			o.EnlistedTurn, o.EnlistedCombat = 0, 0
+			// CR 400.7 / 702.122: crew status is the old permanent's, not the
+			// new object's -- a re-entering creature carries no crew stamp.
+			o.CrewedVehicles, o.CrewedTurn = nil, 0
 		}
 		// CR 107.3m: the paid X belongs to the spell on the stack and to the
 		// permanent the spell becomes, and to nothing else. An object leaving

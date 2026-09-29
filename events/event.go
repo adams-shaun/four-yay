@@ -1055,10 +1055,23 @@ const (
 	// designation the live match had. Appended after DungeonRemove so no
 	// earlier ordinal, hash chain or golden replay is affected.
 	InitiativeChange
+	// Crew records one CR 702.122 crew action (the `K:Crew` keyword, task
+	// crewedthisturn1): Obj is the CREWING creature (one of the creatures the
+	// crew cost tapped), Player its controller, and IDs[0] the Vehicle that
+	// creature crewed. The tap itself is its own Tap event (the crew cost is
+	// paid through the ordinary tapXType machinery) -- this event is the
+	// canonical record the Creature.CrewedThisTurn / Card.CrewedThisTurn
+	// source-relative filter reads. Apply folds the (CrewedTurn, CrewedVehicles)
+	// pairing into state.Object; TurnChange and the leaving-the-battlefield
+	// Move clear it. One event per crewing creature, so a Crew N action emits
+	// N of them. Appended here, after InitiativeChange, following every prior
+	// Kind's own append-only precedent, so no earlier ordinal, hash chain or
+	// golden replay is affected.
+	Crew
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(InitiativeChange) + 1
+	NumKinds = int(Crew) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1204,7 +1217,7 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
 	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
 	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
-	"initiative_change"}
+	"initiative_change", "crew"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

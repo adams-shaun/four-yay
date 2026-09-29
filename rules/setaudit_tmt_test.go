@@ -699,8 +699,6 @@ func TestSetAudit_tmt_StompedByTheFoot_KickerSacrificeOption(t *testing.T) {
 // filter). Crew the Van, attack with it, and the trigger must offer the
 // crewer as a target.
 func TestSetAudit_tmt_TurtleVan_CrewedThisTurnTarget(t *testing.T) {
-	setAuditSkip(t, "Creature.CrewedThisTurn target filter is unread: the crewer is never offered",
-		"tmt-crewedthisturn-filter")
 	van := setAuditRealCard(t, "Turtle Van")
 	haste := card(t, setAuditHasteSrc)
 	bear := card(t, ninjutsuBearSrc)
