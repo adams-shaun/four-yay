@@ -13,10 +13,15 @@ describe('ActionCluster pointer focus', () => {
     await page.goto(`${browserURL}src/components/HotkeyGuard.fixture.html`);
     const pass = page.locator('#cluster [data-pass-action]');
     expect(await pass.isEnabled()).toBe(true);
+    await pass.click();
+    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 1);
+    expect(await posts(page)).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    await page.evaluate(() => (window as unknown as { __newDecision: () => void }).__newDecision());
+    await expect.poll(() => pass.isEnabled()).toBe(true);
     await page.evaluate(() => {
       const w = window as unknown as { __state: { passClick: () => void }; __restorePass: () => void };
       const original = w.__state.passClick.bind(w.__state);
-      w.__state.passClick = () => {}; // keep the same decision answerable after the pointer click
+      w.__state.passClick = () => {}; // preserve this fresh decision for the Space hotkey
       w.__restorePass = () => { w.__state.passClick = original; };
     });
     await pass.evaluate((el) => {
@@ -40,13 +45,16 @@ describe('ActionCluster pointer focus', () => {
     await pass.click();
     expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
     expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
-    expect(await posts(page)).toEqual([]);
+    expect(await posts(page)).toEqual([{ seq: 7, player: 0, choices: [9] }]);
     await page.evaluate(() => (window as unknown as { __restorePass: () => void }).__restorePass());
     await page.keyboard.press('Space');
-    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 1, null, { timeout: 2000 });
+    await page.waitForFunction(() => (window as unknown as { __posts: unknown[] }).__posts.length === 2, null, { timeout: 2000 });
     const after = await posts(page);
-    expect(after.length).toBeGreaterThan(0);
-    expect(after).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    expect(after.length).toBeGreaterThan(1);
+    expect(after).toEqual([
+      { seq: 7, player: 0, choices: [9] },
+      { seq: 8, player: 0, choices: [9] },
+    ]);
     expect(await page.evaluate(() => (window as unknown as { __passBlurCalled: boolean }).__passBlurCalled)).toBe(true);
     await page.close();
   });
