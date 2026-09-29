@@ -15,8 +15,9 @@ import (
 // actor's feed captured through this very decision (f.History()'s last frame
 // must be e's current boundary, which the feed guarantees), and e the live
 // engine -- read for public state, zone sizes and the hidden objects to
-// permute, never for which hidden card is where. seed is the deal seed (the
-// host derives it per decision, bots.RootSeed).
+// permute, never for which hidden card is where. seed is the deal seed; the
+// host derives it per decision (from the per-seat seed and the decision
+// sequence) so a root is a pure function of the feed and that seed.
 //
 // The returned engine is a hypothetical clone, owned by the caller for the
 // duration of the decision and sharing nothing mutable with e. A refused or

@@ -13,7 +13,6 @@ import (
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
@@ -29,10 +28,8 @@ import (
 // The feed is live and holds every frame up to and including this decision.
 type rootPosition struct {
 	e     *rules.Engine
-	d     *decision.Decision
 	feed  *ss.Feed
 	setup searchprobe.PublicGame
-	cfg   rules.Config
 }
 
 func newRootPosition(t *testing.T, cfg rules.Config) rootPosition {
@@ -56,7 +53,7 @@ func newRootPosition(t *testing.T, cfg rules.Config) rootPosition {
 			// Stop at a boundary where the redealer has something to do: a
 			// real opponent hand and both libraries.
 			if e.G.Turn >= 4 && len(e.G.Zone(state.ZHand, 1)) >= 3 && len(e.G.Zone(state.ZLibrary, 0)) >= 5 {
-				return rootPosition{e: e, d: d, feed: feed, setup: setup, cfg: cfg}
+				return rootPosition{e: e, feed: feed, setup: setup}
 			}
 			if err := feed.RecordAnswer(d, in); err != nil {
 				t.Fatal(err)
