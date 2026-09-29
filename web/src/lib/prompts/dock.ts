@@ -83,6 +83,33 @@ export function tableAnchor(action: Box | null, board: Box, vp: Viewport): Table
   return { right: Math.round(right), bottom: Math.round(bottom), maxHeight: Math.round(maxHeight) };
 }
 
+/**
+ * rectContains reports whether `outer` fully contains `inner` (edges
+ * included). This is the near-table dock's whole overlap rule: the dock may
+ * partly cover a board option carrier — its chrome is pointer-transparent
+ * and the visible part stays clickable — but if a carrier lies ENTIRELY
+ * inside one of the dock's interactive rects, no pixel of it is reachable.
+ */
+export function rectContains(outer: Box, inner: Box): boolean {
+  return inner.left >= outer.left && inner.right <= outer.right && inner.top >= outer.top && inner.bottom <= outer.bottom;
+}
+
+/**
+ * dockYields is the near-table auto-yield rule, and the ONE home for it.
+ * `covers` are the dock's own interactive surfaces (the control rects that
+ * keep `pointer-events: auto`); `carriers` are the board elements that
+ * afford options. The dock yields when some carrier is FULLY covered by one
+ * of its controls, because a click aimed at that carrier can never reach the
+ * board. Partial overlap never yields.
+ *
+ * A carrier spanning two stacked controls is not detected here: a click may
+ * still land in the gap between them, so it is not provably unreachable —
+ * the conservative direction is to keep the dock put.
+ */
+export function dockYields(covers: Box[], carriers: Box[]): boolean {
+  return carriers.some((carrier) => covers.some((cover) => rectContains(cover, carrier)));
+}
+
 /** fractionOf turns a dragged dock's pixel position into the profile's viewport fractions (0..1). */
 export function fractionOf(p: DockPoint, vp: Viewport): { x: number; y: number } {
   const f = (n: number, d: number) => (d > 0 ? Math.min(1, Math.max(0, n / d)) : 0);

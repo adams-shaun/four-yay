@@ -174,3 +174,70 @@ describe('PromptDock near-table placement (ui24)', () => {
     }
   });
 });
+
+/**
+ * The auto-yield rule's coverage measurement, run in the page: the dock's own
+ * interactive rects vs the board's option carriers. `anyCovered` is true when
+ * a carrier is FULLY inside one control, the exact condition dockYields uses.
+ */
+const coverage = `(() => {
+  const box = (r) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+  const controls = [...document.querySelectorAll('[data-prompt-dock] .tool, [data-prompt-dock] .body button, [data-prompt-dock] .body input, [data-prompt-dock] .body select, [data-prompt-dock] .body textarea')].map((e) => e.getBoundingClientRect());
+  const board = document.querySelector('.board');
+  const carriers = board ? [...board.querySelectorAll('[data-options], [data-single-action], button.badge[aria-haspopup="menu"]')].map((e) => e.getBoundingClientRect()) : [];
+  const inside = (inner, outer) => inner.left >= outer.left && inner.right <= outer.right && inner.top >= outer.top && inner.bottom <= outer.bottom;
+  return {
+    controls: controls.length,
+    carriers: carriers.map((r) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom })),
+    anyCovered: carriers.some((c) => controls.some((o) => inside(c, o))),
+  };
+})()`;
+
+describe('PromptDock near-table auto-yield (promptdock2)', () => {
+  it('yields to the rail when its option rows would fully cover a board option carrier', { timeout: 60_000 }, async () => {
+    const page = await browser.newPage();
+    await page.setViewportSize({ width: 1000, height: 700 });
+    await page.goto(`${url}src/components/PromptDock.geometry.html?ask=long`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('[data-prompt-dock][data-placement="table"]', { timeout: 5000 });
+    await page.waitForSelector('[data-prompt-dock] .row', { timeout: 5000 });
+    try {
+      // The repro needs a tall dock: assert the long ask actually rendered
+      // before trusting anything below.
+      const rows = await page.locator('[data-prompt-dock] .row').count();
+      expect(rows).toBeGreaterThanOrEqual(7);
+
+      // Pin the board option carrier (the pile badge) entirely inside one of
+      // the dock's own option rows — the measured ui24 overlap.
+      await page.evaluate(() => {
+        const row = document.querySelectorAll('[data-prompt-dock] .row')[2] as HTMLElement;
+        const r = row.getBoundingClientRect();
+        const badge = document.querySelector('[data-pile-badge]') as HTMLElement;
+        badge.style.position = 'fixed';
+        badge.style.width = '28px';
+        badge.style.height = '22px';
+        badge.style.left = `${Math.round(r.left + r.width / 2 - 14)}px`;
+        badge.style.top = `${Math.round(r.top + r.height / 2 - 11)}px`;
+      });
+
+      // Precondition, measured: the badge lies FULLY inside a dock control.
+      // Without this the test could pass on a dock that covers nothing.
+      const before = await page.evaluate<{ controls: number; anyCovered: boolean }>(coverage);
+      expect(before.controls).toBeGreaterThan(0);
+      expect(before.anyCovered).toBe(true);
+
+      // The component re-measures on a window resize (its existing trigger);
+      // the dock must now yield out of the board's way, unprompted.
+      await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+      await page.waitForSelector('[data-prompt-dock][data-placement="rail"]', { timeout: 5000 });
+
+      // After yielding, no board option carrier is fully covered, and a real
+      // click (Playwright's hit-target check) reaches the badge.
+      const after = await page.evaluate<{ anyCovered: boolean }>(coverage);
+      expect(after.anyCovered).toBe(false);
+      await page.click('[data-pile-badge]', { timeout: 5000 });
+      await page.waitForFunction(() => document.body.getAttribute('data-badge-clicked') === '1', undefined, { timeout: 5000 });
+    } finally {
+      await page.close();
+    }
+  });
+});

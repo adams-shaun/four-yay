@@ -50,16 +50,27 @@
     options: [opt(0, 'player', 'Mira', { player: 1 }), opt(1, 'permanent', 'Tarmogoyf (Mira)', { obj: 20 })],
   } as unknown as Decision;
 
+  // The long-list ask (promptdock2): the ui24 repro needs a tall dock whose
+  // numbered rows reach down over the board. min 1 / max 3 keeps a row click
+  // a toggle, so the fixture never posts.
+  const long: Decision = {
+    seq: 12, player: 0, kind: 'choose', prompt: 'Choose attackers', min: 1, max: 3,
+    options: [0, 1, 2, 3, 4, 5, 6].map((i) => opt(i, 'permanent', `Memnite ${i + 1} → Player 2`, { obj: 30 + i })),
+  } as unknown as Decision;
+
+  const longAsk = typeof location === 'undefined' ? false : new URLSearchParams(location.search).get('ask') === 'long';
+  const ask = longAsk ? long : target;
+
   const view: View = {
     viewer: 0, visibility: 'seat', turn: 7, round: 4, step: 'main1', phase: 'main1', active: 0, priority: 0,
     over: false, draw: false, winner: null, players: [player(0), player(1, [goyf])],
     stack: [{ id: 7, kind: 'spell', name: 'Lightning Bolt', text: '', controller: 0, targets: [], card: bolt, optional: false } as StackView],
     pending: [],
-    decision: target,
+    decision: ask,
   } as unknown as View;
 
   const logic = new SeatPanelState('t1', 1, ctx, null, null);
-  logic.adoptView(target);
+  logic.adoptView(ask);
 
   // The placement prop pins the dock at its near-table default for the
   // fixture; the toggle writes back through onPlacementChange (as
@@ -75,16 +86,31 @@
 </script>
 
 <div class="board">
-  <div class="tile" data-obj="20">Tarmogoyf <button type="button" class="badge" data-pile-badge onclick={badgeClicked}>3</button></div>
+  <div class="tile" data-obj="20" data-options="7">Tarmogoyf <button type="button" class="badge" data-pile-badge aria-haspopup="menu" onclick={badgeClicked}>3</button></div>
   <div class="cluster" data-action-cluster><button type="button">Pass turn</button></div>
 </div>
-<PromptDock {view} {logic} seat={0} {placement} onPlacementChange={(p) => (placement = p)} />
+<aside class="rail">
+  <PromptDock {view} {logic} seat={0} {placement} onPlacementChange={(p) => (placement = p)} />
+</aside>
 
 <style>
   .board {
     position: fixed;
-    inset: 0;
+    inset: 0 340px 0 0;
     background: #0d1015;
+  }
+  /* The rail column the dock falls back to when it yields: the near-table
+     dock is position:fixed and ignores it; the yielded dock is in flow here,
+     clear of the board. */
+  .rail {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 340px;
+    background: #12151b;
+    z-index: 5;
+    overflow-y: auto;
   }
   .cluster {
     position: absolute;
