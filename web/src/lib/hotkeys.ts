@@ -22,16 +22,21 @@
  *    one guard wider than the brief's input list on purpose: Space with focus
  *    on the PASS button would otherwise both activate the button and pass,
  *    posting the same intent twice;
- *  - Ctrl+Shift+F / Ctrl+Shift+O / Ctrl+Shift+[ / Ctrl+Shift+] before the
- *    plain-Ctrl check: Ctrl held ALONE is the hold-priority modifier for
- *    clicks (it is never a hotkey by itself — Ctrl+Shift alone is too easy to
- *    hit, hence the extra key). Ctrl+Shift+] / Ctrl+Shift+[ cycle the profile
- *    list (presets + saved profiles) forward and back; Ctrl+Shift+O toggles
- *    the Game Options panel. Ctrl+Shift+P is deliberately NOT used: Firefox
- *    opens a private window on it.
+ *  - Ctrl without Shift: Ctrl held ALONE is the hold-priority modifier for
+ *    clicks, so it is never a hotkey and never a binding (Ctrl+Shift alone is
+ *    too easy to hit, hence the extra key). Ctrl+Shift+P is deliberately NOT
+ *    a default: Firefox opens a private window on it.
+ *
+ * After the guards, the chord's meaning comes from the keymap (lib/keymap):
+ * a rebindable table matched on the PHYSICAL key. The defaults reproduce the
+ * original grammar — Ctrl+Shift+] / Ctrl+Shift+[ cycle the profile list,
+ * Ctrl+Shift+O toggles the Game Options panel — and add the keymap's newer
+ * actions.
  */
 
-export type HotkeyAction = 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'toggle-full-control' | 'next-profile' | 'prev-profile' | 'toggle-options';
+import { defaultKeymap, matchKeymap, type KeyAction, type Keymap } from './keymap';
+
+export type HotkeyAction = KeyAction;
 
 /**
  * MODAL_PICKER_SELECTOR is structural first: every open ARIA menu, dialog or
@@ -65,33 +70,27 @@ export interface HotkeyEvent {
    * code is the PHYSICAL key (`KeyboardEvent.code`, e.g. 'BracketRight'), so a
    * binding survives Shift changing the printable `key`: on a US layout
    * Ctrl+Shift+] reports key '}' but code 'BracketRight'. Optional because a
-   * synthetic event may omit it; brackets fall back to the shifted `key`
-   * values when it is absent.
+   * synthetic event may omit it; keymap.eventCode derives one from `key`
+   * when it is absent.
    */
   code?: string;
+  altKey?: boolean;
   /** target is the event's original target; checked for interactive elements. */
   target?: EventTarget | null;
 }
 
+const DEFAULTS = defaultKeymap();
+
 export function hotkeyAction(
   e: HotkeyEvent,
   pickerOpen: () => boolean = () => false,
+  keymap: Keymap = DEFAULTS,
 ): HotkeyAction | null {
   if (e.metaKey) return null;
   if (pickerOpen()) return null;
   if (e.key === 'Escape') return 'cancel-run';
   const t = e.target as { closest?: (sel: string) => unknown } | null | undefined;
   if (t && typeof t.closest === 'function' && t.closest('button, a, input, textarea, select, [contenteditable]')) return null;
-  if (e.ctrlKey && e.shiftKey && (e.key === 'f' || e.key === 'F')) return 'toggle-full-control';
-  if (e.ctrlKey && e.shiftKey && (e.key === 'O' || e.key === 'o')) return 'toggle-options';
-  // Brackets are matched by PHYSICAL code first: Shift changes ] and [ to }
-  // and { on a US layout, so `key` alone would never fire the shortcut. The
-  // shifted `key` values are accepted as a fallback for a synthetic event
-  // with no `code`.
-  if (e.ctrlKey && e.shiftKey && (e.code === 'BracketRight' || e.key === '}' || e.key === ']')) return 'next-profile';
-  if (e.ctrlKey && e.shiftKey && (e.code === 'BracketLeft' || e.key === '{' || e.key === '[')) return 'prev-profile';
-  if (e.ctrlKey) return null;
-  if (e.key === ' ') return 'pass';
-  if (e.key === 'Enter') return e.shiftKey ? 'hard-skip' : 'end-turn';
-  return null;
+  if (e.ctrlKey && !e.shiftKey) return null; // Ctrl alone is the hold-priority modifier, never a hotkey
+  return matchKeymap(keymap, e);
 }
