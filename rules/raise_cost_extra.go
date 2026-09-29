@@ -158,9 +158,10 @@ func parseRaiseExtra(text string, withheld []string) raiseExtraCost {
 		// payer taps pays for {1}). The {N} is an ordinary generic raise and
 		// the tap help rides the cast's contribution announcement
 		// (convokeAsk's waterbend_generic options), capped at the waterbend
-		// amount. ParseCost does not model the head: Waterbend<N> ABILITY
-		// costs (the activation flow has no contribution announcement) keep
-		// their reported Unknown fallback.
+		// amount. This bridge is the RaiseCost reader; ParseCost models the
+		// same head for the shapes this one never sees (an ability's own
+		// Cost$, a self-spell OptionalCost), folding the {N} into Generic and
+		// annotating it with Cost.Waterbend/WaterbendX.
 		if m := waterbendCost.FindStringSubmatch(sym); m != nil {
 			if m[1] == "X" {
 				r.x++
@@ -486,6 +487,20 @@ func netLoyaltyParts(c Cost) Cost {
 // stale option reaching a fold site is declined with a replay-visible Note
 // rather than begun and short-changed.
 func (e *Engine) foldRaiseExtra(p state.PlayerID, id state.ObjID, cost Cost, mods *costMods) (Cost, bool) {
+	// A Waterbend<N>/<X> part carried by the cost itself (an ABILITY's own
+	// Cost$ like Giant Koi's, or a spell's optional-cost part) is the same
+	// credit a RaiseCost Waterbend<...> contributes: mods.waterbend caps how
+	// much of the cost's generic the taps may cover (CR 701.67a), and mods.
+	// waterbendX marks the announced-X amount open. Move it into mods and
+	// clear the annotation once, so convokeAsk, xAsk and
+	// validateCastContributions all read the one cap. The {N} itself is
+	// already in cost.Generic (ParseCost folded it there), so nothing is
+	// re-charged here.
+	mods.waterbend = addClampedGeneric(mods.waterbend, int64(cost.Waterbend))
+	if cost.WaterbendX {
+		mods.waterbendX = true
+	}
+	cost.Waterbend, cost.WaterbendX = 0, false
 	// A Waterbend<X> raise adds an {X} the cast announces (xAsk reads
 	// pc.cost.X); costMods.apply never prices raiseX, so it is folded here
 	// exactly once.

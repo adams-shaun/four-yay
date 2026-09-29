@@ -157,13 +157,26 @@ type Cost struct {
 	Twobrid         []Twobrid
 	HybridPhyrexian []HybridPhyrexian
 	Snow            int32
-	Tap             bool
-	Untap           bool
-	Sac             []CostPart
-	Discard         []CostPart
-	SubCounter      []CostPart
-	AddCounter      []CostPart
-	Exile           []CostPart
+	// Waterbend carries the amount a Waterbend<N> cost token lets tapped
+	// artifacts and creatures help pay (CR 701.67a): the {N} is already
+	// folded into Generic by the same token (so Waterbend adds no charge of
+	// its own, it is the CAP on how much of that generic the taps may
+	// cover), and each untapped artifact or creature the payer taps while
+	// paying the cost pays for {1}. WaterbendX marks a Waterbend<X> part,
+	// whose amount is the announced {X} (the token also contributes that X
+	// to X, exactly like a RaiseCost Waterbend<X>). The field is the shared
+	// reading both an ability's own Cost$ (Giant Koi) and a spell's
+	// additional part (the optional-cost Waterbend<4> family) expose, so the
+	// offer gate can credit the taps and the payment can offer them.
+	Waterbend  int32
+	WaterbendX bool
+	Tap        bool
+	Untap      bool
+	Sac        []CostPart
+	Discard    []CostPart
+	SubCounter []CostPart
+	AddCounter []CostPart
+	Exile      []CostPart
 	// ExileFromTop carries Forge's ExileFromTop<N/Card> parts -- exiling the
 	// top N cards of the payer's OWN library as a cast/activation cost (Storm
 	// Elemental, Phyrexian Devourer, Arc-Slogger, Whirling Catapult). It is a
@@ -753,6 +766,35 @@ func ParseCost(s string) Cost {
 		case isHybridPhyrexian(sym):
 			c.HybridPhyrexian = append(c.HybridPhyrexian, hybridPhyrexianPair(sym))
 		default:
+			if m := waterbendCost.FindStringSubmatch(sym); m != nil {
+				// Waterbend<N> / Waterbend<X> (the keyword action "waterbend
+				// {N}": pay {N}; while paying it, each untapped artifact or
+				// creature the payer taps pays for {1}). The {N} rides
+				// Generic like any other generic cost; Waterbend is the
+				// annotation that caps how much of that generic the taps may
+				// cover (CR 701.67a). This is the ABILITY-cost reader: the
+				// RaiseCost bridge (rules/raise_cost_extra.go) recognises the
+				// same token itself and routes it to mods.waterbend, so its
+				// Cost$ text never reaches here. Waterbend<X> contributes the
+				// announced {X} and marks the amount open (WaterbendX).
+				if m[1] == "X" {
+					c.X++
+					c.WaterbendX = true
+					continue
+				}
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n < 0 || n > int64(math.MaxInt32) {
+					// Same safe fallback as every other malformed cost
+					// token -- and REPORT it: the head is recognised, this
+					// instance is not modelled.
+					c.Generic = addClampedGeneric(c.Generic, 1)
+					c.reportUnknown(sym)
+					continue
+				}
+				c.Generic = addClampedGeneric(c.Generic, n)
+				c.Waterbend = addClampedGeneric(c.Waterbend, n)
+				continue
+			}
 			if m := evidenceCost.FindStringSubmatch(sym); m != nil {
 				// CollectEvidence<N> / CollectEvidence<NAME> (alltargeted1): a
 				// real evidence-exile component, not one phantom generic mana.
@@ -1609,6 +1651,8 @@ func (c Cost) Plus(d Cost) Cost {
 		c.GainLife = append(append([]CostPart(nil), c.GainLife...), d.GainLife...)
 	}
 	c.Forage = c.Forage || d.Forage
+	c.Waterbend = addClampedGeneric(c.Waterbend, int64(d.Waterbend))
+	c.WaterbendX = c.WaterbendX || d.WaterbendX
 	if len(d.Withheld) > 0 {
 		c.Withheld = append(append([]string(nil), c.Withheld...), d.Withheld...)
 	}
@@ -1898,6 +1942,16 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		}
 	}
 	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
+	// A Waterbend<N>/<X> part carried by the cost itself (an ability's own
+	// Cost$ like Giant Koi's, or a spell's optional-cost part) credits the
+	// same taps a RaiseCost Waterbend does (mods.waterbend), so the offer is
+	// priced with the help the payment will offer.
+	if base.Waterbend > 0 {
+		mods.waterbend = addClampedGeneric(mods.waterbend, int64(base.Waterbend))
+	}
+	if base.WaterbendX {
+		mods.waterbendX = true
+	}
 	mods = e.withWaterbendOfferCredit(p, id, mods)
 	tax := int32(0)
 	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {

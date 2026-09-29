@@ -197,12 +197,11 @@ func TestSetAudit_tla_EarthbendingLesson_AnimatesLandWithCounters(t *testing.T) 
 // for the set's own Waterbend spelling on an ACTIVATED ABILITY (Giant Koi's
 // "Waterbend {3}: This creature can't be blocked this turn."). The {3} may be
 // paid by tapping untapped artifacts and creatures, so a player with three
-// creatures and an empty pool can still activate it. The engine's raise-cost
-// reader documents that Waterbend<N> ABILITY costs (the activation flow has no
-// contribution announcement) keep their Unknown fallback, so the offer is
-// withheld entirely when the pool cannot pay the {3}: that is the finding.
+// creatures and an empty pool can still activate it. ParseCost models
+// Waterbend<N> as N generic annotated with the waterbend cap, and the offer
+// gate credits those taps, so the ability is offered (rules/waterbend_cost_test.go
+// censuses every other ability-cost carrier).
 func TestSetAudit_tla_GiantKoi_WaterbendAbilityCostTapsCreatures(t *testing.T) {
-	tlaSkip(t, "Waterbend<N> ACTIVATED-ABILITY costs have no contribution announcement; Giant Koi's ability is withheld unless the pool pays {3} in mana, so tapping creatures cannot pay it. Follow-up: tla-waterbend-ability-cost")
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Giant Koi")
 	koiID := searchMoveByName(t, e, "Giant Koi", state.ZBattlefield)
@@ -372,11 +371,10 @@ func tlaDriveToMain1Answering(t *testing.T, e *Engine, turn int32, active state.
 // additional cost to cast this spell, you may waterbend {4}." With four
 // untapped creatures and enough mana, the engine must offer BOTH the plain
 // cast and the "(optional cost)" cast, because CR 601.2f makes the payer
-// choose whether to pay it. optionalCostViews drops any static whose Cost$
-// ParseCost cannot model, and ParseCost does not model Waterbend<N>, so the
-// paid branch is unreachable for the 3 tla cards that carry this shape.
+// choose whether to pay it. optionalCostViews keeps any static whose Cost$
+// ParseCost models Unknown-free, and ParseCost now models Waterbend<N>, so the
+// paid branch is built for all 4 tla cards that carry this shape.
 func TestSetAudit_tla_RuinousWaterbending_OptionalCostOffered(t *testing.T) {
-	tlaSkip(t, "S:Mode$ OptionalCost with Cost$ Waterbend<N> is dropped by optionalCostViews (ParseCost.Unknown != 0), so Ruinous Waterbending/Spirit Water Revival/Secret of Bloodbending never offer their paid branch. Follow-up: tla-waterbend-ability-cost")
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Ruinous Waterbending")
 	rb := searchMoveByName(t, e, "Ruinous Waterbending", state.ZHand)

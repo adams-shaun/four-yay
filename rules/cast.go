@@ -5348,8 +5348,9 @@ func (e *Engine) xAsk() bool {
 			continue
 		}
 		// Waterbend taps pay only the waterbend amount, which a Waterbend<X>
-		// raise ties to this X.
-		if waterbendTaps(pc.convoke) > pc.mods.waterbend+pc.mods.raiseX*x {
+		// raise or a Waterbend<X> cost part ties to this X (both fold into
+		// raiseX / waterbendX).
+		if !pc.mods.waterbendX && waterbendTaps(pc.convoke) > pc.mods.waterbend+pc.mods.raiseX*x {
 			continue
 		}
 		legal = append(legal, x)
@@ -7723,7 +7724,7 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	// Waterbend taps pay only the waterbend amount. A Waterbend<X> cap is
 	// not known until X is announced; xAsk offers only the X values whose
 	// cap covers the announced taps.
-	if pc.mods.raiseX == 0 && waterbendTaps(all) > pc.mods.waterbend {
+	if !pc.mods.waterbendX && pc.mods.raiseX == 0 && waterbendTaps(all) > pc.mods.waterbend {
 		return fmt.Errorf("more permanents tapped than the waterbend cost allows")
 	}
 	return nil
@@ -7734,16 +7735,22 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 // creature cannot first be used as a mana source.
 func (e *Engine) convokeAsk() bool {
 	pc := e.cast
-	if pc == nil || pc.convokeDone || pc.isAbility() {
+	if pc == nil || pc.convokeDone {
 		return false
 	}
 	pc.convokeDone = true
-	isConvoke := e.hasCastConvoke(pc.card)
-	isHarmonize := pc.mode == "harmonize"
-	isImprovise := e.hasCastImprovise(pc.card)
-	// A RaiseCost Waterbend<N>/<X> additional cost (Water Whip, Crashing
-	// Wave): each untapped artifact or creature tapped while paying it pays
-	// for {1} of the waterbend amount.
+	// A cast announces Convoke/Harmonize/Improvise; an activated ability
+	// announces only its own waterbend contributions (Giant Koi's
+	// `Cost$ Waterbend<3>`), so the cast-only keyword readers are skipped
+	// for an ability.
+	isAbility := pc.isAbility()
+	isConvoke := !isAbility && e.hasCastConvoke(pc.card)
+	isHarmonize := !isAbility && pc.mode == "harmonize"
+	isImprovise := !isAbility && e.hasCastImprovise(pc.card)
+	// A Waterbend<N>/<X> cost (a RaiseCost additional cost, or the ability's
+	// or optional part's own Waterbend token folded into mods by
+	// foldRaiseExtra): each untapped artifact or creature tapped while paying
+	// it pays for {1} of the waterbend amount (CR 701.67a).
 	isWaterbend := pc.mods.waterbend > 0 || pc.mods.waterbendX
 	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend {
 		return false
@@ -7847,8 +7854,10 @@ func (e *Engine) convokeAsk() bool {
 			d.Max = slots
 		}
 	}
-	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.raiseX == 0 && int(pc.mods.waterbend) < d.Max {
-		// Only waterbend taps are offered: at most the waterbend amount.
+	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.raiseX == 0 && !pc.mods.waterbendX && int(pc.mods.waterbend) < d.Max {
+		// Only waterbend taps are offered: at most the waterbend amount. A
+		// Waterbend<X> amount is not known until X is announced, so its cap
+		// is left open (waterbendX).
 		d.Max = int(pc.mods.waterbend)
 	}
 	e.choosing = chooseCast
@@ -10530,7 +10539,11 @@ func (e *Engine) payCast() {
 		// SubCounter part (a CounterChange of -N), and every chosen sacrifice.
 		// The ability object is minted after payment below; answered targets
 		// are recorded onto it after AbilityPush, including a window resume.
-		mana := e.manaToPay(pc)
+		// An activated ability may carry a Waterbend<N>/<X> cost (Giant
+		// Koi), whose announced taps (pc.convoke) pay {1} each of the generic
+		// (CR 701.67a). paymentMana folds them like a cast's Convoke
+		// contributions; with no contributions it is manaToPay unchanged.
+		mana := e.paymentMana(pc)
 		// The descriptor carries the announced-X marker (the ability's own
 		// {X} cost was folded), so a CostContainsX batch sees this activation
 		// as an X payment exactly as the offer did.
@@ -10563,6 +10576,12 @@ func (e *Engine) payCast() {
 		}
 		if pc.payLife != 0 {
 			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.payLife})
+		}
+		// An activated ability's announced waterbend taps (pc.convoke) become
+		// tapped as part of paying the cost, the same Tap event a cast's
+		// Convoke/Harmonize/Improvise contributions emit (CR 701.67a).
+		for _, pay := range pc.convoke {
+			e.emit(events.Event{Kind: events.Tap, Obj: pay.id})
 		}
 		for _, id := range pc.delve {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})
