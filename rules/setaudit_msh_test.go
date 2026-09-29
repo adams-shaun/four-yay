@@ -293,16 +293,15 @@ func TestSetAudit_msh_BraveBrawler_PowerUpOnlyOnce(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (b) Pump stat ops: NumAtt$/NumDef$ "Double" is a no-op.
+// (b) Pump stat ops: NumAtt$/NumDef$ "Double" IS implemented.
 //
 // Wolverine, Claws Out: "Whenever a Mutant you control attacks, double its
 // power until end of turn." Forge: DB$ Pump | Defined$ ... | NumAtt$ Double.
-// A "Double" op must read the creature's CURRENT power and add that much
-// again (CR 107.3 / the pump's own definition). effects.NumResolved resolves
-// a signed literal, an SVar name or a Count$ head; "Double" is none of those,
-// so it degrades to 0 and the pump adds +0/+0 -- the trigger resolves and does
-// nothing. 36 corpus files carry NumAtt$/NumDef$ Double (three in msh: Epic
-// Fight, World War Hulk III, Wolverine Claws Out).
+// A "Double" op reads the creature's CURRENT power and adds that much again
+// (CR 107.3 / the pump's own definition), resolved per affected object at
+// resolution time (effects.NumForObject). 36 corpus files carry NumAtt$/
+// NumDef$ Double (three in msh: Epic Fight, World War Hulk III, Wolverine
+// Claws Out).
 // ---------------------------------------------------------------------------
 func TestSetAudit_msh_WolverineClawsOut_DoublePower(t *testing.T) {
 	reg := searchTestRegistry(t)
@@ -330,8 +329,6 @@ func TestSetAudit_msh_WolverineClawsOut_DoublePower(t *testing.T) {
 	// The trigger resolved (it was pushed above) but must actually double the
 	// power: 2 -> 4.
 	if got := e.Derived(w).Power; got != 4 {
-		setAuditGuard(t, "Pump's NumAtt$/NumDef$ \"Double\" op is unimplemented and degrades to +0, so Wolverine, Claws Out's attack trigger (and Epic Fight's and World War Hulk III's doubling) do nothing",
-			"Implement the pump stat op \"Double\"")
 		t.Fatalf("Wolverine power after its doubling trigger = %d, want 4", got)
 	}
 	replayCheck(t, e, cfg)

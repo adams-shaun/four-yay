@@ -466,8 +466,8 @@ func TestSetAudit_eoe_CountVoid_TokenDeparture(t *testing.T) {
 // ---------------------------------------------------------------------------
 // (a) Mightform Harmonizer — Landfall "double the power of target creature
 // you control until end of turn." Forge writes this as
-// `DB$ Pump | NumAtt$ Double`; NumResolved must read the target's current,
-// layer-derived power at resolution so the additive pump doubles it.
+// `DB$ Pump | NumAtt$ Double`; effects.NumForObject must read the target's
+// current, layer-derived power at resolution so the additive pump doubles it.
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_MightformHarmonizer_DoublePower(t *testing.T) {

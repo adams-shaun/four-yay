@@ -354,8 +354,6 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 			chosenKW = choices[:1]
 		}
 	}
-	att := Num(h, c, sa, "NumAtt", 0)
-	def := Num(h, c, sa, "NumDef", 0)
 	zone := strings.TrimSpace(sa.Params["PumpZone"])
 	var ateotIDs []state.ObjID
 	for _, t := range Defined(h, c, sa) {
@@ -407,6 +405,12 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, t)
 			eventRemember(h, c, t.Obj)
 		}
+		// The amounts are resolved PER OBJECT: a `Double` amount means this
+		// object's own layer-derived power/toughness, so a multi-object
+		// `Defined$ Valid Creature.YouCtrl` must not apply one creature's stat
+		// to every creature (NumForObject is the token's one home).
+		att := NumForObject(h, c, sa, "NumAtt", 0, o.ID)
+		def := NumForObject(h, c, sa, "NumDef", 0, o.ID)
 		registerPumpEffects(h, c, o.ID, att, def, sa, zone, chosenKW)
 		if atEOTInclude(h, c, sa, o.ID) {
 			ateotIDs = append(ateotIDs, o.ID)
@@ -443,8 +447,6 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 // filter-based effect that Derived would re-evaluate against the battlefield
 // forever.
 func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
-	att := Num(h, c, sa, "NumAtt", 0)
-	def := Num(h, c, sa, "NumDef", 0)
 	spec := sa.Params["ValidCards"]
 	if spec == "" {
 		spec = "Creature"
@@ -491,7 +493,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 							c.Remembered = append(c.Remembered, state.Target{Obj: id})
 							eventRemember(h, c, id)
 						}
-						registerPumpEffects(h, c, id, att, def, sa, zone, nil)
+						registerPumpEffects(h, c, id, NumForObject(h, c, sa, "NumAtt", 0, id), NumForObject(h, c, sa, "NumDef", 0, id), sa, zone, nil)
 						ateotIDs = append(ateotIDs, id)
 					}
 				}
@@ -504,7 +506,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 					c.Remembered = append(c.Remembered, state.Target{Obj: id})
 					eventRemember(h, c, id)
 				}
-				registerPumpEffects(h, c, id, att, def, sa, "", nil)
+				registerPumpEffects(h, c, id, NumForObject(h, c, sa, "NumAtt", 0, id), NumForObject(h, c, sa, "NumDef", 0, id), sa, "", nil)
 				ateotIDs = append(ateotIDs, id)
 			}
 		}
