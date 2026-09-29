@@ -100,6 +100,37 @@ describe('sticky label answers', () => {
     }
   });
 
+  it('sticks a one-pick mana colour by source name and label, not symbol/index', () => {
+    const d = decision('choose', [
+      { index: 7, kind: 'mana', label: 'B', mana_symbol: 'B', player: 0 },
+      { index: 8, kind: 'mana', label: 'R', mana_symbol: 'R', player: 0 },
+    ], { prompt: 'Choose mana colour' });
+    expect(stickyKey(d, view())).toBe('choose\u0000Altar\u0000Choose mana colour');
+    const rules = stored(d, view());
+    const next = { ...d, source: 30, options: [d.options[1], { ...d.options[0], index: 19 }] };
+    expect(stickyAnswer(next, view([card(30, 'Altar')]), rules)).toEqual([19]);
+    expect(stickyAnswer({ ...d, options: [d.options[1]] }, view(), rules)).toBeNull();
+  });
+
+  it('never keys or answers multi-mana allocations, payment or autofill windows', () => {
+    const d = decision('choose', [{ index: 7, kind: 'mana', label: 'B', mana_symbol: 'B', player: 0 }]);
+    const rules = stored(d, view());
+    const cases: Decision[] = [
+      { ...d, min: 2, max: 2 },
+      { ...d, min: 2 }, // even a malformed allocation must not show Sticky
+      { ...d, min: 0 },
+      { ...d, mana_payment: { card: 10, cost: { generic: 0, mana: [0, 0, 1, 0, 0, 0] },
+        owed: { generic: 0, mana: [0, 0, 1, 0, 0, 0] }, pool: [0, 0, 0, 0, 0, 0] } },
+      { ...d, options: [{ ...d.options[0], kind: 'autofill' }] },
+      { ...d, options: [{ ...d.options[0], kind: 'activate' }] },
+    ];
+    for (const window of cases) {
+      expect(stickyKey(window, view())).toBeNull();
+      expect(ruleFromAnswer(window, view(), [7])).toBeNull();
+      expect(stickyAnswer(window, view(), rules)).toBeNull();
+    }
+  });
+
   it('refuses answers the one-label model cannot represent', () => {
     for (const chosen of [[], [99], [7, 7]]) expect(ruleFromAnswer(decision(), view(), chosen)).toBeNull();
     const d = decision('modes', [option(7)], { min: 2, max: 2 });

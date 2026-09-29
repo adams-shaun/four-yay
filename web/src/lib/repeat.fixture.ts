@@ -12,6 +12,12 @@ export const repeatDecision = (seq = 1): Decision => ({
     { index: 3, kind: 'pass', label: 'Pass', player: 0 },
   ],
 });
+export const repeatManaDecision = (seq = 1): Decision => ({
+  ...repeatDecision(seq), options: [
+    { index: 9, kind: 'activate', label: 'Activate Phyrexian Altar for mana', obj: 20, player: 0 },
+    { index: 3, kind: 'pass', label: 'Pass', player: 0 },
+  ],
+});
 export const repeatStack = (id = 30, controller = 0): StackView => ({
   id, name: 'Altar', source: 20, kind: 'ability', text: 'Mill', controller, targets: [], optional: false,
 });

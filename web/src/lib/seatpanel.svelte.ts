@@ -716,7 +716,7 @@ export class SeatPanelState {
   oneShot = $state<'none' | 'end-turn' | 'hard-skip' | 'resolve-all' | 'repeat'>('none');
   /** Only an accepted manual activation offers arming; intermediate choices
    * preserve it. Source identity anchors the UI, name/text anchors replay. */
-  repeatCandidate = $state<{ source: number; sourceName: string; abilityText: string; baselineIds: number[]; stackId: number | null } | null>(null);
+  repeatCandidate = $state<{ source: number; sourceName: string; abilityText: string; usesStack: boolean; baselineIds: number[]; stackId: number | null } | null>(null);
   repeatPlan = $state<RepeatPlan | null>(null);
   repeatHalt = $state<{ reason: RepeatHalt; text: string } | null>(null);
   private repeatTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1416,7 +1416,7 @@ export class SeatPanelState {
 
   private observeRepeatStack(view: View) {
     const c = this.repeatCandidate;
-    if (c && c.stackId === null) {
+    if (c?.usesStack && c.stackId === null) {
       const entry = view.stack.find((s) => s.kind === 'ability' && s.source === c.source
         && s.controller === this.ctx.seat && !c.baselineIds.includes(s.id));
       if (entry) c.stackId = entry.id;
@@ -2574,12 +2574,12 @@ export class SeatPanelState {
     const view = this.currentView;
     const repeat = this.oneShot === 'repeat' ? this.repeatPlan : null;
     const activation = hand && d.kind === 'priority'
-      ? d.options.find((o) => choices.includes(o.index) && o.kind === 'ability') : undefined;
+      ? d.options.find((o) => choices.includes(o.index) && (o.kind === 'ability' || o.kind === 'activate')) : undefined;
     const source = activation?.obj !== undefined && view ? findCardAnywhere(view, activation.obj) : null;
     // Capture before awaiting: SSE can move/sacrifice the source before acceptance.
     const candidate = activation && source && view ? {
       source: source.id, sourceName: source.name, abilityText: activation.label,
-      baselineIds: view.stack.map((s) => s.id), stackId: null,
+      usesStack: activation.kind === 'ability', baselineIds: view.stack.map((s) => s.id), stackId: null,
     } : null;
     // All manual answer surfaces (single-click, multi-pick and card tiles)
     // converge here. Persist before POST so a rapid next ask sees the rule.

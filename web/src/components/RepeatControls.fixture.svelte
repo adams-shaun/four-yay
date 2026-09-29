@@ -4,7 +4,7 @@
   import { SeatPanelState } from '../lib/seatpanel.svelte';
   import { REPEAT_ARM, type RepeatArmContext } from '../lib/repeat-context';
   import { ruleFromAnswer, saveSticky } from '../lib/sticky';
-  import { repeatCard as card, repeatDecision, repeatStack, repeatView } from '../lib/repeat.fixture';
+  import { repeatCard, repeatDecision, repeatManaDecision, repeatStack, repeatView } from '../lib/repeat.fixture';
   import HotButtonStrip from './HotButtonStrip.svelte';
   import CardTile from './CardTile.svelte';
   import StackTile from './StackTile.svelte';
@@ -14,7 +14,15 @@
   const panel = new SeatPanelState(table, 1, ctx, null, sessionStorage);
   panel.settings = { ...panel.settings, autoPass: false, passAfterAct: false, pacing: { stepMs: 999, resolveMs: 999 } };
   panel.skipEmpty = false;
-  let view = $state<View>(repeatView());
+  const mana = new URLSearchParams(location.search).has('mana');
+  const card = mana ? { ...repeatCard, name: 'Phyrexian Altar' } : repeatCard;
+  const priority = mana ? repeatManaDecision : repeatDecision;
+  const makeView = (d: Decision | null = priority(), stack: View['stack'] = []): View => {
+    const v = repeatView(d, stack);
+    v.players[0].battlefield = [card];
+    return v;
+  };
+  let view = $state<View>(makeView());
   setContext<RepeatArmContext>(REPEAT_ARM, {
     candidate: () => panel.repeatCandidate,
     disabled: () => panel.busy || panel.machinePaused,
@@ -24,7 +32,11 @@
   const choice: Decision = { ...repeatDecision(2), kind: 'choose', source: 20, prompt: 'Sacrifice', options: [
     { index: 5, kind: 'sacrifice', label: 'Miner', obj: 21, player: 0 },
   ] };
-  const rule = ruleFromAnswer(choice, repeatView(), [5])!;
+  const colour: Decision = { ...choice, prompt: 'Choose mana colour', options: [
+    { index: 6, kind: 'mana', label: 'R', mana_symbol: 'R', player: 0 },
+    { index: 7, kind: 'mana', label: 'B', mana_symbol: 'B', player: 0 },
+  ] };
+  const rule = ruleFromAnswer(choice, makeView(), [5])!;
   saveSticky(table, 1, new Map([[rule.key, rule]]), sessionStorage);
   const posts: Intent[] = [];
   window.fetch = async (input, init) => {
@@ -34,7 +46,7 @@
     }
     if (String(input).endsWith('/undo')) {
       panel.rewind();
-      view = repeatView(repeatDecision());
+      view = makeView();
       return new Response('{}', { status: 200 });
     }
     if (String(input).endsWith('/pending')) {
@@ -46,13 +58,15 @@
   const w = window as unknown as {
     __posts: Intent[];
     __panel: SeatPanelState;
-    __deliver: (seq: number, kind: 'priority' | 'choose' | 'wait', stack?: boolean) => void;
+    __deliver: (seq: number, kind: 'priority' | 'choose' | 'colour' | 'allocation' | 'wait', stack?: boolean) => void;
   };
   w.__posts = posts;
   w.__panel = panel;
   w.__deliver = (seq, kind, stack = false) => {
-    const d = kind === 'wait' ? null : kind === 'choose' ? { ...choice, seq } : repeatDecision(seq);
-    view = repeatView(d, stack ? [repeatStack()] : []);
+    const d = kind === 'wait' ? null : kind === 'choose' ? { ...choice, seq }
+      : kind === 'colour' ? { ...colour, seq }
+      : kind === 'allocation' ? { ...colour, seq, min: 2, max: 2 } : priority(seq);
+    view = makeView(d, stack ? [repeatStack()] : []);
   };
 </script>
 

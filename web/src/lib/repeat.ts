@@ -1,5 +1,6 @@
 import type { Decision, View } from '../protocol';
 import { findCardAnywhere } from './board';
+import { isManaColourChoice } from './sticky';
 
 export interface RepeatPlan {
   sourceName: string;
@@ -28,12 +29,11 @@ export function repeatPassAllowed(passes: number): boolean {
   return passes < REPEAT_PASSES_PER_ITERATION;
 }
 
-/** Non-priority sticky answers get first refusal in the driver. Mana selection
- * is not a sticky kind; an unsettled mana window requires the pilot. Optional
- * pay/decline prompts remain ordinary stickable choices, not mana selection. */
+/** One-pick mana colours and optional pay/decline prompts get sticky first
+ * refusal. Actual payment windows and multi-mana allocations require the pilot. */
 export function repeatPayment(d: Decision): boolean {
   return d.kind !== 'priority' && (!!d.mana_payment || d.options.some((o) =>
-    o.kind === 'mana' || o.kind === 'activate' || o.kind === 'autofill'));
+    (o.kind === 'mana' && !isManaColourChoice(d)) || o.kind === 'activate' || o.kind === 'autofill'));
 }
 
 /** Pure classification. Counters, sticky answers and external lifecycle halts
@@ -49,7 +49,7 @@ export function repeatStep(plan: RepeatPlan, d: Decision, view: View, seat: numb
     return pass ? { act: 'pass', index: pass.index } : { act: 'halt', reason: 'unanswered_decision' };
   }
   if (plan.done >= plan.target) return { act: 'halt', reason: 'done' };
-  const option = d.options.find((o) => o.kind === 'ability' && o.label === plan.abilityText
+  const option = d.options.find((o) => (o.kind === 'ability' || o.kind === 'activate') && o.label === plan.abilityText
     && o.obj !== undefined && findCardAnywhere(view, o.obj)?.name === plan.sourceName);
   return option ? { act: 'activate', index: option.index } : { act: 'halt', reason: 'not_offered' };
 }

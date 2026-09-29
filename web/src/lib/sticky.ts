@@ -36,8 +36,16 @@ function triggerEntry(o: Option, view: View): string {
   return `${name}\u0000${text}`;
 }
 
+/** A colour produced by a mana ability, not a mana payment/allocation window. */
+export function isManaColourChoice(d: Decision): boolean {
+  return d.kind === 'choose' && d.min === 1 && d.max === 1 && !d.mana_payment
+    && d.options.length > 0 && d.options.every((o) => o.kind === 'mana' && o.amount === undefined);
+}
+
 export function stickyKey(d: Decision, view: View): string | null {
-  if (!KINDS.includes(d.kind)) return null;
+  if (!KINDS.includes(d.kind) || d.mana_payment || d.options.some((o) =>
+    o.kind === 'autofill' || o.kind === 'activate')) return null;
+  if (d.options.some((o) => o.kind === 'mana') && !isManaColourChoice(d)) return null;
   if (d.kind === 'choose' && (d.max > 1 || d.options.some((o) =>
     o.kind === 'x' || o.kind === 'amount' || o.amount !== undefined))) return null;
   if (d.kind === 'trigger_order') {

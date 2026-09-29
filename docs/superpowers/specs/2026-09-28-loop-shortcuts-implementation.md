@@ -17,7 +17,7 @@ design; its §5/§6 are deferred by this spec, see §6 below) and
 | D3 | Model | **MTGO-style sticky choices plus "Repeat ×N"** on an activation. There are no recorded scripts. MTGO reference: <https://www.mtgo.com/news/combo-play-improvements>. |
 | D4 | Pacing | vs-bot tables are already unpaced: `cmd/gorged/game.go` builds `TableConfig` without `Pace`. Repeat has its own client beat (`REPEAT_BEAT_MS = 30`) and ignores `settings.pacing`. On a paced startup table, repeat runs at table pace. A runtime pace override is out of scope. |
 | D5 | Sticky key and scope | Kind + source card **name** + ability/prompt text, **per game**. The answer is a label pattern, never a wire index. If several options match, **take the first in wire order**: duplicates are ignored, not an error. |
-| D6 | Sticky kinds | `target`, `choose` (single-select only), `modes`, `trigger_optional`, `trigger_order`. Mana is not a sticky kind: repeat relies on the existing auto-pay, and a payment window it cannot settle halts the repeat. |
+| D6 | Sticky kinds | `target`, `choose` (single-select only), `modes`, `trigger_optional`, `trigger_order`. A `choose` of `mana` options with `min = max = 1` is stickable ("always add B from sources named X"). Mana PAYMENT windows (`mana_payment`, `autofill`) and multi-mana allocations (`min > 1`) are non-sticky; an unsettled one halts repeat as `payment`. Repeat arms on both `ability` and mana `activate` options. |
 
 ## 2. Sticky choices (`web/src/lib/sticky.ts`, new)
 
@@ -51,7 +51,8 @@ export function ruleFromAnswer(d: Decision, view: View, chosen: number[]): Stick
   (`rules/trigger_queue.go` `triggerLabel`). For `trigger_order`, the key is
   `kind \0` + the sorted `name \0 text` entries of the listed triggers.
 - **Not stickable** (`stickyKey` returns `null`): any other kind, `choose`
-  with `max > 1`, and `choose` offering an X/amount value.
+  with `max > 1`, `choose` offering an X/amount value, mana allocations other
+  than a one-pick colour choice, and any `mana_payment`/`autofill` window.
 - **Matching.** `target`: options whose `label` equals `answer.label`, and
   whose controller equals `answer.controller` when that is non-null.
   `choose`/`modes`/`trigger_optional`: equal `label`. Take the first match
@@ -112,21 +113,30 @@ export function repeatStep(plan: RepeatPlan, d: Decision, view: View, seat: numb
 ```
 
 - **Arming.** After the pilot manually activates an ability (a `priority`
-  option of kind `ability`), the resulting stack tile and the source card
-  offer **"Repeat ×N"** with a number input: default 10, clamped
-  1..`REPEAT_MAX`. The manual activation is iteration 1, so the arm sets
-  `done = 1`.
+  option of kind `ability` or mana `activate`), the source card offers
+  **"Repeat ×N"** beside its OptionPicker, with a number input: default 10,
+  clamped 1..`REPEAT_MAX`. A non-mana `ability` also offers it on the resulting
+  stack tile. Mana abilities never use the stack: arm from the source card
+  only, never from a resulting trigger tile. The manual activation is
+  iteration 1, so the arm sets `done = 1`.
 - **Step function** (for each fresh decision for this seat while `oneShot === 'repeat'`):
   1. Not `priority` → the sticky step answers it, or `halt('unanswered_decision')`.
-     A payment window auto-pay does not settle → `halt('payment')`.
+     A one-pick (`min = max = 1`) `choose` of `mana` options gets sticky
+     first refusal like any single-select choose; without a matching sticky
+     it halts as `unanswered_decision`. Multi-mana allocations (`min > 1`),
+     `mana_payment` windows and `autofill` remain non-sticky and halt as
+     `payment` if unsettled.
   2. The stack holds an object not in `ownStackIds` and controlled by
      another seat → `halt('opponent_stack')`. Objects we control that a
      sticky/auto answer created are added to `ownStackIds` as they appear.
   3. Stack non-empty → `pass`. Our own items resolve, and bots pass by default.
   4. Stack empty: `done === target` → `halt('done')`. Otherwise find the
-     first `priority` option with `kind === 'ability'` whose source name
+     first `priority` option with `kind === 'ability' || kind === 'activate'` whose source name
      and ability text match the plan: found → `activate`, `done++`;
      missing → `halt('not_offered')`.
+- **Mana iteration.** Activate → sticky sacrifice and colour choices →
+  triggers on the stack → passes (sticky target/pay prompts) until the stack
+  is empty → re-activate. Mana left in the pool does not prevent repetition.
 - **Other halts:** game over, `cancel-run` (Escape or the Stop button), an
   undo/rewind (`rewind()` sets `machinePaused`), and any POST error.
 - **Caps.** Repeat does not count toward the shared auto-pass cap
@@ -154,7 +164,7 @@ onto `main`.
 | W1 | Sticky store + `decide()` firing | new `web/src/lib/sticky.ts`, `sticky.test.ts`; `web/src/lib/autopilot.ts` (+ its test) | §2 as written. Tests cover all five kinds (hit, miss, duplicate takes first, controller mismatch, stale source name falling back to prompt), `choose` max>1 and X not stickable, per-game isolation (a match N rule is absent in N+1), clear, corrupt storage → empty. `decide()`: a sticky hit returns the matching indices before auto-pass, a miss falls through unchanged. Every existing autopilot test still passes. | `cd web && npx vitest run src/lib/sticky src/lib/autopilot && npm run check` |
 | W2 | Sticky UI | seat panel decision components, `web/src/components/PlaySettingsPanel.svelte`, `web/src/lib/hotkeys.ts`, `web/src/lib/seatpanel.svelte.ts` (store wiring only) | §3 as written: checkbox stores a rule, marker, list with forget/clear, `5` clears. Component tests for the checkbox → rule round trip and for clear. | `cd web && npx vitest run src/lib/hotkeys src/lib/seatpanel && npm run check` |
 | W3 | Repeat driver | new `web/src/lib/repeat.ts`, `repeat.test.ts`; `web/src/lib/seatpanel.svelte.ts`; `web/src/lib/autolog.ts`; stack/card tile component for the arm affordance | §4 as written. Pure `repeatStep` tests for every `RepeatHalt`, for `done` counting from the manual first activation, for own versus opponent stack objects, for the pass-allowance cap, and for exemption from `AUTO_PASS_CAP`. A seatpanel test covers arm → N activations → `halt('done')` against a scripted view sequence, and Escape cancels mid-run. | `cd web && npx vitest run src/lib/repeat src/lib/seatpanel src/lib/autolog && npm run check` |
-| W4 | Live smoke (verification, no product code) | report only; a test deck is not needed: `internal/testutil/decks/rakdos-muscle-scam-exe.json` holds Forsaken Miner, Phyrexian Altar, Rakdos the Muscle and Golgari Thug | Build `gorged` and the web bundle in the worktree. Run on one port from 8090–8099 (`scripts/fleet.sh port`) with persistence under `/tmp/gorge-loop-smoke-<ts>`. Start a vs-bot constructed game with `human_deck` = that deck, reach the Miner board (via play or a feedback-fixture setup), make stickies for the target, sacrifice and pay prompts, and Repeat ×20. Record wall time, final opponent library, and the halt reason. Capture feedback and run `go run ./cmd/repro <dir>`: it must exit 0 (verified replay). Stop the server by pid found via `ss -lptn`. | the `cmd/repro` exit code plus the recorded numbers |
+| W4 | Live smoke (verification, no product code) | report only; a test deck is not needed: `internal/testutil/decks/rakdos-muscle-scam-exe.json` holds Forsaken Miner, Phyrexian Altar, Rakdos the Muscle and Golgari Thug | Build `gorged` and the web bundle in the worktree. Run on one port from 8090–8099 (`scripts/fleet.sh port`) with persistence under `/tmp/gorge-loop-smoke-<ts>`. Start a vs-bot constructed game with `human_deck` = that deck, reach the Miner board (via play or a feedback-fixture setup), make stickies for the target, sacrifice, one-pick B colour and pay prompts, and arm Repeat ×20 from Phyrexian Altar's source card (not a stack tile). Record wall time, final opponent library, and the halt reason. Capture feedback and run `go run ./cmd/repro <dir>`: it must exit 0 (verified replay). Stop the server by pid found via `ss -lptn`. | the `cmd/repro` exit code plus the recorded numbers |
 
 **Collision map.** W1 → W2 → W3 run strictly in sequence, since they share
 `autopilot.ts`/`seatpanel.svelte.ts`. W4 runs after W3. Engine tickets E1–E5

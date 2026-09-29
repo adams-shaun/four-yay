@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { ruleFromAnswer, stickyAnswer } from './sticky';
 import { AUTO_PASS_CAP } from './seatpanel.svelte';
 import { repeatDecision as decision, repeatStack as stack, repeatView as view } from './repeat.fixture';
-import { REPEAT_BEAT_MS, REPEAT_MAX, REPEAT_PASSES_PER_ITERATION, repeatPassAllowed, repeatStep, repeatTarget, type RepeatPlan } from './repeat';
+import { REPEAT_BEAT_MS, REPEAT_MAX, REPEAT_PASSES_PER_ITERATION, repeatPassAllowed, repeatPayment, repeatStep, repeatTarget, type RepeatPlan } from './repeat';
 
 const plan = (target = 3): RepeatPlan => ({ sourceName: 'Altar', abilityText: decision().options[0].label, target, done: 1, ownStackIds: new Set() });
 
@@ -25,8 +26,14 @@ describe('repeatStep — pure wire-order policy', () => {
       expect(repeatStep({ ...plan(), ...change }, d, view(), 0)).toEqual({ act: 'halt', reason: 'not_offered' });
     }
     expect(repeatStep(plan(), { ...d, options: [d.options[2]] }, view(), 0)).toEqual({ act: 'halt', reason: 'not_offered' });
-    const mana = { ...d, options: [{ ...d.options[0], kind: 'activate' }] };
-    expect(repeatStep(plan(), mana, view(), 0)).toEqual({ act: 'halt', reason: 'not_offered' });
+    const mana = { ...d, options: [{ ...d.options[0], index: 91, kind: 'activate' }, ...d.options] };
+    expect(repeatStep(plan(), mana, view(), 0)).toEqual({ act: 'activate', index: 91 });
+    expect(repeatStep(plan(), { ...mana, options: [mana.options[0]] }, view(), 0)).toEqual({ act: 'activate', index: 91 });
+    for (const change of [{ sourceName: 'Other' }, { abilityText: 'Other' }]) {
+      expect(repeatStep({ ...plan(), ...change }, mana, view(), 0)).toEqual({ act: 'halt', reason: 'not_offered' });
+    }
+    expect(repeatStep(plan(), { ...mana, options: [{ ...mana.options[0], kind: 'cast' }] }, view(), 0))
+      .toEqual({ act: 'halt', reason: 'not_offered' });
   });
 
   it('passes own objects, stops on new opponent objects anywhere in the stack, remembers known own ids', () => {
@@ -43,9 +50,27 @@ describe('repeatStep — pure wire-order policy', () => {
     expect(repeatStep(plan(), { ...decision(), options: [] }, view(null, [stack()]), 0)).toEqual({ act: 'halt', reason: 'unanswered_decision' });
   });
 
-  it('unsettled mana selection is payment, not a guessed mana or sticky answer', () => {
-    const d = { ...decision(), kind: 'choose', options: [{ index: 8, kind: 'mana', label: 'Add B', player: 0 }] };
-    expect(repeatStep(plan(), d, view(), 0)).toEqual({ act: 'halt', reason: 'payment' });
+  it('one-pick mana colours allow sticky first refusal, but a missing sticky is unanswered', () => {
+    const d = { ...decision(), source: 20, kind: 'choose', options: [{ index: 8, kind: 'mana', label: 'B', mana_symbol: 'B', player: 0 }] };
+    const rule = ruleFromAnswer(d, view(), [8])!;
+    expect(repeatPayment(d)).toBe(false);
+    expect(stickyAnswer(d, view(), new Map([[rule.key, rule]]))).toEqual([8]);
+    // The pure policy cannot answer: the driver consumes the sticky before this.
+    expect(repeatStep(plan(), d, view(), 0)).toEqual({ act: 'halt', reason: 'unanswered_decision' });
+  });
+
+  it('multi-mana allocations, mana_payment and autofill still halt as payment', () => {
+    const d = { ...decision(), kind: 'choose', options: [{ index: 8, kind: 'mana', label: 'B', player: 0 }] };
+    const cost = { generic: 1, mana: [0, 0, 0, 0, 0, 0] as [number, number, number, number, number, number] };
+    const windows = [
+      { ...d, min: 2, max: 2 },
+      { ...d, mana_payment: { card: 20, cost, owed: cost, pool: cost.mana } },
+      { ...d, options: [{ ...d.options[0], kind: 'autofill' }] },
+    ];
+    for (const window of windows) {
+      expect(repeatPayment(window)).toBe(true);
+      expect(repeatStep(plan(), window, view(), 0)).toEqual({ act: 'halt', reason: 'payment' });
+    }
   });
 
   it('game over outranks every decision and stack condition', () => {

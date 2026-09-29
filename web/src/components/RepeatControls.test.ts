@@ -6,15 +6,16 @@ import { browserURL, sharedBrowser } from '../test/browser';
 
 let browser: Browser;
 beforeAll(async () => { browser = await sharedBrowser(); });
-type Harness = { __posts: Intent[]; __panel: SeatPanelState; __deliver: (seq: number, kind: 'priority' | 'choose' | 'wait', stack: boolean) => void };
+type AskKind = 'priority' | 'choose' | 'colour' | 'allocation' | 'wait';
+type Harness = { __posts: Intent[]; __panel: SeatPanelState; __deliver: (seq: number, kind: AskKind, stack: boolean) => void };
 const posts = (p: Page) => p.evaluate(() => (window as unknown as Harness).__posts);
-const deliver = (p: Page, seq: number, kind: 'priority' | 'choose' | 'wait', stack = false) =>
+const deliver = (p: Page, seq: number, kind: AskKind, stack = false) =>
   p.evaluate(([s, k, st]) => (window as unknown as Harness).__deliver(s, k, st), [seq, kind, stack] as const);
 const log = (p: Page) => p.evaluate(() => (window as unknown as Harness).__panel.autoLog.map((n) => n.text));
 
-async function open(): Promise<Page> {
+async function open(mana = false): Promise<Page> {
   const p = await browser.newPage();
-  await p.goto(`${browserURL}src/components/RepeatControls.fixture.html`);
+  await p.goto(`${browserURL}src/components/RepeatControls.fixture.html${mana ? '?mana' : ''}`);
   await p.locator('[data-hot-tab="actions"]').click();
   await p.locator('[data-option="9"]').click();
   await expect.poll(() => p.locator('#source [data-repeat-arm]').count()).toBe(1);
@@ -70,6 +71,38 @@ describe('repeat — mounted production tiles, strip and hotkeys', { timeout: 15
       await expect.poll(() => p.locator('[data-repeat-progress]').count()).toBe(0);
       expect(await log(p)).toEqual(['Repeat Altar ×3: done 3, halted: done']);
       expect(await p.locator('[data-hot-strip] > [data-repeat-halt]').textContent()).toContain('halted: done');
+    } finally { await p.close(); }
+  });
+
+  it('teaches sticky B and arms a mana activation from the source card only, through N=3 → done', async () => {
+    const p = await open(true);
+    try {
+      await deliver(p, 2, 'colour');
+      await p.locator('[data-sticky-choice] input').check();
+      await p.locator('[data-option="7"]').click();
+      await expect.poll(async () => (await posts(p)).at(-1)?.choices).toEqual([7]);
+      expect(await p.evaluate(() => JSON.parse(sessionStorage.getItem('gorge.sticky.repeat-ui:1') ?? '[]')
+        .some((r: { answer?: { label: string } }) => r.answer?.label === 'B'))).toBe(true);
+      await deliver(p, 3, 'wait', true);
+      expect(await p.locator('#stack-source [data-repeat-arm]').count()).toBe(0);
+      await p.locator('#source [data-repeat-arm] input').fill('3');
+      await p.locator('#source [data-repeat-arm] button').click();
+      await expect.poll(() => p.locator('[data-repeat-progress]').textContent()).toContain('Repeating Phyrexian Altar 1/3');
+      for (const [seq, count] of [[4, 2], [8, 3]]) {
+        await deliver(p, seq, 'priority');
+        await expect.poll(() => p.locator('[data-repeat-progress]').textContent()).toContain(`${count}/3`);
+        await deliver(p, seq + 1, 'choose');
+        await expect.poll(async () => (await posts(p)).at(-1)?.choices).toEqual([5]);
+        await deliver(p, seq + 2, 'colour');
+        await expect.poll(async () => (await posts(p)).at(-1)?.choices).toEqual([7]);
+        await deliver(p, seq + 3, 'priority', true);
+        await expect.poll(async () => (await posts(p)).at(-1)?.choices).toEqual([3]);
+      }
+      await deliver(p, 12, 'priority');
+      await expect.poll(() => log(p)).toEqual(['Repeat Phyrexian Altar ×3: done 3, halted: done']);
+      await deliver(p, 13, 'allocation');
+      await expect.poll(() => p.locator('[data-prompt]').textContent()).toBe('Choose mana colour');
+      expect(await p.locator('[data-sticky-choice]').count()).toBe(0);
     } finally { await p.close(); }
   });
 

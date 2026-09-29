@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Decision, View } from '../protocol';
 import { AUTO_PASS_CAP, SeatPanelState } from './seatpanel.svelte';
 import { REPEAT_BEAT_MS, REPEAT_PASSES_PER_ITERATION } from './repeat';
-import { repeatDecision as decision, repeatStack as stack, repeatView as view } from './repeat.fixture';
+import { repeatCard, repeatDecision as decision, repeatManaDecision as manaDecision, repeatStack as stack, repeatView as view } from './repeat.fixture';
 import { ruleFromAnswer, saveSticky } from './sticky';
 import { hotkeyAction } from './hotkeys';
 
@@ -114,7 +114,7 @@ describe('repeat driver', () => {
     const p = await manual();
     p.armRepeat(2);
     let d = reason === 'unanswered_decision' || reason === 'payment' ? ask(2) : decision(2);
-    if (reason === 'payment') d = { ...d, options: [{ ...d.options[0], kind: 'mana' }] };
+    if (reason === 'payment') d = { ...d, min: 2, max: 2, options: [{ ...d.options[0], kind: 'mana' }] };
     if (reason === 'not_offered') d = { ...d, options: [] };
     const v = view(d, reason === 'opponent_stack' ? [stack(31, 1)] : []);
     if (reason === 'game_over') { v.over = true; v.decision = null; }
@@ -151,17 +151,90 @@ describe('repeat driver', () => {
     expect(p.autoLog).toHaveLength(1);
   });
 
-  it('accepted mana activations do not arm: only priority kind ability is in the v1 contract', async () => {
+  it('accepted mana activations arm from the card only, never a same-source trigger stack tile', async () => {
     const p = new SeatPanelState('repeat-mana', 1, { seat: 0, token: 'test' }, null, null);
-    const d = decision();
-    d.options[0] = { ...d.options[0], kind: 'activate' };
+    const d = manaDecision();
     deliver(p, d);
     p.click(9);
     await Promise.resolve();
     expect(postIntent).toHaveBeenCalledTimes(1);
-    expect(p.repeatCandidate).toBeNull();
+    expect(p.repeatCandidate).toMatchObject({ source: 20, usesStack: false, stackId: null });
+    deliver(p, null, view(null, [stack()]));
+    expect(p.repeatCandidate?.stackId).toBeNull();
     p.armRepeat(20);
+    expect(p.oneShot).toBe('repeat');
+    expect(p.repeatPlan).toMatchObject({ done: 1, target: 20 });
+  });
+
+  it('repeats the Miner mana line: sacrifice → B → Rakdos target → crime pay → passes, N=3 → done', async () => {
+    const p = new SeatPanelState('repeat-miner', 1, { seat: 0, token: 'test' }, null, null);
+    p.settings = { ...p.settings, autoPass: false, passAfterAct: false };
+    p.skipEmpty = false;
+    const minerView = (d: Decision | null, entries: View['stack'] = []) => {
+      const v = view(d, entries);
+      v.players[0].battlefield = [
+        { ...repeatCard, name: 'Phyrexian Altar' },
+        { ...repeatCard, id: 21, name: 'Forsaken Miner' },
+        { ...repeatCard, id: 22, name: 'Rakdos, the Muscle' },
+      ];
+      v.players[0].pool = { B: 1 }; // leftover mana must not stop repetition
+      return v;
+    };
+    const sacrifice = { ...ask(2), options: [{ ...ask(2).options[0], label: 'Forsaken Miner' }] };
+    const colour: Decision = { ...ask(3), prompt: 'Choose mana colour', options: [
+      { index: 6, kind: 'mana', label: 'R', mana_symbol: 'R', player: 0 },
+      { index: 7, kind: 'mana', label: 'B', mana_symbol: 'B', player: 0 },
+    ] };
+    const target: Decision = { ...ask(4), source: 22, kind: 'target', prompt: 'Rakdos target', options: [
+      { index: 8, kind: 'player', label: 'Opponent', player: 1 },
+    ] };
+    const pay: Decision = { ...ask(6), source: 21, prompt: 'Return Forsaken Miner?', options: [
+      { index: 10, kind: 'trigger_cost_pay', label: 'Pay {B}', player: 0 },
+      { index: 11, kind: 'trigger_cost_decline', label: 'Decline', player: 0 },
+    ] };
+    const rules = [sacrifice, colour, target, pay].map((d, i) => ruleFromAnswer(d, minerView(d), [[5], [7], [8], [10]][i])!);
+    saveSticky(p.table, p.match, new Map(rules.map((r) => [r.key, r])), null);
+    deliver(p, manaDecision(), minerView(manaDecision()));
+    p.click(9);
+    await Promise.resolve();
+    expect(p.repeatCandidate).toMatchObject({ sourceName: 'Phyrexian Altar', stackId: null });
+    p.armRepeat(3);
+    let seq = 2;
+    for (let iteration = 1; iteration <= 3; iteration++) {
+      const rakdos = { ...stack(100 + iteration * 2), source: 22, name: 'Rakdos, the Muscle' };
+      const crime = { ...stack(101 + iteration * 2), source: 21, name: 'Forsaken Miner' };
+      for (const [template, entries, choice] of [
+        [sacrifice, [], 5], [colour, [], 7], [target, [rakdos], 8],
+        [manaDecision(), [crime, rakdos], 3], [pay, [crime, rakdos], 10],
+        [manaDecision(), [rakdos], 3],
+      ] as const) {
+        const d = { ...template, seq: seq++ };
+        deliver(p, d, minerView(d, [...entries]));
+        await beat();
+        expect(postIntent.mock.calls.at(-1)![2]).toMatchObject({ seq: d.seq, choices: [choice] });
+        expect(p.repeatHalt).toBeNull();
+        if (d.kind !== 'priority') expect(p.stickyAnswered?.seq).toBe(d.seq);
+      }
+      expect(p.repeatPlan?.done).toBe(iteration);
+      const next = manaDecision(seq++);
+      deliver(p, next, minerView(next));
+      await beat();
+    }
+    expect(p.repeatHalt?.reason).toBe('done');
     expect(p.oneShot).toBe('none');
+    expect(postIntent.mock.calls.map((c) => c[2].choices)).toEqual(
+      Array.from({ length: 3 }, () => [[9], [5], [7], [8], [3], [10], [3]]).flat(),
+    );
+    expect(p.autoLog.map((n) => n.text)).toEqual(['Repeat Phyrexian Altar ×3: done 3, halted: done']);
+  });
+
+  it('an untaught one-pick mana colour halts unanswered, not payment', async () => {
+    const p = await manual();
+    p.armRepeat(3);
+    deliver(p, { ...ask(2), options: [{ index: 7, kind: 'mana', label: 'B', mana_symbol: 'B', player: 0 }] });
+    await beat();
+    expect(p.repeatHalt?.reason).toBe('unanswered_decision');
+    expect(postIntent).toHaveBeenCalledTimes(1);
   });
 
   it('a new explicit one-shot can take over the window held by a repeat halt', async () => {
