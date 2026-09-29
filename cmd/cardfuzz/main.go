@@ -1492,7 +1492,13 @@ func runRepro(reg *cards.Registry, path string, line, maxTurns, maxIntents, maxO
 		fl, gc := playGame(reg, rec.Decks, rec.Seed, maxTurns, maxIntents, maxObjects, true, rec.Explore, apc)
 		autopayMirror = previousMirror
 		if rec.Manabrew {
-			mbCensus.AddGame()
+			// Count the game only when a decision actually reached the wire:
+			// a record that setup-fails before any prompt was built (or was
+			// attempted) poses nothing, and games=1 over an empty census
+			// would misread as a played wire game.
+			if n := mbCensus.TotalPosed() + mbCensus.TotalUnmapped() + mbCensus.TotalRejected(); n > 0 {
+				mbCensus.AddGame()
+			}
 			fmt.Printf("REPRO manabrew census:\n%s", mbCensus.Detail())
 		}
 		if gc != nil && gc.ap != nil && apc.on() {

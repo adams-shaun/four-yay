@@ -160,6 +160,10 @@ func sumMap(m map[string]int) int {
 // <n>" -- in that fixed bucket order, keys sorted within a bucket. A
 // multi-game run (cmd/cardfuzz -manabrew) folds one shared Census across
 // every seat and prints this block once at the end.
+//
+// Reading note for an overnight-sweep reader: a decision is counted in
+// "enumerated" at Decide entry, before its prompt is built -- one that fails
+// translation is enumerated but never posed, so enumerated may exceed posed.
 func (c *Census) Detail() string {
 	if c == nil {
 		return "census: <nil>\n"

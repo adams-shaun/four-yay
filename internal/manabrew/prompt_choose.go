@@ -56,21 +56,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	// 8004, ResumeKind "tgts").
 	if isTargetRefOptions(d.Options) {
 		intent, hostile := targetingIntent(d.TargetEffect)
-		cands := make([]mb.TargetRef, 0, len(d.Options))
-		for _, opt := range d.Options {
-			cands = append(cands, mb.TargetRef{Kind: targetRefKind(opt.Kind), ID: targetRefID(opt),
-				Intent: intent, Oracle: opt.Label})
-		}
-		in := mb.ChooseBoardTargetsInput{
-			PromptBase:    mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Targets: cands}},
-			Candidates:    cands,
-			Hostile:       hostile,
-			Intent:        intent,
-			MinTargets:    d.Min,
-			MaxTargets:    d.Max,
-			ChosenTargets: []mb.TargetRef{},
-			Cancellable:   false,
-		}
+		in := boardTargetInput(d, intent, hostile)
 		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
 	}
 	// The flexible-pip announcement ask (rules/cumulative.go's pipAnnounceAsk,
@@ -101,6 +87,25 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
 	}
 	if allPayPipOptions(d.Options) {
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
+		}
+		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+	}
+	// The api:ChangeText word ask (effects/changetext.go effChangeText,
+	// ResumeKind "changetext"): one option per word candidate, Kind
+	// "changetext_from"/"changetext_to" freely mixed (a two-half ask names
+	// one candidate list per half, Min==Max==2; a one-half ask is uniform
+	// and Min==Max==1). Every option is a plain labelled alternative and
+	// the engine reads each answered option's Kind off the answer itself
+	// (rules/resolution.go's changetext resume arm), so any d.Min distinct
+	// picks is a well-formed answer and a lopsided one (two candidates
+	// from the same half) falls back deterministically engine-side
+	// instead of re-asking (the effect's documented malformed-answer
+	// contract).
+	if changetextOptions(d.Options) {
 		options := make([]mb.SelectionOption, 0, len(d.Options))
 		for _, o := range d.Options {
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
@@ -191,7 +196,13 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			}
 		}
 		in = booleanElection(pres, d, confirm, deny)
-	case "x", "number":
+	case "x", "number", "move_counter":
+		// "move_counter" is effects/counters.go MoveCounter's CounterNum$ Any
+		// amount pick (ResumeKind "move_counter"): one option per legal
+		// amount, 0..max, each carrying the number in Amount -- the same
+		// value-pick shape as the x/number asks, mapped onto chooseNumber
+		// (parseChooseNumber reads the answer back off the option whose
+		// Amount equals the chosen value).
 		vals := make([]int, 0, len(d.Options))
 		for _, o := range d.Options {
 			vals = append(vals, o.Amount)
@@ -229,6 +240,20 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 		options := make([]mb.SelectionOption, 0, len(d.Options))
 		for _, o := range d.Options {
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1, CanRepeat: d.Repeatable})
+		}
+		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
+	case "enlist":
+		// rules/enlist.go askNextEnlist's CR 702.160a may-election (Min 0,
+		// Max 1): the decline option carries no Obj, so the ask is neither
+		// an object pick (the default arm's allOptionsHaveObjects) nor a
+		// Min==1 labelled alternative (labelledAlternatives). It is a plain
+		// labelled pick-0..1 over the decline and each candidate creature,
+		// mapped onto chooseFromSelection by index -- an empty answer IS
+		// the decline, which is exactly what the mock answers, and a chosen
+		// option's Obj is the enlisted creature.
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
 		}
 		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 	case "name", "type", "dungeon", "room", "roll", "look_ack", "choice":
@@ -470,6 +495,23 @@ func isCastContributionOptions(opts []decision.Option) bool {
 	for _, o := range opts {
 		if !strings.HasPrefix(o.Kind, "convoke_") &&
 			o.Kind != "harmonize" && o.Kind != "improvise_generic" && o.Kind != "waterbend_generic" {
+			return false
+		}
+	}
+	return true
+}
+
+// changetextOptions reports whether every option of the ask is an
+// api:ChangeText word candidate (effects/changetext.go's
+// "changetext_from"/"changetext_to" vocabulary, both halves mixed). The
+// gate for promptChoose's routed changetext branch, which also covers a
+// uniform one-half list the switch would otherwise see first.
+func changetextOptions(opts []decision.Option) bool {
+	if len(opts) == 0 {
+		return false
+	}
+	for _, o := range opts {
+		if o.Kind != "changetext_from" && o.Kind != "changetext_to" {
 			return false
 		}
 	}

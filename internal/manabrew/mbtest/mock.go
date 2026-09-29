@@ -216,13 +216,42 @@ func (c *MockClient) answerChooseAction(in mb.ChooseActionInput) mb.PromptOutput
 
 // answerBoardTargets picks MinTargets candidates -- the smallest legal
 // count, since MinTargets is on the wire (unlike a scry ask's Min).
+// A set-level target constraint the wire cannot express per candidate (spec
+// gap G-4) arrives as the translator's sentence in presentation.description
+// (prompt_target_set.go's targetSetSentences), and the translator orders the
+// candidates so the first MinTargets form one legal set (orderTargetOptions).
+// For such an ask this client takes the offered prefix in order, in BOTH
+// modes -- the same "a constraint-bound ask's legal answer is near-forced"
+// stance answerChooseCards takes for its budget sentences; the random draw
+// would otherwise pick candidates that violate a constraint it cannot
+// evaluate. An unconstrained ask keeps the random/first policy below.
 func (c *MockClient) answerBoardTargets(in mb.ChooseBoardTargetsInput) mb.PromptOutputValue {
+	if setConstraintBound(in.Presentation.Description) && in.MinTargets > 0 && len(in.Candidates) >= in.MinTargets {
+		chosen := make([]mb.TargetRef, 0, in.MinTargets)
+		for _, cand := range in.Candidates[:in.MinTargets] {
+			chosen = append(chosen, cand)
+		}
+		return mb.BoardTargetsDecision{Chosen: chosen}
+	}
 	idxs := c.distinct(len(in.Candidates), in.MinTargets)
 	chosen := make([]mb.TargetRef, 0, len(idxs))
 	for _, i := range idxs {
 		chosen = append(chosen, in.Candidates[i])
 	}
 	return mb.BoardTargetsDecision{Chosen: chosen}
+}
+
+// setConstraintBound reports whether a prompt presentation description
+// carries one of the set-level target constraint sentences
+// prompt_target_set.go's targetSetSentences renders. The wording is a
+// CONTRACT between the translator and this client (and any real client that
+// reads the constraint the same way), like chooseConstraint's budget
+// sentences; rewording either side changes what the other can honour.
+func setConstraintBound(desc string) bool {
+	return strings.Contains(desc, "must share one controller") ||
+		strings.Contains(desc, "must share a property") ||
+		strings.Contains(desc, "may share a property") ||
+		strings.Contains(desc, "mutually exclusive")
 }
 
 // answerAttackers assigns every MustAttack creature to its first (or a
@@ -250,28 +279,62 @@ func (c *MockClient) answerAttackers(in mb.ChooseAttackersInput) mb.PromptOutput
 // answerBlockers assigns every MustBeBlocked attacker a blocker not already
 // used, and, in ModeSeededRandom, sometimes blocks an optional attacker too.
 // Declaring no blocks at all is always legal (CR 509.1b) unless a specific
-// attacker forces one.
+// attacker forces one. Within those bounds it honours, from the prompt's
+// own fields:
+// CR 509.1c's must-be-blocked flag (the attacker needs at least one, and at
+// least MinBlockers, legal blockers), CR 509.1a's MinMaxBlocker bounds (an
+// optional attacker with MinBlockers > 1 accepts either no blocker or at
+// least MinBlockers -- a 1-blocker answer is illegal, so the optional
+// policy assigns max(1, MinBlockers) whenever it chooses to block at all),
+// MaxBlockers as the ceiling, and one blocker per attacker (a blocker is
+// consumed once used). Assignments are all-or-nothing per attacker: if the
+// wanted count cannot be filled from the still-unused valid blockers, the
+// attacker takes none -- but the mandatory attackers go first so an
+// optional coin cannot consume a blocker a mandatory ask still needs.
 func (c *MockClient) answerBlockers(in mb.ChooseBlockersInput) mb.PromptOutputValue {
 	used := map[string]bool{}
 	var assignments []mb.BlockerAssignment
-	assign := func(a mb.BlockableAttackerDto) bool {
+	assign := func(a mb.BlockableAttackerDto, want int) {
+		if a.MaxBlockers != nil && want > *a.MaxBlockers {
+			want = *a.MaxBlockers
+		}
+		if want < 1 {
+			return
+		}
+		var batch []mb.BlockerAssignment
 		for _, bid := range a.ValidBlockerIDs {
+			if len(batch) == want {
+				break
+			}
 			if used[bid] {
 				continue
 			}
-			assignments = append(assignments, mb.BlockerAssignment{BlockerID: bid, AttackerID: a.AttackerID})
+			batch = append(batch, mb.BlockerAssignment{BlockerID: bid, AttackerID: a.AttackerID})
 			used[bid] = true
-			return true
 		}
-		return false
+		if len(batch) < want {
+			// Roll back: a partial fill under MinBlockers would itself be an
+			// illegal declaration.
+			for _, ba := range batch {
+				delete(used, ba.BlockerID)
+			}
+			return
+		}
+		assignments = append(assignments, batch...)
 	}
 	for _, a := range in.Attackers {
 		if a.MustBeBlocked {
-			assign(a)
+			assign(a, a.MinBlockers)
+		}
+	}
+	for _, a := range in.Attackers {
+		if a.MustBeBlocked {
 			continue
 		}
 		if c.coin(1, 2) {
-			assign(a)
+			// Optional: one blocker, or the full MinBlockers quota when the
+			// bounds demand it.
+			assign(a, a.MinBlockers)
 		}
 	}
 	return mb.DeclareBlockersDecision{Assignments: assignments}

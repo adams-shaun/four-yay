@@ -13,13 +13,30 @@ import (
 // "friendly", the conservative default the intent enum documents).
 func (t *Translator) promptTarget(d *decision.Decision, v *view.View) (mb.PromptMessage, error) {
 	intent, hostile := targetingIntent(d.TargetEffect)
-	cands := make([]mb.TargetRef, 0, len(d.Options))
-	for _, opt := range d.Options {
+	in := boardTargetInput(d, intent, hostile)
+	return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{
+		PromptID: promptID(d), DecidingPlayerID: playerID(d.Player),
+		SourceCard: t.sourceCard(v, d.Source),
+		Input:      mb.PromptInput{Value: in}}}, nil
+}
+
+// boardTargetInput builds the chooseBoardTargets prompt shared by promptTarget
+// (KTarget) and promptChoose's target-reference branch: one candidate per
+// option, in the constraint-safe order orderTargetOptions returns, with the
+// set-level constraint sentences in the presentation description
+// (prompt_target_set.go).
+func boardTargetInput(d *decision.Decision, intent mb.TargetingIntent, hostile bool) mb.ChooseBoardTargetsInput {
+	opts := orderTargetOptions(d)
+	if opts == nil {
+		opts = d.Options
+	}
+	cands := make([]mb.TargetRef, 0, len(opts))
+	for _, opt := range opts {
 		cands = append(cands, mb.TargetRef{Kind: targetRefKind(opt.Kind), ID: targetRefID(opt),
 			Intent: intent, Oracle: opt.Label})
 	}
-	in := mb.ChooseBoardTargetsInput{
-		PromptBase:    mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Targets: cands}},
+	return mb.ChooseBoardTargetsInput{
+		PromptBase:    mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Description: targetSetSentences(d), Targets: cands}},
 		Candidates:    cands,
 		Hostile:       hostile,
 		Intent:        intent,
@@ -28,10 +45,6 @@ func (t *Translator) promptTarget(d *decision.Decision, v *view.View) (mb.Prompt
 		ChosenTargets: []mb.TargetRef{},
 		Cancellable:   false,
 	}
-	return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{
-		PromptID: promptID(d), DecidingPlayerID: playerID(d.Player),
-		SourceCard: t.sourceCard(v, d.Source),
-		Input:      mb.PromptInput{Value: in}}}, nil
 }
 
 // targetingIntent is the §6.3 TargetEffect.API → TargetingIntent table: one
@@ -162,10 +175,11 @@ func targetRefID(opt decision.Option) string {
 }
 
 // parseBoardTargets maps boardTargets{chosen}: each chosen ref is matched
-// against the candidates the prompt offered (kind and id), in response
-// order; the match's candidate position IS the option index. An unknown ref
-// or a repeat is what Decision.Validate says (invalidShape), so the fence
-// stays in one place.
+// against the decision's own options by kind+id (targetRefKind/targetRefID)
+// -- never by candidate-list position, because a set-constrained ask's
+// candidates are reordered by orderTargetOptions and the matched option's
+// Index IS the option index. An unknown ref is what Decision.Validate says
+// (invalidShape), so the fence stays in one place.
 func (t *Translator) parseBoardTargets(out mb.PromptOutputValue, p *Pending) Outcome {
 	d := p.Decision
 	cur := p.Prompt.PromptID
@@ -173,16 +187,15 @@ func (t *Translator) parseBoardTargets(out mb.PromptOutputValue, p *Pending) Out
 	if !ok {
 		return Outcome{Err: errCode(mb.CodeWrongPromptType, "not a boardTargets answer", idPtr(cur))}
 	}
-	in, ok := p.Prompt.Input.Value.(mb.ChooseBoardTargetsInput)
-	if !ok {
+	if _, ok := p.Prompt.Input.Value.(mb.ChooseBoardTargetsInput); !ok {
 		return Outcome{Err: errCode(mb.CodeInvalidShape, "the open prompt is not a board-target ask", idPtr(cur))}
 	}
 	choices := make([]int, 0, len(dec.Chosen))
 	for _, ref := range dec.Chosen {
 		idx := -1
-		for i, cand := range in.Candidates {
-			if cand.Kind == ref.Kind && cand.ID == ref.ID {
-				idx = d.Options[i].Index
+		for _, o := range d.Options {
+			if targetRefKind(o.Kind) == ref.Kind && targetRefID(o) == ref.ID {
+				idx = o.Index
 				break
 			}
 		}
