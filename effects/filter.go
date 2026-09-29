@@ -363,6 +363,32 @@ var predicates = map[string]predFn{
 	"enlistedThisCombat": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.EnlistedTurn == g.Turn && o.EnlistedCombat == g.CombatsThisTurn
 	},
+	// CrewedThisTurn is CR 702.122's crew marker (Forge's
+	// Creature.CrewedThisTurn / Card.CrewedThisTurn): the creature crewed the
+	// source permanent ("it" -- the Vehicle whose trigger or effect carries
+	// the spec) this turn. It is SOURCE-RELATIVE, so it reads the spec's
+	// source id: the pairing (state.Object.CrewedVehicles/CrewedTurn, folded
+	// by events.Apply's Crew case from the crew cost's tap payment) is
+	// compared against the live turn. A missing source (a call site that
+	// passes 0) fails closed, never "every crewer": the widening direction
+	// would let a Vehicle's trigger target a creature that crewed a different
+	// Vehicle. Turtle Van, Getaway Car, Golden Argosy, Leisure Bicycle,
+	// Smogbelcher Chariot and Subterranean Schooner are the corpus carriers;
+	// the predicate is a recognised-shape entry (the compiled predicate layer
+	// marks an unlisted term `maybe` and falls through to this textual oracle,
+	// so no twin term is owed), and UnknownPredicates classifies it through
+	// the same predicates map, so the census and the matcher cannot disagree.
+	"CrewedThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		if src == 0 || o.CrewedTurn != g.Turn {
+			return false
+		}
+		for _, v := range o.CrewedVehicles {
+			if v == src {
+				return true
+			}
+		}
+		return false
+	},
 	// Permanent is Forge's CardProperty.Permanent (card.isPermanent()): the
 	// printed face is a permanent type, in ANY zone (CR 109.2). This is the
 	// PREDICATE half of the pair; the bare `Permanent` BASE keeps the

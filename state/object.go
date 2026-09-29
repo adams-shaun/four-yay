@@ -660,6 +660,23 @@ type Object struct {
 	EnlistedTurn   int32
 	EnlistedCombat int32
 
+	// CrewedVehicles and CrewedTurn record CR 702.122's crew action on the
+	// CREWING creature: the turn it last crewed, and the Vehicles it crewed
+	// that turn. Forge's Creature.CrewedThisTurn / Card.CrewedThisTurn filter
+	// ("a creature that crewed IT this turn") is source-relative -- IT is the
+	// Vehicle whose trigger or effect carries the spec -- so the association
+	// must be a pairing, not a bare boolean: a creature can crew more than one
+	// Vehicle in a turn (it untaps between crews) and a Vehicle can be crewed
+	// by several creatures (Crew N). Both are folded by events.Apply's Crew
+	// case from the tap-cost payment; the crewedThisTurn filter predicate
+	// (effects/filter.go) matches when CrewedTurn is the live turn and the
+	// spec's source id is in CrewedVehicles. Cleared at TurnChange (a per-turn
+	// fact) and when the permanent leaves the battlefield (CR 400.7: a new
+	// object never carries the old object's crew status). It is a slice, so
+	// CloneDeep backs it independently like BlockedBy.
+	CrewedVehicles []ObjID
+	CrewedTurn     int32
+
 	// preStackEntry* carries a card's entry history only while it is on the
 	// stack. events.Apply captures it before PutOnStack overwrites the public
 	// fields, then restores and clears it for CR 733.1's logged reverse move.
@@ -1668,6 +1685,7 @@ func (o *Object) CloneDeep() Object {
 	c.Targets = append([]Target(nil), o.Targets...)
 	c.Remembered = append([]Target(nil), o.Remembered...)
 	c.BlockedBy = append([]ObjID(nil), o.BlockedBy...)
+	c.CrewedVehicles = append([]ObjID(nil), o.CrewedVehicles...)
 	c.Chosen = append([]Target(nil), o.Chosen...)
 	c.Goads = append([]GoadEffect(nil), o.Goads...)
 	c.ChosenModes = CloneChosenModes(o.ChosenModes)

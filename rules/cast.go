@@ -10297,6 +10297,19 @@ func (e *Engine) emitChoiceCosts(pc *pendingCast) {
 	for _, id := range pc.taps {
 		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
 	}
+	// CR 702.122: the creatures that paid a Crew ability's tap cost crewed the
+	// Vehicle. The crew keyword rides the minted Animate SA as `Keyword$ Crew`
+	// (cards/kw_crew.go), so the tag -- not any card name -- is what marks this
+	// activation: one Crew event per tapped crewer, pairing it with the source
+	// Vehicle (pc.card) for the Creature.CrewedThisTurn filter. The ordinary
+	// tapXType costs of other abilities (Mossbridge Troll's regeneration, the
+	// {T} cost) carry no Crew tag and record nothing.
+	if saHasKeyword(e.pcAbility(pc), "Crew") {
+		for _, id := range pc.taps {
+			e.emit(events.Event{Kind: events.Crew, Obj: id, Player: pc.player,
+				IDs: []state.ObjID{pc.card}})
+		}
+	}
 	for i, id := range pc.blights {
 		if i < len(pc.cost.Blight) {
 			n := pc.cost.Blight[i].N
