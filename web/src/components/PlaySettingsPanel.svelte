@@ -201,8 +201,14 @@
   async function importProfilesFile(input: HTMLInputElement): Promise<void> {
     const file = input.files?.[0];
     if (file === undefined) return;
-    transferNote = logic.importProfilesText(await file.text());
-    input.value = '';
+    try {
+      transferNote = logic.importProfilesText(await file.text());
+    } catch {
+      transferNote = 'Could not read that file.';
+    } finally {
+      // cleared either way, so picking the same file again fires onchange
+      input.value = '';
+    }
   }
 
   /** saveCurrentProfile is the Save button's handler: the typed name, or a default. */
@@ -305,9 +311,8 @@
         <button type="button" class="seg" data-profile-import onclick={() => profileFile?.click()}>Import profiles…</button>
         <input type="file" accept="application/json" hidden bind:this={profileFile} onchange={(e) => importProfilesFile(e.currentTarget)} />
       </div>
-      {#if transferNote !== null}
-        <p class="blurb" data-profile-transfer role="status">{transferNote}</p>
-      {/if}
+      <!-- Mounted empty so a screen reader is already watching it when the first result arrives. -->
+      <p class="blurb" data-profile-transfer role="status">{transferNote ?? ''}</p>
       {#if profileNote !== null}
         <p class="blurb" data-active-profile>{profileNote}</p>
       {/if}
@@ -771,6 +776,9 @@
     margin: var(--sp-1) 0 0;
     color: var(--ink-dim);
     font-size: var(--t-11);
+  }
+  .blurb:empty {
+    margin: 0;
   }
   .row {
     display: flex;

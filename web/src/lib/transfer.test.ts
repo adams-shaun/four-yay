@@ -68,4 +68,29 @@ describe('transfer', () => {
     const got = importKeymap(exportKeymap(k));
     expect('keymap' in got && got.keymap).toEqual(k);
   });
+
+  it('a keymap file whose items is not a plain object is an error, not a silent reset', () => {
+    for (const items of [[], [{ code: 'KeyR' }], null, 'x', 3]) {
+      expect(importKeymap(JSON.stringify({ kind: 'gorge-keymap', version: 1, items }))).toEqual({ error: 'This file is not a gorge settings export.' });
+    }
+  });
+
+  it('an empty keymap file resets to the defaults and says so', () => {
+    const got = importKeymap(JSON.stringify({ kind: 'gorge-keymap', version: 1, items: {} }));
+    expect(got).toEqual({ keymap: defaultKeymap(), note: 'Keyboard shortcuts reset to defaults.' });
+  });
+
+  it('entries a keymap file could not carry are counted in the note', () => {
+    const r = { code: 'KeyR', ctrl: false, shift: false, alt: false };
+    const items = { 'resolve-all': [r], 'no-such-action': [r], 'undo': [{ code: 'CapsLock', ctrl: false, shift: false, alt: false }], 'pass': 'Space' };
+    const got = importKeymap(JSON.stringify({ kind: 'gorge-keymap', version: 1, items }));
+    expect('keymap' in got && got.keymap['resolve-all']).toEqual([r]);
+    expect('keymap' in got && got.keymap['undo']).toEqual(defaultKeymap()['undo']);
+    expect('note' in got && got.note).toBe('Keyboard shortcuts imported. 3 shortcuts could not be read.');
+    const one = importKeymap(JSON.stringify({ kind: 'gorge-keymap', version: 1, items: { 'resolve-all': [r], 'nope': [r] } }));
+    expect('note' in one && one.note).toBe('Keyboard shortcuts imported. 1 shortcut could not be read.');
+    const clean = importKeymap(JSON.stringify({ kind: 'gorge-keymap', version: 1, items: { 'resolve-all': [r] } }));
+    expect('note' in clean && clean.note).toBe('Keyboard shortcuts imported.');
+  });
 });
+

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import type { KeymapStore } from '../lib/keymap.svelte';
-  import { ACTION_GROUPS, ACTION_LABELS, bindingFromEvent, bindingLabel, conflictsFor, MAX_BINDINGS, type KeyAction } from '../lib/keymap';
+  import { ACTION_GROUPS, ACTION_LABELS, bindingFromEvent, bindingLabel, conflictsFor, isModifierOrLockCode, MAX_BINDINGS, type Binding, type KeyAction } from '../lib/keymap';
   import { exportKeymap, importKeymap } from '../lib/transfer';
   import { downloadText } from '../lib/download';
 
@@ -27,8 +27,8 @@
       if (e.key === 'Escape') return done();
       const b = bindingFromEvent(e);
       if (b === null) {
-        // a bare modifier keeps waiting; a reserved chord is refused
-        if (!/^(Shift|Control|Alt|Meta)/.test(e.code)) refused = true;
+        // a bare modifier or lock key keeps waiting; a reserved chord is refused
+        if (!isModifierOrLockCode(e.code)) refused = true;
         return;
       }
       // The store refuses some chords (a duplicate on this action, Escape
@@ -61,14 +61,23 @@
   async function importKeysFile(input: HTMLInputElement): Promise<void> {
     const file = input.files?.[0];
     if (file === undefined) return;
-    const r = importKeymap(await file.text());
-    if ('error' in r) message = r.error;
-    else {
-      store.replace(r.keymap);
-      message = 'Keyboard shortcuts imported.';
+    try {
+      const r = importKeymap(await file.text());
+      if ('error' in r) message = r.error;
+      else {
+        store.replace(r.keymap);
+        message = r.note;
+      }
+    } catch {
+      message = 'Could not read that file.';
+    } finally {
+      // cleared either way, so picking the same file again fires onchange
+      input.value = '';
     }
-    input.value = '';
   }
+
+  /** alwaysOn is Esc on cancel-run: the hard-coded panic key (lib/hotkeys), so removing it would do nothing. */
+  const alwaysOn = (a: KeyAction, b: Binding): boolean => a === 'cancel-run' && b.code === 'Escape';
 
   onDestroy(() => stop?.());
 </script>
@@ -84,10 +93,14 @@
           <span class="lbl">{ACTION_LABELS[a]}</span>
           <span class="caps">
             {#each store.current[a] as b, i (i)}
-              <span class="cap"><kbd>{bindingLabel(b)}</kbd><button type="button" aria-label={`Remove ${bindingLabel(b)} from ${ACTION_LABELS[a]}`} onclick={() => store.remove(a, i)}>×</button></span>
+              {#if alwaysOn(a, b)}
+                <span class="cap"><kbd>{bindingLabel(b)}</kbd><span class="always">(always)</span></span>
+              {:else}
+                <span class="cap"><kbd>{bindingLabel(b)}</kbd><button type="button" aria-label={`Remove ${bindingLabel(b)} from ${ACTION_LABELS[a]}`} onclick={() => store.remove(a, i)}>×</button></span>
+              {/if}
             {/each}
             {#if waiting === a}
-              <span class="wait" aria-live="polite">{refused ? 'That chord is reserved — try another, or Esc' : 'Press a key… (Esc cancels)'}</span>
+              <span class="wait" aria-live="polite">{refused ? 'That chord is reserved or already bound here — try another, or Esc' : 'Press a key… (Esc cancels)'}</span>
             {:else if store.current[a].length < MAX_BINDINGS}
               <button type="button" class="add" onclick={() => capture(a)}>Add key</button>
             {/if}
@@ -103,9 +116,8 @@
   <button type="button" class="reset" data-keys-export onclick={() => downloadText('gorge-keys.json', exportKeymap(store.current))}>Export keys…</button>
   <button type="button" class="reset" data-keys-import onclick={() => keyFile?.click()}>Import keys…</button>
   <input type="file" accept="application/json" hidden bind:this={keyFile} onchange={(e) => importKeysFile(e.currentTarget)} />
-  {#if message !== null}
-    <p class="note" data-keys-transfer role="status">{message}</p>
-  {/if}
+  <!-- Mounted empty so a screen reader is already watching it when the first result arrives. -->
+  <p class="note" data-keys-transfer role="status">{message ?? ''}</p>
 </section>
 
 <style>
@@ -119,4 +131,6 @@
   .warn { grid-column: 1 / -1; color: var(--danger); font-size: 12px; }
   .wait { font-size: 12px; color: var(--ink-dim); }
   .note { font-size: 12px; color: var(--ink-dim); margin: 6px 0 0; }
+  .note:empty { margin: 0; }
+  .always { font-size: 11px; color: var(--ink-dim); margin-left: 4px; }
 </style>

@@ -21,6 +21,21 @@ describe('KeymapEditor', () => {
     expect(h).toMatch(/<input[^>]*type="file"[^>]*accept="application\/json"/);
   });
 
+  it('Esc on cancel-run is always the panic key: no remove button, marked "(always)"', () => {
+    const h = render(KeymapEditor, { props: { store: new KeymapStore(null) } }).html;
+    const row = h.slice(h.indexOf('data-key-action="cancel-run"'), h.indexOf('data-key-action="undo"'));
+    expect(row).toMatch(new RegExp(`${KBD}Esc</kbd>`));
+    expect(row).not.toContain('aria-label="Remove Esc');
+    expect(row).toContain('(always)');
+    // other rows keep their remove buttons
+    expect(h).toContain('aria-label="Remove Space from Pass priority once"');
+  });
+
+  it('the import result line is a live region mounted before it has anything to say', () => {
+    const h = render(KeymapEditor, { props: { store: new KeymapStore(null) } }).html;
+    expect(h).toMatch(/data-keys-transfer[^>]*role="status"|role="status"[^>]*data-keys-transfer/);
+  });
+
   it('warns on a conflict', () => {
     const s = new KeymapStore(null);
     s.replace(withBinding(defaultKeymap(), 'undo', { code: 'Space', ctrl: false, shift: false, alt: false }));

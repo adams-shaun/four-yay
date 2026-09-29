@@ -74,6 +74,18 @@ describe('the Keys editor — mounted', () => {
     await page.close();
   });
 
+  it('a file that cannot be read says so and clears the picker', async () => {
+    const page = await open();
+    await page.evaluate(() => {
+      File.prototype.text = () => Promise.reject(new Error('unreadable'));
+    });
+    const input = page.locator('[data-keymap-editor] input[type="file"]');
+    await input.setInputFiles({ name: 'keys.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
+    await expect.poll(() => page.locator('[data-keys-transfer]').textContent()).toBe('Could not read that file.');
+    expect(await input.inputValue()).toBe('');
+    await page.close();
+  });
+
   it('a click outside the root still counts as outside', async () => {
     const page = await open();
     await page.locator('#board').dispatchEvent('click');

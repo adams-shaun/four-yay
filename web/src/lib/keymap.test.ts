@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  bindingFromEvent, bindingLabel, conflictsFor, defaultKeymap, eventCode, KEY_ACTIONS, loadKeymap, matchKeymap,
+  bindingFromEvent, bindingLabel, conflictsFor, defaultKeymap, eventCode, isModifierOrLockCode, KEY_ACTIONS, loadKeymap, matchKeymap,
   saveKeymap, validateKeymap, withBinding, withoutBinding, KEYMAP_KEY,
 } from './keymap';
 import { hotkeyAction } from './hotkeys';
@@ -119,4 +119,20 @@ describe('keymap', () => {
     expect(got?.undo).toEqual(defaultKeymap().undo);
     expect(got?.['cancel-run'].map(bindingLabel)).toEqual(['Esc', 'Q']);
   });
+
+  it('modifier and lock keys are never bindings: capture refuses them, validation drops them', () => {
+    for (const code of ['ShiftLeft', 'ControlRight', 'AltLeft', 'MetaRight', 'OSLeft', 'OS', 'CapsLock', 'NumLock', 'ScrollLock', 'AltGraph', 'Fn', 'ContextMenu']) {
+      expect(isModifierOrLockCode(code)).toBe(true);
+      expect(bindingFromEvent({ key: code, code, ctrlKey: false, shiftKey: false, metaKey: false })).toBeNull();
+      const k = validateKeymap({ version: 1, overrides: { 'resolve-all': [{ code, ctrl: false, shift: false, alt: false }] } });
+      expect(k?.['resolve-all']).toEqual([]);
+    }
+    for (const code of ['KeyA', 'Digit1', 'Space', 'Enter', 'F1', 'Numpad1']) expect(isModifierOrLockCode(code)).toBe(false);
+  });
+
+  it('validateKeymap dedupes an action\'s repeated chord', () => {
+    const x = { code: 'KeyR', ctrl: false, shift: false, alt: false };
+    expect(validateKeymap({ version: 1, overrides: { 'resolve-all': [x, x] } })?.['resolve-all']).toEqual([x]);
+  });
 });
+

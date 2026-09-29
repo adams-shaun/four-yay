@@ -7,7 +7,7 @@
  */
 import { listProfiles, MAX_PROFILE_NAME, normaliseName, storeSave, type ProfileStore } from './profiles';
 import { validate } from './playsettings';
-import { overridesOf, validateKeymap, type Keymap } from './keymap';
+import { overridesOf, readKeymap, type Keymap } from './keymap';
 
 type Kind = 'gorge-flow' | 'gorge-keymap';
 const WHAT: Record<Kind, string> = { 'gorge-flow': 'flow profiles', 'gorge-keymap': 'keyboard shortcuts' };
@@ -72,10 +72,21 @@ export function exportKeymap(k: Keymap): string {
   return JSON.stringify({ kind: 'gorge-keymap', version: 1, items: overridesOf(k) }, null, 2);
 }
 
-/** importKeymap reads a gorge-keymap file onto the defaults through validateKeymap. */
-export function importKeymap(text: string): { keymap: Keymap } | { error: string } {
+/**
+ * importKeymap reads a gorge-keymap file onto the defaults through the
+ * store's own validation (readKeymap) and says what happened in plain words.
+ * `items` must be a plain object: an array or any other shape is not an
+ * export (it would otherwise read as "no overrides" and silently reset every
+ * key). An empty object is a real "all defaults" file.
+ */
+export function importKeymap(text: string): { keymap: Keymap; note: string } | { error: string } {
   const env = envelope(text, 'gorge-keymap');
   if ('error' in env) return env;
-  const k = validateKeymap({ version: 1, overrides: env.items });
-  return k === null ? { error: 'This file is not a gorge settings export.' } : { keymap: k };
+  const items = env.items;
+  if (typeof items !== 'object' || items === null || Array.isArray(items)) return { error: 'This file is not a gorge settings export.' };
+  const got = readKeymap({ version: 1, overrides: items });
+  if (got === null) return { error: 'This file is not a gorge settings export.' };
+  if (Object.keys(items).length === 0) return { keymap: got.keymap, note: 'Keyboard shortcuts reset to defaults.' };
+  const lost = got.dropped === 0 ? '' : ` ${got.dropped} ${got.dropped === 1 ? 'shortcut' : 'shortcuts'} could not be read.`;
+  return { keymap: got.keymap, note: `Keyboard shortcuts imported.${lost}` };
 }

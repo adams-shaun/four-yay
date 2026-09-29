@@ -91,12 +91,21 @@ export function eventCode(e: { code?: string; key: string }): string {
 }
 
 const same = (x: Binding, y: Binding) => x.code === y.code && x.ctrl === y.ctrl && x.shift === y.shift && x.alt === y.alt;
-const MODIFIER_CODE = /^(Shift|Control|Alt|Meta|OS)(Left|Right)?$/;
+const MODIFIER_OR_LOCK = /^(?:(?:Shift|Control|Alt|Meta|OS)(?:Left|Right)?|CapsLock|NumLock|ScrollLock|AltGraph|Fn|FnLock|ContextMenu)$/;
+
+/**
+ * isModifierOrLockCode is every key that is never a binding on its own: the
+ * modifiers (either side, OS included), the lock keys and AltGraph/Fn/
+ * ContextMenu. Capture keeps waiting past them; validation drops them.
+ */
+export function isModifierOrLockCode(code: string): boolean {
+  return MODIFIER_OR_LOCK.test(code);
+}
 
 function validBinding(v: unknown): v is Binding {
   if (typeof v !== 'object' || v === null) return false;
   const o = v as Record<string, unknown>;
-  if (typeof o.code !== 'string' || !/^[A-Za-z0-9]{1,24}$/.test(o.code) || MODIFIER_CODE.test(o.code)) return false;
+  if (typeof o.code !== 'string' || !/^[A-Za-z0-9]{1,24}$/.test(o.code) || isModifierOrLockCode(o.code)) return false;
   if (typeof o.ctrl !== 'boolean' || typeof o.shift !== 'boolean' || typeof o.alt !== 'boolean') return false;
   return !(o.ctrl && !o.shift);
 }
@@ -138,19 +147,39 @@ export function withoutBinding(k: Keymap, action: KeyAction, i: number): Keymap 
   return { ...k, [action]: k[action].filter((_, j) => j !== i) };
 }
 
-/** validateKeymap reads a stored {version:1, overrides} blob onto the defaults; unknown actions and bad bindings are dropped, never fatal. */
-export function validateKeymap(v: unknown): Keymap | null {
+/**
+ * readKeymap reads a stored {version:1, overrides} blob onto the defaults;
+ * unknown actions and bad bindings are dropped, never fatal, and `dropped`
+ * counts the override entries that did not survive (a partly-bad entry
+ * keeps the action's default and counts once). A chord repeated within one
+ * action is kept once.
+ */
+export function readKeymap(v: unknown): { keymap: Keymap; dropped: number } | null {
   if (typeof v !== 'object' || v === null) return null;
   const o = v as Record<string, unknown>;
   if (o.version !== 1 || typeof o.overrides !== 'object' || o.overrides === null) return null;
   const k = defaultKeymap();
+  let dropped = 0;
   for (const [a, list] of Object.entries(o.overrides as Record<string, unknown>)) {
-    if (!(KEY_ACTIONS as readonly string[]).includes(a) || !Array.isArray(list)) continue;
+    if (!(KEY_ACTIONS as readonly string[]).includes(a) || !Array.isArray(list)) {
+      dropped++;
+      continue;
+    }
     const good = list.filter((x): x is Binding => validBinding(x) && !escapeMisuse(a, x)).slice(0, MAX_BINDINGS);
-    if (good.length !== list.length) continue; // a partly-bad entry keeps the default
-    k[a as KeyAction] = good.map((x) => ({ code: x.code, ctrl: x.ctrl, shift: x.shift, alt: x.alt }));
+    if (good.length !== list.length) {
+      dropped++; // a partly-bad entry keeps the default
+      continue;
+    }
+    const kept: Binding[] = [];
+    for (const x of good) if (!kept.some((y) => same(x, y))) kept.push({ code: x.code, ctrl: x.ctrl, shift: x.shift, alt: x.alt });
+    k[a as KeyAction] = kept;
   }
-  return k;
+  return { keymap: k, dropped };
+}
+
+/** validateKeymap is readKeymap's keymap alone: the stored blob's validator. */
+export function validateKeymap(v: unknown): Keymap | null {
+  return readKeymap(v)?.keymap ?? null;
 }
 
 /** overridesOf is the difference from defaults: only changed actions are stored or exported. */

@@ -110,6 +110,11 @@ describe('PlaySettingsPanel — profile export/import', () => {
     expect(html).toMatch(/<input[^>]*type="file"[^>]*accept="application\/json"/);
   });
 
+  it('the import result line is a live region mounted before it has anything to say', () => {
+    const html = panel(new SeatPanelState('t1', 1, ctx, null));
+    expect(html).toMatch(/data-profile-transfer[^>]*role="status"/);
+  });
+
   it('importProfilesText merges without switching the active profile and says what happened', () => {
     const from = new SeatPanelState('t1', 1, ctx, null);
     from.saveProfile('Mine');
@@ -425,6 +430,18 @@ describe('PlaySettingsPanel — real clicks in a real browser (PlaySettingsPanel
     });
   }
 
+
+  it('a profiles file that cannot be read says so and clears the picker', async () => {
+    const page = await open();
+    await page.evaluate(() => {
+      File.prototype.text = () => Promise.reject(new Error('unreadable'));
+    });
+    const input = page.locator('[data-profile-import] + input[type="file"]');
+    await input.setInputFiles({ name: 'flow.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
+    await expect.poll(() => page.locator('[data-profile-transfer]').textContent()).toBe('Could not read that file.');
+    expect(await input.inputValue()).toBe('');
+    await page.close();
+  });
   it('clicking a cell cycles it off → smart → forced → off through the component handler', async () => {
     const page = await open();
     const cell = page.locator('[data-step-cell="upkeep:yours"]');
