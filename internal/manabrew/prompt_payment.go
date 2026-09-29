@@ -81,6 +81,13 @@ func (t *Translator) promptPayment(d *decision.Decision, v *view.View) (mb.Promp
 // legacy pre-announce window (rules/cast.go's manaWindowAsk) never does, but
 // always offers exactly the pair "activate" (a per-source activation) and
 // "done" (finalise), the one shape that Kind combination can mean.
+//
+// paymentCostString renders the RESOLVED owed amount, not the printed pips: a
+// phyrexian/hybrid/snow/twobrid cast shows the mana chosen (e.g. {W/P} -> W),
+// because decision.PaymentCost is a Generic + ManaAmount total with no field
+// for the printed symbol. That is the correct value for a payment prompt
+// (what is owed now); preserving the printed spelling would need a new wire
+// field and is out of scope here.
 func paymentCostString(c decision.PaymentCost) string {
 	var parts []string
 	if c.Generic > 0 {

@@ -2194,7 +2194,17 @@ func (e *Engine) SpellEffectiveCost(p state.PlayerID, id state.ObjID) string {
 		return ""
 	}
 	cost := e.offerCostFor(p, id, base, spellScope(""))
-	if cost.X != 0 || formatCost(cost) == f.ManaCost {
+	if cost.X != 0 {
+		return ""
+	}
+	// Compare NORMALIZED costs on both sides: f.ManaCost is the raw printed
+	// string, whose colour order / pip spelling formatCost may re-render
+	// identically-in-meaning but differently in text ({2 G B} -> "2 B G").
+	// A raw-vs-normalized compare would then report a spurious "effective"
+	// cost for a card no static touches. Normalizing the base first makes an
+	// unchanged card read unchanged however its printed string is spelled,
+	// while a real RaiseCost/ReduceCost still differs after normalization.
+	if formatCost(cost) == formatCost(base) {
 		return ""
 	}
 	return formatCost(cost)
