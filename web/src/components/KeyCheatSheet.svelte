@@ -17,11 +17,12 @@
   }
 
   function onWindowKey(e: KeyboardEvent): void {
-    // defaultPrevented: the table's hotkey listener already acted on this
-    // press — the show-keys chord that OPENED the sheet — so it must not
-    // also close it.
-    if (!open || e.defaultPrevented || e.metaKey) return;
-    if (e.key === 'Escape' || matchKeymap(keymap, e) === 'show-keys') {
+    if (!open || e.metaKey) return;
+    // Escape closes whatever else consumed it (the route's Options listener
+    // always does). The show-keys chord checks defaultPrevented: the table's
+    // hotkey listener acted on the press that OPENED the sheet, and that
+    // press must not also close it.
+    if (e.key === 'Escape' || (!e.defaultPrevented && matchKeymap(keymap, e) === 'show-keys')) {
       e.preventDefault();
       onClose();
     }

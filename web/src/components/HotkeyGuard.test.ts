@@ -249,4 +249,26 @@ describe('the hotkey guard against an open modal — mounted', () => {
     await fresh.close();
     await page.close();
   });
+
+  it('? opens the shortcut sheet and stays open; ? again (focus elsewhere) and a backdrop click close it', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    await page.locator('#fixture [data-undo]').waitFor();
+    const sheet = page.locator('[aria-labelledby="keys-title"]');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Shift+Slash');
+    await sheet.first().waitFor();
+    await page.waitForTimeout(50);
+    expect(await sheet.count()).toBeGreaterThan(0);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Shift+Slash');
+    await expect.poll(() => sheet.count()).toBe(0);
+
+    await page.keyboard.press('Shift+Slash');
+    await sheet.first().waitFor();
+    await page.locator('[data-keys-backdrop]').first().click({ position: { x: 5, y: 5 } });
+    await expect.poll(() => sheet.count()).toBe(0);
+    await page.close();
+  });
 });
+

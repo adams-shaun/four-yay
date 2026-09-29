@@ -33,6 +33,12 @@ win.__outside = 0;
 window.addEventListener('click', (e) => {
   if (clickedOutside(e, root)) win.__outside += 1;
 });
+// Table.svelte's window keydown runs before the sheet's (it is registered
+// first) and always consumes Escape for the Options panel; the sheet must
+// still close on it.
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') e.preventDefault();
+});
 const editor = mount(KeymapEditor, { target: root, props: { store } });
 win.__unmountEditor = () => unmount(editor);
 
