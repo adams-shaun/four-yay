@@ -665,8 +665,9 @@ type pendingCast struct {
 	// preserves, so rules/altcast.go's entry hook can place the permanent
 	// tapped and attacking that same defender. Plain data, so a Clone copies
 	// it.
-	sneakDefender    state.PlayerID
-	sneakHasDefender bool
+	sneakDefender       state.PlayerID
+	sneakDefenderObject state.ObjID
+	sneakHasDefender    bool
 }
 
 // subCounterPay is one counter removed to pay a SubCounter cost part: the
@@ -8442,6 +8443,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			if pc.mode == "sneak" {
 				if o := e.G.Obj(o.Obj); o != nil {
 					pc.sneakDefender = o.Attacking
+					pc.sneakDefenderObject = o.AttackingBattle
 					pc.sneakHasDefender = true
 				}
 			}
@@ -9714,8 +9716,12 @@ func (e *Engine) pushCast() bool {
 	// sneak cast that actually paid the Return cost emits; every unrelated
 	// cast stays byte-identical.
 	if pc.sneakHasDefender {
+		ids := []state.ObjID{state.PlayerRef(pc.sneakDefender)}
+		if pc.sneakDefenderObject != 0 {
+			ids = append(ids, pc.sneakDefenderObject)
+		}
 		e.emit(events.Event{Kind: events.Choose, Obj: pc.card, Player: pc.player,
-			Counter: "sneak-defender", IDs: []state.ObjID{state.PlayerRef(pc.sneakDefender)}})
+			Counter: "sneak-defender", IDs: ids})
 	}
 	e.deferCastTrigger = false
 	// CR 722.3c: the prepared permanent loses its designation "at the time

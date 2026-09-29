@@ -162,11 +162,11 @@ func (e *Engine) sneakCosts(p state.PlayerID, id state.ObjID) []struct {
 // "remembered" PlayerRef from an unrelated effect) would be mistaken for the
 // sneak defender and the permanent would enter attacking the wrong seat.
 // ok is false when no sneak defender was recorded.
-func sneakDefenderFrom(o *state.Object) (state.PlayerID, bool) {
+func sneakDefenderFrom(o *state.Object) (state.PlayerID, state.ObjID, bool) {
 	if o == nil || !o.SneakDefenderValid {
-		return 0, false
+		return 0, 0, false
 	}
-	return o.SneakDefender, true
+	return o.SneakDefender, o.SneakDefenderObject, true
 }
 
 // sneakEnter is the CR 702.190b entry rider: a permanent whose sneak cost was
@@ -179,10 +179,14 @@ func sneakDefenderFrom(o *state.Object) (state.PlayerID, bool) {
 // cannot place the attack.
 func (e *Engine) sneakEnter(id state.ObjID, controller state.PlayerID) {
 	o := e.G.Obj(id)
-	defender, ok := sneakDefenderFrom(o)
+	defender, battle, ok := sneakDefenderFrom(o)
 	if !ok {
 		return
 	}
+	ids := []state.ObjID{state.PlayerRef(defender)}
+	if battle != 0 {
+		ids = append(ids, battle)
+	}
 	e.emit(events.Event{Kind: events.TokenAttacks, Obj: id, Player: controller,
-		IDs: []state.ObjID{state.PlayerRef(defender)}, Text: "entered attacking"})
+		IDs: ids, Text: "entered attacking"})
 }
