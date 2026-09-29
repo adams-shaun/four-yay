@@ -255,6 +255,10 @@ var addedAfterTheSplit = []string{
 	// existed before the mode did -- but the pre-split switch had no
 	// Foretell arm, so neither shape could have been dispatched through it.
 	"Foretell",
+	// agent-20260929T010346Z-ae55d89d: ElementalBend uses a new completed
+	// bend-action marker; the pre-split switch had no way to distinguish the
+	// four actions' otherwise ordinary state-change events.
+	"ElementalBend",
 }
 
 func allRegisteredModeNames() []string {

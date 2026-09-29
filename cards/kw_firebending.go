@@ -38,8 +38,10 @@ func kwFirebending(f *Face, i int, k, head, param string, has func(kind, line st
 	if n == "" {
 		return
 	}
+	bendSVar := "__kwFirebendingMarker"
+	f.setSVar(bendSVar, "DB$ ElementalBend | Verb$ fire")
 	f.addKeywordTrigger(head, k, "Mode$ Attacks | ValidCard$ Card.Self | TriggerDescription$ Firebending",
-		"DB$ Mana | Produced$ R | Amount$ "+n+" | PersistentUntilEndOfCombat$ True", has)
+		"DB$ Mana | Produced$ R | Amount$ "+n+" | PersistentUntilEndOfCombat$ True | SubAbility$ "+bendSVar, has)
 }
 
 func init() { registerKeyword(kwFirebending, "Firebending") }

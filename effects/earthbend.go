@@ -57,6 +57,7 @@ func effEarthbend(h Host, c *Ctx, sa *cards.SA) {
 		permanent:  true,
 		endOnLeave: true,
 	}
+	bent := false
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			continue
@@ -70,6 +71,10 @@ func effEarthbend(h Host, c *Ctx, sa *cards.SA) {
 			putCounterSplit(h, n, "P1P1", []state.Target{{Obj: o.ID}})
 		}
 		registerEarthbendReturn(h, c, o.ID)
+		bent = true
+	}
+	if bent {
+		h.Emit(events.Event{Kind: events.ElementalBend, Obj: c.Source, Player: c.Controller, Text: "earth"})
 	}
 }
 

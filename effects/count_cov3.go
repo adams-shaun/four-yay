@@ -195,6 +195,13 @@ func cov3BranchHolds(h Host, c *Ctx, pred string, depth int) (holds, ok bool) {
 	case "FatefulHour":
 		// Five or less life.
 		return valid && g.Players[you].Life <= 5, true
+	case "AllFourBend":
+		if provider, ok := h.(interface {
+			AllFourBendThisTurn(p state.PlayerID) bool
+		}); ok {
+			return valid && provider.AllFourBendThisTurn(you), true
+		}
+		return false, false
 	case "CommittedCrimeThisTurn":
 		// CR 700.13: the resolving controller targeted an opponent, a
 		// permanent or a spell/ability an opponent controls, or a card in an
