@@ -149,25 +149,24 @@ describe('auto-pass follows the seat preference, not the table capability', () =
     postIntentMock.mockResolvedValue(undefined);
   });
 
-  it('own spell on the stack: capability on + preference OFF keeps the historical own-stack stop; preference ON resolves it', async () => {
+  it('own spell on the stack resolves with capability on and either auto-pay preference', async () => {
     const ownSpell = mainView([{ id: 9, controller: 0, kind: 'spell' }]);
+    expect(ownSpell.stack.at(-1)).toMatchObject({ id: 9, controller: 0, kind: 'spell' });
     const off = seat({ auto: true, autoPay: false, smart: ['main1'] });
     expect(off.autoManaAvailable).toBe(true);
     off.adoptView(priority(21));
     off.considerAuto(ownSpell);
-    await settle(() => !off.busy);
-    // No payment-table own-object pass: the smart Main 1 stop fires, as on a
-    // table without the capability.
-    expect(postIntentMock).not.toHaveBeenCalled();
-    expect(off.note).toMatchObject({ kind: 'waiting', reason: 'stop-set' });
-    expect(off.active?.seq).toBe(21);
+    await settle(() => off.postedSeq === 21);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+    expect(postIntentMock.mock.calls[0][2]).toEqual({ seq: 21, player: 0, choices: [1] });
 
+    postIntentMock.mockClear();
     const on = seat({ auto: true, autoPay: true, smart: ['main1'] });
     on.adoptView(priority(22));
     on.considerAuto(ownSpell);
     await settle(() => on.postedSeq === 22);
     expect(postIntentMock).toHaveBeenCalledTimes(1);
-    // The pass option by its own wire index; nothing about a plan.
+    // Both preference values submit the pass option by its wire index.
     expect(postIntentMock.mock.calls[0][2]).toEqual({ seq: 22, player: 0, choices: [1] });
   });
 

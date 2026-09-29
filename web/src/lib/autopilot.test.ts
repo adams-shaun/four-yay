@@ -395,25 +395,21 @@ describe('decide', () => {
 
   // --- stack rules: own objects ---
   //
-  // Own-spell auto-resolution is keyed on the SEAT's auto-pay preference
-  // (decide()'s autoPayMana), never on the table's auto_mana capability (spec
-  // §8, aph-web-autopass): decide() is not even told the capability, so "the
-  // table offers auto-pay but this player never turned it on" is exactly the
-  // preference-off call below. The panel-level wiring (capability on,
-  // preference off) is pinned in seatpanel.payment.test.ts.
+  // Own-spell resolution is governed by the player's ownObjects setting,
+  // never by the auto-pay preference or table capability. The panel-level
+  // wiring is pinned in seatpanel.payment.test.ts.
 
-  it('auto-pay preference on: my own spell on top resolves through the Main 1 smart stop (ownObjects never)', () => {
+  it('ownObjects never resolves my own spell through a Main 1 smart stop with either auto-pay preference', () => {
     const d = priority(RESPONDABLE);
-    expect(decide({ decision: d, view: view(0, 'main1', [stackEntry(9, 0, 'spell')]), seat: 0, settings: defaultSettings(), autoPayMana: true }))
-      .toEqual({ act: 'pass', index: 0 });
-  });
-
-  it('auto-pay preference off: an own spell keeps the capability-less smart-step stop', () => {
-    const d = priority(RESPONDABLE);
+    const s = defaultSettings();
     const v = view(0, 'main1', [stackEntry(9, 0, 'spell')]);
-    expect(run(d, v)).toEqual({ act: 'stop', reason: 'stop-set' });
-    expect(decide({ decision: d, view: v, seat: 0, settings: defaultSettings(), autoPayMana: false }))
-      .toEqual({ act: 'stop', reason: 'stop-set' });
+    expect(v.stack.at(-1)).toMatchObject({ id: 9, controller: 0, kind: 'spell' });
+    expect(s.ownObjects).toBe('never');
+    expect(s.steps.yours.main1).toBe('smart');
+    for (const autoPayMana of [false, true]) {
+      expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana }))
+        .toEqual({ act: 'pass', index: 0 });
+    }
   });
 
   it('full-control: my own spell on top + respondable stops (ownObjects if-respondable)', () => {
@@ -426,20 +422,28 @@ describe('decide', () => {
     expect(run(d, view(0, 'draw', [stackEntry(9, 0, 'spell')]), s)).toEqual({ act: 'stop', reason: 'own-object' });
   });
 
-  it('auto-pay preference on: own object on top with nothing to respond with passes even through a forced step (ownObjects if-respondable)', () => {
+  it('ownObjects if-respondable passes without a response through a forced step, regardless of auto-pay preference', () => {
     const d = priority(ONLY_MANA);
-    // With the preference on, the own-object setting decides the whole
-    // window. With no response, "Stop if I can respond" passes; a forced step
-    // must not turn it into an unexpected second own-object stop.
     const s = withSteps('yours', { draw: 'forced' });
     s.ownObjects = 'if-respondable';
     const v = view(0, 'draw', [stackEntry(9, 0, 'ability')]);
-    expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: true }))
-      .toEqual({ act: 'pass', index: 1 });
-    // Preference off: the capability-less policy, where the forced step rule
-    // still owns the window.
+    expect(v.stack.at(-1)).toMatchObject({ id: 9, controller: 0, kind: 'ability' });
+    expect(respondableFor(v, 0, d)).toBe(false);
+    for (const autoPayMana of [false, true]) {
+      expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana }))
+        .toEqual({ act: 'pass', index: 1 });
+    }
+  });
+
+  it('ownObjects if-respondable still stops on an own spell when a response is available', () => {
+    const d = priority(RESPONDABLE);
+    const s = defaultSettings();
+    s.ownObjects = 'if-respondable';
+    const v = view(0, 'main1', [stackEntry(9, 0, 'spell')]);
+    expect(v.stack.at(-1)).toMatchObject({ id: 9, controller: 0, kind: 'spell' });
+    expect(respondableFor(v, 0, d)).toBe(true);
     expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: false }))
-      .toEqual({ act: 'stop', reason: 'stop-set' });
+      .toEqual({ act: 'stop', reason: 'own-object' });
   });
 
   // --- step rules ---
@@ -633,9 +637,9 @@ describe('decide', () => {
               // Both modes must hold the structural invariant: a pass verdict
               // always points at a pass option. On the ffwd path the stack
               // rules are skipped, so the stack branch is reachable as a pass.
-              // The auto-pay preference adds the own-object pass branch and
-              // the planned-cast arm (the decision carries a plan when the
-              // preference is on), so it is a dimension of the property too.
+              // The auto-pay preference affects the planned-cast arm (the
+              // decision carries a plan when it is on), so it is a dimension
+              // of the property too.
               for (const ffwd of [false, true]) {
                 for (const autoPayMana of [false, true]) {
                   const d = autoPayMana ? { ...priority(list), payment_actions: [PLANNED_ACTION] } : priority(list);

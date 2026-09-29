@@ -757,11 +757,12 @@ floor tests must treat a priority decision that carries a payment action with
 at least one plan as actionable, independent of whether
 `potential_actions` also lists the card. While the preference is off, both
 behave exactly as on a table without the capability. Own-spell resolution
-under normal Auto (the `decide()` own-object branch that passes on payment-plan
-tables) is keyed on the seat preference, not on the table capability: a player
-who never turns auto-pay on keeps the historical own-stack stops. Merely
-toggling must not auto-submit a cast or release an explicitly held priority
-window.
+under normal Auto (the `decide()` own-object branch) is governed by the player's
+`ownObjects` setting, never by the table capability nor the auto-pay
+preference: with "Don't stop" the seat's own object resolves before the step
+rules are consulted; with "Stop if I can respond" it stops only when the seat
+has a response. Step stops resume once it has resolved. Merely toggling must not
+auto-submit a cast or release an explicitly held priority window.
 
 An external agent receives the same extension and submits the same Payment
 selector. No special engine object, privileged planner call or game-wide mode is

@@ -396,15 +396,11 @@ export function decide(args: {
    * autoPayMana is the SEAT's auto-pay preference (SeatPanelState.autoPayMana),
    * never the table's auto_mana capability: the capability only makes the
    * switch available, and a player who never turns it on gets exactly the
-   * capability-less policy (spec §8 as amended 2026-09-26). While it is on it
-   * reaches this classification in two places, and nowhere else:
-   *  - the actionable test (actionables()' planned arm): a payment action
-   *    carrying a plan is a real play, so the 'smart' step rule and the
-   *    own-turn main-phase floor stop for a plan-only cast exactly as they
-   *    stop for an offered cast option;
-   *  - the own-object branch of the stack rules: normal Auto resolves the
-   *    seat's own object unless the player holds priority there (ownObjects
-   *    'if-respondable').
+   * capability-less policy (spec §8 as amended 2026-09-26). It reaches this
+   * classification only through actionables()' planned arm: a payment action
+   * carrying a plan is a real play, so the 'smart' step rule and the own-turn
+   * main-phase floor stop for a plan-only cast exactly as they stop for an
+   * offered cast option.
    * It is not a pass policy of its own: a window merely CARRYING a plan is not
    * held for that reason alone (no blanket guard; see SeatPanelState.derivePass).
    */
@@ -463,18 +459,13 @@ export function decide(args: {
         // 'never' (and a rule the arms above did not meet) falls through.
       }
     } else if (baselineStack === null) {
-      // The seat's own object on top. Holding priority there ("Stop if I can
-      // respond", ownObjects 'if-respondable') wins whatever the auto-pay
-      // preference says. Otherwise, with the seat's auto-pay preference ON,
-      // normal Auto resolves the own object instead of consulting the step
-      // rules below. The PREFERENCE keys this, not the table's auto_mana
-      // capability (spec §8): with it off -- including on a capability table
-      // whose player never turned auto-pay on -- the historical own-stack and
-      // step stops apply exactly as on a table without the capability.
+      // The seat's own object on top is governed by ownObjects, independent
+      // of the auto-pay preference: stop only when 'if-respondable' has a
+      // response; otherwise pass so the object resolves before step stops.
       if (settings.ownObjects === 'if-respondable' && respondableFor(view, seat, decision)) {
         return { act: 'stop', reason: 'own-object' };
       }
-      if (autoPayMana) return { act: 'pass', index: pass.index };
+      return { act: 'pass', index: pass.index };
     }
   }
 
