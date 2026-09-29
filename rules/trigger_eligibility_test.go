@@ -166,6 +166,14 @@ func TestTriggerEventInterestMapping(t *testing.T) {
 			// mask's reach, so the conservative catch-all is the honest
 			// mapping (the SearchedLibrary shape).
 			want = cards.TriggerInterestAny
+		case events.SkipTurn, events.ControlPlayerChange:
+			// CR 500.9 and CR 720 bookkeeping: both are grants/consumption
+			// read back through state (SkipTurns, and ControlledBy/
+			// ControlArmedTurn), never a trigger mode, so both map to zero.
+			// ControlPlayerChange joins SkipTurn in eventTriggerInterest's
+			// irrelevant list (findings-t2 MAJOR: appending the kind without
+			// classifying it fell to the catch-all and failed this mapping).
+			want = 0
 		}
 		if got := eventTriggerInterest(kind); got != want {
 			t.Fatalf("kind %s interest = %x, want %x", kind, got, want)

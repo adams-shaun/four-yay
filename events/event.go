@@ -1058,6 +1058,15 @@ const (
 	// SkipTurn records grants and consumption of skipped turns (CR 500.9).
 	// Appended to preserve every earlier event ordinal.
 	SkipTurn
+	// ControlPlayerChange grants or ends CR 720's control of one player by
+	// another. Player is the controlling seat and IDs[0] the controlled seat.
+	// Amount is +1 for a grant and -1 for the expiry at the end of the
+	// controlled player's next turn. Apply folds it into
+	// state.Game.ControlledBy/ControlArmedTurn, so a log-only reconstruction
+	// re-derives the same control interval the live match held. Appended after
+	// SkipTurn, following every prior Kind's append-only precedent, so no
+	// earlier ordinal, hash chain or golden replay is affected.
+	ControlPlayerChange
 	// Crew records one CR 702.122 crew action (the `K:Crew` keyword, task
 	// crewedthisturn1): Obj is the CREWING creature (one of the creatures the
 	// crew cost tapped), Player its controller, and IDs[0] the Vehicle that
@@ -1067,9 +1076,9 @@ const (
 	// source-relative filter reads. Apply folds the (CrewedTurn, CrewedVehicles)
 	// pairing into state.Object; TurnChange and the leaving-the-battlefield
 	// Move clear it. One event per crewing creature, so a Crew N action emits
-	// N of them. Appended here, after SkipTurn, following every prior Kind's
-	// own append-only precedent, so no earlier ordinal, hash chain or golden
-	// replay is affected.
+	// N of them. Appended here, after ControlPlayerChange, following every
+	// prior Kind's own append-only precedent, so no earlier ordinal, hash
+	// chain or golden replay is affected.
 	Crew
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
@@ -1220,7 +1229,7 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
 	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
 	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
-	"initiative_change", "skip_turn", "crew"}
+	"initiative_change", "skip_turn", "control_player_change", "crew"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

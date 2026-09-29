@@ -161,6 +161,15 @@ func Describe(g *state.Game, ev events.Event) string {
 		return player(g, ev.Player) + " becomes the starting player"
 	case events.ControlChange:
 		return player(g, ev.Player) + " gains control of " + obj(g, ev.Obj)
+	case events.ControlPlayerChange:
+		// CR 720: Player is the controlling seat and IDs[0] the controlled
+		// seat. A +1 grant names who now controls whom; the -1 expiry is the
+		// control ending at the end of the controlled player's next turn.
+		controlled := player(g, state.PlayerID(firstID(ev.IDs)))
+		if ev.Amount < 0 {
+			return player(g, ev.Player) + " no longer controls " + controlled
+		}
+		return player(g, ev.Player) + " controls " + controlled + " during their next turn"
 	case events.Goad:
 		return obj(g, ev.Obj) + " is goaded by " + player(g, ev.Player)
 	case events.PlayerCounterChange:

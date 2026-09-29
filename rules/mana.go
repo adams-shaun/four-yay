@@ -21,6 +21,10 @@ import (
 type CostPart struct {
 	N    int32
 	Spec string
+	// Referent is a source-relative object name bound by a granted ability.
+	// For Exile<N/OriginalHost>, this is the grantor rather than the recipient
+	// permanent that carries the activated ability.
+	Referent state.ObjID
 	// Zone is the zone an Exile cost part pays from: ZHand for an
 	// ExileFromHand token (the default zero value), ZGraveyard for an
 	// ExileFromGrave or ExileAnyGrave token. Sac/Discard/SubCounter parts
