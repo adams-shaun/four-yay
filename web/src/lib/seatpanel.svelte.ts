@@ -3,6 +3,9 @@ import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
 import { isSearchPick } from './search';
 import { isNamePick } from './name-pick';
+import { isDiscardPick } from './discard';
+import { manaWindow } from './announcepay';
+import { isPlainManualTap } from './manualmana';
 import type { SeatCtx } from './seat';
 import { checkBreakpoints, type BreakpointHit } from './breakpoints';
 import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
@@ -340,6 +343,62 @@ export function mulliganPhase(d: Decision | null): MulliganPhase {
  */
 export function answersByToggle(d: Decision | null): boolean {
   return d !== null && (d.kind === 'arrange' || mulliganPhase(d)?.phase === 'bottom');
+}
+
+/**
+ * genericListOptions is the generic option list's rows, in order: SeatPanel's
+ * fallback layout draws exactly these as option buttons. It leaves out what
+ * the panel draws elsewhere or hides — concede, the pass/resolve `primary`
+ * (its own button), a cast whose payment action stands in for it
+ * (`paymentBases`), and plain manual taps while Auto Mana hides them.
+ */
+export function genericListOptions(
+  d: Decision,
+  primary: Option | null,
+  paymentBases: ReadonlySet<number>,
+  hideManualMana: boolean,
+): Option[] {
+  return d.options.filter((opt) =>
+    !isConcede(opt)
+    && opt.index !== primary?.index
+    && !paymentBases.has(opt.index)
+    && !(hideManualMana && isPlainManualTap(opt)));
+}
+
+/** NO_PAYMENT_BASES is the empty paymentBases a non-priority decision always has. */
+const NO_PAYMENT_BASES: ReadonlySet<number> = new Set<number>();
+
+/**
+ * pickableInOrder is the pick-N hotkeys' ALLOWLIST: true only when the
+ * decision renders through a SeatPanel layout whose on-screen order is
+ * exactly d.options with nothing drawn elsewhere, so digit N names the Nth
+ * option the player sees. It mirrors the panel's layout chain, in the
+ * panel's precedence order:
+ *
+ * - the mulligan keep and bottom rows (mulliganPhase non-null): both iterate
+ *   d.options unchanged;
+ * - the arrange row (kind 'arrange'): iterates d.options unchanged;
+ * - the discard row (isDiscardPick): iterates d.options unchanged;
+ * - the library-search grid (isSearchPick), the name pick (isNamePick) and
+ *   the announced mana-payment window (manaWindow): REFUSED — the first two
+ *   render a filtered, A→Z-sorted list and the third its own panel;
+ * - the generic option list: allowed only when genericListOptions keeps
+ *   EVERY option, i.e. no pass/resolve primary, concede or hidden option is
+ *   drawn apart from the list. paymentBases and hideManualMana are the
+ *   panel's priority-only inputs and are empty/false here, because a
+ *   priority decision is refused outright (its pass, concede and payment
+ *   actions all sit outside the list).
+ *
+ * Anything else is refused, so a layout added later fails safe until it is
+ * named here.
+ */
+export function pickableInOrder(d: Decision | null): boolean {
+  if (d === null || d.kind === 'priority') return false;
+  if (mulliganPhase(d) !== null) return true;
+  if (d.kind === 'arrange') return true;
+  if (isDiscardPick(d)) return true;
+  if (isSearchPick(d) || isNamePick(d) || manaWindow(d) !== null) return false;
+  return genericListOptions(d, primaryOf(d), NO_PAYMENT_BASES, false).length === d.options.length;
 }
 
 /**
@@ -1196,26 +1255,20 @@ export class SeatPanelState {
   }
 
   /**
-   * pickHotkey answers option n (1-based) of a pending NON-priority decision,
-   * exactly as clicking it in the panel would (the pick-N hotkeys): a toggle
-   * on the layouts that answer by toggle-then-Submit (answersByToggle), a
-   * click() everywhere else. Options are numbered in d.options order. That is
-   * the rendered order for the mulligan keep and bottom rows, the arrange row
-   * and the discard row, which all iterate d.options unchanged. The generic
-   * option list also keeps d.options order but lists a pass/resolve primary
-   * and any concede option apart from the rest.
-   *
-   * The library-search grid and the name pick render a FILTERED, A→Z-SORTED
-   * list (searchOptions / nameOptions), so d.options[n-1] need not be the Nth
-   * card on screen, or on screen at all; a min==max==1 search would fetch it
-   * at once. pickHotkey therefore REFUSES those two layouts, detected with
-   * the panel's own isSearchPick / isNamePick. Numbering them by rendered
-   * order is deferred to a later sub-project.
+   * pickHotkey answers option n (1-based) of a pending decision exactly as
+   * clicking it in the panel would (the pick-N hotkeys): a toggle on the
+   * layouts that answer by toggle-then-Submit (answersByToggle), a click()
+   * everywhere else. It acts only where pickableInOrder allows — layouts
+   * whose on-screen order is d.options with nothing drawn elsewhere — and
+   * refuses (returns false, so the key is not consumed) everywhere else:
+   * priority windows, library search, name pick, the mana-payment window, a
+   * generic list with a separately drawn pass/resolve or concede, and any
+   * layout not named there. Numbering the filtered/sorted layouts by their
+   * rendered order is deferred to a later sub-project.
    */
   pickHotkey(n: number): boolean {
     const d = this.pending;
-    if (d === null || d.kind === 'priority' || d.seq === this.postedSeq || this.busy) return false;
-    if (isSearchPick(d) || isNamePick(d)) return false;
+    if (d === null || !pickableInOrder(d) || d.seq === this.postedSeq || this.busy) return false;
     const o = d.options[n - 1];
     if (o === undefined) return false;
     if (answersByToggle(d)) this.toggle(o.index);

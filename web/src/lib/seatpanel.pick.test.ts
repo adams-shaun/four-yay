@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Decision, Option } from '../protocol';
-import { SeatPanelState, pickOption, unpickOption } from './seatpanel.svelte';
+import { SeatPanelState, pickOption, pickableInOrder, unpickOption } from './seatpanel.svelte';
+
+// Hermetic post stub: the pick-N tests below assert what is (not) posted.
+const { postIntentMock } = vi.hoisted(() => ({ postIntentMock: vi.fn() }));
+vi.mock('./api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./api')>()),
+  postIntent: postIntentMock,
+}));
 
 const ctx = { seat: 0, token: 'tok' };
 
@@ -182,3 +189,48 @@ describe('SeatPanelState — the pick-N hotkeys', () => {
     expect(p.pickHotkey(1)).toBe(false);
   });
 });
+
+describe('pickableInOrder — the pick-N allowlist', () => {
+  const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
+
+  it('refuses a non-priority list whose pass/resolve option is drawn as its own button, and posts nothing', async () => {
+    postIntentMock.mockReset();
+    postIntentMock.mockResolvedValue(undefined);
+    const dec: Decision = { seq: 20, player: 0, kind: 'choose', prompt: 'Pay {1}?', min: 1, max: 1,
+      options: [{ index: 0, kind: 'pass', label: 'Decline', player: 0 }, { index: 1, kind: 'choose', label: 'Pay', player: 0 }] };
+    expect(pickableInOrder(dec)).toBe(false);
+    const p = new SeatPanelState('t', 1, ctx, null);
+    p.adoptView(dec);
+    expect(p.pickHotkey(1)).toBe(false);
+    expect(p.pickHotkey(2)).toBe(false);
+    await settle();
+    expect(postIntentMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses the announced mana-payment window (its own panel, not the option list)', async () => {
+    postIntentMock.mockReset();
+    const dec: Decision = { seq: 21, player: 0, kind: 'choose', prompt: 'Pay for Bolt', min: 1, max: 1,
+      mana_payment: { card: 9, cost: { generic: 0, mana: [0, 0, 0, 1, 0, 0] }, owed: { generic: 0, mana: [0, 0, 0, 1, 0, 0] }, pool: [0, 0, 0, 0, 0, 0] },
+      options: [{ index: 0, kind: 'activate', label: 'Mountain: add R', obj: 3, player: 0 }] };
+    expect(pickableInOrder(dec)).toBe(false);
+    const p = new SeatPanelState('t', 1, ctx, null);
+    p.adoptView(dec);
+    expect(p.pickHotkey(1)).toBe(false);
+    await settle();
+    expect(postIntentMock).not.toHaveBeenCalled();
+  });
+
+  it('still picks on a generic target list that lists every option', async () => {
+    postIntentMock.mockReset();
+    postIntentMock.mockResolvedValue(undefined);
+    const dec: Decision = { seq: 22, player: 0, kind: 'target', prompt: 'Choose a target', min: 1, max: 1,
+      options: [{ index: 0, kind: 'player', label: 'Seat 1', player: 0 }, { index: 1, kind: 'obj', label: 'Grizzly Bears', obj: 7, player: 0 }] };
+    expect(pickableInOrder(dec)).toBe(true);
+    const p = new SeatPanelState('t', 1, ctx, null);
+    p.adoptView(dec);
+    expect(p.pickHotkey(2)).toBe(true);
+    await settle();
+    expect(postIntentMock).toHaveBeenCalledWith('t', 1, { seq: 22, player: 0, choices: [1] }, ctx);
+  });
+});
+
