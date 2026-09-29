@@ -15,7 +15,9 @@ import {
   type StepStop,
   type StoppableStep,
 } from './playsettings';
-import { autoPassLogText, pushAutoPassLog, type AutoPassKind, type AutoPassLog } from './autolog';
+import { autoPassLogText, pushAutoPassLog, repeatLogText, type AutoPassKind, type AutoPassLog } from './autolog';
+import { findCardAnywhere } from './board';
+import { REPEAT_BEAT_MS, repeatPassAllowed, repeatPayment, repeatStep, repeatTarget, type RepeatHalt, type RepeatPlan, type RepeatStep } from './repeat';
 import { loadYields, saveYields } from './yields';
 import { clear as clearStickyStore, loadSticky, ruleFromAnswer, saveSticky, stickyKey, stickySourceNames, type StickyRule } from './sticky';
 import {
@@ -696,7 +698,7 @@ export class SeatPanelState {
   emptySkipped = $state(0);
   /** actPassed counts the windows the pass-after-acting preference answered, kept apart from autoPassed and emptySkipped for the same reason: each mechanism's passes are its own. */
   actPassed = $state(0);
-  /** autoRun is the current unbroken run of machine passes; Auto and the one-shot runs share its hard cap. */
+  /** Auto and the pass-only one-shots share this cap; repeat has its own allowance. */
   autoRun = $state(0);
   /**
    * oneShot is the current one-shot run: 'end-turn' (End Turn — passes the
@@ -706,10 +708,21 @@ export class SeatPanelState {
    * PRESENT at arm time never stop it, a NEW opponent object stops it per
    * the settings, and it ends when the stack is empty), or 'none'. All
    * three end on Escape, on any non-priority decision, on any other stop
-   * verdict, and at the shared pass cap; end-turn and hard-skip also end
+   * verdict, and at the shared pass cap. Repeat instead owns its activation
+   * target, sticky continuations and per-iteration allowance (repeat.ts).
+   * End-turn and hard-skip also end
    * when the turn number changes or the step reaches cleanup.
    */
-  oneShot = $state<'none' | 'end-turn' | 'hard-skip' | 'resolve-all'>('none');
+  oneShot = $state<'none' | 'end-turn' | 'hard-skip' | 'resolve-all' | 'repeat'>('none');
+  /** Only an accepted manual activation offers arming; intermediate choices
+   * preserve it. Source identity anchors the UI, name/text anchors replay. */
+  repeatCandidate = $state<{ source: number; sourceName: string; abilityText: string; baselineIds: number[]; stackId: number | null } | null>(null);
+  repeatPlan = $state<RepeatPlan | null>(null);
+  repeatHalt = $state<{ reason: RepeatHalt; text: string } | null>(null);
+  private repeatTimer: ReturnType<typeof setTimeout> | null = null;
+  private repeatPasses = 0;
+  private repeatSeq: number | null = null;
+  private repeatStopSeq: number | null = null;
   /** runPassed is the current one-shot's visible pass count. */
   runPassed = $state(0);
   /** the view turn the one-shot was armed at; a turn change ends an end-turn/hard-skip run. */
@@ -813,6 +826,7 @@ export class SeatPanelState {
   }
 
   forgetSticky(key: string): void {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral store write; stickyRules is the reactive projection
     const rules = new Map(this.reloadSticky());
     rules.delete(key);
     saveSticky(this.table, this.match, rules, this.yieldStorage);
@@ -1020,6 +1034,7 @@ export class SeatPanelState {
    * global key never goes stale.
    */
   private applySettings(next: PlaySettings) {
+    this.repeatStopSeq = null; // an explicit settings change may resume this window
     this.settings = next;
     saveSettings(this.storage, next);
     clientBreadcrumbs.setPlay(this.settings, this.yieldList);
@@ -1214,6 +1229,7 @@ export class SeatPanelState {
   setSkipEmpty(on: boolean) {
     this.cancelRun();
     this.skipEmpty = on;
+    this.repeatStopSeq = null;
     this.autoRun = 0;
     this.autoActedSeq = null;
     if (!this.auto) this.note = { kind: 'off' };
@@ -1280,6 +1296,7 @@ export class SeatPanelState {
    * off, which would have left a wedged floor posting forever.
    */
   private stopActing(reason: AutoOffReason) {
+    if (this.oneShot === 'repeat') { this.haltRepeat('unanswered_decision'); return; }
     this.cancelPassWait();
     if (this.oneShot !== 'none') {
       const mode = this.oneShot;
@@ -1358,8 +1375,10 @@ export class SeatPanelState {
     // effect re-runs considerAuto because oneShot changed, so the same
     // window is re-derived and re-paced under the run's own rules and
     // register — End turn / Skip turn / Resolve All, counted in runPassed.
+    if (this.oneShot === 'repeat') this.haltRepeat('cancelled');
     this.cancelPassWait();
     this.oneShot = kind;
+    this.repeatStopSeq = null;
     this.resolveAllIds = baseline;
     this.runPassed = 0;
     this.autoRun = 0;
@@ -1372,8 +1391,109 @@ export class SeatPanelState {
       : { kind: 'skip-turn-armed' };
   }
 
+  /** Arm from the last accepted hand activation, which already counts as 1. */
+  armRepeat(target: number) {
+    const c = this.repeatCandidate;
+    const view = this.currentView;
+    if (!c || !view || view.over || this.busy || this.machinePaused) return;
+    this.cancelRun(false);
+    this.repeatPlan = {
+      sourceName: c.sourceName, abilityText: c.abilityText,
+      target: repeatTarget(target), done: 1,
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- private policy history, never an independent reactive UI source
+      ownStackIds: new Set(view.stack.filter((s) => s.controller === this.ctx.seat).map((s) => s.id)),
+    };
+    this.repeatCandidate = null; // the same manual activation cannot arm twice
+    this.repeatHalt = null;
+    this.repeatPasses = 0;
+    this.repeatSeq = null;
+    this.repeatStopSeq = null;
+    this.actPassArmed = false;
+    this.runPassed = 0;
+    this.oneShot = 'repeat';
+    this.considerAuto(view);
+  }
+
+  private observeRepeatStack(view: View) {
+    const c = this.repeatCandidate;
+    if (c && c.stackId === null) {
+      const entry = view.stack.find((s) => s.kind === 'ability' && s.source === c.source
+        && s.controller === this.ctx.seat && !c.baselineIds.includes(s.id));
+      if (entry) c.stackId = entry.id;
+    }
+    if (this.oneShot === 'repeat' && this.repeatPlan) {
+      for (const s of view.stack) if (s.controller === this.ctx.seat) this.repeatPlan.ownStackIds.add(s.id);
+    }
+  }
+
+  /** Stop before the undo request, not only when its rewind frame arrives. */
+  pauseRepeatForUndo() {
+    if (this.oneShot !== 'repeat') return;
+    this.haltRepeat('undo');
+    this.machinePaused = true;
+    this.note = { kind: 'paused' };
+  }
+
+  private haltRepeat(reason: RepeatHalt) {
+    const plan = this.repeatPlan;
+    if (this.oneShot !== 'repeat' || !plan) return;
+    const text = repeatLogText(plan, reason);
+    this.cancelPassWait();
+    this.repeatHalt = { reason, text };
+    this.autoLog = pushAutoPassLog(this.autoLog, text, this.currentView?.turn ?? 0);
+    this.repeatStopSeq = this.pending?.seq ?? null;
+    this.repeatPlan = null;
+    this.oneShot = 'none';
+    this.actPassArmed = false;
+  }
+
+  private stickyChoices(d: Decision, view: View): number[] | null {
+    const sticky = this.reloadSticky();
+    if (!sticky.size) return null;
+    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: this.settings, sticky });
+    return verdict.act === 'answer' ? verdict.choices : null;
+  }
+
+  private repeatAction(plan: RepeatPlan, d: Decision, view: View): RepeatStep | { act: 'answer'; choices: number[] } {
+    if (!view.over && d.kind !== 'priority' && !repeatPayment(d)) {
+      const choices = this.stickyChoices(d, view);
+      if (choices !== null) return { act: 'answer', choices };
+    }
+    const step = repeatStep(plan, d, view, this.ctx.seat);
+    return step.act === 'pass' && !repeatPassAllowed(this.repeatPasses)
+      ? { act: 'halt', reason: 'unanswered_decision' } : step;
+  }
+
+  /** Each timer re-classifies the fresh decision/view, just like paced passes.
+   * No repeat action goes through countPass or the shared pass cap. */
+  private considerRepeat(view: View) {
+    const d = this.pending;
+    const plan = this.repeatPlan;
+    if (!d || !plan || this.machinePaused) return;
+    if (this.repeatSeq === d.seq) { this.haltRepeat('unanswered_decision'); return; }
+    const step = this.repeatAction(plan, d, view);
+    if (step.act === 'halt') { this.haltRepeat(step.reason); return; }
+    if (this.repeatTimer !== null) return;
+    this.repeatTimer = setTimeout(() => {
+      this.repeatTimer = null;
+      const fresh = this.pending;
+      const latest = this.currentView;
+      if (this.oneShot !== 'repeat' || this.repeatPlan !== plan || !fresh || !latest
+        || fresh.seq !== d.seq || this.busy || this.machinePaused || this.postedSeq === fresh.seq) return;
+      this.observeRepeatStack(latest);
+      const next = this.repeatAction(plan, fresh, latest);
+      if (next.act === 'halt') { this.haltRepeat(next.reason); return; }
+      this.repeatSeq = fresh.seq;
+      if (next.act === 'activate') { plan.done++; this.repeatPasses = 0; }
+      if (next.act === 'pass') { this.repeatPasses++; this.runPassed++; }
+      if (next.act === 'answer') this.stickySeq = fresh.seq;
+      void this.post(next.act === 'answer' ? next.choices : [next.index]);
+    }, REPEAT_BEAT_MS);
+  }
+
   /** Any other pointer/key/answer hands control back immediately. When it actually fires (a run was live) it also clears an armed pass-after-acting token: the player took the controls back mid-run. */
   cancelRun(say = true) {
+    if (this.oneShot === 'repeat') { this.haltRepeat('cancelled'); return; }
     if (this.oneShot === 'none') {
       // Even with no run live, a hand action or Escape must still abandon a
       // paced pass waiting to post (prio5): taking the controls back means
@@ -1399,6 +1519,8 @@ export class SeatPanelState {
   private handAnswer() {
     this.cancelPassWait();
     this.cancelRun();
+    this.repeatStopSeq = null;
+    if (this.pending?.kind === 'priority') this.repeatCandidate = null;
   }
 
   /**
@@ -1435,6 +1557,10 @@ export class SeatPanelState {
    */
   expireRun(view: View) {
     if (this.oneShot === 'none') return;
+    if (this.oneShot === 'repeat') {
+      if (view.over) this.haltRepeat('game_over');
+      return;
+    }
     if (this.oneShot === 'resolve-all') {
       if (view.stack.length === 0) this.cancelRun(false);
       return;
@@ -1457,8 +1583,11 @@ export class SeatPanelState {
     const viewChanged = this.currentView !== null && this.currentView !== view;
     this.currentView = view;
     if (viewChanged) this.cancelPassWait();
+    this.observeRepeatStack(view);
+    if (this.oneShot === 'repeat' && view.over) { this.haltRepeat('game_over'); return; }
     const d = this.pending;
-    if (d === null || this.busy || d.seq === this.postedSeq) return;
+    if (d === null || this.busy || d.seq === this.postedSeq || d.seq === this.repeatStopSeq) return;
+    if (this.oneShot === 'repeat') { this.considerRepeat(view); return; }
 
     // The identical-trigger auto-order (prio6): an answered-before-we-classify
     // path — if the pending decision IS an identical trigger_order and the
@@ -1558,12 +1687,10 @@ export class SeatPanelState {
     if (!d || this.busy || d.seq === this.postedSeq || this.machinePaused || view.over) return false;
     // A rejected answer must not retry, nor fall through to a different auto-answer.
     if (d.seq === this.stickySeq) return true;
-    const sticky = this.reloadSticky();
-    if (sticky.size === 0) return false;
-    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: this.settings, sticky });
-    if (verdict.act !== 'answer') return false;
+    const choices = this.stickyChoices(d, view);
+    if (choices === null) return false;
     this.stickySeq = d.seq;
-    void this.post(verdict.choices);
+    void this.post(choices);
     return true;
   }
 
@@ -1637,7 +1764,7 @@ export class SeatPanelState {
     | { act: 'stop'; reason: StopReason }
     | null {
     const d = this.pending;
-    if (d === null) return null;
+    if (d === null || this.oneShot === 'repeat') return null;
     // Auto-pay changes which witness an explicit cast uses; it is not a pass
     // policy of its own, so there is deliberately no auto-pay guard here (the
     // blanket one that held every window carrying a plan was removed by
@@ -1827,6 +1954,8 @@ export class SeatPanelState {
   }
 
   private cancelPassWait() {
+    if (this.repeatTimer !== null) clearTimeout(this.repeatTimer);
+    this.repeatTimer = null;
     if (this.passTimer !== null) {
       clearTimeout(this.passTimer);
       this.passTimer = null;
@@ -1911,6 +2040,11 @@ export class SeatPanelState {
 
   /** begin resets the seat across a match boundary. (The component keys the panel by match, so a new match is a fresh instance — this is belt and braces.) The settings are a property of the PLAYER, not of the match: auto (autoPass), the stops and pass-after-acting all survive begin() untouched. */
   begin() {
+    this.repeatPlan = null;
+    this.repeatCandidate = null;
+    this.repeatHalt = null;
+    this.repeatSeq = null;
+    this.repeatStopSeq = null;
     // A new seq space invalidates every in-flight intent posted against the
     // old one (see seqEpoch; post() re-checks after its await). Relinquish
     // that post's busy lock here rather than waiting for a response that may
@@ -2010,7 +2144,12 @@ export class SeatPanelState {
   }
 
   rewind() {
+    this.haltRepeat('undo');
+    const halt = this.repeatHalt;
+    const log = this.autoLog;
     this.begin();
+    // The halt summary belongs to the client, not the rewound engine tail.
+    if (halt) { this.repeatHalt = halt; this.autoLog = log; }
     this.machinePaused = true;
     this.note = { kind: 'paused' };
   }
@@ -2069,6 +2208,7 @@ export class SeatPanelState {
     this.searchFilter = '';
     // adopt has only a decision, not its fresh View. Defer competing automatic
     // answers until considerAuto can resolve source names/controllers safely.
+    if (this.oneShot === 'repeat') return;
     const stickies = this.reloadSticky();
     if ([...stickies.values()].some((r) => r.kind === d.kind)) return;
     if (!this.maybeAutoOrderTriggers()) this.maybeRememberedTrigger();
@@ -2432,11 +2572,21 @@ export class SeatPanelState {
     const d = this.pending;
     if (d === null || this.busy) return;
     const view = this.currentView;
+    const repeat = this.oneShot === 'repeat' ? this.repeatPlan : null;
+    const activation = hand && d.kind === 'priority'
+      ? d.options.find((o) => choices.includes(o.index) && o.kind === 'ability') : undefined;
+    const source = activation?.obj !== undefined && view ? findCardAnywhere(view, activation.obj) : null;
+    // Capture before awaiting: SSE can move/sacrifice the source before acceptance.
+    const candidate = activation && source && view ? {
+      source: source.id, sourceName: source.name, abilityText: activation.label,
+      baselineIds: view.stack.map((s) => s.id), stackId: null,
+    } : null;
     // All manual answer surfaces (single-click, multi-pick and card tiles)
     // converge here. Persist before POST so a rapid next ask sees the rule.
     if (hand && this.stickyChoice && view) {
       const rule = ruleFromAnswer(d, view, choices);
       if (rule) {
+        // eslint-disable-next-line svelte/prefer-svelte-reactivity -- ephemeral store write; reloadSticky refreshes the reactive projection
         const rules = new Map(this.reloadSticky());
         rules.set(rule.key, rule);
         saveSticky(this.table, this.match, rules, this.yieldStorage);
@@ -2460,6 +2610,10 @@ export class SeatPanelState {
       // panel (pending was cleared, the restored decision re-adopted).
       if (epoch !== this.seqEpoch) return;
       this.postedSeq = d.seq;
+      if (hand && d.kind === 'priority') {
+        this.repeatCandidate = candidate;
+        if (this.currentView) this.observeRepeatStack(this.currentView);
+      }
       if (stickyRule && (!this.pending || this.pending.seq === d.seq)) {
         this.stickyAnswered = { seq: d.seq, label: stickyRule.label };
       }
@@ -2525,12 +2679,17 @@ export class SeatPanelState {
       this.picked = [];
       this.confirming = false;
       this.error = message;
+      if (repeat && this.repeatPlan === repeat) this.haltRepeat('post_error');
       void this.refreshPending();
     } finally {
       // busy belongs to the post's seq epoch. A rewind can already have
       // released the old lock and a hand answer can have acquired a NEW one;
       // the old promise settling must not clear that new post's lock.
-      if (epoch === this.seqEpoch) this.busy = false;
+      if (epoch === this.seqEpoch) {
+        this.busy = false;
+        // A fresh ask may have arrived over SSE while the POST was in flight.
+        if (this.oneShot === 'repeat' && this.currentView) this.considerAuto(this.currentView);
+      }
     }
   }
 

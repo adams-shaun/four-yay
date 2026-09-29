@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>Repeat controls fixture</title></head>
+  <body>
+    <div id="fixture" style="width: 1000px"></div>
+    <script type="module">
+      import { mount } from 'svelte';
+      import Fixture from './RepeatControls.fixture.svelte';
+      mount(Fixture, { target: document.getElementById('fixture') });
+    </script>
+  </body>
+</html>

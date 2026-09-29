@@ -1,4 +1,10 @@
 import type { View } from '../protocol';
+import type { RepeatHalt, RepeatPlan } from './repeat';
+
+/** One folded summary at the halt edge, never a row for every repeat pass. */
+export function repeatLogText(plan: RepeatPlan, reason: RepeatHalt): string {
+  return `Repeat ${plan.sourceName} ×${plan.target}: done ${plan.done}, halted: ${reason}`;
+}
 
 /**
  * autolog is the client-local, non-engine log of automatic passes (prio5).

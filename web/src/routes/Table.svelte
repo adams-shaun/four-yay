@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick, setContext } from 'svelte';
   import { STICKY_SOURCES, type StickySources } from '../lib/sticky-context';
+  import { REPEAT_ARM, type RepeatArmContext } from '../lib/repeat-context';
   import { session } from '../lib/session.svelte';
   import { tables } from '../lib/tables.svelte';
   import { MatchState } from '../lib/match.svelte';
@@ -103,6 +104,11 @@
 
   // A getter follows the reactive per-match panel even across a rematch.
   setContext<StickySources>(STICKY_SOURCES, () => panel?.stickySourceNames ?? []);
+  setContext<RepeatArmContext>(REPEAT_ARM, {
+    candidate: () => panel?.repeatCandidate ?? null,
+    disabled: () => !panel || panel.busy || panel.machinePaused || !!m.view?.over,
+    arm: (target) => panel?.armRepeat(target),
+  });
 
   // The seated player's own player view — the one whose hand is never
   // redacted (view.go fills Hand for the viewer's seat under every

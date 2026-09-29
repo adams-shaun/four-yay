@@ -24,7 +24,7 @@
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
   const HOT_STRIP_CLOSE_DELAY_MS = 180;
 
-  let { view, seats, state: logic, ctx, table, match, showLog: _showLog = false, onToggleLog: _onToggleLog = null, onToggleOptions = null }: {
+  let { view, seats, state: logic, ctx, table, match, onToggleOptions = null }: {
     view: View;
     seats: SeatInfo[];
     state: SeatPanelState;
@@ -162,6 +162,7 @@
   }
   async function undo(): Promise<void> {
     if (!undoAllowed) return;
+    logic.pauseRepeatForUndo();
     undoPosting = true;
     logic.error = null;
     clientBreadcrumbs.record('undo', { table, match });
@@ -286,6 +287,15 @@
       aria-label={`Auto: ${autoStatus}`}
       title={`Auto: ${autoStatus}`}
     ><span aria-hidden="true">AUTO</span></span>
+  {/if}
+  {#if logic.oneShot === 'repeat' && logic.repeatPlan}
+    <span class="mode-chip run" data-repeat-progress aria-live="polite">
+      Repeating {logic.repeatPlan.sourceName} {logic.repeatPlan.done}/{logic.repeatPlan.target} ·
+      <button type="button" data-repeat-stop onclick={() => logic.cancelRun()}>Stop</button>
+    </span>
+  {/if}
+  {#if logic.repeatHalt}
+    <span role="status" data-repeat-halt>{logic.repeatHalt.text}</span>
   {/if}
   {#if logic.stickyAnswered}
     <StickyMarker label={`Answered by sticky choice: ${logic.stickyAnswered.label}`} />
@@ -528,6 +538,23 @@
     letter-spacing: 0.02em;
     white-space: nowrap;
   }
+  [data-repeat-progress], [data-repeat-halt] {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: min(40rem, 95vw);
+    height: auto;
+    padding: .35rem .5rem;
+    white-space: normal;
+    background: var(--instrument);
+    color: var(--ink-inst);
+    border-radius: var(--radius);
+    font-size: .75rem;
+  }
+  [data-repeat-progress] { gap: .3rem; }
+  [data-repeat-stop] { flex: none; font: inherit; cursor: pointer; }
   .mode-chip.run {
     color: var(--felt-sunk);
     background: var(--offered);

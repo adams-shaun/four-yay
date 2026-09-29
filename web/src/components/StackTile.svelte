@@ -5,6 +5,7 @@
   import { getContext } from 'svelte';
   import { STICKY_SOURCES, type StickySources } from '../lib/sticky-context';
   import StickyMarker from './StickyMarker.svelte';
+  import RepeatArm from './RepeatArm.svelte';
   import CardImage from './CardImage.svelte';
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
@@ -188,6 +189,7 @@
         </span>
       {/if}
     </header>
+    <RepeatArm stackId={stack.id} />
     {#if stack.text}<p class="text">{stack.text}</p>{/if}
     {#if stack.targets.length}
       <ul class="targets">

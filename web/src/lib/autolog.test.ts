@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { Decision, View } from '../protocol';
 import { passDiagnostics } from './autopilot';
-import { AUTO_LOG_CAP, pushAutoPassLog, type AutoPassDiagnostics, type AutoPassLog } from './autolog';
+import { AUTO_LOG_CAP, pushAutoPassLog, repeatLogText, type AutoPassDiagnostics, type AutoPassLog } from './autolog';
+import type { RepeatHalt } from './repeat';
+
+it('folds every repeat halt into one reason-naming summary', () => {
+  const reasons: RepeatHalt[] = ['done', 'not_offered', 'opponent_stack', 'unanswered_decision', 'game_over', 'cancelled', 'undo', 'post_error', 'payment'];
+  for (const reason of reasons) {
+    expect(repeatLogText({ sourceName: 'Altar', abilityText: 'Mill', target: 20, done: 7, ownStackIds: new Set() }, reason))
+      .toBe(`Repeat Altar ×20: done 7, halted: ${reason}`);
+  }
+});
 
 describe('advanced autopass diagnostics', () => {
   it('captures the verdict, evaluated option signals, yield hit, and bounded pass snapshot', () => {

@@ -96,7 +96,11 @@
     // only the button that starts the run is exempt.
     const onPointer = (e: PointerEvent) => {
       const target = e.target;
-      if (target instanceof Element && target.closest('[data-end-turn]')) return;
+      if (target instanceof Element && target.closest('[data-end-turn], [data-repeat-stop]')) return;
+      if (target instanceof Element && target.closest('[data-undo]') && logic.oneShot === 'repeat') {
+        logic.pauseRepeatForUndo();
+        return;
+      }
       logic.cancelRun();
     };
     window.addEventListener('keydown', onKey, true);
@@ -461,6 +465,9 @@
       <p class="error" role="alert" data-error>{logic.error}</p>
     {/if}
 
+    {#if logic.repeatHalt}
+      <p role="status" data-repeat-halt>{logic.repeatHalt.text}</p>
+    {/if}
     {#if logic.stickyAnswered}
       <p data-sticky-answered><StickyMarker label={`Answered by sticky choice: ${logic.stickyAnswered.label}`} /> {logic.stickyAnswered.label}</p>
     {/if}

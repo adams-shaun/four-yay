@@ -4,6 +4,7 @@
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
   import OptionPicker from './OptionPicker.svelte';
+  import RepeatArm from './RepeatArm.svelte';
   import { ACTION_GLYPHS } from '../lib/cardoptions';
   import { SICK_TAP_REASON, sickUntappableManaSource } from '../lib/sicktap';
 
@@ -251,6 +252,7 @@
        radial / long-list affordance used by every board anchor. -->
   <OptionPicker {tileOptions} subject="for {card.name}" {open0} collapseTapActions />
 {/if}
+<RepeatArm source={card.id} />
 </div>
 
 {#if hover.show && anchor}
