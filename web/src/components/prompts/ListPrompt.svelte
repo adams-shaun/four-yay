@@ -7,6 +7,8 @@
   import { selectionStatus, submitLabel } from '../../lib/prompts/anatomy';
   import { hoverLinkOf, promptHover } from '../../lib/prompts/hover.svelte';
   import Digit from './Digit.svelte';
+  import ManaSymbols from '../ManaSymbols.svelte';
+  import { manaOptionPips } from '../../lib/announcepay';
   import PromptFooter, { type FooterButton } from './PromptFooter.svelte';
 
   /**
@@ -88,6 +90,7 @@
       {@const at = logic.picked.indexOf(opt.index)}
       {@const count = decision.repeatable ? logic.picked.filter((i) => i === opt.index).length : 0}
       {@const link = hoverLinkOf(opt)}
+      {@const pips = rowText === null && opt.kind === 'mana' ? manaOptionPips(opt.label) : null}
       <button
         class="row"
         class:picked={at >= 0}
@@ -101,7 +104,7 @@
         disabled={logic.busy || (full && at < 0)}
       >
         <Digit n={digits.get(opt.index)} on={at >= 0} />
-        <span class="label">{rowText ? rowText(opt) : opt.label}</span>
+        <span class="label">{#if pips !== null}Add <ManaSymbols cost={pips} />{:else}{rowText ? rowText(opt) : opt.label}{/if}</span>
         {#if at >= 0 && multi}<span class="order" data-pick-order>{decision.repeatable ? `×${count}` : at + 1}</span>{/if}
       </button>
     {/each}
