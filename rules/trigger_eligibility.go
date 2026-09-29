@@ -567,8 +567,9 @@ func triggerModeEvents(mode string) triggerEventMask {
 		return 0
 	case "Transformed":
 		// CR 701.26: battlefield SetState Mode$ Transform marks FlipFace
-		// with Text "Transformed". The matcher narrows the shared marker
-		// to the source permanent and its destination face.
+		// with Text "Transformed". The matcher gates on a battlefield
+		// multi-face object and scopes ValidCard$/ValidPlayer$ against
+		// the transformed object's destination face.
 		return 1 << events.FlipFace
 	case "TurnFaceUp":
 		// CR 708.6/702.36e: the turn-up marker events.TurnFaceUp (task
