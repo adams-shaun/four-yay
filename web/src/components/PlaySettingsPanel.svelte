@@ -1,7 +1,5 @@
 <script module lang="ts">
-  import { type PlaySettings, type PresetName, type StepStop, type StoppableStep } from '../lib/playsettings';
-  import type { TurnSide } from '../lib/autopilot';
-  import { clampMs, nextStop, stopGlyph, stopPatch, stopWord } from '../lib/playsettings-panel';
+  import { type PlaySettings, type PresetName, type StepStop } from '../lib/playsettings';
 
   /**
    * PRESET_LIST is the three clickable presets in picker order, each with
@@ -27,10 +25,16 @@
     },
   ];
 
+  /** stopGlyph marks each cell state with a shape beside its word. */
+  export function stopGlyph(rule: StepStop): string {
+    return rule === 'off' ? '·' : rule === 'smart' ? '◐' : '●';
+  }
+
 </script>
 
 <script lang="ts">
-  import { STOPPABLE_STEPS } from '../lib/autopilot';
+  import { STOPPABLE_STEPS, type TurnSide } from '../lib/autopilot';
+  import { clampMs, nextStop, stopPatch, stopWord, type StoppableStep } from '../lib/playsettings';
   import { stepFullName } from '../lib/phases';
   import { layoutStore } from '../lib/layouts.svelte';
   import { storageWritable } from '../lib/storage';
