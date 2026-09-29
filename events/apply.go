@@ -4063,6 +4063,32 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 				partner.Paired = 0
 			}
 		}
+		// CR 400.7 / CR 702.122: the crew pairing the Creature.CrewedThisTurn
+		// filter reads is battlefield-stint state on BOTH ends, and the crewing
+		// creature's list is keyed by the Vehicle's stable ObjID. A Vehicle that
+		// leaves the battlefield and returns in the same turn (blink, bounce) is
+		// a NEW object (CR 400.7), but the old pairing would still match its id:
+		// a trigger would target or affect a creature that never crewed THIS
+		// object. Clear the departing permanent's id from every battlefield
+		// object's CrewedVehicles -- the same derive-without-a-second-event sweep
+		// the Soulbond break above does for its pairing. (The departing object's
+		// OWN list is cleared below with the rest of its leaving-the-battlefield
+		// state.) Totality: the id can appear at most once (the Crew case folds a
+		// set), so the first hit is removed and the loop stops.
+		if wasBattlefield {
+			for i := range g.Objs {
+				cr := g.Objs[i]
+				if cr.ID == id || cr.Zone != state.ZBattlefield || len(cr.CrewedVehicles) == 0 {
+					continue
+				}
+				for j, v := range g.Objs[i].CrewedVehicles {
+					if v == id {
+						g.Objs[i].CrewedVehicles = append(g.Objs[i].CrewedVehicles[:j], g.Objs[i].CrewedVehicles[j+1:]...)
+						break
+					}
+				}
+			}
+		}
 		// Leaving the battlefield or the stack resets everything that only
 		// exists while a permanent or spell is in play.
 		o.Tapped = false

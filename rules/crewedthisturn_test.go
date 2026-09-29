@@ -6,7 +6,10 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // TestCrewedThisTurnCensus is the MECHANISM-CLASS census for Forge's
@@ -120,6 +123,135 @@ func faceNamesToken(f *cards.Face, token string) bool {
 		}
 	}
 	return false
+}
+
+// crewVehicle drives seat 0's priority window to the Vehicle's Crew ability
+// and answers its tap election with crewerID, then drains the stack. The same
+// flow TestSetAudit_tmt_TurtleVan_CrewedThisTurnTarget runs inline.
+func crewVehicle(t *testing.T, e *Engine, vanID, crewerID state.ObjID) {
+	t.Helper()
+	if e.Pending() == nil {
+		e.priorityRound()
+	}
+	opt := abilityFor(t, e, 0, vanID)
+	if opt == nil {
+		t.Fatalf("precondition: Turtle Van's Crew ability not offered: %+v", e.Pending())
+	}
+	submitChoices(t, e, opt.Index)
+	for i := 0; i < 20; i++ {
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KChoose {
+			break
+		}
+		chosen := -1
+		for _, o := range d.Options {
+			if o.Obj == crewerID {
+				chosen = o.Index
+			}
+		}
+		if chosen < 0 {
+			break
+		}
+		submitChoices(t, e, chosen)
+	}
+	passUntilStackEmpty(t, e, 40)
+}
+
+func crewListHas(list []state.ObjID, id state.ObjID) bool {
+	for _, v := range list {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+// TestCrewedThisTurnBlinkBreaksThePairing pins the CR 400.7 half of the crew
+// pairing (review round 2): a Vehicle that leaves the battlefield and returns
+// in the same turn is a NEW object, and the crew record keyed by its stable
+// ObjID must not carry over -- the returning Van's attack trigger must not
+// offer a creature that crewed its OLD stint. events.Apply's
+// leaving-the-battlefield fold sweeps the departing permanent's id from every
+// battlefield object's CrewedVehicles, so the test asserts the folded state
+// directly AND end to end: after the blink, re-crewing with a different Bear
+// offers exactly that Bear as the trigger's target, never the old crewer.
+func TestCrewedThisTurnBlinkBreaksThePairing(t *testing.T) {
+	van := setAuditRealCard(t, "Turtle Van")
+	haste := card(t, setAuditHasteSrc)
+	bear := card(t, ninjutsuBearSrc)
+	e, cfg := setAuditDeck(t, 9493, []*cards.Card{van, haste, bear, bear, bear}, []*cards.Card{})
+	vanID := searchMoveByName(t, e, "Turtle Van", state.ZBattlefield)
+	if o := e.G.Obj(vanID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Turtle Van not on battlefield: %+v", o)
+	}
+	putCreature(t, e, 0, setAuditHasteSrc)
+	crewerA := putCreature(t, e, 0, ninjutsuBearSrc)
+	crewerB := putCreature(t, e, 0, ninjutsuBearSrc)
+	for _, id := range []state.ObjID{crewerA, crewerB} {
+		if o := e.G.Obj(id); o == nil || o.Zone != state.ZBattlefield {
+			t.Fatalf("precondition: crewer not on battlefield: %+v", o)
+		}
+	}
+
+	crewVehicle(t, e, vanID, crewerA)
+	// Precondition: the fold recorded the pairing on the crewer and animated
+	// the Van (the assert both halves of the feature under test depend on).
+	if oA := e.G.Obj(crewerA); oA == nil || oA.CrewedTurn != e.G.Turn || !crewListHas(oA.CrewedVehicles, vanID) {
+		t.Fatalf("precondition: the crew pairing was not recorded on the crewer: %+v", oA)
+	}
+	if o := e.G.Obj(vanID); o == nil || !e.IsCreature(vanID) {
+		t.Fatalf("precondition: Turtle Van did not become a creature after crewing: %+v", o)
+	}
+
+	// Blink the Van: exile it and return it in the same turn, via direct
+	// MoveZone events (the shape action_statics_test.go drives its
+	// leave/return with). CR 400.7: the returning Van is a new object.
+	e.emit(events.Event{Kind: events.MoveZone, Obj: vanID, From: state.ZBattlefield, To: state.ZExile})
+	if o := e.G.Obj(vanID); o == nil || o.Zone != state.ZExile {
+		t.Fatalf("precondition: the Van did not leave the battlefield: %+v", o)
+	}
+	e.emit(events.Event{Kind: events.MoveZone, Obj: vanID, From: state.ZExile, To: state.ZBattlefield})
+	if o := e.G.Obj(vanID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: the Van did not return to the battlefield: %+v", o)
+	}
+	// The sweep under test: the old stint's pairing must be gone from the
+	// crewer. (The crew animation itself persisting across the blink is a
+	// separate continuous-effect defect, reported outside this test.)
+	if oA := e.G.Obj(crewerA); oA == nil || crewListHas(oA.CrewedVehicles, vanID) {
+		t.Fatalf("CR 400.7: the blink did not clear the old Vehicle's pairing from the crewer: %+v", oA)
+	}
+
+	// Crew it AGAIN, with a different Bear. Only the new pairing may match the
+	// filter; the old crewer is still a creature on the battlefield, so a
+	// stale pairing would widen the target list, not empty it.
+	crewVehicle(t, e, vanID, crewerB)
+	if oB := e.G.Obj(crewerB); oB == nil || oB.CrewedTurn != e.G.Turn || !crewListHas(oB.CrewedVehicles, vanID) {
+		t.Fatalf("precondition: the second crew pairing was not recorded: %+v", oB)
+	}
+
+	driveToStep(t, e, e.G.Turn, 0, state.StepDeclareAttackers)
+	passToKind(t, e, decision.KAttackers)
+	submitAttackersOnly(t, e, vanID)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("CR 603.4: the returned Van's attack trigger must ask for a creature that crewed it; got %+v", d)
+	}
+	offeredB, offeredA := false, false
+	for _, o := range d.Options {
+		if o.Obj == crewerB {
+			offeredB = true
+		}
+		if o.Obj == crewerA {
+			offeredA = true
+		}
+	}
+	if !offeredB {
+		t.Fatalf("Creature.CrewedThisTurn must offer the NEW stint's crewer; options were %+v", d.Options)
+	}
+	if offeredA {
+		t.Fatalf("CR 400.7: the OLD stint's crewer must not be offered after the blink; options were %+v", d.Options)
+	}
+	replayCheck(t, e, cfg)
 }
 
 func saNamesToken(sa *cards.SA, token string) bool {
