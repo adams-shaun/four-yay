@@ -183,6 +183,19 @@ func ReplayTo(l *events.Log, cfg rules.Config, n int) (*rules.Engine, error) {
 	return run(l, cfg, n)
 }
 
+// Walk rebuilds the engine through up to n recorded Intents, calling visit at
+// each intent boundary before that intent is submitted and once at the final
+// boundary. The callback receives the current engine and boundary index; an
+// error stops the walk and is returned with the engine at that boundary.
+// n follows ReplayTo's clamping rules. Genesis and every event comparison use
+// the same path as Replay and ReplayTo.
+func Walk(l *events.Log, cfg rules.Config, n int, visit func(e *rules.Engine, i int) error) (*rules.Engine, error) {
+	if l == nil {
+		return nil, fmt.Errorf("replay: nil log")
+	}
+	return walk(l, cfg, n, visit)
+}
+
 // run drives a fresh engine through cfg's genesis and then n of l's recorded
 // Intents (clamped to [0, len(l.Intents)]), comparing the engine's own
 // growing event log against l's recorded events after every step that can
@@ -194,6 +207,10 @@ func ReplayTo(l *events.Log, cfg rules.Config, n int) (*rules.Engine, error) {
 // actual divergence is reported is to check after every step, before
 // feeding the next one.
 func run(l *events.Log, cfg rules.Config, n int) (*rules.Engine, error) {
+	return walk(l, cfg, n, nil)
+}
+
+func walk(l *events.Log, cfg rules.Config, n int, visit func(e *rules.Engine, i int) error) (*rules.Engine, error) {
 	if l == nil {
 		return nil, fmt.Errorf("replay: nil log")
 	}
@@ -236,6 +253,11 @@ func run(l *events.Log, cfg rules.Config, n int) (*rules.Engine, error) {
 	}
 
 	for i := 0; i < n; i++ {
+		if visit != nil {
+			if err := visit(e, i); err != nil {
+				return e, err
+			}
+		}
 		if e.G.Over {
 			break
 		}
@@ -253,6 +275,11 @@ func run(l *events.Log, cfg rules.Config, n int) (*rules.Engine, error) {
 		}
 		checked, err = compare(e, l, checked)
 		if err != nil {
+			return e, err
+		}
+	}
+	if visit != nil {
+		if err := visit(e, n); err != nil {
 			return e, err
 		}
 	}
