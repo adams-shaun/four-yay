@@ -25,10 +25,11 @@ import (
 // unconstrained ask builds no sentence and keeps its offered order, so every
 // existing prompt serialises byte-identically.
 //
-// The greedy prefix walks the SAME incremental rule Decision.Validate walks
-// (decision.SetPropAdmits/SetPropMerge), so a prefix this file builds is a
-// set the validator accepts -- one home for the legal-answer rule, not a
-// parallel re-implementation.
+// The greedy prefix walks the SAME incremental rules Decision.Validate
+// walks -- decision.SetPropAdmits/SetPropMerge for the set-property
+// constraints and Decision.GroupAdmits (the per-Group cap) for the group
+// marker -- so a prefix this file builds is a set the validator accepts --
+// one home for the legal-answer rule, not a parallel re-implementation.
 
 // targetSetSentences renders d's set-level target constraints as the
 // presentation description of a target ask. Empty when the decision carries
@@ -116,15 +117,16 @@ func orderTargetOptions(d *decision.Decision) []decision.Option {
 
 // greedyPrefix walks ordered once, taking the first d.Min options that
 // satisfy every set-level constraint d carries (one controller, shared /
-// distinct property, at most one per group). It returns nil when it cannot
-// reach d.Min. The rule it walks is the same incremental rule
-// Decision.Validate walks (decision.SetPropAdmits/SetPropMerge).
+// distinct property, at most d.GroupCapFor(group) per group). It returns nil
+// when it cannot reach d.Min. The rules it walks are the same incremental
+// rules Decision.Validate walks (decision.SetPropAdmits/SetPropMerge and
+// Decision.GroupAdmits).
 func greedyPrefix(ordered []decision.Option, d *decision.Decision) []decision.Option {
 	chosen := make([]decision.Option, 0, d.Min)
 	var acc []string
 	ctlSet := false
 	var ctl state.PlayerID
-	groups := map[string]bool{}
+	groups := map[string]int{}
 	for _, o := range ordered {
 		if len(chosen) == d.Min {
 			break
@@ -139,7 +141,7 @@ func greedyPrefix(ordered []decision.Option, d *decision.Decision) []decision.Op
 		if d.SetPropMode != decision.SetPropNone && !decision.SetPropAdmits(d.SetPropMode, acc, o.SetProps) {
 			continue
 		}
-		if o.Group != "" && groups[o.Group] {
+		if !d.GroupAdmits(groups, o.Group) {
 			continue
 		}
 		chosen = append(chosen, o)
@@ -147,7 +149,7 @@ func greedyPrefix(ordered []decision.Option, d *decision.Decision) []decision.Op
 			acc = decision.SetPropMerge(d.SetPropMode, acc, o.SetProps)
 		}
 		if o.Group != "" {
-			groups[o.Group] = true
+			groups[o.Group]++
 		}
 	}
 	if len(chosen) < d.Min {
@@ -198,8 +200,9 @@ func searchControllerPrefix(ordered []decision.Option, d *decision.Decision) []d
 
 // searchLegalPrefix finds any d.Min-sized subset of opts satisfying every
 // set-level constraint d carries (one controller, shared / distinct
-// property, at most one option per Group) for which SetPropAdmits / SetPropMerge
-// hold incrementally -- the exact rule Decision.Validate applies. greedyPrefix
+// property, at most d.GroupCapFor(group) per group) for which the incremental
+// rules hold -- SetPropAdmits/SetPropMerge and Decision.GroupAdmits, the
+// exact rules Decision.Validate applies. greedyPrefix
 // is attempted first as the cheap, order-preserving path; the backtracking
 // walk is the fallback for the cases a single greedy pass cannot see (a first
 // pick that blocks a later legal set). Deterministic: options are tried in
@@ -212,8 +215,8 @@ func searchLegalPrefix(opts []decision.Option, d *decision.Decision) []decision.
 	}
 	budget := searchLegalPrefixBudget
 	chosen := make([]decision.Option, 0, d.Min)
-	var walk func(start int, ctlSet bool, ctl state.PlayerID, acc []string, groups map[string]bool) bool
-	walk = func(start int, ctlSet bool, ctl state.PlayerID, acc []string, groups map[string]bool) bool {
+	var walk func(start int, ctlSet bool, ctl state.PlayerID, acc []string, groups map[string]int) bool
+	walk = func(start int, ctlSet bool, ctl state.PlayerID, acc []string, groups map[string]int) bool {
 		if len(chosen) == d.Min {
 			return true
 		}
@@ -229,7 +232,7 @@ func searchLegalPrefix(opts []decision.Option, d *decision.Decision) []decision.
 			if d.SetPropMode != decision.SetPropNone && !decision.SetPropAdmits(d.SetPropMode, acc, o.SetProps) {
 				continue
 			}
-			if o.Group != "" && groups[o.Group] {
+			if !d.GroupAdmits(groups, o.Group) {
 				continue
 			}
 			nctl, nctlSet := ctl, ctlSet
@@ -242,11 +245,11 @@ func searchLegalPrefix(opts []decision.Option, d *decision.Decision) []decision.
 			}
 			ngroups := groups
 			if o.Group != "" {
-				ngroups = make(map[string]bool, len(groups)+1)
-				for k := range groups {
-					ngroups[k] = true
+				ngroups = make(map[string]int, len(groups)+1)
+				for k, v := range groups {
+					ngroups[k] = v
 				}
-				ngroups[o.Group] = true
+				ngroups[o.Group]++
 			}
 			chosen = append(chosen, o)
 			if walk(i+1, nctlSet, nctl, nacc, ngroups) {
@@ -256,7 +259,7 @@ func searchLegalPrefix(opts []decision.Option, d *decision.Decision) []decision.
 		}
 		return false
 	}
-	if walk(0, false, 0, nil, map[string]bool{}) {
+	if walk(0, false, 0, nil, map[string]int{}) {
 		return chosen
 	}
 	return nil
@@ -359,9 +362,9 @@ func containsToken(set []string, t string) bool {
 	return false
 }
 
-// optionsHaveGroups reports whether any option carries a Group exclusivity
-// marker -- the wire-visible half of the generic group contract, whose
-// set-level (at most one per group) reading the greedy walk honours.
+// optionsHaveGroups reports whether any option carries a Group marker --
+// the wire-visible half of the generic group contract, whose set-level (at
+// most d.GroupCapFor(group) per group) reading the greedy walk honours.
 func optionsHaveGroups(opts []decision.Option) bool {
 	for _, o := range opts {
 		if o.Group != "" {
