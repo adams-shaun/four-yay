@@ -89,12 +89,14 @@
       if (open === 'actions') open = null;
     }
   });
-  // Suggested payment plans replace their ordinary cast affordance while
-  // Auto Mana is enabled. They are still real actionable choices: a priority
-  // window containing only a payable spell must not make ACTIONS look disabled.
+  // While Auto Mana is enabled the nested seat panel offers every payment
+  // action the wire sent, plan-bearing or plan-less (a plan-less cast reaches
+  // its announce-then-pay button in PriorityOptions). They are all real
+  // actionable choices: a priority window containing only a payable spell
+  // must not make ACTIONS look disabled.
   const visiblePaymentActions = $derived(
     logic.autoManaAvailable && logic.autoPayMana && decision?.kind === 'priority'
-      ? (decision.payment_actions ?? []).filter((action) => action.plans.length > 0)
+      ? (decision.payment_actions ?? [])
       : [],
   );
   const paymentBaseIndexes = $derived(new Set(visiblePaymentActions.flatMap((action) =>
