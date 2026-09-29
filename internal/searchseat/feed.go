@@ -1,8 +1,12 @@
 package searchseat
 
 import (
+	"fmt"
+
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
+	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -40,6 +44,31 @@ type Feed struct {
 	// wedge a game that can still play legally.
 	stopped bool
 	stopErr string
+}
+
+// RebuildFeed reconstructs an actor's observation stream from the first n
+// intents of a log. It captures each intent boundary and records the logged
+// answer when that boundary belongs to actor, matching the live driver.
+func RebuildFeed(cfg rules.Config, l *events.Log, n int, actor state.PlayerID) (*Feed, error) {
+	f := NewFeed(actor)
+	_, err := replay.Walk(l, cfg, n, func(e *rules.Engine, i int) error {
+		if _, ok := f.Observe(e); !ok {
+			return fmt.Errorf("searchseat: observe at intent %d: %s", i, f.StopReason())
+		}
+		if i < len(l.Intents) && i < n {
+			d := e.Pending()
+			if d != nil && d.Player == actor {
+				if err := f.RecordAnswer(d, l.Intents[i]); err != nil {
+					return fmt.Errorf("searchseat: record answer at intent %d: %w", i, err)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 // NewFeed starts the observation stream for one actor.
