@@ -5827,6 +5827,22 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unhandled PersistentMana$ " + strings.TrimSpace(sa.Params["PersistentMana"]) + "; the mana is ordinary"})
 	}
+	// PersistentUntilEndOfCombat$ True is the CR 702.189a Firebending
+	// exception ("Until end of combat, you don't lose this mana as steps and
+	// phases end"): the units are persistent (they survive the step
+	// boundaries within the combat phase) AND carry the combat tally that
+	// events.Apply demotes as the end-of-combat step is left. It is implied
+	// by, and composes with, the printed keyword expansion (cards/
+	// kw_firebending.go); any other value is a loud Note and ordinary mana.
+	combat := false
+	switch strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"]) {
+	case "":
+	case "True":
+		combat, persistent = true, true
+	default:
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "unhandled PersistentUntilEndOfCombat$ " + strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"]) + "; the mana is ordinary"})
+	}
 	// CR 107.4h: mana produced by a SNOW permanent is snow mana. A snow unit
 	// is tagged in the pool event itself — Counter "S<colour>" — so the pool
 	// slot and the parallel snow tally move through one event and a replay
@@ -5900,7 +5916,9 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 			// Composes with a restriction and with AddsNoCounter$; empty for
 			// every non-rider ability, keeping those events byte-identical.
 			ev.Text = events.ManaAddsCountersText(ev.Text, addsCounters)
-			if persistent {
+			if combat {
+				ev.Text = events.ManaCombatPersistentText(ev.Text)
+			} else if persistent {
 				ev.Text = events.ManaPersistentText(ev.Text)
 			}
 			h.Emit(ev)

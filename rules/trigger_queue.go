@@ -747,6 +747,28 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 		e.drainAwaitsTarget = e.Pending() != nil
 		return
 	}
+	// A granted Firebending (CR 702.189a via a layer-6 AddKeyword$
+	// Firebending:<N> -- Sozin's Comet's "Each creature you control gains
+	// firebending 5 until end of turn", Fire Nation Palace's targeted grant):
+	// the Ward/Afflict/Flanking shape. A creature granted firebending has no
+	// printed K:Firebending trigger to carry the attack body, so the
+	// synthesized Attacks trigger queues here and its Counter payload
+	// __kwFirebendingGranted:<N> is what events.Apply rebuilds into the same
+	// DB$ Mana | Produced$ R | Amount$ <N> | PersistentUntilEndOfCombat$
+	// True body the printed K:Firebending expansion carries (cards/
+	// kw_firebending.go). The trigger has no target roles, so no
+	// TriggerContext rides along. The "Granted" suffix keeps the payload from
+	// aliasing the "__kwFirebending:<N>" SVar a printed K:Firebending line
+	// mints (the Exploit/Offspring rule).
+	if pt.Firebending != "" {
+		if int(pt.Controller) >= len(e.G.Players) || e.G.Players[pt.Controller].Lost {
+			return
+		}
+		e.emit(events.Event{Kind: events.KeywordTriggerPush, Player: pt.Controller,
+			Obj: pt.Source, Counter: "__kwFirebendingGranted:" + pt.Firebending, Text: "firebending ability"})
+		e.drainAwaitsTarget = e.Pending() != nil
+		return
+	}
 	// A granted Exploit (CR 702.58a via a layer-6 AddKeyword$ Exploit --
 	// Colonel Autumn's "Other legendary creatures you control have
 	// exploit"): the Ward/Afflict shape. The trigger is optional in

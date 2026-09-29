@@ -1310,6 +1310,27 @@ const manaPersistentSuffix = " pm"
 // authoritative.
 func ManaPersistentText(text string) string { return text + manaPersistentSuffix }
 
+// manaCombatPersistentSuffix marks a ManaAdd event whose added mana carries
+// the "until end of combat, you don't lose this mana as steps and phases
+// end" exception (CR 702.189a Firebending). It is manaPersistentSuffix's
+// strictly-shorter companion: the units are persistent (they survive the
+// step boundaries within the combat phase) AND also counted in
+// Player.CombatMana, the subset events.Apply's StepChange fold demotes as the
+// end-of-combat step is left, so the same boundary's ManaClear empties them.
+// It rides Text after every other encoding exactly like the persistent
+// suffix, so it composes with a restriction batch, and ordinary historical
+// ManaAdd events never carry it. A spend consumes the units through the
+// ordinary persistent attribution (the payment path emits the plain " pm"
+// marker and the fold moves both tallies), so this marker never appears on a
+// negative event the engine itself writes.
+const manaCombatPersistentSuffix = " pmc"
+
+// ManaCombatPersistentText appends the until-end-of-combat marker to a
+// ManaAdd event's Text encoding (which may already carry the restriction
+// encoding). On a positive add the marker raises Player.PersistentMana AND
+// Player.CombatMana with the pool unit.
+func ManaCombatPersistentText(text string) string { return text + manaCombatPersistentSuffix }
+
 // ManaRestrictionFromText returns the constraint carried by a restricted
 // ManaAdd event, with the producing source id when the encoding carries one
 // (0 otherwise), the AddsNoCounter$ condition when one is encoded (""), and
