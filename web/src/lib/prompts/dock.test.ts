@@ -1,38 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { DOCK_KEY, clampPosition, defaultDockLayout, loadDockLayout, readDockLayout, saveDockLayout } from './dock';
+import { clampPosition, dockFromProfile, fractionOf, profilePlacement } from './dock';
 
-function memory(): Storage {
-  const m = new Map<string, string>();
-  return {
-    get length() { return m.size; },
-    clear: () => m.clear(),
-    getItem: (k) => m.get(k) ?? null,
-    key: (i) => [...m.keys()][i] ?? null,
-    removeItem: (k) => void m.delete(k),
-    setItem: (k, v) => void m.set(k, v),
-  };
-}
-
-describe('dock layout storage', () => {
-  it('defaults to the rail dock with no saved position', () => {
-    expect(loadDockLayout(null)).toEqual(defaultDockLayout());
-    expect(defaultDockLayout()).toEqual({ placement: 'rail', position: null });
+describe('dock placement from the layout profile', () => {
+  it('maps the profile placement and viewport fractions to the dock', () => {
+    expect(dockFromProfile({ placement: 'dock', x: 0.6, y: 0.12 }, { w: 1000, h: 500 })).toEqual({ placement: 'rail', position: { x: 600, y: 60 } });
+    expect(dockFromProfile({ placement: 'float', x: 0, y: 1 }, { w: 1000, h: 500 }).placement).toBe('floating');
   });
 
-  it('round-trips placement and position under its own key', () => {
-    const s = memory();
-    saveDockLayout(s, { placement: 'floating', position: { x: 120, y: 340 } });
-    expect(JSON.parse(s.getItem(DOCK_KEY) ?? '{}')).toEqual({ version: 1, placement: 'floating', position: { x: 120, y: 340 } });
-    expect(loadDockLayout(s)).toEqual({ placement: 'floating', position: { x: 120, y: 340 } });
-  });
-
-  it('refuses malformed blobs', () => {
-    expect(readDockLayout({ version: 2, placement: 'rail' })).toBeNull();
-    expect(readDockLayout({ version: 1, placement: 'sideways' })).toBeNull();
-    expect(readDockLayout({ version: 1, placement: 'floating', position: { x: 'a', y: 1 } })).toBeNull();
-    const s = memory();
-    s.setItem(DOCK_KEY, '{not json');
-    expect(loadDockLayout(s)).toEqual(defaultDockLayout());
+  it('round-trips a dragged position through the profile fractions', () => {
+    const vp = { w: 1280, h: 800 };
+    const f = fractionOf({ x: 320, y: 200 }, vp);
+    expect(f).toEqual({ x: 0.25, y: 0.25 });
+    expect(dockFromProfile({ placement: 'float', ...f }, vp).position).toEqual({ x: 320, y: 200 });
+    expect(fractionOf({ x: -5, y: 9000 }, vp)).toEqual({ x: 0, y: 1 });
+    expect(profilePlacement('floating')).toBe('float');
+    expect(profilePlacement('rail')).toBe('dock');
   });
 });
 

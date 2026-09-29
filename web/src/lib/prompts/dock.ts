@@ -2,9 +2,9 @@
  * dock.ts is the prompt dock's placement (UI rework spec §4: "docked at the
  * top of the rail by default … Floating is a layout setting; the prompt is
  * dragged by its grip, and the position is saved in the layout profile").
- * Until the layout profiles (sub-project 2) carry it, the placement and the
- * floating position are a small local default under their own key — a
- * client-side view setting, never sent to the server.
+ * The layout profile (lib/layoutprofile.ts `panels.prompt`) owns both; this
+ * module only converts between the profile's viewport fractions and the
+ * dock's pixels, and keeps a dragged dock reachable. Client-side only.
  */
 export type DockPlacement = 'rail' | 'floating';
 export interface DockPoint { x: number; y: number }
@@ -14,44 +14,33 @@ export interface DockLayout {
   position: DockPoint | null;
 }
 
-export const DOCK_KEY = 'gorge.promptdock.v1';
+/** Viewport is the window size the fractions in a layout profile are measured against. */
+export interface Viewport { w: number; h: number }
 
-export function defaultDockLayout(): DockLayout {
-  return { placement: 'rail', position: null };
+/** ProfilePrompt is the layout profile's `panels.prompt` (lib/layoutprofile.ts). */
+export interface ProfilePrompt { placement: 'dock' | 'float'; x: number; y: number }
+
+/**
+ * dockFromProfile reads the dock's placement and floating position from the
+ * layout profile, which stores the position as fractions of the viewport so
+ * an exported profile means the same spot on another screen.
+ */
+export function dockFromProfile(p: ProfilePrompt, vp: Viewport): DockLayout {
+  return {
+    placement: p.placement === 'float' ? 'floating' : 'rail',
+    position: { x: Math.round(p.x * vp.w), y: Math.round(p.y * vp.h) },
+  };
 }
 
-const finite = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
-
-/** readDockLayout validates a stored blob; anything malformed is null (the caller falls back to the default). */
-export function readDockLayout(v: unknown): DockLayout | null {
-  if (typeof v !== 'object' || v === null) return null;
-  const o = v as Record<string, unknown>;
-  if (o.version !== 1 || (o.placement !== 'rail' && o.placement !== 'floating')) return null;
-  let position: DockPoint | null = null;
-  if (o.position !== null && o.position !== undefined) {
-    const p = o.position as Record<string, unknown>;
-    if (typeof p !== 'object' || !finite(p.x) || !finite(p.y)) return null;
-    position = { x: p.x, y: p.y };
-  }
-  return { placement: o.placement, position };
+/** profilePlacement is the profile's word for a dock placement. */
+export function profilePlacement(p: DockPlacement): ProfilePrompt['placement'] {
+  return p === 'floating' ? 'float' : 'dock';
 }
 
-export function loadDockLayout(storage: Storage | null): DockLayout {
-  try {
-    const raw = storage?.getItem(DOCK_KEY) ?? null;
-    if (raw === null) return defaultDockLayout();
-    return readDockLayout(JSON.parse(raw)) ?? defaultDockLayout();
-  } catch {
-    return defaultDockLayout();
-  }
-}
-
-export function saveDockLayout(storage: Storage | null, l: DockLayout): void {
-  try {
-    storage?.setItem(DOCK_KEY, JSON.stringify({ version: 1, placement: l.placement, position: l.position }));
-  } catch {
-    /* private mode or quota: keep the in-memory copy */
-  }
+/** fractionOf turns a dragged dock's pixel position into the profile's viewport fractions (0..1). */
+export function fractionOf(p: DockPoint, vp: Viewport): { x: number; y: number } {
+  const f = (n: number, d: number) => (d > 0 ? Math.min(1, Math.max(0, n / d)) : 0);
+  return { x: f(p.x, vp.w), y: f(p.y, vp.h) };
 }
 
 /** MIN_VISIBLE is how much of a floating dock must stay on screen so its grip can always be reached. */
@@ -68,9 +57,4 @@ export function clampPosition(p: DockPoint, size: { w: number; h: number }, view
     x: Math.round(Math.min(Math.max(p.x, Math.min(0, viewport.w - size.w)), maxX)),
     y: Math.round(Math.min(Math.max(p.y, 0), maxY)),
   };
-}
-
-/** defaultFloatPosition opens a never-dragged floating dock over the lower middle of the board, clear of the rail. */
-export function defaultFloatPosition(size: { w: number; h: number }, viewport: { w: number; h: number }): DockPoint {
-  return clampPosition({ x: (viewport.w - size.w) / 2 - 160, y: viewport.h - size.h - 200 }, size, viewport);
 }

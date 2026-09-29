@@ -480,8 +480,11 @@
         <!-- The prompt dock's mount point (UI rework §4, lane C): the
              decision prompt docks at the top of the rail, next to the stack
              it concerns, unless the layout profile floats it
-             (layoutStore.prompt). Empty until the prompt renderers move in. -->
-        <div class="prompt-dock" data-prompt-dock data-placement={layoutStore.prompt.placement}></div>
+             (layoutStore.prompt, which PromptDock reads). ONE dock: priority
+             stays with the ACTIONS / gilt action button. -->
+        <div class="prompt-dock" data-prompt-dock-slot data-placement={layoutStore.prompt.placement}>
+          {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
+        </div>
         <div class="rail-main">
         <!-- The concede control (when a concede option is pending) is passed
              to Rail as a logbar snippet: it renders inside the rail's own
@@ -516,11 +519,6 @@
           viewerSeat={seated ? (seatCtx?.seat ?? null) : null}
           options={boardOptions}
         >
-          {#snippet dock()}
-            <!-- The prompt dock (UI rework spec §4). Lane B's layout
-                 profiles will pass placement/position here. -->
-            {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
-          {/snippet}
           {#snippet logbar()}
             {#if restartable}
               <RestartControl

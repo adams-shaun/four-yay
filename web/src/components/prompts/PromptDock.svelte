@@ -5,8 +5,8 @@
   import { promptAnatomy } from '../../lib/prompts/anatomy';
   import { dockAnswers } from '../../lib/prompts/renderer';
   import { promptHover, type HoverEnd } from '../../lib/prompts/hover.svelte';
-  import { clampPosition, defaultFloatPosition, type DockPlacement, type DockPoint } from '../../lib/prompts/dock';
-  import { localDock } from '../../lib/prompts/dock.svelte';
+  import { clampPosition, dockFromProfile, fractionOf, profilePlacement, type DockPlacement, type DockPoint } from '../../lib/prompts/dock';
+  import { layoutStore } from '../../lib/layouts.svelte';
   import ArtCrop from './ArtCrop.svelte';
   import PromptBody from './PromptBody.svelte';
 
@@ -18,9 +18,10 @@
    *
    * Placement: docked at the top of the rail by default, next to the stack
    * it concerns, so the board stays clear; floating is a setting, dragged by
-   * its grip. `placement`/`position` are props so the layout profiles
-   * (sub-project 2) can own them; left out, the dock uses its small local
-   * default (lib/prompts/dock.svelte.ts) — client-side only, never posted.
+   * its grip. The layout profile owns both (`layoutStore.prompt`: the
+   * placement, and the floating spot as viewport fractions, saved on drag);
+   * the `placement`/`position` props override it for fixtures and tests.
+   * Client-side only, never posted.
    *
    * It answers every decision except priority (the action button) and the
    * London mulligan (dockAnswers). While mounted it bumps the seat's
@@ -37,15 +38,19 @@
     onPositionChange?: (p: DockPoint) => void;
   } = $props();
 
-  const placement = $derived(placementProp ?? localDock.layout.placement);
-  const saved = $derived(positionProp !== undefined ? positionProp : localDock.layout.position);
+  const fromProfile = $derived(dockFromProfile(layoutStore.prompt, typeof window === 'undefined' ? { w: 0, h: 0 } : viewport()));
+  const placement = $derived(placementProp ?? fromProfile.placement);
+  const saved = $derived(positionProp !== undefined ? positionProp : fromProfile.position);
   function setPlacement(p: DockPlacement): void {
     if (onPlacementChange) onPlacementChange(p);
-    else localDock.setPlacement(p);
+    else layoutStore.edit((q) => (q.panels.prompt.placement = profilePlacement(p)));
   }
   function setPosition(p: DockPoint): void {
     if (onPositionChange) onPositionChange(p);
-    else localDock.setPosition(p);
+    else {
+      const f = fractionOf(p, viewport());
+      layoutStore.setPromptPosition(f.x, f.y);
+    }
   }
 
   onMount(() => {
@@ -67,10 +72,10 @@
 
   // ---- the board highlight for a hovered option ------------------------
   // The anchors are the ones Arrows.svelte resolves ([data-obj] tiles and
-  // the seat identity plates). The attribute is display-only; the global
+  // the seat box / header bar [data-seat-anchor]). The attribute is display-only; the global
   // rule below rings it in verdigris ("a legal choice").
   function anchorEl(end: HoverEnd): Element | null {
-    return 'obj' in end ? document.querySelector(`[data-obj="${end.obj}"]`) : document.querySelector(`.identity[data-seat="${end.seat}"]`);
+    return 'obj' in end ? document.querySelector(`[data-obj="${end.obj}"]`) : document.querySelector(`[data-seat-anchor="${end.seat}"]`);
   }
   $effect(() => {
     const link = promptHover.link;
@@ -99,7 +104,7 @@
   $effect(() => {
     if (placement !== 'floating' || root === null || decision === null) return;
     if (drag !== null) return;
-    pos = saved ? clampPosition(saved, size(), viewport()) : defaultFloatPosition(size(), viewport());
+    pos = clampPosition(saved ?? { x: 0, y: 0 }, size(), viewport());
   });
   onMount(() => {
     const onResize = () => {
