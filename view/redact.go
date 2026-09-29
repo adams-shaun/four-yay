@@ -119,8 +119,14 @@ func RedactEvent(g *state.Game, e events.Event, viewer state.PlayerID) events.Ev
 	e.Pairs = append([][2]state.ObjID(nil), e.Pairs...)
 	if e.Secret {
 		// Unlike a library shuffle, a planar-deck shuffle's order is hidden
-		// from every seat, including its owner (CR 901.5).
-		if e.Player != viewer || e.Kind == events.PlanarDeckShuffle {
+		// from every seat, including its owner (CR 901.5). CR 720.4 widens
+		// "the owner's own secret" to the player controlling that owner while
+		// the control is live: the controller may look at all cards the
+		// controlled player could see, so a Secret event emitted by a
+		// controlled seat reaches its controller unchanged. A planar-deck
+		// shuffle still redacts even for the controller (CR 901.5 hides it
+		// from everyone).
+		if (e.Player != viewer && !controlsSeat(g, viewer, e.Player)) || e.Kind == events.PlanarDeckShuffle {
 			return events.Event{
 				Seq: e.Seq, Kind: e.Kind, Player: e.Player,
 				From: e.From, To: e.To, Step: e.Step, Secret: e.Secret,
@@ -167,10 +173,31 @@ func RedactEvent(g *state.Game, e events.Event, viewer state.PlayerID) events.Ev
 	return e
 }
 
+// controlsSeat reports whether viewer controls seat under CR 720 -- that is,
+// seat's owner is controlled by viewer while the control is live. It is the
+// ONE home of the CR 720.4 view predicate ("you may look at all cards that
+// player could see"): project(), RedactEvent and visibleTo all consult it, so
+// the projection and the event stream cannot disagree about which seats the
+// controller may read. g == nil degrades to no control, and the explicit
+// seat != viewer guard makes a self-control entry fail closed (events.Apply
+// refuses self-control anyway, but a hand-built state must not leak a hand to
+// its own seat through a bogus entry). The two-value map lookup is load-
+// bearing: a bare ControlledBy[seat] on an absent entry returns the zero
+// PlayerID, which would read as "seat is controlled by viewer 0" and hand
+// every seat's hidden zones to seat 0.
+func controlsSeat(g *state.Game, viewer, seat state.PlayerID) bool {
+	if g == nil || seat == viewer {
+		return false
+	}
+	ctl, ok := g.ControlledBy[seat]
+	return ok && ctl == viewer
+}
+
 // visibleTo reports whether id is safe to show viewer: the object it names
-// currently exists, and either its zone is not hidden or viewer is its
-// owner. An id nothing can currently resolve (including ObjID 0, "no
-// object") is not visible -- the safe default (see RedactEvents' doc).
+// currently exists, and either its zone is not hidden, viewer is its owner,
+// or viewer controls its owner (CR 720.4). An id nothing can currently
+// resolve (including ObjID 0, "no object") is not visible -- the safe default
+// (see RedactEvents' doc).
 func visibleTo(g *state.Game, id state.ObjID, viewer state.PlayerID) bool {
 	o := g.Obj(id)
 	if o == nil {
@@ -179,7 +206,7 @@ func visibleTo(g *state.Game, id state.ObjID, viewer state.PlayerID) bool {
 	if o.Zone == state.ZPlanarDeck && !o.FaceDown {
 		return true
 	}
-	return !o.Zone.Hidden() || o.Owner == viewer
+	return !o.Zone.Hidden() || o.Owner == viewer || controlsSeat(g, viewer, o.Owner)
 }
 
 // filterVisible drops every id not visible to viewer, shortening the slice
