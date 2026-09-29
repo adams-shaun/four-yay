@@ -55,8 +55,6 @@ describe('BoardStage — the table is arranged, and the centre strip is a real l
     expect(await readout.textContent()).toContain('pool');
     expect(await readout.locator('[data-mana="W"]').textContent()).toContain('2');
     expect(await readout.locator('[data-mana="C"]').textContent()).toContain('1');
-    const shown = await readout.innerText();
-    console.log(`LIVE BOARD PROBE: own seat box visible; pool={C:1,W:2}; readout=${JSON.stringify(shown)}`);
     await page.close();
   });
 
