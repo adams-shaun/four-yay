@@ -66,10 +66,11 @@ describe('announce-then-pay helpers', () => {
     expect(announceActions(d, true, true)).toEqual([]);
     expect(announceActions(d, false, false)).toEqual([]);
     expect(castableActions(d, true, false).map((a) => a.id)).toEqual(['plan-only', 'pooled', 'planless']);
-    // Auto-pay ON has no route for a plan-less action (castAction submits the
-    // suggested plan and returns when there is none), so it must not be offered
-    // as a CAST button — that would be an inert control.
-    expect(castableActions(d, true, true).map((a) => a.id)).toEqual(['plan-only', 'pooled']);
+    // A plan-less action is offered in BOTH modes now: castAction falls back
+    // to submitAnnounce for it under Auto-pay ON too (ManaBrew-only shape;
+    // rules/payment_plan.go never publishes a plan-less action natively), so
+    // the CAST affordance is live there as well.
+    expect(castableActions(d, true, true).map((a) => a.id)).toEqual(['plan-only', 'pooled', 'planless']);
     expect(announceActions(windowDecision(), true, false)).toEqual([]);
   });
 
@@ -170,6 +171,21 @@ describe('announce-then-pay seat routing', () => {
     await Promise.resolve();
     expect(postIntentMock.mock.calls[0][2]).toMatchObject({ seq: 19, choices: [], payment: { action_id: 'plan-only', plan: { id: 'plan-a' } } });
     expect(postIntentMock.mock.calls[0][2].announce).toBeUndefined();
+  });
+
+  it('with Auto-pay on, CAST of a plan-less ManaBrew action falls back to the announce', async () => {
+    const p = new SeatPanelState('table', 1, ctx, null);
+    p.setAutoManaAvailable(true);
+    p.setAutoPayMana(true);
+    // Precondition: the offered action really is plan-less (the ManaBrew wire
+    // shape; a plan-bearing action must keep taking the payment route above).
+    const d = priority(24, [action('planless', null, [])]);
+    expect(d.payment_actions![0].plans).toEqual([]);
+    p.adoptView(d);
+    p.castAction(d.payment_actions![0]);
+    await Promise.resolve();
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+    expect(postIntentMock.mock.calls[0][2]).toEqual({ seq: 24, player: 0, choices: [], announce: { action_id: 'planless' } });
   });
 
   it('a stale announce button is inert; planless announces post and double clicks post once', async () => {

@@ -12,8 +12,9 @@
    *  - 'manabrew' — the reported ManaBrew seat (Aether Vial, Auto-pay OFF):
    *    the wire offers only a plan-less `pay-<id>` payment action, which the
    *    announce button must render and post as `announce`.
-   *  - 'manabrew-autopay' — Auto-pay ON: castAction has no route for a
-   *    plan-less action, so no CAST affordance may render.
+   *  - 'manabrew-autopay' — Auto-pay ON: castAction has no plan to submit for
+   *    a plan-less action, so it falls back to announce-then-pay; the payment
+   *    block must render the announce fallback control for it.
    *
    * window.fetch is the AutoPayActPass / FeedbackButton recording stub: every
    * POSTed intent lands in window.__posts without a server.

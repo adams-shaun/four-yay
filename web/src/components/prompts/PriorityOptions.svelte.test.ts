@@ -4,12 +4,13 @@ import { browserURL, sharedBrowser } from '../../test/browser';
 
 /**
  * PriorityOptions.svelte.test.ts is the mounted proof for the ManaBrew
- * plan-less cast affordance (fb-20260929T075330Z): the wire offers a
- * `pay-<id>` cast with no payment plan, and PriorityOptions must render a
- * cast button for it and POST the announce when that rendered button is
- * CLICKED — not merely when submitAnnounce is called directly. The Auto-pay
- * ON case is pinned too: there is no route for a plan-less action, so no CAST
- * affordance may render (a dead button would be worse than none).
+ * plan-less cast affordance (fb-20260929T075330Z + its Auto-pay-ON follow-up):
+ * the wire offers a `pay-<id>` cast with no payment plan, and PriorityOptions
+ * must render a cast affordance for it and POST the announce when that
+ * rendered control is CLICKED — not merely when submitAnnounce is called
+ * directly — in BOTH Auto-pay modes. With Auto-pay ON the affordance is the
+ * announce fallback inside the payment block (the action has no plan to
+ * submit); with Auto-pay OFF it is the announce list's button.
  */
 
 let browser: Browser;
@@ -47,16 +48,20 @@ describe('PriorityOptions ManaBrew cast', () => {
     await page.close();
   });
 
-  it('with Auto-pay ON, offers no cast affordance for the plan-less action', async () => {
+  it('with Auto-pay ON, the plan-less action renders the announce fallback and the click posts it', async () => {
     const page = await open('manabrew-autopay');
-    // The plan-less payment action is present on the decision but has no route
-    // under Auto-pay ON, so neither the announce button nor a plan button may
-    // appear — only the "unavailable" hint.
-    expect(await page.locator('[data-announce]').count()).toBe(0);
+    const button = page.locator('[data-announce="pay-4ad785b7"]');
+    await expect.poll(() => button.count()).toBe(1);
+    // Exactly one announce control: the payment block's fallback button. The
+    // Auto-pay-ON announce list is empty (announceActions stays gated on
+    // !autoPayMana), so nothing else may carry the same data-announce id.
+    expect(await page.locator('[data-announce]').count()).toBe(1);
     expect(await page.locator('[data-payment-plan]').count()).toBe(0);
-    await expect.poll(() => page.locator('[data-payment-actions]').count()).toBe(1);
-    await expect.poll(() => page.getByText('Suggested payment is unavailable').count()).toBe(1);
+    // Precondition: nothing has been posted before the click.
     expect(await posts(page)).toEqual([]);
+    await button.click();
+    await expect.poll(() => posts(page)).toHaveLength(1);
+    expect((await posts(page))[0]).toEqual({ seq: 109, player: 0, choices: [], announce: { action_id: 'pay-4ad785b7' } });
     await page.close();
   });
 });
