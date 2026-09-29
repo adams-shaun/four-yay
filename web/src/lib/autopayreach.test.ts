@@ -15,10 +15,11 @@ import { isManualManaOption, isPlainManualTap, manualManaHidden } from './manual
 //    payment action.
 // "Reachable" is what the three surfaces render from the SAME predicates they
 // read (SeatPanel's list, Table's board badges and the hot strip all filter
-// `manualManaHidden(...) && isPlainManualTap(option)`, and render a plan
-// button for every payment action carrying a plan): a visible option, a plan
-// button, or -- for a play the engine offers only once mana floats -- the
-// manual taps being visible.
+// `manualManaHidden(...) && isPlainManualTap(option)`, render a plan button
+// for every payment action carrying a plan, and the plan-less action's
+// "Cast — choose mana" announce button under Auto-pay ON): a visible option,
+// a plan button, an announce button, or -- for a play the engine offers only
+// once mana floats -- the manual taps being visible.
 
 const SEAT = 0;
 
@@ -68,6 +69,12 @@ function surfaces(d: Decision, v: View) {
     const o = d.options.find((x) => x.label === label);
     if (o) return reachesOption(o);
     if (planned.some((p) => `${p.label} (with suggested mana)` === label)) return true;
+    // The plan-less announce arm (agent-20260929T172335Z-dee96bba): under
+    // Auto-pay ON the panel renders the plan-less action's "Cast — choose
+    // mana" announce button (PriorityOptions.svelte's plan-less branch), so
+    // the label names a reachable surface.
+    const announced = /^(.*) \(announce\)$/.exec(label);
+    if (announced) return (d.payment_actions ?? []).some((p) => p.plans.length === 0 && p.label === announced[1]);
     const after = /^(.*) \(after tapping\)$/.exec(label);
     const a = after ? potential.find((x) => x.label === after[1]) : undefined;
     return a !== undefined && reachesPotential(a);

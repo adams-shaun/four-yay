@@ -1013,12 +1013,44 @@ describe('auto-pay: a plan-bearing payment action is a real play only while the 
       .toEqual({ act: 'pass', index: 1 });
   });
 
-  it('a payment action with no plan is not a play (the panel offers nothing to click for it)', () => {
+  it('a plan-less payment action under Auto-pay ON is an announce-then-pay play (the panel offers the Cast — choose mana button)', () => {
     const d = plannedWindow(plannedAction([]));
-    expect(emptyPriorityWindow(d, ownMain, 0, true)).toBe(1);
-    expect(actionables(ownMain, 0, d, true)).toEqual([]);
+    // Precondition: the action really carries no plan, and the view carries
+    // no seat projection, so the only arm that could name the window is the
+    // plan-less one.
+    expect(d.payment_actions![0].plans).toEqual([]);
+    expect(ownMain.players).toEqual([]); // no seat projection anywhere, so only the plan-less arm can name the window
+    expect(emptyPriorityWindow(d, ownMain, 0, true)).toBeNull();
+    expect(actionables(ownMain, 0, d, true)).toEqual(['Cast Opt (announce)']);
+    expect(actionable(d, ownMain, 0, true)).toBe(true);
     expect(decide({ decision: d, view: ownMain, seat: 0, settings: withSteps('yours', { main1: 'smart' }), autoPayMana: true }))
+      .toEqual({ act: 'stop', reason: 'stop-set' });
+    // With the preference OFF the old capability-less behaviour still holds.
+    expect(emptyPriorityWindow(d, ownMain, 0, false)).toBe(1);
+    expect(actionables(ownMain, 0, d, false)).toEqual([]);
+    expect(decide({ decision: d, view: ownMain, seat: 0, settings: withSteps('yours', { main1: 'smart' }), autoPayMana: false }))
       .toEqual({ act: 'pass', index: 1 });
+  });
+
+  it('a plan-less ManaBrew cast is labelled "(announce)", not "(after tapping)" — the decorated view names the announce route', () => {
+    // The ManaBrew shape (ManaBrewMatch.decorate): the plan-less action is
+    // also injected into the seat's potential_actions as a bare cast, so the
+    // after-tapping arm has a projection to name — the announce arm must win.
+    const d = plannedWindow(plannedAction([]));
+    const decorated = withHand(ownMain, 0, { potential_actions: [{ ...pot('cast', 102), label: 'Cast Opt' }] });
+    // Precondition: the decoration really carries the same cast label, so the
+    // after-tapping arm is a live (wrong) alternative.
+    expect(decorated.players[0].potential_actions).toEqual([{ kind: 'cast', obj: 102, label: 'Cast Opt' }]);
+    expect(d.payment_actions![0].plans).toEqual([]);
+    expect(actionables(decorated, 0, d, true)).toEqual(['Cast Opt (announce)']);
+    expect(emptyPriorityWindow(d, decorated, 0, true)).toBeNull();
+    expect(decide({ decision: d, view: decorated, seat: 0, settings: withSteps('yours', { main1: 'smart' }), autoPayMana: true }))
+      .toEqual({ act: 'stop', reason: 'stop-set' });
+    // Preference OFF: the after-tapping projection arm still names the window
+    // (the capability-less policy is unchanged; the window is a real play in
+    // both policies because the projection is a play).
+    expect(actionables(decorated, 0, d, false)).toEqual(['Cast Opt (after tapping)']);
+    expect(actionables(decorated, 0, d, true)).not.toEqual(actionables(decorated, 0, d, false));
   });
 
   it('the planned arm reads priority decisions only', () => {
