@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/deck"
 	mb "github.com/adams-shaun/gorge/protocol/manabrew"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
@@ -34,7 +35,40 @@ func (t *Translator) gameView(v view.View) mb.GameViewDto {
 	for _, s := range v.Stack {
 		gv.Stack = append(gv.Stack, stackObject(s))
 	}
+	// The x_gorge_own_deck_v1 extension (seat-deck-manifest spec, interface
+	// mapping item 4) rides the seat's own state: v is a seat-redacted view,
+	// so v.OwnDeck is non-nil exactly when the viewer is an in-range seat and
+	// carries ONLY the viewer's manifest (view.ProjectFor fills it for
+	// Visibility == Seat and nothing else). A nil manifest -- the synthetic
+	// fixtures, an implementation with no deck data -- omits the optional
+	// member rather than publishing an empty lie.
+	if v.OwnDeck != nil {
+		gv.OwnDeck = ownDeckExtension(v.OwnDeck)
+	}
 	return gv
+}
+
+// ownDeckExtension renders one seat's native own-deck manifest into the
+// x_gorge_own_deck_v1 payload. The row list is the manifest's own ordered
+// name/count rows, copied so neither the view's backing slice nor the
+// engine's manifest can be retained or mutated through the DTO. main is
+// always a list ([] when empty), an absent sideboard stays omitted, and
+// commanders keep their declared order.
+func ownDeckExtension(m *deck.Manifest) *mb.OwnDeckExtension {
+	ext := &mb.OwnDeckExtension{Name: m.Name, Main: make([]mb.OwnDeckRow, 0, len(m.Main))}
+	for _, row := range m.Main {
+		ext.Main = append(ext.Main, mb.OwnDeckRow{Name: row.Name, Count: row.Count})
+	}
+	if len(m.Sideboard) > 0 {
+		ext.Sideboard = make([]mb.OwnDeckRow, 0, len(m.Sideboard))
+		for _, row := range m.Sideboard {
+			ext.Sideboard = append(ext.Sideboard, mb.OwnDeckRow{Name: row.Name, Count: row.Count})
+		}
+	}
+	if len(m.Commanders) > 0 {
+		ext.Commanders = append([]string{}, m.Commanders...)
+	}
+	return ext
 }
 
 // stepKind maps an engine step name (view.View.Step, i.e. state.Step.String())

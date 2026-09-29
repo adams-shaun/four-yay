@@ -351,6 +351,31 @@ type StackObjectDto struct {
 	Targets           []TargetRef  `json:"targets"`
 }
 
+// OwnDeckRow is one canonical name/count row of the x_gorge_own_deck_v1
+// extension's manifest. It is NOT a card instance: it carries no object id,
+// no zone membership, no printing, and no position in the library.
+type OwnDeckRow struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// OwnDeckExtension is the payload of gorge's additive `x_gorge_own_deck_v1`
+// gameView extension (seat-deck-manifest spec, "Interface mapping" item 4).
+// It is the authenticated seat's OWN genesis deck manifest -- the same
+// immutable, counted list the native view's `own_deck` member carries --
+// rendered as name/count rows. It never describes another seat's deck and
+// never reflects the current library: no object ids, no library order, no
+// card instances. The member is optional JSON: a client that does not know
+// the extension ignores it, and it is omitted from any state that has no
+// manifest to publish. A zero-card main deck is `"main": []`, never null;
+// an empty sideboard is omitted.
+type OwnDeckExtension struct {
+	Name       string       `json:"name"`
+	Main       []OwnDeckRow `json:"main"`
+	Sideboard  []OwnDeckRow `json:"sideboard,omitempty"`
+	Commanders []string     `json:"commanders,omitempty"`
+}
+
 // GameViewDto is the authoritative full state carried by a `state` message
 // (game-view page).
 type GameViewDto struct {
@@ -369,6 +394,11 @@ type GameViewDto struct {
 	InitiativeHolderID *string               `json:"initiativeHolderId"`
 	DayTime            DayTime               `json:"dayTime"`
 	ActivePlaneNames   []string              `json:"activePlaneNames,omitempty"`
+
+	// OwnDeck is gorge's `x_gorge_own_deck_v1` extension (OwnDeckExtension):
+	// a gorge-specific, additive member that is not part of the published
+	// ManaBrew protocol. Old clients ignore the unknown JSON member.
+	OwnDeck *OwnDeckExtension `json:"x_gorge_own_deck_v1,omitempty"`
 }
 
 // AvailableAction is one legal action in a chooseAction prompt. The published

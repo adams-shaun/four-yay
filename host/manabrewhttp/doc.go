@@ -26,4 +26,11 @@
 //     in the HTTP body and, when a stream is open, pushed on it too.
 //   - GET  .../state  — one-shot state plus the open prompt, for poll-only
 //     clients that never open a stream.
+//
+// Gorge extension (seat-deck-manifest spec, interface mapping item 4): every
+// state message's gameView carries the additive optional member
+// `x_gorge_own_deck_v1` — the authenticated seat's own genesis deck manifest
+// as name/count rows, the same data the native view's `own_deck` member
+// holds. It is not part of the published ManaBrew protocol; clients that do
+// not know it ignore it, and prompts never carry it.
 package manabrewhttp
