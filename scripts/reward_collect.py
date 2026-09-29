@@ -460,17 +460,24 @@ def collect_steward(repo: Path, context_file: Path | None = None) -> list[str]:
     # this far as a unit doing too much.
     big = []
     for f in repo.rglob("*.go"):
-        s = str(f)
-        # .ds4 holds the daemon's staging copy of the whole tree, so counting
-        # it would double every file in the repo.
-        if any(x in s for x in ("/.worktrees/", "/.cards/", "/vendor/", "/.ds4/", "/web/node_modules/")):
+        # Exclusion is by path components RELATIVE to the measured root, not by
+        # an absolute substring: a task agent runs this probe from inside its
+        # own `.worktrees/<id>` worktree, where every file's absolute path
+        # contains `/.worktrees/`, so an absolute test read 0 vacuously and
+        # hid real oversized-file regressions. Nested copies inside the
+        # measured root are still dropped — the landing checkout's
+        # `.worktrees/` trees (which would double-count sibling agent
+        # checkouts), the `.ds4` staging copy of the whole tree, the
+        # gitignored `.cards/` corpus, `vendor/` and `node_modules/`.
+        rel = f.relative_to(repo)
+        if any(part in (".worktrees", ".cards", ".ds4", "vendor", "node_modules") for part in rel.parts):
             continue
         try:
             n = sum(1 for _ in f.open("rb"))
         except OSError:
             continue
         if n > 1500:
-            big.append((n, str(f.relative_to(repo))))
+            big.append((n, str(rel)))
     big.sort(reverse=True)
     rows.append(
         row(
@@ -642,6 +649,29 @@ def selftest() -> int:
               next(r for r in stw if r["metric"] == "agent_context_bytes")["value"] == 1000, stw)
         big = next(r for r in stw if r["metric"] == "oversized_files")
         check("oversized files counts only the big one", big["value"] == 1 and "big.go" in big["note"], big)
+
+        # A second fixture whose ABSOLUTE path contains /.worktrees/ — the
+        # shape of a task-agent worktree, where the old absolute-substring
+        # exclusion dropped every file and the metric read 0 vacuously. The
+        # repo's own big.go must be counted; a NESTED .worktrees/ tree inside
+        # the measured root must stay excluded.
+        wtrepo = Path(td) / ".worktrees" / "agent-x"
+        (wtrepo / "rules").mkdir(parents=True)
+        (wtrepo / "big.go").write_text("// line\n" * 1600)
+        (wtrepo / "small.go").write_text("// line\n" * 10)
+        nested = wtrepo / ".worktrees" / "other" / "big.go"
+        nested.parent.mkdir(parents=True)
+        nested.write_text("// line\n" * 1600)
+        check("worktree fixture's absolute path really contains /.worktrees/",
+              "/.worktrees/" in str(wtrepo) + "/", str(wtrepo))
+        check("nested fixture file really exceeds the 1500-line threshold",
+              sum(1 for _ in nested.open("rb")) > 1500)
+        wst = [json.loads(r) for r in collect_steward(wtrepo)]
+        wbig = next(r for r in wst if r["metric"] == "oversized_files")
+        check("worktree-shaped repo counts its own big.go",
+              wbig["value"] == 1 and "big.go" in wbig["note"], wbig)
+        check("worktree-shaped repo does not count the nested .worktrees copy",
+              wbig["value"] == 1 and ".worktrees" not in wbig["note"], wbig)
 
         # idle_branches over a real git repo with a real worktree: an unmerged
         # idle branch is listed, and one already contained in main is not.
