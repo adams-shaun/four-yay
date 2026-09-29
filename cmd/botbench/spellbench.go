@@ -92,6 +92,11 @@ type sbOpts struct {
 	engineVersion string
 	catalog       string
 	format        string // the catalog's ledger format, set from catalog
+	// mulligans is -spellbench-mulligans: the London round size for every
+	// game of the run. 0 (the default) is SpellBench's behaviour today: no
+	// mulligan ask is ever posed. >0 turns the round on so a mulligan policy
+	// A/B can run on this bench.
+	mulligans int
 	// tacticalWeights / tacticalAlt name JSON weight files for sb-tactical
 	// and sb-tactical-alt.
 	tacticalWeights, tacticalAlt string
@@ -115,6 +120,7 @@ func registerSpellbenchFlags(fs *flag.FlagSet) {
 	fs.StringVar(&sbFlags.tacticalAlt, "spellbench-tactical-alt-weights", "", "spellbench: comma list of JSON files of builtins.TacticalWeights for sb-tactical-alt, -alt2 ... -alt8 (weight-tuning A/B)")
 	fs.StringVar(&sbFlags.trace, "spellbench-trace", "", "spellbench: directory for sb-tactical decision traces (one file per game and seat)")
 	fs.StringVar(&sbFlags.engineVersion, "spellbench-engine-version", "dev", "spellbench: engine_version recorded in the ledger (e.g. the git commit)")
+	fs.IntVar(&sbFlags.mulligans, "spellbench-mulligans", 0, "spellbench: London mulligans per player per game (0 = none posed, the benchmark default; 0..6 as host/httpapi clamps it)")
 }
 
 const (
@@ -178,6 +184,11 @@ type sbResult struct {
 	fallbacks [2]int
 	rejects   [2]string // first refused answer per seat
 	stats     [2]builtins.Stats
+	// mullAsks / mullTaken count each seat's keep/mulligan asks and the
+	// "mulligan" answers among them (bottoming answers are hand-retention,
+	// not a mulligan taken). Mechanism evidence for a mulligan policy A/B.
+	mullAsks  [2]int
+	mullTaken [2]int
 	// corpus is this game's -az-corpus records as one gzip member (nil when
 	// off or when no az seat searched): members concatenate into the file.
 	corpus []byte
@@ -234,6 +245,20 @@ func basePolicy(spec string) string {
 func sbBotID(name string) string {
 	h := sha256.Sum256([]byte("gorge-botbench-policy/v1:" + name))
 	return hex.EncodeToString(h[:])
+}
+
+// sbIntentPicksKind reports whether in's first choice selects an option of
+// the given kind on d.
+func sbIntentPicksKind(d *decision.Decision, in decision.Intent, kind string) bool {
+	if len(in.Choices) == 0 {
+		return false
+	}
+	for _, o := range d.Options {
+		if o.Index == in.Choices[0] {
+			return o.Kind == kind
+		}
+	}
+	return false
 }
 
 // sbSubmitWithFallback is the Hooks.Submit that keeps a builtin seat's
@@ -305,7 +330,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	}
 	cfg := rules.Config{
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
-		Tokens: reg.Tokens, NameUniverse: reg.Cards,
+		Tokens: reg.Tokens, NameUniverse: reg.Cards, Mulligans: sbFlags.mulligans,
 	}
 	var recs []policynet.VisitRecord
 	if azCorpusPath != "" {
@@ -321,13 +346,23 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 			})
 		}
 	}
-	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res), Setup: func(e *rules.Engine) {
-		for _, st := range seats {
-			if b, ok := registry.UnwrapSeat(st).(*builtins.Seat); ok {
-				b.SetPlanner(e)
+	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res),
+		Decision: func(seatIdx int, d *decision.Decision, in decision.Intent, _ *botpolicy.Board) error {
+			if d.Kind != decision.KMulligan || len(d.Options) == 0 || d.Options[0].Kind == "bottom" {
+				return nil
 			}
-		}
-	}}
+			res.mullAsks[seatIdx]++
+			if sbIntentPicksKind(d, in, "mulligan") {
+				res.mullTaken[seatIdx]++
+			}
+			return nil
+		}, Setup: func(e *rules.Engine) {
+			for _, st := range seats {
+				if b, ok := registry.UnwrapSeat(st).(*builtins.Seat); ok {
+					b.SetPlanner(e)
+				}
+			}
+		}}
 	if maxTurnIntents > 0 {
 		hooks.Guard = turnIntentGuard(maxTurnIntents)
 	}
@@ -533,6 +568,9 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	}
 	if o.pairs < 1 {
 		return fail(fmt.Errorf("-spellbench-pairs must be at least 1"))
+	}
+	if o.mulligans < 0 || o.mulligans > 6 {
+		return fail(fmt.Errorf("-spellbench-mulligans must be between 0 and 6"))
 	}
 	if o.out == "" {
 		return fail(fmt.Errorf("-spellbench-out is required"))
@@ -748,6 +786,7 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 			"result": sbResultLabel(r), "turns": r.outcome.Turns, "intents": r.outcome.Intents,
 			"wall_ms": r.wall.Milliseconds(), "stall_on": r.outcome.StallOn,
 			"fallbacks": r.fallbacks, "first_reject": r.rejects, "pursuit_stats": r.stats,
+			"mulligans": map[string][2]int{"asks": r.mullAsks, "taken": r.mullTaken},
 		}
 		if r.outcome.StarterSet {
 			extra["starter"] = r.outcome.Starter
@@ -763,6 +802,7 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 	run := map[string]any{
 		"policies": bots, "display_names": names, "catalog": o.catalog, "decks": pool, "pairs_per_deck": o.pairs,
 		"base_seed": o.baseSeed, "with": o.with, "without": o.without, "games": len(sched),
+		"mulligans":    o.mulligans,
 		"wall_seconds": elapsed.Seconds(), "workers": workers, "engine": engine,
 		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg, "worlds": azCfg.Worlds},
 		"max_turn_intents": maxTurnIntents,
