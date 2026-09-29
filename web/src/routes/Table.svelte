@@ -161,13 +161,19 @@
   // bubbled to the window as "outside" and closed it again.
   let optionsRoot = $state<HTMLDivElement | null>(null);
   let optionsButton = $state<HTMLButtonElement | null>(null);
-  function dismissOptions(): void {
+  // A keyboard close hands focus back to the Options button. A pointer close
+  // takes focus off it instead: a focused button owns Space and Enter
+  // (lib/hotkeys focusOwnsKey), so the next Space would reopen the panel
+  // rather than pass.
+  function dismissOptions(byPointer = false): void {
     if (!optionsOpen) return;
     optionsOpen = false;
-    void tick().then(() => optionsButton?.focus());
+    void tick().then(() => (byPointer ? optionsButton?.blur() : optionsButton?.focus()));
   }
-  function toggleOptions(): void {
-    if (optionsOpen) dismissOptions();
+  function toggleOptions(event?: MouseEvent): void {
+    // detail is 0 when Enter or Space activated the button; the hotkey
+    // strip calls this with no event.
+    if (optionsOpen) dismissOptions((event?.detail ?? 0) > 0);
     else optionsOpen = true;
   }
   // Escape, or the toggle-options chord: the panel is a role=dialog, so the
@@ -180,7 +186,7 @@
     }
   }
   function closeOptionsOutside(event: MouseEvent): void {
-    if (optionsOpen && optionsRoot && clickedOutside(event, optionsRoot)) dismissOptions();
+    if (optionsOpen && optionsRoot && clickedOutside(event, optionsRoot)) dismissOptions(true);
   }
   $effect(() => {
     if (optionsOpen) void tick().then(() => optionsPopover?.focus());
