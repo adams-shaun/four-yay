@@ -4,6 +4,7 @@
   import type { SeatGlow } from '../lib/seatglow';
   import Avatar from './Avatar.svelte';
   import SeatCounts from './SeatCounts.svelte';
+  import TickNumber from './TickNumber.svelte';
 
   /**
    * SeatBox is the viewer's own seat (UI rework spec §3): avatar, serif
@@ -49,7 +50,7 @@
     <Avatar {name} {colour} {art} size={36} />
     <span class="name" title={name}>{name}</span>
     {#if active}<span class="turn">Turn</span>{/if}
-    <span class="life" data-life>{player.life}</span>
+    <span class="life" data-life data-motion-anchor={`${player.seat}:life`}><TickNumber value={player.life} /></span>
   </div>
   <div class="bottom">
     <SeatCounts {player} who={name} {options} />

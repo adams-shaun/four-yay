@@ -101,6 +101,7 @@
   style:--seat={colour}
   style:--card-w="{sz.cardW}px"
   data-seat={player.seat}
+  data-motion-anchor={`${player.seat}:battlefield`}
   data-lost={player.lost}
 >
   {#if header}

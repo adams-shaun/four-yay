@@ -191,7 +191,7 @@
        Both are pointer-transparent; only a face claims the pointer — and the
        resize stepper (ZoneStepper), which re-enables the pointer on itself. -->
   <div class="handtrack" bind:this={container}>
-  <div class="handfan" style:width="{layout.rowWidth}px" style:--card-w="{faceW}px" style:--peek={peek} data-peek={peekMode} data-align="center">
+  <div class="handfan" data-motion-anchor={`${player.seat}:hand`} style:width="{layout.rowWidth}px" style:--card-w="{faceW}px" style:--peek={peek} data-peek={peekMode} data-align="center">
     {#each hand as c, i (c.id)}
       <!-- A hand card is NOT a board permanent: no tapped/attacking/counters
            chrome, just the face plus the shared hover inspector. When the

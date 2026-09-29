@@ -4,6 +4,7 @@
   import type { SeatGlow } from '../lib/seatglow';
   import Avatar from './Avatar.svelte';
   import SeatCounts from './SeatCounts.svelte';
+  import TickNumber from './TickNumber.svelte';
 
   /**
    * SeatHeader is an opponent's header bar (UI rework spec §3): avatar,
@@ -58,7 +59,7 @@
   {#if priority && !active}<span class="prio" title="Has priority" aria-hidden="true"></span>{/if}
   {#if player.lost}<span class="out">Out</span>{/if}
   <SeatCounts {player} who={name} {options} />
-  <span class="life" data-life>{player.life}<small>life</small></span>
+  <span class="life" data-life data-motion-anchor={`${player.seat}:life`}><TickNumber value={player.life} /><small>life</small></span>
 </header>
 
 <style>

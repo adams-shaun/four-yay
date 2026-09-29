@@ -22,21 +22,22 @@
 </script>
 
 <span class="counts" data-seat-counts>
-  <span title={`Hand: ${player.hand_size}`}>Hand <b>{player.hand_size}</b></span>
-  <span title={`Library: ${player.library_size}`}>Lib <b>{player.library_size}</b></span>
+  <span title={`Hand: ${player.hand_size}`} data-motion-anchor={`${player.seat}:hand`}>Hand <b>{player.hand_size}</b></span>
+  <span title={`Library: ${player.library_size}`} data-motion-anchor={`${player.seat}:library`}>Lib <b>{player.library_size}</b></span>
   {#each zones as z (z.zone)}
     {#if z.cards.length > 0}
       <button
         type="button"
         class="pile"
         data-pile={z.zone}
+        data-motion-anchor={`${player.seat}:${z.zone}`}
         data-tone={tone(z)}
         aria-label={pileLabel(who, z.zone, z.count)}
         title={pileLabel(who, z.zone, z.count)}
         onclick={(e) => pileOpener.open(player.seat, z.zone, e.currentTarget as HTMLElement)}
       >{LABEL[z.zone]} <b>{z.count}</b></button>
     {:else if z.zone === 'graveyard' || z.count > 0}
-      <span title={`${LABEL[z.zone]}: ${z.count}`}>{LABEL[z.zone]} <b>{z.count}</b></span>
+      <span title={`${LABEL[z.zone]}: ${z.count}`} data-motion-anchor={`${player.seat}:${z.zone}`}>{LABEL[z.zone]} <b>{z.count}</b></span>
     {/if}
   {/each}
 </span>

@@ -3,8 +3,9 @@ import type { Recipient, ZoneRef } from '../clientmodel/types';
 /**
  * anchors names where on screen a motion step starts or ends. The contract
  * for new seat UI is one attribute, `data-motion-anchor="<seat>:<zone>"` (and
- * `"<seat>:life"`, and `"stack"`); until the rework's seat boxes carry it,
- * today's elements are found through the fallbacks after it. Selector lists
+ * `"<seat>:life"`, and `"stack"`). The seat box, header bars, count line,
+ * board piles, battlefield quadrant, hand fan and rail stack carry it; the
+ * fallbacks after it cover the rail seat table and a missing anchor. Selector lists
  * are ordered: the first that matches a visible element wins.
  */
 
@@ -12,7 +13,7 @@ export function objSelectors(obj: number): string[] {
   return [`[data-obj="${obj}"]`];
 }
 
-const seatFallbacks = (seat: number) => [`[data-player-pill="${seat}"]`, `.identity[data-seat="${seat}"]`, `[data-seat="${seat}"]`];
+const seatFallbacks = (seat: number) => [`[data-seat-anchor="${seat}"]`, `[data-seat-row="${seat}"]`, `[data-seat="${seat}"]`];
 
 export function zoneSelectors(z: ZoneRef): string[] {
   const own = z.seat === null ? [] : [`[data-motion-anchor="${z.seat}:${z.zone}"]`];
@@ -22,11 +23,10 @@ export function zoneSelectors(z: ZoneRef): string[] {
   switch (z.zone) {
     case 'graveyard':
     case 'exile':
-      return [...own, `[data-player-pill="${s}"] [data-pile="${z.zone}"]`, `[data-seat="${s}"] [data-pile="${z.zone}"]`, `[data-seat="${s}"] [data-stat="${z.zone}"]`, ...seatFallbacks(s)];
+      return [...own, `[data-seat="${s}"] [data-pile="${z.zone}"]`, `[data-seat-row="${s}"] [data-stat="${z.zone}"]`, ...seatFallbacks(s)];
     case 'hand':
-      return [...own, `[data-player-pill="${s}"] [title^="Hand"]`, ...seatFallbacks(s)];
     case 'library':
-      return [...own, `[data-player-pill="${s}"] [title^="Library"]`, ...seatFallbacks(s)];
+      return [...own, `[data-seat-row="${s}"] [data-stat="${z.zone}"]`, ...seatFallbacks(s)];
     case 'battlefield':
       return [...own, `.quadrant[data-seat="${s}"]`, ...seatFallbacks(s)];
     default:
@@ -35,7 +35,7 @@ export function zoneSelectors(z: ZoneRef): string[] {
 }
 
 export function lifeSelectors(seat: number): string[] {
-  return [`[data-motion-anchor="${seat}:life"]`, `[data-player-pill="${seat}"] [data-life]`, `.identity[data-seat="${seat}"] [data-life]`, ...seatFallbacks(seat)];
+  return [`[data-motion-anchor="${seat}:life"]`, `[data-seat-row="${seat}"] [data-stat="life"]`, ...seatFallbacks(seat)];
 }
 
 export function recipientSelectors(r: Recipient, life: boolean): string[] {

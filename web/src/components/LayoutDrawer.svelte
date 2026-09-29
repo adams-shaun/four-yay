@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MotionSpeedControl from './MotionSpeedControl.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
   import {
     ANCHOR_LABELS,
@@ -174,6 +175,11 @@
     {@render seg('Stack & log rail', RAIL_SIDES, RAIL_LABELS, p.panels.rail, (v) => layoutStore.edit((q) => (q.panels.rail = v)), 'rail')}
     {@render seg('Log', LOG_MODES, LOG_LABELS, p.panels.log, (v) => layoutStore.edit((q) => (q.panels.log = v)), 'log')}
     {@render seg('Prompt', PROMPT_PLACEMENTS, PROMPT_LABELS, p.panels.prompt.placement, (v) => layoutStore.edit((q) => (q.panels.prompt.placement = v)), 'prompt')}
+
+    <h3>Motion</h3>
+    <!-- Animation speed is a per-browser view setting (lib/motion), not part
+         of a layout profile: switching boards never changes it. -->
+    <MotionSpeedControl />
 
     <h3>Profiles</h3>
     <div class="f">

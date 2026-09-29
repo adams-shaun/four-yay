@@ -20,7 +20,7 @@
 </script>
 
 <div class="piles" style:--pile-w="{width}px" data-zone-piles={player.seat}>
-  <div class="pile back" title={`Library: ${player.library_size}`} aria-label={`Library, ${player.library_size} cards`}>
+  <div class="pile back" data-motion-anchor={`${player.seat}:library`} title={`Library: ${player.library_size}`} aria-label={`Library, ${player.library_size} cards`}>
     <span class="oval" aria-hidden="true"></span>
     <span class="n">{player.library_size}</span>
   </div>
@@ -31,6 +31,7 @@
         type="button"
         class="pile face"
         data-pile={z.zone}
+        data-motion-anchor={`${player.seat}:${z.zone}`}
         data-tone={tone === 'idle' ? undefined : tone}
         aria-label={pileLabel(who, z.zone, z.count)}
         title={pileLabel(who, z.zone, z.count)}
@@ -40,7 +41,7 @@
         <span class="n">{z.count}</span>
       </button>
     {:else}
-      <div class="pile empty" title={`${z.zone === 'graveyard' ? 'Graveyard' : 'Exile'}: ${z.count}`}>
+      <div class="pile empty" data-motion-anchor={`${player.seat}:${z.zone}`} title={`${z.zone === 'graveyard' ? 'Graveyard' : 'Exile'}: ${z.count}`}>
         {#if z.count > 0}<span class="n">{z.count}</span>{/if}
       </div>
     {/if}
