@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -80,10 +81,20 @@ func (o Options) Validate(net *policynet.Model) error {
 // Stats.AllFailed is 1. The error return is reserved for misconfiguration
 // (invalid options or network, a missing root field or source).
 //
-// net nil is generation 0: a uniform prior and the heuristic leaf. The
-// result is a pure function of (root position, bot answer, net, opts): the
-// same Seed gives a byte-identical Result.
-func Search(root Root, src WorldSource, net *policynet.Model, opts Options) (Result, error) {
+// net nil is generation 0: a uniform prior and the heuristic leaf. With a
+// live ctx the result is a pure function of (root position, bot answer, net,
+// opts): the same Seed gives a byte-identical Result.
+// ctx is the WALL-CLOCK BAIL-OUT, an escape hatch a production host arms
+// with a per-decision deadline (bots.Options.DecisionDeadline) so a search
+// cannot run to completion regardless of load. A ctx that is done -- already
+// at the call, or between simulations -- stops the tree where it is and the
+// bot's intent is played exactly as on a search that never built;
+// Stats.DeadlineHits counts it and the partial tree's choice is never taken
+// (how many simulations complete under load is not reproducible, so arming
+// it gives up the determinism contract below by construction). A live
+// context -- context.Background(), what every benchmark, replay and
+// determinism test passes -- never arms it.
+func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Model, opts Options) (Result, error) {
 	res := Result{Intent: root.Bot}
 	if err := opts.Validate(net); err != nil {
 		return res, err
@@ -132,9 +143,15 @@ func Search(root Root, src WorldSource, net *policynet.Model, opts Options) (Res
 		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player,
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 	}
-	tr, err := RunTree(rootPt, &worldEnvs{src: src, cfg: cfg}, opts, &res.Stats)
+	tr, err := RunTree(ctx, rootPt, &worldEnvs{src: src, cfg: cfg}, opts, &res.Stats)
 	if err != nil {
 		return res, err
+	}
+	if res.Stats.DeadlineHits > 0 {
+		// The armed bail-out fired (ctx done at the call or between
+		// simulations): the tree stopped where it was and the bot's answer
+		// is played -- the partial tree's choice is never taken.
+		return res, nil
 	}
 	res.Visits, res.Q, res.RootValue = tr.Visits, tr.Q, tr.RootValue
 	if res.Stats.Completed == 0 {

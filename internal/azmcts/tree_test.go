@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -112,7 +113,7 @@ func TestFirstSimulationFollowsThePrior(t *testing.T) {
 		"/b": {value: 0.9, terminal: true},
 	}}
 	var st Stats
-	tr, err := RunTree(rootOf(g), &fakeSource{g: g}, treeOpts(1), &st)
+	tr, err := RunTree(context.Background(), rootOf(g), &fakeSource{g: g}, treeOpts(1), &st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +136,7 @@ func TestTiesGoToCandidateZero(t *testing.T) {
 		"/b": {value: 0.5, terminal: true},
 	}}
 	var st Stats
-	tr, err := RunTree(rootOf(g), &fakeSource{g: g}, treeOpts(1), &st)
+	tr, err := RunTree(context.Background(), rootOf(g), &fakeSource{g: g}, treeOpts(1), &st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +170,7 @@ func TestFirstPlayUrgency(t *testing.T) {
 		o := treeOpts(2)
 		o.FPU = tc.fpu
 		var st Stats
-		tr, err := RunTree(rootOf(g), &fakeSource{g: g}, o, &st)
+		tr, err := RunTree(context.Background(), rootOf(g), &fakeSource{g: g}, o, &st)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -190,7 +191,7 @@ func TestBackupAlongPath(t *testing.T) {
 		"/b":   {value: 0.2, terminal: true},
 	}}
 	var st Stats
-	tr, err := RunTree(rootOf(g), &fakeSource{g: g}, treeOpts(3), &st)
+	tr, err := RunTree(context.Background(), rootOf(g), &fakeSource{g: g}, treeOpts(3), &st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +224,7 @@ func TestAvailabilityCountsOnlyOfferingWorlds(t *testing.T) {
 		},
 	}
 	var st Stats
-	tr, err := RunTree(both, &fakeSource{g: g}, treeOpts(4), &st)
+	tr, err := RunTree(context.Background(), both, &fakeSource{g: g}, treeOpts(4), &st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +254,7 @@ func TestNewKeyFromALaterWorld(t *testing.T) {
 	}
 	root := &Point{Keys: []Key{"a", "b"}, Prior: []float64{0.5, 0.5}}
 	var st Stats
-	tr, err := RunTree(root, &fakeSource{g: g}, treeOpts(2), &st)
+	tr, err := RunTree(context.Background(), root, &fakeSource{g: g}, treeOpts(2), &st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +277,7 @@ func TestFailedSimulationIsDiscarded(t *testing.T) {
 		failOnce: map[string]error{"/a": fmt.Errorf("%w: test", ErrChance)},
 	}
 	var st Stats
-	tr, err := RunTree(rootOf(g), &fakeSource{g: g}, treeOpts(2), &st)
+	tr, err := RunTree(context.Background(), rootOf(g), &fakeSource{g: g}, treeOpts(2), &st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +302,7 @@ func TestEveryFailureKindIsCounted(t *testing.T) {
 		{errors.New("anything else"), func(s Stats) int { return s.SubmitErrors }},
 	} {
 		var st Stats
-		tr, err := RunTree(rootOf(g), &fakeSource{g: g, err: tc.err}, treeOpts(3), &st)
+		tr, err := RunTree(context.Background(), rootOf(g), &fakeSource{g: g, err: tc.err}, treeOpts(3), &st)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -319,7 +320,7 @@ func TestStepCapOnEverySimulation(t *testing.T) {
 		"/b": {value: 0.3, capped: true},
 	}}
 	var st Stats
-	tr, err := RunTree(rootOf(g), &fakeSource{g: g}, treeOpts(4), &st)
+	tr, err := RunTree(context.Background(), rootOf(g), &fakeSource{g: g}, treeOpts(4), &st)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +335,7 @@ func TestStepCapOnEverySimulation(t *testing.T) {
 func TestRunTreeRejectsAMalformedRoot(t *testing.T) {
 	var st Stats
 	for _, root := range []*Point{nil, {}, {Keys: []Key{"a"}, Prior: []float64{0.5, 0.5}}} {
-		if _, err := RunTree(root, &fakeSource{}, treeOpts(1), &st); err == nil {
+		if _, err := RunTree(context.Background(), root, &fakeSource{}, treeOpts(1), &st); err == nil {
 			t.Errorf("root %+v accepted", root)
 		}
 	}

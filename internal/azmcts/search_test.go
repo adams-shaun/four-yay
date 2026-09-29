@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -78,7 +79,7 @@ func searchAt(t testing.TB, e *rules.Engine, d *decision.Decision, bot decision.
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := Search(Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, src, net, opts)
+	res, err := Search(context.Background(), Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, src, net, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +218,7 @@ func TestSearchHypotheticalWorlds(t *testing.T) {
 	obs := searchprobe.NewCollector(0)
 	opts := DefaultOptions()
 	opts.Sims, opts.Seed = 8, 3
-	res, err := Search(Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, hypSource{e: e, obs: obs}, nil, opts)
+	res, err := Search(context.Background(), Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, hypSource{e: e, obs: obs}, nil, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +253,7 @@ func TestSearchBadWorldPlaysTheBot(t *testing.T) {
 		{"no world", fixedSource{err: fmt.Errorf("%w: sampler starved", ErrNoWorld)}, func(s Stats) int { return s.NoWorld }},
 	} {
 		obs := searchprobe.NewCollector(0)
-		res, err := Search(Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, tc.src, nil, opts)
+		res, err := Search(context.Background(), Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, tc.src, nil, opts)
 		if err != nil {
 			t.Fatalf("%s: %v", tc.name, err)
 		}
@@ -301,7 +302,7 @@ func TestSearchSkipsWhenTheBotPlaysALand(t *testing.T) {
 		in := botpolicy.Decide(botpolicy.BoardFromGameInto(e.G, e, d.Player, &board), d, rngs[d.Player])
 		if d.Player == 0 && d.Kind == decision.KPriority && len(in.Choices) == 1 && d.Options[in.Choices[0]].Kind == "play_land" {
 			src := &countingSource{}
-			res, err := Search(Root{Engine: e, Decision: d, Bot: in, Observer: searchprobe.NewCollector(0)}, src, nil, DefaultOptions())
+			res, err := Search(context.Background(), Root{Engine: e, Decision: d, Bot: in, Observer: searchprobe.NewCollector(0)}, src, nil, DefaultOptions())
 			if err != nil {
 				t.Fatal(err)
 			}
