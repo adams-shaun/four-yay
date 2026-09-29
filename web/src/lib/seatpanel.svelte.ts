@@ -2,6 +2,7 @@ import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelec
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
 import type { SeatCtx } from './seat';
+import type { BreakpointHit } from './breakpoints';
 import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
 import {
   applyPreset,
@@ -438,6 +439,7 @@ export function autoNoteText(note: AutoNote): string {
       // stop did not actually stop for. Derived from the base string (the
       // trailing full stop is dropped, the clause spliced in) so the wording
       // stays in one place.
+      if (note.reason === 'breakpoint' && note.detail) return `Auto paused here: ${note.detail}.`;
       if (note.reason === 'stop-set' && note.detail) {
         return `${WAITING_TEXT[note.reason].replace(/\.$/, '')} and you can act — ${note.detail}.`;
       }
@@ -888,6 +890,14 @@ export class SeatPanelState {
    * boundary opens a new space where a lower seq is legitimate again.
    */
   private seqHigh = -1;
+
+  /**
+   * bpFired maps a breakpoint key (lib/breakpoints) to the decision seq it
+   * first stopped at. decide() re-stops that same seq on every re-derive and
+   * passes later windows for the same key. Session-scoped: begin() clears it.
+   */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- private loop bookkeeping decide() reads, never rendered; the note is the reactive surface
+  private bpFired = new Map<string, number>();
 
   /** auto is settings.autoPass: the persisted preference, ON by default (casual). Reading it is a read of settings. */
   get auto(): boolean {
@@ -1489,6 +1499,7 @@ export class SeatPanelState {
       // hand answers no longer disarming Auto (prio3), no exception
       // token is needed or minted.
       this.autoRun = 0;
+      if (verdict.reason === 'breakpoint' && verdict.hit) this.bpFired.set(verdict.hit.key, d.seq);
       if (this.oneShot !== 'none') {
         const mode = this.oneShot;
         this.oneShot = 'none';
@@ -1503,7 +1514,9 @@ export class SeatPanelState {
         // read the same auto-pay preference decide() was handed, so a stop a
         // planned cast made is named as that cast.
         const labels = verdict.reason === 'stop-set' ? actionables(view, this.ctx.seat, d, this.autoPayMana) : [];
-        this.note = labels.length > 0
+        this.note = verdict.reason === 'breakpoint' && verdict.hit
+          ? { kind: 'waiting', reason: 'breakpoint', detail: verdict.hit.detail }
+          : labels.length > 0
           ? { kind: 'waiting', reason: verdict.reason, detail: labels.join(', ') }
           : { kind: 'waiting', reason: verdict.reason };
       }
@@ -1589,7 +1602,7 @@ export class SeatPanelState {
    */
   private derivePass(view: View):
     | { act: 'pass'; index: number; kind: Exclude<AutoPassKind, 'act'>; reason: string }
-    | { act: 'stop'; reason: StopReason }
+    | { act: 'stop'; reason: StopReason; hit?: BreakpointHit }
     | null {
     const d = this.pending;
     if (d === null) return null;
@@ -1639,6 +1652,7 @@ export class SeatPanelState {
       skipOwnTurnFloor: this.oneShot !== 'none',
       // The seat's auto-pay PREFERENCE, never the table capability (spec §8).
       autoPayMana: this.autoPayMana,
+      breakpointsFired: this.bpFired,
     });
     if (verdict.act === 'stop') return verdict;
     const kind: Exclude<AutoPassKind, 'act'> = this.oneShot === 'end-turn'
@@ -1859,7 +1873,7 @@ export class SeatPanelState {
     const d = this.pending;
     const autoOn = this.auto && !this.machinePaused;
     if (d === null || !this.actPass || autoOn || this.oneShot !== 'none') return null;
-    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoPayMana: this.autoPayMana });
+    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoPayMana: this.autoPayMana, breakpointsFired: this.bpFired });
     return verdict.act === 'pass' ? { ...verdict, kind: 'act', reason: 'no-stop-rule' } : null;
   }
 
@@ -1885,6 +1899,7 @@ export class SeatPanelState {
     this.autoRun = 0;
     this.runPassed = 0;
     this.autoPassed = 0;
+    this.bpFired.clear();
     // An armed pass-after-acting token is a one-shot about a window that no
     // longer exists once the match does; the PREFERENCE persists across the
     // boundary in the settings, only the pending token clears.
