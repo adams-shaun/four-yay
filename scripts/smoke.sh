@@ -60,7 +60,7 @@ fi
 
 allocate_ports() {
   local taken p
-  taken=$(ss -lptn 2>/dev/null | grep -oE ':[0-9]{4,5}\b' | tr -d ':' | sort -u || true)
+  taken=$(ss -lptn 2>/dev/null | grep -oE ':[0-9]{1,5}[[:space:]]' | tr -d ': ' | sort -u || true)
   PORTS=()
   for p in $(seq "$SMOKE_PORT_LO" "$SMOKE_PORT_HI"); do
     if ! grep -qx "$p" <<<"$taken"; then PORTS+=("$p"); fi
@@ -117,7 +117,7 @@ echo "== smoke: building gorged =="
 mkdir -p bin
 CGO_ENABLED=0 go build -o bin/gorged ./cmd/gorged
 
-# ---- allocate five free smoke ports (8090-8099); NEVER 8080/8081 (demo) ----
+# ---- allocate five free smoke ports (8090-8099 by default); NEVER 8080/8081 (demo) ----
 # The scan-then-bind window races every OTHER gate running in the same range
 # (two agent worktrees legitimately share 8090-8099, measured live twice on
 # 2026-09-17: the loser's gorged fails to bind and the gate then drives the
