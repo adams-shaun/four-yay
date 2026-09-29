@@ -5,6 +5,7 @@
   import Avatar from './Avatar.svelte';
   import SeatCounts from './SeatCounts.svelte';
   import TickNumber from './TickNumber.svelte';
+  import ManaPool from './ManaPool.svelte';
 
   /**
    * SeatBox is the viewer's own seat (UI rework spec §3): avatar, serif
@@ -30,8 +31,6 @@
     options?: CardOptions | null;
   } = $props();
 
-  const MANA = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
-  const pool = $derived(MANA.map((s) => ({ s, n: player.pool?.[s] ?? 0 })).filter((e) => e.n > 0));
   const art = $derived(player.commanders?.[0]?.name ?? null);
 </script>
 
@@ -54,13 +53,7 @@
   </div>
   <div class="bottom">
     <SeatCounts {player} who={name} {options} />
-    {#if pool.length > 0}
-      <span class="pool" data-mana-pool aria-label={`Mana pool: ${pool.map((e) => `${e.n} ${e.s}`).join(', ')}`}>
-        {#each pool as e (e.s)}
-          <span class="pip" style={`--pip: var(--mana-${e.s.toLowerCase()})`} title={`${e.n} ${e.s} mana`}>{e.n}</span>
-        {/each}
-      </span>
-    {/if}
+    <ManaPool pool={player.pool} poolRestrictions={player.pool_restrictions} />
   </div>
 </section>
 
@@ -117,22 +110,6 @@
     align-items: center;
     gap: var(--sp-2);
     min-width: 0;
-  }
-  .pool {
-    display: inline-flex;
-    gap: 3px;
-    margin-left: auto;
-  }
-  .pip {
-    display: inline-grid;
-    place-items: center;
-    min-width: 1.3em;
-    height: 1.3em;
-    border-radius: 50%;
-    background: var(--pip);
-    color: var(--felt-sunk);
-    font-size: var(--t-11);
-    font-weight: 700;
   }
   .seat-box.target {
     box-shadow: 0 0 0 2px var(--verdigris), 0 0 16px color-mix(in srgb, var(--verdigris) 55%, transparent);
