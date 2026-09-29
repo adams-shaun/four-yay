@@ -36,6 +36,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Declared up front, BEFORE any early exit: the EXIT trap below reads it, and
+# under `set -u` an undeclared array on a probe-mode/build-failure exit turns
+# the trap into `SERVER_PIDS: unbound variable`, whose failure status then
+# overrides the script's own exit status.
+SERVER_PIDS=()
+
 if [[ -v SMOKE_PORT_LO && ! -v SMOKE_PORT_HI ]] || [[ ! -v SMOKE_PORT_LO && -v SMOKE_PORT_HI ]]; then
   echo "smoke: set both SMOKE_PORT_LO and SMOKE_PORT_HI, or neither" >&2
   exit 1
@@ -82,9 +88,99 @@ allocate_attempt() {
   return 1
 }
 
+# range_listeners prints the ss -lptn lines whose LOCAL port lies in the
+# smoke range (nothing when the range is free). Shared by allocation_failed
+# (name the holders that starved the allocation) and teardown_farm (name the
+# holders that survived teardown).
+range_listeners() {
+  ss -lptn 2>/dev/null | awk -v lo="$SMOKE_PORT_LO" -v hi="$SMOKE_PORT_HI" '
+    NR > 1 {
+      n = split($4, a, ":"); p = a[n]
+      if (p ~ /^[0-9]+$/ && p + 0 >= lo && p + 0 <= hi) print
+    }'
+}
+
 allocation_failed() {
   echo "smoke: $SMOKE_PORT_LO-$SMOKE_PORT_HI stayed contended after 5 attempts — set SMOKE_PORT_LO/HI to another free range" >&2
+  local holders
+  holders=$(range_listeners)
+  if [ -n "$holders" ]; then
+    echo "smoke: current holders in $SMOKE_PORT_LO-$SMOKE_PORT_HI:" >&2
+    printf '%s\n' "$holders" | sed 's/^/smoke:   /' >&2
+  else
+    echo "smoke: no listener found in $SMOKE_PORT_LO-$SMOKE_PORT_HI now — the contention was transient (a holder left after the last scan)" >&2
+  fi
 }
+
+# teardown_farm is the ONE teardown path for every recorded smoke pid: the
+# EXIT trap (cleanup) and the bind-race retry both call it, so no second
+# kill/rm block can drift from this one. Bounded-but-strict:
+#   1. SIGTERM every recorded pid (never pkill -f / bare pgrep -f: the
+#      pattern matches our own cmdline and has killed a session here).
+#   2. Bounded wait (~5 s of 0.1 s polls). gorged's graceful path is
+#      srv.Shutdown under a 5 s deadline then Registry.Close; measured
+#      mid-match exit is ≤15 ms, so TERM must stay the FIRST signal — its
+#      flush-on-exit writes the persistence dir.
+#   3. SIGKILL every pid still alive after that (a sleeper with `trap '' TERM`
+#      is the proof this step exists); bounded wait (~2 s) again.
+#   4. LOUD stderr for any pid that survived SIGKILL, and for any smoke-range
+#      port still LISTENING, so a residual leak names its culprit by pid.
+#   5. Only after all of that, rm -rf the persistence dirs: a dir removed
+#      under a live server is the half-flushed tables.json race.
+teardown_farm() {
+  local context="${1:-the smoke run}" pid alive ports
+  for pid in "${SERVER_PIDS[@]:-}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+  for _ in $(seq 1 50); do
+    alive=0
+    for pid in "${SERVER_PIDS[@]:-}"; do
+      if kill -0 "$pid" 2>/dev/null; then alive=1; fi
+    done
+    [ "$alive" -eq 0 ] && break
+    sleep 0.1
+  done
+  for pid in "${SERVER_PIDS[@]:-}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "smoke: pid $pid still alive after SIGTERM; escalating to SIGKILL" >&2
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  done
+  for _ in $(seq 1 20); do
+    alive=0
+    for pid in "${SERVER_PIDS[@]:-}"; do
+      if kill -0 "$pid" 2>/dev/null; then alive=1; fi
+    done
+    [ "$alive" -eq 0 ] && break
+    sleep 0.1
+  done
+  for pid in "${SERVER_PIDS[@]:-}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "smoke: LEAK: smoke pid $pid SURVIVED SIGKILL and is still running — kill it by pid; it holds its smoke port until it dies" >&2
+    fi
+  done
+  ports=$(range_listeners)
+  if [ -n "$ports" ]; then
+    echo "smoke: ports $SMOKE_PORT_LO-$SMOKE_PORT_HI still LISTENING after $context:" >&2
+    printf '%s\n' "$ports" | sed 's/^/smoke:   /' >&2
+    echo "smoke:   (a listener with no users:(...) detail belongs to another user; a listener pid that is NOT one of the farm pids above is a peer gate or another agent's server, not a leak from this run)" >&2
+  fi
+  rm -rf "${PUBDIR:-}" "${OMNDIR:-}" "${SEATDIR:-}" "${FIXTUREDIR:-}" "${TALISDIR:-}" "${VITE_CACHE_DIR:-}"
+}
+
+cleanup() {
+  if [ "${#SERVER_PIDS[@]}" -gt 0 ]; then
+    teardown_farm "the smoke run"
+  else
+    # No servers were recorded (a probe mode, a build failure, an
+    # allocation-failure exit): nothing to kill and nothing to re-report —
+    # but the temp dirs the run created must STILL go. A teardown that
+    # leaks on a failure path is exactly the class this ticket closes.
+    # The selftest sets every dir to "" so this is a silent no-op there.
+    rm -rf "${PUBDIR:-}" "${OMNDIR:-}" "${SEATDIR:-}" "${FIXTUREDIR:-}" "${TALISDIR:-}" "${VITE_CACHE_DIR:-}"
+  fi
+}
+trap cleanup EXIT
 
 if [[ "${SMOKE_ALLOC_PROBE:-}" == 1 ]]; then
   for attempt in 1 2 3 4 5; do
@@ -97,6 +193,38 @@ if [[ "${SMOKE_ALLOC_PROBE:-}" == 1 ]]; then
   done
   allocation_failed
   exit 1
+fi
+
+if [[ "${SMOKE_TEARDOWN_SELFTEST:-}" == 1 ]]; then
+  # Regression gate for the teardown itself (no build, no allocation, no
+  # browser): record a sleeper that IGNORES SIGTERM in SERVER_PIDS, run the
+  # real teardown helper, and fail loudly unless the escalation killed it.
+  # Before the bounded-strict teardown this mode is the "fails without the
+  # fix" witness: the old TERM-and-wait-only cleanup left the sleeper alive
+  # after PASS/FAIL was already reported, which is exactly how a leaked farm
+  # blocked every later run on this box.
+  echo "== smoke: teardown selftest =="
+  PUBDIR="" OMNDIR="" SEATDIR="" FIXTUREDIR="" TALISDIR="" VITE_CACHE_DIR=""
+  SERVER_PIDS=()
+  ( trap '' TERM; exec sleep 30 ) &
+  sleeper=$!
+  SERVER_PIDS+=("$sleeper")
+  if ! kill -0 "$sleeper" 2>/dev/null; then
+    echo "smoke: SELFTEST FAIL: sleeper pid $sleeper was not alive before teardown (bad precondition)" >&2
+    SERVER_PIDS=()
+    exit 1
+  fi
+  echo "smoke: selftest sleeper pid $sleeper recorded (ignores SIGTERM, dies to SIGKILL)"
+  teardown_farm "the teardown selftest"
+  if kill -0 "$sleeper" 2>/dev/null; then
+    echo "smoke: SELFTEST FAIL: sleeper pid $sleeper SURVIVED teardown — SIGKILL escalation missing or ineffective" >&2
+    kill -9 "$sleeper" 2>/dev/null || true
+    SERVER_PIDS=()
+    exit 1
+  fi
+  echo "smoke: SELFTEST PASS: sleeper pid $sleeper survived SIGTERM and died to the SIGKILL escalation"
+  SERVER_PIDS=()
+  exit 0
 fi
 
 # vitest/playwright need Node >=24 (the system node is v20). Prefix the v24
@@ -131,28 +259,6 @@ SEATDIR="$(mktemp -d /tmp/gorge-smoke-seat-XXXXXX)"
 FIXTUREDIR="$(mktemp -d /tmp/gorge-smoke-ui24-XXXXXX)"
 TALISDIR="$(mktemp -d /tmp/gorge-smoke-talisman-XXXXXX)"
 SERVER_PIDS=()
-
-cleanup() {
-  # Kill by recorded PID (never pkill -f / bare pgrep -f: the pattern matches
-  # our own cmdline and has killed a session here). Find by socket if needed.
-  for pid in "${SERVER_PIDS[@]:-}"; do
-    kill "$pid" 2>/dev/null || true
-  done
-  # gorged flushes its persistence directory to disk on the way out, so a
-  # server that is still dying re-creates files racing `rm -rf` below and the
-  # temp dir survives as a half-flushed tables.json. Wait for every recorded
-  # pid to actually exit (bounded) before removing the dirs.
-  for _ in $(seq 1 50); do
-    alive=0
-    for pid in "${SERVER_PIDS[@]:-}"; do
-      if kill -0 "$pid" 2>/dev/null; then alive=1; fi
-    done
-    [ "$alive" -eq 0 ] && break
-    sleep 0.1
-  done
-  rm -rf "$PUBDIR" "$OMNDIR" "$SEATDIR" "$FIXTUREDIR" "$TALISDIR" "$VITE_CACHE_DIR"
-}
-trap cleanup EXIT
 
 wait_ready() {
   local port="$1"
@@ -242,9 +348,13 @@ for attempt in 1 2 3 4 5; do
   done
   if [ -z "$lost" ]; then farm=true; break; fi
   echo "smoke: bind race on $SMOKE_PORT_LO-$SMOKE_PORT_HI (attempt $attempt, dead pids:$lost) — rescanning" >&2
-  for pid in "${SERVER_PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
+  # Same strict helper as the EXIT trap: the lost attempt's survivors (if any)
+  # get TERM, a bounded wait, SIGKILL escalation and a port check before the
+  # dirs go, instead of a bare `sleep 2` + `rm -rf` that could remove a dir
+  # under a still-live process. The extra settle afterwards waits out the
+  # winner's scan-to-bind window so the rescan sees its ports taken.
+  teardown_farm "the lost bind-race attempt (attempt $attempt)"
   sleep 2
-  rm -rf "$PUBDIR" "$OMNDIR" "$SEATDIR" "$FIXTUREDIR" "$TALISDIR"
   PUBDIR="$(mktemp -d /tmp/gorge-smoke-public-XXXXXX)"
   OMNDIR="$(mktemp -d /tmp/gorge-smoke-omni-XXXXXX)"
   SEATDIR="$(mktemp -d /tmp/gorge-smoke-seat-XXXXXX)"
@@ -257,6 +367,7 @@ if [ "$farm" != true ]; then
 fi
 
 echo "== smoke: gorged farm up (public :$PUBPORT, omniscient :$OMNPORT, seated :$SEATPORT, fixture :$FIXTUREPORT, talisman :$TALISPORT) =="
+echo "smoke: farm pids: public:$PUBPORT=${SERVER_PIDS[0]} omniscient:$OMNPORT=${SERVER_PIDS[1]} seated:$SEATPORT=${SERVER_PIDS[2]} fixture:$FIXTUREPORT=${SERVER_PIDS[3]} talisman:$TALISPORT=${SERVER_PIDS[4]}" >&2
 if ! wait_ready "$PUBPORT"; then
   echo "smoke: public gorged on :$PUBPORT never became ready:" >&2
   sed -n '1,60p' "$PUBDIR/server.log" >&2 || true
