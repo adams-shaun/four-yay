@@ -31,8 +31,11 @@ import "strings"
 //     requirement to receive at least one legal blocker) is read as the
 //     MustBlock keyword, the spelling rules/statics.go's
 //     hasMustBeBlockedKeyword accepts beside the Pump-granted sentence form.
+//   - "CARDNAME can't attack or block." is read as CantAttackOrBlock, whose
+//     two combat restrictions are both consumed by the rules readers.
 var canonicalKeywordHeads = map[string]string{
 	"cardname must be blocked if able.": "MustBlock",
+	"cardname can't attack or block.":   "CantAttackOrBlock",
 }
 
 // CanonicalKeywordLine rewrites a keyword line whose head is a known Forge

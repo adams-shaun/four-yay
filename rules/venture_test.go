@@ -48,7 +48,6 @@ var (
 // supported is stale and fails, and a carrier missing something not listed
 // is a new gap and fails.
 var ventureExceptionTable = map[string][]string{
-	"Immovable Rod":             {"kw:You may choose not to untap CARDNAME during your untap step."},
 	"Sefris of the Hidden Ways": {"trig:DungeonCompleted"},
 	"Varis, Silverymoon Ranger": {"trig:DungeonCompleted"},
 }

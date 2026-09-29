@@ -1089,8 +1089,12 @@ type Ctx struct {
 	Remembered     []state.Target
 	// ExchangeLife publishes numeric riders to Count$RememberedNumber for
 	// the remainder of the resolution (not the source's remembered objects).
-	ExchangeNumber      int32
-	ExchangeNumberBound bool
+	// It is a POINTER (see ExchangeMemory) so a Ctx copy -- a RepeatEach
+	// iteration's cc := *c, or the fresh Ctx a resume rebuilds -- shares the
+	// SAME memory: a value written during one pass (the exchange transaction's
+	// settle) stays visible to the chained SubAbility$ reader across a
+	// suspension and its Ctx rebuild.
+	ExchangeMemory *ExchangeMemory
 	// ForgetOtherSnapshot retains the pre-clear IsRemembered candidates across
 	// a multi-owner ChangeZone pick/search and its mid-resolution asks. It is
 	// resolution-local; only the actual remembered set is event-backed.
@@ -2552,6 +2556,27 @@ type FlipMemory struct {
 	RememberNumberKind string
 }
 
+// ExchangeMemory is a resolution's ExchangeLife numeric rider (the
+// RememberOwnLoss$/RememberDifference$ publication Count$RememberedNumber
+// reads). It is held by POINTER on the resolving Ctx for the same reason
+// FlipMemory is: the value is written during one pass (the exchange
+// transaction's settle, which can run after a side already suspended) but
+// read by a chained SubAbility$ of the SAME resolution, which runs after any
+// suspension on a freshly rebuilt Ctx. A nil *ExchangeMemory means this
+// resolution has performed no exchange rider.
+type ExchangeMemory struct {
+	// Number is the published rider value: for RememberOwnLoss$ the life the
+	// controller actually lost (written by the exchange transaction's settle,
+	// rules' finishLifeExchange), for RememberDifference$ the absolute
+	// difference of the two exchanged totals (written synchronously by
+	// effExchangeLife).
+	Number int32
+	// Bound is the presence gate: only a published rider is readable, so a
+	// plain Count$RememberedNumber in a chain with no ExchangeLife still
+	// falls through to the remembered-object count.
+	Bound bool
+}
+
 type Effect func(h Host, c *Ctx, sa *cards.SA)
 
 // atomicMap is a copy-on-write string-keyed map. Writes are rare — native
@@ -2834,6 +2859,17 @@ type flipMemoryHost interface {
 	SetResolutionFlipMemory(*FlipMemory) *FlipMemory
 }
 
+// exchangeMemoryHost is implemented by the rules engine to publish the
+// resolving chain's shared ExchangeLife rider memory (Ctx.ExchangeMemory)
+// for the whole of the walk, so an ask posed from inside the chain (Host.Ask)
+// can capture the pointer onto the pending resume point and re-attach it to
+// the fresh Ctx a resume rebuilds. Optional, like flipMemoryHost, so the
+// effects test doubles need no method. effExchangeLife re-publishes when it
+// lazily allocates the memory.
+type exchangeMemoryHost interface {
+	SetResolutionExchangeMemory(*ExchangeMemory) *ExchangeMemory
+}
+
 // nameTableHost is implemented by the rules engine to publish its current
 // layer-3 rename table (specs SetName$) as immutable data. Resolve reads it
 // once at the top of every walk and binds it on the resolving Ctx, so every
@@ -2959,6 +2995,17 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		if fh, ok := h.(flipMemoryHost); ok {
 			previous := fh.SetResolutionFlipMemory(c.FlipMemory)
 			defer fh.SetResolutionFlipMemory(previous)
+		}
+	}
+	// Publish the chain's shared ExchangeLife rider memory for the whole walk
+	// (and restore the enclosing value on return), so an ask inside the chain
+	// can capture the pointer. nil when the chain has performed no exchange
+	// rider yet; effExchangeLife re-publishes through the same seam when it
+	// lazily allocates the memory.
+	if c != nil {
+		if emh, ok := h.(exchangeMemoryHost); ok {
+			previous := emh.SetResolutionExchangeMemory(c.ExchangeMemory)
+			defer emh.SetResolutionExchangeMemory(previous)
 		}
 	}
 	if c != nil {
