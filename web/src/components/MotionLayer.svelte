@@ -102,23 +102,25 @@
     color: #1c1915;
     font: 700 13px/1.3 'IBM Plex Sans', system-ui, sans-serif;
   }
+  /* Damage reads as the mockup's: white numerals with an ember glow, so it
+     holds up over any card art. Gains glow green; counters are small gilt. */
   :global(.motion-float) {
     position: fixed;
-    font: 700 26px/1 'Cormorant Garamond', Georgia, serif;
+    font: 700 30px/1 'Cormorant Garamond', Georgia, serif;
     color: #fff;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85), 0 0 2px #000;
+    text-shadow: 0 0 8px #e0533f, 0 0 2px #e0533f, 0 2px 3px #000;
     white-space: nowrap;
     will-change: transform, opacity;
   }
-  :global(.motion-float--damage),
-  :global(.motion-float--loss) {
-    color: #ff8a78;
-  }
   :global(.motion-float--gain) {
-    color: #9fe0a8;
+    text-shadow: 0 0 8px #3fae5a, 0 0 2px #3fae5a, 0 2px 3px #000;
   }
   :global(.motion-float--counter) {
     font: 600 15px/1.2 'IBM Plex Sans', system-ui, sans-serif;
-    color: #d4ad62;
+    color: #f3dca8;
+    text-shadow: 0 0 6px rgba(212, 173, 98, 0.9), 0 1px 2px #000;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(20, 23, 28, 0.85);
   }
 </style>

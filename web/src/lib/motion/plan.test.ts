@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Transition } from '../clientmodel/types';
-import { planBatch } from './plan';
+import { counterText, planBatch } from './plan';
 import { TIMINGS } from './settings';
 
 const N = TIMINGS.normal;
@@ -68,11 +68,18 @@ describe('planBatch', () => {
 
   it('counters float their change; taps and pops play nothing', () => {
     const p = planBatch([
-      { kind: 'counter', on: { obj: 2 }, counter: '+1/+1', delta: 2 },
+      { kind: 'counter', on: { obj: 2 }, counter: 'P1P1', delta: 2 },
       { kind: 'tap', obj: 2, tapped: true },
       { kind: 'stack', op: 'pop', obj: 9 },
     ], 'normal');
-    expect(p.steps.map((s) => s.kind === 'float' && s.text)).toEqual(['+2 +1/+1']);
+    expect(p.steps.map((s) => s.kind === 'float' && s.text)).toEqual(['+1/+1 ×2']);
+  });
+
+  it('spells counter names for people', () => {
+    expect(counterText('P1P1', 1)).toBe('+1/+1');
+    expect(counterText('M1M1', -2)).toBe('−2 × −1/−1');
+    expect(counterText('LOYALTY', -3)).toBe('−3 loyalty');
+    expect(counterText('poison', 1)).toBe('+1 poison');
   });
 
   it('an anonymous draw lands in the hand pile; an ability push flies from its source', () => {

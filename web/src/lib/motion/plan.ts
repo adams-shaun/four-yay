@@ -137,8 +137,7 @@ export function planBatch(transitions: readonly Transition[], speed: MotionSpeed
         slot++;
         break;
       case 'counter': {
-        const n = Math.abs(x.delta);
-        steps.push({ kind: 'float', at: x.on, life: false, text: `${x.delta > 0 ? '+' : '−'}${n > 1 ? `${n} ` : ''}${x.counter}`, tone: 'counter', delay, duration: t.float });
+        steps.push({ kind: 'float', at: x.on, life: false, text: counterText(x.counter, x.delta), tone: 'counter', delay, duration: t.float });
         slot++;
         break;
       }
@@ -165,4 +164,19 @@ export function planBatch(transitions: readonly Transition[], speed: MotionSpeed
 /** An ability going on the stack flies from its source permanent to its stack entry. */
 function pushFlight(x: Push): FlightDraft {
   return { objs: [x.obj], card: null, from: { obj: x.source!, zone: { seat: null, zone: 'battlefield' } }, to: { obj: x.obj, zone: { seat: null, zone: 'stack' } } };
+}
+
+const COUNTER_LABELS: Record<string, string> = { P1P1: '+1/+1', M1M1: '−1/−1', LOYALTY: 'loyalty', DEFENSE: 'defense' };
+
+/** counterLabel spells an engine counter name for people: P1P1 is +1/+1, LOYALTY is loyalty. */
+export function counterLabel(name: string): string {
+  return COUNTER_LABELS[name.toUpperCase()] ?? name.toLowerCase().replace(/_/g, ' ');
+}
+
+/** counterText is a counter change's float: "+1/+1", "+1/+1 ×2", "−2 loyalty", "+1 poison". */
+export function counterText(name: string, delta: number): string {
+  const n = Math.abs(delta);
+  const label = counterLabel(name);
+  if (/^[+−]\d/.test(label)) return delta > 0 ? `${label}${n > 1 ? ` ×${n}` : ''}` : `−${n} × ${label}`;
+  return `${delta > 0 ? '+' : '−'}${n} ${label}`;
 }

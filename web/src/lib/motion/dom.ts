@@ -34,8 +34,22 @@ function zoneSel(z: ZoneRef, viewerSeat: number | null): string[] {
   return z.zone === 'hand' && z.seat !== null && z.seat === viewerSeat ? [VIEWER_HAND, ...base] : base;
 }
 
+/**
+ * drawnAsCard: the zones whose cards are on screen as cards — the
+ * battlefield, the stack, and the viewer's own hand. Anywhere else a card's
+ * [data-obj] element is a list row (a spectator's revealed-hand list, a pile
+ * modal), which is no place to fly to or from; the zone's pile is.
+ */
+function drawnAsCard(z: ZoneRef, viewerSeat: number | null): boolean {
+  return z.zone === 'battlefield' || z.zone === 'stack' || (z.zone === 'hand' && z.seat !== null && z.seat === viewerSeat);
+}
+
+function objPick(root: ParentNode, a: Anchor, viewerSeat: number | null) {
+  return a.obj !== null && (drawnAsCard(a.zone, viewerSeat) || a.zone.seat === null) ? pick(root, objSelectors(a.obj)) : null;
+}
+
 function anchorPick(root: ParentNode, a: Anchor, viewerSeat: number | null) {
-  return (a.obj !== null ? pick(root, objSelectors(a.obj)) : null) ?? pick(root, zoneSel(a.zone, viewerSeat));
+  return objPick(root, a, viewerSeat) ?? pick(root, zoneSel(a.zone, viewerSeat));
 }
 
 function cloneCard(el: Element): HTMLElement {
@@ -59,7 +73,7 @@ export function capture(plan: BatchPlan, viewerSeat: number | null, root: Parent
   const targets: Captured['targets'] = [];
   for (const s of plan.steps) {
     if (s.kind === 'flight') {
-      const obj = s.from.obj !== null ? pick(root, objSelectors(s.from.obj)) : null;
+      const obj = objPick(root, s.from, viewerSeat);
       if (obj) {
         sources.push({ box: obj.box, clone: s.count === 1 ? cloneCard(obj.el) : null });
       } else {
@@ -114,8 +128,9 @@ export function play(plan: BatchPlan, cap: Captured, layer: HTMLElement, viewerS
         const src = cap.sources[i];
         const dst = anchorPick(root, s.to, viewerSeat);
         if (!src || !dst) return;
-        const w = src.clone ? src.box.width : s.to.obj !== null && dst ? Math.min(dst.box.width, CARD_W * 1.4) : CARD_W;
-        const h = src.clone ? src.box.height : s.to.obj !== null && dst ? Math.min(dst.box.height, CARD_H * 1.4) : CARD_H;
+        // A clone keeps its own size; a card back is a card-shaped back.
+        const w = src.clone ? src.box.width : CARD_W;
+        const h = src.clone ? src.box.height : CARD_H;
         const a = centre(src.box);
         const b = centre(dst.box);
         const f = add(document.createElement('div'));
@@ -141,7 +156,7 @@ export function play(plan: BatchPlan, cap: Captured, layer: HTMLElement, viewerS
         if (anim) anim.onfinish = () => f.remove();
         // The real card waits under the flight, still clickable.
         if (s.to.obj !== null && s.count === 1) {
-          const real = pick(root, objSelectors(s.to.obj));
+          const real = objPick(root, s.to, viewerSeat);
           if (real) animate(real.el, [{ opacity: 0 }, { opacity: 0, offset: 0.97 }, { opacity: 1 }], { duration: s.delay + s.duration, easing: 'linear' });
         }
         return;
@@ -153,12 +168,16 @@ export function play(plan: BatchPlan, cap: Captured, layer: HTMLElement, viewerS
         const f = add(document.createElement('div'));
         f.className = `motion-float motion-float--${s.tone}`;
         f.textContent = s.text;
-        Object.assign(f.style, { left: `${c.x}px`, top: `${s.life ? box.top + box.height : c.y}px`, opacity: '0' });
+        // A life float sits just under the life total (seat plates hug the
+        // board's edges, so rising above them leaves the screen); a card's
+        // float rises from the card's centre.
+        Object.assign(f.style, { left: `${c.x}px`, top: `${s.life ? box.top + box.height + 22 : c.y}px`, opacity: '0' });
         const anim = animate(f, [
-          { transform: 'translate(-50%, -50%) scale(.7)', opacity: 0 },
-          { transform: 'translate(-50%, -80%) scale(1.1)', opacity: 1, offset: 0.2 },
-          { transform: 'translate(-50%, -180%) scale(1)', opacity: 0 },
-        ], { duration: s.duration, delay: s.delay, easing: 'ease-out', fill: 'both' });
+          { transform: 'translate(-50%, -30%) scale(.7)', opacity: 0, easing: 'ease-out' },
+          { transform: 'translate(-50%, -50%) scale(1.12)', opacity: 1, offset: 0.15, easing: 'ease-out' },
+          { transform: 'translate(-50%, -85%) scale(1)', opacity: 1, offset: 0.7, easing: 'ease-in' },
+          { transform: 'translate(-50%, -125%) scale(1)', opacity: 0 },
+        ], { duration: s.duration, delay: s.delay, easing: 'linear', fill: 'both' });
         if (anim) anim.onfinish = () => f.remove();
         return;
       }
