@@ -98,7 +98,18 @@ func (e *Engine) sneakCosts(p state.PlayerID, id state.ObjID) []struct {
 		cost Cost
 	}
 	sneakIndex := 0
-	for _, keyword := range e.derivedWith(id, state.ZStack).Keywords {
+	// The LIVE zone, never the ZStack override blitzCosts uses: Sneak's one
+	// granted instance (Ninja Teen's level 3, `AddKeyword$ Sneak:3 B` under
+	// `AffectedZone$ Graveyard`) scopes the grant to the GRAVEYARD, so the
+	// graveyard offer and the graveyard charge must derive against ZGraveyard
+	// or the grant is filtered out on both sides. A printed `K:Sneak` is a
+	// base keyword (f.Keywords, seeded ahead of the zone-gated layer walk), so
+	// the hand carriers are unaffected by the switch away from ZStack, and
+	// the corpus carries ZERO `AffectedZone$ Stack` Sneak grants, so no
+	// stack-scoped instance is lost. The card is still in its origin zone
+	// when beginCast's charge calls this (the move to the stack happens later
+	// in continueCast), so offer and charge derive the same list.
+	for _, keyword := range e.derivedWith(id, 0).Keywords {
 		if !strings.EqualFold(cardsKeywordHead(keyword), "Sneak") {
 			continue
 		}
@@ -144,19 +155,18 @@ func (e *Engine) sneakCosts(p state.PlayerID, id state.ObjID) []struct {
 }
 
 // sneakDefenderFrom reads the defender captured when a sneak cast's Return
-// cost was paid, off the entering permanent's Remembered list (the Choose
-// "remembered" entry events/apply.go folds, the same channel Ninjutsu's
-// captured defender rides). ok is false for any entry carrying no player.
+// cost was paid, off the entering permanent's dedicated SneakDefender field
+// (the Choose "sneak-defender" entry events/apply.go folds). It is
+// deliberately NOT a scan of Remembered: Remembered is card memory preserved
+// across zone changes, so any pre-existing remembered player (a Choose
+// "remembered" PlayerRef from an unrelated effect) would be mistaken for the
+// sneak defender and the permanent would enter attacking the wrong seat.
+// ok is false when no sneak defender was recorded.
 func sneakDefenderFrom(o *state.Object) (state.PlayerID, bool) {
-	if o == nil {
+	if o == nil || !o.SneakDefenderValid {
 		return 0, false
 	}
-	for _, rem := range o.Remembered {
-		if rem.IsPlayer {
-			return rem.Player, true
-		}
-	}
-	return 0, false
+	return o.SneakDefender, true
 }
 
 // sneakEnter is the CR 702.190b entry rider: a permanent whose sneak cost was

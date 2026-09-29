@@ -2543,18 +2543,23 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		// whose return cannot be paid must never be offered (the offerCastable
 		// ruling). castRestricted/castSuppressed bind the offer exactly as they
 		// do the plain cast.
-		if e.sneakTimingOK(p) && !castRestricted(p, id) && !e.castSuppressed(p, id) &&
-			e.castTargetsAvailable(p, id, f.SpellAbility()) {
-			for _, sc := range e.sneakCosts(p, id) {
-				if !offerCastable(p, id, sc.cost, spellScope(sc.mode), false) {
-					continue
+		if e.sneakTimingOK(p) && !castRestricted(p, id) && !e.castSuppressed(p, id) {
+			// sneakCosts is computed BEFORE the target census so a hand card
+			// with no Sneak instance (the overwhelming majority of cards in
+			// this window) never pays for castTargetsAvailable's walk; the
+			// census is only meaningful when there is a sneak offer to gate.
+			if scs := e.sneakCosts(p, id); len(scs) > 0 && e.castTargetsAvailable(p, id, f.SpellAbility()) {
+				for _, sc := range scs {
+					if !offerCastable(p, id, sc.cost, spellScope(sc.mode), false) {
+						continue
+					}
+					label := "sneak"
+					if sc.mode != "sneak" {
+						label = "sneak (granted)"
+					}
+					out = append(out, decision.Option{Index: len(out), Kind: "cast",
+						Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: sc.mode})
 				}
-				label := "sneak"
-				if sc.mode != "sneak" {
-					label = "sneak (granted)"
-				}
-				out = append(out, decision.Option{Index: len(out), Kind: "cast",
-					Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: sc.mode})
 			}
 		}
 		if !e.spellTimingOK(p, id, f, sorcery) {
@@ -3053,16 +3058,44 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		if f == nil || f.IsLand() || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) {
-			continue
-		}
 		// The permission's ValidSA$ decides which cast shapes it permits
 		// (Brokkos, Apex of Forever's `ValidSA$ Spell.Mutate` permits ONLY
 		// the mutate cast from the graveyard, CR 903.3d/702.140a). An empty
 		// ValidSA$ is the ordinary permission, so this splits the historical
-		// single offer into its plain and mutate halves without changing any
-		// unrestricted grant's behaviour.
-		plain, mutate, blitz := e.mayPlayKinds(p, id)
+		// single offer into its plain, mutate, blitz and sneak halves without
+		// changing any unrestricted grant's behaviour. Computed BEFORE the
+		// sorcery-speed gate so the sneak half below can be offered at its own
+		// instant-speed declare-blockers window, which that gate rejects.
+		plain, mutate, blitz, sneak := e.mayPlayKinds(p, id)
+		// Sneak from the granted zone (CR 702.190a): Ninja Teen's level-3
+		// `ValidSA$ Spell.Sneak` permission lets a creature card in the
+		// graveyard be cast for its granted sneak cost during the caster's
+		// declare-blockers step ("creature cards in your graveyard have sneak
+		// {3}{B}"). The offer prices the SAME composed cost beginCast's
+		// "sneak" arm charges (sneakCosts, the ONE reader), so the two stages
+		// cannot drift, and the mode is the canonical "sneak" so the pay-time
+		// FlagSneaked provenance and the CR 702.190b entry rider fire exactly
+		// as they do for a printed hand cast. This half sits ABOVE the
+		// sorcery-speed timing gate on purpose -- a creature with no Flash is
+		// still castable here. off.key == "" matches the mutate/blitz halves'
+		// precedent (the corpus carries no MayPlayText$-typed Sneak
+		// permission; an untyped Ninja Teen permission is the only one).
+		if off.key == "" && sneak && e.sneakTimingOK(p) {
+			for _, sc := range e.sneakCosts(p, id) {
+				if !offerCastable(p, id, sc.cost, spellScope(sc.mode), false) {
+					continue
+				}
+				label := "sneak"
+				if sc.mode != "sneak" {
+					label = "sneak (granted)"
+				}
+				out = append(out, decision.Option{Index: len(out), Kind: "cast",
+					Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: sc.mode})
+			}
+		}
+		if !e.spellTimingOK(p, id, f, sorcery) {
+			continue
+		}
 		if plain && e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			base := e.rawBaseCost(p, id)
 			// A MayPlayText$-typed offer carries its own permission's riders

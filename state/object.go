@@ -1056,6 +1056,18 @@ type Object struct {
 	// is a legal opponent, so a zero Protector alone is ambiguous.
 	Protector      PlayerID
 	ProtectorValid bool
+	// SneakDefender is the defender (CR 702.190b: the player, planeswalker
+	// or battle) the returned attacker of a K:Sneak cast was attacking. It
+	// is captured when the Return cost is paid and carried to the permanent
+	// so the entry hook can place it tapped and attacking that same
+	// defender. It rides its OWN field and Choose counter rather than the
+	// generic Remembered list: Remembered is card memory preserved across
+	// zone changes, so a card that already remembered a player (any
+	// Choose "remembered" PlayerRef) and is later sneak-cast would scan
+	// that stale player and enter attacking the wrong defender.
+	// SneakDefenderValid distinguishes the legal seat 0 from unset.
+	SneakDefender      PlayerID
+	SneakDefenderValid bool
 	// LastNotedMana is the mana type the object's last RememberCostMana$
 	// activation paid with (Jeweled Amulet: "note the type of mana spent to
 	// pay this activation cost") — the colour letter(s) of the mana the

@@ -9706,15 +9706,16 @@ func (e *Engine) pushCast() bool {
 	}
 	e.emit(ev)
 	// CR 702.190b: a sneak cast captured the defender its returned attacker
-	// was attacking. Fold it onto the now-existing stack object's Remembered
-	// (the Choose "remembered" channel the Ninjutsu AbilityPush IDs use), and
-	// the stack->battlefield move preserves it, so altCostEnter's entry hook
-	// can place the permanent tapped and attacking that defender. Only a sneak
-	// cast that actually paid the Return cost emits; every unrelated cast
-	// stays byte-identical.
+	// was attacking. Fold it onto the now-existing stack object's dedicated
+	// SneakDefender field (a Choose "sneak-defender" event, NOT the generic
+	// Remembered channel -- card memory can otherwise carry a stale player),
+	// and the stack->battlefield move preserves it, so altCostEnter's entry
+	// hook can place the permanent tapped and attacking that defender. Only a
+	// sneak cast that actually paid the Return cost emits; every unrelated
+	// cast stays byte-identical.
 	if pc.sneakHasDefender {
 		e.emit(events.Event{Kind: events.Choose, Obj: pc.card, Player: pc.player,
-			Counter: "remembered", IDs: []state.ObjID{state.PlayerRef(pc.sneakDefender)}})
+			Counter: "sneak-defender", IDs: []state.ObjID{state.PlayerRef(pc.sneakDefender)}})
 	}
 	e.deferCastTrigger = false
 	// CR 722.3c: the prepared permanent loses its designation "at the time

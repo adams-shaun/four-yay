@@ -2317,6 +2317,18 @@ func Apply(g *state.Game, e Event) {
 				o.Chosen = rememberedFrom(e.IDs)
 			case "remembered":
 				o.Remembered = append(o.Remembered, rememberedFrom(e.IDs)...)
+			case "sneak-defender":
+				// CR 702.190b: the defender a K:Sneak cast captured when its
+				// Return cost was paid. It is a DEDICATED channel, never the
+				// generic Remembered list, so a stale remembered player on the
+				// card cannot masquerade as the sneak defender (rules/sneak.go
+				// sneakDefenderFrom). IDs[0] is the defender's PlayerRef.
+				if len(e.IDs) > 0 {
+					if p, ok := e.IDs[0].PlayerRef(); ok {
+						o.SneakDefender = p
+						o.SneakDefenderValid = true
+					}
+				}
 			case "forget-remembered":
 				// ForgetChanged$ True (Forge ChangeZoneEffect's
 				// host.removeRemembered on the moved card): the named cards leave

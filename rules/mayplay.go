@@ -816,20 +816,23 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 // CARDNAME from your graveyard using its mutate ability", which permits ONLY
 // the mutate cast; `blitz` is Sabin, Master Monk's shape -- `ValidSA$
 // Spell.Blitz`, "You may cast CARDNAME from its graveyard using its blitz
-// ability", which permits ONLY the blitz cast (CR 702.152a). A permission whose
-// ValidSA$ the ordinary matcher fails closed on and names none of the
-// classified tokens grants NEITHER of the cast shapes, so the may-play walk
-// offers nothing for it (fail closed, the module's standing direction).
+// ability", which permits ONLY the blitz cast (CR 702.152a); `sneak` is Ninja
+// Teen's level-3 shape -- `ValidSA$ Spell.Sneak`, "You may cast creature spells
+// from your graveyard using their sneak abilities", which permits ONLY the
+// sneak cast (CR 702.190a). A permission whose ValidSA$ the ordinary matcher
+// fails closed on and names none of the classified tokens grants NEITHER of the
+// cast shapes, so the may-play walk offers nothing for it (fail closed, the
+// module's standing direction).
 //
 // The scan is the same two sources mayPlayGrant reads (the card's own face
 // statics, then the battlefield Continuous statics its controller holds), so a
 // permission cannot be discovered by one walk and not the other. The plain
 // half keeps every existing may-play card's behaviour: an unrestricted
-// permission yields plain=true, mutate=false, blitz=false.
-func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, blitz bool) {
+// permission yields plain=true, mutate=false, blitz=false, sneak=false.
+func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, blitz, sneak bool) {
 	o := e.G.Obj(id)
 	if o == nil || o.Face() == nil {
-		return false, false, false
+		return false, false, false, false
 	}
 	// The scan is the same two sources mayPlayGrant reads (the card's own face
 	// statics, then the battlefield Continuous statics its controller holds),
@@ -843,10 +846,11 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 			continue
 		}
 		if applies, grants, _, _, _, _ := e.mayPlayStatic(st.Params, id, o.Controller, id); applies && grants {
-			pl, mu, bl := e.mayPlayValidSAKinds(st.Params["ValidSA"], o.Face(), id, id, p)
+			pl, mu, bl, sn := e.mayPlayValidSAKinds(st.Params["ValidSA"], o.Face(), id, id, p)
 			plain = plain || pl
 			mutate = mutate || mu
 			blitz = blitz || bl
+			sneak = sneak || sn
 		}
 	}
 	for _, sv := range e.activeStatics("Continuous") {
@@ -854,10 +858,11 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 			continue
 		}
 		if applies, grants, _, _, _, _ := e.mayPlayStatic(sv.Params, id, sv.Controller, sv.Source); applies && grants {
-			pl, mu, bl := e.mayPlayValidSAKinds(sv.Params["ValidSA"], o.Face(), id, sv.Source, p)
+			pl, mu, bl, sn := e.mayPlayValidSAKinds(sv.Params["ValidSA"], o.Face(), id, sv.Source, p)
 			plain = plain || pl
 			mutate = mutate || mu
 			blitz = blitz || bl
+			sneak = sneak || sn
 		}
 	}
 	// The THIRD source mayPlaySpellIds reads: an EFFECT-delivered grant, the
@@ -880,7 +885,7 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 	if !plain && e.paradigmMayPlay(p, o) {
 		plain = true
 	}
-	return plain, mutate, blitz
+	return plain, mutate, blitz, sneak
 }
 
 // effectGrantMatches reports whether an Effect-delivered may-play grant ce
@@ -1107,14 +1112,15 @@ func (e *Engine) castRidesMayPlayOf(p state.PlayerID, id, host state.ObjID, scop
 }
 
 // mayPlayValidSAKinds splits one may-play permission's ValidSA$ into its
-// ordinary-cast, mutate-cast and blitz-cast halves. An absent/empty value is an
-// ordinary permission. The mutate and blitz tokens are matched
-// case-insensitively as whole alternatives, never as substrings, so a future
-// `Spell.Mutates`-style token cannot be misread as the cast permission.
-func (e *Engine) mayPlayValidSAKinds(validSA string, f *cards.Face, id, source state.ObjID, you state.PlayerID) (plain, mutate, blitz bool) {
+// ordinary-cast, mutate-cast, blitz-cast and sneak-cast halves. An
+// absent/empty value is an ordinary permission. The mutate, blitz and sneak
+// tokens are matched case-insensitively as whole alternatives, never as
+// substrings, so a future `Spell.Mutates`-style token cannot be misread as
+// the cast permission.
+func (e *Engine) mayPlayValidSAKinds(validSA string, f *cards.Face, id, source state.ObjID, you state.PlayerID) (plain, mutate, blitz, sneak bool) {
 	raw := strings.TrimSpace(validSA)
 	if raw == "" {
-		return true, false, false
+		return true, false, false, false
 	}
 	// A nil target list is deliberate: a may-play permission is evaluated
 	// before any target is announced, so a target-conditional
@@ -1131,24 +1137,28 @@ func (e *Engine) mayPlayValidSAKinds(validSA string, f *cards.Face, id, source s
 			mutate = true
 		case strings.EqualFold(strings.TrimSpace(alt), "Spell.Blitz"):
 			blitz = true
+		case strings.EqualFold(strings.TrimSpace(alt), "Spell.Sneak"):
+			sneak = true
 		}
 	}
-	return plain, mutate, blitz
+	return plain, mutate, blitz, sneak
 }
 
 // spellValidSAIsClassified reports whether a ValidSA$ value names ONLY the
-// tokens mayPlayValidSAKinds classifies (Spell.Mutate, Spell.Blitz). Any other
-// token keeps mayPlayGateRejected's fail-closed behaviour: the static is
-// withheld whole rather than offered a cast shape the walk cannot price. The
-// whole-alternative match mirrors mayPlayValidSAKinds exactly, so the gate and
-// the classifier cannot disagree about what they admit.
+// tokens mayPlayValidSAKinds classifies (Spell.Mutate, Spell.Blitz,
+// Spell.Sneak). Any other token keeps mayPlayGateRejected's fail-closed
+// behaviour: the static is withheld whole rather than offered a cast shape the
+// walk cannot price. The whole-alternative match mirrors mayPlayValidSAKinds
+// exactly, so the gate and the classifier cannot disagree about what they
+// admit.
 func spellValidSAIsClassified(validSA string) bool {
 	for alt := range strings.SplitSeq(validSA, ",") {
 		tok := strings.TrimSpace(alt)
 		if tok == "" {
 			continue
 		}
-		if !strings.EqualFold(tok, "Spell.Mutate") && !strings.EqualFold(tok, "Spell.Blitz") {
+		if !strings.EqualFold(tok, "Spell.Mutate") && !strings.EqualFold(tok, "Spell.Blitz") &&
+			!strings.EqualFold(tok, "Spell.Sneak") {
 			return false
 		}
 	}
