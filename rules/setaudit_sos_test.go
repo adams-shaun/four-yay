@@ -764,8 +764,6 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Census ONLY (not a behavioural test): cards.Registry.Unsupported still
 // names these missing primitives. Each entry here is a root-cause gap:
-// api:SkipTurn (Ral Zarek's [-7] "target opponent skips their next X
-// turns"), and
 // count:PlayerCountRemembered$Valid (Pox Plague).
 //
 // stat:CantBeCopied (Choreographed Sparks) used to be a row here; it is
@@ -784,14 +782,14 @@ func TestSetAudit_sos_ImperiousInkmage_SurveilArrangeAsk(t *testing.T) {
 // rules/paradigm_test.go's TestParadigmCensus.
 func TestSetAudit_sos_CensusLevelGaps(t *testing.T) {
 	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): 2 sos cards still name missing primitives (api:SkipTurn, count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
+		t.Skip("set-audit finding (sos): 1 sos card still names a missing primitive (count:PlayerCountRemembered$Valid). Follow-up: close the sos census gaps")
 	}
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	supported := effects.Supported()
 	names := []string{
-		// single-card gaps
-		"Ral Zarek, Guest Lecturer", "Pox Plague",
+		// single-card gap
+		"Pox Plague",
 	}
 	for _, name := range names {
 		c := sosCard(t, name)

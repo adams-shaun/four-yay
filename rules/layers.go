@@ -1666,10 +1666,10 @@ func (e *Engine) EndImprintedEffects(source state.ObjID) {
 // nextTurnFor returns the turn number of the next turn (strictly after the
 // current one) whose active player is p -- i.e. p's NEXT turn, the
 // controller's-next-turn boundary of an UntilYourNextTurn effect.
-// It walks the alive rotation from the current active player and returns 0
-// (no turn boundary) if p is not alive, bounding the walk so an eliminated
-// controller cannot spin the loop forever: at most AliveCount successors are
-// distinct alive seats, so a full cycle without hitting p proves p is gone.
+// It walks pending extra turns and the alive rotation from the current
+// active player, consuming pending skips in a local copy. It returns 0
+// (no turn boundary) if p is not alive; a full cycle with no remaining
+// skips consumed and no p turn proves there is no reachable boundary.
 // ContinuousNamed reports whether an ACTIVE continuous effect registered by
 // p carries the given name (an Effect's Name$): the ask effEffect's
 // Stackable$ False dedup makes before it would register a second copy of the
@@ -1692,9 +1692,10 @@ func (e *Engine) ContinuousNamed(p state.PlayerID, name string) bool {
 // effect began: the granted turn is inserted before the ordinary rotation
 // (most recently created grant first), moving the controller's next actual
 // turn either earlier (their own grant -- the boundary becomes the extra
-// turn) or later (another seat's grant). Nothing else moves it: a -1
-// consumption converts a pending entry into an actual turn in lockstep, and
-// a TurnChange only advances the base the count starts from. EndOfTurnCleanup
+// turn) or later (another seat's grant). SkipTurn grants can also move that
+// boundary: a skipped turn has no TurnChange. A -1 ExtraTurn consumption
+// converts an unskipped entry into an actual turn in lockstep, and a
+// TurnChange advances the base the count starts from. EndOfTurnCleanup
 // reschedules first thing, so the once-per-turn expiry decision sees every
 // grant made during the turn now ending.
 //
@@ -1782,12 +1783,25 @@ func (e *Engine) nextTurnFor(p state.PlayerID) int32 {
 	// calls beginTurn); nextTurnFor must apply the SAME skip decision the
 	// consumer does, or a skipped grant for the controller expires the effect
 	// one cleanup too early and a skipped opponent grant one cleanup too
-	// late. extraTurnSkipped is pure and shared with that consumer, so the
-	// two can never drift.
+	// late. An ordinary SkipTurn grant also consumes a slot without a
+	// TurnChange, in BOTH the queued and normal-turn consumers. Simulate its
+	// remaining counts locally so one skipped slot cannot erase every later
+	// turn of that seat. Check it before extraTurnSkipped, matching advanceStep.
 	t := e.G.Turn
+	if int(p) >= len(e.G.Players) || e.G.Players[p].Lost {
+		return 0
+	}
+	skips := make([]int, len(e.G.Players))
+	for seat := range e.G.Players {
+		skips[seat] = e.G.SkipTurns[state.PlayerID(seat)]
+	}
 	for i := len(e.G.ExtraTurnQueue) - 1; i >= 0; i-- {
 		seat := e.G.ExtraTurnQueue[i].Player
 		if e.G.Players[seat].Lost {
+			continue
+		}
+		if skips[seat] > 0 {
+			skips[seat]--
 			continue
 		}
 		if skip, _ := e.extraTurnSkipped(seat); skip {
@@ -1800,15 +1814,22 @@ func (e *Engine) nextTurnFor(p state.PlayerID) int32 {
 	}
 
 	// Once the pending queue drains, ordinary rotation resumes after the
-	// latest normal turn, not after the active extra turn.
+	// latest normal turn, not after the active extra turn. A full cycle
+	// without consuming a skip or reaching p proves p cannot be reached.
 	alive := e.G.AliveCount()
 	q := e.rotationBase()
-	for i := 0; i < alive; i++ {
+	for missed := 0; missed < alive; {
 		q = e.G.NextAlive(q)
+		if skips[q] > 0 {
+			skips[q]--
+			missed = 0
+			continue
+		}
 		t++
 		if q == p {
 			return t
 		}
+		missed++
 	}
 	return 0
 }
