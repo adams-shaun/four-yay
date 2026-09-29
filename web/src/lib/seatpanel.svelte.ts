@@ -1,6 +1,8 @@
 import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelection, View } from '../protocol';
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
+import { isSearchPick } from './search';
+import { isNamePick } from './name-pick';
 import type { SeatCtx } from './seat';
 import { checkBreakpoints, type BreakpointHit } from './breakpoints';
 import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
@@ -1197,13 +1199,23 @@ export class SeatPanelState {
    * pickHotkey answers option n (1-based) of a pending NON-priority decision,
    * exactly as clicking it in the panel would (the pick-N hotkeys): a toggle
    * on the layouts that answer by toggle-then-Submit (answersByToggle), a
-   * click() everywhere else. Options are numbered in d.options order, which is
-   * the order every one of those layouts renders them (the mulligan-bottom
-   * and arrange rows both iterate d.options unchanged).
+   * click() everywhere else. Options are numbered in d.options order. That is
+   * the rendered order for the mulligan keep and bottom rows, the arrange row
+   * and the discard row, which all iterate d.options unchanged. The generic
+   * option list also keeps d.options order but lists a pass/resolve primary
+   * and any concede option apart from the rest.
+   *
+   * The library-search grid and the name pick render a FILTERED, A→Z-SORTED
+   * list (searchOptions / nameOptions), so d.options[n-1] need not be the Nth
+   * card on screen, or on screen at all; a min==max==1 search would fetch it
+   * at once. pickHotkey therefore REFUSES those two layouts, detected with
+   * the panel's own isSearchPick / isNamePick. Numbering them by rendered
+   * order is deferred to a later sub-project.
    */
   pickHotkey(n: number): boolean {
     const d = this.pending;
     if (d === null || d.kind === 'priority' || d.seq === this.postedSeq || this.busy) return false;
+    if (isSearchPick(d) || isNamePick(d)) return false;
     const o = d.options[n - 1];
     if (o === undefined) return false;
     if (answersByToggle(d)) this.toggle(o.index);

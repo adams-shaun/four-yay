@@ -100,3 +100,16 @@ describe('SeatPanelState.searchFilter — the display-only filter text', () => {
     expect(intent.choices).toEqual([2]);
   });
 });
+
+describe('pickHotkey on a library search', () => {
+  // The grid renders a filtered, A→Z-sorted list, so a digit cannot name the
+  // card on screen; on a Min 1 / Max 1 tutor it would also fetch at once.
+  it('refuses: returns false, picks nothing and posts nothing', async () => {
+    const s = state();
+    s.adoptView({ ...searchAsk, seq: 14, min: 1, max: 1 });
+    expect(s.pickHotkey(1)).toBe(false);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(s.picked).toEqual([]);
+    expect(postIntentMock).not.toHaveBeenCalled();
+  });
+});
