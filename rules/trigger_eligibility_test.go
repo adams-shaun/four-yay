@@ -166,6 +166,12 @@ func TestTriggerEventInterestMapping(t *testing.T) {
 			// mask's reach, so the conservative catch-all is the honest
 			// mapping (the SearchedLibrary shape).
 			want = cards.TriggerInterestAny
+		case events.ElementalBend:
+			// agent-20260929T010346Z-ae55d89d: the completed-bend marker is
+			// trigger-relevant (trig:ElementalBend matches it through the full
+			// matcher) and past the mask's reach, so the conservative
+			// catch-all is the honest mapping (the Proliferate/Evolved shape).
+			want = cards.TriggerInterestAny
 		case events.SkipTurn, events.ControlPlayerChange:
 			// CR 500.9 and CR 720 bookkeeping: both are grants/consumption
 			// read back through state (SkipTurns, and ControlledBy/

@@ -44,6 +44,10 @@ func cloneActivationsThisTurn(in []activationThisTurn) []activationThisTurn {
 // abilityMintWant is the object id an activation push was about to mint
 // (zero for any other event).
 func (e *Engine) recordTurnLedgers(stored events.Event, abilityMintWant state.ObjID) {
+	if stored.Kind == events.ElementalBend && stored.Player >= 0 && stored.Player < 64 {
+		bit := map[string]uint8{"water": 1, "earth": 2, "fire": 4, "air": 8}[strings.ToLower(stored.Text)]
+		e.bendSeatsThisTurn[stored.Player] |= bit
+	}
 	if abilityMintWant != 0 {
 		if o := e.G.Obj(abilityMintWant); o != nil && o.Zone == state.ZStack && o.Ability != nil {
 			e.activationsThisTurn = append(e.activationsThisTurn, activationThisTurn{
@@ -66,6 +70,12 @@ func (e *Engine) recordTurnLedgers(stored events.Event, abilityMintWant state.Ob
 	if actor >= 0 && actor < 64 && e.targetEventCommitsCrime(stored, actor) {
 		e.crimeSeatsThisTurn |= 1 << uint(actor)
 	}
+}
+
+// AllFourBendThisTurn reports whether p performed each of the four bends
+// during the current turn.
+func (e *Engine) AllFourBendThisTurn(p state.PlayerID) bool {
+	return p >= 0 && p < 64 && e.bendSeatsThisTurn[p] == 15
 }
 
 // CommittedCrimeThisTurn reports whether p committed a crime this turn

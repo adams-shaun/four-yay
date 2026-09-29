@@ -2,6 +2,7 @@ package effects
 
 import (
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -39,6 +40,7 @@ const AirbendExileCounter = "airbend"
 // CantExile-guarded, replay-visible shape every other exile mover emits -- the
 // AirbendExileCounter marker on top is this primitive's only addition.
 func effAirbend(h Host, c *Ctx, sa *cards.SA) {
+	bent := false
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			continue
@@ -57,5 +59,9 @@ func effAirbend(h Host, c *Ctx, sa *cards.SA) {
 		ev := moveZoneEvent(c, o.ID, o.Zone, state.ZExile)
 		ev.Counter = AirbendExileCounter
 		h.Emit(ev)
+		bent = true
+	}
+	if bent {
+		h.Emit(events.Event{Kind: events.ElementalBend, Obj: c.Source, Player: c.Controller, Text: "air"})
 	}
 }

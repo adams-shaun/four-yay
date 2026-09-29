@@ -201,6 +201,7 @@ type Engine struct {
 	// cleared on TurnChange, copied by Clone.
 	activationsThisTurn []activationThisTurn
 	crimeSeatsThisTurn  uint64
+	bendSeatsThisTurn   [64]uint8
 
 	// format is the construction format New was configured with (Config.
 	// Format). It is the explicit gate the Commander rules (the tax, CR
@@ -3097,6 +3098,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.counterAddsThisTurn = nil
 		e.activationsThisTurn = nil
 		e.crimeSeatsThisTurn = 0
+		e.bendSeatsThisTurn = [64]uint8{}
 	}
 	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
 	// setname.go: keep the layer-3 rename table the filter tier reads in step

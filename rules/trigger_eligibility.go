@@ -63,6 +63,10 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		return cards.TriggerInterestAttackDeclaration
 	case events.TargetsChosen:
 		return cards.TriggerInterestTargetsChosen
+	case events.ElementalBend:
+		// ElementalBend is the completed-action marker for trig:ElementalBend;
+		// it must reach the full per-mode matcher.
+		return cards.TriggerInterestAny
 	case events.AbilityPush, events.KeywordAbilityPush:
 		return cards.TriggerInterestAbilityPush
 	case events.GameStart, events.Shuffle, events.Untap, events.TurnChange,
@@ -423,6 +427,16 @@ func triggerModeEvents(mode string) triggerEventMask {
 		// mode here rather than letting it fall to the allTriggerEvents
 		// default keeps a Surveil-only face's mask narrow for every other
 		// kind.
+		return 0
+	case "ElementalBend":
+		// The elemental-bend marker's ordinal (task agent-20260929T010346Z
+		// -ae55d89d, appended after Crew) is past the 64-bit mask's reach,
+		// the Surveil/Proliferate shape: a mask bit is not encodable and
+		// allows() fails open for every kind at or past triggerMaskKindBits,
+		// so the mode is admitted through that fail-open path and gated by
+		// the full matcher (elementalBendMatches). Naming the mode here
+		// rather than letting it fall to the allTriggerEvents default keeps
+		// an ElementalBend-only face's mask narrow for every other kind.
 		return 0
 	case "Proliferate":
 		// The Proliferate marker's ordinal is past the 64-bit mask's reach

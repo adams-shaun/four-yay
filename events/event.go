@@ -1080,10 +1080,14 @@ const (
 	// prior Kind's own append-only precedent, so no earlier ordinal, hash
 	// chain or golden replay is affected.
 	Crew
+	// ElementalBend records one completed elemental-bending action. Player is
+	// the player who bent; Obj is the permanent whose action resolved; Text is
+	// one of water, earth, fire, or air. It is a replay-visible pure marker.
+	ElementalBend
 	// NumKinds is the explicit upper bound for the append-only event kind
 	// registry below. New kinds must be appended above this line: inserting or
 	// reordering a kind renumbers the hash-chained event stream and breaks replay.
-	NumKinds = int(Crew) + 1
+	NumKinds = int(ElementalBend) + 1
 )
 
 // PlanarWalkDontPlaneswalkAway is PlanarWalk's Amount flag: the resolving
@@ -1229,7 +1233,7 @@ var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
 	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
 	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
 	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
-	"initiative_change", "skip_turn", "control_player_change", "crew"}
+	"initiative_change", "skip_turn", "control_player_change", "crew", "elemental_bend"}
 
 func (k Kind) String() string {
 	if int(k) < len(kindNames) {

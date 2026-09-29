@@ -88,6 +88,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		counterAddsThisTurn: cloneCounterAddsThisTurn(e.counterAddsThisTurn),
 		activationsThisTurn: cloneActivationsThisTurn(e.activationsThisTurn),
 		crimeSeatsThisTurn:  e.crimeSeatsThisTurn,
+		bendSeatsThisTurn:   e.bendSeatsThisTurn,
 		format:              e.format,
 		rng:                 e.rng.clone(),
 		orderedTriggers:     e.orderedTriggers,
