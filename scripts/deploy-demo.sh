@@ -26,10 +26,11 @@ DECKS=${DECKS:-internal/testutil/decks}
 # table is the rest of that fix). Override with TABLES=4 to get the old
 # density back once az-redeal's per-decision cost is tuned down.
 TABLES=${TABLES:-1}
-# 2026-09-29: 2, tied to BOT_POLICY below. az-redeal's Info.MaxSeats is 2
-# (bots/azredeal/azredeal.go) -- it is only measured and only safe at 2
-# seats. Override both together (SEATS=4 BOT_POLICY=lethal-pressure) to get
-# the old 4-seat shape back with a commander/4-seat-capable policy.
+# 2026-09-29: 2, tied to BOT_POLICY below. Both az-redeal and sb-search-lite-
+# atk have Info.MaxSeats 2 (bots/azredeal, bots/sbsearch) -- measured and
+# safe at 2 seats only. Override both together (SEATS=4
+# BOT_POLICY=lethal-pressure) to get the old 4-seat shape back with a
+# commander/4-seat-capable policy.
 SEATS=${SEATS:-2}
 # Wall-clock delay gorged inserts per decision. This has walked 1.5s -> 250ms
 # -> 500ms -> 250ms; the user asked for 250ms back on 2026-09-07, so 250ms is
@@ -46,18 +47,32 @@ PACE=${PACE:-50ms}
 SPECTATOR=${SPECTATOR:-omniscient}
 VSBOT_SPECTATOR=${VSBOT_SPECTATOR:-public}
 # Hosted bot policy (host/bot_policy.go's closed vocabulary) for every
-# startup table and for a play-vs-bot game that names none. 2026-09-29:
-# az-redeal (bots/azredeal), the strongest measured hosted policy: +20.5pp
-# vs the production bot (docs/superpowers/specs/2026-09-28-spellbench-agent-
-# design.md §12.5), a 100-simulation honest-redeal MCTS search at every
-# searched decision (attackers/blockers/targets/priority) that otherwise
-# plays the production bot. Smoke-tested in this exact shape (2 seats,
-# constructed, port 8095) on 2026-09-29: three matches, no panics or stalls.
-# It is Experimental tier and constructed-only/2-seat-only (bots.Info.
-# Formats/MaxSeats); those fields are metadata, not enforced by the host,
-# so FORMATS/SEATS below must stay inside that envelope by convention, not
-# by a runtime check. Previous pick (2026-09-28): lethal-pressure (AR7).
-BOT_POLICY=${BOT_POLICY:-az-redeal}
+# startup table and for a play-vs-bot game that names none.
+#
+# 2026-09-29 (later): sb-search-lite-atk (bots/sbsearch), down from az-redeal.
+# az-redeal's honest MCTS froze the box when several tables' searches piled
+# up at once right at match-end -- its own Cost note says why: "contention
+# raises it, the host never cuts the search" (bots/azredeal/azredeal.go).
+# There is no bail-out yet for EITHER search-based policy (tracked:
+# cli-20260929T214831Z-6b1aaa71, a wall-clock deadline for the search loop);
+# until that lands, sb-search-lite-atk is not meaningfully safer on cost --
+# 219ms mean/searched decision vs az-redeal's 247ms, same ballpark
+# (docs/superpowers/specs/2026-09-28-spellbench-agent-design.md §12.6) -- it
+# is the operator's pick on strength/architecture, not a load fix by itself.
+# It beats sb-tactical 328-184 (64.1%) at that cost; sb-tactical alone
+# (~1ms/decision, no search) is the only registered policy that is actually
+# cheap, if the bail-out ticket doesn't land before the next incident.
+#
+# 2026-09-29 (earlier): az-redeal (bots/azredeal), +20.5pp vs the production
+# bot (§12.5), 100-simulation honest-redeal MCTS. Smoke-tested standalone
+# (2 seats, constructed, port 8095): three matches, no panics or stalls --
+# the freeze took several concurrent tables, not one.
+#
+# Both are Experimental tier and constructed-only/2-seat-only (bots.Info.
+# Formats/MaxSeats); those fields are metadata, not enforced by the host, so
+# FORMATS/SEATS below must stay inside that envelope by convention, not by a
+# runtime check. Before that (2026-09-28): lethal-pressure (AR7).
+BOT_POLICY=${BOT_POLICY:-sb-search-lite-atk}
 # 2026-09-29: all four constructed, tied to BOT_POLICY above (commander and
 # 4+ seats are outside az-redeal's measured envelope). This drops the
 # commander half of the old "two commander, two constructed" split; restore
