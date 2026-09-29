@@ -69,7 +69,7 @@ export function shapeOf(d: Decision): string | null {
  * Search top-down: when one permanent has several abilities on the stack,
  * the resolving (topmost) one is the only defensible best-effort cause.
  */
-function sourceStackOf(d: Decision, view: View) {
+export function sourceStackOf(d: Decision, view: View) {
   if (d.source === undefined || d.source === 0) return null;
   for (let i = view.stack.length - 1; i >= 0; i -= 1) {
     const stack = view.stack[i];
