@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# park-branch.sh — remove an idle branch's worktree while KEEPING its branch.
+#
+#   scripts/park-branch.sh <branch>...        # park these branches
+#   scripts/park-branch.sh --all-idle [h]     # every worktree idle >= h hours (default 12)
+#
+# DRY RUN unless APPLY=1. This is the unmerged counterpart to
+# `cleanup.sh worktrees`: cleanup only removes a worktree whose branch is
+# already an ancestor of main, so an idle branch nobody landed keeps holding
+# its files against every branch that lands after it, and each of those pays a
+# resolver round for work nobody is doing. Parking removes the worktree -- that
+# is what releases the files -- and keeps the branch, so the work is not lost
+# and can be picked up or landed later.
+#
+# Safety, in order:
+#   * a dirty worktree is refused (a seat often finishes without committing;
+#     WIP-commit by explicit path first, then park);
+#   * a worktree with a running process whose cwd is inside it is refused;
+#   * the removal is never forced and the branch is never deleted;
+#   * main's checkout is never touched.
+set -euo pipefail
+
+APPLY=${APPLY:-0}
+MIN_IDLE_H=${MIN_IDLE_H:-12}
+
+say() { if [ "$APPLY" = 1 ]; then echo "parked: $*"; else echo "would park: $*"; fi; }
+
+root=$(git rev-parse --path-format=absolute --git-common-dir)
+root=${root%/.git}
+
+# branch_path <branch> prints the worktree path for a checked-out branch, or
+# nothing. Read from git, never guessed, so a stale .worktrees/name directory
+# is not mistaken for the live one.
+branch_path() {
+	git -C "$root" worktree list --porcelain | awk -v want="refs/heads/$1" '
+		/^worktree / { wt = substr($0, 10) }
+		/^branch /   { if (substr($0, 8) == want) { print wt; exit } }'
+}
+
+# busy_paths prints every running process's cwd, one per line.
+busy_paths() {
+	local p
+	for p in /proc/[0-9]*; do
+		readlink "$p/cwd" 2>/dev/null || true
+	done
+}
+
+# park <branch-or-path>: the one place a worktree is removed.
+park() {
+	local branch=$1 wt ref dirty ahead
+	wt=$(branch_path "$branch")
+	if [ -z "$wt" ]; then
+		echo "skip (no worktree): $branch"
+		return 0
+	fi
+	ref=$(git -C "$root" rev-parse --symbolic-full-name "refs/heads/$branch")
+	if [ "$ref" = "refs/heads/main" ]; then
+		echo "skip (main): $branch"
+		return 0
+	fi
+	dirty=$(git -C "$wt" status --porcelain)
+	if [ -n "$dirty" ]; then
+		echo "keep (dirty, WIP-commit it first): $wt" >&2
+		echo "$dirty" | sed 's/^/    /' >&2
+		return 1
+	fi
+	if grep -qxF -- "$wt" <<<"$(busy_paths)"; then
+		echo "keep (process inside): $wt" >&2
+		return 1
+	fi
+	ahead=$(git -C "$root" rev-list --count "main..refs/heads/$branch")
+	say "$branch [$wt] (+$ahead commits ahead of main, branch kept)"
+	if [ "$APPLY" = 1 ]; then
+		git -C "$root" worktree remove "$wt"
+	fi
+}
+
+targets=()
+if [ "${1:-}" = "--all-idle" ]; then
+	hours=${2:-$MIN_IDLE_H}
+	now=$(date +%s)
+	while read -r wt; do
+		[ -n "$wt" ] || continue
+		[ -e "$wt/.git" ] || continue
+		branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD) || continue
+		[ "$branch" != "main" ] || continue
+		if git -C "$root" merge-base --is-ancestor "$branch" main; then
+			continue # landed: cleanup.sh's job, not parking
+		fi
+		mtime=$(stat -c %Y "$wt")
+		if [ $(( (now - mtime) / 3600 )) -lt "$hours" ]; then
+			echo "skip (only $(( (now - mtime) / 3600 ))h idle < ${hours}h): $branch"
+			continue
+		fi
+		targets+=("$branch")
+	done < <(git -C "$root" worktree list --porcelain | awk '/^worktree / { print substr($0, 10) }')
+else
+	targets=("$@")
+fi
+
+if [ ${#targets[@]} -eq 0 ]; then
+	echo "nothing to park"
+	exit 0
+fi
+
+failed=0
+for b in "${targets[@]}"; do
+	park "$b" || failed=1
+done
+[ "$APPLY" = 1 ] && git -C "$root" worktree prune
+[ "$failed" = 1 ] && exit 1
+exit 0
