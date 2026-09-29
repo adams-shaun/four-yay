@@ -1172,7 +1172,10 @@ func (d *Decision) SetPropsOf(choices []int) []string {
 // groupCapExceeded reports whether choices select more than GroupCapFor(g)
 // options of any one Group -- the same per-Group rule Validate enforces, in
 // the cheapest form FitRequired's fast path needs. A repeated index counts
-// each occurrence, exactly as Validate's loop does.
+// each occurrence, exactly as Validate's loop does. GroupAdmits is a PRE-add
+// predicate, so the admission test runs BEFORE the increment (Validate's
+// group branch tests against the count BEFORE this choice is folded in): a
+// set holding exactly GroupCapFor(g) options of one group is legal.
 func (d *Decision) groupCapExceeded(choices []int) bool {
 	counts := make(map[string]int, len(choices))
 	for _, c := range choices {
@@ -1183,10 +1186,10 @@ func (d *Decision) groupCapExceeded(choices []int) bool {
 		if g == "" {
 			continue
 		}
-		counts[g]++
 		if !d.GroupAdmits(counts, g) {
 			return true
 		}
+		counts[g]++
 	}
 	return false
 }
