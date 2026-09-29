@@ -214,9 +214,13 @@ func TestCrewedThisTurnBlinkBreaksThePairing(t *testing.T) {
 	if o := e.G.Obj(vanID); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatalf("precondition: the Van did not return to the battlefield: %+v", o)
 	}
+	// Both the pairing and the self-scoped crew animation belong to the old
+	// battlefield incarnation and must be gone after the blink.
+	if e.IsCreature(vanID) {
+		t.Fatal("CR 400.7: the returned Van retained its old crew animation")
+	}
 	// The sweep under test: the old stint's pairing must be gone from the
-	// crewer. (The crew animation itself persisting across the blink is a
-	// separate continuous-effect defect, reported outside this test.)
+	// crewer.
 	if oA := e.G.Obj(crewerA); oA == nil || crewListHas(oA.CrewedVehicles, vanID) {
 		t.Fatalf("CR 400.7: the blink did not clear the old Vehicle's pairing from the crewer: %+v", oA)
 	}
