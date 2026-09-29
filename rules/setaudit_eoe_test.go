@@ -59,9 +59,6 @@ func passToAsk(t *testing.T, e *Engine, limit int) *decision.Decision {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_TapestryWarden_StationUsesToughness(t *testing.T) {
-	eoeGuard(t, "Tapestry Warden's stat:TapPowerValue is unread, so Station charges a "+
-		"toughness>power creature's POWER instead of its toughness",
-		"Implement stat:TapPowerValue for Station (and the other 10 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
 	wall := card(t, "Name:Big Wall\nManaCost:2\nTypes:Creature Wall\nPT:0/4\nOracle:x\n")
 	e := corpusEngine(t, reg, []*cards.Card{
