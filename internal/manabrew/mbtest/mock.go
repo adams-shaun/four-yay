@@ -2,7 +2,7 @@ package mbtest
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 
 	mb "github.com/adams-shaun/gorge/protocol/manabrew"
@@ -45,7 +45,7 @@ func NewFirstLegalClient() *MockClient { return &MockClient{mode: ModeFirstLegal
 // NewSeededRandomClient returns a MockClient in ModeSeededRandom, seeded so
 // two runs at the same seed answer identically.
 func NewSeededRandomClient(seed uint64) *MockClient {
-	return &MockClient{mode: ModeSeededRandom, rng: rand.New(rand.NewSource(int64(seed)))}
+	return &MockClient{mode: ModeSeededRandom, rng: rand.New(rand.NewPCG(uint64(seed), 0))}
 }
 
 // ErrNoResponse is returned when a prompt type carries nothing this client
@@ -146,7 +146,7 @@ func (c *MockClient) repeated(n, count int) []int {
 		if c.mode == ModeFirstLegal {
 			out[i] = 0
 		} else {
-			out[i] = c.rng.Intn(n)
+			out[i] = c.rng.IntN(n)
 		}
 	}
 	return out
@@ -173,7 +173,7 @@ func (c *MockClient) boolAnswer() bool {
 	if c.mode == ModeFirstLegal {
 		return false
 	}
-	return c.rng.Intn(2) == 0
+	return c.rng.IntN(2) == 0
 }
 
 // coin reports a weighted true with probability num/den in ModeSeededRandom,
@@ -183,7 +183,7 @@ func (c *MockClient) coin(num, den int) bool {
 	if c.mode == ModeFirstLegal {
 		return false
 	}
-	return c.rng.Intn(den) < num
+	return c.rng.IntN(den) < num
 }
 
 // --- per-prompt-type policies ---
@@ -198,7 +198,7 @@ func (c *MockClient) answerChooseAction(in mb.ChooseActionInput) mb.PromptOutput
 	}
 	idx := 0
 	if c.mode == ModeSeededRandom {
-		idx = c.rng.Intn(len(in.Actions))
+		idx = c.rng.IntN(len(in.Actions))
 	}
 	return mb.ActOutput{ActionID: in.Actions[idx].ID}
 }
@@ -229,7 +229,7 @@ func (c *MockClient) answerAttackers(in mb.ChooseAttackersInput) mb.PromptOutput
 		}
 		target := a.ValidTargetIDs[0]
 		if c.mode == ModeSeededRandom {
-			target = a.ValidTargetIDs[c.rng.Intn(len(a.ValidTargetIDs))]
+			target = a.ValidTargetIDs[c.rng.IntN(len(a.ValidTargetIDs))]
 		}
 		assignments = append(assignments, mb.AttackerAssignment{AttackerID: a.AttackerID, TargetID: target})
 	}
@@ -288,7 +288,7 @@ func (c *MockClient) answerMulliganPutBack(in mb.MulliganPutBackInput) mb.Prompt
 func (c *MockClient) answerChooseNumber(in mb.ChooseNumberInput) mb.PromptOutputValue {
 	n := in.Min
 	if c.mode == ModeSeededRandom && in.Max > in.Min {
-		n = in.Min + c.rng.Intn(in.Max-in.Min+1)
+		n = in.Min + c.rng.IntN(in.Max-in.Min+1)
 	}
 	return mb.NumberDecision{ChosenNumber: &n}
 }
@@ -314,7 +314,7 @@ func (c *MockClient) answerChooseColor(in mb.ChooseColorInput) mb.PromptOutputVa
 	if in.RepeatAllowed {
 		color := in.ValidColors[0]
 		if c.mode == ModeSeededRandom {
-			color = in.ValidColors[c.rng.Intn(len(in.ValidColors))]
+			color = in.ValidColors[c.rng.IntN(len(in.ValidColors))]
 		}
 		chosen[color] = in.Amount
 		return mb.ColorDecision{ChosenColors: chosen}
@@ -419,7 +419,7 @@ func (c *MockClient) answerPayManaCost(in mb.PayManaCostInput) mb.PromptOutputVa
 	if len(stepActions) > 0 {
 		idx := 0
 		if c.mode == ModeSeededRandom {
-			idx = c.rng.Intn(len(stepActions))
+			idx = c.rng.IntN(len(stepActions))
 		}
 		return mb.ActOutput{ActionID: stepActions[idx].ID}
 	}
