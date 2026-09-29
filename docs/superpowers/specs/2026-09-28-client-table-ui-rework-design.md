@@ -140,6 +140,14 @@ replace them.
   (view, profile) that returns "stop, because X". Under Manabrew, the
   autopilot still answers each `chooseAction` itself. `pass.until` and
   `exhaustStack` are used only when no breakpoint could fire.
+  - Breakpoints stop persistent Auto, the one-shot runs and fast-forward.
+    Each one fires once for the thing it caught, and stays stopped on that
+    same window however often it is re-checked.
+  - A yield, or the Resolve All baseline, exempts the top object from the
+    top-object breakpoints.
+  - Arming a one-shot run (End Turn, Hard Skip, Resolve All) on a paused
+    window acknowledges that pause, so the run proceeds.
+  - The Manual seat's empty-window auto-skip honours breakpoints too.
 - **Keymap.** One global keymap. Every action can have 0–2 bindings, matched
   by physical key code as today. The editor warns on conflicts rather than
   blocking them. There is a reset to defaults and a `?` cheat-sheet overlay.
@@ -151,11 +159,32 @@ replace them.
   | Decisions | Pick option 1–9; confirm/done; attack with all; no blocks; auto-pay |
   | Profiles | Flow profile 1–9; layout profile 1–9 or next/prev |
   | View | Toggle log; toggle stacking; zoom card under cursor; open grave/exile of the hovered seat |
-- **Storage and migration.**
-  - Keys: `gorge.flow.v1` and `gorge.keymap.v1`.
-  - The existing `gorge.playsettings.profiles.v1` becomes flow profiles, and
-    `gorge.playsettings.v1` becomes the active profile "Default".
-  - Old keys are left unread for one release so a downgrade still works.
+
+  Sub-project 1 wires the priority, decision (pick 1–9, confirm) and
+  profile actions, plus the cheat sheet. Actions that need UI from later
+  sub-projects arrive with that UI:
+  - attack with all, no blocks and auto-pay come with sub-project 4
+    (prompts);
+  - toggle log, toggle stacking, layout 1–9, zoom card and open grave/exile
+    come with sub-projects 2 and 3.
+
+  Binding rules:
+  - Pick 1–9 acts only where the on-screen order is the decision's order:
+    mulligan, arrange, discard, and generic lists that show every option.
+    Library search, name pick and the payment window refuse the digit until
+    sub-project 4 numbers options by rendered order.
+  - Numpad Enter counts as Enter, and Shift+Space also passes. Alt-modified
+    chords are not hotkeys. Escape can be bound only to cancel-run.
+- **Storage and migration**:
+  - The existing keys are kept, not renamed. `gorge.playsettings.v1` and
+    `gorge.playsettings.profiles.v1` move to settings blob version 3, in
+    place.
+  - Blob versions 1 and 2 load with breakpoints off.
+  - The keymap is new, at `gorge.keymap.v1`. It stores only the overrides of
+    the defaults.
+  - Renaming keys was rejected: it would orphan saved settings, which is the
+    same reason the v1→v2 bump kept its key.
+  - Profile names `__proto__`, `constructor` and `prototype` are refused.
 - **Export/import.** One JSON file per library:
   `{kind: 'gorge-flow' | 'gorge-layout' | 'gorge-keymap', version, items}`.
   Imports are validated with the store's own `validate`. A name clash gets the
