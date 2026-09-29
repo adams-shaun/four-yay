@@ -55,6 +55,6 @@ describe('LayoutStore', () => {
   it('the floating prompt position is saved as a clamped viewport fraction', () => {
     const st = new LayoutStore(memStorage());
     st.setPromptPosition(1.4, -0.2);
-    expect(st.prompt).toEqual({ placement: 'dock', x: 1, y: 0 });
+    expect(st.prompt).toEqual({ placement: 'table', x: 1, y: 0 });
   });
 });

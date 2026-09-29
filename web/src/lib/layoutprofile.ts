@@ -26,7 +26,7 @@ export type RegionOrder = 'entry' | 'name' | 'power';
 export type Overflow = 'overlap' | 'scroll' | 'wrap';
 export type RailSide = 'left' | 'right' | 'hidden';
 export type LogMode = 'remember' | 'show' | 'hide';
-export type PromptPlacement = 'dock' | 'float';
+export type PromptPlacement = 'table' | 'dock' | 'float';
 
 export const ARRANGEMENTS: readonly Arrangement[] = ['columns', 'grid', 'focus'];
 export const ORIENTATIONS: readonly Orientation[] = ['mirrored', 'same'];
@@ -36,7 +36,7 @@ export const REGION_ORDERS: readonly RegionOrder[] = ['entry', 'name', 'power'];
 export const OVERFLOWS: readonly Overflow[] = ['overlap', 'scroll', 'wrap'];
 export const RAIL_SIDES: readonly RailSide[] = ['left', 'right', 'hidden'];
 export const LOG_MODES: readonly LogMode[] = ['remember', 'show', 'hide'];
-export const PROMPT_PLACEMENTS: readonly PromptPlacement[] = ['dock', 'float'];
+export const PROMPT_PLACEMENTS: readonly PromptPlacement[] = ['table', 'dock', 'float'];
 
 export const ARRANGEMENT_LABELS: Record<Arrangement, string> = { columns: 'Columns', grid: 'Grid', focus: 'Focus' };
 export const ORIENTATION_LABELS: Record<Orientation, string> = { mirrored: 'Mirrored', same: 'Same as mine' };
@@ -46,7 +46,7 @@ export const ORDER_LABELS: Record<RegionOrder, string> = { entry: 'Entry order',
 export const OVERFLOW_LABELS: Record<Overflow, string> = { overlap: 'Overlap', scroll: 'Scroll', wrap: 'Wrap' };
 export const RAIL_LABELS: Record<RailSide, string> = { left: 'Left', right: 'Right', hidden: 'Hidden' };
 export const LOG_LABELS: Record<LogMode, string> = { remember: 'Per table', show: 'Show', hide: 'Hide' };
-export const PROMPT_LABELS: Record<PromptPlacement, string> = { dock: 'Rail dock', float: 'Floating' };
+export const PROMPT_LABELS: Record<PromptPlacement, string> = { table: 'Near table', dock: 'Rail dock', float: 'Floating' };
 
 /** The width weights the drawer offers (S/M/L/XL). Any value in range validates. */
 export const WEIGHT_STEPS: readonly { value: number; label: string }[] = [
@@ -171,7 +171,7 @@ export function defaultProfile(): LayoutProfile {
       regions: cloneRegions(PRESET_SHAPES.duel.regions),
       cards: { stacking: true, overflow: 'overlap', artBelow: 58, outlines: false },
       hand: { visible: 0.72, raise: true },
-      panels: { rail: 'right', log: 'remember', prompt: { placement: 'dock', x: 0.6, y: 0.12 } },
+      panels: { rail: 'right', log: 'remember', prompt: { placement: 'table', x: 0.6, y: 0.12 } },
     },
     'duel',
   );
