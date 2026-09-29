@@ -188,6 +188,14 @@ func (e *Engine) scanBoardStatics() boardStatics {
 				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) {
 					continue
 				}
+				// CR 702.25b/d: a phased-out permanent is treated as though it
+				// does not exist, so its statics do not function. Every arm
+				// shares this object-level gate, which is the same one
+				// scanActiveStatics runs -- so the pass-scoped snapshot and the
+				// fresh activeStatics walk cannot disagree on a grantor.
+				if z == state.ZBattlefield && o.PhasedOut {
+					continue
+				}
 				// CR 708.8: a face-down battlefield permanent's printed
 				// statics do not exist -- every arm, the scanActionStatics /
 				// scanCostStatics / scanManaConvSources gate alike.
@@ -301,6 +309,13 @@ func (e *Engine) scanManaConvSources(out []manaConvSource) []manaConvSource {
 				o := e.G.Obj(oid)
 				if o == nil || o.Face() == nil || (z == state.ZBattlefield && e.faceDownPrintedHides(o)) ||
 					offBattlefieldStaticsInert(z, o) {
+					continue
+				}
+				// CR 702.25b/d: a phased-out permanent is treated as though it
+				// does not exist, so its ManaConvert static does not function --
+				// the same object-level gate scanActiveStatics and the fused
+				// scanBoardStatics run.
+				if z == state.ZBattlefield && o.PhasedOut {
 					continue
 				}
 				for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
