@@ -5,8 +5,8 @@
   /**
    * ZoomCard is the zoom-card view action's overlay: the card under the
    * pointer, as large as the viewport allows. It is a modal dialog, so the
-   * table's hotkey guard holds every other key while it is open; Escape, the
-   * zoom key again, or a click anywhere closes it.
+   * table's hotkey guard holds every other key while it is open; Escape or a
+   * click anywhere closes it.
    */
   let { card, onClose }: { card: CardView | null; onClose: () => void } = $props();
 

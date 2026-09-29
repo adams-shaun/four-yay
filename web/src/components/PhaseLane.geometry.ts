@@ -1,6 +1,7 @@
 import { mount } from 'svelte';
 import type { CardView, Decision, PlayerView, SeatInfo, View } from '../protocol';
-import { SeatPanelState } from '../lib/seatpanel.svelte';
+import { SeatPanelState, toneOf } from '../lib/seatpanel.svelte';
+import { optionsByObj, optionsByPlayer, type CardOptions } from '../lib/cardoptions';
 import '../app.css';
 import BoardStage from './BoardStage.svelte';
 import { layoutStore } from '../lib/layouts.svelte';
@@ -29,8 +30,17 @@ const players: PlayerView[] = Array.from({ length: count }, (_, seat) => {
   };
 });
 const seats: SeatInfo[] = players.map((p, seat) => ({ name: p.name, deck: 'fixture', colour: colours[seat] }));
-const noPass = new URLSearchParams(location.search).get('decision') === 'choose';
-const decision: Decision = noPass
+const kind = params.get('decision');
+const noPass = kind === 'choose';
+const decision: Decision = kind === 'target'
+  ? {
+      seq: 9, player: 0, kind: 'target', prompt: 'Choose a target', min: 1, max: 1,
+      options: [
+        { index: 3, kind: 'player', label: 'Player 2', player: 1 },
+        { index: 4, kind: 'player', label: 'Player 1', player: 0 },
+      ],
+    }
+  : noPass
   ? {
       seq: 8, player: 0, kind: 'choose', prompt: 'Choose two', min: 0, max: 2,
       options: [
@@ -50,6 +60,10 @@ const view: View = {
   viewer: 0, visibility: 'seat', turn: 1, round: 1, step: 'main1', phase: 'main1', active: 0, priority: 0,
   over: false, draw: false, winner: null, stack: [], pending: [], players, decision,
 };
+// A target decision marks the offered players (their header bar / seat box glow verdigris).
+const options: CardOptions | null = kind === 'target'
+  ? { byObj: optionsByObj(decision), byPlayer: optionsByPlayer(decision), picked: [], tone: toneOf(decision), post: () => {} }
+  : null;
 const panel = new SeatPanelState('fixture', 1, { seat: 0, token: 'geometry' }, null);
 panel.skipEmpty = false;
 panel.adoptView(decision);
@@ -59,7 +73,7 @@ target.innerHTML = '<main class="table"><section class="stage"></section><aside>
 mount(BoardStage, {
   target: target.querySelector('.stage')!,
   props: {
-    view, seats, seat: 0, controlsLive: true,
+    view, seats, seat: 0, controlsLive: true, options,
     stops: { yours: new Set<string>(), opponents: new Set<string>() },
     onToggle: () => {},
     controls: { state: panel, ctx: { seat: 0, token: 'geometry' }, table: 'fixture', match: 1 },

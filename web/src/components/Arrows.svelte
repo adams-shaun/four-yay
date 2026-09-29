@@ -50,7 +50,11 @@
     if (!root) return;
     const base = root.getBoundingClientRect();
     const next: Line[] = [];
-    for (const arrow of [...arrowsFor(view, hoveredStack), ...previewArrowsFor(options)]) {
+    // Proposed arrows belong to a pending TARGET choice only: fanning lines
+    // from a resolving spell to every card a discard or search offers is the
+    // spaghetti the spec rules out.
+    const preview = view.decision?.kind === 'target' ? previewArrowsFor(options) : [];
+    for (const arrow of [...arrowsFor(view, hoveredStack), ...preview]) {
       const from = anchorEl(arrow.from);
       const to = anchorEl(arrow.to);
       if (!from || !to) continue;

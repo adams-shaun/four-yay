@@ -189,6 +189,15 @@ describe('BoardStage — the table is arranged, and the centre strip is a real l
     await page.close();
   });
 
+  it('a player offered by a target decision glows verdigris: the opponent\'s header bar and your seat box', async () => {
+    const page = await table(1200, 900, 'decision=target');
+    await expect.poll(() => page.locator('[data-seat-header="1"]').getAttribute('class')).toMatch(/\btarget\b/);
+    await expect.poll(() => page.locator('[data-seat-box="0"]').getAttribute('class')).toMatch(/\btarget\b/);
+    const glow = await page.locator('[data-seat-header="1"]').evaluate((e) => getComputedStyle(e).boxShadow);
+    expect(glow).toContain('rgb(111, 183, 174)'); // --verdigris
+    await page.close();
+  });
+
   it('the gilt Pass is Waiting without a pass option and posts a non-positional pass by its wire index', async () => {
     const unavailable = await table(1000, 900, 'decision=choose');
     // No pass on the wire: the button names the wait and posts nothing (R-E4-2).

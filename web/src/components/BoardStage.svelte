@@ -61,7 +61,9 @@
   let stage = $state<HTMLElement | null>(null);
   let liveSplit = $state<number | null>(null);
   const own = $derived(seat !== null ? (view.players.find((p) => p.seat === seat) ?? null) : null);
-  const hasHand = $derived(own !== null && hand !== null);
+  // A seated viewer always gets the hand row: it carries the seat box and the
+  // action button even while the hand itself is empty or not supplied.
+  const hasHand = $derived(own !== null);
   const nameOf = (s: number) => seats[s]?.name || view.players.find((p) => p.seat === s)?.name || `Seat ${s}`;
 </script>
 
