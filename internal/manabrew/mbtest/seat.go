@@ -216,6 +216,27 @@ func (s *TranslatingSeat) Decide(_ context.Context, v view.View, d decision.Deci
 		return decision.Intent{}, fmt.Errorf("mbtest: mock client could not answer %s prompt (seq %d): %w",
 			msg.Input.Value.PromptType(), d.Seq, err)
 	}
+	// Round-trip the client's answer through the real wire codec (MB-11's
+	// mb.Encode/mb.Decode) before translating it: the mock client builds an
+	// mb.ClientMessage as a Go value (§5.1's in-process contract -- HTTP is
+	// out of this ticket's scope), but sending it through Encode then Decode
+	// here means TranslateResponse sees exactly what a real transport would
+	// hand it off the wire, not a value the mock happened to construct by
+	// hand. A codec bug (a lossy field, a union that decodes to the wrong
+	// concrete type) surfaces as a translation failure here rather than
+	// staying invisible because the in-process path skipped serialisation
+	// entirely.
+	raw, err := mb.Encode(resp)
+	if err != nil {
+		return decision.Intent{}, fmt.Errorf("mbtest: wire-encoding the %s response (seq %d): %w",
+			msg.Input.Value.PromptType(), d.Seq, err)
+	}
+	var wireResp mb.ClientMessage
+	if _, err := mb.Decode(raw, &wireResp); err != nil {
+		return decision.Intent{}, fmt.Errorf("mbtest: wire-decoding the %s response (seq %d): %w",
+			msg.Input.Value.PromptType(), d.Seq, err)
+	}
+	resp = wireResp
 	pending := &manabrew.Pending{Prompt: msg, Decision: &d, View: v}
 	outcome := s.Translator.TranslateResponse(resp, pending, d.Player)
 	if outcome.Err != nil {
