@@ -173,7 +173,25 @@ export class ManaBrewMatch implements ClientModelSource, SeatTransport {
   }
 
   private projected(gv: GameViewDto): View {
-    return projectView(gv, { viewer: this.seat.seat, known: this.known, decision: this.binding?.decision ?? null });
+    return this.decorate(projectView(gv, { viewer: this.seat.seat, known: this.known }));
+  }
+
+  /**
+   * decorate lays the open prompt over a projected board: the decision, and
+   * the seat's potential plays. ManaBrew carries no potential_actions, but
+   * an announce-able cast (`pay-<id>`) is exactly one — a spell the engine
+   * would cast once mana is paid — so the autopilot's smart stops and the
+   * float-then-cast affordances see the same "you have a play" the native
+   * projection gives them.
+   */
+  private decorate(v: View): View {
+    const d = this.binding?.decision ?? null;
+    const plays = (d?.payment_actions ?? []).map((a) => ({ kind: 'cast', obj: a.cast.object, label: a.label }));
+    return {
+      ...v,
+      decision: d,
+      players: v.players.map((p) => (p.seat === this.seat.seat ? { ...p, potential_actions: plays.length > 0 ? plays : undefined } : p)),
+    };
   }
 
   private acceptState(gv: GameViewDto) {
@@ -210,7 +228,7 @@ export class ManaBrewMatch implements ClientModelSource, SeatTransport {
     this.lastPromptId = p.promptId;
     this.binding = bindPrompt(p, { view: this.live });
     if (this.live === null) return;
-    this.live = { ...this.live, decision: this.binding.decision };
+    this.live = this.decorate(this.live);
     if (this.ring.length > 0) this.ring[this.ring.length - 1] = { ...this.ring[this.ring.length - 1], view: this.live };
     if (this.dvr.live) this.assign(this.live);
   }
@@ -323,7 +341,7 @@ export class ManaBrewMatch implements ClientModelSource, SeatTransport {
   private withdraw() {
     this.binding = null;
     if (this.live) {
-      this.live = { ...this.live, decision: null };
+      this.live = this.decorate(this.live);
       if (this.dvr.live) this.assign(this.live);
     }
   }

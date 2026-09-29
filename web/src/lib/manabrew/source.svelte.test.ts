@@ -81,6 +81,17 @@ describe('ManaBrewMatch', () => {
     expect(m.view?.decision?.seq).toBe(promptOf(run.records[run.records.length - 1])!.promptId);
   });
 
+  it('an announce-able cast is a potential play of the seat, so smart stops see it', async () => {
+    const { m, f } = await started('cast');
+    const run = runs.find((r) => r.run === 'cast')!;
+    const withPay = run.records.findIndex((r) => (r.native.decision?.payment_actions?.length ?? 0) > 0);
+    expect(withPay).toBeGreaterThanOrEqual(0);
+    for (const msg of run.records[withPay].manabrew) f.emit(msg);
+    const me = m.view!.players.find((p) => p.seat === 0)!;
+    expect(me.potential_actions?.map((a) => a.obj).sort()).toEqual(run.records[withPay].native.decision!.payment_actions!.map((a) => a.cast.object).sort());
+    expect(m.view!.players.find((p) => p.seat === 1)!.potential_actions).toBeUndefined();
+  });
+
   it('answers through the seat transport: api.ts routes the panel to /send, and the answered prompt is withdrawn', async () => {
     const { m, f } = await started('start');
     const d = await fetchPending('g1', 1, m.ctx);
