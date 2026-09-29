@@ -291,18 +291,59 @@ fi
 CANDS=$STATE/candidates.jsonl
 python3 "$ROOT/scripts/seed_candidates.py" --repo "$TARGET" --state-dir "$STATE" \
 	--ledger "$STATE/scoreboard.jsonl" >"$STATE/.candidates.new" 2>/dev/null
-NEW=0
-if [ -s "$STATE/.candidates.new" ]; then
-	while IFS= read -r line; do
-		id=$(printf '%s' "$line" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])' 2>/dev/null) || continue
-		if ! grep -qF "\"id\": \"$id\"" "$CANDS" 2>/dev/null && ! grep -qF "\"id\":\"$id\"" "$CANDS" 2>/dev/null; then
-			printf '%s\n' "$line" >>"$CANDS"
-			NEW=$((NEW + 1))
-		fi
-	done <"$STATE/.candidates.new"
-fi
+REFRESH=$(python3 - "$CANDS" "$STATE/.candidates.new" <<'PY' 2>/dev/null
+import json, sys
+
+cands_path, fresh_path = sys.argv[1], sys.argv[2]
+
+
+def read(p):
+    out = []
+    try:
+        for line in open(p):
+            line = line.strip()
+            if line:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    pass
+    except FileNotFoundError:
+        pass
+    return out
+
+
+fresh = read(fresh_path)
+fresh_by_id = {c["id"]: c for c in fresh if c.get("id")}
+held = read(cands_path)
+
+# A candidate's id encodes the measurement that produced it, so a candidate the
+# current generation no longer produces is STALE: its evidence has moved. Filing
+# it anyway sends a brief carrying a number that is no longer true -- which
+# happened once, a ticket titled "merge_fix rate is 77%" filed minutes after the
+# metric was corrected to 24.6%. A stale candidate is retired, not queued.
+out, new, stale = [], 0, 0
+for c in held:
+    cid = c.get("id")
+    if c.get("status") in ("open", None) and cid not in fresh_by_id:
+        c["status"] = "stale"
+        stale += 1
+    out.append(c)
+have = {c.get("id") for c in out}
+for cid, c in fresh_by_id.items():
+    if cid not in have:
+        out.append(c)
+        new += 1
+with open(cands_path, "w") as f:
+    for c in out:
+        f.write(json.dumps(c) + "\n")
+print(f"{len(out)}\t{new}\t{stale}")
+PY
+)
+TOTAL=$(printf '%s' "$REFRESH" | cut -f1)
+NEW=$(printf '%s' "$REFRESH" | cut -f2)
+STALE=$(printf '%s' "$REFRESH" | cut -f3)
 rm -f "$STATE/.candidates.new"
-saw "candidate backlog: $(wc -l <"$CANDS" 2>/dev/null || echo 0) total, $NEW new this cycle"
+saw "candidate backlog: ${TOTAL:-0} total, ${NEW:-0} new, ${STALE:-0} retired as stale this cycle"
 
 if [ "$QUIET" = 1 ]; then
 	skipped "opportunity step skipped this cycle (see the reason above)"
