@@ -13,9 +13,9 @@
    *  - 'autopay-off' — the reported seat: the plan-less action announces, so
    *    the fan must show a live CAST button and the click must reach
    *    onCastPayment.
-   *  - 'autopay-on' — castAction has no route for a plan-less action, so the
-   *    fan must render NO CAST button (a rendered-but-inert control is worse
-   *    than none).
+   *  - 'autopay-on' — castAction has no plan to submit for a plan-less
+   *    action and falls back to announce-then-pay, so the fan must render the
+   *    live CAST button here too and the click must reach onCastPayment.
    */
 
   const cast: unknown[] = [];

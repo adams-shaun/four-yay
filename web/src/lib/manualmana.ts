@@ -46,11 +46,11 @@ import { parseSymbol } from './mana';
  *    turn-face-up, a specialize) counts conservatively — showing a tap that
  *    was not needed costs a glance, hiding one that was makes a play
  *    unreachable;
- *  - a payment action carrying ZERO plans: its cast is reachable only by hand,
- *    which is what the seat panel's "Suggested payment is unavailable; use the
- *    manual mana controls" line tells the player (the engine never publishes
- *    one today — rules/payment_plan.go skips a cast with no plan — but the
- *    line must be true when it does).
+ *  - a payment action carrying ZERO plans: its cast is reachable only by hand
+ *    through announce-then-pay (its ManaBrew-only wire shape; the engine never
+ *    publishes one today — rules/payment_plan.go skips a cast with no plan —
+ *    so the carve-out must be true when it does), which is exactly the state
+ *    the fallback button in the payment block serves.
  *
  * MEASURED, not assumed (aph-web-autopay-policy, a Go probe through the real
  * priority ask at e77928ae9): the engine offers a mana-costed play

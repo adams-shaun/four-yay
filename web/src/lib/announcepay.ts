@@ -27,14 +27,18 @@ export function announceActions(d: Decision | null, autoManaAvailable: boolean, 
 }
 
 /** castableActions are every offered payment action CAST can reach from a hand
- *  card. With Auto-pay OFF a plan-less ManaBrew action is reachable through
- *  announce-then-pay (submitAnnounce); with Auto-pay ON castAction submits the
- *  suggested plan and has no route for a plan-less action, so offering it
- *  would render a dead CAST button. Exclude it there. */
+ *  card. A planned cast submits its plan (Auto-pay ON) or posts the legacy
+ *  option / announces (Auto-pay OFF). A plan-less action (ManaBrew only — the
+ *  native planner never publishes one, rules/payment_plan.go appends an action
+ *  only with a plan) is reachable through announce-then-pay (submitAnnounce)
+ *  in BOTH modes: under Auto-pay ON castAction falls back to the announce for
+ *  it, so the affordance is live there too and must be offered. The
+ *  autoPayMana parameter stays in the shared signature castableActions,
+ *  castAction and the announce list all read. */
 export function castableActions(d: Decision | null, autoManaAvailable: boolean, autoPayMana: boolean): PaymentAction[] {
+  void autoPayMana;
   if (d === null || d.kind !== 'priority' || !autoManaAvailable) return [];
-  const actions = d.payment_actions ?? [];
-  return autoPayMana ? actions.filter((a) => a.plans.length > 0) : actions;
+  return d.payment_actions ?? [];
 }
 
 /** manaWindow is the announced window, or null for any other decision. */

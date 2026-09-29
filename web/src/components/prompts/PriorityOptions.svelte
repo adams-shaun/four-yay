@@ -19,7 +19,10 @@
    * the untouched manual list. The manual taps are hidden only by the one
    * shared rule (lib/manualmana.ts, spec §8). With Auto-pay OFF, a cast the
    * planner can pay but the pool alone cannot is listed as a cast that
-   * opens the select-mana window (announce-then-pay §8).
+   * opens the select-mana window (announce-then-pay §8); with Auto-pay ON a
+   * plan-less ManaBrew action renders the same announce fallback inside its
+   * payment block — it has no plan to submit, and announce-then-pay is its
+   * only legal route (never a synthesized plan).
    */
   let { decision, view, logic, seat, placement }: { decision: Decision; view: View; logic: SeatPanelState; seat: number; placement: Placement } = $props();
 
@@ -57,7 +60,13 @@
               >{i === 0 ? 'Cast with suggested mana' : 'Cast with this mana plan'}</button>
             {/each}
           {:else}
-            <p class="payment-summary">Suggested payment is unavailable; use the manual mana controls.</p>
+            <!-- The announce fallback (announce-then-pay §8): this action has
+                 no plan to submit, so the click opens the select-mana window.
+                 Under Auto-pay ON the announce list above is empty, so this
+                 is the action's only control and its only data-announce
+                 node; under Auto-pay OFF the payment block does not render
+                 at all (announceActions serves the button instead). -->
+            <button class="option payment-plan" type="button" data-announce={action.id} title="Cast, then choose the mana to pay with" onclick={(e) => logic.submitAnnounce(action, e.ctrlKey)} disabled={logic.busy}>Cast — choose mana</button>
           {/if}
         </div>
       {/each}
