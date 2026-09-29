@@ -1694,6 +1694,13 @@ var flagNames = [...]struct {
 	// predicate reads -- Spiders-Man, Heroic Horde's ETB trigger. Appended
 	// at the end per the table's own ordering rule.
 	{"webslinged", state.FlagWebSlinged},
+	// The kw:Sneak alternative-cost cast (CR 702.190a): the flag is the
+	// provenance the `sneaked` filter predicate reads -- Karai, Future of the
+	// Foot, Leonardo, Leader in Blue, Turncoat Kunoichi and The Last Ronin's
+	// Technique -- and the marker rules/altcast.go's altCostEnter reads for
+	// CR 702.190b's tapped-and-attacking entry. Appended at the end per the
+	// table's own ordering rule.
+	{"sneaked", state.FlagSneaked},
 }
 
 // FlagsFrom parses a comma-separated flag list (CastInfo.Counter's shape)

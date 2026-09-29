@@ -306,6 +306,20 @@ var predicates = map[string]predFn{
 	"escaped": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagEscaped != 0
 	},
+	// sneaked is the CastFlags provenance of a sneak cast (CR 702.190a):
+	// "if this creature's sneak cost was paid" reads it through
+	// Card.Self+sneaked (Leonardo, Leader in Blue), Card.sneaked (Turncoat
+	// Kunoichi), Card.ThisTurnEntered+sneaked (Karai, Future of the Foot) and
+	// Count$ValidStack Card.Self+sneaked (The Last Ronin's Technique). The
+	// bit is stamped by the pay-time CastInfo (rules/cast.go's modeFlags) and
+	// survives the stack->battlefield move, so the spell and the permanent it
+	// becomes both read it. A card never sneak-cast never matches, and
+	// neither does a stack copy (state.CastProvenanceFlags strips it --
+	// CR 707.10). This map entry is the ONE home for the read: every rules
+	// and effects match site that carries the token consults it.
+	"sneaked": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.CastFlags&state.FlagSneaked != 0
+	},
 	// Suspend capability and status are intentionally separate. A card has
 	// suspend when it is printed with K:Suspend or received the event-backed
 	// grant; it is suspended only while that capability card is exiled with a

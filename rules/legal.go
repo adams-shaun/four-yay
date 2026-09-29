@@ -2532,6 +2532,31 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 			offerCastable(p, id, Cost{Generic: 2}, foretellScope(), false) {
 			out = append(out, decision.Option{Index: len(out), Kind: "cast", Label: "Foretell " + f.Name, Obj: id, Mode: "foretell"})
 		}
+		// Sneak (CR 702.190a): cast for the keyword's alternative cost, with
+		// the mandatory additional cost of returning an unblocked creature you
+		// control to its owner's hand. The window is the caster's own declare
+		// blockers step at instant speed, so the offer sits ABOVE the
+		// sorcery-speed timing gate below -- a creature printed with no Flash
+		// is offered here and skipped by that gate. sneakCosts is the ONE cost
+		// reader beginCast's charge calls too, and offerCastable's shared tail
+		// (nonManaCastable) censuses the Return part's candidates: an option
+		// whose return cannot be paid must never be offered (the offerCastable
+		// ruling). castRestricted/castSuppressed bind the offer exactly as they
+		// do the plain cast.
+		if e.sneakTimingOK(p) && !castRestricted(p, id) && !e.castSuppressed(p, id) &&
+			e.castTargetsAvailable(p, id, f.SpellAbility()) {
+			for _, sc := range e.sneakCosts(p, id) {
+				if !offerCastable(p, id, sc.cost, spellScope(sc.mode), false) {
+					continue
+				}
+				label := "sneak"
+				if sc.mode != "sneak" {
+					label = "sneak (granted)"
+				}
+				out = append(out, decision.Option{Index: len(out), Kind: "cast",
+					Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: sc.mode})
+			}
+		}
 		if !e.spellTimingOK(p, id, f, sorcery) {
 			// MayFlashCost (Forge's K:MayFlashCost, CR 702.8): when the ordinary
 			// timing gate fails, a face printed with the keyword is NOT skipped
