@@ -2305,6 +2305,9 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		// number and the same provenance read the CR 903.8 commander tax.
 		return h.CommanderCastsFromCommandZone(c.Controller), true
 	case "RememberedNumber":
+		if c.ExchangeNumberBound {
+			return c.ExchangeNumber, true
+		}
 		// Forge's Count$RememberedNumber is the executing ability's remembered
 		// count -- the same list evalRememberedOK's Amount head reads, so it
 		// applies the same capture exclusion: Forge's host remembered list is

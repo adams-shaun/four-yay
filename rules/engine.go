@@ -229,6 +229,17 @@ type Engine struct {
 	// The layer system (layers.go) is the only reader and writer.
 	continuous   []ContinuousEffect
 	lifeExchange *lifeExchangeTransaction
+	// pendingLifeExchange parks an exchange transaction whose first or second
+	// life change suspended on a decision that is NOT a replacement-order ask
+	// (a consumed GainLife→Draw body that itself parked a Dredge ask). No
+	// static caller references the transaction once the synchronous emit
+	// returns, so without this slot it is orphaned and NEITHER side ever
+	// applies. settlePendingLifeExchange re-drives it from every engine-idle
+	// drain, and finishLifeExchange re-parks it whenever it suspends again.
+	// It is only ever non-nil while a decision or a replacement-order queue is
+	// outstanding, so (like resume/replChoices/pending) no clone boundary can
+	// observe it.
+	pendingLifeExchange *lifeExchangeTransaction
 	// controlGrants holds the GainControl effects that can still end (see
 	// rules/control.go). It is engine continuation state only; every take and
 	// return is a ControlChange event, so the log alone rebuilds Game state.
