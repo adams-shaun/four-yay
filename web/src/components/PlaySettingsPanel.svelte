@@ -72,6 +72,7 @@
     OwnObjectRule,
   } from '../lib/playsettings';
   import type { SeatPanelState } from '../lib/seatpanel.svelte';
+  import BreakpointsSection from './BreakpointsSection.svelte';
 
   /**
    * The GAME OPTIONS editor for the whole play-settings model
@@ -394,6 +395,8 @@
       Covers your own spell or ability while it is on the stack. “Don’t stop” lets it resolve; “Stop if I can respond” pauses only when you have a response. Step stops resume after it resolves.
     </p>
   </section>
+
+  <BreakpointsSection state={logic} />
 
   <section class="sec">
     <h3>Step stops</h3>
