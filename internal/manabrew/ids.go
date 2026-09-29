@@ -60,3 +60,37 @@ func payActionID(id string) string {
 // stable across reconnect and caretaker, and a stale answer is simply a
 // different Seq. A gorge Seq is far below 2^53 (a JS safe integer).
 func promptID(d *decision.Decision) int64 { return int64(d.Seq) }
+
+// The exported aliases below are the SAME mints, re-exposed for the mbtest
+// reachability helper (MBX-3: internal/manabrew/mbtest/reach.go), which must
+// build the inverse of TranslateResponse -- the client message that selects
+// a given native option -- and therefore needs to name options with exactly
+// the ids the prompt minted. A helper that re-implemented the mint by its own
+// rule could silently drift from this file; going through these aliases keeps
+// one home, and the reachability census is the drift alarm if one ever
+// appears (a mint change makes the helper's ids stop being advertised and
+// the census fails).
+
+// PlayerID is the exported playerID mint ("player-<seat>").
+func PlayerID(p state.PlayerID) string { return playerID(p) }
+
+// CardID is the exported cardID mint ("o<ObjID>").
+func CardID(id state.ObjID) string { return cardID(id) }
+
+// StackID is the exported stackID mint ("s<ObjID>").
+func StackID(id state.ObjID) string { return stackID(id) }
+
+// ActionID is the exported actionID mint ("opt-<index>").
+func ActionID(index int) string { return actionID(index) }
+
+// PayActionID is the exported payActionID mint ("pay-<id>").
+func PayActionID(id string) string { return payActionID(id) }
+
+// AttackTargetID is the exported attackTargetID mint: the wire ref id of an
+// attacker option's target (the battle/planeswalker permanent for a
+// permanent attack, the defender's player id for a player attack).
+func AttackTargetID(opt decision.Option) string { return attackTargetID(opt) }
+
+// ColorCode is the exported colorCode lookup: the wire colour code a colour
+// option (ManaSymbol, label) resolves to.
+func ColorCode(symbol, label string) string { return colorCode(symbol, label) }
