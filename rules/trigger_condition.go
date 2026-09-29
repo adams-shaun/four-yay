@@ -415,7 +415,7 @@ func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you sta
 	cmp = e.presentCompareFor(cmp, source, you)
 	sc := e.specCtx(source, you)
 	if tc != nil {
-		sc.DelayedRemembered = tc.DelayedRemembered
+		sc.TriggerContext = *tc
 	}
 	if pd := strings.TrimSpace(t.Params[definedKey]); pd != "" {
 		o := e.G.Obj(source)
