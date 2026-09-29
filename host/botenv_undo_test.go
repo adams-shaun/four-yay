@@ -94,6 +94,12 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	lcfg := m.cfg
 	lclone := m.e.L.Clone()
 	intents := len(m.e.L.Intents)
+	// Snapshot the rebuilt feed under the same lock as the log clone: the
+	// play loop is parked on the rewound decision here, but reading a live
+	// feed outside m.mu is the race this test must not have (the final block
+	// below was caught racing it — the 2026-09-29 module gate failure).
+	aHist := feedAfter.History()
+	aColl := feedAfter.Collector().Clone()
 	m.mu.RUnlock()
 	if feedAfter == nil {
 		t.Fatal("the feed is gone after the undo")
@@ -116,12 +122,12 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RebuildFeed: %v", err)
 	}
-	if !reflect.DeepEqual(feedAfter.History(), rebuilt.History()) {
-		ah, rh := feedAfter.History(), rebuilt.History()
+	if !reflect.DeepEqual(aHist, rebuilt.History()) {
+		ah, rh := aHist, rebuilt.History()
 		t.Fatalf("post-undo feed != RebuildFeed(%d): frames %d/%d answers %d/%d",
 			intents, len(ah.Frames), len(rh.Frames), len(ah.Answers), len(rh.Answers))
 	}
-	if !reflect.DeepEqual(feedAfter.Collector().Clone(), rebuilt.Collector().Clone()) {
+	if !reflect.DeepEqual(aColl, rebuilt.Collector().Clone()) {
 		t.Fatal("post-undo feed collector state != RebuildFeed's")
 	}
 
@@ -142,6 +148,18 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	fcfg := m.cfg
 	fclone := m.e.L.Clone()
 	fintents := len(m.e.L.Intents)
+	// The history and the collector are snapshotted under the SAME lock that
+	// cloned the log. Reading finalFeed.History() after the RUnlock — as the
+	// first cut of this test did — races the live loop: waitIntents returns
+	// the moment the intent count is reached, mid-burst, and the bots keep
+	// submitting while RebuildFeed walks the stale clone, so the comparison
+	// measured the live feed one intent past the prefix it was compared to
+	// (frames 10/9, answers 7/6 — exactly one extra trailing frame+answer).
+	// Under m.mu the real submit path is consistent by construction (Submit,
+	// feeds.record and projectNext's observe are one locked section), so the
+	// snapshot is a valid prefix boundary at ANY quiescent-or-not instant.
+	fHist := finalFeed.History()
+	fColl := finalFeed.Collector().Clone()
 	m.mu.RUnlock()
 	if finalFeed == nil {
 		t.Fatal("the feed is gone after continued play")
@@ -153,12 +171,12 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RebuildFeed after continued play: %v", err)
 	}
-	if !reflect.DeepEqual(finalFeed.History(), again.History()) {
-		fh, rh := finalFeed.History(), again.History()
+	if !reflect.DeepEqual(fHist, again.History()) {
+		fh, rh := fHist, again.History()
 		t.Fatalf("continued feed != RebuildFeed(%d): frames %d/%d answers %d/%d",
 			fintents, len(fh.Frames), len(rh.Frames), len(fh.Answers), len(rh.Answers))
 	}
-	if !reflect.DeepEqual(finalFeed.Collector().Clone(), again.Collector().Clone()) {
+	if !reflect.DeepEqual(fColl, again.Collector().Clone()) {
 		t.Fatal("continued feed collector state != RebuildFeed's")
 	}
 	if finalFeed.Frames() <= framesAtRewind {
