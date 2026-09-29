@@ -9,7 +9,7 @@ package host
 //     150 intents for search entries (a searched decision costs ~0.2-0.7 s),
 //     a whole game otherwise — and the two runs must produce identical event
 //     logs and intents, each of which replays cleanly.
-//   - The search row of the seat-level leak test (§5.3): the REAL search
+//   - One row per Env entry of the seat-level leak test (§5.3): the REAL
 //     adapter through the REAL host Env path, with the swap fixture applied
 //     to one match's live engine, answers the swapped decision identically
 //     from two honest roots whose hidden worlds are name-identical.
@@ -37,6 +37,10 @@ import (
 // regardless of what this binary links; bots/all links search here once, at
 // the blank import above.
 const searchPolicy = "search"
+
+// azRedealPolicy is the az-redeal entry's registry key, spelled out for the
+// same reason searchPolicy is: bots/all links the package once, above.
+const azRedealPolicy = "az-redeal"
 
 // detSearchIntentsCap is the intent cap a search entry plays (§8): a whole
 // game of searches would take minutes, and 150 intents already covers the
@@ -229,13 +233,46 @@ func (s *envSpySeat) recorded(seq uint64) *envRecord {
 // policy whose WantsEnv gates the Env path on searchseat.Eligible.
 func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSearch(t *testing.T) {
 	t.Parallel()
-	searchNew := func(actor uint64) seat.Seat {
+	hostedEnvLeakRow(t, searchPolicy, func(actor uint64) seat.Seat {
 		s, err := bots.New(searchPolicy, bots.Options{Seed: actor, SearchParallelism: 2})
 		if err != nil {
 			t.Fatalf("the search policy is not linked into this binary: %v", err)
 		}
 		return s
-	}
+	})
+}
+
+// TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal is the az-redeal row of
+// the same property (BP-12, §5.3): the REAL az adapter at slot 0, through the
+// REAL host Env path, with the swap fixture applied to the second match's
+// live engine at the first decision the adapter wants an Env for (a searched
+// kind: priority, attackers, blockers or target — the az seat's WantsEnv is
+// the kind set, not a per-decision eligibility). The az seat's whole world
+// source is a redeal over the honest root, so a root that depended on the
+// real hidden cards would deal different worlds — and search them to
+// different answers — in the two matches. The decision played at the swapped
+// boundary must be answered identically from two roots whose hidden worlds
+// are name-identical. The spy row of the same property lives in
+// botenv_test.go.
+func TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal(t *testing.T) {
+	t.Parallel()
+	hostedEnvLeakRow(t, azRedealPolicy, func(actor uint64) seat.Seat {
+		s, err := bots.New(azRedealPolicy, bots.Options{Seed: actor})
+		if err != nil {
+			t.Fatalf("the az-redeal policy is not linked into this binary: %v", err)
+		}
+		return s
+	})
+}
+
+// hostedEnvLeakRow is the shared body of the leak-test rows: two live matches
+// built around the REAL hosted policy, driven through the REAL host Env path
+// (projectNext under the lock, parkSeat outside it), with the swap fixture
+// applied to the second match's live engine at the first decision the policy
+// wants an Env for. policyNew builds a FRESH seat per match: a hosted bot
+// carries its own RNG state, so sharing one seat between the two driven
+// matches would couple them.
+func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) seat.Seat) {
 	const seed = uint64(20260928)
 	r, err := New(testOptions(t))
 	if err != nil {
@@ -254,7 +291,7 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSearch(t *testing.T) {
 		// sharing one seat between the two driven matches would couple them
 		// (the spy row builds a fresh seat.NewBot per match for the same
 		// reason).
-		return &envSpySeat{inner: searchNew(actor)}
+		return &envSpySeat{inner: policyNew(actor)}
 	}
 	build := func(actor uint64) (*match, *envSpySeat, []seat.Seat) {
 		spy := inner(actor)
