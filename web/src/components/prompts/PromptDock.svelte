@@ -290,7 +290,25 @@
     overflow: hidden;
   }
   /* Near the table: pinned above the action button (right/bottom/max-height
-     come from tableAnchor), the art a spine like floating. */
+     come from tableAnchor), the art a spine like floating.
+
+     The panel deliberately covers the board, so its chrome is
+     pointer-transparent (ui24): a click aimed at a board target underneath
+     reaches the board. `pointer-events: none` on the root inherits into
+     every descendant; the dock's OWN interactive surfaces opt back in — the
+     tools buttons, and the renderer's controls (option rows, target chips,
+     submit buttons, filter inputs). Everything else — the art spine, the
+     title/plain text, the body's padding — passes clicks and wheel through
+     to the board.
+
+     The trade (ui24 fix): the body keeps `overflow-y: auto` but cannot be
+     wheel-scrolled over its padding, and its scrollbar thumb is not
+     draggable, because the scrollable element itself is transparent. A wheel
+     over any option row or control still scrolls it (the wheel scrolls the
+     nearest scrollable ancestor of the event target), keyboard scrolling of
+     a focused control still works, and the option lists the dock answers are
+     short — so every non-control pixel is bought for the board. Floating is
+     untouched: the player chose to put a panel there. */
   .prompt-dock.table {
     position: fixed;
     z-index: 40;
@@ -301,6 +319,14 @@
     grid-template-columns: 6rem 1fr;
     border-radius: 12px;
     overflow: hidden;
+    pointer-events: none;
+  }
+  .prompt-dock.table .tool,
+  .prompt-dock.table .body :global(button),
+  .prompt-dock.table .body :global(input),
+  .prompt-dock.table .body :global(select),
+  .prompt-dock.table .body :global(textarea) {
+    pointer-events: auto;
   }
   .table .art { position: relative; }
   .table .art::after {
