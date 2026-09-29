@@ -644,7 +644,7 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// sees nothing (the CR 400.2 hidden-zone rule the Hand field documents
 		// applies in full). A nil ch degrades to no reveal, the way it degrades
 		// every other derived fact.
-		if (viewer == p.ID || controlsSeat(g, viewer, p.ID)) && ch != nil && ch.MayLookAtLibraryTop(p.ID) {
+		if (viewer == p.ID || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID)) && ch != nil && ch.MayLookAtLibraryTop(p.ID) {
 			if lib := g.Zone(state.ZLibrary, p.ID); len(lib) > 0 {
 				if cvs := cardViews(g, ch, lib[:1], false, p.ID, viewer, false, alsoVisible); len(cvs) == 1 {
 					pv.LibraryTop = &cvs[0]
@@ -690,7 +690,7 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// not belong to carries no field at all (nil), and a spectator
 		// (viewer naming no real seat) never matches the gate above. A nil
 		// ch degrades to an empty projection like every other derived fact.
-		if (p.ID == viewer || controlsSeat(g, viewer, p.ID)) && ch != nil {
+		if (p.ID == viewer || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID)) && ch != nil {
 			pv.PotentialActions = ch.PotentialActions(p.ID)
 			for i := range pv.PotentialActions {
 				pv.PotentialActions[i].Label = optionLabelText(pv.PotentialActions[i].Label)
