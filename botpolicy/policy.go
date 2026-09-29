@@ -19,6 +19,7 @@ import (
 	"slices"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -36,6 +37,9 @@ import (
 // Commanders; combat reads Creatures, Life and Commanders; the cast scorer
 // (cast.go) additionally reads Cast, FirstMain and MyTurn.
 type Board struct {
+	// OwnDeck is the deciding seat's genesis manifest, when supplied by the
+	// rules engine; it is never an opponent or spectator deck list.
+	OwnDeck *deck.Manifest
 	// IsMain reports whether sorcery-speed actions are legal right now.
 	// The seat adapter lifts it off the projected View's Phase
 	// ("main1"/"main2", seat/bot.go); the rules test adapter lifts it off

@@ -17,6 +17,35 @@
   ],
   "first_ask": {
     "viewer": 1,
+    "own_deck": {
+      "name": "a",
+      "main": [
+        {
+          "name": "Mountain",
+          "count": 17
+        },
+        {
+          "name": "Mountain Almsgiver 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Bolt 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Growth 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Warden 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Whelp 0",
+          "count": 7
+        }
+      ]
+    },
     "visibility": "seat",
     "turn": 0,
     "round": 1,
@@ -233,6 +262,35 @@
   },
   "spent_ask": {
     "viewer": 1,
+    "own_deck": {
+      "name": "a",
+      "main": [
+        {
+          "name": "Mountain",
+          "count": 17
+        },
+        {
+          "name": "Mountain Almsgiver 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Bolt 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Growth 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Warden 0",
+          "count": 4
+        },
+        {
+          "name": "Mountain Whelp 0",
+          "count": 7
+        }
+      ]
+    },
     "visibility": "seat",
     "turn": 0,
     "round": 1,

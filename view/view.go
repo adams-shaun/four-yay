@@ -20,6 +20,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -78,13 +79,21 @@ type Chars interface {
 	// the seat's own hidden zones, so the view attaches it to the viewer's
 	// own seat only.
 	PotentialActions(state.PlayerID) []decision.PotentialAction
+	// OwnDeck is the viewer's own genesis deck manifest, or nil when the
+	// implementation has none. It is a member of Chars (not an optional
+	// capability probed by type assertion) so that a Chars WRAPPER -- such
+	// as searchprobe's noPotentialChars -- forwards it to whatever it
+	// embeds; an assertion against the wrapper sees only the embedded
+	// interface's methods and would silently drop the manifest.
+	OwnDeck(state.PlayerID) *deck.Manifest
 }
 
 // View is one seat's complete picture of the game: everything public, plus
 // whatever is theirs alone (their hand, their mana pool, a decision asked of
 // them).
 type View struct {
-	Viewer state.PlayerID `json:"viewer"`
+	Viewer  state.PlayerID `json:"viewer"`
+	OwnDeck *deck.Manifest `json:"own_deck,omitempty"`
 	// Visibility names which rule set built this view: "seat", "public" or
 	// "omniscient" (see Visibility).
 	Visibility string `json:"visibility"`

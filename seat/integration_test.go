@@ -195,6 +195,9 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 		}
 		boardGame := botpolicy.BoardFromGame(eGame.G, eGame, d.Player)
 		boardView := BoardFromView(v)
+		if !reflect.DeepEqual(boardView.OwnDeck, boardGame.OwnDeck) {
+			t.Fatalf("intent %d: own deck manifest diverged: view=%#v game=%#v", n, boardView.OwnDeck, boardGame.OwnDeck)
+		}
 		if !maps.Equal(boardView.Cards, boardGame.Cards) {
 			t.Fatalf("intent %d: casting Card census diverged (step %s)", n, eGame.G.Step)
 		}
@@ -448,6 +451,9 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 		// BoardFromGame off state.Object.AttachedTo, so a divergence here is
 		// the two adapters reading different attachment facts.
 		boardView := BoardFromView(view.Project(eView.G, eView, d.Player, d))
+		if boardGame.OwnDeck == nil || boardView.OwnDeck == nil || !reflect.DeepEqual(boardView.OwnDeck, boardGame.OwnDeck) {
+			t.Fatalf("intent %d: own deck manifest diverged: view=%#v game=%#v", n, boardView.OwnDeck, boardGame.OwnDeck)
+		}
 		// AR6 also reads defender life to break equal combat tiers. Compare
 		// the fact itself, not just choices that may never need a tiebreak.
 		if !maps.Equal(boardView.Life, boardGame.Life) {
