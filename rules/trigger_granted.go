@@ -480,6 +480,59 @@ func (e *Engine) checkGrantedMentorTriggers(observer *Engine, id state.ObjID, o 
 	}
 }
 
+// checkGrantedFirebendingTriggers synthesizes Firebending's attack trigger
+// (CR 702.189a) for a creature that currently HAS the keyword but does not
+// print it: a layer-6 AddKeyword$ Firebending:<N> grant (Sozin's Comet's
+// "Each creature you control gains firebending 5 until end of turn", Fire
+// Nation Palace's targeted grant, Iroh, Dragon of the West's counter-gated
+// grant) gives the creature the same rules text as a printed keyword, and
+// the printed K:Firebending expansion (cards/kw_firebending.go) only covers
+// printed lines. The synthesized trigger reuses the printed shape exactly
+// (Mode$ Attacks | ValidCard$ Card.Self), so it is byte-identical to the
+// printed path: its body is the same DB$ Mana producing the granted N red
+// with the end-of-combat exception, which rules.pushTrigger builds and
+// events.Apply rebuilds from the KeywordTriggerPush payload alone. It skips
+// the object entirely when its printed face already carries Firebending, so
+// a creature printing the keyword and also granted it fires once (the
+// Dethrone dedup). The amount is the derived keyword's parameter text (a
+// literal for every measured grant); a blank or unreadable parameter is not
+// an instance this build can price, so it queues nothing. Like the
+// Dethrone/Afflict/Mentor walks this is a read-only derived-characteristics
+// check; granting stays in the continuous-effect system. Runs on BOTH the
+// early-return and the live printed-trigger paths.
+func (e *Engine) checkGrantedFirebendingTriggers(observer *Engine, id state.ObjID, o *state.Object, f *cards.Face, ev events.Event, objLKI *state.Object) {
+	// The synthesized trigger is Attacks + ValidCard$ Card.Self, so only an
+	// object this declaration names as an attacker can match it. Apply that
+	// gate before deriving characteristics for every object in every zone.
+	if ev.Kind != events.DeclareAttackers || !slices.Contains(ev.IDs, id) {
+		return
+	}
+	if !e.hasKeywordH(id, kwhFirebending) || f.HasKeyword("Firebending") {
+		return
+	}
+	param, ok := e.derivedKeywordParamH(id, kwhFirebending)
+	if !ok || param == "" {
+		return
+	}
+	t := cards.Trigger{Mode: "Attacks", Params: map[string]string{
+		"Mode": "Attacks", "ValidCard": "Card.Self",
+	}, Effect: &cards.SA{Kind: "DB", API: "Mana", Params: map[string]string{
+		"Produced": "R", "Amount": param, "PersistentUntilEndOfCombat": "True",
+	}}}
+	if observer.triggerMatches(t, id, ev, objLKI) {
+		key := triggerKey{Source: id, Idx: -1}
+		if e.triggerFireCount == nil {
+			e.triggerFireCount = map[triggerKey]int32{}
+		}
+		if e.triggerFireCount[key] < maxTriggerFires {
+			e.triggerFireCount[key]++
+			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, Firebending: param, SA: t.Effect,
+				Ctx: effects.Ctx{Source: id, Controller: o.Controller, Remembered: triggerRemembered(ev, id), LKI: objLKI,
+					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)}})
+		}
+	}
+}
+
 // checkGrantedAfflictTriggers synthesizes Afflict's become-blocked trigger
 // (CR 702.130) for a creature that currently HAS the keyword but does not
 // print it: a keyword granted in layer 6 (Lost Monarch of Ifnir's

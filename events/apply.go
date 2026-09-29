@@ -2674,6 +2674,22 @@ func Apply(g *state.Game, e Event) {
 					Params: map[string]string{"Defined": "TriggeredBlockerLKICopy", "NumAtt": "-1", "NumDef": "-1"}}
 				flanking = ok
 			}
+			// A granted Firebending (rules.pushTrigger's
+			// __kwFirebendingGranted:<N> payload) has no SVar either: rebuilt
+			// structurally into the same DB$ Mana | Produced$ R | Amount$ <N>
+			// | PersistentUntilEndOfCombat$ True body the printed K:Firebending
+			// expansion carries (cards/kw_firebending.go), so the live game and
+			// the replay mint identical objects from the event text alone.
+			// The trigger has no target roles; the mana goes to the trigger's
+			// controller (the KeywordTriggerPush's Player). The "Granted"
+			// suffix keeps the payload from aliasing the "__kwFirebending:<N>"
+			// SVar a printed K:Firebending line mints (the Exploit/Offspring
+			// rule).
+			if rest, ok := strings.CutPrefix(e.Counter, "__kwFirebendingGranted:"); ok {
+				sa = &cards.SA{Kind: "DB", API: "Mana", Params: map[string]string{
+					"Produced": "R", "Amount": rest, "PersistentUntilEndOfCombat": "True",
+				}}
+			}
 			// A granted cumulative upkeep (rules.pushTrigger's
 			// __kwCumulativeUpkeepGranted:<cost> payload) has no SVar either:
 			// rebuilt structurally into the same DB$ CumulativeUpkeep |
