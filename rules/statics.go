@@ -3693,6 +3693,21 @@ func init() {
 		// CombatDamageToughness body) is the same Effect-registration gap
 		// AssignCombatDamageAsUnblocked carries and stays ledgered.
 		"stat:CombatDamageToughness", "stat:CountersRemain")
+	// kw:MustBlock -- CR 509.1a, the ATTACKER's requirement "CARDNAME must be
+	// blocked if able.", read by hasMustBeBlockedKeyword (derivedHiddenFlags /
+	// parseHiddenKeyword in this file) and enforced by rules/combat.go
+	// askBlockers/validateBlockers. The printed sentence spelling is
+	// canonicalised to this head by cards/parse.go (cards/hiddenkeyword.go), so
+	// the coverage walk interns a real registered keyword head instead of a
+	// phantom `kw:CARDNAME must be blocked if able.` primitive. It is a
+	// keyword head, a separate namespace from the blocker-oriented Mode$
+	// MustBlock static; the corpus spells the attacker requirement only as the
+	// sentence, never as a bare `K:MustBlock` or `KW$ MustBlock` (0 occurrences
+	// at the pin), so the head cannot be confused with a native Forge keyword.
+	// The obvious alternative spelling MustBeBlocked is already taken by an
+	// unrelated Forge AI-hint SVar name (rules/layers.go GrantedSVar, 41
+	// corpus files), so it is deliberately NOT used here.
+	effects.RegisterNonAPI("kw:MustBlock")
 }
 
 // asUnblockedStaticMatches reports whether any battlefield
