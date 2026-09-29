@@ -37,6 +37,9 @@ func TestEngineOwnDeckIsDetachedGenesisData(t *testing.T) {
 	}
 	e := New(cfg)
 	got := e.OwnDeck(state.PlayerID(0))
+	if got == nil {
+		t.Fatal("New built no genesis manifest")
+	}
 	want := &deck.Manifest{
 		Name:       "manifest",
 		Main:       []deck.ManifestRow{{Name: "Manifest Alpha", Count: 2}, {Name: "Manifest Beta", Count: 1}, {Name: "Manifest Gamma", Count: 1}},
