@@ -3721,7 +3721,13 @@ func init() {
 		// Effect-delivered SVar form (an AB$ Effect | StaticAbilities$
 		// CombatDamageToughness body) is the same Effect-registration gap
 		// AssignCombatDamageAsUnblocked carries and stays ledgered.
-		"stat:CombatDamageToughness", "stat:CountersRemain")
+		"stat:CombatDamageToughness", "stat:CountersRemain",
+		// IgnoreLegendRule: the CR 704.5j legend-rule exemption
+		// (rules/sba.go legendGroups reads activeStatics("IgnoreLegendRule")
+		// and skips exempt permanents before grouping; the static's
+		// ValidCard$/Condition$ are matched through the shared static walk).
+		// Proof test: rules/ignorelegendrule_test.go.
+		"stat:IgnoreLegendRule")
 	// kw:MustBlock -- CR 509.1a, the ATTACKER's requirement "CARDNAME must be
 	// blocked if able.", read by hasMustBeBlockedKeyword (derivedHiddenFlags /
 	// parseHiddenKeyword in this file) and enforced by rules/combat.go
