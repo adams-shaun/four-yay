@@ -106,6 +106,24 @@ describe('PromptDock near-table placement (ui24)', () => {
     }
   });
 
+  it('keyboard access is unchanged: a focused chip answers from the keyboard', { timeout: 60_000 }, async () => {
+    const page = await browser.newPage();
+    await openWithBadgeUnderDock(page);
+    try {
+      // pointer-events never affects the keyboard path; pin it anyway: the
+      // chip answers Enter while focused, without any pointer event.
+      await page.locator('[data-prompt-dock] button[data-option="0"]').focus();
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(
+        () => document.querySelector('[data-prompt-dock] button[data-option="0"]')?.classList.contains('picked') === true,
+        undefined,
+        { timeout: 5000 },
+      );
+    } finally {
+      await page.close();
+    }
+  });
+
   it('the near-table anchor follows a post-mount board resize (ResizeObserver and window resize)', { timeout: 60_000 }, async () => {
     const page = await browser.newPage();
     await openWithBadgeUnderDock(page);
