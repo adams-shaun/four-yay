@@ -1506,6 +1506,11 @@ type Derived struct {
 // off by one on every later Timestamp — the same bug class Ruling T11-a
 // already fixed for Passes/Priority.
 func (e *Engine) AddContinuous(ce ContinuousEffect) {
+	if ce.SourceIncarnation == 0 && strings.EqualFold(strings.TrimSpace(ce.Affects), "Card.Self") {
+		if source := e.G.Obj(ce.Source); source != nil && source.Zone == state.ZBattlefield {
+			ce.SourceIncarnation = source.Incarnation
+		}
+	}
 	if ce.Timestamp == 0 {
 		e.emit(events.Event{Kind: events.ClockTick})
 		ce.Timestamp = e.G.Clock
@@ -2298,7 +2303,11 @@ func (e *Engine) continuousLive(ce *ContinuousEffect) bool {
 		return isCombatStep(e.G.Step)
 	}
 	if ce.UntilEOT {
-		return true
+		if ce.SourceIncarnation == 0 {
+			return true
+		}
+		source := e.G.Obj(ce.Source)
+		return source != nil && source.Zone == state.ZBattlefield && source.Incarnation == ce.SourceIncarnation
 	}
 	if ce.UntilTurn != 0 {
 		// A turn-boundary effect outlives its source (a one-shot spell is
@@ -2311,6 +2320,9 @@ func (e *Engine) continuousLive(ce *ContinuousEffect) bool {
 	}
 	o := e.G.Obj(ce.Source)
 	if o == nil || o.Zone != state.ZBattlefield {
+		return false
+	}
+	if ce.SourceIncarnation != 0 && o.Incarnation != ce.SourceIncarnation {
 		return false
 	}
 	if ce.DurationSource != 0 {

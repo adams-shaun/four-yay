@@ -147,11 +147,10 @@ func TestErrorCodesMapping(t *testing.T) {
 	}
 	// A response to a prompt kind whose mapper has not landed is
 	// wrongPromptType, not a panic.
-	kind := decision.Kind("modes")
-	km := newDec(3, 1, kind, decision.Option{Index: 0, Kind: "mode", Label: "Mode A"})
+	km := newDec(3, 1, decision.KTriggerOrder, decision.Option{Index: 0, Kind: "trigger", Label: "Trigger A"})
 	msg, err := tr.Prompt(km, &v)
 	if !errors.Is(err, ErrUnmapped) {
-		t.Fatalf("modes stub: want ErrUnmapped, got %v", err)
+		t.Fatalf("trigger-order stub: want ErrUnmapped, got %v", err)
 	}
 	_ = msg
 }
@@ -163,23 +162,16 @@ func TestErrorCodesMapping(t *testing.T) {
 // and MB-6 empty it by deleting rows -- a new engine kind fails the test the
 // way a new option kind fails TestKindsListsEveryKindOnce.
 func TestEveryDecisionKindTranslates(t *testing.T) {
-	// The kinds MB-4 does not fill, with the MB ticket that will.
+	// The kinds not yet filled, with the MB ticket that will.
 	pendingKinds := map[decision.Kind]string{
-		decision.KModes:           "MB-5",
-		decision.KTriggerOrder:    "MB-5",
-		decision.KTriggerOptional: "MB-5",
-		decision.KCommanderZone:   "MB-5",
-		decision.KChoose:          "MB-5",
-		decision.KReplacement:     "MB-5",
-		decision.KArrange:         "MB-5",
-		decision.KStartingPlayer:  "MB-6",
+		decision.KTriggerOrder: "MB-6",
+		decision.KArrange:      "MB-6",
 	}
 	translated := map[decision.Kind]string{
-		decision.KPriority:  "MB-4",
-		decision.KTarget:    "MB-4",
-		decision.KAttackers: "MB-4",
-		decision.KBlockers:  "MB-4",
-		decision.KMulligan:  "MB-4",
+		decision.KPriority: "MB-4", decision.KTarget: "MB-4", decision.KAttackers: "MB-4",
+		decision.KBlockers: "MB-4", decision.KMulligan: "MB-4",
+		decision.KModes: "MB-5", decision.KTriggerOptional: "MB-5", decision.KCommanderZone: "MB-5",
+		decision.KChoose: "MB-5", decision.KReplacement: "MB-5", decision.KStartingPlayer: "MB-5",
 	}
 	if len(translated)+len(pendingKinds) != len(decision.Kinds) {
 		t.Fatalf("kind universe moved: %d kinds, %d translated, %d pending",

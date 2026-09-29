@@ -28,8 +28,8 @@ func (r *Registry) writeCrashReport(t *table, m *match, reason string) {
 	if m.files != nil {
 		persisted = m.persisted - 1
 	}
-	body := fmt.Sprintf("table: %s\nmatch: %d\nseed: %d\nhead: %s\nseq: %d\nintents: %d\nturn: %d\nreason:\n%s\n",
-		t.cfg.ID, m.k, m.seed, m.head, persisted, m.intents, m.e.G.Turn, reason)
+	body := fmt.Sprintf("table: %s\nmatch: %d\nseed: %d\nhead: %s\nseq: %d\nintents: %d\nturn: %d\nrefusals: %d\nfallbacks: %d\nreason:\n%s\n",
+		t.cfg.ID, m.k, m.seed, m.head, persisted, m.intents, m.e.G.Turn, m.refusals, m.fallbacks, reason)
 	m.mu.RUnlock()
 	_ = os.WriteFile(filepath.Join(dir, string(t.cfg.ID)+"-"+strconv.Itoa(m.k)+".txt"), []byte(body), 0o644)
 }

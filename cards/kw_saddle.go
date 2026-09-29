@@ -11,17 +11,25 @@ func kwSaddle(f *Face, _ int, k, _, param string, has func(kind, line string) bo
 	if has("A", k) {
 		return
 	}
-	n := strings.TrimSpace(strings.Split(param, ":")[0])
+	if sa := saddleAbilitySA(strings.TrimSpace(strings.Split(param, ":")[0])); sa != nil {
+		sa.Params["KeywordLine"] = k
+		f.Abilities = append(f.Abilities, sa)
+	}
+}
+
+// saddleAbilitySA builds the saddle ability body (CR 702.171) the printed
+// K:Saddle:<N> line expands to. It is shared by the printed expansion
+// (kwSaddle) and the granted route (GrantedKeywordAbility) so the two
+// constructions cannot drift. A blank count defaults to "1".
+func saddleAbilitySA(n string) *SA {
 	if n == "" {
 		n = "1"
 	}
 	saStr := "AB$ AlterAttribute | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + n +
 		"> | Defined$ Self | Attributes$ Saddled | SorcerySpeed$ True | Keyword$ Saddle" +
 		" | SpellDescription$ Saddle " + n + " (Tap any number of other untapped creatures you control with total power " + n + " or greater: This creature becomes saddled until end of turn.)"
-	if sa, _ := parseSA("", saStr); sa != nil {
-		sa.Params["KeywordLine"] = k
-		f.Abilities = append(f.Abilities, sa)
-	}
+	sa, _ := parseSA("", saStr)
+	return sa
 }
 
 func init() { registerKeyword(kwSaddle, "Saddle") }

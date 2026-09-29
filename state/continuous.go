@@ -56,6 +56,11 @@ const (
 // effects; this type only needs to be nameable from both packages.)
 type ContinuousEffect struct {
 	Source ObjID
+	// SourceIncarnation anchors a self-scoped grant to the battlefield
+	// incarnation that registered it, so a stable ObjID returning after a
+	// zone change cannot inherit the old grant. Engine-runtime only, rebuilt
+	// by re-execution on replay.
+	SourceIncarnation uint32
 	// DurationSource is the permanent whose continued presence controls a
 	// source-scoped one-shot effect. Source remains the object used by Affects
 	// and layer derivation; this separate anchor handles effects such as

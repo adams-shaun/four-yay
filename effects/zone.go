@@ -1316,8 +1316,14 @@ const (
 type attackingEntry struct {
 	kind     attackingEntryKind
 	defender state.PlayerID
-	note     string
-	noted    bool
+	// battle is the planeswalker or battle object the moved permanent
+	// enters attacking (CR 702.49b's non-player defender), when the rider's
+	// context carries one. It is appended to the TokenAttacks event's IDs so
+	// the event fold sets Object.AttackingBattle. Zero for a player defender
+	// and for every effect that does not bind one.
+	battle state.ObjID
+	note   string
+	noted  bool
 }
 
 func classifyAttackingEntry(c *Ctx, sa *cards.SA, to state.Zone) attackingEntry {
@@ -1330,7 +1336,7 @@ func classifyAttackingEntry(c *Ctx, sa *cards.SA, to state.Zone) attackingEntry 
 	}
 	if strings.EqualFold(attack, "True") {
 		if c.DefendingPlayer.IsPlayer {
-			return attackingEntry{kind: attackingEntryAttacks, defender: c.DefendingPlayer.Player}
+			return attackingEntry{kind: attackingEntryAttacks, defender: c.DefendingPlayer.Player, battle: c.DefendingBattle}
 		}
 		return attackingEntry{kind: attackingEntryNoDefender,
 			note: "Attacking$ with no defending player in context; the permanent enters tapped but does not attack"}
@@ -1346,8 +1352,12 @@ func (a *attackingEntry) apply(h Host, c *Ctx, id state.ObjID, player state.Play
 		return
 	}
 	if a.kind == attackingEntryAttacks {
+		ids := []state.ObjID{state.ObjID(a.defender)}
+		if a.battle != 0 {
+			ids = append(ids, a.battle)
+		}
 		h.Emit(events.Event{Kind: events.TokenAttacks, Obj: id, Player: player,
-			IDs: []state.ObjID{state.ObjID(a.defender)}, Text: "entered attacking"})
+			IDs: ids, Text: "entered attacking"})
 		return
 	}
 	if a.kind == attackingEntryNoDefender {
@@ -5849,6 +5859,15 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			ids := append([]state.ObjID(nil), g.Zone(state.ZBattlefield, t.Player)...)
 			eligible := make([]state.ObjID, 0, len(ids))
 			sc := c.SpecContext(t.Player)
+			// SacValid$/ValidCard$ can carry a greatestPower comparison
+			// (Consume, Consumed by Greed), which must size the whole pool
+			// with layer-derived power, exactly as the Choices$ matcher does;
+			// the shared builder returns nil for every other spec. The two
+			// spellings never co-occur, so appending both cannot double-bind.
+			sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
+			if validCard != "" {
+				sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, validCard, h)...)
+			}
 			for _, id := range ids {
 				if h.SacrificeBlocked(id, false) {
 					// A CantSacrifice restriction (Call for Aid) or face static:

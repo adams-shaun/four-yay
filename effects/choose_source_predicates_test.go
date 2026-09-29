@@ -58,16 +58,16 @@ func TestColourSourcePredicatesMatch(t *testing.T) {
 		h.g.Obj(id).Zone = state.ZBattlefield
 	}
 
-	if !choiceMatches(h.g, &Ctx{Controller: 0}, "Card.RedSource", h.g.Obj(red.ID)) {
+	if !choiceMatches(h, h.g, &Ctx{Controller: 0}, "Card.RedSource", h.g.Obj(red.ID)) {
 		t.Fatal("a red creature did not match Card.RedSource")
 	}
-	if choiceMatches(h.g, &Ctx{Controller: 0}, "Card.RedSource", h.g.Obj(blue.ID)) {
+	if choiceMatches(h, h.g, &Ctx{Controller: 0}, "Card.RedSource", h.g.Obj(blue.ID)) {
 		t.Fatal("a blue creature matched Card.RedSource")
 	}
-	if choiceMatches(h.g, &Ctx{Controller: 0}, "Card.RedSource", h.g.Obj(colorless.ID)) {
+	if choiceMatches(h, h.g, &Ctx{Controller: 0}, "Card.RedSource", h.g.Obj(colorless.ID)) {
 		t.Fatal("a colourless artifact matched Card.RedSource")
 	}
-	if !choiceMatches(h.g, &Ctx{Controller: 0}, "Card.ColorlessSource", h.g.Obj(colorless.ID)) {
+	if !choiceMatches(h, h.g, &Ctx{Controller: 0}, "Card.ColorlessSource", h.g.Obj(colorless.ID)) {
 		t.Fatal("a colourless artifact did not match Card.ColorlessSource")
 	}
 
@@ -75,14 +75,14 @@ func TestColourSourcePredicatesMatch(t *testing.T) {
 	// requires BOTH the chosen identity and the colour, so a chosen blue
 	// creature must not match a red-source gate whose chosen list holds it.
 	chosenRed := &Ctx{Controller: 0, Chosen: []state.Target{{Obj: red.ID}}, ChosenValid: true}
-	if !choiceMatches(h.g, chosenRed, "Card.ChosenCardStrict+RedSource", h.g.Obj(red.ID)) {
+	if !choiceMatches(h, h.g, chosenRed, "Card.ChosenCardStrict+RedSource", h.g.Obj(red.ID)) {
 		t.Fatal("the chosen red source did not match Card.ChosenCardStrict+RedSource")
 	}
 	chosenBlue := &Ctx{Controller: 0, Chosen: []state.Target{{Obj: blue.ID}}, ChosenValid: true}
-	if choiceMatches(h.g, chosenRed, "Card.ChosenCardStrict+RedSource", h.g.Obj(blue.ID)) {
+	if choiceMatches(h, h.g, chosenRed, "Card.ChosenCardStrict+RedSource", h.g.Obj(blue.ID)) {
 		t.Fatal("a non-chosen blue creature matched Card.ChosenCardStrict+RedSource")
 	}
-	if choiceMatches(h.g, chosenBlue, "Card.ChosenCardStrict+RedSource", h.g.Obj(red.ID)) {
+	if choiceMatches(h, h.g, chosenBlue, "Card.ChosenCardStrict+RedSource", h.g.Obj(red.ID)) {
 		t.Fatal("a red creature outside the chosen set matched Card.ChosenCardStrict+RedSource")
 	}
 }
@@ -119,10 +119,10 @@ func TestShadowPredicatesMatch(t *testing.T) {
 	// (circle_of_protection_shadow's `Choices$ Creature.withShadow`): with
 	// no derived list bound, the printed-keyword predicate must still admit
 	// a printed shadow creature.
-	if !choiceMatches(h.g, &Ctx{Controller: 0}, "Creature.withShadow", h.g.Obj(shadow.ID)) {
+	if !choiceMatches(h, h.g, &Ctx{Controller: 0}, "Creature.withShadow", h.g.Obj(shadow.ID)) {
 		t.Fatal("a printed shadow creature did not match Creature.withShadow through choiceMatches")
 	}
-	if choiceMatches(h.g, &Ctx{Controller: 0}, "Creature.withShadow", h.g.Obj(plain.ID)) {
+	if choiceMatches(h, h.g, &Ctx{Controller: 0}, "Creature.withShadow", h.g.Obj(plain.ID)) {
 		t.Fatal("a non-shadow creature matched Creature.withShadow through choiceMatches")
 	}
 

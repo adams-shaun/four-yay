@@ -452,7 +452,7 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 	if ev.Kind == events.KeywordAbilityPush {
 		// Counter is the replayable derived keyword line used by Apply to
 		// mint the stack body's SA. Amount is not a printed-ability index.
-		ab = cards.GrantedCyclingAbility(ev.Counter)
+		ab = cards.GrantedKeywordAbility(ev.Counter)
 		if ab == nil {
 			return false
 		}

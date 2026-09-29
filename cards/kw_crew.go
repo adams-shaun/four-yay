@@ -43,6 +43,19 @@ func kwCrew(f *Face, i int, k, head, param string, has func(kind, line string) b
 	if has("A", k) {
 		return
 	}
+	n, riders := crewParamParts(param)
+	if sa := crewAbilitySA(n, riders); sa != nil {
+		sa.Params["KeywordLine"] = k
+		f.Abilities = append(f.Abilities, sa)
+	}
+}
+
+// crewParamParts splits a Crew keyword parameter ("<N>[:rider...]") into the
+// crew count and the rider fields the body carries. A blank count defaults to
+// "1"; a trailing field that is not a space-separated `ReduceCost$` /
+// `ActivationLimit$` / `AlternateCost$` parameter is display prose and is
+// dropped, exactly as the printed expansion has always done.
+func crewParamParts(param string) (string, []string) {
 	fields := strings.Split(param, ":")
 	n := strings.TrimSpace(fields[0])
 	if n == "" {
@@ -59,6 +72,14 @@ func kwCrew(f *Face, i int, k, head, param string, has func(kind, line string) b
 			riders = append(riders, fld)
 		}
 	}
+	return n, riders
+}
+
+// crewAbilitySA builds the crew ability body (CR 702.122) the printed K:Crew
+// line expands to. It is shared by the printed expansion (kwCrew) and the
+// granted route (GrantedKeywordAbility) so the two constructions cannot
+// drift.
+func crewAbilitySA(n string, riders []string) *SA {
 	saStr := "AB$ Animate | Cost$ tapXType<Any/Creature.Other+withTotalPowerGE" + n +
 		"> | Defined$ Self | Types$ Artifact,Creature | Keyword$ Crew" +
 		" | SpellDescription$ Crew " + n +
@@ -67,10 +88,8 @@ func kwCrew(f *Face, i int, k, head, param string, has func(kind, line string) b
 	for _, r := range riders {
 		saStr += " | " + r
 	}
-	if sa, _ := parseSA("", saStr); sa != nil {
-		sa.Params["KeywordLine"] = k
-		f.Abilities = append(f.Abilities, sa)
-	}
+	sa, _ := parseSA("", saStr)
+	return sa
 }
 
 func init() { registerKeyword(kwCrew, "Crew") }

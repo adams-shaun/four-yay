@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 )
@@ -16,13 +17,13 @@ import (
 // /cards/named with the full named-lookup shape (six printed facts plus
 // image_uris), counts named hits, and serves the images. Same shape as
 // artFixture, plus the facts.
-func factsFixture(t *testing.T, cards map[string]scryNamed) (*artCache, *int) {
+func factsFixture(t *testing.T, cards map[string]scryNamed) (*artCache, *atomic.Int32) {
 	t.Helper()
-	hits := 0
+	var hits atomic.Int32
 	imgHits := 0
 	mux := http.NewServeMux()
 	mux.HandleFunc("/cards/named", func(w http.ResponseWriter, r *http.Request) {
-		hits++
+		hits.Add(1)
 		name := r.URL.Query().Get("exact")
 		card, ok := cards[name]
 		if !ok {
@@ -100,8 +101,8 @@ func TestCardTextServesSixFieldsFromTheArtRecord(t *testing.T) {
 		}
 	}
 	// Exactly ONE Scryfall named request across both lookups.
-	if *hits != 1 {
-		t.Fatalf("want exactly 1 Scryfall named hit across art+text, got %d", *hits)
+	if hits.Load() != 1 {
+		t.Fatalf("want exactly 1 Scryfall named hit across art+text, got %d", hits.Load())
 	}
 }
 
@@ -124,8 +125,8 @@ func TestCardTextBeforeArtStillOneScryfallRequest(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("art lookup after text: want 200, got %d", code)
 	}
-	if *hits != 1 {
-		t.Fatalf("want exactly 1 Scryfall named hit across text+art, got %d", *hits)
+	if hits.Load() != 1 {
+		t.Fatalf("want exactly 1 Scryfall named hit across text+art, got %d", hits.Load())
 	}
 }
 
@@ -144,8 +145,8 @@ func TestCardTextKnownMissIs404AndCached(t *testing.T) {
 	if code != http.StatusNotFound {
 		t.Fatalf("repeated unknown name: want 404, got %d", code)
 	}
-	if *hits != 1 {
-		t.Fatalf("want exactly 1 Scryfall hit for the repeated miss, got %d", *hits)
+	if hits.Load() != 1 {
+		t.Fatalf("want exactly 1 Scryfall hit for the repeated miss, got %d", hits.Load())
 	}
 }
 
@@ -176,8 +177,8 @@ func TestCardTextBackfillsALegacyArtCacheWithoutReFetchingTheImage(t *testing.T)
 	if !strings.Contains(string(sidecar), "Llanowar Elves") {
 		t.Fatalf("sidecar content %q", sidecar)
 	}
-	if *hits != 1 {
-		t.Fatalf("want exactly 1 Scryfall named hit for the backfill, got %d", *hits)
+	if hits.Load() != 1 {
+		t.Fatalf("want exactly 1 Scryfall named hit for the backfill, got %d", hits.Load())
 	}
 	// The pre-existing art bytes are untouched by the text lookup.
 	b, err := os.ReadFile(ac.jpgPath(key))

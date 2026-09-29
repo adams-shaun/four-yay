@@ -34,7 +34,7 @@ func kwTypeCycling(f *Face, i int, k, head, param string, has func(kind, line st
 // typeCyclingAbilitySA builds the typed-cycling ability body (CR 702.28d)
 // the printed K:TypeCycling line expands to. It is shared by the printed
 // expansion (kwTypeCycling) and the granted route
-// (GrantedCyclingAbility) so the two constructions cannot drift.
+// (cards.GrantedKeywordAbility) so the two constructions cannot drift.
 func typeCyclingAbilitySA(typeSpec, cost string) *SA {
 	sa, _ := parseSA("", "AB$ ChangeZone | Cost$ "+cost+" Discard<1/CARDNAME> | ActivationZone$ Hand | Origin$ Library | Destination$ Hand | ChangeType$ "+typeSpec+" | ChangeNum$ 1 | Keyword$ TypeCycling | SpellDescription$ "+typeSpec+"cycling "+cost)
 	return sa

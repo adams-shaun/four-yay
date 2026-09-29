@@ -4500,7 +4500,18 @@ func (e *Engine) resolveTop() {
 			for _, rem := range o.Remembered {
 				if rem.IsPlayer {
 					ctx.DefendingPlayer = rem
-					break
+					continue
+				}
+				// The AbilityPush IDs carry the planeswalker/battle object as a
+				// real id after the player (events.Apply's rememberedFrom decodes
+				// it to a {Obj} target). Surface it so the Attacking$ True rider
+				// can place the permanent attacking the same object (CR
+				// 702.49b). An unrelated remembered object (none exists on a
+				// ninjutsu activation) would leak here, but only a ninjutsu
+				// activation carries the tag and only the capture writes a
+				// non-player id.
+				if rem.Obj != 0 {
+					ctx.DefendingBattle = rem.Obj
 				}
 			}
 		}

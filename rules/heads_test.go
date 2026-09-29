@@ -1248,7 +1248,11 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	6: "b4a5d33f302e6bfc",
+	// 6 seats moved to 1f26f6cda52c1beb (autonomous orchestrator): resolving agent-20260929T011510Z-3648a30d (A crew-animated Vehicle that blinks returns still animated (CR 400.7 / CR 702.12)
+	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
+	// the same proxy this repo has used by hand for every head move -- neither
+	// check is sensitive to bot-choice quality, only engine correctness.
+	6: "1f26f6cda52c1beb",
 	// 8 seats moved to cc022f9ba9f2bf39 with task mana2 (fix(rules): pay mana
 	// ability costs and choose colors): mana abilities that spend a Sac cost
 	// are now gated on a payable, deterministic sacrifice candidate existing,

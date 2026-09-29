@@ -652,8 +652,17 @@ type pendingCast struct {
 	// Ctx's DefendingPlayer so effects/zone.go's Attacking$ True rider places
 	// the permanent tapped and attacking that same defender. Plain data, so a
 	// Clone copies it.
-	ninjutsuDefender    state.PlayerID
-	ninjutsuHasDefender bool
+	ninjutsuDefender state.PlayerID
+	// ninjutsuDefenderObject is the planeswalker or battle the returned
+	// creature was attacking (CR 702.49b's non-player defender), captured
+	// beside ninjutsuDefender. Zero when the returned creature attacked a
+	// player. It rides the AbilityPush event's IDs as a real object id,
+	// which events.Apply's rememberedFrom decodes to a {Obj} target, and
+	// rules/stack.go re-binds it to the resolving Ctx's DefendingBattle so
+	// effects/zone.go's Attacking$ True rider places the permanent attacking
+	// that same object. Plain data, so a Clone copies it.
+	ninjutsuDefenderObject state.ObjID
+	ninjutsuHasDefender    bool
 
 	// sneakDefender is the defender (CR 702.190b: the player, planeswalker or
 	// battle the returned creature was attacking) captured when a K:Sneak
@@ -6708,7 +6717,7 @@ func (e *Engine) pcAbility(pc *pendingCast) *cards.SA {
 		// the string -- no state read, so every read site and a replay re-derive
 		// the identical SA. A line no synthesizer can model resolves nil and the
 		// caller degrades the way a stale option always has.
-		return cards.GrantedCyclingAbility(pc.grantKeyword)
+		return cards.GrantedKeywordAbility(pc.grantKeyword)
 	}
 	if pc.gainedFrom != 0 {
 		// A has-all-abilities-of body: the SA is the named foreign face's
@@ -8463,6 +8472,7 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 			if e.activationIsNinjutsu(pc) {
 				if o := e.G.Obj(o.Obj); o != nil {
 					pc.ninjutsuDefender = o.Attacking
+					pc.ninjutsuDefenderObject = o.AttackingBattle
 					pc.ninjutsuHasDefender = true
 				}
 			}
@@ -9615,7 +9625,11 @@ func (pc *pendingCast) activationPushEvent(e *Engine) events.Event {
 	ev := events.Event{Kind: events.AbilityPush, Obj: pc.card,
 		Player: pc.player, Amount: int32(pc.ability)}
 	if e.activationIsNinjutsu(pc) && pc.ninjutsuHasDefender {
-		ev.IDs = []state.ObjID{state.PlayerRef(pc.ninjutsuDefender)}
+		ids := []state.ObjID{state.PlayerRef(pc.ninjutsuDefender)}
+		if pc.ninjutsuDefenderObject != 0 {
+			ids = append(ids, pc.ninjutsuDefenderObject)
+		}
+		ev.IDs = ids
 	}
 	return ev
 }

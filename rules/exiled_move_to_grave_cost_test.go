@@ -207,8 +207,16 @@ func TestShelobExiledMoveToGraveWithheldOnAShortPool(t *testing.T) {
 func TestWastelandStranglerTriggerCostMovesTheCard(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
-	e, cfg := exileGraveEngine(t, reg, 4225, "Wasteland Strangler", "Grizzly Bears")
-	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
+	// The pump target must survive the -3/-3 for its P/T to be observable on
+	// the battlefield: a self-scoped pump now ends when its object leaves the
+	// battlefield (CR 400.7, the incarnation-anchored liveness rule), so a
+	// 2/2 target would die and read back its printed P/T from the graveyard.
+	// Craw Wurm (6/4) survives as 3/1.
+	e, cfg := exileGraveEngine(t, reg, 4225, "Wasteland Strangler", "Craw Wurm")
+	wurm := searchMoveByName(t, e, "Craw Wurm", state.ZBattlefield)
+	if got := e.G.Obj(wurm); got == nil || got.Zone != state.ZBattlefield || e.Derived(wurm).Power != 6 {
+		t.Fatalf("precondition: the pump target must be a 6-power creature on the battlefield: %+v", got)
+	}
 	// The victim must already be in exile when the strangler enters: its ETB
 	// trigger asks its target as soon as it is put on the stack, and the
 	// pending ask must be the one the test answers.
@@ -226,12 +234,12 @@ func TestWastelandStranglerTriggerCostMovesTheCard(t *testing.T) {
 	}
 	idx := -1
 	for _, o := range d.Options {
-		if o.Obj == bear {
+		if o.Obj == wurm {
 			idx = o.Index
 		}
 	}
 	if idx < 0 {
-		t.Fatalf("pump target ask does not offer the bear: %+v", d.Options)
+		t.Fatalf("pump target ask does not offer the Wurm: %+v", d.Options)
 	}
 	submitChoices(t, e, idx)
 	d = passUntilNonPriority(t, e, 20)
@@ -253,8 +261,8 @@ func TestWastelandStranglerTriggerCostMovesTheCard(t *testing.T) {
 	if !inOwnerGraveyard(e, victim) {
 		t.Fatalf("paid card is not in its OWNER's (seat 1's) graveyard")
 	}
-	if got := e.Derived(bear).Power; got != -1 {
-		t.Fatalf("bear power = %d, want -1 (the paid body's -3/-3)", got)
+	if got := e.Derived(wurm).Power; got != 3 {
+		t.Fatalf("Wurm power = %d, want 3 (the paid body's -3/-3)", got)
 	}
 	replayCheck(t, e, cfg)
 }
