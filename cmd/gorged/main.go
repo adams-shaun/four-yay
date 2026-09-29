@@ -133,6 +133,19 @@ type config struct {
 	// pass once this many names in a row have failed (0 = never). A dead or
 	// erroring Scryfall then costs N requests, not one per deck name.
 	prewarmArtMaxConsecutiveFailures int
+	// manabrew is the -manabrew flag: mount host/manabrewhttp's routes
+	// (manabrew.go). Off by default so an unmounted server is byte-identical
+	// to today (scoping spec §5.4). A non-empty manabrewAddr implies this
+	// (applyManaBrew).
+	manabrew bool
+	// manabrewAddr is the -manabrew-addr flag: an optional separate listener
+	// for the ManaBrew routes instead of sharing the main listener's topMux.
+	// Ports 8080/8081 are refused (AGENTS.md's port table).
+	manabrewAddr string
+	// manabrewThink is the -manabrew-think flag: an override of
+	// host.Options.ThinkTimeout, applied only while -manabrew is on
+	// (manabrewThinkTimeout) so setting it alone changes nothing.
+	manabrewThink time.Duration
 }
 
 func main() {
@@ -209,6 +222,9 @@ func serveFlags() (*flag.FlagSet, *config) {
 	fs.BoolVar(&c.prewarmArtOnly, "prewarm-art-only", false, "fill the card-art cache from -decks (into -art-dir) and exit; no server is started. Exits non-zero if any name failed")
 	fs.DurationVar(&c.prewarmArtBudget, "prewarm-art-budget", 0, "with -prewarm-art-only: stop the fill after this much wall-clock time and exit non-zero (0 = no limit)")
 	fs.IntVar(&c.prewarmArtMaxConsecutiveFailures, "prewarm-art-max-consecutive-failures", 0, "with -prewarm-art-only: stop the fill once this many names in a row have failed and exit non-zero (0 = no limit)")
+	fs.BoolVar(&c.manabrew, "manabrew", false, "mount the ManaBrew protocol adapter (host/manabrewhttp) on the main listener; requires -humans or -vsbot")
+	fs.StringVar(&c.manabrewAddr, "manabrew-addr", "", "serve the ManaBrew routes on a separate listen address instead of the main one (implies -manabrew; refuses :8080/:8081)")
+	fs.DurationVar(&c.manabrewThink, "manabrew-think", 0, "override the human-seat think timeout while -manabrew is on (0 = inherit the server default)")
 	return fs, c
 }
 
@@ -248,6 +264,16 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 	}
 	if err := c.applyFormats(); err != nil {
 		return err
+	}
+	if err := c.applyManaBrew(); err != nil {
+		return err
+	}
+	// MB-9 (scoping spec §5.4): -manabrew requires a seat gate (-humans or
+	// -vsbot). Checked on the flags themselves, before any table is added,
+	// so a misconfigured server never mounts routes that could only ever
+	// answer 403 -- and never starts a bot table's goroutines first either.
+	if c.manabrew && len(c.humans) == 0 && !c.vsbot {
+		return fmt.Errorf("-manabrew requires a seat gate: pass -humans or -vsbot")
 	}
 	// The deck directory is split into the two pools the tables deal: the
 	// commander-declared files (each validated up front, below) and the
@@ -353,6 +379,15 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 		}
 		topMux.HandleFunc("POST /api/feedback", fb.submit)
 	}
+	// MB-9 (scoping spec §5.2/§5.4): mount the ManaBrew adapter ahead of
+	// httpapi's own handler, same as /art/ and /api/feedback above. gate is
+	// non-nil here whenever c.manabrew is true -- the check above returned
+	// before any table was added otherwise -- so mountManaBrew never sees a
+	// nil Options.Seat.
+	mbSrv, mbErrc, err := c.mountManaBrew(topMux, r, gate, newManabrewCardText(ac))
+	if err != nil {
+		return err
+	}
 	topMux.Handle("/", httpapi.NewHandler(r, opts))
 	srv := &http.Server{Handler: topMux}
 	errc := make(chan error, 1)
@@ -397,6 +432,13 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 	}
 	select {
 	case err := <-errc:
+		if mbSrv != nil {
+			_ = mbSrv.Close()
+		}
+		r.Close()
+		return err
+	case err := <-mbErrc: // nil when -manabrew-addr was not set; a nil channel never fires
+		_ = srv.Close()
 		r.Close()
 		return err
 	case <-ctx.Done():
@@ -404,6 +446,9 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdown)
+	if mbSrv != nil {
+		_ = mbSrv.Shutdown(shutdown)
+	}
 	return r.Close()
 }
 
@@ -602,7 +647,7 @@ func (g config) hostOptions(reg *cards.Registry, load func(string) (host.Deck, e
 	// the engine and the bots themselves.
 	return host.Options{Dir: g.dir, LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.Cards, Sync: true, Cooldown: g.cooldown,
 		MaxDecisionsPerTurn: host.DefaultMaxDecisionsPerTurn, DefaultBotAutoPayMana: g.botAutoPayMana,
-		MaxOnDemandTables: g.maxOnDemandTables}
+		MaxOnDemandTables: g.maxOnDemandTables, ThinkTimeout: g.manabrewThinkTimeout()}
 }
 
 // artCacheDir resolves where the card-art cache lives: -art-dir when set,
