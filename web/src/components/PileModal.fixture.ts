@@ -1,9 +1,10 @@
 import { mount } from 'svelte';
-import type { CardView, Decision, PlayerView, SeatInfo, View } from '../protocol';
+import type { CardView, Decision, PlayerView, PotentialAction, SeatInfo, View } from '../protocol';
 import { optionsByObj, optionsByPlayer, type CardOptions } from '../lib/cardoptions';
 import { toneOf } from '../lib/seatpanel.svelte';
 import '../app.css';
 import PileFixture from './PileModal.fixture.svelte';
+import PileModal from './PileModal.svelte';
 import IdentityBar from './IdentityBar.svelte';
 import PileHost from './PileHost.svelte';
 import SeatTable from './SeatTable.svelte';
@@ -40,6 +41,24 @@ const seats: SeatInfo[] = [{ name: 'Alice', deck: 'archive', colour: '#e5484d' }
 
 if (new URLSearchParams(location.search).get('case') === 'shrink') {
   mount(PileFixture, { target: document.querySelector('#fixture')! });
+} else if (new URLSearchParams(location.search).get('case') === 'later') {
+  const decision: Decision = {
+    seq: 1, player: 0, kind: 'priority', prompt: 'float-gated pile action', min: 0, max: 1,
+    options: [{ index: 99, kind: 'pass', label: 'Pass', player: 0 }],
+  };
+  const potential: PotentialAction = { kind: 'ability', obj: 300, ability: 0, label: 'Bloodsoaked Champion: Return Bloodsoaked Champion from your graveyard to the battlefield' };
+  const bundle: CardOptions = {
+    byObj: optionsByObj(decision), byPlayer: optionsByPlayer(decision), picked: [], tone: toneOf(decision),
+    later: new Map([[300, [potential]]]), post: () => {},
+  };
+  (window as unknown as { __pileLaterPrecondition: { hasLater: boolean; hasLive: boolean } }).__pileLaterPrecondition = {
+    hasLater: bundle.later?.has(300) ?? false,
+    hasLive: bundle.byObj.has(300),
+  };
+  mount(PileModal, {
+    target: document.querySelector('#fixture')!,
+    props: { open: true, title: 'Fixture graveyard', cards: [card(300)], onClose: () => {}, options: bundle },
+  });
 } else if (new URLSearchParams(location.search).get('case') === 'identity') {
   // Two seats: Alice owns the touched graveyard/exile piles; Bob owns a
   // graveyard holding card 300, which the decision TARGETS — proving the

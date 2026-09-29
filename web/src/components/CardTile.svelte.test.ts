@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
-import type { CardView } from '../protocol';
-import type { TileOptions } from '../lib/cardoptions';
-import { postTileOption } from '../lib/cardoptions';
+import type { CardView, PotentialAction } from '../protocol';
+import type { CardOptions, TileOptions } from '../lib/cardoptions';
+import { postTileOption, tileOptions } from '../lib/cardoptions';
 import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
 import CardTile from './CardTile.svelte';
 
@@ -420,5 +420,54 @@ describe('CardTile muted tap affordance for a summoning-sick mana source (fb-202
     const { html } = render(CardTile, { props: { card: c } });
     expect(html).not.toContain('sick-tap');
     expect(html).not.toMatch(/class="card-tile[^"']*sick/);
+  });
+});
+
+// fb-20260928T230741Z: an Equipment's float-gated Equip must have an
+// affordance on the equipment itself, in both mana modes. An ATTACHED
+// Equipment renders as a rider under its host, so it needs its own picker
+// beside its name — in the .tile-wrap, never inside the role="button" tile
+// div (the a11y constraint the host's own picker already obeys).
+describe('CardTile attachment riders (fb-20260928T230741Z)', () => {
+  const equip: PotentialAction = { kind: 'ability', obj: 48, ability: 0, label: 'Flayer Husk: Equip 2' };
+  // The captured window's shape: only Plains taps live; the Equip is later-only.
+  const bundle = (laterObj: number): CardOptions => ({
+    byObj: new Map(),
+    byPlayer: new Map(),
+    picked: [],
+    tone: 'offered',
+    later: new Map([[laterObj, [{ ...equip, obj: laterObj }]]]),
+    post: vi.fn(),
+  });
+  const husk = card({ id: 48, name: 'Flayer Husk', types: 'Artifact Equipment' });
+  const host = card({ id: 24, name: 'Kitesail Apprentice', types: 'Creature Human Soldier', power: 1, toughness: 2 });
+
+  it('an attached Equipment with a float-gated Equip renders its own badge on the rider', () => {
+    const b = bundle(48);
+    expect(b.later?.get(48)).toEqual([equip]); // setup: the rider really has a later row
+    const { html } = render(CardTile, { props: { card: host, attachments: [husk], options: b } });
+    expect(html).toContain('data-obj="48"');
+    expect(html).toContain('Flayer Husk');
+    expect(html).toContain('aria-label="1 actions for Flayer Husk"');
+    // The host tile itself carries no options: its data-options is absent,
+    // so the badge found above is the RIDER's.
+    expect(html).not.toContain('data-options=');
+  });
+
+  it('a rider the decision says nothing about stays a plain name — no badge, no mark', () => {
+    const b = bundle(99); // a later row on some other object
+    expect(b.later?.has(48)).toBe(false); // setup: the rider really has none
+    const { html } = render(CardTile, { props: { card: host, attachments: [husk], options: b } });
+    expect(html).toContain('data-obj="48"');
+    expect(html).not.toContain('aria-label="1 actions for Flayer Husk"');
+  });
+
+  it('an unattached Equipment tile gets its own badge from the same bundle', () => {
+    const tile = tileOptions(bundle(48), 48);
+    expect(tile?.later).toEqual([equip]); // setup: the tile really is later-only
+    expect(tile?.list).toEqual([]);
+    const { html } = render(CardTile, { props: { card: husk, tileOptions: tile } });
+    expect(html).toContain('data-obj="48"');
+    expect(html).toContain('aria-label="1 actions for Flayer Husk"');
   });
 });
