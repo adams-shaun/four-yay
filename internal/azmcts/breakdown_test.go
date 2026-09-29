@@ -173,7 +173,6 @@ func TestEnvRecoversPanicsOutsideSubmit(t *testing.T) {
 // seat's next searched decision exactly at MaxSteps expands it instead of
 // counting as capped.
 func TestStepCapLetsAPointReachedAtTheCapExpand(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	for minTurn := int32(0); minTurn < 12; minTurn++ {
 		e, d, bot := botPosition(t, cfg, "", minTurn, 6000)

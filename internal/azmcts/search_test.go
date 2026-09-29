@@ -74,7 +74,7 @@ func botPosition(t testing.TB, cfg rules.Config, want decision.Kind, minTurn int
 func searchAt(t testing.TB, e *rules.Engine, d *decision.Decision, bot decision.Intent, net *policynet.Model, opts Options) Result {
 	t.Helper()
 	obs := searchprobe.NewCollector(d.Player)
-	src, err := NewClairvoyant(e, obs)
+	src, err := newTestClairvoyant(e, obs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,6 @@ func checkResult(t *testing.T, d *decision.Decision, bot decision.Intent, res Re
 }
 
 func TestSearchRealDeckPriority(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	e, d, bot := botPosition(t, cfg, decision.KPriority, 0, 2000)
 	head, draws, turn := e.L.Head(), e.RNGDraws(), e.G.Turn
@@ -151,7 +150,6 @@ func TestSearchRealDeckPriority(t *testing.T) {
 }
 
 func TestSearchRealDeckAttackers(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	e, d, bot := botPosition(t, cfg, decision.KAttackers, 0, 3000)
 	opts := DefaultOptions()
@@ -166,7 +164,6 @@ func TestSearchRealDeckAttackers(t *testing.T) {
 // Spec §2/§4: the same seed and checkpoint give a byte-identical choice,
 // in eval and in generation mode.
 func TestSearchIsDeterministic(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	e, d, bot := botPosition(t, cfg, decision.KAttackers, 0, 3000)
 	opts := DefaultOptions()
@@ -182,7 +179,6 @@ func TestSearchIsDeterministic(t *testing.T) {
 
 // A network with a value head drives both the prior and the leaf.
 func TestSearchWithANetworkLeafAndPrior(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	e, d, bot := botPosition(t, cfg, decision.KAttackers, 0, 3000)
 	m := policynet.NewModel(policynet.TableRows, 1, 2, rand.New(rand.NewPCG(11, 12)))
@@ -271,7 +267,6 @@ func TestSearchBadWorldPlaysTheBot(t *testing.T) {
 
 // Review Focus 5 on the real engine: no walk submits more than MaxSteps.
 func TestSearchStepCapBoundsEveryWalk(t *testing.T) {
-	allowClairvoyantForTest(t)
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	e, d, bot := botPosition(t, cfg, decision.KPriority, 0, 2000)
 	opts := DefaultOptions()

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/adams-shaun/gorge/internal/azmcts"
+	"github.com/adams-shaun/gorge/internal/azmcts/clairvoyant"
 	"github.com/adams-shaun/gorge/internal/policynet"
 )
 
@@ -62,7 +63,7 @@ func registerAZFlags(fs *flag.FlagSet) {
 // no-op without an az side, except that -az-* flags then are an error. m is
 // the -checkpoint model, nil when none was given. On success it stores the
 // validated config and opens the clairvoyant source for this process -- the
-// only azmcts.AllowClairvoyant call outside tests.
+// only clairvoyant.AllowClairvoyant call outside tests.
 func azFrontDoor(aName, bName string, m *policynet.Model) error {
 	if !isAZPolicy(aName) && !isAZPolicy(bName) {
 		if azFlagsGiven {
@@ -112,7 +113,7 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 	}
 	azCfg, azNet = cfg, m
 	if plainAZ && azWorldArg == azmcts.WorldClairvoyant {
-		azmcts.AllowClairvoyant()
+		clairvoyant.AllowClairvoyant()
 	}
 	return nil
 }
@@ -127,6 +128,13 @@ func azSeatConfig(policy string) azmcts.SeatConfig {
 	if policy == "az-redeal" {
 		// az-redeal always searches: -az-world prior is the plain az seat's.
 		cfg.World, cfg.PriorOnly = azmcts.WorldRedeal, false
+	}
+	if cfg.World != azmcts.WorldRedeal {
+		// azmcts never links the real-engine clone itself: the clairvoyant
+		// source is injected here (the prior student never asks for a world,
+		// but NewSeat requires the source whenever the world is not the
+		// honest redeal one). Never set for az-redeal.
+		cfg.Source = clairvoyant.Source
 	}
 	return cfg
 }

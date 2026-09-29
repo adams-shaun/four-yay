@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/internal/azmcts"
+	"github.com/adams-shaun/gorge/internal/azmcts/clairvoyant"
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -22,7 +23,7 @@ func TestAZCorpusRecordsWithoutChangingTheGame(t *testing.T) {
 	}
 	prevCfg, prevPath, prevWorld := azCfg, azCorpusPath, azWorldArg
 	t.Cleanup(func() { azCfg, azCorpusPath, azWorldArg = prevCfg, prevPath, prevWorld })
-	azmcts.AllowClairvoyant()
+	clairvoyant.AllowClairvoyant()
 	for _, pol := range []struct{ policy, world string }{
 		{"az", azmcts.WorldClairvoyant},
 		{"az-redeal", azmcts.WorldRedeal},
