@@ -2,7 +2,7 @@ import type { View } from '../protocol';
 import type { CardOptions } from './cardoptions';
 
 export type End = { obj: number } | { seat: number };
-export interface Arrow { from: End; to: End; kind: 'target' | 'target-preview' | 'attack' | 'block' }
+export interface Arrow { from: End; to: End; kind: 'target' | 'target-preview' | 'target-hover' | 'attack' | 'block' }
 
 /** Pending decisions name legal candidates but have not resolved a target
  * relationship yet. Expose those board anchors as proposed arrows; the DOM
@@ -21,10 +21,19 @@ export function previewArrowsFor(options: CardOptions | null): Arrow[] {
   return out;
 }
 
-/** arrowsFor reads relationships the server already resolved; it decides nothing about legality. */
-export function arrowsFor(view: View): Arrow[] {
+/**
+ * arrowsFor reads relationships the server already resolved; it decides
+ * nothing about legality. Declared combat (attacks, blocks) is always drawn.
+ * A stack item's targets are drawn for `stackTargets`: every item ('all',
+ * the historic behaviour), only the item with that id (the table passes the
+ * HOVERED stack item — UI rework spec §3: arrows only for the pending
+ * decision, the hovered stack item or declared combat, never XMage's
+ * spaghetti), or none (null).
+ */
+export function arrowsFor(view: View, stackTargets: 'all' | number | null = 'all'): Arrow[] {
   const out: Arrow[] = [];
   for (const s of view.stack) {
+    if (stackTargets !== 'all' && stackTargets !== s.id) continue;
     for (const t of s.targets) out.push({ from: { obj: s.id }, to: t.is_player ? { seat: t.player } : { obj: t.obj ?? 0 }, kind: 'target' });
   }
   for (const p of view.players) {
@@ -38,4 +47,18 @@ export function arrowsFor(view: View): Arrow[] {
     }
   }
   return out;
+}
+
+/**
+ * hoverArrowFor is the prompt dock's one hover arrow (UI rework spec §3/§4:
+ * arrows are drawn for the pending decision, and a hovered option draws its
+ * own): from the hovered option's own start (a blocker, an attacker) or else
+ * the decision's source, to what it points at. Null when nothing is hovered
+ * or the arrow has no start.
+ */
+export function hoverArrowFor(options: CardOptions | null, link: { from: End | null; to: End } | null): Arrow | null {
+  if (link === null) return null;
+  const from = link.from ?? (options?.source !== undefined && options.source !== 0 ? { obj: options.source } : null);
+  if (from === null) return null;
+  return { from, to: link.to, kind: 'target-hover' };
 }

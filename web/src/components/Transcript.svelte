@@ -9,6 +9,7 @@
   import { CardHover } from '../lib/carddetail.svelte';
   import CardDetail from './CardDetail.svelte';
   import ManaSymbols from './ManaSymbols.svelte';
+  import { moveChip } from '../lib/clientmodel/events';
 
   /**
    * Transcript is the rules log: one line per event, the cursor's line
@@ -231,6 +232,7 @@
           >{p.name}</span>{:else}<span class="obj card" style:color={p.colour ?? undefined} title="{p.name} #{p.id}">{p.name}</span>{/if}
         {:else if p.kind === 'ability'}<span class="obj ability" title="{p.name} #{p.id}">{p.name}</span>{/if}
       {/each}</span>
+      {#if moveChip(e.event)}<span class="zone-chip" data-zone-chip>{moveChip(e.event)}</span>{/if}
     </button>
   {/each}
   {#if notes.length > 0}
@@ -340,6 +342,19 @@
     width: 3.5em;
     text-align: right;
     flex: none;
+  }
+  .zone-chip {
+    margin-left: var(--sp-1, 4px);
+    padding: 0 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--ink-faint, #6f695f);
+    font-size: 0.85em;
+    white-space: nowrap;
+    flex: none;
+    /* a flex item of the line: without this it stretches to the wrapped
+       line's full height and reads as an empty box */
+    align-self: flex-start;
   }
   .text {
     overflow-wrap: anywhere;

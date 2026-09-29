@@ -184,7 +184,7 @@
        internal divider is replaced by spacing before the Stack heading. -->
   <div class="history-frame">
     <ResolvedCard {view} {events} {seats} />
-    <section class="stack">
+    <section class="stack" data-motion-anchor="stack">
       <h3>Stack{#if topFirst.length > 0} <span class="count">{topFirst.length}</span>{/if}</h3>
       {#each topFirst as s, i (s.id)}
         <StackTile stack={s} {view} emphasized={emphasizeTop && i === 0} dimmed={emphasizeTop && i > 0} {yields} {onYield} {viewerSeat} />

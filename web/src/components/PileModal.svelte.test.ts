@@ -195,8 +195,8 @@ describe('PileModal — float-gated actions', () => {
   });
 });
 
-describe('PileModal — the identity bar pile affordances (fb-20260916T225802Z)', () => {
-  // The ?case=identity fixture mounts IdentityBar for two seats plus the
+describe('PileModal — the seat header pile affordances (fb-20260916T225802Z)', () => {
+  // The ?case=identity fixture mounts SeatHeader for two seats plus the
   // table's ONE shared PileHost, wired exactly as Table.svelte wires them,
   // over a pending decision that touches Alice's graveyard (a flashback
   // cast on card 1, two recasts on card 2), Alice's exile (nothing) and
@@ -211,15 +211,15 @@ describe('PileModal — the identity bar pile affordances (fb-20260916T225802Z)'
     return page;
   };
 
-  it('the identity bar renders graveyard/exile pile buttons with the rail label style, and opens the shared modal', async () => {
+  it('the seat header renders graveyard/exile pile buttons with the rail label style, and opens the shared modal', async () => {
     const page = await openIdentity();
     const gy = page.locator('[data-seat="0"] [data-pile="graveyard"]');
     const ex = page.locator('[data-seat="0"] [data-pile="exile"]');
     expect(await gy.getAttribute('aria-label')).toBe("View Alice's graveyard (2 cards)");
     expect(await ex.getAttribute('aria-label')).toBe("View Alice's exile (1 card)");
     // the counts row still shows all four zones
-    expect(await page.locator('[data-seat="0"]').textContent()).toContain('library 40');
-    expect(await page.locator('[data-seat="0"]').textContent()).toContain('hand 1');
+    expect(await page.locator('[data-seat="0"]').textContent()).toContain('Lib 40');
+    expect(await page.locator('[data-seat="0"]').textContent()).toContain('Hand 1');
 
     await gy.click();
     const dialog = page.getByRole('dialog', { name: "Alice's graveyard" });

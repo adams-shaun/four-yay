@@ -50,9 +50,13 @@
   // no pointer events, no $effect) can drive the panel's lifecycle through
   // the same HoverCard the component owns; production renders never pass them
   // and the defaults are exactly what the component built for itself before.
-  let { card, size = 'tile', attachments = [], hover = new HoverCard(), anchor: anchorProp = null, tileOptions = null, options = null, open0 = false, faceTapped = undefined }: {
+  let { card, size = 'tile', attachments = [], hover = new HoverCard(), anchor: anchorProp = null, tileOptions = null, options = null, open0 = false, faceTapped = undefined, art = false }: {
     card: CardView;
     size?: 'tile' | 'large';
+    /** art renders the face as an ART TILE (UI rework spec §2): the card's
+     *  art crop with a name strip, for a seat whose cards are below the
+     *  layout profile's art-tile width. The P/T and counter pills stay. */
+    art?: boolean;
     attachments?: CardView[];
     hover?: HoverCard;
     anchor?: AnchorRect | null;
@@ -200,6 +204,7 @@
   class:tapped={faceTapped ?? card.tapped}
   class:sick={isCreature && card.summon_sick}
   class:attacking={card.attacking}
+  class:art
   data-obj={card.id}
   bind:this={root}
   tabindex="0"
@@ -213,6 +218,7 @@
 >
   <div class="slot">
     <div class="face"><CardImage {card} {size} pt={false} /></div>
+    {#if art}<span class="art-name" aria-hidden="true">{card.name}</span>{/if}
 
     {#if shownMarks.length}
       <div class="marks data" title={allMarks}>
@@ -356,6 +362,31 @@
   }
   .card-tile.tapped .face {
     transform: translate(-50%, -50%) rotate(90deg);
+  }
+  /* Art tile: the face zooms onto the art box of the normal card image (the
+     upper half) and a name strip replaces the unreadable title line. The
+     slot keeps the card's size, so the sizing maths is unchanged. */
+  .card-tile.art .slot {
+    overflow: hidden;
+    border-radius: var(--radius-card);
+  }
+  .card-tile.art .face :global(.card-image img) {
+    transform: scale(1.9);
+    transform-origin: 50% 25%;
+  }
+  .art-name {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    padding: 1px 3px;
+    background: color-mix(in srgb, var(--felt-sunk) 78%, transparent);
+    color: var(--ink);
+    font-size: var(--t-10);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* Summoning sickness dims the card, not its numbers — the whole reason to
      look at a sick creature is to check whether it can attack yet. The dim is

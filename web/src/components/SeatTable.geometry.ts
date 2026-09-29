@@ -1,7 +1,7 @@
 import { mount } from 'svelte';
 import type { CardView, PlayerView, SeatInfo, View } from '../protocol';
 import '../app.css';
-import IdentityBar from './IdentityBar.svelte';
+import SeatHeader from './SeatHeader.svelte';
 import SeatTable from './SeatTable.svelte';
 import RailFixture from './RailFixture.svelte';
 
@@ -29,8 +29,8 @@ const view = (priority: number): View => ({
 
 mount(SeatTable, { target: document.querySelector('#seat-idle')!, props: { view: view(1), seats, onFocus: () => {} } });
 mount(SeatTable, { target: document.querySelector('#seat-priority')!, props: { view: view(0), seats, onFocus: () => {} } });
-mount(IdentityBar, { target: document.querySelector('#identity-idle')!, props: { player: players[0], players, colour: '#e5484d', active: false, priority: false, corner: 'tl' } });
-mount(IdentityBar, { target: document.querySelector('#identity-priority')!, props: { player: players[0], players, colour: '#e5484d', active: false, priority: true, corner: 'tl' } });
+mount(SeatHeader, { target: document.querySelector('#identity-idle')!, props: { player: players[0], name: players[0].name, colour: '#e5484d', active: false, priority: false } });
+mount(SeatHeader, { target: document.querySelector('#identity-priority')!, props: { player: players[0], name: players[0].name, colour: '#e5484d', active: false, priority: true } });
 
 // The rail fixture mounts the WHOLE instrument column — seat table, mana pool
 // focus pane, decision line, stack tile, pending tray — at a fixed width, so

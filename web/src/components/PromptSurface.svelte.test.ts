@@ -510,7 +510,7 @@ describe('the discard-pick card-face row (fb-20260914T120705Z)', () => {
     await row.waitFor({ state: 'visible' });
     // Four card faces, and NO generic text option buttons.
     expect(await row.locator('[data-option]').count()).toBe(4);
-    expect(await page.locator('[data-answer-surface] .option').count()).toBe(0);
+    expect(await page.locator('[data-answer-surface] [data-list-prompt] [data-option]').count()).toBe(0);
     // The face is the card, named without the "Discard " prefix — the exact
     // string the art proxy and the oracle resolver look the card up by.
     expect(await row.locator('[data-option="0"] .blank__name').textContent()).toBe('Brazen Borrower');
@@ -584,7 +584,7 @@ describe('the discard-pick card-face row (fb-20260914T120705Z)', () => {
     const page = await browser.newPage();
     await page.goto(`${url}src/components/PromptSurface.fixture.html?case=charm`);
 
-    const options = page.locator('[data-answer-surface] .option');
+    const options = page.locator('[data-answer-surface] [data-list-prompt] [data-option]');
     await options.first().waitFor({ state: 'visible' });
     expect(await options.count()).toBe(2);
     expect(await options.first().textContent()).toContain('Deal 2 damage');

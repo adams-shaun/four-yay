@@ -12,6 +12,7 @@
   import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { announceActions } from '../lib/announcepay';
   import SeatPanel from './SeatPanel.svelte';
+  import { dockAnswers } from '../lib/prompts/renderer';
   import KeyCheatSheet from './KeyCheatSheet.svelte';
 
   /**
@@ -25,7 +26,12 @@
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
   const HOT_STRIP_CLOSE_DELAY_MS = 180;
 
-  let { view, seats, state: logic, ctx, table, match, onToggleOptions = null }: {
+  let { view, seats, state: logic, ctx, table, match, onToggleOptions = null, transport = true }: {
+    /** transport draws the PASS / END TURN / RESOLVE ALL / UNDO tabs. The
+     *  table turns it off because the gilt action cluster (ActionCluster)
+     *  offers those moves in its fixed corner; the hotkeys stay here either
+     *  way. */
+    transport?: boolean;
     view: View;
     seats: SeatInfo[];
     state: SeatPanelState;
@@ -58,10 +64,13 @@
   // the moment the decision is answered.
   const awaiting = $derived(toneOf(decision));
   // A required response is anchored to the ACTIONS control as soon as it
-  // arrives. It is not a floating board overlay, and it stays open until the
-  // answer changes the decision.
+  // arrives — unless the prompt dock answers it (UI rework spec §4: the
+  // dock is the answer surface for every non-priority decision while it is
+  // mounted, so ACTIONS stays shut instead of opening a second copy over
+  // the board). Otherwise it stays open until the answer changes it.
+  const pinned = $derived(awaiting === 'initiative' && !(logic.dockCount > 0 && dockAnswers(decision)));
   $effect(() => {
-    if (awaiting === 'initiative') {
+    if (pinned) {
       clearClose();
       open = 'actions';
     }
@@ -147,7 +156,7 @@
     // A decision the game is waiting on must remain attached to ACTIONS.
     // Hover is only a convenience for offered priority windows; it must never
     // make a required answer disappear while the player moves to a choice.
-    if (awaiting === 'initiative') return;
+    if (pinned) return;
     clearClose();
     closeTimer = setTimeout(() => {
       open = null;
@@ -155,7 +164,7 @@
     }, HOT_STRIP_CLOSE_DELAY_MS);
   }
   function escape(e: KeyboardEvent): void {
-    if (e.key !== 'Escape' || open === null || awaiting === 'initiative') return;
+    if (e.key !== 'Escape' || open === null || pinned) return;
     e.preventDefault();
     open = null;
     clearClose();
@@ -275,6 +284,15 @@
         case 'show-keys':
           showKeys = !showKeys;
           break;
+        case 'attack-all':
+          if (!logic.attackWithAll()) return;
+          break;
+        case 'no-blocks':
+          if (!logic.noBlocks()) return;
+          break;
+        case 'auto-pay':
+          if (!logic.autoPay()) return;
+          break;
         default:
           if (action.startsWith('pick-')) {
             if (!logic.pickHotkey(Number(action.slice(5)))) return;
@@ -352,6 +370,7 @@
     </div>
   </div>
 
+  {#if transport}
   <!-- A transport control, not a menu: one action behind it, so one click.
        A dropdown here made the commonest move on the board cost two. The
        title carries the wire option's own label so the glyph is never the
@@ -431,6 +450,8 @@
       <span class="full">UNDO</span><span class="compact" aria-hidden="true">↶</span>
     </button>
   </div>
+
+  {/if}
 
   <!-- Done is one action too, so it follows Pass, End Turn and Undo. Ctrl held
        while submitting a cast/ability holds priority: passAfterAct is

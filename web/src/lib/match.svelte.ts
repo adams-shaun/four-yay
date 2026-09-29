@@ -6,6 +6,8 @@ import { ViewCache } from './viewcache';
 import { turnStartsFrom } from './turns';
 import type { SeatCtx } from './seat';
 import { clientBreadcrumbs } from './breadcrumbs';
+import { ModelBus, stepTransitions } from './clientmodel/gorge';
+import type { ClientModelSource, ModelListener, PendingDecision } from './clientmodel/types';
 
 /** frameSeq reads the seq an event/decision frame was addressed at, for the seated path's seq chit. */
 function frameSeq(f: Frame): number | null {
@@ -14,7 +16,7 @@ function frameSeq(f: Frame): number | null {
 }
 
 /** MatchState is everything the focused view renders for one table. A seat context (M2e-4) is additive: when present, views and events are fetched seat-scoped (ViewAtSeat/EventsSeat) so the rendered board and log are the seat's own redacted truth, and the spectator-frame bodies are never rendered; when absent, every fetch and render is byte-identical to the spectator path. */
-export class MatchState {
+export class MatchState implements ClientModelSource {
   match = $state<number | null>(null);
   view = $state<View | null>(null);
   /** Sequence of the view actually assigned to the rendered board. */
@@ -35,7 +37,22 @@ export class MatchState {
   // lines up to; the next decision boundary fetches from here, never 0.
   private seatSince = 0;
 
+  // The client-model bus (sub-project 0): MatchState is the gorge adapter,
+  // and every view assignment tells listeners what changed, BEFORE the new
+  // view is assigned, so a motion listener can still measure the old DOM.
+  private model = new ModelBus();
+
   constructor(readonly table: string, readonly seat?: SeatCtx) {}
+
+  /** ClientModelSource: the viewer's pending decision as the rendered view carries it. */
+  get clientDecision(): PendingDecision | null {
+    return this.view?.decision ?? null;
+  }
+
+  /** ClientModelSource: subscribe to steps/resets; returns the unsubscribe. */
+  onModel(fn: ModelListener): () => void {
+    return this.model.on(fn);
+  }
 
   /**
    * apply consumes one stream frame. It reports whether the frame moved this
@@ -186,9 +203,29 @@ export class MatchState {
    * this assigned view sequence rather than the requested cursor.
    */
   private setRenderedView(view: View | null, seq: number | null) {
+    this.emitModel(view, seq);
     this.view = view;
     this.renderedSeq = seq;
     clientBreadcrumbs.setView(seq, view?.decision?.seq ?? null);
+  }
+
+  /**
+   * emitModel is the gorge adapter's one emit edge. Only a live, forward step
+   * of the painted board is a `step` (its transitions can animate); anything
+   * else that changes the board — a new match, a snapshot, a rewind, a DVR
+   * scrub — is a `reset`. A same-seq repaint changes nothing and emits
+   * nothing. With no listener it does no work at all.
+   */
+  private emitModel(view: View | null, seq: number | null) {
+    if (this.model.size === 0) return;
+    const prev = this.view;
+    const prevSeq = this.renderedSeq;
+    if (prev === view || (seq !== null && seq === prevSeq && prev !== null && view !== null)) return;
+    if (prev && view && prevSeq !== null && seq !== null && seq > prevSeq && this.dvr.live) {
+      this.model.emit({ type: 'step', prev, next: view, transitions: stepTransitions(prev, view, prevSeq, seq, this.dvr.events) });
+    } else {
+      this.model.emit({ type: 'reset' });
+    }
   }
 
   /**

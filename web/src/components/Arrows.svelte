@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { View } from '../protocol';
   import type { CardOptions } from '../lib/cardoptions';
-  import { arrowsFor, previewArrowsFor } from '../lib/arrows';
+  import { arrowsFor, hoverArrowFor, previewArrowsFor } from '../lib/arrows';
+  import { promptHover } from '../lib/prompts/hover.svelte';
   import type { Arrow, End } from '../lib/arrows';
+  import { hovered } from '../lib/hovered.svelte';
 
   /**
    * Arrows overlays the board with one line per arrowsFor(view) result. It
@@ -27,15 +29,16 @@
   let lines = $state<Line[]>([]);
 
   function anchorEl(end: End): Element | null {
-    // `[data-seat]` is not unique: Quadrant's whole board box carries it too
-    // (for its seat-colour rule), and querySelector returns whichever comes
-    // first in document order — a player arrow was landing on that huge box's
-    // corner instead of the player's own name plate. `.identity` is
-    // IdentityBar's own root and is the only element this arrow should ever
-    // point at.
-    return 'obj' in end
-      ? document.querySelector(`[data-obj="${end.obj}"]`)
-      : document.querySelector(`.identity[data-seat="${end.seat}"]`);
+    // A player end lands on the seat's header bar or seat box (their
+    // [data-seat-anchor] root) -- never `[data-seat]`, which Quadrant's whole
+    // board box also carries (an arrow used to land on that box's corner).
+    // The first one that is laid out wins (a collapsed strip has no box).
+    if ('obj' in end) return document.querySelector(`[data-obj="${end.obj}"]`);
+    for (const el of document.querySelectorAll(`[data-seat-anchor="${end.seat}"]`)) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return el;
+    }
+    return null;
   }
 
   function centre(el: Element, base: DOMRect): { x: number; y: number } {
@@ -47,7 +50,12 @@
     if (!root) return;
     const base = root.getBoundingClientRect();
     const next: Line[] = [];
-    for (const arrow of [...arrowsFor(view), ...previewArrowsFor(options)]) {
+    // Proposed arrows belong to a pending TARGET choice only: fanning lines
+    // from a resolving spell to every card a discard or search offers is the
+    // spaghetti the spec rules out.
+    const preview = view.decision?.kind === 'target' ? previewArrowsFor(options) : [];
+    const hover = hoverArrowFor(options, promptHover.link);
+    for (const arrow of [...arrowsFor(view, hoveredStack), ...preview, ...(hover ? [hover] : [])]) {
       const from = anchorEl(arrow.from);
       const to = anchorEl(arrow.to);
       if (!from || !to) continue;
@@ -61,9 +69,14 @@
   // Redraw whenever the view changes. requestAnimationFrame defers the
   // measurement past this tick's DOM update so the new frame's tiles have
   // laid out before we read their positions.
+  // Stack target arrows follow the pointer: only the hovered stack item's.
+  const hoveredStack = $derived(hovered.obj !== null && view.stack.some((s) => s.id === hovered.obj) ? hovered.obj : null);
+
   $effect(() => {
     void view;
     void options;
+    void hoveredStack;
+    void promptHover.link;
     const id = requestAnimationFrame(recompute);
     return () => cancelAnimationFrame(id);
   });
@@ -102,12 +115,15 @@
       <marker id="arrow-attack" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path class="head head--attack" d="M0,0 L10,5 L0,10 z" />
       </marker>
+      <marker id="arrow-target-hover" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path class="head head--target-hover" d="M0,0 L10,5 L0,10 z" />
+      </marker>
       <marker id="arrow-block" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path class="head head--block" d="M0,0 L10,5 L0,10 z" />
       </marker>
     </defs>
     {#each lines as l, i (i)}
-      <line class="line line--{l.kind}" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke-width="2" stroke-linecap="round" marker-end={`url(#arrow-${l.kind === 'target-preview' ? 'target' : l.kind})`} />
+      <line class="line line--{l.kind}" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke-width={l.kind === 'target-hover' ? 3 : 2} stroke-linecap="round" marker-end={`url(#arrow-${l.kind === 'target-preview' ? 'target' : l.kind})`} />
     {/each}
   </svg>
 </div>
@@ -115,15 +131,20 @@
 <style>
   .arrows { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
   svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-  .line--target { stroke: var(--initiative); }
+  /* Verdigris for a choice being made, ember for attacks (spec §3). */
+  .line--target { stroke: var(--verdigris); }
   .line--target-preview {
-    stroke: var(--initiative);
+    stroke: var(--verdigris);
     stroke-dasharray: 7 6;
     opacity: 0.58;
   }
-  .line--attack { stroke: var(--danger); }
-  .line--block { stroke: var(--mana-u); }
-  .head--target { fill: var(--initiative); }
-  .head--attack { fill: var(--danger); }
-  .head--block { fill: var(--mana-u); }
+  /* The hovered prompt option's arrow: verdigris, "a choice being made"
+     (UI rework spec §3), solid and a step heavier than the dashed previews. */
+  .line--target-hover { stroke: var(--verdigris, #6fb7ae); }
+  .head--target-hover { fill: var(--verdigris, #6fb7ae); }
+  .line--attack { stroke: var(--ember); }
+  .line--block { stroke: var(--ink-dim); }
+  .head--target { fill: var(--verdigris); }
+  .head--attack { fill: var(--ember); }
+  .head--block { fill: var(--ink-dim); }
 </style>

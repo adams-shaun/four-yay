@@ -1,5 +1,4 @@
 import type { CardView, PlayerView, View } from '../protocol';
-import { seatCorner, type SeatCorner } from './seattable';
 
 export type Group = 'lands' | 'creatures' | 'others';
 
@@ -173,19 +172,6 @@ export function stackIdentical(cards: CardView[], opts?: StackOptions): CardStac
 /** stackFaces picks the faces a stack group renders in a given expansion state: collapsed shows only the first card (the fan stands in for the rest), expanded shows every member. Keeping the mapping here lets the collapsed/expanded contract be tested without a DOM. */
 export function stackFaces(group: CardStackGroup, expanded: boolean): CardView[] {
   return expanded ? group.cards : [group.cards[0]];
-}
-
-/**
- * quadrantFor places a seat on the felt relative to the viewer. It is the
- * board's one call into the seat→corner mapping, which now lives in
- * seattable.ts as {@link seatCorner} (relative-to-viewer: a 1v1 viewer sits
- * at the bottom; a spectator falls back to seat 0 at the bottom). The name
- * and the 0..4-seat contract are unchanged; `viewer` (View.viewer, NoSeat
- * 255 for a spectator) is threaded through so the mapping can be viewer-
- * relative.
- */
-export function quadrantFor(seat: number, seats: number, viewer: number): SeatCorner {
-  return seatCorner(seat, seats, viewer);
 }
 
 /**

@@ -94,3 +94,33 @@ describe('transfer', () => {
   });
 });
 
+
+describe('layout profile export/import (gorge-layout)', () => {
+  it('round-trips saved layouts, renames a clash and never switches the active profile', async () => {
+    const { loadLibrary, saveAs, applyPreset } = await import('./layoutlibrary');
+    const { exportLayouts, importLayouts } = await import('./transfer');
+    let src = saveAs(loadLibrary(null), 'Duelist');
+    src = saveAs(applyPreset(src, 'focus8'), 'Pod');
+    const text = exportLayouts(src);
+    expect(JSON.parse(text).kind).toBe('gorge-layout');
+    const dst = saveAs(loadLibrary(null), 'Pod');
+    const got = importLayouts(text, dst);
+    if ('error' in got) throw new Error(got.error);
+    expect(got.added).toEqual(['Duelist', 'Pod (2)']);
+    expect(got.skipped).toBe(0);
+    expect(got.lib.active).toBe('Pod');
+    expect(got.lib.profiles['Pod (2)'].table.arrangement).toBe('focus');
+  });
+
+  it('skips bad entries, and refuses another library\'s file', async () => {
+    const { loadLibrary } = await import('./layoutlibrary');
+    const { importLayouts } = await import('./transfer');
+    const lib = loadLibrary(null);
+    const file = JSON.stringify({ kind: 'gorge-layout', version: 1, items: [{ name: 'x', profile: { version: 9 } }, { name: '__proto__', profile: lib.current }] });
+    const got = importLayouts(file, lib);
+    if ('error' in got) throw new Error(got.error);
+    expect(got.skipped).toBe(2);
+    expect(importLayouts(JSON.stringify({ kind: 'gorge-flow', version: 1, items: [] }), lib)).toEqual({ error: 'This file holds flow profiles, not layout profiles.' });
+    expect(importLayouts('garbage', lib)).toEqual({ error: 'This file is not a gorge settings export.' });
+  });
+});
