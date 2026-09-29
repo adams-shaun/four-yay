@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
-import RailResizer, { railWidthAfterArrow } from './RailResizer.svelte';
+import { railWidthAfterArrow } from '../lib/layoutprofile';
+import RailResizer from './RailResizer.svelte';
 
 describe('RailResizer', () => {
   it('arrow keys widen and narrow in the physical direction of the rail edge', () => {
