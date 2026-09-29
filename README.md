@@ -218,12 +218,16 @@ opt-in extensions:
   view.
 - `seat.PaymentPlanConsumer` asks for the engine's mana-payment plans.
 
-External processes can play a seat in two ways:
+External processes can play a seat in three ways:
 
 - over HTTP, through `host/httpapi`: `…/pending`, `…/intent`, `…/view`,
   `…/events`, SSE `/api/stream`;
 - **(spellbench-prep)** as a SpellBench v2 agent, in NDJSON over stdio
-  (`internal/spellbench/v2agent`, `cmd/sbagent`).
+  (`internal/spellbench/v2agent`, `cmd/sbagent`);
+- **(manabrew)** as a ManaBrew protocol client, over SSE + POST
+  (`host/manabrewhttp`, `internal/manabrew`). Opt-in and off by default;
+  `gorged -manabrew` mounts it (`-manabrew-addr` for a separate listener),
+  and it requires a seat gate (`-humans` or `-vsbot`).
 
 ### Engine capabilities for search and reinforcement learning
 
