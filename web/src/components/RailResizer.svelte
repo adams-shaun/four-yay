@@ -1,5 +1,12 @@
+<script module lang="ts">
+  export function railWidthAfterArrow(side: 'left' | 'right', key: string, width: number): number {
+    const wider = side === 'left' ? key === 'ArrowRight' : key === 'ArrowLeft';
+    return width + (wider ? 0.02 : -0.02);
+  }
+</script>
+
 <script lang="ts">
-  import { RAIL_MAX, RAIL_MIN, railWidthAfterArrow } from '../lib/layoutprofile';
+  import { RAIL_MAX, RAIL_MIN } from '../lib/layoutprofile';
 
   let { side, width, onWidth, onDrag, onReset }: {
     side: 'left' | 'right';

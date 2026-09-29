@@ -60,12 +60,6 @@ export const SPLIT_MIN = 0.18;
 export const SPLIT_MAX = 0.72;
 export const RAIL_MIN = 0.14;
 export const RAIL_MAX = 0.4;
-
-/** railWidthAfterArrow is the keyboard nudge: one arrow step toward the rail's own edge widens it, away narrows it. */
-export function railWidthAfterArrow(side: 'left' | 'right', key: string, width: number): number {
-  const wider = side === 'left' ? key === 'ArrowRight' : key === 'ArrowLeft';
-  return width + (wider ? 0.02 : -0.02);
-}
 export const WEIGHT_MIN = 0.2;
 export const WEIGHT_MAX = 3;
 export const ART_MIN = 0;
