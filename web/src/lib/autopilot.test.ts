@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { actionable, actionables, decide, emptyPriorityWindow, respondable, respondableFor, STEPS, STOPPABLE_STEPS, turnSide } from './autopilot';
-import { applyPreset, defaultSettings, type PlaySettings, type StoppableStep, type StepStop } from './playsettings';
+import { applyPreset, defaultSettings, noBreakpoints, type PlaySettings, type StoppableStep, type StepStop } from './playsettings';
+import { stackYieldKey } from './yields';
 import type { CardView, Decision, Option, PaymentAction, PaymentPlan, PlayerView, PotentialAction, SeatInfo, View } from '../protocol';
 
 /** view builds a View with only the fields decide reads: active (whose turn), step, stack, and the battlefield data the targets-me lookup reads. */
@@ -1084,5 +1085,44 @@ describe('gaps audit probe 3: a playable plan-only cast prevents an empty-window
 
   it('§8: with the preference off the floor is the capability-less one and passes the same window', () => {
     expect(emptyPriorityWindow(plannedOnly, auditView(plannedOnly, [card(102, 'Opt')]), 1, false)).toBe(1);
+  });
+});
+
+describe('decide: breakpoints', () => {
+  const quietD = (seq = 9): Decision => ({ seq, player: 0, kind: 'priority', prompt: 'p', min: 1, max: 1, options: [opt('pass', 0), opt('concede', 1)] } as Decision);
+  const bolt = { id: 1, controller: 1, kind: 'spell', name: 'Bolt', text: '', optional: false, targets: [{ player: 0, is_player: true }] };
+  const v = { active: 1, step: 'main1', turn: 3, stack: [bolt], players: [] } as unknown as View;
+  const passing = (): PlaySettings => ({ ...defaultSettings(), opponentSpell: 'never' });
+
+  it('breakpoints off: exactly today’s verdict', () => {
+    expect(decide({ decision: quietD(), view: v, seat: 0, settings: passing() })).toEqual({ act: 'pass', index: 0 });
+  });
+
+  it('targets-me on: stops with the hit, even where the stack rule would pass', () => {
+    const settings = { ...passing(), breakpoints: { ...noBreakpoints(), targetsMe: true } };
+    const got = decide({ decision: quietD(), view: v, seat: 0, settings });
+    expect(got).toEqual({ act: 'stop', reason: 'breakpoint', hit: { kind: 'targets-me', key: 'targets:1', detail: 'Bolt targets you' } });
+  });
+
+  it('a hit fired at an earlier seq passes', () => {
+    const settings = { ...passing(), breakpoints: { ...noBreakpoints(), targetsMe: true } };
+    const got = decide({ decision: quietD(9), view: v, seat: 0, settings, breakpointsFired: new Map([['targets:1', 8]]) });
+    expect(got).toEqual({ act: 'pass', index: 0 });
+  });
+
+  it('a yielded top object skips the top-object breakpoints', () => {
+    const settings = { ...passing(), breakpoints: { ...noBreakpoints(), targetsMe: true } };
+    const yields = new Set([stackYieldKey(bolt)]);
+    expect(decide({ decision: quietD(), view: v, seat: 0, settings, yields }).act).toBe('pass');
+  });
+
+  it('breakpoints stop an ffwd run too', () => {
+    const settings = { ...passing(), breakpoints: { ...noBreakpoints(), targetsMe: true } };
+    expect(decide({ decision: quietD(), view: v, seat: 0, settings, ffwd: true }).act).toBe('stop');
+  });
+
+  it('auto off still reports disabled, not breakpoint', () => {
+    const settings = { ...passing(), autoPass: false, breakpoints: { ...noBreakpoints(), targetsMe: true } };
+    expect(decide({ decision: quietD(), view: v, seat: 0, settings })).toEqual({ act: 'stop', reason: 'disabled' });
   });
 });

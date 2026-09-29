@@ -692,17 +692,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	if e.manaDiscardActivation != nil {
 		ma := *e.manaDiscardActivation
-		ma.cost.Sac = append([]CostPart(nil), e.manaDiscardActivation.cost.Sac...)
-		ma.cost.Discard = append([]CostPart(nil), e.manaDiscardActivation.cost.Discard...)
-		ma.cost.SubCounter = append([]CostPart(nil), e.manaDiscardActivation.cost.SubCounter...)
-		ma.cost.Exile = append([]CostPart(nil), e.manaDiscardActivation.cost.Exile...)
-		ma.cost.Reveal = append([]CostPart(nil), e.manaDiscardActivation.cost.Reveal...)
-		ma.cost.RevealOrChoose = append([]CostPart(nil), e.manaDiscardActivation.cost.RevealOrChoose...)
-		ma.cost.RevealChosen = append([]CostPart(nil), e.manaDiscardActivation.cost.RevealChosen...)
-		ma.cost.Behold = append([]CostPart(nil), e.manaDiscardActivation.cost.Behold...)
-		ma.cost.TapPermanent = append([]CostPart(nil), e.manaDiscardActivation.cost.TapPermanent...)
-		ma.cost.UntapPermanent = append([]CostPart(nil), e.manaDiscardActivation.cost.UntapPermanent...)
-		ma.cost.Blight = append([]CostPart(nil), e.manaDiscardActivation.cost.Blight...)
+		ma.cost = cloneCost(e.manaDiscardActivation.cost)
 		ma.sacs = append([]state.ObjID(nil), e.manaDiscardActivation.sacs...)
 		ma.discards = append([]state.ObjID(nil), e.manaDiscardActivation.discards...)
 		ma.exiles = append([]state.ObjID(nil), e.manaDiscardActivation.exiles...)
@@ -725,40 +715,23 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	if e.unlessPayment != nil {
 		u := *e.unlessPayment
-		u.cost.Sac = append([]CostPart(nil), e.unlessPayment.cost.Sac...)
-		u.cost.Discard = append([]CostPart(nil), e.unlessPayment.cost.Discard...)
-		u.cost.SubCounter = append([]CostPart(nil), e.unlessPayment.cost.SubCounter...)
-		u.cost.Draw = append([]CostPart(nil), e.unlessPayment.cost.Draw...)
-		u.cost.Reveal = append([]CostPart(nil), e.unlessPayment.cost.Reveal...)
-		u.cost.Behold = append([]CostPart(nil), e.unlessPayment.cost.Behold...)
-		u.cost.RevealOrChoose = append([]CostPart(nil), e.unlessPayment.cost.RevealOrChoose...)
-		u.cost.RevealChosen = append([]CostPart(nil), e.unlessPayment.cost.RevealChosen...)
+		// The whole Cost is deep-copied through cloneCost so no cost component
+		// can be forgotten when one is added (this block predates Return and
+		// Exile once already); the pick slices ride alongside it.
+		u.cost = cloneCost(e.unlessPayment.cost)
 		u.sacs = append([]state.ObjID(nil), e.unlessPayment.sacs...)
 		u.discards = append([]state.ObjID(nil), e.unlessPayment.discards...)
 		u.reveals = append([]state.ObjID(nil), e.unlessPayment.reveals...)
 		u.beholds = append([]state.ObjID(nil), e.unlessPayment.beholds...)
+		u.returns = append([]state.ObjID(nil), e.unlessPayment.returns...)
+		u.exiles = append([]state.ObjID(nil), e.unlessPayment.exiles...)
 		u.ctx = cloneUnlessCtx(e.unlessPayment.ctx)
 		u.rp = cloneResume(e.unlessPayment.rp)
 		c.unlessPayment = &u
 	}
 	if e.cumulative != nil {
 		cu := *e.cumulative
-		cu.amount.Sac = append([]CostPart(nil), e.cumulative.amount.Sac...)
-		cu.amount.Discard = append([]CostPart(nil), e.cumulative.amount.Discard...)
-		cu.amount.SubCounter = append([]CostPart(nil), e.cumulative.amount.SubCounter...)
-		cu.amount.AddCounter = append([]CostPart(nil), e.cumulative.amount.AddCounter...)
-		cu.amount.Exile = append([]CostPart(nil), e.cumulative.amount.Exile...)
-		cu.amount.Reveal = append([]CostPart(nil), e.cumulative.amount.Reveal...)
-		cu.amount.RevealOrChoose = append([]CostPart(nil), e.cumulative.amount.RevealOrChoose...)
-		cu.amount.RevealChosen = append([]CostPart(nil), e.cumulative.amount.RevealChosen...)
-		cu.amount.Behold = append([]CostPart(nil), e.cumulative.amount.Behold...)
-		cu.amount.TapPermanent = append([]CostPart(nil), e.cumulative.amount.TapPermanent...)
-		cu.amount.Blight = append([]CostPart(nil), e.cumulative.amount.Blight...)
-		cu.amount.Hybrid = append([]ManaPair(nil), e.cumulative.amount.Hybrid...)
-		cu.amount.Twobrid = append([]Twobrid(nil), e.cumulative.amount.Twobrid...)
-		cu.amount.HybridPhyrexian = append([]HybridPhyrexian(nil), e.cumulative.amount.HybridPhyrexian...)
-		cu.amount.Phyrexian = append([]byte(nil), e.cumulative.amount.Phyrexian...)
-		cu.amount.Unknown = append([]string(nil), e.cumulative.amount.Unknown...)
+		cu.amount = cloneCost(e.cumulative.amount)
 		if e.cumulative.action != nil {
 			action := *e.cumulative.action
 			cu.action = &action
@@ -768,23 +741,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	if e.triggerCost != nil {
 		tc := *e.triggerCost
 		tc.resume = cloneResume(e.triggerCost.resume)
-		tc.amount.Sac = append([]CostPart(nil), e.triggerCost.amount.Sac...)
-		tc.amount.Discard = append([]CostPart(nil), e.triggerCost.amount.Discard...)
-		tc.amount.SubCounter = append([]CostPart(nil), e.triggerCost.amount.SubCounter...)
-		tc.amount.AddCounter = append([]CostPart(nil), e.triggerCost.amount.AddCounter...)
-		tc.amount.Exile = append([]CostPart(nil), e.triggerCost.amount.Exile...)
-		tc.amount.MoveToGrave = append([]CostPart(nil), e.triggerCost.amount.MoveToGrave...)
-		tc.amount.Reveal = append([]CostPart(nil), e.triggerCost.amount.Reveal...)
-		tc.amount.RevealOrChoose = append([]CostPart(nil), e.triggerCost.amount.RevealOrChoose...)
-		tc.amount.RevealChosen = append([]CostPart(nil), e.triggerCost.amount.RevealChosen...)
-		tc.amount.Behold = append([]CostPart(nil), e.triggerCost.amount.Behold...)
-		tc.amount.TapPermanent = append([]CostPart(nil), e.triggerCost.amount.TapPermanent...)
-		tc.amount.Blight = append([]CostPart(nil), e.triggerCost.amount.Blight...)
-		tc.amount.Hybrid = append([]ManaPair(nil), e.triggerCost.amount.Hybrid...)
-		tc.amount.Twobrid = append([]Twobrid(nil), e.triggerCost.amount.Twobrid...)
-		tc.amount.HybridPhyrexian = append([]HybridPhyrexian(nil), e.triggerCost.amount.HybridPhyrexian...)
-		tc.amount.Phyrexian = append([]byte(nil), e.triggerCost.amount.Phyrexian...)
-		tc.amount.Unknown = append([]string(nil), e.triggerCost.amount.Unknown...)
+		tc.amount = cloneCost(e.triggerCost.amount)
 		tc.sacs = append([]state.ObjID(nil), e.triggerCost.sacs...)
 		tc.exiles = append([]state.ObjID(nil), e.triggerCost.exiles...)
 		tc.moveGraves = append([]state.ObjID(nil), e.triggerCost.moveGraves...)
@@ -794,22 +751,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// kw:Echo (rules/echo.go): the same plain-value class as cumulative
 		// above — the Cost's slice fields deep-copied so the clone owns them.
 		ef := *e.echo
-		ef.amount.Sac = append([]CostPart(nil), e.echo.amount.Sac...)
-		ef.amount.Discard = append([]CostPart(nil), e.echo.amount.Discard...)
-		ef.amount.SubCounter = append([]CostPart(nil), e.echo.amount.SubCounter...)
-		ef.amount.AddCounter = append([]CostPart(nil), e.echo.amount.AddCounter...)
-		ef.amount.Exile = append([]CostPart(nil), e.echo.amount.Exile...)
-		ef.amount.Reveal = append([]CostPart(nil), e.echo.amount.Reveal...)
-		ef.amount.RevealOrChoose = append([]CostPart(nil), e.echo.amount.RevealOrChoose...)
-		ef.amount.RevealChosen = append([]CostPart(nil), e.echo.amount.RevealChosen...)
-		ef.amount.Behold = append([]CostPart(nil), e.echo.amount.Behold...)
-		ef.amount.TapPermanent = append([]CostPart(nil), e.echo.amount.TapPermanent...)
-		ef.amount.Blight = append([]CostPart(nil), e.echo.amount.Blight...)
-		ef.amount.Hybrid = append([]ManaPair(nil), e.echo.amount.Hybrid...)
-		ef.amount.Twobrid = append([]Twobrid(nil), e.echo.amount.Twobrid...)
-		ef.amount.HybridPhyrexian = append([]HybridPhyrexian(nil), e.echo.amount.HybridPhyrexian...)
-		ef.amount.Phyrexian = append([]byte(nil), e.echo.amount.Phyrexian...)
-		ef.amount.Unknown = append([]string(nil), e.echo.amount.Unknown...)
+		ef.amount = cloneCost(e.echo.amount)
 		c.echo = &ef
 	}
 	if e.wardMana != nil {
@@ -829,31 +771,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	if e.cast != nil {
 		pc := *e.cast
-		pc.cost.Sac = append([]CostPart(nil), e.cast.cost.Sac...)
-		pc.cost.Discard = append([]CostPart(nil), e.cast.cost.Discard...)
-		pc.cost.SubCounter = append([]CostPart(nil), e.cast.cost.SubCounter...)
-		pc.cost.Exile = append([]CostPart(nil), e.cast.cost.Exile...)
-		pc.cost.ExileFromTop = append([]CostPart(nil), e.cast.cost.ExileFromTop...)
-		pc.cost.MoveToGrave = append([]CostPart(nil), e.cast.cost.MoveToGrave...)
-		pc.cost.Reveal = append([]CostPart(nil), e.cast.cost.Reveal...)
-		pc.cost.RevealOrChoose = append([]CostPart(nil), e.cast.cost.RevealOrChoose...)
+		pc.cost = cloneCost(e.cast.cost)
 		pc.revealHandArm = append([]bool(nil), e.cast.revealHandArm...)
-		pc.cost.RevealChosen = append([]CostPart(nil), e.cast.cost.RevealChosen...)
-		pc.cost.Behold = append([]CostPart(nil), e.cast.cost.Behold...)
-		pc.cost.TapPermanent = append([]CostPart(nil), e.cast.cost.TapPermanent...)
-		pc.cost.Blight = append([]CostPart(nil), e.cast.cost.Blight...)
-		pc.cost.Draw = append([]CostPart(nil), e.cast.cost.Draw...)
-		pc.cost.LifeX = append([]CostPart(nil), e.cast.cost.LifeX...)
-		pc.cost.Evidence = append([]CostPart(nil), e.cast.cost.Evidence...)
-		pc.cost.DamageYou = append([]CostPart(nil), e.cast.cost.DamageYou...)
-		pc.cost.GainLife = append([]CostPart(nil), e.cast.cost.GainLife...)
-		pc.cost.Energy = append([]CostPart(nil), e.cast.cost.Energy...)
-		pc.cost.Return = append([]CostPart(nil), e.cast.cost.Return...)
-		pc.cost.PutToLib = append([]CostPart(nil), e.cast.cost.PutToLib...)
-		pc.cost.Hybrid = append([]ManaPair(nil), e.cast.cost.Hybrid...)
-		pc.cost.Phyrexian = append([]byte(nil), e.cast.cost.Phyrexian...)
-		pc.cost.Twobrid = append([]Twobrid(nil), e.cast.cost.Twobrid...)
-		pc.cost.HybridPhyrexian = append([]HybridPhyrexian(nil), e.cast.cost.HybridPhyrexian...)
 		pc.mayPlayHosts = append([]state.ObjID(nil), e.cast.mayPlayHosts...)
 		if e.cast.costRemembered != nil {
 			pc.costRemembered = make([]costRememberedEntry, len(e.cast.costRemembered))
@@ -1181,6 +1100,50 @@ func cloneCombatRound(cr combatRound) combatRound {
 // immutable corpus), but the outer continuation chain is a linked list this
 // cloned engine must own so it can resume outward independently of the
 // original's traversal.
+// cloneCost deep-copies a Cost: every slice field is re-allocated so the
+// copy owns its own backing arrays and an append through either copy can
+// never write into the other's slot (the growth pattern
+// recordUnlessPaymentPick produces while a payment advances). The field
+// list below is the COMPLETE set of Cost's slice fields, in declaration
+// order: a Cost clone must be driven by the full struct, never by the
+// subset one call site happens to read, so the next cost component cannot
+// be forgotten. TestCloneCostCoversEveryCostSlice walks Cost with reflect
+// and fails if a slice field is added without a line here.
+func cloneCost(c Cost) Cost {
+	c.Hybrid = append([]ManaPair(nil), c.Hybrid...)
+	c.Phyrexian = append([]byte(nil), c.Phyrexian...)
+	c.Twobrid = append([]Twobrid(nil), c.Twobrid...)
+	c.HybridPhyrexian = append([]HybridPhyrexian(nil), c.HybridPhyrexian...)
+	c.Sac = append([]CostPart(nil), c.Sac...)
+	c.Discard = append([]CostPart(nil), c.Discard...)
+	c.SubCounter = append([]CostPart(nil), c.SubCounter...)
+	c.AddCounter = append([]CostPart(nil), c.AddCounter...)
+	c.Exile = append([]CostPart(nil), c.Exile...)
+	c.ExileFromTop = append([]CostPart(nil), c.ExileFromTop...)
+	c.Reveal = append([]CostPart(nil), c.Reveal...)
+	c.RevealOrChoose = append([]CostPart(nil), c.RevealOrChoose...)
+	c.RevealChosen = append([]CostPart(nil), c.RevealChosen...)
+	c.Behold = append([]CostPart(nil), c.Behold...)
+	c.TapPermanent = append([]CostPart(nil), c.TapPermanent...)
+	c.UntapPermanent = append([]CostPart(nil), c.UntapPermanent...)
+	c.Blight = append([]CostPart(nil), c.Blight...)
+	c.Exert = append([]CostPart(nil), c.Exert...)
+	c.Draw = append([]CostPart(nil), c.Draw...)
+	c.Energy = append([]CostPart(nil), c.Energy...)
+	c.LifeX = append([]CostPart(nil), c.LifeX...)
+	c.DamageYou = append([]CostPart(nil), c.DamageYou...)
+	c.GainLife = append([]CostPart(nil), c.GainLife...)
+	c.Return = append([]CostPart(nil), c.Return...)
+	c.PutToLib = append([]CostPart(nil), c.PutToLib...)
+	c.MoveToGrave = append([]CostPart(nil), c.MoveToGrave...)
+	c.Mill = append([]CostPart(nil), c.Mill...)
+	c.Evidence = append([]CostPart(nil), c.Evidence...)
+	c.RollDice = append([]CostPart(nil), c.RollDice...)
+	c.Withheld = append([]string(nil), c.Withheld...)
+	c.Unknown = append([]string(nil), c.Unknown...)
+	return c
+}
+
 func cloneResume(rp *resumePoint) *resumePoint {
 	if rp == nil {
 		return nil

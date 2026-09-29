@@ -19,7 +19,7 @@ func TestExchangeLifeSettlesWhenLichReplacesGainWithDraw(t *testing.T) {
 	if e.G.Players[0].Life != 20 || e.G.Players[1].Life != 15 {
 		t.Fatalf("precondition: lives = %d/%d, want distinct 20/15", e.G.Players[0].Life, e.G.Players[1].Life)
 	}
-	ctx := &effects.Ctx{Source: source, Controller: 0, ExchangeNumberBound: true}
+	ctx := &effects.Ctx{Source: source, Controller: 0, ExchangeMemory: &effects.ExchangeMemory{Bound: true}}
 	handBefore := len(e.G.Zone(state.ZHand, 1))
 	e.pending = nil
 	e.ExchangeLife(events.Event{Kind: events.LifeChange, Player: 0, Amount: -5},
@@ -30,8 +30,8 @@ func TestExchangeLifeSettlesWhenLichReplacesGainWithDraw(t *testing.T) {
 	if got := len(e.G.Zone(state.ZHand, 1)) - handBefore; got != 5 {
 		t.Fatalf("Lich replacement drew %d, want 5", got)
 	}
-	if ctx.ExchangeNumber != 5 {
-		t.Fatalf("RememberOwnLoss = %d, want actual loss 5", ctx.ExchangeNumber)
+	if ctx.ExchangeMemory.Number != 5 {
+		t.Fatalf("RememberOwnLoss = %d, want actual loss 5", ctx.ExchangeMemory.Number)
 	}
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hotkeyAction, type HotkeyEvent } from './hotkeys';
+import { SeatPanelState } from './seatpanel.svelte';
 
 /** A non-interactive target: the felt, the panel text, the body. */
 const felt = { closest: () => null } as unknown as EventTarget;
@@ -75,5 +76,13 @@ describe('hotkeys — the profile and options keys (playsettings-profiles)', () 
       hotkeyAction(ev({ key: 'f', ctrlKey: true, shiftKey: true })),
     ]);
     expect(actions.size).toBe(4);
+  });
+
+  it('applyProfileAt(i) walks the same list as the cycle: presets first, then saved profiles', () => {
+    const p = new SeatPanelState('t', 1, { seat: 0, token: 'tok' }, null);
+    p.saveProfile('Mine');
+    expect(p.applyProfileAt(0, ['casual', 'no-tells', 'full-control'])).toBe('casual');
+    expect(p.applyProfileAt(3, ['casual', 'no-tells', 'full-control'])).toBe('Mine');
+    expect(p.applyProfileAt(9, ['casual', 'no-tells', 'full-control'])).toBeNull();
   });
 });

@@ -654,6 +654,20 @@ type pendingCast struct {
 	// Clone copies it.
 	ninjutsuDefender    state.PlayerID
 	ninjutsuHasDefender bool
+
+	// sneakDefender is the defender (CR 702.190b: the player, planeswalker or
+	// battle the returned creature was attacking) captured when a K:Sneak
+	// cast paid its Return cost. sneakHasDefender discriminates the capture
+	// (seat 0 is a legal defending player, so sneakDefender == 0 on its own
+	// cannot mean "not captured" -- the same hazard documented for
+	// ninjutsuDefender). It rides a Choose "remembered" event onto the
+	// spell's Remembered (events/apply.go), which the stack->battlefield move
+	// preserves, so rules/altcast.go's entry hook can place the permanent
+	// tapped and attacking that same defender. Plain data, so a Clone copies
+	// it.
+	sneakDefender       state.PlayerID
+	sneakDefenderObject state.ObjID
+	sneakHasDefender    bool
 }
 
 // subCounterPay is one counter removed to pay a SubCounter cost part: the
@@ -1430,7 +1444,7 @@ func (e *Engine) castable(p state.PlayerID, id state.ObjID, cost Cost, ability b
 	if !e.costPayable(p, id, ability, mana) {
 		return false
 	}
-	return e.nonManaCastable(p, id, cost, ability)
+	return e.nonManaCastable(p, id, cost, ability, "")
 }
 
 // countCandPayable reports whether a repeatable-additional-cost count walk's
@@ -1453,7 +1467,7 @@ func (e *Engine) countCandPayable(pc *pendingCast, cand Cost) bool {
 	if !e.costPayable(pc.player, pc.card, false, mana) {
 		return false
 	}
-	return e.nonManaCastable(pc.player, pc.card, cand, false)
+	return e.nonManaCastable(pc.player, pc.card, cand, false, tapCostSAKind(e.pcAbility(pc)))
 }
 
 // countComposedCost is the CR 601.2f/903.8 composition of a count walk's
@@ -1487,7 +1501,7 @@ func (e *Engine) castablePriced(p state.PlayerID, id state.ObjID, cost Cost, abi
 	if !e.costPayablePool(p, id, ability, mana, pool, e.G.Players[p].ManaUnits()) {
 		return false
 	}
-	return e.nonManaCastable(p, id, cost, ability)
+	return e.nonManaCastable(p, id, cost, ability, "")
 }
 
 // chargeEnergyCost spends a cost's energy parts from the payer's pool, one
@@ -1561,7 +1575,7 @@ func (e *Engine) exileCostCandidates(zone state.Zone, p state.PlayerID, part Cos
 // announced face can legally make free. Keeping all non-mana checks in this
 // one helper means that specialized offer logic cannot bypass Sac/Discard/
 // counter/tap legality.
-func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ability bool) bool {
+func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ability bool, tapKind string) bool {
 	// A RaiseCost Cost$ part no payment stage can settle (Cost.Withheld):
 	// the additional cost cannot be paid, so neither can the whole cost.
 	if len(cost.Withheld) > 0 {
@@ -1762,7 +1776,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 						continue
 					}
 					avail++
-					floorSum += e.Power(oid)
+					floorSum += e.tapPowerValue(oid, tapKind)
 				}
 				if avail == 0 {
 					return false
@@ -1795,7 +1809,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 		// modelled for symmetry with the Any form): exactly N are tapped, so
 		// the most power a legal answer can tap is the N largest candidates.
 		// A shortfall withholds the cost.
-		if part.MinPower > 0 && e.tapTopPowerSum(avail, int(part.N)) < part.MinPower {
+		if part.MinPower > 0 && e.tapTopPowerSum(avail, int(part.N), tapKind) < part.MinPower {
 			return false
 		}
 		for i := 0; i < int(part.N); i++ {
@@ -2741,6 +2755,14 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// below and modeFlags' flag both key the canonical mode).
 		opt.Mode = "web-slinging"
 	}
+	if strings.HasPrefix(selectedMode, "sneaked_grant_") {
+		// Sneak (CR 702.190a): the same grant-cost convention as blitzed_grant_N
+		// above -- a unique offer mode per grant cost, canonical sneak
+		// semantics for the rest of the cast pipeline (the charge below,
+		// modeFlags' flag and the returncost defender capture all key the
+		// canonical mode).
+		opt.Mode = "sneak"
+	}
 	switch opt.Mode {
 	case "kicked":
 		if kc, ok := kickerCost(f); ok {
@@ -2989,6 +3011,23 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		for _, wc := range e.webSlingingCosts(p, id) {
 			if wc.mode == selectedMode {
 				cost = wc.cost
+				break
+			}
+		}
+	case "sneak":
+		// Sneak (CR 702.190a): the printed or granted sneak cost replaces the
+		// mana cost AND the composed Cost carries the mandatory
+		// Return<1/Creature.YouCtrl+attacking+unblocked> additional cost,
+		// settled by the ordinary Return machinery (returnAsk asks, payCast
+		// moves the chosen attacker to its owner's hand beside the other
+		// payments). sneakCosts is the ONE reader the offer and this charge
+		// call, so the two stages cannot drift; a stale option whose keyword
+		// is gone falls back to the empty cost rather than charging the
+		// printed mana cost.
+		cost = Cost{}
+		for _, sc := range e.sneakCosts(p, id) {
+			if sc.mode == selectedMode {
+				cost = sc.cost
 				break
 			}
 		}
@@ -3411,7 +3450,7 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 		// offered cast's would be (the energy total, the discard
 		// candidates): a YES answer the payment cannot settle is declined
 		// with a Note, not begun and short-changed at the settle.
-		if !e.nonManaCastable(p, id, alt, false) {
+		if !e.nonManaCastable(p, id, alt, false, "") {
 			e.emit(events.Event{Kind: events.Note, Player: p,
 				Text: "The alternative cost cannot be paid (" + playCost + "); the play is declined"})
 			return
@@ -3997,6 +4036,12 @@ func (e *Engine) beholdCostAsk() bool {
 
 func (e *Engine) tapPermanentCostAsk() bool {
 	pc := e.cast
+	// The activated-action kind this cost belongs to (Crew/Saddle, or "" for
+	// a hand-written tapXType ability), read off the SA being activated, so
+	// the affordability gate, the tap election's Option.Values and the
+	// Decision.MinSum the client and bot enforce all read the ONE TapPowerValue
+	// value (a Pilot's power+2, Giant Ox's toughness).
+	tapKind := tapCostSAKind(e.pcAbility(pc))
 	for pc.tapPart < len(pc.cost.TapPermanent) {
 		part := pc.cost.TapPermanent[pc.tapPart]
 		candidates := e.costCandidates(pc.player, pc.card, state.ZBattlefield, part.Spec, false, true)
@@ -4076,7 +4121,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 				return true
 			}
-			if part.Dyn == "Any" && part.MinPower > 0 && e.tapPowerSum(candidates) < part.MinPower {
+			if part.Dyn == "Any" && part.MinPower > 0 && e.tapPowerSum(candidates, tapKind) < part.MinPower {
 				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 				return true
 			}
@@ -4130,7 +4175,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 			for _, id := range candidates {
 				opt := decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)}
 				if part.MinPower > 0 {
-					opt.Value = int(e.Power(id))
+					opt.Value = int(e.tapPowerValue(id, tapKind))
 				}
 				d.Options = append(d.Options, opt)
 			}
@@ -4146,7 +4191,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		// no longer satisfy aborts like the Any form above -- an auto-tap of
 		// the only N candidates (next branch) or an election with no legal
 		// answer would pay a floor the state no longer reaches.
-		if part.MinPower > 0 && e.tapTopPowerSum(candidates, int(part.N)) < part.MinPower {
+		if part.MinPower > 0 && e.tapTopPowerSum(candidates, int(part.N), tapKind) < part.MinPower {
 			e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 			return true
 		}
@@ -4160,7 +4205,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		for _, id := range candidates {
 			opt := decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)}
 			if part.MinPower > 0 {
-				opt.Value = int(e.Power(id))
+				opt.Value = int(e.tapPowerValue(id, tapKind))
 			}
 			d.Options = append(d.Options, opt)
 		}
@@ -4175,10 +4220,10 @@ func (e *Engine) tapPermanentCostAsk() bool {
 // set-level read a withTotalPowerGE<N> group predicate (Crew, Mossbridge
 // Troll) constrains. "Any number" may tap the whole list, so the list's
 // total is the most power a payment can tap.
-func (e *Engine) tapPowerSum(ids []state.ObjID) int32 {
+func (e *Engine) tapPowerSum(ids []state.ObjID, saKind string) int32 {
 	sum := int32(0)
 	for _, id := range ids {
-		sum += e.Power(id)
+		sum += e.tapPowerValue(id, saKind)
 	}
 	return sum
 }
@@ -4187,16 +4232,16 @@ func (e *Engine) tapPowerSum(ids []state.ObjID) int32 {
 // group predicate: exactly N are tapped, so the most a payment can tap is
 // the power of the N largest candidates. A slice sort is fine here -- the
 // result is a sum, so the order equal powers sort in cannot reach an event.
-func (e *Engine) tapTopPowerSum(ids []state.ObjID, n int) int32 {
+func (e *Engine) tapTopPowerSum(ids []state.ObjID, n int, saKind string) int32 {
 	if n <= 0 {
 		return 0
 	}
 	if n >= len(ids) {
-		return e.tapPowerSum(ids)
+		return e.tapPowerSum(ids, saKind)
 	}
 	pw := make([]int32, 0, len(ids))
 	for _, id := range ids {
-		pw = append(pw, e.Power(id))
+		pw = append(pw, e.tapPowerValue(id, saKind))
 	}
 	sort.Slice(pw, func(a, b int) bool { return pw[a] > pw[b] })
 	sum := int32(0)
@@ -5372,9 +5417,14 @@ func (e *Engine) xAsk() bool {
 		if !e.convokeAbsorbs(pc, convMana, pc.convoke, false) {
 			continue
 		}
-		// Waterbend taps pay only the waterbend amount, which a Waterbend<X>
-		// raise ties to this X.
-		if waterbendTaps(pc.convoke) > pc.mods.waterbend+pc.mods.raiseX*x {
+		// Waterbend taps pay only the waterbend amount, which the fixed
+		// Waterbend<N> parts plus every announced-X form (a RaiseCost
+		// Waterbend<X> and/or the cost's own Waterbend<X> part) bound at this
+		// candidate X. Reading the announced X here -- not skipping the check
+		// whenever the cost carries an X-form part -- is what stops an over-
+		// announced tap from being credited against an unrelated generic
+		// component (CR 701.67a).
+		if waterbendTaps(pc.convoke) > waterbendCap(pc.mods, x) {
 			continue
 		}
 		legal = append(legal, x)
@@ -5386,8 +5436,15 @@ func (e *Engine) xAsk() bool {
 		// audit does exactly that), or every payable X left an announced
 		// contribution a no-op. In both, the OLD offer stands and payCast's
 		// own payable check aborts as it always did (CR 733.2), rather
-		// than this ask wedging or moving the abort site.
+		// than this ask wedging or moving the abort site. Every restored X
+		// must still satisfy the waterbend cap: an X the loop rejected
+		// BECAUSE the announced taps exceed its waterbend amount cannot be
+		// resurrected here -- payCast would settle it by letting a tap pay
+		// a non-waterbend generic component, which CR 701.67a forbids.
 		for x := min; x <= maxOld; x++ {
+			if waterbendTaps(pc.convoke) > waterbendCap(pc.mods, x) {
+				continue
+			}
 			vals = append(vals, x)
 		}
 	}
@@ -6049,6 +6106,8 @@ func etbChoiceKind(api string) string {
 		return "number"
 	case "ChooseColor":
 		return "color"
+	case "ChooseEvenOdd":
+		return "evenodd"
 	case "Clone":
 		return "copy"
 	}
@@ -6353,6 +6412,8 @@ func (e *Engine) etbOptions(you state.PlayerID, card state.ObjID, kind, validCar
 		// params); the ETB dispatch passes the whole parameter map to
 		// typeChoiceOptions instead.
 		return e.typeChoiceOptions(you, card, map[string]string{"Type": typeCategory})
+	case "evenodd":
+		return []decision.Option{{Index: 0, Kind: "evenodd", Label: "Odd"}, {Index: 1, Kind: "evenodd", Label: "Even"}}
 	default: // "number"
 		// The shared 0..N list (task cli-20260923T060000Z-choose-number:
 		// effects/number_choices.go is the ONE home), so the as-enters ask
@@ -6504,6 +6565,8 @@ func etbChoicePrompt(kind string) string {
 		return " a card name"
 	case "type":
 		return " a creature type"
+	case "evenodd":
+		return " odd or even"
 	case "color":
 		return " a color"
 	case "riot":
@@ -6978,7 +7041,7 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		// Mana abilities cannot make a non-mana payment or a life shortage
 		// disappear, so preserve a candidate for the mana window only after
 		// those independent requirements pass.
-		if !e.nonManaCastable(pc.player, pc.card, cost, pc.isAbility()) {
+		if !e.nonManaCastable(pc.player, pc.card, cost, pc.isAbility(), tapCostSAKind(e.pcAbility(pc))) {
 			continue
 		}
 		// A life cost with a POSITIVE component needs that much life (CR
@@ -7739,10 +7802,13 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	if !e.convokeAbsorbs(pc, e.manaToPay(pc), all, pc.cost.X > 0) {
 		return fmt.Errorf("announcement reduces nothing: the outstanding cost cannot absorb every chosen contribution")
 	}
-	// Waterbend taps pay only the waterbend amount. A Waterbend<X> cap is
-	// not known until X is announced; xAsk offers only the X values whose
-	// cap covers the announced taps.
-	if pc.mods.raiseX == 0 && waterbendTaps(all) > pc.mods.waterbend {
+	// Waterbend taps pay only the waterbend amount (CR 701.67a). A fixed
+	// Waterbend<N> part has a cap known here; a Waterbend<X> amount is the
+	// announced X, which does not exist yet at this pre-X announcement gate,
+	// so xAsk -- the one site that knows X -- enforces that cap through
+	// waterbendCap, and its last-resort fallback never resurrects an X the
+	// cap rejected.
+	if !pc.mods.waterbendX && pc.mods.raiseX == 0 && waterbendTaps(all) > waterbendCap(pc.mods, 0) {
 		return fmt.Errorf("more permanents tapped than the waterbend cost allows")
 	}
 	return nil
@@ -7753,16 +7819,22 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 // creature cannot first be used as a mana source.
 func (e *Engine) convokeAsk() bool {
 	pc := e.cast
-	if pc == nil || pc.convokeDone || pc.isAbility() {
+	if pc == nil || pc.convokeDone {
 		return false
 	}
 	pc.convokeDone = true
-	isConvoke := e.hasCastConvoke(pc.card)
-	isHarmonize := pc.mode == "harmonize"
-	isImprovise := e.hasCastImprovise(pc.card)
-	// A RaiseCost Waterbend<N>/<X> additional cost (Water Whip, Crashing
-	// Wave): each untapped artifact or creature tapped while paying it pays
-	// for {1} of the waterbend amount.
+	// A cast announces Convoke/Harmonize/Improvise; an activated ability
+	// announces only its own waterbend contributions (Giant Koi's
+	// `Cost$ Waterbend<3>`), so the cast-only keyword readers are skipped
+	// for an ability.
+	isAbility := pc.isAbility()
+	isConvoke := !isAbility && e.hasCastConvoke(pc.card)
+	isHarmonize := !isAbility && pc.mode == "harmonize"
+	isImprovise := !isAbility && e.hasCastImprovise(pc.card)
+	// A Waterbend<N>/<X> cost (a RaiseCost additional cost, or the ability's
+	// or optional part's own Waterbend token folded into mods by
+	// foldRaiseExtra): each untapped artifact or creature tapped while paying
+	// it pays for {1} of the waterbend amount (CR 701.67a).
 	isWaterbend := pc.mods.waterbend > 0 || pc.mods.waterbendX
 	if !isConvoke && !isHarmonize && !isImprovise && !isWaterbend {
 		return false
@@ -7866,8 +7938,10 @@ func (e *Engine) convokeAsk() bool {
 			d.Max = slots
 		}
 	}
-	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.raiseX == 0 && int(pc.mods.waterbend) < d.Max {
-		// Only waterbend taps are offered: at most the waterbend amount.
+	if isWaterbend && !isConvoke && !isHarmonize && !isImprovise && pc.mods.raiseX == 0 && !pc.mods.waterbendX && int(pc.mods.waterbend) < d.Max {
+		// Only waterbend taps are offered: at most the waterbend amount. A
+		// Waterbend<X> amount is not known until X is announced, so its cap
+		// is left open (waterbendX).
 		d.Max = int(pc.mods.waterbend)
 	}
 	e.choosing = chooseCast
@@ -8392,6 +8466,18 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 					pc.ninjutsuHasDefender = true
 				}
 			}
+			// K:Sneak (CR 702.190b): the permanent the sneak cast puts onto
+			// the battlefield attacks the SAME defender the returned creature
+			// was attacking. Capture it while the chosen attacker is still a
+			// battlefield object; pushCast then folds it onto the spell's
+			// Remembered so the entry hook can bind it.
+			if pc.mode == "sneak" {
+				if o := e.G.Obj(o.Obj); o != nil {
+					pc.sneakDefender = o.Attacking
+					pc.sneakDefenderObject = o.AttackingBattle
+					pc.sneakHasDefender = true
+				}
+			}
 			pc.returns = append(pc.returns, o.Obj)
 		}
 		pc.returnPart++
@@ -8607,6 +8693,16 @@ func modeFlags(mode string) string {
 	// to this canonical mode in beginCastWith before this switch is reached.
 	case "web-slinging":
 		return events.FlagsString(state.FlagWebSlinged)
+	// Sneak (CR 702.190a): the flag is the provenance the `sneaked` filter
+	// predicate reads -- Karai, Future of the Foot, Leonardo, Leader in Blue,
+	// Turncoat Kunoichi and The Last Ronin's Technique -- and the marker
+	// rules/altcast.go's altCostEnter reads to place the permanent tapped and
+	// attacking CR 702.190b's defender. It is a CastProvenanceFlag
+	// (state/object.go), so a stack copy does not inherit it. sneaked_grant_N
+	// modes are normalized to this canonical mode in beginCastWith before
+	// this switch is reached.
+	case "sneak":
+		return events.FlagsString(state.FlagSneaked)
 	// Bestow (CR 702.114a): the flag is the provenance the resolution
 	// reader (resolveTop) uses to substitute the synthesized Aura attach
 	// spell, and what keeps a bestowed cast distinguishable on the wire.
@@ -9642,6 +9738,22 @@ func (e *Engine) pushCast() bool {
 		ev.Secret = true
 	}
 	e.emit(ev)
+	// CR 702.190b: a sneak cast captured the defender its returned attacker
+	// was attacking. Fold it onto the now-existing stack object's dedicated
+	// SneakDefender field (a Choose "sneak-defender" event, NOT the generic
+	// Remembered channel -- card memory can otherwise carry a stale player),
+	// and the stack->battlefield move preserves it, so altCostEnter's entry
+	// hook can place the permanent tapped and attacking that defender. Only a
+	// sneak cast that actually paid the Return cost emits; every unrelated
+	// cast stays byte-identical.
+	if pc.sneakHasDefender {
+		ids := []state.ObjID{state.PlayerRef(pc.sneakDefender)}
+		if pc.sneakDefenderObject != 0 {
+			ids = append(ids, pc.sneakDefenderObject)
+		}
+		e.emit(events.Event{Kind: events.Choose, Obj: pc.card, Player: pc.player,
+			Counter: "sneak-defender", IDs: ids})
+	}
 	e.deferCastTrigger = false
 	// CR 722.3c: the prepared permanent loses its designation "at the time
 	// the spell becomes cast" (CR 601.2i) -- here, as the copy reaches the
@@ -10328,6 +10440,19 @@ func (e *Engine) emitChoiceCosts(pc *pendingCast) {
 	for _, id := range pc.taps {
 		e.emit(events.Event{Kind: events.Tap, Obj: id, Text: "tapped as a cost"})
 	}
+	// CR 702.122: the creatures that paid a Crew ability's tap cost crewed the
+	// Vehicle. The crew keyword rides the minted Animate SA as `Keyword$ Crew`
+	// (cards/kw_crew.go), so the tag -- not any card name -- is what marks this
+	// activation: one Crew event per tapped crewer, pairing it with the source
+	// Vehicle (pc.card) for the Creature.CrewedThisTurn filter. The ordinary
+	// tapXType costs of other abilities (Mossbridge Troll's regeneration, the
+	// {T} cost) carry no Crew tag and record nothing.
+	if saHasKeyword(e.pcAbility(pc), "Crew") {
+		for _, id := range pc.taps {
+			e.emit(events.Event{Kind: events.Crew, Obj: id, Player: pc.player,
+				IDs: []state.ObjID{pc.card}})
+		}
+	}
 	for i, id := range pc.blights {
 		if i < len(pc.cost.Blight) {
 			n := pc.cost.Blight[i].N
@@ -10536,7 +10661,11 @@ func (e *Engine) payCast() {
 		// SubCounter part (a CounterChange of -N), and every chosen sacrifice.
 		// The ability object is minted after payment below; answered targets
 		// are recorded onto it after AbilityPush, including a window resume.
-		mana := e.manaToPay(pc)
+		// An activated ability may carry a Waterbend<N>/<X> cost (Giant
+		// Koi), whose announced taps (pc.convoke) pay {1} each of the generic
+		// (CR 701.67a). paymentMana folds them like a cast's Convoke
+		// contributions; with no contributions it is manaToPay unchanged.
+		mana := e.paymentMana(pc)
 		// The descriptor carries the announced-X marker (the ability's own
 		// {X} cost was folded), so a CostContainsX batch sees this activation
 		// as an X payment exactly as the offer did.
@@ -10569,6 +10698,12 @@ func (e *Engine) payCast() {
 		}
 		if pc.payLife != 0 {
 			e.emit(events.Event{Kind: events.LifeChange, Player: pc.player, Amount: -pc.payLife})
+		}
+		// An activated ability's announced waterbend taps (pc.convoke) become
+		// tapped as part of paying the cost, the same Tap event a cast's
+		// Convoke/Harmonize/Improvise contributions emit (CR 701.67a).
+		for _, pay := range pc.convoke {
+			e.emit(events.Event{Kind: events.Tap, Obj: pay.id})
 		}
 		for _, id := range pc.delve {
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZGraveyard, To: state.ZExile, Text: "delved"})

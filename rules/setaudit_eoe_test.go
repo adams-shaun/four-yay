@@ -463,16 +463,12 @@ func TestSetAudit_eoe_CountVoid_TokenDeparture(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // (a) Mightform Harmonizer — Landfall "double the power of target creature
-// you control until end of turn." Forge writes the doubling as
-// `DB$ Pump | NumAtt$ Double`; the "Double" count operation is read nowhere
-// (`/usr/bin/grep -rn '"Double"' effects rules cards` has no non-test hit),
-// so `Num` degrades the unresolvable amount to 0 and the pump adds +0/+0.
+// you control until end of turn." Forge writes this as
+// `DB$ Pump | NumAtt$ Double`; effects.NumForObject must read the target's
+// current, layer-derived power at resolution so the additive pump doubles it.
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_MightformHarmonizer_DoublePower(t *testing.T) {
-	eoeGuard(t, "the 'Double' Pump amount (NumAtt$ Double / NumDef$ Double) is unmodelled, "+
-		"so Mightform Harmonizer's Landfall doubling adds +0/+0",
-		"Implement the Double count operation for Pump/Animate P-T (36 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		lookup(t, reg, "Mightform Harmonizer"),

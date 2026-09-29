@@ -341,12 +341,9 @@ func TestSearchOnRedealtWorlds(t *testing.T) {
 	}
 }
 
-// An az seat on the redeal source plays whole games without the
-// clairvoyant gate open, searches, and replays exactly.
+// An az seat on the redeal source plays whole games with no clairvoyant
+// source configured, searches, and replays exactly.
 func TestSeatOnRedealPlaysAndReplays(t *testing.T) {
-	prevGate := clairvoyantAllowed.Load()
-	clairvoyantAllowed.Store(false)
-	t.Cleanup(func() { clairvoyantAllowed.Store(prevGate) })
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	sc := DefaultSeatConfig()
 	sc.Search.Sims, sc.World = 4, WorldRedeal

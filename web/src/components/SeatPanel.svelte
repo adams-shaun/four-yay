@@ -2,13 +2,13 @@
   import { onMount, onDestroy, untrack } from 'svelte';
   import type { CardView, Option, PaymentAction, SeatInfo, View } from '../protocol';
   import type { SeatCtx } from '../lib/seat';
-  import { SeatPanelState, autoNoteText, isConcede, mulliganPhase, paymentPlanSummary, toneOf } from '../lib/seatpanel.svelte';
+  import { SeatPanelState, autoNoteText, genericListOptions, mulliganPhase, paymentPlanSummary, toneOf } from '../lib/seatpanel.svelte';
   import { promptContext, promptContextText } from '../lib/prompt';
   import { arrangeCard } from '../lib/arrange';
   import { discardCard, isDiscardPick } from '../lib/discard';
   import { isSearchPick, searchCard, searchOptions } from '../lib/search';
   import { isNamePick, nameOptions, NAME_PICK_RENDER_LIMIT } from '../lib/name-pick';
-  import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
+  import { manualManaHidden } from '../lib/manualmana';
   import { modalPickerOpen } from '../lib/modals';
   import ArrangeModal from './ArrangeModal.svelte';
   import DiscardModal from './DiscardModal.svelte';
@@ -784,7 +784,7 @@
                 disabled={logic.busy}
               ><span class="label">{action.label}</span></button>
             {/each}
-            {#each decision.options.filter((opt) => !isConcede(opt) && opt.index !== primary?.index && !paymentBases.has(opt.index) && !(hideManualMana && isPlainManualTap(opt))) as opt (opt.index)}
+            {#each genericListOptions(decision, primary, paymentBases, hideManualMana) as opt (opt.index)}
               {@const pickedAt = logic.picked.indexOf(opt.index)}
               {@const pickedCount = decision.repeatable ? logic.picked.filter((i) => i === opt.index).length : 0}
               <button

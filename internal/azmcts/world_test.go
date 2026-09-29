@@ -7,28 +7,6 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 )
 
-// allowClairvoyantForTest opens the clairvoyant gate for one test and
-// restores it after.
-func allowClairvoyantForTest(t testing.TB) {
-	t.Helper()
-	prev := clairvoyantAllowed.Load()
-	clairvoyantAllowed.Store(true)
-	t.Cleanup(func() { clairvoyantAllowed.Store(prev) })
-}
-
-func TestClairvoyantRefusedUnlessAllowed(t *testing.T) {
-	prev := clairvoyantAllowed.Load()
-	t.Cleanup(func() { clairvoyantAllowed.Store(prev) })
-	clairvoyantAllowed.Store(false)
-	if _, err := NewClairvoyant(nil, nil); !errors.Is(err, ErrClairvoyantRefused) {
-		t.Fatalf("NewClairvoyant without AllowClairvoyant: %v, want ErrClairvoyantRefused", err)
-	}
-	AllowClairvoyant()
-	if _, err := NewClairvoyant(nil, nil); err == nil || errors.Is(err, ErrClairvoyantRefused) {
-		t.Fatalf("allowed, nil engine: %v, want a plain refusal", err)
-	}
-}
-
 // A panic inside a world's engine is recovered and classified.
 func TestSubmitRecoversAnEnginePanic(t *testing.T) {
 	env := &engineEnv{} // nil engine: Submit dereferences it and panics

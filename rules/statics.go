@@ -1558,11 +1558,13 @@ type hiddenKeywordFlags struct {
 func parseHiddenKeyword(k string) hiddenKeywordFlags {
 	head := strings.TrimSpace(strings.TrimPrefix(cardsKeywordHead(k), "HIDDEN "))
 	switch {
-	case strings.EqualFold(head, "CARDNAME can't attack or block."):
+	case strings.EqualFold(head, "CARDNAME can't attack or block."),
+		strings.EqualFold(head, "CantAttackOrBlock"):
 		// The compound spelling imparts BOTH restrictions (Opportunistic
 		// Dragon, Extraction Specialist); it must satisfy the cant-block
 		// reader as well as the cant-attack one, so it is matched before
-		// either simple spelling.
+		// either simple spelling. Printed K: lines are canonicalised to the
+		// head; runtime KW$ grants retain the sentence spelling.
 		return hiddenKeywordFlags{cantAttack: true, cantBlock: true}
 	case strings.EqualFold(head, "CARDNAME can't attack."):
 		return hiddenKeywordFlags{cantAttack: true}
@@ -1934,18 +1936,25 @@ type costMods struct {
 	// that can make it non-zero). While it is false extra is the zero Cost,
 	// which apply may then skip (see apply).
 	hasExtra bool
-	// waterbend / waterbendX / raiseX carry a RaiseCost Cost$ Waterbend<N>
-	// or Waterbend<X> (Water Whip, Crashing Wave; the keyword action "waterbend {N}":
-	// pay {N}, and each untapped artifact or creature you tap while paying
-	// it pays for {1}). The fixed {N} is already in raiseGen; waterbend is
-	// how much of the generic total those taps may cover. raiseX counts the
-	// Waterbend<X> parts: each adds an {X} to the pending cost (folded at the
-	// fold site, since xAsk reads pc.cost.X), and waterbendX lets the taps
-	// cover that announced X too. apply reads none of the three -- the {N}
-	// already rides raiseGen and an unannounced {X} prices at zero.
-	waterbend  int32
-	waterbendX bool
-	raiseX     int32
+	// waterbend / waterbendX / waterbendPartX / raiseX carry a RaiseCost
+	// Cost$ Waterbend<N> or Waterbend<X> (Water Whip, Crashing Wave) and a
+	// cost's OWN Waterbend<N>/<X> part (Giant Koi's ability, a self-spell
+	// OptionalCost; the keyword action "waterbend {N}": pay {N}, and each
+	// untapped artifact or creature you tap while paying it pays for {1}).
+	// The fixed {N} is in raiseGen or the cost itself; waterbend is how much
+	// of the generic total those taps may cover. raiseX counts the RaiseCost
+	// Waterbend<X> parts (each adds an {X} to the pending cost, folded at the
+	// fold site since xAsk reads pc.cost.X); waterbendPartX counts the
+	// Waterbend<X> parts carried by the COST itself, whose amount is the same
+	// announced X (foldRaiseExtra does not add those to raiseX, since
+	// ParseCost already counted them into cost.X). waterbendX lets the taps
+	// cover the announced X at all. apply reads none of them -- the {N}
+	// already rides raiseGen and an unannounced {X} prices at zero; every
+	// cap site reads the one waterbendCap helper.
+	waterbend      int32
+	waterbendX     bool
+	waterbendPartX int32
+	raiseX         int32
 }
 
 // empty reports whether the composition would change nothing, so a caller can
@@ -3620,13 +3629,12 @@ func parseAmount(s string, def int32) int32 {
 
 func init() {
 	effects.RegisterNonAPI("stat:CantBeCast", "stat:CantBeActivated", "stat:CantBeCopied", "stat:RaiseCost", "stat:CastWithFlash",
-		"stat:ReduceCost", "stat:AlternativeCost", "stat:CantBlock", "stat:CantBlockBy",
+		"stat:ReduceCost", "stat:AlternativeCost", "stat:OptionalCost", "stat:CantBlock", "stat:CantBlockBy",
 		"stat:CantGainLife", "stat:Continuous", "stat:ManaConvert", "stat:NumLoyaltyAct",
-		// cantdraw1: the CR 121.6 CantDraw prohibition static
+		// cantdraw1 / cantdraw-drawlimit-cap: CR 121.6 CantDraw statics
 		// (rules/replacement.go drawForbidden, consulted by applyReplacements
-		// before any Draw replacement). Its ValidPlayer$ scope is read; a
-		// DrawLimit$ count cap is left unread and the static skipped in the
-		// permissive direction (see drawForbidden's own note).
+		// before any Draw replacement). ValidPlayer$ scopes total prohibitions
+		// and DrawLimit$ per-turn count caps.
 		"stat:CantDraw",
 		// surveilnum1: the stat:SurveilNum static (Host.SurveilLookExtra,
 		// consulted by effects' effSurveil through the shared activeStatics
@@ -3742,7 +3750,7 @@ func init() {
 	// The obvious alternative spelling MustBeBlocked is already taken by an
 	// unrelated Forge AI-hint SVar name (rules/layers.go GrantedSVar, 41
 	// corpus files), so it is deliberately NOT used here.
-	effects.RegisterNonAPI("kw:MustBlock")
+	effects.RegisterNonAPI("kw:MustBlock", "kw:CantAttackOrBlock")
 }
 
 // asUnblockedStaticMatches reports whether any battlefield
@@ -3986,6 +3994,22 @@ func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
 		}
 	}
 	return e.Power(id)
+}
+
+// tapCostSAKind names the activated-action kind an ability's tap-power cost
+// belongs to, for the TapPowerValue ValidSA$ scope. The keyword expansions
+// stamp the minted tap-cost ability with `Keyword$ <kw>` (cards/kw_crew.go
+// sets Keyword$ Crew; the Saddle expansion the same way), so the keyword is
+// the action kind a static like Giant Ox's `ValidSA$ Activated.Crew+Vehicle`
+// scopes to. A hand-written tapXType ability (Mossbridge Troll) and every
+// non-tap-cost ability read as "", which only an empty ValidSA$ admits. The
+// read is the SA's own keyword, so an ability can never be scoped by another
+// action's static.
+func tapCostSAKind(ab *cards.SA) string {
+	if ab == nil {
+		return ""
+	}
+	return strings.TrimSpace(ab.Params["Keyword"])
 }
 
 // altCostLabel names the nth (0-indexed) alternative-cost option for a

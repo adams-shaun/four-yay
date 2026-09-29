@@ -262,6 +262,15 @@ func Describe(g *state.Game, ev events.Event) string {
 			return obj(g, ev.Obj) + " enlists a creature"
 		}
 		return obj(g, ev.Obj) + " enlists " + obj(g, ev.IDs[0])
+	case events.Crew:
+		// CR 702.122 (task crewedthisturn1): the crew action record. Obj is a
+		// CREWING creature and IDs[0] the Vehicle it crewed (the Tap event is
+		// a separate line). It is what the Creature.CrewedThisTurn filter
+		// reads, one line per crewing creature.
+		if len(ev.IDs) == 0 {
+			return obj(g, ev.Obj) + " crews a Vehicle"
+		}
+		return obj(g, ev.Obj) + " crews " + obj(g, ev.IDs[0])
 	case events.PlanarRoll:
 		// CR 901.3 (task rollplanar1): the roll record. The per-die faces ride
 		// the die-roll Notes rules emits beside this event; Amount > 1 names

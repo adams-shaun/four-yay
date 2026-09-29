@@ -226,4 +226,49 @@ describe('the hotkey guard against an open modal — mounted', () => {
     expect(result).toEqual({ open: true, closed: false });
     await page.close();
   });
+
+  it('a held key auto-repeats only pass: a repeated undo chord never posts, a repeated Space still passes', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    await page.locator('#fixture [data-undo]').waitFor();
+    const press = (init: { key: string; code: string; ctrlKey?: boolean; shiftKey?: boolean; repeat?: boolean }) =>
+      page.evaluate((i) => document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...i })), init);
+
+    await press({ key: 'Z', code: 'KeyZ', ctrlKey: true, shiftKey: true, repeat: true });
+    await page.waitForTimeout(50);
+    expect(await undoPosts(page)).toEqual([]);
+    await press({ key: 'Z', code: 'KeyZ', ctrlKey: true, shiftKey: true });
+    await page.waitForFunction(() => (window as unknown as { __undos: UndoPosts }).__undos.length === 1);
+
+    const fresh = await browser.newPage();
+    await fresh.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    await fresh.locator('#fixture [data-undo]').waitFor();
+    await fresh.evaluate(() => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', repeat: true, bubbles: true, cancelable: true })));
+    await fresh.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1);
+    expect(await posts(fresh)).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    await fresh.close();
+    await page.close();
+  });
+
+  it('? opens the shortcut sheet and stays open; ? again (focus elsewhere) and a backdrop click close it', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    await page.locator('#fixture [data-undo]').waitFor();
+    const sheet = page.locator('[aria-labelledby="keys-title"]');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Shift+Slash');
+    await sheet.first().waitFor();
+    await page.waitForTimeout(50);
+    expect(await sheet.count()).toBeGreaterThan(0);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Shift+Slash');
+    await expect.poll(() => sheet.count()).toBe(0);
+
+    await page.keyboard.press('Shift+Slash');
+    await sheet.first().waitFor();
+    await page.locator('[data-keys-backdrop]').first().click({ position: { x: 5, y: 5 } });
+    await expect.poll(() => sheet.count()).toBe(0);
+    await page.close();
+  });
 });
+

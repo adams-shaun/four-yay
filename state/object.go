@@ -388,6 +388,22 @@ const (
 	// copy -- put on the stack, never cast (CR 707.10) -- must not inherit
 	// it. Appended after main's FlagAddsCounters to preserve its bit.
 	FlagWebSlinged
+	// FlagSneaked marks a permanent cast paid for with the card's K:Sneak
+	// alternative cost (CR 702.190a: "you may cast this spell by paying
+	// [cost] and returning an unblocked creature you control to its owner's
+	// hand during the declare blockers step"). The flag is the provenance the
+	// `sneaked` filter predicate reads (effects/filter.go, the `escaped`
+	// pattern): Karai, Future of the Foot's "if her sneak cost was paid this
+	// turn", Leonardo, Leader in Blue's Card.Self+sneaked ETB trigger,
+	// Turncoat Kunoichi's Card.sneaked condition and The Last Ronin's
+	// Technique's Count$ValidStack Card.Self+sneaked. It IS a
+	// CastProvenanceFlag: the riders are conditioned on the spell having been
+	// CAST for its sneak cost, so a stack copy -- put on the stack, never cast
+	// (CR 707.10) -- must not inherit it. It also drives the CR 702.190b
+	// "enters tapped and attacking the same defender" entry rider
+	// (rules/altcast.go's altCostEnter). Appended after main's FlagWebSlinged
+	// to preserve its bit.
+	FlagSneaked
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -429,7 +445,7 @@ const (
 // FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
 // statement about the cast (the web-slinging cost was paid), so a stack copy
 // -- put on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it
@@ -580,6 +596,10 @@ type Object struct {
 	EnteredThisTurn        bool
 	EnteredFrom            Zone
 	WasDealtDamageThisTurn bool
+	// DamageReceivedThisTurn is the total positive damage dealt to this object
+	// during the current turn, before damage is marked/cleared. Used by Forge's
+	// Count$TotalDamageReceivedThisTurn trigger conditions.
+	DamageReceivedThisTurn int32
 	// DamageTakenByGame lists, in append order, every damage SOURCE that has
 	// dealt this object damage this game (game-long; never cleared at
 	// TurnChange). Appended by events.Apply's DamageProvenance case with a
@@ -659,6 +679,23 @@ type Object struct {
 	// 400.7: a new object never carries the old object's enlist status).
 	EnlistedTurn   int32
 	EnlistedCombat int32
+
+	// CrewedVehicles and CrewedTurn record CR 702.122's crew action on the
+	// CREWING creature: the turn it last crewed, and the Vehicles it crewed
+	// that turn. Forge's Creature.CrewedThisTurn / Card.CrewedThisTurn filter
+	// ("a creature that crewed IT this turn") is source-relative -- IT is the
+	// Vehicle whose trigger or effect carries the spec -- so the association
+	// must be a pairing, not a bare boolean: a creature can crew more than one
+	// Vehicle in a turn (it untaps between crews) and a Vehicle can be crewed
+	// by several creatures (Crew N). Both are folded by events.Apply's Crew
+	// case from the tap-cost payment; the crewedThisTurn filter predicate
+	// (effects/filter.go) matches when CrewedTurn is the live turn and the
+	// spec's source id is in CrewedVehicles. Cleared at TurnChange (a per-turn
+	// fact) and when the permanent leaves the battlefield (CR 400.7: a new
+	// object never carries the old object's crew status). It is a slice, so
+	// CloneDeep backs it independently like BlockedBy.
+	CrewedVehicles []ObjID
+	CrewedTurn     int32
 
 	// preStackEntry* carries a card's entry history only while it is on the
 	// stack. events.Apply captures it before PutOnStack overwrites the public
@@ -1023,6 +1060,19 @@ type Object struct {
 	// is a legal opponent, so a zero Protector alone is ambiguous.
 	Protector      PlayerID
 	ProtectorValid bool
+	// SneakDefender is the defending player, and SneakDefenderObject is the
+	// planeswalker or battle (if any) the returned attacker of a K:Sneak cast
+	// was attacking. Both are captured when the Return cost is paid and
+	// carried to the permanent so the entry hook can place it tapped and
+	// attacking that same defender. They ride their OWN fields and Choose
+	// counter rather than the generic Remembered list: Remembered is card memory preserved across
+	// zone changes, so a card that already remembered a player (any
+	// Choose "remembered" PlayerRef) and is later sneak-cast would scan
+	// that stale player and enter attacking the wrong defender.
+	// SneakDefenderValid distinguishes the legal seat 0 from unset.
+	SneakDefender       PlayerID
+	SneakDefenderObject ObjID
+	SneakDefenderValid  bool
 	// LastNotedMana is the mana type the object's last RememberCostMana$
 	// activation paid with (Jeweled Amulet: "note the type of mana spent to
 	// pay this activation cost") — the colour letter(s) of the mana the
@@ -1668,6 +1718,7 @@ func (o *Object) CloneDeep() Object {
 	c.Targets = append([]Target(nil), o.Targets...)
 	c.Remembered = append([]Target(nil), o.Remembered...)
 	c.BlockedBy = append([]ObjID(nil), o.BlockedBy...)
+	c.CrewedVehicles = append([]ObjID(nil), o.CrewedVehicles...)
 	c.Chosen = append([]Target(nil), o.Chosen...)
 	c.Goads = append([]GoadEffect(nil), o.Goads...)
 	c.ChosenModes = CloneChosenModes(o.ChosenModes)

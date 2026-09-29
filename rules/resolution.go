@@ -237,6 +237,14 @@ type resumePoint struct {
 	// Defined$ FlippedTails / Wins reader loses every flip performed before the
 	// suspension (Goblin Assassin's per-loser sacrifice ask is the live shape).
 	flipMemory *effects.FlipMemory
+	// exchangeMemory is the resolving chain's shared ExchangeLife rider memory
+	// at the ask (Engine.resolvingExchangeMemory, published by effects.Resolve
+	// and re-published by effExchangeLife when it lazily allocates the
+	// memory). The resume rebuilds a fresh Ctx, so it must re-attach this same
+	// pointer or a chained Count$RememberedNumber reader loses the value the
+	// exchange transaction settled (Mister Negative's draw rider under a Lich
+	// suspension is the live shape). Nil for every non-ExchangeLife ask.
+	exchangeMemory *effects.ExchangeMemory
 	// villainousRemembered is the VICTIM of the VillainousChoice whose chosen
 	// body is resolving, carried on every ask the body's chain poses (the
 	// ambient binding Engine.villainousRemembered captures into Ask). The
@@ -742,7 +750,8 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		targetControllerLKI: effects.CloneTargetControllerLKI(e.resolvingTargetControllerLKI),
 		targetCountersLKI:   resolutionTargetCounters(e.resolutionCtx),
 		targetSpellLKI:      resolutionTargetSpells(e.resolutionCtx),
-		flipMemory:          e.resolvingFlipMemory}
+		flipMemory:          e.resolvingFlipMemory,
+		exchangeMemory:      e.resolvingExchangeMemory}
 }
 
 // Suspended implements effects.Host.Suspended: the resolution is suspended
@@ -763,6 +772,19 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 func (e *Engine) SetResolutionFlipMemory(m *effects.FlipMemory) *effects.FlipMemory {
 	prev := e.resolvingFlipMemory
 	e.resolvingFlipMemory = m
+	return prev
+}
+
+// SetResolutionExchangeMemory implements effects' exchangeMemoryHost (an
+// optional seam, so the effects test doubles need no method): effects.Resolve
+// publishes the resolving chain's shared ExchangeLife rider memory around the
+// whole walk and restores the enclosing value on return, and effExchangeLife
+// re-publishes when it lazily allocates that memory. Returns the previous
+// value for the defer restore. Engine-transient scratch like
+// resolvingFlipMemory, never a writer of the resume state the archtest guards.
+func (e *Engine) SetResolutionExchangeMemory(m *effects.ExchangeMemory) *effects.ExchangeMemory {
+	prev := e.resolvingExchangeMemory
+	e.resolvingExchangeMemory = m
 	return prev
 }
 
@@ -1571,6 +1593,11 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 		if letter := etbColourLetter(opt.Label); letter != "" {
 			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "color", Text: letter})
 		}
+	case "evenodd":
+		quality := strings.ToLower(opt.Label)
+		if quality == "odd" || quality == "even" {
+			e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "type", Text: quality})
+		}
 	case "riot":
 		choice := "haste"
 		if opt.Index == 0 {
@@ -1914,7 +1941,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// performed before the suspension (Goblin Assassin's per-loser
 		// sacrifice asks once after the flips; without this the second loser's
 		// read saw an empty set and never sacrificed).
-		FlipMemory: rp.flipMemory}
+		FlipMemory: rp.flipMemory,
+		// The shared ExchangeLife rider memory the chain had at the ask, the
+		// same pointer-ride as FlipMemory above: a chained Count$
+		// RememberedNumber reader (Mister Negative's SubAbility$ DBDraw) keeps
+		// the value the exchange transaction settles, no matter how many Ctx
+		// rebuilds the suspension's continuation chain goes through.
+		ExchangeMemory: rp.exchangeMemory}
 	// The plural replaced-instruction batch (Ctx.ReplacedCards) follows the
 	// same rule as the singular Replaced below: a resumed frame that carries
 	// one restores it, so a Cascade body's hidden pick re-resolves
@@ -4300,6 +4333,19 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				next.loopRemembered = append([]state.Target(nil), ctx.Remembered...)
 			}
 		}
+		if parkedDraws {
+			// CR 608.2c: a resolution's SubAbility$ continuation runs only after
+			// the effect that named it — including every replacement application
+			// — completes. An exchange transaction the parked draw interrupted
+			// (Lich's GainLife→Draw body under Mister Negative's exchange) is
+			// still pending here, and rp.outer is that exchange's OWN SubAbility$
+			// continuation: settle the transaction FIRST, or the rider reads the
+			// transaction's pre-settle state (RememberOwnLoss evaluated to 0
+			// because the controller's loss had not been finalised yet). A settle
+			// that itself suspends re-parks the transaction (the existing drain
+			// contract); the continuation below then runs as before.
+			e.settlePendingLifeExchange()
+		}
 		e.resumeResolution(rp.outer, nil)
 		if parkedDraws {
 			e.askNextReplacementChoice()
@@ -4444,6 +4490,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 		// pointer copy — never a value clone — keeps every frame live.
 		if e.resume != nil {
 			f.flipMemory = e.resume.flipMemory
+			f.exchangeMemory = e.resume.exchangeMemory
 		}
 		if e.replacingEvent != nil && e.replacingEvent.Kind == events.Damage {
 			f.replacementTarget = state.Target{Obj: e.replacingEvent.Obj}

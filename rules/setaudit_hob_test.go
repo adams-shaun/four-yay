@@ -239,7 +239,6 @@ func TestSetAudit_hob_BardKingOfDale_ReplacesExtraDrawWithTwo(t *testing.T) {
 // ETB replacement choice, not merely registration. CR 614.1: the replacement
 // effect modifies how Gollum enters and must ask for the chosen quality.
 func TestSetAudit_hob_GollumRiddleMaster_ChoosesOddOrEven(t *testing.T) {
-	hobGuard(t, "Gollum, Riddle Master enters without the required odd-or-even choice", "hob-gollum-even-odd")
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, hobCard(t, reg, "Gollum, Riddle Master"))
@@ -255,8 +254,24 @@ func TestSetAudit_hob_GollumRiddleMaster_ChoosesOddOrEven(t *testing.T) {
 		if d == nil {
 			break
 		}
-		if d.Kind == decision.KChoose || d.Kind == decision.KModes {
-			return
+		if d.Kind == decision.KChoose && d.ResumeKind == "etb" {
+			if len(d.Options) != 2 || d.Options[0].Label != "Odd" || d.Options[1].Label != "Even" {
+				t.Fatalf("Gollum entry choice = %+v, want Odd/Even", d.Options)
+			}
+			submitChoices(t, e, d.Options[1].Index)
+			for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+				o := e.G.Obj(id)
+				if o != nil && o.Face() != nil && o.Face().Name == "Gollum, Riddle Master" {
+					if o.ChosenType != "even" {
+						t.Fatalf("Gollum chosen quality = %q, want even", o.ChosenType)
+					}
+					return
+				}
+			}
+			t.Fatal("precondition failed: Gollum did not enter after answering ETB choice")
+		}
+		if d.Kind == decision.KModes {
+			t.Fatalf("unexpected modes choice before Gollum entry choice: %+v", d)
 		}
 		if d.Kind == decision.KPriority {
 			castFirst(t, e, "pass")

@@ -118,6 +118,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/bots"
+	_ "github.com/adams-shaun/gorge/bots/all"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
@@ -268,9 +270,11 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	// from the driver's engine feed (internal/bench.PlayGame's
 	// searchseat.SearchSeat branch). -az-world clairvoyant searches clones
 	// of the REAL engine, so it is bench and training only: azFrontDoor is
-	// the only azmcts.AllowClairvoyant caller, host.NormalizeBotPolicy does
-	// not know the name, and internal/archtest forbids host, host/httpapi
-	// and cmd/gorged from linking azmcts at all.
+	// the only clairvoyant.AllowClairvoyant caller, host.NormalizeBotPolicy
+	// does not know the name, and internal/archtest forbids host,
+	// host/httpapi and cmd/gorged from linking internal/azmcts/clairvoyant
+	// at all (the honest azmcts core is linkable; botbench injects the
+	// clone as azmcts.SeatConfig.Source).
 	"az": func(seed uint64) seat.Seat {
 		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az"))
 		if err != nil {
@@ -403,7 +407,7 @@ func setTacticalRegistry(reg *cards.Registry) {
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
 	return func(seed uint64) seat.Seat {
-		s, err := host.NewBotPolicySeat(name, seed)
+		s, err := bots.New(name, bots.Options{Seed: seed})
 		if err != nil {
 			panic(err) // constants above are the closed hosted-policy vocabulary.
 		}

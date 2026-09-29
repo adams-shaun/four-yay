@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/adams-shaun/gorge/bots/all"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/host"
@@ -66,6 +67,17 @@ type config struct {
 	botAutoPayMana bool
 	// autoMana enables payment-plan publication and controls for human seats.
 	autoMana bool
+	// botPolicy is the -bot-policy flag: the hosted policy every startup
+	// table's bots play, and the on-demand default when a POST /api/games
+	// names none. Validated by host.NormalizeBotPolicy before listening, so
+	// only the closed hosted vocabulary can ever reach a table.
+	botPolicy string
+	// vsbotSpectator is the -vsbot-spectator flag: the spectator visibility
+	// of on-demand play-vs-bot tables, split from -spectator so one server
+	// can show its bot-only tables omniscient while a table with a human in
+	// it stays public -- an omniscient spectator view of a human's game
+	// would show that human's hand to anyone watching.
+	vsbotSpectator string
 	// maxOnDemandTables limits retained private vs-bot games in one process.
 	// A bounded refusal preserves each existing game's credentials, feedback
 	// capture and replay routes; it never evicts a game behind a live URL.
@@ -170,7 +182,7 @@ func serveFlags() (*flag.FlagSet, *config) {
 	fs.StringVar(&c.decks, "decks", "internal/testutil/decks", "directory of deck JSON files")
 	fs.IntVar(&c.tables, "tables", 4, "number of tables")
 	fs.IntVar(&c.seats, "seats", 4, "seats per table")
-	fs.DurationVar(&c.pace, "pace", 250*time.Millisecond, "sleep after every decision; 0 = as fast as possible")
+	fs.DurationVar(&c.pace, "pace", 50*time.Millisecond, "sleep after every decision; 0 = as fast as possible")
 	fs.DurationVar(&c.cooldown, "cooldown", 5*time.Second, "pause between matches on a perpetual table")
 	fs.StringVar(&c.dir, "dir", "gorged-data", "persistence directory")
 	fs.StringVar(&c.feedback, "feedback", "feedback", "directory player bug reports are written to (kept OUT of -dir, which deploys wipe)")
@@ -185,6 +197,8 @@ func serveFlags() (*flag.FlagSet, *config) {
 	fs.BoolVar(&c.vsbot, "vsbot", false, "arm the on-demand play-vs-bot flow (landing page seats a human against a bot via POST /api/games)")
 	fs.BoolVar(&c.botAutoPayMana, "bot-auto-mana", true, "have hosted bots and human-seat caretakers cast through offered automatic mana payment plans")
 	fs.BoolVar(&c.autoMana, "auto-mana", true, "enable automatic mana payment plans and controls for human seats (disable with -auto-mana=false for the legacy manual path)")
+	fs.StringVar(&c.botPolicy, "bot-policy", host.BotPolicy, "hosted bot policy for startup tables and the default for on-demand vs-bot games (bot, lethal-pressure, cast-profile)")
+	fs.StringVar(&c.vsbotSpectator, "vsbot-spectator", "public", "spectator visibility of on-demand play-vs-bot tables: public or omniscient")
 	fs.IntVar(&c.maxOnDemandTables, "max-on-demand-tables", 32, "maximum retained private play-vs-bot tables per process (0 = unlimited)")
 	// The prewarm default is TRUE, deliberately, and lives here — the flag
 	// registration — not in a statement main must run after Parse. The
@@ -208,6 +222,19 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 	}
 	if vis == view.Seat {
 		return fmt.Errorf("-spectator must be public or omniscient")
+	}
+	// Empty (a config built without the flag set) is the flag's default.
+	vsbotVis := view.Public
+	if c.vsbotSpectator != "" {
+		if vsbotVis, err = view.ParseVisibility(c.vsbotSpectator); err != nil {
+			return err
+		}
+	}
+	if vsbotVis == view.Seat {
+		return fmt.Errorf("-vsbot-spectator must be public or omniscient")
+	}
+	if c.botPolicy, err = host.NormalizeBotPolicy(c.botPolicy); err != nil {
+		return err
 	}
 	reg, err := cards.SharedCorpus(c.cards)
 	if err != nil {
@@ -287,7 +314,7 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 		if gate == nil {
 			gate = &seatGate{tokenToClaim: map[string]httpapi.SeatClaim{}, claimTokens: map[httpapi.SeatClaim]string{}}
 		}
-		opts.CreateGame = c.createGame(r, gate, cmdPool, conPool, vis)
+		opts.CreateGame = c.createGame(r, gate, cmdPool, conPool, vsbotVis)
 		opts.Seat = gate.resolve
 	}
 	// Card art is cached and served from this server's own origin (art.go)
@@ -543,7 +570,7 @@ func (c config) tableConfigs(cmdPool, conPool []string, vis view.Visibility) []h
 		}
 		cfg := host.TableConfig{ID: host.TableID(fmt.Sprintf("t%d", i)), Name: fmt.Sprintf("Table %d", i), Seats: c.seats,
 			Decks: pool, Seed: c.seed + uint64(i-1), Pace: c.pace, Spectator: vis, Perpetual: c.perpetual,
-			Mulligans: c.mulligans, Format: format, BotAutoPayMana: c.botAutoPayMana, AutoMana: c.autoMana}
+			Mulligans: c.mulligans, Format: format, BotPolicy: c.botPolicy, BotAutoPayMana: c.botAutoPayMana, AutoMana: c.autoMana}
 		if i == 1 && len(c.humans) > 0 {
 			cfg.Humans = c.humans
 			cfg.Perpetual = false

@@ -22,6 +22,7 @@ The import direction is one-way. `internal/archtest`'s
 | `decision` | `Decision` / `Option` / `Intent`, and the closed set of `decision.Kind`s (`decision.Kinds`). The whole engine↔seat contract. |
 | `deck` | `{name, count}` deck-list JSON resolved against a `cards.Registry`. |
 | `botpolicy` | The one heuristic bot policy (`botpolicy.Decide`), in one copy, shared by `seat` and rules' own fuzz driver. Reads a `Board`, never a view or an engine. Cast profiles in `botpolicy/profiles/`. |
+| `bots` | Registry of hosted bot policies (`bots/registry.go`); built-ins register from `bots/bot`, `bots/lethalpressure` and `bots/castprofile`, linked together by `bots/all`. |
 | `events` | The event union, `events.Apply` (the only state mutator), the log, the sha256 hash chain. `events.Kind` is append-only. |
 | `effects` | `api:` primitive implementations, filter/count/value evaluators. Talks to the engine only through the small `effects.Host` interface; never imports `rules`. |
 | `rules` | The engine: turn structure, priority, stack, combat, SBAs, layers, casting and payment, and the `kw:`/`trig:`/`stat:`/`repl:` primitives. `rules.New`, `Pending`, `Submit`, `Advance`, `Clone`. Also holds the coverage ratchets and golden heads (`rules/*_test.go`). |

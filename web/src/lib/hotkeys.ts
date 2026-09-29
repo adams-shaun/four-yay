@@ -15,23 +15,32 @@
  *    see;
  *  - Escape is deliberately NOT guarded by the focus check: it is the panic
  *    key, and it must cancel a run wherever focus happens to be;
- *  - focus in an interactive element (button, link, input, textarea, select,
- *    contenteditable) before every other key: the element's own activation
- *    owns Space and Enter, firing the hotkey underneath would act twice, and
- *    Ctrl+Shift+F while TYPING is the find bar's grammar, never ours. This is
- *    one guard wider than the brief's input list on purpose: Space with focus
- *    on the PASS button would otherwise both activate the button and pass,
- *    posting the same intent twice;
- *  - Ctrl+Shift+F / Ctrl+Shift+O / Ctrl+Shift+[ / Ctrl+Shift+] before the
- *    plain-Ctrl check: Ctrl held ALONE is the hold-priority modifier for
- *    clicks (it is never a hotkey by itself — Ctrl+Shift alone is too easy to
- *    hit, hence the extra key). Ctrl+Shift+] / Ctrl+Shift+[ cycle the profile
- *    list (presets + saved profiles) forward and back; Ctrl+Shift+O toggles
- *    the Game Options panel. Ctrl+Shift+P is deliberately NOT used: Firefox
- *    opens a private window on it.
+ *  - focus in a text-entry control (input, textarea, select, contenteditable):
+ *    EVERY other key is the control's — a digit typed into a profile name is
+ *    text, and Ctrl+Shift+F while typing is the find bar's grammar, never
+ *    ours;
+ *  - focus on an activatable control (button, link, summary, role=button):
+ *    only Space and Enter (NumpadEnter included) are the control's, because
+ *    its native activation owns them — Space with focus on the PASS button
+ *    would otherwise both activate the button and pass, posting the same
+ *    intent twice. Every other chord still fires: closing the Options panel
+ *    returns focus to its button, and a guard on every key there left every
+ *    hotkey dead until the player clicked the board;
+ *  - Ctrl without Shift: Ctrl held ALONE is the hold-priority modifier for
+ *    clicks, so it is never a hotkey and never a binding (Ctrl+Shift alone is
+ *    too easy to hit, hence the extra key). Ctrl+Shift+P is deliberately NOT
+ *    a default: Firefox opens a private window on it.
+ *
+ * After the guards, the chord's meaning comes from the keymap (lib/keymap):
+ * a rebindable table matched on the PHYSICAL key. The defaults reproduce the
+ * original grammar — Ctrl+Shift+] / Ctrl+Shift+[ cycle the profile list,
+ * Ctrl+Shift+O toggles the Game Options panel — and add the keymap's newer
+ * actions.
  */
 
-export type HotkeyAction = 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'toggle-full-control' | 'next-profile' | 'prev-profile' | 'toggle-options';
+import { defaultKeymap, eventCode, matchKeymap, type KeyAction, type Keymap } from './keymap';
+
+export type HotkeyAction = KeyAction;
 
 /**
  * MODAL_PICKER_SELECTOR is structural first: every open ARIA menu, dialog or
@@ -65,33 +74,69 @@ export interface HotkeyEvent {
    * code is the PHYSICAL key (`KeyboardEvent.code`, e.g. 'BracketRight'), so a
    * binding survives Shift changing the printable `key`: on a US layout
    * Ctrl+Shift+] reports key '}' but code 'BracketRight'. Optional because a
-   * synthetic event may omit it; brackets fall back to the shifted `key`
-   * values when it is absent.
+   * synthetic event may omit it; keymap.eventCode derives one from `key`
+   * when it is absent.
    */
   code?: string;
+  altKey?: boolean;
   /** target is the event's original target; checked for interactive elements. */
   target?: EventTarget | null;
+}
+
+const DEFAULTS = defaultKeymap();
+
+/** TEXT_ENTRY is focus that owns every key: typing, never a hotkey. */
+const TEXT_ENTRY = 'input, textarea, select, [contenteditable]:not([contenteditable="false"])';
+/** ACTIVATABLE is focus whose native activation owns Space and Enter only. */
+const ACTIVATABLE = 'button, a[href], summary, [role="button"]';
+
+type Closest = { closest?: (sel: string) => { matches?: unknown } | null };
+
+/** focusOwnsKey reports whether the focused element, not the table, owns this key. */
+function focusOwnsKey(e: HotkeyEvent): boolean {
+  const t = e.target as Closest | null | undefined;
+  if (!t || typeof t.closest !== 'function') return false;
+  if (t.closest(TEXT_ENTRY)) return true;
+  const control = t.closest(ACTIVATABLE);
+  if (!control) return false;
+  // Something that answers closest() but is not an Element cannot say what
+  // it is; treat it as a text field, the direction that never fires.
+  if (typeof control.matches !== 'function') return true;
+  const code = eventCode(e);
+  return code === 'Space' || code === 'Enter';
 }
 
 export function hotkeyAction(
   e: HotkeyEvent,
   pickerOpen: () => boolean = () => false,
+  keymap: Keymap = DEFAULTS,
 ): HotkeyAction | null {
   if (e.metaKey) return null;
   if (pickerOpen()) return null;
   if (e.key === 'Escape') return 'cancel-run';
-  const t = e.target as { closest?: (sel: string) => unknown } | null | undefined;
-  if (t && typeof t.closest === 'function' && t.closest('button, a, input, textarea, select, [contenteditable]')) return null;
-  if (e.ctrlKey && e.shiftKey && (e.key === 'f' || e.key === 'F')) return 'toggle-full-control';
-  if (e.ctrlKey && e.shiftKey && (e.key === 'O' || e.key === 'o')) return 'toggle-options';
-  // Brackets are matched by PHYSICAL code first: Shift changes ] and [ to }
-  // and { on a US layout, so `key` alone would never fire the shortcut. The
-  // shifted `key` values are accepted as a fallback for a synthetic event
-  // with no `code`.
-  if (e.ctrlKey && e.shiftKey && (e.code === 'BracketRight' || e.key === '}' || e.key === ']')) return 'next-profile';
-  if (e.ctrlKey && e.shiftKey && (e.code === 'BracketLeft' || e.key === '{' || e.key === '[')) return 'prev-profile';
-  if (e.ctrlKey) return null;
-  if (e.key === ' ') return 'pass';
-  if (e.key === 'Enter') return e.shiftKey ? 'hard-skip' : 'end-turn';
-  return null;
+  if (focusOwnsKey(e)) return null;
+  if (e.ctrlKey && !e.shiftKey) return null; // Ctrl alone is the hold-priority modifier, never a hotkey
+  return matchKeymap(keymap, e);
+}
+
+/**
+ * closesOptionsPanel is the open Game Options panel's own keyboard close:
+ * Escape, or the toggle-options chord (as bound). The panel is a role=dialog,
+ * so hotkeyAction's modal guard holds every table hotkey while it is open —
+ * including the chord that opened it — and the route closes it through this
+ * instead. The guard itself stays: with focus in the panel, Space must not
+ * pass priority. Never while typing, while the Keys editor records a chord,
+ * with Meta held, or on a press a hotkey already consumed (the one that
+ * OPENED the panel reaches the route's listener too).
+ */
+export function closesOptionsPanel(
+  e: HotkeyEvent & { defaultPrevented?: boolean },
+  keymap: Keymap,
+  capturing: boolean,
+): boolean {
+  if (e.key === 'Escape') return true;
+  if (e.metaKey || capturing || e.defaultPrevented) return false;
+  const t = e.target as Closest | null | undefined;
+  if (t && typeof t.closest === 'function' && t.closest(TEXT_ENTRY)) return false;
+  return matchKeymap(keymap, e) === 'toggle-options';
 }

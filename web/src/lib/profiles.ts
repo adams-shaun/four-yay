@@ -43,9 +43,29 @@ export interface ProfileStore {
   lastActive: string | null;
 }
 
+/**
+ * RESERVED_NAMES are refused as profile names: they are Object.prototype
+ * hazards (a `__proto__` key re-prototypes a map on assignment, and
+ * `constructor` reads as present through `in`), and a name arrives from an
+ * imported file as well as from the player.
+ */
+const RESERVED_NAMES: readonly string[] = ['__proto__', 'constructor', 'prototype'];
+
+/** profileMap returns a prototype-free copy of a profiles map, so no key can reach Object.prototype. */
+function profileMap(src?: Record<string, PlaySettings>): Record<string, PlaySettings> {
+  const out = Object.create(null) as Record<string, PlaySettings>;
+  if (src !== undefined) for (const k of Object.keys(src)) out[k] = src[k];
+  return out;
+}
+
+/** hasProfile is own-key membership: never an inherited Object.prototype member. */
+export function hasProfile(store: ProfileStore, name: string): boolean {
+  return Object.hasOwn(store.profiles, name);
+}
+
 /** emptyStore is the absent/corrupt-blob value: no profiles, no active. */
 export function emptyStore(): ProfileStore {
-  return { version: 1, profiles: {}, order: [], lastActive: null };
+  return { version: 1, profiles: profileMap(), order: [], lastActive: null };
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -61,6 +81,7 @@ export function normaliseName(raw: string): string | null {
   if (typeof raw !== 'string') return null;
   const name = raw.trim();
   if (name.length === 0 || name.length > MAX_PROFILE_NAME) return null;
+  if (RESERVED_NAMES.includes(name)) return null;
   return name;
 }
 
@@ -89,7 +110,7 @@ export function validateStore(v: unknown): ProfileStore {
     for (const name of v.order) {
       if (typeof name !== 'string') continue;
       const clean = normaliseName(name);
-      if (clean !== null && clean in out.profiles && !seen.has(clean)) {
+      if (clean !== null && hasProfile(out, clean) && !seen.has(clean)) {
         out.order.push(clean);
         seen.add(clean);
       }
@@ -99,16 +120,17 @@ export function validateStore(v: unknown): ProfileStore {
     if (!seen.has(name)) out.order.push(name);
   }
   out.lastActive =
-    typeof v.lastActive === 'string' && v.lastActive in out.profiles ? v.lastActive : null;
+    typeof v.lastActive === 'string' && hasProfile(out, v.lastActive) ? v.lastActive : null;
   return out;
 }
 
-/** deepClone returns an independent copy of settings (steps/pacing are the only nested objects). */
+/** deepClone returns an independent copy of settings (steps, pacing and breakpoints — with its watchlist array — are the only nested objects). */
 function deepClone(s: PlaySettings): PlaySettings {
   return {
     ...s,
     steps: { yours: { ...s.steps.yours }, opponents: { ...s.steps.opponents } },
     pacing: { ...s.pacing },
+    breakpoints: { ...s.breakpoints, watchlist: [...s.breakpoints.watchlist] },
   };
 }
 
@@ -153,7 +175,7 @@ export function storeSave(store: ProfileStore, name: string, settings: PlaySetti
   if (clean === null) return store;
   const next: ProfileStore = {
     version: 1,
-    profiles: { ...store.profiles, [clean]: deepClone(settings) },
+    profiles: Object.assign(profileMap(store.profiles), { [clean]: deepClone(settings) }),
     order: store.order.includes(clean) ? [...store.order] : [...store.order, clean],
     lastActive: clean,
   };
@@ -167,14 +189,13 @@ export function storeSave(store: ProfileStore, name: string, settings: PlaySetti
  * logic keeps working on top of an applied profile.
  */
 export function storeApply(store: ProfileStore, name: string): PlaySettings | null {
-  const s = store.profiles[name];
-  return s === undefined ? null : deepClone(s);
+  return hasProfile(store, name) ? deepClone(store.profiles[name]) : null;
 }
 
 /** storeDelete removes a profile and its order entry; deleting the active profile clears lastActive. */
 export function storeDelete(store: ProfileStore, name: string): ProfileStore {
-  if (!(name in store.profiles)) return store;
-  const profiles = { ...store.profiles };
+  if (!hasProfile(store, name)) return store;
+  const profiles = profileMap(store.profiles);
   delete profiles[name];
   return {
     version: 1,
@@ -190,10 +211,10 @@ export function storeDelete(store: ProfileStore, name: string): ProfileStore {
  * no-op returning the store unchanged (the caller reports the collision).
  */
 export function storeRename(store: ProfileStore, oldName: string, newName: string): ProfileStore {
-  if (!(oldName in store.profiles)) return store;
+  if (!hasProfile(store, oldName)) return store;
   const clean = normaliseName(newName);
-  if (clean === null || clean === oldName || clean in store.profiles) return store;
-  const profiles = { ...store.profiles };
+  if (clean === null || clean === oldName || hasProfile(store, clean)) return store;
+  const profiles = profileMap(store.profiles);
   profiles[clean] = profiles[oldName];
   delete profiles[oldName];
   return {
@@ -206,5 +227,5 @@ export function storeRename(store: ProfileStore, oldName: string, newName: strin
 
 /** storeSetActive marks which profile is currently applied (or null for none). */
 export function storeSetActive(store: ProfileStore, name: string | null): ProfileStore {
-  return { ...store, lastActive: name !== null && name in store.profiles ? name : null };
+  return { ...store, lastActive: name !== null && hasProfile(store, name) ? name : null };
 }

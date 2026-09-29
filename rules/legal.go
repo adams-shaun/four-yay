@@ -88,6 +88,11 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 	var out []state.ObjID
 	var seen []offered
 	limited := lazyMayPlays{e: e, p: p}
+	w := mayPlayIndexWalk{e: e}
+	// The walk's card test, shared by the indexed and scanned enumeration
+	// arms below (mayplay_index.go): a faceless object and a non-land are
+	// both refused, exactly as the nested scan's per-card gate did.
+	landKeep := func(o *state.Object) bool { return o.Face() != nil && o.Face().IsLand() }
 	for _, ce := range e.active() {
 		if !ce.MayPlay || ce.Controller != p {
 			continue
@@ -102,48 +107,26 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 		if !ok && !all {
 			continue
 		}
-		consider := func(z state.Zone) {
-			if z != state.ZGraveyard && z != state.ZExile {
-				return
-			}
-			// Exile and graveyard are public zones keyed by the card's OWNER,
-			// and a grant's cards can sit in another seat's slice (Opposition
-			// Agent exiles a card from an OPPONENT's searching library, then
-			// lets its controller play it), so every seat's slice is walked in
-			// deterministic seat order -- the same shape mayPlaySpellIds'
-			// walk already is. The Affects match decides ownership claims;
-			// walking the slices only enumerates candidates.
-			for _, q := range e.G.AliveFrom(0) {
-				for _, id := range e.G.Zone(z, q) {
-					o := e.G.Obj(id)
-					if o == nil || o.Face() == nil || !o.Face().IsLand() {
-						continue
-					}
-					if !e.effectGrantMatches(ce, id) {
-						continue
-					}
-					dup := false
-					for _, s := range seen {
-						if s.zone == z && s.id == id {
-							dup = true
-							break
-						}
-					}
-					if dup {
-						continue
-					}
-					seen = append(seen, offered{z, id})
-					out = append(out, id)
+		// Exile and graveyard are public zones keyed by the card's OWNER,
+		// and a grant's cards can sit in another seat's slice (Opposition
+		// Agent exiles a card from an OPPONENT's searching library, then
+		// lets its controller play it), so every seat's slice is walked in
+		// deterministic seat order -- the same shape mayPlaySpellIds'
+		// walk already is. The Affects match decides ownership claims;
+		// walking the slices only enumerates candidates.
+		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), false, landKeep) {
+			dup := false
+			for _, s := range seen {
+				if s.zone == pr.zone && s.id == pr.id {
+					dup = true
+					break
 				}
 			}
-		}
-		if all {
-			consider(state.ZGraveyard)
-			consider(state.ZExile)
-		} else {
-			for _, z := range zones {
-				consider(z)
+			if dup {
+				continue
 			}
+			seen = append(seen, offered{pr.zone, pr.id})
+			out = append(out, pr.id)
 		}
 	}
 	// kw-mayplay: the card's OWN static (or a battlefield static naming it)
@@ -405,6 +388,11 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 			addCard(state.ZLibrary, lib[0])
 		}
 	}
+	w := mayPlayIndexWalk{e: e}
+	// The walk's card test, shared by the indexed and scanned enumeration
+	// arms below (mayplay_index.go): a faceless object and a land are both
+	// refused, exactly as the nested scan's per-card gate did.
+	spellKeep := func(o *state.Object) bool { return o.Face() != nil && !o.Face().IsLand() }
 	for _, ce := range e.active() {
 		if !ce.MayPlay || ce.Controller != p {
 			continue
@@ -425,27 +413,8 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 		// play it), so every seat's slice is walked in deterministic seat
 		// order -- never a map. The Affects match decides ownership claims;
 		// walking the slices only enumerates candidates.
-		for _, q := range e.G.AliveFrom(0) {
-			for _, z := range func() []state.Zone {
-				if all {
-					return []state.Zone{state.ZGraveyard, state.ZExile}
-				}
-				return zones
-			}() {
-				if z != state.ZGraveyard && z != state.ZExile {
-					continue
-				}
-				for _, id := range e.G.Zone(z, q) {
-					o := e.G.Obj(id)
-					if o == nil || o.Face() == nil || o.Face().IsLand() {
-						continue
-					}
-					if !e.effectGrantMatches(ce, id) {
-						continue
-					}
-					consider(z, id, "")
-				}
-			}
+		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), true, spellKeep) {
+			consider(pr.zone, pr.id, "")
 		}
 	}
 	return out
@@ -848,6 +817,48 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 	}
 	red.hasColor = col.Total() > 0
 	return red, true
+}
+
+// powerUpReducedCost applies CR 702.193b to an activated Power-up ability.
+// The reduction is computed from the permanent's own face mana cost and is
+// active only during the turn it entered. This helper is shared by the offer
+// and activation paths so the displayed/validated cost equals the charge.
+func (e *Engine) powerUpReducedCost(id state.ObjID, ab *cards.SA, cost Cost) Cost {
+	if ab == nil || !strings.EqualFold(strings.TrimSpace(ab.Params["PowerUp"]), "True") {
+		return cost
+	}
+	o := e.G.Obj(id)
+	if o == nil || !o.EnteredThisTurn || o.Face() == nil {
+		return cost
+	}
+	reduction := e.parseCost(o.Face().ManaCost)
+	// Generic mana reduces only generic mana. Each colored/colorless symbol
+	// reduces its matching symbol first; any excess of that symbol reduces
+	// generic mana (CR 118.7).
+	if reduction.Generic > 0 {
+		n := reduction.Generic
+		if n > cost.Generic {
+			n = cost.Generic
+		}
+		cost.Generic -= n
+	}
+	for i := range reduction.Colored {
+		n := reduction.Colored[i]
+		if n <= 0 {
+			continue
+		}
+		matched := n
+		if matched > cost.Colored[i] {
+			matched = cost.Colored[i]
+		}
+		cost.Colored[i] -= matched
+		left := n - matched
+		if left > cost.Generic {
+			left = cost.Generic
+		}
+		cost.Generic -= left
+	}
+	return cost
 }
 
 // ownReduceCostOffer is ownReduceCost's offer-time reading for a body that
@@ -2501,6 +2512,36 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 			offerCastable(p, id, Cost{Generic: 2}, foretellScope(), false) {
 			out = append(out, decision.Option{Index: len(out), Kind: "cast", Label: "Foretell " + f.Name, Obj: id, Mode: "foretell"})
 		}
+		// Sneak (CR 702.190a): cast for the keyword's alternative cost, with
+		// the mandatory additional cost of returning an unblocked creature you
+		// control to its owner's hand. The window is the caster's own declare
+		// blockers step at instant speed, so the offer sits ABOVE the
+		// sorcery-speed timing gate below -- a creature printed with no Flash
+		// is offered here and skipped by that gate. sneakCosts is the ONE cost
+		// reader beginCast's charge calls too, and offerCastable's shared tail
+		// (nonManaCastable) censuses the Return part's candidates: an option
+		// whose return cannot be paid must never be offered (the offerCastable
+		// ruling). castRestricted/castSuppressed bind the offer exactly as they
+		// do the plain cast.
+		if e.sneakTimingOK(p) && !castRestricted(p, id) && !e.castSuppressed(p, id) {
+			// sneakCosts is computed BEFORE the target census so a hand card
+			// with no Sneak instance (the overwhelming majority of cards in
+			// this window) never pays for castTargetsAvailable's walk; the
+			// census is only meaningful when there is a sneak offer to gate.
+			if scs := e.sneakCosts(p, id); len(scs) > 0 && e.castTargetsAvailable(p, id, f.SpellAbility()) {
+				for _, sc := range scs {
+					if !offerCastable(p, id, sc.cost, spellScope(sc.mode), false) {
+						continue
+					}
+					label := "sneak"
+					if sc.mode != "sneak" {
+						label = "sneak (granted)"
+					}
+					out = append(out, decision.Option{Index: len(out), Kind: "cast",
+						Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: sc.mode})
+				}
+			}
+		}
 		if !e.spellTimingOK(p, id, f, sorcery) {
 			// MayFlashCost (Forge's K:MayFlashCost, CR 702.8): when the ordinary
 			// timing gate fails, a face printed with the keyword is NOT skipped
@@ -2997,16 +3038,44 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		if f == nil || f.IsLand() || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
 		}
-		if !e.spellTimingOK(p, id, f, sorcery) {
-			continue
-		}
 		// The permission's ValidSA$ decides which cast shapes it permits
 		// (Brokkos, Apex of Forever's `ValidSA$ Spell.Mutate` permits ONLY
 		// the mutate cast from the graveyard, CR 903.3d/702.140a). An empty
 		// ValidSA$ is the ordinary permission, so this splits the historical
-		// single offer into its plain and mutate halves without changing any
-		// unrestricted grant's behaviour.
-		plain, mutate, blitz := e.mayPlayKinds(p, id)
+		// single offer into its plain, mutate, blitz and sneak halves without
+		// changing any unrestricted grant's behaviour. Computed BEFORE the
+		// sorcery-speed gate so the sneak half below can be offered at its own
+		// instant-speed declare-blockers window, which that gate rejects.
+		plain, mutate, blitz, sneak := e.mayPlayKinds(p, id)
+		// Sneak from the granted zone (CR 702.190a): Ninja Teen's level-3
+		// `ValidSA$ Spell.Sneak` permission lets a creature card in the
+		// graveyard be cast for its granted sneak cost during the caster's
+		// declare-blockers step ("creature cards in your graveyard have sneak
+		// {3}{B}"). The offer prices the SAME composed cost beginCast's
+		// "sneak" arm charges (sneakCosts, the ONE reader), so the two stages
+		// cannot drift, and the mode is the canonical "sneak" so the pay-time
+		// FlagSneaked provenance and the CR 702.190b entry rider fire exactly
+		// as they do for a printed hand cast. This half sits ABOVE the
+		// sorcery-speed timing gate on purpose -- a creature with no Flash is
+		// still castable here. off.key == "" matches the mutate/blitz halves'
+		// precedent (the corpus carries no MayPlayText$-typed Sneak
+		// permission; an untyped Ninja Teen permission is the only one).
+		if off.key == "" && sneak && e.sneakTimingOK(p) {
+			for _, sc := range e.sneakCosts(p, id) {
+				if !offerCastable(p, id, sc.cost, spellScope(sc.mode), false) {
+					continue
+				}
+				label := "sneak"
+				if sc.mode != "sneak" {
+					label = "sneak (granted)"
+				}
+				out = append(out, decision.Option{Index: len(out), Kind: "cast",
+					Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: sc.mode})
+			}
+		}
+		if !e.spellTimingOK(p, id, f, sorcery) {
+			continue
+		}
 		if plain && e.castTargetsAvailable(p, id, f.SpellAbility()) {
 			base := e.rawBaseCost(p, id)
 			// A MayPlayText$-typed offer carries its own permission's riders
@@ -3845,6 +3914,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 						} else if n > 0 {
 							cost.Generic = 0
 						}
+						cost = e.powerUpReducedCost(id, ab, cost)
 						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 							continue
 						}
@@ -3970,6 +4040,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 						} else if n > 0 {
 							cost.Generic = 0
 						}
+						cost = e.powerUpReducedCost(id, ab, cost)
 						if !offerCastable(p, id, cost, abilityScope(ab), true) {
 							continue
 						}

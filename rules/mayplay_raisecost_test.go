@@ -232,7 +232,7 @@ func TestMayPlayRaiseCostSelfExclusionAtOffer(t *testing.T) {
 	// The encore cost is {3}{R} plus exiling the card itself.
 	obj := e2.G.Obj(pilferer)
 	c := ParseCost("3 R ExileFromGrave<1/CARDNAME>")
-	if !e2.nonManaCastable(0, pilferer, c, true) {
+	if !e2.nonManaCastable(0, pilferer, c, true, "") {
 		t.Fatalf("ability-shaped ExileFromGrave<1/CARDNAME> wrongly withheld: the self-exclusion must be scoped to casts (the encore self-exile is real); obj zone=%v", obj.Zone)
 	}
 }

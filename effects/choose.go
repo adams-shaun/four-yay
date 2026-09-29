@@ -40,6 +40,10 @@ func init() {
 // cmcChosenEvenOdd filter. Its answer is recorded as the source's chosen type,
 // keeping the answer replayable through the existing Choose event.
 func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
+	if c.ETBEvenOddRecorded {
+		c.ETBEvenOddRecorded = false
+		return
+	}
 	if answer := c.ChosenType; answer == "odd" || answer == "even" {
 		c.ChosenType = ""
 		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: answer})

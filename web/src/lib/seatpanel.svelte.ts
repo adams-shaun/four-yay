@@ -1,10 +1,17 @@
 import type { Decision, Intent, Option, PaymentAction, PaymentPlan, PaymentSelection, View } from '../protocol';
 import { fetchPending, postIntent, ApiError } from './api';
 import { safeStorage } from './storage';
+import { isSearchPick } from './search';
+import { isNamePick } from './name-pick';
+import { isDiscardPick } from './discard';
+import { manaWindow } from './announcepay';
+import { isPlainManualTap } from './manualmana';
 import type { SeatCtx } from './seat';
+import { checkBreakpoints, type BreakpointHit } from './breakpoints';
 import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
 import {
   applyPreset,
+  cloneBreakpoints,
   defaultSettings,
   loadSettings,
   presetPatch,
@@ -16,9 +23,10 @@ import {
   type StoppableStep,
 } from './playsettings';
 import { autoPassLogText, pushAutoPassLog, type AutoPassKind, type AutoPassLog } from './autolog';
-import { loadYields, saveYields } from './yields';
+import { loadYields, saveYields, stackYieldKey } from './yields';
 import {
   emptyStore,
+  hasProfile,
   listProfiles,
   loadProfiles,
   normaliseName,
@@ -30,6 +38,7 @@ import {
   storeSetActive,
   type ProfileStore,
 } from './profiles';
+import { exportFlow, importFlow } from './transfer';
 import { clientBreadcrumbs } from './breadcrumbs';
 import {
   emptyRemembered,
@@ -327,6 +336,75 @@ export function mulliganPhase(d: Decision | null): MulliganPhase {
 }
 
 /**
+ * answersByToggle reports whether the panel answers this decision's options
+ * by TOGGLING them into `picked` (committed with Submit) rather than through
+ * click(): the mulligan BOTTOM half and the arrange ask, SeatPanel.svelte's
+ * `mull.phase === 'bottom'` and `arrange !== null` branches. Both can be
+ * min==max==1, where click() would post the first pick irreversibly (see
+ * toggle()). Every non-panel answer path — the pick-N hotkeys — routes
+ * through this one predicate so it can never answer differently.
+ */
+export function answersByToggle(d: Decision | null): boolean {
+  return d !== null && (d.kind === 'arrange' || mulliganPhase(d)?.phase === 'bottom');
+}
+
+/**
+ * genericListOptions is the generic option list's rows, in order: SeatPanel's
+ * fallback layout draws exactly these as option buttons. It leaves out what
+ * the panel draws elsewhere or hides — concede, the pass/resolve `primary`
+ * (its own button), a cast whose payment action stands in for it
+ * (`paymentBases`), and plain manual taps while Auto Mana hides them.
+ */
+export function genericListOptions(
+  d: Decision,
+  primary: Option | null,
+  paymentBases: ReadonlySet<number>,
+  hideManualMana: boolean,
+): Option[] {
+  return d.options.filter((opt) =>
+    !isConcede(opt)
+    && opt.index !== primary?.index
+    && !paymentBases.has(opt.index)
+    && !(hideManualMana && isPlainManualTap(opt)));
+}
+
+/** NO_PAYMENT_BASES is the empty paymentBases a non-priority decision always has. */
+const NO_PAYMENT_BASES: ReadonlySet<number> = new Set<number>();
+
+/**
+ * pickableInOrder is the pick-N hotkeys' ALLOWLIST: true only when the
+ * decision renders through a SeatPanel layout whose on-screen order is
+ * exactly d.options with nothing drawn elsewhere, so digit N names the Nth
+ * option the player sees. It mirrors the panel's layout chain, in the
+ * panel's precedence order:
+ *
+ * - the mulligan keep and bottom rows (mulliganPhase non-null): both iterate
+ *   d.options unchanged;
+ * - the arrange row (kind 'arrange'): iterates d.options unchanged;
+ * - the discard row (isDiscardPick): iterates d.options unchanged;
+ * - the library-search grid (isSearchPick), the name pick (isNamePick) and
+ *   the announced mana-payment window (manaWindow): REFUSED — the first two
+ *   render a filtered, A→Z-sorted list and the third its own panel;
+ * - the generic option list: allowed only when genericListOptions keeps
+ *   EVERY option, i.e. no pass/resolve primary, concede or hidden option is
+ *   drawn apart from the list. paymentBases and hideManualMana are the
+ *   panel's priority-only inputs and are empty/false here, because a
+ *   priority decision is refused outright (its pass, concede and payment
+ *   actions all sit outside the list).
+ *
+ * Anything else is refused, so a layout added later fails safe until it is
+ * named here.
+ */
+export function pickableInOrder(d: Decision | null): boolean {
+  if (d === null || d.kind === 'priority') return false;
+  if (mulliganPhase(d) !== null) return true;
+  if (d.kind === 'arrange') return true;
+  if (isDiscardPick(d)) return true;
+  if (isSearchPick(d) || isNamePick(d) || manaWindow(d) !== null) return false;
+  return genericListOptions(d, primaryOf(d), NO_PAYMENT_BASES, false).length === d.options.length;
+}
+
+/**
  * AUTO_PASS_CAP bounds how many priority windows auto may pass in an
  * unbroken run before it switches itself off. A runaway autopasser is not a
  * cosmetic bug: it hammers the server and it passes the game away in
@@ -383,6 +461,7 @@ const WAITING_TEXT: Record<StopReason, string> = {
   'stop-set': 'Auto stopped here: you set a stop on this step.',
   'opponent-object': "Auto stopped here: an opponent's object is on the stack and you can respond.",
   'own-object': 'Auto stopped here: your own object is on the stack and you can respond.',
+  'breakpoint': 'Auto paused here: a pause you set fired.',
 };
 
 const OFF_TEXT: Record<AutoOffReason, string> = {
@@ -402,6 +481,7 @@ const RUN_WAITING_TEXT: Record<StopReason, string> = {
   'stop-set': 'you set a stop on this step.',
   'opponent-object': "an opponent's object is on the stack and you can respond.",
   'own-object': 'your own object is on the stack and you can respond.',
+  'breakpoint': 'a pause you set fired.',
 };
 const RUN_OFF_TEXT: Record<AutoOffReason, string> = {
   'loop': 'the same decision came back after it answered.',
@@ -436,6 +516,7 @@ export function autoNoteText(note: AutoNote): string {
       // stop did not actually stop for. Derived from the base string (the
       // trailing full stop is dropped, the clause spliced in) so the wording
       // stays in one place.
+      if (note.reason === 'breakpoint' && note.detail) return `Auto paused here: ${note.detail}.`;
       if (note.reason === 'stop-set' && note.detail) {
         return `${WAITING_TEXT[note.reason].replace(/\.$/, '')} and you can act — ${note.detail}.`;
       }
@@ -887,6 +968,17 @@ export class SeatPanelState {
    */
   private seqHigh = -1;
 
+  /**
+   * bpFired maps a breakpoint key (lib/breakpoints) to the decision seq it
+   * first stopped at. decide() re-stops that same seq on every re-derive and
+   * passes later windows for the same key. Session-scoped: begin() clears it.
+   * Only the first live hit per window is recorded; a second matching key
+   * pauses the next window, though arming a run on that window acknowledges
+   * every live key (acknowledgeBreakpoints).
+   */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- private loop bookkeeping decide() reads, never rendered; the note is the reactive surface
+  private bpFired = new Map<string, number>();
+
   /** auto is settings.autoPass: the persisted preference, ON by default (casual). Reading it is a read of settings. */
   get auto(): boolean {
     return this.settings.autoPass;
@@ -1104,10 +1196,24 @@ export class SeatPanelState {
 
   /** deleteProfile removes a saved profile; deleting the active one clears the active identity. */
   deleteProfile(name: string): boolean {
-    if (!(name in this.profiles.profiles)) return false;
+    if (!hasProfile(this.profiles, name)) return false;
     this.persistProfiles(storeDelete(this.profiles, name));
     if (this.activeProfileName === name) this.activeProfileName = null;
     return true;
+  }
+
+  /** exportProfilesText is the Export button's payload: every saved flow profile, in order. */
+  exportProfilesText(): string {
+    return exportFlow(this.profiles);
+  }
+
+  /** importProfilesText merges a file's profiles in (never overwriting) and returns the result in plain words. */
+  importProfilesText(text: string): string {
+    const got = importFlow(text, this.profiles);
+    if ('error' in got) return got.error;
+    if (got.added.length > 0) this.persistProfiles(got.store);
+    const skipped = got.skipped > 0 ? ` ${got.skipped} could not be read and ${got.skipped === 1 ? 'was' : 'were'} skipped.` : '';
+    return got.added.length === 0 ? `Nothing imported.${skipped}` : `Imported ${got.added.join(', ')}.${skipped}`;
   }
 
   /**
@@ -1151,6 +1257,41 @@ export class SeatPanelState {
     const name = saved[next - names.length];
     this.applyProfile(name);
     return name;
+  }
+
+  /** applyProfileAt applies entry i (0-based) of the cycle's list — presets first, then saved profiles — for the profile-N hotkeys. */
+  applyProfileAt(i: number, presetIds: readonly PresetName[]): string | null {
+    const saved = listProfiles(this.profiles);
+    if (i < 0 || i >= presetIds.length + saved.length) return null;
+    if (i < presetIds.length) {
+      this.applyNamedPreset(presetIds[i]);
+      return presetIds[i];
+    }
+    const name = saved[i - presetIds.length];
+    this.applyProfile(name);
+    return name;
+  }
+
+  /**
+   * pickHotkey answers option n (1-based) of a pending decision exactly as
+   * clicking it in the panel would (the pick-N hotkeys): a toggle on the
+   * layouts that answer by toggle-then-Submit (answersByToggle), a click()
+   * everywhere else. It acts only where pickableInOrder allows — layouts
+   * whose on-screen order is d.options with nothing drawn elsewhere — and
+   * refuses (returns false, so the key is not consumed) everywhere else:
+   * priority windows, library search, name pick, the mana-payment window, a
+   * generic list with a separately drawn pass/resolve or concede, and any
+   * layout not named there. Numbering the filtered/sorted layouts by their
+   * rendered order is deferred to a later sub-project.
+   */
+  pickHotkey(n: number): boolean {
+    const d = this.pending;
+    if (d === null || !pickableInOrder(d) || d.seq === this.postedSeq || this.busy) return false;
+    const o = d.options[n - 1];
+    if (o === undefined) return false;
+    if (answersByToggle(d)) this.toggle(o.index);
+    else this.click(o.index);
+    return true;
   }
 
   /**
@@ -1223,19 +1364,23 @@ export class SeatPanelState {
    * settings for the full-control preset, or — when full-control is already
    * the live preset — restore exactly what it replaced. The backup is
    * session-scoped and consumed by the restore; a second full-control press
-   * without a backup restores the defaults rather than guessing.
+   * without a backup restores the defaults rather than guessing. Both ways
+   * carry the CURRENT breakpoints: they are the player's, not the preset's
+   * (playsettings Breakpoints), so neither the preset nor a backup taken
+   * before an edit made in full control may replace them.
    */
   toggleFullControl() {
     this.cancelRun(false);
     this.autoRun = 0;
     this.autoActedSeq = null;
+    const breakpoints = cloneBreakpoints(this.settings.breakpoints);
     if (this.settings.preset === 'full-control') {
       const back = this.presetBackup;
       this.presetBackup = null;
-      this.applySettings(back ?? defaultSettings());
+      this.applySettings({ ...(back ?? defaultSettings()), breakpoints });
     } else {
       this.presetBackup = this.settings;
-      this.applySettings(applyPreset('full-control'));
+      this.applySettings({ ...applyPreset('full-control'), breakpoints });
     }
     this.note = this.auto ? { kind: 'armed' } : { kind: 'off' };
   }
@@ -1312,6 +1457,34 @@ export class SeatPanelState {
     this.startRun('resolve-all', view, new Set(view.stack.map((s) => s.id)));
   }
 
+  /**
+   * acknowledgeBreakpoints is arming a run on the window a breakpoint
+   * stopped: the player's acknowledgement of that pause. decide() keeps a
+   * hit live for the seq it fired at, so without this the run would stop
+   * again on the very window it was pressed on and the button would look
+   * dead. Only the FIRST live hit per window was recorded, so re-marking just
+   * the recorded keys is not enough: a second rule live on the same window
+   * (targets-me with stack-depth) would stop the run at once. So every hit
+   * live at the pending seq is marked as fired one seq earlier — decide()
+   * then reads each as already fired, and later windows stay passed too —
+   * with the same skipTop inputs decide() will use for the run (the Resolve
+   * All baseline or a yield). A window no breakpoint stopped acknowledges
+   * nothing: a pause the player has not seen yet still stops the run.
+   */
+  private acknowledgeBreakpoints(view: View, baseline: ReadonlySet<number> | null) {
+    const seq = this.pending?.seq;
+    if (seq === undefined || ![...this.bpFired.values()].includes(seq)) return;
+    for (const [key, at] of this.bpFired) if (at === seq) this.bpFired.set(key, seq - 1);
+    const top = view.stack.length > 0 ? view.stack[view.stack.length - 1] : null;
+    const skipTop = top !== null && ((baseline?.has(top.id) ?? false) || this.yields.has(stackYieldKey(top)));
+    // Each pass marks one more key not-live; there are at most four rules, so this ends.
+    for (;;) {
+      const hit = checkBreakpoints({ view, seat: this.ctx.seat, bp: this.settings.breakpoints, fired: this.bpFired, seq, skipTop });
+      if (hit === null) return;
+      this.bpFired.set(hit.key, seq - 1);
+    }
+  }
+
   private startRun(kind: 'end-turn' | 'hard-skip' | 'resolve-all', view: View, baseline: ReadonlySet<number> | null = null) {
     // While the undo pause holds, a run cannot arm: a run is the machine
     // passing on the player's behalf, and the pause exists precisely so the
@@ -1322,6 +1495,7 @@ export class SeatPanelState {
     // on screen: an armed run chip would overwrite it with a note claiming
     // the machine is passing when the pause holds it back.
     if (this.busy || this.machinePaused) return;
+    this.acknowledgeBreakpoints(view, baseline);
     // Starting a run is the player taking the controls: any paced pass the
     // AUTO paths had pending dies here (r2 finding — the old auto wait used
     // to survive, post at its old deadline and count as autoPassed). The
@@ -1480,13 +1654,15 @@ export class SeatPanelState {
     if (verdict === null) return;
     if (verdict.act === 'stop') {
       // decide() remains the safety oracle. A one-shot run ENDS on every
-      // stop verdict — there is no acknowledgement machinery any more,
-      // because a run honours no step stops and the press itself moved
-      // the window it was pressed on. Persistent Auto stays armed: the
+      // stop verdict: a run honours no step stops, and the one pause it
+      // can meet on the window it was pressed on — a breakpoint — was
+      // acknowledged when the run was armed (acknowledgeBreakpoints), so the
+      // press itself moves that window. Persistent Auto stays armed: the
       // player answers this window and Auto resumes after it — and with
       // hand answers no longer disarming Auto (prio3), no exception
       // token is needed or minted.
       this.autoRun = 0;
+      if (verdict.reason === 'breakpoint' && verdict.hit) this.bpFired.set(verdict.hit.key, d.seq);
       if (this.oneShot !== 'none') {
         const mode = this.oneShot;
         this.oneShot = 'none';
@@ -1501,7 +1677,9 @@ export class SeatPanelState {
         // read the same auto-pay preference decide() was handed, so a stop a
         // planned cast made is named as that cast.
         const labels = verdict.reason === 'stop-set' ? actionables(view, this.ctx.seat, d, this.autoPayMana) : [];
-        this.note = labels.length > 0
+        this.note = verdict.reason === 'breakpoint' && verdict.hit
+          ? { kind: 'waiting', reason: 'breakpoint', detail: verdict.hit.detail }
+          : labels.length > 0
           ? { kind: 'waiting', reason: verdict.reason, detail: labels.join(', ') }
           : { kind: 'waiting', reason: verdict.reason };
       }
@@ -1587,7 +1765,7 @@ export class SeatPanelState {
    */
   private derivePass(view: View):
     | { act: 'pass'; index: number; kind: Exclude<AutoPassKind, 'act'>; reason: string }
-    | { act: 'stop'; reason: StopReason }
+    | { act: 'stop'; reason: StopReason; hit?: BreakpointHit }
     | null {
     const d = this.pending;
     if (d === null) return null;
@@ -1615,7 +1793,21 @@ export class SeatPanelState {
     // decide() owns the same shape and classifies it under Auto's counter.
     if (!autoOn && this.oneShot === 'none') {
       const index = this.skipEmpty ? emptyPriorityWindow(d, view, this.ctx.seat, this.autoPayMana) : null;
-      return index === null ? null : { act: 'pass', index, kind: 'empty', reason: 'empty-window' };
+      if (index === null) return null;
+      // The floor honours breakpoints too: a pause the player set outranks
+      // a window that merely asks nothing. Same inputs decide() uses (no run
+      // baseline here — no run is armed — so only a yield skips the top).
+      const top = view.stack.length > 0 ? view.stack[view.stack.length - 1] : null;
+      const hit = checkBreakpoints({
+        view,
+        seat: this.ctx.seat,
+        bp: this.settings.breakpoints,
+        fired: this.bpFired,
+        seq: d.seq,
+        skipTop: top !== null && this.yields.has(stackYieldKey(top)),
+      });
+      if (hit !== null) return { act: 'stop', reason: 'breakpoint', hit };
+      return { act: 'pass', index, kind: 'empty', reason: 'empty-window' };
     }
 
     // A one-shot run feeds decide() its OWN settings: autoPass forced on,
@@ -1637,6 +1829,7 @@ export class SeatPanelState {
       skipOwnTurnFloor: this.oneShot !== 'none',
       // The seat's auto-pay PREFERENCE, never the table capability (spec §8).
       autoPayMana: this.autoPayMana,
+      breakpointsFired: this.bpFired,
     });
     if (verdict.act === 'stop') return verdict;
     const kind: Exclude<AutoPassKind, 'act'> = this.oneShot === 'end-turn'
@@ -1857,7 +2050,7 @@ export class SeatPanelState {
     const d = this.pending;
     const autoOn = this.auto && !this.machinePaused;
     if (d === null || !this.actPass || autoOn || this.oneShot !== 'none') return null;
-    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoPayMana: this.autoPayMana });
+    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: { ...this.settings, autoPass: true }, yields: this.yields, autoPayMana: this.autoPayMana, breakpointsFired: this.bpFired });
     return verdict.act === 'pass' ? { ...verdict, kind: 'act', reason: 'no-stop-rule' } : null;
   }
 
@@ -1883,6 +2076,7 @@ export class SeatPanelState {
     this.autoRun = 0;
     this.runPassed = 0;
     this.autoPassed = 0;
+    this.bpFired.clear();
     // An armed pass-after-acting token is a one-shot about a window that no
     // longer exists once the match does; the PREFERENCE persists across the
     // boundary in the settings, only the pending token clears.

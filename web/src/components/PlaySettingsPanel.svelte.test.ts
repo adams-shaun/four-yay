@@ -102,6 +102,34 @@ describe('PlaySettingsPanel — Remembered trigger answers (fb-20260914T062319Z-
   });
 });
 
+describe('PlaySettingsPanel — profile export/import', () => {
+  it('renders the Export and Import profile buttons beside Save', () => {
+    const html = panel(new SeatPanelState('t1', 1, ctx, null));
+    expect(elem(html, 'data-profile-export')).toContain('Export profiles…');
+    expect(elem(html, 'data-profile-import')).toContain('Import profiles…');
+    expect(html).toMatch(/<input[^>]*type="file"[^>]*accept="application\/json"/);
+  });
+
+  it('the import result line is a live region mounted before it has anything to say', () => {
+    const html = panel(new SeatPanelState('t1', 1, ctx, null));
+    expect(html).toMatch(/data-profile-transfer[^>]*role="status"/);
+  });
+
+  it('importProfilesText merges without switching the active profile and says what happened', () => {
+    const from = new SeatPanelState('t1', 1, ctx, null);
+    from.saveProfile('Mine');
+    const file = from.exportProfilesText();
+    const into = new SeatPanelState('t2', 1, ctx, null);
+    into.saveProfile('Mine');
+    into.saveProfile('Other');
+    expect(into.importProfilesText(file)).toBe('Imported Mine (2).');
+    expect(into.profileNames).toEqual(['Mine', 'Other', 'Mine (2)']);
+    expect(into.profiles.lastActive).toBe('Other');
+    expect(into.importProfilesText('{"kind":"gorge-flow","version":1,"items":[{"name":""}]}')).toBe('Nothing imported. 1 could not be read and was skipped.');
+    expect(into.importProfilesText('nope')).toBe('This file is not a gorge settings export.');
+  });
+});
+
 describe('PlaySettingsPanel — the OPTIONS editor (rendered)', () => {
   it('renders casual by default: preset pressed, its blurb shown, the opponent rules reflecting it', () => {
     const html = panel(new SeatPanelState('t1', 1, ctx, null));
@@ -402,6 +430,18 @@ describe('PlaySettingsPanel — real clicks in a real browser (PlaySettingsPanel
     });
   }
 
+
+  it('a profiles file that cannot be read says so and clears the picker', async () => {
+    const page = await open();
+    await page.evaluate(() => {
+      File.prototype.text = () => Promise.reject(new Error('unreadable'));
+    });
+    const input = page.locator('[data-profile-import] + input[type="file"]');
+    await input.setInputFiles({ name: 'flow.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
+    await expect.poll(() => page.locator('[data-profile-transfer]').textContent()).toBe('Could not read that file.');
+    expect(await input.inputValue()).toBe('');
+    await page.close();
+  });
   it('clicking a cell cycles it off → smart → forced → off through the component handler', async () => {
     const page = await open();
     const cell = page.locator('[data-step-cell="upkeep:yours"]');

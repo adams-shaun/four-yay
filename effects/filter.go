@@ -306,6 +306,20 @@ var predicates = map[string]predFn{
 	"escaped": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.CastFlags&state.FlagEscaped != 0
 	},
+	// sneaked is the CastFlags provenance of a sneak cast (CR 702.190a):
+	// "if this creature's sneak cost was paid" reads it through
+	// Card.Self+sneaked (Leonardo, Leader in Blue), Card.sneaked (Turncoat
+	// Kunoichi), Card.ThisTurnEntered+sneaked (Karai, Future of the Foot) and
+	// Count$ValidStack Card.Self+sneaked (The Last Ronin's Technique). The
+	// bit is stamped by the pay-time CastInfo (rules/cast.go's modeFlags) and
+	// survives the stack->battlefield move, so the spell and the permanent it
+	// becomes both read it. A card never sneak-cast never matches, and
+	// neither does a stack copy (state.CastProvenanceFlags strips it --
+	// CR 707.10). This map entry is the ONE home for the read: every rules
+	// and effects match site that carries the token consults it.
+	"sneaked": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o.CastFlags&state.FlagSneaked != 0
+	},
 	// Suspend capability and status are intentionally separate. A card has
 	// suspend when it is printed with K:Suspend or received the event-backed
 	// grant; it is suspended only while that capability card is exiled with a
@@ -362,6 +376,32 @@ var predicates = map[string]predFn{
 	// the census and the matcher cannot disagree.
 	"enlistedThisCombat": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.EnlistedTurn == g.Turn && o.EnlistedCombat == g.CombatsThisTurn
+	},
+	// CrewedThisTurn is CR 702.122's crew marker (Forge's
+	// Creature.CrewedThisTurn / Card.CrewedThisTurn): the creature crewed the
+	// source permanent ("it" -- the Vehicle whose trigger or effect carries
+	// the spec) this turn. It is SOURCE-RELATIVE, so it reads the spec's
+	// source id: the pairing (state.Object.CrewedVehicles/CrewedTurn, folded
+	// by events.Apply's Crew case from the crew cost's tap payment) is
+	// compared against the live turn. A missing source (a call site that
+	// passes 0) fails closed, never "every crewer": the widening direction
+	// would let a Vehicle's trigger target a creature that crewed a different
+	// Vehicle. Turtle Van, Getaway Car, Golden Argosy, Leisure Bicycle,
+	// Smogbelcher Chariot and Subterranean Schooner are the corpus carriers;
+	// the predicate is a recognised-shape entry (the compiled predicate layer
+	// marks an unlisted term `maybe` and falls through to this textual oracle,
+	// so no twin term is owed), and UnknownPredicates classifies it through
+	// the same predicates map, so the census and the matcher cannot disagree.
+	"CrewedThisTurn": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		if src == 0 || o.CrewedTurn != g.Turn {
+			return false
+		}
+		for _, v := range o.CrewedVehicles {
+			if v == src {
+				return true
+			}
+		}
+		return false
 	},
 	// Permanent is Forge's CardProperty.Permanent (card.isPermanent()): the
 	// printed face is a permanent type, in ANY zone (CR 109.2). This is the

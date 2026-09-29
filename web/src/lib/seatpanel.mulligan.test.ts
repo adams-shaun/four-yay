@@ -162,3 +162,32 @@ describe('SeatPanelState.toggle', () => {
     expect(postIntentMock).toHaveBeenCalledWith('t1', 1, { seq: 9, player: 0, choices: [1] }, ctx);
   });
 });
+
+describe('SeatPanelState.pickHotkey on the mulligan', () => {
+  beforeEach(() => {
+    postIntentMock.mockReset();
+    fetchPendingMock.mockReset();
+    postIntentMock.mockResolvedValue(undefined);
+  });
+
+  // A stray digit during a bottom-1 must pick, never commit: the bottom half
+  // answers by toggle-then-Submit, exactly as the panel's card row does.
+  it('pick-1 on a single-card bottom toggles the card and posts nothing', async () => {
+    const p = new SeatPanelState('t1', 1, ctx);
+    p.adoptView(bottomAsk(4, 1, 7));
+    expect(p.pickHotkey(1)).toBe(true);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(postIntentMock).not.toHaveBeenCalled();
+    expect(p.picked).toEqual([0]);
+    expect(p.pickHotkey(1)).toBe(true); // a second press deselects, as a second click would
+    expect(p.picked).toEqual([]);
+  });
+
+  it('pick-N on the keep/mulligan half still answers on the press, as its click does', async () => {
+    const p = new SeatPanelState('t1', 1, ctx);
+    p.adoptView(keepAsk(9));
+    expect(p.pickHotkey(2)).toBe(true);
+    for (let i = 0; i < 40 && p.postedSeq !== 9; i++) await Promise.resolve();
+    expect(postIntentMock).toHaveBeenCalledWith('t1', 1, { seq: 9, player: 0, choices: [1] }, ctx);
+  });
+});
