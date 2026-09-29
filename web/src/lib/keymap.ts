@@ -60,7 +60,7 @@ const CS = { ctrl: true, shift: true };
 
 export function defaultKeymap(): Keymap {
   const k = Object.fromEntries(KEY_ACTIONS.map((a) => [a, [] as Binding[]])) as Keymap;
-  k['pass'] = [b('Space')];
+  k['pass'] = [b('Space'), b('Space', { shift: true })]; // Shift+Space passed before the keymap too
   k['end-turn'] = [b('Enter')];
   k['hard-skip'] = [b('Enter', { shift: true })];
   k['cancel-run'] = [b('Escape')];
@@ -81,6 +81,7 @@ const SHIFTED: Record<string, string> = { '}': 'BracketRight', ']': 'BracketRigh
 
 /** eventCode is the event's physical code, or one derived from `key` for a synthetic event that omits it. */
 export function eventCode(e: { code?: string; key: string }): string {
+  if (e.code === 'NumpadEnter') return 'Enter'; // one Enter binding covers both keys, as before the keymap
   if (e.code) return e.code;
   if (e.key === ' ') return 'Space';
   if (e.key in SHIFTED) return SHIFTED[e.key];
@@ -124,8 +125,11 @@ export function conflictsFor(k: Keymap, action: KeyAction): KeyAction[] {
   return KEY_ACTIONS.filter((a) => a !== action && k[a].some((x) => k[action].some((y) => same(x, y))));
 }
 
+/** Escape is the panic key: it may be bound only to cancel-run. */
+const escapeMisuse = (action: string, x: Binding) => x.code === 'Escape' && action !== 'cancel-run';
+
 export function withBinding(k: Keymap, action: KeyAction, x: Binding): Keymap {
-  if (!validBinding(x) || k[action].some((y) => same(x, y))) return k;
+  if (!validBinding(x) || escapeMisuse(action, x) || k[action].some((y) => same(x, y))) return k;
   const list = [...k[action], x].slice(-MAX_BINDINGS);
   return { ...k, [action]: list };
 }
@@ -142,7 +146,7 @@ export function validateKeymap(v: unknown): Keymap | null {
   const k = defaultKeymap();
   for (const [a, list] of Object.entries(o.overrides as Record<string, unknown>)) {
     if (!(KEY_ACTIONS as readonly string[]).includes(a) || !Array.isArray(list)) continue;
-    const good = list.filter(validBinding).slice(0, MAX_BINDINGS);
+    const good = list.filter((x): x is Binding => validBinding(x) && !escapeMisuse(a, x)).slice(0, MAX_BINDINGS);
     if (good.length !== list.length) continue; // a partly-bad entry keeps the default
     k[a as KeyAction] = good.map((x) => ({ code: x.code, ctrl: x.ctrl, shift: x.shift, alt: x.alt }));
   }

@@ -3,6 +3,7 @@ import {
   bindingFromEvent, bindingLabel, conflictsFor, defaultKeymap, eventCode, KEY_ACTIONS, loadKeymap, matchKeymap,
   saveKeymap, validateKeymap, withBinding, withoutBinding, KEYMAP_KEY,
 } from './keymap';
+import { hotkeyAction } from './hotkeys';
 
 const mem = (): Storage => {
   const m = new Map<string, string>();
@@ -88,5 +89,34 @@ describe('keymap', () => {
     const grouped = ACTION_GROUPS.flatMap((g) => g.actions);
     expect([...grouped].sort()).toEqual([...KEY_ACTIONS].sort());
     for (const a of KEY_ACTIONS) expect(ACTION_LABELS[a].length).toBeGreaterThan(0);
+  });
+
+  it('Numpad Enter is Enter: it ends the turn, and with Shift hard-skips', () => {
+    const k = defaultKeymap();
+    expect(eventCode(ev('Enter', { code: 'NumpadEnter' }))).toBe('Enter');
+    expect(matchKeymap(k, ev('Enter', { code: 'NumpadEnter' }))).toBe('end-turn');
+    expect(matchKeymap(k, ev('Enter', { code: 'NumpadEnter', shiftKey: true }))).toBe('hard-skip');
+    expect(hotkeyAction(ev('Enter', { code: 'NumpadEnter' }))).toBe('end-turn');
+  });
+
+  it('Shift+Space passes, as it did before the keymap', () => {
+    expect(defaultKeymap().pass.map(bindingLabel)).toEqual(['Space', 'Shift+Space']);
+    expect(hotkeyAction(ev(' ', { shiftKey: true, code: 'Space' }))).toBe('pass');
+  });
+
+  it('Alt variants of the default chords are not hotkeys', () => {
+    // Intentional: Alt+Space / Alt+Enter are OS and browser chords (window menu, fullscreen), never ours.
+    expect(hotkeyAction(ev(' ', { altKey: true, code: 'Space' }))).toBeNull();
+    expect(hotkeyAction(ev('Enter', { altKey: true, code: 'Enter' }))).toBeNull();
+  });
+
+  it('Escape may be bound only to cancel-run', () => {
+    const esc = { code: 'Escape', ctrl: false, shift: false, alt: false };
+    const k = defaultKeymap();
+    expect(withBinding(k, 'undo', esc)).toBe(k);
+    expect(withBinding(k, 'undo', { ...esc, shift: true })).toBe(k);
+    const got = validateKeymap({ version: 1, overrides: { undo: [esc], 'cancel-run': [esc, { code: 'KeyQ', ctrl: false, shift: false, alt: false }] } });
+    expect(got?.undo).toEqual(defaultKeymap().undo);
+    expect(got?.['cancel-run'].map(bindingLabel)).toEqual(['Esc', 'Q']);
   });
 });
